@@ -838,10 +838,10 @@ pub enum Spend {
 
 impl Spend {
     /// The spend of casting `card` the way `kind` says: that way itself for
-    /// a face other than the front or a form (a prototype, face down, a
-    /// foretold card), each of which is a spell with characteristics of its
-    /// own (CR 601.3e), and the ordinary cast for every other way,
-    /// which casts the front as it is (an alternative cost, a kicker,
+    /// a face other than the front, a form (a prototype, face down, a
+    /// foretold card), or a library-top route whose face and announced modes
+    /// distinguish its spell (CR 601.3e). Every other way is the ordinary
+    /// cast, which casts the front as it is (an alternative cost, a kicker,
     /// flashback, escape). The engine names a cast this way, and a planner
     /// asks it this way.
     #[must_use]
@@ -850,7 +850,8 @@ impl Spend {
             CastModeKind::Face(_)
             | CastModeKind::Prototype
             | CastModeKind::Disguise
-            | CastModeKind::Foretell => Self::Cast(card, kind),
+            | CastModeKind::Foretell
+            | CastModeKind::LibraryTopLife { .. } => Self::Cast(card, kind),
             _ => Self::Cast(card, CastModeKind::Normal),
         }
     }

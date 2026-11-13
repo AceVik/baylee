@@ -427,7 +427,12 @@ pub fn spell_adjustment(
     let mut adjustment = SpellAdjustment {
         increase: commander_tax(state, player, object.id),
         eligible_increase: 0,
-        reduction: 0,
+        reduction: state
+            .per_turn
+            .next_spell_cost_reduction
+            .get(usize::from(player.get()))
+            .copied()
+            .unwrap_or(0),
         mana_increase: ManaCost::ZERO,
         buyback_reduction: 0,
     };
@@ -507,7 +512,12 @@ pub fn face_adjustment(
         return SpellAdjustment {
             increase: commander_tax(state, player, card),
             eligible_increase: 0,
-            reduction: 0,
+            reduction: state
+                .per_turn
+                .next_spell_cost_reduction
+                .get(usize::from(player.get()))
+                .copied()
+                .unwrap_or(0),
             mana_increase: ManaCost::ZERO,
             buyback_reduction: 0,
         };

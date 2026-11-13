@@ -43,6 +43,21 @@ pub static YOUR_ALLIES: Filter = Filter::And(&[
 pub static YOUR_ALLY: Filter =
     Filter::And(&[Filter::HasSubtype(creature::ALLY), Filter::ControlledByYou]);
 
+/// "A spell you control of the type chosen for the source".
+///
+/// Deliberately not restricted to creature spells: a Kindred spell with the
+/// chosen creature type also matches. Shared by Reflections of Littjara and
+/// Chronicle of Victory (CR 601.2a, 700.2).
+pub static YOUR_SPELL_OF_CHOSEN_TYPE: Filter =
+    Filter::And(&[Filter::ControlledByYou, Filter::MatchesChosenTypeOfSource]);
+
+/// "A creature you control of the type chosen for the source".
+pub static YOUR_CREATURE_OF_CHOSEN_TYPE: Filter = Filter::And(&[
+    Filter::CREATURE,
+    Filter::ControlledByYou,
+    Filter::MatchesChosenTypeOfSource,
+]);
+
 /// "Another Ally you control" — the same tribe, excluding the source.
 pub static ANOTHER_ALLY: Filter = Filter::And(&[
     Filter::HasSubtype(creature::ALLY),

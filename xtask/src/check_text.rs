@@ -159,6 +159,9 @@ pub(crate) fn check_target_counts_match_the_printing(
         "min: 0",
         "ObjectOfEachOpponent(",
         "GrantTriggeredUpToOne",
+        // Exactly one permanent is targeted, then its controller may remove
+        // zero through `maximum` counters across any kinds present.
+        "RemoveUpToCountersTarget",
     ]
     .iter()
     .any(|way| content.contains(way))
@@ -283,7 +286,9 @@ pub(crate) fn check_player_targets_match_the_printing(
 ///   prompt already offers (Hagra Diabolist, Sun Titan, Restoration Angel).
 /// - "you may pay 2 life" as a land enters — `TappedOrPayLife`, and
 ///   `PayLifeOrEnterTapped` where the same choice is an effect.
-/// - "you may pay `{N}`" during resolution — `PlayerMayPayOr`.
+/// - "you may pay `{N}`" during resolution — `PlayerMayPayOr`; the
+///   corresponding life payments (`PlayerMayPayLifeOr` and
+///   `PlayerMayPayLifeThen`) ask a `YesNo` and require the payment to succeed.
 /// - "you may pay … rather than pay this spell's mana cost" — an
 ///   `AlternativeCost`; a kicker is an additional cost.
 /// - "you may have this enter as a copy" — `CopyOnEnter`.
@@ -296,7 +301,9 @@ pub(crate) fn check_player_targets_match_the_printing(
 /// - "you may put it on the bottom" — scry, a choice by construction.
 /// - "you may play those cards … and you may spend mana as though" —
 ///   `SearchTakeover`. A permission is not a decision: playing a card is
-///   optional already, and there is nothing to ask.
+///   optional already, and there is nothing to ask. Gwenom's
+///   `PlayFromLibraryTopForManaValueLife` is the same permission with a life
+///   price, not a separate resolution-time yes/no question.
 /// - "you may spend white mana as though it were red mana" — `SpendManaAs`.
 ///   The permission adds a payment option while preserving ordinary payment;
 ///   it neither produces mana nor asks for a separate resolution decision.
@@ -381,6 +388,10 @@ pub(crate) fn check_optional_clauses_are_offered(
         "PayLifeOrEnterTapped",
         "PlayerMayPayCostOr",
         "PlayerMayPayCostThen",
+        // Both variants resolve a YesNo prompt and require an affordable
+        // payment before applying their respective continuation.
+        "PlayerMayPayLifeOr",
+        "PlayerMayPayLifeThen",
         "PlayerMayPayOr",
         "PlayerMayPayThen",
         "PlayerMayPayManaOr",
@@ -407,6 +418,9 @@ pub(crate) fn check_optional_clauses_are_offered(
         "GrantSpecialActionUntilEndOfTurn",
         "PlayLandsFromGraveyard",
         "PlayLandsFromLibraryTop",
+        // Playing the top card is already optional, whether its cost is mana
+        // or this permission's life payment. No extra trigger prompt exists.
+        "PlayFromLibraryTopForManaValueLife",
         "ExtraLandDrops",
         "ChooseExiledToPlay",
         "LookAtTopKeepBottomPlay",

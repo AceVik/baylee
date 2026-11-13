@@ -44,11 +44,13 @@ pub mod coin_stakes;
 #[cfg(test)]
 mod coin_stakes_tests;
 mod combat_watches;
+mod counter_removal;
 mod counters;
 mod delayed_returns;
 mod destruction_receipts;
 mod draw_debts;
 mod equalize;
+pub(crate) mod exile_counters;
 mod explore;
 mod future_attacks;
 mod graveyard_choice;
@@ -419,6 +421,23 @@ pub struct TargetLki {
     pub controller: PlayerId,
     /// Its characteristics when the resolution began.
     pub chars: crate::object::Characteristics,
+}
+
+/// The exact permanent whose continuous effect granted the ability on the
+/// stack. The reference survives both the recipient's and the grantor's
+/// departure, so effects never mistake a later incarnation for the donor.
+pub(super) fn granted_source(
+    state: &GameState,
+    on_stack: ObjectId,
+) -> Option<baylee_core::ids::DamageSourceRef> {
+    state
+        .object(on_stack)?
+        .riders
+        .iter()
+        .find_map(|rider| match rider {
+            crate::object::Rider::GrantedSource(reference) => Some(*reference),
+            _ => None,
+        })
 }
 
 /// Identity and departure power retained for the triggering event's object.
@@ -1519,6 +1538,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::PlayerMayPayManaThen { .. }
         | Effect::MayPayEnergyOr { .. }
         | Effect::PlayerMayPayLifeOr { .. }
+        | Effect::PlayerMayPayLifeThen { .. }
         | Effect::PlayerMayGetPoisonOr { .. }
         | Effect::MayExileFromYourGraveyardThen { .. }
         | Effect::ReturnChosenLinkedToBattlefield { .. }
@@ -1628,6 +1648,7 @@ fn may_clause_possible(state: &GameState, res: &Resolution, effects: &[Effect]) 
         // destroyed in response to its upkeep trigger returned everything
         // exiled with it while the list was matched whole.
         [Effect::SacrificeSelf, ..] => zones::can_sacrifice_self(state, res),
+        [Effect::SacrificeGrantor, ..] => zones::can_sacrifice_grantor(state, res),
         [Effect::RemoveAllCountersSelf { .. }, ..] => subjects::source(state, res)
             .is_some_and(|source| subjects::on_battlefield(state, source)),
         [Effect::RemoveCounterSelf { kind, n }, ..] => state.object(res.source).is_some_and(|o| {
@@ -1635,8 +1656,18 @@ fn may_clause_possible(state: &GameState, res: &Resolution, effects: &[Effect]) 
                 && !o.status.contains(crate::object::Status::PHASED_OUT)
                 && o.counters.get(*kind) >= *n
         }),
+        [Effect::ExileEventFromGraveyardWithCounters { .. }, ..] => {
+            subjects::event_in_graveyard(state, res).is_some()
+        }
+        [Effect::RemoveCountersFromChosenExile { owner, kind, n }, ..] => {
+            !exile_counters::candidates(state, res, *owner, *kind, *n).is_empty()
+        }
         [
             Effect::GraveyardToBattlefield {
+                target: TargetSpec::EventObject,
+                ..
+            }
+            | Effect::GraveyardToBattlefieldModified {
                 target: TargetSpec::EventObject,
                 ..
             },

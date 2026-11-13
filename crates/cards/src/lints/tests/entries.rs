@@ -468,6 +468,8 @@ fn every_station_is_the_ability_its_keyword_spells() {
 /// and the count has a floor and a ceiling: seven, over six cards,
 /// counted 2026-09-30 (fifteen over thirteen before the eight stand-ins
 /// became transforms). Nim Devourer raises the pool ceiling to seventeen.
+/// Grist, Voracious Larva's owner-controlled transformation and Unstoppable
+/// Slasher's owner-controlled, tapped return raise it to nineteen.
 #[test]
 fn every_self_return_comes_back_under_the_control_its_sentence_prints() {
     let mut wrong = Vec::new();
@@ -531,7 +533,7 @@ fn every_self_return_comes_back_under_the_control_its_sentence_prints() {
     }
     assert!(wrong.is_empty(), "{wrong:#?}");
     assert!(
-        (7..=17).contains(&checked),
-        "read {checked} self-returns out of the pool; expected the range 7–17"
+        (7..=19).contains(&checked),
+        "read {checked} self-returns out of the pool; expected the range 7–19"
     );
 }

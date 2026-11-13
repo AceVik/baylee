@@ -122,6 +122,7 @@ fn enter(state: &mut GameState, res: &Resolution, dungeon: Dungeon, room: u8) {
         timestamp: state.object(source).map_or(0, |o| o.timestamp),
         source_version: state.object(source).map(|o| o.version),
         related_objects: None,
+        grantor: None,
         event_subject: None,
         event_ability: None,
         event_object_identity: None,

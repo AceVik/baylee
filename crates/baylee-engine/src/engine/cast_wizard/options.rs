@@ -24,6 +24,20 @@ impl<L: CardLookup> Engine<L> {
             .card(card_ref.index)
             .ok_or(EngineError::IllegalAction("unknown card"))?;
         let face = &def.faces[0];
+        if obj.zone == crate::zone::Zone::Library {
+            return casting::library_top_life_options(
+                &self.state,
+                &self.lookup,
+                player,
+                card,
+                if pay_in_window {
+                    casting::Paying::DuringTheCast
+                } else {
+                    casting::Paying::FromThePool
+                },
+            )
+            .map_err(|error| EngineError::Cast(crate::casting::CastFailure::Legality(error)));
+        }
         let commanded = self.commanded_card(card);
         // Each way of casting is asked as the spell it makes: what a lock on
         // the front stops, a back face it does not reach still casts.
@@ -624,8 +638,8 @@ impl<L: CardLookup> Engine<L> {
         // index is its place in this list.
         // A split card's front is its left half, where the card is both
         // (`casting::split_front`, CR 709.3a).
-        let split_front = casting::split_front(&self.state, obj);
-        let front_spell = split_front.as_ref().unwrap_or(obj);
+        let split_front = casting::split_front(&self.state, &obj);
+        let front_spell = split_front.as_ref().unwrap_or(&obj);
         let front = front_spell.characteristics();
         let front_timing =
             casting::permitted_spell_types(&self.state, player, card, front.types, 0)

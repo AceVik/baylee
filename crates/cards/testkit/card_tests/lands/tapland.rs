@@ -87,6 +87,7 @@ mod timberland_ruins;
 mod tinder_farm;
 mod tranquil_expanse;
 mod tresserhorn_sinks;
+mod underground_mortuary;
 mod untaidake_the_cloud_keeper;
 mod urborg_volcano;
 mod vineglimmer_snarl;

@@ -778,8 +778,8 @@ pub enum Effect {
     /// match, found wherever they went if that zone is public (CR 701.17c),
     /// a replacement's exile included, and none matching asks nothing.
     MillMayTakeOne {
-        /// Cards milled.
-        amount: u32,
+        /// Cards milled, including a value captured from the triggering event.
+        amount: Amount,
         /// What may be taken.
         filter: &'static Filter,
     },
@@ -3728,8 +3728,8 @@ pub enum Effect {
         /// Which counter kind is removed completely.
         kind: CounterKind,
     },
-    /// "Remove all counters from target permanent" (Vampire Hexmage): removes
-    /// every counter of every kind from each target.
+    /// "Remove all counters from target permanent" (Vampire Hexmage), or from
+    /// a targeted player: every counter of every kind, actual reductions only.
     RemoveAllCountersTarget,
     /// The named players get `amount` rad counters (Nuclear Fallout, CR 729).
     Rad {
@@ -4158,6 +4158,88 @@ pub enum Effect {
         keywords: KeywordSet,
         /// How long the changes last.
         duration: crate::static_ability::Duration,
+    },
+    /// Exile the card that just died, with counters on its new exile
+    /// incarnation. Only its immediate graveyard successor may move (CR
+    /// 400.7); a card that has moved on again is not affected.
+    ExileEventFromGraveyardWithCounters {
+        /// Counter kind placed on the exiled card.
+        kind: CounterKind,
+        /// Number of counters placed on the exiled card.
+        n: u16,
+    },
+    /// Choose one card in exile whose owner stands in `owner` to the
+    /// resolving controller and remove `n` counters of `kind` from it. This
+    /// is a choice during resolution, not a target (CR 115.10a).
+    RemoveCountersFromChosenExile {
+        /// Relation the chosen card's owner must satisfy.
+        owner: PlayerRel,
+        /// Counter kind to remove.
+        kind: CounterKind,
+        /// Exact number of counters to remove.
+        n: u16,
+    },
+    /// Put counters on each token created earlier in this resolution that is
+    /// still on the battlefield. This names no targets and follows the actual
+    /// tokens, including additional tokens made by a creation replacement.
+    AddCounterCreatedTokens {
+        /// Counter kind.
+        kind: CounterKind,
+        /// How many per token.
+        amount: Amount,
+    },
+    /// Return a graveyard card with entry state and continuous modifiers.
+    /// The modifiers are registered for the exact new object version before
+    /// entry, so replacement effects and entry triggers see them (CR 611.2e).
+    GraveyardToBattlefieldModified {
+        /// What: a `CardInGraveyard` or the card named by `EventObject`.
+        target: TargetSpec,
+        /// Under its owner's control rather than the resolving controller's.
+        owner_control: bool,
+        /// Whether it enters tapped.
+        tapped: bool,
+        /// Entry counters, subject to the ordinary counter replacements.
+        counters: Option<(CounterKind, u16)>,
+        /// Indefinite changes applying to the returned incarnation only.
+        modifiers: &'static [crate::Modifier],
+    },
+    /// "The next spell you cast this turn costs {1} less to cast for each
+    /// [amount]" (Mutated Cultist): one additive generic-mana reduction for
+    /// the controller's next cast this turn, spent whether or not it reduces
+    /// a symbol. Colored symbols are never reduced (CR 118.7a).
+    NextSpellThisTurnCostsLess(Amount),
+    /// For each card matching `filter` in the selected player's graveyard,
+    /// create a token copy with the listed copiable-value exceptions. The
+    /// originals stay in the graveyard; the snapshot is taken before any token
+    /// enters, so entries cannot change which cards are copied.
+    CreateTokenCopiesOfGraveyard {
+        /// Whose graveyard is read.
+        player: PlayerRel,
+        /// Which cards are copied.
+        filter: &'static Filter,
+        /// The "except" clauses applied to every copy.
+        mods: &'static [crate::ability::CopyMod],
+    },
+    /// A player may pay life; only a successful payment runs `effects`.
+    /// The amount is evaluated once, when the choice is offered.
+    PlayerMayPayLifeThen {
+        /// Who pays.
+        player: PlayerRel,
+        /// Life cost, evaluated when resolving.
+        life: Amount,
+        /// What the payment buys.
+        effects: &'static [Effect],
+    },
+    /// Sacrifice the exact permanent whose continuous effect granted this
+    /// ability. Unlike [`crate::CostPart::SacrificeGrantor`], this happens
+    /// while the ability resolves and may be observed by a reflexive trigger.
+    SacrificeGrantor,
+    /// "Remove up to N counters from target permanent" (Glissa Sunslayer).
+    /// The controller distributes the total over any kinds present; choosing
+    /// none is legal. This does not silently become removal of every counter.
+    RemoveUpToCountersTarget {
+        /// Maximum total counters to remove.
+        maximum: u16,
     },
     /// Reveal up to `count` cards from the top of your library. You may move
     /// one matching card to `found`; every other revealed card moves to

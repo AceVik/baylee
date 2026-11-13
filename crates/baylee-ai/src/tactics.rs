@@ -313,6 +313,7 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 CounterKind::Plus { .. }
                 | CounterKind::Loyalty
                 | CounterKind::Lifelink
+                | CounterKind::Deathtouch
                 | CounterKind::Flying
                 | CounterKind::Indestructible
                 | CounterKind::Hone

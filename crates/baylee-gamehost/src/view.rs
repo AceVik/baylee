@@ -98,6 +98,7 @@ pub(crate) const fn counter(kind: baylee_cards_dsl::CounterKind) -> CounterKind 
         K::Energy => CounterKind::Energy,
         K::Rad => CounterKind::Rad,
         K::Lifelink => CounterKind::Lifelink,
+        K::Deathtouch => CounterKind::Deathtouch,
         K::Level => CounterKind::Level,
         K::Flying => CounterKind::Flying,
         K::Shadow => CounterKind::Shadow,
@@ -668,7 +669,8 @@ pub fn player_view(
             .players
             .iter()
             .filter(|p| {
-                state.library_top_revealed(p.id) && !ctx.library_reveal_blocked.contains(p.id)
+                baylee_engine::casting::library_top_visible_to(state, seat, p.id)
+                    && !ctx.library_reveal_blocked.contains(p.id)
             })
             .filter_map(|p| state.zones.list(ZoneLocation::Library(p.id)).last())
             .filter_map(|id| public_object(&board, *id, seat))

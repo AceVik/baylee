@@ -104,6 +104,21 @@ pub enum CastModeKind {
     /// Cast the card exiled by its madness replacement for its madness cost
     /// while that keyword's triggered ability resolves (CR 702.35a).
     Madness,
+    /// Cast a library's top card, paying life equal to the announced face's
+    /// mana value rather than its mana cost. `modes == 0` is the ordinary
+    /// face; otherwise it is the announced modal bit set. Additional costs,
+    /// including an optional kicker, still apply and any remaining mana part
+    /// is carried by [`CastModeDesc::cost`].
+    LibraryTopLife {
+        /// Life fixed when this route was offered.
+        life: u32,
+        /// Prospective card face.
+        face: usize,
+        /// Announced modal bit set; zero for an ordinary or kicked cast.
+        modes: u8,
+        /// Whether the replacement-target kicker option was announced.
+        kicked: bool,
+    },
 }
 
 /// One way a resolved instant or sorcery can leave the stack in place of the
@@ -744,6 +759,13 @@ pub enum YesNoPrompt {
         /// The card to cast.
         card: baylee_core::ids::ObjectId,
     },
+    /// Continue a bounded removal with another kind of counter, or stop.
+    ContinueRemovingCounters {
+        /// The targeted permanent's current incarnation.
+        target: ObjectId,
+        /// How many more counters the instruction may remove.
+        remaining: u16,
+    },
     /// "You may …" inside a resolving ability ([`baylee_cards_dsl::Effect::MayDo`]).
     MayDo,
     /// "Its owner puts it on their choice of the top or bottom of their
@@ -866,6 +888,7 @@ impl YesNoPrompt {
             | Self::CastPaying { .. }
             | Self::DrawOffer { .. }
             | Self::MayDo
+            | Self::ContinueRemovingCounters { .. }
             | Self::SkipTurn { .. }
             | Self::Generic => true,
             // Declining discover moves the card into the hand: a card for

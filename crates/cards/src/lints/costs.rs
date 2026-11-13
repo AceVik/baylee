@@ -27,6 +27,7 @@ pub(super) const fn needs_the_source(part: &CostPart) -> bool {
         // None of them looks the source up, so none of them cares whether it
         // is still there.
         CostPart::Sacrifice(_)
+        | CostPart::SacrificeGrantor
         | CostPart::Discard(_)
         | CostPart::DiscardRandom
         | CostPart::DiscardHand
@@ -68,6 +69,7 @@ pub(super) const fn moves_the_source(part: &CostPart) -> bool {
         | CostPart::RemoveCounterSelfX { .. }
         | CostPart::PutCounterSelf { .. }
         | CostPart::Sacrifice(_)
+        | CostPart::SacrificeGrantor
         | CostPart::Discard(_)
         | CostPart::DiscardRandom
         | CostPart::DiscardHand

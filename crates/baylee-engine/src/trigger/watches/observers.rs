@@ -37,6 +37,7 @@ pub(super) fn trigger(state: &GameState, watch: &DelayedTrigger) -> Option<Pendi
         event_subject: subject,
         event_ability: None,
         related_objects: None,
+        grantor: None,
         counter_source_version: None,
         event_amount: None,
         event_player: None,

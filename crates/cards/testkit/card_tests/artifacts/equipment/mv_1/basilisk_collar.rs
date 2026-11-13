@@ -135,3 +135,41 @@ fn basilisk_collar_grants_deathtouch_and_lifelink_to_the_creature_it_holds() {
         "nor across the table"
     );
 }
+
+/// Both granted keywords affect the actual combat: one damage destroys the
+/// 6/6 blocker, and that same one damage gains its controller one life.
+#[test]
+fn basilisk_collar_plays_deathtouch_and_lifelink_in_combat() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = rig(
+        2,
+        &[],
+        &[basilisk_collar(), llanowar_elves()],
+        &[rootbreaker_wurm()],
+    );
+    let host = on_battlefield(&engine, p0, llanowar_elves()).unwrap();
+    let blocker = on_battlefield(&engine, p1, rootbreaker_wurm()).unwrap();
+    equip(&mut engine, basilisk_collar(), 2, host);
+    engine.dev_state_mut(p0).unwrap().players[0].life = 19;
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(host, Defender::Player(p1))],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    block_and_finish(&mut engine, vec![(blocker, host)]);
+
+    assert!(in_graveyard(&engine, p1, rootbreaker_wurm()).is_some());
+    assert!(in_graveyard(&engine, p0, llanowar_elves()).is_some());
+    assert_eq!(engine.state().players[0].life, 20, "one lifelink damage");
+    assert_eq!(engine.state().players[1].life, 20, "the attack was blocked");
+}

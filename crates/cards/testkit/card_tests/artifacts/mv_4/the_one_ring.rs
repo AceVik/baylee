@@ -65,6 +65,31 @@ fn the_one_ring_has_indestructible_and_survives_destroy_effects() {
     );
 }
 
+/// Protection is conditional on casting the Ring, not merely on its entering.
+#[test]
+fn the_one_ring_entering_without_a_cast_grants_no_protection() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(308, mountain())
+        .battlefield(0, &[the_one_ring(), mountain(), mountain(), mountain()])
+        .hand(0, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, lightning_bolt());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .expect("a Ring that was not cast leaves its controller targetable");
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, 17);
+}
+
 /// A Ring with no burdens offers its draw ability and loses no life at upkeep.
 #[test]
 fn the_one_ring_offers_its_draw_ability_and_zero_burdens_cost_no_life() {

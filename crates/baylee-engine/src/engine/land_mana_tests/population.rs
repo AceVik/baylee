@@ -337,16 +337,18 @@ fn every_other_permanent_in_the_pool_makes_the_mana_its_card_prints() {
 /// Completing Ice Cauldron moves its face from the partial tier to the wholly
 /// readable implemented tier. Its second ability's remove-a-counter cost adds
 /// one costly line; the card tests exercise its exact noted mana separately.
+/// Vraska, the Silencer adds one wholly readable creature face and one granted
+/// Treasure mana line. It has no direct mana route or printed promise of its own.
 const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
     colors: 475,
     routes: 215,
     promises: 214..=214,
     creature_promises: 92..=92,
     unparsed: 62..=62,
-    fully_read: 386,
+    fully_read: 387,
     costly_lines: 149..=149,
     triggered_lines: 29..=29,
-    granted_lines: 42..=42,
+    granted_lines: 43..=43,
     self_granted: 7..=7,
     busy: 0,
     not_implemented: 0,
@@ -382,13 +384,13 @@ fn check_other_permanent_population(tally: &Tally) {
     );
     assert_eq!(
         eligible,
-        [446, 0, 18],
+        [447, 0, 18],
         "the coverage-tier population changed"
     );
-    assert_eq!(readable, [386, 0, 0], "the readable coverage tiers changed");
+    assert_eq!(readable, [387, 0, 0], "the readable coverage tiers changed");
     let expected: usize = readable.iter().sum();
     assert_eq!(
-        expected, 386,
+        expected, 387,
         "the independently enumerated full-corpus population changed; review additions/removals before updating its pin"
     );
     assert_eq!(
@@ -406,7 +408,7 @@ fn check_other_permanent_population(tally: &Tally) {
         ),
         (475, 215, 214, 2)
     );
-    assert_eq!((tally.creatures, tally.creature_promises), (244, 92));
+    assert_eq!((tally.creatures, tally.creature_promises), (245, 92));
     assert_eq!((tally.triggered_lines, tally.unparsed.len()), (29, 62));
     assert_eq!(
         (
@@ -429,14 +431,15 @@ fn reviewed_cards_explain_the_mana_population_changes() {
     use baylee_core::generated::index;
 
     for (card, fully_read, expected) in [
-        (index::BENTHIC_EXPLORERS, false, (0, 1, 1, 0, 0, 0)),
-        (index::SQUANDERED_RESOURCES, false, (0, 0, 1, 0, 0, 0)),
-        (index::LOTUS_BLOSSOM, true, (1, 0, 1, 0, 0, 1)),
-        (index::THRAN_TURBINE, true, (1, 0, 0, 1, 0, 0)),
-        (index::WITCH_ENGINE, true, (0, 1, 0, 0, 1, 0)),
-        (index::METALWORKER, false, (0, 1, 0, 0, 1, 0)),
-        (index::FOOD_CHAIN, true, (1, 0, 1, 0, 0, 1)),
-        (index::KYREN_TOY, false, (0, 0, 1, 0, 0, 0)),
+        (index::BENTHIC_EXPLORERS, false, (0, 1, 1, 0, 0, 0, 0)),
+        (index::SQUANDERED_RESOURCES, false, (0, 0, 1, 0, 0, 0, 0)),
+        (index::LOTUS_BLOSSOM, true, (1, 0, 1, 0, 0, 1, 0)),
+        (index::THRAN_TURBINE, true, (1, 0, 0, 1, 0, 0, 0)),
+        (index::WITCH_ENGINE, true, (0, 1, 0, 0, 1, 0, 0)),
+        (index::METALWORKER, false, (0, 1, 0, 0, 1, 0, 0)),
+        (index::FOOD_CHAIN, true, (1, 0, 1, 0, 0, 1, 0)),
+        (index::KYREN_TOY, false, (0, 0, 1, 0, 0, 0, 0)),
+        (index::VRASKA_THE_SILENCER, true, (1, 1, 0, 0, 0, 0, 1)),
     ] {
         let def = baylee_cards::by_index(card).expect("reviewed card remains registered");
         assert_eq!(def.is_fully_read(), fully_read, "{}", def.name());
@@ -452,9 +455,10 @@ fn reviewed_cards_explain_the_mana_population_changes() {
                 tally.triggered_lines,
                 tally.unparsed.len(),
                 tally.costly,
+                tally.granted_lines,
             ),
             expected,
-            "{}: read faces, creatures, costly/triggered/unparsed lines, costly abilities",
+            "{}: read faces, creatures, costly/triggered/unparsed/granted lines, costly abilities",
             def.name(),
         );
         assert_eq!(

@@ -23,6 +23,9 @@ pub enum ReflexiveEvent {
     ExiledThis,
     /// This resolution exiled one of its targeted cards matching the filter.
     Exiled(&'static crate::Filter),
+    /// "You may sacrifice [the permanent that granted this ability]. When
+    /// you do, …": this resolution sacrificed that exact incarnation.
+    SacrificedGrantor,
     /// "You may sacrifice a creature. When you do, …" (Grist, the Hunger
     /// Tide's −2): this resolution's controller sacrificed a permanent the
     /// filter matched as it left, by effect.

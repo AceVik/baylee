@@ -111,6 +111,7 @@ pub(super) fn counter_kind(code: &str) -> Option<String> {
             "RAD" => "CounterKind::Rad",
             "LEVEL" => "CounterKind::Level",
             "Lifelink" => "CounterKind::Lifelink",
+            "Deathtouch" => "CounterKind::Deathtouch",
             "Flying" => "CounterKind::Flying",
             "Shadow" => "CounterKind::Shadow",
             "Indestructible" => "CounterKind::Indestructible",

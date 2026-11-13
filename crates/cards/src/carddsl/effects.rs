@@ -261,7 +261,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         }
         Effect::AddCounter { amount, .. }
         | Effect::AddCounterSource { amount, .. }
-        | Effect::AddCounterFilter { amount, .. } => {
+        | Effect::AddCounterFilter { amount, .. }
+        | Effect::AddCounterCreatedTokens { amount, .. } => {
             ch.counters_add += amount_scalar(amount).max(1.0);
         }
         Effect::Proliferate
@@ -286,6 +287,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::CreateTokenCopyOf { .. }
         | Effect::CreateTokenCopyOfEquipped { .. }
         | Effect::CreateTokenCopyOfTarget { .. }
+        | Effect::CreateTokenCopiesOfGraveyard { .. }
         | Effect::CreateTokenCopyOfSource { .. }
         | Effect::CreateTokenCopyOfFirstToken
         | Effect::Fabricate { .. }
@@ -293,6 +295,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
             ch.tokens_create += 1.5;
         }
         Effect::GraveyardToBattlefield { .. }
+        | Effect::GraveyardToBattlefieldModified { .. }
         | Effect::GraveyardToBattlefieldLinked { .. }
         | Effect::YourGraveyardToBattlefield { .. }
         | Effect::AllGraveyardCreaturesToBattlefield

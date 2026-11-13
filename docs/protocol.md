@@ -115,6 +115,29 @@ every client, so `wire::decode` and `apply` hold both to the same rules:
 made-up patches, and `engine-server/src/tests/hostile.rs` sends the frames through
 the engine's own door.
 
+## Playing the library top for life (view 91)
+
+`Modifier::LookAtLibraryTop` is a private inspection permission, not a public
+reveal. Only the entitled owner receives that current top in
+`PlayerView::library_tops`; opponents and spectators do not, and a card newly
+exposed during a cast remains withheld until the cast finishes. A temporary
+look/play effect follows its duration and does not disappear merely because
+its source left the battlefield.
+
+`CastModeKind::LibraryTopLife { life, face, modes, kicked }` names Gwenom's
+alternative cost for casting the current top of its controller's library. The
+route's `life` is the prospective face's mana value, which does not change
+when cost reductions alter the mana payment. `CastModeDesc::cost` is only the
+remaining mana after additional costs, taxes and reductions; it may be zero.
+Additional non-mana costs still apply. Lands instead use the ordinary land
+drop and pay no life. Printed alternative costs and prototype are not combined
+with this replacement, while face, modal and kicker choices retain their exact
+meaning. A client plans the remaining mana for `Spend::cast(card, kind)` and
+answers the later mode question by kind rather than by its old list position.
+
+This adds an engine enum variant a reader of view 90 cannot decode, so view 91
+is the compatibility refusal. `PROTOCOL_VERSION` does not move.
+
 ## Madness (view 90)
 
 A face's `madness` cost is an alternative cost, not an ordinary cast permission

@@ -62,6 +62,8 @@ pub enum CounterKind {
     Shield,
     /// Defense counters on battles.
     Defense,
+    /// Deathtouch keyword counter.
+    Deathtouch,
 }
 
 impl CounterKind {
@@ -115,6 +117,7 @@ impl CounterKind {
             Self::Bore => Cow::Borrowed("BORE"),
             Self::Shield => Cow::Borrowed("SHIELD"),
             Self::Defense => Cow::Borrowed("DEF"),
+            Self::Deathtouch => Cow::Borrowed("DT"),
         }
     }
 }

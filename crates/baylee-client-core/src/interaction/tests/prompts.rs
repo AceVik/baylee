@@ -25,6 +25,23 @@ fn an_entry_counter_replacement_names_its_kind_in_both_languages() {
     }
 }
 
+#[test]
+fn continuing_a_bounded_counter_removal_names_the_remaining_maximum() {
+    for lang in [Lang::En, Lang::De] {
+        let headline = interaction(Pending::YesNo {
+            player: me(),
+            prompt: YesNoPrompt::ContinueRemovingCounters {
+                target: ObjectId::new(1, 0),
+                remaining: 2,
+            },
+            source: None,
+        })
+        .prompt()
+        .headline(lang, Turn::Mine, None, false);
+        assert!(headline.contains('2'), "{headline}");
+    }
+}
+
 /// A priority window on somebody else's turn does not say it is yours.
 ///
 /// The same `Pending`, the same buttons under it, two sentences — and

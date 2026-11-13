@@ -66,6 +66,7 @@ pub(super) fn collect(
             event_ability: None,
             event_object_identity: state.event_object_identity(object, entry.seq),
             related_objects: None,
+            grantor: None,
             event_subject: None,
             counter_source_version: None,
             event_amount: None,

@@ -4,6 +4,7 @@ use super::zones::moving_objects;
 use super::*;
 use crate::{state::CardLookup, zone::Zone};
 
+#[allow(clippy::too_many_lines)] // one dispatch arm per return family; shared work stays in helpers
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     let you = res.controller;
     match op {
@@ -43,8 +44,40 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::GraveyardToBattlefieldModified {
+            target,
+            owner_control,
+            tapped,
+            counters,
+            modifiers,
+        } => {
+            return_modified(
+                state,
+                res,
+                target,
+                owner_control,
+                tapped,
+                counters,
+                modifiers,
+            );
+            None
+        }
         Effect::Assimilate { target } => {
-            assimilate(state, res, target);
+            use baylee_cards_dsl::{CounterKind, Modifier};
+            use baylee_core::{generated::subtypes, types::TypeSet};
+            const MODIFIERS: &[Modifier] = &[
+                Modifier::AddType(TypeSet::ARTIFACT.union(TypeSet::CREATURE)),
+                Modifier::ReplaceCreatureTypes(subtypes::creature::BORG),
+            ];
+            return_modified(
+                state,
+                res,
+                target,
+                false,
+                false,
+                Some((CounterKind::P1P1, 1)),
+                MODIFIERS,
+            );
             None
         }
         Effect::ReturnSourceFromGraveyard {
@@ -95,23 +128,36 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
     }
 }
 
-/// CR 611.2e applies assimilation's characteristic changes during entry.
-fn assimilate(state: &mut GameState, res: &Resolution, target: TargetSpec) {
-    use baylee_cards_dsl::{CounterKind, Duration, Modifier};
-    use baylee_core::{generated::subtypes, ids::EffectId, types::TypeSet};
-    if state.has_left(res.controller) {
-        return;
-    }
+/// CR 611.2e applies these changes as the card enters, not afterwards.
+/// A return that never happens leaves neither tapped state nor modifiers.
+fn return_modified(
+    state: &mut GameState,
+    res: &Resolution,
+    target: TargetSpec,
+    owner_control: bool,
+    tapped: bool,
+    counters: Option<(baylee_cards_dsl::CounterKind, u16)>,
+    modifiers: &'static [baylee_cards_dsl::Modifier],
+) {
+    use baylee_cards_dsl::Duration;
+    use baylee_core::ids::EffectId;
     for id in moving_objects(state, res, target) {
-        let Some(object) = state.object(id).filter(|o| o.zone == Zone::Graveyard) else {
+        let Some(object) = state
+            .object(id)
+            .filter(|o| o.zone == Zone::Graveyard && o.is_card())
+        else {
             continue;
         };
-        let version = object.version.wrapping_add(1);
-        let mut created = smallvec::SmallVec::<[EffectId; 2]>::new();
-        for modifier in [
-            Modifier::AddType(TypeSet::ARTIFACT.union(TypeSet::CREATURE)),
-            Modifier::ReplaceCreatureTypes(subtypes::creature::BORG),
-        ] {
+        let previous = (
+            object.controller,
+            object.base_controller,
+            object.kind,
+            object.status.contains(crate::object::Status::TAPPED),
+        );
+        let graveyard_version = object.version;
+        let version = graveyard_version.wrapping_add(1);
+        let mut created = smallvec::SmallVec::<[EffectId; 4]>::new();
+        for &modifier in modifiers {
             let timestamp = state.next_timestamp();
             created.push(state.effects.register(crate::effects::ContinuousEffect {
                 id: EffectId::new(0),
@@ -125,19 +171,27 @@ fn assimilate(state: &mut GameState, res: &Resolution, target: TargetSpec) {
                 modifier,
             }));
         }
-        return_card(
-            state,
-            id,
-            res.controller,
-            false,
-            Some((CounterKind::P1P1, 1)),
-        );
+        if tapped {
+            state.set_tapped(id, true);
+        }
+        return_card(state, id, res.controller, owner_control, counters);
         if !state.object(id).is_some_and(|o| {
             (o.zone == Zone::Battlefield && o.version == version) || state.entries.contains(id)
         }) {
             state
                 .effects
                 .remove_where(|effect| created.contains(&effect.id));
+            if state.object(id).is_some_and(|object| {
+                object.zone == Zone::Graveyard && object.version == graveyard_version
+            }) {
+                state.restore_tapped(id, previous.3);
+                let object = state.object_mut(id).expect("the same graveyard object");
+                object.kind = previous.2;
+                // This is a rollback, not a control change: preserve both the
+                // projected controller and its previous layer-2 fallback.
+                object.controller = previous.0;
+                object.base_controller = previous.1;
+            }
         }
     }
 }

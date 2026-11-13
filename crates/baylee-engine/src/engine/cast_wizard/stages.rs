@@ -8,14 +8,23 @@ impl<L: CardLookup> Engine<L> {
         let Some(mut wizard) = self.cast_wizard.clone() else {
             return Ok(());
         };
-        if let Some(CastModeKind::EscapeGranted {
-            face,
-            modes,
-            kicked,
-            prototype,
-            ..
-        }) = wizard.option
-        {
+        let split = match wizard.option {
+            Some(CastModeKind::EscapeGranted {
+                face,
+                modes,
+                kicked,
+                prototype,
+                ..
+            }) => Some((face, modes, kicked, prototype)),
+            Some(CastModeKind::LibraryTopLife {
+                face,
+                modes,
+                kicked,
+                ..
+            }) => Some((face, modes, kicked, false)),
+            _ => None,
+        };
+        if let Some((face, modes, kicked, prototype)) = split {
             wizard.announced = wizard.option;
             wizard.kicked = kicked;
             let def = self
@@ -24,20 +33,10 @@ impl<L: CardLookup> Engine<L> {
                 .and_then(|object| object.card)
                 .and_then(|card| self.lookup.card(card.index))
                 .expect("wizard card known");
-            let single = def.abilities_for_face(face).iter().any(|ability|
-                matches!(ability, AbilityDef::ModalSpell { choose, .. } if choose.is_one()));
             wizard.option = Some(if prototype {
                 CastModeKind::Prototype
-            } else if modes != 0 && single {
-                CastModeKind::Mode(modes.trailing_zeros() as usize)
-            } else if modes != 0 {
-                CastModeKind::Modes(modes)
-            } else if face == 0 && kicked {
-                CastModeKind::Kicked
-            } else if face == 0 {
-                CastModeKind::Normal
             } else {
-                CastModeKind::Face(face)
+                casting::ordinary_face_kind(def, face, modes, kicked)
             });
             self.cast_wizard = Some(wizard.clone());
         }
@@ -117,7 +116,18 @@ impl<L: CardLookup> Engine<L> {
                         u32::MAX
                     };
                     if pays_life_x {
-                        let life = self.state.life_payable(wizard.player);
+                        let mut life = self.state.life_payable(wizard.player);
+                        if let Some(CastModeKind::LibraryTopLife { life: owed, .. }) =
+                            wizard.announced
+                        {
+                            let fixed = casting::library_top_fixed_additional_life(
+                                self.wizard_face(&wizard),
+                            );
+                            let reserved = i32::try_from(owed)
+                                .unwrap_or(i32::MAX)
+                                .saturating_add(fixed);
+                            life = life.saturating_sub(reserved);
+                        }
                         max = max.min(u32::try_from(life).unwrap_or(0));
                     }
                     // With nothing left to tap, the pool is all that pays,
@@ -332,7 +342,13 @@ impl<L: CardLookup> Engine<L> {
                 let face = self.wizard_face(&wizard);
                 if face.additional_costs.is_empty()
                     || wizard.kicked
-                    || matches!(wizard.announced, Some(CastModeKind::EscapeGranted { .. }))
+                    || matches!(
+                        wizard.announced,
+                        Some(
+                            CastModeKind::EscapeGranted { .. }
+                                | CastModeKind::LibraryTopLife { .. }
+                        )
+                    )
                     || (face.kicked_targets.is_some() && !wizard.free)
                 {
                     let mut wizard = wizard;

@@ -325,30 +325,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::RemoveAllCountersTarget => {
-            for &target in &res.targets.clone() {
-                if !subjects::target(state, res, target)
-                    .is_some_and(|r| subjects::is_current(state, r))
-                {
-                    continue;
-                }
-                let Some(counters) = state
-                    .object(target)
-                    .map(|o| o.counters.iter().collect::<Vec<_>>())
-                else {
-                    continue;
-                };
-                for (kind, n) in counters {
-                    crate::replacement::remove_counters_by(
-                        state,
-                        target,
-                        kind,
-                        n,
-                        Some(res.controller),
-                    );
-                }
-            }
-            None
+        Effect::RemoveAllCountersTarget => super::counter_removal::start(state, res, None),
+        Effect::RemoveUpToCountersTarget { maximum } => {
+            super::counter_removal::start(state, res, Some(maximum))
         }
         Effect::AddCounterFilter {
             filter,
@@ -381,6 +360,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 })
                 .collect();
             crate::replacement::counter_order::enqueue_batch(state, plans, Vec::new());
+            None
+        }
+        Effect::AddCounterCreatedTokens { kind, amount } => {
+            let n = u16::try_from(amount2(&amount, state, you, res)).unwrap_or(u16::MAX);
+            for id in super::this_way::created_tokens(state, res) {
+                crate::entry::put_counters(state, res.controller, id, kind, n);
+            }
             None
         }
         Effect::DoubleCountersFilter { filter, kind } => {

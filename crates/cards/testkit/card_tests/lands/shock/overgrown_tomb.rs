@@ -68,3 +68,8 @@ fn overgrown_tomb_enters_untapped_for_two_life_or_tapped_for_free() {
         assert_eq!(engine.state().players[0].life, life_before - 2);
     }
 }
+
+#[test]
+fn overgrown_tomb_taps_for_black_or_green() {
+    assert_two_color_mana(overgrown_tomb(), [ManaColor::Black, ManaColor::Green]);
+}

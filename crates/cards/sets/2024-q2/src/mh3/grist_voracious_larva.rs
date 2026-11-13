@@ -7,10 +7,59 @@
 //! Set: MH3 #251 — Modern Horizons 3 | Scryfall ID: 68239b41-b7db-4044-b672-6808c2c342ec | Oracle ID: 196f8f13-d4df-4740-8746-8fed3bc71840
 //! Face: Grist, Voracious Larva — {G} — Legendary Creature — Insect
 //! Face: Grist, the Plague Swarm —  — Legendary Planeswalker — Grist
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — deathtouch, the graveyard-entry/cast transformation, and all
+// three loyalty abilities, including exact token identity and copy exceptions.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
+
+static BLACK_CARD: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::Black]));
+static BLACK_MILLED: Condition =
+    Condition::AmountAtLeast(Amount::ThisWay(ThisWay::Milled(&BLACK_CARD)), 1);
+
+static BACK_ABILITIES: &[AbilityDef] = &[
+    loyalty!(
+        1,
+        &[
+            Effect::CreateToken {
+                token: &crate::generated_tokens::INSECT_1_1_BLACK_GREEN,
+            },
+            Effect::Mill {
+                amount: Amount::Fixed(2),
+                target: PlayerRel::You,
+            },
+            Effect::IfCondition {
+                condition: BLACK_MILLED,
+                then: &[Effect::AddCounterCreatedTokens {
+                    kind: CounterKind::Deathtouch,
+                    amount: Amount::Fixed(1),
+                }],
+                otherwise: &[],
+            },
+        ]
+    ),
+    loyalty!(
+        -2,
+        &[Effect::destroy(TargetSpec::Object(
+            &Filter::ARTIFACT_OR_ENCHANTMENT,
+        ))],
+        targets = Some(TargetReq::one(TargetSpec::Object(
+            &Filter::ARTIFACT_OR_ENCHANTMENT,
+        ))),
+    ),
+    loyalty!(
+        -6,
+        &[Effect::CreateTokenCopiesOfGraveyard {
+            player: PlayerRel::You,
+            filter: &Filter::CREATURE,
+            mods: &[
+                CopyMod::SetPT(1, 1),
+                CopyMod::SetColor(ColorSet::from_slice(&[Color::Black, Color::Green])),
+                CopyMod::SetCreatureTypes(&[subtypes::creature::INSECT]),
+            ],
+        }]
+    ),
+];
 
 card!(
     index = index::GRIST_VORACIOUS_LARVA,
@@ -18,6 +67,8 @@ card!(
     scryfall_id = "68239b41-b7db-4044-b672-6808c2c342ec",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Green]),
     commander = CommanderRule::Legendary,
+    keywords = KeywordSet::DEATHTOUCH,
+    coverage = Coverage::Implemented,
     faces = &[
         face!(
             name = "Grist, Voracious Larva",
@@ -36,8 +87,18 @@ card!(
             loyalty = Some(3),
             color_indicator = ColorSet::from_slice(&[Color::Black, Color::Green]),
             castable_from_hand = false,
+            abilities = BACK_ABILITIES,
         ),
     ],
+    abilities = &[triggered!(
+        Trigger::EntersBattlefieldFromGraveyardOrCast(&Filter::YOUR_CREATURE),
+        &[Effect::PlayerMayPayManaThen {
+            player: PlayerRel::You,
+            cost: mana!("{G}"),
+            effects: &[Effect::ExileSelfReturnAsFace {
+                face: 1,
+                owner_control: true,
+            }],
+        }],
+    ),],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

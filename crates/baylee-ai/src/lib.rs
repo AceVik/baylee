@@ -1032,6 +1032,9 @@ impl HeuristicAgent {
                 // to value. Pick a stable legal order; this is not an estimate
                 // that additional counters always benefit the affected player.
                 | YesNoPrompt::ApplyAdditionalCountersNext { .. }
+                // Every kind is offered at most once. Continuing after an
+                // unwanted kind merely skips it with the numeric zero choice.
+                | YesNoPrompt::ContinueRemovingCounters { .. }
                 // Clear damage without tapping or removing the permanent from
                 // combat; preserve any competing regeneration/shield resource.
                 | YesNoPrompt::UseDamageClearingReplacement { .. }

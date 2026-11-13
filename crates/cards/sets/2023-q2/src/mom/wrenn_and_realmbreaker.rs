@@ -73,7 +73,7 @@ card!(
         loyalty!(
             -2,
             &[Effect::MillMayTakeOne {
-                amount: 3,
+                amount: Amount::Fixed(3),
                 filter: &Filter::HasType(
                     TypeSet::ARTIFACT
                         .union(TypeSet::BATTLE)

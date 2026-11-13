@@ -119,11 +119,17 @@ impl<L: CardLookup> Engine<L> {
         }
         if let PlayerAction::ChooseObjects { objects } = &action
             && let Some(res) = &self.resolution
-            && !resolve::tap_group::valid_answer(&self.state, res, objects)
         {
-            return Err(EngineError::IllegalAction(
-                "tap payment must name the complete current untapped set",
-            ));
+            if !resolve::tap_group::valid_answer(&self.state, res, objects) {
+                return Err(EngineError::IllegalAction(
+                    "tap payment must name the complete current untapped set",
+                ));
+            }
+            if !resolve::exile_counters::valid_answer(&self.state, res, objects) {
+                return Err(EngineError::IllegalAction(
+                    "the chosen exiled card no longer has the required counters",
+                ));
+            }
         }
         if matches!(
             self.pending,
@@ -545,6 +551,7 @@ impl<L: CardLookup> Engine<L> {
                             resolve::AwaitingOp::ChooseNumber
                                 | resolve::AwaitingOp::TapEnergy(_)
                                 | resolve::AwaitingOp::Counters { .. }
+                                | resolve::AwaitingOp::RemoveUpToCountersTarget { .. }
                                 | resolve::AwaitingOp::DamagePayment { .. }
                                 | resolve::AwaitingOp::TextReplacement { .. }
                                 | resolve::AwaitingOp::RemoveCountersSelfCreateTokens { .. }
@@ -1317,7 +1324,11 @@ impl<L: CardLookup> Engine<L> {
                         // asked after it, so this entry is already off the
                         // queue and popping again would take the trigger
                         // behind it.
-                        self.push_synthetic_trigger_with_targets(&trigger, targets);
+                        self.push_synthetic_trigger_with_targets(
+                            &trigger,
+                            targets,
+                            players.iter().copied().collect(),
+                        );
                     }
                     PlanKind::ChooseOpponent { .. } => {
                         unreachable!("opponent plans are answered via ChoosePlayer")

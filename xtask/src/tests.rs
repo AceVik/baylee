@@ -193,6 +193,59 @@ fn a_reveal_top_find_choice_satisfies_the_printed_may() {
 }
 
 #[test]
+fn life_payments_and_library_permissions_offer_their_optional_actions() {
+    let payload = serde_json::json!({
+        "oracle_text": "You may pay life equal to its power. You may play cards from the top of your library."
+    });
+    let mut tally = super::PrintingTally::default();
+    let mut problems = 0;
+    for (name, expected) in [
+        ("Madame Null, Power Broker", 0),
+        ("Gwenom, Remorseless", 0),
+        ("Fog", 1),
+    ] {
+        let def = baylee_cards::decks::by_name(name)
+            .and_then(baylee_cards::by_index)
+            .expect("registered fixture");
+        super::check_optional_clauses_are_offered(
+            "fixture",
+            def,
+            &payload,
+            &mut tally,
+            &mut problems,
+        );
+        assert_eq!(problems, expected, "{name}");
+    }
+    assert_eq!(tally.optional_clauses, 3);
+}
+
+#[test]
+fn removing_up_to_counters_targets_one_permanent_not_one_counter() {
+    let payload = serde_json::json!({
+        "oracle_text": "Remove up to three counters from target permanent."
+    });
+    let mut tally = super::PrintingTally::default();
+    let mut problems = 0;
+    super::check_target_counts_match_the_printing(
+        "glissa_sunslayer",
+        "Effect::RemoveUpToCountersTarget { maximum: 3 }",
+        &payload,
+        &mut tally,
+        &mut problems,
+    );
+    assert_eq!(problems, 0);
+    super::check_target_counts_match_the_printing(
+        "exactly_one",
+        "TargetSpec::Object(&Filter::Any)",
+        &payload,
+        &mut tally,
+        &mut problems,
+    );
+    assert_eq!(problems, 1, "a bare target still requires exactly one");
+    assert_eq!(tally.targets, 2);
+}
+
+#[test]
 fn a_linked_exile_play_can_be_declined() {
     let payload = serde_json::json!({
         "oracle_text": "You may play the exiled card without paying its mana cost."

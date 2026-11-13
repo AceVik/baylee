@@ -80,6 +80,7 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
             CounterKind::Plus { .. }
             | CounterKind::Loyalty
             | CounterKind::Lifelink
+            | CounterKind::Deathtouch
             | CounterKind::Flying
             | CounterKind::Indestructible
             | CounterKind::Hone

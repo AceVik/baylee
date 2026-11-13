@@ -44,10 +44,12 @@ static ANY_COLOR: &[ManaColor] = &[
 // activated ability that uses the stack — which is what lets a Treasure be
 // cracked while paying for a spell. `mana_ability!` is that statement; the
 // flag it sets is the one a card must never write by hand.
-static SACRIFICE_FOR_ANY_COLOR: &[AbilityDef] = &[mana_ability!(
+pub static TREASURE_MANA_ABILITY: AbilityDef = mana_ability!(
     cost!(TapSelf, SacrificeSelf),
     &[Effect::mana_choice(ANY_COLOR)]
-)];
+);
+
+static SACRIFICE_FOR_ANY_COLOR: &[AbilityDef] = &[TREASURE_MANA_ABILITY];
 
 /// `{2}, Sacrifice this artifact: Draw a card.` (Clue)
 static SACRIFICE_TO_DRAW: &[AbilityDef] =

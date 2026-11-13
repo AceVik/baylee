@@ -513,7 +513,7 @@ fn symbol(color: baylee_core::mana::ManaColor) -> &'static str {
 pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static str] {
     use baylee_cards_dsl::Trigger as T;
     match trigger {
-        T::EntersBattlefield(_) => &["enter"],
+        T::EntersBattlefield(_) | T::EntersBattlefieldFromGraveyardOrCast(_) => &["enter"],
         T::EntersBattlefieldEvoked => &["evoke"],
         T::CycledThis => &["cycle"],
         T::EnteredThisFrom(_) => &["enters"],
@@ -546,6 +546,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         | T::OneOrMoreDealCombatDamageToPlayer(_)
         | T::DealsCombatDamageToOpponent(_)
         | T::DealsDamageToPlayer { .. }
+        | T::DealsDamageToObject { .. }
         | T::DealsDamageToOpponent(_)
         | T::DealsDamage(_)
         | T::DealtDamage(_)
@@ -690,6 +691,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         },
         Trigger::EnteredThisFrom(_) => !about_someone_else(),
         Trigger::EntersBattlefield(filter)
+        | Trigger::EntersBattlefieldFromGraveyardOrCast(filter)
         | Trigger::LeavesBattlefield(filter)
         | Trigger::Dies(filter)
         | Trigger::DiesNotSacrificed(filter)

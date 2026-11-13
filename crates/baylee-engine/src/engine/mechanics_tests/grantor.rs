@@ -47,6 +47,156 @@ static GRANT_ORDINARY: &[AbilityDef] = &[baylee_cards_dsl::static_ability!(
     baylee_cards_dsl::Modifier::GrantActivatedDefinition(&ORDINARY_PING)
 )];
 
+static GRANTOR_ATTACK: &[Effect] = &[
+    Effect::MayDo {
+        effects: &[Effect::SacrificeGrantor],
+    },
+    Effect::Reflexive {
+        when: baylee_cards_dsl::ReflexiveEvent::SacrificedGrantor,
+        effects: &[Effect::DealDamage {
+            amount: baylee_cards_dsl::Amount::Fixed(1),
+            target: baylee_cards_dsl::TargetSpec::AnyTarget,
+        }],
+        target: Some(baylee_cards_dsl::TargetSpec::AnyTarget),
+    },
+];
+static GRANT_ATTACK: &[AbilityDef] = &[baylee_cards_dsl::static_ability!(
+    Filter::YOUR_CREATURE,
+    baylee_cards_dsl::Modifier::GrantTriggered {
+        trigger: baylee_cards_dsl::Trigger::Attacks(&Filter::This),
+        effects: GRANTOR_ATTACK,
+        target: None,
+    }
+)];
+
+fn attacker() -> &'static CardDef {
+    card(
+        WEARER,
+        creature_face("Attacking grant recipient probe", "{0}", 2, 2),
+        KeywordSet::HASTE,
+        &[],
+    )
+}
+
+/// Two identical granted attack triggers retain their own exact grantors.
+/// Each optional sacrifice produces its own reflexive target and its own one
+/// damage from the attacker, never from either departed Equipment (CR 603.12).
+#[test]
+fn two_granted_attack_triggers_sacrifice_their_own_grantors_and_ping_separately() {
+    let mut engine = game(
+        vec![
+            attacker(),
+            artifact(FIRST, GRANT_ATTACK, KeywordSet::EMPTY),
+            artifact(SECOND, GRANT_ATTACK, KeywordSet::EMPTY),
+        ],
+        &[WEARER, FIRST, SECOND],
+    );
+    let wearer = the(&engine, ZoneLocation::Battlefield, WEARER);
+    let first = the(&engine, ZoneLocation::Battlefield, FIRST);
+    let second = the(&engine, ZoneLocation::Battlefield, SECOND);
+    walk_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == me()),
+    );
+    engine
+        .apply(
+            me(),
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(wearer, baylee_core::ids::Defender::Player(them()))],
+            },
+        )
+        .unwrap();
+
+    let (mays, targets) = accept_granted_attack_triggers(&mut engine);
+    assert!(matches!(engine.pending(), Pending::ChooseBlockers { .. }));
+    assert_eq!(
+        (mays, targets),
+        (2, 2),
+        "two independent reflexive triggers"
+    );
+    assert_eq!(engine.state.object(first).unwrap().zone, Zone::Graveyard);
+    assert_eq!(engine.state.object(second).unwrap().zone, Zone::Graveyard);
+    assert_eq!(engine.state.object(wearer).unwrap().zone, Zone::Battlefield);
+    assert_eq!(
+        life(&engine, them()),
+        18,
+        "two noncombat damage, no combat yet"
+    );
+    let pings = engine
+        .state
+        .journal
+        .entries()
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.event,
+                crate::event::GameEvent::DamageDealt {
+                    source: Some(source),
+                    target: crate::event::DamageTarget::Player(player),
+                    amount: 1,
+                    is_combat: false,
+                } if source == wearer && player == them()
+            )
+        })
+        .count();
+    assert_eq!(
+        pings, 2,
+        "the attacker is the source of both reflexive pings"
+    );
+}
+
+/// Accept both optional sacrifices and target the opponent for each reflexive trigger.
+fn accept_granted_attack_triggers(engine: &mut Bench) -> (u8, u8) {
+    let (mut mays, mut targets) = (0, 0);
+    for _ in 0..80 {
+        if matches!(engine.pending(), Pending::ChooseBlockers { .. }) {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::Arrange {
+                player,
+                cards,
+                prompt: crate::choice::ArrangePrompt::TriggerOrder,
+                ..
+            } => engine
+                .apply(player, PlayerAction::Arrange { piles: vec![cards] })
+                .unwrap(),
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::MayDo,
+                ..
+            } => {
+                assert_eq!(player, me());
+                mays += 1;
+                engine.apply(player, PlayerAction::YesNo(true)).unwrap();
+            }
+            Pending::ChooseTargets {
+                player,
+                player_options,
+                ..
+            } => {
+                assert_eq!(player, me());
+                assert!(player_options.contains(&them()));
+                targets += 1;
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseTargets {
+                            objects: vec![],
+                            players: vec![them()],
+                        },
+                    )
+                    .unwrap();
+            }
+            other => panic!("unexpected question during the two triggers: {other:?}"),
+        }
+    }
+    (mays, targets)
+}
+
 fn artifact(
     index: u32,
     abilities: &'static [AbilityDef],

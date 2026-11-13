@@ -156,3 +156,42 @@ fn rock_hydra_takes_unpreventable_combat_damage_from_a_questing_beasts_teammate(
          counter ability prevents all of it: nothing is marked"
     );
 }
+
+/// The existing combat-to-player test beside Clone covers the full positive
+/// planeswalker trigger. This covers the separate power-based block rule and
+/// checks vigilance on a Beast that survives combat.
+#[test]
+fn questing_beast_cannot_be_blocked_by_power_two_but_can_by_power_three() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[questing_beast()])
+        .battlefield(
+            1,
+            &[grizzly_bears(), baylee_core::generated::index::HILL_GIANT],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let beast = on_battlefield(&engine, p0, questing_beast()).unwrap();
+    let bears = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
+    let giant = on_battlefield(&engine, p1, baylee_core::generated::index::HILL_GIANT).unwrap();
+    let blockers = attack_and_collect_blocks(&mut engine, beast, p1);
+    assert!(!blockers.iter().any(|pair| pair.blocker == bears));
+    assert!(blockers.iter().any(|pair| pair.blocker == giant));
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(giant, beast)],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    assert_eq!(engine.state().players[1].life, 20);
+    assert_eq!(engine.state().object(giant).unwrap().zone, Zone::Graveyard);
+    assert_eq!(
+        engine.state().object(beast).unwrap().zone,
+        Zone::Battlefield
+    );
+    assert!(!is_tapped(&engine, beast), "vigilance leaves it untapped");
+}

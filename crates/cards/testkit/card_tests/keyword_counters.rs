@@ -28,6 +28,7 @@ pub(super) fn remove_abilities(
 fn counters_use_timestamp_order_and_new_placement_refreshes_the_whole_kind() {
     for (kind, keyword) in [
         (CounterKind::Lifelink, KeywordSet::LIFELINK),
+        (CounterKind::Deathtouch, KeywordSet::DEATHTOUCH),
         (CounterKind::Flying, KeywordSet::FLYING),
         (CounterKind::Shadow, KeywordSet::SHADOW),
         (CounterKind::Indestructible, KeywordSet::INDESTRUCTIBLE),

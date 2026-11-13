@@ -1,7 +1,7 @@
 //! Actual damage history and death-time lookback, independent of marked damage.
 
 use baylee_cards_dsl::{AbilityDef, Modifier, Trigger, TriggerZone};
-use baylee_core::ids::ObjectId;
+use baylee_core::ids::{DamageSourceRef, ObjectId};
 
 use crate::event::{DamageTarget, GameEvent};
 use crate::object::GameObject;
@@ -22,12 +22,21 @@ pub(crate) struct DamageRecord {
     recipient_version: u32,
 }
 
+/// A granted death trigger and the granting object as both existed at death.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[doc(hidden)]
+pub struct DamageGrant {
+    pub modifier: Modifier,
+    pub text: TextChangeMap,
+    pub grantor: Option<DamageSourceRef>,
+}
+
 /// One source as it existed immediately before a damaged object's death.
 #[derive(Clone, Debug)]
 #[doc(hidden)]
 pub struct DamageObserver {
     pub object: GameObject,
-    pub grants: Vec<(Modifier, TextChangeMap)>,
+    pub grants: Vec<DamageGrant>,
     pub text: TextChangeMap,
     pub times: u32,
 }
@@ -252,7 +261,11 @@ impl GameState {
                             }
                         ) && crate::effects::applies_to(self, fx, object)
                     })
-                    .map(|fx| (fx.modifier, self.effect_text(fx)))
+                    .map(|fx| DamageGrant {
+                        modifier: fx.modifier,
+                        text: self.effect_text(fx),
+                        grantor: fx.source.and_then(|id| self.source_identity(id)),
+                    })
                     .collect();
                 Some(DamageObserver {
                     object: object.clone(),
@@ -332,25 +345,26 @@ pub(crate) fn collect(
                 pending.once_per_turn = *once_per_turn;
                 out.extend(std::iter::repeat_n(pending, observer.times as usize));
             }
-            for (grant, text) in &observer.grants {
+            for grant in &observer.grants {
                 let Modifier::GrantTriggered {
                     trigger,
                     effects,
                     target,
-                } = grant
+                } = grant.modifier
                 else {
                     continue;
                 };
                 let context = RuleContext {
                     source: source.id,
-                    text: *text,
+                    text: grant.text,
                     resolved_name: None,
                     reference: None,
                 };
-                if matches_death(trigger, state, death, source, context) {
+                if matches_death(&trigger, state, death, source, context) {
                     let mut pending = pending(death, source);
                     pending.synthetic_effects = Some(effects);
-                    pending.text = *text;
+                    pending.text = grant.text;
+                    pending.grantor = grant.grantor;
                     pending.synthetic_target =
                         target.map(|spec| baylee_cards_dsl::TargetReq::exactly(spec, 1));
                     out.extend(std::iter::repeat_n(pending, observer.times as usize));
@@ -379,6 +393,7 @@ fn pending(death: &DamageDeath, source: &GameObject) -> PendingTrigger {
         source_version: Some(source.version),
         text: crate::text_changes::TextChangeMap::IDENTITY,
         related_objects: None,
+        grantor: None,
         event_subject: Some(baylee_core::ids::DamageSourceRef {
             object: death.victim.id,
             version: death.victim.version.wrapping_add(1),

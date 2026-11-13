@@ -13,11 +13,12 @@ use super::*;
 /// effect would hand a planeswalker the loyalty it needs to survive the first
 /// state-based check.
 #[test]
+#[allow(clippy::too_many_lines)] // both halves of the target filter are played
 fn heroes_downfall_destroys_the_creature_or_planeswalker_it_names() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, swamp())
-        .battlefield(0, &[swamp(), swamp(), swamp()])
-        .hand(0, &[heroes_downfall()])
+        .battlefield(0, &[swamp(); 6])
+        .hand(0, &[heroes_downfall(), heroes_downfall()])
         .battlefield(
             1,
             &[island(), island(), island(), island(), llanowar_elves()],
@@ -109,5 +110,26 @@ fn heroes_downfall_destroys_the_creature_or_planeswalker_it_names() {
     assert!(
         in_graveyard(&engine, p0, heroes_downfall()).is_some(),
         "the instant itself resolved into its owner's graveyard"
+    );
+
+    // The second copy plays the creature half to resolution as well.
+    pass_until(&mut engine, |e| {
+        stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    tap_all_mana(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, heroes_downfall());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![elves],
+            },
+        )
+        .expect("the creature half of the filter is a legal target");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, p1, llanowar_elves()).is_some(),
+        "the chosen creature is destroyed too"
     );
 }

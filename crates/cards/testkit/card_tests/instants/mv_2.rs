@@ -132,6 +132,7 @@ mod shadowbane;
 mod shatter;
 mod shattering_pulse;
 mod shelter;
+mod sheoldred_s_edict;
 mod silhouette;
 mod simoon;
 mod simulacrum;

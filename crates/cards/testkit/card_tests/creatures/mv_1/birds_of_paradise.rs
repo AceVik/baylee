@@ -74,3 +74,27 @@ fn birds_of_paradise_taps_for_one_mana_of_the_color_its_controller_names() {
     );
     assert!(is_tapped(&engine, birds), "the Bird paid its own {{T}}");
 }
+
+/// Flying changes the actual declare-blockers offer, not just the keyword set.
+#[test]
+fn birds_of_paradise_flies_over_a_ground_blocker() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for (attacker_card, ground_can_block) in
+        [(birds_of_paradise(), false), (quiet_creature(), true)]
+    {
+        let mut engine = Duel::new(SEED, forest())
+            .battlefield(0, &[attacker_card])
+            .battlefield(1, &[grizzly_bears()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let attacker = on_battlefield(&engine, p0, attacker_card).unwrap();
+        let bears = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
+        let options = attack_and_collect_blocks(&mut engine, attacker, p1);
+        assert_eq!(
+            options.iter().any(|offer| offer.blocker == bears),
+            ground_can_block,
+            "the ground creature's blocker offer is the flying control"
+        );
+    }
+}

@@ -565,6 +565,72 @@ pub fn one_filter_land(gate_card: CardIndex, basic_card: CardIndex, colors: [Man
     );
 }
 
+/// Seat an untapped land in its controller's main phase. A shock land still
+/// asks its entry question when seeded, so pay its printed price to establish
+/// the helper's untapped premise rather than skipping the question.
+#[track_caller]
+fn untapped_land_on_main(card: CardIndex, seed: u64) -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(seed, forest()).battlefield(0, &[card]).start();
+    keep_mulligans(&mut engine);
+    while let Pending::YesNo {
+        player,
+        prompt: YesNoPrompt::PayLifeOrEnterTapped { .. },
+        ..
+    } = engine.pending().clone()
+    {
+        engine
+            .apply(player, PlayerAction::YesNo(true))
+            .expect("the entry question was asked, so it can be answered");
+    }
+    reach_main_phase(&mut engine, p0);
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "seed {seed}: entry settled to {:?}",
+        engine.pending()
+    );
+    engine
+}
+
+/// Play both choices of an untapped land's printed two-color mana ability in
+/// fresh games, and verify that only the selected color enters the pool.
+#[track_caller]
+pub fn assert_two_color_mana(card: CardIndex, colors: [ManaColor; 2]) {
+    let p0 = PlayerId::new(0);
+    for (seed, color) in [(1_200, colors[0]), (1_201, colors[1])] {
+        let mut engine = untapped_land_on_main(card, seed);
+        activate(&mut engine, p0, card, 0);
+        let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
+            panic!("the two-color ability must ask for a color");
+        };
+        assert_eq!(options, colors.to_vec());
+        engine.apply(p0, PlayerAction::ChooseColor(color)).unwrap();
+        let pool = &engine.state().players[0].mana_pool;
+        assert_eq!(pool.total(), 1);
+        assert_eq!(pool.available(color), 1);
+        assert!(is_tapped(
+            &engine,
+            on_battlefield(&engine, p0, card).unwrap()
+        ));
+    }
+}
+
+/// Play an untapped land's printed colorless mana ability and verify its cost.
+#[track_caller]
+pub fn assert_colorless_mana(card: CardIndex, ability_index: u32) {
+    let p0 = PlayerId::new(0);
+    let mut engine = untapped_land_on_main(card, 1_202);
+    activate(&mut engine, p0, card, ability_index);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 1);
+    assert_eq!(pool.available(ManaColor::Colorless), 1);
+    assert!(stack_is_empty(&engine));
+    assert!(is_tapped(
+        &engine,
+        on_battlefield(&engine, p0, card).unwrap()
+    ));
+}
+
 // oracle_id = "9f12bf9a-6e1a-4377-b4af-e8cabd3ee58a"
 pub fn deserted_temple() -> CardIndex {
     card_index("9f12bf9a-6e1a-4377-b4af-e8cabd3ee58a")

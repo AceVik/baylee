@@ -54,6 +54,7 @@ pub(crate) fn counter_view(kind: CounterKind) -> baylee_view::CounterKind {
         CounterKind::Energy => V::Energy,
         CounterKind::Rad => V::Rad,
         CounterKind::Lifelink => V::Lifelink,
+        CounterKind::Deathtouch => V::Deathtouch,
         CounterKind::Level => V::Level,
         CounterKind::Flying => V::Flying,
         CounterKind::Shadow => V::Shadow,
@@ -1410,7 +1411,10 @@ impl HeuristicAgent {
             | CounterKind::Level
             | CounterKind::Energy
             | CounterKind::Lifelink => sign * n * 40,
-            CounterKind::Flying | CounterKind::Shadow | CounterKind::Indestructible => {
+            CounterKind::Flying
+            | CounterKind::Deathtouch
+            | CounterKind::Shadow
+            | CounterKind::Indestructible => {
                 let keyword = kind.keyword()?;
                 if n <= 0 || has(o, keyword) {
                     0
@@ -1643,14 +1647,17 @@ impl HeuristicAgent {
             }
             // Back from a graveyard under this seat's control: the body and
             // what it does on the way in.
-            Effect::GraveyardToBattlefield { owner_control, .. } => subject.map_or(0, |o| {
-                let worth = Self::permanent_worth(view, o) + self.etb_worth(view, o);
-                if *owner_control && self.hostile(o.owner, me) {
-                    -worth
-                } else {
-                    worth
-                }
-            }),
+            Effect::GraveyardToBattlefield { owner_control, .. }
+            | Effect::GraveyardToBattlefieldModified { owner_control, .. } => {
+                subject.map_or(0, |o| {
+                    let worth = Self::permanent_worth(view, o) + self.etb_worth(view, o);
+                    if *owner_control && self.hostile(o.owner, me) {
+                        -worth
+                    } else {
+                        worth
+                    }
+                })
+            }
             Effect::GraveyardToHand { .. } => {
                 subject.map_or(0, |o| if self.hostile(o.owner, me) { -350 } else { 350 })
             }

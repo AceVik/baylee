@@ -40,6 +40,7 @@ mod cave_of_temptation;
 mod city_of_traitors;
 mod command_beacon;
 mod command_bridge;
+mod command_tower;
 mod contested_cliffs;
 mod crawling_barrens;
 mod crumbling_vestige;

@@ -185,7 +185,9 @@ pub fn follower(ability: &AbilityDef, reading: &Reading<'_>) -> Option<Follower>
         return None;
     };
     let wakes = match trigger {
-        Trigger::EntersBattlefield(_) => Stuff::BOARD,
+        Trigger::EntersBattlefield(_) | Trigger::EntersBattlefieldFromGraveyardOrCast(_) => {
+            Stuff::BOARD
+        }
         Trigger::Draws(PlayerRel::You) => Stuff::HAND,
         Trigger::GainsLife(PlayerRel::You) => Stuff::LIFE,
         Trigger::CountersPlaced { .. } => Stuff::COUNTERS,
@@ -605,7 +607,9 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
             facts.makes.add(Stuff::OWN_COUNTERS);
             facts.makes.add(Stuff::POWER);
         }
-        Effect::AddCounterFilter { .. } | Effect::AddCountersUpTo { .. } => {
+        Effect::AddCounterFilter { .. }
+        | Effect::AddCounterCreatedTokens { .. }
+        | Effect::AddCountersUpTo { .. } => {
             facts.deeds.add(Deeds::PUMPS);
             facts.makes.add(Stuff::COUNTERS);
             facts.makes.add(Stuff::POWER);
@@ -623,6 +627,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::CreateTokenModified { .. }
         | Effect::CreateTokensFor { .. }
         | Effect::CreateTokenCopyOf { .. }
+        | Effect::CreateTokenCopiesOfGraveyard { .. }
         | Effect::CreateTokenCopyOfSource { .. }
         | Effect::CreateTokenCopyOfTarget { .. }
         | Effect::CreateTokenThenCounters { .. }
@@ -631,6 +636,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::Fabricate { .. }
         | Effect::PutFromHandOntoBattlefield { .. }
         | Effect::GraveyardToBattlefield { .. }
+        | Effect::GraveyardToBattlefieldModified { .. }
         | Effect::YourGraveyardToBattlefield { .. } => facts.makes.add(Stuff::BOARD),
         Effect::AddMana { .. }
         | Effect::AddManaFor { .. }

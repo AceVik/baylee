@@ -35,6 +35,9 @@ pub struct PerTurn {
     /// Innovation, `Effect::NextSpellThisTurnHasImprovise`); spent by that
     /// player's next cast.
     pub improvise_next_spell: Vec<bool>,
+    /// Additive generic reduction for each player's next spell this turn.
+    /// Multiple grants add together; the next successful cast spends the total.
+    pub next_spell_cost_reduction: Vec<u32>,
     /// Whether each player cast an instant or sorcery this turn.
     pub instant_or_sorcery_cast: Vec<bool>,
     /// Source incarnations and players they actually damaged this turn.
@@ -301,6 +304,7 @@ impl PerTurn {
             revolt: vec![false; players],
             put_nontoken_permanent: vec![false; players],
             improvise_next_spell: vec![false; players],
+            next_spell_cost_reduction: vec![0; players],
             instant_or_sorcery_cast: vec![false; players],
             player_damage: std::collections::BTreeSet::new(),
             noncreature_spells: vec![0; players],
@@ -423,6 +427,7 @@ impl PerTurn {
             revolt,
             put_nontoken_permanent,
             improvise_next_spell,
+            next_spell_cost_reduction,
             instant_or_sorcery_cast,
             player_damage,
             noncreature_spells,
@@ -474,6 +479,7 @@ impl PerTurn {
         revolt.fill(false);
         put_nontoken_permanent.fill(false);
         improvise_next_spell.fill(false);
+        next_spell_cost_reduction.fill(0);
         instant_or_sorcery_cast.fill(false);
         player_damage.clear();
         noncreature_spells.fill(0);

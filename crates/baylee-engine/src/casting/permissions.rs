@@ -38,6 +38,7 @@ pub(crate) fn permitted_spell_types(
         || object
             .riders
             .contains(&crate::object::Rider::PlayableFromExileFor(player))
+        || super::library_top_spell_open(state, player, card)
     {
         return true;
     }

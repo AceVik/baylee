@@ -149,6 +149,11 @@ fn protect_player(e: &mut Engine<RegistryLookup>, controller: PlayerId) {
 }
 
 #[test]
+fn detection_tower_taps_for_colorless() {
+    assert_colorless_mana(detection_tower(), 0);
+}
+
+#[test]
 fn player_hexproof_allows_its_players_and_teammates_spells() {
     use baylee_cards_dsl::TargetSpec;
     let (p0, p1, p2) = (PlayerId::new(0), PlayerId::new(1), PlayerId::new(2));

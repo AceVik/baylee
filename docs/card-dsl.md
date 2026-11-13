@@ -524,7 +524,10 @@ express at all yet.
   fetchland was the same word three times.
 
   The parts: `TapSelf`, `UntapSelf`, `ExertSelf` (see below),
-  `SacrificeSelf`, `Sacrifice(filter)`,
+  `SacrificeSelf`, `SacrificeGrantor` (the exact permanent whose continuous
+  effect granted this ability, not necessarily the ability's source as with
+  `SacrificeSelf`; this pays an activation cost, whereas
+  `Effect::SacrificeGrantor` sacrifices it during resolution), `Sacrifice(filter)`,
   `SacrificeX(filter)` (X chosen permanents), `SacrificeAll(filter)` (every
   matching permanent you control, including the source when it matches),
   `DiscardHand` (the entire hand, payable even when empty),
@@ -1548,6 +1551,15 @@ halves at once, and a card printing one of them prints all of it. The counter
 goes on through the same door `EnterModifier::WithCounters` uses, so a
 doubler has its say (CR 614.16).
 
+`GraveyardToBattlefieldModified { target, owner_control, tapped, counters,
+modifiers }` is the general return whose listed modifications apply as the
+card enters (CR 611.2e). Each modifier applies indefinitely to exactly the new
+object version, not to an older or later incarnation. `tapped` is set before
+entry processing, and counters use the ordinary entry-counter door. A blocked
+or otherwise unsuccessful return removes the registered modifiers and restores
+the original graveyard object's tap status, kind and controller. `Assimilate`
+composes this same operation rather than maintaining a second return path.
+
 `Effect::Assimilate { target }` is the complete keyword action: return the
 creature card under your control with a +1/+1 counter, as a Borg artifact
 creature without other creature types. The type effects apply simultaneously
@@ -1772,6 +1784,22 @@ hand, one to the bottom, the rest exiled and playable.
 into your hand and the rest on the bottom", in any order (the player
 arranges them) or, with `random: true`, "in a random order" (nobody is
 asked).
+
+Two continuous player permissions describe Gwenom's attack trigger:
+`Modifier::LookAtLibraryTop` privately shows the effect controller their
+current top card, and `Modifier::PlayFromLibraryTopForManaValueLife` permits
+playing that exact current top until the effect expires. A top land uses the
+ordinary land drop. A nonland cast replaces its mana cost with life equal to
+the prospective spell face's mana value (`CastModeKind::LibraryTopLife`), not
+with {0} mana and not with a cost paid from a remembered card beneath the top.
+X in the replaced cost contributes zero; the spell's mana value is unchanged.
+Additional costs, taxes and reductions still apply, and only the remaining
+mana appears in `CastModeDesc::cost`. Printed alternative costs and prototype
+do not combine with this route. Face, mode and kicker enumeration is shared
+with escape by `casting::face_options`, so timing and target legality are not
+reimplemented per zone. The effect survives its source leaving play when its
+duration says so, while a static permission still needs its source present.
+
 Continuous: `CreateContinuousEffect` (any layer+filter+modifier+duration),
 `PumpFilter` (a filter, where `Filter::This` is the *source*, plus
 `controlled_by: Option<PlayerRel>` for a sentence that names a player rather
@@ -2000,9 +2028,14 @@ that list resolves with no stack object and no priority window.
   `Mill` alone.
 
 The engine counts any departure of the source by effect as the sacrifice,
-and that count is exact only in this shape. `ReflexiveEvent` has one
-variant, `SacrificedThis`. Grist's −2 and Agatha's Soul Cauldron need
-`Sacrificed(&Filter)` and `Exiled(&Filter)`.
+and that count is exact only in this shape. `ReflexiveEvent` uses
+`SacrificedThis` for the source, `Sacrificed(&Filter)` for Grist's −2,
+`SacrificedGrantor` for a granted ability that sacrifices the exact Equipment
+which granted it (Spare Dagger), and `Exiled(&Filter)` for Agatha's Soul
+Cauldron. The last two pair with `Effect::SacrificeGrantor` and the ordinary
+sacrifice-filter effect respectively. A granted trigger retains its donor's
+object version on the stack, so two identical Equipments cannot pay with or
+observe one another's incarnation.
 Utility: `UntapTarget`, `UntapSelf` (the source, with no target and no
 question — CR 115.1c makes an activated ability targeted only when it says
 the word, so "untap this creature" is the second variant and not the first
@@ -2410,9 +2443,11 @@ hashes, layers and does nothing. This paragraph said THREE until
   of the token (CR 707.9b). Fanatic of Rhonas writes eternalize with them.
 - **`Effect::MillMayTakeOne { amount, filter }`** is "mill `amount` cards. You
   may put a [filter] card from among the milled cards into your hand" (Wrenn's
-  −2). A `ChooseCards` with `min: 0`, `max: 1`, prompt `PutIntoHand`, over the
-  milled cards that match, found in the public zone they moved to
-  (CR 701.17c): the graveyard, or wherever a replacement sent them.
+  −2). `amount` is an `Amount`, so it can be fixed or captured from the
+  triggering event (Barrowgoyf). A `ChooseCards` with `min: 0`, `max: 1`,
+  prompt `PutIntoHand`, offers the milled cards that match, found in the public
+  zone they moved to (CR 701.17c): the graveyard, or wherever a replacement
+  sent them.
 - **`Effect::RevealAndSeparate { count }`** is "reveal the top `count` cards
   of your library. An opponent separates those cards into two piles. Put one
   pile into your hand and the other into your graveyard" (Fact or Fiction).
@@ -5068,6 +5103,45 @@ generic taxes and reductions; `PayAttachedManaCost` contributes the attached
 object's mana cost. Each hybrid, two-or-color, Phyrexian or hybrid-Phyrexian
 symbol counts once when it contains the color. Multiple effects add separate
 sacrifices, and every chosen permanent may pay only one part.
+
+### Targeted counters and the next spell's cost (11.11.2026)
+
+**Removing counters.** `Effect::RemoveAllCountersTarget` removes every counter
+of every kind from each still-current object target, or from each targeted
+player when the target specification permits players. Only actual reductions
+count as removals. `Effect::RemoveUpToCountersTarget { maximum }` distributes
+at most `maximum` counters of any kinds present on its permanent target. For
+each kind the controller answers one `ChooseNumber` from zero through the
+remaining maximum; `YesNoPrompt::ContinueRemovingCounters` then offers another
+kind or an early stop. Asking only once per kind makes repeated zero answers
+finite without removing a legal distribution. A reached maximum, exhausted
+kinds or a changed object incarnation ends the instruction and continues with
+the following effect.
+
+`ThisWay::CountersRemovedFromTargets` counts the counters actually removed
+from this resolution's object and player targets, of every kind. It reads only
+this resolution's journal, just as `ThisWay::CountersRemoved(kind)` reads one
+kind removed from the source.
+
+**The next spell.** `Effect::NextSpellThisTurnCostsLess(amount)` adds `amount`
+to the resolving controller's pending generic-mana reduction. Multiple grants
+add together. Ordinary and alternative costs use the same calculation for the
+legal-action offer and for payment; colored symbols are never reduced
+(CR 118.7a). A successfully announced cast consumes the whole pending grant,
+even when no generic symbol remains, while cancelling the cast wizard leaves
+it intact. An unused grant clears at the turn reset and participates in the
+state hash. `LegalActions::spell_reductions` publishes the applicable amount
+to the desktop, house AI and language-model seats.
+
+**Counters in exile.** `Effect::ExileEventFromGraveyardWithCounters { kind, n }`
+moves only the event card's immediate graveyard successor to its owner's exile
+and puts `n` counters of `kind` on that new exile incarnation; a card that has
+already moved on again is untouched (CR 400.7).
+`Effect::RemoveCountersFromChosenExile { owner, kind, n }` offers a public,
+non-targeting choice among cards in exile with the required owner relation and
+at least `n` such counters, then removes exactly `n`. Candidates follow seat
+and stable zone order, and the choice is validated again before removal.
+`counters::HIT` is the shared hit-counter id [Mari, the Killing Quill].
 
 These are rules modifiers, not layer effects with a locked object set. Spell
 costs are evaluated against the projected stack object and activation costs

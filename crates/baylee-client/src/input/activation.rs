@@ -446,6 +446,10 @@ pub(super) fn cast_menu_for(duel: &Duel, object: ObjectId) -> Option<crate::Cast
                     // An Adventure or a back face alone in reach: the row
                     // names which spell the click casts.
                     | baylee_engine::choice::CastModeKind::Face(_)
+                    // Even one library-life route must be remembered: its
+                    // face, modes and kicker are the answer to the engine's
+                    // later question, not an ordinary cast from the hand.
+                    | baylee_engine::choice::CastModeKind::LibraryTopLife { .. }
             )
         }))
     .then_some(crate::CastMenu {

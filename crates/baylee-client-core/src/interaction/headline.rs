@@ -709,6 +709,7 @@ fn counters_named(
         CounterKind::Energy => say(Phrase::LogCountersEnergy, &[]),
         CounterKind::Rad => say(Phrase::LogCountersRad, &[]),
         CounterKind::Lifelink => say(Phrase::LogCountersLifelink, &[]),
+        CounterKind::Deathtouch => say(Phrase::LogCountersDeathtouch, &[]),
         CounterKind::Level => say(Phrase::LogCountersLevel, &[]),
         CounterKind::Hone => say(Phrase::LogCountersHone, &[]),
         CounterKind::Stun => say(Phrase::LogCountersStun, &[]),
@@ -905,6 +906,9 @@ fn yes_no_line(
             } else {
                 Phrase::ApplyAdditionalCountersNext.fill(lang, &[&additional.to_string()])
             }
+        }
+        YesNoPrompt::ContinueRemovingCounters { remaining, .. } => {
+            Phrase::ContinueRemovingCounters.fill_count(lang, usize::from(remaining), &[])
         }
         YesNoPrompt::MayDo => Phrase::UseTheOptionalAbility.text(lang).to_string(),
         // The owner answers, about a card that may be somebody else's

@@ -1087,3 +1087,33 @@ fn a_pathway_enters_on_the_face_that_was_chosen_and_taps_for_its_colour() {
         }
     }
 }
+
+/// Blooming Marsh's entry condition is covered above; here each printed color
+/// is actually selected in a fresh game and arrives in the mana pool.
+#[test]
+fn blooming_marsh_taps_for_black_or_green() {
+    use baylee_core::generated::index::BLOOMING_MARSH;
+    assert_two_color_mana(BLOOMING_MARSH, [ManaColor::Black, ManaColor::Green]);
+}
+
+/// The Rot Farm's entry trigger is played above. Its mana ability is not a
+/// color choice: one activation produces both black and green exactly once.
+#[test]
+fn golgari_rot_farm_taps_for_black_and_green_together() {
+    use baylee_core::generated::index::GOLGARI_ROT_FARM;
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(1_202, forest())
+        .battlefield(0, &[GOLGARI_ROT_FARM])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    activate(&mut engine, p0, GOLGARI_ROT_FARM, 0);
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 2);
+    assert_eq!(pool.available(ManaColor::Black), 1);
+    assert_eq!(pool.available(ManaColor::Green), 1);
+    assert!(is_tapped(
+        &engine,
+        on_battlefield(&engine, p0, GOLGARI_ROT_FARM).unwrap()
+    ));
+}

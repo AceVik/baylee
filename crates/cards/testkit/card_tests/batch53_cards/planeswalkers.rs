@@ -133,19 +133,22 @@ fn professor_dellian_fel_loyalty_abilities_and_lifegain_drain_emblem() {
         &[index::PROFESSOR_DELLIAN_FEL],
         &[index::GRIZZLY_BEARS],
     );
-    let _prof = on_battlefield(&e, P0, index::PROFESSOR_DELLIAN_FEL).unwrap();
+    let prof = on_battlefield(&e, P0, index::PROFESSOR_DELLIAN_FEL).unwrap();
     let bears = on_battlefield(&e, P1, index::GRIZZLY_BEARS).unwrap();
+    assert_eq!(counters_on(&e, prof, CounterKind::Loyalty), 5);
 
     // +2 (ability index 0): gain 3 life (loyalty 5 -> 7).
     activate_by_card(&mut e, P0, index::PROFESSOR_DELLIAN_FEL, 0);
     pass_until(&mut e, stack_is_empty);
     assert_eq!(e.state().players[0].life, 23);
+    assert_eq!(counters_on(&e, prof, CounterKind::Loyalty), 7);
 
     // -6 (ability index 3): emblem "Whenever you gain life, target opponent loses that much life."
     e.loyalty_used_this_turn.clear();
     e.refresh_offer();
     activate_by_card(&mut e, P0, index::PROFESSOR_DELLIAN_FEL, 3);
     pass_until(&mut e, stack_is_empty);
+    assert_eq!(counters_on(&e, prof, CounterKind::Loyalty), 1);
 
     // Now activate +2 again: P0 gains 3 life, triggering emblem to target P1 for 3 life loss!
     e.loyalty_used_this_turn.clear();
@@ -158,14 +161,30 @@ fn professor_dellian_fel_loyalty_abilities_and_lifegain_drain_emblem() {
     pass_until(&mut e, stack_is_empty);
     assert_eq!(e.state().players[0].life, 26);
     assert_eq!(e.state().players[1].life, 17);
+    assert_eq!(counters_on(&e, prof, CounterKind::Loyalty), 3);
 
-    // -3 (ability index 2): Destroy target creature.
+    // 0 (ability index 1): draw one card and lose one life, still at three loyalty.
+    let hand_before = e.state().zones.list(ZoneLocation::Hand(P0)).len();
+    e.loyalty_used_this_turn.clear();
+    e.refresh_offer();
+    activate_by_card(&mut e, P0, index::PROFESSOR_DELLIAN_FEL, 1);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        e.state().zones.list(ZoneLocation::Hand(P0)).len(),
+        hand_before + 1
+    );
+    assert_eq!(e.state().players[0].life, 25);
+    assert_eq!(counters_on(&e, prof, CounterKind::Loyalty), 3);
+
+    // -3 (ability index 2): destroy target creature; zero loyalty kills Dellian.
     e.loyalty_used_this_turn.clear();
     e.refresh_offer();
     activate_by_card(&mut e, P0, index::PROFESSOR_DELLIAN_FEL, 2);
     targets(&mut e, vec![bears], vec![]);
     pass_until(&mut e, stack_is_empty);
     assert!(on_battlefield(&e, P1, index::GRIZZLY_BEARS).is_none());
+    assert_eq!(counters_on(&e, prof, CounterKind::Loyalty), 0);
+    assert!(in_graveyard(&e, P0, index::PROFESSOR_DELLIAN_FEL).is_some());
 }
 
 #[test]

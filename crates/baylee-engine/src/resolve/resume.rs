@@ -979,6 +979,9 @@ pub(super) fn resume_inner(
                 grant_play(state, res.controller, card, free);
             }
         }
+        AwaitingOp::RemoveCountersFromChosenExile { owner, kind, n } => {
+            exile_counters::finish_removal(state, res, owner, kind, n, chosen);
+        }
         AwaitingOp::DigRest {
             found,
             rest,
@@ -1539,6 +1542,8 @@ pub(super) fn resume_inner(
         | AwaitingOp::Colors { .. }
         | AwaitingOp::MoveCounter { .. }
         | AwaitingOp::Counters { .. }
+        | AwaitingOp::RemoveUpToCountersTarget { .. }
+        | AwaitingOp::ContinueRemovingCounters { .. }
         | AwaitingOp::PayLifeOrTapSelf { .. }
         | AwaitingOp::PlayerMayPayLife { .. }
         | AwaitingOp::PlayerMayGetPoison { .. }

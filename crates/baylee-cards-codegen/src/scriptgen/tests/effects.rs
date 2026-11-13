@@ -1427,6 +1427,18 @@ fn transform48_clue_sacrifice_condition_keeps_subtype_count_player_and_timing() 
 }
 
 #[test]
+fn deathtouch_counter_is_a_keyword_counter_not_an_assigned_custom_counter() {
+    use super::super::constants::counter_kind;
+    assert_eq!(
+        counter_kind("Deathtouch").as_deref(),
+        Some("CounterKind::Deathtouch")
+    );
+    for unknown in ["DEATHTOUCH", "deathtouch", "Deathtouchs"] {
+        assert!(counter_kind(unknown).is_none(), "{unknown}");
+    }
+}
+
+#[test]
 fn bore_counter_generic_reader_preserves_the_verified_exact_counter_word() {
     use super::super::constants::counter_kind;
     assert_eq!(counter_kind("BORE").as_deref(), Some("CounterKind::Bore"));

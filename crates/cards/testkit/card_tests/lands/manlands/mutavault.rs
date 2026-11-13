@@ -28,4 +28,36 @@ fn mutavault_animates_into_a_creature() {
     assert!(t.contains(TypeSet::CREATURE));
     assert_eq!(pt(&engine, vault), (2, 2));
     assert!(!is_tapped(&engine, vault));
+    let subtypes = engine
+        .state()
+        .object(vault)
+        .expect("Mutavault remains on the battlefield")
+        .characteristics()
+        .subtypes;
+    assert!(
+        subtypes.contains_all(baylee_core::types::SubtypeSet::ALL_CREATURE),
+        "the animated land has every creature type"
+    );
+
+    cross_into_the_next_own_main(&mut engine, p0);
+    assert!(types(&engine, vault).contains(TypeSet::LAND));
+    assert!(
+        !types(&engine, vault).contains(TypeSet::CREATURE),
+        "the animation lasts only until end of turn"
+    );
+    assert!(
+        !engine
+            .state()
+            .object(vault)
+            .expect("Mutavault remains a land")
+            .characteristics()
+            .subtypes
+            .contains_all(baylee_core::types::SubtypeSet::ALL_CREATURE),
+        "the granted creature types end with the animation"
+    );
+}
+
+#[test]
+fn mutavault_taps_for_colorless() {
+    assert_colorless_mana(mutavault(), 0);
 }

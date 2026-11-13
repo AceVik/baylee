@@ -94,15 +94,32 @@ pub(super) fn ways(
         let Some((card, from)) = locate(view, *id) else {
             continue;
         };
-        if !baylee_ai::spell_can_be_cast_now(view, legal, *id, card) {
+        // The visible front is not necessarily the face this route casts.
+        // Read timing and mandatory costs from the announced face, while the
+        // reach keeps the front identity for locating and displaying the card.
+        let route_card = match desc.kind {
+            CastModeKind::LibraryTopLife { face, .. } => CardIdentity {
+                face: u8::try_from(face).unwrap_or(u8::MAX),
+                ..card
+            },
+            _ => card,
+        };
+        if !baylee_ai::spell_can_be_cast_now(view, legal, *id, route_card) {
             continue;
         }
         let Some(plan) = pay(*id, card, desc.cost.with_x(0), desc.kind) else {
             continue;
         };
         // One option a price: the mode question says which way, and a way
-        // at the printed price is the printed reach's already.
-        let same = |reach: &Reach| reach.object == *id && reach.plan.cost == plan.cost;
+        // at the printed price is the printed reach's already. Library faces
+        // and kickers can share a remaining mana price while carrying very
+        // different lives, targets and effects, so those routes stay distinct.
+        let same = |reach: &Reach| {
+            reach.object == *id
+                && reach.plan.cost == plan.cost
+                && (!matches!(desc.kind, CastModeKind::LibraryTopLife { .. })
+                    || reach.way == Some(Way::Mode(desc.kind)))
+        };
         if plain.iter().chain(&out).any(same) {
             continue;
         }
@@ -206,6 +223,13 @@ fn locate(view: &PlayerView, id: ObjectId) -> Option<(CardIdentity, ReachFrom)> 
         .map(|card| (card, ReachFrom::CommandZone))
         .or_else(|| in_zone(&view.graveyards).map(|card| (card, ReachFrom::Graveyard)))
         .or_else(|| in_zone(&view.exile).map(|card| (card, ReachFrom::Exile)))
+        .or_else(|| {
+            view.library_tops
+                .iter()
+                .find(|object| object.id == id)
+                .and_then(|object| object.card)
+                .map(|card| (card, ReachFrom::LibraryTop))
+        })
 }
 
 #[cfg(test)]

@@ -32,6 +32,11 @@ fn entry(name: &str) -> DeckEntry {
 /// A table where seat 0 starts over `mine`, holding `hand`, both libraries
 /// `library`.
 fn table(library: &str, mine: &[&str], hand: &[&str]) -> Session {
+    table_with_theirs(library, mine, hand, &[])
+}
+
+/// [`table`] with `theirs` on the opponent's battlefield.
+fn table_with_theirs(library: &str, mine: &[&str], hand: &[&str], theirs: &[&str]) -> Session {
     let mut preset: GamePreset =
         baylee_cards::decks::probe_preset(41, entry(library).card).unwrap();
     preset.house_rules.starting_player = Some(0);
@@ -43,6 +48,7 @@ fn table(library: &str, mine: &[&str], hand: &[&str]) -> Session {
     }
     preset.seats[0].starting_hand = Some(hand.iter().map(|name| entry(name)).collect());
     preset.seats[0].starting_battlefield = mine.iter().map(|name| entry(name)).collect();
+    preset.seats[1].starting_battlefield = theirs.iter().map(|name| entry(name)).collect();
     Session::new(&preset).unwrap()
 }
 
@@ -244,4 +250,301 @@ fn phyrexian_mana_is_reached_with_life() {
     let reach = reachable(&view, &legal);
     let dismember = reach_of(&reach, "Dismember").expect("a Mountain and 4 life pay {1}{B/P}{B/P}");
     assert_eq!(dismember.plan.steps.len(), 1);
+}
+
+/// Attacks with Gwenom and resolves its trigger, then stops in seat 0's
+/// second main phase. The permission under test always comes from that real
+/// attack, never from a hand-written view or legal-action list.
+fn after_gwenom_attack(session: &mut Session) -> (PlayerView, LegalActions) {
+    let mut attacked = false;
+    for _ in 0..600 {
+        let pending = session.pending().clone();
+        let player = pending.asked().expect("the table stays playable");
+        if let Pending::Priority { player, .. } = pending
+            && player == ME
+        {
+            let view = session.observe_view(ME);
+            if attacked
+                && view.phase == Phase::SecondMain
+                && view.active == ME
+                && view.stack.is_empty()
+            {
+                let (pending, view) = session.view_for(ME).expect("seat 0 is asked");
+                let Pending::Priority { legal, .. } = pending else {
+                    unreachable!("seat 0 holds priority");
+                };
+                return (view, *legal);
+            }
+        }
+        let action = match &pending {
+            Pending::ChooseAttackers { attackers, .. } if player == ME => {
+                let view = session.observe_view(ME);
+                let gwenom = attackers
+                    .iter()
+                    .copied()
+                    .find(|id| {
+                        view.object(*id)
+                            .is_some_and(|object| object.name == "Gwenom, Remorseless")
+                    })
+                    .expect("Gwenom can attack");
+                attacked = true;
+                PlayerAction::DeclareAttackers {
+                    attackers: vec![(gwenom, baylee_core::ids::Defender::Player(PlayerId::new(1)))],
+                }
+            }
+            _ => timeout_answer(&pending).unwrap_or_else(|| panic!("no answer to {pending:?}")),
+        };
+        session.act_slice(player, action, 0).unwrap();
+    }
+    panic!("Gwenom's second main phase was not reached");
+}
+
+/// With no mana source at all, the top Dark Ritual is still a real play for
+/// one life. The narrator offers the named route once, with no generic cast
+/// and no empty tap plan, and answering it casts through the engine's route.
+#[test]
+fn a_zero_mana_library_route_survives_the_whole_seat_path() {
+    use crate::narrator::{Act, Decision, Narrator};
+
+    let mut session = table("Dark Ritual", &["Gwenom, Remorseless"], &[]);
+    let (view, legal) = after_gwenom_attack(&mut session);
+    let life_before = view.seat(ME).unwrap().life;
+    let reach = reachable(&view, &legal);
+    let ritual = reach_of(&reach, "Dark Ritual").expect("one life needs no mana");
+    assert_eq!(ritual.from, super::super::ReachFrom::LibraryTop);
+    assert!(ritual.plan.steps.is_empty());
+    assert_eq!(ritual.plan.cost, baylee_core::mana::ManaCost::ZERO);
+    assert!(matches!(
+        ritual.way,
+        Some(Way::Mode(CastModeKind::LibraryTopLife {
+            life: 1,
+            face: 0,
+            kicked: false,
+            ..
+        }))
+    ));
+
+    let request = crate::narrator::tests::request(
+        view,
+        Pending::Priority {
+            player: ME,
+            legal: Box::new(legal),
+        },
+        baylee_view::LogTail::default(),
+    );
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
+    let offered: Vec<_> = wake
+        .menu
+        .offered()
+        .iter()
+        .filter(|option| {
+            option.text.contains("Dark Ritual") && option.text.contains("paying 1 life")
+        })
+        .collect();
+    assert_eq!(offered.len(), 1, "{:#?}", wake.text);
+    assert!(!offered[0].text.contains("(taps )"), "{}", wake.text);
+    assert!(
+        !wake.text.contains("Dark Ritual (paid from"),
+        "{}",
+        wake.text
+    );
+    let resolved = wake
+        .menu
+        .resolve(&Decision {
+            ask: Some("q12".into()),
+            pick: vec![offered[0].id.clone()],
+            ..Default::default()
+        })
+        .expect("the named library route answers the menu");
+    let Act::Now(PlayerAction::CastSpell { card }) = resolved.act else {
+        panic!("a zero-mana route casts directly: {:?}", resolved.act);
+    };
+    session
+        .act_slice(ME, PlayerAction::CastSpell { card }, 0)
+        .unwrap();
+    if let Pending::ChooseCastMode { options, .. } = session.pending().clone() {
+        let route = options
+            .iter()
+            .position(|option| matches!(option.kind, CastModeKind::LibraryTopLife { life: 1, .. }))
+            .expect("the life route is offered");
+        session
+            .act_slice(ME, PlayerAction::ChooseMode(route), 0)
+            .unwrap();
+    }
+    let view = session.observe_view(ME);
+    assert_eq!(view.seat(ME).unwrap().life, life_before - 1);
+    assert!(view.stack.iter().any(|object| object.id == card));
+}
+
+/// An Adventure's creature and spell faces both have no remaining mana, but
+/// they are different routes and pay different life. Choosing Petty Theft
+/// retains that face and its target instead of collapsing into the front.
+#[test]
+fn equal_mana_library_faces_remain_distinct_and_cast_the_chosen_face() {
+    let mut session = table_with_theirs(
+        "Brazen Borrower",
+        &["Gwenom, Remorseless"],
+        &[],
+        &["Grizzly Bears"],
+    );
+    let (view, legal) = after_gwenom_attack(&mut session);
+    let life_before = view.seat(ME).unwrap().life;
+    let reach = reachable(&view, &legal);
+    let mut routes: Vec<_> = reach
+        .iter()
+        .filter(|reach| reach.card.index == entry("Brazen Borrower").card)
+        .collect();
+    routes.sort_by_key(|reach| match reach.way {
+        Some(Way::Mode(CastModeKind::LibraryTopLife { life, .. })) => life,
+        _ => u32::MAX,
+    });
+    assert_eq!(routes.len(), 2, "{routes:?}");
+    assert!(routes.iter().all(|reach| reach.plan.steps.is_empty()));
+    assert!(matches!(
+        routes[0].way,
+        Some(Way::Mode(CastModeKind::LibraryTopLife {
+            life: 2,
+            face: 1,
+            ..
+        }))
+    ));
+    assert!(matches!(
+        routes[1].way,
+        Some(Way::Mode(CastModeKind::LibraryTopLife {
+            life: 3,
+            face: 0,
+            ..
+        }))
+    ));
+
+    let card = routes[0].object;
+    super::played::run(
+        &mut session,
+        &routes[0].plan,
+        PlayerAction::CastSpell { card },
+    );
+    let Pending::ChooseCastMode { options, .. } = session.pending().clone() else {
+        panic!("the route question follows: {:?}", session.pending());
+    };
+    let route = options
+        .iter()
+        .position(|option| {
+            matches!(
+                option.kind,
+                CastModeKind::LibraryTopLife {
+                    life: 2,
+                    face: 1,
+                    ..
+                }
+            )
+        })
+        .expect("Petty Theft is still offered");
+    session
+        .act_slice(ME, PlayerAction::ChooseMode(route), 0)
+        .unwrap();
+    let Pending::ChooseTargets { options, .. } = session.pending().clone() else {
+        panic!("Petty Theft asks its own target: {:?}", session.pending());
+    };
+    let target = *options.first().expect("the Bears are a target");
+    session
+        .act_slice(
+            ME,
+            PlayerAction::ChooseTargets {
+                objects: vec![target],
+                players: Vec::new(),
+            },
+            0,
+        )
+        .unwrap();
+    let view = session.observe_view(ME);
+    assert_eq!(view.seat(ME).unwrap().life, life_before - 2);
+    let spell = view.stack.iter().find(|object| object.id == card).unwrap();
+    assert_eq!(spell.card.unwrap().face, 1);
+}
+
+/// The life payment replaces only the printed mana cost. Kicker's remaining
+/// {5} is planned and tapped, while the unkicked route stays mana-free.
+#[test]
+fn a_library_kicker_taps_only_the_remaining_mana() {
+    let mut session = table_with_theirs(
+        "Rite of Replication",
+        &[
+            "Gwenom, Remorseless",
+            "Island",
+            "Island",
+            "Island",
+            "Island",
+            "Island",
+        ],
+        &[],
+        &["Grizzly Bears"],
+    );
+    let (view, legal) = after_gwenom_attack(&mut session);
+    let life_before = view.seat(ME).unwrap().life;
+    let reach = reachable(&view, &legal);
+    let routes: Vec<_> = reach
+        .iter()
+        .filter(|reach| reach.card.index == entry("Rite of Replication").card)
+        .collect();
+    assert_eq!(routes.len(), 2, "{routes:?}");
+    let kicked = routes
+        .iter()
+        .find(|reach| {
+            matches!(
+                reach.way,
+                Some(Way::Mode(CastModeKind::LibraryTopLife { kicked: true, .. }))
+            )
+        })
+        .expect("the kicked route is offered");
+    assert_eq!(kicked.plan.cost, baylee_core::mana::ManaCost::parse("{5}"));
+    assert_eq!(kicked.plan.steps.len(), 5);
+    assert!(matches!(
+        kicked.way,
+        Some(Way::Mode(CastModeKind::LibraryTopLife { life: 4, .. }))
+    ));
+    assert!(routes.iter().any(|reach| reach.plan.steps.is_empty()));
+
+    let card = kicked.object;
+    super::played::run(&mut session, &kicked.plan, PlayerAction::CastSpell { card });
+    let Pending::ChooseCastMode { options, .. } = session.pending().clone() else {
+        panic!("the route question follows: {:?}", session.pending());
+    };
+    let route = options
+        .iter()
+        .position(|option| {
+            matches!(
+                option.kind,
+                CastModeKind::LibraryTopLife {
+                    life: 4,
+                    kicked: true,
+                    ..
+                }
+            )
+        })
+        .expect("the kicked route is offered");
+    session
+        .act_slice(ME, PlayerAction::ChooseMode(route), 0)
+        .unwrap();
+    let Pending::ChooseTargets { options, .. } = session.pending().clone() else {
+        panic!("the Rite asks its target: {:?}", session.pending());
+    };
+    session
+        .act_slice(
+            ME,
+            PlayerAction::ChooseTargets {
+                objects: vec![options[0]],
+                players: Vec::new(),
+            },
+            0,
+        )
+        .unwrap();
+    let view = session.observe_view(ME);
+    assert_eq!(
+        view.seat(ME).unwrap().life,
+        life_before - 4,
+        "after the kicked target: {:?}",
+        session.pending()
+    );
+    assert_eq!(view.seat(ME).unwrap().mana_pool.total(), 0);
+    assert!(view.stack.iter().any(|object| object.id == card));
 }

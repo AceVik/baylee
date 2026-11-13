@@ -787,12 +787,7 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
                 })
         }
         Effect::GrantorDealsDamage { amount, target } => {
-            let Some(grantor) = state.object(res.on_stack).and_then(|object| {
-                object.riders.iter().find_map(|rider| match rider {
-                    crate::object::Rider::GrantedSource(reference) => Some(*reference),
-                    _ => None,
-                })
-            }) else {
+            let Some(grantor) = super::granted_source(state, res.on_stack) else {
                 return Vec::new();
             };
             recipients(state, res, you, target)

@@ -394,7 +394,7 @@ mod tests {
     fn graveyard_milling_before_another_choice_preserves_that_choice() {
         let (mut state, mut res) = table();
         res.effects = vec![Effect::MillMayTakeOne {
-            amount: 3,
+            amount: Amount::Fixed(3),
             filter: &Filter::Any,
         }];
         let cards = offered(resolve::run(&mut state, &mut res), P0);

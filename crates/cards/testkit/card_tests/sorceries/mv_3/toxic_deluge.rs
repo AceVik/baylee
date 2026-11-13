@@ -53,6 +53,7 @@ fn a_creature_cast_after_a_mass_debuff_is_not_shrunk_by_it() {
     engine.apply(p0, PlayerAction::ChooseNumber(1)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
+    assert_eq!(engine.state().players[0].life, 19, "X = 1 costs one life");
     assert!(
         on_battlefield(&engine, p1, quiet_creature()).is_none(),
         "the 1/1 that was there when the Deluge resolved took -1/-1 and died",

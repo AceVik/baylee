@@ -1300,7 +1300,9 @@ fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, f
         CastModeKind::MutatePosition(_) | CastModeKind::SpellEnding(_) => 40,
         CastModeKind::Dungeon(_) | CastModeKind::DungeonRoom { .. } => 41,
         CastModeKind::Escape | CastModeKind::EscapeGranted { .. } => 42,
-        CastModeKind::Permission(_) => 43,
+        // Both are zone permissions rather than a printed alternative cost.
+        // The library route replaces mana with life, reported in feat[46].
+        CastModeKind::Permission(_) | CastModeKind::LibraryTopLife { .. } => 43,
         CastModeKind::Counter(_) => 44,
         CastModeKind::Colors(_) => 45,
     };
@@ -1314,6 +1316,9 @@ fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, f
         }
         CastModeKind::SpellEnding(ending) => {
             feat[46] = unit(f32::from(*ending as u8 + 1), 6.0);
+        }
+        CastModeKind::LibraryTopLife { life, .. } => {
+            feat[46] = unit(*life as f32, 20.0);
         }
         _ => {}
     }

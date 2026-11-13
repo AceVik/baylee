@@ -85,7 +85,11 @@ fn web_of_inertia_stops_opponent_attacks_unless_they_exile_a_graveyard_card() {
 
 #[test]
 fn innkeepers_talent_levels_up_grants_ward_and_doubles_counters_at_level_3() {
-    let mut e = prepared(&[], &[index::INNKEEPER_S_TALENT, index::GRIZZLY_BEARS], &[]);
+    let mut e = prepared(
+        &[index::AETHER_HUB],
+        &[index::INNKEEPER_S_TALENT, index::GRIZZLY_BEARS],
+        &[],
+    );
     let talent = on_battlefield(&e, P0, index::INNKEEPER_S_TALENT).unwrap();
     let bears = on_battlefield(&e, P0, index::GRIZZLY_BEARS).unwrap();
 
@@ -112,6 +116,12 @@ fn innkeepers_talent_levels_up_grants_ward_and_doubles_counters_at_level_3() {
         2
     );
 
+    // Level 3 covers counters on players too: Aether Hub's printed one energy
+    // becomes two when its own enter-the-battlefield trigger resolves.
+    play_land(&mut e, P0, index::AETHER_HUB);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().players[0].energy, 2);
+
     // Move to beginning of combat on P0's turn: Level 1 triggers to put 1 +1/+1 counter on target creature,
     // which Level 3 doubles to 2 +1/+1 counters!
     pass_until(&mut e, |e| {
@@ -130,6 +140,45 @@ fn innkeepers_talent_levels_up_grants_ward_and_doubles_counters_at_level_3() {
         2,
         "Level 3 doubled the +1/+1 counter placed on Grizzly Bears"
     );
+}
+
+#[test]
+fn innkeepers_talent_level_two_counters_removal_when_ward_is_not_paid() {
+    let mut e = Duel::new(SEED, index::FOREST)
+        .battlefield(0, &[index::INNKEEPER_S_TALENT, index::GRIZZLY_BEARS])
+        .hand(1, &[index::HERO_S_DOWNFALL])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, P0);
+    activate_by_card(&mut e, P0, index::INNKEEPER_S_TALENT, 1);
+    pass_until(&mut e, stack_is_empty);
+    pass_until(&mut e, |e| {
+        e.state().turn.step == Step::CombatBegin
+            && matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    let bears = on_battlefield(&e, P0, index::GRIZZLY_BEARS).unwrap();
+    targets(&mut e, vec![bears], vec![]);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(counters_on(&e, bears, CounterKind::P1P1), 1);
+
+    priority(&mut e, P1);
+    mana(&mut e);
+    let downfall = in_hand(&e, P1, index::HERO_S_DOWNFALL).unwrap();
+    e.apply(P1, PlayerAction::CastSpell { card: downfall })
+        .unwrap();
+    targets(&mut e, vec![bears], vec![]);
+    pass_until(&mut e, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { mana: 1 },
+                ..
+            }
+        )
+    });
+    yes_no(&mut e, false);
+    pass_until(&mut e, stack_is_empty);
+    assert!(on_battlefield(&e, P0, index::GRIZZLY_BEARS).is_some());
 }
 
 #[test]

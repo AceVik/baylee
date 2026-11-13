@@ -154,6 +154,11 @@ impl<L: CardLookup> Engine<L> {
         let aura_successor = self.aura_successor(trigger);
         if let Some(object) = self.state.object_mut(top) {
             object.event_object = trigger.event_object;
+            if let Some(grantor) = trigger.grantor {
+                object
+                    .riders
+                    .push(crate::object::Rider::GrantedSource(grantor));
+            }
             if let Some(value) = trigger.event_mana_value {
                 object
                     .riders
@@ -826,7 +831,11 @@ impl<L: CardLookup> Engine<L> {
                     match gathered {
                         None => return,
                         Some(all) => {
-                            self.push_synthetic_trigger_with_targets(&t, all);
+                            self.push_synthetic_trigger_with_targets(
+                                &t,
+                                all,
+                                baylee_core::ids::SeatSet::new(),
+                            );
                             continue;
                         }
                     }
@@ -844,7 +853,22 @@ impl<L: CardLookup> Engine<L> {
                     None,
                     self.trigger_wall_only(&t),
                 );
-                if options.len() < usize::from(req.min) {
+                let player_options = eval::target_player_options_from(
+                    &self.state,
+                    &t.bind_target(spec),
+                    t.controller,
+                    crate::text_changes::RuleContext {
+                        source: t.source,
+                        text: t.text,
+                        resolved_name: None,
+                        reference: t.event_object,
+                    },
+                );
+                // Objects and players are answers to the same target choice.
+                // Counting only objects loses a mandatory "any target" ability
+                // or caps a multi-target one below its legal maximum.
+                let offered = options.len() + player_options.len();
+                if offered < usize::from(req.min) {
                     // No legal target, so the trigger is removed (CR 603.3d)
                     // — and it is *already* removed: the pop above took this
                     // queue entry off before the synthetic target was asked
@@ -852,9 +876,13 @@ impl<L: CardLookup> Engine<L> {
                     // behind it as well, unread and unresolved.
                     continue;
                 }
-                if options.is_empty() {
+                if offered == 0 {
                     // "Up to one" with no legal target: stacks targeting nothing (CR 603.3d).
-                    self.push_synthetic_trigger_with_targets(&t, SmallVec::new());
+                    self.push_synthetic_trigger_with_targets(
+                        &t,
+                        SmallVec::new(),
+                        baylee_core::ids::SeatSet::new(),
+                    );
                     continue;
                 }
                 let plan_t = t.clone();
@@ -863,11 +891,11 @@ impl<L: CardLookup> Engine<L> {
                     per_opponent: None,
                 });
                 let (min, max) = req.bounds(0);
-                let max = max.min(u32::try_from(options.len()).unwrap_or(u32::MAX));
+                let max = max.min(u32::try_from(offered).unwrap_or(u32::MAX));
                 self.pending = Pending::ChooseTargets {
                     player: t.controller,
                     options,
-                    player_options: Vec::new(),
+                    player_options,
                     min,
                     max,
                     reason: TargetPrompt::Targets,

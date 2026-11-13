@@ -1089,6 +1089,17 @@ pub enum Modifier {
     /// The affected creature can't block an attacker unless the effect's
     /// controller controls strictly more creatures than that attacker's controller.
     CantBlockUnlessYouControlMoreCreaturesThanAttacker,
+    /// The effect's controller may look at the top card of their own library.
+    /// This is private to that player, unlike [`Self::RevealLibraryTop`].
+    LookAtLibraryTop,
+    /// The effect's controller may play cards from the top of their own library.
+    /// A land uses the ordinary land-play rules; casting a nonland spell this
+    /// way costs life equal to its mana value instead of its mana cost.
+    PlayFromLibraryTopForManaValueLife,
+    /// Ward abilities of the affected permanent do not trigger. The keyword
+    /// and its ability remain on the card; only the event is suppressed, so
+    /// removing this effect lets later targeting trigger Ward normally.
+    WardDoesntTrigger,
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -1303,6 +1314,8 @@ impl Modifier {
             | Self::CastPermanentSpellsFromGraveyard
             | Self::PermanentOfEachTypeFromGraveyard
             | Self::PlayLandsFromLibraryTop
+            | Self::LookAtLibraryTop
+            | Self::PlayFromLibraryTopForManaValueLife
             | Self::RevealAllLibraryTops
             | Self::RevealAllHands
             | Self::RevealYourHand
@@ -1354,6 +1367,7 @@ impl Modifier {
             | Self::BlockableWithoutLandwalk(_)
             | Self::BlockableWithoutAnyLandwalk
             | Self::IgnoreOpponentsHexproof
+            | Self::WardDoesntTrigger
             | Self::CounterMaximum { .. }
             | Self::CrewSaddlePowerBonus(_)
             | Self::CantBlock(_)

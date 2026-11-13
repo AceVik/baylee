@@ -7,7 +7,7 @@
 //! - Explicit `Stack` and `Graveyard` top-down ordering (`order_from_top`, `normalized_depth`),
 //! - Public `CommanderDesignation` entities for commanders in hidden zones,
 //! - Own-deck `DeckInventory` and `SideboardInventory` entities from `InventoryLedger7`,
-//! - Disambiguated 21 `CounterKind` channels, full projected `KeywordSet`, basic land subtypes,
+//! - Disambiguated 22 `CounterKind` channels, full projected `KeywordSet`, basic land subtypes,
 //!   `board_mana`, `granted_mana`, `ability_mana_spending`, `word_changes`, and exact `owed` symbols.
 
 use std::collections::BTreeSet;
@@ -519,7 +519,7 @@ fn push_public_object7(
     f[68] = f32::from(u8::from(obj.colors.contains(Color::Red)));
     f[69] = f32::from(u8::from(obj.colors.contains(Color::Green)));
 
-    // [70..82] + [96..105]: All 21 CounterKind categories (unclipped & disambiguated)
+    // [70..82] + [96..105]: All 22 CounterKind categories (unclipped & disambiguated)
     for entry in &obj.counters {
         let amt = f32::from(entry.count);
         match entry.kind {
@@ -558,6 +558,10 @@ fn push_public_object7(
             }
             CounterKind::Finality => f[79] += raw_unit(amt, 2.0),
             CounterKind::Flying => f[80] += raw_unit(amt, 4.0),
+            CounterKind::Deathtouch => {
+                f[80] += raw_unit(amt, 4.0);
+                f[104] += 32.0;
+            }
             CounterKind::Lifelink => {
                 f[80] += raw_unit(amt, 4.0);
                 f[104] += 1.0;

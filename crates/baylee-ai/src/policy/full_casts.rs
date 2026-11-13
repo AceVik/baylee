@@ -27,6 +27,7 @@
 //! the same reserve, the same X, kicker and buyback aims. Only how the mana
 //! is found, and which cards are walked, differ.
 
+use baylee_cards_dsl::{CostPart, FaceDef};
 use baylee_client_core::decision::resource_player;
 use baylee_client_core::manaplan::{self, Source, Tap};
 use baylee_core::ids::ObjectId;
@@ -60,20 +61,23 @@ struct Way {
     price: Option<ManaCost>,
 }
 
-/// Whether `card` lies in this seat's graveyard or in any exile zone: a card
-/// whose ways the engine names with their prices.
+/// Whether `card` lies in a zone whose casting routes and whole prices the
+/// engine names: this seat's graveyard, any exile zone, or a visible library
+/// top. In particular, a top route's zero remaining mana must not be replaced
+/// by the card's printed mana cost.
 fn in_a_pile(view: &PlayerView, card: ObjectId) -> bool {
     let caster = resource_player(view);
     view.graveyards
         .get(usize::from(caster.get()))
         .is_some_and(|zone| zone.iter().any(|o| o.id == card))
         || view.exile.iter().flatten().any(|o| o.id == card)
+        || view.library_tops.iter().any(|o| o.id == card)
 }
 
 /// Every way this seat could cast a card now or once its mana is made: its
 /// hand, commanders and priced graveyard cards as before, and each card the
-/// offer names from a graveyard or an exile zone (`castable`, `payable`),
-/// one way for each the engine names, the cheapest first.
+/// offer names from a graveyard, an exile zone or a visible library top
+/// (`castable`, `payable`), one way for each the engine names, cheapest first.
 fn ways(view: &PlayerView, legal: &LegalActions) -> Vec<Way> {
     let mut seen: Vec<ObjectId> = Vec::new();
     let mut out: Vec<Way> = Vec::new();
@@ -111,10 +115,12 @@ fn ways(view: &PlayerView, legal: &LegalActions) -> Vec<Way> {
         }
         for (kind, cost) in named {
             let card = match kind {
-                CastModeKind::Face(at) => CardIdentity {
-                    face: u8::try_from(at).unwrap_or(front.face),
-                    ..front
-                },
+                CastModeKind::Face(at) | CastModeKind::LibraryTopLife { face: at, .. } => {
+                    CardIdentity {
+                        face: u8::try_from(at).unwrap_or(front.face),
+                        ..front
+                    }
+                }
                 _ => front,
             };
             out.push(Way {
@@ -126,6 +132,33 @@ fn ways(view: &PlayerView, legal: &LegalActions) -> Vec<Way> {
         }
     }
     out
+}
+
+/// The fixed life this exact library-top route will pay: the announced face's
+/// mana value, mandatory additional life, and the life in a kicker already
+/// carried by the route. The remaining mana is planned separately.
+fn library_top_life(kind: CastModeKind, face: &FaceDef) -> Option<i32> {
+    let CastModeKind::LibraryTopLife { life, kicked, .. } = kind else {
+        return None;
+    };
+    let fixed = |parts: &[CostPart]| {
+        parts.iter().fold(0_i32, |total, part| match part {
+            CostPart::PayLife(amount) => total.saturating_add(i32::from(*amount)),
+            _ => total,
+        })
+    };
+    let mandatory = fixed(face.mandatory_additional_costs);
+    let optional = kicked.then(|| {
+        face.additional_costs
+            .iter()
+            .fold(0_i32, |total, cost| total.saturating_add(fixed(cost.parts)))
+    });
+    Some(
+        i32::try_from(life)
+            .unwrap_or(i32::MAX)
+            .saturating_add(mandatory)
+            .saturating_add(optional.unwrap_or(0)),
+    )
 }
 
 /// The tap that makes the first mana of `step`.
@@ -193,6 +226,13 @@ impl HeuristicAgent {
             if f.types.contains(TypeSet::LAND) {
                 continue;
             }
+            let library_life = library_top_life(kind, f);
+            if library_life.is_some_and(|payment| {
+                i64::from(seat.life) - i64::from(payment) < i64::from(PHYREXIAN_FLOOR)
+            }) {
+                continue;
+            }
+            let library_top = library_life.is_some();
             let instant = has_instant_speed(card, f);
             // A card the engine names from a pile has had its timing asked
             // already (`castable`, `payable`).
@@ -226,31 +266,49 @@ impl HeuristicAgent {
                     spell_cost(view, id, f),
                 )
             });
-            let (cost, floats_first) = aim(
-                view,
-                legal,
-                card,
-                f,
-                printed,
-                &plain,
-                u32::try_from(budget).unwrap_or(u32::MAX),
-            );
+            // The engine's library route is already the whole remaining mana
+            // price, including any announced kicker and modal costs. Its X is
+            // fixed at zero, so neither aim nor exact-X targeting may raise it.
+            let (cost, floats_first) = if library_top {
+                (printed.with_x(0), false)
+            } else {
+                aim(
+                    view,
+                    legal,
+                    card,
+                    f,
+                    printed,
+                    &plain,
+                    u32::try_from(budget).unwrap_or(u32::MAX),
+                )
+            };
+            let zero_x = library_top && f.mana_cost.has_variable();
             // An instant or a sorcery whose X the mana makes no more than 0
             // waits for more (from generation 12): a Stream of Life, a
             // Volcanic Geyser or an Energy Bolt at X = 0 is a card spent on
             // nothing.
             if self.profile.plays(crate::AIProfile::EQUIPMENT_AND_X)
-                && printed.has_variable()
-                && cost.cmc() == printed.with_x(0).cmc()
+                && (zero_x || printed.has_variable() && cost.cmc() == printed.with_x(0).cmc())
                 && f.types.intersects(TypeSet::INSTANT.union(TypeSet::SORCERY))
             {
                 continue;
             }
-            let Some(cost) = self.exact_x_cost(view, id, card, &printed, cost) else {
-                continue;
+            let cost = if library_top {
+                cost
+            } else {
+                let Some(cost) = self.exact_x_cost(view, id, card, &printed, cost) else {
+                    continue;
+                };
+                cost
             };
-            if stillborn(f, &printed, &cost)
-                || self.unreachable_x_graveyard_target(view, id, card, &printed, &cost)
+            let zero = f.mana_cost.with_x(0);
+            let (rules_printed, rules_cost) = if library_top {
+                (&f.mana_cost, &zero)
+            } else {
+                (&printed, &cost)
+            };
+            if stillborn(f, rules_printed, rules_cost)
+                || self.unreachable_x_graveyard_target(view, id, card, rules_printed, rules_cost)
             {
                 continue;
             }

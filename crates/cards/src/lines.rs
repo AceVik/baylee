@@ -870,6 +870,7 @@ mod tests {
                 "The Everflowing Well",
                 "Thousand Moons Smithy",
                 "Twists and Turns",
+                "Grist, Voracious Larva",
                 "Tamiyo, Inquisitive Student",
                 "Walk-In Closet",
                 "Balamb Garden, SeeD Academy",

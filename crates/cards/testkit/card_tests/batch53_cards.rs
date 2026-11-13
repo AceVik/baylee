@@ -43,6 +43,48 @@ fn mana(e: &mut Engine<RegistryLookup>) {
     e.refresh_offer();
 }
 
+/// Plays a real blocked combat: nonlethal printed damage is lethal with deathtouch.
+#[track_caller]
+fn assert_deathtouch_kills_larger_blocker(card: CardIndex) {
+    let mut e = prepared(&[], &[card], &[index::ROOTBREAKER_WURM]);
+    let attacker = on_battlefield(&e, P0, card).unwrap();
+    let blocker = on_battlefield(&e, P1, index::ROOTBREAKER_WURM).unwrap();
+    assert!(pt(&e, attacker).0 < pt(&e, blocker).1);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { player: P0, .. })
+    });
+    e.apply(
+        P0,
+        PlayerAction::DeclareAttackers {
+            attackers: vec![(attacker, Defender::Player(P1))],
+        },
+    )
+    .unwrap();
+    for _ in 0..40 {
+        match e.pending().clone() {
+            Pending::ChooseBlockers { .. } => break,
+            Pending::YesNo { player, .. } => {
+                e.apply(player, PlayerAction::YesNo(false)).unwrap();
+            }
+            Pending::Priority { player, .. } => {
+                e.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected before blockers: {other:?}"),
+        }
+    }
+    assert!(matches!(e.pending(), Pending::ChooseBlockers { .. }));
+    e.apply(
+        P1,
+        PlayerAction::DeclareBlockers {
+            blockers: vec![(blocker, attacker)],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, |e| e.state().turn.phase == Phase::SecondMain);
+    assert!(in_graveyard(&e, P1, index::ROOTBREAKER_WURM).is_some());
+    assert!(in_graveyard(&e, P0, card).is_some());
+}
+
 fn priority(e: &mut Engine<RegistryLookup>, p: PlayerId) {
     pass_until(
         e,

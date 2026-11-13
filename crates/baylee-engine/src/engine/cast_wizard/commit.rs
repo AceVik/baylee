@@ -18,6 +18,40 @@ impl<L: CardLookup> Engine<L> {
         // Total mana: option cost (with X) + kicker mana when taken.
         let mut total = wizard_total_cost(face, wizard);
         let player = wizard.player;
+        // Validate every fixed life payment before touching the mana pool. A
+        // cancelled cast that has looked at or moved its library cannot always
+        // be rewound by the generic priority checkpoint alone.
+        let library_top_life = if let Some(CastModeKind::LibraryTopLife {
+            life,
+            face: route_face,
+            ..
+        }) = wizard.announced
+        {
+            let def = self
+                .state
+                .object(wizard.card)
+                .and_then(|object| object.card)
+                .and_then(|card| self.lookup.card(card.index))
+                .ok_or(EngineError::IllegalAction("unknown library top card"))?;
+            let Some(route) = def.faces.get(route_face) else {
+                return Err(EngineError::IllegalAction("unknown library top face"));
+            };
+            let total_life = i32::try_from(life)
+                .unwrap_or(i32::MAX)
+                .saturating_add(casting::library_top_fixed_additional_life(route));
+            if route_face != wizard.face_index()
+                || life != casting::library_top_life_value(def, route_face)
+                || !casting::library_top_life_open(&self.state, player, wizard.card)
+                || !self.state.can_pay_life(player, total_life)
+            {
+                return Err(EngineError::IllegalAction(
+                    "the library top life cost is no longer payable",
+                ));
+            }
+            Some(life)
+        } else {
+            None
+        };
         let prepared_source = self.state.prepared_copy_source(wizard.card);
         // Delve (CR 702.66) and convoke (CR 702.51) each pay for {1} of the
         // generic part, so the count comes off the cost before anything is
@@ -81,6 +115,10 @@ impl<L: CardLookup> Engine<L> {
         let owed_life = phyrexian_life(wizard);
         if owed_life > 0 {
             self.state.change_life(player, -owed_life, Cause::Cost);
+        }
+        if let Some(life) = library_top_life {
+            let life = i32::try_from(life).unwrap_or(i32::MAX);
+            self.state.change_life(player, -life, Cause::Cost);
         }
         for &card in &wizard.delve_exiles {
             let _ = self.state.move_object(
@@ -427,7 +465,8 @@ impl<L: CardLookup> Engine<L> {
             obj.x_value = wizard.x;
             obj.times_kicked = wizard.times_kicked();
             obj.replicated = wizard.replicated;
-            obj.alt_cast = matches!(wizard.option, Some(CastModeKind::Alternative(_)));
+            obj.alt_cast = matches!(wizard.option, Some(CastModeKind::Alternative(_)))
+                || matches!(wizard.announced, Some(CastModeKind::LibraryTopLife { .. }));
             obj.chosen_player = wizard.chosen_player;
             // Where it was cast from, read before it moves: a card cast from
             // exile under a play permission (Expressive Iteration) or from
@@ -606,6 +645,16 @@ impl<L: CardLookup> Engine<L> {
             .get_mut(player.get() as usize)
         {
             *flag = false;
+        }
+        // A next-spell reduction is spent by the successful cast, even when
+        // its generic component was already zero. Cancelling never reaches here.
+        if let Some(reduction) = self
+            .state
+            .per_turn
+            .next_spell_cost_reduction
+            .get_mut(usize::from(player.get()))
+        {
+            *reduction = 0;
         }
         // "If you do, you can't cast additional spells this turn": the
         // spell is cast, so the lock is on.

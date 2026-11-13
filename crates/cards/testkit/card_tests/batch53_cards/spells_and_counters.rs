@@ -186,3 +186,28 @@ fn legolas_s_quick_reflexes_untaps_grants_reach_hexproof_and_tap_damage_trigger(
     // Hill Giant has power 3, so Grizzly Bears (2/2) takes 3 damage and dies!
     assert!(on_battlefield(&e, P1, index::GRIZZLY_BEARS).is_none());
 }
+
+#[test]
+fn legolas_s_quick_reflexes_prevents_a_response_with_split_second() {
+    let mut e = Duel::new(SEED, index::FOREST)
+        .hand(0, &[index::LEGOLAS_S_QUICK_REFLEXES])
+        .battlefield(0, &[index::GRIZZLY_BEARS])
+        .hand(1, &[index::LIGHTNING_BOLT])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, P0);
+    mana(&mut e);
+    let bears = on_battlefield(&e, P0, index::GRIZZLY_BEARS).unwrap();
+    cast(&mut e, P0, index::LEGOLAS_S_QUICK_REFLEXES);
+    targets(&mut e, vec![bears], vec![]);
+
+    e.apply(P0, PlayerAction::PassPriority).unwrap();
+    assert!(matches!(e.pending(), Pending::Priority { player: P1, .. }));
+    let bolt = in_hand(&e, P1, index::LIGHTNING_BOLT).unwrap();
+    assert!(
+        e.apply(P1, PlayerAction::CastSpell { card: bolt }).is_err(),
+        "no spell may be cast while the split-second spell is on the stack"
+    );
+    assert!(in_hand(&e, P1, index::LIGHTNING_BOLT).is_some());
+    pass_until(&mut e, stack_is_empty);
+}

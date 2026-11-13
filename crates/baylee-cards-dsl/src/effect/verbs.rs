@@ -670,6 +670,11 @@ impl Effect {
                 cost: _,
                 effects,
             }
+            | Effect::PlayerMayPayLifeThen {
+                player: _,
+                life: _,
+                effects,
+            }
             // What the delayed trigger will do.
             | Effect::ScheduleLinkedCounterCleanup { kind: _, effects }
             | Effect::AtNextUpkeep { effects }
@@ -833,6 +838,7 @@ impl Effect {
             | Effect::MayCastTargetAnyMana
             | Effect::MayPutFromHandOntoBattlefieldAttachIfEquipment { .. }
             | Effect::RemoveAllCountersTarget
+            | Effect::RemoveUpToCountersTarget { .. }
             | Effect::Rad { .. }
             | Effect::MillMayTakeOne { .. }
             | Effect::RevealAndSeparate { .. }
@@ -1068,6 +1074,7 @@ impl Effect {
             | Effect::ChangeAttachedCounters { .. }
         | Effect::ModifyAttached { .. }
         | Effect::AddCounterFilter { .. }
+            | Effect::AddCounterCreatedTokens { .. }
             | Effect::DoubleCountersFilter { .. }
             | Effect::ReturnToHand { .. }
             | Effect::ReturnAllToHand { .. }
@@ -1082,7 +1089,8 @@ impl Effect {
             | Effect::TargetedGraveyardToTop
             | Effect::GraveyardToHand { .. }
             | Effect::GraveyardToBattlefield { .. }
-        | Effect::Assimilate { .. }
+            | Effect::GraveyardToBattlefieldModified { .. }
+            | Effect::Assimilate { .. }
             | Effect::CreateTokenThenCounters { .. }
             | Effect::Fabricate { .. }
             | Effect::CreateTokenThenAttachSelf { .. }
@@ -1100,6 +1108,7 @@ impl Effect {
         | Effect::CreateTokenModified { .. }
             | Effect::CreateTokenAttacking { .. }
             | Effect::NextSpellThisTurnHasImprovise
+            | Effect::NextSpellThisTurnCostsLess(_)
             | Effect::NextDrawLooksAtTop { .. }
             | Effect::UntapChosenPayingEach { .. }
             | Effect::ExileSourceAndSacrificed
@@ -1110,6 +1119,7 @@ impl Effect {
             | Effect::Populate
             | Effect::CreateTokenCopyOfEquipped { .. }
             | Effect::CreateTokenCopyOfTarget { .. }
+            | Effect::CreateTokenCopiesOfGraveyard { .. }
             | Effect::CreateTokenCopyOfSource { .. }
             | Effect::CreateTokenCopyOfFirstToken
             | Effect::CopyTargetSpell { .. }
@@ -1145,6 +1155,8 @@ impl Effect {
             | Effect::MayRemoveCountersSelfCreateTokens { .. }
             | Effect::MayExileTokensCreatedWithThisForCounters { .. }
             | Effect::ExileSourceWithCounters { .. }
+            | Effect::ExileEventFromGraveyardWithCounters { .. }
+            | Effect::RemoveCountersFromChosenExile { .. }
             | Effect::MoveSourceToOwnerGraveyard
             | Effect::EachPlayerGraveyardToBattlefield { .. }
             | Effect::EachPlayerMayPutFromHandOntoBattlefieldRepeatUntilNone { .. }
@@ -1185,6 +1197,7 @@ impl Effect {
             | Effect::RevealTopPlayerMayPutOntoBattlefield { .. }
             | Effect::RevealUntilLandDealDamage { .. }
             | Effect::SacrificeSelf
+            | Effect::SacrificeGrantor
             | Effect::Hideaway(_)
             | Effect::LookAtTopExileFaceDown { .. }
             | Effect::ExileTopFaceDownLinked

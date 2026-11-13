@@ -60,7 +60,8 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::TargetsCopyEventSpellUntilEndOfTurn
         | Effect::IfEventObjectMatches { .. }
         | Effect::IfEventPowerAtLeast { .. }
-        | Effect::MoveCounterToEvent { .. } => true,
+        | Effect::MoveCounterToEvent { .. }
+        | Effect::ExileEventFromGraveyardWithCounters { .. } => true,
         Effect::RedirectTargetSourceDamageThisTurn { source, to, .. } => {
             reads_target(*source)
                 || matches!(to, baylee_cards_dsl::DamageRedirectTo::Target(target) if reads_target(*target))
@@ -108,6 +109,7 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::AddCounter { amount, .. }
         | Effect::AddCountersUpTo { amount, .. }
         | Effect::AddCounterFilter { amount, .. }
+        | Effect::AddCounterCreatedTokens { amount, .. }
         | Effect::CreateTokenThenCounters { amount, .. }
         | Effect::CreateTokenN { amount, .. } => reads_amount(*amount),
         Effect::Poison { amount, who }
@@ -136,6 +138,7 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::GraveyardToHand { target, .. }
         | Effect::GraveyardToBattlefieldLinked { target }
         | Effect::GraveyardToBattlefield { target, .. }
+        | Effect::GraveyardToBattlefieldModified { target, .. }
         | Effect::Assimilate { target }
         | Effect::AttachSelf { target, .. }
         | Effect::ExileLinked { target, .. }
@@ -143,7 +146,9 @@ fn reads_event(effect: &Effect) -> bool {
         Effect::LookAtTopPick { count, .. } | Effect::SearchLibraryUpTo { count, .. } => {
             reads_amount(*count)
         }
-        Effect::ChooseExiledToPlay { owner, .. } => reads_player(*owner),
+        Effect::ChooseExiledToPlay { owner, .. }
+        | Effect::RemoveCountersFromChosenExile { owner, .. }
+        | Effect::CreateTokenCopiesOfGraveyard { player: owner, .. } => reads_player(*owner),
         Effect::LoseLife { amount, target, .. } | Effect::Mill { amount, target, .. } => {
             reads_amount(*amount) || reads_player(*target)
         }
@@ -192,7 +197,8 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::PlayerMayPayThenElse { player, mana, .. } => {
             reads_player(*player) || reads_amount(*mana)
         }
-        Effect::PlayerMayPayLifeOr { player, life, .. } => {
+        Effect::PlayerMayPayLifeOr { player, life, .. }
+        | Effect::PlayerMayPayLifeThen { player, life, .. } => {
             reads_player(*player) || reads_amount(*life)
         }
         Effect::ChangeController { new_controller, .. } => reads_player(*new_controller),

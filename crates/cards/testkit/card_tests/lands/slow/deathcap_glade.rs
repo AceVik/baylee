@@ -32,3 +32,8 @@ fn deathcap_glade_counts_other_lands_and_never_itself() {
         "the Forest and the first land are two other lands"
     );
 }
+
+#[test]
+fn deathcap_glade_taps_for_black_or_green() {
+    assert_two_color_mana(deathcap_glade(), [ManaColor::Black, ManaColor::Green]);
+}

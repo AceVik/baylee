@@ -1400,12 +1400,11 @@ fn wild_mana_pays_a_suspend_cost_the_offer_also_accepts() {
 /// `AbilityDef::Ward` is its own variant and reaches the same effect
 /// synthetically, so it is never an ability with `mana_ability: true`.
 ///
-/// Read off `{:?}` rather than a hand-written walk over `Effect`. An effect
-/// tree nests through a dozen variants, and a walker that does not know one
-/// of them reports "no offenders" for a card it never looked into — which is
-/// the shape this repository keeps finding in its own readers. A derived
-/// `Debug` cannot go blind on a variant nobody taught it, and a false match
-/// here is a finding rather than a silence.
+/// Walk the effect lists themselves, and inspect a granted ability separately
+/// from the ability that grants it. A whole-ability `Debug` scan cannot make
+/// that distinction: Vraska, the Silencer's triggered ability both charges
+/// {1} and grants a Treasure's ordinary mana ability, but only the trigger
+/// opens a payment window. The granted Treasure ability does not.
 ///
 /// The floor is what stops it passing over a pool with no taxes in it at
 /// all: a scan whose population is nought agrees with everything. Measured
@@ -1414,58 +1413,153 @@ fn wild_mana_pays_a_suspend_cost_the_offer_also_accepts() {
 /// Flusterstorm and the rest — and the floor is set well under that rather
 /// than at it, because a card leaving the pool is not a reason for this
 /// claim to go red.
+fn payment_ability_effects(
+    ability: &'static AbilityDef,
+) -> Vec<&'static [baylee_cards_dsl::Effect]> {
+    match ability {
+        AbilityDef::Spell { effects, .. }
+        | AbilityDef::Triggered { effects, .. }
+        | AbilityDef::Activated { effects, .. }
+        | AbilityDef::ActivatedConditional { effects, .. }
+        | AbilityDef::SagaChapter { effects, .. }
+        | AbilityDef::Loyalty { effects, .. } => vec![effects],
+        AbilityDef::ModalSpell { modes, .. }
+        | AbilityDef::ModalTriggered { modes, .. }
+        | AbilityDef::ModalActivated { modes, .. } => {
+            modes.iter().map(|mode| mode.effects).collect()
+        }
+        AbilityDef::Unimplemented
+        | AbilityDef::StartYourEngines
+        | AbilityDef::Ward { .. }
+        | AbilityDef::Toxic { .. }
+        | AbilityDef::Prepared { .. }
+        | AbilityDef::Echo { .. }
+        | AbilityDef::Static(_)
+        | AbilityDef::Replacement(_)
+        | AbilityDef::Suspend { .. }
+        | AbilityDef::CopyOnEnterUntilEot { .. }
+        | AbilityDef::CopyOnEnter { .. } => Vec::new(),
+    }
+}
+
+fn payment_in_effects(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
+    let mut found = false;
+    baylee_cards_dsl::Effect::walk(effects, &mut 0, &mut |effect| {
+        found |= matches!(
+            effect,
+            baylee_cards_dsl::Effect::PlayerMayPayOr { .. }
+                | baylee_cards_dsl::Effect::PlayerMayPayThen { .. }
+                | baylee_cards_dsl::Effect::PlayerMayPayManaOr { .. }
+                | baylee_cards_dsl::Effect::PlayerMayPayManaThen { .. }
+        );
+    });
+    found
+}
+
+fn payment_in_ability(ability: &'static AbilityDef) -> bool {
+    payment_ability_effects(ability)
+        .into_iter()
+        .any(payment_in_effects)
+}
+
+fn scan_effects_for_granted_mana(
+    who: &str,
+    effects: &'static [baylee_cards_dsl::Effect],
+    grants: &mut Vec<String>,
+    offenders: &mut Vec<String>,
+) {
+    baylee_cards_dsl::Effect::walk(effects, &mut 0, &mut |effect| {
+        if let baylee_cards_dsl::Effect::CreateContinuousEffect { modifier, .. } = effect {
+            scan_granted_mana_modifier(who, modifier, grants, offenders);
+        }
+    });
+}
+
+fn scan_granted_mana_ability(
+    who: &str,
+    ability: &'static AbilityDef,
+    grants: &mut Vec<String>,
+    offenders: &mut Vec<String>,
+) {
+    if matches!(
+        ability,
+        AbilityDef::Activated {
+            mana_ability: true,
+            ..
+        } | AbilityDef::ActivatedConditional {
+            mana_ability: true,
+            ..
+        } | AbilityDef::ModalActivated {
+            mana_ability: true,
+            ..
+        }
+    ) && payment_in_ability(ability)
+    {
+        offenders.push(who.to_string());
+    }
+    for effects in payment_ability_effects(ability) {
+        scan_effects_for_granted_mana(who, effects, grants, offenders);
+    }
+    match ability {
+        AbilityDef::Static(static_ability) => {
+            scan_granted_mana_modifier(who, &static_ability.modifier, grants, offenders);
+        }
+        AbilityDef::CopyOnEnterUntilEot { mods, .. } | AbilityDef::CopyOnEnter { mods, .. } => {
+            for modification in *mods {
+                match modification {
+                    baylee_cards_dsl::CopyMod::Grant(modifier) => {
+                        scan_granted_mana_modifier(who, modifier, grants, offenders);
+                    }
+                    baylee_cards_dsl::CopyMod::GrantAbility(granted) => {
+                        scan_granted_mana_ability(who, granted, grants, offenders);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn scan_granted_mana_modifier(
+    who: &str,
+    modifier: &'static baylee_cards_dsl::Modifier,
+    grants: &mut Vec<String>,
+    offenders: &mut Vec<String>,
+) {
+    match modifier {
+        baylee_cards_dsl::Modifier::GrantActivated {
+            effects,
+            mana_ability,
+            ..
+        } => {
+            grants.push(who.to_string());
+            if *mana_ability && payment_in_effects(effects) {
+                offenders.push(who.to_string());
+            }
+            scan_effects_for_granted_mana(who, effects, grants, offenders);
+        }
+        baylee_cards_dsl::Modifier::GrantActivatedDefinition(ability) => {
+            grants.push(who.to_string());
+            scan_granted_mana_ability(who, ability, grants, offenders);
+        }
+        baylee_cards_dsl::Modifier::GrantStatic { modifier, .. } => {
+            scan_granted_mana_modifier(who, modifier, grants, offenders);
+        }
+        _ => {}
+    }
+}
+
 #[test]
 fn no_mana_ability_in_the_pool_opens_a_payment_window() {
     let mut carried = Vec::new();
     let mut grants = Vec::new();
     let mut offenders = Vec::new();
-    let mut check = |who: &str, ability: &AbilityDef| {
-        let rendered = format!("{ability:?}");
-        // The second door, and it is the one a reader forgets. A mana
-        // ability need not be printed: `Modifier::GrantActivated` carries
-        // its own `mana_ability` flag, and a granted one is offered in
-        // `legal.mana_abilities`, which `narrow_to_mana` does **not** clear
-        // — so it is activatable inside a window exactly like a printed one.
-        // It hides in two shapes, an `AbilityDef::Static` and an
-        // `Effect::CreateContinuousEffect` inside an ordinary effect list,
-        // which is why this asks the rendering rather than a walk: a walk
-        // that knew one shape would report a clean pool having looked at
-        // half of it. ai-ec found that exact blind spot in the neighbouring
-        // scan in `ai_coverage_guards.rs`.
-        if rendered.contains("GrantActivated") {
-            grants.push(who.to_string());
+    let mut check = |who: &str, ability: &'static AbilityDef| {
+        if payment_in_ability(ability) {
+            carried.push(who.to_string());
         }
-        if ![
-            "PlayerMayPayOr",
-            "PlayerMayPayThen",
-            "PlayerMayPayManaOr",
-            "PlayerMayPayManaThen",
-        ]
-        .iter()
-        .any(|name| rendered.contains(name))
-        {
-            return;
-        }
-        carried.push(who.to_string());
-        let printed_mana_ability = matches!(
-            ability,
-            AbilityDef::Activated {
-                mana_ability: true,
-                ..
-            } | AbilityDef::ActivatedConditional {
-                mana_ability: true,
-                ..
-            }
-        );
-        // Deliberately conservative on the granted half: an ability that
-        // both grants something and mentions the tax is reported without
-        // asking which of its parts carries which, because this rendering
-        // cannot tell. Over-reporting is the safe direction for a claim
-        // that says a thing *cannot* happen, and the failure hands over the
-        // card to look at rather than a silence to trust.
-        if printed_mana_ability || rendered.contains("GrantActivated") {
-            offenders.push(who.to_string());
-        }
+        scan_granted_mana_ability(who, ability, &mut grants, &mut offenders);
     };
     for def in baylee_cards::all() {
         for face in 0..def.faces.len() {

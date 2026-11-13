@@ -294,6 +294,15 @@ pub enum AwaitingOp {
         /// Which token to create for each counter removed.
         token: &'static baylee_cards_dsl::TokenDef,
     },
+    /// A chosen exiled card is waiting for its counters to be removed.
+    RemoveCountersFromChosenExile {
+        /// Relation the chosen card's owner must satisfy.
+        owner: PlayerRel,
+        /// Which counter kind to remove.
+        kind: baylee_cards_dsl::CounterKind,
+        /// Exact number of counters to remove.
+        n: u16,
+    },
     /// Exile any number of tokens created by `source` and put that many `kind`
     /// counters on `source` (Tetravus).
     ExileTokensCreatedWithThisForCounters {
@@ -386,6 +395,30 @@ pub enum AwaitingOp {
     SacrificeChosen {
         /// Player sacrificing the opponent's selection.
         player: PlayerId,
+    },
+    /// A bounded counter removal distributes its maximum over the kinds present.
+    RemoveUpToCountersTarget {
+        /// Exact targeted permanent, not a later incarnation.
+        target: baylee_core::ids::DamageSourceRef,
+        /// Kind this numeric question concerns.
+        kind: baylee_cards_dsl::CounterKind,
+        /// Kinds not asked about yet.
+        remaining: Vec<baylee_cards_dsl::CounterKind>,
+        /// Overall printed maximum.
+        maximum: u16,
+        /// Counters already removed by this instruction.
+        removed: u16,
+    },
+    /// Whether a bounded removal continues with another kind of counter.
+    ContinueRemovingCounters {
+        /// Exact targeted permanent, not a later incarnation.
+        target: baylee_core::ids::DamageSourceRef,
+        /// Kinds not asked about yet.
+        remaining: Vec<baylee_cards_dsl::CounterKind>,
+        /// Overall printed maximum.
+        maximum: u16,
+        /// Counters already removed by this instruction.
+        removed: u16,
     },
     /// Choosing a number of counters while resolving a bounded placement.
     Counters {
@@ -682,8 +715,8 @@ pub enum AwaitingOp {
         player: PlayerId,
         /// Resolved life amount.
         amount: u32,
-        /// Effect of not paying.
-        effect: &'static Effect,
+        /// What follows payment or refusal.
+        outcome: LifePaymentOutcome,
     },
     /// Optional fixed-count sacrifice, before the yes/no or object answer.
     SacrificePayment {
@@ -1156,6 +1189,15 @@ pub enum AwaitingOp {
     },
 }
 
+/// Work to resume after an optional life payment.
+#[derive(Clone, Copy, Debug, Hash)]
+pub enum LifePaymentOutcome {
+    /// Run this effect only when payment is declined or impossible.
+    Or(&'static Effect),
+    /// Run these effects only after the life was actually paid.
+    Then(&'static [Effect]),
+}
+
 /// Work to resume after a resolution-time mana payment.
 #[derive(Clone, Debug, Hash)]
 pub enum ManaPaymentOutcome {
@@ -1319,6 +1361,24 @@ impl AwaitingOp {
             Self::LookedCardToExile { looked, cast_types } => {
                 crate::state::structural_fingerprint(&(84u8, looked, cast_types))
             }
+            Self::RemoveCountersFromChosenExile { owner, kind, n } => {
+                crate::state::structural_fingerprint(&(85u8, owner, kind, n))
+            }
+            Self::RemoveUpToCountersTarget {
+                target,
+                kind,
+                remaining,
+                maximum,
+                removed,
+            } => crate::state::structural_fingerprint(&(
+                86u8, target, kind, remaining, maximum, removed,
+            )),
+            Self::ContinueRemovingCounters {
+                target,
+                remaining,
+                maximum,
+                removed,
+            } => crate::state::structural_fingerprint(&(87u8, target, remaining, maximum, removed)),
             // The plain exile keeps the value a written record holds.
             Self::ExileFromHandWithSource { cast: false } => {
                 crate::state::structural_fingerprint(&81u8)

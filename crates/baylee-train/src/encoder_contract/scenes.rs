@@ -47,6 +47,44 @@ pub(crate) fn foretold_and_castable() -> (Table, ObjectId) {
     (table, card)
 }
 
+/// Gwenom's attack trigger has resolved: its controller may see and cast the
+/// top Dark Ritual for one life rather than for mana.
+pub(crate) fn gwenom_permission_resolved() -> (Table, ObjectId) {
+    let mut table = Table::new(
+        46,
+        "Dark Ritual",
+        [
+            Seat {
+                hand: &[],
+                battlefield: &["Gwenom, Remorseless"],
+            },
+            Seat {
+                hand: &[],
+                battlefield: &[],
+            },
+        ],
+    );
+    table.answer_until(|session| {
+        matches!(session.pending(), Pending::ChooseAttackers { player, .. } if *player == P0)
+    });
+    let gwenom = table.session.observe_view(P0).battlefield[0].id;
+    table
+        .session
+        .act(
+            P0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(gwenom, baylee_core::ids::Defender::Player(P1))],
+            },
+        )
+        .expect("Gwenom attacks");
+    table.answer_until(|session| {
+        !session.observe_view(P0).library_tops.is_empty()
+            && matches!(session.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    let card = table.session.observe_view(P0).library_tops[0].id;
+    (table, card)
+}
+
 /// Serra's Emissary entering: "choose a card type" is asked of its owner.
 pub(crate) fn card_type_asked() -> Table {
     let mut table = Table::new(

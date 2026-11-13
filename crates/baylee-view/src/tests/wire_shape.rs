@@ -389,7 +389,9 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // and omitted at `None`: a JSON reader of 90 reads every tape and record
     // as before, so 90 still names the shape. Frames are positional, so it is
     // protocol 45.
-    const RECORDED: (u32, u64) = (90, 3_202_790_225_129_117_285);
+    // 91: the library-top cast mode paid with life equal to mana value is an
+    // imported engine variant a reader of 90 cannot parse.
+    const RECORDED: (u32, u64) = (91, 16_786_315_376_172_572_296);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =
