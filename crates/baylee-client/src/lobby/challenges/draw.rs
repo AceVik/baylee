@@ -10,8 +10,10 @@ use baylee_client_core::challenges::{Confirmation, api};
 mod catalogue;
 mod detail;
 mod home;
+mod rewards;
 use catalogue::catalogue;
 pub(in crate::lobby) use home::home;
+use rewards::badges;
 
 pub(in crate::lobby) fn draw(
     commands: &mut Commands,
@@ -41,7 +43,7 @@ pub(in crate::lobby) fn draw(
                 },
                 ..default()
             },
-            Pickable::IGNORE,
+            Pickable::default(),
         ))
         .id();
     if metrics.frame != Frame::Compact {
@@ -182,103 +184,6 @@ fn date(seconds: i64) -> String {
     )
 }
 
-fn badges(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang, model: &State) {
-    let panel = panel(commands, root, kit);
-    heading(commands, panel, kit, Phrase::ChallengeBadges.text(lang));
-    let gallery = row(commands, panel, kit);
-    commands
-        .entity(gallery)
-        .entry::<Node>()
-        .and_modify(|mut n| n.align_items = AlignItems::Stretch);
-    for badge in &model.badges {
-        let cell = commands
-            .spawn((
-                Node {
-                    flex_grow: 1.0,
-                    flex_basis: kit.m.px(145.0),
-                    min_width: px_fixed(0.0),
-                    flex_direction: FlexDirection::Column,
-                    row_gap: kit.m.px(8.0),
-                    padding: UiRect::all(kit.m.px(10.0)),
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(gallery).add_child(cell);
-        let panel = cell;
-        let medal = commands
-            .spawn((
-                crate::insignia::Insignia {
-                    kind: badge.kind,
-                    tier: badge.tier,
-                },
-                Node {
-                    width: kit.m.px(112.0),
-                    height: kit.m.px(112.0),
-                    align_self: AlignSelf::Center,
-                    flex_shrink: 0.0,
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(cell).add_child(medal);
-        let name = match badge.kind {
-            api::BadgeKind::Daily => Phrase::ChallengeBadgeDaily,
-            api::BadgeKind::Weekly => Phrase::ChallengeBadgeWeekly,
-            api::BadgeKind::Tactician => Phrase::ChallengeBadgeTactician,
-            api::BadgeKind::FirstTry => Phrase::ChallengeBadgeFirst,
-            api::BadgeKind::Regular => Phrase::ChallengeBadgeRegular,
-        };
-        let tier = match badge.tier {
-            None => Phrase::ChallengeNotEarned,
-            Some(api::Tier::Bronze) => Phrase::ChallengeBronze,
-            Some(api::Tier::Silver) => Phrase::ChallengeSilver,
-            Some(api::Tier::Gold) => Phrase::ChallengeGold,
-            Some(api::Tier::Platinum) => Phrase::ChallengePlatinum,
-            Some(api::Tier::Obsidian) => Phrase::ChallengeObsidian,
-        };
-        label(commands, panel, kit, name.text(lang), tokens::INK);
-        label(commands, panel, kit, tier.text(lang), tokens::GOLD);
-        let progress = badge.next.map_or_else(
-            || Phrase::ChallengeBadgeMax.fill(lang, &[&badge.count.to_string()]),
-            |next| {
-                Phrase::ChallengeBadgeCompact
-                    .fill(lang, &[&badge.count.to_string(), &next.to_string()])
-            },
-        );
-        label(commands, panel, kit, &progress, tokens::MUTED);
-        let track = commands
-            .spawn((
-                Node {
-                    width: percent(100),
-                    height: px(5),
-                    ..default()
-                },
-                BackgroundColor(tokens::CONTROL),
-                Pickable::IGNORE,
-            ))
-            .id();
-        let share = badge.next.map_or(1.0, |next| {
-            (f64::from(badge.count) / f64::from(next)).min(1.0)
-        });
-        let fill = commands
-            .spawn((
-                Node {
-                    width: percent((100.0 * share) as f32),
-                    height: percent(100),
-                    ..default()
-                },
-                BackgroundColor(tokens::ACCENT),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(track).add_child(fill);
-        commands.entity(panel).add_child(track);
-    }
-}
-
 fn panel(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
     let panel = commands
         .spawn((
@@ -373,7 +278,8 @@ fn button(
     commands.entity(button).insert((
         super::keys::stop(action, model),
         crate::shellkit::focus::Current(
-            matches!(action, Action::Board(board) if board == model.board),
+            matches!(action, Action::Board(board) if board == model.board)
+                || matches!(action, Action::Badge(kind) if model.selected_badge == Some(kind)),
         ),
     ));
     commands.entity(root).add_child(button);

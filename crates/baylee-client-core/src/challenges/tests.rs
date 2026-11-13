@@ -75,6 +75,29 @@ fn rules_are_local_and_reset_when_leaving_the_task() {
 }
 
 #[test]
+fn badge_preview_never_mints_progress_or_starts_a_network_job() {
+    let mut state = State {
+        badges: vec![api::BadgeKind::Daily.progress(1)],
+        ..State::default()
+    };
+    let before = state.badges.clone();
+    assert!(
+        state
+            .act(Action::Badge(api::BadgeKind::Daily), id(1))
+            .is_none()
+    );
+    assert_eq!(state.selected_badge, Some(api::BadgeKind::Daily));
+    assert_eq!(state.badges, before);
+    assert!(!state.busy);
+    assert!(
+        state
+            .act(Action::Badge(api::BadgeKind::Daily), id(2))
+            .is_none()
+    );
+    assert_eq!(state.selected_badge, None);
+}
+
+#[test]
 fn ambiguous_start_retries_keep_the_key_even_after_visiting_another_task() {
     let mut state = selected(1);
     let first = state.act(Action::Play, id(10)).unwrap();

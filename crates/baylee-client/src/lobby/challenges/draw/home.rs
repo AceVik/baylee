@@ -30,7 +30,8 @@ pub(in crate::lobby) fn home(
                 },
                 ..default()
             },
-            Pickable::IGNORE,
+            // Wheel input must also land in the gaps between controls.
+            Pickable::default(),
         ))
         .id();
     if metrics.frame != Frame::Compact {

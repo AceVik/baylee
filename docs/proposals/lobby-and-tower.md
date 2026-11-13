@@ -41,6 +41,15 @@ areas; retain evidence and review the final implementation in the existing PRs.
    earned bronze motifs render through the native Metal pipeline. The test
    client was closed and its owned PID and harness port verified gone.
 4. Robustness: responsive layout, localisation, keyboard and state transitions.
+   Added earned/locked tier previews and exact requirements without inventing
+   account progress. Real rendering at 1440×900 and 1280×720 with XL German
+   text exposed wheel input falling through blank areas; scroll bodies now
+   participate in picking. All 31 central-door transition tests pass, as do
+   the seven challenge UI and seven core state tests before the wheel fix.
+   Explicit gateway selection and failed admission restore their own panel.
+   The wheel regression now passes on both pages and retains its position
+   through expansion: eight UI and seven core tests pass. The native client
+   was closed and its harness port verified closed after this run.
 5. Finish: rendered refinement, motion/counter-test, performance and final QA.
 
 Each entry is completed only after an actual change and focused verification;

@@ -10133,6 +10133,16 @@ ChallengeTogether = Looking for a match with other players?
 ChallengeMultiplayer = Multiplayer
 ChallengeConnection = Connection
 ChallengeRulesToggle = Scoring & rewards
+ChallengeEarnDaily = Win different daily challenges. Archive victories count, too.
+ChallengeEarnWeekly = Complete different weekly challenges. Every victory stays with you.
+ChallengeEarnTactician = Win different challenges within their target turn.
+ChallengeEarnFirst = Win a current challenge on your first attempt, without hints or a previous failure.
+ChallengeEarnRegular = Earn one active week with a weekly victory or three different daily victories. Weeks need not be consecutive.
+ChallengeTierPreview = Tier preview · these rewards stay yours permanently. Take breaks without losing progress.
+# Arguments: count
+ChallengeTierEarned = Earned · { $count }
+# Arguments: count
+ChallengeTierGoal = Goal · { $count }
 
 # Arguments: count, next
 ChallengeBadgeCompact = { $count } / { $next } to next tier

@@ -73,6 +73,10 @@ fn lobby_home_exposes_tasks_and_multiplayer_without_gateway_diagnostics() {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
         let task = state.challenges.model.detail.clone().unwrap();
         state.challenges.model.catalogue = vec![task];
+        state.challenges.model.badges = api::BadgeKind::ALL
+            .into_iter()
+            .map(|kind| kind.progress(1))
+            .collect();
     }
     press(
         &mut app,
@@ -88,6 +92,21 @@ fn lobby_home_exposes_tasks_and_multiplayer_without_gateway_diagnostics() {
     );
     assert!(labels(&mut app).contains(&Phrase::ChallengeHome.text(Lang::De).to_string()));
     assert!(!app.world().resource::<LobbyState>().showing_gateway_hub());
+    press(
+        &mut app,
+        Press::Challenges(Action::Badge(api::BadgeKind::Daily)),
+    );
+    settle(&mut app);
+    assert!(labels(&mut app).contains(&Phrase::ChallengeObsidian.text(Lang::De).to_string()));
+    assert_eq!(
+        app.world().resource::<LobbyState>().challenges.model.badges[0].count,
+        1
+    );
+    press(
+        &mut app,
+        Press::Challenges(Action::Badge(api::BadgeKind::Daily)),
+    );
+    settle(&mut app);
     press(&mut app, Press::Hub(HubPress::Tab(Hub::Tables)));
     settle(&mut app);
     assert!(app.world().resource::<LobbyState>().showing_gateway_hub());
@@ -127,6 +146,80 @@ fn challenges_work_before_selecting_a_gate_and_default_to_private_scores() {
             app.world().resource::<UiRebuilds>().total,
             before,
             "idle challenge frames must retain their nodes"
+        );
+    }
+}
+
+#[test]
+fn challenge_pages_scroll_over_empty_space_and_keep_the_offset_on_refresh() {
+    let (mut app, _jobs) = screen(Lang::De);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .challenges
+        .model
+        .badges = api::BadgeKind::ALL
+        .into_iter()
+        .map(|kind| kind.progress(0))
+        .collect();
+    for tab in [
+        crate::lobby::header::NavTab::Challenges,
+        crate::lobby::header::NavTab::Play,
+    ] {
+        press(&mut app, crate::lobby::header::nav_press(tab));
+        settle(&mut app);
+        let body = app
+            .world_mut()
+            .query::<(Entity, &Scrollable)>()
+            .iter(app.world())
+            .find(|(_, list)| list.0 == List::Table)
+            .unwrap()
+            .0;
+        assert!(
+            app.world()
+                .get::<Pickable>(body)
+                .is_none_or(|p| p.is_hoverable),
+            "empty space must receive pointer scrolling"
+        );
+        app.world_mut().entity_mut(body).insert((
+            ScrollPosition(Vec2::ZERO),
+            ComputedNode {
+                size: Vec2::new(1200.0, 400.0),
+                content_size: Vec2::new(1200.0, 1600.0),
+                ..default()
+            },
+        ));
+        app.world_mut()
+            .resource_mut::<Messages<PointerScroll>>()
+            .write(aimed(
+                body,
+                crate::test_pointer::Scroll {
+                    unit: MouseScrollUnit::Pixel,
+                    x: 0.0,
+                    y: -120.0,
+                    hit: bevy::picking::backend::HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
+                    phase: bevy::input::touch::TouchPhase::Moved,
+                },
+            ));
+        app.update();
+        assert!((app.world().get::<ScrollPosition>(body).unwrap().y - 120.0).abs() < 0.01);
+        let action = if tab == crate::lobby::header::NavTab::Play {
+            Action::Badge(api::BadgeKind::Daily)
+        } else {
+            Action::Rules
+        };
+        press(&mut app, Press::Challenges(action));
+        settle(&mut app);
+        let offset = app
+            .world_mut()
+            .query::<(&Scrollable, &ScrollPosition)>()
+            .iter(app.world())
+            .find(|(list, _)| list.0 == List::Table)
+            .unwrap()
+            .1
+            .y;
+        assert!(
+            (offset - 120.0).abs() < 0.01,
+            "reward expansion reset the scroll"
         );
     }
 }

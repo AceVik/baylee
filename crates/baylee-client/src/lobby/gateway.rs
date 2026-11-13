@@ -69,6 +69,9 @@ impl LobbyState {
         self.art_cache = false;
         self.gateway = url;
         self.gateway_selected = true;
+        if self.central_ready() {
+            self.hub = Hub::Gateways;
+        }
         self.left_central = LeftCentral::No;
         self.gateway_cursor = None;
         self.front_menu = false;

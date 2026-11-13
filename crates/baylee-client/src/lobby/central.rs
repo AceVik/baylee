@@ -1144,6 +1144,7 @@ pub(super) fn migration_failed(state: &mut LobbyState, prefs: &mut crate::prefs:
 /// No gateway entered, signed in at Central: the account's list stands, with
 /// the caret in it.
 pub(super) fn back_to_list(state: &mut LobbyState) {
+    state.hub = super::Hub::Gateways;
     state.gateway_selected = false;
     state.lobby.set_gateway_ready(false);
 }

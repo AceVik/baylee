@@ -3628,6 +3628,16 @@ ChallengeTogether = Lust auf eine Partie mit anderen Spielern?
 ChallengeMultiplayer = Mehrspieler
 ChallengeConnection = Verbindung
 ChallengeRulesToggle = Wertung & Belohnungen
+ChallengeEarnDaily = Gewinne unterschiedliche Tagesaufgaben. Auch Siege im Archiv zählen.
+ChallengeEarnWeekly = Schließe unterschiedliche Wochenaufgaben ab. Jeder Sieg bleibt dir erhalten.
+ChallengeEarnTactician = Gewinne unterschiedliche Aufgaben innerhalb ihres Zugziels.
+ChallengeEarnFirst = Gewinne eine aktuelle Aufgabe beim ersten Versuch, ohne Hinweise oder vorherigen Fehlversuch.
+ChallengeEarnRegular = Sammle eine aktive Woche mit einem Wochensieg oder drei unterschiedlichen Tagessiegen. Die Wochen müssen nicht aufeinanderfolgen.
+ChallengeTierPreview = Stufenvorschau · diese Belohnungen bleiben dauerhaft dein. Pausen kosten keinen Fortschritt.
+# Arguments: count
+ChallengeTierEarned = Erreicht · { $count }
+# Arguments: count
+ChallengeTierGoal = Ziel · { $count }
 
 # Arguments: count, next
 ChallengeBadgeCompact = { $count } / { $next } zur nächsten Stufe

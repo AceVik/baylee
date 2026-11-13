@@ -33,6 +33,8 @@ pub enum Action {
     Deck,
     /// Expand scoring, badge and interruption rules locally.
     Rules,
+    /// Preview a badge's earning rules and all five cosmetic tiers.
+    Badge(api::BadgeKind),
 }
 
 /// The consequence the player is asked to accept.
@@ -104,6 +106,8 @@ pub struct State {
     pub show_deck: bool,
     /// Long explanations are optional; consent stays next to its control.
     pub show_rules: bool,
+    /// Locally expanded collection item; never claims an earned reward.
+    pub selected_badge: Option<api::BadgeKind>,
     serial: u64,
     begin: std::collections::BTreeMap<[u8; 16], [u8; 16]>,
 }
@@ -131,6 +135,7 @@ impl Default for State {
             loaded: false,
             show_deck: false,
             show_rules: false,
+            selected_badge: None,
             serial: 0,
             begin: std::collections::BTreeMap::new(),
         }
@@ -176,6 +181,10 @@ impl State {
             }
             Action::Rules => {
                 self.show_rules = !self.show_rules;
+                return None;
+            }
+            Action::Badge(kind) => {
+                self.selected_badge = (self.selected_badge != Some(kind)).then_some(kind);
                 return None;
             }
             Action::Hint => {
@@ -262,6 +271,7 @@ impl State {
         self.listed = false;
         self.show_deck = false;
         self.show_rules = false;
+        self.selected_badge = None;
         self.standings.clear();
     }
 

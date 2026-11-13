@@ -29,6 +29,16 @@ pub(super) fn stop(action: Action, model: &State) -> Stop {
         Action::Hint => ("hint", 0),
         Action::Deck => ("deck", 0),
         Action::Rules => ("rules", 0),
+        Action::Badge(kind) => (
+            "badges",
+            match kind {
+                baylee_client_core::challenges::api::BadgeKind::Daily => 0,
+                baylee_client_core::challenges::api::BadgeKind::Weekly => 1,
+                baylee_client_core::challenges::api::BadgeKind::Tactician => 2,
+                baylee_client_core::challenges::api::BadgeKind::FirstTry => 3,
+                baylee_client_core::challenges::api::BadgeKind::Regular => 4,
+            },
+        ),
         Action::Visibility => ("visibility", 0),
         Action::Board(board) => (
             "boards",

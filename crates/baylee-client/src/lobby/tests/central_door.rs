@@ -482,6 +482,7 @@ fn central_gateway_selection_stays_on_gateway_panel_with_note_tone_and_lazy_grou
         ];
         urls.extend((0..16).map(|i| format!("https://extra-{i:02}.example")));
         super::super::central::restored_for_test(&mut state, urls);
+        state.hub = Hub::Gateways;
         state.central.as_mut().expect("Central on").handle = Some(handle);
         let v = baylee_view::VIEW_VERSION;
         state.probes.insert(
@@ -586,7 +587,8 @@ fn central_sign_in_wears_lobby_header_allows_decks_before_gateway_and_refreshes_
     assert!(found.contains(&Press::Header(HeaderPress::Nav(0))));
     assert!(found.contains(&Press::Header(HeaderPress::Nav(1))));
     assert!(found.contains(&Press::Header(HeaderPress::Account)));
-    assert!(found.contains(&Press::Front(FrontPress::SelectGateway(0))));
+    assert!(!found.contains(&Press::Front(FrontPress::SelectGateway(0))));
+    assert!(found.contains(&Press::Hub(HubPress::Tab(Hub::Tables))));
     // The account pill: the name, and the tag after it as a text of its own.
     let drawn = labels(&mut app);
     assert!(drawn.iter().any(|l| l == "AceVik"), "{drawn:?}");
@@ -601,8 +603,11 @@ fn central_sign_in_wears_lobby_header_allows_decks_before_gateway_and_refreshes_
         Screen::Table
     );
 
-    // Switching back to Play returns to the Gateway Selection view in the Lobby.
+    // Lobby returns home; choosing multiplayer explicitly opens the picker.
     press(&mut app, Press::Header(HeaderPress::Nav(0)));
+    app.update();
+    assert!(!app.world().resource::<LobbyState>().showing_gateway_hub());
+    press(&mut app, Press::Hub(HubPress::Tab(Hub::Tables)));
     app.update();
     assert!(app.world().resource::<LobbyState>().showing_gateway_hub());
     assert!(presses(&mut app).contains(&Press::Front(FrontPress::SelectGateway(0))));
@@ -859,6 +864,7 @@ fn at_the_picker(app: &mut App) -> std::sync::mpsc::Receiver<super::super::centr
         let mut state = app.world_mut().resource_mut::<LobbyState>();
         let urls = ["https://one.example", "https://two.example"].map(str::to_string);
         super::super::central::restored_for_test(&mut state, urls.to_vec());
+        state.hub = Hub::Gateways;
         state.central.as_mut().expect("Central on").handle = Some(handle);
         for url in urls {
             state.probes.insert(
@@ -899,6 +905,8 @@ fn the_gateway_picker_answers_the_keyboard_after_a_visit_to_decks() {
         *app.world().resource::<LobbyState>().lobby.screen(),
         Screen::Table
     );
+    press(&mut app, Press::Hub(HubPress::Tab(Hub::Gateways)));
+    app.update();
     assert!(app.world().resource::<LobbyState>().showing_gateway_hub());
 
     key(&mut app, typed('x'));
@@ -951,6 +959,8 @@ fn the_picker_and_the_decks_tab_each_keep_their_own_keys() {
         "d"
     );
     press(&mut app, Press::Header(HeaderPress::Nav(0)));
+    app.update();
+    press(&mut app, Press::Hub(HubPress::Tab(Hub::Gateways)));
     app.update();
     key(&mut app, typed('x'));
     let state = app.world().resource::<LobbyState>();
