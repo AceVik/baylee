@@ -42,22 +42,18 @@ use std::time::{Duration, Instant};
 /// the same program), that one; the newest of them.
 fn fake() -> PathBuf {
     let exe = std::env::current_exe().expect("the test's own path");
-    let examples = exe
-        .parent()
-        .and_then(Path::parent)
-        .expect("the target directory")
-        .join("examples");
+    let dirs = example_dirs(&exe);
     let suffix = std::env::consts::EXE_SUFFIX;
-    let built = std::fs::read_dir(&examples)
-        .into_iter()
-        .flatten()
-        .flatten()
+    let built = dirs
+        .iter()
+        .flat_map(|dir| std::fs::read_dir(dir).into_iter().flatten().flatten())
         .filter(|entry| {
             let name = entry.file_name().to_string_lossy().into_owned();
             let Some(stem) = name.strip_suffix(suffix) else {
                 return false;
             };
             stem == "fake-agent-cli"
+                || stem == "fake_agent_cli"
                 || stem.strip_prefix("fake_agent_cli-").is_some_and(|hash| {
                     !hash.is_empty() && hash.chars().all(|c| c.is_ascii_hexdigit())
                 })
@@ -66,12 +62,43 @@ fn fake() -> PathBuf {
         .max();
     let Some((_, fake)) = built else {
         panic!(
-            "no fake-agent-cli in {}: cargo test and nextest build it, a run filtered to one \
-             test target does not (cargo build -p baylee-seat --example fake-agent-cli)",
-            examples.display()
+            "no fake-agent-cli in {dirs:?}: cargo test and nextest build it, a run filtered to \
+             one test target does not (cargo build -p baylee-seat --example fake-agent-cli)"
         );
     };
     fake
+}
+
+/// Where Cargo leaves this package's examples, found from the test's own
+/// path. Up to Cargo 1.99 a test is `<profile>/deps/<test>` and its examples
+/// lie in `<profile>/examples/`. Since 1.100 every unit builds in a directory
+/// of its own, `<profile>/build/<package>/<hash>/out/`, and an example stays
+/// there unless `cargo build --example` copies it up to `<profile>/examples/`
+/// (nextest and `--all-targets` do not), so both are searched. The same rule
+/// finds `baylee-ops`' fixture (`tests/support/native_command.rs`).
+fn example_dirs(test: &Path) -> Vec<PathBuf> {
+    let Some(dir) = test.parent() else {
+        return Vec::new();
+    };
+    let profile = match dir.file_name().and_then(|name| name.to_str()) {
+        Some("deps") => dir.parent(),
+        // `out`, `<hash>`, `<package>`, `build`, then the profile.
+        Some("out") => dir.ancestors().nth(4),
+        _ => None,
+    };
+    let Some(profile) = profile else {
+        return Vec::new();
+    };
+    let units = profile.join("build").join(env!("CARGO_PKG_NAME"));
+    std::iter::once(profile.join("examples"))
+        .chain(
+            std::fs::read_dir(units)
+                .into_iter()
+                .flatten()
+                .flatten()
+                .map(|unit| unit.path().join("out")),
+        )
+        .collect()
 }
 
 /// A directory of the test's own, empty.
