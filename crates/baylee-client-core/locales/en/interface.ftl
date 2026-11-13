@@ -10126,6 +10126,13 @@ ChallengePlatinum = Platinum
 # Global challenge interface.
 ChallengeObsidian = Obsidian
 
+ChallengeHome = Your next challenge
+ChallengeHomeLead = One world. The same challenge for everyone. Find your own way to win.
+ChallengeExplore = Explore challenge
+ChallengeTogether = Looking for a match with other players?
+ChallengeMultiplayer = Multiplayer
+ChallengeConnection = Connection
+
 # Global challenge interface.
 ChallengeNotEarned = Not earned yet
 

@@ -248,7 +248,8 @@ pub(crate) struct LobbyField(pub(crate) Field);
 /// Whether the lobby's front door is the screen on show (and nothing
 /// stands over it that owns the keys).
 fn at_the_door(state: &LobbyState) -> bool {
-    (matches!(state.lobby.screen(), Screen::SignIn { .. }) || state.showing_gateway_hub())
+    ((matches!(state.lobby.screen(), Screen::SignIn { .. }) && !state.central_ready())
+        || state.showing_gateway_hub())
         && !state.settings.is_open()
         && state.confirmation.is_none()
 }

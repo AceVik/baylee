@@ -27,11 +27,15 @@ pub(super) fn stack_of(state: &LobbyState) -> ShellStack {
             return ShellStack::default();
         }
         _ if state.settings.is_open() => Context::Settings,
-        Screen::SignIn { .. } => Context::Front,
+        Screen::SignIn { .. } if !state.central_ready() || state.showing_gateway_hub() => {
+            Context::Front
+        }
+        Screen::SignIn { .. } => Context::Play,
         Screen::Build => Context::Builder,
         Screen::Table if state.lobby.awaiting().is_some() && !state.room_away => Context::Room,
         Screen::Table => match state.hub {
-            Hub::Play | Hub::Challenges => Context::Play,
+            Hub::Play | Hub::Tables | Hub::Challenges => Context::Play,
+            Hub::Gateways => Context::Front,
             Hub::Decks => Context::Decks,
             Hub::Replays => Context::Replays,
         },
@@ -192,7 +196,9 @@ pub(super) fn press_for(state: &LobbyState, action: ShellAction) -> Option<Press
             state.lobby.library().page,
             Some(client_core::lobby::library::Page::History(_))
         );
-    let play = hub && state.hub == Hub::Play && !sheet;
+    let play = hub
+        && (state.hub == Hub::Tables || (state.hub == Hub::Play && !state.central_ready()))
+        && !sheet;
     let decks = hub && state.hub == Hub::Decks && !sheet;
     let builder = matches!(state.lobby.screen(), Screen::Build)
         && !state.settings.is_open()

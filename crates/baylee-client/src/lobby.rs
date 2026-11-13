@@ -356,6 +356,10 @@ impl SettingsPane {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum Hub {
     Play,
+    /// Multiplayer discovery, reached from the account's home.
+    Tables,
+    /// Explicit connection selection, never the signed-in landing page.
+    Gateways,
     Decks,
     /// Watching games again (desktop only, `replays::SHOWN`).
     Replays,
@@ -769,12 +773,11 @@ impl LobbyState {
         self.central_ready() && !self.lobby.offline() && self.lobby.token().is_none()
     }
 
-    /// Signed in to Baylee Central without an active gateway session, on the
-    /// Play tab: the lobby header stands at the top and the Play body shows
-    /// the gateway picker until a gateway is chosen.
+    /// Explicit multiplayer connection selection before gateway admission.
+    /// The signed-in home remains available independently of this picker.
     pub(crate) fn showing_gateway_hub(&self) -> bool {
         self.central_without_gateway()
-            && self.hub == Hub::Play
+            && self.hub == Hub::Gateways
             && matches!(self.lobby.screen(), Screen::SignIn { .. } | Screen::Table)
     }
 

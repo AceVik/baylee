@@ -3621,6 +3621,13 @@ ChallengePlatinum = Platin
 # Global challenge interface.
 ChallengeObsidian = Obsidian
 
+ChallengeHome = Deine nächste Herausforderung
+ChallengeHomeLead = Eine Welt. Dieselbe Aufgabe für alle. Finde deinen eigenen Weg zum Sieg.
+ChallengeExplore = Aufgabe entdecken
+ChallengeTogether = Lust auf eine Partie mit anderen Spielern?
+ChallengeMultiplayer = Mehrspieler
+ChallengeConnection = Verbindung
+
 # Global challenge interface.
 ChallengeNotEarned = Noch nicht erreicht
 

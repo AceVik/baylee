@@ -67,6 +67,39 @@ fn screen(lang: Lang) -> (App, std::sync::mpsc::Receiver<central::Job>) {
 }
 
 #[test]
+fn lobby_home_exposes_tasks_and_multiplayer_without_gateway_diagnostics() {
+    let (mut app, _jobs) = screen(Lang::De);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        let task = state.challenges.model.detail.clone().unwrap();
+        state.challenges.model.catalogue = vec![task];
+    }
+    press(
+        &mut app,
+        crate::lobby::header::nav_press(crate::lobby::header::NavTab::Play),
+    );
+    settle(&mut app);
+    let found = presses(&mut app);
+    assert!(found.contains(&Press::Hub(HubPress::Tab(Hub::Tables))));
+    assert!(
+        found
+            .iter()
+            .any(|p| matches!(p, Press::Challenges(Action::Select(_))))
+    );
+    assert!(labels(&mut app).contains(&Phrase::ChallengeHome.text(Lang::De).to_string()));
+    assert!(!app.world().resource::<LobbyState>().showing_gateway_hub());
+    press(&mut app, Press::Hub(HubPress::Tab(Hub::Tables)));
+    settle(&mut app);
+    assert!(app.world().resource::<LobbyState>().showing_gateway_hub());
+    press(
+        &mut app,
+        crate::lobby::header::nav_press(crate::lobby::header::NavTab::Play),
+    );
+    settle(&mut app);
+    assert!(!app.world().resource::<LobbyState>().showing_gateway_hub());
+}
+
+#[test]
 fn challenges_work_before_selecting_a_gate_and_default_to_private_scores() {
     for lang in [Lang::En, Lang::De] {
         let (mut app, _jobs) = screen(lang);

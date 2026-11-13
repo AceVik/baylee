@@ -568,6 +568,19 @@ pub(super) fn ui(
     }
 
     match state.lobby.screen() {
+        Screen::SignIn { .. } if state.central_ready() && !state.showing_gateway_hub() => {
+            table(
+                &mut commands,
+                root,
+                &state,
+                &fonts,
+                metrics,
+                &scrolled_to,
+                kit,
+                prefs.all(),
+                retained_header.as_ref(),
+            );
+        }
         Screen::SignIn { .. } => {
             commands.entity(root).insert((
                 Scrollable(List::Table),

@@ -1157,7 +1157,7 @@ pub(super) fn back_from_a_session(state: &mut LobbyState) {
         central.admitting = false;
     }
     state.left_central = LeftCentral::No;
-    state.hub = super::Hub::Play;
+    state.hub = super::Hub::Gateways;
     back_to_list(state);
     state.lobby.set_registration(Registration::Off);
     state.lobby.set_guests_enabled(false);

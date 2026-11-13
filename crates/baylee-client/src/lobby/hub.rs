@@ -150,7 +150,12 @@ pub(super) fn table(
     // The two screens under the header (WP2, WP3): the header's nav is
     // the way between them.
     match state.hub {
-        Hub::Play => super::play::draw(commands, root, state, metrics, kit, scrolled_to),
+        Hub::Play if state.central_ready() => {
+            super::challenges::home(commands, root, state, metrics, kit, scrolled_to);
+        }
+        Hub::Play | Hub::Tables | Hub::Gateways => {
+            super::play::draw(commands, root, state, metrics, kit, scrolled_to);
+        }
         Hub::Decks => super::decks::draw(commands, root, state, prefs, metrics, kit, scrolled_to),
         Hub::Replays => super::replays::draw(commands, root, state, metrics, kit, scrolled_to),
         Hub::Challenges => {
@@ -207,10 +212,15 @@ impl HubPress {
         } = cx;
         match self {
             HubPress::Tab(hub) => {
+                let hub = if hub == Hub::Tables && state.central_without_gateway() {
+                    Hub::Gateways
+                } else {
+                    hub
+                };
                 if state.hub != hub {
                     state.hub = hub;
                     scrolled.set(List::Table, 0.0);
-                    if hub != Hub::Play {
+                    if hub != Hub::Gateways {
                         state.ensure_central_lobby(mailbox);
                     }
                     // The gateway picker is back, and the caret comes with

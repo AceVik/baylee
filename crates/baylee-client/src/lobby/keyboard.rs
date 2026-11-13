@@ -386,7 +386,7 @@ pub(super) fn keyboard(
     }
     // The table screen has two fields of its own — the search box and the
     // room password — and before this it had no way to type into either.
-    let table = matches!(state.lobby.screen(), Screen::Table);
+    let table = matches!(state.lobby.screen(), Screen::Table) || state.central_ready();
     if !matches!(state.lobby.screen(), Screen::SignIn { .. }) && !table {
         keys.clear();
         return;

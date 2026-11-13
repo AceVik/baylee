@@ -8,14 +8,8 @@ pub(super) fn catalogue(
     kit: Kit,
     lang: Lang,
     model: &State,
+    archive_visible: bool,
 ) {
-    label(
-        commands,
-        body,
-        kit,
-        Phrase::ChallengeIntro.text(lang),
-        tokens::INK,
-    );
     if !model.active.is_empty() {
         let panel = panel(commands, body, kit);
         heading(commands, panel, kit, Phrase::ChallengeActive.text(lang));
@@ -55,14 +49,30 @@ pub(super) fn catalogue(
             tokens::MUTED,
         );
     }
+    let pair = row(commands, body, kit);
+    commands
+        .entity(pair)
+        .entry::<Node>()
+        .and_modify(move |mut n| {
+            n.align_items = AlignItems::Stretch;
+            n.flex_direction = if kit.m.frame == crate::shellkit::Frame::Phone {
+                FlexDirection::Column
+            } else {
+                FlexDirection::Row
+            };
+            n.flex_wrap = FlexWrap::NoWrap;
+        });
     for task in model
         .catalogue
         .iter()
         .filter(|task| task.description.period.live_at(model.now))
     {
-        card(commands, body, kit, lang, model, task);
+        card(commands, pair, kit, lang, model, task, true);
     }
     badges(commands, body, kit, lang, model);
+    if !archive_visible {
+        return;
+    }
     let archive: Vec<_> = model
         .catalogue
         .iter()
@@ -72,7 +82,7 @@ pub(super) fn catalogue(
         heading(commands, body, kit, Phrase::ChallengeArchive.text(lang));
     }
     for task in archive {
-        card(commands, body, kit, lang, model, task);
+        card(commands, body, kit, lang, model, task, false);
     }
     if model.before.is_some() {
         button(
@@ -94,30 +104,70 @@ fn card(
     lang: Lang,
     model: &State,
     task: &api::Challenge,
+    featured: bool,
 ) {
     let panel = panel(commands, body, kit);
+    if featured {
+        commands
+            .entity(panel)
+            .entry::<Node>()
+            .and_modify(move |mut n| {
+                n.width = Val::Auto;
+                n.flex_grow = 1.0;
+                n.flex_basis = px_fixed(0.0);
+                n.min_width = px_fixed(0.0);
+                n.min_height = kit.m.px(220.0);
+                n.border = UiRect {
+                    top: px_fixed(2.0),
+                    ..UiRect::all(px_fixed(1.0))
+                };
+            });
+    }
     let kind = if task.description.period.kind == api::Kind::Daily {
         Phrase::ChallengeDaily
     } else {
         Phrase::ChallengeWeekly
     };
-    label(commands, panel, kit, kind.text(lang), tokens::ACCENT);
-    heading(commands, panel, kit, words(&task.description.title, lang));
-    status(commands, panel, kit, lang, model, task);
+    let accent = if task.description.period.kind == api::Kind::Daily {
+        tokens::GOLD
+    } else {
+        tokens::ACCENT
+    };
+    label(commands, panel, kit, kind.text(lang), accent);
+    let title = crate::lobby::parts::line(
+        commands,
+        kit,
+        words(&task.description.title, lang),
+        kit.m.text * 1.12,
+        tokens::INK,
+    );
+    commands.entity(panel).add_child(title);
     label(
         commands,
         panel,
         kit,
-        words(&task.description.instructions, lang),
-        tokens::INK,
+        &Phrase::ChallengeTarget.fill(
+            lang,
+            &[
+                &task.description.target_turn.to_string(),
+                &task.description.expected_minutes.to_string(),
+            ],
+        ),
+        tokens::MUTED,
     );
+    let space = crate::lobby::parts::grow(commands);
+    commands.entity(panel).add_child(space);
     button(
         commands,
         panel,
         kit,
-        Phrase::Continue.text(lang),
+        Phrase::ChallengeExplore.text(lang),
         Action::Select(task.id),
         model,
-        Weight::Secondary,
+        if featured {
+            Weight::Primary
+        } else {
+            Weight::Secondary
+        },
     );
 }

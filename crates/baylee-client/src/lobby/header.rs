@@ -182,13 +182,13 @@ fn active(state: &LobbyState) -> Option<usize> {
     }
     let tab = match state.lobby.screen() {
         Screen::Table => match state.hub {
-            Hub::Play => NavTab::Play,
+            Hub::Play | Hub::Tables | Hub::Gateways => NavTab::Play,
             Hub::Decks => NavTab::Decks,
             Hub::Replays => NavTab::Replays,
             Hub::Challenges => NavTab::Challenges,
         },
         Screen::SignIn { .. } if state.central_ready() => match state.hub {
-            Hub::Play => NavTab::Play,
+            Hub::Play | Hub::Tables | Hub::Gateways => NavTab::Play,
             Hub::Decks => NavTab::Decks,
             Hub::Replays => NavTab::Replays,
             Hub::Challenges => NavTab::Challenges,
@@ -209,7 +209,9 @@ pub(super) fn seated(state: &LobbyState) -> Option<Strip> {
 /// has its own (its breadcrumb), and the unauthenticated front door.
 pub(super) fn wears_header(state: &LobbyState) -> bool {
     let signed_in = state.lobby.token().is_some() || state.lobby.offline() || state.central_ready();
-    signed_in && (matches!(state.lobby.screen(), Screen::Table) || state.showing_gateway_hub())
+    signed_in
+        && (matches!(state.lobby.screen(), Screen::Table)
+            || (state.central_ready() && matches!(state.lobby.screen(), Screen::SignIn { .. })))
 }
 
 /// The account pill's handle: `GET /me`'s, the guest this session is, Central's
@@ -349,20 +351,8 @@ pub(crate) struct RetainedHeader(pub String);
 /// tab switches do not.
 pub(super) fn identity(state: &LobbyState, kit: Kit) -> String {
     let lobby = &state.lobby;
-    let gateway = if state.central_without_gateway() {
-        Phrase::PlayOffline.text(lobby.lang()).to_owned()
-    } else {
-        state
-            .gateway_name()
-            .unwrap_or_else(|| state.gateway.clone())
-    };
-    let counts = if state.central_without_gateway() {
-        String::new()
-    } else if lobby.offline() {
-        Phrase::ShellOfflinePill.text(lobby.lang()).to_owned()
-    } else {
-        strips::pill_words(lobby.stats(), lobby, lobby.lang())
-    };
+    let gateway = Phrase::ChallengeConnection.text(lobby.lang());
+    let counts = "";
     format!(
         "{}|{}|{}|{}|{}|{:?}|{}|{}|{}|{}|{:?}|{}|{}|{}|{}|{}",
         lobby.offline(),
@@ -406,20 +396,8 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
         } else {
             Reach::Up
         };
-        let gateway = if state.central_without_gateway() {
-            Phrase::PlayOffline.text(lang).to_string()
-        } else {
-            state
-                .gateway_name()
-                .unwrap_or_else(|| state.gateway.clone())
-        };
-        let counts = if state.central_without_gateway() {
-            String::new()
-        } else if state.lobby.offline() {
-            Phrase::ShellOfflinePill.text(lang).to_string()
-        } else {
-            strips::pill_words(state.lobby.stats(), &state.lobby, lang)
-        };
+        let gateway = Phrase::ChallengeConnection.text(lang);
+        let counts = "";
         let handle = handle(state);
         let mut bar_tools = Vec::new();
         if matches!(kit.m.frame, ShellFrame::Wide | ShellFrame::Vast) {
@@ -444,15 +422,15 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
             nav: &nav_labels,
             active: active(state),
             reach,
-            gateway: &gateway,
-            counts: &counts,
+            gateway,
+            counts,
             unread: state.bell.unread() + state.social_unread,
             handle: handle.as_deref(),
             return_pill: seated.then(|| Phrase::ShellReturn.text(lang)),
             tools: &bar_tools,
         };
         let gateway_press = if state.central_without_gateway() {
-            Press::Front(FrontPress::PlayOffline)
+            Press::Hub(HubPress::Tab(Hub::Gateways))
         } else {
             Press::Header(HeaderPress::Gateway)
         };
@@ -478,7 +456,10 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
                 .insert_children(2 + nav_labels.len(), &[fill_mark]);
         }
         let memorial_hint = Phrase::MemorialInvitation.text(lang).to_string();
-        let table = if state.hub == Hub::Challenges && !state.settings_open() {
+        let table = if matches!(state.hub, Hub::Play | Hub::Challenges)
+            && state.central_ready()
+            && !state.settings_open()
+        {
             super::orders::CHALLENGES.name
         } else {
             super::front::keys::table_of(state).name

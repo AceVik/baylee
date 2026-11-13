@@ -9,7 +9,9 @@ use baylee_client_core::challenges::{Confirmation, api};
 
 mod catalogue;
 mod detail;
+mod home;
 use catalogue::catalogue;
+pub(in crate::lobby) use home::home;
 
 pub(in crate::lobby) fn draw(
     commands: &mut Commands,
@@ -111,7 +113,7 @@ pub(in crate::lobby) fn draw(
             detail::draw(commands, body, kit, lang, model, task);
         }
     } else {
-        catalogue(commands, body, kit, lang, model);
+        catalogue(commands, body, kit, lang, model, true);
     }
 }
 
@@ -183,14 +185,28 @@ fn date(seconds: i64) -> String {
 fn badges(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang, model: &State) {
     let panel = panel(commands, root, kit);
     heading(commands, panel, kit, Phrase::ChallengeBadges.text(lang));
-    label(
-        commands,
-        panel,
-        kit,
-        Phrase::ChallengeBadgeRules.text(lang),
-        tokens::MUTED,
-    );
+    let gallery = row(commands, panel, kit);
+    commands
+        .entity(gallery)
+        .entry::<Node>()
+        .and_modify(|mut n| n.align_items = AlignItems::Stretch);
     for badge in &model.badges {
+        let cell = commands
+            .spawn((
+                Node {
+                    flex_grow: 1.0,
+                    flex_basis: kit.m.px(145.0),
+                    min_width: px_fixed(0.0),
+                    flex_direction: FlexDirection::Column,
+                    row_gap: kit.m.px(8.0),
+                    padding: UiRect::all(kit.m.px(10.0)),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(gallery).add_child(cell);
+        let panel = cell;
         let name = match badge.kind {
             api::BadgeKind::Daily => Phrase::ChallengeBadgeDaily,
             api::BadgeKind::Weekly => Phrase::ChallengeBadgeWeekly,

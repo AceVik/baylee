@@ -5,7 +5,7 @@ use baylee_client_core::challenges::{Action, State};
 
 mod draw;
 mod keys;
-pub(super) use draw::draw;
+pub(super) use draw::{draw, home};
 #[cfg(not(target_arch = "wasm32"))]
 mod native;
 #[cfg(not(target_arch = "wasm32"))]
@@ -50,6 +50,10 @@ pub(super) fn current(state: &LobbyState) -> bool {
 pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
     #[cfg(not(target_arch = "wasm32"))]
     {
+        if matches!(action, Action::Select(_)) {
+            cx.state.hub = Hub::Challenges;
+            cx.state.ensure_central_lobby(cx.mailbox);
+        }
         if action == Action::Play && cx.state.lobby.awaiting().is_some() {
             cx.state
                 .lobby
