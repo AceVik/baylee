@@ -8,6 +8,10 @@
 //! cards a year, 2,000 to 2,340. The rule reads no count, so a group never
 //! splits after the fact and a card never moves because others were added.
 //!
+//! A set code or slug that Windows reserves for a device gains an underscore
+//! (Conflux's `con` is `con_`, [`windows_safe`]): Git for Windows cannot
+//! check such a path out.
+//!
 //! Each group is a crate (`baylee-cards-<group>`): measured on 10.11.2026, one
 //! compiles in about 0.4 s plus 3.5 ms a card, against 54 s for all the cards
 //! in one crate, and a changed card rebuilds only its own group.
@@ -59,7 +63,53 @@ pub fn path_for(card: &str, set: &str, slug: &str) -> Result<String, CodegenErro
             card: card.to_owned(),
             set: set.to_owned(),
         })?;
-    Ok(format!("{group}/src/{set}/{slug}.rs"))
+    Ok(format!("{group}/src/{}/{slug}.rs", windows_safe(set)))
+}
+
+/// Whether `component`, one name in a path, is a device Windows reserves:
+/// `CON`, `PRN`, `AUX`, `NUL`, `CONIN$`, `CONOUT$`, `COM0`–`COM9` and
+/// `LPT0`–`LPT9` (with the superscripts `¹²³`), in any case, alone or before
+/// an extension (`con.rs` is the console as much as `con`). Windows cannot
+/// create such a file, and Git for Windows refuses to check one out
+/// ("invalid path"): Conflux's set code `con` made `2009/src/con/` one on
+/// 10.11.2026, and no Windows runner could clone the repository.
+#[must_use]
+pub fn is_windows_reserved(component: &str) -> bool {
+    let stem = component
+        .split(['.', ':'])
+        .next()
+        .unwrap_or(component)
+        .trim_end_matches(' ')
+        .to_ascii_uppercase();
+    if matches!(
+        stem.as_str(),
+        "CON" | "PRN" | "AUX" | "NUL" | "CONIN$" | "CONOUT$"
+    ) {
+        return true;
+    }
+    let numbered = stem
+        .strip_prefix("COM")
+        .or_else(|| stem.strip_prefix("LPT"));
+    numbered.is_some_and(|n| {
+        let mut chars = n.chars();
+        chars
+            .next()
+            .is_some_and(|c| c.is_ascii_digit() || matches!(c, '¹' | '²' | '³'))
+            && chars.next().is_none()
+    })
+}
+
+/// `name` as a folder or file stem every platform can hold: a name Windows
+/// reserves ([`is_windows_reserved`]) gains a trailing underscore, which no
+/// set code and no other slug ends in, so it cannot meet a real one. Conflux
+/// is `2009/src/con_/`. Every other name is itself.
+#[must_use]
+pub fn windows_safe(name: &str) -> String {
+    if is_windows_reserved(name) {
+        format!("{name}_")
+    } else {
+        name.to_owned()
+    }
 }
 
 /// The group a path from [`path_for`] lies in: its first component.
@@ -164,6 +214,82 @@ mod tests {
             path_for("Nobody", "no-such-set", "nobody"),
             Err(CodegenError::UnknownSet { .. })
         ));
+    }
+
+    /// Windows' device names, in any case and before any extension, and
+    /// nothing that merely begins like one.
+    #[test]
+    fn windows_reserved_names_are_known() {
+        for reserved in [
+            "con",
+            "CON",
+            "Con.rs",
+            "prn",
+            "aux.rs",
+            "nul",
+            "com1",
+            "COM9.txt",
+            "lpt3",
+            "lpt¹",
+            "conin$",
+            "CONOUT$",
+            "nul .rs",
+            "aux:stream",
+        ] {
+            assert!(is_windows_reserved(reserved), "{reserved}");
+        }
+        for fine in [
+            "conflux",
+            "con_",
+            "com",
+            "com10",
+            "lpt",
+            "auxiliary",
+            "null",
+            "c18",
+            "m10",
+            "",
+        ] {
+            assert!(!is_windows_reserved(fine), "{fine}");
+        }
+        assert_eq!(windows_safe("con"), "con_");
+        assert_eq!(windows_safe("zen"), "zen");
+    }
+
+    /// Conflux's set code is the console on Windows; its cards lie in
+    /// `con_` instead.
+    #[test]
+    fn a_reserved_set_code_gets_a_folder_windows_can_hold() {
+        assert_eq!(
+            path_for("Ancient Ziggurat", "con", "ancient_ziggurat").unwrap(),
+            "2009/src/con_/ancient_ziggurat.rs"
+        );
+    }
+
+    /// No folder or file under `crates/cards` is one Windows cannot hold:
+    /// one such name and Git for Windows cannot check the repository out at
+    /// all (every Windows job of CI from 10.11.2026, `2009/src/con/`).
+    #[test]
+    fn nothing_under_the_cards_is_a_name_windows_reserves() {
+        let cards = Path::new(env!("CARGO_MANIFEST_DIR")).join("../cards");
+        let mut stack = vec![cards];
+        let mut seen = 0_usize;
+        let mut reserved = Vec::new();
+        while let Some(dir) = stack.pop() {
+            for entry in std::fs::read_dir(&dir).unwrap() {
+                let entry = entry.unwrap();
+                let name = entry.file_name().to_string_lossy().into_owned();
+                if is_windows_reserved(&name) {
+                    reserved.push(entry.path());
+                }
+                if entry.file_type().unwrap().is_dir() {
+                    stack.push(entry.path());
+                }
+                seen += 1;
+            }
+        }
+        assert!(seen > 10_000, "only {seen} entries: not the cards' tree");
+        assert!(reserved.is_empty(), "names Windows reserves: {reserved:?}");
     }
 
     /// A group's own root is no card; any file below a set folder is.

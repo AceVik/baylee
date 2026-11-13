@@ -99,6 +99,11 @@ hand:
   after the fact, and a card never moves because others were added.
 - **`<slug>`** is the front face's name (`stubgen::slug`), whatever the
   layout.
+- A `<set>` or `<slug>` that Windows reserves for a device (`CON`, `PRN`,
+  `AUX`, `NUL`, `COM1`–`9`, `LPT1`–`9`, any case) gains a trailing `_`
+  (`layout::windows_safe`): Conflux's cards lie in `2009/src/con_/`. Git for
+  Windows refuses to check out a path with such a name, so one of them kept
+  every Windows runner from cloning the repository (10.–13.11.2026).
 
 A set with no release day in `SETS` stops codegen with `UnknownSet`. Run
 `cargo xtask sets` (it reads Scryfall's set list, cached under
