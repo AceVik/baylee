@@ -4,6 +4,8 @@
 //! library only as test setup; every permission, offer and payment below is
 //! then exercised through the ordinary engine action path.
 
+mod life_costs;
+
 use super::*;
 use crate::choice::{CastModeKind, YesNoPrompt};
 use baylee_cards_dsl::{
@@ -111,7 +113,7 @@ fn plain_spell(
 }
 
 fn definitions() -> Vec<&'static CardDef> {
-    vec![
+    let mut definitions = vec![
         card(
             GRANTOR,
             face("Library grantor", "{0}", TypeSet::ENCHANTMENT),
@@ -207,45 +209,9 @@ fn definitions() -> Vec<&'static CardDef> {
             KeywordSet::EMPTY,
             &[],
         ),
-        card(
-            LIFE_KICKER,
-            FaceDef {
-                mandatory_additional_costs: FIXED_LIFE_COST,
-                additional_costs: LIFE_KICKER_COST,
-                ..face("Life kicker", "{B}", TypeSet::SORCERY)
-            },
-            KeywordSet::EMPTY,
-            NOTHING,
-        ),
-        card(
-            LIFE_X_BUYBACK,
-            FaceDef {
-                mandatory_additional_costs: LIFE_X_COST,
-                buyback: Some(Cost {
-                    mana: ManaCost::ZERO,
-                    parts: FIXED_LIFE_COST,
-                }),
-                ..face("Life X and life buyback", "{B}", TypeSet::SORCERY)
-            },
-            KeywordSet::EMPTY,
-            NOTHING,
-        ),
-        Box::leak(Box::new(CardDef {
-            index: CardIndex::new(BACK_LIFE_KICKER),
-            oracle_id: "test",
-            scryfall_id: "test",
-            faces: Box::leak(Box::new([
-                land_face("Life kicker front"),
-                FaceDef {
-                    abilities: NOTHING,
-                    additional_costs: BACK_LIFE_KICKER_COST,
-                    ..face("Life kicker back", "{2}{U}", TypeSet::SORCERY)
-                },
-            ])),
-            abilities: NOTHING,
-            ..CardDef::DEFAULT
-        })),
-    ]
+    ];
+    definitions.extend(life_costs::definitions());
+    definitions
 }
 
 fn library_mdfc() -> &'static CardDef {
