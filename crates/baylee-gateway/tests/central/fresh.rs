@@ -20,6 +20,7 @@ use tokio::runtime::Runtime;
 
 /// The plaintext the website seals as object 1, byte for byte.
 const DOCUMENT: &[u8] = br#"{"version":1,"gateways":["https://baylee.acevik.de"],"preferences":{},"legacy":null,"chat":{"devices":[],"installations":[]}}"#;
+pub(super) const PASSWORD: &str = "a fresh player's long password";
 
 /// `service` is the one the test serves: the registration reaches it through
 /// its browser entry, the native sign-in over HTTP.
@@ -32,6 +33,43 @@ pub fn run(
     operator: &sea_orm::DatabaseConnection,
 ) {
     let origin = &format!("http://127.0.0.1:{}", gateway.port);
+    let demo = std::env::var("BAYLEE_CENTRAL_DEMO").as_deref() == Ok("1");
+    let document = if demo {
+        super::demo::document(origin)
+    } else {
+        DOCUMENT.to_vec()
+    };
+    let account = register(runtime, service, endpoint, "fresh_player", &document);
+    assert_eq!(
+        account.data().gateways,
+        vec![if demo {
+            origin.as_str()
+        } else {
+            central_api::LEGACY_ORIGIN
+        }]
+    );
+    assert!(account.data().legacy.is_none());
+
+    // The bridge gateway has no legacy account for it, and makes one.
+    let admission = account.admit(origin).unwrap();
+    let (status, body) = common::http(gateway.port, "GET", "/me", Some(&admission.token), "");
+    assert_eq!(status, 200, "{body}");
+    // Signing in again finds the same projection.
+    let again = account.admit(origin).unwrap();
+    let (_, second) = common::http(gateway.port, "GET", "/me", Some(&again.token), "");
+    let id = |body: &str| serde_json::from_str::<serde_json::Value>(body).unwrap()["id"].clone();
+    assert_eq!(id(&body), id(&second), "one projection per Central account");
+    super::challenges::run(runtime, endpoint, gateway, &account, bridge, operator);
+}
+
+/// Enrol a synthetic account through the real browser protocol, then sign in natively.
+pub(super) fn register(
+    runtime: &Runtime,
+    service: &Arc<IdentityService>,
+    endpoint: &Endpoint,
+    username: &str,
+    document: &[u8],
+) -> Account {
     let website = |request: &Request| {
         let request = serde_json::from_slice(&serde_json::to_vec(request).unwrap()).unwrap();
         runtime
@@ -39,9 +77,8 @@ pub fn run(
             .unwrap()
             .response
     };
-    let username = "fresh_player";
-    let password = "a fresh player's long password".to_string();
-    let register = super::registration::request(website, username, "Fresh_Player");
+    let password = PASSWORD.to_string();
+    let register = super::registration::request(website, username, username);
     let Response::Enrollment { identity, ticket } = website(&register) else {
         panic!("a valid proof registers a free name");
     };
@@ -59,7 +96,7 @@ pub fn run(
         .wrap(context, &master)
         .unwrap();
     let object = ObjectContext::new(context, identity.account, 1).unwrap();
-    let document = master.seal_object(object, DOCUMENT).unwrap();
+    let document = master.seal_object(object, document).unwrap();
     let Request::EnrollmentStart { ticket, .. } = start else {
         unreachable!()
     };
@@ -73,18 +110,5 @@ pub fn run(
     assert!(matches!(website(&finish), Response::Done));
 
     // The native client's sign-in restores the website's document.
-    let account = Account::login(endpoint.clone(), username.into(), password, Vec::new()).unwrap();
-    assert_eq!(account.data().gateways, vec![central_api::LEGACY_ORIGIN]);
-    assert!(account.data().legacy.is_none());
-
-    // The bridge gateway has no legacy account for it, and makes one.
-    let admission = account.admit(origin).unwrap();
-    let (status, body) = common::http(gateway.port, "GET", "/me", Some(&admission.token), "");
-    assert_eq!(status, 200, "{body}");
-    // Signing in again finds the same projection.
-    let again = account.admit(origin).unwrap();
-    let (_, second) = common::http(gateway.port, "GET", "/me", Some(&again.token), "");
-    let id = |body: &str| serde_json::from_str::<serde_json::Value>(body).unwrap()["id"].clone();
-    assert_eq!(id(&body), id(&second), "one projection per Central account");
-    super::challenges::run(runtime, endpoint, gateway, &account, bridge, operator);
+    Account::login(endpoint.clone(), username.into(), password, Vec::new()).unwrap()
 }

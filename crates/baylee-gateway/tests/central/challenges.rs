@@ -78,6 +78,9 @@ pub(super) fn run(
         0,
         "a repeated automatic pass publishes nothing twice"
     );
+    if std::env::var("BAYLEE_CENTRAL_DEMO").as_deref() == Ok("1") {
+        publish_archive(&http, &daily, now, credential);
+    }
     let api::Response::Catalogue { challenges, .. } = account
         .challenges(api::Request::Catalogue { before: None })
         .unwrap()
@@ -89,7 +92,10 @@ pub(super) fn run(
         for candidate in [&daily, &weekly] {
             let task = challenges
                 .iter()
-                .find(|task| task.description.period.kind == candidate.kind)
+                .find(|task| {
+                    task.description.period.kind == candidate.kind
+                        && task.description.period.live_at(now)
+                })
                 .unwrap();
             checks::exercise(
                 runtime, gateway, account, task, candidate, &mut agent, operator,
@@ -110,6 +116,25 @@ pub(super) fn run(
     if let Err(error) = done {
         std::panic::resume_unwind(error);
     }
+}
+
+fn publish_archive(
+    http: &CentralHttp,
+    daily: &baylee_train::challenges::Certified,
+    now: i64,
+    credential: &Token,
+) {
+    let yesterday = api::Period::containing(api::Kind::Daily, now - 86_400).unwrap();
+    let publication = daily.publication(yesterday).unwrap();
+    http.exchange(
+        &wire::Request::ChallengeHost {
+            request: api::HostRequest::Publish {
+                publication: Box::new(publication),
+            },
+        },
+        Some(Bearer::Capability(credential)),
+    )
+    .unwrap();
 }
 
 fn prepare_blind(runtime: &Runtime, endpoint: &Endpoint, credential: &Token) {

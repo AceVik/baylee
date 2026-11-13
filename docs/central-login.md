@@ -802,6 +802,28 @@ play, recovery and evaluation pipeline. The runner sets the test-process-only
 `BAYLEE_CENTRAL_CHALLENGES_ONLY=1`; neither production server reads it. The default
 integration mode still runs every existing scenario.
 
+For an explicitly requested interactive demo, set `BAYLEE_CENTRAL_DEMO=1`
+with `--challenges-only`, an owned `BAYLEE_CENTRAL_UI_READY` path and
+`BAYLEE_CENTRAL_UI_HOLD_SECS` (maximum 7200). This adds a real browser listener
+sharing the same identity service/database, a previous-day practice task and
+three synthetic accounts: `demo_player` (untouched), `fresh_player` (the fixture's
+verified Daily/Weekly wins) and `demo_resume` (a reserved Weekly to continue).
+They use the existing public fixture password and only the owned loopback gate.
+The readiness file contains addresses/account names, never credentials. The
+sibling `.stop` file stops the hold and triggers the fixture's usual cleanup.
+`BAYLEE_CENTRAL_DEMO_WEB_ORIGIN` selects a numeric loopback browser origin;
+`BAYLEE_CENTRAL_DEMO_NATIVE_PORT` optionally reserves a stable loopback port.
+Neither setting is consumed by production binaries.
+
+Run the native client with an isolated XDG profile and the returned Central/gate
+endpoints, following the dev-control skill. A local website must proxy `/api/`
+to the returned browser listener and serve a **separate demo-only** crypto module
+built for that exact native development issuer. The committed browser module is
+bound to production and deliberately cannot sign into a different issuer. Never
+replace production assets, disable issuer verification or weaken cookie checks
+for a demo. Own and stop the client, website and proxy together with the fixture;
+leave them running only when the owner requested an interactive demonstration.
+
 For coordinated local development of the sibling repositories, both database
 scripts accept `--cargo-config target/central-patch.toml`, pointing to a Cargo
 patch configuration for the sibling Central crates. This explicit mode permits

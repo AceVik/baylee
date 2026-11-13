@@ -7,6 +7,8 @@ mod chat;
 use crate::common;
 #[path = "central/challenges.rs"]
 mod challenges;
+#[path = "central/demo.rs"]
+mod demo;
 #[path = "central/fresh.rs"]
 mod fresh;
 #[path = "central/held.rs"]
@@ -254,6 +256,9 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
                 &served.bridge,
                 &operator,
             );
+            if std::env::var("BAYLEE_CENTRAL_DEMO").as_deref() == Ok("1") {
+                demo::run(&runtime, &served);
+            }
             return;
         }
         run(
@@ -326,10 +331,18 @@ fn serve(
     label: &str,
     terms: Option<baylee_account::terms::TermsDocument>,
 ) -> Served {
+    let native_listen = if std::env::var("BAYLEE_CENTRAL_DEMO").as_deref() == Ok("1") {
+        let port = std::env::var("BAYLEE_CENTRAL_DEMO_NATIVE_PORT")
+            .ok()
+            .map_or(0, |port| port.parse::<u16>().expect("demo native port"));
+        format!("127.0.0.1:{port}")
+    } else {
+        "127.0.0.1:0".into()
+    };
     let server = runtime
         .block_on(DevelopmentServer::bind(
             central_policy::config::Config::from_pairs([
-                ("BAYLEE_CENTRAL_LISTEN", "127.0.0.1:0"),
+                ("BAYLEE_CENTRAL_LISTEN", native_listen.as_str()),
                 ("BAYLEE_CENTRAL_REQUEST_BYTES", "1056768"),
             ])
             .unwrap(),

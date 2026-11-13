@@ -746,14 +746,31 @@ async fn attach_agent_inner(
     )
     .await;
     let welcome = next_msg(&mut ws).await;
-    assert!(
-        matches!(welcome, Some(v1::envelope::Msg::AgentWelcome(_))),
-        "the gateway did not welcome the agent: {welcome:?}"
-    );
+    let Some(v1::envelope::Msg::AgentWelcome(welcome)) = welcome else {
+        panic!("the gateway did not welcome the agent: {welcome:?}");
+    };
     tokio::spawn(async move {
-        while let Some(msg) = next_msg(&mut ws).await {
-            if let v1::envelope::Msg::StartEngine(start) = msg {
-                tokio::spawn(run_engine(start, presets.clone(), probe.clone(), seed));
+        // Long-running interactive fixtures obey the same liveness contract
+        // as baylee-agent; otherwise an idle demo silently loses all capacity.
+        let mut heartbeat = tokio::time::interval(std::time::Duration::from_secs(u64::from(
+            welcome.heartbeat_secs.max(1),
+        )));
+        heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            tokio::select! {
+                _ = heartbeat.tick() => {
+                    send(&mut ws, &Envelope {
+                        msg: Some(v1::envelope::Msg::Heartbeat(v1::Heartbeat {
+                            client_time_ms: 0,
+                        })),
+                    }).await;
+                }
+                msg = next_msg(&mut ws) => {
+                    let Some(msg) = msg else { break };
+                    if let v1::envelope::Msg::StartEngine(start) = msg {
+                        tokio::spawn(run_engine(start, presets.clone(), probe.clone(), seed));
+                    }
+                }
             }
         }
     })
