@@ -3,6 +3,9 @@
 
 use crate::{BTreeMap, Path, acceptance, card_files, front_face_slug, fs, scryfall, stubgen};
 
+#[cfg(test)]
+mod tests;
+
 /// The cached Scryfall payload for a pool card, read once for every check
 /// that holds the card against its printing.
 ///
