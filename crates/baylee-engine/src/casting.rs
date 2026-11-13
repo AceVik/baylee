@@ -47,8 +47,7 @@ pub use intrinsic::*;
 pub use lands::*;
 pub use library_top::library_top_visible_to;
 pub(crate) use library_top::{
-    library_top_fixed_additional_life, library_top_life_open, library_top_life_options,
-    library_top_life_value, library_top_spell_open,
+    library_top_life_open, library_top_life_options, library_top_life_value, library_top_spell_open,
 };
 pub(crate) use payment::*;
 #[cfg(feature = "test-support")]

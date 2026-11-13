@@ -113,14 +113,7 @@ pub(crate) fn additional_payment_capacity_for(
     chosen: &[ObjectId],
 ) -> Option<usize> {
     let choice = choice.into();
-    let life =
-        crate::engine::cast_wizard::wizard_cost_parts(face, choice).fold(0_i32, |sum, part| {
-            sum.saturating_add(if let CostPart::PayLife(life) = part {
-                i32::from(*life)
-            } else {
-                0
-            })
-        });
+    let life = crate::engine::cast_wizard::fixed_life_cost(face, choice);
     if !state.can_pay_life(player, life) {
         return None;
     }
@@ -164,7 +157,7 @@ pub(crate) fn additional_payment_capacity_for(
             return None;
         }
     }
-    if crate::engine::cast_wizard::wizard_mandatory_parts(face, choice.option)
+    if crate::engine::cast_wizard::wizard_mandatory_parts(face, choice)
         .any(|p| matches!(p, CostPart::DiscardHand))
     {
         paid.extend(

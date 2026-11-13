@@ -116,18 +116,10 @@ impl<L: CardLookup> Engine<L> {
                         u32::MAX
                     };
                     if pays_life_x {
-                        let mut life = self.state.life_payable(wizard.player);
-                        if let Some(CastModeKind::LibraryTopLife { life: owed, .. }) =
-                            wizard.announced
-                        {
-                            let fixed = casting::library_top_fixed_additional_life(
-                                self.wizard_face(&wizard),
-                            );
-                            let reserved = i32::try_from(owed)
-                                .unwrap_or(i32::MAX)
-                                .saturating_add(fixed);
-                            life = life.saturating_sub(reserved);
-                        }
+                        let life = self
+                            .state
+                            .life_payable(wizard.player)
+                            .saturating_sub(wizard.reserved_life(self.wizard_face(&wizard)));
                         max = max.min(u32::try_from(life).unwrap_or(0));
                     }
                     // With nothing left to tap, the pool is all that pays,

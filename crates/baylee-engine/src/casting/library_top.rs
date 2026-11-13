@@ -54,19 +54,6 @@ pub(crate) fn library_top_life_value(def: &baylee_cards_dsl::CardDef, face: usiz
     def.faces[face].mana_cost.cmc()
 }
 
-/// Mandatory fixed life added to the mana-value payment. Other non-mana
-/// additional costs are validated by the ordinary additional-cost reader.
-#[must_use]
-pub(crate) fn library_top_fixed_additional_life(face: &baylee_cards_dsl::FaceDef) -> i32 {
-    face.mandatory_additional_costs
-        .iter()
-        .filter_map(|part| match part {
-            baylee_cards_dsl::CostPart::PayLife(amount) => Some(i32::from(*amount)),
-            _ => None,
-        })
-        .sum()
-}
-
 /// All ways to cast the exact current top card for its mana value in life.
 ///
 /// Only the remaining mana is described by `CastModeDesc::cost`; `life` is
@@ -108,7 +95,8 @@ pub(crate) fn library_top_life_options(
     let mut life_short = false;
     for choice in choices {
         let life = library_top_life_value(def, choice.face);
-        let fixed = library_top_fixed_additional_life(&def.faces[choice.face]);
+        let costs = choice.cost_choice(def);
+        let fixed = crate::engine::cast_wizard::fixed_life_cost(&def.faces[choice.face], costs);
         let total_life = i32::try_from(life)
             .unwrap_or(i32::MAX)
             .saturating_add(fixed);
@@ -116,15 +104,8 @@ pub(crate) fn library_top_life_options(
             life_short = true;
             continue;
         }
-        if additional_payment_capacity_for(
-            state,
-            player,
-            card,
-            &def.faces[choice.face],
-            Some(choice.ordinary_kind(def)),
-            &[],
-        )
-        .is_none()
+        if additional_payment_capacity_for(state, player, card, &def.faces[choice.face], costs, &[])
+            .is_none()
         {
             continue;
         }

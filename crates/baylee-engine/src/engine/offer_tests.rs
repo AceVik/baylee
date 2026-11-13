@@ -970,10 +970,12 @@ fn unpaid_cost_parts(face: &baylee_cards_dsl::FaceDef) -> Vec<String> {
     }
     for add in face.additional_costs {
         for part in add.parts {
-            offenders.push(format!(
-                "{} — kicker part {part:?}, and a kicker's parts are read by nothing",
-                face.name,
-            ));
+            if !crate::engine::cast_wizard::paid_as_a_mandatory_additional_cost(part) {
+                offenders.push(format!(
+                    "{} — kicker part {part:?}, which `finish_cast` skips",
+                    face.name,
+                ));
+            }
         }
     }
     for part in face.buyback.iter().flat_map(|cost| cost.parts) {

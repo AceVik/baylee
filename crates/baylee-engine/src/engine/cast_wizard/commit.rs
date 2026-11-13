@@ -33,12 +33,19 @@ impl<L: CardLookup> Engine<L> {
                 .and_then(|object| object.card)
                 .and_then(|card| self.lookup.card(card.index))
                 .ok_or(EngineError::IllegalAction("unknown library top card"))?;
-            let Some(route) = def.faces.get(route_face) else {
+            let Some(_) = def.faces.get(route_face) else {
                 return Err(EngineError::IllegalAction("unknown library top face"));
             };
-            let total_life = i32::try_from(life)
-                .unwrap_or(i32::MAX)
-                .saturating_add(casting::library_top_fixed_additional_life(route));
+            let total_life = super::wizard_cost_parts(face, wizard.cost_choice()).fold(
+                wizard.reserved_life(face),
+                |sum, part| {
+                    if matches!(part, CostPart::PayLifeX) {
+                        sum.saturating_add(i32::try_from(wizard.x).unwrap_or(i32::MAX))
+                    } else {
+                        sum
+                    }
+                },
+            );
             if route_face != wizard.face_index()
                 || life != casting::library_top_life_value(def, route_face)
                 || !casting::library_top_life_open(&self.state, player, wizard.card)
@@ -246,7 +253,7 @@ impl<L: CardLookup> Engine<L> {
             });
         }
         let mut graveyard_batch = crate::graveyard_order::PaymentBatch::new(&self.state);
-        for part in super::wizard_mandatory_parts(face, wizard.option) {
+        for part in super::wizard_mandatory_parts(face, wizard.cost_choice()) {
             graveyard_batch.before_part(&mut self.state, part);
             if !paid_as_a_mandatory_additional_cost(part) {
                 continue;
