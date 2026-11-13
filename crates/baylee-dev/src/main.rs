@@ -13,6 +13,7 @@ mod gate;
 mod keyring;
 mod land;
 mod mobile;
+mod reach;
 mod run;
 mod secret;
 mod shipping;
@@ -29,10 +30,17 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Task {
-    /// The gates; without a name, the full gate CI runs (needs `DATABASE_URL`).
+    /// The gates; without a name, the full gate (needs `DATABASE_URL`): fmt,
+    /// clippy and the rest over everything, and the tests of the crates the
+    /// diff against `origin/main` reaches.
     Gate {
-        /// Also run the slow tests the full gate leaves out while their crate
-        /// is untouched (`BAYLEE_GATE_ALL=1` does the same, also for `land`).
+        /// Test every crate, as `land` does, and not only what the diff
+        /// reaches.
+        #[arg(long)]
+        workspace: bool,
+        /// Test every crate, and also run the slow tests that are left out
+        /// while their crate is untouched (`BAYLEE_GATE_ALL=1` does the same,
+        /// also for `land`).
         #[arg(long)]
         all: bool,
         #[command(subcommand)]
@@ -165,6 +173,12 @@ enum Central {
 
 #[derive(Subcommand)]
 enum Gate {
+    /// What the full gate would test for this diff, and why; runs nothing.
+    Reach {
+        /// Changed paths to ask about instead of the diff against
+        /// `origin/main`.
+        paths: Vec<String>,
+    },
     /// Everything but the client and wasm; stops at the first red.
     Rules,
     /// fmt and clippy over changed `.rs` files (not a gate).
@@ -180,9 +194,10 @@ enum Gate {
     Wasm,
 }
 
-fn gate_task(all: bool, which: Option<Gate>) -> (&'static str, anyhow::Result<i32>) {
+fn gate_task(scope: gate::Scope, which: Option<Gate>) -> (&'static str, anyhow::Result<i32>) {
     match which {
-        None => ("gate", gate::full(all)),
+        None => ("gate", gate::full(scope)),
+        Some(Gate::Reach { paths }) => ("gate reach", gate::reach(paths)),
         Some(Gate::Rules) => ("gate rules", Ok(gate::rules())),
         Some(Gate::Touched { since }) => ("gate touched", gate::touched(since.as_deref())),
         Some(Gate::Features) => ("gate features", Ok(features::run())),
@@ -196,7 +211,11 @@ fn main() -> ExitCode {
     let (name, result) = match run::enter_root() {
         Err(error) => ("dev", Err(error)),
         Ok(_) => match cli.task {
-            Task::Gate { all, which } => gate_task(all, which),
+            Task::Gate {
+                workspace,
+                all,
+                which,
+            } => gate_task(gate::Scope::asked(workspace, all), which),
             Task::Land { check, locked } => ("land", land::run(check, locked)),
             Task::CiChanges => ("ci-changes", changes::run()),
             Task::Api { which } => (

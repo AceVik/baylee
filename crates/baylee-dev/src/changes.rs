@@ -49,25 +49,46 @@ const TRAINING: [&str; 3] = [
     "tools/trainer/",
 ];
 
-/// Classifies paths; the first matching rule wins, as the script's `case` did.
+/// What one path is to CI's jobs; the module's note says what each means.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Class {
+    Ci,
+    Web,
+    /// A path no job reads.
+    Unread,
+    Docs,
+    Code,
+}
+
+/// One path's class; the first matching rule wins, as the script's `case` did.
+pub fn class(path: &str) -> Class {
+    if path.starts_with(".github/") || path == SELF || path == ALIASES {
+        Class::Ci
+    } else if path.starts_with("web/feedback/") {
+        Class::Web
+    } else if [".claude/", ".agents/", ".codex/", "web/"]
+        .iter()
+        .chain(&TRAINING)
+        .any(|prefix| path.starts_with(prefix))
+    {
+        Class::Unread
+    } else if path.starts_with("docs/") || Path::new(path).extension().is_some_and(|e| e == "md") {
+        Class::Docs
+    } else {
+        Class::Code
+    }
+}
+
+/// Classifies paths: every class one of them has.
 pub fn classify<'a>(paths: impl IntoIterator<Item = &'a str>) -> Classes {
     let mut classes = Classes::default();
     for path in paths.into_iter().map(str::trim).filter(|p| !p.is_empty()) {
-        if path.starts_with(".github/") || path == SELF || path == ALIASES {
-            classes.ci = true;
-        } else if path.starts_with("web/feedback/") {
-            classes.web = true;
-        } else if [".claude/", ".agents/", ".codex/", "web/"]
-            .iter()
-            .chain(&TRAINING)
-            .any(|prefix| path.starts_with(prefix))
-        {
-        } else if path.starts_with("docs/")
-            || Path::new(path).extension().is_some_and(|e| e == "md")
-        {
-            classes.docs = true;
-        } else {
-            classes.code = true;
+        match class(path) {
+            Class::Ci => classes.ci = true,
+            Class::Web => classes.web = true,
+            Class::Unread => {}
+            Class::Docs => classes.docs = true,
+            Class::Code => classes.code = true,
         }
     }
     classes

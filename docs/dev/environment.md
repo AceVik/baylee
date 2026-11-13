@@ -206,3 +206,9 @@ Keys only from the variable a profile names (`key_env`) or the OS credential sto
 
 The fine-grained token is never a variable: it is read from the login
 keychain (service `baylee-macos-runner`) and handed to each `gh` child alone.
+
+## Builds and the local gate (`baylee-build`, `cargo dev`)
+
+- `BAYLEE_BUILD_STAMP`: `none` builds a debug profile without its stamp (commit, branch, build number and date say `unknown` or `0`), so that a commit is no reason to compile `baylee-build` and everything above it again. `cargo dev gate` sets it for its test step (`target/gate`); a release profile ignores it. Anything else, or unset: the build says what it is.
+- `BAYLEE_SCCACHE`: `0` keeps `cargo dev gate`, `gate features` and `land` from compiling through sccache where it is installed.
+- `BAYLEE_GATE_ALL`: set, `cargo dev gate` and `cargo dev land` run every test, also the slow ones left out while their crate is untouched (`--all`).

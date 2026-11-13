@@ -24,7 +24,8 @@ unofficial, non-commercial fan project.
   shell pipelines or interpreter one-liners.
 - **Gate before you push.** `cargo dev gate` and `cargo dev gate features`
   (with `DATABASE_URL`); `cargo dev land` runs both desktop gates and
-  fast-forwards `main`. Wasm is an optional experimental check until browser
+  fast-forwards `main`. On a branch the gate tests the crates its diff
+  reaches; `land` and `cargo dev gate --workspace` test every crate. Wasm is an optional experimental check until browser
   support ships. A change lands after the local gates, not
   after CI (`docs/dev/commands.md`, `docs/releasing.md` §"CI").
 - **Development features are local-only.** CI runs no dev-feature matrix;

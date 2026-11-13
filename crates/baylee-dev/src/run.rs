@@ -6,6 +6,7 @@ use std::{
     ffi::OsStr,
     path::PathBuf,
     process::{Command, ExitStatus, Output, Stdio},
+    sync::OnceLock,
     time::Instant,
 };
 
@@ -25,9 +26,74 @@ pub fn enter_root() -> Result<PathBuf> {
     Ok(root)
 }
 
-/// `cargo`, as the caller's environment names it (`cargo dev` sets `CARGO`).
+/// `cargo`, as the caller's environment names it (`cargo dev` sets `CARGO`),
+/// in the environment the caller's shell would give it.
+///
+/// `cargo dev` is `cargo run -p baylee-dev`, and cargo tells a program it
+/// runs which package it is (`CARGO_PKG_NAME`, `CARGO_MANIFEST_DIR`, ...). A
+/// cargo started from here inherited that, and a build script may ask to be
+/// run again when such a variable changes: `ring`'s does. So a build under
+/// `cargo dev gate` and the same build typed by hand each found the other's
+/// `ring` stale and compiled it again with everything above it (rustls,
+/// sqlx, the gateway, the client), in turn, for nothing (13.11.2026).
 pub fn cargo() -> Command {
-    Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()))
+    let mut cargo = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()));
+    for (name, _) in std::env::vars_os() {
+        if name.to_str().is_some_and(names_this_package) {
+            cargo.env_remove(name);
+        }
+    }
+    if SCCACHE.get().copied().unwrap_or(false) {
+        cargo.env("RUSTC_WRAPPER", "sccache");
+    }
+    cargo
+}
+
+/// Whether this run's cargo children compile through sccache.
+static SCCACHE: OnceLock<bool> = OnceLock::new();
+
+/// Lets every cargo this run starts from here on compile through sccache,
+/// where it is installed (owner, 13.11.2026: for the gates, without a
+/// measurement first). What it can give back is a dependency compiled before
+/// in another worktree or target directory: each has a `target` of its own,
+/// and a cold one compiled every third-party crate again. A workspace crate
+/// is built incrementally, which sccache passes through to rustc untouched.
+///
+/// A wrapper the caller set stays as it is, and `BAYLEE_SCCACHE=0` turns
+/// this off. The cache is sccache's own (`sccache --show-stats` names its
+/// place and size, `SCCACHE_CACHE_SIZE` bounds it).
+pub fn cache_builds() {
+    SCCACHE.get_or_init(|| {
+        let on = std::env::var_os("RUSTC_WRAPPER").is_none()
+            && std::env::var("BAYLEE_SCCACHE").as_deref() != Ok("0")
+            && Command::new("sccache")
+                .arg("--version")
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .is_ok_and(|status| status.success());
+        if on {
+            println!("gate: compiling through sccache (BAYLEE_SCCACHE=0 turns it off)");
+        }
+        on
+    });
+}
+
+/// Whether cargo set this variable to say which package a program it runs
+/// belongs to. `CARGO` itself and a user's own settings (`CARGO_TARGET_DIR`,
+/// `CARGO_PROFILE_*`, `CARGO_BUILD_*`, ...) are not of that kind.
+fn names_this_package(name: &str) -> bool {
+    name.starts_with("CARGO_PKG_")
+        || matches!(
+            name,
+            "CARGO_MANIFEST_DIR"
+                | "CARGO_MANIFEST_PATH"
+                | "CARGO_MANIFEST_LINKS"
+                | "CARGO_CRATE_NAME"
+                | "CARGO_BIN_NAME"
+                | "CARGO_PRIMARY_PACKAGE"
+        )
 }
 
 /// A command from a program and its arguments.

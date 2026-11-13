@@ -377,8 +377,16 @@ debug = false
 # setting in the dev profile made every rebuild 30 to 35 s slower. So it is
 # the gate's alone, in a target directory of its own, and a developer's
 # rebuild stays quick.
+#
+# Without debug info (owner, 13.11.2026). On macOS every test binary passed
+# `dsymutil` (`.cargo/config.toml`), and the client's two took about ten
+# minutes each of a build that had changed no source. A failing test still
+# says its file and line, which a panic message carries by itself; what goes
+# is the line numbers inside a backtrace, and `cargo nextest run -p <crate>
+# <test>` in the dev profile brings them back.
 [profile.gate]
 inherits = "dev"
+debug = false
 
 [profile.gate.package.baylee-engine]
 opt-level = 1

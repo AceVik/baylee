@@ -243,6 +243,7 @@ const DEV_TABLE: &[(&str, &[&str])] = &[
 ];
 
 pub fn run() -> i32 {
+    run::cache_builds();
     let mut steps = Steps::default();
     quiet_step(
         &mut steps,
