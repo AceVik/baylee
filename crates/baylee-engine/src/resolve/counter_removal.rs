@@ -66,10 +66,13 @@ fn present_with_counts(
 }
 
 fn present(state: &GameState, object: ObjectId) -> Vec<baylee_cards_dsl::CounterKind> {
-    present_with_counts(state, object)
-        .into_iter()
-        .map(|(kind, _)| kind)
-        .collect()
+    state.object(object).map_or_default(|object| {
+        object
+            .counters
+            .iter()
+            .filter_map(|(kind, count)| (count > 0).then_some(kind))
+            .collect()
+    })
 }
 
 /// Ask about the next kind with a positive count still available.

@@ -201,6 +201,18 @@ fn connect(e: &mut Engine<RegistryLookup>, attacker: ObjectId) {
             }
         )
     });
+    assert!(
+        e.state().journal.entries().iter().any(|entry| matches!(
+            entry.event,
+            baylee_engine::event::GameEvent::DamageDealt {
+                source: Some(source),
+                target: baylee_engine::event::DamageTarget::Player(P1),
+                is_combat: true,
+                amount: 1..,
+            } if source == attacker
+        )),
+        "the reward is offered only after this attacker deals combat damage"
+    );
 }
 
 #[test]

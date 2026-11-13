@@ -7787,3 +7787,50 @@ beneath it. What the author missed, for the next brief:
   `seen`, the wire shape and the generation-7 foresight pin. The final desktop
   gate was stopped and the feature gate was not run because the owner requested
   PR creation without further gates or tests.
+
+## 2026-11-13 — PR #425 independent review
+
+- Nowhere to Run grants every player's spells and abilities permission to
+  target its controller's opposing creatures as though they lacked hexproof.
+  The controller-scoped `IgnoreOpponentsHexproof` also opens player targets,
+  so it cannot implement this sentence. The new filtered modifier preserves
+  player hexproof, shroud and the creature's keyword. A three-player played-card
+  test and a synthetic source-lifetime test failed before this correction.
+- Ward is represented both by the generic-mana keyword and by `Trigger::Ward`
+  for non-mana costs. Suppression must reach both readers without removing the
+  ability. Phyrexian Fleshgorger now tests life ward with and without Nowhere.
+- Replacement-cost offers must preserve kicker separately from the face and
+  modal choice. Count and pay its non-mana parts through the shared cost reader,
+  together with mandatory, entwine and buyback costs. Reserve the combined life
+  before optional payments, Phyrexian choices and pay-X-life. Regression tests
+  demonstrated an unaffordable kicked route, a back-face route losing its kicker
+  cost and a cast paying only three of the five life owed. The cost readers were
+  extracted in a move-only commit before changing them.
+- Validate a selected exiled card directly against its current zone, owner and
+  counters. Rebuilding every exile pile's candidate list for both validation and
+  payment performed two unnecessary scans and allocations per answer. A
+  counter-kind query likewise needs no intermediate vector of counts.
+- An implemented hand-written Vivien definition still carried `GENERATED STUB`,
+  allowing future codegen to overwrite it. Adopt it with `codegen --adopt-stub`
+  before changing its ownership marker. `codegen --tables --check` and `validate`
+  pass: all 12,568 cards conform, with 11,198 finished and 1,370 stubs.
+- Played-card assertions now distinguish Mari's combat-damage trigger from an
+  attack trigger, Mutated Cultist's cast trigger from an enters trigger and
+  Thornbite Staff's damage/death from an unrelated untap. No broad gate or merge
+  is part of this review; the owner reserves both complete gates for final merge.
+- Cardgen's new `DealsDamageToObject` line matcher recognized the event but
+  omitted its source from `whose_trigger_fits`. A negative test showed that a
+  trigger for this creature incorrectly accepted another creature's sentence.
+  Include the source predicate in the existing shared matcher. The deathtouch
+  counter regression now transcodes a complete synthetic ability and rejects
+  misspelled counter kinds and an unknown rule parameter, rather than merely
+  testing the constants lookup.
+- Validation after the fixes: all 835 selected non-desktop cases pass, with the
+  exact-zero-life test corrected to assert the casting journal and life-based
+  loss rather than dereference an eliminated player's removed card. The added
+  synthetic Ward test also passes. All 442 cardgen tests and 134 xtask tests
+  pass; regenerating tables and checking them again produces no drift.
+- The final six-test engine selection includes the updated supported-cost
+  census; all seven focused desktop tests pass. Scoped Clippy passes for the
+  engine, DSL and cardgen libraries with `-D warnings`. The tests used the
+  `gate` compilation profile only; neither `cargo dev gate` command ran.

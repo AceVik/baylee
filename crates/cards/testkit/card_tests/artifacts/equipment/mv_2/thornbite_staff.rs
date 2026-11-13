@@ -54,6 +54,26 @@ fn staff_pays_for_two_lethal_pings_untapping_between_them_and_moves_its_grant() 
             .unwrap();
         assert!(is_tapped(&r.engine, r.host), "the wearer paid {{T}}");
         pass_until(&mut r.engine, stack_is_empty);
+        assert_eq!(
+            r.engine.state().object(target).unwrap().zone,
+            Zone::Graveyard
+        );
+        assert!(
+            r.engine
+                .state()
+                .journal
+                .entries()
+                .iter()
+                .any(|entry| matches!(
+                    entry.event,
+                    baylee_engine::event::GameEvent::DamageDealt {
+                        source: Some(source),
+                        target: baylee_engine::event::DamageTarget::Object(victim),
+                        amount: 1,
+                        is_combat: false,
+                    } if source == r.host && victim == target
+                ))
+        );
         assert!(
             !is_tapped(&r.engine, r.host),
             "the creature's death untapped it"

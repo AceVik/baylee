@@ -1188,17 +1188,13 @@ impl<L: CardLookup> Engine<L> {
                     })
         };
         let mut answers = wizard.phyrexian.clone();
-        let mut ask = false;
         while answers.len() < symbols {
             let mut with_life = answers.clone();
             with_life.push(true);
             let mut with_mana = answers.clone();
             with_mana.push(false);
             match (open(&with_life), open(&with_mana)) {
-                (true, true) => {
-                    ask = true;
-                    break;
-                }
+                (true, true) => break,
                 (true, false) => answers.push(true),
                 (false, true) => answers.push(false),
                 (false, false) => {
@@ -1209,7 +1205,7 @@ impl<L: CardLookup> Engine<L> {
         }
         let mut wizard = wizard.clone();
         wizard.phyrexian = answers;
-        if ask {
+        if wizard.phyrexian.len() < symbols {
             let card = self.state.object(wizard.card).and_then(|o| o.card);
             self.pending = Pending::YesNo {
                 player: wizard.player,
