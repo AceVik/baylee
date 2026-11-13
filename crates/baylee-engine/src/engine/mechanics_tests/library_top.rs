@@ -5,7 +5,7 @@
 //! then exercised through the ordinary engine action path.
 
 use super::*;
-use crate::choice::CastModeKind;
+use crate::choice::{CastModeKind, YesNoPrompt};
 use baylee_cards_dsl::{
     AltCondition, AlternativeCost, CostPart, Duration, Filter, ModeCount, Modifier, SpellMode,
 };
@@ -29,6 +29,7 @@ const MDFC: u32 = 7225;
 const OTHER_LAND: u32 = 7226;
 const LIFE_KICKER: u32 = 7227;
 const BACK_LIFE_KICKER: u32 = 7228;
+const LIFE_X_BUYBACK: u32 = 7229;
 
 static GRANT_EFFECTS: &[Effect] = &[
     Effect::continuous(
@@ -79,6 +80,7 @@ static BACK_LIFE_KICKER_COST: &[Cost] = &[Cost {
     mana: ManaCost::ZERO,
     parts: &[CostPart::PayLife(4)],
 }];
+static LIFE_X_COST: &[CostPart] = &[CostPart::PayLifeX];
 static MODAL_SPELL: &[AbilityDef] = &[AbilityDef::ModalSpell {
     modes: &[
         SpellMode {
@@ -211,6 +213,19 @@ fn definitions() -> Vec<&'static CardDef> {
                 mandatory_additional_costs: FIXED_LIFE_COST,
                 additional_costs: LIFE_KICKER_COST,
                 ..face("Life kicker", "{B}", TypeSet::SORCERY)
+            },
+            KeywordSet::EMPTY,
+            NOTHING,
+        ),
+        card(
+            LIFE_X_BUYBACK,
+            FaceDef {
+                mandatory_additional_costs: LIFE_X_COST,
+                buyback: Some(Cost {
+                    mana: ManaCost::ZERO,
+                    parts: FIXED_LIFE_COST,
+                }),
+                ..face("Life X and life buyback", "{B}", TypeSet::SORCERY)
             },
             KeywordSet::EMPTY,
             NOTHING,
@@ -660,6 +675,57 @@ fn pay_life_x_reserves_mana_value_and_fixed_life_before_setting_x() {
     assert_eq!(spell.zone, Zone::Stack);
     assert_eq!(spell.x_value, 3);
     assert_eq!(life(&engine, me()), 4, "one mana value, two fixed, three X");
+}
+
+#[test]
+fn library_life_x_is_reserved_before_offering_life_buyback() {
+    use crate::event::{GameEvent, LossReason};
+
+    for (x, buyback_is_payable, life_after_cast) in [(3, false, 1), (2, true, 0), (1, true, 1)] {
+        let mut engine = setup(7313 + u64::from(x), &[LIFE_X_BUYBACK], 5, true);
+        let card = the(&engine, ZoneLocation::Library(me()), LIFE_X_BUYBACK);
+        engine
+            .apply(me(), PlayerAction::CastSpell { card })
+            .unwrap();
+        choose_library_route(&mut engine);
+        assert!(matches!(
+            engine.pending(),
+            Pending::ChooseNumber { min: 0, max: 4, .. }
+        ));
+        engine.apply(me(), PlayerAction::ChooseNumber(x)).unwrap();
+        let offered = matches!(
+            engine.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::Buyback { .. },
+                ..
+            }
+        );
+        assert_eq!(
+            offered, buyback_is_payable,
+            "X={x}: one base life and two buyback life must also be paid"
+        );
+        if offered {
+            engine.apply(me(), PlayerAction::YesNo(true)).unwrap();
+        }
+        assert_eq!(life(&engine, me()), life_after_cast, "X={x}");
+        if life_after_cast == 0 {
+            assert!(matches!(engine.pending(), Pending::GameOver(_)));
+            assert_eq!(engine.state().players[0].loss, Some(LossReason::Life));
+            assert!(engine.state().journal.entries().iter().any(|entry| matches!(
+                entry.event,
+                GameEvent::SpellCast { object, player, .. } if object == card && player == me()
+            )));
+            continue;
+        }
+
+        let spell = engine.state().object(card).unwrap();
+        assert_eq!(spell.zone, Zone::Stack);
+        assert_eq!(spell.x_value, x);
+        assert_eq!(
+            spell.riders.contains(&crate::object::Rider::Buyback),
+            buyback_is_payable
+        );
+    }
 }
 
 #[test]

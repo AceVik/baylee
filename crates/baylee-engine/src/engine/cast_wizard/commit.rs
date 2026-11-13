@@ -36,16 +36,7 @@ impl<L: CardLookup> Engine<L> {
             let Some(_) = def.faces.get(route_face) else {
                 return Err(EngineError::IllegalAction("unknown library top face"));
             };
-            let total_life = super::wizard_cost_parts(face, wizard.cost_choice()).fold(
-                wizard.reserved_life(face),
-                |sum, part| {
-                    if matches!(part, CostPart::PayLifeX) {
-                        sum.saturating_add(i32::try_from(wizard.x).unwrap_or(i32::MAX))
-                    } else {
-                        sum
-                    }
-                },
-            );
+            let total_life = wizard.total_life_cost(face);
             if route_face != wizard.face_index()
                 || life != casting::library_top_life_value(def, route_face)
                 || !casting::library_top_life_open(&self.state, player, wizard.card)

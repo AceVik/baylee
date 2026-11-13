@@ -77,7 +77,7 @@ impl<L: CardLookup> Engine<L> {
     fn announced_cost_payable(&self, paying: &CastWizard) -> bool {
         let face = self.wizard_face(paying);
         self.state
-            .can_pay_life(paying.player, paying.reserved_life(face))
+            .can_pay_life(paying.player, paying.total_life_cost(face))
             && casting::additional_payment_capacity_for(
                 &self.state,
                 paying.player,
