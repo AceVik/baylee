@@ -260,15 +260,23 @@ jobs:
       # them (owner, 24.10. and 30.10.2026). xtask still links baylee-train
       # without `play`, so its library compiles as a dependency. Engine,
       # house-AI and gamehost coverage stays in CI.
+      # In the profile `gate` (`Cargo.toml`), as the local gate: the dev
+      # profile with the crates the slowest tests spend their time in at
+      # opt-level 1, and no debug info. Until 13.11.2026 this ran in the plain
+      # `test` profile: 7.4 min of compiling and then 31.7 and 19.4 min of
+      # running (run 43386609388), while the optimized suite ran all of it in
+      # 11.4 min. The timings above and the timeout are from before the
+      # change and are due a new measurement.
       - run: >-
-          cargo nextest run --locked --workspace --lib --bins --tests --examples --no-fail-fast
+          cargo nextest run --locked --cargo-profile gate
+          --workspace --lib --bins --tests --examples --no-fail-fast
           --exclude baylee-train --exclude baylee-train-ops
           --partition count:${{ matrix.partition }}/2
       # A bench under nextest measures in full (`--bench`); `cargo test` runs
       # each one once, which is all a test needs (`docs/dev/commands.md`).
       - name: Benches run once
         if: matrix.partition == 2
-        run: cargo test --locked --workspace --bench decisions --bench client --bench frames --bench basics
+        run: cargo test --locked --profile gate --workspace --bench decisions --bench client --bench frames --bench basics
       - name: Isolated Linux credential-store round trip
         if: matrix.partition == 1
         run: cargo dev keyring-linux

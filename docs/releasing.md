@@ -261,7 +261,9 @@ The same job validates the exact dependency scope of the reviewed
 `cargo dev ci-changes` decides what a diff touches (try it with
 `git diff --name-only origin/main | cargo dev ci-changes`). Every job has a
 `timeout-minutes` of about 1.5× its measured p95. The debug suite runs in two
-nextest partitions (`--partition count:i/2`), each compiling for itself.
+nextest partitions (`--partition count:i/2`), each compiling for itself, in
+the profile `gate` since 13.11.2026 (the local gate's: hot crates at
+opt-level 1, no debug info).
 The training crates are not CI's. The owner on 30.10.2026: „Der ganze train
 Bereich gehört nicht in die CI, das ist nur um lokal die Tests etc. aus zu
 führen" (on 24.10.2026 it was `baylee-train`'s tests alone). Every CI cargo
