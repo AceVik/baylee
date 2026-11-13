@@ -712,6 +712,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::OneOrMoreDealCombatDamageToPlayer(filter)
         | Trigger::DealsCombatDamageToOpponent(filter)
         | Trigger::DealsDamageToPlayer { source: filter, .. }
+        | Trigger::DealsDamageToObject { source: filter, .. }
         | Trigger::DealsDamageToOpponent(filter)
         | Trigger::DealsDamage(filter)
         | Trigger::DealtDamage(filter)
