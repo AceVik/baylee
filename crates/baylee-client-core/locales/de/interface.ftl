@@ -3627,6 +3627,7 @@ ChallengeExplore = Aufgabe entdecken
 ChallengeTogether = Lust auf eine Partie mit anderen Spielern?
 ChallengeMultiplayer = Mehrspieler
 ChallengeConnection = Verbindung
+ChallengeRulesToggle = Wertung & Belohnungen
 
 # Arguments: count, next
 ChallengeBadgeCompact = { $count } / { $next } zur nächsten Stufe

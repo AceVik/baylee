@@ -28,6 +28,7 @@ pub(super) fn stop(action: Action, model: &State) -> Stop {
         Action::Abandon => ("abandon", 0),
         Action::Hint => ("hint", 0),
         Action::Deck => ("deck", 0),
+        Action::Rules => ("rules", 0),
         Action::Visibility => ("visibility", 0),
         Action::Board(board) => (
             "boards",

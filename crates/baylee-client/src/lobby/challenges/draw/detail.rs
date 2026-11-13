@@ -10,7 +10,45 @@ pub(super) fn draw(
     model: &State,
     task: &api::Challenge,
 ) {
-    let card = panel(commands, root, kit);
+    let columns = row(commands, root, kit);
+    let wide = matches!(
+        kit.m.frame,
+        crate::shellkit::Frame::Wide | crate::shellkit::Frame::Vast
+    );
+    commands
+        .entity(columns)
+        .entry::<Node>()
+        .and_modify(move |mut n| {
+            n.align_items = AlignItems::Start;
+            n.flex_wrap = FlexWrap::NoWrap;
+            n.flex_direction = if wide {
+                FlexDirection::Row
+            } else {
+                FlexDirection::Column
+            };
+        });
+    let card = panel(commands, columns, kit);
+    commands
+        .entity(card)
+        .entry::<Node>()
+        .and_modify(move |mut n| {
+            n.width = if wide { percent(54) } else { percent(100) };
+            n.flex_shrink = 1.0;
+            n.min_width = px_fixed(0.0);
+        });
+    let ranking = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                min_width: px_fixed(0.0),
+                width: if wide { percent(46) } else { percent(100) },
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(columns).add_child(ranking);
     heading(commands, card, kit, words(&task.description.title, lang));
     status(commands, card, kit, lang, model, task);
     label(
@@ -32,13 +70,6 @@ pub(super) fn draw(
             ],
         ),
         tokens::ACCENT,
-    );
-    label(
-        commands,
-        card,
-        kit,
-        Phrase::ChallengeRules.text(lang),
-        tokens::MUTED,
     );
     if let Some(progress) = &model.personal {
         let best = progress
@@ -79,7 +110,32 @@ pub(super) fn draw(
     }
     launch(commands, card, kit, lang, model, task);
     preferences(commands, card, kit, lang, model);
-    rankings(commands, root, kit, lang, model);
+    button(
+        commands,
+        card,
+        kit,
+        Phrase::ChallengeRulesToggle.text(lang),
+        Action::Rules,
+        model,
+        Weight::Ghost,
+    );
+    if model.show_rules {
+        label(
+            commands,
+            card,
+            kit,
+            Phrase::ChallengeRules.text(lang),
+            tokens::MUTED,
+        );
+        label(
+            commands,
+            card,
+            kit,
+            Phrase::ChallengeBadgeRules.text(lang),
+            tokens::MUTED,
+        );
+    }
+    rankings(commands, ranking, kit, lang, model);
 }
 
 fn launch(
@@ -212,15 +268,17 @@ fn rankings(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang, model: 
     let scores = panel(commands, root, kit);
     heading(commands, scores, kit, Phrase::ChallengeBoards.text(lang));
     let tabs = row(commands, scores, kit);
+    let mut tab_kit = kit;
+    tab_kit.m.text = kit.m.small;
     for (board, phrase) in [
         (api::Board::FirstWin, Phrase::ChallengeFirst),
         (api::Board::BestTurns, Phrase::ChallengeTurns),
         (api::Board::Sprint, Phrase::ChallengeTime),
     ] {
-        button(
+        let tab = button(
             commands,
             tabs,
-            kit,
+            tab_kit,
             phrase.text(lang),
             Action::Board(board),
             model,
@@ -230,6 +288,10 @@ fn rankings(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang, model: 
                 Weight::Secondary
             },
         );
+        commands.entity(tab).entry::<Node>().and_modify(|mut n| {
+            n.flex_grow = 1.0;
+            n.flex_basis = px_fixed(0.0);
+        });
     }
     if model.standings.is_empty() && !model.busy {
         label(
@@ -264,9 +326,26 @@ fn rankings(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang, model: 
                 &seconds,
             ],
         );
+        let entry = panel(commands, scores, kit);
+        commands.entity(entry).insert((
+            BackgroundColor(if score.own {
+                tokens::ACCENT.with_alpha(0.08)
+            } else {
+                tokens::CONTROL.with_alpha(0.45)
+            }),
+            BorderColor::all(if score.own {
+                tokens::ACCENT.with_alpha(0.45)
+            } else {
+                tokens::BORDER
+            }),
+        ));
+        commands
+            .entity(entry)
+            .entry::<Node>()
+            .and_modify(move |mut n| n.padding = UiRect::all(kit.m.px(10.0)));
         label(
             commands,
-            scores,
+            entry,
             kit,
             &text,
             if score.own {

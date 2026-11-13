@@ -34,6 +34,12 @@ areas; retain evidence and review the final implementation in the existing PRs.
    Naga validation and all thirty motif/tier cache identities pass. Motion reads
    the shared GPU clock and follows both reduced-motion and effects settings.
 3. Interaction: composed details, scoreboards, progress and contextual actions.
+   Task details and ranking now form two balanced columns on a wide screen.
+   Long scoring/reward rules expand explicitly; privacy consent stays visible.
+   Six challenge state tests and seven native UI tests pass. The first real
+   1440×900 render confirmed equal task widths and aligned actions; all five
+   earned bronze motifs render through the native Metal pipeline. The test
+   client was closed and its owned PID and harness port verified gone.
 4. Robustness: responsive layout, localisation, keyboard and state transitions.
 5. Finish: rendered refinement, motion/counter-test, performance and final QA.
 

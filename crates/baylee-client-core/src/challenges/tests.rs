@@ -65,6 +65,16 @@ fn begin(work: &Work) -> ([u8; 16], bool) {
 }
 
 #[test]
+fn rules_are_local_and_reset_when_leaving_the_task() {
+    let mut state = selected(1);
+    assert!(state.act(Action::Rules, id(8)).is_none());
+    assert!(state.show_rules);
+    assert!(!state.busy && !state.listed);
+    assert!(state.act(Action::Back, id(9)).is_none());
+    assert!(!state.show_rules);
+}
+
+#[test]
 fn ambiguous_start_retries_keep_the_key_even_after_visiting_another_task() {
     let mut state = selected(1);
     let first = state.act(Action::Play, id(10)).unwrap();

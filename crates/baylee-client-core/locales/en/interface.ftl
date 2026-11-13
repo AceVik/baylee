@@ -10132,6 +10132,7 @@ ChallengeExplore = Explore challenge
 ChallengeTogether = Looking for a match with other players?
 ChallengeMultiplayer = Multiplayer
 ChallengeConnection = Connection
+ChallengeRulesToggle = Scoring & rewards
 
 # Arguments: count, next
 ChallengeBadgeCompact = { $count } / { $next } to next tier

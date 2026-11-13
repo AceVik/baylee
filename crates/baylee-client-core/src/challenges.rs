@@ -31,6 +31,8 @@ pub enum Action {
     Cancel,
     /// Expand or fold the supplied deck list.
     Deck,
+    /// Expand scoring, badge and interruption rules locally.
+    Rules,
 }
 
 /// The consequence the player is asked to accept.
@@ -100,6 +102,8 @@ pub struct State {
     pub loaded: bool,
     /// Whether the supplied deck text is expanded.
     pub show_deck: bool,
+    /// Long explanations are optional; consent stays next to its control.
+    pub show_rules: bool,
     serial: u64,
     begin: std::collections::BTreeMap<[u8; 16], [u8; 16]>,
 }
@@ -126,6 +130,7 @@ impl Default for State {
             failed: false,
             loaded: false,
             show_deck: false,
+            show_rules: false,
             serial: 0,
             begin: std::collections::BTreeMap::new(),
         }
@@ -167,6 +172,10 @@ impl State {
             }
             Action::Deck => {
                 self.show_deck = !self.show_deck;
+                return None;
+            }
+            Action::Rules => {
+                self.show_rules = !self.show_rules;
                 return None;
             }
             Action::Hint => {
@@ -252,6 +261,7 @@ impl State {
         self.offset = 0;
         self.listed = false;
         self.show_deck = false;
+        self.show_rules = false;
         self.standings.clear();
     }
 

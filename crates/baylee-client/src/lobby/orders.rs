@@ -57,6 +57,7 @@ pub(crate) const CHALLENGES: TabOrder = TabOrder {
         "hint",
         "deck",
         "visibility",
+        "rules",
         "boards",
         "pager",
         "multiplayer",
