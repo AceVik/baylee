@@ -562,11 +562,12 @@ fn figures_px(lens: &Lens, tally: Tally, corners: [Vec3; 4]) -> f32 {
 /// How large the figures are is a promise with a floor under it. Nine
 /// pixels need a plate some three and a half times as long, and a seat has
 /// that much felt beside a pile only where its cards are drawn large: at a
-/// duel, in Spotlight, at the flank seats of a ring. Elsewhere a plate is
-/// as large as its felt, and never smaller than one and a half times a
-/// merged card's count. Measured here so the documentation's numbers are
-/// this test's: at a table of four in a ring the seat across reads at
-/// five and a half pixels or more, one's own at seven.
+/// duel, in Spotlight, at one's own seat and the flanks of a ring. Elsewhere
+/// a plate is as large as its felt, and never smaller than one and a half
+/// times a merged card's count. Measured here so the documentation's numbers
+/// are this test's: in a laptop's window a duel reads at nine pixels and
+/// the smallest number at a ring of three or four at five and a half or
+/// more, and in a small window a duel reads at five and a half.
 #[test]
 fn the_figures_have_a_floor_at_every_table() {
     let laptop = Vec2::new(1708.0, 1032.0);
@@ -584,19 +585,17 @@ fn the_figures_have_a_floor_at_every_table() {
             );
             least = least.min(figures_px(&lens, tally, corners));
         }
-        if window != laptop {
-            continue;
-        }
         let seats = layout.slots.iter().filter(|slot| !slot.parked).count();
-        if seats == 2 {
-            assert!(
-                least >= 8.5,
-                "{table}: a duel's smallest figures are {least} px"
-            );
-        }
-        if seats == 4 && table.contains(" Ring,") {
-            assert!(least >= 5.5, "{table}: the smallest figures are {least} px");
-        }
+        let floor = match (window == laptop, seats) {
+            (true, 2) => 8.5,
+            (true, 3 | 4) if table.contains(" Ring,") => 5.5,
+            (false, 2) => 5.5,
+            _ => continue,
+        };
+        assert!(
+            least >= floor,
+            "{table}: the smallest figures are {least} px, under {floor}"
+        );
     }
 }
 

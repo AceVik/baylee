@@ -172,12 +172,18 @@ half and four times a merged card's count, and are that where a seat has
 the felt for it: a plate with its mark is some three and a half times as
 long as its figures are tall, and the felt beside a pile is nine tenths of
 a card wide, to the mat on one side and to the cloth's edge or a
-neighbour's piles on the other (`pile_counts::ROOM`). So the figures are
-9 px at a duel, in Spotlight and at the flank seats of a ring, and at a
-table of four in a ring about 7 px at one's own seat and 6 px at the seat
-across (a 1708 × 1032 window); from five seats in a ring they are smaller
-still, and the seat plates and the strip say the same numbers
-(`the_figures_have_a_floor_at_every_table` measures this). No number lies
+neighbour's piles on the other (`pile_counts::ROOM`). The hand's number
+has the open felt past its seat's edge and is not held to that room, so it
+is up to a pixel and a half larger than its library's. In a 1708 × 1032
+window the figures are 9 px at a duel and in Spotlight; at a table of four
+in a ring 7 to 9 px at one's own seat and the flanks and 6 px at the seat
+across; at a table of three in a ring 7 px at one's own seat and about
+6 px at the other two (5.6 at the least). A Turntable of four reads at
+4.7 px at its smallest seat, and from five seats in a ring the smallest
+are under 4 px. In a 1280 × 720 window a duel reads at 5.6 px
+and a ring of three or four at 3.4 to 3.7 px at its smallest seat. The
+seat plates and the strip say the same numbers at every size
+(`the_figures_have_a_floor_at_every_table` measures the floors). No number lies
 on a card, a row, another number or off the cloth at any table of two to
 eight in any arrangement. A pile is a
 block of cardboard, and a tall one covers the felt just behind it from

@@ -216,7 +216,9 @@ pub(super) fn quad_stretch() -> f32 {
 /// ([`beside`]). A waiting place's numbers stand there as a column, the top
 /// card's uppermost. The hand's lies past the library's end on its
 /// owner's side: the pile a hand is drawn from, at the edge its owner sits
-/// at.
+/// at. A pile's number is no larger than the felt between its pile and the
+/// mat or a neighbour's piles ([`ROOM`]); the hand's has the open felt past
+/// its seat's edge and is as large as it is asked to be.
 ///
 /// A pile is a block of cardboard, and one standing between the eye and its
 /// number covers the felt just behind it: `hidden` is that patch, which way
@@ -244,14 +246,19 @@ pub(super) fn pile_count_transform(
     let away = Vec2::new(slot.facing.sin(), slot.facing.cos());
     let (runs, tops) = (upright * Vec3::X, upright * Vec3::Y);
     // Which way from the pile's middle, and how far its card reaches there.
-    let (way, card) = if tally == Tally::Hand {
-        (-away, 0.5 * CARD_HEIGHT)
+    let (way, card, most) = if tally == Tally::Hand {
+        // Past its seat's own edge there is no pile, row or neighbour, and
+        // the tests that lay every table hold it on the cloth and in the
+        // window. Held to `ROOM`, a tall library took the room it covers
+        // away and the number was the seat's smallest (4.7 px at a ring of
+        // three, measured 13.11.2026).
+        (-away, 0.5 * CARD_HEIGHT, f32::INFINITY)
     } else if beside(slot, upright) {
         // The seat's own right: outside the piles of its right-hand column,
         // and towards the mat from the waiting place on its left.
-        (side, 0.5 * CARD_WIDTH)
+        (side, 0.5 * CARD_WIDTH, ROOM)
     } else {
-        (side * -kind.side(), 0.5 * CARD_WIDTH)
+        (side * -kind.side(), 0.5 * CARD_WIDTH, ROOM)
     };
     // How far the plate reaches along that way from its middle, turned as
     // it is, at its own size; and the size that keeps it in its room.
@@ -259,7 +266,7 @@ pub(super) fn pile_count_transform(
     let reach = (way_world.dot(runs).abs() * (x1 - x0) + way_world.dot(tops).abs() * (y1 - y0))
         * (0.5 * CARD_WIDTH);
     let behind = way_world.dot(hidden).max(0.0);
-    let room = (ROOM - cardplate::PILE_BADGE_AIR) * CARD_WIDTH - behind / slot.scale;
+    let room = (most - cardplate::PILE_BADGE_AIR) * CARD_WIDTH - behind / slot.scale;
     let scale = scale.min(room / (2.0 * reach));
     let grown = scale * slot.scale;
     let half = Vec2::new(x1 - x0, y1 - y0) * (0.5 * CARD_WIDTH * grown);
