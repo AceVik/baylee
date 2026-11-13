@@ -21,6 +21,12 @@ damage/removal combinations. The calendar rotates the template while 62 seed
 bits stay private and random. Weekly candidates use the existing synergistic
 deck builder for a complete duel, anchored around a direct-damage tool.
 Four tactical templates are the initial content set, not unlimited variety.
+Weekly decks exclude explosive mana staples (including the original Moxen,
+Black Lotus, Mana Crypt, Sol Ring and Mana Vault) on both sides. A candidate
+with a probed victory before game turn nine is rejected. The probe tries both
+ordinary house play and reserving Lightning Bolt for lethal; these are visible
+seat strategies, not access to the opponent's hand or library. The lower bound
+is on observed proofs, not a claim that no stronger human can win earlier.
 
 Admission requires at least three distinct contribution signatures and both
 combat and direct-damage finishes. The classifier reads historical damage
@@ -40,7 +46,7 @@ produce a certificate. Raw witnesses and future packages remain private.
 Run the Rust worker with the same tested build as the official executor:
 
 ```text
-cargo run -p baylee-train --bin challenge -- generate --kind weekly --at 1794528000 --seed 49 --candidates 8 --out target/challenge-evidence
+cargo run -p baylee-train --bin challenge -- generate --kind weekly --at 1794528000 --seed 63 --candidates 8 --out target/challenge-evidence
 cargo run -p baylee-train --bin challenge -- stock --central-dev http://127.0.0.1:28790 --state-dir target/challenge-stock --days 7
 ```
 
@@ -151,3 +157,37 @@ The first improvement pass also passed all five generator tests (including
 all four Daily positions), the publisher tests and all 47 real PostgreSQL
 schema tests, including exclusive ownership and release. Clippy passed for
 the changed train, database, gateway and development-tool libraries/binaries.
+
+## Second improvement pass: blind play and presentation
+
+The isolated publisher was run twice through real Central HTTP after the first
+pass. It generated fresh Daily and Weekly tasks; the repeated pass published
+nothing twice. The native client could not be photographed: its prescribed
+monitor 1 was absent. It exited, and the owned PostgreSQL container and listener
+were removed. Do not substitute the owner's primary monitor.
+
+`challenge play --kind weekly` provides an offline blind check when a test
+display is unavailable. It generates a fresh certified candidate internally,
+discards its witnesses without displaying them, and prints only the supplied
+public deck and the normal human `PlayerView`/pending question. It accepts
+`PlayerAction` JSON on standard input; an empty line passes priority, and
+`quit` exits. It does not publish or submit a score.
+
+The implementing agent played one such fresh Weekly without reading a proof.
+After a free mulligan, Mana Crypt enabled an early Guttersnipe and two Students
+of Ojutai. The opponent removed the Crypt with Archdruid's Charm. Lightning
+Bolt, Flame Jet, correctly ordered triggers and combat won at game turn seven.
+The process exited successfully. This was a meaningful difficulty finding:
+the Weekly was too explosive. It led to the mana exclusions and observed-turn
+floor above. One agent game is not a representative human study.
+
+Native calendar cards now put the current Daily and Weekly before badge
+progress and the archive; old tasks cannot push the current Weekly down the
+list. Replay/settings test helpers follow the new navigation. All three native
+challenge control tests passed. Central's website refreshes scores every minute,
+retains the chosen archive page, pauses refresh during hint confirmation, and
+clears hint state when the account session is lost. Its ten desktop/phone tests
+passed with both one and five browser workers after rebuilding matching SSR
+and island assets. The five generator tests passed with the new fixed Weekly
+fixture (seed 63); fresh execution, exact replay and policy reconstruction remain
+mandatory. Native screenshots and broader human calibration remain unverified.

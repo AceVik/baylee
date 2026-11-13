@@ -13,7 +13,11 @@ use super::Limits;
 #[derive(Clone, Copy)]
 pub(super) enum Solver {
     Tactic(u8),
-    House { profile: AIProfile, seed: u64 },
+    House {
+        profile: AIProfile,
+        seed: u64,
+        reserve_burn: bool,
+    },
 }
 
 pub(super) struct Run {
@@ -35,7 +39,7 @@ pub(super) fn run(preset: &GamePreset, solver: Solver, limits: Limits) -> Result
     let mut session = session(preset)?;
     let (profile, seed) = match solver {
         Solver::Tactic(_) => (AIProfile::EXPERT, 71),
-        Solver::House { profile, seed } => (profile, seed),
+        Solver::House { profile, seed, .. } => (profile, seed),
     };
     let agent = HeuristicAgent::new(profile).with_seed(seed);
     let deck = DeckIntel::new(
@@ -70,12 +74,22 @@ pub(super) fn run(preset: &GamePreset, solver: Solver, limits: Limits) -> Result
             continue;
         };
         let note = session.question_note(PlayerId::new(0));
+        let mut question = pending.clone();
+        if matches!(
+            solver,
+            Solver::House {
+                reserve_burn: true,
+                ..
+            }
+        ) {
+            reserve_finisher(&view, &mut question);
+        }
         let action = match solver {
             Solver::Tactic(route) => tactic.answer(route, &view, &pending),
             Solver::House { .. } => None,
         }
         .unwrap_or_else(|| {
-            baylee_ai::noted::answer_as_seated(&agent, view, &pending, note.as_ref(), Some(&deck))
+            baylee_ai::noted::answer_as_seated(&agent, view, &question, note.as_ref(), Some(&deck))
         });
         ensure!(
             agent.fallbacks() == 0,
@@ -89,6 +103,31 @@ pub(super) fn run(preset: &GamePreset, solver: Solver, limits: Limits) -> Result
         record.extend(session.take_record());
     }
     Ok(None)
+}
+
+/// A genuinely different public-information plan: save the deck's burn anchor
+/// for lethal instead of spending it on early trades. Removing legal options
+/// from a probe does not add a move the engine would not accept.
+fn reserve_finisher(view: &PlayerView, pending: &mut Pending) {
+    if view.owed.is_some()
+        || view
+            .seats
+            .iter()
+            .any(|seat| seat.player != view.seat && seat.life <= 3)
+    {
+        return;
+    }
+    let Pending::Priority { legal, .. } = pending else {
+        return;
+    };
+    let keep = |id: &baylee_core::ids::ObjectId| {
+        !view
+            .hand
+            .iter()
+            .any(|card| card.id == *id && card.name == "Lightning Bolt")
+    };
+    legal.castable.retain(keep);
+    legal.payable.retain(keep);
 }
 
 pub(super) fn verify_fresh(preset: &GamePreset, run: &Run) -> Result<()> {

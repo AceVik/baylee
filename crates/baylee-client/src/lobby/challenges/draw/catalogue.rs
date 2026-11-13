@@ -2,7 +2,13 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
-pub(super) fn catalogue(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, model: &State) {
+pub(super) fn catalogue(
+    commands: &mut Commands,
+    body: Entity,
+    kit: Kit,
+    lang: Lang,
+    model: &State,
+) {
     label(
         commands,
         body,
@@ -42,32 +48,24 @@ pub(super) fn catalogue(commands: &mut Commands, body: Entity, kit: Kit, lang: L
             tokens::MUTED,
         );
     }
-    for task in &model.catalogue {
-        let panel = panel(commands, body, kit);
-        let kind = if task.description.period.kind == api::Kind::Daily {
-            Phrase::ChallengeDaily
-        } else {
-            Phrase::ChallengeWeekly
-        };
-        label(commands, panel, kit, kind.text(lang), tokens::ACCENT);
-        heading(commands, panel, kit, words(&task.description.title, lang));
-        status(commands, panel, kit, lang, model, task);
-        label(
-            commands,
-            panel,
-            kit,
-            words(&task.description.instructions, lang),
-            tokens::INK,
-        );
-        button(
-            commands,
-            panel,
-            kit,
-            Phrase::Continue.text(lang),
-            Action::Select(task.id),
-            model,
-            Weight::Secondary,
-        );
+    for task in model
+        .catalogue
+        .iter()
+        .filter(|task| task.description.period.live_at(model.now))
+    {
+        card(commands, body, kit, lang, model, task);
+    }
+    badges(commands, body, kit, lang, model);
+    let archive: Vec<_> = model
+        .catalogue
+        .iter()
+        .filter(|task| !task.description.period.live_at(model.now))
+        .collect();
+    if !archive.is_empty() {
+        heading(commands, body, kit, Phrase::ChallengeArchive.text(lang));
+    }
+    for task in archive {
+        card(commands, body, kit, lang, model, task);
     }
     if model.before.is_some() {
         button(
@@ -80,5 +78,39 @@ pub(super) fn catalogue(commands: &mut Commands, body: Entity, kit: Kit, lang: L
             Weight::Secondary,
         );
     }
-    badges(commands, body, kit, lang, model);
+}
+
+fn card(
+    commands: &mut Commands,
+    body: Entity,
+    kit: Kit,
+    lang: Lang,
+    model: &State,
+    task: &api::Challenge,
+) {
+    let panel = panel(commands, body, kit);
+    let kind = if task.description.period.kind == api::Kind::Daily {
+        Phrase::ChallengeDaily
+    } else {
+        Phrase::ChallengeWeekly
+    };
+    label(commands, panel, kit, kind.text(lang), tokens::ACCENT);
+    heading(commands, panel, kit, words(&task.description.title, lang));
+    status(commands, panel, kit, lang, model, task);
+    label(
+        commands,
+        panel,
+        kit,
+        words(&task.description.instructions, lang),
+        tokens::INK,
+    );
+    button(
+        commands,
+        panel,
+        kit,
+        Phrase::Continue.text(lang),
+        Action::Select(task.id),
+        model,
+        Weight::Secondary,
+    );
 }

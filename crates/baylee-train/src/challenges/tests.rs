@@ -54,9 +54,12 @@ fn unfinished_games_never_become_a_certificate() {
 
 #[test]
 fn weekly_uses_generated_decks_and_has_verified_combat_and_damage_finishes() {
-    let result = generate(Kind::Weekly, 49, Limits::default()).unwrap();
+    let result = generate(Kind::Weekly, 63, Limits::default()).unwrap();
     assert!(result.proofs.len() >= 3);
-    assert!(result.proofs.iter().all(|proof| proof.turn >= 5));
+    assert!(result.proofs.iter().all(|proof| proof.turn >= 9));
+    assert!(!result.deck.contains("Mana Crypt"));
+    assert!(!result.deck.contains("Sol Ring"));
+    assert!(!result.deck.contains("Black Lotus"));
     assert_eq!(
         result
             .proofs
@@ -89,7 +92,7 @@ fn automatic_stock_recovers_an_ambiguous_publish_then_rolls_over_once() {
     use std::cell::RefCell;
 
     let daily = generate(Kind::Daily, 41, Limits::default()).unwrap();
-    let weekly = generate(Kind::Weekly, 49, Limits::default()).unwrap();
+    let weekly = generate(Kind::Weekly, 63, Limits::default()).unwrap();
     let monday = 1_794_182_400;
     let tasks = RefCell::new(Vec::<Challenge>::new());
     let prepared = RefCell::new(Vec::new());

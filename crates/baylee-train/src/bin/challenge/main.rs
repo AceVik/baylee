@@ -3,6 +3,7 @@
 
 use baylee_cards_pool as _;
 mod assess;
+mod play;
 mod source;
 mod stock;
 
@@ -27,6 +28,8 @@ enum Command {
     Stock(stock::Args),
     /// Measure candidate admission and certified turn ranges without publishing.
     Assess(assess::Args),
+    /// Play a fresh certified task blind through its ordinary human seat view.
+    Play(play::Args),
 }
 
 #[derive(clap::Args)]
@@ -56,6 +59,7 @@ fn main() -> Result<()> {
         Command::Generate(args) => generate(&args),
         Command::Stock(args) => stock::run(&args),
         Command::Assess(args) => assess::run(&args),
+        Command::Play(args) => play::run(&args),
     }
 }
 

@@ -35,7 +35,7 @@ pub(crate) enum HeaderMenu {
 /// A press on the header or a strip.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum HeaderPress {
-    /// Nav pill `n`: Lobby, Decks, Replays.
+    /// Nav pill `n`: Lobby, Decks, Challenges, Replays.
     Nav(u8),
     /// The gateway pill (or its dot).
     Gateway,
@@ -155,8 +155,8 @@ pub(super) enum NavTab {
     Challenges,
 }
 
-/// The nav pills this build draws, in order: a desktop's three (Lobby,
-/// Decks, Replays), the web's and a phone's two (`replays::SHOWN`).
+/// The nav pills this build draws, in order: a desktop's four (Lobby,
+/// Decks, Challenges, Replays), the web's and a phone's two (`replays::SHOWN`).
 /// Settings lives solely on the gear icon.
 pub(super) const NAV: &[NavTab] = if super::replays::SHOWN {
     &[

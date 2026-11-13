@@ -29,7 +29,7 @@ pub(super) fn run(
     .unwrap();
     let weekly = baylee_train::challenges::generate(
         api::Kind::Weekly,
-        49,
+        63,
         baylee_train::challenges::Limits::default(),
     )
     .unwrap();

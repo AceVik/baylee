@@ -108,15 +108,30 @@ fn prove(
     let mut families = BTreeSet::new();
     let solvers: Vec<_> = match kind {
         Kind::Daily => (0..3).map(solve::Solver::Tactic).collect(),
-        Kind::Weekly => [AIProfile::CASUAL, AIProfile::STEADY, AIProfile::EXPERT]
-            .into_iter()
-            .flat_map(|profile| (0..16).map(move |seed| solve::Solver::House { profile, seed }))
+        Kind::Weekly => (0..16)
+            .flat_map(|seed| {
+                [AIProfile::CASUAL, AIProfile::STEADY, AIProfile::EXPERT]
+                    .into_iter()
+                    .flat_map(move |profile| {
+                        [false, true]
+                            .into_iter()
+                            .map(move |reserve_burn| solve::Solver::House {
+                                profile,
+                                seed,
+                                reserve_burn,
+                            })
+                    })
+            })
             .collect(),
     };
     for solver in solvers {
         let Some(run) = solve::run(&preset, solver, limits)? else {
             continue;
         };
+        ensure!(
+            kind != Kind::Weekly || run.session.state().turn.number >= 9,
+            "weekly candidate has a proved win before game turn nine"
+        );
         let Ok((family, strategy_digest)) = semantic::classify(&run.session, &run.trace) else {
             continue;
         };

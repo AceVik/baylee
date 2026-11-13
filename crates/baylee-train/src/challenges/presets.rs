@@ -13,7 +13,26 @@ pub(super) fn build(kind: Kind, seed: u64, working: &Working) -> Result<(GamePre
     let (mut preset, deck) = match kind {
         Kind::Daily => daily(seed)?,
         Kind::Weekly => {
-            let pool = crate::deckgen::pool_for_working(working, &BTreeSet::new());
+            let excluded = [
+                "Black Lotus",
+                "Mox Pearl",
+                "Mox Sapphire",
+                "Mox Jet",
+                "Mox Ruby",
+                "Mox Emerald",
+                "Mana Crypt",
+                "Sol Ring",
+                "Mana Vault",
+                "Lotus Petal",
+                "Ancient Tomb",
+                "City of Traitors",
+                "Mishra's Workshop",
+                "Tolarian Academy",
+            ]
+            .into_iter()
+            .filter_map(baylee_cards::decks::by_name)
+            .collect::<BTreeSet<_>>();
+            let pool = crate::deckgen::pool_for_working(working, &excluded);
             let mut request = DeckBuildRequest::new(
                 Shape::Constructed,
                 Archetype::Aggro,

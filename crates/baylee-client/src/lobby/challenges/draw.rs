@@ -7,8 +7,8 @@ use crate::shellkit::{
 };
 use baylee_client_core::challenges::{Confirmation, api};
 
-mod detail;
 mod catalogue;
+mod detail;
 use catalogue::catalogue;
 
 pub(in crate::lobby) fn draw(
@@ -344,4 +344,3 @@ fn button(
     );
     commands.entity(root).add_child(button);
 }
-
