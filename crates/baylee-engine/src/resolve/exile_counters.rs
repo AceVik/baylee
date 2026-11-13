@@ -20,13 +20,32 @@ pub(super) fn candidates(
     let mut cards = Vec::new();
     for seat in 0..state.players.len() {
         let pile = ZoneLocation::Exile(PlayerId::new(seat as u8));
-        cards.extend(state.zones.list(pile).iter().copied().filter(|id| {
-            state.object(*id).is_some_and(|object| {
-                object.is_card() && owners.contains(&object.owner) && object.counters.get(kind) >= n
-            })
-        }));
+        cards.extend(
+            state
+                .zones
+                .list(pile)
+                .iter()
+                .copied()
+                .filter(|id| eligible(state, *id, &owners, kind, n)),
+        );
     }
     cards
+}
+
+fn eligible(
+    state: &GameState,
+    card: ObjectId,
+    owners: &[PlayerId],
+    kind: baylee_cards_dsl::CounterKind,
+    n: u16,
+) -> bool {
+    n > 0
+        && state.object(card).is_some_and(|object| {
+            object.zone == crate::zone::Zone::Exile
+                && object.is_card()
+                && owners.contains(&object.owner)
+                && object.counters.get(kind) >= n
+        })
 }
 
 fn exile_event(
@@ -95,7 +114,13 @@ pub(crate) fn valid_answer(state: &GameState, res: &Resolution, chosen: &[Object
     let [card] = chosen else {
         return false;
     };
-    candidates(state, res, owner, kind, n).contains(card)
+    eligible(
+        state,
+        *card,
+        &players_of(owner, state, res.controller, res),
+        kind,
+        n,
+    )
 }
 
 pub(super) fn finish_removal(
@@ -111,7 +136,13 @@ pub(super) fn finish_removal(
     };
     // Keep this check beside the mutation too: direct resolution callers do
     // not necessarily pass through the engine's public-answer validation.
-    if candidates(state, res, owner, kind, n).contains(&card) {
+    if eligible(
+        state,
+        card,
+        &players_of(owner, state, res.controller, res),
+        kind,
+        n,
+    ) {
         crate::replacement::remove_counters_by(state, card, kind, n, Some(res.controller));
     }
 }

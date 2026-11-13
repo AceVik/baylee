@@ -113,6 +113,24 @@ fn mutated_cultist_cleanses_a_permanent_or_opponent_and_discounts_only_the_next_
         };
         e.apply(P0, PlayerAction::ChooseTargets { objects, players })
             .unwrap();
+        if target_kind != 2 {
+            pass_until(&mut e, |e| {
+                if target_kind == 0 {
+                    counters_on(e, permanent, CounterKind::P1P1) == 0
+                } else {
+                    player_counters(e, P1, CounterKind::Poison) == 0
+                }
+            });
+            let spell = e.state().zones.list(ZoneLocation::Stack);
+            assert!(
+                spell
+                    .iter()
+                    .any(|id| e.state().object(*id).is_some_and(|object| {
+                        object.card.is_some_and(|card| card.index == cultist())
+                    })),
+                "the cast trigger resolves while Cultist is still a spell"
+            );
+        }
         lk::settle(&mut e);
 
         assert!(on_battlefield(&e, P0, cultist()).is_some());
