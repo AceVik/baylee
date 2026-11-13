@@ -28,6 +28,15 @@ ignore = [
     # prints nothing), we open no SQLite file, and sqlx-sqlite 0.9 caps it
     # below the fixed 0.39, so only a sqlx release can move it.
     "RUSTSEC-2026-0459",
+    # `paste`, archived by its author in 2024: unmaintained, with no
+    # vulnerability. It is a proc-macro, so it runs inside the compiler and
+    # puts no code of its own into any binary. Only `rav1d` pulls it, the
+    # AVIF decoder `baylee-avif` gives the client (nothing a server or the
+    # engine links). rav1d 1.1.0 is its newest release and its main branch
+    # still names `paste` (13.11.2026), so no upgrade drops it: the move to
+    # `pastey` or plain macros is rav1d's to make. Revisit at rav1d's next
+    # release.
+    "RUSTSEC-2024-0436",
 ]
 
 [licenses]
