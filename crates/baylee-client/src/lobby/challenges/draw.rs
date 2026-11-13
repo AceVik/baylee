@@ -207,6 +207,23 @@ fn badges(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang, model: &S
             .id();
         commands.entity(gallery).add_child(cell);
         let panel = cell;
+        let medal = commands
+            .spawn((
+                crate::insignia::Insignia {
+                    kind: badge.kind,
+                    tier: badge.tier,
+                },
+                Node {
+                    width: kit.m.px(112.0),
+                    height: kit.m.px(112.0),
+                    align_self: AlignSelf::Center,
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(cell).add_child(medal);
         let name = match badge.kind {
             api::BadgeKind::Daily => Phrase::ChallengeBadgeDaily,
             api::BadgeKind::Weekly => Phrase::ChallengeBadgeWeekly,
@@ -222,17 +239,12 @@ fn badges(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang, model: &S
             Some(api::Tier::Platinum) => Phrase::ChallengePlatinum,
             Some(api::Tier::Obsidian) => Phrase::ChallengeObsidian,
         };
-        label(
-            commands,
-            panel,
-            kit,
-            &format!("{} · {}", name.text(lang), tier.text(lang)),
-            tokens::INK,
-        );
+        label(commands, panel, kit, name.text(lang), tokens::INK);
+        label(commands, panel, kit, tier.text(lang), tokens::GOLD);
         let progress = badge.next.map_or_else(
             || Phrase::ChallengeBadgeMax.fill(lang, &[&badge.count.to_string()]),
             |next| {
-                Phrase::ChallengeBadgeProgress
+                Phrase::ChallengeBadgeCompact
                     .fill(lang, &[&badge.count.to_string(), &next.to_string()])
             },
         );

@@ -10133,6 +10133,9 @@ ChallengeTogether = Looking for a match with other players?
 ChallengeMultiplayer = Multiplayer
 ChallengeConnection = Connection
 
+# Arguments: count, next
+ChallengeBadgeCompact = { $count } / { $next } to next tier
+
 # Global challenge interface.
 ChallengeNotEarned = Not earned yet
 

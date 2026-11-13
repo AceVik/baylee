@@ -25,6 +25,7 @@ pub(crate) struct Ui {
 }
 
 pub(super) fn install(app: &mut App) {
+    crate::insignia::install(app);
     #[cfg(not(target_arch = "wasm32"))]
     app.add_systems(
         Update,

@@ -3628,6 +3628,9 @@ ChallengeTogether = Lust auf eine Partie mit anderen Spielern?
 ChallengeMultiplayer = Mehrspieler
 ChallengeConnection = Verbindung
 
+# Arguments: count, next
+ChallengeBadgeCompact = { $count } / { $next } zur nächsten Stufe
+
 # Global challenge interface.
 ChallengeNotEarned = Noch nicht erreicht
 

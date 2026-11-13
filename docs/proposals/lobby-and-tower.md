@@ -29,6 +29,10 @@ areas; retain evidence and review the final implementation in the existing PRs.
    Seven focused challenge UI tests pass, including home → connections → home
    before gateway admission and the existing keyboard/consent/account isolation.
 2. Identity: five bespoke insignia, five escalating material tiers.
+   Added procedural sun, crescent, compass, true-strike and oak motifs, with
+   engraved silver bezels, gold laurels, platinum jewels and an obsidian crown.
+   Naga validation and all thirty motif/tier cache identities pass. Motion reads
+   the shared GPU clock and follows both reduced-motion and effects settings.
 3. Interaction: composed details, scoreboards, progress and contextual actions.
 4. Robustness: responsive layout, localisation, keyboard and state transitions.
 5. Finish: rendered refinement, motion/counter-test, performance and final QA.
