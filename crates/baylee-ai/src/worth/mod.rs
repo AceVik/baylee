@@ -37,6 +37,7 @@ use crate::tactics::material;
 mod landwalk;
 mod linked_exile;
 mod permissions;
+mod tokens;
 
 pub(crate) use landwalk::subtype_choice;
 
@@ -125,6 +126,16 @@ pub(crate) enum Aim {
 pub(crate) struct Origin<'a> {
     pub id: ObjectId,
     pub object: Option<&'a PublicObject>,
+}
+
+/// The projected token count follows a sequence into its conditional branches.
+/// It is local to one valuation; no simulated or hidden engine state is read.
+#[derive(Clone, Copy)]
+struct Evaluation<'a> {
+    origin: Origin<'a>,
+    aim: Aim,
+    x: u32,
+    created_tokens: i64,
 }
 
 impl<'a> Origin<'a> {
@@ -575,6 +586,25 @@ impl HeuristicAgent {
         aim: Aim,
         x: u32,
     ) -> Option<i64> {
+        self.effects_worth_in(
+            view,
+            effects,
+            &mut Evaluation {
+                origin,
+                aim,
+                x,
+                created_tokens: 0,
+            },
+        )
+    }
+
+    fn effects_worth_in(
+        &self,
+        view: &PlayerView,
+        effects: &[Effect],
+        evaluation: &mut Evaluation<'_>,
+    ) -> Option<i64> {
+        let Evaluation { origin, aim, x, .. } = *evaluation;
         effects
             .iter()
             .enumerate()
@@ -597,7 +627,7 @@ impl HeuristicAgent {
                         x,
                     )?
                 } else {
-                    self.effect_worth(view, origin, effect, aim, x)?
+                    self.effect_worth(view, effect, evaluation)?
                 };
                 Some(sum.saturating_add(worth))
             })
@@ -1465,12 +1495,23 @@ impl HeuristicAgent {
     fn effect_worth(
         &self,
         view: &PlayerView,
-        origin: Origin<'_>,
         effect: &Effect,
-        aim: Aim,
-        x: u32,
+        evaluation: &mut Evaluation<'_>,
     ) -> Option<i64> {
+        let Evaluation { origin, aim, x, .. } = *evaluation;
         let me = view.seat;
+        if !self
+            .profile
+            .plays(crate::AIProfile::TOKEN_AND_EXILE_CHOICES)
+            && matches!(
+                effect,
+                Effect::LookAtTopExileFaceDown { .. }
+                    | Effect::AddCounterCreatedTokens { .. }
+                    | Effect::CreateTokenCopiesOfGraveyard { .. }
+            )
+        {
+            return None;
+        }
         // These need resolution metadata the valuation context does not
         // carry: the original controller/chooser, cast origin, or independent event subjects.
         // Do not turn a nested clause into a concrete value for this seat.
@@ -1492,8 +1533,20 @@ impl HeuristicAgent {
         }
         let (then, otherwise) = effect.branches();
         if !then.is_empty() || !otherwise.is_empty() {
-            let then = self.effects_worth(view, origin, then, aim, x)?;
-            let otherwise = self.effects_worth(view, origin, otherwise, aim, x)?;
+            let (mut yes, mut no) = (*evaluation, *evaluation);
+            let then = self.effects_worth_in(view, then, &mut yes)?;
+            let otherwise = self.effects_worth_in(view, otherwise, &mut no)?;
+            evaluation.created_tokens = match effect {
+                Effect::Sequence(_) => yes.created_tokens,
+                Effect::MayDo { .. } | Effect::MayDoOnceEachTurn { .. } => {
+                    if then > 0 {
+                        yes.created_tokens
+                    } else {
+                        evaluation.created_tokens
+                    }
+                }
+                _ => i64::midpoint(yes.created_tokens, no.created_tokens),
+            };
             return Some(match effect {
                 Effect::Sequence(_) => then,
                 // This seat's own "may": taken when it helps.
@@ -1579,11 +1632,29 @@ impl HeuristicAgent {
                     0
                 }
             }
-            Effect::CreateToken { token } => token_worth(token),
+            Effect::CreateToken { token } => {
+                evaluation.created_tokens = evaluation.created_tokens.saturating_add(1);
+                token_worth(token)
+            }
             Effect::CreateTokenN { token, amount }
             | Effect::CreateTokenModified { token, amount, .. }
             | Effect::CreateTokenAttacking { token, amount, .. } => {
-                count(*amount)? * token_worth(token)
+                let n = count(*amount)?;
+                evaluation.created_tokens = evaluation.created_tokens.saturating_add(n.max(0));
+                n * token_worth(token)
+            }
+            Effect::AddCounterCreatedTokens { kind, amount } => {
+                tokens::counter_bonus(*kind, count(*amount)?, evaluation.created_tokens)?
+            }
+            Effect::CreateTokenCopiesOfGraveyard {
+                player,
+                filter,
+                mods,
+            } => {
+                let (worth, made) =
+                    tokens::graveyard_copies(self, view, origin, aim, *player, filter, mods)?;
+                evaluation.created_tokens = evaluation.created_tokens.saturating_add(made);
+                worth
             }
             Effect::Amass { amount, .. } => 150 + count(*amount)? * 110,
             Effect::SearchLibrary { .. }
@@ -1593,6 +1664,9 @@ impl HeuristicAgent {
             | Effect::LookAtTopPickThenReorder { .. }
             | Effect::RevealTopAndSort { .. }
             | Effect::LookAtTopMayPut { .. } => 350,
+            Effect::LookAtTopExileFaceDown { count, cast_types } => {
+                tokens::exile_selection(view, *count, *cast_types)
+            }
             Effect::TakeExtraTurn => 10_000,
             Effect::ExileLibraryAndShuffleHand { player } => {
                 if self

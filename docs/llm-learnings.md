@@ -7837,6 +7837,13 @@ beneath it. What the author missed, for the next brief:
 
 ### Follow-up review before the rebase merge
 
+- Audit the house's semantic readers beside its exhaustive answer handlers.
+  Vivien's private exile and Grist's token clauses were legal to answer but
+  still fell back during loyalty valuation. Generation 18 reads all three,
+  preserves created-token context through conditions, applies copy exceptions,
+  and prefers a privately inspected card whose prospective face can actually
+  be cast. Decision tests distinguish useful and empty libraries/graveyards;
+  frozen generations retain their prior evaluation and selection.
 - A fixed-cost reservation is not a total after X has been chosen. Optional
   buyback could be offered after pay-X-life had already consumed its budget.
   Offers and the final library payment now use one total-life reader; the X

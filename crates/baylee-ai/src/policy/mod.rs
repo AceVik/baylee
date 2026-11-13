@@ -17,6 +17,7 @@ use baylee_view::{CardIdentity, PlayerView};
 use crate::HeuristicAgent;
 
 mod full_casts;
+mod library_exile;
 mod mana_effects;
 mod x_exact;
 mod x_targets;
@@ -568,6 +569,13 @@ impl HeuristicAgent {
         max: u8,
         prompt: baylee_engine::choice::ChoicePrompt,
     ) -> Option<Vec<ObjectId>> {
+        // Revealing keeps the card in hand and pays the land's entry price.
+        if prompt == baylee_engine::choice::ChoicePrompt::RevealOrEnterTapped {
+            let mut ranked = options.to_vec();
+            ranked.sort_unstable();
+            ranked.truncate(usize::from(max));
+            return Some(ranked);
+        }
         let forced_discard = (prompt == baylee_engine::choice::ChoicePrompt::LookAtHand && max > 0)
             .then(|| self.best_offered_cards(view, options, min));
         replacement_answer(view, options, prompt).or(forced_discard)
@@ -583,16 +591,12 @@ impl HeuristicAgent {
         context: &DecisionContext<'_>,
     ) -> Option<Vec<ObjectId>> {
         use baylee_engine::choice::ChoicePrompt;
-        // Ahead of the skill gate, because this one needs no skill: the card
-        // never leaves the hand (CR 701.20b), nothing is spent, and the only
-        // thing given up by revealing is the information. A profile that
-        // fell through to the `min` default below would answer zero and play
-        // every reveal land tapped for the whole game.
-        if prompt == ChoicePrompt::RevealOrEnterTapped {
-            let mut ranked = options.to_vec();
-            ranked.sort_unstable();
-            ranked.truncate(usize::from(max));
-            return Some(ranked);
+        if prompt == ChoicePrompt::Generic
+            && min == 1
+            && max == 1
+            && let Some(answer) = library_exile::choose(self, view, options, context)
+        {
+            return Some(answer);
         }
         // Ahead of the skill gate as well: neither draw question is a judgement.
         // A private inspection with a nonzero count is a forced discard, not an

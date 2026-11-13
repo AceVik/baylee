@@ -741,8 +741,11 @@ impl AIProfile {
     /// the noise of [`Self::NOISE_BAND`] what keeps `casual` above it (one
     /// step more for `novice` too left the two level, 51 % on train).
     pub const CARD_SKILL: u16 = 17;
+    /// Value private exile selection, counters on newly created tokens and
+    /// graveyard token copies; select a card its exile permission can cast.
+    pub const TOKEN_AND_EXILE_CHOICES: u16 = 18;
     /// What every level a player is offered plays: the newest generation.
-    pub const GENERATION: u16 = Self::CARD_SKILL;
+    pub const GENERATION: u16 = Self::TOKEN_AND_EXILE_CHOICES;
 
     /// The widest noise a level plays with from [`Self::NOISE_BAND`]: the
     /// band of every level but `novice` before it.

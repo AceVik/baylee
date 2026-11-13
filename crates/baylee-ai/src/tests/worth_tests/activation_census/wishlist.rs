@@ -15,8 +15,8 @@ fn wishlist_activations_have_the_expected_reader_coverage() {
         ("Ninja's Kunai", 0, &[true][..]),
         ("Spare Dagger", 0, &[true][..]),
         ("Qarsi Revenant", 0, &[true][..]),
-        ("Vivien, Champion of the Wilds", 0, &[true, false][..]),
-        ("Grist, Voracious Larva", 1, &[false, true, false][..]),
+        ("Vivien, Champion of the Wilds", 0, &[true, true][..]),
+        ("Grist, Voracious Larva", 1, &[true, true, true][..]),
     ] {
         let card = baylee_cards::decks::by_name(name).unwrap();
         let definition = baylee_cards::by_index(card).unwrap();
