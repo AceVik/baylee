@@ -95,10 +95,6 @@ pub(crate) fn refresh_oracle(root: &Path, dry_run: bool) -> anyhow::Result<()> {
         // and quoting another. What it does *not* do is change which printing
         // that is: re-pinning a card is an editorial act, and this command
         // refreshes what a printing says.
-        let mut next = text.clone();
-        if let Some(oracle) = with_oracle_header(&next, &printed_text(&payload)) {
-            next = oracle;
-        }
         // From the card's **own** printing, so a refresh never re-pins it.
         // Writing the default's line here would move the header to another
         // piece of cardboard and leave `scryfall_id` in the body naming the
@@ -106,12 +102,16 @@ pub(crate) fn refresh_oracle(root: &Path, dry_run: bool) -> anyhow::Result<()> {
         // card that was right all along.
         let pinned = pinned_printing(root, &text, &payload);
         let printing = match &pinned {
-            Pinned::Default(card) => Some(*card),
-            Pinned::Other(card) => Some(card),
-            Pinned::Missing => None,
+            Pinned::Default(card) => *card,
+            Pinned::Other(card) => card,
+            Pinned::Missing => {
+                println!("{slug}: pinned printing missing; header unchanged, run scryfall-cache");
+                continue;
+            }
         };
-        if let Some(printing) = printing
-            && let Some(line) = set_header_line(printing)
+        let mut next =
+            with_oracle_header(&text, &printed_text(printing)).unwrap_or_else(|| text.clone());
+        if let Some(line) = set_header_line(printing)
             && let Some(set) = with_set_header(&next, &line)
         {
             next = set;

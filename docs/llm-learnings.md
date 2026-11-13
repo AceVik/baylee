@@ -7834,3 +7834,22 @@ beneath it. What the author missed, for the next brief:
   census; all seven focused desktop tests pass. Scoped Clippy passes for the
   engine, DSL and cardgen libraries with `-D warnings`. The tests used the
   `gate` compilation profile only; neither `cargo dev gate` command ran.
+
+### Follow-up review before the rebase merge
+
+- A fixed-cost reservation is not a total after X has been chosen. Optional
+  buyback could be offered after pay-X-life had already consumed its budget.
+  Offers and the final library payment now use one total-life reader; the X
+  question still reserves only the fixed costs. The regression checks both an
+  unaffordable buyback and an exact affordable payment.
+- Oracle headers must use the same pinned printing as their Set line. CI's
+  name-keyed Scryfall payload for Slagwurm Armor carried a reprint's longer
+  reminder while the live pinned TD2 payload still matched the source. Comparing
+  against the reprint produced a false failure, and `refresh-oracle` could write
+  that mismatch itself. Both now resolve the pinned payload; a missing one is
+  reported without substituting the default. Offline two-printing tests cover
+  preservation, correction, rejection and a missing pinned cache.
+- Keep the exact pool census and per-card wishlist expectations as separate
+  tests. Combining both had pushed the AI test beyond the all-targets Clippy
+  limit, missed by the earlier library-only lint selection. The directory
+  module moves precede these changes in their own commits.

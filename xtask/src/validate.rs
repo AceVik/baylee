@@ -267,7 +267,14 @@ pub(crate) fn validate(root: &Path) -> anyhow::Result<()> {
             check_def_against_the_printing(&slug, def, &payload, &mut tally, &mut problems);
         }
         check_code_matches_the_printing(&slug, &content, &payload, &mut tally, &mut problems);
-        check_oracle_matches_the_printing(&slug, &content, &payload, &mut tally, &mut problems);
+        check_oracle_matches_the_printing(
+            root,
+            &slug,
+            &content,
+            &payload,
+            &mut tally,
+            &mut problems,
+        );
         check_set_line_matches_the_printing(
             root,
             &slug,

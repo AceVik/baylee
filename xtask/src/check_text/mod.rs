@@ -3,54 +3,8 @@
 
 use crate::{Path, Pinned, PrintingTally, lines, pinned_printing, set_header_line, stubgen};
 
-/// The `//! Oracle:` header against the text actually printed on the card.
-///
-/// The header is the pool's human-verification surface, and every other
-/// check reads *around* it: the cost, the P/T, the colors and the keywords
-/// are compared against the printing, and the abilities are compared
-/// against nothing at all. So a card whose rules text had been paraphrased,
-/// abbreviated or overtaken by errata read as correct to a person and to
-/// every gate, and the code underneath it was written from the wrong
-/// sentence.
-///
-/// That is not hypothetical: the first run of this check found 145
-/// disagreements. Ninety-seven were one codegen bug — Scryfall carries a
-/// double-faced card's text per face and `stubgen` wrote the absent
-/// top-level field, so every two-faced header was blank — and the other
-/// forty-eight were hand-written headers, refreshed by
-/// [`refresh_oracle`]. Two of those forty-eight were a *card* written from
-/// its own wrong header: Volrath's Stronghold's second ability had lost its
-/// `{1}{B}`, and Mirrorhall Mimic's disturb was built at `{5}{U}` against a
-/// printed `{3}{U}{U}`.
-///
-/// Whitespace is the only thing forgiven, because a line's indentation
-/// inside a doc comment is not a rules fact. Wording is not: "you may draw a
-/// card unless that player pays {1}" and "you may have that player pay {1};
-/// if they don't, you draw a card" are the same card and *not* the same
-/// question, and which of the two is printed decides who is asked.
-pub(crate) fn check_oracle_matches_the_printing(
-    slug: &str,
-    content: &str,
-    payload: &serde_json::Value,
-    tally: &mut PrintingTally,
-    problems: &mut usize,
-) {
-    let header = content
-        .lines()
-        .filter_map(|l| l.strip_prefix("//! Oracle:"))
-        .collect::<Vec<_>>()
-        .join("\n");
-    let printed = printed_text(payload);
-    tally.oracle += 1;
-    if squash(&header) == squash(&printed) {
-        return;
-    }
-    println!("{slug}: the header's oracle text is not the printing's");
-    for line in diff_lines(&header, &printed) {
-        println!("    {line}");
-    }
-    *problems += 1;
-}
+mod oracle;
+pub(crate) use oracle::check_oracle_matches_the_printing;
 
 /// The `//! Set:` line against the printing it claims to name.
 ///
