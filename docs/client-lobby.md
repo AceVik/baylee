@@ -2,8 +2,10 @@
 
 ## Global Daily and Weekly challenges
 
-The native Challenges tab is available directly after Central sign-in, before
-selecting a gateway. It reads the shared calendar, archive, task rules, personal
+The native Lobby is the home directly after Central sign-in, before selecting
+a gateway. Equal Daily/Weekly cards lead to task details, with the permanent
+collection below. The Challenges tab also holds the archive. Both read the
+shared calendar, archive, task rules, personal
 progress, three independent rankings and permanent badges from the account's
 existing worker. No gateway owns this state. Public leaderboard listing defaults
 to off; revealing either hint requires confirmation before Central permanently
@@ -11,6 +13,20 @@ marks the task assisted. Abandonment also requires confirmation. Escape cancels
 the confirmation. All controls use the shell kit and English/German Fluent words.
 Its registered Tab order reaches task/ranking composites with arrow keys and
 activates controls with Enter/Space. Confirmation traps Tab on Cancel/Confirm.
+
+Task details put play and consent beside independent rankings; scoring rules
+expand on request. Choosing a badge shows its five tiers, exact requirements
+and earned status. Five original procedural motifs gain bezels, laurels, gems
+and crowns through Bronze → Obsidian. Thirty shared material slots bound the
+cache. Motion reads the GPU clock, respects reduced motion and ambient-effects
+settings, and does not rebuild the UI or upload uniforms on idle frames.
+Motion reduction remains adjustable before gateway admission, stored locally
+by the existing preferences store. Opaque reading surfaces and scrolling over
+both controls and empty space support the minimum desktop and enlarged text.
+
+The compact Connection control opens connection selection or its diagnostic
+popover; connection details do not occupy the home. Multiplayer leads to the
+existing table browser, asking for gateway selection when one is needed.
 
 Play reserves with a retained UUIDv7, then re-reads the owned attempt and admits
 the player at the official host Central names. An ambiguous reply retries that
@@ -62,7 +78,8 @@ HTTP replies carry a session generation so responses from a departed gateway or
 account cannot populate the new screen. Addresses are device settings, never
 account preferences; tokens and passwords are not stored with them.
 
-The lobby separates **Play** from **Collection**. Play presents the selected deck,
+The signed-in home separates **Lobby**, **Multiplayer** and **Collection**.
+Multiplayer (and offline Play) presents the selected deck,
 table search and explicit table creation with a seat-count control. Collection
 offers personal decks and house decks. The builder gives the working deck the
 larger desktop pane, with the searchable card catalog beside it; narrow screens

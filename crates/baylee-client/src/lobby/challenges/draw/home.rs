@@ -89,6 +89,10 @@ pub(in crate::lobby) fn home(
         );
     }
     catalogue(commands, body, kit, lang, model, false);
+    multiplayer(commands, body, kit, lang);
+}
+
+fn multiplayer(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang) {
     let footer = panel(commands, body, kit);
     let foot = row(commands, footer, kit);
     label(

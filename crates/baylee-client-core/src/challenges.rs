@@ -175,12 +175,13 @@ impl State {
                 self.confirmation = None;
                 return None;
             }
-            Action::Deck => {
-                self.show_deck = !self.show_deck;
-                return None;
-            }
-            Action::Rules => {
-                self.show_rules = !self.show_rules;
+            Action::Deck | Action::Rules => {
+                let shown = if action == Action::Deck {
+                    &mut self.show_deck
+                } else {
+                    &mut self.show_rules
+                };
+                *shown = !*shown;
                 return None;
             }
             Action::Badge(kind) => {
@@ -218,13 +219,7 @@ impl State {
                 self.offset = 0;
                 self.standings.clear();
             }
-            Action::Page(forward) => {
-                self.offset = if forward {
-                    (self.offset + 30).min(3000)
-                } else {
-                    self.offset.saturating_sub(30)
-                };
-            }
+            Action::Page(forward) => self.page(forward),
             Action::Older => {
                 let before = self.before?;
                 append = true;
@@ -257,6 +252,14 @@ impl State {
             play,
             append,
         })
+    }
+
+    fn page(&mut self, forward: bool) {
+        self.offset = if forward {
+            (self.offset + 30).min(3000)
+        } else {
+            self.offset.saturating_sub(30)
+        };
     }
 
     fn select(&mut self, id: Option<[u8; 16]>) {

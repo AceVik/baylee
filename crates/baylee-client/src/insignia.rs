@@ -101,13 +101,13 @@ fn dress(
     );
     let energy = if still { 0.0 } else { 1.0 };
     // Only the preference changes an existing material; time is never a CPU write.
-    if prefs.as_ref().is_some_and(|p| p.is_changed())
-        || quality.as_ref().is_some_and(|q| q.is_changed())
+    if prefs.as_ref().is_some_and(DetectChanges::is_changed)
+        || quality.as_ref().is_some_and(DetectChanges::is_changed)
     {
         for handle in cache.0.iter().flatten().flatten() {
             if assets
                 .get(handle)
-                .is_some_and(|m| m.params.shape.z != energy)
+                .is_some_and(|m| (m.params.shape.z - energy).abs() > f32::EPSILON)
                 && let Some(mut medal) = assets.get_mut(handle)
             {
                 medal.params.shape.z = energy;

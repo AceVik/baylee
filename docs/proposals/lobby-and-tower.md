@@ -62,6 +62,16 @@ areas; retain evidence and review the final implementation in the existing PRs.
    two new phrases, and reduced motion was unavailable before gateway sign-in.
 6. Accessibility follow-up: allow motion reduction before joining a gateway,
    verify the still counter-test and corrected German/English compact labels.
+   Completed in the native client: the setting is available without gateway
+   admission and is labelled as local storage there. In the opaque Obsidian
+   medal disc (44,847 RGB channel samples), moving frames differ by up to 38
+   channel levels (mean 0.951948); reduced-motion frames differ by exactly zero.
+   All five tiers fit at 1280×720 with XL German text and scrolling. New metadata
+   renders its values in German and English. The focused accessibility test and
+   eight core/translation tests pass, as does Clippy for both changed libraries.
+   All owned native clients, backend listeners and the PostgreSQL container were
+   closed and verified gone. Evidence: `/tmp/baylee-lobby-tower.1tGP1U/`;
+   selected images are retained in the chat's visualizations directory.
 
 Each entry is completed only after an actual change and focused verification;
 follow-up rounds are added if the rendered result still needs work.

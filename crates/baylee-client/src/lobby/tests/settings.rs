@@ -1201,3 +1201,31 @@ fn the_memory_of_sorted_triggers_can_be_turned_on_and_emptied() {
     assert!(memory(&app).is_empty());
     assert!(memory(&app).accept_known, "what the player allowed stays");
 }
+
+#[test]
+fn reduced_motion_can_be_changed_before_gateway_admission() {
+    let mut app = headless();
+    app.insert_resource(crate::settings::ClientSettings::default());
+    sized(&mut app, 1400.0);
+    central::restored_for_test(
+        &mut app.world_mut().resource_mut::<LobbyState>(),
+        Vec::new(),
+    );
+    app.world_mut().resource_mut::<LobbyState>().settings = SettingsPane::Open;
+    settle(&mut app);
+    let before = app
+        .world()
+        .resource::<crate::prefs::Prefs>()
+        .all()
+        .reduce_motion;
+    press(&mut app, Press::Settings(SettingsPress::ToggleMotion));
+    settle(&mut app);
+    assert_eq!(
+        app.world()
+            .resource::<crate::prefs::Prefs>()
+            .all()
+            .reduce_motion,
+        !before
+    );
+    assert!(!app.world().resource::<LobbyState>().gateway_selected);
+}

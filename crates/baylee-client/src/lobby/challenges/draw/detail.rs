@@ -71,6 +71,14 @@ pub(super) fn draw(
         ),
         tokens::ACCENT,
     );
+    progress(commands, card, kit, lang, model);
+    launch(commands, card, kit, lang, model, task);
+    preferences(commands, card, kit, lang, model);
+    rules(commands, card, kit, lang, model);
+    rankings(commands, ranking, kit, lang, model);
+}
+
+fn progress(commands: &mut Commands, card: Entity, kit: Kit, lang: Lang, model: &State) {
     if let Some(progress) = &model.personal {
         let best = progress
             .best_turn
@@ -108,8 +116,9 @@ pub(super) fn draw(
             );
         }
     }
-    launch(commands, card, kit, lang, model, task);
-    preferences(commands, card, kit, lang, model);
+}
+
+fn rules(commands: &mut Commands, card: Entity, kit: Kit, lang: Lang, model: &State) {
     button(
         commands,
         card,
@@ -135,7 +144,6 @@ pub(super) fn draw(
             tokens::MUTED,
         );
     }
-    rankings(commands, ranking, kit, lang, model);
 }
 
 fn launch(
@@ -302,6 +310,33 @@ fn rankings(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang, model: 
             tokens::MUTED,
         );
     }
+    entries(commands, scores, kit, lang, model);
+    let pager = row(commands, scores, kit);
+    if model.offset > 0 {
+        button(
+            commands,
+            pager,
+            kit,
+            Phrase::ChallengePrevious.text(lang),
+            Action::Page(false),
+            model,
+            Weight::Secondary,
+        );
+    }
+    if model.standings.len() == api::PAGE_SIZE && model.offset < 3000 {
+        button(
+            commands,
+            pager,
+            kit,
+            Phrase::ChallengeNext.text(lang),
+            Action::Page(true),
+            model,
+            Weight::Secondary,
+        );
+    }
+}
+
+fn entries(commands: &mut Commands, scores: Entity, kit: Kit, lang: Lang, model: &State) {
     for score in &model.standings {
         let name = score.tag.map_or_else(
             || score.name.clone(),
@@ -353,29 +388,6 @@ fn rankings(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang, model: 
             } else {
                 tokens::INK
             },
-        );
-    }
-    let pager = row(commands, scores, kit);
-    if model.offset > 0 {
-        button(
-            commands,
-            pager,
-            kit,
-            Phrase::ChallengePrevious.text(lang),
-            Action::Page(false),
-            model,
-            Weight::Secondary,
-        );
-    }
-    if model.standings.len() == api::PAGE_SIZE && model.offset < 3000 {
-        button(
-            commands,
-            pager,
-            kit,
-            Phrase::ChallengeNext.text(lang),
-            Action::Page(true),
-            model,
-            Weight::Secondary,
         );
     }
 }

@@ -1,5 +1,18 @@
 use super::*;
 
+#[test]
+fn compact_challenge_metadata_renders_its_values_in_both_languages() {
+    for lang in [Lang::En, Lang::De] {
+        for phrase in [Phrase::ChallengeMinutes, Phrase::ChallengeTargetCompact] {
+            let text = phrase.fill(lang, &["17"]);
+            assert!(
+                text.contains("17") && !text.contains('$'),
+                "{phrase:?}: {text}"
+            );
+        }
+    }
+}
+
 /// `docs/legal.md` §3: Scryfall's terms ask a client for the words
 /// "data and images provided by Scryfall" (#325). The English is those
 /// words; every language names Scryfall.
