@@ -345,8 +345,7 @@ mod tests {
                 RECORD
                     .lines()
                     .next()
-                    .map(|h| format!("{h}\n"))
-                    .unwrap_or_default()
+                    .map_or_default(|h| format!("{h}\n"))
                     .as_bytes(),
             );
             assert_eq!(read_back(&header_only), ReadBack::Whole);

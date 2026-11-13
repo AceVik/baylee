@@ -200,8 +200,7 @@ impl Limit {
         }
         let lifts = self
             .lifts_in
-            .map(|lifts| format!(" (it lifts in {} s)", lifts.as_secs()))
-            .unwrap_or_default();
+            .map_or_default(|lifts| format!(" (it lifts in {} s)", lifts.as_secs()));
         match &self.by {
             None => format!("{LIMITED}{lifts}"),
             Some(by) => format!("{}{lifts}", fallback_limited(by)),

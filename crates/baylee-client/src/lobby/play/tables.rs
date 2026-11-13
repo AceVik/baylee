@@ -681,15 +681,12 @@ fn table_row(
                     node.padding = UiRect::axes(compact_padding, px_fixed(0.0));
                 }
             }
-            let actions: Vec<_> = world
-                .get::<Children>(top)
-                .map(|children| {
-                    children
-                        .iter()
-                        .filter(|id| world.get::<Press>(*id).is_some())
-                        .collect()
-                })
-                .unwrap_or_default();
+            let actions: Vec<_> = world.get::<Children>(top).map_or_default(|children| {
+                children
+                    .iter()
+                    .filter(|id| world.get::<Press>(*id).is_some())
+                    .collect()
+            });
             for action in actions {
                 if Some(action) == compact_action {
                     continue;

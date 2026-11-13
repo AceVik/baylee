@@ -55,8 +55,7 @@ impl DamageWork {
                     if part.view.is_combat {
                         let commanders = state
                             .damage_source(part.view.source, part.source_version)
-                            .map(|source| state.merged_commanders(source))
-                            .unwrap_or_default();
+                            .map_or_default(|source| state.merged_commanders(source));
                         let tally = &mut state.players[usize::from(player.get())].commander_damage;
                         let n = u16::try_from(part.view.amount).unwrap_or(u16::MAX);
                         for commander in commanders {

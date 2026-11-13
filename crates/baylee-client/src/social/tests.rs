@@ -1730,8 +1730,7 @@ mod pane {
             self.app
                 .world()
                 .get::<Children>(entity)
-                .map(|kids| kids.iter().collect())
-                .unwrap_or_default()
+                .map_or_default(|kids| kids.iter().collect())
         }
 
         /// Everything under `entity`.

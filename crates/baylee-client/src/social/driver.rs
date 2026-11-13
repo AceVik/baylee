@@ -119,10 +119,7 @@ pub(super) fn drive(
             let social = Some((baylee_protocol::social::SOCIAL_VERSION, 30));
             host.info = InfoState::Known(social);
             if host.machine.is_none() {
-                let mut chat = prefs
-                    .as_deref()
-                    .map(|p| p.all().chat.clone())
-                    .unwrap_or_default();
+                let mut chat = prefs.as_deref().map_or_default(|p| p.all().chat.clone());
                 if session.guest {
                     chat.notice_seen = true;
                 }
@@ -144,10 +141,7 @@ pub(super) fn drive(
                     && version == baylee_protocol::social::SOCIAL_VERSION
                 {
                     if host.machine.is_none() {
-                        let chat = prefs
-                            .as_deref()
-                            .map(|p| p.all().chat.clone())
-                            .unwrap_or_default();
+                        let chat = prefs.as_deref().map_or_default(|p| p.all().chat.clone());
                         host.start(keep, chat);
                     } else if let Some(machine) = host.machine.as_mut() {
                         host.keep_days = keep;

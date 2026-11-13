@@ -1053,8 +1053,7 @@ impl Preferences {
     #[must_use]
     pub fn from_json(text: &str) -> Self {
         let stored = serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(text)
-            .map(Self::tolerant)
-            .unwrap_or_default();
+            .map_or_default(Self::tolerant);
         Self {
             keymap: stored.keymap.migrated(),
             ..stored

@@ -172,11 +172,7 @@ fn overlay_keys(
     let keymap = prefs.as_deref().map_or(&standard, |p| &p.all().shell_keys);
     let on = focus.get().and_then(|f| stops.get(f).ok()).map(|s| s.id);
     let in_search_or_list = matches!(on, Some("search" | "list"));
-    let typed = search
-        .iter()
-        .next()
-        .map(|f| f.value.clone())
-        .unwrap_or_default();
+    let typed = search.iter().next().map_or_default(|f| f.value.clone());
     for key in keys.read() {
         if key.state != ButtonState::Pressed {
             continue;

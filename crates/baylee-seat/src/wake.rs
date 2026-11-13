@@ -640,8 +640,7 @@ fn targets_me(view: &PlayerView, teams: &[Option<u8>]) -> bool {
     let me = decision::resource_player(view);
     let commanders: Vec<ObjectId> = view
         .seat(me)
-        .map(|seat| seat.commanders.iter().map(|c| c.object).collect())
-        .unwrap_or_default();
+        .map_or_default(|seat| seat.commanders.iter().map(|c| c.object).collect());
     view.stack
         .iter()
         .filter(|object| decision::opposes(view, object, me, |a, b| same_side(teams, a, b)))

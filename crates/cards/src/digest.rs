@@ -118,9 +118,7 @@ fn picture(name: &str, card: Option<&CardDef>, chosen: Option<&deckrow::PrintCho
             .or_else(|| card.map(|c| c.scryfall_id.to_string()))
             .unwrap_or_default(),
         lang: chosen.map_or("en", |p| p.lang_or_default()).to_string(),
-        finish: chosen
-            .map(deckrow::PrintChoice::finish_or_default)
-            .unwrap_or_default(),
+        finish: chosen.map_or_default(deckrow::PrintChoice::finish_or_default),
         has_back_image: card.is_some_and(|c| crate::sides::has_back_image(c.index)),
         artist: String::new(),
     }

@@ -168,9 +168,9 @@ impl DeckThemeAccumulator {
         if copies == 0 {
             return;
         }
-        for bit in 0..24 {
+        for (bit, count) in self.role_counts.iter_mut().enumerate() {
             if (profile.roles >> bit) & 1 == 1 {
-                self.role_counts[bit] = self.role_counts[bit].saturating_add(copies);
+                *count = count.saturating_add(copies);
             }
         }
         if profile.creature {
@@ -223,9 +223,9 @@ impl DeckThemeAccumulator {
         if copies == 0 {
             return;
         }
-        for bit in 0..24 {
+        for (bit, count) in self.role_counts.iter_mut().enumerate() {
             if (profile.roles >> bit) & 1 == 1 {
-                self.role_counts[bit] = self.role_counts[bit].saturating_sub(copies);
+                *count = count.saturating_sub(copies);
             }
         }
         if profile.creature {

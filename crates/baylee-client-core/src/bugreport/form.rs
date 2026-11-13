@@ -93,8 +93,7 @@ pub fn outcome(status: u16, body: &str) -> Outcome {
             serde_json::from_str::<serde_json::Value>(body)
                 .ok()
                 .and_then(|v| v.get("report_id").map(ToString::to_string))
-                .map(|id| id.trim_matches('"').to_string())
-                .unwrap_or_default(),
+                .map_or_default(|id| id.trim_matches('"').to_string()),
         ),
         400 => {
             let error = serde_json::from_str::<serde_json::Value>(body)

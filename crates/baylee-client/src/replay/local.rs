@@ -185,14 +185,12 @@ pub fn entries(build: &str, you: &str) -> Vec<Entry> {
         return Vec::new();
     };
     let names = |dir: &std::path::Path| -> Vec<String> {
-        std::fs::read_dir(dir)
-            .map(|d| {
-                d.filter_map(Result::ok)
-                    .filter_map(|file| file.file_name().into_string().ok())
-                    .filter(|name| baylee_client_core::bugreport::is_record_file_name(name))
-                    .collect()
-            })
-            .unwrap_or_default()
+        std::fs::read_dir(dir).map_or_default(|d| {
+            d.filter_map(Result::ok)
+                .filter_map(|file| file.file_name().into_string().ok())
+                .filter(|name| baylee_client_core::bugreport::is_record_file_name(name))
+                .collect()
+        })
     };
     let kept = names(&folder).into_iter().map(|n| (n, false));
     let archived = names(&archive).into_iter().map(|n| (n, true));

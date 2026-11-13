@@ -1570,13 +1570,11 @@ impl Social {
             Conv::Global => "Lobby".into(),
             Conv::Dm { .. } => id
                 .partner(&self.me.tag)
-                .map(|t| self.shown_name(&self.person_of(t)))
-                .unwrap_or_default(),
+                .map_or_default(|t| self.shown_name(&self.person_of(t))),
             Conv::Group { id } => self
                 .contacts
                 .group(id)
-                .map(|g| super::text::clean_name(&g.name))
-                .unwrap_or_default(),
+                .map_or_default(|g| super::text::clean_name(&g.name)),
             Conv::Table { .. } => "Table".into(),
             Conv::Team { .. } => "Team".into(),
         }
@@ -1687,16 +1685,12 @@ impl Social {
     }
 
     fn refresh_candidates(&mut self) {
-        let seats: BTreeMap<String, u8> = self
-            .table
-            .as_ref()
-            .map(|t| {
-                t.roster
-                    .iter()
-                    .filter_map(|s| s.tag().map(|tag| (tag.to_string(), s.seat)))
-                    .collect()
-            })
-            .unwrap_or_default();
+        let seats: BTreeMap<String, u8> = self.table.as_ref().map_or_default(|t| {
+            t.roster
+                .iter()
+                .filter_map(|s| s.tag().map(|tag| (tag.to_string(), s.seat)))
+                .collect()
+        });
         let players = self
             .known_people()
             .into_iter()

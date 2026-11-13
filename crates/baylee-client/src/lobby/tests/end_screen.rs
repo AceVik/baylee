@@ -730,8 +730,7 @@ fn ways_out(app: &mut App) -> Vec<EndPress> {
         .world()
         .entity(row)
         .get::<Children>()
-        .map(|children| children.iter().collect())
-        .unwrap_or_default();
+        .map_or_default(|children| children.iter().collect());
     children
         .into_iter()
         .filter_map(|child| match app.world().entity(child).get::<Press>() {
@@ -905,8 +904,7 @@ fn children_of(app: &App, parent: Entity) -> Vec<Entity> {
     app.world()
         .entity(parent)
         .get::<Children>()
-        .map(|c| c.iter().collect())
-        .unwrap_or_default()
+        .map_or_default(|c| c.iter().collect())
 }
 
 /// The ways in the row, in order.

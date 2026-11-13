@@ -418,8 +418,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             for id in state.battlefield_view() {
                 let held: Vec<_> = state
                     .object(id)
-                    .map(|o| o.counters.iter().collect())
-                    .unwrap_or_default();
+                    .map_or_default(|o| o.counters.iter().collect());
                 for (kind, n) in held {
                     drained = drained.saturating_add(crate::replacement::remove_counters_by(
                         state,

@@ -171,10 +171,7 @@ fn every_price_paid_by_naming_an_object_puts_a_menu_up() {
             {
                 found += 1;
                 let rest = &dump[at..];
-                let price = rest
-                    .split_once("cost: ")
-                    .map(|(_, tail)| tail)
-                    .unwrap_or_default();
+                let price = rest.split_once("cost: ").map_or_default(|(_, tail)| tail);
                 assert!(
                     asks.iter().any(|kind| price.starts_with(kind)),
                     "{} ({oracle_id}) charges `{}…` for an \"unless\", which \

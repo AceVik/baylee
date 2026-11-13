@@ -481,7 +481,7 @@ impl Tx<'_> {
         let mut fields = rest.split(':');
         let kind = fields.next()?.trim();
         if kind == "Copy" {
-            let svar = fields.next().map(str::trim).unwrap_or_default().to_string();
+            let svar = fields.next().map_or_default(str::trim).to_string();
             let optional = fields.next().map(str::trim) == Some("Optional");
             return self.copy_on_enter(&svar, optional);
         }
@@ -770,24 +770,20 @@ impl Tx<'_> {
         if chain.effects.is_empty() {
             return self.deny("a trigger that reads as no effect at all".to_string());
         }
-        let targets = chain
-            .target
-            .map(|t| {
-                if let Some(max) = chain.target_up_to {
-                    if max == 1 {
-                        format!(", targets = Some(TargetReq::up_to_one({t}))")
-                    } else {
-                        format!(", targets = Some(TargetReq::up_to({t}, {max}))")
-                    }
+        let targets = chain.target.map_or_default(|t| {
+            if let Some(max) = chain.target_up_to {
+                if max == 1 {
+                    format!(", targets = Some(TargetReq::up_to_one({t}))")
                 } else {
-                    format!(", targets = Some(TargetReq::one({t}))")
+                    format!(", targets = Some(TargetReq::up_to({t}, {max}))")
                 }
-            })
-            .unwrap_or_default();
+            } else {
+                format!(", targets = Some(TargetReq::one({t}))")
+            }
+        });
         let second = chain
             .second_target
-            .map(|t| format!(", second_targets = Some(TargetReq::one({t}))"))
-            .unwrap_or_default();
+            .map_or_default(|t| format!(", second_targets = Some(TargetReq::one({t}))"));
         // The targets stay **outside** the `may`, and the two rules say why:
         // CR 603.3d chose them when the ability went on the stack, CR 603.5
         // puts the choice at resolution. A declined "may" is therefore an

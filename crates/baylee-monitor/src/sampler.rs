@@ -283,13 +283,11 @@ impl Sampler {
             power_supply: self
                 .supply
                 .as_ref()
-                .map(|supply| (*supply.get()).clone())
-                .unwrap_or_default(),
+                .map_or_default(|supply| (*supply.get()).clone()),
             npus: self
                 .npus
                 .as_ref()
-                .map(|npus| npus.get().npus.clone())
-                .unwrap_or_default(),
+                .map_or_default(|npus| npus.get().npus.clone()),
             processes,
             ..Snapshot::default()
         };

@@ -366,9 +366,7 @@ pub fn matches_search(game: &GameSummary, query: &str) -> bool {
     }
     let name = super::shelf::fold(&game.name);
     let id = super::shelf::fold(&game.id);
-    let fmt = table_format(game)
-        .map(super::shelf::fold)
-        .unwrap_or_default();
+    let fmt = table_format(game).map_or_default(super::shelf::fold);
     q.split_whitespace().all(|word| {
         name.contains(word)
             || id.contains(word)

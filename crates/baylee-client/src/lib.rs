@@ -1706,7 +1706,7 @@ pub fn rebuild_board(duel: &mut Duel) {
         .interaction
         .as_ref()
         .and_then(Interaction::legal_actions)
-        .map(|legal| {
+        .map_or_default(|legal| {
             legal
                 .lands
                 .iter()
@@ -1715,8 +1715,7 @@ pub fn rebuild_board(duel: &mut Duel) {
                 .chain(legal.foretellable.iter())
                 .copied()
                 .collect()
-        })
-        .unwrap_or_default();
+        });
 
     // The client's payable offers stay separate for action dispatch; only
     // their presentation shares the indigo reach highlight.

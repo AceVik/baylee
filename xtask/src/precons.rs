@@ -448,7 +448,7 @@ fn board(
     file: &str,
 ) -> anyhow::Result<Vec<Row>> {
     let mut rows: Vec<Row> = Vec::new();
-    for card in cards.as_array().map(Vec::as_slice).unwrap_or_default() {
+    for card in cards.as_array().map_or_default(Vec::as_slice) {
         let row = card_row(card, ledger, unknown, dropped, file)?;
         match rows
             .iter_mut()
@@ -665,8 +665,7 @@ fn read_archive(path: &Path) -> anyhow::Result<BTreeMap<String, Vec<u8>>> {
         let name = entry
             .path()?
             .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default();
+            .map_or_default(|n| n.to_string_lossy().into_owned());
         if !Path::new(&name)
             .extension()
             .is_some_and(|e| e.eq_ignore_ascii_case("json"))

@@ -77,9 +77,7 @@ fn moments() -> Vec<TapeMoment> {
             game_id: String::new(),
             seq: i as u64 + 1,
             view_frame: baylee_view::ViewFrame::snapshot_of(&view_of(i, spec, true)),
-            log: log
-                .map(|t| baylee_core::wire::encode(&t))
-                .unwrap_or_default(),
+            log: log.map_or_default(|t| baylee_core::wire::encode(&t)),
         })),
     };
     let steps = [

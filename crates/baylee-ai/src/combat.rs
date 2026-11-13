@@ -1033,8 +1033,7 @@ pub(crate) fn obey_attack_rules(
             .copied()
             .find(|at| *at == defender)
             .or_else(|| allowed(creature).first().copied())
-            .map(|at| vec![(creature, at)])
-            .unwrap_or_default();
+            .map_or_default(|at| vec![(creature, at)]);
     }
     chosen.retain(|(creature, _)| !alone.contains(creature));
     for (creature, defender) in &mut chosen {

@@ -469,8 +469,7 @@ impl BuildPress {
                         .lobby
                         .builder()
                         .picker()
-                        .map(|p| p.all_printings().to_vec())
-                        .unwrap_or_default();
+                        .map_or_default(|p| p.all_printings().to_vec());
                     super::print_catalog::fetch(
                         card.index,
                         &card.oracle_id,

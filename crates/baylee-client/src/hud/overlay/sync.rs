@@ -100,8 +100,7 @@ pub fn sync_overlay(
     let selected: Vec<ObjectId> = duel
         .interaction
         .as_ref()
-        .map(|i| i.selected().collect::<Vec<_>>())
-        .unwrap_or_default();
+        .map_or_default(|i| i.selected().collect::<Vec<_>>());
     let orders = prefs.orders().clone();
     let autopilot = duel.autopilot;
     let combat = duel.interaction.as_ref().and_then(|i| {
@@ -231,19 +230,15 @@ pub fn sync_overlay(
     // The stack joined it by the same road. Every card in the game that says
     // "target spell" points at a row of that panel, and until those rows
     // became clickable there was nothing there to light.
-    let selectable: Vec<ObjectId> = duel
-        .interaction
-        .as_ref()
-        .map(|i| {
-            board
-                .hand
-                .iter()
-                .map(|c| c.id)
-                .chain(board.stack.iter().map(|item| item.id))
-                .filter(|id| i.is_selectable(*id))
-                .collect()
-        })
-        .unwrap_or_default();
+    let selectable: Vec<ObjectId> = duel.interaction.as_ref().map_or_default(|i| {
+        board
+            .hand
+            .iter()
+            .map(|c| c.id)
+            .chain(board.stack.iter().map(|item| item.id))
+            .filter(|id| i.is_selectable(*id))
+            .collect()
+    });
 
     // The rebuild, which is no longer a clean sweep: the root and the shelf
     // stand, everything else is torn down and written again.
@@ -516,7 +511,7 @@ pub fn sync_overlay(
             );
             let keys_h = super::preview_keys::room(turn);
             let slip = super::slip::says(board, view, statics, lang, &faces, hovered);
-            let runs = slip.as_ref().map(super::slip::runs).unwrap_or_default();
+            let runs = slip.as_ref().map_or_default(super::slip::runs);
             // Twice, at two widths, and the first one is the estimate that
             // decides how much room the picture may take. The second is at
             // the width the sheet will actually be drawn at, which is the one
@@ -579,8 +574,7 @@ pub fn sync_overlay(
             // them out as far.
             let shells = hovered
                 .and_then(|id| board.group(id))
-                .map(crate::shellmat::Shells::of)
-                .unwrap_or_default();
+                .map_or_default(crate::shellmat::Shells::of);
             let shell = shell_reach(img_w, shells);
             let [shell_side, shell_top] = shell;
             let place = place_around(anchor, panel, window, keep_out, [reach, plate_over], shell);

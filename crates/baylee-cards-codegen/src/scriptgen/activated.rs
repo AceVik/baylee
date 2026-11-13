@@ -234,8 +234,7 @@ impl Tx<'_> {
         let second_targets = chain
             .second_target
             .as_ref()
-            .map(|t| format!(", second_targets = Some(TargetReq::one({t}))"))
-            .unwrap_or_default();
+            .map_or_default(|t| format!(", second_targets = Some(TargetReq::one({t}))"));
         if is_activated {
             let zone = if any_player {
                 ", zone = ActivationZone::BattlefieldAnyPlayer"
@@ -305,8 +304,7 @@ impl Tx<'_> {
         let target = chain
             .target
             .as_ref()
-            .map(|t| format!(", target = Some({t})"))
-            .unwrap_or_default();
+            .map_or_default(|t| format!(", target = Some({t})"));
         let limit = self.activation_limit(limit)?;
         // `mana_ability!(effects)` *is* `mana_ability!({T}, effects)`
         // — the macro supplies the tap, because tapping is what almost
@@ -395,22 +393,20 @@ impl Tx<'_> {
         if let Some(raw) = cost {
             self.spell_mana_cost(raw)?;
         }
-        let targets = target
-            .map(|t| {
-                if let Some(max) = target_up_to {
-                    if max == 1 {
-                        format!(", targets = Some(TargetReq::up_to_one({t}))")
-                    } else {
-                        format!(", targets = Some(TargetReq::up_to({t}, {max}))")
-                    }
-                } else if let Some(n) = target_exact {
-                    format!(", targets = Some(TargetReq::exactly({t}, {n}))")
+        let targets = target.map_or_default(|t| {
+            if let Some(max) = target_up_to {
+                if max == 1 {
+                    format!(", targets = Some(TargetReq::up_to_one({t}))")
                 } else {
-                    let req_fn = if target_is_x { "x_targets" } else { "one" };
-                    format!(", targets = Some(TargetReq::{req_fn}({t}))")
+                    format!(", targets = Some(TargetReq::up_to({t}, {max}))")
                 }
-            })
-            .unwrap_or_default();
+            } else if let Some(n) = target_exact {
+                format!(", targets = Some(TargetReq::exactly({t}, {n}))")
+            } else {
+                let req_fn = if target_is_x { "x_targets" } else { "one" };
+                format!(", targets = Some(TargetReq::{req_fn}({t}))")
+            }
+        });
         self.body
             .abilities
             .push(format!("spell!({effects}{targets}{second_targets})"));
@@ -471,12 +467,10 @@ impl Tx<'_> {
             }
             let targets = chain
                 .target
-                .map(|t| format!(", targets = Some(TargetReq::one({t}))"))
-                .unwrap_or_default();
+                .map_or_default(|t| format!(", targets = Some(TargetReq::one({t}))"));
             let second = chain
                 .second_target
-                .map(|t| format!(", second_targets = Some(TargetReq::one({t}))"))
-                .unwrap_or_default();
+                .map_or_default(|t| format!(", second_targets = Some(TargetReq::one({t}))"));
             modes.push(format!(
                 "mode!(&[{}]{targets}{second})",
                 chain.effects.join(", ")

@@ -310,9 +310,8 @@ impl Draft {
     /// The boxes for `profile`, called `name`.
     fn of(name: &str, profile: &Profile) -> Self {
         let text = |value: Option<&str>| TextBuffer::new(value.unwrap_or_default());
-        let number =
-            |value: Option<u64>| TextBuffer::new(&value.map(|n| n.to_string()).unwrap_or_default());
-        let usd = |value: Option<f64>| TextBuffer::new(&value.map(usd_text).unwrap_or_default());
+        let number = |value: Option<u64>| TextBuffer::new(&value.map_or_default(|n| n.to_string()));
+        let usd = |value: Option<f64>| TextBuffer::new(&value.map_or_default(usd_text));
         Self {
             name: TextBuffer::new(name),
             provider: profile.provider,
@@ -809,8 +808,7 @@ impl SeatPanel {
     pub fn tab(&mut self, back: bool) {
         let mut ring: Vec<Spot> = self
             .selected
-            .map(|at| Slot::TYPED.iter().map(|s| Spot::Profile(at, *s)).collect())
-            .unwrap_or_default();
+            .map_or_default(|at| Slot::TYPED.iter().map(|s| Spot::Profile(at, *s)).collect());
         ring.extend(CapField::ALL.iter().map(|cap| Spot::Cap(*cap)));
         ring.retain(|spot| self.shows(*spot));
         let next = match self

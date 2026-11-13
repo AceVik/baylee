@@ -184,8 +184,7 @@ impl Credit {
             .rarity
             .chars()
             .next()
-            .map(|c| c.to_uppercase().to_string())
-            .unwrap_or_default();
+            .map_or_default(|c| c.to_uppercase().to_string());
         join_dotted([self.set.to_uppercase().as_str(), rarity.as_str()])
     }
 }
@@ -351,8 +350,7 @@ impl CardFace {
         let cost = printed_cost.map_or_else(
             || {
                 text.and_then(|t| ManaCost::try_parse(&t.mana_cost).ok())
-                    .map(|c| c.symbols().collect())
-                    .unwrap_or_default()
+                    .map_or_default(|c| c.symbols().collect())
             },
             |c| c.symbols().collect(),
         );

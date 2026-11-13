@@ -134,8 +134,7 @@ fn asking_effects(note: &DecisionNote) -> Vec<Effect> {
             usize::try_from(done)
                 .ok()
                 .and_then(|done| program.get(done..))
-                .map(<[Effect]>::to_vec)
-                .unwrap_or_default()
+                .map_or_default(<[Effect]>::to_vec)
         }
         None => effects.to_vec(),
     }

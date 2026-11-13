@@ -194,7 +194,7 @@ pub fn cards(set: &SetProgress) -> Vec<SetCard> {
                 name: row.name,
                 coverage: card.map_or("absent", |c| c.coverage),
                 note: card.and_then(|c| c.note),
-                type_line: card.map(|c| c.type_line.clone()).unwrap_or_default(),
+                type_line: card.map_or_default(|c| c.type_line.clone()),
                 scryfall_id: card.map(|c| c.scryfall_id),
                 oracle_id: row.oracle_id,
             }

@@ -901,8 +901,7 @@ fn prepared_label(view: &PlayerView, object: ObjectId) -> String {
                 .faces
                 .get(usize::from(spell.face))
         })
-        .map(|face| face.name.to_string())
-        .unwrap_or_default()
+        .map_or_default(|face| face.name.to_string())
 }
 
 /// What casting a copy of `spell` costs: its selected face's printed mana cost,
@@ -1018,7 +1017,7 @@ pub fn grant_words(
         None => crate::cardtext::Said::Oracle,
     };
     let mut blocks = vec![TextBlock::Rules(name)];
-    blocks.extend(sentence.map(|(sentence, _)| sentence).unwrap_or_default());
+    blocks.extend(sentence.map_or_default(|(sentence, _)| sentence));
     Some((blocks, said))
 }
 

@@ -153,8 +153,7 @@ impl Booked {
         let tally = self
             .tally
             .as_ref()
-            .map(|t| t.lock().unwrap_or_else(PoisonError::into_inner).clone())
-            .unwrap_or_default();
+            .map_or_default(|t| t.lock().unwrap_or_else(PoisonError::into_inner).clone());
         let usd = self.priced.then(|| tally.spend_usd().unwrap_or(0.0));
         let id = self.grant.id;
         self.book

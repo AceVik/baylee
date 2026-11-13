@@ -372,8 +372,7 @@ impl Social {
         let devices: Vec<String> = hub
             .online
             .get(account)
-            .map(|online| online.devices.iter().cloned().collect())
-            .unwrap_or_default();
+            .map_or_default(|online| online.devices.iter().cloned().collect());
         let shared = Arc::new(frame.clone());
         for device in devices {
             Self::to_device(&mut hub, &device, Out::Frame(Arc::clone(&shared)));

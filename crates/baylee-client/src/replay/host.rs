@@ -64,7 +64,7 @@ impl Bearer {
     /// The bearer now.
     #[must_use]
     pub fn get(&self) -> String {
-        self.0.read().map(|held| held.clone()).unwrap_or_default()
+        self.0.read().map_or_default(|held| held.clone())
     }
 
     /// Writes `token`, only if it changed: this runs every frame.

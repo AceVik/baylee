@@ -472,12 +472,7 @@ fn the_card_window_offline_says_why_and_is_never_blank() {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
         state.lobby.build_deck();
         let _ = state.lobby.builder_mut().inspect(0);
-        let index = state
-            .lobby
-            .builder()
-            .card(0)
-            .map(|c| c.index)
-            .unwrap_or_default();
+        let index = state.lobby.builder().card(0).map_or_default(|c| c.index);
         state
             .lobby
             .builder_mut()

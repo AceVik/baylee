@@ -34,7 +34,7 @@ pub(super) fn find(
     );
     let hits = get(&agent, gateway, &search)?;
     let wanted = fold(name);
-    let hits = hits.as_array().map(Vec::as_slice).unwrap_or_default();
+    let hits = hits.as_array().map_or_default(Vec::as_slice);
     let named = |hit: &&Value, field: &str| {
         hit.get(field)
             .and_then(Value::as_str)

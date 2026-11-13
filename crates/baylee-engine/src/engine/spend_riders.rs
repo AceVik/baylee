@@ -77,8 +77,7 @@ impl<L: CardLookup> Engine<L> {
             .state
             .object_mut(ability)
             .and_then(|object| object.paid.as_mut())
-            .map(|paid| std::mem::take(&mut paid.spend_riders))
-            .unwrap_or_default();
+            .map_or_default(|paid| std::mem::take(&mut paid.spend_riders));
         self.apply_spend_riders(player, ability, &riders);
     }
 

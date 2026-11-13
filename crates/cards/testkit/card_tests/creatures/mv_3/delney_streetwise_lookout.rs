@@ -41,8 +41,7 @@ fn delney_keeps_the_big_blockers_off_her_small_creatures() {
         blockers
             .iter()
             .find(|o| o.blocker == id)
-            .map(|o| o.attackers.clone())
-            .unwrap_or_default()
+            .map_or_default(|o| o.attackers.clone())
     };
     let giant = offered(thundering_giant());
     assert!(giant.contains(&mine), "a 4/3 on a 4/3");

@@ -228,8 +228,7 @@ impl Scryfall {
                 card.rulings = rulings
                     .get("data")
                     .and_then(Value::as_array)
-                    .map(Vec::as_slice)
-                    .unwrap_or_default()
+                    .map_or_default(Vec::as_slice)
                     .iter()
                     .filter_map(|ruling| {
                         let date = ruling.get("published_at").and_then(Value::as_str)?;
@@ -480,8 +479,7 @@ fn card_text(card: &Value) -> String {
             face.get(key)
                 .or_else(|| card.get(key))
                 .and_then(Value::as_str)
-                .map(str::trim)
-                .unwrap_or_default()
+                .map_or_default(str::trim)
         };
         let _ = write!(text, "{}", field("name"));
         if !field("mana_cost").is_empty() {

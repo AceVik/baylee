@@ -269,7 +269,7 @@ fn partners(index: baylee_core::ids::CardIndex) -> Vec<u32> {
 #[must_use]
 pub fn row(def: &'static CardDef) -> PoolCard {
     let face = def.faces.first();
-    let cost = face.map(|f| f.mana_cost).unwrap_or_default();
+    let cost = face.map_or_default(|f| f.mana_cost);
     let name = def.name().to_string();
     let (coverage, note) = match def.coverage {
         Coverage::Implemented => ("implemented", None),
@@ -285,8 +285,8 @@ pub fn row(def: &'static CardDef) -> PoolCard {
         cmc: cost.cmc(),
         colors: letters(cost.colors()),
         identity: letters(def.color_identity),
-        type_line: face.map(type_line).unwrap_or_default(),
-        kinds: face.map(|f| f.types.words().collect()).unwrap_or_default(),
+        type_line: face.map_or_default(type_line),
+        kinds: face.map_or_default(|f| f.types.words().collect()),
         stats: face.and_then(stats),
         oracle_text: String::new(),
         coverage,

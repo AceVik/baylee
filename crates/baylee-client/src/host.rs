@@ -532,8 +532,7 @@ fn own_deck(preset: &GamePreset, seat: PlayerId) -> Vec<baylee_core::ids::CardIn
     preset
         .seats
         .get(seat.get() as usize)
-        .map(|spec| spec.deck.iter().map(|entry| entry.card).collect())
-        .unwrap_or_default()
+        .map_or_default(|spec| spec.deck.iter().map(|entry| entry.card).collect())
 }
 
 impl LocalHost {

@@ -1210,8 +1210,7 @@ fn sync_drawer(
     let entry_text = ui
         .entry
         .as_ref()
-        .map(|(e, b)| format!("{e:?}{}{}", b.text(), b.cursor()))
-        .unwrap_or_default();
+        .map_or_default(|(e, b)| format!("{e:?}{}{}", b.text(), b.cursor()));
     let pitch = ROW_PITCH * zoom.0;
     let chunk = window_chunk(scrolls.iter().next().map_or(0.0, |s| s.y), pitch);
     let group_unreads: Vec<u32> = machine

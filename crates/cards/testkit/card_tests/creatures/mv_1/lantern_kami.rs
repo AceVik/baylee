@@ -85,8 +85,7 @@ fn lantern_kami_flies_over_a_ground_creature_and_is_blocked_only_from_the_air() 
         blockers
             .iter()
             .find(|option| option.blocker == blocker)
-            .map(|option| option.attackers.clone())
-            .unwrap_or_default()
+            .map_or_default(|option| option.attackers.clone())
     };
     assert!(
         may_block(their_kami).contains(&resident),

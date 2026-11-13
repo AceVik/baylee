@@ -46,8 +46,7 @@ pub(crate) fn adopt(root: &Path, name: &str) -> anyhow::Result<()> {
     };
     let summary = line
         .strip_prefix(stubgen::OWNED_MARKER)
-        .map(|rest| rest.trim_start_matches(':'))
-        .unwrap_or_default()
+        .map_or_default(|rest| rest.trim_start_matches(':'))
         .trim()
         .trim_end_matches('.');
     let adopted = format!("// IMPLEMENTED \u{2014} {summary}, adopted from `xtask codegen`.");

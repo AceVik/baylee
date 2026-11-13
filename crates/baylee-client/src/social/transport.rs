@@ -70,9 +70,7 @@ pub(crate) fn request(
     body: Option<&serde_json::Value>,
 ) {
     let url = format!("{}{path}", gateway.trim_end_matches('/'));
-    let bytes = body
-        .map(|b| serde_json::to_vec(b).unwrap_or_default())
-        .unwrap_or_default();
+    let bytes = body.map_or_default(|b| serde_json::to_vec(b).unwrap_or_default());
     let mut request = ehttp::Request::post(url, bytes);
     request.method = method_name(method);
     request.headers = ehttp::Headers::new(&[

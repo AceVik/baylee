@@ -290,7 +290,7 @@ impl Decision {
         let pairs = |key: &str, a: &str, b: &str| -> Vec<(String, String)> {
             map.get(key)
                 .and_then(Value::as_array)
-                .map(|items| {
+                .map_or_default(|items| {
                     items
                         .iter()
                         .map(|item| {
@@ -301,11 +301,10 @@ impl Decision {
                         })
                         .collect()
                 })
-                .unwrap_or_default()
         };
         Ok(Self {
             ask: text("ask"),
-            pick: map.get("pick").map(list).unwrap_or_default(),
+            pick: map.get("pick").map_or_default(list),
             attacks: pairs("attacks", "attacker", "at"),
             blocks: pairs("blocks", "blocker", "attacker"),
             prevention: pairs("prevention", "part", "amount"),
@@ -313,28 +312,24 @@ impl Decision {
             piles: map
                 .get("piles")
                 .and_then(Value::as_array)
-                .map(|piles| piles.iter().map(list).collect())
-                .unwrap_or_default(),
+                .map_or_default(|piles| piles.iter().map(list).collect()),
             name: text("name"),
             then_targets: map
                 .get("then")
                 .and_then(|then| then.get("targets"))
-                .map(list)
-                .unwrap_or_default(),
+                .map_or_default(list),
             say: text("say"),
             stops: map.get("stops").and_then(Value::as_object).map(|s| Stops {
                 mine: s
                     .get("mine")
                     .map(list)
-                    .map(|names| Stops::named(&names))
-                    .unwrap_or_default(),
+                    .map_or_default(|names| Stops::named(&names)),
                 theirs: s
                     .get("theirs")
                     .map(list)
-                    .map(|names| Stops::named(&names))
-                    .unwrap_or_default(),
+                    .map_or_default(|names| Stops::named(&names)),
             }),
-            plan: map.get("plan").map(list).unwrap_or_default(),
+            plan: map.get("plan").map_or_default(list),
             until: text("until").or_else(|| text("hold")),
             react: text("react"),
             board: text("board"),
@@ -781,8 +776,7 @@ impl Menu {
             let may = options
                 .iter()
                 .find(|o| o.blocker == creature)
-                .map(|o| o.attackers.as_slice())
-                .unwrap_or_default();
+                .map_or_default(|o| o.attackers.as_slice());
             let target =
                 object(attacker, may).map_err(|_| format!("{blocker} cannot block {attacker}"))?;
             declared.push((creature, target));
@@ -1322,9 +1316,7 @@ fn madness_cost_words(table: &Table<'_>, card: ObjectId) -> Option<String> {
 }
 
 fn madness_words(table: &Table<'_>, card: ObjectId) -> (String, String, String) {
-    let price = madness_cost_words(table, card)
-        .map(|price| format!(" {price}"))
-        .unwrap_or_default();
+    let price = madness_cost_words(table, card).map_or_default(|price| format!(" {price}"));
     (
         format!(
             "Cast {} for its madness cost{price}? If you don't, it goes into your graveyard.",

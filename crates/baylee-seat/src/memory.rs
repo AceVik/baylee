@@ -247,9 +247,7 @@ mod tests {
                 game_id: "g".into(),
                 seq,
                 view_frame: baylee_view::ViewFrame::snapshot_of(&view),
-                log: tail
-                    .map(|t| baylee_core::wire::encode(&t))
-                    .unwrap_or_default(),
+                log: tail.map_or_default(|t| baylee_core::wire::encode(&t)),
             })),
         }
         .encode_to_vec()

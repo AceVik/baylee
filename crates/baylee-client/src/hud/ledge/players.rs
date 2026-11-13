@@ -1810,8 +1810,7 @@ mod tests {
         let on_felt: Vec<PlayerId> = home
             .layout
             .as_ref()
-            .map(|layout| layout.on_felt().map(|slot| slot.player).collect())
-            .unwrap_or_default();
+            .map_or_default(|layout| layout.on_felt().map(|slot| slot.player).collect());
         assert!(
             on_felt.contains(&PlayerId::new(across[0])),
             "the marked seat is on the felt"

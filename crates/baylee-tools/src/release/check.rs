@@ -47,9 +47,7 @@ fn need(path: &Path) -> Result<()> {
 }
 
 fn link_target(path: &Path) -> String {
-    fs::read_link(path)
-        .map(|p| p.display().to_string())
-        .unwrap_or_default()
+    fs::read_link(path).map_or_default(|p| p.display().to_string())
 }
 
 fn ok(command: &mut Command) -> Result<()> {

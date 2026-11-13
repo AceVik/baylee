@@ -1508,7 +1508,7 @@ fn cut(text: &str, max: usize) -> &str {
 fn action_envelope(context: Option<&GameContext>, action: &PlayerAction) -> Envelope {
     Envelope {
         msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
-            game_id: context.map(|c| c.game_id.clone()).unwrap_or_default(),
+            game_id: context.map_or_default(|c| c.game_id.clone()),
             // The socket is bound to one seat of one game already.
             seat_token: String::new(),
             action: baylee_core::wire::encode(action),

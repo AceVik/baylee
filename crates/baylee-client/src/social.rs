@@ -740,7 +740,7 @@ fn follow_the_zoom(
     let now = if at_table {
         1.0
     } else {
-        let step = settings.as_ref().map(|s| s.text_size).unwrap_or_default();
+        let step = settings.as_ref().map_or_default(|s| s.text_size);
         windows.single().map_or(1.0, |w| {
             crate::shellkit::metrics::screen_scale(
                 crate::shellkit::Viewport::desktop(
@@ -813,21 +813,19 @@ fn context_of(
         }
     };
     let summary = lobby.lobby.games().iter().find(|g| g.id == game_id);
-    let mut roster: Vec<social::RosterSeat> = summary
-        .map(|g| {
-            g.seats
-                .iter()
-                .filter_map(|s| {
-                    Some(social::RosterSeat {
-                        seat: u8::try_from(s.seat).ok()?,
-                        handle: s.player.clone()?,
-                        team: s.team,
-                        guest: s.guest,
-                    })
+    let mut roster: Vec<social::RosterSeat> = summary.map_or_default(|g| {
+        g.seats
+            .iter()
+            .filter_map(|s| {
+                Some(social::RosterSeat {
+                    seat: u8::try_from(s.seat).ok()?,
+                    handle: s.player.clone()?,
+                    team: s.team,
+                    guest: s.guest,
                 })
-                .collect()
-        })
-        .unwrap_or_default();
+            })
+            .collect()
+    });
     // At the table the roster is the game's own, which a listing that stopped
     // updating when the seat was taken may lag.
     if let Some(statics) = duel.and_then(|d| d.statics.as_ref()) {

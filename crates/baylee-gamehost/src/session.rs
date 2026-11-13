@@ -524,7 +524,7 @@ impl Session {
     /// The record written since the last take, whole lines only; empty when
     /// nothing was written or the session keeps no record.
     pub fn take_record(&mut self) -> Vec<u8> {
-        self.record.as_mut().map(Recorder::take).unwrap_or_default()
+        self.record.as_mut().map_or_default(Recorder::take)
     }
 
     /// How many bytes of record are waiting to be taken.
@@ -697,7 +697,7 @@ fn question_envelope(
             game_id: String::new(),
             seq,
             pending: baylee_core::wire::encode(pending),
-            context: note.map(baylee_core::wire::encode).unwrap_or_default(),
+            context: note.map_or_default(baylee_core::wire::encode),
         })),
     }
 }

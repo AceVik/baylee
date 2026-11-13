@@ -120,7 +120,7 @@ pub fn choose(
     if measured.flash > 0.0 {
         measured.flash = (measured.flash - time.delta_secs()).max(0.0);
     }
-    let table = settings.as_deref().map(|s| s.table).unwrap_or_default();
+    let table = settings.as_deref().map_or_default(|s| s.table);
     if duel.follow != table.follow {
         duel.follow = table.follow;
         if !table.follow {
@@ -624,7 +624,7 @@ pub fn sync_switcher(
         return;
     };
     let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
-    let table = settings.as_ref().map(|s| s.table).unwrap_or_default();
+    let table = settings.as_ref().map_or_default(|s| s.table);
     let resolved_to = (chosen(&duel, &table, measured.seats) == Arrangement::TurntableRows)
         .then_some(duel.arrangement);
     let next = SwitcherRevision {

@@ -281,8 +281,7 @@ fn assert_indistinguishable(a: &Engine<RegistryLookup>, b: &Engine<RegistryLooku
             let print = |f: &crate::engine::Fingerprint| {
                 f.0.iter()
                     .find(|(name, _)| *name == field)
-                    .map(|(_, value)| value.clone())
-                    .unwrap_or_default()
+                    .map_or_default(|(_, value)| value.clone())
             };
             let (x, y) = (print(&fa), print(&fb));
             let at = x

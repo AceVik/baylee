@@ -267,14 +267,12 @@ async fn a_card_fetched_is_kept_for_the_next_seat() {
 
 /// The files of a cache directory but the turn's lock file.
 fn cards_in(cache: &std::path::Path) -> Vec<std::path::PathBuf> {
-    std::fs::read_dir(cache)
-        .map(|dir| {
-            dir.flatten()
-                .map(|entry| entry.path())
-                .filter(|path| !path.ends_with(scryfall::TURN_FILE))
-                .collect()
-        })
-        .unwrap_or_default()
+    std::fs::read_dir(cache).map_or_default(|dir| {
+        dir.flatten()
+            .map(|entry| entry.path())
+            .filter(|path| !path.ends_with(scryfall::TURN_FILE))
+            .collect()
+    })
 }
 
 /// A name Scryfall does not know is kept in memory only: asked once by
