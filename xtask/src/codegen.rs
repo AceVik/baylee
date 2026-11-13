@@ -277,6 +277,13 @@ fn relocate_card(
             fs::create_dir_all(parent)?;
         }
         fs::rename(&current, destination)?;
+        // A set folder the move emptied goes too (`con/` became `con_/`):
+        // Git carries no empty folder, so it would stay on this machine only.
+        if let Some(left) = current.parent()
+            && fs::read_dir(left)?.next().is_none()
+        {
+            fs::remove_dir(left)?;
+        }
         println!(
             "moved {} -> {}",
             current
@@ -679,5 +686,42 @@ mod tested_tests {
         let text = r#"card_index("c97361b5-af16-4a7b-af85-a429dbaf4ad2") "x" "C97361B5-af16-4a7b-af85-a429dbaf4ad2" "c97361b5-af16-4a7b-af85-a429dbaf4ad""#;
         let ids: Vec<String> = quoted_ids(text).collect();
         assert_eq!(ids, ["c97361b5-af16-4a7b-af85-a429dbaf4ad2"]);
+    }
+}
+
+#[cfg(test)]
+mod relocate_tests {
+    use super::relocate_card;
+    use std::fs;
+
+    /// A card moved out of the last file of its set folder takes the
+    /// folder with it; one moved out of a folder that still holds a card
+    /// leaves the folder alone.
+    #[test]
+    fn a_move_that_empties_a_set_folder_removes_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let cards = dir.path();
+        let old = cards.join("2009/src/con");
+        fs::create_dir_all(&old).unwrap();
+        fs::write(old.join("a.rs"), "a").unwrap();
+        fs::write(old.join("b.rs"), "b").unwrap();
+        let mut changed = Vec::new();
+        for card in ["a", "b"] {
+            let relative = format!("2009/src/con_/{card}.rs");
+            relocate_card(
+                old.join(format!("{card}.rs")),
+                &cards.join(&relative),
+                cards,
+                &relative,
+                false,
+                &mut changed,
+            )
+            .unwrap();
+            assert_eq!(old.exists(), card == "a", "after {card}");
+        }
+        assert_eq!(
+            fs::read_to_string(cards.join("2009/src/con_/b.rs")).unwrap(),
+            "b"
+        );
     }
 }

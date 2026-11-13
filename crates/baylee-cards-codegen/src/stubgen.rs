@@ -232,7 +232,10 @@ pub fn slug(name: &str) -> String {
     if out.chars().next().is_some_and(|c| c.is_ascii_digit()) {
         return format!("c_{out}");
     }
-    out
+    // The slug is the card's file, its module and its test's file at once,
+    // so a name Windows reserves (`aux.rs`) changes here, where all three
+    // follow it.
+    crate::layout::windows_safe(&out)
 }
 
 /// Rust source identifier for a module slug. File names keep the plain slug;
@@ -1184,6 +1187,10 @@ mod tests {
             slug("Jin-Gitaxias, Progress Tyrant"),
             "jin_gitaxias_progress_tyrant"
         );
+        // A name Windows keeps for a device is no file there.
+        assert_eq!(slug("Aux"), "aux_");
+        assert_eq!(slug("Nul"), "nul_");
+        assert_eq!(slug("Common Bond"), "common_bond");
     }
 
     #[test]
