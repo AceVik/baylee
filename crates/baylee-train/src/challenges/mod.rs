@@ -66,11 +66,43 @@ impl Default for Limits {
 /// # Errors
 /// Unusable cards/decks, caps, invalid actions, replay divergence or insufficient diversity.
 pub fn generate(kind: Kind, seed: u64, limits: Limits) -> Result<Certified> {
+    Generator::from_source(&crate::working::repo_root())?.generate(kind, seed, limits)
+}
+
+/// Reuse one working-card evidence snapshot across every candidate in a stock pass.
+pub struct Generator {
+    working: crate::working::Working,
+}
+
+impl Generator {
+    /// Load evidence from an explicitly selected matching source checkout.
+    /// # Errors
+    /// Missing, unreadable or inconsistent working-card evidence.
+    pub fn from_source(root: &std::path::Path) -> Result<Self> {
+        Ok(Self {
+            working: crate::working::Working::scan(root).context("working card evidence")?,
+        })
+    }
+
+    /// Generate and certify one candidate using the retained evidence snapshot.
+    /// # Errors
+    /// As [`generate`], including insufficient semantic diversity.
+    pub fn generate(&self, kind: Kind, seed: u64, limits: Limits) -> Result<Certified> {
+        prove(kind, seed, limits, &self.working)
+    }
+}
+
+fn prove(
+    kind: Kind,
+    seed: u64,
+    limits: Limits,
+    working: &crate::working::Working,
+) -> Result<Certified> {
     ensure!(
         limits.answers > 0 && limits.turns > 0,
         "positive probe limits required"
     );
-    let (preset, deck) = presets::build(kind, seed)?;
+    let (preset, deck) = presets::build(kind, seed, working)?;
     let mut proofs = Vec::new();
     let mut signatures = BTreeSet::new();
     let mut families = BTreeSet::new();

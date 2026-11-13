@@ -42,6 +42,12 @@ cargo run -p baylee-train --bin challenge -- generate --kind weekly --at 1794528
 cargo run -p baylee-train --bin challenge -- stock --central-dev http://127.0.0.1:28790 --state-dir target/challenge-stock --days 7
 ```
 
+Both commands accept `--source-dir` for the matching source checkout containing
+the working-card tests. A stock pass reads that evidence once and reuses it for
+all candidates. Live publication requires this option explicitly, a clean release
+binary with a known commit, and a clean checkout at that same commit. Keep this
+checkout read-only in the worker deployment; it is not an incidental build path.
+
 The first command is offline. The second requires the synthetic fixture's
 bridge capability in `BAYLEE_CHALLENGE_BRIDGE_TOKEN`. Production requires the
 explicit `--live` endpoint selection and a separately provisioned credential;
@@ -106,5 +112,11 @@ with a zero generation budget and verify all retained witness hashes.
 
 Central separately tests account binding, authority, idempotent scoring,
 leaderboards, assistance, withdrawal and permanent progress on PostgreSQL.
-Those checks do not replace the final network/client integration run or blind
-human difficulty calibration. Record those results only after they run.
+On 13 November 2026, `cargo dev central integration` also passed the complete
+Daily/Weekly path over real Central HTTP, authenticated gateway requests and
+engine/seat WebSockets. It checked publication retry, reservation idempotency,
+both real victories, a Weekly disconnect/resume in the same attempt, exclusion
+of that interrupted result from Sprint, all three ranking responses and permanent
+badge progress. Its isolated PostgreSQL 18.6 container and listener were removed.
+The scripted seat replayed a retained witness; this is not blind human difficulty
+calibration or a rendered-client check.

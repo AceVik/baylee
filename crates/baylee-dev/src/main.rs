@@ -168,6 +168,12 @@ enum Central {
         /// The additional left monitor's index.
         #[arg(long, default_value_t = 0)]
         monitor: i64,
+        /// Publish fresh certified tasks with the real CLI and open Challenges.
+        #[arg(long)]
+        challenges: bool,
+        /// Keep the isolated signed-in client available for manual challenge play.
+        #[arg(long, default_value_t = 0, requires = "challenges", value_parser = clap::value_parser!(u64).range(0..=7200))]
+        hold_seconds: u64,
     },
 }
 
@@ -283,8 +289,16 @@ fn main() -> ExitCode {
                 ),
             ),
             Task::Central {
-                check: Central::Client { monitor },
-            } => ("central client", central::client(monitor)),
+                check:
+                    Central::Client {
+                        monitor,
+                        challenges,
+                        hold_seconds,
+                    },
+            } => (
+                "central client",
+                central::client(monitor, challenges, hold_seconds),
+            ),
         },
     };
     match result {

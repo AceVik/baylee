@@ -7,14 +7,13 @@ use baylee_cards::formats::{self, Shape};
 use baylee_core::preset::{AIProfile, GamePreset, HouseRules, SeatController};
 
 use super::Kind;
-use crate::working::{Working, repo_root};
+use crate::working::Working;
 
-pub(super) fn build(kind: Kind, seed: u64) -> Result<(GamePreset, String)> {
-    let working = Working::scan(&repo_root()).context("working card evidence")?;
+pub(super) fn build(kind: Kind, seed: u64, working: &Working) -> Result<(GamePreset, String)> {
     let (mut preset, deck) = match kind {
         Kind::Daily => daily(seed)?,
         Kind::Weekly => {
-            let pool = crate::deckgen::pool_for_working(&working, &BTreeSet::new());
+            let pool = crate::deckgen::pool_for_working(working, &BTreeSet::new());
             let player = generate(
                 &pool,
                 Shape::Constructed,

@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 
 use baylee_cards_pool as _;
+mod source;
 mod stock;
 
 use anyhow::{Context, Result};
@@ -27,6 +28,9 @@ enum Command {
 
 #[derive(clap::Args)]
 struct Args {
+    /// Matching source checkout containing the working-card tests.
+    #[arg(long, default_value_os_t = baylee_train::working::repo_root())]
+    source_dir: PathBuf,
     /// Canonical cadence: daily or weekly.
     #[arg(long, value_parser = ["daily", "weekly"])]
     kind: String,
@@ -52,6 +56,7 @@ fn main() -> Result<()> {
 }
 
 fn generate(args: &Args) -> Result<()> {
+    let generator = challenges::Generator::from_source(&args.source_dir)?;
     let kind = if args.kind == "daily" {
         Kind::Daily
     } else {
@@ -63,7 +68,7 @@ fn generate(args: &Args) -> Result<()> {
             .seed
             .checked_add(u64::from(offset))
             .context("candidate seed overflow")?;
-        match challenges::generate(kind, seed, Limits::default()) {
+        match generator.generate(kind, seed, Limits::default()) {
             Ok(candidate) => {
                 selected = Some((seed, candidate));
                 break;

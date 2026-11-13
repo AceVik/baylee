@@ -271,7 +271,7 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
         personal::run(&runtime, &operator, endpoint);
         token::run(&runtime, &store, &operator, endpoint);
         held::run(&runtime, &store, &legacy, &operator);
-        ui_fixture(endpoint, origin);
+        ui_fixture(&runtime, endpoint, gateway, origin);
     }));
     served.close(&runtime);
     runtime.block_on(async {
@@ -400,11 +400,18 @@ impl Served {
 
 // Optional bounded handoff to an isolated dev-control client. This fixture has
 // only synthetic accounts; the ready file contains no credentials or tokens.
-fn ui_fixture(endpoint: &Endpoint, gateway: &str) {
+fn ui_fixture(runtime: &Runtime, endpoint: &Endpoint, host: &common::Gateway, gateway: &str) {
     let Some(path) = std::env::var_os("BAYLEE_CENTRAL_UI_READY") else {
         return;
     };
     let path = PathBuf::from(path);
+    struct Attached(tokio::task::JoinHandle<()>);
+    impl Drop for Attached {
+        fn drop(&mut self) {
+            self.0.abort();
+        }
+    }
+    let _agent = Attached(runtime.block_on(common::attach_agent(host)));
     std::fs::write(
         &path,
         serde_json::to_vec(&serde_json::json!({
@@ -414,7 +421,12 @@ fn ui_fixture(endpoint: &Endpoint, gateway: &str) {
         .unwrap(),
     )
     .unwrap();
-    let deadline = std::time::Instant::now() + Duration::from_secs(180);
+    let seconds = std::env::var("BAYLEE_CENTRAL_UI_HOLD_SECS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(180)
+        .min(7380);
+    let deadline = std::time::Instant::now() + Duration::from_secs(seconds);
     while std::time::Instant::now() < deadline && !path.with_extension("stop").exists() {
         std::thread::sleep(Duration::from_millis(200));
     }

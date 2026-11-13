@@ -1,5 +1,40 @@
 # Account entry, collection and deck history
 
+## Global Daily and Weekly challenges
+
+The native Challenges tab is available directly after Central sign-in, before
+selecting a gateway. It reads the shared calendar, archive, task rules, personal
+progress, three independent rankings and permanent badges from the account's
+existing worker. No gateway owns this state. Public leaderboard listing defaults
+to off; revealing either hint requires confirmation before Central permanently
+marks the task assisted. Abandonment also requires confirmation. Escape cancels
+the confirmation. All controls use the shell kit and English/German Fluent words.
+
+Play reserves with a retained UUIDv7, then re-reads the owned attempt and admits
+the player at the official host Central names. An ambiguous reply retries that
+identity; a known active attempt resumes without another reservation. The game
+uses the ordinary network seat and existing choice interface. Its end screen
+returns to Challenges and offers no unaccounted rematch. While the durable result
+is pending, the view explains that progress is awaiting confirmation.
+
+The catalogue refreshes on a visit and every minute while shown, or every ten
+seconds with an active attempt. Responses are scoped to the exact Central worker:
+sign-out or another account discards private state and the old response mailbox.
+Idle frames retain the UI tree. A `baylee://challenge/<32 lowercase UUIDv7 hex>`
+link opens details only; it never begins a game or reveals a hint.
+
+The isolated native check is `cargo dev central client --monitor 1 --challenges`.
+Build the dev-control client and the `challenge` publisher first. It runs the real
+publisher twice against its owned PostgreSQL/Central fixture, checking that retry
+publishes nothing twice. `--hold-seconds 3600` keeps that signed-in client available
+for blind play; the printed `finish` marker ends the hold early. The Rust owner
+always stops its client and backend and verifies the listeners closed. Private
+proof files remain in the run's restricted evidence directory and must not be
+read during a blind difficulty check. Monitor selection follows the current
+workstation's dedicated-display requirement.
+
+## Accounts and decks
+
 The account screens reuse the table hand HUD's `FrontalMaterial`: leather,
 engraved borders and five mineral inlays, which a lobby panel lifts clear of
 its tooled line (`dock::INLAY_LIFT`; on the hand they sit on it), with the

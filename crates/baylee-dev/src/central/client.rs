@@ -7,7 +7,7 @@ use super::*;
 /// signs in again and is admitted to the gateway with a one-use ticket. The
 /// client runs on monitor `monitor` (the additional left display) and every
 /// owned process and port is proven gone afterwards.
-pub fn client(monitor: i64) -> Result<i32> {
+pub fn client(monitor: i64, challenges: bool, hold_seconds: u64) -> Result<i32> {
     let run_dir = PathBuf::from("target").join(format!("central-ui-{}", crate::secret::hex(5)?));
     fs::create_dir_all(&run_dir)?;
     let run_dir = fs::canonicalize(&run_dir)?;
@@ -19,16 +19,16 @@ pub fn client(monitor: i64) -> Result<i32> {
         "build the dev-control client first (`cargo build -p baylee-client --features dev-control`)"
     );
 
-    let mut fixture = Owned::spawn(
-        Command::new(std::env::current_exe()?)
-            .args(["central", "integration", "--cancel-file"])
-            .arg(run_dir.join("cancel"))
-            .env("BAYLEE_CENTRAL_UI_READY", &ready),
-    )?;
     let port = free_port()?;
+    let mut fixture = Owned::spawn(&mut fixture_command(
+        &run_dir,
+        &ready,
+        challenges,
+        hold_seconds,
+    )?)?;
     let mut client: Option<Owned> = None;
     let result = (|| -> Result<()> {
-        let deadline = Instant::now() + Duration::from_secs(160);
+        let deadline = Instant::now() + Duration::from_secs(if challenges { 900 } else { 240 });
         while !ready.exists() {
             ensure!(
                 !fixture.exited(),
@@ -85,7 +85,12 @@ pub fn client(monitor: i64) -> Result<i32> {
             run_dir.display()
         );
         let client = client.insert(started);
-        scenario(&Devctl::new(port), client, monitor, &run_dir)
+        let devctl = Devctl::new(port);
+        scenario(&devctl, client, monitor, &run_dir)?;
+        if challenges {
+            challenge_visit(&devctl, client, port, &run_dir, hold_seconds)?;
+        }
+        Ok(())
     })();
 
     let errors = stop(client, fixture, &ready, &run_dir, port);
@@ -93,6 +98,85 @@ pub fn client(monitor: i64) -> Result<i32> {
     ensure!(errors.is_empty(), "{}", errors.join("; "));
     println!("Owned client exited; client port closed; backend fixture cleanup verified.");
     Ok(0)
+}
+
+fn fixture_command(
+    run_dir: &Path,
+    ready: &Path,
+    challenges: bool,
+    hold_seconds: u64,
+) -> Result<Command> {
+    let mut command = Command::new(std::env::current_exe()?);
+    command
+        .args(["central", "integration", "--cancel-file"])
+        .arg(run_dir.join("cancel"))
+        .env("BAYLEE_CENTRAL_UI_READY", ready)
+        .env(
+            "BAYLEE_CENTRAL_UI_HOLD_SECS",
+            (hold_seconds + 180).to_string(),
+        );
+    if challenges {
+        let publisher = fs::canonicalize(
+            Path::new("target/debug").join(format!("challenge{}", std::env::consts::EXE_SUFFIX)),
+        )
+        .context("build the challenge publisher before the native challenge check")?;
+        command
+            .env("BAYLEE_CENTRAL_CHALLENGE_UI", "1")
+            .env("BAYLEE_CHALLENGE_BINARY", publisher)
+            .env(
+                "BAYLEE_CHALLENGE_STATE_DIR",
+                run_dir.join("private-evidence"),
+            );
+    }
+    Ok(command)
+}
+
+fn challenge_visit(
+    devctl: &Devctl,
+    client: &mut Owned,
+    port: u16,
+    run_dir: &Path,
+    hold_seconds: u64,
+) -> Result<()> {
+    click(devctl, "Header(Nav(2))")?;
+    wait_control(devctl, client, "Challenges(Refresh)")?;
+    let deadline = Instant::now() + Duration::from_secs(45);
+    loop {
+        let view = state(devctl)?;
+        if view["lobby_controls"].as_array().is_some_and(|controls| {
+            controls.iter().any(|control| {
+                control["press"]
+                    .as_str()
+                    .is_some_and(|press| press.starts_with("Challenges(Select("))
+            })
+        }) {
+            break;
+        }
+        ensure!(
+            Instant::now() < deadline && !client.exited(),
+            "certified challenges did not appear in the client"
+        );
+        std::thread::sleep(Duration::from_millis(250));
+    }
+    devctl.post(
+        "screenshot",
+        &json!({ "path": run_dir.join("04-challenges.png") }),
+    )?;
+    println!(
+        "Challenge client ready on loopback port {port}; manual finish marker: {}",
+        run_dir.join("finish").display()
+    );
+    let deadline = Instant::now() + Duration::from_secs(hold_seconds);
+    while Instant::now() < deadline && !run_dir.join("finish").exists() {
+        ensure!(
+            !client.exited(),
+            "owned challenge client exited before the manual check finished"
+        );
+        // Keep the bounded idle watchdog alive while a human or agent studies a position.
+        devctl.get("health", Duration::from_secs(5))?;
+        std::thread::sleep(Duration::from_secs(1));
+    }
+    Ok(())
 }
 
 /// Stops the client, then the fixture (asked to stop first and told to cancel
@@ -386,4 +470,3 @@ fn free_port() -> Result<u16> {
     let listener = TcpListener::bind("127.0.0.1:0").context("no free loopback port")?;
     Ok(listener.local_addr()?.port())
 }
-

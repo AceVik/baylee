@@ -271,7 +271,17 @@ pub fn integration(config: Option<&Path>, cancel: Option<&Path>, failure: bool) 
             .env("CENTRAL_TEST_RUNTIME_PASSWORD", &runtime)
             .env("CENTRAL_TEST_LEGACY_PASSWORD", &legacy)
             .env("DATABASE_URL", pg.admin_url());
-        let done = Owned::spawn(&mut test)?.wait(Duration::from_secs(300), cancel)?;
+        let ui_hold = if std::env::var_os("BAYLEE_CENTRAL_UI_READY").is_some() {
+            std::env::var("BAYLEE_CENTRAL_UI_HOLD_SECS")
+                .ok()
+                .and_then(|value| value.parse::<u64>().ok())
+                .unwrap_or(180)
+                .min(7380)
+                + 900
+        } else {
+            0
+        };
+        let done = Owned::spawn(&mut test)?.wait(Duration::from_secs(300 + ui_hold), cancel)?;
         println!("{}", done.stdout);
         if !done.status.success() {
             println!("{}", done.stderr);

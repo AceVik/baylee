@@ -15,6 +15,9 @@ use zeroize::Zeroizing;
 #[derive(clap::Args)]
 #[command(group(clap::ArgGroup::new("endpoint").required(true).args(["live", "central_dev"])))]
 pub(super) struct Args {
+    /// Matching source checkout; required explicitly for live publication.
+    #[arg(long, required_if_eq("live", "true"))]
+    source_dir: Option<PathBuf>,
     /// Use the compiled production Central endpoint (explicit operator selection).
     #[arg(long)]
     live: bool,
@@ -33,6 +36,17 @@ pub(super) struct Args {
 }
 
 pub(super) fn run(args: &Args) -> Result<()> {
+    let source = args
+        .source_dir
+        .clone()
+        .unwrap_or_else(baylee_train::working::repo_root);
+    if args.live {
+        super::source::verify_live(&source)?;
+    }
+    let generator = challenges::Generator::from_source(&source)?;
+    if args.live {
+        super::source::verify_live(&source)?;
+    }
     let endpoint = args.central_dev.as_ref().map_or_else(
         || Ok(Endpoint::live()),
         |value| Endpoint::development(value),
@@ -57,7 +71,7 @@ pub(super) fn run(args: &Args) -> Result<()> {
             _ => Err(central_api::Error::Unavailable),
         },
         |period| {
-            stage(&args.state_dir, period, args.candidates).map_err(|error| {
+            stage(&args.state_dir, period, args.candidates, &generator).map_err(|error| {
                 // Errors never contain the credential, a package or a private record.
                 eprintln!("{} slot {}: {error}", period.kind.name(), period.starts_at);
                 stock::Error::Uncertified
@@ -71,7 +85,12 @@ pub(super) fn run(args: &Args) -> Result<()> {
     Ok(())
 }
 
-fn stage(root: &Path, period: Period, candidates: u8) -> Result<Publication> {
+fn stage(
+    root: &Path,
+    period: Period,
+    candidates: u8,
+    generator: &challenges::Generator,
+) -> Result<Publication> {
     let ready = root.join(format!("{}-{}.json", period.kind.name(), period.starts_at));
     if ready.try_exists()? {
         return read_ready(&ready, period);
@@ -80,7 +99,7 @@ fn stage(root: &Path, period: Period, candidates: u8) -> Result<Publication> {
         // Independent OS randomness; neither dates nor public task IDs reveal the shuffle.
         let random = Token::generate()?.to_secret_bytes();
         let seed = u64::from_le_bytes(random[..8].try_into().expect("32 random bytes"));
-        let Ok(candidate) = challenges::generate(period.kind, seed, Limits::default()) else {
+        let Ok(candidate) = generator.generate(period.kind, seed, Limits::default()) else {
             continue;
         };
         let publication = candidate.publication(period)?;
@@ -172,8 +191,10 @@ mod tests {
     fn staged_proofs_survive_a_worker_restart_without_regeneration() {
         let root = tempfile::tempdir().unwrap();
         let period = Period::containing(Kind::Daily, 1_794_182_400).unwrap();
-        let first = stage(root.path(), period, 1).unwrap();
-        let again = stage(root.path(), period, 0).unwrap();
+        let generator =
+            challenges::Generator::from_source(&baylee_train::working::repo_root()).unwrap();
+        let first = stage(root.path(), period, 1, &generator).unwrap();
+        let again = stage(root.path(), period, 0, &generator).unwrap();
         assert_eq!(
             first.digest, again.digest,
             "zero candidate budget proves the durable cache was used"

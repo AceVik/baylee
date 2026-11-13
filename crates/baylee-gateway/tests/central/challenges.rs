@@ -17,6 +17,10 @@ pub(super) fn run(
     account: &Account,
     credential: &Token,
 ) {
+    if std::env::var("BAYLEE_CENTRAL_CHALLENGE_UI").as_deref() == Ok("1") {
+        prepare_blind(runtime, endpoint, credential);
+        return;
+    }
     let daily = baylee_train::challenges::generate(
         api::Kind::Daily,
         41,
@@ -99,9 +103,10 @@ pub(super) fn run(
             };
             assert_eq!(again.id, attempt.id);
             let origin = format!("http://127.0.0.1:{}", gateway.port);
-            let admission = account.admit(&origin).unwrap();
+            assert_eq!(attempt.host, origin);
             let path = format!("/challenges/{}/play", Uuid::from_bytes(attempt.id));
-            let grant = start(gateway, &admission.token, &path);
+            let (_, admission, seat) = account.play_challenge(attempt.id).unwrap();
+            let grant = serde_json::json!({ "game_id": seat.game_id, "seat": seat.seat, "seat_token": &*seat.seat_token });
             let actions: Vec<PlayerAction> = std::str::from_utf8(&candidate.proofs[0].record)
                 .unwrap()
                 .lines()
@@ -179,6 +184,44 @@ pub(super) fn run(
     if let Err(error) = done {
         std::panic::resume_unwind(error);
     }
+}
+
+fn prepare_blind(runtime: &Runtime, endpoint: &Endpoint, credential: &Token) {
+    let binary = std::env::var_os("BAYLEE_CHALLENGE_BINARY").expect("owned publisher binary");
+    let directory =
+        std::env::var_os("BAYLEE_CHALLENGE_STATE_DIR").expect("owned evidence directory");
+    for pass in 0..2 {
+        let output = runtime.block_on(async {
+            let mut command = tokio::process::Command::new(&binary);
+            command
+                .args([
+                    "stock",
+                    "--central-dev",
+                    endpoint.origin(),
+                    "--days",
+                    "1",
+                    "--source-dir",
+                ])
+                .arg(baylee_train::working::repo_root())
+                .arg("--state-dir")
+                .arg(&directory)
+                .env("BAYLEE_CHALLENGE_BRIDGE_TOKEN", &*credential.hex())
+                .kill_on_drop(true);
+            tokio::time::timeout(Duration::from_secs(600), command.output())
+                .await
+                .expect("bounded automatic challenge generation")
+                .expect("publisher process")
+        });
+        assert!(
+            output.status.success(),
+            "automatic publisher failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        if pass == 1 {
+            assert!(String::from_utf8_lossy(&output.stdout).contains(", 0 published"));
+        }
+    }
+    // Deliberately never open the private proof records: this fixture is for blind play.
 }
 
 fn start(gateway: &common::Gateway, token: &str, path: &str) -> serde_json::Value {
