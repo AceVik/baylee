@@ -19,7 +19,7 @@ pub(super) fn catalogue(
     if !model.active.is_empty() {
         let panel = panel(commands, body, kit);
         heading(commands, panel, kit, Phrase::ChallengeActive.text(lang));
-        for attempt in &model.active {
+        for (index, attempt) in model.active.iter().enumerate() {
             let title = model
                 .catalogue
                 .iter()
@@ -28,7 +28,7 @@ pub(super) fn catalogue(
                     || Phrase::ChallengeResume.text(lang).to_string(),
                     |task| words(&task.description.title, lang).to_string(),
                 );
-            button(
+            let control = button(
                 commands,
                 panel,
                 kit,
@@ -36,6 +36,13 @@ pub(super) fn catalogue(
                 Action::Select(attempt.challenge),
                 model,
                 Weight::Gold,
+            );
+            crate::lobby::orders::item(
+                commands,
+                control,
+                &crate::lobby::orders::CHALLENGES,
+                "active",
+                index,
             );
         }
     }

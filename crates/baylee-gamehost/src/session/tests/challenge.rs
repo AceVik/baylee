@@ -100,7 +100,10 @@ fn fixed_challenge_survives_new_ids_ui_settings_and_process_resumption() {
                 0,
             )
             .unwrap();
-        assert_eq!(view.seq, changed.table().view_for(human).unwrap().1.seq);
+        assert_eq!(
+            plain.table().observe_view(PlayerId::new(1)).seq,
+            changed.table().observe_view(PlayerId::new(1)).seq
+        );
         let action = player.act(&view, &pending);
         plain.act_slice(human, action.clone(), 0).unwrap();
         changed.act_slice(human, action, 0).unwrap();
@@ -112,6 +115,71 @@ fn fixed_challenge_survives_new_ids_ui_settings_and_process_resumption() {
         resumed = true;
     }
     panic!("bounded test game did not end");
+}
+
+#[test]
+fn manual_and_actual_automatic_passes_keep_the_same_opponent_and_resume() {
+    let play = |automatic: bool| {
+        let mut session = recorded(&setup());
+        let human = PlayerId::new(0);
+        let mut record = Vec::new();
+        let mut passes = 0;
+        for _ in 0..256 {
+            session.pump_at_most(32);
+            record.extend(session.take_record());
+            if matches!(session.pending(), Pending::GameOver(_)) {
+                assert!(passes > 0, "real priority passing was exercised");
+                return (session, record, passes);
+            }
+            let Some((pending, _)) = session.table().view_for(human) else {
+                continue;
+            };
+            let action = if matches!(pending, Pending::Priority { .. }) {
+                passes += 1;
+                if automatic {
+                    PlayerAction::SetPriorityHold(PriorityHold::UntilEndOfTurn {
+                        turn: session.engine.state().turn.number,
+                    })
+                } else {
+                    PlayerAction::PassPriority
+                }
+            } else {
+                session.house_action(human).unwrap()
+            };
+            let human_seq = session.table().observe_view(human).seq;
+            let opponent_seq = session.challenge_decisions;
+            session.act_slice(human, action, 0).unwrap();
+            assert!(session.table().observe_view(human).seq > human_seq);
+            assert_eq!(
+                session.challenge_decisions, opponent_seq,
+                "a human answer cannot reroll the opponent"
+            );
+            record.extend(session.take_record());
+            // In particular, F6 has now advanced gameplay, unlike repeating Always.
+            let mut resumed = Session::resume_recorded(&record)
+                .expect("the accepted automation input and fixed opponent resume");
+            assert_eq!(resumed.snapshot_hash(), session.snapshot_hash());
+            assert_eq!(resumed.challenge_decisions, session.challenge_decisions);
+            resumed.describe(uuid::Uuid::now_v7().to_string(), vec![]);
+            resumed.discard_frames();
+            session = resumed;
+        }
+        panic!("bounded passive-human fixture did not finish");
+    };
+    let (manual, manual_record, manual_passes) = play(false);
+    let (automatic, automatic_record, automatic_passes) = play(true);
+    assert!(
+        manual_passes > automatic_passes,
+        "F6 actually skipped manual passes"
+    );
+    assert_eq!(
+        house_inputs(&manual_record),
+        house_inputs(&automatic_record)
+    );
+    assert_eq!(
+        record::seen(manual.engine.state()),
+        record::seen(automatic.engine.state())
+    );
 }
 
 #[test]

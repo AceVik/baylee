@@ -95,6 +95,22 @@ async fn pass(state: &Shared) -> Result<(), ()> {
         .await
         .map_err(|_| ())?;
     for run in runs {
+        // A Claim can be slow or retried after the crash grace period. Never
+        // reconcile its old Reserved snapshot while admission binds/launches it.
+        let Ok(_start) = state.challenge_starts.try_lock() else {
+            baylee_db::challenges::touch(&state.db, run.attempt)
+                .await
+                .map_err(|_| ())?;
+            continue;
+        };
+        // The batch was read before the lock: admission may have removed or
+        // replaced this binding, or the record writer may have completed it.
+        let Some(run) = baylee_db::challenges::find(&state.db, run.attempt)
+            .await
+            .map_err(|_| ())?
+        else {
+            continue;
+        };
         let game_id = run.game.to_string();
         let has_result = run.result.is_some();
         if let Some(result) = run.result {

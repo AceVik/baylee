@@ -4,11 +4,12 @@ use super::*;
 use baylee_client_core::challenges::{Action, State};
 
 mod draw;
+mod keys;
 pub(super) use draw::draw;
 #[cfg(not(target_arch = "wasm32"))]
 mod native;
 #[cfg(not(target_arch = "wasm32"))]
-pub(super) use native::ask;
+pub(super) use native::{ask, returned, seated};
 
 #[derive(Default)]
 pub(crate) struct Ui {
@@ -35,7 +36,7 @@ pub(super) fn install(app: &mut App) {
     #[cfg(not(target_arch = "wasm32"))]
     app.add_systems(
         OnEnter(DuelPhase::Closed),
-        native::returned.after(super::systems::came_back),
+        returned.after(super::systems::came_back),
     );
     #[cfg(target_arch = "wasm32")]
     let _ = app;

@@ -84,7 +84,7 @@ fn continuous_human_time_and_streamed_record_are_bound_to_the_real_result() {
 }
 
 #[test]
-fn disconnect_resumes_without_a_failure_but_excludes_sprint_and_hold_expiry_is_void() {
+fn disconnect_resumes_without_a_failure_but_excludes_sprint_and_hold_expiry_is_abandoned() {
     let mut runner = EngineRunner::new();
     setup(&mut runner, &frozen());
     sit(&mut runner, 0);
@@ -114,19 +114,22 @@ fn disconnect_resumes_without_a_failure_but_excludes_sprint_and_hold_expiry_is_v
     });
     assert_eq!(
         result(&frames).challenge.as_ref().unwrap().outcome,
-        v1::challenge_result::Outcome::Void as i32
+        v1::challenge_result::Outcome::Abandoned as i32
     );
 }
 
 #[test]
-fn deliberate_leave_is_abandoned_even_during_loading() {
-    for loaded in [false, true] {
+fn deliberate_leave_is_abandoned_before_attach_during_loading_and_after_disconnect() {
+    for stage in 0..4 {
         let mut runner = EngineRunner::new();
         setup(&mut runner, &frozen());
-        if loaded {
+        if stage >= 2 {
             sit(&mut runner, 0);
-        } else {
+        } else if stage == 1 {
             attach(&mut runner, 0);
+        }
+        if stage == 3 {
+            detach(&mut runner, 0);
         }
         let frames = runner.handle(
             Envelope {

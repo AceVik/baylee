@@ -303,6 +303,10 @@ impl Lobby {
                     .or_else(|| self.awaiting.is_some().then(|| self.needs_pool()).flatten())
                     .or_else(|| self.hosted_for_room())
             }
+            LobbyEvent::ChallengeSeated { seat, .. } => {
+                self.enter_challenge(seat);
+                None
+            }
             LobbyEvent::Seated(handover) => {
                 // **A seat is not a game**, and this used to ask only whether
                 // the seat was one we had *opened*: `!= Some(Open)` put a

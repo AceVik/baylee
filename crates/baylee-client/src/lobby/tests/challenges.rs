@@ -2,6 +2,7 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use baylee_client_core::challenges::{Action, api};
+use bevy::ecs::system::RunSystemOnce;
 
 fn screen(lang: Lang) -> (App, std::sync::mpsc::Receiver<central::Job>) {
     let mut app = headless();
@@ -145,4 +146,164 @@ fn changing_central_account_clears_all_private_challenge_state() {
     assert!(state.challenges.model.personal.is_none());
     assert!(state.challenges.model.selected.is_none());
     assert!(state.challenges.model.active.is_empty());
+}
+
+#[test]
+fn website_challenge_links_wait_for_refresh_and_confirmation_before_being_consumed() {
+    use crate::links::Arrived;
+    use baylee_client_core::{challenges::Confirmation, deeplink::Link};
+    for confirming in [false, true] {
+        let mut app = App::new();
+        let (handle, _jobs) = central::Handle::queued_for_test();
+        let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+        central::restored_for_test(&mut state, vec![]);
+        state.central.as_mut().unwrap().handle = Some(handle);
+        crate::lobby::challenges::ask(&mut state, Action::Refresh);
+        state.challenges.model.busy = !confirming;
+        state.challenges.model.confirmation = confirming.then_some(Confirmation::Hint(1));
+        let id = *uuid::Uuid::now_v7().as_bytes();
+        app.insert_resource(state)
+            .init_resource::<Mailbox>()
+            .init_resource::<Arrived>()
+            .add_systems(Update, crate::lobby::links::follow);
+        app.world_mut().resource_mut::<Arrived>().link = Some(Link::Challenge(id));
+        app.update();
+        assert_eq!(
+            app.world().resource::<Arrived>().link,
+            Some(Link::Challenge(id))
+        );
+        assert!(
+            app.world()
+                .resource::<LobbyState>()
+                .challenges
+                .model
+                .selected
+                .is_none()
+        );
+        {
+            let mut state = app.world_mut().resource_mut::<LobbyState>();
+            state.challenges.model.busy = false;
+            state.challenges.model.confirmation = None;
+        }
+        app.update();
+        assert!(app.world().resource::<Arrived>().link.is_none());
+        assert_eq!(
+            app.world()
+                .resource::<LobbyState>()
+                .challenges
+                .model
+                .selected,
+            Some(id)
+        );
+    }
+}
+
+#[test]
+fn keyboard_walks_challenge_actions_and_confirms_or_cancels_without_a_pointer() {
+    use crate::shellkit::focus::{Stop, table};
+    let (mut app, _jobs) = screen(Lang::En);
+    front_keys::clears_a_despawned_focus(&mut app);
+    let controls: Vec<_> = app
+        .world_mut()
+        .query::<(&Press, Option<&Stop>)>()
+        .iter(app.world())
+        .filter_map(|(press, stop)| {
+            matches!(press, Press::Challenges(_)).then_some((*press, stop.copied()))
+        })
+        .collect();
+    for (press, stop) in controls {
+        let stop = stop.unwrap_or_else(|| panic!("unreachable control {press:?}"));
+        assert!(table(stop.table).unwrap().stops.contains(&stop.id));
+    }
+    for _ in 0..20 {
+        if front_keys::focused_id(&app) == Some("hint") {
+            break;
+        }
+        front_keys::tab(&mut app, false);
+    }
+    assert_eq!(front_keys::focused_id(&app), Some("hint"));
+    front_keys::press_key(&mut app, KeyCode::Enter, Key::Enter, &[]);
+    assert!(
+        app.world()
+            .resource::<LobbyState>()
+            .challenges
+            .model
+            .confirmation
+            .is_some()
+    );
+    assert_eq!(
+        front_keys::focused(&app),
+        Some(Stop::new("challenge-confirm", "cancel"))
+    );
+    front_keys::tab(&mut app, false);
+    assert_eq!(front_keys::focused_id(&app), Some("confirm"));
+    front_keys::tab(&mut app, false);
+    assert_eq!(
+        front_keys::focused_id(&app),
+        Some("cancel"),
+        "the confirmation traps Tab"
+    );
+    front_keys::press_key(&mut app, KeyCode::Space, Key::Space, &[]);
+    assert!(
+        app.world()
+            .resource::<LobbyState>()
+            .challenges
+            .model
+            .confirmation
+            .is_none()
+    );
+    assert!(
+        app.world()
+            .resource::<LobbyState>()
+            .challenges
+            .model
+            .hint
+            .is_none()
+    );
+}
+
+#[test]
+fn ordinary_seat_response_restores_challenge_context_but_stale_replies_cannot() {
+    let (mut app, _jobs) = screen(Lang::En);
+    let task = *uuid::Uuid::now_v7().as_bytes();
+    let response = answer(
+        200,
+        &serde_json::json!({
+            "game_id": "resumed-challenge", "seat": 0, "seat_token": "synthetic",
+            "challenge": task,
+        })
+        .to_string(),
+    );
+    let event = crate::lobby::http::decode(Lang::En, Expect::Seat, &response);
+    assert!(matches!(event, LobbyEvent::ChallengeSeated { challenge, .. } if challenge == task));
+    let epoch = app.world().resource::<LobbyState>().gateway_epoch;
+    // This test covers the accepted HTTP reply; the real socket is covered by
+    // the gateway integration. Do not open a network host from this headless app.
+    app.world_mut().resource_mut::<LobbyState>().connected = true;
+    let mailbox = app.world().resource::<Mailbox>().clone();
+    mailbox.0.lock().unwrap().push(Reply::Remote(
+        epoch.wrapping_add(1),
+        Box::new(Reply::Event(event.clone())),
+    ));
+    app.update();
+    assert!(!crate::lobby::challenges::current(
+        app.world().resource::<LobbyState>()
+    ));
+    mailbox
+        .0
+        .lock()
+        .unwrap()
+        .push(Reply::Remote(epoch, Box::new(Reply::Event(event))));
+    app.update();
+    assert!(crate::lobby::challenges::current(
+        app.world().resource::<LobbyState>()
+    ));
+    // The end screen takes the same predicate, and return selects this exact task.
+    app.world_mut()
+        .run_system_once(crate::lobby::challenges::returned)
+        .unwrap();
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.hub, Hub::Challenges);
+    assert_eq!(state.challenges.model.selected, Some(task));
+    assert!(state.challenges.model.busy, "the result refresh was queued");
 }

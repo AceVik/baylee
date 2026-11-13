@@ -322,7 +322,7 @@ fn button(
     action: Action,
     model: &State,
     weight: Weight,
-) {
+) -> Entity {
     let lang = if kit.german { Lang::De } else { Lang::En };
     let live = if model.busy {
         Live::No(Phrase::ChallengeLoading.text(lang))
@@ -342,5 +342,12 @@ fn button(
         None,
         Press::Challenges(action),
     );
+    commands.entity(button).insert((
+        super::keys::stop(action, model),
+        crate::shellkit::focus::Current(
+            matches!(action, Action::Board(board) if board == model.board),
+        ),
+    ));
     commands.entity(root).add_child(button);
+    button
 }

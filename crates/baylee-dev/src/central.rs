@@ -225,7 +225,12 @@ fn all_passed(output: &str) -> bool {
 /// `integration`: builds first, so the bounded handoff to a UI run is spent
 /// on the test and not the compile; then bootstraps Central's two roles and
 /// runs the one ignored end-to-end test. `cancel` ends it early when it exists.
-pub fn integration(config: Option<&Path>, cancel: Option<&Path>, failure: bool) -> Result<i32> {
+pub fn integration(
+    config: Option<&Path>,
+    cancel: Option<&Path>,
+    failure: bool,
+    challenges_only: bool,
+) -> Result<i32> {
     let options = cargo_options(config)?;
     let build = Owned::spawn(&mut test_command(
         &options,
@@ -267,6 +272,10 @@ pub fn integration(config: Option<&Path>, cancel: Option<&Path>, failure: bool) 
             ],
         );
         test.env("CENTRAL_TEST_FIXTURE", "isolated-v1")
+            .env(
+                "BAYLEE_CENTRAL_CHALLENGES_ONLY",
+                if challenges_only { "1" } else { "0" },
+            )
             .env("CENTRAL_TEST_PORT", pg.port().to_string())
             .env("CENTRAL_TEST_MIGRATOR_PASSWORD", &migrator)
             .env("CENTRAL_TEST_RUNTIME_PASSWORD", &runtime)

@@ -17,8 +17,9 @@ A challenge has one human (seat 0), one house opponent (seat 1), no teams,
 decision/reconnection timers, takebacks or time-extension votes. Profiles with
 adaptive foresight are refused before setup. Scouting stays fair, and neither
 stand-ins nor chair takeover can replace either participant. The policy reads
-the count of actual decisions, not the transport sequence that UI settings
-advance. Resuming a challenge recomputes and checks the recorded house actions
+the count of accepted opponent answers, independent of the human's manual or
+automatic priority passes. Live play and record reconstruction increment this
+same counter. Resuming a challenge recomputes and checks the recorded house actions
 to restore its internal memory; a mismatching policy cannot continue silently.
 Central admission, scores and certification are separate host responsibilities.
 

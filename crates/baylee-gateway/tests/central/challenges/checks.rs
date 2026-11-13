@@ -8,6 +8,7 @@ pub(super) fn exercise(
     task: &api::Challenge,
     candidate: &baylee_train::challenges::Certified,
     agent: &mut Option<tokio::task::JoinHandle<()>>,
+    operator: &sea_orm::DatabaseConnection,
 ) {
     let request = api::Request::Begin {
         challenge: task.id,
@@ -25,7 +26,8 @@ pub(super) fn exercise(
     let origin = format!("http://127.0.0.1:{}", gateway.port);
     assert_eq!(attempt.host, origin);
     let path = format!("/challenges/{}/play", Uuid::from_bytes(attempt.id));
-    if agent.is_none() {
+    let delayed = agent.is_none();
+    if delayed {
         assert!(
             matches!(
                 account.play_challenge(attempt.id),
@@ -48,8 +50,28 @@ pub(super) fn exercise(
         );
         *agent = Some(runtime.block_on(common::attach_agent(gateway)));
     }
-    let (_, admission, seat) = account.play_challenge(attempt.id).unwrap();
-    let grant = serde_json::json!({ "game_id": seat.game_id, "seat": seat.seat, "seat_token": &*seat.seat_token });
+    let admission = account.admit(&origin).unwrap();
+    let grant = if delayed {
+        race::start_while_recovery_runs(
+            runtime,
+            operator,
+            gateway,
+            &admission.token,
+            &path,
+            attempt.id,
+        )
+    } else {
+        start(gateway, &admission.token, &path)
+    };
+    assert_eq!(grant["challenge"], serde_json::json!(task.id));
+    // The ordinary gateway seat endpoint must retain the same public context
+    // after a process restart, independently of the challenge-specific route.
+    let grant = start(
+        gateway,
+        &admission.token,
+        &format!("/lobby/games/{}/seat", grant["game_id"].as_str().unwrap()),
+    );
+    assert_eq!(grant["challenge"], serde_json::json!(task.id));
     let actions: Vec<PlayerAction> = std::str::from_utf8(&candidate.proofs[0].record)
         .unwrap()
         .lines()

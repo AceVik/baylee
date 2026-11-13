@@ -31,6 +31,18 @@ fn session(state: &mut LobbyState) -> Option<central::Handle> {
     handle
 }
 
+/// Restore UI context only after the ordinary gateway reply passed its epoch check.
+pub(in crate::lobby) fn seated(state: &mut LobbyState, event: &LobbyEvent) {
+    match event {
+        LobbyEvent::ChallengeSeated { seat, challenge } => {
+            session(state);
+            state.challenges.playing = Some((*challenge, seat.game_id.clone()));
+        }
+        LobbyEvent::Seated(_) => state.challenges.playing = None,
+        _ => {}
+    }
+}
+
 pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
     let Some(handle) = session(state) else {
         return;

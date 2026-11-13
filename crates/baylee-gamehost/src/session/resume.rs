@@ -100,6 +100,7 @@ impl Session {
         if self.engine.apply(player, action).is_err() {
             return false;
         }
+        self.challenge_answered(player, by);
         if moves_the_game
             && by == Source::Seat
             && let Some(window) = self.policy_acts.get_mut(player.get() as usize)

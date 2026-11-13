@@ -426,11 +426,7 @@ pub(crate) async fn redeem(
     };
     state.lobby_moved();
     Ok(Json(ChairGrant {
-        grant: SeatGrant {
-            game_id: id,
-            seat,
-            seat_token,
-        },
+        grant: SeatGrant::ordinary(id, seat, seat_token),
         decide_secs,
     }))
 }

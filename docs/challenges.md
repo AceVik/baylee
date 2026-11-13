@@ -117,14 +117,19 @@ the proposed game identity before claiming it and consumes a durable launch
 permission before revealing the opening. A retry resumes its existing seat;
 an engine lost with a restart is never restarted from the beginning under the
 same attempt. Public rematch cannot bypass Central's attempt accounting.
+Delivery reconciliation takes the same admission lock per row, reloads its durable
+binding, and keeps the lock through the remote status decision. A delayed Claim
+cannot race with recovery deleting or voiding its original game identity.
 
 The engine must identify the exact certified build before receiving the
 private preset. Challenges disable spectators. Human time uses the process's
 monotonic clock and counts waiting for the human, including network latency;
 loading, AI work and outgoing batch transmission do not count. A disconnect
 permanently excludes that attempt from Sprint but leaves its game resumable.
-The ordinary 24-hour disconnected hold ends a challenge as a technical void,
-not a defeat. Deliberately leaving the table abandons the attempt.
+The ordinary 24-hour disconnected hold abandons the attempt, as does deliberately
+leaving the table, even after its socket has already disconnected. Both count as
+failed attempts; a player cannot erase a losing Weekly by waiting out the hold.
+Confirmed technical host failures remain void without a failure penalty.
 
 The authenticated engine sends the outcome, finish timestamp and SHA-256 of
 its uncompressed record. The gateway queues that outcome after the contiguous
@@ -277,7 +282,7 @@ was started. Focused client checks with `dev-control,dev-reload` passed all 538
 executed lobby tests (two intentionally ignored) and all 43 Dev-Control tests.
 These validate the affected client paths but do not retroactively clear the
 unexplained aggregate failure. All owned PostgreSQL fixtures were removed.
-Independent PR review is recorded below when complete.
+Independent PR review and its targeted follow-up checks are recorded below.
 
 A fresh Daily was also played blind with the ordinary player view. With two
 2/2 Bears against one blocker and five opposing life, both attacked. After the
@@ -286,3 +291,49 @@ on turn one. Lightning Bolt, Shock and Fling were unused. The CLI reported victo
 and exited; this confirms an accessible combat solution alongside the certified
 direct-damage routes. Four initial resource positions are a bounded starter set,
 not a claim of inexhaustible Daily content.
+
+## Independent review corrections
+
+After all three improvement rounds, independent reviewers inspected the generator,
+host/delivery path and native client. Seven actionable findings were corrected:
+
+- Frozen opponent decisions now use only accepted opponent answers as their noise
+  sequence, so manual versus automatic human priority passing cannot reroll them.
+  Human views keep their advancing sequence for solver loop detection. Live play,
+  record replay and process resumption reconstruct the same opponent counter.
+- Crash reconciliation shares admission's lock and rereads the queued binding
+  under it; a slow in-flight claim cannot be removed from an earlier snapshot.
+- Explicit abandonment is honoured even before attaching or after a disconnect.
+  Expiry of the 24-hour player absence is abandonment too; genuine host failures
+  remain void. Waiting out a Weekly cannot restore first-try eligibility.
+- Native challenge controls have semantic keyboard stops and a separate
+  confirmation focus order. Website links wait for refreshes and confirmations.
+- The ordinary authenticated seat response carries the optional public challenge
+  identity, restoring the result navigation on client recovery. Stale gateway
+  replies cannot replace the current account's context.
+
+All three reviewers inspected the corrections and reported no remaining concrete
+findings in those scopes. Their reviews were static; execution evidence is recorded
+separately. Central's independent authority/web reviews and the two corrected web
+findings are recorded in its companion PR.
+
+Following the owner's test-scope constraint, the corrections were checked without
+another full gate: all six native challenge tests, three engine lifecycle tests
+and five gamehost challenge tests passed. The settings regression's old assertion
+on the human sequence was corrected to compare the opponent sequence; its isolated
+rerun passed. The separate automatic/manual-pass regression exercises real F6
+inputs and record resumption after every accepted answer. Clippy passed all targets
+of the seven changed crates, with the native development features enabled.
+
+`cargo dev central integration --challenges-only` passed in 55.20 seconds against
+real PostgreSQL 18.6, Central HTTP and gateway/engine sockets. It freshly certified
+both kinds, published twice without duplicates, exercised the slow-claim recovery
+race, checked challenge context through the ordinary seat route, won both games,
+resumed the Weekly within the same attempt, and checked turns, failures, Sprint
+exclusion, all three leaderboards and permanent badges. The owned database,
+listener and services were removed. This targeted result does not change the
+earlier aggregate feature-matrix limitation above.
+
+Formatting of the changed crates, the affected gamehost library's `simulation`
+feature lint and the regenerated API-document check also passed. No rendered
+native client was started for these final checks.

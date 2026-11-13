@@ -146,6 +146,8 @@ pub struct Session {
     /// How many times the *question* has changed — see
     /// [`Session::decision_seq`].
     decisions: u64,
+    /// Accepted frozen-opponent answers only: human auto-passes cannot reroll its policy.
+    challenge_decisions: u64,
     /// Kept for the decision clock; the engine has its own copy for rules.
     house_rules: HouseRules,
     /// Per seat, the [`Session::decision_seq`] at which it was asked the
@@ -389,11 +391,8 @@ impl Session {
             teams: &self.teams,
             scouting_decks: &self.scouting_decks,
             fair_scouting: self.fair_scouting,
-            seq: if self.is_challenge() {
-                self.decisions
-            } else {
-                self.seq
-            },
+            seq: self.seq,
+            challenge_seq: self.is_challenge().then_some(self.challenge_decisions),
             house_answered: &self.house_answered,
             showing: &self.showing,
             shown_once: &self.shown_once,

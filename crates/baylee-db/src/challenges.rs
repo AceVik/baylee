@@ -1,7 +1,7 @@
 //! Private claim bindings and immutable result outbox for the official host.
 //! Account deletion cascades; delivered rows are removed. No player route reads this table.
 use central_api::challenges::Completion;
-use sea_orm::{ConnectionTrait, DbErr, Statement, Value};
+use sea_orm::{ConnectionTrait, DbErr, QueryResult, Statement, Value};
 use uuid::Uuid;
 mod owner;
 pub use owner::Owner;
@@ -106,22 +106,40 @@ pub async fn pending(db: &impl ConnectionTrait) -> Result<Vec<Run>, DbErr> {
         vec![],
     ))
     .await?
-    .into_iter()
-    .map(|row| {
-        let bytes: Option<Vec<u8>> = row.try_get("", "result")?;
-        Ok(Run {
-            attempt: row.try_get("", "attempt")?,
-            game: row.try_get("", "game")?,
-            age: row.try_get("", "age")?,
-            result: bytes
-                .map(|bytes| {
-                    central_api::decode(&bytes)
-                        .map_err(|_| DbErr::Custom("invalid challenge outcome".into()))
-                })
-                .transpose()?,
-        })
-    })
+    .iter()
+    .map(decode)
     .collect()
+}
+
+/// Re-read a queued identity after acquiring the host's admission lock.
+/// # Errors
+/// Database failure or corrupt stored outcome.
+pub async fn find(db: &impl ConnectionTrait, attempt: Uuid) -> Result<Option<Run>, DbErr> {
+    db.query_one_raw(stmt(
+        db,
+        "SELECT attempt,game,result,extract(epoch FROM clock_timestamp()-created_at)::bigint AS age
+         FROM challenge_run WHERE attempt=$1",
+        vec![attempt.into()],
+    ))
+    .await?
+    .as_ref()
+    .map(decode)
+    .transpose()
+}
+
+fn decode(row: &QueryResult) -> Result<Run, DbErr> {
+    let bytes: Option<Vec<u8>> = row.try_get("", "result")?;
+    Ok(Run {
+        attempt: row.try_get("", "attempt")?,
+        game: row.try_get("", "game")?,
+        age: row.try_get("", "age")?,
+        result: bytes
+            .map(|bytes| {
+                central_api::decode(&bytes)
+                    .map_err(|_| DbErr::Custom("invalid challenge outcome".into()))
+            })
+            .transpose()?,
+    })
 }
 
 /// Move a serviced run to the end of the bounded delivery queue.

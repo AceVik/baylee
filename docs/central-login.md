@@ -796,6 +796,12 @@ mode; it provisions Central's `central_legacy` role beside the others. Its optio
 most 180 seconds, until the sibling `.stop` file is written. Never use it with
 production configuration.
 
+`cargo dev central integration --challenges-only` restricts the same owned
+fixture to a fresh synthetic account and the Daily/Weekly generation, publication,
+play, recovery and evaluation pipeline. The runner sets the test-process-only
+`BAYLEE_CENTRAL_CHALLENGES_ONLY=1`; neither production server reads it. The default
+integration mode still runs every existing scenario.
+
 For coordinated local development of the sibling repositories, both database
 scripts accept `--cargo-config target/central-patch.toml`, pointing to a Cargo
 patch configuration for the sibling Central crates. This explicit mode permits

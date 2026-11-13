@@ -63,6 +63,8 @@ pub const TABLES: &[&TabOrder] = &[
     // The lobby's screens and sheets (WP2, WP3; `lobby::orders`).
     &crate::lobby::orders::PLAY,
     &crate::lobby::orders::DECKS,
+    &crate::lobby::orders::CHALLENGES,
+    &crate::lobby::orders::CHALLENGE_CONFIRM,
     &crate::lobby::orders::ROOM,
     &crate::lobby::orders::CREATE,
     &crate::lobby::orders::HISTORY,

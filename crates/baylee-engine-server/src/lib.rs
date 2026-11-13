@@ -614,7 +614,10 @@ impl EngineRunner {
         }
         let mut ending = ended(&self.game_id, ended_why);
         if let Some(v1::envelope::Msg::GameEnded(ended)) = ending.msg.as_mut() {
-            let outcome = if ended_why == "challenge abandoned" {
+            let outcome = if matches!(
+                ended_why,
+                "challenge abandoned" | "challenge connection expired"
+            ) {
                 v1::challenge_result::Outcome::Abandoned
             } else {
                 v1::challenge_result::Outcome::Void
@@ -905,7 +908,7 @@ impl EngineRunner {
             return Vec::new();
         };
         let was_here = self.attached.contains(&seat);
-        if seat == 0 && was_here && self.is_challenge() {
+        if seat == 0 && self.is_challenge() {
             self.challenge.interrupt();
             if detached.left {
                 return self.closed("challenge abandoned", "challenge abandoned");

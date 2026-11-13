@@ -10,6 +10,8 @@ use tokio::runtime::Runtime;
 use uuid::Uuid;
 #[path = "challenges/checks.rs"]
 mod checks;
+#[path = "challenges/race.rs"]
+mod race;
 
 pub(super) fn run(
     runtime: &Runtime,
@@ -17,6 +19,7 @@ pub(super) fn run(
     gateway: &common::Gateway,
     account: &Account,
     credential: &Token,
+    operator: &sea_orm::DatabaseConnection,
 ) {
     if std::env::var("BAYLEE_CENTRAL_CHALLENGE_UI").as_deref() == Ok("1") {
         prepare_blind(runtime, endpoint, credential);
@@ -88,7 +91,9 @@ pub(super) fn run(
                 .iter()
                 .find(|task| task.description.period.kind == candidate.kind)
                 .unwrap();
-            checks::exercise(runtime, gateway, account, task, candidate, &mut agent);
+            checks::exercise(
+                runtime, gateway, account, task, candidate, &mut agent, operator,
+            );
         }
         let api::Response::Progress { badges, active } =
             account.challenges(api::Request::Progress).unwrap()

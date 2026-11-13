@@ -1128,6 +1128,14 @@ pub enum LobbyEvent {
     Moved,
     /// A seat, and the ticket that proves it.
     Seated(SeatHandover),
+    /// An already-running challenge seat, including its public task identity.
+    /// This is presentation context, never permission to publish a score.
+    ChallengeSeated {
+        /// The normal authenticated seat grant.
+        seat: SeatHandover,
+        /// Public task identity used to return to its results.
+        challenge: [u8; 16],
+    },
     /// The hosted models the gateway offers.
     HostedProfiles(Vec<hosted::HostedProfile>),
     /// The sign-in was right, and the password an admin's reset one

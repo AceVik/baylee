@@ -245,6 +245,17 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
     let served = serve(&runtime, &store, &legacy, "central", None);
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let (gateway, endpoint, origin) = (&served.gateway, &served.endpoint, &served.origin);
+        if std::env::var("BAYLEE_CENTRAL_CHALLENGES_ONLY").as_deref() == Ok("1") {
+            fresh::run(
+                &runtime,
+                &served.service,
+                endpoint,
+                gateway,
+                &served.bridge,
+                &operator,
+            );
+            return;
+        }
         run(
             gateway,
             endpoint,
@@ -261,7 +272,14 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
             &operator,
             &served.bridge,
         );
-        fresh::run(&runtime, &served.service, endpoint, gateway, &served.bridge);
+        fresh::run(
+            &runtime,
+            &served.service,
+            endpoint,
+            gateway,
+            &served.bridge,
+            &operator,
+        );
         pairing::run(&runtime, &served.service, &operator, endpoint, gateway);
         registered::run(&runtime, &operator, endpoint);
         terms::run(&runtime, &operator, endpoint);

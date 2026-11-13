@@ -165,11 +165,7 @@ pub(crate) async fn rematch(
     // last is the one who starts it.
     try_start(&state, &room_id).await?;
     state.lobby_moved();
-    Ok(Json(SeatGrant {
-        game_id: room_id,
-        seat,
-        seat_token,
-    }))
+    Ok(Json(SeatGrant::ordinary(room_id, seat, seat_token)))
 }
 
 fn may_rematch(game: &LobbyGame, account: &str) -> Result<(), (StatusCode, Json<ErrorBody>)> {

@@ -42,6 +42,34 @@ pub(crate) const DECKS: TabOrder = TabOrder {
     modal: false,
 };
 
+/// Global tasks: the task and ranking rows are arrow-walked composites.
+pub(crate) const CHALLENGES: TabOrder = TabOrder {
+    name: "challenges",
+    stops: &[
+        "refresh",
+        "back",
+        "active",
+        "tasks",
+        "older",
+        "play",
+        "abandon",
+        "hint",
+        "deck",
+        "visibility",
+        "boards",
+        "pager",
+        "baylee",
+    ],
+    modal: false,
+};
+
+/// Assistance and abandonment require an explicit, keyboard-accessible answer.
+pub(crate) const CHALLENGE_CONFIRM: TabOrder = TabOrder {
+    name: "challenge-confirm",
+    stops: &["cancel", "confirm"],
+    modal: true,
+};
+
 /// The room (§1.3 "Room"): breadcrumb, Copy invite, Leave, Start, the rail,
 /// the seats.
 pub(crate) const ROOM: TabOrder = TabOrder {
@@ -118,8 +146,18 @@ pub(crate) const MENU: TabOrder = TabOrder {
 
 /// Every table this module holds (`focus::TABLES` lists them by name).
 #[cfg(test)]
-pub(crate) const ALL: [&TabOrder; 9] = [
-    &PLAY, &DECKS, &ROOM, &CREATE, &HISTORY, &PREVIEW, &PICKER, &CHAIR, &MENU,
+pub(crate) const ALL: [&TabOrder; 11] = [
+    &PLAY,
+    &DECKS,
+    &CHALLENGES,
+    &CHALLENGE_CONFIRM,
+    &ROOM,
+    &CREATE,
+    &HISTORY,
+    &PREVIEW,
+    &PICKER,
+    &CHAIR,
+    &MENU,
 ];
 
 /// Puts a stop of `order` on a control (its hit wrapper, which carries its

@@ -22,6 +22,9 @@ pub(crate) const MAX_WAITING_ROOMS: usize = 8;
 /// @openapi
 #[derive(Serialize)]
 pub(crate) struct SeatGrant {
+    /// @description Optional public task UUID, as sixteen bytes. UI context for challenge resumption; never a scoring credential.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) challenge: Option<[u8; 16]>,
     // In key order: the bytes the `json!` it replaced wrote (serde_json sorts keys).
     /// @description The game the chair is at (for a rematch, the new room's
     /// id, not the one in the path).
@@ -33,6 +36,17 @@ pub(crate) struct SeatGrant {
     /// table's cosmetics. Handed out once; a new one
     /// (`POST /lobby/games/{id}/seat`) ends the old.
     pub(crate) seat_token: String,
+}
+
+impl SeatGrant {
+    pub(crate) fn ordinary(game_id: String, seat: usize, seat_token: String) -> Self {
+        Self {
+            challenge: None,
+            game_id,
+            seat,
+            seat_token,
+        }
+    }
 }
 
 /// Whether `account` may make one more game: each leaves its record for good
@@ -207,11 +221,7 @@ pub(crate) async fn create_game(
             ));
         }
         state.lobby_moved();
-        return Ok(Json(SeatGrant {
-            game_id,
-            seat: 0,
-            seat_token,
-        }));
+        return Ok(Json(SeatGrant::ordinary(game_id, 0, seat_token)));
     }
 
     let chairs = body.seats.unwrap_or(2);
@@ -247,11 +257,7 @@ pub(crate) async fn create_game(
         lobby.games.insert(game_id.clone(), game);
     }
     state.lobby_moved();
-    Ok(Json(SeatGrant {
-        game_id,
-        seat: 0,
-        seat_token,
-    }))
+    Ok(Json(SeatGrant::ordinary(game_id, 0, seat_token)))
 }
 
 /// `429` when `account` hosts as many waiting rooms as it may.
@@ -422,11 +428,7 @@ pub(crate) async fn join_game(
         seat
     };
     state.lobby_moved();
-    Ok(Json(SeatGrant {
-        game_id: id,
-        seat,
-        seat_token,
-    }))
+    Ok(Json(SeatGrant::ordinary(id, seat, seat_token)))
 }
 
 /// `POST /lobby/games/{id}/seat` — hand this account its chair back.
@@ -472,7 +474,7 @@ pub(crate) async fn take_seat(
     let account_id = authed(&state, &headers).await?;
     let central_session = crate::central::seat_binding(&state, &headers)?;
     let seat_token = auth::new_token();
-    let seat = {
+    let (seat, challenge) = {
         let mut lobby = state.lobby.lock();
         let game = lobby
             .games
@@ -501,10 +503,11 @@ pub(crate) async fn take_seat(
             .ok_or_else(|| err(StatusCode::FORBIDDEN, "you are not at this table"))?;
         chair.seat_token_hash = Some(auth::token_hash(&seat_token));
         chair.central_session = central_session;
-        chair.seat
+        (chair.seat, game.challenge_task)
     };
     // No `lobby_moved()`: the arrangement of the table is exactly as it was.
     Ok(Json(SeatGrant {
+        challenge,
         game_id: id,
         seat,
         seat_token,

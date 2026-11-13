@@ -2385,6 +2385,11 @@ agent before claiming, and checks `EngineHello.build` again before disclosure.
 An agent configured for an older retained build is excluded from ordinary games.
 All retained builds must still speak the gateway's exact protocol version.
 
+An authenticated challenge `SeatGrant` includes optional `challenge`, the public
+task UUID as sixteen bytes. Ordinary `POST /lobby/games/{id}/seat` recovery returns
+the same context. Other grants omit it. Clients use it to restore the challenge
+end screen; it is neither the private attempt identity nor scoring authority.
+
 **`SeatFrame{seat, envelope}`** is what makes the routing possible without the
 gateway understanding a word of the game: it nests an *encoded* player-facing
 `Envelope` and tags it with a seat, so the gateway forwards the bytes it was

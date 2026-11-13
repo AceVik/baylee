@@ -69,6 +69,7 @@ impl Session {
             scouting_decks: crate::scouting::decks(preset).into(),
             seq: 0,
             decisions: 0,
+            challenge_decisions: 0,
             house_rules: preset.house_rules.clone(),
             asked_at: vec![0; preset.seats.len()],
             clock: vec![None; preset.seats.len()],

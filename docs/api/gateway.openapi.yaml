@@ -9556,6 +9556,18 @@ components:
     SeatGrant:
       type: object
       properties:
+        challenge:
+          type: array
+          items:
+            type: integer
+            format: int32
+            minimum: 0
+            maximum: 255
+          minItems: 16
+          maxItems: 16
+          description: >-
+            Optional public task UUID, as sixteen bytes. UI context for challenge
+            resumption; never a scoring credential.
         game_id:
           type: string
           description: >-

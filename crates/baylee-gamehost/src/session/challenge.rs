@@ -31,6 +31,13 @@ pub(super) fn policy_seed(rules: &HouseRules, game: &str, seat: u8) -> u64 {
 }
 
 impl Session {
+    /// One accepted opponent input, shared by live play and record reconstruction.
+    pub(super) fn challenge_answered(&mut self, seat: PlayerId, by: Source) {
+        if self.is_challenge() && seat.get() == 1 && by == Source::House {
+            self.challenge_decisions += 1;
+        }
+    }
+
     /// Rebuild the fixed agent's state while replaying, and verify every claimed
     /// house action. Otherwise a restarted host would forget its stall memory.
     pub(super) fn challenge_replay_answer(

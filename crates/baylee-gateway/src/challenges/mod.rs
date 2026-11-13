@@ -139,7 +139,7 @@ pub(crate) async fn play(
         &state,
         &account,
         live.key(),
-        attempt,
+        &claimed,
         proposed,
         &publication,
         &executor,
@@ -190,11 +190,13 @@ async fn launch(
     state: &Shared,
     account: &str,
     session: &[u8],
-    attempt: Uuid,
+    attempt: &central_api::challenges::Attempt,
     proposed: Uuid,
     publication: &central_api::challenges::Publication,
     executor: &str,
 ) -> Result<Json<crate::routes::SeatGrant>, (StatusCode, Json<ErrorBody>)> {
+    let challenge = attempt.challenge;
+    let attempt = Uuid::from_bytes(attempt.id);
     let game_id = proposed.to_string();
     let package = baylee_challenges::Package::from_publication_for(publication, executor)
         .map_err(|_| err(StatusCode::CONFLICT, "challenge executor unavailable"))?;
@@ -226,6 +228,7 @@ async fn launch(
     let mut game =
         lobby::LobbyGame::playing(game_id.clone(), seats, package.preset, auth::now_secs());
     game.challenge = Some(*attempt.as_bytes());
+    game.challenge_task = Some(challenge);
     game.challenge_executor = Some(package.executor);
     game.house_rules = rules;
     game.allow_spectators = false;
@@ -244,6 +247,7 @@ async fn launch(
     }
     state.lobby_moved();
     Ok(Json(crate::routes::SeatGrant {
+        challenge: Some(challenge),
         game_id,
         seat: 0,
         seat_token,

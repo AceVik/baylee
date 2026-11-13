@@ -9,6 +9,8 @@ existing worker. No gateway owns this state. Public leaderboard listing defaults
 to off; revealing either hint requires confirmation before Central permanently
 marks the task assisted. Abandonment also requires confirmation. Escape cancels
 the confirmation. All controls use the shell kit and English/German Fluent words.
+Its registered Tab order reaches task/ranking composites with arrow keys and
+activates controls with Enter/Space. Confirmation traps Tab on Cancel/Confirm.
 
 Play reserves with a retained UUIDv7, then re-reads the owned attempt and admits
 the player at the official host Central names. An ambiguous reply retries that
@@ -16,12 +18,18 @@ identity; a known active attempt resumes without another reservation. The game
 uses the ordinary network seat and existing choice interface. Its end screen
 returns to Challenges and offers no unaccounted rematch. While the durable result
 is pending, the view explains that progress is awaiting confirmation.
+Ordinary authenticated seat grants also carry an optional public task identity.
+The native client accepts it only with the current gateway response epoch and
+binds it to that exact game, so update restarts and normal seat recovery retain
+the challenge end screen and result refresh. Unmarked ordinary grants clear the
+old context; old gateways may omit the field. It confers no scoring authority.
 
 The catalogue refreshes on a visit and every minute while shown, or every ten
 seconds with an active attempt. Responses are scoped to the exact Central worker:
 sign-out or another account discards private state and the old response mailbox.
 Idle frames retain the UI tree. A `baylee://challenge/<32 lowercase UUIDv7 hex>`
 link opens details only; it never begins a game or reveals a hint.
+Links wait while a challenge request or confirmation is outstanding.
 
 The isolated native check is `cargo dev central client --monitor 1 --challenges`.
 Build the dev-control client and the `challenge` publisher first. It runs the real

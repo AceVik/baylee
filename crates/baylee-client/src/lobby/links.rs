@@ -120,6 +120,8 @@ fn at_rest(state: &LobbyState) -> bool {
         && !state.terms.up()
         && !super::central::terms_pending(state)
         && !state.lobby.busy()
+        && !state.challenges.model.busy
+        && state.challenges.model.confirmation.is_none()
         && state.adding.is_none()
         && matches!(
             state.lobby.screen(),

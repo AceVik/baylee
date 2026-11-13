@@ -164,6 +164,9 @@ enum Central {
     },
     /// A real gateway and Central against one isolated database.
     Integration {
+        /// Exercise only challenge generation, play, recovery and evaluation.
+        #[arg(long)]
+        challenges_only: bool,
         #[arg(long)]
         cargo_config: Option<PathBuf>,
         /// End early once this file exists.
@@ -301,6 +304,7 @@ fn central_task(check: Central) -> (&'static str, anyhow::Result<i32>) {
             central::verification::gate(features, exercise_failure),
         ),
         Central::Integration {
+            challenges_only,
             cargo_config,
             cancel_file,
             exercise_failure,
@@ -310,6 +314,7 @@ fn central_task(check: Central) -> (&'static str, anyhow::Result<i32>) {
                 cargo_config.as_deref(),
                 cancel_file.as_deref(),
                 exercise_failure,
+                challenges_only,
             ),
         ),
         Central::Client {

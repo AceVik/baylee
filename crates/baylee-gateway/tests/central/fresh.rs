@@ -29,6 +29,7 @@ pub fn run(
     endpoint: &Endpoint,
     gateway: &common::Gateway,
     bridge: &baylee_account::Token,
+    operator: &sea_orm::DatabaseConnection,
 ) {
     let origin = &format!("http://127.0.0.1:{}", gateway.port);
     let website = |request: &Request| {
@@ -85,5 +86,5 @@ pub fn run(
     let (_, second) = common::http(gateway.port, "GET", "/me", Some(&again.token), "");
     let id = |body: &str| serde_json::from_str::<serde_json::Value>(body).unwrap()["id"].clone();
     assert_eq!(id(&body), id(&second), "one projection per Central account");
-    super::challenges::run(runtime, endpoint, gateway, &account, bridge);
+    super::challenges::run(runtime, endpoint, gateway, &account, bridge, operator);
 }

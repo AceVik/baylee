@@ -478,7 +478,11 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
                 .insert_children(2 + nav_labels.len(), &[fill_mark]);
         }
         let memorial_hint = Phrase::MemorialInvitation.text(lang).to_string();
-        let table = super::front::keys::table_of(state).name;
+        let table = if state.hub == Hub::Challenges && !state.settings_open() {
+            super::orders::CHALLENGES.name
+        } else {
+            super::front::keys::table_of(state).name
+        };
         // Clicking the top-left Baylee brand logo opens the Memorial album.
         commands.queue(move |world: &mut World| {
             let brand = world.get::<Children>(bar).and_then(|c| {
