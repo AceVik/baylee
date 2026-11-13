@@ -159,7 +159,9 @@ pub(super) struct Placement {
 pub(super) fn place_of(kind: PileKind, player: PlayerId) -> Option<Place> {
     match kind {
         PileKind::Graveyard => Some(Place::Graveyard(player)),
-        PileKind::Exile => Some(Place::Exile(player)),
+        // The waiting place is exile, drawn apart (`motion::pile_home` keeps
+        // the two places apart where a card flies).
+        PileKind::Exile | PileKind::Waiting => Some(Place::Exile(player)),
         PileKind::Command | PileKind::Command2 => Some(Place::Command(player)),
         PileKind::Library => None,
     }

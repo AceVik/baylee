@@ -4,8 +4,8 @@
 //! can reuse it. A face also compares the public object this seat actually saw.
 
 use super::{
-    Entity, FinishTreatment, HashMap, HashSet, ImageKey, ObjectId, Place, Placement, SceneIndex,
-    Transform,
+    Entity, FinishTreatment, HashMap, HashSet, ImageKey, ObjectId, PileKind, Place, Placement,
+    PlayerId, SceneIndex, Transform,
 };
 
 /// Reusable storage owned by the scene synchronization system.
@@ -14,7 +14,7 @@ pub struct SceneWork {
     pub(super) wanted: Vec<Placement>,
     pub(super) live: HashSet<ObjectId>,
     pub(super) hidden: HashSet<ObjectId>,
-    pub(super) fanned: HashMap<ObjectId, Place>,
+    pub(super) fanned: HashMap<ObjectId, (Place, PlayerId, PileKind)>,
     pub(super) stamps: HashMap<ObjectId, CardStamp>,
     pub(super) stale: Vec<ObjectId>,
     pub(super) visible: Vec<ImageKey>,

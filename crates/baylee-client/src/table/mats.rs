@@ -435,6 +435,9 @@ pub fn sync_zones(
         // showing a stack there — which is worth a rebuild; how many cards
         // are in a library that still has some is not, and is on the tab.
         let library_shown = pod.library_count.min(SHOWN_LIBRARY);
+        // And which places there are at all: a waiting place is there only
+        // while a card waits on it.
+        let places = places_of(&pod.piles);
         // A seat that has moved or changed size is rebuilt rather than
         // updated: its mat is a mesh cut to a width, its glow is a quad and
         // its piles stand at fixed points, and not one of those is something
@@ -500,7 +503,7 @@ pub fn sync_zones(
             }
         }
         if let Some(zone) = index.zones.get(&pod.player) {
-            let stale_piles = zone.library_shown != library_shown;
+            let stale_piles = zone.library_shown != library_shown || zone.places != places;
             if zone.mood == mood && zone.accent == accent && !stale_piles {
                 continue;
             }
@@ -524,6 +527,7 @@ pub fn sync_zones(
                 zone.mood = mood;
                 zone.accent = accent;
                 zone.library_shown = library_shown;
+                zone.places = places;
                 if let Some(fresh) = fresh {
                     zone.piles = fresh;
                 }
@@ -569,6 +573,7 @@ pub fn sync_zones(
                 // next frame's carry.
                 raised: 0.0,
                 library_shown,
+                places,
                 mood,
                 accent,
             },

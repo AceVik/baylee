@@ -1324,12 +1324,7 @@ ArmedActivate = Fähigkeit aktivieren
 ArmedPayAndCast = { $cost } zahlen und wirken
 ArmedPayAndActivate = { $cost } zahlen und aktivieren
 ArmedSuspend = { $cost } zahlen und aussetzen
-SuspendedCards = Ausgesetzte Karten
-SuspendedCard =
-    { $card } · { $owner }{"\u000A"}{ $count } { $count ->
-        [one] Zeitmarke
-       *[other] Zeitmarken
-    } · ansehen
+TraySuspended = Ausgesetzt { $count }
 ArmedSuspendNow = Diese Karte aussetzen
 ArmedForetell = { $cost } zahlen und Vorhersage nutzen
 ArmedForetellNow = Vorhersage für diese Karte nutzen

@@ -6,8 +6,9 @@
 //! row is `lanes`, which seat a row belongs to is `seats`, what the stack
 //! shows is `stack`, where a card came from is `provenance`, what a gap in
 //! a row is for is `openings`, and what the model promises every caller is
-//! `contracts`. The three files named after a *thing* on the mat — `piles`,
-//! `fan`, `command_slots` — are that thing's own behaviour, and `fan` and
+//! `contracts`. The four files named after a *thing* on the mat — `piles`,
+//! `fan`, `command_slots`, `waiting` — are that thing's own behaviour, and
+//! `fan` and
 //! `command_slots` keep their module path because they were already nested
 //! modules here.
 //!
@@ -28,6 +29,7 @@ mod piles;
 mod provenance;
 mod seats;
 mod stack;
+mod waiting;
 
 use super::*;
 

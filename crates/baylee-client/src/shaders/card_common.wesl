@@ -1920,8 +1920,13 @@ const COUNT_MAX: u32 = 999u;
 /// host (#305), from one, and the mark stands in the `×`'s cell.
 const BADGE_ATTACHED: u32 = 65536u;
 /// `cardplate::BADGE_PILE`: the word counts the cards of a pile standing
-/// beside a mat, from nought, and is written bare, without the `×`.
+/// beside a mat, from nought, and is written bare, without the `×`, on a
+/// plate of its own (`count_badge`).
 const BADGE_PILE: u32 = 131072u;
+/// `cardplate::BADGE_PILE_KIND`: what is counted, the three bits above the
+/// flag (`cardplate::Tally::mark`).
+const BADGE_PILE_KIND: u32 = 1835008u;
+const BADGE_PILE_SHIFT: u32 = 18u;
 
 /// The mark of a host with cards tucked under it (#305), in a figure cell's
 /// units round the cell's middle, `y` down: a card with another peeking out
@@ -1972,6 +1977,89 @@ const BADGE_DROP_Y: f32 = 0.012;
 const BADGE_BLUR: f32 = 0.02;
 const BADGE_W: f32 = 0.2006886;
 
+/// How much of what lies under it a pile's count plate covers, and how far
+/// its edge is lit over the plate's own stock.
+const PILE_PLATE: f32 = 0.92;
+const PILE_EDGE: f32 = 0.10;
+
+/// `cardplate::PILE_MARK` and `PILE_MARK_GAP`: the box a pile's mark stands
+/// in before its figures, and the air between the two, in card widths. And
+/// how strongly the mark is inked: a little under the figures, which are
+/// what is read.
+const PILE_MARK: f32 = 0.075;
+const PILE_MARK_GAP: f32 = 0.020;
+const PILE_MARK_INK: f32 = 0.78;
+
+/// An hourglass in a box one unit square round its middle: two plates and
+/// the glass narrowing to a waist between them. Time counters.
+fn hourglass(q: vec2<f32>, e: f32) -> f32 {
+    let a = abs(q);
+    let glass = max((a.x - 0.05 - 0.62 * a.y) * 0.85, a.y - 0.37);
+    let plates = sd_box(vec2<f32>(a.x, a.y - 0.40), vec2<f32>(0.30, 0.05));
+    return 1.0 - smoothstep(-e, e, min(glass, plates));
+}
+
+/// One card of a hand held in a fan, turned `angle` about the wrist `pivot`.
+fn fan_card(q: vec2<f32>, pivot: vec2<f32>, angle: f32) -> f32 {
+    let c = cos(angle);
+    let s = sin(angle);
+    let r = q - pivot;
+    let l = vec2<f32>(c * r.x + s * r.y, c * r.y - s * r.x);
+    return sd_round_box(l + vec2<f32>(0.0, 0.50), vec2<f32>(0.125, 0.23), 0.04);
+}
+
+/// What a number on the felt counts, as a shape of this client's own in a
+/// box one unit square round its middle, `y` down (`cardplate::Tally::mark`):
+/// 0 a library, two cards of a deck, one lying over the other; 1 a
+/// graveyard, a headstone on its ground; 2 exile, a ring struck through; 3 a
+/// hand, three cards held in a fan; 4 the time a suspended card still waits,
+/// an hourglass. Drawn bold and without inner detail, because the box is
+/// nine pixels. The headstone and the barred ring are the marks those piles'
+/// empty places wear (`tabletop::ZoneMark`); a library's three leaves edge on
+/// are three bars at this size, which is a menu, so it is a deck here.
+fn pile_mark(q: vec2<f32>, kind: u32, e: f32) -> f32 {
+    if kind == 4u {
+        return hourglass(q, e);
+    }
+    if kind == 3u {
+        // Right over middle over left, with air where one covers the next.
+        let pivot = vec2<f32>(0.0, 0.62);
+        let right = fan_card(q, pivot, 0.52);
+        let middle = fan_card(q, pivot, 0.0);
+        let left = fan_card(q, pivot, -0.52);
+        let over = 1.0 - smoothstep(-e, e, right);
+        let mid = (1.0 - smoothstep(-e, e, middle)) * smoothstep(-e, e, right - 0.05);
+        let under = (1.0 - smoothstep(-e, e, left)) * smoothstep(-e, e, middle - 0.05);
+        return max(over, max(mid, under));
+    }
+    if kind == 1u {
+        // The stone: a box with a round head, and the ground under it.
+        let stone = min(
+            sd_box(q - vec2<f32>(0.0, 0.10), vec2<f32>(0.27, 0.26)),
+            length(q - vec2<f32>(0.0, -0.16)) - 0.27,
+        );
+        let ground = sd_round_box(q - vec2<f32>(0.0, 0.42), vec2<f32>(0.44, 0.06), 0.03);
+        return 1.0 - smoothstep(-e, e, min(stone, ground));
+    }
+    if kind == 2u {
+        // The ring, and the stroke through it from upper left to lower right.
+        let ring = abs(length(q) - 0.36) - 0.075;
+        let along = dot(q, vec2<f32>(0.70711, 0.70711));
+        let across = dot(q, vec2<f32>(-0.70711, 0.70711));
+        let stroke = max(abs(across) - 0.075, abs(along) - 0.36);
+        return 1.0 - smoothstep(-e, e, min(ring, stroke));
+    }
+    // The deck: the card on top whole, and the one under it showing past
+    // its upper right, with air between the two.
+    let half = vec2<f32>(0.25, 0.34);
+    let shift = vec2<f32>(0.085, -0.075);
+    let front = sd_round_box(q + shift, half, 0.06);
+    let back = sd_round_box(q - shift, half, 0.06);
+    let over = 1.0 - smoothstep(-e, e, front);
+    let under = (1.0 - smoothstep(-e, e, back)) * smoothstep(-e, e, front - 0.07);
+    return max(over, under);
+}
+
 /// How many permanents a merged card stands for, `×54`, at the card's
 /// top-right corner (#261, #298; the owner, 25.09): the figures over their
 /// own drop shadow, as one colour and one coverage for the blend, and no
@@ -2004,7 +2092,7 @@ fn count_badge(
 ) -> vec4<f32> {
     let attached = (count & BADGE_ATTACHED) != 0u;
     let pile = (count & BADGE_PILE) != 0u;
-    let n = count & ~(BADGE_ATTACHED | BADGE_PILE);
+    let n = count & ~(BADGE_ATTACHED | BADGE_PILE | BADGE_PILE_KIND);
     if !pile && n < select(COUNT_MIN, 1u, attached) {
         return vec4<f32>(0.0);
     }
@@ -2014,9 +2102,21 @@ fn count_badge(
     }
     line = text_number(line, min(n, COUNT_MAX));
     let wants = text_width(line) * PLATE_CAP / TEXT_CAP;
-    let cap = PLATE_CAP * min((BADGE_W - 2.0 * PLATE_PAD) / wants, 1.0);
-    let w = max(min(wants + 2.0 * PLATE_PAD, BADGE_W), BADGE_H);
-    let mid = vec2<f32>(right - 0.5 * w, top + 0.5 * BADGE_H);
+    // A pile's plate is as wide as its mark and its figures need
+    // (`cardplate::pile_width`); a merged card's count sets a third figure
+    // smaller to fit.
+    let cap = select(PLATE_CAP * min((BADGE_W - 2.0 * PLATE_PAD) / wants, 1.0), PLATE_CAP, pile);
+    let w = select(
+        max(min(wants + 2.0 * PLATE_PAD, BADGE_W), BADGE_H),
+        PILE_MARK + PILE_MARK_GAP + wants + 2.0 * PLATE_PAD,
+        pile,
+    );
+    // The figures' middle: the box's, or on a pile's plate the middle of
+    // what its mark leaves them at the plate's right end.
+    let mid = vec2<f32>(
+        right - 0.5 * select(w, wants + 2.0 * PLATE_PAD, pile),
+        top + 0.5 * BADGE_H,
+    );
 
     // The figures' own shadow: the same figures dropped down and a little
     // right, away from the card's print, and softened as far as their
@@ -2035,5 +2135,31 @@ fn count_badge(
     let shadow = badge_cover(under, mid, cap, line, attached, marks, marks_s, max(aa, 0.08 * unit));
     let shade = SHADOW_DEPTH * 1.4 * shadow;
     let hit = badge_cover(at, mid, cap, line, attached, marks, marks_s, aa);
-    return strip_over_shadow(INK, hit, min(shade, 0.9));
+    if !pile {
+        return strip_over_shadow(INK, hit, min(shade, 0.9));
+    }
+    // A pile's count lies on the table and not beside a card's edge: a
+    // mat's lit rim or a channel of molten rock may run under it, and bare
+    // white figures on a gold rim were not read (played 12.11.2026). So it
+    // has a plate of its own, the P/T plate's stock with a thin lit edge,
+    // and the plate casts the shadow: figures over plate over shadow, as
+    // one colour and one coverage for the blend.
+    let half = vec2<f32>(0.5 * w, 0.5 * BADGE_H);
+    let centre = vec2<f32>(right - 0.5 * w, top + 0.5 * BADGE_H);
+    let body = sd_round_box(p - centre, half, BADGE_CORNER);
+    let plate = (1.0 - smoothstep(-aa, aa, body)) * PILE_PLATE;
+    let edge = (1.0 - smoothstep(0.0, 1.5 * aa, -body)) * PILE_EDGE;
+    let fall = (1.0 - smoothstep(-BADGE_BLUR, BADGE_BLUR, sd_round_box(p - centre - drop, half, BADGE_CORNER)))
+        * SHADOW_DEPTH;
+    // The pile's mark, in its box at the plate's left end, a figure high.
+    let cell = vec2<f32>(right - w + PLATE_PAD + 0.5 * PILE_MARK, centre.y);
+    let kind = (count & BADGE_PILE_KIND) >> BADGE_PILE_SHIFT;
+    let mark = pile_mark((p - cell) / PILE_MARK, kind, max(aa / PILE_MARK, 0.02));
+    let ink = max(hit, mark * PILE_MARK_INK);
+    let pre = INK * ink + (PLATE + vec3<f32>(edge)) * plate * (1.0 - ink);
+    let alpha = 1.0 - (1.0 - ink) * (1.0 - plate) * (1.0 - fall);
+    if alpha <= 0.0 {
+        return vec4<f32>(0.0);
+    }
+    return vec4<f32>(pre / alpha, alpha);
 }

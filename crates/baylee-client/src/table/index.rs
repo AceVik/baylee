@@ -233,7 +233,10 @@ pub struct SceneIndex {
     /// that leaves with no zone change behind it is otherwise despawned where
     /// it stands, which for seven cards in the air is seven cards blinking
     /// out of it.
-    pub(super) fanned: HashMap<ObjectId, Place>,
+    ///
+    /// The pile is kept beside the zone: exile is drawn as two places, and a
+    /// waiting card goes home to the one it was lifted from.
+    pub(super) fanned: HashMap<ObjectId, (Place, PlayerId, PileKind)>,
     /// One material per colour identity and look, for cards drawing their
     /// own face rather than artwork.
     pub(super) face_materials: HashMap<CardLook, Handle<CardMaterial>>,
@@ -338,6 +341,11 @@ pub(super) struct Zone {
     /// out" alone, which is the one fact the *places* depend on and says
     /// nothing about the deck standing on one of them.
     pub(super) library_shown: u32,
+    /// Which piles the seat had a place for when its places were drawn, a
+    /// bit each in [`PileKind::ALL`]'s order. A waiting place comes with its
+    /// first suspended card and goes with its last, so the places are drawn
+    /// again when this changes.
+    pub(super) places: u8,
     /// What the mat was last drawn for.
     pub(super) mood: Mood,
     /// The seat colour in the mat's rim.

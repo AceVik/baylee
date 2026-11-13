@@ -259,7 +259,7 @@ pub fn sync_scene(
         if let Some((_, kind)) = placement.fan
             && let Some(place) = place_of(kind, placement.slot.player)
         {
-            fanned.insert(placement.object, place);
+            fanned.insert(placement.object, (place, placement.slot.player, kind));
         }
         let input = CardInput {
             decorations,
@@ -407,18 +407,20 @@ pub fn sync_scene(
                     if placement.fan.is_some() || moves.iter().any(|m| m.object == placement.object)
                     {
                         entrance_from(
-                            pile_stand(
-                                &duel,
-                                placement
-                                    .fan
-                                    .and_then(|(_, kind)| place_of(kind, placement.slot.player))
-                                    .or_else(|| {
+                            // Out of the pile it is fanned from, which for
+                            // exile's two places is the one it lies on.
+                            placement
+                                .fan
+                                .and_then(|(_, kind)| pile_home(&duel, placement.slot.player, kind))
+                                .or_else(|| {
+                                    pile_stand(
+                                        &duel,
                                         moves
                                             .iter()
                                             .find(|m| m.object == placement.object)
-                                            .and_then(|m| m.from)
-                                    }),
-                            ),
+                                            .and_then(|m| m.from),
+                                    )
+                                }),
                             &transform,
                         )
                     } else {
@@ -590,10 +592,10 @@ pub fn sync_scene(
                 // that puts it back under the pile's top card. A card that
                 // moved zones on the same frame never reaches here: the move
                 // below is the truer answer and takes precedence.
-                if let Some(&home) = index.fanned.get(&id) {
+                if let Some(&(home, player, kind)) = index.fanned.get(&id) {
                     if let Ok((mut motion, ..)) = cards.get_mut(entity) {
                         motion.target =
-                            exit(Some(home), pile_stand(&duel, Some(home)), &motion.target);
+                            exit(Some(home), pile_home(&duel, player, kind), &motion.target);
                     }
                     commands
                         .entity(entity)

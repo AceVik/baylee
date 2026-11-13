@@ -147,20 +147,75 @@ said. Authorized search/scry cards continue to appear through the choice
 interface. Command slots never fan. All movement uses the existing card
 motion system and respects reduced motion.
 
-Beside each seat's library, graveyard and exile pile lies the number of cards
-in it (`table/pile_counts.rs`, `cardplate::pile_badge_rect`; the owner,
-12.11.2026): on the felt between the pile and the mat, on no print. It is
-written for the one looking and not for its seat: it stands upright on the
-screen at every seat, also while the camera goes round, and its figures are
-9 px tall there whatever the table's size (`cardplate::PILE_FIGURE_PX`,
-`pile_badge_scale`), between one and a half and four times a merged card's
-count. Set at its card's size, as that count is, it was five pixels tall at
-a table of four and lay on its side at the flank seats (played 12.11.2026).
-A library's is always there, nought included; the others' stand from their
-first card. Each has a material of its own that is rewritten only when its
-count changes and a place that is written only when its seat, the camera or
-the window moved, so a table at rest writes none, and a camera going round
-writes transforms and never the scene's index.
+Beside each seat's piles lie the numbers a table is counted by
+(`table/pile_counts.rs`, `cardplate::Tally`; the owner, 12. and 13.11.2026):
+the cards in its library, its graveyard, its exile and its hand, and the time
+counters of its suspended cards. Each is a small dark plate of its own with
+its shadow, on the felt and on no print, and wears a mark of this client's
+own before its figures: a deck, a headstone, a barred ring, a hand of three
+cards, an hourglass (`card_common.wesl`'s `pile_mark`; the headstone, the
+ring and the hourglass are the marks those places wear when empty). A pile's
+number lies beside its card, level with the card's middle. Where a seat's
+piles stand beside its mat on the screen, at the reader's own seat and at
+the seat across, it lies to its pile's right as that seat has right (the
+owner, 12.11.2026: „rechts vom Stapel“), so the seat across is the mirror
+image: on the open felt outside the piles of the right-hand column, and
+between the waiting place and the mat. At a seat seen from the side or
+turned part of the way, where that right is the window's edge or a
+neighbour's piles, it lies between pile and mat (`pile_counts::beside`).
+The hand's lies past the library's end on its owner's side: the pile a hand
+is drawn from, at the edge its owner sits at. Each is written for the one
+looking and not for its seat: it stands upright on the screen at every seat,
+also while the camera goes round. Its figures are meant 9 px tall on the
+screen (`cardplate::PILE_FIGURE_PX`, `pile_badge_scale`), between one and a
+half and four times a merged card's count, and are that where a seat has
+the felt for it: a plate with its mark is some three and a half times as
+long as its figures are tall, and the felt beside a pile is nine tenths of
+a card wide, to the mat on one side and to the cloth's edge or a
+neighbour's piles on the other (`pile_counts::ROOM`). So the figures are
+9 px at a duel, in Spotlight and at the flank seats of a ring, and at a
+table of four in a ring about 7 px at one's own seat and 6 px at the seat
+across (a 1708 × 1032 window); from five seats in a ring they are smaller
+still, and the seat plates and the strip say the same numbers
+(`the_figures_have_a_floor_at_every_table` measures this). No number lies
+on a card, a row, another number or off the cloth at any table of two to
+eight in any arrangement. A pile is a
+block of cardboard, and a tall one covers the felt just behind it from
+where the reader looks; a number lying that way begins past what its pile
+covers (`Reader::hidden`), so none stands half behind its own pile (played
+13.11.2026: a library of ninety-two covered the lower third of its hand's
+number at the seat across). Set at its
+card's size, as that count is, it was five pixels tall at a table of four
+and lay on its side at the flank seats (played 12.11.2026). A library's and
+a hand's are always there, nought included; a graveyard's and exile's stand
+from their first card, and exile's is the zone's count, its suspended cards
+among it, as on the seat plate and the zone dialog's tab. Each has a
+material of its own that is rewritten only when its number changes and a
+place that is written only when its seat, the camera or the window moved, so
+a table at rest writes none, and a camera going round writes transforms;
+it writes the scene's index only where a seat turning past the line between
+beside and not gains or loses the lower numbers of its waiting column.
+
+**Suspended cards wait on the table** (the owner, 13.11.2026; until then a
+panel of sentences over the table's top left corner). Exile is drawn as two
+places, as the command zone is: the pile, and across the mat from it and
+level with it the *waiting place* (`PileKind::Waiting`, marked with an
+hourglass), where a seat's suspended cards lie face up (CR 702.62), the one
+with the fewest time counters on top. Between it and the mat stand their
+time counters (`Tally::Waiting`): the top three cards', the next to come
+back uppermost, at the reader's seat and the seat across, and the top card's
+alone at a seat seen from the side. So what comes back next and in how many counters is read
+off the table with no pointer on it. A hover fans the place as it fans a
+pile, soonest first; a press opens the zone dialog on that seat's exile,
+where every suspended card's row says its counters in the zone badge's place
+(`BrowseRow::time`). The fan lies where the numbers stand, so they step
+aside while it is open. The place is there only while a card waits and stands
+in the one cell of the pile columns nothing else uses, so its coming and
+going moves nothing. One test decides what waits
+(`client-core::suspended::time_of`): suspended, named for this view, and
+with a counter left. The card is in exile throughout: it is listed there,
+counted there, and flies to and from the place it is drawn on
+(`table::motion::pile_home`).
 
 Proximity groups related stats; type size establishes their hierarchy. Gold
 marks the active turn, with a secondary cool accent for priority. Phase groups

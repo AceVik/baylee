@@ -32,6 +32,7 @@ use crate::cardplate::BadgePlace;
 use crate::images::{ArtSize, Face, ImageKey};
 use crate::interaction::CombatFocus;
 use crate::layout::{Gap, LaneKind, LanePacking, PileKind, SeatSlot, pack_gaps, pile_reach};
+use crate::suspended::time_of;
 use baylee_core::ids::{CardIndex, ObjectId, PlayerId};
 use baylee_core::types::{SupertypeSet, TypeSet};
 use baylee_view::{CounterEntry, ObjectStatus, PlayerView, PublicObject, RulesFace, TargetRef};
@@ -571,9 +572,13 @@ pub struct FannedCard {
     pub art: Option<ImageKey>,
     /// Its projected name, for the badge and for a reader.
     pub name: String,
+    /// The time counters on it, where it is a suspended card
+    /// ([`crate::suspended::time_of`]): the numbers standing beside the
+    /// waiting place, the top card's first.
+    pub time: Option<u16>,
 }
 
-/// One of the four piles beside a seat's ground, as it is to be drawn.
+/// One of the piles beside a seat's ground, as it is to be drawn.
 ///
 /// Deliberately **not** a [`CardGroup`]: a pile has no interaction state, is
 /// never selected, never attacks and is not a permanent. What it has is a
@@ -1799,6 +1804,13 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
             // rather than two.
             PileKind::Command => !commanders.is_empty() || !command_objects.is_empty(),
             PileKind::Command2 => second.is_some(),
+            // And a waiting place only while something waits on it. It
+            // stands in a cell nothing else uses, so its coming and going
+            // moves nothing.
+            PileKind::Waiting => view
+                .exile
+                .get(i)
+                .is_some_and(|exiled| exiled.iter().any(|o| time_of(o).is_some())),
             _ => true,
         })
         .map(|kind| {
@@ -1812,11 +1824,26 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
                         .filter(|o| (Some(o.id) == second) == (kind == PileKind::Command2))
                         .collect()
                 });
-            let list: Option<&[PublicObject]> = match kind {
+            let exiled = || view.exile.get(i).into_iter().flatten();
+            let list: Option<Vec<&PublicObject>> = match kind {
                 PileKind::Library | PileKind::Command | PileKind::Command2 => None,
-                PileKind::Graveyard => view.graveyards.get(i).map(Vec::as_slice),
-                PileKind::Exile => view.exile.get(i).map(Vec::as_slice),
+                PileKind::Graveyard => view.graveyards.get(i).map(|pile| pile.iter().collect()),
+                // Exile is one zone drawn as two places: a suspended card
+                // lies on the waiting place and every other exiled card on
+                // the pile. Each card is drawn once; the zone's count is the
+                // two together (`ZonePile::count` is what lies *here*).
+                PileKind::Exile => Some(exiled().filter(|o| time_of(o).is_none()).collect()),
+                // The last listed lies on top, so the fewest counters go
+                // last: what comes back next is what is seen. Among equals
+                // the order they were exiled in stands (a stable sort).
+                PileKind::Waiting => {
+                    let mut waiting: Vec<&PublicObject> =
+                        exiled().filter(|o| time_of(o).is_some()).collect();
+                    waiting.sort_by_key(|o| std::cmp::Reverse(time_of(o)));
+                    Some(waiting)
+                }
             };
+            let list = list.as_deref();
             // `ZonePosition::Top` pushes, so the object listed last is the
             // one lying on top of the pile — which is the one to draw.
             let top = match &command {
@@ -1824,7 +1851,7 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
                 None if kind == PileKind::Library => {
                     view.library_tops.iter().find(|o| o.owner == player)
                 }
-                None => list.and_then(<[PublicObject]>::last),
+                None => list.and_then(<[&PublicObject]>::last).copied(),
             };
             let count = match (kind, &command) {
                 (PileKind::Library, _) => seat.map_or(0, |s| s.library_count),
@@ -1843,7 +1870,7 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
                     .iter()
                     .rev()
                     .take(ZonePile::FAN_MAX)
-                    .map(fanned)
+                    .map(|o| fanned(o))
                     .collect(),
             };
             // The card under the fan, where the pile holds more than a fan.
@@ -1854,7 +1881,7 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
                     .iter()
                     .rev()
                     .nth(ZonePile::FAN_MAX)
-                    .map(fanned),
+                    .map(|o| fanned(o)),
             };
             ZonePile {
                 kind,
@@ -1882,6 +1909,7 @@ fn fanned(object: &PublicObject) -> FannedCard {
         object: object.id,
         art: object.card.map(|c| ImageKey::of(c, ArtSize::Small)),
         name: object.name.to_string(),
+        time: time_of(object),
     }
 }
 

@@ -468,6 +468,10 @@ fn spawn_cost(
 fn spawn_badge(commands: &mut Commands, lang: Lang, fonts: &UiFonts, row: &BrowseRow) -> Entity {
     let words = if row.token {
         Phrase::IsToken.text(lang).to_string()
+    } else if let Some(time) = row.time {
+        // A suspended card says how long it still waits: the one fact about
+        // it this list has that its tab does not already say.
+        Phrase::TraySuspended.fill(lang, &[&time.to_string()])
     } else {
         row.zone.label().text(lang).to_string()
     };

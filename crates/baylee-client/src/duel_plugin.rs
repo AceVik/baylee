@@ -190,7 +190,6 @@ pub(super) fn add_present_systems(app: &mut App) {
                     hud::spawn_control_banner,
                     hud::show_control_banner,
                     hud::chosen_type::sync.after(table::glide),
-                    hud::suspended::sync,
                     hud::describe_phase,
                     hud::highlight_player,
                 )

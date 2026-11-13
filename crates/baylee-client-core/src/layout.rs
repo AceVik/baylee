@@ -158,16 +158,32 @@ pub enum PileKind {
     /// Hidden for every seat that has fewer than two commanders, which is
     /// almost all of them.
     Command2,
+    /// The waiting place: this seat's suspended cards (CR 702.62), the one
+    /// with the fewest time counters on top.
+    ///
+    /// Exile drawn as two places, which is a drawing decision as the second
+    /// command slot is: a suspended card is in exile, counts there and is
+    /// listed there. It lies apart because it is the one exiled card on its
+    /// way back, and what comes back and when is read off the table and not
+    /// out of a list (the owner, 13.11.2026: the display of suspended cards
+    /// reworked from the ground up; until then a text panel over the table's
+    /// top left corner). Across the mat from the exile pile, level with it:
+    /// the one cell of the two columns that held nothing.
+    ///
+    /// Hidden for every seat with nothing suspended, which is almost all of
+    /// them.
+    Waiting,
 }
 
 impl PileKind {
-    /// All five, in the order they are laid out.
-    pub const ALL: [Self; 5] = [
+    /// All six, in the order they are laid out.
+    pub const ALL: [Self; 6] = [
         Self::Library,
         Self::Graveyard,
         Self::Exile,
         Self::Command,
         Self::Command2,
+        Self::Waiting,
     ];
 
     /// Which side of the mat this pile stands on: `1.0` the seat's right
@@ -181,7 +197,7 @@ impl PileKind {
     pub const fn side(self) -> f32 {
         match self {
             Self::Library | Self::Graveyard | Self::Exile => 1.0,
-            Self::Command | Self::Command2 => -1.0,
+            Self::Command | Self::Command2 | Self::Waiting => -1.0,
         }
     }
 
@@ -191,7 +207,8 @@ impl PileKind {
     /// hand: the library it is drawn from nearest the seat, the graveyard it
     /// dies into next, and exile — the pile touched least often — furthest
     /// away. The left-hand column is the command zone, one slot per
-    /// commander.
+    /// commander, and past them the waiting place, level with the exile
+    /// pile its cards are counted in.
     ///
     /// Exile is level with [`LaneKind::Creatures`], and the doc that used to
     /// stand here said no pile ever would: that row is where attackers step
@@ -207,7 +224,7 @@ impl PileKind {
         match self {
             Self::Library | Self::Command => LaneKind::Lands,
             Self::Graveyard | Self::Command2 => LaneKind::Support,
-            Self::Exile => LaneKind::Creatures,
+            Self::Exile | Self::Waiting => LaneKind::Creatures,
         }
     }
 
@@ -223,6 +240,7 @@ impl PileKind {
             Self::Graveyard => ZoneMark::Graveyard,
             Self::Exile => ZoneMark::Exile,
             Self::Command | Self::Command2 => ZoneMark::Command,
+            Self::Waiting => ZoneMark::Waiting,
         }
     }
 
@@ -235,6 +253,7 @@ impl PileKind {
             Self::Exile => "Exile",
             Self::Command => "Command",
             Self::Command2 => "Command 2",
+            Self::Waiting => "Suspended",
         }
     }
 }

@@ -13,7 +13,8 @@
 //! ([`cardplate::BadgePlace`]). `baylee_client_core::cardplate` says where
 //! the quad lies ([`cardplate::badge_quad_rect`]) and where the count lies
 //! in it; `card_common.wesl`'s `count_badge` draws it, for both shaders
-//! here.
+//! here. A pile's count ([`BadgeMaterial::pile`]) is the one that does have
+//! a plate: it lies on the table beside its pile and not at a card's edge.
 //!
 //! **The material key is the count, the place and which way up it reads.**
 //! Every badge is the same quad, and the shader sizes the body inside it from
@@ -100,13 +101,13 @@ pub struct BadgeMaterial {
 }
 
 impl BadgeMaterial {
-    /// The count beside a pile of `cards` ([`cardplate::pile_word`]), its
-    /// body where [`cardplate::pile_badge_rect`] says in its quad. Never
+    /// The number `count` of a `tally` on the felt ([`cardplate::pile_word`]),
+    /// its body where [`cardplate::pile_badge_rect`] says in its quad. Never
     /// turned: the table lays the whole badge upright for whoever is
     /// looking (`table::pile_counts`).
     #[must_use]
-    pub fn pile(cards: u32) -> Self {
-        let count = cardplate::pile_word(cards);
+    pub fn pile(count: u32, tally: cardplate::Tally) -> Self {
+        let count = cardplate::pile_word(count, tally);
         let [_, top, right, _] = cardplate::pile_badge_rect(count);
         Self {
             params: BadgeParams {

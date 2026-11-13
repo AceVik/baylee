@@ -3838,16 +3838,11 @@ ArmedPayAndActivate = Pay { $cost } and activate
 # Arguments: cost
 ArmedSuspend = Pay { $cost } and suspend
 
-# Heading of the public suspend queue.
-SuspendedCards = Suspended cards
-
-# Card name, owner and remaining time counters.
-# Arguments: card, owner, count
-SuspendedCard =
-    { $card } · { $owner }{"\u000A"}{ $count } { $count ->
-        [one] time counter
-       *[other] time counters
-    } · inspect
+# The zone dialog's badge on a suspended card in exile, in the zone's
+# place: how many time counters it still has. As long as the longest zone
+# name at most, the badge is that wide.
+# Arguments: count
+TraySuspended = Suspended { $count }
 
 # Confirm a suspend action with no outstanding mana payment.
 ArmedSuspendNow = Suspend this card

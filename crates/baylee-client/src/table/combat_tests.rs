@@ -292,6 +292,7 @@ mod fan {
             object: obj(100 - i),
             art: None,
             name: format!("card {i}"),
+            time: None,
         };
         pile.fan = (0..count.min(FAN)).map(card).collect();
         pile.rest = (count > FAN).then(|| card(FAN));
@@ -373,7 +374,11 @@ mod fan {
     fn the_deck_stays_on_the_table_under_the_fan() {
         let open = placements(&hovering(with_graveyard(10), Some(obj(100))));
         for card in &open {
-            let want = if card.fan.is_some() { 1 } else { 10 - FAN as usize };
+            let want = if card.fan.is_some() {
+                1
+            } else {
+                10 - FAN as usize
+            };
             assert_eq!(card.count, want, "the deck is on the wrong card");
         }
 
