@@ -33,9 +33,10 @@ card!(
                 &Filter::OPPONENT_CREATURE
             )))
         ),
-        // One permission for this enchantment's controller, not a removal of
-        // anybody's hexproof. The Ward rule affects the opposing creatures.
-        static_ability!(Filter::Any, Modifier::IgnoreOpponentsHexproof),
+        static_ability!(
+            Filter::OPPONENT_CREATURE,
+            Modifier::CanBeTargetedAsThoughNoHexproof
+        ),
         static_ability!(Filter::OPPONENT_CREATURE, Modifier::WardDoesntTrigger),
     ],
 );

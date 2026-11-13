@@ -3,6 +3,7 @@ use super::matching::{hits, repeats};
 use super::watches::first_mana_of_a_tap;
 use super::*;
 mod speed;
+mod ward;
 use crate::object::ObjectKind;
 use crate::state::ReplacementEntry;
 use baylee_cards_dsl::{Filter, ReplacementRule, TriggerEventKind};

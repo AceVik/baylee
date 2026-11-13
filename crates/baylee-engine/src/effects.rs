@@ -271,6 +271,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::BlockableWithoutAnyLandwalk
         | Modifier::IgnoreOpponentsHexproof
         | Modifier::WardDoesntTrigger
+        | Modifier::CanBeTargetedAsThoughNoHexproof
         | Modifier::CounterMaximum { .. }
         | Modifier::CrewSaddlePowerBonus(_)
         | Modifier::BoastTwice
@@ -1932,6 +1933,7 @@ mod tests {
             Modifier::LookAtLibraryTop,
             Modifier::PlayFromLibraryTopForManaValueLife,
             Modifier::WardDoesntTrigger,
+            Modifier::CanBeTargetedAsThoughNoHexproof,
         ]
     }
 
@@ -1970,7 +1972,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            199,
+            200,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2069,9 +2071,10 @@ mod tests {
         // The attacker-filtered block tax and the life gain that becomes
         // nothing are two more rules-only modifiers.
         // Goblin Goon's two creature-count combat restrictions likewise lock no set.
-        // LookAtLibraryTop, PlayFromLibraryTopForManaValueLife and WardDoesntTrigger
+        // LookAtLibraryTop, PlayFromLibraryTopForManaValueLife, WardDoesntTrigger,
+        // and CanBeTargetedAsThoughNoHexproof
         // are three more rules-only modifiers.
-        assert_eq!((locking, all.len() - locking), (55, 144));
+        assert_eq!((locking, all.len() - locking), (55, 145));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

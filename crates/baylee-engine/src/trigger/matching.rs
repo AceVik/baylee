@@ -10,6 +10,14 @@ use crate::zone::Zone;
 use baylee_cards_dsl::{PlayerRel, Trigger};
 use baylee_core::ids::{ObjectId, PlayerId};
 
+/// Ward keeps its ability, but no kind of ward cost may trigger while suppressed.
+pub(super) fn ward_suppressed(state: &GameState, object: &crate::object::GameObject) -> bool {
+    state.effects.iter().any(|effect| {
+        effect.modifier == baylee_cards_dsl::Modifier::WardDoesntTrigger
+            && crate::effects::applies_to(state, effect, object)
+    })
+}
+
 /// How many times one journal entry fires `trigger` for this source.
 ///
 /// Once for each happening the entry records ([`repeats`]) when [`matches`]
@@ -817,8 +825,13 @@ fn matches(
             .and_then(|o| o.attached_to)
             .and_then(|host| targeting(event, state, host))
             .is_some(),
-        (Trigger::Ward, _) => targeting(event, state, source)
-            .is_some_and(|(_, controller)| state.is_opponent(controller, you)),
+        (Trigger::Ward, _) => {
+            targeting(event, state, source)
+                .is_some_and(|(_, controller)| state.is_opponent(controller, you))
+                && !state
+                    .object(source)
+                    .is_some_and(|object| ward_suppressed(state, object))
+        }
         (
             Trigger::EntersBattlefieldEvoked,
             GameEvent::ZoneChanged {

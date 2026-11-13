@@ -1100,6 +1100,10 @@ pub enum Modifier {
     /// and its ability remain on the card; only the event is suppressed, so
     /// removing this effect lets later targeting trigger Ward normally.
     WardDoesntTrigger,
+    /// Any player's spells and abilities may target the affected permanent
+    /// as though it did not have hexproof. Does not remove the keyword or
+    /// bypass shroud, protection, or player hexproof.
+    CanBeTargetedAsThoughNoHexproof,
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -1368,6 +1372,7 @@ impl Modifier {
             | Self::BlockableWithoutAnyLandwalk
             | Self::IgnoreOpponentsHexproof
             | Self::WardDoesntTrigger
+            | Self::CanBeTargetedAsThoughNoHexproof
             | Self::CounterMaximum { .. }
             | Self::CrewSaddlePowerBonus(_)
             | Self::CantBlock(_)

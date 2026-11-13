@@ -3742,6 +3742,11 @@ hexproof. It is a continuing rules permission: new creatures are included,
 shroud remains effective, and noncreature permanents keep their hexproof
 restriction. Player hexproof blocks only opposing spells and abilities.
 
+`CanBeTargetedAsThoughNoHexproof` instead applies to permanents matched by the
+effect's filter, regardless of who controls the targeting spell or ability.
+Nowhere to Run uses it for opposing creatures. It leaves their hexproof keyword
+present, keeps shroud and protection effective, and never affects players.
+
 `Connive { amount }` and `Recruit { token }` finish replacement-aware draws
 before asking for discards. Connive uses the permanent's last controller when
 it has departed, keeps its exact incarnation, and rewards only known nonland
