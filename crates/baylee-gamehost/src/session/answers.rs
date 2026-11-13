@@ -298,6 +298,9 @@ impl Session {
         // thing the engine takes from a seat that is not being asked, and it
         // leaves the question standing. See [`Session::decision_seq`].
         let moves_the_game = !action.is_automation_setting();
+        if self.is_challenge() && moves_the_game && self.needs_pump() {
+            return Err("the frozen opponent is still deciding".to_owned());
+        }
         let seat = player.get() as usize;
         if !moves_the_game
             && self

@@ -1,5 +1,5 @@
 //! An account registered at Central, never a legacy account, plays on the
-//! official gateway: a Central beta key, the registration with its recovery
+//! official gateway: a registration proof, the registration with its recovery
 //! wrapper as the website makes it (through the identity service's browser
 //! entry, which the browser listener calls after its own checks), the native
 //! sign-in, and the bridge gateway making the account a projection
@@ -9,14 +9,12 @@ use baylee_account::{
     Account,
     wire::{Request, Response},
 };
-use central_api::beta_key::BetaKey;
 use central_crypto::{
     Context,
     opaque::Enrollment,
     vault::{MasterKey, ObjectContext, RecoveryCode},
 };
 use central_identity::IdentityService;
-use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 use tokio::runtime::Runtime;
 
@@ -28,19 +26,10 @@ const DOCUMENT: &[u8] = br#"{"version":1,"gateways":["https://baylee.acevik.de"]
 pub fn run(
     runtime: &Runtime,
     service: &Arc<IdentityService>,
-    operator: &DatabaseConnection,
     endpoint: &Endpoint,
     gateway: &common::Gateway,
 ) {
     let origin = &format!("http://127.0.0.1:{}", gateway.port);
-    let key = BetaKey::generate().unwrap();
-    runtime.block_on(async {
-        central_postgres::BetaKeyBatch::new(&[key.digest()], 1, None, "e2e fresh registration")
-            .unwrap()
-            .issue(operator)
-            .await
-            .unwrap();
-    });
     let website = |request: &Request| {
         let request = serde_json::from_slice(&serde_json::to_vec(request).unwrap()).unwrap();
         runtime
@@ -50,13 +39,9 @@ pub fn run(
     };
     let username = "fresh_player";
     let password = "a fresh player's long password".to_string();
-    let register = Request::Register {
-        username: username.into(),
-        beta_key: key.display().to_string(),
-        display_name: Some("Fresh_Player".into()),
-    };
+    let register = super::registration::request(website, username, "Fresh_Player");
     let Response::Enrollment { identity, ticket } = website(&register) else {
-        panic!("a valid key registers a free name");
+        panic!("a valid proof registers a free name");
     };
     let context = Context::new(endpoint.issuer(), identity.account, identity.epoch).unwrap();
     let (enrollment, message) = Enrollment::start(password.clone(), context).unwrap();

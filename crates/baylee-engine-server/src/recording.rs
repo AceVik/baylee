@@ -1,5 +1,5 @@
 //! Record streaming and authoritative game endings.
-use super::*;
+use super::{EngineRunner, Envelope, Pending, RECORD_FLUSH_MS, Session, record_due, v1};
 use flate2::{Compression, write::GzEncoder};
 use std::io::Write as _;
 
@@ -112,13 +112,18 @@ impl EngineRunner {
         // A draw has no winner, which is a shorter list rather than a
         // different message — and a team win is a longer one, which is why
         // the field was a list from the start.
-        let winners = session
+        let winners: Vec<u32> = session
             .winning_seats(result)
             .into_iter()
             .map(|p| u32::from(p.get()))
             .collect();
         let reason = format!("{:?}", result.reason);
         let turn = session.state().turn.number;
+        let outcome = if winners == [0] {
+            v1::challenge_result::Outcome::Won
+        } else {
+            v1::challenge_result::Outcome::Lost
+        };
         vec![
             self.record_chunk(&data, true),
             Envelope {
@@ -127,6 +132,7 @@ impl EngineRunner {
                     winners,
                     reason,
                     turn,
+                    challenge: self.challenge_result(outcome),
                 })),
             },
         ]
@@ -135,6 +141,7 @@ impl EngineRunner {
     /// The next piece of the record, as one gzip member: pieces stored one
     /// after another in `seq` order are one gzip stream of the record.
     pub(super) fn record_chunk(&mut self, data: &[u8], last: bool) -> Envelope {
+        self.challenge.record(data);
         let seq = self.record_seq;
         self.record_seq += 1;
         self.record_sent_at = self.now;

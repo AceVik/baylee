@@ -138,6 +138,22 @@ impl Link {
 }
 
 impl Bridge {
+    /// Official challenge authority, never available to an ordinary gateway token.
+    pub(crate) async fn challenge(
+        &self,
+        request: central_api::challenges::HostRequest,
+    ) -> Result<central_api::challenges::HostResponse, StatusCode> {
+        if !self.official() {
+            return Err(StatusCode::FORBIDDEN);
+        }
+        match self
+            .exchange(wire::Request::ChallengeHost { request })
+            .await?
+        {
+            wire::Response::ChallengeHost { response } => Ok(response),
+            _ => Err(StatusCode::SERVICE_UNAVAILABLE),
+        }
+    }
     fn from_env() -> Result<Option<Arc<Self>>, ()> {
         let Some(path) = std::env::var_os("BAYLEE_CENTRAL_CONFIG_FILE") else {
             return Ok(None);

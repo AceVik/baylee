@@ -32,6 +32,7 @@ use baylee_gamehost::{SeatKind, Session};
 use baylee_protocol::v1::{self, Envelope};
 use baylee_view::SeatSetting;
 
+mod challenge;
 mod clocks;
 pub mod foresight;
 mod frames;
@@ -178,6 +179,8 @@ pub struct EngineRunner {
     /// The most answers the house gives alone before the game is closed
     /// ([`REMAINDER_ANSWERS`], [`Self::remainder_bound`]).
     remainder_answers: u64,
+    /// Private challenge evidence; never a field in a player's game view.
+    challenge: challenge::Evidence,
 }
 
 impl Default for EngineRunner {
@@ -201,6 +204,7 @@ impl Default for EngineRunner {
             foresight: None,
             remainder_from: None,
             remainder_answers: REMAINDER_ANSWERS,
+            challenge: challenge::Evidence::default(),
         }
     }
 }
@@ -608,7 +612,22 @@ impl EngineRunner {
         if let Some(data) = self.session.as_mut().map(Session::take_record) {
             out.push(self.record_chunk(&data, true));
         }
-        out.push(ended(&self.game_id, ended_why));
+        let mut ending = ended(&self.game_id, ended_why);
+        if let Some(v1::envelope::Msg::GameEnded(ended)) = ending.msg.as_mut() {
+            let outcome = if ended_why == "challenge abandoned" {
+                v1::challenge_result::Outcome::Abandoned
+            } else {
+                v1::challenge_result::Outcome::Void
+            };
+            ended.challenge = self.challenge_result(outcome);
+            if outcome == v1::challenge_result::Outcome::Abandoned {
+                ended.turn = self
+                    .session
+                    .as_ref()
+                    .map_or(1, |session| session.state().turn.number.max(1));
+            }
+        }
+        out.push(ending);
         out
     }
 
@@ -886,6 +905,12 @@ impl EngineRunner {
             return Vec::new();
         };
         let was_here = self.attached.contains(&seat);
+        if seat == 0 && was_here && self.is_challenge() {
+            self.challenge.interrupt();
+            if detached.left {
+                return self.closed("challenge abandoned", "challenge abandoned");
+            }
+        }
         self.attached.retain(|s| *s != seat);
         if let Some(barrier) = self.curtain.as_mut() {
             barrier.ready = barrier.ready.iter().filter(|p| p.get() != seat).collect();
@@ -970,6 +995,12 @@ impl EngineRunner {
         };
         if self.ended || self.another_player_here(session, None) {
             return Vec::new();
+        }
+        if session.is_challenge() {
+            return self.closed(
+                "challenge connection expired",
+                "challenge connection expired",
+            );
         }
         let away = self.absent_players(session);
         let Some(session) = self.session.as_mut() else {

@@ -19,6 +19,13 @@ nothing and binds nothing (`baylee-gateway`, `baylee-agent`,
 
 ## Neural player and offline evaluation (`baylee-train`)
 
+- `BAYLEE_CHALLENGE_BRIDGE_TOKEN`: the official publisher's Central bridge
+  capability, exactly 64 lowercase hexadecimal digits, for `challenge stock`.
+  Read into zeroizing memory, never an argument or a log. `--central-dev` selects
+  an explicit numeric-loopback fixture; `--live` explicitly selects production.
+  The worker keeps only private challenge packages and proof records in its
+  state directory, never this credential (`docs/challenges.md`).
+
 - `BAYLEE_EP=cuda` selects the v4 ONNX CUDA provider; unset or `cpu` uses CPU.
   Build with `--features onnx-cuda` and provide the CUDA 13 / cuDNN 9 libraries
   on `LD_LIBRARY_PATH`. A v4 binary without that feature refuses `cuda`, and

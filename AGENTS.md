@@ -90,6 +90,7 @@ unofficial, non-commercial fan project.
 | Cards: codegen, layout, ownership, writing one | `docs/cards.md`, `docs/card-agent-brief.md`, `docs/card-dsl.md`, `docs/card-identity.md` |
 | Card batches: progress, held back, learnings | `docs/set-progress.md`, `docs/generated-held-back.md`, `docs/llm-learnings.md` |
 | Decks, precons, formats | `docs/deck-format.md`, `docs/precons.md`, `docs/banlists-and-formats.md` |
+| Daily/Weekly packages, certification and calendar stock | `docs/challenges.md` |
 | The house AI, the trained AI, language-model seats | `docs/house-ai.md`, `docs/trained-ai.md`, `docs/ai-coverage-todo.md`, `docs/llm-seat.md`, `docs/llm-protocol.md` |
 | Training operations, current run pointers, research findings and agent takeover | `docs/training-runbook.md` |
 | The wire protocol and every server route (normative) | `docs/protocol.md` |

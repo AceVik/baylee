@@ -708,3 +708,5 @@ fn a_public_order_ignores_own_and_hands() {
     assert!(header(&odd).own && header(&odd).hands.is_empty());
     assert_eq!(bytes_of(&odd), bytes_of(&plain));
 }
+use flate2::write::GzEncoder;
+use std::io::Write as _;

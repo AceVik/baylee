@@ -41,6 +41,7 @@ enum Entry {
     /// How the game ended, from its engine's `GameEnded`: noted once the
     /// pieces before it are stored, so the row it updates exists.
     Ended(Ending),
+    Challenge(central_api::challenges::Completion, oneshot::Sender<()>),
 }
 
 /// How a game ended, for the replay list (`docs/protocol.md` §"Replays").
@@ -65,6 +66,10 @@ trait Store {
     ) -> impl Future<Output = Result<(), String>> + Send;
     /// Notes how the game ended.
     fn finish(&mut self, ending: Ending) -> impl Future<Output = Result<(), String>> + Send;
+    fn challenge(
+        &mut self,
+        result: central_api::challenges::Completion,
+    ) -> impl Future<Output = Result<(), String>> + Send;
 }
 
 /// The gateway's database.
@@ -76,6 +81,14 @@ struct Database {
 }
 
 impl Store for Database {
+    async fn challenge(
+        &mut self,
+        result: central_api::challenges::Completion,
+    ) -> Result<(), String> {
+        baylee_db::challenges::complete(&self.db, &result)
+            .await
+            .map_err(|error| error.to_string())
+    }
     async fn open(&mut self) -> Result<(), String> {
         baylee_db::records::open_with(&self.db, &self.game_id, &self.opening, &self.seats)
             .await
@@ -124,6 +137,7 @@ async fn write(game_id: String, mut rx: mpsc::UnboundedReceiver<Entry>, mut stor
                 let seq = piece.seq;
                 if let Err(e) = store.append(piece).await {
                     tracing::error!(game_id, seq, "storing the game's record: {e}");
+                    return;
                 }
             }
             // Nobody waiting any more (the report gave up) is fine.
@@ -134,7 +148,15 @@ async fn write(game_id: String, mut rx: mpsc::UnboundedReceiver<Entry>, mut stor
             Entry::Ended(ending) => {
                 if opened && let Err(e) = store.finish(ending).await {
                     tracing::error!(game_id, "noting how the game ended: {e}");
+                    return;
                 }
+            }
+            Entry::Challenge(result, done) => {
+                if let Err(error) = store.challenge(result).await {
+                    tracing::error!(game_id, "storing challenge outcome: {error}");
+                    return;
+                }
+                let _ = done.send(());
             }
         }
     }
@@ -146,6 +168,8 @@ pub struct Sink {
     tx: mpsc::UnboundedSender<Entry>,
     taken: usize,
     full: bool,
+    next_seq: u32,
+    last: bool,
 }
 
 impl Sink {
@@ -181,6 +205,8 @@ impl Sink {
             tx,
             taken: 0,
             full: false,
+            next_seq: 0,
+            last: false,
         }
     }
 
@@ -190,6 +216,12 @@ impl Sink {
         if piece.game_id != self.game_id || self.full {
             return;
         }
+        if piece.seq != self.next_seq || self.last {
+            self.full = true;
+            return;
+        }
+        self.next_seq = self.next_seq.saturating_add(1);
+        self.last = piece.last;
         self.taken = self.taken.saturating_add(piece.data.len());
         if self.taken > MAX_RECORD_BYTES {
             self.full = true;
@@ -214,6 +246,21 @@ impl Sink {
     /// before it is stored.
     pub fn ended(&mut self, ending: Ending) {
         let _ = self.tx.send(Entry::Ended(ending));
+    }
+
+    /// Queue the result only after every contiguous piece, including `last`.
+    /// A storage error closes the writer before it can store this outcome.
+    pub(crate) fn challenge(
+        &mut self,
+        result: central_api::challenges::Completion,
+    ) -> Option<oneshot::Receiver<()>> {
+        if self.last && !self.full {
+            let (done, stored) = oneshot::channel();
+            self.tx.send(Entry::Challenge(result, done)).ok()?;
+            Some(stored)
+        } else {
+            None
+        }
     }
 }
 

@@ -68,16 +68,10 @@ pub(crate) async fn rematch(
             .games
             .get(&id)
             .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
+        may_rematch(game, &account_id)?;
         // Who sat there, not who knows the id: a game's id was in every
         // player's own listing while the table was waiting, so it is no
         // secret and cannot be what the check rests on.
-        if !game
-            .seats
-            .iter()
-            .any(|s| s.account_id.as_ref() == Some(&account_id))
-        {
-            return Err(err(StatusCode::FORBIDDEN, "you were not at that table"));
-        }
         match game.state {
             LobbyState::Over => Some(
                 game.seats
@@ -176,4 +170,21 @@ pub(crate) async fn rematch(
         seat,
         seat_token,
     }))
+}
+
+fn may_rematch(game: &LobbyGame, account: &str) -> Result<(), (StatusCode, Json<ErrorBody>)> {
+    if !game
+        .seats
+        .iter()
+        .any(|seat| seat.account_id.as_deref() == Some(account))
+    {
+        return Err(err(StatusCode::FORBIDDEN, "you were not at that table"));
+    }
+    if game.challenge.is_some() {
+        return Err(err(
+            StatusCode::CONFLICT,
+            "start challenge retries through Central",
+        ));
+    }
+    Ok(())
 }

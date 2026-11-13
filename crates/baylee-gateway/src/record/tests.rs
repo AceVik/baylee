@@ -1,6 +1,93 @@
 use super::*;
 use std::sync::Arc;
 
+fn result() -> central_api::challenges::Completion {
+    central_api::challenges::Completion {
+        attempt: *uuid::Uuid::now_v7().as_bytes(),
+        game: *uuid::Uuid::now_v7().as_bytes(),
+        state: central_api::challenges::AttemptState::Won,
+        turn: 3,
+        finished_at: 1_800_000_000,
+        milliseconds: Some(1000),
+        record_digest: [9; 32],
+    }
+}
+
+#[tokio::test]
+async fn a_challenge_result_waits_for_the_complete_durable_record() {
+    let log = Log::default();
+    let mut sink = Sink::writing("g1", Slow(log.clone()));
+    assert!(sink.challenge(result()).is_none()); // No final chunk, no result.
+    sink.take(piece("g1", 0, 20));
+    assert!(sink.challenge(result()).is_none()); // A prefix is still insufficient.
+    let mut last = piece("g1", 1, 30);
+    last.last = true;
+    sink.take(last);
+    sink.ended(Ending {
+        winners: vec![0],
+        turn: Some(3),
+        reason: "won".into(),
+    });
+    let stored = sink.challenge(result()).unwrap();
+    let (done, flushed) = oneshot::channel();
+    sink.flushed(done);
+    flushed.await.unwrap();
+    stored.await.unwrap();
+    assert_eq!(
+        log.said(),
+        ["open", "piece 0", "piece 1", "ended [0]", "challenge"]
+    );
+}
+
+#[test]
+fn a_gap_or_duplicate_record_cannot_submit_a_challenge_result() {
+    for seq in [0, 2] {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let mut sink = Sink::feeding("g1", tx);
+        sink.take(piece("g1", 0, 20));
+        let mut invalid = piece("g1", seq, 30);
+        invalid.last = true;
+        sink.take(invalid);
+        assert!(sink.challenge(result()).is_none());
+        assert_eq!(handed(&mut rx), [0]);
+    }
+}
+
+struct Broken(Slow);
+impl Store for Broken {
+    async fn open(&mut self) -> Result<(), String> {
+        self.0.open().await
+    }
+    async fn append(&mut self, _: v1::GameRecordChunk) -> Result<(), String> {
+        dawdle().await;
+        Err("simulated disk failure".into())
+    }
+    async fn finish(&mut self, end: Ending) -> Result<(), String> {
+        self.0.finish(end).await
+    }
+    async fn challenge(
+        &mut self,
+        result: central_api::challenges::Completion,
+    ) -> Result<(), String> {
+        self.0.challenge(result).await
+    }
+}
+
+#[tokio::test]
+async fn a_storage_failure_never_acknowledges_a_flush_or_stores_the_score() {
+    let log = Log::default();
+    let mut sink = Sink::writing("g1", Broken(Slow(log.clone())));
+    let mut last = piece("g1", 0, 30);
+    last.last = true;
+    sink.take(last);
+    let stored = sink.challenge(result()).unwrap();
+    let (done, flushed) = oneshot::channel();
+    sink.flushed(done);
+    assert!(flushed.await.is_err());
+    assert!(stored.await.is_err());
+    assert_eq!(log.said(), ["open"]);
+}
+
 fn piece(game_id: &str, seq: u32, bytes: usize) -> v1::GameRecordChunk {
     v1::GameRecordChunk {
         game_id: game_id.to_owned(),
@@ -14,7 +101,7 @@ fn handed(rx: &mut mpsc::UnboundedReceiver<Entry>) -> Vec<u32> {
     std::iter::from_fn(|| rx.try_recv().ok())
         .map(|e| match e {
             Entry::Piece(p) => p.seq,
-            Entry::Flushed(_) | Entry::Ended(_) => u32::MAX,
+            Entry::Flushed(_) | Entry::Ended(_) | Entry::Challenge(..) => u32::MAX,
         })
         .collect()
 }
@@ -63,6 +150,11 @@ async fn dawdle() {
 }
 
 impl Store for Slow {
+    async fn challenge(&mut self, _: central_api::challenges::Completion) -> Result<(), String> {
+        dawdle().await;
+        self.0.0.lock().push("challenge".into());
+        Ok(())
+    }
     async fn open(&mut self) -> Result<(), String> {
         dawdle().await;
         self.0.0.lock().push("open".to_owned());

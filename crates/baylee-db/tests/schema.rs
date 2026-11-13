@@ -34,6 +34,9 @@ use sea_orm_migration::MigratorTrait as _;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
+#[path = "schema/challenges.rs"]
+mod challenges;
+
 /// A database to run against, and the schema to run in.
 struct Sandbox {
     db: DatabaseConnection,
@@ -2325,7 +2328,9 @@ async fn the_closed_betas_keys_leave_the_database_and_the_accounts_stay() {
     assert!(in_this_schema(db, "invite").await);
     assert!(account_has(db, "invite_id").await);
 
-    Migrator::up(db, None).await.unwrap();
+    // Apply exactly the migration under test, so later migrations do not
+    // change what the single-step rollback below exercises.
+    Migrator::up(db, Some(1)).await.unwrap();
     assert!(!in_this_schema(db, "invite").await, "the keys are gone");
     assert!(
         !in_this_schema(db, "account_by_invite").await,

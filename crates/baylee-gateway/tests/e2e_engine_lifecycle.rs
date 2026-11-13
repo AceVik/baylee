@@ -212,6 +212,7 @@ async fn exit_status_does_not_overtake_an_attached_engines_final_messages() {
                 winners: vec![],
                 reason: "test ending".into(),
                 turn: 1,
+                challenge: None,
             })),
         },
     )

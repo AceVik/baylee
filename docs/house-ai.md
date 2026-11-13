@@ -2,6 +2,11 @@
 
 ## Frozen challenge execution
 
+The opponent finishes its simultaneous opening decisions before a human answer
+is admitted. A human cannot race a worker's pump slice to change which decision
+number the opponent sees. This is checked both on live input and on record
+resumption; harmless interface settings remain independent of the policy seed.
+
 An official Daily/Weekly preset carries `HouseRules::challenge_policy_seed`.
 It is private preset/record data, never part of a player view or `GameStatic`.
 It derives each opponent's policy stream independently of the shuffle seed and

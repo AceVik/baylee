@@ -133,6 +133,26 @@ fn a_challenge_never_times_out_replaces_a_human_or_gives_away_its_policy() {
 }
 
 #[test]
+fn a_human_cannot_race_the_frozen_opponents_simultaneous_opening() {
+    let mut session = recorded(&setup());
+    assert!(session.needs_pump());
+    let hash = session.snapshot_hash();
+    assert!(
+        session
+            .act_slice(PlayerId::new(0), PlayerAction::MulliganKeep, 0)
+            .is_err()
+    );
+    assert_eq!(hash, session.snapshot_hash());
+    session.pump_at_most(128);
+    assert!(!session.needs_pump());
+    assert!(
+        session
+            .act_slice(PlayerId::new(0), PlayerAction::MulliganKeep, 0)
+            .is_ok()
+    );
+}
+
+#[test]
 fn unsafe_challenge_execution_modes_are_refused_before_the_first_hand() {
     let preset = setup();
     let mut changed = preset.clone();

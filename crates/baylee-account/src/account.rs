@@ -8,6 +8,7 @@ use central_client::Session;
 use zeroize::Zeroizing;
 
 mod archive;
+mod challenges;
 mod pairing;
 mod social;
 

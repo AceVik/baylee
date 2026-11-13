@@ -17,6 +17,8 @@ mod pairing;
 mod personal;
 #[path = "central/registered.rs"]
 mod registered;
+#[path = "central/registration.rs"]
+mod registration;
 #[path = "central/renewal.rs"]
 mod renewal;
 #[path = "central/revocation.rs"]
@@ -257,7 +259,7 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
             &operator,
             &served.bridge,
         );
-        fresh::run(&runtime, &served.service, &operator, endpoint, gateway);
+        fresh::run(&runtime, &served.service, endpoint, gateway);
         pairing::run(&runtime, &served.service, &operator, endpoint, gateway);
         registered::run(&runtime, &operator, endpoint);
         terms::run(&runtime, &operator, endpoint);
@@ -343,6 +345,7 @@ fn serve(
         .with_aliases(vec![aliases::ALIAS.into()])
         .unwrap()
         .with_terms(terms)
+        .with_registration_challenge(0, central_crypto::proof::MIN_MEMORY, Duration::ZERO)
         .with_legacy(legacy.clone()),
     );
     let (stop, stopped) = oneshot::channel();

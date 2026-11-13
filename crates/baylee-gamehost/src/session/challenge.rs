@@ -40,7 +40,7 @@ impl Session {
         action: &PlayerAction,
     ) -> bool {
         match (seat.get(), by) {
-            (0, Source::Seat) => true,
+            (0, Source::Seat) => action.is_automation_setting() || !self.needs_pump(),
             (1, Source::House) => {
                 self.engine
                     .pending_for(seat)

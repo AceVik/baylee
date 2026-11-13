@@ -558,6 +558,8 @@ async fn run_engine_socket(state: Shared, mut socket: WebSocket, place: Option<a
         if let Some(why) = baylee_protocol::version_refusal("This engine", hello.protocol_version) {
             tracing::error!(game_id, why, "engine refused");
             Err(why)
+        } else if game.challenge.is_some() && hello.build != baylee_challenges::executor() {
+            Err("challenge engine build does not match its certificate".to_owned())
         } else {
             let Some(preset) = game.preset.as_ref() else {
                 return;
@@ -732,6 +734,7 @@ async fn pump_engine(
                         }
                     }
                     Incoming::Msg(v1::envelope::Msg::GameEnded(ended)) => {
+                        if ended.game_id != game_id { continue; }
                         tracing::info!(game_id, winners = ?ended.winners, reason = ended.reason, "game over");
                         record.ended(crate::record::Ending {
                             winners: ended
@@ -742,6 +745,10 @@ async fn pump_engine(
                             turn: Some(ended.turn).filter(|&t| t != 0),
                             reason: ended.reason.clone(),
                         });
+                        if let Some(result) = crate::challenges::completion(state, game_id, &ended)
+                            && let Some(stored) = record.challenge(result) {
+                            crate::challenges::finalizing(state, game_id, stored);
+                        }
                         end_game(state, game_id);
                         return;
                     }
