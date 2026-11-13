@@ -122,6 +122,11 @@ name = "probe_refusal"
 required-features = ["play"]
 
 [[example]]
+name = "challenge_probe"
+path = "examples/challenge_probe/main.rs"
+required-features = ["play"]
+
+[[example]]
 name = "priority_audit4"
 path = "examples/priority_audit4/main.rs"
 required-features = ["play"]
