@@ -22,7 +22,7 @@ pub(crate) fn start(state: Shared) -> Worker {
                 if !state.central.get().is_some_and(|bridge| bridge.official()) {
                     continue;
                 }
-                let Ok(Ok(Some(owner))) = tokio::time::timeout(
+                let Ok(Ok(Some(mut owner))) = tokio::time::timeout(
                     Duration::from_secs(5),
                     baylee_db::challenges::Owner::acquire(&state.db),
                 )
@@ -31,7 +31,7 @@ pub(crate) fn start(state: Shared) -> Worker {
                     continue;
                 };
                 state.challenge_owner.store(true, Ordering::Release);
-                owned(&state, &owner).await;
+                owned(&state, &mut owner).await;
                 state.challenge_owner.store(false, Ordering::Release);
                 let games: Vec<_> = state
                     .lobby
@@ -55,7 +55,7 @@ pub(crate) fn start(state: Shared) -> Worker {
 }
 
 /// Slow Central requests cannot delay checking the connection which owns the lock.
-async fn owned(state: &Shared, owner: &baylee_db::challenges::Owner) {
+async fn owned(state: &Shared, owner: &mut baylee_db::challenges::Owner) {
     let mut heartbeat = tokio::time::interval(Duration::from_secs(10));
     heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut delivery = tokio::time::interval(Duration::from_secs(10));

@@ -47,6 +47,7 @@ pub const GATEWAY_TESTS: &[&str] = &[
     "e2e_account",
     "e2e_admin",
     "e2e_admission",
+    "e2e_central_barrier",
     "e2e_chair_tickets",
     "e2e_departure",
     "e2e_lobby_feed",

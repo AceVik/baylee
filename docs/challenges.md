@@ -135,8 +135,9 @@ timestamp, measured duration and record hash. Account deletion cascades through
 local delivery metadata, and delivered rows are removed.
 
 An owned background worker reconciles at most 32 pending rows every ten seconds.
-It holds a dedicated PostgreSQL transaction advisory lock scoped to database
-and schema. Only its owner admits or reconciles challenges; a second gateway
+It holds a PostgreSQL session advisory lock on its own connection, outside the
+request pool, scoped to database and schema. Only its owner admits or reconciles
+challenges; a second gateway
 fails closed instead of voiding games absent from its own memory. A lost lock
 connection closes admission and stops owned games. Queue rotation is separate
 from reservation age, so a batch of young reservations cannot starve results.
@@ -231,3 +232,27 @@ zero consumed starts, resumed Weekly play, verified scores and permanent awards.
 The owned database and listener were removed. The isolated full-gate wrapper's
 deliberate failure also removed its owned container. The three improvement rounds
 are complete; required full gates and independent PR review are recorded separately.
+
+## Final verification and second blind game
+
+The clean third-pass publisher was exercised against real Central HTTP again:
+fresh Daily/Weekly publication and a repeated pass with zero duplicate publications
+passed in 128.30 seconds. The fixture removed its owned database and listener.
+
+The implementing agent also played a second freshly generated Weekly without
+reading its private proofs. After a free mulligan it kept two lands, developed
+Guttersnipe and Sawblade Scamp, and saved Flame Jet for their triggers. It avoided
+trading into Mai's first strike. When the opponent kept two blockers back, an oil
+counter activation followed by Fever Charm and Guttersnipe's trigger won on turn
+eleven. Damage, trigger order and the terminal victory were observed in ordinary
+player views, and the CLI exited. This exercises the slower pool and a different
+decision sequence; two agent games still do not establish population difficulty.
+
+The first complete gate exposed pool starvation in two existing sign-in tests:
+the ownership transaction occupied one of the fixture's two request connections.
+Ownership now uses a separate connection with the same TLS and schema options.
+A new regression requires ordinary queries to work with a one-connection request
+pool while ownership remains exclusive. All 50 PostgreSQL schema tests and all
+three Central-barrier tests passed after the fix, as did clippy for all targets
+of the database, gateway and development-tool crates. Final full gate results
+follow after rerunning.

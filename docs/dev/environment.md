@@ -67,7 +67,8 @@ nothing and binds nothing (`baylee-gateway`, `baylee-agent`,
 - `PORT` (default 28766; `0` binds any free port; `BAYLEE_PORT_FILE`, a path, receives the bound port just before serving, which is how e2e helpers find it, #279).
 - `BAYLEE_BIND` (the address the TCP port listens on, a numeric IP; unset or empty = `127.0.0.1`, this machine only; `0.0.0.0` or `::` = every interface, which only an operator who means it sets, never a default; anything else refuses startup). A public gateway needs no value: its TLS proxy dials `127.0.0.1:28766` and its agent the unix socket (`docs/releasing.md` §"Where the gateway listens"). With `BAYLEE_ENGINE_URL` unset, engines are told to dial the bound address, or loopback when it is every interface.
 - `DATABASE_URL` (required).
-- `BAYLEE_DB_POOL` (8).
+- `BAYLEE_DB_POOL` (8 request connections). An official challenge host uses one
+  additional dedicated connection for its runtime ownership lock.
 - `STORE_PATH` (import-only, not gitignored).
 - `BAYLEE_ART_PATH`/`BAYLEE_DECK_IMAGE_PATH` (`off` disables; empty also refuses uploads; `/art` answers signed-in players only and the wasm client takes art straight from Scryfall, `docs/protocol.md` §"Card art").
 - `BAYLEE_REGISTRATION` (`open`, the open beta's setting and what unset means: anybody new; `off`: no Central account new here but an admin's; `invite`, the closed beta's, stops the start since its keys are gone (10.11.2026); `docs/protocol.md` §"Who may come in new"; who a Central account new here may be, `docs/central-login.md`).

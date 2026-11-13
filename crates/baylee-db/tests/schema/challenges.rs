@@ -5,13 +5,39 @@ use central_api::challenges::{AttemptState, Completion};
 use sea_orm::{ActiveModelTrait, ConnectionTrait, EntityTrait, Statement};
 
 #[tokio::test]
+async fn ownership_never_consumes_the_only_request_connection() {
+    let sandbox = Sandbox::open("challenge_owner_pool").await;
+    let requests = baylee_db::open(&sandbox.scoped, 1).await.unwrap();
+    let mut owner = store::Owner::acquire(&requests).await.unwrap().unwrap();
+    owner.check().await.unwrap();
+    let row = tokio::time::timeout(
+        std::time::Duration::from_secs(2),
+        requests.query_one_raw(Statement::from_string(
+            requests.get_database_backend(),
+            "SELECT count(*) AS accounts FROM account",
+        )),
+    )
+    .await
+    .expect("ownership must leave the single request connection available")
+    .unwrap()
+    .unwrap();
+    assert_eq!(row.try_get::<i64>("", "accounts").unwrap(), 0);
+    // The copied connection options preserve this schema, so a second pool
+    // cannot acquire an independent lock for the same challenge runtime.
+    assert!(store::Owner::acquire(&sandbox.db).await.unwrap().is_none());
+    owner.release().await.unwrap();
+    requests.close().await.unwrap();
+    sandbox.close().await;
+}
+
+#[tokio::test]
 async fn only_one_gateway_can_reconcile_games_in_a_schema() {
     let sandbox = Sandbox::open("challenge_owner").await;
-    let owner = store::Owner::acquire(&sandbox.db).await.unwrap().unwrap();
+    let mut owner = store::Owner::acquire(&sandbox.db).await.unwrap().unwrap();
     owner.check().await.unwrap();
     assert!(store::Owner::acquire(&sandbox.db).await.unwrap().is_none());
     owner.release().await.unwrap();
-    let next = store::Owner::acquire(&sandbox.db).await.unwrap().unwrap();
+    let mut next = store::Owner::acquire(&sandbox.db).await.unwrap().unwrap();
     next.check().await.unwrap();
     next.release().await.unwrap();
     sandbox.close().await;
@@ -21,7 +47,7 @@ async fn only_one_gateway_can_reconcile_games_in_a_schema() {
 async fn a_lost_owner_connection_is_detected_and_its_lock_released() {
     let sandbox = Sandbox::open("challenge_owner_lost").await;
     let db = &sandbox.db;
-    let owner = store::Owner::acquire(db).await.unwrap().unwrap();
+    let mut owner = store::Owner::acquire(db).await.unwrap().unwrap();
     // Terminate only the connection holding this isolated schema's own test lock.
     let row = db.query_one_raw(Statement::from_string(db.get_database_backend(),
         "SELECT pg_terminate_backend(pid) AS stopped FROM pg_locks WHERE locktype = 'advisory' AND granted AND classid = hashtext(current_database())::oid AND objid = hashtext(current_schema() || '/baylee/challenges/v1')::oid AND pid <> pg_backend_pid()"))

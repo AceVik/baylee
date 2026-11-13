@@ -1,23 +1,30 @@
 //! One live reconciler per database/schema: another gateway must not void its games.
-use sea_orm::{
-    ConnectionTrait, DatabaseConnection, DatabaseTransaction, DbErr, Statement, TransactionTrait,
-};
+use sea_orm::sqlx::{self, ConnectOptions, Connection, PgConnection};
+use sea_orm::{DatabaseConnection, DbErr, RuntimeErr};
 
-/// A dedicated transaction owns a PostgreSQL advisory lock until dropped.
-pub struct Owner(DatabaseTransaction);
+/// A dedicated connection owns a PostgreSQL advisory lock until closed or dropped.
+/// It never borrows a connection from the gateway's request pool.
+pub struct Owner(PgConnection);
 
 impl Owner {
     /// Try to own this schema's official challenge runtime. No waiting on another host.
     /// # Errors
-    /// Database connectivity or transaction failure.
+    /// Database connectivity or lock failure.
     pub async fn acquire(db: &DatabaseConnection) -> Result<Option<Self>, DbErr> {
-        let transaction = db.begin().await?;
-        let row = transaction.query_one_raw(Statement::from_string(
-            db.get_database_backend(),
-            "SELECT pg_try_advisory_xact_lock(hashtext(current_database()), hashtext(current_schema() || '/baylee/challenges/v1')) AS owned",
-        )).await?.ok_or_else(|| DbErr::Custom("challenge ownership unavailable".into()))?;
-        if row.try_get::<bool>("", "owned")? {
-            Ok(Some(Self(transaction)))
+        // Keep the same TLS, credentials and URL-configured search_path without
+        // serializing them. A long-lived pool checkout would starve ordinary
+        // requests when BAYLEE_DB_POOL is small, even while this owner is idle.
+        let mut connection = db
+            .get_postgres_connection_pool()
+            .connect_options()
+            .connect()
+            .await
+            .map_err(database_error)?;
+        let owned: bool = sqlx::query_scalar(
+            "SELECT pg_try_advisory_lock(hashtext(current_database()), hashtext(current_schema() || '/baylee/challenges/v1'))",
+        ).fetch_one(&mut connection).await.map_err(database_error)?;
+        if owned {
+            Ok(Some(Self(connection)))
         } else {
             Ok(None)
         }
@@ -25,21 +32,24 @@ impl Owner {
 
     /// Prove that the connection holding the lock is still alive before reconciliation.
     /// # Errors
-    /// A lost transaction/connection; the caller must stop admission and owned games.
-    pub async fn check(&self) -> Result<(), DbErr> {
-        self.0
-            .query_one_raw(Statement::from_string(
-                self.0.get_database_backend(),
-                "SELECT 1",
-            ))
-            .await?;
+    /// A lost connection; the caller must stop admission and owned games.
+    pub async fn check(&mut self) -> Result<(), DbErr> {
+        sqlx::query("SELECT 1")
+            .execute(&mut self.0)
+            .await
+            .map_err(database_error)?;
         Ok(())
     }
 
     /// Explicitly release ownership after draining this host.
     /// # Errors
-    /// Rollback/connection failure (a disconnected database has already released it).
+    /// Connection failure (a disconnected database has already released it).
     pub async fn release(self) -> Result<(), DbErr> {
-        self.0.rollback().await
+        self.0.close().await.map_err(database_error)
     }
+}
+
+/// Keep driver errors typed without exposing the connection options.
+fn database_error(error: sqlx::Error) -> DbErr {
+    DbErr::Conn(RuntimeErr::SqlxError(error.into()))
 }
