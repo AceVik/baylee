@@ -15,7 +15,6 @@ pub(crate) fn start(state: Shared) -> Worker {
     let retained = state.clone();
     Worker(
         tokio::spawn(async move {
-            let mut owner: Option<baylee_db::challenges::Owner> = None;
             let mut every = tokio::time::interval(Duration::from_secs(10));
             every.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
@@ -23,45 +22,69 @@ pub(crate) fn start(state: Shared) -> Worker {
                 if !state.central.get().is_some_and(|bridge| bridge.official()) {
                     continue;
                 }
-                if let Some(lease) = &owner {
-                    if lease.check().await.is_err() {
-                        state.challenge_owner.store(false, Ordering::Release);
-                        let games: Vec<_> = state
-                            .lobby
-                            .lock()
-                            .games
-                            .iter()
-                            .filter(|(_, game)| {
-                                game.challenge.is_some() && game.state == crate::LobbyState::Playing
-                            })
-                            .map(|(id, _)| id.clone())
-                            .collect();
-                        for game in games {
-                            crate::engine::end_game(&state, &game);
-                        }
-                        owner = None;
-                        tracing::warn!(
-                            "challenge ownership lost; stopped admission and owned games"
-                        );
-                        continue;
-                    }
-                } else {
-                    owner = baylee_db::challenges::Owner::acquire(&state.db)
-                        .await
-                        .ok()
-                        .flatten();
-                    if owner.is_none() {
-                        continue;
-                    }
-                    state.challenge_owner.store(true, Ordering::Release);
+                let Ok(Ok(Some(owner))) = tokio::time::timeout(
+                    Duration::from_secs(5),
+                    baylee_db::challenges::Owner::acquire(&state.db),
+                )
+                .await
+                else {
+                    continue;
+                };
+                state.challenge_owner.store(true, Ordering::Release);
+                owned(&state, &owner).await;
+                state.challenge_owner.store(false, Ordering::Release);
+                let games: Vec<_> = state
+                    .lobby
+                    .lock()
+                    .games
+                    .iter()
+                    .filter(|(_, game)| {
+                        game.challenge.is_some() && game.state == crate::LobbyState::Playing
+                    })
+                    .map(|(id, _)| id.clone())
+                    .collect();
+                for game in games {
+                    crate::engine::end_game(&state, &game);
                 }
-                if pass(&state).await.is_err() {
-                    tracing::warn!("challenge delivery unavailable; retained for retry");
-                }
+                drop(owner);
+                tracing::warn!("challenge ownership lost; stopped admission and owned games");
             }
         }),
         retained,
     )
+}
+
+/// Slow Central requests cannot delay checking the connection which owns the lock.
+async fn owned(state: &Shared, owner: &baylee_db::challenges::Owner) {
+    let mut heartbeat = tokio::time::interval(Duration::from_secs(10));
+    heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut delivery = tokio::time::interval(Duration::from_secs(10));
+    delivery.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    loop {
+        let work = async {
+            delivery.tick().await;
+            pass(state).await
+        };
+        tokio::pin!(work);
+        loop {
+            tokio::select! {
+                biased;
+                _ = heartbeat.tick() => {
+                    if !state.central.get().is_some_and(|bridge| bridge.official())
+                        || !matches!(tokio::time::timeout(Duration::from_secs(3), owner.check()).await, Ok(Ok(())))
+                    {
+                        return;
+                    }
+                }
+                result = &mut work => {
+                    if result.is_err() {
+                        tracing::warn!("challenge delivery unavailable; retained for retry");
+                    }
+                    break;
+                }
+            }
+        }
+    }
 }
 
 async fn pass(state: &Shared) -> Result<(), ()> {
@@ -138,15 +161,6 @@ async fn pass(state: &Shared) -> Result<(), ()> {
                         .await
                         .map_err(|_| ())?;
                 }
-            }
-            Err(status) if status == axum::http::StatusCode::NOT_FOUND => {
-                // No remote attempt remains (for example after account deletion).
-                if active {
-                    crate::engine::end_game(state, &game_id);
-                }
-                baylee_db::challenges::delivered(&state.db, run.attempt)
-                    .await
-                    .map_err(|_| ())?;
             }
             _ => {
                 baylee_db::challenges::touch(&state.db, run.attempt)

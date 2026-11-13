@@ -44,8 +44,18 @@ impl Package {
     pub fn from_publication(
         publication: &central_api::challenges::Publication,
     ) -> Result<Self, InvalidPackage> {
+        Self::from_publication_for(publication, executor())
+    }
+
+    /// Validate material for a retained, authenticated executor with the same protocol.
+    /// # Errors
+    /// Invalid content digest, incompatible executor or inconsistent turn target.
+    pub fn from_publication_for(
+        publication: &central_api::challenges::Publication,
+        executor: &str,
+    ) -> Result<Self, InvalidPackage> {
         publication.validate().map_err(|_| InvalidPackage)?;
-        let package = Self::decode(&publication.package, executor())?;
+        let package = Self::decode(&publication.package, executor)?;
         if publication.description.executor != package.executor
             || publication.description.target_turn != package.target_turn
         {

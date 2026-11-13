@@ -146,6 +146,10 @@ Registered hosts only; keys write-only over the unix socket; tests use in-proces
 - `BAYLEE_AGENT_NAME`.
 - `BAYLEE_AGENT_CAPACITY` (0 = unlimited).
 - `BAYLEE_ENGINE_BIN` (default beside the agent).
+- `BAYLEE_ENGINE_BUILD` (default the agent's own build identity). With a retained
+  fixed engine binary, advertise that binary's exact `EngineHello.build` instead.
+  Only agents advertising a challenge's certified build can run it; retained
+  builds do not receive ordinary games. The wire protocol must still match.
 - `BAYLEE_FORESIGHT_SLOTS` (a directory the engines take their search slots in; unset = one the agent makes for its own engines, mode `0700`, a random name under systemd's `RUNTIME_DIRECTORY`, else `XDG_RUNTIME_DIR`, else the temporary directory, removed when the agent stops; name one only to share the machine's count between several agents, and then a directory of their user's own with mode `0700`, which the engines check). The agent hands it to every engine it starts, and makes it again (`0700`) first if something swept it away.
 
 Its engines inherit the agent's environment (less its token), so the house's search is set on the agent's unit: `BAYLEE_FORESIGHT`, `BAYLEE_FORESIGHT_WORK`, `BAYLEE_FORESIGHT_SEARCHES` and `BAYLEE_FORESIGHT_WALL_MS` below.

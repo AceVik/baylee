@@ -35,6 +35,7 @@ fn config() -> AgentConfig {
         name: "test".to_string(),
         capacity: 2,
         engine_bin: PathBuf::from("/bin/true"),
+        executor: baylee_build::short().into(),
         foresight_slots: None,
     }
 }
@@ -227,8 +228,7 @@ fn the_welcome_is_read_and_everything_unknown_is_silence() {
 fn an_engine_status_survives_the_number_it_travels_as() {
     use v1::engine_status::Kind;
     for kind in [Kind::Started, Kind::Exited, Kind::Failed] {
-        let Some(v1::envelope::Msg::EngineStatus(sent)) =
-            status("g1", kind, "exit status: 0").msg
+        let Some(v1::envelope::Msg::EngineStatus(sent)) = status("g1", kind, "exit status: 0").msg
         else {
             panic!("a status");
         };
@@ -265,6 +265,33 @@ fn configured(vars: &[(&str, &str)]) -> Result<AgentConfig, String> {
         },
         || Some(PathBuf::from("/opt/baylee/baylee-engine-server")),
     )
+}
+
+#[test]
+fn a_retained_engine_build_is_explicit_bounded_and_advertised() {
+    let retained = configured(&[
+        ("BAYLEE_AGENT_TOKEN", "test"),
+        ("BAYLEE_ENGINE_BUILD", "old-release"),
+    ])
+    .unwrap();
+    let Some(v1::envelope::Msg::AgentHello(hello)) = retained.hello().msg else {
+        panic!("hello")
+    };
+    assert_eq!(hello.executor, "old-release");
+    assert_eq!(
+        configured(&[("BAYLEE_AGENT_TOKEN", "test")])
+            .unwrap()
+            .executor,
+        baylee_build::short()
+    );
+    for bad in ["line\nbreak".to_owned(), "x".repeat(161), "ä".to_owned()] {
+        let error = configured(&[
+            ("BAYLEE_AGENT_TOKEN", "test"),
+            ("BAYLEE_ENGINE_BUILD", &bad),
+        ])
+        .unwrap_err();
+        assert!(!error.contains(&bad));
+    }
 }
 
 /// **An agent with no token does not start**, which is the one refusal

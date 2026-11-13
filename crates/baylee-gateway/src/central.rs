@@ -17,6 +17,7 @@ use serde::Deserialize;
 use std::{io::Read, sync::Arc, time::Duration};
 use zeroize::Zeroizing;
 
+mod challenges;
 mod link;
 mod routes;
 mod sync;

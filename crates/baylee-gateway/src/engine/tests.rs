@@ -73,6 +73,7 @@ fn agent(games: usize, capacity: u32) -> Agent {
         name: "test".to_string(),
         local: false,
         capacity,
+        executor: String::new(),
         tx: mpsc::unbounded_channel().0,
         games: (0..games).map(|i| i.to_string()).collect(),
     }
@@ -121,4 +122,35 @@ fn a_full_agent_is_still_an_available_one() {
     agents.connected.insert("a".to_string(), agent(2, 2));
     assert!(agents.any_connected());
     assert_eq!(agents.pick(), None, "though it takes no game right now");
+}
+
+#[test]
+fn retained_executors_are_exact_and_never_take_ordinary_games() {
+    let mut agents = Agents::default();
+    let mut retained = agent(0, 1);
+    retained.executor = "retained-build".into();
+    agents.connected.insert("old".into(), retained);
+    assert_eq!(agents.pick(), None);
+    assert_eq!(
+        agents.pick_executor(Some("retained-build")).as_deref(),
+        Some("old")
+    );
+    assert_eq!(agents.pick_executor(Some(baylee_build::short())), None);
+    agents.connected.insert("legacy".into(), agent(0, 0));
+    assert_eq!(agents.pick().as_deref(), Some("legacy"));
+    assert_eq!(agents.pick_executor(Some(baylee_build::short())), None);
+    let mut current = agent(1, 0);
+    current.executor = baylee_build::short().into();
+    agents.connected.insert("current".into(), current);
+    assert_eq!(
+        agents.pick_executor(Some(baylee_build::short())).as_deref(),
+        Some("current")
+    );
+    agents
+        .connected
+        .get_mut("old")
+        .unwrap()
+        .games
+        .push("active".into());
+    assert_eq!(agents.pick_executor(Some("retained-build")), None);
 }

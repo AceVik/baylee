@@ -27,6 +27,7 @@ async fn agent(gw: &Gateway) -> Socket {
                 name: "lifecycle-test".into(),
                 capacity: 1,
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,
+                executor: String::new(),
             })),
         },
     )

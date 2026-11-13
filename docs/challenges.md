@@ -99,6 +99,16 @@ A staged task from another executor build is refused. Upgrade planning must
 retain the executors needed by already published tasks; silently regenerating
 an occupied period would break fairness.
 
+Run a dedicated agent for each retained engine binary, setting `BAYLEE_ENGINE_BIN`
+to its fixed operator-installed path and `BAYLEE_ENGINE_BUILD` to its exact build
+identity. The gateway obtains the required identity from Central before claiming
+an attempt and selects only an authenticated matching agent. Missing capacity
+leaves the attempt reserved with no start counted. The attached engine is checked
+again before receiving the private preset. No player selects a binary or path.
+Ordinary games use current-build or legacy agents, never retained builds.
+This supports retained executors with the same wire and preset schema; a protocol
+upgrade needs a compatible retained execution host before those tasks can run.
+
 ## Official execution and delivery
 
 `POST /challenges/{attempt}/play` requires the official bridge and a verified
@@ -134,6 +144,10 @@ Confirmed remote abandonment stops its game. A claimed game absent from the
 host after a two-minute recovery grace period becomes void without a failure
 penalty. This is crash recovery by cancellation; it is not persistent game
 checkpoint resumption across a host restart.
+
+Ownership checks run every ten seconds independently of slow result delivery,
+with a three-second database deadline; acquisition has a five-second deadline.
+Losing that connection cancels the delivery pass before releasing ownership.
 
 ## Verification boundaries
 
@@ -191,3 +205,29 @@ passed with both one and five browser workers after rebuilding matching SSR
 and island assets. The five generator tests passed with the new fixed Weekly
 fixture (seed 63); fresh execution, exact replay and policy reconstruction remain
 mandatory. Native screenshots and broader human calibration remain unverified.
+
+## Third improvement pass: compatibility and operational failures
+
+The clean second-pass build `0a5b8605a` admitted 17 of 32 Weekly candidates
+starting at seed 1000 in 261.2 seconds. The 53 retained witnesses finished on
+game turns 9–49. Every admitted candidate met the independent route/family,
+fresh-execution, replay and resume checks; the other 15 were refused. These
+are sampled solver results, not an assertion of optimality or human difficulty.
+
+Changes in this pass: exact retained-executor routing, capacity refusal before
+claim, independent bounded ownership heartbeats, and continued queue rotation
+without renewing the crash-recovery grace. The real HTTP integration caught a
+bridge capability incorrectly attached to a public metadata read; that read now
+uses anonymous public access, while status/claim keep host authority.
+
+Validation on 13 November: all 49 PostgreSQL schema tests passed, including
+termination of the isolated ownership connection and rotation past 32 waiting
+reservations; all 19 agent tests, six engine-routing tests and three publisher
+tests passed. Publisher tests reject shared/symlink evidence roots and overwrites.
+Clippy passed for all targets of the agent, gateway, challenge contract, trainer,
+database and development tools. The real Central/gateway/engine Daily and Weekly
+integration passed in 110.71 seconds, including unavailable-capacity refusal with
+zero consumed starts, resumed Weekly play, verified scores and permanent awards.
+The owned database and listener were removed. The isolated full-gate wrapper's
+deliberate failure also removed its owned container. The three improvement rounds
+are complete; required full gates and independent PR review are recorded separately.

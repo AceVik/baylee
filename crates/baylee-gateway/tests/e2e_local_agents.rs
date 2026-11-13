@@ -145,6 +145,7 @@ async fn a_game_ordered_from_an_agent_on_the_unix_socket_is_a_local_one() {
             name: "local".to_string(),
             capacity: 0,
             protocol_version: baylee_protocol::PROTOCOL_VERSION,
+            executor: String::new(),
         }),
     )
     .await;

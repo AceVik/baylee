@@ -861,6 +861,7 @@ dependencies = [
 name = "baylee-agent"
 version = "0.2.0-beta.o1"
 dependencies = [
+ "baylee-build",
  "baylee-protocol",
  "futures-util",
  "prost",

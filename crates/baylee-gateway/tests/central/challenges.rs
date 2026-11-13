@@ -3,12 +3,13 @@
 use super::{Endpoint, common};
 use baylee_account::{Account, Bearer, CentralHttp, Token, wire};
 use baylee_engine::choice::{Pending, PlayerAction};
-use baylee_gamehost::record::{Line, Source};
 use baylee_protocol::v1::{self, Envelope};
 use central_api::challenges as api;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::runtime::Runtime;
 use uuid::Uuid;
+#[path = "challenges/checks.rs"]
+mod checks;
 
 pub(super) fn run(
     runtime: &Runtime,
@@ -80,96 +81,14 @@ pub(super) fn run(
     else {
         panic!("catalogue");
     };
-    let agent = runtime.block_on(common::attach_agent(gateway));
+    let mut agent = None;
     let done = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         for candidate in [&daily, &weekly] {
             let task = challenges
                 .iter()
                 .find(|task| task.description.period.kind == candidate.kind)
                 .unwrap();
-            let request = api::Request::Begin {
-                challenge: task.id,
-                request_id: *Uuid::now_v7().as_bytes(),
-                listed: true,
-            };
-            let api::Response::Attempt { attempt } = account.challenges(request.clone()).unwrap()
-            else {
-                panic!("reserved");
-            };
-            let api::Response::Attempt { attempt: again } =
-                account.challenges(request.clone()).unwrap()
-            else {
-                panic!("idempotent reserve");
-            };
-            assert_eq!(again.id, attempt.id);
-            let origin = format!("http://127.0.0.1:{}", gateway.port);
-            assert_eq!(attempt.host, origin);
-            let path = format!("/challenges/{}/play", Uuid::from_bytes(attempt.id));
-            let (_, admission, seat) = account.play_challenge(attempt.id).unwrap();
-            let grant = serde_json::json!({ "game_id": seat.game_id, "seat": seat.seat, "seat_token": &*seat.seat_token });
-            let actions: Vec<PlayerAction> = std::str::from_utf8(&candidate.proofs[0].record)
-                .unwrap()
-                .lines()
-                .filter_map(|line| match serde_json::from_str::<Line>(line).unwrap() {
-                    Line::Input {
-                        seat: 0,
-                        by: Source::Seat,
-                        action,
-                        ..
-                    } => Some(action),
-                    _ => None,
-                })
-                .collect();
-            runtime.block_on(play(
-                gateway,
-                &admission.token,
-                &path,
-                &grant,
-                &actions,
-                candidate.kind == api::Kind::Weekly,
-            ));
-            let completed = wait_finished(account, attempt.id);
-            assert_eq!(completed.state, api::AttemptState::Won);
-            assert_eq!(completed.number, 1, "resume did not create a second start");
-            assert_eq!(completed.turn, Some(candidate.proofs[0].turn));
-            let api::Response::Personal { progress } = account
-                .challenges(api::Request::Personal { challenge: task.id })
-                .unwrap()
-            else {
-                panic!("personal");
-            };
-            assert_eq!(progress.starts, 1);
-            assert_eq!(progress.failures, 0);
-            assert!(progress.first_try && progress.completed_at.is_some());
-            for board in [
-                api::Board::FirstWin,
-                api::Board::BestTurns,
-                api::Board::Sprint,
-            ] {
-                let api::Response::Detail { standings, .. } = account
-                    .challenges(api::Request::Detail {
-                        challenge: task.id,
-                        board,
-                        offset: 0,
-                    })
-                    .unwrap()
-                else {
-                    panic!("ranking");
-                };
-                if candidate.kind == api::Kind::Weekly && board == api::Board::Sprint {
-                    assert!(standings.is_empty(), "disconnected victory is not a sprint");
-                } else {
-                    assert_eq!(standings.len(), 1);
-                    assert!(standings[0].own);
-                    assert_eq!(standings[0].rank, 1);
-                }
-            }
-            let api::Response::Attempt { attempt: retried } = account.challenges(request).unwrap()
-            else {
-                panic!("original reservation");
-            };
-            assert_eq!(retried.id, completed.id);
-            assert_eq!(retried.state, api::AttemptState::Won);
+            checks::exercise(runtime, gateway, account, task, candidate, &mut agent);
         }
         let api::Response::Progress { badges, active } =
             account.challenges(api::Request::Progress).unwrap()
@@ -179,8 +98,10 @@ pub(super) fn run(
         assert!(active.is_empty());
         assert!(badges.iter().filter(|badge| badge.count > 0).count() >= 3);
     }));
-    agent.abort();
-    let _ = runtime.block_on(agent);
+    if let Some(agent) = agent {
+        agent.abort();
+        let _ = runtime.block_on(agent);
+    }
     if let Err(error) = done {
         std::panic::resume_unwind(error);
     }
@@ -270,7 +191,7 @@ async fn play(
                             msg: Some(v1::envelope::Msg::SeatReady(v1::SeatReady {})),
                         },
                     )
-                    .await
+                    .await;
                 }
                 v1::envelope::Msg::ChoiceRequest(question) => {
                     let pending: Pending = baylee_core::wire::decode(&question.pending).unwrap();

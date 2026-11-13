@@ -213,6 +213,26 @@ mod tests {
     use super::*;
     use central_api::challenges::Kind;
 
+    #[cfg(unix)]
+    #[test]
+    fn evidence_refuses_a_symlink_or_shared_directory_and_never_overwrites() {
+        use std::os::unix::fs::{PermissionsExt, symlink};
+        let root = tempfile::tempdir().unwrap();
+        let private = root.path().join("private");
+        private_new_directory(&private).unwrap();
+        let link = root.path().join("link");
+        symlink(&private, &link).unwrap();
+        assert!(private_directory(&link).is_err());
+        std::fs::set_permissions(&private, std::fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(private_directory(&private).is_err());
+        std::fs::set_permissions(&private, std::fs::Permissions::from_mode(0o700)).unwrap();
+        private_directory(&private).unwrap();
+        let path = private.join("proof");
+        private_write(&path, b"original").unwrap();
+        assert!(private_write(&path, b"replacement").is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), b"original");
+    }
+
     #[test]
     fn staged_proofs_survive_a_worker_restart_without_regeneration() {
         let root = tempfile::tempdir().unwrap();

@@ -20,6 +20,7 @@ fn an_agent_hello_keeps_its_token_name_capacity_and_version() {
         name: "box-1".into(),
         capacity: 7,
         protocol_version: PROTOCOL_VERSION,
+        executor: String::new(),
     };
     assert_eq!(trip(Msg::AgentHello(hello.clone())), Msg::AgentHello(hello));
 }

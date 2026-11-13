@@ -317,6 +317,7 @@ impl RoomList {
 pub struct LobbyGame {
     /// Private Central attempt; never included in room listings or game views.
     pub(crate) challenge: Option<[u8; 16]>,
+    pub(crate) challenge_executor: Option<String>,
     /// The ordered writer is still committing this game's authoritative outcome.
     pub(crate) challenge_finalizing: bool,
     /// Game id (`UUIDv7`).
@@ -620,6 +621,7 @@ impl LobbyGame {
         Self {
             id,
             challenge: None,
+            challenge_executor: None,
             challenge_finalizing: false,
             state: LobbyState::Waiting,
             host: None,

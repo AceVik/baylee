@@ -97,12 +97,13 @@ pub(crate) async fn play(
         let lobby = state.lobby.lock();
         crate::routes::participation::account(&lobby, &account, Some(&game_id))?;
     }
+    let (executor, already) = executor(&state, &bridge, attempt, &game_id).await?;
     let claimed = bridge
         .challenge(HostRequest::Claim {
             attempt: *attempt.as_bytes(),
             account: signed.central,
             game: *proposed.as_bytes(),
-            executor: baylee_challenges::executor().into(),
+            executor: executor.clone(),
         })
         .await;
     let claimed = match claimed {
@@ -130,7 +131,7 @@ pub(crate) async fn play(
     {
         return Err(err(StatusCode::CONFLICT, "challenge claim does not match"));
     }
-    let already = state.lobby.lock().games.contains_key(&game_id);
+    require_owner(&state)?;
     if already {
         return crate::routes::take_seat(State(state.clone()), headers, Path(game_id)).await;
     }
@@ -141,8 +142,27 @@ pub(crate) async fn play(
         attempt,
         proposed,
         &publication,
+        &executor,
     )
     .await
+}
+
+async fn executor(
+    state: &Shared,
+    bridge: &crate::central::Bridge,
+    attempt: Uuid,
+    game: &str,
+) -> Result<(String, bool), (StatusCode, Json<ErrorBody>)> {
+    let executor = bridge
+        .challenge_executor(*attempt.as_bytes())
+        .await
+        .map_err(|status| err(status, "challenge executor unavailable"))?;
+    let already = state.lobby.lock().games.contains_key(game);
+    if already || state.agents.lock().pick_executor(Some(&executor)).is_some() {
+        Ok((executor, already))
+    } else {
+        Err(err(StatusCode::CONFLICT, "challenge executor unavailable"))
+    }
 }
 
 fn attempt_id(value: &str) -> Result<Uuid, (StatusCode, Json<ErrorBody>)> {
@@ -173,9 +193,10 @@ async fn launch(
     attempt: Uuid,
     proposed: Uuid,
     publication: &central_api::challenges::Publication,
+    executor: &str,
 ) -> Result<Json<crate::routes::SeatGrant>, (StatusCode, Json<ErrorBody>)> {
     let game_id = proposed.to_string();
-    let package = baylee_challenges::Package::from_publication(publication)
+    let package = baylee_challenges::Package::from_publication_for(publication, executor)
         .map_err(|_| err(StatusCode::CONFLICT, "challenge executor unavailable"))?;
     {
         let lobby = state.lobby.lock();
@@ -205,10 +226,12 @@ async fn launch(
     let mut game =
         lobby::LobbyGame::playing(game_id.clone(), seats, package.preset, auth::now_secs());
     game.challenge = Some(*attempt.as_bytes());
+    game.challenge_executor = Some(package.executor);
     game.house_rules = rules;
     game.allow_spectators = false;
     {
         let mut lobby = state.lobby.lock();
+        require_owner(state)?;
         crate::routes::participation::account(&lobby, account, None)?;
         lobby.games.insert(game_id.clone(), game);
     }

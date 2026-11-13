@@ -88,6 +88,8 @@ pub struct AgentConfig {
     pub capacity: u32,
     /// The engine binary to spawn.
     pub engine_bin: PathBuf,
+    /// The exact build of the fixed engine binary; verified again at engine attach.
+    pub executor: String,
     /// Where the engines take their search slots
     /// (`BAYLEE_FORESIGHT_SLOTS`, `baylee-engine-server`'s `foresight`): the
     /// operator's directory, shared with whatever else they start there, or
@@ -149,6 +151,10 @@ impl AgentConfig {
                 "cannot find baylee-engine-server; set BAYLEE_ENGINE_BIN".to_string()
             })?,
         };
+        let executor = var("BAYLEE_ENGINE_BUILD").unwrap_or_else(|| baylee_build::short().into());
+        if executor.len() > 160 || executor.bytes().any(|byte| !(32..=126).contains(&byte)) {
+            return Err("BAYLEE_ENGINE_BUILD must be a bounded printable build identity".into());
+        }
         Ok(Self {
             gateway: var("BAYLEE_GATEWAY")
                 .unwrap_or_else(|| "http://127.0.0.1:28766".to_string())
@@ -160,6 +166,7 @@ impl AgentConfig {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(0),
             engine_bin,
+            executor,
             foresight_slots: var(SLOTS_VAR).map(PathBuf::from),
         })
     }
@@ -201,6 +208,7 @@ impl AgentConfig {
                 name: self.name.clone(),
                 capacity: self.capacity,
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,
+                executor: self.executor.clone(),
             })),
         }
     }

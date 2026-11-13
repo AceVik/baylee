@@ -313,6 +313,7 @@ async fn the_control_socket_refuses_the_wrong_secret() {
             name: "impostor".to_string(),
             capacity: 0,
             protocol_version: baylee_protocol::PROTOCOL_VERSION,
+            executor: String::new(),
         })),
     };
     ws.send(tokio_tungstenite::tungstenite::Message::Binary(

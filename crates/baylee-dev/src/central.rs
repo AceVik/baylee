@@ -322,6 +322,7 @@ fn bootstrap(migrator: &str, runtime: &str, legacy: &str) -> String {
 }
 
 mod client;
+pub(crate) mod verification;
 pub use client::client;
 #[cfg(test)]
 use client::loopback_origin;

@@ -141,6 +141,15 @@ enum AndroidEnv {
 
 #[derive(Subcommand)]
 enum Central {
+    /// Run a required gate with an owned, isolated PostgreSQL database.
+    Gate {
+        /// Run the desktop/server feature gate instead of the full default gate.
+        #[arg(long)]
+        features: bool,
+        /// Fail after fixture startup to verify cleanup.
+        #[arg(long)]
+        exercise_failure: bool,
+    },
     /// `baylee-db`'s schema suite, then any named gateway e2e targets.
     Db {
         /// Gateway e2e targets to add (e.g. `e2e_account`).
@@ -262,43 +271,7 @@ fn main() -> ExitCode {
             } => ("ios-sim", mobile::ios_sim(&device, &gateway, devctl)),
             Task::ServeLan { print } => ("serve-lan", mobile::serve_lan(print)),
             Task::KeyringLinux { inside, args } => ("keyring-linux", keyring::run(inside, &args)),
-            Task::Central {
-                check:
-                    Central::Db {
-                        gateway_tests,
-                        cargo_config,
-                        exercise_failure,
-                    },
-            } => (
-                "central db",
-                central::db(&gateway_tests, cargo_config.as_deref(), exercise_failure),
-            ),
-            Task::Central {
-                check:
-                    Central::Integration {
-                        cargo_config,
-                        cancel_file,
-                        exercise_failure,
-                    },
-            } => (
-                "central integration",
-                central::integration(
-                    cargo_config.as_deref(),
-                    cancel_file.as_deref(),
-                    exercise_failure,
-                ),
-            ),
-            Task::Central {
-                check:
-                    Central::Client {
-                        monitor,
-                        challenges,
-                        hold_seconds,
-                    },
-            } => (
-                "central client",
-                central::client(monitor, challenges, hold_seconds),
-            ),
+            Task::Central { check } => central_task(check),
         },
     };
     match result {
@@ -307,5 +280,45 @@ fn main() -> ExitCode {
             eprintln!("{name}: {error:#}");
             ExitCode::FAILURE
         }
+    }
+}
+
+fn central_task(check: Central) -> (&'static str, anyhow::Result<i32>) {
+    match check {
+        Central::Db {
+            gateway_tests,
+            cargo_config,
+            exercise_failure,
+        } => (
+            "central db",
+            central::db(&gateway_tests, cargo_config.as_deref(), exercise_failure),
+        ),
+        Central::Gate {
+            features,
+            exercise_failure,
+        } => (
+            "central gate",
+            central::verification::gate(features, exercise_failure),
+        ),
+        Central::Integration {
+            cargo_config,
+            cancel_file,
+            exercise_failure,
+        } => (
+            "central integration",
+            central::integration(
+                cargo_config.as_deref(),
+                cancel_file.as_deref(),
+                exercise_failure,
+            ),
+        ),
+        Central::Client {
+            monitor,
+            challenges,
+            hold_seconds,
+        } => (
+            "central client",
+            central::client(monitor, challenges, hold_seconds),
+        ),
     }
 }

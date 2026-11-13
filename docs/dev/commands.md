@@ -16,6 +16,8 @@ cargo dev gate rules                          # while working: fmt, lint-rules, 
 cargo dev gate touched [<rev>]                # fmt + clippy on changed files only; not a gate
 DATABASE_URL=… cargo dev gate features        # non-default desktop and server features
 cargo dev gate shipped-features               # release graphs: shipped hooks, hooks a --workspace build would unify, reviewed advisory scope
+cargo dev central gate                        # same full gate with an owned synthetic PostgreSQL 18 fixture
+cargo dev central gate --features             # same feature gate with an owned synthetic PostgreSQL 18 fixture
 cargo dev gate wasm                           # optional experimental browser check (coming soon)
 DATABASE_URL=… cargo dev land [--check]       # full + features under the cargo lock, then ff-push to main
 cargo dev --help                              # every development task (crates/baylee-dev); `cargo tools --help` the release/asset tools

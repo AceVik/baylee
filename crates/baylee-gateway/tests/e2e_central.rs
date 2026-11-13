@@ -401,16 +401,16 @@ impl Served {
 // Optional bounded handoff to an isolated dev-control client. This fixture has
 // only synthetic accounts; the ready file contains no credentials or tokens.
 fn ui_fixture(runtime: &Runtime, endpoint: &Endpoint, host: &common::Gateway, gateway: &str) {
-    let Some(path) = std::env::var_os("BAYLEE_CENTRAL_UI_READY") else {
-        return;
-    };
-    let path = PathBuf::from(path);
     struct Attached(tokio::task::JoinHandle<()>);
     impl Drop for Attached {
         fn drop(&mut self) {
             self.0.abort();
         }
     }
+    let Some(path) = std::env::var_os("BAYLEE_CENTRAL_UI_READY") else {
+        return;
+    };
+    let path = PathBuf::from(path);
     let _agent = Attached(runtime.block_on(common::attach_agent(host)));
     std::fs::write(
         &path,

@@ -938,6 +938,72 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+  "/challenges/{attempt}/play":
+    post:
+      summary: Play or resume a reserved global challenge
+      description: >-
+        The official host claims the caller's Central attempt and supplies its frozen
+        setup. Repeated requests resume the original game; no seed, deck, account ID or
+        score is accepted from the player.
+      operationId: play
+      tags:
+      - Challenges
+      parameters:
+      - name: attempt
+        in: path
+        required: true
+        description: Central attempt `UUIDv7`
+        schema:
+          type: string
+      security:
+      - bearer: []
+      responses:
+        "200":
+          description: The player's official seat
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeatGrant"
+        "400":
+          description: Invalid attempt identity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: No bearer token, or one that is invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: |-
+            - The account is banned (`ban`) or must accept the terms in force first (`terms_required`)
+            - Not the official host or no Central session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: Attempt ended, another game is running, or the required executor is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: Too many starts or another start is in progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: |-
+            - The account store is unavailable
+            - Central, storage or the executor is unavailable; the attempt is retained
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
   /images:
     post:
       summary: Upload a sleeve or playmat

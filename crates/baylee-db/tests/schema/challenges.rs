@@ -2,7 +2,7 @@
 use super::{Sandbox, Uuid, an_account};
 use baylee_db::challenges as store;
 use central_api::challenges::{AttemptState, Completion};
-use sea_orm::{ActiveModelTrait, EntityTrait};
+use sea_orm::{ActiveModelTrait, ConnectionTrait, EntityTrait, Statement};
 
 #[tokio::test]
 async fn only_one_gateway_can_reconcile_games_in_a_schema() {
@@ -14,6 +14,77 @@ async fn only_one_gateway_can_reconcile_games_in_a_schema() {
     let next = store::Owner::acquire(&sandbox.db).await.unwrap().unwrap();
     next.check().await.unwrap();
     next.release().await.unwrap();
+    sandbox.close().await;
+}
+
+#[tokio::test]
+async fn a_lost_owner_connection_is_detected_and_its_lock_released() {
+    let sandbox = Sandbox::open("challenge_owner_lost").await;
+    let db = &sandbox.db;
+    let owner = store::Owner::acquire(db).await.unwrap().unwrap();
+    // Terminate only the connection holding this isolated schema's own test lock.
+    let row = db.query_one_raw(Statement::from_string(db.get_database_backend(),
+        "SELECT pg_terminate_backend(pid) AS stopped FROM pg_locks WHERE locktype = 'advisory' AND granted AND classid = hashtext(current_database())::oid AND objid = hashtext(current_schema() || '/baylee/challenges/v1')::oid AND pid <> pg_backend_pid()"))
+        .await.unwrap().unwrap();
+    assert!(row.try_get::<bool>("", "stopped").unwrap());
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_secs(3), owner.check())
+            .await
+            .unwrap()
+            .is_err()
+    );
+    drop(owner);
+    store::Owner::acquire(db)
+        .await
+        .unwrap()
+        .unwrap()
+        .release()
+        .await
+        .unwrap();
+    sandbox.close().await;
+}
+
+#[tokio::test]
+async fn rotating_young_reservations_does_not_restart_their_recovery_grace() {
+    let sandbox = Sandbox::open("challenge_queue_rotation").await;
+    let db = &sandbox.db;
+    let mut attempts = Vec::new();
+    for index in 0..33 {
+        let account = an_account(&format!("queue-{index}@example.org"))
+            .insert(db)
+            .await
+            .unwrap()
+            .id;
+        let attempt = Uuid::now_v7();
+        store::reserve(db, attempt, Uuid::now_v7(), account, Uuid::now_v7())
+            .await
+            .unwrap();
+        attempts.push(attempt);
+    }
+    db.execute_raw(Statement::from_string(
+        db.get_database_backend(),
+        "UPDATE challenge_run SET created_at = created_at - interval '5 minutes'",
+    ))
+    .await
+    .unwrap();
+    let first = store::pending(db).await.unwrap();
+    assert_eq!(first.len(), 32);
+    let omitted = *attempts
+        .iter()
+        .find(|id| !first.iter().any(|run| run.attempt == **id))
+        .unwrap();
+    for run in first {
+        store::touch(db, run.attempt).await.unwrap();
+    }
+    let next = store::pending(db).await.unwrap();
+    assert_eq!(
+        next[0].attempt, omitted,
+        "the 33rd reservation cannot starve behind the first batch"
+    );
+    assert!(
+        next.iter().all(|run| run.age >= 300),
+        "queue rotation must not renew recovery grace"
+    );
     sandbox.close().await;
 }
 

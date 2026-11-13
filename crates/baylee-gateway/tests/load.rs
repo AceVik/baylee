@@ -228,6 +228,7 @@ async fn stand_in_agent(gateway: &Gateway) -> tokio::task::JoinHandle<()> {
                 name: "load-agent".to_string(),
                 capacity: 0,
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,
+                executor: String::new(),
             })),
         },
     )

@@ -321,6 +321,9 @@ channels:
               // refuses any other with an Error naming both; 0 is an agent from before
               // this field, which says none.
               uint32 protocol_version = 4;
+              // Exact build of this agent's fixed engine binary. Empty legacy agents can
+              // host ordinary games only; challenges require an exact certified executor.
+              string executor = 5;
             }
 
             // Gateway → agent, once the token checks out.
@@ -461,6 +464,19 @@ channels:
               string reason = 3;
               // The turn the game ended on; 0 from an engine before it.
               uint32 turn = 4;
+              // Official frozen challenge only. Never accepted on a player's socket.
+              ChallengeResult challenge = 5;
+            }
+
+            // Engine-authoritative evidence, after the complete record was streamed.
+            message ChallengeResult {
+              enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+              Outcome outcome = 1;
+              uint64 finished_at_unix_ms = 2;
+              // Monotonic server time waiting for the human. Absent after any disconnect.
+              optional uint64 human_ms = 3;
+              // SHA-256 of the complete uncompressed record, in stream order.
+              bytes record_sha256 = 4;
             }
 
             // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -1038,6 +1054,9 @@ channels:
               // refuses any other with an Error naming both; 0 is an agent from before
               // this field, which says none.
               uint32 protocol_version = 4;
+              // Exact build of this agent's fixed engine binary. Empty legacy agents can
+              // host ordinary games only; challenges require an exact certified executor.
+              string executor = 5;
             }
 
             // Gateway → agent, once the token checks out.
@@ -1178,6 +1197,19 @@ channels:
               string reason = 3;
               // The turn the game ended on; 0 from an engine before it.
               uint32 turn = 4;
+              // Official frozen challenge only. Never accepted on a player's socket.
+              ChallengeResult challenge = 5;
+            }
+
+            // Engine-authoritative evidence, after the complete record was streamed.
+            message ChallengeResult {
+              enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+              Outcome outcome = 1;
+              uint64 finished_at_unix_ms = 2;
+              // Monotonic server time waiting for the human. Absent after any disconnect.
+              optional uint64 human_ms = 3;
+              // SHA-256 of the complete uncompressed record, in stream order.
+              bytes record_sha256 = 4;
             }
 
             // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -1774,6 +1806,9 @@ channels:
               // refuses any other with an Error naming both; 0 is an agent from before
               // this field, which says none.
               uint32 protocol_version = 4;
+              // Exact build of this agent's fixed engine binary. Empty legacy agents can
+              // host ordinary games only; challenges require an exact certified executor.
+              string executor = 5;
             }
 
             // Gateway → agent, once the token checks out.
@@ -1914,6 +1949,19 @@ channels:
               string reason = 3;
               // The turn the game ended on; 0 from an engine before it.
               uint32 turn = 4;
+              // Official frozen challenge only. Never accepted on a player's socket.
+              ChallengeResult challenge = 5;
+            }
+
+            // Engine-authoritative evidence, after the complete record was streamed.
+            message ChallengeResult {
+              enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+              Outcome outcome = 1;
+              uint64 finished_at_unix_ms = 2;
+              // Monotonic server time waiting for the human. Absent after any disconnect.
+              optional uint64 human_ms = 3;
+              // SHA-256 of the complete uncompressed record, in stream order.
+              bytes record_sha256 = 4;
             }
 
             // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -2452,6 +2500,9 @@ channels:
               // refuses any other with an Error naming both; 0 is an agent from before
               // this field, which says none.
               uint32 protocol_version = 4;
+              // Exact build of this agent's fixed engine binary. Empty legacy agents can
+              // host ordinary games only; challenges require an exact certified executor.
+              string executor = 5;
             }
 
             // Gateway → agent, once the token checks out.
@@ -2592,6 +2643,19 @@ channels:
               string reason = 3;
               // The turn the game ended on; 0 from an engine before it.
               uint32 turn = 4;
+              // Official frozen challenge only. Never accepted on a player's socket.
+              ChallengeResult challenge = 5;
+            }
+
+            // Engine-authoritative evidence, after the complete record was streamed.
+            message ChallengeResult {
+              enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+              Outcome outcome = 1;
+              uint64 finished_at_unix_ms = 2;
+              // Monotonic server time waiting for the human. Absent after any disconnect.
+              optional uint64 human_ms = 3;
+              // SHA-256 of the complete uncompressed record, in stream order.
+              bytes record_sha256 = 4;
             }
 
             // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -3130,6 +3194,9 @@ channels:
               // refuses any other with an Error naming both; 0 is an agent from before
               // this field, which says none.
               uint32 protocol_version = 4;
+              // Exact build of this agent's fixed engine binary. Empty legacy agents can
+              // host ordinary games only; challenges require an exact certified executor.
+              string executor = 5;
             }
 
             // Gateway → agent, once the token checks out.
@@ -3270,6 +3337,19 @@ channels:
               string reason = 3;
               // The turn the game ended on; 0 from an engine before it.
               uint32 turn = 4;
+              // Official frozen challenge only. Never accepted on a player's socket.
+              ChallengeResult challenge = 5;
+            }
+
+            // Engine-authoritative evidence, after the complete record was streamed.
+            message ChallengeResult {
+              enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+              Outcome outcome = 1;
+              uint64 finished_at_unix_ms = 2;
+              // Monotonic server time waiting for the human. Absent after any disconnect.
+              optional uint64 human_ms = 3;
+              // SHA-256 of the complete uncompressed record, in stream order.
+              bytes record_sha256 = 4;
             }
 
             // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -3810,6 +3890,9 @@ channels:
               // refuses any other with an Error naming both; 0 is an agent from before
               // this field, which says none.
               uint32 protocol_version = 4;
+              // Exact build of this agent's fixed engine binary. Empty legacy agents can
+              // host ordinary games only; challenges require an exact certified executor.
+              string executor = 5;
             }
 
             // Gateway → agent, once the token checks out.
@@ -3950,6 +4033,19 @@ channels:
               string reason = 3;
               // The turn the game ended on; 0 from an engine before it.
               uint32 turn = 4;
+              // Official frozen challenge only. Never accepted on a player's socket.
+              ChallengeResult challenge = 5;
+            }
+
+            // Engine-authoritative evidence, after the complete record was streamed.
+            message ChallengeResult {
+              enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+              Outcome outcome = 1;
+              uint64 finished_at_unix_ms = 2;
+              // Monotonic server time waiting for the human. Absent after any disconnect.
+              optional uint64 human_ms = 3;
+              // SHA-256 of the complete uncompressed record, in stream order.
+              bytes record_sha256 = 4;
             }
 
             // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -4492,6 +4588,9 @@ channels:
               // refuses any other with an Error naming both; 0 is an agent from before
               // this field, which says none.
               uint32 protocol_version = 4;
+              // Exact build of this agent's fixed engine binary. Empty legacy agents can
+              // host ordinary games only; challenges require an exact certified executor.
+              string executor = 5;
             }
 
             // Gateway → agent, once the token checks out.
@@ -4632,6 +4731,19 @@ channels:
               string reason = 3;
               // The turn the game ended on; 0 from an engine before it.
               uint32 turn = 4;
+              // Official frozen challenge only. Never accepted on a player's socket.
+              ChallengeResult challenge = 5;
+            }
+
+            // Engine-authoritative evidence, after the complete record was streamed.
+            message ChallengeResult {
+              enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+              Outcome outcome = 1;
+              uint64 finished_at_unix_ms = 2;
+              // Monotonic server time waiting for the human. Absent after any disconnect.
+              optional uint64 human_ms = 3;
+              // SHA-256 of the complete uncompressed record, in stream order.
+              bytes record_sha256 = 4;
             }
 
             // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -5226,6 +5338,9 @@ channels:
               // refuses any other with an Error naming both; 0 is an agent from before
               // this field, which says none.
               uint32 protocol_version = 4;
+              // Exact build of this agent's fixed engine binary. Empty legacy agents can
+              // host ordinary games only; challenges require an exact certified executor.
+              string executor = 5;
             }
 
             // Gateway → agent, once the token checks out.
@@ -5366,6 +5481,19 @@ channels:
               string reason = 3;
               // The turn the game ended on; 0 from an engine before it.
               uint32 turn = 4;
+              // Official frozen challenge only. Never accepted on a player's socket.
+              ChallengeResult challenge = 5;
+            }
+
+            // Engine-authoritative evidence, after the complete record was streamed.
+            message ChallengeResult {
+              enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+              Outcome outcome = 1;
+              uint64 finished_at_unix_ms = 2;
+              // Monotonic server time waiting for the human. Absent after any disconnect.
+              optional uint64 human_ms = 3;
+              // SHA-256 of the complete uncompressed record, in stream order.
+              bytes record_sha256 = 4;
             }
 
             // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -5904,6 +6032,9 @@ channels:
               // refuses any other with an Error naming both; 0 is an agent from before
               // this field, which says none.
               uint32 protocol_version = 4;
+              // Exact build of this agent's fixed engine binary. Empty legacy agents can
+              // host ordinary games only; challenges require an exact certified executor.
+              string executor = 5;
             }
 
             // Gateway → agent, once the token checks out.
@@ -6044,6 +6175,19 @@ channels:
               string reason = 3;
               // The turn the game ended on; 0 from an engine before it.
               uint32 turn = 4;
+              // Official frozen challenge only. Never accepted on a player's socket.
+              ChallengeResult challenge = 5;
+            }
+
+            // Engine-authoritative evidence, after the complete record was streamed.
+            message ChallengeResult {
+              enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+              Outcome outcome = 1;
+              uint64 finished_at_unix_ms = 2;
+              // Monotonic server time waiting for the human. Absent after any disconnect.
+              optional uint64 human_ms = 3;
+              // SHA-256 of the complete uncompressed record, in stream order.
+              bytes record_sha256 = 4;
             }
 
             // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -6582,6 +6726,9 @@ channels:
               // refuses any other with an Error naming both; 0 is an agent from before
               // this field, which says none.
               uint32 protocol_version = 4;
+              // Exact build of this agent's fixed engine binary. Empty legacy agents can
+              // host ordinary games only; challenges require an exact certified executor.
+              string executor = 5;
             }
 
             // Gateway → agent, once the token checks out.
@@ -6722,6 +6869,19 @@ channels:
               string reason = 3;
               // The turn the game ended on; 0 from an engine before it.
               uint32 turn = 4;
+              // Official frozen challenge only. Never accepted on a player's socket.
+              ChallengeResult challenge = 5;
+            }
+
+            // Engine-authoritative evidence, after the complete record was streamed.
+            message ChallengeResult {
+              enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+              Outcome outcome = 1;
+              uint64 finished_at_unix_ms = 2;
+              // Monotonic server time waiting for the human. Absent after any disconnect.
+              optional uint64 human_ms = 3;
+              // SHA-256 of the complete uncompressed record, in stream order.
+              bytes record_sha256 = 4;
             }
 
             // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -7262,6 +7422,9 @@ channels:
               // refuses any other with an Error naming both; 0 is an agent from before
               // this field, which says none.
               uint32 protocol_version = 4;
+              // Exact build of this agent's fixed engine binary. Empty legacy agents can
+              // host ordinary games only; challenges require an exact certified executor.
+              string executor = 5;
             }
 
             // Gateway → agent, once the token checks out.
@@ -7402,6 +7565,19 @@ channels:
               string reason = 3;
               // The turn the game ended on; 0 from an engine before it.
               uint32 turn = 4;
+              // Official frozen challenge only. Never accepted on a player's socket.
+              ChallengeResult challenge = 5;
+            }
+
+            // Engine-authoritative evidence, after the complete record was streamed.
+            message ChallengeResult {
+              enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+              Outcome outcome = 1;
+              uint64 finished_at_unix_ms = 2;
+              // Monotonic server time waiting for the human. Absent after any disconnect.
+              optional uint64 human_ms = 3;
+              // SHA-256 of the complete uncompressed record, in stream order.
+              bytes record_sha256 = 4;
             }
 
             // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -8540,6 +8716,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -8680,6 +8859,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -9218,6 +9410,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -9358,6 +9553,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -9896,6 +10104,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -10036,6 +10247,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -10574,6 +10798,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -10714,6 +10941,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -11252,6 +11492,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -11392,6 +11635,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -11930,6 +12186,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -12070,6 +12329,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -12608,6 +12880,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -12748,6 +13023,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -13292,6 +13580,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -13432,6 +13723,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -13970,6 +14274,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -14110,6 +14417,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -14648,6 +14968,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -14788,6 +15111,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -15326,6 +15662,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -15466,6 +15805,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -16004,6 +16356,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -16144,6 +16499,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -16682,6 +17050,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -16822,6 +17193,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -17360,6 +17744,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -17500,6 +17887,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -18044,6 +18444,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -18184,6 +18587,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -18722,6 +19138,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -18862,6 +19281,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -19406,6 +19838,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -19546,6 +19981,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -20084,6 +20532,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -20224,6 +20675,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -20762,6 +21226,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -20902,6 +21369,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -21440,6 +21920,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -21580,6 +22063,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -22118,6 +22614,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -22258,6 +22757,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -22796,6 +23308,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -22936,6 +23451,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -23474,6 +24002,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -23614,6 +24145,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -24152,6 +24696,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -24292,6 +24839,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -24830,6 +25390,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -24970,6 +25533,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -25508,6 +26084,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -25648,6 +26227,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -26186,6 +26778,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -26326,6 +26921,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -26864,6 +27472,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -27004,6 +27615,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -27542,6 +28166,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -27682,6 +28309,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -28220,6 +28860,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -28360,6 +29003,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -28898,6 +29554,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -29038,6 +29697,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -29576,6 +30248,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -29716,6 +30391,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -30254,6 +30942,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -30394,6 +31085,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -30932,6 +31636,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -31072,6 +31779,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the
@@ -31610,6 +32330,9 @@ components:
             // refuses any other with an Error naming both; 0 is an agent from before
             // this field, which says none.
             uint32 protocol_version = 4;
+            // Exact build of this agent's fixed engine binary. Empty legacy agents can
+            // host ordinary games only; challenges require an exact certified executor.
+            string executor = 5;
           }
 
           // Gateway → agent, once the token checks out.
@@ -31750,6 +32473,19 @@ components:
             string reason = 3;
             // The turn the game ended on; 0 from an engine before it.
             uint32 turn = 4;
+            // Official frozen challenge only. Never accepted on a player's socket.
+            ChallengeResult challenge = 5;
+          }
+
+          // Engine-authoritative evidence, after the complete record was streamed.
+          message ChallengeResult {
+            enum Outcome { VOID = 0; WON = 1; LOST = 2; ABANDONED = 3; }
+            Outcome outcome = 1;
+            uint64 finished_at_unix_ms = 2;
+            // Monotonic server time waiting for the human. Absent after any disconnect.
+            optional uint64 human_ms = 3;
+            // SHA-256 of the complete uncompressed record, in stream order.
+            bytes record_sha256 = 4;
           }
 
           // Engine -> gateway only: these seats lost, conceded, or were left to the

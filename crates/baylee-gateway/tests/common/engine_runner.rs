@@ -29,15 +29,6 @@ pub(super) async fn run_engine(
     )
     .await;
     let mut runner = EngineRunner::new();
-    let wall_ms = || {
-        u64::try_from(
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis(),
-        )
-        .unwrap()
-    };
     let mut armed = baylee_engine_server::Armed::default();
     let measured_from = tokio::time::Instant::now();
     loop {
@@ -122,6 +113,16 @@ pub(super) async fn run_engine(
     }
 }
 
+fn wall_ms() -> u64 {
+    u64::try_from(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis(),
+    )
+    .unwrap()
+}
+
 /// A replay job, as `baylee-engine-server` runs one: the tape's pieces on
 /// the engine link. A muted probe's engine never answers (the `504` test).
 async fn project(ws: &mut Socket, order: v1::ProjectRecord, probe: &ProbeEnd) {
@@ -147,4 +148,3 @@ async fn project(ws: &mut Socket, order: v1::ProjectRecord, probe: &ProbeEnd) {
         .await;
     }
 }
-

@@ -284,6 +284,9 @@ message AgentHello {
   // refuses any other with an Error naming both; 0 is an agent from before
   // this field, which says none.
   uint32 protocol_version = 4;
+  // Exact build of this agent's fixed engine binary. Empty legacy agents can
+  // host ordinary games only; challenges require an exact certified executor.
+  string executor = 5;
 }
 
 // Gateway → agent, once the token checks out.

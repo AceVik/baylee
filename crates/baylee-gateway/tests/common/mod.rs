@@ -739,6 +739,7 @@ async fn attach_agent_inner(
                 token: gateway.agent_token.clone(),
                 name: "test-agent".to_string(),
                 capacity,
+                executor: baylee_build::short().into(),
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,
             })),
         },

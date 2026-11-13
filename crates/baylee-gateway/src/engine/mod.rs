@@ -57,6 +57,8 @@ pub struct Agent {
     pub local: bool,
     /// How many engines it will run at once. 0 means no limit.
     pub capacity: u32,
+    /// Fixed engine build advertised by this authenticated agent.
+    pub executor: String,
     /// Orders to that agent.
     pub tx: mpsc::UnboundedSender<Envelope>,
     /// Games it was asked to run.
@@ -95,9 +97,19 @@ impl Agents {
     /// no order to speak of, and "whichever one came out first" is not a
     /// scheduling policy anybody could reason about.
     pub(crate) fn pick(&self) -> Option<String> {
+        self.pick_executor(None)
+    }
+
+    pub(crate) fn pick_executor(&self, executor: Option<&str>) -> Option<String> {
         self.connected
             .iter()
             .filter(|(_, agent)| agent.has_room())
+            .filter(|(_, agent)| {
+                executor.map_or_else(
+                    || agent.executor.is_empty() || agent.executor == baylee_build::short(),
+                    |required| agent.executor == required,
+                )
+            })
             .min_by(|a, b| {
                 a.1.games
                     .len()
@@ -131,9 +143,17 @@ pub fn start_engine(state: &Shared, game_id: &str) -> Result<(), &'static str> {
         return Err(crate::admission::HELD);
     }
     let engine_token = auth::new_token();
+    let executor = state
+        .lobby
+        .lock()
+        .games
+        .get(game_id)
+        .and_then(|game| game.challenge_executor.clone());
     let (agent_id, local) = {
         let agents = state.agents.lock();
-        let id = agents.pick().ok_or("no engine capacity")?;
+        let id = agents
+            .pick_executor(executor.as_deref())
+            .ok_or("no compatible engine capacity")?;
         let local = agents.connected.get(&id).is_some_and(|agent| agent.local);
         (id, local)
     };
@@ -303,6 +323,14 @@ async fn run_agent_socket(
         return;
     }
     let agent_id = auth::new_id();
+    if hello.executor.len() > 160
+        || hello
+            .executor
+            .bytes()
+            .any(|byte| !(32..=126).contains(&byte))
+    {
+        return;
+    }
     let (tx, mut rx) = mpsc::unbounded_channel();
     let first = {
         let mut agents = state.agents.lock();
@@ -313,6 +341,7 @@ async fn run_agent_socket(
                 name: hello.name.clone(),
                 local,
                 capacity: hello.capacity,
+                executor: hello.executor,
                 tx,
                 games: Vec::new(),
             },
@@ -558,7 +587,11 @@ async fn run_engine_socket(state: Shared, mut socket: WebSocket, place: Option<a
         if let Some(why) = baylee_protocol::version_refusal("This engine", hello.protocol_version) {
             tracing::error!(game_id, why, "engine refused");
             Err(why)
-        } else if game.challenge.is_some() && hello.build != baylee_challenges::executor() {
+        } else if game
+            .challenge_executor
+            .as_ref()
+            .is_some_and(|required| hello.build != *required)
+        {
             Err("challenge engine build does not match its certificate".to_owned())
         } else {
             let Some(preset) = game.preset.as_ref() else {
