@@ -710,12 +710,16 @@ fn encode_seats4(
     seat_count: usize,
 ) {
     let my_team = teams.get(viewer.get() as usize).copied().flatten();
-    for rel in 0..seat_count.min(MAX_SEATS) {
+    for (rel, dst) in state
+        .seat_feat
+        .iter_mut()
+        .enumerate()
+        .take(seat_count.min(MAX_SEATS))
+    {
         let abs = abs_seat(viewer, rel, seat_count);
         let Some(sv) = view.seats.get(abs.get() as usize) else {
             continue;
         };
-        let dst = &mut state.seat_feat[rel];
         let seat_team = teams.get(abs.get() as usize).copied().flatten();
         let is_self = rel == 0;
         let is_teammate = !is_self && my_team.is_some() && my_team == seat_team;
@@ -1035,8 +1039,8 @@ fn build_edges4(state: &mut EncodedState4, view: &PlayerView, viewer: PlayerId, 
         if cid == UNKNOWN_CARD {
             continue;
         }
-        for j in (i + 1)..n_ent {
-            if state.entity_card_ids[j] == cid {
+        for (j, &other) in state.entity_card_ids.iter().enumerate().skip(i + 1) {
+            if other == cid {
                 let ti = ENTITY_TOKEN_OFFSET + i as i16;
                 let tj = ENTITY_TOKEN_OFFSET + j as i16;
                 push_edge(ti, tj, EdgeRel4::SameCardCopy);

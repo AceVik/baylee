@@ -472,8 +472,7 @@ fn pair(root: &Path, spec: &str, resamples: usize, pairing: Pairing) -> Result<V
 fn deck_breakdown(report: &mut Value, filter: &DeckFilter, small: usize) -> Result<()> {
     let teams: Vec<u64> = report["teams"]
         .as_array()
-        .map(|teams| teams.iter().filter_map(Value::as_u64).collect())
-        .unwrap_or_default();
+        .map_or_default(|teams| teams.iter().filter_map(Value::as_u64).collect());
     let rows = report["rows"]
         .as_array()
         .context("a report without its rows")?;

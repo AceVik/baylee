@@ -16,19 +16,16 @@ use super::GameRef;
 /// The keys a game's `games.jsonl` row gives its seats: a list of keys (v5
 /// teacher runs) or of objects with a `key` (converted language-model runs).
 pub(super) fn row_keys(row: &Value) -> Vec<Option<String>> {
-    row["decks"]
-        .as_array()
-        .map(|decks| {
-            decks
-                .iter()
-                .map(|deck| {
-                    deck.as_str()
-                        .or_else(|| deck["key"].as_str())
-                        .map(str::to_owned)
-                })
-                .collect()
-        })
-        .unwrap_or_default()
+    row["decks"].as_array().map_or_default(|decks| {
+        decks
+            .iter()
+            .map(|deck| {
+                deck.as_str()
+                    .or_else(|| deck["key"].as_str())
+                    .map(str::to_owned)
+            })
+            .collect()
+    })
 }
 
 /// The run a game's shard belongs to (`RUN/records/SHARD`).
@@ -50,8 +47,7 @@ pub(super) fn refusals(guard: &TrainOnly, games: &[GameRef]) -> anyhow::Result<V
             std::fs::read(run.join("run.json"))
                 .ok()
                 .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
-                .map(|run_json| run_deck_keys(&run_json))
-                .unwrap_or_default()
+                .map_or_default(|run_json| run_deck_keys(&run_json))
         });
         let seats: Vec<Seat> = seats
             .into_iter()

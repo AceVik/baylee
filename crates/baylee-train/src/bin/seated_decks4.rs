@@ -104,19 +104,16 @@ fn header_seats(run: &Path, row: &Value) -> anyhow::Result<Option<Vec<Cards>>> {
 
 /// The keys a game's row gives its seats, if it gives any.
 fn row_keys(row: &Value) -> Vec<Option<String>> {
-    row["decks"]
-        .as_array()
-        .map(|decks| {
-            decks
-                .iter()
-                .map(|deck| {
-                    deck.as_str()
-                        .or_else(|| deck["key"].as_str())
-                        .map(str::to_owned)
-                })
-                .collect()
-        })
-        .unwrap_or_default()
+    row["decks"].as_array().map_or_default(|decks| {
+        decks
+            .iter()
+            .map(|deck| {
+                deck.as_str()
+                    .or_else(|| deck["key"].as_str())
+                    .map(str::to_owned)
+            })
+            .collect()
+    })
 }
 
 /// What one run seated.

@@ -60,8 +60,7 @@ pub(super) fn fed() -> Vec<Report> {
     feed_channel()
         .1
         .lock()
-        .map(|receiver| receiver.try_iter().collect())
-        .unwrap_or_default()
+        .map_or_default(|receiver| receiver.try_iter().collect())
 }
 
 /// `/shell`'s `"update"` knob: feeds the report it describes and answers a

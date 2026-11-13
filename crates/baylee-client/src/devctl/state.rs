@@ -1451,11 +1451,7 @@ fn arrangement_json(believed: &Believed, duel: &Duel) -> String {
         .settings
         .as_deref()
         .map_or(Lang::En, |s| Lang::of(&s.lang));
-    let table = believed
-        .settings
-        .as_deref()
-        .map(|s| s.table)
-        .unwrap_or_default();
+    let table = believed.settings.as_deref().map_or_default(|s| s.table);
     let class = measured.class();
     let offered: Vec<&str> = Arrangement::offered_at(measured.seats, class)
         .into_iter()

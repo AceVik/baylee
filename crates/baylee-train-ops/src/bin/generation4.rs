@@ -358,8 +358,7 @@ fn main() -> Result<()> {
     atomic_json(&out, &plan)?;
     let names: Vec<&str> = plan["stages"]
         .as_array()
-        .map(|stages| stages.iter().filter_map(|s| s["name"].as_str()).collect())
-        .unwrap_or_default();
+        .map_or_default(|stages| stages.iter().filter_map(|s| s["name"].as_str()).collect());
     println!(
         "{} stages ({}) in {}",
         names.len(),
