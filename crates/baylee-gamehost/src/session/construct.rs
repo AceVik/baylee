@@ -1,8 +1,8 @@
 #[cfg(any(test, feature = "foresight"))]
 use super::foresight;
-use super::{RegistryLookup, SeatKind, Session, own_prints, seat_byte, spectators};
+use super::{RegistryLookup, SeatKind, Session, challenge, own_prints, seat_byte, spectators};
 use crate::log::GameLog;
-use baylee_ai::{HeuristicAgent, policy_seed};
+use baylee_ai::HeuristicAgent;
 use baylee_core::ids::SeatSet;
 use baylee_core::preset::{AiHandSharePolicy, GamePreset, SeatController};
 use baylee_engine::engine::Engine;
@@ -36,6 +36,9 @@ impl Session {
     /// get a heuristic agent.
     #[must_use]
     pub fn new(preset: &GamePreset) -> Option<Self> {
+        if !challenge::valid(preset) {
+            return None;
+        }
         let seats: Vec<SeatKind> = preset
             .seats
             .iter()
@@ -47,7 +50,11 @@ impl Session {
                         // A table nobody has named yet gets the derivation
                         // with no identifier, which is still independent of
                         // the shuffle; `describe` supplies the real one.
-                        .with_seed(policy_seed("", seat_byte(i)))
+                        .with_seed(challenge::policy_seed(
+                            &preset.house_rules,
+                            "",
+                            seat_byte(i),
+                        ))
                         .with_teams(preset.seats.iter().map(|s| s.team).collect()),
                 )),
                 _ => Some(SeatKind::Human),
@@ -102,7 +109,7 @@ impl Session {
                 revealed: vec![false; preset.prints.len()],
                 ..spectators::Gallery::default()
             },
-            fair_scouting: false,
+            fair_scouting: preset.house_rules.challenge_policy_seed.is_some(),
             #[cfg(any(test, feature = "foresight"))]
             foresight: foresight::Desk::new(preset.seats.len()),
             last_attempt: None,

@@ -24,6 +24,8 @@ impl Session {
     /// an agent asked anew could answer differently (its stream restarts
     /// here), and the engine would leave the record. What the house plays
     /// from here on is its own.
+    /// A challenge instead has a fixed policy: every recorded house answer is
+    /// recomputed and compared, restoring the agent's memory before play resumes.
     ///
     /// The game's description ([`Session::describe`]) is not in the record,
     /// which names no one: the caller gives it again.
@@ -85,6 +87,9 @@ impl Session {
         // A record naming a seat the table lacks is not this game: refused
         // here, before the session indexes anything by it.
         if usize::from(player.get()) >= self.seats.len() {
+            return false;
+        }
+        if self.is_challenge() && !self.challenge_replay_answer(player, by, &action) {
             return false;
         }
         let moves_the_game = !action.is_automation_setting();

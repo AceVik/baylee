@@ -67,6 +67,12 @@ pub struct HouseRules {
     /// byte-identical.
     #[serde(default, skip_serializing_if = "HandSharingRule::is_default")]
     pub hand_sharing: HandSharingRule,
+    /// Private, frozen opponent-policy seed for an official challenge. Independent
+    /// of the shuffle seed and every attempt's public game ID. Its presence also
+    /// requires untimed play without stand-ins, takebacks or adaptive house search.
+    /// Absent on ordinary presets and old records, preserving their wire bytes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub challenge_policy_seed: Option<u64>,
 }
 
 /// Seconds a seat has to answer one question unless the table says
@@ -97,6 +103,7 @@ impl Default for HouseRules {
             order_triggers: false,
             divide_trample: false,
             hand_sharing: HandSharingRule::default(),
+            challenge_policy_seed: None,
         }
     }
 }

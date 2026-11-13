@@ -264,7 +264,7 @@ impl Session {
         asked_at: u64,
         answers: usize,
     ) -> Option<Result<Vec<(PlayerId, Envelope)>, String>> {
-        if self.asked_at(seat)? != asked_at {
+        if self.is_challenge() || self.asked_at(seat)? != asked_at {
             return None;
         }
         let pending = self.engine.pending_for(seat)?.clone();

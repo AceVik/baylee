@@ -1,5 +1,4 @@
-use super::{SeatKind, Session, frames_of, seat_byte};
-use baylee_ai::policy_seed;
+use super::{SeatKind, Session, challenge, frames_of, seat_byte};
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::Pending;
 use baylee_protocol::v1;
@@ -32,7 +31,7 @@ impl Session {
         // are not currently answering: a seat handed back by `release` or
         // `hand_back` plays on with the agent it kept.
         for (i, kind) in self.seats.iter_mut().enumerate() {
-            let seed = policy_seed(&game_id, seat_byte(i));
+            let seed = challenge::policy_seed(&self.house_rules, &game_id, seat_byte(i));
             match kind {
                 SeatKind::Ai(agent) | SeatKind::Driven(agent) | SeatKind::StandIn(agent) => {
                     *agent = agent.clone().with_seed(seed);

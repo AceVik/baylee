@@ -1,5 +1,21 @@
 use super::*;
 
+#[test]
+fn a_challenge_policy_is_private_preset_data_and_absent_from_ordinary_records() {
+    let ordinary = serde_json::to_value(HouseRules::default()).unwrap();
+    assert!(ordinary.get("challenge_policy_seed").is_none());
+    let old: HouseRules = serde_json::from_value(ordinary).unwrap();
+    assert_eq!(old.challenge_policy_seed, None);
+    let challenge = HouseRules {
+        challenge_policy_seed: Some(9_001),
+        ..old
+    };
+    assert_eq!(
+        serde_json::from_slice::<HouseRules>(&serde_json::to_vec(&challenge).unwrap()).unwrap(),
+        challenge
+    );
+}
+
 fn preset(seats: usize, prints: usize, print_ref: u16) -> GamePreset {
     GamePreset {
         rules: crate::card_metadata::RulesMetadata::default(),

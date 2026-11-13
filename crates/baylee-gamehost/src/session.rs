@@ -24,6 +24,7 @@ use crate::record::{Mind, MindKind, Recorder, Source};
 
 mod answers;
 mod chairs;
+mod challenge;
 mod choice_context;
 mod clocks;
 mod construct;
@@ -339,7 +340,7 @@ impl Session {
     /// `fair` set even `seer` is told only its own decklist, so a measurement
     /// never depends on hidden information whatever it seats.
     pub fn set_fair_scouting(&mut self, fair: bool) {
-        self.fair_scouting = fair;
+        self.fair_scouting = fair || self.is_challenge();
     }
 
     /// Whether fair-scouting mode is active on this session.
@@ -388,7 +389,11 @@ impl Session {
             teams: &self.teams,
             scouting_decks: &self.scouting_decks,
             fair_scouting: self.fair_scouting,
-            seq: self.seq,
+            seq: if self.is_challenge() {
+                self.decisions
+            } else {
+                self.seq
+            },
             house_answered: &self.house_answered,
             showing: &self.showing,
             shown_once: &self.shown_once,
