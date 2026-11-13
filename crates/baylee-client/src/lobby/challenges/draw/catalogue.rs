@@ -116,7 +116,7 @@ fn card(
                 n.flex_grow = 1.0;
                 n.flex_basis = px_fixed(0.0);
                 n.min_width = px_fixed(0.0);
-                n.min_height = kit.m.px(220.0);
+                n.min_height = kit.m.px(210.0);
                 n.border = UiRect {
                     top: px_fixed(2.0),
                     ..UiRect::all(px_fixed(1.0))
@@ -133,7 +133,23 @@ fn card(
     } else {
         tokens::ACCENT
     };
-    label(commands, panel, kit, kind.text(lang), accent);
+    commands.entity(panel).insert(BorderColor {
+        top: accent.with_alpha(0.75),
+        ..BorderColor::all(tokens::BORDER)
+    });
+    let top = row(commands, panel, kit);
+    let caption = crate::lobby::parts::badge(commands, kit, kind.text(lang), accent);
+    commands.entity(top).add_child(caption);
+    let spacer = crate::lobby::parts::grow(commands);
+    commands.entity(top).add_child(spacer);
+    let duration = crate::lobby::parts::glyph_line(
+        commands,
+        kit,
+        '\u{f017}',
+        &Phrase::ChallengeMinutes.fill(lang, &[&task.description.expected_minutes.to_string()]),
+        tokens::MUTED,
+    );
+    commands.entity(top).add_child(duration);
     let title = crate::lobby::parts::line(
         commands,
         kit,
@@ -146,13 +162,7 @@ fn card(
         commands,
         panel,
         kit,
-        &Phrase::ChallengeTarget.fill(
-            lang,
-            &[
-                &task.description.target_turn.to_string(),
-                &task.description.expected_minutes.to_string(),
-            ],
-        ),
+        &Phrase::ChallengeTargetCompact.fill(lang, &[&task.description.target_turn.to_string()]),
         tokens::MUTED,
     );
     let space = crate::lobby::parts::grow(commands);

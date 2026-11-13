@@ -539,8 +539,8 @@ fn a_session_that_ended_lands_on_the_front_door_with_the_draft_kept() {
     assert_eq!(state.lobby.builder().name(), "Weltenbaum");
 }
 
-/// The account pill names `/me`'s handle, and the gateway pill counts what
-/// `/lobby/stats` said; before it answers, the tables the listing knows.
+/// The account pill names `/me`'s handle; connection statistics belong in
+/// the explicit popover, leaving the primary header compact.
 #[test]
 fn the_pills_read_me_and_the_stats() {
     let mut app = headless();
@@ -553,7 +553,7 @@ fn the_pills_read_me_and_the_stats() {
     }
     window(&mut app, 1920.0, 1080.0);
     app.update();
-    assert!(labels(&mut app).iter().any(|l| l == "0 waiting"));
+    assert!(!labels(&mut app).iter().any(|l| l == "0 waiting"));
     {
         let mailbox = app.world().resource::<Mailbox>().clone();
         let epoch = app.world().resource::<LobbyState>().gateway_epoch;
@@ -581,7 +581,7 @@ fn the_pills_read_me_and_the_stats() {
     assert!(drawn.iter().any(|l| l == "AceVik"), "{drawn:?}");
     assert!(drawn.iter().any(|l| l == "#0007"), "{drawn:?}");
     assert!(
-        drawn.iter().any(|l| l == "3 tables · 12 online"),
+        !drawn.iter().any(|l| l == "3 tables · 12 online"),
         "{drawn:?}"
     );
     // A second, equal answer changes nothing (no rebuild).
@@ -606,6 +606,11 @@ fn the_pills_read_me_and_the_stats() {
         "state {} prefs {} cast {} frame {}",
         r.state, r.prefs, r.cast, r.frame
     );
+    press(&mut app, Press::Header(HeaderPress::Gateway));
+    let details = labels(&mut app);
+    for value in ["12", "3", "4"] {
+        assert!(details.iter().any(|label| label == value), "{details:?}");
+    }
 }
 
 /// The bell rings for somebody sitting down at the player's table: its count

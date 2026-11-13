@@ -10129,6 +10129,10 @@ ChallengeObsidian = Obsidian
 ChallengeHome = Your next challenge
 ChallengeHomeLead = One world. The same challenge for everyone. Find your own way to win.
 ChallengeExplore = Explore challenge
+# Arguments: minutes
+ChallengeMinutes = About { $minutes } min
+# Arguments: turn
+ChallengeTargetCompact = Tactician goal · win by turn { $turn }
 ChallengeTogether = Looking for a match with other players?
 ChallengeMultiplayer = Multiplayer
 ChallengeConnection = Connection

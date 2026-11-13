@@ -17,7 +17,7 @@ pub(super) fn badges(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang
         .and_modify(|mut n| n.align_items = AlignItems::Stretch);
     for badge in &model.badges {
         let cell = cell(commands, gallery, kit);
-        medal(commands, cell, kit, badge.kind, badge.tier, 128.0);
+        medal(commands, cell, kit, badge.kind, badge.tier, 112.0);
         let mut small = kit;
         small.m.text = kit.m.small;
         button(

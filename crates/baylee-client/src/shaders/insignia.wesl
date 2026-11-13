@@ -21,6 +21,19 @@ fn diamond(p: vec2<f32>, size: vec2<f32>) -> f32 {
     return (abs(p.x) / size.x + abs(p.y) / size.y - 1.0) * min(size.x, size.y);
 }
 
+// A rounded metal bevel with broad studio reflections, not a flat coloured line.
+fn metal_light(p: vec2<f32>, r: f32, centre: f32, width: f32) -> vec3<f32> {
+    let slope = clamp((r - centre) / width, -0.96, 0.96);
+    let radial = p / max(r, 0.001);
+    let n = vec3<f32>(radial * slope, sqrt(1.0 - slope * slope));
+    let key = normalize(vec3<f32>(-0.45, -0.65, 0.70));
+    let diffuse = max(dot(n, key), 0.0);
+    let reflection = pow(max(dot(n, normalize(key + vec3<f32>(0.0, 0.0, 1.0))), 0.0), 22.0);
+    let brushed = 0.97 + 0.03 * sin(r * 720.0);
+    return params.metal.rgb * (0.18 + 0.92 * diffuse) * brushed
+        + mix(params.metal.rgb, vec3<f32>(1.0), 0.45) * reflection * 0.70;
+}
+
 // Every emblem has a recognisable outer contour, even in its locked etching.
 fn emblem(p: vec2<f32>, kind: f32, aa: f32) -> f32 {
     let r = length(p); let a = atan2(p.y, p.x);
@@ -70,24 +83,31 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let engraving = stroke(r - 0.399, 0.005, aa);
     let light = clamp(0.56 - p.y * 0.42 - p.x * 0.24, 0.18, 1.0);
     var color = metal * light * 0.44;
-    color = mix(color, metal * (0.55 + light), edge);
-    color = mix(color, metal * 0.9, bevel);
-    color = mix(color, mix(vec3<f32>(0.012, 0.018, 0.025), gem * 0.09, earned), inset);
+    color = mix(color, metal_light(p, r, 0.505, 0.027), edge);
+    color = mix(color, metal_light(p, r, 0.465, 0.013), bevel);
+    let enamel = mix(vec3<f32>(0.006, 0.010, 0.015), gem * 0.035, earned);
+    let enamel_light = 0.65 + 0.55 * max(0.0, 1.0 - length(p + vec2<f32>(0.16, 0.20)) * 1.5);
+    color = mix(color, enamel * enamel_light, inset);
     color = mix(color, metal * 0.38, engraving);
     let etch = emblem(p, params.shape.x, aa);
-    color = mix(color, metal * (0.85 + light * 0.55), etch);
+    let relief = emblem(p + vec2<f32>(0.006, 0.009), params.shape.x, aa);
+    color = mix(color, vec3<f32>(0.002, 0.004, 0.006), max(0.0, relief - etch) * 0.8);
+    let raised = metal * (0.48 + light * 0.65)
+        + mix(metal, vec3<f32>(1.0), 0.35) * pow(max(0.0, 1.0 - abs(p.x + p.y * 0.7) * 3.0), 6.0) * 0.24;
+    color = mix(color, raised, etch);
+    color += mix(metal, vec3<f32>(1.0), 0.5) * max(0.0, etch - relief) * 0.55;
     var alpha = disc;
     // Silver: second engraved bezel and eight rivets.
     if tier > 1.5 {
         let outer = stroke(r - 0.585, 0.013, aa);
         let rivets = stroke(r - 0.56, 0.018, aa) * stroke(sin(a * 4.0), 0.13, aa * 3.0);
         let detail = max(outer, rivets);
-        color = mix(color, metal * (0.65 + light), detail);
+        color = mix(color, metal_light(p, r, 0.585, 0.016), detail);
         alpha = max(alpha, detail);
     }
     // Gold: a mirrored laurel wreath, individual pointed leaves on curved stems.
     if tier > 2.5 {
-        let stem = stroke(r - 0.70, 0.009, aa) * fill(abs(a + PI * 0.5) - 2.45, aa);
+        let stem = stroke(r - 0.70, 0.009, aa) * fill(-0.62 - p.y, aa) * fill(p.y - 0.60, aa);
         var leaves = 0.0;
         for (var i = 0; i < 7; i = i + 1) {
             let angle = -1.05 + f32(i) * 0.34;
@@ -97,7 +117,8 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
             leaves = max(leaves, fill(diamond(leaf, vec2<f32>(0.092, 0.032)), aa));
         }
         let wreath = max(stem, leaves);
-        color = mix(color, metal * (0.58 + light), wreath);
+        let facets = 0.38 + light * 0.72 + 0.20 * sin(a * 24.0);
+        color = mix(color, metal * facets, wreath);
         alpha = max(alpha, wreath);
     }
     // Platinum: five gemstone sockets and a suspended pendant.
@@ -108,11 +129,12 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
             let cut = diamond(p - centre, vec2<f32>(0.043, 0.065));
             let socket = fill(cut - 0.014, aa);
             color = mix(color, metal, socket);
-            color = mix(color, gem * (0.65 + light), fill(cut, aa));
+            let facet = select(0.45, 1.25, p.x < centre.x) + select(0.0, 0.25, p.y < centre.y);
+            color = mix(color, gem * facet, fill(cut, aa));
             alpha = max(alpha, socket);
         }
         let pendant = fill(diamond(p - vec2<f32>(0.0, 0.79), vec2<f32>(0.085, 0.105)), aa);
-        color = mix(color, gem * 0.9, pendant); alpha = max(alpha, pendant);
+        color = mix(color, gem * select(0.48, 1.20, p.x < 0.0), pendant); alpha = max(alpha, pendant);
     }
     // Obsidian: a three-point crown, aurora halo and a restrained travelling glint.
     if tier > 4.5 {

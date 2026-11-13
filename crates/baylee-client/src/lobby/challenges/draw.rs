@@ -52,9 +52,23 @@ pub(in crate::lobby) fn draw(
             ScrollPosition(Vec2::new(0.0, scrolled.get(List::Table))),
         ));
     }
-    commands.entity(root).add_child(body);
-    let head = row(commands, body, kit);
+    attach_body(commands, root, body, metrics.frame);
+    let masthead = panel(commands, body, kit);
+    let head = row(commands, masthead, kit);
     heading(commands, head, kit, Phrase::ChallengeNav.text(lang));
+    let spacer = crate::lobby::parts::grow(commands);
+    commands.entity(head).add_child(spacer);
+    if model.selected.is_some() {
+        button(
+            commands,
+            head,
+            kit,
+            Phrase::Back.text(lang),
+            Action::Back,
+            model,
+            Weight::Secondary,
+        );
+    }
     button(
         commands,
         head,
@@ -62,7 +76,7 @@ pub(in crate::lobby) fn draw(
         Phrase::Refresh.text(lang),
         Action::Refresh,
         model,
-        Weight::Secondary,
+        Weight::Ghost,
     );
     if !state.central_ready() {
         label(
@@ -102,20 +116,27 @@ pub(in crate::lobby) fn draw(
         );
     }
     if model.selected.is_some() {
-        button(
-            commands,
-            body,
-            kit,
-            Phrase::Back.text(lang),
-            Action::Back,
-            model,
-            Weight::Ghost,
-        );
         if let Some(task) = &model.detail {
             detail::draw(commands, body, kit, lang, model, task);
         }
     } else {
         catalogue(commands, body, kit, lang, model, true);
+    }
+}
+
+fn attach_body(commands: &mut Commands, root: Entity, body: Entity, frame: Frame) {
+    if frame == Frame::Compact {
+        commands.entity(root).add_child(body);
+    } else {
+        let band = crate::lobby::scrollbars::band_when_needed(commands, body, false);
+        commands
+            .entity(band)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.width = percent(100);
+                node.flex_grow = 1.0;
+            });
+        commands.entity(root).add_child(band);
     }
 }
 
@@ -197,7 +218,7 @@ fn panel(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::PANEL),
+            BackgroundColor(tokens::OPAQUE),
             BorderColor::all(tokens::BORDER),
             Pickable::IGNORE,
         ))

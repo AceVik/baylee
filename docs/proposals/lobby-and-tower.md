@@ -51,6 +51,17 @@ areas; retain evidence and review the final implementation in the existing PRs.
    through expansion: eight UI and seven core tests pass. The native client
    was closed and its harness port verified closed after this run.
 5. Finish: rendered refinement, motion/counter-test, performance and final QA.
+   Replaced flat bezels with rounded lit metal, relief, enamel and faceted
+   gems; corrected the mirrored wreath. Opaque reading surfaces, compact
+   duration/goal metadata and a visible scrollbar finish the composition.
+   The real native render confirms scrolling over empty space and all five
+   distinct tiers. Eighty-one focused client tests (including Naga, cache,
+   scrolling, header, central door and keyboard) and seven core tests pass.
+   Ten seconds of live animation left the UI rebuild count at 10 → 10.
+   Follow-up is required: the render caught missing argument declarations in
+   two new phrases, and reduced motion was unavailable before gateway sign-in.
+6. Accessibility follow-up: allow motion reduction before joining a gateway,
+   verify the still counter-test and corrected German/English compact labels.
 
 Each entry is completed only after an actual change and focused verification;
 follow-up rounds are added if the rendered result still needs work.

@@ -40,8 +40,9 @@ pub(in crate::lobby) fn home(
             ScrollPosition(Vec2::new(0.0, scrolled.get(List::Table))),
         ));
     }
-    commands.entity(root).add_child(body);
-    let head = row(commands, body, kit);
+    attach_body(commands, root, body, metrics.frame);
+    let masthead = panel(commands, body, kit);
+    let head = row(commands, masthead, kit);
     heading(commands, head, kit, Phrase::ChallengeHome.text(lang));
     let spacer = crate::lobby::parts::grow(commands);
     commands.entity(head).add_child(spacer);
@@ -56,7 +57,7 @@ pub(in crate::lobby) fn home(
     );
     label(
         commands,
-        body,
+        masthead,
         kit,
         Phrase::ChallengeHomeLead.text(lang),
         tokens::MUTED,
@@ -88,7 +89,8 @@ pub(in crate::lobby) fn home(
         );
     }
     catalogue(commands, body, kit, lang, model, false);
-    let foot = row(commands, body, kit);
+    let footer = panel(commands, body, kit);
+    let foot = row(commands, footer, kit);
     label(
         commands,
         foot,
