@@ -1,5 +1,7 @@
 //! Exact activation-reader census over the compiled card pool.
 
+mod wishlist;
+
 use super::*;
 
 /// How many of the pool's activated and loyalty abilities the table reads,
@@ -495,48 +497,6 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // and graveyard-copy abilities, and Vivien's private exile/cast permission,
     // remain contextual rather than receiving an invented empty-board value.
     assert_eq!((read, of), (3007, 3800), "activated/loyalty reader census");
-
-    for (name, face, expected) in [
-        ("Viridian Longbow", 0, &[true][..]),
-        ("Thornbite Staff", 0, &[true][..]),
-        ("Blazing Torch", 0, &[true][..]),
-        ("Ninja's Kunai", 0, &[true][..]),
-        ("Spare Dagger", 0, &[true][..]),
-        ("Qarsi Revenant", 0, &[true][..]),
-        ("Vivien, Champion of the Wilds", 0, &[true, false][..]),
-        ("Grist, Voracious Larva", 1, &[false, true, false][..]),
-    ] {
-        let card = baylee_cards::decks::by_name(name).unwrap();
-        let definition = baylee_cards::by_index(card).unwrap();
-        let actual: Vec<bool> = definition
-            .abilities_for_face(face)
-            .iter()
-            .filter_map(|ability| match ability {
-                AbilityDef::Activated {
-                    effects,
-                    mana_ability: false,
-                    ..
-                }
-                | AbilityDef::ActivatedConditional {
-                    effects,
-                    mana_ability: false,
-                    ..
-                }
-                | AbilityDef::Loyalty { effects, .. } => Some(*effects),
-                _ => None,
-            })
-            .map(|effects| {
-                agent()
-                    .effects_worth(&v, origin, effects, Aim::Source, 0)
-                    .is_some()
-            })
-            .collect();
-        assert_eq!(
-            actual.as_slice(),
-            expected,
-            "{name}: exact activation rows and reader coverage"
-        );
-    }
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [
