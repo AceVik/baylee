@@ -5,6 +5,8 @@ mod aliases;
 #[path = "e2e_central/chat.rs"]
 mod chat;
 use crate::common;
+#[path = "central/challenges.rs"]
+mod challenges;
 #[path = "central/fresh.rs"]
 mod fresh;
 #[path = "central/held.rs"]
@@ -259,7 +261,7 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
             &operator,
             &served.bridge,
         );
-        fresh::run(&runtime, &served.service, endpoint, gateway);
+        fresh::run(&runtime, &served.service, endpoint, gateway, &served.bridge);
         pairing::run(&runtime, &served.service, &operator, endpoint, gateway);
         registered::run(&runtime, &operator, endpoint);
         terms::run(&runtime, &operator, endpoint);

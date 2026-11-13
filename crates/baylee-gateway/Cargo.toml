@@ -94,6 +94,7 @@ uuid.workspace = true
 rustix.workspace = true
 
 [dev-dependencies]
+baylee-train = { path = "../baylee-train" }
 baylee-account = { workspace = true, features = ["client"] }
 central-api.workspace = true
 central-crypto = { workspace = true, features = ["server"] }

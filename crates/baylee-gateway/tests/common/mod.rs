@@ -797,7 +797,9 @@ async fn run_engine(
         .unwrap()
     };
     let mut armed = baylee_engine_server::Armed::default();
+    let measured_from = tokio::time::Instant::now();
     loop {
+        runner.wait_from(u64::try_from(measured_from.elapsed().as_millis()).unwrap());
         let delay = runner
             .entrance_deadline()
             .map(|at| std::time::Duration::from_millis(at.saturating_sub(wall_ms())));
@@ -817,6 +819,7 @@ async fn run_engine(
             } => {
                 let Some((clock, _)) = next else { continue };
                 armed.fired(clock);
+                runner.measure_until(u64::try_from(measured_from.elapsed().as_millis()).unwrap());
                 runner.tell_time(wall_ms());
                 runner.timeout(clock)
             }
@@ -824,10 +827,12 @@ async fn run_engine(
                 if let Some(delay) = delay { tokio::time::sleep(delay).await; }
                 else { std::future::pending::<()>().await; }
             } => {
+                runner.measure_until(u64::try_from(measured_from.elapsed().as_millis()).unwrap());
                 runner.tell_time(wall_ms());
                 runner.finish_entrance()
             }
             msg = next_msg(&mut ws) => {
+                runner.measure_until(u64::try_from(measured_from.elapsed().as_millis()).unwrap());
                 let Some(mut msg) = msg else { break };
                 if matches!(&msg, v1::envelope::Msg::SeatFrame(_)) {
                     probe.seat_frames.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
