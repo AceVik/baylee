@@ -183,7 +183,7 @@ pub fn android(options: &Android) -> Result<i32> {
     build.env("BAYLEE_GATEWAY", &gateway);
     build.env(
         "BAYLEE_DEV_CONTROL",
-        devctl.map(|p| p.to_string()).unwrap_or_default(),
+        devctl.map_or_default(|p| p.to_string()),
     );
     let rc = run::code(run::status(&mut build));
     if let Some(apk) = newest_apk() {

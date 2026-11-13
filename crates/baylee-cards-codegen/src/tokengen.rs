@@ -466,7 +466,7 @@ fn constant_name(
     if let (Some(p), Some(t)) = (power, toughness) {
         let _ = write!(out, "_{}_{}", pt_word(p), pt_word(t));
     }
-    for word in colors.map(|c| c.words.as_slice()).unwrap_or_default() {
+    for word in colors.map_or_default(|c| c.words.as_slice()) {
         let _ = write!(out, "_{}", word.to_ascii_uppercase());
     }
     for keyword in keywords {
@@ -498,7 +498,7 @@ fn doc_line(
     if let (Some(p), Some(t)) = (power, toughness) {
         let _ = write!(out, "{p}/{t} ");
     }
-    match colors.map(|c| c.words.as_slice()).unwrap_or_default() {
+    match colors.map_or_default(|c| c.words.as_slice()) {
         [] => out.push_str("colorless "),
         words => {
             for word in words {

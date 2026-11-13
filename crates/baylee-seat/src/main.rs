@@ -566,7 +566,7 @@ fn reach(
     plan.settings.transcripts.clone_from(&join.transcripts);
     plan.settings.reports = paths.reports(join.reports_dir.as_deref(), join.transcripts.as_deref());
     Ok(Some(Reachable {
-        caps: file.as_ref().map(|file| file.caps).unwrap_or_default(),
+        caps: file.as_ref().map_or_default(|file| file.caps),
         book: paths.book(file.is_some()),
         plan,
         access,

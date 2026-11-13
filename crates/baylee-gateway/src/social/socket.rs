@@ -256,12 +256,11 @@ pub(crate) async fn snapshot(state: &Shared, account: &str) -> anyhow::Result<Sn
     let settings = baylee_db::social::settings_of(db, &[id])
         .await?
         .first()
-        .map(|(_, s)| SocialSettings {
+        .map_or_default(|(_, s)| SocialSettings {
             whispers_from: WhispersFrom::from_code(s.whispers_from),
             requests_open: s.requests_open,
             share_table: s.share_table,
-        })
-        .unwrap_or_default();
+        });
     Ok(Snapshot {
         friends,
         incoming,

@@ -69,9 +69,7 @@ impl Storage {
 
 fn read_udev(device: DeviceNumber) -> Udev {
     let path = format!("/run/udev/data/b{}:{}", device.0, device.1);
-    fs::read_to_string(path)
-        .map(|text| udev::parse(&text))
-        .unwrap_or_default()
+    fs::read_to_string(path).map_or_default(|text| udev::parse(&text))
 }
 
 /// Joins the disks, the mount table and udev's names. `read_usage` is called

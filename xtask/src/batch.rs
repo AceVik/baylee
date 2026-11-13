@@ -128,8 +128,7 @@ pub(crate) fn drift_from_status(porcelain: &str, asked: &BTreeSet<String>) -> Ve
         }
         let slug = Path::new(path)
             .file_stem()
-            .map(|s| s.to_string_lossy().to_string())
-            .unwrap_or_default();
+            .map_or_default(|s| s.to_string_lossy().to_string());
         if !asked.contains(&slug) {
             drift.push(path.to_string());
         }

@@ -690,8 +690,7 @@ pub fn sync_tray(
     let selected: Vec<ObjectId> = duel
         .interaction
         .as_ref()
-        .map(|i| i.selected().collect())
-        .unwrap_or_default();
+        .map_or_default(|i| i.selected().collect());
     let aim = duel
         .interaction
         .as_ref()

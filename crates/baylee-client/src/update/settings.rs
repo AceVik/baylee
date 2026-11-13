@@ -367,8 +367,7 @@ pub(super) fn show_settings(
                 Some(Asked::Found) => notice
                     .shown
                     .as_ref()
-                    .map(|shown| shown.headline(lang))
-                    .unwrap_or_default(),
+                    .map_or_default(|shown| shown.headline(lang)),
             },
         };
         if **text != value {

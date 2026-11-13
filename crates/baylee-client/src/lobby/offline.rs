@@ -795,21 +795,19 @@ impl Offline {
                         .deck
                         .as_ref()
                         .and_then(|id| self.deck(id))
-                        .map(|d| d.name.clone())
-                        .unwrap_or_default(),
+                        .map_or_default(|d| d.name.clone()),
                     format: chair
                         .deck
                         .as_ref()
                         .and_then(|id| self.deck(id))
-                        .map(|d| {
+                        .map_or_default(|d| {
                             if d.commanders.is_empty() {
                                 "freeform"
                             } else {
                                 "commander"
                             }
                             .to_string()
-                        })
-                        .unwrap_or_default(),
+                        }),
                     ready: (at == 0 || chair.ready) && chair.deck.is_some(),
                     team: chair.team,
                 })
@@ -928,9 +926,7 @@ pub(crate) fn pool_row(card: &baylee_cards::pool::PoolCard) -> client_core::deck
 /// their card will be drawn as.
 fn reference_printing(card: u32) -> Option<client_core::deckbuilder::Printing> {
     let def = baylee_cards::all().find(|d| d.index.get() == card)?;
-    let rarity = baylee_cards::sides::rarity(def.index)
-        .map(|r| r.word().to_string())
-        .unwrap_or_default();
+    let rarity = baylee_cards::sides::rarity(def.index).map_or_default(|r| r.word().to_string());
     Some(client_core::deckbuilder::Printing {
         scryfall_id: def.scryfall_id.to_string(),
         oracle_id: def.oracle_id.to_string(),

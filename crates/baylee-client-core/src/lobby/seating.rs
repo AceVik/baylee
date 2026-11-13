@@ -196,8 +196,7 @@ impl Lobby {
         let deck_id = self
             .selected()
             .and_then(|at| self.decks.get(at))
-            .map(|d| d.id.clone())
-            .unwrap_or_default();
+            .map_or_default(|d| d.id.clone());
         if mode == GameMode::Ai && deck_id.is_empty() {
             self.refuse(Phrase::PickADeckFirst);
             return None;
@@ -248,8 +247,7 @@ impl Lobby {
         let deck_id = self
             .selected()
             .and_then(|at| self.decks.get(at))
-            .map(|d| d.id.clone())
-            .unwrap_or_default();
+            .map_or_default(|d| d.id.clone());
         // An invite stands in for the password: the box is not sent with it.
         let password = if invite.is_some() {
             String::new()

@@ -1736,9 +1736,7 @@ impl Mind for ApiMind {
 
     fn reports(&self, game: &str, seat: u8) -> Vec<Filed> {
         let state = lock(&self.seats).get(&(game.to_owned(), seat)).cloned();
-        state
-            .map(|state| lock(&state).seat.reports.take())
-            .unwrap_or_default()
+        state.map_or_default(|state| lock(&state).seat.reports.take())
     }
 
     fn disclosure(&self) -> Disclosure {

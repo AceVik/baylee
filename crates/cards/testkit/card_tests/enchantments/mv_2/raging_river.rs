@@ -204,8 +204,7 @@ fn may_block(engine: &Engine<RegistryLookup>, blocker: ObjectId) -> Vec<ObjectId
         blockers
             .iter()
             .find(|b| b.blocker == blocker)
-            .map(|b| b.attackers.clone())
-            .unwrap_or_default(),
+            .map_or_default(|b| b.attackers.clone()),
     )
 }
 

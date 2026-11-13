@@ -630,11 +630,7 @@ impl EngineRunner {
     fn flush_record(&mut self, nonce: u64) -> Vec<Envelope> {
         let mut out = Vec::new();
         if !self.ended {
-            let data = self
-                .session
-                .as_mut()
-                .map(Session::take_record)
-                .unwrap_or_default();
+            let data = self.session.as_mut().map_or_default(Session::take_record);
             if !data.is_empty() {
                 out.push(self.record_chunk(&data, false));
             }

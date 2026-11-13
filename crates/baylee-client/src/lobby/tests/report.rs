@@ -140,13 +140,12 @@ fn form_words(app: &mut App) -> String {
 fn spans(app: &App, text: Entity) -> Vec<String> {
     app.world()
         .get::<Children>(text)
-        .map(|children| {
+        .map_or_default(|children| {
             children
                 .iter()
                 .filter_map(|child| app.world().get::<TextSpan>(child).map(|s| s.0.clone()))
                 .collect()
         })
-        .unwrap_or_default()
 }
 
 /// The report box's paragraph and its three spans.
@@ -1451,12 +1450,11 @@ fn command_enter_asks_to_send_and_enter_confirms() {
 fn suggested(app: &App) -> Vec<String> {
     desk(app).state_json(Lang::En)["suggestions"]
         .as_array()
-        .map(|rows| {
+        .map_or_default(|rows| {
             rows.iter()
                 .map(|r| r["name"].as_str().unwrap_or_default().to_string())
                 .collect()
         })
-        .unwrap_or_default()
 }
 
 /// Window B, away from a table: the first `#` loads the compiled pool,

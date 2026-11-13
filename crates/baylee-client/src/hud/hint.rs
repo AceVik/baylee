@@ -110,16 +110,12 @@ pub fn show_hint(
         return;
     }
     state.shown = Some(control);
-    let (window, pointer) = windows
-        .single()
-        .ok()
-        .map(|w| {
-            (
-                crate::hud::scale::space(w, ui.as_deref()),
-                crate::hud::scale::cursor(w, ui.as_deref()).unwrap_or_default(),
-            )
-        })
-        .unwrap_or_default();
+    let (window, pointer) = windows.single().ok().map_or_default(|w| {
+        (
+            crate::hud::scale::space(w, ui.as_deref()),
+            crate::hud::scale::cursor(w, ui.as_deref()).unwrap_or_default(),
+        )
+    });
     let at = pointer + HINT_OFFSET;
     // Kept inside the window: a bubble past the right edge flips to the
     // pointer's left, one past the bottom stands above it.

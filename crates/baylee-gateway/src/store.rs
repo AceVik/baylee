@@ -274,7 +274,7 @@ impl From<deck::Model> for Deck {
             // what "nobody" reads as on this side — every route that cares
             // compares it against the account asking, and no account has an
             // empty id.
-            account_id: row.account_id.map(id).unwrap_or_default(),
+            account_id: row.account_id.map_or_default(id),
             kind: row.kind,
             name: row.name,
             format: row.format,

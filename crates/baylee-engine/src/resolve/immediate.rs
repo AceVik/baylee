@@ -1441,8 +1441,7 @@ pub(super) fn exec_immediate(
             let host = state.object(aura).and_then(|o| o.attached_to)?;
             let host_types = state
                 .object(host)
-                .map(|o| o.characteristics().types.intersection(types))
-                .unwrap_or_default();
+                .map_or_default(|o| o.characteristics().types.intersection(types));
             if host_types.is_empty() {
                 return None;
             }

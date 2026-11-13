@@ -1790,7 +1790,7 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
     // seat with a single commander has.
     let commanders = seat.map_or(&[][..], |s| s.commanders.as_slice());
     let second = commanders.get(1).map(|c| c.object);
-    let command_objects = view.command.get(i).map(Vec::as_slice).unwrap_or_default();
+    let command_objects = view.command.get(i).map_or_default(Vec::as_slice);
     PileKind::ALL
         .iter()
         .copied()
@@ -1818,8 +1818,7 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
                 matches!(kind, PileKind::Command | PileKind::Command2).then(|| {
                     view.command
                         .get(i)
-                        .map(Vec::as_slice)
-                        .unwrap_or_default()
+                        .map_or_default(Vec::as_slice)
                         .iter()
                         .filter(|o| (Some(o.id) == second) == (kind == PileKind::Command2))
                         .collect()

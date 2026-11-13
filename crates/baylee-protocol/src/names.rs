@@ -191,7 +191,7 @@ mod tests {
     use super::{Username, UsernameFault, username};
 
     fn shown(typed: &str) -> String {
-        username(typed).map(|name| name.shown).unwrap_or_default()
+        username(typed).map_or_default(|name| name.shown)
     }
 
     #[test]

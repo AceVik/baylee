@@ -102,7 +102,7 @@ pub(super) fn fill_the_pool(mut desk: ResMut<ReportDesk>, lobby: Option<Res<Lobb
     let first: Vec<u32> = lobby
         .as_deref()
         .filter(|l| matches!(l.lobby.screen(), baylee_client_core::lobby::Screen::Build))
-        .map(|l| {
+        .map_or_default(|l| {
             let deck = l.lobby.builder();
             [
                 baylee_client_core::deckbuilder::Zone::Main,
@@ -112,8 +112,7 @@ pub(super) fn fill_the_pool(mut desk: ResMut<ReportDesk>, lobby: Option<Res<Lobb
             .flat_map(|zone| deck.entries(zone).iter())
             .filter_map(|entry| deck.card(entry.slot).map(|card| card.index))
             .collect()
-        })
-        .unwrap_or_default();
+        });
     desk.gathered.refs.cards = pool_candidates(&first);
 }
 

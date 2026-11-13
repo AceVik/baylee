@@ -493,7 +493,7 @@ fn block(n: Option<usize>, filed: &Filed, attached: Option<&Attached<'_>>) -> St
     if let Some(confidence) = report.confidence {
         let _ = write!(kind, ", confidence {}", confidence.as_str());
     }
-    let number = n.map(|n| format!("{n}. ")).unwrap_or_default();
+    let number = n.map_or_default(|n| format!("{n}. "));
     let mut block = format!(
         "\n{number}q{}, turn {}{at}: {kind}\n   Observed: {}\n",
         filed.question, filed.moment.turn, report.observed

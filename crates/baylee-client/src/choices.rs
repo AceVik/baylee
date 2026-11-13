@@ -698,8 +698,7 @@ fn mana_options(
                 .unwrap_or_else(|| Phrase::SourceUnknown.text(lang).to_string());
             let cost = names
                 .view
-                .map(|view| crate::abilities::required_mana_label(lang, view, *option))
-                .unwrap_or_default();
+                .map_or_default(|view| crate::abilities::required_mana_label(lang, view, *option));
             ChoiceOption::text(index, format!("{name} — {cost}"))
         })
         .collect()

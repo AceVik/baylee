@@ -142,8 +142,7 @@ fn nothing_on_a_plate_takes_the_pointer_from_it() {
         let mut stack: Vec<Entity> = world
             .entity(plate)
             .get::<Children>()
-            .map(|c| c.iter().collect())
-            .unwrap_or_default();
+            .map_or_default(|c| c.iter().collect());
         let mut seen = 0;
         while let Some(e) = stack.pop() {
             seen += 1;

@@ -395,8 +395,7 @@ impl ClientSettings {
     pub fn load() -> Self {
         store::read()
             .and_then(|text| serde_json::from_str::<Self>(&text).ok())
-            .map(Self::moved)
-            .unwrap_or_default()
+            .map_or_default(Self::moved)
     }
 
     /// The settings with what a client from before the live gateway's move

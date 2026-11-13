@@ -733,10 +733,11 @@ pub(crate) fn attackers_on(
             all_lethal: true,
         };
         let mut balance = Balance::default();
-        for i in 0..position.attackers.len() {
+        let attackers = position.attackers.len();
+        for (i, outcome) in reply.outcomes.iter_mut().enumerate().take(attackers) {
             if going & (1 << i) != 0 {
-                reply.outcomes[i] = position.exchange(i, 0);
-                balance = balance.replacing(Result::default(), reply.outcomes[i]);
+                *outcome = position.exchange(i, 0);
+                balance = balance.replacing(Result::default(), *outcome);
             }
         }
         reply.visit(0, balance);
@@ -930,9 +931,10 @@ pub(crate) fn blockers_within(
         all_lethal: true,
     };
     let mut balance = unblockable;
-    for i in 0..position.attackers.len() {
-        reply.outcomes[i] = position.exchange(i, 0);
-        balance = balance.replacing(Result::default(), reply.outcomes[i]);
+    let attackers = position.attackers.len();
+    for (i, outcome) in reply.outcomes.iter_mut().enumerate().take(attackers) {
+        *outcome = position.exchange(i, 0);
+        balance = balance.replacing(Result::default(), *outcome);
     }
     reply.visit(0, balance);
     let mut result = Vec::new();

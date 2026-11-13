@@ -875,8 +875,7 @@ impl LegalActions {
         self.restricted_floating
             .iter()
             .find(|(s, _)| *s == spend)
-            .map(|(_, by_colour)| *by_colour)
-            .unwrap_or_default()
+            .map_or_default(|(_, by_colour)| *by_colour)
     }
 
     /// Additional generic mana for an activation of this permanent.

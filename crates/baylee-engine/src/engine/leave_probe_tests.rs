@@ -801,9 +801,7 @@ fn battery(table: &mut Table) -> (u64, Option<String>) {
                     .copied()
                     .find(|d| matches!(d, Defender::Player(_)))
                     .or_else(|| defenders.first().copied());
-                let declared = at
-                    .map(|at| attackers.iter().map(|&a| (a, at)).collect())
-                    .unwrap_or_default();
+                let declared = at.map_or_default(|at| attackers.iter().map(|&a| (a, at)).collect());
                 if engine
                     .apply(
                         player,

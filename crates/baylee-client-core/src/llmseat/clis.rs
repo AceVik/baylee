@@ -751,14 +751,13 @@ pub fn parse_opencode_verbose(stdout: &str) -> Vec<String> {
         let variant_keys: Vec<&str> = val
             .get("variants")
             .and_then(serde_json::Value::as_object)
-            .map(|obj| {
+            .map_or_default(|obj| {
                 CANONICAL_EFFORTS
                     .iter()
                     .copied()
                     .filter(|k| obj.contains_key(*k))
                     .collect()
-            })
-            .unwrap_or_default();
+            });
         if let Some(encoded) =
             encode_cli_listed(CliTool::Opencode, header, &label, &variant_keys, None)
             && !out.contains(&encoded)

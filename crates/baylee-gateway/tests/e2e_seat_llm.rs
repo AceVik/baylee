@@ -562,8 +562,7 @@ fn option(question: &str) -> String {
         .or_else(|| first(&|(_, label)| label.starts_with("Cast ")))
         .or_else(|| first(&|(id, _)| ["keep", "p", "n"].contains(&id.as_str())))
         .or(options.first())
-        .map(|(id, _)| id.clone())
-        .unwrap_or_default()
+        .map_or_default(|(id, _)| id.clone())
 }
 
 /// As few ids as the question allows, from the top of its list.

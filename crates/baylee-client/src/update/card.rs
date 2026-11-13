@@ -231,9 +231,9 @@ pub(super) fn meter(
         Fetch::Verifying => (
             1.0,
             String::new(),
-            progress
-                .map(|p| Phrase::UpdateDownloaded.fill(lang, &[&words::size(lang, p.total)]))
-                .unwrap_or_default(),
+            progress.map_or_default(|p| {
+                Phrase::UpdateDownloaded.fill(lang, &[&words::size(lang, p.total)])
+            }),
         ),
         Fetch::Unpacking => (
             1.0,

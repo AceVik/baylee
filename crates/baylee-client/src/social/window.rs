@@ -577,17 +577,7 @@ fn stamp_arrivals(
 
 /// Whether the client window is focused (or driven passively by `dev-control`).
 pub(super) fn window_focused(windows: &Query<&Window>) -> bool {
-    if windows.iter().any(|w| w.focused) {
-        return true;
-    }
-    #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
-    {
-        crate::devctl::passive()
-    }
-    #[cfg(not(all(feature = "dev-control", not(target_arch = "wasm32"))))]
-    {
-        false
-    }
+    windows.iter().any(|w| w.focused)
 }
 
 /// Reading marks read (§3.3): while the panel shows a tab, the
@@ -1688,15 +1678,12 @@ fn fill(
     // The composer.
     if let Some(composer) = drawn.composer {
         let c = machine.composer();
-        let suggest: Vec<String> = c
-            .suggestions()
-            .map(|s| {
-                s.items
-                    .iter()
-                    .filter_map(|i| c.suggestion_label(i).map(str::to_string))
-                    .collect()
-            })
-            .unwrap_or_default();
+        let suggest: Vec<String> = c.suggestions().map_or_default(|s| {
+            s.items
+                .iter()
+                .filter_map(|i| c.suggestion_label(i).map(str::to_string))
+                .collect()
+        });
         let highlight = c.suggestions().map_or(0, |s| s.highlight);
         let caret = c.buffer().cursor();
         let selection = c.buffer().selection();

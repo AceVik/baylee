@@ -73,13 +73,11 @@ pub fn sync_ledge(
         selected: duel
             .interaction
             .as_ref()
-            .map(|i| i.selected().collect())
-            .unwrap_or_default(),
+            .map_or_default(|i| i.selected().collect()),
         selected_players: duel
             .interaction
             .as_ref()
-            .map(|i| i.selected_players().collect())
-            .unwrap_or_default(),
+            .map_or_default(|i| i.selected_players().collect()),
         declared: duel
             .interaction
             .as_ref()

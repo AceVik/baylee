@@ -37,8 +37,7 @@ impl Social {
                 .state
                 .keys
                 .get(&diff.tag)
-                .map(|k| k.devices.iter().map(|d| d.id.clone()).collect())
-                .unwrap_or_default();
+                .map_or_default(|k| k.devices.iter().map(|d| d.id.clone()).collect());
             let known = std::mem::replace(&mut self.state.own_devices, ids);
             // A device the account didn't have when this one last looked
             // (and that isn't this one): the new-device notice (§4.5).

@@ -558,15 +558,12 @@ impl Client {
     /// The texts of a conversation's message lines.
     pub fn texts(&self, conv: &str) -> Vec<String> {
         let id: Conv = conv.parse().expect("a conversation");
-        self.social
-            .conversation(&id)
-            .map(|c| {
-                c.lines
-                    .iter()
-                    .filter_map(|l| l.body().map(|b| b.text.clone()))
-                    .collect()
-            })
-            .unwrap_or_default()
+        self.social.conversation(&id).map_or_default(|c| {
+            c.lines
+                .iter()
+                .filter_map(|l| l.body().map(|b| b.text.clone()))
+                .collect()
+        })
     }
 }
 

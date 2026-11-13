@@ -116,15 +116,12 @@ impl TableDeck {
     /// `--deck`.
     pub(crate) fn text(&self) -> String {
         let rows = |key: &str| -> Vec<String> {
-            self.body[key]
-                .as_array()
-                .map(|rows| {
-                    rows.iter()
-                        .filter_map(serde_json::Value::as_str)
-                        .map(ToString::to_string)
-                        .collect()
-                })
-                .unwrap_or_default()
+            self.body[key].as_array().map_or_default(|rows| {
+                rows.iter()
+                    .filter_map(serde_json::Value::as_str)
+                    .map(ToString::to_string)
+                    .collect()
+            })
         };
         // The bridge reads the rows by name alone: a printing is the
         // gateway's business, so the file names each card plainly.

@@ -36,9 +36,9 @@ pub fn llm(settings: &Settings) -> SeatMind {
     let effort = settings.effort.clone().unwrap_or_default();
     match settings.provider {
         Provider::Cli => {
-            let (tool, model) = cli_model(&settings.model)
-                .map(|(tool, own)| (tool.name().to_owned(), own.unwrap_or_default().to_owned()))
-                .unwrap_or_default();
+            let (tool, model) = cli_model(&settings.model).map_or_default(|(tool, own)| {
+                (tool.name().to_owned(), own.unwrap_or_default().to_owned())
+            });
             SeatMind {
                 kind: Kind::LlmCli as i32,
                 provider: tool,

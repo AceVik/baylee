@@ -151,10 +151,7 @@ impl Handle {
         self.presence_seq.load(Ordering::Acquire)
     }
     pub(crate) fn online_tags(&self) -> std::collections::BTreeSet<String> {
-        self.online_tags
-            .lock()
-            .map(|set| set.clone())
-            .unwrap_or_default()
+        self.online_tags.lock().map_or_default(|set| set.clone())
     }
     #[cfg(test)]
     pub(crate) fn set_ws_live_for_test(&self, live: bool) {

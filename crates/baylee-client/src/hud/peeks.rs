@@ -139,8 +139,7 @@ pub fn columns(duel: &Duel, lang: Lang) -> (Vec<PeekFacts>, Vec<PeekFacts>) {
             .board
             .as_ref()
             .and_then(|board| board.pod(player))
-            .map(|pod| seat_chips(pod, CHIPS, aimed))
-            .unwrap_or_default();
+            .map_or_default(|pod| seat_chips(pod, CHIPS, aimed));
         let role = crate::hud::seatbar::role_of(duel, player);
         Some(PeekFacts {
             player,

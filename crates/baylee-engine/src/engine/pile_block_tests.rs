@@ -127,8 +127,7 @@ fn each_attacker_may_be_blocked_only_by_fliers_and_its_labelled_pile() {
         let mut a = blockers
             .iter()
             .find(|b| b.blocker == blocker)
-            .map(|b| b.attackers.clone())
-            .unwrap_or_default();
+            .map_or_default(|b| b.attackers.clone());
         a.sort();
         a
     };

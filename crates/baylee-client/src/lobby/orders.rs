@@ -173,8 +173,7 @@ pub(crate) fn items_of(
     commands.queue(move |world: &mut World| {
         let children: Vec<Entity> = world
             .get::<Children>(parent)
-            .map(|c| c.iter().collect())
-            .unwrap_or_default();
+            .map_or_default(|c| c.iter().collect());
         let mut n = 0u8;
         for child in children {
             // A disabled stepper button is its column's first child under

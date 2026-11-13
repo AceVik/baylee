@@ -142,7 +142,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .counter_links
                 .iter()
                 .find(|l| l.source == res.source && l.version == version && l.kind == kind)
-                .map(|link| {
+                .map_or_default(|link| {
                     link.lands
                         .iter()
                         .filter_map(|(id, v, removed)| {
@@ -161,8 +161,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                                 .map(|_| *id)
                         })
                         .collect::<Vec<_>>()
-                })
-                .unwrap_or_default();
+                });
             if options.is_empty() {
                 return None;
             }

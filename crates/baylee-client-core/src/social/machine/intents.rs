@@ -522,11 +522,7 @@ impl Social {
                     self.leave_armed = None;
                     self.intent(Intent::LeaveGroup { id }, now_ms, rng, out);
                 } else {
-                    let name = self
-                        .contacts
-                        .group(&id)
-                        .map(|g| g.name.clone())
-                        .unwrap_or_default();
+                    let name = self.contacts.group(&id).map_or_default(|g| g.name.clone());
                     self.leave_armed = Some(id);
                     self.answer(ChatPhrase::LeaveConfirm, vec![name], now_ms);
                 }

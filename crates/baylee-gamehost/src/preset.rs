@@ -50,44 +50,40 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
         3 => FormatId::Custom,
         other => return Err(format!("unknown format id {other}")),
     };
-    let house_rules = msg
-        .house_rules
-        .as_ref()
-        .map(|h| HouseRules {
-            mulligan_free_first: h.mulligan_free_first,
-            free_mulligans: h.free_mulligans.map(|n| u8::try_from(n).unwrap_or(u8::MAX)),
-            starting_counters: h
-                .starting_counters
-                .iter()
-                .map(|p| baylee_core::preset::StartingCounters {
-                    seat: p.seat as usize,
-                    permanent: p.permanent as usize,
-                    counters: p
-                        .counters
-                        .iter()
-                        .map(|c| baylee_core::preset::StartingCounter {
-                            kind: c.kind.clone(),
-                            amount: u16::try_from(c.amount).unwrap_or(u16::MAX),
-                        })
-                        .collect(),
-                })
-                .collect(),
-            loop_policy: match h.loop_policy {
-                1 => LoopPolicy::CompRulesDraw,
-                _ => LoopPolicy::RunOnceThenBreak,
-            },
-            starting_player: None,
-            auto_discard_empty_optional_triggers: true,
-            order_triggers: true,
-            divide_trample: true,
-            hand_sharing: baylee_core::preset::HandSharingRule::default(),
-            decision_timeout_secs: h.decision_timeout_secs,
-            reconnect_window_secs: h.reconnect_window_secs,
-            timing_normalization: h.timing_normalization,
-            takebacks: h.takebacks,
-            time_extension_votes: h.time_extension_votes,
-        })
-        .unwrap_or_default();
+    let house_rules = msg.house_rules.as_ref().map_or_default(|h| HouseRules {
+        mulligan_free_first: h.mulligan_free_first,
+        free_mulligans: h.free_mulligans.map(|n| u8::try_from(n).unwrap_or(u8::MAX)),
+        starting_counters: h
+            .starting_counters
+            .iter()
+            .map(|p| baylee_core::preset::StartingCounters {
+                seat: p.seat as usize,
+                permanent: p.permanent as usize,
+                counters: p
+                    .counters
+                    .iter()
+                    .map(|c| baylee_core::preset::StartingCounter {
+                        kind: c.kind.clone(),
+                        amount: u16::try_from(c.amount).unwrap_or(u16::MAX),
+                    })
+                    .collect(),
+            })
+            .collect(),
+        loop_policy: match h.loop_policy {
+            1 => LoopPolicy::CompRulesDraw,
+            _ => LoopPolicy::RunOnceThenBreak,
+        },
+        starting_player: None,
+        auto_discard_empty_optional_triggers: true,
+        order_triggers: true,
+        divide_trample: true,
+        hand_sharing: baylee_core::preset::HandSharingRule::default(),
+        decision_timeout_secs: h.decision_timeout_secs,
+        reconnect_window_secs: h.reconnect_window_secs,
+        timing_normalization: h.timing_normalization,
+        takebacks: h.takebacks,
+        time_extension_votes: h.time_extension_votes,
+    });
     let seats = msg
         .seats
         .iter()

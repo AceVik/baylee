@@ -1193,8 +1193,7 @@ impl DeckBuilder {
         let reference = self
             .pool
             .get(picker.slot)
-            .map(|c| c.scryfall_id.as_str())
-            .unwrap_or_default();
+            .map_or_default(|c| c.scryfall_id.as_str());
 
         let mut choice = PrintChoice {
             choices: baylee_core::card_metadata::DeckChoices {

@@ -35,8 +35,7 @@ fn ids(devices: &[crate::social::keys::CachedDevice]) -> Vec<String> {
 fn verify(cache: &mut KeyCache, tag: &str) -> bool {
     let expected = cache
         .get(tag)
-        .map(crate::social::keys::ContactKeys::public_keys)
-        .unwrap_or_default();
+        .map_or_default(crate::social::keys::ContactKeys::public_keys);
     cache.verify(tag, &expected)
 }
 

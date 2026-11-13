@@ -42,8 +42,7 @@ fn runs_before(first: TypeId, second: TypeId) -> bool {
             NodeId::System(key) => graph
                 .systems
                 .get(key)
-                .map(|s| vec![s.system().system_type()])
-                .unwrap_or_default(),
+                .map_or_default(|s| vec![s.system().system_type()]),
             NodeId::Set(_) => graph
                 .hierarchy()
                 .graph()

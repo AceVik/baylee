@@ -659,10 +659,7 @@ impl Builder<'_, '_> {
             None => String::from("QUESTION: You have priority."),
         };
         self.line(intro);
-        let pool = view
-            .seat(table.decider())
-            .map(|s| s.mana_pool)
-            .unwrap_or_default();
+        let pool = view.seat(table.decider()).map_or_default(|s| s.mana_pool);
         let owed = view.owed.filter(|_| view.awaiting == Some(view.seat));
         if let Some(payment) = owed {
             match payment {
@@ -968,8 +965,7 @@ impl Builder<'_, '_> {
             let flashback = view
                 .object(card)
                 .and_then(|o| o.flashback)
-                .map(|cost| format!(", flashback {cost}"))
-                .unwrap_or_default();
+                .map_or_default(|cost| format!(", flashback {cost}"));
             return format!(" from a graveyard{flashback}");
         }
         if view.exile.iter().flatten().any(|o| o.id == card) {
@@ -2080,7 +2076,7 @@ impl Builder<'_, '_> {
             let head = blocker.map_or_else(
                 || tag(option.blocker),
                 |o| {
-                    let stats = board::stats(o).map(|s| format!(" {s}")).unwrap_or_default();
+                    let stats = board::stats(o).map_or_default(|s| format!(" {s}"));
                     format!("{} {}{stats}", tag(o.id), super::super::object_name(o))
                 },
             );

@@ -96,8 +96,7 @@ impl Prefs {
     #[must_use]
     pub fn local() -> Self {
         let mut prefs = crate::settings::store::read_named(LOCAL)
-            .map(|text| Preferences::from_json(&text))
-            .unwrap_or_default();
+            .map_or_default(|text| Preferences::from_json(&text));
         let adopted = prefs.adopt_defaults();
         Self {
             value: prefs,

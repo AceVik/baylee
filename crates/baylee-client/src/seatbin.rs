@@ -278,31 +278,27 @@ pub(crate) fn discover_cli_models(
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| tool.name());
     match tool {
-        CliTool::Agy => run_cli_stdout(bin, &["models"])
-            .map(|out| parse_agy_models(&out))
-            .unwrap_or_default(),
+        CliTool::Agy => {
+            run_cli_stdout(bin, &["models"]).map_or_default(|out| parse_agy_models(&out))
+        }
         CliTool::Opencode => run_cli_stdout(bin, &["models", "--verbose"])
-            .map(|out| parse_opencode_verbose(&out))
-            .unwrap_or_default(),
+            .map_or_default(|out| parse_opencode_verbose(&out)),
         CliTool::Codex => {
             let path = std::env::var_os("CODEX_HOME")
                 .map(PathBuf::from)
                 .or_else(|| home_dir().map(|h| h.join(".codex")))
                 .map(|d| d.join("models_cache.json"));
             path.and_then(|p| std::fs::read_to_string(p).ok())
-                .map(|json| parse_codex_cache(&json))
-                .unwrap_or_default()
+                .map_or_default(|json| parse_codex_cache(&json))
         }
         CliTool::Junie => home_dir()
             .map(|h| h.join(".junie").join("settings.json"))
             .and_then(|p| std::fs::read_to_string(p).ok())
-            .map(|json| parse_junie_settings(&json))
-            .unwrap_or_default(),
+            .map_or_default(|json| parse_junie_settings(&json)),
         CliTool::Claude => home_dir()
             .map(|h| h.join(".claude").join("settings.json"))
             .and_then(|p| std::fs::read_to_string(p).ok())
-            .map(|json| parse_claude_settings(&json))
-            .unwrap_or_default(),
+            .map_or_default(|json| parse_claude_settings(&json)),
     }
 }
 

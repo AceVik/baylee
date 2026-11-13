@@ -99,7 +99,7 @@ impl Devctl {
         let mut stream = TcpStream::connect_timeout(&self.address, timeout)
             .with_context(|| format!("no harness at {}", self.address))?;
         stream.set_write_timeout(Some(timeout))?;
-        let body = body.map(Value::to_string).unwrap_or_default();
+        let body = body.map_or_default(Value::to_string);
         let request = format!(
             "{method} /{route} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
             self.address,
