@@ -109,3 +109,8 @@ fn volrath_s_stronghold_is_not_offered_one_mana_short() {
         );
     }
 }
+
+#[test]
+fn volrath_s_stronghold_taps_for_colorless() {
+    assert_colorless_mana(volrath_s_stronghold(), 0);
+}

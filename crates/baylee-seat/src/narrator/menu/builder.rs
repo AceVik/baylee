@@ -513,7 +513,19 @@ impl Builder<'_, '_> {
             let label = format!("Play land {}", table.named(land));
             self.offer(label, Act::Now(PlayerAction::PlayLand { card: land }), None);
         }
+        let reached = reachable(view, legal);
         for &card in &legal.castable {
+            // A named library route carries its exact face, modes and kicker.
+            // Do not put a generic cast beside it that would discard that choice.
+            if reached.iter().any(|reach| {
+                reach.object == card
+                    && matches!(
+                        reach.way,
+                        Some(Way::Mode(CastModeKind::LibraryTopLife { .. }))
+                    )
+            }) {
+                continue;
+            }
             let label = format!(
                 "Cast {}{} (paid from {} pool)",
                 table.named(card),
@@ -523,14 +535,26 @@ impl Builder<'_, '_> {
             let index = self.card_of(card);
             self.offer(label, Act::Now(PlayerAction::CastSpell { card }), index);
         }
-        for reach in reachable(view, legal) {
+        for reach in reached {
             let label = self.reach_label(&reach);
-            let act = Act::Taps {
-                steps: reach.plan.steps.clone(),
-                then: PlayerAction::CastSpell { card: reach.object },
+            let action = PlayerAction::CastSpell { card: reach.object };
+            let act = if reach.from == ReachFrom::LibraryTop && reach.plan.steps.is_empty() {
+                Act::Now(action)
+            } else {
+                Act::Taps {
+                    steps: reach.plan.steps.clone(),
+                    then: action,
+                }
             };
             self.offer(label, act, Some(reach.card.index));
         }
+        self.suspends_and_foretells(legal);
+        self.non_mana_abilities(legal);
+    }
+
+    fn suspends_and_foretells(&mut self, legal: &LegalActions) {
+        let table = self.table;
+        let view = table.view;
         for &card in &legal.suspendable {
             let label = match self.suspend_terms(card) {
                 Some((counters, cost)) => format!(
@@ -577,6 +601,10 @@ impl Builder<'_, '_> {
             };
             self.offer(label, act, None);
         }
+    }
+
+    fn non_mana_abilities(&mut self, legal: &LegalActions) {
+        let view = self.table.view;
         for &(source, index) in &legal.abilities {
             if baylee_ai::only_makes_mana(view, source, index) {
                 continue;
@@ -842,10 +870,17 @@ impl Builder<'_, '_> {
 
     pub(super) fn reach_label(&self, reach: &Reach) -> String {
         let table = self.table;
-        let x = self.way_x_cost(reach).is_some()
-            || baylee_cards::by_index(reach.card.index)
-                .and_then(|def| def.faces.get(usize::from(reach.card.face)))
-                .is_some_and(|face| face.mana_cost.to_string().contains("{X}"));
+        let library_life = matches!(
+            reach.way,
+            Some(Way::Mode(CastModeKind::LibraryTopLife { .. }))
+        );
+        // Gwenom's replacement cost fixes X at zero; there is no later X
+        // choice to announce. Other routes retain the ordinary X explanation.
+        let x = !library_life
+            && (self.way_x_cost(reach).is_some()
+                || baylee_cards::by_index(reach.card.index)
+                    .and_then(|def| def.faces.get(usize::from(reach.card.face)))
+                    .is_some_and(|face| face.mana_cost.to_string().contains("{X}")));
         let mut label = match reach.from {
             _ if reach.way.is_some() => self.way_label(reach),
             ReachFrom::Hand if reach.face_down => format!(
@@ -871,12 +906,18 @@ impl Builder<'_, '_> {
                 table.named(reach.object),
                 reach.plan.cost
             ),
+            ReachFrom::LibraryTop => format!(
+                "Cast {} from the top of your library",
+                table.named(reach.object)
+            ),
         };
-        let _ = write!(label, " ({}", self.taps(&reach.plan.steps));
-        if x {
-            label.push_str("; X is 0 in this count, and you choose X when you cast it");
+        if !reach.plan.steps.is_empty() || x {
+            let _ = write!(label, " ({}", self.taps(&reach.plan.steps));
+            if x {
+                label.push_str("; X is 0 in this count, and you choose X when you cast it");
+            }
+            label.push(')');
         }
-        label.push(')');
         label
     }
 

@@ -397,6 +397,8 @@ pub(super) fn exec_immediate(
         | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. } => {
             life::exec(state, res, op)
         }
+        Effect::ExileEventFromGraveyardWithCounters { .. }
+        | Effect::RemoveCountersFromChosenExile { .. } => exile_counters::exec(state, res, op),
         Effect::Exile { .. }
         | Effect::Blink { .. }
         | Effect::ReturnToHand { .. }
@@ -414,6 +416,7 @@ pub(super) fn exec_immediate(
         | Effect::ReturnSourceFromGraveyard { .. }
         | Effect::GraveyardToBattlefieldLinked { .. }
         | Effect::GraveyardToBattlefield { .. }
+        | Effect::GraveyardToBattlefieldModified { .. }
         | Effect::Assimilate { .. }
         | Effect::PutSourceOnTopOfLibrary
         | Effect::BottomCardFromHand { .. }
@@ -431,6 +434,7 @@ pub(super) fn exec_immediate(
         | Effect::ExileChosenFromHandWithSourceAndCast(_)
         | Effect::RevealLibrarySearch { .. }
         | Effect::SacrificeSelf
+        | Effect::SacrificeGrantor
         | Effect::SacrificeAll { .. }
         | Effect::SacrificeObject { .. }
         | Effect::PutTargetOnTopOfLibrary
@@ -506,9 +510,11 @@ pub(super) fn exec_immediate(
         | Effect::RemoveAllCountersSelf { .. }
         | Effect::RemoveAllCountersFilter { .. }
         | Effect::RemoveAllCountersTarget
+        | Effect::RemoveUpToCountersTarget { .. }
         | Effect::ChangeAttachedCounters { .. }
         | Effect::ModifyAttached { .. }
         | Effect::AddCounterFilter { .. }
+        | Effect::AddCounterCreatedTokens { .. }
         | Effect::DoubleCountersFilter { .. }
         | Effect::DrainAllCountersIntoSelf
         | Effect::SetPTFilter { .. }
@@ -528,6 +534,7 @@ pub(super) fn exec_immediate(
         | Effect::CreateTokenCopyOfFirstToken
         | Effect::CreateTokenCopyOfEquipped { .. }
         | Effect::CreateTokenCopyOfTarget { .. }
+        | Effect::CreateTokenCopiesOfGraveyard { .. }
         | Effect::CreateTokenCopyOfSource { .. }
         | Effect::CreateTokensFor { .. }
         | Effect::CreateTokenN { .. }
@@ -1293,6 +1300,17 @@ pub(super) fn exec_immediate(
                 .get_mut(usize::from(you.get()))
             {
                 *flag = true;
+            }
+            None
+        }
+        Effect::NextSpellThisTurnCostsLess(amount) => {
+            let amount = amount2(&amount, state, you, res);
+            if let Some(reduction) = state
+                .per_turn
+                .next_spell_cost_reduction
+                .get_mut(usize::from(you.get()))
+            {
+                *reduction = reduction.saturating_add(amount);
             }
             None
         }
@@ -2165,6 +2183,9 @@ pub(super) fn exec_immediate(
             }
         }
         Effect::MillMayTakeOne { amount, filter } => {
+            // Read a dynamic amount once, before moving any cards: combat's
+            // captured damage must not turn into a later power calculation.
+            let amount = amount2(&amount, state, you, res);
             let top: Vec<ObjectId> = state
                 .zones
                 .list(ZoneLocation::Library(you))
@@ -3316,6 +3337,7 @@ pub(super) fn exec_immediate(
         | Effect::PlayerMayPayManaThen { .. }
         | Effect::PayManaOrLose { .. }
         | Effect::PlayerMayPayLifeOr { .. }
+        | Effect::PlayerMayPayLifeThen { .. }
         | Effect::PlayerMayGetPoisonOr { .. }
         | Effect::MayExileFromYourGraveyardThen { .. }
         | Effect::ReturnChosenLinkedToBattlefield { .. }

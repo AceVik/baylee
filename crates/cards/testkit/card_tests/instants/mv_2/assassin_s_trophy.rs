@@ -37,6 +37,11 @@ fn assassins_trophy_destroys_the_target_and_offers_its_controller_a_basic_land_s
         options.contains(&victim),
         "the opponent's creature is a permanent an opponent controls: {options:?}"
     );
+    assert_eq!(
+        options.len(),
+        1,
+        "the caster's own permanents are not legal targets: {options:?}"
+    );
     engine
         .apply(
             p0,

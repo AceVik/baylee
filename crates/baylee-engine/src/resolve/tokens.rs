@@ -125,6 +125,38 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::CreateTokenCopiesOfGraveyard {
+            player,
+            filter,
+            mods,
+        } => {
+            let mut originals = Vec::new();
+            for owner in players_of(player, state, you, res) {
+                originals.extend(
+                    state
+                        .zones
+                        .list(crate::zone::ZoneLocation::Graveyard(owner))
+                        .iter()
+                        .copied()
+                        .filter(|id| {
+                            state.object(*id).is_some_and(|object| {
+                                object.zone == crate::zone::Zone::Graveyard
+                                    && eval::matches_with_context(
+                                        filter,
+                                        state,
+                                        object,
+                                        you,
+                                        res.rule_context(),
+                                    )
+                            })
+                        }),
+                );
+            }
+            for original in originals {
+                create_modified_token_copies(state, res, original, mods, 1);
+            }
+            None
+        }
         Effect::CreateTokenCopyOfSource { mods } => {
             create_modified_token_copies(state, res, res.source, mods, 1);
             None

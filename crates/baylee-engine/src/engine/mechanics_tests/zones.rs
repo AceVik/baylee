@@ -171,3 +171,166 @@ fn a_lock_on_every_zone_but_the_hand_leaves_the_hand_open() {
         );
     }
 }
+
+/// A characteristic-changing return is tied to the exact graveyard object,
+/// and a return that cannot happen leaves nothing behind.
+mod modified_returns {
+    use super::*;
+    use baylee_cards_dsl::{TargetSpec, Trigger};
+
+    const RETURNER: u32 = 7202;
+    const RETURNED: u32 = 7203;
+    const LOCK: u32 = 7204;
+
+    static NOT_THIS: Filter = Filter::Not(&Filter::This);
+    static MODIFIERS: &[Modifier] = &[Modifier::AddKeyword(KeywordSet::FLYING)];
+    static RETURN_EFFECTS: &[Effect] = &[Effect::GraveyardToBattlefieldModified {
+        target: TargetSpec::EventObject,
+        owner_control: false,
+        tapped: true,
+        counters: None,
+        modifiers: MODIFIERS,
+    }];
+    static RETURN_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::triggered!(
+        Trigger::Dies(&NOT_THIS),
+        RETURN_EFFECTS
+    )];
+    static LOCK_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::static_ability!(
+        Filter::This,
+        Modifier::CantEnterBattlefield(&Filter::CREATURE)
+    )];
+
+    fn fixture(locked: bool) -> (Bench, ObjectId) {
+        let battlefield = if locked {
+            vec![RETURNER, LOCK]
+        } else {
+            vec![RETURNER]
+        };
+        let mut engine = bench(
+            7202,
+            vec![
+                card(
+                    RETURNER,
+                    face("Returner", "{0}", TypeSet::ARTIFACT),
+                    KeywordSet::EMPTY,
+                    RETURN_ABILITIES,
+                ),
+                card(
+                    RETURNED,
+                    creature_face("Returned", "{0}", 1, 1),
+                    KeywordSet::EMPTY,
+                    &[],
+                ),
+                card(
+                    LOCK,
+                    face("Lock", "{0}", TypeSet::ARTIFACT),
+                    KeywordSet::EMPTY,
+                    LOCK_ABILITIES,
+                ),
+            ],
+            [Seat::with(&battlefield), Seat::with(&[RETURNED])],
+        );
+        to_main(&mut engine, me());
+        let returned = the(&engine, ZoneLocation::Battlefield, RETURNED);
+        crate::sba::destroy(
+            engine
+                .dev_state_mut(me())
+                .expect("the harness may set a death up"),
+            returned,
+        );
+        walk_until(&mut engine, |e| !e.state().zones.stack_is_empty());
+        (engine, returned)
+    }
+
+    #[test]
+    fn a_modified_return_enters_tapped_and_applies_only_to_its_new_version() {
+        let (mut engine, returned) = fixture(false);
+        let graveyard_version = engine.state().object(returned).unwrap().version;
+        settle(&mut engine, me());
+
+        let object = engine.state().object(returned).unwrap();
+        assert_eq!(object.zone, crate::zone::Zone::Battlefield);
+        assert_eq!((object.owner, object.controller), (them(), me()));
+        assert!(object.status.contains(crate::object::Status::TAPPED));
+        assert!(object.version > graveyard_version);
+        assert!(
+            object
+                .characteristics()
+                .keywords
+                .contains(KeywordSet::FLYING)
+        );
+        let modifiers: Vec<_> = engine
+            .state()
+            .effects
+            .iter()
+            .filter(
+                |effect| matches!(effect.filter, EffectFilter::ObjectIs(id, _) if id == returned),
+            )
+            .collect();
+        assert_eq!(modifiers.len(), 1);
+        assert!(matches!(
+            modifiers[0].filter,
+            EffectFilter::ObjectIs(id, version) if id == returned && version == object.version
+        ));
+    }
+
+    #[test]
+    fn a_modified_return_prevented_from_entering_cleans_up_everything() {
+        let (mut engine, returned) = fixture(true);
+        let graveyard_version = engine.state().object(returned).unwrap().version;
+        settle(&mut engine, me());
+
+        let object = engine.state().object(returned).unwrap();
+        assert_eq!(object.zone, crate::zone::Zone::Graveyard);
+        assert_eq!(object.version, graveyard_version);
+        assert_eq!(
+            (object.controller, object.base_controller),
+            (them(), them())
+        );
+        assert_eq!(object.kind, ObjectKind::Card);
+        assert!(!object.status.contains(crate::object::Status::TAPPED));
+        assert!(
+            !object
+                .characteristics()
+                .keywords
+                .contains(KeywordSet::FLYING)
+        );
+        assert!(!engine.state().effects.iter().any(|effect| {
+            matches!(effect.filter, EffectFilter::ObjectIs(id, _) if id == returned)
+        }));
+    }
+
+    #[test]
+    fn a_modified_return_does_not_retarget_a_later_graveyard_incarnation() {
+        let (mut engine, returned) = fixture(false);
+        let dead_version = engine.state().object(returned).unwrap().version;
+        let state = engine
+            .dev_state_mut(me())
+            .expect("the harness moves the card");
+        state
+            .move_object(
+                returned,
+                ZoneLocation::Exile(them()),
+                ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        state
+            .move_object(
+                returned,
+                ZoneLocation::Graveyard(them()),
+                ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        settle(&mut engine, me());
+
+        let object = engine.state().object(returned).unwrap();
+        assert_eq!(object.zone, crate::zone::Zone::Graveyard);
+        assert!(object.version > dead_version);
+        assert!(!object.status.contains(crate::object::Status::TAPPED));
+        assert!(!engine.state().effects.iter().any(|effect| {
+            matches!(effect.filter, EffectFilter::ObjectIs(id, _) if id == returned)
+        }));
+    }
+}

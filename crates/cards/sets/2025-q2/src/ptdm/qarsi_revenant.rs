@@ -2,7 +2,7 @@
 //! Oracle: Flying, deathtouch, lifelink
 //! Oracle: Renew — {2}{B}, Exile this card from your graveyard: Put a flying counter, a deathtouch counter, and a lifelink counter on target creature. Activate only as a sorcery.
 //! Set: TDM #86 — Tarkir: Dragonstorm | Scryfall ID: 8c93a0f6-5e50-4dda-9ff6-da741fb839ff | Oracle ID: bbea79bc-71d4-4100-92f4-783c2c4b46da
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — combat keywords and sorcery-speed Renew with three keyword counters.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -20,6 +20,28 @@ card!(
         power = Some(3),
         toughness = Some(3),
     ),],
+    keywords = KeywordSet::FLYING
+        .union(KeywordSet::DEATHTOUCH)
+        .union(KeywordSet::LIFELINK),
+    coverage = Coverage::Implemented,
+    abilities = &[activated!(
+        cost!("{2}{B}", ExileSelf),
+        &[
+            Effect::AddCounter {
+                kind: CounterKind::Flying,
+                amount: Amount::Fixed(1)
+            },
+            Effect::AddCounter {
+                kind: CounterKind::Deathtouch,
+                amount: Amount::Fixed(1)
+            },
+            Effect::AddCounter {
+                kind: CounterKind::Lifelink,
+                amount: Amount::Fixed(1)
+            },
+        ],
+        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+        zone = ActivationZone::Graveyard,
+        timing = ActivationTiming::SorcerySpeed,
+    )],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

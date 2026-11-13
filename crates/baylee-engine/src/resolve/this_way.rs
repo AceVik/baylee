@@ -164,6 +164,18 @@ pub(super) fn count(
             ) if *object == res.source && *event_kind == kind && new < old => {
                 u32::from(old.saturating_sub(*new))
             }
+            (
+                GameEvent::CounterChanged {
+                    object, old, new, ..
+                },
+                ThisWay::CountersRemovedFromTargets,
+            ) if res.targets.contains(object) && new < old => u32::from(old - new),
+            (
+                GameEvent::PlayerCountersChanged {
+                    player, old, new, ..
+                },
+                ThisWay::CountersRemovedFromTargets,
+            ) if res.target_players.contains(*player) && new < old => u32::from(old - new),
             (GameEvent::ControllerChanged { .. }, ThisWay::ControlChanged) => 1,
             (
                 GameEvent::ZoneChanged {

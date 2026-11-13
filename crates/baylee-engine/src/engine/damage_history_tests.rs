@@ -369,6 +369,70 @@ fn damage_history_granted_trigger_retains_source_identity() {
 }
 
 #[test]
+fn granted_death_trigger_keeps_the_grantor_from_the_death_snapshot() {
+    static SACRIFICE_FOR_COUNTER: &[Effect] = &[
+        Effect::SacrificeGrantor,
+        Effect::Reflexive {
+            when: baylee_cards_dsl::ReflexiveEvent::SacrificedGrantor,
+            effects: COUNTER,
+            target: None,
+        },
+    ];
+    let mut e = Duel::new(7731, basic_forest())
+        .battlefield(0, &[index::SENGIR_VAMPIRE, index::BARON_SENGIR])
+        .battlefield(1, &[index::WALL_OF_SWORDS])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, P0);
+    let source = on_battlefield(&e, P0, index::SENGIR_VAMPIRE).unwrap();
+    let grantor = on_battlefield(&e, P0, index::BARON_SENGIR).unwrap();
+    let victim = on_battlefield(&e, P1, index::WALL_OF_SWORDS).unwrap();
+    // Isolate the granted ability from Sengir Vampire's printed death trigger.
+    e.state.object_mut(source).unwrap().own_abilities =
+        Some(crate::object::AbilityList::from_static(&[], None, None).into_bundle());
+    e.state.effects.register(crate::effects::ContinuousEffect {
+        id: baylee_core::ids::EffectId::new(0),
+        source: Some(grantor),
+        controller: P0,
+        origin: crate::effects::EffectOrigin::Resolution,
+        layer: baylee_cards_dsl::Layer::Ability,
+        timestamp: 1,
+        filter: crate::effects::EffectFilter::object(&e.state, source),
+        modifier: Modifier::GrantTriggered {
+            trigger: Trigger::DiesAfterDamageByThis(&Filter::CREATURE),
+            effects: SACRIFICE_FOR_COUNTER,
+            target: None,
+        },
+        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+    });
+    e.state.refresh_characteristics();
+
+    damage(&mut e, source, victim, 5);
+    crate::sba::put_into_graveyard(&mut e.state, victim);
+    e.collect_triggers();
+    assert_eq!(e.state.zones.list(ZoneLocation::Stack).len(), 1);
+    e.resolve_stack_top();
+
+    assert_eq!(e.state.object(grantor).unwrap().zone, Zone::Graveyard);
+    e.collect_triggers();
+    assert_eq!(
+        e.state.zones.list(ZoneLocation::Stack).len(),
+        1,
+        "the sacrifice creates a separate reflexive ability"
+    );
+    e.resolve_stack_top();
+    assert_eq!(
+        e.state
+            .object(source)
+            .unwrap()
+            .counters
+            .get(CounterKind::P1P1),
+        1,
+        "sacrificing the exact captured grantor produces the reflexive trigger"
+    );
+}
+
+#[test]
 fn event_dealer_uses_original_incarnation_and_departure_power_after_blink() {
     for blinked in [false, true] {
         let (mut e, source, victim) = setup();

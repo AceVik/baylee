@@ -31,6 +31,7 @@ pub(super) fn collect(
                 text: TextChangeMap::IDENTITY,
                 source_version: None,
                 related_objects: None,
+                grantor: None,
                 event_subject: None,
                 event_ability: None,
                 event_object_identity: None,

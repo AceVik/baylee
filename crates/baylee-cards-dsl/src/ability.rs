@@ -887,6 +887,10 @@ pub enum Trigger {
         /// The damaged permanent, evaluated for the same controller.
         recipient: &'static Filter,
     },
+    /// A matching permanent enters directly from a graveyard, or was cast from
+    /// a graveyard before entering from the stack. The provenance belongs to
+    /// the entering object; another object's graveyard cast does not count.
+    EntersBattlefieldFromGraveyardOrCast(&'static Filter),
 }
 
 impl Trigger {

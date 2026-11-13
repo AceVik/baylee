@@ -344,9 +344,17 @@ An anthem, a clone, or an animated land arrives already resolved.
 Hidden information is unrepresentable rather than merely omitted: library
 contents have no field, another seat's hand is a count, and a face-down
 permanent's `card` is `None` for anyone not entitled to look. `library_tops`
-contains only an explicitly revealed top card (Courser of Kruphix), never the
-cards beneath it. A playable top land uses the ordinary land-play gesture;
-revealing a nonland does not grant permission to cast it.
+contains a publicly revealed top card (Courser of Kruphix) or the current top
+card its owner may privately inspect (Gwenom, Remorseless), never the cards
+beneath it. A newly exposed top stays hidden until the cast that exposed it
+finishes. Visibility alone grants no play permission: the engine's `lands`
+and `cast_ways` do. A playable top land uses the ordinary land-play gesture,
+including an MDFC's land face beside its spell route. Gwenom's
+`CastModeKind::LibraryTopLife` is a distinct alternative-cost route, not a
+normal cast of the visible front. Its chooser preserves the announced face,
+modes and kicker and plans only `CastModeDesc::cost`, the remaining mana; zero
+remaining mana is a valid empty plan. The life payment itself is never
+converted into mana or planned a second time.
 
 `GameStatic` (seats + print table) is sent once; `PlayerView` is a full
 snapshot per change, which makes reconnects trivial.

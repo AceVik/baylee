@@ -113,6 +113,7 @@ fn counter_index(kind: CounterKind) -> usize {
         CounterKind::Bore => 18,
         CounterKind::Shield => 19,
         CounterKind::Defense => 20,
+        CounterKind::Deathtouch => 21,
     }
 }
 
@@ -149,13 +150,14 @@ fn every_counter_prints_a_badge_of_its_own_and_two_of_them_are_free() {
         CounterKind::Bore,
         CounterKind::Shield,
         CounterKind::Defense,
+        CounterKind::Deathtouch,
     ];
     let printed: Vec<String> = every.iter().map(|k| k.badge().into_owned()).collect();
     assert_eq!(
         printed,
         vec![
             "+1/+1", "-1/-1", "LOY", "LORE", "TIME", "CHG", "PSN", "NRG", "RAD", "LL", "LVL",
-            "FLY", "SHDW", "IND", "HONE", "STUN", "FINAL", "•", "BORE", "SHIELD", "DEF",
+            "FLY", "SHDW", "IND", "HONE", "STUN", "FINAL", "•", "BORE", "SHIELD", "DEF", "DT",
         ]
     );
     assert_eq!(
@@ -168,7 +170,7 @@ fn every_counter_prints_a_badge_of_its_own_and_two_of_them_are_free() {
     );
     assert_eq!(
         every.iter().map(|k| counter_index(*k)).collect::<Vec<_>>(),
-        (0..21).collect::<Vec<_>>(),
+        (0..22).collect::<Vec<_>>(),
         "the list is every kind exactly once, in declaration order"
     );
 
@@ -232,6 +234,7 @@ fn only_a_counter_that_changes_a_body_is_drawn_on_the_body() {
         CounterKind::Bore,
         CounterKind::Shield,
         CounterKind::Defense,
+        CounterKind::Deathtouch,
     ] {
         assert!(!kind.is_power_toughness(), "{kind:?}");
     }

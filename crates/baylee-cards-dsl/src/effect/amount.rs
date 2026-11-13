@@ -374,6 +374,9 @@ pub enum ThisWay {
     /// Counters of this kind removed from the resolving source earlier in
     /// this resolution, including only actual reductions.
     CountersRemoved(crate::CounterKind),
+    /// Counters of every kind actually removed from this resolution's object
+    /// or player targets, including counters held by players.
+    CountersRemovedFromTargets,
     /// Cards milled (CR 701.17a: put from a library into a graveyard) that
     /// match the filter as they are in the graveyard: Grist, the Hunger
     /// Tide's "if an Insect card was milled this way".

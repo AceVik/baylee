@@ -201,6 +201,15 @@ impl<L: CardLookup> Engine<L> {
                 .and_then(|c| self.lookup.card(c.index))
                 .and_then(|def| def.faces.first())
         };
+        if let CastModeKind::LibraryTopLife { face, kicked, .. } = kind {
+            return Some(if kicked {
+                SpendFor::KickedSpell(card, face, None)
+            } else if face == 0 {
+                SpendFor::Spell(card)
+            } else {
+                SpendFor::SpellOnFace(card, face)
+            });
+        }
         match Spend::cast(card, kind) {
             Spend::Cast(_, CastModeKind::Face(i)) => Some(SpendFor::SpellOnFace(card, i)),
             Spend::Cast(_, CastModeKind::Prototype) => Some(SpendFor::SpellAs(

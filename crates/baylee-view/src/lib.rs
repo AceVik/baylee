@@ -274,7 +274,10 @@ pub use turn::{DayNight, Phase, Step};
 /// `CastModeKind::Madness`, engine variants a reader of 89 cannot parse.
 /// Compatible additions beside them: [`PublicObject::chosen_color`] and
 /// [`PublicObject::chosen_x`], absent when `None`.
-pub const VIEW_VERSION: u32 = 90;
+/// Version 91 adds the library-top alternative cost paid with life equal to
+/// the spell's mana value, and lets an entitled seat see its own library top
+/// privately. Older readers cannot decode the new cast-mode variant.
+pub const VIEW_VERSION: u32 = 91;
 
 // ------------------------------------------------------------------- targets
 

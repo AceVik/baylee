@@ -111,6 +111,16 @@ pub fn reachable_modes(
     legal: &LegalActions,
     card: ObjectId,
 ) -> Vec<ReachableMode> {
+    // A library top is cast only through the permission the engine names.
+    // In particular, Gwenom replaces the mana cost rather than adding an
+    // ordinary hand-style cast, so never price its printed alternatives here.
+    if let Some(top) = view
+        .library_tops
+        .iter()
+        .find(|top| top.id == card && top.owner == resource_player(view))
+    {
+        return library_top_modes(view, legal, card, top.card);
+    }
     let Some(hand) = baylee_client_core::decision::known_cards(view).find(|c| c.id == card) else {
         return Vec::new();
     };
@@ -215,6 +225,69 @@ pub fn reachable_modes(
     }
     out.extend(face_modes(view, legal, card, &pool, life));
     out.extend(foretell_mode(view, legal, face, &pool));
+    out
+}
+
+/// Price only the casting permission named for this visible library top.
+fn library_top_modes(
+    view: &PlayerView,
+    legal: &LegalActions,
+    card: ObjectId,
+    identity: Option<baylee_view::CardIdentity>,
+) -> Vec<ReachableMode> {
+    let Some((pool, life)) = view
+        .seat(resource_player(view))
+        .map(|seat| (seat.mana_pool, seat.life))
+    else {
+        return Vec::new();
+    };
+    let mut out: Vec<_> = legal
+        .cast_ways
+        .iter()
+        .filter(|(id, way)| *id == card && matches!(way.kind, CastModeKind::LibraryTopLife { .. }))
+        .filter_map(|(_, way)| {
+            crate::manasources::plan_with_life_for_spell(
+                &crate::reach::least_x(way.cost),
+                &pool,
+                view,
+                legal,
+                card,
+                way.kind,
+                life,
+            )
+            .map(|plan| ReachableMode {
+                kind: way.kind,
+                cost: way.cost,
+                plan,
+            })
+        })
+        .collect();
+    // A land still uses the ordinary land drop, including a land face beside
+    // a spell face. The engine's land offer is the permission, not this reader.
+    if legal.lands.contains(&card)
+        && let Some(def) = identity.and_then(|card| baylee_cards::by_index(card.index))
+    {
+        for (index, face) in def.faces.iter().enumerate() {
+            let kind = CastModeKind::PlayLandFace(index);
+            if face.types.contains(baylee_core::types::TypeSet::LAND)
+                && let Some(plan) = crate::manasources::plan_with_life_for_spell(
+                    &ManaCost::ZERO,
+                    &pool,
+                    view,
+                    legal,
+                    card,
+                    kind,
+                    life,
+                )
+            {
+                out.push(ReachableMode {
+                    kind,
+                    cost: ManaCost::ZERO,
+                    plan,
+                });
+            }
+        }
+    }
     out
 }
 
@@ -362,7 +435,8 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::PutCounterOnOther { .. }
         | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::ExileTopOfLibrary(_)
-        | CostPart::PayAttachedManaCost => false,
+        | CostPart::PayAttachedManaCost
+        | CostPart::SacrificeGrantor => false,
     })
 }
 

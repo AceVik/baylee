@@ -53,20 +53,6 @@ fn necroblossom_snarl_enters_untapped_by_revealing_swamp_or_forest() {
         "revealed Swamp remains in hand"
     );
 
-    activate(&mut engine, p0, necroblossom_snarl(), 0);
-    let Pending::ChooseColor { options, .. } = engine.pending().clone() else {
-        panic!("expected color choice, got {:?}", engine.pending());
-    };
-    assert!(options.contains(&ManaColor::Black));
-    assert!(options.contains(&ManaColor::Green));
-    engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
-        .unwrap();
-
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(pool.available(ManaColor::Black), 1);
-    assert!(is_tapped(&engine, land));
-
     let mut engine2 = Duel::new(157, island())
         .hand(0, &[necroblossom_snarl()])
         .start();
@@ -78,4 +64,9 @@ fn necroblossom_snarl_enters_untapped_by_revealing_swamp_or_forest() {
         is_tapped(&engine2, land2),
         "with no Swamp or Forest in hand, Necroblossom Snarl enters tapped"
     );
+}
+
+#[test]
+fn necroblossom_snarl_taps_for_black_or_green() {
+    assert_two_color_mana(necroblossom_snarl(), [ManaColor::Black, ManaColor::Green]);
 }

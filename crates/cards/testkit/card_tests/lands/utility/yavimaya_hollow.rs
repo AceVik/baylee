@@ -17,8 +17,17 @@ use super::*;
 fn yavimaya_hollow_spends_a_green_to_shield_a_creature() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(45, forest())
-        .hand(0, &[yavimaya_hollow()])
-        .battlefield(0, &[forest(), llanowar_elves()])
+        .hand(0, &[yavimaya_hollow(), lightning_bolt()])
+        .battlefield(
+            0,
+            &[
+                forest(),
+                mountain(),
+                mountain(),
+                mountain(),
+                llanowar_elves(),
+            ],
+        )
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -72,4 +81,35 @@ fn yavimaya_hollow_spends_a_green_to_shield_a_creature() {
         green - 1,
         "and the {{G}} half: one green went into the price"
     );
+
+    tap_all_mana(&mut engine, p0);
+    let bolt = in_hand(&engine, p0, lightning_bolt()).expect("the Bolt is in hand");
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: bolt })
+        .unwrap();
+    aim_at(&mut engine, p0, elf);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        matches!(engine.pending(), Pending::Priority { .. }),
+        "with one applicable regeneration shield there is no replacement choice"
+    );
+    let regenerated = engine
+        .state()
+        .object(elf)
+        .expect("regeneration saves the Elf");
+    assert_eq!(regenerated.zone, Zone::Battlefield);
+    assert_eq!(regenerated.damage, 0, "regeneration removes all damage");
+    assert_eq!(
+        regenerated.regeneration_shields, 0,
+        "the shield is consumed"
+    );
+    assert!(
+        is_tapped(&engine, elf),
+        "regeneration taps the saved creature"
+    );
+}
+
+#[test]
+fn yavimaya_hollow_taps_for_colorless() {
+    assert_colorless_mana(yavimaya_hollow(), 0);
 }

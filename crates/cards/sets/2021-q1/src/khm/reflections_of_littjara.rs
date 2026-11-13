@@ -6,9 +6,7 @@
 // card-less objects (tokens) already, matching the "a copy of a
 // permanent spell becomes a token" rule.
 
-static YOUR_SPELL_OF_CHOSEN_TYPE: Filter =
-    Filter::And(&[Filter::ControlledByYou, Filter::MatchesChosenTypeOfSource]);
-
+use crate::filters::YOUR_SPELL_OF_CHOSEN_TYPE;
 use baylee_cards_dsl::prelude::*;
 
 card!(

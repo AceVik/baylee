@@ -490,7 +490,7 @@ fn push_public_object(
     f[68] = f32::from(u8::from(obj.colors.contains(Color::Red)));
     f[69] = f32::from(u8::from(obj.colors.contains(Color::Green)));
 
-    // [70..82]: CounterKind categories (all 21 mapped into 12 dense channels)
+    // [70..82]: CounterKind categories (all 22 mapped into 12 dense channels)
     for entry in &obj.counters {
         let amt = f32::from(entry.count);
         match entry.kind {
@@ -509,6 +509,7 @@ fn push_public_object(
             CounterKind::Shield | CounterKind::Indestructible => f[78] = unit(amt, 4.0),
             CounterKind::Finality => f[79] = unit(amt, 2.0),
             CounterKind::Flying
+            | CounterKind::Deathtouch
             | CounterKind::Lifelink
             | CounterKind::Shadow
             | CounterKind::Hone => f[80] = unit(amt, 4.0),

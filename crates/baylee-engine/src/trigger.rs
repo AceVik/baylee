@@ -73,6 +73,9 @@ pub struct PendingTrigger {
     /// Immutable exact-object group for one delayed trigger. Shared on
     /// checkpoints; ordinary triggers allocate nothing and carry one pointer.
     pub related_objects: Option<std::sync::Arc<Vec<baylee_core::ids::DamageSourceRef>>>,
+    /// Exact incarnation of the permanent whose continuous effect granted
+    /// this triggered ability. `None` for printed and engine-native triggers.
+    pub grantor: Option<baylee_core::ids::DamageSourceRef>,
     /// The creature a pair trigger about an attached creature was about
     /// (`Trigger::AttachedBlocksOrBecomesBlockedBy`), as it was then; it
     /// rides on the stack object (`Rider::EventSubject`) and on to the
@@ -404,6 +407,7 @@ fn collect_emblems(
                                 text: TextChangeMap::IDENTITY,
                                 source_version: Some(obj.version),
                                 related_objects: None,
+                                grantor: None,
                                 event_subject: None,
                                 event_ability: activated_stack_ability(&entry.event),
                                 event_object_identity: event_object
@@ -536,6 +540,7 @@ fn graveyard_triggers(
                         text: TextChangeMap::IDENTITY,
                         source_version: Some(object.version),
                         related_objects: None,
+                        grantor: None,
                         event_subject: None,
                         event_ability: activated_stack_ability(&entry.event),
                         event_object_identity: event_object_for(
@@ -779,6 +784,7 @@ fn cast_this_spell_triggers(
                 text: TextChangeMap::IDENTITY,
                 source_version: Some(spell.version),
                 related_objects: None,
+                grantor: None,
                 event_subject: None,
                 event_ability: None,
                 event_object_identity: None,
@@ -900,6 +906,7 @@ fn collect_for_objects(
                             text: TextChangeMap::IDENTITY,
                             source_version: Some(source.version),
                             related_objects: None,
+                            grantor: None,
                             event_subject: None,
                             event_ability: None,
                             event_object_identity: None,
@@ -1019,6 +1026,7 @@ fn collect_for_objects(
                             text,
                             source_version: Some(source.version),
                             related_objects: None,
+                            grantor: fx.source.and_then(|id| state.source_identity(id)),
                             event_subject,
                             event_ability,
                             event_object_identity,
@@ -1098,6 +1106,12 @@ fn collect_for_objects(
             let AbilityDef::Ward { mana } = ability else {
                 continue;
             };
+            if state.effects.iter().any(|effect| {
+                effect.modifier == baylee_cards_dsl::Modifier::WardDoesntTrigger
+                    && crate::effects::applies_to(state, effect, obj)
+            }) {
+                continue;
+            }
             let Some(synthetic) = WARD_PAY_OR_COUNTER
                 .get(usize::from(*mana))
                 .map(|effects| &effects[..])
@@ -1119,6 +1133,7 @@ fn collect_for_objects(
                             text: TextChangeMap::IDENTITY,
                             source_version: Some(source.version),
                             related_objects: None,
+                            grantor: None,
                             event_subject: None,
                             event_ability: None,
                             event_object_identity: None,
@@ -1280,6 +1295,7 @@ fn collect_for_objects(
                             text: TextChangeMap::IDENTITY,
                             source_version: Some(source.version),
                             related_objects: None,
+                            grantor: None,
                             event_subject,
                             event_ability,
                             event_object_identity,

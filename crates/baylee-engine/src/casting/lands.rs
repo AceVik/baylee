@@ -370,7 +370,9 @@ pub fn land_zone_open(state: &GameState, player: PlayerId, zone: Zone) -> bool {
                         && matches!(
                             fx.modifier,
                             baylee_cards_dsl::Modifier::PlayLandsFromLibraryTop
+                                | baylee_cards_dsl::Modifier::PlayFromLibraryTopForManaValueLife
                         )
+                        && crate::effects::source_is_present(state, fx)
                 })
         }
         _ => false,

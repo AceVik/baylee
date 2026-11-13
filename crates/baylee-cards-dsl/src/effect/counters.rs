@@ -53,6 +53,8 @@ pub enum CounterKind {
     Rad,
     /// Lifelink counter (grants lifelink, CR 122.1b).
     Lifelink,
+    /// Deathtouch counter (grants deathtouch, CR 122.1b).
+    Deathtouch,
     /// Level counters (classes, CR 717).
     Level,
     /// Flying keyword counter (CR 122.1b).
@@ -82,6 +84,7 @@ impl CounterKind {
     pub const fn keyword(self) -> Option<KeywordSet> {
         match self {
             Self::Lifelink => Some(KeywordSet::LIFELINK),
+            Self::Deathtouch => Some(KeywordSet::DEATHTOUCH),
             Self::Flying => Some(KeywordSet::FLYING),
             Self::Shadow => Some(KeywordSet::SHADOW),
             Self::Indestructible => Some(KeywordSet::INDESTRUCTIBLE),
@@ -106,6 +109,7 @@ impl CounterKind {
             "shield" => Some(Self::Shield),
             "finality" => Some(Self::Finality),
             "lifelink" => Some(Self::Lifelink),
+            "deathtouch" => Some(Self::Deathtouch),
             "level" => Some(Self::Level),
             "flying" => Some(Self::Flying),
             "shadow" => Some(Self::Shadow),

@@ -451,6 +451,7 @@ impl<L: CardLookup> Engine<L> {
         &mut self,
         t: &crate::trigger::PendingTrigger,
         targets: SmallVec<[ObjectId; 2]>,
+        players: baylee_core::ids::SeatSet,
     ) {
         let Some(synthetic) = t.synthetic_effects else {
             return;
@@ -477,6 +478,13 @@ impl<L: CardLookup> Engine<L> {
                 targets,
                 base,
             );
+            // Player targets belong to the same announcement as object
+            // targets. Write both before the empty-effect check below, which
+            // must see a player-only target as a real target.
+            obj.target_players = players;
+            if players.len() == 1 {
+                obj.chosen_player = players.iter().next();
+            }
             // What the targets were chosen against. CR 608.2b re-checks
             // them against it at resolution, as it does a spell's.
             obj.target_req = t.synthetic_target;

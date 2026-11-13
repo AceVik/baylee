@@ -41,7 +41,11 @@ fn speed_trigger_copy_increases_speed_but_rechecks_the_maximum() {
         let (mut engine, mut copying) = waiting_at(initial);
         let original = engine.state().zones.list(ZoneLocation::Stack)[0];
         copying.synthetic_effects = Some(COPY);
-        engine.push_synthetic_trigger_with_targets(&copying, smallvec::smallvec![original]);
+        engine.push_synthetic_trigger_with_targets(
+            &copying,
+            smallvec::smallvec![original],
+            baylee_core::ids::SeatSet::new(),
+        );
         pass_until(&mut engine, stack_is_empty);
         assert_eq!(engine.state().players[0].speed, (initial + 2).min(4));
     }

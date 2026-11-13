@@ -1226,6 +1226,9 @@ DifferentManaValues = Wähle Ziele mit unterschiedlichen Manabeträgen
 CastDash = Sturmangriff
 CastMutate = Mutation
 CastEscape = Befreiung
+# Cast the visible library top, paying its mana value in life instead of mana.
+# Arguments: life
+CastLibraryTopLife = Oberste Bibliothekskarte: Zahle { $life } Leben anstelle der Manakosten
 CastPermission = Diese Erlaubnis zum Wirken nutzen
 CastPermissionUnlimited = Eine unbeschränkte Erlaubnis zum Wirken nutzen
 HintClickHand = Klicke eine Karte auf deiner Hand an
@@ -1295,6 +1298,12 @@ ApplyAdditionalCountersNext =
        *[other] zusätzliche Marken
     } jeder Art hinzufügen? „Nein“ wendet zuerst einen anderen Ersatzeffekt an.
 ApplyAdditionalCountersOfKindNext = Als Nächstes { $count } zusätzliche { $kind } hinzufügen? „Nein“ wendet zuerst einen anderen Ersatzeffekt an.
+# Arguments: count
+ContinueRemovingCounters =
+    Noch { $count ->
+        [one] eine Marke
+       *[other] { $count } Marken
+    } entfernen? „Nein“ beendet das Entfernen.
 UseTheOptionalAbility = Diese Fähigkeit ist optional. Einsetzen?
 TopOfLibraryOrBottom = Deine Karte kommt in deine Bibliothek. Oben drauf? („Nein“ legt sie nach unten.)
 TakeOneOfType = Nimm bis zu eine Karte vom Typ { $card_type } auf deine Hand
@@ -1874,6 +1883,11 @@ LogCountersLifelink =
     { $count ->
         [one] Lebensverknüpfung-Marke
        *[other] Lebensverknüpfung-Marken
+    }
+LogCountersDeathtouch =
+    { $count ->
+        [one] Todesberührung-Marke
+       *[other] Todesberührung-Marken
     }
 LogCountersLevel =
     { $count ->

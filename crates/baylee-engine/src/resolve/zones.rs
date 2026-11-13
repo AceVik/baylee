@@ -33,6 +33,19 @@ pub(super) fn can_sacrifice_self(state: &GameState, res: &Resolution) -> bool {
         })
 }
 
+/// Whether the exact granting incarnation is still this controller's permanent
+/// and can therefore be sacrificed as the ability resolves (CR 701.21a).
+pub(super) fn can_sacrifice_grantor(state: &GameState, res: &Resolution) -> bool {
+    super::granted_source(state, res.on_stack).is_some_and(|grantor| {
+        state.object(grantor.object).is_some_and(|object| {
+            object.version == grantor.version
+                && object.zone == crate::zone::Zone::Battlefield
+                && object.controller == res.controller
+                && !object.status.contains(crate::object::Status::PHASED_OUT)
+        })
+    })
+}
+
 /// The object an effect's own [`TargetSpec`] names at resolution.
 ///
 /// Every spec but one is chosen at CR 601.2c and read back out of
@@ -192,6 +205,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::ReturnSourceFromGraveyard { .. }
         | Effect::GraveyardToBattlefieldLinked { .. }
         | Effect::GraveyardToBattlefield { .. }
+        | Effect::GraveyardToBattlefieldModified { .. }
         | Effect::Assimilate { .. }
         | Effect::ExileSelfReturnAsFace { .. } => super::reanimation::exec(state, res, op),
         Effect::Exile { target } => {
@@ -894,6 +908,17 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 obj.kind = ObjectKind::Card;
             }
             let _ = state.sacrifice_object(res.source, Cause::Effect);
+            None
+        }
+        Effect::SacrificeGrantor => {
+            if !can_sacrifice_grantor(state, res) {
+                return None;
+            }
+            let grantor = super::granted_source(state, res.on_stack)?;
+            if let Some(object) = state.object_mut(grantor.object) {
+                object.kind = ObjectKind::Card;
+            }
+            let _ = state.sacrifice_object(grantor.object, Cause::Effect);
             None
         }
         // "Sacrifice that creature": by the ability's controller, and only a

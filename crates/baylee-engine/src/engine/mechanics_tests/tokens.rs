@@ -11,6 +11,7 @@
 //! is haste nobody printed.
 
 use super::*;
+use baylee_cards_dsl::{Amount, CopyMod, CounterKind, PlayerRel};
 
 const MAKER: u32 = 7310;
 
@@ -23,9 +24,30 @@ static SOLDIER: baylee_cards_dsl::TokenDef = baylee_cards_dsl::TokenDef {
 };
 static MAKE_A_SOLDIER: &[Effect] = &[Effect::CreateToken { token: &SOLDIER }];
 static COPY_ME: &[Effect] = &[Effect::CreateTokenCopyOfSource { mods: &[] }];
-/// 0: "{0}: Create a 1/1 Soldier creature token"; 1: "{0}: Create a token
-/// that's a copy of this creature".
-static MAKER_ABILITIES: &[AbilityDef] = &[free(MAKE_A_SOLDIER, None), free(COPY_ME, None)];
+/// 0: "{0}: Create a 1/1 Soldier"; 1: copy this; 2: create a Soldier then
+/// put a +1/+1 counter on that token; 3: copy each creature card in my graveyard.
+static MAKER_ABILITIES: &[AbilityDef] = &[
+    free(MAKE_A_SOLDIER, None),
+    free(COPY_ME, None),
+    free(
+        &[
+            Effect::CreateToken { token: &SOLDIER },
+            Effect::AddCounterCreatedTokens {
+                kind: CounterKind::P1P1,
+                amount: Amount::Fixed(1),
+            },
+        ],
+        None,
+    ),
+    free(
+        &[Effect::CreateTokenCopiesOfGraveyard {
+            player: PlayerRel::You,
+            filter: &baylee_cards_dsl::Filter::CREATURE,
+            mods: &[CopyMod::SetPT(1, 1)],
+        }],
+        None,
+    ),
+];
 
 fn cards() -> Vec<&'static CardDef> {
     vec![card(
@@ -85,4 +107,117 @@ fn a_token_made_this_turn_is_summoning_sick() {
         vec![maker],
         "only the creature that was there as the turn began may attack"
     );
+}
+
+fn doubling_season() -> u32 {
+    baylee_cards::by_oracle_id("01546b7d-a233-4176-8843-d732074dc5b6")
+        .expect("Doubling Season is in the pool")
+        .index
+        .get()
+}
+
+#[test]
+fn created_token_counters_apply_only_to_those_tokens_and_use_replacements() {
+    let mut engine = bench(
+        7311,
+        cards(),
+        [Seat::with(&[MAKER, doubling_season()]), Seat::default()],
+    );
+    to_main(&mut engine, me());
+    let maker = the(&engine, ZoneLocation::Battlefield, MAKER);
+    activate(&mut engine, me(), maker, 2);
+    settle(&mut engine, me());
+
+    let made = creatures(&engine, me())
+        .into_iter()
+        .filter(|id| *id != maker)
+        .collect::<Vec<_>>();
+    assert_eq!(made.len(), 2, "the Season doubles the token creation");
+    for token in made {
+        let object = engine.state().object(token).unwrap();
+        assert!(object.card.is_none());
+        assert_eq!(object.counters.get(CounterKind::P1P1), 2);
+        let characteristics = object.characteristics();
+        assert_eq!(
+            (characteristics.power, characteristics.toughness),
+            (Some(3), Some(3))
+        );
+    }
+    assert_eq!(
+        engine
+            .state()
+            .object(maker)
+            .unwrap()
+            .counters
+            .get(CounterKind::P1P1),
+        0,
+        "the pre-existing creature is not a created token"
+    );
+}
+
+#[test]
+fn graveyard_copies_use_the_current_graveyard_snapshot_and_new_object_versions() {
+    let mut engine = bench(
+        7312,
+        cards(),
+        [
+            Seat::with(&[MAKER]).holding(&[MAKER, MAKER]),
+            Seat::default(),
+        ],
+    );
+    to_main(&mut engine, me());
+    let maker = the(&engine, ZoneLocation::Battlefield, MAKER);
+    let originals = objects(&engine, ZoneLocation::Hand(me()), MAKER);
+    for original in &originals {
+        engine
+            .dev_state_mut(me())
+            .unwrap()
+            .move_object(
+                *original,
+                ZoneLocation::Graveyard(me()),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+    }
+    let versions = originals
+        .iter()
+        .map(|id| engine.state().object(*id).unwrap().version)
+        .collect::<Vec<_>>();
+    engine.refresh_offer();
+
+    activate(&mut engine, me(), maker, 3);
+    settle(&mut engine, me());
+    let copies = creatures(&engine, me())
+        .into_iter()
+        .filter(|id| *id != maker)
+        .collect::<Vec<_>>();
+    assert_eq!(copies.len(), 2);
+    assert!(!originals.iter().any(|id| copies.contains(id)));
+    for (original, version) in originals.iter().zip(versions) {
+        let object = engine.state().object(*original).unwrap();
+        assert_eq!(object.zone, crate::zone::Zone::Graveyard);
+        assert_eq!(object.version, version, "copying does not move the card");
+    }
+    for copy in copies {
+        assert!(engine.state().object(copy).unwrap().card.is_none());
+        assert_eq!(engine.state().object(copy).unwrap().version, 0);
+    }
+
+    for original in originals {
+        engine
+            .dev_state_mut(me())
+            .unwrap()
+            .move_object(
+                original,
+                ZoneLocation::Exile(me()),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+    }
+    engine.refresh_offer();
+    activate(&mut engine, me(), maker, 3);
+    settle(&mut engine, me());
+    assert_eq!(creatures(&engine, me()).len(), 3, "no stale graveyard copy");
 }

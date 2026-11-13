@@ -452,20 +452,26 @@ pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manap
     })
 }
 
-/// Whether `card` lies in the deciding player's graveyard or in an exile
-/// zone: where a card is cast at a price the engine names rather than one
-/// printed on it.
+/// Whether `card` lies in the deciding player's graveyard, exile or visible
+/// library top: where a card is cast at a price the engine names rather than
+/// one printed on it.
 pub(super) fn from_a_pile(view: &PlayerView, card: ObjectId) -> bool {
     let caster = baylee_client_core::decision::resource_player(view);
     view.graveyards
         .get(caster.get() as usize)
         .is_some_and(|zone| zone.iter().any(|o| o.id == card))
         || view.exile.iter().flatten().any(|o| o.id == card)
+        || view
+            .library_tops
+            .iter()
+            .any(|top| top.id == card && top.owner == caster)
 }
 
 /// The ways the engine names for casting `card`, each at its whole price
 /// (`LegalActions::cast_ways`): every increase and reduction the engine
-/// applies is in it, so nothing here prices it again.
+/// applies is in it, so nothing here prices it again. A zero-mana remainder
+/// is a real way too: Gwenom's life payment and free alternative costs need
+/// no mana symbols to have a valid, empty plan.
 pub(super) fn named_ways(
     legal: &baylee_engine::choice::LegalActions,
     card: ObjectId,
@@ -476,7 +482,7 @@ pub(super) fn named_ways(
     legal
         .cast_ways
         .iter()
-        .filter(|(id, way)| *id == card && way.cost.symbols().next().is_some())
+        .filter(|(id, _)| *id == card)
         .map(|(_, way)| (way.kind, way.cost))
         .collect()
 }

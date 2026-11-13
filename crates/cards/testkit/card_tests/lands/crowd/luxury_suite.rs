@@ -49,3 +49,9 @@ fn a_crowd_land_wants_two_opponents_and_counts_only_opponents() {
         "three seats on three sides is two opponents, and the land should be untapped"
     );
 }
+
+#[test]
+fn undergrowth_stadium_taps_for_black_or_green() {
+    let stadium = card_index("7c69f718-acc8-4851-8e5d-0cbaaa86192c");
+    assert_two_color_mana(stadium, [ManaColor::Black, ManaColor::Green]);
+}

@@ -38,6 +38,7 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::GraveyardToHand { target, .. }
             | Effect::GraveyardToBattlefieldLinked { target }
             | Effect::GraveyardToBattlefield { target, .. }
+            | Effect::GraveyardToBattlefieldModified { target, .. }
             | Effect::AttachSelf { target, .. }
             | Effect::ExileLinked { target, .. }
             | Effect::SacrificeObject { target, .. }
@@ -102,6 +103,10 @@ pub(super) fn moves_subject(effects: &'static [Effect]) -> bool {
                     target: TargetSpec::ThisObject,
                 }
                 | Effect::GraveyardToBattlefield {
+                    target: TargetSpec::ThisObject,
+                    ..
+                }
+                | Effect::GraveyardToBattlefieldModified {
                     target: TargetSpec::ThisObject,
                     ..
                 }

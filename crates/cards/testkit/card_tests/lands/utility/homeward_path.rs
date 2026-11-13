@@ -68,3 +68,8 @@ fn homeward_path_restores_creature_control_to_owner() {
     let path = on_battlefield(&engine, p0, homeward_path()).expect("Homeward Path on battlefield");
     assert!(is_tapped(&engine, path), "Homeward Path is tapped");
 }
+
+#[test]
+fn homeward_path_taps_for_colorless() {
+    assert_colorless_mana(homeward_path(), 0);
+}

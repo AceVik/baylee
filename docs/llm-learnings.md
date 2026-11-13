@@ -7604,3 +7604,186 @@ beneath it. What the author missed, for the next brief:
 - **A wire note ages with its branch.** "Pending choices travel as JSON" was true when
   written and false after the rebase. The rule numbers moved too: Handling Illegal
   Actions is 734 in the rules of 6 November 2026.
+
+## 2026-11-11 — Glissa Sunslayer and Mutated Cultist
+
+- Bounded counter removal is a distribution, not N independent removals and
+  not removal of N counters of one implicitly selected kind. The reusable
+  engine operation asks once per present kind with a zero-to-remaining range,
+  then asks a separate continue/stop question. That makes zero legal while
+  preventing an endless series of empty answers. Synthetic engine tests cover
+  distribution across three kinds, zero, early stopping, exact object identity,
+  player counters, the next-spell payment boundary and reset; Glissa's five
+  card tests play first strike/deathtouch and all three modal branches.
+- `RemoveAllCountersTarget` now handles both object and player targets. Its
+  companion `ThisWay::CountersRemovedFromTargets` counts actual journal
+  reductions only, including different player counter kinds. Mutated Cultist's
+  four tests play Devoid against Doom Blade, deathtouch in combat, permanent /
+  opponent / no target, unaffected counters, exact reduced payment, one-use
+  consumption and expiry on the following turn.
+- A next-spell reduction belongs to the successful cast commit, not to opening
+  the cast wizard. The same amount reaches ordinary and alternative-cost
+  pricing, `LegalActions::spell_reductions`, the house AI and the narrator;
+  the desktop names the target and remaining maximum for the continuation
+  question in English and German. Cancelling a cast preserves the grant and
+  the next successful spell consumes it even when no generic mana remains.
+- Test fixtures must respect the game's own timeline. Unattached Auras placed
+  by the development fixture are gone by the first main phase, so Glissa's
+  destruction test uses ordinary non-Aura enchantments. After choosing a
+  combat trigger's target, its ability still has to resolve before the
+  numeric counter question appears. Turn-advance assertions likewise wait
+  for the requested seat's next first-main priority rather than stopping at
+  the opponent's declare-attackers question. These were test-sequencing
+  defects, not engine changes.
+- Focused verification after the corrections: all five Glissa tests and all
+  four Mutated Cultist tests pass; the four counter-removal engine tests,
+  seventeen choice tests and the localized desktop prompt test pass. Full
+  validation remains for the completed wishlist batch.
+
+## 2026-11-12 — Vraska's modified return and failed-entry rollback
+
+- Characteristic changes printed on a return belong to the entering object's
+  exact new version. The shared modified-return operation serves Vraska and
+  Assimilate, including tapped entry, owner/controller selection and entry
+  counters. Its granted Treasure ability uses the same central definition as
+  ordinary Treasure tokens; replacing other card types does not remove the
+  card's other abilities.
+- A failed return must roll back every change made in preparation for entry,
+  not just its continuous effects. The synthetic blocked-entry test caught the
+  card remaining tapped and its controller changed in the graveyard. The helper
+  now restores tap status, kind and both controller fields only when the same
+  graveyard incarnation is still there.
+- A rule-modifier lookup is only as complete as the hint guarding it.
+  `CantEnterBattlefield` was absent from `CAST_TIMING_OR_LOCK`, so the movement
+  code skipped its own lock scan entirely. Adding the modifier to that hint
+  made the new blocked-entry test reach the intended rollback; the test failed
+  before both fixes and passes afterward. Vraska's five played tests and the
+  existing Assimilate regression also pass.
+
+## 2026-11-13 — Wishlist review: played keywords and optional costs
+
+- `Coverage::Implemented`, an Oracle-ID somewhere in a test, and a canonical test
+  filename are not coverage evidence. Review the exact combat, payment, target
+  and resolution assertions. Unstoppable Slasher now plays deathtouch against a
+  larger blocker as well as its life-halving and counter-sensitive return.
+- The older Batch 53 tests now prove Tinybones' nonland-permanent target offer
+  and any-type mana payment (two red for green Bears), both Serpent Society
+  ward answers, real deathtouch combats for three creatures, Aphelia's exact
+  Snake token, Innkeeper's Talent's actual ward question, and Professor
+  Dellian Fel's 0 ability. The shared combat helper declines optional attack
+  payments while advancing to blockers instead of letting a passing helper
+  stall on that question.
+- Match test sequencing to the rules timeline: Ward's generic tax uses
+  `YesNoPrompt::PayTax`, and a planeswalker with zero loyalty is already in
+  the graveyard, so Dellian's 0 ability must be exercised before his -3 takes
+  the last three. All 35 Batch 53 tests and all four Slasher tests pass;
+  full-wishlist and gate verification remain pending.
+- A behavioral test generated from `TriggeredCreatureSpec` may prove only the
+  cast and printed values; its name is not evidence that the trigger fired.
+  Black Widow now plays two deathtouch attackers beside an ordinary attacker
+  (two draws and two life lost, not three) and a lethal deathtouch block.
+  Ophiomancer plays own and opposing upkeeps, the no-Snakes condition, exact
+  token identity and controller. Glissa plays both answers to her may-return
+  trigger with only an own artifact as a legal target.
+- Search test names beyond the apparent canonical file before adding a new
+  scenario. Fanatic of Rhonas's four-mana ability and Questing Beast's positive
+  planeswalker trigger were already played in tests filed beside other cards;
+  duplicating those scenarios adds maintenance without evidence. The actual
+  gaps were Deathrite Shaman's green life-gain branch and Questing Beast's
+  power-based blocking rule (with vigilance), now played and passing.
+- Sheoldred's Edict has real token and planeswalker sacrifice choices in
+  addition to the existing multiplayer nontoken test. Heroic Intervention now
+  proves both hexproof and indestructible, Legolas's Quick Reflexes rejects a
+  response under split second, and Marit Lage checks every printed type,
+  colour and supertype. All four of these focused instant-test filters pass.
+- Delayed "whenever one or more" combat triggers need more than one source in
+  the same damage event to distinguish one trigger from one trigger per source.
+  Aphelia now attacks with herself and her Snake: two combat damage, then one
+  rounded-up half-life loss. Her second attack's optional Snake payment must be
+  answered before blockers rather than treated as an engine failure.
+- Numeric ability costs need numeric assertions too. Dellian's four abilities
+  now check loyalty 5 -> 7 -> 1 -> 3 -> 3 -> 0 and the planeswalker's death at
+  zero, in addition to their life, draw, destruction and emblem effects.
+- Innkeeper's Talent's third level covers players as well as permanents: a
+  played Aether Hub now resolves its one-energy trigger into two energy, while
+  the ordinary +1/+1 trigger doubles on a creature. A shared two-color land
+  helper plays both mana choices for Blooming Marsh and Undergrowth Stadium;
+  Golgari Rot Farm's simultaneous black-green and Command Tower's commander
+  identity are separate tests because their answers differ.
+
+## 2026-11-13 — Wishlist review: effect expiry and exact ordering
+
+- Shadowspear's test must retain both keywords on the controller's permanents,
+  remove both from opposing permanents, then prove that an opposing permanent
+  can be destroyed. Both keywords return at the cleanup step; a test of only
+  the attack trigger leaves the continuous effect and its duration unchecked.
+- Mirri's Guile now seeds three known library cards, restricts the choice to
+  those exact cards and verifies that the chosen answer reverses their order.
+  An unchanged library size proves neither the look nor the rearrangement.
+- Land tests need actual mana production, not merely an entry assertion.
+  Bojuka Bog enters tapped and produces black mana after its next untap;
+  Temple of Malady plays both colours after its scry. Mutavault produces
+  colourless mana, has every creature type while remaining a land and loses
+  the animation and added types at the cleanup step.
+- For a shockland-style test, answer `PayLifeOrEnterTapped` before advancing
+  to the main phase. The helper must not mistake an already completed entry
+  choice for a later untap or mana prompt.
+- The focused land suites passed 815/815 and 607/607 tests, Batch 53 passed
+  35/35, the six Vivien tests passed and Mirri's Guile's focused test passed.
+
+### Encoder contracts and validation
+
+- An engine enum variant is not seat support until the trained encoders can
+  represent it without moving established feature slots. `LibraryTopLife` uses
+  the existing permission cast-mode slot and carries its life price in the
+  existing scalar; `mode_kind` classifies it as a permission. `Deathtouch`
+  counters share encoder 4's dense keyword-counter channel, while encoders 7
+  through 10 add a distinct discriminator without changing previous values.
+  Their canonical grouping key appends the new kind, preserving old ordering.
+- The shared real-table scene declares Gwenom's attack and resolves its trigger
+  before reading the visible library top. All five encoders encode, decode and
+  play that Dark Ritual onto the stack for one life, and encode the life-priced
+  cast mode. Twin counter-bearing permanents prove the old dense encoding,
+  distinct discriminator and lossless grouping: all 35 mechanics contract tests
+  pass. The test initially stopped in the first main phase rather than at the
+  declare-attackers question; that was a fixture sequencing defect.
+- Validator exceptions must describe the actual semantics. Removing up to N
+  counters targets one permanent, not N counters; optional life payments use
+  real yes/no questions, but a permission to play a library-top card is already
+  optional and needs no extra question. Slagwurm Armor's Oracle comment follows
+  its pinned printing rather than adding a later universal Equipment reminder.
+- All 134 `xtask` tests, `codegen --tables` and `validate` pass. Validation
+  accepts 12,568 cards (11,197 finished, 51 machine-owned cards untested, and
+  1,371 stubs). At the owner's explicit request, the final handoff skips both
+  complete gates and further tests; the stopped desktop gate is not a passing
+  result and the feature gate was not run.
+
+### Final contract review and replay reconciliation
+
+- A pending choice must round-trip through `Pending::answer_fault` rather than
+  merely compile at its consumers. `RemoveUpToCountersTarget` now has the same
+  guard as the other object-and-number answers, and the focused counter-removal
+  and Clockwork tests exercise that route.
+- Preserve append-only wire and encoder discriminants. The new library-top,
+  counter-removal and deathtouch-counter values leave the established values at
+  `[Some(187), Some(484), Some(72), Some(80)]`. The event-reader census covers
+  every event object in the implemented pool; the wire-shape pin is
+  `(91, 16_786_315_376_172_572_296)`.
+- The next-spell reduction is real state and therefore belongs in
+  `snapshot_hash`, but writing its zero vector would move every historical
+  digest. Hash only a nonzero value. Refreshing the public `seen` fixture
+  through `refresh_fixture_hashes` preserved its public `seen` digests and game
+  result; its new SHA-256 is
+  `6ebc204d3c827c575f26ca4630cce338222909e8c298d84c9f2012830609fe68`.
+- A foresight pin compares object IDs only within the same dealt world. At the
+  first differing action, `main`'s object 320 was Drown in Shapelessness while
+  the branch's was Nine-Tail White Fox. The public position and world seed were
+  identical; the eligible fair-prior pool had grown from 2,376 to 2,382 cards
+  as newly completed cards entered the registry. That changed the weighted
+  deal, not timing legality or the frozen policy. Re-record only after such a
+  concrete diagnosis and run the pin again without its recording variable.
+- Focused contract checks pass for the DSL nesting pins, the structured mana
+  payment scan, the Vraska mana population, the activation census, replay
+  `seen`, the wire shape and the generation-7 foresight pin. The final desktop
+  gate was stopped and the feature gate was not run because the owner requested
+  PR creation without further gates or tests.

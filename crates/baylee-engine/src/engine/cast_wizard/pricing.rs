@@ -73,7 +73,8 @@ fn raw_option_cost(
     face: &baylee_cards_dsl::FaceDef,
     wizard: &CastWizard,
 ) -> ManaCost {
-    let normal = if wizard.free || wizard.masked {
+    let library_top = matches!(wizard.announced, Some(CastModeKind::LibraryTopLife { .. }));
+    let normal = if wizard.free || wizard.masked || library_top {
         ManaCost::ZERO
     } else if wizard.alternative_cost == Some(CastModeKind::Madness) {
         face.madness.expect("madness").mana
@@ -82,6 +83,13 @@ fn raw_option_cost(
     };
     let raw = match wizard.option {
         Some(CastModeKind::Normal | CastModeKind::Face(_)) | None => normal,
+        // Only kicker's additional mana survives the alternative zero base.
+        Some(CastModeKind::Kicked) if library_top => face
+            .additional_costs
+            .iter()
+            .fold(ManaCost::ZERO, |cost, additional| {
+                cost.combine(&additional.mana)
+            }),
         Some(CastModeKind::Kicked) => casting::kicked_mana_cost(face),
         Some(CastModeKind::Alternative(index)) => face.alternative_costs[index].cost.mana,
         Some(CastModeKind::Prototype) => face.prototype.expect("prototype").cost,
@@ -103,6 +111,7 @@ fn raw_option_cost(
             | CastModeKind::Counter(_)
             | CastModeKind::Permission(_)
             | CastModeKind::EscapeGranted { .. }
+            | CastModeKind::LibraryTopLife { .. }
             | CastModeKind::SpellEnding(_),
         ) => {
             unreachable!("resolution choices are not spell costs")
@@ -114,7 +123,14 @@ fn raw_option_cost(
                 let AbilityDef::ModalSpell { modes, .. } = ability else {
                     return None;
                 };
-                Some(modes[index].cost_override.unwrap_or(normal))
+                let mode = modes.get(index)?;
+                // A cost-overriding mode is another alternative cost, which
+                // the library-top reader does not combine with this route.
+                Some(if library_top {
+                    normal
+                } else {
+                    mode.cost_override.unwrap_or(normal)
+                })
             })
             .expect("modal spell"),
         Some(CastModeKind::Modes(set)) => def
@@ -140,7 +156,10 @@ fn raw_option_cost(
     if wizard.option != Some(CastModeKind::Kicked)
         && matches!(
             wizard.announced,
-            Some(CastModeKind::EscapeGranted { kicked: true, .. })
+            Some(
+                CastModeKind::EscapeGranted { kicked: true, .. }
+                    | CastModeKind::LibraryTopLife { kicked: true, .. }
+            )
         )
     {
         face.additional_costs

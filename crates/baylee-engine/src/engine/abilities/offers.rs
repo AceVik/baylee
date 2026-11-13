@@ -55,6 +55,15 @@ impl<L: CardLookup> Engine<L> {
                 .filter(|p| p.player == player)
                 .map(|p| p.card),
         );
+        if let Some(card) = self
+            .state
+            .zones
+            .list(ZoneLocation::Library(player))
+            .last()
+            .filter(|card| casting::library_top_life_open(&self.state, player, **card))
+        {
+            cards.push(*card);
+        }
         cards.sort_unstable();
         cards.dedup();
         cards
@@ -86,14 +95,22 @@ impl<L: CardLookup> Engine<L> {
                         | baylee_cards_dsl::Modifier::SpellsCostMoreMana(_)
                 )
             });
-        let reductions = effects
-            && self.state.effects.iter().any(|fx| {
-                matches!(
-                    fx.modifier,
-                    baylee_cards_dsl::Modifier::SpellsCostLess(_)
-                        | baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(_)
-                )
-            });
+        let next = self
+            .state
+            .per_turn
+            .next_spell_cost_reduction
+            .get(usize::from(player.get()))
+            .copied()
+            .unwrap_or(0);
+        let reductions = next > 0
+            || (effects
+                && self.state.effects.iter().any(|fx| {
+                    matches!(
+                        fx.modifier,
+                        baylee_cards_dsl::Modifier::SpellsCostLess(_)
+                            | baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(_)
+                    )
+                }));
         let mut out = SpellAdjustments::default();
         for card in self.cost_candidates(player) {
             let Some(def) = self
@@ -117,7 +134,10 @@ impl<L: CardLookup> Engine<L> {
                 let adjustment = if increases || reductions {
                     casting::face_adjustment(&self.state, player, card, def, face, form)
                 } else {
-                    casting::SpellAdjustment::default()
+                    casting::SpellAdjustment {
+                        reduction: next,
+                        ..casting::SpellAdjustment::default()
+                    }
                 };
                 let own = if matches!(form, Some(casting::SpellForm::Disguise)) {
                     0
@@ -236,7 +256,10 @@ impl<L: CardLookup> Engine<L> {
                     .zones
                     .list(ZoneLocation::Library(player))
                     .last()
-                    .filter(|card| casting::land_card_open(&self.state, player, **card))
+                    .filter(|card| {
+                        casting::land_card_open(&self.state, player, **card)
+                            || casting::library_top_life_open(&self.state, player, **card)
+                    })
                     .map(|card| (card, false)),
             )
         {
@@ -259,12 +282,19 @@ impl<L: CardLookup> Engine<L> {
             {
                 legal.lands.push(card);
             }
-            if !from_hand {
+            let library_spell = casting::library_top_life_open(&self.state, player, card);
+            if !from_hand && !library_spell {
                 continue;
             }
             match casting::can_cast(&self.state, &self.lookup, player, card) {
-                Ok(()) if self.has_a_legal_target(player, card) => legal.castable.push(card),
-                Err(casting::CastError::NotEnoughMana) => legal.payable.push(card),
+                Ok(()) if library_spell || self.has_a_legal_target(player, card) => {
+                    legal.castable.push(card);
+                }
+                Err(casting::CastError::NotEnoughMana)
+                    if library_spell || self.has_a_legal_target(player, card) =>
+                {
+                    legal.payable.push(card);
+                }
                 _ => {}
             }
         }

@@ -68,3 +68,8 @@ fn wasteland_destroys_a_nonbasic_land_and_is_not_offered_a_basic() {
         "and the Forest it was never offered is still there"
     );
 }
+
+#[test]
+fn wasteland_taps_for_colorless() {
+    assert_colorless_mana(wasteland(), 0);
+}

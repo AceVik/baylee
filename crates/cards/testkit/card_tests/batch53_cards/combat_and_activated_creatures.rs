@@ -54,10 +54,25 @@ fn bast_panther_goddess_cant_attack_with_fewer_than_three_creatures_and_pumps_at
 }
 
 #[test]
+fn tinybones_deathtouch_kills_a_larger_blocker() {
+    assert_deathtouch_kills_larger_blocker(index::TINYBONES_THE_PICKPOCKET);
+}
+
+#[test]
+fn serpent_society_deathtouch_kills_a_larger_blocker() {
+    assert_deathtouch_kills_larger_blocker(index::THE_SERPENT_SOCIETY);
+}
+
+#[test]
+fn aphelia_deathtouch_kills_a_larger_blocker() {
+    assert_deathtouch_kills_larger_blocker(index::APHELIA_VIPER_WHISPERER);
+}
+
+#[test]
 fn tinybones_the_pickpocket_casts_permanent_from_damaged_players_graveyard() {
     let mut e = Duel::new(SEED, index::FOREST)
         .battlefield(0, &[index::TINYBONES_THE_PICKPOCKET])
-        .hand(1, &[index::GRIZZLY_BEARS])
+        .hand(1, &[index::GRIZZLY_BEARS, index::FOREST, index::DIVINATION])
         .start();
     keep_mulligans(&mut e);
     reach_main_phase(&mut e, P0);
@@ -65,18 +80,25 @@ fn tinybones_the_pickpocket_casts_permanent_from_damaged_players_graveyard() {
 
     let tiny = on_battlefield(&e, P0, index::TINYBONES_THE_PICKPOCKET).unwrap();
 
-    // Put Grizzly Bears into P1's graveyard.
-    let bears_hand = in_hand(&e, P1, index::GRIZZLY_BEARS).unwrap();
-    let bears_gy = e
-        .dev_state_mut(P0)
-        .unwrap()
-        .move_object(
-            bears_hand,
-            ZoneLocation::Graveyard(P1),
-            ZonePosition::Top,
-            Cause::Effect,
-        )
-        .unwrap();
+    // Only a nonland permanent card in the damaged player's graveyard is legal.
+    let mut bears_gy = None;
+    for card in [index::GRIZZLY_BEARS, index::FOREST, index::DIVINATION] {
+        let hand_card = in_hand(&e, P1, card).unwrap();
+        let moved = e
+            .dev_state_mut(P0)
+            .unwrap()
+            .move_object(
+                hand_card,
+                ZoneLocation::Graveyard(P1),
+                ZonePosition::Top,
+                Cause::Effect,
+            )
+            .unwrap();
+        if card == index::GRIZZLY_BEARS {
+            bears_gy = Some(moved);
+        }
+    }
+    let bears_gy = bears_gy.unwrap();
     e.refresh_offer();
 
     // Attack with Tinybones unblocked.
@@ -96,18 +118,25 @@ fn tinybones_the_pickpocket_casts_permanent_from_damaged_players_graveyard() {
     e.apply(P1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .unwrap();
 
-    // Combat damage trigger asks for target nonland permanent card in P1's graveyard.
+    // The damaged player's land and instant are excluded from the target offer.
     pass_until(&mut e, |e| {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
+    let Pending::ChooseTargets { options, .. } = e.pending().clone() else {
+        unreachable!()
+    };
+    assert_eq!(options, vec![bears_gy]);
     targets(&mut e, vec![bears_gy], vec![]);
 
-    // Resolution asks YesNo whether to cast the targeted card; saying yes opens a payment window.
+    // Two red mana cast the green card: any type may pay for this spell.
     pass_until(&mut e, |e| matches!(e.pending(), Pending::YesNo { .. }));
     yes_no(&mut e, true);
-    mana(&mut e);
+    e.state.players[0].mana_pool = baylee_core::mana::ManaPool::new();
+    e.state.players[0].mana_pool.add(ManaColor::Red, 2);
+    e.refresh_offer();
     e.apply(P0, PlayerAction::PassPriority).unwrap();
     pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state.players[0].mana_pool.total(), 0);
 
     assert!(
         on_battlefield(&e, P0, index::GRIZZLY_BEARS).is_some(),
@@ -166,6 +195,29 @@ fn the_serpent_society_ward_poison_and_deathtouch_dies_edict() {
 }
 
 #[test]
+fn serpent_society_ward_allows_removal_for_exactly_five_poison_counters() {
+    let mut e = Duel::new(SEED, index::FOREST)
+        .battlefield(0, &[index::THE_SERPENT_SOCIETY])
+        .hand(1, &[index::HERO_S_DOWNFALL])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, P0);
+    priority(&mut e, P1);
+    mana(&mut e);
+    let downfall = in_hand(&e, P1, index::HERO_S_DOWNFALL).unwrap();
+    e.apply(P1, PlayerAction::CastSpell { card: downfall })
+        .unwrap();
+    let serpent = on_battlefield(&e, P0, index::THE_SERPENT_SOCIETY).unwrap();
+    targets(&mut e, vec![serpent], vec![]);
+    pass_until(&mut e, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    yes_no(&mut e, true);
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().players[1].poison, 5);
+    assert_eq!(e.state().players[0].poison, 0);
+    assert!(in_graveyard(&e, P0, index::THE_SERPENT_SOCIETY).is_some());
+}
+
+#[test]
 fn aphelia_viper_whisperer_attack_snake_token_and_deathtouch_half_life_loss() {
     let mut e = prepared(&[], &[index::APHELIA_VIPER_WHISPERER], &[]);
     let aphelia = on_battlefield(&e, P0, index::APHELIA_VIPER_WHISPERER).unwrap();
@@ -203,6 +255,15 @@ fn aphelia_viper_whisperer_attack_snake_token_and_deathtouch_half_life_loss() {
                 .is_some_and(|o| o.controller == P0 && o.token.is_some())
         })
         .expect("1/1 deathtouch Snake token created");
+    let token = e.state().object(snake).unwrap().characteristics();
+    assert_eq!(pt(&e, snake), (1, 1));
+    assert_eq!(
+        token.colors,
+        baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::Black])
+    );
+    assert!(token.types.contains(TypeSet::CREATURE));
+    assert!(token.subtypes.contains(subtypes::creature::SNAKE));
+    assert!(token.keywords.contains(KeywordSet::DEATHTOUCH));
 
     // Advance to P0's next turn, activate Aphelia's delayed trigger ability, and attack with the Snake token.
     pass_until(&mut e, |e| {
@@ -217,10 +278,17 @@ fn aphelia_viper_whisperer_attack_snake_token_and_deathtouch_half_life_loss() {
     e.apply(
         P0,
         PlayerAction::DeclareAttackers {
-            attackers: vec![(snake, Defender::Player(P1))],
+            attackers: vec![
+                (snake, Defender::Player(P1)),
+                (aphelia, Defender::Player(P1)),
+            ],
         },
     )
     .unwrap();
+    // Aphelia attacks again, so her optional Snake trigger must be answered;
+    // decline it to keep this combat at exactly two attackers.
+    pass_until(&mut e, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    yes_no(&mut e, false);
     pass_until(&mut e, |e| {
         matches!(e.pending(), Pending::ChooseBlockers { .. })
     });
@@ -230,8 +298,10 @@ fn aphelia_viper_whisperer_attack_snake_token_and_deathtouch_half_life_loss() {
         e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
     });
 
-    // P1 took 1 from Aphelia (19), 1 from Snake (18), and then lost half of 18 = 9 life => 9 life!
-    assert_eq!(e.state().players[1].life, 9);
+    // P1 took 1 from Aphelia's first attack (19), then 2 from the Snake and
+    // Aphelia together (17). "One or more" triggers once, not once per creature:
+    // losing half of 17, rounded up, removes 9 life and leaves 8.
+    assert_eq!(e.state().players[1].life, 8);
 }
 
 #[test]

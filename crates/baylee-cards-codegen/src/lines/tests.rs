@@ -66,6 +66,28 @@ fn damage_history_death_trigger_maps_to_the_death_clause() {
 }
 
 #[test]
+fn noncombat_damage_to_an_object_matches_its_own_printed_sentence() {
+    use baylee_cards_dsl::{Trigger, triggered};
+    let ability = triggered!(
+        Trigger::DealsDamageToObject {
+            source: &Filter::This,
+            recipient: &Filter::CREATURE,
+        },
+        &[Effect::GainLife {
+            amount: Amount::Fixed(1),
+        }]
+    );
+    assert!(content_fits(
+        &ability,
+        "Whenever this creature deals damage to another creature, you gain 1 life."
+    ));
+    assert!(!content_fits(
+        &ability,
+        "When this creature dies, you gain 1 life."
+    ));
+}
+
+#[test]
 fn life_ward_maps_to_its_printed_sentence_for_the_client() {
     use baylee_cards_dsl::{PlayerRel, Trigger, triggered};
     let ability = triggered!(

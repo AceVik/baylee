@@ -341,7 +341,9 @@ pub struct PlayerView {
     /// absent.
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub trigger_order: Vec<OrderedTrigger>,
-    /// At most one explicitly public top card per library; no hidden cards.
+    /// At most one top card per library, included only where this viewer is
+    /// entitled to see it. A private look granted to this seat exposes no card
+    /// to opponents or spectators, and never exposes the card beneath it.
     #[serde(default)]
     pub library_tops: Vec<PublicObject>,
     /// The permanent holding this seat to sorcery speed, if one is

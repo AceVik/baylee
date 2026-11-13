@@ -463,6 +463,7 @@ fn kind_of(pending: &Pending) -> usize {
                 YesNoPrompt::SkipTurn { .. } => 16,
                 YesNoPrompt::GuessNamedCardInHand { .. } => 33,
                 YesNoPrompt::Madness { .. } => 35,
+                YesNoPrompt::ContinueRemovingCounters { .. } => 36,
             }
         }
         Pending::ChoosePile { .. } => 17 + 17,
@@ -676,6 +677,7 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
             | YesNoPrompt::UseDamageClearingReplacement { .. }
             | YesNoPrompt::UseShieldCounter { .. }
             | YesNoPrompt::ApplyAdditionalCountersNext { .. }
+            | YesNoPrompt::ContinueRemovingCounters { .. }
             | YesNoPrompt::SacrificeToEnter { .. }
             | YesNoPrompt::EnterTappedForCounters { .. }
             | YesNoPrompt::PayEnergy { .. }
@@ -717,6 +719,10 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
             permanent: object(),
             additional: 1,
             kind: None,
+        },
+        YesNoPrompt::ContinueRemovingCounters {
+            target: object(),
+            remaining: 2,
         },
         YesNoPrompt::SacrificeToEnter { count: 2 },
         YesNoPrompt::EnterTappedForCounters {

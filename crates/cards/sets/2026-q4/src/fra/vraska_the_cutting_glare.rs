@@ -2,8 +2,9 @@
 //! Oracle: Deathtouch
 //! Oracle: When Vraska enters, if you control six or more lands, destroy target permanent an opponent controls. They create a Treasure token. (It's an artifact with "{T}, Sacrifice this token: Add one mana of any color.")
 //! Set: FRA #278 — Reality Fracture | Scryfall ID: 5c28b012-5efb-488f-a1c1-09e2dddfd6ee | Oracle ID: 580de511-863c-4b7a-9d2e-fcdf6e12d54b
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — deathtouch, six-land entry condition and victim-controller Treasure.
 
+use crate::tokens;
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
@@ -22,6 +23,19 @@ card!(
         power = Some(4),
         toughness = Some(4),
     ),],
+    keywords = KeywordSet::DEATHTOUCH,
+    coverage = Coverage::Implemented,
+    abilities = &[triggered!(
+        Trigger::ETB,
+        &[
+            Effect::destroy(TargetSpec::Object(&Filter::ControlledByOpponent)),
+            Effect::CreateTokenForTargetController {
+                token: &tokens::TREASURE
+            },
+        ],
+        targets = Some(TargetReq::one(TargetSpec::Object(
+            &Filter::ControlledByOpponent
+        ))),
+        condition = Some(Condition::ControlCount(&Filter::YOUR_LAND, 6))
+    )],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

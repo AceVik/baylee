@@ -20,8 +20,10 @@ use smallvec::SmallVec;
 
 mod additional;
 mod escape;
+mod face_options;
 mod intrinsic;
 mod lands;
+mod library_top;
 pub(crate) use additional::{
     additional_card_enters_graveyard, additional_payment_capacity, additional_payment_capacity_for,
     additional_spell_costs, distinct_answers_exist, extend_sacrifices_per_mana_symbol,
@@ -40,8 +42,14 @@ pub(crate) use source_cost::*;
 mod tests;
 
 pub(crate) use escape::{escape_grants, granted_escape_options, mana_cost_mode};
+pub(crate) use face_options::ordinary_face_kind;
 pub use intrinsic::*;
 pub use lands::*;
+pub use library_top::library_top_visible_to;
+pub(crate) use library_top::{
+    library_top_fixed_additional_life, library_top_life_open, library_top_life_options,
+    library_top_life_value, library_top_spell_open,
+};
 pub(crate) use payment::*;
 #[cfg(feature = "test-support")]
 pub use payment::{SpellForm, SpendFor, pay_mana_for, spendable_units};
@@ -76,6 +84,9 @@ pub enum CastError {
     /// The mana pool cannot pay the cost.
     #[error("not enough mana")]
     NotEnoughMana,
+    /// The payable life total cannot pay this cast's fixed life costs.
+    #[error("not enough life")]
+    NotEnoughLife,
     /// Costs with {X}/{Y}/{Z} need the full wizard (M1.S3).
     #[error("variable costs not supported yet")]
     VariableCost,
@@ -938,6 +949,9 @@ fn can_cast_paying(
     card: ObjectId,
     paying: Paying,
 ) -> Result<(), CastError> {
+    if library_top_life_open(state, player, card) {
+        return library_top_life_options(state, lookup, player, card, paying).map(drop);
+    }
     let mut best = can_cast_form_paying(state, lookup, player, card, None, paying);
     if best.is_ok() {
         return best;

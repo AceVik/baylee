@@ -267,7 +267,11 @@ impl CastWizard {
             return usize::from(face);
         }
         match self.announced.or(self.option) {
-            Some(CastModeKind::Face(face) | CastModeKind::EscapeGranted { face, .. }) => face,
+            Some(
+                CastModeKind::Face(face)
+                | CastModeKind::EscapeGranted { face, .. }
+                | CastModeKind::LibraryTopLife { face, .. },
+            ) => face,
             _ => 0,
         }
     }
@@ -1929,7 +1933,10 @@ fn wizard_total_before_reduction(
         && wizard.option != Some(CastModeKind::Kicked)
         && !matches!(
             wizard.announced,
-            Some(CastModeKind::EscapeGranted { kicked: true, .. })
+            Some(
+                CastModeKind::EscapeGranted { kicked: true, .. }
+                    | CastModeKind::LibraryTopLife { kicked: true, .. }
+            )
         )
     {
         for add in face.additional_costs {

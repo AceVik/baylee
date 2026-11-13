@@ -122,12 +122,9 @@ pub(super) fn finish_look_at_top(
     chosen: &[ObjectId],
 ) -> Option<Pending> {
     let library = ZoneLocation::Library(res.controller);
-    let Some(&card) = chosen
+    let &card = chosen
         .first()
-        .filter(|card| looked.contains(card) && state.zones.contains(**card, library))
-    else {
-        return None;
-    };
+        .filter(|card| looked.contains(card) && state.zones.contains(**card, library))?;
     let owner = state
         .object(card)
         .map_or(res.controller, |object| object.owner);

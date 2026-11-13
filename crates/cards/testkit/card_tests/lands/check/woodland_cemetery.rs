@@ -42,34 +42,5 @@ fn woodland_cemetery_checks_for_a_swamp_or_forest_and_taps_for_black_or_green() 
         "a Forest is the printed check, so the land enters untapped"
     );
 
-    activate(&mut engine, p0, woodland_cemetery(), 0);
-    let Pending::ChooseColor { player, options } = engine.pending().clone() else {
-        panic!("expected a colour choice, got {:?}", engine.pending())
-    };
-    assert_eq!(player, p0, "the seat that tapped the land names the colour");
-    assert!(
-        options.contains(&ManaColor::Black) && options.contains(&ManaColor::Green),
-        "\"Add {{B}} or {{G}}\": both, and nothing else: {options:?}"
-    );
-    assert_eq!(options.len(), 2, "black and green are the whole menu");
-
-    engine
-        .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
-        .expect("black is one of the two colours printed on the card");
-    let pool = &engine.state().players[0].mana_pool;
-    assert_eq!(
-        pool.available(ManaColor::Black),
-        1,
-        "the colour that was named, and not a default"
-    );
-    assert_eq!(
-        pool.total(),
-        1,
-        "a Forest and a Woodland Cemetery stand, and exactly one was tapped"
-    );
-    assert!(is_tapped(&engine, land), "{{T}} is the whole price");
-    assert!(
-        stack_is_empty(&engine),
-        "CR 605.3b: a mana ability resolves as it is activated, so no stack is left"
-    );
+    assert_two_color_mana(woodland_cemetery(), [ManaColor::Black, ManaColor::Green]);
 }

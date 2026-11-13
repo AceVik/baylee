@@ -318,6 +318,41 @@ pub(super) fn event(state: &GameState, res: &Resolution) -> Option<DamageSourceR
         .or_else(|| state.source_identity(object))
 }
 
+/// The graveyard incarnation a death trigger is allowed to follow (CR 400.7).
+/// Depending on when its identity was captured, a stack object remembers
+/// either the battlefield incarnation or its immediate graveyard successor.
+/// Only that exact transition is followed: a card which moved on, even back
+/// into the same graveyard, is a different object and cannot be reached.
+pub(super) fn event_in_graveyard(state: &GameState, res: &Resolution) -> Option<DamageSourceRef> {
+    let object = res
+        .subject
+        .event_identity
+        .map(|(reference, _)| reference.object)
+        .or(res.event_object)?;
+    let before = res
+        .subject
+        .followed
+        .iter()
+        .rev()
+        .find(|reference| reference.object == object)
+        .copied()
+        .or_else(|| {
+            super::event_object_identity(state, res)
+                .map(|(version, _)| DamageSourceRef { object, version })
+        })?;
+    let current = state.object(object)?;
+    let expected_version = match state.source_object(before)?.zone {
+        Zone::Battlefield => before.version.wrapping_add(1),
+        Zone::Graveyard => before.version,
+        _ => return None,
+    };
+    (current.zone == Zone::Graveyard && current.is_card() && current.version == expected_version)
+        .then_some(DamageSourceRef {
+            object,
+            version: current.version,
+        })
+}
+
 /// The object an instruction names, retaining the event's incarnation for
 /// implicit subjects. An explicit target still uses its resolution snapshot.
 pub(super) fn target(

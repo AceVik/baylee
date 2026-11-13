@@ -200,6 +200,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CastPermanentSpellsFromGraveyard
         | Modifier::PermanentOfEachTypeFromGraveyard
         | Modifier::PlayLandsFromLibraryTop
+        | Modifier::LookAtLibraryTop
+        | Modifier::PlayFromLibraryTopForManaValueLife
         | Modifier::RevealAllLibraryTops
         | Modifier::RevealAllHands
         | Modifier::RevealYourHand
@@ -268,6 +270,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::BlockableWithoutLandwalk(_)
         | Modifier::BlockableWithoutAnyLandwalk
         | Modifier::IgnoreOpponentsHexproof
+        | Modifier::WardDoesntTrigger
         | Modifier::CounterMaximum { .. }
         | Modifier::CrewSaddlePowerBonus(_)
         | Modifier::BoastTwice
@@ -690,6 +693,7 @@ impl EffectTable {
                     | Modifier::OpponentsCantCast(_)
                     | Modifier::PlayersCantCast { .. }
                     | Modifier::PlayersCantPlay(_)
+                    | Modifier::CantEnterBattlefield(_)
             ),
         );
         self.hints.insert_if(
@@ -698,6 +702,7 @@ impl EffectTable {
                 fx.modifier,
                 Modifier::RevealAllLibraryTops
                     | Modifier::RevealLibraryTop
+                    | Modifier::LookAtLibraryTop
                     | Modifier::RevealAllHands
                     | Modifier::RevealYourHand
                     | Modifier::NoMaxHandSize
@@ -714,6 +719,7 @@ impl EffectTable {
                     | Modifier::CastPermanentSpellsFromGraveyard
                     | Modifier::PermanentOfEachTypeFromGraveyard
                     | Modifier::PlayLandsFromLibraryTop
+                    | Modifier::PlayFromLibraryTopForManaValueLife
                     | Modifier::CastSpellsFromGraveyard
                     | Modifier::GraveyardInstantSorceryOnce
                     | Modifier::GraveyardVampireOnce
@@ -1923,6 +1929,9 @@ mod tests {
             Modifier::CantActivateNonMana,
             Modifier::CantAttackUnlessYouControlMoreCreaturesThanDefender,
             Modifier::CantBlockUnlessYouControlMoreCreaturesThanAttacker,
+            Modifier::LookAtLibraryTop,
+            Modifier::PlayFromLibraryTopForManaValueLife,
+            Modifier::WardDoesntTrigger,
         ]
     }
 
@@ -1961,7 +1970,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            196,
+            199,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2060,7 +2069,9 @@ mod tests {
         // The attacker-filtered block tax and the life gain that becomes
         // nothing are two more rules-only modifiers.
         // Goblin Goon's two creature-count combat restrictions likewise lock no set.
-        assert_eq!((locking, all.len() - locking), (55, 141));
+        // LookAtLibraryTop, PlayFromLibraryTopForManaValueLife and WardDoesntTrigger
+        // are three more rules-only modifiers.
+        assert_eq!((locking, all.len() - locking), (55, 144));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

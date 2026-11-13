@@ -276,3 +276,70 @@ fn any_player_payment_stops_at_the_first_payer_and_runs_fallback_once() {
         assert_eq!(state.players[1].mana_pool.total(), u64::from(!second_pays));
     }
 }
+
+#[test]
+fn optional_life_payment_runs_paid_effects_only_after_actual_payment() {
+    static PRICE: &[Effect] = &[Effect::PlayerMayPayLifeThen {
+        player: PlayerRel::You,
+        life: Amount::Fixed(2),
+        effects: &[Effect::GainLife {
+            amount: Amount::Fixed(5),
+        }],
+    }];
+    for (starting_life, answer, expected) in
+        [(20, true, 23), (20, false, 20), (2, true, 5), (1, true, 1)]
+    {
+        let (mut state, mut res) = resolving(PRICE, ManaColor::Colorless);
+        state.players[0].life = starting_life;
+        let flow = run(&mut state, &mut res);
+        if starting_life == 1 {
+            assert!(
+                matches!(flow, Flow::Complete),
+                "an impossible price is not offered"
+            );
+            assert_eq!(life(&state), 1);
+            continue;
+        }
+        assert!(matches!(
+            flow,
+            Flow::Wait(Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::PayLife {
+                    amount: 2,
+                    permanent: None,
+                },
+                ..
+            }) if player == me()
+        ));
+        assert!(matches!(
+            resume_yes_no(&mut state, &mut res, answer),
+            Flow::Complete
+        ));
+        assert_eq!(life(&state), expected);
+    }
+}
+
+#[test]
+fn life_payment_or_keeps_its_unpaid_branch() {
+    static TAX: &[Effect] = &[Effect::PlayerMayPayLifeOr {
+        player: PlayerRel::You,
+        life: Amount::Fixed(2),
+        effect: &Effect::GainLife {
+            amount: Amount::Fixed(5),
+        },
+    }];
+    for (starting_life, answer, expected) in
+        [(20, true, 18), (20, false, 25), (2, true, 0), (1, true, 6)]
+    {
+        let (mut state, mut res) = resolving(TAX, ManaColor::Colorless);
+        state.players[0].life = starting_life;
+        let flow = run(&mut state, &mut res);
+        if starting_life == 1 {
+            assert!(matches!(flow, Flow::Complete));
+        } else {
+            assert!(matches!(flow, Flow::Wait(Pending::YesNo { .. })));
+            let _ = resume_yes_no(&mut state, &mut res, answer);
+        }
+        assert_eq!(life(&state), expected);
+    }
+}

@@ -8,6 +8,7 @@ impl<L: CardLookup> Engine<L> {
             || wizard.masked
             || wizard.escapes()
             || wizard.permission == Some(casting::GraveyardPermission::Flashback)
+            || matches!(wizard.announced, Some(CastModeKind::LibraryTopLife { .. }))
         {
             return None;
         }

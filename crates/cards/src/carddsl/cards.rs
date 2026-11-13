@@ -331,6 +331,7 @@ fn populate_synergy_tags(
             ab,
             AbilityDef::Triggered {
                 trigger: Trigger::EntersBattlefield(_)
+                    | Trigger::EntersBattlefieldFromGraveyardOrCast(_)
                     | Trigger::EnteredThisFrom(_)
                     | Trigger::EntersBattlefieldEvoked,
                 ..

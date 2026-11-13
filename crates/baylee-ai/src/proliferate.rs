@@ -17,6 +17,7 @@ fn engine_kind(kind: baylee_view::CounterKind) -> Option<CounterKind> {
         V::Energy => CounterKind::Energy,
         V::Rad => CounterKind::Rad,
         V::Lifelink => CounterKind::Lifelink,
+        V::Deathtouch => CounterKind::Deathtouch,
         V::Level => CounterKind::Level,
         V::Flying => CounterKind::Flying,
         V::Shadow => CounterKind::Shadow,

@@ -174,6 +174,101 @@ fn foretold_card_is_cast_for_its_alternative_cost(encoder: Encoder) {
     );
 }
 
+fn gwenom_casts_her_library_top_for_life(encoder: Encoder) {
+    let (mut table, card) = scenes::gwenom_permission_resolved();
+    let (pending, view) = encoder.view_for(&table.session, P0);
+    let (_, candidates) = encoder.encode(&view, &pending, None);
+    let cast = PlayerAction::CastSpell { card };
+    let target = target_for(&candidates, &pending, &cast);
+    let decoded = decode_action4(&candidates, &view, &pending, &target).expect("decodes");
+    assert_eq!(decoded, cast);
+    assert_eq!(pending.answer_fault(&decoded), None);
+    table
+        .session
+        .act(P0, decoded)
+        .expect("the engine takes the decoded cast");
+    assert!(
+        table
+            .session
+            .observe_view(P0)
+            .stack
+            .iter()
+            .any(|object| object.id == card),
+        "the library-top Dark Ritual is on the stack"
+    );
+    assert_eq!(table.session.observe_view(P0).seats[0].life, 19);
+
+    // The price is part of the cast-mode offer, not an extra yes/no trigger.
+    let kind = CastModeKind::LibraryTopLife {
+        life: 1,
+        face: 0,
+        modes: 0,
+        kicked: false,
+    };
+    assert_eq!(crate::policy::mode_kind(&kind), 15);
+    let modes = Pending::ChooseCastMode {
+        player: P0,
+        object: card,
+        options: vec![CastModeDesc {
+            index: 0,
+            kind,
+            cost: ManaCost::ZERO,
+        }],
+    };
+    let (_, options) = encoder.encode(&view, &modes, None);
+    let [permission] = options.candidates.as_slice() else {
+        panic!("one permission, not {}", options.candidates.len())
+    };
+    assert_eq!(permission.feat[14], 1.0);
+    assert_eq!(permission.feat[43], 1.0);
+    assert_eq!(permission.feat[46], 0.05);
+    let choose = PlayerAction::ChooseMode(0);
+    let target = target_for(&options, &modes, &choose);
+    assert_eq!(
+        decode_action4(&options, &view, &modes, &target),
+        Some(choose)
+    );
+}
+
+fn deathtouch_counters_survive_grouping_and_encoding(encoder: Encoder) {
+    use baylee_client_core::test_support::{ViewBuilder, token};
+    use baylee_core::ids::ObjectId;
+    use baylee_view::{CounterEntry, CounterKind};
+
+    let tokens: Vec<_> = [70, 71]
+        .into_iter()
+        .map(|slot| {
+            let mut object = token(slot, 0, "Qarsi's creature", 3, 2);
+            object.counters = vec![
+                CounterEntry {
+                    kind: CounterKind::Deathtouch,
+                    count: 1,
+                },
+                CounterEntry {
+                    kind: CounterKind::Lifelink,
+                    count: 1,
+                },
+            ];
+            object
+        })
+        .collect();
+    let view = ViewBuilder::new(2).with_battlefield(0, tokens).build();
+    let state = encoder.state(&view, None, None);
+    let row = state
+        .find_entity(ObjectId::new(70, 0))
+        .expect("the token has a row");
+    if encoder == Encoder::V4 {
+        // The old dense view deliberately collapses the keyword counters.
+        assert_eq!(state.entity_feat[row][80], 0.25);
+        assert_eq!(state.entity_feat.len(), 2);
+    } else {
+        assert_eq!(state.entity_feat[row][80], 0.5);
+        assert_eq!(state.entity_feat[row][104], 33.0);
+        assert_eq!(state.entity_feat[row][122], 2.0);
+        assert_eq!(state.entity_feat.len(), 1, "identical permanents group");
+    }
+}
+
 fn card_type_question_offers_the_fifteen_types(encoder: Encoder) {
     let mut table = scenes::card_type_asked();
     let (pending, view) = encoder.view_for(&table.session, P0);
@@ -386,6 +481,16 @@ macro_rules! per_encoder {
             #[test]
             fn foretold_card_is_cast_for_its_alternative_cost() {
                 super::foretold_card_is_cast_for_its_alternative_cost($encoder);
+            }
+
+            #[test]
+            fn gwenom_casts_her_library_top_for_life() {
+                super::gwenom_casts_her_library_top_for_life($encoder);
+            }
+
+            #[test]
+            fn deathtouch_counters_survive_grouping_and_encoding() {
+                super::deathtouch_counters_survive_grouping_and_encoding($encoder);
             }
 
             #[test]

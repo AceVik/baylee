@@ -35,19 +35,31 @@ fn destruction_followup_instructions_are_visited() {
 }
 
 #[test]
-fn life_payment_fallback_is_visited() {
-    static EFFECTS: &[Effect] = &[Effect::PlayerMayPayLifeOr {
-        player: PlayerRel::ControllerOfTarget,
-        life: Amount::SourcePower,
-        effect: &Effect::CounterTargetSpellOrAbility,
-    }];
+fn life_payment_outcomes_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::PlayerMayPayLifeOr {
+            player: PlayerRel::ControllerOfTarget,
+            life: Amount::SourcePower,
+            effect: &Effect::CounterTargetSpellOrAbility,
+        },
+        Effect::PlayerMayPayLifeThen {
+            player: PlayerRel::You,
+            life: Amount::EventPower,
+            effects: &[Effect::AddCounter {
+                kind: CounterKind::P1P1,
+                amount: Amount::EventPower,
+            }],
+        },
+    ];
     let mut seen = 0;
     let mut counter_seen = false;
+    let mut reward_seen = false;
     Effect::walk(EFFECTS, &mut seen, &mut |effect| {
         counter_seen |= matches!(effect, Effect::CounterTargetSpellOrAbility);
+        reward_seen |= matches!(effect, Effect::AddCounter { .. });
     });
-    assert_eq!(seen, 2);
-    assert!(counter_seen);
+    assert_eq!(seen, 4);
+    assert!(counter_seen && reward_seen);
 }
 
 /// Crystal Rod's life gain sits behind the payment, and a pool walk has

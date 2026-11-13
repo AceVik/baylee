@@ -332,20 +332,32 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 })
                 .map(|o| o.id),
         )
+        // Gwenom's visible top is checked face by face in `cast_ways`: do
+        // not apply the visible front's timing or targets to an Adventure or
+        // a back face the engine actually offered. Zero remaining mana is a
+        // valid plan; the life part is named by the route itself.
+        .chain(
+            view.library_tops
+                .iter()
+                .filter(|top| top.owner == caster)
+                .filter(|top| !legal.castable.contains(&top.id) && legal.castable_once_paid(top.id))
+                .filter(|top| pile_in_reach(duel, view, legal, top.id))
+                .map(|top| top.id),
+        )
         .collect()
 }
 
-/// Whether a card in a graveyard or in exile has a price with mana in it
-/// (CR 202.1b) that the seat's mana pays: the price [`spell_cost`] reads and
-/// the taps [`crate::mana_for`] plans, so lighting and clicking agree.
+/// Whether a card in a graveyard, exile or a visible library top has an
+/// engine-named price the seat can pay: the price [`spell_cost`] reads and
+/// the taps [`crate::mana_for`] plans, so lighting and clicking agree. An
+/// empty mana plan is still a plan, not a missing mana cost.
 fn pile_in_reach(
     duel: &Duel,
     view: &baylee_view::PlayerView,
     legal: &baylee_engine::choice::LegalActions,
     card: ObjectId,
 ) -> bool {
-    spell_cost(view, legal, card).is_some_and(|cost| cost.symbols().next().is_some())
-        && crate::mana_for(duel, card).is_some()
+    spell_cost(view, legal, card).is_some() && crate::mana_for(duel, card).is_some()
 }
 
 /// Which cards a tap or two would make suspendable: the engine's own list of

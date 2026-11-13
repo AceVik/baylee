@@ -1250,6 +1250,8 @@ fn apply(
         | Modifier::CastSpellsFromGraveyard
         | Modifier::PermanentOfEachTypeFromGraveyard
         | Modifier::PlayLandsFromLibraryTop
+        | Modifier::LookAtLibraryTop
+        | Modifier::PlayFromLibraryTopForManaValueLife
         | Modifier::RevealAllLibraryTops
         | Modifier::RevealAllHands
         | Modifier::RevealYourHand
@@ -1333,6 +1335,7 @@ fn apply(
         | Modifier::BlockableWithoutLandwalk(_)
         | Modifier::BlockableWithoutAnyLandwalk
         | Modifier::IgnoreOpponentsHexproof
+        | Modifier::WardDoesntTrigger
         | Modifier::CounterMaximum { .. }
         | Modifier::CrewSaddlePowerBonus(_)
         | Modifier::BoastTwice

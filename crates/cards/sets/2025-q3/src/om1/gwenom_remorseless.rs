@@ -2,7 +2,8 @@
 //! Oracle: Deathtouch, lifelink
 //! Oracle: Whenever Gwenom attacks, until end of turn, you may look at the top card of your library any time and you may play cards from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost.
 //! Set: SPM #56 — Marvel's Spider-Man | Scryfall ID: 46b6cc5d-7a37-4e8b-a1a5-9a573056610c | Oracle ID: c48cf135-b280-4e9f-a9d9-225104870741
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — combat keywords and an attack-triggered, turn-scoped library
+// look/play permission; spells cast this way pay their mana value in life.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -13,6 +14,8 @@ card!(
     scryfall_id = "46b6cc5d-7a37-4e8b-a1a5-9a573056610c",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     commander = CommanderRule::Legendary,
+    coverage = Coverage::Implemented,
+    keywords = KeywordSet::DEATHTOUCH.union(KeywordSet::LIFELINK),
     faces = &[face!(
         name = "Gwenom, Remorseless",
         mana_cost = mana!("{3}{B}{B}"),
@@ -26,6 +29,19 @@ card!(
         power = Some(4),
         toughness = Some(4),
     ),],
+    abilities = &[triggered!(
+        Trigger::Attacks(&Filter::This),
+        &[
+            Effect::continuous(
+                &Filter::Any,
+                Modifier::LookAtLibraryTop,
+                Duration::UntilEndOfTurn,
+            ),
+            Effect::continuous(
+                &Filter::Any,
+                Modifier::PlayFromLibraryTopForManaValueLife,
+                Duration::UntilEndOfTurn,
+            ),
+        ]
+    )],
 );
-
-// TODO(card): implement abilities, see docs/card-dsl.md.

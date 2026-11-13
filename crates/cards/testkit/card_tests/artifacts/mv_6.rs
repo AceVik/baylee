@@ -4,6 +4,7 @@
 use super::*;
 
 mod book_of_rass;
+mod chronicle_of_victory;
 mod feroz_s_ban;
 mod gate_to_the_aether;
 mod hair_strung_koto;

@@ -259,9 +259,9 @@ pub(super) fn trigger_count(
     controller: PlayerId,
 ) -> u32 {
     let event_kind = match trigger {
-        Trigger::EntersBattlefield(_) | Trigger::EnteredThisFrom(_) => {
-            baylee_cards_dsl::TriggerEventKind::EntersBattlefield
-        }
+        Trigger::EntersBattlefield(_)
+        | Trigger::EntersBattlefieldFromGraveyardOrCast(_)
+        | Trigger::EnteredThisFrom(_) => baylee_cards_dsl::TriggerEventKind::EntersBattlefield,
         _ => baylee_cards_dsl::TriggerEventKind::Any,
     };
     let _ = controller;
@@ -347,6 +347,16 @@ fn matches(
     you: PlayerId,
 ) -> bool {
     let source = context.source;
+    let came_from = |origin: baylee_cards_dsl::ZoneRef, from: Zone| match origin {
+        baylee_cards_dsl::ZoneRef::Battlefield => from == Zone::Battlefield,
+        baylee_cards_dsl::ZoneRef::Graveyard => from == Zone::Graveyard,
+        baylee_cards_dsl::ZoneRef::Hand => from == Zone::Hand,
+        baylee_cards_dsl::ZoneRef::Library => from == Zone::Library,
+        baylee_cards_dsl::ZoneRef::Exile => from == Zone::Exile,
+        baylee_cards_dsl::ZoneRef::Stack => from == Zone::Stack,
+        baylee_cards_dsl::ZoneRef::Command => from == Zone::Command,
+        baylee_cards_dsl::ZoneRef::NotBattlefield => from != Zone::Battlefield,
+    };
     match (trigger, event) {
         // CR 701.27f for the second: the ability is read off the face the
         // permanent shows right after it turned over, which is the face that
@@ -372,6 +382,18 @@ fn matches(
             .object(*object)
             .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
         (
+            Trigger::EntersBattlefieldFromGraveyardOrCast(filter),
+            GameEvent::ZoneChanged {
+                object,
+                from,
+                to: Zone::Battlefield,
+                ..
+            },
+        ) => state.object(*object).is_some_and(|o| {
+            eval::matches_with_context(filter, state, o, you, context)
+                && (*from == Zone::Graveyard || o.cast_history.was_from_graveyard())
+        }),
+        (
             Trigger::EnteredThisFrom(origin),
             GameEvent::ZoneChanged {
                 object,
@@ -379,19 +401,7 @@ fn matches(
                 to: Zone::Battlefield,
                 ..
             },
-        ) => {
-            *object == source
-                && match origin {
-                    baylee_cards_dsl::ZoneRef::Battlefield => *from == Zone::Battlefield,
-                    baylee_cards_dsl::ZoneRef::Graveyard => *from == Zone::Graveyard,
-                    baylee_cards_dsl::ZoneRef::Hand => *from == Zone::Hand,
-                    baylee_cards_dsl::ZoneRef::Library => *from == Zone::Library,
-                    baylee_cards_dsl::ZoneRef::Exile => *from == Zone::Exile,
-                    baylee_cards_dsl::ZoneRef::Stack => *from == Zone::Stack,
-                    baylee_cards_dsl::ZoneRef::Command => *from == Zone::Command,
-                    baylee_cards_dsl::ZoneRef::NotBattlefield => *from != Zone::Battlefield,
-                }
-        }
+        ) => *object == source && came_from(*origin, *from),
         // The three leaves-the-battlefield triggers look back (CR 603.10a).
         (
             Trigger::LeavesBattlefield(filter),

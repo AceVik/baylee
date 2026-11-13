@@ -309,6 +309,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
     // dst has length 10: [etb, dies, ltb, attacks, blocks, combat_damage, spell_cast, step_upkeep_end, landfall_or_life, counter_or_sac]
     match trigger {
         Trigger::EntersBattlefield(_)
+        | Trigger::EntersBattlefieldFromGraveyardOrCast(_)
         | Trigger::EnteredThisFrom(_)
         | Trigger::EntersBattlefieldEvoked => {
             dst[0] = 1.0;

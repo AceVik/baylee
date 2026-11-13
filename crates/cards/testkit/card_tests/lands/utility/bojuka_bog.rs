@@ -36,6 +36,8 @@ fn bojuka_bog_exiles_only_the_graveyard_it_targeted() {
     engine
         .apply(p0, PlayerAction::PlayLand { card: land })
         .unwrap();
+    let bog = on_battlefield(&engine, p0, bojuka_bog()).expect("the bog entered");
+    assert!(is_tapped(&engine, bog), "Bojuka Bog enters tapped");
 
     for _ in 0..8 {
         if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
@@ -80,4 +82,21 @@ fn bojuka_bog_exiles_only_the_graveyard_it_targeted() {
         mine_before,
         "one graveyard was named and only that one is emptied"
     );
+
+    cross_into_the_next_own_main(&mut engine, p0);
+    assert!(!is_tapped(&engine, bog), "the Bog untaps normally");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: bog,
+                ability_index: 0,
+            },
+        )
+        .expect("the printed mana ability remains available");
+    let pool = &engine.state().players[0].mana_pool;
+    assert_eq!(pool.total(), 1);
+    assert_eq!(pool.available(ManaColor::Black), 1);
+    assert!(is_tapped(&engine, bog));
+    assert!(stack_is_empty(&engine), "a mana ability uses no stack");
 }

@@ -461,6 +461,7 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
         "CantBeRegeneratedThisTurn { target: EventObject",
         "ReturnToHand { target: EventObject",
         "GraveyardToBattlefield { target: EventObject",
+        "GraveyardToBattlefieldModified { target: EventObject",
         "GraveyardToTop { target: EventObject",
         "AttachSelf { target: EventObject",
         "PutOnBottomOfLibraryFromGraveyard { target: EventObject",

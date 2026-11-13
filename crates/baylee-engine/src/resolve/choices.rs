@@ -3,6 +3,40 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary
 use super::*;
 
+fn offer_life_payment(
+    state: &mut GameState,
+    res: &mut Resolution,
+    player: PlayerRel,
+    life: Amount,
+    outcome: LifePaymentOutcome,
+) -> Option<Pending> {
+    let you = res.controller;
+    let player = players_of(player, state, you, res).first().copied()?;
+    let amount = amount2(&life, state, you, res);
+    if i32::try_from(amount)
+        .ok()
+        .is_none_or(|amount| !state.can_pay_life(player, amount))
+    {
+        return match outcome {
+            LifePaymentOutcome::Or(effect) => run_nested(state, res, std::slice::from_ref(effect)),
+            LifePaymentOutcome::Then(_) => None,
+        };
+    }
+    res.awaiting = Some(AwaitingOp::PlayerMayPayLife {
+        player,
+        amount,
+        outcome,
+    });
+    Some(Pending::YesNo {
+        player,
+        prompt: YesNoPrompt::PayLife {
+            amount,
+            permanent: None,
+        },
+        source: resolving_ability(state, res),
+    })
+}
+
 /// Operations that suspend on a player choice.
 #[allow(clippy::too_many_lines)] // the choice-op dispatch table is naturally flat
 pub(super) fn exec_choice(
@@ -595,29 +629,12 @@ pub(super) fn exec_choice(
             player,
             life,
             effect,
-        } => {
-            let player = players_of(player, state, you, res).first().copied()?;
-            let amount = amount2(&life, state, you, res);
-            if i32::try_from(amount)
-                .ok()
-                .is_none_or(|amount| !state.can_pay_life(player, amount))
-            {
-                return run_nested(state, res, std::slice::from_ref(effect));
-            }
-            res.awaiting = Some(AwaitingOp::PlayerMayPayLife {
-                player,
-                amount,
-                effect,
-            });
-            Some(Pending::YesNo {
-                player,
-                prompt: YesNoPrompt::PayLife {
-                    amount,
-                    permanent: None,
-                },
-                source: resolving_ability(state, res),
-            })
-        }
+        } => offer_life_payment(state, res, player, life, LifePaymentOutcome::Or(effect)),
+        Effect::PlayerMayPayLifeThen {
+            player,
+            life,
+            effects,
+        } => offer_life_payment(state, res, player, life, LifePaymentOutcome::Then(effects)),
         Effect::PlayerMayGetPoisonOr {
             player,
             poison,

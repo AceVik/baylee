@@ -3560,6 +3560,10 @@ CastMutate = Mutate
 # Escape (CR 702.138a), the keyword as the German printing names it
 CastEscape = Escape
 
+# Cast the visible library top, paying its mana value in life instead of mana.
+# Arguments: life
+CastLibraryTopLife = Library top: pay { $life } life instead of its mana cost
+
 # Choose the source of a casting permission.
 CastPermission = Use this casting permission
 
@@ -3731,6 +3735,14 @@ ApplyAdditionalCountersNext =
 # Apply an entry replacement that adds a specified counter kind.
 # Arguments: count, kind
 ApplyAdditionalCountersOfKindNext = Apply { $count } additional { $kind } next? No applies another replacement first.
+
+# Continue removing counters of another kind, or stop the instruction.
+# Arguments: count
+ContinueRemovingCounters =
+    Remove up to { $count ->
+        [one] one more counter
+       *[other] { $count } more counters
+    }? No stops the removal.
 
 # Use the optional part of this ability? ("you may …")
 UseTheOptionalAbility = This ability is optional. Use it?
@@ -5568,6 +5580,14 @@ LogCountersLifelink =
     { $count ->
         [one] lifelink counter
        *[other] lifelink counters
+    }
+
+# One deathtouch counter.
+# Arguments: count
+LogCountersDeathtouch =
+    { $count ->
+        [one] deathtouch counter
+       *[other] deathtouch counters
     }
 
 # One level counter.

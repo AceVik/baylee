@@ -900,7 +900,11 @@ fn a_copied_trigger_cannot_cast_the_same_card_twice() {
         })
         .expect("the original madness trigger is on the stack");
     copying.synthetic_effects = Some(COPY);
-    engine.push_synthetic_trigger_with_targets(&copying, smallvec::smallvec![original]);
+    engine.push_synthetic_trigger_with_targets(
+        &copying,
+        smallvec::smallvec![original],
+        baylee_core::ids::SeatSet::new(),
+    );
 
     // CR 707.10: the copy makes its own cast decision. Once that decision
     // moves the card to the stack, the original can no longer find its exile

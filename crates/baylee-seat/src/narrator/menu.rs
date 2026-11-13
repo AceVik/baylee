@@ -1080,6 +1080,27 @@ fn regeneration_words() -> (String, String, String) {
     )
 }
 
+fn buyback_words(
+    cost: &ManaCost,
+    parts: baylee_engine::choice::BuybackParts,
+) -> (String, String, String) {
+    (
+        format!(
+            "Pay its buyback ({})? If you do, the spell goes back to your hand as it \
+             resolves instead of into your graveyard, and you may cast it again; if it is \
+             countered, or every target is gone, it goes to your graveyard and the cost \
+             stays paid.",
+            baylee_client_core::interaction::buyback_price(
+                baylee_client_core::Lang::En,
+                *cost,
+                parts
+            )
+        ),
+        "pay it, and have the spell back as it resolves".into(),
+        "cast it without it, and it goes to your graveyard".into(),
+    )
+}
+
 /// A yes/no question in words: the question, what yes does, what no does.
 fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, String) {
     match prompt {
@@ -1102,21 +1123,7 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "pay it".into(),
             "cast it without it".into(),
         ),
-        YesNoPrompt::Buyback { cost, parts } => (
-            format!(
-                "Pay its buyback ({})? If you do, the spell goes back to your hand as it \
-                 resolves instead of into your graveyard, and you may cast it again; if it is \
-                 countered, or every target is gone, it goes to your graveyard and the cost \
-                 stays paid.",
-                baylee_client_core::interaction::buyback_price(
-                    baylee_client_core::Lang::En,
-                    *cost,
-                    *parts
-                )
-            ),
-            "pay it, and have the spell back as it resolves".into(),
-            "cast it without it, and it goes to your graveyard".into(),
-        ),
+        YesNoPrompt::Buyback { cost, parts } => buyback_words(cost, *parts),
         YesNoPrompt::PayTax { mana } => (
             format!("Pay {{{mana}}} for this tax?"),
             format!("pay {{{mana}}}"),
@@ -1161,6 +1168,14 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             format!("Cast {}, paying its costs?", table.named(*card)),
             "cast it and pay".into(),
             "don't cast it".into(),
+        ),
+        YesNoPrompt::ContinueRemovingCounters { target, remaining } => (
+            format!(
+                "Remove up to {remaining} more counters from {}?",
+                table.named(*target)
+            ),
+            "choose a number for another kind of counter".into(),
+            "stop removing counters".into(),
         ),
         YesNoPrompt::MayDo => may_do_words(),
         YesNoPrompt::TopOfLibrary { card } => (
@@ -1717,6 +1732,12 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
             if kicked { ", with kicker" } else { "" },
             if prototype { ", as prototype" } else { "" }
         ),
+        CastModeKind::LibraryTopLife {
+            life,
+            face: route_face,
+            modes,
+            kicked,
+        } => library_top_life_label(card, face, option, life, route_face, modes, kicked),
         CastModeKind::Counter(kind) => format!(
             "Choose {}",
             baylee_client_core::interaction::counter_label(
@@ -1726,6 +1747,72 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         ),
         CastModeKind::Colors(colors) => color_choice_label(colors),
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn library_top_life_label(
+    card: Option<baylee_view::CardIdentity>,
+    face: usize,
+    option: &CastModeDesc,
+    life: u32,
+    route_face: usize,
+    modes: u8,
+    kicked: bool,
+) -> String {
+    let sentence = |line: Option<baylee_cards::lines::AbilityLine>| {
+        let card = card?;
+        baylee_cards::oracle::sentence(card.index, face, line?.line)
+    };
+    let cost = spoken_cost(&option.cost);
+    let mut label =
+        format!("Cast the top card of your library, paying {life} life instead of its mana cost");
+    if route_face != face {
+        let name = card
+            .and_then(|c| baylee_cards::by_index(c.index))
+            .and_then(|def| def.faces.get(route_face))
+            .map_or_else(
+                || format!("face {}", route_face + 1),
+                |f| f.name.to_string(),
+            );
+        let _ = std::fmt::Write::write_fmt(&mut label, format_args!(" as {name}"));
+    }
+    if kicked {
+        label.push_str(", kicked");
+    }
+    for mode in 0..8 {
+        if modes & (1 << mode) != 0 {
+            let words = card.and_then(|c| {
+                sentence(baylee_cards::lines::mode_line(
+                    c.index,
+                    route_face,
+                    mode as usize,
+                ))
+                .or_else(|| {
+                    baylee_cards::lines::inline_mode_words(c.index, route_face, mode as usize)
+                })
+            });
+            let _ = std::fmt::Write::write_fmt(
+                &mut label,
+                format_args!(
+                    ", mode {}",
+                    words.map_or_else(|| (mode + 1).to_string(), str::to_string)
+                ),
+            );
+        }
+    }
+    if option.cost.symbols().next().is_some() {
+        let _ = std::fmt::Write::write_fmt(
+            &mut label,
+            format_args!(", plus {cost} for additional costs and taxes"),
+        );
+    }
+    let pool = option.cost.cmc();
+    label.push_str(if pool == 0 {
+        "; no mana remains to pay"
+    } else {
+        "; the stated mana remains to be paid"
+    });
+    label
 }
 
 fn color_choice_label(colors: baylee_core::color::ColorSet) -> String {

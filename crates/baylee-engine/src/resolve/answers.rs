@@ -34,6 +34,7 @@ fn change_text(
     }
 }
 
+#[allow(clippy::too_many_lines)] // each numeric continuation owns one distinct pending protocol
 pub(super) fn resume_with_number_inner(
     state: &mut GameState,
     res: &mut Resolution,
@@ -111,6 +112,24 @@ pub(super) fn resume_with_number_inner(
         remove_counters_self_create_tokens(state, res, source, kind, token, number);
         res.pc += 1;
         return run(state, res);
+    }
+    if matches!(
+        res.awaiting,
+        Some(AwaitingOp::RemoveUpToCountersTarget { .. })
+    ) {
+        let Some(AwaitingOp::RemoveUpToCountersTarget {
+            target,
+            kind,
+            remaining,
+            maximum,
+            removed,
+        }) = res.awaiting.take()
+        else {
+            unreachable!("the counter-removal continuation was just matched");
+        };
+        return counter_removal::resume(
+            state, res, number, target, kind, remaining, maximum, removed,
+        );
     }
     let Some(AwaitingOp::Counters {
         target,
@@ -606,6 +625,23 @@ pub(super) fn resume_yes_no_inner(
     {
         return flow;
     }
+    if matches!(
+        res.awaiting,
+        Some(AwaitingOp::ContinueRemovingCounters { .. })
+    ) {
+        let Some(AwaitingOp::ContinueRemovingCounters {
+            target,
+            remaining,
+            maximum,
+            removed,
+        }) = res.awaiting.take()
+        else {
+            unreachable!("the continuation kind was just checked");
+        };
+        return counter_removal::resume_continue(
+            state, res, answer, target, remaining, maximum, removed,
+        );
+    }
     if let Some(AwaitingOp::PayEnergy { amount, effect }) = res.awaiting {
         res.awaiting = None;
         if answer && state.pay_energy(res.controller, u32::from(amount)) {
@@ -617,19 +653,32 @@ pub(super) fn resume_yes_no_inner(
     if let Some(AwaitingOp::PlayerMayPayLife {
         player,
         amount,
-        effect,
+        outcome,
     }) = res.awaiting
     {
         res.awaiting = None;
-        if answer
-            && let Ok(amount) = i32::try_from(amount)
-            && state.can_pay_life(player, amount)
-        {
+        let payment = if answer {
+            i32::try_from(amount)
+                .ok()
+                .filter(|&amount| state.can_pay_life(player, amount))
+        } else {
+            None
+        };
+        if let Some(amount) = payment {
             state.change_life(player, -amount, Cause::Cost);
-            res.pc += 1;
-            return run(state, res);
         }
-        return run_fallback(state, res, std::slice::from_ref(effect));
+        match outcome {
+            LifePaymentOutcome::Or(effect) if payment.is_none() => {
+                return run_fallback(state, res, std::slice::from_ref(effect));
+            }
+            LifePaymentOutcome::Then(effects) if payment.is_some() => {
+                return run_fallback(state, res, effects);
+            }
+            _ => {
+                res.pc += 1;
+                return run(state, res);
+            }
+        }
     }
     if let Some(AwaitingOp::TopOrBottom { card, owner }) = res.awaiting {
         res.awaiting = None;

@@ -428,6 +428,7 @@ impl Writer<'_> {
             CounterKind::Energy => (Phrase::LogCountersEnergy, None),
             CounterKind::Rad => (Phrase::LogCountersRad, None),
             CounterKind::Lifelink => (Phrase::LogCountersLifelink, None),
+            CounterKind::Deathtouch => (Phrase::LogCountersDeathtouch, None),
             CounterKind::Level => (Phrase::LogCountersLevel, None),
             CounterKind::Hone => (Phrase::LogCountersHone, None),
             CounterKind::Stun => (Phrase::LogCountersStun, None),

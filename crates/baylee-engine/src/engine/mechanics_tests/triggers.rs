@@ -17,10 +17,28 @@ const SQUIRE: u32 = 7103;
 const WALL: u32 = 7104;
 const BOWMASTER: u32 = 7105;
 const STACKS: u32 = 7106;
+const GRAVEWATCH: u32 = 7107;
 
 static GAIN_ONE: &[Effect] = &[Effect::gain_life(1)];
 static YOUR_CREATURE: Filter = Filter::YOUR_CREATURE;
 static THIS: Filter = Filter::This;
+static GRAVEWATCH_ABILITIES: &[AbilityDef] = &[
+    baylee_cards_dsl::triggered!(
+        Trigger::EntersBattlefieldFromGraveyardOrCast(&YOUR_CREATURE),
+        GAIN_ONE
+    ),
+    free(
+        &[Effect::GraveyardToBattlefield {
+            target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
+            owner_control: false,
+            counters: None,
+        }],
+        Some(TargetReq::one(TargetSpec::CardInGraveyard(
+            &Filter::CREATURE,
+            PlayerRel::You,
+        ))),
+    ),
+];
 
 /// Exalted's trigger (CR 702.83a) with a life point for its effect:
 /// "Whenever a creature you control attacks alone, you gain 1 life."
@@ -84,6 +102,7 @@ fn cards() -> Vec<&'static CardDef> {
         ),
         land(BOWMASTER, "Bowmaster", BOWMASTER_ABILITIES),
         land(STACKS, "Stacks", STACKS_ABILITIES),
+        land(GRAVEWATCH, "Gravewatch", GRAVEWATCH_ABILITIES),
     ]
 }
 
@@ -527,4 +546,133 @@ fn an_empty_optional_target_keeps_an_event_only_effect() {
             .any(|entry| matches!(entry.event, GameEvent::StackObjectDidNotResolve { .. })),
         "nothing was discarded"
     );
+}
+
+fn gravewatch_for(engine: &Bench, seat: PlayerId) -> ObjectId {
+    objects(engine, ZoneLocation::Battlefield, GRAVEWATCH)
+        .into_iter()
+        .find(|id| {
+            engine
+                .state()
+                .object(*id)
+                .is_some_and(|object| object.controller == seat)
+        })
+        .expect("the seat's Gravewatch")
+}
+
+fn graveyard_return(engine: &mut Bench, actor: PlayerId) {
+    let observer = gravewatch_for(engine, actor);
+    let creature = the(
+        engine,
+        ZoneLocation::Hand(actor),
+        baylee_core::generated::index::GRIZZLY_BEARS.get(),
+    );
+    engine
+        .dev_state_mut(actor)
+        .unwrap()
+        .move_object(
+            creature,
+            ZoneLocation::Graveyard(actor),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    engine.refresh_offer();
+    to_main(engine, actor);
+    activate(engine, actor, observer, 1);
+    engine
+        .apply(
+            actor,
+            PlayerAction::ChooseTargets {
+                objects: vec![creature],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    settle(engine, actor);
+    assert_eq!(
+        engine.state().object(creature).unwrap().zone,
+        crate::zone::Zone::Battlefield
+    );
+    assert_eq!(engine.state().object(creature).unwrap().controller, actor);
+    for seat in [me(), them()] {
+        let source = gravewatch_for(engine, seat);
+        assert_eq!(triggered(engine, source), usize::from(seat == actor));
+    }
+}
+
+#[test]
+fn a_direct_graveyard_return_matches_only_its_new_controllers_watch() {
+    for actor in [me(), them()] {
+        let mut engine = bench(
+            7107 + u64::from(actor.get()),
+            cards(),
+            [
+                Seat::with(&[GRAVEWATCH])
+                    .holding(&[baylee_core::generated::index::GRIZZLY_BEARS.get()]),
+                Seat::with(&[GRAVEWATCH])
+                    .holding(&[baylee_core::generated::index::GRIZZLY_BEARS.get()]),
+            ],
+        );
+        graveyard_return(&mut engine, actor);
+    }
+}
+
+#[test]
+fn graveyard_casts_match_after_stack_entry_but_hand_casts_and_other_controllers_do_not() {
+    let will = baylee_core::generated::index::YAWGMOTH_S_WILL.get();
+    let bears = baylee_core::generated::index::GRIZZLY_BEARS.get();
+    let swamp = baylee_core::generated::index::SWAMP.get();
+    for (actor, cast_from_graveyard) in [(me(), false), (me(), true), (them(), true)] {
+        let mut engine = bench(
+            7110 + u64::from(actor.get()) + u64::from(cast_from_graveyard),
+            cards(),
+            [
+                Seat::with(&[GRAVEWATCH, forest(), forest(), swamp, swamp, swamp, swamp])
+                    .holding(&[will, bears]),
+                Seat::with(&[forest(), forest(), swamp, swamp, swamp, swamp])
+                    .holding(&[will, bears]),
+            ],
+        );
+        let observer = the(&engine, ZoneLocation::Battlefield, GRAVEWATCH);
+        let creature = the(&engine, ZoneLocation::Hand(actor), bears);
+        if cast_from_graveyard {
+            engine
+                .dev_state_mut(actor)
+                .unwrap()
+                .move_object(
+                    creature,
+                    ZoneLocation::Graveyard(actor),
+                    crate::zone::ZonePosition::Top,
+                    crate::event::Cause::Effect,
+                )
+                .unwrap();
+        }
+        engine.refresh_offer();
+        to_main(&mut engine, actor);
+        float_all(&mut engine, actor);
+        if cast_from_graveyard {
+            let permission = the(&engine, ZoneLocation::Hand(actor), will);
+            engine
+                .apply(actor, PlayerAction::CastSpell { card: permission })
+                .unwrap();
+            settle(&mut engine, actor);
+        }
+        engine
+            .apply(actor, PlayerAction::CastSpell { card: creature })
+            .unwrap();
+        assert_eq!(
+            engine.state().object(creature).unwrap().zone,
+            crate::zone::Zone::Stack
+        );
+        settle(&mut engine, actor);
+        assert_eq!(
+            engine.state().object(creature).unwrap().zone,
+            crate::zone::Zone::Battlefield
+        );
+        assert_eq!(
+            triggered(&engine, observer),
+            usize::from(actor == me() && cast_from_graveyard)
+        );
+    }
 }

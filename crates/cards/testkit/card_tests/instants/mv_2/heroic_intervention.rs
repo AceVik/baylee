@@ -81,3 +81,43 @@ fn heroic_intervention_answers_banishing_stroke() {
          (CR 608.2b)"
     );
 }
+
+/// Hexproof does not stop a destroy effect. This separate answer therefore
+/// proves Intervention's other half: the already-targeted creature survives
+/// Hero's Downfall because it is indestructible when the spell resolves.
+#[test]
+fn heroic_intervention_makes_an_already_targeted_creature_indestructible() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[forest(), forest(), grizzly_bears()])
+        .hand(0, &[heroic_intervention()])
+        .battlefield(1, &[swamp(), swamp(), swamp()])
+        .hand(1, &[hero_s_downfall()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    let bears = on_battlefield(&engine, p0, grizzly_bears()).unwrap();
+
+    cast_from_hand(&mut engine, p1, hero_s_downfall());
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![bears],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        !stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    cast_from_hand(&mut engine, p0, heroic_intervention());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().object(bears).unwrap().zone,
+        Zone::Battlefield
+    );
+    assert!(in_graveyard(&engine, p1, hero_s_downfall()).is_some());
+}

@@ -579,6 +579,7 @@ impl GameState {
         self.per_turn.revolt.hash(h);
         self.per_turn.put_nontoken_permanent.hash(h);
         self.per_turn.improvise_next_spell.hash(h);
+        self.per_turn.next_spell_cost_reduction.hash(h);
         self.per_turn.main_phases_begun.hash(h);
         self.per_turn.descended.hash(h);
         self.per_turn.speed_triggered.hash(h);
@@ -2459,6 +2460,7 @@ fn hash_counter(h: &mut Hasher, kind: CounterKind) {
         CounterKind::Bore => h.u8(19),
         CounterKind::Rad => h.u8(9),
         CounterKind::Lifelink => h.u8(10),
+        CounterKind::Deathtouch => h.u8(22),
         CounterKind::Level => h.u8(11),
         CounterKind::Flying => h.u8(13),
         CounterKind::Shadow => h.u8(14),

@@ -1293,27 +1293,69 @@ fn cast_label(
             kicked,
             prototype,
             ..
-        } => {
-            let mut label = Phrase::CastEscape.text(lang).to_string();
-            if prototype {
-                append_cast_detail(&mut label, Phrase::CastPrototype.text(lang));
-            }
-            if kicked {
-                append_cast_detail(&mut label, Phrase::CastKicked.text(lang));
-            }
-            if face != 0
-                && let Some(name) = names.of(object, face)
-            {
-                append_cast_detail(&mut label, &name);
-            }
-            for mode in 0..8 {
-                if modes & (1 << mode) != 0 {
-                    append_cast_detail(&mut label, &mode_label(lang, object, names, mode));
-                }
-            }
-            label
+        } => cast_label_with_details(
+            Phrase::CastEscape.text(lang).to_string(),
+            lang,
+            object,
+            names,
+            CastDetails {
+                face,
+                modes,
+                kicked,
+                prototype,
+            },
+        ),
+        K::LibraryTopLife {
+            life,
+            face,
+            modes,
+            kicked,
+        } => cast_label_with_details(
+            Phrase::CastLibraryTopLife.fill(lang, &[&life.to_string()]),
+            lang,
+            object,
+            names,
+            CastDetails {
+                face,
+                modes,
+                kicked,
+                prototype: false,
+            },
+        ),
+    }
+}
+
+struct CastDetails {
+    face: usize,
+    modes: u8,
+    kicked: bool,
+    prototype: bool,
+}
+
+fn cast_label_with_details(
+    mut label: String,
+    lang: Lang,
+    object: ObjectId,
+    names: FaceNames<'_>,
+    details: CastDetails,
+) -> String {
+    if details.prototype {
+        append_cast_detail(&mut label, Phrase::CastPrototype.text(lang));
+    }
+    if details.kicked {
+        append_cast_detail(&mut label, Phrase::CastKicked.text(lang));
+    }
+    if details.face != 0
+        && let Some(name) = names.of(object, details.face)
+    {
+        append_cast_detail(&mut label, &name);
+    }
+    for mode in 0..8 {
+        if details.modes & (1 << mode) != 0 {
+            append_cast_detail(&mut label, &mode_label(lang, object, names, mode));
         }
     }
+    label
 }
 
 fn colors_label(colors: baylee_core::color::ColorSet, lang: Lang) -> String {

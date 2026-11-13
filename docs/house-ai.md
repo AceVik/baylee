@@ -109,6 +109,16 @@ can complete with the
 remaining visible sources; an expensive, uncastable card cannot drown out the
 colour needed for an affordable play.
 
+A visible library top participates in full-cast planning through the exact
+`LegalActions::cast_ways` routes, including Gwenom's
+`CastModeKind::LibraryTopLife`. Each face, modal combination and kicker route
+keeps its own identity and remaining mana price; a zero-mana remainder is a
+valid empty plan rather than a reason to fall back to the printed mana cost.
+The agent prices the mana-value life payment separately, including fixed
+additional and announced kicker life, and takes the route only when its
+conservative life floor remains. X in the replaced cost is zero, which also
+keeps the existing stillborn and useless-X checks authoritative.
+
 A visible madness question is answered from the exiled card's projected
 identity, not from its name or a hidden-zone fact. `policy::madness` reads
 `FaceDef::madness` and accepts when `can_pay` covers that cost with X at zero;
@@ -1629,7 +1639,12 @@ asks `profile.plays(...)`. The generations so far:
 9. `BOUNDED_SEARCH`: a level bounds its own search (§"Foresight", "The
    bound"). The searched answers of `expert` at generation 7, the
    trained AI's house teacher, are pinned
-   (`tests/reference/foresight-generation-7.json`).
+   (`tests/reference/foresight-generation-7.json`). The pin was re-recorded
+   on 13.11.2026 after the wishlist cards expanded the fair prior: at the
+   diverging public position its eligible pool grew from 2,376 to 2,382
+   cards. The same world seed consequently dealt different hidden cards.
+   This is the documented registry input to a fair search, not a policy
+   change to hide behind a later generation.
 10. `FULL_CASTS`: the house pays through the planner the client, the seat
     and the trained AI's menu share (`baylee_ai::spend`; `policy/full_casts.rs`):
     restricted mana where the engine names it for the payment (CR 106.6), a

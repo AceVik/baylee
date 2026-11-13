@@ -55,6 +55,7 @@ pub(super) fn arm(
             text: res.text,
             source_version: None,
             related_objects: None,
+            grantor: None,
             event_subject: None,
             event_ability: None,
             event_object_identity: None,
@@ -158,6 +159,30 @@ fn happened(
                         res.controller,
                         res.rule_context(),
                     )
+                })
+        }
+        ReflexiveEvent::SacrificedGrantor => {
+            let Some(grantor) = super::granted_source(state, res.on_stack) else {
+                return false;
+            };
+            let GameEvent::ZoneChanged {
+                object,
+                from: Zone::Battlefield,
+                cause: Cause::Effect,
+                ..
+            } = *event
+            else {
+                return false;
+            };
+            object == grantor.object
+                && entry.departure.as_ref().is_some_and(|departure| {
+                    // The ZoneChanged entry stores the incarnation immediately
+                    // before departure. The object itself is already its next
+                    // incarnation in the graveyard (CR 400.7), so reading its
+                    // current version would reject every actual sacrifice.
+                    departure.version == grantor.version
+                        && departure.sacrificed
+                        && departure.controller == res.controller
                 })
         }
         // A departure of the source by *effect*. A cost records

@@ -725,6 +725,8 @@ pub enum ReachFrom {
     Graveyard,
     /// Exile: an exile casting permission.
     Exile,
+    /// The visible top of the seat's own library.
+    LibraryTop,
 }
 
 /// One activated ability the seat could activate by tapping what it has
@@ -764,9 +766,6 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
         return Vec::new();
     }
     let sources = baylee_ai::mana_sources(view, legal);
-    if !baylee_ai::spend::has_mana_to_plan(view, legal) {
-        return Vec::new();
-    }
     let me = decision::resource_player(view);
     let hand = decision::hand(view);
     let Some(pool) = view.seat(me).map(|seat| seat.mana_pool) else {
@@ -775,16 +774,18 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
     let convoke_creatures = convoke_creatures(view, me, &sources);
     // `{X}` at its least: the caster chooses it (CR 107.3a), the matcher
     // will not guess at it, and a spell castable with X = 0 is castable.
-    // A plan with nothing to tap is no reach: the mana is in the pool
-    // already, so what keeps the engine from listing the card is not mana
-    // (a target, an additional cost, a raised cost), and no tap gives it.
+    // Ordinarily a plan with nothing to tap is no reach: the mana is in the
+    // pool already, so what keeps the engine from listing the card is not
+    // mana. Gwenom is the exception: life replaces the whole printed cost,
+    // so its zero-mana route is a real play even with no mana source at all.
     let whole_price =
         |id: ObjectId, card: baylee_view::CardIdentity, mut total: ManaCost, way: CastModeKind| {
             if has_convoke(card) && !convoke_creatures.is_empty() {
                 total = reduce_for_convoke(total, &convoke_creatures);
             }
-            baylee_ai::plan_for_spell(&total, &pool, view, legal, id, way)
-                .filter(|plan| !plan.steps.is_empty())
+            baylee_ai::plan_for_spell(&total, &pool, view, legal, id, way).filter(|plan| {
+                !plan.steps.is_empty() || matches!(way, CastModeKind::LibraryTopLife { .. })
+            })
         };
     let payable =
         |id: ObjectId, card: baylee_view::CardIdentity, cost: ManaCost, mode: CastModeKind| {
