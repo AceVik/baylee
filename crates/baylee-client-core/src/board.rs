@@ -619,6 +619,16 @@ pub struct ZonePile {
     /// lifts off, which is what the pile shows while they are held over it.
     /// `None` where the fan is the whole pile.
     pub rest: Option<FannedCard>,
+    /// What the commander this slot is for costs more than printed when
+    /// cast from the command zone, in generic mana: CR 903.8's tax, `{2}`
+    /// for each time it has been cast from there
+    /// ([`baylee_view::CommanderView::casts`]). `None` for every pile that
+    /// is not a commander's slot.
+    ///
+    /// It is the slot's and not the card's: it stands while the commander
+    /// is on the battlefield or anywhere else, because it is what the next
+    /// cast from here will cost, and each partner's is its own.
+    pub tax: Option<u32>,
 }
 
 impl ZonePile {
@@ -637,6 +647,7 @@ impl ZonePile {
             top: None,
             fan: Vec::new(),
             rest: None,
+            tax: None,
         }
     }
 
@@ -1892,6 +1903,12 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
                 top: top.map(|o| o.id),
                 fan,
                 rest,
+                tax: match kind {
+                    PileKind::Command => commanders.first(),
+                    PileKind::Command2 => commanders.get(1),
+                    _ => None,
+                }
+                .map(|commander| commander.casts.saturating_mul(2)),
             }
         })
         .collect()

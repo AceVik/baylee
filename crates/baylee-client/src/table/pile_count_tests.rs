@@ -13,6 +13,8 @@ struct Holds {
     exile: u32,
     hand: u32,
     waiting: &'static [u16],
+    /// What each command slot's commander costs more.
+    taxes: [u32; 2],
 }
 
 /// One seat's pod holding `holds`. The waiting place is there only while a
@@ -46,6 +48,11 @@ fn pod(player: PlayerId, holds: Holds) -> SeatPod {
                     PileKind::Exile => holds.exile,
                     PileKind::Waiting => holds.waiting.len() as u32,
                     _ => 0,
+                };
+                pile.tax = match kind {
+                    PileKind::Command => Some(holds.taxes[0]),
+                    PileKind::Command2 => Some(holds.taxes[1]),
+                    _ => None,
                 };
                 if kind == PileKind::Waiting {
                     pile.fan = (0u32..)
@@ -164,6 +171,11 @@ fn said(app: &mut App) -> Vec<(Tally, u8, u32)> {
         })
         .collect();
     out.sort_by_key(|(tally, nth, _)| (tally.mark(), *nth));
+    assert!(
+        out.windows(2)
+            .all(|pair| pair[0].0 != pair[1].0 || pair[0].1 != pair[1].1),
+        "a number is on the table twice"
+    );
     out
 }
 
@@ -195,6 +207,7 @@ fn a_library_and_a_hand_always_wear_their_number_and_the_others_from_their_first
             exile: 1,
             hand: 7,
             waiting: &[],
+            taxes: [0, 0],
         },
     );
     app.update();
@@ -217,6 +230,7 @@ fn a_library_and_a_hand_always_wear_their_number_and_the_others_from_their_first
             exile: 1,
             hand: 8,
             waiting: &[],
+            taxes: [0, 0],
         },
     );
     app.update();
@@ -289,36 +303,94 @@ fn exile_counts_its_waiting_cards_and_they_wear_their_time() {
     );
 }
 
-/// A fanned waiting place lays its cards where its numbers stand: they step
-/// aside for as long as the fan is open, and every other number stays.
+/// A fan opens over the felt between its pile and the mat. Where the
+/// reader sits a pile's numbers lie outside it and stay; at a seat seen
+/// from the side they lie under the fan, and a fanned pile's step aside for
+/// as long as it is open. Every other number stays.
 #[test]
-fn a_fanned_waiting_place_puts_its_numbers_aside() {
+fn a_fanned_piles_numbers_step_aside_where_they_lie_under_its_fan() {
     let mut app = running(
-        1,
+        4,
         Holds {
             library: 40,
+            graveyard: 3,
             waiting: &[1, 4],
             ..Holds::default()
         },
     );
-    let waits = |app: &mut App| {
-        said(app)
-            .iter()
-            .filter(|(tally, ..)| *tally == Tally::Waiting)
+    let worn = |app: &mut App, player: PlayerId, tally: Tally| {
+        app.world_mut()
+            .query::<&PileCount>()
+            .iter(app.world())
+            .filter(|count| count.player == player && count.tally == tally)
             .count()
     };
-    assert_eq!(waits(&mut app), 2);
-    let player = PlayerId::new(0);
-    app.world_mut().resource_mut::<SceneIndex>().fanned.insert(
-        baylee_core::ids::ObjectId::new(900, 0),
-        (Place::Exile(player), player, PileKind::Waiting),
-    );
+    let fan = |app: &mut App, player: PlayerId, kind: PileKind| {
+        let mut index = app.world_mut().resource_mut::<SceneIndex>();
+        index.fanned.clear();
+        index.fanned.insert(
+            baylee_core::ids::ObjectId::new(900, 0),
+            (Place::Exile(player), player, kind),
+        );
+    };
+    let turn = upright(&CameraRig::default().eye());
+    let mine = PlayerId::new(0);
+    let flank = (1..4)
+        .map(PlayerId::new)
+        .find(|player| {
+            let index = app.world().resource::<SceneIndex>();
+            !beside(&index.zones[player].slot, turn)
+        })
+        .expect("a ring of four has a seat seen from the side");
+    assert_eq!(worn(&mut app, mine, Tally::Waiting), 2, "a column");
+    assert_eq!(worn(&mut app, flank, Tally::Waiting), 1, "the top card's");
+
+    fan(&mut app, mine, PileKind::Waiting);
     app.update();
-    assert_eq!(waits(&mut app), 0, "the fan lies where the numbers stood");
-    assert_eq!(said(&mut app).len(), 3, "library, exile and hand stay");
+    assert_eq!(
+        worn(&mut app, mine, Tally::Waiting),
+        2,
+        "outside its pile, the fan does not reach them"
+    );
+
+    fan(&mut app, flank, PileKind::Waiting);
+    app.update();
+    assert_eq!(worn(&mut app, flank, Tally::Waiting), 0, "under the fan");
+    assert_eq!(worn(&mut app, flank, Tally::Graveyard), 1, "another pile's");
+    assert_eq!(worn(&mut app, flank, Tally::Hand), 1);
+
+    fan(&mut app, flank, PileKind::Graveyard);
+    app.update();
+    assert_eq!(worn(&mut app, flank, Tally::Graveyard), 0, "under the fan");
+    assert_eq!(worn(&mut app, flank, Tally::Waiting), 1, "the fan closed");
+
     app.world_mut().resource_mut::<SceneIndex>().fanned.clear();
     app.update();
-    assert_eq!(waits(&mut app), 2, "the fan closed: they are back");
+    assert_eq!(worn(&mut app, flank, Tally::Graveyard), 1, "it is back");
+}
+
+/// A command slot wears what its commander costs more to cast from there,
+/// from the first cast and each partner's its own. Before the first cast it
+/// wears nothing: the commander costs what is printed on it.
+#[test]
+fn a_command_slot_wears_its_commanders_tax_from_the_first_cast() {
+    let holds = |taxes| Holds {
+        library: 40,
+        taxes,
+        ..Holds::default()
+    };
+    let mut app = running(1, holds([0, 0]));
+    let rest = [(Tally::Library, 0, 40), (Tally::Hand, 0, 0)];
+    assert_eq!(said(&mut app), rest);
+    set_holds(&mut app, holds([2, 0]));
+    app.update();
+    assert_eq!(said(&mut app), [rest[0], rest[1], (Tally::Tax, 0, 2)]);
+    set_holds(&mut app, holds([4, 6]));
+    app.update();
+    assert_eq!(
+        said(&mut app),
+        [rest[0], rest[1], (Tally::Tax, 0, 4), (Tally::Tax2, 0, 6)]
+    );
 }
 
 /// At rest nothing is written: not the index, not a material. The first
@@ -377,15 +449,6 @@ fn on_table(corners: [Vec3; 4]) -> [Vec2; 4] {
     corners.map(|corner| Vec2::new(corner.x, -corner.z))
 }
 
-/// A rectangle lying at `center` turned as a seat facing `facing`, with
-/// these half sizes across the seat and along its depth.
-fn seat_rect(center: Vec2, facing: f32, half: Vec2) -> [Vec2; 4] {
-    let side = Vec2::new(facing.cos(), -facing.sin());
-    let away = Vec2::new(facing.sin(), facing.cos());
-    [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)]
-        .map(|(x, y)| center + side * (x * half.x) + away * (y * half.y))
-}
-
 /// Whether two convex quads overlap: the separating-axis test, written out.
 fn overlap(a: [Vec2; 4], b: [Vec2; 4]) -> bool {
     for quad in [a, b] {
@@ -415,6 +478,7 @@ const FULL: Holds = Holds {
     exile: 40,
     hand: 7,
     waiting: &[1, 3, 10],
+    taxes: [2, 14],
 };
 
 /// The numbers every seat of `layout` wears with a full set of places,
@@ -426,6 +490,7 @@ fn laid_for(layout: &TableLayout, window: Vec2) -> Vec<(PlayerId, Tally, u8, [Ve
     let mut out = Vec::new();
     for slot in layout.slots.iter().filter(|slot| !slot.parked) {
         let seat = pod(slot.player, FULL);
+        let open = open_left(slot, layout.slots.iter());
         let numbers = numbers_of(&seat, reader.column(slot));
         let column = numbers
             .iter()
@@ -433,7 +498,11 @@ fn laid_for(layout: &TableLayout, window: Vec2) -> Vec<(PlayerId, Tally, u8, [Ve
             .filter(|(tally, ..)| *tally == Tally::Waiting)
             .count() as u8;
         for (tally, nth, count) in numbers.into_iter().flatten() {
-            let number = reader.lay(&(*slot, 0.0, column, stood(&seat)), (tally, nth), count);
+            let number = reader.lay(
+                &(*slot, 0.0, column, stood(&seat), open),
+                (tally, nth),
+                count,
+            );
             out.push((slot.player, tally, nth, body_corners(&number, tally, count)));
         }
     }
@@ -468,6 +537,15 @@ fn no_number_lies_on_a_card_a_row_or_another_number() {
     for (table, layout, window) in tables() {
         let numbers = laid_for(&layout, window);
         let drawn: Vec<&SeatSlot> = layout.slots.iter().filter(|slot| !slot.parked).collect();
+        let taxes = numbers
+            .iter()
+            .filter(|(_, tally, ..)| matches!(tally, Tally::Tax | Tally::Tax2))
+            .count();
+        assert_eq!(
+            taxes,
+            2 * drawn.len(),
+            "{table}: a command slot's tax was not laid, and nothing here looked at it"
+        );
         for (i, (player, tally, nth, corners)) in numbers.iter().enumerate() {
             let plate = on_table(*corners);
             let name = format!("{table}: seat {}'s {tally:?} {nth}", player.get());
@@ -644,7 +722,7 @@ fn no_pile_stands_in_front_of_its_own_number() {
         .find(|slot| slot.facing.cos() < -0.9)
         .expect("a seat across a table of four");
     let tall = high(40, across.scale);
-    let flat = reader.lay(&(*across, 0.0, 1, [0; 4]), (Tally::Hand, 0), 7);
+    let flat = reader.lay(&(*across, 0.0, 1, [0; 6], true), (Tally::Hand, 0), 7);
     assert!(
         overlap(
             on_table(body_corners(&flat, Tally::Hand, 7)),
@@ -654,14 +732,15 @@ fn no_pile_stands_in_front_of_its_own_number() {
     );
 }
 
-/// Where the reader sits and across from them, every number lies to its
-/// pile's right as that seat has right, the seat across as the mirror image:
-/// outside the piles of the right-hand column, and between the waiting place
-/// and the mat. At a seat seen from the side it lies between pile and mat.
-/// And no seat of any table stands near the line between the two answers,
-/// so two seats that are each other's mirror image answer alike.
+/// Where the reader sits and across from them, every number lies outside
+/// its pile: to the right of the library, the graveyard and exile as that
+/// seat has right, and to the left of the waiting place and the command
+/// slots, the seat across as the mirror image. At a seat seen from the side
+/// it lies between pile and mat. And no seat of any table stands near the
+/// line between the two answers, so two seats that are each other's mirror
+/// image answer alike.
 #[test]
-fn a_number_lies_to_its_piles_right_where_the_piles_stand_beside_the_mat() {
+fn a_number_lies_outside_its_pile_where_the_piles_stand_beside_the_mat() {
     let players: Vec<PlayerId> = (0..4).map(PlayerId::new).collect();
     let layout = TableLayout::new(&players, 1.78, None);
     let turn = upright(&CameraRig::default().eye());
@@ -676,18 +755,21 @@ fn a_number_lies_to_its_piles_right_where_the_piles_stand_beside_the_mat() {
             Tally::Graveyard,
             Tally::Exile,
             Tally::Waiting,
+            Tally::Tax,
+            Tally::Tax2,
         ] {
             let kind = tally.pile();
             let pile = card_transform(slot, slot.pile_center(kind), false, 0.0);
-            let number = pile_count_transform(slot, (tally, 0, 1), 40, turn, 2.0, Vec3::ZERO);
+            let number =
+                pile_count_transform(slot, (tally, 0, 1), 40, turn, 2.0, Vec3::ZERO, squarely);
             let corners = body_corners(&number, tally, 40);
             let middle = (corners[0] + corners[2]) * 0.5;
             // To the seat's right, in card widths at this seat's size.
             let rightwards = (middle - pile.translation).dot(right) / slot.scale;
             if squarely {
                 assert!(
-                    rightwards > 0.0,
-                    "{tally:?} at a seat facing {}: {rightwards} to its pile's right",
+                    rightwards * kind.side() > 0.0,
+                    "{tally:?} at a seat facing {}: {rightwards} to its pile's right, not outside it",
                     slot.facing
                 );
             } else {
@@ -711,7 +793,15 @@ fn a_number_lies_to_its_piles_right_where_the_piles_stand_beside_the_mat() {
         // The hand's lies past the library's end on the seat's own side.
         let library = card_transform(slot, slot.pile_center(PileKind::Library), false, 0.0);
         let far = seat.rotation * Vec3::Y;
-        let number = pile_count_transform(slot, (Tally::Hand, 0, 1), 7, turn, 2.0, Vec3::ZERO);
+        let number = pile_count_transform(
+            slot,
+            (Tally::Hand, 0, 1),
+            7,
+            turn,
+            2.0,
+            Vec3::ZERO,
+            squarely,
+        );
         let nearest = body_corners(&number, Tally::Hand, 7)
             .iter()
             .map(|c| -(*c - library.translation).dot(far) / slot.scale)
@@ -739,6 +829,34 @@ fn a_number_lies_to_its_piles_right_where_the_piles_stand_beside_the_mat() {
     }
 }
 
+/// The felt outside a seat's left-hand column is open at every table of two
+/// to four seats, so there its waiting place's and its command slots'
+/// numbers lie to their left (the owner, 13.11.2026). Where two seats stand
+/// abreast, as in a ring of eight, the one on the right keeps them between
+/// place and mat: its neighbour writes into the felt between the two.
+#[test]
+fn the_felt_left_of_a_seat_is_open_at_every_table_of_up_to_four() {
+    let mut shut = 0;
+    for (table, layout, window) in tables() {
+        let turn = upright(&CameraRig::home(&layout, Canvas::hud(window)).eye());
+        for slot in layout.slots.iter().filter(|slot| !slot.parked) {
+            let open = open_left(slot, layout.slots.iter());
+            if layout.slots.len() <= 4 && beside(slot, turn) {
+                assert!(
+                    open,
+                    "{table}: seat {} has a neighbour's piles on its left",
+                    slot.player.get()
+                );
+            }
+            shut += usize::from(!open && table.starts_with("8 seats, Ring,"));
+        }
+    }
+    assert!(
+        shut > 0,
+        "no seat of a ring of eight has a neighbour abreast: this test proves nothing"
+    );
+}
+
 /// A number is written for the one looking: at every seat of a ring it
 /// stands the same way up, its tops up the screen and its figures running
 /// to the screen's right, also once the camera has gone round the table.
@@ -756,8 +874,10 @@ fn every_seats_number_stands_upright_for_the_viewer() {
         let (screen_right, screen_up) = (eye.rotation * Vec3::X, eye.rotation * Vec3::Y);
         for zone in index.zones.values() {
             for tally in Tally::ALL {
+                let outside = outside(&zone.slot, turn, tally.pile(), true);
+                let what = (tally, 0, 1);
                 let number =
-                    pile_count_transform(&zone.slot, (tally, 0, 1), 40, turn, 2.0, Vec3::ZERO);
+                    pile_count_transform(&zone.slot, what, 40, turn, 2.0, Vec3::ZERO, outside);
                 let (runs, tops) = (number.rotation * Vec3::X, number.rotation * Vec3::Y);
                 assert!(
                     runs.dot(screen_right) > 0.999,
@@ -797,7 +917,7 @@ fn the_figures_are_as_tall_on_the_screen_at_every_seat() {
     for player in &players {
         let slot = *layout.slot(*player).expect("every seat has a place");
         for tally in Tally::ALL {
-            let number = reader.lay(&(slot, 0.0, 1, [0; 4]), (tally, 0), 40);
+            let number = reader.lay(&(slot, 0.0, 1, [0; 6], true), (tally, 0), 40);
             let scale = number.scale.y / slot.scale;
             // The figures' height in the world, drawn from the body's middle.
             let word = cardplate::pile_word(40, tally);

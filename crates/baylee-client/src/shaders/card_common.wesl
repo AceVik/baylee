@@ -2013,11 +2013,20 @@ fn fan_card(q: vec2<f32>, pivot: vec2<f32>, angle: f32) -> f32 {
 /// 0 a library, two cards of a deck, one lying over the other; 1 a
 /// graveyard, a headstone on its ground; 2 exile, a ring struck through; 3 a
 /// hand, three cards held in a fan; 4 the time a suspended card still waits,
-/// an hourglass. Drawn bold and without inner detail, because the box is
+/// an hourglass; 5 and 6 what a commander costs more from its slot, a plus
+/// before the mana. Drawn bold and without inner detail, because the box is
 /// nine pixels. The headstone and the barred ring are the marks those piles'
 /// empty places wear (`tabletop::ZoneMark`); a library's three leaves edge on
 /// are three bars at this size, which is a menu, so it is a deck here.
 fn pile_mark(q: vec2<f32>, kind: u32, e: f32) -> f32 {
+    if kind >= 5u {
+        // The plus: a level bar and an upright one through its middle.
+        let bars = min(
+            sd_round_box(q, vec2<f32>(0.33, 0.085), 0.03),
+            sd_round_box(q, vec2<f32>(0.085, 0.33), 0.03),
+        );
+        return 1.0 - smoothstep(-e, e, bars);
+    }
     if kind == 4u {
         return hourglass(q, e);
     }

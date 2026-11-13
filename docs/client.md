@@ -149,18 +149,26 @@ motion system and respects reduced motion.
 
 Beside each seat's piles lie the numbers a table is counted by
 (`table/pile_counts.rs`, `cardplate::Tally`; the owner, 12. and 13.11.2026):
-the cards in its library, its graveyard, its exile and its hand, and the time
-counters of its suspended cards. Each is a small dark plate of its own with
+the cards in its library, its graveyard, its exile and its hand, the time
+counters of its suspended cards, and what a commander costs more to cast
+from its slot. Each is a small dark plate of its own with
 its shadow, on the felt and on no print, and wears a mark of this client's
 own before its figures: a deck, a headstone, a barred ring, a hand of three
-cards, an hourglass (`card_common.wesl`'s `pile_mark`; the headstone, the
+cards, an hourglass, a plus (`card_common.wesl`'s `pile_mark`; the headstone, the
 ring and the hourglass are the marks those places wear when empty). A pile's
 number lies beside its card, level with the card's middle. Where a seat's
 piles stand beside its mat on the screen, at the reader's own seat and at
-the seat across, it lies to its pile's right as that seat has right (the
-owner, 12.11.2026: „rechts vom Stapel“), so the seat across is the mirror
-image: on the open felt outside the piles of the right-hand column, and
-between the waiting place and the mat. At a seat seen from the side or
+the seat across, it lies outside its pile on the open felt: to the right of
+the library, the graveyard and exile as that seat has right (the owner,
+12.11.2026: „rechts vom Stapel“), and to the left of the waiting place and
+the command slots (the owner, 13.11.2026: „die Zahlen eher links statt
+rechts“; for a day they lay between place and mat), so the seat across is
+the mirror image. The left-hand column's lie there only where that felt is
+open (`pile_counts::open_left`): two seats abreast, as a ring has them from
+five, share the felt between them, the one on the left writes its piles'
+numbers into it, and the one on the right keeps its own between place and
+mat. At every table of two to four it is open at every such seat
+(`the_felt_left_of_a_seat_is_open_at_every_table_of_up_to_four`). At a seat seen from the side or
 turned part of the way, where that right is the window's edge or a
 neighbour's piles, it lies between pile and mat (`pile_counts::beside`).
 The hand's lies past the library's end on its owner's side: the pile a hand
@@ -195,7 +203,15 @@ card's size, as that count is, it was five pixels tall at a table of four
 and lay on its side at the flank seats (played 12.11.2026). A library's and
 a hand's are always there, nought included; a graveyard's and exile's stand
 from their first card, and exile's is the zone's count, its suspended cards
-among it, as on the seat plate and the zone dialog's tab. Each has a
+among it, as on the seat plate and the zone dialog's tab. A command slot's
+is its commander's tax, written `+4` (the owner, 13.11.2026: „wie oft wurde
+der Commander gespielt und somit wie viel extra Mana kostet er für den
+nächsten Aufruf“): CR 903.8's `{2}` for each time it has been cast from the
+command zone, twice `CommanderView::casts`, carried on the slot
+(`ZonePile::tax`). It stands from the first cast and for the rest of the
+game, also while the commander is on the battlefield and its slot empty,
+because it is what the next cast from there costs more; each partner's is
+its own, and before the first cast a slot wears nothing. Each has a
 material of its own that is rewritten only when its number changes and a
 place that is written only when its seat, the camera or the window moved, so
 a table at rest writes none, and a camera going round writes transforms;
@@ -207,15 +223,20 @@ panel of sentences over the table's top left corner). Exile is drawn as two
 places, as the command zone is: the pile, and across the mat from it and
 level with it the *waiting place* (`PileKind::Waiting`, marked with an
 hourglass), where a seat's suspended cards lie face up (CR 702.62), the one
-with the fewest time counters on top. Between it and the mat stand their
+with the fewest time counters on top. Beside it stand their
 time counters (`Tally::Waiting`): the top three cards', the next to come
-back uppermost, at the reader's seat and the seat across, and the top card's
-alone at a seat seen from the side. So what comes back next and in how many counters is read
+back uppermost, at the reader's seat and the seat across, outside the place
+to the seat's left where that felt is open and between place and mat where
+it is not; and between it and the mat the top card's alone at a seat seen
+from the side. So what comes back next and in how many counters is read
 off the table with no pointer on it. A hover fans the place as it fans a
 pile, soonest first; a press opens the zone dialog on that seat's exile,
 where every suspended card's row says its counters in the zone badge's place
-(`BrowseRow::time`). The fan lies where the numbers stand, so they step
-aside while it is open. The place is there only while a card waits and stands
+(`BrowseRow::time`). A fan opens over the felt between its pile and the
+mat: wherever a number lies there (`pile_counts::outside` says where it does
+not), a fanned pile's number steps aside while its fan is open, a graveyard's and
+exile's as well as the waiting place's
+(`a_fanned_piles_numbers_step_aside_where_they_lie_under_its_fan`). The place is there only while a card waits and stands
 in the one cell of the pile columns nothing else uses, so its coming and
 going moves nothing. One test decides what waits
 (`client-core::suspended::time_of`): suspended, named for this view, and

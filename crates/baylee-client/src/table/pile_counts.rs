@@ -1,8 +1,9 @@
 //! The numbers on the felt beside a seat's piles: how many cards its
-//! library, its graveyard, its exile and its hand hold, and how long its
-//! suspended cards still wait (the owner, 12.11.2026: "wenn neben den
-//! Feldern für Deck, Friedhof, Exil noch Zahlen stehen"; 13.11.: the hand's
-//! too, and suspended cards shown anew).
+//! library, its graveyard, its exile and its hand hold, how long its
+//! suspended cards still wait, and what a commander costs more to cast
+//! from its slot (the owner, 12.11.2026: "wenn neben den Feldern für Deck,
+//! Friedhof, Exil noch Zahlen stehen"; 13.11.: the hand's too, suspended
+//! cards shown anew, and "der Commander-Counter noch links rein").
 //!
 //! Each is a count badge of its own ([`BadgeMaterial::pile`]): a mark for
 //! what it counts and the figures, on a small dark plate lying on the felt
@@ -68,9 +69,10 @@ pub(super) struct PileCountBadge {
 }
 
 /// What a number's place is made of: its seat's slot, how far the seat's
-/// zone is raised, how many numbers stand in its column, and how many cards
-/// stand in each pile a number lies beside ([`stood`]).
-pub(super) type Laid = (SeatSlot, f32, u8, [u32; 4]);
+/// zone is raised, how many numbers stand in its column, how many cards
+/// stand in each pile a number lies beside ([`stood`]), and whether the
+/// felt outside its left-hand column is open ([`open_left`]).
+pub(super) type Laid = (SeatSlot, f32, u8, [u32; 6], bool);
 
 /// Which of [`Laid`]'s piles a tally's number lies beside.
 pub(super) const fn pile_at(tally: Tally) -> usize {
@@ -79,19 +81,23 @@ pub(super) const fn pile_at(tally: Tally) -> usize {
         Tally::Graveyard => 1,
         Tally::Exile => 2,
         Tally::Waiting => 3,
+        Tally::Tax => 4,
+        Tally::Tax2 => 5,
     }
 }
 
 /// How many cards stand in each pile a seat's numbers lie beside: no more
 /// than a pile is drawn high for, so a library of ninety drawing a card
 /// moves nothing.
-pub(super) fn stood(pod: &SeatPod) -> [u32; 4] {
-    let mut out = [0; 4];
+pub(super) fn stood(pod: &SeatPod) -> [u32; 6] {
+    let mut out = [0; 6];
     for tally in [
         Tally::Library,
         Tally::Graveyard,
         Tally::Exile,
         Tally::Waiting,
+        Tally::Tax,
+        Tally::Tax2,
     ] {
         out[pile_at(tally)] = pod
             .piles
@@ -117,7 +123,7 @@ pub(super) fn high(cards: u32, scale: f32) -> f32 {
 pub(super) const WAITING_SHOWN: usize = 3;
 
 /// The most numbers one seat wears.
-const NUMBERS: usize = 4 + WAITING_SHOWN;
+const NUMBERS: usize = 6 + WAITING_SHOWN;
 
 /// How far over a lying card's own height the number lies, in card widths:
 /// clear of the felt and of the glow under the mat, and under every card.
@@ -132,7 +138,10 @@ const COLUMN_GAP: f32 = 0.03;
 /// number ([`Reader::column`]).
 ///
 /// Exile's is the zone's: the pile and the waiting place together, which is
-/// what the seat plate and the zone dialog count.
+/// what the seat plate and the zone dialog count. A command slot's is its
+/// commander's tax, from the first cast: before it the commander costs what
+/// is printed on it, and a `+0` beside every commander would say so at
+/// every seat for nothing.
 pub(super) fn numbers_of(pod: &SeatPod, waiting: usize) -> [Option<(Tally, u8, u32)>; NUMBERS] {
     let pile = |kind| pod.piles.iter().find(|pile| pile.kind == kind);
     let cards = |kind| pile(kind).map_or(0, |pile| pile.count);
@@ -144,9 +153,15 @@ pub(super) fn numbers_of(pod: &SeatPod, waiting: usize) -> [Option<(Tally, u8, u
         .map(|cards| (Tally::Graveyard, 0, cards));
     out[2] = (exiled > 0 && pile(PileKind::Exile).is_some()).then_some((Tally::Exile, 0, exiled));
     out[3] = pile(PileKind::Library).map(|_| (Tally::Hand, 0, pod.hand_count));
+    for (at, tally) in [(4, Tally::Tax), (5, Tally::Tax2)] {
+        out[at] = pile(tally.pile())
+            .and_then(|slot| slot.tax)
+            .filter(|tax| *tax > 0)
+            .map(|tax| (tally, 0, tax));
+    }
     if let Some(place) = pile(PileKind::Waiting) {
         for (nth, card) in (0u8..).zip(place.fan.iter().take(waiting.min(WAITING_SHOWN))) {
-            out[4 + usize::from(nth)] =
+            out[6 + usize::from(nth)] =
                 card.time.map(|time| (Tally::Waiting, nth, u32::from(time)));
         }
     }
@@ -170,15 +185,16 @@ pub(super) fn upright(eye: &Transform) -> Quat {
 /// that side and the screen's own left and right.
 ///
 /// At the reader's own seat and the one across the piles stand in a column
-/// up the screen, and each number lies to its pile's right as its seat has
-/// right (the owner, 13.11.2026: "rechts vom Stapel", which across the table
-/// is its mirror image, as that board is). For the library, the graveyard
-/// and exile that is the open felt outside the pile; for the waiting place,
-/// on the seat's left, it is the felt between it and the mat, so that two
-/// seats side by side never write into the same strip. At a seat seen from
-/// the side a pile's right is up or down the screen, where the window ends
-/// and the piles run along the screen with no room between them: there
-/// every number lies between its pile and the mat.
+/// up the screen on either side of the mat, and each number lies outside
+/// its pile on the open felt: to the right of the library, the graveyard
+/// and exile as their seat has right (the owner, 12.11.2026: "rechts vom
+/// Stapel"), and to the left of the waiting place and the command slots
+/// (the owner, 13.11.2026: "die Zahlen eher links statt rechts"; for a day
+/// they lay between place and mat). Across the table that is the mirror
+/// image, as that board is. At a seat seen from the side a pile's outside
+/// is up or down the screen, where the window ends and the piles run along
+/// the screen with no room between them: there every number lies between
+/// its pile and the mat.
 ///
 /// Squarely means squarely: a seat turned part of the way, as the far two
 /// are at a table of five, has a neighbour's piles where its own outside
@@ -200,6 +216,71 @@ pub(super) fn beside(slot: &SeatSlot, upright: Quat) -> bool {
     side.dot(upright * Vec3::X).abs() >= BESIDE_FROM
 }
 
+/// A rectangle lying at `center` turned as a seat facing `facing`, with
+/// these half sizes across the seat and along its depth.
+pub(super) fn seat_rect(center: Vec2, facing: f32, half: Vec2) -> [Vec2; 4] {
+    let side = Vec2::new(facing.cos(), -facing.sin());
+    let away = Vec2::new(facing.sin(), facing.cos());
+    [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)]
+        .map(|(x, y)| center + side * (x * half.x) + away * (y * half.y))
+}
+
+/// Whether the felt outside a seat's left-hand column is open: whether no
+/// other seat's rows or piles stand where this seat's numbers would lie
+/// there, nor the felt beside one of those piles, where its own number may
+/// lie.
+///
+/// Two seats abreast share the felt between them, and the one on the left
+/// writes its library's, its graveyard's and its exile's numbers into it,
+/// to their right. So the seat on the right keeps its waiting place's and
+/// its command slots' numbers between place and mat, as every seat did
+/// before 13.11.2026. A ring has such seats from five; at every table of
+/// two to four the felt is open at every seat that has its piles beside
+/// its mat (`the_felt_left_of_a_seat_is_open_at_every_table_of_up_to_four`).
+pub(super) fn open_left<'a>(
+    slot: &SeatSlot,
+    seats: impl IntoIterator<Item = &'a SeatSlot>,
+) -> bool {
+    use crate::hud::seatbar::attached::overlaps;
+    let card = Vec2::new(0.5 * CARD_WIDTH, 0.5 * CARD_HEIGHT);
+    // What a number takes beside its pile: its air and the room it may fill.
+    let number = (cardplate::PILE_BADGE_AIR + ROOM) * CARD_WIDTH;
+    // And along its pile: a waiting place's column at the largest size its
+    // numbers are set, where that is taller than the card.
+    let [_, y0, _, y1] = cardplate::pile_badge_rect(cardplate::pile_word(0, Tally::Waiting));
+    let column = (0..WAITING_SHOWN).fold(-COLUMN_GAP, |sum, _| sum + (y1 - y0) + COLUMN_GAP)
+        * (0.5 * cardplate::PILE_BADGE_MOST * CARD_WIDTH);
+    let tall = card.y.max(column);
+    let side = Vec2::new(slot.facing.cos(), -slot.facing.sin());
+    // The felt this seat's own numbers would lie on: outside each place of
+    // the column, as long as a number may be and as tall as a column.
+    let strips = [PileKind::Command, PileKind::Command2, PileKind::Waiting].map(|kind| {
+        let middle = slot.pile_center(kind) - side * ((card.x + 0.5 * number) * slot.scale);
+        let half = Vec2::new(0.5 * number, tall) * slot.scale;
+        seat_rect(middle, slot.facing, half)
+    });
+    seats
+        .into_iter()
+        .filter(|other| other.player != slot.player && !other.parked)
+        .all(|other| {
+            let rows = seat_rect(other.center, other.facing, other.half_extent);
+            let beside = Vec2::new(card.x + number, tall) * other.scale;
+            let piles =
+                PileKind::ALL.map(|kind| seat_rect(other.pile_center(kind), other.facing, beside));
+            strips.iter().all(|strip| {
+                !overlaps(strip, &rows) && piles.iter().all(|pile| !overlaps(strip, pile))
+            })
+        })
+}
+
+/// Whether a number lies outside its pile at a seat: where the seat's piles
+/// stand beside its mat on the screen ([`beside`]), and for its left-hand
+/// column where the felt there is `open` ([`open_left`]). Elsewhere it lies
+/// between its pile and the mat, which is where that pile's fan opens.
+pub(super) fn outside(slot: &SeatSlot, upright: Quat, kind: PileKind, open: bool) -> bool {
+    beside(slot, upright) && (kind.side() > 0.0 || open)
+}
+
 /// How much longer than the one badge mesh a pile's quad is: its plate has
 /// a mark before its figures ([`cardplate::pile_badge_quad_rect`]).
 pub(super) fn quad_stretch() -> f32 {
@@ -211,10 +292,10 @@ pub(super) fn quad_stretch() -> f32 {
 /// plate's middle, turned `upright` and grown `scale` times.
 ///
 /// A pile's number lies beside the pile's card and level with the card's
-/// own middle: to its right as its seat has right where the piles stand
-/// beside the mat on the screen, between pile and mat where they do not
-/// ([`beside`]). A waiting place's numbers stand there as a column, the top
-/// card's uppermost. The hand's lies past the library's end on its
+/// own middle: outside it where the piles stand beside the mat on the
+/// screen, between pile and mat where they do not ([`beside`]). A waiting
+/// place's numbers stand there as a column, the top card's uppermost, and
+/// a command slot's is its commander's tax. The hand's lies past the library's end on its
 /// owner's side: the pile a hand is drawn from, at the edge its owner sits
 /// at. A pile's number is no larger than the felt between its pile and the
 /// mat or a neighbour's piles ([`ROOM`]); the hand's has the open felt past
@@ -236,6 +317,7 @@ pub(super) fn pile_count_transform(
     upright: Quat,
     scale: f32,
     hidden: Vec3,
+    outside: bool,
 ) -> Transform {
     let word = cardplate::pile_word(count, tally);
     let [x0, y0, x1, y1] = cardplate::pile_badge_rect(word);
@@ -253,10 +335,11 @@ pub(super) fn pile_count_transform(
         // away and the number was the seat's smallest (4.7 px at a ring of
         // three, measured 13.11.2026).
         (-away, 0.5 * CARD_HEIGHT, f32::INFINITY)
-    } else if beside(slot, upright) {
-        // The seat's own right: outside the piles of its right-hand column,
-        // and towards the mat from the waiting place on its left.
-        (side, 0.5 * CARD_WIDTH, ROOM)
+    } else if outside {
+        // Outside its pile: to the seat's own right of its right-hand
+        // column, and to its left of the waiting place and the command
+        // slots.
+        (side * kind.side(), 0.5 * CARD_WIDTH, ROOM)
     } else {
         (side * -kind.side(), 0.5 * CARD_WIDTH, ROOM)
     };
@@ -346,7 +429,7 @@ impl Reader {
     /// Where the `nth` number of `tally` saying `count` lies, for a seat
     /// laid as `laid`.
     pub(super) fn lay(&self, laid: &Laid, (tally, nth): (Tally, u8), count: u32) -> Transform {
-        let (slot, raised, column, stood) = laid;
+        let (slot, raised, column, stood, open) = laid;
         let pile = card_transform(slot, slot.pile_center(tally.pile()), false, 0.0).translation;
         let hidden = self.hidden(pile, high(stood[pile_at(tally)], slot.scale));
         let px = self
@@ -355,8 +438,10 @@ impl Reader {
             .and_then(|lens| card_px(lens, slot, tally.pile(), self.upright));
         let scale = cardplate::pile_badge_scale(cardplate::pile_word(count, tally), px);
         let of = if tally == Tally::Waiting { *column } else { 1 };
+        let outside = outside(slot, self.upright, tally.pile(), *open);
+        let what = (tally, nth, of);
         let mut place =
-            pile_count_transform(slot, (tally, nth, of), count, self.upright, scale, hidden);
+            pile_count_transform(slot, what, count, self.upright, scale, hidden, outside);
         place.translation.y += raised;
         place
     }
@@ -364,7 +449,7 @@ impl Reader {
 
 /// How a seat's `wanted` numbers are laid: at its slot, on its lift, its
 /// waiting times in a column as long as there are of them.
-fn laid_of(zone: &Zone, pod: &SeatPod, wanted: &[Option<(Tally, u8, u32)>]) -> Laid {
+fn laid_of(zone: &Zone, pod: &SeatPod, wanted: &[Option<(Tally, u8, u32)>], open: bool) -> Laid {
     let column = wanted
         .iter()
         .flatten()
@@ -375,6 +460,7 @@ fn laid_of(zone: &Zone, pod: &SeatPod, wanted: &[Option<(Tally, u8, u32)>]) -> L
         zone.raised,
         u8::try_from(column).unwrap_or(u8::MAX),
         stood(pod),
+        open,
     )
 }
 
@@ -422,15 +508,24 @@ pub fn sync_pile_counts(
         let Some(zone) = index.zones.get(&pod.player) else {
             continue;
         };
-        // A fanned waiting place lays its cards where its numbers stand,
-        // and they step aside for as long.
-        let fanned = index
-            .fanned
-            .values()
-            .any(|(_, player, kind)| *player == pod.player && *kind == PileKind::Waiting);
-        let column = if fanned { 0 } else { reader.column(&zone.slot) };
-        let wanted = numbers_of(pod, column);
-        let laid = laid_of(zone, pod, &wanted);
+        let mut wanted = numbers_of(pod, reader.column(&zone.slot));
+        let open = open_left(&zone.slot, index.zones.values().map(|zone| &zone.slot));
+        // A fan opens over the felt between its pile and the mat. A number
+        // lying there steps aside for as long as its pile is fanned.
+        for number in &mut wanted {
+            let under = number.is_some_and(|(tally, ..)| {
+                tally != Tally::Hand
+                    && !outside(&zone.slot, reader.upright, tally.pile(), open)
+                    && index
+                        .fanned
+                        .values()
+                        .any(|(_, player, kind)| *player == pod.player && *kind == tally.pile())
+            });
+            if under {
+                *number = None;
+            }
+        }
+        let laid = laid_of(zone, pod, &wanted, open);
         if kept(zone, &wanted, &laid) {
             // Nothing of the record changes. Only the eye may have, and that
             // moves the badges without a write to the index.

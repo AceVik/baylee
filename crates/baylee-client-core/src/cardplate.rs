@@ -687,7 +687,10 @@ const BADGE_FLAGS: u32 = BADGE_ATTACHED | BADGE_PILE | BADGE_PILE_KIND;
 /// is counted all the same (the owner, 13.11.2026: "die Zahl der Handkarten
 /// (+Icon) irgendwo passend auf dem Board"). And the waiting place's number
 /// is no count of cards at all: it is the time counters on the card that
-/// comes back next ([`crate::layout::PileKind::Waiting`]).
+/// comes back next ([`crate::layout::PileKind::Waiting`]). Nor is a command
+/// slot's: it is what its commander costs more to cast from there (the
+/// owner, 13.11.2026: "wie oft wurde der Commander gespielt und somit wie
+/// viel extra Mana kostet er für den nächsten Aufruf").
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Tally {
     /// The cards in a library.
@@ -702,24 +705,34 @@ pub enum Tally {
     /// The time counters on the suspended card lying on top of the waiting
     /// place: the one with the fewest.
     Waiting,
+    /// The generic mana the first command slot's commander costs more than
+    /// printed when cast from there: CR 903.8's tax, `{2}` for each time
+    /// it has been cast from the command zone
+    /// (`baylee_view::CommanderView::casts`).
+    Tax,
+    /// The second slot's, a partner's: each commander's tax is its own.
+    Tax2,
 }
 
 impl Tally {
     /// Every tally, in the order of their marks.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 7] = [
         Self::Library,
         Self::Graveyard,
         Self::Exile,
         Self::Hand,
         Self::Waiting,
+        Self::Tax,
+        Self::Tax2,
     ];
 
     /// The mark it wears before its figures, as `card_common.wesl`'s
     /// `pile_mark` numbers them: 0 a deck of cards, 1 a headstone, 2 a
-    /// barred ring, 3 a hand of three cards, 4 an hourglass. The headstone,
-    /// the ring and the hourglass are the marks those places wear when
-    /// empty ([`crate::tabletop::ZoneMark`]); all are shapes of this
-    /// client's own.
+    /// barred ring, 3 a hand of three cards, 4 an hourglass, and 5 and 6 a
+    /// plus, so a tax reads `+4`. The headstone, the ring and the hourglass
+    /// are the marks those places wear when empty
+    /// ([`crate::tabletop::ZoneMark`]); all are shapes of this client's
+    /// own.
     #[must_use]
     pub const fn mark(self) -> u32 {
         match self {
@@ -728,6 +741,8 @@ impl Tally {
             Self::Exile => 2,
             Self::Hand => 3,
             Self::Waiting => 4,
+            Self::Tax => 5,
+            Self::Tax2 => 6,
         }
     }
 
@@ -741,6 +756,8 @@ impl Tally {
             Self::Graveyard => PileKind::Graveyard,
             Self::Exile => PileKind::Exile,
             Self::Waiting => PileKind::Waiting,
+            Self::Tax => PileKind::Command,
+            Self::Tax2 => PileKind::Command2,
         }
     }
 }
