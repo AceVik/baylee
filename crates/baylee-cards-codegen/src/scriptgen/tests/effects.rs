@@ -1428,14 +1428,18 @@ fn transform48_clue_sacrifice_condition_keeps_subtype_count_player_and_timing() 
 
 #[test]
 fn deathtouch_counter_is_a_keyword_counter_not_an_assigned_custom_counter() {
-    use super::super::constants::counter_kind;
-    assert_eq!(
-        counter_kind("Deathtouch").as_deref(),
-        Some("CounterKind::Deathtouch")
-    );
+    // Synthetic grammar fixture: verify the complete reader, not just its lookup.
+    let script = "Name:Boundary fang\nTypes:Artifact\n\
+        A:AB$ PutCounter | Cost$ T | Defined$ Self | CounterType$ Deathtouch | CounterNum$ 2";
+    let body = read(script);
+    assert_eq!(body.abilities.len(), 1);
+    assert!(body.abilities[0].contains(
+        "Effect::AddCounter { kind: CounterKind::Deathtouch, amount: Amount::Fixed(2) }"
+    ));
     for unknown in ["DEATHTOUCH", "deathtouch", "Deathtouchs"] {
-        assert!(counter_kind(unknown).is_none(), "{unknown}");
+        assert!(refused(&script.replace("Deathtouch", unknown)), "{unknown}");
     }
+    assert!(refused(&format!("{script} | UnknownRule$ True")));
 }
 
 #[test]

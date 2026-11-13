@@ -85,6 +85,10 @@ fn noncombat_damage_to_an_object_matches_its_own_printed_sentence() {
         &ability,
         "When this creature dies, you gain 1 life."
     ));
+    assert!(!content_fits(
+        &ability,
+        "Whenever another creature deals damage to a creature, you gain 1 life."
+    ));
 }
 
 #[test]

@@ -3,7 +3,7 @@
 //! Oracle: +1: Until your next turn, up to one target creature gains reach and vigilance.
 //! Oracle: −2: Look at the top three cards of your library. Exile one face down and put the rest on the bottom of your library in any order. For as long as it remains exiled, you may cast it if it's a creature spell.
 //! Set: CLB #838 — Commander Legends: Battle for Baldur's Gate | Scryfall ID: e11dc967-ae38-4c19-bf54-b3209e203b39 | Oracle ID: 146eb8c8-93d5-4dd5-af7a-46d5acd4a89d
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+// IMPLEMENTED — creature flash, temporary reach/vigilance, and private exile casting.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
