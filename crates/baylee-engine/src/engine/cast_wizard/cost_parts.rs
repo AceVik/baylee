@@ -116,6 +116,17 @@ impl super::CastWizard {
         base.saturating_add(fixed_life_cost(face, self.cost_choice()))
             .saturating_add(super::phyrexian_life(self))
     }
+
+    /// Total life owed after X has been chosen, including every pay-X-life part.
+    pub(super) fn total_life_cost(&self, face: &'static baylee_cards_dsl::FaceDef) -> i32 {
+        wizard_cost_parts(face, self.cost_choice()).fold(self.reserved_life(face), |sum, part| {
+            if matches!(part, CostPart::PayLifeX) {
+                sum.saturating_add(i32::try_from(self.x).unwrap_or(i32::MAX))
+            } else {
+                sum
+            }
+        })
+    }
 }
 
 /// The object questions of a spell's cost, in payment order. `TapN` expands
