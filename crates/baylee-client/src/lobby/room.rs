@@ -484,7 +484,7 @@ pub(super) fn draw(
         rules::chooser(commands, root, state, kit, index);
     }
     rules::sheet(commands, root, state, kit);
-    super::play::sheet_over(commands, root, state, m, kit);
+    super::play::sheet_over(commands, root, state, m, kit, scroll);
 }
 
 /// Why Start does nothing yet, said where the host looks: the chairs not
@@ -1532,7 +1532,12 @@ impl RoomPress {
     /// What a click on this control does.
     #[allow(clippy::too_many_lines)] // one flat match, read top to bottom
     pub(super) fn handle(self, cx: Cx<'_, '_, '_, '_, '_>) {
-        let Cx { state, mailbox, .. } = cx;
+        let Cx {
+            state,
+            mailbox,
+            scrolled,
+            ..
+        } = cx;
         match self {
             RoomPress::RoomCardAdd(seat, slot, printing) => {
                 let count = state
@@ -1687,7 +1692,7 @@ impl RoomPress {
             }
             RoomPress::EditRules => {
                 if let Some(draft) = state.lobby.room_as_draft() {
-                    super::play::open_sheet(state, draft, true);
+                    super::play::open_sheet(state, scrolled, draft, true);
                 }
             }
             // Each seat shows its side as a chip that steps through the

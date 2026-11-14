@@ -50,6 +50,12 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
         3 => FormatId::Custom,
         other => return Err(format!("unknown format id {other}")),
     };
+    let policy = match msg.house_rules.as_ref().map(|h| h.loop_policy) {
+        None | Some(0) => LoopPolicy::RunOnceThenBreak,
+        Some(1) => LoopPolicy::CompRulesDraw,
+        Some(2) => LoopPolicy::Off,
+        Some(other) => return Err(format!("unknown loop policy {other}")),
+    };
     let house_rules = msg.house_rules.as_ref().map_or_default(|h| HouseRules {
         mulligan_free_first: h.mulligan_free_first,
         free_mulligans: h.free_mulligans.map(|n| u8::try_from(n).unwrap_or(u8::MAX)),
@@ -69,10 +75,7 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
                     .collect(),
             })
             .collect(),
-        loop_policy: match h.loop_policy {
-            1 => LoopPolicy::CompRulesDraw,
-            _ => LoopPolicy::RunOnceThenBreak,
-        },
+        loop_policy: policy,
         starting_player: None,
         auto_discard_empty_optional_triggers: true,
         order_triggers: true,
@@ -530,6 +533,31 @@ mod tests {
 
         let unsent = from_proto(&msg(vec![seat_msg(), seat_msg()])).expect("two seats");
         assert_eq!(unsent.house_rules, HouseRules::default());
+    }
+
+    #[test]
+    fn every_wire_loop_policy_is_explicit_and_unknown_policies_are_refused() {
+        let mut message = msg(vec![seat_msg(), seat_msg()]);
+        for (wire, expected) in [
+            (0, LoopPolicy::RunOnceThenBreak),
+            (1, LoopPolicy::CompRulesDraw),
+            (2, LoopPolicy::Off),
+        ] {
+            message.house_rules = Some(v1::HouseRules {
+                loop_policy: wire,
+                ..Default::default()
+            });
+            assert_eq!(
+                from_proto(&message).unwrap().house_rules.loop_policy,
+                expected
+            );
+        }
+        message.house_rules.as_mut().unwrap().loop_policy = u32::MAX;
+        assert!(
+            from_proto(&message)
+                .unwrap_err()
+                .contains("unknown loop policy")
+        );
     }
     #[test]
     fn initial_counter_placements_survive_the_wire() {

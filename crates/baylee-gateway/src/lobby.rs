@@ -634,7 +634,7 @@ impl LobbyGame {
             name: String::new(),
             seats: Vec::new(),
             preset: None,
-            house_rules: baylee_core::preset::HouseRules::for_a_table(),
+            house_rules: baylee_core::preset::HouseRules::new_table(),
             setup: baylee_core::preset::RoomSetup::default(),
             format: None,
             list: None,

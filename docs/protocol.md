@@ -5597,13 +5597,22 @@ would silently ignore an explicit count.
 Open-room creation and joins accept an empty `deck_id`; a deck is required
 before readiness. `POST /lobby/games/{id}/configure` takes `name`, `chairs`,
 `password` (null preserves, empty removes), and `setup` (`starting_life`,
-`free_mulligans`, per-seat `life` and `permanents`). Only the current host may
+`free_mulligans`, optional `loop_policy`, per-seat `life` and `permanents`). Only the current host may
 change these while waiting. Changes validate atomically, cannot remove an
 occupied chair, and invalidate human readiness when gameplay settings change.
 Starting cards are bounded registry-resolved permanents, never dev commands.
 Listings expose setup and each seat's deck format, never the password.
 A seated client's live listing query follows the room id, independent of search
 pagination. Existing join-order host succession applies unchanged.
+
+New ordinary tables use loop policy `Off`. A host may explicitly select
+`RunOnceThenBreak` (the existing house rule) or `CompRulesDraw` while waiting.
+The optional setup field preserves the underlying preset when absent; it never
+rewrites legacy records or frozen challenge packages. The resolved preset chooses
+`standard` for Off and `standard-loops` for either enabled policy. An unavailable
+artifact does not fall back to another policy. The older numeric protobuf
+`HouseRules.loop_policy` retains 0 = break and 1 = draw, adds 2 = Off, and refuses
+unknown numbers. Missing numeric fields retain their legacy meaning.
 
 Planechase is explicitly unavailable in the UI: this engine has no planar deck
 or planar die, so the room must not advertise it as a playable mode.

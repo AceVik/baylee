@@ -9,6 +9,91 @@ fn post(port: u16, token: &str, path: &str, body: Value) -> (u16, String) {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn table_loop_selection_reaches_the_reserved_static_engine() {
+    use baylee_core::preset::LoopPolicy;
+    use baylee_protocol::v1;
+    let gateway = spawn_gateway("room-loop-policy");
+    let port = gateway.port;
+    let (agent, mut presets) = attach_agent_watching(&gateway).await;
+    for (at, (wire, expected)) in [
+        (None, LoopPolicy::Off),
+        (Some("RunOnceThenBreak"), LoopPolicy::RunOnceThenBreak),
+        (Some("CompRulesDraw"), LoopPolicy::CompRulesDraw),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let host = login(port, &format!("looph{at}"), "PolicyHost");
+        let (status, deck) = post(
+            port,
+            &host,
+            "/decks",
+            json!({"name":"Islands", "cards":["60 Island"]}),
+        );
+        assert_eq!(status, 200, "{deck}");
+        let (status, created) = post(
+            port,
+            &host,
+            "/lobby/games",
+            json!({
+                "mode":"open", "seats":2, "deck_id":json_field(&deck, "deck_id"),
+            }),
+        );
+        assert_eq!(status, 200, "{created}");
+        let id = json_field(&created, "game_id");
+        let base = format!("/lobby/games/{id}");
+        let mut settings = json!({"name":"Loop policy", "chairs":2, "setup":{}});
+        settings["setup"]["loop_policy"] = json!("custom-script");
+        assert_eq!(
+            post(port, &host, &format!("{base}/configure"), settings.clone()).0,
+            422
+        );
+        settings["setup"] = wire.map_or(json!({}), |policy| json!({"loop_policy":policy}));
+        assert_eq!(
+            post(port, &host, &format!("{base}/configure"), settings).0,
+            200
+        );
+        assert_eq!(
+            post(
+                port,
+                &host,
+                &format!("{base}/seats/1"),
+                json!({"kind":"ai", "ai":"steady"})
+            )
+            .0,
+            200
+        );
+        assert_eq!(
+            post(port, &host, &format!("{base}/ready"), json!({})).0,
+            200
+        );
+        assert_eq!(
+            post(port, &host, &format!("{base}/start"), json!({})).0,
+            200
+        );
+        let preset = tokio::time::timeout(std::time::Duration::from_secs(10), presets.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(preset.house_rules.loop_policy, expected);
+        // The actual selected runner must build and answer, not merely receive JSON.
+        let mut seat = common::dial_seat(port, id, json_field(&created, "seat_token")).await;
+        let opened = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            common::next_msg(&mut seat),
+        )
+        .await
+        .unwrap();
+        assert!(
+            matches!(opened, Some(v1::envelope::Msg::GameStatic(_))),
+            "{opened:?}"
+        );
+    }
+    agent.abort();
+    let _ = agent.await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 #[allow(clippy::too_many_lines)] // one room's complete lifecycle
 async fn configuration_is_host_owned_and_reaches_the_engine() {
     let gateway = spawn_gateway("room-setup");

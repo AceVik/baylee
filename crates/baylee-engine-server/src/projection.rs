@@ -224,6 +224,16 @@ fn perspective_of(order: &v1::ProjectRecord) -> (Option<Perspective>, Vec<u8>) {
 /// read or a perspective that cannot be had is a tape that stops `refused`
 /// before any frame.
 pub fn run(order: &v1::ProjectRecord, build: &str, emit: &mut dyn FnMut(v1::TapeChunk)) -> Stop {
+    with_detection::<crate::variant::Detection>(order, build, emit)
+}
+
+/// Projects with a concrete runner policy. The executable calls [`run`], which
+/// fixes it at compilation; integration hosts select their concrete runner once.
+pub fn with_detection<D: baylee_engine::engine::LoopDetection>(
+    order: &v1::ProjectRecord,
+    build: &str,
+    emit: &mut dyn FnMut(v1::TapeChunk),
+) -> Stop {
     let mut writer = Writer {
         job: order.job.clone(),
         pending: Vec::new(),
@@ -273,7 +283,7 @@ pub fn run(order: &v1::ProjectRecord, build: &str, emit: &mut dyn FnMut(v1::Tape
         Some(perspective) => {
             let names = order.names.clone();
             let mut began = false;
-            let projected = replay::project_with_detection::<crate::variant::Detection>(
+            let projected = replay::project_with_detection::<D>(
                 &record,
                 names,
                 perspective,

@@ -229,7 +229,7 @@ pub fn resolve(
     Ok(HouseRules {
         decision_timeout_secs: decision,
         reconnect_window_secs: reconnect,
-        ..HouseRules::for_a_table()
+        ..HouseRules::new_table()
     })
 }
 

@@ -462,6 +462,7 @@ fn account_id(gw: &Gateway, username: &str) -> String {
 /// answers that only look at its size, its end or its seats. `build`,
 /// where given, is the build the row says played it.
 fn seed_record(gw: &Gateway, game: &str, account: &str, bytes: i64, build: Option<&str>) {
+    use std::{fmt::Write as _, io::Write as _};
     let build = build.map_or("NULL".to_owned(), |b| format!("'{b}'"));
     gw.sql(&format!(
         "INSERT INTO game_record (game_id, bytes, complete, build, checked) \
@@ -470,6 +471,18 @@ fn seed_record(gw: &Gateway, game: &str, account: &str, bytes: i64, build: Optio
     gw.sql(&format!(
         "INSERT INTO game_record_seat (game_id, seat, account_id, seated) \
          VALUES ('{game}', 0, '{account}', 'person')"
+    ));
+    // Routing now reads the header before selecting an artifact. Keep a valid
+    // tiny routing header; size metadata above independently exercises bounds.
+    let mut gzip = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+    gzip.write_all(b"{\"kind\":\"header\",\"preset\":{}}\n")
+        .unwrap();
+    let mut hex = String::new();
+    for byte in gzip.finish().unwrap() {
+        write!(hex, "{byte:02x}").unwrap();
+    }
+    gw.sql(&format!(
+        "INSERT INTO game_record_chunk (game_id, seq, data) VALUES ('{game}', 0, decode('{hex}', 'hex'))"
     ));
 }
 
@@ -1106,6 +1119,12 @@ async fn a_record_past_eight_mebibytes_is_not_replayed() {
     let (status, _, body) = ask_tape(port, &rhea, "g-at", SEAT);
     assert_eq!(status, 503, "at the bound: {}", text(&body));
     assert!(text(&body).contains("no engine"), "{}", text(&body));
+    gw.sql("UPDATE game_record_chunk SET data = decode('0000', 'hex') WHERE game_id = 'g-at'");
+    assert_eq!(
+        ask_tape(port, &rhea, "g-at", SEAT).0,
+        502,
+        "a damaged header is refused before selecting an engine"
+    );
     let (status, _, body) = ask_tape(port, &rhea, "g-over", SEAT);
     assert_eq!(status, 413, "{}", text(&body));
     // Its row is listed all the same.

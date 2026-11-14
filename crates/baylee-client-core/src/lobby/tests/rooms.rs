@@ -249,6 +249,43 @@ fn a_room_can_be_opened_before_choosing_a_deck() {
 }
 
 #[test]
+fn table_sheet_and_templates_keep_the_explicit_loop_policy() {
+    use baylee_core::preset::LoopPolicy;
+    let mut lobby = seated_lobby();
+    lobby.host(GameMode::Open);
+    lobby.apply(LobbyEvent::Seated(SeatHandover {
+        game_id: "room".into(),
+        seat: 0,
+        seat_token: "fixture".into(),
+        local: false,
+    }));
+    lobby.apply(LobbyEvent::Games(GameListing::of(vec![GameSummary {
+        id: "room".into(),
+        yours: true,
+        state: "waiting".into(),
+        seats: vec![GameSeat::default(); 2],
+        ..GameSummary::default()
+    }])));
+    let mut draft = lobby.room_as_draft().unwrap();
+    assert_eq!(draft.loop_policy, LoopPolicy::Off);
+    draft.loop_policy = LoopPolicy::CompRulesDraw;
+    draft.pick(super::super::play::Template::Duel);
+    let Some(LobbyRequest::ConfigureRoom { update, .. }) = lobby.apply_table(&draft) else {
+        panic!("host rules update")
+    };
+    assert_eq!(update.setup.loop_policy, Some(LoopPolicy::CompRulesDraw));
+    assert_eq!(
+        lobby.room_as_draft().unwrap().loop_policy,
+        LoopPolicy::CompRulesDraw
+    );
+    lobby.adjust_room(super::super::room::Adjustment::Template(0));
+    assert_eq!(
+        lobby.room_draft().unwrap().setup.loop_policy,
+        Some(LoopPolicy::CompRulesDraw)
+    );
+}
+
+#[test]
 fn room_drafts_preserve_edits_until_apply_and_follow_the_room_not_search() {
     use super::super::room::Adjustment;
     let mut lobby = seated_lobby();

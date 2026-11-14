@@ -179,7 +179,8 @@ channels:
             }
             message HouseRules {
               bool mulligan_free_first = 1;
-              // 0 = run-once-then-break, 1 = comp-rules-draw
+              // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+              // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
               uint32 loop_policy = 2;
               uint32 decision_timeout_secs = 3;
               uint32 reconnect_window_secs = 4;
@@ -920,7 +921,8 @@ channels:
             }
             message HouseRules {
               bool mulligan_free_first = 1;
-              // 0 = run-once-then-break, 1 = comp-rules-draw
+              // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+              // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
               uint32 loop_policy = 2;
               uint32 decision_timeout_secs = 3;
               uint32 reconnect_window_secs = 4;
@@ -1680,7 +1682,8 @@ channels:
             }
             message HouseRules {
               bool mulligan_free_first = 1;
-              // 0 = run-once-then-break, 1 = comp-rules-draw
+              // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+              // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
               uint32 loop_policy = 2;
               uint32 decision_timeout_secs = 3;
               uint32 reconnect_window_secs = 4;
@@ -2382,7 +2385,8 @@ channels:
             }
             message HouseRules {
               bool mulligan_free_first = 1;
-              // 0 = run-once-then-break, 1 = comp-rules-draw
+              // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+              // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
               uint32 loop_policy = 2;
               uint32 decision_timeout_secs = 3;
               uint32 reconnect_window_secs = 4;
@@ -3084,7 +3088,8 @@ channels:
             }
             message HouseRules {
               bool mulligan_free_first = 1;
-              // 0 = run-once-then-break, 1 = comp-rules-draw
+              // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+              // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
               uint32 loop_policy = 2;
               uint32 decision_timeout_secs = 3;
               uint32 reconnect_window_secs = 4;
@@ -3788,7 +3793,8 @@ channels:
             }
             message HouseRules {
               bool mulligan_free_first = 1;
-              // 0 = run-once-then-break, 1 = comp-rules-draw
+              // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+              // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
               uint32 loop_policy = 2;
               uint32 decision_timeout_secs = 3;
               uint32 reconnect_window_secs = 4;
@@ -4494,7 +4500,8 @@ channels:
             }
             message HouseRules {
               bool mulligan_free_first = 1;
-              // 0 = run-once-then-break, 1 = comp-rules-draw
+              // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+              // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
               uint32 loop_policy = 2;
               uint32 decision_timeout_secs = 3;
               uint32 reconnect_window_secs = 4;
@@ -5252,7 +5259,8 @@ channels:
             }
             message HouseRules {
               bool mulligan_free_first = 1;
-              // 0 = run-once-then-break, 1 = comp-rules-draw
+              // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+              // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
               uint32 loop_policy = 2;
               uint32 decision_timeout_secs = 3;
               uint32 reconnect_window_secs = 4;
@@ -5954,7 +5962,8 @@ channels:
             }
             message HouseRules {
               bool mulligan_free_first = 1;
-              // 0 = run-once-then-break, 1 = comp-rules-draw
+              // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+              // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
               uint32 loop_policy = 2;
               uint32 decision_timeout_secs = 3;
               uint32 reconnect_window_secs = 4;
@@ -6656,7 +6665,8 @@ channels:
             }
             message HouseRules {
               bool mulligan_free_first = 1;
-              // 0 = run-once-then-break, 1 = comp-rules-draw
+              // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+              // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
               uint32 loop_policy = 2;
               uint32 decision_timeout_secs = 3;
               uint32 reconnect_window_secs = 4;
@@ -7360,7 +7370,8 @@ channels:
             }
             message HouseRules {
               bool mulligan_free_first = 1;
-              // 0 = run-once-then-break, 1 = comp-rules-draw
+              // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+              // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
               uint32 loop_policy = 2;
               uint32 decision_timeout_secs = 3;
               uint32 reconnect_window_secs = 4;
@@ -8662,7 +8673,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -9364,7 +9376,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -10066,7 +10079,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -10768,7 +10782,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -11470,7 +11485,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -12172,7 +12188,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -12874,7 +12891,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -13582,7 +13600,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -14284,7 +14303,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -14986,7 +15006,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -15688,7 +15709,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -16390,7 +16412,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -17092,7 +17115,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -17794,7 +17818,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -18502,7 +18527,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -19204,7 +19230,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -19912,7 +19939,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -20614,7 +20642,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -21316,7 +21345,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -22018,7 +22048,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -22720,7 +22751,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -23422,7 +23454,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -24124,7 +24157,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -24826,7 +24860,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -25528,7 +25563,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -26230,7 +26266,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -26932,7 +26969,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -27634,7 +27672,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -28336,7 +28375,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -29038,7 +29078,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -29740,7 +29781,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -30442,7 +30484,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -31144,7 +31187,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -31846,7 +31890,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -32548,7 +32593,8 @@ components:
           }
           message HouseRules {
             bool mulligan_free_first = 1;
-            // 0 = run-once-then-break, 1 = comp-rules-draw
+            // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+            // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
             uint32 loop_policy = 2;
             uint32 decision_timeout_secs = 3;
             uint32 reconnect_window_secs = 4;
@@ -34290,6 +34336,14 @@ components:
       - state
       - yours
       description: "One table of the lobby listing, as the caller sees it: a room completely, because deciding whether to sit down means seeing what is at the table. Never an account id: players are named by handle, and `yours`, `you` say what is the caller's."
+    LoopPolicy:
+      type: string
+      enum:
+      - RunOnceThenBreak
+      - CompRulesDraw
+      - "Off"
+      default: RunOnceThenBreak
+      description: "Automatic repetition handling: `Off`, `RunOnceThenBreak`, or `CompRulesDraw`. New ordinary tables use `Off`."
     Member:
       type: object
       properties:
@@ -34681,6 +34735,13 @@ components:
     RoomSetup:
       type: object
       properties:
+        loop_policy:
+          anyOf:
+          - $ref: "#/components/schemas/LoopPolicy"
+          - type: "null"
+          description: >-
+            The automatic repetition rule. Absent preserves the preset's rule; new ordinary
+            tables use `Off`.
         starting_life:
           type: integer
           format: int32

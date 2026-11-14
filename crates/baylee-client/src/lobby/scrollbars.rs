@@ -177,6 +177,7 @@ pub(super) fn remember(
                 | List::About
                 | List::Memorial
                 | List::DeckPicker
+                | List::TableRules
         ) && (memory.get(which.0) - position.y).abs() > f32::EPSILON
         {
             memory.set(which.0, position.y);

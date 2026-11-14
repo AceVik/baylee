@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)] // the Play screen's own vocabulary
 use super::*;
+use baylee_core::preset::LoopPolicy;
 
 /// Returns `(icon, accent_color, subtitle)` for each table `Template`.
 fn template_visuals(template: Template, lang: Lang) -> (char, Color, &'static str) {
@@ -143,6 +144,7 @@ pub(super) fn create_sheet(
     kit: Kit,
     draft: &TableDraft,
     editing: bool,
+    scrolled: &Scrolled,
 ) {
     let lobby = &state.lobby;
     let lang = lobby.lang();
@@ -579,7 +581,43 @@ pub(super) fn create_sheet(
         orders::items_of(commands, step, &orders::CREATE, "mulligans");
         commands.entity(mull).add_children(&[mull_lead, step]);
 
-        commands.entity(adjust_box).add_children(&[life, mull]);
+        let loop_title = parts::line(
+            commands,
+            kit,
+            Phrase::TableLoopDetection.text(lang),
+            kit.m.text,
+            tokens::INK,
+        );
+        let policies = [
+            LoopPolicy::Off,
+            LoopPolicy::RunOnceThenBreak,
+            LoopPolicy::CompRulesDraw,
+        ];
+        let selected = policies
+            .iter()
+            .position(|p| *p == draft.loop_policy)
+            .unwrap_or(0);
+        let loops = controls::segmented(
+            commands,
+            kit,
+            &[
+                Phrase::TableLoopsOff.text(lang),
+                Phrase::TableLoopsBreak.text(lang),
+                Phrase::TableLoopsDraw.text(lang),
+            ],
+            selected,
+            |at| Press::Play(PlayPress::LoopPolicy(policies[at])),
+        );
+        orders::items_of(commands, loops, &orders::CREATE, "loops");
+        let hint = match draft.loop_policy {
+            LoopPolicy::Off => Phrase::TableLoopsOffHint,
+            LoopPolicy::RunOnceThenBreak => Phrase::TableLoopsBreakHint,
+            LoopPolicy::CompRulesDraw => Phrase::TableLoopsDrawHint,
+        };
+        let hint = parts::line(commands, kit, hint.text(lang), kit.m.small, tokens::MUTED);
+        commands
+            .entity(adjust_box)
+            .add_children(&[life, mull, loop_title, loops, hint]);
         commands.entity(sec2).add_child(adjust_box);
     }
     body.push(sec2);
@@ -752,7 +790,10 @@ pub(super) fn create_sheet(
         .text(lang),
         &body,
         &[cancel, open],
-        super::super::Scrollable(super::super::List::Check),
+        (
+            Scrollable(List::TableRules),
+            ScrollPosition(Vec2::new(0.0, scrolled.get(List::TableRules))),
+        ),
     );
     let close_x = parts::icon_button(
         commands,

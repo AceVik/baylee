@@ -17,6 +17,19 @@ use baylee_protocol::v1::{self, Envelope};
 use futures_util::{SinkExt, StreamExt};
 use prost::Message as _;
 
+pub fn standard_execution() -> baylee_protocol::execution::Identity {
+    execution(baylee_protocol::execution::Variant::Standard)
+}
+
+fn execution(variant: baylee_protocol::execution::Variant) -> baylee_protocol::execution::Identity {
+    baylee_protocol::execution::Identity::native(
+        variant,
+        baylee_build::short(),
+        baylee_build::COMMIT,
+        u32::from(baylee_core::preset::AIProfile::GENERATION),
+    )
+}
+
 /// A gateway process, torn down with the test.
 pub struct Gateway {
     /// The port it listens on.
@@ -736,7 +749,10 @@ async fn attach_agent_inner(
         &mut ws,
         &Envelope {
             msg: Some(v1::envelope::Msg::AgentHello(v1::AgentHello {
-                engines: vec![baylee_engine_server::variant::identity().to_metadata()],
+                engines: vec![
+                    standard_execution().to_metadata(),
+                    execution(baylee_protocol::execution::Variant::StandardLoops).to_metadata(),
+                ],
                 token: gateway.agent_token.clone(),
                 name: "test-agent".to_string(),
                 capacity,

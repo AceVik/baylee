@@ -142,7 +142,8 @@ message StartingCounters {
 }
 message HouseRules {
   bool mulligan_free_first = 1;
-  // 0 = run-once-then-break, 1 = comp-rules-draw
+  // 0 = legacy run-once-then-break, 1 = comp-rules-draw, 2 = off.
+  // Newly created ordinary tables explicitly use 2; absent remains legacy 0.
   uint32 loop_policy = 2;
   uint32 decision_timeout_secs = 3;
   uint32 reconnect_window_secs = 4;

@@ -125,6 +125,7 @@ impl Lobby {
             }
             Adjustment::Template(template) => {
                 update.setup = RoomSetup {
+                    loop_policy: update.setup.loop_policy,
                     starting_life: if template == 1 { 20 } else { 40 },
                     ..RoomSetup::default()
                 };

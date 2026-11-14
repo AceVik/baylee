@@ -9870,6 +9870,14 @@ CreateSectionAccessAbout = Spectator permissions, password protection, and decis
 
 # The create-table sheet's spectators badge when they may watch.
 CreateSpectatorsAllowed = Spectators allowed
+# Automatic repetition handling in the create-table rules.
+TableLoopDetection = Loop detection
+TableLoopsOff = Off
+TableLoopsBreak = Break the loop
+TableLoopsDraw = Draw
+TableLoopsOffHint = No automatic loop detection. You can still agree to a draw.
+TableLoopsBreakHint = House rule: a detected endless loop runs once, then is interrupted.
+TableLoopsDrawHint = A detected mandatory endless loop ends the game in a draw.
 
 # The create-table sheet's spectators badge when they may not.
 CreateNoSpectators = No spectators

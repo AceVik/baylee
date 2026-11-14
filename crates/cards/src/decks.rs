@@ -834,6 +834,9 @@ pub fn apply_room_setup(
 ) -> Result<(), String> {
     setup.validate(preset.seats.len())?;
     let mut candidate = preset.clone();
+    if let Some(policy) = setup.loop_policy {
+        candidate.house_rules.loop_policy = policy;
+    }
     candidate.house_rules.free_mulligans = Some(setup.free_mulligans);
     candidate.house_rules.mulligan_free_first = setup.free_mulligans > 0;
     for at in 0..candidate.seats.len() {

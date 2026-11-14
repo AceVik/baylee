@@ -23,7 +23,7 @@ async fn agent(gw: &Gateway) -> Socket {
         &mut ws,
         &Envelope {
             msg: Some(v1::envelope::Msg::AgentHello(v1::AgentHello {
-                engines: vec![baylee_engine_server::variant::identity().to_metadata()],
+                engines: vec![common::standard_execution().to_metadata()],
                 token: gw.agent_token.clone(),
                 name: "lifecycle-test".into(),
                 capacity: 1,
@@ -75,7 +75,7 @@ async fn engine(start: &v1::StartEngine) -> Socket {
         &mut ws,
         &Envelope {
             msg: Some(v1::envelope::Msg::EngineHello(v1::EngineHello {
-                execution: baylee_engine_server::variant::identity().to_metadata(),
+                execution: common::standard_execution().to_metadata(),
                 game_id: start.game_id.clone(),
                 token: start.engine_token.clone(),
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,
@@ -145,7 +145,7 @@ async fn the_requested_artifact_is_checked_after_auth_and_before_private_setup()
     let (token, id) = create(&gw, "contract");
     let start = ordered(&mut owner, &id).await;
     let expected = baylee_protocol::execution::Identity::from_metadata(&start.execution).unwrap();
-    assert_eq!(expected, baylee_engine_server::variant::identity());
+    assert_eq!(expected, common::standard_execution());
     let mut wrong = expected.clone();
     wrong.features = "b".repeat(64);
     for authorized in [false, true] {

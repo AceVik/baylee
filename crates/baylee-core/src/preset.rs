@@ -76,6 +76,10 @@ pub struct DeckEntry {
 }
 
 /// Endless-loop handling (house rule; see `docs/engine-internals.md`).
+///
+/// @description Automatic repetition handling: `Off`, `RunOnceThenBreak`,
+/// or `CompRulesDraw`. New ordinary tables use `Off`.
+/// @openapi
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize)]
 pub enum LoopPolicy {
     /// Detect a true endless loop, execute it once, then break it.
@@ -223,6 +227,12 @@ impl TableFormat {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct RoomSetup {
+    /// @description The automatic repetition rule. Absent preserves the
+    /// preset's rule; new ordinary tables use `Off`.
+    /// @internal
+    /// An explicit override, never a reinterpretation of an old preset.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub loop_policy: Option<LoopPolicy>,
     /// @description The life every player starts with, 1 to 999, unless
     /// their seat says otherwise.
     /// @openapi minimum: 1
@@ -252,6 +262,7 @@ pub struct RoomSetup {
 impl Default for RoomSetup {
     fn default() -> Self {
         Self {
+            loop_policy: None,
             starting_life: 40,
             free_mulligans: 1,
             seats: Vec::new(),

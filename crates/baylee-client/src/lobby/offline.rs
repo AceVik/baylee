@@ -729,8 +729,7 @@ impl Offline {
         let mut preset = baylee_cards::decks::preset_for_all(crate::host::fresh_seed(), &refs);
         // A table asks the order of triggers and how a trampler divides its
         // damage, this one too (`docs/protocol.md`).
-        preset.house_rules.order_triggers = true;
-        preset.house_rules.divide_trample = true;
+        preset.house_rules = baylee_core::preset::HouseRules::new_table();
         for (spec, chair) in preset.seats.iter_mut().zip(&room.chairs) {
             spec.controller = match chair.kind {
                 SeatKind::Human => SeatController::Open,
@@ -1153,6 +1152,48 @@ mod tests {
             spectators: true,
         });
         offline
+    }
+
+    #[test]
+    fn offline_room_rules_select_the_loop_policy_and_default_to_off() {
+        use baylee_core::preset::{LoopPolicy, RoomUpdate};
+        for policy in [
+            None,
+            Some(LoopPolicy::Off),
+            Some(LoopPolicy::RunOnceThenBreak),
+            Some(LoopPolicy::CompRulesDraw),
+        ] {
+            let mut offline = with_a_room(2);
+            let mut setup = listed(&offline).setup;
+            setup.loop_policy = policy;
+            assert_eq!(
+                offline.ask(LobbyRequest::ConfigureRoom {
+                    game_id: ROOM.to_string(),
+                    update: RoomUpdate {
+                        name: "Policy".into(),
+                        chairs: 2,
+                        password: None,
+                        setup
+                    },
+                }),
+                LobbyEvent::Moved
+            );
+            offline.ask(LobbyRequest::SetReady {
+                game_id: ROOM.into(),
+                ready: true,
+            });
+            assert_eq!(
+                offline.ask(LobbyRequest::StartGame {
+                    game_id: ROOM.into()
+                }),
+                LobbyEvent::Moved
+            );
+            let preset = offline.take_started().expect("the configured room starts");
+            assert_eq!(
+                preset.house_rules.loop_policy,
+                policy.unwrap_or(LoopPolicy::Off)
+            );
+        }
     }
 
     /// The room as the lobby would read it back.

@@ -146,6 +146,16 @@ impl HouseRules {
         }
     }
 
+    /// Rules for a newly created ordinary table. Keep the legacy constructors
+    /// stable for recorded games and certified challenge packages.
+    #[must_use]
+    pub fn new_table() -> Self {
+        Self {
+            loop_policy: LoopPolicy::Off,
+            ..Self::for_a_table()
+        }
+    }
+
     /// Number of opening redraws that cost no cards.
     #[must_use]
     pub fn free_mulligan_count(&self) -> u8 {

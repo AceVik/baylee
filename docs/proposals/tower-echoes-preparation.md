@@ -400,3 +400,38 @@ worker responsiveness/streaming/resumption regressions. Evidence:
 `/tmp/baylee-client-static-host-tests-20261114.log`. No graphical client was
 started. This verifies type continuity, not containment of an unbounded kernel
 operation: process supervision for that case remains separate required work.
+
+## New-table policy and visible selection — sixth working milestone
+
+New ordinary gateway, offline and practice tables now default to Off. The
+legacy house-rule default and frozen challenge presets retain their original
+policy. An optional room-setup field carries the explicit selection; unknown
+JSON and protobuf policies are refused, and an absent old wire field retains
+its legacy meaning. The client offers Off, interrupt-once (house rule), and
+draw-on-mandatory-loop with localized explanations. Draft edits and template
+changes preserve the selection. A real gateway/agent/seat integration test
+reaches GameStatic through the appropriate concrete engine for each option.
+
+Selective checks covered the changed core, client model, protobuf parser,
+gateway reservation/connection and replay paths. Repairs to test fixtures
+updated their default artifact and supplied a real routing header for replay
+size-bound tests; a corrupt header is also refused. Evidence is split across
+`/tmp/baylee-new-table-tests-20261114.log` and its `-r2` through `-r5`
+logs (failed fixture assumptions are retained, not presented as clean runs).
+All intended cases passed after those corrections. Strict affected-crate
+Clippy passed, including the final gateway fixture and native client passes.
+The API documents were regenerated with the existing generator.
+
+Two native dev-control tests passed in English and German, at 1280×720 and
+1440×900, with reduced motion, virtual input and the owner's additional left
+screen. They exercise all three choices and assert actual unclipped label and
+explanation geometry. The first run found that rebuilding the sheet reset
+scroll position: the sheet now has its own retained scroll position, reset
+only when opened. Later image assertions made the test scroll further after
+shrinking the viewport. Final evidence:
+`/tmp/baylee-loop-picker-ui-20261114-r5.log`,
+`target/e2e/run-1794674679/`, and
+`/tmp/baylee-new-table-ui-clippy-20261114.log`.
+All owned clients exited and their loopback ports were verified closed.
+This is a table-settings regression check, not the five required Tower UI
+refinement passes, nor a claim that default-Off resource containment is finished.

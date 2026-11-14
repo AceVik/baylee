@@ -3954,6 +3954,15 @@ somebody is waiting at that table.
 A third host plays a replay: `ReplayHost` (`src/replay/host.rs`), see
 §"Replays".
 
+New ordinary and practice tables disable automatic loop detection. The Create
+table sheet's Adjust section offers Off, break once (house rule), or draw on a
+mandatory endless loop, with localized explanations and keyboard stops. The
+setting follows the same room configuration and readiness rules online and
+offline. `LocalHost::install` selects the static policy once; restart and local
+replay select the policy in the record. A restart's hash is checked before its
+worker is installed. Legacy fixtures and certified challenge presets retain
+their explicit policy.
+
 ## Replays
 
 `.claude/b8/REPLAY-DESIGN.md` is the design. A replay is a spectator's table

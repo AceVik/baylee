@@ -105,6 +105,8 @@ pub(crate) enum PlayPress {
     Watch(usize),
     /// The sheet: whether spectators may watch.
     Spectators,
+    /// The sheet: the table's automatic repetition rule.
+    LoopPolicy(baylee_core::preset::LoopPolicy),
     /// Back to the player's own table, waiting or running.
     Return,
     /// A recent game again, one press (its place in the recent list).
@@ -232,7 +234,9 @@ pub(super) fn draw(
         discovery::password_sheet(commands, root, state, metrics, kit, id);
     }
     if let Some((draft, editing)) = &state.play.sheet {
-        create_sheet(commands, root, state, metrics, kit, draft, *editing);
+        create_sheet(
+            commands, root, state, metrics, kit, draft, *editing, scrolled,
+        );
     }
 }
 
@@ -698,15 +702,24 @@ pub(super) fn sheet_over(
     state: &LobbyState,
     metrics: Metrics,
     kit: Kit,
+    scrolled: &Scrolled,
 ) {
     if let Some((draft, editing)) = &state.play.sheet {
-        create_sheet(commands, root, state, metrics, kit, draft, *editing);
+        create_sheet(
+            commands, root, state, metrics, kit, draft, *editing, scrolled,
+        );
     }
 }
 
 /// Opens the Create-table sheet: the name prefilled "<handle>'s table",
 /// the password box empty, the caret in the name.
-pub(super) fn open_sheet(state: &mut LobbyState, draft: TableDraft, editing: bool) {
+pub(super) fn open_sheet(
+    state: &mut LobbyState,
+    scrolled: &mut Scrolled,
+    draft: TableDraft,
+    editing: bool,
+) {
+    scrolled.set(List::TableRules, 0.0);
     if !editing {
         let lang = state.lobby.lang();
         let who = state
@@ -745,7 +758,7 @@ impl PlayPress {
             PlayPress::Difficulty(at) => state.play.difficulty = at,
             PlayPress::CreateTable => {
                 if starts_off(state, state.lobby.lang()).is_none() {
-                    open_sheet(state, TableDraft::default(), false);
+                    open_sheet(state, scrolled, TableDraft::default(), false);
                 }
             }
             PlayPress::ChangeDeck => state.play.picker = true,
@@ -800,6 +813,11 @@ impl PlayPress {
                     draft.spectators = !draft.spectators;
                 }
             }
+            PlayPress::LoopPolicy(policy) => {
+                if let Some((draft, _)) = state.play.sheet.as_mut() {
+                    draft.loop_policy = policy;
+                }
+            }
             PlayPress::Return => {
                 super::header::HeaderPress::Return.handle(Cx {
                     state,
@@ -830,7 +848,7 @@ impl PlayPress {
                 } else {
                     Template::Commander
                 };
-                open_sheet(state, TableDraft::of(template, chairs), false);
+                open_sheet(state, scrolled, TableDraft::of(template, chairs), false);
             }
             PlayPress::Players(n) => {
                 if let Some((draft, _)) = state.play.sheet.as_mut() {

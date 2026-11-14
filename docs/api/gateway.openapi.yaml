@@ -8262,6 +8262,14 @@ components:
       - complete
       - gzip_base64
       description: A client's record of its own game, as the body carries it.
+    LoopPolicy:
+      type: string
+      enum:
+      - RunOnceThenBreak
+      - CompRulesDraw
+      - "Off"
+      default: RunOnceThenBreak
+      description: "Automatic repetition handling: `Off`, `RunOnceThenBreak`, or `CompRulesDraw`. New ordinary tables use `Off`."
     NewBanlist:
       type: object
       properties:
@@ -9414,6 +9422,13 @@ components:
     RoomSetup:
       type: object
       properties:
+        loop_policy:
+          anyOf:
+          - $ref: "#/components/schemas/LoopPolicy"
+          - type: "null"
+          description: >-
+            The automatic repetition rule. Absent preserves the preset's rule; new ordinary
+            tables use `Off`.
         starting_life:
           type: integer
           format: int32

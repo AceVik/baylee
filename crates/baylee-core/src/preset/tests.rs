@@ -1,6 +1,32 @@
 use super::*;
 
 #[test]
+fn new_tables_disable_loop_detection_without_reinterpreting_legacy_presets() {
+    assert_eq!(HouseRules::new_table().loop_policy, LoopPolicy::Off);
+    assert_eq!(
+        HouseRules::default().loop_policy,
+        LoopPolicy::RunOnceThenBreak
+    );
+    assert_eq!(
+        HouseRules::for_a_table().loop_policy,
+        LoopPolicy::RunOnceThenBreak
+    );
+    let old: RoomSetup = serde_json::from_str(r#"{"starting_life":20}"#).unwrap();
+    assert_eq!(
+        old.loop_policy, None,
+        "missing settings preserve the preset"
+    );
+    assert!(
+        !serde_json::to_value(&old)
+            .unwrap()
+            .as_object()
+            .unwrap()
+            .contains_key("loop_policy")
+    );
+    assert!(serde_json::from_str::<RoomSetup>(r#"{"loop_policy":"custom-script"}"#).is_err());
+}
+
+#[test]
 fn starting_supplies_are_custom_only_bounded_unique_and_legacy_optional() {
     let old = serde_json::to_value(HouseRules::default()).unwrap();
     assert!(old.get("supplies").is_none());

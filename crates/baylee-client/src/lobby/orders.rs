@@ -107,6 +107,7 @@ pub(crate) const CREATE: TabOrder = TabOrder {
         "adjust",
         "life",
         "mulligans",
+        "loops",
         "password",
         "clock",
         "cancel",

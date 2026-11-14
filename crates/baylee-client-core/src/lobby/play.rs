@@ -5,7 +5,7 @@
 
 use super::{GameMode, GameSummary, Lobby, LobbyRequest, SeatKind};
 use crate::i18n::{Lang, Phrase};
-use baylee_core::preset::{RoomSeatSetup, RoomSetup, TableFormat};
+use baylee_core::preset::{LoopPolicy, RoomSeatSetup, RoomSetup, TableFormat};
 use serde::Deserialize;
 
 /// One clock a room may be opened at, as `GET /auth/config` lists them.
@@ -492,6 +492,8 @@ impl Template {
 /// and [`super::Field::RoomPassword`], so they type like every field).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TableDraft {
+    /// Automatic repetition handling, disabled for a new table.
+    pub loop_policy: LoopPolicy,
     /// Chairs, two to eight.
     pub players: usize,
     /// The template chosen.
@@ -520,6 +522,7 @@ impl TableDraft {
     pub fn of(template: Template, players: usize) -> Self {
         Self {
             players: players.clamp(super::MIN_CHAIRS, super::MAX_CHAIRS),
+            loop_policy: LoopPolicy::Off,
             template,
             life: template.life(),
             mulligans: RoomSetup::default().free_mulligans,
@@ -551,6 +554,7 @@ impl TableDraft {
     #[must_use]
     pub fn setup(&self) -> RoomSetup {
         let mut setup = RoomSetup {
+            loop_policy: Some(self.loop_policy),
             starting_life: self.life.clamp(1, 999),
             free_mulligans: self.mulligans.min(7),
             seats: Vec::new(),
@@ -695,6 +699,7 @@ impl Lobby {
             _ => Template::Commander,
         };
         Some(TableDraft {
+            loop_policy: setup.loop_policy.unwrap_or(LoopPolicy::Off),
             players: draft.update.chairs,
             template,
             life: setup.starting_life,
@@ -716,6 +721,7 @@ impl Lobby {
         update.setup.starting_life = table.life.clamp(1, 999);
         update.setup.free_mulligans = table.mulligans.min(7);
         update.setup.format = table.template.format();
+        update.setup.loop_policy = Some(table.loop_policy);
         update
             .setup
             .seats
@@ -936,6 +942,8 @@ mod tests {
     #[test]
     fn a_new_table_is_three_minutes_a_decision() {
         let draft = TableDraft::default();
+        assert_eq!(draft.loop_policy, LoopPolicy::Off);
+        assert_eq!(draft.setup().loop_policy, Some(LoopPolicy::Off));
         let clocks = known_clocks();
         assert_eq!(clocks[draft.clock].name, "classic");
         assert_eq!(
@@ -1046,7 +1054,10 @@ mod tests {
         let mut d = TableDraft::default();
         assert_eq!(
             d.setup(),
-            RoomSetup::default(),
+            RoomSetup {
+                loop_policy: Some(LoopPolicy::Off),
+                ..RoomSetup::default()
+            },
             "Commander is the room's default"
         );
         d.pick(Template::Duel);

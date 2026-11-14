@@ -52,6 +52,8 @@ pub(crate) enum List {
     Replays,
     /// Play's deck picker (Change deck).
     DeckPicker,
+    /// The Create table / Edit rules sheet, independent of the deck check.
+    TableRules,
 }
 
 /// Where each list was left, across rebuilds of the node tree.
@@ -82,6 +84,7 @@ pub(crate) struct Scrolled {
     settings_nav: f32,
     replays: f32,
     deck_picker: f32,
+    table_rules: f32,
 }
 
 impl Scrolled {
@@ -107,6 +110,7 @@ impl Scrolled {
             List::SettingsNav => self.settings_nav,
             List::Replays => self.replays,
             List::DeckPicker => self.deck_picker,
+            List::TableRules => self.table_rules,
         }
     }
 
@@ -132,6 +136,7 @@ impl Scrolled {
             List::SettingsNav => self.settings_nav = at,
             List::Replays => self.replays = at,
             List::DeckPicker => self.deck_picker = at,
+            List::TableRules => self.table_rules = at,
         }
     }
 }

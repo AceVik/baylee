@@ -12,6 +12,31 @@ pub(super) async fn run_engine(
     probe: ProbeEnd,
     seed: Option<u64>,
 ) {
+    use baylee_engine::engine::{DetectLoops, NoLoopDetection};
+    use baylee_protocol::execution::{Identity, Variant};
+    let selected = Identity::from_metadata(&start.execution).expect("valid reservation");
+    assert_eq!(
+        selected,
+        execution(selected.variant),
+        "only installed artifacts"
+    );
+    match selected.variant {
+        Variant::Standard => {
+            Box::pin(run_typed::<NoLoopDetection>(start, presets, probe, seed)).await;
+        }
+        Variant::StandardLoops => {
+            Box::pin(run_typed::<DetectLoops>(start, presets, probe, seed)).await;
+        }
+        Variant::Tower => panic!("the fixture has no Tower pack installed"),
+    }
+}
+
+async fn run_typed<D: baylee_engine::engine::LoopDetection>(
+    start: v1::StartEngine,
+    presets: tokio::sync::mpsc::UnboundedSender<baylee_core::preset::GamePreset>,
+    probe: ProbeEnd,
+    seed: Option<u64>,
+) {
     let Some(mut ws) = dial(&start.gateway_url).await else {
         return;
     };
@@ -19,7 +44,7 @@ pub(super) async fn run_engine(
         &mut ws,
         &Envelope {
             msg: Some(v1::envelope::Msg::EngineHello(v1::EngineHello {
-                execution: baylee_engine_server::variant::identity().to_metadata(),
+                execution: start.execution.clone(),
                 game_id: start.game_id.clone(),
                 token: start.engine_token.clone(),
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,
@@ -29,7 +54,7 @@ pub(super) async fn run_engine(
         },
     )
     .await;
-    let mut runner = EngineRunner::new();
+    let mut runner = EngineRunner::<D>::default();
     let mut armed = baylee_engine_server::Armed::default();
     let measured_from = tokio::time::Instant::now();
     loop {
@@ -74,7 +99,7 @@ pub(super) async fn run_engine(
                 // A replay job, as `baylee-engine-server` runs one: the
                 // tape's pieces, then the socket closes.
                 if let v1::envelope::Msg::ProjectRecord(order) = msg {
-                    project(&mut ws, order, &probe).await;
+                    project::<D>(&mut ws, order, &probe).await;
                     break;
                 }
                 if let v1::envelope::Msg::FlushRecord(_) = &msg {
@@ -126,15 +151,23 @@ fn wall_ms() -> u64 {
 
 /// A replay job, as `baylee-engine-server` runs one: the tape's pieces on
 /// the engine link. A muted probe's engine never answers (the `504` test).
-async fn project(ws: &mut Socket, order: v1::ProjectRecord, probe: &ProbeEnd) {
+async fn project<D: baylee_engine::engine::LoopDetection>(
+    ws: &mut Socket,
+    order: v1::ProjectRecord,
+    probe: &ProbeEnd,
+) {
     if probe.mute.load(std::sync::atomic::Ordering::SeqCst) {
         std::future::pending::<()>().await;
     }
     let pieces = tokio::task::spawn_blocking(move || {
         let mut pieces = Vec::new();
-        baylee_engine_server::projection::run(&order, baylee_build::short(), &mut |piece| {
-            pieces.push(piece);
-        });
+        baylee_engine_server::projection::with_detection::<D>(
+            &order,
+            baylee_build::short(),
+            &mut |piece| {
+                pieces.push(piece);
+            },
+        );
         pieces
     })
     .await

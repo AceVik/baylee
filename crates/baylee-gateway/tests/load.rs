@@ -224,7 +224,7 @@ async fn stand_in_agent(gateway: &Gateway) -> tokio::task::JoinHandle<()> {
         &mut ws,
         &Envelope {
             msg: Some(v1::envelope::Msg::AgentHello(v1::AgentHello {
-                engines: vec![baylee_engine_server::variant::identity().to_metadata()],
+                engines: vec![common::standard_execution().to_metadata()],
                 token: gateway.agent_token.clone(),
                 name: "load-agent".to_string(),
                 capacity: 0,
@@ -265,7 +265,7 @@ async fn stand_in_engine(start: v1::StartEngine) {
         &mut ws,
         &Envelope {
             msg: Some(v1::envelope::Msg::EngineHello(v1::EngineHello {
-                execution: baylee_engine_server::variant::identity().to_metadata(),
+                execution: common::standard_execution().to_metadata(),
                 game_id: start.game_id.clone(),
                 token: start.engine_token.clone(),
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,

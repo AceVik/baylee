@@ -766,8 +766,7 @@ pub fn practice_game(seed: u64) -> Option<GamePreset> {
             )
         };
     }
-    preset.house_rules.order_triggers = true;
-    preset.house_rules.divide_trample = true;
+    preset.house_rules = baylee_core::preset::HouseRules::new_table();
     preset.validate().ok()?;
     Some(preset)
 }
