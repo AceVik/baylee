@@ -12,6 +12,8 @@ use uuid::Uuid;
 mod checks;
 #[path = "challenges/race.rs"]
 mod race;
+#[path = "challenges/tower.rs"]
+pub(super) mod tower;
 
 pub(super) fn run(
     runtime: &Runtime,
@@ -108,6 +110,7 @@ pub(super) fn run(
         };
         assert!(active.is_empty());
         assert!(badges.iter().filter(|badge| badge.count > 0).count() >= 3);
+        tower::exercise(runtime, endpoint, gateway, account, credential);
     }));
     if let Some(agent) = agent {
         agent.abort();
@@ -151,6 +154,8 @@ fn prepare_blind(runtime: &Runtime, endpoint: &Endpoint, credential: &Token) {
                     endpoint.origin(),
                     "--days",
                     "1",
+                    "--activities",
+                    "calendar",
                     "--source-dir",
                 ])
                 .arg(baylee_train::working::repo_root())

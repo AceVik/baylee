@@ -95,13 +95,14 @@ pub(super) fn run(runtime: &Runtime, served: &Served) {
 
 fn prepare(runtime: &Runtime, served: &Served) {
     let document = document(&served.origin);
-    let _new = fresh::register(
+    let new = fresh::register(
         runtime,
         &served.service,
         &served.endpoint,
         "demo_player",
         &document,
     );
+    super::challenges::tower::prepare_demo(runtime, &served.gateway, &new);
     let returning = fresh::register(
         runtime,
         &served.service,

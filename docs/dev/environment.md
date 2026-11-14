@@ -189,6 +189,17 @@ The house's search at the tables an attached engine hosts (`docs/house-ai.md` §
 
 A game's end logs `house searches` (asked, searched, replaced, refused, busy, walled, the slowest in ms, the most work one search spent) at `info`; each searched answer is a `debug` line of `baylee_gamehost` (`house search`, its µs and work).
 
+## Central integration fixtures (`cargo dev central integration`)
+
+The Central integration fixture optionally reads `BAYLEE_CENTRAL_TOWER_EVIDENCE`,
+an absolute path to a complete, private `challenge tower` evidence directory for
+the current week. It then verifies all-node staging/retry and five real Tower
+duels without regenerating the graph. This is test-only input; services never
+read it. Build the matching `target/debug/challenge` executable first, or select
+it explicitly with `BAYLEE_CHALLENGE_BINARY`. The launcher resolves its absolute
+path before starting the database and passes it only to the fixture. The owner
+and cleanup rules are unchanged (`../tower.md`).
+
 ## House AI tests (`baylee-gamehost`)
 
 - `BAYLEE_REFERENCE_RERECORD` (set: `reference_profile`'s test plays the frozen `sharp-2026-11` tables and writes their answers to its fixture instead of checking them; only in a commit of its own that says why the reference had to move, `docs/house-ai.md` §"The frozen reference").
