@@ -101,8 +101,8 @@ fn only_a_sealed_exact_current_result_grants_income_once() {
     let (catalog, initial) = fixture();
     let playing = playing(&initial, &catalog);
     for command in [
-        Command::Refresh,
-        Command::Abandon,
+        Command::Refresh {},
+        Command::Abandon {},
         Command::Edit {
             deck: initial.cards.deck.clone(),
         },
@@ -193,7 +193,7 @@ fn twelfth_duel_ends_both_boundary_paths_and_long_games_are_not_rules_losses() {
                 .is_err()
         );
         assert!(
-            run.command(run.revision, &Command::Refresh, &catalog, &SEED)
+            run.command(run.revision, &Command::Refresh {}, &catalog, &SEED)
                 .is_err()
         );
     }
@@ -315,7 +315,7 @@ fn quarantine_preserves_the_package_and_prefix_and_fences_old_verification() {
     );
     assert!(
         stopped
-            .command(stopped.revision, &Command::Abandon, &catalog, &SEED)
+            .command(stopped.revision, &Command::Abandon {}, &catalog, &SEED)
             .is_err()
     );
     let resumed = stopped.recovered(stopped.revision, &catalog).unwrap();
@@ -426,7 +426,7 @@ fn guarantees_revision_exhaustion_and_forged_finances_fail_atomically() {
     assert!(invalid.validate(&catalog).is_err());
     run.revision = u64::MAX;
     assert!(
-        run.command(run.revision, &Command::Refresh, &catalog, &SEED)
+        run.command(run.revision, &Command::Refresh {}, &catalog, &SEED)
             .is_err()
     );
     assert!(run.shop.mythic_choice);

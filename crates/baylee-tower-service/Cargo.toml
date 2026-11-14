@@ -12,6 +12,7 @@ workspace = true
 
 [dependencies]
 baylee-tower.workspace = true
+baylee-tower-api.workspace = true
 baylee-tower-store.workspace = true
 baylee-protocol.workspace = true
 baylee-worker.workspace = true
@@ -21,3 +22,20 @@ sysinfo.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 uuid.workspace = true
+axum.workspace = true
+bytes.workspace = true
+central-api.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-rustls.workspace = true
+hyper-util.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+baylee-core.workspace = true
+sea-orm.workspace = true
+url.workspace = true
+
+[[test]]
+name = "player"
+path = "tests/player/mod.rs"

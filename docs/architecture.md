@@ -27,6 +27,14 @@ information is unrepresentable in a view, and the gateway runs no rules.
   work deadlines, RSS sampling and owned-child reaping enclose native replay.
   Successful replay alone is not a reward: the store must commit it under the live
   independent verifier lease. Failed/cancelled work supplies no rules outcome.
+- `baylee-tower-api` carries bounded owner choices and explicit public projections.
+  Its player route lives in `baylee-tower-service`, separately from all host and
+  verifier capabilities. Each account operation introspects a short-lived scoped
+  Central credential; no cache authorizes a logged-out account. This is shop/run
+  traffic, never per-frame game traffic. `baylee-account::Account::tower` obtains
+  the destination directly from Central and opens the strict native transport.
+  The new service's production launcher and gateway execution link remain under
+  implementation; neither this route nor its SDK claims playable client completion.
 - The shared table driver selects its record transport statically. Ordinary
   hosting keeps the existing gzip stream; the native Tower adapter captures raw
   pieces and withholds associated views/endings behind exact ordered ACKs. Its

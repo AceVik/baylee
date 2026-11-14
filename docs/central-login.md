@@ -97,6 +97,14 @@ says nothing about guests.
 
 ## When Central cannot answer
 
+Tower v2's separate shop/run API uses a different, five-minute identity capability:
+`Account::tower` asks Central for its sole configured Tower origin and receives
+no gateway credential. The Tower introspects that capability for each owner API
+operation, so Central unavailability stops new shop/progression operations. This
+does not change the gateway-session policy below and adds no Central calls to
+engine frames. The native Tower transport verifies TLS, refuses redirects and
+bounds requests/responses; ambiguous mutations retain their original request UUID.
+
 A session of a Central account never asks Central anything once it is open: not
 on a request, not on a socket, not before a frame (§"Sessions"). Nobody's load
 reaches Central, so nobody's load can cost another account its session.
@@ -164,6 +172,14 @@ document are byte-for-byte unchanged between these commits. The fingerprint
 above and the same Ristretto-only source argument therefore remain applicable.
 The shipping guard advances only its exact Git identity; all package versions,
 source checks and the all-feature reverse-consumer graph remain mandatory.
+
+The separate Tower identity capability advances that pin to
+`913a3bed81b6187b30529d4114cd8334d15e30ce` on 14 November 2026. The three
+SDK manifests and the entire `central-crypto` tree are unchanged from the
+previous pin. The added SDK operations delegate the existing opaque token
+type to a distinct operator-configured Tower origin with online session
+introspection. They add no cryptographic primitives or dependency features.
+The same exact-source and reverse-consumer checks remain in force.
 
 The former Central revision
 `0a941953f8c0d5573e82e0979e7faf1fb9e40299` contains the `central-crypto`

@@ -6048,3 +6048,46 @@ kind already being placed. The client and LLM narrator name the specific
 kind when present. Replacement applicability is recalculated after each
 choice (CR 616.1f); an entry replacement must introduce the first counters
 before a counter doubler can apply.
+
+## Separate Tower v2 player API
+
+The global Baylee Tower authority exposes `POST /v2/player` independently of a
+gateway. Its reusable contract is `baylee-tower-api`, version `2` in the required
+`Baylee-Tower-Version` header. Requests require exactly one canonical opaque
+`Authorization: Bearer …` issued by Central for this Tower origin, and exactly
+`Content-Type: application/json`. Origin, Cookie, Content-Encoding, query strings,
+duplicate credentials/version headers and unknown JSON fields are refused.
+No browser CORS route or caller-supplied identity/destination exists.
+
+The tagged `operation` is `cohorts`, `runs`, `run`, `start`, `command`, `reserve`
+or `withdraw_echoes`. `start`, `command` and `reserve` carry a UUIDv7 request ID;
+the exact request must be retained after a lost answer. Commands carry the last
+observed run revision. The authority alone samples start/opponent/shuffle/policy
+randomness; stored request receipts return the original committed answer on an
+exact repeat. Account ownership comes from fresh Central introspection, never
+from a JSON field. Neither a result nor a replacement state can be submitted.
+
+`cohorts` and `runs` accept an exclusive optional UUID cursor `before`, return at
+most eight results ordered by descending ID, and continue below the last returned
+ID. Cohorts expose their exact registry/rules contract, reviewed card prices and
+three starters. Runs expose only the owner's shop, cards, inventory, phase,
+revision and verified outcome/turn/potion history. Execution leases, package
+commitments, record heads, opponent builds and seeds are unrepresentable in the
+player projection. Ordinary run reads exclude expired rows and foreign owners.
+
+Requests are bounded to 16 KiB, responses to 1 MiB; body reading lasts at most
+three seconds and online identity lookup five seconds. Admission is limited to
+16 concurrent operations and 64 requests/second globally, followed by 120/minute
+per authenticated account. The account budget table is bounded to 4096 entries;
+credential refresh cannot reset it. No untrusted forwarded IP header influences
+admission. HTTP statuses are 400 malformed, 401 missing/invalid scope, 403 current
+terms, 404 missing/foreign run, 409 conflict/domain refusal, 413 body limit,
+426 incompatible wire version, 429 capacity and 503 authority/storage failure.
+Failures contain no remote diagnostics. Every handled player response carries
+`Cache-Control: no-store`; success additionally carries JSON and version headers.
+
+`Account::tower` obtains its trusted origin from Central, then `TowerHttp::exchange`
+sends only that scoped credential. It performs no automatic mutation retry and
+follows no redirects. The player router and native SDK are implemented; the
+standalone launcher, gateway worker transport and visible client flow remain
+separate integration milestones, not implied by this protocol surface.

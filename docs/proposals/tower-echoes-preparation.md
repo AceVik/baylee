@@ -1214,3 +1214,42 @@ simultaneous-mulligan race refusal. An actual native opening concession independ
 verifies in `/tmp/baylee-tower-early-concession-tests-20261114-r2.log`; both changed
 crates' strict all-target Clippy passes in
 `/tmp/baylee-challenge-concession-clippy-20261114.log`.
+
+## Scoped player access — thirty-seventh working milestone
+
+Central commit `913a3bed81b6187b30529d4114cd8334d15e30ce` adds the separate
+five-minute identity capability, bound to the operator's sole Tower origin and
+the original live native session. Real Central HTTP/PostgreSQL tests cover scope,
+concurrent bounded refresh, terms, logout, revision changes and deletion; Central's
+crypto-scope, dependency audit/deny, policy and secret checks pass. The branch is
+published for reproducible SDK pins; this is not a main merge or final PR review.
+Baylee's SDK and gateway-test pins advance together; the crypto source and manifests
+are unchanged, and the exact-pin/all-feature consumer guard passes in
+`/tmp/baylee-tower-identity-shipped-features-20261114-r2.log`.
+
+The new `baylee-tower-api` exposes bounded owner choices and explicit projections;
+the global service's `Players::router` checks live identity before every operation.
+Pagination, store ownership, saved request receipts, revision locks and authority
+randomness survive HTTP unchanged. The separate native account transport obtains
+its destination from Central, refuses redirects, preserves request identities and
+never sends the Tower credential to a gateway. Public projections omit private
+execution/evidence fields even after reservation. This is low-frequency owner
+traffic; no engine frame or kernel callback introspects Central.
+
+A negative wire test found that Serde ignored extra fields on the old unit-shaped
+Refresh/Abandon variants. Empty structure variants now reject them without changing
+their JSON spelling or domain semantics. The targeted native player HTTP/PostgreSQL
+scenario passes in `/tmp/baylee-tower-player-postgres-20261114.log` (one test, 0.30s):
+repeated starts/purchases/reservations, foreign reads/writes, stale revisions,
+malformed/oversized/browser requests, changed identity scope, logout/unavailability
+and hidden-field projection. Owned listeners, pools and the PostgreSQL container
+are closed even after scenario assertion failures. Central is an explicit synthetic
+identity boundary in this Baylee test; the real identity implementation was tested
+separately in Central, not silently replaced in a purported full-system test.
+
+Two native transport tests, five affected run-transition regressions, the strict
+wire test and bounded admission-counter regression pass. Strict all-target Clippy
+for the five affected runtime crates passes in
+`/tmp/baylee-tower-player-clippy-20261114-r5.log`. The standalone service launcher,
+gateway execution transport, current opponent attribution, accomplishment delivery,
+retention, item/AI playtesting and visible client integration remain outstanding.

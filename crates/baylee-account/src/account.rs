@@ -11,6 +11,7 @@ mod archive;
 mod challenges;
 mod pairing;
 mod social;
+mod tower;
 
 pub use pairing::{PairedSession, PairingClaim};
 

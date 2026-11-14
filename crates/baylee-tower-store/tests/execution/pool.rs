@@ -64,7 +64,7 @@ async fn withdrawal_reenrollment_and_swap_removal_do_not_revive_or_duplicate_ech
         store.withdraw_echoes(first.account).await.unwrap();
         store.withdraw_echoes(first.account).await.unwrap();
         assert!(!store.echo_visible(first.account, old).await.unwrap());
-        store.command(first.account, Uuid::now_v7(), first_done.id, first_done.state.revision, &Command::Abandon).await.unwrap();
+        store.command(first.account, Uuid::now_v7(), first_done.id, first_done.state.revision, &Command::Abandon {}).await.unwrap();
         let restarted = store.start(first.account, Uuid::now_v7(), super::Start { cohort: first_done.cohort, starter: 0, consent: super::CONSENT_REVISION }, [91; 32]).await.unwrap();
         assert!(!store.echo_visible(first.account, old).await.unwrap(), "renewed consent is not retrospective");
         assert_eq!(store.prune_echoes(&first.supervisor, first_done.cohort, 1, 2).await.unwrap(), 1);
@@ -78,7 +78,7 @@ async fn withdrawal_reenrollment_and_swap_removal_do_not_revive_or_duplicate_ech
         let row = db.query_one_raw(sea_orm::Statement::from_string(sea_orm::DbBackend::Postgres,
             format!("SELECT (SELECT count(*) FROM \"{schema}\".eligible_echoes)=2 AND population=2 AS dense FROM \"{schema}\".echo_partitions WHERE stage=1"))).await.unwrap().unwrap();
         assert!(row.try_get::<bool>("", "dense").unwrap());
-        store.command(first.account, Uuid::now_v7(), new_done.id, new_done.state.revision, &Command::Abandon).await.unwrap();
+        store.command(first.account, Uuid::now_v7(), new_done.id, new_done.state.revision, &Command::Abandon {}).await.unwrap();
         let again = store.start(first.account, Uuid::now_v7(), super::Start { cohort: first_done.cohort, starter: 0, consent: super::CONSENT_REVISION }, [92; 32]).await.unwrap();
         verified_fixture(&store, &first.continued(again), &verifier, Outcome::Victory).await;
         let row = db.query_one_raw(sea_orm::Statement::from_string(sea_orm::DbBackend::Postgres,
@@ -161,7 +161,7 @@ async fn isolated_cohort(store: &Store, template: &Flow) {
             Uuid::now_v7(),
             separate.initial.id,
             0,
-            &Command::Abandon,
+            &Command::Abandon {},
         )
         .await
         .unwrap();

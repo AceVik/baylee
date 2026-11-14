@@ -45,12 +45,12 @@ async fn existing_history_upgrades_and_quota_failures_leave_no_partial_mutation(
         for field in ["bytes_ok", "runs_ok", "consent_ok"] { assert!(row.try_get::<bool>("", field).unwrap()); }
 
         db.execute_unprepared(&format!("UPDATE \"{schema}\".players SET receipt_bytes={MAX_RECEIPT_BYTES}")).await.unwrap();
-        assert_eq!(store.command(account, Uuid::now_v7(), initial.id, 1, &Command::Refresh).await, Err(Error::Refused(Refusal::Capacity)));
+        assert_eq!(store.command(account, Uuid::now_v7(), initial.id, 1, &Command::Refresh {}).await, Err(Error::Refused(Refusal::Capacity)));
         assert_eq!(store.get(account, initial.id).await.unwrap(), bought);
         assert_eq!(store.command(account, request, initial.id, 0, &buy).await.unwrap(), bought,
             "a committed response remains retrievable at the storage limit");
         db.execute_unprepared(&format!("UPDATE \"{schema}\".players SET receipt_bytes=(SELECT sum(octet_length(response)) FROM \"{schema}\".requests),run_count={MAX_RUNS}")).await.unwrap();
-        store.command(account, Uuid::now_v7(), initial.id, 1, &Command::Abandon).await.unwrap();
+        store.command(account, Uuid::now_v7(), initial.id, 1, &Command::Abandon {}).await.unwrap();
         let next_request = Uuid::now_v7();
         assert_eq!(store.start(account, next_request, choice, [10; 32]).await, Err(Error::Refused(Refusal::Capacity)));
         db.execute_unprepared(&format!("UPDATE \"{schema}\".players SET run_count=(SELECT count(*) FROM \"{schema}\".runs)")).await.unwrap();

@@ -99,7 +99,7 @@ async fn concurrent_story(store: Store) {
     assert_eq!(bought.state.economy.gold, 16);
     assert_eq!(
         store
-            .command(account, request, first.id, 1, &Command::Refresh)
+            .command(account, request, first.id, 1, &Command::Refresh {})
             .await,
         Err(Error::Conflict)
     );
@@ -110,7 +110,7 @@ async fn concurrent_story(store: Store) {
         let id = first.id;
         tasks.push(tokio::spawn(async move {
             store
-                .command(account, Uuid::now_v7(), id, 1, &Command::Refresh)
+                .command(account, Uuid::now_v7(), id, 1, &Command::Refresh {})
                 .await
         }));
     }
@@ -126,7 +126,7 @@ async fn concurrent_story(store: Store) {
     assert_eq!(current.state.revision, 2);
     assert_eq!(current.state.economy.gold, 14);
     store
-        .command(account, Uuid::now_v7(), first.id, 2, &Command::Abandon)
+        .command(account, Uuid::now_v7(), first.id, 2, &Command::Abandon {})
         .await
         .unwrap();
     let second = store
@@ -170,7 +170,7 @@ async fn receipt_failure_rolls_back_wallet_inventory_revision_and_availability()
         assert_eq!(committed.state.economy.gold, 16);
         assert_eq!(committed.state.revision, 1);
         let other = Uuid::now_v7();
-        assert_eq!(store.command(other, Uuid::now_v7(), first.id, 1, &Command::Abandon).await, Err(Error::NotFound));
+        assert_eq!(store.command(other, Uuid::now_v7(), first.id, 1, &Command::Abandon {}).await, Err(Error::NotFound));
         assert_eq!(store.get(account, first.id).await.unwrap(), committed);
     }).await;
     sandbox.close().await;

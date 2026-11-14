@@ -47,7 +47,7 @@ pub enum Command {
         pinned: bool,
     },
     /// Pay the saved visit's next 2/3/4-gold refresh.
-    Refresh,
+    Refresh {},
     /// Replace one utility slot with the full-price stage-seven material offer.
     ChooseMythic {
         /// Utility slot six or seven.
@@ -56,7 +56,7 @@ pub enum Command {
         replace_pinned: bool,
     },
     /// End between games, without completion credit or transferable gold.
-    Abandon,
+    Abandon {},
 }
 
 impl Run {
@@ -89,14 +89,14 @@ impl Run {
             Command::Pin { offer, pinned } => {
                 next.shop = self.shop.pinned(*offer, *pinned, catalog)?;
             }
-            Command::Refresh => {
+            Command::Refresh {} => {
                 (next.shop, next.economy) = self.shop.refreshed(seed, self.stock(catalog))?;
             }
             Command::ChooseMythic {
                 slot,
                 replace_pinned,
             } => next.shop = self.shop.chose_mythic(*slot, *replace_pinned, catalog)?,
-            Command::Abandon => next.phase = Phase::Abandoned,
+            Command::Abandon {} => next.phase = Phase::Abandoned,
         }
         next.shop.mythic_choice = false;
         next.ledger = self.ledger.traded(self.economy.gold, next.economy.gold)?;

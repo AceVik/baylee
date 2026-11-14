@@ -11,10 +11,11 @@ workspace = true
 
 [features]
 default = []
-client = ["dep:central-client"]
+client = ["dep:central-client", "dep:baylee-tower-api"]
 
 [dependencies]
 central-api.workspace = true
+baylee-tower-api = { workspace = true, optional = true }
 central-client = { workspace = true, optional = true }
 serde.workspace = true
 flate2.workspace = true

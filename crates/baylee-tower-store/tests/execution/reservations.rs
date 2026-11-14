@@ -92,7 +92,7 @@ async fn claimed_and_repeated(
                 Uuid::now_v7(),
                 flow.initial.id,
                 1,
-                &Command::Refresh
+                &Command::Refresh {}
             )
             .await
             .is_err()

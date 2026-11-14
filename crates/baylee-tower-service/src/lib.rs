@@ -2,10 +2,13 @@
 #![forbid(unsafe_code)]
 
 mod artifact;
+mod identity;
+mod player;
 mod process;
 mod queue;
 mod verifier;
 pub use artifact::Artifact;
+pub use player::Players;
 pub use queue::{Queue, QueueResult, QueueSummary};
 pub use verifier::Verifier;
 
