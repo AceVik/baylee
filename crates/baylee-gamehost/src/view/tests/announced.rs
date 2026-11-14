@@ -948,8 +948,7 @@ fn chosen_card_type_second_subtype_and_number_reach_every_seat_and_hide_when_fac
     }
 }
 
-#[test]
-fn barter_in_blood_exposes_earlier_apnap_permanent_choices_until_simultaneous_sacrifice() {
+fn setup_barter_in_blood() -> (Engine<Registry>, crate::log::GameLog) {
     let mut preset = mixed_print_preset();
     preset.seats[0].starting_hand = Some(vec![entry_of("Barter in Blood")]);
     preset.seats[0].starting_battlefield = vec![
@@ -970,7 +969,7 @@ fn barter_in_blood_exposes_earlier_apnap_permanent_choices_until_simultaneous_sa
     let mut log = crate::log::GameLog::new(engine.state());
     let view = settle(&mut engine, None);
     log.consume(engine.state());
-    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let me = PlayerId::new(0);
     for object in view
         .battlefield
         .iter()
@@ -987,6 +986,13 @@ fn barter_in_blood_exposes_earlier_apnap_permanent_choices_until_simultaneous_sa
     while let Pending::Priority { player, .. } = engine.pending() {
         engine.apply(*player, PlayerAction::PassPriority).unwrap();
     }
+    (engine, log)
+}
+
+#[test]
+fn barter_in_blood_exposes_earlier_apnap_permanent_choices_until_simultaneous_sacrifice() {
+    let (mut engine, mut log) = setup_barter_in_blood();
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
     let log_from = log.len();
     let Pending::ChooseCards {
         player, options, ..

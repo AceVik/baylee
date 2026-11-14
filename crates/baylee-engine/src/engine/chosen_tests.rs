@@ -399,6 +399,46 @@ fn setup_apnap_innocent_blood() -> Engine<RegistryLookup> {
     engine
 }
 
+fn assert_held_sacrifice(engine: &Engine<RegistryLookup>, player: PlayerId, chosen: ObjectId) {
+    assert_eq!(
+        engine.state().object(chosen).map(|o| o.zone),
+        Some(crate::zone::Zone::Battlefield),
+        "chosen creature stays on the battlefield until every player chooses"
+    );
+    let held = engine
+        .resolution
+        .as_ref()
+        .and_then(|r| r.awaiting.as_ref())
+        .expect("awaiting SacrificeFilter")
+        .held_choices();
+    assert_eq!(held.len(), 1);
+    assert_eq!((held[0].0, held[0].1.object), (player, chosen));
+    assert_eq!(
+        engine.held_choices(),
+        vec![crate::resolve::HeldChoice {
+            player,
+            object: Some(chosen),
+            action: crate::event::ChosenAction::Sacrifice,
+        }],
+        "CR 101.4b: held sacrifice choice is exposed via Engine::held_choices"
+    );
+    assert!(
+        engine
+            .state()
+            .journal
+            .entries()
+            .iter()
+            .any(|entry| matches!(
+                &entry.event,
+                crate::event::GameEvent::CardsChosen {
+                    player: who,
+                    cards,
+                    action: crate::event::ChosenAction::Sacrifice,
+                } if *who == player && cards == &[chosen]
+            ))
+    );
+}
+
 #[test]
 fn each_player_sacrifice_asks_in_apnap_order_and_holds_until_all_choose() {
     let (p0, p1, p2) = (PlayerId::new(0), PlayerId::new(1), PlayerId::new(2));
@@ -436,43 +476,7 @@ fn each_player_sacrifice_asks_in_apnap_order_and_holds_until_all_choose() {
         alt.snapshot_hash(),
         "held sacrifice choice must distinguish search/replay hashes before creatures move"
     );
-    assert_eq!(
-        engine.state().object(p1_opts[0]).map(|o| o.zone),
-        Some(crate::zone::Zone::Battlefield),
-        "p1's chosen creature stays on the battlefield until every player chooses"
-    );
-    let held = engine
-        .resolution
-        .as_ref()
-        .and_then(|r| r.awaiting.as_ref())
-        .expect("awaiting SacrificeFilter")
-        .held_choices();
-    assert_eq!(held.len(), 1);
-    assert_eq!((held[0].0, held[0].1.object), (p1, p1_opts[0]));
-    assert_eq!(
-        engine.held_choices(),
-        vec![crate::resolve::HeldChoice {
-            player: p1,
-            object: Some(p1_opts[0]),
-            action: crate::event::ChosenAction::Sacrifice,
-        }],
-        "CR 101.4b: held sacrifice choice is exposed via Engine::held_choices"
-    );
-    assert!(
-        engine
-            .state()
-            .journal
-            .entries()
-            .iter()
-            .any(|entry| matches!(
-                &entry.event,
-                crate::event::GameEvent::CardsChosen {
-                    player,
-                    cards,
-                    action: crate::event::ChosenAction::Sacrifice,
-                } if *player == p1 && cards == &[p1_opts[0]]
-            ))
-    );
+    assert_held_sacrifice(&engine, p1, p1_opts[0]);
 
     let Pending::ChooseCards {
         player: second_asked,
