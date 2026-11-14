@@ -839,21 +839,31 @@ pub enum AwaitingOp {
         /// Cards the resolving controller draws for players unable to discard.
         draws: u32,
     },
-    /// After `DestroyChosenForPlayers`: destroy the chosen permanent
-    /// (respects indestructible), then ask the next remaining player.
+    /// After `DestroyChosenForPlayers`: record the chosen permanent, ask the
+    /// next remaining player in APNAP order, and destroy every choice together
+    /// once all have answered (CR 101.4, CR 603.10a).
     DestroyChosen {
+        /// Player answering the open choice.
+        asked: PlayerId,
         /// What may be destroyed.
         filter: &'static baylee_cards_dsl::Filter,
-        /// Players still to choose.
+        /// Players still to choose, in APNAP order.
         remaining: Vec<PlayerId>,
+        /// Choices already made and held until every player has answered.
+        chosen: Vec<(PlayerId, baylee_core::ids::DamageSourceRef)>,
     },
-    /// After `SacrificeFilter`: sacrifice the chosen permanent, then ask
-    /// the next remaining player.
+    /// After `SacrificeFilter`: record the chosen permanent, ask the next
+    /// remaining player in APNAP order, and sacrifice every choice together
+    /// once all have answered (CR 101.4, CR 603.10a).
     SacrificeFilter {
+        /// Player answering the open choice.
+        asked: PlayerId,
         /// What may be sacrificed.
         filter: &'static baylee_cards_dsl::Filter,
-        /// Players still to choose.
+        /// Players still to choose, in APNAP order.
         remaining: Vec<PlayerId>,
+        /// Choices already made and held until every player has answered.
+        chosen: Vec<(PlayerId, baylee_core::ids::DamageSourceRef)>,
     },
     /// After `SacrificeOneThen`: sacrifice the chosen permanent, and `then`
     /// if it matched `if_it_was` as it last was on the battlefield.
@@ -866,13 +876,18 @@ pub enum AwaitingOp {
     /// After `SacrificeAmountOrLose`: sacrifice every chosen permanent in
     /// one event (Lich).
     SacrificeAllChosen,
-    /// After `ReturnChosenToHand`: put the chosen permanent into its
-    /// owner's hand, then ask the next remaining player.
+    /// After `ReturnChosenToHand`: record the chosen permanent, ask the next
+    /// remaining player in APNAP order, and put every choice into its owner's
+    /// hand together once all have answered (CR 101.4, CR 603.10a).
     ReturnChosen {
+        /// Player answering the open choice.
+        asked: PlayerId,
         /// What may be returned.
         filter: &'static baylee_cards_dsl::Filter,
-        /// Players still to choose.
+        /// Players still to choose, in APNAP order.
         remaining: Vec<PlayerId>,
+        /// Choices already made and held until every player has answered.
+        chosen: Vec<(PlayerId, baylee_core::ids::DamageSourceRef)>,
     },
     /// After `UntapChosen`: untap what was chosen.
     UntapChosen,
@@ -1450,7 +1465,46 @@ impl AwaitingOp {
                 next.as_ref().map(|next| next.0.search_fingerprint()),
                 after,
             )),
+            Self::DestroyChosen {
+                asked,
+                filter,
+                remaining,
+                chosen,
+            } if !chosen.is_empty() => {
+                crate::state::structural_fingerprint(&(88_u8, asked, filter, remaining, chosen))
+                    .max(1)
+            }
+            Self::SacrificeFilter {
+                asked,
+                filter,
+                remaining,
+                chosen,
+            } if !chosen.is_empty() => {
+                crate::state::structural_fingerprint(&(89_u8, asked, filter, remaining, chosen))
+                    .max(1)
+            }
+            Self::ReturnChosen {
+                asked,
+                filter,
+                remaining,
+                chosen,
+            } if !chosen.is_empty() => {
+                crate::state::structural_fingerprint(&(90_u8, asked, filter, remaining, chosen))
+                    .max(1)
+            }
             _ => 0,
+        }
+    }
+
+    /// Permanents chosen by earlier players in an APNAP chain that waits for
+    /// every player to choose before acting (CR 101.4).
+    #[must_use]
+    pub fn held_choices(&self) -> &[(PlayerId, baylee_core::ids::DamageSourceRef)] {
+        match self {
+            Self::DestroyChosen { chosen, .. }
+            | Self::SacrificeFilter { chosen, .. }
+            | Self::ReturnChosen { chosen, .. } => chosen,
+            _ => &[],
         }
     }
 
