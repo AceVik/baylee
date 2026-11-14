@@ -19,10 +19,8 @@ pub(super) fn collect_emblems(
             else {
                 continue;
             };
-            let Some(abilities) = obj.own_abilities.as_ref() else {
-                continue;
-            };
-            for (index, ability) in abilities.iter().enumerate() {
+            let list = obj.ability_list(lookup);
+            for (index, ability) in list.abilities.iter().enumerate() {
                 let Some(firing) = triggered_parts(ability) else {
                     continue;
                 };
@@ -30,7 +28,6 @@ pub(super) fn collect_emblems(
                     continue;
                 }
                 let trigger = firing.trigger;
-                let list = obj.ability_list(lookup);
                 let context = ability_context(state, obj, &list, index);
                 // CR 603.4's first check, as in the battlefield loop below.
                 for entry in events {
@@ -77,7 +74,7 @@ pub(super) fn collect_emblems(
                                 event_player: event_player_of(&entry.event),
                                 source: emblem,
                                 ability_index: index as u32,
-                                abilities: Some(obj.ability_list(lookup)),
+                                abilities: Some(list.clone()),
                                 controller: obj.controller,
                                 timestamp: obj.timestamp,
                                 event_object,

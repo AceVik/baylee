@@ -42,6 +42,13 @@ an eliminated player's absent command zone as zero remaining charges would
 incorrectly consume potions the player never used. Only a verified record may
 change the run inventory; the public view is not a consumption receipt.
 
+Command-zone emblems resolve triggered and static abilities through the canonical
+object ability lookup, including immutable native definitions. Stored/copied
+abilities keep precedence over a definition. The trigger captures that same list
+for later resolution, so the collector and stack cannot disagree about its index.
+`command_emblems_tests` checks actual upkeep resolution, controller scope, static
+non-duplication and stored-list precedence under the compiled loop policies.
+
 Arena of `GameObject`s (`ObjectId = slot:24 | generation:8`). Kinds: Card,
 Spell, Permanent, Token, Emblem, AbilityOnStack. Zone is a property; zones
 hold ordered ids (library order IS the data). Every card instance carries

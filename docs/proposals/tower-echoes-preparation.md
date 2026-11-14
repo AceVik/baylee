@@ -586,3 +586,21 @@ Targeted evidence:
 These checks cover replay containment and equivalence, not full Tower balance or
 the requested Tower presentation iterations. Experimental mobile execution still
 uses the synchronous projection seam.
+
+## Canonical passive sources — eleventh working milestone
+
+Command-zone trigger collection and static-effect registration now read the
+canonical object ability definition. Previously both silently skipped an emblem
+whose abilities came from a native token definition instead of `own_abilities`.
+Trigger collection captures the resolved list once and reuses it for context and
+stack resolution; stored abilities retain precedence. The existing Magic event,
+priority, stack and layer machinery still runs these effects.
+
+`/tmp/baylee-native-emblems-tests-20261114.log`: five focused engine tests passed,
+including native upkeep/static emblems under all three loop policies, real stack
+resolution, controller-specific upkeep, no duplicate static registration and
+stored-list precedence. Existing setup, eliminated-player and Tower potion
+emblem cases passed in the same filtered run. This repairs a shared prerequisite;
+it does not yet admit new paid Tower relics or expose an administrative API.
+Strict all-target engine Clippy passed in
+`/tmp/baylee-native-emblems-clippy-20261114.log`.

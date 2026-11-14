@@ -325,10 +325,10 @@ own upkeep fires at the next actual own upkeep; a skipped one does not consume
 it, and an extra matching step counts. End-step triggers and cleanup expiry remain
 different operations. Conditions and source removal use native rule semantics.
 
-The current emblem trigger collector reads `own_abilities`, whereas Tower supply
-definitions can come from a token-backed ability list. Resolve that seam through
-the canonical ability lookup and test it; simply adding a passive relic to the
-existing supply registry is not enough. New runtime state must participate in
+The emblem trigger and static collectors now use the canonical ability lookup,
+including token-backed definitions, with targeted native/stored-emblem tests.
+Simply adding a passive relic to a registry still does not complete its setup,
+view, AI and authority integration. New runtime state must participate in
 replay, resume, projections, AI forks and rules-relevant progress signatures.
 
 Combos are legal sequences, not a privileged command that declares a win or

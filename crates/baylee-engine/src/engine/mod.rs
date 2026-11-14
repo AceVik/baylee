@@ -2326,6 +2326,8 @@ mod combat_flow_tests;
 #[cfg(test)]
 mod combat_skip_tests;
 #[cfg(test)]
+mod command_emblems_tests;
+#[cfg(test)]
 mod end_step_tests;
 #[cfg(test)]
 mod enter_zone_tests;

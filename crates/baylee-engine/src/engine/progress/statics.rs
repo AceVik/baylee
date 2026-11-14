@@ -315,7 +315,7 @@ impl crate::state::GameState {
                 }
             }
         }
-        let (emblems, lapsed_emblems) = emblem_statics(self);
+        let (emblems, lapsed_emblems) = emblem_statics(self, lookup);
         lapsed.extend(lapsed_emblems);
         if !lapsed.is_empty() {
             self.effects

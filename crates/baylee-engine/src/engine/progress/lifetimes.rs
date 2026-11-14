@@ -7,6 +7,7 @@ use super::*;
 /// and an emblem never leaves it, so an unconditional ability lasts the game.
 pub(super) fn emblem_statics(
     state: &crate::state::GameState,
+    lookup: &impl CardLookup,
 ) -> (
     Vec<crate::effects::ContinuousEffect>,
     Vec<baylee_core::ids::EffectId>,
@@ -22,10 +23,7 @@ pub(super) fn emblem_statics(
             if obj.kind != crate::object::ObjectKind::Emblem {
                 continue;
             }
-            let Some(abilities) = obj.own_abilities.as_ref() else {
-                continue;
-            };
-            for ability in crate::copiable_abilities::AbilityDefs::from(abilities) {
+            for ability in obj.abilities(lookup) {
                 let AbilityDef::Static(sa) = ability else {
                     continue;
                 };
