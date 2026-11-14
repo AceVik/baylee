@@ -874,3 +874,21 @@ Four focused package tests and strict all-target Clippy passed in
 active/reserve separation, asymmetric resources, full identity skew, same-stage
 reservation, bounded strict decoding and content commitment changes. Admission
 still relies on the authority for historical eligibility and acquisition proof.
+
+## Global indexed matching policy — twenty-third working milestone
+
+The new sampler addresses the full dense eligible population, excludes self,
+prefers unseen accounts and falls back to repeated non-self accounts only when
+necessary. It maps a uniformly sampled complement rank across at most thirteen
+exclusions, then requires one indexed lookup under the same partition generation.
+There is no first-512 truncation. A bounded rejection step removes modulo bias;
+the seed must come independently from the authority. Constant-work swap deletion
+preserves one slot/weight per remaining account.
+
+Four focused tests and strict all-target Clippy passed in
+`/tmp/baylee-tower-v2-matching-{tests,clippy}-20261114.log`: exhaustive small-set
+rank bijections, self/unseen/empty behavior, million-entry index coverage,
+deterministic selection, signed-bigint bounds and dense withdrawals. This is the
+selection/index contract; persistence must still enforce uniqueness, eligibility,
+partition locking and revisions transactionally. It is not a proof of operator
+honesty or resistance to people creating multiple accounts.

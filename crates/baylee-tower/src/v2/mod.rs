@@ -7,6 +7,7 @@ pub mod economy;
 pub mod execution;
 pub mod inventory;
 pub mod loadout;
+pub mod matching;
 pub mod package;
 pub mod run;
 pub mod shop;

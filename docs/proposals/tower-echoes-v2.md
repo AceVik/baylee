@@ -523,6 +523,17 @@ of strength or outcome. Match from an indexed eligible population with a defined
 seeded sampling policy; taking the first 512 rows is not a uniform global sample.
 Recheck eligibility when reserving and hide private metadata from projections.
 
+Concrete indexing contract: maintain dense slots per cohort/duel ordinal, exactly
+one row per eligible account, with a locked partition count and generation. Resolve
+self/previous accounts to their current slots, sample a rank uniformly in the
+remaining population and expand across those at most thirteen exclusions. Prefer
+unseen accounts; only when none remain may a previous non-self account be chosen.
+Read the one selected indexed slot and freeze it in the same transaction. Removal
+swaps the last row into its hole and increments the generation; insertion and
+representative replacement also increment it. Never reuse a selected slot across
+generations or count expired/withdrawn rows as eligible. Bounded deterministic
+rejection sampling avoids modulo bias without reading the entire global pool.
+
 Enrollment explains historical build/name use. Withdrawal/deletion immediately
 removes future eligibility and public attribution; resolve names through current
 visibility instead of trusting an old copied display string. An in-flight private
