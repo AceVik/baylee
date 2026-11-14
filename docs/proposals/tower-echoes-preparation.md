@@ -1037,3 +1037,28 @@ authentication/transport, live reveal barrier, bounded retention with updated
 receipt/record counters, Central delivery and native client remain to integrate.
 An outbox row is not a delivered Central badge. No new external dependency was
 introduced and no migration was applied to a production schema.
+
+## Native replay adjudication — twenty-ninth working milestone
+
+After a move-only extraction of the existing Tower verifier, legacy and native
+adjudication share the same replay/charge-accounting logic. Native verification
+uses `NoLoopDetection` and the compiled Tower registry, requires the exact current
+artifact in both package and record header, and recomputes every frozen Expert
+answer. Its technical limits have no 500-turn adjudication rule; the old
+expedition keeps its existing acceptance contract. Input is read through one
+bounded reusable JSON-line buffer. A Tower-only engine-server adapter also
+reconstructs the exact acknowledged chunk commitment while streaming, refuses
+trailing/truncated/changed framing, derives the canonical preset and returns
+engine-derived outcome/turn/consumption bound to the saved reservation.
+
+The three legacy Tower cases plus the bounded-line read case passed in
+`/tmp/baylee-native-verifier-legacy-tests-20261114.log`. Three actual native-engine
+cases passed in `/tmp/baylee-native-verifier-tests-20261114-r2.log`: Grove-equipped
+games with/without real potion payments, arbitrary chunk boundaries, exact
+commitments, forged Expert actions/results/hashes, missing artifact metadata,
+truncation/trailing data and refusal before reading incompatible/over-budget work.
+Strict all-target Clippy for gamehost and the Tower engine-server variant passed
+in `/tmp/baylee-native-verifier-clippy-20261114-r2.log` after an internal field
+rename. These short concession fixtures verify adjudication, not game balance or
+long-run resource sizing. The native verifier still needs its supervised process
+entry point and the service's lease/stream/settlement orchestration.

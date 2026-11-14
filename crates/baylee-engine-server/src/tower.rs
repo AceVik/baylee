@@ -11,6 +11,9 @@ use baylee_tower::v2::{
     catalog::{Definition, Family, Rarity},
 };
 
+#[cfg(feature = "tower")]
+pub mod verification;
+
 /// Statically bound revision-two pack; no per-event dispatch or service callback.
 #[derive(Clone, Copy, Debug)]
 pub struct Pack;

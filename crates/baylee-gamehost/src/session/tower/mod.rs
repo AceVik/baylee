@@ -48,63 +48,60 @@ pub struct Verified {
 /// [`Refused`] on tampering, missing termination, incompatible material or work exhaustion.
 pub fn verify(preset: &GamePreset, bytes: &[u8], deadline: Instant) -> Result<Verified, Refused> {
     preflight(preset, bytes, deadline)?;
-    let mut lines = bytes[..bytes.len() - 1].split(|byte| *byte == b'\n');
-    let header: Line = serde_json::from_slice(lines.next().ok_or(Refused::Invalid)?)
-        .map_err(|_| Refused::Invalid)?;
-    let Line::Header {
-        record: RECORD_VERSION,
-        build,
-        preset: recorded,
-        hash,
-        seen,
-        ..
-    } = header
-    else {
-        return Err(Refused::Invalid);
-    };
-    if build != record::this_build() || recorded.as_ref() != preset {
-        return Err(Refused::Invalid);
-    }
-    let mut session = Session::new(preset).ok_or(Refused::Invalid)?;
-    let supplies = Sources::of(&session);
-    let mut checker = Checker::for_build(&build);
-    checker
-        .check(&session.engine, None, hash, seen.as_deref())
-        .map_err(|_| Refused::Invalid)?;
-    let mut ended = false;
-    let mut previous_time = 0;
-    for (index, raw) in lines.enumerate() {
-        if ended {
-            return Err(Refused::Invalid);
-        }
-        budget(&session, deadline)?;
-        let line: Line = serde_json::from_slice(raw).map_err(|_| Refused::Invalid)?;
-        let n = u64::try_from(index).map_err(|_| Refused::Budget)?;
-        let at = apply(&mut session, &mut checker, line, n, &mut ended)?;
-        if at < previous_time {
-            return Err(Refused::Invalid);
-        }
-        previous_time = at;
-    }
-    budget(&session, deadline)?;
-    let Pending::GameOver(result) = session.engine.pending() else {
-        return Err(Refused::Invalid);
-    };
-    if !ended {
-        return Err(Refused::Invalid);
-    }
-    Ok(Verified {
-        result: *result,
-        turn: session.engine.state().turn.number,
-        consumed: supplies.consumed(&session)?,
-        record_sha256: Sha256::digest(bytes).into(),
-    })
+    adjudicate::verify::<baylee_engine::engine::DetectLoops, super::RegistryLookup>(
+        preset,
+        None,
+        bytes,
+        budget::Limits::legacy(),
+        deadline,
+    )
 }
 
+mod adjudicate;
+mod budget;
 mod replay;
+mod stream;
 mod supplies;
-use replay::{apply, budget, preflight};
+pub use budget::ReplayBudget;
+use replay::preflight;
 use supplies::Sources;
+
+/// Replay the exact native Tower artifact with the repetition detector absent.
+/// The preset comes from the authority's frozen package; every Expert answer is
+/// recomputed. Streaming input is bounded per line and cumulatively before parsing.
+/// A supervising process must additionally enforce memory and wall limits inside
+/// individual engine decisions. Exhaustion is technical, never a game outcome.
+/// # Errors
+/// Tampered/incompatible records, wrong registry/build or technical budget exhaustion.
+pub fn verify_native<R: super::SessionRegistry>(
+    preset: &GamePreset,
+    identity: &baylee_protocol::execution::Identity,
+    source: impl std::io::BufRead,
+    resources: ReplayBudget,
+    deadline: Instant,
+) -> Result<Verified, Refused> {
+    use baylee_protocol::execution::{Identity, Variant};
+    let expected = Identity::native(
+        Variant::Tower,
+        baylee_build::short(),
+        baylee_build::COMMIT,
+        u32::from(AIProfile::GENERATION),
+    );
+    if identity != &expected
+        || !R::supports_execution(Variant::Tower)
+        || preset.house_rules.rule_pack.is_none()
+        || !replay::valid_preset(preset)
+    {
+        return Err(Refused::Invalid);
+    }
+    adjudicate::verify::<baylee_engine::engine::NoLoopDetection, R>(
+        preset,
+        Some(identity),
+        source,
+        resources.limits()?,
+        deadline,
+    )
+}
 
 #[cfg(test)]
 mod tests;

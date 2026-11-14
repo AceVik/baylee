@@ -1,7 +1,10 @@
+use super::budget::Limits;
 use super::{
-    AIProfile, Checker, FormatId, GamePreset, Instant, Line, MAX_EVENTS, MAX_LINE_BYTES,
-    MAX_RECORD_BYTES, MAX_RECORD_LINES, Pending, PlayerId, Refused, SeatController, Session,
+    AIProfile, Checker, FormatId, GamePreset, Instant, Line, MAX_LINE_BYTES, MAX_RECORD_BYTES,
+    MAX_RECORD_LINES, Pending, PlayerId, Refused, SeatController, Session,
 };
+use crate::session::SessionRegistry;
+use baylee_engine::engine::LoopDetection;
 
 pub(super) fn preflight(
     preset: &GamePreset,
@@ -14,18 +17,7 @@ pub(super) fn preflight(
     if bytes.is_empty() || bytes.len() > MAX_RECORD_BYTES {
         return Err(Refused::Budget);
     }
-    if !bytes.ends_with(b"\n")
-        || preset.format != FormatId::Custom
-        || preset.validate().is_err()
-        || !super::super::challenge::valid(preset)
-        || preset.house_rules.challenge_policy_seed.is_none()
-        || preset.seats[0].controller != SeatController::Open
-        || preset.seats[1].controller != SeatController::Ai(AIProfile::TOWER_EXPERT)
-        || preset
-            .seats
-            .iter()
-            .any(|seat| seat.capabilities != baylee_core::preset::SeatCapabilities::default())
-    {
+    if !bytes.ends_with(b"\n") || !valid_preset(preset) {
         return Err(Refused::Invalid);
     }
     for (n, line) in bytes[..bytes.len() - 1]
@@ -42,22 +34,26 @@ pub(super) fn preflight(
     Ok(())
 }
 
-pub(super) fn budget(session: &Session, deadline: Instant) -> Result<(), Refused> {
-    if Instant::now() >= deadline
-        || session.engine.journal().len() > MAX_EVENTS
-        || session.engine.state().turn.number > 500
-    {
-        return Err(Refused::Budget);
-    }
-    Ok(())
+pub(super) fn valid_preset(preset: &GamePreset) -> bool {
+    preset.format == FormatId::Custom
+        && preset.validate().is_ok()
+        && super::super::challenge::valid(preset)
+        && preset.house_rules.challenge_policy_seed.is_some()
+        && preset.seats[0].controller == SeatController::Open
+        && preset.seats[1].controller == SeatController::Ai(AIProfile::TOWER_EXPERT)
+        && preset
+            .seats
+            .iter()
+            .all(|seat| seat.capabilities == baylee_core::preset::SeatCapabilities::default())
 }
 
-pub(super) fn apply(
-    session: &mut Session,
+pub(super) fn apply<D: LoopDetection, R: SessionRegistry>(
+    session: &mut Session<D, R>,
     checker: &mut Checker,
     line: Line,
     next: u64,
     ended: &mut bool,
+    limits: Limits,
 ) -> Result<u64, Refused> {
     match line {
         Line::Input {
@@ -101,7 +97,9 @@ pub(super) fn apply(
             if winners != actual
                 || reason != format!("{:?}", result.reason)
                 || turn != Some(session.engine.state().turn.number)
-                || !(1..=500).contains(&session.engine.state().turn.number)
+                || limits.turns.is_some_and(|(min, max)| {
+                    !(min..=max).contains(&session.engine.state().turn.number)
+                })
             {
                 return Err(Refused::Invalid);
             }

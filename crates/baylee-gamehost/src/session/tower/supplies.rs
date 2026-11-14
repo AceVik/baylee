@@ -1,6 +1,8 @@
 use super::{
     CounterKind, GameEvent, ObjectId, PlayerId, Refused, Session, TowerSupply, ZoneLocation,
 };
+use crate::session::SessionRegistry;
+use baylee_engine::engine::LoopDetection;
 
 #[derive(Clone, Copy)]
 pub(super) struct Source {
@@ -11,7 +13,7 @@ pub(super) struct Source {
 pub(super) struct Sources(pub(super) [[Option<Source>; 2]; 2]);
 
 impl Sources {
-    pub(super) fn of(session: &Session) -> Self {
+    pub(super) fn of<D: LoopDetection, R: SessionRegistry>(session: &Session<D, R>) -> Self {
         let state = session.engine.state();
         Self(std::array::from_fn(|seat| {
             std::array::from_fn(|kind| {
@@ -42,7 +44,10 @@ impl Sources {
         }))
     }
 
-    pub(super) fn consumed(&self, session: &Session) -> Result<[[u8; 2]; 2], Refused> {
+    pub(super) fn consumed<D: LoopDetection, R: SessionRegistry>(
+        &self,
+        session: &Session<D, R>,
+    ) -> Result<[[u8; 2]; 2], Refused> {
         let mut paid = [[0_u16; 2]; 2];
         for entry in session.engine.journal().entries() {
             if let GameEvent::CounterChanged {
