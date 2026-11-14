@@ -1279,3 +1279,24 @@ of legal native gameplay. Three bounded protocol tests pass in
 `/tmp/baylee-tower-host-framing-tests-20261114.log`, including every truncated
 prefix, unknown metadata, independent byte/chunk limits and a maximum-size frame.
 The launcher and actual gateway/agent/Table wiring are still outstanding.
+
+## Async host adapter — thirty-ninth working milestone
+
+`baylee-account` now has an explicit `tower-host` feature separate from its native
+password/session SDK. The async connection uses a fixed operator-configured origin,
+verified TLS, no redirect/proxy selection and bounded private responses. It rejects
+wrong operation/claim/index replies, wrong seal bindings and incomplete/wrong-fence
+batch acknowledgements. It does not retry or invent replacement operation IDs;
+the native table retains responsibility for the content commitment/barrier.
+
+The real HTTP/PostgreSQL scenario now exercises this adapter's claim and append
+paths as well and passes in `/tmp/baylee-tower-host-sdk-postgres-20261115.log`
+(0.46s). Negative transport cases pass in
+`/tmp/baylee-tower-host-sdk-tests-20261115.log`: partial counts, wrong generation,
+wrong response kind/version, oversized bodies and redirect credential traps.
+Owned listeners and the isolated database fixture are closed. Gateway lifecycle
+orchestration has not yet enabled this adapter; it is a tested integration building
+block rather than a claim that native Tower duels are playable through gateways.
+Strict all-target Clippy with both account feature sets enabled passes in
+`/tmp/baylee-tower-host-sdk-clippy-20261115-r3.log`; the preceding host/API/store
+milestone also passed `/tmp/baylee-tower-host-http-clippy-20261115.log`.

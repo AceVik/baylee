@@ -1,8 +1,6 @@
 //! Private host contracts; never serialize these on the player endpoint.
-use baylee_tower::{
-    cards::Catalog,
-    v2::{execution::Prefix, package::Package},
-};
+pub use baylee_tower::v2::execution::Prefix;
+use baylee_tower::{cards::Catalog, v2::package::Package};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -10,6 +8,9 @@ mod batch;
 mod wire;
 pub use batch::{Batch, MAX_FRAME_BYTES};
 pub use wire::{CONTROL_PATH, RECORD_PATH, Request, Response};
+
+/// Worst-case JSON expansion of a full private chunk, including bounded metadata.
+pub const MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
 
 /// Identifies a claimed worker; authentication still comes from the dedicated host.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

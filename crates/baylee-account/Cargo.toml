@@ -12,6 +12,7 @@ workspace = true
 [features]
 default = []
 client = ["dep:central-client", "dep:baylee-tower-api"]
+tower-host = ["dep:baylee-tower-api", "dep:bytes", "dep:http-body-util", "dep:hyper", "dep:hyper-rustls", "dep:hyper-util", "dep:tokio"]
 
 [dependencies]
 central-api.workspace = true
@@ -25,3 +26,9 @@ ureq.workspace = true
 url = "=2.5.8"
 uuid.workspace = true
 zeroize.workspace = true
+bytes = { workspace = true, optional = true }
+http-body-util = { workspace = true, optional = true }
+hyper = { workspace = true, optional = true }
+hyper-rustls = { workspace = true, optional = true }
+hyper-util = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }

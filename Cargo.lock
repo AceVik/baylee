@@ -846,12 +846,18 @@ name = "baylee-account"
 version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-tower-api",
+ "bytes",
  "central-api",
  "central-client",
  "flate2",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
  "serde",
  "serde_json",
  "sha2 0.11.1",
+ "tokio",
  "ureq",
  "url",
  "uuid",
@@ -2397,6 +2403,7 @@ name = "baylee-tower-service"
 version = "0.2.0-beta.o1"
 dependencies = [
  "axum",
+ "baylee-account",
  "baylee-core",
  "baylee-protocol",
  "baylee-tower",

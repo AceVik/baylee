@@ -17,8 +17,6 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 /// Configured renewal window, independent of human time or duel length.
 const LEASE_MS: u64 = 60_000;
-/// JSON expansion of one 256 KiB byte chunk plus commitments fits this private bound.
-const MAX_RESPONSE: usize = 2 * 1024 * 1024;
 
 /// Dedicated host transport, sharing the durable authority but no player credential cache.
 pub struct Hosts {
@@ -156,7 +154,7 @@ struct Admitted {
 
 fn encode(response: &wire::Response) -> Result<Vec<u8>, Failure> {
     let bytes = serde_json::to_vec(response).map_err(|_| Failure::Unavailable)?;
-    if bytes.len() > MAX_RESPONSE {
+    if bytes.len() > wire::MAX_RESPONSE_BYTES {
         return Err(Failure::Unavailable);
     }
     Ok(bytes)

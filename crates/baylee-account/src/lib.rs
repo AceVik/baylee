@@ -6,10 +6,14 @@
 mod account;
 #[cfg(feature = "client")]
 mod tower;
-#[cfg(feature = "client")]
+#[cfg(any(feature = "client", feature = "tower-host"))]
 pub use baylee_tower_api as tower_api;
+#[cfg(feature = "tower-host")]
+mod tower_host;
 #[cfg(feature = "client")]
 pub use tower::TowerHttp;
+#[cfg(feature = "tower-host")]
+pub use tower_host::TowerHost;
 pub mod chat;
 pub mod client_record;
 pub mod data;

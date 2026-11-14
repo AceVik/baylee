@@ -49,6 +49,12 @@ async fn other_operators(store: &Store, client: &Client, claim: &Request) -> Tok
 }
 
 pub async fn run(store: &Store, client: &Client, player: &Token, host: &Token, run: &Run) {
+    let sdk = baylee_account::TowerHost::new(
+        client.origin(),
+        Token::from_secret_bytes(host.to_secret_bytes()),
+        true,
+    )
+    .unwrap();
     let claim = Request::Claim {
         run: run.id,
         claim: Uuid::now_v7(),
@@ -73,6 +79,9 @@ pub async fn run(store: &Store, client: &Client, player: &Token, host: &Token, r
         request(client, host, &claim).await,
         response,
         "claim retries retain every private seed/binding"
+    );
+    assert!(
+        matches!(sdk.control(&claim).await.unwrap(), Response::Claimed { game: repeated } if repeated.lease == game.lease && repeated.account == game.account)
     );
     assert_eq!(
         request(client, host, &Request::Renew { lease: game.lease })
@@ -99,22 +108,8 @@ pub async fn run(store: &Store, client: &Client, player: &Token, host: &Token, r
         panic!("committed head");
     };
     assert_eq!(acknowledgement.prefix.chunks, 2);
-    for index in 0..2 {
-        let response = request(
-            client,
-            host,
-            &Request::Read {
-                lease: game.lease,
-                index,
-            },
-        )
-        .await;
-        assert_eq!(response.0, 200);
-        let Response::Chunk { chunk } = serde_json::from_slice(&response.1).unwrap() else {
-            panic!("private chunk");
-        };
-        assert_eq!(chunk.data, batch.chunks[index as usize]);
-    }
+    assert_eq!(sdk.append(&batch).await.unwrap(), acknowledgement);
+    read_chunks(client, host, &batch).await;
     let mut tampered = batch;
     tampered.chunks[0][0] ^= 1;
     assert_eq!(
@@ -146,4 +141,23 @@ pub async fn run(store: &Store, client: &Client, player: &Token, host: &Token, r
         state.state.economy, run.economy,
         "host seal cannot award currency"
     );
+}
+
+async fn read_chunks(client: &Client, host: &Token, batch: &Batch) {
+    for (index, expected) in batch.chunks.iter().enumerate() {
+        let response = request(
+            client,
+            host,
+            &Request::Read {
+                lease: batch.lease,
+                index: index as u64,
+            },
+        )
+        .await;
+        assert_eq!(response.0, 200);
+        let Response::Chunk { chunk } = serde_json::from_slice(&response.1).unwrap() else {
+            panic!("private chunk");
+        };
+        assert_eq!(&chunk.data, expected);
+    }
 }

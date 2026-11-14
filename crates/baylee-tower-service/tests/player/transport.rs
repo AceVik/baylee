@@ -170,6 +170,9 @@ pub struct Client {
     origin: String,
 }
 impl Client {
+    pub fn origin(&self) -> &str {
+        &self.origin
+    }
     pub fn new(origin: String) -> Self {
         Self {
             http: HttpClient::builder(TokioExecutor::new()).build_http(),

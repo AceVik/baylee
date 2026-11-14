@@ -6127,3 +6127,12 @@ bounded to ten seconds. Native headers, no-store responses and closed error
 statuses follow the player transport policy. A private response has no printable
 diagnostic implementation. These routes are exercised over real HTTP/PostgreSQL;
 gateway orchestration and the production launcher remain separate work.
+
+The gateway-side async adapter is `baylee_account::TowerHost`, enabled explicitly
+by `tower-host` without pulling in the native password/session SDK. It takes an
+operator-configured canonical origin and dedicated token, verifies TLS, follows
+no redirects and has a 15-second whole-exchange bound. Control replies must match
+their operation/claim/index or exact seal binding. Batch replies must match the
+fence and complete resulting byte/chunk counts; the native table still checks the
+content commitment before releasing its barrier. There is no automatic retry;
+the caller retains the exact claim ID/batch across ambiguous failures.
