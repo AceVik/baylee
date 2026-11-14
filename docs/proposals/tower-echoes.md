@@ -6,6 +6,14 @@ gold, equipment and consumables between manually played duels. This document
 describes the new work; it is **not** evidence that these features already run.
 The current five-floor certified expedition is documented in `../tower.md`.
 
+**Planning update, 14 November 2026:**
+[Tower Echoes v2](tower-echoes-v2.md) is the implementation target after the
+owner's native-extension, AI, fusion and combo refinements. Its decisions
+supersede the initial economy, rank purchases and progression values below.
+The implementation-evidence sections here describe the existing foundation,
+not completion of v2. The accompanying [readiness review](tower-echoes-readiness.md)
+separates design inspection from tests that still need to run.
+
 The [official Oaken Tower store description](https://store.steampowered.com/app/3400960/Oaken_Tower/?l=english),
 checked on 14 November 2026, describes PvP builds and buying/combining items;
 its store page also identifies asynchronous multiplayer. Baylee borrows that
@@ -65,6 +73,48 @@ which operators can award which achievements, distinguish local/unverified award
 where necessary, and bind deduplication to issuer, account, run and milestone.
 Retain the accepted pinned dependency graph and first-party safe Rust constraints
 in Central. Two services must never write the same run.
+
+## Compiled variants and extension boundary — owner refinement
+
+The owner prioritizes engine performance and proposed statically compiled
+variants, selected by the game-engine agent. Begin with a small supported set
+(standard and Tower), not every possible combination of plugins. Common rules
+remain in one engine implementation. Mode-specific definitions live in rule
+packs that use the existing native ability/cost/effect/trigger vocabulary.
+Setup resolves and validates a pack once; a running duel has no per-action
+script callback, string-based plugin lookup or general event-dispatch bus.
+
+A reserved execution contract must identify the variant, exact build, supported
+rule-pack versions and card-pool fingerprint. The agent advertises only locally
+configured installed executors and starts an exact compatible entry. Neither a
+player nor a remote gateway supplies a filesystem path, shell command or download
+URL. Engine attachment independently checks the claimed contract. Missing or
+incompatible capacity leaves the reservation unstarted; no silent fallback to a
+different build or ruleset. Replays retain the same contract and executor.
+
+Build each deployment variant independently: Cargo features are additive, so a
+combined workspace build cannot demonstrate that a specialized binary omitted
+another variant's modules. Retain the shipped-feature graph checks. Native
+definitions make inlining and dead-code elimination possible, but shared dynamic
+effect dispatch does not guarantee that every unused rules branch disappears.
+Measure release binary size, cold start, peak memory, engine decision cost and
+AI throughput before claiming a performance improvement. Compare identical
+seeds/actions and retain exact semantic replay checks across optimized variants.
+
+Rhai remains a possible authoring/build tool outside gameplay, not an adopted
+runtime dependency. Its [AST compilation](https://rhai.rs/book/engine/compile.html)
+still requires AST evaluation; it is not automatic compilation to native Rust.
+An optional restricted authoring API would emit validated native rule-pack data
+or generated Rust, with unsupported primitives requiring an engine change.
+Arbitrary script callbacks cannot be silently translated into this contract.
+The engine process should not link the authoring interpreter. Dependency review,
+bounded generation and reproducible generated artifacts precede its adoption.
+
+The current `ModifierSpec` is an unimplemented historical script descriptor,
+not an existing plugin mechanism. The Tower-specific starting-supply seam will
+be replaced with bounded, versioned rule-pack setup. Generic opening-hand rules
+remain reusable engine primitives; the Tower module alone maps purchases to
+those primitives. Gold, shops, runs and achievements remain outside the engine.
 
 ## Echo identity and fair matching
 
