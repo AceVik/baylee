@@ -8,6 +8,7 @@ use baylee_tower::{
 use serde::{Deserialize, Serialize};
 
 mod claim;
+mod receipt;
 mod record;
 mod settlement;
 pub use settlement::Award;

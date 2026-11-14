@@ -1081,3 +1081,27 @@ worker tests, four native verifier cases, strict CLI admission and changed-crate
 all-target Clippy passed. Private input rejects extra executable/path fields and
 over-budget requests. This is the child boundary; authority-side supervision,
 durable input streaming and applying the independently verified result follow.
+
+## Authority-to-worker integration — thirty-first working milestone
+
+The separate `baylee-tower-service` library now probes operator-installed Tower
+executables, bounds simultaneous workers, streams one retained database chunk at
+a time, validates one complete private progress/result exchange, enforces time
+and resident-memory limits, and reaps each owned child before releasing capacity.
+Dropping a requesting future signals a separately owned cleanup task. Worker
+environment is empty; database and operator credentials remain in the authority.
+Only an exact bound native result reaches the transactional settlement API.
+An exact committed receipt is recoverable after response loss without replaying
+or awarding again. There are no new external versions in the dependency graph.
+
+Three real PostgreSQL/native-process scenarios passed in
+`/tmp/baylee-tower-authority-native-process-tests-20261114-r3.log`: persisted legal
+play and exactly-once gold/progression, independently refused altered play and
+budget exhaustion without a result, and explicit shutdown/dropped requests while
+a retained-record read is blocked, followed by successful retry. A strict replay
+rejection may close its input before all chunks arrive; the supervisor now retains
+that rejection rather than misclassifying the broken input pipe as worker failure.
+Three small private-pipe adversarial tests also pass. These tests use isolated
+loopback schemas and owned child processes, which are removed/reaped afterwards.
+Automatic queue handling, gateway transport/reveal barriers, Central identity and
+award delivery, retention and the native Tower UI remain subsequent integration.

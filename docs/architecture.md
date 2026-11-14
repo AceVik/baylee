@@ -21,6 +21,12 @@ information is unrepresentable in a view, and the gateway runs no rules.
   duel rules. The new global service/execution boundary is under implementation;
   current store milestones are documented in `docs/dev/database.md`. Central
   remains identity/permanent accomplishments, and gateways host the actual duels.
+- `baylee-tower-service` supervises exact local Tower verifier artifacts and streams
+  retained evidence from the authority store. It links no engine/card rules. Its
+  child receives no inherited environment or credentials; bounded private pipes,
+  work deadlines, RSS sampling and owned-child reaping enclose native replay.
+  Successful replay alone is not a reward: the store must commit it under the live
+  independent verifier lease. Failed/cancelled work supplies no rules outcome.
 - `baylee-protocol`: protobuf `Envelope`; `Pending`/`PlayerAction` ride as `serde_json`; shared by `LocalHost` and both servers.
 - `baylee-avif` (→ client): reads AVIF pictures and image sequences. The container reader is safe Rust with strict bounds (`Bounds`: bytes, dimensions, frames, duration) and is fuzzed; the AV1 frames are decoded by `rav1d` 1.1.0 behind one small `unsafe` wrapper (`dav1d.rs`). `Player` is opened only on files the client ships: rav1d aborts the process on some damaged streams, so no file from outside reaches it until that is decided (`docs/legal.md` §"The vista loops as AVIF, and their decoder").
 - `baylee-deckio` (core → deckio → client-core): deck documents in four formats (Baylee text, JSON, YAML, Moxfield text), auto-detect, and a registry of deck-link sources that answer an instruction or a fetch plan; pure, never fetches (Moxfield is its text export only). `docs/deck-format.md`.

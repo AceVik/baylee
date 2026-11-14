@@ -2041,6 +2041,8 @@ dependencies = [
  "baylee-gamehost",
  "baylee-protocol",
  "baylee-tower",
+ "baylee-tower-service",
+ "baylee-tower-store",
  "baylee-view",
  "baylee-worker",
  "bytes",
@@ -2049,6 +2051,7 @@ dependencies = [
  "futures-util",
  "prost",
  "rustix 1.1.6",
+ "sea-orm",
  "serde",
  "serde_json",
  "sha2 0.11.1",
@@ -2057,6 +2060,7 @@ dependencies = [
  "tokio-tungstenite 0.30.0",
  "tracing",
  "tracing-subscriber",
+ "url",
  "uuid",
 ]
 
@@ -2373,6 +2377,22 @@ dependencies = [
  "serde_json",
  "sha2 0.11.1",
  "thiserror 2.0.21",
+ "uuid",
+]
+
+[[package]]
+name = "baylee-tower-service"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-protocol",
+ "baylee-tower",
+ "baylee-tower-store",
+ "baylee-worker",
+ "getrandom 0.4.3",
+ "serde_json",
+ "sysinfo",
+ "thiserror 2.0.21",
+ "tokio",
  "uuid",
 ]
 

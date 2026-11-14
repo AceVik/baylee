@@ -54,6 +54,10 @@ rustix = { workspace = true, features = ["fs", "process"] }
 
 [dev-dependencies]
 baylee-tower.workspace = true
+baylee-tower-store.workspace = true
+baylee-tower-service.workspace = true
+sea-orm.workspace = true
+url.workspace = true
 # The other end of the command line this binary is started with. The agent
 # writes the three flags and this reads them, and nothing in the build links
 # the two — so without this the two spellings are only ever held against
@@ -66,3 +70,7 @@ tempfile.workspace = true
 [[bench]]
 name = "frames"
 harness = false
+
+[[test]]
+name = "tower_authority"
+path = "tests/tower_authority/mod.rs"
