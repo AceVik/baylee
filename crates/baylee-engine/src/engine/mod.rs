@@ -1039,7 +1039,7 @@ impl<L: CardLookup> Engine<L> {
             mulligans: Some(mulligan::open(
                 &state.rng,
                 state.players.len(),
-                preset.house_rules.free_mulligan_count() > 0,
+                &preset.house_rules,
             )),
             automation: vec![crate::choice::SeatAutomation::default(); state.players.len()],
             breaking_loop: false,
@@ -1050,7 +1050,7 @@ impl<L: CardLookup> Engine<L> {
             pending: Pending::Mulligan {
                 player: PlayerId::new(0),
                 taken: 0,
-                next_is_free: preset.house_rules.free_mulligan_count() > 0,
+                next_is_free: preset.house_rules.opening_for(0).free_mulligans > 0,
                 can_take: true,
             },
             passes: 0,
@@ -1663,6 +1663,15 @@ impl<L: CardLookup> Engine<L> {
         // And so does this one.
         if self.house_rules.divide_trample {
             extra = extra.wrapping_mul(31).wrapping_add(3);
+        }
+        // Opening rules alter future redraws even with an identical board.
+        // Old games omit them and retain their recorded continuation hashes.
+        if !self.house_rules.opening.is_empty() {
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(
+                    &self.house_rules.opening,
+                ));
         }
         base ^ extra.rotate_left(17)
     }
@@ -2376,6 +2385,8 @@ mod monarch_table_tests;
 mod monarch_tests;
 #[cfg(test)]
 mod offer_tests;
+#[cfg(test)]
+mod opening_rules_tests;
 #[cfg(test)]
 mod pact_payment_tests;
 #[cfg(test)]

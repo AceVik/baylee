@@ -193,3 +193,13 @@ deduplication, authenticated service transport, engine items, verification
 workers, actual opponent records, client shop and Central accomplishment delivery
 remain to be connected and tested. A pure transition named `verified` is not a
 network authorization boundary or evidence of a real verified duel.
+
+The next engine milestone adds bounded per-seat opening rules, including redraw
+size, free London mulligans and base maximum hand size. Thirty-seven targeted
+core/engine tests pass (0.219 seconds of execution after compilation), covering
+asymmetric bonuses, refusal at the zero-card limit without state mutation,
+cleanup, deterministic continuations and existing house/replay behavior. Strict
+all-target Clippy for core, engine and gamehost passes. Independent static review
+reported no actionable findings. Ordinary public table setup leaves these
+overrides empty. These are shared engine capabilities; the Tower shop and its
+authoritative loadout assembly still need to apply them.

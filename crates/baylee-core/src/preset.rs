@@ -129,6 +129,8 @@ pub enum AiHandSharePolicy {
 
 mod house;
 pub use house::{DEFAULT_DECISION_SECS, HouseRules};
+mod opening;
+pub use opening::SeatOpening;
 
 /// An atomic host edit. Absent password preserves the existing lock.
 ///
@@ -942,6 +944,9 @@ pub enum PresetError {
     /// Too many free mulligans for a bounded opening procedure.
     #[error("at most seven free mulligans are supported")]
     TooManyFreeMulligans,
+    /// A per-seat opening override is duplicated, out of bounds or invalid.
+    #[error("invalid per-seat opening rules")]
+    SeatOpening,
     /// Fewer than two seats.
     #[error("preset needs at least 2 seats")]
     TooFewSeats,
@@ -1057,6 +1062,9 @@ impl GamePreset {
         }
         if self.seats.len() > 8 {
             return Err(PresetError::TooManySeats);
+        }
+        if !opening::valid_list(&self.house_rules.opening, self.seats.len()) {
+            return Err(PresetError::SeatOpening);
         }
         if let Some(starting) = self.house_rules.starting_player
             && usize::from(starting) >= self.seats.len()

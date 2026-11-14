@@ -53,7 +53,8 @@ impl GameState {
                     enduring_story: false,
                     citys_blessing: false,
                     mana_pool: ManaPool::new(),
-                    hand_modifier: 0,
+                    // Preset validation bounds this to 1..=9.
+                    hand_modifier: preset.house_rules.opening_for(i as u8).maximum_hand as i8 - 7,
                     lands_played_this_turn: 0,
                     turn_start_timestamp: 0,
                     turns_started: 0,
@@ -277,7 +278,10 @@ impl GameState {
                     }
                 }
                 None => {
-                    state.draw_cards(player, 7);
+                    state.draw_cards(
+                        player,
+                        usize::from(preset.house_rules.opening_for(player.get()).cards),
+                    );
                 }
             }
         }

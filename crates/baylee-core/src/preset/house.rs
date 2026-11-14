@@ -1,4 +1,4 @@
-use super::{HandSharingRule, LoopPolicy, StartingCounters};
+use super::{HandSharingRule, LoopPolicy, SeatOpening, StartingCounters};
 use serde::{Deserialize, Serialize};
 
 /// Per-game house rules (versioned with the preset).
@@ -73,6 +73,11 @@ pub struct HouseRules {
     /// Absent on ordinary presets and old records, preserving their wire bytes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub challenge_policy_seed: Option<u64>,
+    /// Per-seat opening overrides for custom modes. Empty preserves ordinary
+    /// seven-card openings and the table's free-mulligan policy, including old
+    /// serialized presets and replay hashes.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub opening: Vec<SeatOpening>,
 }
 
 /// Seconds a seat has to answer one question unless the table says
@@ -104,6 +109,7 @@ impl Default for HouseRules {
             divide_trample: false,
             hand_sharing: HandSharingRule::default(),
             challenge_policy_seed: None,
+            opening: Vec::new(),
         }
     }
 }
@@ -126,5 +132,20 @@ impl HouseRules {
     pub fn free_mulligan_count(&self) -> u8 {
         self.free_mulligans
             .unwrap_or(u8::from(self.mulligan_free_first))
+    }
+
+    /// Effective opening rules for a seat, with the ordinary table defaults.
+    #[must_use]
+    pub fn opening_for(&self, seat: u8) -> SeatOpening {
+        self.opening
+            .iter()
+            .find(|rule| rule.seat == seat)
+            .copied()
+            .unwrap_or(SeatOpening {
+                seat,
+                cards: 7,
+                maximum_hand: 7,
+                free_mulligans: self.free_mulligan_count(),
+            })
     }
 }

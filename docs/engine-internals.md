@@ -3,6 +3,16 @@
 (Deep spec; filled during M1–M2. Sections are normative.)
 
 ## Object model
+Custom presets may specify bounded `HouseRules::opening` overrides per seat:
+1–9 cards per opening draw/redraw, a base hand limit of 1–9, and 0–7 free
+London mulligans. The first explicit `SeatSpec::starting_hand` still wins over
+the initial draw. An override does not change another seat's allowance; after
+the free redraws, keeping bottoms one card per further redraw, and a seat cannot
+redraw past a zero-card keep. Card effects still override the base hand limit.
+An empty override list preserves existing serialized presets and continuation
+hashes; nonempty rules participate in the continuation hash. Public ordinary
+table setup does not accept these custom overrides.
+
 Arena of `GameObject`s (`ObjectId = slot:24 | generation:8`). Kinds: Card,
 Spell, Permanent, Token, Emblem, AbilityOnStack. Zone is a property; zones
 hold ordered ids (library order IS the data). Every card instance carries

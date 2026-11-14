@@ -2424,8 +2424,8 @@ impl<L: CardLookup> Engine<L> {
         self.regrant_priority = Some(player);
     }
 
-    pub(crate) fn mulligan_bottom_count(&self, taken: u8) -> u8 {
-        taken.saturating_sub(self.house_rules.free_mulligan_count())
+    pub(crate) fn mulligan_bottom_count(&self, player: PlayerId, taken: u8) -> u8 {
+        taken.saturating_sub(self.house_rules.opening_for(player.get()).free_mulligans)
     }
 
     // --------------------------------------------------------- turn steps

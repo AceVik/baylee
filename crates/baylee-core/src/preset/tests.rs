@@ -1,6 +1,56 @@
 use super::*;
 
 #[test]
+fn per_seat_openings_are_bounded_unique_and_absent_from_ordinary_records() {
+    let old = serde_json::to_value(HouseRules::default()).unwrap();
+    assert!(old.get("opening").is_none());
+    assert!(
+        serde_json::from_value::<HouseRules>(old)
+            .unwrap()
+            .opening
+            .is_empty()
+    );
+    let mut p = preset(2, 1, 0);
+    let valid = SeatOpening {
+        seat: 1,
+        cards: 8,
+        maximum_hand: 8,
+        free_mulligans: 3,
+    };
+    p.house_rules.opening = vec![valid];
+    assert!(p.validate().is_ok());
+    assert_eq!(p.house_rules.opening_for(0).cards, 7);
+    assert_eq!(p.house_rules.opening_for(0).free_mulligans, 1);
+    assert_eq!(p.house_rules.opening_for(1), valid);
+    assert_eq!(
+        serde_json::from_slice::<HouseRules>(&serde_json::to_vec(&p.house_rules).unwrap()).unwrap(),
+        p.house_rules
+    );
+    for bad in [
+        SeatOpening { seat: 2, ..valid },
+        SeatOpening { cards: 0, ..valid },
+        SeatOpening { cards: 10, ..valid },
+        SeatOpening {
+            maximum_hand: 0,
+            ..valid
+        },
+        SeatOpening {
+            maximum_hand: 10,
+            ..valid
+        },
+        SeatOpening {
+            free_mulligans: 8,
+            ..valid
+        },
+    ] {
+        p.house_rules.opening = vec![bad];
+        assert_eq!(p.validate(), Err(PresetError::SeatOpening));
+    }
+    p.house_rules.opening = vec![valid, valid];
+    assert_eq!(p.validate(), Err(PresetError::SeatOpening));
+}
+
+#[test]
 fn a_challenge_policy_is_private_preset_data_and_absent_from_ordinary_records() {
     let ordinary = serde_json::to_value(HouseRules::default()).unwrap();
     assert!(ordinary.get("challenge_policy_seed").is_none());

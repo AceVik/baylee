@@ -28,9 +28,6 @@ use crate::state::CardLookup;
 use crate::zone::{ZoneLocation, ZonePosition};
 use baylee_core::ids::{PlayerId, SeatSet};
 
-/// The number of cards a hand is drawn with (CR 103.5, "normally seven").
-const HAND: u8 = 7;
-
 /// One seat's place in the opening mulligans.
 #[derive(Clone, Debug)]
 pub(crate) struct SeatMulligan {
@@ -93,14 +90,18 @@ impl SeatMulligan {
 }
 
 /// The window as a game opens: every seat asked whether it keeps.
-pub(crate) fn open(table: &GameRng, seats: usize, free_first: bool) -> Vec<SeatMulligan> {
+pub(crate) fn open(
+    table: &GameRng,
+    seats: usize,
+    rules: &baylee_core::preset::HouseRules,
+) -> Vec<SeatMulligan> {
     (0..seats)
         .map(|seat| SeatMulligan {
             question: Some(Pending::Mulligan {
                 player: PlayerId::new(seat as u8),
                 taken: 0,
-                next_is_free: free_first,
-                // A hand of seven bottoms nothing yet (CR 103.5).
+                next_is_free: rules.opening_for(seat as u8).free_mulligans > 0,
+                // The initial hand bottoms nothing yet (CR 103.5).
                 can_take: true,
             }),
             rng: table.for_seat(seat as u8),
@@ -116,8 +117,8 @@ impl<L: CardLookup> Engine<L> {
     /// until its hand would open with no cards (CR 103.5), past which the
     /// bottom question asks for more cards than the hand holds and nothing
     /// can answer it. What `Pending::Mulligan::can_take` states.
-    pub(crate) fn may_mulligan(&self, taken: u8) -> bool {
-        self.mulligan_bottom_count(taken) < HAND
+    pub(crate) fn may_mulligan(&self, player: PlayerId, taken: u8) -> bool {
+        self.mulligan_bottom_count(player, taken) < self.house_rules.opening_for(player.get()).cards
     }
 
     /// The question `seat` is being asked, if it is being asked one.
@@ -189,15 +190,15 @@ impl<L: CardLookup> Engine<L> {
                 None
             }
             (Some(Pending::Mulligan { taken, .. }), PlayerAction::MulliganKeep) => {
-                let count = self.mulligan_bottom_count(taken);
+                let count = self.mulligan_bottom_count(player, taken);
                 (count > 0).then_some(Pending::MulliganBottom { player, count })
             }
             (Some(Pending::Mulligan { taken, .. }), PlayerAction::MulliganTake) => {
                 // Until the opening hand would be zero cards, and no further
                 // (CR 103.5): the question says so (`can_take`), and the
                 // check above refused a mulligan past it.
-                debug_assert!(self.may_mulligan(taken), "can_take was checked");
-                // Hand goes back, reshuffle, draw 7 (CR 103.5).
+                debug_assert!(self.may_mulligan(player, taken), "can_take was checked");
+                // Hand goes back, reshuffle, redraw the seat's opening size.
                 let hand = self.state.zones.list(ZoneLocation::Hand(player)).clone();
                 for card in hand {
                     self.state.move_object(
@@ -210,12 +211,13 @@ impl<L: CardLookup> Engine<L> {
                 let window = self.mulligans.as_mut().expect("the window is open");
                 self.state
                     .shuffle_library_with(player, &mut window[seat].rng);
-                self.state.draw_cards(player, usize::from(HAND));
+                let opening = self.house_rules.opening_for(player.get());
+                self.state.draw_cards(player, usize::from(opening.cards));
                 Some(Pending::Mulligan {
                     player,
                     taken: taken + 1,
-                    next_is_free: taken + 1 < self.house_rules.free_mulligan_count(),
-                    can_take: self.may_mulligan(taken + 1),
+                    next_is_free: taken + 1 < opening.free_mulligans,
+                    can_take: self.may_mulligan(player, taken + 1),
                 })
             }
             (Some(Pending::MulliganBottom { .. }), PlayerAction::ChooseObjects { objects }) => {
