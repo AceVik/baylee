@@ -459,6 +459,17 @@ pub enum LogEvent {
         /// The kept permanents.
         cards: Vec<LogObject>,
     },
+    /// Objects chosen by one player in an APNAP sequence whose action happens
+    /// simultaneously once every player has chosen (CR 101.4b, CR 101.4d);
+    /// hidden-hand identities arrive as [`LogObject::Hidden`] for other seats.
+    CardsChosen {
+        /// Who chose them.
+        player: PlayerId,
+        /// The chosen objects.
+        cards: Vec<LogObject>,
+        /// What they were chosen for.
+        action: crate::ChosenAction,
+    },
     /// A player's library was shuffled.
     Shuffled {
         /// Whose.
@@ -583,7 +594,8 @@ impl LogEvent {
             | Self::Transformed { object: o } => out.push(o),
             Self::Drew { cards, .. }
             | Self::Revealed { cards, .. }
-            | Self::CardsKept { cards, .. } => out.extend(cards),
+            | Self::CardsKept { cards, .. }
+            | Self::CardsChosen { cards, .. } => out.extend(cards),
             Self::Damage { source, target, .. } => {
                 out.extend(source);
                 if let LogTarget::Object(o) = target {
@@ -648,7 +660,8 @@ impl LogEvent {
             | Self::Transformed { object: o } => out.push(o),
             Self::Drew { cards, .. }
             | Self::Revealed { cards, .. }
-            | Self::CardsKept { cards, .. } => out.extend(cards),
+            | Self::CardsKept { cards, .. }
+            | Self::CardsChosen { cards, .. } => out.extend(cards),
             Self::Damage { source, target, .. } => {
                 out.extend(source);
                 if let LogTarget::Object(o) = target {

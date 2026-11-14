@@ -315,6 +315,28 @@ fn announced_x(obj: &GameObject, chars: &baylee_engine::object::Characteristics)
         .then_some(obj.x_value)
 }
 
+fn chosen_name_of(obj: &GameObject, public_face: bool) -> Option<baylee_view::NamedFace> {
+    obj.chosen_name
+        .filter(|_| public_face)
+        .map(|named| baylee_view::NamedFace {
+            card: named.card(),
+            face: named.face(),
+        })
+}
+
+fn linked_exile_of(
+    state: &GameState,
+    obj: &GameObject,
+    id: ObjectId,
+    public_face: bool,
+) -> Vec<ObjectId> {
+    if public_face && obj.kind == ObjectKind::Permanent {
+        baylee_engine::eval::public_linked_exile_cards(state, id)
+    } else {
+        Vec::new()
+    }
+}
+
 pub(super) fn public_object(
     board: &ViewBoard<'_>,
     id: ObjectId,
@@ -324,6 +346,10 @@ pub(super) fn public_object(
     let obj = state.object(id)?;
     let chars = obj.characteristics();
     let known = may_know_card(obj, seat);
+    let public_face = known
+        && !obj
+            .status
+            .contains(baylee_engine::object::Status::FACE_DOWN);
     // Permanents only: the engine offers a granted ability on a permanent and
     // nowhere else, and each entry here is one of those offers.
     let grants = if obj.kind == ObjectKind::Permanent {
@@ -361,16 +387,17 @@ pub(super) fn public_object(
         types: chars.types,
         supertypes: chars.supertypes,
         subtypes: chars.subtypes,
-        chosen_subtype: obj.chosen_subtype,
-        chosen_opponent: obj.chosen_opponent(),
+        chosen_subtype: obj.chosen_subtype.filter(|_| public_face),
+        second_chosen_subtype: obj.second_chosen_subtype().filter(|_| public_face),
+        chosen_card_type: obj.chosen_card_type().filter(|_| public_face),
+        chosen_number: obj.chosen_number().filter(|_| public_face),
+        chosen_opponent: obj.chosen_opponent().filter(|_| public_face),
         // A face-down permanent keeps what it chose while face up; shown, it
         // would help name the card. Hidden with the card.
         chosen_color: obj.chosen_color.filter(|_| known),
         chosen_x: announced_x(obj, chars),
-        chosen_name: obj.chosen_name.map(|named| baylee_view::NamedFace {
-            card: named.card(),
-            face: named.face(),
-        }),
+        chosen_name: chosen_name_of(obj, public_face),
+        linked_exile: linked_exile_of(state, obj, id, public_face),
         unlocked_doors: obj
             .doors
             .is_room()

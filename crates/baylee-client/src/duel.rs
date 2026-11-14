@@ -96,7 +96,7 @@ impl Duel {
         {
             return Some(baylee_client_core::interaction::payment_line(lang, payment));
         }
-        let headline = prompt.headline_naming_targets(
+        let mut headline = prompt.headline_naming_targets(
             lang,
             turn,
             self.statics.as_ref(),
@@ -115,20 +115,30 @@ impl Duel {
             },
         );
         // A vote in progress tells every ballot cast so far, to the voter
-        // and to every seat waiting on it alike (CR 608.2d, 701.38a).
-        let ballots = self.view.as_ref().and_then(|view| {
-            baylee_client_core::interaction::ballots_line(
+        // and to every seat waiting on it alike (CR 608.2d, 701.38a); an
+        // in-progress APNAP choice sequence tells earlier held choices the
+        // same way (CR 101.4b, CR 101.4d).
+        if let Some(view) = self.view.as_ref() {
+            if let Some(ballots) = baylee_client_core::interaction::ballots_line(
                 lang,
                 self.reader(),
                 view,
                 self.statics.as_ref(),
                 &name,
-            )
-        });
-        Some(match ballots {
-            Some(ballots) => format!("{headline} {ballots}"),
-            None => headline,
-        })
+            ) {
+                headline = format!("{headline} {ballots}");
+            }
+            if let Some(held) = baylee_client_core::interaction::held_choices_line(
+                lang,
+                self.reader(),
+                view,
+                self.statics.as_ref(),
+                &name,
+            ) {
+                headline = format!("{headline} {held}");
+            }
+        }
+        Some(headline)
     }
 
     /// Whether the stack entry currently at the top of the stack (resolving

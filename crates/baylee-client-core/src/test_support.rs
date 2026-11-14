@@ -80,10 +80,14 @@ pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) 
         supertypes: SupertypeSet::EMPTY,
         subtypes: SubtypeSet::EMPTY,
         chosen_subtype: None,
+        second_chosen_subtype: None,
+        chosen_card_type: None,
+        chosen_number: None,
         chosen_name: None,
         chosen_opponent: None,
         chosen_color: None,
         chosen_x: None,
+        linked_exile: Vec::new(),
         unlocked_doors: None,
         suspended: false,
         token: None,
@@ -199,6 +203,7 @@ impl ViewBuilder {
                 controls: Vec::new(),
                 foreign_targets: Vec::new(),
                 ballots: Vec::new(),
+                held_choices: Vec::new(),
             },
         }
     }

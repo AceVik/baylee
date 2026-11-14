@@ -221,6 +221,9 @@ pub(in crate::hud) fn has_targets_or_choices(
         || (item.face_down && item.art.is_some())
         || item.flashed_back
         || item.chosen_subtype.is_some()
+        || item.second_chosen_subtype.is_some()
+        || item.chosen_card_type.is_some()
+        || item.chosen_number.is_some()
         || item.chosen_name.is_some()
         || item.chosen_color.is_some()
         || item.chosen_opponent.is_some()
@@ -300,12 +303,29 @@ pub(in crate::hud) fn stack_choice_chips(
     if let Some(color) = item.chosen_color {
         chips.push((None, color_word(color, lang).to_string()));
     }
-    if let Some(subtype) = item.chosen_subtype
-        && let Some(english) = baylee_core::generated::subtypes::name(subtype)
-    {
+    if let Some(card_type) = item.chosen_card_type {
         chips.push((
             None,
-            baylee_client_core::type_names::name(english, lang).to_string(),
+            baylee_client_core::interaction::card_type_phrase(card_type)
+                .text(lang)
+                .to_string(),
+        ));
+    }
+    for subtype in [item.chosen_subtype, item.second_chosen_subtype]
+        .into_iter()
+        .flatten()
+    {
+        if let Some(english) = baylee_core::generated::subtypes::name(subtype) {
+            chips.push((
+                None,
+                baylee_client_core::type_names::name(english, lang).to_string(),
+            ));
+        }
+    }
+    if let Some(number) = item.chosen_number {
+        chips.push((
+            None,
+            Phrase::ChosenNumber.fill(lang, &[&number.to_string()]),
         ));
     }
     if !full {

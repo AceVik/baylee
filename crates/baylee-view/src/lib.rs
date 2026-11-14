@@ -66,7 +66,8 @@ pub use patch::{
     ViewSender, Zone, ZoneEdit, apply, diff, digest,
 };
 pub use player_view::{
-    Ballot, Division, LostSeat, PlayerControl, PlayerView, SeatClock, TargetingContext, WordChange,
+    Ballot, ChosenAction, Division, HeldChoice, LostSeat, PlayerControl, PlayerView, SeatClock,
+    TargetingContext, WordChange,
 };
 pub use seats::{CommanderDamage, CommanderView, HouseAnswer, LossCause, ManaPoolView, SeatView};
 pub use seen::{Seen, SeenIn};
@@ -281,7 +282,14 @@ pub use turn::{DayNight, Phase, Step};
 /// Cultivate) and `YesNoPrompt::RevealHandForGuess` (Liar's Pendulum), engine
 /// prompt variants an older reader cannot decode. Compatible addition beside
 /// them: [`LogEvent::DidNotResolve::ability`], absent when `false`.
-pub const VIEW_VERSION: u32 = 92;
+/// Version 93 tells held APNAP choices (CR 101.4b, CR 101.4d): the game log's
+/// [`LogEvent::CardsChosen`] with [`ChosenAction`], a variant a reader of 92
+/// cannot parse. Compatible additions beside it: [`PlayerView::held_choices`]
+/// and [`SpectatorView::held_choices`] (absent while empty), plus
+/// [`PublicObject::second_chosen_subtype`], [`PublicObject::chosen_card_type`],
+/// [`PublicObject::chosen_number`] and [`PublicObject::linked_exile`], absent
+/// when unset or empty.
+pub const VIEW_VERSION: u32 = 93;
 
 // ------------------------------------------------------------------- targets
 

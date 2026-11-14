@@ -24,7 +24,7 @@ use crate::zone::Zone;
 use baylee_cards_dsl::{Filter, TargetSpec};
 use baylee_core::ids::{ObjectId, PlayerId};
 
-pub use amounts::{amount, amount_with_context, tapped_power};
+pub use amounts::{amount, amount_with_context, public_linked_exile_cards, tapped_power};
 pub(crate) use amounts::{colors_among, colors_in_zone, count_controlled_by, linked_exile_cards};
 pub(crate) use conditions::{
     attached_for_ability, condition_reads_event, condition_with_event,

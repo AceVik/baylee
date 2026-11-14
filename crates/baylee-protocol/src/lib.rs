@@ -54,7 +54,11 @@ pub mod tape;
 /// Version 46 carries `ChoicePrompt::SearchLibraryTappedAndHand`,
 /// `YesNoPrompt::RevealHandForGuess`, and `LogEvent::DidNotResolve::ability`
 /// (whether an unresolved stack item was an ability rather than a spell).
-pub const PROTOCOL_VERSION: u32 = 46;
+/// Version 47 carries held APNAP choices (`PlayerView::held_choices`,
+/// `SpectatorView::held_choices`, `ViewField::HeldChoices`, and
+/// `LogEvent::CardsChosen`), plus `PublicObject`'s `second_chosen_subtype`,
+/// `chosen_card_type`, `chosen_number`, and `linked_exile`.
+pub const PROTOCOL_VERSION: u32 = 47;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -362,7 +366,11 @@ mod tests {
         // 46: `ChoicePrompt::SearchLibraryTappedAndHand`,
         // `YesNoPrompt::RevealHandForGuess`, and
         // `LogEvent::DidNotResolve::ability` on positional binary frames.
-        assert_eq!(PROTOCOL_VERSION, 46);
+        // 47: `PlayerView::held_choices`, `SpectatorView::held_choices`,
+        // `ViewField::HeldChoices`, `LogEvent::CardsChosen`, and
+        // `PublicObject`'s chosen card type, second subtype, chosen number,
+        // and linked exile on positional binary frames.
+        assert_eq!(PROTOCOL_VERSION, 47);
     }
 
     #[test]

@@ -2200,6 +2200,30 @@ impl GameObject {
             .retain(|rider| !matches!(rider, Rider::ChosenCardType(_)));
         self.riders.push(Rider::ChosenCardType(card_type));
     }
+
+    /// The second basic land type chosen as this permanent entered
+    /// ([`Rider::SecondChosenSubtype`]), if it chose one.
+    #[must_use]
+    pub fn second_chosen_subtype(&self) -> Option<baylee_core::ids::SubtypeId> {
+        self.riders.iter().find_map(|rider| match rider {
+            Rider::SecondChosenSubtype(subtype) => Some(*subtype),
+            _ => None,
+        })
+    }
+
+    /// The bounded integer last chosen for this permanent's active rules
+    /// acquisition ([`Rider::ChosenNumber`]), if it holds one.
+    #[must_use]
+    pub fn chosen_number(&self) -> Option<u8> {
+        let acquisition = self.rules_acquisition();
+        self.riders.iter().find_map(|rider| match rider {
+            Rider::ChosenNumber {
+                acquisition: linked,
+                number,
+            } if *linked == acquisition => Some(*number),
+            _ => None,
+        })
+    }
 }
 
 #[cfg(test)]

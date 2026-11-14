@@ -201,6 +201,7 @@ impl Session {
                 decision_remaining_ms: awaiting.and_then(|s| self.decision_remaining_ms(s)),
                 policy_acts: &self.policy_acts,
                 ballots: self.engine.ballots(),
+                held_choices: &self.engine.held_choices(),
             },
             &self.house_answered,
         );

@@ -38,6 +38,26 @@ VotesSoFar = Votes so far: { $ballots }
 # Arguments: voter, choice
 BallotFor = { $voter } for { $choice }
 
+# Earlier APNAP choices held for a simultaneous action (CR 101.4b, CR 101.4d), shown beside the prompt or wait.
+# Arguments: choices
+ChoicesSoFar = Choices so far: { $choices }
+
+# One held choice in `ChoicesSoFar`: `$player` chose `$object` to sacrifice.
+# Arguments: player, object
+ChoiceToSacrifice = { $player } to sacrifice { $object }
+
+# One held choice in `ChoicesSoFar`: `$player` chose `$object` to discard.
+# Arguments: player, object
+ChoiceToDiscard = { $player } to discard { $object }
+
+# One held choice in `ChoicesSoFar`: `$player` chose `$object` to destroy.
+# Arguments: player, object
+ChoiceToDestroy = { $player } to destroy { $object }
+
+# One held choice in `ChoicesSoFar`: `$player` chose `$object` to return to hand.
+# Arguments: player, object
+ChoiceToReturn = { $player } to return { $object }
+
 # Full sacrifice needed before the announced card can enter the battlefield.
 # Arguments: count
 SacrificeToEnter =
@@ -2148,6 +2168,9 @@ KindSorcery = Sorcery
 
 # Artifact
 KindArtifact = Artifact
+
+# Kindred
+KindKindred = Kindred
 
 # Enchantment
 KindEnchantment = Enchantment
@@ -4419,6 +4442,10 @@ ChosenType = Chosen: { $subtype }
 # Arguments: card
 ChosenName = Named: { $card }
 
+# The bounded number publicly chosen for this permanent.
+# Arguments: number
+ChosenNumber = Chosen: { $number }
+
 # A Room's doors still locked, by name.
 # Arguments: doors
 LockedDoors = Locked: { $doors }
@@ -5668,6 +5695,38 @@ LogCardsKeptYou = { $you_subject } chose to keep { $cards }
 # Another seat chose which permanents to keep.
 # Arguments: player, cards
 LogCardsKept = { $player } chose to keep { $cards }
+
+# The reading seat chose permanents to sacrifice for a simultaneous effect (CR 101.4b).
+# Arguments: player, cards, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogCardsChosenSacrificeYou = { $you_subject } chose { $cards } to sacrifice
+
+# Another seat chose permanents to sacrifice for a simultaneous effect.
+# Arguments: player, cards
+LogCardsChosenSacrifice = { $player } chose { $cards } to sacrifice
+
+# The reading seat chose cards to discard for a simultaneous effect (CR 101.4d).
+# Arguments: player, cards, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogCardsChosenDiscardYou = { $you_subject } chose { $cards } to discard
+
+# Another seat chose cards to discard for a simultaneous effect (CR 101.4d).
+# Arguments: player, cards
+LogCardsChosenDiscard = { $player } chose { $cards } to discard
+
+# The reading seat chose permanents to destroy for a simultaneous effect (CR 101.4b).
+# Arguments: player, cards, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogCardsChosenDestroyYou = { $you_subject } chose { $cards } to destroy
+
+# Another seat chose permanents to destroy for a simultaneous effect.
+# Arguments: player, cards
+LogCardsChosenDestroy = { $player } chose { $cards } to destroy
+
+# The reading seat chose permanents to return to hand for a simultaneous effect (CR 101.4b).
+# Arguments: player, cards, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogCardsChosenReturnYou = { $you_subject } chose { $cards } to return to hand
+
+# Another seat chose permanents to return to hand for a simultaneous effect.
+# Arguments: player, cards
+LogCardsChosenReturn = { $player } chose { $cards } to return to hand
 
 # The reading seat voted (CR 701.38a). `$object` is what it voted for.
 # Arguments: player, object, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject

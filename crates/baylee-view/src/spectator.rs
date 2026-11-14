@@ -61,6 +61,10 @@ pub struct SpectatorView {
     /// every seat ([`PlayerView::ballots`]).
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub ballots: Vec<crate::Ballot>,
+    /// Choices held during a sequential APNAP selection, public to a spectator
+    /// as to every seat ([`PlayerView::held_choices`], CR 101.4b, CR 101.4d).
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub held_choices: Vec<crate::HeldChoice>,
     /// Who decides for whom (Mindslaver), public to a spectator as to every
     /// seat ([`PlayerView::controls`]).
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
@@ -122,6 +126,7 @@ impl SpectatorView {
             command: self.command,
             combat: self.combat,
             ballots: self.ballots,
+            held_choices: self.held_choices,
             looking_at: Vec::new(),
             trigger_order: Vec::new(),
             library_tops: self.library_tops,

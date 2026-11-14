@@ -59,6 +59,16 @@ pub(super) fn withhold(
             } if unseen(*from, *object) && unseen(*to, *object) => {
                 *object = ObjectId::NO_SOURCE;
             }
+            // CR 101.4d: a card chosen from another seat's hidden hand stays
+            // hidden until the simultaneous discard actually happens, even if
+            // that card's handle was seen earlier.
+            GameEvent::CardsChosen {
+                player,
+                cards,
+                action: crate::event::ChosenAction::Discard,
+            } if *player != seat => {
+                cards.fill(ObjectId::NO_SOURCE);
+            }
             _ => {}
         }
         let mut forget = |id: &mut ObjectId| {
@@ -89,7 +99,9 @@ fn for_each_object(event: &mut GameEvent, f: &mut impl FnMut(&mut ObjectId)) {
             f(object);
             f(target);
         }
-        GameEvent::Revealed { cards, .. } | GameEvent::CardsKept { cards, .. } => {
+        GameEvent::Revealed { cards, .. }
+        | GameEvent::CardsKept { cards, .. }
+        | GameEvent::CardsChosen { cards, .. } => {
             cards.iter_mut().for_each(f);
         }
         GameEvent::BattleDefeated { source, .. } | GameEvent::Connived { object: source, .. } => {

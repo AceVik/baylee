@@ -306,6 +306,8 @@ pub enum Individual {
     Attached,
     /// Something on the stack targets it.
     Targeted,
+    /// Chosen in an in-progress simultaneous APNAP sequence (CR 101.4b).
+    Chosen,
 }
 
 /// What the answer being built says about one permanent, before it is sent.
@@ -957,6 +959,12 @@ pub struct StackItem {
     pub flashed_back: bool,
     /// Creature or land subtype chosen for this spell on cast or entry.
     pub chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+    /// Second subtype chosen for this spell on cast or entry.
+    pub second_chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+    /// Card type chosen for this spell on cast or entry (CR 205.2a).
+    pub chosen_card_type: Option<baylee_core::types::TypeSet>,
+    /// Bounded number chosen for this spell on cast or entry.
+    pub chosen_number: Option<u8>,
     /// Card name chosen for this spell on cast or entry.
     pub chosen_name: Option<baylee_view::NamedFace>,
     ///Opponent or player chosen for this spell on cast or entry.
@@ -1027,6 +1035,9 @@ impl StackItem {
             && self.bought_back == other.bought_back
             && self.flashed_back == other.flashed_back
             && self.chosen_subtype == other.chosen_subtype
+            && self.second_chosen_subtype == other.second_chosen_subtype
+            && self.chosen_card_type == other.chosen_card_type
+            && self.chosen_number == other.chosen_number
             && self.chosen_name == other.chosen_name
             && self.chosen_opponent == other.chosen_opponent
             && self.chosen_color == other.chosen_color
@@ -1997,6 +2008,9 @@ fn build_stack_item(
         bought_back: o.bought_back,
         flashed_back: o.status.is_flashed_back(),
         chosen_subtype: o.chosen_subtype,
+        second_chosen_subtype: o.second_chosen_subtype,
+        chosen_card_type: o.chosen_card_type,
+        chosen_number: o.chosen_number,
         chosen_name: o.chosen_name,
         chosen_opponent: o.chosen_opponent,
         chosen_color: o.chosen_color,
@@ -2049,6 +2063,11 @@ fn individual_objects(view: &PlayerView, lookup: &Lookup<'_>) -> HashMap<ObjectI
             {
                 map.entry(source.object).or_insert(Individual::Targeted);
             }
+        }
+    }
+    for choice in &view.held_choices {
+        if let Some(id) = choice.object {
+            map.entry(id).or_insert(Individual::Chosen);
         }
     }
     map

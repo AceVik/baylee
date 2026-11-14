@@ -9,7 +9,7 @@ use crate::log::PolicyAct;
 use crate::objects::{DamageSourceView, HandObject, OrderedTrigger, PublicObject};
 use crate::patch::{ListEdit, PatchError, Zone};
 use crate::player_view::{
-    Ballot, Division, LostSeat, PlayerControl, PlayerView, SeatClock, TargetingContext,
+    Ballot, Division, HeldChoice, LostSeat, PlayerControl, PlayerView, SeatClock, TargetingContext,
 };
 use crate::seats::SeatView;
 use crate::shown_hands::SharedHand;
@@ -143,6 +143,7 @@ view_fields! {
     HandRequested hand_requested: SeatSet,
     Combat combat: CombatView,
     Ballots ballots: Vec<Ballot>,
+    HeldChoices held_choices: Vec<HeldChoice>,
     TriggerOrder trigger_order: Vec<OrderedTrigger>,
     SorceryLock sorcery_lock: Option<ObjectId>,
     SorceriesHaveFlash sorceries_have_flash: bool,

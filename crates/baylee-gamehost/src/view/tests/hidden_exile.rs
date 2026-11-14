@@ -89,3 +89,93 @@ fn hidden_exile_views_and_logs_require_explicit_permission_even_for_the_owner() 
         assert_eq!(state.object(card).unwrap().zone, Zone::Exile);
     }
 }
+
+#[test]
+fn linked_exile_lists_only_face_up_exiled_cards_while_source_is_face_up() {
+    let mut state = GameState::from_preset(&mixed_print_preset(), &Registry).unwrap();
+    let owner = PlayerId::new(0);
+    let lib = state.zones.list(ZoneLocation::Library(owner)).clone();
+    let (source, exiled) = (lib[0], lib[1]);
+    state
+        .move_object(
+            source,
+            ZoneLocation::Battlefield,
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    state.object_mut(source).unwrap().kind = baylee_engine::object::ObjectKind::Permanent;
+    state
+        .move_object(
+            exiled,
+            ZoneLocation::Exile(owner),
+            ZonePosition::Top,
+            Cause::Effect,
+        )
+        .unwrap();
+    let ver = u16::try_from(state.object(source).unwrap().version).unwrap();
+    state
+        .object_mut(exiled)
+        .unwrap()
+        .riders
+        .push(Rider::ExiledWith {
+            host: source,
+            version: ver,
+        });
+    state.refresh_characteristics();
+
+    let shown = player_view(
+        &state,
+        PlayerId::new(1),
+        0,
+        None,
+        &SeatContext::default(),
+        &[],
+    );
+    assert_eq!(shown.object(source).unwrap().linked_exile, vec![exiled]);
+
+    state
+        .object_mut(exiled)
+        .unwrap()
+        .status
+        .insert(Status::FACE_DOWN);
+    let hidden_card = player_view(
+        &state,
+        PlayerId::new(1),
+        0,
+        None,
+        &SeatContext::default(),
+        &[],
+    );
+    assert!(
+        hidden_card.object(source).unwrap().linked_exile.is_empty(),
+        "CR 406.3: face-down exiled cards are omitted from linked_exile"
+    );
+
+    state
+        .object_mut(exiled)
+        .unwrap()
+        .status
+        .remove(Status::FACE_DOWN);
+    state
+        .object_mut(source)
+        .unwrap()
+        .status
+        .insert(Status::FACE_DOWN);
+    let hidden_source = player_view(
+        &state,
+        PlayerId::new(1),
+        0,
+        None,
+        &SeatContext::default(),
+        &[],
+    );
+    assert!(
+        hidden_source
+            .object(source)
+            .unwrap()
+            .linked_exile
+            .is_empty(),
+        "CR 708.2: face-down permanent hides its linked exile"
+    );
+}

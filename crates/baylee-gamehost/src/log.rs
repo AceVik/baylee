@@ -726,6 +726,13 @@ impl GameLog {
                 let (cards, sees) = cards.iter().map(|id| self.refer(state, *id)).unzip();
                 self.push(LogEvent::CardsKept { player: *player, cards }, sees);
             }
+            GameEvent::CardsChosen {
+                player,
+                cards,
+                action,
+            } => {
+                self.cards_chosen(state, *player, cards, *action);
+            }
             GameEvent::Revealed { player, cards } => {
                 shown.extend(cards.iter().copied());
                 let cards: Vec<LogObject> =
@@ -1117,6 +1124,41 @@ impl GameLog {
                 }),
             },
             vec![sees],
+        );
+    }
+
+    /// Writes a simultaneous-choice line (`GameEvent::CardsChosen`), keeping a
+    /// card chosen from a hidden hand private to its chooser (CR 101.4d).
+    fn cards_chosen(
+        &mut self,
+        state: &GameState,
+        player: PlayerId,
+        cards: &[ObjectId],
+        action: baylee_engine::event::ChosenAction,
+    ) {
+        let chooser_only = Sees::Only(std::iter::once(player).collect());
+        let (cards, sees) = cards
+            .iter()
+            .map(|id| {
+                if *id == ObjectId::NO_SOURCE {
+                    return (LogObject::Hidden, Sees::NOBODY);
+                }
+                let (obj, sees) = self.refer(state, *id);
+                let sees = if action == baylee_engine::event::ChosenAction::Discard {
+                    chooser_only
+                } else {
+                    sees
+                };
+                (obj, sees)
+            })
+            .unzip();
+        self.push(
+            LogEvent::CardsChosen {
+                player,
+                cards,
+                action: crate::view::choice_action_view(action),
+            },
+            sees,
         );
     }
 

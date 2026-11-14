@@ -733,8 +733,10 @@ fn counters_named(
     }
 }
 
-/// The name of one card type, for a question asked about it.
-fn card_type_name(card_type: baylee_core::types::TypeSet) -> Phrase {
+/// The name of one card type, for a question asked about it or a permanent's
+/// chosen card type (CR 205.2a).
+#[must_use]
+pub fn card_type_phrase(card_type: baylee_core::types::TypeSet) -> Phrase {
     use baylee_core::types::TypeSet;
     [
         (TypeSet::ARTIFACT, Phrase::KindArtifact),
@@ -742,6 +744,7 @@ fn card_type_name(card_type: baylee_core::types::TypeSet) -> Phrase {
         (TypeSet::CREATURE, Phrase::KindCreature),
         (TypeSet::ENCHANTMENT, Phrase::KindEnchantment),
         (TypeSet::INSTANT, Phrase::KindInstant),
+        (TypeSet::KINDRED, Phrase::KindKindred),
         (TypeSet::LAND, Phrase::KindLand),
         (TypeSet::PLANESWALKER, Phrase::KindPlaneswalker),
         (TypeSet::SORCERY, Phrase::KindSorcery),
@@ -749,6 +752,10 @@ fn card_type_name(card_type: baylee_core::types::TypeSet) -> Phrase {
     .into_iter()
     .find_map(|(t, name)| card_type.contains(t).then_some(name))
     .unwrap_or(Phrase::KindOther)
+}
+
+fn card_type_name(card_type: baylee_core::types::TypeSet) -> Phrase {
+    card_type_phrase(card_type)
 }
 
 /// "Choose two cards", with the noun as an argument rather than glued on.
@@ -1007,6 +1014,47 @@ pub fn ballots_line(
         })
         .collect();
     Some(Phrase::VotesSoFar.fill(lang, &[&ballots.join(", ")]))
+}
+
+/// Earlier APNAP choices held for a simultaneous action (CR 101.4b, CR 101.4d),
+/// shown beside the prompt or wait: "Choices so far: Ada to sacrifice Sol Ring,
+/// Bo to discard a card". `None` when no simultaneous choices are being held.
+#[must_use]
+pub fn held_choices_line(
+    lang: Lang,
+    reader: Option<PlayerId>,
+    view: &PlayerView,
+    statics: Option<&GameStatic>,
+    name: &dyn Fn(ObjectId) -> Option<String>,
+) -> Option<String> {
+    if view.held_choices.is_empty() {
+        return None;
+    }
+    let choices: Vec<String> = view
+        .held_choices
+        .iter()
+        .map(|choice| {
+            let who = if Some(choice.player) == reader {
+                Phrase::You.text(lang).to_owned()
+            } else {
+                seat_name(lang, statics, choice.player)
+            };
+            let object = match choice.object {
+                Some(id) => name(id)
+                    .filter(|n| !n.trim().is_empty())
+                    .unwrap_or_else(|| Phrase::APermanent.text(lang).to_owned()),
+                None => Phrase::LogACard.text(lang).to_owned(),
+            };
+            let phrase = match choice.action {
+                baylee_view::ChosenAction::Sacrifice => Phrase::ChoiceToSacrifice,
+                baylee_view::ChosenAction::Discard => Phrase::ChoiceToDiscard,
+                baylee_view::ChosenAction::Destroy => Phrase::ChoiceToDestroy,
+                baylee_view::ChosenAction::ReturnToHand => Phrase::ChoiceToReturn,
+            };
+            phrase.fill(lang, &[&who, &object])
+        })
+        .collect();
+    Some(Phrase::ChoicesSoFar.fill(lang, &[&choices.join(", ")]))
 }
 
 #[cfg(test)]

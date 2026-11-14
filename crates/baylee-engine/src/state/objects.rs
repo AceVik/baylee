@@ -284,11 +284,13 @@ impl GameState {
             .object(id)
             .and_then(|o| o.card)
             .and_then(|card| self.bases.cards.get(&card.index))
-            .map(Arc::clone)
-            .unwrap_or_else(|| {
-                let name = self.names.intern(def.faces[0].name);
-                Arc::new(crate::object::Characteristics::of_card(def, name))
-            });
+            .map_or_else(
+                || {
+                    let name = self.names.intern(def.faces[0].name);
+                    Arc::new(crate::object::Characteristics::of_card(def, name))
+                },
+                Arc::clone,
+            );
         self.switch_face(id, def, usize::from(unlocked == 0b10));
         let nameless = self.names.intern("");
         let Some(obj) = self.object_mut(id) else {

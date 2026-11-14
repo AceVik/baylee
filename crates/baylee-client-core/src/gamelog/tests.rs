@@ -874,10 +874,11 @@ fn variant(event: &LogEvent) -> usize {
         LogEvent::ConnectionLost { .. } => 33,
         LogEvent::Aimed { .. } => 36,
         LogEvent::Voted { .. } => 37,
+        LogEvent::CardsChosen { .. } => 38,
     }
 }
 
-const VARIANTS: usize = 38;
+const VARIANTS: usize = 39;
 
 /// Every kind of line, about `player`, with every answer, cause, zone and
 /// counter a line can carry.
@@ -1155,6 +1156,23 @@ fn every_line_about(player: PlayerId) -> Vec<LogEvent> {
             });
         }
     }
+    for action in [
+        baylee_view::ChosenAction::Sacrifice,
+        baylee_view::ChosenAction::Discard,
+        baylee_view::ChosenAction::Destroy,
+        baylee_view::ChosenAction::ReturnToHand,
+    ] {
+        out.push(LogEvent::CardsChosen {
+            player,
+            cards: vec![bolt(3)],
+            action,
+        });
+        out.push(LogEvent::CardsChosen {
+            player,
+            cards: vec![LogObject::Hidden],
+            action,
+        });
+    }
     for winners in [&[player][..], &[player, PlayerId::new(2)]] {
         let mut set = SeatSet::new();
         for seat in winners {
@@ -1245,6 +1263,7 @@ fn about_whom(event: &LogEvent) -> Option<PlayerId> {
         }
         | LogEvent::ControlChanged { new: player, .. }
         | LogEvent::CardsKept { player, .. }
+        | LogEvent::CardsChosen { player, .. }
         | LogEvent::Voted { player, .. }
         | LogEvent::Revealed { player, .. }
         | LogEvent::Shuffled { player }
@@ -2101,5 +2120,50 @@ fn did_not_resolve_distinguishes_abilities_from_spells_in_both_languages() {
     assert_eq!(
         say(Lang::De, hidden_ability),
         "Eine Fähigkeit von eine Karte wurde nicht verrechnet"
+    );
+}
+
+#[test]
+fn a_held_choice_names_known_permanents_and_withholds_hidden_hand_cards() {
+    let public_sac = LogEvent::CardsChosen {
+        player: BO,
+        cards: vec![bolt(3)],
+        action: baylee_view::ChosenAction::Sacrifice,
+    };
+    assert_eq!(
+        say(Lang::En, public_sac.clone()),
+        "Bo chose Lightning Bolt to sacrifice"
+    );
+    assert_eq!(
+        say(Lang::De, public_sac),
+        "Bo hat Blitzschlag zum Opfern gewählt"
+    );
+
+    let own_discard = LogEvent::CardsChosen {
+        player: ME,
+        cards: vec![bolt(3)],
+        action: baylee_view::ChosenAction::Discard,
+    };
+    assert_eq!(
+        say(Lang::En, own_discard.clone()),
+        "You chose Lightning Bolt to discard"
+    );
+    assert_eq!(
+        say(Lang::De, own_discard),
+        "Du hast Blitzschlag zum Abwerfen gewählt"
+    );
+
+    let hidden_discard = LogEvent::CardsChosen {
+        player: BO,
+        cards: vec![LogObject::Hidden],
+        action: baylee_view::ChosenAction::Discard,
+    };
+    assert_eq!(
+        say(Lang::En, hidden_discard.clone()),
+        "Bo chose a card to discard"
+    );
+    assert_eq!(
+        say(Lang::De, hidden_discard),
+        "Bo hat eine Karte zum Abwerfen gewählt"
     );
 }

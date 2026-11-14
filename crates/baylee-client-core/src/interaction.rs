@@ -51,7 +51,8 @@ pub use ending::{
 };
 mod headline;
 pub use headline::{
-    ballots_line, buyback_price, counter_label, counter_label_counted, payment_line,
+    ballots_line, buyback_price, card_type_phrase, counter_label, counter_label_counted,
+    held_choices_line, payment_line,
 };
 
 /// What a combat declaration is currently pointed at.

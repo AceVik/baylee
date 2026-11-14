@@ -491,6 +491,10 @@ pub struct SeatContext<'a> {
     /// The ballots of the vote in progress. Pass `engine.ballots()`. Public:
     /// every seat's view carries them all ([`PlayerView::ballots`]).
     pub ballots: &'a [baylee_engine::resolve::Ballot],
+    /// Earlier APNAP choices held for simultaneous actions while later players
+    /// decide (CR 101.4). Pass `&engine.held_choices()`. Public: every seat's
+    /// view carries them all ([`PlayerView::held_choices`]).
+    pub held_choices: &'a [baylee_engine::resolve::HeldChoice],
 }
 
 /// The vote in progress as a view tells it: every ballot, to every seat and
@@ -502,6 +506,36 @@ pub fn ballot_views(ballots: &[baylee_engine::resolve::Ballot]) -> Vec<baylee_vi
         .map(|ballot| baylee_view::Ballot {
             voter: ballot.voter,
             choice: ballot.choice,
+        })
+        .collect()
+}
+
+/// Translates the engine's simultaneous-choice action into the wire enum.
+#[must_use]
+pub const fn choice_action_view(
+    action: baylee_engine::event::ChosenAction,
+) -> baylee_view::ChosenAction {
+    use baylee_engine::event::ChosenAction as E;
+    match action {
+        E::Sacrifice => baylee_view::ChosenAction::Sacrifice,
+        E::Discard => baylee_view::ChosenAction::Discard,
+        E::Destroy => baylee_view::ChosenAction::Destroy,
+        E::ReturnToHand => baylee_view::ChosenAction::ReturnToHand,
+    }
+}
+
+/// Earlier APNAP choices held for simultaneous actions, as every seat and
+/// spectator may see them (CR 101.4b, CR 101.4d).
+#[must_use]
+pub fn held_choice_views(
+    choices: &[baylee_engine::resolve::HeldChoice],
+) -> Vec<baylee_view::HeldChoice> {
+    choices
+        .iter()
+        .map(|choice| baylee_view::HeldChoice {
+            player: choice.player,
+            object: choice.object,
+            action: choice_action_view(choice.action),
         })
         .collect()
 }
@@ -664,6 +698,7 @@ pub fn player_view(
         command: per_seat_zone(&board, ZoneLocation::Command, seat, ctx.controlled_players),
         combat: combat_view(state),
         ballots: ballot_views(ctx.ballots),
+        held_choices: held_choice_views(ctx.held_choices),
         looking_at: looking_at(&board, seat, pending, ctx),
         trigger_order: Vec::new(),
         damage_sources: damage_sources(state, seat, pending, ctx, &mut references),
@@ -849,6 +884,7 @@ pub fn spectator_view(
         revealed_hands: revealed_hands(state, None),
         ballots: ballot_views(ballots),
         // What only the engine knows; `Session::spectator_view` fills it in.
+        held_choices: Vec::new(),
         controls: Vec::new(),
         target_objects: target_objects(
             state,

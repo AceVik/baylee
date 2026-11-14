@@ -90,6 +90,46 @@ pub(super) fn seats(table: &Table<'_>, out: &mut String) {
         Some(DayNight::Night) => out.push_str("It is night.\n"),
         None => {}
     }
+    if !view.held_choices.is_empty() {
+        let items: Vec<String> = view
+            .held_choices
+            .iter()
+            .map(|choice| {
+                let who = table.player(choice.player);
+                let verb = chosen_action_verb(choice.action);
+                match choice.object {
+                    Some(id) => format!("{who} to {verb} {}", table.named(id)),
+                    None => format!("{who} to {verb} a card"),
+                }
+            })
+            .collect();
+        let _ = writeln!(out, "Choices held so far: {}.", items.join(", "));
+    }
+}
+
+const fn chosen_action_verb(action: baylee_view::ChosenAction) -> &'static str {
+    match action {
+        baylee_view::ChosenAction::Sacrifice => "sacrifice",
+        baylee_view::ChosenAction::Discard => "discard",
+        baylee_view::ChosenAction::Destroy => "destroy",
+        baylee_view::ChosenAction::ReturnToHand => "return to hand",
+    }
+}
+
+fn chosen_card_type_word(card_type: TypeSet) -> Option<&'static str> {
+    [
+        (TypeSet::ARTIFACT, "artifact"),
+        (TypeSet::BATTLE, "battle"),
+        (TypeSet::CREATURE, "creature"),
+        (TypeSet::ENCHANTMENT, "enchantment"),
+        (TypeSet::INSTANT, "instant"),
+        (TypeSet::KINDRED, "kindred"),
+        (TypeSet::LAND, "land"),
+        (TypeSet::PLANESWALKER, "planeswalker"),
+        (TypeSet::SORCERY, "sorcery"),
+    ]
+    .into_iter()
+    .find_map(|(t, word)| card_type.contains(t).then_some(word))
 }
 
 /// A mana pool that holds something: "pool {R}{R}{G}", and its restricted
@@ -366,10 +406,25 @@ fn details(table: &Table<'_>, object: &PublicObject) -> Vec<String> {
     if object.controller != object.owner {
         out.push(format!("owned by {}", table.player(object.owner)));
     }
-    if let Some(subtype) = object.chosen_subtype
-        && let Some(name) = baylee_core::generated::subtypes::name(subtype)
+    match (
+        object
+            .chosen_subtype
+            .and_then(baylee_core::generated::subtypes::name),
+        object
+            .second_chosen_subtype
+            .and_then(baylee_core::generated::subtypes::name),
+    ) {
+        (Some(first), Some(second)) => out.push(format!("chosen types {first}, {second}")),
+        (Some(only), None) | (None, Some(only)) => out.push(format!("chosen type {only}")),
+        (None, None) => {}
+    }
+    if let Some(card_type) = object.chosen_card_type
+        && let Some(word) = chosen_card_type_word(card_type)
     {
-        out.push(format!("chosen type {name}"));
+        out.push(format!("chosen card type {word}"));
+    }
+    if let Some(number) = object.chosen_number {
+        out.push(format!("chosen number {number}"));
     }
     if let Some(named) = object.chosen_name
         && let Some(def) = baylee_cards::by_index(named.card)
@@ -387,6 +442,26 @@ fn details(table: &Table<'_>, object: &PublicObject) -> Vec<String> {
     }
     if let Some(opponent) = object.chosen_opponent {
         out.push(format!("chosen opponent {}", table.player(opponent)));
+    }
+    if !object.linked_exile.is_empty() {
+        let exiled: Vec<String> = object
+            .linked_exile
+            .iter()
+            .map(|&id| table.named(id))
+            .collect();
+        out.push(format!("exiled: {}", exiled.join(", ")));
+    }
+    for choice in table
+        .view
+        .held_choices
+        .iter()
+        .filter(|c| c.object == Some(object.id))
+    {
+        out.push(format!(
+            "chosen by {} to {}",
+            table.player(choice.player),
+            chosen_action_verb(choice.action)
+        ));
     }
     if let Some([left, right]) = object.unlocked_doors {
         let open: Vec<&str> = [(left, "left"), (right, "right")]
@@ -551,6 +626,14 @@ pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
         // its X is.
         if let Some(color) = object.chosen_color {
             let _ = write!(line, ", chosen color {}", words::color_name(color));
+        }
+        if let Some(card_type) = object.chosen_card_type
+            && let Some(word) = chosen_card_type_word(card_type)
+        {
+            let _ = write!(line, ", chosen card type {word}");
+        }
+        if let Some(number) = object.chosen_number {
+            let _ = write!(line, ", chosen number {number}");
         }
         if object.bought_back {
             line.push_str(", buyback paid: it returns to its owner's hand as it resolves");

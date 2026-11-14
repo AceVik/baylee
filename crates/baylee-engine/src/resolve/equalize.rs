@@ -67,6 +67,39 @@ impl Selection {
         }
         key
     }
+
+    /// Choices already locked in by earlier players in APNAP order while later
+    /// players still have to answer (CR 101.4b, CR 101.4d).
+    #[must_use]
+    pub(crate) fn held_choices(&self, state: &GameState) -> Vec<super::HeldChoice> {
+        let action = if self.hands {
+            crate::event::ChosenAction::Discard
+        } else {
+            crate::event::ChosenAction::Sacrifice
+        };
+        self.removals
+            .iter()
+            .filter_map(|&(player, id)| {
+                let object = if self.hands {
+                    state
+                        .zones
+                        .list(ZoneLocation::Hand(player))
+                        .contains(&id)
+                        .then_some(None)?
+                } else {
+                    state
+                        .object(id)
+                        .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                        .map(|_| Some(id))?
+                };
+                Some(super::HeldChoice {
+                    player,
+                    object,
+                    action,
+                })
+            })
+            .collect()
+    }
 }
 
 fn mix_object(key: u64, id: ObjectId) -> u64 {

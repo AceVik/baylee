@@ -2364,3 +2364,52 @@ fn a_melded_permanent_is_not_called_a_token() {
     let line = super::board::type_line(&brisela);
     assert!(line.ends_with(" token"), "{line}");
 }
+
+#[test]
+fn board_shows_chosen_card_type_second_subtype_number_linked_exile_and_held_choices() {
+    let (mut view, log) = board();
+    let mut lens = card(70, "Extraplanar Lens");
+    let exiled_island = card(71, "Island");
+    lens.linked_exile = vec![exiled_island.id];
+    lens.chosen_card_type = Some(baylee_core::types::TypeSet::CREATURE);
+    lens.chosen_subtype = Some(baylee_core::generated::subtypes::land::ISLAND);
+    lens.second_chosen_subtype = Some(baylee_core::generated::subtypes::land::MOUNTAIN);
+    lens.chosen_number = Some(4);
+    view.battlefield.push(lens.clone());
+    view.exile[0].push(exiled_island);
+    view.held_choices = vec![
+        baylee_view::HeldChoice {
+            player: THEM,
+            object: Some(id(45)),
+            action: baylee_view::ChosenAction::Sacrifice,
+        },
+        baylee_view::HeldChoice {
+            player: ME,
+            object: None,
+            action: baylee_view::ChosenAction::Discard,
+        },
+    ];
+    let pending = Pending::ChooseCards {
+        player: ME,
+        options: vec![lens.id],
+        min: 1,
+        max: 1,
+        prompt: baylee_engine::choice::ChoicePrompt::CostSacrifice,
+        total: None,
+    };
+    let request = request(view, pending, log);
+    let text = Narrator::new(&request.context)
+        .wake(&request, &[], None)
+        .text;
+    assert!(text.contains("chosen types Island, Mountain"), "{text}");
+    assert!(text.contains("chosen card type creature"), "{text}");
+    assert!(text.contains("chosen number 4"), "{text}");
+    assert!(text.contains("exiled: Island #71"), "{text}");
+    assert!(text.contains("chosen by P2 to sacrifice"), "{text}");
+    assert!(
+        text.contains(
+            "Choices held so far: P2 to sacrifice Serra Angel #45, you to discard a card."
+        ),
+        "{text}"
+    );
+}

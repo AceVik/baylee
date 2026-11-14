@@ -158,6 +158,90 @@ fn of_chosen_type(
     )
 }
 
+/// The card type the source chose (Serra's Emissary, CR 205.2a), read as
+/// `eval::matches` reads it (`PublicObject::chosen_card_type`).
+fn of_chosen_card_type(
+    view: &PlayerView,
+    object: &PublicObject,
+    this: Option<ObjectId>,
+) -> Option<bool> {
+    let source = view.object(this?)?;
+    Some(
+        source
+            .chosen_card_type
+            .is_some_and(|chosen| object.types.intersects(chosen)),
+    )
+}
+
+/// The colour the source chose (`PublicObject::chosen_color`).
+fn of_chosen_color(
+    view: &PlayerView,
+    object: &PublicObject,
+    this: Option<ObjectId>,
+) -> Option<bool> {
+    use baylee_core::color::Color;
+    use baylee_core::mana::ManaColor;
+    let source = view.object(this?)?;
+    let chosen = match source.chosen_color {
+        Some(ManaColor::White) => Some(Color::White),
+        Some(ManaColor::Blue) => Some(Color::Blue),
+        Some(ManaColor::Black) => Some(Color::Black),
+        Some(ManaColor::Red) => Some(Color::Red),
+        Some(ManaColor::Green) => Some(Color::Green),
+        Some(ManaColor::Colorless) | None => None,
+    };
+    Some(chosen.is_some_and(|c| object.colors.contains(c)))
+}
+
+/// Whether `object` shares its name with a face-up card exiled by `this`
+/// (Extraplanar Lens, CR 607.2a; [`PublicObject::linked_exile`]). Face-down
+/// objects have no name (CR 708.2) and never match.
+fn same_name_as_linked_exile(
+    view: &PlayerView,
+    object: &PublicObject,
+    this: Option<ObjectId>,
+) -> Option<bool> {
+    if object.status.is_face_down() || object.name.is_empty() {
+        return Some(false);
+    }
+    let source = view.object(this?)?;
+    let mut unknown = false;
+    for &id in &source.linked_exile {
+        let Some(exiled) = view.object(id) else {
+            unknown = true;
+            continue;
+        };
+        if !exiled.status.is_face_down() && !exiled.name.is_empty() && exiled.name == object.name {
+            return Some(true);
+        }
+    }
+    (!unknown).then_some(false)
+}
+
+/// Whether `object` shares a colour with a face-up card exiled by `this`
+/// (Mourner's Shield, CR 607.2a; [`PublicObject::linked_exile`]).
+fn shares_color_with_linked_exile(
+    view: &PlayerView,
+    object: &PublicObject,
+    this: Option<ObjectId>,
+) -> Option<bool> {
+    if object.colors.is_colorless() {
+        return Some(false);
+    }
+    let source = view.object(this?)?;
+    let mut unknown = false;
+    for &id in &source.linked_exile {
+        let Some(exiled) = view.object(id) else {
+            unknown = true;
+            continue;
+        };
+        if exiled.colors.intersects(object.colors) {
+            return Some(true);
+        }
+    }
+    (!unknown).then_some(false)
+}
+
 fn banded_with_source(view: &PlayerView, object: ObjectId, source: ObjectId) -> bool {
     object != source
         && view
@@ -212,6 +296,12 @@ impl HeuristicAgent {
             }
             Filter::NamedBySource => named_by_source(view, object, this),
             Filter::MatchesChosenTypeOfSource => of_chosen_type(view, object, this),
+            Filter::OfSourceChosenCardType => of_chosen_card_type(view, object, this),
+            Filter::OfSourceChosenColor => of_chosen_color(view, object, this),
+            Filter::SameNameAsLinkedExile => same_name_as_linked_exile(view, object, this),
+            Filter::SharesColorWithExiledWithSource => {
+                shares_color_with_linked_exile(view, object, this)
+            }
             // Three cases, two of which the view cannot tell apart; the
             // header has the reason. `card` is asked second because a
             // registry token never carries one.
@@ -341,17 +431,13 @@ impl HeuristicAgent {
         | Filter::CouldHaveAttackedThisTurn
         | Filter::ControllerControls(_)
         | Filter::TappedToPayForSourceThisTurn
-        // A source's chosen colour is not in a view, and a colour compared
-        // across the board is a gap like the reference family.
-        | Filter::OfSourceChosenColor
-        | Filter::OfSourceChosenCardType
+        // A colour compared across the board is a gap like the reference
+        // family.
         | Filter::SharesAColorWith(_)
         | Filter::Equipped
         | Filter::CmcEqualsCountersOnSource(_)
         | Filter::NotControlledByReferenceController
         | Filter::LowestManaValueOnBattlefield(_)
-        | Filter::SameNameAsLinkedExile
-        | Filter::SharesColorWithExiledWithSource
         | Filter::CmcEqualsYourUnspentMana => None,
         }
     }

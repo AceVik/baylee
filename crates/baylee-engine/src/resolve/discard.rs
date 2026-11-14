@@ -225,6 +225,13 @@ pub(super) fn resume_chain(
     chosen: &[ObjectId],
     since: u64,
 ) -> Flow {
+    if !chosen.is_empty() {
+        state.journal.record(crate::event::GameEvent::CardsChosen {
+            player,
+            cards: chosen.to_vec(),
+            action: crate::event::ChosenAction::Discard,
+        });
+    }
     selected.extend(chosen.iter().map(|card| (*card, player)));
     if let Some(pending) = next_in_chain(state, res, count, remaining, selected, draws) {
         next_choice(state, res, since, pending)

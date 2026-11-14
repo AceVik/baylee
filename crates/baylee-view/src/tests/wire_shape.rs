@@ -429,7 +429,13 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // of 91 cannot parse; `LogEvent::DidNotResolve::ability` beside them is
     // additive, defaulted and omitted at `false` in JSON, and protocol 46 on
     // binary frames.
-    const RECORDED: (u32, u64) = (92, 16_786_315_376_172_572_296);
+    // 93: `LogEvent::CardsChosen` (with `ChosenAction`) is a new gamelog
+    // variant a reader of 92 cannot parse; `PublicObject::second_chosen_subtype`,
+    // `chosen_card_type`, `chosen_number`, `linked_exile` and
+    // `PlayerView`/`SpectatorView::held_choices` (`HeldChoice`, `ViewField::HeldChoices`)
+    // beside it are additive, defaulted and omitted at empty/`None` in JSON,
+    // and protocol 47 on binary frames.
+    const RECORDED: (u32, u64) = (93, 5_197_534_328_483_882_664);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

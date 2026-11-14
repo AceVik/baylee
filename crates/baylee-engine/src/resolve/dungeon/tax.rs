@@ -45,10 +45,58 @@ pub(in crate::resolve) fn resume(
     mut tax: Box<Tax>,
     chosen: &[ObjectId],
 ) -> Option<Pending> {
-    if tax.chosen.len() < tax.players.len() {
-        tax.chosen.push(chosen.first().copied());
+    if let Some(&player) = tax.players.get(tax.chosen.len()) {
+        let picked = chosen.first().copied();
+        tax.chosen.push(picked);
+        if let Some(card) = picked {
+            state.journal.record(crate::event::GameEvent::CardsChosen {
+                player,
+                cards: vec![card],
+                action: if tax.discard {
+                    crate::event::ChosenAction::Discard
+                } else {
+                    crate::event::ChosenAction::Sacrifice
+                },
+            });
+        }
     }
     advance(state, res, tax)
+}
+
+impl Tax {
+    /// Choices already locked in while later players in APNAP order still have
+    /// to answer (CR 101.4b, CR 101.4d).
+    #[must_use]
+    pub(crate) fn held_choices(&self, state: &GameState) -> Vec<crate::resolve::HeldChoice> {
+        let action = if self.discard {
+            crate::event::ChosenAction::Discard
+        } else {
+            crate::event::ChosenAction::Sacrifice
+        };
+        self.players
+            .iter()
+            .zip(&self.chosen)
+            .filter_map(|(&player, &picked)| {
+                let id = picked?;
+                // CR 101.4d: a card chosen from a hidden hand stays hidden
+                // until the simultaneous discard happens; every seat still
+                // sees that `player` chose a card rather than declining.
+                let object = if self.discard {
+                    None
+                } else {
+                    state
+                        .object(id)
+                        .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                        .map(|_| id)
+                };
+                Some(crate::resolve::HeldChoice {
+                    player,
+                    object,
+                    action,
+                })
+            })
+            .collect()
+    }
 }
 
 fn advance(state: &mut GameState, res: &mut Resolution, mut tax: Box<Tax>) -> Option<Pending> {

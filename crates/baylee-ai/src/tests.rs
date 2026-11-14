@@ -110,10 +110,14 @@ fn permanent(id: ObjectId, controller: PlayerId, power: i16) -> PublicObject {
         supertypes: SupertypeSet::EMPTY,
         subtypes: SubtypeSet::EMPTY,
         chosen_subtype: None,
+        second_chosen_subtype: None,
+        chosen_card_type: None,
+        chosen_number: None,
         chosen_name: None,
         chosen_opponent: None,
         chosen_color: None,
         chosen_x: None,
+        linked_exile: Vec::new(),
         unlocked_doors: None,
         suspended: false,
         token: None,
@@ -297,6 +301,7 @@ fn view(seat: u8, lives: &[i32], battlefield: Vec<PublicObject>) -> PlayerView {
         controls: Vec::new(),
         foreign_targets: Vec::new(),
         ballots: Vec::new(),
+        held_choices: Vec::new(),
     }
 }
 
