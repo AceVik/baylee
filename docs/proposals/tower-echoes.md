@@ -45,6 +45,11 @@ Duplicates acknowledge the committed result; conflicting records are refused.
 If verification is pending or unavailable, show that state without issuing a
 second duel. Bound record size, action count, time, concurrency and retry work.
 This verifies rule-consistent play, not that a human rather than a bot chose it.
+Replay validation also cannot prove that an operator did not reveal hidden cards
+or search alternate human actions offline. Ranked execution therefore requires
+an explicitly trusted execution operator/instance; registration alone is not that
+trust. Gateways may provide access through approved execution capacity. Untrusted
+local execution must be clearly distinguished and cannot mint global ranked awards.
 
 Tower privileges are distinct from the existing all-purpose publisher bridge.
 Do not silently reuse a capability that also grants account or unrelated gateway
@@ -163,3 +168,28 @@ Daily/Weekly keep their multiple-solution certification. A match against a
 player's changing build is competitive, and cannot honestly promise a
 certified human victory. Do not reuse the old 35-node proof as evidence for
 this new mode. Record actual measurements and remaining limitations separately.
+
+## Implementation evidence — domain foundation
+
+`baylee-tower` now supplies the renderer-, network- and Central-independent rule
+kernel: bounded catalog/owned-deck validation, run-only relics and consumables,
+authoritative prices, deterministic shop offers, stock and reroll accounting,
+optimistic revisions, frozen shopping during a duel, technical voids without
+income, bounded terminal progression and same-stage/cohort echo selection.
+The starting rules are five victories or three unsuccessful duels, at most
+seven stages. A draw spends one defeat allowance. A win and an unsuccessful
+completed duel both grant ten gold; a new run starts with twelve. These values
+are initial calibration inputs, not measured balance conclusions.
+
+Eighteen focused tests pass, covering unknown/unowned/duplicate cards, deck size,
+copy and equipment limits, charge underflow, invalid saved counters, stale and
+sold offers, income bounds, duplicate terminal transitions, shop locking, voids,
+same-stage/build/catalog matching, self-match exclusion, repeated-contributor
+weight and deterministic selection independent of input order. Strict all-target
+Clippy passes. Tests execute in under 0.01 seconds after compilation.
+
+This is a pure-domain milestone only. Database transactions and request
+deduplication, authenticated service transport, engine items, verification
+workers, actual opponent records, client shop and Central accomplishment delivery
+remain to be connected and tested. A pure transition named `verified` is not a
+network authorization boundary or evidence of a real verified duel.

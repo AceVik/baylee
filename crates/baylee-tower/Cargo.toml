@@ -1,0 +1,20 @@
+[package]
+name = "baylee-tower"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Versioned global Tower economy and contracts, independent of Central and game execution"
+
+[lints]
+workspace = true
+
+[dependencies]
+baylee-core.workspace = true
+serde.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

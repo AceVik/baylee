@@ -2355,6 +2355,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-tower"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-core",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "baylee-train"
 version = "0.2.0-beta.o1"
 dependencies = [
