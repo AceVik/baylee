@@ -221,6 +221,26 @@ fn a_human_cannot_race_the_frozen_opponents_simultaneous_opening() {
 }
 
 #[test]
+fn conceding_during_a_frozen_opponent_decision_is_legal_and_replayable() {
+    let mut session = recorded(&setup());
+    assert!(session.needs_pump());
+    session
+        .act_slice(PlayerId::new(0), PlayerAction::Concede, 0)
+        .unwrap();
+    let Pending::GameOver(result) = session.pending() else {
+        panic!("concession ends the duel without waiting for the opponent");
+    };
+    assert_eq!(
+        result.winner,
+        Some(baylee_engine::win::Victor::Player(PlayerId::new(1)))
+    );
+    let record = session.take_record();
+    let restored = Session::resume_recorded(&record).unwrap();
+    assert_eq!(restored.snapshot_hash(), session.snapshot_hash());
+    assert!(house_inputs(&record).is_empty());
+}
+
+#[test]
 fn unsafe_challenge_execution_modes_are_refused_before_the_first_hand() {
     let preset = setup();
     let mut changed = preset.clone();

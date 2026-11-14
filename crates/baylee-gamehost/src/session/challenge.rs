@@ -31,6 +31,13 @@ pub(super) fn policy_seed(rules: &HouseRules, game: &str, seat: u8) -> u64 {
 }
 
 impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry> Session<D, R> {
+    /// Frozen-policy serialization never delays conceding (CR 104.3a).
+    pub(super) fn challenge_allows_seat_action(&self, action: &PlayerAction) -> bool {
+        matches!(action, PlayerAction::Concede)
+            || action.is_automation_setting()
+            || !self.needs_pump()
+    }
+
     /// One accepted opponent input, shared by live play and record reconstruction.
     pub(super) fn challenge_answered(&mut self, seat: PlayerId, by: Source) {
         if self.is_challenge() && seat.get() == 1 && by == Source::House {
@@ -48,7 +55,7 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
         action: &PlayerAction,
     ) -> Option<Asked> {
         match (seat.get(), by) {
-            (0, Source::Seat) if action.is_automation_setting() || !self.needs_pump() => {
+            (0, Source::Seat) if self.challenge_allows_seat_action(action) => {
                 let asked = self.answering(seat, action);
                 self.engine.apply(seat, action.clone()).ok()?;
                 Some(asked)

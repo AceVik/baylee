@@ -1201,3 +1201,16 @@ Strict Clippy for all targets of both changed crates passes in
 `/tmp/baylee-tower-native-recovery-clippy-20261114.log`. Authenticated transport,
 process-level recovery orchestration, native UI and full playable acceptance
 remain outstanding; this is not an end-to-end completion claim.
+
+## Concession correctness — thirty-sixth working milestone
+
+After a move-only extraction of socket answer application, frozen-policy games
+now admit concession while the Expert still owes a decision (CR 104.3a). Other
+game-moving actions retain the serialization barrier. Live admission and strict
+policy replay share the same predicate, so an accepted concession cannot later
+be rejected solely for its timing. Six affected challenge tests pass in
+`/tmp/baylee-challenge-concession-tests-20261114.log`, including the existing
+simultaneous-mulligan race refusal. An actual native opening concession independently
+verifies in `/tmp/baylee-tower-early-concession-tests-20261114-r2.log`; both changed
+crates' strict all-target Clippy passes in
+`/tmp/baylee-challenge-concession-clippy-20261114.log`.

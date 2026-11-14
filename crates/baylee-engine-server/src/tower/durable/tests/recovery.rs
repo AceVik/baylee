@@ -243,3 +243,42 @@ fn recovery_refuses_altered_truncated_overlong_and_uncommitted_streams() {
         Err(Refusal::Invalid)
     ));
 }
+
+#[test]
+fn native_verification_accepts_legal_concession_before_expert_opening() {
+    let (package, catalog) = fixture();
+    let identity = crate::variant::identity();
+    let preset = package
+        .preset(&catalog, &identity, |card| {
+            Some(baylee_cards::decks::reference_print(card))
+        })
+        .unwrap();
+    let mut session =
+        crate::variant::HostedSession::recorded_for_execution(&preset, &identity).unwrap();
+    assert!(session.needs_pump());
+    session
+        .act_slice(PlayerId::new(0), PlayerAction::Concede, 0)
+        .unwrap();
+    let digest = package.digest(&catalog).unwrap();
+    let mut prefix = Prefix::default();
+    let mut source = Vec::new();
+    for chunk in session.take_record().chunks(MAX_CHUNK_BYTES) {
+        prefix = prefix.extended(digest, MAX_RECORD_BYTES, chunk).unwrap();
+        baylee_worker::frame::write(&mut source, chunk, MAX_CHUNK_BYTES).unwrap();
+    }
+    let settlement = super::super::super::verification::verify_record(
+        &package,
+        &catalog,
+        Binding {
+            package: digest,
+            fence: 1,
+            prefix,
+        },
+        source.as_slice(),
+        ReplayBudget::default(),
+        Instant::now() + Duration::from_secs(10),
+    )
+    .unwrap();
+    assert_eq!(settlement.outcome, Outcome::Defeat);
+    assert_eq!(settlement.turns, 1);
+}
