@@ -44,11 +44,7 @@ pub(super) fn save_button(commands: &mut Commands, env: &Env) -> Entity {
         live,
         save_hint,
         &trailing,
-        (
-            Press::Build(BuildPress::SaveDeck),
-            stop("save"),
-            crate::tour::TourAnchor(baylee_client_core::tour::Anchor::BuildSave),
-        ),
+        (Press::Build(BuildPress::SaveDeck), stop("save")),
     )
 }
 

@@ -20,7 +20,6 @@ pub(super) fn tables(
     let wide = matches!(kit.m.frame, ShellFrame::Wide | ShellFrame::Vast);
     let panel = commands
         .spawn((
-            TourAnchor(Anchor::PlayTables),
             Role::Panel,
             Node {
                 flex_grow: 1.0,

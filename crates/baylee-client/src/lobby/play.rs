@@ -27,8 +27,6 @@ use super::*;
 use crate::shellkit::controls::{self, Kit, Live, Weight};
 use crate::shellkit::surfaces::{self, SheetWidth};
 use crate::shellkit::{Frame as ShellFrame, Role, px_fixed, tokens};
-use crate::tour::TourAnchor;
-use baylee_client_core::tour::Anchor;
 use client_core::lobby::play::{
     self as model, Chip, Outcome, TableDraft, TableFilter, TableSort, Template,
 };

@@ -41,7 +41,6 @@ pub(super) fn sidebar(commands: &mut Commands, parent: Entity, state: &LobbyStat
 fn next_table(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: Kit) {
     let lang = state.lobby.lang();
     let card = panel(commands, parent, kit);
-    commands.entity(card).insert(TourAnchor(Anchor::PlayHero));
     let title = parts::line(
         commands,
         kit,

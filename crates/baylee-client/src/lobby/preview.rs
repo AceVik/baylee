@@ -11,8 +11,7 @@ use super::*;
 
 /// The hover preview's band: over the lobby's sheets and menus and over
 /// the chat window and its pop-ups (`social::window::G_PANEL` to `+ 30`:
-/// a card linked in the chat previews beside it), under a tour's bubble
-/// (`tour::draw`), which must never be hidden by it.
+/// a card linked in the chat previews beside it).
 pub const PREVIEW_Z: i32 = 940;
 
 /// A row that has a card behind it, and what that card looks like.
@@ -356,7 +355,6 @@ pub(super) fn preview(
     ui_materials: Option<ResMut<UiCardMaterials>>,
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
     reading: Reading,
-    spot: Option<Res<crate::tour::Spotlight>>,
     ui: Option<Res<UiScale>>,
 ) {
     let canvas = windows
@@ -405,9 +403,8 @@ pub(super) fn preview(
         assets: &mut store,
     };
 
-    let bubble = spot.as_deref().and_then(|s| s.bubble);
     let at = hovered.at / ui.as_deref().map_or(1.0, |scale| scale.0);
-    let rect = place_clear(at, canvas, bubble);
+    let rect = place(at, canvas);
     let (turning, rect, card_box) = standing(card, text.is_none(), rect, at, canvas);
     let (left, top, width, height) = (
         card_box.min.x,
@@ -600,35 +597,6 @@ fn across(upright: Rect, at: Vec2, canvas: Vec2) -> Rect {
     Rect::new(left, top, left + wide, top + tall)
 }
 
-/// [`place`], clear of the tour's bubble where it can be (09.10.: a preview
-/// lay over the bubble's words): the other side of the pointer, else the
-/// side of the bubble away from it.
-fn place_clear(at: Vec2, canvas: Vec2, bubble: Option<Rect>) -> Rect {
-    let first = place(at, canvas);
-    let Some(bubble) = bubble.filter(|b| !b.intersect(first).is_empty()) else {
-        return first;
-    };
-    let width = first.width();
-    let w = canvas.x;
-    let clamp = |left: f32| {
-        let left = left.clamp(8.0, (w - width - 8.0).max(8.0));
-        Rect::new(left, first.min.y, left + width, first.max.y)
-    };
-    let left_of_pointer = clamp(at.x - width - 24.0);
-    let right_of_pointer = clamp(at.x + 24.0);
-    let left_of_bubble = clamp(bubble.min.x - width - 12.0);
-    let right_of_bubble = clamp(bubble.max.x + 12.0);
-    [
-        right_of_pointer,
-        left_of_pointer,
-        right_of_bubble,
-        left_of_bubble,
-    ]
-    .into_iter()
-    .find(|r| r.intersect(bubble).is_empty())
-    .unwrap_or(first)
-}
-
 /// Where the preview of a row the pointer came onto at `at` stands, in a
 /// window of `canvas` logical pixels.
 ///
@@ -768,19 +736,6 @@ pub(super) fn starter_rows() -> Vec<String> {
 mod tests {
     use super::*;
     use baylee_client_core::deckbuilder::PoolCard;
-
-    /// A tour bubble stands where the preview would (09.10.): the preview
-    /// moves clear of it.
-    #[test]
-    fn the_preview_stands_clear_of_the_tour_bubble() {
-        let canvas = Vec2::new(1708.0, 1032.0);
-        let at = Vec2::new(500.0, 500.0);
-        let first = place(at, canvas);
-        let bubble = Rect::new(first.min.x + 20.0, 300.0, first.min.x + 380.0, 600.0);
-        let clear = place_clear(at, canvas, Some(bubble));
-        assert!(clear.intersect(bubble).is_empty(), "{clear:?}");
-        assert_eq!(place_clear(at, canvas, None), first);
-    }
 
     fn pointer_event<E: crate::test_pointer::Aim>(entity: Entity, event: E, x: f32) -> E::Event {
         use bevy::picking::pointer::{Location, PointerId};

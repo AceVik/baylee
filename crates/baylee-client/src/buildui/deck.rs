@@ -50,10 +50,7 @@ pub(super) fn panel(commands: &mut Commands, env: &Env, holders: &mut retained::
         1.0
     };
     let panel = super::panel(commands, kit, grow, None);
-    commands.entity(panel).insert((
-        crate::lobby::dock::Dock(5),
-        crate::tour::TourAnchor(baylee_client_core::tour::Anchor::BuildDeck),
-    ));
+    commands.entity(panel).insert(crate::lobby::dock::Dock(5));
     holders.deck_head = Some(holder(
         commands,
         panel,
@@ -94,9 +91,6 @@ pub(super) fn panel(commands: &mut Commands, env: &Env, holders: &mut retained::
             ..default()
         },
     );
-    commands.entity(foot).insert(crate::tour::TourAnchor(
-        baylee_client_core::tour::Anchor::BuildFooter,
-    ));
     holders.deck_foot = Some(foot);
     panel
 }

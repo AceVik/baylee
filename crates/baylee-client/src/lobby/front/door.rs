@@ -378,7 +378,6 @@ pub(super) fn header_controls(
     let table = keys::table_of(state).name;
     let cluster = commands
         .spawn((
-            crate::tour::TourAnchor(baylee_client_core::tour::Anchor::FrontTextRow),
             Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::FlexEnd,

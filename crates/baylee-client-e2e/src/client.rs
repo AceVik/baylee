@@ -2,7 +2,7 @@
 //! harness, and always closed.
 //!
 //! Each client gets directories of its own for configuration, cache and data,
-//! a free loopback port, a passive and silent window at scale 1, no tours,
+//! a free loopback port, a passive and silent window at scale 1,
 //! and dead loopback addresses for the gateway and the updater: without
 //! `BAYLEE_GATEWAY` a client takes the production gateway, even one that is
 //! only ever asked to play offline. Dropping a [`Client`] kills it and waits
@@ -32,7 +32,6 @@ pub struct Launch {
     viewport: Viewport,
     text_step: TextStep,
     lang: String,
-    tours: bool,
     settings: Map<String, Value>,
     env: Vec<(String, String)>,
     args: Vec<String>,
@@ -45,7 +44,6 @@ impl Default for Launch {
             viewport: Viewport::LAPTOP,
             text_step: TextStep::M,
             lang: "en".to_owned(),
-            tours: false,
             settings: Map::new(),
             env: Vec::new(),
             args: Vec::new(),
@@ -55,7 +53,7 @@ impl Default for Launch {
 }
 
 impl Launch {
-    /// The defaults: 1440 × 900, English, text step M, no tours.
+    /// The defaults: 1440 × 900, English, text step M.
     pub fn new() -> Self {
         Self::default()
     }
@@ -79,13 +77,6 @@ impl Launch {
     #[must_use]
     pub fn lang(mut self, lang: &str) -> Self {
         lang.clone_into(&mut self.lang);
-        self
-    }
-
-    /// Lets the lobby and table tours run (off by default).
-    #[must_use]
-    pub fn tours(mut self, on: bool) -> Self {
-        self.tours = on;
         self
     }
 
@@ -266,9 +257,6 @@ impl Client {
             .stdin(Stdio::null())
             .stdout(fs::File::create(dir.join("client.stdout.log"))?)
             .stderr(fs::File::create(dir.join("client.stderr.log"))?);
-        if !launch.tours {
-            command.env("BAYLEE_NO_TOURS", "1");
-        }
         if let Some(monitor) = &monitor {
             command.env("BAYLEE_DEV_MONITOR", monitor);
         }

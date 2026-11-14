@@ -97,23 +97,18 @@ pub(crate) fn stand_over_table(state: &mut LobbyState) {
 /// held the keys; after, there is no `Esc` left to hear.
 ///
 /// A holder standing over the settings has its `Esc` first: the report form
-/// (its corner button stands over them), a narrated tour bubble, the chat's
-/// composer.
+/// (its corner button stands over them) or the chat's composer.
 pub(crate) fn close_on_escape(
     mut codes: ResMut<ButtonInput<KeyCode>>,
     logical: Option<ResMut<ButtonInput<Key>>>,
     mut state: ResMut<LobbyState>,
     desk: Option<Res<crate::report::ReportDesk>>,
-    tour: Option<Res<crate::tour::TourDesk>>,
     chat: Option<Res<crate::social::ChatUi>>,
 ) {
     if !codes.just_pressed(KeyCode::Escape) || !state.settings_over_table() {
         return;
     }
-    if desk.is_some_and(|d| d.holds_keyboard())
-        || tour.is_some_and(|t| t.holds_keyboard())
-        || chat.is_some_and(|c| c.holds_keyboard())
-    {
+    if desk.is_some_and(|d| d.holds_keyboard()) || chat.is_some_and(|c| c.holds_keyboard()) {
         return;
     }
     let inner = state.settings.capturing().is_some()

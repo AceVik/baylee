@@ -47,7 +47,7 @@ pub(crate) mod form;
 mod keys;
 mod refs;
 mod shot;
-// The guided tour points at both (`crate::tour::table`).
+#[cfg(test)]
 pub(crate) use corner::ReportCorner;
 #[cfg(test)]
 pub(crate) use field::{DeskBox, DeskCaret, DeskSuggest, DeskSuggestMeta, DeskText, ReportLink};
@@ -56,9 +56,11 @@ pub(crate) use field::{DeskBox, DeskCaret, DeskSuggest, DeskSuggestMeta, DeskTex
 pub(crate) use form::DeskPress;
 #[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
 pub(crate) use form::DeskRoot;
+#[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
+pub(crate) use form::ReportAnchor;
 #[cfg(test)]
 pub(crate) use form::{DeskScroll, SendSpinner};
-pub(crate) use form::{REPORT, REPORT_CONFIRM, ReportAnchor};
+pub(crate) use form::{REPORT, REPORT_CONFIRM};
 #[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
 pub(crate) use refs::ReportPreview;
 /// The compiled pool as `#` candidates, which the chat offers away from a
@@ -352,17 +354,10 @@ fn keys(
     focus: Option<Res<bevy::input_focus::InputFocus>>,
     visible: Option<Res<bevy::input_focus::InputFocusVisible>>,
     stops: Query<&crate::shellkit::focus::Stop>,
-    tour: Option<Res<crate::tour::TourDesk>>,
 ) {
     desk.swallow = false;
     keys::take_the_paste(&mut desk);
-    // A tour step narrated over the form has its keys: Enter and → move
-    // the tour on, not into the text. Folding the bubble gives them back.
-    let narrated = tour.as_deref().is_some_and(|t| {
-        t.shown()
-            .is_some_and(baylee_client_core::tour::Run::narrates_over_the_form)
-    });
-    if desk.asking || (desk.open && narrated) {
+    if desk.asking {
         typed.clear();
         return;
     }

@@ -178,7 +178,6 @@ pub(super) fn toolbar(commands: &mut Commands, holder: Entity, env: &Env) {
             ..default()
         },
         stop("search"),
-        crate::tour::TourAnchor(baylee_client_core::tour::Anchor::BuildSearch),
     ));
     let mut first = vec![search];
     if compact(env) {
@@ -707,13 +706,10 @@ pub(super) fn list(commands: &mut Commands, holder: Entity, env: &Env) {
         Phrase::LoadingPool.text(lang).to_string()
     };
     let count = cell(commands, kit, &tally, m.small, tokens::INK, true);
-    commands.entity(count).insert((
-        Node {
-            flex_shrink: 0.0,
-            ..default()
-        },
-        crate::tour::TourAnchor(baylee_client_core::tour::Anchor::BuildCount),
-    ));
+    commands.entity(count).insert(Node {
+        flex_shrink: 0.0,
+        ..default()
+    });
     commands.entity(foot).add_child(count);
     commands.entity(holder).add_child(foot);
 }

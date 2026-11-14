@@ -75,11 +75,6 @@ pub(crate) fn pool_row_at(
             PoolRowAt(at),
         ))
         .id();
-    if at == 0 {
-        commands.entity(row).insert(crate::tour::TourAnchor(
-            baylee_client_core::tour::Anchor::BuildFirstRow,
-        ));
-    }
     let thumb = print(
         commands,
         &hover,
@@ -323,11 +318,6 @@ pub(crate) fn pool_compact_row(
             PoolRowAt(at),
         ))
         .id();
-    if at == 0 {
-        commands.entity(row).insert(crate::tour::TourAnchor(
-            baylee_client_core::tour::Anchor::BuildFirstRow,
-        ));
-    }
     let lang = state.lobby.lang();
     let r_dot = rarity_dot(commands, kit, deck.card_rarity(slot), lang);
     let name = cell(commands, kit, &card.name, m.text, tokens::INK, true);
@@ -481,11 +471,6 @@ pub(crate) fn pool_grid_row(
                 PoolRowAt(at),
             ))
             .id();
-        if at == 0 {
-            commands.entity(tile).insert(crate::tour::TourAnchor(
-                baylee_client_core::tour::Anchor::BuildFirstRow,
-            ));
-        }
         let art_wrap = commands
             .spawn((
                 Node {

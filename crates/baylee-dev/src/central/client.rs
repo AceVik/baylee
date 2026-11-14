@@ -71,7 +71,6 @@ pub fn client(monitor: i64, challenges: bool, hold_seconds: u64) -> Result<i32> 
                 .env("BAYLEE_DEV_MONITOR", monitor.to_string())
                 .env("BAYLEE_DEV_WINDOW", "1280x800")
                 .env("BAYLEE_DEV_SOUND", "")
-                .env("BAYLEE_NO_TOURS", "1")
                 .env("BAYLEE_CENTRAL_DEV_ENDPOINT", &central)
                 .env("BAYLEE_GATEWAY", &gateway)
                 .env(

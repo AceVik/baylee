@@ -222,9 +222,9 @@ fn filling_a_phrase_puts_the_arguments_where_the_language_wants_them() {
 }
 
 /// The attachment boxes of the report form are a choice the player can
-/// undo before sending, not a consent: the form, its tour step and its
-/// settings row say so in plain words, in both languages. (Crash reports
-/// are another matter and keep their own wording.)
+/// undo before sending, not a consent: the form and its settings row say so in
+/// plain words, in both languages. (Crash reports are another matter and keep
+/// their own wording.)
 #[test]
 fn the_report_attachments_are_a_choice_and_not_a_consent() {
     let lower = |phrase: Phrase, lang: Lang| phrase.text(lang).to_lowercase();
@@ -234,28 +234,12 @@ fn the_report_attachments_are_a_choice_and_not_a_consent() {
     assert!(claims_consent("deine einwilligung"));
     assert!(!claims_consent("a choice"));
 
-    for phrase in [
-        Phrase::TourT32Body,
-        Phrase::HelpReportConsent,
-        Phrase::RowReportConsent,
-    ] {
+    for phrase in [Phrase::HelpReportConsent, Phrase::RowReportConsent] {
         for lang in Lang::ALL {
             let text = lower(phrase, lang);
             assert!(!claims_consent(&text), "{phrase:?} {lang:?}: {text}");
         }
     }
-    let en = lower(Phrase::TourT32Body, Lang::En);
-    assert!(en.contains("a choice"), "{en}");
-    assert!(
-        en.contains("untick") && en.contains("before you send"),
-        "{en}"
-    );
-    let de = lower(Phrase::TourT32Body, Lang::De);
-    assert!(de.contains("eine wahl"), "{de}");
-    assert!(
-        de.contains("heraus") && de.contains("vor dem senden"),
-        "{de}"
-    );
 }
 
 /// Every table's files: each parses whole, holds every English id once and

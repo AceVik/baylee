@@ -460,9 +460,6 @@ pub enum MenuAction {
     /// game menu: the lobby draws them (`lobby::table_settings`); a client
     /// seated straight into its game has no lobby, and its row is dead.
     Settings,
-    /// The guided tour from its first chapter (TOURS.md §1.7), from the
-    /// game menu: a house game's; a networked table's row is dead.
-    Tour,
     /// Open the arrangement menu (DESIGN-v8 §2.4): the game menu's row, and
     /// on a phone the switcher's only door.
     ArrangementMenu,
@@ -1945,6 +1942,7 @@ pub use hand::apply_hand_scroll;
 pub use hand::{ControlHandFrame, ControlHandLabel, HandArrival, arrive_the_hand};
 /// Gentle lift while inspecting a hand card.
 pub(crate) const HOVER_RAISE: f32 = 12.0;
+pub use controlbanner::{show_control_banner, spawn_control_banner};
 pub use hand::{ARMED_RAISE, HAND_ZONE_H, LEDGE_H, OVERLAY_CARD_H, OVERLAY_CARD_W};
 pub use hint::{Hint, show_hint};
 /// The one line the actions row carries, which `frontal` paints because the
@@ -1962,10 +1960,8 @@ pub use ledge::log::{
     grow_the_log, hover_log_links, keep_the_folds, sync_log,
 };
 pub use ledge::menu::{MenuPanel, MenuRevision, grow_the_menu, show_priority_switch, sync_menu};
-pub(crate) use ledge::players::STRIPS_H;
-// The guided tour's anchors ride on these markers (`tour::table`).
-pub use controlbanner::{show_control_banner, spawn_control_banner};
 pub(crate) use ledge::players::PlayersStrip;
+pub(crate) use ledge::players::STRIPS_H;
 pub use ledge::players::{
     ChipCrown, ChipTag, ControlBadge, GuestBadge, HintSeat, PlayersRevision, TagKind,
     control_badge, glow_the_players, show_the_control_badges, show_the_tags, sync_players,
@@ -1998,11 +1994,11 @@ pub use sheet::{
     place_ability_sheet, sync_ability_sheet, zoom_the_sheet,
 };
 pub use slip::{SlipWash, wash_the_slip_in};
+pub(crate) use stack::StackPanel;
 pub use stack::{
     StackButton, StackFold, StackMotion, StackTextBar, StackTextBox, StackTextRow, StackTextScroll,
     TextNudge, ease_the_stack_in, fold_the_stack, stack_text, stack_text_keys,
 };
-pub(crate) use stack::{StackControls, StackPanel};
 pub(crate) use tray::band_of;
 pub(crate) use tray::dim_the_table;
 pub use tray::{TrayCarry, TrayReveal, TrayRevision, carry_the_rows, reveal_tray, sync_tray};

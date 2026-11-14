@@ -189,8 +189,7 @@ impl History {
 /// What the selected version is compared with (`DESIGN` §C.3).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Compare {
-    /// The version before it: what this save changed (the default; TOURS
-    /// D14).
+    /// The version before it: what this save changed (the default).
     #[default]
     Previous,
     /// The deck as it is now.

@@ -301,29 +301,6 @@ fn esc_under_the_report_form_is_the_form_s() {
     );
 }
 
-/// A narrated tour bubble holding the keys over the settings has its `Esc`
-/// first. (The table's own tour stands aside while the settings stand,
-/// `tour::table`; a bubble of another tour still could hold the keys.)
-#[test]
-fn esc_under_a_narrated_bubble_is_the_bubble_s() {
-    use super::front_keys::press_key;
-    use baylee_client_core::tour::{Run, Tour};
-    let mut app = asked_at_a_table();
-    app.world_mut().resource_mut::<crate::tour::TourDesk>().run =
-        Run::chapter(Tour::Lobby, 0, false, 2);
-    assert!(
-        app.world()
-            .resource::<crate::tour::TourDesk>()
-            .holds_keyboard(),
-        "the control: the bubble holds the keys"
-    );
-    press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
-    assert!(
-        app.world().resource::<LobbyState>().settings_over_table(),
-        "the bubble's Esc closed the settings under it"
-    );
-}
-
 /// The chat's composer holding the keys over the settings has its `Esc`
 /// first.
 #[test]

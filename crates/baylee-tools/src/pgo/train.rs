@@ -70,7 +70,6 @@ pub fn scenes(
             )?;
         }
         let mut launch = Launch::new()
-            .tours(false)
             .env(
                 "LLVM_PROFILE_FILE",
                 &raw.join("%m_%p.profraw").to_string_lossy(),

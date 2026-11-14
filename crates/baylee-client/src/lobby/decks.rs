@@ -23,8 +23,6 @@ use super::*;
 use crate::shellkit::controls::{self, Kit, Live, Weight};
 use crate::shellkit::surfaces::{self, SheetWidth};
 use crate::shellkit::{Frame as ShellFrame, Role, px_fixed, tokens};
-use crate::tour::TourAnchor;
-use baylee_client_core::tour::Anchor;
 use client_core::lobby::library::{AfterCopy, Compare, Page};
 use client_core::lobby::shelf::{self, Sort};
 
@@ -116,11 +114,6 @@ pub(crate) enum UndoKind {
     Delete,
     /// A version restored from the history sheet (`Library::restored`).
     Restore,
-    /// The tours switched off by the bubble's box
-    /// (`LobbyState::tours_before`, TOURS.md §1.7).
-    ToursOff,
-    /// Settings › Restart tours.
-    ToursRestarted,
 }
 
 /// How long an Undo is offered (§2.4: a toast's 6 s).
@@ -506,17 +499,6 @@ fn toolbar(
             },
         );
         orders::items_of(commands, tabs, &orders::DECKS, "tabs");
-        commands.entity(tabs).insert(TourAnchor(Anchor::DecksTabs));
-        commands.queue(move |world: &mut World| {
-            let house = world
-                .get::<Children>(tabs)
-                .and_then(|children| children.get(1).copied());
-            if let Some(house) = house {
-                world
-                    .entity_mut(house)
-                    .insert(TourAnchor(Anchor::DecksHouseTab));
-            }
-        });
         commands.entity(bar).add_child(tabs);
     }
     let gap = parts::grow(commands);
@@ -623,9 +605,6 @@ fn toolbar(
         );
         orders::stop(commands, new, &orders::DECKS, "new");
         orders::stop(commands, import, &orders::DECKS, "import");
-        commands
-            .entity(import)
-            .insert(TourAnchor(Anchor::DecksImport));
         commands.entity(bar).add_children(&[new, import]);
     }
     (sort_anchor, format_anchor)
@@ -1245,14 +1224,6 @@ fn mine(
             Some(Press::Decks(DecksPress::Edit(index))),
         );
         orders::item(commands, tile, &orders::DECKS, "tiles", walked);
-        if walked == 0 {
-            commands
-                .entity(tile)
-                .insert(TourAnchor(Anchor::DecksFirstTile));
-            commands
-                .entity(more)
-                .insert(TourAnchor(Anchor::DecksTileActions));
-        }
         walked += 1;
         commands.entity(tile).insert((
             super::focusing::Primary(Press::Decks(DecksPress::Edit(index))),
@@ -1296,7 +1267,6 @@ fn mine(
         }
     }
     let new = new_tile(commands, kit, lang, view);
-    commands.entity(new).insert(TourAnchor(Anchor::DecksNew));
     orders::item(commands, new, &orders::DECKS, "tiles", walked);
     commands.entity(grid).add_child(new);
 }
@@ -1396,10 +1366,6 @@ fn empty_shelf(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity 
         Press::Decks(DecksPress::Import),
     );
     let actions = parts::row(commands, kit, true);
-    commands.entity(new).insert(TourAnchor(Anchor::DecksNew));
-    commands
-        .entity(import)
-        .insert(TourAnchor(Anchor::DecksImport));
     commands.entity(actions).add_children(&[new, import]);
 
     let minis = super::play::mini_tiles(commands, state, kit, &orders::DECKS, "tiles");
@@ -3060,7 +3026,7 @@ impl DecksPress {
             prefs,
             scrolled,
             mailbox,
-            settings,
+            settings: _,
         } = cx;
         match self {
             DecksPress::Tab(tab) => {
@@ -3163,14 +3129,6 @@ impl DecksPress {
                 Some(UndoKind::Restore) => {
                     let request = state.lobby.undo_restore();
                     dispatch(state, mailbox, request);
-                }
-                Some(UndoKind::ToursOff | UndoKind::ToursRestarted) => {
-                    if let (Some(before), Some(settings)) =
-                        (state.tours_before.take(), settings.as_mut())
-                    {
-                        settings.tours = before;
-                        settings.save();
-                    }
                 }
                 None => {}
             },
@@ -3452,7 +3410,6 @@ pub(super) fn undo_clock(time: Res<Time>, mut state: ResMut<LobbyState>, mailbox
             dispatch(&mut state, &mailbox, request);
         }
         UndoKind::Restore => state.lobby.forget_restore(),
-        UndoKind::ToursOff | UndoKind::ToursRestarted => state.tours_before = None,
     }
 }
 

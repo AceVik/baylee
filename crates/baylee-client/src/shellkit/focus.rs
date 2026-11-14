@@ -569,14 +569,12 @@ fn activate(
     off: Query<(), With<super::controls::Disabled>>,
     parents: Query<&ChildOf>,
     codes: Option<Res<ButtonInput<KeyCode>>>,
-    tour: Option<Res<crate::tour::TourDesk>>,
     chat: Option<Res<crate::social::ChatUi>>,
     mut out: MessageWriter<Activated>,
     lobby: Option<Res<crate::LobbyState>>,
 ) {
-    // A narrated tour bubble has the keys (TOURS.md §1.3): its Enter is
-    // its Next, not the focused stop's press. So does the chat's composer.
-    if tour.is_some_and(|t| t.holds_keyboard()) || chat.is_some_and(|c| c.holds_keyboard()) {
+    // The chat's composer holds the keys when it has the caret.
+    if chat.is_some_and(|c| c.holds_keyboard()) {
         keys.clear();
     }
     // At a table a stop answers only inside a modal kit sheet, or on the

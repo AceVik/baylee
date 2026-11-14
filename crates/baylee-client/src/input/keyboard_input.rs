@@ -12,21 +12,18 @@ pub struct KeyClaims<'w> {
     desk: Option<Res<'w, crate::report::ReportDesk>>,
     arrangements: Option<ResMut<'w, crate::arrangement::ArrangementFrame>>,
     stack_text: Option<ResMut<'w, crate::hud::StackTextScroll>>,
-    tour: Option<Res<'w, crate::tour::TourDesk>>,
     chat: Option<Res<'w, crate::social::ChatUi>>,
     lobby: Option<Res<'w, crate::LobbyState>>,
 }
 
 impl KeyClaims<'_> {
-    /// The report form holds every key while it is up, and so does a
-    /// narrated tour bubble (TOURS.md §1.3) — on the frame it closes, the
-    /// key is swallowed. The settings over the table hold them too: their
-    /// search, their rebinding rows and their `Esc` are the lobby's
+    /// The report form holds every key while it is up — on the frame it
+    /// closes, the key is swallowed. The settings over the table hold them
+    /// too: their search, their rebinding rows and their `Esc` are the lobby's
     /// (`lobby::table_settings`), and the `Esc` that closes them is taken
     /// off the keys before the table could hear it.
     fn held(&self) -> bool {
         self.desk.as_ref().is_some_and(|desk| desk.holds_keyboard())
-            || self.tour.as_ref().is_some_and(|t| t.holds_keyboard())
             || self.chat.as_ref().is_some_and(|c| c.holds_keyboard())
             || self.lobby.as_ref().is_some_and(|l| l.settings_over_table())
     }

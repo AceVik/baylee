@@ -127,7 +127,6 @@ pub(crate) mod test_pointer;
 pub mod textures;
 pub mod tokenart;
 pub mod touch;
-pub mod tour;
 pub(crate) mod transport;
 pub(crate) mod ui_button;
 pub mod unlit;

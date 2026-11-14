@@ -1630,11 +1630,11 @@ fn at_a_table_the_hash_offers_the_view_and_never_the_pool() {
     assert!(desk(&app).form().text.text().ends_with("[@steady 1] "));
 }
 
-/// The tours' anchors on the sheet (`TOURS.md` §3.1, T31–T33): the sheet,
+/// Named section rects of the report sheet (`/state.report`): the sheet,
 /// the Attachments disclosure, the route line, and the record's row where a
 /// local game's record is offered.
 #[test]
-fn the_sheet_keeps_the_tours_anchors() {
+fn the_sheet_keeps_its_named_section_rects() {
     let anchors = |app: &mut App| {
         let mut q = app.world_mut().query::<&crate::report::ReportAnchor>();
         let mut ids: Vec<&str> = q.iter(app.world()).map(|a| a.id()).collect();

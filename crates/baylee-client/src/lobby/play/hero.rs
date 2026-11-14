@@ -22,7 +22,6 @@ pub(super) fn hero(
     let mut anchors = HeroAnchors::default();
     let panel = commands
         .spawn((
-            TourAnchor(Anchor::PlayHero),
             Role::Panel,
             Node {
                 width: percent(100),
@@ -310,7 +309,6 @@ pub(super) fn hero(
         .entity(house)
         .entry::<Node>()
         .and_modify(|mut n| n.flex_grow = 1.0);
-    commands.entity(pair).insert(TourAnchor(Anchor::PlayHouse));
     commands.entity(pair).add_children(&[house, caret]);
     let create_live = if off.is_some() {
         Live::No("")
@@ -329,9 +327,6 @@ pub(super) fn hero(
         Press::Play(PlayPress::CreateTable),
     );
     orders::stop(commands, create, &orders::PLAY, "create");
-    commands
-        .entity(create)
-        .insert(TourAnchor(Anchor::PlayCreate));
     commands.entity(buttons).add_children(&[pair, create]);
     // The reason stands once, under the pair (S4-3).
     if let Some(reason) = &off {

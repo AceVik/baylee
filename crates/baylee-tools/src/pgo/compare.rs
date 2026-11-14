@@ -121,7 +121,7 @@ fn fresh(dir: &Path) -> Result<()> {
 /// The lobby, a small duel and a full board, each read at rest.
 fn screens(root: &Path, binary: &Path, dir: &Path) -> Result<Vec<Reading>> {
     fresh(dir)?;
-    let launch = Launch::new().tours(false).env("BAYLEE_DEV_SEED", SEED);
+    let launch = Launch::new().env("BAYLEE_DEV_SEED", SEED);
     let client = Client::start(binary, &launch, dir)?;
     client.play_offline()?;
     let lobby = read(&client, "Lobby")?;
@@ -131,7 +131,6 @@ fn screens(root: &Path, binary: &Path, dir: &Path) -> Result<Vec<Reading>> {
 
     fresh(dir)?;
     let launch = Launch::new()
-        .tours(false)
         .env("BAYLEE_DEV_SEED", SEED)
         .env("BAYLEE_DEV_SEAT_BOARD", &board(root)?);
     let client = Client::start(binary, &launch, dir)?;
@@ -146,7 +145,7 @@ fn screens(root: &Path, binary: &Path, dir: &Path) -> Result<Vec<Reading>> {
 /// A whole offline game on the training's seed, and what it took.
 fn whole_game(binary: &Path, dir: &Path) -> Result<Game> {
     fresh(dir)?;
-    let launch = Launch::new().tours(false).env("BAYLEE_DEV_SEED", SEED);
+    let launch = Launch::new().env("BAYLEE_DEV_SEED", SEED);
     let client = Client::start(binary, &launch, dir)?;
     client.play_offline()?;
     client.sit_down_with_the_house()?;

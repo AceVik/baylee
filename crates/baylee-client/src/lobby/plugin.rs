@@ -31,20 +31,6 @@ impl Plugin for LobbyPlugin {
         crate::social::install(app);
         crate::loading::install(app);
         crate::shellkit::install(app);
-        crate::tour::install(app);
-        // A shell chapter is set aside while a table stands.
-        app.add_systems(
-            OnExit(DuelPhase::Closed),
-            |mut desk: ResMut<crate::tour::TourDesk>| {
-                if desk
-                    .run
-                    .as_ref()
-                    .is_some_and(|r| r.tour != baylee_client_core::tour::Tour::Table)
-                {
-                    desk.parked = true;
-                }
-            },
-        );
         header::install(app);
         challenges::install(app);
         echoes::install(app);
@@ -87,7 +73,6 @@ impl Plugin for LobbyPlugin {
             .init_resource::<front::terms::SheetFocus>()
             .init_resource::<front::keys::MovedByTheLobby>()
             .init_resource::<menus::MenuMemory>()
-            .configure_sets(Update, crate::tour::TourSystems::Draw.after(ui))
             .add_systems(Startup, (ask_about_registration, ask_about_saved_gateways))
             // One chain, each link on its own condition: most of it is the
             // lobby's alone, and the links the settings screen needs run
@@ -318,14 +303,6 @@ impl Plugin for LobbyPlugin {
                 Update,
                 (
                     decks::undo_clock,
-                    touring::tours
-                        .after(crate::tour::TourSystems::Input)
-                        .after(poll)
-                        .after(clicks)
-                        .after(keyboard)
-                        .after(shortcuts::run_fired)
-                        .after(play::follow_the_room)
-                        .before(ui),
                     decks::write_clipboard,
                     #[cfg(not(target_arch = "wasm32"))]
                     decks::paste_or_drop,

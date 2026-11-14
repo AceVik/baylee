@@ -205,7 +205,7 @@ pub struct MenuRevision {
     /// The arrangement in effect, from three seats: its row (DESIGN-v8
     /// §2.4).
     arrangement: Option<baylee_client_core::tableview::Arrangement>,
-    /// Whether this client hosts the game (a house game): the tour's row.
+    /// Whether this client hosts the game (a house game).
     house: bool,
     /// Whether a lobby stands behind the table to draw the settings over
     /// it: a client seated straight into its game has none.
@@ -524,20 +524,6 @@ pub fn sync_menu(
         action: MenuAction::Report,
     });
     commands.entity(panel).add_child(report);
-    // The guided tour (TOURS.md §1.7): live in a game this client hosts,
-    // dead at a networked table, where it says why.
-    let (words, weight) = if next.house {
-        (Phrase::TourMenuRow, Weight::Secondary)
-    } else {
-        (Phrase::TourMenuRowAway, Weight::Dead)
-    };
-    let tour = answer(&mut commands, &fonts, words.text(lang), weight, None);
-    if next.house {
-        commands.entity(tour).insert(MenuButton {
-            action: MenuAction::Tour,
-        });
-    }
-    commands.entity(panel).add_child(tour);
     // Every setting, over the table (`lobby::table_settings`): dead where
     // no lobby stands behind it, and saying so.
     let (words, weight) = if next.settings {
@@ -721,8 +707,6 @@ mod tests {
                 Phrase::LeaveTable,
                 Phrase::LeaveTableConfirm,
                 Phrase::ReportButton,
-                Phrase::TourMenuRow,
-                Phrase::TourMenuRowAway,
                 Phrase::SettingsMenuRow,
                 Phrase::SettingsMenuRowAway,
             ]

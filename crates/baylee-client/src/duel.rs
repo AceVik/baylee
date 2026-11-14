@@ -1452,8 +1452,7 @@ impl Duel {
             .count()
     }
 
-    /// Whether a spell in the hand this seat plays from can be cast now (a
-    /// land drop cannot be cancelled: the table tour's T8 asks for a cast).
+    /// Whether a spell in the hand this seat plays from can be cast now.
     #[must_use]
     pub fn a_spell_is_castable(&self) -> bool {
         let (Some(view), Some(legal)) = (

@@ -6,7 +6,7 @@ use super::*;
 
 /// Where the table camera stands, read off its transform.
 type TableEye<'w, 's> = Query<'w, 's, &'static Transform, With<crate::table::TableCamera>>;
-/// The report sheet's roots, its tour anchors' rects, and its preview.
+/// The report sheet's roots, its named section rects, and its preview.
 type ReportParts<'w, 's> = (
     Query<'w, 's, Entity, With<crate::report::DeskRoot>>,
     Query<
@@ -72,7 +72,7 @@ type ChatControlFilter = Or<(
 )>;
 
 /// Every UI tree's root that `shell_nodes` does not walk (the table's HUD,
-/// the chat, the tours, the updater's card), with its box for a stable order.
+/// the chat, the updater's card), with its box for a stable order.
 type OtherUiRoots<'w, 's> = Query<
     'w,
     's,
@@ -110,33 +110,6 @@ pub(super) struct Believed<'w, 's> {
     /// The lobby, for the builder's keyboard place.
     lobby: Option<Res<'w, crate::lobby::LobbyState>>,
     front_motion: Option<Res<'w, crate::lobby::front::FrontMotion>>,
-    /// The guided tour standing, and where its hole is (`/state.tour`).
-    tour: Option<Res<'w, crate::tour::TourDesk>>,
-    spotlight: Option<Res<'w, crate::tour::Spotlight>>,
-    tour_scrims: Query<'w, 's, (), With<crate::tour::ScrimLayer>>,
-    tour_bubbles: Query<
-        'w,
-        's,
-        (
-            &'static Node,
-            &'static ComputedNode,
-            &'static Visibility,
-            &'static InheritedVisibility,
-        ),
-        With<crate::tour::Bubble>,
-    >,
-    /// The bubble's and the pill's buttons, where a pointer would press them
-    /// (a try-it step's Next is not a key: the keys are the screen's).
-    tour_controls: Query<
-        'w,
-        's,
-        (
-            &'static crate::tour::TourPress,
-            &'static ComputedNode,
-            &'static UiGlobalTransform,
-            &'static InheritedVisibility,
-        ),
-    >,
     /// The report form's buttons, where a pointer would press them.
     desk_controls: Query<
         'w,
@@ -153,7 +126,7 @@ pub(super) struct Believed<'w, 's> {
     /// its root.
     gallery_roots: Query<'w, 's, Entity, With<crate::shellkit::gallery::GalleryRoot>>,
     /// The report sheet (window B), dumped after them with `"r":"report"`,
-    /// its tour anchors, and its reference preview.
+    /// its named section rects, and its reference preview.
     report_parts: ReportParts<'w, 's>,
     /// Every other UI tree, for `ui_nodes`.
     other_ui_roots: OtherUiRoots<'w, 's>,
@@ -821,7 +794,7 @@ fn shell_nodes_json(believed: &Believed) -> String {
 
 /// Every other UI tree in `shell_nodes`' rows: the table's HUD (the prompt
 /// and its answers, the seat bars, the stack, the drawer), the chat, the
-/// tours, the updater's card — what an end-to-end test reads off a duel.
+/// updater's card — what an end-to-end test reads off a duel.
 /// Each root says `"r":"ui"`; roots stand top to bottom, then left to right,
 /// so two dumps of one screen compare byte for byte here too.
 fn ui_nodes_json(believed: &Believed) -> String {
@@ -847,7 +820,7 @@ fn ui_nodes_json(believed: &Believed) -> String {
 }
 
 /// The report sheet (window B): what its desk says (`ReportDesk::
-/// state_json`), where its tour anchors stand in logical pixels, and the
+/// state_json`), where its named sections stand in logical pixels, and the
 /// printing its reference preview shows (`"<scryfall id>#<face>"`).
 fn report_json(believed: &Believed) -> String {
     let lang = believed
@@ -1232,8 +1205,7 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"browser\":{browser},\"shelves\":{shelves},\
          \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"account\":{account},\"lobby_controls\":{lobby_controls},\"update_buttons\":{update_buttons},\"exits\":{exits},\"face_builds\":{face_builds},\
          \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"ui_nodes\":{ui_nodes},\"desk_controls\":{desk_controls},\"report\":{report},\"chat\":{chat},\
-         \"reveal\":{reveal},\"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips},\"plates\":{plates},\"tour\":{tour},\"replay\":{replay},\"control\":{control}}}",
-        tour = tour_json(believed, settings),
+         \"reveal\":{reveal},\"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips},\"plates\":{plates},\"replay\":{replay},\"control\":{control}}}",
         replay = replay_json(duel),
         control = control_json(duel, settings.map_or(Lang::En, |s| Lang::of(&s.lang))),
         reveal = reveal_json(believed, duel),
@@ -1344,105 +1316,6 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
 /// arrangements are offered here and why the others are not, the follow
 /// switch, the seat of interest, whether anything is still moving and for
 /// how many frames nothing has, and the pill's and the menu's rectangles.
-/// The guided tour (TOURS.md §3.5): which step stands, how, the hole round
-/// its anchor (`null` when none is placed), what was passed over, what this
-/// device has seen.
-fn tour_json(believed: &Believed, settings: Option<&ClientSettings>) -> String {
-    let scrims = believed.tour_scrims.iter().count();
-    let bubbles = believed
-        .tour_bubbles
-        .iter()
-        .map(|(node, computed, visibility, inherited)| {
-            format!(
-                "{{\"left\":{},\"top\":{},\"width\":{},\"height\":{},\
-                 \"visibility\":{},\"visible\":{}}}",
-                quoted(&format!("{:?}", node.left)),
-                quoted(&format!("{:?}", node.top)),
-                computed.size().x * computed.inverse_scale_factor,
-                computed.size().y * computed.inverse_scale_factor,
-                quoted(&format!("{visibility:?}")),
-                inherited.get()
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(",");
-    let visuals = format!("\"scrims\":{scrims},\"bubbles\":[{bubbles}]");
-    let seen = settings.map_or_else(String::new, |s| {
-        s.tours
-            .seen
-            .iter()
-            .map(|m| quoted(m))
-            .collect::<Vec<_>>()
-            .join(",")
-    });
-    let disabled = believed.tour.as_deref().is_some_and(|d| d.disabled);
-    let Some(run) = believed.tour.as_deref().and_then(|d| d.run.as_ref()) else {
-        return format!(
-            "{{\"tour\":null,\"mode\":\"idle\",\"disabled\":{disabled},\"seen\":[{seen}],{visuals}}}"
-        );
-    };
-    let parked = believed.tour.as_deref().is_some_and(|d| d.parked);
-    let mode = if parked {
-        "parked"
-    } else {
-        match run.mode {
-            baylee_client_core::tour::Mode::Narrated => "narrated",
-            baylee_client_core::tour::Mode::Try => "try",
-            baylee_client_core::tour::Mode::Folded => "folded",
-        }
-    };
-    let anchor = believed
-        .spotlight
-        .as_deref()
-        .and_then(|s| s.hole)
-        .map_or_else(
-            || "null".to_string(),
-            |r| {
-                format!(
-                    "{{\"x\":{:.0},\"y\":{:.0},\"w\":{:.0},\"h\":{:.0}}}",
-                    r.min.x,
-                    r.min.y,
-                    r.width(),
-                    r.height()
-                )
-            },
-        );
-    let controls = believed
-        .tour_controls
-        .iter()
-        .map(|(press, node, place, visible)| {
-            let mid = place.translation * node.inverse_scale_factor * believed.ui();
-            format!(
-                "{{\"press\":{},\"at_x\":{:.1},\"at_y\":{:.1},\"visible\":{}}}",
-                quoted(&format!("{press:?}")),
-                mid.x,
-                mid.y,
-                visible.get()
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(",");
-    let step = run.current();
-    let skipped = run
-        .skipped
-        .iter()
-        .map(|id| quoted(id))
-        .collect::<Vec<_>>()
-        .join(",");
-    format!(
-        "{{\"tour\":{},\"chapter\":{},\"step\":{},\"kind\":{},\"mode\":\"{mode}\",\
-         \"wants\":{},\"anchor\":{anchor},\"skipped\":[{skipped}],\"predicate_held\":{},\"seen\":[{seen}],\
-         \"controls\":[{controls}],{visuals}}}",
-        quoted(run.tour.key()),
-        quoted(run.current_chapter().id),
-        quoted(step.id),
-        quoted(&format!("{:?}", step.kind)),
-        step.anchor
-            .map_or_else(|| "null".to_string(), |a| quoted(&format!("{a:?}"))),
-        run.held,
-    )
-}
-
 fn arrangement_json(believed: &Believed, duel: &Duel) -> String {
     use baylee_client_core::tableview::Arrangement;
     let (frame, glide, pill, panel, seat_mats) = &believed.arrangement;

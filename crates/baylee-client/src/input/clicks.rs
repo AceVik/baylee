@@ -80,8 +80,6 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         MenuAction::Report => duel.report_asked = true,
         // The lobby hears it and shuts the menu (`table_settings::open_asked`).
         MenuAction::Settings => duel.settings_asked = true,
-        // The tour hears its own row (`tour::table`); the menu shuts.
-        MenuAction::Tour => duel.game_menu = false,
         // The game menu shuts and the arrangement menu opens in its place;
         // `arrangement::choose` opens it, because it holds the settings.
         MenuAction::ArrangementMenu => {

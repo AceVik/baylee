@@ -271,11 +271,9 @@ pub(super) fn sheet(commands: &mut Commands, root: Entity, state: &LobbyState, k
     commands
         .entity(scrim)
         .insert(Press::Decks(DecksPress::CloseSheet));
-    commands.entity(surface).insert((
-        Press::Shared(SharedPress::PickerNothing),
-        HistorySheet,
-        crate::tour::TourAnchor(baylee_client_core::tour::Anchor::HistorySheet),
-    ));
+    commands
+        .entity(surface)
+        .insert((Press::Shared(SharedPress::PickerNothing), HistorySheet));
     commands.entity(root).add_child(scrim);
     // Export…: the builder's own dialog, over the sheet, on the version's
     // rows (`DeckBuilder::open_version_export`), from either door.
@@ -332,9 +330,8 @@ pub(super) fn version_rows(
     })
 }
 
-/// The history sheet's surface: the one sheet both doors open, where the
-/// tours' `history_sheet` anchor (TOURS D14) belongs; walks and `/state`
-/// find it by this.
+/// The history sheet's surface: the one sheet both doors open; walks and
+/// `/state` find it by this.
 #[derive(Component, Clone, Copy, Debug)]
 pub(crate) struct HistorySheet;
 

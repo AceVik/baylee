@@ -41,7 +41,7 @@ fn the_key_on_the_keep_button_keeps_the_hand() {
 - **`e2e::run(|client| …)`** starts a client with the defaults, runs the
   test and closes the client whatever happened; `e2e::run_with(Launch, …)`
   starts it otherwise: `Launch::new().viewport(Viewport::PHONE)`,
-  `.lang("de")`, `.text_step(TextStep::Xl)`, `.tours(true)`,
+  `.lang("de")`, `.text_step(TextStep::Xl)`,
   `.setting("key", json)` (written into `client-settings.json` before the
   start), `.env(…)`, `.arg(…)` (an argument, as a launcher passes a
   `baylee:` link on a cold start).
@@ -96,7 +96,7 @@ fn the_key_on_the_keep_button_keeps_the_hand() {
 
 - `shell_nodes`: the lobby's tree (and the gallery's and the report
   sheet's); `ui_nodes`: every other UI tree in the same rows (the table's
-  HUD, the chat, tours, the updater's card), each root `"r":"ui"`, roots top
+  HUD, the chat, the updater's card), each root `"r":"ui"`, roots top
   to bottom then left to right. Both are byte-stable for one screen.
 - Each row: `d` depth, `x y w h`, `t` text, `tw th ln` what the glyphs
   measure, `hid` hidden (inherited), `i` carries a `Press`, `k` the kit's
@@ -115,7 +115,7 @@ fn the_key_on_the_keep_button_keeps_the_hand() {
 Every client gets configuration, cache and data directories of its own
 under `target/e2e/<run>/<test>/`, a free loopback port, a passive and silent
 window at scale 1 (`BAYLEE_DEV_PASSIVE`, `BAYLEE_DEV_SOUND` empty,
-`BAYLEE_DEV_SCALE=1`), no tours, a two-minute idle exit as the backstop, and
+`BAYLEE_DEV_SCALE=1`), a two-minute idle exit as the backstop, and
 dead loopback addresses for the gateway and the updater: without
 `BAYLEE_GATEWAY` a client takes the production gateway even when it only
 plays offline. The front door still lists the built-in production gateway,

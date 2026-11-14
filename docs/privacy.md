@@ -1009,7 +1009,7 @@ report once it has it is theirs to describe.
 - **Attachments are a choice before sending, not a consent** (owner,
   13.10.2026): the boxes are an opt-out the player uses before pressing
   Send (the legal basis the owner names for them is legitimate interest),
-  and nothing is sent before Send. The form and its tour call them a
+  and nothing is sent before Send. The form and its settings row call them a
   choice, never a consent. The choice is kept per device
   (`client-settings.json`, `reports`), shown and changed in the form
   itself; un-ticking a box holds from the next report on.

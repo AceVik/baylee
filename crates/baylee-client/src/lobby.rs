@@ -256,9 +256,6 @@ pub struct LobbyState {
     pub(crate) echoes: echoes::Ui,
     /// The Undo the toast lane offers (S-10).
     pub(crate) undo: Option<decks::Undo>,
-    /// The tours as they were before the bubble's box or Restart tours,
-    /// for the toast's Undo (TOURS.md §1.7).
-    pub(crate) tours_before: Option<baylee_client_core::tour::Tours>,
     /// The player holds a chair at a waiting room and has stepped away
     /// from it to another screen (M-7): the seated strip shows, and Return
     /// brings the room back.
@@ -597,7 +594,6 @@ impl LobbyState {
             challenges: challenges::Ui::default(),
             echoes: echoes::Ui::default(),
             undo: None,
-            tours_before: None,
             room_away: false,
             chair_sheet: None,
             lists_sheet: false,
@@ -1017,7 +1013,6 @@ mod source;
 mod systems;
 pub(crate) mod table_settings;
 pub(crate) mod thumbnails;
-mod touring;
 mod widgets;
 
 // The shell and the makers every screen builds from, under one roof for the

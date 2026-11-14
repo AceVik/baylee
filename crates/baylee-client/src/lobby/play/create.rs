@@ -816,9 +816,6 @@ pub(super) fn create_sheet(
     commands.entity(surface).add_child(close_x);
     let scrim = surfaces::sheet(commands, surface);
     commands
-        .entity(surface)
-        .insert(TourAnchor(Anchor::CreateSheet));
-    commands
         .entity(scrim)
         .insert(Press::Play(PlayPress::CloseSheet));
     commands

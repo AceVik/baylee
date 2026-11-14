@@ -1018,14 +1018,6 @@
     ],
     "shelves": [],
     "sources": null,
-    "tour": {
-      "bubbles": [],
-      "disabled": true,
-      "mode": "idle",
-      "scrims": 0,
-      "seen": [],
-      "tour": null
-    },
     "ui_nodes": [
       {
         "d": 0,

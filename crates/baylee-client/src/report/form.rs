@@ -119,9 +119,7 @@ pub(super) struct PreviewWords;
 #[derive(Component)]
 pub(super) struct PreviewMark;
 
-/// The nodes the tours anchor to (`TOURS.md` §3.1: `report_form`,
-/// `report_attachments`, `report_record_row`, `report_route`), until the
-/// tour's own `TourAnchor` exists to stand in their place.
+/// Named sections of the report sheet reported under `/state.report`.
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum ReportAnchor {
     /// The sheet.
@@ -135,7 +133,7 @@ pub(crate) enum ReportAnchor {
 }
 
 impl ReportAnchor {
-    /// The tour's id for it.
+    /// The `/state.report` id for it.
     #[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
     pub(crate) const fn id(self) -> &'static str {
         match self {

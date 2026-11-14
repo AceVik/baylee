@@ -110,9 +110,6 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
     let roomy = matches!(m.frame, Frame::Wide | Frame::Vast);
     let phone = m.frame == Frame::Phone;
     let bar = kit_header::frame(commands, kit);
-    commands.entity(bar).insert(crate::tour::TourAnchor(
-        baylee_client_core::tour::Anchor::BuildHeader,
-    ));
     commands.entity(holder).add_child(bar);
     let mut kids: Vec<Entity> = Vec::new();
 
@@ -189,9 +186,6 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
                 )
             },
         );
-        commands.entity(switch).insert(crate::tour::TourAnchor(
-            baylee_client_core::tour::Anchor::BuildPaneSwitch,
-        ));
         kids.push(switch);
     }
 

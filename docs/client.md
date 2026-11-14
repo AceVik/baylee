@@ -9573,8 +9573,8 @@ report form is (`ShellMetrics::under`), never scaled twice. The table's
 controls that stand above that root — the arrangement pill and menu
 (`G_SWITCHER`), the peeks, a phone's hand tab — stand down while it
 does (`table_settings::covers_the_table`), or a press through them would
-answer the question under the screen; the report corner, the chat window,
-the update card and a tour stand over it as they stand over the lobby's.
+answer the question under the screen; the report corner, the chat window
+and the update card stand over it as they stand over the lobby's.
 Only what leaves the table where it is is offered (`Section::at_table`:
 Graphics, Audio, Display, Controls, Gameplay, Privacy): the account, the
 gateway, the language models and the updater stay in the lobby, and
@@ -9587,12 +9587,10 @@ as the shell's screen (`shellkit::focus::table_open`), so Tab, the arrows
 and Enter work it as in the lobby. While it stands the table's keys are
 held: the table's `KeyClaims`, the chat's key doors (`/`, `R`,
 `Ctrl`/`Cmd`+`Enter`), the replay bar's keys and the preview's resize
-chord all stand aside, and the table tour is set aside (`tour::table`
-parks it: no bubble, no key) and comes back on its step after; one that
-starts under them starts parked, and a tip waits until the table shows.
+chord all stand aside.
 `Esc` empties the search, closes a
 sheet, then puts it away, taken off the keys before the table could hear
-it; a report form, a narrated tour bubble or the chat's composer over it
+it; a report form or the chat's composer over it
 has its `Esc` first. Back does the same. The table being put down
 (finished, or left) puts it down with it, and the lobby comes back on its
 own screen. A client seated straight into its game has no lobby: the row
@@ -10338,8 +10336,8 @@ over the table too (Q-B5). Its focus order is `report::REPORT` and
 `REPORT_CONFIRM` (`KEYBOARD.md` §7.11): the text first; a click on a
 control leaves typing in the text, Tab moves the ring and then Enter and
 Space are the control's (`report::keys`, the kit's `Activated`); a press is
-answered by one observer on every entity (`keys::pressed`). The tour's
-anchors stand on the sheet, the disclosure, the record's row and the route
+answered by one observer on every entity (`keys::pressed`). Named section
+rects stand on the sheet, the disclosure, the record's row and the route
 line (`ReportAnchor`; `/state.report.anchors`).
 
 **References.** A run `#` + a letter (or `@` + a character) with the caret
@@ -11299,10 +11297,6 @@ curl -s -XPOST localhost:28770/executor  -d '{"single":true}'
 
 Use a fresh isolated configuration for each test client; never point agent
 runs at production gateways, crash reporting or feedback. Dev-control runs
-should set `BAYLEE_NO_TOURS=1` (or pass `--no-tours` to the native client)
-to suppress lobby/table tours and contextual tips for that process. This
-override leaves saved tour preferences and progress untouched.
-Dev-control runs
 are silent unless `BAYLEE_DEV_SOUND=1` explicitly opts in. The native Rust
 helpers (`cargo run --profile tools -p baylee-tools -- shell …` and `recording …`) replace
 the Python drivers; see `docs/dev-tools.md` for the command mapping.
@@ -11355,23 +11349,6 @@ with the focus in place. Through the launcher, started from a shell, the old
 client came up in front and silent too; a double click in Explorer was not
 tried, because Explorer would not pass the isolated environment on.
 
-For tours, `/state.tour.scrims` counts remaining scrim layers even when the
-run is idle; `bubbles` lists each current bubble's requested `left`/`top`
-(`Val` debug strings), laid-out logical `width`/`height`, local `visibility`
-and inherited `visible` flag. Each tour control also reports `visible`.
-Check these alongside the run's `mode`: a narrated step with a hidden bubble
-can still block input. To test tour controls, leave `BAYLEE_NO_TOURS` unset.
-At 150% scale, L4's rounded width alternated between 675 and 676 physical
-pixels. Exact position comparison kept the bubble hidden indefinitely;
-placement now accepts a difference of at most one physical pixel without
-rewriting the position. Skip must leave zero scrims and no bubbles when the
-chapter ends without another due chapter starting. Skip marks the current
-chapter seen; another chapter due on the same screen can open immediately.
-"Don't show tours again" ends all tours. The Windows check confirmed a
-visible L4 bubble, Skip marking `lobby/play` seen and opening L8 visibly,
-and disabling tours leaving `mode: idle`, `scrims: 0`, `bubbles: []`.
-All 22 client tour tests and the client library's strict Clippy check passed.
-
 When worktrees share a Cargo target directory, copy the finished client and
 helper into a directory for that test run: another build can replace the
 shared executable. Pass the matching checkout as the helper's `--root`.
@@ -11401,7 +11378,7 @@ spelling): two dumps of the same screen compare byte for byte. A row says
 `"cx"`/`"cy"` (`"scroll"` or `"cut"`) where the node clips its children
 across or down, so a check can tell a row scrolled out of its list from a
 control cut off at the window's edge. `ui_nodes` is every other UI tree in
-the same rows — the table's HUD, the chat, tours, the updater's card — each
+the same rows — the table's HUD, the chat, the updater's card — each
 root `"r":"ui"`, roots top to bottom then left to right; the end-to-end
 tests read both (`docs/dev/e2e.md`).
 `desk_controls` lists the report form's buttons as `lobby_controls` lists the
