@@ -785,3 +785,10 @@ Strict all-target Tower Clippy passed in
 `/tmp/baylee-tower-v2-shop-clippy-20261114-r3.log`.
 Phase/revision gating, account/cohort seed allocation, durable idempotency and
 the service/client are still required before these shops can be offered live.
+
+Follow-up integration finding: the existing PGO artifact selection still gives
+Tower the ordinary detector-free `engine_perf` session. With the actual native
+registry now connected, training/proof must also carry that registry and a
+strictly admitted two-seat Tower preset. `docs/releasing.md` now explicitly marks
+Tower release acceptance open; no native release performance/proof is claimed.
+Resolve this before staging, along with the authority/record durability work.
