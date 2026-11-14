@@ -296,12 +296,38 @@ impl HeuristicAgent {
             }
             Filter::NamedBySource => named_by_source(view, object, this),
             Filter::MatchesChosenTypeOfSource => of_chosen_type(view, object, this),
-            Filter::OfSourceChosenCardType => of_chosen_card_type(view, object, this),
-            Filter::OfSourceChosenColor => of_chosen_color(view, object, this),
-            Filter::SameNameAsLinkedExile => same_name_as_linked_exile(view, object, this),
-            Filter::SharesColorWithExiledWithSource => {
+            Filter::OfSourceChosenCardType
+                if self
+                    .profile
+                    .plays(crate::AIProfile::CHOSEN_AND_LINKED_FILTERS) =>
+            {
+                of_chosen_card_type(view, object, this)
+            }
+            Filter::OfSourceChosenColor
+                if self
+                    .profile
+                    .plays(crate::AIProfile::CHOSEN_AND_LINKED_FILTERS) =>
+            {
+                of_chosen_color(view, object, this)
+            }
+            Filter::SameNameAsLinkedExile
+                if self
+                    .profile
+                    .plays(crate::AIProfile::CHOSEN_AND_LINKED_FILTERS) =>
+            {
+                same_name_as_linked_exile(view, object, this)
+            }
+            Filter::SharesColorWithExiledWithSource
+                if self
+                    .profile
+                    .plays(crate::AIProfile::CHOSEN_AND_LINKED_FILTERS) =>
+            {
                 shares_color_with_linked_exile(view, object, this)
             }
+            Filter::OfSourceChosenCardType
+            | Filter::OfSourceChosenColor
+            | Filter::SameNameAsLinkedExile
+            | Filter::SharesColorWithExiledWithSource => None,
             // Three cases, two of which the view cannot tell apart; the
             // header has the reason. `card` is asked second because a
             // registry token never carries one.
