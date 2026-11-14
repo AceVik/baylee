@@ -1,0 +1,156 @@
+use std::collections::BTreeSet;
+
+use anyhow::{Context, Result, ensure};
+use baylee_cards::deckgen::{Archetype, DeckBuildRequest, build_synergistic, generate};
+use baylee_cards::decks::{house_deck, preset_for};
+use baylee_cards::formats::{self, Shape};
+use baylee_core::preset::{AIProfile, GamePreset, HouseRules, SeatController};
+
+use super::Kind;
+use crate::working::Working;
+
+pub(super) fn build(kind: Kind, seed: u64, working: &Working) -> Result<(GamePreset, String)> {
+    let (mut preset, deck) = match kind {
+        Kind::Daily => daily(seed)?,
+        Kind::Weekly => {
+            let excluded = [
+                "Black Lotus",
+                "Mox Pearl",
+                "Mox Sapphire",
+                "Mox Jet",
+                "Mox Ruby",
+                "Mox Emerald",
+                "Mana Crypt",
+                "Sol Ring",
+                "Mana Vault",
+                "Lotus Petal",
+                "Ancient Tomb",
+                "City of Traitors",
+                "Mishra's Workshop",
+                "Tolarian Academy",
+            ]
+            .into_iter()
+            .filter_map(baylee_cards::decks::by_name)
+            .collect::<BTreeSet<_>>();
+            let pool = crate::deckgen::pool_for_working(working, &excluded);
+            let mut request = DeckBuildRequest::new(
+                Shape::Constructed,
+                Archetype::Aggro,
+                baylee_challenges::seed(b"player deck", seed),
+            );
+            // Seed a genuine direct-damage tool rather than discarding most
+            // randomly coloured decks after the expensive deck build.
+            request.anchor = baylee_cards::decks::by_name("Lightning Bolt");
+            let player = build_synergistic(&pool, &request)?;
+            let opponent = generate(
+                &pool,
+                Shape::Constructed,
+                Archetype::Midrange,
+                baylee_challenges::seed(b"opponent deck", seed),
+            )?;
+            ensure!(
+                pool.entries
+                    .iter()
+                    .any(|entry| player.main.contains(&entry.card)
+                        && entry.profile.roles & baylee_cards::deckgen::profile::ROLE_BURN_DRAIN
+                            != 0),
+                "deck has no direct-damage candidate for a second victory family"
+            );
+            ensure!(
+                formats::check(Shape::Constructed, &player.main, &[]).is_empty(),
+                "illegal player deck"
+            );
+            ensure!(
+                formats::check(Shape::Constructed, &opponent.main, &[]).is_empty(),
+                "illegal opponent deck"
+            );
+            (
+                preset_for(seed, &player.loaded(), &opponent.loaded()),
+                player.text(),
+            )
+        }
+    };
+    for seat in &preset.seats {
+        for card in seat
+            .deck
+            .iter()
+            .chain(seat.starting_hand.iter().flatten())
+            .chain(&seat.starting_battlefield)
+        {
+            ensure!(
+                working.check(card.card).is_ok(),
+                "candidate contains a card without working evidence: {}",
+                card.card
+            );
+        }
+    }
+    preset.seats[0].controller = SeatController::Open;
+    preset.seats[1].controller = SeatController::Ai(AIProfile {
+        foresight: 0,
+        ..AIProfile::STEADY
+    });
+    preset.house_rules = HouseRules {
+        challenge_policy_seed: Some(baylee_challenges::seed(b"opponent policy", seed)),
+        starting_player: Some(0),
+        decision_timeout_secs: 0,
+        reconnect_window_secs: 0,
+        time_extension_votes: false,
+        takebacks: false,
+        ..HouseRules::for_a_table()
+    };
+    Ok((preset, deck))
+}
+
+fn daily(seed: u64) -> Result<(GamePreset, String)> {
+    // All physical identities come through the ordinary deck reader, including prints.
+    let text = "[deck:Crossroads]\n24 Mountain\n16 Forest\n4 Grizzly Bears\n4 Lightning Bolt\n4 Shock\n4 Giant Growth\n4 Fling\n";
+    let player = house_deck(text).map_err(anyhow::Error::msg)?;
+    let opponent =
+        house_deck("[deck:Pressure]\n56 Forest\n4 Grizzly Bears\n").map_err(anyhow::Error::msg)?;
+    let mut preset = preset_for(seed, &player, &opponent);
+    let entry = |name: &str| -> Result<_> {
+        let card = baylee_cards::decks::by_name(name).context("tactical card")?;
+        preset.seats[0]
+            .deck
+            .iter()
+            .find(|entry| entry.card == card)
+            .copied()
+            .context("tactical printing")
+    };
+    let variant = (seed.wrapping_sub(41) % 4) as usize;
+    let life = [5, 7, 8, 10][variant];
+    let creatures = [2, 3, 3, 4][variant];
+    let blockers = [1, 2, 2, 3][variant];
+    let mut names = vec![
+        "Lightning Bolt",
+        "Shock",
+        "Giant Growth",
+        "Fling",
+        "Mountain",
+        "Forest",
+    ];
+    if variant != 0 {
+        names.extend(["Lightning Bolt", "Shock"]);
+    }
+    let hand = names.into_iter().map(entry).collect::<Result<Vec<_>>>()?;
+    let field = std::iter::repeat_n("Mountain", if variant == 0 { 3 } else { 4 })
+        .chain(std::iter::repeat_n("Forest", 2))
+        .chain(std::iter::repeat_n("Grizzly Bears", creatures))
+        .map(entry)
+        .collect::<Result<Vec<_>>>()?;
+    preset.seats[0].starting_hand = Some(hand);
+    preset.seats[0].starting_battlefield = field;
+    preset.seats[0].starting_life = Some(2);
+    let bear = baylee_cards::decks::by_name("Grizzly Bears").context("opponent creature")?;
+    preset.seats[1].starting_battlefield = vec![
+        *preset.seats[1]
+            .deck
+            .iter()
+            .find(|entry| entry.card == bear)
+            .context("opponent printing")?;
+        blockers
+    ];
+    preset.seats[1].starting_hand = Some(Vec::new());
+    preset.seats[1].starting_life = Some(life);
+    Ok((preset, text.into()))
+}

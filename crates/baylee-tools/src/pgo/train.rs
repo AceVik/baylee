@@ -136,7 +136,7 @@ fn lobby_and_settings(client: &Client, _root: &Path) -> Result<()> {
     linger(1.5);
     client.click(press("Decks(Tab(Mine))"))?;
     linger(1.0);
-    client.click(press("Header(Nav(2))"))?;
+    client.click(press("Header(Nav(3))"))?;
     linger(2.0);
     client.click(press("Header(Nav(0))"))?;
     linger(1.5);

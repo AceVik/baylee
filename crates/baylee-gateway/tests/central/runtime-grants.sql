@@ -1,7 +1,9 @@
 -- The runtime role's privileges, exactly those its startup check requires
 -- (docs/operations.md §"Provisioning"). Idempotent: the deploy hook
 -- (ops/deploy-hook) runs it after every migration. A migration that adds a
--- table adds its grant here.
+-- table adds its grant here. The hook applies it as central_migrator, never
+-- as a superuser, and takes SQL only: it refuses the file if a backslash is
+-- anywhere in it, here in a comment too.
 GRANT USAGE ON SCHEMA central_identity TO central_runtime;
 GRANT SELECT, INSERT ON central_identity.pending_accounts TO central_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON central_identity.accounts, central_identity.sessions,
@@ -22,8 +24,9 @@ GRANT SELECT, INSERT, UPDATE ON central_identity.gateway_streams TO central_runt
 GRANT SELECT, INSERT, DELETE ON central_identity.gateway_sids, central_identity.gateway_revocations TO central_runtime;
 GRANT SELECT, INSERT ON central_identity.gateway_terms, central_identity.gateway_terms_texts,
   central_identity.terms_acceptances TO central_runtime;
--- A key's uses are spent by enrollment; issuing and revoking keys stay with the operator.
-GRANT SELECT, UPDATE (uses_left) ON central_identity.beta_keys TO central_runtime;
+-- Registration open or closed: read by every registration, changed by an
+-- administrator (docs/registration-abuse.md); the row itself stays.
+GRANT SELECT, UPDATE (open, changed_at, changed_by) ON central_identity.registration TO central_runtime;
 -- Administrators' decisions are the runtime's (docs/administration.md): it
 -- grants and removes roles, and writes the audit, which it can neither rewrite
 -- nor delete; the operator's sweep deletes events after three years.
@@ -71,3 +74,33 @@ END $legacy$;
 GRANT SELECT, INSERT, UPDATE, DELETE ON central_identity.notification_preferences, central_identity.push_subscriptions, central_identity.push_jobs TO central_runtime;
 GRANT SELECT, INSERT ON central_identity.push_releases TO central_runtime;
 GRANT EXECUTE ON FUNCTION central_identity.queue_push(uuid,smallint), central_identity.push_event() TO central_runtime;
+-- An account's optional e-mail address (docs/email.md): the runtime names,
+-- confirms, replaces and removes it, and keeps on its row what a reset code
+-- by mail needs. The operator's sweep deletes addresses whose code is over.
+GRANT SELECT, INSERT, UPDATE, DELETE ON central_identity.account_emails,
+  central_identity.account_email_pending TO central_runtime;
+-- Profile pictures (docs/profile-pictures.md): the runtime sets, replaces
+-- and deletes an account's picture (never its account), files picture
+-- reports and decides them by column but never deletes one, keeps the
+-- person's notice and block, and counts uploads. The operator's sweep
+-- deletes decided reports a year after their decision.
+GRANT SELECT, INSERT, DELETE ON central_identity.pictures TO central_runtime;
+GRANT UPDATE (key, avif, png, sequence, sha256, side, set_at) ON central_identity.pictures TO central_runtime;
+GRANT SELECT, INSERT ON central_identity.picture_reports TO central_runtime;
+GRANT UPDATE (state, decided_at, decided_by) ON central_identity.picture_reports TO central_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON central_identity.picture_notices TO central_runtime;
+GRANT SELECT, INSERT, UPDATE ON central_identity.picture_budgets TO central_runtime;
+
+-- Global daily/weekly tasks: frozen publications may only be withdrawn.
+GRANT SELECT, INSERT ON central_identity.challenges TO central_runtime;
+GRANT UPDATE (withdrawn) ON central_identity.challenges TO central_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON central_identity.challenge_participation,
+    central_identity.challenge_attempts, central_identity.challenge_completions TO central_runtime;
+
+-- Weekly expeditions: immutable manifests/nodes, owned progression and reversible consent.
+GRANT SELECT, INSERT ON central_identity.tower_seasons, central_identity.tower_nodes TO central_runtime;
+GRANT UPDATE (published, withdrawn) ON central_identity.tower_seasons TO central_runtime;
+GRANT SELECT, INSERT, DELETE ON central_identity.tower_actions TO central_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON central_identity.tower_participation,
+    central_identity.tower_runs, central_identity.tower_scores,
+    central_identity.tower_accomplishments TO central_runtime;

@@ -277,6 +277,7 @@ impl SimulationSession {
             fair_scouting: self.fair_scouting,
             seq: self.seq,
             house_answered: &self.house_answered,
+            challenge_seq: None,
             showing: &self.showing,
             shown_once: &self.shown_once,
             hand_sharing: self.hand_sharing,

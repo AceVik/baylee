@@ -79,7 +79,7 @@ pub(super) fn run(runtime: &Runtime, db: &DatabaseConnection, endpoint: &Endpoin
         db,
         endpoint,
         "fresh_player",
-        "a fresh player's long password",
+        super::fresh::password(),
     );
     connect(&alice, &bob, a, b);
     directory(&alice, &mut ac, &[a, b]);

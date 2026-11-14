@@ -142,6 +142,18 @@ pub(super) fn keyboard(
         }
         return;
     }
+    if state.hub == Hub::Challenges
+        && (state.challenges.model.confirmation.is_some()
+            || state.challenges.model.tower.abandoning
+            || state.challenges.model.tower.upgrade.is_some())
+        && codes.just_pressed(KeyCode::Escape)
+    {
+        keys.clear();
+        state.challenges.model.confirmation = None;
+        state.challenges.model.tower.abandoning = false;
+        state.challenges.model.tower.upgrade = None;
+        return;
+    }
     // A header popover is a menu: Esc closes it, and nothing under it
     // takes the key (`KEYBOARD.md` §2.5).
     if state.header_menu.is_some() && codes.just_pressed(KeyCode::Escape) {
@@ -378,7 +390,7 @@ pub(super) fn keyboard(
     }
     // The table screen has two fields of its own — the search box and the
     // room password — and before this it had no way to type into either.
-    let table = matches!(state.lobby.screen(), Screen::Table);
+    let table = matches!(state.lobby.screen(), Screen::Table) || state.central_ready();
     if !matches!(state.lobby.screen(), Screen::SignIn { .. }) && !table {
         keys.clear();
         return;

@@ -5,6 +5,10 @@ mod aliases;
 #[path = "e2e_central/chat.rs"]
 mod chat;
 use crate::common;
+#[path = "central/challenges.rs"]
+mod challenges;
+#[path = "central/demo.rs"]
+mod demo;
 #[path = "central/fresh.rs"]
 mod fresh;
 #[path = "central/held.rs"]
@@ -17,6 +21,8 @@ mod pairing;
 mod personal;
 #[path = "central/registered.rs"]
 mod registered;
+#[path = "central/registration.rs"]
+mod registration;
 #[path = "central/renewal.rs"]
 mod renewal;
 #[path = "central/revocation.rs"]
@@ -241,6 +247,20 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
     let served = serve(&runtime, &store, &legacy, "central", None);
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let (gateway, endpoint, origin) = (&served.gateway, &served.endpoint, &served.origin);
+        if std::env::var("BAYLEE_CENTRAL_CHALLENGES_ONLY").as_deref() == Ok("1") {
+            fresh::run(
+                &runtime,
+                &served.service,
+                endpoint,
+                gateway,
+                &served.bridge,
+                &operator,
+            );
+            if std::env::var("BAYLEE_CENTRAL_DEMO").as_deref() == Ok("1") {
+                demo::run(&runtime, &served);
+            }
+            return;
+        }
         run(
             gateway,
             endpoint,
@@ -257,7 +277,14 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
             &operator,
             &served.bridge,
         );
-        fresh::run(&runtime, &served.service, &operator, endpoint, gateway);
+        fresh::run(
+            &runtime,
+            &served.service,
+            endpoint,
+            gateway,
+            &served.bridge,
+            &operator,
+        );
         pairing::run(&runtime, &served.service, &operator, endpoint, gateway);
         registered::run(&runtime, &operator, endpoint);
         terms::run(&runtime, &operator, endpoint);
@@ -267,7 +294,7 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
         personal::run(&runtime, &operator, endpoint);
         token::run(&runtime, &store, &operator, endpoint);
         held::run(&runtime, &store, &legacy, &operator);
-        ui_fixture(endpoint, origin);
+        ui_fixture(&runtime, endpoint, gateway, origin);
     }));
     served.close(&runtime);
     runtime.block_on(async {
@@ -304,10 +331,18 @@ fn serve(
     label: &str,
     terms: Option<baylee_account::terms::TermsDocument>,
 ) -> Served {
+    let native_listen = if std::env::var("BAYLEE_CENTRAL_DEMO").as_deref() == Ok("1") {
+        let port = std::env::var("BAYLEE_CENTRAL_DEMO_NATIVE_PORT")
+            .ok()
+            .map_or(0, |port| port.parse::<u16>().expect("demo native port"));
+        format!("127.0.0.1:{port}")
+    } else {
+        "127.0.0.1:0".into()
+    };
     let server = runtime
         .block_on(DevelopmentServer::bind(
             central_policy::config::Config::from_pairs([
-                ("BAYLEE_CENTRAL_LISTEN", "127.0.0.1:0"),
+                ("BAYLEE_CENTRAL_LISTEN", native_listen.as_str()),
                 ("BAYLEE_CENTRAL_REQUEST_BYTES", "1056768"),
             ])
             .unwrap(),
@@ -343,6 +378,7 @@ fn serve(
         .with_aliases(vec![aliases::ALIAS.into()])
         .unwrap()
         .with_terms(terms)
+        .with_registration_challenge(0, central_crypto::proof::MIN_MEMORY, Duration::ZERO)
         .with_legacy(legacy.clone()),
     );
     let (stop, stopped) = oneshot::channel();
@@ -395,11 +431,18 @@ impl Served {
 
 // Optional bounded handoff to an isolated dev-control client. This fixture has
 // only synthetic accounts; the ready file contains no credentials or tokens.
-fn ui_fixture(endpoint: &Endpoint, gateway: &str) {
+fn ui_fixture(runtime: &Runtime, endpoint: &Endpoint, host: &common::Gateway, gateway: &str) {
+    struct Attached(tokio::task::JoinHandle<()>);
+    impl Drop for Attached {
+        fn drop(&mut self) {
+            self.0.abort();
+        }
+    }
     let Some(path) = std::env::var_os("BAYLEE_CENTRAL_UI_READY") else {
         return;
     };
     let path = PathBuf::from(path);
+    let _agent = Attached(runtime.block_on(common::attach_agent(host)));
     std::fs::write(
         &path,
         serde_json::to_vec(&serde_json::json!({
@@ -409,7 +452,12 @@ fn ui_fixture(endpoint: &Endpoint, gateway: &str) {
         .unwrap(),
     )
     .unwrap();
-    let deadline = std::time::Instant::now() + Duration::from_secs(180);
+    let seconds = std::env::var("BAYLEE_CENTRAL_UI_HOLD_SECS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(180)
+        .min(7380);
+    let deadline = std::time::Instant::now() + Duration::from_secs(seconds);
     while std::time::Instant::now() < deadline && !path.with_extension("stop").exists() {
         std::thread::sleep(Duration::from_millis(200));
     }

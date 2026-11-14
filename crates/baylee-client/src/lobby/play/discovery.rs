@@ -33,56 +33,8 @@ fn panel(commands: &mut Commands, parent: Entity, kit: Kit) -> Entity {
     panel
 }
 
-/// Discovery is about the gateway and available rooms; decks are chosen there.
+/// Discovery keeps attention on playable rooms. Connection facts live in the header popover.
 pub(super) fn sidebar(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: Kit) {
-    let lang = state.lobby.lang();
-    let card = panel(commands, parent, kit);
-    let eyebrow = parts::line(
-        commands,
-        kit,
-        Phrase::DiscoveryGateway.text(lang),
-        kit.m.small,
-        tokens::GOLD,
-    );
-    commands.entity(card).add_child(eyebrow);
-    // A gateway that gave no name has no title: the words above are not said twice.
-    if let Some(name) = state.gateway_name() {
-        let title = commands
-            .spawn((
-                Text::new(name),
-                crate::hud::tf_bold(kit.fonts, kit.m.head),
-                TextColor(tokens::INK),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(card).add_child(title);
-    }
-    if matches!(kit.m.frame, ShellFrame::Wide | ShellFrame::Vast) {
-        let address = parts::line(commands, kit, &state.gateway, kit.m.small, tokens::MUTED);
-        commands.entity(card).add_child(address);
-    }
-    let (status, color) = if state.lobby.unreachable() {
-        (Phrase::ShellReconnecting, tokens::DANGER)
-    } else if state.feed_down {
-        (Phrase::DiscoveryConnecting, tokens::GOLD)
-    } else {
-        (Phrase::DiscoveryLive, tokens::ACCENT)
-    };
-    let live = parts::glyph_line(commands, kit, '\u{f1eb}', status.text(lang), color);
-    commands.entity(card).add_child(live);
-    gateway_stats(commands, card, state, kit);
-    let details = controls::button(
-        commands,
-        kit,
-        Phrase::DiscoveryDetails.text(lang),
-        Weight::Ghost,
-        Live::Yes,
-        None,
-        Press::Header(super::super::header::HeaderPress::Gateway),
-    );
-    orders::stop(commands, details, &orders::PLAY, "gateway-details");
-    commands.entity(card).add_child(details);
-
     next_table(commands, parent, state, kit);
 }
 
@@ -135,48 +87,6 @@ fn next_table(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: 
     );
     orders::stop(commands, refresh, &orders::PLAY, "refresh");
     commands.entity(card).add_child(refresh);
-}
-
-fn gateway_stats(commands: &mut Commands, card: Entity, state: &LobbyState, kit: Kit) {
-    let lang = state.lobby.lang();
-    let stats = strips::gateway_breakdown(state.lobby.stats(), &state.lobby);
-    let grid = parts::row(commands, kit, false);
-    commands
-        .entity(grid)
-        .entry::<Node>()
-        .and_modify(move |mut n| {
-            n.width = percent(100);
-            n.column_gap = kit.m.px(8.0);
-            n.align_items = AlignItems::Stretch;
-        });
-    for (value, label) in [
-        (stats.online, Phrase::DiscoveryOnline),
-        (stats.tables_waiting, Phrase::DiscoveryWaiting),
-        (stats.games_running, Phrase::DiscoveryPlaying),
-    ] {
-        let cell = commands
-            .spawn((
-                Node {
-                    flex_grow: 1.0,
-                    flex_basis: px(0),
-                    min_width: px(0),
-                    min_height: kit.m.px(82.0),
-                    flex_direction: FlexDirection::Column,
-                    row_gap: kit.m.px(6.0),
-                    padding: UiRect::all(kit.m.px(10.0)),
-                    border_radius: BorderRadius::all(px(8)),
-                    ..default()
-                },
-                BackgroundColor(tokens::CONTROL),
-                Pickable::IGNORE,
-            ))
-            .id();
-        let number = parts::line(commands, kit, &value.to_string(), kit.m.head, tokens::INK);
-        let label = parts::line(commands, kit, label.text(lang), kit.m.small, tokens::MUTED);
-        commands.entity(cell).add_children(&[number, label]);
-        commands.entity(grid).add_child(cell);
-    }
-    commands.entity(card).add_child(grid);
 }
 
 /// Seat occupancy is a small structural diagram as well as a text count.

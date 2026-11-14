@@ -38,6 +38,8 @@ pub(crate) enum Press {
     Play(super::play::PlayPress),
     /// The Replays tab.
     Replays(super::replays::ReplaysPress),
+    /// Central's global Daily and Weekly tasks.
+    Challenges(baylee_client_core::challenges::Action),
 }
 
 /// A control more than one screen draws.
@@ -210,6 +212,7 @@ pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
         Press::Decks(press) => press.handle(cx),
         Press::Play(press) => press.handle(cx),
         Press::Replays(press) => press.handle(cx),
+        Press::Challenges(action) => super::challenges::press(action, cx),
     }
 }
 

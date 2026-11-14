@@ -3446,3 +3446,253 @@ HandRequestedByTeammate = { $player } möchte deine Hand sehen
 HandSharingActiveWithTeammate = Hand wird mit { $player } geteilt
 HandShareAllContinuous = Hand dauerhaft mit allen Teammitgliedern teilen
 HandShareAllOnce = Aktuelle Hand allen Teammitgliedern einmalig zeigen
+
+## Global Daily and Weekly challenges
+
+# Global challenge interface.
+ChallengeNav = Aufgaben
+
+# Global challenge interface.
+ChallengeIntro = Dieselbe Tages- und Wochenaufgabe für alle, auf jedem Gate. Dein Fortschritt gehört zu deinem Central-Konto.
+
+# Global challenge interface.
+ChallengeSignIn = Melde dich bei Baylee Central an, um globale Aufgaben zu spielen und Abzeichen zu sammeln.
+
+# Global challenge interface.
+ChallengeLoading = Aufgaben werden geladen …
+
+# Global challenge interface.
+ChallengeFailed = Der Vorgang konnte nicht bestätigt werden. Aktualisiere die Ansicht oder wähle erneut Spielen, um denselben Versuch aufzunehmen.
+
+# Global challenge interface.
+ChallengeEmpty = Noch ist keine geprüfte Aufgabe verfügbar. Schau später wieder vorbei.
+
+# Global challenge interface.
+ChallengeDaily = Tagesaufgabe
+
+# Global challenge interface.
+ChallengeWeekly = Wochenaufgabe
+
+# Global challenge interface.
+ChallengeLive = Aktuell · mit Ranglistenwertung
+
+# Global challenge interface.
+ChallengeArchive = Archiv · Abschlüsse und Taktiker-Abzeichen zählen weiter
+
+# Global challenge interface.
+ChallengeWithdrawn = Zurückgezogen · kein neuer Start; erreichte Abschlüsse bleiben erhalten
+
+# Global challenge interface.
+# Arguments: start, end
+ChallengeSchedule = UTC: { $start } → { $end }
+
+# Global challenge interface.
+# Arguments: turn, minutes
+ChallengeTarget = Taktiker-Ziel: bis Spielzug { $turn } gewinnen. Plane etwa { $minutes } aktive Minuten ein.
+
+# Global challenge interface.
+ChallengeRules = Drei unabhängige Ranglisten: Fehlversuche vor dem ersten Sieg, wenigste Spielzüge und kürzeste aktive Entscheidungszeit. Hinweise schließen diese Aufgabe von den Ranglisten aus. Unterbrechungen schließen nur die Zeitwertung aus. Abzeichen verfallen nie und erfordern keine tägliche Serie.
+
+# Global challenge interface.
+ChallengePlay = Aufgabe spielen
+
+# Global challenge interface.
+ChallengeResume = Versuch fortsetzen
+
+# Global challenge interface.
+ChallengeActive = Deine laufenden Versuche
+
+# Global challenge interface.
+ChallengeLeaveTable = Verlasse deinen wartenden Tisch, bevor du eine Aufgabe startest.
+
+# Global challenge interface.
+ChallengeListed = Öffentliche Rangliste: an
+
+# Global challenge interface.
+ChallengePrivate = Öffentliche Rangliste: aus
+
+# Global challenge interface.
+ChallengeConsent = Schalte dies nur ein, wenn dein öffentlicher Name und deine Ergebnisse in den Ranglisten dieser Aufgabe erscheinen sollen. Du kannst sie jederzeit wieder verbergen.
+
+# Global challenge interface.
+ChallengeHint = Hinweis …
+
+# Global challenge interface.
+ChallengeHintConfirm = Hinweis aufdecken? Damit gilt diese Aufgabe für dein Konto dauerhaft als mit Hilfe gelöst, auch bei späteren Versuchen. Abschlüsse und Taktiker-Abzeichen bleiben möglich.
+
+# Global challenge interface.
+ChallengeAbandon = Versuch aufgeben …
+
+# Global challenge interface.
+ChallengeAbandonConfirm = Diesen Versuch aufgeben? Wenn das Spiel begonnen hat, zählt dies als Fehlversuch. Eine Verbindungsunterbrechung allein gibt den Versuch nicht auf.
+
+# Global challenge interface.
+ChallengeConfirm = Bestätigen
+
+# Global challenge interface.
+ChallengeCancel = Abbrechen
+
+# Global challenge interface.
+ChallengeDeck = Vorgegebenes Deck
+
+# Global challenge interface.
+# Arguments: starts, failures, best
+ChallengePersonal = Starts: { $starts } · Fehlversuche: { $failures } · Bester Spielzug: { $best }
+
+# Global challenge interface.
+ChallengeCompleted = Abgeschlossen · dauerhafter Fortschritt erreicht
+
+# Global challenge interface.
+ChallengeAssisted = Mit Hilfe · der Abschluss zählt weiterhin
+
+# Global challenge interface.
+ChallengeBoards = Globale Ranglisten
+
+# Global challenge interface.
+ChallengeFirst = Erster Sieg
+
+# Global challenge interface.
+ChallengeTurns = Wenigste Züge
+
+# Global challenge interface.
+ChallengeTime = Kürzeste Zeit
+
+# Global challenge interface.
+ChallengeNoScores = Auf dieser Seite gibt es noch keine gültigen öffentlichen Ergebnisse.
+
+# Global challenge interface.
+# Arguments: rank, name, turn, failures, seconds
+ChallengeStanding = { $rank }. { $name } · Zug { $turn } · Fehlversuche { $failures } · { $seconds } s
+
+# Global challenge interface.
+# Arguments: name
+ChallengeYou = { $name } (du)
+
+# Global challenge interface.
+ChallengeOlder = Ältere Aufgaben
+
+# Global challenge interface.
+ChallengeNext = Nächste Seite
+
+# Global challenge interface.
+ChallengePrevious = Vorherige Seite
+
+# Global challenge interface.
+ChallengeBadges = Deine dauerhaften Abzeichen
+
+# Global challenge interface.
+ChallengeBadgeDaily = Tagesentdecker
+
+# Global challenge interface.
+ChallengeBadgeWeekly = Wochenabenteurer
+
+# Global challenge interface.
+ChallengeBadgeTactician = Taktiker
+
+# Global challenge interface.
+ChallengeBadgeFirst = Auf Anhieb
+
+# Global challenge interface.
+ChallengeBadgeRegular = Stammgast
+
+# Global challenge interface.
+ChallengeBadgeRules = Pro Aufgabe zählt ein Abschluss für ein Abzeichen. Stammgast: drei Tagessiege oder ein Wochensieg in einer UTC-Woche; die Wochen müssen nicht aufeinanderfolgen. Auf Anhieb erfordert einen aktuellen Sieg ohne Hinweise und ohne vorherigen Fehlversuch.
+
+# Global challenge interface.
+# Arguments: count, next
+ChallengeBadgeProgress = { $count } erreicht · nächste Stufe bei { $next }
+
+# Global challenge interface.
+# Arguments: count
+ChallengeBadgeMax = { $count } erreicht · höchste Stufe
+
+# Global challenge interface.
+ChallengeBronze = Bronze
+
+# Global challenge interface.
+ChallengeSilver = Silber
+
+# Global challenge interface.
+ChallengeGold = Gold
+
+# Global challenge interface.
+ChallengePlatinum = Platin
+
+# Global challenge interface.
+ChallengeObsidian = Obsidian
+
+ChallengeHome = Deine nächste Herausforderung
+TowerNav = Der grüne Turm
+TowerLead = Fünf Duelle. Drei Leben. Ein Deck, das mit deinen Entscheidungen wächst.
+TowerOpen = Aufstieg erkunden
+TowerBegin = Expedition beginnen
+TowerNext = Nächste Etappe betreten
+TowerResume = Duell fortsetzen
+TowerChoose = Diese Verbesserung schmieden
+TowerRemove = Verlässt dein Deck
+TowerAdd = Verstärkt dein Deck
+TowerChooseLead = Sieg errungen. Wähle, wie dein Deck wächst.
+TowerChoiceNotice = Diese Wahl gilt für die ganze Expedition. Prüfe alle drei Wege, bevor du bestätigst.
+TowerAssault = Angriff
+TowerPrecision = Präzision
+TowerResolve = Standhaftigkeit
+TowerLives = Verbleibende Leben
+TowerRoute = Dein Aufstieg
+TowerReady = Bereit für das nächste Duell
+TowerPlaying = Ein Duell wartet auf deine Rückkehr
+TowerChoosing = Wähle deine nächste Verbesserung
+TowerConquered = Die Krone gehört dir
+TowerExhausted = Diese Expedition ist beendet
+TowerAbandoned = Expedition aufgegeben
+TowerRestart = Neue Expedition wagen
+TowerRetire = Expedition aufgeben
+TowerRetireConfirm = Diese Expedition aufgeben? Ihr Weg endet hier. Errungene Abzeichen bleiben dir erhalten.
+TowerRules = Du spielst jedes Duell selbst. Nach den ersten vier Siegen ersetzt du jeweils zwei Karten durch eine Verbesserung. Drei Niederlagen beenden die Expedition. Beim Wiederverbinden bleibt die Begegnung erhalten. Technisch ungültige Partien kosten kein Leben. Derselbe wöchentliche Turm gilt auf allen Gateways.
+TowerPractice = Übungsaufstieg · dauerhafte Abzeichen wachsen weiter
+TowerRanked = Aufstieg dieser Woche · zählt für die Ranglisten
+TowerBoardAscent = Aufstieg
+TowerBoardSprint = Makelloser Sprint
+TowerRankingRules = Aufstieg: geschaffte Etappen, dann weniger Niederlagen, dann weniger Züge in gewonnenen Duellen. Sprint: aktive Bedenkzeit eines makellosen Gipfelsiegs ohne unterbrochenen Sieg. Nur dein bester gültiger Lauf zählt; gleiche Ergebnisse teilen sich einen Rang.
+TowerRewards = Relikte des Aufstiegs
+TowerPathfinder = Pfadfinder
+TowerSummit = Hüter der Krone
+TowerUnbroken = Ungebrochen
+TowerEarnPathfinder = Gewinne unterschiedliche Etappen in wöchentlichen Türmen. Dieselbe Etappe in derselben Woche erneut zu gewinnen zählt nicht zusätzlich.
+TowerEarnSummit = Erreiche den Gipfel in unterschiedlichen wöchentlichen Türmen. Deine Errungenschaften verfallen nie.
+TowerEarnUnbroken = Erreiche den Gipfel in unterschiedlichen wöchentlichen Türmen, ohne ein Leben zu verlieren.
+TowerNoSeason = Eine neue Expedition wird vorbereitet. Deine errungenen Relikte bleiben erhalten.
+# Arguments: number, total
+TowerFloor = Etappe { $number } von { $total }
+# Arguments: copies, remove, add
+TowerReplacement = Ersetze { $copies } × { $remove } durch { $copies } × { $add }
+# Arguments: floors, losses, turns
+TowerScore = { $floors } / 5 Etappen · { $losses } Niederlagen · { $turns } Züge
+# Arguments: count
+TowerLifeCount = { $count } / 3 Leben
+ChallengeHomeLead = Eine Welt. Dieselbe Aufgabe für alle. Finde deinen eigenen Weg zum Sieg.
+ChallengeExplore = Aufgabe entdecken
+ChallengeMinutes = Etwa { $minutes } Min.
+ChallengeTargetCompact = Taktiker-Ziel · Sieg bis Zug { $turn }
+ChallengeTogether = Lust auf eine Partie mit anderen Spielern?
+ChallengeMultiplayer = Mehrspieler
+ChallengeConnection = Verbindung
+ChallengeRulesToggle = Wertung & Belohnungen
+ChallengeEarnDaily = Gewinne unterschiedliche Tagesaufgaben. Auch Siege im Archiv zählen.
+ChallengeEarnWeekly = Schließe unterschiedliche Wochenaufgaben ab. Jeder Sieg bleibt dir erhalten.
+ChallengeEarnTactician = Gewinne unterschiedliche Aufgaben innerhalb ihres Zugziels.
+ChallengeEarnFirst = Gewinne eine aktuelle Aufgabe beim ersten Versuch, ohne Hinweise oder vorherigen Fehlversuch.
+ChallengeEarnRegular = Sammle eine aktive Woche mit einem Wochensieg oder drei unterschiedlichen Tagessiegen. Die Wochen müssen nicht aufeinanderfolgen.
+ChallengeTierPreview = Stufenvorschau · diese Belohnungen bleiben dauerhaft dein. Pausen kosten keinen Fortschritt.
+# Arguments: count
+ChallengeTierEarned = Erreicht · { $count }
+# Arguments: count
+ChallengeTierGoal = Ziel · { $count }
+
+# Arguments: count, next
+ChallengeBadgeCompact = { $count } / { $next } zur nächsten Stufe
+
+# Global challenge interface.
+ChallengeNotEarned = Noch nicht erreicht
+
+# Global challenge interface.
+ChallengePendingResult = Dein letztes Ergebnis wird geprüft. Aktualisiere die Ansicht, um die bestätigte Wertung und deinen Abzeichenfortschritt zu sehen.

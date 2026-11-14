@@ -1,5 +1,30 @@
 # House AI
 
+## Frozen challenge execution
+
+The opponent finishes its simultaneous opening decisions before a human answer
+is admitted. A human cannot race a worker's pump slice to change which decision
+number the opponent sees. This is checked both on live input and on record
+resumption; harmless interface settings remain independent of the policy seed.
+
+An official Daily/Weekly preset carries `HouseRules::challenge_policy_seed`.
+It is private preset/record data, never part of a player view or `GameStatic`.
+It derives each opponent's policy stream independently of the shuffle seed and
+of the public game ID assigned to a particular attempt. Ordinary games and old
+records omit the field and retain their existing policy derivation.
+
+A challenge has one human (seat 0), one house opponent (seat 1), no teams,
+decision/reconnection timers, takebacks or time-extension votes. Profiles with
+adaptive foresight are refused before setup. Scouting stays fair, and neither
+stand-ins nor chair takeover can replace either participant. The policy reads
+the count of accepted opponent answers, independent of the human's manual or
+automatic priority passes. Live play and record reconstruction increment this
+same counter. Resuming a challenge recomputes and checks the recorded house actions
+to restore its internal memory; a mismatching policy cannot continue silently.
+Central admission, scores and certification are separate host responsibilities.
+
+## Profiles
+
 The six names in `AIProfile::NAMED` drive both the offline picker and the
 network lobby. Existing `novice`, `steady`, and `sharp` keys still work.
 Every level but `seer` is fair: it plays from its seat's view and its own

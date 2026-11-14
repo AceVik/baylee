@@ -17,13 +17,15 @@ pub(super) fn place(state: &LobbyState) -> Option<Place> {
         return None;
     }
     match state.lobby.screen() {
-        Screen::SignIn { .. } => Some(Place::Door),
+        Screen::SignIn { .. } => (!state.central_ready()).then_some(Place::Door),
         Screen::Table if state.lobby.awaiting().is_some() && !state.room_away => Some(Place::Room),
         Screen::Table => match state.hub {
-            Hub::Play => Some(Place::Play),
+            Hub::Play if !state.central_ready() => Some(Place::Play),
+            Hub::Tables => Some(Place::Play),
+            Hub::Gateways => Some(Place::Door),
             Hub::Decks => Some(Place::Shelf),
             // No tour stands on the Replays tab.
-            Hub::Replays => None,
+            Hub::Play | Hub::Replays | Hub::Challenges => None,
         },
         Screen::Build => Some(Place::Builder),
         Screen::Seated(_) | Screen::Replay(_) => None,

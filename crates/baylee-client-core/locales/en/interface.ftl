@@ -9951,3 +9951,255 @@ HandShareAllContinuous = Share hand with all teammates (whole game)
 
 # Show a one-time snapshot of this seat's current hand to every living teammate.
 HandShareAllOnce = Show current hand to all teammates (once)
+
+## Global Daily and Weekly challenges
+
+# Global challenge interface.
+ChallengeNav = Challenges
+
+# Global challenge interface.
+ChallengeIntro = The same Daily and Weekly for everyone, on every gate. Your progress belongs to your Central account.
+
+# Global challenge interface.
+ChallengeSignIn = Sign in to Baylee Central to play global challenges and keep your badges.
+
+# Global challenge interface.
+ChallengeLoading = Reading challenges…
+
+# Global challenge interface.
+ChallengeFailed = The operation could not be confirmed. Refresh, or retry Play to recover the same attempt.
+
+# Global challenge interface.
+ChallengeEmpty = No certified challenge is available yet. Please check again later.
+
+# Global challenge interface.
+ChallengeDaily = Daily
+
+# Global challenge interface.
+ChallengeWeekly = Weekly
+
+# Global challenge interface.
+ChallengeLive = Live · competitive scores
+
+# Global challenge interface.
+ChallengeArchive = Archive · completion and tactician badges still count
+
+# Global challenge interface.
+ChallengeWithdrawn = Withdrawn · this task cannot be started; earned completion remains
+
+# Global challenge interface.
+# Arguments: start, end
+ChallengeSchedule = UTC: { $start } → { $end }
+
+# Global challenge interface.
+# Arguments: turn, minutes
+ChallengeTarget = Tactician target: win by game turn { $turn }. Allow about { $minutes } active minutes.
+
+# Global challenge interface.
+ChallengeRules = Three independent rankings: failures before your first win, fewest game turns, and fastest active decision time. Hints exclude this task from competitive rankings. Interruptions exclude only the time ranking. Badges never expire and require no daily streak.
+
+# Global challenge interface.
+ChallengePlay = Play challenge
+
+# Global challenge interface.
+ChallengeResume = Resume attempt
+
+# Global challenge interface.
+ChallengeActive = Your ongoing attempts
+
+# Global challenge interface.
+ChallengeLeaveTable = Leave your waiting table before starting a challenge.
+
+# Global challenge interface.
+ChallengeListed = Public ranking: on
+
+# Global challenge interface.
+ChallengePrivate = Public ranking: off
+
+# Global challenge interface.
+ChallengeConsent = Only opt in if you want your public name and scores shown in this task's rankings. You can hide them again at any time.
+
+# Global challenge interface.
+ChallengeHint = Hint…
+
+# Global challenge interface.
+ChallengeHintConfirm = Reveal a hint? This permanently marks this task as assisted for your account, including later attempts. Completion and tactician badges remain available.
+
+# Global challenge interface.
+ChallengeAbandon = Abandon attempt…
+
+# Global challenge interface.
+ChallengeAbandonConfirm = Abandon this attempt? If the game has started, this counts as a failed attempt. A disconnection alone does not abandon it.
+
+# Global challenge interface.
+ChallengeConfirm = Confirm
+
+# Global challenge interface.
+ChallengeCancel = Cancel
+
+# Global challenge interface.
+ChallengeDeck = Supplied deck
+
+# Global challenge interface.
+# Arguments: starts, failures, best
+ChallengePersonal = Starts: { $starts } · Failures: { $failures } · Best game turn: { $best }
+
+# Global challenge interface.
+ChallengeCompleted = Completed · permanent progress earned
+
+# Global challenge interface.
+ChallengeAssisted = Assisted · completion still counts
+
+# Global challenge interface.
+ChallengeBoards = Global rankings
+
+# Global challenge interface.
+ChallengeFirst = First win
+
+# Global challenge interface.
+ChallengeTurns = Fewest turns
+
+# Global challenge interface.
+ChallengeTime = Fastest time
+
+# Global challenge interface.
+ChallengeNoScores = No eligible public scores on this page yet.
+
+# Global challenge interface.
+# Arguments: rank, name, turn, failures, seconds
+ChallengeStanding = { $rank }. { $name } · Turn { $turn } · Failures { $failures } · { $seconds } s
+
+# Global challenge interface.
+# Arguments: name
+ChallengeYou = { $name } (you)
+
+# Global challenge interface.
+ChallengeOlder = Older tasks
+
+# Global challenge interface.
+ChallengeNext = Next page
+
+# Global challenge interface.
+ChallengePrevious = Previous page
+
+# Global challenge interface.
+ChallengeBadges = Your permanent badges
+
+# Global challenge interface.
+ChallengeBadgeDaily = Daily explorer
+
+# Global challenge interface.
+ChallengeBadgeWeekly = Weekly adventurer
+
+# Global challenge interface.
+ChallengeBadgeTactician = Tactician
+
+# Global challenge interface.
+ChallengeBadgeFirst = First try
+
+# Global challenge interface.
+ChallengeBadgeRegular = Regular visitor
+
+# Global challenge interface.
+ChallengeBadgeRules = One completion per task advances a badge. Regular visitor: three Daily wins or one Weekly win in a UTC week; weeks need not be consecutive. First try requires an unassisted live win without a previous failure.
+
+# Global challenge interface.
+# Arguments: count, next
+ChallengeBadgeProgress = { $count } earned · next tier at { $next }
+
+# Global challenge interface.
+# Arguments: count
+ChallengeBadgeMax = { $count } earned · highest tier
+
+# Global challenge interface.
+ChallengeBronze = Bronze
+
+# Global challenge interface.
+ChallengeSilver = Silver
+
+# Global challenge interface.
+ChallengeGold = Gold
+
+# Global challenge interface.
+ChallengePlatinum = Platinum
+
+# Global challenge interface.
+ChallengeObsidian = Obsidian
+
+ChallengeHome = Your next challenge
+TowerNav = The Verdant Tower
+TowerLead = Five duels. Three lives. A deck shaped by your decisions.
+TowerOpen = Explore the ascent
+TowerBegin = Begin expedition
+TowerNext = Enter next floor
+TowerResume = Resume duel
+TowerChoose = Forge this upgrade
+TowerRemove = Leaves your deck
+TowerAdd = Joins your deck
+TowerChooseLead = Victory earned. Choose how your deck evolves.
+TowerChoiceNotice = This choice lasts for this expedition. Inspect all three paths before confirming.
+TowerAssault = Assault
+TowerPrecision = Precision
+TowerResolve = Resolve
+TowerLives = Lives remaining
+TowerRoute = Your ascent
+TowerReady = Ready for the next duel
+TowerPlaying = A duel awaits your return
+TowerChoosing = Choose your next improvement
+TowerConquered = The crown is yours
+TowerExhausted = This expedition has ended
+TowerAbandoned = Expedition retired
+TowerRestart = Try a new expedition
+TowerRetire = Retire expedition
+TowerRetireConfirm = Retire this expedition? Its route ends here. Earned badges remain yours.
+TowerRules = You play every duel yourself. After each of the first four victories, replace two cards with an upgrade. Three defeats end the expedition. Reconnecting preserves the encounter. Technical voids cost no life. The same weekly tower is shared across every gateway.
+TowerPractice = Practice ascent · permanent badges still progress
+TowerRanked = This week's ascent · eligible for rankings
+TowerBoardAscent = Ascent
+TowerBoardSprint = Flawless sprint
+TowerRankingRules = Ascent: floors cleared, then fewer defeats, then fewer winning turns. Sprint: active thinking time for a flawless summit, with no interrupted victory. Only your best eligible run appears; equal scores share a rank.
+TowerRewards = Relics of the ascent
+TowerPathfinder = Pathfinder
+TowerSummit = Crown keeper
+TowerUnbroken = Unbroken
+TowerEarnPathfinder = Win distinct floors across weekly towers. Repeating the same floor in the same week never adds progress.
+TowerEarnSummit = Reach the summit in distinct weekly towers. Your achievements never expire.
+TowerEarnUnbroken = Reach the summit without losing a life in distinct weekly towers.
+TowerNoSeason = A new expedition is being prepared. Your earned relics are safe.
+# Arguments: number, total
+TowerFloor = Floor { $number } of { $total }
+# Arguments: copies, remove, add
+TowerReplacement = Replace { $copies } × { $remove } with { $copies } × { $add }
+# Arguments: floors, losses, turns
+TowerScore = { $floors } / 5 floors · { $losses } defeats · { $turns } turns
+# Arguments: count
+TowerLifeCount = { $count } / 3 lives
+ChallengeHomeLead = One world. The same challenge for everyone. Find your own way to win.
+ChallengeExplore = Explore challenge
+# Arguments: minutes
+ChallengeMinutes = About { $minutes } min
+# Arguments: turn
+ChallengeTargetCompact = Tactician goal · win by turn { $turn }
+ChallengeTogether = Looking for a match with other players?
+ChallengeMultiplayer = Multiplayer
+ChallengeConnection = Connection
+ChallengeRulesToggle = Scoring & rewards
+ChallengeEarnDaily = Win different daily challenges. Archive victories count, too.
+ChallengeEarnWeekly = Complete different weekly challenges. Every victory stays with you.
+ChallengeEarnTactician = Win different challenges within their target turn.
+ChallengeEarnFirst = Win a current challenge on your first attempt, without hints or a previous failure.
+ChallengeEarnRegular = Earn one active week with a weekly victory or three different daily victories. Weeks need not be consecutive.
+ChallengeTierPreview = Tier preview · these rewards stay yours permanently. Take breaks without losing progress.
+# Arguments: count
+ChallengeTierEarned = Earned · { $count }
+# Arguments: count
+ChallengeTierGoal = Goal · { $count }
+
+# Arguments: count, next
+ChallengeBadgeCompact = { $count } / { $next } to next tier
+
+# Global challenge interface.
+ChallengeNotEarned = Not earned yet
+
+# Global challenge interface.
+ChallengePendingResult = Your last result is being checked. Refresh to see the confirmed score and badge progress.

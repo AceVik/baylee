@@ -3,7 +3,7 @@
 use crate::{ErrorBody, Json, StatusCode, err, lobby};
 
 /// Check under the same lobby lock as the subsequent create/join/start mutation.
-pub(super) fn account(
+pub(crate) fn account(
     lobby: &lobby::Lobby,
     account: &str,
     except: Option<&str>,

@@ -39,6 +39,7 @@ fn hello_of(bytes: usize) -> Vec<u8> {
             name: "x".repeat(bytes),
             capacity: 1,
             protocol_version: baylee_protocol::PROTOCOL_VERSION,
+            executor: String::new(),
         })),
     }
     .encode_to_vec()

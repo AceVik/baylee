@@ -51,11 +51,7 @@ fn into_view(d: &Devctl, name: &str) -> Result<()> {
 }
 fn open(d: &Devctl) -> Result<()> {
     if !d.has("Settings(CloseSettings)")? {
-        let entry = if d.has("Header(Nav(3))")? {
-            "Header(Nav(3))"
-        } else {
-            "Settings(OpenSettings)"
-        };
+        let entry = "Settings(OpenSettings)";
         d.press_until(entry, || d.has("Settings(CloseSettings)"), 3)?;
         sleep(0.6);
     }

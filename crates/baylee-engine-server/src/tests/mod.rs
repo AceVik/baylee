@@ -1,5 +1,6 @@
 use super::*;
 
+mod challenge;
 mod clocks;
 mod curtain;
 mod foresight;

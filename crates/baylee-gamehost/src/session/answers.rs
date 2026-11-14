@@ -264,7 +264,7 @@ impl Session {
         asked_at: u64,
         answers: usize,
     ) -> Option<Result<Vec<(PlayerId, Envelope)>, String>> {
-        if self.asked_at(seat)? != asked_at {
+        if self.is_challenge() || self.asked_at(seat)? != asked_at {
             return None;
         }
         let pending = self.engine.pending_for(seat)?.clone();
@@ -298,6 +298,9 @@ impl Session {
         // thing the engine takes from a seat that is not being asked, and it
         // leaves the question standing. See [`Session::decision_seq`].
         let moves_the_game = !action.is_automation_setting();
+        if self.is_challenge() && moves_the_game && self.needs_pump() {
+            return Err("the frozen opponent is still deciding".to_owned());
+        }
         let seat = player.get() as usize;
         if !moves_the_game
             && self

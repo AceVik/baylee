@@ -8,7 +8,7 @@ mod decks;
 mod info;
 mod listing;
 mod lobby_feed;
-mod participation;
+pub(crate) mod participation;
 mod rematch;
 mod replays;
 pub(crate) mod room_list;

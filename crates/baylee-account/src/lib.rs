@@ -13,10 +13,10 @@ pub use account::{Account, PairedSession, PairingClaim};
 #[path = "gateway.rs"]
 mod admission;
 mod http;
-pub use admission::{Admission, GatewayHttp, Turned};
+pub use admission::{Admission, ChallengeSeat, GatewayHttp, Turned};
 pub use central_api::{
-    Bearer, Endpoint, Error, SignedToken, Token, chat as chat_api, gateway, groups, owner, social,
-    terms, wire,
+    Bearer, Endpoint, Error, SignedToken, Token, challenges, chat as chat_api, gateway, groups,
+    owner, social, terms, wire,
 };
 #[cfg(feature = "client")]
 pub use central_client as sdk;

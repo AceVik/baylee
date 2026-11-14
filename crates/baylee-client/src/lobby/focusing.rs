@@ -310,6 +310,10 @@ pub(super) fn initial_focus(
             .or_else(|| first("play", "minis"))
             .or_else(|| first("play", "create")),
         Some("decks") => first("decks", "tiles").or_else(|| first("decks", "new")),
+        Some("challenges") => first("challenges", "tasks")
+            .or_else(|| first("challenges", "play"))
+            .or_else(|| first("challenges", "refresh")),
+        Some("challenge-confirm") => first("challenge-confirm", "cancel"),
         Some("room") => first("room", "seats"),
         Some("create-table") => first("create-table", "name"),
         Some("history") => first("history", "versions"),

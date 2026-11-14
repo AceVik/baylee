@@ -608,6 +608,7 @@ mod tests {
             name: "test".into(),
             capacity: 1,
             engine_bin: "/bin/cat".into(),
+            executor: baylee_build::short().into(),
             foresight_slots: None,
         };
         let pid = owned_child(&running, "game");

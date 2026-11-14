@@ -79,7 +79,10 @@ fn a_phone_drops_what_it_has_no_room_for() {
     let narrow = labels(&mut app);
 
     let gateway = app.world().resource::<LobbyState>().gateway.clone();
-    assert!(wide.contains(&gateway), "a desktop has room to say where");
+    assert!(
+        !wide.contains(&gateway),
+        "connection details stay in their popover"
+    );
     assert!(
         !narrow.contains(&gateway),
         "a phone does not, and the address is reassurance rather than \
@@ -90,6 +93,15 @@ fn a_phone_drops_what_it_has_no_room_for() {
             .iter()
             .any(|l| l.eq_ignore_ascii_case(Phrase::DiscoveryHelp.text(Lang::En))),
         "everything that matters is still there: {narrow:?}"
+    );
+    press(
+        &mut app,
+        Press::Header(super::super::header::HeaderPress::Gateway),
+    );
+    app.update();
+    assert!(
+        labels(&mut app).contains(&gateway),
+        "a phone can still inspect its connection"
     );
 }
 

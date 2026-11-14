@@ -63,7 +63,14 @@ impl Out<'_, '_, '_> {
                 tokens::MUTED,
             )
         };
-        let storage = match def.scope {
+        // Accessibility remains adjustable before admission to a gateway.
+        // Until then preferences are kept by the existing local prefs store.
+        let scope = if row == Row::HoldStill && !self.signed_in {
+            Scope::Device
+        } else {
+            def.scope
+        };
+        let storage = match scope {
             Scope::Account => Storage::Account,
             Scope::Device | Scope::Machine => Storage::Device,
         };
@@ -73,7 +80,7 @@ impl Out<'_, '_, '_> {
             def.label.text(self.lang),
             Some(def.help.text(self.lang)),
             control,
-            Some((storage, def.scope.tag().text(self.lang))),
+            Some((storage, scope.tag().text(self.lang))),
         );
         self.commands.entity(line).insert(RowMark(row));
         self.commands.entity(self.column).add_child(line);
@@ -82,9 +89,12 @@ impl Out<'_, '_, '_> {
 
     /// Whether a row's controls answer here. What the account keeps waits for
     /// a sign-in, but the sorted triggers are learned offline too, and what is
-    /// learned must be something a player can empty.
+    /// learned must be something a player can empty. Motion reduction is
+    /// accessibility and cannot require network admission.
     fn answers(&self, row: Row) -> bool {
-        settings_map::of(row).scope != Scope::Account || self.signed_in || row == Row::TriggerOrder
+        settings_map::of(row).scope != Scope::Account
+            || self.signed_in
+            || matches!(row, Row::TriggerOrder | Row::HoldStill)
     }
 
     /// A row whose control is a column of things (a list of keys, the

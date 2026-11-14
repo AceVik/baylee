@@ -24,6 +24,7 @@ fn agent_hello(gw: &Gateway, protocol_version: u32) -> Envelope {
             name: "test-agent".to_string(),
             capacity: 0,
             protocol_version,
+            executor: String::new(),
         })),
     }
 }

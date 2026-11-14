@@ -1,7 +1,7 @@
 //! The decision clocks: what each one waits for, and the set the caller
 //! arms timers from.
 
-use super::*;
+use super::PlayerId;
 
 /// What a deadline is waiting for.
 ///

@@ -19,6 +19,13 @@ nothing and binds nothing (`baylee-gateway`, `baylee-agent`,
 
 ## Neural player and offline evaluation (`baylee-train`)
 
+- `BAYLEE_CHALLENGE_BRIDGE_TOKEN`: the official publisher's Central bridge
+  capability, exactly 64 lowercase hexadecimal digits, for `challenge stock`.
+  Read into zeroizing memory, never an argument or a log. `--central-dev` selects
+  an explicit numeric-loopback fixture; `--live` explicitly selects production.
+  The worker keeps only private challenge packages and proof records in its
+  state directory, never this credential (`docs/challenges.md`).
+
 - `BAYLEE_EP=cuda` selects the v4 ONNX CUDA provider; unset or `cpu` uses CPU.
   Build with `--features onnx-cuda` and provide the CUDA 13 / cuDNN 9 libraries
   on `LD_LIBRARY_PATH`. A v4 binary without that feature refuses `cuda`, and
@@ -60,7 +67,8 @@ nothing and binds nothing (`baylee-gateway`, `baylee-agent`,
 - `PORT` (default 28766; `0` binds any free port; `BAYLEE_PORT_FILE`, a path, receives the bound port just before serving, which is how e2e helpers find it, #279).
 - `BAYLEE_BIND` (the address the TCP port listens on, a numeric IP; unset or empty = `127.0.0.1`, this machine only; `0.0.0.0` or `::` = every interface, which only an operator who means it sets, never a default; anything else refuses startup). A public gateway needs no value: its TLS proxy dials `127.0.0.1:28766` and its agent the unix socket (`docs/releasing.md` §"Where the gateway listens"). With `BAYLEE_ENGINE_URL` unset, engines are told to dial the bound address, or loopback when it is every interface.
 - `DATABASE_URL` (required).
-- `BAYLEE_DB_POOL` (8).
+- `BAYLEE_DB_POOL` (8 request connections). An official challenge host uses one
+  additional dedicated connection for its runtime ownership lock.
 - `STORE_PATH` (import-only, not gitignored).
 - `BAYLEE_ART_PATH`/`BAYLEE_DECK_IMAGE_PATH` (`off` disables; empty also refuses uploads; `/art` answers signed-in players only and the wasm client takes art straight from Scryfall, `docs/protocol.md` §"Card art").
 - `BAYLEE_REGISTRATION` (`open`, the open beta's setting and what unset means: anybody new; `off`: no Central account new here but an admin's; `invite`, the closed beta's, stops the start since its keys are gone (10.11.2026); `docs/protocol.md` §"Who may come in new"; who a Central account new here may be, `docs/central-login.md`).
@@ -139,6 +147,10 @@ Registered hosts only; keys write-only over the unix socket; tests use in-proces
 - `BAYLEE_AGENT_NAME`.
 - `BAYLEE_AGENT_CAPACITY` (0 = unlimited).
 - `BAYLEE_ENGINE_BIN` (default beside the agent).
+- `BAYLEE_ENGINE_BUILD` (default the agent's own build identity). With a retained
+  fixed engine binary, advertise that binary's exact `EngineHello.build` instead.
+  Only agents advertising a challenge's certified build can run it; retained
+  builds do not receive ordinary games. The wire protocol must still match.
 - `BAYLEE_FORESIGHT_SLOTS` (a directory the engines take their search slots in; unset = one the agent makes for its own engines, mode `0700`, a random name under systemd's `RUNTIME_DIRECTORY`, else `XDG_RUNTIME_DIR`, else the temporary directory, removed when the agent stops; name one only to share the machine's count between several agents, and then a directory of their user's own with mode `0700`, which the engines check). The agent hands it to every engine it starts, and makes it again (`0700`) first if something swept it away.
 
 Its engines inherit the agent's environment (less its token), so the house's search is set on the agent's unit: `BAYLEE_FORESIGHT`, `BAYLEE_FORESIGHT_WORK`, `BAYLEE_FORESIGHT_SEARCHES` and `BAYLEE_FORESIGHT_WALL_MS` below.
@@ -176,6 +188,23 @@ The house's search at the tables an attached engine hosts (`docs/house-ai.md` §
 - `BAYLEE_FORESIGHT_SLOTS` (the slots' directory, from the agent; unset or not there = no search, said in the log, and the engine plays on; one that is not a directory, not the engine's user's own, or not `0700` (`mode & 0o077` set) refuses launch; slot files are made `0600` and never opened through a symbolic link).
 
 A game's end logs `house searches` (asked, searched, replaced, refused, busy, walled, the slowest in ms, the most work one search spent) at `info`; each searched answer is a `debug` line of `baylee_gamehost` (`house search`, its µs and work).
+
+## Central integration fixtures (`cargo dev central integration`)
+
+Held synthetic demos (`BAYLEE_CENTRAL_DEMO=1`) require a freshly generated,
+per-run `BAYLEE_CENTRAL_DEMO_PASSWORD` from their owning process. Pass it only
+through the child environment; never write it to readiness files, logs or command
+arguments. Ordinary fresh-account checks generate their own password using OS
+randomness and keep it in process memory for subsequent authenticated checks.
+
+The Central integration fixture optionally reads `BAYLEE_CENTRAL_TOWER_EVIDENCE`,
+an absolute path to a complete, private `challenge tower` evidence directory for
+the current week. It then verifies all-node staging/retry and five real Tower
+duels without regenerating the graph. This is test-only input; services never
+read it. Build the matching `target/debug/challenge` executable first, or select
+it explicitly with `BAYLEE_CHALLENGE_BINARY`. The launcher resolves its absolute
+path before starting the database and passes it only to the fixture. The owner
+and cleanup rules are unchanged (`../tower.md`).
 
 ## House AI tests (`baylee-gamehost`)
 

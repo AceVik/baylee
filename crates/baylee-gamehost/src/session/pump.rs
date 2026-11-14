@@ -204,6 +204,7 @@ impl Session {
         self.last_attempt = None;
         let error = match applied {
             Ok(()) => {
+                self.challenge_answered(player, by);
                 if let Some(action) = kept {
                     self.recorded(player, by, action);
                 }
@@ -251,6 +252,7 @@ impl Session {
             "both AI proposal and recovery were refused; refusing to silently stall the table",
         );
         self.last_attempt = None;
+        self.challenge_answered(player, by);
         if let Some(action) = kept {
             self.recorded(player, by, action);
         }

@@ -2378,6 +2378,18 @@ when the game is ordered, handed to the agent, and passed to the process it
 starts as a command-line argument — it never leaves the machine the agent runs
 on, and it is worth one game.
 
+`AgentHello.executor` advertises the exact build of that authenticated agent's
+fixed engine binary. Empty legacy identities can host ordinary games only.
+Challenge admission gets the certified identity from Central, selects a matching
+agent before claiming, and checks `EngineHello.build` again before disclosure.
+An agent configured for an older retained build is excluded from ordinary games.
+All retained builds must still speak the gateway's exact protocol version.
+
+An authenticated challenge `SeatGrant` includes optional `challenge`, the public
+task UUID as sixteen bytes. Ordinary `POST /lobby/games/{id}/seat` recovery returns
+the same context. Other grants omit it. Clients use it to restore the challenge
+end screen; it is neither the private attempt identity nor scoring authority.
+
 **`SeatFrame{seat, envelope}`** is what makes the routing possible without the
 gateway understanding a word of the game: it nests an *encoded* player-facing
 `Envelope` and tags it with a seat, so the gateway forwards the bytes it was

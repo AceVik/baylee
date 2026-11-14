@@ -3,6 +3,7 @@ use baylee_engine::zone::ZoneLocation;
 use baylee_view::{GameStatic, LogEvent, PolicyAnswer, SeatSetting};
 
 mod chairs;
+mod challenge;
 mod clocks;
 mod foresight;
 mod frames;
@@ -42,7 +43,7 @@ fn clock_answers(
 }
 use baylee_core::ids::PrintRef;
 use baylee_core::preset::{
-    AIProfile, DeckEntry, Finish, FormatId, HouseRules, PrintInfo, SeatSpec,
+    AIProfile, DeckEntry, Finish, FormatId, HouseRules, PrintInfo, SeatController, SeatSpec,
 };
 use baylee_view::LogEntry;
 

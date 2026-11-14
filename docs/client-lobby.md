@@ -1,5 +1,65 @@
 # Account entry, collection and deck history
 
+## Global Daily and Weekly challenges
+
+The native Lobby is the home directly after Central sign-in, before selecting
+a gateway. Equal Daily/Weekly cards lead to task details, with the permanent
+collection below. The Challenges tab also holds the archive. Both read the
+shared calendar, archive, task rules, personal
+progress, three independent rankings and permanent badges from the account's
+existing worker. No gateway owns this state. Public leaderboard listing defaults
+to off; revealing either hint requires confirmation before Central permanently
+marks the task assisted. Abandonment also requires confirmation. Escape cancels
+the confirmation. All controls use the shell kit and English/German Fluent words.
+Its registered Tab order reaches task/ranking composites with arrow keys and
+activates controls with Enter/Space. Confirmation traps Tab on Cancel/Confirm.
+
+Task details put play and consent beside independent rankings; scoring rules
+expand on request. Choosing a badge shows its five tiers, exact requirements
+and earned status. Five original procedural motifs gain bezels, laurels, gems
+and crowns through Bronze → Obsidian. Together with the Tower's three original
+relic motifs, forty-eight shared material slots bound the
+cache. Motion reads the GPU clock, respects reduced motion and ambient-effects
+settings, and does not rebuild the UI or upload uniforms on idle frames.
+Motion reduction remains adjustable before gateway admission, stored locally
+by the existing preferences store. Opaque reading surfaces and scrolling over
+both controls and empty space support the minimum desktop and enlarged text.
+
+The compact Connection control opens connection selection or its diagnostic
+popover; connection details do not occupy the home. Multiplayer leads to the
+existing table browser, asking for gateway selection when one is needed.
+
+Play reserves with a retained UUIDv7, then re-reads the owned attempt and admits
+the player at the official host Central names. An ambiguous reply retries that
+identity; a known active attempt resumes without another reservation. The game
+uses the ordinary network seat and existing choice interface. Its end screen
+returns to Challenges and offers no unaccounted rematch. While the durable result
+is pending, the view explains that progress is awaiting confirmation.
+Ordinary authenticated seat grants also carry an optional public task identity.
+The native client accepts it only with the current gateway response epoch and
+binds it to that exact game, so update restarts and normal seat recovery retain
+the challenge end screen and result refresh. Unmarked ordinary grants clear the
+old context; old gateways may omit the field. It confers no scoring authority.
+
+The catalogue refreshes on a visit and every minute while shown, or every ten
+seconds with an active attempt. Responses are scoped to the exact Central worker:
+sign-out or another account discards private state and the old response mailbox.
+Idle frames retain the UI tree. A `baylee://challenge/<32 lowercase UUIDv7 hex>`
+link opens details only; it never begins a game or reveals a hint.
+Links wait while a challenge request or confirmation is outstanding.
+
+The isolated native check is `cargo dev central client --monitor 1 --challenges`.
+Build the dev-control client and the `challenge` publisher first. It runs the real
+publisher twice against its owned PostgreSQL/Central fixture, checking that retry
+publishes nothing twice. `--hold-seconds 3600` keeps that signed-in client available
+for blind play; the printed `finish` marker ends the hold early. The Rust owner
+always stops its client and backend and verifies the listeners closed. Private
+proof files remain in the run's restricted evidence directory and must not be
+read during a blind difficulty check. Monitor selection follows the current
+workstation's dedicated-display requirement.
+
+## Accounts and decks
+
 The account screens reuse the table hand HUD's `FrontalMaterial`: leather,
 engraved borders and five mineral inlays, which a lobby panel lifts clear of
 its tooled line (`dock::INLAY_LIFT`; on the hand they sit on it), with the
@@ -19,7 +79,8 @@ HTTP replies carry a session generation so responses from a departed gateway or
 account cannot populate the new screen. Addresses are device settings, never
 account preferences; tokens and passwords are not stored with them.
 
-The lobby separates **Play** from **Collection**. Play presents the selected deck,
+The signed-in home separates **Lobby**, **Multiplayer** and **Collection**.
+Multiplayer (and offline Play) presents the selected deck,
 table search and explicit table creation with a seat-count control. Collection
 offers personal decks and house decks. The builder gives the working deck the
 larger desktop pane, with the searchable card catalog beside it; narrow screens

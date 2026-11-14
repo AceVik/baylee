@@ -28,6 +28,9 @@ pub(super) struct Table<'a> {
     pub(super) scouting_decks: &'a [DeckIntel],
     pub(super) fair_scouting: bool,
     pub(super) seq: u64,
+    /// Only the frozen opponent uses its own answer count. Human solvers still
+    /// need an advancing question sequence to recognise cast/cancel loops.
+    pub(super) challenge_seq: Option<u64>,
     pub(super) house_answered: &'a [Option<HouseAnswer>],
     pub(super) showing: &'a [SeatSet],
     pub(super) shown_once: &'a BTreeMap<(u8, u8), Vec<ObjectId>>,
@@ -56,6 +59,14 @@ fn house_on_a_team(kind: Option<&SeatKind>) -> bool {
 }
 
 impl Table<'_> {
+    fn seq_for(&self, seat: PlayerId) -> u64 {
+        if seat.get() == 1 {
+            self.challenge_seq.unwrap_or(self.seq)
+        } else {
+            self.seq
+        }
+    }
+
     /// The view the house answers `player`'s question from, whether it plays
     /// the chair or has only been handed one decision by a clock.
     ///
@@ -79,7 +90,7 @@ impl Table<'_> {
         crate::view::player_view(
             engine.state(),
             player,
-            self.seq,
+            self.seq_for(player),
             Some(pending),
             &crate::view::SeatContext {
                 awaiting: crate::view::awaiting_for(engine, player),
@@ -126,7 +137,7 @@ impl Table<'_> {
         let mut view = crate::view::player_view(
             engine.state(),
             seat,
-            self.seq,
+            self.seq_for(seat),
             engine.information_pending_for(seat),
             &crate::view::SeatContext {
                 awaiting: crate::view::awaiting_for(engine, seat),

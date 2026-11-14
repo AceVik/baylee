@@ -8,6 +8,8 @@
 #[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
 use super::*;
 
+mod seat;
+
 // ------------------------------------------------------------------ HTTP
 
 /// Performs a request the state machine asked for, if it asked for one.
@@ -793,8 +795,7 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
             .map_or_else(|| unreadable(lang, Phrase::TheGameList), LobbyEvent::Seats),
         // The body is the whole lobby, which is not what is being read.
         Expect::Moved => LobbyEvent::Moved,
-        Expect::Seat => serde_json::from_str(body)
-            .map_or_else(|_| unreadable(lang, Phrase::TheSeat), LobbyEvent::Seated),
+        Expect::Seat => seat::decode(body).unwrap_or_else(|| unreadable(lang, Phrase::TheSeat)),
         // Nothing comes back, so the lobby re-reads the list to find out what
         // the table looks like without us.
         Expect::Left => LobbyEvent::Left,

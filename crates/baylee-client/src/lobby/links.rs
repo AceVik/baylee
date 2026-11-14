@@ -52,6 +52,34 @@ pub(super) fn follow(
             true
         }
         Link::AddGateway(url) => propose(&mut state, url),
+        Link::Challenge(id) | Link::Tower(id) => {
+            if state.central_ready() {
+                state.link_asked_central = false;
+                state.hub = Hub::Challenges;
+                state.ensure_central_lobby(&mailbox);
+                super::challenges::ask(
+                    &mut state,
+                    if matches!(link, Link::Tower(_)) {
+                        baylee_client_core::challenges::Action::Tower(
+                            baylee_client_core::tower::Action::Season(id),
+                        )
+                    } else {
+                        baylee_client_core::challenges::Action::Select(id)
+                    },
+                );
+                true
+            } else if state.central_pending() {
+                false
+            } else if signed_out_at_the_door(&state) && !state.link_asked_central {
+                state.link_asked_central = true;
+                open_central(&mut state);
+                false
+            } else {
+                state.link_asked_central = false;
+                state.lobby.tell_refusal(Phrase::ChallengeSignIn, &[]);
+                true
+            }
+        }
         Link::Pair(link) => {
             pair(&mut state, &mailbox, link);
             true
@@ -98,6 +126,10 @@ fn at_rest(state: &LobbyState) -> bool {
         && !state.terms.up()
         && !super::central::terms_pending(state)
         && !state.lobby.busy()
+        && !state.challenges.model.busy
+        && state.challenges.model.confirmation.is_none()
+        && !state.challenges.model.tower.abandoning
+        && state.challenges.model.tower.upgrade.is_none()
         && state.adding.is_none()
         && matches!(
             state.lobby.screen(),

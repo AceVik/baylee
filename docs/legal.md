@@ -27,6 +27,14 @@ below remain the basis for runtime card images and finishes.
 
 ## Guardrails for every change
 
+Challenge surfaces review (13 November 2026): the
+[Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy)
+were checked, including “Tell the Community it’s unofficial.” The new task
+descriptions and badge shapes are original; no artwork, logo, music or card-script
+corpus is added. Existing free access, account and runtime-card-image rules still
+apply. Scryfall's image documentation returned HTTP 403 in this check; its wording
+was not newly verified.
+
 - Unofficial non-commercial fan project. No WotC assets in the repo, except
   the card images inside recordings of the game (§3, "Recordings of the game
   show its card images").

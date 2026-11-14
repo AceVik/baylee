@@ -15,6 +15,7 @@ use std::sync::{
     mpsc,
 };
 
+mod challenge_session;
 pub(crate) mod pairing;
 
 pub(crate) type Job = Box<dyn FnOnce(&mut Account) + Send>;
@@ -1143,6 +1144,7 @@ pub(super) fn migration_failed(state: &mut LobbyState, prefs: &mut crate::prefs:
 /// No gateway entered, signed in at Central: the account's list stands, with
 /// the caret in it.
 pub(super) fn back_to_list(state: &mut LobbyState) {
+    state.hub = super::Hub::Gateways;
     state.gateway_selected = false;
     state.lobby.set_gateway_ready(false);
 }
@@ -1156,7 +1158,7 @@ pub(super) fn back_from_a_session(state: &mut LobbyState) {
         central.admitting = false;
     }
     state.left_central = LeftCentral::No;
-    state.hub = super::Hub::Play;
+    state.hub = super::Hub::Gateways;
     back_to_list(state);
     state.lobby.set_registration(Registration::Off);
     state.lobby.set_guests_enabled(false);

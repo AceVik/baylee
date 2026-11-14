@@ -27,6 +27,7 @@ async fn agent(gw: &Gateway) -> Socket {
                 name: "lifecycle-test".into(),
                 capacity: 1,
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,
+                executor: String::new(),
             })),
         },
     )
@@ -212,6 +213,7 @@ async fn exit_status_does_not_overtake_an_attached_engines_final_messages() {
                 winners: vec![],
                 reason: "test ending".into(),
                 turn: 1,
+                challenge: None,
             })),
         },
     )

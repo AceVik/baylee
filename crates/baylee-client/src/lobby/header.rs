@@ -35,7 +35,7 @@ pub(crate) enum HeaderMenu {
 /// A press on the header or a strip.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum HeaderPress {
-    /// Nav pill `n`: Lobby, Decks, Replays.
+    /// Nav pill `n`: Lobby, Decks, Challenges, Replays.
     Nav(u8),
     /// The gateway pill (or its dot).
     Gateway,
@@ -152,13 +152,19 @@ pub(super) enum NavTab {
     Decks,
     /// Replays (desktop only).
     Replays,
+    Challenges,
 }
 
-/// The nav pills this build draws, in order: a desktop's three (Lobby,
-/// Decks, Replays), the web's and a phone's two (`replays::SHOWN`).
+/// The nav pills this build draws, in order: a desktop's four (Lobby,
+/// Decks, Challenges, Replays), the web's and a phone's two (`replays::SHOWN`).
 /// Settings lives solely on the gear icon.
 pub(super) const NAV: &[NavTab] = if super::replays::SHOWN {
-    &[NavTab::Play, NavTab::Decks, NavTab::Replays]
+    &[
+        NavTab::Play,
+        NavTab::Decks,
+        NavTab::Challenges,
+        NavTab::Replays,
+    ]
 } else {
     &[NavTab::Play, NavTab::Decks]
 };
@@ -176,14 +182,16 @@ fn active(state: &LobbyState) -> Option<usize> {
     }
     let tab = match state.lobby.screen() {
         Screen::Table => match state.hub {
-            Hub::Play => NavTab::Play,
+            Hub::Play | Hub::Tables | Hub::Gateways => NavTab::Play,
             Hub::Decks => NavTab::Decks,
             Hub::Replays => NavTab::Replays,
+            Hub::Challenges => NavTab::Challenges,
         },
         Screen::SignIn { .. } if state.central_ready() => match state.hub {
-            Hub::Play => NavTab::Play,
+            Hub::Play | Hub::Tables | Hub::Gateways => NavTab::Play,
             Hub::Decks => NavTab::Decks,
             Hub::Replays => NavTab::Replays,
+            Hub::Challenges => NavTab::Challenges,
         },
         _ => return None,
     };
@@ -201,7 +209,9 @@ pub(super) fn seated(state: &LobbyState) -> Option<Strip> {
 /// has its own (its breadcrumb), and the unauthenticated front door.
 pub(super) fn wears_header(state: &LobbyState) -> bool {
     let signed_in = state.lobby.token().is_some() || state.lobby.offline() || state.central_ready();
-    signed_in && (matches!(state.lobby.screen(), Screen::Table) || state.showing_gateway_hub())
+    signed_in
+        && (matches!(state.lobby.screen(), Screen::Table)
+            || (state.central_ready() && matches!(state.lobby.screen(), Screen::SignIn { .. })))
 }
 
 /// The account pill's handle: `GET /me`'s, the guest this session is, Central's
@@ -341,20 +351,8 @@ pub(crate) struct RetainedHeader(pub String);
 /// tab switches do not.
 pub(super) fn identity(state: &LobbyState, kit: Kit) -> String {
     let lobby = &state.lobby;
-    let gateway = if state.central_without_gateway() {
-        Phrase::PlayOffline.text(lobby.lang()).to_owned()
-    } else {
-        state
-            .gateway_name()
-            .unwrap_or_else(|| state.gateway.clone())
-    };
-    let counts = if state.central_without_gateway() {
-        String::new()
-    } else if lobby.offline() {
-        Phrase::ShellOfflinePill.text(lobby.lang()).to_owned()
-    } else {
-        strips::pill_words(lobby.stats(), lobby, lobby.lang())
-    };
+    let gateway = Phrase::ChallengeConnection.text(lobby.lang());
+    let counts = "";
     format!(
         "{}|{}|{}|{}|{}|{:?}|{}|{}|{}|{}|{:?}|{}|{}|{}|{}|{}",
         lobby.offline(),
@@ -398,20 +396,8 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
         } else {
             Reach::Up
         };
-        let gateway = if state.central_without_gateway() {
-            Phrase::PlayOffline.text(lang).to_string()
-        } else {
-            state
-                .gateway_name()
-                .unwrap_or_else(|| state.gateway.clone())
-        };
-        let counts = if state.central_without_gateway() {
-            String::new()
-        } else if state.lobby.offline() {
-            Phrase::ShellOfflinePill.text(lang).to_string()
-        } else {
-            strips::pill_words(state.lobby.stats(), &state.lobby, lang)
-        };
+        let gateway = Phrase::ChallengeConnection.text(lang);
+        let counts = "";
         let handle = handle(state);
         let mut bar_tools = Vec::new();
         if matches!(kit.m.frame, ShellFrame::Wide | ShellFrame::Vast) {
@@ -423,6 +409,7 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
             .map(|tab| match tab {
                 NavTab::Play => Phrase::ShellPlay.text(lang),
                 NavTab::Decks => Phrase::ShellDecks.text(lang),
+                NavTab::Challenges => Phrase::ChallengeNav.text(lang),
                 NavTab::Replays => {
                     baylee_client_core::replay::words::ReplayPhrase::NavReplays.text(lang)
                 }
@@ -435,15 +422,15 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
             nav: &nav_labels,
             active: active(state),
             reach,
-            gateway: &gateway,
-            counts: &counts,
+            gateway,
+            counts,
             unread: state.bell.unread() + state.social_unread,
             handle: handle.as_deref(),
             return_pill: seated.then(|| Phrase::ShellReturn.text(lang)),
             tools: &bar_tools,
         };
         let gateway_press = if state.central_without_gateway() {
-            Press::Front(FrontPress::PlayOffline)
+            Press::Hub(HubPress::Tab(Hub::Gateways))
         } else {
             Press::Header(HeaderPress::Gateway)
         };
@@ -469,7 +456,14 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
                 .insert_children(2 + nav_labels.len(), &[fill_mark]);
         }
         let memorial_hint = Phrase::MemorialInvitation.text(lang).to_string();
-        let table = super::front::keys::table_of(state).name;
+        let table = if matches!(state.hub, Hub::Play | Hub::Challenges)
+            && state.central_ready()
+            && !state.settings_open()
+        {
+            super::orders::CHALLENGES.name
+        } else {
+            super::front::keys::table_of(state).name
+        };
         // Clicking the top-left Baylee brand logo opens the Memorial album.
         commands.queue(move |world: &mut World| {
             let brand = world.get::<Children>(bar).and_then(|c| {
@@ -788,7 +782,7 @@ fn gateway_popover(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ent
     let lang = state.lobby.lang();
     let name = state
         .gateway_name()
-        .unwrap_or_else(|| state.gateway.clone());
+        .unwrap_or_else(|| Phrase::ChallengeConnection.text(lang).to_string());
     let bd = strips::gateway_breakdown(state.lobby.stats(), &state.lobby);
     let card = commands
         .spawn((
@@ -1377,142 +1371,7 @@ pub(super) fn kit_metrics(
     )
 }
 
-impl HeaderPress {
-    /// What a press on the header or a strip does.
-    pub(super) fn handle(self, cx: Cx<'_, '_, '_, '_, '_>) {
-        match self {
-            HeaderPress::Gateway => toggle(cx.state, HeaderMenu::Gateway),
-            HeaderPress::Language => toggle(cx.state, HeaderMenu::Language),
-            HeaderPress::Account => toggle(cx.state, HeaderMenu::Account),
-            HeaderPress::CardFill => toggle(cx.state, HeaderMenu::CardFill),
-            HeaderPress::Bell => {
-                toggle(cx.state, HeaderMenu::Bell);
-                if cx.state.bell.unread() > 0 {
-                    cx.state.bell.read_all();
-                }
-            }
-            HeaderPress::CloseMenu => {
-                cx.state.header_menu = None;
-            }
-            HeaderPress::DismissToast(ToastId::Undo) => cx.state.undo = None,
-            HeaderPress::DismissToast(id) => cx.state.shell_asks.push(ShellAsk::DismissToast(id)),
-            HeaderPress::Shortcuts => {
-                cx.state.header_menu = None;
-                cx.state.shell_asks.push(ShellAsk::Shortcuts);
-            }
-            HeaderPress::Report => {
-                cx.state.header_menu = None;
-                cx.state.shell_asks.push(ShellAsk::Report);
-            }
-            HeaderPress::Friends | HeaderPress::Chat => {
-                let ask = if self == HeaderPress::Chat {
-                    ShellAsk::Chat
-                } else {
-                    ShellAsk::Friends
-                };
-                if cx.state.header_menu.is_none() && !cx.state.front_menu {
-                    cx.state.bypass_change_detection().shell_asks.push(ask);
-                } else {
-                    cx.state.header_menu = None;
-                    cx.state.front_menu = false;
-                    cx.state.shell_asks.push(ask);
-                }
-            }
-            HeaderPress::ChatPrivacy => cx.state.shell_asks.push(ShellAsk::ChatPrivacy),
-            HeaderPress::SwitchGateway => {
-                cx.state.header_menu = None;
-                if cx.state.central_ready() {
-                    let Cx {
-                        state,
-                        prefs,
-                        scrolled,
-                        mailbox,
-                        settings,
-                    } = cx;
-                    super::clicks::switch_gateway(state, prefs, scrolled, mailbox, settings);
-                    return;
-                }
-                HubPress::SignOut.handle(cx);
-            }
-            HeaderPress::SignOut => {
-                cx.state.header_menu = None;
-                HubPress::SignOut.handle(cx);
-            }
-            HeaderPress::Quit => {
-                cx.state.header_menu = None;
-                cx.state.shell_asks.push(ShellAsk::Quit);
-            }
-            HeaderPress::Nav(n) => {
-                cx.state.header_menu = None;
-                cx.state.front_menu = false;
-                if cx.state.lobby.awaiting().is_some() && !cx.state.room_away {
-                    cx.state.room_away = true;
-                }
-                if cx.state.settings.is_open() {
-                    cx.state.settings = SettingsPane::Closed;
-                }
-                if cx.state.library_open() {
-                    cx.state.lobby.close_library();
-                }
-                let hub = match NAV.get(usize::from(n)) {
-                    Some(NavTab::Decks) => Hub::Decks,
-                    Some(NavTab::Replays) => Hub::Replays,
-                    _ => Hub::Play,
-                };
-                HubPress::Tab(hub).handle(cx);
-            }
-            HeaderPress::Return => back_to_the_table(cx),
-            HeaderPress::Leave => {
-                if let Some(Strip::Seated { index, .. }) = strips::strip(&cx.state.lobby) {
-                    RoomPress::LeaveTable(index).handle(cx);
-                }
-            }
-            HeaderPress::RetryNow => {
-                cx.state.retry_feed = true;
-                HubPress::Refresh.handle(cx);
-            }
-        }
-    }
-}
-
-fn toggle(state: &mut LobbyState, menu: HeaderMenu) {
-    state.front_menu = false;
-    state.header_menu = if state.header_menu == Some(menu) {
-        None
-    } else {
-        Some(menu)
-    };
-}
-
-/// Return: to the waiting room (close what stands over it — Settings, the
-/// house decks, the builder, which asks first when there is something
-/// unsaved), or back into the game being played.
-fn back_to_the_table(cx: Cx<'_, '_, '_, '_, '_>) {
-    match strips::strip(&cx.state.lobby) {
-        Some(Strip::Seated { .. }) => {
-            if cx.state.room_away {
-                cx.state.room_away = false;
-            }
-            if cx.state.hub != Hub::Play {
-                cx.state.hub = Hub::Play;
-            }
-            if cx.state.settings.is_open() {
-                cx.state.settings = SettingsPane::Closed;
-            }
-            if cx.state.library_open() {
-                cx.state.lobby.close_library();
-            }
-            if matches!(cx.state.lobby.screen(), Screen::Build) {
-                BuildPress::CloseBuilder.handle(cx);
-            }
-        }
-        Some(Strip::Playing { game_id, .. }) => {
-            let request = cx.state.lobby.return_to_game(&game_id);
-            dispatch(cx.state, cx.mailbox, request);
-        }
-        None => {}
-    }
-}
+mod actions;
 
 impl LobbyState {
     /// The chosen gateway's own name, as `GET /info` gave it.

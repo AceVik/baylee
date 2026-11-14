@@ -61,7 +61,52 @@ pub struct GatewayHttp {
     agent: ureq::Agent,
 }
 
+/// A capability for the human seat of an official challenge, never Debug-printed.
+#[derive(serde::Deserialize)]
+pub struct ChallengeSeat {
+    /// Claimed game `UUIDv7`.
+    pub game_id: String,
+    /// Human seat, always zero.
+    pub seat: u32,
+    /// Short-lived game capability.
+    #[serde(deserialize_with = "seat_secret")]
+    pub seat_token: zeroize::Zeroizing<String>,
+}
+
+fn seat_secret<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<zeroize::Zeroizing<String>, D::Error> {
+    <String as serde::Deserialize>::deserialize(deserializer).map(zeroize::Zeroizing::new)
+}
+
 impl GatewayHttp {
+    /// Start or resume an owned Central reservation over the strict gateway transport.
+    /// # Errors
+    /// Invalid identities, transport failure, refused claim or malformed capability.
+    pub fn challenge_play(&self, bearer: &str, attempt: [u8; 16]) -> Result<ChallengeSeat, Error> {
+        let attempt = uuid::Uuid::from_bytes(attempt);
+        if attempt.get_version_num() != 7 {
+            return Err(Error::Rejected);
+        }
+        let response = self
+            .agent
+            .post(format!("{}/challenges/{attempt}/play", self.origin))
+            .header("Authorization", &format!("Bearer {bearer}"))
+            .send_empty()
+            .map_err(|_| Error::Unavailable)?;
+        if let Some(error) = crate::http::status_error(response.status().as_u16()) {
+            return Err(error);
+        }
+        let seat: ChallengeSeat = crate::http::decode_response(response)?;
+        if seat.seat != 0
+            || uuid::Uuid::parse_str(&seat.game_id).is_err()
+            || seat.seat_token.len() != 64
+            || !seat.seat_token.bytes().all(|b| b.is_ascii_hexdigit())
+        {
+            return Err(Error::Rejected);
+        }
+        Ok(seat)
+    }
     /// Validated HTTPS origin, with certificate verification and redirects disabled.
     ///
     /// # Errors

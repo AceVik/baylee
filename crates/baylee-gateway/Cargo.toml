@@ -45,6 +45,7 @@ baylee-cardtext.workspace = true
 baylee-cards-index.workspace = true
 baylee-catalog.workspace = true
 baylee-core.workspace = true
+baylee-challenges.workspace = true
 baylee-db.workspace = true
 baylee-protocol.workspace = true
 # Chat (`social/`): checks a device statement and a reported message, never
@@ -93,14 +94,15 @@ uuid.workspace = true
 rustix.workspace = true
 
 [dev-dependencies]
+baylee-train = { path = "../baylee-train" }
 baylee-account = { workspace = true, features = ["client"] }
 central-api.workspace = true
 central-crypto = { workspace = true, features = ["server"] }
-central-http = { git = "https://github.com/AceVik/baylee-central.git", rev = "2f2bf720672cc6b26be3f93274fed7f0be5da4c8" }
-central-identity = { git = "https://github.com/AceVik/baylee-central.git", rev = "2f2bf720672cc6b26be3f93274fed7f0be5da4c8" }
-central-migration = { git = "https://github.com/AceVik/baylee-central.git", rev = "2f2bf720672cc6b26be3f93274fed7f0be5da4c8" }
-central-policy = { git = "https://github.com/AceVik/baylee-central.git", rev = "2f2bf720672cc6b26be3f93274fed7f0be5da4c8" }
-central-postgres = { git = "https://github.com/AceVik/baylee-central.git", rev = "2f2bf720672cc6b26be3f93274fed7f0be5da4c8" }
+central-http = { git = "https://github.com/AceVik/baylee-central.git", rev = "88612dc0d31a9bb94a9d08d6460db72fbdce39bb" }
+central-identity = { git = "https://github.com/AceVik/baylee-central.git", rev = "88612dc0d31a9bb94a9d08d6460db72fbdce39bb" }
+central-migration = { git = "https://github.com/AceVik/baylee-central.git", rev = "88612dc0d31a9bb94a9d08d6460db72fbdce39bb" }
+central-policy = { git = "https://github.com/AceVik/baylee-central.git", rev = "88612dc0d31a9bb94a9d08d6460db72fbdce39bb" }
+central-postgres = { git = "https://github.com/AceVik/baylee-central.git", rev = "88612dc0d31a9bb94a9d08d6460db72fbdce39bb" }
 # The gateway no longer links the rules kernel — that is the point of the
 # engine plane. Its tests still have to prove the two ends agree, so they link
 # what the engine reads with, and drive a real engine over the real link.

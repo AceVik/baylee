@@ -142,6 +142,29 @@ Baylee's shipping guard still requires the exact Central Git revision and
 the same OPAQUE/VOPRF/elliptic-curve/bigint versions and reverse graph. This
 is a renewed scope review, not a claim that bigint 0.5 has been patched.
 
+The Daily/Weekly SDK pin was reviewed again on 13 November 2026, from
+`2f2bf720672cc6b26be3f93274fed7f0be5da4c8` to
+`072312d4fa23fa8a9b9ab29c45a0cc505835d803`. The crypto source diff adds only
+`proof.rs` and its module declaration: registration's owner-approved Argon2id
+proof of work over public nonce/counter inputs. The crate manifest and OPAQUE
+sources are unchanged; the production path uses existing Argon2 APIs and no
+group or bigint operation. Relevant dependency versions, checksums and callers
+are unchanged, although Central's full lockfile gained unrelated web/image crates.
+Central's source fingerprint at the new pin is
+`823835c3ae4a69df21a07a4c2975e57ee7c4bd51473d1fa28ea5437f9ffc1e10`.
+An independent agent's read-only source review found no expansion of the exception.
+The shipping guard still checks the exact Git pin and complete all-feature reverse
+graph, including inactive optional consumers; no check or advisory is waived.
+
+The Tower SDK pin was reviewed on 14 November 2026, from
+`072312d4fa23fa8a9b9ab29c45a0cc505835d803` to
+`88612dc0d31a9bb94a9d08d6460db72fbdce39bb`. The entire `central-crypto`
+tree (manifest included), Central's lockfile and its bigint advisory scope
+document are byte-for-byte unchanged between these commits. The fingerprint
+above and the same Ristretto-only source argument therefore remain applicable.
+The shipping guard advances only its exact Git identity; all package versions,
+source checks and the all-feature reverse-consumer graph remain mandatory.
+
 The former Central revision
 `0a941953f8c0d5573e82e0979e7faf1fb9e40299` contains the `central-crypto`
 source tree reviewed independently by two models on 24.10.2026, with two
@@ -781,6 +804,34 @@ mode; it provisions Central's `central_legacy` role beside the others. Its optio
 `BAYLEE_CENTRAL_UI_READY` path exposes only synthetic fixture addresses for at
 most 180 seconds, until the sibling `.stop` file is written. Never use it with
 production configuration.
+
+`cargo dev central integration --challenges-only` restricts the same owned
+fixture to a fresh synthetic account and the Daily/Weekly generation, publication,
+play, recovery and evaluation pipeline. The runner sets the test-process-only
+`BAYLEE_CENTRAL_CHALLENGES_ONLY=1`; neither production server reads it. The default
+integration mode still runs every existing scenario.
+
+For an explicitly requested interactive demo, set `BAYLEE_CENTRAL_DEMO=1`
+with `--challenges-only`, an owned `BAYLEE_CENTRAL_UI_READY` path and
+`BAYLEE_CENTRAL_UI_HOLD_SECS` (maximum 7200). This adds a real browser listener
+sharing the same identity service/database, a previous-day practice task and
+three synthetic accounts: `demo_player` (untouched), `fresh_player` (the fixture's
+verified Daily/Weekly wins) and `demo_resume` (a reserved Weekly to continue).
+They use the existing public fixture password and only the owned loopback gate.
+The readiness file contains addresses/account names, never credentials. The
+sibling `.stop` file stops the hold and triggers the fixture's usual cleanup.
+`BAYLEE_CENTRAL_DEMO_WEB_ORIGIN` selects a numeric loopback browser origin;
+`BAYLEE_CENTRAL_DEMO_NATIVE_PORT` optionally reserves a stable loopback port.
+Neither setting is consumed by production binaries.
+
+Run the native client with an isolated XDG profile and the returned Central/gate
+endpoints, following the dev-control skill. A local website must proxy `/api/`
+to the returned browser listener and serve a **separate demo-only** crypto module
+built for that exact native development issuer. The committed browser module is
+bound to production and deliberately cannot sign into a different issuer. Never
+replace production assets, disable issuer verification or weaken cookie checks
+for a demo. Own and stop the client, website and proxy together with the fixture;
+leave them running only when the owner requested an interactive demonstration.
 
 For coordinated local development of the sibling repositories, both database
 scripts accept `--cargo-config target/central-patch.toml`, pointing to a Cargo

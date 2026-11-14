@@ -119,6 +119,9 @@ impl Session {
     /// stands, and the next question addressed to this seat simply goes out
     /// over the wire rather than into [`HeuristicAgent::act`].
     pub fn take_over(&mut self, seat: PlayerId) -> bool {
+        if self.is_challenge() {
+            return false;
+        }
         let Some(kind) = self.seats.get_mut(seat.get() as usize) else {
             return false;
         };
@@ -298,6 +301,9 @@ impl Session {
     /// owns the deadline; `HouseRules::reconnect_window_secs` is how long the
     /// table said to wait.
     pub fn stand_in(&mut self, seat: PlayerId) -> bool {
+        if self.is_challenge() {
+            return false;
+        }
         let teams = self.teams.clone();
         let Some(kind) = self.seats.get_mut(seat.get() as usize) else {
             return false;

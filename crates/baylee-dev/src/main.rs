@@ -141,6 +141,15 @@ enum AndroidEnv {
 
 #[derive(Subcommand)]
 enum Central {
+    /// Run a required gate with an owned, isolated PostgreSQL database.
+    Gate {
+        /// Run the desktop/server feature gate instead of the full default gate.
+        #[arg(long)]
+        features: bool,
+        /// Fail after fixture startup to verify cleanup.
+        #[arg(long)]
+        exercise_failure: bool,
+    },
     /// `baylee-db`'s schema suite, then any named gateway e2e targets.
     Db {
         /// Gateway e2e targets to add (e.g. `e2e_account`).
@@ -155,6 +164,9 @@ enum Central {
     },
     /// A real gateway and Central against one isolated database.
     Integration {
+        /// Exercise only challenge generation, play, recovery and evaluation.
+        #[arg(long)]
+        challenges_only: bool,
         #[arg(long)]
         cargo_config: Option<PathBuf>,
         /// End early once this file exists.
@@ -168,6 +180,12 @@ enum Central {
         /// The additional left monitor's index.
         #[arg(long, default_value_t = 0)]
         monitor: i64,
+        /// Publish fresh certified tasks with the real CLI and open Challenges.
+        #[arg(long)]
+        challenges: bool,
+        /// Keep the isolated signed-in client available for manual challenge play.
+        #[arg(long, default_value_t = 0, requires = "challenges", value_parser = clap::value_parser!(u64).range(0..=7200))]
+        hold_seconds: u64,
     },
 }
 
@@ -256,35 +274,7 @@ fn main() -> ExitCode {
             } => ("ios-sim", mobile::ios_sim(&device, &gateway, devctl)),
             Task::ServeLan { print } => ("serve-lan", mobile::serve_lan(print)),
             Task::KeyringLinux { inside, args } => ("keyring-linux", keyring::run(inside, &args)),
-            Task::Central {
-                check:
-                    Central::Db {
-                        gateway_tests,
-                        cargo_config,
-                        exercise_failure,
-                    },
-            } => (
-                "central db",
-                central::db(&gateway_tests, cargo_config.as_deref(), exercise_failure),
-            ),
-            Task::Central {
-                check:
-                    Central::Integration {
-                        cargo_config,
-                        cancel_file,
-                        exercise_failure,
-                    },
-            } => (
-                "central integration",
-                central::integration(
-                    cargo_config.as_deref(),
-                    cancel_file.as_deref(),
-                    exercise_failure,
-                ),
-            ),
-            Task::Central {
-                check: Central::Client { monitor },
-            } => ("central client", central::client(monitor)),
+            Task::Central { check } => central_task(check),
         },
     };
     match result {
@@ -293,5 +283,47 @@ fn main() -> ExitCode {
             eprintln!("{name}: {error:#}");
             ExitCode::FAILURE
         }
+    }
+}
+
+fn central_task(check: Central) -> (&'static str, anyhow::Result<i32>) {
+    match check {
+        Central::Db {
+            gateway_tests,
+            cargo_config,
+            exercise_failure,
+        } => (
+            "central db",
+            central::db(&gateway_tests, cargo_config.as_deref(), exercise_failure),
+        ),
+        Central::Gate {
+            features,
+            exercise_failure,
+        } => (
+            "central gate",
+            central::verification::gate(features, exercise_failure),
+        ),
+        Central::Integration {
+            challenges_only,
+            cargo_config,
+            cancel_file,
+            exercise_failure,
+        } => (
+            "central integration",
+            central::integration(
+                cargo_config.as_deref(),
+                cancel_file.as_deref(),
+                exercise_failure,
+                challenges_only,
+            ),
+        ),
+        Central::Client {
+            monitor,
+            challenges,
+            hold_seconds,
+        } => (
+            "central client",
+            central::client(monitor, challenges, hold_seconds),
+        ),
     }
 }

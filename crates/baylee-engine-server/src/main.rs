@@ -923,7 +923,10 @@ mod attached {
         // is built, whether or not any seat has attached, and dropped once
         // the curtain is up.
         let mut curtain_at = None;
+        let measured_from = tokio::time::Instant::now();
         loop {
+            runner
+                .wait_from(u64::try_from(measured_from.elapsed().as_millis()).unwrap_or(u64::MAX));
             let now = tokio::time::Instant::now();
             armed.sync(&runner.clocks(), |clock| {
                 now + std::time::Duration::from_secs(u64::from(clock.secs))
@@ -949,19 +952,23 @@ mod attached {
             tokio::select! {
                 biased;
                 () = deadline(record_at) => {
+                    runner.measure_until(u64::try_from(measured_from.elapsed().as_millis()).unwrap_or(u64::MAX));
                     runner.tell_time(wall_ms());
                     send_batch(&mut ws, &runner.flush_record_due()).await?;
                 }
                 () = deadline(arrival) => {
+                    runner.measure_until(u64::try_from(measured_from.elapsed().as_millis()).unwrap_or(u64::MAX));
                     runner.tell_time(wall_ms());
                     send_batch(&mut ws, &runner.finish_entrance()).await?;
                 }
                 () = deadline(curtain_at) => {
+                    runner.measure_until(u64::try_from(measured_from.elapsed().as_millis()).unwrap_or(u64::MAX));
                     tracing::info!(game_id = attach.game_id, "table preparation timed out");
                     runner.tell_time(wall_ms());
                     send_batch(&mut ws, &runner.preparation_expired()).await?;
                 }
                 () = deadline(next.map(|(_, at)| at)) => {
+                    runner.measure_until(u64::try_from(measured_from.elapsed().as_millis()).unwrap_or(u64::MAX));
                     // The clock is the one thing the rules kernel must not
                     // own: it is deterministic and may not read a wall clock.
                     let Some((clock, _)) = next else { continue };
@@ -971,6 +978,7 @@ mod attached {
                     send_batch(&mut ws, &runner.timeout(clock)).await?;
                 }
                 frame = ws.next() => {
+                    runner.measure_until(u64::try_from(measured_from.elapsed().as_millis()).unwrap_or(u64::MAX));
                     let Some(frame) = frame else { break };
                     let frame = frame?;
                     if !frame.is_binary() {
@@ -994,6 +1002,7 @@ mod attached {
                     send_batch(&mut ws, &runner.handle(envelope, &remaining)).await?;
                 }
                 () = tokio::task::yield_now(), if needs_pump => {
+                    runner.measure_until(u64::try_from(measured_from.elapsed().as_millis()).unwrap_or(u64::MAX));
                     let remaining = remaining_now(&armed);
                     runner.tell_time(wall_ms());
                     send_batch(&mut ws, &runner.pump_slice(&remaining)).await?;

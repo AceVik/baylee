@@ -18,7 +18,6 @@ use baylee_account::{
     wire::{Identity, Request, Response},
 };
 use baylee_client_core::deeplink::{self, Link, Origins};
-use central_api::beta_key::BetaKey;
 use central_crypto::{
     Context,
     opaque::{Enrollment, Login},
@@ -54,26 +53,14 @@ impl Website<'_> {
 
     /// The website's registration: the account, its context and the master
     /// key the page made for it.
-    fn register(
-        &self,
-        operator: &DatabaseConnection,
-        endpoint: &Endpoint,
-    ) -> (Identity, Context, MasterKey) {
-        let key = BetaKey::generate().unwrap();
-        self.runtime.block_on(async {
-            central_postgres::BetaKeyBatch::new(&[key.digest()], 1, None, "e2e pairing")
-                .unwrap()
-                .issue(operator)
-                .await
-                .unwrap();
-        });
-        let register = Request::Register {
-            username: USERNAME.into(),
-            beta_key: key.display().to_string(),
-            display_name: Some("Pair_Player".into()),
-        };
+    fn register(&self, endpoint: &Endpoint) -> (Identity, Context, MasterKey) {
+        let register = super::registration::request(
+            |request| self.answer(request, None).unwrap(),
+            USERNAME,
+            "Pair_Player",
+        );
         let Ok(Response::Enrollment { identity, ticket }) = self.answer(&register, None) else {
-            panic!("a valid key registers a free name");
+            panic!("a valid proof registers a free name");
         };
         let context = Context::new(endpoint.issuer(), identity.account, identity.epoch).unwrap();
         let (enrollment, message) = Enrollment::start(PASSWORD.into(), context).unwrap();
@@ -270,7 +257,7 @@ pub(super) fn run(
 ) {
     let origin = &format!("http://127.0.0.1:{}", gateway.port);
     let website = Website { runtime, service };
-    let (identity, context, master) = website.register(operator, endpoint);
+    let (identity, context, master) = website.register(endpoint);
     let check = master.key_check(context).unwrap();
 
     // The client's password sign-in stores the key check the website's

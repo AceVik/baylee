@@ -16,6 +16,8 @@ mod card_fill;
 #[cfg(not(target_arch = "wasm32"))]
 mod central_door;
 #[cfg(not(target_arch = "wasm32"))]
+mod challenges;
+#[cfg(not(target_arch = "wasm32"))]
 mod deck_saves;
 mod decks_visit;
 mod end_screen;

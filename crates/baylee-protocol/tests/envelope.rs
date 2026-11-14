@@ -20,6 +20,7 @@ fn an_agent_hello_keeps_its_token_name_capacity_and_version() {
         name: "box-1".into(),
         capacity: 7,
         protocol_version: PROTOCOL_VERSION,
+        executor: String::new(),
     };
     assert_eq!(trip(Msg::AgentHello(hello.clone())), Msg::AgentHello(hello));
 }
@@ -119,6 +120,7 @@ fn a_game_end_lists_its_winners_in_order() {
         winners: vec![2, 0, 1],
         reason: "conceded".into(),
         turn: 7,
+        challenge: None,
     };
     let Msg::GameEnded(back) = trip(Msg::GameEnded(ended.clone())) else {
         panic!()
@@ -232,6 +234,7 @@ fn truncated_or_garbage_bytes_are_an_error_never_a_message() {
             winners: vec![0],
             reason: "r".into(),
             turn: 0,
+            challenge: None,
         })),
     }
     .encode_to_vec();

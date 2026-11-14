@@ -78,7 +78,9 @@ pub(super) fn spawn_leave_button(
     // finished game that would have asked a gateway for another of a table
     // it has never heard of. It was floating over the board where nobody
     // looked; the end screen put it in the middle of the sheet.
-    let networked = matches!(state.lobby.screen(), Screen::Seated(handover) if !handover.local && !handover.watching());
+    let challenge = super::challenges::current(&state);
+    let networked = !challenge
+        && matches!(state.lobby.screen(), Screen::Seated(handover) if !handover.local && !handover.watching());
     // Watch replay: a game this client hosted, or a hosted one this player
     // sat in; never one only watched (desktop only).
     let replayable = super::replays::SHOWN
@@ -112,7 +114,15 @@ pub(super) fn spawn_leave_button(
                 Press::End(EndPress::Replay),
             ));
         }
-        ways.push((Phrase::BackToLobby.text(lang), Press::End(EndPress::Leave)));
+        ways.push((
+            if challenge {
+                Phrase::ChallengeNav
+            } else {
+                Phrase::BackToLobby
+            }
+            .text(lang),
+            Press::End(EndPress::Leave),
+        ));
     }
 
     // In the sheet these are the slip's own answers, so they obey the slip's

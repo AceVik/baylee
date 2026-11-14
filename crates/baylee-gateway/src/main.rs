@@ -24,6 +24,7 @@ mod banlists;
 mod blocks;
 mod central;
 mod chair;
+mod challenges;
 mod clock;
 mod cosmetics;
 mod departure;
@@ -127,6 +128,8 @@ struct AppState {
     /// five minutes, on a budget of their own beside [`Self::limiter`].
     sign_in_limiter: auth::RateLimiter,
     lobby: Mutex<Lobby>,
+    challenge_starts: tokio::sync::Mutex<()>,
+    challenge_owner: std::sync::atomic::AtomicBool,
     /// Who may come in new (`BAYLEE_REGISTRATION`): anybody (`open`) or
     /// nobody (`off`).
     registration: registration::Registration,
@@ -506,6 +509,8 @@ async fn main() {
         ),
         sign_in_limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 8),
         lobby: Mutex::new(Lobby::default()),
+        challenge_starts: tokio::sync::Mutex::new(()),
+        challenge_owner: std::sync::atomic::AtomicBool::new(false),
         // Small: a receiver that falls this far behind is one whose socket is
         // not draining, and the lag is handled by sending it the current
         // listing rather than by replaying what it missed.
@@ -599,6 +604,7 @@ async fn main() {
         );
     }
     let _central_heartbeat = central::Heartbeat::start(state.clone());
+    let _challenge_delivery = challenges::start_delivery(state.clone());
     central::spawn_terms_publisher(state.clone());
     social::sweep::sweep(&state).await;
     social::presence::spawn(state.clone());
@@ -624,6 +630,7 @@ async fn main() {
         .merge(social::routes::routes())
         .route("/social/ws", get(social::socket::social_ws))
         .route("/lobby/games", get(list_games).post(create_game))
+        .route("/challenges/{attempt}/play", post(challenges::play))
         .route("/lobby/seats", get(list_seats))
         .route("/lobby/stats", get(lobby_stats))
         // Replays (`docs/protocol.md` §"Replays"): the games an account sat

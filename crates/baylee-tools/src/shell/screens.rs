@@ -14,7 +14,7 @@ use std::path::Path;
 const HEADER_SCREENS: [(&str, &str); 3] = [
     ("play", "Header(Nav(0))"),
     ("decks", "Header(Nav(1))"),
-    ("replays", "Header(Nav(2))"),
+    ("replays", "Header(Nav(3))"),
 ];
 pub(super) fn tiles_per_row(tree: &Tree) -> usize {
     let top = tree
