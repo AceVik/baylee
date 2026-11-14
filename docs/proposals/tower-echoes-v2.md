@@ -3,7 +3,10 @@
 Status: implementation started after the verified handoff, 14 November 2026.
 Owner review is planned for Tuesday,
 17 November 2026, with Fable 5.2; that is a review target, not a claim that
-implementation or acceptance is complete. No merge or deployment is scheduled.
+implementation or acceptance is complete. The owner subsequently authorized
+landing the existing foundation on main and starting full implementation;
+Baylee main now contains `0d9cee40d82e746ed17964e81950846e87223a73`.
+No production deployment is authorized by that merge.
 Working branch: `codex/tower-echoes`, PR base `main` in Baylee. It preserves the
 existing Daily/Weekly and Tower foundation; it is not an orphan history or a PR
 stack that requires the old feature branch to merge first.
@@ -636,12 +639,13 @@ retention and trusted-host policy. A missing primitive or consumer keeps the
 affected content explicitly unavailable, never partially advertised as supported.
 
 Run targeted unit/property/integration tests and strict checks for changed crates.
-Before pushing, run required `cargo dev gate` and `cargo dev gate features` with
-isolated PostgreSQL as mandated by AGENTS.md; do not bypass them because the
-feature is large. Central changes separately require its documented xtask,
-crypto-scope and pinned dependency checks. This design-only pass runs neither
-expensive game tests nor services. The final independent PR review follows the
-implementation iterations and gates; Fable's planned review/merge remains separate.
+The owner's latest instruction, 14 November, explicitly limits local gates to
+changed crates and directly affected contracts; do not repeat already-passed
+workspace gates or wait for CI before continuing implementation. Apply that
+scope in both repositories. Database, dependency and crypto checks are needed
+when those surfaces change. Required remote branch protection still applies to
+publication. The final PR review follows the implementation iterations and QA;
+the planned Fable review remains an additional review target.
 
 ## 10. Implementation sequence and review handoff
 
@@ -714,9 +718,10 @@ checks; neither their old proof graph nor the old expedition demo proves v2.
 The review package must include the exact branch/head, PRs against main, changed
 contracts, migrations/rollback behavior, targeted test commands and logs, local
 demo recipes, visual evidence, balance measurements and candid known limitations.
-Do not merge main on the owner's behalf before the planned Fable review. If a
-Central change is needed, use its own new codex branch and its stricter safety,
-dependency and mandatory QA policy.
+The owner's later instruction authorizes the foundation merge; new work remains
+on the root feature branch with a PR against main. If a Central change is needed,
+use its own new codex branch and its stricter safety and dependency policy,
+with the owner's changed-crate QA scope above.
 
 See [the readiness review](tower-echoes-readiness.md) for passes, unresolved
 validation and concrete completion criteria. This document authorizes no

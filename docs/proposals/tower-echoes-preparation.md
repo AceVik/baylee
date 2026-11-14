@@ -228,4 +228,43 @@ cargo clippy --offline --locked -p baylee-engine --lib --features fork -- -D war
 and `/tmp/baylee-loop-state-clippy-20261114.log`. The second run was justified by
 the subsequent state-layout/checkpoint change; no broad game benchmark was run.
 All owned test commands and the watcher have exited; no clients or services were
-started. Feature-branch publication remains subject to the full required gates.
+started. Subsequent publication follows the owner's changed-crate gate scope.
+
+## Foundation landing and life-rule regressions — 14 November
+
+The owner authorized the foundation merge and full implementation. Baylee
+`origin/main` was fast-forwarded to `0d9cee40d82e746ed17964e81950846e87223a73`
+after the combined snapshot passed both local gates (28,217 regular tests and
+2,744 client-feature tests, plus the other scoped feature checks). Logs:
+`/tmp/baylee-main-gate-20261114.log` and
+`/tmp/baylee-main-features-20261114.log`. The feature branch is based on that
+main. Central PR 66 remains subject to protected checks; its cold Linux build
+timeout was corrected separately. Implementation does not wait for that CI.
+
+The owner's latest QA instruction limits subsequent gates to changed crates and
+directly affected interfaces. Do not repeat the completed workspace runs for
+each milestone. The owner also withdrew the proposed lethal-life-payment ban.
+
+Checked against Wizards' [Comprehensive Rules, effective 6 November 2026](https://media.wizards.com/2026/downloads/MagicCompRules%2020261106.txt):
+CR 119.4 allows paying exactly one's life total; 704.3/704.5a apply the loss
+before the next priority window. CR 603.3b orders simultaneous triggers APNAP.
+The full stack does not resolve before checking loss. CR 704.4 separately
+excludes state-based actions during a single resolving spell/ability.
+
+The existing payment implementation is correct. Added real-card regressions
+using Windswept Heath at one life and Opportunity with two opposing Sheoldreds:
+own-turn lethal loss, own-turn survival, opponent-turn gains first, both trigger
+ordering settings, and Platinum Angel allowing intermediate zero life. No
+house-rule prohibition and no card implementation changes were made.
+
+Validated with:
+
+```text
+BAYLEE_BUILD_STAMP=none cargo nextest run --offline --locked --cargo-profile gate \
+  -p baylee-engine --lib --features fork \
+  -E 'test(engine::life_timing_tests::) | test(engine::life_cost_flow_tests::) | test(state::tests::the_last_point_of_life_is_still_payable)'
+```
+
+14 tests passed; 2,623 unrelated tests skipped. The initial new fixture used the
+wrong answer shape for a player-only target; correcting it to `ChoosePlayer`
+made all scenarios pass. Log: `/tmp/baylee-life-timing-20261114.log`.

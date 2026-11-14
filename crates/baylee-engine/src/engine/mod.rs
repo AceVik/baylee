@@ -2154,6 +2154,8 @@ mod leave;
 mod library_flow_tests;
 #[cfg(test)]
 mod life_cost_flow_tests;
+#[cfg(test)]
+mod life_timing_tests;
 mod loop_control;
 #[cfg(test)]
 mod lost_target_tests;
