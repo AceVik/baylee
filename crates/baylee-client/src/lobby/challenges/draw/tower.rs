@@ -73,7 +73,7 @@ pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, 
         .entry::<Node>()
         .and_modify(move |mut node| {
             node.align_items = AlignItems::Center;
-            node.padding = UiRect::axes(px_fixed(kit.m.pad), px_fixed(kit.m.pad * 1.5));
+            node.padding = UiRect::all(px_fixed(kit.m.pad));
         });
     commands.entity(hero).insert(BorderColor {
         top: tokens::GOLD,
@@ -101,6 +101,14 @@ pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, 
         ),
         tokens::MUTED,
     );
+    // A victory's next decision leads the page, before route/history and consent.
+    if tower
+        .run
+        .as_ref()
+        .is_some_and(|run| run.progress.phase == Phase::Choosing)
+    {
+        upgrades::draw(commands, body, kit, lang, model);
+    }
     let halves = row(commands, body, kit);
     commands
         .entity(halves)
@@ -110,13 +118,6 @@ pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, 
     let progress = column(commands, halves, kit, 48.0);
     map::draw(commands, route, kit, lang, model, season);
     controls::draw(commands, progress, kit, lang, model, season);
-    if tower
-        .run
-        .as_ref()
-        .is_some_and(|run| run.progress.phase == Phase::Choosing)
-    {
-        upgrades::draw(commands, body, kit, lang, model);
-    }
     ranking::draw(commands, body, kit, lang, model);
     collection::draw(commands, body, kit, lang, model);
     details(commands, body, kit, lang, model);

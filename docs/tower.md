@@ -89,8 +89,9 @@ the playable route and actions; balanced overview panels and centered heading;
 three exact replacement previews with selected-state controls; aligned rankings,
 life pips and route markers; then earned summit/relic presentation and compact
 layout helpers. A sixth correction pass preserved uncertain upgrade retries and
-labeled the actual ranking week. These are implementation/headless refinements;
-the final rendered Tower window has not been accepted without the required display.
+labeled the actual ranking week. These first six passes were implementation and
+headless refinements. The owner's subsequent permission to use a passive window
+on the main display enabled the rendered acceptance described below.
 The preceding Daily/Weekly Lobby redesign had six rendered/control refinements,
 including compact gateway presentation, five distinct animated badge motifs and
 five inspectable tiers, separate play/ranking/rules views and reduced motion.
@@ -148,9 +149,8 @@ Eight final focused native/core regressions passed (0.80/0.01 seconds), includin
 uncertain upgrade retries after cancelling a local preview and explicit ranking
 week labels alongside an older active expedition. Independent generator, host
 and client reviewers reported no remaining concrete findings after corrections.
-Final rendered native acceptance still requires the agreed additional test
-display; no representative human difficulty or native Tower visual approval is
-claimed from the headless checks.
+The later native inspection complements these headless checks; neither the
+inspection nor the retained witnesses establish representative human difficulty.
 
 The final default gate ran 28,041 tests: 28,035 passed and six Lobby expectations
 failed. Four still expected the removed gateway panels; two exposed challenge
@@ -171,3 +171,42 @@ applicable desktop feature configurations, shipped/unified hook boundaries and
 the exact reviewed Central crypto source/reverse graph. The Linux-only replay
 collector check is not applicable to this macOS run. The gate removed its owned
 PostgreSQL 18.6 container; its processes exited and listener closure was verified.
+
+### Rendered native acceptance, 2026-11-14
+
+The owner explicitly permitted the main display because no additional monitor
+was available. A passive `dev-control` window used only virtual input, synthetic
+accounts and isolated local services. Two rendered correction passes brought
+the upgrade decision above route/history/consent, reduced the hero's padding,
+replaced a missing text-font checkmark with the shipped icon-font glyph, and
+moved explicit confirmation above the three cards. The final layout was
+inspected at 1440 × 900 and 1280 × 720 logical pixels (2× display scale).
+
+At 1280 × 720, all three equal replacement cards and confirmation fit together
+after scrolling to the decision. Selecting Precision, cancelling that preview,
+selecting again and confirming through the native UI produced Central's ready
+state for floor two, with the committed Precision path and three lives. The
+completed synthetic account showed all five checked stages, four chosen paths,
+the matching ranking and its three earned Bronze relics. Its five-tier Summit
+gallery retained its ornament and labels in reduced-motion mode.
+
+Animation evidence is deliberately bounded. The initial three-second, 8 Hz
+recording retained six frames and reported 18 backpressure drops. A subsequent
+five-second, 1 Hz recording retained all five samples without drops; checksums
+of the medal-only region differ across them. Three paused control frames were
+byte-identical. After enabling reduced motion through Settings, three further
+frames were byte-identical while virtual time continued, with all five tiers
+still visible. Selected raw frames were inspected. These finite samples verify
+motion and its suppression, not absence of all possible flicker or performance
+under production load. Raw frames, ledgers and previews are retained locally in
+the task's `2026/11/14/baylee-tower-native` visualization artifacts.
+
+The final targeted Tower control test passed in 0.544 seconds, including both
+client languages, and client all-target `dev-control` clippy passed. Independent
+static review found no remaining issue in the layout corrections. CodeQL's
+synthetic hard-coded-password finding was corrected using per-process OS
+randomness and a per-run, environment-only demo password; the normal Central
+integration, including personal re-login, passed in 108.44 seconds. The held
+Tower demo also passed on release. Every owned client, backend and PostgreSQL
+container exited, and owned listener closure was verified. No full gate or
+35-node generation was repeated for these focused corrections.

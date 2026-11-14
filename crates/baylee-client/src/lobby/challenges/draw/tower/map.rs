@@ -45,12 +45,12 @@ pub(super) fn draw(
                     node.border.left = px(3);
                 });
         }
-        let (mark, ink) = match floor.cmp(&cleared) {
-            std::cmp::Ordering::Less => ("✓".to_string(), tokens::ACCENT),
-            std::cmp::Ordering::Equal => ((floor + 1).to_string(), tokens::GOLD),
-            std::cmp::Ordering::Greater => ((floor + 1).to_string(), tokens::MUTED),
+        let ink = match floor.cmp(&cleared) {
+            std::cmp::Ordering::Less => tokens::ACCENT,
+            std::cmp::Ordering::Equal => tokens::GOLD,
+            std::cmp::Ordering::Greater => tokens::MUTED,
         };
-        let plaque = crate::lobby::parts::badge(commands, kit, &mark, ink);
+        let plaque = marker(commands, kit, floor, cleared, ink);
         commands
             .entity(plaque)
             .entry::<Node>()
@@ -108,5 +108,14 @@ pub(super) fn draw(
                 tokens::MUTED,
             );
         }
+    }
+}
+
+fn marker(commands: &mut Commands, kit: Kit, floor: u8, cleared: u8, ink: Color) -> Entity {
+    if floor < cleared {
+        // The text face has no checkmark; draw it with the shipped icon font.
+        crate::lobby::parts::badge_with(commands, kit, '\u{f00c}', "", ink)
+    } else {
+        crate::lobby::parts::badge(commands, kit, &(floor + 1).to_string(), ink)
     }
 }

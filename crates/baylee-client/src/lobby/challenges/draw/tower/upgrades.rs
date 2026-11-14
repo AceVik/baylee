@@ -15,6 +15,7 @@ pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, 
         Phrase::TowerChoiceNotice.text(lang),
         tokens::MUTED,
     );
+    confirmation(commands, section, kit, lang, model);
     let choices = row(commands, section, kit);
     commands
         .entity(choices)
@@ -59,8 +60,15 @@ pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, 
             },
         );
     }
+}
+
+fn confirmation(commands: &mut Commands, section: Entity, kit: Kit, lang: Lang, model: &State) {
     if model.tower.upgrade_preview().is_some() {
         let controls = row(commands, section, kit);
+        commands
+            .entity(controls)
+            .entry::<Node>()
+            .and_modify(|mut node| node.justify_content = JustifyContent::FlexEnd);
         control(
             commands,
             controls,
