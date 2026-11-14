@@ -108,8 +108,12 @@ fn framed(package: &Package, catalog: &Catalog, bytes: &[u8], width: usize) -> (
         .unwrap();
     let mut wire = Vec::new();
     for chunk in bytes.chunks(width) {
-        wire.extend_from_slice(&u32::try_from(chunk.len()).unwrap().to_le_bytes());
-        wire.extend_from_slice(chunk);
+        baylee_worker::frame::write(
+            &mut wire,
+            chunk,
+            baylee_tower::v2::execution::MAX_CHUNK_BYTES,
+        )
+        .unwrap();
         execution = execution.appended(1, 0, execution.prefix, chunk).unwrap();
     }
     (
@@ -187,7 +191,7 @@ fn native_verifier_rejects_altered_artifact_ai_policy_result_and_chunk_stream() 
         Err(Refused::Invalid)
     );
     let mut huge = wire.clone();
-    huge[..4].copy_from_slice(&u32::MAX.to_le_bytes());
+    huge[..4].copy_from_slice(&u32::MAX.to_be_bytes());
     assert_eq!(
         check(&package, &catalog, binding, &huge),
         Err(Refused::Invalid)
@@ -284,4 +288,46 @@ fn verifier_budget_and_artifact_skew_refuse_before_reading_a_record() {
         ),
         Err(Refused::Invalid)
     );
+}
+
+#[test]
+fn private_worker_headers_are_bounded_strict_and_cannot_select_remote_code() {
+    use baylee_tower::v2::verification::{
+        MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES, Rejected, Request, Resources, Response,
+    };
+    let (package, catalog) = package();
+    let (binding, _) = framed(&package, &catalog, b"synthetic\n", 32);
+    let request = Request {
+        schema: 2,
+        package,
+        catalog,
+        binding,
+        resources: Resources::default(),
+    };
+    assert!(Request::decode(&request.encode().unwrap()).is_ok());
+    assert!(Request::decode(&vec![b' '; MAX_REQUEST_BYTES + 1]).is_err());
+    let mut value = serde_json::to_value(&request).unwrap();
+    value["executable"] = "/tmp/untrusted-program".into();
+    let mut input = Vec::new();
+    baylee_worker::frame::write(
+        &mut input,
+        &serde_json::to_vec(&value).unwrap(),
+        MAX_REQUEST_BYTES,
+    )
+    .unwrap();
+    let mut output = Vec::new();
+    super::worker::run(&mut input.as_slice(), &mut output).unwrap();
+    let response: Response = serde_json::from_slice(
+        &baylee_worker::frame::read(&mut output.as_slice(), MAX_RESPONSE_BYTES).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        response,
+        Response::Rejected {
+            reason: Rejected::Invalid
+        }
+    );
+    let mut request = request;
+    request.resources.bytes = 1;
+    assert_eq!(request.validate(), Err(baylee_tower::Refusal::Capacity));
 }

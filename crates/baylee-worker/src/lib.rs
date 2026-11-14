@@ -16,6 +16,28 @@ pub const REPORT_ENV: &str = "BAYLEE_WORK_REPORT";
 pub const BUSY: u8 = 1;
 /// Initialization or one complete outer operation has finished.
 pub const IDLE: u8 = 2;
+/// Private liveness marker. It never starts, completes or renews a work deadline.
+pub const ALIVE: u8 = 3;
+
+/// Watch ownership through writes to the parent's private stderr progress pipe.
+/// Useful when stdin carries streamed work and cannot also be a liveness reader.
+/// A missing owner exits the worker even during a stuck synchronous rules action.
+/// Only use in a dedicated worker process with exclusively framed private stderr.
+/// # Errors
+/// The liveness thread cannot be created.
+pub fn watch_progress_owner() -> io::Result<std::thread::JoinHandle<()>> {
+    std::thread::Builder::new()
+        .name("baylee-progress-liveness".into())
+        .stack_size(64 * 1024)
+        .spawn(|| {
+            loop {
+                std::thread::sleep(Duration::from_millis(250));
+                if io::stderr().write_all(&[ALIVE]).is_err() {
+                    std::process::exit(1);
+                }
+            }
+        })
+}
 
 /// Watches the owner's otherwise empty stdin pipe on a separate thread.
 /// Losing the owner terminates even a rules operation that never returns.
@@ -122,6 +144,7 @@ impl Budget {
     pub fn observe(&mut self, marker: u8, now: Duration) -> Result<(), Failure> {
         self.check(now, 0)?;
         self.phase = match (self.phase, marker) {
+            (phase, ALIVE) => phase,
             (Phase::Idle, BUSY) => Phase::Working(now),
             (Phase::Starting(_) | Phase::Working(_), IDLE) => Phase::Idle,
             _ => return Err(Failure::Progress),

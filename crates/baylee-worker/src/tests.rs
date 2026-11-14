@@ -74,3 +74,17 @@ fn a_broken_owner_pipe_prevents_more_rules_work() {
     let mut disabled = Reporter::<Broken>::new(None).unwrap();
     assert_eq!(disabled.work(|| 23).unwrap(), 23);
 }
+
+#[test]
+fn liveness_never_renews_startup_or_operation_deadlines() {
+    let mut starting = budget();
+    starting.observe(ALIVE, ms(9)).unwrap();
+    assert_eq!(starting.observe(ALIVE, ms(10)), Err(Failure::Startup));
+    let mut working = budget();
+    working.observe(IDLE, ms(1)).unwrap();
+    working.observe(BUSY, ms(2)).unwrap();
+    for at in 3..22 {
+        working.observe(ALIVE, ms(at)).unwrap();
+    }
+    assert_eq!(working.observe(ALIVE, ms(22)), Err(Failure::Operation));
+}

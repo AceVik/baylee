@@ -61,8 +61,7 @@ mod cli;
 use cli::{Asked, USAGE};
 pub use cli::{Attach, PartialAttach};
 
-#[tokio::main]
-async fn main() {
+fn main() {
     // The command line's shape first, before the environment is read or a
     // socket opened: only a launch that says nothing is the harness.
     let args: Vec<String> = std::env::args_os()
@@ -85,10 +84,28 @@ async fn main() {
             );
             return;
         }
+        Asked::VerifyTower => {
+            #[cfg(feature = "tower")]
+            if baylee_engine_server::tower::verification::worker_entry().is_err() {
+                std::process::exit(1);
+            }
+            #[cfg(not(feature = "tower"))]
+            refuse("this artifact does not include native Tower verification");
+            #[cfg(feature = "tower")]
+            return;
+        }
         Asked::Start => {}
     }
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap_or_else(|_| refuse("could not initialize engine runtime"))
+        .block_on(start(&args));
+}
+
+async fn start(args: &[String]) {
     tracing_subscriber_init();
-    let attach = Attach::discover(&args).unwrap_or_else(|partial| {
+    let attach = Attach::discover(args).unwrap_or_else(|partial| {
         tracing::error!(%partial, "refusing to start");
         std::process::exit(2);
     });

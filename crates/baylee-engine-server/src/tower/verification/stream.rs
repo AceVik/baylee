@@ -49,10 +49,7 @@ impl<R: Read> Committed<R> {
         }
         let mut length = [0; 4];
         self.source.read_exact(&mut length)?;
-        let length = usize::try_from(u32::from_le_bytes(length)).map_err(|_| invalid())?;
-        if !(1..=MAX_CHUNK_BYTES).contains(&length) {
-            return Err(invalid());
-        }
+        let length = baylee_worker::frame::length(length, MAX_CHUNK_BYTES)?;
         self.buffer.resize(length, 0);
         self.source.read_exact(&mut self.buffer)?;
         self.execution = self

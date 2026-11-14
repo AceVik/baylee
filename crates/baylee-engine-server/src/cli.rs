@@ -13,6 +13,8 @@ usage: baylee-engine-server --attach <url> --game <id>
            this text
        baylee-engine-server --metadata
            one bounded JSON execution identity; no services or credentials
+       baylee-engine-server --tower-verify
+           Tower artifact only: one private streamed verification job on stdio
 
 BAYLEE_ATTACH_URL, BAYLEE_GAME and BAYLEE_ENGINE_TOKEN stand in for the
 three flags; an attachment takes all three or none.";
@@ -20,6 +22,8 @@ three flags; an attachment takes all three or none.";
 /// What a command line asks for, read before anything else is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Asked {
+    /// One private Tower adjudication job, available only in the compiled Tower artifact.
+    VerifyTower,
     /// Read only the compiled execution identity.
     Metadata,
     /// `-h` or `--help`: print [`USAGE`], start nothing.
@@ -41,6 +45,9 @@ impl Asked {
     /// # Errors
     /// Any other argument, a flag given twice, or a flag with no value.
     pub(super) fn read(args: &[String]) -> Result<Self, String> {
+        if args == ["--tower-verify"] {
+            return Ok(Self::VerifyTower);
+        }
         if args == ["--metadata"] {
             return Ok(Self::Metadata);
         }
@@ -171,5 +178,29 @@ impl Attach {
         .filter_map(|(flag, absent)| absent.then_some(flag))
         .collect();
         Err(PartialAttach { missing })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Asked;
+
+    #[test]
+    fn verification_is_a_standalone_command_with_no_paths_tokens_or_attachment() {
+        assert_eq!(
+            Asked::read(&["--tower-verify".into()]),
+            Ok(Asked::VerifyTower)
+        );
+        for suffix in [
+            vec!["--metadata"],
+            vec!["--attach", "ws://untrusted"],
+            vec!["secret-value"],
+            vec!["--token", "secret-value"],
+        ] {
+            let mut args = vec!["--tower-verify".to_owned()];
+            args.extend(suffix.into_iter().map(str::to_owned));
+            let refused = Asked::read(&args).unwrap_err();
+            assert!(!refused.contains("secret-value"));
+        }
     }
 }

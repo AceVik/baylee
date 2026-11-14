@@ -11,6 +11,7 @@ pub mod matching;
 pub mod package;
 pub mod run;
 pub mod shop;
+pub mod verification;
 
 /// Native setup namespace reserved for Tower.
 pub const PACK: u16 = 1;

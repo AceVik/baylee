@@ -1062,3 +1062,22 @@ in `/tmp/baylee-native-verifier-clippy-20261114-r2.log` after an internal field
 rename. These short concession fixtures verify adjudication, not game balance or
 long-run resource sizing. The native verifier still needs its supervised process
 entry point and the service's lease/stream/settlement orchestration.
+
+## Private native worker — thirtieth working milestone
+
+The Tower executable now accepts a strict standalone `--tower-verify` command.
+It creates no network listener or async runtime and reads no credentials. The
+private input is a bounded request frame followed by retained chunks using the
+existing big-endian frame codec; stdout returns one bounded result and stderr
+contains only progress markers. An independent liveness writer terminates even a
+blocked worker when its owner disappears. Liveness cannot renew work deadlines.
+The ordinary executable explicitly refuses this command; its startup path still
+creates the same runtime when actually hosting a game.
+
+The actual compiled-process tests passed after fixing the test producer to close
+stdin explicitly: verified record, altered stream and owner loss while input is
+blocked (`/tmp/baylee-tower-verifier-worker-process-tests-20261114-r2.log`). Six
+worker tests, four native verifier cases, strict CLI admission and changed-crate
+all-target Clippy passed. Private input rejects extra executable/path fields and
+over-budget requests. This is the child boundary; authority-side supervision,
+durable input streaming and applying the independently verified result follow.

@@ -10,9 +10,11 @@ use baylee_tower::{
 use std::{io::Read, time::Instant};
 
 mod stream;
+mod worker;
+pub use worker::worker_entry;
 
 /// Rebuild and verify the authority's package with this compiled Tower executable.
-/// The stream is little-endian u32 length + raw bytes per acknowledged chunk,
+/// The stream uses the shared bounded worker frame: big-endian u32 length + raw bytes,
 /// followed by EOF. It is private worker IPC, never a player-authenticated API.
 /// The supervising worker must bound process memory, wall time and input delivery.
 /// # Errors
