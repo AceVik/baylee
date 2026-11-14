@@ -52,6 +52,35 @@ pub(super) fn run() -> Result<(), String> {
         &mut stdout,
         &Output::Hello(Contract::new(preset.house_rules.loop_policy)),
     )?;
+    if let Initial::Replay {
+        record,
+        header,
+        verify_note,
+    } = initial.initial
+    {
+        let header =
+            serde_json::from_slice(&header).map_err(|_| "the local replay header is invalid")?;
+        crate::replay::projection::stream(
+            &record,
+            initial.names,
+            header,
+            verify_note,
+            |lines, percent, done| {
+                write(
+                    &mut stdout,
+                    &Output::Projection {
+                        lines,
+                        percent,
+                        done,
+                    },
+                )
+            },
+        )?;
+        // Keep the ownership pipe alive until the parent consumes the final
+        // frame and reaps us. Early process exit must not overtake its result.
+        let _ = input_rx.recv();
+        return Ok(());
+    }
     let host = match preset.house_rules.loop_policy {
         LoopPolicy::Off => make::<NoLoopDetection>(initial, &preset)?,
         LoopPolicy::RunOnceThenBreak | LoopPolicy::CompRulesDraw => {
@@ -80,6 +109,7 @@ fn make<D: LoopDetection>(
             }
             host
         }
+        Initial::Replay { .. } => return Err("a replay cannot start a local game".into()),
     };
     // Reconstruct and verify first, with the store still closed. In particular
     // a wrong restart hash must not rewrite the player's existing tape on Drop.

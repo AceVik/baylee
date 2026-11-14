@@ -43,6 +43,65 @@ impl Drop for Fixture {
     }
 }
 
+#[test]
+fn cancelling_projection_stops_and_reaps_an_unresponsive_rules_process() {
+    use super::super::projection::Projection;
+    use crate::host::DuelHost as _;
+    use baylee_client_core::replay::{Header, Source, TapePerspective, Verify};
+    use std::sync::atomic::AtomicBool;
+    let fixture = Fixture::new();
+    let mut host = crate::host::LocalHost::new(
+        &crate::host::tests::duel_preset(),
+        PlayerId::new(0),
+        &["One", "Two"],
+    )
+    .unwrap();
+    host.poll();
+    let request = Projection {
+        record: host.local_record().unwrap().to_vec(),
+        names: vec!["One".into(), "Two".into()],
+        header: Header {
+            tape: baylee_client_core::replay::TAPE_VERSION,
+            view: baylee_view::VIEW_VERSION,
+            build: baylee_build::short().into(),
+            source: Source::Local,
+            perspective: TapePerspective::Seat,
+            seat: 0,
+            game: "synthetic".into(),
+            recorded_by: String::new(),
+            own: true,
+            hands: Vec::new(),
+        },
+        verify: Verify::Stop,
+    };
+    let progress = AtomicU8::new(0);
+    let cancel = AtomicBool::new(false);
+    let pid_file = fixture.0.join("pid");
+    let mut command = fixture.command(&[]);
+    command.env("BAYLEE_FIXTURE_PID", &pid_file);
+    std::thread::scope(|scope| {
+        let running = scope.spawn(|| request.with_command(command, &progress, &cancel));
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !pid_file.exists() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        cancel.store(true, Ordering::Relaxed);
+        let result = running.join().unwrap();
+        assert!(result.unwrap_err().contains("cancelled"));
+    });
+    let pid = sysinfo::Pid::from_u32(std::fs::read_to_string(pid_file).unwrap().parse().unwrap());
+    let mut system = sysinfo::System::new().unwrap();
+    system.refresh_processes_specifics(
+        sysinfo::ProcessesToUpdate::Some(&[pid]),
+        true,
+        sysinfo::ProcessRefreshKind::nothing(),
+    );
+    assert!(
+        system.process(pid).is_none(),
+        "the cancelled projection was not reaped"
+    );
+}
+
 fn opening() -> Bootstrap {
     let mut preset = crate::host::tests::duel_preset();
     preset.house_rules.loop_policy = LoopPolicy::Off;
@@ -95,8 +154,10 @@ async fn case(fixture: &Fixture, mode: &str) -> Result<(), String> {
     let running = run(
         fixture.command(&reply(mode)),
         opening(),
-        input,
-        &output,
+        Target::Game {
+            input,
+            output: &output,
+        },
         stopped,
         &pid,
         limits,

@@ -21,7 +21,7 @@ fn command() -> Command {
     Command::new(env!("CARGO_BIN_EXE_baylee-client"))
 }
 
-fn preset(policy: LoopPolicy) -> GamePreset {
+pub(super) fn preset(policy: LoopPolicy) -> GamePreset {
     let card = baylee_cards::by_oracle_id("b2c6aa39-2d2a-459c-a555-fb48ba993373")
         .unwrap()
         .index;

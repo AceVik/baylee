@@ -498,8 +498,8 @@ Clippy for worker, agent and engine server). The initial real-server test expose
 a fixture missing its required deck header; it was corrected. Test children
 were reaped and the synthetic listener was checked closed.
 
-This is not yet containment for the native client's in-process BackgroundHost.
-That needs a killable process boundary too. Resident-memory sampling is not a
+The native client's process boundary follows in milestones nine and ten.
+Resident-memory sampling is not a
 hard OS allocation limit; whole-host memory isolation/admission and measurements
 under realistic finite combos remain release work. No performance gain or
 complete Tower security certification is claimed by these checks.
@@ -525,7 +525,7 @@ Technical closures have a separate localized explanation, including an exit
 before the first snapshot. The lobby cannot turn that closure into a draw,
 deck loss or recent-game result. Administrative closure is still identified
 separately. Existing mobile/browser transports remain experimental; local
-replay projection still needs its own killable boundary. This process boundary
+replay projection receives its boundary in milestone ten. This process boundary
 is not an OS sandbox or a hard memory reservation.
 
 Targeted evidence:
@@ -551,3 +551,38 @@ The UI and supervisor tests reused one compiled unit-test executable to avoid
 another long native link. This is a containment milestone, not the five Tower
 presentation iterations or a claim of calibrated Tower balance. No services,
 real credentials or player files were used by these checks.
+
+## Owned replay projection — tenth working milestone
+
+Desktop local replay projection now uses the same private client subprocess and
+supervisor as local games. The owner validates the recorded ordinary loop policy
+and requested seat, then streams bounded tape frames from the child. Cancellation
+terminates and reaps even a stuck rules operation before the projection job
+returns; a cancelled or failed job cannot publish a partial tape. The helper
+opens no settings store and writes no kept files. The deterministic projector
+remains the shared implementation for the helper, explicit tests and experimental
+mobile hosts; no clocks or IPC entered the rules kernel.
+
+The worker waits after its final frame until the owner consumes it, preventing
+process exit from racing the buffered result. Progress is monotonic, frames and
+accumulated tape bytes are bounded, and the existing native operation/memory
+budgets apply between progress frames. The parent validates the finished tape
+through the same parser as hosted projections.
+
+Targeted evidence:
+- `/tmp/baylee-replay-process-integration-20261114.log`: three actual-client
+  subprocess tests passed. The new case compares exact tapes for all three loop
+  policies and all three supported perspectives (nine projections), including
+  a completed game; the other two preserve local game/restart coverage.
+- `/tmp/baylee-replay-process-supervisor-20261114.log`: both supervisor tests
+  passed, including cancellation of a nonresponsive projection and proof that
+  its owned process was reaped, plus the six existing resource/contract cases.
+- `/tmp/baylee-replay-process-presentation-20261114.log`: all 21 existing replay
+  presentation/transport tests passed using the just-built test executable.
+- `/tmp/baylee-replay-process-clippy-final-20261114-r2.log`: strict all-target
+  Clippy passed for client and client-core after moving a test-only import.
+  Workspace formatting and the final diff whitespace check also passed.
+
+These checks cover replay containment and equivalence, not full Tower balance or
+the requested Tower presentation iterations. Experimental mobile execution still
+uses the synchronous projection seam.

@@ -5,7 +5,7 @@ use std::{
     process::{Command, Stdio},
     sync::{
         Arc, Mutex,
-        atomic::{AtomicU32, Ordering},
+        atomic::{AtomicU8, AtomicU32, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -32,8 +32,10 @@ pub(super) fn spawn(
                 Ok(runtime) => runtime.block_on(run(
                     command,
                     initial,
-                    input,
-                    &output,
+                    Target::Game {
+                        input,
+                        output: &output,
+                    },
                     stop,
                     &pid,
                     Limits::default(),
@@ -57,11 +59,21 @@ pub(super) fn spawn(
     Ok(())
 }
 
-async fn run(
+pub(super) enum Target<'a> {
+    Game {
+        input: mpsc::Receiver<Input>,
+        output: &'a mpsc::Sender<Reply>,
+    },
+    Replay {
+        progress: &'a AtomicU8,
+        bytes: &'a mut Vec<u8>,
+    },
+}
+
+pub(super) async fn run(
     command: Command,
     initial: Bootstrap,
-    input: mpsc::Receiver<Input>,
-    output: &mpsc::Sender<Reply>,
+    target: Target<'_>,
     mut stop: oneshot::Receiver<()>,
     pid: &AtomicU32,
     limits: Limits,
@@ -95,7 +107,7 @@ async fn run(
         biased;
         _ = child.wait() => Err("the local engine exited unexpectedly".into()),
         _ = &mut stop => Ok(()),
-        result = exchange(stdin, stdout, initial, input, output, &budget, born) => result,
+        result = exchange(stdin, stdout, initial, target, &budget, born) => result,
         reason = watch(child_pid, &budget, born) => Err(reason),
     };
     // Only this owned Child is signalled, never a sampled or reused PID.
@@ -111,8 +123,7 @@ async fn exchange(
     stdin: Option<tokio::process::ChildStdin>,
     stdout: Option<tokio::process::ChildStdout>,
     initial: Bootstrap,
-    mut input: mpsc::Receiver<Input>,
-    output: &mpsc::Sender<Reply>,
+    target: Target<'_>,
     budget: &Mutex<Budget>,
     born: Instant,
 ) -> Result<(), String> {
@@ -132,8 +143,26 @@ async fn exchange(
         Output::Hello(contract) if contract.accepts(policy) => {}
         _ => return Err("the local engine version differs from its owner".into()),
     }
+    match target {
+        Target::Game { input, output } => {
+            game(&mut stdin, &mut stdout, input, output, budget, born).await
+        }
+        Target::Replay { progress, bytes } => {
+            projection(&mut stdout, progress, bytes, budget, born).await
+        }
+    }
+}
+
+async fn game(
+    stdin: &mut tokio::process::ChildStdin,
+    stdout: &mut tokio::process::ChildStdout,
+    mut input: mpsc::Receiver<Input>,
+    output: &mpsc::Sender<Reply>,
+    budget: &Mutex<Budget>,
+    born: Instant,
+) -> Result<(), String> {
     loop {
-        let Output::Progress(reply) = read(&mut stdout).await? else {
+        let Output::Progress(reply) = read(stdout).await? else {
             return Err("the local engine repeated its handshake".into());
         };
         mark(budget, baylee_worker::IDLE, born)?;
@@ -148,10 +177,45 @@ async fn exchange(
                 return Ok(());
             };
             mark(budget, baylee_worker::BUSY, born)?;
-            write(&mut stdin, &baylee_core::wire::encode(&next), FRAME_LIMIT).await?;
+            write(stdin, &baylee_core::wire::encode(&next), FRAME_LIMIT).await?;
         } else {
             mark(budget, baylee_worker::BUSY, born)?;
         }
+    }
+}
+
+async fn projection(
+    stdout: &mut tokio::process::ChildStdout,
+    progress: &AtomicU8,
+    bytes: &mut Vec<u8>,
+    budget: &Mutex<Budget>,
+    born: Instant,
+) -> Result<(), String> {
+    loop {
+        let Output::Projection {
+            lines,
+            percent,
+            done,
+        } = read(stdout).await?
+        else {
+            return Err("the local replay response was invalid".into());
+        };
+        if percent > 100
+            || percent < progress.load(Ordering::Relaxed)
+            || bytes
+                .len()
+                .checked_add(lines.len())
+                .is_none_or(|size| size > baylee_client_core::bugreport::MAX_INFLATED_BYTES)
+        {
+            return Err("the local replay exceeded its output contract".into());
+        }
+        mark(budget, baylee_worker::IDLE, born)?;
+        bytes.extend(lines);
+        progress.store(percent, Ordering::Relaxed);
+        if done {
+            return Ok(());
+        }
+        mark(budget, baylee_worker::BUSY, born)?;
     }
 }
 

@@ -15,6 +15,7 @@ use tokio::sync::{mpsc, oneshot};
 use wire::{Bootstrap, Contract, Initial, Input, Reply};
 
 mod child;
+pub mod projection;
 mod supervisor;
 mod wire;
 

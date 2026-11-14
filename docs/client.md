@@ -3983,9 +3983,11 @@ the supervisor kills and reaps its own child. A separate child input reader
 observes owner-pipe EOF even if rules work hangs. Accepted record prefixes are
 written as before; forced exit can leave multiple complete gzip members, which
 the existing record reader accepts. This is process containment, not a sandbox
-or a hard OS memory reservation. Local replay projection still uses its own
-thread and is a separate remaining containment task. Experimental mobile and
-browser hosts retain their existing thread/synchronous paths.
+or a hard OS memory reservation. Local replay jobs use the same owned subprocess
+and budgets, streaming bounded tape lines without opening the settings store.
+Cancelling or replacing a projection terminates its worker even inside a stuck
+rules call; partial results are discarded. Experimental mobile and browser
+hosts retain their existing thread/synchronous paths.
 
 `HostMessage::Interrupted` is a technical closure, with localized words and no
 winner, loss, recent-game verdict or deck statistic. Before the first snapshot
@@ -4000,7 +4002,8 @@ driven by a tape instead of a socket.
 - **`ReplayHost`** (`src/replay/host.rs`) is a `DuelHost` with `watching()`
   true, a `submit` that sends nothing and a `ready()` answered by the duel's
   one `Curtain`. Its tape is made off the frame: a kept record is projected on
-  a worker (`baylee_gamehost::replay::project`, `src/replay/local.rs`), a
+  an owned desktop worker (`src/host/process/projection.rs`, sharing the native
+  projector in `src/replay/projection.rs`), a
   hosted tape is `POST {gateway}/replays/{game}/tape` with the session (the
   last three kept in memory for the session, nothing on disk; a `502` asked
   once more), a tape or record file opened with `BAYLEE_REPLAY`. Its `seq`

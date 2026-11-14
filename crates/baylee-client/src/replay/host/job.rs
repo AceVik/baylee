@@ -1,7 +1,11 @@
 //! Starting asynchronous tape jobs, separate from replay presentation.
 use super::{Job, Kept, ReplayHost, ReplaySource, fetch_tape};
 use baylee_client_core::replay::{Header, Perspective, Tape, Verify};
-use std::sync::{Arc, Mutex, mpsc, atomic::{AtomicBool, AtomicU8, Ordering}};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, AtomicU8, Ordering},
+    mpsc,
+};
 
 impl ReplayHost {
     /// Starts making the tape for `perspective` under `verify`, opening at
@@ -38,10 +42,11 @@ impl ReplayHost {
                 };
                 let (bytes, names) = (Arc::clone(bytes), names.clone());
                 let (progress, cancel) = (Arc::clone(&progress), Arc::clone(&cancel));
+                let projector = self.projector;
                 std::thread::Builder::new()
                     .name("replay".into())
                     .spawn(move || {
-                        let tape = super::super::local::project(
+                        let tape = projector(
                             &bytes,
                             names,
                             header,
@@ -74,5 +79,4 @@ impl ReplayHost {
             keep,
         });
     }
-
 }

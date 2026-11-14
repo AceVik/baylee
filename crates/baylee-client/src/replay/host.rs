@@ -26,6 +26,17 @@ use crate::host::{DuelHost, HostMessage};
 
 mod job;
 
+/// Internal seam for deterministic presentation tests and trusted embedders.
+pub(crate) type Projector = fn(
+    &[u8],
+    Vec<String>,
+    baylee_client_core::replay::Header,
+    Perspective,
+    Verify,
+    &AtomicU8,
+    &AtomicBool,
+) -> Result<Tape, String>;
+
 /// Where a hosted tape is asked for.
 #[derive(Clone, PartialEq, Eq)]
 pub struct HostedAccess {
@@ -157,6 +168,7 @@ struct Shown {
 
 /// A host that plays a replay's tape.
 pub struct ReplayHost {
+    projector: Projector,
     source: ReplaySource,
     perspective: Perspective,
     verify: Verify,
@@ -182,11 +194,30 @@ impl ReplayHost {
         offers: Perspectives,
         origin: Origin,
     ) -> Self {
+        Self::with_projector(
+            source,
+            perspective,
+            verify,
+            offers,
+            origin,
+            super::projection::contained,
+        )
+    }
+
+    pub(crate) fn with_projector(
+        source: ReplaySource,
+        perspective: Perspective,
+        verify: Verify,
+        offers: Perspectives,
+        origin: Origin,
+        projector: Projector,
+    ) -> Self {
         let record = match &source {
             ReplaySource::Record { bytes, .. } => Some(Arc::clone(bytes)),
             _ => None,
         };
         let mut host = Self {
+            projector,
             source,
             perspective,
             verify,

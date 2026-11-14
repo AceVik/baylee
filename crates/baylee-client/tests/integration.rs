@@ -13,6 +13,7 @@ use baylee_cards_pool as _;
 mod combat_auto;
 mod duel_flow;
 mod local_process;
+mod local_projection;
 #[path = "mana/main.rs"]
 mod mana;
 mod network_host;

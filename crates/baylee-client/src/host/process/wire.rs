@@ -50,6 +50,11 @@ pub(super) enum Initial {
         name: String,
         hash: String,
     },
+    Replay {
+        record: Vec<u8>,
+        header: Vec<u8>,
+        verify_note: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -68,7 +73,9 @@ impl Bootstrap {
             Initial::New(json) => {
                 serde_json::from_slice(json).map_err(|_| "the local game setup is invalid".into())
             }
-            Initial::Resume { record, .. } => recorded_preset(record),
+            Initial::Resume { record, .. } | Initial::Replay { record, .. } => {
+                recorded_preset(record)
+            }
         }
     }
 }
@@ -109,6 +116,11 @@ pub(super) enum Output {
     // Identity is checked before the first view or record enters the renderer.
     Hello(Contract),
     Progress(Reply),
+    Projection {
+        lines: Vec<u8>,
+        percent: u8,
+        done: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize)]

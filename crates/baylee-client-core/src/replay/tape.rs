@@ -477,6 +477,19 @@ fn null() -> Box<RawValue> {
 }
 
 /// The lines one moment's envelopes make, in order.
+/// Encodes one projected moment as the same JSON Lines used by the tape builder.
+/// Lets a bounded worker stream its projection without retaining the whole tape.
+///
+/// # Errors
+/// A frame has the wrong view version or an invalid payload.
+pub fn encode_moment(moment: &TapeMoment) -> Result<Vec<u8>, TapeRefusal> {
+    let mut bytes = Vec::new();
+    for line in lines_of(moment)? {
+        bytes.extend(wire::encode_line(&line));
+    }
+    Ok(bytes)
+}
+
 fn lines_of(moment: &TapeMoment) -> Result<Vec<Line>, TapeRefusal> {
     let bad = |what: &str| TapeRefusal::Payload(format!("{what} is not JSON"));
     let mut lines = Vec::new();

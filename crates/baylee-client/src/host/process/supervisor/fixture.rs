@@ -8,6 +8,9 @@ fn main() {
     let length = u32::from_be_bytes(prefix) as usize;
     assert!(length < 1024 * 1024);
     input.read_exact(&mut vec![0; length]).unwrap();
+    if let Some(path) = std::env::var_os("BAYLEE_FIXTURE_PID") {
+        std::fs::write(path, std::process::id().to_string()).unwrap();
+    }
     let reply = std::fs::read(std::env::var_os("BAYLEE_FIXTURE_REPLY").unwrap()).unwrap();
     std::io::stdout().write_all(&reply).unwrap();
     std::io::stdout().flush().unwrap();

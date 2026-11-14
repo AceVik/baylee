@@ -5,8 +5,8 @@
 //! The kept records are this computer's own (`crate::records`); nothing here
 //! writes one, and a re-run is never written to disk (`docs/privacy.md`).
 
-use baylee_client_core::replay::library::{Entry, LocalSeat, LocalSummary};
 use baylee_client_core::replay::Perspectives;
+use baylee_client_core::replay::library::{Entry, LocalSeat, LocalSummary};
 
 pub use super::projection::project;
 use baylee_gamehost::record::Line;

@@ -200,12 +200,13 @@ fn tape_source() -> ReplaySource {
 }
 
 fn host_of(source: ReplaySource) -> ReplayHost {
-    ReplayHost::new(
+    ReplayHost::with_projector(
         source,
         Perspective::Seat(me()),
         Verify::Stop,
         Perspectives::LOCAL,
         Origin::default(),
+        super::local::project,
     )
 }
 
