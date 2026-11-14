@@ -7,6 +7,7 @@ pub mod economy;
 pub mod execution;
 pub mod inventory;
 pub mod loadout;
+pub mod run;
 pub mod shop;
 
 /// Native setup namespace reserved for Tower.

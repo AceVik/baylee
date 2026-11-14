@@ -830,3 +830,27 @@ atomically persist chunk plus head, bind operator credentials and release visibl
 consequences only after that commit. A 256 KiB chunk ceiling and configurable
 record budget up to 512 MiB are technical storage bounds, not calibrated rule
 limits. The lease ceiling is two minutes with renewal, not a player clock.
+
+## Saved run state machine — twenty-first working milestone
+
+Revision-two owner commands now bind optimistic revision, saved offers, owned
+instances and exact phase. A reserved/playing/verifying/quarantined duel cannot
+shop or abandon into a fresh opponent. Recovery preserves the execution package
+and prefix; sealed recovery returns to verification. Operator retirement records
+an explicit technical interruption with no outcome or income.
+
+Settlements bind the current sealed package/generation/prefix, consume verified
+charges and grant twelve gold once. History derives wins/defeats, ends at eight
+wins/five unsuccessful duels, and preserves the final visit without opening a
+thirteenth shop. Zero-turn concessions and long games are allowed; there is no
+legacy 500-turn rule. A financial ledger checks exact income/debits/sales and
+surviving paid basis. All successful shop commands close the stage-seven choice;
+failed commands leave it intact. Pins survive advancement.
+
+Five focused domain tests and strict all-target Clippy passed in
+`/tmp/baylee-tower-v2-run-tests-20261114.log` and
+`/tmp/baylee-tower-v2-run-clippy-20261114-r2.log`. Cases include both twelve-duel
+terminal boundaries, wrong/duplicate results, stale purchases, a bought/fused/
+moved/sold chain, recovery and stale verification, forged finances and revision
+exhaustion. Records in these state-machine tests are deliberately synthetic;
+the tests do not stand in for replay adjudication or transactional service tests.

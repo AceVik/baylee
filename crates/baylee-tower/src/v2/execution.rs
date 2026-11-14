@@ -26,7 +26,7 @@ pub struct Prefix {
 }
 
 impl Prefix {
-    fn validate(self, limit: u64) -> Result<(), Refusal> {
+    pub(super) fn validate(self, limit: u64) -> Result<(), Refusal> {
         if self.bytes > limit
             || self.chunks > self.bytes
             || self.bytes > self.chunks.saturating_mul(MAX_CHUNK_BYTES as u64)
