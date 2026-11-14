@@ -11,7 +11,7 @@ card!(
     oracle_id = "894b8375-5d55-4138-8448-c38f83a17e4f",
     scryfall_id = "694b24de-d7f8-49c6-8ab3-d5fab13b6a8f",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bash to Bits",
         mana_cost = mana!("{3}{R}"),

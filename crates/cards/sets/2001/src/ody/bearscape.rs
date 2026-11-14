@@ -11,7 +11,7 @@ card!(
     oracle_id = "7e481e22-4122-4259-8978-4727eb307195",
     scryfall_id = "3284b61a-bd95-4846-ad3f-903cd1158867",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bearscape",
         mana_cost = mana!("{1}{G}{G}"),

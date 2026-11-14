@@ -13,7 +13,7 @@ card!(
     oracle_id = "06118cec-ae63-4720-988d-df9cc15ccfab",
     scryfall_id = "9917cf32-0236-4463-9b1d-e8193754ff97",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Howling Gale",
         mana_cost = mana!("{1}{G}"),

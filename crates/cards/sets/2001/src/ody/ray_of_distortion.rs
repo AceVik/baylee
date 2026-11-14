@@ -11,7 +11,7 @@ card!(
     oracle_id = "1c838441-4713-49dd-97e6-4fb7155c36c8",
     scryfall_id = "ba1af997-bf99-4330-b24d-368615107ebc",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ray of Distortion",
         mana_cost = mana!("{3}{W}"),

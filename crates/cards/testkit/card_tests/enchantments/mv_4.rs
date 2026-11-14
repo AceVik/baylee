@@ -167,6 +167,7 @@ mod living_plane;
 mod manabarbs;
 mod march_of_the_machines;
 mod martyrs_tomb;
+mod melting;
 mod monsoon;
 mod mortal_combat;
 mod mortuary;

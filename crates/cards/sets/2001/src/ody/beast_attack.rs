@@ -12,7 +12,7 @@ card!(
     oracle_id = "3f5acd90-199c-4ed3-9c8a-eeac4670d876",
     scryfall_id = "011f805f-3ebb-4748-a5de-8a10b5f47dcd",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Beast Attack",
         mana_cost = mana!("{2}{G}{G}{G}"),

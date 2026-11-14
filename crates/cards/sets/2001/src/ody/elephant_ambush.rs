@@ -12,7 +12,7 @@ card!(
     oracle_id = "09386931-59bd-481f-bccc-32e8a8abc0f9",
     scryfall_id = "b4abdf1c-a0a9-4e1d-b448-58742830f767",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Elephant Ambush",
         mana_cost = mana!("{2}{G}{G}"),
