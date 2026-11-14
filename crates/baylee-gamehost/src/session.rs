@@ -143,8 +143,8 @@ impl SeatKind {
 }
 
 /// A live game: engine plus the seat roster.
-pub struct Session {
-    engine: Engine<RegistryLookup>,
+pub struct Session<D: baylee_engine::engine::LoopDetection = baylee_engine::engine::DetectLoops> {
+    engine: Engine<RegistryLookup, D>,
     seats: Vec<SeatKind>,
     /// Every seat's submitted deck as the house may scout it, shared with
     /// the simulations forked from this session.
@@ -340,7 +340,7 @@ fn seat_byte(index: usize) -> u8 {
     u8::try_from(index).unwrap_or(u8::MAX)
 }
 
-impl Session {
+impl<D: baylee_engine::engine::LoopDetection> Session<D> {
     /// Makes the whole table fair, or lets a level that peeks peek.
     ///
     /// Every level but `seer` is fair at any table: it is told its own
@@ -391,7 +391,7 @@ impl Session {
     }
 
     /// The table as the house and its agents read it ([`table::Table`]).
-    fn table(&self) -> table::Table<'_> {
+    fn table(&self) -> table::Table<'_, D> {
         table::Table {
             engine: &self.engine,
             seats: &self.seats,
@@ -419,8 +419,8 @@ impl Session {
     /// input the engine takes, in order, which [`Session::take_record`]
     /// hands out. `build` names the build playing it.
     #[must_use]
-    pub fn new_recorded(preset: &GamePreset, build: &str) -> Option<Self> {
-        let mut session = Self::new(preset)?;
+    pub fn recorded_with_detection(preset: &GamePreset, build: &str) -> Option<Self> {
+        let mut session = Self::with_detection(preset)?;
         session.record = Some(Recorder::new(preset, build, &session.engine));
         Some(session)
     }

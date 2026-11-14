@@ -8,7 +8,7 @@ use baylee_engine::zone::ZoneLocation;
 use baylee_protocol::v1::Envelope;
 use baylee_view::{LogEvent, PlayerView, SeatSetting};
 
-impl Session {
+impl<D: baylee_engine::engine::LoopDetection> Session<D> {
     /// A socket opened for `seat` (not a resync of one already open): what
     /// its client declares next is the seat's mind, and if it answers
     /// before declaring anything, the record says the earlier declaration

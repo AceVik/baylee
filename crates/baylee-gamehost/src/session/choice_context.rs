@@ -1,7 +1,7 @@
 //! Additive full-choice context for new offline consumers. Legacy views stay stable.
 use super::{Pending, PlayerId, PlayerView, Session};
 
-impl Session {
+impl<D: baylee_engine::engine::LoopDetection> Session<D> {
     /// Authorized deciding view, including the owner's current cast and targets.
     ///
     /// Unlike [`Self::view_for`], this opt-in method includes the same choice

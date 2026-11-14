@@ -297,3 +297,22 @@ events and game state in both variants. Logs:
 This establishes kernel behavior, not yet the three installed server artifacts,
 agent routing, release-code omission or measured speedup. Those need their own
 build/host evidence before the feature is presented as complete.
+
+## Static policy across the host — second working milestone
+
+`Session<D>`, its table views and `SimulationSession<D>` now retain the kernel's
+compiled policy. Typed construction, recorded construction and resumption reject
+mismatches; legacy constructors preserve their existing enabled behavior.
+Recorder/checker operations accept either type, and
+`replay_exact_with_detection<D>` replays every hash with the matching policy.
+There is no cross-policy fallback. This also keeps the policy through house-AI
+foresight and its hidden-information forks.
+
+Strict Clippy for gamehost, all targets with `simulation`, passed. 15 focused
+tests passed, 427 unrelated tests skipped, including legacy resumption and loop
+false-positive boundaries. New cases compare seat views and Expert play over
+128 decisions in both variants using Allytifact versus Victory, and check an
+Off record's exact replay, continuation/resumption, wrong-variant rejection and
+simulation isolation. Logs: `/tmp/baylee-static-host-clippy-20261114.log` and
+`/tmp/baylee-static-host-tests-20261114.log`. No client or network service was
+started for these in-process tests.

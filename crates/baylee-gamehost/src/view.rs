@@ -333,8 +333,11 @@ fn damage_sources(
 /// Includes colored debts such as Pact of Negation's {3}{U}{U}; the client
 /// must plan for the actual symbols, not just the total amount.
 #[must_use]
-pub fn owed_payment<L: baylee_engine::state::CardLookup>(
-    engine: &baylee_engine::engine::Engine<L>,
+pub fn owed_payment<
+    L: baylee_engine::state::CardLookup,
+    D: baylee_engine::engine::LoopDetection,
+>(
+    engine: &baylee_engine::engine::Engine<L, D>,
 ) -> Option<ManaPayment> {
     engine.payment_window().map(|(_, cost)| cost)
 }
@@ -346,8 +349,8 @@ pub fn owed_payment<L: baylee_engine::state::CardLookup>(
 /// Neither question exists outside the window, so this is empty from turn 1
 /// on and doubles as the answer to whether the window is open.
 #[must_use]
-pub fn deciding<L: baylee_engine::state::CardLookup>(
-    engine: &baylee_engine::engine::Engine<L>,
+pub fn deciding<L: baylee_engine::state::CardLookup, D: baylee_engine::engine::LoopDetection>(
+    engine: &baylee_engine::engine::Engine<L, D>,
 ) -> SeatSet {
     engine
         .awaited()
@@ -364,8 +367,11 @@ pub fn deciding<L: baylee_engine::state::CardLookup>(
 /// Every player whose decisions another makes now, as every seat and
 /// spectator is told it ([`baylee_view::PlayerView::controls`]).
 #[must_use]
-pub fn player_controls<L: baylee_engine::state::CardLookup>(
-    engine: &baylee_engine::engine::Engine<L>,
+pub fn player_controls<
+    L: baylee_engine::state::CardLookup,
+    D: baylee_engine::engine::LoopDetection,
+>(
+    engine: &baylee_engine::engine::Engine<L, D>,
 ) -> Vec<baylee_view::PlayerControl> {
     engine
         .player_controls()
@@ -388,8 +394,11 @@ pub fn player_controls<L: baylee_engine::state::CardLookup>(
 ///
 /// [`Engine::pending`]: baylee_engine::engine::Engine::pending
 #[must_use]
-pub fn awaiting_for<L: baylee_engine::state::CardLookup>(
-    engine: &baylee_engine::engine::Engine<L>,
+pub fn awaiting_for<
+    L: baylee_engine::state::CardLookup,
+    D: baylee_engine::engine::LoopDetection,
+>(
+    engine: &baylee_engine::engine::Engine<L, D>,
     seat: PlayerId,
 ) -> Option<PlayerId> {
     let deciding = deciding(engine);
@@ -404,8 +413,11 @@ pub fn awaiting_for<L: baylee_engine::state::CardLookup>(
 /// belong to each asked seat; afterwards the one global question may be
 /// answered by a different player controlling its resource owner.
 #[must_use]
-pub fn decision_player_for<L: baylee_engine::state::CardLookup>(
-    engine: &baylee_engine::engine::Engine<L>,
+pub fn decision_player_for<
+    L: baylee_engine::state::CardLookup,
+    D: baylee_engine::engine::LoopDetection,
+>(
+    engine: &baylee_engine::engine::Engine<L, D>,
     seat: PlayerId,
 ) -> Option<PlayerId> {
     if deciding(engine).is_empty() {
@@ -1083,8 +1095,11 @@ pub(crate) fn visible_event_object(
 
 /// The triggers `seat` is being asked to order, in the order offered
 /// ([`PlayerView::trigger_order`]). Only the seat that answers is told.
-pub(crate) fn trigger_order<L: baylee_engine::state::CardLookup>(
-    engine: &baylee_engine::engine::Engine<L>,
+pub(crate) fn trigger_order<
+    L: baylee_engine::state::CardLookup,
+    D: baylee_engine::engine::LoopDetection,
+>(
+    engine: &baylee_engine::engine::Engine<L, D>,
     seat: PlayerId,
 ) -> Vec<baylee_view::OrderedTrigger> {
     if engine.decision_actor() != Some(seat) {
@@ -1119,8 +1134,11 @@ pub(crate) fn trigger_order<L: baylee_engine::state::CardLookup>(
 }
 
 /// Explains only the current chooser's decision; never another seat's hand.
-pub(crate) fn targeting_context<L: baylee_engine::state::CardLookup>(
-    engine: &baylee_engine::engine::Engine<L>,
+pub(crate) fn targeting_context<
+    L: baylee_engine::state::CardLookup,
+    D: baylee_engine::engine::LoopDetection,
+>(
+    engine: &baylee_engine::engine::Engine<L, D>,
     seat: PlayerId,
 ) -> Option<baylee_view::TargetingContext> {
     if engine.decision_actor() != Some(seat)
@@ -1221,8 +1239,11 @@ pub(crate) fn targeting_context<L: baylee_engine::state::CardLookup>(
 /// drops which card asks. So it tells the seat nothing its view does not.
 ///
 /// [`DecisionNote`]: baylee_engine::engine::DecisionNote
-pub fn decision_note<L: baylee_engine::state::CardLookup>(
-    engine: &baylee_engine::engine::Engine<L>,
+pub fn decision_note<
+    L: baylee_engine::state::CardLookup,
+    D: baylee_engine::engine::LoopDetection,
+>(
+    engine: &baylee_engine::engine::Engine<L, D>,
     seat: PlayerId,
 ) -> Option<baylee_engine::engine::DecisionNote> {
     let note = engine.decision_note_for(seat)?;

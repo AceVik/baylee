@@ -261,7 +261,11 @@ pub(crate) struct Recorder {
 impl Recorder {
     /// A record that starts with its header, written from the engine
     /// before any input.
-    pub(crate) fn new(preset: &GamePreset, build: &str, engine: &Engine<RegistryLookup>) -> Self {
+    pub(crate) fn new<D: baylee_engine::engine::LoopDetection>(
+        preset: &GamePreset,
+        build: &str,
+        engine: &Engine<RegistryLookup, D>,
+    ) -> Self {
         let mut recorder = Self::default();
         recorder.write(&Line::Header {
             record: RECORD_VERSION,
@@ -302,12 +306,12 @@ impl Recorder {
     }
 
     /// An action `engine` has just applied.
-    pub(crate) fn input(
+    pub(crate) fn input<D: baylee_engine::engine::LoopDetection>(
         &mut self,
         seat: PlayerId,
         by: Source,
         action: PlayerAction,
-        engine: &Engine<RegistryLookup>,
+        engine: &Engine<RegistryLookup, D>,
     ) {
         let line = Line::Input {
             n: self.next(),
@@ -372,11 +376,11 @@ impl Recorder {
 }
 
 /// What a replay reached.
-pub struct Replayed {
+pub struct Replayed<D: baylee_engine::engine::LoopDetection = baylee_engine::engine::DetectLoops> {
     /// The inputs applied.
     pub inputs: u64,
     /// The engine after the last of them.
-    pub engine: Engine<RegistryLookup>,
+    pub engine: Engine<RegistryLookup, D>,
     /// Whether the record said the game ended, and the replay agreed.
     pub ended: bool,
     /// Which of the record's digests held the replay to it.
@@ -439,9 +443,9 @@ impl Checker {
 
     /// Whether `engine` is where the record says it was after input `n`
     /// (before any, for `None`).
-    pub(crate) fn check(
+    pub(crate) fn check<D: baylee_engine::engine::LoopDetection>(
         &mut self,
-        engine: &Engine<RegistryLookup>,
+        engine: &Engine<RegistryLookup, D>,
         n: Option<u64>,
         recorded: String,
         recorded_seen: Option<&str>,
@@ -597,7 +601,21 @@ pub fn replay_exact(record: &[u8]) -> Result<Replayed, ReplayError> {
     replay_with(record, true)
 }
 
-fn replay_with(record: &[u8], exact: bool) -> Result<Replayed, ReplayError> {
+/// Replays a record exactly with a statically selected detection capability.
+/// No cross-build public-table fallback is used, and a mismatched preset is refused.
+///
+/// # Errors
+/// As [`replay_exact`], including [`ReplayError::Unbuildable`] for a policy mismatch.
+pub fn replay_exact_with_detection<D: baylee_engine::engine::LoopDetection>(
+    record: &[u8],
+) -> Result<Replayed<D>, ReplayError> {
+    replay_with(record, true)
+}
+
+fn replay_with<D: baylee_engine::engine::LoopDetection>(
+    record: &[u8],
+    exact: bool,
+) -> Result<Replayed<D>, ReplayError> {
     let mut lines = lines_of(record);
     let head = header_of(&mut lines)?;
     let mut checker = if exact {
@@ -605,8 +623,8 @@ fn replay_with(record: &[u8], exact: bool) -> Result<Replayed, ReplayError> {
     } else {
         Checker::for_build(&head.build)
     };
-    let mut engine =
-        Engine::new(&head.preset, RegistryLookup).map_err(|_| ReplayError::Unbuildable)?;
+    let mut engine = Engine::with_detection(&head.preset, RegistryLookup)
+        .map_err(|_| ReplayError::Unbuildable)?;
     checker.check(&engine, None, head.hash, head.seen.as_deref())?;
     let mut inputs = 0;
     let mut ended = false;

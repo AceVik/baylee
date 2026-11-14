@@ -17,6 +17,7 @@ mod refusals;
 mod scouting;
 mod shared_hand;
 mod simulation;
+mod static_policy;
 mod team_exercise;
 mod trample_division;
 mod trigger_order;

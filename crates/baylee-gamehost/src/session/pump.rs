@@ -7,7 +7,7 @@ use baylee_engine::zone::ZoneLocation;
 use baylee_protocol::v1::Envelope;
 use baylee_view::{ClockAnswer, HouseAnswer, LogEvent, PolicyAct, PolicyAnswer};
 
-impl Session {
+impl<D: baylee_engine::engine::LoopDetection> Session<D> {
     /// Whether the house still owes an answer after a bounded pump. A local
     /// host must keep pumping instead of waiting for input from a human who
     /// has not received a question yet.

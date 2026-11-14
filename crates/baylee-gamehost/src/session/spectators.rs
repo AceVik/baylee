@@ -30,7 +30,7 @@ pub(crate) struct Gallery {
     pub(crate) sent: ViewSender,
 }
 
-impl Session {
+impl<D: baylee_engine::engine::LoopDetection> Session<D> {
     /// How many spectators the gateway says are watching.
     #[must_use]
     pub const fn spectators(&self) -> u32 {

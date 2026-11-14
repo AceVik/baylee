@@ -32,10 +32,32 @@ fn table_seed_of(preset: &GamePreset, state: &baylee_engine::state::GameState) -
 }
 
 impl Session {
+    /// Starts a legacy session with loop detection compiled in.
+    #[must_use]
+    pub fn new(preset: &GamePreset) -> Option<Self> {
+        Self::with_detection(preset)
+    }
+
+    /// Starts a recorded legacy session with loop detection compiled in.
+    #[must_use]
+    pub fn new_recorded(preset: &GamePreset, build: &str) -> Option<Self> {
+        Self::recorded_with_detection(preset, build)
+    }
+
+    /// Resumes a legacy recorded session with its original loop policy.
+    ///
+    /// # Errors
+    /// See [`Self::resume_with_detection`].
+    pub fn resume_recorded(record: &[u8]) -> Result<Self, crate::record::ReplayError> {
+        Self::resume_with_detection(record)
+    }
+}
+
+impl<D: baylee_engine::engine::LoopDetection> Session<D> {
     /// Starts a game from a preset; Open seats become humans, AI seats
     /// get a heuristic agent.
     #[must_use]
-    pub fn new(preset: &GamePreset) -> Option<Self> {
+    pub fn with_detection(preset: &GamePreset) -> Option<Self> {
         if !challenge::valid(preset) {
             return None;
         }
@@ -60,7 +82,7 @@ impl Session {
                 _ => Some(SeatKind::Human),
             })
             .collect::<Option<_>>()?;
-        let engine = Engine::new(preset, RegistryLookup).ok()?;
+        let engine = Engine::with_detection(preset, RegistryLookup).ok()?;
         let table_seed = table_seed_of(preset, engine.state());
         let log = GameLog::new(engine.state());
         let mut session = Self {

@@ -395,7 +395,7 @@ const fn kind(pending: &Pending) -> usize {
     }
 }
 
-impl Session {
+impl<D: baylee_engine::engine::LoopDetection> Session<D> {
     /// Switches foresight on or off at this table: whether a house chair
     /// whose level has a foresight tier tries its options in forks before it
     /// answers. Off until it is switched on, so a harness that seats the
@@ -1043,7 +1043,7 @@ impl Session {
         &mut self,
         search: &Search<'_>,
         seed: u64,
-    ) -> Result<SimulationSession, ForkRefusal> {
+    ) -> Result<SimulationSession<D>, ForkRefusal> {
         let decks = search
             .prior
             .as_ref()
@@ -1098,7 +1098,7 @@ impl Session {
     }
 }
 
-impl Session {
+impl<D: baylee_engine::engine::LoopDetection> Session<D> {
     /// The deck analyses the chairs of `at`'s search are told in a fork:
     /// the table's own where the search deals the real lists, and for a
     /// fair search the seat's own deck and an empty one for every other
@@ -1127,7 +1127,10 @@ impl Session {
 
 /// How the game in `fork` came out for `player`'s side where it is over:
 /// 1 won, 0 lost, 0.5 drawn.
-fn result_for(fork: &SimulationSession, player: PlayerId) -> Option<f64> {
+fn result_for<D: baylee_engine::engine::LoopDetection>(
+    fork: &SimulationSession<D>,
+    player: PlayerId,
+) -> Option<f64> {
     let Pending::GameOver(result) = *fork.pending() else {
         return None;
     };

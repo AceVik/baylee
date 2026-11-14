@@ -15,7 +15,7 @@ use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::HouseAnswer;
 
-impl Session {
+impl<D: baylee_engine::engine::LoopDetection> Session<D> {
     /// The game `record` holds, rebuilt input by input and checked against
     /// every digest the record wrote, as a recorded session that goes on
     /// writing after the record's last line.
@@ -37,11 +37,11 @@ impl Session {
     /// # Errors
     /// As [`record::replay`]: a line that does not parse, an input the
     /// engine refuses, or state the record's digests do not hold.
-    pub fn resume_recorded(record: &[u8]) -> Result<Self, ReplayError> {
+    pub fn resume_with_detection(record: &[u8]) -> Result<Self, ReplayError> {
         let mut lines = record::lines_of(record);
         let head = record::header_of(&mut lines)?;
         let mut checker = record::Checker::for_build(&head.build);
-        let mut session = Self::new(&head.preset).ok_or(ReplayError::Unbuildable)?;
+        let mut session = Self::with_detection(&head.preset).ok_or(ReplayError::Unbuildable)?;
         checker.check(&session.engine, None, head.hash, head.seen.as_deref())?;
         let mut next = 0;
         let mut ended = false;
