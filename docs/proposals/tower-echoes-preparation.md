@@ -1300,3 +1300,28 @@ block rather than a claim that native Tower duels are playable through gateways.
 Strict all-target Clippy with both account feature sets enabled passes in
 `/tmp/baylee-tower-host-sdk-clippy-20261115-r3.log`; the preceding host/API/store
 milestone also passed `/tmp/baylee-tower-host-http-clippy-20261115.log`.
+
+## Standalone authority — fortieth working milestone
+
+The Tower service now has a native executable with bounded private stdin
+configuration, explicit check/migration modes and no implicit schema changes.
+Its loopback listener serves the existing authenticated player/host APIs. Exact
+published cohort artifacts and distinct verifier/supervisor roles are checked
+before readiness; configured queues run automatically. SIGTERM/Ctrl-C drains
+owned work before database closure. Configuration, resource bounds, retained
+cohort obligations and TLS proxy requirements are documented in the environment
+runbook. This does not yet connect gateway games or the visible client.
+
+The focused configuration test caught a real URL-parser mismatch: PostgreSQL
+URLs retain literal IPv4 hosts as domains. Parsing those hosts strictly as IP
+addresses admits loopback without DNS or numeric aliases; IPv6 and hostile
+configuration regressions pass in
+`/tmp/baylee-tower-bootstrap-config-tests-20261115-r2.log`.
+The real standalone-process/PostgreSQL test passes in
+`/tmp/baylee-tower-bootstrap-process-tests-20261115-r2.log` (0.35s), checking
+configuration-only startup, idempotent explicit migration, redacted rejection,
+HTTP readiness, authentication enforcement, graceful SIGTERM and verified child
+exit/port closure. It uses zero queue workers deliberately: native independent
+adjudication is covered by the earlier queue tests, not claimed by this transport
+scenario. Strict all-target Clippy for service/store passes in
+`/tmp/baylee-tower-bootstrap-clippy-20261115-r3.log`.

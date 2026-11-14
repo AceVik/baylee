@@ -6088,8 +6088,8 @@ Failures contain no remote diagnostics. Every handled player response carries
 
 `Account::tower` obtains its trusted origin from Central, then `TowerHttp::exchange`
 sends only that scoped credential. It performs no automatic mutation retry and
-follows no redirects. The player router and native SDK are implemented; the
-standalone launcher, gateway worker transport and visible client flow remain
+follows no redirects. The player router, standalone launcher and native SDK are
+implemented; the gateway worker transport and visible client flow remain
 separate integration milestones, not implied by this protocol surface.
 
 ### Private Tower host API
@@ -6126,7 +6126,9 @@ record-body slots. Authentication precedes reading large bodies; reading is
 bounded to ten seconds. Native headers, no-store responses and closed error
 statuses follow the player transport policy. A private response has no printable
 diagnostic implementation. These routes are exercised over real HTTP/PostgreSQL;
-gateway orchestration and the production launcher remain separate work.
+gateway orchestration remains separate work. The standalone launcher combines
+both routers with exact cohort verification queues; its configuration and graceful
+shutdown contract are in `docs/dev/environment.md`.
 
 The gateway-side async adapter is `baylee_account::TowerHost`, enabled explicitly
 by `tower-host` without pulling in the native password/session SDK. It takes an

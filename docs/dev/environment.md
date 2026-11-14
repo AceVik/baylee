@@ -8,7 +8,7 @@ Every variable a Baylee process reads, by process. A value outside its range
 refuses startup where this says so; the normative behaviour behind each is in
 the document it names.
 
-The servers take their settings from these variables and nothing from the
+Except for the isolated Tower authority described below, servers take their settings from these variables and nothing from the
 command line but `--help`/`-h` (and the gateway's `records`, `legacy` and
 `help` subcommands; the engine server's `--attach`/`--game`/`--token`).
 `--help` prints the usage and exits 0; any other argument prints the reason
@@ -16,6 +16,62 @@ and the usage and exits 2. Either way the process reads no setting, dials
 nothing and binds nothing (`baylee-gateway`, `baylee-agent`,
 `baylee-engine-server`, `baylee-seathost`; `baylee-feedback` takes its
 `admin` and `export-reports` subcommands the same way).
+
+## Tower authority (`baylee-tower-service`)
+
+The separate Tower v2 executable reads one strict JSON configuration from stdin,
+up to 64 KiB, terminated by EOF. An owning Rust launcher supplies it through a
+private pipe from its secret source; never save it to a configuration file, pass
+it as an argument or print it. No environment fallback, URL-selected executable,
+shell expansion or authorization bypass exists. This is distinct from the older
+Central challenge service and is not an automatic production deployment.
+
+- `--check` validates configuration only: no database connection, listener or child.
+- `--migrate` explicitly migrates the configured schema and exits. Use separate
+  migration/admin database credentials; ordinary startup checks readiness and
+  never silently migrates. Migration mode may omit `service`.
+- No argument starts the HTTP service and its configured verification queues.
+  Unknown/extra arguments and unknown configuration fields are errors. Diagnostics
+  contain no configuration values. Readiness prints only the bound public address.
+
+Top-level fields are `database_url`, `schema`, `development` (default false), and
+optional `service`. Production PostgreSQL URLs require `sslmode=verify-full` and
+an absolute `sslrootcert` path, with no other URL query options. Development
+permits only literal loopback IP addresses, no DNS aliases or query overrides.
+The pool has eight connections maximum and five-second connect/acquire bounds.
+
+`service` contains:
+
+| Field | Meaning |
+| --- | --- |
+| `listen` | Numeric loopback socket address; production requires a nonzero port. Put the service behind the operator's verified TLS proxy, which must enforce connection/header limits. |
+| `origin` | Canonical public HTTPS origin; explicit development uses numeric-loopback HTTP. This must equal Central's configured Tower audience and differ from Central itself. |
+| `central` | Omit/null for the compiled live Central; development requires an explicit numeric-loopback Central origin. |
+| `record_bytes` | Private raw-record budget, 1–536870912 bytes. Worker byte budgets must cover it. Resource exhaustion is technical recovery, never a fabricated game result. |
+| `workers` | At most eight exact cohort workers; at least one in production. Empty development workers support transport tests only and cannot adjudicate games. |
+
+Each worker contains a UUIDv7 `cohort`, an absolute native `artifact` path, separate
+64-character lowercase hexadecimal `verifier` and `supervisor` credentials, and
+optional `resources`. Credentials must already have their respective provisioned
+operator roles. Startup probes the artifact and compares its full identity with
+the immutable published cohort, including closed cohorts with unfinished runs.
+Duplicate cohort workers in one process are refused. Configure every cohort that
+still needs adjudication; listing one worker does not discover others automatically.
+Retain its exact executable until its outstanding runs and evidence are resolved.
+
+`resources`, when supplied, contains all five fields: `bytes`, `lines`,
+`line_bytes`, `events`, `millis`. Defaults are 64 MiB, 250000 lines, 1 MiB per line,
+2000000 journal entries and 55000 ms. Hard limits are 512 MiB, 2000000 lines,
+1 MiB per line, 8000000 events and 55000 ms respectively. These bound independent
+replay; they do not impose a fifty-five-second playing time on a human duel.
+
+The service provides `/health`, `/v2/player`, `/v2/host` and `/v2/host/record`.
+`/health` reports completed startup, not Central availability or global cohort
+coverage. SIGTERM on Unix or Ctrl-C triggers graceful shutdown: listeners close,
+queue workers stop and owned verifier children are reaped before database closure.
+Store/configuration failures stop the service; unresolved evidence stays durable.
+The gateway execution link and visible native v2 client flow are still separate
+integration work.
 
 ## Neural player and offline evaluation (`baylee-train`)
 

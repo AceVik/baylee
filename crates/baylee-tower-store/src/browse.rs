@@ -4,6 +4,12 @@ use super::{
 };
 
 impl Store {
+    /// Read one retained immutable publication, including closed enrollment cohorts.
+    /// # Errors
+    /// Unknown publication, malformed identity/content or unavailable storage.
+    pub async fn published(&self, id: Uuid) -> Result<Publication, Error> {
+        self.publication(&self.db, id, false).await
+    }
     /// List accepting publications in descending UUID order. The cursor is exclusive.
     /// # Errors
     /// Invalid cursor/bound, malformed publication or unavailable storage.

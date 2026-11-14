@@ -33,8 +33,10 @@ information is unrepresentable in a view, and the gateway runs no rules.
   Central credential; no cache authorizes a logged-out account. This is shop/run
   traffic, never per-frame game traffic. `baylee-account::Account::tower` obtains
   the destination directly from Central and opens the strict native transport.
-  The new service's production launcher and gateway execution link remain under
-  implementation; neither this route nor its SDK claims playable client completion.
+  The standalone launcher reads bounded private-pipe configuration, checks exact
+  cohort workers, serves both APIs and owns graceful worker shutdown. The gateway
+  execution link remains under implementation; neither this route nor its SDK
+  claims playable client completion (`docs/dev/environment.md`).
 - The shared table driver selects its record transport statically. Ordinary
   hosting keeps the existing gzip stream; the native Tower adapter captures raw
   pieces and withholds associated views/endings behind exact ordered ACKs. Its

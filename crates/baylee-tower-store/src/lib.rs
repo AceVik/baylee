@@ -101,7 +101,7 @@ impl Store {
     /// # Errors
     /// Non-PostgreSQL backend or unsafe schema identifier.
     pub fn new(db: DatabaseConnection, schema: &str) -> Result<Self, Error> {
-        if db.get_database_backend() != DbBackend::Postgres || !schema_name(schema) {
+        if db.get_database_backend() != DbBackend::Postgres || !valid_schema(schema) {
             return Err(Error::Schema);
         }
         Ok(Self {
@@ -127,7 +127,9 @@ impl Store {
     }
 }
 
-fn schema_name(name: &str) -> bool {
+/// Whether an explicitly selected isolated schema can be safely interpolated as an identifier.
+#[must_use]
+pub fn valid_schema(name: &str) -> bool {
     (1..=63).contains(&name.len())
         && name.as_bytes()[0].is_ascii_lowercase()
         && name
