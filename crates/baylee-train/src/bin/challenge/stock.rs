@@ -12,9 +12,19 @@ use baylee_train::challenges::{self, Limits};
 use central_api::challenges::{Period, Publication};
 use zeroize::Zeroizing;
 
+#[derive(Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+enum Activities {
+    All,
+    Calendar,
+    Tower,
+}
+
 #[derive(clap::Args)]
 #[command(group(clap::ArgGroup::new("endpoint").required(true).args(["live", "central_dev"])))]
 pub(super) struct Args {
+    /// Which activity stock to reconcile; ordinary scheduled runs prepare all three.
+    #[arg(long, value_enum, default_value_t = Activities::All)]
+    activities: Activities,
     /// Matching source checkout; required explicitly for live publication.
     #[arg(long, required_if_eq("live", "true"))]
     source_dir: Option<PathBuf>,
@@ -60,28 +70,40 @@ pub(super) fn run(args: &Args) -> Result<()> {
     let http = CentralHttp::new(endpoint);
     private_directory(&args.state_dir)?;
     let now = i64::try_from(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())?;
-    let report = stock::reconcile(
-        now,
-        args.days,
-        |request| match http.exchange(
-            &wire::Request::ChallengeHost { request },
-            Some(Bearer::Capability(&credential)),
-        )? {
-            wire::Response::ChallengeHost { response } => Ok(response),
-            _ => Err(central_api::Error::Unavailable),
-        },
-        |period| {
+    let mut exchange = |request| match http.exchange(
+        &wire::Request::ChallengeHost { request },
+        Some(Bearer::Capability(&credential)),
+    )? {
+        wire::Response::ChallengeHost { response } => Ok(response),
+        _ => Err(central_api::Error::Unavailable),
+    };
+    if args.activities != Activities::Tower {
+        let report = stock::reconcile(now, args.days, &mut exchange, |period| {
             stage(&args.state_dir, period, args.candidates, &generator).map_err(|error| {
                 // Errors never contain the credential, a package or a private record.
                 eprintln!("{} slot {}: {error}", period.kind.name(), period.starts_at);
                 stock::Error::Uncertified
             })
-        },
-    )?;
-    println!(
-        "Challenge stock: {} already present, {} published",
-        report.present, report.published
-    );
+        })?;
+        println!(
+            "Challenge stock: {} already present, {} published",
+            report.present, report.published
+        );
+    }
+    if args.activities != Activities::Calendar {
+        let report =
+            baylee_challenges::tower::reconcile(now, args.days, &mut exchange, |period| {
+                super::tower_stock::stage(&args.state_dir, period, args.candidates, &generator)
+                    .map_err(|error| {
+                        eprintln!("Tower slot {}: {error}", period.starts_at);
+                        stock::Error::Uncertified
+                    })
+            })?;
+        println!(
+            "Tower stock: {} already present, {} published",
+            report.present, report.published
+        );
+    }
     Ok(())
 }
 
@@ -196,7 +218,7 @@ pub(super) fn private_write(path: &Path, bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 
-fn sync_directory(path: &Path) -> Result<()> {
+pub(super) fn sync_directory(path: &Path) -> Result<()> {
     #[cfg(unix)]
     {
         File::open(path)?.sync_all()?;

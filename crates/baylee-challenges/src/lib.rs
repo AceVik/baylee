@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 
 pub mod stock;
+pub mod tower;
 
 use baylee_core::preset::{GamePreset, SeatController};
 use serde::{Deserialize, Serialize};

@@ -1,7 +1,7 @@
 # Install with its timer after provisioning the certified release and bridge identity.
 # The service manager supplies the capability from the operator's secret manager.
 [Unit]
-Description=Baylee: certify and replenish global Daily and Weekly tasks
+Description=Baylee: certify and replenish Daily, Weekly and Tower activities
 After=network-online.target
 Wants=network-online.target
 
@@ -13,7 +13,7 @@ StateDirectory=baylee-challenges
 StateDirectoryMode=0700
 UMask=0077
 PassEnvironment=BAYLEE_CHALLENGE_BRIDGE_TOKEN
-ExecStart=/opt/baylee/challenges/current/challenge stock --live --source-dir /opt/baylee/challenges/current/source --state-dir /var/lib/baylee-challenges --days 7 --candidates 32
+ExecStart=/opt/baylee/challenges/current/challenge stock --live --activities all --source-dir /opt/baylee/challenges/current/source --state-dir /var/lib/baylee-challenges --days 7 --candidates 32
 TimeoutStartSec=45min
 Nice=15
 NoNewPrivileges=true

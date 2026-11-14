@@ -1,6 +1,28 @@
 use super::*;
 
 #[test]
+fn witness_replacement_preserves_distinct_routes_and_existing_families() {
+    let proof = |signature, family| Proof {
+        record: Vec::new(),
+        record_digest: [0; 32],
+        strategy_digest: [signature; 32],
+        family,
+        turn: 9,
+    };
+    let proofs = vec![
+        proof(1, Family::Combat),
+        proof(2, Family::Combat),
+        proof(3, Family::Combat),
+    ];
+    assert_eq!(proof_slot(&proofs, Family::DirectDamage, [1; 32]), Some(0));
+    assert_eq!(proof_slot(&proofs, Family::Combat, [1; 32]), None);
+    assert_eq!(proof_slot(&proofs, Family::Combat, [4; 32]), Some(3));
+    let proofs = vec![proof(1, Family::DirectDamage), proof(2, Family::Combat)];
+    assert_eq!(proof_slot(&proofs, Family::Combat, [1; 32]), None);
+    assert_eq!(proof_slot(&proofs[..1], Family::Combat, [1; 32]), None);
+}
+
+#[test]
 fn daily_has_three_fresh_replayable_resource_routes() {
     let result = generate(Kind::Daily, 41, Limits::default()).unwrap();
     assert_eq!(result.proofs.len(), 3);

@@ -9,10 +9,19 @@ use baylee_gamehost::Session;
 use baylee_view::PlayerView;
 
 use super::Limits;
+mod finisher;
 
 #[derive(Clone, Copy)]
 pub(super) enum Solver {
     Tactic(u8),
+    Burn {
+        profile: AIProfile,
+        seed: u64,
+    },
+    Combat {
+        profile: AIProfile,
+        seed: u64,
+    },
     House {
         profile: AIProfile,
         seed: u64,
@@ -20,11 +29,60 @@ pub(super) enum Solver {
     },
 }
 
+pub(super) fn strategies(kind: super::Kind) -> Vec<Solver> {
+    match kind {
+        super::Kind::Daily => (0..3).map(Solver::Tactic).collect(),
+        super::Kind::Weekly => (0..16)
+            .flat_map(|seed| {
+                [AIProfile::CASUAL, AIProfile::STEADY, AIProfile::EXPERT]
+                    .into_iter()
+                    .flat_map(move |profile| {
+                        [
+                            Solver::House {
+                                profile,
+                                seed,
+                                reserve_burn: false,
+                            },
+                            Solver::Burn { profile, seed },
+                            Solver::Combat { profile, seed },
+                            Solver::House {
+                                profile,
+                                seed,
+                                reserve_burn: true,
+                            },
+                        ]
+                    })
+            })
+            .collect(),
+    }
+}
+
 pub(super) struct Run {
     pub session: Session,
     pub record: Vec<u8>,
     pub trace: super::semantic::Trace,
     actions: Vec<PlayerAction>,
+}
+
+#[derive(Default, Debug)]
+pub(super) struct Statistics {
+    nonwinning: u32,
+    turn_cap: u32,
+    answer_cap: u32,
+    slice_cap: u32,
+    longest_turn: u32,
+    lowest_opponent_life: Option<i32>,
+}
+
+impl Statistics {
+    fn observe(&mut self, session: &Session) {
+        self.longest_turn = self.longest_turn.max(session.state().turn.number);
+        let life = session.state().players[1].life;
+        self.lowest_opponent_life = Some(
+            self.lowest_opponent_life
+                .map_or(life, |prior| prior.min(life)),
+        );
+    }
 }
 
 fn session(preset: &GamePreset) -> Result<Session> {
@@ -35,11 +93,18 @@ fn session(preset: &GamePreset) -> Result<Session> {
     Ok(session)
 }
 
-pub(super) fn run(preset: &GamePreset, solver: Solver, limits: Limits) -> Result<Option<Run>> {
+pub(super) fn run(
+    preset: &GamePreset,
+    solver: Solver,
+    limits: Limits,
+    stats: &mut Statistics,
+) -> Result<Option<Run>> {
     let mut session = session(preset)?;
     let (profile, seed) = match solver {
         Solver::Tactic(_) => (AIProfile::EXPERT, 71),
-        Solver::House { profile, seed, .. } => (profile, seed),
+        Solver::House { profile, seed, .. }
+        | Solver::Burn { profile, seed }
+        | Solver::Combat { profile, seed } => (profile, seed),
     };
     let agent = HeuristicAgent::new(profile).with_seed(seed);
     let deck = DeckIntel::new(
@@ -47,14 +112,27 @@ pub(super) fn run(preset: &GamePreset, solver: Solver, limits: Limits) -> Result
         Vec::new(),
     );
     let mut tactic = Tactic::new(preset, solver);
+    let mut finisher = finisher::Finisher::default();
+    let reserve_burn = matches!(
+        solver,
+        Solver::House {
+            reserve_burn: true,
+            ..
+        }
+    );
     let mut actions = Vec::new();
     let mut record = Vec::new();
     let mut trace = super::semantic::Trace::default();
-    for _ in 0..limits.answers {
+    // Engine pumping and opponent answers do not spend the human-answer budget.
+    // Observe each slice for the certificate, while bounding pathological autonomous work.
+    let slices = limits.answers.saturating_mul(128).min(1_000_000);
+    for _ in 0..slices {
         session.pump_at_most(1);
         trace.observe(&session);
+        stats.observe(&session);
         record.extend(session.take_record());
         if let Pending::GameOver(result) = session.pending() {
+            stats.nonwinning += u32::from(session.winning_seats(*result) != [PlayerId::new(0)]);
             return Ok(
                 (session.winning_seats(*result) == [PlayerId::new(0)]).then_some(Run {
                     session,
@@ -65,6 +143,7 @@ pub(super) fn run(preset: &GamePreset, solver: Solver, limits: Limits) -> Result
             );
         }
         if session.state().turn.number > limits.turns {
+            stats.turn_cap += 1;
             return Ok(None);
         }
         if session.needs_pump() {
@@ -73,24 +152,42 @@ pub(super) fn run(preset: &GamePreset, solver: Solver, limits: Limits) -> Result
         let Some((pending, view)) = session.view_for(PlayerId::new(0)) else {
             continue;
         };
+        if actions.len() >= usize::try_from(limits.answers).unwrap_or(usize::MAX) {
+            stats.answer_cap += 1;
+            return Ok(None);
+        }
         let note = session.question_note(PlayerId::new(0));
         let mut question = pending.clone();
-        if matches!(
-            solver,
-            Solver::House {
-                reserve_burn: true,
-                ..
-            }
-        ) {
-            reserve_finisher(&view, &mut question);
+        if reserve_burn {
+            finisher.reserve(&view, &mut question);
         }
-        let action = match solver {
+        if matches!(solver, Solver::Combat { .. }) {
+            finisher::Finisher::preserve_combat_finish(&view, &mut question);
+        }
+        let mut action = match solver {
             Solver::Tactic(route) => tactic.answer(route, &view, &pending),
-            Solver::House { .. } => None,
+            Solver::House {
+                reserve_burn: true, ..
+            } => finisher.answer(&view, &pending, false),
+            Solver::Burn { .. } => finisher.answer(&view, &pending, true),
+            Solver::Combat { .. }
+            | Solver::House {
+                reserve_burn: false,
+                ..
+            } => None,
         }
         .unwrap_or_else(|| {
-            baylee_ai::noted::answer_as_seated(&agent, view, &question, note.as_ref(), Some(&deck))
+            baylee_ai::noted::answer_as_seated(
+                &agent,
+                view.clone(),
+                &question,
+                note.as_ref(),
+                Some(&deck),
+            )
         });
+        if reserve_burn {
+            finisher::Finisher::preserve_burn_finish(&view, &pending, &mut action);
+        }
         ensure!(
             agent.fallbacks() == 0,
             "solver needed an unsupported-choice fallback"
@@ -102,32 +199,8 @@ pub(super) fn run(preset: &GamePreset, solver: Solver, limits: Limits) -> Result
         trace.observe(&session);
         record.extend(session.take_record());
     }
+    stats.slice_cap += 1;
     Ok(None)
-}
-
-/// A genuinely different public-information plan: save the deck's burn anchor
-/// for lethal instead of spending it on early trades. Removing legal options
-/// from a probe does not add a move the engine would not accept.
-fn reserve_finisher(view: &PlayerView, pending: &mut Pending) {
-    if view.owed.is_some()
-        || view
-            .seats
-            .iter()
-            .any(|seat| seat.player != view.seat && seat.life <= 3)
-    {
-        return;
-    }
-    let Pending::Priority { legal, .. } = pending else {
-        return;
-    };
-    let keep = |id: &baylee_core::ids::ObjectId| {
-        !view
-            .hand
-            .iter()
-            .any(|card| card.id == *id && card.name == "Lightning Bolt")
-    };
-    legal.castable.retain(keep);
-    legal.payable.retain(keep);
 }
 
 pub(super) fn verify_fresh(preset: &GamePreset, run: &Run) -> Result<()> {

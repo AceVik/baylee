@@ -6,6 +6,8 @@ mod assess;
 mod play;
 mod source;
 mod stock;
+mod tower;
+mod tower_stock;
 
 use anyhow::{Context, Result};
 use baylee_train::challenges::{self, Kind, Limits};
@@ -22,6 +24,10 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Produce all 35 certified expedition variants and their private replay evidence.
+    Tower(tower::Args),
+    /// Certify one expedition variant for focused difficulty/coverage calibration.
+    TowerAssess(tower::Assess),
     /// Produce and retain a certified candidate offline.
     Generate(Args),
     /// Reconcile an authenticated Central calendar from durably staged proofs.
@@ -56,6 +62,8 @@ struct Args {
 
 fn main() -> Result<()> {
     match Cli::parse().command {
+        Command::Tower(args) => tower::run(&args),
+        Command::TowerAssess(args) => tower::assess(&args),
         Command::Generate(args) => generate(&args),
         Command::Stock(args) => stock::run(&args),
         Command::Assess(args) => assess::run(&args),

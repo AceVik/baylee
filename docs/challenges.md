@@ -337,3 +337,10 @@ earlier aggregate feature-matrix limitation above.
 Formatting of the changed crates, the affected gamehost library's `simulation`
 feature lint and the regenerated API-document check also passed. No rendered
 native client was started for these final checks.
+
+## Weekly expedition
+
+The stock worker can also publish the complete [Verdant Tower](tower.md).
+`--activities all` is the default; `calendar` keeps an explicitly Daily/Weekly-only
+worker. The expedition shares official execution and durable results, but has
+separate active attempts, consent, rankings and permanent rewards.

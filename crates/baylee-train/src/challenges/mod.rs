@@ -7,12 +7,12 @@ mod semantic;
 mod solve;
 #[cfg(test)]
 mod tests;
+pub mod tower;
 
 use std::collections::BTreeSet;
 
 use anyhow::{Context, Result, ensure};
 use baylee_challenges::Package;
-use baylee_core::preset::AIProfile;
 use sha2::{Digest, Sha256};
 
 pub use central_api::challenges::{Kind, SolutionFamily as Family};
@@ -103,41 +103,47 @@ fn prove(
         "positive probe limits required"
     );
     let (preset, deck) = presets::build(kind, seed, working)?;
+    certify(
+        kind,
+        preset,
+        deck,
+        limits,
+        if kind == Kind::Weekly { 9 } else { 1 },
+    )
+}
+
+fn certify(
+    kind: Kind,
+    preset: baylee_core::preset::GamePreset,
+    deck: String,
+    limits: Limits,
+    minimum_turn: u32,
+) -> Result<Certified> {
+    ensure!(
+        limits.answers > 0 && limits.turns > 0,
+        "positive probe limits required"
+    );
     let mut proofs = Vec::new();
-    let mut signatures = BTreeSet::new();
     let mut families = BTreeSet::new();
-    let solvers: Vec<_> = match kind {
-        Kind::Daily => (0..3).map(solve::Solver::Tactic).collect(),
-        Kind::Weekly => (0..16)
-            .flat_map(|seed| {
-                [AIProfile::CASUAL, AIProfile::STEADY, AIProfile::EXPERT]
-                    .into_iter()
-                    .flat_map(move |profile| {
-                        [false, true]
-                            .into_iter()
-                            .map(move |reserve_burn| solve::Solver::House {
-                                profile,
-                                seed,
-                                reserve_burn,
-                            })
-                    })
-            })
-            .collect(),
-    };
-    for solver in solvers {
-        let Some(run) = solve::run(&preset, solver, limits)? else {
+    let mut wins = 0;
+    let mut unclassified = 0;
+    let mut stats = solve::Statistics::default();
+    for solver in solve::strategies(kind) {
+        let Some(run) = solve::run(&preset, solver, limits, &mut stats)? else {
             continue;
         };
+        wins += 1;
         ensure!(
-            kind != Kind::Weekly || run.session.state().turn.number >= 9,
-            "weekly candidate has a proved win before game turn nine"
+            run.session.state().turn.number >= minimum_turn,
+            "candidate has a proved win before its minimum game turn"
         );
         let Ok((family, strategy_digest)) = semantic::classify(&run.session, &run.trace) else {
+            unclassified += 1;
             continue;
         };
-        if signatures.contains(&strategy_digest) {
+        let Some(slot) = proof_slot(&proofs, family, strategy_digest) else {
             continue;
-        }
+        };
         // A wholly new host runs the same submitted human moves against its own
         // freshly initialized opponent. This is stronger than recorded-action replay.
         solve::verify_fresh(&preset, &run)?;
@@ -147,15 +153,19 @@ fn prove(
             replay.ended && replay.engine.snapshot_hash() == run.session.snapshot_hash(),
             "terminal replay mismatch"
         );
-        signatures.insert(strategy_digest);
-        families.insert(family);
-        proofs.push(Proof {
+        let proof = Proof {
             record_digest: Sha256::digest(&run.record).into(),
             record: run.record,
             strategy_digest,
             family,
             turn: run.session.state().turn.number,
-        });
+        };
+        if slot == proofs.len() {
+            proofs.push(proof);
+        } else {
+            proofs[slot] = proof;
+        }
+        families = proofs.iter().map(|proof| proof.family).collect();
         if proofs.len() >= 3 && families.len() >= 2 {
             break;
         }
@@ -166,7 +176,7 @@ fn prove(
     }
     ensure!(
         proofs.len() >= 3 && families.len() >= 2,
-        "candidate has only {} distinct routes in {} families",
+        "candidate has only {} distinct routes in {} families: {families:?} ({wins} wins, {unclassified} unclassified; {stats:?})",
         proofs.len(),
         families.len()
     );
@@ -188,4 +198,23 @@ fn prove(
         deck,
         proofs,
     })
+}
+
+// A contributor set is one route even when its final damage source changes.
+// Retain the alternate witness only when it adds a family without erasing another.
+fn proof_slot(proofs: &[Proof], family: Family, signature: [u8; 32]) -> Option<usize> {
+    let Some(index) = proofs
+        .iter()
+        .position(|proof| proof.strategy_digest == signature)
+    else {
+        return Some(proofs.len());
+    };
+    let previous = proofs[index].family;
+    (!proofs.iter().any(|proof| proof.family == family)
+        && proofs
+            .iter()
+            .filter(|proof| proof.family == previous)
+            .count()
+            > 1)
+    .then_some(index)
 }
