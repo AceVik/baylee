@@ -44,7 +44,7 @@ impl EngineArtifact {
         let features = match self {
             Self::Standard => "baylee-perf/without-loop-detection",
             Self::StandardLoops => "baylee-engine-server/loop-detection",
-            Self::Tower => "baylee-engine-server/tower,baylee-perf/without-loop-detection",
+            Self::Tower => "baylee-engine-server/tower,baylee-perf/tower",
         };
         [
             "-p",

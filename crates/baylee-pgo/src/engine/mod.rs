@@ -10,6 +10,7 @@ use std::{
 };
 
 mod artifact;
+mod shapes;
 pub use artifact::EngineArtifact;
 
 /// One profile-guided build.
@@ -58,6 +59,7 @@ impl Plan {
     /// anything differently from the plain one, or when the profile took no
     /// effect.
     pub fn build(&self) -> Result<PathBuf, Failure> {
+        let shapes = shapes::Shapes::for_args(&self.ship)?;
         let raw = self.work.join("raw");
         let _ = fs::remove_dir_all(&raw);
         let _ = fs::remove_dir_all(&self.targets);
@@ -69,7 +71,7 @@ impl Plan {
         let generate = self.targets.join("generate");
         let flag = format!("-Cprofile-generate={}", raw.display());
         self.cargo(&generate, &[&flag], &self.ship)?;
-        for shape in TRAINED_ON {
+        for shape in shapes.trained {
             run(
                 Command::new(self.workload(&generate))
                     .arg(shape)
@@ -95,7 +97,7 @@ impl Plan {
         // The plain proof must instantiate the same static engine as training
         // and shipping. Dropping `ship` here silently tests a different variant.
         self.cargo(&self.plain, &[], &self.ship)?;
-        for shape in PROVEN_ON {
+        for shape in shapes.proven {
             let plain = self.verify(&self.plain, shape)?;
             let guided = self.verify(&profiled, shape)?;
             if plain != guided {

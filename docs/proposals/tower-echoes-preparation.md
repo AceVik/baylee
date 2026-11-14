@@ -792,3 +792,22 @@ registry now connected, training/proof must also carry that registry and a
 strictly admitted two-seat Tower preset. `docs/releasing.md` now explicitly marks
 Tower release acceptance open; no native release performance/proof is claimed.
 Resolve this before staging, along with the authority/record durability work.
+
+## Native profiling workload — nineteenth working milestone
+
+The follow-up above is corrected: the Tower performance artifact links the real
+compiled native pack without server default features and uses that registry for
+sessions, forks and projection. Its two-seat fixtures include native Grove
+rarities and charges, a human seat and the frozen Expert policy. Tower trains
+and proves `frames`; other modes/four seats fail before execution. The PGO plan
+refuses a mismatch between Tower server and workload features before touching
+build directories. Standard variants retain their existing shapes.
+
+Two native workload tests and two artifact/PGO-selection tests passed in
+`/tmp/baylee-native-tower-{perf,pgo}-tests-20261114.log`; the ordinary workload
+test passed in `...perf-standard-tests-20261114.log`. Strict Clippy passed for
+the native workload and PGO crate. Ordinary Clippy required a narrowly documented
+allowance for the shared fallible preparation signature, whose native admission
+can fail; the ordinary implementation has no failure path.
+The actual release PGO builds, count coverage and semantic comparison are still
+release acceptance work, not demonstrated by these focused wiring tests.

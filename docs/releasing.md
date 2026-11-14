@@ -959,15 +959,21 @@ same steps by hand on a checkout (default: all three);
 The static variants are built in separate Cargo invocations, with separate
 instrumentation, counts, profiled output and plain comparison directories.
 All three invocations for a variant use exactly the same package and feature
-selection. `engine_perf`'s `without-loop-detection` feature currently instantiates
-the ordinary `Session<NoLoopDetection>`; standard-loops uses `Session<DetectLoops>`.
-Since the native Tower pack was connected, that ordinary workload is no longer
-the Tower artifact's concrete session type. **Tower release acceptance remains
-open:** its training and plain/profiled proof must instantiate the native registry
-and an admitted frozen Tower preset. Do not treat the current shared-workload
-comparison as a Tower release proof. A plain comparison using a different
-registry or variant is not a valid semantic proof, and profiling does not
-certify Tower balance.
+selection. `engine_perf`'s `without-loop-detection` feature instantiates the
+ordinary `Session<NoLoopDetection>`; standard-loops uses `Session<DetectLoops>`.
+Its `tower` feature instead instantiates `NativeLookup<RegistryLookup, Pack>`
+with no detection, matching the shipping Tower session. Its admitted two-seat
+presets exercise native Grove rarities, Heartwood and table charges, a human
+seat and the frozen Expert opponent. Tower trains and compares `frames` only;
+its fixed human seat cannot run in an AI-only pumping workload. Unsupported
+Tower modes/four seats and mismatched server/workload features are refused.
+The regular variants retain their existing training and comparison shapes.
+
+Focused tests establish this wiring, not a completed profile-guided release.
+**Tower release acceptance remains open until its actual release build, count
+coverage and plain/profiled comparison pass.** A plain comparison using a
+different registry or variant is not a valid semantic proof, and profiling does
+not certify Tower balance.
 
 Server staging requires the full set:
 `baylee-engine-server` (standard), `baylee-engine-standard-loops`, and

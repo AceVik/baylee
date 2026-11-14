@@ -33,11 +33,11 @@ pub(super) fn games(four: bool) -> anyhow::Result<Vec<Game>> {
                 &[&decks[0], &decks[1]]
             };
             let mut preset = preset_for_all(seed, chairs);
-            variant::prepare(&mut preset);
             for (seat, profile) in preset.seats.iter_mut().zip(profiles.iter().cycle()) {
                 seat.controller = SeatController::Ai(*profile);
                 seat.team = None;
             }
+            variant::prepare(&mut preset)?;
             games.push(Game {
                 id: format!("{a}-{b}-{seed}"),
                 preset,

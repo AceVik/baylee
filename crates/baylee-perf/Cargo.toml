@@ -11,9 +11,10 @@ description = "The engine's fixed workload: what it is measured by, what a profi
 workspace = true
 
 [features]
-# The standard and Tower shipping artifacts train/prove their detector-free
-# session. Selected explicitly beside that artifact, never with standard-loops.
+# The standard shipping artifact trains/proves its detector-free session.
 without-loop-detection = []
+# Match the native shipping registry as well as its detector policy.
+tower = ["without-loop-detection", "dep:baylee-engine-server", "dep:baylee-tower"]
 # `engine_perf search`, through `Engine::fork_for`. Off in every build that
 # trains or proves a shipped binary: that build shares a `cargo` run with the
 # binary, and `cargo dev gate shipped-features` keeps this out of a hosting
@@ -28,6 +29,8 @@ baylee-cards.workspace = true
 baylee-core.workspace = true
 baylee-engine.workspace = true
 baylee-gamehost.workspace = true
+baylee-engine-server = { path = "../baylee-engine-server", optional = true, default-features = false, features = ["tower"] }
+baylee-tower = { workspace = true, optional = true }
 baylee-protocol.workspace = true
 baylee-view.workspace = true
 prost.workspace = true

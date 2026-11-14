@@ -72,7 +72,7 @@ use baylee_engine::choice::{Pending, PlayerAction, timeout_answer};
 use baylee_engine::engine::DeckKnowledge;
 use baylee_gamehost::PlayerView;
 use baylee_gamehost::record::Line;
-use baylee_gamehost::replay::{Perspective, Verify, project_with_detection};
+use baylee_gamehost::replay::{Perspective, Verify, project_with_registry};
 use baylee_protocol::v1::Envelope;
 use baylee_protocol::v1::envelope::Msg;
 use baylee_view::{StaticReader, ViewReader};
@@ -689,7 +689,7 @@ fn recorded(path: &Path, checks: Checks) -> anyhow::Result<(Wire, u64, u64)> {
     let (mut inputs, mut exact) = (0, 0);
     for seat in 0..seats {
         let seat = PlayerId::new(u8::try_from(seat).context("a table has few seats")?);
-        let projection = project_with_detection::<variant::Detection>(
+        let projection = project_with_registry::<variant::Detection, variant::Registry>(
             &record,
             names.clone(),
             Perspective::Seat(seat),
@@ -785,6 +785,7 @@ fn records(paths: &[String], checks: Checks) -> anyhow::Result<()> {
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    variant::validate_args(&args)?;
     let checks = Checks {
         verify: args.iter().any(|arg| arg == "--verify"),
         patches: args.iter().any(|arg| arg == "--patches"),
