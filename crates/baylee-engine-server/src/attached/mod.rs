@@ -1,12 +1,18 @@
 //! The gateway attachment, outside the deterministic rules driver.
 use super::{Attach, wall_ms, ws_config};
+#[cfg(not(feature = "tower"))]
 use baylee_engine_server::variant::CompiledRunner as EngineRunner;
 use baylee_protocol::v1::{self, Envelope};
-use futures_util::{SinkExt, StreamExt};
+use futures_util::SinkExt;
+#[cfg(not(feature = "tower"))]
+use futures_util::StreamExt;
 use prost::Message as _;
 use tokio_tungstenite::tungstenite::Message;
 
+#[cfg(not(feature = "tower"))]
 mod standard;
+#[cfg(feature = "tower")]
+mod tower;
 
 /// Plays one game against the gateway and returns when it ends.
 pub async fn run(attach: Attach) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -15,7 +21,9 @@ pub async fn run(attach: Attach) -> Result<(), Box<dyn std::error::Error + Send 
     } else {
         None
     };
+    #[cfg(not(feature = "tower"))]
     let pump_budget = super::pump_config::from_env()?;
+    #[cfg(not(feature = "tower"))]
     let runner = EngineRunner::default()
         .with_pump_budget(pump_budget)
         .with_foresight(foresight()?);
@@ -31,14 +39,21 @@ pub async fn run(attach: Attach) -> Result<(), Box<dyn std::error::Error + Send 
             Some(ws_config()),
         )
         .await?;
+        #[cfg(not(feature = "tower"))]
         return Box::pin(standard::play(ws, attach, runner)).await;
+        #[cfg(feature = "tower")]
+        return Box::pin(tower::play(ws, attach)).await;
     }
     let ws = dial(&attach.url).await?;
-    Box::pin(standard::play(ws, attach, runner)).await
+    #[cfg(not(feature = "tower"))]
+    return Box::pin(standard::play(ws, attach, runner)).await;
+    #[cfg(feature = "tower")]
+    return Box::pin(tower::play(ws, attach)).await;
 }
 
 /// What the house's search may spend here, from the operator's settings
 /// (`baylee_engine_server::foresight`), said once in the log.
+#[cfg(not(feature = "tower"))]
 fn foresight()
 -> Result<Option<baylee_gamehost::HostForesight>, Box<dyn std::error::Error + Send + Sync>> {
     let settings = baylee_engine_server::foresight::Settings::from_env()?;

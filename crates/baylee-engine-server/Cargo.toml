@@ -13,7 +13,7 @@ workspace = true
 # Build each artifact separately; Tower and enabled detection are incompatible.
 default = ["loop-detection"]
 loop-detection = []
-tower = ["dep:baylee-tower"]
+tower = ["dep:baylee-tower", "dep:baylee-tower-api"]
 
 [dependencies]
 # Its programs look cards up, so they hold the pool (`baylee-cards-pool`).
@@ -33,6 +33,7 @@ baylee-protocol.workspace = true
 baylee-view.workspace = true
 baylee-worker.workspace = true
 baylee-tower = { workspace = true, optional = true }
+baylee-tower-api = { workspace = true, optional = true }
 bytes.workspace = true
 flate2.workspace = true
 futures-util.workspace = true

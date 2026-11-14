@@ -4,6 +4,7 @@
 //! automation inside an engine apply, or a socket answer followed by house work.
 //! With two connected socket seats, every explicit answer already publishes
 //! each seat's filtered view before another socket answer is processed.
+#![cfg(not(feature = "tower"))]
 
 use std::io;
 

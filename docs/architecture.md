@@ -44,6 +44,9 @@ information is unrepresentable in a view, and the gateway runs no rules.
   performs no persistence, networking or administrative callbacks.
   Recovery consumes the exact committed chunk stream under a fresh assignment,
   recomputes the frozen Expert's history and resumes the existing record sequence.
+  The compiled Tower websocket attachment now exercises this path with bounded
+  pull-based recovery and waits for a committed terminal seal before publishing
+  final frames. Public gateway launch/lease management is still under integration.
   It preserves settings/declaration allowances and potion charges, does not reseed
   the opponent when restoring display names, and requires renewed client readiness.
   A terminal committed prefix can proceed straight to sealing and verification.

@@ -1346,3 +1346,28 @@ protocol-version regression still expected 47 despite the earlier move to 48;
 it now documents/checks the actual 49 contract.
 Strict all-target Clippy for the three changed runtime crates passes in
 `/tmp/baylee-tower-engine-wire-clippy-20261115-r3.log`.
+
+## Native Tower attachment — forty-second working milestone
+
+The Tower artifact now has its own compiled websocket loop around the durable
+native Table, with no ordinary preset/foresight fallback. Initial and continuing
+record batches wait for exact durable ACKs; final views also wait for sealing.
+Bounded human frames arriving meanwhile are queued as unaccepted input. Recovery
+pulls one chunk at a time into strict reconstruction, without a full-record
+allocation or a private temporary recording file. Changed bytes or wrong game,
+direction, index, generation or acknowledgement stop the attachment without a
+manufactured outcome. Ordinary attachment remains separately compiled.
+
+Three focused actual-native websocket tests pass in
+`/tmp/baylee-tower-native-attachment-tests-20261115-r2.log` (3.19s). One connects
+three successive native instances: interruption after a committed initial batch,
+recovery and concession, then recovery of the already-terminal record. The final
+retained bytes independently verify as a defeat; terminal recovery appends no
+new header/end. Others refuse wrong game/ACK generation and corrupted recovery
+bytes before any native view or replacement evidence escapes. These tests use
+in-memory real websocket peers and join every owned task; the peer simulates
+already-tested authority commits, so this is not yet a live gateway/database
+end-to-end claim. Tower strict binary/test Clippy passes in
+`/tmp/baylee-tower-native-attachment-clippy-20261115-r3.log`.
+The ordinary binary's strict Clippy also passes in
+`/tmp/baylee-tower-ordinary-attachment-clippy-20261115.log`.

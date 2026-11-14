@@ -257,6 +257,11 @@ The UI's GitHub issue carries only the admin's own summary, a category and the b
 
 The house's search at the tables an attached engine hosts (`docs/house-ai.md` §"Foresight at a host"; read once at launch, a value out of its range refuses launch; the dev harness never searches):
 
+These ordinary-game foresight settings and `BAYLEE_ENGINE_PUMP_STEPS` do not
+configure the compiled Tower v2 attachment. It uses the cohort's frozen Expert
+policy, native extensions and a single decision per pump/record barrier. The
+agent's process/RSS watchdog still applies; it is never a rules defeat.
+
 - `BAYLEE_FORESIGHT` (`on`, the default, or `off`: every level answers as its heuristics do).
 - `BAYLEE_FORESIGHT_WORK` (percent of each level's own bound one search may spend, `1..=100`, default `100`; never more than `expert`'s bound, eight million units, whatever a preset says; below 100 the levels play weaker than measured).
 - `BAYLEE_FORESIGHT_SEARCHES` (searches at once on the machine, among every engine of the agent, `1..=256`; default half the cores the process may use, at least one; a search that finds every slot taken is not made, the level answers as its heuristics do, and nothing waits).

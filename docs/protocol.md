@@ -6159,5 +6159,20 @@ partial ACKs, changed counts, exceeded bounds and incomplete final lines poison
 the assembly. Reconnection must use fresh authenticated authority state. Recovery
 pulls committed chunks by exact index instead of allocating the entire recording.
 The claim response now includes the original byte budget, so reconnecting cannot
-silently enlarge an old reservation's allocation. This protocol contract precedes
-its live gateway/native-loop integration and does not itself make the mode playable.
+silently enlarge an old reservation's allocation.
+
+The compiled Tower attachment now implements this native endpoint without an
+ordinary-preset fallback. Startup must name the exact authenticated game. Human
+frames arriving during a pending ACK/reconstruction are bounded to 64 envelopes
+and four MiB; they are not yet accepted game inputs. A blocking reconstruction
+reader pulls only its next chunk across a one-slot response channel, verifies the
+complete retained commitment and rejoins the async loop. No full-record buffer or
+private spool file is used. Failed transport closes that reader before joining it.
+The process owner's existing watchdog still encloses nonreturning rules calls.
+
+Terminal views wait for the complete record ACK and seal ACK. Finished then closes
+the game link, including a recovered already-terminal game that writes no new
+record. A technical refusal/disconnect emits no synthetic rules result. Ordinary
+artifacts retain their previous loop; the Tower artifact uses its frozen Expert
+policy and one-step pump rather than operator foresight/pump environment settings.
+The public gateway lifecycle/seat-start path and visible client flow remain pending.

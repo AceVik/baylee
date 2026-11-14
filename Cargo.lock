@@ -2048,6 +2048,7 @@ dependencies = [
  "baylee-gamehost",
  "baylee-protocol",
  "baylee-tower",
+ "baylee-tower-api",
  "baylee-tower-service",
  "baylee-tower-store",
  "baylee-view",
