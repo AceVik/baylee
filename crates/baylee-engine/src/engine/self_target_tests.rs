@@ -251,7 +251,10 @@ fn flashback_spell_in_graveyard_cannot_target_itself() {
     };
     let me = PlayerId::new(0);
     let swamp = card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68");
-    let coffin_purge = card_index("9db5aa54-3deb-45ee-82a2-e88a4367c6d9");
+    // Look up Coffin Purge by name rather than quoting its oracle_id UUID so
+    // `xtask codegen`'s UUID scanner does not mistake this engine rule test for
+    // Coffin Purge's canonical card test while Coffin Purge remains Generated.
+    let coffin_purge = baylee_cards::decks::by_name("Coffin Purge").expect("Coffin Purge");
     let bears = card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3");
 
     let mut engine = Duel::new(6012, swamp)
