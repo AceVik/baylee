@@ -813,6 +813,7 @@ fn an_ability_line_carries_its_ability() {
 fn a_line_capitalizes_our_words_and_never_a_name() {
     let unresolved = LogEvent::DidNotResolve {
         object: LogObject::Hidden,
+        ability: false,
     };
     assert_eq!(say(Lang::En, unresolved.clone()), "A card did not resolve");
     assert_eq!(
@@ -941,6 +942,11 @@ fn every_line_about(player: PlayerId) -> Vec<LogEvent> {
         },
         LogEvent::DidNotResolve {
             object: LogObject::Hidden,
+            ability: false,
+        },
+        LogEvent::DidNotResolve {
+            object: card.clone(),
+            ability: true,
         },
         LogEvent::Drew {
             player,
@@ -2054,4 +2060,46 @@ fn a_reader_with_no_seat_reads_every_seat_by_name() {
     winners.insert(ME);
     let won = said(LogEvent::GameOver { winners });
     assert!(!won.contains("You"), "{won}");
+}
+
+/// An unresolved ability names its source as the source of an ability rather
+/// than making the permanent or card look like a spell that fizzled, while an
+/// unresolved spell still names the spell directly.
+#[test]
+fn did_not_resolve_distinguishes_abilities_from_spells_in_both_languages() {
+    let spell = LogEvent::DidNotResolve {
+        object: bolt(3),
+        ability: false,
+    };
+    assert_eq!(
+        say(Lang::En, spell.clone()),
+        "Lightning Bolt did not resolve"
+    );
+    assert_eq!(say(Lang::De, spell), "Blitzschlag wurde nicht verrechnet");
+
+    let ability = LogEvent::DidNotResolve {
+        object: bolt(3),
+        ability: true,
+    };
+    assert_eq!(
+        say(Lang::En, ability.clone()),
+        "An ability of Lightning Bolt did not resolve"
+    );
+    assert_eq!(
+        say(Lang::De, ability),
+        "Eine Fähigkeit von Blitzschlag wurde nicht verrechnet"
+    );
+
+    let hidden_ability = LogEvent::DidNotResolve {
+        object: LogObject::Hidden,
+        ability: true,
+    };
+    assert_eq!(
+        say(Lang::En, hidden_ability.clone()),
+        "An ability of a card did not resolve"
+    );
+    assert_eq!(
+        say(Lang::De, hidden_ability),
+        "Eine Fähigkeit von eine Karte wurde nicht verrechnet"
+    );
 }

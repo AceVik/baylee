@@ -164,7 +164,12 @@ fn enough(cost: &ManaCost, pool: &ManaPoolView, sources: &[Source]) -> bool {
             } else {
                 source.units()
             };
-            free.max(source.converter.as_ref().map_or(0, Converter::gain))
+            free.max(
+                source
+                    .converter
+                    .as_ref()
+                    .map_or(0, |c| c.gain() + source.bonus.len()),
+            )
         })
         .sum();
     u64::try_from(made)
@@ -217,6 +222,7 @@ fn attempt(
     for &index in chain {
         rest[index].colors.clear();
         rest[index].dear = None;
+        rest[index].bonus.clear();
     }
     let mut units = super::units(pool, &rest, demands.len(), false);
     // Whether a unit's mana pays the cost alone: a restricted tap's, or
@@ -234,6 +240,7 @@ fn attempt(
             units.push(Unit {
                 colors: ColorMask::of(color),
                 from: None,
+                bonus: false,
             });
             earmark.push(true);
         }
@@ -245,6 +252,16 @@ fn attempt(
             units.push(Unit {
                 colors,
                 from: Some(index),
+                bonus: false,
+            });
+            made_at.push(Some(at));
+            earmark.push(false);
+        }
+        for &bonus_color in &sources[index].bonus {
+            units.push(Unit {
+                colors: ColorMask::of(bonus_color),
+                from: Some(index),
+                bonus: true,
             });
             made_at.push(Some(at));
             earmark.push(false);
@@ -371,7 +388,7 @@ fn conversion(
     let mut picks = units
         .iter()
         .zip(taken)
-        .filter(|(unit, _)| unit.from == Some(index))
+        .filter(|(unit, _)| unit.from == Some(index) && !unit.bonus)
         .map(|(unit, holder)| {
             holder
                 .and_then(|demand| {
@@ -470,40 +487,46 @@ pub fn made_by(step: &Step, sources: &[Source]) -> Vec<(ManaColor, u32)> {
     let Some(source) = sources.iter().find(|s| s.id == step.source) else {
         return Vec::new();
     };
-    if source.tap == step.tap && !source.colors.is_empty() {
+    let mut out = if source.tap == step.tap && !source.colors.is_empty() {
         if source.bundle {
-            return source.colors.iter().map(|&c| (c, 1)).collect();
-        }
-        let color = match (step.color, source.colors.as_slice()) {
-            (Some(color), colors) if colors.contains(&color) => color,
-            (None, [only]) => *only,
-            _ => return Vec::new(),
-        };
-        return vec![(color, u32::from(source.amount.max(1)))];
-    }
-    if let Some(converter) = source.converter.as_ref().filter(|c| c.tap == step.tap) {
-        if converter.bundle {
-            return converter.colors.iter().map(|&c| (c, 1)).collect();
-        }
-        return [step.color, step.second]
-            .into_iter()
-            .flatten()
-            .filter(|color| converter.colors.contains(color))
-            .take(usize::from(converter.picks))
-            .map(|color| (color, 1))
-            .collect();
-    }
-    match &source.dear {
-        Some(dear) if dear.tap == step.tap => {
-            let color = match (step.color, dear.colors.as_slice()) {
+            source.colors.iter().map(|&c| (c, 1)).collect()
+        } else {
+            let color = match (step.color, source.colors.as_slice()) {
                 (Some(color), colors) if colors.contains(&color) => color,
                 (None, [only]) => *only,
                 _ => return Vec::new(),
             };
-            vec![(color, 1)]
+            vec![(color, u32::from(source.amount.max(1)))]
         }
-        _ => Vec::new(),
+    } else if let Some(converter) = source.converter.as_ref().filter(|c| c.tap == step.tap) {
+        if converter.bundle {
+            converter.colors.iter().map(|&c| (c, 1)).collect()
+        } else {
+            [step.color, step.second]
+                .into_iter()
+                .flatten()
+                .filter(|color| converter.colors.contains(color))
+                .take(usize::from(converter.picks))
+                .map(|color| (color, 1))
+                .collect()
+        }
+    } else {
+        match &source.dear {
+            Some(dear) if dear.tap == step.tap => {
+                let color = match (step.color, dear.colors.as_slice()) {
+                    (Some(color), colors) if colors.contains(&color) => color,
+                    (None, [only]) => *only,
+                    _ => return Vec::new(),
+                };
+                vec![(color, 1)]
+            }
+            _ => return Vec::new(),
+        }
+    };
+    if !out.is_empty() {
+        out.extend(source.bonus.iter().map(|&c| (c, 1)));
     }
+    out
 }
 
 #[cfg(test)]

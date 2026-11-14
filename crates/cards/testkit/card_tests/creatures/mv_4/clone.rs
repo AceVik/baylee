@@ -582,14 +582,10 @@ fn emry_has_affinity_mills_four_and_taps_to_cast_one_of_them() {
 /// Eternal Witness ({1}{G}{G}, 2/1): "When this creature enters, you **may**
 /// return target card from your graveyard to your hand."
 ///
-/// Both halves of that sentence, because this is the first card to pair
-/// `GraveyardToHand` with a target minimum of nought and the two halves are
-/// two different things going right. Taken, the card the trigger named is
-/// gone from the graveyard and the hand is one card larger. Declined, the
-/// trigger leaves that graveyard alone: the printed "you may" is written here
-/// as `TargetReq::up_to_one`, so choosing no target is how a player says no,
-/// and an effect that assumed a target had been chosen would empty a
-/// graveyard nobody pointed at.
+/// The target is mandatory as the trigger goes on the stack (CR 603.3d,
+/// `(min, max) == (1, 1)`), while the "you may" is chosen on resolution
+/// (CR 603.5). Taken, the targeted card leaves the graveyard and arrives in
+/// hand; declined at `YesNoPrompt::MayDo`, the card stays in the graveyard.
 #[test]
 fn an_entering_witness_returns_the_card_it_named_and_nothing_when_it_declines() {
     let (mut engine, p0, buried) = a_witness_asking();
@@ -599,7 +595,11 @@ fn an_entering_witness_returns_the_card_it_named_and_nothing_when_it_declines() 
     else {
         unreachable!("the builder stops at the target choice")
     };
-    assert_eq!((min, max), (0, 1), "\"you may\" is the nought in the min");
+    assert_eq!(
+        (min, max),
+        (1, 1),
+        "\"target card\" is mandatory on stack placement (CR 603.3d)",
+    );
     assert_eq!(
         options,
         vec![buried],
@@ -644,22 +644,47 @@ fn an_entering_witness_returns_the_card_it_named_and_nothing_when_it_declines() 
         "and arrived in hand",
     );
 
-    // The other half of the "may": a fresh table, the same trigger, declined.
+    // The other half of the "may": a fresh table, the same trigger, declined
+    // on resolution after naming the mandatory target on stack placement.
     let (mut engine, p0, buried) = a_witness_asking();
     let held = engine
         .state()
         .zones
         .list(baylee_engine::zone::ZoneLocation::Hand(p0))
         .len();
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![],
+                },
+            )
+            .is_err(),
+        "nought targets is refused because the target is mandatory",
+    );
     engine
         .apply(
             p0,
             PlayerAction::ChooseTargets {
-                objects: vec![],
+                objects: vec![buried],
                 players: vec![],
             },
         )
-        .expect("nought targets is a legal answer to an \"up to one\"");
+        .expect("the mandatory target");
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: baylee_engine::choice::YesNoPrompt::MayDo,
+                ..
+            }
+        )
+    });
+    engine
+        .apply(p0, PlayerAction::YesNo(false))
+        .expect("decline the optional return on resolution");
     pass_until(&mut engine, stack_is_empty);
 
     assert!(
@@ -672,7 +697,7 @@ fn an_entering_witness_returns_the_card_it_named_and_nothing_when_it_declines() 
             .zones
             .list(baylee_engine::zone::ZoneLocation::Graveyard(p0))
             .contains(&buried),
-        "nothing was named, so the card stayed where it lay",
+        "declined on resolution, so the card stayed where it lay",
     );
     assert_eq!(
         engine

@@ -98,6 +98,7 @@ impl Menu {
                 Step::Choose(items),
                 Pending::ChooseCards { .. }
                 | Pending::ChooseTargets { .. }
+                | Pending::ChoosePlayer { .. }
                 | Pending::LegendChoice { .. }
                 | Pending::MulliganBottom { .. }
                 | Pending::DiscardChoice { .. },

@@ -277,7 +277,11 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 91 adds the library-top alternative cost paid with life equal to
 /// the spell's mana value, and lets an entitled seat see its own library top
 /// privately. Older readers cannot decode the new cast-mode variant.
-pub const VIEW_VERSION: u32 = 91;
+/// Version 92 adds `ChoicePrompt::SearchLibraryTappedAndHand` (Kodama's Reach,
+/// Cultivate) and `YesNoPrompt::RevealHandForGuess` (Liar's Pendulum), engine
+/// prompt variants an older reader cannot decode. Compatible addition beside
+/// them: [`LogEvent::DidNotResolve::ability`], absent when `false`.
+pub const VIEW_VERSION: u32 = 92;
 
 // ------------------------------------------------------------------- targets
 

@@ -320,8 +320,12 @@ pub enum LogEvent {
     },
     /// A spell or ability left the stack without resolving.
     DidNotResolve {
-        /// What it was.
+        /// What it was, or the source of the ability when `ability` is `true`.
         object: LogObject,
+        /// Whether this was an ability of `object` rather than the spell
+        /// `object` itself.
+        #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+        ability: bool,
     },
     /// A player drew cards.
     Drew {
@@ -567,7 +571,7 @@ impl LogEvent {
             | Self::Cast { spell: o, .. }
             | Self::Ability { source: o, .. }
             | Self::Countered { spell: o }
-            | Self::DidNotResolve { object: o }
+            | Self::DidNotResolve { object: o, .. }
             | Self::Discarded { card: o, .. }
             | Self::Moved { object: o, .. }
             | Self::Created { object: o, .. }
@@ -632,7 +636,7 @@ impl LogEvent {
             | Self::Cast { spell: o, .. }
             | Self::Ability { source: o, .. }
             | Self::Countered { spell: o }
-            | Self::DidNotResolve { object: o }
+            | Self::DidNotResolve { object: o, .. }
             | Self::Discarded { card: o, .. }
             | Self::Moved { object: o, .. }
             | Self::Created { object: o, .. }

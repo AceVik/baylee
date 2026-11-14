@@ -850,9 +850,18 @@ pub(super) fn resume_yes_no_inner(
         }
         return finish_choice(state, res, since);
     }
-    if let Some(AwaitingOp::GuessNamedCardInHand { actual }) = res.awaiting {
+    if let Some(AwaitingOp::GuessNamedCardInHand {
+        guesser,
+        card,
+        face,
+        actual,
+    }) = res.awaiting
+    {
         res.awaiting = None;
         res.subject.guess = Some(super::subjects::GuessOutcome {
+            guesser,
+            card,
+            face,
             actual,
             claimed: answer,
             revealed: false,

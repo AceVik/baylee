@@ -963,6 +963,11 @@ NounCardsFromLibrary =
         [one] Karte aus deiner Bibliothek
        *[other] Karten aus deiner Bibliothek
     }
+NounCardsFromLibraryTappedAndHand =
+    { $count ->
+        [one] Karte aus deiner Bibliothek (kommt getappt ins Spiel)
+       *[other] Karten aus deiner Bibliothek (1. getappt ins Spiel, 2. auf deine Hand)
+    }
 NounCardsToTop =
     { $count ->
         [one] Karte, die oben auf deine Bibliothek kommt
@@ -1310,6 +1315,8 @@ TakeOneOfType = Nimm bis zu eine Karte vom Typ { $card_type } auf deine Hand
 CastDiscovered = Du hast diese Karte entdeckt. Wirken, ohne ihre Manakosten zu bezahlen? („Nein“ nimmt sie auf deine Hand.)
 SkipTurnToUntap = Diesen Zug überspringen, um dieses Permanent zu enttappen?
 GuessNamedCardInHand = Rate: Hat { $player } eine Karte mit dem gewählten Namen auf der Hand?
+RevealHandForGuessInHand = { $player } hat geraten, dass du die genannte Karte auf der Hand hast. Deine Hand vorzeigen? (Falls falsch geraten, ziehst du eine Karte.)
+RevealHandForGuessNotInHand = { $player } hat geraten, dass du die genannte Karte nicht auf der Hand hast. Deine Hand vorzeigen? (Falls falsch geraten, ziehst du eine Karte.)
 YesOrNo = Ja oder nein?
 OfferADraw = Unentschieden anbieten
 Concede = Aufgeben
@@ -1721,6 +1728,7 @@ LogLifeNowPoints =
     }
 LogCountered = { $spell } wurde neutralisiert
 LogDidNotResolve = { $object } wurde nicht verrechnet
+LogAbilityDidNotResolve = Eine Fähigkeit von { $object } wurde nicht verrechnet
 LogDrewYou = { $you_subject } hast { $cards } gezogen
 LogDrew = { $player } hat { $cards } gezogen
 LogDrewCardsYou =

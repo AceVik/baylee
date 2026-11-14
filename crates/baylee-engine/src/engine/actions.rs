@@ -850,12 +850,13 @@ impl<L: CardLookup> Engine<L> {
                 }) = self.pending_plan.take()
                 {
                     self.loyalty_player_choice = Some(chosen);
-                    self.continue_loyalty_activation(
-                        player,
-                        source,
-                        ability_index,
-                        SmallVec::new(),
-                    );
+                    if self
+                        .continue_loyalty_activation(player, source, ability_index, SmallVec::new())
+                        .is_err()
+                    {
+                        self.loyalty_player_choice = None;
+                        self.reverse_activation(player);
+                    }
                     return Ok(());
                 }
                 let mut wizard = self.cast_wizard.take().expect("wizard active");
@@ -1053,13 +1054,18 @@ impl<L: CardLookup> Engine<L> {
                             self.state.capture_target_group(&targets);
                         let second = targets.into_iter().collect();
                         if self.loyalty_second_targets(source, ability_index).is_some() {
-                            self.finish_loyalty_activation(
-                                player,
-                                source,
-                                ability_index,
-                                first,
-                                second,
-                            );
+                            if self
+                                .pay_loyalty_and_finish(
+                                    player,
+                                    source,
+                                    ability_index,
+                                    first,
+                                    second,
+                                )
+                                .is_err()
+                            {
+                                self.reverse_activation(player);
+                            }
                         } else {
                             self.activation_second_targets = Some(second);
                             self.activation_target_choice.second_players =
@@ -1085,12 +1091,12 @@ impl<L: CardLookup> Engine<L> {
                         // `start_activation` asked when it chose that path,
                         // which for a copied walker is not its card's.
                         if self.loyalty_cost(source, ability_index).is_some() {
-                            self.continue_loyalty_activation(
-                                player,
-                                source,
-                                ability_index,
-                                targets,
-                            );
+                            if self
+                                .continue_loyalty_activation(player, source, ability_index, targets)
+                                .is_err()
+                            {
+                                self.reverse_activation(player);
+                            }
                         } else {
                             // Only on this arm. A loyalty ability shares the
                             // plan and finishes elsewhere, so setting the

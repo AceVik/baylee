@@ -256,6 +256,7 @@ impl HeuristicAgent {
             | ChoicePrompt::KeepCreatures
             | ChoicePrompt::KeepPermanents
             | ChoicePrompt::SearchLibrary
+            | ChoicePrompt::SearchLibraryTappedAndHand
             | ChoicePrompt::Wish
             | ChoicePrompt::PutIntoHand
             | ChoicePrompt::PlayFromExile
@@ -459,6 +460,17 @@ impl HeuristicAgent {
             | YesNoPrompt::EnterTappedForCounters { .. }
             | YesNoPrompt::SacrificeToEnter { .. }
             | YesNoPrompt::Generic => false,
+            YesNoPrompt::RevealHandForGuess {
+                card,
+                face,
+                guessed_in_hand,
+                ..
+            } => {
+                baylee_client_core::decision::hand(theirs)
+                    .iter()
+                    .any(|held| held.card.index == card && held.card.face == face)
+                    == guessed_in_hand
+            }
             // A card of theirs cast now, free or not, only where casting it
             // hurts them; a discovered card left uncast goes to their hand,
             // which is less than a free spell.

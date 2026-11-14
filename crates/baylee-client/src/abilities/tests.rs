@@ -93,6 +93,7 @@ fn a_bundle_is_drawn_as_what_arrives_and_never_as_a_choice() {
         snow: false,
         dear: None,
         converter: None,
+        bonus: Vec::new(),
     };
 
     let karoo = bundle(vec![ManaColor::White, ManaColor::Blue]);

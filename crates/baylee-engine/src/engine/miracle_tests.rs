@@ -888,3 +888,62 @@ fn an_opening_hand_card_is_not_a_miracle() {
         "each later turn's first draw is still a miracle: {offered_on:?}"
     );
 }
+
+/// Teferi, Time Raveler ("Each opponent can cast spells only any time they
+/// could cast a sorcery") stops a Miracle cast during the draw step: the
+/// miracle trigger is on the stack and it is not a main phase (CR 307.5,
+/// 608.2g, 702.94a).
+#[test]
+fn opponents_teferi_time_raveler_forbids_casting_a_miracle_in_the_draw_step() {
+    let teferi = card_index("ae7604bb-4818-45a3-960c-cf3d83f15964");
+    let mut setup = preset(5, vec![], vec![island(), island()]);
+    setup.seats[0].starting_hand = None;
+    setup.seats[1].starting_battlefield = vec![entry(teferi)];
+    setup.house_rules.starting_player = Some(0);
+    let mut engine = Engine::new(&setup, RegistryLookup).unwrap();
+    keep_mulligans(&mut engine);
+    let p0 = PlayerId::new(0);
+    for _ in 0..400 {
+        if engine.state().turn.number > 3 {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::Miracle { .. },
+                ..
+            } if player == p0 => {
+                panic!("seat 0 was offered a miracle under opponent's Teferi, Time Raveler");
+            }
+            Pending::YesNo { player, .. } => {
+                engine.apply(player, PlayerAction::YesNo(false)).unwrap();
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::ChooseAttackers { player, .. } => {
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::DeclareAttackers {
+                            attackers: Vec::new(),
+                        },
+                    )
+                    .unwrap();
+            }
+            Pending::DiscardChoice { player, count } => {
+                let hand = engine
+                    .state()
+                    .zones
+                    .list(crate::zone::ZoneLocation::Hand(player))
+                    .clone();
+                let objects = hand[..usize::from(count)].to_vec();
+                engine
+                    .apply(player, PlayerAction::ChooseObjects { objects })
+                    .unwrap();
+            }
+            other => panic!("unexpected question {other:?}"),
+        }
+    }
+    assert!(engine.state().turn.number > 3);
+}

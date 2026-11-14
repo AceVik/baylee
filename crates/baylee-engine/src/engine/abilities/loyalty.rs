@@ -112,16 +112,15 @@ impl<L: CardLookup> Engine<L> {
 
     /// A loyalty ability whose first instance of "target" has its answer:
     /// asks for the second (Oko, Thief of Crowns' −5) the way an activated
-    /// ability does (CR 601.2c, CR 115.3), or puts it on the stack. The
-    /// loyalty is already paid (CR 606.4), and `start_loyalty_activation`
-    /// made sure before paying that the second instance can be answered.
+    /// ability does (CR 601.2c, CR 115.3), or pays the loyalty cost (CR 601.2h,
+    /// CR 606.4) and puts the ability on the stack.
     pub(crate) fn continue_loyalty_activation(
         &mut self,
         player: PlayerId,
         source: ObjectId,
         ability_index: u32,
         targets: SmallVec<[ObjectId; 2]>,
-    ) {
+    ) -> Result<(), EngineError> {
         if let Some(req) = self.loyalty_second_targets(source, ability_index) {
             let options = eval::target_options_in_domain(
                 &req.spec,
@@ -149,14 +148,72 @@ impl<L: CardLookup> Engine<L> {
                     reason: TargetPrompt::Targets,
                 };
                 self.awaiting_answer = true;
-                return;
+                return Ok(());
             }
         }
-        self.finish_loyalty_activation(player, source, ability_index, targets, SmallVec::new());
+        self.pay_loyalty_and_finish(player, source, ability_index, targets, SmallVec::new())
     }
 
-    /// Activates a planeswalker loyalty ability: applies the loyalty cost
-    /// and puts the ability on the stack (CR 606.2-606.4).
+    /// Pays a loyalty ability's cost after its targets have been chosen
+    /// (CR 602.2b, CR 601.2c–h, CR 606.4), then pushes it to the stack.
+    pub(crate) fn pay_loyalty_and_finish(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        ability_index: u32,
+        targets: SmallVec<[ObjectId; 2]>,
+        second: SmallVec<[ObjectId; 1]>,
+    ) -> Result<(), EngineError> {
+        let cost = self
+            .loyalty_cost(source, ability_index)
+            .ok_or(EngineError::IllegalAction("not a loyalty ability"))?;
+        let old = self.state.object(source).map_or(0, |o| {
+            o.counters.get(baylee_cards_dsl::CounterKind::Loyalty)
+        });
+        if cost < 0 && old < (-cost) as u16 {
+            return Err(EngineError::IllegalAction("not enough loyalty"));
+        }
+        let price = self.activation_price(player, source, ability_index, &Cost::FREE, None);
+        self.loyalty_paid = Some(self.pay_priced_cost(player, source, &price, &[], 0)?);
+        if cost >= 0 {
+            crate::replacement::record_counters_by(
+                &mut self.state,
+                player,
+                source,
+                baylee_cards_dsl::CounterKind::Loyalty,
+                cost as u16,
+            );
+        } else {
+            // A cost its activator pays: they remove the counters.
+            crate::replacement::remove_counters_by(
+                &mut self.state,
+                source,
+                baylee_cards_dsl::CounterKind::Loyalty,
+                (-cost) as u16,
+                Some(player),
+            );
+        }
+        self.loyalty_used_mark(source);
+        if crate::replacement::counter_order::has_pending(&self.state) {
+            self.activation_payment = Some(super::payment::ActivationPayment::new(
+                super::payment::ActivationPaymentKind::Loyalty {
+                    player,
+                    source,
+                    ability_index,
+                    targets,
+                    second,
+                },
+            ));
+            self.offer_counter_order();
+            return Ok(());
+        }
+        self.finish_loyalty_activation(player, source, ability_index, targets, second);
+        Ok(())
+    }
+
+    /// Activates a planeswalker loyalty ability: chooses targets first
+    /// (CR 602.2b, CR 601.2c), then pays the loyalty cost (CR 601.2h, CR 606.4)
+    /// and puts the ability on the stack.
     #[allow(clippy::too_many_lines)] // loyalty activation is a staged checklist
     pub(crate) fn start_loyalty_activation(
         &mut self,
@@ -175,18 +232,19 @@ impl<L: CardLookup> Engine<L> {
         else {
             return Err(EngineError::IllegalAction("not a loyalty ability"));
         };
-        // Loyalty cost is paid at activation (CR 606.4) — after checking
-        // that required targets exist, before targeting.
         let old = self.state.object(source).map_or(0, |o| {
             o.counters.get(baylee_cards_dsl::CounterKind::Loyalty)
         });
         if cost < 0 && old < (-cost) as u16 {
             return Err(EngineError::IllegalAction("not enough loyalty"));
         }
+        let price = self.activation_price(player, source, ability_index, &Cost::FREE, None);
+        if !self.can_pay_activation_price(player, source, &price) {
+            return Err(EngineError::IllegalAction("cannot pay the cost"));
+        }
         // Counted as the questions below count them, a player spec in
         // players and every other in objects, so that no refusal waits past
-        // the payment: loyalty paid and a refusal after it is a changed
-        // engine the record never sees.
+        // targeting.
         for req in [wanted, self.loyalty_second_targets(source, ability_index)]
             .into_iter()
             .flatten()
@@ -220,53 +278,10 @@ impl<L: CardLookup> Engine<L> {
                 return Err(EngineError::IllegalAction("no legal targets"));
             }
         }
-        let price = self.activation_price(player, source, ability_index, &Cost::FREE, None);
-        self.loyalty_paid = Some(self.pay_priced_cost(player, source, &price, &[], 0)?);
-        if cost >= 0 {
-            crate::replacement::record_counters_by(
-                &mut self.state,
-                player,
-                source,
-                baylee_cards_dsl::CounterKind::Loyalty,
-                cost as u16,
-            );
-        } else {
-            // A cost its activator pays: they remove the counters.
-            crate::replacement::remove_counters_by(
-                &mut self.state,
-                source,
-                baylee_cards_dsl::CounterKind::Loyalty,
-                (-cost) as u16,
-                Some(player),
-            );
-        }
-        if crate::replacement::counter_order::has_pending(&self.state) {
-            self.activation_payment = Some(super::payment::ActivationPayment::new(
-                super::payment::ActivationPaymentKind::Loyalty {
-                    player,
-                    source,
-                    ability_index,
-                    targets,
-                    wanted,
-                },
-            ));
-            self.offer_counter_order();
-            return Ok(());
-        }
-        self.complete_loyalty_payment(player, source, ability_index, targets, wanted)
-    }
-
-    pub(super) fn complete_loyalty_payment(
-        &mut self,
-        player: PlayerId,
-        source: ObjectId,
-        ability_index: u32,
-        targets: SmallVec<[ObjectId; 2]>,
-        wanted: Option<baylee_cards_dsl::TargetReq>,
-    ) -> Result<(), EngineError> {
-        self.loyalty_used_mark(source);
-        // Targets first if required.
+        // Choose targets first (CR 602.2b -> CR 601.2c) before paying loyalty
+        // counters (CR 601.2h, CR 606.4).
         if targets.is_empty()
+            && self.loyalty_player_choice.is_none()
             && let Some(req) = wanted
         {
             if matches!(
@@ -308,7 +323,7 @@ impl<L: CardLookup> Engine<L> {
             // a question: there would be one answer to it. The ability goes
             // on the stack targeting nothing, which is what the printing says
             // it may do.
-            if !options.is_empty() {
+            if !options.is_empty() && req.max > 0 {
                 self.pending_plan = Some(PlanKind::ActivateAbility {
                     source,
                     ability_index,
@@ -327,7 +342,6 @@ impl<L: CardLookup> Engine<L> {
                 return Ok(());
             }
         }
-        self.continue_loyalty_activation(player, source, ability_index, targets);
-        Ok(())
+        self.continue_loyalty_activation(player, source, ability_index, targets)
     }
 }

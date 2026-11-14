@@ -782,7 +782,7 @@ fn zone_line(
             let mut name = format!("{} {}", object_name(object), tag(object.id));
             let mut notes = Vec::new();
             if let Some(cost) = object.flashback {
-                notes.push(format!("flashback {cost}"));
+                notes.push(flashback_note(object.card, cost));
             }
             if object.suspended {
                 let time = object.counter_count(baylee_view::CounterKind::Time);
@@ -804,6 +804,34 @@ fn zone_line(
         named.insert(0, format!("{older} older"));
     }
     let _ = writeln!(out, "{title} ({}): {}", cards.len(), named.join(", "));
+}
+
+/// How a card's flashback cost is written in short zone and menu notes.
+///
+/// A pure mana flashback prints as `"flashback {1}{R}"`, while a zero-mana or
+/// compound flashback (`Lava Dart`: `"Flashback—Sacrifice a Mountain."`) reads
+/// the printed `"Flashback..."` clause from the face's Oracle text so it never
+/// degrades to `"flashback {0}"`.
+pub(super) fn flashback_note(
+    card: Option<baylee_view::CardIdentity>,
+    cost: baylee_core::mana::ManaCost,
+) -> String {
+    if let Some(id) = card
+        && let Some(face) =
+            baylee_cards::by_index(id.index).and_then(|def| def.faces.get(usize::from(id.face)))
+        && (cost == baylee_core::mana::ManaCost::ZERO || !face.flashback_parts.is_empty())
+        && let Some(oracle) = baylee_cards::oracle::face(id.index, usize::from(id.face))
+        && let Some(line) = oracle
+            .lines()
+            .find(|line| line.trim_start().starts_with("Flashback"))
+    {
+        let clause = line.split_once(" (").map_or(line, |(head, _)| head).trim();
+        let clause = clause.strip_suffix('.').unwrap_or(clause);
+        if let Some(rest) = clause.strip_prefix("Flashback") {
+            return format!("flashback{rest}");
+        }
+    }
+    format!("flashback {cost}")
 }
 
 fn combat(table: &Table<'_>, out: &mut String) {

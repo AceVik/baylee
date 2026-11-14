@@ -61,9 +61,9 @@ live-seat = [
 ]
 # Multi-table LLM replay collector over the ordinary gateway seat protocol.
 llm-collector = [
-    "play", "dep:baylee-db", "dep:baylee-protocol", "dep:baylee-seat",
-    "dep:futures-util", "dep:time", "dep:tokio", "dep:tokio-tungstenite",
-    "dep:ureq", "dep:rustix",
+    "play", "dep:baylee-client-core", "dep:baylee-db", "dep:baylee-protocol",
+    "dep:baylee-seat", "dep:futures-util", "dep:prost", "dep:time",
+    "dep:tokio", "dep:tokio-tungstenite", "dep:ureq", "dep:rustix",
 ]
 
 [dependencies]

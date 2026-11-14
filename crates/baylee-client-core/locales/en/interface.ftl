@@ -3007,6 +3007,15 @@ NounCardsFromLibrary =
        *[other] cards from your library
     }
 
+# Kodama's Reach / Cultivate: first chosen card enters the battlefield tapped,
+# second goes into your hand
+# Arguments: count
+NounCardsFromLibraryTappedAndHand =
+    { $count ->
+        [one] card from your library (enters tapped)
+       *[other] cards from your library (1st onto the battlefield tapped, 2nd into your hand)
+    }
+
 # card to put on top of your library
 # Arguments: count
 NounCardsToTop =
@@ -3764,6 +3773,16 @@ SkipTurnToUntap = Skip this turn to untap this permanent?
 # just chosen in hand. Yes guesses it is there.
 # Arguments: player
 GuessNamedCardInHand = Guess: does { $player } have a card with the chosen name in hand?
+
+# Liar's Pendulum: reveal your hand after $player guessed you have the chosen
+# card in hand; if that guess was wrong, you draw a card.
+# Arguments: player
+RevealHandForGuessInHand = { $player } guessed you have the named card in hand. Reveal your hand? (If wrong, you draw a card.)
+
+# Liar's Pendulum: reveal your hand after $player guessed you do not have the
+# chosen card in hand; if that guess was wrong, you draw a card.
+# Arguments: player
+RevealHandForGuessNotInHand = { $player } guessed you do not have the named card in hand. Reveal your hand? (If wrong, you draw a card.)
 
 # Yes or no?
 YesOrNo = Yes or no?
@@ -5197,9 +5216,13 @@ LogLifeNowPoints =
 # Arguments: unused_0, spell
 LogCountered = { $spell } was countered
 
-# A spell or ability left the stack without resolving. `$object` is it.
+# A spell left the stack without resolving. `$object` is it.
 # Arguments: unused_0, object
 LogDidNotResolve = { $object } did not resolve
+
+# An ability on the stack left it without resolving. `$object` is its source.
+# Arguments: unused_0, object
+LogAbilityDidNotResolve = An ability of { $object } did not resolve
 
 # The reading seat drew cards it may name. `$cards` is the list.
 # Arguments: player, cards, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject

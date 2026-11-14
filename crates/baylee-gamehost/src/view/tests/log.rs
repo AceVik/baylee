@@ -1806,3 +1806,173 @@ fn a_loyalty_ability_at_a_chosen_player_shows_its_target() {
         );
     }
 }
+
+fn prose_since(
+    engine: &Engine<Registry>,
+    log: &GameLog,
+    seat: PlayerId,
+    from: usize,
+) -> Vec<String> {
+    use baylee_client_core::gamelog::{LogBook, Wording};
+    use baylee_client_core::i18n::Lang;
+    use baylee_view::LogTail;
+
+    let view = seen_by(engine, seat);
+    let entries = log.told(seat, from, log.len());
+    let mut book = LogBook::new();
+    let _ = book.append(&LogTail { from: 0, entries }, &view);
+    let no_text = |_: baylee_core::ids::CardIndex, _: u8| None;
+    let wording = Wording {
+        lang: Lang::En,
+        seat: Some(seat),
+        statics: None,
+        texts: &no_text,
+    };
+    book.lines(&wording)
+        .into_iter()
+        .map(|line| line.text)
+        .collect()
+}
+
+/// When an optional-target ETB triggered ability (like Subtlety's on an empty
+/// stack) is discarded without resolving, the log line names it as an ability
+/// of its source ("An ability of Subtlety did not resolve") rather than making
+/// the creature permanent look like a spell that fizzled.
+#[test]
+fn subtlety_discarded_empty_trigger_writes_ability_did_not_resolve() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, mut log) = a_logged_main_phase(
+        2,
+        &["Subtlety"],
+        &["Island", "Island", "Island", "Island"],
+        &[],
+    );
+    let subtlety = named(&engine, "Subtlety");
+    let from = log.len();
+    tap_lands(&mut engine);
+    engine
+        .apply(me, PlayerAction::CastSpell { card: subtlety })
+        .expect("casts Subtlety");
+    if let Pending::ChooseCastMode {
+        player, options, ..
+    } = engine.pending().clone()
+    {
+        let normal = options
+            .iter()
+            .position(|o| o.kind == baylee_engine::choice::CastModeKind::Normal)
+            .expect("normal cast mode offered");
+        engine
+            .apply(player, PlayerAction::ChooseMode(normal))
+            .expect("chooses normal cast");
+    }
+    let view = settle(&mut engine, None);
+    log.consume(engine.state());
+    assert!(
+        view.battlefield_of(me).any(|o| o.name == "Subtlety"),
+        "Subtlety resolved onto the battlefield"
+    );
+
+    for seat in [me, them] {
+        let told = told_since(&log, seat, from);
+        assert!(
+            told.iter().any(|e| matches!(
+                e,
+                LogEvent::DidNotResolve {
+                    object: LogObject::Known { id, name, .. },
+                    ability: true,
+                } if *id == subtlety && name == "Subtlety"
+            )),
+            "seat {seat:?}: {told:?}"
+        );
+        assert!(
+            !told
+                .iter()
+                .any(|e| matches!(e, LogEvent::DidNotResolve { ability: false, .. })),
+            "seat {seat:?}: {told:?}"
+        );
+        let lines = prose_since(&engine, &log, seat, from);
+        assert!(
+            lines
+                .iter()
+                .any(|line| line == "An ability of Subtlety did not resolve"),
+            "seat {seat:?}: {lines:?}"
+        );
+        assert!(
+            !lines.iter().any(|line| line == "Subtlety did not resolve"),
+            "seat {seat:?}: {lines:?}"
+        );
+    }
+}
+
+/// A spell whose only target leaves the battlefield before resolution still
+/// writes `<Spell> did not resolve` (`ability: false`).
+#[test]
+fn a_fizzled_spell_still_writes_spell_did_not_resolve() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, mut log) = a_logged_main_phase(
+        2,
+        &["Swords to Plowshares", "Unsummon"],
+        &["Plains", "Island"],
+        &["Grizzly Bears"],
+    );
+    let swords = named(&engine, "Swords to Plowshares");
+    let unsummon = named(&engine, "Unsummon");
+    let bears = seen_by(&engine, me)
+        .battlefield_of(them)
+        .find(|o| o.name == "Grizzly Bears")
+        .expect("Grizzly Bears on opposing battlefield")
+        .id;
+    let from = log.len();
+    tap_lands(&mut engine);
+    engine
+        .apply(me, PlayerAction::CastSpell { card: swords })
+        .expect("casts Swords to Plowshares");
+    engine
+        .apply(
+            me,
+            PlayerAction::ChooseObjects {
+                objects: vec![bears],
+            },
+        )
+        .expect("targets Grizzly Bears");
+    engine
+        .apply(me, PlayerAction::CastSpell { card: unsummon })
+        .expect("casts Unsummon in response");
+    engine
+        .apply(
+            me,
+            PlayerAction::ChooseObjects {
+                objects: vec![bears],
+            },
+        )
+        .expect("targets Grizzly Bears with Unsummon");
+    let _ = settle(&mut engine, None);
+    log.consume(engine.state());
+
+    for seat in [me, them] {
+        let told = told_since(&log, seat, from);
+        assert!(
+            told.iter().any(|e| matches!(
+                e,
+                LogEvent::DidNotResolve {
+                    object: LogObject::Known { id, name, .. },
+                    ability: false,
+                } if *id == swords && name == "Swords to Plowshares"
+            )),
+            "seat {seat:?}: {told:?}"
+        );
+        let lines = prose_since(&engine, &log, seat, from);
+        assert!(
+            lines
+                .iter()
+                .any(|line| line == "Swords to Plowshares did not resolve"),
+            "seat {seat:?}: {lines:?}"
+        );
+        assert!(
+            !lines
+                .iter()
+                .any(|line| line == "An ability of Swords to Plowshares did not resolve"),
+            "seat {seat:?}: {lines:?}"
+        );
+    }
+}

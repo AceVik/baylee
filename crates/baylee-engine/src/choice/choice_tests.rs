@@ -153,6 +153,22 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
         (yes_no(YesNoPrompt::DrawOffer { proposer: p }), no.clone()),
         (yes_no(YesNoPrompt::MayDo), no.clone()),
         (
+            yes_no(YesNoPrompt::ContinueRemovingCounters {
+                target: object(),
+                remaining: 2,
+            }),
+            no.clone(),
+        ),
+        (
+            yes_no(YesNoPrompt::RevealHandForGuess {
+                guesser: p,
+                card: baylee_core::ids::CardIndex::new(3),
+                face: 0,
+                guessed_in_hand: false,
+            }),
+            no.clone(),
+        ),
+        (
             yes_no(YesNoPrompt::SacrificeToEnter { count: 2 }),
             no.clone(),
         ),
@@ -401,7 +417,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
 }
 
 /// How many kinds [`kind_of`] tells apart.
-const KINDS: usize = 53;
+const KINDS: usize = 55;
 
 /// Which kind of question this is, numbered without gaps. No wildcard
 /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -464,6 +480,7 @@ fn kind_of(pending: &Pending) -> usize {
                 YesNoPrompt::GuessNamedCardInHand { .. } => 33,
                 YesNoPrompt::Madness { .. } => 35,
                 YesNoPrompt::ContinueRemovingCounters { .. } => 36,
+                YesNoPrompt::RevealHandForGuess { .. } => 37,
             }
         }
         Pending::ChoosePile { .. } => 17 + 17,
@@ -663,48 +680,49 @@ fn a_seat_is_default_until_it_holds_or_remembers_something() {
 
 // ---- what a standing answer may be kept for -------------------------
 
+// Exhaustive for the same reason as the hold test. The pair worth reading is
+// `CommanderZone` (automatable — "always put Katara back", and the `{2}` is a
+// tax on a later cast) against `CommanderReplace` (not — the right answer
+// depends on where the commander was going, which a stored `Yes` cannot see).
+fn expected_automatable(prompt: YesNoPrompt) -> bool {
+    match prompt {
+        YesNoPrompt::MayDo | YesNoPrompt::CommanderZone { .. } => true,
+        YesNoPrompt::UseRegenerationShield { .. }
+        | YesNoPrompt::UseDamageClearingReplacement { .. }
+        | YesNoPrompt::UseShieldCounter { .. }
+        | YesNoPrompt::ApplyAdditionalCountersNext { .. }
+        | YesNoPrompt::ContinueRemovingCounters { .. }
+        | YesNoPrompt::SacrificeToEnter { .. }
+        | YesNoPrompt::EnterTappedForCounters { .. }
+        | YesNoPrompt::PayEnergy { .. }
+        | YesNoPrompt::ProliferatePlayer { .. }
+        | YesNoPrompt::PayLifeOrEnterTapped { .. }
+        | YesNoPrompt::Kicker
+        | YesNoPrompt::Buyback { .. }
+        | YesNoPrompt::ManaAnyType
+        | YesNoPrompt::PayTax { .. }
+        | YesNoPrompt::RemoveCountersInsteadOfUntapping { .. }
+        | YesNoPrompt::PayMana { .. }
+        | YesNoPrompt::PayManaAndLife { .. }
+        | YesNoPrompt::PayLife { .. }
+        | YesNoPrompt::PayPact { .. }
+        | YesNoPrompt::Miracle { .. }
+        | YesNoPrompt::Madness { .. }
+        | YesNoPrompt::CastWithoutPaying { .. }
+        | YesNoPrompt::CastPaying { .. }
+        | YesNoPrompt::DrawOffer { .. }
+        | YesNoPrompt::CommanderReplace { .. }
+        | YesNoPrompt::TopOfLibrary { .. }
+        | YesNoPrompt::Discover { .. }
+        | YesNoPrompt::SkipTurn { .. }
+        | YesNoPrompt::GuessNamedCardInHand { .. }
+        | YesNoPrompt::RevealHandForGuess { .. }
+        | YesNoPrompt::Generic => false,
+    }
+}
+
 #[test]
 fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
-    // Exhaustive for the same reason as the hold test. The pair worth
-    // reading is `CommanderZone` (automatable — "always put Katara
-    // back", and the `{2}` is a tax on a later cast) against
-    // `CommanderReplace` (not — the right answer depends on where the
-    // commander was going, which a stored `Yes` cannot see).
-    fn expected(prompt: YesNoPrompt) -> bool {
-        match prompt {
-            YesNoPrompt::MayDo | YesNoPrompt::CommanderZone { .. } => true,
-            YesNoPrompt::UseRegenerationShield { .. }
-            | YesNoPrompt::UseDamageClearingReplacement { .. }
-            | YesNoPrompt::UseShieldCounter { .. }
-            | YesNoPrompt::ApplyAdditionalCountersNext { .. }
-            | YesNoPrompt::ContinueRemovingCounters { .. }
-            | YesNoPrompt::SacrificeToEnter { .. }
-            | YesNoPrompt::EnterTappedForCounters { .. }
-            | YesNoPrompt::PayEnergy { .. }
-            | YesNoPrompt::ProliferatePlayer { .. }
-            | YesNoPrompt::PayLifeOrEnterTapped { .. }
-            | YesNoPrompt::Kicker
-            | YesNoPrompt::Buyback { .. }
-            | YesNoPrompt::ManaAnyType
-            | YesNoPrompt::PayTax { .. }
-            | YesNoPrompt::RemoveCountersInsteadOfUntapping { .. }
-            | YesNoPrompt::PayMana { .. }
-            | YesNoPrompt::PayManaAndLife { .. }
-            | YesNoPrompt::PayLife { .. }
-            | YesNoPrompt::PayPact { .. }
-            | YesNoPrompt::Miracle { .. }
-            | YesNoPrompt::Madness { .. }
-            | YesNoPrompt::CastWithoutPaying { .. }
-            | YesNoPrompt::CastPaying { .. }
-            | YesNoPrompt::DrawOffer { .. }
-            | YesNoPrompt::CommanderReplace { .. }
-            | YesNoPrompt::TopOfLibrary { .. }
-            | YesNoPrompt::Discover { .. }
-            | YesNoPrompt::SkipTurn { .. }
-            | YesNoPrompt::GuessNamedCardInHand { .. }
-            | YesNoPrompt::Generic => false,
-        }
-    }
     for prompt in [
         YesNoPrompt::UseRegenerationShield {
             permanent: object(),
@@ -737,6 +755,12 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
             card: baylee_core::ids::CardIndex::new(3),
             face: 0,
         },
+        YesNoPrompt::RevealHandForGuess {
+            guesser: PlayerId::new(1),
+            card: baylee_core::ids::CardIndex::new(3),
+            face: 0,
+            guessed_in_hand: true,
+        },
         YesNoPrompt::Kicker,
         YesNoPrompt::Buyback {
             cost: baylee_core::mana::ManaCost::parse("{3}"),
@@ -767,7 +791,11 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
             to_library: false,
         },
     ] {
-        assert_eq!(prompt.automatable(), expected(prompt), "{prompt:?}");
+        assert_eq!(
+            prompt.automatable(),
+            expected_automatable(prompt),
+            "{prompt:?}"
+        );
     }
 }
 

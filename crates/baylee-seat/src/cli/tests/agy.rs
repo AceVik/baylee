@@ -135,3 +135,68 @@ fn agy_dialect_args_and_events() {
     let ev3 = read_with(&Agy, &rate_limit_line, &mut trouble);
     assert!(matches!(ev3, Event::Reply(Outcome::RateLimited { .. })));
 }
+
+#[test]
+fn agy_gemini4_and_claude_tier_reconciliation() {
+    use super::super::agy::Agy;
+
+    // Gemini 4 Hydrogen supports `-xhigh` and reconciles across all four
+    // tiers (`low`, `medium`, `high`, `xhigh`), while three-tier models
+    // (Argon, Carbon, Claude Opus/Sonnet 5.5) clamp `xhigh`/`max` to `high`.
+    for (raw, ask_effort, want_model, want_effort) in [
+        (
+            "gemini-4-hydrogen-high",
+            "xhigh",
+            "gemini-4-hydrogen-xhigh",
+            "xhigh",
+        ),
+        (
+            "gemini-4-hydrogen-xhigh",
+            "low",
+            "gemini-4-hydrogen-low",
+            "low",
+        ),
+        (
+            "gemini-4-hydrogen-xhigh",
+            "max",
+            "gemini-4-hydrogen-xhigh",
+            "xhigh",
+        ),
+        (
+            "gemini-4-argon-medium",
+            "xhigh",
+            "gemini-4-argon-high",
+            "high",
+        ),
+        (
+            "gemini-4-carbon-low",
+            "high",
+            "gemini-4-carbon-high",
+            "high",
+        ),
+        (
+            "claude-opus-5-5-high",
+            "medium",
+            "claude-opus-5-5-medium",
+            "medium",
+        ),
+        (
+            "claude-sonnet-5-5-low",
+            "high",
+            "claude-sonnet-5-5-high",
+            "high",
+        ),
+    ] {
+        let mut s = Settings::new(&Spec::parse(&format!("cli:agy:{raw}")).unwrap().unwrap());
+        s.effort = Some(ask_effort.into());
+        let got: Vec<String> = Agy
+            .args(&s, Some(raw), "system", Path::new("/support"))
+            .into_iter()
+            .map(|a| a.to_str().unwrap().to_string())
+            .collect();
+        let m_idx = got.iter().position(|a| a == "--model").unwrap();
+        let e_idx = got.iter().position(|a| a == "--effort").unwrap();
+        assert_eq!(got[m_idx + 1], want_model, "{raw} + {ask_effort}");
+        assert_eq!(got[e_idx + 1], want_effort, "{raw} + {ask_effort}");
+    }
+}

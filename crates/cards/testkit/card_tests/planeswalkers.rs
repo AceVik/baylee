@@ -762,7 +762,11 @@ fn oko_minus_five_exchanges_an_artifact_for_a_small_creature() {
     let wurm = on_battlefield(&engine, p1, rootbreaker_wurm()).expect("the Wurm is out");
 
     activate(&mut engine, p0, oko_thief_of_crowns(), 2);
-    assert_eq!(counters_on(&engine, oko, CounterKind::Loyalty), 1, "6 − 5");
+    assert_eq!(
+        counters_on(&engine, oko, CounterKind::Loyalty),
+        6,
+        "CR 601.2c/h: loyalty cost is paid after targets are chosen"
+    );
     let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
         panic!("expected the first target, got {:?}", engine.pending())
     };
@@ -772,6 +776,7 @@ fn oko_minus_five_exchanges_an_artifact_for_a_small_creature() {
     );
     assert!(!options.contains(&lord), "Balthor is not yours");
     choose(&mut engine, p0, vec![ring]);
+    assert_eq!(counters_on(&engine, oko, CounterKind::Loyalty), 6);
     let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
         panic!("expected the second target, got {:?}", engine.pending())
     };
@@ -782,6 +787,7 @@ fn oko_minus_five_exchanges_an_artifact_for_a_small_creature() {
         "the second target is an opponent's"
     );
     choose(&mut engine, p0, vec![lord]);
+    assert_eq!(counters_on(&engine, oko, CounterKind::Loyalty), 1, "6 − 5");
     pass_until(&mut engine, stack_is_empty);
 
     let controller = |e: &Engine<RegistryLookup>, id| e.state().object(id).unwrap().controller;
@@ -1838,7 +1844,8 @@ fn elspeth_storm_slayer_minus_three_destroys_only_a_big_opposing_creature() {
     assert!(!options.contains(&elf), "mana value 1 is below 3");
     assert_eq!(
         counters_on(&engine, walker, CounterKind::Loyalty),
-        loyalty - 3
+        loyalty,
+        "CR 601.2c/h: loyalty cost is paid after targets are chosen"
     );
     engine
         .apply(
@@ -1848,6 +1855,10 @@ fn elspeth_storm_slayer_minus_three_destroys_only_a_big_opposing_creature() {
             },
         )
         .unwrap();
+    assert_eq!(
+        counters_on(&engine, walker, CounterKind::Loyalty),
+        loyalty - 3
+    );
     pass_until(&mut engine, stack_is_empty);
 
     assert!(in_graveyard(&engine, p1, wild_elephant()).is_some());

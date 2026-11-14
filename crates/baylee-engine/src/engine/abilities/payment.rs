@@ -98,7 +98,7 @@ pub(crate) enum ActivationPaymentKind {
         source: ObjectId,
         ability_index: u32,
         targets: SmallVec<[ObjectId; 2]>,
-        wanted: Option<baylee_cards_dsl::TargetReq>,
+        second: SmallVec<[ObjectId; 1]>,
     },
 }
 
@@ -184,8 +184,11 @@ impl<L: CardLookup> Engine<L> {
                 source,
                 ability_index,
                 targets,
-                wanted,
-            } => self.complete_loyalty_payment(player, source, ability_index, targets, wanted),
+                second,
+            } => {
+                self.finish_loyalty_activation(player, source, ability_index, targets, second);
+                Ok(())
+            }
         }
     }
 

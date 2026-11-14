@@ -170,6 +170,21 @@ pub fn plan_for(
         _ => manaplan::plan_earmarked(cost, mana.pool, earmarked, sources),
     };
     let all = (!named.is_empty()).then(|| sources_for(legal, spend, mana, except));
+    if let Some(all_sources) = all.as_deref()
+        && mana.plain.iter().any(|s| s.priced || s.dear.is_some())
+    {
+        let clean = |list: &[Source]| -> Vec<Source> {
+            list.iter()
+                .filter(|s| !s.priced && s.dear.is_none())
+                .cloned()
+                .collect()
+        };
+        let clean_plain = clean(mana.plain);
+        let clean_all = clean(all_sources);
+        if let Some(found) = plan(&clean_plain, false).or_else(|| plan(&clean_all, false)) {
+            return Some(found);
+        }
+    }
     plan(mana.plain, false)
         .or_else(|| all.as_deref().and_then(|all| plan(all, false)))
         .or_else(|| plan(mana.plain, true))
@@ -382,6 +397,7 @@ mod tests {
             snow: false,
             dear: None,
             converter: None,
+            bonus: Vec::new(),
         }
     }
 

@@ -216,6 +216,7 @@ fn restricted_sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
                 snow: false,
                 dear: None,
                 converter: None,
+                bonus: Vec::new(),
             },
         ) else {
             continue;
@@ -598,6 +599,7 @@ fn mana_ability(
             snow: false,
             dear: None,
             converter: None,
+            bonus: Vec::new(),
         },
     )
 }
@@ -970,6 +972,7 @@ pub fn granted_source(
         snow: false,
         dear: None,
         converter: None,
+        bonus: Vec::new(),
     })
 }
 

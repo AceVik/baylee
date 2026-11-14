@@ -409,6 +409,10 @@ pub enum ChoicePrompt {
         /// Exact number of distinct permanents needed to pay.
         count: u32,
     },
+    /// Library search for up to two cards where the first chosen card enters
+    /// the battlefield tapped and the second goes into the searcher's hand
+    /// (Kodama's Reach, Cultivate).
+    SearchLibraryTappedAndHand,
 }
 
 /// What a [`Pending::ChooseNumber`] counts (UI hint).
@@ -825,6 +829,20 @@ pub enum YesNoPrompt {
         /// The exact card the madness trigger is about.
         card: baylee_core::ids::ObjectId,
     },
+    /// Liar's Pendulum's optional reveal ("You may reveal your hand. If you
+    /// do and your opponent guessed wrong, draw a card"), carrying what
+    /// `guesser` just guessed so the hand's owner knows whether revealing
+    /// draws a card.
+    RevealHandForGuess {
+        /// Who made the guess.
+        guesser: PlayerId,
+        /// The card whose name was chosen.
+        card: baylee_core::ids::CardIndex,
+        /// Which of its faces names it.
+        face: u8,
+        /// Whether `guesser` guessed that a card with that name is in hand.
+        guessed_in_hand: bool,
+    },
 }
 
 impl YesNoPrompt {
@@ -888,6 +906,7 @@ impl YesNoPrompt {
             | Self::CastPaying { .. }
             | Self::DrawOffer { .. }
             | Self::MayDo
+            | Self::RevealHandForGuess { .. }
             | Self::ContinueRemovingCounters { .. }
             | Self::SkipTurn { .. }
             | Self::Generic => true,

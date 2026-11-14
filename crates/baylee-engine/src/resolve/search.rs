@@ -249,14 +249,29 @@ pub(super) fn begin_search(
         });
         searcher
     };
+    let prompt = search_prompt(finds, split);
     Some(Pending::ChooseCards {
         player,
         options,
         min: least,
         max: want,
-        prompt: ChoicePrompt::SearchLibrary,
+        prompt,
         total: None,
     })
+}
+
+fn search_prompt(finds: &[baylee_cards_dsl::Find], split: Option<u8>) -> ChoicePrompt {
+    if split.is_none()
+        && finds
+            == [
+                baylee_cards_dsl::Find::BATTLEFIELD_TAPPED,
+                baylee_cards_dsl::Find::HAND,
+            ]
+    {
+        ChoicePrompt::SearchLibraryTappedAndHand
+    } else {
+        ChoicePrompt::SearchLibrary
+    }
 }
 
 /// Whether a search shows what it found.

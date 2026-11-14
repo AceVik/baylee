@@ -116,6 +116,10 @@ pub struct Source {
     /// [`plan`] reaches for it only when no plan exists without it
     /// (`manaplan/convert.rs`).
     pub converter: Option<Converter>,
+    /// Fixed mana a triggered mana ability adds whenever this permanent is
+    /// tapped for mana (CR 605.1b: Wild Growth's `{G}` on a Savannah or an
+    /// Adarkar Wastes), produced alongside whatever `colors` or `dear` chooses.
+    pub bonus: Vec<ManaColor>,
 }
 
 /// A permanent's priced way to make **one** mana, kept beside its free one.
@@ -145,6 +149,7 @@ impl Source {
             snow: false,
             dear: None,
             converter: None,
+            bonus: Vec::new(),
         }
     }
 
@@ -163,6 +168,7 @@ impl Source {
             snow: false,
             dear: None,
             converter: Some(converter),
+            bonus: Vec::new(),
         }
     }
 
@@ -750,6 +756,9 @@ pub struct Assist {
     /// The generic mana paid otherwise, one each: a colourless creature
     /// convoked, an artifact improvised, a card delved.
     pub generic: u32,
+    /// Colours to which `{X}` in the spell's cost is restricted (Consume
+    /// Spirit's "Spend only black mana on X", Soul Burn's black or red).
+    pub x_colors: Option<ColorSet>,
 }
 
 impl Assist {
@@ -767,7 +776,13 @@ impl Assist {
     ) -> Self {
         use baylee_core::types::TypeSet;
         use baylee_view::ObjectStatus;
-        let mut out = Self::default();
+        let mut out = Self {
+            convoke: Vec::new(),
+            generic: 0,
+            x_colors: face
+                .x_mana_colors
+                .or_else(|| face.x_mana_color.map(ColorSet::of)),
+        };
         if face.convoke || face.improvise {
             for object in view.battlefield_of(caster) {
                 if object.status.contains(ObjectStatus::TAPPED)
@@ -854,15 +869,41 @@ fn greatest_x_by(
     }
     let mut all = sources.to_vec();
     all.extend(assist.convoke.iter().cloned());
+    let x_symbol = assist.x_colors.and_then(x_color_symbol);
     let pays_at = |x: u32| {
         let total = cost.with_x(x);
         let help = assist.generic.min(total.generic_total());
-        pays(&total.with_less_generic(help), &all)
+        let mut after = total.with_less_generic(help);
+        if let Some(symbol) = x_symbol {
+            let restricted = x.saturating_sub(help).min(after.generic_total());
+            after = after
+                .with_less_generic(restricted)
+                .with_symbol(symbol, restricted);
+        }
+        pays(&after, &all)
     };
     let ceiling = mana_ceiling(counted, &all).saturating_add(assist.generic);
     // Affordability only shrinks as X grows, so the first X that plans from
     // the top is the greatest. The ceiling is a few dozen at most.
     (0..=ceiling).rev().find(|&x| pays_at(x))
+}
+
+fn x_color_symbol(colors: ColorSet) -> Option<ManaSymbol> {
+    let bits = colors.bits();
+    match bits.count_ones() {
+        1 => Some(ManaSymbol::of_color(
+            Color::ALL[bits.trailing_zeros() as usize],
+        )),
+        2 => {
+            let first = Color::ALL[bits.trailing_zeros() as usize];
+            let rest = bits & (bits - 1);
+            let second = Color::ALL[rest.trailing_zeros() as usize];
+            Some(ManaSymbol::Hybrid(baylee_core::color::ColorPair::new(
+                first, second,
+            )))
+        }
+        _ => None,
+    }
 }
 
 /// Every mana `pool` and `sources` hold, poured as one colour where a source
@@ -887,6 +928,7 @@ fn mana_ceiling(pool: &ManaPoolView, sources: &[Source]) -> u32 {
                 usize::from(s.amount)
             };
             free.max(s.converter.as_ref().map_or(0, Converter::mana))
+                .saturating_add(s.bonus.len())
         })
         .fold(0_usize, usize::saturating_add);
     floating.saturating_add(u32::try_from(poured).unwrap_or(u32::MAX))
@@ -1022,6 +1064,9 @@ struct Unit {
     colors: ColorMask,
     /// The source this unit comes from; `None` for floating mana.
     from: Option<usize>,
+    /// Fixed triggered-mana bonus (`Source::bonus`), which does not pick the
+    /// source's own colour choice.
+    bonus: bool,
 }
 
 /// The six mana colours as a bitmask, so a candidacy test is one `&`.
@@ -1151,6 +1196,7 @@ fn units(pool: &ManaPoolView, sources: &[Source], limit: usize, widen: bool) -> 
             units.push(Unit {
                 colors: ColorMask::of(color),
                 from: None,
+                bonus: false,
             });
         }
     }
@@ -1177,6 +1223,7 @@ fn units(pool: &ManaPoolView, sources: &[Source], limit: usize, widen: bool) -> 
                 units.push(Unit {
                     colors: ColorMask(ColorMask::of(*color).0 | snow.0),
                     from: Some(index),
+                    bonus: false,
                 });
             }
         } else {
@@ -1184,8 +1231,16 @@ fn units(pool: &ManaPoolView, sources: &[Source], limit: usize, widen: bool) -> 
                 units.push(Unit {
                     colors,
                     from: Some(index),
+                    bonus: false,
                 });
             }
+        }
+        for color in &source.bonus {
+            units.push(Unit {
+                colors: ColorMask::of(*color),
+                from: Some(index),
+                bonus: true,
+            });
         }
     }
     units
@@ -1543,7 +1598,7 @@ fn steps(
             continue;
         };
         used.insert(source);
-        if chosen[source].is_none() {
+        if !unit.bonus && chosen[source].is_none() {
             // The demand narrows the choice; anything in the overlap pays it,
             // and the lowest is as good as any and keeps the plan stable.
             let dear = dear_only(source);
@@ -1655,6 +1710,7 @@ pub fn intrinsic_source(
         snow: false,
         dear: None,
         converter: None,
+        bonus: Vec::new(),
     })
 }
 
@@ -1708,6 +1764,7 @@ mod tests {
             snow: false,
             converter: None,
             dear: None,
+            bonus: Vec::new(),
         }
     }
 
@@ -1972,7 +2029,8 @@ mod tests {
             knot,
             Assist {
                 convoke: Vec::new(),
-                generic: 3
+                generic: 3,
+                x_colors: None,
             }
         );
         let pool = empty();
@@ -1997,7 +2055,8 @@ mod tests {
             whir,
             Assist {
                 convoke: Vec::new(),
-                generic: 2
+                generic: 2,
+                x_colors: None,
             },
             "both artifacts"
         );
@@ -2344,6 +2403,7 @@ mod tests {
             snow: false,
             dear: None,
             converter: None,
+            bonus: Vec::new(),
         }];
         assert!(plan(&cost("{W}{U}"), &empty(), &coupled).is_none());
         let found = plan(&cost("{2}"), &empty(), &coupled).expect("two of one colour");
@@ -2361,6 +2421,7 @@ mod tests {
             snow: false,
             dear: None,
             converter: None,
+            bonus: Vec::new(),
         }];
         let found = plan(&cost("{2}"), &empty(), &sol_ring).expect("two colourless");
         assert_eq!(found.taps(), 1);
@@ -2390,6 +2451,7 @@ mod tests {
             snow: false,
             dear: None,
             converter: None,
+            bonus: Vec::new(),
         }];
         let found = plan(&cost("{W}{U}"), &empty(), &chancery).expect("a Karoo pays {W}{U}");
         assert_eq!(found.taps(), 1, "one permanent is one tap");
@@ -2421,6 +2483,7 @@ mod tests {
             snow: false,
             dear: None,
             converter: None,
+            bonus: Vec::new(),
         }
     }
 
@@ -2574,6 +2637,7 @@ mod tests {
             snow: false,
             dear: None,
             converter: None,
+            bonus: Vec::new(),
         }];
         assert!(plan(&cost("{1}"), &empty(), &five).is_some());
         assert!(plan(&cost("{C}"), &empty(), &five).is_none());
@@ -2761,6 +2825,7 @@ mod tests {
             snow: false,
             dear: None,
             converter: None,
+            bonus: Vec::new(),
         }
     }
 
@@ -2994,5 +3059,54 @@ mod tests {
         let found = plan_with_life(&metamorph, &empty(), &sources, 20).expect("payable with mana");
         assert_eq!(found.taps(), 4);
         assert!(tapped(&found).contains(&4));
+    }
+
+    /// Wild Growth / Fertile Ground (`bonus` rider on a land's tap): one tap
+    /// of a White/Blue dual enchanted with Wild Growth (`+{G}`) pays `{W}{G}`
+    /// (answering White on the land) and `{2}`, and never `{W}{U}`.
+    #[test]
+    fn wild_growth_bonus_on_a_dual_land_pays_two_mana_with_one_tap() {
+        let enchanted = [Source {
+            id: ObjectId::new(1, 0),
+            tap: Tap::Ability(0),
+            colors: vec![ManaColor::White, ManaColor::Blue],
+            amount: 1,
+            bundle: false,
+            priced: false,
+            preserve: 0,
+            snow: false,
+            dear: None,
+            converter: None,
+            bonus: vec![ManaColor::Green],
+        }];
+        let found = plan(&cost("{W}{G}"), &empty(), &enchanted).expect("W from land + G bonus");
+        assert_eq!(found.taps(), 1);
+        assert_eq!(found.steps[0].color, Some(ManaColor::White));
+        assert!(plan(&cost("{2}"), &empty(), &enchanted).is_some());
+        assert!(plan(&cost("{W}{U}"), &empty(), &enchanted).is_none());
+    }
+
+    /// Consume Spirit ("Spend only black mana on X"): `{1}{B}` takes one
+    /// Forest and one Swamp, and only the remaining Swamp may pay `{X}`.
+    #[test]
+    fn consume_spirit_caps_greatest_x_by_its_restricted_colour() {
+        use crate::test_support::ViewBuilder;
+        let view = ViewBuilder::new(2).build();
+        let index = baylee_cards::decks::by_name("Consume Spirit").expect("in the pool");
+        let face = &baylee_cards::by_index(index).expect("a card").faces[0];
+        let sources = [
+            land(1, ManaColor::Black),
+            land(2, ManaColor::Black),
+            land(3, ManaColor::Green),
+            land(4, ManaColor::Green),
+            land(5, ManaColor::Green),
+        ];
+        let spirit = Assist::read(&view, baylee_core::ids::PlayerId::new(0), face, &sources);
+        assert_eq!(spirit.x_colors, Some(ColorSet::of(Color::Black)));
+        assert_eq!(
+            greatest_x_assisted(&cost("{X}{1}{B}"), &empty(), &sources, &spirit),
+            Some(1),
+            "only the second Swamp may pay X; the extra Forests cannot"
+        );
     }
 }

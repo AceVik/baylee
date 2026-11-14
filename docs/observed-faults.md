@@ -4129,24 +4129,12 @@ engine's statement, `LegalActions::restricted_taps`), and answer X from the
 pool with the restricted mana floating that the engine names for it
 (`restricted_floating`).
 
-### 83. The client's X cap counts no restricted mana, and the seat's counts all that floats — KNOWN
+### 83. The client's and the seat's X caps — FIXED
 
-The desktop client caps its X question over `manasources::sources`, which
-reads no restricted tap (`Duel::x_cap`), so it asks the record's Firemind
-"up to 2" as the seat did. It keeps its last priority's offer
-(`priority_legal`), which names the restricted taps and floating mana that
-may pay the cast (`spend::sources_for`, `LegalActions::restricted_floating_for`),
-so the fix there is the engine's statement and not a reading of the view.
-
-The seat's X question carries no offer, and the view says what restricted
-mana floats by colour, never what it may pay for. The seat counts all of it
-as mana that may pay the spell: X is announced before mana abilities (CR
-601.2b, 601.2g), so that mana was made before the cast began, nearly always
-by the seat's own taps for this very spell. Mana that may not pay it (Ancient
-Ziggurat's floating beside a sorcery) makes the bound too high, and an X past
-the mana reverses the cast (CR 601.2h, 734.1), which the engine's open range
-("from 0 to 4294967295") allowed for any number. Counting it exactly needs
-the statement at the X question: the last priority's offer kept beside it,
-as the client keeps one (the seat's `Request` carries none, and
-`baylee-train` builds it too), or a `DecisionNote` field, which is a protocol
-change.
+`Duel::x_cap` (`manasources::spend_inputs`) and `baylee-seat`'s `payable_x`
+(`Narrator::last_priority` -> `LegalActions::restricted_floating_for`) now both
+bound X using only the restricted taps and floating mana the engine allows for
+that spell, while `Assist::x_colors` enforces color-restricted `{X}` costs
+(`Consume Spirit`, `Cryptic Trilobite`, `Endless One` style restrictions) and
+`Narrator::chosen_way` includes raised costs (`Buyback`, `Kicker`,
+`Multikicked`, `Replicated`).

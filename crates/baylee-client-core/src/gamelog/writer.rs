@@ -567,8 +567,13 @@ impl Writer<'_> {
             LogEvent::Countered { spell } => {
                 self.about_nobody(Phrase::LogCountered, vec![self.object(spell)])
             }
-            LogEvent::DidNotResolve { object } => {
-                self.about_nobody(Phrase::LogDidNotResolve, vec![self.object(object)])
+            LogEvent::DidNotResolve { object, ability } => {
+                let phrase = if *ability {
+                    Phrase::LogAbilityDidNotResolve
+                } else {
+                    Phrase::LogDidNotResolve
+                };
+                self.about_nobody(phrase, vec![self.object(object)])
             }
             LogEvent::Drew { player, cards } => {
                 if cards.iter().all(|card| *card == LogObject::Hidden) {

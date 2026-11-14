@@ -445,6 +445,7 @@ pub fn asked(pending: &Pending) -> &'static str {
         Pending::ChooseAttackers { .. } => "attackers",
         Pending::ChooseBlockers { .. } => "blockers",
         Pending::ChooseTargets { .. } => "targets",
+        Pending::ChoosePlayer { .. } => "a player",
         Pending::ChooseCards { .. }
         | Pending::LegendChoice { .. }
         | Pending::MulliganBottom { .. }

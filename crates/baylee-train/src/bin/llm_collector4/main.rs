@@ -5,9 +5,12 @@ use baylee_cards_pool as _;
 mod admin_cleanup;
 mod audit;
 mod compare;
+mod duplicate;
 mod processes;
 mod quota_hold;
+mod reports_audit;
 mod schedule;
+mod swiss;
 mod table;
 mod teacher;
 
@@ -40,10 +43,7 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
-#[expect(
-    clippy::large_enum_variant,
-    reason = "the command line, parsed once at startup and moved into its run"
-)]
+#[allow(clippy::large_enum_variant)]
 enum Commands {
     /// Run a single high-capacity baylee-gateway + single baylee-agent serving many concurrent tables.
     Serve {
@@ -160,12 +160,122 @@ enum Commands {
         #[arg(required = true)]
         roots: Vec<PathBuf>,
     },
+    /// Deduplicate, enrich with Baylee card DSL & transcripts, and optionally
+    /// Argon-audit rules/engine reports (`reports.jsonl`) across collector roots.
+    Reports {
+        /// Collector roots, each holding `attempts/`.
+        #[arg(required = true)]
+        roots: Vec<PathBuf>,
+        /// Emit structured JSON instead of Markdown.
+        #[arg(long)]
+        json: bool,
+        /// Ask `gemini-4-argon-high` via `agy` to audit each deduplicated report.
+        #[arg(long)]
+        argon_audit: bool,
+        /// Optional JSON map of `cluster_id -> ManualVerdict` for code-verified verdicts.
+        #[arg(long)]
+        verdicts: Option<PathBuf>,
+        /// Write output to a file instead of stdout.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// Run a fair seed- and deck-mirrored ("Duplicate Magic") in-process evaluation
+    /// across all unordered pairs of `--profiles` on Constructed decks.
+    Duplicate(DuplicateCliArgs),
+    /// Run a dynamic Swiss Duplicate Tournament (`R` rounds, zero repeat opponents,
+    /// `3/1/0` Match Points + `OMW%`/`GW%`/`OGW%` tiebreakers, strict `0` House-AI).
+    Swiss(SwissCliArgs),
+    /// Start an isolated loopback `serve` instance with an in-memory admin token,
+    /// execute one or more `NAME=PAIRINGS_JSON:MAX_ATTEMPTS` evaluation waves
+    /// balanced across completed waves, and shut down the server cleanly on exit.
+    SelfHosted(SelfHostedCliArgs),
+}
+
+#[derive(clap::Args)]
+struct DuplicateCliArgs {
+    #[arg(long)]
+    root: PathBuf,
+    #[arg(long)]
+    profiles_config: PathBuf,
+    /// Comma-separated list of profile names from `--profiles-config`.
+    #[arg(long)]
+    profiles: String,
+    /// Directory of Constructed `.txt` decks (Commander decks are skipped).
+    #[arg(long)]
+    decks_dir: PathBuf,
+    #[arg(long, default_value_t = 1)]
+    deals_per_pair: usize,
+    #[arg(long, default_value_t = 0x2026_1113_d00d_cafe)]
+    base_seed: u64,
+    #[arg(long, default_value_t = 8)]
+    concurrency: usize,
+    #[arg(long, default_value_t = 300)]
+    call_timeout_seconds: u64,
+    #[arg(long, default_value_t = 4000)]
+    max_actions: u32,
+}
+
+#[derive(clap::Args)]
+struct SwissCliArgs {
+    #[arg(long)]
+    root: PathBuf,
+    #[arg(long)]
+    profiles_config: PathBuf,
+    /// Comma-separated list of profile names from `--profiles-config` (even count >= 2).
+    #[arg(long)]
+    profiles: String,
+    /// Directory of Constructed `.txt` decks (Commander decks are skipped).
+    #[arg(long)]
+    decks_dir: PathBuf,
+    #[arg(long, default_value_t = 5)]
+    rounds: usize,
+    #[arg(long, default_value_t = 0x2026_1114_5715_cafe)]
+    base_seed: u64,
+    #[arg(long, default_value_t = 6)]
+    concurrency: usize,
+    #[arg(long, default_value_t = 300)]
+    call_timeout_seconds: u64,
+    #[arg(long, default_value_t = 4000)]
+    max_actions: u32,
+    #[arg(long, default_value_t = 6)]
+    max_leg_retries: usize,
+}
+
+#[derive(clap::Args)]
+struct SelfHostedCliArgs {
+    #[arg(long)]
+    suite_root: PathBuf,
+    #[arg(long)]
+    bin_dir: PathBuf,
+    #[arg(long, default_value = "127.0.0.1:28788")]
+    bind: String,
+    #[arg(long, default_value = "127.0.0.1:28789")]
+    admin_bind: String,
+    #[arg(long)]
+    database_url: String,
+    #[arg(long)]
+    profiles_config: PathBuf,
+    #[arg(long)]
+    deck_manifest: PathBuf,
+    /// Repeatable wave spec `NAME=PAIRINGS_FILE:MAX_ATTEMPTS`.
+    #[arg(long, required = true)]
+    wave: Vec<String>,
+    /// Earlier wave roots whose admitted games count for `--balance-with`.
+    #[arg(long)]
+    prior_root: Vec<PathBuf>,
+    #[arg(long, default_value_t = 6)]
+    concurrency: usize,
+    #[arg(long, default_value_t = 180)]
+    call_timeout_seconds: u64,
+    #[arg(long, default_value_t = 2400)]
+    game_timeout_seconds: u64,
+    #[arg(long)]
+    starting_life: Option<i32>,
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let cli = Cli::parse();
-    match cli.command {
+    match Cli::parse().command {
         Commands::Serve {
             root,
             bin_dir,
@@ -238,7 +348,103 @@ async fn main() -> anyhow::Result<()> {
             print!("{}", compare::report(&roots)?);
             Ok(())
         }
+        Commands::Reports {
+            roots,
+            json,
+            argon_audit,
+            verdicts,
+            out,
+        } => run_reports_cmd(
+            &roots,
+            json,
+            argon_audit,
+            verdicts.as_deref(),
+            out.as_deref(),
+        ),
+        Commands::Duplicate(args) => run_duplicate_cmd(args).await,
+        Commands::Swiss(args) => run_swiss_cmd(args).await,
+        Commands::SelfHosted(args) => run_self_hosted_cmd(&args).await,
     }
+}
+
+async fn run_self_hosted_cmd(args: &SelfHostedCliArgs) -> anyhow::Result<()> {
+    run_self_hosted(
+        &args.suite_root,
+        &args.bin_dir,
+        &args.bind,
+        &args.admin_bind,
+        &args.database_url,
+        &args.profiles_config,
+        &args.deck_manifest,
+        &args.wave,
+        &args.prior_root,
+        args.concurrency,
+        args.call_timeout_seconds,
+        args.game_timeout_seconds,
+        args.starting_life,
+    )
+    .await
+}
+
+fn run_reports_cmd(
+    roots: &[PathBuf],
+    json: bool,
+    argon_audit: bool,
+    verdicts: Option<&Path>,
+    out: Option<&Path>,
+) -> anyhow::Result<()> {
+    let rendered = reports_audit::run(roots, json, argon_audit, verdicts)?;
+    if let Some(path) = out {
+        std::fs::write(path, rendered).with_context(|| format!("writing {}", path.display()))?;
+    } else {
+        print!("{rendered}");
+    }
+    Ok(())
+}
+
+async fn run_duplicate_cmd(args: DuplicateCliArgs) -> anyhow::Result<()> {
+    let parsed_profiles: Vec<String> = args
+        .profiles
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned)
+        .collect();
+    duplicate::run(duplicate::DuplicateConfig {
+        root: args.root,
+        profiles_config: args.profiles_config,
+        profiles: parsed_profiles,
+        decks_dir: args.decks_dir,
+        deals_per_pair: args.deals_per_pair,
+        base_seed: args.base_seed,
+        concurrency: args.concurrency,
+        call_timeout_seconds: args.call_timeout_seconds,
+        max_actions: args.max_actions,
+    })
+    .await
+}
+
+async fn run_swiss_cmd(args: SwissCliArgs) -> anyhow::Result<()> {
+    let parsed_profiles: Vec<String> = args
+        .profiles
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned)
+        .collect();
+    swiss::run(swiss::SwissConfig {
+        root: args.root,
+        profiles_config: args.profiles_config,
+        profiles: parsed_profiles,
+        decks_dir: args.decks_dir,
+        rounds: args.rounds,
+        base_seed: args.base_seed,
+        concurrency: args.concurrency,
+        call_timeout_seconds: args.call_timeout_seconds,
+        max_actions: args.max_actions,
+        max_leg_retries: args.max_leg_retries,
+    })
+    .await
 }
 
 async fn kill_process_group(pgid: i32, child: &mut tokio::process::Child) -> anyhow::Result<()> {
@@ -1035,6 +1241,157 @@ async fn run_collect(
     )?;
     ensure!(!failed, "Collector workers failed; inspect status.json");
     Ok(())
+}
+
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+async fn run_self_hosted(
+    suite_root: &Path,
+    bin_dir: &Path,
+    bind: &str,
+    admin_bind: &str,
+    database_url: &str,
+    profiles_config: &Path,
+    deck_manifest: &Path,
+    waves: &[String],
+    prior_roots: &[PathBuf],
+    concurrency: usize,
+    call_timeout_seconds: u64,
+    game_timeout_seconds: u64,
+    starting_life: Option<i32>,
+) -> anyhow::Result<()> {
+    private_bind(bind)?;
+    private_bind(admin_bind)?;
+    let mut parsed_waves: Vec<(String, PathBuf, usize)> = Vec::with_capacity(waves.len());
+    for spec in waves {
+        let (name, rest) = spec.split_once('=').with_context(|| {
+            format!("--wave must be NAME=PAIRINGS_FILE:MAX_ATTEMPTS, got {spec}")
+        })?;
+        let (pairings, max_str) = rest
+            .rsplit_once(':')
+            .with_context(|| format!("--wave missing :MAX_ATTEMPTS in {spec}"))?;
+        let max_attempts: usize = max_str
+            .parse()
+            .with_context(|| format!("invalid MAX_ATTEMPTS in {spec}"))?;
+        ensure!(!name.is_empty() && max_attempts >= 1, "invalid wave {spec}");
+        parsed_waves.push((name.to_owned(), PathBuf::from(pairings), max_attempts));
+    }
+
+    std::fs::create_dir_all(suite_root)?;
+    let serve_root = suite_root.join("server");
+    std::fs::create_dir_all(&serve_root)?;
+    let gateway_url = format!("http://{bind}");
+    let admin_url = format!("http://{admin_bind}");
+    let admin = admin_cleanup::AdminCleanup::fresh(&admin_url)?;
+    let exe = std::env::current_exe().context("resolve llm_collector4 executable")?;
+
+    let srv_out = std::fs::File::create(serve_root.join("serve.stdout.log"))?;
+    let srv_err = std::fs::File::create(serve_root.join("serve.stderr.log"))?;
+    let mut serve_cmd = isolated_command(&exe);
+    serve_cmd
+        .arg("serve")
+        .arg("--root")
+        .arg(&serve_root)
+        .arg("--bin-dir")
+        .arg(bin_dir)
+        .arg("--bind")
+        .arg(bind)
+        .arg("--admin-bind")
+        .arg(admin_bind)
+        .arg("--database-url")
+        .arg(database_url)
+        .stdin(Stdio::null())
+        .stdout(srv_out)
+        .stderr(srv_err)
+        .process_group(0);
+    admin.configure_collector(&mut serve_cmd);
+    let mut serve_child = serve_cmd.spawn().context("spawning self-hosted serve")?;
+    let serve_pgid = i32::try_from(serve_child.id().unwrap_or(0)).unwrap_or(0);
+
+    let result: anyhow::Result<()> = async {
+        let probe = GatewayClient::new(&gateway_url, 0);
+        wait_ready(
+            &probe,
+            None,
+            tokio::time::Instant::now() + Duration::from_secs(35),
+        )
+        .await
+        .context("waiting for self-hosted gateway+agent readiness")?;
+        admin.preflight().await?;
+
+        let seat_bin = bin_dir.join("baylee-seat");
+        let gateway_bin = bin_dir.join("baylee-gateway");
+        let mut completed_roots: Vec<PathBuf> = prior_roots.to_vec();
+        for (name, pairings_file, max_attempts) in &parsed_waves {
+            let wave_root = suite_root.join(name);
+            eprintln!(
+                "[self-hosted] starting wave {name} (max_attempts={max_attempts}, concurrency={concurrency}) ..."
+            );
+            let mut collect_cmd = isolated_command(&exe);
+            for key in [
+                "LOGNAME",
+                "XDG_CONFIG_HOME",
+                "XDG_DATA_HOME",
+                "XDG_STATE_HOME",
+                "DBUS_SESSION_BUS_ADDRESS",
+            ] {
+                if let Ok(val) = std::env::var(key) {
+                    collect_cmd.env(key, val);
+                }
+            }
+            collect_cmd
+                .arg("collect")
+                .arg("--root")
+                .arg(&wave_root)
+                .arg("--gateway")
+                .arg(&gateway_url)
+                .arg("--admin-url")
+                .arg(&admin_url)
+                .arg("--database-url")
+                .arg(database_url)
+                .arg("--seat-bin")
+                .arg(&seat_bin)
+                .arg("--gateway-bin")
+                .arg(&gateway_bin)
+                .arg("--profiles-config")
+                .arg(profiles_config)
+                .arg("--pairings-file")
+                .arg(pairings_file)
+                .arg("--deck-manifest")
+                .arg(deck_manifest)
+                .arg("--evaluation")
+                .arg("--concurrency")
+                .arg(concurrency.to_string())
+                .arg("--max-attempts")
+                .arg(max_attempts.to_string())
+                .arg("--call-timeout-seconds")
+                .arg(call_timeout_seconds.to_string())
+                .arg("--game-timeout-seconds")
+                .arg(game_timeout_seconds.to_string())
+                .arg("--report-games")
+                .arg("0");
+            if let Some(life) = starting_life {
+                collect_cmd.arg("--starting-life").arg(life.to_string());
+            }
+            for prev in &completed_roots {
+                collect_cmd.arg("--balance-with").arg(prev);
+            }
+            admin.configure_collector(&mut collect_cmd);
+            let status = collect_cmd
+                .status()
+                .await
+                .with_context(|| format!("running collect wave {name}"))?;
+            eprintln!("[self-hosted] wave {name} exited with {status}");
+            if wave_root.join("attempts").is_dir() {
+                completed_roots.push(wave_root);
+            }
+        }
+        Ok(())
+    }
+    .await;
+
+    let shutdown = kill_process_group(serve_pgid, &mut serve_child).await;
+    result?;
+    shutdown
 }
 
 #[cfg(test)]

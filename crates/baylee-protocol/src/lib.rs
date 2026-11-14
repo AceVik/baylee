@@ -51,7 +51,10 @@ pub mod tape;
 /// step (`LogEntry::step`, CR 510.4).
 /// Version 45 names the permanent a life payment is for
 /// (`YesNoPrompt::PayLife::permanent`): Cleansing's land, CR 608.2d.
-pub const PROTOCOL_VERSION: u32 = 45;
+/// Version 46 carries `ChoicePrompt::SearchLibraryTappedAndHand`,
+/// `YesNoPrompt::RevealHandForGuess`, and `LogEvent::DidNotResolve::ability`
+/// (whether an unresolved stack item was an ability rather than a spell).
+pub const PROTOCOL_VERSION: u32 = 46;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -282,7 +285,7 @@ mod tests {
     /// disagree on it do not talk. It is written down here so that raising
     /// it is a deliberate line in a diff rather than a number that drifted.
     #[test]
-    fn the_wire_version_is_forty_five() {
+    fn the_wire_version_is_forty_six() {
         // 2: `SeatReady` and `Curtain` (#256).
         // 3: `SeatSettingMsg` (#265). An engine built before it drops the
         // frame without a word, so a client that sent one would wait for a
@@ -356,7 +359,10 @@ mod tests {
         // 45: a life payment names the permanent it is for
         // (`YesNoPrompt::PayLife::permanent`, Cleansing's land): a field a
         // positional reader of 44 would take for the next one.
-        assert_eq!(PROTOCOL_VERSION, 45);
+        // 46: `ChoicePrompt::SearchLibraryTappedAndHand`,
+        // `YesNoPrompt::RevealHandForGuess`, and
+        // `LogEvent::DidNotResolve::ability` on positional binary frames.
+        assert_eq!(PROTOCOL_VERSION, 46);
     }
 
     #[test]

@@ -243,6 +243,12 @@ pub struct Naming {
 pub struct GameLog {
     /// Journal entries read so far.
     read: usize,
+    /// Snapshot of the journal at `read`, shared via `Arc`, to detect a
+    /// CR 734.1 payment-window rollback (`Journal::cancel_from`) even when
+    /// subsequent entries reuse truncated sequence numbers.
+    journal: baylee_engine::event::Journal,
+    /// Last logged life total per seat, reconciled across CR 734.1 rollbacks.
+    logged_life: BTreeMap<PlayerId, i32>,
     lines: Vec<Line>,
     /// How many lines may have been sent to somebody. Those never change
     /// again, so every seat is told the same line at the same index.
@@ -261,6 +267,9 @@ pub struct GameLog {
     /// Every spell and ability on the stack a line has named, with what it
     /// was last announced with ([`LogEvent::Aimed`]).
     aims: BTreeMap<ObjectId, Aim>,
+    /// Every ability put on the stack, so [`GameEvent::StackObjectDidNotResolve`]
+    /// tells an ability apart from a spell once the stack object is gone.
+    abilities: BTreeSet<ObjectId>,
     /// Lands played that had not moved yet when the play was recorded (an
     /// entry replacement, a shockland's life, asks first): the move onto the
     /// battlefield writes their play, with who played them.
@@ -300,8 +309,16 @@ impl GameLog {
     /// A log of `state`'s game, with everything its journal already holds.
     #[must_use]
     pub fn new(state: &GameState) -> Self {
+        let logged_life = state
+            .players
+            .iter()
+            .enumerate()
+            .map(|(i, player)| (PlayerId::new(seat_byte(i)), player.life))
+            .collect();
         let mut log = Self {
             read: 0,
+            journal: baylee_engine::event::Journal::default(),
+            logged_life,
             lines: Vec::new(),
             sealed: 0,
             seen: BTreeMap::new(),
@@ -310,6 +327,7 @@ impl GameLog {
             phase: None,
             step: None,
             aims: BTreeMap::new(),
+            abilities: BTreeSet::new(),
             landing: BTreeMap::new(),
             merged: BTreeSet::new(),
             now: 0,
@@ -364,6 +382,17 @@ impl GameLog {
     /// Reads what the journal recorded since the last call.
     pub fn consume(&mut self, state: &GameState) {
         let entries = state.journal.entries();
+        let prev = self.journal.entries();
+        let rolled_back = entries.len() < self.read
+            || (self.read > 0 && entries.get(self.read - 1) != prev.get(self.read - 1));
+        if rolled_back {
+            self.read = prev
+                .iter()
+                .take(self.read)
+                .zip(entries.iter())
+                .position(|(a, b)| a != b)
+                .unwrap_or_else(|| entries.len().min(self.read));
+        }
         let batch = self.lines.len();
         // Cards shown to everyone in this batch, until they go somewhere
         // hidden: the move that takes a revealed card to a hand is public.
@@ -386,7 +415,26 @@ impl GameLog {
                 &came,
             );
         }
+        if rolled_back {
+            for (i, player_state) in state.players.iter().enumerate() {
+                let seat = PlayerId::new(seat_byte(i));
+                let actual = player_state.life;
+                let logged = self.logged_life.get(&seat).copied().unwrap_or(actual);
+                if logged != actual {
+                    self.logged_life.insert(seat, actual);
+                    self.push(
+                        LogEvent::Life {
+                            player: seat,
+                            old: logged,
+                            new: actual,
+                        },
+                        Vec::new(),
+                    );
+                }
+            }
+        }
         self.read = entries.len();
+        self.journal = state.journal.clone();
         self.reannounce(state);
         self.look_around(state);
     }
@@ -567,11 +615,30 @@ impl GameLog {
             .chain(seats.flat_map(|p| [ZoneLocation::Graveyard(p), ZoneLocation::Exile(p)]));
         for zone in public {
             for id in state.zones.list(zone) {
-                if !self.seen.contains_key(id)
-                    && let Some(obj) = state.object(*id)
-                {
-                    let sees = in_zone(state, obj, obj.zone, obj.owner);
-                    self.remember(state, obj, sees);
+                if let Some(obj) = state.object(*id) {
+                    if obj.kind == ObjectKind::AbilityOnStack {
+                        self.abilities.insert(*id);
+                        if !self.seen.contains_key(id)
+                            && let Some(loc) = obj.ability
+                            && loc.source != *id
+                        {
+                            if !self.seen.contains_key(&loc.source)
+                                && let Some(src) = state.object(loc.source)
+                            {
+                                let owner = src.zone_owner.unwrap_or(src.owner);
+                                let sees = in_zone(state, src, src.zone, owner);
+                                let _ = self.remember(state, src, sees);
+                            }
+                            if let Some(seen) = self.seen.get(&loc.source).cloned() {
+                                self.seen.insert(*id, seen);
+                            }
+                        }
+                        continue;
+                    }
+                    if !self.seen.contains_key(id) {
+                        let sees = in_zone(state, obj, obj.zone, obj.owner);
+                        self.remember(state, obj, sees);
+                    }
                 }
             }
         }
@@ -715,14 +782,17 @@ impl GameLog {
             }
             GameEvent::LifeChanged {
                 player, old, new, ..
-            } => self.push(
-                LogEvent::Life {
-                    player: *player,
-                    old: *old,
-                    new: *new,
-                },
-                Vec::new(),
-            ),
+            } => {
+                self.logged_life.insert(*player, *new);
+                self.push(
+                    LogEvent::Life {
+                        player: *player,
+                        old: *old,
+                        new: *new,
+                    },
+                    Vec::new(),
+                );
+            }
             GameEvent::DamageDealt {
                 source,
                 target,
@@ -824,8 +894,12 @@ impl GameLog {
                 self.announce(state, *object, *player, *object, false);
             }
             GameEvent::StackObjectDidNotResolve { object } => {
+                let ability = self.abilities.contains(object)
+                    || state
+                        .object(*object)
+                        .is_some_and(|o| o.kind == ObjectKind::AbilityOnStack);
                 let (object, sees) = self.refer(state, *object);
-                self.push(LogEvent::DidNotResolve { object }, vec![sees]);
+                self.push(LogEvent::DidNotResolve { object, ability }, vec![sees]);
             }
             GameEvent::AbilityTriggered {
                 object,
@@ -1229,6 +1303,7 @@ impl GameLog {
         source: ObjectId,
         controller: PlayerId,
     ) {
+        self.abilities.insert(object);
         // The monarch's two abilities have no source (CR 726.2), so there is
         // nothing to name one by; what it does has lines of its own.
         if source == ObjectId::NO_SOURCE {
@@ -2098,8 +2173,11 @@ mod tests {
             turn: 1,
             phase: None,
             aims: BTreeMap::new(),
+            abilities: BTreeSet::new(),
             landing: BTreeMap::new(),
             merged: BTreeSet::new(),
+            journal: baylee_engine::event::Journal::default(),
+            logged_life: BTreeMap::new(),
             naming: Naming::default(),
         }
     }
@@ -2517,5 +2595,40 @@ mod tests {
                 (1, Some(Step::CombatDamage))
             ]
         );
+    }
+
+    /// When the engine rolls back a cast after a life payment has already been
+    /// sealed into the log (CR 734.1), `consume` emits a reconciling `Life`
+    /// entry so the transcript matches the restored life total.
+    #[test]
+    fn a_journal_rollback_reconciles_logged_life() {
+        let engine = game(vec![FILLER]);
+        let clean = engine.state().clone();
+        let mut paid = clean.clone();
+        let p0 = PlayerId::new(0);
+        paid.players[0].life = 18;
+        paid.journal.record(GameEvent::LifeChanged {
+            player: p0,
+            old: 20,
+            new: 18,
+            cause: baylee_engine::event::Cause::Cost,
+        });
+
+        let mut log = a_log();
+        log.consume(&paid);
+        log.seal(log.len());
+        log.consume(&clean);
+
+        let life_events: Vec<(i32, i32)> = log
+            .told(p0, 0, log.len())
+            .into_iter()
+            .filter_map(|entry| match entry.event {
+                LogEvent::Life {
+                    player, old, new, ..
+                } if player == p0 => Some((old, new)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(life_events, [(20, 18), (18, 20)]);
     }
 }

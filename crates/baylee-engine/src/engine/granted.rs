@@ -326,6 +326,60 @@ impl<L: CardLookup> Engine<L> {
                 .any(|&(id, index)| id != excluded && self.is_payment_mana_offer(id, index))
     }
 
+    /// [`DecisionContext`] for an activation waiting on its CR 605.3a mana
+    /// payment window, so seats know which permanent and ability are owed.
+    pub(super) fn activation_payment_context(
+        &self,
+        player: PlayerId,
+        payment: &ActivationPayment,
+    ) -> super::decision::DecisionContext<'_> {
+        let source = payment.source.object;
+        let index = payment.ability_index;
+        let mode = payment.mode.map(|m| usize::from(m.mode));
+        let actor = payment.target_choice.controller.or(Some(player));
+        if let Some((_, _, grant)) = payment.grant {
+            return super::decision::DecisionContext {
+                actor,
+                source: Some(source),
+                printed: grant
+                    .provenance
+                    .and_then(|p| p.origin)
+                    .and_then(crate::object::AbilityOrigin::printed),
+                provenance: grant.provenance,
+                ability_index: Some(grant.provenance.map_or(index, |p| p.index)),
+                effects: grant.effects,
+                x: payment.x.unwrap_or(0),
+                ..super::decision::DecisionContext::default()
+            };
+        }
+        let list = payment
+            .abilities
+            .clone()
+            .filter(|(id, _)| *id == source)
+            .map(|(_, list)| list)
+            .or_else(|| {
+                self.state
+                    .object(source)
+                    .map(|o| o.printed_ability_list(&self.lookup))
+            });
+        let provenance = list.as_ref().map(|list| list.origin(index as usize));
+        super::decision::DecisionContext {
+            actor,
+            source: Some(source),
+            printed: provenance
+                .and_then(|origin| origin.origin)
+                .and_then(crate::object::AbilityOrigin::printed),
+            provenance,
+            ability_index: Some(provenance.map_or(index, |origin| origin.index)),
+            mode,
+            effects: list
+                .and_then(|list| list.abilities.get(index as usize))
+                .map_or(&[], |a| super::decision::ability_effects(a, mode)),
+            x: payment.x.unwrap_or(0),
+            ..super::decision::DecisionContext::default()
+        }
+    }
+
     /// The permanent ability `index` of `source` spends by its own cost, so
     /// that it makes no mana toward that cost: `source` where the printed
     /// cost taps or untaps it (or the ability is gone), and nothing else.
@@ -345,6 +399,7 @@ impl<L: CardLookup> Engine<L> {
                                 part,
                                 baylee_cards_dsl::CostPart::TapSelf
                                     | baylee_cards_dsl::CostPart::UntapSelf
+                                    | baylee_cards_dsl::CostPart::ExertSelf
                             )
                         })
                     }

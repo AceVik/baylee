@@ -16,6 +16,7 @@ impl Builder<'_, '_> {
             label: label.into(),
             act,
             card: None,
+            way: None,
         });
     }
 
@@ -260,6 +261,7 @@ impl Builder<'_, '_> {
                     // search that offers nothing still shows the library
                     // it went through.
                     library @ (baylee_engine::choice::ChoicePrompt::SearchLibrary
+                    | baylee_engine::choice::ChoicePrompt::SearchLibraryTappedAndHand
                     | baylee_engine::choice::ChoicePrompt::PutBackOnTop
                     | baylee_engine::choice::ChoicePrompt::PutOnBottom) => {
                         let shown: Vec<ObjectId> = options
@@ -369,6 +371,9 @@ impl Builder<'_, '_> {
                         label,
                         Act::Now(PlayerAction::ChoosePlayer(p)),
                     );
+                    if p == self.table.me() {
+                        self.options.last_mut().expect("just pushed").alias = Some("you".into());
+                    }
                 }
                 self.list_options();
                 self.answer_pick("pick=[one player id]");
@@ -481,7 +486,14 @@ impl Builder<'_, '_> {
             );
             return;
         }
-        let sources = baylee_ai::mana_sources(view, legal);
+        let mut sources = baylee_ai::seat_mana_sources(view, legal);
+        if let Some(note) = &self.request.note
+            && note.cost.is_none()
+            && let (Some(source), Some(ability)) = (note.source, note.ability)
+            && baylee_ai::ability_taps_its_source(view, source, ability)
+        {
+            sources.retain(|s| s.id != source);
+        }
         match manaplan::plan(&owed, pool, &sources) {
             Some(plan) => {
                 let others = payment::others(view, &owed, pool, &sources, &plan);
@@ -526,12 +538,28 @@ impl Builder<'_, '_> {
             }) {
                 continue;
             }
-            let label = format!(
-                "Cast {}{} (paid from {} pool)",
-                table.named(card),
-                self.from(card),
-                table.whose(table.decider())
-            );
+            let non_mana_flashback = view
+                .graveyards
+                .iter()
+                .flatten()
+                .find(|o| o.id == card)
+                .and_then(|o| o.flashback.zip(o.card))
+                .is_some_and(|(cost, id)| {
+                    cost == ManaCost::ZERO
+                        && baylee_cards::by_index(id.index)
+                            .and_then(|def| def.faces.get(usize::from(id.face)))
+                            .is_some_and(|face| !face.flashback_parts.is_empty())
+                });
+            let label = if non_mana_flashback {
+                format!("Cast {}{}", table.named(card), self.from(card))
+            } else {
+                format!(
+                    "Cast {}{} (paid from {} pool)",
+                    table.named(card),
+                    self.from(card),
+                    table.whose(table.decider())
+                )
+            };
             let index = self.card_of(card);
             self.offer(label, Act::Now(PlayerAction::CastSpell { card }), index);
         }
@@ -547,6 +575,8 @@ impl Builder<'_, '_> {
                 }
             };
             self.offer(label, act, Some(reach.card.index));
+            self.options.last_mut().expect("just pushed").way =
+                reach.way.map(|way| (reach.object, way));
         }
         self.suspends_and_foretells(legal);
         self.non_mana_abilities(legal);
@@ -689,10 +719,11 @@ impl Builder<'_, '_> {
         self.line(intro);
         let pool = view.seat(table.decider()).map_or_default(|s| s.mana_pool);
         let owed = view.owed.filter(|_| view.awaiting == Some(view.seat));
+        let casting = self.casting_card();
         if let Some(payment) = owed {
             match payment {
                 ManaPayment::Fixed(cost) => {
-                    let mut line = match (view.casting, table.controlled()) {
+                    let mut line = match (casting, table.controlled()) {
                         (Some(card), _) => self.cast_owed(card, &cost, legal),
                         (None, Some(p)) => format!(
                             "{} owes {cost}: a payment you agreed to for that player. Pay it, or \
@@ -735,7 +766,7 @@ impl Builder<'_, '_> {
             self.tap_against_untapped_counts(legal);
         }
         if legal.can_pass {
-            let label = match (owed, view.casting) {
+            let label = match (owed, casting) {
                 (Some(ManaPayment::AnyAmount { .. }), _) => {
                     "Finish generating mana and choose the payment amount".into()
                 }
@@ -763,7 +794,11 @@ impl Builder<'_, '_> {
     /// left out.
     pub(super) fn tap_against_untapped_counts(&mut self, legal: &LegalActions) {
         let view = self.table.view;
-        let Some(counter) = view.battlefield.iter().find(|o| counts_untapped_lands(o)) else {
+        let Some((counter, when)) = view
+            .battlefield
+            .iter()
+            .find_map(|o| Some((o, counts_untapped_lands(o)?)))
+        else {
             return;
         };
         let me = baylee_client_core::decision::resource_player(view);
@@ -787,7 +822,7 @@ impl Builder<'_, '_> {
         }
         let label = format!(
             "Tap {} untapped lands for mana and pass; the mana is lost, and {} counts the \
-             lands a player controls untapped as a turn begins ({})",
+             lands a player controls untapped {when} ({})",
             self.table.whose(me),
             self.table.named(counter.id),
             self.taps(&steps)
@@ -1005,8 +1040,11 @@ impl Builder<'_, '_> {
         if view.graveyards.iter().flatten().any(|o| o.id == card) {
             let flashback = view
                 .object(card)
-                .and_then(|o| o.flashback)
-                .map_or_default(|cost| format!(", flashback {cost}"));
+                .and_then(|o| {
+                    o.flashback
+                        .map(|cost| format!(", {}", board::flashback_note(o.card, cost)))
+                })
+                .unwrap_or_default();
             return format!(" from a graveyard{flashback}");
         }
         if view.exile.iter().flatten().any(|o| o.id == card) {
@@ -1171,7 +1209,20 @@ impl Builder<'_, '_> {
     /// priced as every planner prices it (`baylee_ai::spell_price`), is what
     /// is owed. `None` where no X, or more than the plain cast, explains the
     /// price (a kicker, an alternative cost): then no X is said.
+    fn casting_card(&self) -> Option<ObjectId> {
+        self.table.view.casting.or_else(|| {
+            let note = self.request.note.as_ref()?;
+            note.cost.and(note.source)
+        })
+    }
+
     fn window_x(&self, card: ObjectId, cost: &ManaCost, legal: &LegalActions) -> Option<u32> {
+        if let Some(note) = self.request.note.as_ref()
+            && note.source == Some(card)
+            && note.cost.as_ref().is_some_and(ManaCost::has_variable)
+        {
+            return Some(note.x);
+        }
         let view = self.table.view;
         let identity = baylee_client_core::decision::known_cards(view)
             .find(|c| c.id == card)?
@@ -1238,7 +1289,14 @@ impl Builder<'_, '_> {
             words::count(usize::from(taken), "mulligan")
         );
         if free {
-            intro.push_str("; the next one is free");
+            let standard_free = taken == 0
+                && (self.table.context.seats > 2
+                    || self.table.context.format == baylee_core::preset::FormatId::Commander);
+            if standard_free {
+                intro.push_str("; the next one is free");
+            } else {
+                intro.push_str("; the next one is free by this table's house rule");
+            }
         }
         intro.push_str(
             ". When you keep, you put one card on the bottom of your library for each \
@@ -1391,6 +1449,7 @@ impl Builder<'_, '_> {
         let whose = || self.table.whose(owner);
         match prompt {
             baylee_engine::choice::ChoicePrompt::SearchLibrary
+            | baylee_engine::choice::ChoicePrompt::SearchLibraryTappedAndHand
             | baylee_engine::choice::ChoicePrompt::LookAtLibrary => {
                 Some(format!("in {} library", whose()))
             }
@@ -1833,23 +1892,64 @@ impl Builder<'_, '_> {
     /// range ("from 0 to 4294967295") risked that for any number.
     fn payable_x(&self) -> Option<u32> {
         let note = self.request.note.as_ref()?;
-        let cost = note.cost.filter(ManaCost::has_variable)?;
+        let mut cost = note.cost.filter(ManaCost::has_variable)?;
+        let face = self.casting_face();
+        if let (Some(face), Some(way)) = (face, self.prior.way) {
+            match way {
+                Way::Buyback => {
+                    if let Some(buyback) = face.buyback {
+                        let less = self.prior.legal.map_or(0, |l| l.buyback_less);
+                        cost = cost.combine(&buyback.mana.with_less_generic(less));
+                    }
+                }
+                Way::Kicker => {
+                    for extra in face.additional_costs {
+                        cost = cost.combine(&extra.mana);
+                    }
+                }
+                Way::Multikicked(times) => {
+                    if let Some(each) = face.multikicker {
+                        cost = cost.combine_n(&each, times);
+                    }
+                }
+                Way::Replicated(times) => {
+                    if let Some(each) = face.replicate {
+                        cost = cost.combine_n(&each, times);
+                    }
+                }
+                Way::Mode(_) => {}
+            }
+        }
         let view = self.table.view;
         let caster = baylee_client_core::decision::resource_player(view);
         let pool = view.seat(caster)?.mana_pool;
-        let (sources, taps) = view.casting.map_or_else(
+        let casting = self.casting_card();
+        let (sources, taps) = casting.map_or_else(
             || (baylee_ai::mana_sources_in_view(view), Vec::new()),
             |spell| baylee_ai::mana_sources_in_view_for(view, spell),
         );
-        let assist = self
-            .casting_face()
-            .map_or_else(manaplan::Assist::default, |face| {
-                manaplan::Assist::read(view, caster, face, &sources)
-            });
-        let earmarked = manaplan::Earmarked {
-            floating: pool
+        let assist = face.map_or_else(manaplan::Assist::default, |face| {
+            manaplan::Assist::read(view, caster, face, &sources)
+        });
+        let mode = note
+            .alternative_cost
+            .or(note.cast_mode)
+            .unwrap_or(CastModeKind::Normal);
+        let floating = match (casting, self.prior.legal) {
+            (Some(spell), Some(legal)) => {
+                let allowed =
+                    legal.restricted_floating_for(baylee_engine::choice::Spend::cast(spell, mode));
+                std::array::from_fn(|i| {
+                    let in_pool = u32::try_from(pool.restricted[i]).unwrap_or(u32::MAX);
+                    allowed[i].min(in_pool)
+                })
+            }
+            _ => pool
                 .restricted
                 .map(|amount| u32::try_from(amount).unwrap_or(u32::MAX)),
+        };
+        let earmarked = manaplan::Earmarked {
+            floating,
             taps: &taps,
         };
         let pays = manaplan::greatest_x_earmarked(&cost, &pool, earmarked, &sources, &assist)?;
@@ -1867,7 +1967,7 @@ impl Builder<'_, '_> {
     /// the hand it was cast from, or wherever the view shows it now.
     fn casting_face(&self) -> Option<&'static baylee_cards_dsl::FaceDef> {
         let view = self.table.view;
-        let casting = view.casting?;
+        let casting = self.casting_card()?;
         let card = baylee_client_core::decision::hand(view)
             .iter()
             .find(|held| held.id == casting)
@@ -2213,33 +2313,86 @@ fn chooses_on_the_table(
             || view.stack.iter().any(|o| o.id == object))
 }
 
+fn filter_mentions_untapped_lands(filter: &baylee_cards_dsl::Filter) -> bool {
+    use baylee_cards_dsl::Filter;
+    fn walk(f: &Filter, land: &mut bool, untapped: &mut bool) {
+        match f {
+            Filter::HasType(types) if types.contains(baylee_core::types::TypeSet::LAND) => {
+                *land = true;
+            }
+            Filter::Untapped => *untapped = true,
+            Filter::And(parts) | Filter::Or(parts) => {
+                for part in *parts {
+                    walk(part, land, untapped);
+                }
+            }
+            _ => {}
+        }
+    }
+    let (mut land, mut untapped) = (false, false);
+    walk(filter, &mut land, &mut untapped);
+    land && untapped
+}
+
 /// Whether `object`'s card has a triggered ability that counts the lands a
-/// player controlled untapped as the turn began (Power Surge).
-fn counts_untapped_lands(object: &PublicObject) -> bool {
-    use baylee_cards_dsl::{Amount, Effect};
-    let Some(rules) = object.rules.or_else(|| object.card.map(Into::into)) else {
-        return false;
-    };
-    baylee_cards::by_index(rules.card).is_some_and(|def| {
-        def.abilities_for_face(usize::from(rules.face))
-            .iter()
-            .any(|ability| {
-                let AbilityDef::Triggered { effects, .. } = ability else {
-                    return false;
-                };
-                let mut counts = false;
-                Effect::walk(effects, &mut 0, &mut |effect| {
-                    counts |= matches!(
-                        effect,
-                        Effect::DealDamage {
-                            amount: Amount::UntappedLandsAtTurnStart,
-                            ..
-                        }
-                    );
-                });
-                counts
-            })
-    })
+/// player controls untapped (`Power Surge`, `Citadel of Pain`), returning the
+/// phrase describing when it counts them.
+fn counts_untapped_lands(object: &PublicObject) -> Option<&'static str> {
+    use baylee_cards_dsl::{Amount, Effect, Trigger, ZoneSel};
+    let rules = object.rules.or_else(|| object.card.map(Into::into))?;
+    let def = baylee_cards::by_index(rules.card)?;
+    for ability in def.abilities_for_face(usize::from(rules.face)) {
+        let AbilityDef::Triggered {
+            trigger, effects, ..
+        } = ability
+        else {
+            continue;
+        };
+        let mut turn_start = false;
+        let mut live_untapped = false;
+        Effect::walk(effects, &mut 0, &mut |effect| match effect {
+            Effect::DealDamage {
+                amount: Amount::UntappedLandsAtTurnStart,
+                ..
+            } => turn_start = true,
+            Effect::DealDamage {
+                amount:
+                    Amount::CountOf {
+                        filter,
+                        zone: ZoneSel::Battlefield,
+                    },
+                ..
+            }
+            | Effect::LoseLife {
+                amount:
+                    Amount::CountOf {
+                        filter,
+                        zone: ZoneSel::Battlefield,
+                    },
+                ..
+            } if filter_mentions_untapped_lands(filter) => {
+                live_untapped = true;
+            }
+            _ => {}
+        });
+        if turn_start {
+            return Some("as a turn begins");
+        }
+        if live_untapped {
+            return Some(match trigger {
+                Trigger::StepBegin {
+                    step: baylee_cards_dsl::StepKind::End,
+                    ..
+                } => "at the beginning of an end step",
+                Trigger::StepBegin {
+                    step: baylee_cards_dsl::StepKind::Upkeep,
+                    ..
+                } => "at the beginning of an upkeep",
+                _ => "when its ability triggers",
+            });
+        }
+    }
+    None
 }
 
 /// "4 time counters", "1 time counter": what a suspend exiles a card with

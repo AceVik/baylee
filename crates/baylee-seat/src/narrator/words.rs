@@ -238,6 +238,10 @@ fn replacement_prompt(event: &str) -> String {
 pub fn library_choice_prompt(prompt: ChoicePrompt, whose: &str) -> String {
     match prompt {
         ChoicePrompt::SearchLibrary => format!("Search {whose} library: choose the cards to find"),
+        ChoicePrompt::SearchLibraryTappedAndHand => format!(
+            "Search {whose} library: choose up to 2 cards (the first enters the battlefield \
+             tapped, the second goes into your hand)"
+        ),
         ChoicePrompt::PutBackOnTop => {
             format!("Choose the cards to put back on top of {whose} library")
         }
@@ -279,13 +283,14 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
             x,
             paid,
             fixed_cost,
-        } => format!(
-            "Choose a creature to cast face down, or choose none to decline. X = {x}; actual total mana paid (white, blue, black, red, green, colorless): {paid:?}; fixed activation cost: {fixed_cost}"
-        ),
+        } => cast_face_down_prompt(x, paid, fixed_cost),
         ChoicePrompt::TappedForCounters { kind } => format!("Choose permanents tapped this way to receive one {} each (not targets)", baylee_client_core::interaction::counter_label(kind, baylee_client_core::Lang::En)),
         ChoicePrompt::Proliferate => "Choose permanents to give one additional counter of each kind already present".into(),
         ChoicePrompt::RevealDiscard => "Choose discards to reveal with Nephalia Academy; unselected cards use Library of Leng and stay hidden".into(),
-        ChoicePrompt::SearchLibrary | ChoicePrompt::PutBackOnTop | ChoicePrompt::PutOnBottom => {
+        ChoicePrompt::SearchLibrary
+        | ChoicePrompt::SearchLibraryTappedAndHand
+        | ChoicePrompt::PutBackOnTop
+        | ChoicePrompt::PutOnBottom => {
             library_choice_prompt(prompt, "your")
         }
         ChoicePrompt::Wish => "Choose a card from outside the game".into(),
@@ -361,6 +366,16 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
         }
         ChoicePrompt::Generic => "Choose cards".into(),
     }
+}
+
+fn cast_face_down_prompt(
+    x: u32,
+    paid: [u32; 6],
+    fixed_cost: baylee_core::mana::ManaCost,
+) -> String {
+    format!(
+        "Choose a creature to cast face down, or choose none to decline. X = {x}; actual total mana paid (white, blue, black, red, green, colorless): {paid:?}; fixed activation cost: {fixed_cost}"
+    )
 }
 
 /// Private hand inspection either ends at confirmation or names the discard.

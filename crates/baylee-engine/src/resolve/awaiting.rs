@@ -118,6 +118,12 @@ pub enum AwaitingOp {
     },
     /// An opponent guesses whether the chosen name is in the controller's hand.
     GuessNamedCardInHand {
+        /// Who makes the guess.
+        guesser: PlayerId,
+        /// Card index of the chosen name.
+        card: baylee_core::ids::CardIndex,
+        /// Face of `card` whose name was chosen.
+        face: u8,
         /// The fact hidden from the guesser.
         actual: bool,
     },
@@ -1296,9 +1302,12 @@ impl AwaitingOp {
                 continuation,
             } => crate::state::structural_fingerprint(&(63_u8, player, outcomes, continuation)),
             Self::RevealLibrarySearch => 66,
-            Self::GuessNamedCardInHand { actual } => {
-                crate::state::structural_fingerprint(&(64_u8, actual))
-            }
+            Self::GuessNamedCardInHand {
+                guesser,
+                card,
+                face,
+                actual,
+            } => crate::state::structural_fingerprint(&(64_u8, guesser, card, face, actual)),
             Self::MeldPartner => 29,
             Self::Dungeon { choices } => crate::state::structural_fingerprint(&(25_u8, choices)),
             Self::MutatePosition => 26,

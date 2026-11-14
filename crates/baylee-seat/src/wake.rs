@@ -765,7 +765,7 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
     if owes(view) {
         return Vec::new();
     }
-    let sources = baylee_ai::mana_sources(view, legal);
+    let sources = baylee_ai::seat_mana_sources(view, legal);
     let me = decision::resource_player(view);
     let hand = decision::hand(view);
     let Some(pool) = view.seat(me).map(|seat| seat.mana_pool) else {
@@ -912,7 +912,7 @@ pub fn reachable_abilities(view: &PlayerView, legal: &LegalActions) -> Vec<Abili
         .filter_map(|&(source, ability_index, cost)| {
             cost.symbols().next()?;
             let taps_self = baylee_ai::ability_taps_its_source(view, source, ability_index);
-            let plan = baylee_ai::plan_for_activation(
+            let plan = baylee_ai::seat_plan_for_activation(
                 &cost.with_x(0),
                 &pool,
                 view,
@@ -964,7 +964,7 @@ pub fn reachable_foretell(view: &PlayerView, legal: &LegalActions) -> Vec<(Objec
         .unpaid_foretell
         .iter()
         .filter_map(|&card| {
-            let plan = baylee_ai::plan_for_activation(&cost, &pool, view, legal, card, false)
+            let plan = baylee_ai::seat_plan_for_activation(&cost, &pool, view, legal, card, false)
                 .filter(|plan| !plan.steps.is_empty())?;
             Some((card, plan))
         })

@@ -925,7 +925,10 @@ impl Interaction {
             Pending::ChooseCards {
                 options,
                 prompt:
-                    ChoicePrompt::SearchLibrary | ChoicePrompt::PutBackOnTop | ChoicePrompt::PutOnBottom,
+                    ChoicePrompt::SearchLibrary
+                    | ChoicePrompt::SearchLibraryTappedAndHand
+                    | ChoicePrompt::PutBackOnTop
+                    | ChoicePrompt::PutOnBottom,
                 ..
             } => {
                 let shown: Vec<ObjectId> = options
