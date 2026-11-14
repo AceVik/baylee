@@ -675,15 +675,9 @@ impl<L: CardLookup> Engine<L> {
                 if obj.is_merged_component() {
                     continue;
                 }
-                let Some(card_ref) = obj.card else { continue };
-                let Some(def) = self.lookup.card(card_ref.index) else {
-                    continue;
-                };
-                for (i, ability) in def
-                    .abilities_for_face(obj.face_index as usize)
-                    .iter()
-                    .enumerate()
-                {
+                // Command-zone emblems may carry their own abilities without
+                // a printed card. The activation path reads this same list.
+                for (i, ability) in obj.abilities(&self.lookup).iter().enumerate() {
                     let Some(ability) =
                         self.activation_offer_definition(player, card, i as u32, ability)
                     else {

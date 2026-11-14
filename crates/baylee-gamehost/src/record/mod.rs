@@ -171,7 +171,7 @@ pub enum Line {
         /// The build that played the game, as `baylee_build::short` says it.
         build: String,
         /// The preset the engine was built from.
-        preset: GamePreset,
+        preset: Box<GamePreset>,
         /// The engine's hash before any input.
         hash: String,
         /// [`seen`] before any input; `None` in a record from before it.
@@ -266,7 +266,7 @@ impl Recorder {
         recorder.write(&Line::Header {
             record: RECORD_VERSION,
             build: build.to_owned(),
-            preset: preset.clone(),
+            preset: Box::new(preset.clone()),
             hash: hex(engine.snapshot_hash()),
             seen: Some(hex(seen(engine.state()))),
         });
@@ -557,7 +557,7 @@ pub(crate) fn header_of(
             seen,
         }) => Ok(Head {
             build,
-            preset,
+            preset: *preset,
             hash,
             seen,
         }),
@@ -1306,7 +1306,7 @@ pub(crate) mod tests {
         let header = Line::Header {
             record: RECORD_VERSION,
             build: "b".into(),
-            preset: table(3),
+            preset: Box::new(table(3)),
             hash: hex(1),
             seen: None,
         };

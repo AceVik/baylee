@@ -2192,7 +2192,19 @@ impl HeuristicAgent {
                 CostPart::ReturnSelfToHand => origin
                     .object
                     .map_or(50, |o| i64::from(o.mana_value) * 60 + 50),
-                CostPart::RemoveCounterSelf { .. } | CostPart::RemoveCounterSelfX { .. } => 40,
+                CostPart::RemoveCounterSelf { .. } | CostPart::RemoveCounterSelfX { .. } => {
+                    // A Tower healing charge persists between duels. Reserve
+                    // it while life is comfortable; its normal five-life gain
+                    // is worth this opportunity cost once life falls to ten.
+                    let healing = origin
+                        .object
+                        .and_then(|o| o.token)
+                        .and_then(baylee_cards::tokens::by_token_id)
+                        .is_some_and(|t| {
+                            std::ptr::eq(t, &raw const baylee_cards::tokens::TOWER_HEALING_POTION)
+                        });
+                    if healing { 220 } else { 40 }
+                }
                 CostPart::PutCounterSelf { .. }
                 | CostPart::PutCounterOnOther { .. }
                 | CostPart::ExileFromGraveyard(_)

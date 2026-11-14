@@ -30,6 +30,10 @@ use baylee_core::generated::subtypes::{artifact, creature};
 use baylee_core::mana::ManaColor;
 use baylee_core::types::TypeSet;
 
+#[path = "tokens/tower.rs"]
+pub mod tower;
+pub use tower::{TOWER_HEALING_POTION, TOWER_MANA_POTION, TOWER_SEEDLING};
+
 /// The five colors, for "any color" mana abilities.
 static ANY_COLOR: &[ManaColor] = &[
     ManaColor::White,
@@ -578,13 +582,17 @@ pub fn by_token_id(id: u16) -> Option<&'static TokenDef> {
     ALL.get(id as usize).copied()
 }
 
-/// Verified printed ability text for central tokens, indexed by the DSL list.
+/// Ability text for registry objects, indexed by the DSL list. Tower supplies
+/// use explicitly original rules; card tokens use verified printed sentences.
 /// Food: Scryfall ELD token 15, bf36408d-ed85-497f-8e68-d3a922c388a0,
 /// checked 2026-10-02. Powerstone, Vibranium and Junk: the Scryfall records
 /// on their definitions, checked 2026-10-11. Unknown pairs have no invented sentence.
 #[must_use]
 pub fn ability_text(id: u16, index: u32) -> Option<&'static str> {
     let token = by_token_id(id)?;
+    if let Some(text) = tower::ability_text(token, index) {
+        return Some(text);
+    }
     if index < 2 && std::ptr::eq(token, &raw const SPIRIT_1_1_COLORLESS_SPIRIT_COMBAT) {
         return Some("This token can't block or be blocked by non-Spirit creatures.");
     }

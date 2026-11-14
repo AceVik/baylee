@@ -1,5 +1,29 @@
 # House AI
 
+## Original Tower supplies
+
+Global Tower packages use `AIProfile::TOWER_EXPERT`: Expert's tactical search,
+mulligan skill, threat handling and seeded noise, with `foresight = 0`. This is
+explicitly a mode-specific Expert policy. The additional host-load-adaptive
+foresight scheduler used by ordinary Expert tables cannot be recomputed from
+an immutable record on another gateway and is therefore not enabled here.
+The reserved build identifies the exact policy implementation. Its strength
+still requires measured full-duel balance comparisons before release.
+
+Tower potions use the existing activated-ability and color-choice paths. Their
+stable registry identities carry their rules into human, house, trained and
+language-model views. A healing charge is valued as a limited resource that
+can be kept for a later duel: its current opportunity cost is 220 in the house
+heuristic, so a five-life gain is declined at a comfortable life total and used
+once life falls to ten or less. This is an initial tuning policy, not measured
+optimal play. Ordinary card-counter costs retain their prior value.
+
+The mana planner treats potion mana as priced and counts each remaining charge
+once. It spends charges toward a reachable legal spell or ability, and answers
+the ordinary color question. It does not spend them toward an unaffordable
+spell. The view and trained features include command-zone supply objects with
+their distinct definitions; no hidden deck information is introduced.
+
 ## Frozen challenge execution
 
 The opponent finishes its simultaneous opening decisions before a human answer

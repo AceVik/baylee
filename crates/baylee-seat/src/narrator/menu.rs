@@ -1514,6 +1514,16 @@ fn ability_def(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&'stat
 /// the sentence that granted it.
 fn ability_sentence(table: &Table<'_>, source: ObjectId, index: u32) -> Option<&'static str> {
     let view = table.view;
+    if let Some(object) = view.object(source)
+        && !object.status.is_face_down()
+        && object.rules.is_none()
+        && object.card.is_none()
+        && let Some(token) = object.token
+        && baylee_cards::tokens::tower::potion_kind(token).is_some()
+        && let Some(text) = baylee_cards::tokens::ability_text(token, index)
+    {
+        return Some(text);
+    }
     if let Some(slot) = baylee_engine::choice::granted_slot(index) {
         let grant = view.object(source)?.grant(slot)?;
         let rules = grant.rules?;

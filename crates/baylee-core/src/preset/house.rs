@@ -1,4 +1,4 @@
-use super::{HandSharingRule, LoopPolicy, SeatOpening, StartingCounters};
+use super::{HandSharingRule, LoopPolicy, SeatOpening, SeatSupplies, StartingCounters};
 use serde::{Deserialize, Serialize};
 
 /// Per-game house rules (versioned with the preset).
@@ -78,6 +78,10 @@ pub struct HouseRules {
     /// serialized presets and replay hashes.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub opening: Vec<SeatOpening>,
+    /// Original custom-mode potions and starting tokens. Ordinary presets omit
+    /// this field; no public table command can purchase or award supplies.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub supplies: Vec<SeatSupplies>,
 }
 
 /// Seconds a seat has to answer one question unless the table says
@@ -110,11 +114,26 @@ impl Default for HouseRules {
             hand_sharing: HandSharingRule::default(),
             challenge_policy_seed: None,
             opening: Vec::new(),
+            supplies: Vec::new(),
         }
     }
 }
 
 impl HouseRules {
+    pub(super) fn validate_seat_resources(
+        &self,
+        seats: usize,
+        format: super::FormatId,
+    ) -> Result<(), super::PresetError> {
+        if !super::opening::valid_list(&self.opening, seats) {
+            return Err(super::PresetError::SeatOpening);
+        }
+        if !super::supplies::valid_list(&self.supplies, seats, format == super::FormatId::Custom) {
+            return Err(super::PresetError::StartingSupplies);
+        }
+        Ok(())
+    }
+
     /// The rules of a game played at a table, by people or language models:
     /// the defaults, with the questions [`Self::default`] leaves out of a
     /// training or evaluation game because the net cannot be asked them.

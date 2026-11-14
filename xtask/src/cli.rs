@@ -60,7 +60,8 @@ pub(crate) enum Cmd {
         ///
         /// It also files a token newly written by hand in `tokens.rs` in
         /// `generated_tokens.rs`: that half of the ledger reads only
-        /// `tokens.rs` and the ledger itself, and may only append, so a card
+        /// `tokens.rs`, its original Tower definitions, and the ledger itself,
+        /// and may only append, so a card
         /// finished by hand can name a token of its own without the corpus.
         #[arg(long)]
         tables: bool,

@@ -131,6 +131,8 @@ mod house;
 pub use house::{DEFAULT_DECISION_SECS, HouseRules};
 mod opening;
 pub use opening::SeatOpening;
+mod supplies;
+pub use supplies::{SeatSupplies, TowerSupply};
 
 /// An atomic host edit. Absent password preserves the existing lock.
 ///
@@ -508,6 +510,14 @@ impl AIProfile {
         temperature_milli: 12,
         foresight: 5,
         ..Self::SHARP
+    };
+    /// Expert's tactical policy for a replay-verifiable Tower opponent.
+    /// Keeps Expert's combat search, mulligans, threat handling and noise;
+    /// disables the separate host-load-adaptive foresight scheduler so that
+    /// another gateway can reproduce every decision from the frozen view.
+    pub const TOWER_EXPERT: Self = Self {
+        foresight: 0,
+        ..Self::EXPERT
     };
     /// `expert` that peeks: it is told every opponent's decklist and hand
     /// and the next three cards of every library. Unfair by design, listed
@@ -947,6 +957,9 @@ pub enum PresetError {
     /// A per-seat opening override is duplicated, out of bounds or invalid.
     #[error("invalid per-seat opening rules")]
     SeatOpening,
+    /// Custom-mode starting supplies are out of bounds or duplicated.
+    #[error("invalid starting supplies")]
+    StartingSupplies,
     /// Fewer than two seats.
     #[error("preset needs at least 2 seats")]
     TooFewSeats,
@@ -1063,9 +1076,8 @@ impl GamePreset {
         if self.seats.len() > 8 {
             return Err(PresetError::TooManySeats);
         }
-        if !opening::valid_list(&self.house_rules.opening, self.seats.len()) {
-            return Err(PresetError::SeatOpening);
-        }
+        self.house_rules
+            .validate_seat_resources(self.seats.len(), self.format)?;
         if let Some(starting) = self.house_rules.starting_player
             && usize::from(starting) >= self.seats.len()
         {

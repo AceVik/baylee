@@ -49,7 +49,8 @@ use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 use std::sync::{Arc, Mutex};
 
-/// Verified Oracle sentence for a token ability; unknown pairs stay unknown.
+/// Registry rules text: verified card-token text or original custom-mode text.
+/// Unknown pairs stay unknown; original Tower rules are not Oracle quotations.
 #[must_use]
 pub fn token_sentence(token: u16, index: u32) -> Option<Vec<TextBlock>> {
     baylee_cards::tokens::ability_text(token, index).map(split_blocks)

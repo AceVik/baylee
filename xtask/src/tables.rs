@@ -475,7 +475,7 @@ fn render_turns(out: &mut String, turned: &BTreeMap<u32, Vec<u8>>) {
 /// `xtask ledger` has for the card index, and safe for the same reason:
 /// assignment only ever appends, and the build is what checks what came out.
 ///
-/// The hand-written half is found by reading `tokens.rs` for the statics it
+/// The hand-written half reads `tokens.rs` and `tokens/tower.rs` for the statics it
 /// declares, with a floor under how many it must find. A textual reader of
 /// this pool that answers an empty list is not a hypothetical — eleven of
 /// them have now been caught doing it — and here an empty list would not
@@ -489,7 +489,12 @@ pub(crate) fn render_token_ledger(
     const HAND_WRITTEN_FLOOR: usize = 14;
 
     let tokens = root.join("crates/cards/src/tokens.rs");
-    let text = fs::read_to_string(&tokens)?;
+    let mut text = fs::read_to_string(&tokens)?;
+    // Original custom-mode objects share the same append-only identity ledger.
+    // Their definitions are kept separate from the card token vocabulary.
+    text.push_str(&fs::read_to_string(
+        root.join("crates/cards/src/tokens/tower.rs"),
+    )?);
     let hand: Vec<String> = text
         .lines()
         .filter_map(|line| {

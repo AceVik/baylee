@@ -89,17 +89,22 @@ impl Session {
         if usize::from(player.get()) >= self.seats.len() {
             return false;
         }
-        if self.is_challenge() && !self.challenge_replay_answer(player, by, &action) {
-            return false;
-        }
         let moves_the_game = !action.is_automation_setting();
         let deciding = self.deciding();
-        let asked = self.answering(player, &action);
         let clock =
             (by == Source::Clock).then(|| clock_answer(self.engine.pending_for(player), &action));
-        if self.engine.apply(player, action).is_err() {
-            return false;
-        }
+        let asked = if self.is_challenge() {
+            let Some(asked) = self.challenge_replay_apply(player, by, &action) else {
+                return false;
+            };
+            asked
+        } else {
+            let asked = self.answering(player, &action);
+            if self.engine.apply(player, action).is_err() {
+                return false;
+            }
+            asked
+        };
         self.challenge_answered(player, by);
         if moves_the_game
             && by == Source::Seat

@@ -189,28 +189,39 @@ impl Session {
 
     /// An invalid agent proposal must not leave an untimed seat stalled (#180).
     pub(super) fn apply_house_action(&mut self, player: PlayerId, action: PlayerAction) -> bool {
-        let moves = !action.is_automation_setting();
         let deciding = self.deciding();
-        let asked = self.answering(player, &action);
         let by = if self.seats[player.get() as usize].is_away() {
             Source::StandIn
         } else {
             Source::House
         };
+        let Some((accepted, asked)) = self.accept_house_proposal(player, action, by) else {
+            return false;
+        };
+        let moves = !accepted.is_automation_setting();
+        self.challenge_answered(player, by);
+        if self.record.is_some() {
+            self.recorded(player, by, accepted);
+        }
+        self.log_answer(player, &asked, deciding, None);
+        moves
+    }
+
+    /// Live play and frozen-policy replay use the same deterministic recovery.
+    /// Applies exactly the accepted proposal or fallback; the caller logs it once.
+    pub(super) fn accept_house_proposal(
+        &mut self,
+        player: PlayerId,
+        action: PlayerAction,
+        by: Source,
+    ) -> Option<(PlayerAction, Asked)> {
+        let asked = self.answering(player, &action);
         let refused = action.clone();
-        let kept = self.record.is_some().then(|| action.clone());
         self.last_attempt = Some((player, by, action.clone()));
         let applied = self.engine.apply(player, action);
         self.last_attempt = None;
         let error = match applied {
-            Ok(()) => {
-                self.challenge_answered(player, by);
-                if let Some(action) = kept {
-                    self.recorded(player, by, action);
-                }
-                self.log_answer(player, &asked, deciding, None);
-                return moves;
-            }
+            Ok(()) => return Some((refused, asked)),
             Err(error) => error,
         };
         // A refused answer leaves the engine as it was, so the question the
@@ -239,25 +250,19 @@ impl Session {
                 game_over = matches!(self.engine.pending(), Pending::GameOver(_)),
                 "the house answered for a seat that was asked nothing; the answer is dropped",
             );
-            return false;
+            return None;
         };
         let fallback = self
             .table()
             .refusal_fallback(player, pending, &refused)
             .expect("refused AI action left no decision");
         let asked = self.answering(player, &fallback);
-        let kept = self.record.is_some().then(|| fallback.clone());
         self.last_attempt = Some((player, by, fallback.clone()));
-        self.engine.apply(player, fallback).expect(
+        self.engine.apply(player, fallback.clone()).expect(
             "both AI proposal and recovery were refused; refusing to silently stall the table",
         );
         self.last_attempt = None;
-        self.challenge_answered(player, by);
-        if let Some(action) = kept {
-            self.recorded(player, by, action);
-        }
-        self.log_answer(player, &asked, deciding, None);
-        true
+        Some((fallback, asked))
     }
 
     /// What the log needs to know of `player`'s answer before it is spent.

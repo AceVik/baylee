@@ -1,5 +1,5 @@
 //! A frozen opponent and one human: changing transport or presentation cannot reroll a task.
-use super::Session;
+use super::{Asked, Session};
 use crate::record::Source;
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::{GamePreset, HouseRules, SeatController};
@@ -38,25 +38,42 @@ impl Session {
         }
     }
 
-    /// Rebuild the fixed agent's state while replaying, and verify every claimed
-    /// house action. Otherwise a restarted host would forget its stall memory.
-    pub(super) fn challenge_replay_answer(
-        &self,
+    /// Apply the exact fixed-policy answer, including deterministic recovery after
+    /// a refused proposal. On mismatch the caller discards this replay session:
+    /// the genuine policy action may already have been applied, never the forgery.
+    pub(super) fn challenge_replay_apply(
+        &mut self,
         seat: PlayerId,
         by: Source,
         action: &PlayerAction,
-    ) -> bool {
+    ) -> Option<Asked> {
         match (seat.get(), by) {
-            (0, Source::Seat) => action.is_automation_setting() || !self.needs_pump(),
-            (1, Source::House) => {
-                self.engine
-                    .pending_for(seat)
-                    .and_then(|pending| self.table().house_answer(seat, pending))
-                    .as_ref()
-                    == Some(action)
+            (0, Source::Seat) if action.is_automation_setting() || !self.needs_pump() => {
+                let asked = self.answering(seat, action);
+                self.engine.apply(seat, action.clone()).ok()?;
+                Some(asked)
             }
-            _ => false,
+            (1, Source::House) => {
+                let proposal = self
+                    .engine
+                    .pending_for(seat)
+                    .and_then(|pending| self.table().house_answer(seat, pending))?;
+                self.replay_house_proposal(seat, proposal, action)
+            }
+            _ => None,
         }
+    }
+
+    /// Check the accepted result of the policy proposal, including its recovery.
+    /// A caller seeing `None` must discard the replay session.
+    pub(super) fn replay_house_proposal(
+        &mut self,
+        seat: PlayerId,
+        proposal: PlayerAction,
+        recorded: &PlayerAction,
+    ) -> Option<Asked> {
+        let (accepted, asked) = self.accept_house_proposal(seat, proposal, Source::House)?;
+        (accepted == *recorded).then_some(asked)
     }
 
     /// Whether this game uses a frozen challenge opponent and may never replace its human.

@@ -1611,3 +1611,18 @@ fn vanilla_and_verified_tokens_do_not_show_pending_rules_text() {
         food_face.body
     );
 }
+
+#[test]
+fn tower_potion_emblem_has_rules_text_without_claiming_to_be_a_permanent_token() {
+    let mut potion = baylee_client_core::test_support::token(93, 0, "Tower Healing Potion", 0, 0);
+    potion.status = baylee_view::ObjectStatus::from_bits(0);
+    potion.types = TypeSet::EMPTY;
+    potion.power = None;
+    potion.toughness = None;
+    potion.token = Some(baylee_cards::tokens::token_id(
+        &baylee_cards::tokens::TOWER_HEALING_POTION,
+    ));
+    let face = of_object(&potion, None, &crate::cardtext::CardTexts::default());
+    assert!(!face.text_pending);
+    assert!(face.body.iter().any(|b| b.text().contains("gain 5 life")));
+}

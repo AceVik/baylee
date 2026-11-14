@@ -22,6 +22,9 @@ fn uses_documented_face_fallback(token: &TokenDef) -> bool {
         &JACE_PLANESWALKER_BLUE,
         &TETRAVITE_1_1_COLORLESS_ARTIFACT_FLYING,
         &WOLVES_OF_THE_HUNT_1_1_GREEN_WOLF,
+        &TOWER_HEALING_POTION,
+        &TOWER_MANA_POTION,
+        &TOWER_SEEDLING,
     ]
     .into_iter()
     .any(|fallback| std::ptr::eq(token, fallback))
@@ -37,6 +40,7 @@ fn uses_documented_face_fallback(token: &TokenDef) -> bool {
 fn every_token_written_here_has_an_id_in_the_ledger() {
     let declared: Vec<&str> = include_str!("../tokens.rs")
         .lines()
+        .chain(include_str!("tower.rs").lines())
         .filter_map(|line| {
             line.trim()
                 .strip_prefix("pub static ")?

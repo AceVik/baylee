@@ -6,6 +6,13 @@ gold, equipment and consumables between manually played duels. This document
 describes the new work; it is **not** evidence that these features already run.
 The current five-floor certified expedition is documented in `../tower.md`.
 
+The [official Oaken Tower store description](https://store.steampowered.com/app/3400960/Oaken_Tower/?l=english),
+checked on 14 November 2026, describes PvP builds and buying/combining items;
+its store page also identifies asynchronous multiplayer. Baylee borrows that
+high-level progression idea only. Manual card play, exact same-stage cohorts,
+the item catalog and the service trust model below are Baylee design decisions,
+not claims about Oaken Tower's unpublished backend or copied content.
+
 ## Process boundary
 
 The owner explicitly rejected hosting Tower gameplay in Central and then selected
@@ -203,3 +210,57 @@ all-target Clippy for core, engine and gamehost passes. Independent static revie
 reported no actionable findings. Ordinary public table setup leaves these
 overrides empty. These are shared engine capabilities; the Tower shop and its
 authoritative loadout assembly still need to apply them.
+
+## Implementation evidence — supplies and private duel execution
+
+The original healing/mana emblems and starting Plant now use ordinary engine
+abilities and the append-only object registry. Five targeted engine tests cover
+ownership, timing, charges, color legality, stack behavior, deterministic replay
+and a registry that cannot provide the supply. House-policy tests cover the
+limited healing resource and reachable mana payments; two real Session tests
+exercise the projected abilities and Expert's color choice. Human card faces,
+the language-model narrator and trained features each have a focused passing
+test. Seven existing token-ledger/art/identity tests pass with the new entries.
+The independent review's copied-token narration finding was corrected and the
+follow-up static review found no remaining issue; its regression uses a Food
+token with Prodigal Sorcerer's current rules, whose activated text stays current.
+
+`baylee-tower::package` freezes owned shopping builds, bounds decoded material,
+binds the exact executor/rules/catalog and derives the complete preset from
+purchased resources. It grants no hidden-information or development capability.
+Canonical artwork comes from that executor's registry. The opponent uses the
+mode-specific `TOWER_EXPERT` policy documented in `../house-ai.md`, with no
+host-load-adaptive foresight. These packages are private execution material,
+not client-facing DTOs and not authorization credentials.
+
+`baylee-gamehost::session::tower::verify` requires the stored preset, this exact
+build, sequential input identities, matching state hashes and one final engine
+result. Every house decision is recomputed through the frozen-policy replay
+path. The verifier counts actual charge-removal events against the original
+source identity and incarnation; elimination leaves unused inventory intact.
+Bounds are 16 MiB, 50,000 lines, 128 KiB per line, 500 turns and 500,000 journal
+events, plus a cooperative worker deadline between decisions. The service must
+also supervise the worker's process memory and wall time: a cooperative check
+cannot interrupt one running engine decision.
+
+Nine focused package/narration/verifier tests pass in 0.071 seconds after
+compilation, including adversarial package/sequence/hash/policy/outcome changes,
+truncated/duplicated terminal records, work bounds and paid versus unused
+charges. Existing record/resumption checks also pass after boxing the header's
+preset to keep the enlarged enum compact; serialized JSON remains unchanged.
+Independent verifier review found a live/replay mismatch after a rejected house
+proposal. Both paths now apply the same engine-checked proposal and deterministic
+recovery, then compare the accepted action; a mismatch discards the replay
+session. Fourteen focused Tower/challenge/recovery tests pass (0.509 seconds),
+plus the added fallback regression (0.055 seconds). Follow-up static review
+reported no remaining concrete finding. A record cannot choose a recovery when
+the actual policy proposal was legal.
+An initial broad build exhausted disk space before tests ran. Removing only
+this worktree's generated client/train artifacts recovered 85.9 GiB; the
+successful regression run selects library tests and avoids a client rebuild.
+
+These are tested execution components, not a running global Tower service.
+Durable reservation transactions, scoped authentication, gateway transport,
+verification job supervision, the native shop/belt, global ranking projection
+and permanent accomplishment delivery are still outstanding. No full-duel
+balance or completed global gameplay claim follows from the fixture tests.

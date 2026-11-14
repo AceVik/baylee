@@ -149,7 +149,7 @@ pub fn of_object(
     let mut face = CardFace::from_object(object, cost, printed.map(printed_types), text.as_ref());
     if text.is_none()
         && card_face.is_none()
-        && object.status.contains(baylee_view::ObjectStatus::TOKEN)
+        && (object.status.contains(baylee_view::ObjectStatus::TOKEN) || object.token.is_some())
     {
         if let Some(token_id) = object.token
             && let Some(token_def) = baylee_cards::tokens::by_token_id(token_id)

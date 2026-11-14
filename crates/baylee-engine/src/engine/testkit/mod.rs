@@ -26,6 +26,16 @@ impl CardLookup for RegistryLookup {
         let _ = baylee_engine::ability_log::POOL.set(baylee_cards::by_index);
         baylee_cards::by_index(index)
     }
+    fn token_id(&self, token: &baylee_cards_dsl::TokenDef) -> Option<u16> {
+        let id = baylee_cards::tokens::token_id(token);
+        baylee_cards::tokens::by_token_id(id).map(|_| id)
+    }
+    fn tower_supply(
+        &self,
+        supply: baylee_core::preset::TowerSupply,
+    ) -> Option<&'static baylee_cards_dsl::TokenDef> {
+        Some(baylee_cards::tokens::tower::definition(supply))
+    }
 }
 
 /// Registry index by Scryfall oracle id (panics with a clear message).

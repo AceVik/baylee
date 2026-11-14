@@ -378,9 +378,9 @@ fn drawn_from_prior(
             .admit_printed_card(index, lookup)
             .map_err(|error| match error {
                 SetupError::UnknownCard(card) => PriorFault::UnknownCard(card),
-                SetupError::Preset(_) | SetupError::UnknownCounter(_) => {
-                    PriorFault::UnknownCard(index)
-                }
+                SetupError::Preset(_)
+                | SetupError::UnknownCounter(_)
+                | SetupError::UnsupportedSupply => PriorFault::UnknownCard(index),
             })
             .map_err(ForkRefusal::UnusablePrior)?;
         identities.push(Identity {

@@ -10,7 +10,7 @@ use baylee_core::preset::{
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
 
-fn preset(opening: Vec<SeatOpening>) -> GamePreset {
+pub(super) fn preset(opening: Vec<SeatOpening>) -> GamePreset {
     let seat = SeatSpec {
         controller: SeatController::Ai(AIProfile::default()),
         capabilities: baylee_core::preset::SeatCapabilities::default(),

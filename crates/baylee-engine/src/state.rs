@@ -41,6 +41,7 @@ mod players;
 mod projection;
 mod reads;
 mod setup;
+mod supplies;
 #[cfg(test)]
 mod tests;
 mod upkeep_history;
@@ -70,6 +71,14 @@ pub trait CardLookup {
     /// Stable presentation id of a registry token; `u16::MAX` is reserved.
     /// Custom lookups may omit identities without affecting token rules.
     fn token_id(&self, _token: &baylee_cards_dsl::TokenDef) -> Option<u16> {
+        None
+    }
+    /// Original custom-mode supply definition. A lookup that does not support
+    /// these objects refuses the preset rather than silently dropping items.
+    fn tower_supply(
+        &self,
+        _supply: baylee_core::preset::TowerSupply,
+    ) -> Option<&'static baylee_cards_dsl::TokenDef> {
         None
     }
 }
@@ -313,6 +322,9 @@ pub enum SetupError {
     /// A counter name is not in the supported setup vocabulary.
     #[error("unknown starting counter `{0}`")]
     UnknownCounter(String),
+    /// A custom preset requests a supply absent from this registry.
+    #[error("unsupported custom-mode supply")]
+    UnsupportedSupply,
 }
 
 /// State operation failures.

@@ -285,6 +285,7 @@ impl GameState {
                 }
             }
         }
+        state.seed_supplies(&preset.house_rules.supplies, lookup)?;
         Ok(state)
     }
 

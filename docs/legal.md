@@ -41,6 +41,12 @@ and uses additional marks from the already shipped, licensed Font Awesome font.
 It adds no third-party picture, font file, logo or card-image treatment. Existing
 unofficial notices and vendored font licences remain applicable.
 
+The same day's Tower-supply pass rechecked the policy's “Tell the Community it’s
+unofficial.” requirement. Potion names, rules sentences and the starting Plant
+are original custom-mode content. Their registry entries have no Scryfall image
+identifier, copied artwork, external logo or Oracle-card identity; no third-party
+asset is added. Original rules sentences are labelled as such in the source.
+
 - Unofficial non-commercial fan project. No WotC assets in the repo, except
   the card images inside recordings of the game (§3, "Recordings of the game
   show its card images").

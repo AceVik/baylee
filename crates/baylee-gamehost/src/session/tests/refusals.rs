@@ -63,6 +63,42 @@ fn issue_180_a_refused_non_priority_action_recovers() {
     assert_ne!(session.engine.snapshot_hash(), before);
 }
 
+/// The accepted fallback is part of the fixed policy, but is not an alternative
+/// a submitted record may choose when the original policy proposal was legal.
+#[test]
+fn frozen_replay_accepts_the_live_recovery_only_after_the_same_proposal_is_refused() {
+    use crate::record::{self, Line};
+    let preset = test_preset();
+    let player = PlayerId::new(1);
+    let refused = PlayerAction::PlayLand {
+        card: ObjectId::new(999_999, 0),
+    };
+    let mut live = Session::new_recorded(&preset, record::this_build()).unwrap();
+    assert!(live.apply_house_action(player, refused.clone()));
+    let bytes = live.take_record();
+    let accepted = record::lines_of(&bytes)
+        .find_map(|line| match line.unwrap() {
+            Line::Input { action, .. } => Some(action),
+            _ => None,
+        })
+        .expect("accepted fallback recorded");
+    assert_ne!(accepted, refused);
+    let mut replay = Session::new(&preset).unwrap();
+    assert!(
+        replay
+            .replay_house_proposal(player, refused, &accepted)
+            .is_some()
+    );
+    assert_eq!(replay.snapshot_hash(), live.snapshot_hash());
+
+    let mut forgery = Session::new(&preset).unwrap();
+    assert!(
+        forgery
+            .replay_house_proposal(player, accepted, &PlayerAction::Concede)
+            .is_none()
+    );
+}
+
 /// A house proposal the engine refuses leaves a record that replays.
 ///
 /// r001's games 1581, 3288 and 3554: the house said yes to a Banishing

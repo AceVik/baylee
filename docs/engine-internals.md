@@ -13,6 +13,24 @@ An empty override list preserves existing serialized presets and continuation
 hashes; nonempty rules participate in the continuation hash. Public ordinary
 table setup does not accept these custom overrides.
 
+`HouseRules::supplies` is restricted to custom presets, with one entry per seat,
+at most two combined potion charges and one starting seedling. A registry that
+cannot resolve a requested supply refuses setup. Original Tower potion objects
+are command-zone emblems with ordinary activated abilities: remove one charge
+as the cost, then gain five life on the stack or choose one color and add one
+mana without the stack. Life gain follows normal game rules and can exceed the
+starting life total. Charges do not regenerate during a duel. Their definitions
+share the append-only token/ability identity ledger for all view consumers, but
+the engine and public status distinguish an emblem from a permanent token.
+The seedling is an ordinary green 1/1 Plant token on the starting battlefield.
+These are Baylee custom-mode rules, not additional card printings.
+
+Result verification must retain the original potion source identities and read
+the paid counter-removal events, including after a player is eliminated. Treating
+an eliminated player's absent command zone as zero remaining charges would
+incorrectly consume potions the player never used. Only a verified record may
+change the run inventory; the public view is not a consumption receipt.
+
 Arena of `GameObject`s (`ObjectId = slot:24 | generation:8`). Kinds: Card,
 Spell, Permanent, Token, Emblem, AbilityOnStack. Zone is a property; zones
 hold ordered ids (library order IS the data). Every card instance carries

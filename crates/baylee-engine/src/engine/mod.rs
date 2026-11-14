@@ -2493,6 +2493,8 @@ mod thrun_tests;
 #[cfg(test)]
 mod token_tests;
 #[cfg(test)]
+mod tower_supplies_tests;
+#[cfg(test)]
 mod trample_division_tests;
 #[cfg(test)]
 mod trigger_order_tests;

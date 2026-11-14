@@ -38,6 +38,7 @@ mod resume;
 mod simulation;
 mod spectators;
 mod table;
+pub mod tower;
 
 #[cfg(any(test, feature = "foresight"))]
 pub use foresight::{
@@ -66,6 +67,12 @@ impl CardLookup for RegistryLookup {
     fn token_id(&self, token: &baylee_cards_dsl::TokenDef) -> Option<u16> {
         let id = baylee_cards::tokens::token_id(token);
         baylee_cards::tokens::by_token_id(id).map(|_| id)
+    }
+    fn tower_supply(
+        &self,
+        supply: baylee_core::preset::TowerSupply,
+    ) -> Option<&'static baylee_cards_dsl::TokenDef> {
+        Some(baylee_cards::tokens::tower::definition(supply))
     }
 }
 

@@ -35,6 +35,7 @@ mod stack_tests;
 mod targets_tests;
 mod team_tests;
 mod timing_tests;
+mod tower_supplies_tests;
 mod x_target_tests;
 
 fn obj(slot: u32) -> ObjectId {

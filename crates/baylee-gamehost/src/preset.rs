@@ -81,6 +81,7 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
         // The public setup message never enables official challenge execution.
         challenge_policy_seed: None,
         opening: Vec::new(),
+        supplies: Vec::new(),
         decision_timeout_secs: h.decision_timeout_secs,
         reconnect_window_secs: h.reconnect_window_secs,
         timing_normalization: h.timing_normalization,

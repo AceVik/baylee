@@ -1,6 +1,43 @@
 use super::*;
 
 #[test]
+fn starting_supplies_are_custom_only_bounded_unique_and_legacy_optional() {
+    let old = serde_json::to_value(HouseRules::default()).unwrap();
+    assert!(old.get("supplies").is_none());
+    assert!(
+        serde_json::from_value::<HouseRules>(old)
+            .unwrap()
+            .supplies
+            .is_empty()
+    );
+    let mut p = preset(2, 1, 0);
+    let good = SeatSupplies {
+        seat: 0,
+        healing: 1,
+        mana: 1,
+        seedling: true,
+    };
+    p.house_rules.supplies = vec![good];
+    assert_eq!(p.validate(), Err(PresetError::StartingSupplies));
+    p.format = FormatId::Custom;
+    assert!(p.validate().is_ok());
+    for bad in [
+        SeatSupplies { healing: 2, ..good },
+        SeatSupplies {
+            healing: 255,
+            mana: 255,
+            ..good
+        },
+        SeatSupplies { seat: 2, ..good },
+    ] {
+        p.house_rules.supplies = vec![bad];
+        assert_eq!(p.validate(), Err(PresetError::StartingSupplies));
+    }
+    p.house_rules.supplies = vec![good, good];
+    assert_eq!(p.validate(), Err(PresetError::StartingSupplies));
+}
+
+#[test]
 fn per_seat_openings_are_bounded_unique_and_absent_from_ordinary_records() {
     let old = serde_json::to_value(HouseRules::default()).unwrap();
     assert!(old.get("opening").is_none());

@@ -135,7 +135,7 @@ pub fn archive(file: &str, archived: bool) -> Result<(), String> {
 pub fn preset(record: &[u8]) -> Option<baylee_core::preset::GamePreset> {
     let first = record.split(|b| *b == b'\n').next()?;
     match serde_json::from_slice::<Line>(first).ok()? {
-        Line::Header { preset, .. } => Some(preset),
+        Line::Header { preset, .. } => Some(*preset),
         _ => None,
     }
 }

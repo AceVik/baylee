@@ -7,7 +7,9 @@
 pub mod cards;
 pub mod economy;
 pub mod items;
+pub mod loadout;
 pub mod matching;
+pub mod package;
 pub mod run;
 pub mod shop;
 

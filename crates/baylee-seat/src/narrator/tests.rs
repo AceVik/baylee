@@ -21,6 +21,62 @@ pub(crate) const ME: PlayerId = PlayerId::new(0);
 pub(crate) const THEM: PlayerId = PlayerId::new(1);
 
 #[test]
+fn tower_potion_menu_names_its_charge_and_effect() {
+    let (mut view, log) = board();
+    let mut potion = token(93, 0, "Tower Healing Potion", 0, 0);
+    potion.status = ObjectStatus::from_bits(0);
+    potion.types = baylee_core::types::TypeSet::EMPTY;
+    potion.power = None;
+    potion.toughness = None;
+    potion.token = Some(baylee_cards::tokens::token_id(
+        &baylee_cards::tokens::TOWER_HEALING_POTION,
+    ));
+    view.command[0].push(potion);
+    let request = request(
+        view,
+        Pending::Priority {
+            player: ME,
+            legal: Box::new(LegalActions {
+                can_pass: true,
+                abilities: vec![(id(93), 0)],
+                ..Default::default()
+            }),
+        },
+        log,
+    );
+    let text = Narrator::new(&request.context)
+        .wake(&request, &[], None)
+        .text;
+    assert!(text.contains("Remove a charge"), "{text}");
+    assert!(text.contains("gain 5 life"), "{text}");
+}
+
+#[test]
+fn copied_token_menu_uses_current_rules_instead_of_original_food_text() {
+    let (mut view, log) = board();
+    let mut copied = token(93, 0, "Prodigal Sorcerer", 1, 1);
+    copied.token = Some(baylee_cards::tokens::token_id(&baylee_cards::tokens::FOOD));
+    copied.rules = Some(identity("Prodigal Sorcerer").into());
+    view.battlefield.push(copied);
+    let request = request(
+        view,
+        Pending::Priority {
+            player: ME,
+            legal: Box::new(LegalActions {
+                can_pass: true,
+                abilities: vec![(id(93), 0)],
+                ..Default::default()
+            }),
+        },
+        log,
+    );
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
+    let text = &wake.text;
+    assert!(text.contains("deals 1 damage"), "{text}");
+    assert!(!text.contains("gain 3 life"), "{text}");
+}
+
+#[test]
 fn optional_payment_exposes_mana_actions_before_the_number_question() {
     use baylee_core::mana::ManaPayment;
     let (mut view, log) = board();
