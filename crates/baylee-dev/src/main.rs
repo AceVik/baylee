@@ -17,6 +17,7 @@ mod reach;
 mod run;
 mod secret;
 mod shipping;
+mod tower;
 
 use clap::{Parser, Subcommand};
 use std::{path::PathBuf, process::ExitCode};
@@ -115,6 +116,8 @@ enum Task {
     /// The client's end-to-end tests: real dev-control clients, one per test
     /// (`docs/dev/e2e.md`).
     E2e(e2e::E2e),
+    /// Offline Tower design fixtures and adapter conformance; starts no game or service.
+    Tower(tower::Options),
     /// Central's integration checks against an owned PostgreSQL container.
     Central {
         #[command(subcommand)]
@@ -246,6 +249,7 @@ fn main() -> ExitCode {
             ),
             Task::Deploy { force } => ("deploy", deploy::run(force)),
             Task::E2e(options) => ("e2e", e2e::run(&options)),
+            Task::Tower(options) => ("tower", tower::run(options)),
             Task::Android {
                 env: Some(AndroidEnv::Env),
                 ..

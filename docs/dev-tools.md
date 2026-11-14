@@ -64,6 +64,17 @@ requirements (`docs/releasing.md`). Development features run only locally;
 CI's `cargo dev gate shipped-features` only checks that test hooks cannot
 reach shipped feature graphs.
 
+## Tower preparation
+
+`cargo dev tower check` validates the versioned recipe/resale/execution reference
+corpus without compiling or running the engine. `fixtures` exports its inputs;
+`compare PATH` checks complete results from a future production adapter;
+`pacing --wins 8 --defeats 5 --win-per-mille 500` evaluates an explicitly
+hypothetical independent-win model. These commands are offline and read-only.
+They do not prove live Tower correctness or binary feature exclusion. Contracts,
+limits, exact commands and deferred integration checks are documented in
+[`proposals/tower-echoes-preparation.md`](proposals/tower-echoes-preparation.md).
+
 ## Dev-control
 
 The protocol, isolation rules and input timing are in

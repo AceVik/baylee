@@ -20,5 +20,6 @@ workspace = true
 anyhow.workspace = true
 clap.workspace = true
 getrandom.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 baylee-client-e2e.workspace = true

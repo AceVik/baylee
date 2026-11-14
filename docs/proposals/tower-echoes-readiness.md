@@ -265,6 +265,11 @@ test run or background automation was initiated.
 
 ## Requirement traceability
 
+The owner's subsequent preparation/handoff instruction is recorded in the
+[current preparation checklist](tower-echoes-preparation.md). It permits offline
+Rust tools/tests now and replaces waiting for main with the exact READY-trailer
+handoff merge; earlier pass descriptions above remain chronological history.
+
 | Requirement | Decision in v2 | Implementation evidence required |
 | --- | --- | --- |
 | Global Tower, games on gateways | Sections 1, 5, 7 | One run across two gateways; exact reservation and echo |
@@ -282,15 +287,16 @@ test run or background automation was initiated.
 | Sparse meaningful tests | Section 9 | Changed-surface evidence, bounded samples, required gates |
 | New branch and later owner review | Header, section 10 | codex/tower-echoes; reviewed commits/PRs; no automatic merge |
 | Careful larger refactoring | Section 10 | Clear dependency boundaries; move-only commits; retained behavior/performance evidence |
-| Carbon fixes before refactoring | Header, section 10 | Verify specific fixes in main, rebase, retain their regression fixtures |
+| Bugfix swarm before refactoring | Header, section 10, preparation checklist | Final tip READY trailer, fresh verification, explicit merge/cleanup, retained regressions |
 
 ## Readiness decision
 
 The design has explicit ownership, transitions, recipes, default policies,
 failure semantics and a bounded vertical-slice sequence. There is no known
 unresolved architectural contradiction blocking the first implementation
-milestone after these passes. Implementation remains explicitly paused pending
-Carbon's fixes in main and the resulting rebase/reference check. This is not a
+milestone after these passes. Engine refactoring remains paused pending the
+final swarm READY handoff and its verified merge/reference check. Offline
+preparation tools/tests are authorized separately. This is not a
 guarantee of no defects or of player enjoyment, and does not mean the feature is
 implemented.
 

@@ -7,12 +7,15 @@ Working branch: `codex/tower-echoes`, PR base `main` in Baylee. It preserves the
 existing Daily/Weekly and Tower foundation; it is not an orphan history or a PR
 stack that requires the old feature branch to merge first.
 
-**Owner sequencing constraint:** remain in planning while Carbon fixes engine
-bugs. Those fixes must land in main before this work starts refactoring. Do not
-edit engine code, cherry-pick incomplete fixes, coordinate/mutate Carbon's branch
-or begin a parallel rewrite from the older base. Before implementation, fetch
-main, verify the intended fixes are present, rebase this branch and establish the
-post-fix reference behavior. The review date does not override this dependency.
+**Owner sequencing constraint, updated 14 November:** preparation tools and
+fixtures may proceed while the Antigravity/Carbon bugfix swarm works. Engine
+refactoring starts only after the final `agy/pre-refactor-handoff` tip has the
+exact `Astra-Handoff: READY-2026-11-14` trailer. The owner explicitly replaces the
+earlier wait-for-main/rebase sequence with a fresh verification and a `--no-ff`
+merge of that handoff, followed by remote/local handoff cleanup. The review date
+does not override this gate. See the exact sequence and current evidence in
+[the preparation checklist](tower-echoes-preparation.md). Do not mutate the
+swarm's worktree or cherry-pick an unfinished subset.
 
 This is the successor to [the initial proposal](tower-echoes.md). Code still
 implements the older short run, directly bought ranks and narrow supplies seam.
@@ -669,12 +672,14 @@ supported callers/records have a tested route. Measure allocation, throughput,
 binary size and build cost where a structural change affects them. Prefer a
 bounded working slice over carrying several unverified replacement subsystems.
 
-Sequence, gated by Carbon's fixes:
+Sequence, gated by the final bugfix handoff:
 
-0. Wait for the intended Carbon engine bugfixes to land in main. Record their
-   commits and regression fixtures, rebase, inspect touched overlaps and run only
-   the relevant existing checks to establish the new baseline. Do not claim this
-   dependency is satisfied merely because another unrelated commit reached main.
+0. Wait for the exact final handoff trailer using the owner's temporary Rust
+   watcher. Fresh-fetch and recheck the tip, merge it as explicitly authorized,
+   clean up the handoff refs/watcher, then inspect its audit/fault entries and
+   changed contracts. Record the exact merged commit and inherited regression
+   fixtures. Check relevant overlaps; do not repeat already passed broad gates
+   merely to poll readiness. A different commit on the branch is not completion.
 1. Freeze contracts and planned adversarial fixtures. Make the necessary move-only
    extractions; build and verify the three static execution variants/agent contract
    against ordinary reference games before new Tower effects complicate the diff.
@@ -693,7 +698,7 @@ Sequence, gated by Carbon's fixes:
 
 Carbon's regression cases remain acceptance cases through these milestones.
 If a refactor conflicts with a fix, understand the fixed invariant and preserve
-it; resolving a textual rebase conflict is not evidence that behavior survived.
+it; resolving a textual merge conflict is not evidence that behavior survived.
 
 Each working milestone gets its own reviewable commit and focused evidence.
 Daily/Weekly remain Central-certified and keep their existing multi-solution
