@@ -757,3 +757,31 @@ the future run/service transition must bind the terminal reservation exactly
 once; the pure economy operation is not that authorization boundary.
 The focused charge/cap/over-consumption test and strict all-target Tower Clippy
 passed in `/tmp/baylee-tower-v2-charges-{tests,clippy}-20261114.log`.
+
+## Persisted shop domain — eighteenth working milestone
+
+Revision two now models eight quantity-one offers with distinct monotonic
+run-local IDs. Two pins occupy existing slots across refreshes and visits;
+purchases clear their pin and keep the sold offer. Three refreshes cost 2/3/4
+gold. Cards, relics, table charges and crafting materials share one atomic
+purchase result, including buy-and-fuse. Reconnect serialization preserves the
+visit. Uncommon/Rare/material eligibility begins at stages 2/4/5; stage seven
+has one explicit full-price material replacement, including acknowledged
+replacement of an inherited utility pin.
+
+Generation is bounded and independent of catalog iteration order. New visits
+offer an affordable legal choice when one exists, considering the entire owned
+pool, inactive equipment, charges and legal full-bag fusion. A self-review found
+that testing only the first consumed fusion slot could miss a legal reserve
+output when equipping the result exceeded the mulligan cap. Both freed slots are
+now considered; the regression specifically requires that reserve output.
+No candidate is invented for a zero-gold/full-capacity state.
+
+Five focused tests passed in `/tmp/baylee-tower-v2-shop-tests-20261114-r2.log`,
+covering sixteen seeds across all twelve visits, catalog permutations and saved
+state, pin/price/stock identity, stale purchases, the one-time material choice,
+32 full-bag acquisition seeds, the reserve-only fusion case and zero gold.
+Strict all-target Tower Clippy passed in
+`/tmp/baylee-tower-v2-shop-clippy-20261114-r3.log`.
+Phase/revision gating, account/cohort seed allocation, durable idempotency and
+the service/client are still required before these shops can be offered live.
