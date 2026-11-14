@@ -91,7 +91,8 @@ pub struct AgentConfig {
     pub capacity: u32,
     /// The engine binary to spawn.
     pub engine_bin: PathBuf,
-    /// Additional operator-configured binaries (`BAYLEE_ENGINE_BINS`, OS path list).
+    /// Additional installed siblings or operator-configured binaries
+    /// (`BAYLEE_ENGINE_BINS`, OS path list, including an explicit empty list).
     pub additional_bins: Vec<PathBuf>,
     /// Probed local artifacts; populated before connecting to the gateway.
     pub engines: inventory::Inventory,
@@ -152,11 +153,18 @@ impl AgentConfig {
         let var = |name: &str| env(name).filter(|v| !v.is_empty());
         let token =
             var("BAYLEE_AGENT_TOKEN").ok_or_else(|| "BAYLEE_AGENT_TOKEN is not set".to_string())?;
-        let engine_bin = match var("BAYLEE_ENGINE_BIN") {
+        let explicit_bin = var("BAYLEE_ENGINE_BIN");
+        let engine_bin = match &explicit_bin {
             Some(path) => PathBuf::from(path),
             None => default_bin().ok_or_else(|| {
                 "cannot find baylee-engine-server; set BAYLEE_ENGINE_BIN".to_string()
             })?,
+        };
+        let additional_bins = match env("BAYLEE_ENGINE_BINS") {
+            Some(paths) if paths.is_empty() => Vec::new(),
+            Some(paths) => std::env::split_paths(&paths).collect(),
+            None if explicit_bin.is_none() => inventory::installed_siblings(&engine_bin),
+            None => Vec::new(),
         };
         let executor = var("BAYLEE_ENGINE_BUILD").unwrap_or_else(|| baylee_build::short().into());
         if executor.len() > 160 || executor.bytes().any(|byte| !(32..=126).contains(&byte)) {
@@ -173,8 +181,7 @@ impl AgentConfig {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(0),
             engine_bin,
-            additional_bins: var("BAYLEE_ENGINE_BINS")
-                .map_or_else(Vec::new, |paths| std::env::split_paths(&paths).collect()),
+            additional_bins,
             engines: inventory::Inventory::default(),
             executor,
             foresight_slots: var(SLOTS_VAR).map(PathBuf::from),

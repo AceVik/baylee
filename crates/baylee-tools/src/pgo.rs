@@ -23,12 +23,18 @@ use std::{
 };
 
 use anyhow::{Context as _, Result, bail};
-use baylee_pgo::{ClientBuild, ClientPlan, Failure, Plan};
+use baylee_pgo::{ClientBuild, ClientPlan, EngineArtifact, Failure, Plan};
 
 pub fn run(root: &Path, args: &[String]) -> Result<()> {
     let target = root.join("target");
     match args.iter().map(String::as_str).collect::<Vec<_>>()[..] {
-        ["engine-server"] => engine_server(root, &target),
+        ["engine-server"] | ["engine-server", "all"] => {
+            engine_server(root, &target, &EngineArtifact::ALL)
+        }
+        ["engine-server", variant] => {
+            let artifact = EngineArtifact::named(variant).context("unknown engine variant")?;
+            engine_server(root, &target, &[artifact])
+        }
         ["client"] => client(root, &target, false),
         ["client", "--publish"] => client(root, &target, true),
         ["client", "ship", profile] => ship(root, &target, Path::new(profile)),
@@ -54,7 +60,7 @@ pub fn run(root: &Path, args: &[String]) -> Result<()> {
             )
         }
         _ => bail!(
-            "usage: cargo tools pgo engine-server | client [--publish | ship <profile>] | train <client> [scene] | compare <plain> <profiled> [rounds]"
+            "usage: cargo tools pgo engine-server [all|standard|standard-loops|tower] | client [--publish | ship <profile>] | train <client> [scene] | compare <plain> <profiled> [rounds]"
         ),
     }
 }
@@ -76,7 +82,7 @@ fn profdata() -> Result<PathBuf> {
     })
 }
 
-fn engine_server(root: &Path, target: &Path) -> Result<()> {
+fn engine_server(root: &Path, target: &Path, artifacts: &[EngineArtifact]) -> Result<()> {
     let plan = Plan {
         cargo: cargo(),
         profdata: profdata()?,
@@ -86,16 +92,12 @@ fn engine_server(root: &Path, target: &Path) -> Result<()> {
         targets: target.join("pgo"),
         plain: target.to_owned(),
         profile: "release".to_owned(),
-        ship: [
-            "-p",
-            "baylee-engine-server",
-            "--bin",
-            "baylee-engine-server",
-        ]
-        .map(str::to_owned)
-        .to_vec(),
+        ship: Vec::new(),
     };
-    println!("{}", plan.build()?.display());
+    for &artifact in artifacts {
+        let built = plan.for_artifact(artifact).build()?;
+        println!("{}: {}", artifact.name(), built.display());
+    }
     Ok(())
 }
 

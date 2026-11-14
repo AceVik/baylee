@@ -11,6 +11,9 @@ description = "The engine's fixed workload: what it is measured by, what a profi
 workspace = true
 
 [features]
+# The standard and Tower shipping artifacts train/prove their detector-free
+# session. Selected explicitly beside that artifact, never with standard-loops.
+without-loop-detection = []
 # `engine_perf search`, through `Engine::fork_for`. Off in every build that
 # trains or proves a shipped binary: that build shares a `cargo` run with the
 # binary, and `cargo dev gate shipped-features` keeps this out of a hosting

@@ -952,8 +952,27 @@ example would bring its crate's dev-dependencies in, among them the engine's
 A deployer picks this up one deploy late: the running `baylee-deploy` is what stages,
 so the deploy that first installs this code still builds a plain engine server.
 
-`cargo tools pgo engine-server` runs the same steps by hand on a checkout;
+`cargo tools pgo engine-server [all|standard|standard-loops|tower]` runs the
+same steps by hand on a checkout (default: all three);
 `LLVM_PROFDATA` names the tool where the toolchain has no `llvm-tools`.
+
+The static variants are built in separate Cargo invocations, with separate
+instrumentation, counts, profiled output and plain comparison directories.
+All three invocations for a variant use exactly the same package and feature
+selection. `engine_perf`'s `without-loop-detection` feature instantiates
+`Session<NoLoopDetection>` for standard and Tower; standard-loops uses
+`Session<DetectLoops>`. A plain comparison using a different variant is not
+a valid semantic proof. Tower-specific workload coverage grows with its native
+pack; these shared MTG workloads alone do not certify Tower balance or items.
+
+Server staging requires the full set:
+`baylee-engine-server` (standard), `baylee-engine-standard-loops`, and
+`baylee-engine-tower`. All proofs must pass before any is handed to staging.
+Finishing checks that every staged executable exists before stopping the
+drained agent. The default agent discovers only these known siblings and
+probes their exact metadata; explicit operator paths take precedence
+(`docs/dev/environment.md`). A missing or mismatched capability never falls
+back to another engine. No real deployment is part of the local tests.
 
 ### The client's profile
 

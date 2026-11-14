@@ -7,6 +7,20 @@ use std::process::Stdio;
 use std::time::Duration;
 use tokio::io::AsyncReadExt as _;
 
+/// The default installation's known siblings only. No directory scan, PATH
+/// search, remote name or executable sent by a gateway. A developer with only
+/// one built engine can still run that one; deployment requires the whole set.
+pub(crate) fn installed_siblings(primary: &Path) -> Vec<PathBuf> {
+    let Some(directory) = primary.parent() else {
+        return Vec::new();
+    };
+    ["baylee-engine-standard-loops", "baylee-engine-tower"]
+        .map(|name| directory.join(format!("{name}{}", std::env::consts::EXE_SUFFIX)))
+        .into_iter()
+        .filter(|path| path.is_file())
+        .collect()
+}
+
 /// Installed artifacts. Paths never travel over the control link.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Inventory(Vec<(Identity, PathBuf)>);

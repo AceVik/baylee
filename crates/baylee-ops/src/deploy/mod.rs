@@ -359,7 +359,6 @@ impl Deploy {
         for package in [
             "baylee-gateway",
             "baylee-agent",
-            "baylee-engine-server",
             "baylee-catalog",
             "baylee-feedback",
             "baylee-seat",
@@ -414,11 +413,11 @@ impl Deploy {
             "baylee-catalog",
             "run-deploy-hooks",
             "baylee-agent",
-            "baylee-engine-server",
             "baylee-deploy",
             "baylee-invite",
             "baylee-reboot",
         ];
+        copy.extend(engine::BINARIES);
         if release.join("baylee-seat").is_file() {
             copy.extend(["baylee-seat", "baylee-seathost"]);
         }

@@ -9,14 +9,17 @@ use std::{
     process::Command,
 };
 
+mod artifact;
+pub use artifact::EngineArtifact;
+
 /// One profile-guided build.
 #[derive(Clone, Debug)]
 pub struct Plan {
     /// The `cargo` to run.
     pub cargo: PathBuf,
-    /// The `llvm-profdata` of this toolchain ([`profdata`]).
+    /// The `llvm-profdata` of this toolchain ([`crate::profdata`]).
     pub profdata: PathBuf,
-    /// A program that calls [`wrap_rustc`] first: cargo starts it in place of
+    /// A program that calls [`crate::wrap_rustc`] first: cargo starts it in place of
     /// rustc for the workspace's crates.
     pub wrapper: PathBuf,
     /// The checkout, at the commit being built.
@@ -35,6 +38,19 @@ pub struct Plan {
 }
 
 impl Plan {
+    /// Gives an artifact its own counts, target directories and plain proof.
+    /// Nothing is shared with another variant through Cargo feature unification.
+    #[must_use]
+    pub fn for_artifact(&self, artifact: EngineArtifact) -> Self {
+        Self {
+            work: self.work.join(artifact.name()),
+            targets: self.targets.join(artifact.name()),
+            plain: self.plain.join("pgo-plain").join(artifact.name()),
+            ship: artifact.cargo_args(),
+            ..self.clone()
+        }
+    }
+
     /// Trains, builds and proves; the directory of the profiled binaries.
     ///
     /// # Errors
@@ -76,7 +92,9 @@ impl Plan {
         let flag = format!("-Cprofile-use={}", merged.display());
         let report = self.cargo(&profiled, &[&flag, REPORT_UNMATCHED], &self.ship)?;
         self.require_counts_used(&merged, &report)?;
-        self.cargo(&self.plain, &[], &[])?;
+        // The plain proof must instantiate the same static engine as training
+        // and shipping. Dropping `ship` here silently tests a different variant.
+        self.cargo(&self.plain, &[], &self.ship)?;
         for shape in PROVEN_ON {
             let plain = self.verify(&self.plain, shape)?;
             let guided = self.verify(&profiled, shape)?;
@@ -156,6 +174,48 @@ impl Plan {
             Ok(output.stdout)
         } else {
             Err(Failure(format!("{what}: {}", output.status)))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn artifacts_never_share_counts_builds_or_plain_proofs() {
+        let plan = Plan {
+            cargo: "cargo".into(),
+            profdata: "llvm-profdata".into(),
+            wrapper: "wrapper".into(),
+            root: "checkout".into(),
+            work: "profiles".into(),
+            targets: "target/pgo".into(),
+            plain: "target".into(),
+            profile: "release".into(),
+            ship: Vec::new(),
+        };
+        let plans = EngineArtifact::ALL.map(|artifact| plan.for_artifact(artifact));
+        for (at, chosen) in plans.iter().enumerate() {
+            assert!(chosen.ship.contains(&"--no-default-features".to_owned()));
+            for other in &plans[..at] {
+                assert_ne!(chosen.work, other.work);
+                assert_ne!(chosen.targets, other.targets);
+                assert_ne!(chosen.plain, other.plain);
+                assert_ne!(chosen.ship, other.ship);
+            }
+        }
+        assert_eq!(
+            EngineArtifact::named("standard"),
+            Some(EngineArtifact::Standard)
+        );
+        assert_eq!(
+            EngineArtifact::named("standard-loops"),
+            Some(EngineArtifact::StandardLoops)
+        );
+        assert_eq!(EngineArtifact::named("tower"), Some(EngineArtifact::Tower));
+        for bad in ["", "Tower", "../standard", "standard --features tower"] {
+            assert_eq!(EngineArtifact::named(bad), None);
         }
     }
 }

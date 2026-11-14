@@ -502,3 +502,40 @@ fn the_engine_binary_is_the_one_named_or_the_one_beside_this_agent() {
         "an agent that cannot find an engine names the variable to set"
     );
 }
+
+#[test]
+fn default_inventory_uses_only_known_siblings_and_explicit_configuration_wins() {
+    let dir = tempfile::tempdir().unwrap();
+    let binary = |name: &str| {
+        dir.path()
+            .join(format!("{name}{}", std::env::consts::EXE_SUFFIX))
+    };
+    let primary = binary("baylee-engine-server");
+    let loops = binary("baylee-engine-standard-loops");
+    let tower = binary("baylee-engine-tower");
+    let read = |explicit: Option<&str>, additional: Option<&str>| {
+        AgentConfig::read(
+            |name| match name {
+                "BAYLEE_AGENT_TOKEN" => Some("test".into()),
+                "BAYLEE_ENGINE_BIN" => explicit.map(str::to_owned),
+                "BAYLEE_ENGINE_BINS" => additional.map(str::to_owned),
+                _ => None,
+            },
+            || Some(primary.clone()),
+        )
+        .unwrap()
+    };
+    assert!(read(None, None).additional_bins.is_empty());
+    std::fs::write(&loops, b"fixture metadata probe is tested separately").unwrap();
+    std::fs::write(&tower, b"fixture metadata probe is tested separately").unwrap();
+    std::fs::write(binary("untrusted-engine"), b"never discovered").unwrap();
+    assert_eq!(read(None, None).additional_bins, [loops.clone(), tower]);
+    assert!(
+        read(Some(primary.to_str().unwrap()), None)
+            .additional_bins
+            .is_empty()
+    );
+    assert!(read(None, Some("")).additional_bins.is_empty());
+    let named = std::env::join_paths([&loops]).unwrap();
+    assert_eq!(read(None, named.to_str()).additional_bins, [loops]);
+}

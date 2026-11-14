@@ -55,6 +55,7 @@ use baylee_cards_pool as _;
 
 mod fuzz;
 mod rebuild;
+mod variant;
 mod wire;
 
 use std::collections::BTreeMap;
@@ -69,15 +70,16 @@ use baylee_core::preset::{AIProfile, GamePreset, SeatController};
 use baylee_engine::choice::{Pending, PlayerAction, timeout_answer};
 #[cfg(feature = "simulation")]
 use baylee_engine::engine::DeckKnowledge;
-#[cfg(feature = "simulation")]
-use baylee_gamehost::SimulationSession;
+use baylee_gamehost::PlayerView;
 use baylee_gamehost::record::Line;
-use baylee_gamehost::replay::{Perspective, Verify, project};
-use baylee_gamehost::{PlayerView, Session};
+use baylee_gamehost::replay::{Perspective, Verify, project_with_detection};
 use baylee_protocol::v1::Envelope;
 use baylee_protocol::v1::envelope::Msg;
 use baylee_view::{StaticReader, ViewReader};
 use prost::Message as _;
+use variant::Session;
+#[cfg(feature = "simulation")]
+use variant::SimulationSession;
 
 use rebuild::Rebuild;
 use wire::Wire;
@@ -412,7 +414,8 @@ fn running(session: &Session) -> bool {
 }
 
 fn house(game: &Game, checks: Checks) -> Played {
-    let mut session = Session::new_recorded(&game.preset, "perf").expect("the preset builds");
+    let mut session =
+        Session::recorded_with_detection(&game.preset, "perf").expect("the preset builds");
     describe(&mut session, game);
     let seats = seats_of(game);
     let mut digests = Digests::new(checks);
@@ -467,7 +470,8 @@ fn report_rss(game: &str, answers: u64) {
 }
 
 fn frames(game: &Game, checks: Checks, rss: bool) -> Played {
-    let mut session = Session::new_recorded(&game.preset, "perf").expect("the preset builds");
+    let mut session =
+        Session::recorded_with_detection(&game.preset, "perf").expect("the preset builds");
     describe(&mut session, game);
     let seat = PlayerId::new(0);
     session.take_over(seat);
@@ -501,7 +505,7 @@ fn frames(game: &Game, checks: Checks, rss: bool) -> Played {
 }
 
 fn decide(game: &Game, checks: Checks) -> Played {
-    let mut session = Session::new(&game.preset).expect("the preset builds");
+    let mut session = Session::with_detection(&game.preset).expect("the preset builds");
     describe(&mut session, game);
     session.discard_frames();
     let seats = seats_of(game);
@@ -564,7 +568,7 @@ fn rollout(fork: &mut SimulationSession, seat: PlayerId, digests: &mut Digests) 
 
 #[cfg(feature = "simulation")]
 fn search(game: &Game, checks: Checks) -> Played {
-    let mut session = Session::new(&game.preset).expect("the preset builds");
+    let mut session = Session::with_detection(&game.preset).expect("the preset builds");
     describe(&mut session, game);
     session.discard_frames();
     let seat = PlayerId::new(0);
@@ -616,7 +620,7 @@ fn told(wire: &mut Wire, digests: &mut Digests, frames: &[(PlayerId, Envelope)])
 /// live engine drives one: `LIVE_SLICE` house steps at a time, each answer
 /// through `act_slice`, the opening payload first and the clock running.
 fn live(game: &Game, sockets: &[PlayerId], checks: Checks) -> Played {
-    let mut session = Session::new(&game.preset).expect("the preset builds");
+    let mut session = Session::with_detection(&game.preset).expect("the preset builds");
     describe(&mut session, game);
     for &seat in sockets {
         session.take_over(seat);
@@ -684,7 +688,7 @@ fn recorded(path: &Path, checks: Checks) -> anyhow::Result<(Wire, u64, u64)> {
     let (mut inputs, mut exact) = (0, 0);
     for seat in 0..seats {
         let seat = PlayerId::new(u8::try_from(seat).context("a table has few seats")?);
-        let projection = project(
+        let projection = project_with_detection::<variant::Detection>(
             &record,
             names.clone(),
             Perspective::Seat(seat),
@@ -763,6 +767,7 @@ fn games(four: bool) -> anyhow::Result<Vec<Game>> {
                 &[&decks[0], &decks[1]]
             };
             let mut preset = preset_for_all(seed, chairs);
+            variant::prepare(&mut preset);
             for (seat, profile) in preset.seats.iter_mut().zip(profiles.iter().cycle()) {
                 seat.controller = SeatController::Ai(*profile);
                 seat.team = None;

@@ -441,8 +441,8 @@ fn stage_profiles_the_engine_server_from_this_commit() {
         .filter(|l| l.starts_with("cargo build"))
         .collect();
     assert!(
-        builds.len() >= 4,
-        "plain, instrumented, profiled, proof:\n{ran}"
+        builds.len() >= 10,
+        "base build plus three isolated training, shipping and proof builds:\n{ran}"
     );
     assert!(builds[0].contains("-p baylee-gateway"), "{ran}");
     assert!(
@@ -452,6 +452,15 @@ fn stage_profiles_the_engine_server_from_this_commit() {
         "{ran}"
     );
     assert!(ran.contains("llvm-profdata merge"), "{ran}");
+    for artifact in baylee_pgo::EngineArtifact::ALL {
+        let args = artifact.cargo_args().join(" ");
+        assert_eq!(
+            builds.iter().filter(|build| build.contains(&args)).count(),
+            3,
+            "{} trains, ships and proves with identical features: {ran}",
+            artifact.name()
+        );
+    }
 }
 
 /// A release never goes out unprofiled by accident: a profile step that fails

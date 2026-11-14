@@ -98,7 +98,7 @@ impl fmt::Display for Failure {
 impl std::error::Error for Failure {}
 
 mod engine;
-pub use engine::Plan;
+pub use engine::{EngineArtifact, Plan};
 
 /// One profile-guided build of the client, on a machine with a screen.
 ///
@@ -564,8 +564,9 @@ chmod +x "$CARGO_TARGET_DIR/release/engine_perf""#,
     #[test]
     fn a_build_trains_on_this_commit_and_proves_itself_against_the_plain_build() {
         let dir = tempfile::tempdir().unwrap();
-        let out = plan(dir.path(), "same", "same", "").build().unwrap();
-        assert_eq!(out, dir.path().join("targets/profiled/release"));
+        let chosen = plan(dir.path(), "same", "same", "").for_artifact(EngineArtifact::Standard);
+        let out = chosen.build().unwrap();
+        assert_eq!(out, dir.path().join("targets/standard/profiled/release"));
         let log = fs::read_to_string(dir.path().join("log")).unwrap();
         let builds: Vec<&str> = log.lines().collect();
         assert_eq!(builds.len(), 3, "{log}");
@@ -574,10 +575,14 @@ chmod +x "$CARGO_TARGET_DIR/release/engine_perf""#,
         // Selected alike, or the counts would name other functions.
         assert!(builds[0].contains("-p baylee-engine-server"), "{log}");
         assert!(builds[1].contains("-p baylee-engine-server"), "{log}");
+        assert!(builds[2].contains("-p baylee-engine-server"), "{log}");
         assert!(
-            builds[2].contains("plain||"),
+            builds[2].contains("standard||"),
             "no wrapper on a plain build: {log}"
         );
+        for build in &builds {
+            assert!(build.ends_with(&chosen.ship.join(" ")), "{log}");
+        }
         let played = fs::read_to_string(dir.path().join("log.played")).unwrap();
         assert_eq!(
             played.lines().collect::<Vec<_>>(),

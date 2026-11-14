@@ -399,15 +399,26 @@ fn force_explicitly_replaces_owner_with_games_open_in_both_modes() {
 
 #[test]
 fn incomplete_staged_owner_never_stops_live_owner() {
-    let server = Server::bare();
-    server.set("running", "1");
-    assert!(server.run(&["stage", A]).ok);
-    std::fs::remove_file(server.root.join("state/staged/baylee-engine-server")).unwrap();
-    server.set("running", "0");
-    let ran = server.run(&["finish"]);
-    assert!(!ran.ok);
-    assert!(!ran.has("sudo systemctl stop baylee-agent"));
-    assert!(!ran.has("sudo systemctl restart baylee-gateway"));
+    for artifact in baylee_pgo::EngineArtifact::ALL {
+        let server = Server::bare();
+        server.set("running", "1");
+        assert!(server.run(&["stage", A]).ok);
+        for installed in baylee_pgo::EngineArtifact::ALL {
+            assert!(
+                server
+                    .root
+                    .join("state/staged")
+                    .join(installed.binary())
+                    .is_file()
+            );
+        }
+        std::fs::remove_file(server.root.join("state/staged").join(artifact.binary())).unwrap();
+        server.set("running", "0");
+        let ran = server.run(&["finish"]);
+        assert!(!ran.ok);
+        assert!(!ran.has("sudo systemctl stop baylee-agent"));
+        assert!(!ran.has("sudo systemctl restart baylee-gateway"));
+    }
 }
 
 /// A game that started while the hold went up is seen and waited for: the

@@ -12,18 +12,22 @@ impl Deploy {
     pub(super) fn install_agent(&self, rev: &str) -> Run {
         for name in [
             "baylee-agent",
-            "baylee-engine-server",
             "baylee-deploy",
             "baylee-invite",
             "baylee-reboot",
-        ] {
+        ]
+        .into_iter()
+        .chain(super::engine::BINARIES)
+        {
             if !self.p.staged(name).is_file() {
                 say("incomplete staged owner binaries; restage the release before finishing");
                 return Err(Stop(1));
             }
         }
         must(&mut self.sudo(&["systemctl", "stop", "baylee-agent"]))?;
-        self.install_staged(&["baylee-agent", "baylee-engine-server"])?;
+        let mut owner = vec!["baylee-agent"];
+        owner.extend(super::engine::BINARIES);
+        self.install_staged(&owner)?;
         for command in ["baylee-deploy", "baylee-invite", "baylee-reboot"] {
             must(&mut self.sudo(&[
                 "install",

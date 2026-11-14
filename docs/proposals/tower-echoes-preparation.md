@@ -435,3 +435,36 @@ shrinking the viewport. Final evidence:
 All owned clients exited and their loopback ports were verified closed.
 This is a table-settings regression check, not the five required Tower UI
 refinement passes, nor a claim that default-Off resource containment is finished.
+
+## Separate artifact packaging — seventh working milestone
+
+The shared PGO builder now has three explicit artifact selections. Training,
+profile use and the unprofiled semantic comparison all retain the same package
+and feature arguments, with separate directories per artifact. The previous
+plain comparison discarded the shipping selection, which would compare a
+detector-free artifact against the legacy detected session. The fixed workload
+now instantiates the matching session type, including simulation forks and replay.
+
+Both `cargo tools pgo engine-server` and server staging build the three artifacts
+independently. Deployment retains and requires every one before stopping the
+drained owner. Default agent startup probes only the two known siblings beside
+its primary engine; an explicit primary or additional list disables that
+discovery. Empty additional configuration deliberately means none. Paths and
+command arguments still never come from the gateway.
+
+Local evidence:
+- `/tmp/baylee-pgo-variants-tests-20261114.log`: 16 PGO checks passed.
+- `/tmp/baylee-artifact-packaging-tests-20261114.log` and `-r2.log`:
+  seven targeted scenarios covered explicit/default inventory, identical build
+  arguments, a failed profile, forced drain, and each missing staged variant.
+  One assertion initially inspected a fixture after its cleanup; the existence
+  check moved to the live fixture, and the two affected tests passed.
+- `/tmp/baylee-workload-loops-tests-20261114.log` and
+  `/tmp/baylee-workload-off-tests-20261114.log`: the workload constructs and
+  records the actual selected session; Off plus simulation also compiles.
+- `/tmp/baylee-artifact-packaging-clippy-20261114.log`: strict all-target
+  Clippy passed for PGO, perf, tools, ops and agent.
+
+The operations tests use isolated command stand-ins. No server was deployed and
+no full three-variant PGO training or new performance benchmark has run yet.
+The native Tower pack and its representative training scenarios are still pending.

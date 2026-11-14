@@ -146,12 +146,18 @@ Registered hosts only; keys write-only over the unix socket; tests use in-proces
 - `BAYLEE_AGENT_TOKEN`.
 - `BAYLEE_AGENT_NAME`.
 - `BAYLEE_AGENT_CAPACITY` (0 = unlimited).
-- `BAYLEE_ENGINE_BIN` (default beside the agent).
+- `BAYLEE_ENGINE_BIN` (default `baylee-engine-server` beside the agent).
+  Without an explicit override, the agent also probes the two known installed
+  siblings `baylee-engine-standard-loops` and `baylee-engine-tower` (with
+  `.exe` on Windows) when present. It never scans for other executables.
 - `BAYLEE_ENGINE_BINS` (additional installed engine executables, an OS path list:
   colon-separated on Unix and semicolon-separated on Windows). Each executable
   is canonicalized and probed with `--metadata` before registration. Configure at
   most sixteen including `BAYLEE_ENGINE_BIN`; duplicate identities/paths and failed
   probes stop startup. The gateway selects exact metadata; paths stay local.
+  Setting this variable, including to an empty value, overrides sibling
+  discovery. An explicit `BAYLEE_ENGINE_BIN` also disables sibling discovery
+  unless additional binaries are explicitly listed.
 - `BAYLEE_ENGINE_BUILD` (legacy informational field, default the agent's own
   build). Protocol 48 selects the probed identities, never this override.
 - `BAYLEE_FORESIGHT_SLOTS` (a directory the engines take their search slots in; unset = one the agent makes for its own engines, mode `0700`, a random name under systemd's `RUNTIME_DIRECTORY`, else `XDG_RUNTIME_DIR`, else the temporary directory, removed when the agent stops; name one only to share the machine's count between several agents, and then a directory of their user's own with mode `0700`, which the engines check). The agent hands it to every engine it starts, and makes it again (`0700`) first if something swept it away.
