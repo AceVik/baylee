@@ -811,3 +811,22 @@ allowance for the shared fallible preparation signature, whose native admission
 can fail; the ordinary implementation has no failure path.
 The actual release PGO builds, count coverage and semantic comparison are still
 release acceptance work, not demonstrated by these focused wiring tests.
+
+## Fenced record-head transitions — twentieth working milestone
+
+Pure execution metadata now freezes the package and a bounded technical record
+budget. Renewable worker generations fence expired/revoked writers; every append
+requires the exact previous head. The ordered SHA-256 content commitment binds
+package, predecessor, chunk index, length and bytes. Sealing freezes that head
+for verification. Recovery retains the package and full prefix; it cannot reset
+either, reopen a sealed record or manufacture a rules result.
+
+Three focused tests cover lease boundaries, stale writers, rewind/duplicate
+appends, exact bounds, sealing/recovery, serialization and commitment separation.
+They and strict all-target Tower Clippy passed in
+`/tmp/baylee-tower-v2-execution-{tests,clippy}-20261114.log`.
+This is a domain contract, not durable ACK or authentication: the service must
+atomically persist chunk plus head, bind operator credentials and release visible
+consequences only after that commit. A 256 KiB chunk ceiling and configurable
+record budget up to 512 MiB are technical storage bounds, not calibrated rule
+limits. The lease ceiling is two minutes with renewal, not a player clock.

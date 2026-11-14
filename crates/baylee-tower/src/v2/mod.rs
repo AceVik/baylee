@@ -4,6 +4,7 @@
 //! lock and request deduplication at the service boundary; they grant no access.
 pub mod catalog;
 pub mod economy;
+pub mod execution;
 pub mod inventory;
 pub mod loadout;
 pub mod shop;
