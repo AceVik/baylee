@@ -156,10 +156,14 @@ pub(super) fn tours(
                 crate::host::practice_game(crate::host::fresh_seed()).and_then(|preset| {
                     let names = super::offline::seat_names(&preset, lang);
                     let refs: Vec<&str> = names.iter().map(String::as_str).collect();
-                    crate::host::LocalHost::new(&preset, baylee_core::ids::PlayerId::new(0), &refs)
+                    crate::host::LocalHost::install(
+                        &preset,
+                        baylee_core::ids::PlayerId::new(0),
+                        &refs,
+                    )
                 })
             {
-                commands.insert_resource(host.into_installed());
+                commands.insert_resource(host);
                 opens.write(crate::DuelCommand::Open);
                 desk.practice = true;
             }

@@ -430,11 +430,11 @@ pub(super) fn poll(
                     .map_or(Lang::En, |s| baylee_client_core::Lang::of(&s.lang));
                 let names = super::offline::seat_names(&preset, lang);
                 let refs: Vec<&str> = names.iter().map(String::as_str).collect();
-                crate::host::LocalHost::new(&preset, PlayerId::new(0), &refs)
+                crate::host::LocalHost::install(&preset, PlayerId::new(0), &refs)
             }) {
             Some(host) => {
                 state.connected = true;
-                commands.insert_resource(host.into_installed());
+                commands.insert_resource(host);
                 opens.write(DuelCommand::Open);
             }
             None => state

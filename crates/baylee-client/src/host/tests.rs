@@ -56,7 +56,7 @@ pub(crate) fn duel_preset() -> GamePreset {
 }
 
 /// The acceptance deck file that ships with the repository.
-const DECK_FILE: &str = include_str!("../../../data/acceptance-decks.txt");
+const DECK_FILE: &str = include_str!("../../../../data/acceptance-decks.txt");
 
 /// A table of one seat is open as soon as it is dealt, and says so once,
 /// last in its first batch (#256): the client holds its outbox until it
@@ -64,8 +64,7 @@ const DECK_FILE: &str = include_str!("../../../data/acceptance-decks.txt");
 #[test]
 fn a_table_of_one_opens_on_its_first_poll() {
     let preset = demo_duel(DECK_FILE, 7).expect("the demo duel");
-    let mut host =
-        LocalHost::new(&preset, PlayerId::new(0), &["You", "House"]).expect("a game");
+    let mut host = LocalHost::new(&preset, PlayerId::new(0), &["You", "House"]).expect("a game");
     let first = host.poll();
     assert!(matches!(first.first(), Some(HostMessage::Static(_))));
     assert!(
@@ -404,8 +403,7 @@ fn a_table_speaking_a_view_version_this_client_cannot_render_is_refused() {
 
 #[test]
 fn the_opening_poll_delivers_a_view_and_a_choice_for_the_local_seat() {
-    let mut host =
-        LocalHost::new(&duel_preset(), PlayerId::new(0), &["You", "AI"]).expect("host");
+    let mut host = LocalHost::new(&duel_preset(), PlayerId::new(0), &["You", "AI"]).expect("host");
     let messages = host.poll();
     assert!(
         messages.iter().any(|m| matches!(m, HostMessage::View(..))),
@@ -416,8 +414,7 @@ fn the_opening_poll_delivers_a_view_and_a_choice_for_the_local_seat() {
 
 #[test]
 fn a_view_survives_the_wire_encoding_intact() {
-    let mut host =
-        LocalHost::new(&duel_preset(), PlayerId::new(0), &["You", "AI"]).expect("host");
+    let mut host = LocalHost::new(&duel_preset(), PlayerId::new(0), &["You", "AI"]).expect("host");
     let messages = host.poll();
     let view = messages
         .iter()
@@ -441,8 +438,7 @@ fn a_view_survives_the_wire_encoding_intact() {
 
 #[test]
 fn an_illegal_action_is_reported_rather_than_silently_dropped() {
-    let mut host =
-        LocalHost::new(&duel_preset(), PlayerId::new(0), &["You", "AI"]).expect("host");
+    let mut host = LocalHost::new(&duel_preset(), PlayerId::new(0), &["You", "AI"]).expect("host");
     host.poll();
     // The opening choice is a mulligan; passing priority is not an answer.
     host.submit(PlayerAction::PassPriority);
@@ -472,8 +468,7 @@ fn an_illegal_action_is_reported_rather_than_silently_dropped() {
 
 #[test]
 fn keeping_the_opening_hand_advances_the_game() {
-    let mut host =
-        LocalHost::new(&duel_preset(), PlayerId::new(0), &["You", "AI"]).expect("host");
+    let mut host = LocalHost::new(&duel_preset(), PlayerId::new(0), &["You", "AI"]).expect("host");
     host.poll();
     host.submit(PlayerAction::MulliganKeep);
     let out = host.poll();
@@ -564,8 +559,7 @@ fn a_house_game_restarted_in_process_resumes_to_the_same_hash() {
 /// applied, the house's moves too; a networked host keeps none.
 #[test]
 fn a_local_game_keeps_its_record_as_it_goes() {
-    let mut host =
-        LocalHost::new(&duel_preset(), PlayerId::new(0), &["You", "AI"]).expect("host");
+    let mut host = LocalHost::new(&duel_preset(), PlayerId::new(0), &["You", "AI"]).expect("host");
     let header = host
         .local_record()
         .expect("a local host keeps one")

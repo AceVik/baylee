@@ -11,12 +11,15 @@ use baylee_cards::decks::DevZone;
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::GamePreset;
 use baylee_engine::choice::{Pending, PlayerAction};
+use baylee_engine::engine::{DetectLoops, LoopDetection};
 use baylee_gamehost::Session;
 use baylee_protocol::v1::{self, Envelope};
 use baylee_view::{GameStatic, LogTail, PlayerView, StaticReader, ViewReader};
 
 #[cfg(not(target_arch = "wasm32"))]
 mod background;
+
+mod variants;
 
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
 pub(crate) mod snapshot;
@@ -360,8 +363,8 @@ fn monotonic() -> std::time::Duration {
 /// Used for solo play against the house AI, for the open world's embedded
 /// duels, and for tests — a headless test can play a whole game through the
 /// same code path a networked client uses, because the messages are identical.
-pub struct LocalHost {
-    session: Session,
+pub struct LocalHost<D: LoopDetection = DetectLoops> {
+    session: Session<D>,
     seat: PlayerId,
     /// The opening payload, still encoded — see [`LocalHost::absorb`].
     statics: Option<Envelope>,
@@ -385,7 +388,7 @@ pub struct LocalHost {
     pump_budget: usize,
 }
 
-impl LocalHost {
+impl<D: LoopDetection> LocalHost<D> {
     /// Installs the local rules engine behind the renderer's non-blocking seam.
     /// Native clients run it on one dedicated worker; browser builds retain
     /// the synchronous host until a worker transport is available there.
@@ -446,14 +449,18 @@ impl LocalHost {
     /// Returns `None` when the preset does not produce a playable game — a
     /// malformed deck, or a seat count the engine refuses.
     #[must_use]
-    pub fn new(preset: &GamePreset, seat: PlayerId, seat_names: &[&str]) -> Option<Self> {
+    pub fn with_detection(
+        preset: &GamePreset,
+        seat: PlayerId,
+        seat_names: &[&str],
+    ) -> Option<Self> {
         // Untimed: nothing here runs a decision clock — that is the
         // engine-server's attach loop — so a limit would only be drawn,
         // counted down to nought in plain sight now that the client shows
         // every clock in full, and then never enforced.
         let mut preset = preset.clone();
         preset.house_rules.decision_timeout_secs = 0;
-        let mut session = Session::new_recorded(&preset, baylee_build::short())?;
+        let mut session = Session::recorded_with_detection(&preset, baylee_build::short())?;
         session.describe(
             "local".to_string(),
             seat_names.iter().map(|n| (*n).to_string()).collect(),
@@ -484,13 +491,14 @@ impl LocalHost {
     ///
     /// # Errors
     /// Why the record did not rebuild the game, in words for the log.
-    pub fn resume(
+    pub fn resume_with_detection(
         record: Vec<u8>,
         record_name: &str,
         seat: PlayerId,
         seat_names: &[String],
     ) -> Result<Self, String> {
-        let mut session = Session::resume_recorded(&record).map_err(|why| format!("{why:?}"))?;
+        let mut session =
+            Session::resume_with_detection(&record).map_err(|why| format!("{why:?}"))?;
         session.describe("local".to_string(), seat_names.to_vec());
         let preset = record
             .split(|b| *b == b'\n')
@@ -535,7 +543,7 @@ fn own_deck(preset: &GamePreset, seat: PlayerId) -> Vec<baylee_core::ids::CardIn
         .map_or_default(|spec| spec.deck.iter().map(|entry| entry.card).collect())
 }
 
-impl LocalHost {
+impl<D: LoopDetection> LocalHost<D> {
     /// Takes what the session recorded since the last step and puts it on
     /// disk at once, so a crash loses at most the step it happened in; the
     /// moment the game is over the file is finished.
@@ -627,7 +635,7 @@ fn wall_ms() -> u64 {
         })
 }
 
-impl DuelHost for LocalHost {
+impl<D: LoopDetection> DuelHost for LocalHost<D> {
     fn poll(&mut self) -> Vec<HostMessage> {
         let mut out = Vec::new();
         let opening = self.statics.take();
@@ -714,7 +722,7 @@ impl DuelHost for LocalHost {
 /// A game left before its end is kept as far as it went: the table closed,
 /// the lobby took another, or the client is quitting. Its steps are on disk
 /// already; this compacts them into one gzip member.
-impl Drop for LocalHost {
+impl<D: LoopDetection> Drop for LocalHost<D> {
     fn drop(&mut self) {
         self.take_the_record();
         self.live.finish(&self.record);
@@ -854,7 +862,7 @@ fn deal_the_dev_zone(preset: &mut GamePreset, variable: &str, zone: DevZone) {
 #[must_use]
 pub fn acceptance_text() -> String {
     /// Embedded copy of the deck file (the only source in a browser build).
-    const EMBEDDED: &str = include_str!("../../../data/acceptance-decks.txt");
+    const EMBEDDED: &str = include_str!("../../../../data/acceptance-decks.txt");
     #[cfg(not(target_arch = "wasm32"))]
     {
         const CANDIDATES: [&str; 3] = [

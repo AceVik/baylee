@@ -210,7 +210,7 @@ fn start(
                         seat_token: String::new(),
                         local: true,
                     });
-                commands.insert_resource(host.into_installed());
+                commands.insert_resource(host);
                 if let Some(look) = wanted.table.clone() {
                     commands.insert_resource(LookToRestore { look, held: false });
                 }
@@ -305,22 +305,13 @@ fn rebuild(
     seat: u8,
     names: &[String],
     hash: &str,
-) -> Result<crate::host::LocalHost, Phrase> {
+) -> Result<crate::InstalledHost, Phrase> {
     let bytes = crate::records::read_kept(record).ok_or(Phrase::ResumeFailed)?;
-    let host = crate::host::LocalHost::resume(bytes, record, PlayerId::new(seat), names).map_err(
-        |why| {
+    crate::host::LocalHost::install_resumed(bytes, record, PlayerId::new(seat), names, hash)
+        .map_err(|why| {
             warn!("resume: the record did not rebuild the game: {why}");
             Phrase::ResumeGameDiffers
-        },
-    )?;
-    if host.hash() != hash {
-        warn!(
-            "resume: the rebuilt game is at {} and the restart left it at {hash}",
-            host.hash()
-        );
-        return Err(Phrase::ResumeGameDiffers);
-    }
-    Ok(host)
+        })
 }
 
 /// The hub's tab, the settings section and the builder's deck, as they were.

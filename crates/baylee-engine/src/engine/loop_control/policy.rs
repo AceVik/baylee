@@ -17,7 +17,7 @@ pub trait LoopSegment: sealed::Segment + Default {
 /// Sealed deliberately: extensions cannot substitute rule adjudication. Setup
 /// checks the preset against the type, and checkpoints retain the same type.
 pub trait LoopDetection:
-    sealed::Detection + Clone + Default + std::fmt::Debug + std::hash::Hash
+    sealed::Detection + Clone + Default + std::fmt::Debug + std::hash::Hash + Send + Sync + 'static
 {
     /// Fresh watch for a decision-free segment.
     type Segment: LoopSegment;

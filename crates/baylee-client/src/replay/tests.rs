@@ -92,13 +92,19 @@ static GAME: LazyLock<Played> = LazyLock::new(|| {
 
 /// Plays seat 0 with the house's own answers, then concedes.
 fn play_a_game() -> Vec<u8> {
-    let agent = baylee_ai::HeuristicAgent::new(baylee_core::preset::AIProfile::default());
-    let mut host = LocalHost::new(
-        &crate::host::tests::duel_preset(),
-        me(),
-        &["You", "House AI"],
+    play_with_policy::<baylee_engine::engine::DetectLoops>(
+        baylee_core::preset::LoopPolicy::RunOnceThenBreak,
     )
-    .expect("the duel starts");
+}
+
+fn play_with_policy<D: baylee_engine::engine::LoopDetection>(
+    policy: baylee_core::preset::LoopPolicy,
+) -> Vec<u8> {
+    let agent = baylee_ai::HeuristicAgent::new(baylee_core::preset::AIProfile::default());
+    let mut preset = crate::host::tests::duel_preset();
+    preset.house_rules.loop_policy = policy;
+    let mut host = LocalHost::<D>::with_detection(&preset, me(), &["You", "House AI"])
+        .expect("the duel starts");
     let mut latest: Option<PlayerView> = None;
     // What the host said since the last call: the newest view, and the
     // question if there was one.
@@ -137,6 +143,15 @@ fn play_a_game() -> Vec<u8> {
     host.local_record()
         .expect("a local host keeps one")
         .to_vec()
+}
+
+#[test]
+fn a_local_replay_selects_the_recorded_disabled_loop_variant() {
+    let record = play_with_policy::<baylee_engine::engine::NoLoopDetection>(
+        baylee_core::preset::LoopPolicy::Off,
+    );
+    let tape = project(&record);
+    assert!(tape.over().is_some(), "the entire off-policy game replays");
 }
 
 /// The header a local projection is made under (as `ReplayHost::start`).

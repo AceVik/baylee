@@ -383,3 +383,20 @@ tests. AsyncAPI was regenerated from the protobuf source. Evidence:
 Linux-only SIGTERM coverage was updated to use a Rust fixture but was not run
 on this macOS host. Release artifact packaging, new-table/client defaults and
 the Tower v2 rules/service remain subsequent milestones.
+
+## Local variant continuity — fifth working milestone
+
+The native local host now keeps its static loop type through its session, house
+search, recorder and background worker. Production installation selects it once
+from the preset; replay and restart select the saved policy, and restart checks
+the reconstructed hash before installing a worker. Legacy constructors retain
+their enabled policy for existing integrations. The directory-module move also
+needed its relative embedded-deck paths adjusted, caught by the first check.
+
+Eight targeted client tests passed (2,603 skipped): actual background-host
+installation for all three policies, play and restart, wrong restart hash,
+an Off game projected through the client's real replay path, and the existing
+worker responsiveness/streaming/resumption regressions. Evidence:
+`/tmp/baylee-client-static-host-tests-20261114.log`. No graphical client was
+started. This verifies type continuity, not containment of an unbounded kernel
+operation: process supervision for that case remains separate required work.

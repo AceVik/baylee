@@ -2,7 +2,9 @@
 //! The engine remains synchronous and deterministic; only the host transports
 //! actions and results. Idle frames neither wake the worker nor copy the record.
 
-use super::{DuelHost, HostMessage, LinkState, LocalHost, ResumePoint};
+#[cfg(test)]
+use super::LocalHost;
+use super::{DuelHost, HostMessage, LinkState, ResumePoint};
 use baylee_core::ids::{CardIndex, PlayerId};
 use baylee_engine::choice::PlayerAction;
 use std::sync::{Mutex, mpsc};
@@ -31,7 +33,7 @@ pub(super) struct BackgroundHost {
 }
 
 impl BackgroundHost {
-    pub(super) fn new(host: LocalHost) -> Self {
+    pub(super) fn new(host: impl DuelHost) -> Self {
         Self::spawn(host)
     }
 
