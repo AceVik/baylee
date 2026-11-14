@@ -1,5 +1,35 @@
 # Database and catalog
 
+## Tower Echoes authority (implementation in progress)
+
+`baylee-tower-store` is a separate PostgreSQL 18+ adapter in Baylee. Its production
+database/runtime role must be separate from gateway and Central storage. Tests use
+unique owned schemas on loopback with synthetic data. The current adapter exposes
+explicit operator migration/readiness, immutable cohort publication, enrollment,
+owner reads and shop commands; there is no public unauthenticated listener.
+
+Schema selection accepts only a bounded identifier and every table is qualified.
+Runtime connections must disable SQL/value logging and bound pool/timeouts.
+Migration is an explicit operator action, checks an exact recorded digest and
+never drops/reset existing data. IDs are `DEFAULT uuidv7()` with `RETURNING`;
+external account/request IDs must also be UUIDv7. The migration owner and runtime
+role still need their final privilege/runbook checks before service release.
+
+Owner mutations lock the account before its run. Request digest, original result,
+wallet/inventory and revision commit together. Same key with different contents
+refuses; the same request returns its original response after later mutations.
+An early abandoned run retains its account/cohort starting offer seed. Starting
+requires explicit acceptance of the current echo-use explanation. Immutable cohort
+contracts cannot be republished with altered starter content; catalog/list ordering
+is canonicalized. Per-run receipt count and payloads are bounded.
+
+The next persistence milestones add reservations/chunk ACK, approved operators,
+global pool indexing, verified settlement/outbox, account-wide quotas and retention.
+The adapter does not authenticate callers or prove legal game records. The service
+must use distinct Tower identity credentials, never arbitrary gateway admission.
+
+## Gateway and catalog
+
 The gateway's store (`baylee-db`) and the optional card catalog
 (`baylee-catalog`) share one PostgreSQL. What the gateway keeps about people
 is inventoried in `docs/privacy.md`.

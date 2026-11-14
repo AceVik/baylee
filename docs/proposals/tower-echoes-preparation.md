@@ -892,3 +892,33 @@ deterministic selection, signed-bigint bounds and dense withdrawals. This is the
 selection/index contract; persistence must still enforce uniqueness, eligibility,
 partition locking and revisions transactionally. It is not a proof of operator
 honesty or resistance to people creating multiple accounts.
+
+## Transactional owner persistence — twenty-fourth working milestone
+
+Added the separate `baylee-tower-store` adapter with explicit, digest-checked
+PostgreSQL 18+ migration, immutable cohort publication, explicit versioned
+enrollment consent, saved initial seeds and owner-bound reads/commands. Database
+IDs use `DEFAULT uuidv7()`/`RETURNING`. Account locking serializes request receipts
+with run state; exact retries return the original committed response, while a
+different request under the same key refuses. A unique active-run index backs
+the domain check. Early abandonment cannot sample another starting offer sequence.
+Reordered catalog/deck lists normalize to the same publication; changed starter
+content cannot be republished under the same exact cohort contract.
+
+Three real PostgreSQL scenarios passed in
+`/tmp/baylee-tower-store-postgres-20261114-r3.log`: eight concurrent identical
+purchases charge once, eight distinct same-revision requests accept one, wrong
+owners and reused keys refuse, and an injected receipt constraint failure rolls
+back wallet, inventory, stock and revision. Migration repeats but rejects changed
+history. The fixture originally rejected PostgreSQL's non-special URL host form
+before any connection; literal loopback IP parsing was corrected without allowing
+remote hosts or query overrides. All owned schemas/pools were removed/closed even
+when the test body fails. No test service or GUI was started.
+
+Strict all-target Clippy passed in
+`/tmp/baylee-tower-store-clippy-20261114-r2.log`. The new crate forbids first-party
+unsafe. The lock diff adds only the workspace crate and edges to existing pinned
+packages; `url` 2.5.8 is reused for fixture isolation. No external dependency
+version changed. This is not service security/release completion: authentication,
+operator grants, record durability, global pool transactions, verified outbox,
+account-wide quotas, retention and runtime privilege checks remain to integrate.
