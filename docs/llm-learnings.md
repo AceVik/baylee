@@ -6,6 +6,16 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-14 — Swiss benchmark bug sweep, observed-faults #53/#67/#68/#71/#76/#77/#80/#81, and 50 Generated promotions
+
+- **50/51 `Coverage::Generated` promotions (`Card-Author: gemini-4-hydrogen-xhigh`, cross-model reviewed on `gemini-4-carbon-high`):**
+  - All 50 promoted card files (`22` creatures, `14` instants/enchantments, `14` sorceries) passed sentence-by-sentence Oracle comparison and behavioral test verification without hand-editing any machine-owned `CardDef`.
+  - **1 genuine CR defect uncovered by testing and fixed in the engine (`Coffin Purge`):** `Coffin Purge` (`"Exile target card from a graveyard. / Flashback {B}"`, held at `Coverage::Generated` in the card batch) exposed that `CastWizard` keeps a proposed spell in `ZoneLocation::Graveyard` until `commit_cast_wizard`, and neither `eval::targets::spell_target_options_relative` nor `baylee-client::targeting` excluded `source` when enumerating graveyard targets. Under CR 601.2a + CR 601.2c and CR 115.5, a proposed spell moves to the stack before targets are chosen and is an illegal target for itself; both paths now exclude `source`.
+- **Two-pass `xtask codegen --tables` rule when `baylee-cards` is linked into `xtask`:**
+  - `xtask` compiles `baylee-cards` into its own binary, so running `xtask codegen --tables` once after changing card definitions regenerates `generated_lines.rs` from the *previously compiled* `baylee-cards` pool. Always run `xtask codegen --tables` twice so the second invocation links the newly updated pool before writing `generated_lines.rs` and `generated_oracle.rs`.
+- **Claude Stop-hook CLI gotcha (`baylee-tools hooks require-card-tests`):**
+  - `hooks require-card-tests` reads a JSON event payload from `stdin` until EOF (`io::stdin().take(1 << 20).read_to_string()`). Invoking it bare in a non-EOF shell or PTY hangs indefinitely; pass `echo '{}' | ...` whenever calling it directly from a command line.
+
 ## 2026-11-02 — Landing review of PR #410 and the unfinished vote work
 
 - **A new special action needs every action consumer.** Foretell's casting
