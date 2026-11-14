@@ -28,7 +28,7 @@ pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, 
             continue;
         };
         let cell = column(commands, choices, kit, 30.0);
-        let selected = model.tower.upgrade == Some(track);
+        let selected = model.tower.upgrade_preview() == Some(track);
         if selected {
             commands.entity(cell).insert(BorderColor::all(tokens::GOLD));
         }
@@ -59,7 +59,7 @@ pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, 
             },
         );
     }
-    if model.tower.upgrade.is_some() {
+    if model.tower.upgrade_preview().is_some() {
         let controls = row(commands, section, kit);
         control(
             commands,

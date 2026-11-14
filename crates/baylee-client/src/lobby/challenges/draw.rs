@@ -340,7 +340,7 @@ fn button(
             matches!(action, Action::Board(board) if board == model.board)
                 || matches!(action, Action::Badge(kind) if model.selected_badge == Some(kind))
                 || matches!(action, Action::Tower(baylee_client_core::tower::Action::Board(board)) if board == model.tower.board)
-                || matches!(action, Action::Tower(baylee_client_core::tower::Action::Upgrade(track)) if model.tower.upgrade == Some(track))
+                || matches!(action, Action::Tower(baylee_client_core::tower::Action::Upgrade(track)) if model.tower.upgrade_preview() == Some(track))
                 || matches!(action, Action::Tower(baylee_client_core::tower::Action::Badge(kind)) if model.tower.badge == Some(kind)),
         ),
     ));

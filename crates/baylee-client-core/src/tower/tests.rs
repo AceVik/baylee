@@ -125,6 +125,13 @@ fn upgrade_preview_requires_confirmation_and_uses_the_current_revision() {
         state.act(Action::Choose, id(6)).unwrap().requests[0],
         choose.requests[0]
     );
+    state.upgrade = None; // Escape/Back may discard the local, unsubmitted preview.
+    state.refused(central_api::Error::Unavailable);
+    assert_eq!(state.upgrade_preview(), Some(Track::Resolve));
+    assert_eq!(
+        state.act(Action::Choose, id(7)).unwrap().requests[0],
+        choose.requests[0]
+    );
 }
 
 #[test]

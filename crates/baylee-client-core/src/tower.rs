@@ -258,6 +258,15 @@ impl State {
         self.pending.is_some()
     }
 
+    /// A submitted choice remains inspectable and retryable after local navigation.
+    #[must_use]
+    pub fn upgrade_preview(&self) -> Option<Track> {
+        match &self.pending {
+            Some(Request::Choose { track, .. }) => Some(*track),
+            _ => self.upgrade,
+        }
+    }
+
     fn reservation(&self, request_id: [u8; 16]) -> Option<Work> {
         let season = self.visible_season()?;
         if season.withdrawn {

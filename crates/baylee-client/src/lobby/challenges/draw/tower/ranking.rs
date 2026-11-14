@@ -4,6 +4,22 @@ use super::*;
 
 pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, model: &State) {
     let section = panel(commands, body, kit);
+    if let Some(season) = &model.tower.season {
+        heading(commands, section, kit, words(&season.theme.title, lang));
+        label(
+            commands,
+            section,
+            kit,
+            &Phrase::ChallengeSchedule.fill(
+                lang,
+                &[
+                    &date(season.theme.period.starts_at),
+                    &date(season.theme.period.ends_at),
+                ],
+            ),
+            tokens::MUTED,
+        );
+    }
     let tabs = row(commands, section, kit);
     for (board, phrase) in [
         (tower_api::Board::Ascent, Phrase::TowerBoardAscent),
