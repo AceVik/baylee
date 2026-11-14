@@ -156,6 +156,15 @@ An independent agent's read-only source review found no expansion of the excepti
 The shipping guard still checks the exact Git pin and complete all-feature reverse
 graph, including inactive optional consumers; no check or advisory is waived.
 
+The Tower SDK pin was reviewed on 14 November 2026, from
+`072312d4fa23fa8a9b9ab29c45a0cc505835d803` to
+`88612dc0d31a9bb94a9d08d6460db72fbdce39bb`. The entire `central-crypto`
+tree (manifest included), Central's lockfile and its bigint advisory scope
+document are byte-for-byte unchanged between these commits. The fingerprint
+above and the same Ristretto-only source argument therefore remain applicable.
+The shipping guard advances only its exact Git identity; all package versions,
+source checks and the all-feature reverse-consumer graph remain mandatory.
+
 The former Central revision
 `0a941953f8c0d5573e82e0979e7faf1fb9e40299` contains the `central-crypto`
 source tree reviewed independently by two models on 24.10.2026, with two
