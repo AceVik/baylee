@@ -32,6 +32,10 @@ pub use runs::Start;
 pub const MAX_STATE_BYTES: usize = 128 * 1024;
 /// Maximum saved shop/start receipts per run; record chunks use a separate stream.
 pub const MAX_REQUESTS: i64 = 4096;
+/// Retained owner responses across runs, independent of request-count limits.
+pub const MAX_RECEIPT_BYTES: i64 = 64 * 1024 * 1024;
+/// Retained runs per account; retention releases capacity without undoing awards.
+pub const MAX_RUNS: i32 = 1024;
 /// Version of the visible enrollment explanation; not implicit from authentication.
 pub const CONSENT_REVISION: u16 = 1;
 

@@ -922,3 +922,22 @@ packages; `url` 2.5.8 is reused for fixture isolation. No external dependency
 version changed. This is not service security/release completion: authentication,
 operator grants, record durability, global pool transactions, verified outbox,
 account-wide quotas, retention and runtime privilege checks remain to integrate.
+
+## Persistence correction pass — twenty-fifth working milestone
+
+Migration two records consent version/time and backfills exact receipt-byte/run
+counts for existing rows. Account limits (64 MiB retained responses, 1,024 retained
+runs) complement per-run count/body limits. Quota charges, run creation and
+receipts commit or roll back together. An idempotent response remains readable at
+the limit and explicitly releases its transaction before returning. Migration
+validation now accepts only a known contiguous prefix and applies missing steps;
+runtime readiness requires the exact full history.
+
+The new upgrade/quota case constructs the prior schema around valid saved data,
+checks backfilled counters/consent and unchanged runs, then exercises full quotas,
+unchanged failed purchases and retrieval of a committed response at the limit.
+It and the three affected PostgreSQL scenarios passed in
+`/tmp/baylee-tower-store-bounds-tests-20261114.log`; strict Clippy passed in
+`/tmp/baylee-tower-store-bounds-clippy-20261114.log`. All fixture schemas/pools were
+closed. Retention/deletion must decrement counters transactionally; its workflow,
+record-storage quotas and live transport are still required before deployment.

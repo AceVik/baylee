@@ -21,6 +21,7 @@ impl Store {
         let tx = self.transaction().await?;
         self.owner(&tx, account, false).await?;
         if let Some(previous) = self.repeated(&tx, account, request, &digest).await? {
+            tx.commit().await.map_err(|_| Error::Unavailable)?;
             return Ok(previous);
         }
         let row = tx.query_one_raw(self.statement("SELECT cohort,state,shop_seed,revision FROM @tower.runs WHERE account=$1 AND id=$2 AND expires_at>clock_timestamp() FOR UPDATE", vec![account.into(), id.into()]))

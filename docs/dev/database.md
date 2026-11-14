@@ -21,10 +21,15 @@ refuses; the same request returns its original response after later mutations.
 An early abandoned run retains its account/cohort starting offer seed. Starting
 requires explicit acceptance of the current echo-use explanation. Immutable cohort
 contracts cannot be republished with altered starter content; catalog/list ordering
-is canonicalized. Per-run receipt count and payloads are bounded.
+is canonicalized. Per-run receipt count and payloads are bounded. Migration two
+backfills exact retained receipt bytes/run counts and the version-one consent
+timestamp, then bounds each account to 64 MiB of receipt data and 1,024 retained
+runs. Quota charges share the mutation transaction; duplicate requests return
+their prior receipt without charging again, including at the limit. Retention
+must release these counters with deleted rows before this service is released.
 
 The next persistence milestones add reservations/chunk ACK, approved operators,
-global pool indexing, verified settlement/outbox, account-wide quotas and retention.
+global pool indexing, verified settlement/outbox, record-storage quotas and retention.
 The adapter does not authenticate callers or prove legal game records. The service
 must use distinct Tower identity credentials, never arbitrary gateway admission.
 

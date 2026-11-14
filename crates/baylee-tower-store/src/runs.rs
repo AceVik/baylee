@@ -1,6 +1,6 @@
 use super::{
-    CONSENT_REVISION, ConnectionTrait, Deserialize, Error, Phase, Refusal, Run, Serialize,
-    Snapshot, Store, Uuid, column, decode, encode, requests, uuid7,
+    CONSENT_REVISION, ConnectionTrait, Deserialize, Error, MAX_RUNS, Phase, Refusal, Run,
+    Serialize, Snapshot, Store, Uuid, column, decode, encode, requests, uuid7,
 };
 
 /// Owner's enrollment choices, with no seed, price or external collection.
@@ -40,11 +40,12 @@ impl Store {
         let tx = self.transaction().await?;
         self.owner(&tx, account, true).await?;
         if let Some(previous) = self.repeated(&tx, account, request, &digest).await? {
+            tx.commit().await.map_err(|_| Error::Unavailable)?;
             return Ok(previous);
         }
         tx.execute_raw(self.statement(
-            "UPDATE @tower.players SET echo_consent=true WHERE account=$1",
-            vec![account.into()],
+            "UPDATE @tower.players SET echo_consent=true,consent_revision=$2,consent_at=pg_catalog.clock_timestamp() WHERE account=$1",
+            vec![account.into(), i16::try_from(consent).map_err(|_| Refusal::Invalid)?.into()],
         ))
         .await
         .map_err(|_| Error::Unavailable)?;
@@ -59,6 +60,16 @@ impl Store {
             .is_some()
         {
             return Err(Error::Conflict);
+        }
+        let allocated = tx
+            .execute_raw(self.statement(
+                "UPDATE @tower.players SET run_count=run_count+1 WHERE account=$1 AND run_count<$2",
+                vec![account.into(), MAX_RUNS.into()],
+            ))
+            .await
+            .map_err(|_| Error::Unavailable)?;
+        if allocated.rows_affected() != 1 {
+            return Err(Refusal::Capacity.into());
         }
         tx.execute_raw(self.statement("INSERT INTO @tower.enrollment(account,cohort,start_seed) VALUES($1,$2,$3) ON CONFLICT(account,cohort) DO NOTHING",
             vec![account.into(), cohort.into(), seed.to_vec().into()]))

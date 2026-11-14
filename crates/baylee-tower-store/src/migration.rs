@@ -1,6 +1,9 @@
-use super::{ConnectionTrait, Digest, Error, Sha256, Store, column};
+use super::{ConnectionTrait, Digest, Error, QueryResult, Sha256, Store, column};
 
-const DDL: &str = include_str!("schema.sql");
+const MIGRATIONS: &[&str] = &[
+    include_str!("schema.sql"),
+    include_str!("migrations/002_account_bounds.sql"),
+];
 
 impl Store {
     /// Explicit operator migration, separate from ordinary runtime credentials.
@@ -11,7 +14,7 @@ impl Store {
         let tx = self.transaction().await?;
         let version = tx
             .query_one_raw(self.statement(
-                "SELECT current_setting('server_version_num')::integer AS version",
+                "SELECT pg_catalog.current_setting('server_version_num')::integer AS version",
                 vec![],
             ))
             .await
@@ -21,59 +24,65 @@ impl Store {
             return Err(Error::Schema);
         }
         tx.execute_raw(self.statement(
-            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+            "SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended($1, 0))",
             vec![format!("baylee/tower/schema/{}", self.schema).into()],
         ))
         .await
         .map_err(|_| Error::Unavailable)?;
         tx.execute_unprepared(&self.sql("CREATE SCHEMA IF NOT EXISTS @tower;
-            CREATE TABLE IF NOT EXISTS @tower.schema_version (version integer PRIMARY KEY, digest bytea NOT NULL CHECK(octet_length(digest)=32))"))
+            CREATE TABLE IF NOT EXISTS @tower.schema_version (version integer PRIMARY KEY, digest bytea NOT NULL CHECK(pg_catalog.octet_length(digest)=32))"))
             .await.map_err(|_| Error::Unavailable)?;
-        let rows = tx
-            .query_all_raw(self.statement(
-                "SELECT version,digest FROM @tower.schema_version ORDER BY version",
-                vec![],
-            ))
-            .await
-            .map_err(|_| Error::Unavailable)?;
-        let digest = Sha256::digest(DDL.as_bytes()).to_vec();
-        if rows.is_empty() {
-            tx.execute_unprepared(&self.sql(DDL))
+        let rows = self.history(&tx).await?;
+        checked(&rows)?;
+        for (index, sql) in MIGRATIONS.iter().enumerate().skip(rows.len()) {
+            tx.execute_unprepared(&self.sql(sql))
                 .await
                 .map_err(|_| Error::Unavailable)?;
             tx.execute_raw(self.statement(
-                "INSERT INTO @tower.schema_version(version,digest) VALUES(1,$1)",
-                vec![digest.into()],
+                "INSERT INTO @tower.schema_version(version,digest) VALUES($1,$2)",
+                vec![
+                    i32::try_from(index + 1).map_err(|_| Error::Schema)?.into(),
+                    Sha256::digest(sql.as_bytes()).to_vec().into(),
+                ],
             ))
             .await
             .map_err(|_| Error::Unavailable)?;
-        } else if rows.len() != 1
-            || column::<i32>(&rows[0], "version")? != 1
-            || column::<Vec<u8>>(&rows[0], "digest")? != digest
-        {
-            return Err(Error::Schema);
         }
         tx.commit().await.map_err(|_| Error::Unavailable)
     }
 
-    /// Runtime readiness checks the exact migration without changing the schema.
+    async fn history(&self, db: &impl ConnectionTrait) -> Result<Vec<QueryResult>, Error> {
+        db.query_all_raw(self.statement(
+            "SELECT version,digest FROM @tower.schema_version ORDER BY version LIMIT $1",
+            vec![i64::try_from(MIGRATIONS.len() + 1).map_err(|_| Error::Schema)?.into()],
+        ))
+        .await
+        .map_err(|_| Error::Schema)
+    }
+
+    /// Runtime readiness checks the exact complete migration sequence without writes.
     /// # Errors
     /// Missing/unknown history or database failure.
     pub async fn ready(&self) -> Result<(), Error> {
-        let rows = self
-            .db
-            .query_all_raw(self.statement(
-                "SELECT version,digest FROM @tower.schema_version ORDER BY version",
-                vec![],
-            ))
-            .await
-            .map_err(|_| Error::Schema)?;
-        if rows.len() != 1
-            || column::<i32>(&rows[0], "version")? != 1
-            || column::<Vec<u8>>(&rows[0], "digest")? != Sha256::digest(DDL.as_bytes()).as_slice()
+        let rows = self.history(&self.db).await?;
+        if rows.len() != MIGRATIONS.len() {
+            return Err(Error::Schema);
+        }
+        checked(&rows)
+    }
+}
+
+fn checked(rows: &[QueryResult]) -> Result<(), Error> {
+    if rows.len() > MIGRATIONS.len() {
+        return Err(Error::Schema);
+    }
+    for (index, row) in rows.iter().enumerate() {
+        if column::<i32>(row, "version")? != i32::try_from(index + 1).map_err(|_| Error::Schema)?
+            || column::<Vec<u8>>(row, "digest")?
+                != Sha256::digest(MIGRATIONS[index].as_bytes()).as_slice()
         {
             return Err(Error::Schema);
         }
-        Ok(())
     }
+    Ok(())
 }

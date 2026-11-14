@@ -1,6 +1,6 @@
 use super::{
-    ConnectionTrait, Digest, Error, MAX_REQUESTS, Refusal, Serialize, Sha256, Snapshot, Store,
-    Uuid, column, decode, encode, uuid7,
+    ConnectionTrait, Digest, Error, MAX_RECEIPT_BYTES, MAX_REQUESTS, Refusal, Serialize, Sha256,
+    Snapshot, Store, Uuid, column, decode, encode, uuid7,
 };
 
 pub(super) fn digest(kind: &[u8], request: &impl Serialize) -> Result<Vec<u8>, Error> {
@@ -78,8 +78,15 @@ impl Store {
         if column::<i64>(&row, "count")? >= MAX_REQUESTS {
             return Err(Refusal::Capacity.into());
         }
+        let bytes = encode(response)?;
+        let length = i64::try_from(bytes.len()).map_err(|_| Refusal::Capacity)?;
+        let charged = db.execute_raw(self.statement("UPDATE @tower.players SET receipt_bytes=receipt_bytes+$2 WHERE account=$1 AND receipt_bytes<=$3-$2",
+            vec![account.into(), length.into(), MAX_RECEIPT_BYTES.into()])).await.map_err(|_| Error::Unavailable)?;
+        if charged.rows_affected() != 1 {
+            return Err(Refusal::Capacity.into());
+        }
         db.execute_raw(self.statement("INSERT INTO @tower.requests(account,request,run,digest,response) VALUES($1,$2,$3,$4,$5)",
-            vec![account.into(), request.into(), response.id.into(), digest.into(), encode(response)?.into()]))
+            vec![account.into(), request.into(), response.id.into(), digest.into(), bytes.into()]))
             .await.map_err(|_| Error::Unavailable)?;
         Ok(())
     }
