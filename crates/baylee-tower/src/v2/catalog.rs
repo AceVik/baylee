@@ -9,6 +9,33 @@ pub const RESERVE_SLOTS: u8 = 6;
 /// Full-price crafting material; never a table activation.
 pub const MYTHIC_PRICE: u16 = 24;
 
+/// Ordinary one-shot charges, separate from the Mythic crafting material.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Potion {
+    /// Gain five life through an ordinary activated ability.
+    Healing,
+    /// Add one mana of the chosen color through an ordinary mana ability.
+    Mana,
+}
+
+impl Potion {
+    /// Frozen price of one charge in this revision.
+    pub const fn price(self) -> u16 {
+        match self {
+            Self::Healing => 3,
+            Self::Mana => 5,
+        }
+    }
+
+    pub(super) const fn index(self) -> usize {
+        match self {
+            Self::Healing => 0,
+            Self::Mana => 1,
+        }
+    }
+}
+
 /// Stable upgrade tiers; the final tier needs a Rare and one crafting potion.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

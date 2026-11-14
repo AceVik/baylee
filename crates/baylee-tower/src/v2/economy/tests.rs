@@ -284,3 +284,21 @@ fn all_native_definition_ids_round_trip_and_unknown_ids_are_refused() {
         assert!(Definition::from_id(id).is_none());
     }
 }
+
+#[test]
+fn table_charges_are_bought_and_settled_separately_from_crafting_materials() {
+    let economy = Economy::default()
+        .bought_potion(Potion::Healing)
+        .unwrap()
+        .bought_potion(Potion::Mana)
+        .unwrap();
+    assert_eq!(economy.gold, 10);
+    assert_eq!(economy.potions, [1, 1]);
+    assert!(economy.bought_potion(Potion::Healing).is_err());
+    assert!(economy.settled([2, 0]).is_err());
+    let next = economy.settled([1, 0]).unwrap();
+    assert_eq!(next.potions, [0, 1]);
+    assert_eq!(next.gold, 22);
+    assert!(next.inventory.materials.is_empty());
+    assert_eq!(economy.potions, [1, 1]);
+}

@@ -1,7 +1,7 @@
 //! Atomic owned-state transitions. Service authorization and shop stock are separate.
 use super::{
     STARTING_GOLD,
-    catalog::{Definition, MYTHIC_PRICE},
+    catalog::{Definition, MYTHIC_PRICE, Potion},
     inventory::{Inventory, Material, Relic, Slot},
 };
 use crate::{MAX_GOLD, Refusal};
@@ -88,6 +88,39 @@ impl Economy {
                 id,
                 basis: MYTHIC_PRICE,
             });
+            Ok(())
+        })
+    }
+
+    /// Buy one table charge from an admitted authoritative shop offer.
+    /// # Errors
+    /// Two charges already owned or insufficient gold.
+    pub fn bought_potion(&self, potion: Potion) -> Result<Self, Refusal> {
+        self.changed(|next| {
+            if next.potions.iter().sum::<u8>() == 2 {
+                return Err(Refusal::Capacity);
+            }
+            next.gold = next.gold.checked_sub(potion.price()).ok_or(Refusal::Gold)?;
+            next.potions[potion.index()] += 1;
+            Ok(())
+        })
+    }
+
+    /// Settle charges observed in a verified terminal record and grant equal income.
+    /// The run transition must bind the result and advance its phase exactly once;
+    /// technical interruptions never call this operation.
+    /// # Errors
+    /// More charges claimed than reserved, invalid state or wallet overflow.
+    pub fn settled(&self, used: [u8; 2]) -> Result<Self, Refusal> {
+        self.changed(|next| {
+            for (remaining, spent) in next.potions.iter_mut().zip(used) {
+                *remaining = remaining.checked_sub(spent).ok_or(Refusal::Invalid)?;
+            }
+            next.gold = next
+                .gold
+                .checked_add(super::DUEL_INCOME)
+                .filter(|gold| *gold <= MAX_GOLD)
+                .ok_or(Refusal::Capacity)?;
             Ok(())
         })
     }

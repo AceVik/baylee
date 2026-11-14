@@ -746,3 +746,14 @@ for those acceptance criteria or a release-performance measurement.
 The second `codegen --tables --check` was up to date
 (`/tmp/baylee-tower-native-tables-check-20261114.log`); workspace formatting and
 diff whitespace checks also passed. No full corpus regeneration was run.
+
+## Separate table charges — seventeenth working milestone
+
+Revision two freezes healing at three gold and mana at five, with two combined
+table charges. Purchase and verified settlement are atomic economy operations;
+settlement consumes only the verified quantities and grants twelve gold. Mythic
+materials are not table charges. A technical interruption must not settle, and
+the future run/service transition must bind the terminal reservation exactly
+once; the pure economy operation is not that authorization boundary.
+The focused charge/cap/over-consumption test and strict all-target Tower Clippy
+passed in `/tmp/baylee-tower-v2-charges-{tests,clippy}-20261114.log`.
