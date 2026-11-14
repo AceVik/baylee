@@ -1,6 +1,7 @@
 # Tower Echoes v2 — implementation target
 
-Status: design, 14 November 2026. Owner review is planned for Tuesday,
+Status: implementation started after the verified handoff, 14 November 2026.
+Owner review is planned for Tuesday,
 17 November 2026, with Fable 5.2; that is a review target, not a claim that
 implementation or acceptance is complete. No merge or deployment is scheduled.
 Working branch: `codex/tower-echoes`, PR base `main` in Baylee. It preserves the
@@ -16,6 +17,12 @@ merge of that handoff, followed by remote/local handoff cleanup. The review date
 does not override this gate. See the exact sequence and current evidence in
 [the preparation checklist](tower-echoes-preparation.md). Do not mutate the
 swarm's worktree or cherry-pick an unfinished subset.
+
+This sequencing gate is now satisfied: handoff `3fc9412c58b07c446c5f7e0c062965d6e4d2b984`
+was freshly verified and merged as `aa7edb78d2b571af47ed45be93a6d7798e9c8f9e`.
+The handoff refs and temporary watcher were cleaned up. The first kernel
+extractions preserve existing behavior; the three execution variants, changed
+new-table default and Tower v2 remain implementation/acceptance work.
 
 This is the successor to [the initial proposal](tower-echoes.md). Code still
 implements the older short run, directly bought ranks and narrow supplies seam.

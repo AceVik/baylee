@@ -154,6 +154,78 @@ After exit zero:
 6. Record the actual handoff SHA and start the planned refactoring from that
    baseline. Preserve the new regression cases and use targeted tests for overlaps.
 
-Preparation currently touches only developer tools, their direct dependency
+The preparation milestone `735a6ff36` touches only developer tools, their direct dependency
 declaration/lock entry and documentation. It changes no rules, AI, protocol,
 agent, gateway, view, client renderer or generated card implementation.
+
+## Handoff received and refactoring started
+
+The Rust watcher exited **0** with `3fc9412c58b07c446c5f7e0c062965d6e4d2b984`.
+A fresh fetch returned that same tip and the exact `READY-2026-11-14` trailer;
+its subject was `chore(handoff): pre-refactor bugfixes ready for Astra`.
+The tip also declares `Gates-Verified: gate, gate-features, gate-shipped-features`.
+This records the swarm's gate attestation; it does not claim a second independent
+full-gate execution on the merged feature branch.
+
+The clean `codex/tower-echoes` branch merged it without conflicts as
+`aa7edb78d2b571af47ed45be93a6d7798e9c8f9e` (`--no-ff`, owner-specified message).
+Its second parent is the exact handoff SHA. The remote and local handoff refs
+were deleted, origin pruned, remote absence checked, and the completed watcher's
+owned directory moved to Trash; `/tmp/astra-handoff-watch` no longer exists.
+Main and the swarm's checkout were not modified.
+
+Reviewed the merge stat (268 files, 17,142 additions / 1,575 deletions), the
+benchmark fault register A1–A16/B1/C1, and the new observed-fault entries. Contracts
+to preserve through the refactor:
+
+- **Protocol 47 / view 93**; read their constants instead of repeating them in
+  callers. AI generation 19 adds chosen/linked-source filters.
+- `PublicObject` now projects second subtype, chosen card type/number and
+  **public** linked exile. Face-down identity remains hidden; grouping keys and
+  all seat consumers must retain that distinction.
+- `LogEvent::DidNotResolve::ability` distinguishes an ability from its source
+  spell; `CardsChosen` and held APNAP choices preserve visible earlier choices
+  without revealing private hand picks.
+- `DelayedAction::AddMana` retains source incarnation and reaches the stack as
+  a delayed triggered ability. Tower upkeep scheduling must preserve its
+  response window instead of directly modifying the mana pool.
+- `chosen.rs` / `for_each.rs` hold APNAP picks and carry out the batch together,
+  preserving departure context and checking incarnation/control eligibility.
+- Client `reach.rs` evaluates each offered face's timing, targets and price;
+  the old front-face shortcut must not return through mode-aware UI work.
+- The new card regression fixtures remain in their generated/testkit pipeline;
+  no corpus regeneration was used for the handoff or initial kernel extraction.
+
+The first extraction moves `on_loop_detected` and `loops_broken` unchanged into
+`engine/loop_control.rs`. This prepares a single place for static loop control;
+it does **not** yet disable detection or change the normal table default.
+
+The second extraction puts the suppression latch, saved watch and diagnostic
+counter into one `LoopControl` value. Checkpoints restore that value atomically;
+simulation forks copy it only after the same hidden-signature/suppression guard.
+The guard destructures its contents exhaustively, so adding detector state
+requires an explicit fork decision. Snapshot hash contributions and individual
+diagnostic fingerprint names/values are preserved. No speed or size improvement
+is claimed before the variant measurements.
+
+Focused validation on the merged baseline (14 November):
+
+```text
+cargo nextest run --offline --locked --cargo-profile gate -p baylee-engine --lib --features fork \
+  -E 'test(engine::loop_tests::) | test(engine::loop_false_positive_tests::) | test(engine::refusal_tests::a_refused_answer_moves_no_field_of_the_engine) | test(engine::simulation_tests::every_refusal_has_its_case)'
+# Move-only extraction: 11 passed, 0 failed; 2,621 unrelated tests filtered out.
+
+cargo nextest run --offline --locked --cargo-profile gate -p baylee-engine --lib --features fork \
+  -E 'test(engine::loop_tests::) | test(engine::loop_false_positive_tests::) | test(engine::refusal_tests::a_refused_answer_moves_no_field_of_the_engine) | test(engine::simulation_tests::every_refusal_has_its_case) | test(engine::checkpoint_tests::) | test(engine::trigger_order_tests::)'
+# State isolation: 32 passed, 0 failed; 2,600 unrelated tests filtered out.
+
+cargo clippy --offline --locked -p baylee-engine --lib --features fork -- -D warnings
+# Passed. The pre-existing Cargo workspace.package.description manifest warning remains.
+```
+
+`cargo fmt --check -p baylee-engine` and `git diff --check` pass. Local logs:
+`/tmp/baylee-loop-extraction-20261114.log`, `/tmp/baylee-loop-state-20261114.log`
+and `/tmp/baylee-loop-state-clippy-20261114.log`. The second run was justified by
+the subsequent state-layout/checkpoint change; no broad game benchmark was run.
+All owned test commands and the watcher have exited; no clients or services were
+started. Feature-branch publication remains subject to the full required gates.

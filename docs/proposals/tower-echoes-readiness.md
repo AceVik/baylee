@@ -294,9 +294,11 @@ handoff merge; earlier pass descriptions above remain chronological history.
 The design has explicit ownership, transitions, recipes, default policies,
 failure semantics and a bounded vertical-slice sequence. There is no known
 unresolved architectural contradiction blocking the first implementation
-milestone after these passes. Engine refactoring remains paused pending the
-final swarm READY handoff and its verified merge/reference check. Offline
-preparation tools/tests are authorized separately. This is not a
+milestone after these passes. The final swarm READY handoff was verified and
+merged as `aa7edb78d` on 14 November; the first behavior-preserving kernel
+extractions have started. The exact inherited contracts and validation evidence
+are tracked in [the preparation checklist](tower-echoes-preparation.md).
+This is not a
 guarantee of no defects or of player enjoyment, and does not mean the feature is
 implemented.
 
