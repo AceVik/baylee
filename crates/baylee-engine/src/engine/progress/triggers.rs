@@ -398,7 +398,7 @@ impl<L: CardLookup> Engine<L> {
 
     /// Remember event-time abilities before a state-based action removes them.
     pub(super) fn queue_new_triggers(&mut self) {
-        if self.breaking_loop {
+        if self.loop_control.breaking_loop {
             return;
         }
         let scan_from = self.trigger_scan_seq;
@@ -512,7 +512,7 @@ impl<L: CardLookup> Engine<L> {
 
     #[allow(clippy::too_many_lines)] // the trigger queue processor is a flat state machine
     pub(crate) fn collect_triggers(&mut self) {
-        if self.breaking_loop {
+        if self.loop_control.breaking_loop {
             // The house rule broke an endless loop in this segment: the
             // abilities that were feeding it do not go back on the stack.
             // Everything already on the stack still resolves, so the loop

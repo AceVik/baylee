@@ -620,7 +620,7 @@ fn an_answer_a_broken_loop_got_to_first_orders_nothing() {
     let mut engine = with_the_rule(egg_table());
     cast_and_resolve(&mut engine, armageddon());
     let answer = crate::choice::timeout_answer(engine.pending()).expect("an answer");
-    engine.breaking_loop = true;
+    engine.loop_control.breaking_loop = true;
     engine.trigger_queue.clear();
     assert!(engine.queued_triggers().is_empty());
     engine.apply(seat(0), answer).expect("the answer stands");

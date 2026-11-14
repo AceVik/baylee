@@ -1105,13 +1105,13 @@ fn every_refusal_has_its_case() {
     );
 
     let mut engine = settled_main(47, their_deck());
-    engine.action_loops.step(Some(0xfeed));
+    engine.loop_control.action_loops.step(Some(0xfeed));
     assert_eq!(
         engine.fork_for(ME, DeckKnowledge::Known, 1).err(),
         Some(ForkRefusal::LoopWatch)
     );
     let mut engine = settled_main(47, their_deck());
-    engine.breaking_loop = true;
+    engine.loop_control.breaking_loop = true;
     assert_eq!(
         engine.fork_for(ME, DeckKnowledge::Known, 1).err(),
         Some(ForkRefusal::LoopWatch)

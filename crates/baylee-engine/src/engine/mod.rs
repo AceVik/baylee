@@ -642,16 +642,9 @@ pub struct Engine<L: CardLookup> {
     /// Per-seat automation: when to offer priority, which yes/no
     /// questions to answer without asking (see `choice::Automation`).
     automation: Vec<crate::choice::SeatAutomation>,
-    /// A loop was broken and its fuel is being withheld (house rule
-    /// `RunOnceThenBreak`). Lasts one answer.
-    breaking_loop: bool,
-    /// Watches the situation as answers arrive, which is where a mandatory
-    /// loop shows up: every loop in Magic runs through the stack, so the
-    /// players are asked every time round.
-    action_loops: crate::loops::LoopWatch,
-    /// How many endless loops this game has broken. Diagnostic only: the
-    /// journal carries the authoritative `LoopDetected` entries.
-    loops_broken: u32,
+    /// The detector's saved signature, suppression state and diagnostic count.
+    /// Checkpoints and forks retain this unit without resetting its watch.
+    loop_control: loop_control::LoopControl,
 }
 
 /// A distinguishing tag per priority-hold shape, including its payload —
@@ -1042,9 +1035,7 @@ impl<L: CardLookup> Engine<L> {
                 &preset.house_rules,
             )),
             automation: vec![crate::choice::SeatAutomation::default(); state.players.len()],
-            breaking_loop: false,
-            action_loops: crate::loops::LoopWatch::default(),
-            loops_broken: 0,
+            loop_control: loop_control::LoopControl::default(),
             house_rules: preset.house_rules.clone(),
             state,
             pending: Pending::Mulligan {
@@ -1633,7 +1624,7 @@ impl<L: CardLookup> Engine<L> {
         // the board would call them identical while they are not.
         extra = extra
             .wrapping_mul(31)
-            .wrapping_add(u64::from(self.loops_broken));
+            .wrapping_add(u64::from(self.loop_control.loops_broken));
         for seat in &self.automation {
             extra = extra
                 .wrapping_mul(31)
@@ -1769,9 +1760,7 @@ impl<L: CardLookup> Engine<L> {
             trigger_queue,
             agreed_draw,
             automation,
-            breaking_loop,
-            action_loops,
-            loops_broken,
+            loop_control,
         } = self;
         // The fx map in key order: a hash map's own order is not a fact
         // about the game.
@@ -1842,9 +1831,9 @@ impl<L: CardLookup> Engine<L> {
             ("trigger_queue", format!("{trigger_queue:?}")),
             ("agreed_draw", format!("{agreed_draw:?}")),
             ("automation", format!("{automation:?}")),
-            ("breaking_loop", format!("{breaking_loop:?}")),
-            ("action_loops", format!("{action_loops:?}")),
-            ("loops_broken", format!("{loops_broken:?}")),
+            ("breaking_loop", format!("{:?}", loop_control.breaking_loop)),
+            ("action_loops", format!("{:?}", loop_control.action_loops)),
+            ("loops_broken", format!("{:?}", loop_control.loops_broken)),
         ]);
         Fingerprint(out)
     }
@@ -1946,7 +1935,7 @@ impl<L: CardLookup> Engine<L> {
         // the trigger that feeds the loop is only collected once whatever
         // is on the stack resolves, which is several answers later.
         if self.state.zones.stack_is_empty() && self.trigger_queue.is_empty() {
-            self.breaking_loop = false;
+            self.loop_control.breaking_loop = false;
         }
         // Automation settings change who gets interrupted, not the game.
         // They are answered in place: whatever was pending stays pending,
@@ -1970,9 +1959,9 @@ impl<L: CardLookup> Engine<L> {
         // counted it would break one or draw the game on their say-so, so
         // each starts the count again. Refused, it restores what it reset.
         if matches!(action, PlayerAction::CancelCast | PlayerAction::OfferDraw) {
-            self.action_loops = crate::loops::LoopWatch::default();
+            self.loop_control.action_loops = crate::loops::LoopWatch::default();
         }
-        let signature = self.action_loops.wants_sample().then(|| {
+        let signature = self.loop_control.action_loops.wants_sample().then(|| {
             self.state.loop_signature()
                 ^ self
                     .resolution
@@ -1987,7 +1976,7 @@ impl<L: CardLookup> Engine<L> {
                 ^ u64::from(player.get()).rotate_left(37)
                 ^ u64::from(self.passes).rotate_left(53)
         });
-        if let Some(period) = self.action_loops.step(signature)
+        if let Some(period) = self.loop_control.action_loops.step(signature)
             && self.on_loop_detected(period)
         {
             return Ok(());

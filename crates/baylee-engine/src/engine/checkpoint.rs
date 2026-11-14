@@ -58,9 +58,7 @@ pub struct Checkpoint {
     trigger_queue: VecDeque<trigger::PendingTrigger>,
     agreed_draw: bool,
     automation: Vec<crate::choice::SeatAutomation>,
-    breaking_loop: bool,
-    action_loops: crate::loops::LoopWatch,
-    loops_broken: u32,
+    loop_control: loop_control::LoopControl,
 }
 
 impl Checkpoint {
@@ -126,9 +124,7 @@ impl Checkpoint {
             trigger_queue,
             agreed_draw,
             automation,
-            breaking_loop,
-            action_loops,
-            loops_broken,
+            loop_control,
         } = engine;
         Self {
             state: clone_without_journal(state),
@@ -175,9 +171,7 @@ impl Checkpoint {
             trigger_queue: trigger_queue.clone(),
             agreed_draw: *agreed_draw,
             automation: automation.clone(),
-            breaking_loop: *breaking_loop,
-            action_loops: action_loops.clone(),
-            loops_broken: *loops_broken,
+            loop_control: loop_control.clone(),
         }
     }
 
@@ -231,9 +225,7 @@ impl Checkpoint {
             trigger_queue,
             agreed_draw,
             automation,
-            breaking_loop,
-            action_loops,
-            loops_broken,
+            loop_control,
         } = engine;
         let mut journal = std::mem::take(&mut state.journal);
         journal.cancel_from(self.journal);
@@ -280,9 +272,7 @@ impl Checkpoint {
         *trigger_queue = self.trigger_queue;
         *agreed_draw = self.agreed_draw;
         *automation = self.automation;
-        *breaking_loop = self.breaking_loop;
-        *action_loops = self.action_loops;
-        *loops_broken = self.loops_broken;
+        *loop_control = self.loop_control;
         self.activation.restore(engine);
     }
 }

@@ -1187,7 +1187,7 @@ impl<L: CardLookup> Engine<L> {
                         // trigger has been out of reach across a player's
                         // answer.
                         let queued = self.trigger_queue.pop_front();
-                        if self.breaking_loop {
+                        if self.loop_control.breaking_loop {
                             // The house rule broke an endless loop: the
                             // trigger feeding it is answered but never
                             // reaches the stack. A trigger whose target was

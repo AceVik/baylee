@@ -9,7 +9,8 @@ impl<L: CardLookup> Engine<L> {
         // its source. Refresh without SBAs, and only between complete parts so
         // all sacrifices within one part keep the same pre-event projection.
         self.state.refresh_characteristics();
-        if self.breaking_loop || self.trigger_scan_seq == self.state.journal.last_seq() {
+        if self.loop_control.breaking_loop || self.trigger_scan_seq == self.state.journal.last_seq()
+        {
             return;
         }
         self.trigger_queue.extend(crate::trigger::collect(

@@ -91,9 +91,7 @@ pub(super) fn check_settled<L: CardLookup>(engine: &Engine<L>) -> Result<(), For
         agreed_draw: _,
         // Replaced for every other seat by `forget_settings`.
         automation: _,
-        breaking_loop,
-        action_loops,
-        loops_broken: _,
+        loop_control,
     } = engine;
     if mulligans.is_some() {
         return Err(ForkRefusal::OpeningHands);
@@ -157,7 +155,7 @@ pub(super) fn check_settled<L: CardLookup>(engine: &Engine<L>) -> Result<(), For
         return Err(ForkRefusal::Continuation(field));
     }
     // The state's own continuations are `GameState::audit_fork`'s.
-    if *breaking_loop || action_loops.holds_signature() {
+    if !loop_control.allows_fork() {
         return Err(ForkRefusal::LoopWatch);
     }
     if !*awaiting_answer
@@ -228,9 +226,7 @@ pub(super) fn duplicate<L: CardLookup + Clone>(engine: &Engine<L>) -> Engine<L> 
         trigger_queue,
         agreed_draw,
         automation,
-        breaking_loop,
-        action_loops,
-        loops_broken,
+        loop_control,
     } = engine;
     Engine {
         lookup: lookup.clone(),
@@ -279,9 +275,7 @@ pub(super) fn duplicate<L: CardLookup + Clone>(engine: &Engine<L>) -> Engine<L> 
         trigger_queue: trigger_queue.clone(),
         agreed_draw: *agreed_draw,
         automation: automation.clone(),
-        breaking_loop: *breaking_loop,
-        action_loops: action_loops.clone(),
-        loops_broken: *loops_broken,
+        loop_control: loop_control.clone(),
     }
 }
 
