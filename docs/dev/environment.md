@@ -191,6 +191,12 @@ A game's end logs `house searches` (asked, searched, replaced, refused, busy, wa
 
 ## Central integration fixtures (`cargo dev central integration`)
 
+Held synthetic demos (`BAYLEE_CENTRAL_DEMO=1`) require a freshly generated,
+per-run `BAYLEE_CENTRAL_DEMO_PASSWORD` from their owning process. Pass it only
+through the child environment; never write it to readiness files, logs or command
+arguments. Ordinary fresh-account checks generate their own password using OS
+randomness and keep it in process memory for subsequent authenticated checks.
+
 The Central integration fixture optionally reads `BAYLEE_CENTRAL_TOWER_EVIDENCE`,
 an absolute path to a complete, private `challenge tower` evidence directory for
 the current week. It then verifies all-node staging/retry and five real Tower

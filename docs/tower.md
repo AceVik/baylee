@@ -104,6 +104,10 @@ and `demo_resume` has a resumable Weekly duel. Supplying the current week's
 ends on its deadline or the readiness path's `.stop` sibling; no production
 account, credential or authorization shortcut is involved.
 
+The demo owner generates a fresh password per run and supplies it only through
+`BAYLEE_CENTRAL_DEMO_PASSWORD`; it is never printed or written to readiness files.
+Ordinary integration accounts use independent operating-system randomness.
+
 The route/deck tests enumerate all 35 states and every upgrade edge, checking
 legal working decks and exact replacements. A separate invariant test compares
 all eight human deals across every node against the opponent's initial library,

@@ -15,12 +15,27 @@ use central_crypto::{
     vault::{MasterKey, ObjectContext, RecoveryCode},
 };
 use central_identity::IdentityService;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use tokio::runtime::Runtime;
 
 /// The plaintext the website seals as object 1, byte for byte.
 const DOCUMENT: &[u8] = br#"{"version":1,"gateways":["https://baylee.acevik.de"],"preferences":{},"legacy":null,"chat":{"devices":[],"installations":[]}}"#;
-pub(super) const PASSWORD: &str = "a fresh player's long password";
+
+/// Kept only in memory so later fixture checks can sign in to the same account.
+pub(super) fn password() -> &'static str {
+    static PASSWORD: OnceLock<String> = OnceLock::new();
+    PASSWORD.get_or_init(|| {
+        if std::env::var("BAYLEE_CENTRAL_DEMO").as_deref() == Ok("1") {
+            std::env::var("BAYLEE_CENTRAL_DEMO_PASSWORD")
+                .expect("the demo owner must supply a per-run password through its environment")
+        } else {
+            use base64::Engine as _;
+            let mut bytes = [0_u8; 32];
+            getrandom::fill(&mut bytes).expect("synthetic account password entropy");
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
+        }
+    })
+}
 
 /// `service` is the one the test serves: the registration reaches it through
 /// its browser entry, the native sign-in over HTTP.
@@ -77,7 +92,7 @@ pub(super) fn register(
             .unwrap()
             .response
     };
-    let password = PASSWORD.to_string();
+    let password = password().to_owned();
     let register = super::registration::request(website, username, username);
     let Response::Enrollment { identity, ticket } = website(&register) else {
         panic!("a valid proof registers a free name");
