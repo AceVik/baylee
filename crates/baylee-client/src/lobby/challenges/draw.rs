@@ -11,6 +11,7 @@ mod catalogue;
 mod detail;
 mod home;
 mod rewards;
+mod tower;
 use catalogue::catalogue;
 pub(in crate::lobby) use home::home;
 use rewards::badges;
@@ -55,10 +56,20 @@ pub(in crate::lobby) fn draw(
     attach_body(commands, root, body, metrics.frame);
     let masthead = panel(commands, body, kit);
     let head = row(commands, masthead, kit);
-    heading(commands, head, kit, Phrase::ChallengeNav.text(lang));
+    heading(
+        commands,
+        head,
+        kit,
+        if model.tower.opened {
+            Phrase::TowerNav
+        } else {
+            Phrase::ChallengeNav
+        }
+        .text(lang),
+    );
     let spacer = crate::lobby::parts::grow(commands);
     commands.entity(head).add_child(spacer);
-    if model.selected.is_some() {
+    if model.selected.is_some() || model.tower.opened {
         button(
             commands,
             head,
@@ -88,6 +99,20 @@ pub(in crate::lobby) fn draw(
         );
         return;
     }
+    notices(commands, body, kit, lang, state);
+    if model.tower.opened {
+        tower::draw(commands, body, kit, lang, model);
+    } else if model.selected.is_some() {
+        if let Some(task) = &model.detail {
+            detail::draw(commands, body, kit, lang, model, task);
+        }
+    } else {
+        catalogue(commands, body, kit, lang, model, true);
+    }
+}
+
+fn notices(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, state: &LobbyState) {
+    let model = &state.challenges.model;
     if model.busy {
         label(
             commands,
@@ -114,13 +139,6 @@ pub(in crate::lobby) fn draw(
             Phrase::ChallengePendingResult.text(lang),
             tokens::ACCENT,
         );
-    }
-    if model.selected.is_some() {
-        if let Some(task) = &model.detail {
-            detail::draw(commands, body, kit, lang, model, task);
-        }
-    } else {
-        catalogue(commands, body, kit, lang, model, true);
     }
 }
 
@@ -280,8 +298,28 @@ fn button(
     let lang = if kit.german { Lang::De } else { Lang::En };
     let live = if model.busy {
         Live::No(Phrase::ChallengeLoading.text(lang))
-    } else if model.confirmation.is_some()
-        && !matches!(action, Action::Confirm | Action::Cancel | Action::Back)
+    } else if model.tower.uncertain()
+        && matches!(
+            action,
+            Action::Tower(
+                baylee_client_core::tower::Action::Upgrade(_)
+                    | baylee_client_core::tower::Action::Cancel
+                    | baylee_client_core::tower::Action::Abandon
+            )
+        )
+    {
+        Live::No(Phrase::ChallengeFailed.text(lang))
+    } else if (model.confirmation.is_some() || model.tower.abandoning)
+        && !matches!(
+            action,
+            Action::Confirm
+                | Action::Cancel
+                | Action::Back
+                | Action::Tower(
+                    baylee_client_core::tower::Action::Confirm
+                        | baylee_client_core::tower::Action::Cancel
+                )
+        )
     {
         Live::No(Phrase::ChallengeConfirm.text(lang))
     } else {
@@ -300,7 +338,10 @@ fn button(
         super::keys::stop(action, model),
         crate::shellkit::focus::Current(
             matches!(action, Action::Board(board) if board == model.board)
-                || matches!(action, Action::Badge(kind) if model.selected_badge == Some(kind)),
+                || matches!(action, Action::Badge(kind) if model.selected_badge == Some(kind))
+                || matches!(action, Action::Tower(baylee_client_core::tower::Action::Board(board)) if board == model.tower.board)
+                || matches!(action, Action::Tower(baylee_client_core::tower::Action::Upgrade(track)) if model.tower.upgrade == Some(track))
+                || matches!(action, Action::Tower(baylee_client_core::tower::Action::Badge(kind)) if model.tower.badge == Some(kind)),
         ),
     ));
     commands.entity(root).add_child(button);

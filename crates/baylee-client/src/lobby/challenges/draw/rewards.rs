@@ -48,39 +48,49 @@ pub(super) fn badges(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang
             },
         );
         centred(commands, cell, kit, &progress, tokens::MUTED);
-        let track = commands
-            .spawn((
-                Node {
-                    width: percent(85),
-                    height: kit.m.px(3.0),
-                    align_self: AlignSelf::Center,
-                    border_radius: BorderRadius::all(kit.m.px(2.0)),
-                    ..default()
-                },
-                BackgroundColor(tokens::CONTROL),
-                Pickable::IGNORE,
-            ))
-            .id();
-        let share = badge.next.map_or(1.0, |next| {
-            (f64::from(badge.count) / f64::from(next.max(1))).min(1.0)
-        });
-        let fill = commands
-            .spawn((
-                Node {
-                    width: percent((100.0 * share) as f32),
-                    height: percent(100),
-                    ..default()
-                },
-                BackgroundColor(tokens::ACCENT),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(track).add_child(fill);
-        commands.entity(cell).add_child(track);
+        meter(commands, cell, kit, badge.count, badge.next);
     }
     if let Some(kind) = model.selected_badge {
         preview(commands, collection, kit, lang, model, kind);
     }
+}
+
+pub(super) fn meter(
+    commands: &mut Commands,
+    cell: Entity,
+    kit: Kit,
+    count: u32,
+    next: Option<u32>,
+) {
+    let track = commands
+        .spawn((
+            Node {
+                width: percent(85),
+                height: kit.m.px(3.0),
+                align_self: AlignSelf::Center,
+                border_radius: BorderRadius::all(kit.m.px(2.0)),
+                ..default()
+            },
+            BackgroundColor(tokens::CONTROL),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let share = next.map_or(1.0, |next| {
+        (f64::from(count) / f64::from(next.max(1))).min(1.0)
+    });
+    let fill = commands
+        .spawn((
+            Node {
+                width: percent((100.0 * share) as f32),
+                height: percent(100),
+                ..default()
+            },
+            BackgroundColor(tokens::ACCENT),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(track).add_child(fill);
+    commands.entity(cell).add_child(track);
 }
 
 fn cell(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
@@ -113,7 +123,10 @@ fn medal(
 ) {
     let icon = commands
         .spawn((
-            crate::insignia::Insignia { kind, tier },
+            crate::insignia::Insignia {
+                kind: crate::insignia::Motif::Challenge(kind),
+                tier,
+            },
             Node {
                 width: kit.m.px(size),
                 height: kit.m.px(size),
@@ -225,7 +238,7 @@ fn name(kind: api::BadgeKind) -> Phrase {
     }
 }
 
-fn tier(tier: Option<api::Tier>) -> Phrase {
+pub(super) fn tier(tier: Option<api::Tier>) -> Phrase {
     match tier {
         None => Phrase::ChallengeNotEarned,
         Some(api::Tier::Bronze) => Phrase::ChallengeBronze,

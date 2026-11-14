@@ -143,11 +143,15 @@ pub(super) fn keyboard(
         return;
     }
     if state.hub == Hub::Challenges
-        && state.challenges.model.confirmation.is_some()
+        && (state.challenges.model.confirmation.is_some()
+            || state.challenges.model.tower.abandoning
+            || state.challenges.model.tower.upgrade.is_some())
         && codes.just_pressed(KeyCode::Escape)
     {
         keys.clear();
         state.challenges.model.confirmation = None;
+        state.challenges.model.tower.abandoning = false;
+        state.challenges.model.tower.upgrade = None;
         return;
     }
     // A header popover is a menu: Esc closes it, and nothing under it

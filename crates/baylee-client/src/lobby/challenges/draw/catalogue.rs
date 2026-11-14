@@ -69,6 +69,7 @@ pub(super) fn catalogue(
     {
         card(commands, pair, kit, lang, model, task, true);
     }
+    super::tower::entry(commands, body, kit, lang, model);
     badges(commands, body, kit, lang, model);
     if !archive_visible {
         return;

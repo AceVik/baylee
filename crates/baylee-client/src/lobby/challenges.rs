@@ -19,6 +19,10 @@ pub(crate) struct Ui {
     /// An ended table awaiting Central's durable result delivery.
     pub(super) pending_result: bool,
     #[cfg(not(target_arch = "wasm32"))]
+    pending_task: Option<[u8; 16]>,
+    #[cfg(not(target_arch = "wasm32"))]
+    returning: Option<([u8; 16], [u8; 16])>,
+    #[cfg(not(target_arch = "wasm32"))]
     session: Option<central::Handle>,
     #[cfg(not(target_arch = "wasm32"))]
     inbox: Arc<Mutex<Option<native::Finished>>>,
@@ -51,11 +55,18 @@ pub(super) fn current(state: &LobbyState) -> bool {
 pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
     #[cfg(not(target_arch = "wasm32"))]
     {
-        if matches!(action, Action::Select(_)) {
+        if matches!(
+            action,
+            Action::Select(_) | Action::Tower(baylee_client_core::tower::Action::Open)
+        ) {
             cx.state.hub = Hub::Challenges;
             cx.state.ensure_central_lobby(cx.mailbox);
         }
-        if action == Action::Play && cx.state.lobby.awaiting().is_some() {
+        if matches!(
+            action,
+            Action::Play | Action::Tower(baylee_client_core::tower::Action::Play)
+        ) && cx.state.lobby.awaiting().is_some()
+        {
             cx.state
                 .lobby
                 .tell_refusal(Phrase::ChallengeLeaveTable, &[]);

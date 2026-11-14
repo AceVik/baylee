@@ -57,6 +57,25 @@ fn emblem(p: vec2<f32>, kind: f32, aa: f32) -> f32 {
         let head = max(stroke(segment(p, vec2<f32>(0.14, -0.17), vec2<f32>(0.02, -0.16)), 0.018, aa), stroke(segment(p, vec2<f32>(0.14, -0.17), vec2<f32>(0.15, -0.05)), 0.018, aa));
         return max(ring, max(shaft, head));
     }
+    if kind > 6.5 { // Unbroken: a cut shield enclosing a continuous diamond knot.
+        let shield = max(abs(p.x) - 0.21, max(-p.y - 0.22, p.y + abs(p.x) * 0.72 - 0.25));
+        let rim = stroke(shield, 0.019, aa);
+        let knot = stroke(diamond(p, vec2<f32>(0.10, 0.16)), 0.019, aa);
+        return max(rim, knot);
+    }
+    if kind > 5.5 { // Crown keeper: a stepped spire crowned by three points.
+        let tower = fill(max(abs(p.x) - 0.12, abs(p.y - 0.055) - 0.18), aa);
+        let door = fill(max(abs(p.x) - 0.045, abs(p.y - 0.15) - 0.08), aa);
+        let crown = fill(max(abs(p.x) - 0.23, max(p.y + 0.11, -p.y - 0.19 - 0.07 * cos(p.x * 28.0))), aa);
+        return max(tower * (1.0 - door), crown);
+    }
+    if kind > 4.5 { // Pathfinder: rising switchback, summit and a guiding star.
+        let q = vec2<f32>(p.x, p.y + 0.02);
+        let peak = max(stroke(segment(q, vec2<f32>(-0.23, 0.19), vec2<f32>(0.0, -0.18)), 0.018, aa), stroke(segment(q, vec2<f32>(0.0, -0.18), vec2<f32>(0.23, 0.19)), 0.018, aa));
+        let path = max(stroke(segment(q, vec2<f32>(0.06, 0.21), vec2<f32>(-0.06, 0.08)), 0.017, aa), stroke(segment(q, vec2<f32>(-0.06, 0.08), vec2<f32>(0.035, -0.02)), 0.017, aa));
+        let star = fill(diamond(p - vec2<f32>(0.18, -0.20), vec2<f32>(0.04, 0.065)), aa);
+        return max(peak, max(path, star));
+    }
     // Living oak: layered canopy, trunk and roots; persistent progress, no streak reset.
     var tree = fill(length(p - vec2<f32>(0.0, -0.13)) - 0.13, aa);
     tree = max(tree, fill(length(p - vec2<f32>(0.12, -0.04)) - 0.105, aa));

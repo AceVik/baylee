@@ -52,14 +52,20 @@ pub(super) fn follow(
             true
         }
         Link::AddGateway(url) => propose(&mut state, url),
-        Link::Challenge(id) => {
+        Link::Challenge(id) | Link::Tower(id) => {
             if state.central_ready() {
                 state.link_asked_central = false;
                 state.hub = Hub::Challenges;
                 state.ensure_central_lobby(&mailbox);
                 super::challenges::ask(
                     &mut state,
-                    baylee_client_core::challenges::Action::Select(id),
+                    if matches!(link, Link::Tower(_)) {
+                        baylee_client_core::challenges::Action::Tower(
+                            baylee_client_core::tower::Action::Season(id),
+                        )
+                    } else {
+                        baylee_client_core::challenges::Action::Select(id)
+                    },
                 );
                 true
             } else if state.central_pending() {
@@ -122,6 +128,8 @@ fn at_rest(state: &LobbyState) -> bool {
         && !state.lobby.busy()
         && !state.challenges.model.busy
         && state.challenges.model.confirmation.is_none()
+        && !state.challenges.model.tower.abandoning
+        && state.challenges.model.tower.upgrade.is_none()
         && state.adding.is_none()
         && matches!(
             state.lobby.screen(),

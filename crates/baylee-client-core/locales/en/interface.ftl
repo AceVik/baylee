@@ -10127,6 +10127,53 @@ ChallengePlatinum = Platinum
 ChallengeObsidian = Obsidian
 
 ChallengeHome = Your next challenge
+TowerNav = The Verdant Tower
+TowerLead = Five duels. Three lives. A deck shaped by your decisions.
+TowerOpen = Explore the ascent
+TowerBegin = Begin expedition
+TowerNext = Enter next floor
+TowerResume = Resume duel
+TowerChoose = Forge this upgrade
+TowerRemove = Leaves your deck
+TowerAdd = Joins your deck
+TowerChooseLead = Victory earned. Choose how your deck evolves.
+TowerChoiceNotice = This choice lasts for this expedition. Inspect all three paths before confirming.
+TowerAssault = Assault
+TowerPrecision = Precision
+TowerResolve = Resolve
+TowerLives = Lives remaining
+TowerRoute = Your ascent
+TowerReady = Ready for the next duel
+TowerPlaying = A duel awaits your return
+TowerChoosing = Choose your next improvement
+TowerConquered = The crown is yours
+TowerExhausted = This expedition has ended
+TowerAbandoned = Expedition retired
+TowerRestart = Try a new expedition
+TowerRetire = Retire expedition
+TowerRetireConfirm = Retire this expedition? Its route ends here. Earned badges remain yours.
+TowerRules = You play every duel yourself. After each of the first four victories, replace two cards with an upgrade. Three defeats end the expedition. Reconnecting preserves the encounter. Technical voids cost no life. The same weekly tower is shared across every gateway.
+TowerPractice = Practice ascent · permanent badges still progress
+TowerRanked = This week's ascent · eligible for rankings
+TowerBoardAscent = Ascent
+TowerBoardSprint = Flawless sprint
+TowerRankingRules = Ascent: floors cleared, then fewer defeats, then fewer winning turns. Sprint: active thinking time for a flawless summit, with no interrupted victory. Only your best eligible run appears; equal scores share a rank.
+TowerRewards = Relics of the ascent
+TowerPathfinder = Pathfinder
+TowerSummit = Crown keeper
+TowerUnbroken = Unbroken
+TowerEarnPathfinder = Win distinct floors across weekly towers. Repeating the same floor in the same week never adds progress.
+TowerEarnSummit = Reach the summit in distinct weekly towers. Your achievements never expire.
+TowerEarnUnbroken = Reach the summit without losing a life in distinct weekly towers.
+TowerNoSeason = A new expedition is being prepared. Your earned relics are safe.
+# Arguments: number, total
+TowerFloor = Floor { $number } of { $total }
+# Arguments: copies, remove, add
+TowerReplacement = Replace { $copies } × { $remove } with { $copies } × { $add }
+# Arguments: floors, losses, turns
+TowerScore = { $floors } / 5 floors · { $losses } defeats · { $turns } turns
+# Arguments: count
+TowerLifeCount = { $count } / 3 lives
 ChallengeHomeLead = One world. The same challenge for everyone. Find your own way to win.
 ChallengeExplore = Explore challenge
 # Arguments: minutes

@@ -6,6 +6,32 @@ use baylee_client_core::challenges::api::Board;
 
 pub(super) fn stop(action: Action, model: &State) -> Stop {
     let (id, item) = match action {
+        Action::Tower(action) => {
+            use baylee_client_core::tower::{Action as Tower, api};
+            match action {
+                Tower::Open | Tower::Season(_) => ("tower", 0),
+                Tower::Play => ("play", 0),
+                Tower::Upgrade(track) => ("upgrades", u8::try_from(track.index()).unwrap_or(0)),
+                Tower::Choose => ("choose", 0),
+                Tower::Abandon => ("abandon", 0),
+                Tower::Confirm => return Stop::new(orders::CHALLENGE_CONFIRM.name, "confirm"),
+                Tower::Cancel if model.tower.abandoning => {
+                    return Stop::new(orders::CHALLENGE_CONFIRM.name, "cancel");
+                }
+                Tower::Cancel => ("cancel-choice", 0),
+                Tower::Visibility => ("visibility", 0),
+                Tower::Board(board) => ("boards", u8::from(board == api::Board::Sprint)),
+                Tower::Page(next) => ("pager", u8::from(next)),
+                Tower::Badge(kind) => (
+                    "tower-badges",
+                    match kind {
+                        api::BadgeKind::Pathfinder => 0,
+                        api::BadgeKind::Summit => 1,
+                        api::BadgeKind::Unbroken => 2,
+                    },
+                ),
+            }
+        }
         Action::Confirm => return Stop::new(orders::CHALLENGE_CONFIRM.name, "confirm"),
         Action::Cancel => return Stop::new(orders::CHALLENGE_CONFIRM.name, "cancel"),
         Action::Select(id) => {
@@ -22,7 +48,7 @@ pub(super) fn stop(action: Action, model: &State) -> Stop {
             ("tasks", u8::try_from(position).unwrap_or(u8::MAX))
         }
         Action::Refresh => ("refresh", 0),
-        Action::Back => ("back", 0),
+        Action::Restore(_) | Action::Back => ("back", 0),
         Action::Older => ("older", 0),
         Action::Play => ("play", 0),
         Action::Abandon => ("abandon", 0),

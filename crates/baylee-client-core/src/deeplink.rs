@@ -55,6 +55,8 @@ pub enum Link {
     Pair(PairLink),
     /// Open a public challenge detail; never begin a game or reveal a hint.
     Challenge([u8; 16]),
+    /// Open a public expedition; never reserve a duel or choose an upgrade.
+    Tower([u8; 16]),
 }
 
 impl Link {
@@ -67,6 +69,7 @@ impl Link {
             Link::AddGateway(_) => "a gateway link",
             Link::Pair(_) => "a pairing link",
             Link::Challenge(_) => "a challenge link",
+            Link::Tower(_) => "a tower link",
         }
     }
 }
@@ -153,7 +156,7 @@ pub fn read(text: &str, origins: Origins) -> Option<Link> {
             gateway_origin(&value, origins).map(Link::AddGateway)
         }
         "pair" if matches!(url.path(), "" | "/") => pair(url.query()?).map(Link::Pair),
-        "challenge" if url.query().is_none() => {
+        "challenge" | "tower" if url.query().is_none() => {
             let id = url.path().strip_prefix('/')?;
             if id.len() != 32
                 || !id
@@ -163,8 +166,13 @@ pub fn read(text: &str, origins: Origins) -> Option<Link> {
                 return None;
             }
             let id = uuid::Uuid::parse_str(id).ok()?;
-            (id.get_version_num() == 7 && id.get_variant() == uuid::Variant::RFC4122)
-                .then(|| Link::Challenge(*id.as_bytes()))
+            (id.get_version_num() == 7 && id.get_variant() == uuid::Variant::RFC4122).then(|| {
+                if url.host_str() == Some("tower") {
+                    Link::Tower(*id.as_bytes())
+                } else {
+                    Link::Challenge(*id.as_bytes())
+                }
+            })
         }
         _ => None,
     }

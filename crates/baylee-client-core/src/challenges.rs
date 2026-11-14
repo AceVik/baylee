@@ -5,6 +5,10 @@ pub use central_api::challenges as api;
 /// A stable control identity, independent of a rebuilt UI tree.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Action {
+    /// Recover the owned expedition of a finished/resumed game; never starts play.
+    Restore([u8; 16]),
+    /// Expedition controls share the same bounded account worker.
+    Tower(crate::tower::Action),
     /// Current tasks and account progress.
     Refresh,
     /// Next archive page.
@@ -49,6 +53,8 @@ pub enum Confirmation {
 /// One bounded worker job. Its serial guards against late replies after navigation.
 #[derive(Clone, Debug)]
 pub struct Work {
+    /// An owned-game context lookup; a definitive refusal means an ordinary calendar game.
+    pub restoring: bool,
     /// UI generation; never an authentication identity.
     pub serial: u64,
     /// Ordered Central requests.
@@ -66,6 +72,8 @@ pub struct Work {
     reason = "listing consent, deck folding and request freshness are independent UI properties"
 )]
 pub struct State {
+    /// Manually played expedition and permanent tower rewards.
+    pub tower: crate::tower::State,
     /// Latest catalogue page(s), bounded to 120 tasks.
     pub catalogue: Vec<Challenge>,
     /// Central's time, refreshed with every public read.
@@ -115,6 +123,7 @@ pub struct State {
 impl Default for State {
     fn default() -> Self {
         Self {
+            tower: crate::tower::State::default(),
             catalogue: Vec::new(),
             now: 0,
             before: None,
@@ -166,7 +175,14 @@ impl State {
         let mut play = false;
         let mut append = false;
         match action {
+            Action::Restore(game) => {
+                return Some(self.restore(game));
+            }
+            Action::Tower(action) => {
+                return self.tower_work(action, request_id);
+            }
             Action::Back => {
+                self.tower.opened = false;
                 self.select(None);
                 self.failed = false;
                 return None;
@@ -229,6 +245,9 @@ impl State {
             }
             Action::Refresh => {
                 requests.push(Request::Catalogue { before: None });
+                requests.push(Request::Tower {
+                    request: self.tower.read(),
+                });
             }
         }
         if !play {
@@ -242,16 +261,56 @@ impl State {
                 requests.push(Request::Personal { challenge });
             }
         }
+        Some(self.job(requests, resume, play, append))
+    }
+
+    fn tower_work(&mut self, action: crate::tower::Action, request_id: [u8; 16]) -> Option<Work> {
+        if matches!(
+            action,
+            crate::tower::Action::Open | crate::tower::Action::Season(_)
+        ) {
+            self.select(None);
+        }
+        let work = self.tower.act(action, request_id)?;
+        let requests = work
+            .requests
+            .into_iter()
+            .map(|request| Request::Tower { request })
+            .collect();
+        Some(self.job(requests, work.resume, work.play, false))
+    }
+
+    fn restore(&mut self, game: [u8; 16]) -> Work {
+        let mut work = self.job(
+            vec![Request::Tower {
+                request: crate::tower::api::Request::Locate { game },
+            }],
+            None,
+            false,
+            false,
+        );
+        work.restoring = true;
+        work
+    }
+
+    fn job(
+        &mut self,
+        requests: Vec<Request>,
+        resume: Option<Attempt>,
+        play: bool,
+        append: bool,
+    ) -> Work {
         self.serial = self.serial.wrapping_add(1);
         self.failed = false;
         self.busy = true;
-        Some(Work {
+        Work {
+            restoring: false,
             serial: self.serial,
             requests,
             resume,
             play,
             append,
-        })
+        }
     }
 
     fn page(&mut self, forward: bool) {
@@ -263,6 +322,9 @@ impl State {
     }
 
     fn select(&mut self, id: Option<[u8; 16]>) {
+        self.tower.opened = false;
+        self.tower.abandoning = false;
+        self.tower.upgrade = None;
         self.selected = id;
         self.detail = None;
         self.personal = None;
@@ -310,6 +372,16 @@ impl State {
         }
         for response in responses {
             match response {
+                Response::Tower { response } => {
+                    if work.restoring
+                        && let crate::tower::api::Response::Run { run } = &*response
+                    {
+                        self.selected = None;
+                        self.tower.opened = true;
+                        self.tower.selected = Some(run.season.id);
+                    }
+                    self.tower.receive(*response);
+                }
                 Response::Catalogue {
                     now,
                     challenges,

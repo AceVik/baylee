@@ -7,6 +7,8 @@ pub(super) struct Finished {
     work: Work,
     responses: Vec<api::Response>,
     failed: bool,
+    refusal: Option<baylee_account::Error>,
+    ordinary: bool,
     seat: Option<(
         api::Attempt,
         baylee_account::Admission,
@@ -47,6 +49,14 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
     let Some(handle) = session(state) else {
         return;
     };
+    let action = if action == Action::Refresh {
+        state
+            .challenges
+            .returning
+            .map_or(action, |(_, game)| Action::Restore(game))
+    } else {
+        action
+    };
     let Some(work) = state
         .challenges
         .model
@@ -61,25 +71,39 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
             work,
             responses: Vec::new(),
             failed: false,
+            refusal: None,
+            ordinary: false,
             seat: None,
         };
         for request in &finished.work.requests {
-            if let Ok(response) = account.challenges(request.clone()) {
-                finished.responses.push(response);
-            } else {
-                finished.failed = true;
-                break;
+            match account.challenges(request.clone()) {
+                Ok(response) => finished.responses.push(response),
+                Err(baylee_account::Error::Rejected) if finished.work.restoring => {
+                    finished.ordinary = true;
+                    break;
+                }
+                Err(error) => {
+                    finished.failed = true;
+                    finished.refusal = Some(error);
+                    break;
+                }
             }
         }
         if finished.work.play && !finished.failed {
             let attempt = finished.work.resume.as_ref().or_else(|| {
-                finished.responses.iter().find_map(|response| {
-                    if let api::Response::Attempt { attempt } = response {
-                        Some(attempt)
-                    } else {
-                        None
-                    }
-                })
+                finished
+                    .responses
+                    .iter()
+                    .find_map(|response| match response {
+                        api::Response::Attempt { attempt } => Some(attempt),
+                        api::Response::Tower { response } => match &**response {
+                            baylee_client_core::tower::api::Response::Run { run } => {
+                                run.attempt.as_ref()
+                            }
+                            _ => None,
+                        },
+                        _ => None,
+                    })
             });
             match attempt
                 .filter(|attempt| attempt.state.active())
@@ -118,15 +142,26 @@ pub(in crate::lobby) fn tick(
         .ok()
         .and_then(|mut slot| slot.take());
     if let Some(reply) = reply {
+        if let Some(error) = reply.refusal {
+            state.challenges.model.tower.refused(error);
+        }
         state
             .challenges
             .model
             .receive(&reply.work, reply.responses, reply.failed);
         clock.0 = time.elapsed_secs_f64();
-        if !state.challenges.model.busy
-            && !state.challenges.model.failed
-            && state.challenges.model.attempt().is_none()
-        {
+        if reply.work.restoring && !reply.failed {
+            let returning = state.challenges.returning.take();
+            if reply.ordinary
+                && let Some((task, _)) = returning
+            {
+                ask(&mut state, Action::Select(task));
+            } else {
+                ask(&mut state, Action::Refresh);
+            }
+            return;
+        }
+        if !pending_result(&state) {
             state.challenges.pending_result = false;
         }
         if let Some((attempt, admission, seat)) = reply.seat {
@@ -140,10 +175,20 @@ pub(in crate::lobby) fn tick(
     if showing
         && !state.challenges.model.busy
         && state.challenges.model.confirmation.is_none()
+        && !state.challenges.model.tower.abandoning
+        && state.challenges.model.tower.upgrade.is_none()
         && (opened
             || (!state.challenges.model.loaded && !state.challenges.model.failed)
             || time.elapsed_secs_f64() - clock.0
-                >= if state.challenges.model.active.is_empty() {
+                >= if state.challenges.model.active.is_empty()
+                    && !state
+                        .challenges
+                        .model
+                        .tower
+                        .run
+                        .as_ref()
+                        .is_some_and(|run| run.progress.phase.active())
+                {
                     60.0
                 } else {
                     10.0
@@ -152,6 +197,21 @@ pub(in crate::lobby) fn tick(
         clock.0 = time.elapsed_secs_f64();
         ask(&mut state, Action::Refresh);
     }
+}
+
+fn pending_result(state: &LobbyState) -> bool {
+    let ui = &state.challenges;
+    ui.model.busy
+        || ui.model.failed
+        || ui
+            .model
+            .active
+            .iter()
+            .any(|attempt| Some(attempt.challenge) == ui.pending_task)
+        || ui.model.tower.run.as_ref().is_some_and(|run| {
+            run.progress.phase == baylee_client_core::tower::api::Phase::Playing
+                && Some(run.encounter.id) == ui.pending_task
+        })
 }
 
 fn enter(
@@ -198,13 +258,30 @@ pub(in crate::lobby) fn returned(mut state: ResMut<LobbyState>, duel: Option<Res
     if matches!(state.lobby.screen(), Screen::Replay(_)) {
         return;
     }
-    let Some((task, _)) = state.challenges.playing.as_ref() else {
+    let Some((task, game)) = state.challenges.playing.as_ref() else {
         return;
     };
     let task = *task;
+    let game = uuid::Uuid::parse_str(game)
+        .ok()
+        .map(|game| *game.as_bytes());
     state.challenges.playing = None;
     state.challenges.pending_result = duel.as_deref().is_some_and(|duel| duel.ending().is_some());
+    state.challenges.pending_task = Some(task);
+    state.challenges.returning = game.map(|game| (task, game));
     state.hub = Hub::Challenges;
-    state.challenges.model.selected = Some(task);
+    if state
+        .challenges
+        .model
+        .tower
+        .run
+        .as_ref()
+        .is_some_and(|run| run.encounter.id == task)
+    {
+        state.challenges.model.tower.opened = true;
+        state.challenges.model.selected = None;
+    } else {
+        state.challenges.model.selected = Some(task);
+    }
     ask(&mut state, Action::Refresh);
 }

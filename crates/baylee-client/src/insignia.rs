@@ -1,4 +1,4 @@
-//! Original, procedural earned medals. Thirty shared materials bound the cache.
+//! Original, procedural earned medals. Forty-eight shared materials bound the cache.
 //! The GPU clock animates them; idle frames never upload material uniforms.
 use baylee_client_core::challenges::api::{BadgeKind, Tier};
 use bevy::{
@@ -11,18 +11,29 @@ use bevy::{
 /// Stable motif and earned tier; progress and labels remain ordinary accessible UI.
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Insignia {
-    pub kind: BadgeKind,
+    pub kind: Motif,
     pub tier: Option<Tier>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Motif {
+    Challenge(BadgeKind),
+    Tower(baylee_client_core::tower::api::BadgeKind),
 }
 
 impl Insignia {
     fn indices(self) -> (usize, usize) {
         let kind = match self.kind {
-            BadgeKind::Daily => 0,
-            BadgeKind::Weekly => 1,
-            BadgeKind::Tactician => 2,
-            BadgeKind::FirstTry => 3,
-            BadgeKind::Regular => 4,
+            Motif::Tower(baylee_client_core::tower::api::BadgeKind::Pathfinder) => 5,
+            Motif::Tower(baylee_client_core::tower::api::BadgeKind::Summit) => 6,
+            Motif::Tower(baylee_client_core::tower::api::BadgeKind::Unbroken) => 7,
+            Motif::Challenge(kind) => match kind {
+                BadgeKind::Daily => 0,
+                BadgeKind::Weekly => 1,
+                BadgeKind::Tactician => 2,
+                BadgeKind::FirstTry => 3,
+                BadgeKind::Regular => 4,
+            },
         };
         let tier = match self.tier {
             None => 0,
@@ -57,7 +68,7 @@ impl UiMaterial for Medal {
 }
 
 #[derive(Resource, Default)]
-struct Medals([[Option<Handle<Medal>>; 6]; 5]);
+struct Medals([[Option<Handle<Medal>>; 6]; 8]);
 
 fn linear(rgb: [f32; 3]) -> Vec4 {
     let c = Color::srgb(rgb[0], rgb[1], rgb[2]).to_linear();
@@ -79,6 +90,9 @@ fn params(kind: usize, tier: usize, energy: f32) -> Params {
         [0.84, 0.50, 0.90],
         [0.98, 0.48, 0.33],
         [0.36, 0.86, 0.62],
+        [0.40, 0.86, 0.76],
+        [0.96, 0.72, 0.28],
+        [0.64, 0.58, 0.98],
     ][kind];
     Params {
         metal: linear(metal),
@@ -154,7 +168,7 @@ mod tests {
                 .map(|kind| {
                     app.world_mut()
                         .spawn(Insignia {
-                            kind,
+                            kind: Motif::Challenge(kind),
                             tier: Some(Tier::Gold),
                         })
                         .id()
@@ -188,7 +202,11 @@ mod tests {
     #[test]
     fn every_motif_and_tier_has_a_unique_bounded_cache_slot() {
         let mut slots = std::collections::BTreeSet::new();
-        for kind in BadgeKind::ALL {
+        for kind in BadgeKind::ALL.into_iter().map(Motif::Challenge).chain(
+            baylee_client_core::tower::api::BadgeKind::ALL
+                .into_iter()
+                .map(Motif::Tower),
+        ) {
             for tier in [
                 None,
                 Some(Tier::Bronze),
@@ -198,12 +216,12 @@ mod tests {
                 Some(Tier::Obsidian),
             ] {
                 let slot = Insignia { kind, tier }.indices();
-                assert!(slot.0 < 5 && slot.1 < 6 && slots.insert(slot));
+                assert!(slot.0 < 8 && slot.1 < 6 && slots.insert(slot));
                 let p = params(slot.0, slot.1, 0.0);
                 assert!(p.metal.is_finite() && p.gem.is_finite());
                 assert_eq!(p.shape.z, 0.0);
             }
         }
-        assert_eq!(slots.len(), 30);
+        assert_eq!(slots.len(), 48);
     }
 }

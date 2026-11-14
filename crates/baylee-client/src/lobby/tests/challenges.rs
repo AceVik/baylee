@@ -3,6 +3,7 @@
 use super::*;
 use baylee_client_core::challenges::{Action, api};
 use bevy::ecs::system::RunSystemOnce;
+mod tower;
 
 fn screen(lang: Lang) -> (App, std::sync::mpsc::Receiver<central::Job>) {
     let mut app = headless();

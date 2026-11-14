@@ -17,7 +17,8 @@ activates controls with Enter/Space. Confirmation traps Tab on Cancel/Confirm.
 Task details put play and consent beside independent rankings; scoring rules
 expand on request. Choosing a badge shows its five tiers, exact requirements
 and earned status. Five original procedural motifs gain bezels, laurels, gems
-and crowns through Bronze → Obsidian. Thirty shared material slots bound the
+and crowns through Bronze → Obsidian. Together with the Tower's three original
+relic motifs, forty-eight shared material slots bound the
 cache. Motion reads the GPU clock, respects reduced motion and ambient-effects
 settings, and does not rebuild the UI or upload uniforms on idle frames.
 Motion reduction remains adjustable before gateway admission, stored locally

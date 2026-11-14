@@ -1,6 +1,25 @@
 use super::*;
 
 #[test]
+fn tower_links_only_open_a_canonical_public_identity() {
+    let id = "019b4050750070008000000000000001";
+    assert!(matches!(
+        read(&format!("baylee://tower/{id}"), Origins::Public),
+        Some(Link::Tower(_))
+    ));
+    for tail in ["?play=1", "#upgrade", "/", "?token=secret"] {
+        assert!(read(&format!("baylee://tower/{id}{tail}"), Origins::Public).is_none());
+    }
+    assert!(
+        read(
+            "baylee://tower/019b4050750040008000000000000001",
+            Origins::Public
+        )
+        .is_none()
+    );
+}
+
+#[test]
 fn challenge_link_is_only_a_canonical_v7_identity() {
     let text = "baylee://challenge/019a774b346e70008000000000000001";
     assert!(matches!(

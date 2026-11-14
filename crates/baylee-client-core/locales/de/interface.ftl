@@ -3622,6 +3622,53 @@ ChallengePlatinum = Platin
 ChallengeObsidian = Obsidian
 
 ChallengeHome = Deine nächste Herausforderung
+TowerNav = Der grüne Turm
+TowerLead = Fünf Duelle. Drei Leben. Ein Deck, das mit deinen Entscheidungen wächst.
+TowerOpen = Aufstieg erkunden
+TowerBegin = Expedition beginnen
+TowerNext = Nächste Etappe betreten
+TowerResume = Duell fortsetzen
+TowerChoose = Diese Verbesserung schmieden
+TowerRemove = Verlässt dein Deck
+TowerAdd = Verstärkt dein Deck
+TowerChooseLead = Sieg errungen. Wähle, wie dein Deck wächst.
+TowerChoiceNotice = Diese Wahl gilt für die ganze Expedition. Prüfe alle drei Wege, bevor du bestätigst.
+TowerAssault = Angriff
+TowerPrecision = Präzision
+TowerResolve = Standhaftigkeit
+TowerLives = Verbleibende Leben
+TowerRoute = Dein Aufstieg
+TowerReady = Bereit für das nächste Duell
+TowerPlaying = Ein Duell wartet auf deine Rückkehr
+TowerChoosing = Wähle deine nächste Verbesserung
+TowerConquered = Die Krone gehört dir
+TowerExhausted = Diese Expedition ist beendet
+TowerAbandoned = Expedition aufgegeben
+TowerRestart = Neue Expedition wagen
+TowerRetire = Expedition aufgeben
+TowerRetireConfirm = Diese Expedition aufgeben? Ihr Weg endet hier. Errungene Abzeichen bleiben dir erhalten.
+TowerRules = Du spielst jedes Duell selbst. Nach den ersten vier Siegen ersetzt du jeweils zwei Karten durch eine Verbesserung. Drei Niederlagen beenden die Expedition. Beim Wiederverbinden bleibt die Begegnung erhalten. Technisch ungültige Partien kosten kein Leben. Derselbe wöchentliche Turm gilt auf allen Gateways.
+TowerPractice = Übungsaufstieg · dauerhafte Abzeichen wachsen weiter
+TowerRanked = Aufstieg dieser Woche · zählt für die Ranglisten
+TowerBoardAscent = Aufstieg
+TowerBoardSprint = Makelloser Sprint
+TowerRankingRules = Aufstieg: geschaffte Etappen, dann weniger Niederlagen, dann weniger Züge in gewonnenen Duellen. Sprint: aktive Bedenkzeit eines makellosen Gipfelsiegs ohne unterbrochenen Sieg. Nur dein bester gültiger Lauf zählt; gleiche Ergebnisse teilen sich einen Rang.
+TowerRewards = Relikte des Aufstiegs
+TowerPathfinder = Pfadfinder
+TowerSummit = Hüter der Krone
+TowerUnbroken = Ungebrochen
+TowerEarnPathfinder = Gewinne unterschiedliche Etappen in wöchentlichen Türmen. Dieselbe Etappe in derselben Woche erneut zu gewinnen zählt nicht zusätzlich.
+TowerEarnSummit = Erreiche den Gipfel in unterschiedlichen wöchentlichen Türmen. Deine Errungenschaften verfallen nie.
+TowerEarnUnbroken = Erreiche den Gipfel in unterschiedlichen wöchentlichen Türmen, ohne ein Leben zu verlieren.
+TowerNoSeason = Eine neue Expedition wird vorbereitet. Deine errungenen Relikte bleiben erhalten.
+# Arguments: number, total
+TowerFloor = Etappe { $number } von { $total }
+# Arguments: copies, remove, add
+TowerReplacement = Ersetze { $copies } × { $remove } durch { $copies } × { $add }
+# Arguments: floors, losses, turns
+TowerScore = { $floors } / 5 Etappen · { $losses } Niederlagen · { $turns } Züge
+# Arguments: count
+TowerLifeCount = { $count } / 3 Leben
 ChallengeHomeLead = Eine Welt. Dieselbe Aufgabe für alle. Finde deinen eigenen Weg zum Sieg.
 ChallengeExplore = Aufgabe entdecken
 ChallengeMinutes = Etwa { $minutes } Min.
