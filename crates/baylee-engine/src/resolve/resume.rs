@@ -1170,10 +1170,20 @@ pub(super) fn resume_inner(
             mut remaining,
             chosen: mut held,
         } => {
-            chosen::record_choice(state, asked, chosen, &mut held);
-            if let Some((player, options)) =
-                chosen::next_asked(state, &mut remaining, filter, res.controller, res.source)
+            let was_multi = !held.is_empty();
+            let recorded = chosen::record_choice(state, asked, chosen, &mut held);
+            let next =
+                chosen::next_asked(state, &mut remaining, filter, res.controller, res.source);
+            if let Some(id) = recorded
+                && (was_multi || next.is_some())
             {
+                state.journal.record(crate::event::GameEvent::CardsChosen {
+                    player: asked,
+                    cards: vec![id],
+                    action: crate::event::ChosenAction::Destroy,
+                });
+            }
+            if let Some((player, options)) = next {
                 res.awaiting = Some(AwaitingOp::DestroyChosen {
                     asked: player,
                     filter,
@@ -1202,12 +1212,22 @@ pub(super) fn resume_inner(
             mut remaining,
             chosen: mut held,
         } => {
-            chosen::record_choice(state, asked, chosen, &mut held);
+            let was_multi = !held.is_empty();
+            let recorded = chosen::record_choice(state, asked, chosen, &mut held);
             // Ask the next player in APNAP order who has a legal sacrifice,
             // then sacrifice every chosen permanent together (CR 101.4).
-            if let Some((player, options)) =
-                chosen::next_asked(state, &mut remaining, filter, res.controller, res.source)
+            let next =
+                chosen::next_asked(state, &mut remaining, filter, res.controller, res.source);
+            if let Some(id) = recorded
+                && (was_multi || next.is_some())
             {
+                state.journal.record(crate::event::GameEvent::CardsChosen {
+                    player: asked,
+                    cards: vec![id],
+                    action: crate::event::ChosenAction::Sacrifice,
+                });
+            }
+            if let Some((player, options)) = next {
                 res.awaiting = Some(AwaitingOp::SacrificeFilter {
                     asked: player,
                     filter,
@@ -1277,10 +1297,20 @@ pub(super) fn resume_inner(
             mut remaining,
             chosen: mut held,
         } => {
-            chosen::record_choice(state, asked, chosen, &mut held);
-            if let Some((player, options)) =
-                chosen::next_asked(state, &mut remaining, filter, res.controller, res.source)
+            let was_multi = !held.is_empty();
+            let recorded = chosen::record_choice(state, asked, chosen, &mut held);
+            let next =
+                chosen::next_asked(state, &mut remaining, filter, res.controller, res.source);
+            if let Some(id) = recorded
+                && (was_multi || next.is_some())
             {
+                state.journal.record(crate::event::GameEvent::CardsChosen {
+                    player: asked,
+                    cards: vec![id],
+                    action: crate::event::ChosenAction::ReturnToHand,
+                });
+            }
+            if let Some((player, options)) = next {
                 res.awaiting = Some(AwaitingOp::ReturnChosen {
                     asked: player,
                     filter,

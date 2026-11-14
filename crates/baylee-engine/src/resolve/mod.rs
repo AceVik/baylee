@@ -365,6 +365,15 @@ impl Resolution {
             Some(AwaitingOp::DungeonTax(tax)) => tax.held_choices(state),
             Some(AwaitingOp::Equalize(selection)) => selection.held_choices(state),
             Some(AwaitingOp::KeepOneOfEach(selection)) => selection.held_choices(state),
+            Some(AwaitingOp::DestroyChosen { chosen, .. }) => {
+                chosen::held_choices(state, chosen, crate::event::ChosenAction::Destroy)
+            }
+            Some(AwaitingOp::SacrificeFilter { chosen, .. }) => {
+                chosen::held_choices(state, chosen, crate::event::ChosenAction::Sacrifice)
+            }
+            Some(AwaitingOp::ReturnChosen { chosen, .. }) => {
+                chosen::held_choices(state, chosen, crate::event::ChosenAction::ReturnToHand)
+            }
             Some(AwaitingOp::DiscardChain { selected, .. }) => selected
                 .iter()
                 .filter(|&&(card, player)| {

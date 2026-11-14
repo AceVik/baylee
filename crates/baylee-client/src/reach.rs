@@ -359,7 +359,7 @@ fn pile_card_reachable(
     }
     baylee_client_core::timing::allows(view, o.types, has_flash(card))
         && pile_in_reach(duel, view, legal, o.id)
-        && !targeting::provably_targetless(view, card)
+        && !targeting::provably_targetless_from(view, card, Some(o.id))
         && (!check_cast_now || baylee_ai::spell_can_be_cast_now(view, legal, o.id, card))
 }
 
@@ -407,7 +407,7 @@ fn pile_way_reachable(
             (face_def.types, has_flash(face_card))
         };
         if !baylee_client_core::timing::allows(view, types, flash)
-            || targeting::provably_targetless(view, face_card)
+            || targeting::provably_targetless_from(view, face_card, Some(o.id))
             || (check_cast_now && !baylee_ai::spell_can_be_cast_now(view, legal, o.id, face_card))
         {
             return false;

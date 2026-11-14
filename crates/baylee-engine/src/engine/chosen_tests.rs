@@ -449,6 +449,30 @@ fn each_player_sacrifice_asks_in_apnap_order_and_holds_until_all_choose() {
         .held_choices();
     assert_eq!(held.len(), 1);
     assert_eq!((held[0].0, held[0].1.object), (p1, p1_opts[0]));
+    assert_eq!(
+        engine.held_choices(),
+        vec![crate::resolve::HeldChoice {
+            player: p1,
+            object: Some(p1_opts[0]),
+            action: crate::event::ChosenAction::Sacrifice,
+        }],
+        "CR 101.4b: held sacrifice choice is exposed via Engine::held_choices"
+    );
+    assert!(
+        engine
+            .state()
+            .journal
+            .entries()
+            .iter()
+            .any(|entry| matches!(
+                &entry.event,
+                crate::event::GameEvent::CardsChosen {
+                    player,
+                    cards,
+                    action: crate::event::ChosenAction::Sacrifice,
+                } if *player == p1 && cards == &[p1_opts[0]]
+            ))
+    );
 
     let Pending::ChooseCards {
         player: second_asked,

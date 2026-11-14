@@ -140,17 +140,13 @@ pub(super) fn record_choice(
     asked: PlayerId,
     chosen: &[ObjectId],
     held: &mut Vec<(PlayerId, DamageSourceRef)>,
-) {
-    let Some(&id) = chosen.first() else {
-        return;
-    };
-    let Some(obj) = state.object(id).filter(|o| {
+) -> Option<ObjectId> {
+    let &id = chosen.first()?;
+    let obj = state.object(id).filter(|o| {
         o.zone == Zone::Battlefield
             && o.controller == asked
             && !o.status.contains(Status::PHASED_OUT)
-    }) else {
-        return;
-    };
+    })?;
     held.push((
         asked,
         DamageSourceRef {
@@ -158,6 +154,35 @@ pub(super) fn record_choice(
             version: obj.version,
         },
     ));
+    Some(id)
+}
+
+/// Projects held battlefield choices for `PlayerView::held_choices` while
+/// later players in APNAP order still have choices to make (CR 101.4b).
+pub(super) fn held_choices(
+    state: &GameState,
+    held: &[(PlayerId, DamageSourceRef)],
+    action: crate::event::ChosenAction,
+) -> Vec<super::HeldChoice> {
+    let check_controller = !matches!(action, crate::event::ChosenAction::Destroy);
+    held.iter()
+        .filter_map(|&(player, pick)| {
+            if check_controller && state.has_left(player) {
+                return None;
+            }
+            let alive = state.object(pick.object).is_some_and(|o| {
+                o.zone == Zone::Battlefield
+                    && o.version == pick.version
+                    && (!check_controller || o.controller == player)
+                    && !o.status.contains(Status::PHASED_OUT)
+            });
+            alive.then_some(super::HeldChoice {
+                player,
+                object: Some(pick.object),
+                action,
+            })
+        })
+        .collect()
 }
 
 /// Sacrifices every held pick simultaneously (CR 101.4, CR 603.10a).

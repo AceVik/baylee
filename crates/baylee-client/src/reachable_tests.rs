@@ -553,3 +553,54 @@ fn graveyard_and_exile_cast_ways_check_the_offered_face_for_timing_and_targets()
     let own_main = build(true, 0, vec![], rider_way);
     assert!(reachable(&own_main).contains(&card_id));
 }
+
+#[test]
+fn a_flashback_card_as_the_only_graveyard_card_is_not_reachable() {
+    use baylee_core::mana::ManaCost;
+    use baylee_engine::choice::{CastModeDesc, CastModeKind};
+
+    let purge_id = ObjectId::new(10, 0);
+    let swamp_id = ObjectId::new(1, 0);
+    let flashback_way = CastModeDesc {
+        index: 0,
+        kind: CastModeKind::Flashback,
+        cost: ManaCost::parse("{B}"),
+    };
+    let build = |extra: Option<baylee_view::PublicObject>| {
+        let mut view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![basic(1, "Swamp", land::SWAMP)])
+            .build();
+        view.graveyards[0].push(crate::registry_printed(purge_id.slot(), 0, "Coffin Purge"));
+        if let Some(other) = extra {
+            view.graveyards[1].push(other);
+        }
+        let legal = LegalActions {
+            can_pass: true,
+            mana_abilities: vec![swamp_id],
+            payable: vec![purge_id],
+            cast_ways: vec![(purge_id, flashback_way.clone())],
+            ..LegalActions::default()
+        };
+        Duel {
+            interaction: Some(Interaction::new(
+                Pending::Priority {
+                    player: view.seat,
+                    legal: Box::new(legal),
+                },
+                view.seat,
+            )),
+            view: Some(view),
+            ..Duel::default()
+        }
+    };
+
+    assert!(
+        !reachable(&build(None)).contains(&purge_id),
+        "CR 601.2a + CR 115.5: Coffin Purge leaves the graveyard before targets are chosen and cannot target itself"
+    );
+    let other_card = crate::registry_printed(20, 1, "Grizzly Bears");
+    assert!(
+        reachable(&build(Some(other_card))).contains(&purge_id),
+        "another card in any graveyard makes Coffin Purge reachable via flashback"
+    );
+}

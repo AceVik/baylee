@@ -2932,7 +2932,7 @@ the skill has been corrected along with this.
 
 ## Twelfth pass, 2026-09-11 — found while writing the eleventh pass down
 
-### 53. `host::house_duel` is dead code, and its doc promises it cannot drift — CONFIRMED
+### 53. `host::house_duel` is dead code, and its doc promises it cannot drift — FIXED
 
 `crates/baylee-client/src/host.rs` builds a solo duel against the house AI and
 says of it: *"Everything the standalone binary needs for offline play, and the
@@ -2970,6 +2970,13 @@ standalone binary has no offline front door of its own any more, and if it
 should have one, `house_duel` is what it would call. Until that is settled the
 doc promises a caller that does not exist and the test name says it does, and
 both are cheap to correct without deciding anything.
+
+**Fixed:** `host::house_duel` and `host::demo_duel` are gated behind
+`#[cfg(test)] pub(crate)` in `crates/baylee-client/src/host.rs`, their doc
+comments describe them accurately as standalone test fixtures while live local
+duels go through `lobby::offline`, the test is renamed
+`demo_duel_builds_and_deals_a_two_seat_acceptance_preset`, and the stale warning
+in `crates/baylee-client/src/lobby/systems.rs` is removed.
 
 ## Thirteenth pass, 2026-09-11 — from the owner's play report, the client half
 
@@ -3790,7 +3797,7 @@ projection or a proof that does not substitute current state for history.
 
 ## Found while reviewing the fixes for the reports of 30.10, 2026-10-31
 
-### 67. Mana Drain's mana skips the stack — CONFIRMED
+### 67. Mana Drain's mana skips the stack — FIXED
 
 Mana Drain's "at the beginning of your next main phase, add …" is a delayed
 triggered ability (CR 603.7) that is not a mana ability (CR 605.1b), so it
@@ -3798,7 +3805,14 @@ should go on the stack and be answerable, but `DelayedAction::AddMana`
 (`engine/progress/delayed.rs`) puts the mana straight into the pool before
 anyone gets priority.
 
-### 68. The planners count no mana from Extraplanar Lens — KNOWN coverage gap
+**Fixed:** `DelayedAction::AddMana` now records `source` and `source_version`
+(CR 603.7e) and queues onto the stack in `queue_due_delayed_triggers` /
+`process_delayed` (`crates/baylee-engine/src/engine/progress/delayed.rs`) as a
+synthetic triggered ability rather than a mana ability (CR 605.1b), depositing
+the `{C}` only when the ability resolves
+(`mana_drain_delayed_ability_uses_the_stack_and_can_be_countered`).
+
+### 68. The planners count no mana from Extraplanar Lens — FIXED
 
 Reported by a language-model seat, 4.11.2026: a spell the Lens's doubling pays
 for is not reached. `apply_triggered_mana_bonus` reads the Lens's
@@ -3807,6 +3821,15 @@ for is not reached. `apply_triggered_mana_bonus` reads the Lens's
 (`linked_exile_cards`) no `PlayerView` carries, so the filter answers `None`.
 Under-counting is the safe side, and the land still makes its bonus when
 tapped. Closing it needs the view to name a permanent's linked exile.
+
+**Fixed** (protocol 47): `PublicObject::linked_exile` projects face-up exiled
+cards linked to a face-up permanent (`eval::public_linked_exile_cards`, hiding
+face-down cards and face-down hosts per CR 406.3 / CR 708.2); `baylee_ai::filter`
+evaluates `SameNameAsLinkedExile` and `SharesColorWithExiledWithSource` for
+both AI and client mana planning
+(`extraplanar_lens_doubles_mana_for_lands_sharing_the_exiled_land_s_name`), and
+both the client HUD (`chosen_type.rs`) and LLM narrator (`narrator/board.rs`)
+display linked exiled cards.
 
 ## Reported by the owner, 2026-11-11: what the game offers to pay for
 
@@ -3881,7 +3904,7 @@ the offer names from a graveyard or an exile zone is planned at each way
 `LegalActions::cast_ways` prices (`tests/ai_full_casts.rs`: a foretold
 Doomskar, a disturbed Malevolent Hermit, an adventuring Brazen Borrower).
 
-### 71. A back face cast from a graveyard is timed by its front's types in the client — KNOWN coverage gap
+### 71. A back face cast from a graveyard is timed by its front's types in the client — FIXED
 
 Found with fault 69, 11.11.2026. The client's reach asks
 `timing::allows(view, o.types, …)` of a graveyard or exiled card, and those are
@@ -3891,6 +3914,14 @@ a disturb face that is an instant behind a creature front would be withheld
 outside a main phase. No disturb card in the pool has one, and the engine's
 `payable` has already asked the right face, so it under-offers and never
 over-offers.
+
+**Fixed:** `pile_card_reachable` (`crates/baylee-client/src/reach.rs`) checks
+each `LegalActions::cast_ways` offer on a graveyard or exiled card against that
+way's own face timing, target check (`provably_targetless_from` excluding the
+card itself per CR 601.2a / CR 115.5), and mana plan (CR 601.3e), falling back
+to the visible front face only when `cast_ways` names no route
+(`graveyard_and_exile_cast_ways_check_the_offered_face_for_timing_and_targets`,
+`a_flashback_card_as_the_only_graveyard_card_is_not_reachable`).
 
 ### 72. The house plans no Phyrexian mana with life — FIXED for the house from generation 10
 
@@ -4007,7 +4038,7 @@ sacrificed for another skipped) are fixed in the engine
 (`docs/engine-internals.md` §"For each permanent, its controller"). Two
 neighbours of the fix were seen and are left for a round of their own.
 
-### 76. "Each player sacrifices …" asks in seat order and sacrifices one player at a time — CONFIRMED
+### 76. "Each player sacrifices …" asks in seat order and sacrifices one player at a time — FIXED
 
 `Effect::SacrificeFilter` with `who: EachPlayer` (Innocent Blood, Tremble,
 Simplify, Abyssal Gatekeeper, Hurloon Shaman and the other edicts over every
@@ -4024,7 +4055,17 @@ APNAP order, hold, then `sacrifice_together`; it changes play wherever an
 edict meets a turn of seat 1 or a death trigger, so it needs its own
 boundary.
 
-### 77. A later player is not shown what an earlier player chose to sacrifice — KNOWN
+**Fixed:** `Effect::SacrificeFilter`, `Effect::DestroyChosenForPlayers`, and
+`Effect::ReturnChosenToHand` now sort `players` in APNAP order via
+`chosen::order_apnap` (`crates/baylee-engine/src/resolve/chosen.rs`, `zones.rs`),
+hold each player's battlefield choice in
+`AwaitingOp::{SacrificeFilter, DestroyChosen, ReturnChosen}` while subsequent
+players choose (`resume.rs`, `awaiting.rs`), and execute all held choices
+simultaneously via `sacrifice_together`, `sba::destroy_all`, or pre-snapshotted
+`move_object_with_departure` once `next_asked` finishes (CR 101.4, CR 603.10a;
+`chosen_tests.rs`).
+
+### 77. A later player is not shown what an earlier player chose to sacrifice — FIXED
 
 CR 101.4b: a player knows the choices the earlier players made. Fade Away's
 held picks stay on the battlefield until the last player has chosen, and
@@ -4033,6 +4074,16 @@ seeing them; the Dungeon's tax choices (`resolve/dungeon/tax.rs`) are held
 the same way. It takes information away and leaks none. Closing it needs a
 public record of a held pick (an event the log and the view read) or a mark
 on the held permanent in the view.
+
+**Fixed** (protocol 47): Sequential APNAP simultaneous-action choices
+(`ForEachCounted`, `DungeonTax`, `Equalize`, `KeepOneOfEach`, `DiscardChain`,
+and multi-player `SacrificeFilter` / `DestroyChosen` / `ReturnChosen`) expose
+`Engine::held_choices` (`PlayerView::held_choices`, `SpectatorView::held_choices`)
+and `LogEvent::CardsChosen` across EN/DE gamelog, client HUD/board
+(`Individual::Chosen`), AI features (`PermanentGroupKey7`, `SeatKnowledge4`),
+and LLM narrator (`narrator/board.rs`), naming public permanents (CR 101.4b)
+while withholding hidden hand card identities until simultaneous discard
+(CR 101.4d; `view::tests::announced`, `chosen_tests.rs`).
 
 ## Found while fixing Carbon's block 6 reports, 2026-11-12
 
@@ -4078,7 +4129,7 @@ with another hash: `convert4` refuses it by name (`convert4::split_boundary`,
 `docs/trained-ai.md`: 3,960 records of `~/baylee-data/v6` replayed exactly
 before and do not after).
 
-### 80. A Room is its left half off the battlefield and the stack — KNOWN rules gap, held for a pin
+### 80. A Room is its left half off the battlefield and the stack — FIXED
 
 CR 709.4 gives every split card its halves combined in every zone but the
 stack, and a Room is a split card (CR 709.5 adds what it is on the
@@ -4093,7 +4144,14 @@ Rooms (`GameState::set_doors` keeps the battlefield; `original_base` is then
 the whole card), in a change of its own that re-records those pins and says
 why.
 
-### 81. A chosen card type, a second basic land type and a chosen number are shown nowhere — KNOWN, needs the view
+**Fixed:** `CardDef::is_split_spell_card` builds two-face split characteristics
+for Rooms off the battlefield and stack (`GameObject::from_card_def`, CR 709.4),
+`GameState::set_doors` preserves the combined `original_base` while projecting
+unlocked doors on the battlefield (CR 709.5), `view::split_name` leaves fully
+locked battlefield Rooms blank-named, and `generation-6.json` is re-recorded for
+Weltenbaum's `Walk-In Closet // Forgotten Cellar` (`a_room_combines_both_halves_off_the_battlefield_and_stack`).
+
+### 81. A chosen card type, a second basic land type and a chosen number are shown nowhere — FIXED
 
 Ward Sliver's chosen colour is now on its line (Carbon b6, attempt 63,
 q252), with a chosen opponent beside the chosen type and name the seat
@@ -4102,6 +4160,13 @@ enters (Serra's Emissary: protection from it, `Rider::ChosenCardType`), a
 second chosen basic land type and a chosen number, and the view carries none
 of them, so neither the seat nor the client can show them. Each wants a
 `PublicObject` field.
+
+**Fixed** (protocol 47): `PublicObject` projects `second_chosen_subtype`,
+`chosen_card_type`, and `chosen_number` (hidden while face-down per CR 708.2),
+evaluated in `baylee_ai::filter` (`OfSourceChosenCardType`,
+`OfSourceChosenColor`), grouped distinctly in `PermanentGroupKey7` / `BoardKey`,
+and rendered on the client HUD/stack and LLM narrator
+(`chosen_card_type_second_subtype_number_and_linked_exile_are_labelled`).
 
 ## Found while fixing Carbon's block 7 reports, 2026-11-12
 
