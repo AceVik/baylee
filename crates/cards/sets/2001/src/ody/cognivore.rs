@@ -15,7 +15,7 @@ card!(
     scryfall_id = "7de76ff6-d065-4db1-b28d-4a4ccb1cc0fa",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cognivore",
         mana_cost = mana!("{6}{U}{U}"),

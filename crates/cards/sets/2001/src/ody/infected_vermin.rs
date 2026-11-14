@@ -12,7 +12,7 @@ card!(
     oracle_id = "448396b8-b691-457a-8569-1282c3fca65a",
     scryfall_id = "00615487-3526-4b4c-bb06-8f2af1f101d0",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Infected Vermin",
         mana_cost = mana!("{2}{B}"),

@@ -24,7 +24,7 @@ card!(
         Color::White
     ]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Atogatog",
         mana_cost = mana!("{W}{U}{B}{R}{G}"),

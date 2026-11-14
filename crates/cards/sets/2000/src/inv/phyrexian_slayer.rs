@@ -18,7 +18,7 @@ card!(
     scryfall_id = "5fa8c604-343f-4c94-ac25-439ab1845c19",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Phyrexian Slayer",
         mana_cost = mana!("{3}{B}"),

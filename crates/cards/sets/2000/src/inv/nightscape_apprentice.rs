@@ -12,7 +12,7 @@ card!(
     oracle_id = "429de3c3-3f2e-4d55-a04a-f414912aff3a",
     scryfall_id = "7498ca4c-614a-4776-8886-0a6ed58520f6",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red, Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nightscape Apprentice",
         mana_cost = mana!("{B}"),

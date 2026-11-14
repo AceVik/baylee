@@ -12,7 +12,7 @@ card!(
     oracle_id = "4da2425d-2118-4116-855d-2ef80693a7b7",
     scryfall_id = "7f7a3d34-4e4e-4545-8e2e-6977eb754270",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Undead Gladiator",
         mana_cost = mana!("{1}{B}{B}"),

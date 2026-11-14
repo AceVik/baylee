@@ -13,7 +13,7 @@ card!(
     scryfall_id = "0afd6911-32b5-410a-afb0-fd3d2996fe59",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Krosan Avenger",
         mana_cost = mana!("{2}{G}"),
