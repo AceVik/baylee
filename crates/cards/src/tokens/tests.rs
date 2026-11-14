@@ -25,6 +25,10 @@ fn uses_documented_face_fallback(token: &TokenDef) -> bool {
         &TOWER_HEALING_POTION,
         &TOWER_MANA_POTION,
         &TOWER_SEEDLING,
+        &TOWER_GROVE_COMMON,
+        &TOWER_GROVE_UNCOMMON,
+        &TOWER_GROVE_RARE,
+        &TOWER_GROVE_MYTHIC,
     ]
     .into_iter()
     .any(|fallback| std::ptr::eq(token, fallback))

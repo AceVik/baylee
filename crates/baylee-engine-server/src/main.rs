@@ -286,6 +286,9 @@ impl Attach {
 
 /// The dev harness: listen on loopback and serve whoever connects.
 async fn listen() {
+    if cfg!(feature = "tower") {
+        refuse("the Tower artifact requires an authenticated gateway attachment");
+    }
     let port = std::env::var("PORT")
         .ok()
         .and_then(|p| p.parse().ok())

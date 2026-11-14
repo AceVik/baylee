@@ -38,6 +38,16 @@ behavior. The compiled lookup travels with engine forks; hosted sessions must
 carry that same type through construction, replay and resumption. This kernel
 seam does not itself authorize a run or verify an operator's honesty.
 
+`Session<D, Registry>` and `EngineRunner<D, Registry>` preserve that lookup in
+recording, exact replay, perspective projection and fair AI simulation. The
+Tower artifact binds `NativeLookup<RegistryLookup, tower::Pack>` in both live
+and replay paths. Revision two derives opening resources from active catalog
+definitions through `baylee-tower::v2::loadout`, requiring an exact two-seat,
+unprivileged, frozen-policy preset with repetition detection off. It cannot start
+through the unauthenticated development listener. Ordinary hosting identities
+cannot start this registry, and ordinary registries cannot accept Tower identities.
+Ownership, shop prices and durable verification remain the Tower authority's job.
+
 ## Object model
 Custom presets may specify bounded `HouseRules::opening` overrides per seat:
 1–9 cards per opening draw/redraw, a base hand limit of 1–9, and 0–7 free

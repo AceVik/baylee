@@ -17,7 +17,12 @@ pub type Detection = baylee_engine::engine::NoLoopDetection;
 pub type HostedSession = baylee_gamehost::Session<Detection, Registry>;
 
 /// The registry compiled into the artifact's game and replay paths.
+#[cfg(not(feature = "tower"))]
 pub type Registry = baylee_gamehost::RegistryLookup;
+/// The native Tower registry; ordinary setup is not admitted by this artifact.
+#[cfg(feature = "tower")]
+pub type Registry =
+    baylee_engine::extensions::NativeLookup<baylee_gamehost::RegistryLookup, crate::tower::Pack>;
 
 /// The concrete transport driver used by the executable.
 pub type CompiledRunner = crate::EngineRunner<Detection, Registry>;

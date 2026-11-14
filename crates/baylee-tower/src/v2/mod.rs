@@ -5,6 +5,7 @@
 pub mod catalog;
 pub mod economy;
 pub mod inventory;
+pub mod loadout;
 
 /// Native setup namespace reserved for Tower.
 pub const PACK: u16 = 1;

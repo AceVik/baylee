@@ -5,12 +5,26 @@ use baylee_engine::state::CardLookup;
 
 /// A compiled registry retained by live sessions, replays and fair AI forks.
 /// Implementations must preserve the shared card/token presentation identities.
-pub trait SessionRegistry: CardLookup + Clone + Default + Send + Sync + 'static {}
+pub trait SessionRegistry: CardLookup + Clone + Default + Send + Sync + 'static {
+    /// Hosted variant supported by this compiled registry, independently of loop policy.
+    fn supports_execution(variant: baylee_protocol::execution::Variant) -> bool;
+}
 
-impl SessionRegistry for RegistryLookup {}
+impl SessionRegistry for RegistryLookup {
+    fn supports_execution(variant: baylee_protocol::execution::Variant) -> bool {
+        matches!(
+            variant,
+            baylee_protocol::execution::Variant::Standard
+                | baylee_protocol::execution::Variant::StandardLoops
+        )
+    }
+}
 impl<P: baylee_engine::extensions::NativeRulePack> SessionRegistry
     for baylee_engine::extensions::NativeLookup<RegistryLookup, P>
 {
+    fn supports_execution(variant: baylee_protocol::execution::Variant) -> bool {
+        variant == baylee_protocol::execution::Variant::Tower
+    }
 }
 
 /// Registry lookup backed by the compiled card pool.

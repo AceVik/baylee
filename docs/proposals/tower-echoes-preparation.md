@@ -695,3 +695,54 @@ These are pure transitions, not shop authorization, durable deduplication,
 calibrated balance or a finished Tower release. The first four-family catalog
 is a vertical-slice hypothesis; its native Grove definitions and service/client
 integration follow before any offer can be published.
+
+## Native Tower pack and derived resources — sixteenth working milestone
+
+The `tower` artifact now binds its live and replay registry to the actual native
+revision-two pack. Plain registries reject Tower hosting identities; native
+registries reject ordinary hosting identities. Tower refuses the unauthenticated
+listening harness and requires its existing authenticated gateway attachment.
+The new internal `baylee-tower` dependency adds no external dependency version.
+
+The authority-side resource derivation is shared with pack admission. Admission
+requires exactly two canonical seats, the frozen Expert policy, no privileged
+capabilities/fixed hands/outside-game cards, and exactly the life/opening/house
+rules justified by active definitions. This validates rules consistency, not
+ownership or the honesty of an operator. The service must still prove acquisition
+and bind the reservation and record.
+
+All sixteen initial family/rarity definitions are now executable. Heartwood,
+Satchel and Compass derive bounded opening resources. Grove is a removable
+starting artifact whose own-upkeep ability creates one/two/three/four original
+Plants through the ordinary stack. Setup invents no entry or upkeep event.
+Four original token identities were appended by `cargo xtask codegen --tables`;
+existing IDs were preserved. Their native text faces and original sentences are
+covered by the documented asset fallback, with no external image identity.
+
+Targeted evidence:
+- `/tmp/baylee-tower-v2-loadout-tests-20261114-r2.log`: exact setup and nineteen
+  forged configuration variants. The first fixture accidentally gave an AI an
+  empty deck and was corrected to a structurally valid synthetic deck.
+- `/tmp/baylee-native-tower-pack-tests-20261114-r2.log`: all sixteen definitions,
+  each Grove rarity's real upkeep/stack/token ownership, resource-forgery refusal,
+  wrong executor rejection and 32-step fixed-Expert resume/exact replay. The first
+  acceptance fixture included tournament sideboards; the fixture now explicitly
+  removes them instead of weakening Tower admission.
+- `/tmp/baylee-native-tower-artifact-tests-20261114.log`: those three cases also
+  passed in the separately compiled `--no-default-features --features tower`
+  artifact, including a compile-time assertion of its actual session alias.
+- `/tmp/baylee-native-tower-artifact-identity-20261114.log`: compiled identity and
+  detector policy agree.
+- `/tmp/baylee-native-tower-token-tests-20261114.log`: eight existing token-ledger,
+  identity and art-fallback tests passed.
+- Strict all-target server Clippy passed for StandardLoops, Standard Off and
+  Tower in the `native-tower-pack-clippy-...-r4`, `native-tower-standard-off-clippy`
+  and `native-tower-artifact-clippy` logs under `/tmp`, dated `20261114`.
+
+The first catalog is still a balance hypothesis. AI synergy evaluation, the
+remaining families/combo, global authority, shops, persistent awards and the
+five actual Tower UI refinement passes remain work; these tests do not stand in
+for those acceptance criteria or a release-performance measurement.
+The second `codegen --tables --check` was up to date
+(`/tmp/baylee-tower-native-tables-check-20261114.log`); workspace formatting and
+diff whitespace checks also passed. No full corpus regeneration was run.

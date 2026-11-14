@@ -41,6 +41,8 @@ mod frames;
 pub mod projection;
 mod recording;
 mod startup;
+#[cfg(any(test, feature = "tower"))]
+pub mod tower;
 pub mod variant;
 
 pub use clocks::{Armed, Clock, Deadline, HOLD_SECS};

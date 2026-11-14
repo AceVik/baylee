@@ -415,6 +415,7 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
     ) -> Option<Self> {
         use baylee_protocol::execution::Variant;
         if !identity.valid()
+            || !R::supports_execution(identity.variant)
             || (identity.variant == Variant::StandardLoops)
                 != (preset.house_rules.loop_policy != baylee_core::preset::LoopPolicy::Off)
         {

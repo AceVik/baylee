@@ -47,6 +47,14 @@ are original custom-mode content. Their registry entries have no Scryfall image
 identifier, copied artwork, external logo or Oracle-card identity; no third-party
 asset is added. Original rules sentences are labelled as such in the source.
 
+The native Tower Grove pass (14 November 2026) rechecked the same
+[policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy), including
+“Tell the Community it’s unofficial.” The four Grove definitions use original
+names and rules sentences, with the existing procedural text face and no
+Scryfall image identity. They add no copied art, logo, font or external asset;
+the existing unofficial notice remains required. This records the asset review,
+not a broader legal approval.
+
 - Unofficial non-commercial fan project. No WotC assets in the repo, except
   the card images inside recordings of the game (§3, "Recordings of the game
   show its card images").

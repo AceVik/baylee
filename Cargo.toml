@@ -63,6 +63,7 @@ baylee-gamehost = { path = "crates/baylee-gamehost" }
 baylee-engine-server = { path = "crates/baylee-engine-server" }
 baylee-agent = { path = "crates/baylee-agent" }
 baylee-worker = { path = "crates/baylee-worker" }
+baylee-tower = { path = "crates/baylee-tower" }
 baylee-catalog = { path = "crates/baylee-catalog" }
 baylee-build = { path = "crates/baylee-build" }
 baylee-pgo = { path = "crates/baylee-pgo" }

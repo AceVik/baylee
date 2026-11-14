@@ -32,6 +32,7 @@ use baylee_core::types::TypeSet;
 
 #[path = "tokens/tower.rs"]
 pub mod tower;
+pub use tower::{TOWER_GROVE_COMMON, TOWER_GROVE_MYTHIC, TOWER_GROVE_RARE, TOWER_GROVE_UNCOMMON};
 pub use tower::{TOWER_HEALING_POTION, TOWER_MANA_POTION, TOWER_SEEDLING};
 
 /// The five colors, for "any color" mana abilities.

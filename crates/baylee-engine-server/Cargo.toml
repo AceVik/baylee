@@ -13,7 +13,7 @@ workspace = true
 # Build each artifact separately; Tower and enabled detection are incompatible.
 default = ["loop-detection"]
 loop-detection = []
-tower = []
+tower = ["dep:baylee-tower"]
 
 [dependencies]
 # Its programs look cards up, so they hold the pool (`baylee-cards-pool`).
@@ -32,6 +32,7 @@ baylee-gamehost = { workspace = true, features = ["foresight"] }
 baylee-protocol.workspace = true
 baylee-view.workspace = true
 baylee-worker.workspace = true
+baylee-tower = { workspace = true, optional = true }
 bytes.workspace = true
 flate2.workspace = true
 futures-util.workspace = true
@@ -52,6 +53,7 @@ uuid.workspace = true
 rustix = { workspace = true, features = ["fs", "process"] }
 
 [dev-dependencies]
+baylee-tower.workspace = true
 # The other end of the command line this binary is started with. The agent
 # writes the three flags and this reads them, and nothing in the build links
 # the two — so without this the two spellings are only ever held against
