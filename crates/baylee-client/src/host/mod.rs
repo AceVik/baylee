@@ -1,7 +1,7 @@
 //! Where a duel's state comes from.
 //!
 //! The renderer never talks to a socket. It talks to a [`DuelHost`], which is
-//! either a real connection or an engine running in this process. That is the
+//! either a real connection or a local engine (an owned process on desktop). That is the
 //! seam the open-world client will reuse: an embedded duel and a networked one
 //! differ only in which host is installed, and every system above this line is
 //! written once.
@@ -16,16 +16,19 @@ use baylee_gamehost::Session;
 use baylee_protocol::v1::{self, Envelope};
 use baylee_view::{GameStatic, LogTail, PlayerView, StaticReader, ViewReader};
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(any(test, target_os = "android", target_os = "ios"))]
 mod background;
 
 mod variants;
+
+#[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+pub mod process;
 
 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
 pub(crate) mod snapshot;
 
 mod types;
-pub use types::{DuelHost, HostMessage, LinkState, ResumePoint};
+pub use types::{Closure, DuelHost, HostMessage, LinkState, ResumePoint};
 
 /// `text`, as one short line of what can be seen.
 fn one_line(text: &str) -> String {
@@ -172,14 +175,16 @@ pub struct LocalHost<D: LoopDetection = DetectLoops> {
 
 impl<D: LoopDetection> LocalHost<D> {
     /// Installs the local rules engine behind the renderer's non-blocking seam.
-    /// Native clients run it on one dedicated worker; browser builds retain
+    /// Mobile clients run it on one dedicated worker; browser builds retain
     /// the synchronous host until a worker transport is available there.
+    /// Desktop callers use [`LocalHost::install`], whose process can be stopped.
     ///
     /// On the worker the house searches as at a hosted table
     /// ([`Self::searching`]). A browser build's house does not: its host
     /// runs on the frame's own thread, where a searched answer would hold
     /// the page for up to a second.
     #[must_use]
+    #[cfg(any(target_arch = "wasm32", target_os = "android", target_os = "ios"))]
     pub fn into_installed(self) -> crate::InstalledHost {
         #[cfg(not(target_arch = "wasm32"))]
         let host: Box<dyn DuelHost> = Box::new(background::BackgroundHost::new(self.searching()));

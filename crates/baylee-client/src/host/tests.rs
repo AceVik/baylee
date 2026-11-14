@@ -117,7 +117,7 @@ fn a_dealt_card_reuses_the_printing_the_deck_already_named() {
     );
 }
 
-/// The table a player is given ([`LocalHost::into_installed`]) has the
+/// The table a player is given ([`LocalHost::install`]) has the
 /// house search, as a hosted table's does; a table built for a test plays
 /// the level as its heuristics do unless it asks.
 #[cfg(not(target_arch = "wasm32"))]

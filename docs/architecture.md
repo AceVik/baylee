@@ -99,4 +99,10 @@ information is unrepresentable in a view, and the gateway runs no rules.
   memory and kills through the owned child handle, retaining capacity until wait
   confirms exit. A technical interruption never supplies a game result. The
   deterministic kernel has no wall clock, resource meter or progress I/O.
+- Desktop local games use the same budget outside an owned headless client
+  process (`--local-engine`). Its private command reader also watches owner
+  liveness, independent of the synchronous rules thread. Bounded private IPC
+  preserves the `DuelHost` seam, records, restart hashes and static loop policy;
+  a technical closure cannot enter deck or recent-game statistics. See
+  `docs/client.md` §"Hosts" for boundaries and remaining replay containment.
 - Gateway e2e tests spawn real gateways (own schema each, pool of two; CI has `postgres:18-alpine`) with the engine in-process (`EngineRunner`); `e2e_processes` is `#[ignore]`d.

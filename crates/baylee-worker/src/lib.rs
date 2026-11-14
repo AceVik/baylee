@@ -8,6 +8,8 @@
 
 use std::{fmt, io, io::Write, time::Duration};
 
+pub mod frame;
+
 /// Set by the process owner, never by a player or gateway command.
 pub const REPORT_ENV: &str = "BAYLEE_WORK_REPORT";
 /// One complete outer operation is starting.

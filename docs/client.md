@@ -3939,8 +3939,9 @@ the switch moves rather than whenever something next redraws them.
 
 The renderer never touches a socket. It talks to a `DuelHost`:
 
-- `LocalHost` runs an engine in-process (solo play, embedded duels, tests) and
-  goes through the same protobuf envelopes a socket would carry;
+- `LocalHost` is the synchronous local rules adapter and goes through the same
+  protobuf envelopes a socket would carry. Desktop `LocalHost::install` hosts it
+  in an owned headless client process, through `host::process::ProcessHost`;
 - `NetworkHost` (`src/net.rs`) is a websocket to the gateway's
   `/games/{id}/ws`, drained into the same `HostMessage` stream.
 
@@ -3959,9 +3960,37 @@ table sheet's Adjust section offers Off, break once (house rule), or draw on a
 mandatory endless loop, with localized explanations and keyboard stops. The
 setting follows the same room configuration and readiness rules online and
 offline. `LocalHost::install` selects the static policy once; restart and local
-replay select the policy in the record. A restart's hash is checked before its
-worker is installed. Legacy fixtures and certified challenge presets retain
+replay select the policy in the record. A desktop restart is reconstructed in
+its worker; its hash is checked before any state is published or kept file is
+opened for writing. Legacy fixtures and certified challenge presets retain
 their explicit policy.
+
+Desktop games run the currently installed executable with only `--local-engine`,
+before graphics, update helpers or services start. Private inherited pipes carry
+bounded frames; an exact build/variant/rules/AI/view contract is checked before
+the renderer sees a snapshot. Presets and tapes retain JSON; view messages use
+the existing positional wire codec. Resume input is bounded by the existing
+256 MiB tape limit plus 1 MiB metadata, ordinary messages by 16 MiB, and record
+prefixes stream in 1 MiB pieces. The renderer's accumulated record shares that
+256 MiB bound, so a productive worker cannot grow the parent's copy without
+limit. The UI queues at most eight commands and one
+unconsumed response; overflow interrupts the game instead of losing an action.
+
+The parent measures startup, unresponsive work and resident memory through
+`baylee-worker`, outside the rules kernel. Thinking and renderer backpressure
+are idle, not engine work. Dropping the host cancels without blocking a frame;
+the supervisor kills and reaps its own child. A separate child input reader
+observes owner-pipe EOF even if rules work hangs. Accepted record prefixes are
+written as before; forced exit can leave multiple complete gzip members, which
+the existing record reader accepts. This is process containment, not a sandbox
+or a hard OS memory reservation. Local replay projection still uses its own
+thread and is a separate remaining containment task. Experimental mobile and
+browser hosts retain their existing thread/synchronous paths.
+
+`HostMessage::Interrupted` is a technical closure, with localized words and no
+winner, loss, recent-game verdict or deck statistic. Before the first snapshot
+the arrival screen offers its error exit; once seated the finish sheet explains
+the interruption. Administrative closure remains separately identified.
 
 ## Replays
 

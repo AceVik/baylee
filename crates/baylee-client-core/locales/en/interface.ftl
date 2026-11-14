@@ -4636,6 +4636,9 @@ GameClosedVerdict = The game was ended
 # The line under it: `$reason` the admin's reason.
 # Arguments: reason
 GameClosedReason = An admin ended it: { $reason }
+# A local engine interruption is technical, with no winner or loser.
+LocalGameInterruptedVerdict = Game interrupted
+LocalGameInterrupted = The local game could not continue. No win or loss was recorded. You can return to the lobby.
 
 # Why a game ended: one seat outlived every other
 # (`EndReason::LastPlayerStanding`).

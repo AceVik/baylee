@@ -947,9 +947,9 @@ pub struct Duel {
     pub watching: bool,
     /// How many watch the table, as the engine last said.
     pub spectators: u32,
-    /// An admin ended the game, and why (`docs/protocol.md` §"Acting on a
-    /// game"): the end screen says so instead of who won.
-    pub closed: Option<String>,
+    /// An admin or a technical interruption ended the table without a game
+    /// result: the end screen explains this instead of naming a winner.
+    pub closed: Option<host::Closure>,
     /// A spectator asked to stop watching, or a player to leave the table;
     /// `hud::spectators::leave_watching` closes it.
     pub leave_asked: bool,
@@ -1063,11 +1063,11 @@ fn handle_commands(
     }
 }
 
-/// An admin ended the game (`docs/protocol.md` §"Acting on a game"): nobody
+/// An admin or a technical interruption ended the table: nobody
 /// won or lost, and the end screen says why ([`Duel::closed`]). The game is
 /// over as any other is, so its question becomes `GameOver` with no winner.
 /// Whether it ended now; a game already over stays as it ended.
-fn close_by_admin(duel: &mut Duel, reason: String) -> bool {
+fn close_without_result(duel: &mut Duel, reason: host::Closure) -> bool {
     if duel.ending().is_some() {
         return false;
     }
@@ -1077,6 +1077,13 @@ fn close_by_admin(duel: &mut Duel, reason: String) -> bool {
         reason: baylee_engine::win::EndReason::Draw,
     }));
     true
+}
+
+fn interrupt_local(duel: &mut Duel, journey: Option<&mut arrival::Journey>) -> bool {
+    if let Some(journey) = journey.filter(|journey| journey.active()) {
+        journey.fail_local(baylee_client_core::i18n::Phrase::LocalGameInterrupted);
+    }
+    close_without_result(duel, host::Closure::Interrupted)
 }
 
 fn receive_static(
@@ -1179,7 +1186,13 @@ fn poll_host(
             // screen says why. The game is over as any other is, so the
             // way out is the end screen's.
             HostMessage::Closed(reason) => {
-                if close_by_admin(&mut duel, reason) {
+                if close_without_result(&mut duel, host::Closure::Admin(reason)) {
+                    next.set(DuelPhase::Finished);
+                    reports.write(DuelReport::Finished);
+                }
+            }
+            HostMessage::Interrupted => {
+                if interrupt_local(&mut duel, journey.as_deref_mut()) {
                     next.set(DuelPhase::Finished);
                     reports.write(DuelReport::Finished);
                 }

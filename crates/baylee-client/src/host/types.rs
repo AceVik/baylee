@@ -1,8 +1,17 @@
 //! The renderer's host contract, independent of transport.
 use super::{GameStatic, LogTail, Pending, PlayerAction, PlayerId, PlayerView};
 
-/// Something a host tells the client.
+/// Why a table ended without a rules result, rendered in the client's language.
 #[derive(Clone, Debug)]
+pub enum Closure {
+    /// An administrator supplied this explanation.
+    Admin(String),
+    /// The local worker failed, exceeded its resources or lost its owner.
+    Interrupted,
+}
+
+/// Something a host tells the client.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum HostMessage {
     /// The once-per-game payload: seats and the print table.
     Static(Box<GameStatic>),
@@ -26,12 +35,15 @@ pub enum HostMessage {
     /// What an AI seat's mind said beside an answer: a debug engine sends it
     /// to every other seat, a release engine to none (`docs/protocol.md`
     /// §"An AI seat's reasoning").
-    AiLog(baylee_protocol::v1::AiLog),
+    AiLog(#[serde(with = "encoded_ai_log")] baylee_protocol::v1::AiLog),
     /// How many watch this table (`docs/protocol.md` §"Spectators").
     Spectators(u32),
     /// An admin ended the game (`docs/protocol.md` §"Acting on a game"),
     /// and why: nobody won or lost. The last thing the table says.
     Closed(String),
+    /// A local engine was interrupted for a technical reason. No game result
+    /// is inferred; the renderer supplies its own localized explanation.
+    Interrupted,
     /// A replay moved other than one step on (`docs/client.md`
     /// §"Replays"): what follows is the table at another moment, told from
     /// its first log line. The client forgets the view it holds and the log
@@ -59,7 +71,7 @@ pub enum HostMessage {
 /// the table came back.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum LinkState {
-    /// There is no socket to lose: an engine running in this process.
+    /// There is no network connection: a locally owned engine.
     Local,
     /// Connected, or opening for the first time.
     Up,
@@ -129,8 +141,8 @@ pub trait DuelHost: Send + Sync + 'static {
     /// Whether the connection this host plays through is still there.
     ///
     /// Defaults to [`LinkState::Local`], which is the truthful answer for a host
-    /// with no socket: an in-process engine cannot be disconnected from, so
-    /// the retry schedule never starts.
+    /// with no socket: local failures are explicit technical interruptions,
+    /// so the network retry schedule never starts.
     fn link(&self) -> LinkState {
         LinkState::Local
     }
@@ -210,7 +222,7 @@ pub trait DuelHost: Send + Sync + 'static {
 
 /// What a restart needs to rebuild a game this client hosts
 /// (`baylee_client_core::resume::Game::Local`).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ResumePoint {
     /// The record's file among the kept records.
     pub record: String,
@@ -220,4 +232,24 @@ pub struct ResumePoint {
     pub names: Vec<String>,
     /// The engine's hash now, as the record writes it.
     pub hash: String,
+}
+
+/// Protobuf's debug note travels unchanged inside a private worker frame.
+mod encoded_ai_log {
+    use prost::Message as _;
+    use serde::{Deserialize as _, Serialize as _};
+
+    pub(super) fn serialize<S: serde::Serializer>(
+        note: &baylee_protocol::v1::AiLog,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        note.encode_to_vec().serialize(serializer)
+    }
+
+    pub(super) fn deserialize<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<baylee_protocol::v1::AiLog, D::Error> {
+        let bytes = Vec::<u8>::deserialize(deserializer)?;
+        baylee_protocol::v1::AiLog::decode(bytes.as_slice()).map_err(serde::de::Error::custom)
+    }
 }

@@ -314,13 +314,16 @@ pub(crate) fn spawn_finish(
     // The seat and its team, the same way the prompt bar used to find them: a
     // `Victor::Team` is answered by one comparison, and the seat's own team is
     // in the roster, which no view carries.
-    let Some(statics) = duel.statics.as_ref() else {
+    let statics = duel.statics.as_ref();
+    if statics.is_none() && duel.closed.is_none() {
         // No roster, so no way to say whose win this is. That is a game that
         // never really started, and a screen telling a player who never sat
         // down that they lost would be worse than no screen.
         return;
-    };
-    let seat = statics.your_seat;
+    }
+    // A technical interruption may precede the roster. Its sheet names no
+    // player or result, so no invented roster is needed to explain the exit.
+    let seat = statics.map_or(PlayerId::new(0), |statics| statics.your_seat);
     let team = duel.my_team();
     let lang = Lang::of(&settings.lang);
     let (width, height) = crate::hud::scale::window_space(&windows, ui.as_deref())
@@ -379,9 +382,10 @@ pub(crate) fn spawn_finish(
             seat,
             team,
             losses: (duel.view.as_ref())
-                .map_or_else(Vec::new, |v| table_losses(lang, v, Some(statics), seat)),
-            watched: spectators_verdict(lang, *result, statics, duel.watching),
-            closed: duel.closed.as_deref(),
+                .map_or_else(Vec::new, |v| table_losses(lang, v, statics, seat)),
+            watched: statics
+                .and_then(|statics| spectators_verdict(lang, *result, statics, duel.watching)),
+            closed: duel.closed.as_ref(),
         },
     );
 
@@ -490,7 +494,7 @@ struct Said<'a> {
     watched: Option<String>,
     /// Why an admin ended the game, when one did: then nobody won or lost,
     /// and the sheet says that instead.
-    closed: Option<&'a str>,
+    closed: Option<&'a crate::host::Closure>,
 }
 
 /// Who won, named, for a spectator (`docs/protocol.md` §"Spectators"):
@@ -522,7 +526,10 @@ fn write_the_verdict(commands: &mut Commands, fonts: &UiFonts, sheet: Entity, sa
         closed,
     } = said;
     let said = match closed {
-        Some(_) => Phrase::GameClosedVerdict.text(lang).to_string(),
+        Some(crate::host::Closure::Admin(_)) => Phrase::GameClosedVerdict.text(lang).to_string(),
+        Some(crate::host::Closure::Interrupted) => {
+            Phrase::LocalGameInterruptedVerdict.text(lang).to_string()
+        }
         None => watched.unwrap_or_else(|| verdict(lang, result, seat, team)),
     };
     let headline = commands
@@ -547,7 +554,10 @@ fn write_the_verdict(commands: &mut Commands, fonts: &UiFonts, sheet: Entity, sa
     // A draw gets no second line at all, gap included — `ending_reason`
     // refuses it, because the only thing it could say is the verdict again.
     let reason = match closed {
-        Some(why) => Some(Phrase::GameClosedReason.fill(lang, &[why])),
+        Some(crate::host::Closure::Admin(why)) => Some(Phrase::GameClosedReason.fill(lang, &[why])),
+        Some(crate::host::Closure::Interrupted) => {
+            Some(Phrase::LocalGameInterrupted.text(lang).to_string())
+        }
         None => ending_reason(lang, result),
     };
     if let Some(reason) = reason {
@@ -869,6 +879,33 @@ mod tests {
     fn lines(app: &mut App) -> Vec<String> {
         let mut found = app.world_mut().query::<&Text>();
         found.iter(app.world()).map(|t| t.0.clone()).collect()
+    }
+
+    #[test]
+    fn local_interruption_before_first_snapshot_shows_no_result_and_a_way_out() {
+        let mut duel = crate::Duel::default();
+        assert!(crate::close_without_result(
+            &mut duel,
+            crate::host::Closure::Interrupted
+        ));
+        let mut app = app_at(duel);
+        let said = lines(&mut app);
+        assert!(
+            said.contains(
+                &Phrase::LocalGameInterruptedVerdict
+                    .text(Lang::En)
+                    .to_string()
+            )
+        );
+        assert!(said.contains(&Phrase::LocalGameInterrupted.text(Lang::En).to_string()));
+        assert!(!said.contains(&Phrase::TheGameIsADraw.text(Lang::En).to_string()));
+        assert_eq!(
+            app.world_mut()
+                .query_filtered::<Entity, With<FinishExits>>()
+                .iter(app.world())
+                .count(),
+            1
+        );
     }
 
     #[test]

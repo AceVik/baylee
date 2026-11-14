@@ -559,6 +559,7 @@ fn duel_in_main_phase() -> (crate::Duel, crate::host::LocalHost) {
                 | HostMessage::AiLog(_)
                 | HostMessage::Spectators(_)
                 | HostMessage::Closed(_) => {}
+                HostMessage::Interrupted => panic!("local rules worker interrupted"),
             }
         }
         match duel.interaction.as_ref().map(Interaction::pending) {

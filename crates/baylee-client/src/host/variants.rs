@@ -1,6 +1,8 @@
 //! Choose a concrete local engine once, outside its rules and AI hot paths.
 use super::{GamePreset, LocalHost, PlayerId};
+#[cfg(any(target_arch = "wasm32", target_os = "android", target_os = "ios"))]
 use baylee_core::preset::LoopPolicy;
+#[cfg(any(target_arch = "wasm32", target_os = "android", target_os = "ios"))]
 use baylee_engine::engine::{LoopDetection, NoLoopDetection};
 
 impl LocalHost {
@@ -30,6 +32,13 @@ impl LocalHost {
         seat: PlayerId,
         names: &[&str],
     ) -> Option<crate::InstalledHost> {
+        #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+        {
+            super::process::ProcessHost::new(preset, seat, names)
+                .ok()
+                .map(|host| crate::InstalledHost(Box::new(host)))
+        }
+        #[cfg(any(target_arch = "wasm32", target_os = "android", target_os = "ios"))]
         match preset.house_rules.loop_policy {
             LoopPolicy::Off => LocalHost::<NoLoopDetection>::with_detection(preset, seat, names)
                 .map(LocalHost::into_installed),
@@ -39,7 +48,9 @@ impl LocalHost {
         }
     }
 
-    /// Selects the recorded variant, checks the restart hash, then starts the worker.
+    /// Selects the recorded variant and starts its worker, which checks the
+    /// restart hash before publishing any game state. Desktop reconstruction
+    /// is asynchronous and failures arrive as a technical closure.
     ///
     /// # Errors
     /// A malformed record, unsupported variant or state that differs from the restart.
@@ -50,24 +61,36 @@ impl LocalHost {
         names: &[String],
         hash: &str,
     ) -> Result<crate::InstalledHost, String> {
-        let first = record
-            .split(|byte| *byte == b'\n')
-            .next()
-            .ok_or("the record has no header")?;
-        let baylee_gamehost::record::Line::Header { preset, .. } =
-            serde_json::from_slice(first).map_err(|_| "the record header is invalid")?
-        else {
-            return Err("the record has no header".into());
-        };
-        match preset.house_rules.loop_policy {
-            LoopPolicy::Off => resume::<NoLoopDetection>(record, name, seat, names, hash),
-            LoopPolicy::RunOnceThenBreak | LoopPolicy::CompRulesDraw => {
-                resume::<super::DetectLoops>(record, name, seat, names, hash)
+        #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+        {
+            let command = std::process::Command::new(
+                std::env::current_exe().map_err(|_| "the client executable is unavailable")?,
+            );
+            super::process::ProcessHost::resume(command, record, name, seat, names, hash)
+                .map(|host| crate::InstalledHost(Box::new(host)))
+        }
+        #[cfg(any(target_arch = "wasm32", target_os = "android", target_os = "ios"))]
+        {
+            let first = record
+                .split(|byte| *byte == b'\n')
+                .next()
+                .ok_or("the record has no header")?;
+            let baylee_gamehost::record::Line::Header { preset, .. } =
+                serde_json::from_slice(first).map_err(|_| "the record header is invalid")?
+            else {
+                return Err("the record has no header".into());
+            };
+            match preset.house_rules.loop_policy {
+                LoopPolicy::Off => resume::<NoLoopDetection>(record, name, seat, names, hash),
+                LoopPolicy::RunOnceThenBreak | LoopPolicy::CompRulesDraw => {
+                    resume::<super::DetectLoops>(record, name, seat, names, hash)
+                }
             }
         }
     }
 }
 
+#[cfg(any(target_arch = "wasm32", target_os = "android", target_os = "ios"))]
 fn resume<D: LoopDetection>(
     record: Vec<u8>,
     name: &str,
@@ -82,7 +105,7 @@ fn resume<D: LoopDetection>(
     Ok(host.into_installed())
 }
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(all(test, any(target_os = "android", target_os = "ios")))]
 mod tests {
     use super::*;
     use crate::host::{DuelHost, HostMessage};

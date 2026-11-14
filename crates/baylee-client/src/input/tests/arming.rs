@@ -273,6 +273,7 @@ fn pump(host: &mut LocalHost, duel: &mut crate::Duel) {
             | HostMessage::AiLog(_)
             | HostMessage::Spectators(_)
             | HostMessage::Closed(_) => {}
+            HostMessage::Interrupted => panic!("local rules worker interrupted"),
         }
     }
     crate::advance_mana_run(duel);

@@ -23,6 +23,9 @@ fn main() {
     // else, so it returns before the client opens anything.
     #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
     {
+        if baylee_client::host::process::helper_if_asked() {
+            return;
+        }
         // What the updater's first check is timed from.
         baylee_client::update::native::mark_start();
         if baylee_client::update::native::helper_if_asked() {

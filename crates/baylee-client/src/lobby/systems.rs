@@ -975,7 +975,7 @@ pub(super) fn came_back(
 /// this player. That is the same refusal `hud::finish::spawn_finish` makes
 /// for the same reason — a game that never really started says nothing
 /// rather than telling a player who never sat down that they lost.
-fn ended_as(
+pub(super) fn ended_as(
     duel: Option<&crate::Duel>,
 ) -> Option<(
     GameResult,
@@ -984,6 +984,9 @@ fn ended_as(
     Option<baylee_view::SeatView>,
 )> {
     let duel = duel?;
+    if duel.closed.is_some() {
+        return None;
+    }
     let result = *duel.ending()?;
     let statics = duel.statics.as_ref()?;
     let own = duel

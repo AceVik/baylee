@@ -94,7 +94,7 @@ impl Journey {
         self.departure = None;
     }
 
-    fn fail_local(&mut self, reason: Phrase) {
+    pub(crate) fn fail_local(&mut self, reason: Phrase) {
         self.error = Some(Refusal::Said(reason));
         self.departure = None;
     }

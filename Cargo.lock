@@ -1828,6 +1828,7 @@ dependencies = [
  "baylee-seal",
  "baylee-update",
  "baylee-view",
+ "baylee-worker",
  "bevy",
  "blocking",
  "central-crypto",

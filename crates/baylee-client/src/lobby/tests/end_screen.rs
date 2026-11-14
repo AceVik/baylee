@@ -245,6 +245,22 @@ fn the_lobby_says_which_way_the_game_went_and_not_only_that_it_is_over() {
     );
 }
 
+#[test]
+fn a_local_interruption_is_never_remembered_as_a_draw_or_deck_loss() {
+    let mut duel = duel_seat_0_lost();
+    duel.closed = Some(crate::host::Closure::Interrupted);
+    assert!(super::systems::ended_as(Some(&duel)).is_none());
+    let app = came_back_from_a_duel(Some(duel));
+    assert_eq!(
+        app.world().resource::<LobbyState>().lobby.status(),
+        "the game ended"
+    );
+    assert!(matches!(
+        app.world().resource::<LobbyState>().lobby.screen(),
+        Screen::Table
+    ));
+}
+
 /// Seats at an offline table, optionally installs a `Duel`, and comes back.
 ///
 /// The phase is moved by hand for the reason the rest of this file gives:

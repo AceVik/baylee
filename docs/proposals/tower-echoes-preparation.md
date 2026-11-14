@@ -503,3 +503,51 @@ That needs a killable process boundary too. Resident-memory sampling is not a
 hard OS allocation limit; whole-host memory isolation/admission and measurements
 under realistic finite combos remain release work. No performance gain or
 complete Tower security certification is claimed by these checks.
+
+## Owned desktop-worker containment — ninth working milestone
+
+Desktop `LocalHost::install` and resume now use a private headless helper of the
+installed client. The renderer never waits for rules work, reconstruction or
+process exit. The helper instantiates the requested concrete loop policy once;
+the full compatibility and view contract is checked before publishing state.
+An explicit Tower record is refused by this ordinary local adapter. Hosted
+Tower continues to use the gateway-selected artifact, not this helper.
+
+The owner enforces startup, unresponsive-operation and sampled resident-memory
+budgets and always reaps its Child after cancellation or failure. The child's
+independent input thread observes EOF even while rules work cannot return.
+Frames, queues and accumulated records are bounded; record deltas stream once,
+and restart hashes are checked before opening a kept file for writing. Human
+thinking and renderer backpressure are not charged as engine work. No detector,
+resource meter, clock or IPC was inserted into the rules hot path.
+
+Technical closures have a separate localized explanation, including an exit
+before the first snapshot. The lobby cannot turn that closure into a draw,
+deck loss or recent-game result. Administrative closure is still identified
+separately. Existing mobile/browser transports remain experimental; local
+replay projection still needs its own killable boundary. This process boundary
+is not an OS sandbox or a hard memory reservation.
+
+Targeted evidence:
+- `/tmp/baylee-worker-frames-tests-20261114.log`: bounded framing refuses empty,
+  oversized and truncated frames before reading their body; round-trip passed.
+- `/tmp/baylee-local-process-tests-20261114-r4.log`: two actual-client subprocess
+  scenarios passed, covering all three ordinary policies, restart/hash and
+  incremental-record continuity, wrong-hash and wrong-pack refusal, queue
+  overflow and cleanup.
+- `/tmp/baylee-local-interruption-tests-20261114.log`: two renderer/lobby tests
+  passed, including an interruption before the roster and no deck/result entry.
+- `/tmp/baylee-local-supervisor-tests-20261114.log`: six synthetic process cases
+  in one test passed: startup stall, busy stall, invalid framing, wrong version,
+  memory excess, and idle thinking followed by cancellation. Every child reaped.
+- `/tmp/baylee-local-interruption-i18n-20261114.log`: all phrases still have the
+  same arguments and complete coverage in every shipped language.
+- `/tmp/baylee-local-process-clippy-20261114-r3.log`: strict all-target Clippy
+  passed for worker, client and client-core. The client passed again in
+  `/tmp/baylee-local-process-clippy-20261114-r5.log` after the record-variant guard
+  and non-blocking terminal-error delivery.
+
+The UI and supervisor tests reused one compiled unit-test executable to avoid
+another long native link. This is a containment milestone, not the five Tower
+presentation iterations or a claim of calibrated Tower balance. No services,
+real credentials or player files were used by these checks.
