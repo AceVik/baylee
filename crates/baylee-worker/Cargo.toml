@@ -1,0 +1,11 @@
+[package]
+name = "baylee-worker"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Private worker progress and resource budgets outside the deterministic rules kernel"
+
+[lints]
+workspace = true

@@ -88,17 +88,29 @@ async fn stop_all(running: &Running) {
 }
 
 /// Wait for either supported process shutdown signal.
-async fn shutdown_signal() -> std::io::Result<()> {
+fn shutdown_signal() -> std::io::Result<impl std::future::Future<Output = std::io::Result<()>>> {
     #[cfg(unix)]
     {
         let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
-        tokio::select! {
-            result = tokio::signal::ctrl_c() => result,
-            _ = term.recv() => Ok(()),
-        }
+        let mut interrupt =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
+        Ok(async move {
+            tokio::select! {
+                _ = interrupt.recv() => Ok(()),
+                _ = term.recv() => Ok(()),
+            }
+        })
     }
-    #[cfg(not(unix))]
-    tokio::signal::ctrl_c().await
+    #[cfg(windows)]
+    {
+        let mut interrupt = tokio::signal::windows::ctrl_c()?;
+        Ok(async move {
+            interrupt.recv().await;
+            Ok(())
+        })
+    }
+    #[cfg(not(any(unix, windows)))]
+    Ok(tokio::signal::ctrl_c())
 }
 
 /// Stops on a command line the agent does not take: the reason and
@@ -192,10 +204,24 @@ async fn main() {
             std::process::exit(2);
         }
     };
+    // Install Unix handlers before any metadata child exists, so shutdown
+    // during discovery follows the same owned-child cleanup as a running game.
+    let shutdown = shutdown_signal().unwrap_or_else(|error| {
+        tracing::error!(%error, "cannot install agent shutdown handlers");
+        std::process::exit(2);
+    });
+    tokio::pin!(shutdown);
     let mut paths = vec![config.engine_bin.clone()];
     paths.extend(config.additional_bins.iter().cloned());
-    config.engines = match baylee_agent::inventory::Inventory::discover(&paths).await {
-        Ok(engines) => engines,
+    config.engines = match baylee_agent::inventory::Inventory::discover_cancellable(&paths, async {
+        if let Err(error) = shutdown.as_mut().await {
+            tracing::error!(%error, "agent shutdown signal failed");
+        }
+    })
+    .await
+    {
+        Ok(Some(engines)) => engines,
+        Ok(None) => return,
         Err(reason) => {
             tracing::error!(reason, "engine inventory refused");
             std::process::exit(2);
@@ -214,8 +240,6 @@ async fn main() {
     );
 
     let running: Running = Arc::new(Mutex::new(HashMap::new()));
-    let shutdown = shutdown_signal();
-    tokio::pin!(shutdown);
     let mut wait = RETRY_START;
     loop {
         let ended = tokio::select! {
@@ -503,6 +527,9 @@ fn start(
         .args(engine_argv(config.engine_address(gateway_url), game_id))
         .env(ENGINE_TOKEN_VAR, engine_token)
         .env_remove(AGENT_TOKEN_VAR)
+        .env(baylee_worker::REPORT_ENV, "1")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
         // A dropped agent must not leave engines behind holding games nobody
         // is routing any more.
         .kill_on_drop(true);

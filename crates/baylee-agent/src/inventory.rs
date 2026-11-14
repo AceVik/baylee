@@ -47,16 +47,33 @@ impl Inventory {
     /// # Errors
     /// Any configured executable fails its isolated metadata command.
     pub async fn discover(paths: &[PathBuf]) -> Result<Self, &'static str> {
+        Self::discover_cancellable(paths, std::future::pending())
+            .await?
+            .ok_or("engine inventory cancelled")
+    }
+
+    /// Probes installed binaries while honoring an owner's shutdown signal.
+    /// Cancellation kills and reaps an active probe before returning `None`.
+    ///
+    /// # Errors
+    /// As [`Self::discover`], including failure to reap the owned probe.
+    pub async fn discover_cancellable(
+        paths: &[PathBuf],
+        stop: impl std::future::Future<Output = ()>,
+    ) -> Result<Option<Self>, &'static str> {
         if paths.is_empty() || paths.len() > MAX_CAPABILITIES {
             return Err("configure between one and sixteen engine executables");
         }
+        tokio::pin!(stop);
         let mut entries = Vec::with_capacity(paths.len());
         for path in paths {
             let path = std::fs::canonicalize(path).map_err(|_| "engine executable not found")?;
-            let identity = probe(&path).await?;
+            let Some(identity) = probe(&path, stop.as_mut()).await? else {
+                return Ok(None);
+            };
             entries.push((identity, path));
         }
-        Self::new(entries)
+        Self::new(entries).map(Some)
     }
 
     /// The identities the gateway may select; no path, arguments or environment.
@@ -75,7 +92,10 @@ impl Inventory {
     }
 }
 
-async fn probe(path: &Path) -> Result<Identity, &'static str> {
+async fn probe(
+    path: &Path,
+    stop: std::pin::Pin<&mut impl std::future::Future<Output = ()>>,
+) -> Result<Option<Identity>, &'static str> {
     let mut child = tokio::process::Command::new(path)
         .arg("--metadata")
         .env_remove(crate::AGENT_TOKEN_VAR)
@@ -87,7 +107,7 @@ async fn probe(path: &Path) -> Result<Identity, &'static str> {
         .spawn()
         .map_err(|_| "cannot probe engine executable")?;
     let output = child.stdout.take().expect("piped metadata output");
-    let result = tokio::time::timeout(Duration::from_secs(5), async {
+    let read = tokio::time::timeout(Duration::from_secs(5), async {
         let mut bytes = Vec::with_capacity(MAX_METADATA_BYTES);
         output
             .take((MAX_METADATA_BYTES + 1) as u64)
@@ -103,10 +123,13 @@ async fn probe(path: &Path) -> Result<Identity, &'static str> {
             return Err("engine metadata command failed");
         }
         Ok(identity)
-    })
-    .await
-    .unwrap_or(Err("engine metadata command timed out"));
-    if result.is_err() {
+    });
+    let result = tokio::select! {
+        biased;
+        () = stop => Ok(None),
+        read = read => read.unwrap_or(Err("engine metadata command timed out")).map(Some),
+    };
+    if !matches!(result, Ok(Some(_))) {
         let _ = child.start_kill();
         child
             .wait()

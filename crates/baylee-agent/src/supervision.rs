@@ -3,15 +3,42 @@ use super::{Running, status};
 use baylee_protocol::v1::{self, Envelope};
 use tokio::sync::{mpsc, oneshot};
 
+mod watchdog;
+
 /// Waits for one engine to exit — or stops it — and reports either way.
 pub(super) async fn supervise(
-    mut child: tokio::process::Child,
+    child: tokio::process::Child,
     stop: oneshot::Receiver<()>,
     running: Running,
     out: mpsc::UnboundedSender<Envelope>,
     game_id: String,
 ) {
+    with_limits(
+        child,
+        stop,
+        running,
+        out,
+        game_id,
+        baylee_worker::Limits::default(),
+    )
+    .await;
+}
+
+async fn with_limits(
+    mut child: tokio::process::Child,
+    stop: oneshot::Receiver<()>,
+    running: Running,
+    out: mpsc::UnboundedSender<Envelope>,
+    game_id: String,
+    limits: baylee_worker::Limits,
+) {
+    // Child::wait closes its stdin automatically. Keep this separate so the
+    // worker's owner-liveness thread sees EOF only when this supervisor ends.
+    let _owner_pipe = child.stdin.take();
+    let reports = child.stdout.take();
+    let watched = watchdog::watch(reports, child.id(), limits);
     let detail = tokio::select! {
+        biased;
         exit = child.wait() => match exit {
             Ok(exit) => exit.to_string(),
             Err(err) => {
@@ -30,7 +57,13 @@ pub(super) async fn supervise(
                     reap_after_error(&mut child, &game_id).await
                 },
             }
-        }
+        },
+        failure = watched => {
+            // Resource failures carry no game outcome. Release the slot and
+            // report only after the actual child, not a PID lookup, is reaped.
+            let stopped = reap_after_error(&mut child, &game_id).await;
+            format!("technical interruption: {failure}; {stopped}")
+        },
     };
     running
         .lock()
@@ -39,6 +72,10 @@ pub(super) async fn supervise(
     tracing::info!(game_id, detail, "engine gone");
     let _ = out.send(status(&game_id, v1::engine_status::Kind::Exited, &detail));
 }
+
+#[cfg(test)]
+#[path = "supervision/tests.rs"]
+mod tests;
 
 /// Preserve ownership and retry after an OS wait failure.
 async fn reap_after_error(child: &mut tokio::process::Child, game_id: &str) -> String {

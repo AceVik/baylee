@@ -468,3 +468,38 @@ Local evidence:
 The operations tests use isolated command stand-ins. No server was deployed and
 no full three-variant PGO training or new performance benchmark has run yet.
 The native Tower pack and its representative training scenarios are still pending.
+
+## Owned hosted-worker containment — eighth working milestone
+
+`baylee-worker` separates startup/operation deadlines and resident-memory
+limits from game rules. The agent consumes a private progress pipe and samples
+only the owned process; it kills through its Child handle and reports Exited
+only after reaping. Idle human thinking is unlimited by the work watchdog.
+Duplicate Busy markers cannot renew a deadline, and finite productive operations
+can continue. The engine brackets outer driver calls and replay projection;
+no progress or clock checks were inserted into the deterministic kernel.
+
+An independent thread watches the empty ownership pipe inside an attached
+engine. It exits the process if its owner vanishes even while the rules thread
+is stuck. The agent keeps the pipe separate from Child::wait, which would
+otherwise close stdin immediately. Logs use stderr; metadata-only probing
+remains separate. Agent shutdown handlers are now installed before discovery,
+and cancellation kills/reaps a metadata probe before returning.
+
+Evidence: `/tmp/baylee-worker-owned-tests-20261114.log` (six tests: pure bounds,
+real stalled/oversized/invalid/idle workers and existing probe limits);
+`/tmp/baylee-agent-probe-shutdown-tests-20261114.log` (two tests including
+SIGTERM during the actual agent's metadata probe, on macOS);
+`/tmp/baylee-engine-private-progress-tests-20261114-r2.log` (the actual
+detector-free server constructs a game, emits private progress with info logging
+enabled, and exits when its ownership pipe closes while its gateway socket stays
+open); `/tmp/baylee-worker-host-clippy-20261114-r3.log` (strict all-target
+Clippy for worker, agent and engine server). The initial real-server test exposed
+a fixture missing its required deck header; it was corrected. Test children
+were reaped and the synthetic listener was checked closed.
+
+This is not yet containment for the native client's in-process BackgroundHost.
+That needs a killable process boundary too. Resident-memory sampling is not a
+hard OS allocation limit; whole-host memory isolation/admission and measurements
+under realistic finite combos remain release work. No performance gain or
+complete Tower security certification is claimed by these checks.

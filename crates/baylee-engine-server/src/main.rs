@@ -337,6 +337,7 @@ fn write_port_file(path: &std::path::Path, port: u16) -> std::io::Result<()> {
 fn tracing_subscriber_init() {
     // Without a subscriber every `tracing::` call is a silent no-op.
     tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 }

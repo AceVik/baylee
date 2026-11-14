@@ -863,8 +863,10 @@ version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-build",
  "baylee-protocol",
+ "baylee-worker",
  "futures-util",
  "prost",
+ "sysinfo",
  "tempfile",
  "tokio",
  "tokio-tungstenite 0.30.0",
@@ -2038,6 +2040,7 @@ dependencies = [
  "baylee-gamehost",
  "baylee-protocol",
  "baylee-view",
+ "baylee-worker",
  "bytes",
  "criterion",
  "flate2",
@@ -2463,6 +2466,10 @@ dependencies = [
  "serde",
  "serde_json",
 ]
+
+[[package]]
+name = "baylee-worker"
+version = "0.2.0-beta.o1"
 
 [[package]]
 name = "bevy"

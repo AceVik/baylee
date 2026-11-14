@@ -17,6 +17,7 @@ pub fn executable(dir: &Path) -> PathBuf {
     std::fs::write(&source, r#"
 #![forbid(unsafe_code)]
 fn main() {
+    use std::io::Write as _;
     let executable = std::env::current_exe().unwrap();
     let dir = executable.parent().unwrap();
     if std::env::args().nth(1).as_deref() == Some("--metadata") {
@@ -34,6 +35,14 @@ fn main() {
     }
     assert!(std::env::var_os("BAYLEE_AGENT_TOKEN").is_none());
     std::fs::write(std::env::var_os("BAYLEE_TEST_CHILD_PID").unwrap(), std::process::id().to_string()).unwrap();
+    let mode = std::fs::read_to_string(dir.join("mode")).unwrap_or_default();
+    match mode.as_str() {
+        "start-stall" => {},
+        "busy" => { std::io::stdout().write_all(&[2, 1]).unwrap(); },
+        "invalid-progress" => { std::io::stdout().write_all(&[255]).unwrap(); },
+        _ => { std::io::stdout().write_all(&[2]).unwrap(); },
+    }
+    std::io::stdout().flush().unwrap();
     std::thread::sleep(std::time::Duration::from_secs(60));
 }
 "#).unwrap();

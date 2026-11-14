@@ -8,6 +8,11 @@ use tokio_tungstenite::tungstenite::Message;
 
 /// Plays one game against the gateway and returns when it ends.
 pub async fn run(attach: Attach) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let _owner = if reports_to_owner() {
+        Some(baylee_worker::watch_owner()?)
+    } else {
+        None
+    };
     let pump_budget = super::pump_config::from_env()?;
     let runner = EngineRunner::default()
         .with_pump_budget(pump_budget)
@@ -82,6 +87,7 @@ async fn play<S>(
 where
     S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
 {
+    let mut progress = reporter()?;
     // The first frame proves this process is the one the gateway asked an
     // agent to start. Nothing else on this socket is authenticated,
     // because nothing else needs to be: the gateway closes it otherwise.
@@ -127,18 +133,18 @@ where
             () = deadline(record_at) => {
                 runner.measure_until(u64::try_from(measured_from.elapsed().as_millis()).unwrap_or(u64::MAX));
                 runner.tell_time(wall_ms());
-                send_batch(&mut ws, &runner.flush_record_due()).await?;
+                send_batch(&mut ws, &progress.work(|| runner.flush_record_due())?).await?;
             }
             () = deadline(arrival) => {
                 runner.measure_until(u64::try_from(measured_from.elapsed().as_millis()).unwrap_or(u64::MAX));
                 runner.tell_time(wall_ms());
-                send_batch(&mut ws, &runner.finish_entrance()).await?;
+                send_batch(&mut ws, &progress.work(|| runner.finish_entrance())?).await?;
             }
             () = deadline(curtain_at) => {
                 runner.measure_until(u64::try_from(measured_from.elapsed().as_millis()).unwrap_or(u64::MAX));
                 tracing::info!(game_id = attach.game_id, "table preparation timed out");
                 runner.tell_time(wall_ms());
-                send_batch(&mut ws, &runner.preparation_expired()).await?;
+                send_batch(&mut ws, &progress.work(|| runner.preparation_expired())?).await?;
             }
             () = deadline(next.map(|(_, at)| at)) => {
                 runner.measure_until(u64::try_from(measured_from.elapsed().as_millis()).unwrap_or(u64::MAX));
@@ -148,7 +154,7 @@ where
                 tracing::info!(seat = clock.seat.get(), "decision timed out");
                 armed.fired(clock);
                 runner.tell_time(wall_ms());
-                send_batch(&mut ws, &runner.timeout(clock)).await?;
+                send_batch(&mut ws, &progress.work(|| runner.timeout(clock))?).await?;
             }
             frame = ws.next() => {
                 runner.measure_until(u64::try_from(measured_from.elapsed().as_millis()).unwrap_or(u64::MAX));
@@ -168,7 +174,7 @@ where
                 if runner.session().is_none()
                     && let Some(v1::envelope::Msg::ProjectRecord(order)) = envelope.msg
                 {
-                    return project(ws, order).await;
+                    return project(ws, order, progress).await;
                 }
                 if let Some(v1::envelope::Msg::GameSetup(setup)) = &envelope.msg
                     && !baylee_engine_server::variant::accepts(&setup.execution) {
@@ -176,13 +182,13 @@ where
                 }
                 let remaining = remaining_now(&armed);
                 runner.tell_time(wall_ms());
-                send_batch(&mut ws, &runner.handle(envelope, &remaining)).await?;
+                send_batch(&mut ws, &progress.work(|| runner.handle(envelope, &remaining))?).await?;
             }
             () = tokio::task::yield_now(), if needs_pump => {
                 runner.measure_until(u64::try_from(measured_from.elapsed().as_millis()).unwrap_or(u64::MAX));
                 let remaining = remaining_now(&armed);
                 runner.tell_time(wall_ms());
-                send_batch(&mut ws, &runner.pump_slice(&remaining)).await?;
+                send_batch(&mut ws, &progress.work(|| runner.pump_slice(&remaining))?).await?;
             }
         }
         if runner.finished() {
@@ -224,6 +230,7 @@ fn remaining_now(
 async fn project<S>(
     mut ws: tokio_tungstenite::WebSocketStream<S>,
     order: v1::ProjectRecord,
+    mut progress: baylee_worker::Reporter<std::io::Stdout>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
 where
     S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
@@ -231,8 +238,10 @@ where
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
     let job = order.job.clone();
     let worker = tokio::task::spawn_blocking(move || {
-        baylee_engine_server::projection::run(&order, baylee_build::short(), &mut |piece| {
-            let _ = tx.send(piece);
+        progress.work(|| {
+            baylee_engine_server::projection::run(&order, baylee_build::short(), &mut |piece| {
+                let _ = tx.send(piece);
+            })
         })
     });
     while let Some(piece) = rx.recv().await {
@@ -244,10 +253,20 @@ where
         )
         .await?;
     }
-    let stop = worker.await?;
+    let stop = worker.await??;
     tracing::info!(job, stop = ?stop.stop, inputs = stop.inputs, "replay projected");
     let _ = ws.close(None).await;
     Ok(())
+}
+
+/// This pipe is installed locally by the agent. Logs use stderr and the
+/// metadata-only command returns before any reporter is constructed.
+fn reporter() -> std::io::Result<baylee_worker::Reporter<std::io::Stdout>> {
+    baylee_worker::Reporter::new(reports_to_owner().then(std::io::stdout))
+}
+
+fn reports_to_owner() -> bool {
+    std::env::var_os(baylee_worker::REPORT_ENV).is_some_and(|value| value == "1")
 }
 
 /// Sleeps until a seat's deadline, or forever when nothing is on the clock.

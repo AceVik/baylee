@@ -91,4 +91,12 @@ information is unrepresentable in a view, and the gateway runs no rules.
 - The decision clocks run in the engine (`EngineRunner::clocks`, `crates/baylee-engine-server/src/lib.rs`), at most one per awaited seat, each anchored to `Session::asked_at(seat)`, a `decision_seq` (questions, not frames), never for a socketless seat, whose frames the engine (not the gateway) drops. Losing the engine link ends the game.
 - Nothing runs before the curtain: the table opens (`Curtain`, sent last in its batch) when every human seat has sent `SeatReady` or `CURTAIN_SECS` after `GameSetup`; until then attaches get `GameStatic` and their view, no question, no clock, no AI move, and early actions are dropped. Every clock is anchored at curtain-up. Deploy the engine-server before clients. `docs/protocol.md` §"The curtain".
 - One process per game is the panic boundary; the hosting path wraps no rules call in `catch_unwind`.
+- `baylee-worker` defines private process progress and resource budgets, with no
+  rules or card dependency. The agent retains an empty stdin ownership pipe and
+  reads Busy/Idle bytes from engine stdout; logs go to stderr. Attached engines
+  have an independent owner-liveness thread, so owner death can stop a rules call
+  that never returns. The supervisor samples only its owned PID's resident
+  memory and kills through the owned child handle, retaining capacity until wait
+  confirms exit. A technical interruption never supplies a game result. The
+  deterministic kernel has no wall clock, resource meter or progress I/O.
 - Gateway e2e tests spawn real gateways (own schema each, pool of two; CI has `postgres:18-alpine`) with the engine in-process (`EngineRunner`); `e2e_processes` is `#[ignore]`d.

@@ -164,6 +164,17 @@ Registered hosts only; keys write-only over the unix socket; tests use in-proces
 
 Its engines inherit the agent's environment (less its token), so the house's search is set on the agent's unit: `BAYLEE_FORESIGHT`, `BAYLEE_FORESIGHT_WORK`, `BAYLEE_FORESIGHT_SEARCHES` and `BAYLEE_FORESIGHT_WALL_MS` below.
 
+The agent sets `BAYLEE_WORK_REPORT=1` on attached engines and supplies private
+stdin/stdout pipes. This is an ownership protocol, not a player or operator
+rule switch: stdout carries only Idle/Busy bytes, stderr the log, and stdin stays
+open and empty for the lifetime of the owner. EOF stops the engine independently
+of its rules thread. Startup has 30 seconds; one unresponsive outer operation
+has 60 seconds; idle human thinking has no such deadline. The parent samples
+resident memory every 250 ms and interrupts at 2 GiB. This is sampled resource
+containment, not an OS memory reservation or a guarantee against transient
+overshoot. Hosting capacity and OS/service memory isolation still need to fit
+the machine. Limits are technical failures, never an invented win or draw.
+
 ## Feedback service (`baylee-feedback`)
 
 `docs/feedback.md`.
