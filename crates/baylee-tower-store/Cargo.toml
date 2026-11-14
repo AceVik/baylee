@@ -12,6 +12,7 @@ workspace = true
 
 [dependencies]
 baylee-tower.workspace = true
+baylee-tower-api.workspace = true
 baylee-protocol.workspace = true
 sea-orm.workspace = true
 serde.workspace = true

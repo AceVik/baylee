@@ -2426,6 +2426,7 @@ dependencies = [
  "baylee-core",
  "baylee-protocol",
  "baylee-tower",
+ "baylee-tower-api",
  "sea-orm",
  "serde",
  "serde_json",
