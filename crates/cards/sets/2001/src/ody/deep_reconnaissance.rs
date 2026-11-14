@@ -13,7 +13,7 @@ card!(
     oracle_id = "a823e880-3d5f-4186-a7da-e710a7db583c",
     scryfall_id = "148ce683-3911-4b77-9e07-3985766a3777",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Deep Reconnaissance",
         mana_cost = mana!("{2}{G}"),

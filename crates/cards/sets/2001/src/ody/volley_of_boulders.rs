@@ -11,7 +11,7 @@ card!(
     oracle_id = "47860e92-e86a-49f2-80e3-fd144de08b4d",
     scryfall_id = "aecab75c-25e5-4465-9c0a-28c2f6dc2ce5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Volley of Boulders",
         mana_cost = mana!("{8}{R}"),

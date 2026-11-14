@@ -11,7 +11,7 @@ card!(
     oracle_id = "888a5071-24b1-48ce-a97b-39f108976c6d",
     scryfall_id = "e2e10742-77c9-4f91-81b2-37b2ac910f09",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Earth Rift",
         mana_cost = mana!("{3}{R}"),

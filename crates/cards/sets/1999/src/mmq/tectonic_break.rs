@@ -10,7 +10,7 @@ card!(
     oracle_id = "4a3c6d0e-6d77-4434-95f4-737879de026f",
     scryfall_id = "9de0ee5d-10f6-4152-8416-1f2b749b439d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Tectonic Break",
         mana_cost = mana!("{X}{R}{R}"),
