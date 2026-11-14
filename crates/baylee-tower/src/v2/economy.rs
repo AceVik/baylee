@@ -1,0 +1,152 @@
+//! Atomic owned-state transitions. Service authorization and shop stock are separate.
+use super::{
+    STARTING_GOLD,
+    catalog::{Definition, MYTHIC_PRICE},
+    inventory::{Inventory, Material, Relic, Slot},
+};
+use crate::{MAX_GOLD, Refusal};
+use serde::{Deserialize, Serialize};
+
+mod fusion;
+pub use fusion::Recipe;
+
+/// Currency, equipment and charges of a revision-two run.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Economy {
+    /// Run-local gold; never paid interest or transferred to another run.
+    pub gold: u16,
+    /// Owned equipment and crafting materials.
+    pub inventory: Inventory,
+    /// Healing and mana charges, in that order; two combined.
+    pub potions: [u8; 2],
+}
+
+impl Default for Economy {
+    fn default() -> Self {
+        Self {
+            gold: STARTING_GOLD,
+            inventory: Inventory::default(),
+            potions: [0; 2],
+        }
+    }
+}
+
+impl Economy {
+    /// Check persisted state before any price calculation or mutation.
+    /// # Errors
+    /// Malformed inventory or wallet/charge bounds.
+    pub fn validate(&self) -> Result<(), Refusal> {
+        if self.gold > MAX_GOLD || self.potions.iter().map(|n| u16::from(*n)).sum::<u16>() > 2 {
+            return Err(Refusal::Invalid);
+        }
+        self.inventory.validate()
+    }
+
+    fn changed(
+        &self,
+        action: impl FnOnce(&mut Self) -> Result<(), Refusal>,
+    ) -> Result<Self, Refusal> {
+        self.validate()?;
+        let mut next = self.clone();
+        action(&mut next)?;
+        next.validate()?;
+        Ok(next)
+    }
+
+    fn purchase(&mut self, definition: Definition, slot: Slot) -> Result<u32, Refusal> {
+        let price = definition.rarity.price().ok_or(Refusal::Unavailable)?;
+        self.gold = self.gold.checked_sub(price).ok_or(Refusal::Gold)?;
+        let id = self.inventory.allocate()?;
+        self.inventory.relics.push(Relic {
+            id,
+            definition,
+            slot,
+            basis: price,
+        });
+        Ok(id)
+    }
+
+    /// Buy a relic from an offer already admitted by the locked authoritative shop.
+    /// # Errors
+    /// Insufficient gold, occupied/illegal destination or unavailable rarity.
+    pub fn bought(&self, definition: Definition, slot: Slot) -> Result<Self, Refusal> {
+        self.changed(|next| next.purchase(definition, slot).map(|_| ()))
+    }
+
+    /// Buy a crafting potion, after shop availability is checked by the authority.
+    /// # Errors
+    /// Insufficient gold, two existing materials or exhausted identity sequence.
+    pub fn bought_material(&self) -> Result<Self, Refusal> {
+        self.changed(|next| {
+            if next.inventory.materials.len() == 2 {
+                return Err(Refusal::Capacity);
+            }
+            next.gold = next.gold.checked_sub(MYTHIC_PRICE).ok_or(Refusal::Gold)?;
+            let id = next.inventory.allocate()?;
+            next.inventory.materials.push(Material {
+                id,
+                basis: MYTHIC_PRICE,
+            });
+            Ok(())
+        })
+    }
+
+    /// Move equipment; an occupied destination swaps with its current slot.
+    /// # Errors
+    /// Unknown instance, illegal slot or combined active resources beyond bounds.
+    pub fn moved(&self, id: u32, slot: Slot) -> Result<Self, Refusal> {
+        self.changed(|next| {
+            if !slot.valid() {
+                return Err(Refusal::Invalid);
+            }
+            let index = next
+                .inventory
+                .relics
+                .iter()
+                .position(|item| item.id == id)
+                .ok_or(Refusal::Unavailable)?;
+            let previous = next.inventory.relics[index].slot;
+            if let Some(other) = next
+                .inventory
+                .relics
+                .iter_mut()
+                .find(|item| item.slot == slot)
+            {
+                other.slot = previous;
+            }
+            next.inventory.relics[index].slot = slot;
+            Ok(())
+        })
+    }
+
+    /// Sell exactly one owned instance. Free grants never return gold.
+    /// # Errors
+    /// Unknown instance or a wallet unable to hold the full legitimate sale.
+    pub fn sold(&self, id: u32) -> Result<Self, Refusal> {
+        self.changed(|next| {
+            let price =
+                if let Some(index) = next.inventory.relics.iter().position(|item| item.id == id) {
+                    let relic = next.inventory.relics.remove(index);
+                    (relic.basis / 2).min(relic.definition.rarity.sale_cap())
+                } else {
+                    let index = next
+                        .inventory
+                        .materials
+                        .iter()
+                        .position(|item| item.id == id)
+                        .ok_or(Refusal::Unavailable)?;
+                    next.inventory.materials.remove(index).basis / 2
+                };
+            next.gold = next
+                .gold
+                .checked_add(price)
+                .filter(|gold| *gold <= MAX_GOLD)
+                .ok_or(Refusal::Capacity)?;
+            Ok(())
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests;

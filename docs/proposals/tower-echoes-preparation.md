@@ -670,3 +670,28 @@ test-fixture field/path errors and replacing the extracted wildcard import.
 The same built executable also passed the two variant admission, fourteen
 readiness-barrier and eleven existing projection tests, without another build:
 `/tmp/baylee-server-native-registry-{variants,curtain,projection}-20261114.log`.
+
+## Owned equipment and exact fusion — fifteenth working milestone
+
+The separate `baylee-tower::v2` domain now has monotonic run-local instance IDs,
+three active/six reserve slots, two separate Mythic materials, inherited paid
+basis and atomic buy/move/swap/fuse/sell transitions. A full inventory admits
+buy-and-fuse only when the final state fits. The recipes are exactly three
+Common, three Uncommon, or one Rare plus one Mythic material. A failed operation
+cannot spend currency, consume an input or change the instance sequence.
+Sales are bounded both by half the actual basis and by a catalog cap. The
+complete active loadout must fit opening-card, hand-limit and mulligan bounds;
+no purchased bonus is silently clamped. Legacy revision-one types are unchanged.
+
+Seven focused tests passed in `/tmp/baylee-tower-v2-inventory-tests-20261114.log`:
+all four families' full nine-Common-to-Mythic paths, the direct Rare path,
+the recipe/rarity/material matrix, full-bag fusion, duplicate and spent IDs,
+wrong families, occupied outputs, swaps/caps, free-grant resale, forged basis,
+wallet/ID overflow and stable definition encoding. Strict all-target Clippy
+passed in `/tmp/baylee-tower-v2-inventory-clippy-20261114-r2.log` after replacing
+one wildcard import.
+
+These are pure transitions, not shop authorization, durable deduplication,
+calibrated balance or a finished Tower release. The first four-family catalog
+is a vertical-slice hypothesis; its native Grove definitions and service/client
+integration follow before any offer can be published.

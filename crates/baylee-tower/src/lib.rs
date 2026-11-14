@@ -12,6 +12,7 @@ pub mod matching;
 pub mod package;
 pub mod run;
 pub mod shop;
+pub mod v2;
 
 /// Initial, unpublished balance revision. Published revisions are immutable.
 pub const RULES_VERSION: u32 = 1;
