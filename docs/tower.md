@@ -84,6 +84,26 @@ delivery and exhausted lives retain explicit states rather than inventing a win.
 
 ## Focused local evidence
 
+The native presentation received five implementation refinements before review:
+the playable route and actions; balanced overview panels and centered heading;
+three exact replacement previews with selected-state controls; aligned rankings,
+life pips and route markers; then earned summit/relic presentation and compact
+layout helpers. A sixth correction pass preserved uncertain upgrade retries and
+labeled the actual ranking week. These are implementation/headless refinements;
+the final rendered Tower window has not been accepted without the required display.
+The preceding Daily/Weekly Lobby redesign had six rendered/control refinements,
+including compact gateway presentation, five distinct animated badge motifs and
+five inspectable tiers, separate play/ranking/rules views and reduced motion.
+
+The synthetic demo fixture adds three account scenarios when
+`BAYLEE_CENTRAL_DEMO=1` and `BAYLEE_CENTRAL_UI_READY` name its readiness file:
+`demo_player` has a completed first Tower floor awaiting an upgrade,
+`fresh_player` has a completed five-floor expedition and its earned rewards,
+and `demo_resume` has a resumable Weekly duel. Supplying the current week's
+`BAYLEE_CENTRAL_TOWER_EVIDENCE` enables the Tower scenarios. The bounded hold
+ends on its deadline or the readiness path's `.stop` sibling; no production
+account, credential or authorization shortcut is involved.
+
 The route/deck tests enumerate all 35 states and every upgrade edge, checking
 legal working decks and exact replacements. A separate invariant test compares
 all eight human deals across every node against the opponent's initial library,
