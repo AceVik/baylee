@@ -174,6 +174,7 @@ impl<L: CardLookup> Engine<L> {
                     | crate::state::DelayedAction::LinkedCounterCleanup { .. }
                     | crate::state::DelayedAction::ReturnExiledGroup { .. }
                     | crate::state::DelayedAction::DrawStepLifeLoss { .. }
+                    | crate::state::DelayedAction::AddMana { .. }
             ) {
                 self.delayed_queue.push_front((controller, action));
                 let suspended = self.process_delayed();
@@ -331,23 +332,28 @@ impl<L: CardLookup> Engine<L> {
                 }
                 false
             }
-            // Mana Drain's "add": its controller's pool, at the next main
-            // phase of theirs. Straight in, without the stack it should
-            // use (docs/observed-faults.md, entry 67).
-            crate::state::DelayedAction::AddMana { color, amount } => {
-                if !self.state.players[controller.get() as usize]
-                    .mana_pool
-                    .try_add(color, u32::from(amount))
-                {
-                    self.state.numeric_failure = Some("delayed mana exceeds u32 per color");
-                    return false;
+            // Mana Drain's "At the beginning of your next main phase, add":
+            // a delayed triggered ability (CR 603.7) whose trigger condition
+            // is a phase beginning rather than a mana activation or mana
+            // production (CR 605.1b), so it is not a mana ability and goes on
+            // the stack before resolving into the controller's pool.
+            crate::state::DelayedAction::AddMana {
+                source,
+                source_version,
+                color,
+                amount,
+            } => {
+                self.queue_delayed_trigger(
+                    controller,
+                    source,
+                    delayed_mana_effects(color),
+                    None,
+                    (source != ObjectId::NO_SOURCE).then_some(source_version),
+                    crate::text_changes::TextChangeMap::IDENTITY,
+                );
+                if let Some(trigger) = self.trigger_queue.back_mut() {
+                    trigger.event_amount = Some(u32::from(amount));
                 }
-                self.state.journal.record(GameEvent::ManaProduced {
-                    player: controller,
-                    color,
-                    amount,
-                    source: None,
-                });
                 false
             }
             // A delayed triggered ability that uses the stack, come due at a
@@ -550,6 +556,52 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 }
+/// Synthetic resolution program for a delayed mana trigger (`DelayedAction::AddMana`).
+const fn delayed_mana_effects(
+    color: baylee_core::mana::ManaColor,
+) -> &'static [baylee_cards_dsl::Effect] {
+    use baylee_cards_dsl::{Amount, Effect, PlayerRel};
+    use baylee_core::mana::ManaColor;
+    const WHITE: &[Effect] = &[Effect::AddManaAmountFor {
+        who: PlayerRel::You,
+        color: ManaColor::White,
+        amount: Amount::EventAmount,
+    }];
+    const BLUE: &[Effect] = &[Effect::AddManaAmountFor {
+        who: PlayerRel::You,
+        color: ManaColor::Blue,
+        amount: Amount::EventAmount,
+    }];
+    const BLACK: &[Effect] = &[Effect::AddManaAmountFor {
+        who: PlayerRel::You,
+        color: ManaColor::Black,
+        amount: Amount::EventAmount,
+    }];
+    const RED: &[Effect] = &[Effect::AddManaAmountFor {
+        who: PlayerRel::You,
+        color: ManaColor::Red,
+        amount: Amount::EventAmount,
+    }];
+    const GREEN: &[Effect] = &[Effect::AddManaAmountFor {
+        who: PlayerRel::You,
+        color: ManaColor::Green,
+        amount: Amount::EventAmount,
+    }];
+    const COLORLESS: &[Effect] = &[Effect::AddManaAmountFor {
+        who: PlayerRel::You,
+        color: ManaColor::Colorless,
+        amount: Amount::EventAmount,
+    }];
+    match color {
+        ManaColor::White => WHITE,
+        ManaColor::Blue => BLUE,
+        ManaColor::Black => BLACK,
+        ManaColor::Red => RED,
+        ManaColor::Green => GREEN,
+        ManaColor::Colorless => COLORLESS,
+    }
+}
+
 #[cfg(test)]
 #[path = "delayed/announcement_tests.rs"]
 mod announcement_tests;

@@ -1159,6 +1159,16 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// Choices already made by earlier players during a sequential APNAP
+    /// selection whose outcome happens simultaneously once every player has
+    /// chosen (CR 101.4b, CR 101.4d). Empty outside such a selection.
+    #[must_use]
+    pub fn held_choices(&self) -> Vec<resolve::HeldChoice> {
+        self.resolution
+            .as_ref()
+            .map_or_else(Vec::new, |res| res.held_choices(&self.state))
+    }
+
     /// Cards privately inspected during the current filtered selection,
     /// including cards that cannot be selected. Hosts must apply the same
     /// entitlement as `information_pending_for` before exposing this slice.

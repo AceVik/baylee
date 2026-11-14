@@ -41,6 +41,10 @@ fn forest() -> CardIndex {
 fn llanowar_elves() -> CardIndex {
     card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3")
 }
+/// `{2}{G}` Walk-In Closet and `{3}{G}{G}` Forgotten Cellar (MV 8 combined).
+fn walk_in_closet() -> CardIndex {
+    card_index("52e77cc3-f8e9-4a20-811b-fe1e46a96ad7")
+}
 
 const ME: PlayerId = PlayerId::new(0);
 const THEM: PlayerId = PlayerId::new(1);
@@ -234,5 +238,65 @@ fn the_engine_as_it_was_opens_with_the_hash_before_the_boundary() {
     assert_eq!(
         reading(&before, card),
         ("Fire".to_string(), 2, ColorSet::of(Color::Red))
+    );
+}
+
+/// CR 709.4 + CR 709.5: A Room is a split card, so in hand, library, graveyard
+/// and exile it combines both halves' mana costs (`{2}{G}` + `{3}{G}{G}` = MV 8),
+/// while on the stack it is the cast door alone (CR 709.3b: MV 3 or MV 5) and
+/// on the battlefield it carries only its unlocked doors (CR 709.5).
+#[test]
+fn a_room_combines_both_halves_off_the_battlefield_and_stack() {
+    let mut engine = Duel::new(7094, walk_in_closet())
+        .battlefield(0, &[forest(), forest(), forest(), forest(), forest()])
+        .hand(0, &[walk_in_closet()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, ME);
+
+    let hand_id = in_hand(&engine, ME, walk_in_closet()).expect("Room in hand");
+    assert_eq!(
+        reading(&engine, hand_id),
+        ("Walk-In Closet".to_string(), 8, ColorSet::of(Color::Green)),
+        "in hand a Room combines both halves' mana costs (CR 709.4)"
+    );
+    let lib_id = *engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Library(ME))
+        .first()
+        .expect("Room in library");
+    assert_eq!(
+        reading(&engine, lib_id).1,
+        8,
+        "in a library a Room also has combined mana value 8 (CR 709.4)"
+    );
+
+    // Cast the left half (`Walk-In Closet`, `{2}{G}`): MV 3 on the stack and on the battlefield.
+    tap_mana_where(&mut engine, ME, |_| true);
+    engine
+        .apply(ME, PlayerAction::CastSpell { card: hand_id })
+        .expect("Walk-In Closet // Forgotten Cellar asks which door");
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected door choice, got {:?}", engine.pending());
+    };
+    let left_idx = options
+        .iter()
+        .position(|o| o.kind == CastModeKind::Normal)
+        .expect("left door offered");
+    engine
+        .apply(ME, PlayerAction::ChooseMode(left_idx))
+        .expect("choose left door");
+    let stack_id = on_stack(&engine, walk_in_closet()).expect("left door on stack");
+    assert_eq!(
+        reading(&engine, stack_id),
+        ("Walk-In Closet".to_string(), 3, ColorSet::of(Color::Green)),
+        "on the stack it is the cast door alone (CR 709.3b)"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        reading(&engine, hand_id),
+        ("Walk-In Closet".to_string(), 3, ColorSet::of(Color::Green)),
+        "on the battlefield only the unlocked left door contributes (CR 709.5)"
     );
 }

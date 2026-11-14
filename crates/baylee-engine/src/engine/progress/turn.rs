@@ -435,6 +435,7 @@ impl<L: CardLookup> Engine<L> {
     pub(super) fn synthetic_source_name(
         &mut self,
         source: ObjectId,
+        source_version: Option<u32>,
         effects: &[baylee_cards_dsl::Effect],
     ) -> NameRef {
         if source == ObjectId::NO_SOURCE {
@@ -442,6 +443,7 @@ impl<L: CardLookup> Engine<L> {
         }
         self.state
             .object(source)
+            .or_else(|| self.state.damage_source(source, source_version))
             .map_or(NameRef::new(0), |o| o.base.name)
     }
 
@@ -461,10 +463,11 @@ impl<L: CardLookup> Engine<L> {
         let card = self
             .state
             .object(t.source)
+            .or_else(|| self.state.damage_source(t.source, t.source_version))
             .filter(|o| !o.status.contains(crate::object::Status::FACE_DOWN))
             .and_then(|o| o.card)
             .map(|c| c.index);
-        let name = self.synthetic_source_name(t.source, synthetic);
+        let name = self.synthetic_source_name(t.source, t.source_version, synthetic);
         let base = self.state.bare_base(name);
         let id = self.state.arena.insert_with(|id| {
             let mut obj = GameObject::new_ability_on_stack(
@@ -787,6 +790,14 @@ pub(super) const fn sourceless_trigger_name(effects: &[baylee_cards_dsl::Effect]
         "Radiation"
     } else if matches!(effects, [baylee_cards_dsl::Effect::IncreaseSpeed]) {
         "Speed"
+    } else if matches!(
+        effects,
+        [baylee_cards_dsl::Effect::AddManaAmountFor {
+            amount: baylee_cards_dsl::Amount::EventAmount,
+            ..
+        }]
+    ) {
+        "Delayed mana"
     } else {
         "Monarch"
     }

@@ -269,6 +269,7 @@ fn cast_in_mode(engine: &mut Engine<RegistryLookup>, spell: CardIndex, mode: usi
     engine.apply(me(), PlayerAction::ChooseMode(slot)).unwrap();
 }
 mod annihilate;
+mod beast_attack;
 mod blessed_light;
 mod breath_of_malfegor;
 mod bright_reprisal;
@@ -285,6 +286,7 @@ mod desertion;
 mod enhanced_awareness;
 mod evacuation;
 mod fall_of_the_gavel;
+mod fervent_denial;
 mod final_death;
 mod final_reward;
 mod finishing_blow;

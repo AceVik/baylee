@@ -14,6 +14,11 @@ ChooseLifeGainReplacement = Welchen Ersatzeffekt möchtest du auf diesen Lebensg
 CastYourVote = Gib deine Stimme ab: Wähle eine Option.
 VotesSoFar = Bisherige Stimmen: { $ballots }
 BallotFor = { $voter } für { $choice }
+ChoicesSoFar = Bisherige Auswahlen: { $choices }
+ChoiceToSacrifice = { $player }: { $object } opfern
+ChoiceToDiscard = { $player }: { $object } abwerfen
+ChoiceToDestroy = { $player }: { $object } zerstören
+ChoiceToReturn = { $player }: { $object } auf die Hand zurückbringen
 SacrificeToEnter =
     { $count ->
         [one] { $count } passendes Permanent opfern, damit diese Karte ins Spiel kommt?
@@ -685,6 +690,7 @@ KindCreature = Kreatur
 KindInstant = Spontanzauber
 KindSorcery = Hexerei
 KindArtifact = Artefakt
+KindKindred = Stammeskarte
 KindEnchantment = Verzauberung
 KindPlaneswalker = Planeswalker
 KindBattle = Schlacht
@@ -962,6 +968,11 @@ NounCardsFromLibrary =
     { $count ->
         [one] Karte aus deiner Bibliothek
        *[other] Karten aus deiner Bibliothek
+    }
+NounCardsFromLibraryTappedAndHand =
+    { $count ->
+        [one] Karte aus deiner Bibliothek (kommt getappt ins Spiel)
+       *[other] Karten aus deiner Bibliothek (1. getappt ins Spiel, 2. auf deine Hand)
     }
 NounCardsToTop =
     { $count ->
@@ -1310,6 +1321,8 @@ TakeOneOfType = Nimm bis zu eine Karte vom Typ { $card_type } auf deine Hand
 CastDiscovered = Du hast diese Karte entdeckt. Wirken, ohne ihre Manakosten zu bezahlen? („Nein“ nimmt sie auf deine Hand.)
 SkipTurnToUntap = Diesen Zug überspringen, um dieses Permanent zu enttappen?
 GuessNamedCardInHand = Rate: Hat { $player } eine Karte mit dem gewählten Namen auf der Hand?
+RevealHandForGuessInHand = { $player } hat geraten, dass du die genannte Karte auf der Hand hast. Deine Hand vorzeigen? (Falls falsch geraten, ziehst du eine Karte.)
+RevealHandForGuessNotInHand = { $player } hat geraten, dass du die genannte Karte nicht auf der Hand hast. Deine Hand vorzeigen? (Falls falsch geraten, ziehst du eine Karte.)
 YesOrNo = Ja oder nein?
 OfferADraw = Unentschieden anbieten
 Concede = Aufgeben
@@ -1487,6 +1500,7 @@ PlateWaiting = Der Tisch wartet
 ActiveTurn = Am Zug
 ChosenType = Gewählt: { $subtype }
 ChosenName = Genannt: { $card }
+ChosenNumber = Gewählt: { $number }
 LockedDoors = Versperrt: { $doors }
 TapForRestricted = Tappen für { $mana } (eingeschränkt)
 TapForVariable = Tappen für X Mana ({ $mana })
@@ -1721,6 +1735,7 @@ LogLifeNowPoints =
     }
 LogCountered = { $spell } wurde neutralisiert
 LogDidNotResolve = { $object } wurde nicht verrechnet
+LogAbilityDidNotResolve = Eine Fähigkeit von { $object } wurde nicht verrechnet
 LogDrewYou = { $you_subject } hast { $cards } gezogen
 LogDrew = { $player } hat { $cards } gezogen
 LogDrewCardsYou =
@@ -1909,6 +1924,14 @@ LogTurnedFaceUp = { $object } wurde aufgedeckt
 LogTransformed = { $object } wurde transformiert
 LogCardsKeptYou = { $you_subject } hast gewählt, { $cards } zu behalten
 LogCardsKept = { $player } hat gewählt, { $cards } zu behalten
+LogCardsChosenSacrificeYou = { $you_subject } hast { $cards } zum Opfern gewählt
+LogCardsChosenSacrifice = { $player } hat { $cards } zum Opfern gewählt
+LogCardsChosenDiscardYou = { $you_subject } hast { $cards } zum Abwerfen gewählt
+LogCardsChosenDiscard = { $player } hat { $cards } zum Abwerfen gewählt
+LogCardsChosenDestroyYou = { $you_subject } hast { $cards } zum Zerstören gewählt
+LogCardsChosenDestroy = { $player } hat { $cards } zum Zerstören gewählt
+LogCardsChosenReturnYou = { $you_subject } hast { $cards } zum Zurückbringen auf die Hand gewählt
+LogCardsChosenReturn = { $player } hat { $cards } zum Zurückbringen auf die Hand gewählt
 LogVotedYou = { $you_subject } hast für { $object } gestimmt
 LogVoted = { $player } hat für { $object } gestimmt
 LogRevealedYou = { $you_subject } hast { $cards } offen vorgezeigt

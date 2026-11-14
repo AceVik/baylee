@@ -328,6 +328,15 @@ pub struct PublicObject {
     /// Creature type named for this permanent (Reflections of Littjara, Cavern of Souls).
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+    /// Second basic land type chosen as this permanent entered.
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub second_chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+    /// Card type chosen as this permanent entered (Serra's Emissary, CR 205.2a).
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub chosen_card_type: Option<TypeSet>,
+    /// Number chosen for this permanent's active rules acquisition.
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub chosen_number: Option<u8>,
     /// Card name chosen for this permanent as it entered (Pithing Needle).
     /// Public: the choice is announced as it is made.
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
@@ -341,6 +350,10 @@ pub struct PublicObject {
     /// Value of X announced for this spell or ability on the stack (CR 601.2b).
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub chosen_x: Option<u32>,
+    /// Face-up exiled cards linked to this permanent (Extraplanar Lens, CR 607).
+    /// Face-down exiled cards (CR 406.3) are never listed here.
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub linked_exile: Vec<ObjectId>,
     /// A Room's doors (CR 709.5c): `[left, right]`, each `true` while that
     /// half is unlocked; `None` for anything that is not a Room on the
     /// battlefield. Public, as the designations are. A locked half has no
@@ -690,9 +703,13 @@ impl PublicObject {
             supertypes: self.supertypes,
             subtypes: self.subtypes,
             chosen_subtype: self.chosen_subtype,
+            second_chosen_subtype: self.second_chosen_subtype,
+            chosen_card_type: self.chosen_card_type,
+            chosen_number: self.chosen_number,
             chosen_name: self.chosen_name,
             chosen_opponent: self.chosen_opponent,
             chosen_color: self.chosen_color,
+            linked_exile: self.linked_exile.clone(),
             unlocked_doors: self.unlocked_doors,
             suspended: self.suspended,
             colors: self.colors,
@@ -743,11 +760,15 @@ pub struct ObjectSummaryKey {
     supertypes: SupertypeSet,
     subtypes: SubtypeSet,
     chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+    second_chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+    chosen_card_type: Option<TypeSet>,
+    chosen_number: Option<u8>,
     /// Two Needles naming different cards are two different cards to look
     /// at, and a pile shows one label.
     chosen_name: Option<NamedFace>,
     chosen_opponent: Option<PlayerId>,
     chosen_color: Option<baylee_core::mana::ManaColor>,
+    linked_exile: Vec<ObjectId>,
     /// Two Rooms with different doors open are different cards to act on:
     /// one has a door left to unlock.
     unlocked_doors: Option<[bool; 2]>,
@@ -788,8 +809,13 @@ impl core::hash::Hash for ObjectSummaryKey {
         self.status.hash(state);
         self.types.hash(state);
         self.chosen_subtype.hash(state);
+        self.second_chosen_subtype.hash(state);
+        self.chosen_card_type.hash(state);
+        self.chosen_number.hash(state);
         self.chosen_name.hash(state);
         self.chosen_opponent.hash(state);
+        self.chosen_color.hash(state);
+        self.linked_exile.hash(state);
         self.unlocked_doors.hash(state);
         self.suspended.hash(state);
         self.power.hash(state);

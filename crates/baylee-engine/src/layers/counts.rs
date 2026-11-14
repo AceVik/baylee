@@ -79,17 +79,7 @@ pub(super) fn pt_count(
             }
             usize::from(colors.len())
         }
-        baylee_cards_dsl::PtCount::ChosenNumber => obj
-            .riders
-            .iter()
-            .find_map(|rider| match rider {
-                crate::object::Rider::ChosenNumber {
-                    acquisition,
-                    number,
-                } if *acquisition == obj.rules_acquisition() => Some(usize::from(*number)),
-                _ => None,
-            })
-            .unwrap_or(0),
+        baylee_cards_dsl::PtCount::ChosenNumber => obj.chosen_number().map_or(0, usize::from),
         baylee_cards_dsl::PtCount::Complement { from, count } => {
             return i16::try_from(from)
                 .unwrap_or(i16::MAX)

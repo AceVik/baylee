@@ -305,3 +305,592 @@ fn a_saga_chapter_targets_one_permanent_of_each_opponent() {
         );
     }
 }
+
+fn innocent_blood() -> CardIndex {
+    card_index("6791ec3c-c397-4087-8c8c-84d3797df415")
+}
+
+fn blood_artist() -> CardIndex {
+    card_index("310f141c-7f37-4729-aed6-dd9c09db448d")
+}
+
+fn curfew() -> CardIndex {
+    card_index("6ff1e793-1569-4887-b6bb-d9855c5e8a26")
+}
+
+fn island() -> CardIndex {
+    card_index("b2c6aa39-2d2a-459c-a555-fb48ba993373")
+}
+
+fn pass_to_card_choice<L: crate::state::CardLookup>(engine: &mut Engine<L>) {
+    for _ in 0..16 {
+        if matches!(engine.pending(), Pending::ChooseCards { .. }) {
+            return;
+        }
+        let Pending::Priority { player, .. } = engine.pending().clone() else {
+            panic!(
+                "expected priority on the way to card choice, got {:?}",
+                engine.pending()
+            );
+        };
+        engine
+            .apply(player, PlayerAction::PassPriority)
+            .expect("passing priority is legal");
+    }
+    panic!("never reached ChooseCards: {:?}", engine.pending());
+}
+
+fn drain_triggers_targeting<L: crate::state::CardLookup>(
+    engine: &mut Engine<L>,
+    target_player: PlayerId,
+) {
+    for _ in 0..32 {
+        if stack_is_empty_any(engine) && matches!(engine.pending(), Pending::Priority { .. }) {
+            return;
+        }
+        match engine.pending().clone() {
+            Pending::ChooseTargets { player, .. } => {
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseTargets {
+                            objects: vec![],
+                            players: vec![target_player],
+                        },
+                    )
+                    .expect("targeting opponent is legal");
+            }
+            Pending::Arrange { player, cards, .. } => {
+                engine
+                    .apply(player, PlayerAction::Arrange { piles: vec![cards] })
+                    .expect("keeping default order is legal");
+            }
+            Pending::Priority { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::PassPriority)
+                    .expect("passing priority is legal");
+            }
+            other => panic!("unexpected pending while draining triggers: {other:?}"),
+        }
+    }
+    panic!("triggers never drained: {:?}", engine.pending());
+}
+
+fn stack_is_empty_any<L: crate::state::CardLookup>(engine: &Engine<L>) -> bool {
+    engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Stack)
+        .is_empty()
+}
+
+fn setup_apnap_innocent_blood() -> Engine<RegistryLookup> {
+    let mut engine = Duel::table(SEED, swamp(), 3)
+        .hand(1, &[innocent_blood()])
+        .battlefield(0, &[quiet_creature()])
+        .battlefield(1, &[swamp(), quiet_creature(), quiet_creature()])
+        .battlefield(2, &[quiet_creature()])
+        .start();
+    let p1 = PlayerId::new(1);
+    assert!(super::testkit::walk_to_own_main(&mut engine, p1));
+    assert_eq!(engine.state().turn.active, p1);
+    cast_from_hand(&mut engine, p1, innocent_blood());
+    pass_to_card_choice(&mut engine);
+    engine
+}
+
+fn assert_held_sacrifice(engine: &Engine<RegistryLookup>, player: PlayerId, chosen: ObjectId) {
+    assert_eq!(
+        engine.state().object(chosen).map(|o| o.zone),
+        Some(crate::zone::Zone::Battlefield),
+        "chosen creature stays on the battlefield until every player chooses"
+    );
+    let held = engine
+        .resolution
+        .as_ref()
+        .and_then(|r| r.awaiting.as_ref())
+        .expect("awaiting SacrificeFilter")
+        .held_choices();
+    assert_eq!(held.len(), 1);
+    assert_eq!((held[0].0, held[0].1.object), (player, chosen));
+    assert_eq!(
+        engine.held_choices(),
+        vec![crate::resolve::HeldChoice {
+            player,
+            object: Some(chosen),
+            action: crate::event::ChosenAction::Sacrifice,
+        }],
+        "CR 101.4b: held sacrifice choice is exposed via Engine::held_choices"
+    );
+    assert!(
+        engine
+            .state()
+            .journal
+            .entries()
+            .iter()
+            .any(|entry| matches!(
+                &entry.event,
+                crate::event::GameEvent::CardsChosen {
+                    player: who,
+                    cards,
+                    action: crate::event::ChosenAction::Sacrifice,
+                } if *who == player && cards == &[chosen]
+            ))
+    );
+}
+
+#[test]
+fn each_player_sacrifice_asks_in_apnap_order_and_holds_until_all_choose() {
+    let (p0, p1, p2) = (PlayerId::new(0), PlayerId::new(1), PlayerId::new(2));
+    let mut engine = setup_apnap_innocent_blood();
+    let mut alt = setup_apnap_innocent_blood();
+
+    let Pending::ChooseCards {
+        player: first_asked,
+        options: p1_opts,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ChooseCards, got {:?}", engine.pending());
+    };
+    assert_eq!(first_asked, p1, "CR 101.4: active player chooses first");
+    assert_eq!(p1_opts.len(), 2);
+
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![p1_opts[0]],
+            },
+        )
+        .expect("p1 picks first creature");
+    alt.apply(
+        p1,
+        PlayerAction::ChooseObjects {
+            objects: vec![p1_opts[1]],
+        },
+    )
+    .expect("alt p1 picks second creature");
+    assert_ne!(
+        engine.snapshot_hash(),
+        alt.snapshot_hash(),
+        "held sacrifice choice must distinguish search/replay hashes before creatures move"
+    );
+    assert_held_sacrifice(&engine, p1, p1_opts[0]);
+
+    let Pending::ChooseCards {
+        player: second_asked,
+        options: p2_opts,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected p2 ChooseCards");
+    };
+    assert_eq!(second_asked, p2, "CR 101.4: seat 2 follows active seat 1");
+    engine
+        .apply(
+            p2,
+            PlayerAction::ChooseObjects {
+                objects: vec![p2_opts[0]],
+            },
+        )
+        .expect("p2 picks");
+    assert_eq!(
+        engine.state().object(p2_opts[0]).map(|o| o.zone),
+        Some(crate::zone::Zone::Battlefield),
+        "p2's chosen creature also stays on the battlefield until p0 chooses"
+    );
+
+    let Pending::ChooseCards {
+        player: third_asked,
+        options: p0_opts,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected p0 ChooseCards");
+    };
+    assert_eq!(third_asked, p0, "CR 101.4: seat 0 wraps around last");
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![p0_opts[0]],
+            },
+        )
+        .expect("p0 picks");
+
+    for victim in [p1_opts[0], p2_opts[0], p0_opts[0]] {
+        assert_eq!(
+            engine.state().object(victim).map(|o| o.zone),
+            Some(crate::zone::Zone::Graveyard),
+            "every held choice is sacrificed together once all have answered"
+        );
+    }
+}
+
+#[test]
+fn simultaneous_sacrifice_lets_departing_blood_artist_see_later_apnap_sacrifices() {
+    let mut engine = Duel::new(SEED, swamp())
+        .hand(0, &[innocent_blood()])
+        .battlefield(0, &[swamp(), blood_artist()])
+        .battlefield(1, &[quiet_creature()])
+        .start();
+    keep_mulligans(&mut engine);
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, innocent_blood());
+    pass_to_card_choice(&mut engine);
+
+    let Pending::ChooseCards {
+        player: first,
+        options: p0_opts,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected p0 sacrifice prompt");
+    };
+    assert_eq!(first, p0);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![p0_opts[0]],
+            },
+        )
+        .expect("p0 chooses Blood Artist");
+
+    let Pending::ChooseCards {
+        player: second,
+        options: p1_opts,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected p1 sacrifice prompt");
+    };
+    assert_eq!(second, p1);
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![p1_opts[0]],
+            },
+        )
+        .expect("p1 chooses their creature");
+
+    drain_triggers_targeting(&mut engine, p1);
+    assert_eq!(
+        engine.state().players[0].life,
+        22,
+        "CR 603.10a: Blood Artist dies simultaneously with p1's creature and triggers twice"
+    );
+    assert_eq!(engine.state().players[1].life, 18);
+}
+
+#[test]
+fn return_chosen_to_hand_asks_in_apnap_order_and_holds_until_all_choose() {
+    let mut engine = Duel::table(SEED, island(), 3)
+        .hand(1, &[curfew()])
+        .battlefield(0, &[quiet_creature()])
+        .battlefield(1, &[island(), quiet_creature()])
+        .battlefield(2, &[quiet_creature()])
+        .start();
+    let (p0, p1, p2) = (PlayerId::new(0), PlayerId::new(1), PlayerId::new(2));
+    assert!(super::testkit::walk_to_own_main(&mut engine, p1));
+
+    cast_from_hand(&mut engine, p1, curfew());
+    pass_to_card_choice(&mut engine);
+
+    let mut asked = Vec::new();
+    let mut picks = Vec::new();
+    for expected in [p1, p2, p0] {
+        for &earlier in &picks {
+            assert_eq!(
+                engine.state().object(earlier).map(|o| o.zone),
+                Some(crate::zone::Zone::Battlefield),
+                "earlier Curfew choice must stay on battlefield until all choose"
+            );
+        }
+        let Pending::ChooseCards {
+            player, options, ..
+        } = engine.pending().clone()
+        else {
+            panic!("expected Curfew ChooseCards, got {:?}", engine.pending());
+        };
+        assert_eq!(player, expected);
+        asked.push(player);
+        picks.push(options[0]);
+        engine
+            .apply(
+                player,
+                PlayerAction::ChooseObjects {
+                    objects: vec![options[0]],
+                },
+            )
+            .expect("choosing controlled creature is legal");
+    }
+    assert_eq!(asked, vec![p1, p2, p0]);
+    for (seat, returned) in [(p1, picks[0]), (p2, picks[1]), (p0, picks[2])] {
+        assert!(
+            engine
+                .state()
+                .zones
+                .list(crate::zone::ZoneLocation::Hand(seat))
+                .contains(&returned),
+            "chosen permanent returns to its owner's hand once all have chosen"
+        );
+    }
+}
+
+#[test]
+fn return_chosen_to_hand_lets_departing_watcher_see_later_apnap_returns() {
+    use baylee_cards_dsl::{
+        CardDef, CommanderRule, Cost, Coverage, Effect, Filter, KeywordSet, PartnerKind, PlayerRel,
+        Trigger, activated, triggered,
+    };
+
+    static THIS_OR_ANOTHER_CREATURE: Filter = Filter::Or(&[
+        Filter::This,
+        Filter::And(&[Filter::CREATURE, Filter::Another]),
+    ]);
+    static GAIN_ONE_LIFE: [Effect; 1] = [Effect::gain_life(1)];
+    let bounce_shrine = synthetic::land(
+        910_001,
+        "Curfew Bell",
+        Box::leak(Box::new([activated!(
+            Cost::TAP,
+            &[Effect::ReturnChosenToHand {
+                who: PlayerRel::EachPlayer,
+                filter: &Filter::CREATURE,
+            }]
+        )])),
+    );
+    let witness = Box::leak(Box::new(CardDef {
+        index: CardIndex::new(910_002),
+        oracle_id: "test-witness",
+        scryfall_id: "test-witness",
+        faces: Box::leak(Box::new([synthetic::creature_face("Witness", 1, 1, &[])])),
+        color_identity: baylee_core::color::ColorSet::EMPTY,
+        keywords: KeywordSet::EMPTY,
+        commander: CommanderRule::NotEligible,
+        partner: PartnerKind::None,
+        coverage: Coverage::Implemented,
+        abilities: Box::leak(Box::new([triggered!(
+            Trigger::LeavesBattlefield(&THIS_OR_ANOTHER_CREATURE),
+            &GAIN_ONE_LIFE
+        )])),
+    }));
+
+    let preset = synthetic::preset_both(SEED, &[910_001, 910_002], &[quiet_creature().get()]);
+    let lookup = synthetic::SyntheticLookup::new(vec![bounce_shrine, witness]);
+    let mut engine = Engine::new(&preset, lookup).expect("synthetic game starts");
+    synthetic::keep_mulligans(&mut engine);
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let shrine = synthetic::permanents(&engine, 910_001)[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: shrine,
+                ability_index: 0,
+            },
+        )
+        .expect("tap Curfew Bell");
+    pass_to_card_choice(&mut engine);
+
+    for expected in [p0, p1] {
+        let Pending::ChooseCards {
+            player, options, ..
+        } = engine.pending().clone()
+        else {
+            panic!("expected ReturnChosenToHand prompt");
+        };
+        assert_eq!(player, expected);
+        engine
+            .apply(
+                player,
+                PlayerAction::ChooseObjects {
+                    objects: vec![options[0]],
+                },
+            )
+            .expect("choose creature to return");
+    }
+
+    drain_triggers_targeting(&mut engine, p1);
+    assert_eq!(
+        engine.state().players[0].life,
+        22,
+        "CR 603.10a: departing Witness sees p1's creature leave in the same simultaneous batch"
+    );
+}
+
+fn destroy_chosen_altar(index: u32) -> &'static baylee_cards_dsl::CardDef {
+    use baylee_cards_dsl::{Cost, Effect, Filter, PlayerRel, activated};
+
+    synthetic::land(
+        index,
+        "Altar of Ruin",
+        Box::leak(Box::new([activated!(
+            Cost::TAP,
+            &[Effect::DestroyChosenForPlayers {
+                who: PlayerRel::EachPlayer,
+                filter: &Filter::CREATURE,
+            }]
+        )])),
+    )
+}
+
+#[test]
+fn destroy_chosen_for_players_asks_in_apnap_order_and_destroys_simultaneously() {
+    let shrine = destroy_chosen_altar(910_003);
+    let mut preset = synthetic::preset_both(
+        SEED,
+        &[quiet_creature().get()],
+        &[910_003, quiet_creature().get()],
+    );
+    let mut third = preset.seats[0].clone();
+    third.starting_battlefield = preset.seats[0].starting_battlefield.clone();
+    preset.seats.push(third);
+    preset.house_rules.starting_player = Some(1);
+
+    let lookup = synthetic::SyntheticLookup::new(vec![shrine]);
+    let mut engine = Engine::new(&preset, lookup).expect("3-seat synthetic game starts");
+    while let Pending::Mulligan { player, .. } = engine.pending().clone() {
+        engine.apply(player, PlayerAction::MulliganKeep).unwrap();
+    }
+    let (p0, p1, p2) = (PlayerId::new(0), PlayerId::new(1), PlayerId::new(2));
+    assert_eq!(engine.state().turn.active, p1);
+
+    let altar = synthetic::permanents(&engine, 910_003)[0];
+    engine
+        .apply(
+            p1,
+            PlayerAction::ActivateAbility {
+                source: altar,
+                ability_index: 0,
+            },
+        )
+        .expect("activate Altar of Ruin");
+    pass_to_card_choice(&mut engine);
+
+    let Pending::ChooseCards {
+        player,
+        options: p1_opts,
+        min,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected p1 DestroyChosen");
+    };
+    assert_eq!((player, min), (p1, 0));
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![p1_opts[0]],
+            },
+        )
+        .expect("p1 chooses their creature");
+    assert_eq!(
+        engine.state().object(p1_opts[0]).map(|o| o.zone),
+        Some(crate::zone::Zone::Battlefield),
+        "p1's pick stays on battlefield while p2 and p0 decide"
+    );
+
+    let Pending::ChooseCards {
+        player,
+        options: p2_opts,
+        min,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected p2 DestroyChosen");
+    };
+    assert_eq!((player, min), (p2, 0));
+    engine
+        .apply(p2, PlayerAction::ChooseObjects { objects: vec![] })
+        .expect("min 0 lets p2 decline");
+
+    let Pending::ChooseCards {
+        player,
+        options: p0_opts,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected p0 DestroyChosen");
+    };
+    assert_eq!(player, p0);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![p0_opts[0]],
+            },
+        )
+        .expect("p0 chooses their creature");
+
+    assert_eq!(
+        engine.state().object(p1_opts[0]).map(|o| o.zone),
+        Some(crate::zone::Zone::Graveyard)
+    );
+    assert_eq!(
+        engine.state().object(p0_opts[0]).map(|o| o.zone),
+        Some(crate::zone::Zone::Graveyard)
+    );
+    assert_eq!(
+        engine.state().object(p2_opts[0]).map(|o| o.zone),
+        Some(crate::zone::Zone::Battlefield)
+    );
+}
+
+#[test]
+fn destroy_chosen_for_players_lets_departing_blood_artist_see_all_deaths() {
+    let shrine = destroy_chosen_altar(910_004);
+    let preset = synthetic::preset_both(
+        SEED,
+        &[910_004, blood_artist().get()],
+        &[quiet_creature().get()],
+    );
+    let lookup = synthetic::SyntheticLookup::new(vec![shrine]);
+    let mut engine = Engine::new(&preset, lookup).expect("synthetic game starts");
+    synthetic::keep_mulligans(&mut engine);
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+
+    let altar = synthetic::permanents(&engine, 910_004)[0];
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: altar,
+                ability_index: 0,
+            },
+        )
+        .expect("activate Altar of Ruin");
+    pass_to_card_choice(&mut engine);
+
+    for expected in [p0, p1] {
+        let Pending::ChooseCards {
+            player, options, ..
+        } = engine.pending().clone()
+        else {
+            panic!("expected DestroyChosen prompt");
+        };
+        assert_eq!(player, expected);
+        engine
+            .apply(
+                player,
+                PlayerAction::ChooseObjects {
+                    objects: vec![options[0]],
+                },
+            )
+            .expect("choose creature to destroy");
+    }
+
+    drain_triggers_targeting(&mut engine, p1);
+    assert_eq!(
+        engine.state().players[0].life,
+        22,
+        "CR 603.10a: Blood Artist destroyed in p0's slot sees p1's simultaneous destruction"
+    );
+    assert_eq!(engine.state().players[1].life, 18);
+}

@@ -125,6 +125,25 @@ fn jace_enters_with_loyalty_and_ticks_up_and_down() {
         guard += 1;
         assert!(guard < 40, "no loyalty ability offered");
     }
+    // CR 601.2c / 601.2h: loyalty counters are paid after choosing targets.
+    assert_eq!(
+        engine
+            .state()
+            .object(jace)
+            .unwrap()
+            .counters
+            .get(baylee_cards_dsl::CounterKind::Loyalty),
+        3
+    );
+
+    // Answer the +2's target player choice, then: loyalty becomes 5 and no
+    // second loyalty activation for this walker this turn.
+    let p1 = PlayerId::new(1);
+    let Pending::ChoosePlayer { player, .. } = engine.pending().clone() else {
+        panic!("expected player choice, got {:?}", engine.pending())
+    };
+    assert_eq!(player, p0);
+    engine.apply(p0, PlayerAction::ChoosePlayer(p1)).unwrap();
     assert_eq!(
         engine
             .state()
@@ -134,15 +153,6 @@ fn jace_enters_with_loyalty_and_ticks_up_and_down() {
             .get(baylee_cards_dsl::CounterKind::Loyalty),
         5
     );
-
-    // Answer the +2's target player choice, then: no second loyalty
-    // activation for this walker this turn.
-    let p1 = PlayerId::new(1);
-    let Pending::ChoosePlayer { player, .. } = engine.pending().clone() else {
-        panic!("expected player choice, got {:?}", engine.pending())
-    };
-    assert_eq!(player, p0);
-    engine.apply(p0, PlayerAction::ChoosePlayer(p1)).unwrap();
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!(
             "expected priority after target choice, got {:?}",

@@ -57,6 +57,7 @@ mod seething_anger;
 mod serum_visions;
 mod shadowstorm;
 mod simplify;
+mod skull_fracture;
 mod steelshaper_s_gift;
 mod stir_the_grave;
 mod stream_of_life;

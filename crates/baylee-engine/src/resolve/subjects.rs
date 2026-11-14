@@ -11,6 +11,12 @@ use baylee_core::ids::DamageSourceRef;
 /// The answer and proof state of a named-card guess.
 #[derive(Clone, Copy, Debug, Hash)]
 pub struct GuessOutcome {
+    /// Who made the guess.
+    pub guesser: baylee_core::ids::PlayerId,
+    /// Card index of the chosen name.
+    pub card: baylee_core::ids::CardIndex,
+    /// Face of `card` whose name was chosen.
+    pub face: u8,
     /// Whether a card with the chosen name was actually in the hand.
     pub actual: bool,
     /// What the guessing player claimed.

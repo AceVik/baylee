@@ -69,13 +69,7 @@ impl Dialect for Agy {
         args.push(prompt::answer_schema(settings.extras()).to_string().into());
         let raw_model = model.unwrap_or(DEFAULT_AGY_MODEL);
         let (resolved_model, resolved_effort) =
-            match (agy_tier_stem(raw_model), settings.effort.as_deref()) {
-                (Some(stem), Some(effort @ ("low" | "medium" | "high"))) => {
-                    (format!("{stem}-{effort}"), Some(effort))
-                }
-                (Some(stem), Some("xhigh" | "max")) => (format!("{stem}-high"), Some("high")),
-                _ => (raw_model.to_string(), settings.effort.as_deref()),
-            };
+            reconcile_agy_model_and_effort(raw_model, settings.effort.as_deref());
         args.push("--model".into());
         args.push(resolved_model.into());
         if let Some(effort) = resolved_effort {
@@ -264,11 +258,49 @@ fn usage(usage: &Value) -> Usage {
     }
 }
 
-/// The stem of a tier-suffixed `agy` model id (`gemini-3.8-flash-high` →
-/// `gemini-3.8-flash`), or `None` when the id carries no tier suffix.
+/// Reconciles `agy`'s tier-suffixed model ids with `--effort` so `agy` never
+/// rejects a conflicting `--model <stem>-<tier> --effort <other>` pair or
+/// silently downgrades Gemini 4 Hydrogen's `xhigh` tier to `high`.
+fn reconcile_agy_model_and_effort<'a>(
+    raw_model: &str,
+    effort: Option<&'a str>,
+) -> (String, Option<&'a str>) {
+    let Some(stem) = agy_tier_stem(raw_model) else {
+        return (raw_model.to_string(), effort);
+    };
+    match (stem, effort) {
+        (_, None) => (raw_model.to_string(), None),
+        ("gpt-oss-120b", Some(_)) => ("gpt-oss-120b-medium".to_string(), Some("medium")),
+        ("gemini-4-hydrogen", Some(e @ ("low" | "medium" | "high" | "xhigh"))) => {
+            (format!("{stem}-{e}"), Some(e))
+        }
+        ("gemini-4-hydrogen", Some("max")) => (format!("{stem}-xhigh"), Some("xhigh")),
+        (_, Some(e @ ("low" | "medium" | "high"))) => (format!("{stem}-{e}"), Some(e)),
+        (_, Some("xhigh" | "max")) => (format!("{stem}-high"), Some("high")),
+        (_, other) => (raw_model.to_string(), other),
+    }
+}
+
+/// The stem of a tier-suffixed `agy` model id (`gemini-4-hydrogen-xhigh` →
+/// `gemini-4-hydrogen`, `gemini-3.8-flash-high` → `gemini-3.8-flash`), or a
+/// known bare tiered stem, else `None`.
 fn agy_tier_stem(model: &str) -> Option<&str> {
     model
-        .strip_suffix("-low")
-        .or_else(|| model.strip_suffix("-medium"))
+        .strip_suffix("-xhigh")
         .or_else(|| model.strip_suffix("-high"))
+        .or_else(|| model.strip_suffix("-medium"))
+        .or_else(|| model.strip_suffix("-low"))
+        .or_else(|| {
+            matches!(
+                model,
+                "gemini-4-hydrogen"
+                    | "gemini-4-argon"
+                    | "gemini-4-carbon"
+                    | "gemini-3.8-flash"
+                    | "claude-opus-5-5"
+                    | "claude-sonnet-5-5"
+                    | "gpt-oss-120b"
+            )
+            .then_some(model)
+        })
 }

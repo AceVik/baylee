@@ -107,6 +107,7 @@ impl Table<'_> {
                 // not an input to a decision.
                 policy_acts: &[],
                 ballots: engine.ballots(),
+                held_choices: &engine.held_choices(),
             },
             self.house_answered,
         )
@@ -152,6 +153,7 @@ impl Table<'_> {
                 decision_remaining_ms: None,
                 policy_acts: &[],
                 ballots: engine.ballots(),
+                held_choices: &engine.held_choices(),
             },
             self.house_answered,
         );

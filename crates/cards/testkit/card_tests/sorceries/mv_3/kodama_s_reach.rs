@@ -6,7 +6,7 @@ use super::*;
 /// `Kodama's Reach` is a sorcery costing `{2}{G}` under `Coverage::Implemented`.
 /// It prints "Search your library for up to two basic land cards, reveal those cards,
 /// put one onto the battlefield tapped and the other into your hand, then shuffle."
-/// When cast from hand off three `forest()` sources, it prompts with `ChoicePrompt::SearchLibrary`,
+/// When cast from hand off three `forest()` sources, it prompts with `ChoicePrompt::SearchLibraryTappedAndHand`,
 /// putting the first chosen basic land onto the battlefield tapped and the second into the hand.
 #[test]
 fn kodamas_reach_puts_one_land_tapped_and_one_into_hand() {
@@ -33,7 +33,7 @@ fn kodamas_reach_puts_one_land_tapped_and_one_into_hand() {
     else {
         panic!("expected ChooseCards prompt, got {:?}", engine.pending());
     };
-    assert_eq!(prompt, ChoicePrompt::SearchLibrary);
+    assert_eq!(prompt, ChoicePrompt::SearchLibraryTappedAndHand);
     assert_eq!((min, max), (0, 2), "searches for up to two basic lands");
     assert!(options.len() >= 2, "library contains basic lands");
 

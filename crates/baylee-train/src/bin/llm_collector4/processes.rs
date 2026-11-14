@@ -47,7 +47,36 @@ pub fn signal_owned(child: &Child, signal: Signal) -> anyhow::Result<()> {
 
 pub fn group_alive(child: &Child) -> anyhow::Result<bool> {
     let pid = child.id().context("Owned child was already reaped")?;
-    Ok(!baylee_train_ops::process::group_members(pid)?.is_empty())
+    #[cfg(target_os = "linux")]
+    {
+        Ok(!baylee_train_ops::process::group_members(pid)?.is_empty())
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        use rustix::process::test_kill_process_group;
+        if matches!(
+            test_kill_process_group(owned_pid(child)?),
+            Err(rustix::io::Errno::SRCH)
+        ) {
+            return Ok(false);
+        }
+        let out = std::process::Command::new("/bin/ps")
+            .args(["-axo", "pgid=,state="])
+            .output()
+            .context("querying process group members via /bin/ps")?;
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        for line in stdout.lines() {
+            let mut cols = line.split_whitespace();
+            let Some(pgid) = cols.next().and_then(|s| s.parse::<u32>().ok()) else {
+                continue;
+            };
+            let state = cols.next().unwrap_or("");
+            if pgid == pid && !state.starts_with('Z') {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
 }
 
 pub async fn cleanup(child: &mut Child) -> anyhow::Result<()> {
@@ -141,8 +170,24 @@ mod tests {
             tokio::task::yield_now().await;
         }
         let descendant: u32 = std::fs::read_to_string(path).unwrap().parse().unwrap();
-        assert!(baylee_train_ops::process::identity(descendant).is_some());
+        assert!(pid_alive(descendant));
         cleanup(&mut fixture.0).await.unwrap();
-        assert!(baylee_train_ops::process::identity(descendant).is_none());
+        assert!(!pid_alive(descendant));
+    }
+
+    #[cfg(target_os = "linux")]
+    fn pid_alive(pid: u32) -> bool {
+        baylee_train_ops::process::identity(pid).is_some()
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn pid_alive(pid: u32) -> bool {
+        let Some(raw) = i32::try_from(pid)
+            .ok()
+            .and_then(rustix::process::Pid::from_raw)
+        else {
+            return false;
+        };
+        rustix::process::test_kill_process(raw).is_ok()
     }
 }

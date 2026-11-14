@@ -17,6 +17,15 @@ pub const CLAUDE_EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
 /// The efforts `agy` accepts on `--effort`.
 pub const AGY_EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
 
+/// The efforts `agy`'s Gemini 4 Hydrogen tier family accepts.
+const AGY_HYDROGEN_EFFORTS: &[&str] = &["low", "medium", "high", "xhigh"];
+
+/// The efforts `agy`'s standard three-tier families (Argon, Carbon, Flash, Claude) accept.
+const AGY_TIER_EFFORTS: &[&str] = &["low", "medium", "high"];
+
+/// The single effort `agy`'s `gpt-oss-120b-medium` accepts.
+const AGY_MEDIUM_EFFORTS: &[&str] = &["medium"];
+
 /// The efforts Codex models up to `ultra` accept (`gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-sol`).
 pub const CODEX_ULTRA_EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max", "ultra"];
 
@@ -144,9 +153,16 @@ const AGY_MODELS: &[&str] = &[
     DEFAULT_AGY_MODEL,
     "gemini-3.8-flash-medium",
     "gemini-3.8-flash-low",
+    "gemini-4-hydrogen-xhigh",
+    "gemini-4-hydrogen-high",
+    "gemini-4-hydrogen-medium",
+    "gemini-4-hydrogen-low",
     "gemini-4-argon-high",
     "gemini-4-argon-medium",
     "gemini-4-argon-low",
+    "gemini-4-carbon-high",
+    "gemini-4-carbon-medium",
+    "gemini-4-carbon-low",
     "claude-opus-5-5-high",
     "claude-opus-5-5-medium",
     "claude-opus-5-5-low",
@@ -160,79 +176,121 @@ const AGY_SPECS: &[CliModelSpec] = &[
     spec(
         DEFAULT_AGY_MODEL,
         "Gemini 3.8 Flash (High)",
-        AGY_EFFORTS,
+        AGY_TIER_EFFORTS,
         Some("high"),
     ),
     spec(
         "gemini-3.8-flash-medium",
         "Gemini 3.8 Flash (Medium)",
-        AGY_EFFORTS,
+        AGY_TIER_EFFORTS,
         Some("medium"),
     ),
     spec(
         "gemini-3.8-flash-low",
         "Gemini 3.8 Flash (Low)",
-        AGY_EFFORTS,
+        AGY_TIER_EFFORTS,
+        Some("low"),
+    ),
+    spec(
+        "gemini-4-hydrogen-xhigh",
+        "Gemini 4 Hydrogen (XHigh)",
+        AGY_HYDROGEN_EFFORTS,
+        Some("xhigh"),
+    ),
+    spec(
+        "gemini-4-hydrogen-high",
+        "Gemini 4 Hydrogen (High)",
+        AGY_HYDROGEN_EFFORTS,
+        Some("high"),
+    ),
+    spec(
+        "gemini-4-hydrogen-medium",
+        "Gemini 4 Hydrogen (Medium)",
+        AGY_HYDROGEN_EFFORTS,
+        Some("medium"),
+    ),
+    spec(
+        "gemini-4-hydrogen-low",
+        "Gemini 4 Hydrogen (Low)",
+        AGY_HYDROGEN_EFFORTS,
         Some("low"),
     ),
     spec(
         "gemini-4-argon-high",
         "Gemini 4 Argon (High)",
-        AGY_EFFORTS,
+        AGY_TIER_EFFORTS,
         Some("high"),
     ),
     spec(
         "gemini-4-argon-medium",
         "Gemini 4 Argon (Medium)",
-        AGY_EFFORTS,
+        AGY_TIER_EFFORTS,
         Some("medium"),
     ),
     spec(
         "gemini-4-argon-low",
         "Gemini 4 Argon (Low)",
-        AGY_EFFORTS,
+        AGY_TIER_EFFORTS,
+        Some("low"),
+    ),
+    spec(
+        "gemini-4-carbon-high",
+        "Gemini 4 Carbon (High)",
+        AGY_TIER_EFFORTS,
+        Some("high"),
+    ),
+    spec(
+        "gemini-4-carbon-medium",
+        "Gemini 4 Carbon (Medium)",
+        AGY_TIER_EFFORTS,
+        Some("medium"),
+    ),
+    spec(
+        "gemini-4-carbon-low",
+        "Gemini 4 Carbon (Low)",
+        AGY_TIER_EFFORTS,
         Some("low"),
     ),
     spec(
         "claude-opus-5-5-high",
         "Claude Opus 5.5 (High)",
-        AGY_EFFORTS,
+        AGY_TIER_EFFORTS,
         Some("high"),
     ),
     spec(
         "claude-opus-5-5-medium",
         "Claude Opus 5.5 (Medium)",
-        AGY_EFFORTS,
+        AGY_TIER_EFFORTS,
         Some("medium"),
     ),
     spec(
         "claude-opus-5-5-low",
         "Claude Opus 5.5 (Low)",
-        AGY_EFFORTS,
+        AGY_TIER_EFFORTS,
         Some("low"),
     ),
     spec(
         "claude-sonnet-5-5-high",
         "Claude Sonnet 5.5 (High)",
-        AGY_EFFORTS,
+        AGY_TIER_EFFORTS,
         Some("high"),
     ),
     spec(
         "claude-sonnet-5-5-medium",
         "Claude Sonnet 5.5 (Medium)",
-        AGY_EFFORTS,
+        AGY_TIER_EFFORTS,
         Some("medium"),
     ),
     spec(
         "claude-sonnet-5-5-low",
         "Claude Sonnet 5.5 (Low)",
-        AGY_EFFORTS,
+        AGY_TIER_EFFORTS,
         Some("low"),
     ),
     spec(
         "gpt-oss-120b-medium",
         "GPT-OSS 120B (Medium)",
-        AGY_EFFORTS,
+        AGY_MEDIUM_EFFORTS,
         Some("medium"),
     ),
 ];
@@ -487,6 +545,8 @@ pub fn intern_efforts(efforts: &[&str]) -> &'static [&'static str] {
     const COMMON: &[&[&str]] = &[
         &[],
         CLAUDE_EFFORTS,
+        AGY_HYDROGEN_EFFORTS,
+        AGY_MEDIUM_EFFORTS,
         CODEX_ULTRA_EFFORTS,
         JUNIE_EFFORTS,
         OPENCODE_EFFORTS,
@@ -560,41 +620,91 @@ pub fn encode_cli_listed(
 /// Parses `agy models` stdout into encoded `listed` entries for [`CliTool::Agy`].
 #[must_use]
 pub fn parse_agy_models(stdout: &str) -> Vec<String> {
-    let mut out = Vec::new();
+    let mut rows: Vec<(&str, String)> = Vec::new();
     for line in stdout.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.ends_with(':') {
+        // `agy models` prints carriage-return spinner frames before the first row.
+        let cleaned = line.rsplit('\r').next().unwrap_or(line).trim();
+        if cleaned.is_empty()
+            || cleaned.ends_with(':')
+            || cleaned.contains("Fetching available models")
+        {
             continue;
         }
-        let mut parts = trimmed.splitn(2, char::is_whitespace);
+        let mut parts = cleaned.splitn(2, char::is_whitespace);
         let Some(id) = parts.next().map(str::trim).filter(|s| !s.is_empty()) else {
             continue;
         };
+        if super::model_fault(id).is_some() {
+            continue;
+        }
         let raw_label = parts.next().map_or(id, str::trim);
-        // Fix upstream `agy models` typo where `claude-sonnet-5-5-low` is
+        // Fix upstream `agy models` typo where `claude-sonnet-5-5-low` was
         // printed as `Claude Opus 5.5 (Low)`.
         let label = if id.starts_with("claude-sonnet-") && raw_label.contains("Opus") {
             raw_label.replace("Opus", "Sonnet")
         } else {
             raw_label.to_string()
         };
-        let default_effort = if id.ends_with("-high") {
-            Some("high")
-        } else if id.ends_with("-medium") {
-            Some("medium")
-        } else if id.ends_with("-low") {
-            Some("low")
-        } else {
-            None
-        };
-        if let Some(encoded) =
-            encode_cli_listed(CliTool::Agy, id, &label, AGY_EFFORTS, default_effort)
+        rows.push((id, label));
+    }
+    let mut out = Vec::new();
+    for &(id, ref label) in &rows {
+        let default_effort = agy_id_tier(id);
+        let efforts = agy_listed_efforts(id, &rows);
+        if let Some(encoded) = encode_cli_listed(CliTool::Agy, id, label, &efforts, default_effort)
             && !out.contains(&encoded)
         {
             out.push(encoded);
         }
     }
     out
+}
+
+fn agy_id_tier(id: &str) -> Option<&'static str> {
+    if id.ends_with("-xhigh") {
+        Some("xhigh")
+    } else if id.ends_with("-high") {
+        Some("high")
+    } else if id.ends_with("-medium") {
+        Some("medium")
+    } else if id.ends_with("-low") {
+        Some("low")
+    } else {
+        None
+    }
+}
+
+fn agy_id_stem(id: &str) -> Option<&str> {
+    id.strip_suffix("-xhigh")
+        .or_else(|| id.strip_suffix("-high"))
+        .or_else(|| id.strip_suffix("-medium"))
+        .or_else(|| id.strip_suffix("-low"))
+}
+
+fn agy_listed_efforts<'a>(id: &str, rows: &[(&str, String)]) -> Vec<&'a str> {
+    if let Some(stem) = agy_id_stem(id) {
+        let siblings: Vec<&'static str> = AGY_EFFORTS
+            .iter()
+            .copied()
+            .filter(|tier| {
+                let candidate = format!("{stem}-{tier}");
+                rows.iter().any(|(seen, _)| *seen == candidate)
+            })
+            .collect();
+        if siblings.len() > 1 {
+            return siblings;
+        }
+    }
+    if let Some(spec) = AGY_SPECS.iter().find(|s| s.id == id) {
+        return spec.efforts.to_vec();
+    }
+    if id.ends_with("-xhigh") {
+        AGY_HYDROGEN_EFFORTS.to_vec()
+    } else if agy_id_tier(id).is_some() {
+        AGY_TIER_EFFORTS.to_vec()
+    } else {
+        AGY_EFFORTS.to_vec()
+    }
 }
 
 /// Parses `~/.codex/models_cache.json` into encoded `listed` entries for [`CliTool::Codex`].
@@ -918,21 +1028,38 @@ mod tests {
     }
 
     #[test]
-    fn cli_discovery_parsers_extract_models_labels_and_efforts() {
-        let agy_out = "\
-Available models:
+    fn agy_discovery_parser_strips_spinner_and_extracts_tiers() {
+        let agy_out = "\r⠋ Fetching available models...\rgemini-4-hydrogen-xhigh       Gemini 4 Hydrogen (XHigh)
+  gemini-4-hydrogen-high        Gemini 4 Hydrogen (High)
+  gemini-4-hydrogen-medium      Gemini 4 Hydrogen (Medium)
+  gemini-4-hydrogen-low         Gemini 4 Hydrogen (Low)
   gemini-4-argon-high           Gemini 4 Argon (High)
+  gemini-4-carbon-high          Gemini 4 Carbon (High)
   claude-sonnet-5-5-low         Claude Opus 5.5 (Low)
 ";
         let agy = parse_agy_models(agy_out);
-        assert_eq!(agy.len(), 2);
-        assert!(agy[0].starts_with("agy:gemini-4-argon-high\tGemini 4 Argon (High)\t"));
-        assert!(
-            agy[1].starts_with("agy:claude-sonnet-5-5-low\tClaude Sonnet 5.5 (Low)\t"),
-            "typo in agy output is normalized: {}",
-            agy[1]
+        assert_eq!(agy.len(), 7);
+        assert_eq!(
+            agy[0],
+            "agy:gemini-4-hydrogen-xhigh\tGemini 4 Hydrogen (XHigh)\tlow,medium,high,xhigh\txhigh"
         );
+        assert_eq!(
+            agy[4],
+            "agy:gemini-4-argon-high\tGemini 4 Argon (High)\tlow,medium,high\thigh"
+        );
+        assert_eq!(
+            agy[5],
+            "agy:gemini-4-carbon-high\tGemini 4 Carbon (High)\tlow,medium,high\thigh"
+        );
+        assert!(
+            agy[6].starts_with("agy:claude-sonnet-5-5-low\tClaude Sonnet 5.5 (Low)\t"),
+            "typo in agy output is normalized: {}",
+            agy[6]
+        );
+    }
 
+    #[test]
+    fn cli_discovery_parsers_extract_models_labels_and_efforts() {
         let codex_json = r#"{
           "models": [
             {

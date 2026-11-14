@@ -307,7 +307,11 @@ pub fn spell_target_options_relative(
     let mut options = choice_options_with_context(spec, state, you, context)
         .into_iter()
         .filter(|id| {
-            !protected_from_object(state, *id, &spell)
+            // CR 601.2a + CR 601.2c + CR 115.5: the proposed spell is already
+            // on the stack when targets are chosen (so no longer in its origin
+            // zone), and a spell on the stack is never a legal target for itself.
+            *id != source
+                && !protected_from_object(state, *id, &spell)
                 && !untargetable_by_source_object(state, *id, &spell)
                 && aura_target_permitted(state, &spell, *id)
                 && !untargetable_by(state, *id, you)

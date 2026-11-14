@@ -20,6 +20,7 @@ type Game = Engine<super::testkit::RegistryLookup>;
 
 /// Ability indexes in the card's list: the draw-step trigger is 0.
 const PLUS_ONE: u32 = 1;
+const MINUS_TWO: u32 = 2;
 const MINUS_SIX: u32 = 3;
 
 fn jace() -> CardIndex {
@@ -203,4 +204,48 @@ fn attack_jace(attacker_card: CardIndex) -> (Game, ObjectId) {
         .unwrap();
     pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
     (engine, walker)
+}
+
+/// CR 601.2c / 601.2h / 606.4: targets are chosen before costs are paid, so a
+/// targeted loyalty ability leaves loyalty untouched and `loyalty_used_this_turn`
+/// unset until its targets are chosen.
+#[test]
+fn a_targeted_loyalty_ability_deducts_loyalty_after_targets_are_chosen() {
+    let creature_card = quiet_creature();
+    let mut engine = Duel::new(SEED, basic_forest())
+        .battlefield(0, &[jace()])
+        .battlefield(1, &[creature_card])
+        .start();
+    keep_mulligans(&mut engine);
+    main_of(&mut engine, P0);
+    let walker = on_battlefield(&engine, P0, jace()).expect("Jace");
+    let creature = on_battlefield(&engine, P1, creature_card).expect("opponent creature");
+
+    assert!(activate(&mut engine, walker, MINUS_TWO));
+    assert!(matches!(engine.pending(), Pending::ChooseTargets { .. }));
+    assert_eq!(
+        loyalty(&engine, walker),
+        3,
+        "loyalty is untouched while choosing targets"
+    );
+    assert!(
+        !engine.loyalty_used(walker),
+        "activation count is paid alongside loyalty after target choice"
+    );
+
+    engine
+        .apply(
+            P0,
+            PlayerAction::ChooseTargets {
+                objects: vec![creature],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        loyalty(&engine, walker),
+        1,
+        "paid once targets are locked in"
+    );
+    assert!(engine.loyalty_used(walker));
 }

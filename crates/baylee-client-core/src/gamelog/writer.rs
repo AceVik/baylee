@@ -567,8 +567,13 @@ impl Writer<'_> {
             LogEvent::Countered { spell } => {
                 self.about_nobody(Phrase::LogCountered, vec![self.object(spell)])
             }
-            LogEvent::DidNotResolve { object } => {
-                self.about_nobody(Phrase::LogDidNotResolve, vec![self.object(object)])
+            LogEvent::DidNotResolve { object, ability } => {
+                let phrase = if *ability {
+                    Phrase::LogAbilityDidNotResolve
+                } else {
+                    Phrase::LogDidNotResolve
+                };
+                self.about_nobody(phrase, vec![self.object(object)])
             }
             LogEvent::Drew { player, cards } => {
                 if cards.iter().all(|card| *card == LogObject::Hidden) {
@@ -748,6 +753,31 @@ impl Writer<'_> {
                 Phrase::LogCardsKept,
                 vec![self.objects(cards)],
             ),
+            LogEvent::CardsChosen {
+                player,
+                cards,
+                action,
+            } => {
+                let (you, other) = match action {
+                    baylee_view::ChosenAction::Sacrifice => (
+                        Phrase::LogCardsChosenSacrificeYou,
+                        Phrase::LogCardsChosenSacrifice,
+                    ),
+                    baylee_view::ChosenAction::Discard => (
+                        Phrase::LogCardsChosenDiscardYou,
+                        Phrase::LogCardsChosenDiscard,
+                    ),
+                    baylee_view::ChosenAction::Destroy => (
+                        Phrase::LogCardsChosenDestroyYou,
+                        Phrase::LogCardsChosenDestroy,
+                    ),
+                    baylee_view::ChosenAction::ReturnToHand => (
+                        Phrase::LogCardsChosenReturnYou,
+                        Phrase::LogCardsChosenReturn,
+                    ),
+                };
+                self.about(*player, you, other, vec![self.objects(cards)])
+            }
             LogEvent::Voted { player, object } => self.about(
                 *player,
                 Phrase::LogVotedYou,

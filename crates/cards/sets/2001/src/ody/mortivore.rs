@@ -12,7 +12,7 @@ card!(
     oracle_id = "2f554218-2072-4d9b-b4d4-34f161f1f2a9",
     scryfall_id = "beeaaef1-5cd9-402a-982e-2cb4e69cfaca",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mortivore",
         mana_cost = mana!("{2}{B}{B}"),

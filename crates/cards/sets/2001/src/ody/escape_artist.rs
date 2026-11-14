@@ -12,7 +12,7 @@ card!(
     oracle_id = "74f4d505-e114-47be-be27-a7949e8abdc7",
     scryfall_id = "7f5d0e3f-b8f1-472a-857b-5464174d243b",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Escape Artist",
         mana_cost = mana!("{1}{U}"),

@@ -31,22 +31,26 @@ card!(
     abilities = &[
         triggered!(
             Trigger::ETB,
-            &[Effect::reanimate(TargetSpec::CardInGraveyard(
-                &SMALL_PERMANENT,
-                PlayerRel::You
-            ))],
-            targets = Some(TargetReq::up_to_one(TargetSpec::CardInGraveyard(
+            &[Effect::MayDo {
+                effects: &[Effect::reanimate(TargetSpec::CardInGraveyard(
+                    &SMALL_PERMANENT,
+                    PlayerRel::You
+                ))],
+            }],
+            targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
                 &SMALL_PERMANENT,
                 PlayerRel::You,
             )))
         ),
         triggered!(
             Trigger::Attacks(&Filter::This),
-            &[Effect::reanimate(TargetSpec::CardInGraveyard(
-                &SMALL_PERMANENT,
-                PlayerRel::You
-            ))],
-            targets = Some(TargetReq::up_to_one(TargetSpec::CardInGraveyard(
+            &[Effect::MayDo {
+                effects: &[Effect::reanimate(TargetSpec::CardInGraveyard(
+                    &SMALL_PERMANENT,
+                    PlayerRel::You
+                ))],
+            }],
+            targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
                 &SMALL_PERMANENT,
                 PlayerRel::You,
             )))

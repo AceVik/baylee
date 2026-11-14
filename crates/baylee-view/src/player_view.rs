@@ -57,6 +57,36 @@ pub struct Ballot {
     pub choice: ObjectId,
 }
 
+/// What a player chose objects for during an APNAP held-choice sequence
+/// (CR 101.4b, CR 101.4d) before all players' choices are carried out together.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum ChosenAction {
+    /// Chosen to be sacrificed once all players have chosen.
+    Sacrifice,
+    /// Chosen to be discarded once all players have chosen (CR 101.4d).
+    Discard,
+    /// Chosen to be destroyed once all players have chosen.
+    Destroy,
+    /// Chosen to be returned to its owner's hand once all players have chosen.
+    ReturnToHand,
+}
+
+/// One player's choice held during a sequential APNAP selection before every
+/// player's choice is carried out simultaneously ([`PlayerView::held_choices`],
+/// CR 101.4b, CR 101.4d).
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct HeldChoice {
+    /// Who made this choice.
+    pub player: PlayerId,
+    /// The publicly chosen permanent on the battlefield, or `None` when the
+    /// choice was made from a hidden zone such as a hand (CR 101.4d).
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub object: Option<ObjectId>,
+    /// What will happen to the chosen card or permanent once all players have
+    /// chosen.
+    pub action: ChosenAction,
+}
+
 // ---------------------------------------------------------------------- view
 
 /// The complete, hidden-information-filtered state of a game as one seat sees
@@ -312,6 +342,13 @@ pub struct PlayerView {
     /// Additive: absent on the wire while empty, and read as empty when absent.
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub ballots: Vec<Ballot>,
+    /// Choices already made by earlier players during a sequential APNAP
+    /// selection whose outcome happens simultaneously once every player has
+    /// chosen (CR 101.4b, CR 101.4d). Empty outside such a selection.
+    ///
+    /// Additive: absent on the wire while empty, and read as empty when absent.
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub held_choices: Vec<HeldChoice>,
     /// Cards this seat is being *shown*, which live in no zone it can see.
     ///
     /// A library search, a scry, an opponent's revealed hand: the engine asks

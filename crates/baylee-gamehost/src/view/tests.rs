@@ -37,6 +37,7 @@ mod shared_hand;
 mod spectator;
 mod votes;
 
+#[derive(Clone, Copy)]
 struct Registry;
 impl CardLookup for Registry {
     fn card(&self, index: CardIndex) -> Option<&'static baylee_cards_dsl::CardDef> {
@@ -145,6 +146,7 @@ fn seen_by(engine: &Engine<Registry>, seat: PlayerId) -> baylee_view::PlayerView
         library_reveal_blocked: engine.library_reveal_blocked(),
         inspected_cards: engine.inspected_cards(),
         ballots: engine.ballots(),
+        held_choices: &engine.held_choices(),
         ..SeatContext::default()
     };
     player_view(

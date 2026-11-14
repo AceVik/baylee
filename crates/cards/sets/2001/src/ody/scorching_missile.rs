@@ -11,7 +11,7 @@ card!(
     oracle_id = "02e2dbde-2373-4f29-bd9d-787f1805b061",
     scryfall_id = "0672960b-4cb5-4ed6-ba3c-6b97290e0330",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Scorching Missile",
         mana_cost = mana!("{3}{R}"),

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "b5243fc3-176b-44a3-9f1a-ab069a08757a",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::VIGILANCE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cantivore",
         mana_cost = mana!("{1}{W}{W}"),

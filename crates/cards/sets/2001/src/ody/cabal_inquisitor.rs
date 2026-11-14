@@ -11,7 +11,7 @@ card!(
     oracle_id = "5bebf38e-bff6-470b-a2b8-cb0a87a7372f",
     scryfall_id = "c0530e09-5206-460e-abd2-e928eca294a5",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cabal Inquisitor",
         mana_cost = mana!("{1}{B}"),

@@ -188,11 +188,17 @@ impl GameState {
             })
             .collect();
         for (id, def) in split {
-            if let Some(obj) = self.object_mut(id) {
-                let name = obj.base.name;
+            if self.object(id).is_some() {
+                let name = self.names.intern(def.faces[0].name);
                 let left = Arc::new(crate::object::Characteristics::from_face(def, 0, name));
-                obj.base = Arc::clone(&left);
-                obj.cache.clear();
+                if let Some(obj) = self.object_mut(id) {
+                    if obj.zone == Zone::Battlefield && obj.doors.is_room() {
+                        obj.original_base = Some(Arc::clone(&left));
+                    } else {
+                        obj.base = Arc::clone(&left);
+                        obj.cache.clear();
+                    }
+                }
                 // The shared base too, which no hash reads, so that the copy
                 // is that build's state throughout.
                 Arc::make_mut(&mut self.bases).cards.insert(def.index, left);
@@ -274,17 +280,24 @@ impl GameState {
             fx.source == Some(id) && fx.origin == crate::effects::EffectOrigin::Static
         });
         self.replacement_rules.retain(|r| r.source != id);
-        let front = {
-            let name = self.names.intern(def.faces[0].name);
-            Arc::new(crate::object::Characteristics::from_face(def, 0, name))
-        };
+        let whole = self
+            .object(id)
+            .and_then(|o| o.card)
+            .and_then(|card| self.bases.cards.get(&card.index))
+            .map_or_else(
+                || {
+                    let name = self.names.intern(def.faces[0].name);
+                    Arc::new(crate::object::Characteristics::of_card(def, name))
+                },
+                Arc::clone,
+            );
         self.switch_face(id, def, usize::from(unlocked == 0b10));
         let nameless = self.names.intern("");
         let Some(obj) = self.object_mut(id) else {
             return;
         };
         obj.doors = crate::object::Doors::room(unlocked);
-        obj.original_base.get_or_insert(front);
+        obj.original_base.get_or_insert(whole);
         let keywords = def
             .faces
             .iter()

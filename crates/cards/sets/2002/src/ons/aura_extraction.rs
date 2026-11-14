@@ -11,7 +11,7 @@ card!(
     oracle_id = "84100106-1f97-4859-aadd-a35796ee000f",
     scryfall_id = "55d16883-5e98-4dd2-92dd-0ba92f1099cb",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aura Extraction",
         mana_cost = mana!("{1}{W}"),

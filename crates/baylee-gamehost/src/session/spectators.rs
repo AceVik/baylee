@@ -56,6 +56,7 @@ impl Session {
             self.engine.ballots(),
         );
         view.controls = crate::view::player_controls(&self.engine);
+        view.held_choices = crate::view::held_choice_views(&self.engine.held_choices());
         view
     }
 

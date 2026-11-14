@@ -1358,11 +1358,14 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::DestroyChosenForPlayers { who, filter } => {
             let mut players = players_of(who, state, you, res);
+            chosen::order_apnap(state, &mut players);
             let (player, options) =
                 chosen::next_asked(state, &mut players, filter, you, res.source)?;
             res.awaiting = Some(AwaitingOp::DestroyChosen {
+                asked: player,
                 filter,
                 remaining: players,
+                chosen: Vec::new(),
             });
             Some(Pending::ChooseCards {
                 player,
@@ -1380,11 +1383,14 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 return None;
             }
             let mut players = players_of(who, state, you, res);
+            chosen::order_apnap(state, &mut players);
             let (player, options) =
                 chosen::next_asked(state, &mut players, filter, you, res.source)?;
             res.awaiting = Some(AwaitingOp::SacrificeFilter {
+                asked: player,
                 filter,
                 remaining: players,
+                chosen: Vec::new(),
             });
             Some(Pending::ChooseCards {
                 player,
@@ -1416,6 +1422,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::ReturnChosenToHand { who, filter } => {
             let mut players = players_of(who, state, you, res);
+            chosen::order_apnap(state, &mut players);
             // `min: 1` because the printed sentence is an instruction and
             // not an offer; a player with nothing that matches is skipped by
             // `next_asked` rather than shown an empty menu (CR 608.2d: as
@@ -1423,8 +1430,10 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let (player, options) =
                 chosen::next_asked(state, &mut players, filter, you, res.source)?;
             res.awaiting = Some(AwaitingOp::ReturnChosen {
+                asked: player,
                 filter,
                 remaining: players,
+                chosen: Vec::new(),
             });
             Some(Pending::ChooseCards {
                 player,

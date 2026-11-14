@@ -65,8 +65,13 @@ struct PermanentGroupKey7 {
     supertypes_bits: u8,
     subtypes: SubtypeSet,
     chosen_subtype: Option<SubtypeId>,
+    second_chosen_subtype: Option<SubtypeId>,
+    chosen_card_type_bits: Option<u16>,
+    chosen_number: Option<u8>,
+    chosen_color: Option<baylee_core::mana::ManaColor>,
     chosen_opponent: Option<PlayerId>,
     chosen_name: Option<(u32, u8)>,
+    linked_exile: Vec<ObjectId>,
     unlocked_doors: Option<[bool; 2]>,
     prepared_spell: Option<(u32, u8)>,
     colors_bits: u8,
@@ -202,6 +207,11 @@ fn collect_unmergeable_permanents(
     if let Some(targeting) = &view.targeting {
         singletons.insert(targeting.source.id);
     }
+    for choice in &view.held_choices {
+        if let Some(id) = choice.object {
+            singletons.insert(id);
+        }
+    }
 
     // 5. Pending choice context referencing a specific permanent.
     if let Some(pending) = pending {
@@ -327,8 +337,13 @@ fn build_group_key(
         supertypes_bits: obj.supertypes.bits(),
         subtypes: obj.subtypes,
         chosen_subtype: obj.chosen_subtype,
+        second_chosen_subtype: obj.second_chosen_subtype,
+        chosen_card_type_bits: obj.chosen_card_type.map(baylee_core::types::TypeSet::bits),
+        chosen_number: obj.chosen_number,
+        chosen_color: obj.chosen_color,
         chosen_opponent: obj.chosen_opponent,
         chosen_name: obj.chosen_name.map(|n| (n.card.get(), n.face)),
+        linked_exile: obj.linked_exile.clone(),
         unlocked_doors: obj.unlocked_doors,
         prepared_spell: obj.prepared_spell.map(|r| (r.card.get(), r.face)),
         colors_bits: obj.colors.bits(),

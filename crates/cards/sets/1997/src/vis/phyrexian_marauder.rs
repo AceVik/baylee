@@ -12,7 +12,7 @@ card!(
     index = index::PHYREXIAN_MARAUDER,
     oracle_id = "405674c5-607a-43d3-8b46-8741d2339f80",
     scryfall_id = "29a75dc8-1c24-4063-8944-d7e71b4a5755",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Phyrexian Marauder",
         mana_cost = mana!("{X}"),

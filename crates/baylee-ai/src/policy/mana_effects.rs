@@ -171,14 +171,14 @@ pub(crate) fn apply_triggered_mana_bonus(
     object: &baylee_view::PublicObject,
     source: &mut Source,
 ) {
-    if source.dear.is_some() || source.colors.is_empty() {
+    if source.colors.is_empty() && source.dear.is_none() {
         return;
     }
     let add_fixed_color = |source: &mut Source, color: ManaColor, count: u8| {
         if count == 0 {
             return;
         }
-        if !source.bundle && source.colors.len() == 1 {
+        if !source.bundle && source.colors.len() == 1 && source.dear.is_none() {
             if source.colors[0] == color {
                 source.amount = source.amount.saturating_add(count);
             } else {
@@ -188,11 +188,15 @@ pub(crate) fn apply_triggered_mana_bonus(
                 source.bundle = true;
                 source.amount = source.amount.saturating_add(count);
             }
-        } else if source.bundle {
+        } else if source.bundle && source.dear.is_none() {
             source
                 .colors
                 .extend(std::iter::repeat_n(color, usize::from(count)));
             source.amount = source.amount.saturating_add(count);
+        } else {
+            source
+                .bonus
+                .extend(std::iter::repeat_n(color, usize::from(count)));
         }
     };
     for perm in &view.battlefield {

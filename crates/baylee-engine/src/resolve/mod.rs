@@ -140,6 +140,7 @@ mod settle;
 mod shared_land;
 mod upgrade;
 mod vote;
+pub use for_each::HeldChoice;
 pub use vote::Ballot;
 
 pub use answers::*;
@@ -346,6 +347,51 @@ pub struct Resolution {
 }
 
 impl Resolution {
+    /// Choices already made by earlier players during a sequential APNAP
+    /// selection whose outcome happens simultaneously (CR 101.4b, CR 101.4d).
+    pub(crate) fn held_choices(&self, state: &GameState) -> Vec<HeldChoice> {
+        if let Some(count) = self.subject.counted.as_deref() {
+            return count.held_choices(state);
+        }
+        let mut op = self.awaiting.as_ref();
+        if let Some(AwaitingOp::DiscardDestination {
+            then: DiscardThen::Choice { op: inner, .. },
+            ..
+        }) = op
+        {
+            op = Some(inner.as_ref());
+        }
+        match op {
+            Some(AwaitingOp::DungeonTax(tax)) => tax.held_choices(state),
+            Some(AwaitingOp::Equalize(selection)) => selection.held_choices(state),
+            Some(AwaitingOp::KeepOneOfEach(selection)) => selection.held_choices(state),
+            Some(AwaitingOp::DestroyChosen { chosen, .. }) => {
+                chosen::held_choices(state, chosen, crate::event::ChosenAction::Destroy)
+            }
+            Some(AwaitingOp::SacrificeFilter { chosen, .. }) => {
+                chosen::held_choices(state, chosen, crate::event::ChosenAction::Sacrifice)
+            }
+            Some(AwaitingOp::ReturnChosen { chosen, .. }) => {
+                chosen::held_choices(state, chosen, crate::event::ChosenAction::ReturnToHand)
+            }
+            Some(AwaitingOp::DiscardChain { selected, .. }) => selected
+                .iter()
+                .filter(|&&(card, player)| {
+                    state
+                        .zones
+                        .list(crate::zone::ZoneLocation::Hand(player))
+                        .contains(&card)
+                })
+                .map(|&(_, player)| HeldChoice {
+                    player,
+                    object: None,
+                    action: crate::event::ChosenAction::Discard,
+                })
+                .collect(),
+            _ => Vec::new(),
+        }
+    }
+
     /// The full resumable program and captured operands, excluding the pending
     /// operation whose payload is fingerprinted by its owning continuation.
     pub(crate) fn program_fingerprint(&self) -> u64 {

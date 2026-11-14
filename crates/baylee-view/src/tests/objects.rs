@@ -100,6 +100,24 @@ fn different_chosen_types_never_share_a_board_pile() {
     assert_eq!(a.summary_key(), b.summary_key());
     b.chosen_subtype = Some(baylee_core::generated::subtypes::creature::ELF);
     assert_ne!(a.summary_key(), b.summary_key());
+
+    b.chosen_subtype = a.chosen_subtype;
+    a.second_chosen_subtype = Some(baylee_core::generated::subtypes::creature::ELF);
+    assert_ne!(a.summary_key(), b.summary_key());
+    b.second_chosen_subtype = a.second_chosen_subtype;
+    assert_eq!(a.summary_key(), b.summary_key());
+
+    a.chosen_card_type = Some(TypeSet::CREATURE);
+    assert_ne!(a.summary_key(), b.summary_key());
+    b.chosen_card_type = Some(TypeSet::INSTANT);
+    assert_ne!(a.summary_key(), b.summary_key());
+    b.chosen_card_type = a.chosen_card_type;
+    assert_eq!(a.summary_key(), b.summary_key());
+
+    a.chosen_number = Some(3);
+    assert_ne!(a.summary_key(), b.summary_key());
+    b.chosen_number = Some(3);
+    assert_eq!(a.summary_key(), b.summary_key());
 }
 
 #[test]
@@ -362,6 +380,13 @@ fn every_field_the_key_is_made_of_keeps_two_objects_apart() {
         ("chosen_subtype", |o| {
             o.chosen_subtype = Some(baylee_core::generated::subtypes::creature::ALLY);
         }),
+        ("second_chosen_subtype", |o| {
+            o.second_chosen_subtype = Some(baylee_core::generated::subtypes::creature::ELF);
+        }),
+        ("chosen_card_type", |o| {
+            o.chosen_card_type = Some(TypeSet::CREATURE);
+        }),
+        ("chosen_number", |o| o.chosen_number = Some(4)),
         ("chosen_opponent", |o| {
             o.chosen_opponent = Some(PlayerId::new(1));
         }),
@@ -373,6 +398,9 @@ fn every_field_the_key_is_made_of_keeps_two_objects_apart() {
         }),
         ("chosen_color", |o| {
             o.chosen_color = Some(baylee_core::mana::ManaColor::Blue);
+        }),
+        ("linked_exile", |o| {
+            o.linked_exile = vec![ObjectId::new(77, 0)];
         }),
         ("unlocked_doors", |o| o.unlocked_doors = Some([false, true])),
         ("colors", |o| o.colors = ColorSet::ALL),

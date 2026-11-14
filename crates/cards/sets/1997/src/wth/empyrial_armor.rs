@@ -12,7 +12,7 @@ card!(
     oracle_id = "ec9e8611-e785-4d5d-b6e1-bf63daf408df",
     scryfall_id = "6619db75-4d32-4c7b-856c-00aa33434342",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Empyrial Armor",
         mana_cost = mana!("{1}{W}{W}"),

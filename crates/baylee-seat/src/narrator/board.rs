@@ -90,6 +90,46 @@ pub(super) fn seats(table: &Table<'_>, out: &mut String) {
         Some(DayNight::Night) => out.push_str("It is night.\n"),
         None => {}
     }
+    if !view.held_choices.is_empty() {
+        let items: Vec<String> = view
+            .held_choices
+            .iter()
+            .map(|choice| {
+                let who = table.player(choice.player);
+                let verb = chosen_action_verb(choice.action);
+                match choice.object {
+                    Some(id) => format!("{who} to {verb} {}", table.named(id)),
+                    None => format!("{who} to {verb} a card"),
+                }
+            })
+            .collect();
+        let _ = writeln!(out, "Choices held so far: {}.", items.join(", "));
+    }
+}
+
+const fn chosen_action_verb(action: baylee_view::ChosenAction) -> &'static str {
+    match action {
+        baylee_view::ChosenAction::Sacrifice => "sacrifice",
+        baylee_view::ChosenAction::Discard => "discard",
+        baylee_view::ChosenAction::Destroy => "destroy",
+        baylee_view::ChosenAction::ReturnToHand => "return to hand",
+    }
+}
+
+fn chosen_card_type_word(card_type: TypeSet) -> Option<&'static str> {
+    [
+        (TypeSet::ARTIFACT, "artifact"),
+        (TypeSet::BATTLE, "battle"),
+        (TypeSet::CREATURE, "creature"),
+        (TypeSet::ENCHANTMENT, "enchantment"),
+        (TypeSet::INSTANT, "instant"),
+        (TypeSet::KINDRED, "kindred"),
+        (TypeSet::LAND, "land"),
+        (TypeSet::PLANESWALKER, "planeswalker"),
+        (TypeSet::SORCERY, "sorcery"),
+    ]
+    .into_iter()
+    .find_map(|(t, word)| card_type.contains(t).then_some(word))
 }
 
 /// A mana pool that holds something: "pool {R}{R}{G}", and its restricted
@@ -366,10 +406,25 @@ fn details(table: &Table<'_>, object: &PublicObject) -> Vec<String> {
     if object.controller != object.owner {
         out.push(format!("owned by {}", table.player(object.owner)));
     }
-    if let Some(subtype) = object.chosen_subtype
-        && let Some(name) = baylee_core::generated::subtypes::name(subtype)
+    match (
+        object
+            .chosen_subtype
+            .and_then(baylee_core::generated::subtypes::name),
+        object
+            .second_chosen_subtype
+            .and_then(baylee_core::generated::subtypes::name),
+    ) {
+        (Some(first), Some(second)) => out.push(format!("chosen types {first}, {second}")),
+        (Some(only), None) | (None, Some(only)) => out.push(format!("chosen type {only}")),
+        (None, None) => {}
+    }
+    if let Some(card_type) = object.chosen_card_type
+        && let Some(word) = chosen_card_type_word(card_type)
     {
-        out.push(format!("chosen type {name}"));
+        out.push(format!("chosen card type {word}"));
+    }
+    if let Some(number) = object.chosen_number {
+        out.push(format!("chosen number {number}"));
     }
     if let Some(named) = object.chosen_name
         && let Some(def) = baylee_cards::by_index(named.card)
@@ -387,6 +442,26 @@ fn details(table: &Table<'_>, object: &PublicObject) -> Vec<String> {
     }
     if let Some(opponent) = object.chosen_opponent {
         out.push(format!("chosen opponent {}", table.player(opponent)));
+    }
+    if !object.linked_exile.is_empty() {
+        let exiled: Vec<String> = object
+            .linked_exile
+            .iter()
+            .map(|&id| table.named(id))
+            .collect();
+        out.push(format!("exiled: {}", exiled.join(", ")));
+    }
+    for choice in table
+        .view
+        .held_choices
+        .iter()
+        .filter(|c| c.object == Some(object.id))
+    {
+        out.push(format!(
+            "chosen by {} to {}",
+            table.player(choice.player),
+            chosen_action_verb(choice.action)
+        ));
     }
     if let Some([left, right]) = object.unlocked_doors {
         let open: Vec<&str> = [(left, "left"), (right, "right")]
@@ -551,6 +626,14 @@ pub(super) fn stack_line(table: &Table<'_>, object: &PublicObject) -> String {
         // its X is.
         if let Some(color) = object.chosen_color {
             let _ = write!(line, ", chosen color {}", words::color_name(color));
+        }
+        if let Some(card_type) = object.chosen_card_type
+            && let Some(word) = chosen_card_type_word(card_type)
+        {
+            let _ = write!(line, ", chosen card type {word}");
+        }
+        if let Some(number) = object.chosen_number {
+            let _ = write!(line, ", chosen number {number}");
         }
         if object.bought_back {
             line.push_str(", buyback paid: it returns to its owner's hand as it resolves");
@@ -782,7 +865,7 @@ fn zone_line(
             let mut name = format!("{} {}", object_name(object), tag(object.id));
             let mut notes = Vec::new();
             if let Some(cost) = object.flashback {
-                notes.push(format!("flashback {cost}"));
+                notes.push(flashback_note(object.card, cost));
             }
             if object.suspended {
                 let time = object.counter_count(baylee_view::CounterKind::Time);
@@ -804,6 +887,34 @@ fn zone_line(
         named.insert(0, format!("{older} older"));
     }
     let _ = writeln!(out, "{title} ({}): {}", cards.len(), named.join(", "));
+}
+
+/// How a card's flashback cost is written in short zone and menu notes.
+///
+/// A pure mana flashback prints as `"flashback {1}{R}"`, while a zero-mana or
+/// compound flashback (`Lava Dart`: `"Flashback—Sacrifice a Mountain."`) reads
+/// the printed `"Flashback..."` clause from the face's Oracle text so it never
+/// degrades to `"flashback {0}"`.
+pub(super) fn flashback_note(
+    card: Option<baylee_view::CardIdentity>,
+    cost: baylee_core::mana::ManaCost,
+) -> String {
+    if let Some(id) = card
+        && let Some(face) =
+            baylee_cards::by_index(id.index).and_then(|def| def.faces.get(usize::from(id.face)))
+        && (cost == baylee_core::mana::ManaCost::ZERO || !face.flashback_parts.is_empty())
+        && let Some(oracle) = baylee_cards::oracle::face(id.index, usize::from(id.face))
+        && let Some(line) = oracle
+            .lines()
+            .find(|line| line.trim_start().starts_with("Flashback"))
+    {
+        let clause = line.split_once(" (").map_or(line, |(head, _)| head).trim();
+        let clause = clause.strip_suffix('.').unwrap_or(clause);
+        if let Some(rest) = clause.strip_prefix("Flashback") {
+            return format!("flashback{rest}");
+        }
+    }
+    format!("flashback {cost}")
 }
 
 fn combat(table: &Table<'_>, out: &mut String) {

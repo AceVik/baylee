@@ -135,6 +135,19 @@ impl<L: CardLookup> Engine<L> {
         if let Some(wizard) = &self.cast_wizard {
             return self.wizard_context(wizard);
         }
+        if matches!(self.pending, crate::choice::Pending::Priority { .. })
+            && let Some(window) = &self.mana_window
+        {
+            match &window.suspended {
+                super::PaymentContinuation::Miracle { wizard, .. } => {
+                    return self.wizard_context(wizard);
+                }
+                super::PaymentContinuation::Activation(payment) => {
+                    return self.activation_payment_context(window.player, payment);
+                }
+                _ => {}
+            }
+        }
         let controller = |id: ObjectId| self.state.object(id).map(|o| o.controller);
         if let Some((source, copying)) = self.state.entries.copying() {
             return DecisionContext {

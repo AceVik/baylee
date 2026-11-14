@@ -279,6 +279,39 @@ fn an_old_stack_ability_payload_defaults_to_no_token_provenance() {
     assert!(matches!(restored, StackItem::Ability { token: None, .. }));
 }
 
+#[test]
+fn did_not_resolve_ability_flag_defaults_and_omits_in_json_and_round_trips_in_frames() {
+    let legacy: LogEvent =
+        serde_json::from_str(r#"{"DidNotResolve":{"object":"Hidden"}}"#).unwrap();
+    let spell = LogEvent::DidNotResolve {
+        object: LogObject::Hidden,
+        ability: false,
+    };
+    assert_eq!(legacy, spell);
+    let spell_json = serde_json::to_value(&spell).unwrap();
+    assert!(spell_json["DidNotResolve"].get("ability").is_none());
+
+    let ability = LogEvent::DidNotResolve {
+        object: LogObject::Hidden,
+        ability: true,
+    };
+    let ability_json = serde_json::to_value(&ability).unwrap();
+    assert_eq!(
+        ability_json["DidNotResolve"]["ability"],
+        serde_json::json!(true)
+    );
+    assert_eq!(
+        serde_json::from_value::<LogEvent>(ability_json).unwrap(),
+        ability
+    );
+
+    for sample in [spell, ability] {
+        let bytes = baylee_core::wire::encode(&sample);
+        let decoded: LogEvent = baylee_core::wire::decode(&bytes).unwrap();
+        assert_eq!(decoded, sample);
+    }
+}
+
 /// **The shape on the wire and the number that names it move together.**
 ///
 /// [`VIEW_VERSION`] is what lets a client refuse a host it cannot
@@ -391,7 +424,18 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // protocol 45.
     // 91: the library-top cast mode paid with life equal to mana value is an
     // imported engine variant a reader of 90 cannot parse.
-    const RECORDED: (u32, u64) = (91, 16_786_315_376_172_572_296);
+    // 92: `ChoicePrompt::SearchLibraryTappedAndHand` and
+    // `YesNoPrompt::RevealHandForGuess` are imported engine variants a reader
+    // of 91 cannot parse; `LogEvent::DidNotResolve::ability` beside them is
+    // additive, defaulted and omitted at `false` in JSON, and protocol 46 on
+    // binary frames.
+    // 93: `LogEvent::CardsChosen` (with `ChosenAction`) is a new gamelog
+    // variant a reader of 92 cannot parse; `PublicObject::second_chosen_subtype`,
+    // `chosen_card_type`, `chosen_number`, `linked_exile` and
+    // `PlayerView`/`SpectatorView::held_choices` (`HeldChoice`, `ViewField::HeldChoices`)
+    // beside it are additive, defaulted and omitted at empty/`None` in JSON,
+    // and protocol 47 on binary frames.
+    const RECORDED: (u32, u64) = (93, 5_197_534_328_483_882_664);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

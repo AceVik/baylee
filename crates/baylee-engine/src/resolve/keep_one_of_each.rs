@@ -28,6 +28,34 @@ pub struct Selection {
     category: usize,
 }
 
+impl Selection {
+    /// Permanents already slated for simultaneous sacrifice by earlier APNAP
+    /// players who have finished choosing what they keep (CR 101.4b).
+    #[must_use]
+    pub(crate) fn held_choices(&self, state: &GameState) -> Vec<super::HeldChoice> {
+        let done = self.current.min(self.groups.len());
+        self.groups[..done]
+            .iter()
+            .filter(|group| !state.has_left(group.player))
+            .flat_map(|group| {
+                group.cards.iter().filter_map(move |&card| {
+                    let doomed = !group.kept.contains(&card)
+                        && state.object(card).is_some_and(|object| {
+                            object.zone == Zone::Battlefield
+                                && object.controller == group.player
+                                && !object.status.contains(crate::object::Status::PHASED_OUT)
+                        });
+                    doomed.then_some(super::HeldChoice {
+                        player: group.player,
+                        object: Some(card),
+                        action: crate::event::ChosenAction::Sacrifice,
+                    })
+                })
+            })
+            .collect()
+    }
+}
+
 pub(super) fn start(
     state: &mut GameState,
     res: &mut Resolution,

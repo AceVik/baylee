@@ -14,7 +14,7 @@ card!(
     scryfall_id = "52e14dbe-4d33-405c-ab84-2fc6b1e000b8",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Savage Firecat",
         mana_cost = mana!("{3}{R}{R}"),

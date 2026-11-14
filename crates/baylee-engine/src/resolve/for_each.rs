@@ -55,6 +55,20 @@ fn one_at_a_time() -> bool {
     }
 }
 
+/// One player's choice held during a sequential multi-player selection before
+/// all players' choices are carried out simultaneously (CR 101.4).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct HeldChoice {
+    /// Who made this choice.
+    pub player: PlayerId,
+    /// The publicly chosen permanent on the battlefield, or `None` when the
+    /// choice was made from a hidden zone such as a hand (CR 101.4d).
+    pub object: Option<ObjectId>,
+    /// What will happen to the chosen card or permanent once all players have
+    /// chosen.
+    pub action: crate::event::ChosenAction,
+}
+
 /// A permanent as it was counted.
 #[derive(Clone, Copy, Debug, Hash)]
 struct Counted {
@@ -232,9 +246,35 @@ pub(super) fn hold(
     true
 }
 
+impl Count {
+    /// Permanents already chosen to be sacrificed while later players in APNAP
+    /// order still have choices to make (CR 101.4b).
+    #[must_use]
+    pub(crate) fn held_choices(&self, state: &GameState) -> Vec<HeldChoice> {
+        self.held
+            .iter()
+            .filter_map(|&(player, identity)| {
+                let alive = state.object(identity.object).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield && o.version == identity.version
+                });
+                alive.then_some(HeldChoice {
+                    player,
+                    object: Some(identity.object),
+                    action: crate::event::ChosenAction::Sacrifice,
+                })
+            })
+            .collect()
+    }
+}
+
 /// The answer to a held sacrifice's question: `player` gives up the chosen
 /// permanent, once everyone has chosen.
-pub(super) fn held(state: &GameState, res: &mut Resolution, player: PlayerId, chosen: &[ObjectId]) {
+pub(super) fn held(
+    state: &mut GameState,
+    res: &mut Resolution,
+    player: PlayerId,
+    chosen: &[ObjectId],
+) {
     let Some(identity) = chosen.first().and_then(|&id| {
         state.object(id).map(|o| DamageSourceRef {
             object: id,
@@ -245,6 +285,11 @@ pub(super) fn held(state: &GameState, res: &mut Resolution, player: PlayerId, ch
     };
     if let Some(count) = res.subject.counted.as_deref_mut() {
         count.held.push((player, identity));
+        state.journal.record(GameEvent::CardsChosen {
+            player,
+            cards: vec![identity.object],
+            action: crate::event::ChosenAction::Sacrifice,
+        });
     }
 }
 

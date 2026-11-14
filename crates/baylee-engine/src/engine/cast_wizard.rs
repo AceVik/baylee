@@ -632,17 +632,26 @@ impl<L: CardLookup> Engine<L> {
     }
 
     /// The wizard a miracle cast of `card` starts with, or `None` when the
-    /// card prints no miracle or `player` may not cast a spell at all.
+    /// card prints no miracle or `player` may not cast it now.
     fn miracle_wizard(&self, player: PlayerId, card: ObjectId) -> Option<CastWizard> {
-        let cost = self
-            .state
-            .object(card)
-            .and_then(|o| o.card)
-            .and_then(|c| self.lookup.card(c.index))
-            .and_then(|def| def.faces[0].miracle)?;
+        let object = self.state.object(card)?;
+        let def = object.card.and_then(|c| self.lookup.card(c.index))?;
+        let cost = def.faces[0].miracle?;
         // CR 601.3: a player who may not begin to cast a spell (Conduit of
-        // Worlds) has no miracle cast either, so it is not offered.
-        if !casting::may_begin_casting(&self.state, player) {
+        // Worlds), or who is forbidden from casting outside sorcery timing
+        // while the miracle trigger is on the stack (Teferi, Time Raveler's
+        // CR 101.2 restriction beats CR 702.94a's permission), has no miracle
+        // cast either, so it is not offered.
+        if !casting::may_begin_casting(&self.state, player)
+            || !casting::timing_allows(
+                &self.state,
+                player,
+                baylee_core::types::TypeSet::INSTANT,
+                baylee_cards_dsl::KeywordSet::EMPTY,
+            )
+            || !casting::spell_condition_allows(&self.state, player, card, def, 0)
+            || casting::face_is_forbidden(&self.state, player, object, def, 0)
+        {
             return None;
         }
         let options = vec![CastModeDesc {

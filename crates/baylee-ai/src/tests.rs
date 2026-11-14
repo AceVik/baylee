@@ -111,10 +111,14 @@ fn permanent(id: ObjectId, controller: PlayerId, power: i16) -> PublicObject {
         supertypes: SupertypeSet::EMPTY,
         subtypes: SubtypeSet::EMPTY,
         chosen_subtype: None,
+        second_chosen_subtype: None,
+        chosen_card_type: None,
+        chosen_number: None,
         chosen_name: None,
         chosen_opponent: None,
         chosen_color: None,
         chosen_x: None,
+        linked_exile: Vec::new(),
         unlocked_doors: None,
         suspended: false,
         token: None,
@@ -298,6 +302,7 @@ fn view(seat: u8, lives: &[i32], battlefield: Vec<PublicObject>) -> PlayerView {
         controls: Vec::new(),
         foreign_targets: Vec::new(),
         ballots: Vec::new(),
+        held_choices: Vec::new(),
     }
 }
 
@@ -343,5 +348,52 @@ fn offering(abilities: Vec<(ObjectId, u32)>) -> Pending {
             abilities,
             ..Default::default()
         }),
+    }
+}
+
+#[test]
+fn chosen_and_linked_filters_are_read_from_generation_19_and_refused_before() {
+    use baylee_cards_dsl::{Filter, ZoneRef};
+    use baylee_core::color::{Color, ColorSet};
+    use baylee_core::mana::ManaColor;
+
+    let me = PlayerId::new(0);
+    let mut source = permanent(obj(1), me, 2);
+    source.chosen_card_type = Some(TypeSet::CREATURE);
+    source.chosen_color = Some(ManaColor::Blue);
+    source.linked_exile = vec![obj(10)];
+
+    let mut exiled = permanent(obj(10), me, 0);
+    exiled.name = "Island".into();
+    exiled.types = TypeSet::LAND;
+    exiled.colors = ColorSet::from_slice(&[Color::Blue]);
+
+    let mut matching = permanent(obj(2), me, 2);
+    matching.name = "Island".into();
+    matching.colors = ColorSet::from_slice(&[Color::Blue]);
+
+    let mut v = view(0, &[20, 20], vec![source, matching.clone()]);
+    v.exile[0].push(exiled);
+
+    let current = HeuristicAgent::new(AIProfile::EXPERT);
+    let prior =
+        HeuristicAgent::new(AIProfile::EXPERT.at_generation(AIProfile::TOKEN_AND_EXILE_CHOICES));
+
+    for filter in [
+        Filter::OfSourceChosenCardType,
+        Filter::OfSourceChosenColor,
+        Filter::SameNameAsLinkedExile,
+        Filter::SharesColorWithExiledWithSource,
+    ] {
+        assert_eq!(
+            current.filter_matches(&filter, &v, &matching, ZoneRef::Battlefield, Some(obj(1))),
+            Some(true),
+            "{filter:?} at generation 19"
+        );
+        assert_eq!(
+            prior.filter_matches(&filter, &v, &matching, ZoneRef::Battlefield, Some(obj(1))),
+            None,
+            "{filter:?} before generation 19"
+        );
     }
 }

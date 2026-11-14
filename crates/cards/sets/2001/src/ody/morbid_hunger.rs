@@ -11,7 +11,7 @@ card!(
     oracle_id = "6e7e9685-ebe9-4db2-b52c-f6ce95e37e56",
     scryfall_id = "47a4e7d0-ff09-4e19-8456-f4845f56dc8b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Morbid Hunger",
         mana_cost = mana!("{4}{B}{B}"),

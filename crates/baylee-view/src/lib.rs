@@ -66,7 +66,8 @@ pub use patch::{
     ViewSender, Zone, ZoneEdit, apply, diff, digest,
 };
 pub use player_view::{
-    Ballot, Division, LostSeat, PlayerControl, PlayerView, SeatClock, TargetingContext, WordChange,
+    Ballot, ChosenAction, Division, HeldChoice, LostSeat, PlayerControl, PlayerView, SeatClock,
+    TargetingContext, WordChange,
 };
 pub use seats::{CommanderDamage, CommanderView, HouseAnswer, LossCause, ManaPoolView, SeatView};
 pub use seen::{Seen, SeenIn};
@@ -277,7 +278,18 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 91 adds the library-top alternative cost paid with life equal to
 /// the spell's mana value, and lets an entitled seat see its own library top
 /// privately. Older readers cannot decode the new cast-mode variant.
-pub const VIEW_VERSION: u32 = 91;
+/// Version 92 adds `ChoicePrompt::SearchLibraryTappedAndHand` (Kodama's Reach,
+/// Cultivate) and `YesNoPrompt::RevealHandForGuess` (Liar's Pendulum), engine
+/// prompt variants an older reader cannot decode. Compatible addition beside
+/// them: [`LogEvent::DidNotResolve::ability`], absent when `false`.
+/// Version 93 tells held APNAP choices (CR 101.4b, CR 101.4d): the game log's
+/// [`LogEvent::CardsChosen`] with [`ChosenAction`], a variant a reader of 92
+/// cannot parse. Compatible additions beside it: [`PlayerView::held_choices`]
+/// and [`SpectatorView::held_choices`] (absent while empty), plus
+/// [`PublicObject::second_chosen_subtype`], [`PublicObject::chosen_card_type`],
+/// [`PublicObject::chosen_number`] and [`PublicObject::linked_exile`], absent
+/// when unset or empty.
+pub const VIEW_VERSION: u32 = 93;
 
 // ------------------------------------------------------------------- targets
 

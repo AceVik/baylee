@@ -971,6 +971,8 @@ fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
                 controller: PlayerId::new(0),
                 when: DelayedWhen::NextUpkeep,
                 action: DelayedAction::AddMana {
+                    source: ObjectId::NO_SOURCE,
+                    source_version: 0,
                     color: ManaColor::Green,
                     amount: 1,
                 },
@@ -1315,6 +1317,8 @@ fn a_delayed_action_keeps_the_number_a_written_record_holds() {
         (
             10,
             DelayedAction::AddMana {
+                source: card,
+                source_version: 0,
                 color: ManaColor::Blue,
                 amount: 1,
             },

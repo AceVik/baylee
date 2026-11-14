@@ -786,3 +786,47 @@ fn phyrexian_mana_is_paid_with_life() {
         _ => None,
     });
 }
+
+#[test]
+fn extraplanar_lens_doubles_mana_for_lands_sharing_the_exiled_land_s_name() {
+    let mut table = Table::open(
+        "Island",
+        &["Extraplanar Lens", "Lord of Atlantis", "Orcish Artillery"],
+        &["Plains", "Plains", "Plains", "Island", "Island", "Mountain"],
+        &[],
+    );
+    for id in table.mine("Plains") {
+        table.apply(PlayerAction::ActivateManaAbility { source: id });
+    }
+    let lens = table.card("Extraplanar Lens");
+    let imprinted = table
+        .view()
+        .battlefield
+        .iter()
+        .find(|o| o.name == "Island")
+        .unwrap()
+        .id;
+    table.click_and_cast(lens, &mut nothing);
+    table.resolve(&mut |_, pending| match pending {
+        Pending::ChooseTargets { .. } => Some(PlayerAction::ChooseObjects {
+            objects: vec![imprinted],
+        }),
+        Pending::YesNo { .. } => Some(PlayerAction::YesNo(true)),
+        _ => None,
+    });
+    assert_eq!(
+        table.view().object(lens).unwrap().linked_exile,
+        vec![imprinted]
+    );
+    let lord = table.card("Lord of Atlantis");
+    let artillery = table.card("Orcish Artillery");
+    assert!(
+        table.lit(lord),
+        "the one remaining untapped Island produces {{U}}{{U}} through Extraplanar Lens"
+    );
+    assert!(
+        !table.lit(artillery),
+        "Mountain does not share the exiled Island's name, so {{1}}{{R}}{{R}} stays unpayable"
+    );
+    table.click_and_cast(lord, &mut nothing);
+}

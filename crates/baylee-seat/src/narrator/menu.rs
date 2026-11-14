@@ -7,7 +7,7 @@
 //! question is refused with a reason the model can act on, never mapped to
 //! whatever holds that slot now.
 
-use super::{Style, Table, board, tag, words};
+use super::{PriorCast, Style, Table, board, tag, words};
 use crate::mind::Request;
 use crate::reports::Report;
 use crate::wake::{
@@ -124,6 +124,8 @@ struct Choice {
     act: Act,
     /// The card an option casts or activates, for its `then.targets`.
     card: Option<CardIndex>,
+    /// Raised cast option (`Buyback`, `Kicker`, …) chosen when picking this item.
+    way: Option<(ObjectId, Way)>,
 }
 
 /// What the seat does for an answer.
@@ -196,6 +198,8 @@ pub struct Resolved {
     pub react: React,
     /// Whether the model asked to see the whole board next time.
     pub board_full: bool,
+    /// Raised cast option (`Buyback`, `Kicker`, …) picked on this answer.
+    pub way: Option<(ObjectId, Way)>,
 }
 
 /// A model's answer, read from a `decide` or `concede` call, or from a JSON
@@ -565,6 +569,7 @@ impl Menu {
             .and_then(|card| self.hint(card, &decision.then_targets));
         Ok(Resolved {
             hint,
+            way: choice.way,
             ..now_act(
                 choice.act.clone(),
                 format!("{} {}", choice.id, choice.label),
@@ -841,6 +846,7 @@ fn now_act(act: Act, label: String) -> Resolved {
         until: None,
         react: React::All,
         board_full: false,
+        way: None,
     }
 }
 
@@ -1027,6 +1033,7 @@ struct Builder<'t, 'a> {
     table: &'t Table<'a>,
     request: &'t Request,
     style: Style,
+    prior: PriorCast<'t>,
     text: String,
     options: Vec<Choice>,
     ask: Ask,
@@ -1035,11 +1042,17 @@ struct Builder<'t, 'a> {
 }
 
 /// Writes `request`'s question and the menu that reads its answer.
-pub(super) fn question(table: &Table<'_>, request: &Request, style: Style) -> (String, Menu) {
+pub(super) fn question<'t>(
+    table: &'t Table<'_>,
+    request: &'t Request,
+    style: Style,
+    prior: PriorCast<'t>,
+) -> (String, Menu) {
     let mut q = Builder {
         table,
         request,
         style,
+        prior,
         text: String::new(),
         options: Vec::new(),
         ask: Ask::Pick,
@@ -1191,6 +1204,12 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
         YesNoPrompt::GuessNamedCardInHand { holder, card, face } => {
             guess_words(table, *holder, *card, *face)
         }
+        YesNoPrompt::RevealHandForGuess {
+            guesser,
+            card,
+            face,
+            guessed_in_hand,
+        } => reveal_guess_words(table, *guesser, *card, *face, *guessed_in_hand),
         YesNoPrompt::Generic => ("Yes or no?".into(), "yes".into(), "no".into()),
     }
 }
@@ -1222,6 +1241,39 @@ fn guess_words(
         ),
         format!("yes, {name} is in that hand"),
         format!("no, {name} is not in that hand"),
+    )
+}
+
+/// Liar's Pendulum's optional hand reveal after the opponent's guess.
+fn reveal_guess_words(
+    table: &Table<'_>,
+    guesser: PlayerId,
+    card: baylee_core::ids::CardIndex,
+    face: u8,
+    guessed_in_hand: bool,
+) -> (String, String, String) {
+    let name = baylee_cards::by_index(card)
+        .and_then(|def| def.faces.get(usize::from(face)))
+        .map_or("the chosen name", |face| face.name);
+    let guess = if guessed_in_hand {
+        format!("has a card named {name}")
+    } else {
+        format!("does not have a card named {name}")
+    };
+    let whose = table.whose(table.decider());
+    let draws = if table.decider() == table.me() {
+        "you draw a card".to_string()
+    } else {
+        format!("{} draws a card", table.player(table.decider()))
+    };
+    (
+        format!(
+            "{} guessed that {whose} hand {guess}. Reveal {whose} hand? \
+             (If revealed and the guess was wrong, {draws}.)",
+            table.player(guesser),
+        ),
+        format!("reveal {whose} hand"),
+        format!("do not reveal {whose} hand"),
     )
 }
 
@@ -1715,7 +1767,13 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
             )
         }
         CastModeKind::Foretell => format!("Cast it with foretell for {cost}"),
-        CastModeKind::Flashback => format!("Cast it with flashback for {cost}"),
+        CastModeKind::Flashback => {
+            if option.cost == ManaCost::ZERO {
+                format!("Cast it with {}", board::flashback_note(card, option.cost))
+            } else {
+                format!("Cast it with flashback for {cost}")
+            }
+        }
         CastModeKind::BeamMeUp => {
             format!("Cast it with beam me up for {cost}, returning a creature you control")
         }
@@ -1736,12 +1794,7 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
             exile,
             kicked,
             prototype,
-        } => format!(
-            "Escape face {}, modes {modes}{}{}, for {cost} and exile {exile} other graveyard cards",
-            face + 1,
-            if kicked { ", with kicker" } else { "" },
-            if prototype { ", as prototype" } else { "" }
-        ),
+        } => escape_granted_label(face, modes, exile, kicked, prototype, &cost),
         CastModeKind::LibraryTopLife {
             life,
             face: route_face,
@@ -1757,6 +1810,22 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         ),
         CastModeKind::Colors(colors) => color_choice_label(colors),
     }
+}
+
+fn escape_granted_label(
+    face: usize,
+    modes: u8,
+    exile: u8,
+    kicked: bool,
+    prototype: bool,
+    cost: &str,
+) -> String {
+    format!(
+        "Escape face {}, modes {modes}{}{}, for {cost} and exile {exile} other graveyard cards",
+        face + 1,
+        if kicked { ", with kicker" } else { "" },
+        if prototype { ", as prototype" } else { "" }
+    )
 }
 
 #[allow(clippy::too_many_arguments)]

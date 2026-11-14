@@ -72,6 +72,10 @@ struct ObservableView<'a> {
     /// observation outside a vote hashes as it did before votes were told.
     #[serde(skip_serializing_if = "no_ballots")]
     ballots: &'a [baylee_view::Ballot],
+    /// Earlier APNAP choices held for simultaneous actions; absent while empty,
+    /// so every observation outside such a sequence hashes unchanged.
+    #[serde(skip_serializing_if = "no_held_choices")]
+    held_choices: &'a [baylee_view::HeldChoice],
     looking_at: &'a [baylee_view::PublicObject],
     library_tops: &'a [baylee_view::PublicObject],
     sorcery_lock: &'a Option<ObjectId>,
@@ -129,6 +133,7 @@ impl<'a> ObservableView<'a> {
             command,
             combat,
             ballots,
+            held_choices,
             looking_at,
             trigger_order: _,
             library_tops,
@@ -179,6 +184,7 @@ impl<'a> ObservableView<'a> {
             command,
             combat,
             ballots,
+            held_choices,
             looking_at,
             library_tops,
             sorcery_lock,
@@ -209,6 +215,11 @@ fn no_flash_types(types: &&baylee_core::types::TypeSet) -> bool {
 /// serde hands a field to its skip test by reference.
 fn no_ballots(ballots: &&[baylee_view::Ballot]) -> bool {
     ballots.is_empty()
+}
+
+/// serde hands a field to its skip test by reference.
+fn no_held_choices(choices: &&[baylee_view::HeldChoice]) -> bool {
+    choices.is_empty()
 }
 
 /// Computes a deterministic 64-bit FNV-1a hash of the seat-authorized

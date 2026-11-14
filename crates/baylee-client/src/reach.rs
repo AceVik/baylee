@@ -293,16 +293,7 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 .into_iter()
                 .flatten()
                 .filter(|o| !legal.castable.contains(&o.id) && legal.castable_once_paid(o.id))
-                .filter(|o| {
-                    o.card.is_some_and(|card| {
-                        baylee_client_core::timing::allows(view, o.types, has_flash(card))
-                    })
-                })
-                .filter(|o| pile_in_reach(duel, view, legal, o.id))
-                .filter(|o| {
-                    o.card
-                        .is_some_and(|card| !targeting::provably_targetless(view, card))
-                })
+                .filter(|o| pile_card_reachable(duel, view, legal, &pool, life, o, false))
                 .map(|o| o.id),
         )
         // And any exile zone, for a card the engine offers to cast from exile
@@ -318,18 +309,7 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 .iter()
                 .flatten()
                 .filter(|o| !legal.castable.contains(&o.id) && legal.payable.contains(&o.id))
-                .filter(|o| {
-                    o.card.is_some_and(|card| {
-                        baylee_client_core::timing::allows(view, o.types, has_flash(card))
-                    })
-                })
-                .filter(|o| pile_in_reach(duel, view, legal, o.id))
-                .filter(|o| {
-                    o.card.is_some_and(|card| {
-                        !targeting::provably_targetless(view, card)
-                            && baylee_ai::spell_can_be_cast_now(view, legal, o.id, card)
-                    })
-                })
+                .filter(|o| pile_card_reachable(duel, view, legal, &pool, life, o, true))
                 .map(|o| o.id),
         )
         // Gwenom's visible top is checked face by face in `cast_ways`: do
@@ -345,6 +325,102 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
                 .map(|top| top.id),
         )
         .collect()
+}
+
+/// Whether a card in a graveyard or exile can be cast right now once its mana
+/// is made, checking each way the engine names in `LegalActions::cast_ways`
+/// against that way's own face timing, targets and price (CR 601.3e; fault 71).
+///
+/// Falls back to the visible front face (`o.types`, `has_flash(card)`, `card`)
+/// only when `LegalActions::cast_ways` names no way for `o.id`.
+fn pile_card_reachable(
+    duel: &Duel,
+    view: &baylee_view::PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
+    pool: &baylee_view::ManaPoolView,
+    life: i32,
+    o: &baylee_view::PublicObject,
+    check_cast_now: bool,
+) -> bool {
+    let Some(card) = o.card else {
+        return false;
+    };
+    let mut had_way = false;
+    let any_way = legal
+        .cast_ways
+        .iter()
+        .filter(|(id, _)| *id == o.id)
+        .any(|(_, way)| {
+            had_way = true;
+            pile_way_reachable(view, legal, pool, life, o, card, way, check_cast_now)
+        });
+    if had_way {
+        return any_way && pile_in_reach(duel, view, legal, o.id);
+    }
+    baylee_client_core::timing::allows(view, o.types, has_flash(card))
+        && pile_in_reach(duel, view, legal, o.id)
+        && !targeting::provably_targetless_from(view, card, Some(o.id))
+        && (!check_cast_now || baylee_ai::spell_can_be_cast_now(view, legal, o.id, card))
+}
+
+/// Whether one `LegalActions::cast_ways` entry on a graveyard or exiled card
+/// passes its cast face's timing, target check and mana plan (CR 601.3e).
+#[allow(clippy::too_many_arguments)]
+fn pile_way_reachable(
+    view: &baylee_view::PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
+    pool: &baylee_view::ManaPoolView,
+    life: i32,
+    o: &baylee_view::PublicObject,
+    card: baylee_view::CardIdentity,
+    way: &baylee_engine::choice::CastModeDesc,
+    check_cast_now: bool,
+) -> bool {
+    use baylee_engine::choice::CastModeKind;
+    let face_card = if matches!(way.kind, CastModeKind::Disguise) {
+        if !baylee_client_core::timing::allows(view, baylee_core::types::TypeSet::CREATURE, false) {
+            return false;
+        }
+        card
+    } else {
+        let face = match way.kind {
+            CastModeKind::Face(at)
+            | CastModeKind::EscapeGranted { face: at, .. }
+            | CastModeKind::LibraryTopLife { face: at, .. } => {
+                let Ok(at) = u8::try_from(at) else {
+                    return false;
+                };
+                at
+            }
+            _ => card.face,
+        };
+        let face_card = baylee_view::CardIdentity { face, ..card };
+        let (types, flash) = if face == card.face {
+            (o.types, has_flash(card))
+        } else {
+            let Some(def) = baylee_cards::by_index(card.index) else {
+                return false;
+            };
+            let Some(face_def) = def.faces.get(usize::from(face)) else {
+                return false;
+            };
+            (face_def.types, has_flash(face_card))
+        };
+        if !baylee_client_core::timing::allows(view, types, flash)
+            || targeting::provably_targetless_from(view, face_card, Some(o.id))
+            || (check_cast_now && !baylee_ai::spell_can_be_cast_now(view, legal, o.id, face_card))
+        {
+            return false;
+        }
+        face_card
+    };
+    let cost = baylee_ai::less_delve(view, o.id, face_card, least_x(way.cost));
+    if legal.castable.contains(&o.id) {
+        manasources::plan_for_spell(&cost, pool, view, legal, o.id, way.kind).is_some()
+    } else {
+        manasources::plan_with_life_for_spell(&cost, pool, view, legal, o.id, way.kind, life)
+            .is_some()
+    }
 }
 
 /// Whether a card in a graveyard, exile or a visible library top has an

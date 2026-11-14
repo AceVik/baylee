@@ -70,7 +70,12 @@ pub(super) fn exec_choice(
                 .iter()
                 .filter_map(|&card| state.object(card))
                 .any(|card| card.characteristics().name == name);
-            res.awaiting = Some(AwaitingOp::GuessNamedCardInHand { actual });
+            res.awaiting = Some(AwaitingOp::GuessNamedCardInHand {
+                guesser,
+                card: printed.card(),
+                face: printed.face(),
+                actual,
+            });
             Some(Pending::YesNo {
                 player: guesser,
                 prompt: YesNoPrompt::GuessNamedCardInHand {
@@ -871,9 +876,20 @@ pub(super) fn exec_choice(
                 effects,
                 once_each_turn: None,
             });
+            let prompt = match (effects.first(), res.subject.guess) {
+                (Some(Effect::RevealHandForGuess), Some(guess)) => {
+                    YesNoPrompt::RevealHandForGuess {
+                        guesser: guess.guesser,
+                        card: guess.card,
+                        face: guess.face,
+                        guessed_in_hand: guess.claimed,
+                    }
+                }
+                _ => YesNoPrompt::MayDo,
+            };
             Some(Pending::YesNo {
                 player,
-                prompt: YesNoPrompt::MayDo,
+                prompt,
                 source: resolving_ability(state, res),
             })
         }

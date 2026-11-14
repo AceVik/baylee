@@ -51,10 +51,19 @@ fn play(named: CardIndex, guess_in_hand: bool, reveal: bool) -> bool {
         }
     );
     e.apply(p1, PlayerAction::YesNo(guess_in_hand)).unwrap();
-    let Pending::YesNo { player, .. } = e.pending().clone() else {
+    let Pending::YesNo { player, prompt, .. } = e.pending().clone() else {
         panic!("expected the optional reveal")
     };
     assert_eq!(player, p0);
+    assert_eq!(
+        prompt,
+        baylee_engine::choice::YesNoPrompt::RevealHandForGuess {
+            guesser: p1,
+            card: named,
+            face: 0,
+            guessed_in_hand: guess_in_hand,
+        }
+    );
     let before = library_size(&e, p0);
     e.apply(p0, PlayerAction::YesNo(reveal)).unwrap();
     pass_until(&mut e, stack_is_empty);

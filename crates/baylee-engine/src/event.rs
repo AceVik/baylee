@@ -66,6 +66,21 @@ pub enum CastCancelReason {
     Illegal,
 }
 
+/// What a player chose objects for during an APNAP held-choice sequence
+/// (CR 101.4b, CR 101.4d) before all players' choices are carried out together.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum ChosenAction {
+    /// Chosen to be sacrificed once all players have chosen.
+    Sacrifice,
+    /// Chosen to be discarded once all players have chosen (CR 101.4d: a card
+    /// chosen from a hidden hand stays hidden from other seats until discarded).
+    Discard,
+    /// Chosen to be destroyed once all players have chosen.
+    Destroy,
+    /// Chosen to be returned to its owner's hand once all players have chosen.
+    ReturnToHand,
+}
+
 /// A single game event.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum GameEvent {
@@ -131,6 +146,17 @@ pub enum GameEvent {
         player: PlayerId,
         /// The kept permanents.
         cards: Vec<ObjectId>,
+    },
+    /// Objects chosen by one player in an APNAP sequence whose action happens
+    /// simultaneously once every player has chosen (CR 101.4b, CR 101.4d).
+    CardsChosen {
+        /// The choosing player.
+        player: PlayerId,
+        /// The chosen objects; hidden-hand identities stay withheld from other
+        /// seats until the simultaneous discard occurs (CR 101.4d).
+        cards: Vec<ObjectId>,
+        /// What will happen to the chosen objects.
+        action: ChosenAction,
     },
     /// A player cast a ballot in a vote (CR 701.38a), announced as it is
     /// cast (CR 608.2d), so every later voter knows it.

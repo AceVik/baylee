@@ -625,20 +625,7 @@ impl HeuristicAgent {
         // whichever the handles put first. Ahead of the gate, as crew is:
         // it is a price the seat already chose to pay.
         if let ChoicePrompt::SacrificeFor { player } = prompt {
-            let mut ranked = options.to_vec();
-            ranked.sort_by_key(|id| {
-                let value = view.object(*id).map_or(0, |o| self.given_up(view, o));
-                (
-                    if self.hostile(player, view.seat) {
-                        -value
-                    } else {
-                        value
-                    },
-                    *id,
-                )
-            });
-            ranked.truncate(usize::from(min));
-            return Some(ranked);
+            return Some(self.sacrifice_for_answer(view, options, min, player));
         }
         if prompt == ChoicePrompt::CostSacrifice
             && options
@@ -673,6 +660,7 @@ impl HeuristicAgent {
         let mut ranked = options.to_vec();
         let count = match prompt {
             ChoicePrompt::SearchLibrary
+            | ChoicePrompt::SearchLibraryTappedAndHand
             | ChoicePrompt::Wish
             | ChoicePrompt::PutIntoHand
             | ChoicePrompt::PlayFromExile
@@ -719,6 +707,29 @@ impl HeuristicAgent {
         };
         ranked.truncate(count);
         Some(ranked)
+    }
+
+    fn sacrifice_for_answer(
+        &self,
+        view: &PlayerView,
+        options: &[ObjectId],
+        min: u8,
+        player: baylee_core::ids::PlayerId,
+    ) -> Vec<ObjectId> {
+        let mut ranked = options.to_vec();
+        ranked.sort_by_key(|id| {
+            let value = view.object(*id).map_or(0, |o| self.given_up(view, o));
+            (
+                if self.hostile(player, view.seat) {
+                    -value
+                } else {
+                    value
+                },
+                *id,
+            )
+        });
+        ranked.truncate(usize::from(min));
+        ranked
     }
 
     /// Answers one category of a keep-one-of-each effect by the value of the
@@ -2294,10 +2305,14 @@ fn card_as_object(
         supertypes: f.supertypes,
         subtypes,
         chosen_subtype: None,
+        second_chosen_subtype: None,
+        chosen_card_type: None,
+        chosen_number: None,
         chosen_name: None,
         chosen_opponent: None,
         chosen_color: None,
         chosen_x: None,
+        linked_exile: Vec::new(),
         unlocked_doors: None,
         suspended: false,
         token: None,
@@ -2514,7 +2529,21 @@ pub(crate) fn sources_keeping(
     usable(
         view,
         legal,
-        split_restricted(offers_claimed(view, legal, claims)).1,
+        split_restricted(offers_claimed(view, legal, claims, false)).1,
+    )
+}
+
+/// [`sources_keeping`] for a human or LLM seat menu, keeping painlands offered
+/// even at 1 life (CR 601.2g, 605.3b, 704.3) behind every painless tap.
+pub(crate) fn seat_sources_keeping(
+    view: &PlayerView,
+    legal: &LegalActions,
+    claims: &[ManaCost],
+) -> Vec<Source> {
+    usable(
+        view,
+        legal,
+        split_restricted(offers_claimed(view, legal, claims, true)).1,
     )
 }
 
@@ -2524,6 +2553,15 @@ pub(crate) fn sources_keeping(
 /// reads.
 pub(crate) fn restricted_sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     split_restricted(offers(view, legal))
+        .0
+        .into_iter()
+        .map(|offer| offer.source)
+        .collect()
+}
+
+/// [`restricted_sources`] for a human or LLM seat menu (`allow_lethal = true`).
+pub(crate) fn seat_restricted_sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
+    split_restricted(offers_claimed(view, legal, &[], true))
         .0
         .into_iter()
         .map(|offer| offer.source)
@@ -2551,13 +2589,18 @@ struct Offer {
 /// Every offered simple mana tap, restricted ones with their filter, ranked
 /// by the colours the hand wants: the house's reading.
 fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
-    offers_claimed(view, legal, &[])
+    offers_claimed(view, legal, &[], false)
 }
 
 /// [`offers`], ranked by the colours `claims` want beside the hand's
 /// ([`sources_keeping`]).
 #[allow(clippy::too_many_lines)]
-fn offers_claimed(view: &PlayerView, legal: &LegalActions, claims: &[ManaCost]) -> Vec<Offer> {
+fn offers_claimed(
+    view: &PlayerView,
+    legal: &LegalActions,
+    claims: &[ManaCost],
+    allow_lethal: bool,
+) -> Vec<Offer> {
     // The price rides on `manaplan::Source` itself. It used to be paired
     // with the source only until the dedup had run, because the solver asked
     // nothing but what comes out; since #165's second half the solver ranks
@@ -2582,7 +2625,7 @@ fn offers_claimed(view: &PlayerView, legal: &LegalActions, claims: &[ManaCost]) 
             continue;
         }
         let harm = mana_ability_harm(view, id, None);
-        if harm > 0 && harm >= life {
+        if !allow_lethal && harm > 0 && harm >= life {
             continue;
         }
         if let Some(object) = view.object(id)
@@ -2609,7 +2652,7 @@ fn offers_claimed(view: &PlayerView, legal: &LegalActions, claims: &[ManaCost]) 
             continue;
         }
         let harm = mana_ability_harm(view, id, Some(index));
-        if harm > 0 && harm >= life {
+        if !allow_lethal && harm > 0 && harm >= life {
             continue;
         }
         let Some(object) = view.object(id) else {
@@ -2649,6 +2692,7 @@ fn offers_claimed(view: &PlayerView, legal: &LegalActions, claims: &[ManaCost]) 
                         .contains(baylee_core::types::SupertypeSet::SNOW),
                     dear: None,
                     converter: None,
+                    bonus: Vec::new(),
                 },
                 only_for,
             });

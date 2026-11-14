@@ -1162,8 +1162,9 @@ fn a_delayed_action_come_due_is_not_performed_for_a_player_who_has_left() {
     );
 }
 
-/// Mana a delayed trigger adds goes to the player who controls it
-/// (CR 603.7d), whoever is active.
+/// Mana a delayed trigger adds goes on the stack under its controller and,
+/// once resolved, into that controller's pool (CR 603.7d, CR 605.1b), whoever
+/// is active.
 #[test]
 fn delayed_mana_goes_to_its_controller() {
     let mut engine = Duel::table(278, plains(), 3).start();
@@ -1172,12 +1173,31 @@ fn delayed_mana_goes_to_its_controller() {
     engine.delayed_queue.push_back((
         seat(2),
         crate::state::DelayedAction::AddMana {
+            source: ObjectId::NO_SOURCE,
+            source_version: 0,
             color: baylee_core::mana::ManaColor::Colorless,
             amount: 2,
         },
     ));
 
     assert!(!engine.process_delayed());
+    engine.collect_triggers();
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Stack).len(),
+        1,
+        "delayed mana goes on the stack rather than straight into the pool"
+    );
+    let pools_before: Vec<u64> = engine
+        .state()
+        .players
+        .iter()
+        .map(|p| p.mana_pool.total())
+        .collect();
+    assert_eq!(pools_before, [0, 0, 0]);
+
+    pass_until(&mut engine, |e| {
+        e.state().zones.list(ZoneLocation::Stack).is_empty()
+    });
     let pools: Vec<u64> = engine
         .state()
         .players

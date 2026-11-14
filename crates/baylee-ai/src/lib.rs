@@ -1000,6 +1000,20 @@ impl HeuristicAgent {
                         .flat_map(|hand| &hand.cards)
                         .any(|held| held.card.index == card && held.card.face == face),
                 ),
+                // Liar's Pendulum's optional hand reveal: reveal only when the
+                // guesser guessed wrong, so revealing draws a card instead of
+                // giving away hidden information for nothing.
+                YesNoPrompt::RevealHandForGuess {
+                    card,
+                    face,
+                    guessed_in_hand,
+                    ..
+                } => PlayerAction::YesNo(
+                    baylee_client_core::decision::hand(view)
+                        .iter()
+                        .any(|held| held.card.index == card && held.card.face == face)
+                        != guessed_in_hand,
+                ),
                 // A "may" is weighed by what the yes does (`optional`).
                 // The rest are yes, for reasons that happen to agree. A
                 // commander goes home
@@ -1141,6 +1155,18 @@ pub fn mana_sources(
     policy::sources_keeping(view, legal, &board_claims(view, legal))
 }
 
+/// [`mana_sources`] for a human or LLM seat's menu: painlands whose 1 damage
+/// equals the player's remaining life (Yavimaya Coast at 1 life, CR 601.2g,
+/// 605.3b, 704.3) remain offered behind every painless tap instead of being
+/// suppressed by the house's self-preservation filter.
+#[must_use]
+pub fn seat_mana_sources(
+    view: &PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
+) -> Vec<baylee_client_core::manaplan::Source> {
+    policy::seat_sources_keeping(view, legal, &board_claims(view, legal))
+}
+
 /// The mana costs of the abilities the seat could activate on the
 /// battlefield once their mana is made (`LegalActions::unpaid_abilities`),
 /// mana abilities aside: what a land is kept back for beside the cards in
@@ -1257,9 +1283,19 @@ pub fn plan_for_spell(
     spell: ObjectId,
     way: baylee_engine::choice::CastModeKind,
 ) -> Option<baylee_client_core::manaplan::Plan> {
-    let mut plain = mana_sources(view, legal);
+    let mut plain = seat_mana_sources(view, legal);
     spend::repeat_counter_sources(view, &mut plain);
-    let restricted = policy::restricted_sources(view, legal);
+    if let Some(x_colors) = spell_x_colors(view, spell, way) {
+        plain.sort_by_key(|s| {
+            let makes_x = s.colors.iter().chain(&s.bonus).any(|&c| {
+                baylee_core::color::Color::ALL.into_iter().any(|col| {
+                    x_colors.contains(col) && baylee_core::mana::ManaColor::from_color(col) == c
+                })
+            });
+            (s.priced || s.dear.is_some(), makes_x)
+        });
+    }
+    let restricted = policy::seat_restricted_sources(view, legal);
     spend::plan_for(
         baylee_engine::choice::Spend::cast(spell, way),
         cost,
@@ -1277,6 +1313,26 @@ pub fn plan_for_spell(
             .map(|seat| seat.life.saturating_sub(1)),
         None,
     )
+}
+
+fn spell_x_colors(
+    view: &PlayerView,
+    spell: ObjectId,
+    way: baylee_engine::choice::CastModeKind,
+) -> Option<baylee_core::color::ColorSet> {
+    let card = baylee_client_core::decision::known_cards(view)
+        .find(|c| c.id == spell)
+        .map(|c| c.card)
+        .or_else(|| view.object(spell).and_then(|o| o.card))?;
+    let face_idx = match way {
+        baylee_engine::choice::CastModeKind::Face(face)
+        | baylee_engine::choice::CastModeKind::EscapeGranted { face, .. }
+        | baylee_engine::choice::CastModeKind::LibraryTopLife { face, .. } => face,
+        _ => usize::from(card.face),
+    };
+    let face = baylee_cards::by_index(card.index)?.faces.get(face_idx)?;
+    face.x_mana_colors
+        .or_else(|| face.x_mana_color.map(baylee_core::color::ColorSet::of))
 }
 
 /// Plans mana taps for activating an ability on `source` at `cost`: the
@@ -1306,6 +1362,44 @@ pub fn plan_for_activation(
     let others: Vec<baylee_client_core::manaplan::Source> =
         all.iter().filter(|s| s.id != source).cloned().collect();
     let restricted = policy::restricted_sources(view, legal);
+    let mana = |plain| spend::Mana {
+        pool: &pool,
+        plain,
+        restricted: &restricted,
+    };
+    let keep = spend::keepers(view, legal, Some(source));
+    spend::plan_keeping(spend, cost, mana(&others), legal, None, Some(source), &keep).or_else(
+        || {
+            if taps_self {
+                return None;
+            }
+            spend::plan_keeping(spend, cost, mana(&all), legal, None, None, &keep)
+        },
+    )
+}
+
+/// Seat-facing activation mana planner that includes lethal pain-land taps
+/// behind painless alternatives while leaving [`HeuristicAgent`] generation
+/// pins untouched.
+#[must_use]
+pub fn seat_plan_for_activation(
+    cost: &baylee_core::mana::ManaCost,
+    pool: &baylee_view::ManaPoolView,
+    view: &PlayerView,
+    legal: &baylee_engine::choice::LegalActions,
+    source: ObjectId,
+    taps_self: bool,
+) -> Option<baylee_client_core::manaplan::Plan> {
+    let mut pool = *pool;
+    pool.spending = view
+        .object(source)
+        .map_or(pool.spending, |o| o.ability_mana_spending);
+    let spend = baylee_engine::choice::Spend::Activate(source);
+    let mut all = policy::seat_sources_keeping(view, legal, &[]);
+    spend::repeat_counter_sources(view, &mut all);
+    let others: Vec<baylee_client_core::manaplan::Source> =
+        all.iter().filter(|s| s.id != source).cloned().collect();
+    let restricted = policy::seat_restricted_sources(view, legal);
     let mana = |plain| spend::Mana {
         pool: &pool,
         plain,
@@ -1510,8 +1604,20 @@ pub fn ability_taps_its_source(view: &PlayerView, source: ObjectId, index: u32) 
     }
     match activate::printed(view, source, index) {
         Some(
-            AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. },
-        ) => cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf),
+            AbilityDef::Activated { cost, .. }
+            | AbilityDef::ActivatedConditional { cost, .. }
+            | AbilityDef::ModalActivated { cost, .. },
+        ) => cost.parts.iter().any(|part| {
+            matches!(
+                part,
+                baylee_cards_dsl::CostPart::TapSelf
+                    | baylee_cards_dsl::CostPart::UntapSelf
+                    | baylee_cards_dsl::CostPart::ExertSelf
+                    | baylee_cards_dsl::CostPart::SacrificeSelf
+                    | baylee_cards_dsl::CostPart::ExileSelf
+                    | baylee_cards_dsl::CostPart::ReturnSelfToHand
+            )
+        }),
         _ => false,
     }
 }

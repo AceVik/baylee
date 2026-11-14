@@ -868,3 +868,392 @@ fn a_divided_spell_on_the_stack_shows_every_seat_its_division() {
 fn view_stack_empty(engine: &Engine<Registry>) -> bool {
     engine.state().zones.list(ZoneLocation::Stack).is_empty()
 }
+
+fn entry_of(name: &str) -> DeckEntry {
+    DeckEntry {
+        rule_print: None,
+        choices: baylee_core::card_metadata::DeckChoices::default(),
+        card: baylee_cards::decks::by_name(name).unwrap(),
+        print: PrintRef::new(0),
+    }
+}
+
+#[test]
+fn chosen_card_type_second_subtype_and_number_reach_every_seat_and_hide_when_face_down() {
+    let mut preset = mixed_print_preset();
+    preset.seats[0].starting_hand =
+        Some(vec![entry_of("Serra's Emissary"), entry_of("Shapeshifter")]);
+    preset.seats[0].starting_battlefield = vec![entry_of("Plains"); 13];
+    let mut engine = Engine::new(&preset, Registry).unwrap();
+    let view = settle(&mut engine, None);
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    for object in &view.battlefield {
+        engine
+            .apply(me, PlayerAction::ActivateManaAbility { source: object.id })
+            .unwrap();
+    }
+    let emissary = view.hand[0].id;
+    let shifter = view.hand[1].id;
+    engine
+        .apply(me, PlayerAction::CastSpell { card: emissary })
+        .unwrap();
+    while let Pending::Priority { player, .. } = engine.pending() {
+        engine.apply(*player, PlayerAction::PassPriority).unwrap();
+    }
+    engine
+        .apply(
+            me,
+            PlayerAction::ChooseCardType(baylee_core::types::TypeSet::CREATURE),
+        )
+        .unwrap();
+
+    engine
+        .apply(me, PlayerAction::CastSpell { card: shifter })
+        .unwrap();
+    while let Pending::Priority { player, .. } = engine.pending() {
+        engine.apply(*player, PlayerAction::PassPriority).unwrap();
+    }
+    engine.apply(me, PlayerAction::ChooseNumber(4)).unwrap();
+
+    let mut state = engine.state().clone();
+    let mountain_sub = baylee_core::generated::subtypes::land::MOUNTAIN;
+    state.object_mut(emissary).unwrap().riders.push(
+        baylee_engine::object::Rider::SecondChosenSubtype(mountain_sub),
+    );
+
+    for seat in [me, them] {
+        let shown = player_view(&state, seat, 0, None, &SeatContext::default(), &[]);
+        let em = shown.object(emissary).unwrap();
+        assert_eq!(
+            em.chosen_card_type,
+            Some(baylee_core::types::TypeSet::CREATURE)
+        );
+        assert_eq!(em.second_chosen_subtype, Some(mountain_sub));
+        assert_eq!(shown.object(shifter).unwrap().chosen_number, Some(4));
+    }
+
+    for id in [emissary, shifter] {
+        state
+            .object_mut(id)
+            .unwrap()
+            .status
+            .insert(baylee_engine::object::Status::FACE_DOWN);
+    }
+    for seat in [me, them] {
+        let shown = player_view(&state, seat, 0, None, &SeatContext::default(), &[]);
+        let em = shown.object(emissary).unwrap();
+        assert_eq!(em.chosen_card_type, None);
+        assert_eq!(em.second_chosen_subtype, None);
+        assert_eq!(shown.object(shifter).unwrap().chosen_number, None);
+    }
+}
+
+fn setup_barter_in_blood() -> (Engine<Registry>, crate::log::GameLog) {
+    let mut preset = mixed_print_preset();
+    preset.seats[0].starting_hand = Some(vec![entry_of("Barter in Blood")]);
+    preset.seats[0].starting_battlefield = vec![
+        entry_of("Swamp"),
+        entry_of("Swamp"),
+        entry_of("Swamp"),
+        entry_of("Swamp"),
+        entry_of("Grizzly Bears"),
+        entry_of("Grizzly Bears"),
+        entry_of("Grizzly Bears"),
+    ];
+    preset.seats[1].starting_battlefield = vec![
+        entry_of("Grizzly Bears"),
+        entry_of("Grizzly Bears"),
+        entry_of("Grizzly Bears"),
+    ];
+    let mut engine = Engine::new(&preset, Registry).unwrap();
+    let mut log = crate::log::GameLog::new(engine.state());
+    let view = settle(&mut engine, None);
+    log.consume(engine.state());
+    let me = PlayerId::new(0);
+    for object in view
+        .battlefield
+        .iter()
+        .filter(|o| o.controller == me && o.name == "Swamp")
+    {
+        engine
+            .apply(me, PlayerAction::ActivateManaAbility { source: object.id })
+            .unwrap();
+    }
+    let barter = view.hand[0].id;
+    engine
+        .apply(me, PlayerAction::CastSpell { card: barter })
+        .unwrap();
+    while let Pending::Priority { player, .. } = engine.pending() {
+        engine.apply(*player, PlayerAction::PassPriority).unwrap();
+    }
+    (engine, log)
+}
+
+#[test]
+fn barter_in_blood_exposes_earlier_apnap_permanent_choices_until_simultaneous_sacrifice() {
+    let (mut engine, mut log) = setup_barter_in_blood();
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let log_from = log.len();
+    let Pending::ChooseCards {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ChooseCards for seat 0: {:?}", engine.pending());
+    };
+    assert_eq!(player, me);
+    assert_eq!(options.len(), 3);
+    let kept = options[0];
+    let doomed = [options[1], options[2]];
+    engine
+        .apply(
+            me,
+            PlayerAction::ChooseObjects {
+                objects: vec![kept],
+            },
+        )
+        .unwrap();
+    log.consume(engine.state());
+
+    let expected = vec![
+        baylee_view::HeldChoice {
+            player: me,
+            object: Some(doomed[0]),
+            action: baylee_view::ChosenAction::Sacrifice,
+        },
+        baylee_view::HeldChoice {
+            player: me,
+            object: Some(doomed[1]),
+            action: baylee_view::ChosenAction::Sacrifice,
+        },
+    ];
+    for seat in [me, them] {
+        let shown = seen_by(&engine, seat);
+        assert_eq!(shown.held_choices, expected);
+        assert!(shown.object(doomed[0]).is_some(), "still on battlefield");
+    }
+    let lines = log.told(them, log_from, log.len());
+    assert!(lines.iter().any(|e| matches!(
+        &e.event,
+        baylee_view::LogEvent::CardsKept { player, cards }
+            if *player == me && matches!(cards.as_slice(), [baylee_view::LogObject::Known { id, .. }] if *id == kept)
+    )));
+
+    let Pending::ChooseCards {
+        player: second,
+        options: their_opts,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected ChooseCards for seat 1: {:?}", engine.pending());
+    };
+    assert_eq!(second, them);
+    engine
+        .apply(
+            them,
+            PlayerAction::ChooseObjects {
+                objects: vec![their_opts[0]],
+            },
+        )
+        .unwrap();
+    assert!(seen_by(&engine, me).held_choices.is_empty());
+    assert!(
+        seen_by(&engine, me)
+            .battlefield
+            .iter()
+            .all(|o| !doomed.contains(&o.id))
+    );
+}
+
+fn venture_descent(
+    engine: &mut Engine<Registry>,
+    me: PlayerId,
+    descent: baylee_core::ids::ObjectId,
+    legend: baylee_core::ids::ObjectId,
+    mode_pick: Option<usize>,
+) {
+    engine
+        .dev_state_mut(me)
+        .unwrap()
+        .object_mut(descent)
+        .unwrap()
+        .status
+        .remove(baylee_engine::object::Status::TAPPED);
+    engine
+        .apply(
+            me,
+            PlayerAction::ActivateAbility {
+                source: descent,
+                ability_index: 1,
+            },
+        )
+        .unwrap_or_else(|e| panic!("activate descent: {e:?}; pending={:?}", engine.pending()));
+    engine
+        .apply(
+            me,
+            PlayerAction::ChooseObjects {
+                objects: vec![legend],
+            },
+        )
+        .unwrap_or_else(|e| panic!("tap legend: {e:?}; pending={:?}", engine.pending()));
+    while let Pending::Priority { player, .. } = engine.pending() {
+        engine.apply(*player, PlayerAction::PassPriority).unwrap();
+    }
+    if let Some(pick) = mode_pick {
+        assert!(
+            matches!(engine.pending(), Pending::ChooseCastMode { .. }),
+            "expected dungeon mode choice, got {:?}",
+            engine.pending()
+        );
+        engine.apply(me, PlayerAction::ChooseMode(pick)).unwrap();
+    }
+    while !view_stack_empty(engine) {
+        let Pending::Priority { player, .. } = *engine.pending() else {
+            break;
+        };
+        engine.apply(player, PlayerAction::PassPriority).unwrap();
+    }
+}
+
+fn assert_sandfall_sacrifice(
+    engine: &mut Engine<Registry>,
+    log: &mut crate::log::GameLog,
+    me: PlayerId,
+    them: PlayerId,
+    descent: baylee_core::ids::ObjectId,
+    legend: baylee_core::ids::ObjectId,
+) {
+    venture_descent(engine, me, descent, legend, None);
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!(
+            "expected Sandfall Cell sacrifice choice: {:?}",
+            engine.pending()
+        );
+    };
+    let sac = options[0];
+    let sac_from = log.len();
+    engine
+        .apply(me, PlayerAction::ChooseObjects { objects: vec![sac] })
+        .unwrap();
+    log.consume(engine.state());
+    assert_eq!(
+        seen_by(engine, them).held_choices,
+        vec![baylee_view::HeldChoice {
+            player: me,
+            object: Some(sac),
+            action: baylee_view::ChosenAction::Sacrifice,
+        }]
+    );
+    assert!(log.told(them, sac_from, log.len()).iter().any(|e| matches!(
+        &e.event,
+        baylee_view::LogEvent::CardsChosen {
+            player,
+            cards,
+            action: baylee_view::ChosenAction::Sacrifice,
+        } if *player == me && matches!(cards.as_slice(), [baylee_view::LogObject::Known { id, .. }] if *id == sac)
+    )));
+    engine
+        .apply(them, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+}
+
+#[test]
+fn dungeon_tax_discard_announces_choice_without_revealing_the_hand_card() {
+    let mut preset = mixed_print_preset();
+    preset.seats[0].starting_hand = Some(vec![entry_of("Lightning Bolt"), entry_of("Plains")]);
+    preset.seats[1].starting_hand = Some(vec![entry_of("Island")]);
+    let mut bf = vec![
+        entry_of("Dungeon Descent"),
+        entry_of("Dungeon Descent"),
+        entry_of("Dungeon Descent"),
+        entry_of("Isamaru, Hound of Konda"),
+        entry_of("Seshiro the Anointed"),
+        entry_of("Zo-Zu the Punisher"),
+    ];
+    bf.extend(std::iter::repeat_n(entry_of("Plains"), 12));
+    preset.seats[0].starting_battlefield = bf;
+    preset.seats[1].starting_battlefield = vec![entry_of("Plains")];
+    let mut engine = Engine::new(&preset, Registry).unwrap();
+    let mut log = crate::log::GameLog::new(engine.state());
+    let view = settle(&mut engine, None);
+    log.consume(engine.state());
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    for p in view
+        .battlefield
+        .iter()
+        .filter(|o| o.controller == me && o.name == "Plains")
+    {
+        engine
+            .apply(me, PlayerAction::ActivateManaAbility { source: p.id })
+            .unwrap();
+    }
+    let descents: Vec<_> = view
+        .battlefield
+        .iter()
+        .filter(|o| o.name == "Dungeon Descent")
+        .map(|o| o.id)
+        .collect();
+    let legends: Vec<_> = view
+        .battlefield
+        .iter()
+        .filter(|o| {
+            o.supertypes
+                .contains(baylee_core::types::SupertypeSet::LEGENDARY)
+        })
+        .map(|o| o.id)
+        .collect();
+    // Mode 2 enters Tomb of Annihilation; mode 0 advances to Veils of Fear.
+    venture_descent(&mut engine, me, descents[0], legends[0], Some(2));
+    venture_descent(&mut engine, me, descents[1], legends[1], Some(0));
+
+    let Pending::ChooseCards {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        panic!(
+            "expected Veils of Fear discard choice: {:?}",
+            engine.pending()
+        );
+    };
+    assert_eq!(player, me);
+    let log_from = log.len();
+    engine
+        .apply(
+            me,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+    log.consume(engine.state());
+
+    assert_eq!(
+        seen_by(&engine, them).held_choices,
+        vec![baylee_view::HeldChoice {
+            player: me,
+            object: None,
+            action: baylee_view::ChosenAction::Discard,
+        }],
+        "CR 101.4d withholds the chosen hand card handle"
+    );
+    assert!(log.told(them, log_from, log.len()).iter().any(|e| matches!(
+        &e.event,
+        baylee_view::LogEvent::CardsChosen {
+            player,
+            cards,
+            action: baylee_view::ChosenAction::Discard,
+        } if *player == me && cards == &[baylee_view::LogObject::Hidden]
+    )));
+    engine
+        .apply(them, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+
+    assert_sandfall_sacrifice(&mut engine, &mut log, me, them, descents[2], legends[2]);
+    let forked = engine
+        .fork_for(them, baylee_engine::engine::DeckKnowledge::Known, 99)
+        .expect("fork succeeds");
+    assert!(forked.state().journal.entries().iter().any(|entry| matches!(
+        &entry.event,
+        baylee_engine::event::GameEvent::CardsChosen { cards, action: baylee_engine::event::ChosenAction::Discard, .. }
+            if cards == &[baylee_core::ids::ObjectId::NO_SOURCE]
+    )));
+}

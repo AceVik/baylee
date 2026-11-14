@@ -982,7 +982,9 @@ impl GameState {
         // so a card milled or discarded grows a permanent that never moved.
         // And exile, for the same reason one zone over: Unlicensed Hearse is
         // as big as the cards exiled with it (`PtCount::ExiledWithThis`), and
-        // one of them leaving exile shrinks it.
+        // one of them leaving exile shrinks it. And hands, because Empyrial
+        // Plate and Maro count cards in hand (`Amount::HandSize`), so drawing
+        // or putting a card back on top of a library changes P/T on the board.
         //
         // And every zone at all while a cross-zone effect is registered
         // (Maskwood Nexus: "Creatures you control are every creature type.
@@ -996,10 +998,10 @@ impl GameState {
         // pass was such a pass.
         if matches!(
             from_zone,
-            Zone::Battlefield | Zone::Stack | Zone::Graveyard | Zone::Exile
+            Zone::Battlefield | Zone::Stack | Zone::Graveyard | Zone::Exile | Zone::Hand
         ) || matches!(
             to.zone(),
-            Zone::Battlefield | Zone::Stack | Zone::Graveyard | Zone::Exile
+            Zone::Battlefield | Zone::Stack | Zone::Graveyard | Zone::Exile | Zone::Hand
         ) || self.projected_cross_zone
         {
             self.invalidate_projections();

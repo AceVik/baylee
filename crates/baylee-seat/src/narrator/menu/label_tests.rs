@@ -52,3 +52,23 @@ fn a_free_madness_cost_is_named_as_zero_mana() {
     );
     assert_eq!(label, "Cast it for its madness cost {0}");
 }
+
+#[test]
+fn a_non_mana_flashback_names_its_printed_cost_instead_of_zero_mana() {
+    let index = baylee_cards::decks::by_name("Lava Dart").expect("a pool card");
+    let option = CastModeDesc {
+        index: 0,
+        kind: CastModeKind::Flashback,
+        cost: ManaCost::ZERO,
+    };
+    let label = cast_mode_label(
+        Some(baylee_view::CardIdentity {
+            index,
+            print: PrintRef::new(0),
+            face: 0,
+        }),
+        &option,
+    );
+    assert!(label.contains("Sacrifice a Mountain"), "{label}");
+    assert!(!label.contains("{0}"), "{label}");
+}

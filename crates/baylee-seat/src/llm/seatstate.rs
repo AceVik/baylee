@@ -441,6 +441,7 @@ impl Seat {
         carry: impl FnOnce(&str) -> bool,
     ) -> Option<Answer> {
         self.narrator.hear(&request.log);
+        self.narrator.note_priority(request);
         if let Some(undone) = self.undone(request) {
             self.notes.push(undone);
         }
@@ -535,6 +536,7 @@ impl Seat {
         }
         let view = &request.view;
         let player = decision::resource_player(view);
+        self.narrator.note_way(view, resolved.way);
         self.hint = resolved.hint.clone().map(|hint| (hint, player));
         if let Some(stops) = resolved.stops {
             self.stops = Some(stops);
@@ -799,6 +801,7 @@ impl Seat {
                 let ran = self.queue.take().expect("a plan").ran();
                 self.notes.push(ran);
             }
+            self.narrator.note_way(view, resolved.way);
             self.hint = resolved.hint.map(|hint| (hint, decider));
             let action = self.start(resolved.act, label.clone(), view);
             return Some((action, label));
@@ -898,6 +901,30 @@ impl Seat {
             // Named for the other player's cast: it waits for that one's
             // questions (module docs).
             self.hint = Some((hint, player));
+            return None;
+        }
+        if let Pending::ChoosePlayer { options, .. } = &request.pending
+            && let Some(note) = &request.note
+            && (note.printed.map(|(c, _)| c) == Some(hint.card)
+                || note
+                    .source
+                    .and_then(|s| request.view.object(s))
+                    .and_then(|o| o.rules.map(|r| r.card).or_else(|| o.card.map(|c| c.index)))
+                    == Some(hint.card))
+        {
+            if hint.objects.is_empty()
+                && let [chosen] = hint.players.as_slice()
+                && options.contains(chosen)
+            {
+                return Some(PlayerAction::ChoosePlayer(*chosen));
+            }
+            if self.queue.is_some() {
+                self.stop(&Stop::TargetsNotLegal);
+            } else {
+                self.notes.push(
+                    "The targets you named ahead are not legal now: choose them here.".into(),
+                );
+            }
             return None;
         }
         let Pending::ChooseTargets {

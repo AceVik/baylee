@@ -238,3 +238,76 @@ fn implicit_self_effect_needs_no_target_choice_despite_player_protection() {
         assert_eq!(engine.state.players[0].life, life);
     }
 }
+
+/// CR 601.2a + CR 601.2c + CR 115.5: a spell cast from a graveyard via
+/// flashback leaves its graveyard onto the stack in CR 601.2a before targets
+/// are chosen in CR 601.2c, so Coffin Purge as the sole card in all graveyards
+/// cannot target itself and is not castable; a second card makes it castable
+/// targeting only that other card.
+#[test]
+fn flashback_spell_in_graveyard_cannot_target_itself() {
+    use super::testkit::{
+        Duel, card_index, in_hand, keep_mulligans, reach_main_phase, tap_mana_where,
+    };
+    let me = PlayerId::new(0);
+    let swamp = card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68");
+    // Look up Coffin Purge by name rather than quoting its oracle_id UUID so
+    // `xtask codegen`'s UUID scanner does not mistake this engine rule test for
+    // Coffin Purge's canonical card test while Coffin Purge remains Generated.
+    let coffin_purge = baylee_cards::decks::by_name("Coffin Purge").expect("Coffin Purge");
+    let bears = card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3");
+
+    let mut engine = Duel::new(6012, swamp)
+        .battlefield(0, &[swamp])
+        .hand(0, &[coffin_purge, bears])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, me);
+    tap_mana_where(&mut engine, me, |_| true);
+    let purge = in_hand(&engine, me, coffin_purge).expect("Coffin Purge in hand");
+    let other = in_hand(&engine, me, bears).expect("Grizzly Bears in hand");
+    engine
+        .dev_state_mut(me)
+        .expect("dev capability")
+        .move_object(
+            purge,
+            crate::zone::ZoneLocation::Graveyard(me),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .expect("move Coffin Purge to graveyard");
+    engine.refresh_offer();
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("expected priority");
+    };
+    assert!(
+        !legal.castable.contains(&purge),
+        "Coffin Purge alone in the graveyards cannot target itself (CR 601.2a, CR 115.5)"
+    );
+
+    engine
+        .dev_state_mut(me)
+        .expect("dev capability")
+        .move_object(
+            other,
+            crate::zone::ZoneLocation::Graveyard(me),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .expect("move Grizzly Bears to graveyard");
+    engine.refresh_offer();
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("expected priority");
+    };
+    assert!(
+        legal.castable.contains(&purge),
+        "a second graveyard card gives Coffin Purge a legal target"
+    );
+    engine
+        .apply(me, PlayerAction::CastSpell { card: purge })
+        .expect("cast Coffin Purge via flashback");
+    let Pending::ChooseTargets { options, .. } = engine.pending() else {
+        panic!("expected target prompt, got {:?}", engine.pending());
+    };
+    assert_eq!(options, &[other]);
+}

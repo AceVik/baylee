@@ -316,6 +316,7 @@ pub fn play_report<L: CardLookup>(
                 decision_remaining_ms: None,
                 policy_acts: &[],
                 ballots: engine.ballots(),
+                held_choices: &engine.held_choices(),
             },
             &[],
         );
@@ -671,6 +672,7 @@ mod tests {
                     library_reveal_blocked: engine.library_reveal_blocked(),
                     inspected_cards: engine.inspected_cards(),
                     ballots: engine.ballots(),
+                    held_choices: &engine.held_choices(),
                     ..Default::default()
                 },
                 &[],
@@ -1145,6 +1147,7 @@ mod tests {
                     decision_remaining_ms: None,
                     policy_acts: &[],
                     ballots: engine.ballots(),
+                    held_choices: &engine.held_choices(),
                 },
                 &[],
             );

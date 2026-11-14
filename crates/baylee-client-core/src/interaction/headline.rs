@@ -267,7 +267,9 @@ fn foreign_library_line(
     statics: Option<&GameStatic>,
 ) -> Option<String> {
     let noun = match reason {
-        ChoicePrompt::SearchLibrary => Phrase::NounCardsFromLibraryOf,
+        ChoicePrompt::SearchLibrary | ChoicePrompt::SearchLibraryTappedAndHand => {
+            Phrase::NounCardsFromLibraryOf
+        }
         ChoicePrompt::PutBackOnTop => Phrase::NounCardsToTopOf,
         ChoicePrompt::PutOnBottom => Phrase::NounCardsToBottomOf,
         _ => return None,
@@ -376,6 +378,7 @@ fn choice_noun(reason: ChoicePrompt) -> Phrase {
         ChoicePrompt::KeepCreatures => Phrase::NounCreaturesToKeep,
         ChoicePrompt::KeepPermanents => Phrase::NounPermanentsToKeep,
         ChoicePrompt::SearchLibrary => Phrase::NounCardsFromLibrary,
+        ChoicePrompt::SearchLibraryTappedAndHand => Phrase::NounCardsFromLibraryTappedAndHand,
         ChoicePrompt::PutBackOnTop => Phrase::NounCardsToTop,
         ChoicePrompt::Wish => Phrase::NounCardsOutside,
         ChoicePrompt::CostSacrifice | ChoicePrompt::SacrificeFor { .. } => {
@@ -730,8 +733,10 @@ fn counters_named(
     }
 }
 
-/// The name of one card type, for a question asked about it.
-fn card_type_name(card_type: baylee_core::types::TypeSet) -> Phrase {
+/// The name of one card type, for a question asked about it or a permanent's
+/// chosen card type (CR 205.2a).
+#[must_use]
+pub fn card_type_phrase(card_type: baylee_core::types::TypeSet) -> Phrase {
     use baylee_core::types::TypeSet;
     [
         (TypeSet::ARTIFACT, Phrase::KindArtifact),
@@ -739,6 +744,7 @@ fn card_type_name(card_type: baylee_core::types::TypeSet) -> Phrase {
         (TypeSet::CREATURE, Phrase::KindCreature),
         (TypeSet::ENCHANTMENT, Phrase::KindEnchantment),
         (TypeSet::INSTANT, Phrase::KindInstant),
+        (TypeSet::KINDRED, Phrase::KindKindred),
         (TypeSet::LAND, Phrase::KindLand),
         (TypeSet::PLANESWALKER, Phrase::KindPlaneswalker),
         (TypeSet::SORCERY, Phrase::KindSorcery),
@@ -746,6 +752,10 @@ fn card_type_name(card_type: baylee_core::types::TypeSet) -> Phrase {
     .into_iter()
     .find_map(|(t, name)| card_type.contains(t).then_some(name))
     .unwrap_or(Phrase::KindOther)
+}
+
+fn card_type_name(card_type: baylee_core::types::TypeSet) -> Phrase {
+    card_type_phrase(card_type)
 }
 
 /// "Choose two cards", with the noun as an argument rather than glued on.
@@ -836,15 +846,7 @@ fn yes_no_line(
         // 608.2d): the question names it, and whose it is where it is
         // another player's, or it cannot be answered.
         YesNoPrompt::PayLife { amount, permanent } => {
-            let amount = amount.to_string();
-            match (permanent.and_then(name), whose) {
-                (None, _) => Phrase::PayLife.fill(lang, &[&amount]),
-                (Some(permanent), None) => Phrase::PayLifeFor.fill(lang, &[&amount, &permanent]),
-                (Some(permanent), Some(player)) => Phrase::PayLifeForTheirs.fill(
-                    lang,
-                    &[&amount, &permanent, &seat_name(lang, statics, player)],
-                ),
-            }
+            pay_life_line(lang, amount, permanent, whose, statics, name)
         }
         YesNoPrompt::PayTax { mana } => Phrase::PayTax.fill(lang, &[&mana.to_string()]),
         YesNoPrompt::PayMana { cost } => Phrase::PayMana.fill(lang, &[&cost.to_string()]),
@@ -894,26 +896,14 @@ fn yes_no_line(
         }
         YesNoPrompt::ApplyAdditionalCountersNext {
             additional, kind, ..
-        } => {
-            if let Some(kind) = kind {
-                Phrase::ApplyAdditionalCountersOfKindNext.fill(
-                    lang,
-                    &[
-                        &additional.to_string(),
-                        &counter_label_counted(kind, lang, usize::from(additional)),
-                    ],
-                )
-            } else {
-                Phrase::ApplyAdditionalCountersNext.fill(lang, &[&additional.to_string()])
-            }
-        }
+        } => apply_additional_counters_line(lang, additional, kind),
         YesNoPrompt::ContinueRemovingCounters { remaining, .. } => {
             Phrase::ContinueRemovingCounters.fill_count(lang, usize::from(remaining), &[])
         }
         YesNoPrompt::MayDo => Phrase::UseTheOptionalAbility.text(lang).to_string(),
         // The owner answers, about a card that may be somebody else's
         // spell's target: the answer names both ends, so "no" is not read
-        // as "leave it where it is".
+        // as "no" = "leave it where it is".
         YesNoPrompt::TopOfLibrary { .. } => Phrase::TopOfLibraryOrBottom.text(lang).to_string(),
         // "No" is not "nothing": the card still leaves exile, for the hand.
         YesNoPrompt::Discover { .. } => Phrase::CastDiscovered.text(lang).to_string(),
@@ -921,8 +911,64 @@ fn yes_no_line(
         YesNoPrompt::GuessNamedCardInHand { holder, .. } => {
             Phrase::GuessNamedCardInHand.fill(lang, &[&seat_name(lang, statics, holder)])
         }
+        YesNoPrompt::RevealHandForGuess {
+            guesser,
+            guessed_in_hand,
+            ..
+        } => reveal_hand_for_guess_line(lang, statics, guesser, guessed_in_hand),
         YesNoPrompt::Generic => Phrase::YesOrNo.text(lang).to_string(),
     }
+}
+
+fn pay_life_line(
+    lang: Lang,
+    amount: u32,
+    permanent: Option<ObjectId>,
+    whose: Option<PlayerId>,
+    statics: Option<&GameStatic>,
+    name: &dyn Fn(ObjectId) -> Option<String>,
+) -> String {
+    let amount = amount.to_string();
+    match (permanent.and_then(name), whose) {
+        (None, _) => Phrase::PayLife.fill(lang, &[&amount]),
+        (Some(permanent), None) => Phrase::PayLifeFor.fill(lang, &[&amount, &permanent]),
+        (Some(permanent), Some(player)) => Phrase::PayLifeForTheirs.fill(
+            lang,
+            &[&amount, &permanent, &seat_name(lang, statics, player)],
+        ),
+    }
+}
+
+fn apply_additional_counters_line(
+    lang: Lang,
+    additional: u16,
+    kind: Option<baylee_cards_dsl::CounterKind>,
+) -> String {
+    if let Some(kind) = kind {
+        Phrase::ApplyAdditionalCountersOfKindNext.fill(
+            lang,
+            &[
+                &additional.to_string(),
+                &counter_label_counted(kind, lang, usize::from(additional)),
+            ],
+        )
+    } else {
+        Phrase::ApplyAdditionalCountersNext.fill(lang, &[&additional.to_string()])
+    }
+}
+
+fn reveal_hand_for_guess_line(
+    lang: Lang,
+    statics: Option<&GameStatic>,
+    guesser: PlayerId,
+    guessed_in_hand: bool,
+) -> String {
+    let phrase = if guessed_in_hand {
+        Phrase::RevealHandForGuessInHand
+    } else {
+        Phrase::RevealHandForGuessNotInHand
+    };
+    phrase.fill(lang, &[&seat_name(lang, statics, guesser)])
 }
 
 fn priority_line(lang: Lang, turn: Turn) -> String {
@@ -968,6 +1014,47 @@ pub fn ballots_line(
         })
         .collect();
     Some(Phrase::VotesSoFar.fill(lang, &[&ballots.join(", ")]))
+}
+
+/// Earlier APNAP choices held for a simultaneous action (CR 101.4b, CR 101.4d),
+/// shown beside the prompt or wait: "Choices so far: Ada to sacrifice Sol Ring,
+/// Bo to discard a card". `None` when no simultaneous choices are being held.
+#[must_use]
+pub fn held_choices_line(
+    lang: Lang,
+    reader: Option<PlayerId>,
+    view: &PlayerView,
+    statics: Option<&GameStatic>,
+    name: &dyn Fn(ObjectId) -> Option<String>,
+) -> Option<String> {
+    if view.held_choices.is_empty() {
+        return None;
+    }
+    let choices: Vec<String> = view
+        .held_choices
+        .iter()
+        .map(|choice| {
+            let who = if Some(choice.player) == reader {
+                Phrase::You.text(lang).to_owned()
+            } else {
+                seat_name(lang, statics, choice.player)
+            };
+            let object = match choice.object {
+                Some(id) => name(id)
+                    .filter(|n| !n.trim().is_empty())
+                    .unwrap_or_else(|| Phrase::APermanent.text(lang).to_owned()),
+                None => Phrase::LogACard.text(lang).to_owned(),
+            };
+            let phrase = match choice.action {
+                baylee_view::ChosenAction::Sacrifice => Phrase::ChoiceToSacrifice,
+                baylee_view::ChosenAction::Discard => Phrase::ChoiceToDiscard,
+                baylee_view::ChosenAction::Destroy => Phrase::ChoiceToDestroy,
+                baylee_view::ChosenAction::ReturnToHand => Phrase::ChoiceToReturn,
+            };
+            phrase.fill(lang, &[&who, &object])
+        })
+        .collect();
+    Some(Phrase::ChoicesSoFar.fill(lang, &[&choices.join(", ")]))
 }
 
 #[cfg(test)]

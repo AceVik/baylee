@@ -206,6 +206,28 @@ pub(super) fn mask_non_priority_single_choice(
             }
         }
         Pending::YesNo { prompt, source, .. } => {
+            if let YesNoPrompt::RevealHandForGuess {
+                card,
+                face,
+                guessed_in_hand,
+                ..
+            } = prompt
+            {
+                let has_named = baylee_client_core::decision::hand(view)
+                    .iter()
+                    .any(|held| held.card.index == *card && held.card.face == *face);
+                let want_yes = has_named != *guessed_in_hand;
+                let mut trial = masked_logits.to_vec();
+                for (i, c) in cands.candidates.iter().enumerate() {
+                    if matches!(c.action, Some(PlayerAction::YesNo(v)) if v != want_yes) {
+                        trial[i] = f32::NEG_INFINITY;
+                    }
+                }
+                if trial.iter().any(|l| l.is_finite()) {
+                    masked_logits.copy_from_slice(&trial);
+                }
+                return;
+            }
             let req_mana = match prompt {
                 YesNoPrompt::PayTax { mana } => Some(u32::from(*mana)),
                 YesNoPrompt::PayMana { cost } => Some(cost.with_x(0).cmc()),
@@ -271,7 +293,10 @@ pub(super) fn mask_non_priority_single_choice(
         } => {
             if matches!(
                 prompt,
-                ChoicePrompt::SearchLibrary | ChoicePrompt::PutIntoHand | ChoicePrompt::Wish
+                ChoicePrompt::SearchLibrary
+                    | ChoicePrompt::SearchLibraryTappedAndHand
+                    | ChoicePrompt::PutIntoHand
+                    | ChoicePrompt::Wish
             ) {
                 let tiers: Vec<i32> = cands
                     .candidates
@@ -834,7 +859,10 @@ pub(super) fn adjust_subset_logits(
         } => {
             if matches!(
                 prompt,
-                ChoicePrompt::SearchLibrary | ChoicePrompt::PutIntoHand | ChoicePrompt::Wish
+                ChoicePrompt::SearchLibrary
+                    | ChoicePrompt::SearchLibraryTappedAndHand
+                    | ChoicePrompt::PutIntoHand
+                    | ChoicePrompt::Wish
             ) {
                 for (i, cand) in cands.candidates[..n].iter().enumerate() {
                     if let Some(oid) = cand.object_id {

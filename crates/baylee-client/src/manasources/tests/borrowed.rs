@@ -282,6 +282,7 @@ fn owned_mana_ability(
             snow: false,
             dear: None,
             converter: None,
+            bonus: Vec::new(),
         });
     }
     let (source, amount, restricted) = baylee_cards_dsl::mana_with_riders(cost, effects)?;
@@ -303,6 +304,7 @@ fn owned_mana_ability(
         snow: false,
         dear: None,
         converter: None,
+        bonus: Vec::new(),
     })
 }
 

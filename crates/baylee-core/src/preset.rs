@@ -638,8 +638,13 @@ impl AIProfile {
     /// Value private exile selection, counters on newly created tokens and
     /// graveyard token copies; select a card its exile permission can cast.
     pub const TOKEN_AND_EXILE_CHOICES: u16 = 18;
+    /// Read a source's public chosen card type, chosen colour and linked-exile
+    /// characteristics (`Filter::OfSourceChosenCardType`,
+    /// `Filter::OfSourceChosenColor`, `Filter::SameNameAsLinkedExile`,
+    /// `Filter::SharesColorWithExiledWithSource`).
+    pub const CHOSEN_AND_LINKED_FILTERS: u16 = 19;
     /// What every level a player is offered plays: the newest generation.
-    pub const GENERATION: u16 = Self::TOKEN_AND_EXILE_CHOICES;
+    pub const GENERATION: u16 = Self::CHOSEN_AND_LINKED_FILTERS;
 
     /// The widest noise a level plays with from [`Self::NOISE_BAND`]: the
     /// band of every level but `novice` before it.

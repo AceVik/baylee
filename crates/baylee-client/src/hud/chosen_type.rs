@@ -106,10 +106,13 @@ fn words(object: &baylee_view::PublicObject, lang: Lang, detail: bool) -> Option
 }
 
 fn choice_words(object: &baylee_view::PublicObject, lang: Lang) -> Option<String> {
-    if let Some(doors) = object.unlocked_doors {
+    let mut out = Vec::new();
+    if let Some(doors) = object.unlocked_doors
+        && let Some(card) = object.card
+        && let Some(def) = baylee_cards::by_index(card.index)
+    {
         // The locked halves by name, in the pool's English as a named card
         // is; nothing once every door is open.
-        let def = baylee_cards::by_index(object.card?.index)?;
         let locked: Vec<&str> = def
             .faces
             .iter()
@@ -117,15 +120,17 @@ fn choice_words(object: &baylee_view::PublicObject, lang: Lang) -> Option<String
             .filter(|(_, open)| !open)
             .map(|(face, _)| face.name)
             .collect();
-        return (!locked.is_empty()).then(|| Phrase::LockedDoors.fill(lang, &[&locked.join(", ")]));
+        if !locked.is_empty() {
+            out.push(Phrase::LockedDoors.fill(lang, &[&locked.join(", ")]));
+        }
     }
-    if let Some(named) = object.chosen_name {
+    if let Some(named) = object.chosen_name
+        && let Some(face) =
+            baylee_cards::by_index(named.card).and_then(|d| d.faces.get(usize::from(named.face)))
+    {
         // The pool's English: the name is the rules identity, and the card
         // it names may be one this seat has never been shown a printing of.
-        let face = baylee_cards::by_index(named.card)?
-            .faces
-            .get(usize::from(named.face))?;
-        return Some(Phrase::ChosenName.fill(lang, &[face.name]));
+        out.push(Phrase::ChosenName.fill(lang, &[face.name]));
     }
     if let Some(color) = object.chosen_color {
         use baylee_core::mana::ManaColor;
@@ -138,12 +143,28 @@ fn choice_words(object: &baylee_view::PublicObject, lang: Lang) -> Option<String
             ManaColor::Colorless => Phrase::ColorColourless,
         }
         .text(lang);
-        return Some(word.to_string());
+        out.push(word.to_string());
     }
-    let subtype = object.chosen_subtype?;
-    let english = subtypes::name(subtype)?;
-    let name = type_names::name(english, lang);
-    Some(name.to_string())
+    if let Some(card_type) = object.chosen_card_type {
+        out.push(
+            baylee_client_core::interaction::card_type_phrase(card_type)
+                .text(lang)
+                .to_string(),
+        );
+    }
+    let subtypes: Vec<String> = [object.chosen_subtype, object.second_chosen_subtype]
+        .into_iter()
+        .flatten()
+        .filter_map(subtypes::name)
+        .map(|english| type_names::name(english, lang).to_string())
+        .collect();
+    if !subtypes.is_empty() {
+        out.push(subtypes.join(", "));
+    }
+    if let Some(number) = object.chosen_number {
+        out.push(Phrase::ChosenNumber.fill(lang, &[&number.to_string()]));
+    }
+    (!out.is_empty()).then(|| out.join(" · "))
 }
 
 type BlockingPanel = Or<(
@@ -369,6 +390,18 @@ fn wanted_labels(duel: &Duel, lang: Lang, detail: bool) -> Vec<(ObjectId, String
                         super::seatbar::role_of(duel, opponent),
                     ),
                 );
+            }
+            if !object.linked_exile.is_empty() {
+                let exiled: Vec<String> = object
+                    .linked_exile
+                    .iter()
+                    .filter_map(|&id| view.object(id))
+                    .filter(|o| !o.status.is_face_down() && !o.name.is_empty())
+                    .map(|o| o.name.to_string())
+                    .collect();
+                if !exiled.is_empty() {
+                    parts.push(exiled.join(", "));
+                }
             }
             (!parts.is_empty()).then(|| (object.id, parts.join(" · "), icon))
         })
@@ -738,5 +771,52 @@ mod tests {
             detailed[0].1,
             "4/5 Oubliette — Discard a card and sacrifice a creature, an artifact, and a land."
         );
+    }
+
+    #[test]
+    fn chosen_card_type_second_subtype_number_and_linked_exile_are_labelled() {
+        use baylee_client_core::test_support::ViewBuilder;
+        let mut object = crate::registry_printed(1, 0, "Serra's Emissary");
+        object.chosen_card_type = Some(baylee_core::types::TypeSet::CREATURE);
+        assert_eq!(words(&object, Lang::En, false).as_deref(), Some("Creature"));
+        assert_eq!(words(&object, Lang::De, false).as_deref(), Some("Kreatur"));
+
+        object.chosen_card_type = None;
+        object.chosen_subtype = Some(subtypes::land::ISLAND);
+        object.second_chosen_subtype = Some(subtypes::land::MOUNTAIN);
+        assert_eq!(
+            words(&object, Lang::En, false).as_deref(),
+            Some("Island, Mountain")
+        );
+        assert_eq!(
+            words(&object, Lang::De, false).as_deref(),
+            Some("Insel, Gebirge")
+        );
+
+        object.chosen_subtype = None;
+        object.second_chosen_subtype = None;
+        object.chosen_number = Some(5);
+        assert_eq!(
+            words(&object, Lang::En, false).as_deref(),
+            Some("Chosen: 5")
+        );
+        assert_eq!(
+            words(&object, Lang::De, false).as_deref(),
+            Some("Gewählt: 5")
+        );
+
+        let mut lens = crate::registry_printed(2, 0, "Extraplanar Lens");
+        let island = crate::registry_printed(3, 0, "Island");
+        lens.linked_exile = vec![island.id];
+        let mut duel = Duel::default();
+        duel.receive_view(
+            ViewBuilder::new(2)
+                .with_battlefield(0, vec![lens])
+                .with_exile(0, vec![island])
+                .build(),
+        );
+        let labels = wanted_labels(&duel, Lang::En, false);
+        assert_eq!(labels.len(), 1);
+        assert_eq!(labels[0].1, "Island");
     }
 }

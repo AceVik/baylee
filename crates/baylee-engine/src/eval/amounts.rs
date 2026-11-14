@@ -336,6 +336,63 @@ pub(crate) fn linked_exile_cards(
     out
 }
 
+/// Face-up cards in exile linked to `source`'s current incarnation, in seat and
+/// exile order. Face-down exiled cards (`Status::FACE_DOWN`, CR 406.3) are
+/// never returned, because their characteristics are hidden from the public
+/// table.
+#[must_use]
+pub fn public_linked_exile_cards(state: &GameState, source: ObjectId) -> Vec<ObjectId> {
+    if !state
+        .players
+        .iter()
+        .any(|p| !state.zones.list(ZoneLocation::Exile(p.id)).is_empty())
+    {
+        return Vec::new();
+    }
+    let Some(src_obj) = state.object(source) else {
+        return Vec::new();
+    };
+    let source_ref = baylee_core::ids::DamageSourceRef {
+        object: source,
+        version: src_obj.version,
+    };
+    let acquisition = src_obj.rules_acquisition();
+    let mut out = Vec::new();
+    for player in &state.players {
+        for &id in state.zones.list(ZoneLocation::Exile(player.id)) {
+            if let Some(obj) = state.object(id)
+                && obj.is_card()
+                && !obj.status.contains(crate::object::Status::FACE_DOWN)
+                && obj.riders.iter().any(|r| match *r {
+                    crate::object::Rider::Linked { host, .. } => {
+                        host == source
+                            && state
+                                .source_memory
+                                .linked
+                                .get(&baylee_core::ids::DamageSourceRef {
+                                    object: obj.id,
+                                    version: obj.version,
+                                })
+                                .is_none_or(|&linked| linked == source_ref)
+                    }
+                    crate::object::Rider::ExiledWith { host, version } => {
+                        host == source
+                            && version == u16::try_from(source_ref.version).unwrap_or(u16::MAX)
+                    }
+                    crate::object::Rider::LinkedExile {
+                        source: linked_source,
+                        acquisition: linked_acquisition,
+                    } => linked_source == source_ref && linked_acquisition == acquisition,
+                    _ => false,
+                })
+            {
+                out.push(id);
+            }
+        }
+    }
+    out
+}
+
 /// Visits visible objects in a selected zone without copying its index.
 fn visit_zone(
     zone: ZoneSel,

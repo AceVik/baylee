@@ -158,6 +158,30 @@ pub struct Narrator {
     told: Option<delta::Told>,
     /// Whether the model asked for the whole board in the next message.
     whole_next: bool,
+    /// Last non-payment-window priority offer seen at `(decider, turn, phase, step)`,
+    /// kept so an X question can read `restricted_floating_for`.
+    last_priority: Option<(
+        (PlayerId, u32, baylee_view::Phase, baylee_view::Step),
+        baylee_engine::choice::LegalActions,
+    )>,
+    /// Raised cast option (`Buyback`, `Kicker`, …) picked at `(decider, turn, phase, step, object)`.
+    chosen_way: Option<(ChosenWayKey, crate::wake::Way)>,
+}
+
+type ChosenWayKey = (
+    PlayerId,
+    u32,
+    baylee_view::Phase,
+    baylee_view::Step,
+    ObjectId,
+);
+
+/// Cast-announcement context carried from the priority menu into the questions
+/// (`ChooseNumber` for X, payment window) that follow a cast.
+#[derive(Clone, Copy, Debug, Default)]
+pub(super) struct PriorCast<'a> {
+    pub legal: Option<&'a baylee_engine::choice::LegalActions>,
+    pub way: Option<crate::wake::Way>,
 }
 
 impl Narrator {
@@ -194,7 +218,59 @@ impl Narrator {
             gap: false,
             told: None,
             whole_next: false,
+            last_priority: None,
+            chosen_way: None,
         }
+    }
+
+    /// Records the priority offer of `request` when it is an ordinary priority
+    /// decision (`owed` is `None`), so an X prompt asked during a cast knows
+    /// which floating restricted mana may pay for that spell.
+    pub fn note_priority(&mut self, request: &Request) {
+        if let baylee_engine::choice::Pending::Priority { legal, .. } = &request.pending
+            && request.view.owed.is_none()
+        {
+            let decider = baylee_client_core::decision::resource_player(&request.view);
+            self.last_priority = Some((
+                (
+                    decider,
+                    request.view.turn,
+                    request.view.phase,
+                    request.view.step,
+                ),
+                (**legal).clone(),
+            ));
+        }
+    }
+
+    /// Records which raised [`crate::wake::Way`] (`Buyback`, `Kicker`, …) the
+    /// seat picked when initiating a cast.
+    pub fn note_way(&mut self, view: &PlayerView, way: Option<(ObjectId, crate::wake::Way)>) {
+        let decider = baylee_client_core::decision::resource_player(view);
+        self.chosen_way =
+            way.map(|(card, way)| ((decider, view.turn, view.phase, view.step, card), way));
+    }
+
+    fn prior_cast(&self, request: &Request) -> PriorCast<'_> {
+        let view = &request.view;
+        let decider = baylee_client_core::decision::resource_player(view);
+        let at = (decider, view.turn, view.phase, view.step);
+        let legal = self
+            .last_priority
+            .as_ref()
+            .filter(|(k, _)| *k == at)
+            .map(|(_, legal)| legal);
+        let card = view.casting.or_else(|| {
+            let note = request.note.as_ref()?;
+            note.cost.and(note.source)
+        });
+        let way = card.and_then(|card| {
+            self.chosen_way
+                .as_ref()
+                .filter(|(k, _)| *k == (decider, view.turn, view.phase, view.step, card))
+                .map(|(_, way)| *way)
+        });
+        PriorCast { legal, way }
     }
 
     /// Takes the log lines a request carries. Every request is heard, the
@@ -226,7 +302,7 @@ impl Narrator {
     #[must_use]
     pub fn menu(&self, request: &Request) -> Menu {
         let table = Table::new(&request.view, &request.context);
-        menu::question(&table, request, self.style).1
+        menu::question(&table, request, self.style, self.prior_cast(request)).1
     }
 
     /// Forgets which cards and which board the conversation was shown: it
@@ -252,6 +328,7 @@ impl Narrator {
         notes: &[String],
         stops_summary: Option<&str>,
     ) -> Wake {
+        self.note_priority(request);
         let table = Table::new(&request.view, &request.context);
         let mut text = String::new();
         let headline = table.headline(request);
@@ -301,7 +378,8 @@ impl Narrator {
                 text.push_str(&card);
             }
         }
-        let (question, menu) = menu::question(&table, request, self.style);
+        let (question, menu) =
+            menu::question(&table, request, self.style, self.prior_cast(request));
         text.push('\n');
         text.push_str(&question);
         Wake {

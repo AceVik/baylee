@@ -452,3 +452,155 @@ fn a_castable_foretell_card_offers_both_and_the_choice_arms_the_special_action()
         crate::RunEnd::Foretell
     );
 }
+
+/// Observed fault #71 (CR 601.3e): a card in a graveyard or in exile whose
+/// visible front face is a creature without flash, offered in `cast_ways` on an
+/// instant back/adventure face (`Murderous Rider // Swift End`), is timed and
+/// target-checked as that offered face rather than as the creature front.
+#[test]
+fn graveyard_and_exile_cast_ways_check_the_offered_face_for_timing_and_targets() {
+    use baylee_core::mana::ManaCost;
+    use baylee_engine::choice::{CastModeDesc, CastModeKind};
+
+    let rider_def = baylee_cards::by_oracle_id("1080c5b5-6651-4c6a-93e6-099fbe389e26")
+        .expect("Murderous Rider // Swift End");
+    let swamp = |slot| basic(slot, "Swamp", land::SWAMP);
+    let card_id = ObjectId::new(60, 0);
+    let front_object = || {
+        let mut obj = crate::registry_printed(card_id.slot(), 0, "Murderous Rider");
+        obj.types = rider_def.faces[0].types;
+        obj
+    };
+    let swift_end_way = CastModeDesc {
+        index: 0,
+        kind: CastModeKind::Face(1),
+        cost: ManaCost::parse("{1}{B}{B}"),
+    };
+    let rider_way = CastModeDesc {
+        index: 0,
+        kind: CastModeKind::Normal,
+        cost: ManaCost::parse("{1}{B}{B}"),
+    };
+    let build = |in_exile: bool,
+                 active_seat: u8,
+                 their_board: Vec<baylee_view::PublicObject>,
+                 way: CastModeDesc| {
+        let mut view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![swamp(1), swamp(2), swamp(3)])
+            .with_battlefield(1, their_board)
+            .build();
+        view.active = PlayerId::new(active_seat);
+        if in_exile {
+            view.exile[0].push(front_object());
+        } else {
+            view.graveyards[0].push(front_object());
+        }
+        let legal = LegalActions {
+            can_pass: true,
+            mana_abilities: vec![
+                ObjectId::new(1, 0),
+                ObjectId::new(2, 0),
+                ObjectId::new(3, 0),
+            ],
+            payable: vec![card_id],
+            cast_ways: vec![(card_id, way)],
+            ..LegalActions::default()
+        };
+        Duel {
+            interaction: Some(Interaction::new(
+                Pending::Priority {
+                    player: view.seat,
+                    legal: Box::new(legal),
+                },
+                view.seat,
+            )),
+            view: Some(view),
+            ..Duel::default()
+        }
+    };
+
+    // On the opponent's turn with a legal creature target, Swift End (instant,
+    // face 1) is reachable from both graveyard and exile even though face 0 is
+    // a creature without flash.
+    for in_exile in [false, true] {
+        let duel = build(in_exile, 1, vec![their_bears()], swift_end_way.clone());
+        assert!(
+            reachable(&duel).contains(&card_id),
+            "Swift End (in_exile={in_exile}) must be reachable on the opponent's turn"
+        );
+        assert_eq!(
+            crate::mana_for(&duel, card_id).map(|p| p.taps()),
+            Some(3),
+            "and mana_for plans the three Swamps"
+        );
+    }
+
+    // With no creature or planeswalker on the table, Swift End's face-1 target
+    // requirement withholds the offer even in seat 0's own main phase (face 0
+    // needs no target and would have waved it through).
+    for in_exile in [false, true] {
+        let targetless = build(in_exile, 0, vec![], swift_end_way.clone());
+        assert!(
+            !reachable(&targetless).contains(&card_id),
+            "Swift End (in_exile={in_exile}) has no creature or planeswalker target"
+        );
+    }
+
+    // Conversely, when the engine offers only the creature front face, it is
+    // still withheld on the opponent's turn and offered in seat 0's main phase.
+    let wrong_turn = build(true, 1, vec![], rider_way.clone());
+    assert!(!reachable(&wrong_turn).contains(&card_id));
+    let own_main = build(true, 0, vec![], rider_way);
+    assert!(reachable(&own_main).contains(&card_id));
+}
+
+#[test]
+fn a_flashback_card_as_the_only_graveyard_card_is_not_reachable() {
+    use baylee_core::mana::ManaCost;
+    use baylee_engine::choice::{CastModeDesc, CastModeKind};
+
+    let purge_id = ObjectId::new(10, 0);
+    let swamp_id = ObjectId::new(1, 0);
+    let flashback_way = CastModeDesc {
+        index: 0,
+        kind: CastModeKind::Flashback,
+        cost: ManaCost::parse("{B}"),
+    };
+    let build = |extra: Option<baylee_view::PublicObject>| {
+        let mut view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![basic(1, "Swamp", land::SWAMP)])
+            .build();
+        view.graveyards[0].push(crate::registry_printed(purge_id.slot(), 0, "Coffin Purge"));
+        if let Some(other) = extra {
+            view.graveyards[1].push(other);
+        }
+        let legal = LegalActions {
+            can_pass: true,
+            mana_abilities: vec![swamp_id],
+            payable: vec![purge_id],
+            cast_ways: vec![(purge_id, flashback_way.clone())],
+            ..LegalActions::default()
+        };
+        Duel {
+            interaction: Some(Interaction::new(
+                Pending::Priority {
+                    player: view.seat,
+                    legal: Box::new(legal),
+                },
+                view.seat,
+            )),
+            view: Some(view),
+            ..Duel::default()
+        }
+    };
+
+    assert!(
+        !reachable(&build(None)).contains(&purge_id),
+        "CR 601.2a + CR 115.5: Coffin Purge leaves the graveyard before targets are chosen and cannot target itself"
+    );
+    let other_card = crate::registry_printed(20, 1, "Grizzly Bears");
+    assert!(
+        reachable(&build(Some(other_card))).contains(&purge_id),
+        "another card in any graveyard makes Coffin Purge reachable via flashback"
+    );
+}

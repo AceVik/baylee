@@ -101,19 +101,18 @@ mod tests {
 
     /// The engine reads a split card off its faces
     /// (`CardDef::is_split_spell_card`), because a card file states no
-    /// layout, and gives it both halves' characteristics off the stack (CR
-    /// 709.4). The printing does state it: Scryfall's `split` layout is
-    /// printed sideways, `[1, 1]` here, or `[0, 3]` for an Aftermath card
-    /// (`ScryfallCard::quarter_turns`). So the two answers are held together
-    /// over the whole pool, a Room aside (CR 709.5: it is read by its doors).
+    /// layout, and gives it both halves' characteristics off the stack and
+    /// battlefield (CR 709.4). The printing does state it: Scryfall's `split`
+    /// layout is printed sideways, `[1, 1]` here, or `[0, 3]` for an Aftermath
+    /// card (`ScryfallCard::quarter_turns`). So the two answers are held
+    /// together over the whole pool, Rooms included (CR 709.4, CR 709.5).
     /// A double-faced card with two instant faces would be read as split and
     /// fail here, and so would a split card the reading misses.
     #[test]
     fn a_split_card_is_read_off_its_faces_as_its_printing_is_laid_out() {
         let mut split = 0;
         for def in crate::all() {
-            let printed_split =
-                matches!(quarter_turns(def.index), [1, 1] | [0, 3]) && !def.has_shared_type_line();
+            let printed_split = matches!(quarter_turns(def.index), [1, 1] | [0, 3]);
             assert_eq!(
                 def.is_split_spell_card(),
                 printed_split,

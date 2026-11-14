@@ -1164,15 +1164,32 @@ pub(super) fn resume_inner(
                 state, res, player, count, remaining, selected, draws, chosen, since,
             );
         }
-        AwaitingOp::DestroyChosen { filter, remaining } => {
-            if let Some(&victim) = chosen.first() {
-                crate::sba::destroy(state, victim);
-            }
-            let mut remaining = remaining;
-            if let Some((player, options)) =
-                chosen::next_asked(state, &mut remaining, filter, res.controller, res.source)
+        AwaitingOp::DestroyChosen {
+            asked,
+            filter,
+            mut remaining,
+            chosen: mut held,
+        } => {
+            let was_multi = !held.is_empty();
+            let recorded = chosen::record_choice(state, asked, chosen, &mut held);
+            let next =
+                chosen::next_asked(state, &mut remaining, filter, res.controller, res.source);
+            if let Some(id) = recorded
+                && (was_multi || next.is_some())
             {
-                res.awaiting = Some(AwaitingOp::DestroyChosen { filter, remaining });
+                state.journal.record(crate::event::GameEvent::CardsChosen {
+                    player: asked,
+                    cards: vec![id],
+                    action: crate::event::ChosenAction::Destroy,
+                });
+            }
+            if let Some((player, options)) = next {
+                res.awaiting = Some(AwaitingOp::DestroyChosen {
+                    asked: player,
+                    filter,
+                    remaining,
+                    chosen: held,
+                });
                 return next_choice(
                     state,
                     res,
@@ -1187,20 +1204,36 @@ pub(super) fn resume_inner(
                     },
                 );
             }
+            chosen::destroy_held(state, &held);
         }
-        AwaitingOp::SacrificeFilter { filter, remaining } => {
-            if let Some(&victim) = chosen.first() {
-                if let Some(obj) = state.object_mut(victim) {
-                    obj.kind = ObjectKind::Card;
-                }
-                let _ = state.sacrifice_object(victim, Cause::Effect);
-            }
-            // Ask the next player who still has a legal sacrifice.
-            let mut remaining = remaining;
-            if let Some((player, options)) =
-                chosen::next_asked(state, &mut remaining, filter, res.controller, res.source)
+        AwaitingOp::SacrificeFilter {
+            asked,
+            filter,
+            mut remaining,
+            chosen: mut held,
+        } => {
+            let was_multi = !held.is_empty();
+            let recorded = chosen::record_choice(state, asked, chosen, &mut held);
+            // Ask the next player in APNAP order who has a legal sacrifice,
+            // then sacrifice every chosen permanent together (CR 101.4).
+            let next =
+                chosen::next_asked(state, &mut remaining, filter, res.controller, res.source);
+            if let Some(id) = recorded
+                && (was_multi || next.is_some())
             {
-                res.awaiting = Some(AwaitingOp::SacrificeFilter { filter, remaining });
+                state.journal.record(crate::event::GameEvent::CardsChosen {
+                    player: asked,
+                    cards: vec![id],
+                    action: crate::event::ChosenAction::Sacrifice,
+                });
+            }
+            if let Some((player, options)) = next {
+                res.awaiting = Some(AwaitingOp::SacrificeFilter {
+                    asked: player,
+                    filter,
+                    remaining,
+                    chosen: held,
+                });
                 return next_choice(
                     state,
                     res,
@@ -1215,6 +1248,7 @@ pub(super) fn resume_inner(
                     },
                 );
             }
+            chosen::sacrifice_held(state, &held);
         }
         AwaitingOp::HeldSacrifice { player } => {
             super::for_each::held(state, res, player, chosen);
@@ -1257,45 +1291,32 @@ pub(super) fn resume_inner(
             }
         }
         AwaitingOp::SacrificeAllChosen => sacrifice_together(state, chosen),
-        AwaitingOp::ReturnChosen { filter, remaining } => {
-            if let Some(&returned) = chosen.first() {
-                // CR 400.3: its owner's hand, whoever was controlling it.
-                let owner = state.object(returned).map_or(res.controller, |o| o.owner);
-                if let Some(obj) = state.object_mut(returned) {
-                    obj.kind = ObjectKind::Card;
-                }
-                // No `ask_commander_replace` here, and this arm is the only
-                // one of the three that would ever want it: CR 903.9b is a
-                // replacement for a hand or a library, while a commander
-                // reaching a *graveyard* is CR 903.9a, a state-based action
-                // — so the two siblings, which both end in a graveyard, have
-                // nothing to ask.
-                //
-                // What stops it is the shape rather than the rule. The
-                // question re-enters its operation at the same program
-                // counter with nothing yet mutated (`resume_yes_no` returns
-                // `run` with no `pc += 1`), which a start block can survive
-                // and a continuation cannot: the operation here is the whole
-                // per-player chain, so the re-run would ask the first player
-                // to choose all over again. Unreachable today — the only
-                // filter the pool writes for this effect is `Land.YouCtrl`
-                // and no commander is a land — and listed in
-                // `docs/engine-internals.md` beside the other paths the rule
-                // does not reach, so the day a card writes
-                // `Creature.YouCtrl` here it is a known gap rather than a
-                // surprise.
-                let _ = state.move_object(
-                    returned,
-                    ZoneLocation::Hand(owner),
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
-            }
-            let mut remaining = remaining;
-            if let Some((player, options)) =
-                chosen::next_asked(state, &mut remaining, filter, res.controller, res.source)
+        AwaitingOp::ReturnChosen {
+            asked,
+            filter,
+            mut remaining,
+            chosen: mut held,
+        } => {
+            let was_multi = !held.is_empty();
+            let recorded = chosen::record_choice(state, asked, chosen, &mut held);
+            let next =
+                chosen::next_asked(state, &mut remaining, filter, res.controller, res.source);
+            if let Some(id) = recorded
+                && (was_multi || next.is_some())
             {
-                res.awaiting = Some(AwaitingOp::ReturnChosen { filter, remaining });
+                state.journal.record(crate::event::GameEvent::CardsChosen {
+                    player: asked,
+                    cards: vec![id],
+                    action: crate::event::ChosenAction::ReturnToHand,
+                });
+            }
+            if let Some((player, options)) = next {
+                res.awaiting = Some(AwaitingOp::ReturnChosen {
+                    asked: player,
+                    filter,
+                    remaining,
+                    chosen: held,
+                });
                 return next_choice(
                     state,
                     res,
@@ -1310,6 +1331,7 @@ pub(super) fn resume_inner(
                     },
                 );
             }
+            chosen::return_held(state, &held);
         }
         AwaitingOp::UntapChosen => {
             for &id in chosen {

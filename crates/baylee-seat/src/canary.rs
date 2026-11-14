@@ -133,6 +133,7 @@ fn empty_view(me: PlayerId) -> PlayerView {
         controls: Vec::new(),
         foreign_targets: Vec::new(),
         ballots: Vec::new(),
+        held_choices: Vec::new(),
     }
 }
 

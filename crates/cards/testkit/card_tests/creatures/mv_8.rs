@@ -97,6 +97,7 @@ mod bloodfire_colossus;
 mod brimstone_dragon;
 mod celestial_force;
 mod chromium;
+mod cognivore;
 mod copper_host_crusher;
 mod crash_of_rhinos;
 mod deep_spawn;

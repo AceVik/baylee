@@ -17,18 +17,18 @@ use crate::schedule::house_level;
 
 /// One profile's games against one opponent.
 #[derive(Default, Clone)]
-struct Tally {
-    games: u64,
-    wins: u64,
-    draws: u64,
-    fell_back: u64,
-    answers: u64,
-    think_ms: u64,
-    tokens: u64,
+pub(crate) struct Tally {
+    pub(crate) games: u64,
+    pub(crate) wins: u64,
+    pub(crate) draws: u64,
+    pub(crate) fell_back: u64,
+    pub(crate) answers: u64,
+    pub(crate) think_ms: u64,
+    pub(crate) tokens: u64,
 }
 
 impl Tally {
-    fn add(&mut self, other: &Self) {
+    pub(crate) fn add(&mut self, other: &Self) {
         self.games += other.games;
         self.wins += other.wins;
         self.draws += other.draws;
@@ -39,11 +39,41 @@ impl Tally {
     }
 }
 
-type Pairs = BTreeMap<(String, String), Tally>;
+pub(crate) type Pairs = BTreeMap<(String, String), Tally>;
+
+#[derive(Clone, Debug)]
+struct LegOutcome {
+    profiles: [String; 2],
+    winner_seat: Option<u64>,
+    draw: bool,
+}
+
+#[derive(Default, Clone, Debug)]
+struct DuplicateStats {
+    deals: u64,
+    sweeps_won: u64,
+    splits: u64,
+    sweeps_lost: u64,
+    half_points: u64,
+    seat0_games: u64,
+    seat0_wins: u64,
+    seat1_games: u64,
+    seat1_wins: u64,
+}
+
+#[derive(Default)]
+struct DuplicateSummary {
+    complete_deals: u64,
+    decisive_sweeps: u64,
+    same_seat_splits: u64,
+    drawn_deals: u64,
+    by_profile: BTreeMap<String, DuplicateStats>,
+}
 
 /// The report over every admitted game under `roots`.
 pub fn report(roots: &[PathBuf]) -> anyhow::Result<String> {
     let mut pairs = Pairs::new();
+    let mut deals: BTreeMap<(String, String), [Option<LegOutcome>; 2]> = BTreeMap::new();
     for root in roots {
         let attempts = root.join("attempts");
         anyhow::ensure!(attempts.is_dir(), "{} holds no attempts", root.display());
@@ -52,6 +82,7 @@ pub fn report(roots: &[PathBuf]) -> anyhow::Result<String> {
             .map(|entry| entry.path())
             .collect();
         dirs.sort();
+        let root_key = root.display().to_string();
         for dir in dirs {
             let Ok(raw) = std::fs::read(dir.join("receipt.json")) else {
                 continue;
@@ -61,13 +92,15 @@ pub fn report(roots: &[PathBuf]) -> anyhow::Result<String> {
             };
             if receipt["status"] == "admitted" {
                 add_game(&dir, &receipt, &mut pairs);
+                record_duplicate_leg(&root_key, &receipt, &mut deals);
             }
         }
     }
-    Ok(render(&pairs))
+    let dup = summarize_duplicates(&deals);
+    Ok(render(&pairs, &dup))
 }
 
-fn add_game(dir: &Path, receipt: &Value, pairs: &mut Pairs) {
+pub(crate) fn add_game(dir: &Path, receipt: &Value, pairs: &mut Pairs) {
     let request = &receipt["request"];
     let technical = &receipt["technical"];
     let name = |seat: usize| {
@@ -181,7 +214,186 @@ fn per(total: u64, count: u64) -> String {
     }
 }
 
-fn render(pairs: &Pairs) -> String {
+fn record_duplicate_leg(
+    root_key: &str,
+    receipt: &Value,
+    deals: &mut BTreeMap<(String, String), [Option<LegOutcome>; 2]>,
+) {
+    let Some(deal_id) = receipt["duplicate"]["deal_id"].as_str() else {
+        return;
+    };
+    let Some(leg) = receipt["duplicate"]["leg"]
+        .as_u64()
+        .filter(|&l| l < 2)
+        .and_then(|l| usize::try_from(l).ok())
+    else {
+        return;
+    };
+    let request = &receipt["request"];
+    let name = |seat: usize| {
+        request["profiles"][seat]
+            .as_str()
+            .or_else(|| request["models"][seat].as_str())
+            .unwrap_or("unknown")
+            .to_owned()
+    };
+    let terminal = &receipt["technical"]["terminal"];
+    let entry = deals
+        .entry((root_key.to_owned(), deal_id.to_owned()))
+        .or_default();
+    entry[leg] = Some(LegOutcome {
+        profiles: [name(0), name(1)],
+        winner_seat: terminal["winner_seat"].as_u64(),
+        draw: terminal["draw"].as_bool().unwrap_or(false),
+    });
+}
+
+fn summarize_duplicates(
+    deals: &BTreeMap<(String, String), [Option<LegOutcome>; 2]>,
+) -> DuplicateSummary {
+    let mut summary = DuplicateSummary::default();
+    for [leg0, leg1] in deals.values() {
+        let (Some(l0), Some(l1)) = (leg0, leg1) else {
+            continue;
+        };
+        if l0.profiles[0] != l1.profiles[1] || l0.profiles[1] != l1.profiles[0] {
+            continue;
+        }
+        summary.complete_deals += 1;
+        let pa = &l0.profiles[0];
+        let pb = &l0.profiles[1];
+        let pts_leg0_a = leg_half_points(l0, 0);
+        let pts_leg1_a = leg_half_points(l1, 1);
+        let total_a = pts_leg0_a + pts_leg1_a;
+        let total_b = 4 - total_a;
+
+        if total_a == 4 || total_b == 4 {
+            summary.decisive_sweeps += 1;
+        } else if !l0.draw && !l1.draw && l0.winner_seat == l1.winner_seat {
+            summary.same_seat_splits += 1;
+        } else {
+            summary.drawn_deals += 1;
+        }
+
+        record_profile_deal(
+            summary.by_profile.entry(pa.clone()).or_default(),
+            total_a,
+            !l0.draw && l0.winner_seat == Some(0),
+            !l1.draw && l1.winner_seat == Some(1),
+        );
+        record_profile_deal(
+            summary.by_profile.entry(pb.clone()).or_default(),
+            total_b,
+            !l1.draw && l1.winner_seat == Some(0),
+            !l0.draw && l0.winner_seat == Some(1),
+        );
+    }
+    summary
+}
+
+fn leg_half_points(leg: &LegOutcome, seat: u64) -> u64 {
+    if leg.draw {
+        1
+    } else if leg.winner_seat == Some(seat) {
+        2
+    } else {
+        0
+    }
+}
+
+fn record_profile_deal(st: &mut DuplicateStats, half_pts: u64, won_seat0: bool, won_seat1: bool) {
+    st.deals += 1;
+    st.half_points += half_pts;
+    st.seat0_games += 1;
+    st.seat1_games += 1;
+    st.seat0_wins += u64::from(won_seat0);
+    st.seat1_wins += u64::from(won_seat1);
+    match half_pts {
+        3 | 4 => st.sweeps_won += 1,
+        2 => st.splits += 1,
+        _ => st.sweeps_lost += 1,
+    }
+}
+
+fn render_duplicates(dup: &DuplicateSummary, ladder: &[LadderRow<'_>]) -> String {
+    if dup.complete_deals == 0 {
+        return String::new();
+    }
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "\nduplicate deals (seed- & deck-mirrored pairs, {} complete 2-leg deals):",
+        dup.complete_deals
+    );
+    let _ = writeln!(
+        out,
+        "  variance cancelled: {}/{} splits 1-1 (same deck+seat won both legs: {}, drawn: {}), {}/{} won 2-0/1.5-0.5 by pilot skill",
+        dup.same_seat_splits + dup.drawn_deals,
+        dup.complete_deals,
+        dup.same_seat_splits,
+        dup.drawn_deals,
+        dup.decisive_sweeps,
+        dup.complete_deals,
+    );
+    let _ = writeln!(
+        out,
+        "{:<18} {:>5}  {:>5} {:>5} {:>5}  {:<16} {:>9} {:>9}",
+        "profile", "deals", "won", "split", "lost", "deal score", "seat0 win", "seat1 win"
+    );
+    let elo_order: BTreeMap<&str, usize> = ladder
+        .iter()
+        .enumerate()
+        .map(|(idx, row)| (row.profile, idx))
+        .collect();
+    let mut rows: Vec<(&str, &DuplicateStats)> = dup
+        .by_profile
+        .iter()
+        .map(|(k, v)| (k.as_str(), v))
+        .collect();
+    rows.sort_by(|(pa, sa), (pb, sb)| {
+        let pct_a = if sa.deals == 0 {
+            0.0
+        } else {
+            real(sa.half_points) / real(sa.deals * 4)
+        };
+        let pct_b = if sb.deals == 0 {
+            0.0
+        } else {
+            real(sb.half_points) / real(sb.deals * 4)
+        };
+        pct_b
+            .total_cmp(&pct_a)
+            .then_with(|| elo_order.get(pa).cmp(&elo_order.get(pb)))
+            .then_with(|| pa.cmp(pb))
+    });
+    for (prof, st) in rows {
+        let pts = 0.5 * real(st.half_points);
+        let max_pts = real(st.deals * 2);
+        let pct = if st.deals == 0 {
+            0.0
+        } else {
+            100.0 * pts / max_pts
+        };
+        let s0_pct = if st.seat0_games == 0 {
+            0.0
+        } else {
+            100.0 * real(st.seat0_wins) / real(st.seat0_games)
+        };
+        let s1_pct = if st.seat1_games == 0 {
+            0.0
+        } else {
+            100.0 * real(st.seat1_wins) / real(st.seat1_games)
+        };
+        let _ = writeln!(
+            out,
+            "{prof:<18} {:>5}  {:>5} {:>5} {:>5}  {:>5.1}/{:<5.1} {:>3.0}% {:>8.0}% {:>8.0}%",
+            st.deals, st.sweeps_won, st.splits, st.sweeps_lost, pts, max_pts, pct, s0_pct, s1_pct,
+        );
+    }
+    out
+}
+
+fn render(pairs: &Pairs, dup: &DuplicateSummary) -> String {
     let mut out = String::new();
     let _ = writeln!(
         out,
@@ -229,7 +441,139 @@ fn render(pairs: &Pairs) -> String {
             all.fell_back
         );
     }
+    let ladder = bradley_terry_ladder(pairs, &totals);
+    if ladder.len() >= 2 {
+        let _ = writeln!(
+            out,
+            "\nhierarchy (Bradley-Terry Elo, anchor 1500):\n{:>4}  {:<18} {:>6} {:>6}  {:<26} {:>5} {:>8} {:>8}",
+            "rank",
+            "profile",
+            "elo",
+            "±95%",
+            "pvp: won/games  win [95 %]",
+            "drew",
+            "ms/ans",
+            "tok/ans"
+        );
+        for (idx, row) in ladder.iter().enumerate() {
+            let _ = writeln!(
+                out,
+                "{:>4}  {:<18} {:>6.0} {:>6}  {:<26} {:>5} {:>8} {:>8}",
+                idx + 1,
+                row.profile,
+                row.elo,
+                format!("±{:.0}", row.ci95),
+                share(&row.pvp),
+                row.pvp.draws,
+                per(row.all.think_ms, row.all.answers),
+                per(row.all.tokens, row.all.answers),
+            );
+        }
+    }
+    out.push_str(&render_duplicates(dup, &ladder));
     out
+}
+
+pub(crate) struct LadderRow<'a> {
+    pub(crate) profile: &'a str,
+    pub(crate) elo: f64,
+    pub(crate) ci95: f64,
+    pub(crate) pvp: Tally,
+    pub(crate) all: Tally,
+}
+
+/// Computes regularized Bradley-Terry MLE Elo ratings (anchored at mean 1500)
+/// across all non-house profiles that played at least one head-to-head game.
+pub(crate) fn bradley_terry_ladder<'a>(
+    pairs: &'a Pairs,
+    totals: &BTreeMap<&'a str, (Tally, Tally)>,
+) -> Vec<LadderRow<'a>> {
+    let mut profiles: Vec<&'a str> = Vec::new();
+    let mut pvp_totals: BTreeMap<&'a str, Tally> = BTreeMap::new();
+    for ((me, them), tally) in pairs {
+        if house_level(me).is_some() || house_level(them).is_some() || me == them {
+            continue;
+        }
+        if tally.games > 0 {
+            pvp_totals.entry(me.as_str()).or_default().add(tally);
+        }
+    }
+    for &p in pvp_totals.keys() {
+        profiles.push(p);
+    }
+    let k = profiles.len();
+    if k < 2 {
+        return Vec::new();
+    }
+    // Weak symmetric Beta(0.5, 0.5) prior (1 virtual game against the 1500 anchor)
+    // keeps undefeated or winless profiles finite while preserving exact ordering.
+    let prior_wins = 0.5_f64;
+    let prior_games = 2.0 * prior_wins;
+    let mut gamma = vec![1.0_f64; k];
+    let mut next = vec![1.0_f64; k];
+    for _ in 0..400 {
+        for i in 0..k {
+            let me = profiles[i];
+            let mut score = prior_wins;
+            let mut denom = prior_games / (gamma[i] + 1.0);
+            for (j, &them) in profiles.iter().enumerate() {
+                if i == j {
+                    continue;
+                }
+                if let Some(t) = pairs.get(&(me.to_owned(), them.to_owned()))
+                    && t.games > 0
+                {
+                    score += real(t.wins) + 0.5 * real(t.draws);
+                    denom += real(t.games) / (gamma[i] + gamma[j]);
+                }
+            }
+            next[i] = (score / denom).clamp(1e-6, 1e6);
+        }
+        let mean_ln =
+            next.iter().map(|g| g.ln()).sum::<f64>() / f64::from(u32::try_from(k).unwrap_or(1));
+        let scale = (-mean_ln).exp();
+        for (g, &n) in gamma.iter_mut().zip(&next) {
+            *g = n * scale;
+        }
+    }
+    let elo_scale = 400.0 / 10.0_f64.ln();
+    let mut rows: Vec<LadderRow<'a>> = (0..k)
+        .map(|i| {
+            let me = profiles[i];
+            let gi = gamma[i];
+            let mut info = prior_games * gi / (gi + 1.0).powi(2);
+            for (j, &them) in profiles.iter().enumerate() {
+                if i == j {
+                    continue;
+                }
+                if let Some(t) = pairs.get(&(me.to_owned(), them.to_owned()))
+                    && t.games > 0
+                {
+                    let gj = gamma[j];
+                    info += real(t.games) * (gi * gj) / (gi + gj).powi(2);
+                }
+            }
+            let elo = 1500.0 + elo_scale * gi.ln();
+            let ci95 = 1.959_964 * elo_scale / info.max(1e-9).sqrt();
+            let pvp = pvp_totals.get(me).cloned().unwrap_or_default();
+            let all = totals
+                .get(me)
+                .map_or_else(Default::default, |(a, _)| a.clone());
+            LadderRow {
+                profile: me,
+                elo,
+                ci95,
+                pvp,
+                all,
+            }
+        })
+        .collect();
+    rows.sort_by(|a, b| {
+        b.elo
+            .total_cmp(&a.elo)
+            .then_with(|| a.profile.cmp(b.profile))
+    });
+    rows
 }
 
 #[cfg(test)]
@@ -315,6 +659,13 @@ mod tests {
         let text = report(&[root]).unwrap();
         assert!(text.contains("sol"), "{text}");
         assert!(
+            text.contains("hierarchy (Bradley-Terry Elo, anchor 1500):"),
+            "{text}"
+        );
+        let sol_pos = text.find("1  sol").expect("sol ranked #1");
+        let astra_pos = text.find("2  astra").expect("astra ranked #2");
+        assert!(sol_pos < astra_pos, "{text}");
+        assert!(
             !text.lines().any(|line| line.starts_with("house:")),
             "{text}"
         );
@@ -330,5 +681,52 @@ mod tests {
         assert_eq!(wilson(0, 0), (0.0, 1.0));
         let (lo, hi) = wilson(0, 10);
         assert!(lo.abs() < 1e-12 && hi < 0.31);
+    }
+
+    #[test]
+    fn duplicate_summary_distinguishes_2_0_sweeps_from_1_1_deck_splits() {
+        let mut deals: BTreeMap<(String, String), [Option<LegOutcome>; 2]> = BTreeMap::new();
+        // Deal 0: sol beats astra in both legs (Seat 0 in leg 0, Seat 1 in leg 1) -> 2-0 sweep.
+        deals.insert(
+            ("r".into(), "deal-0".into()),
+            [
+                Some(LegOutcome {
+                    profiles: ["sol".into(), "astra".into()],
+                    winner_seat: Some(0),
+                    draw: false,
+                }),
+                Some(LegOutcome {
+                    profiles: ["astra".into(), "sol".into()],
+                    winner_seat: Some(1),
+                    draw: false,
+                }),
+            ],
+        );
+        // Deal 1: Seat 0 wins both legs (sol wins leg 0, astra wins leg 1) -> 1-1 split.
+        deals.insert(
+            ("r".into(), "deal-1".into()),
+            [
+                Some(LegOutcome {
+                    profiles: ["sol".into(), "astra".into()],
+                    winner_seat: Some(0),
+                    draw: false,
+                }),
+                Some(LegOutcome {
+                    profiles: ["astra".into(), "sol".into()],
+                    winner_seat: Some(0),
+                    draw: false,
+                }),
+            ],
+        );
+        let dup = summarize_duplicates(&deals);
+        assert_eq!(dup.complete_deals, 2);
+        assert_eq!(dup.decisive_sweeps, 1);
+        assert_eq!(dup.same_seat_splits, 1);
+        let sol = &dup.by_profile["sol"];
+        assert_eq!(
+            (sol.deals, sol.sweeps_won, sol.splits, sol.sweeps_lost),
+            (2, 1, 1, 0)
+        );
+        assert_eq!(sol.half_points, 6);
     }
 }

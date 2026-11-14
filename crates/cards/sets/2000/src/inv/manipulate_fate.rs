@@ -11,7 +11,7 @@ card!(
     oracle_id = "541f13aa-a1ed-453a-b719-82daef1be607",
     scryfall_id = "5bb52acb-dedb-4ed6-a6da-8c036f2b2958",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Manipulate Fate",
         mana_cost = mana!("{1}{U}"),
