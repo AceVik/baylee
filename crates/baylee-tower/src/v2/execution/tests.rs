@@ -107,3 +107,26 @@ fn commitments_bind_package_order_boundaries_and_exact_bytes() {
         append(&append(&other_package, b"a"), b"bc").prefix.digest
     );
 }
+
+#[test]
+fn tiny_records_cannot_exhaust_unbounded_metadata() {
+    let mut execution = Execution::new([7; 32], MAX_RECORD_BYTES)
+        .unwrap()
+        .claimed(10, 100)
+        .unwrap();
+    execution.prefix = Prefix {
+        chunks: MAX_RECORD_CHUNKS,
+        bytes: MAX_RECORD_CHUNKS,
+        digest: [8; 32],
+    };
+    execution.validate().unwrap();
+    assert_eq!(
+        execution.appended(execution.fence, 11, execution.prefix, b"x"),
+        Err(Refusal::Capacity)
+    );
+    // Reaching a storage limit neither changes the head nor fabricates a result.
+    assert!(!execution.sealed);
+    execution.prefix.chunks += 1;
+    execution.prefix.bytes += 1;
+    assert_eq!(execution.validate(), Err(Refusal::Invalid));
+}

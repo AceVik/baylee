@@ -4,6 +4,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("schema.sql"),
     include_str!("migrations/002_account_bounds.sql"),
     include_str!("migrations/003_operators.sql"),
+    include_str!("migrations/004_execution.sql"),
 ];
 
 impl Store {

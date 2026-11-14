@@ -963,3 +963,38 @@ No HTTP credential transport or Central token-scope change is implemented by
 this milestone; operator checks must still bind actual claims, record append,
 independent verification and recovery. Offline cohort/operator provisioning must
 not be exposed as an unguarded service endpoint.
+
+## Durable reservation and execution — twenty-seventh working milestone
+
+Migration four freezes one package/assigned host per run ordinal, retains bounded
+worker-claim history and stores ordered raw record chunks. Owner reservation and
+receipt commit together; an exact retry retains the first entropy/package. Claims
+require the approved host's exact advertised artifact. Every append commits bytes,
+account quota and the run's content commitment together with synchronous commit
+enabled before returning an acknowledgement. Repeated live-worker appends return
+the original head, while conflicting content, expired/revoked claims and foreign
+hosts refuse. Read/retry paths recompute each stored chunk's commitment.
+
+Storage has independent byte and row bounds: 512 MiB / 65,536 chunks maximum per
+reservation, two GiB / 262,144 retained chunks per account and 64 execution claims
+per reservation. These are technical ceilings, never game outcomes. Supervisor
+quarantine revokes the generation without changing seeds/opponent/economy. Recovery
+on another compatible host retains every acknowledged byte. A sealed record can
+only return to verification; explicit retirement creates no win/loss/income.
+
+The five existing database cases and the initial four execution cases passed in
+`/tmp/baylee-tower-store-execution-tests-20261114.log`. After adding commitment
+read checks, the five execution scenarios passed in
+`/tmp/baylee-tower-store-execution-tests-20261114-r2.log`: competing reservations
+and appends, lost replies, injected SQL failure with complete quota/head rollback,
+foreign roles, expiry/reassignment, sealed recovery, corruption and quota limits.
+All isolated schemas/pools were cleaned. Four domain execution cases passed in
+`/tmp/baylee-tower-record-limits-tests-20261114.log`; strict all-target Clippy passed
+in `/tmp/baylee-tower-store-execution-clippy-20261114-r3.log`.
+
+This milestone persists bootstrap house reservations; global eligible-pool
+transactions, independent adjudication/outbox, retention accounting and the live
+gateway's reveal-after-ACK barrier are still integration work. A storage ACK test
+does not prove that the live engine transport already enforces that barrier.
+Operator PostgreSQL configuration must retain fsync/WAL durability; synchronous
+commit does not by itself certify failover replication or storage hardware.

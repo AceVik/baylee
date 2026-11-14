@@ -21,14 +21,19 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 mod commands;
+mod execution;
 mod house;
 mod migration;
 mod operators;
 mod publication;
 mod requests;
+mod reservation;
 mod runs;
+mod state;
+pub use execution::{Acknowledged, Claimed, Lease, Recovery, StoredChunk};
 pub use operators::{Principal, Role};
 pub use publication::Publication;
+pub use reservation::{Entropy, Reserve};
 pub use runs::Start;
 
 /// Maximum persisted owner state or immutable cohort publication.
@@ -39,6 +44,12 @@ pub const MAX_REQUESTS: i64 = 4096;
 pub const MAX_RECEIPT_BYTES: i64 = 64 * 1024 * 1024;
 /// Retained runs per account; retention releases capacity without undoing awards.
 pub const MAX_RUNS: i32 = 1024;
+/// Retained raw private records across this account's reservations, two GiB.
+pub const MAX_ACCOUNT_RECORD_BYTES: i64 = 2 * 1024 * 1024 * 1024;
+/// Independent metadata bound for tiny record chunks across retained runs.
+pub const MAX_ACCOUNT_RECORD_CHUNKS: i64 = 262_144;
+/// Finite technical recovery attempts per reservation; exhaustion grants no outcome.
+pub const MAX_EXECUTION_CLAIMS: i64 = 64;
 /// Version of the visible enrollment explanation; not implicit from authentication.
 pub const CONSENT_REVISION: u16 = 1;
 
@@ -106,7 +117,7 @@ impl Store {
 
     async fn transaction(&self) -> Result<DatabaseTransaction, Error> {
         let tx = self.db.begin().await.map_err(|_| Error::Unavailable)?;
-        tx.execute_unprepared("SET LOCAL statement_timeout = '5s'; SET LOCAL lock_timeout = '2s'")
+        tx.execute_unprepared("SET LOCAL statement_timeout = '5s'; SET LOCAL lock_timeout = '2s'; SET LOCAL synchronous_commit = on")
             .await
             .map_err(|_| Error::Unavailable)?;
         Ok(tx)

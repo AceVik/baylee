@@ -9,6 +9,8 @@ pub const MAX_CHUNK_BYTES: usize = 256 * 1024;
 /// Hard storage ceiling; each reservation freezes an operator limit at or below it.
 /// Reaching it is a technical interruption, never a rules outcome.
 pub const MAX_RECORD_BYTES: u64 = 512 * 1024 * 1024;
+/// Separate metadata/row bound, including streams containing many tiny chunks.
+pub const MAX_RECORD_CHUNKS: u64 = 65_536;
 /// A renewable worker lease, independent of player decision or duel duration.
 pub const MAX_LEASE_MS: u64 = 120_000;
 
@@ -28,6 +30,7 @@ pub struct Prefix {
 impl Prefix {
     pub(super) fn validate(self, limit: u64) -> Result<(), Refusal> {
         if self.bytes > limit
+            || self.chunks > MAX_RECORD_CHUNKS
             || self.chunks > self.bytes
             || self.bytes > self.chunks.saturating_mul(MAX_CHUNK_BYTES as u64)
             || (self.chunks == 0 && self != Self::default())
@@ -146,7 +149,12 @@ impl Execution {
             .checked_add(length)
             .filter(|bytes| *bytes <= self.byte_limit)
             .ok_or(Refusal::Capacity)?;
-        let chunks = self.prefix.chunks.checked_add(1).ok_or(Refusal::Capacity)?;
+        let chunks = self
+            .prefix
+            .chunks
+            .checked_add(1)
+            .filter(|chunks| *chunks <= MAX_RECORD_CHUNKS)
+            .ok_or(Refusal::Capacity)?;
         let digest = Sha256::new()
             .chain_update(b"baylee/tower/record-prefix/v2\0")
             .chain_update(self.package)

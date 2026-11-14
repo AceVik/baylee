@@ -24,3 +24,7 @@ uuid.workspace = true
 baylee-core.workspace = true
 tokio.workspace = true
 url.workspace = true
+
+[[test]]
+name = "execution"
+path = "tests/execution/mod.rs"
