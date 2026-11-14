@@ -2,6 +2,9 @@
 use api::{Attempt, Badge, Board, Challenge, Request, Response, TaskProgress, Words};
 pub use central_api::challenges as api;
 
+/// Localized calendar and exact score presentation shared by challenge surfaces.
+pub mod presentation;
+
 /// A stable control identity, independent of a rebuilt UI tree.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Action {

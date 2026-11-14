@@ -33,7 +33,13 @@ pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, 
         if selected {
             commands.entity(cell).insert(BorderColor::all(tokens::GOLD));
         }
-        heading(commands, cell, kit, track_name(track).text(lang));
+        presentation::title(
+            commands,
+            cell,
+            kit,
+            presentation::action_icon(Action::Tower(TowerAction::Upgrade(track))),
+            track_name(track).text(lang),
+        );
         label(commands, cell, kit, words(&offer.title, lang), tokens::INK);
         label(
             commands,
@@ -113,7 +119,13 @@ fn replacement(
                 node.row_gap = kit.m.px(4.0);
                 node.min_height = kit.m.px(60.0);
             });
-        label(commands, card, kit, title.text(lang), ink);
+        let icon = if title == Phrase::TowerRemove {
+            crate::hud::glyph::MINUS
+        } else {
+            crate::hud::glyph::PLUS
+        };
+        let caption = crate::lobby::parts::glyph_line(commands, kit, icon, title.text(lang), ink);
+        commands.entity(card).add_child(caption);
         label(
             commands,
             card,

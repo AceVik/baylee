@@ -56,6 +56,7 @@ pub mod cardart;
 pub mod cardmat;
 pub mod cardtext;
 pub mod castmodes;
+mod challenge_art;
 pub mod choices;
 mod combatfx;
 pub mod combatlines;

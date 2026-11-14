@@ -201,6 +201,32 @@ motion and its suppression, not absence of all possible flicker or performance
 under production load. Raw frames, ledgers and previews are retained locally in
 the task's `2026/11/14/baylee-tower-native` visualization artifacts.
 
+### Illustrated presentation refinement, 2026-11-14
+
+Daily, Weekly and Tower now have three original static landscape vignettes,
+shared icon headings and semantic action marks. UTC boundaries use localized
+month names with explicit opening/closing labels. Personal and ranked scores
+separate turns, failures and elapsed time; durations preserve milliseconds and
+do not wrap after an hour. The shipped Font Awesome cmap covers all new marks.
+
+The 34 affected native controls, font, shader, time-format and translation tests
+passed in 1.04 seconds after compilation. Dev-control all-target Clippy passed
+with warnings denied. A passive native client with a synthetic account was
+inspected at 1440×900 and 1280×720 logical pixels. Lobby symmetry, German/English
+Weekly boundaries and score rows, all three upgrade cards and selecting then
+cancelling a preview were checked. No shader error or panic appeared. The
+existing unchanged badge animation evidence above was not needlessly repeated.
+
+Screenshots are retained in `2026/11/14/baylee-tower-presentation`. The isolated
+backend fixture passed and removed its PostgreSQL container; client, supervisor
+and child exits and harness port closure were verified. A separate source and
+screenshot review found no actionable regression; it ran no duplicate tests.
+
+The owner subsequently specified a global player-echo Tower, executed on gateways
+and owned by a separate service in the Baylee project. The present certified
+expedition is not that new mode. Its successor design and remaining implementation
+criteria are in [Tower echoes](proposals/tower-echoes.md).
+
 The final targeted Tower control test passed in 0.544 seconds, including both
 client languages, and client all-target `dev-control` clippy passed. Independent
 static review found no remaining issue in the layout corrections. CodeQL's

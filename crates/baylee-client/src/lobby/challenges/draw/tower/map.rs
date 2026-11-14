@@ -10,7 +10,13 @@ pub(super) fn draw(
     model: &State,
     season: &tower_api::Season,
 ) {
-    heading(commands, parent, kit, Phrase::TowerRoute.text(lang));
+    presentation::title(
+        commands,
+        parent,
+        kit,
+        crate::hud::glyph::CHEVRON_UP,
+        Phrase::TowerRoute.text(lang),
+    );
     let cleared = model
         .tower
         .run
@@ -51,15 +57,6 @@ pub(super) fn draw(
             std::cmp::Ordering::Greater => tokens::MUTED,
         };
         let plaque = marker(commands, kit, floor, cleared, ink);
-        commands
-            .entity(plaque)
-            .entry::<Node>()
-            .and_modify(move |mut node| {
-                node.width = kit.m.px(36.0);
-                node.min_height = kit.m.px(36.0);
-                node.justify_content = JustifyContent::Center;
-                node.flex_shrink = 0.0;
-            });
         commands.entity(line).add_child(plaque);
         if floor == 4 {
             commands.entity(plaque).insert(BorderColor {
@@ -112,10 +109,20 @@ pub(super) fn draw(
 }
 
 fn marker(commands: &mut Commands, kit: Kit, floor: u8, cleared: u8, ink: Color) -> Entity {
-    if floor < cleared {
+    let plaque = if floor < cleared {
         // The text face has no checkmark; draw it with the shipped icon font.
-        crate::lobby::parts::badge_with(commands, kit, '\u{f00c}', "", ink)
+        crate::lobby::parts::badge_with(commands, kit, crate::hud::glyph::CHECK, "", ink)
     } else {
         crate::lobby::parts::badge(commands, kit, &(floor + 1).to_string(), ink)
-    }
+    };
+    commands
+        .entity(plaque)
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            node.width = kit.m.px(36.0);
+            node.min_height = kit.m.px(36.0);
+            node.justify_content = JustifyContent::Center;
+            node.flex_shrink = 0.0;
+        });
+    plaque
 }

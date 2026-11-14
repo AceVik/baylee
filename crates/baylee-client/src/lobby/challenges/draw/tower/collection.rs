@@ -5,7 +5,13 @@ use tower_api::BadgeKind;
 
 pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, model: &State) {
     let section = panel(commands, body, kit);
-    heading(commands, section, kit, Phrase::TowerRewards.text(lang));
+    presentation::title(
+        commands,
+        section,
+        kit,
+        crate::hud::glyph::CROWN,
+        Phrase::TowerRewards.text(lang),
+    );
     let gallery = row(commands, section, kit);
     for kind in BadgeKind::ALL {
         let progress = model.tower.badges.iter().find(|badge| badge.kind == kind);

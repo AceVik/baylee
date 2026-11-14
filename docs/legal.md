@@ -35,6 +35,12 @@ corpus is added. Existing free access, account and runtime-card-image rules stil
 apply. Scryfall's image documentation returned HTTP 403 in this check; its wording
 was not newly verified.
 
+The 14 November presentation pass rechecked the same policy's “Tell the Community
+it’s unofficial.” requirement. It adds original procedural landscape illustrations
+and uses additional marks from the already shipped, licensed Font Awesome font.
+It adds no third-party picture, font file, logo or card-image treatment. Existing
+unofficial notices and vendored font licences remain applicable.
+
 - Unofficial non-commercial fan project. No WotC assets in the repo, except
   the card images inside recordings of the game (§3, "Recordings of the game
   show its card images").

@@ -1,0 +1,165 @@
+# Tower echoes: evolution beyond the certified expedition
+
+Design pass, 14 November 2026. The owner clarified that the Tower must use
+other players' historical builds, played by the Expert house AI, with shops,
+gold, equipment and consumables between manually played duels. This document
+describes the new work; it is **not** evidence that these features already run.
+The current five-floor certified expedition is documented in `../tower.md`.
+
+## Process boundary
+
+The owner explicitly rejected hosting Tower gameplay in Central and then selected
+a global Tower played on individual gateways. Runs, gold, shops, inventory,
+snapshots, matching and Tower rankings belong to a dedicated global Tower service
+in the **Baylee repository**. Existing gateway game processes execute duels.
+Central keeps identity and confirmed permanent accomplishments, alongside its
+already authorized global Daily/Weekly responsibilities. Switching gateways
+between duels must preserve the same run and economy.
+
+Client operations use bounded, versioned commands and public projections, never
+table schemas. Only the Tower authority writes spendable currency and inventory;
+the game process supplies the actual outcome. An unavailable Tower service leaves
+the run waiting without consuming a defeat allowance or rerolling shops. Durable
+result and accomplishment outboxes make transport retries idempotent.
+
+| Component | Owns | Does not own |
+| --- | --- | --- |
+| Central identity | Accounts, sessions, visibility, deletion | Duel rules |
+| Global Baylee Tower service | Runs, economy, inventory, snapshots, matching, reservations, Tower rankings | Accounts or private vault data |
+| Tower package / balance worker | Validated package assembly, offline balance measurements | Player gold or claimed wins |
+| Game process | Rules, legal actions, Expert decisions, durable outcome | Purchases or matchmaking |
+| Central projections | Confirmed permanent cosmetic accomplishments; global calendar rankings | Tower economy or independent copies of spendable currency |
+| Native client / website | Commands and authorized projections | Results, prices or opponent selection |
+
+The global service reserves one active duel for a run and binds it to the selected
+gateway/executor. Reconnecting resumes that reservation; changing gateways cannot
+create a second opponent or spend the same loadout twice. Gateway switching is
+supported at a completed-duel boundary, not as an implicit mid-game restart.
+
+A gateway's claimed result alone is not trusted for global ranking. It returns
+the bounded deterministic action record for the exact reserved package. A Tower
+verification worker reconstructs the game with the frozen engine and Expert
+policy, rejects illegal/missing/reordered actions and recomputes outcome and
+consumed items. Only a verified terminal result commits progression and income.
+Duplicates acknowledge the committed result; conflicting records are refused.
+If verification is pending or unavailable, show that state without issuing a
+second duel. Bound record size, action count, time, concurrency and retry work.
+This verifies rule-consistent play, not that a human rather than a bot chose it.
+
+Tower privileges are distinct from the existing all-purpose publisher bridge.
+Do not silently reuse a capability that also grants account or unrelated gateway
+operations. Central must not trust arbitrary gateway achievement claims: define
+which operators can award which achievements, distinguish local/unverified awards
+where necessary, and bind deduplication to issuer, account, run and milestone.
+Retain the accepted pinned dependency graph and first-party safe Rust constraints
+in Central. Two services must never write the same run.
+
+## Echo identity and fair matching
+
+“Day” means the ordinal of a duel within a run, not the real calendar date.
+A defeat advances that ordinal too, so both builds have had the same number of
+shop/income opportunities. Calendar seasons and run stages are separate values.
+
+Before a duel, atomically freeze the submitted legal deck, equipped items,
+consumables, starting attributes, progression ordinal and rules version. The
+eligible pool includes valid builds independent of whether they later win:
+winner-only publication would bias the pool towards unusually strong builds.
+The snapshot contains no password, token, private collection or replay of the
+player's decisions. The Expert AI pilots the build afresh from its authorized
+view and cannot see the human's hand or library.
+
+Match the same progression ordinal and rules/item/card-pool version. Exclude
+the same account and, where supply permits, previously encountered opponents.
+Do not match a newer, richer stage just because the pool is small. Select and
+persist the opponent, shuffle and policy seeds once per reservation. Reconnects,
+duplicate requests and worker retries preserve that selection. Replacing a
+technically unplayable package requires an explicit void and bounded recovery.
+
+The opponent panel says “<display name> · Echo · Expert house AI” and names the
+build's stage. It never claims that the owner is online or controlling the
+opponent. Participation explains the use of the player's display name and build
+before enrolling a run; ranking publication remains independently reversible.
+Account deletion removes future match eligibility and public attribution.
+Frozen in-flight packages need an explicit deletion/retention policy before
+release. The opposing deck's hidden cards never become a public roster field.
+
+When there is no eligible player build, use a versioned house build labelled
+as a house opponent, never a fabricated player. Record fallback frequency so
+the operator can see whether asynchronous multiplayer has a usable population.
+
+## Economy and play loop
+
+The player receives a starter deck and initial gold, visits the shop, chooses a
+legal deck/equipment loadout and starts a duel. Every completed duel grants a
+bounded income and leads to a fresh shop unless the run has ended. Losing must
+still allow meaningful rebuilding; begin calibration with equal base income
+for wins and losses, without compound-interest or victory-income snowballing.
+Draws, deliberate concessions, technical voids and abandonment need explicit
+accounting rules and tests. There is no currency purchase or account-level power.
+
+Shop offers and prices are authoritative, versioned and stable for that visit.
+Each purchase, reroll, sale and equip command has an idempotency identity and an
+expected run revision. Concurrent requests cannot overspend, duplicate an item,
+reroll after seeing a new opponent or equip an item during a duel. Prices and
+effect magnitudes are tuning hypotheses until measured, not a claim of balance.
+
+The initial catalog should have a small set of distinct choices:
+
+* Card upgrades from a reviewed, fully implemented pool; owned cards can be
+  moved between the run's collection and legal deck using the existing builder.
+* Bounded starting-life upgrades, with life at the table visibly distinct from
+  the expedition's remaining defeat allowance.
+* A costly extra free mulligan, with a cap and per-seat rules.
+* A costly opening-hand upgrade, with a separate stated maximum hand size.
+* A bounded starting token, expressed through normal engine objects/rules.
+* A healing potion and a one-mana potion with an ordinary legal color choice.
+
+Permanent means “for the remainder of this run”. Across runs, rewards are
+cosmetic badges, histories and appearances. Limit equipment slots and potion
+slots to make substitutions meaningful and bound engine/search work. A sale
+cannot return more than the paid price; free starter/basic cards have no farming
+value. Include rules for surplus copies, full inventory and incompatible colors.
+
+Potions are not direct client edits to life or mana. The engine offers their
+legal use, consumes a charge exactly once, journals the effect and projects its
+result. Resume/replay restores charge consumption. All seat implementations,
+including Expert, trained and language-model seats, must understand and answer
+the new choices before they can enter this mode. Expert evaluates healing when
+useful and mana against a legal affordable plan; it does not blindly drink every
+potion at the start of a game.
+
+## Table and shop interface
+
+The lobby entrance, art direction, progressive medals and accessible controls
+from the current expedition are reusable. The new run overview shows stage,
+victories, remaining defeats, gold and one clear next action. The shop has a
+stable item grid with price, concise effect, owned count and affordability.
+Purchases have a preview and confirmation; replacing an equipped item shows the
+precise attribute change. The deck editor operates on the run's owned pool.
+
+At the table, show the echo owner and explicit AI label on the opponent's plate.
+An equipment strip summarizes permanent effects; a separate potion belt shows
+remaining charges and actual legal availability. Tooltips explain timing and
+the source of modified values. Potion activation uses the existing guarded
+decision flow, including keyboard control and the mana-color chooser. Text and
+icons accompany color; reduced motion keeps every status readable.
+
+## Validation milestones
+
+1. Pure rules and economy: versioned limits, purchases, loadouts and adversarial
+   arithmetic/concurrency cases. Preserve the existing expedition's records.
+2. Durable snapshots and matchmaking: same-stage/version selection, self-match
+   exclusion, explicit fallback, restart/idempotency and deletion behavior.
+3. Real execution: ordinary engine legality, Expert support, potion choices,
+   replay/resume, disconnects and trustworthy outcome/charge accounting.
+4. Native/web presentation: shop, editor, inventory, opponent plate, localized
+   timestamps and state changes at supported sizes and with reduced motion.
+5. Balance and independent review: bounded deterministic, side-swapped Expert
+   comparisons across stages and item strategies, followed by manual play of
+   representative builds. Measure first-player advantage, duel length, potion
+   use, dominant purchases and failure rates. Re-run only changed cases.
+
+Daily/Weekly keep their multiple-solution certification. A match against a
+player's changing build is competitive, and cannot honestly promise a
+certified human victory. Do not reuse the old 35-node proof as evidence for
+this new mode. Record actual measurements and remaining limitations separately.

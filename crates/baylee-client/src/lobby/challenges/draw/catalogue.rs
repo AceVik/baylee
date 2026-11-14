@@ -139,33 +139,45 @@ fn card(
         ..BorderColor::all(tokens::BORDER)
     });
     let top = row(commands, panel, kit);
-    let caption = crate::lobby::parts::badge(commands, kit, kind.text(lang), accent);
+    let caption = crate::lobby::parts::badge_with(
+        commands,
+        kit,
+        if task.description.period.kind == api::Kind::Daily {
+            crate::hud::glyph::SUN
+        } else {
+            crate::hud::glyph::MOON
+        },
+        kind.text(lang),
+        accent,
+    );
     commands.entity(top).add_child(caption);
     let spacer = crate::lobby::parts::grow(commands);
     commands.entity(top).add_child(spacer);
     let duration = crate::lobby::parts::glyph_line(
         commands,
         kit,
-        '\u{f017}',
+        crate::hud::glyph::CLOCK,
         &Phrase::ChallengeMinutes.fill(lang, &[&task.description.expected_minutes.to_string()]),
         tokens::MUTED,
     );
     commands.entity(top).add_child(duration);
-    let title = crate::lobby::parts::line(
-        commands,
-        kit,
-        words(&task.description.title, lang),
-        kit.m.text * 1.12,
-        tokens::INK,
-    );
-    commands.entity(panel).add_child(title);
-    label(
+    let title = presentation::feature(
         commands,
         panel,
+        kit,
+        presentation::scene(task.description.period.kind),
+        words(&task.description.title, lang),
+    );
+    label(
+        commands,
+        title,
         kit,
         &Phrase::ChallengeTargetCompact.fill(lang, &[&task.description.target_turn.to_string()]),
         tokens::MUTED,
     );
+    if !featured {
+        presentation::calendar(commands, panel, kit, lang, task.description.period);
+    }
     let space = crate::lobby::parts::grow(commands);
     commands.entity(panel).add_child(space);
     button(

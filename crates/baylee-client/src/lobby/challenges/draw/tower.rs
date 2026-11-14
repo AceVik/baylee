@@ -15,13 +15,36 @@ pub(super) fn entry(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang,
         top: tokens::GOLD,
         ..BorderColor::all(tokens::BORDER)
     });
-    let head = row(commands, card, kit);
-    heading(commands, head, kit, Phrase::TowerNav.text(lang));
-    let spacer = crate::lobby::parts::grow(commands);
-    commands.entity(head).add_child(spacer);
+    let copy = presentation::feature(
+        commands,
+        card,
+        kit,
+        crate::challenge_art::Scene::Tower,
+        Phrase::TowerNav.text(lang),
+    );
+    label(
+        commands,
+        copy,
+        kit,
+        Phrase::TowerLead.text(lang),
+        tokens::MUTED,
+    );
+    if let Some(run) = &model.tower.run {
+        presentation::tower_score(
+            commands,
+            copy,
+            kit,
+            lang,
+            (
+                run.progress.cleared,
+                3 - run.progress.lives,
+                run.progress.turns,
+            ),
+        );
+    }
     control(
         commands,
-        head,
+        card,
         kit,
         lang,
         Phrase::TowerOpen,
@@ -29,29 +52,6 @@ pub(super) fn entry(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang,
         model,
         Weight::Gold,
     );
-    label(
-        commands,
-        card,
-        kit,
-        Phrase::TowerLead.text(lang),
-        tokens::MUTED,
-    );
-    if let Some(run) = &model.tower.run {
-        label(
-            commands,
-            card,
-            kit,
-            &Phrase::TowerScore.fill(
-                lang,
-                &[
-                    &run.progress.cleared.to_string(),
-                    &(3 - run.progress.lives).to_string(),
-                    &run.progress.turns.to_string(),
-                ],
-            ),
-            tokens::ACCENT,
-        );
-    }
 }
 
 pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, model: &State) {
@@ -72,7 +72,6 @@ pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, 
         .entity(hero)
         .entry::<Node>()
         .and_modify(move |mut node| {
-            node.align_items = AlignItems::Center;
             node.padding = UiRect::all(px_fixed(kit.m.pad));
         });
     commands.entity(hero).insert(BorderColor {
@@ -80,27 +79,21 @@ pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, 
         bottom: tokens::GOLD,
         ..BorderColor::all(tokens::BORDER)
     });
-    heading(commands, hero, kit, words(&season.theme.title, lang));
-    label(
+    let copy = presentation::feature(
         commands,
         hero,
+        kit,
+        crate::challenge_art::Scene::Tower,
+        words(&season.theme.title, lang),
+    );
+    label(
+        commands,
+        copy,
         kit,
         Phrase::TowerLead.text(lang),
         tokens::MUTED,
     );
-    label(
-        commands,
-        hero,
-        kit,
-        &Phrase::ChallengeSchedule.fill(
-            lang,
-            &[
-                &date(season.theme.period.starts_at),
-                &date(season.theme.period.ends_at),
-            ],
-        ),
-        tokens::MUTED,
-    );
+    presentation::calendar(commands, hero, kit, lang, season.theme.period);
     // A victory's next decision leads the page, before route/history and consent.
     if tower
         .run

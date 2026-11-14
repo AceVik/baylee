@@ -3484,7 +3484,33 @@ ChallengeWithdrawn = Zurückgezogen · kein neuer Start; erreichte Abschlüsse b
 
 # Global challenge interface.
 # Arguments: start, end
-ChallengeSchedule = UTC: { $start } → { $end }
+ChallengeSchedule = { $start } — { $end } UTC
+
+# Arguments: day, month, year, clock
+ChallengeCalendarDate = { $day }. { $month } { $year } · { $clock }
+CalendarJanuary = Jan.
+CalendarFebruary = Feb.
+CalendarMarch = März
+CalendarApril = Apr.
+CalendarMay = Mai
+CalendarJune = Juni
+CalendarJuly = Juli
+CalendarAugust = Aug.
+CalendarSeptember = Sept.
+CalendarOctober = Okt.
+CalendarNovember = Nov.
+CalendarDecember = Dez.
+
+ChallengeOpens = Beginn
+ChallengeCloses = Ende
+ChallengeStatStarts = Versuche
+ChallengeStatTurns = Züge
+ChallengeStatFailures = Fehlversuche
+ChallengeStatBest = Bester Zug
+ChallengeStatTime = Aktive Zeit
+ChallengeStatFloors = Etappen
+ChallengeStatDefeats = Niederlagen
+ChallengeStatRank = Rang
 
 # Global challenge interface.
 # Arguments: turn, minutes

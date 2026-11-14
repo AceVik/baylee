@@ -9989,7 +9989,36 @@ ChallengeWithdrawn = Withdrawn · this task cannot be started; earned completion
 
 # Global challenge interface.
 # Arguments: start, end
-ChallengeSchedule = UTC: { $start } → { $end }
+ChallengeSchedule = { $start } — { $end } UTC
+
+# Readable UTC date; the enclosing calendar labels the timezone.
+# Arguments: day, month, year, clock
+ChallengeCalendarDate = { $day } { $month } { $year } · { $clock }
+CalendarJanuary = Jan
+CalendarFebruary = Feb
+CalendarMarch = Mar
+CalendarApril = Apr
+CalendarMay = May
+CalendarJune = Jun
+CalendarJuly = Jul
+CalendarAugust = Aug
+CalendarSeptember = Sep
+CalendarOctober = Oct
+CalendarNovember = Nov
+CalendarDecember = Dec
+
+# Calendar boundary labels.
+ChallengeOpens = Opens
+ChallengeCloses = Closes
+# Score labels; values are shown separately.
+ChallengeStatStarts = Attempts
+ChallengeStatTurns = Turns
+ChallengeStatFailures = Failures
+ChallengeStatBest = Best turn
+ChallengeStatTime = Active time
+ChallengeStatFloors = Floors
+ChallengeStatDefeats = Defeats
+ChallengeStatRank = Rank
 
 # Global challenge interface.
 # Arguments: turn, minutes

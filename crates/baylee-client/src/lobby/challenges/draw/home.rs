@@ -43,7 +43,13 @@ pub(in crate::lobby) fn home(
     attach_body(commands, root, body, metrics.frame);
     let masthead = panel(commands, body, kit);
     let head = row(commands, masthead, kit);
-    heading(commands, head, kit, Phrase::ChallengeHome.text(lang));
+    presentation::title(
+        commands,
+        head,
+        kit,
+        crate::hud::glyph::COMPASS,
+        Phrase::ChallengeHome.text(lang),
+    );
     let spacer = crate::lobby::parts::grow(commands);
     commands.entity(head).add_child(spacer);
     button(
@@ -104,9 +110,10 @@ fn multiplayer(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang) {
     );
     let spacer = crate::lobby::parts::grow(commands);
     commands.entity(foot).add_child(spacer);
-    let multiplayer = controls::button(
+    let multiplayer = controls::button_with_icon(
         commands,
         kit,
+        crate::hud::glyph::FRIENDS,
         Phrase::ChallengeMultiplayer.text(lang),
         Weight::Secondary,
         Live::Yes,

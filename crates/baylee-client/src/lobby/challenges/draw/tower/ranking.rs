@@ -5,20 +5,14 @@ use super::*;
 pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, model: &State) {
     let section = panel(commands, body, kit);
     if let Some(season) = &model.tower.season {
-        heading(commands, section, kit, words(&season.theme.title, lang));
-        label(
+        presentation::title(
             commands,
             section,
             kit,
-            &Phrase::ChallengeSchedule.fill(
-                lang,
-                &[
-                    &date(season.theme.period.starts_at),
-                    &date(season.theme.period.ends_at),
-                ],
-            ),
-            tokens::MUTED,
+            crate::hud::glyph::CROWN,
+            words(&season.theme.title, lang),
         );
+        presentation::calendar(commands, section, kit, lang, season.theme.period);
     }
     let tabs = row(commands, section, kit);
     for (board, phrase) in [
@@ -118,21 +112,23 @@ fn standings(commands: &mut Commands, section: Entity, kit: Kit, lang: Lang, mod
         );
         let spacer = crate::lobby::parts::grow(commands);
         commands.entity(line).add_child(spacer);
-        let score = if model.tower.board == tower_api::Board::Sprint {
-            standing.milliseconds.map_or_else(
-                || "—".into(),
-                |ms| format!("{}:{:02}.{:03}", ms / 60_000, ms / 1000 % 60, ms % 1000),
-            )
+        if model.tower.board == tower_api::Board::Sprint {
+            presentation::metric(
+                commands,
+                line,
+                kit,
+                crate::hud::glyph::CLOCK,
+                Phrase::ChallengeStatTime.text(lang),
+                &baylee_client_core::challenges::presentation::elapsed(standing.milliseconds),
+            );
         } else {
-            Phrase::TowerScore.fill(
+            presentation::tower_score(
+                commands,
+                line,
+                kit,
                 lang,
-                &[
-                    &standing.floors.to_string(),
-                    &standing.losses.to_string(),
-                    &standing.turns.to_string(),
-                ],
-            )
-        };
-        label(commands, line, kit, &score, tokens::MUTED);
+                (standing.floors, standing.losses, standing.turns),
+            );
+        }
     }
 }

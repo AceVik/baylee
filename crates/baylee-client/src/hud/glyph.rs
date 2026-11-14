@@ -2,6 +2,22 @@
 pub const HOURGLASS: char = '\u{f254}';
 /// Clock from the same cmap: a seat's decision clock beside its plate.
 pub const CLOCK: char = '\u{f017}';
+/// Sun: the daily challenge.
+pub const SUN: char = '\u{f185}';
+/// Moon: the weekly challenge.
+pub const MOON: char = '\u{f186}';
+/// Trophy: an activity's rankings.
+pub const TROPHY: char = '\u{f091}';
+/// Arrow left: return to the previous page.
+pub const ARROW_LEFT: char = '\u{f060}';
+/// Arrow right: advance to the next page or start playing.
+pub const ARROW_RIGHT: char = '\u{f061}';
+/// Circular arrows: refresh the current activity.
+pub const REFRESH: char = '\u{f2f1}';
+/// Compass: discover an activity.
+pub const COMPASS: char = '\u{f14e}';
+/// Bullseye: precision improvements.
+pub const BULLSEYE: char = '\u{f140}';
 /// Heart (life total).
 pub const HEART: char = '\u{f004}';
 /// Hand (cards in hand).

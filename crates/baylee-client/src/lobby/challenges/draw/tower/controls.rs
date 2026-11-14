@@ -20,24 +20,16 @@ pub(super) fn draw(
         Some(Phase::Exhausted) => Phrase::TowerExhausted,
         Some(Phase::Abandoned) => Phrase::TowerAbandoned,
     };
-    heading(commands, parent, kit, title.text(lang));
+    presentation::title(
+        commands,
+        parent,
+        kit,
+        crate::hud::glyph::CROWN,
+        title.text(lang),
+    );
     summit(commands, parent, kit, lang, model);
     if let Some(run) = &tower.run {
-        let lives = row(commands, parent, kit);
-        for life in 0..3 {
-            let remaining = life < run.progress.lives;
-            let pip = crate::lobby::parts::badge(
-                commands,
-                kit,
-                if remaining { "◆" } else { "◇" },
-                if remaining {
-                    tokens::ACCENT
-                } else {
-                    tokens::MUTED
-                },
-            );
-            commands.entity(lives).add_child(pip);
-        }
+        lives(commands, parent, kit, run.progress.lives);
         label(
             commands,
             parent,
@@ -49,19 +41,16 @@ pub(super) fn draw(
                 tokens::ACCENT
             },
         );
-        label(
+        presentation::tower_score(
             commands,
             parent,
             kit,
-            &Phrase::TowerScore.fill(
-                lang,
-                &[
-                    &run.progress.cleared.to_string(),
-                    &(3 - run.progress.lives).to_string(),
-                    &run.progress.turns.to_string(),
-                ],
+            lang,
+            (
+                run.progress.cleared,
+                3 - run.progress.lives,
+                run.progress.turns,
             ),
-            tokens::MUTED,
         );
     }
     let live = season.theme.period.live_at(tower.now)
@@ -108,6 +97,19 @@ pub(super) fn draw(
         );
     }
     consent(commands, parent, kit, lang, model);
+}
+
+fn lives(commands: &mut Commands, parent: Entity, kit: Kit, remaining: u8) {
+    let band = row(commands, parent, kit);
+    for life in 0..3 {
+        let ink = if life < remaining {
+            tokens::ACCENT
+        } else {
+            tokens::MUTED
+        };
+        let pip = crate::lobby::parts::badge_with(commands, kit, crate::hud::glyph::HEART, "", ink);
+        commands.entity(band).add_child(pip);
+    }
 }
 
 fn summit(commands: &mut Commands, parent: Entity, kit: Kit, lang: Lang, model: &State) {

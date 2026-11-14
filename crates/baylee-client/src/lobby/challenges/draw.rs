@@ -10,6 +10,7 @@ use baylee_client_core::challenges::{Confirmation, api};
 mod catalogue;
 mod detail;
 mod home;
+mod presentation;
 mod rewards;
 mod tower;
 use catalogue::catalogue;
@@ -56,10 +57,11 @@ pub(in crate::lobby) fn draw(
     attach_body(commands, root, body, metrics.frame);
     let masthead = panel(commands, body, kit);
     let head = row(commands, masthead, kit);
-    heading(
+    presentation::title(
         commands,
         head,
         kit,
+        crate::hud::glyph::CROWN,
         if model.tower.opened {
             Phrase::TowerNav
         } else {
@@ -192,35 +194,7 @@ fn status(
             tokens::MUTED
         },
     );
-    label(
-        commands,
-        root,
-        kit,
-        &Phrase::ChallengeSchedule.fill(
-            lang,
-            &[
-                &date(task.description.period.starts_at),
-                &date(task.description.period.ends_at),
-            ],
-        ),
-        tokens::MUTED,
-    );
-}
-
-fn date(seconds: i64) -> String {
-    time::OffsetDateTime::from_unix_timestamp(seconds).map_or_else(
-        |_| "—".into(),
-        |at| {
-            format!(
-                "{:04}-{:02}-{:02} {:02}:{:02}",
-                at.year(),
-                u8::from(at.month()),
-                at.day(),
-                at.hour(),
-                at.minute()
-            )
-        },
-    )
+    presentation::calendar(commands, root, kit, lang, task.description.period);
 }
 
 fn panel(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
@@ -325,9 +299,10 @@ fn button(
     } else {
         Live::Yes
     };
-    let button = controls::button(
+    let button = controls::button_with_icon(
         commands,
         kit,
+        presentation::action_icon(action),
         text,
         weight,
         live,

@@ -49,7 +49,13 @@ pub(super) fn draw(
         ))
         .id();
     commands.entity(columns).add_child(ranking);
-    heading(commands, card, kit, words(&task.description.title, lang));
+    presentation::feature(
+        commands,
+        card,
+        kit,
+        presentation::scene(task.description.period.kind),
+        words(&task.description.title, lang),
+    );
     status(commands, card, kit, lang, model, task);
     label(
         commands,
@@ -83,28 +89,40 @@ fn progress(commands: &mut Commands, card: Entity, kit: Kit, lang: Lang, model: 
         let best = progress
             .best_turn
             .map_or_else(|| "—".into(), |turn| turn.to_string());
-        label(
-            commands,
-            card,
-            kit,
-            &Phrase::ChallengePersonal.fill(
-                lang,
-                &[
-                    &progress.starts.to_string(),
-                    &progress.failures.to_string(),
-                    &best,
-                ],
+        let band = row(commands, card, kit);
+        for (icon, caption, value) in [
+            (
+                crate::hud::glyph::SEND,
+                Phrase::ChallengeStatStarts,
+                progress.starts.to_string(),
             ),
-            tokens::INK,
-        );
-        if progress.completed_at.is_some() {
-            label(
-                commands,
-                card,
-                kit,
+            (
+                crate::hud::glyph::SHIELD,
+                Phrase::ChallengeStatFailures,
+                progress.failures.to_string(),
+            ),
+            (
+                crate::hud::glyph::HOURGLASS,
+                Phrase::ChallengeStatBest,
+                best,
+            ),
+        ] {
+            presentation::metric(commands, band, kit, icon, caption.text(lang), &value);
+        }
+        if let Some(at) = progress.completed_at {
+            let message = format!(
+                "{} · {} UTC",
                 Phrase::ChallengeCompleted.text(lang),
+                baylee_client_core::challenges::presentation::date(at, lang)
+            );
+            let completed = crate::lobby::parts::glyph_line(
+                commands,
+                kit,
+                crate::hud::glyph::CHECK,
+                &message,
                 tokens::ACCENT,
             );
+            commands.entity(card).add_child(completed);
         }
         if progress.hint_level > 0 {
             label(
@@ -274,7 +292,13 @@ fn preferences(commands: &mut Commands, card: Entity, kit: Kit, lang: Lang, mode
 
 fn rankings(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang, model: &State) {
     let scores = panel(commands, root, kit);
-    heading(commands, scores, kit, Phrase::ChallengeBoards.text(lang));
+    presentation::title(
+        commands,
+        scores,
+        kit,
+        crate::hud::glyph::CROWN,
+        Phrase::ChallengeBoards.text(lang),
+    );
     let tabs = row(commands, scores, kit);
     let mut tab_kit = kit;
     tab_kit.m.text = kit.m.small;
@@ -347,20 +371,6 @@ fn entries(commands: &mut Commands, scores: Entity, kit: Kit, lang: Lang, model:
         } else {
             name
         };
-        let seconds = score.milliseconds.map_or_else(
-            || "—".into(),
-            |ms| format!("{}.{:03}", ms / 1000, ms % 1000),
-        );
-        let text = Phrase::ChallengeStanding.fill(
-            lang,
-            &[
-                &score.rank.to_string(),
-                &name,
-                &score.turn.to_string(),
-                &score.failures.to_string(),
-                &seconds,
-            ],
-        );
         let entry = panel(commands, scores, kit);
         commands.entity(entry).insert((
             BackgroundColor(if score.own {
@@ -378,16 +388,45 @@ fn entries(commands: &mut Commands, scores: Entity, kit: Kit, lang: Lang, model:
             .entity(entry)
             .entry::<Node>()
             .and_modify(move |mut n| n.padding = UiRect::all(kit.m.px(10.0)));
+        let name_row = row(commands, entry, kit);
+        presentation::metric(
+            commands,
+            name_row,
+            kit,
+            crate::hud::glyph::CROWN,
+            Phrase::ChallengeStatRank.text(lang),
+            &score.rank.to_string(),
+        );
         label(
             commands,
-            entry,
+            name_row,
             kit,
-            &text,
+            &name,
             if score.own {
                 tokens::ACCENT
             } else {
                 tokens::INK
             },
         );
+        let stats = row(commands, entry, kit);
+        for (icon, caption, value) in [
+            (
+                crate::hud::glyph::HOURGLASS,
+                Phrase::ChallengeStatTurns,
+                score.turn.to_string(),
+            ),
+            (
+                crate::hud::glyph::SHIELD,
+                Phrase::ChallengeStatFailures,
+                score.failures.to_string(),
+            ),
+            (
+                crate::hud::glyph::CLOCK,
+                Phrase::ChallengeStatTime,
+                baylee_client_core::challenges::presentation::elapsed(score.milliseconds),
+            ),
+        ] {
+            presentation::metric(commands, stats, kit, icon, caption.text(lang), &value);
+        }
     }
 }

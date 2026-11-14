@@ -4,10 +4,11 @@ use super::*;
 
 pub(super) fn badges(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang, model: &State) {
     let collection = panel(commands, root, kit);
-    heading(
+    presentation::title(
         commands,
         collection,
         kit,
+        crate::hud::glyph::CROWN,
         Phrase::ChallengeBadges.text(lang),
     );
     let gallery = row(commands, collection, kit);

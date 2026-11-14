@@ -283,6 +283,14 @@ fn every_mark_the_overlay_names_is_in_the_icon_face() {
     let face = std::fs::read(path("fa-solid-900.ttf")).expect("the icon face");
     let named = [
         ("HEART", glyph::HEART),
+        ("SUN", glyph::SUN),
+        ("MOON", glyph::MOON),
+        ("TROPHY", glyph::TROPHY),
+        ("ARROW_LEFT", glyph::ARROW_LEFT),
+        ("ARROW_RIGHT", glyph::ARROW_RIGHT),
+        ("REFRESH", glyph::REFRESH),
+        ("COMPASS", glyph::COMPASS),
+        ("BULLSEYE", glyph::BULLSEYE),
         ("HAND", glyph::HAND),
         ("LIBRARY", glyph::LIBRARY),
         ("SKULL", glyph::SKULL),
