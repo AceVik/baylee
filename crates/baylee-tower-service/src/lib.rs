@@ -3,8 +3,10 @@
 
 mod artifact;
 mod process;
+mod queue;
 mod verifier;
 pub use artifact::Artifact;
+pub use queue::{Queue, QueueResult, QueueSummary};
 pub use verifier::Verifier;
 
 /// Value-free operational failures. None is a game outcome or permission to award.

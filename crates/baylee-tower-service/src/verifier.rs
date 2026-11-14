@@ -17,6 +17,10 @@ pub struct Verifier {
 }
 
 impl Verifier {
+    pub(crate) fn identity(&self) -> &baylee_protocol::execution::Identity {
+        self.artifact.identity()
+    }
+
     /// Configure trusted local capacity and finite native replay resources.
     /// # Errors
     /// Zero/excessive capacity or a resource allocation outside hard ceilings.

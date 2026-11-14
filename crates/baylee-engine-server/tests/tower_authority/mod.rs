@@ -3,6 +3,7 @@
 #![cfg(feature = "tower")]
 use baylee_cards_pool as _;
 mod fixture;
+mod queue;
 mod scenarios;
 #[path = "../../../baylee-tower-store/tests/support/mod.rs"]
 mod support;

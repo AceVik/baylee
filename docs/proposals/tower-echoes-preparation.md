@@ -1105,3 +1105,26 @@ Three small private-pipe adversarial tests also pass. These tests use isolated
 loopback schemas and owned child processes, which are removed/reaped afterwards.
 Automatic queue handling, gateway transport/reveal barriers, Central identity and
 award delivery, retention and the native Tower UI remain subsequent integration.
+
+## Automatic verification queue — thirty-second working milestone
+
+The service now consumes the durable ready queue automatically, taking a fresh
+verifier generation and streaming the original retained evidence into the exact
+local native artifact. An idle worker polls once per second. Shared admission
+prevents a busy worker from claiming extra jobs. Shutdown waits for owned process
+cleanup. Configuration/storage faults stop visibly; cancelled work receives no
+result and remains recoverable after its lease expires.
+
+Native replay refusal or resource/process failure uses a separate supervisor
+credential to quarantine only that exact job generation. Migration seven retains
+one closed reason, never raw logs or private record data. Quarantine/recovery
+preserves the committed package/record and creates no game result or award. A
+late failure cannot damage a replacement generation. A mismatched local artifact
+is an operator configuration error, not evidence against the player's game.
+
+Two real database/process queue tests passed in
+`/tmp/baylee-tower-automatic-queue-tests-20261114.log`: automatic successful
+settlement/graceful stop and rejected evidence with persisted failure, zero awards,
+supervisor-only recovery and rejection of stale quarantine. The authority remains
+a reusable service library at this milestone; authenticated HTTP deployment,
+live gateway ACK/reveal integration and native UI are not claimed complete.

@@ -31,7 +31,7 @@ mod requests;
 mod reservation;
 mod runs;
 mod state;
-pub use execution::verification::{Award, VerificationJob, VerificationLease};
+pub use execution::verification::{Award, VerificationFailure, VerificationJob, VerificationLease};
 pub use execution::{Acknowledged, Claimed, Lease, Recovery, StoredChunk};
 pub use operators::{Principal, Role};
 pub use publication::Publication;

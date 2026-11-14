@@ -8,9 +8,11 @@ use baylee_tower::{
 use serde::{Deserialize, Serialize};
 
 mod claim;
+mod failure;
 mod receipt;
 mod record;
 mod settlement;
+pub use failure::VerificationFailure;
 pub use settlement::Award;
 
 /// Identifies both the sealed execution and one independently fenced verification job.
@@ -64,7 +66,7 @@ impl Store {
         match current.saved.snapshot.state.phase {
             Phase::Verifying => {
                 db.execute_raw(self.statement("INSERT INTO @tower.verification_jobs AS saved(reservation,fence) VALUES($1,$2)
-                    ON CONFLICT(reservation) DO UPDATE SET fence=EXCLUDED.fence,generation=saved.generation+1,verifier=NULL,claim=NULL,lease_until=0,ready=true
+                    ON CONFLICT(reservation) DO UPDATE SET fence=EXCLUDED.fence,generation=saved.generation+1,verifier=NULL,claim=NULL,lease_until=0,ready=true,failure=NULL
                     WHERE saved.fence<>EXCLUDED.fence", vec![current.reservation.into(), signed(current.execution()?.fence)?.into()]))
                     .await.map_err(|_| Error::Unavailable)?;
             }

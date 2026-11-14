@@ -28,9 +28,9 @@ runs. Quota charges share the mutation transaction; duplicate requests return
 their prior receipt without charging again, including at the limit. Retention
 must release these counters with deleted rows before this service is released.
 
-The next persistence milestones add reservations/chunk ACK, approved operators,
-global pool indexing, verified settlement/outbox, record-storage quotas and retention.
-The adapter does not authenticate callers or prove legal game records. The service
+Reservations/chunk ACK, approved operators, global pool indexing, verified
+settlement/outbox and record-storage quotas now exist; retention is outstanding.
+The adapter does not itself prove legal game records. The service
 must use distinct Tower identity credentials, never arbitrary gateway admission.
 
 Migration three adds dedicated Tower operator records with separate host,
@@ -40,8 +40,18 @@ Authenticated principal fields are private. Role/enabled state is rechecked when
 publishing immutable, explicitly labelled house fallbacks or advertising an exact
 local executable inventory. Registration at Central alone supplies no Tower role.
 Concurrent inventory advertisements use one conditional update, avoiding a shared
-row lock upgraded by multiple writers. Execution/verification routes still need
-these checks wired in with the record boundary.
+row lock upgraded by multiple writers. Host and verifier operations recheck live
+roles and fenced assignments; their public transport is still being integrated.
+
+Migrations four through six persist immutable reservations, synchronously
+committed chunk acknowledgements, independently fenced verification jobs,
+transactional settlement/cosmetic outbox and dense same-stage echo partitions.
+Migration seven records a closed technical verification-failure category.
+Only the separate supervisor may quarantine a failed job, against its exact
+claim/generation/commitment; an older verifier cannot quarantine newer work.
+Recovery preserves the evidence and clears the old failure on a new generation.
+No technical failure adds gold, a win, a defeat or an accomplishment. A completed
+verification receipt can be recovered after response loss without re-awarding.
 
 ## Gateway and catalog
 

@@ -7,6 +7,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/004_execution.sql"),
     include_str!("migrations/005_verification.sql"),
     include_str!("migrations/006_echo_pool.sql"),
+    include_str!("migrations/007_verification_failure.sql"),
 ];
 
 impl Store {
