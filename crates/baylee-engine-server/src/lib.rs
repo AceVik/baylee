@@ -29,7 +29,8 @@ use baylee_core::ids::{PlayerId, SeatSet};
 use baylee_core::preset::GamePreset;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::{DetectLoops, LoopDetection};
-use baylee_gamehost::{SeatKind, Session};
+use baylee_gamehost::session::SessionRegistry;
+use baylee_gamehost::{RegistryLookup, SeatKind, Session};
 use baylee_protocol::v1::{self, Envelope};
 use baylee_view::SeatSetting;
 
@@ -125,11 +126,11 @@ impl Barrier {
 }
 
 /// A game, and everything the gateway can ask of it.
-pub struct EngineRunner<D: LoopDetection = DetectLoops> {
+pub struct EngineRunner<D: LoopDetection = DetectLoops, R: SessionRegistry = RegistryLookup> {
     /// The game this process was started for.
     game_id: String,
     /// Set by `GameSetup`; every other frame is ignored until then.
-    session: Option<Session<D>>,
+    session: Option<Session<D, R>>,
     /// Which seats have a live socket. The clock only runs for a seat that
     /// can answer.
     attached: Vec<u8>,
@@ -186,7 +187,7 @@ pub struct EngineRunner<D: LoopDetection = DetectLoops> {
     challenge: challenge::Evidence,
 }
 
-impl<D: LoopDetection> Default for EngineRunner<D> {
+impl<D: LoopDetection, R: SessionRegistry> Default for EngineRunner<D, R> {
     fn default() -> Self {
         Self {
             game_id: String::new(),
@@ -220,7 +221,7 @@ impl EngineRunner {
     }
 }
 
-impl<D: LoopDetection> EngineRunner<D> {
+impl<D: LoopDetection, R: SessionRegistry> EngineRunner<D, R> {
     /// Sets the maximum number of house steps answered per call before
     /// yielding intermediate state deltas to the event loop.
     #[must_use]
@@ -327,7 +328,7 @@ impl<D: LoopDetection> EngineRunner<D> {
 
     /// The game underneath, for tests and for a harness that wants to look.
     #[must_use]
-    pub fn session(&self) -> Option<&Session<D>> {
+    pub fn session(&self) -> Option<&Session<D, R>> {
         self.session.as_ref()
     }
 
@@ -369,7 +370,7 @@ impl<D: LoopDetection> EngineRunner<D> {
     /// over a socket, with its socket open. What decides between waiting
     /// for a lost seat (someone is here to wait) and pausing the game
     /// (nobody is).
-    fn another_player_here(&self, session: &Session<D>, seat: Option<PlayerId>) -> bool {
+    fn another_player_here(&self, session: &Session<D, R>, seat: Option<PlayerId>) -> bool {
         self.attached.iter().any(|&other| {
             Some(other) != seat.map(PlayerId::get)
                 && session
@@ -379,7 +380,7 @@ impl<D: LoopDetection> EngineRunner<D> {
     }
 
     /// A player's chair still in the game whose socket is gone.
-    fn absent_players(&self, session: &Session<D>) -> Vec<PlayerId> {
+    fn absent_players(&self, session: &Session<D, R>) -> Vec<PlayerId> {
         (0..session.seat_count())
             .filter_map(|seat| u8::try_from(seat).ok())
             .map(PlayerId::new)
@@ -395,7 +396,7 @@ impl<D: LoopDetection> EngineRunner<D> {
     }
 
     /// The table's hold, while nobody is at it ([`Deadline::Hold`]).
-    fn hold_clock(&self, session: &Session<D>) -> Option<Clock> {
+    fn hold_clock(&self, session: &Session<D, R>) -> Option<Clock> {
         if self.curtain.is_some() || self.ended || self.another_player_here(session, None) {
             return None;
         }
@@ -412,7 +413,7 @@ impl<D: LoopDetection> EngineRunner<D> {
     }
 
     /// `seat`'s clock, if it is on one.
-    fn clock_for(&self, session: &Session<D>, seat: PlayerId) -> Option<Clock> {
+    fn clock_for(&self, session: &Session<D, R>, seat: PlayerId) -> Option<Clock> {
         if self.curtain.is_some() {
             return None;
         }
@@ -449,7 +450,7 @@ impl<D: LoopDetection> EngineRunner<D> {
     /// already past fires on the next turn of the loop. A seat with no
     /// recorded loss (lost before the curtain, or while the game was paused)
     /// gets the whole window from its question.
-    fn stand_in_secs(&self, session: &Session<D>, seat: PlayerId) -> u32 {
+    fn stand_in_secs(&self, session: &Session<D, R>, seat: PlayerId) -> u32 {
         let window = session.reconnect_window_secs();
         if window == 0 {
             return 0;
@@ -1107,7 +1108,7 @@ impl<D: LoopDetection> EngineRunner<D> {
     /// Whether a seat that answers over a socket still plays: a person's, a
     /// seat bridge's, a developer's. Without one the house plays the rest of
     /// the game alone, at the machine's speed.
-    fn sockets_remain(session: &Session<D>) -> bool {
+    fn sockets_remain(session: &Session<D, R>) -> bool {
         (0..session.seat_count())
             .filter_map(|seat| u8::try_from(seat).ok())
             .map(PlayerId::new)

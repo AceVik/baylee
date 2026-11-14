@@ -647,3 +647,26 @@ refuses before emitting a moment. Strict all-target host Clippy passed in
 `/tmp/baylee-host-native-registry-clippy-20261114.log`. The first test build ran
 out of disk space; removing this worktree's regenerable incremental cache made
 the retry possible. This is not yet the Tower catalog or network authority.
+The three existing static-policy host tests also passed in
+`/tmp/baylee-host-native-registry-standard-tests-20261114.log`, including the
+128-step paired view/Expert-answer comparison, using the already-built binary.
+
+## Compiled registry at the server edge — fourteenth working milestone
+
+`EngineRunner<D, Registry>` and compressed replay projection now preserve the
+same static registry as their sessions. The executable has one registry alias
+for both paths; its current default remains ordinary until the real Tower pack
+is wired in. Game construction/readiness moved into `startup.rs` in a separate
+move-only commit before this change.
+
+Two focused tests passed in
+`/tmp/baylee-server-native-registry-tests-20261114.log`: unknown native IDs and
+ordinary-host fallback are refused without seat frames, and a native game sends
+its compressed record before the flush acknowledgement. That actual record
+projects with the matching registry and produces only header/refusal with the
+ordinary registry. Strict all-target server Clippy passed in
+`/tmp/baylee-server-native-registry-clippy-20261114-r2.log` after correcting two
+test-fixture field/path errors and replacing the extracted wildcard import.
+The same built executable also passed the two variant admission, fourteen
+readiness-barrier and eleven existing projection tests, without another build:
+`/tmp/baylee-server-native-registry-{variants,curtain,projection}-20261114.log`.

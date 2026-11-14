@@ -14,10 +14,13 @@ pub type Detection = baylee_engine::engine::DetectLoops;
 pub type Detection = baylee_engine::engine::NoLoopDetection;
 
 /// The concrete session, including its recorder and house-AI simulation policy.
-pub type HostedSession = baylee_gamehost::Session<Detection>;
+pub type HostedSession = baylee_gamehost::Session<Detection, Registry>;
+
+/// The registry compiled into the artifact's game and replay paths.
+pub type Registry = baylee_gamehost::RegistryLookup;
 
 /// The concrete transport driver used by the executable.
-pub type CompiledRunner = crate::EngineRunner<Detection>;
+pub type CompiledRunner = crate::EngineRunner<Detection, Registry>;
 
 /// This executable's variant; no environment variable can change it.
 pub const VARIANT: Variant = if cfg!(feature = "tower") {

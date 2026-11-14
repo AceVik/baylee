@@ -1,7 +1,10 @@
 //! Game construction and the readiness barrier before play begins.
-use super::*;
+use super::{
+    Barrier, EngineRunner, Envelope, GamePreset, LoopDetection, PlayerId, SeatSet, Session,
+    SessionRegistry, curtain, ended, error, seat_frames, v1,
+};
 
-impl<D: LoopDetection> EngineRunner<D> {
+impl<D: LoopDetection, R: SessionRegistry> EngineRunner<D, R> {
     /// Builds the game.
     pub(super) fn setup(&mut self, setup: &v1::GameSetup) -> Vec<Envelope> {
         if self.session.is_some() {

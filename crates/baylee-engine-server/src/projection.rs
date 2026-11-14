@@ -224,12 +224,25 @@ fn perspective_of(order: &v1::ProjectRecord) -> (Option<Perspective>, Vec<u8>) {
 /// read or a perspective that cannot be had is a tape that stops `refused`
 /// before any frame.
 pub fn run(order: &v1::ProjectRecord, build: &str, emit: &mut dyn FnMut(v1::TapeChunk)) -> Stop {
-    with_detection::<crate::variant::Detection>(order, build, emit)
+    with_registry::<crate::variant::Detection, crate::variant::Registry>(order, build, emit)
 }
 
 /// Projects with a concrete runner policy. The executable calls [`run`], which
 /// fixes it at compilation; integration hosts select their concrete runner once.
 pub fn with_detection<D: baylee_engine::engine::LoopDetection>(
+    order: &v1::ProjectRecord,
+    build: &str,
+    emit: &mut dyn FnMut(v1::TapeChunk),
+) -> Stop {
+    with_registry::<D, baylee_gamehost::RegistryLookup>(order, build, emit)
+}
+
+/// Projects through the caller's compiled registry, preserving its native pack.
+/// Unsupported manifests stop before any game frame is emitted.
+pub fn with_registry<
+    D: baylee_engine::engine::LoopDetection,
+    R: baylee_gamehost::session::SessionRegistry,
+>(
     order: &v1::ProjectRecord,
     build: &str,
     emit: &mut dyn FnMut(v1::TapeChunk),
@@ -283,7 +296,7 @@ pub fn with_detection<D: baylee_engine::engine::LoopDetection>(
         Some(perspective) => {
             let names = order.names.clone();
             let mut began = false;
-            let projected = replay::project_with_detection::<D>(
+            let projected = replay::project_with_registry::<D, R>(
                 &record,
                 names,
                 perspective,

@@ -3,7 +3,9 @@ use super::{EngineRunner, Envelope, Pending, RECORD_FLUSH_MS, Session, record_du
 use flate2::{Compression, write::GzEncoder};
 use std::io::Write as _;
 
-impl<D: baylee_engine::engine::LoopDetection> EngineRunner<D> {
+impl<D: baylee_engine::engine::LoopDetection, R: baylee_gamehost::session::SessionRegistry>
+    EngineRunner<D, R>
+{
     /// The gateway asked for the record as it stands (#323), for a bug
     /// report filed at this game: whatever of it has gathered, as a piece
     /// that is not `last`, and then [`v1::RecordFlushed`] with the gateway's

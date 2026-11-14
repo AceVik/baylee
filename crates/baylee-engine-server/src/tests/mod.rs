@@ -6,6 +6,7 @@ mod curtain;
 mod foresight;
 mod hostile;
 mod moderation;
+mod native_pack;
 mod participation;
 mod projection;
 mod record;
