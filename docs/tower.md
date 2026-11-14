@@ -160,3 +160,10 @@ The same gate passed workspace clippy, bench smoke and API checks. Its printing
 validation found one newly refreshed equipment reminder text; `refresh-oracle`
 updated only that derived comment, and validation then passed for all 12,568
 cards. No card implementation changed.
+
+The final `cargo dev central gate --features` passed: client feature clippy and
+2,737 client tests (43 dev-control tests), gateway dev-table clippy/tests, all
+applicable desktop feature configurations, shipped/unified hook boundaries and
+the exact reviewed Central crypto source/reverse graph. The Linux-only replay
+collector check is not applicable to this macOS run. The gate removed its owned
+PostgreSQL 18.6 container; its processes exited and listener closure was verified.
