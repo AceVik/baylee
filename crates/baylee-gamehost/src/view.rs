@@ -176,11 +176,14 @@ pub(crate) fn known_name(obj: &GameObject) -> baylee_core::ids::NameRef {
 
 /// Both names of a split card off the stack, "Fire // Ice": there it has
 /// two (CR 709.4a), where the engine's object carries its left half's alone
-/// (`Characteristics::of_card`). `None` for every other object, and for a
-/// split card on the stack, which is the half cast (CR 709.3b). Read only
-/// after the caller has checked inspection rights.
+/// (`Characteristics::of_card`). `None` for every other object, for a split
+/// card on the stack, which is the half cast (CR 709.3b), and for a Room on
+/// the battlefield while either door is locked (CR 709.5). Read only after the
+/// caller has checked inspection rights.
 pub(crate) fn split_name(state: &GameState, obj: &GameObject) -> Option<String> {
-    if obj.zone == baylee_engine::zone::Zone::Stack {
+    if obj.zone == baylee_engine::zone::Zone::Stack
+        || (obj.doors.is_room() && (!obj.doors.is_unlocked(0) || !obj.doors.is_unlocked(1)))
+    {
         return None;
     }
     let def = obj

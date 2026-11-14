@@ -571,8 +571,9 @@ fn a_locked_door_unlocks_as_a_sorcery_for_its_mana_cost_and_its_trigger_hears_it
 /// so a mana value of zero and no graveyard land drop. Each door is then
 /// unlocked in turn, the left one firing nothing and the right one its
 /// trigger; and once Naturalize destroys the Room, the card it leaves is the
-/// card again, left half first, with no doors (CR 400.7). This turn that is
-/// an exiled card: the Cellar's replacement caught the Room itself.
+/// split card again, with both halves' mana costs combined (`{5}{G}{G}{G}`,
+/// MV 8; CR 709.4) and no doors (CR 400.7). This turn that is an exiled card:
+/// the Cellar's replacement caught the Room itself.
 #[allow(clippy::too_many_lines)] // One Room, from locked to gone.
 #[test]
 fn a_room_put_onto_the_battlefield_uncast_has_both_doors_locked() {
@@ -674,7 +675,13 @@ fn a_room_put_onto_the_battlefield_uncast_has_both_doors_locked() {
             "{2}{G}"
                 .parse::<baylee_core::mana::ManaCost>()
                 .expect("a mana cost")
+                .combine(
+                    &"{3}{G}{G}"
+                        .parse::<baylee_core::mana::ManaCost>()
+                        .expect("a mana cost"),
+                ),
         ),
-        "off the battlefield the card is its printed front again"
+        "off the battlefield the Room combines both halves' characteristics (CR 709.4)"
     );
+    assert_eq!(gone.characteristics().mana_value(), 8);
 }
