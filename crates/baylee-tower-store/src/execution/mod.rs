@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 mod claim;
 mod record;
 mod recovery;
+pub(super) mod verification;
 pub use recovery::Recovery;
 
 /// Identifies a claimed worker; authentication still comes from the dedicated host.
@@ -165,7 +166,8 @@ impl Store {
         current: &Current,
     ) -> Result<(), Error> {
         self.save_run(db, current.saved.account, &current.saved.snapshot)
-            .await
+            .await?;
+        self.verification_state(db, current).await
     }
 }
 

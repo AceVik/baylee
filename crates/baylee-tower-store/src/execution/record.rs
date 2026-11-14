@@ -76,7 +76,7 @@ impl Store {
         Ok(prefix)
     }
 
-    async fn chunk(
+    pub(super) async fn chunk(
         &self,
         db: &impl ConnectionTrait,
         reservation: uuid::Uuid,
@@ -161,7 +161,7 @@ impl Store {
     }
 }
 
-fn checked_chunk(current: &Current, chunk: &StoredChunk) -> Result<(), Error> {
+pub(super) fn checked_chunk(current: &Current, chunk: &StoredChunk) -> Result<(), Error> {
     let stored = current.execution()?;
     // Recompute only a content commitment; this does not verify legal gameplay.
     let mut reference =

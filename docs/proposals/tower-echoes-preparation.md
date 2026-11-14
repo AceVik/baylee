@@ -998,3 +998,42 @@ gateway's reveal-after-ACK barrier are still integration work. A storage ACK tes
 does not prove that the live engine transport already enforces that barrier.
 Operator PostgreSQL configuration must retain fsync/WAL durability; synchronous
 commit does not by itself certify failover replication or storage hardware.
+
+## Independent adjudication and global echoes — twenty-eighth working milestone
+
+Migrations five/six add an independently fenced verifier queue, exact settlement
+receipts, an atomic accomplishment outbox and immutable pre-duel snapshots. A host
+cannot claim/read/settle verifier work. Expiry/reassignment and technical quarantine
+invalidate the former verifier generation. Settlement binds the saved package,
+execution fence and sealed byte prefix; consumed charges, income, next shop,
+snapshot/index, future starting seed and outbox commit together. Exact authorized
+retries return the original response, even after subsequent owner commands.
+
+The global index enforces one account weight per cohort/ordinal, uses the full
+dense population sampler, excludes self and prefers unseen accounts. Only a
+verified terminal completion admits its frozen pre-duel build; victory is not
+required. The first still-eligible representative stays fixed regardless of later
+outcomes. Empty eligible pools use explicitly labelled immutable house builds.
+Withdrawal advances a consent generation so reenrollment cannot resurrect old
+snapshots. Matching rechecks expiry/consent before reservation. Cleanup scans a
+bounded number of indexed positions using a saved cursor, with constant-work
+swap deletion; exhausted cleanup work refuses instead of pretending the pool is
+empty. Local attribution checks additionally require current Central visibility
+at the eventual service projection boundary.
+
+Fourteen PostgreSQL cases passed in
+`/tmp/baylee-tower-store-adjudication-tests-20261114-r2.log`. The first run exposed
+an overly strict nullable-UUID constraint on an unclaimed verification job; the
+unpublished migration was corrected and the affected suite passed. The added
+same-stage unseen/repeat/cohort-isolation scenario passed separately in
+`/tmp/baylee-tower-store-indexed-matching-tests-20261114.log`. Strict all-target
+Clippy passed after test-helper extraction in
+`/tmp/baylee-tower-store-adjudication-clippy-20261114-r5.log`. Fixture schemas and
+pools were cleaned, including on the failing run; no service or client was started.
+
+These are trusted-role persistence fixtures using explicitly synthetic bytes.
+They do not certify legal MTG replays. The real native Tower verifier, service
+authentication/transport, live reveal barrier, bounded retention with updated
+receipt/record counters, Central delivery and native client remain to integrate.
+An outbox row is not a delivered Central badge. No new external dependency was
+introduced and no migration was applied to a production schema.

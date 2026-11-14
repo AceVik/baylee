@@ -54,7 +54,7 @@ impl Store {
         let mut saved = self.locked_run(&tx, account, choice.run).await?;
         self.compatible_host(&tx, choice.host, &saved.publication.cohort.executor)
             .await?;
-        let opponent = self.house_opponent(&tx, &saved, &entropy.opponent).await?;
+        let opponent = self.select_opponent(&tx, &saved, &entropy.opponent).await?;
         let frozen = Package::reserve(
             &saved.snapshot.state,
             choice.revision,
@@ -65,12 +65,16 @@ impl Store {
             byte_limit,
         )?;
         tx.execute_raw(self.statement(
-            "INSERT INTO @tower.reservations(run,stage,host,package) VALUES($1,$2,$3,$4)",
+            "INSERT INTO @tower.reservations(run,stage,host,package,opponent_account) VALUES($1,$2,$3,$4,$5)",
             vec![
                 choice.run.into(),
                 i16::from(frozen.package.stage).into(),
                 choice.host.into(),
                 frozen.package.encode(&saved.publication.catalog)?.into(),
+                match &frozen.package.opponent {
+                    Origin::Echo { account, .. } => Some(Uuid::from_bytes(*account)),
+                    Origin::House { .. } => None,
+                }.into(),
             ],
         ))
         .await

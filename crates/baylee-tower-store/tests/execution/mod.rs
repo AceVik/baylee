@@ -1,10 +1,12 @@
 //! Synthetic byte streams test storage, never claim to be legal game records.
 #![forbid(unsafe_code)]
+mod pool;
 mod records;
 mod recovery;
 mod reservations;
 #[path = "../support/mod.rs"]
 mod support;
+mod verification;
 
 use baylee_tower::v2::package::{Build, Seeds};
 use baylee_tower_store::{
@@ -13,6 +15,7 @@ use baylee_tower_store::{
 use support::{Sandbox, publication};
 use uuid::Uuid;
 
+#[derive(Clone)]
 struct Flow {
     account: Uuid,
     initial: Snapshot,
@@ -22,6 +25,34 @@ struct Flow {
 }
 
 impl Flow {
+    async fn another(&self, store: &Store) -> Self {
+        let account = Uuid::now_v7();
+        let initial = store
+            .start(
+                account,
+                Uuid::now_v7(),
+                Start {
+                    cohort: self.initial.cohort,
+                    starter: 0,
+                    consent: CONSENT_REVISION,
+                },
+                [19; 32],
+            )
+            .await
+            .unwrap();
+        Self {
+            account,
+            initial,
+            ..self.clone()
+        }
+    }
+
+    fn continued(&self, initial: Snapshot) -> Self {
+        Self {
+            initial,
+            ..self.clone()
+        }
+    }
     async fn prepare(store: &Store) -> Self {
         let published = publication();
         let cohort = store.publish(&published).await.unwrap();
@@ -112,4 +143,59 @@ fn entropy(seed: u8) -> Entropy {
             policy: u64::from(seed) + 1,
         },
     }
+}
+
+async fn terminal(store: &Store, flow: &Flow) -> baylee_tower_store::Claimed {
+    flow.reserve(store).await;
+    let claimed = store
+        .claim(&flow.host, flow.initial.id, Uuid::now_v7(), 120_000)
+        .await
+        .unwrap();
+    let ack = store
+        .append(
+            &flow.host,
+            claimed.lease,
+            claimed.prefix,
+            b"synthetic terminal fixture\n",
+        )
+        .await
+        .unwrap();
+    store
+        .seal(&flow.host, claimed.lease, ack.prefix)
+        .await
+        .unwrap();
+    claimed
+}
+
+async fn verified_fixture(
+    store: &Store,
+    flow: &Flow,
+    verifier: &Principal,
+    outcome: baylee_tower::v2::run::Outcome,
+) -> Snapshot {
+    let claimed = terminal(store, flow).await;
+    settle_fixture(store, &claimed, verifier, outcome).await
+}
+
+async fn settle_fixture(
+    store: &Store,
+    claimed: &baylee_tower_store::Claimed,
+    verifier: &Principal,
+    outcome: baylee_tower::v2::run::Outcome,
+) -> Snapshot {
+    let job = store
+        .claim_verification(verifier, claimed.lease.reservation, Uuid::now_v7(), 120_000)
+        .await
+        .unwrap();
+    let report = baylee_tower::v2::run::Settlement {
+        binding: job.lease.binding,
+        outcome,
+        turns: 42,
+        used: [0; 2],
+    };
+    // This is a trusted-role persistence fixture, NOT an actual replay verifier.
+    store
+        .settle_verified(verifier, job.lease, &report, [77; 32])
+        .await
+        .unwrap()
 }

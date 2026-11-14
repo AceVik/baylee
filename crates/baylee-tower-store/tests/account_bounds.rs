@@ -27,10 +27,12 @@ async fn existing_history_upgrades_and_quota_failures_leave_no_partial_mutation(
         let bought = store.command(account, request, initial.id, 0, &buy).await.unwrap();
         // Restore exactly the first migration's schema around valid saved data;
         // only this fixture's uniquely named schema is ever modified.
-        db.execute_unprepared(&format!("DROP TABLE \"{schema}\".record_chunks, \"{schema}\".execution_claims, \"{schema}\".reservations;
+        db.execute_unprepared(&format!("DROP TABLE \"{schema}\".eligible_echoes, \"{schema}\".echo_snapshots, \"{schema}\".echo_partitions;
+            DROP TABLE \"{schema}\".award_outbox, \"{schema}\".settled_duels, \"{schema}\".verification_claims, \"{schema}\".verification_jobs;
+            DROP TABLE \"{schema}\".record_chunks, \"{schema}\".execution_claims, \"{schema}\".reservations;
             DROP TABLE \"{schema}\".house_builds, \"{schema}\".operators;
             ALTER TABLE \"{schema}\".players DROP COLUMN consent_revision,
-            DROP COLUMN consent_at,DROP COLUMN receipt_bytes,DROP COLUMN run_count,DROP COLUMN record_bytes,DROP COLUMN record_chunks;
+            DROP COLUMN consent_at,DROP COLUMN receipt_bytes,DROP COLUMN run_count,DROP COLUMN record_bytes,DROP COLUMN record_chunks,DROP COLUMN echo_epoch;
             DELETE FROM \"{schema}\".schema_version WHERE version>=2")).await.unwrap();
         assert_eq!(store.ready().await, Err(Error::Schema));
         store.migrate().await.unwrap();
