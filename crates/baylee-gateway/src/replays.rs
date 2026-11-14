@@ -29,6 +29,8 @@ use tokio::sync::oneshot;
 
 use crate::{Shared, auth};
 
+mod execution;
+
 /// The largest record a job takes, compressed: past it `413`.
 pub const MAX_RECORD_BYTES: u64 = 8 * 1024 * 1024;
 
@@ -74,6 +76,8 @@ pub enum JobError {
 
 /// One job waiting for its engine and its tape.
 struct Job {
+    /// Exact artifact selected for this private projection job.
+    execution: baylee_protocol::execution::Identity,
     /// SHA-256 of the token its engine proves itself with.
     token_hash: String,
     /// What the engine is sent once it has said hello; taken then.
@@ -241,6 +245,7 @@ pub async fn run(state: &Shared, ask: Ask) -> Result<Vec<u8>, JobError> {
             return Err(JobError::Failed);
         }
     };
+    let variant = execution::variant(&record.data).ok_or(JobError::Failed)?;
     let job_id = format!("{JOB_PREFIX}{}", auth::new_id());
     let started = Instant::now();
     let token = auth::new_token();
@@ -264,7 +269,7 @@ pub async fn run(state: &Shared, ask: Ask) -> Result<Vec<u8>, JobError> {
     let (done, tape) = oneshot::channel();
     let agent_id = {
         let mut agents = state.agents.lock();
-        let Some(agent_id) = agents.pick() else {
+        let Some((agent_id, execution)) = agents.pick_variant(variant, None) else {
             return Err(JobError::NoCapacity);
         };
         let start = Envelope {
@@ -272,6 +277,7 @@ pub async fn run(state: &Shared, ask: Ask) -> Result<Vec<u8>, JobError> {
                 game_id: job_id.clone(),
                 engine_token: token.clone(),
                 gateway_url: state.engine_url.clone(),
+                execution: execution.to_metadata(),
             })),
         };
         let Some(agent) = agents.connected.get_mut(&agent_id) else {
@@ -284,6 +290,7 @@ pub async fn run(state: &Shared, ask: Ask) -> Result<Vec<u8>, JobError> {
         state.replay_jobs.running.lock().insert(
             job_id.clone(),
             Job {
+                execution,
                 token_hash: auth::token_hash(&token),
                 order: Some(order),
                 done: Some(done),
@@ -353,10 +360,12 @@ pub fn failed(state: &Shared, job_id: &str) {
 
 /// The order a job's engine is sent after its hello, if `token` is the
 /// job's; taken, so a second engine for the same job is sent nothing.
-pub fn order_for(state: &Shared, job_id: &str, token: &str) -> Option<v1::ProjectRecord> {
+pub fn order_for(state: &Shared, hello: &v1::EngineHello) -> Option<v1::ProjectRecord> {
     let mut running = state.replay_jobs.running.lock();
-    let job = running.get_mut(job_id)?;
-    if !auth::ct_eq(&job.token_hash, &auth::token_hash(token)) {
+    let job = running.get_mut(&hello.game_id)?;
+    if !auth::ct_eq(&job.token_hash, &auth::token_hash(&hello.token))
+        || !crate::engine::execution::matches(Some(&job.execution), hello)
+    {
         return None;
     }
     job.order.take()

@@ -177,6 +177,9 @@ pub enum Line {
         /// [`seen`] before any input; `None` in a record from before it.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         seen: Option<String>,
+        /// Frozen native artifact, absent only in legacy/local records.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        execution: Option<baylee_protocol::execution::Identity>,
     },
     /// One action the engine applied.
     Input {
@@ -265,6 +268,7 @@ impl Recorder {
         preset: &GamePreset,
         build: &str,
         engine: &Engine<RegistryLookup, D>,
+        execution: Option<baylee_protocol::execution::Identity>,
     ) -> Self {
         let mut recorder = Self::default();
         recorder.write(&Line::Header {
@@ -273,6 +277,7 @@ impl Recorder {
             preset: Box::new(preset.clone()),
             hash: hex(engine.snapshot_hash()),
             seen: Some(hex(seen(engine.state()))),
+            execution,
         });
         recorder
     }
@@ -559,6 +564,7 @@ pub(crate) fn header_of(
             preset,
             hash,
             seen,
+            ..
         }) => Ok(Head {
             build,
             preset: *preset,
@@ -1327,6 +1333,7 @@ pub(crate) mod tests {
             preset: Box::new(table(3)),
             hash: hex(1),
             seen: None,
+            execution: None,
         };
         let input = Line::Input {
             n: 0,

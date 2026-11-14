@@ -34,6 +34,7 @@ fn duel() -> GamePreset {
 fn setup_envelope(preset: &GamePreset) -> Envelope {
     Envelope {
         msg: Some(v1::envelope::Msg::GameSetup(v1::GameSetup {
+            execution: baylee_engine_server::variant::identity().to_metadata(),
             game_id: "bench".to_string(),
             preset_json: serde_json::to_vec(preset).expect("preset serializes"),
             seat_names: vec!["A".to_string(), "B".to_string()],

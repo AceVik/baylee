@@ -3,6 +3,8 @@
 //! These are compatibility contracts, not attestations of an operator's honesty.
 //! They contain neither executable paths nor instructions to download or run code.
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::fmt::Write as _;
 
 /// Maximum size of an executable's one-shot JSON metadata response.
 pub const MAX_METADATA_BYTES: usize = 4096;
@@ -53,6 +55,45 @@ fn label(value: &str, max: usize) -> bool {
 }
 
 impl Identity {
+    /// The native execution contract of a source revision and its AI generation.
+    /// This only constructs metadata; callers still choose a statically built artifact.
+    #[must_use]
+    pub fn native(variant: Variant, build: &str, revision: &str, ai_generation: u32) -> Self {
+        let features = match variant {
+            Variant::Standard => "kernel=2;loops=off;pack=standard;fork=on",
+            Variant::StandardLoops => "kernel=2;loops=on;pack=standard;fork=on",
+            Variant::Tower => "kernel=2;loops=off;pack=tower;fork=on",
+        };
+        let pack = if variant == Variant::Tower {
+            "tower"
+        } else {
+            "standard"
+        };
+        let mut fingerprint = String::with_capacity(64);
+        for byte in Sha256::digest(features.as_bytes()) {
+            write!(&mut fingerprint, "{byte:02x}").expect("writing into a string");
+        }
+        Self {
+            schema: SCHEMA,
+            protocol: crate::PROTOCOL_VERSION,
+            variant,
+            build: build.into(),
+            features: fingerprint,
+            rules: format!("{pack}-2"),
+            cards: format!("registry@{revision}"),
+            ai: format!("{pack}-house-{ai_generation}"),
+        }
+    }
+
+    /// Writes the identity on the control link, never a local executable path.
+    ///
+    /// # Panics
+    /// Only if serializing this string-and-integer structure into memory fails.
+    #[must_use]
+    pub fn to_metadata(&self) -> Vec<u8> {
+        serde_json::to_vec(self).expect("execution metadata serializes")
+    }
+
     /// Rejects malformed, oversized and incompatible metadata before it is advertised.
     #[must_use]
     pub fn valid(&self) -> bool {
@@ -78,6 +119,19 @@ impl Identity {
         let value: Self = serde_json::from_slice(bytes).ok()?;
         value.valid().then_some(value)
     }
+}
+
+/// Reads a bounded list from an agent's opening frame, refusing partial lists.
+#[must_use]
+pub fn capabilities_from_metadata(values: &[Vec<u8>]) -> Option<Vec<Identity>> {
+    if values.is_empty() || values.len() > MAX_CAPABILITIES {
+        return None;
+    }
+    let identities: Vec<_> = values
+        .iter()
+        .map(|v| Identity::from_metadata(v))
+        .collect::<Option<_>>()?;
+    valid_capabilities(&identities).then_some(identities)
 }
 
 /// A bounded capability set with no duplicate identities.

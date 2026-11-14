@@ -1,7 +1,5 @@
 //! The artifact's compile-time identity and its concrete hosting type.
-use baylee_protocol::execution::{Identity, SCHEMA, Variant};
-use sha2::{Digest, Sha256};
-use std::fmt::Write as _;
+use baylee_protocol::execution::{Identity, Variant};
 
 #[cfg(all(feature = "tower", feature = "loop-detection"))]
 compile_error!(
@@ -43,33 +41,18 @@ pub const fn default_loop_policy() -> baylee_core::preset::LoopPolicy {
 /// Emits compatibility metadata without opening a socket or reading credentials.
 #[must_use]
 pub fn identity() -> Identity {
-    let features = match VARIANT {
-        Variant::Standard => "kernel=2;loops=off;pack=standard;fork=on",
-        Variant::StandardLoops => "kernel=2;loops=on;pack=standard;fork=on",
-        Variant::Tower => "kernel=2;loops=off;pack=tower;fork=on",
-    };
-    let pack = if VARIANT == Variant::Tower {
-        "tower"
-    } else {
-        "standard"
-    };
-    let mut fingerprint = String::with_capacity(64);
-    for byte in Sha256::digest(features.as_bytes()) {
-        write!(&mut fingerprint, "{byte:02x}").expect("writing into a string");
-    }
-    Identity {
-        schema: SCHEMA,
-        protocol: baylee_protocol::PROTOCOL_VERSION,
-        variant: VARIANT,
-        build: baylee_build::short().into(),
-        features: fingerprint,
-        rules: format!("{pack}-2"),
-        cards: format!("registry@{}", baylee_build::COMMIT),
-        ai: format!(
-            "{pack}-house-{}",
-            baylee_core::preset::AIProfile::GENERATION
-        ),
-    }
+    Identity::native(
+        VARIANT,
+        baylee_build::short(),
+        baylee_build::COMMIT,
+        u32::from(baylee_core::preset::AIProfile::GENERATION),
+    )
+}
+
+/// Checks the gateway's frozen setup against this executable before constructing a game.
+#[must_use]
+pub fn accepts(metadata: &[u8]) -> bool {
+    Identity::from_metadata(metadata).as_ref() == Some(&identity())
 }
 
 #[cfg(test)]
@@ -81,6 +64,11 @@ mod tests {
     fn variant_metadata_and_compiled_policy_agree() {
         let identity = identity();
         assert!(identity.valid());
+        assert!(accepts(&identity.to_metadata()));
+        assert!(!accepts(b""));
+        let mut wrong = identity.clone();
+        wrong.features = "a".repeat(64);
+        assert!(!accepts(&wrong.to_metadata()));
         assert!(Detection::supports(default_loop_policy()));
         assert_eq!(
             identity.variant == Variant::StandardLoops,

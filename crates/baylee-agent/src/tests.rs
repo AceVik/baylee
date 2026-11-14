@@ -35,6 +35,8 @@ fn config() -> AgentConfig {
         name: "test".to_string(),
         capacity: 2,
         engine_bin: PathBuf::from("/bin/true"),
+        additional_bins: Vec::new(),
+        engines: inventory::Inventory::default(),
         executor: baylee_build::short().into(),
         foresight_slots: None,
     }
@@ -95,6 +97,13 @@ fn capacity_is_a_limit_and_zero_is_no_limit() {
 fn the_gateways_orders_are_read_back_whole() {
     let start = Envelope {
         msg: Some(v1::envelope::Msg::StartEngine(v1::StartEngine {
+            execution: baylee_protocol::execution::Identity::native(
+                baylee_protocol::execution::Variant::StandardLoops,
+                "test-build",
+                "test-revision",
+                19,
+            )
+            .to_metadata(),
             game_id: "g1".to_string(),
             engine_token: "tok".to_string(),
             gateway_url: "ws://gw/engine/ws".to_string(),
@@ -103,6 +112,15 @@ fn the_gateways_orders_are_read_back_whole() {
     assert_eq!(
         order(start),
         Order::Start {
+            execution: baylee_protocol::execution::Identity::from_metadata(
+                &baylee_protocol::execution::Identity::native(
+                    baylee_protocol::execution::Variant::StandardLoops,
+                    "test-build",
+                    "test-revision",
+                    19
+                )
+                .to_metadata()
+            ),
             game_id: "g1".to_string(),
             engine_token: "tok".to_string(),
             gateway_url: "ws://gw/engine/ws".to_string(),

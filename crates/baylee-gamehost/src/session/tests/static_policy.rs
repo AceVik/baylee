@@ -60,14 +60,21 @@ fn both_variants_offer_the_same_views_and_expert_answers() {
 
 #[test]
 fn an_off_record_resumes_replays_and_forks_without_changing_policy() {
-    let mut live =
-        OffSession::recorded_with_detection(&off_preset(), record::this_build()).unwrap();
+    let identity = baylee_protocol::execution::Identity::native(
+        baylee_protocol::execution::Variant::Standard,
+        record::this_build(),
+        baylee_build::COMMIT,
+        u32::from(AIProfile::GENERATION),
+    );
+    let mut live = OffSession::recorded_for_execution(&off_preset(), &identity).unwrap();
     for _ in 0..24 {
         let seat = live.awaiting_seat().expect("a human seat is asked");
         let action = live.house_action(seat).expect("a legal proposal");
         live.act_slice(seat, action, 0).unwrap();
     }
     let mut bytes = live.take_record();
+    assert!(matches!(record::lines_of(&bytes).next().unwrap().unwrap(),
+        record::Line::Header { execution: Some(recorded), .. } if recorded == identity));
     let mut resumed = OffSession::resume_with_detection(&bytes).unwrap();
     assert_eq!(live.snapshot_hash(), resumed.snapshot_hash());
     assert!(Session::resume_recorded(&bytes).is_err());

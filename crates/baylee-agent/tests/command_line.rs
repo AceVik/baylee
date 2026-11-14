@@ -12,6 +12,8 @@ use std::net::TcpListener;
 use std::process::{Child, Command, Output, Stdio};
 use std::time::{Duration, Instant};
 
+mod support;
+
 /// Long enough for a loaded machine to start a process and print a page.
 const DEADLINE: Duration = Duration::from_secs(30);
 const STEP: Duration = Duration::from_millis(20);
@@ -39,13 +41,21 @@ struct Agent(Option<Child>);
 
 impl Agent {
     fn spawn(args: &[&str], gateway: &TcpListener) -> Self {
+        Self::with_engine(
+            args,
+            gateway,
+            std::path::Path::new("/nonexistent/baylee-engine-server"),
+        )
+    }
+
+    fn with_engine(args: &[&str], gateway: &TcpListener, executable: &std::path::Path) -> Self {
         let address = gateway.local_addr().expect("the listener's address");
         let child = Command::new(env!("CARGO_BIN_EXE_baylee-agent"))
             .args(args)
             .env_clear()
             .env("BAYLEE_GATEWAY", format!("http://{address}"))
             .env("BAYLEE_AGENT_TOKEN", "a-token-for-this-test-only")
-            .env("BAYLEE_ENGINE_BIN", "/nonexistent/baylee-engine-server")
+            .env("BAYLEE_ENGINE_BIN", executable)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -118,11 +128,23 @@ fn an_argument_it_does_not_take_is_refused_and_dials_nothing() {
 #[test]
 fn with_no_argument_the_same_launch_dials() {
     let gateway = gateway();
-    let mut agent = Agent::spawn(&[], &gateway);
+    let temp = tempfile::tempdir().unwrap();
+    let engine = support::executable(temp.path());
+    let mut agent = Agent::with_engine(&[], &gateway, &engine);
     let started = Instant::now();
     while !dialled(&gateway) {
         assert!(!agent.exited(), "the agent exited instead of dialling");
         assert!(started.elapsed() < DEADLINE, "the agent never dialled");
         std::thread::sleep(STEP);
     }
+}
+
+#[test]
+fn an_uninstalled_engine_is_refused_before_the_agent_connects() {
+    let gateway = gateway();
+    let out = Agent::spawn(&[], &gateway).answer(&[]);
+    assert_eq!(out.status.code(), Some(2));
+    assert!(!dialled(&gateway));
+    assert!(!String::from_utf8_lossy(&out.stdout).contains("a-token-for-this-test-only"));
+    assert!(!String::from_utf8_lossy(&out.stderr).contains("a-token-for-this-test-only"));
 }

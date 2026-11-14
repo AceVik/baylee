@@ -35,6 +35,7 @@ async fn closes(socket: &mut common::Socket, within: Duration) -> bool {
 fn hello_of(bytes: usize) -> Vec<u8> {
     Envelope {
         msg: Some(v1::envelope::Msg::AgentHello(v1::AgentHello {
+            engines: vec![baylee_engine_server::variant::identity().to_metadata()],
             token: "not the secret".into(),
             name: "x".repeat(bytes),
             capacity: 1,

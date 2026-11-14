@@ -59,7 +59,7 @@ pub mod tape;
 /// `SpectatorView::held_choices`, `ViewField::HeldChoices`, and
 /// `LogEvent::CardsChosen`), plus `PublicObject`'s `second_chosen_subtype`,
 /// `chosen_card_type`, `chosen_number`, and `linked_exile`.
-pub const PROTOCOL_VERSION: u32 = 47;
+pub const PROTOCOL_VERSION: u32 = 48;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;

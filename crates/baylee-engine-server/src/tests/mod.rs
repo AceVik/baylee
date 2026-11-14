@@ -58,6 +58,17 @@ fn setup_accounts<D: LoopDetection>(
     runner.handle(
         Envelope {
             msg: Some(v1::envelope::Msg::GameSetup(v1::GameSetup {
+                execution: baylee_protocol::execution::Identity::native(
+                    if preset.house_rules.loop_policy == baylee_core::preset::LoopPolicy::Off {
+                        baylee_protocol::execution::Variant::Standard
+                    } else {
+                        baylee_protocol::execution::Variant::StandardLoops
+                    },
+                    baylee_build::short(),
+                    baylee_build::COMMIT,
+                    u32::from(baylee_core::preset::AIProfile::GENERATION),
+                )
+                .to_metadata(),
                 game_id: "g1".to_string(),
                 preset_json: serde_json::to_vec(preset).expect("preset serializes"),
                 seat_names: vec!["You".to_string(), "House".to_string()],

@@ -232,6 +232,7 @@ where
     };
     let setup = Envelope {
         msg: Some(v1::envelope::Msg::GameSetup(v1::GameSetup {
+            execution: baylee_engine_server::variant::identity().to_metadata(),
             game_id: game.clone(),
             preset_json: serde_json::to_vec(&preset).expect("a preset"),
             seat_names: vec!["House".into(), "Load".into()],

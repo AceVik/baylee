@@ -73,7 +73,9 @@ fn agent(games: usize, capacity: u32) -> Agent {
         name: "test".to_string(),
         local: false,
         capacity,
-        executor: String::new(),
+        engines: vec![execution::native(
+            baylee_protocol::execution::Variant::StandardLoops,
+        )],
         tx: mpsc::unbounded_channel().0,
         games: (0..games).map(|i| i.to_string()).collect(),
     }
@@ -128,7 +130,7 @@ fn a_full_agent_is_still_an_available_one() {
 fn retained_executors_are_exact_and_never_take_ordinary_games() {
     let mut agents = Agents::default();
     let mut retained = agent(0, 1);
-    retained.executor = "retained-build".into();
+    retained.engines[0].build = "retained-build".into();
     agents.connected.insert("old".into(), retained);
     assert_eq!(agents.pick(), None);
     assert_eq!(
@@ -136,11 +138,12 @@ fn retained_executors_are_exact_and_never_take_ordinary_games() {
         Some("old")
     );
     assert_eq!(agents.pick_executor(Some(baylee_build::short())), None);
-    agents.connected.insert("legacy".into(), agent(0, 0));
-    assert_eq!(agents.pick().as_deref(), Some("legacy"));
+    let mut legacy = agent(0, 0);
+    legacy.engines.clear();
+    agents.connected.insert("legacy".into(), legacy);
+    assert_eq!(agents.pick(), None);
     assert_eq!(agents.pick_executor(Some(baylee_build::short())), None);
-    let mut current = agent(1, 0);
-    current.executor = baylee_build::short().into();
+    let current = agent(1, 0);
     agents.connected.insert("current".into(), current);
     assert_eq!(
         agents.pick_executor(Some(baylee_build::short())).as_deref(),
@@ -153,4 +156,77 @@ fn retained_executors_are_exact_and_never_take_ordinary_games() {
         .games
         .push("active".into());
     assert_eq!(agents.pick_executor(Some("retained-build")), None);
+}
+
+#[test]
+fn variants_share_capacity_and_every_contract_field_is_pinned() {
+    use baylee_protocol::execution::Variant;
+    let mut agents = Agents::default();
+    let mut all = agent(0, 1);
+    all.engines = [Variant::Standard, Variant::StandardLoops, Variant::Tower]
+        .into_iter()
+        .map(execution::native)
+        .collect();
+    agents.connected.insert("all".into(), all);
+    for variant in [Variant::Standard, Variant::StandardLoops, Variant::Tower] {
+        assert_eq!(
+            agents.pick_variant(variant, None),
+            Some(("all".into(), execution::native(variant)))
+        );
+    }
+    agents
+        .connected
+        .get_mut("all")
+        .unwrap()
+        .games
+        .push("one".into());
+    for variant in [Variant::Standard, Variant::StandardLoops, Variant::Tower] {
+        assert!(agents.pick_variant(variant, None).is_none());
+    }
+    let agent = agents.connected.get_mut("all").unwrap();
+    agent.games.clear();
+    agent.engines = vec![execution::native(Variant::Standard)];
+    for field in ["features", "rules", "cards", "ai", "build"] {
+        let mut bad = execution::native(Variant::Standard);
+        match field {
+            "features" => bad.features = "b".repeat(64),
+            "rules" => bad.rules.push('x'),
+            "cards" => bad.cards.push('x'),
+            "ai" => bad.ai.push('x'),
+            _ => bad.build.push('x'),
+        }
+        agents.connected.get_mut("all").unwrap().engines[0] = bad;
+        assert!(
+            agents.pick_variant(Variant::Standard, None).is_none(),
+            "{field}"
+        );
+    }
+}
+
+#[test]
+fn attached_engines_must_match_the_complete_reservation() {
+    let expected = execution::native(baylee_protocol::execution::Variant::Standard);
+    let mut hello = v1::EngineHello {
+        build: expected.build.clone(),
+        execution: expected.to_metadata(),
+        ..Default::default()
+    };
+    assert!(execution::matches(Some(&expected), &hello));
+    assert!(!execution::matches(None, &hello));
+    for field in ["variant", "build", "features", "rules", "cards", "ai"] {
+        let mut other = expected.clone();
+        match field {
+            "variant" => other.variant = baylee_protocol::execution::Variant::Tower,
+            "build" => other.build.push('x'),
+            "features" => other.features = "b".repeat(64),
+            "rules" => other.rules.push('x'),
+            "cards" => other.cards.push('x'),
+            _ => other.ai.push('x'),
+        }
+        hello.execution = other.to_metadata();
+        assert!(!execution::matches(Some(&expected), &hello), "{field}");
+    }
+    hello.execution = expected.to_metadata();
+    hello.build.push('x');
+    assert!(!execution::matches(Some(&expected), &hello));
 }

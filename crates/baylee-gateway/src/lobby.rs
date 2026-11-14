@@ -320,6 +320,8 @@ pub struct LobbyGame {
     /// Public task identity, carried only in its player's authenticated seat grant.
     pub(crate) challenge_task: Option<[u8; 16]>,
     pub(crate) challenge_executor: Option<String>,
+    /// Exact artifact reserved before an engine sees the private game setup.
+    pub(crate) execution: Option<baylee_protocol::execution::Identity>,
     /// The ordered writer is still committing this game's authoritative outcome.
     pub(crate) challenge_finalizing: bool,
     /// Game id (`UUIDv7`).
@@ -625,6 +627,7 @@ impl LobbyGame {
             challenge: None,
             challenge_task: None,
             challenge_executor: None,
+            execution: None,
             challenge_finalizing: false,
             state: LobbyState::Waiting,
             host: None,

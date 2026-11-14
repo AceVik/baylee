@@ -2375,15 +2375,40 @@ Three sockets, three secrets, and no two of them are interchangeable:
 
 A player's token opens neither of the first two. The engine token is minted
 when the game is ordered, handed to the agent, and passed to the process it
-starts as a command-line argument — it never leaves the machine the agent runs
-on, and it is worth one game.
+starts through `BAYLEE_ENGINE_TOKEN`, never argv. The agent removes its own
+control-plane token from that child's environment. The child token authorizes
+one game only.
 
-`AgentHello.executor` advertises the exact build of that authenticated agent's
-fixed engine binary. Empty legacy identities can host ordinary games only.
-Challenge admission gets the certified identity from Central, selects a matching
-agent before claiming, and checks `EngineHello.build` again before disclosure.
-An agent configured for an older retained build is excluded from ordinary games.
-All retained builds must still speak the gateway's exact protocol version.
+**Artifact selection (protocol 48).** The gateway chooses the engine, and the
+agent starts it. Before connecting, an agent probes each operator-configured
+executable using isolated `--metadata` (5 seconds, 4 KiB, no engine/agent token,
+no stdin, discarded stderr, child reaped on success and failure). It advertises
+1–16 unique execution identities in `AgentHello.engines`; missing, malformed,
+oversized and duplicate capabilities are refused after agent authentication.
+`AgentHello.executor` is retained for wire history but no longer selects a host.
+
+Each identity freezes schema/protocol, `standard` / `standard-loops` / `tower`,
+build, canonical feature fingerprint, rule pack, card registry and AI generation.
+Ordinary games require the gateway release's exact native identity. Retained v1
+challenges additionally select their certified build and require the current
+static feature/rule/AI contract. Their existing build certificate remains a v1
+contract, not a new full-artifact certificate. The agent's capacity is shared
+across all installed variants and replay jobs.
+
+`StartEngine.execution` carries the selected identity, never a path, command,
+download URL or environment. The agent performs an exact local lookup; no
+fallback is permitted. Duplicate game IDs cannot change their assigned artifact.
+`EngineHello.execution` repeats compiled metadata, and the gateway checks every
+field and `build` against its reservation after authenticating the per-game token
+and before sending private setup. `GameSetup.execution` repeats that reservation;
+the executable checks it before constructing a session. A hosted record includes
+the identity in its header; missing metadata remains readable in legacy records.
+Replay selection reads only bounded header routing metadata (2 MiB inflated),
+preserving legacy loop policy and refusing an incompatible advertised artifact.
+
+These checks establish compatibility and catch a stale/replaced executable. They
+are not remote attestation and cannot prove a hosting operator honest. Gateway,
+agent, engine and clients must all speak protocol 48; no old-agent fallback exists.
 
 An authenticated challenge `SeatGrant` includes optional `challenge`, the public
 task UUID as sixteen bytes. Ordinary `POST /lobby/games/{id}/seat` recovery returns

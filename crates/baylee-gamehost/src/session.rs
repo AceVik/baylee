@@ -421,7 +421,31 @@ impl<D: baylee_engine::engine::LoopDetection> Session<D> {
     #[must_use]
     pub fn recorded_with_detection(preset: &GamePreset, build: &str) -> Option<Self> {
         let mut session = Self::with_detection(preset)?;
-        session.record = Some(Recorder::new(preset, build, &session.engine));
+        session.record = Some(Recorder::new(preset, build, &session.engine, None));
+        Some(session)
+    }
+
+    /// Records a hosted game with the artifact selected by its gateway.
+    /// A malformed identity or an incompatible loop variant cannot create a session.
+    #[must_use]
+    pub fn recorded_for_execution(
+        preset: &GamePreset,
+        identity: &baylee_protocol::execution::Identity,
+    ) -> Option<Self> {
+        use baylee_protocol::execution::Variant;
+        if !identity.valid()
+            || (identity.variant == Variant::StandardLoops)
+                != (preset.house_rules.loop_policy != baylee_core::preset::LoopPolicy::Off)
+        {
+            return None;
+        }
+        let mut session = Self::with_detection(preset)?;
+        session.record = Some(Recorder::new(
+            preset,
+            &identity.build,
+            &session.engine,
+            Some(identity.clone()),
+        ));
         Some(session)
     }
 

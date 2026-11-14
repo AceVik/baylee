@@ -14,6 +14,7 @@ bytes.workspace = true
 unicode-normalization.workspace = true
 # The seat agent's link (`seathost`): JSON text frames.
 serde.workspace = true
+sha2.workspace = true
 serde_json = { workspace = true, features = ["raw_value"] }
 
 [build-dependencies]

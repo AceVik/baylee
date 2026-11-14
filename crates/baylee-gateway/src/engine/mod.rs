@@ -29,6 +29,7 @@ use std::net::SocketAddr;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
+pub(crate) mod execution;
 mod lifecycle;
 mod wire;
 use wire::{
@@ -57,8 +58,8 @@ pub struct Agent {
     pub local: bool,
     /// How many engines it will run at once. 0 means no limit.
     pub capacity: u32,
-    /// Fixed engine build advertised by this authenticated agent.
-    pub executor: String,
+    /// Bounded identities of locally installed artifacts advertised on this connection.
+    pub engines: Vec<baylee_protocol::execution::Identity>,
     /// Orders to that agent.
     pub tx: mpsc::UnboundedSender<Envelope>,
     /// Games it was asked to run.
@@ -96,27 +97,14 @@ impl Agents {
     /// Ties break on the id rather than on iteration order — a `HashMap` has
     /// no order to speak of, and "whichever one came out first" is not a
     /// scheduling policy anybody could reason about.
+    #[cfg(test)]
     pub(crate) fn pick(&self) -> Option<String> {
         self.pick_executor(None)
     }
 
     pub(crate) fn pick_executor(&self, executor: Option<&str>) -> Option<String> {
-        self.connected
-            .iter()
-            .filter(|(_, agent)| agent.has_room())
-            .filter(|(_, agent)| {
-                executor.map_or_else(
-                    || agent.executor.is_empty() || agent.executor == baylee_build::short(),
-                    |required| agent.executor == required,
-                )
-            })
-            .min_by(|a, b| {
-                a.1.games
-                    .len()
-                    .cmp(&b.1.games.len())
-                    .then_with(|| a.0.cmp(b.0))
-            })
-            .map(|(id, _)| id.clone())
+        self.pick_variant(baylee_protocol::execution::Variant::StandardLoops, executor)
+            .map(|(id, _)| id)
     }
 
     /// Sends one order to one agent, if it is still there.
@@ -143,43 +131,40 @@ pub fn start_engine(state: &Shared, game_id: &str) -> Result<(), &'static str> {
         return Err(crate::admission::HELD);
     }
     let engine_token = auth::new_token();
-    let executor = state
-        .lobby
-        .lock()
-        .games
-        .get(game_id)
-        .and_then(|game| game.challenge_executor.clone());
-    let (agent_id, local) = {
-        let agents = state.agents.lock();
-        let id = agents
-            .pick_executor(executor.as_deref())
-            .ok_or("no compatible engine capacity")?;
-        let local = agents.connected.get(&id).is_some_and(|agent| agent.local);
-        (id, local)
-    };
-    {
+    let agent_id = {
+        // One short reservation critical section. No await and no hidden setup data.
+        // All other users release either lock before acquiring the other one.
         let mut lobby = state.lobby.lock();
         let game = lobby.games.get_mut(game_id).ok_or("no such game")?;
+        if game.state != LobbyState::Playing || game.agent_id.is_some() {
+            return Err("game does not need an engine");
+        }
+        let preset = game.preset.as_ref().ok_or("no game preset")?;
+        let variant = execution::standard_variant(preset.house_rules.loop_policy);
+        let mut agents = state.agents.lock();
+        let (id, execution) = agents
+            .pick_variant(variant, game.challenge_executor.as_deref())
+            .ok_or("no compatible engine capacity")?;
+        let agent = agents.connected.get_mut(&id).ok_or("the agent went away")?;
+        let order = Envelope {
+            msg: Some(v1::envelope::Msg::StartEngine(v1::StartEngine {
+                game_id: game_id.to_string(),
+                engine_token: engine_token.clone(),
+                gateway_url: state.engine_url.clone(),
+                execution: execution.to_metadata(),
+            })),
+        };
+        if agent.tx.send(order).is_err() {
+            return Err("the agent went away");
+        }
+        agent.games.push(game_id.to_string());
         game.engine_token_hash = Some(auth::token_hash(&engine_token));
-        game.agent_id = Some(agent_id.clone());
-        game.engine_local = local;
-    }
-    let order = Envelope {
-        msg: Some(v1::envelope::Msg::StartEngine(v1::StartEngine {
-            game_id: game_id.to_string(),
-            engine_token,
-            gateway_url: state.engine_url.clone(),
-        })),
+        game.agent_id = Some(id.clone());
+        game.engine_local = agent.local;
+        game.execution = Some(execution);
+        tracing::info!(game_id, agent_id = id, agent = agent.name, "engine ordered");
+        id
     };
-    let mut agents = state.agents.lock();
-    let Some(agent) = agents.connected.get_mut(&agent_id) else {
-        return Err("the agent went away");
-    };
-    if agent.tx.send(order).is_err() {
-        return Err("the agent went away");
-    }
-    agent.games.push(game_id.to_string());
-    tracing::info!(game_id, agent_id, agent = agent.name, "engine ordered");
     lifecycle::watch_start(state.clone(), game_id.to_string(), agent_id);
     Ok(())
 }
@@ -331,6 +316,11 @@ async fn run_agent_socket(
     {
         return;
     }
+    let Some(engines) = baylee_protocol::execution::capabilities_from_metadata(&hello.engines)
+    else {
+        let _ = send(&mut socket, &refusal("invalid engine capabilities")).await;
+        return;
+    };
     let (tx, mut rx) = mpsc::unbounded_channel();
     let first = {
         let mut agents = state.agents.lock();
@@ -341,7 +331,7 @@ async fn run_agent_socket(
                 name: hello.name.clone(),
                 local,
                 capacity: hello.capacity,
-                executor: hello.executor,
+                engines,
                 tx,
                 games: Vec::new(),
             },
@@ -587,6 +577,8 @@ async fn run_engine_socket(state: Shared, mut socket: WebSocket, place: Option<a
         if let Some(why) = baylee_protocol::version_refusal("This engine", hello.protocol_version) {
             tracing::error!(game_id, why, "engine refused");
             Err(why)
+        } else if !execution::matches(game.execution.as_ref(), &hello) {
+            Err("engine does not match the reserved execution identity".to_owned())
         } else if game
             .challenge_executor
             .as_ref()
@@ -647,6 +639,11 @@ async fn run_engine_socket(state: Shared, mut socket: WebSocket, place: Option<a
                         seat_names: names,
                         seat_guests: guests,
                         seat_accounts: game.seat_accounts(),
+                        execution: game
+                            .execution
+                            .as_ref()
+                            .expect("reserved identity")
+                            .to_metadata(),
                     })),
                 },
             ))
@@ -798,7 +795,7 @@ async fn pump_engine(
 /// piece. Never a game: nothing here touches the lobby.
 async fn run_job_socket(state: &Shared, mut socket: WebSocket, hello: &v1::EngineHello) {
     let job_id = hello.game_id.as_str();
-    let Some(order) = crate::replays::order_for(state, job_id, &hello.token) else {
+    let Some(order) = crate::replays::order_for(state, hello) else {
         tracing::warn!("replay engine attach refused");
         return;
     };

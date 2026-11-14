@@ -43,7 +43,13 @@ fn ws_config() -> tokio_tungstenite::tungstenite::protocol::WebSocketConfig {
 }
 
 /// Engines this agent started, by game, each holding the switch that stops it.
-type Running = Arc<Mutex<HashMap<String, Option<oneshot::Sender<()>>>>>;
+type Running = Arc<Mutex<HashMap<String, OwnedEngine>>>;
+
+/// An assigned artifact and its still-owned process stop switch.
+struct OwnedEngine {
+    execution: baylee_protocol::execution::Identity,
+    stop: Option<oneshot::Sender<()>>,
+}
 
 /// Cancelling a session must cancel its socket writer and heartbeat too.
 struct SessionTasks {
@@ -66,8 +72,8 @@ impl Drop for SessionTasks {
 async fn stop_all(running: &Running) {
     {
         let mut entries = running.lock().expect("agent process table");
-        for switch in entries.values_mut() {
-            if let Some(switch) = switch.take() {
+        for engine in entries.values_mut() {
+            if let Some(switch) = engine.stop.take() {
                 let _ = switch.send(());
             }
         }
@@ -180,6 +186,15 @@ async fn main() {
         Ok(config) => config,
         Err(reason) => {
             tracing::error!(%reason, "agent not configured");
+            std::process::exit(2);
+        }
+    };
+    let mut paths = vec![config.engine_bin.clone()];
+    paths.extend(config.additional_bins.iter().cloned());
+    config.engines = match baylee_agent::inventory::Inventory::discover(&paths).await {
+        Ok(engines) => engines,
+        Err(reason) => {
+            tracing::error!(reason, "engine inventory refused");
             std::process::exit(2);
         }
     };
@@ -382,7 +397,16 @@ where
                 game_id,
                 engine_token,
                 gateway_url,
-            } => start(config, running, &out, &game_id, &engine_token, &gateway_url),
+                execution,
+            } => start(
+                config,
+                running,
+                &out,
+                &game_id,
+                &engine_token,
+                &gateway_url,
+                execution.as_ref(),
+            ),
             Order::Stop { game_id } => stop(running, &game_id),
             // Error level: nothing this agent does will be accepted until
             // someone changes a binary, and the sentence says which.
@@ -421,17 +445,36 @@ fn start(
     game_id: &str,
     engine_token: &str,
     gateway_url: &str,
+    execution: Option<&baylee_protocol::execution::Identity>,
 ) {
+    let Some((execution, executable)) =
+        execution.and_then(|id| config.engines.executable(id).map(|path| (id, path)))
+    else {
+        let _ = out.send(status(
+            game_id,
+            v1::engine_status::Kind::Failed,
+            "requested engine is not installed",
+        ));
+        return;
+    };
     let (stop_tx, stop_rx) = oneshot::channel();
     {
         let mut running = running.lock().expect("agent process table");
-        if running.contains_key(game_id) {
+        if let Some(existing) = running.get(game_id) {
             // The gateway asked twice — a reconnect replaying its queue, most
             // likely. The engine is already dialling it; saying so is enough.
             let _ = out.send(status(
                 game_id,
-                v1::engine_status::Kind::Started,
-                "already running",
+                if existing.execution == *execution {
+                    v1::engine_status::Kind::Started
+                } else {
+                    v1::engine_status::Kind::Failed
+                },
+                if existing.execution == *execution {
+                    "already running"
+                } else {
+                    "game already owns a different engine"
+                },
             ));
             return;
         }
@@ -443,10 +486,16 @@ fn start(
             ));
             return;
         }
-        running.insert(game_id.to_string(), Some(stop_tx));
+        running.insert(
+            game_id.to_string(),
+            OwnedEngine {
+                execution: execution.clone(),
+                stop: Some(stop_tx),
+            },
+        );
     }
 
-    let mut engine = tokio::process::Command::new(&config.engine_bin);
+    let mut engine = tokio::process::Command::new(executable);
     engine
         .args(engine_argv(config.engine_address(gateway_url), game_id))
         .env(ENGINE_TOKEN_VAR, engine_token)
@@ -544,7 +593,7 @@ fn stop(running: &Running, game_id: &str) {
         .lock()
         .expect("agent process table")
         .get_mut(game_id)
-        .and_then(Option::take);
+        .and_then(|engine| engine.stop.take());
     if let Some(switch) = switch {
         let _ = switch.send(());
     } else {
@@ -556,6 +605,79 @@ fn stop(running: &Running, game_id: &str) {
 mod tests {
     use super::{Ended, RETRY_MAX, RETRY_START, dial, redial_after};
 
+    #[tokio::test]
+    async fn duplicate_orders_cannot_change_artifacts_or_gain_an_extra_capacity_slot() {
+        use baylee_protocol::execution::{Identity, Variant};
+        let standard = Identity::native(Variant::Standard, "test", "revision", 19);
+        let tower = Identity::native(Variant::Tower, "test", "revision", 19);
+        let path = std::env::temp_dir();
+        let config = baylee_agent::AgentConfig {
+            gateway: "http://127.0.0.1:1".into(),
+            token: "test-token".into(),
+            name: "test".into(),
+            capacity: 1,
+            engine_bin: path.join("never-start"),
+            additional_bins: Vec::new(),
+            executor: "test".into(),
+            foresight_slots: None,
+            engines: baylee_agent::inventory::Inventory::new(vec![
+                (standard.clone(), path.join("never-start-standard")),
+                (tower.clone(), path.join("never-start-tower")),
+            ])
+            .unwrap(),
+        };
+        let running: super::Running = std::sync::Arc::default();
+        let (stop, _held) = tokio::sync::oneshot::channel();
+        running.lock().unwrap().insert(
+            "game".into(),
+            super::OwnedEngine {
+                execution: standard.clone(),
+                stop: Some(stop),
+            },
+        );
+        let (out, mut inbox) = tokio::sync::mpsc::unbounded_channel();
+        for (game, requested, expected) in [
+            (
+                "game",
+                Some(&standard),
+                baylee_protocol::v1::engine_status::Kind::Started,
+            ),
+            (
+                "game",
+                Some(&tower),
+                baylee_protocol::v1::engine_status::Kind::Failed,
+            ),
+            (
+                "second",
+                Some(&tower),
+                baylee_protocol::v1::engine_status::Kind::Failed,
+            ),
+            (
+                "second",
+                None,
+                baylee_protocol::v1::engine_status::Kind::Failed,
+            ),
+        ] {
+            super::start(
+                &config,
+                &running,
+                &out,
+                game,
+                "one-game-token",
+                "ws://127.0.0.1:1",
+                requested,
+            );
+            let Some(baylee_protocol::v1::envelope::Msg::EngineStatus(status)) =
+                inbox.try_recv().unwrap().msg
+            else {
+                panic!("status")
+            };
+            assert_eq!(status.kind, expected as i32);
+            assert_eq!(running.lock().unwrap().len(), 1);
+            assert_eq!(running.lock().unwrap()["game"].execution, standard);
+        }
+    }
+
     /// Start a harmless engine owned by the normal supervisor.
     #[cfg(target_os = "linux")]
     fn owned_child(running: &super::Running, game: &str) -> u32 {
@@ -566,7 +688,18 @@ mod tests {
             .unwrap();
         let pid = child.id().unwrap();
         let (tx, rx) = tokio::sync::oneshot::channel();
-        running.lock().unwrap().insert(game.into(), Some(tx));
+        running.lock().unwrap().insert(
+            game.into(),
+            super::OwnedEngine {
+                execution: baylee_protocol::execution::Identity::native(
+                    baylee_protocol::execution::Variant::StandardLoops,
+                    baylee_build::short(),
+                    baylee_build::COMMIT,
+                    19,
+                ),
+                stop: Some(tx),
+            },
+        );
         let (out, _received) = tokio::sync::mpsc::unbounded_channel();
         tokio::spawn(super::supervise(
             child,
@@ -586,7 +719,7 @@ mod tests {
         let pid = owned_child(&running, "game");
         super::stop(&running, "game");
         assert!(running.lock().unwrap().contains_key("game"));
-        assert!(running.lock().unwrap()["game"].is_none());
+        assert!(running.lock().unwrap()["game"].stop.is_none());
         // A repeated Stop cannot erase the entry or permit a replacement Start.
         super::stop(&running, "game");
         assert!(running.lock().unwrap().contains_key("game"));
@@ -608,6 +741,8 @@ mod tests {
             name: "test".into(),
             capacity: 1,
             engine_bin: "/bin/cat".into(),
+            additional_bins: Vec::new(),
+            engines: baylee_agent::inventory::Inventory::default(),
             executor: baylee_build::short().into(),
             foresight_slots: None,
         };

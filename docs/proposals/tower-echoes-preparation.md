@@ -343,3 +343,43 @@ Logs: `/tmp/baylee-static-server-tests-20261114.log`,
 `/tmp/baylee-static-server-off-clippy-20261114.log`, and
 `/tmp/baylee-static-server-tower-clippy-20261114.log`.
 Release-code omission and performance are not yet measured.
+
+## Gateway-selected artifacts — fourth working milestone
+
+Protocol 48 carries bounded execution identities in agent inventory, start order,
+engine hello and game setup. The gateway reserves one compatible artifact and
+one shared capacity slot atomically. The agent probes only operator-configured
+paths, resolves exact identities locally and refuses unavailable variants and
+duplicate game IDs requesting a different artifact. No path, environment or
+download command arrives from the gateway. The per-game authenticated attach
+checks every identity field before exposing the private preset; the executable
+checks its own compiled identity again. New hosted record headers retain it.
+
+Replay jobs select the recorded loop variant through a bounded metadata read,
+and verify their reserved artifact before receiving private records. Legacy
+headers retain their existing enabled policy. Legacy v1 challenge certification
+still names a build; this does not pretend to replace it with a full-artifact
+certificate or attest the honesty of a remote host.
+
+20 agent-library tests passed in the initial targeted run. Two fixture defects
+then stopped that run: the old command-line control expected a nonexistent
+executable to pass startup, and a new assertion compared a canonical macOS path
+against its `/var` alias. Both were corrected. The remaining/affected selection
+passed 63 tests (1,364 skipped), including real gateway socket admission, wrong
+token isolation, wrong-artifact refusal before disclosure, transport lifecycle,
+private/public replay perspectives, record boundaries, shared capacity and
+5-second metadata timeout/reaping with a harmless Rust executable. The owned
+PostgreSQL fixtures were removed and port closure verified on both success and
+failure. No client or unrelated service was touched.
+
+Strict all-target Clippy for protocol, agent, server, gamehost and gateway passed.
+Off and Tower artifact configurations each passed their two metadata/command
+tests. AsyncAPI was regenerated from the protobuf source. Evidence:
+`/tmp/baylee-engine-routing-tests-20261114.log`,
+`/tmp/baylee-engine-routing-tests-20261114-r2.log`,
+`/tmp/baylee-engine-routing-clippy-final-20261114.log`,
+`/tmp/baylee-engine-routing-off-20261114.log`,
+`/tmp/baylee-engine-routing-tower-20261114.log`.
+Linux-only SIGTERM coverage was updated to use a Rust fixture but was not run
+on this macOS host. Release artifact packaging, new-table/client defaults and
+the Tower v2 rules/service remain subsequent milestones.

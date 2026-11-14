@@ -5,8 +5,9 @@
 use baylee_protocol::v1::{self, Envelope};
 use futures_util::{SinkExt as _, StreamExt as _};
 use prost::Message as _;
-use std::os::unix::fs::PermissionsExt as _;
 use std::time::Duration;
+
+mod support;
 
 /// A private process group contains this test's agent and its fake engines.
 /// Failure cleanup never signals a live service or a process it did not start.
@@ -25,20 +26,15 @@ impl Drop for OwnedGroup {
 #[tokio::test]
 async fn sigterm_reaps_the_actual_agents_owned_engine() {
     let temp = tempfile::tempdir().unwrap();
-    let fake = temp.path().join("fake-engine");
+    let fake = support::executable(temp.path());
     let pidfile = temp.path().join("engine.pid");
-    std::fs::write(
-        &fake,
-        "#!/bin/sh\nprintf '%s' \"$$\" > \"$BAYLEE_TEST_CHILD_PID\"\nexec /bin/sleep 60\n",
-    )
-    .unwrap();
-    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o700)).unwrap();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     let mut agent = tokio::process::Command::new(env!("CARGO_BIN_EXE_baylee-agent"))
         .env("BAYLEE_AGENT_TOKEN", "test-placeholder")
         .env("BAYLEE_GATEWAY", format!("http://{address}"))
         .env("BAYLEE_ENGINE_BIN", &fake)
+        .env_remove("BAYLEE_ENGINE_BINS")
         .env("BAYLEE_TEST_CHILD_PID", &pidfile)
         .process_group(0)
         .kill_on_drop(true)
@@ -57,6 +53,13 @@ async fn sigterm_reaps_the_actual_agents_owned_engine() {
         ws.send(tokio_tungstenite::tungstenite::Message::Binary(
             Envelope {
                 msg: Some(v1::envelope::Msg::StartEngine(v1::StartEngine {
+                    execution: baylee_protocol::execution::Identity::native(
+                        baylee_protocol::execution::Variant::StandardLoops,
+                        "test-build",
+                        "test-revision",
+                        19,
+                    )
+                    .to_metadata(),
                     game_id: "shutdown-test".into(),
                     engine_token: "test-placeholder".into(),
                     gateway_url: format!("ws://{address}/engine/ws"),

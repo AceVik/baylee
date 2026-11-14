@@ -20,6 +20,7 @@ const OTHER: u32 = PROTOCOL_VERSION + 1;
 fn agent_hello(gw: &Gateway, protocol_version: u32) -> Envelope {
     Envelope {
         msg: Some(v1::envelope::Msg::AgentHello(v1::AgentHello {
+            engines: vec![baylee_engine_server::variant::identity().to_metadata()],
             token: gw.agent_token.clone(),
             name: "test-agent".to_string(),
             capacity: 0,
@@ -101,6 +102,7 @@ async fn an_engine_of_another_protocol_ends_its_game() {
         .expect("engine socket");
     let hello = Envelope {
         msg: Some(v1::envelope::Msg::EngineHello(v1::EngineHello {
+            execution: baylee_engine_server::variant::identity().to_metadata(),
             game_id: game_id.clone(),
             token: start.engine_token.clone(),
             protocol_version: OTHER,

@@ -19,6 +19,7 @@ pub(super) async fn run_engine(
         &mut ws,
         &Envelope {
             msg: Some(v1::envelope::Msg::EngineHello(v1::EngineHello {
+                execution: baylee_engine_server::variant::identity().to_metadata(),
                 game_id: start.game_id.clone(),
                 token: start.engine_token.clone(),
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,

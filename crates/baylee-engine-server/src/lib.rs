@@ -646,8 +646,11 @@ impl<D: LoopDetection> EngineRunner<D> {
         let Ok(preset) = serde_json::from_slice::<GamePreset>(&setup.preset_json) else {
             return vec![ended(&setup.game_id, "the preset did not decode")];
         };
-        let Some(mut session) = Session::recorded_with_detection(&preset, baylee_build::short())
+        let Some(identity) = baylee_protocol::execution::Identity::from_metadata(&setup.execution)
         else {
+            return vec![ended(&setup.game_id, "invalid engine execution identity")];
+        };
+        let Some(mut session) = Session::recorded_for_execution(&preset, &identity) else {
             return vec![ended(&setup.game_id, "the preset does not make a game")];
         };
         // These read one frame at a time; see `Session::tell_views_whole`.

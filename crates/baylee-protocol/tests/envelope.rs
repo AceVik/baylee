@@ -16,6 +16,15 @@ fn trip(msg: Msg) -> Msg {
 #[test]
 fn an_agent_hello_keeps_its_token_name_capacity_and_version() {
     let hello = v1::AgentHello {
+        engines: vec![
+            baylee_protocol::execution::Identity::native(
+                baylee_protocol::execution::Variant::StandardLoops,
+                "test-build",
+                "test-revision",
+                19,
+            )
+            .to_metadata(),
+        ],
         token: "s3cret".into(),
         name: "box-1".into(),
         capacity: 7,
@@ -28,6 +37,13 @@ fn an_agent_hello_keeps_its_token_name_capacity_and_version() {
 #[test]
 fn an_engine_hello_keeps_its_game_token_and_version() {
     let hello = v1::EngineHello {
+        execution: baylee_protocol::execution::Identity::native(
+            baylee_protocol::execution::Variant::StandardLoops,
+            "test-build",
+            "test-revision",
+            19,
+        )
+        .to_metadata(),
         game_id: "g1".into(),
         token: "t".into(),
         protocol_version: PROTOCOL_VERSION,
@@ -44,6 +60,13 @@ fn an_engine_hello_keeps_its_game_token_and_version() {
 fn a_hello_from_before_the_version_field_reads_as_version_zero() {
     // An engine hello with only fields 1 and 2 on the wire (no field 3).
     let old = v1::EngineHello {
+        execution: baylee_protocol::execution::Identity::native(
+            baylee_protocol::execution::Variant::StandardLoops,
+            "test-build",
+            "test-revision",
+            19,
+        )
+        .to_metadata(),
         game_id: "g".into(),
         token: "t".into(),
         protocol_version: 0,
@@ -65,6 +88,13 @@ fn a_hello_from_before_the_version_field_reads_as_version_zero() {
 #[test]
 fn start_and_stop_engine_round_trip() {
     let start = v1::StartEngine {
+        execution: baylee_protocol::execution::Identity::native(
+            baylee_protocol::execution::Variant::StandardLoops,
+            "test-build",
+            "test-revision",
+            19,
+        )
+        .to_metadata(),
         game_id: "g".into(),
         engine_token: "tok".into(),
         gateway_url: "ws://127.0.0.1:1/engine/ws".into(),

@@ -57,6 +57,7 @@ pub fn verify(preset: &GamePreset, bytes: &[u8], deadline: Instant) -> Result<Ve
         preset: recorded,
         hash,
         seen,
+        ..
     } = header
     else {
         return Err(Refused::Invalid);

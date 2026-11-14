@@ -23,6 +23,7 @@ async fn agent(gw: &Gateway) -> Socket {
         &mut ws,
         &Envelope {
             msg: Some(v1::envelope::Msg::AgentHello(v1::AgentHello {
+                engines: vec![baylee_engine_server::variant::identity().to_metadata()],
                 token: gw.agent_token.clone(),
                 name: "lifecycle-test".into(),
                 capacity: 1,
@@ -74,11 +75,12 @@ async fn engine(start: &v1::StartEngine) -> Socket {
         &mut ws,
         &Envelope {
             msg: Some(v1::envelope::Msg::EngineHello(v1::EngineHello {
+                execution: baylee_engine_server::variant::identity().to_metadata(),
                 game_id: start.game_id.clone(),
                 token: start.engine_token.clone(),
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,
                 pid: 0,
-                build: String::new(),
+                build: baylee_build::short().into(),
             })),
         },
     )
@@ -134,6 +136,62 @@ async fn an_exit_before_hello_releases_the_room_and_agent_capacity() {
     let (_, second) = create(&gw, "next");
     ordered(&mut agent, &second).await;
     agent.close(None).await.unwrap();
+}
+
+#[tokio::test]
+async fn the_requested_artifact_is_checked_after_auth_and_before_private_setup() {
+    let gw = common::spawn_gateway("execution-contract");
+    let mut owner = agent(&gw).await;
+    let (token, id) = create(&gw, "contract");
+    let start = ordered(&mut owner, &id).await;
+    let expected = baylee_protocol::execution::Identity::from_metadata(&start.execution).unwrap();
+    assert_eq!(expected, baylee_engine_server::variant::identity());
+    let mut wrong = expected.clone();
+    wrong.features = "b".repeat(64);
+    for authorized in [false, true] {
+        let mut socket = common::dial(&start.gateway_url).await.unwrap();
+        send(
+            &mut socket,
+            &Envelope {
+                msg: Some(v1::envelope::Msg::EngineHello(v1::EngineHello {
+                    game_id: id.clone(),
+                    token: if authorized {
+                        start.engine_token.clone()
+                    } else {
+                        "wrong-token".into()
+                    },
+                    protocol_version: baylee_protocol::PROTOCOL_VERSION,
+                    pid: 0,
+                    build: expected.build.clone(),
+                    execution: wrong.to_metadata(),
+                })),
+            },
+        )
+        .await;
+        let answer = tokio::time::timeout(common::WAIT_BUDGET, next_msg(&mut socket))
+            .await
+            .unwrap();
+        if authorized {
+            assert!(matches!(answer, Some(v1::envelope::Msg::Error(_))));
+            assert!(matches!(
+                next(&mut owner).await,
+                v1::envelope::Msg::StopEngine(_)
+            ));
+            gone(&gw, &token, &id).await;
+        } else {
+            assert!(answer.is_none());
+            assert!(
+                listed(&gw, &token, &id),
+                "unauthenticated claims cannot end the reservation"
+            );
+        }
+        let _ = socket.close(None).await;
+    }
+    let (_, next_id) = create(&gw, "correct");
+    let next_start = ordered(&mut owner, &next_id).await;
+    let mut correct = engine(&next_start).await;
+    correct.close(None).await.unwrap();
+    owner.close(None).await.unwrap();
 }
 
 #[tokio::test]

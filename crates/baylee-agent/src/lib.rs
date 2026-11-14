@@ -22,6 +22,8 @@
 use baylee_protocol::v1::{self, Envelope};
 use std::path::PathBuf;
 
+pub mod inventory;
+
 /// Where the control socket is on the gateway.
 pub const CONTROL_PATH: &str = "/agent/ws";
 
@@ -35,7 +37,8 @@ It takes no argument and opens no port; its settings are environment
 variables: BAYLEE_GATEWAY (default http://127.0.0.1:28766; unix:<path> for
 the gateway's unix socket), BAYLEE_AGENT_TOKEN (required), BAYLEE_AGENT_NAME,
 BAYLEE_AGENT_CAPACITY (0 = no limit), BAYLEE_ENGINE_BIN (default: the
-engine server beside this program) and BAYLEE_FORESIGHT_SLOTS (a directory
+engine server beside this program), BAYLEE_ENGINE_BINS (additional installed
+executables as an OS path list), and BAYLEE_FORESIGHT_SLOTS (a directory
 the engines share their search slots in; default: one this agent makes for
 its own engines). Its engines read the rest of the BAYLEE_FORESIGHT_*
 settings from the environment they inherit.";
@@ -88,6 +91,10 @@ pub struct AgentConfig {
     pub capacity: u32,
     /// The engine binary to spawn.
     pub engine_bin: PathBuf,
+    /// Additional operator-configured binaries (`BAYLEE_ENGINE_BINS`, OS path list).
+    pub additional_bins: Vec<PathBuf>,
+    /// Probed local artifacts; populated before connecting to the gateway.
+    pub engines: inventory::Inventory,
     /// The exact build of the fixed engine binary; verified again at engine attach.
     pub executor: String,
     /// Where the engines take their search slots
@@ -166,6 +173,9 @@ impl AgentConfig {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(0),
             engine_bin,
+            additional_bins: var("BAYLEE_ENGINE_BINS")
+                .map_or_else(Vec::new, |paths| std::env::split_paths(&paths).collect()),
+            engines: inventory::Inventory::default(),
             executor,
             foresight_slots: var(SLOTS_VAR).map(PathBuf::from),
         })
@@ -209,6 +219,7 @@ impl AgentConfig {
                 capacity: self.capacity,
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,
                 executor: self.executor.clone(),
+                engines: self.engines.metadata(),
             })),
         }
     }
@@ -252,6 +263,8 @@ pub enum Order {
         engine_token: String,
         /// The websocket the engine dials.
         gateway_url: String,
+        /// The exact artifact selected by the gateway; malformed metadata is refused.
+        execution: Option<baylee_protocol::execution::Identity>,
     },
     /// Stop the engine for a game.
     Stop {
@@ -277,6 +290,7 @@ pub fn order(envelope: Envelope) -> Order {
             game_id: start.game_id,
             engine_token: start.engine_token,
             gateway_url: start.gateway_url,
+            execution: baylee_protocol::execution::Identity::from_metadata(&start.execution),
         },
         Some(v1::envelope::Msg::StopEngine(stop)) => Order::Stop {
             game_id: stop.game_id,

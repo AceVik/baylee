@@ -284,9 +284,11 @@ message AgentHello {
   // refuses any other with an Error naming both; 0 is an agent from before
   // this field, which says none.
   uint32 protocol_version = 4;
-  // Exact build of this agent's fixed engine binary. Empty legacy agents can
-  // host ordinary games only; challenges require an exact certified executor.
+  // Legacy informational build. Protocol 48 selects from engines below only.
   string executor = 5;
+  // Bounded execution::Identity JSON for each locally installed artifact.
+  // Required in protocol 48. Contains no executable path or launch command.
+  repeated bytes engines = 6;
 }
 
 // Gateway → agent, once the token checks out.
@@ -304,6 +306,8 @@ message StartEngine {
   string engine_token = 2;
   // Where the engine dials back (ws:// or wss://).
   string gateway_url = 3;
+  // Exact identity selected by the gateway from AgentHello.engines.
+  bytes execution = 4;
 }
 
 // Gateway → agent: this game is over and its engine can go.
@@ -343,6 +347,8 @@ message EngineHello {
   // keeps beside the game's record so a replay knows whether today's build
   // played it (docs/protocol.md §"Replays"). Empty: an engine from before it.
   string build = 5;
+  // This executable's compiled identity, checked before any game data is sent.
+  bytes execution = 6;
 }
 
 // Gateway → engine: everything needed to build the game.
@@ -366,6 +372,8 @@ message GameSetup {
   // §"Foresight at a host"). Empty from a gateway older than this: every seat
   // that answers over a socket counts.
   repeated bool seat_accounts = 5;
+  // Frozen execution identity; must match the receiving executable.
+  bytes execution = 6;
 }
 
 // Gateway → engine: a seat's socket opened.

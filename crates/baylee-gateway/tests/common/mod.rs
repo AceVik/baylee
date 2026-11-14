@@ -736,6 +736,7 @@ async fn attach_agent_inner(
         &mut ws,
         &Envelope {
             msg: Some(v1::envelope::Msg::AgentHello(v1::AgentHello {
+                engines: vec![baylee_engine_server::variant::identity().to_metadata()],
                 token: gateway.agent_token.clone(),
                 name: "test-agent".to_string(),
                 capacity,

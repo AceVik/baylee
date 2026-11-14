@@ -309,6 +309,7 @@ async fn the_control_socket_refuses_the_wrong_secret() {
         .expect("the upgrade itself is not the check");
     let hello = Envelope {
         msg: Some(v1::envelope::Msg::AgentHello(v1::AgentHello {
+            engines: vec![baylee_engine_server::variant::identity().to_metadata()],
             token: "not-the-secret".to_string(),
             name: "impostor".to_string(),
             capacity: 0,

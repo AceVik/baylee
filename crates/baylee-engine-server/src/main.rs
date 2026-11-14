@@ -1014,6 +1014,10 @@ mod attached {
                     {
                         return project(ws, order).await;
                     }
+                    if let Some(v1::envelope::Msg::GameSetup(setup)) = &envelope.msg
+                        && !baylee_engine_server::variant::accepts(&setup.execution) {
+                        return Err("game setup does not match this engine artifact".into());
+                    }
                     let remaining = remaining_now(&armed);
                     runner.tell_time(wall_ms());
                     send_batch(&mut ws, &runner.handle(envelope, &remaining)).await?;
@@ -1043,6 +1047,7 @@ mod attached {
                 protocol_version: baylee_protocol::PROTOCOL_VERSION,
                 pid: std::process::id(),
                 build: baylee_build::short().to_owned(),
+                execution: baylee_engine_server::variant::identity().to_metadata(),
             })),
         }
     }

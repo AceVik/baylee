@@ -141,6 +141,7 @@ async fn a_game_ordered_from_an_agent_on_the_unix_socket_is_a_local_one() {
     say(
         &mut agent,
         v1::envelope::Msg::AgentHello(v1::AgentHello {
+            engines: vec![baylee_engine_server::variant::identity().to_metadata()],
             token: gw.agent_token.clone(),
             name: "local".to_string(),
             capacity: 0,
@@ -180,11 +181,12 @@ async fn a_game_ordered_from_an_agent_on_the_unix_socket_is_a_local_one() {
     say(
         &mut engine,
         v1::envelope::Msg::EngineHello(v1::EngineHello {
+            execution: baylee_engine_server::variant::identity().to_metadata(),
             game_id: start.game_id.clone(),
             token: start.engine_token.clone(),
             protocol_version: baylee_protocol::PROTOCOL_VERSION,
             pid: 0,
-            build: String::new(),
+            build: baylee_build::short().into(),
         }),
     )
     .await;
