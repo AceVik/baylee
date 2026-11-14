@@ -1163,7 +1163,18 @@ pub(crate) fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<Dama
         } => {
             out.insert(DamageSourceRef { object, version });
         }
-        DelayedAction::AddMana { .. } => {}
+        DelayedAction::AddMana {
+            source,
+            source_version,
+            ..
+        } => {
+            if source != ObjectId::NO_SOURCE {
+                out.insert(DamageSourceRef {
+                    object: source,
+                    version: source_version,
+                });
+            }
+        }
     }
 }
 

@@ -73,10 +73,18 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // "That spell's mana value": the countered spell is in its
             // owner's graveyard by now, and is read as it was on the stack.
             let amount = u16::try_from(super::target_mana_value(res, state)).unwrap_or(u16::MAX);
+            let source_version = super::source_version(state, res)
+                .or_else(|| state.object(res.source).map(|o| o.version))
+                .unwrap_or(0);
             state.delayed.push(crate::state::DelayedTrigger {
                 controller: res.controller,
                 when: crate::state::DelayedWhen::NextMain,
-                action: crate::state::DelayedAction::AddMana { color, amount },
+                action: crate::state::DelayedAction::AddMana {
+                    source: res.source,
+                    source_version,
+                    color,
+                    amount,
+                },
             });
             None
         }
@@ -354,7 +362,7 @@ pub(super) fn add_to(
         player: you,
         color,
         amount,
-        source: Some(res.source),
+        source: (res.source != ObjectId::NO_SOURCE).then_some(res.source),
     });
 }
 

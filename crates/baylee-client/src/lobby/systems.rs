@@ -410,9 +410,6 @@ pub(super) fn poll(
             .and_then(|preset| {
                 // The one place an offline duel becomes a host, and therefore
                 // the only place a hand-dealt board can be spliced in.
-                // `host::house_duel` reads like the other half of this and is
-                // not: nothing calls it, and the preset it builds is not this
-                // one.
                 #[allow(unused_mut)]
                 let mut preset = preset;
                 #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]

@@ -264,12 +264,23 @@ fn mana_drain_cast_in_your_first_main_pays_in_your_second_main() {
     );
     pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
     assert_eq!(engine.state().turn.number, turn, "the same turn");
+    assert!(
+        !stack_is_empty(&engine),
+        "the delayed triggered ability goes on the stack as the second main phase begins"
+    );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "and adds nothing before players pass priority over it"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().turn.phase, Phase::SecondMain);
     assert_eq!(
         engine.state().players[0]
             .mana_pool
             .available(ManaColor::Colorless),
         1,
-        "Lightning Bolt's one {{C}}, as the second main phase begins"
+        "Lightning Bolt's one {{C}}, once the delayed trigger resolves"
     );
 }
 
@@ -290,6 +301,13 @@ fn mana_drain_cast_in_your_second_main_pays_in_your_next_first_main() {
             && e.state().turn.phase == Phase::FirstMain
             && e.state().turn.number > turn
     });
+    assert!(
+        !stack_is_empty(&engine),
+        "the delayed triggered ability goes on the stack as that first main phase begins"
+    );
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().turn.phase, Phase::FirstMain);
     assert_eq!(
         engine.state().players[0]
             .mana_pool
@@ -358,5 +376,107 @@ fn mana_drain_pays_for_the_x_of_a_copy_it_counters() {
         drained_mana(&mut engine),
         3,
         "the copy's mana value: X = 2 and {{R}}"
+    );
+}
+
+/// CR 603.7, CR 605.1b (observed fault #67): Mana Drain's "At the beginning
+/// of your next main phase, add an amount of {C} equal to that spell's mana
+/// value" triggers on a phase beginning rather than a mana activation or mana
+/// production, so it is not a mana ability. It goes onto the stack at the
+/// start of that main phase with the pool still empty, players receive
+/// priority over it, and Tishana's Tidebinder countering it stops the mana
+/// from ever being added.
+#[test]
+fn mana_drain_delayed_ability_uses_the_stack_and_can_be_countered() {
+    let (p0, p1) = (kit::P0, kit::P1);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(
+            0,
+            &[
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                island(),
+                island(),
+                island(),
+            ],
+        )
+        .hand(0, &[index::BLAZE, index::TISHANA_S_TIDEBINDER])
+        .battlefield(1, &[island(), island()])
+        .hand(1, &[mana_drain()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0));
+
+    tap_all_mana_but(&mut engine, p0, Some(island()));
+    let victim = kit::cast(
+        &mut engine,
+        p0,
+        index::BLAZE,
+        &mut kit::Answers::new().x(4).aim_players(&[p1]),
+    );
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+            && on_stack(e, index::BLAZE).is_some()
+    });
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, mana_drain());
+    aim_at(&mut engine, p1, victim);
+    let drain_id = on_stack(&engine, mana_drain()).expect("Mana Drain on stack");
+    pass_until(&mut engine, stack_is_empty);
+
+    // Advance to the beginning of p1's next first main phase: the delayed
+    // triggered ability must be on the stack while p1's pool is still empty.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1 && matches!(e.state().turn.phase, Phase::FirstMain)
+    });
+    assert!(
+        !stack_is_empty(&engine),
+        "Mana Drain's delayed trigger must be on the stack at the start of the main phase"
+    );
+    assert_eq!(
+        engine.state().players[1].mana_pool.total(),
+        0,
+        "no mana is added before players pass priority over the delayed trigger"
+    );
+    let stacked = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .last()
+        .expect("delayed triggered ability on the stack");
+    assert_eq!(
+        engine
+            .state()
+            .object(stacked)
+            .and_then(|o| o.ability)
+            .map(|loc| loc.source),
+        Some(drain_id),
+        "CR 603.7e: the delayed triggered ability's source is the Mana Drain that created it"
+    );
+
+    // p1 passes priority; p0 receives priority over the delayed trigger and
+    // flashes in Tishana's Tidebinder to counter it.
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    assert!(matches!(
+        engine.pending(),
+        Pending::Priority { player, .. } if *player == p0
+    ));
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, index::TISHANA_S_TIDEBINDER);
+    kit::drive_with(
+        &mut engine,
+        &mut kit::Answers::new().aim(&[stacked]),
+        stack_is_empty,
+    );
+
+    assert_eq!(engine.state().turn.active, p1);
+    assert_eq!(engine.state().turn.phase, Phase::FirstMain);
+    assert_eq!(
+        engine.state().players[1].mana_pool.total(),
+        0,
+        "Tishana's Tidebinder countered Mana Drain's delayed triggered ability, so no {{C}} was added"
     );
 }

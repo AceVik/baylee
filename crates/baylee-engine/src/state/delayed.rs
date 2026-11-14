@@ -341,8 +341,14 @@ pub enum DelayedAction {
         /// "Mana of any type can be spent to cast that spell."
         any_mana: bool,
     },
-    /// Add mana (Mana Drain's next-main-phase mana).
+    /// Add mana when the delayed triggered ability resolves (Mana Drain's
+    /// next-main-phase mana, CR 603.7, CR 605.1b).
     AddMana {
+        /// The spell or ability that created this delayed triggered ability
+        /// (CR 603.7e), or `ObjectId::NO_SOURCE` when sourceless.
+        source: ObjectId,
+        /// Exact incarnation of `source` when this delayed ability was created.
+        source_version: u32,
         /// Color.
         color: baylee_core::mana::ManaColor,
         /// Amount.

@@ -721,15 +721,14 @@ impl Drop for LocalHost {
     }
 }
 
-/// Builds the demo duel (Allytifact vs the house AI) from the acceptance deck
-/// file's contents.
+/// Builds a standalone two-seat test duel (`Allytifact` vs `Victory`) from the
+/// acceptance deck file's contents.
 ///
-/// Takes the text rather than a path so the parsing is testable against the
-/// real data file without depending on a working directory — which is exactly
-/// the thing that differs between `cargo run`, an installed binary, and a
-/// browser.
+/// Takes the text rather than a path so test fixtures parse the real data file
+/// without depending on a working directory.
+#[cfg(test)]
 #[must_use]
-pub fn demo_duel(deck_file: &str, seed: u64) -> Option<GamePreset> {
+pub(crate) fn demo_duel(deck_file: &str, seed: u64) -> Option<GamePreset> {
     let player = baylee_cards::decks::load_acceptance(deck_file, "Allytifact").ok()?;
     let house = baylee_cards::decks::load_acceptance(deck_file, "Victory").ok()?;
     let mut preset = baylee_cards::decks::preset_for(seed, &player, &house);
@@ -898,12 +897,14 @@ pub fn fresh_seed() -> u64 {
     }
 }
 
-/// A solo duel against the house AI, ready to install.
+/// A standalone two-seat local duel (`Allytifact` vs `Victory`) for tests.
 ///
-/// Everything the standalone binary needs for offline play, and the same thing
-/// the lobby's "play the house" button installs — so the two cannot drift.
+/// Used by local-host and bug-report unit tests that need an installed
+/// [`LocalHost`] without driving the offline lobby (`lobby::offline` builds the
+/// game a player launches).
+#[cfg(test)]
 #[must_use]
-pub fn house_duel() -> Option<LocalHost> {
+pub(crate) fn house_duel() -> Option<LocalHost> {
     let preset = demo_duel(&acceptance_text(), fresh_seed())?;
     LocalHost::new(&preset, PlayerId::new(0), &["You", "House AI"])
 }
@@ -1070,7 +1071,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn the_demo_duel_that_the_binary_launches_actually_builds() {
+    fn demo_duel_builds_and_deals_a_two_seat_acceptance_preset() {
         let preset = demo_duel(DECK_FILE, 42).expect("the shipped decks parse");
         assert_eq!(preset.seats.len(), 2);
         assert!(matches!(preset.seats[0].controller, SeatController::Open));
@@ -1081,7 +1082,7 @@ pub(crate) mod tests {
 
         // And it starts, with the human dealt in.
         let mut host = LocalHost::new(&preset, PlayerId::new(0), &["You", "House AI"])
-            .expect("the demo duel starts");
+            .expect("the test duel starts");
         let messages = host.poll();
         let view = messages
             .iter()
