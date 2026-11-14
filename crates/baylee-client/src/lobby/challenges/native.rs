@@ -46,6 +46,9 @@ pub(in crate::lobby) fn seated(state: &mut LobbyState, event: &LobbyEvent) {
 }
 
 pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
+    if !ready(state) {
+        return;
+    }
     let Some(handle) = session(state) else {
         return;
     };
@@ -169,7 +172,7 @@ pub(in crate::lobby) fn tick(
             return;
         }
     }
-    let showing = matches!(state.hub, Hub::Play | Hub::Challenges) && state.central_ready();
+    let showing = matches!(state.hub, Hub::Play | Hub::Challenges) && ready(&state);
     let opened = showing && !clock.1;
     clock.1 = showing;
     if showing
@@ -197,6 +200,13 @@ pub(in crate::lobby) fn tick(
         clock.0 = time.elapsed_secs_f64();
         ask(&mut state, Action::Refresh);
     }
+}
+
+/// Acceptance may still be finishing the account migration after its sheet closes.
+fn ready(state: &LobbyState) -> bool {
+    state.central_ready()
+        && !state.central_terms_pending()
+        && state.terms_subject != crate::lobby::front::terms::Subject::Central
 }
 
 fn pending_result(state: &LobbyState) -> bool {

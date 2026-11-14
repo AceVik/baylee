@@ -147,3 +147,16 @@ and client reviewers reported no remaining concrete findings after corrections.
 Final rendered native acceptance still requires the agreed additional test
 display; no representative human difficulty or native Tower visual approval is
 claimed from the headless checks.
+
+The final default gate ran 28,041 tests: 28,035 passed and six Lobby expectations
+failed. Four still expected the removed gateway panels; two exposed challenge
+refreshes during the Central terms/migration transition. The transition now
+blocks both explicit and automatic challenge requests until it completes, and
+connection details are tested in their compact popover. All 58 affected Lobby
+tests then passed in 5.013 seconds. The independent client reviewer found no
+remaining issue in those corrections. The full suite was not repeated.
+
+The same gate passed workspace clippy, bench smoke and API checks. Its printing
+validation found one newly refreshed equipment reminder text; `refresh-oracle`
+updated only that derived comment, and validation then passed for all 12,568
+cards. No card implementation changed.

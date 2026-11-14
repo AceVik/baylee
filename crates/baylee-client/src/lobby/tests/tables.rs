@@ -85,7 +85,8 @@ fn the_table_screen_builds_once_there_is_a_deck() {
             }])));
     }
     app.update();
-    assert!(labels(&mut app).contains(&Phrase::DiscoveryGateway.text(Lang::En).to_owned()));
+    assert!(labels(&mut app).contains(&Phrase::DiscoveryChoose.text(Lang::En).to_owned()));
+    assert!(!labels(&mut app).contains(&Phrase::DiscoveryGateway.text(Lang::En).to_owned()));
     assert!(!labels(&mut app).iter().any(|text| text == "Allytifact"));
     let found = presses(&mut app);
     for wanted in [
@@ -1161,31 +1162,34 @@ fn said(app: &mut App, words: &str) -> usize {
     labels(app).iter().filter(|l| *l == words).count()
 }
 
-/// A gateway that gave no name has no title: the words over the panel are not
-/// said a second time, and the address is what tells it apart.
+/// Connection details appear only when requested, without repeating an unnamed address.
 #[test]
-fn a_gateway_without_a_name_is_not_called_your_gateway_twice() {
+fn an_unnamed_gateway_shows_its_address_once_in_the_connection_popover() {
     let address = "https://nameless.test";
     let mut app = at_the_tables_of(address, None);
     let eyebrow = Phrase::DiscoveryGateway.text(Lang::En);
-    assert_eq!(said(&mut app, eyebrow), 1);
-    assert_eq!(
-        said(&mut app, address),
-        2,
-        "the header's pill and the panel"
+    assert_eq!(said(&mut app, eyebrow), 0);
+    assert_eq!(said(&mut app, address), 0);
+    press(
+        &mut app,
+        Press::Header(super::super::header::HeaderPress::Gateway),
     );
+    app.update();
+    assert_eq!(said(&mut app, address), 1);
 }
 
-/// With a name, the name is the panel's title and the address stands under it.
+/// With a name, the popover keeps its title and address off the resting screen.
 #[test]
-fn a_gateway_with_a_name_keeps_its_address_under_it() {
+fn a_named_gateway_keeps_its_name_and_address_in_the_connection_popover() {
     let address = "https://named.test";
     let mut app = at_the_tables_of(address, Some("The Back Room"));
-    assert_eq!(said(&mut app, Phrase::DiscoveryGateway.text(Lang::En)), 1);
-    assert_eq!(
-        said(&mut app, "The Back Room"),
-        2,
-        "the header's pill and the panel's title"
+    assert_eq!(said(&mut app, "The Back Room"), 0);
+    assert_eq!(said(&mut app, address), 0);
+    press(
+        &mut app,
+        Press::Header(super::super::header::HeaderPress::Gateway),
     );
+    app.update();
+    assert_eq!(said(&mut app, "The Back Room"), 1);
     assert_eq!(said(&mut app, address), 1);
 }

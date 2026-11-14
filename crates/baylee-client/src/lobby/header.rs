@@ -782,7 +782,7 @@ fn gateway_popover(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ent
     let lang = state.lobby.lang();
     let name = state
         .gateway_name()
-        .unwrap_or_else(|| state.gateway.clone());
+        .unwrap_or_else(|| Phrase::ChallengeConnection.text(lang).to_string());
     let bd = strips::gateway_breakdown(state.lobby.stats(), &state.lobby);
     let card = commands
         .spawn((
