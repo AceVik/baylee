@@ -5,7 +5,7 @@ use baylee_protocol::v1;
 use baylee_protocol::v1::Envelope;
 use baylee_view::{GameStatic, LogTail, PlayerView, SeatIdentity, StaticFrame, ViewFrame};
 
-impl<D: baylee_engine::engine::LoopDetection> Session<D> {
+impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry> Session<D, R> {
     /// The seats that won: one for a solo winner, every seat on the team for
     /// a team win — the dead ones included, because a team wins as a team
     /// (CR 104.2c) — and none at all for a draw.

@@ -57,6 +57,7 @@ pub fn from_proto(msg: &v1::GamePresetMsg) -> Result<GamePreset, String> {
         Some(other) => return Err(format!("unknown loop policy {other}")),
     };
     let house_rules = msg.house_rules.as_ref().map_or_default(|h| HouseRules {
+        rule_pack: None,
         mulligan_free_first: h.mulligan_free_first,
         free_mulligans: h.free_mulligans.map(|n| u8::try_from(n).unwrap_or(u8::MAX)),
         starting_counters: h

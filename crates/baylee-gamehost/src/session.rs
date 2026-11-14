@@ -32,7 +32,7 @@ mod frames;
 pub mod project;
 mod pump;
 mod registry;
-pub use registry::RegistryLookup;
+pub use registry::{RegistryLookup, SessionRegistry};
 mod resume;
 #[cfg(any(test, feature = "foresight"))]
 mod simulation;
@@ -121,8 +121,11 @@ impl SeatKind {
 }
 
 /// A live game: engine plus the seat roster.
-pub struct Session<D: baylee_engine::engine::LoopDetection = baylee_engine::engine::DetectLoops> {
-    engine: Engine<RegistryLookup, D>,
+pub struct Session<
+    D: baylee_engine::engine::LoopDetection = baylee_engine::engine::DetectLoops,
+    R: SessionRegistry = RegistryLookup,
+> {
+    engine: Engine<R, D>,
     seats: Vec<SeatKind>,
     /// Every seat's submitted deck as the house may scout it, shared with
     /// the simulations forked from this session.
@@ -318,7 +321,7 @@ fn seat_byte(index: usize) -> u8 {
     u8::try_from(index).unwrap_or(u8::MAX)
 }
 
-impl<D: baylee_engine::engine::LoopDetection> Session<D> {
+impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry> Session<D, R> {
     /// Makes the whole table fair, or lets a level that peeks peek.
     ///
     /// Every level but `seer` is fair at any table: it is told its own
@@ -369,7 +372,7 @@ impl<D: baylee_engine::engine::LoopDetection> Session<D> {
     }
 
     /// The table as the house and its agents read it ([`table::Table`]).
-    fn table(&self) -> table::Table<'_, D> {
+    fn table(&self) -> table::Table<'_, D, R> {
         table::Table {
             engine: &self.engine,
             seats: &self.seats,

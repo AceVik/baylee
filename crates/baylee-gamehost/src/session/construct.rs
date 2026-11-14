@@ -1,6 +1,6 @@
 #[cfg(any(test, feature = "foresight"))]
 use super::foresight;
-use super::{RegistryLookup, SeatKind, Session, challenge, own_prints, seat_byte, spectators};
+use super::{SeatKind, Session, challenge, own_prints, seat_byte, spectators};
 use crate::log::GameLog;
 use baylee_ai::HeuristicAgent;
 use baylee_core::ids::SeatSet;
@@ -53,7 +53,7 @@ impl Session {
     }
 }
 
-impl<D: baylee_engine::engine::LoopDetection> Session<D> {
+impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry> Session<D, R> {
     /// Starts a game from a preset; Open seats become humans, AI seats
     /// get a heuristic agent.
     #[must_use]
@@ -82,7 +82,7 @@ impl<D: baylee_engine::engine::LoopDetection> Session<D> {
                 _ => Some(SeatKind::Human),
             })
             .collect::<Option<_>>()?;
-        let engine = Engine::with_detection(preset, RegistryLookup).ok()?;
+        let engine = Engine::with_detection(preset, R::default()).ok()?;
         let table_seed = table_seed_of(preset, engine.state());
         let log = GameLog::new(engine.state());
         let mut session = Self {

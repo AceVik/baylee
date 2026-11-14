@@ -15,7 +15,7 @@ use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::HouseAnswer;
 
-impl<D: baylee_engine::engine::LoopDetection> Session<D> {
+impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry> Session<D, R> {
     /// The game `record` holds, rebuilt input by input and checked against
     /// every digest the record wrote, as a recorded session that goes on
     /// writing after the record's last line.

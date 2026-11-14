@@ -3,6 +3,16 @@ use baylee_cards::dsl::CardDef;
 use baylee_core::ids::CardIndex;
 use baylee_engine::state::CardLookup;
 
+/// A compiled registry retained by live sessions, replays and fair AI forks.
+/// Implementations must preserve the shared card/token presentation identities.
+pub trait SessionRegistry: CardLookup + Clone + Default + Send + Sync + 'static {}
+
+impl SessionRegistry for RegistryLookup {}
+impl<P: baylee_engine::extensions::NativeRulePack> SessionRegistry
+    for baylee_engine::extensions::NativeLookup<RegistryLookup, P>
+{
+}
+
 /// Registry lookup backed by the compiled card pool.
 ///
 /// A unit, so copying it copies nothing: a forked simulation

@@ -199,9 +199,9 @@ struct Checker {
 impl Checker {
     /// Checks the session against what the record holds after `input`. `Err`
     /// is a divergence the caller must stop at.
-    fn check<D: baylee_engine::engine::LoopDetection>(
+    fn check<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry>(
         &mut self,
-        session: &Session<D>,
+        session: &Session<D, R>,
         input: Option<u64>,
         hash: &str,
         seen: Option<&str>,
@@ -258,13 +258,13 @@ enum Last {
 }
 
 /// The session and the perspective it is told from.
-struct Teller<D: baylee_engine::engine::LoopDetection> {
-    session: Session<D>,
+struct Teller<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry> {
+    session: Session<D, R>,
     lens: Lens,
     last: Last,
 }
 
-impl<D: baylee_engine::engine::LoopDetection> Teller<D> {
+impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry> Teller<D, R> {
     /// The frames the perspective is sent now, or none when nothing it can
     /// see changed since the last.
     fn frames(&mut self) -> Vec<Envelope> {
@@ -412,6 +412,30 @@ pub fn project_with_detection<D: baylee_engine::engine::LoopDetection>(
     names: Vec<String>,
     perspective: Perspective,
     verify: Verify,
+    sink: impl FnMut(Moment) -> ControlFlow<()>,
+) -> Result<Projection, ReplayError> {
+    project_with_registry::<D, crate::session::RegistryLookup>(
+        record,
+        names,
+        perspective,
+        verify,
+        sink,
+    )
+}
+
+/// Projects through the same statically bound registry/pack as live execution.
+/// No record-selected executor or pack substitution is permitted.
+///
+/// # Errors
+/// As [`project_with_detection`], plus refusal of an unsupported native manifest.
+pub fn project_with_registry<
+    D: baylee_engine::engine::LoopDetection,
+    R: crate::session::SessionRegistry,
+>(
+    record: &[u8],
+    names: Vec<String>,
+    perspective: Perspective,
+    verify: Verify,
     mut sink: impl FnMut(Moment) -> ControlFlow<()>,
 ) -> Result<Projection, ReplayError> {
     let mut lines = record::lines_of(record).peekable();
@@ -425,7 +449,7 @@ pub fn project_with_detection<D: baylee_engine::engine::LoopDetection>(
     else {
         return Err(ReplayError::NoHeader);
     };
-    let mut session = Session::<D>::with_detection(&preset).ok_or(ReplayError::Unbuildable)?;
+    let mut session = Session::<D, R>::with_detection(&preset).ok_or(ReplayError::Unbuildable)?;
     session.describe("replay".into(), names);
     let lens = Lens::of(perspective, session.seats.len());
     if let Lens::Seat { seat, own, .. } = lens {

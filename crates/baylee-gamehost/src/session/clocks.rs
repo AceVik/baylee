@@ -2,7 +2,7 @@ use super::{SeatKind, Session};
 use baylee_core::ids::{PlayerId, SeatSet};
 use baylee_engine::choice::PlayerAction;
 
-impl<D: baylee_engine::engine::LoopDetection> Session<D> {
+impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry> Session<D, R> {
     /// How long a seat may sit on a decision, per the table's house rules
     /// (`0` = no limit).
     ///

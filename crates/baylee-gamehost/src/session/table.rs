@@ -9,7 +9,7 @@
 //! [`Session`]: super::Session
 //! [`SimulationSession`]: super::SimulationSession
 
-use super::{RegistryLookup, SeatKind, seat_byte};
+use super::{SeatKind, seat_byte};
 use baylee_ai::HeuristicAgent;
 use baylee_ai::intelligence::DeckIntel;
 use baylee_core::ids::{ObjectId, PlayerId, SeatSet};
@@ -21,8 +21,12 @@ use std::collections::BTreeMap;
 
 /// A table as the house and its agents read it, borrowed from whichever
 /// session holds it.
-pub(super) struct Table<'a, D: baylee_engine::engine::LoopDetection> {
-    pub(super) engine: &'a Engine<RegistryLookup, D>,
+pub(super) struct Table<
+    'a,
+    D: baylee_engine::engine::LoopDetection,
+    R: crate::session::SessionRegistry,
+> {
+    pub(super) engine: &'a Engine<R, D>,
     pub(super) seats: &'a [SeatKind],
     pub(super) teams: &'a [Option<u8>],
     pub(super) scouting_decks: &'a [DeckIntel],
@@ -58,7 +62,7 @@ fn house_on_a_team(kind: Option<&SeatKind>) -> bool {
     matches!(kind, Some(SeatKind::Ai(agent)) if agent.profile().plays(AIProfile::TEAM_PLAY))
 }
 
-impl<D: baylee_engine::engine::LoopDetection> Table<'_, D> {
+impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry> Table<'_, D, R> {
     fn seq_for(&self, seat: PlayerId) -> u64 {
         if seat.get() == 1 {
             self.challenge_seq.unwrap_or(self.seq)

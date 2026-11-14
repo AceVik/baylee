@@ -630,3 +630,20 @@ This is the engine adapter, not yet the hosted Tower pack/catalog or its AI.
 No release-artifact throughput or binary-size improvement is claimed.
 Strict all-target core/engine Clippy passed in
 `/tmp/baylee-native-pack-clippy-20261114-r2.log`.
+
+## Static registry across host boundaries — thirteenth working milestone
+
+`Session<D, Registry>` now preserves its compiled registry through live play,
+recording, resumption, exact replay, perspective projection and fair AI forks.
+Existing callers retain the ordinary registry by default. Native setup cannot
+fall back to that registry; public ordinary table setup cannot select a pack.
+No runtime pack selector or virtual dispatch was added to these paths.
+
+The two focused host tests passed in
+`/tmp/baylee-host-native-registry-tests-20261114-r2.log`: paired continued inputs
+produce identical hashes after resume, exact replay agrees, projection retains
+the pack, simulation leaves the live game untouched, and an ordinary projector
+refuses before emitting a moment. Strict all-target host Clippy passed in
+`/tmp/baylee-host-native-registry-clippy-20261114.log`. The first test build ran
+out of disk space; removing this worktree's regenerable incremental cache made
+the retry possible. This is not yet the Tower catalog or network authority.

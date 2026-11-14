@@ -37,8 +37,9 @@ use super::{RegistryLookup, SeatKind, Session};
 /// does. Advancing it never touches the session it was forked from.
 pub struct SimulationSession<
     D: baylee_engine::engine::LoopDetection = baylee_engine::engine::DetectLoops,
+    R: crate::session::SessionRegistry = RegistryLookup,
 > {
-    engine: Engine<RegistryLookup, D>,
+    engine: Engine<R, D>,
     seats: Vec<SeatKind>,
     teams: Vec<Option<u8>>,
     scouting_decks: Arc<[DeckIntel]>,
@@ -139,7 +140,7 @@ fn house_seed(policy_seed: u64, seat: usize) -> u64 {
     z ^ (z >> 31)
 }
 
-impl<D: baylee_engine::engine::LoopDetection> Session<D> {
+impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry> Session<D, R> {
     /// A disposable copy of this game for `seat`'s lookahead
     /// ([`SimulationSession`]), for training and evaluation harnesses that
     /// own the real session; a seat playing over the gateway has none.
@@ -171,7 +172,7 @@ impl<D: baylee_engine::engine::LoopDetection> Session<D> {
         seat: PlayerId,
         decks: DeckKnowledge<'_>,
         policy_seed: u64,
-    ) -> Result<SimulationSession<D>, ForkRefusal> {
+    ) -> Result<SimulationSession<D, R>, ForkRefusal> {
         let scouting_decks = match decks {
             DeckKnowledge::Prior(prior) => self
                 .scouting_decks
@@ -226,7 +227,7 @@ impl<D: baylee_engine::engine::LoopDetection> Session<D> {
         policy_seed: u64,
         scouting_decks: Arc<[DeckIntel]>,
         seen: SeatSet,
-    ) -> Result<SimulationSession<D>, ForkRefusal> {
+    ) -> Result<SimulationSession<D, R>, ForkRefusal> {
         let mut shared = self.hands_told(seat)[0];
         for owner in seen.iter() {
             shared.insert(owner);
@@ -269,8 +270,10 @@ impl<D: baylee_engine::engine::LoopDetection> Session<D> {
     }
 }
 
-impl<D: baylee_engine::engine::LoopDetection> SimulationSession<D> {
-    fn table(&self) -> Table<'_, D> {
+impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry>
+    SimulationSession<D, R>
+{
+    fn table(&self) -> Table<'_, D, R> {
         Table {
             engine: &self.engine,
             seats: &self.seats,
@@ -563,7 +566,9 @@ impl<D: baylee_engine::engine::LoopDetection> SimulationSession<D> {
     }
 }
 
-impl<D: baylee_engine::engine::LoopDetection> SimulationSession<D> {
+impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry>
+    SimulationSession<D, R>
+{
     /// Seats a copy of `model` in every chair, each seeded from `seed` and
     /// the chair, and holds `player`'s for an answer from outside
     /// ([`Self::act_slice`]; [`Self::release`] hands it to its copy): the

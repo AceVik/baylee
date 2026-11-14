@@ -28,7 +28,7 @@ const SETTINGS_PER_EVENT: u64 = 4;
 /// one `seq` is not answered, and the game's next step gives it these again.
 const RETELLINGS_PER_SEQ: u8 = 4;
 
-impl<D: baylee_engine::engine::LoopDetection> Session<D> {
+impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry> Session<D, R> {
     /// How many settings a seat may have made by now.
     pub(super) fn settings_allowed(&self) -> u64 {
         let events = self.engine.state().journal.last_seq();

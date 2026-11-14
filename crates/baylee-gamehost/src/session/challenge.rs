@@ -30,7 +30,7 @@ pub(super) fn policy_seed(rules: &HouseRules, game: &str, seat: u8) -> u64 {
     )
 }
 
-impl<D: baylee_engine::engine::LoopDetection> Session<D> {
+impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry> Session<D, R> {
     /// One accepted opponent input, shared by live play and record reconstruction.
     pub(super) fn challenge_answered(&mut self, seat: PlayerId, by: Source) {
         if self.is_challenge() && seat.get() == 1 && by == Source::House {
