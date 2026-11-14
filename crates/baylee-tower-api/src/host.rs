@@ -6,6 +6,11 @@ use baylee_tower::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+mod batch;
+mod wire;
+pub use batch::{Batch, MAX_FRAME_BYTES};
+pub use wire::{CONTROL_PATH, RECORD_PATH, Request, Response};
+
 /// Identifies a claimed worker; authentication still comes from the dedicated host.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -22,6 +27,8 @@ pub struct Lease {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Claimed {
+    /// Central owner identity. The gateway must bind its human seat to this account.
+    pub account: Uuid,
     /// Worker binding used for every append, renewal and seal.
     pub lease: Lease,
     /// Exact frozen build, opponent and independent seeds.
@@ -45,6 +52,8 @@ pub struct Acknowledged {
 }
 
 /// One bounded private record row. This intentionally has no Debug implementation.
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct StoredChunk {
     /// Zero-based stream position.
     pub index: u64,

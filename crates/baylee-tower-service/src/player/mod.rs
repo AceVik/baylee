@@ -60,31 +60,4 @@ fn response(snapshot: Snapshot) -> Response {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum Failure {
-    Invalid,
-    Unauthorized,
-    Terms,
-    Missing,
-    Conflict,
-    Busy,
-    Unavailable,
-    Version,
-    Oversized,
-}
-
-impl From<baylee_tower_store::Error> for Failure {
-    fn from(value: baylee_tower_store::Error) -> Self {
-        use baylee_tower::Refusal;
-        use baylee_tower_store::Error;
-        match value {
-            Error::NotFound => Self::Missing,
-            Error::Conflict
-            | Error::Refused(
-                Refusal::Stale | Refusal::Unavailable | Refusal::Gold | Refusal::Capacity,
-            ) => Self::Conflict,
-            Error::Refused(Refusal::Invalid) => Self::Invalid,
-            Error::Schema | Error::Unavailable => Self::Unavailable,
-        }
-    }
-}
+pub(super) use crate::http::Failure;

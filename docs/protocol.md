@@ -6091,3 +6091,39 @@ sends only that scoped credential. It performs no automatic mutation retry and
 follows no redirects. The player router and native SDK are implemented; the
 standalone launcher, gateway worker transport and visible client flow remain
 separate integration milestones, not implied by this protocol surface.
+
+### Private Tower host API
+
+The same authority has separate `POST /v2/host` and `POST /v2/host/record`
+endpoints. Their bearer must resolve in the Tower operator table with exactly the
+Host role; a Central session, player capability, gateway credential, verifier or
+supervisor is insufficient. Every store operation rechecks the enabled role and
+current assignment/lease inside its transaction. Neither route accepts a rules
+outcome, currency, player replacement state or an executable path.
+
+`/v2/host` accepts bounded JSON operations `advertise`, `claim`, `renew`, `read`
+and `seal`. Claims retain their execution-instance UUID across retries. Only the
+assigned host receives the immutable package, catalog, acknowledged prefix,
+lease and **Central owner UUID**; the gateway must bind its human seat to that
+owner. The authority chooses a 60-second renewable worker lease, unrelated to
+how long the player or duel takes. `read` returns one retained private chunk,
+and `seal` moves the exact durable prefix to independent verification without
+awarding anything. Private JSON responses are bounded to two MiB, including
+worst-case JSON expansion of one 256-KiB record chunk.
+
+`/v2/host/record` requires `application/octet-stream`: a four-byte big-endian
+metadata length, strict JSON `{lease, expected, chunks}`, then exactly that many
+four-byte big-endian chunk lengths and raw chunks. Metadata is at most 4096 bytes;
+there are 1–64 nonempty chunks of at most 256 KiB, totaling at most eight MiB.
+The final byte must complete a record line. Trailing bytes, truncated lengths or
+payloads, extra metadata fields and changed retry boundaries are refused. The
+whole batch receives one final ACK only after its atomic database commit. No
+per-chunk append route exists. The parser checks all bounds before allocating
+each chunk; the total HTTP frame bound includes every length prefix.
+
+Host admission is capped at 16 concurrent operations, with an additional four
+record-body slots. Authentication precedes reading large bodies; reading is
+bounded to ten seconds. Native headers, no-store responses and closed error
+statuses follow the player transport policy. A private response has no printable
+diagnostic implementation. These routes are exercised over real HTTP/PostgreSQL;
+gateway orchestration and the production launcher remain separate work.

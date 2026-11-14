@@ -1253,3 +1253,29 @@ for the five affected runtime crates passes in
 `/tmp/baylee-tower-player-clippy-20261114-r5.log`. The standalone service launcher,
 gateway execution transport, current opponent attribution, accomplishment delivery,
 retention, item/AI playtesting and visible client integration remain outstanding.
+
+## Private host transport — thirty-eighth working milestone
+
+15 November 2026. A move-only commit extracted host DTOs from persistence into
+the reusable API crate; the store preserves its public reexports. Host claims now
+also bind the human Central account, so gateway seating cannot rely on knowledge
+of a run ID. The separate host routes authenticate a dedicated Host credential,
+then recheck role/assignment/fence through existing transactional methods.
+Neither a player nor another operator role can use them. Claim/renew/read/seal
+and advertised exact artifacts are available; no caller can submit a win or gold.
+
+Private record submission uses bounded binary frames rather than expanding bytes
+into JSON. The frame preserves whole-operation chunk boundaries, and the store
+ACKs only the atomic final head. Sixteen control slots and four record slots bound
+concurrent admission; large bodies are read only after host authentication. Shared
+native header/error handling preserves the player route's behavior.
+
+The expanded HTTP/PostgreSQL scenario passes in
+`/tmp/baylee-tower-host-http-postgres-20261114.log` (0.45s): player/host scope
+separation, wrong operator roles and host assignments, exact claim/batch/seal
+retries, private chunk reads, changed/truncated batches, stale fences and no reward
+on sealing. Its bytes are deliberately synthetic transport evidence, not a claim
+of legal native gameplay. Three bounded protocol tests pass in
+`/tmp/baylee-tower-host-framing-tests-20261114.log`, including every truncated
+prefix, unknown metadata, independent byte/chunk limits and a maximum-size frame.
+The launcher and actual gateway/agent/Table wiring are still outstanding.

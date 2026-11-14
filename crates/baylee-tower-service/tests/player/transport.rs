@@ -186,10 +186,26 @@ impl Client {
         body: Vec<u8>,
         extra: &[(&str, &str)],
     ) -> (u16, Vec<u8>) {
-        let mut request =
-            hyper::Request::post(format!("{}{}", self.origin, baylee_tower_api::PLAYER_PATH))
-                .header("content-type", "application/json")
-                .header(baylee_tower_api::VERSION_HEADER, baylee_tower_api::VERSION);
+        self.route(
+            token,
+            body,
+            extra,
+            baylee_tower_api::PLAYER_PATH,
+            "application/json",
+        )
+        .await
+    }
+    pub async fn route(
+        &self,
+        token: Option<&Token>,
+        body: Vec<u8>,
+        extra: &[(&str, &str)],
+        path: &str,
+        kind: &str,
+    ) -> (u16, Vec<u8>) {
+        let mut request = hyper::Request::post(format!("{}{path}", self.origin))
+            .header("content-type", kind)
+            .header(baylee_tower_api::VERSION_HEADER, baylee_tower_api::VERSION);
         if let Some(token) = token {
             request = request.header("authorization", token.bearer().as_str());
         }

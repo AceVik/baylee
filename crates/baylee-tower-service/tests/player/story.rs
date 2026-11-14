@@ -212,12 +212,15 @@ async fn reserve(
         )
         .await
         .unwrap();
-    let host = Token::generate().unwrap();
+    let host_secret = Token::generate().unwrap();
     store
-        .provision_operator("synthetic host", Role::Host, host.digest())
+        .provision_operator("synthetic host", Role::Host, host_secret.digest())
         .await
         .unwrap();
-    let host = store.authenticate_operator(host.digest()).await.unwrap();
+    let host = store
+        .authenticate_operator(host_secret.digest())
+        .await
+        .unwrap();
     store
         .advertise(&host, std::slice::from_ref(&publication.cohort.executor))
         .await
@@ -238,4 +241,5 @@ async fn reserve(
         command: Command::Refresh {},
     };
     assert_eq!(client.send(token, &attempt).await.0, 409);
+    super::host::run(store, client, token, &host_secret, &reserved).await;
 }

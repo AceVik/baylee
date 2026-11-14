@@ -2385,6 +2385,7 @@ dependencies = [
 name = "baylee-tower-api"
 version = "0.2.0-beta.o1"
 dependencies = [
+ "baylee-protocol",
  "baylee-tower",
  "serde",
  "serde_json",
