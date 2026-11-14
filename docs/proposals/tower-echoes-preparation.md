@@ -854,3 +854,23 @@ terminal boundaries, wrong/duplicate results, stale purchases, a bought/fused/
 moved/sold chain, recovery and stale verification, forged finances and revision
 exhaustion. Records in these state-machine tests are deliberately synthetic;
 the tests do not stand in for replay adjudication or transactional service tests.
+
+## Exact native private packages — twenty-second working milestone
+
+The revision-two package now freezes canonical owned decks, active definitions
+in slot order and unspent charges, excluding reserves and wallets. Reservation
+requires the same duel ordinal and full cohort for the selected echo. The cohort
+binds catalog/prices, economy/pack revision, shop generator and every executable
+identity field. The exact native preset is derived without incoming overrides,
+fixed hands, capabilities or scripts. SHA-256 content commitments bind the
+private package to the run and its record chain; they are not credentials.
+
+Attribution stores account/snapshot references, never a copied display name;
+the public projection must resolve current visibility. House fallback is an
+explicit distinct origin. Private build/package/opponent values omit `Debug`.
+Four focused package tests and strict all-target Clippy passed in
+`/tmp/baylee-tower-v2-package-tests-20261114.log` and
+`/tmp/baylee-tower-v2-package-clippy-20261114-r2.log`. They cover actual owned
+active/reserve separation, asymmetric resources, full identity skew, same-stage
+reservation, bounded strict decoding and content commitment changes. Admission
+still relies on the authority for historical eligibility and acquisition proof.
