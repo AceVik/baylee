@@ -10,6 +10,7 @@ mod participation;
 mod projection;
 mod record;
 mod spectators;
+mod variants;
 mod views;
 
 /// The one clock a duel with one human seat can have running.
@@ -43,14 +44,14 @@ fn duel(timeout_secs: u32) -> GamePreset {
     preset
 }
 
-fn setup(runner: &mut EngineRunner, preset: &GamePreset) -> Vec<Envelope> {
+fn setup<D: LoopDetection>(runner: &mut EngineRunner<D>, preset: &GamePreset) -> Vec<Envelope> {
     setup_accounts(runner, preset, Vec::new())
 }
 
 /// [`setup`], with the gateway saying which chairs an account sits in
 /// (`GameSetup.seat_accounts`).
-fn setup_accounts(
-    runner: &mut EngineRunner,
+fn setup_accounts<D: LoopDetection>(
+    runner: &mut EngineRunner<D>,
     preset: &GamePreset,
     accounts: Vec<bool>,
 ) -> Vec<Envelope> {

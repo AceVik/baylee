@@ -21,7 +21,7 @@ impl Evidence {
     }
 }
 
-impl EngineRunner {
+impl<D: baylee_engine::engine::LoopDetection> EngineRunner<D> {
     pub(super) fn is_challenge(&self) -> bool {
         self.session.as_ref().is_some_and(Session::is_challenge)
     }

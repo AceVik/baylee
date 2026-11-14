@@ -29,7 +29,8 @@ mod pump_config;
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::GamePreset;
 use baylee_engine::choice::PlayerAction;
-use baylee_gamehost::{SeatKind, Session, preset};
+use baylee_engine_server::variant::HostedSession as Session;
+use baylee_gamehost::{SeatKind, preset};
 use baylee_protocol::v1::{self, Envelope};
 use baylee_view::SeatSetting;
 use futures_util::{SinkExt, StreamExt};
@@ -68,6 +69,8 @@ usage: baylee-engine-server --attach <url> --game <id>
            authentication, every hand to whoever asks; never bind it publicly
        baylee-engine-server --help | -h
            this text
+       baylee-engine-server --metadata
+           one bounded JSON execution identity; no services or credentials
 
 BAYLEE_ATTACH_URL, BAYLEE_GAME and BAYLEE_ENGINE_TOKEN stand in for the
 three flags; an attachment takes all three or none.";
@@ -86,6 +89,14 @@ async fn main() {
     match Asked::read(&args).unwrap_or_else(|why| refuse(&why)) {
         Asked::Help => {
             println!("{USAGE}");
+            return;
+        }
+        Asked::Metadata => {
+            println!(
+                "{}",
+                serde_json::to_string(&baylee_engine_server::variant::identity())
+                    .expect("execution metadata serializes")
+            );
             return;
         }
         Asked::Start => {}
@@ -119,6 +130,8 @@ fn refuse(why: &str) -> ! {
 /// What a command line asks for, read before anything else is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Asked {
+    /// Read only the compiled execution identity.
+    Metadata,
     /// `-h` or `--help`: print [`USAGE`], start nothing.
     Help,
     /// Start: attached when [`Attach::read`] finds an attachment, the dev
@@ -138,6 +151,9 @@ impl Asked {
     /// # Errors
     /// Any other argument, a flag given twice, or a flag with no value.
     fn read(args: &[String]) -> Result<Self, String> {
+        if args == ["--metadata"] {
+            return Ok(Self::Metadata);
+        }
         let mut seen: Vec<&str> = Vec::new();
         let mut rest = args.iter();
         while let Some(arg) = rest.next() {
@@ -574,7 +590,7 @@ async fn serve(
                         };
                         let id = uuid::Uuid::now_v7().to_string();
                         let mut out = Vec::new();
-                        match Session::new(&preset) {
+                        match Session::with_detection(&preset) {
                             Some(session) => {
                                 out.push(Envelope {
                                     msg: Some(v1::envelope::Msg::GameCreated(v1::GameCreated {
@@ -817,13 +833,14 @@ fn acceptance_duel_preset() -> GamePreset {
     preset.seats[0].controller = baylee_core::preset::SeatController::Open;
     preset.house_rules.order_triggers = true;
     preset.house_rules.divide_trample = true;
+    preset.house_rules.loop_policy = baylee_engine_server::variant::default_loop_policy();
     preset
 }
 
 /// The attached engine: one socket to the gateway, one game, then exit.
 mod attached {
     use super::{Attach, wall_ms, ws_config};
-    use baylee_engine_server::EngineRunner;
+    use baylee_engine_server::variant::CompiledRunner as EngineRunner;
     use baylee_protocol::v1::{self, Envelope};
     use futures_util::{SinkExt, StreamExt};
     use prost::Message as _;
@@ -832,7 +849,7 @@ mod attached {
     /// Plays one game against the gateway and returns when it ends.
     pub async fn run(attach: Attach) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let pump_budget = super::pump_config::from_env()?;
-        let runner = EngineRunner::new()
+        let runner = EngineRunner::default()
             .with_pump_budget(pump_budget)
             .with_foresight(foresight()?);
         // `unix:<path>` is the gateway's unix socket (`BAYLEE_UNIX_SOCKET`),
@@ -1165,6 +1182,13 @@ mod tests {
         args.iter().map(ToString::to_string).collect()
     }
 
+    #[test]
+    fn metadata_is_an_isolated_command_that_cannot_start_a_game() {
+        assert_eq!(Asked::read(&line(&["--metadata"])), Ok(Asked::Metadata));
+        assert!(Asked::read(&line(&["--metadata", "--attach", "ws://example"])).is_err());
+        assert!(Asked::read(&line(&["--game", "g", "--metadata"])).is_err());
+    }
+
     /// Help is asked for anywhere a flag may stand, and starts nothing.
     #[test]
     fn help_starts_nothing() {
@@ -1427,7 +1451,7 @@ mod tests {
     /// holding the same hand, racing each other for every question.
     #[test]
     fn sitting_down_takes_over_a_house_chair_and_never_a_taken_one() {
-        let mut session = Session::new(&preset()).expect("a two-seat table");
+        let mut session = Session::with_detection(&preset()).expect("a two-seat table");
 
         assert_eq!(sit(&mut session, PlayerId::new(0)), Ok(false), "a person's");
         assert_eq!(

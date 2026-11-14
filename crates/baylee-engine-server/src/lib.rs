@@ -28,6 +28,7 @@ use baylee_cards_pool as _;
 use baylee_core::ids::{PlayerId, SeatSet};
 use baylee_core::preset::GamePreset;
 use baylee_engine::choice::{Pending, PlayerAction};
+use baylee_engine::engine::{DetectLoops, LoopDetection};
 use baylee_gamehost::{SeatKind, Session};
 use baylee_protocol::v1::{self, Envelope};
 use baylee_view::SeatSetting;
@@ -38,6 +39,7 @@ pub mod foresight;
 mod frames;
 pub mod projection;
 mod recording;
+pub mod variant;
 
 pub use clocks::{Armed, Clock, Deadline, HOLD_SECS};
 pub use frames::{curtain, seat_frame};
@@ -122,11 +124,11 @@ impl Barrier {
 }
 
 /// A game, and everything the gateway can ask of it.
-pub struct EngineRunner {
+pub struct EngineRunner<D: LoopDetection = DetectLoops> {
     /// The game this process was started for.
     game_id: String,
     /// Set by `GameSetup`; every other frame is ignored until then.
-    session: Option<Session>,
+    session: Option<Session<D>>,
     /// Which seats have a live socket. The clock only runs for a seat that
     /// can answer.
     attached: Vec<u8>,
@@ -183,7 +185,7 @@ pub struct EngineRunner {
     challenge: challenge::Evidence,
 }
 
-impl Default for EngineRunner {
+impl<D: LoopDetection> Default for EngineRunner<D> {
     fn default() -> Self {
         Self {
             game_id: String::new(),
@@ -215,7 +217,9 @@ impl EngineRunner {
     pub fn new() -> Self {
         Self::default()
     }
+}
 
+impl<D: LoopDetection> EngineRunner<D> {
     /// Sets the maximum number of house steps answered per call before
     /// yielding intermediate state deltas to the event loop.
     #[must_use]
@@ -322,7 +326,7 @@ impl EngineRunner {
 
     /// The game underneath, for tests and for a harness that wants to look.
     #[must_use]
-    pub fn session(&self) -> Option<&Session> {
+    pub fn session(&self) -> Option<&Session<D>> {
         self.session.as_ref()
     }
 
@@ -364,7 +368,7 @@ impl EngineRunner {
     /// over a socket, with its socket open. What decides between waiting
     /// for a lost seat (someone is here to wait) and pausing the game
     /// (nobody is).
-    fn another_player_here(&self, session: &Session, seat: Option<PlayerId>) -> bool {
+    fn another_player_here(&self, session: &Session<D>, seat: Option<PlayerId>) -> bool {
         self.attached.iter().any(|&other| {
             Some(other) != seat.map(PlayerId::get)
                 && session
@@ -374,7 +378,7 @@ impl EngineRunner {
     }
 
     /// A player's chair still in the game whose socket is gone.
-    fn absent_players(&self, session: &Session) -> Vec<PlayerId> {
+    fn absent_players(&self, session: &Session<D>) -> Vec<PlayerId> {
         (0..session.seat_count())
             .filter_map(|seat| u8::try_from(seat).ok())
             .map(PlayerId::new)
@@ -390,7 +394,7 @@ impl EngineRunner {
     }
 
     /// The table's hold, while nobody is at it ([`Deadline::Hold`]).
-    fn hold_clock(&self, session: &Session) -> Option<Clock> {
+    fn hold_clock(&self, session: &Session<D>) -> Option<Clock> {
         if self.curtain.is_some() || self.ended || self.another_player_here(session, None) {
             return None;
         }
@@ -407,7 +411,7 @@ impl EngineRunner {
     }
 
     /// `seat`'s clock, if it is on one.
-    fn clock_for(&self, session: &Session, seat: PlayerId) -> Option<Clock> {
+    fn clock_for(&self, session: &Session<D>, seat: PlayerId) -> Option<Clock> {
         if self.curtain.is_some() {
             return None;
         }
@@ -444,7 +448,7 @@ impl EngineRunner {
     /// already past fires on the next turn of the loop. A seat with no
     /// recorded loss (lost before the curtain, or while the game was paused)
     /// gets the whole window from its question.
-    fn stand_in_secs(&self, session: &Session, seat: PlayerId) -> u32 {
+    fn stand_in_secs(&self, session: &Session<D>, seat: PlayerId) -> u32 {
         let window = session.reconnect_window_secs();
         if window == 0 {
             return 0;
@@ -642,7 +646,8 @@ impl EngineRunner {
         let Ok(preset) = serde_json::from_slice::<GamePreset>(&setup.preset_json) else {
             return vec![ended(&setup.game_id, "the preset did not decode")];
         };
-        let Some(mut session) = Session::new_recorded(&preset, baylee_build::short()) else {
+        let Some(mut session) = Session::recorded_with_detection(&preset, baylee_build::short())
+        else {
             return vec![ended(&setup.game_id, "the preset does not make a game")];
         };
         // These read one frame at a time; see `Session::tell_views_whole`.
@@ -1238,7 +1243,7 @@ impl EngineRunner {
     /// Whether a seat that answers over a socket still plays: a person's, a
     /// seat bridge's, a developer's. Without one the house plays the rest of
     /// the game alone, at the machine's speed.
-    fn sockets_remain(session: &Session) -> bool {
+    fn sockets_remain(session: &Session<D>) -> bool {
         (0..session.seat_count())
             .filter_map(|seat| u8::try_from(seat).ok())
             .map(PlayerId::new)

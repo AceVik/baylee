@@ -238,8 +238,9 @@ after the combined snapshot passed both local gates (28,217 regular tests and
 2,744 client-feature tests, plus the other scoped feature checks). Logs:
 `/tmp/baylee-main-gate-20261114.log` and
 `/tmp/baylee-main-features-20261114.log`. The feature branch is based on that
-main. Central PR 66 remains subject to protected checks; its cold Linux build
-timeout was corrected separately. Implementation does not wait for that CI.
+main. Central PR 66 was subsequently rebased into main after its protected checks
+passed; main is `4ededee1887bd7446c934d3b6d8536cfbcd2314e`. Central work continues
+on `codex/tower-achievements`. Engine implementation did not wait for that CI.
 
 The owner's latest QA instruction limits subsequent gates to changed crates and
 directly affected interfaces. Do not repeat the completed workspace runs for
@@ -316,3 +317,29 @@ Off record's exact replay, continuation/resumption, wrong-variant rejection and
 simulation isolation. Logs: `/tmp/baylee-static-host-clippy-20261114.log` and
 `/tmp/baylee-static-host-tests-20261114.log`. No client or network service was
 started for these in-process tests.
+
+## Static server artifacts — third working milestone
+
+The server's transport driver, recorder and replay projection retain the compiled
+loop type. Default builds currently retain the legacy `standard-loops` artifact;
+`--no-default-features` builds `standard`, and adding `--features tower` builds
+the prepared Tower artifact. Combining Tower and loop detection fails compilation.
+The Tower item rule pack and global service are still being implemented; this
+milestone alone does not make that mode playable.
+
+An isolated `--metadata` command emits a bounded execution identity without
+reading credentials or opening sockets. Variant, source, features, rules, card
+registry and AI identity are explicit. Metadata contains no executable path or
+download instruction and is compatibility evidence, not operator attestation.
+The owner confirmed that the gateway selects this identity and the agent starts
+only a locally configured matching artifact. Wire admission is the next step.
+
+36 targeted protocol/host/server tests passed (697 unrelated tests skipped),
+including both policy mismatch directions, strict metadata parsing, hostile
+transport inputs, curtain/record boundaries and Off replay projection.
+Strict all-target Clippy passed for default, Off and Tower configurations.
+Logs: `/tmp/baylee-static-server-tests-20261114.log`,
+`/tmp/baylee-static-server-clippy-20261114.log`,
+`/tmp/baylee-static-server-off-clippy-20261114.log`, and
+`/tmp/baylee-static-server-tower-clippy-20261114.log`.
+Release-code omission and performance are not yet measured.

@@ -199,9 +199,9 @@ struct Checker {
 impl Checker {
     /// Checks the session against what the record holds after `input`. `Err`
     /// is a divergence the caller must stop at.
-    fn check(
+    fn check<D: baylee_engine::engine::LoopDetection>(
         &mut self,
-        session: &Session,
+        session: &Session<D>,
         input: Option<u64>,
         hash: &str,
         seen: Option<&str>,
@@ -258,13 +258,13 @@ enum Last {
 }
 
 /// The session and the perspective it is told from.
-struct Teller {
-    session: Session,
+struct Teller<D: baylee_engine::engine::LoopDetection> {
+    session: Session<D>,
     lens: Lens,
     last: Last,
 }
 
-impl Teller {
+impl<D: baylee_engine::engine::LoopDetection> Teller<D> {
     /// The frames the perspective is sent now, or none when nothing it can
     /// see changed since the last.
     fn frames(&mut self) -> Vec<Envelope> {
@@ -391,6 +391,27 @@ pub fn project(
     names: Vec<String>,
     perspective: Perspective,
     verify: Verify,
+    sink: impl FnMut(Moment) -> ControlFlow<()>,
+) -> Result<Projection, ReplayError> {
+    project_with_detection::<baylee_engine::engine::DetectLoops>(
+        record,
+        names,
+        perspective,
+        verify,
+        sink,
+    )
+}
+
+/// Projects a record with the artifact's statically selected loop capability.
+/// Preset mismatches are refused before any private view is emitted.
+///
+/// # Errors
+/// As [`project`], including a preset incompatible with `D`.
+pub fn project_with_detection<D: baylee_engine::engine::LoopDetection>(
+    record: &[u8],
+    names: Vec<String>,
+    perspective: Perspective,
+    verify: Verify,
     mut sink: impl FnMut(Moment) -> ControlFlow<()>,
 ) -> Result<Projection, ReplayError> {
     let mut lines = record::lines_of(record).peekable();
@@ -404,7 +425,7 @@ pub fn project(
     else {
         return Err(ReplayError::NoHeader);
     };
-    let mut session = Session::new(&preset).ok_or(ReplayError::Unbuildable)?;
+    let mut session = Session::<D>::with_detection(&preset).ok_or(ReplayError::Unbuildable)?;
     session.describe("replay".into(), names);
     let lens = Lens::of(perspective, session.seats.len());
     if let Lens::Seat { seat, own, .. } = lens {

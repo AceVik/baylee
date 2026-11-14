@@ -8,6 +8,7 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod execution;
 pub mod mind;
 pub mod names;
 pub mod refusal;

@@ -273,17 +273,23 @@ pub fn run(order: &v1::ProjectRecord, build: &str, emit: &mut dyn FnMut(v1::Tape
         Some(perspective) => {
             let names = order.names.clone();
             let mut began = false;
-            let projected = replay::project(&record, names, perspective, verify, |moment| {
-                began = true;
-                for line in lines_of(&moment) {
-                    writer.line(&line);
-                }
-                if writer.full {
-                    ControlFlow::Break(())
-                } else {
-                    ControlFlow::Continue(())
-                }
-            });
+            let projected = replay::project_with_detection::<crate::variant::Detection>(
+                &record,
+                names,
+                perspective,
+                verify,
+                |moment| {
+                    began = true;
+                    for line in lines_of(&moment) {
+                        writer.line(&line);
+                    }
+                    if writer.full {
+                        ControlFlow::Break(())
+                    } else {
+                        ControlFlow::Continue(())
+                    }
+                },
+            );
             match projected {
                 Ok(projection) => stop_of(&projection, writer.full),
                 // The record's end where the replayed game has none, or a

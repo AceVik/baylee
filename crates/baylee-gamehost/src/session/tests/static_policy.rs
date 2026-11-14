@@ -75,6 +75,22 @@ fn an_off_record_resumes_replays_and_forks_without_changing_policy() {
     let replay = record::replay_exact_with_detection::<NoLoopDetection>(&bytes).unwrap();
     assert_eq!(replay.engine.snapshot_hash(), live.snapshot_hash());
 
+    let mut moments = 0;
+    let projection = crate::replay::project_with_detection::<NoLoopDetection>(
+        &bytes,
+        vec!["A".into(), "B".into()],
+        crate::replay::Perspective::Public,
+        crate::replay::Verify::Stop,
+        |_| {
+            moments += 1;
+            std::ops::ControlFlow::Continue(())
+        },
+    )
+    .unwrap();
+    assert!(moments > 1);
+    assert_eq!(projection.inputs, replay.inputs);
+    assert!(projection.diverged.is_none());
+
     // Continue the acknowledged prefix; the resulting record is one exact replay.
     for _ in 0..12 {
         let seat = live.awaiting_seat().unwrap();
