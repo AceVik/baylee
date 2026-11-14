@@ -23,6 +23,8 @@ use baylee_core::ids::PlayerId;
 pub mod host;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod local;
+#[cfg(not(target_arch = "wasm32"))]
+mod projection;
 /// The browser keeps no records on disk, so its Replays list has no local
 /// rows and nothing to remove (`lobby::replays::SHOWN` hides the tab there).
 #[cfg(target_arch = "wasm32")]

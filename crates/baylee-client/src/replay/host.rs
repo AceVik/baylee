@@ -16,13 +16,15 @@ use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::sync::{Arc, LazyLock, Mutex};
 
 use baylee_client_core::replay::{
-    Header, Out, Perspective, Perspectives, Tape, Timeline, Transport, Verify,
+    Out, Perspective, Perspectives, Tape, Timeline, Transport, Verify,
 };
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::PlayerAction;
 
 use super::{Loading, Origin, ReplayAsk, ReplayStatus, SharedTimeline};
 use crate::host::{DuelHost, HostMessage};
+
+mod job;
 
 /// Where a hosted tape is asked for.
 #[derive(Clone, PartialEq, Eq)]
@@ -222,77 +224,6 @@ impl ReplayHost {
     #[must_use]
     pub fn into_installed(self) -> crate::InstalledHost {
         crate::InstalledHost(Box::new(self))
-    }
-
-    /// Starts making the tape for `perspective` under `verify`, opening at
-    /// `keep`'s input once it is made.
-    fn start(&mut self, perspective: Perspective, verify: Verify, keep: Option<Kept>) {
-        if let Some(old) = self.job.take() {
-            old.cancel.store(true, Ordering::Relaxed);
-        }
-        let progress = Arc::new(AtomicU8::new(0));
-        let cancel = Arc::new(AtomicBool::new(false));
-        let (tx, answer) = mpsc::channel();
-        match &self.source {
-            ReplaySource::Record {
-                bytes,
-                names,
-                file,
-                by_hand,
-            } => {
-                let header = Header {
-                    tape: baylee_client_core::replay::TAPE_VERSION,
-                    view: baylee_view::VIEW_VERSION,
-                    build: baylee_build::short().to_string(),
-                    source: if *by_hand {
-                        baylee_client_core::replay::Source::File
-                    } else {
-                        baylee_client_core::replay::Source::Local
-                    },
-                    perspective: baylee_client_core::replay::tape_perspective(perspective),
-                    seat: perspective.seat().get(),
-                    game: file.clone(),
-                    recorded_by: String::new(),
-                    own: true,
-                    hands: Vec::new(),
-                };
-                let (bytes, names) = (Arc::clone(bytes), names.clone());
-                let (progress, cancel) = (Arc::clone(&progress), Arc::clone(&cancel));
-                std::thread::Builder::new()
-                    .name("replay".into())
-                    .spawn(move || {
-                        let tape = super::local::project(
-                            &bytes,
-                            names,
-                            header,
-                            perspective,
-                            verify,
-                            &progress,
-                            &cancel,
-                        );
-                        let _ = tx.send(tape);
-                    })
-                    .ok();
-            }
-            ReplaySource::Tape { gzip } => {
-                let gzip = Arc::clone(gzip);
-                std::thread::Builder::new()
-                    .name("replay".into())
-                    .spawn(move || {
-                        let _ = tx.send(Tape::read(&gzip).map_err(|e| e.to_string()));
-                    })
-                    .ok();
-            }
-            ReplaySource::Hosted(access) => fetch_tape(access.clone(), perspective, verify, tx),
-        }
-        self.job = Some(Job {
-            answer: Mutex::new(answer),
-            progress,
-            cancel,
-            perspective,
-            verify,
-            keep,
-        });
     }
 
     /// Takes a finished tape in, if one is ready.
