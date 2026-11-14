@@ -342,7 +342,7 @@ fn hand_refusal(duel: &Duel, object: ObjectId) -> Option<Phrase> {
     let card = baylee_client_core::decision::hand(view)
         .iter()
         .find(|card| card.id == object)?;
-    if crate::targeting::provably_targetless(view, card.card) {
+    if crate::targeting::provably_targetless_from(view, card.card, Some(card.id)) {
         return Some(Phrase::CardHasNoTarget);
     }
     // A "choose one" spell whose mode at its printed price has no legal

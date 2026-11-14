@@ -87,21 +87,51 @@ fn you(view: &PlayerView) -> PlayerId {
 /// graveyard card with flashback is asked the same question (#242).
 #[must_use]
 pub fn provably_targetless(view: &PlayerView, card: CardIdentity) -> bool {
+    provably_targetless_from(view, card, None)
+}
+
+/// [`provably_targetless`] when the specific object `source` being proposed is
+/// known: `source` leaves its origin zone onto the stack in CR 601.2a before
+/// targets are chosen in CR 601.2c and cannot target itself (CR 115.5), so a
+/// graveyard card with flashback such as Coffin Purge does not count itself as
+/// a legal target in its own graveyard.
+#[must_use]
+pub fn provably_targetless_from(
+    view: &PlayerView,
+    card: CardIdentity,
+    source: Option<baylee_core::ids::ObjectId>,
+) -> bool {
     if let Some(req) = baylee_cards::by_index(card.index)
         .and_then(|def| def.faces.get(card.face as usize))
         .and_then(|face| face.kicked_targets)
-        && requirement_possible(view, req)
+        && requirement_possible_from(view, req, source)
     {
         return false;
     }
-    ordinary_targetless(view, card)
+    ordinary_targetless_from(view, card, source)
 }
 
 pub(crate) fn requirement_possible(view: &PlayerView, req: baylee_cards_dsl::TargetReq) -> bool {
-    legal_targets(view, &req.spec).is_none_or(|count| count >= usize::from(req.min))
+    requirement_possible_from(view, req, None)
+}
+
+fn requirement_possible_from(
+    view: &PlayerView,
+    req: baylee_cards_dsl::TargetReq,
+    source: Option<baylee_core::ids::ObjectId>,
+) -> bool {
+    legal_targets_from(view, &req.spec, source).is_none_or(|count| count >= usize::from(req.min))
 }
 
 pub(crate) fn ordinary_targetless(view: &PlayerView, card: CardIdentity) -> bool {
+    ordinary_targetless_from(view, card, None)
+}
+
+fn ordinary_targetless_from(
+    view: &PlayerView,
+    card: CardIdentity,
+    source: Option<baylee_core::ids::ObjectId>,
+) -> bool {
     let Some(def) = baylee_cards::by_index(card.index) else {
         return false;
     };
@@ -127,7 +157,7 @@ pub(crate) fn ordinary_targetless(view: &PlayerView, card: CardIdentity) -> bool
             continue;
         }
         asked = true;
-        match legal_targets(view, &req.spec) {
+        match legal_targets_from(view, &req.spec, source) {
             // Not enough distinct objects to fill the minimum, which is the
             // count CR 601.2c holds the cast to rather than the maximum.
             Some(found) if found < usize::from(req.min) => {}
@@ -138,16 +168,27 @@ pub(crate) fn ordinary_targetless(view: &PlayerView, card: CardIdentity) -> bool
 }
 
 /// How many legal targets this spec has, or `None` where the view cannot say.
+#[cfg(test)]
+fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
+    legal_targets_from(view, spec, None)
+}
+
+/// How many legal targets this spec has excluding `source`, or `None` where
+/// the view cannot say.
 ///
 /// The player specs answer `None` and not a number, which reads oddly and is
 /// the point: a player is always there, so a spell pointing at one can never
 /// be the targetless case and the proof is refused rather than computed.
-fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
+fn legal_targets_from(
+    view: &PlayerView,
+    spec: &TargetSpec,
+    source: Option<baylee_core::ids::ObjectId>,
+) -> Option<usize> {
     match spec {
         // "Battlefield, or stack for spells" — and the battlefield is the
         // half a spell in hand is pointed at. A permanent spell already on
         // the stack is somebody else's problem and is counted by `Spell`.
-        TargetSpec::Object(filter) => count(view, view.battlefield.iter(), filter),
+        TargetSpec::Object(filter) => count(view, view.battlefield.iter(), filter, source),
         // One per opponent, and an ally's permanent is none of them: the
         // count errs, if at all, towards "there is something to point at",
         // since a teammate is not told apart here.
@@ -157,6 +198,7 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
                 .iter()
                 .filter(|o| o.controller != you(view)),
             filter,
+            source,
         ),
         // The stack holds both kinds and these three specs want different
         // halves of it, which `PublicObject::stack_item` is the field to ask.
@@ -170,6 +212,7 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
                 .iter()
                 .filter(|o| matches!(o.stack_item, Some(StackItem::Spell))),
             filter,
+            source,
         ),
         TargetSpec::AbilityOnStack(filter) => count(
             view,
@@ -177,8 +220,9 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
                 .iter()
                 .filter(|o| matches!(o.stack_item, Some(StackItem::Ability { .. }))),
             filter,
+            source,
         ),
-        TargetSpec::SpellOrAbility(filter) => count(view, view.stack.iter(), filter),
+        TargetSpec::SpellOrAbility(filter) => count(view, view.stack.iter(), filter, source),
         // "Target spell or permanent": the spell half of the stack, as the
         // engine offers it (abilities on the stack aren't spells, CR 113.9).
         TargetSpec::StackOrBattlefield(filter) => {
@@ -188,8 +232,9 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
                     .iter()
                     .filter(|o| matches!(o.stack_item, Some(StackItem::Spell))),
                 filter,
+                source,
             )?;
-            let field = count(view, view.battlefield.iter(), filter)?;
+            let field = count(view, view.battlefield.iter(), filter, source)?;
             Some(stack + field)
         }
         // A graveyard is a public zone (CR 400.3), so the view carries every
@@ -248,7 +293,7 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
                     return None;
                 }
             };
-            count(view, piles.into_iter(), filter)
+            count(view, piles.into_iter(), filter, source)
         }
         // Every other spec: the four that name a player, and the two that
         // name something the spell already holds. A refusal here is the safe
@@ -267,9 +312,13 @@ fn count<'a>(
     view: &PlayerView,
     objects: impl Iterator<Item = &'a PublicObject>,
     filter: &Filter,
+    source: Option<baylee_core::ids::ObjectId>,
 ) -> Option<usize> {
     let mut found = 0;
     for object in objects {
+        if source == Some(object.id) {
+            continue;
+        }
         if matches(view, object, filter)? {
             found += 1;
         }
@@ -788,5 +837,26 @@ mod tests {
             ..view
         };
         assert!(!provably_targetless(&view, in_hand("Sink into Stupor")));
+    }
+
+    /// CR 601.2a + CR 601.2c + CR 115.5: a graveyard card cast via flashback
+    /// leaves its graveyard onto the stack before targets are chosen, so
+    /// Coffin Purge as the only graveyard card cannot target itself.
+    #[test]
+    fn a_graveyard_spell_cannot_count_itself_as_its_own_target() {
+        let purge = printed(7, 0, "Coffin Purge", 1);
+        let purge_id = purge.id;
+        let card = in_hand("Coffin Purge");
+        let solo = ViewBuilder::new(2)
+            .with_graveyard(0, vec![purge.clone()])
+            .build();
+        assert!(provably_targetless_from(&solo, card, Some(purge_id)));
+
+        let bears = printed(8, 1, "Grizzly Bears", 2);
+        let with_other = ViewBuilder::new(2)
+            .with_graveyard(0, vec![purge])
+            .with_graveyard(1, vec![bears])
+            .build();
+        assert!(!provably_targetless_from(&with_other, card, Some(purge_id)));
     }
 }
