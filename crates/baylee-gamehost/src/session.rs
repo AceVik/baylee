@@ -7,12 +7,10 @@ use std::sync::Arc;
 
 use baylee_ai::HeuristicAgent;
 use baylee_ai::intelligence::DeckIntel;
-use baylee_cards::dsl::CardDef;
-use baylee_core::ids::{CardIndex, ObjectId, PlayerId, SeatSet};
+use baylee_core::ids::{ObjectId, PlayerId, SeatSet};
 use baylee_core::preset::{AiHandSharePolicy, GamePreset, HouseRules, PrintInfo};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::Engine;
-use baylee_engine::state::CardLookup;
 use baylee_protocol::v1::{self, Envelope};
 use baylee_view::{
     ClockAnswer, HouseAnswer, LOG_TAIL_CAP, LogTail, PlayerView, PolicyAct, StaticSender,
@@ -33,6 +31,8 @@ mod foresight;
 mod frames;
 pub mod project;
 mod pump;
+mod registry;
+pub use registry::RegistryLookup;
 mod resume;
 #[cfg(any(test, feature = "foresight"))]
 mod simulation;
@@ -53,28 +53,6 @@ pub use simulation::SimulationSession;
 /// latest, so a seat yielding to a long loop is not sent the loop. Their
 /// numbers tell a client what it missed.
 const POLICY_WINDOW: usize = 16;
-
-/// Registry lookup backed by the compiled card pool.
-///
-/// A unit, so copying it copies nothing: a forked simulation
-/// (`Engine::fork_for`) carries its own.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct RegistryLookup;
-impl CardLookup for RegistryLookup {
-    fn card(&self, index: CardIndex) -> Option<&'static CardDef> {
-        baylee_cards::by_index(index)
-    }
-    fn token_id(&self, token: &baylee_cards_dsl::TokenDef) -> Option<u16> {
-        let id = baylee_cards::tokens::token_id(token);
-        baylee_cards::tokens::by_token_id(id).map(|_| id)
-    }
-    fn tower_supply(
-        &self,
-        supply: baylee_core::preset::TowerSupply,
-    ) -> Option<&'static baylee_cards_dsl::TokenDef> {
-        Some(baylee_cards::tokens::tower::definition(supply))
-    }
-}
 
 /// What sits in a seat.
 #[derive(Clone, Debug)]
