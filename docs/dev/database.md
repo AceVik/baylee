@@ -53,6 +53,13 @@ Recovery preserves the evidence and clears the old failure on a new generation.
 No technical failure adds gold, a win, a defeat or an accomplishment. A completed
 verification receipt can be recovered after response loss without re-awarding.
 
+Migration eight records exact atomic record-batch boundaries. Native live hosting
+uses `append_batch`: at most eight MiB/64 chunks and a complete final JSON line,
+committed with quota/run/head/batch receipt together. A bulk row insert and one
+quota/run write avoid a database round trip per chunk. Retrying a different batch
+at the same start refuses. The single-chunk primitive remains for retained legacy
+adapters/tests and must not be exposed as the new native operation boundary.
+
 ## Gateway and catalog
 
 The gateway's store (`baylee-db`) and the optional card catalog

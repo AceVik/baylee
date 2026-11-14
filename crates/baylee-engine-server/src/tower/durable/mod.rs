@@ -14,8 +14,8 @@ mod barrier;
 mod capture;
 #[cfg(test)]
 mod tests;
-pub use barrier::Append;
 use barrier::Barrier;
+pub use barrier::Batch;
 use capture::Capture;
 
 type Driver = EngineRunner<NoLoopDetection, NativeLookup<RegistryLookup, super::Pack>, Capture>;
@@ -81,10 +81,10 @@ impl Table {
         Ok(table)
     }
 
-    /// A fixed append remains repeatable until the exact authority ACK arrives.
+    /// A fixed operation remains repeatable until its entire atomic commit is acknowledged.
     #[must_use]
-    pub fn append(&self) -> Option<Append<'_>> {
-        (!self.refused).then(|| self.barrier.append()).flatten()
+    pub fn batch(&self) -> Option<Batch<'_>> {
+        (!self.refused).then(|| self.barrier.batch()).flatten()
     }
 
     /// Release a batch only after every record chunk produced by it was committed.

@@ -41,13 +41,13 @@ fn fixture() -> (Package, Catalog) {
 
 fn commit(table: &mut Table, record: &mut Vec<u8>, package: [u8; 32]) -> Vec<Envelope> {
     let mut revealed = Vec::new();
-    while let Some(append) = table.append() {
-        let next = append
-            .expected
-            .extended(package, MAX_RECORD_BYTES, append.data)
-            .unwrap();
-        baylee_worker::frame::write(record, append.data, MAX_CHUNK_BYTES).unwrap();
-        let fence = append.fence;
+    while let Some(batch) = table.batch() {
+        let mut next = batch.expected;
+        for chunk in batch.chunks() {
+            next = next.extended(package, MAX_RECORD_BYTES, chunk).unwrap();
+            baylee_worker::frame::write(record, chunk, MAX_CHUNK_BYTES).unwrap();
+        }
+        let fence = batch.fence;
         revealed.extend(table.acknowledge(fence, next).unwrap());
         assert!(
             table.acknowledge(fence, next).unwrap().is_empty(),
@@ -99,10 +99,23 @@ fn real_native_output_waits_for_exact_commit_and_terminal_record_independently_v
         })),
     };
     assert_eq!(table.handle(attach.clone(), &[]), Err(Refusal::Unavailable));
-    let initial = table.append().unwrap().data.to_vec();
+    let initial: Vec<_> = table
+        .batch()
+        .unwrap()
+        .chunks()
+        .map(<[u8]>::to_vec)
+        .collect();
     assert_eq!(table.acknowledged(), Prefix::default());
     assert!(table.acknowledge(3, Prefix::default()).is_err());
-    assert_eq!(table.append().unwrap().data, initial);
+    assert_eq!(
+        table
+            .batch()
+            .unwrap()
+            .chunks()
+            .map(<[u8]>::to_vec)
+            .collect::<Vec<_>>(),
+        initial
+    );
     let mut record = Vec::new();
     commit(&mut table, &mut record, digest);
     table.handle(attach, &[]).unwrap();
@@ -129,7 +142,7 @@ fn real_native_output_waits_for_exact_commit_and_terminal_record_independently_v
     }
     assert!(play(&mut table, &PlayerAction::Concede).is_empty());
     assert!(!table.finished(), "terminal view cannot outrun persistence");
-    assert!(table.append().is_some());
+    assert!(table.batch().is_some());
     let revealed = commit(&mut table, &mut record, digest);
     assert!(table.finished());
     assert!(
@@ -165,25 +178,21 @@ fn partial_out_of_order_and_foreign_acks_never_release_a_batch() {
     let frames = vec![Envelope {
         msg: Some(v1::envelope::Msg::GameEnded(v1::GameEnded::default())),
     }];
-    assert!(
-        gate.stage(vec![vec![9; MAX_CHUNK_BYTES + 1]], frames.clone())
-            .unwrap()
-            .is_empty()
-    );
-    let first = gate.append().unwrap();
-    let first_head = first
+    let mut piece = vec![9; MAX_CHUNK_BYTES];
+    piece.push(b'\n');
+    assert!(gate.stage(vec![piece], frames.clone()).unwrap().is_empty());
+    let batch = gate.batch().unwrap();
+    let first_head = batch
         .expected
-        .extended([7; 32], MAX_RECORD_BYTES, first.data)
+        .extended([7; 32], MAX_RECORD_BYTES, batch.chunks().next().unwrap())
         .unwrap();
     let last = first_head
-        .extended([7; 32], MAX_RECORD_BYTES, &[9])
+        .extended([7; 32], MAX_RECORD_BYTES, b"\n")
         .unwrap();
-    assert_eq!(gate.ack(4, last), Err(Refusal::Stale));
+    assert_eq!(gate.ack(4, first_head), Err(Refusal::Stale));
     assert_eq!(gate.ack(5, first_head), Err(Refusal::Stale));
-    assert!(gate.ack(4, first_head).unwrap().is_empty());
     assert!(gate.waiting());
-    assert_eq!(gate.prefix(), first_head);
-    assert!(gate.ack(4, first_head).unwrap().is_empty());
+    assert_eq!(gate.prefix(), Prefix::default());
     assert_eq!(gate.ack(4, last).unwrap(), frames);
     assert!(!gate.waiting());
     assert!(gate.ack(4, last).unwrap().is_empty());
@@ -216,5 +225,5 @@ fn exhausted_native_record_budget_emits_no_hand_result_or_false_ack() {
         Err(Refusal::Capacity)
     );
     assert_eq!(gate.prefix(), Prefix::default());
-    assert!(gate.append().is_none());
+    assert!(gate.batch().is_none());
 }

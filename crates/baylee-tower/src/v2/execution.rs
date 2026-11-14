@@ -6,6 +6,10 @@ use sha2::{Digest, Sha256};
 
 /// Maximum bytes in one ordered record append, outside the rules hot path.
 pub const MAX_CHUNK_BYTES: usize = 256 * 1024;
+/// One complete outer operation, committed atomically before any reveal.
+pub const MAX_BATCH_BYTES: usize = 8 * 1024 * 1024;
+/// Independent bound on small chunks in an atomic operation.
+pub const MAX_BATCH_CHUNKS: usize = 64;
 /// Hard storage ceiling; each reservation freezes an operator limit at or below it.
 /// Reaching it is a technical interruption, never a rules outcome.
 pub const MAX_RECORD_BYTES: u64 = 512 * 1024 * 1024;

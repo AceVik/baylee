@@ -13,6 +13,7 @@ use baylee_tower::{
 };
 use serde::{Deserialize, Serialize};
 
+mod batch;
 mod claim;
 mod record;
 mod recovery;

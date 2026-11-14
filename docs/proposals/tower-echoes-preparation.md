@@ -1153,3 +1153,23 @@ snapshot hashes. Four record-commitment cases also pass. Strict Tower all-target
 Clippy and the separate standard executable check pass. The new native adapter
 still needs its authenticated gateway wire path and retained-prefix reconstruction
 for live recovery; the existing attached transport has not silently opted into it.
+
+## Atomic operation correction — thirty-fourth working milestone
+
+Reviewing recovery exposed a hole in per-chunk acknowledgement: a large JSON line
+could span several chunks, leaving an acknowledged but unreconstructable partial
+operation after a crash. The new native table now offers one complete batch and
+accepts only its final commitment; a partial head never advances its acknowledged
+position. The authority commits every chunk, the exact batch receipt, quota and
+run state in one transaction (`append_batch`, migration eight), ending at a whole
+record line. Limits remain eight MiB/64 chunks. New writes use one bulk INSERT and
+one account/run update rather than repeating those writes per chunk.
+
+An actual PostgreSQL scenario injected failure into a later row, checked rollback
+of all prior bytes/counters/state, raced four identical submissions, refused changed
+batch boundaries and recovered the original receipt after later progress. It
+passed in `/tmp/baylee-tower-atomic-record-batch-tests-20261114-r2.log`. The schema
+upgrade/quota scenario and all three native barrier/replay tests also pass. This
+correction supersedes milestone 33's incremental ACK interface before any public
+route uses it. Retained-prefix reconstruction and authenticated live gateway
+transport are still outstanding.

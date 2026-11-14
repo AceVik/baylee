@@ -3,7 +3,7 @@ use baylee_tower::Refusal;
 
 /// One synchronous driver call may retain at most eight MiB before yielding to
 /// the persistence boundary. Exhaustion suppresses every resulting player frame.
-pub(super) const MAX_BATCH_BYTES: usize = 8 * 1024 * 1024;
+pub(super) use baylee_tower::v2::execution::MAX_BATCH_BYTES;
 
 #[derive(Default)]
 pub(super) struct Capture {
