@@ -13,6 +13,8 @@ use baylee_tower::{
 use prost::Message as _;
 use std::time::{Duration, Instant};
 
+mod recovery;
+
 fn fixture() -> (Package, Catalog) {
     let card = baylee_cards::decks::by_name("Forest").unwrap();
     let catalog = Catalog {

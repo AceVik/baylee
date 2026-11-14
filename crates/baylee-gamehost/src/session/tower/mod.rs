@@ -59,11 +59,14 @@ pub fn verify(preset: &GamePreset, bytes: &[u8], deadline: Instant) -> Result<Ve
 
 mod adjudicate;
 mod budget;
+mod metadata;
 mod replay;
+mod resume;
 mod stream;
 mod supplies;
 pub use budget::ReplayBudget;
 use replay::preflight;
+pub use resume::{Resumed, resume_native};
 use supplies::Sources;
 
 /// Replay the exact native Tower artifact with the repetition detector absent.
@@ -80,6 +83,20 @@ pub fn verify_native<R: super::SessionRegistry>(
     resources: ReplayBudget,
     deadline: Instant,
 ) -> Result<Verified, Refused> {
+    native_preset::<R>(preset, identity)?;
+    adjudicate::verify::<baylee_engine::engine::NoLoopDetection, R>(
+        preset,
+        Some(identity),
+        source,
+        resources.limits()?,
+        deadline,
+    )
+}
+
+fn native_preset<R: super::SessionRegistry>(
+    preset: &GamePreset,
+    identity: &baylee_protocol::execution::Identity,
+) -> Result<(), Refused> {
     use baylee_protocol::execution::{Identity, Variant};
     let expected = Identity::native(
         Variant::Tower,
@@ -94,13 +111,7 @@ pub fn verify_native<R: super::SessionRegistry>(
     {
         return Err(Refused::Invalid);
     }
-    adjudicate::verify::<baylee_engine::engine::NoLoopDetection, R>(
-        preset,
-        Some(identity),
-        source,
-        resources.limits()?,
-        deadline,
-    )
+    Ok(())
 }
 
 #[cfg(test)]

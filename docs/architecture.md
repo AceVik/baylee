@@ -32,6 +32,11 @@ information is unrepresentable in a view, and the gateway runs no rules.
   pieces and withholds associated views/endings behind exact ordered ACKs. Its
   private driver cannot be advanced while storage is pending. The kernel itself
   performs no persistence, networking or administrative callbacks.
+  Recovery consumes the exact committed chunk stream under a fresh assignment,
+  recomputes the frozen Expert's history and resumes the existing record sequence.
+  It preserves settings/declaration allowances and potion charges, does not reseed
+  the opponent when restoring display names, and requires renewed client readiness.
+  A terminal committed prefix can proceed straight to sealing and verification.
 - `baylee-protocol`: protobuf `Envelope`; `Pending`/`PlayerAction` ride as `serde_json`; shared by `LocalHost` and both servers.
 - `baylee-avif` (→ client): reads AVIF pictures and image sequences. The container reader is safe Rust with strict bounds (`Bounds`: bytes, dimensions, frames, duration) and is fuzzed; the AV1 frames are decoded by `rav1d` 1.1.0 behind one small `unsafe` wrapper (`dav1d.rs`). `Player` is opened only on files the client ships: rav1d aborts the process on some damaged streams, so no file from outside reaches it until that is decided (`docs/legal.md` §"The vista loops as AVIF, and their decoder").
 - `baylee-deckio` (core → deckio → client-core): deck documents in four formats (Baylee text, JSON, YAML, Moxfield text), auto-detect, and a registry of deck-link sources that answer an instruction or a fetch plan; pure, never fetches (Moxfield is its text export only). `docs/deck-format.md`.

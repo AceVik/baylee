@@ -95,6 +95,22 @@ impl Barrier {
         Ok(Vec::new())
     }
 
+    /// Only used after strict reconstruction has checked these exact retained bytes.
+    pub(super) fn restored(
+        package: [u8; 32],
+        fence: u64,
+        limit: u64,
+        prefix: Prefix,
+    ) -> Result<Self, Refusal> {
+        let mut state = baylee_tower::v2::execution::Execution::new(package, limit)?;
+        state.fence = fence;
+        state.prefix = prefix;
+        state.validate()?;
+        let mut barrier = Self::new(package, fence, limit)?;
+        barrier.acknowledged = prefix;
+        Ok(barrier)
+    }
+
     pub(super) fn waiting(&self) -> bool {
         self.expected_ack.is_some()
     }

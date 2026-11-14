@@ -1173,3 +1173,31 @@ upgrade/quota scenario and all three native barrier/replay tests also pass. This
 correction supersedes milestone 33's incremental ACK interface before any public
 route uses it. Retained-prefix reconstruction and authenticated live gateway
 transport are still outstanding.
+
+## Exact native recovery — thirty-fifth working milestone
+
+Native recovery now uses the same strict, streaming reconstruction as independent
+adjudication. It checks the exact artifact, preset, retained chunk commitment,
+line sequence, nondecreasing timestamps, engine hashes and every frozen Expert
+answer before returning a table. Terminal inputs without their End metadata are
+refused. Continuation restores the recorder position without repeating its header,
+the Expert's RNG/memory, paid potion charges and setting/declaration allowances.
+Restoring display names deliberately does not call the normal initial reseeding
+path. Automatic undeclarations on reconnect do not consume declaration allowance.
+
+The restored table begins at its acknowledged prefix under the new fence, rejects
+old ACKs and requires a fresh presentation-ready handshake. Its clock cannot move
+backwards. A fully committed terminal prefix is ready for sealing even if the
+old host died before sending that request; no second terminal move is invented.
+
+Seven scoped gamehost tests pass in
+`/tmp/baylee-tower-reconstruction-host-tests-20261114.log`. Native table scenarios
+cover corrupt/truncated/excess evidence and paid-potion/terminal recovery in
+`/tmp/baylee-tower-native-recovery-tests-20261114-r2.log`; the continuity case was
+tightened to explicitly exercise both human and Expert decision boundaries and
+passes in `/tmp/baylee-tower-native-recovery-continuity-20261114.log`. It compares
+future record bytes against uninterrupted play across four reconstructions.
+Strict Clippy for all targets of both changed crates passes in
+`/tmp/baylee-tower-native-recovery-clippy-20261114.log`. Authenticated transport,
+process-level recovery orchestration, native UI and full playable acceptance
+remain outstanding; this is not an end-to-end completion claim.

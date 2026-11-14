@@ -14,6 +14,38 @@ pub(super) fn verify<D: LoopDetection, R: SessionRegistry>(
     limits: Limits,
     deadline: Instant,
 ) -> Result<Verified, Refused> {
+    let rebuilt = rebuild::<D, R>(preset, identity, source, limits, deadline)?;
+    let Pending::GameOver(result) = rebuilt.session.engine.pending() else {
+        return Err(Refused::Invalid);
+    };
+    if !rebuilt.ended {
+        return Err(Refused::Invalid);
+    }
+    Ok(Verified {
+        result: *result,
+        turn: rebuilt.session.engine.state().turn.number,
+        consumed: rebuilt.supplies.consumed(&rebuilt.session)?,
+        record_sha256: rebuilt.digest,
+    })
+}
+
+pub(super) struct Rebuilt<D: LoopDetection, R: SessionRegistry> {
+    pub session: Session<D, R>,
+    pub ended: bool,
+    pub next: u64,
+    pub at: u64,
+    supplies: Sources,
+    digest: [u8; 32],
+}
+
+/// The same strict reconstruction serves terminal adjudication and live recovery.
+pub(super) fn rebuild<D: LoopDetection, R: SessionRegistry>(
+    preset: &GamePreset,
+    identity: Option<&Identity>,
+    source: impl BufRead,
+    limits: Limits,
+    deadline: Instant,
+) -> Result<Rebuilt<D, R>, Refused> {
     if Instant::now() >= deadline {
         return Err(Refused::Budget);
     }
@@ -35,17 +67,18 @@ pub(super) fn verify<D: LoopDetection, R: SessionRegistry>(
         next += 1;
     }
     limits.check(&session, deadline)?;
-    let Pending::GameOver(result) = session.engine.pending() else {
-        return Err(Refused::Invalid);
-    };
-    if !ended {
+    // A terminal input and its End belong to one committed operation. Restoring
+    // an input without its terminal metadata would accept a torn operation.
+    if ended != matches!(session.engine.pending(), Pending::GameOver(_)) {
         return Err(Refused::Invalid);
     }
-    Ok(Verified {
-        result: *result,
-        turn: session.engine.state().turn.number,
-        consumed: supplies.consumed(&session)?,
-        record_sha256: lines.digest(),
+    Ok(Rebuilt {
+        session,
+        ended,
+        next,
+        at: previous_time,
+        supplies,
+        digest: lines.digest(),
     })
 }
 

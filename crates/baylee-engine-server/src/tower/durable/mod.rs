@@ -12,11 +12,13 @@ use baylee_tower::{
 
 mod barrier;
 mod capture;
+mod recovery;
 #[cfg(test)]
 mod tests;
 use barrier::Barrier;
 pub use barrier::Batch;
 use capture::Capture;
+pub use recovery::Recovery;
 
 type Driver = EngineRunner<NoLoopDetection, NativeLookup<RegistryLookup, super::Pack>, Capture>;
 
@@ -41,15 +43,7 @@ impl Table {
         byte_limit: u64,
         names: [String; 2],
     ) -> Result<Self, Refusal> {
-        if game.is_empty()
-            || game.len() > 128
-            || game.chars().any(char::is_control)
-            || names.iter().any(|name| {
-                name.is_empty() || name.len() > 160 || name.chars().any(char::is_control)
-            })
-        {
-            return Err(Refusal::Invalid);
-        }
+        presentation(&game, &names)?;
         let identity = crate::variant::identity();
         let preset = package.preset(catalog, &identity, |card| {
             baylee_cards::by_index(card).map(|_| baylee_cards::decks::reference_print(card))
@@ -134,7 +128,9 @@ impl Table {
         if self.refused || self.barrier.waiting() {
             return Err(Refusal::Unavailable);
         }
-        self.driver.tell_time(unix_ms);
+        // A reconnect or host clock correction cannot make accepted evidence
+        // decrease its timestamps and become unverifiable after another restart.
+        self.driver.tell_time(unix_ms.max(self.driver.now));
         Ok(())
     }
 
@@ -177,5 +173,19 @@ impl Table {
             self.refused = true;
         }
         result
+    }
+}
+
+fn presentation(game: &str, names: &[String; 2]) -> Result<(), Refusal> {
+    if game.is_empty()
+        || game.len() > 128
+        || game.chars().any(char::is_control)
+        || names
+            .iter()
+            .any(|name| name.is_empty() || name.len() > 160 || name.chars().any(char::is_control))
+    {
+        Err(Refusal::Invalid)
+    } else {
+        Ok(())
     }
 }

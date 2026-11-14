@@ -3,6 +3,8 @@ use baylee_core::preset::{DeckEntry, SeatSupplies};
 use baylee_engine::{choice::PlayerAction, win::Victor};
 use std::time::Duration;
 
+mod recovery;
+
 const ME: PlayerId = PlayerId::new(0);
 
 fn deadline() -> Instant {

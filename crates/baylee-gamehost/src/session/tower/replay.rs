@@ -68,9 +68,21 @@ pub(super) fn apply<D: LoopDetection, R: SessionRegistry>(
             if matches!(session.engine.pending(), Pending::GameOver(_)) {
                 return Err(Refused::Invalid);
             }
+            let setting = action.is_automation_setting();
+            if setting
+                && session
+                    .settings_made
+                    .get(usize::from(seat))
+                    .is_none_or(|made| *made >= session.settings_allowed())
+            {
+                return Err(Refused::Invalid);
+            }
             session.tell_time(at);
             if !session.replayed(PlayerId::new(seat), by, action) {
                 return Err(Refused::Invalid);
+            }
+            if setting {
+                session.settings_made[usize::from(seat)] += 1;
             }
             checker
                 .check(&session.engine, Some(n), hash, seen.as_deref())
@@ -78,7 +90,15 @@ pub(super) fn apply<D: LoopDetection, R: SessionRegistry>(
             Ok(at)
         }
         // A seat's self-description never changes the policy or the result.
-        Line::DeclaredMind { n, at, seat: 0, .. } if n == next => Ok(at),
+        Line::DeclaredMind {
+            n,
+            at,
+            seat: 0,
+            mind,
+        } if n == next => {
+            super::metadata::declaration(session, mind)?;
+            Ok(at)
+        }
         Line::End {
             n,
             at,

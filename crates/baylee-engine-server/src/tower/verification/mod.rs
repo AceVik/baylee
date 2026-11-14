@@ -10,6 +10,7 @@ use baylee_tower::{
 use std::{io::Read, time::Instant};
 
 mod stream;
+pub(super) use stream::Committed;
 mod worker;
 pub use worker::worker_entry;
 

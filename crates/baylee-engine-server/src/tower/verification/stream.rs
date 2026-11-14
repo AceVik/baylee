@@ -3,7 +3,7 @@ use super::{Binding, Refused};
 use baylee_tower::v2::execution::{Execution, MAX_CHUNK_BYTES, Prefix};
 use std::io::{self, BufRead, Read};
 
-pub(super) struct Committed<R> {
+pub(in crate::tower) struct Committed<R> {
     source: R,
     execution: Execution,
     expected: Prefix,
@@ -13,7 +13,7 @@ pub(super) struct Committed<R> {
 }
 
 impl<R: Read> Committed<R> {
-    pub(super) fn new(source: R, binding: Binding) -> Result<Self, Refused> {
+    pub(in crate::tower) fn new(source: R, binding: Binding) -> Result<Self, Refused> {
         if binding.fence == 0 || binding.prefix.chunks == 0 {
             return Err(Refused::Invalid);
         }
