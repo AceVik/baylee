@@ -941,3 +941,25 @@ It and the three affected PostgreSQL scenarios passed in
 `/tmp/baylee-tower-store-bounds-clippy-20261114.log`. All fixture schemas/pools were
 closed. Retention/deletion must decrement counters transactionally; its workflow,
 record-storage quotas and live transport are still required before deployment.
+
+## Dedicated operator identities — twenty-sixth working milestone
+
+Migration three separates approved hosts, verifiers, publishers and technical
+supervisors. Dedicated token digests resolve to a private-field principal, and
+operations recheck enabled state/role; gateway registration does not supply any
+role. Only hosts can advertise bounded exact executable identities. Only a live
+publisher can publish a house fallback, which is immutable per cohort/stage/
+archetype and explicitly distinct from a historical echo. Structural build
+validation still does not certify difficulty or acquisition fairness.
+
+The new PostgreSQL scenario covers unknown credentials, all wrong-role paths,
+exact identity mismatch, duplicate inventories, immutable content conflicts,
+concurrent inventory advertisements and a principal retained after revocation.
+It and the four affected migration/owner/quota cases passed in
+`/tmp/baylee-tower-store-operators-tests-20261114.log`; strict Clippy passed after
+a move-only test-helper extraction in
+`/tmp/baylee-tower-store-operators-clippy-20261114-r2.log`. Fixture cleanup completed.
+No HTTP credential transport or Central token-scope change is implemented by
+this milestone; operator checks must still bind actual claims, record append,
+independent verification and recovery. Offline cohort/operator provisioning must
+not be exposed as an unguarded service endpoint.

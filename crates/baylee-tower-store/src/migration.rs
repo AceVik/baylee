@@ -3,6 +3,7 @@ use super::{ConnectionTrait, Digest, Error, QueryResult, Sha256, Store, column};
 const MIGRATIONS: &[&str] = &[
     include_str!("schema.sql"),
     include_str!("migrations/002_account_bounds.sql"),
+    include_str!("migrations/003_operators.sql"),
 ];
 
 impl Store {

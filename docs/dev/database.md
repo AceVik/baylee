@@ -33,6 +33,16 @@ global pool indexing, verified settlement/outbox, record-storage quotas and rete
 The adapter does not authenticate callers or prove legal game records. The service
 must use distinct Tower identity credentials, never arbitrary gateway admission.
 
+Migration three adds dedicated Tower operator records with separate host,
+verifier, publisher and supervisor roles. Provisioning remains an offline admin
+operation; the transport will use the reviewed token library and rate limits.
+Authenticated principal fields are private. Role/enabled state is rechecked when
+publishing immutable, explicitly labelled house fallbacks or advertising an exact
+local executable inventory. Registration at Central alone supplies no Tower role.
+Concurrent inventory advertisements use one conditional update, avoiding a shared
+row lock upgraded by multiple writers. Execution/verification routes still need
+these checks wired in with the record boundary.
+
 ## Gateway and catalog
 
 The gateway's store (`baylee-db`) and the optional card catalog

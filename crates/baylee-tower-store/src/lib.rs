@@ -21,10 +21,13 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 mod commands;
+mod house;
 mod migration;
+mod operators;
 mod publication;
 mod requests;
 mod runs;
+pub use operators::{Principal, Role};
 pub use publication::Publication;
 pub use runs::Start;
 
