@@ -3,9 +3,9 @@ use crate::{
     SessionRegistry, v1,
 };
 
-impl<D: LoopDetection, R: SessionRegistry> EngineRunner<D, R> {
+impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> EngineRunner<D, R, T> {
     /// What the gateway is owed after the game moved: the game's record
-    /// (#315) once [`RECORD_CHUNK_BYTES`] of it have gathered, and when the
+    /// (#315) once [`crate::RECORD_CHUNK_BYTES`] of it have gathered, and when the
     /// game is over the rest of it and then `GameEnded`, once.
     ///
     /// The gateway cannot read a `Pending` — it does not link the engine — so
@@ -38,13 +38,13 @@ impl<D: LoopDetection, R: SessionRegistry> EngineRunner<D, R> {
     /// socket has left it, so that the result stands (a player who conceded
     /// lost, one whose house teammate wins won) and the record is whole. It
     /// does so by its heuristics (no search: `HostForesight::needs_a_person`)
-    /// and within [`REMAINDER_ANSWERS`] of its answers and [`REMAINDER_MS`]
+    /// and within [`crate::REMAINDER_ANSWERS`] of its answers and [`REMAINDER_MS`]
     /// of time: past either the game is closed as an admin closes one
     /// ([`Self::close`]), no winners and the record ending where it stopped,
     /// so a game everybody left can never keep its engine busy for long. A
     /// seat that comes back starts the count again. Read after each pump
     /// slice, so the house may run past the count by one slice
-    /// ([`ATTACHED_PUMP_SLICE`] answers).
+    /// ([`crate::ATTACHED_PUMP_SLICE`] answers).
     pub(crate) fn remainder_bound(&mut self) -> Vec<Envelope> {
         let Some(session) = self.session.as_ref() else {
             return Vec::new();

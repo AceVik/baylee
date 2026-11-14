@@ -12,6 +12,8 @@ use baylee_tower::v2::{
 };
 
 #[cfg(feature = "tower")]
+pub mod durable;
+#[cfg(feature = "tower")]
 pub mod verification;
 
 /// Statically bound revision-two pack; no per-event dispatch or service callback.

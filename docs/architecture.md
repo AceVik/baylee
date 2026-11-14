@@ -27,6 +27,11 @@ information is unrepresentable in a view, and the gateway runs no rules.
   work deadlines, RSS sampling and owned-child reaping enclose native replay.
   Successful replay alone is not a reward: the store must commit it under the live
   independent verifier lease. Failed/cancelled work supplies no rules outcome.
+- The shared table driver selects its record transport statically. Ordinary
+  hosting keeps the existing gzip stream; the native Tower adapter captures raw
+  pieces and withholds associated views/endings behind exact ordered ACKs. Its
+  private driver cannot be advanced while storage is pending. The kernel itself
+  performs no persistence, networking or administrative callbacks.
 - `baylee-protocol`: protobuf `Envelope`; `Pending`/`PlayerAction` ride as `serde_json`; shared by `LocalHost` and both servers.
 - `baylee-avif` (→ client): reads AVIF pictures and image sequences. The container reader is safe Rust with strict bounds (`Bounds`: bytes, dimensions, frames, duration) and is fuzzed; the AV1 frames are decoded by `rav1d` 1.1.0 behind one small `unsafe` wrapper (`dav1d.rs`). `Player` is opened only on files the client ships: rav1d aborts the process on some damaged streams, so no file from outside reaches it until that is decided (`docs/legal.md` §"The vista loops as AVIF, and their decoder").
 - `baylee-deckio` (core → deckio → client-core): deck documents in four formats (Baylee text, JSON, YAML, Moxfield text), auto-detect, and a registry of deck-link sources that answer an instruction or a fetch plan; pure, never fetches (Moxfield is its text export only). `docs/deck-format.md`.

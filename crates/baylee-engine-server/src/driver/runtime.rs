@@ -1,6 +1,6 @@
 use crate::{Clock, EngineRunner, Envelope, LoopDetection, Session, SessionRegistry};
 
-impl<D: LoopDetection, R: SessionRegistry> EngineRunner<D, R> {
+impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> EngineRunner<D, R, T> {
     /// Sets the maximum number of house steps answered per call before
     /// yielding intermediate state deltas to the event loop.
     #[must_use]
@@ -20,7 +20,7 @@ impl<D: LoopDetection, R: SessionRegistry> EngineRunner<D, R> {
     }
 
     /// The most answers the house gives alone once nobody is left at the
-    /// table, in place of [`REMAINDER_ANSWERS`]: for a test.
+    /// table, in place of [`crate::REMAINDER_ANSWERS`]: for a test.
     #[cfg(test)]
     #[must_use]
     pub(crate) const fn with_remainder_answers(mut self, answers: u64) -> Self {

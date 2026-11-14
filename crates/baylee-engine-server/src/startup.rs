@@ -4,7 +4,7 @@ use super::{
     SessionRegistry, curtain, ended, error, seat_frames, v1,
 };
 
-impl<D: LoopDetection, R: SessionRegistry> EngineRunner<D, R> {
+impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> EngineRunner<D, R, T> {
     /// Builds the game.
     pub(super) fn setup(&mut self, setup: &v1::GameSetup) -> Vec<Envelope> {
         if self.session.is_some() {

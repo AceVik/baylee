@@ -3,7 +3,7 @@ use crate::{
     seat_frame, seat_frames, v1,
 };
 
-impl<D: LoopDetection, R: SessionRegistry> EngineRunner<D, R> {
+impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> EngineRunner<D, R, T> {
     /// A seat's socket opened. Sends it the payload every later frame refers
     /// to, then either advances the game for it or hands it what it missed.
     pub(crate) fn attach(&mut self, attached: v1::SeatAttached) -> Vec<Envelope> {
@@ -224,7 +224,7 @@ impl<D: LoopDetection, R: SessionRegistry> EngineRunner<D, R> {
             .is_some_and(|session| self.another_player_here(session, Some(seat)))
     }
 
-    /// The table was held a whole [`HOLD_SECS`] with nobody at it: the house
+    /// The table was held a whole [`crate::HOLD_SECS`] with nobody at it: the house
     /// concedes for every absent player, and the game ends.
     pub(crate) fn hold_expired(&mut self) -> Vec<Envelope> {
         let Some(session) = self.session.as_ref() else {

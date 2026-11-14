@@ -28,6 +28,50 @@ pub struct Prefix {
 }
 
 impl Prefix {
+    /// Compute a content commitment only. This grants no lease, authorization or
+    /// durability; the live authority must still commit bytes before sending ACK.
+    /// # Errors
+    /// Invalid prior head or exhausted byte/chunk bounds.
+    pub fn extended(
+        self,
+        package: [u8; 32],
+        byte_limit: u64,
+        chunk: &[u8],
+    ) -> Result<Self, Refusal> {
+        if byte_limit == 0 || byte_limit > MAX_RECORD_BYTES {
+            return Err(Refusal::Invalid);
+        }
+        self.validate(byte_limit)?;
+        if chunk.is_empty() || chunk.len() > MAX_CHUNK_BYTES {
+            return Err(Refusal::Capacity);
+        }
+        let length = chunk.len() as u64;
+        let bytes = self
+            .bytes
+            .checked_add(length)
+            .filter(|bytes| *bytes <= byte_limit)
+            .ok_or(Refusal::Capacity)?;
+        let chunks = self
+            .chunks
+            .checked_add(1)
+            .filter(|chunks| *chunks <= MAX_RECORD_CHUNKS)
+            .ok_or(Refusal::Capacity)?;
+        let digest = Sha256::new()
+            .chain_update(b"baylee/tower/record-prefix/v2\0")
+            .chain_update(package)
+            .chain_update(self.digest)
+            .chain_update(chunks.to_le_bytes())
+            .chain_update(length.to_le_bytes())
+            .chain_update(chunk)
+            .finalize()
+            .into();
+        Ok(Self {
+            chunks,
+            bytes,
+            digest,
+        })
+    }
+
     pub(super) fn validate(self, limit: u64) -> Result<(), Refusal> {
         if self.bytes > limit
             || self.chunks > MAX_RECORD_CHUNKS
@@ -139,37 +183,8 @@ impl Execution {
         if expected != self.prefix {
             return Err(Refusal::Stale);
         }
-        if chunk.is_empty() || chunk.len() > MAX_CHUNK_BYTES {
-            return Err(Refusal::Capacity);
-        }
-        let length = chunk.len() as u64;
-        let bytes = self
-            .prefix
-            .bytes
-            .checked_add(length)
-            .filter(|bytes| *bytes <= self.byte_limit)
-            .ok_or(Refusal::Capacity)?;
-        let chunks = self
-            .prefix
-            .chunks
-            .checked_add(1)
-            .filter(|chunks| *chunks <= MAX_RECORD_CHUNKS)
-            .ok_or(Refusal::Capacity)?;
-        let digest = Sha256::new()
-            .chain_update(b"baylee/tower/record-prefix/v2\0")
-            .chain_update(self.package)
-            .chain_update(self.prefix.digest)
-            .chain_update(chunks.to_le_bytes())
-            .chain_update(length.to_le_bytes())
-            .chain_update(chunk)
-            .finalize()
-            .into();
         let mut next = self.clone();
-        next.prefix = Prefix {
-            chunks,
-            bytes,
-            digest,
-        };
+        next.prefix = self.prefix.extended(self.package, self.byte_limit, chunk)?;
         Ok(next)
     }
 

@@ -3,7 +3,7 @@ use crate::{
     Session, SessionRegistry,
 };
 
-impl<D: LoopDetection, R: SessionRegistry> EngineRunner<D, R> {
+impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> EngineRunner<D, R, T> {
     /// What is on the clock: one clock per seat being asked, if any.
     ///
     /// A seat being asked is on exactly one of the two: the decision clock if

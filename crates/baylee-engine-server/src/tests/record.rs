@@ -569,8 +569,8 @@ fn an_empty_last_piece_still_ends_the_record() {
         Some(v1::envelope::Msg::GameRecordChunk(c)) => c,
         other => panic!("{other:?}"),
     };
-    let first = piece(runner.record_chunk(b"a line\n", false));
-    let last = piece(runner.record_chunk(b"", true));
+    let first = piece(runner.record_chunk(b"a line\n".to_vec(), false).unwrap());
+    let last = piece(runner.record_chunk(Vec::new(), true).unwrap());
     assert_eq!((first.seq, last.seq), (0, 1));
     assert!(last.last && !last.data.is_empty());
     let mut record = Vec::new();

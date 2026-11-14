@@ -1128,3 +1128,28 @@ settlement/graceful stop and rejected evidence with persisted failure, zero awar
 supervisor-only recovery and rejection of stale quarantine. The authority remains
 a reusable service library at this milestone; authenticated HTTP deployment,
 live gateway ACK/reveal integration and native UI are not claimed complete.
+
+## Native record/reveal boundary — thirty-third working milestone
+
+After a move-only extraction of the large table driver, record output is now a
+compile-time transport parameter. Ordinary games retain their zero-state gzip
+transport. The native Tower table captures raw canonical record pieces directly,
+without compressing and decompressing them, and withholds all resulting frames
+until their exact ordered commitments have been acknowledged. It admits one
+Expert step at a time, refuses additional game work while waiting, bounds raw
+operation output to eight MiB and player output to sixteen MiB/4,096 frames, and
+cannot report finished until terminal output crosses the same barrier. These are
+technical allocations, not rules losses/draws. The authority must authenticate
+ACKs; a content hash is not authentication. The public table adapter exposes no
+mutable session/driver that could bypass the boundary.
+
+Three actual native-table tests pass in
+`/tmp/baylee-durable-table-tests-20261114-r3.log`: held initial/terminal output,
+partial/wrong-generation/reordered/duplicate ACKs, technical exhaustion, and an
+independent native replay of the committed record. All ten existing ordinary
+recording tests pass in `/tmp/baylee-legacy-record-transport-tests-20261114.log`,
+including gzip continuity, empty final members, timed/manual flushing and final
+snapshot hashes. Four record-commitment cases also pass. Strict Tower all-target
+Clippy and the separate standard executable check pass. The new native adapter
+still needs its authenticated gateway wire path and retained-prefix reconstruction
+for live recovery; the existing attached transport has not silently opted into it.

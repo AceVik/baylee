@@ -3,7 +3,7 @@ use crate::{
     error, seat_frame, seat_frames, v1,
 };
 
-impl<D: LoopDetection, R: SessionRegistry> EngineRunner<D, R> {
+impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> EngineRunner<D, R, T> {
     /// A player-facing frame from one seat.
     pub(crate) fn seat_frame(&mut self, frame: &v1::SeatFrame) -> Vec<Envelope> {
         let Ok(seat) = u8::try_from(frame.seat) else {

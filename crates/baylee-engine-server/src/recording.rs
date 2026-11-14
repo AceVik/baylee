@@ -3,8 +3,38 @@ use super::{EngineRunner, Envelope, Pending, RECORD_FLUSH_MS, Session, record_du
 use flate2::{Compression, write::GzEncoder};
 use std::io::Write as _;
 
-impl<D: baylee_engine::engine::LoopDetection, R: baylee_gamehost::session::SessionRegistry>
-    EngineRunner<D, R>
+/// Statically selected record output. No virtual dispatch or rules-kernel callback.
+pub trait Transport: Default {
+    /// Consume one chronological raw piece. Returning no envelope retains it in
+    /// the transport's private bounded buffer for an outer persistence barrier.
+    fn chunk(&mut self, game: &str, seq: u32, data: Vec<u8>, last: bool) -> Option<Envelope>;
+}
+
+/// Existing gateway gzip-member stream, with no additional per-game state.
+#[derive(Default)]
+pub struct Legacy;
+
+impl Transport for Legacy {
+    fn chunk(&mut self, game: &str, seq: u32, data: Vec<u8>, last: bool) -> Option<Envelope> {
+        let mut gz = GzEncoder::new(Vec::new(), Compression::default());
+        gz.write_all(&data).expect("compressing into memory");
+        let data = gz.finish().expect("compressing into memory");
+        Some(Envelope {
+            msg: Some(v1::envelope::Msg::GameRecordChunk(v1::GameRecordChunk {
+                game_id: game.to_owned(),
+                seq,
+                data,
+                last,
+            })),
+        })
+    }
+}
+
+impl<
+    D: baylee_engine::engine::LoopDetection,
+    R: baylee_gamehost::session::SessionRegistry,
+    T: crate::recording::Transport,
+> EngineRunner<D, R, T>
 {
     /// The gateway asked for the record as it stands (#323), for a bug
     /// report filed at this game: whatever of it has gathered, as a piece
@@ -19,13 +49,7 @@ impl<D: baylee_engine::engine::LoopDetection, R: baylee_gamehost::session::Sessi
     ///
     /// Moves nothing in the game: no pump, no clock, no frame to a seat.
     pub(super) fn flush_record(&mut self, nonce: u64) -> Vec<Envelope> {
-        let mut out = Vec::new();
-        if !self.ended {
-            let data = self.session.as_mut().map_or_default(Session::take_record);
-            if !data.is_empty() {
-                out.push(self.record_chunk(&data, false));
-            }
-        }
+        let mut out: Vec<_> = self.capture_pending_record().into_iter().collect();
         out.push(Envelope {
             msg: Some(v1::envelope::Msg::RecordFlushed(v1::RecordFlushed {
                 game_id: self.game_id.clone(),
@@ -34,6 +58,17 @@ impl<D: baylee_engine::engine::LoopDetection, R: baylee_gamehost::session::Sessi
             })),
         });
         out
+    }
+
+    pub(crate) fn capture_pending_record(&mut self) -> Option<Envelope> {
+        if self.ended {
+            return None;
+        }
+        let data = self.session.as_mut().map_or_default(Session::take_record);
+        if data.is_empty() {
+            return None;
+        }
+        self.record_chunk(data, false)
     }
 
     /// When (wall ms) the record waiting to be sent is due by
@@ -69,7 +104,7 @@ impl<D: baylee_engine::engine::LoopDetection, R: baylee_gamehost::session::Sessi
             return Vec::new();
         };
         let data = session.take_record();
-        vec![self.record_chunk(&data, false)]
+        self.record_chunk(data, false).into_iter().collect()
     }
 
     /// Final record and game-end notification, after any participation endings.
@@ -89,7 +124,7 @@ impl<D: baylee_engine::engine::LoopDetection, R: baylee_gamehost::session::Sessi
                 return Vec::new();
             }
             let data = session.take_record();
-            return vec![self.record_chunk(&data, false)];
+            return self.record_chunk(data, false).into_iter().collect();
         };
         let result = *result;
         let data = session.take_record();
@@ -126,39 +161,28 @@ impl<D: baylee_engine::engine::LoopDetection, R: baylee_gamehost::session::Sessi
         } else {
             v1::challenge_result::Outcome::Lost
         };
-        vec![
-            self.record_chunk(&data, true),
-            Envelope {
-                msg: Some(v1::envelope::Msg::GameEnded(v1::GameEnded {
-                    game_id: self.game_id.clone(),
-                    winners,
-                    reason,
-                    turn,
-                    challenge: self.challenge_result(outcome),
-                })),
-            },
-        ]
+        let mut out = Vec::with_capacity(2);
+        out.extend(self.record_chunk(data, true));
+        out.push(Envelope {
+            msg: Some(v1::envelope::Msg::GameEnded(v1::GameEnded {
+                game_id: self.game_id.clone(),
+                winners,
+                reason,
+                turn,
+                challenge: self.challenge_result(outcome),
+            })),
+        });
+        out
     }
 
     /// The next piece of the record, as one gzip member: pieces stored one
     /// after another in `seq` order are one gzip stream of the record.
-    pub(super) fn record_chunk(&mut self, data: &[u8], last: bool) -> Envelope {
-        self.challenge.record(data);
+    pub(super) fn record_chunk(&mut self, data: Vec<u8>, last: bool) -> Option<Envelope> {
+        self.challenge.record(&data);
         let seq = self.record_seq;
         self.record_seq += 1;
         self.record_sent_at = self.now;
         self.record_waiting_since = None;
-        let mut gz = GzEncoder::new(Vec::new(), Compression::default());
-        // Writing into a `Vec` cannot fail.
-        gz.write_all(data).expect("compressing into memory");
-        let data = gz.finish().expect("compressing into memory");
-        Envelope {
-            msg: Some(v1::envelope::Msg::GameRecordChunk(v1::GameRecordChunk {
-                game_id: self.game_id.clone(),
-                seq,
-                data,
-                last,
-            })),
-        }
+        self.records.chunk(&self.game_id, seq, data, last)
     }
 }

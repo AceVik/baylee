@@ -3,7 +3,7 @@ use crate::{
     seat_frames, v1,
 };
 
-impl<D: LoopDetection, R: SessionRegistry> EngineRunner<D, R> {
+impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> EngineRunner<D, R, T> {
     /// Applies one frame from the gateway and returns what to send back.
     ///
     /// `remaining` is how much of each **currently armed** deadline is left,
@@ -61,7 +61,7 @@ impl<D: LoopDetection, R: SessionRegistry> EngineRunner<D, R> {
             out.push(frames::spectator_frame(&closed));
         }
         if let Some(data) = self.session.as_mut().map(Session::take_record) {
-            out.push(self.record_chunk(&data, true));
+            out.extend(self.record_chunk(data, true));
         }
         let mut ending = ended(&self.game_id, ended_why);
         if let Some(v1::envelope::Msg::GameEnded(ended)) = ending.msg.as_mut() {

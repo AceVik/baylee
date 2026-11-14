@@ -40,7 +40,7 @@ mod driver;
 pub mod foresight;
 mod frames;
 pub mod projection;
-mod recording;
+pub mod recording;
 mod startup;
 #[cfg(any(test, feature = "tower"))]
 pub mod tower;
@@ -129,7 +129,11 @@ impl Barrier {
 }
 
 /// A game, and everything the gateway can ask of it.
-pub struct EngineRunner<D: LoopDetection = DetectLoops, R: SessionRegistry = RegistryLookup> {
+pub struct EngineRunner<
+    D: LoopDetection = DetectLoops,
+    R: SessionRegistry = RegistryLookup,
+    T: recording::Transport = recording::Legacy,
+> {
     /// The game this process was started for.
     game_id: String,
     /// Set by `GameSetup`; every other frame is ignored until then.
@@ -150,6 +154,7 @@ pub struct EngineRunner<D: LoopDetection = DetectLoops, R: SessionRegistry = Reg
     participation_reported: SeatSet,
     /// The next [`v1::GameRecordChunk::seq`] (#315).
     record_seq: u32,
+    records: T,
     /// Since when (wall ms, as last told) the record bytes not yet sent have
     /// been waiting; `None` when nothing was seen waiting since the last
     /// piece (#323). What [`RECORD_FLUSH_MS`] counts from.
@@ -190,7 +195,9 @@ pub struct EngineRunner<D: LoopDetection = DetectLoops, R: SessionRegistry = Reg
     challenge: challenge::Evidence,
 }
 
-impl<D: LoopDetection, R: SessionRegistry> Default for EngineRunner<D, R> {
+impl<D: LoopDetection, R: SessionRegistry, T: crate::recording::Transport> Default
+    for EngineRunner<D, R, T>
+{
     fn default() -> Self {
         Self {
             game_id: String::new(),
@@ -201,6 +208,7 @@ impl<D: LoopDetection, R: SessionRegistry> Default for EngineRunner<D, R> {
             ended: false,
             participation_reported: SeatSet::new(),
             record_seq: 0,
+            records: T::default(),
             record_waiting_since: None,
             record_sent_at: 0,
             curtain: None,
