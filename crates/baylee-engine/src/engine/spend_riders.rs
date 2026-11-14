@@ -5,7 +5,7 @@ use crate::mana_provenance::ManaProvenance;
 use crate::object::Rider;
 use baylee_cards_dsl::{Amount, CounterKind, Duration, Effect, KeywordSet, Modifier, SpendRider};
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Payment has finished and the spell is on the stack. Delayed triggers
     /// join the normal trigger queue so they resolve above that spell.
     pub(super) fn apply_spend_riders(

@@ -126,7 +126,7 @@ fn asked_mode(
     })
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Explains a pending choice to an in-process controller. This is not a
     /// player request endpoint and contains no library or opposing hand.
     #[must_use]

@@ -4,7 +4,7 @@
 use super::*;
 use baylee_core::generated::subtypes::land::{FOREST, ISLAND, MOUNTAIN, PLAINS, SWAMP};
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Applies as-it-enters-the-battlefield modifiers to permanents that
     /// entered since the last scan (CR 614.1c/d; taplands, shocklands).
     ///

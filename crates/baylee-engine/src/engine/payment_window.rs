@@ -7,7 +7,7 @@ use super::{
     PaymentWindow, Pending, PlayerId, SmallVec, WindowStart, Zone, casting, resolve,
 };
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// `PlayerAction::PayWindow`: the window's mana abilities and their
     /// answers, then its settlement, as one action.
     ///

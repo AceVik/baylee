@@ -2,7 +2,7 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(super) fn north_star_component(&self, wizard: &CastWizard) -> Option<ManaCost> {
         if wizard.free
             || wizard.masked

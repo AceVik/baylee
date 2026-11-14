@@ -21,12 +21,16 @@ use baylee_cards_dsl::{AbilityDef, ActivationTiming, Cost, CostPart};
 use baylee_core::ids::{NameRef, ObjectId, PlayerId};
 use baylee_core::preset::{GamePreset, HouseRules};
 use baylee_core::types::TypeSet;
+pub use loop_control::{DetectLoops, LoopDetection, LoopSegment, NoLoopDetection};
 use smallvec::SmallVec;
 use std::collections::VecDeque;
 
 /// Engine API errors.
 #[derive(Debug, thiserror::Error)]
 pub enum EngineError {
+    /// The preset requests a loop policy unavailable in this compiled variant.
+    #[error("loop policy does not match the compiled engine variant")]
+    UnsupportedLoopPolicy,
     /// The action exceeds the finite numeric representation; no state was changed.
     #[error("numeric capacity exceeded: {0}")]
     NumericCapacity(&'static str),
@@ -373,7 +377,7 @@ impl Fingerprint {
 // a queued resolution, an agreed draw, a broken loop); folding them into an
 // enum would make each one lie about the others.
 #[allow(clippy::struct_excessive_bools)]
-pub struct Engine<L: CardLookup> {
+pub struct Engine<L: CardLookup, D: LoopDetection = DetectLoops> {
     #[cfg(feature = "test-support")]
     pub lookup: L,
     #[cfg(not(feature = "test-support"))]
@@ -494,7 +498,7 @@ pub struct Engine<L: CardLookup> {
     /// second list through every caller of a function most of them pass
     /// nothing to buys nothing. It is taken at the top of that function, so
     /// an activation refused after `apply` set it cannot hand it on.
-    activation_payment: Option<abilities::ActivationPayment>,
+    activation_payment: Option<abilities::ActivationPayment<D>>,
     activation_mode: Option<abilities::ActivationMode>,
     activation_target_players: Vec<PlayerId>,
     /// The objects named for a pending activation's *cost* (CR 601.2h).
@@ -644,7 +648,7 @@ pub struct Engine<L: CardLookup> {
     automation: Vec<crate::choice::SeatAutomation>,
     /// The detector's saved signature, suppression state and diagnostic count.
     /// Checkpoints and forks retain this unit without resetting its watch.
-    loop_control: loop_control::LoopControl,
+    loop_control: D,
 }
 
 /// A distinguishing tag per priority-hold shape, including its payload —
@@ -1024,6 +1028,21 @@ impl<L: CardLookup> Engine<L> {
     /// # Errors
     /// [`EngineError::Setup`] for invalid presets or unknown cards.
     pub fn new(preset: &GamePreset, lookup: L) -> Result<Self, EngineError> {
+        Self::with_detection(preset, lookup)
+    }
+}
+
+impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
+    /// Creates a game with the statically selected loop capability `D`.
+    /// The preset must name a matching policy; no implicit fallback is allowed.
+    ///
+    /// # Errors
+    /// [`EngineError::Setup`] for invalid presets or unknown cards;
+    /// [`EngineError::UnsupportedLoopPolicy`] for a policy that does not match `D`.
+    pub fn with_detection(preset: &GamePreset, lookup: L) -> Result<Self, EngineError> {
+        if !D::supports(preset.house_rules.loop_policy) {
+            return Err(EngineError::UnsupportedLoopPolicy);
+        }
         let state = GameState::from_preset(preset, &lookup)?;
         let trigger_scan_seq = state.journal.last_seq();
         let mut engine = Self {
@@ -1035,7 +1054,7 @@ impl<L: CardLookup> Engine<L> {
                 &preset.house_rules,
             )),
             automation: vec![crate::choice::SeatAutomation::default(); state.players.len()],
-            loop_control: loop_control::LoopControl::default(),
+            loop_control: D::default(),
             house_rules: preset.house_rules.clone(),
             state,
             pending: Pending::Mulligan {
@@ -1624,7 +1643,7 @@ impl<L: CardLookup> Engine<L> {
         // the board would call them identical while they are not.
         extra = extra
             .wrapping_mul(31)
-            .wrapping_add(u64::from(self.loop_control.loops_broken));
+            .wrapping_add(u64::from(self.loop_control.broken_count()));
         for seat in &self.automation {
             extra = extra
                 .wrapping_mul(31)
@@ -1831,10 +1850,8 @@ impl<L: CardLookup> Engine<L> {
             ("trigger_queue", format!("{trigger_queue:?}")),
             ("agreed_draw", format!("{agreed_draw:?}")),
             ("automation", format!("{automation:?}")),
-            ("breaking_loop", format!("{:?}", loop_control.breaking_loop)),
-            ("action_loops", format!("{:?}", loop_control.action_loops)),
-            ("loops_broken", format!("{:?}", loop_control.loops_broken)),
         ]);
+        out.extend(loop_control.fingerprint_fields());
         Fingerprint(out)
     }
 
@@ -1934,9 +1951,8 @@ impl<L: CardLookup> Engine<L> {
         // has actually drained. Stopping after one answer is not enough:
         // the trigger that feeds the loop is only collected once whatever
         // is on the stack resolves, which is several answers later.
-        if self.state.zones.stack_is_empty() && self.trigger_queue.is_empty() {
-            self.loop_control.breaking_loop = false;
-        }
+        self.loop_control
+            .clear_break_if(|| self.state.zones.stack_is_empty() && self.trigger_queue.is_empty());
         // Automation settings change who gets interrupted, not the game.
         // They are answered in place: whatever was pending stays pending,
         // and the priority round is untouched. Before the watch below, which
@@ -1958,25 +1974,25 @@ impl<L: CardLookup> Engine<L> {
         // (CR 734.1 undoes the cast). That is not a loop, and a watch that
         // counted it would break one or draw the game on their say-so, so
         // each starts the count again. Refused, it restores what it reset.
-        if matches!(action, PlayerAction::CancelCast | PlayerAction::OfferDraw) {
-            self.loop_control.action_loops = crate::loops::LoopWatch::default();
-        }
-        let signature = self.loop_control.action_loops.wants_sample().then(|| {
-            self.state.loop_signature()
-                ^ self
-                    .resolution
-                    .as_ref()
-                    .map_or(0, |res| resolve::loot::loop_progress(&self.state, res))
-                    .rotate_left(17)
-                ^ self
-                    .resolution
-                    .as_ref()
-                    .map_or(0, |res| res.subject.destruction_progress())
-                    .rotate_left(23)
-                ^ u64::from(player.get()).rotate_left(37)
-                ^ u64::from(self.passes).rotate_left(53)
-        });
-        if let Some(period) = self.loop_control.action_loops.step(signature)
+        let detected = self.loop_control.observe_action(
+            || matches!(action, PlayerAction::CancelCast | PlayerAction::OfferDraw),
+            || {
+                self.state.loop_signature()
+                    ^ self
+                        .resolution
+                        .as_ref()
+                        .map_or(0, |res| resolve::loot::loop_progress(&self.state, res))
+                        .rotate_left(17)
+                    ^ self
+                        .resolution
+                        .as_ref()
+                        .map_or(0, |res| res.subject.destruction_progress())
+                        .rotate_left(23)
+                    ^ u64::from(player.get()).rotate_left(37)
+                    ^ u64::from(self.passes).rotate_left(53)
+            },
+        );
+        if let Some(period) = detected
             && self.on_loop_detected(period)
         {
             return Ok(());
@@ -2469,6 +2485,8 @@ mod stack_flow_tests;
 mod static_controller_tests;
 #[cfg(test)]
 mod static_flow_tests;
+#[cfg(test)]
+mod static_loop_tests;
 #[cfg(test)]
 mod strike_flow_tests;
 #[cfg(test)]

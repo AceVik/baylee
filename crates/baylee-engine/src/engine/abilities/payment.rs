@@ -46,29 +46,29 @@ impl CostPayment {
 
 /// The original apply checkpoint is retained only when payment actually suspends.
 #[derive(Clone)]
-pub(crate) struct PaymentRollback {
-    checkpoint: Box<super::super::checkpoint::Checkpoint>,
+pub(crate) struct PaymentRollback<D: crate::engine::LoopDetection> {
+    checkpoint: Box<super::super::checkpoint::Checkpoint<D>>,
     fingerprint: u64,
 }
-impl std::fmt::Debug for PaymentRollback {
+impl<D: crate::engine::LoopDetection> std::fmt::Debug for PaymentRollback<D> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("PaymentRollback")
             .field(&self.fingerprint)
             .finish()
     }
 }
-impl std::hash::Hash for PaymentRollback {
+impl<D: crate::engine::LoopDetection> std::hash::Hash for PaymentRollback<D> {
     fn hash<H: std::hash::Hasher>(&self, h: &mut H) {
         std::hash::Hash::hash(&self.fingerprint, h);
     }
 }
 
 #[derive(Clone, Debug, Hash)]
-pub(crate) struct ActivationPayment {
+pub(crate) struct ActivationPayment<D: crate::engine::LoopDetection> {
     pub kind: ActivationPaymentKind,
-    rollback: Option<PaymentRollback>,
+    rollback: Option<PaymentRollback<D>>,
 }
-impl ActivationPayment {
+impl<D: crate::engine::LoopDetection> ActivationPayment<D> {
     pub(super) fn new(kind: ActivationPaymentKind) -> Self {
         Self {
             kind,
@@ -80,7 +80,7 @@ impl ActivationPayment {
     }
     pub(in crate::engine) fn retain_rollback(
         &mut self,
-        checkpoint: super::super::checkpoint::Checkpoint,
+        checkpoint: super::super::checkpoint::Checkpoint<D>,
     ) {
         let fingerprint = checkpoint.payment_fingerprint();
         self.rollback = Some(PaymentRollback {
@@ -136,7 +136,7 @@ pub(crate) struct ActivationCompletion {
     pub mode_index: Option<u8>,
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Continue only after the pending counter event has actually committed.
     pub(crate) fn resume_activation_payment(&mut self) -> Result<(), EngineError> {
         let Some(payment) = self.activation_payment.take() else {
@@ -192,7 +192,7 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
-    fn cancel_counter_payment(&mut self, rollback: PaymentRollback, player: PlayerId) {
+    fn cancel_counter_payment(&mut self, rollback: PaymentRollback<D>, player: PlayerId) {
         (*rollback.checkpoint).restore(self);
         self.activation_payment = None;
         self.activation_mode = None;

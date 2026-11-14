@@ -52,7 +52,7 @@
 /// Watches one decision-free segment for repetition.
 ///
 /// Created fresh per segment; `Default` is a watch that has seen nothing.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Hash)]
 pub struct LoopWatch {
     /// Machine iterations seen in this segment.
     steps: u64,

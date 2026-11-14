@@ -2,7 +2,7 @@
 #[allow(clippy::wildcard_imports)] // shared ability vocabulary
 use super::*;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Whether a spell has something it could legally be cast at.
     ///
     /// CR 601.2c: a spell with a mandatory target and no legal target cannot

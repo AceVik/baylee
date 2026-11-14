@@ -6,7 +6,7 @@ use crate::state::{DelayedAction, DelayedWhen};
 use baylee_cards_dsl::{Duration, Modifier};
 use baylee_core::ids::EffectId;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(super) fn start_awaited_attack_restrictions(&mut self) {
         if !self
             .state

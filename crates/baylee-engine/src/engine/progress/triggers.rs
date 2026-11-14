@@ -3,7 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary
 use super::*;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Writes the chosen mode onto the ability just put on the stack.
     ///
     /// The same shape as the `event_object` write beside every one of these
@@ -398,7 +398,7 @@ impl<L: CardLookup> Engine<L> {
 
     /// Remember event-time abilities before a state-based action removes them.
     pub(super) fn queue_new_triggers(&mut self) {
-        if self.loop_control.breaking_loop {
+        if self.loop_control.is_breaking() {
             return;
         }
         let scan_from = self.trigger_scan_seq;
@@ -512,7 +512,7 @@ impl<L: CardLookup> Engine<L> {
 
     #[allow(clippy::too_many_lines)] // the trigger queue processor is a flat state machine
     pub(crate) fn collect_triggers(&mut self) {
-        if self.loop_control.breaking_loop {
+        if self.loop_control.is_breaking() {
             // The house rule broke an endless loop in this segment: the
             // abilities that were feeding it do not go back on the stack.
             // Everything already on the stack still resolves, so the loop
@@ -1082,7 +1082,7 @@ fn is_graveyard_trigger(trigger: &crate::trigger::PendingTrigger) -> bool {
 /// The engine's own steps, named for the card test crates (`test-support`) and
 /// their kit: the steps stay the engine's, these only call them.
 #[cfg(any(test, feature = "test-support"))]
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     #[doc(hidden)]
     pub fn collect_triggers_for_tests(&mut self) {
         self.collect_triggers();

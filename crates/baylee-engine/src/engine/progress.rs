@@ -1,3 +1,4 @@
+use super::LoopSegment;
 use super::{
     AbilityDef, AbilityLoc, CardLookup, Cause, Cleanup, CombatDeclared, EndReason, Engine,
     GameEvent, GameObject, GameResult, NameRef, ObjectId, ObjectKind, Pending, Phase, PlanKind,
@@ -62,7 +63,7 @@ pub(crate) enum EntryAsk {
     Modifier(&'static baylee_cards_dsl::EnterModifier),
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Entry choices may interrupt a resolving instruction or a standalone land play.
     pub(crate) fn continue_entry_queue(&mut self) -> bool {
         loop {
@@ -526,7 +527,7 @@ impl<L: CardLookup> Engine<L> {
         // One watch per decision-free segment: this is the exact stretch in
         // which nobody is asked anything, so it is the only place a game can
         // loop without a player being able to stop it (see `crate::loops`).
-        let mut watch = crate::loops::LoopWatch::default();
+        let mut watch = D::Segment::default();
         loop {
             if self.offer_counter_order() || self.advance_combat_damage() {
                 return;
@@ -553,8 +554,7 @@ impl<L: CardLookup> Engine<L> {
             if self.offer_queued_draw() || self.offer_queued_life_gain() {
                 return;
             }
-            let signature = watch.wants_sample().then(|| self.state.loop_signature());
-            if let Some(period) = watch.step(signature)
+            if let Some(period) = watch.observe(|| self.state.loop_signature())
                 && self.on_loop_detected(period)
             {
                 return;
@@ -1262,7 +1262,7 @@ static DASH_RETURN: [Effect; 1] = [Effect::IfCondition {
 /// The engine's own steps, named for the card test crates (`test-support`) and
 /// their kit: the steps stay the engine's, these only call them.
 #[cfg(any(test, feature = "test-support"))]
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     #[doc(hidden)]
     pub fn on_loop_detected_for_tests(&mut self, period: u64) -> bool {
         self.on_loop_detected(period)

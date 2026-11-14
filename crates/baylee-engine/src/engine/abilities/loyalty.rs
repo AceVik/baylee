@@ -2,7 +2,7 @@
 #[allow(clippy::wildcard_imports)] // shared ability vocabulary
 use super::*;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Whether this incarnation of `source` already activated a loyalty
     /// ability this turn. A permanent that left and came back is a new
     /// object (CR 400.7) and starts over (CR 606.3).

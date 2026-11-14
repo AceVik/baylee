@@ -112,7 +112,7 @@ pub(crate) fn open(
         .collect()
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Whether a seat that has taken `taken` mulligans may take another:
     /// until its hand would open with no cards (CR 103.5), past which the
     /// bottom question asks for more cards than the hand holds and nothing

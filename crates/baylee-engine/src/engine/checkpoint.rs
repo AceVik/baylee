@@ -9,7 +9,7 @@ use super::*;
 #[allow(clippy::struct_excessive_bools)] // Exact snapshot of the driver's independent latches.
 #[derive(Clone)]
 #[doc(hidden)]
-pub struct Checkpoint {
+pub struct Checkpoint<D: LoopDetection = DetectLoops> {
     /// The game without its journal, which only grows (`Journal`): its
     /// length is kept instead, and a restore cuts it back to that, as
     /// `GameState::roll_back` does. A shared journal would be copied whole
@@ -38,7 +38,7 @@ pub struct Checkpoint {
     library_action_tops: Option<Vec<Option<ObjectId>>>,
     loyalty_player_choice: Option<PlayerId>,
     loyalty_paid: Option<crate::object::PaidRecord>,
-    activation: ActivationContinuations,
+    activation: ActivationContinuations<D>,
     activation_target_players: Vec<PlayerId>,
     activation_cost_choices: Vec<Vec<ObjectId>>,
     activation_second_targets: Option<SmallVec<[ObjectId; 1]>>,
@@ -58,10 +58,10 @@ pub struct Checkpoint {
     trigger_queue: VecDeque<trigger::PendingTrigger>,
     agreed_draw: bool,
     automation: Vec<crate::choice::SeatAutomation>,
-    loop_control: loop_control::LoopControl,
+    loop_control: D,
 }
 
-impl Checkpoint {
+impl<D: LoopDetection> Checkpoint<D> {
     /// Saved game and the trigger prefix restored when a payment is cancelled.
     pub(super) fn payment_fingerprint(&self) -> u64 {
         crate::state::structural_fingerprint(&(
@@ -76,7 +76,7 @@ impl Checkpoint {
 
     #[allow(clippy::too_many_lines)] // one line per engine field: the list is the guard
     #[doc(hidden)]
-    pub fn capture<L: CardLookup>(engine: &Engine<L>) -> Self {
+    pub fn capture<L: CardLookup>(engine: &Engine<L, D>) -> Self {
         let Engine {
             lookup: _,
             state,
@@ -177,7 +177,7 @@ impl Checkpoint {
 
     #[allow(clippy::too_many_lines)] // one line per engine field: the list is the guard
     #[doc(hidden)]
-    pub fn restore<L: CardLookup>(self, engine: &mut Engine<L>) {
+    pub fn restore<L: CardLookup>(self, engine: &mut Engine<L, D>) {
         let Engine {
             lookup: _,
             state,
@@ -286,14 +286,14 @@ fn clone_without_journal(state: &GameState) -> GameState {
 
 /// The activation continuations retained across questions and suspended payment.
 #[derive(Clone)]
-struct ActivationContinuations {
+struct ActivationContinuations<D: LoopDetection> {
     target_choice: targeting::ActivationTargetChoice,
-    payment: Option<abilities::ActivationPayment>,
+    payment: Option<abilities::ActivationPayment<D>>,
     mode: Option<abilities::ActivationMode>,
 }
 
-impl ActivationContinuations {
-    fn capture<L: CardLookup>(engine: &Engine<L>) -> Self {
+impl<D: LoopDetection> ActivationContinuations<D> {
+    fn capture<L: CardLookup>(engine: &Engine<L, D>) -> Self {
         Self {
             target_choice: engine.activation_target_choice.clone(),
             payment: engine.activation_payment.clone(),
@@ -301,7 +301,7 @@ impl ActivationContinuations {
         }
     }
 
-    fn restore<L: CardLookup>(self, engine: &mut Engine<L>) {
+    fn restore<L: CardLookup>(self, engine: &mut Engine<L, D>) {
         engine.activation_target_choice = self.target_choice;
         engine.activation_payment = self.payment;
         engine.activation_mode = self.mode;

@@ -2,7 +2,7 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// All legal ways to cast `card` right now.
     #[allow(clippy::too_many_lines)] // one branch per printed way to cast; splitting hides the list
     pub(in crate::engine) fn cast_options(

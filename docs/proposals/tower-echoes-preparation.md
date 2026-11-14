@@ -268,3 +268,32 @@ BAYLEE_BUILD_STAMP=none cargo nextest run --offline --locked --cargo-profile gat
 14 tests passed; 2,623 unrelated tests skipped. The initial new fixture used the
 wrong answer shape for a player-only target; correcting it to `ChoosePlayer`
 made all scenarios pass. Log: `/tmp/baylee-life-timing-20261114.log`.
+
+## Static loop control — first working kernel milestone
+
+`Engine<L, D>` now owns its sealed detection policy as a type. `DetectLoops`
+preserves the existing detector and its break/draw behavior. `NoLoopDetection`
+and its segment watch are zero-sized; they never invoke signature, reset or
+stack-drainage closures. Both player-answer and decision-free segment paths use
+the same statically dispatched seam. Ordinary numeric checks and replay hashes
+remain independent. No vtable or runtime enabled/disabled flag was introduced.
+
+`LoopPolicy::Off` is appended after the existing serialized variants. Construction
+rejects a policy/type mismatch before creating the game. Checkpoints, suspended
+payment rollback and fair simulation forks retain the same type. Legacy
+`Engine::new` deliberately remains enabled during the staged host/protocol
+migration; the new-table default has not yet changed in this milestone.
+
+Strict Clippy for `baylee-core` and `baylee-engine` (all targets, fork) passed.
+51 targeted engine tests passed, 2,591 unrelated tests skipped: existing loop
+break/draw/false-positive cases, trigger ordering, payment/checkpoint rollback,
+hidden-information fork refusal, the life-rule scenarios, and five new static
+policy cases. The off case keeps a real repeating blink loop running for 10,240
+answers until concession; the ordinary 256-answer comparison preserves decisions,
+events and game state in both variants. Logs:
+`/tmp/baylee-static-policy-clippy-20261114.log` and
+`/tmp/baylee-static-policy-tests-20261114.log`.
+
+This establishes kernel behavior, not yet the three installed server artifacts,
+agent routing, release-code omission or measured speedup. Those need their own
+build/host evidence before the feature is presented as complete.

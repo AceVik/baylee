@@ -248,7 +248,7 @@ fn asks_its_activations(effects: &'static [baylee_cards_dsl::Effect]) -> bool {
     asks
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Whether the offered activation `(source, index)` is a mana ability,
     /// asked of the object's own list or, for a granted slot, of the grants
     /// — the one reading both narrowings share.

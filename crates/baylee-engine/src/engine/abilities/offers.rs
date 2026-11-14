@@ -9,7 +9,7 @@ pub(super) struct SpellAdjustments {
     reductions: Vec<(ObjectId, crate::choice::CastModeKind, u32)>,
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(super) fn activation_increases(&self, player: PlayerId) -> Vec<(ObjectId, u32)> {
         if !self.state.effects.may_change_or_forbid_abilities()
             || !self.state.effects.iter().any(|fx| {

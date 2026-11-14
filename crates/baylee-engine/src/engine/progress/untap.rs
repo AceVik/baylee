@@ -15,7 +15,7 @@ pub(super) struct UntapLimit {
     count: u8,
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// The untap step's second turn-based action (CR 502.2): the game looks
     /// at the previous turn and decides whether the designation flips.
     ///

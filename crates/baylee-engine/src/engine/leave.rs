@@ -33,7 +33,7 @@ use crate::resolve::{AwaitingOp, Flow, Resolution};
 use crate::state::CardLookup;
 use baylee_core::ids::{ObjectId, PlayerId};
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// `player` concedes (CR 104.3a).
     pub(crate) fn concede(&mut self, player: PlayerId) {
         if !self.holds_a_question() {

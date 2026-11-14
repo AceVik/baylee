@@ -4,7 +4,7 @@ use super::*;
 
 mod triggers;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(super) fn mana_activation_life(&self, source: ObjectId, index: u32) -> u32 {
         if self.state.effects.may_tax_mana_life()
             && self

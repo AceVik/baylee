@@ -64,7 +64,7 @@ fn bind_to_first_targets_player(
     }
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// `controller`'s opponents, starting with the next seat in turn order
     /// (CR 101.4's order, the one a table reads round).
     pub(super) fn opponents_in_turn_order(&self, controller: PlayerId) -> Vec<PlayerId> {
@@ -568,7 +568,7 @@ pub(super) struct ActivationTargetChoice {
     pub second_players: baylee_core::ids::SeatSet,
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Pick the target chooser while retaining the activator's rules context.
     pub(super) fn activation_target_chooser(
         &mut self,

@@ -154,7 +154,7 @@ impl super::PaymentContinuation {
     }
 }
 
-impl<L: crate::state::CardLookup> super::Engine<L> {
+impl<L: crate::state::CardLookup, D: crate::engine::LoopDetection> super::Engine<L, D> {
     pub(super) fn note_mana_activation(&mut self, source: DamageSourceRef) {
         if let Some(window) = &mut self.mana_window {
             window.suspended.note_mana_activation(source);

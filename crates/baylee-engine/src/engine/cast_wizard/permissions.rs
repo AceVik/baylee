@@ -2,7 +2,7 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(super) fn permitted_free_options(
         &self,
         player: PlayerId,

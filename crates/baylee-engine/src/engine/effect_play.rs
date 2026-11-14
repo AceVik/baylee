@@ -49,7 +49,7 @@ impl EffectPlay {
     }
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Probe the same cast procedure that accepting a room offer will start.
     /// Otherwise an AI can repeatedly select an uncastable card without progress.
     pub(super) fn filter_dungeon_plays(&mut self) -> bool {

@@ -1,7 +1,7 @@
 //! The prepared-permanent button opens the normal casting wizard.
 use super::{CardLookup, Engine, EngineError, ObjectId, PlayerId, casting};
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(super) fn start_prepared_cast(
         &mut self,
         player: PlayerId,

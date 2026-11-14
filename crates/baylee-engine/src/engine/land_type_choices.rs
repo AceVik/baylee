@@ -3,7 +3,7 @@
 use super::{CardLookup, Engine, ObjectId, Pending, PlanKind, PlayerId};
 use baylee_core::{generated::subtypes::land, ids::SubtypeId};
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(super) fn ask_two_land_types(&mut self, object: ObjectId, player: PlayerId) -> bool {
         self.pending_plan = Some(PlanKind::ChooseTwoBasicLandTypes {
             object,

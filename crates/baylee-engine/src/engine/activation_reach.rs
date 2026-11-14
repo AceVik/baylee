@@ -14,7 +14,7 @@ use crate::choice::LegalActions;
 use baylee_core::ids::ObjectId;
 use baylee_core::mana::{ManaColor, ManaCost, ManaSpending, ManaSymbol};
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Whether the mana `player` has floating and the mana abilities `legal`
     /// offers could make `cost` at all, for ability `index` of `source`
     /// (CR 601.2g, 602.2b): [`Self::makes_activation_mana`], and then every

@@ -8,7 +8,7 @@ use crate::choice::CastModeKind;
 
 mod declarations;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Asks a commander's owner whether it goes to the command zone rather
     /// than staying in the graveyard or in exile (CR 903.9a).
     ///
@@ -1187,7 +1187,7 @@ impl<L: CardLookup> Engine<L> {
                         // trigger has been out of reach across a player's
                         // answer.
                         let queued = self.trigger_queue.pop_front();
-                        if self.loop_control.breaking_loop {
+                        if self.loop_control.is_breaking() {
                             // The house rule broke an endless loop: the
                             // trigger feeding it is answered but never
                             // reaches the stack. A trigger whose target was
@@ -2440,7 +2440,7 @@ impl<L: CardLookup> Engine<L> {
 /// The engine's own steps, named for the card test crates (`test-support`) and
 /// their kit: the steps stay the engine's, these only call them.
 #[cfg(any(test, feature = "test-support"))]
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     #[doc(hidden)]
     pub fn after_action_for_tests(&mut self, player: PlayerId) {
         self.after_action(player);

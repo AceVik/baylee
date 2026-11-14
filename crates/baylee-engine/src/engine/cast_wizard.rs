@@ -470,7 +470,7 @@ pub(crate) const fn paid_as_a_buyback_cost(part: &CostPart) -> bool {
     )
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Starts the casting wizard for `card` (validated castable).
     pub(crate) fn start_cast_wizard(
         &mut self,
@@ -1949,7 +1949,7 @@ mod convoke_x_tests;
 /// The engine's own steps, named for the card test crates (`test-support`) and
 /// their kit: the steps stay the engine's, these only call them.
 #[cfg(any(test, feature = "test-support"))]
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     #[doc(hidden)]
     pub fn start_free_cast_for_tests(
         &mut self,
@@ -1963,7 +1963,7 @@ impl<L: CardLookup> Engine<L> {
 /// The engine's own steps, named for the card test crates (`test-support`) and
 /// their kit: the steps stay the engine's, these only call them.
 #[cfg(any(test, feature = "test-support"))]
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     #[doc(hidden)]
     pub fn start_paid_cast_for_tests(
         &mut self,

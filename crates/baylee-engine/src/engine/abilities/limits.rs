@@ -2,7 +2,7 @@
 #[allow(clippy::wildcard_imports)] // shared ability vocabulary
 use super::*;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Whether a printed "activate only once each turn" has already been
     /// spent on this ability this turn.
     ///

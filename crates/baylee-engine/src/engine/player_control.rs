@@ -17,7 +17,7 @@ pub(super) struct PlayerControl {
     active: Vec<Control>,
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// A necessary-condition rejection, never a complete mana-plan solver.
     /// With only cost-free mana producers remaining, generated mana has no
     /// consumer except the selected spell. Extra hypothetical resources make
@@ -707,7 +707,7 @@ impl LandSource {
 /// The engine's own steps, named for the card test crates (`test-support`) and
 /// their kit: the steps stay the engine's, these only call them.
 #[cfg(any(test, feature = "test-support"))]
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     #[doc(hidden)]
     pub fn remember_controlled_spell_for_tests(
         &mut self,

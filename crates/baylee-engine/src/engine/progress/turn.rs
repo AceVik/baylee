@@ -4,7 +4,7 @@
 use super::*;
 use crate::zone::ZoneLocation;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     // ------------------------------------------------------------ combat
 
     pub(crate) fn begin_turn(&mut self, first_turn: bool) {
@@ -806,7 +806,7 @@ pub(super) const fn sourceless_trigger_name(effects: &[baylee_cards_dsl::Effect]
 /// The engine's own steps, named for the card test crates (`test-support`) and
 /// their kit: the steps stay the engine's, these only call them.
 #[cfg(any(test, feature = "test-support"))]
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     #[doc(hidden)]
     pub fn offer_queued_draw_for_tests(&mut self) -> bool {
         self.offer_queued_draw()

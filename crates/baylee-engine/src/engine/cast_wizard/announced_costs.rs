@@ -15,7 +15,7 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// The buyback question, or `None` when there is nothing to ask.
     pub(super) fn ask_buyback(&mut self, wizard: &CastWizard) -> Option<Pending> {
         let less = self.buyback_on_offer(wizard)?;

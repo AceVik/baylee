@@ -7,7 +7,7 @@
 use super::Engine;
 use crate::state::{CardLookup, GameState};
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Whether the cached layered projection is what a refresh would make of
     /// the current state.
     ///

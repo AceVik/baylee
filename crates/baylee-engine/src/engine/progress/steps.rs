@@ -3,7 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary
 use super::*;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Deals one combat damage step's damage, and what toxic adds to it.
     ///
     /// "Combat damage dealt to a player by a creature with toxic causes that

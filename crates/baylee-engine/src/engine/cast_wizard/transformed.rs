@@ -5,7 +5,7 @@ mod tests;
 use super::*;
 use baylee_core::ids::DamageSourceRef;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(crate) fn start_transformed_free_cast(
         &mut self,
         player: PlayerId,

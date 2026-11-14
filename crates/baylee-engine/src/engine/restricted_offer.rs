@@ -31,7 +31,7 @@ use std::collections::{HashMap, HashSet};
 /// spells would be asked a million times.
 pub(super) const RESTRICTED_ASKS: usize = 16 * RESTRICTED_ENTRIES;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// The priority a CR 605.3a window opens with: `legal`, already narrowed
     /// to mana (`narrow_to_mana`), stating what restricted mana may pay
     /// toward the payment the window is open for. Every opener sets

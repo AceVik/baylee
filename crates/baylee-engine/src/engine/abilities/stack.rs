@@ -2,7 +2,7 @@
 #[allow(clippy::wildcard_imports)] // shared ability vocabulary
 use super::*;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// The card and the name an ability on the stack goes by: its source's.
     ///
     /// An emblem (CR 114.2), a token and a token copy have no card, and the
@@ -211,7 +211,7 @@ impl<L: CardLookup> Engine<L> {
 /// The engine's own steps, named for the card test crates (`test-support`) and
 /// their kit: the steps stay the engine's, these only call them.
 #[cfg(any(test, feature = "test-support"))]
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     #[doc(hidden)]
     pub fn push_ability_to_stack_for_tests(
         &mut self,

@@ -2,6 +2,17 @@
 
 (Deep spec; filled during M1–M2. Sections are normative.)
 
+## Compiled loop capability
+
+`Engine<L, D>` shares one rules kernel across sealed `DetectLoops` and
+`NoLoopDetection` policies. `with_detection` rejects a preset whose loop policy
+does not match `D`; it never silently substitutes a different rule. The off type
+and its decision-free segment watch have no state and never evaluate detector
+closures. Checkpoint/payment rollback and hidden-information forks retain `D`.
+Numeric capacity checks, legal-action validation and replay hashes still apply.
+Legacy `Engine::new` selects `DetectLoops`; host migration is separate from this
+kernel seam. Appending `LoopPolicy::Off` preserves the old enum identities.
+
 ## Object model
 Custom presets may specify bounded `HouseRules::opening` overrides per seat:
 1–9 cards per opening draw/redraw, a base hand limit of 1–9, and 0–7 free

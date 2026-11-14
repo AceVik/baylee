@@ -59,7 +59,7 @@ pub(super) fn selected_definition(definition: &AbilityDef, mode: &SpellMode) -> 
     }
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(crate) fn activation_mode_index(&self, source: ObjectId, index: u32) -> Option<u8> {
         self.activation_mode
             .filter(|chosen| {

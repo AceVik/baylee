@@ -5,7 +5,7 @@ use super::{
 };
 use crate::choice::{NumberPrompt, TargetRef};
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(super) fn wizard_divided_amount(&self, wizard: &CastWizard) -> Option<u32> {
         if wizard.masked || matches!(wizard.option, Some(CastModeKind::Disguise)) {
             return None;

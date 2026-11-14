@@ -2,7 +2,7 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     #[allow(clippy::too_many_lines)]
     pub(super) fn advance_cast_wizard_inner(&mut self) -> Result<(), EngineError> {
         let Some(mut wizard) = self.cast_wizard.clone() else {

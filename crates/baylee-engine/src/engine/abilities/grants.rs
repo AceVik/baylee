@@ -1,7 +1,7 @@
 //! One definition lookup for printed and granted activation paths.
 use super::{AbilityDef, CardLookup, Engine, ObjectId};
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(crate) fn granted_definition(
         &self,
         source: ObjectId,

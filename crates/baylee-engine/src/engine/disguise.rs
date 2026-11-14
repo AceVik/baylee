@@ -17,7 +17,7 @@ pub(crate) static WARD: &[AbilityDef] = &[baylee_cards_dsl::triggered!(
     }]
 )];
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(super) fn make_disguised(&mut self, id: ObjectId) {
         let nameless = self.state.names.intern("");
         let Some(o) = self.state.object_mut(id) else {

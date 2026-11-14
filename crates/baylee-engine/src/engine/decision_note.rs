@@ -124,7 +124,7 @@ impl DecisionNote {
     }
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// The public part of [`Self::decision_context`], owned
     /// ([`DecisionNote`]), for `seat`: `None` unless `seat` answers the
     /// current question ([`Self::decision_actor`]) and the context is that

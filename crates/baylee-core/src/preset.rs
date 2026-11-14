@@ -83,6 +83,9 @@ pub enum LoopPolicy {
     RunOnceThenBreak,
     /// Comprehensive Rules 104.4b: a loop of mandatory actions is a draw.
     CompRulesDraw,
+    /// No automatic repetition detection; selected before engine construction.
+    /// Appended to retain the serialized identities of the two legacy policies.
+    Off,
 }
 
 /// How teammates at a table may voluntarily share their hands (#265).

@@ -2,7 +2,7 @@
 #[allow(clippy::wildcard_imports)] // shared ability vocabulary
 use super::*;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Capture a granted ability's effects independently of its grantor. Cost
     /// choices, payment and paid-source identities use the ordinary activation path.
     pub(super) fn push_granted_ability(

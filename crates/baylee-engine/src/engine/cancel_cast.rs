@@ -41,7 +41,7 @@ impl std::fmt::Debug for CastStart {
     }
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Keeps the game as a cast from priority begins.
     pub(super) fn cast_start(&mut self) -> CastStart {
         CastStart {

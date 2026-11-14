@@ -92,7 +92,8 @@ static FILLER_CARD: CardDef = CardDef {
     ..CardDef::DEFAULT
 };
 
-struct TestPool;
+#[derive(Clone)]
+pub(super) struct TestPool;
 impl CardLookup for TestPool {
     fn card(&self, index: CardIndex) -> Option<&'static CardDef> {
         match index {
@@ -113,7 +114,7 @@ fn entry(card: CardIndex) -> DeckEntry {
 }
 
 /// A duel where seat 0 already has the looping creature in play.
-fn looping_game(policy: LoopPolicy) -> Engine<TestPool> {
+pub(super) fn looping_preset(policy: LoopPolicy) -> GamePreset {
     let deck: Vec<DeckEntry> = (0..60).map(|_| entry(FILLER)).collect();
     let seat = |battlefield: Vec<DeckEntry>| SeatSpec {
         controller: SeatController::Ai(AIProfile::default()),
@@ -127,7 +128,7 @@ fn looping_game(policy: LoopPolicy) -> Engine<TestPool> {
         emblems: vec![],
         team: None,
     };
-    let preset = GamePreset {
+    GamePreset {
         rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed: 7,
@@ -142,7 +143,11 @@ fn looping_game(policy: LoopPolicy) -> Engine<TestPool> {
             finish: Finish::Normal,
         }],
         seats: vec![seat(vec![entry(LOOPING)]), seat(vec![])],
-    };
+    }
+}
+
+fn looping_game(policy: LoopPolicy) -> Engine<TestPool> {
+    let preset = looping_preset(policy);
     let mut engine = Engine::new(&preset, TestPool).expect("duel starts");
     for _ in 0..2 {
         let Pending::Mulligan { player, .. } = engine.pending().clone() else {
@@ -155,7 +160,10 @@ fn looping_game(policy: LoopPolicy) -> Engine<TestPool> {
 
 /// Answers whatever is pending in the most passive way available, up to
 /// `limit` answers. Returns the number of answers actually given.
-fn play_passively<L: CardLookup>(engine: &mut Engine<L>, limit: u32) -> u32 {
+pub(super) fn play_passively<L: CardLookup, D: LoopDetection>(
+    engine: &mut Engine<L, D>,
+    limit: u32,
+) -> u32 {
     for answered in 0..limit {
         match engine.pending().clone() {
             Pending::Priority { player, .. } => {

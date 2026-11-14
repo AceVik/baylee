@@ -4,7 +4,7 @@ use super::{
 };
 use baylee_cards_dsl::Modifier;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Ask after mana abilities, so their sacrificed cards are available too.
     pub(super) fn ask_escape_payment(&mut self, wizard: &CastWizard) -> Result<bool, EngineError> {
         let Some(count) = wizard.escape_count(self.wizard_face(wizard)) else {

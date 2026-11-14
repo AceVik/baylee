@@ -8,7 +8,7 @@
 use super::{CardLookup, Engine, EngineError, GameEvent, ObjectId, Phase, PlayerId, Zone};
 use baylee_core::mana::ManaCost;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// What unlocking `half` of `id` costs: that half's mana cost (the
     /// "unlock cost", CR 709.5e), while `id` is a Room on the battlefield
     /// and that half is locked.

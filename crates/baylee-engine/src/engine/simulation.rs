@@ -247,7 +247,7 @@ pub enum ForkRefusal {
     UnusablePrior(PriorFault),
 }
 
-impl<L: CardLookup + Clone> Engine<L> {
+impl<L: CardLookup + Clone, D: crate::engine::LoopDetection> Engine<L, D> {
     /// A disposable copy of this game for `seat`'s lookahead, with every
     /// card `seat` cannot see dealt again from `policy_seed`.
     ///

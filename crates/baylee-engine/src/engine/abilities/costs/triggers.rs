@@ -1,7 +1,7 @@
 //! Trigger collection between complete cost parts.
 use super::{CardLookup, Engine};
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Detect journal triggers without stacking, pruning, or running SBAs.
     /// Append only so an unsuccessful payment can restore its queue length.
     pub(in crate::engine::abilities) fn capture_cost_triggers(&mut self) {
@@ -9,7 +9,7 @@ impl<L: CardLookup> Engine<L> {
         // its source. Refresh without SBAs, and only between complete parts so
         // all sacrifices within one part keep the same pre-event projection.
         self.state.refresh_characteristics();
-        if self.loop_control.breaking_loop || self.trigger_scan_seq == self.state.journal.last_seq()
+        if self.loop_control.is_breaking() || self.trigger_scan_seq == self.state.journal.last_seq()
         {
             return;
         }

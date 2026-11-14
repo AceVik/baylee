@@ -2,7 +2,7 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// [`Self::finish_cast`] without the checkpoint.
     #[allow(clippy::too_many_lines)] // payment is a flat checklist; extraction would obscure it
     pub(super) fn pay_and_cast(&mut self, wizard: &CastWizard) -> Result<(), EngineError> {

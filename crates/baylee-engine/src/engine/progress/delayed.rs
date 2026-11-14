@@ -3,7 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary
 use super::*;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Cascade's cast (CR 702.85a), as its resolution ends: the exiled
     /// card is cast without paying its mana cost, or put on the bottom of
     /// its owner's library when it cannot be. Returns whether a question is
@@ -609,7 +609,7 @@ mod announcement_tests;
 /// The engine's own steps, named for the card test crates (`test-support`) and
 /// their kit: the steps stay the engine's, these only call them.
 #[cfg(any(test, feature = "test-support"))]
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     #[doc(hidden)]
     pub fn process_delayed_for_tests(&mut self) -> bool {
         self.process_delayed()

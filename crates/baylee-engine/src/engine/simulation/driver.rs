@@ -35,7 +35,9 @@ use baylee_core::ids::PlayerId;
 /// [`ForkRefusal::OpeningHands`], [`ForkRefusal::Continuation`],
 /// [`ForkRefusal::LoopWatch`] or [`ForkRefusal::NotPriority`].
 #[allow(clippy::too_many_lines)] // one line per engine field: the list is the guard
-pub(super) fn check_settled<L: CardLookup>(engine: &Engine<L>) -> Result<(), ForkRefusal> {
+pub(super) fn check_settled<L: CardLookup, D: crate::engine::LoopDetection>(
+    engine: &Engine<L, D>,
+) -> Result<(), ForkRefusal> {
     let Engine {
         lookup: _,
         state,
@@ -178,7 +180,9 @@ pub(super) fn check_settled<L: CardLookup>(engine: &Engine<L>) -> Result<(), For
 /// thing that may be done with it is to disguise it before anybody sees it
 /// (`Engine::fork_for`).
 #[allow(clippy::too_many_lines)] // one line per engine field: the list is the guard
-pub(super) fn duplicate<L: CardLookup + Clone>(engine: &Engine<L>) -> Engine<L> {
+pub(super) fn duplicate<L: CardLookup + Clone, D: crate::engine::LoopDetection>(
+    engine: &Engine<L, D>,
+) -> Engine<L, D> {
     let Engine {
         lookup,
         state,
@@ -286,7 +290,10 @@ pub(super) fn duplicate<L: CardLookup + Clone>(engine: &Engine<L>) -> Engine<L> 
 /// answers and priority holds are that seat's private setting, which the
 /// forking seat has no business simulating it by (`docs/proposals/
 /// lookahead-design.md` §Q1); its own are its own.
-pub(super) fn forget_settings<L: CardLookup>(fork: &mut Engine<L>, seat: PlayerId) {
+pub(super) fn forget_settings<L: CardLookup, D: crate::engine::LoopDetection>(
+    fork: &mut Engine<L, D>,
+    seat: PlayerId,
+) {
     for capabilities in &mut fork.capabilities {
         *capabilities = baylee_core::preset::SeatCapabilities::default();
     }

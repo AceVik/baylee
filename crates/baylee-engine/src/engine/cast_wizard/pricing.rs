@@ -9,7 +9,7 @@ pub(crate) struct FrozenReduction {
     pub allowance: casting::SourceAllowance,
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(in crate::engine) fn wizard_source_allowance(
         &self,
         wizard: &CastWizard,

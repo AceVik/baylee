@@ -18,7 +18,7 @@ thread_local! {
         const { std::cell::Cell::new(false) };
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Every granted action of `player` the pool pays now, and every one
     /// with a mana cost besides: whether a payment window would have
     /// anything in it to make that mana with is asked of the finished
@@ -220,7 +220,7 @@ impl ActivationPayment {
             .wrapping_add(self.opened.fingerprint())
     }
 }
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Reserve explicit life costs before counting optional life-to-mana actions.
     pub(super) fn can_plan_activation(
         &self,

@@ -150,7 +150,7 @@ pub struct QueuedTrigger {
     pub modal: bool,
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Whether `t` has fired already this turn and will not go on the stack:
     /// "this ability triggers only once each turn."
     pub(super) fn trigger_spent(&self, t: &PendingTrigger) -> bool {

@@ -2,7 +2,7 @@
 
 use super::{CardLookup, Engine, ObjectId, Pending, PlanKind, PlayerId, SmallVec};
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Asks how the triggered ability just put on the stack divides its
     /// damage, if it prints "damage divided as you choose"
     /// ([`baylee_cards_dsl::Effect::DealDamageDivided`]).

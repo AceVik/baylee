@@ -14,7 +14,7 @@ struct AttackCosts {
     life: i32,
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// The automatic progression machine: SBAs, stack resolution, and
     /// step/turn transitions until a decision is required.
     pub(crate) fn declare_attackers(

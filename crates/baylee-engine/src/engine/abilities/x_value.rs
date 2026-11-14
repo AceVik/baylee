@@ -3,7 +3,7 @@
 use super::*;
 use baylee_cards_dsl::ActivationX;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(super) fn activation_x_rule(&self, source: ObjectId, index: u32) -> ActivationX {
         self.activation_definition(source, index).map_or(
             ActivationX::Any,

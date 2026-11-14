@@ -30,7 +30,7 @@ use crate::choice::ChoicePrompt;
 use crate::combat;
 use baylee_core::types::TypeSet;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// The attackers `defending` is defending against, in declaration order.
     fn attackers_of(&self, defending: PlayerId) -> Vec<ObjectId> {
         self.state

@@ -165,7 +165,7 @@ impl AttackSacrificeWork {
     }
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Starts the choices after determining the complete costs. No attacker
     /// is declared and no cost is paid until every choice has been made.
     pub(super) fn ask_attack_sacrifices(

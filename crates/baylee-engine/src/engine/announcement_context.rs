@@ -31,7 +31,7 @@ fn settled_x(wizard: &CastWizard) -> Option<u32> {
     }
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// In-progress source and settled X, visible only to its resource owner or
     /// that owner's currently authorized controller (CR 724.4).
     ///

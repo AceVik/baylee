@@ -9,7 +9,7 @@ use baylee_core::mana::ManaCost;
 
 const FORETELL_ACTION_COST: ManaCost = ManaCost::parse("{2}");
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Foretell any time its player has priority in their own turn
     /// (CR 702.143a): `foretellable` when the pool pays the {2}, and
     /// `unpaid_foretell` when it does not yet but a mana ability is on offer

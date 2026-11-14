@@ -17,7 +17,7 @@ use crate::combat::{Division, OwedDivision};
 use crate::turn::Step;
 use baylee_cards_dsl::KeywordSet;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Whether `id` has banding now.
     fn has_banding(&self, id: ObjectId) -> bool {
         self.state

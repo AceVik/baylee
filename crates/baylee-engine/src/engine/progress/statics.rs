@@ -3,7 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary
 use super::*;
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Register current permanent rules through the shared state synchronizer.
     pub(crate) fn sync_static_effects(&mut self) {
         self.state.sync_board_rules(&self.lookup);
@@ -386,7 +386,7 @@ impl crate::state::GameState {
 /// The engine's own steps, named for the card test crates (`test-support`) and
 /// their kit: the steps stay the engine's, these only call them.
 #[cfg(any(test, feature = "test-support"))]
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     #[doc(hidden)]
     pub fn sync_static_effects_for_tests(&mut self) {
         self.sync_static_effects();

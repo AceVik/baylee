@@ -30,7 +30,7 @@ pub(super) enum TargetLegality {
     AllIllegal,
 }
 
-impl<L: CardLookup> Engine<L> {
+impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// What the object on top of the stack is allowed to target.
     ///
     /// One arm list for a question that is asked twice — CR 608.2b's
