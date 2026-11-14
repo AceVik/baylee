@@ -16,6 +16,7 @@ impl GameState {
     #[allow(clippy::too_many_lines)] // setup is a linear checklist; extraction would obscure it
     pub fn from_preset(preset: &GamePreset, lookup: &impl CardLookup) -> Result<Self, SetupError> {
         preset.validate()?;
+        lookup.validate_rule_pack(preset)?;
         let rules: Vec<_> = preset.rules.prints.iter().cloned().map(Arc::new).collect();
         for placement in &preset.house_rules.starting_counters {
             for counter in &placement.counters {
@@ -286,6 +287,7 @@ impl GameState {
             }
         }
         state.seed_supplies(&preset.house_rules.supplies, lookup)?;
+        state.seed_extensions(preset.house_rules.rule_pack.as_ref(), lookup)?;
         Ok(state)
     }
 

@@ -604,3 +604,29 @@ emblem cases passed in the same filtered run. This repairs a shared prerequisite
 it does not yet admit new paid Tower relics or expose an administrative API.
 Strict all-target engine Clippy passed in
 `/tmp/baylee-native-emblems-clippy-20261114.log`.
+
+## Compiled native setup adapter — twelfth working milestone
+
+Core now defines a bounded, strictly decoded rule-pack manifest containing only
+pack/revision, seats and immutable definition IDs. Ordinary presets omit it.
+`NativeLookup<Registry, Pack>` admits exactly its compiled pack, checks every
+definition before deck construction, and materializes ordinary native sources
+once. Plain registries reject these manifests. The marker has zero storage and
+adds no per-event callbacks; no service may submit effects, scripts or mutations.
+An exact setup manifest participates in the continuation hash, including entries
+that only affect opening resources. Starting sources do not invent entry events.
+
+Evidence: the three core manifest/legacy tests passed in
+`/tmp/baylee-native-pack-tests-20261114-r2.log`. Five focused engine pack tests
+passed in `/tmp/baylee-native-pack-tests-20261114-r3.log`: wrong/missing pack and
+revision, unknown definition, unsupported presentation identity before any card
+lookup, policy refusal, actual native upkeep/stack execution and paired replay
+hashes, setup-only identity hashing, zero-size adapter and source removal with
+its pending trigger retained. The first removal fixture reached an unrelated
+cleanup discard; its explicit empty hands now isolate the intended two-upkeep
+scenario. A missing exhaustive setup-error arm in the fork path was also fixed.
+
+This is the engine adapter, not yet the hosted Tower pack/catalog or its AI.
+No release-artifact throughput or binary-size improvement is claimed.
+Strict all-target core/engine Clippy passed in
+`/tmp/baylee-native-pack-clippy-20261114-r2.log`.

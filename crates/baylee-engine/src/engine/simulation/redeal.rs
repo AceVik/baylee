@@ -380,7 +380,8 @@ fn drawn_from_prior(
                 SetupError::UnknownCard(card) => PriorFault::UnknownCard(card),
                 SetupError::Preset(_)
                 | SetupError::UnknownCounter(_)
-                | SetupError::UnsupportedSupply => PriorFault::UnknownCard(index),
+                | SetupError::UnsupportedSupply
+                | SetupError::UnsupportedRulePack => PriorFault::UnknownCard(index),
             })
             .map_err(ForkRefusal::UnusablePrior)?;
         identities.push(Identity {

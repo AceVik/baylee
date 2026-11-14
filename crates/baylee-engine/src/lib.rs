@@ -42,6 +42,8 @@ pub mod zone;
 /// `GameEvent`, event batches, and the journal.
 pub mod event;
 
+/// Compiled, setup-only native rule packs using ordinary engine objects.
+pub mod extensions;
 /// `GameState`: the complete, cloneable, hashable world.
 pub mod state;
 pub mod target_side;

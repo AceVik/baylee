@@ -82,6 +82,10 @@ pub struct HouseRules {
     /// this field; no public table command can purchase or award supplies.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub supplies: Vec<SeatSupplies>,
+    /// Frozen references admitted only by the matching compiled rule pack.
+    /// Absent preserves ordinary presets and historical record bytes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rule_pack: Option<super::RulePackSetup>,
 }
 
 /// Seconds a seat has to answer one question unless the table says
@@ -115,6 +119,7 @@ impl Default for HouseRules {
             challenge_policy_seed: None,
             opening: Vec::new(),
             supplies: Vec::new(),
+            rule_pack: None,
         }
     }
 }
@@ -130,6 +135,13 @@ impl HouseRules {
         }
         if !super::supplies::valid_list(&self.supplies, seats, format == super::FormatId::Custom) {
             return Err(super::PresetError::StartingSupplies);
+        }
+        if self
+            .rule_pack
+            .as_ref()
+            .is_some_and(|pack| !pack.valid(seats, format == super::FormatId::Custom))
+        {
+            return Err(super::PresetError::RulePack);
         }
         Ok(())
     }

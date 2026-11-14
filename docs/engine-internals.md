@@ -13,6 +13,31 @@ Numeric capacity checks, legal-action validation and replay hashes still apply.
 Legacy `Engine::new` selects `DetectLoops`; host migration is separate from this
 kernel seam. Appending `LoopPolicy::Off` preserves the old enum identities.
 
+## Compiled native setup packs
+
+`NativeLookup<L, P>` binds a registry to one `NativeRulePack` at compile time.
+An ordinary `CardLookup` refuses a nonempty `HouseRules::rule_pack`; no preset can
+select a native executor or supply executable effects. The manifest contains a
+nonzero pack/revision and canonical seat-ordered lists of nonzero definition IDs,
+with at most eight references per seat and custom formats only. Each pack may
+impose smaller limits and must validate its complete derived starting resources.
+The adapter checks exact identity and every definition's shared presentation ID
+before constructing decks. The marker adds no runtime storage.
+
+Native definitions are setup-only modifiers, command-zone emblems or starting
+token permanents. Setup places exactly the admitted sources; it does not execute
+a token-creation effect, multiply the loadout or invent enters-the-battlefield
+triggers. Permanents have ordinary removal/copy behavior. Emblems use the same
+canonical ability collector as stored emblems. After setup there are no pack
+callbacks, event bus, clocks, administrative commands or script interpreter in
+the rules pipeline. A source's captured trigger survives its departure normally.
+
+The frozen manifest participates in the continuation hash even when an item
+changes only setup values. Absent manifests preserve historical JSON and hash
+behavior. The compiled lookup travels with engine forks; hosted sessions must
+carry that same type through construction, replay and resumption. This kernel
+seam does not itself authorize a run or verify an operator's honesty.
+
 ## Object model
 Custom presets may specify bounded `HouseRules::opening` overrides per seat:
 1–9 cards per opening draw/redraw, a base hand limit of 1–9, and 0–7 free

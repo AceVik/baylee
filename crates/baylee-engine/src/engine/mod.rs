@@ -1693,6 +1693,11 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
                     &self.house_rules.opening,
                 ));
         }
+        if let Some(pack) = &self.house_rules.rule_pack {
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(pack));
+        }
         base ^ extra.rotate_left(17)
     }
 
@@ -2403,6 +2408,8 @@ mod modal_flow_tests;
 mod monarch_table_tests;
 #[cfg(test)]
 mod monarch_tests;
+#[cfg(test)]
+mod native_pack_tests;
 #[cfg(test)]
 mod offer_tests;
 #[cfg(test)]

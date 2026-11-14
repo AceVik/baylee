@@ -136,6 +136,8 @@ pub enum AiHandSharePolicy {
 
 mod house;
 pub use house::{DEFAULT_DECISION_SECS, HouseRules};
+mod extensions;
+pub use extensions::{MAX_EXTENSIONS_PER_SEAT, RulePackSetup, SeatExtensions};
 mod opening;
 pub use opening::SeatOpening;
 mod supplies;
@@ -979,6 +981,9 @@ pub enum PresetError {
     /// Custom-mode starting supplies are out of bounds or duplicated.
     #[error("invalid starting supplies")]
     StartingSupplies,
+    /// Native pack references are noncanonical, out of bounds or not custom-mode data.
+    #[error("invalid native rule-pack setup")]
+    RulePack,
     /// Fewer than two seats.
     #[error("preset needs at least 2 seats")]
     TooFewSeats,

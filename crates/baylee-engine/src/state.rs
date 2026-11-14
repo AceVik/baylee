@@ -32,6 +32,7 @@ mod hidden_exile;
 mod life_gain;
 mod lifetimes;
 pub use life_gain::PendingLifeGain;
+mod extensions;
 mod merged;
 mod moves;
 mod objects;
@@ -68,6 +69,22 @@ pub(crate) use reads::{
 pub trait CardLookup {
     /// Resolves a card index to its definition.
     fn card(&self, index: CardIndex) -> Option<&'static CardDef>;
+    /// Ordinary registries refuse native packs. A statically bound adapter
+    /// validates the entire frozen setup before any game objects are created.
+    ///
+    /// # Errors
+    /// A pack is requested but not admitted by this compiled lookup.
+    fn validate_rule_pack(&self, preset: &GamePreset) -> Result<(), SetupError> {
+        if preset.house_rules.rule_pack.is_some() {
+            Err(SetupError::UnsupportedRulePack)
+        } else {
+            Ok(())
+        }
+    }
+    /// Compiled setup definition, queried only while constructing a game.
+    fn native_definition(&self, _id: u16) -> Option<crate::extensions::NativeDefinition> {
+        None
+    }
     /// Stable presentation id of a registry token; `u16::MAX` is reserved.
     /// Custom lookups may omit identities without affecting token rules.
     fn token_id(&self, _token: &baylee_cards_dsl::TokenDef) -> Option<u16> {
@@ -325,6 +342,9 @@ pub enum SetupError {
     /// A custom preset requests a supply absent from this registry.
     #[error("unsupported custom-mode supply")]
     UnsupportedSupply,
+    /// A requested pack, revision, definition or derived resource is not admitted.
+    #[error("unsupported native rule-pack setup")]
+    UnsupportedRulePack,
 }
 
 /// State operation failures.

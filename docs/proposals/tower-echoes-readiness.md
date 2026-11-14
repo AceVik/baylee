@@ -2,7 +2,10 @@
 
 Date: 14 November 2026. This records sequential self-review of the design, not
 an independent code audit, measured balance study or passing runtime test suite.
-Implementation remains paused while the design is being prepared.
+Implementation resumed after the owner's authorization and the completed bugfix
+handoff. Working milestones and their scoped QA are recorded in
+[the preparation ledger](tower-echoes-preparation.md); the reviews below retain
+their historical design findings.
 
 Target: [Tower Echoes v2](tower-echoes-v2.md). Historical implemented foundation:
 [initial proposal and test evidence](tower-echoes.md).

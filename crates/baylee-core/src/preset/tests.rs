@@ -1,6 +1,34 @@
 use super::*;
 
 #[test]
+fn native_pack_is_legacy_optional_and_checked_by_the_complete_preset() {
+    let old = serde_json::to_value(HouseRules::default()).unwrap();
+    assert!(old.get("rule_pack").is_none());
+    assert!(
+        serde_json::from_value::<HouseRules>(old)
+            .unwrap()
+            .rule_pack
+            .is_none()
+    );
+    let mut preset = preset(2, 1, 0);
+    preset.house_rules.rule_pack = Some(RulePackSetup {
+        pack: 1,
+        revision: 2,
+        seats: vec![SeatExtensions {
+            seat: 0,
+            definitions: vec![1],
+        }],
+    });
+    assert_eq!(preset.validate(), Err(PresetError::RulePack));
+    preset.format = FormatId::Custom;
+    assert!(preset.validate().is_ok());
+    preset.house_rules.rule_pack.as_mut().unwrap().seats[0]
+        .definitions
+        .push(0);
+    assert_eq!(preset.validate(), Err(PresetError::RulePack));
+}
+
+#[test]
 fn new_tables_disable_loop_detection_without_reinterpreting_legacy_presets() {
     assert_eq!(HouseRules::new_table().loop_policy, LoopPolicy::Off);
     assert_eq!(
