@@ -217,6 +217,52 @@ identical inputs; measure detector calls/allocations, timing, throughput and
 binary/memory cost. Replay hashes and action validation remain. No benchmark
 was executed and no measured speedup is claimed in this planning pass.
 
+## Pass 8 — compile-time variants and agent routing
+
+The owner's final refinement replaces the remaining runtime Standard toggle
+with artifact selection: `standard` without detection (default),
+`standard-loops` with detection (table opt-in), and `tower` without detection.
+The setting chooses which executable to launch; it is fixed for the game.
+This supersedes pass 7's possible runtime adapter branch in the ordinary binary.
+
+Source inspection: agent Config currently names one `engine_bin`/`executor`,
+AgentHello advertises one executor, and StartEngine contains no variant contract.
+The selector therefore needs bounded installed-capability advertisement, an exact
+reservation/start identity, local path mapping and independent engine handshake
+validation. All variants share the agent's capacity. Missing capability cannot
+fall back to a different rules/detection mode. Replay retains the same contract.
+
+Preserve one shared kernel with static policy adapters/small entry points. Verify
+the two detector-free release artifacts separately; a workspace invocation can
+unify features and accidentally include detection. The Cargo primary documentation
+was checked for that behavior. Include variant/feature identity in build metadata;
+the same git commit is insufficient to distinguish these artifacts.
+
+Additional acceptance cases: default table starts standard; enabled table starts
+standard-loops; Tower starts tower; wrong/unknown variant, absent binary, stale
+advertisement, mismatched Hello/preset, exhausted shared capacity and attempted
+remote path injection are refused; old records select the retained compatible
+executor. No executable was built or routing behavior changed during this pass.
+
+## Pass 9 — maintainable refactoring and Carbon dependency
+
+The owner permits larger careful refactorings, but explicitly keeps this task
+in planning until Carbon's engine fixes have landed. That is a sequencing gate,
+not permission to start a parallel engine rewrite. Do not inspect or mutate
+another chat's worktree as a substitute for integrating completed main commits.
+
+The implementation sequence now begins with post-fix rebase, reference fixtures
+and relevant checks. It separates structural extraction from semantic changes,
+introduces explicit kernel/mode/AI/execution-contract/domain/service/client
+boundaries, and records removal milestones for temporary compatibility paths.
+The new compiled variants are proved against existing games before adding more
+Tower-specific behavior. Generated card code keeps its established pipeline.
+
+The architecture is prepared to begin after that dependency; neither Carbon's
+fix completion nor runtime readiness has been verified here. All current edits
+remain documentation-only. No Carbon message, branch operation, engine patch,
+test run or background automation was initiated.
+
 ## Requirement traceability
 
 | Requirement | Decision in v2 | Implementation evidence required |
@@ -228,20 +274,25 @@ was executed and no measured speedup is claimed in this planning pass.
 | Same-stage historical opponents | Section 5 | Losses advance ordinal; versions/self/repeat/fallback tests |
 | Native extensions and speed | Section 6 | Standard baseline/differential checks, measured release builds |
 | Faster disabled detection | Section 6 | Full Off bypass; detector-free Tower artifact; short/long paired traces |
+| Compile-time variants and agent selection | Section 6 | Three isolated artifacts; exact routing/handshake/replay; no runtime detection toggle |
 | Mode-aware house AI | Section 6 | Projected choices, plans, replay, no hidden-information access |
 | Loop detection Off | Sections 1, 6, 8 | New-table Off/opt-in, Tower forced Off, retained old policies |
 | Professional native UX | Section 8 | Actual DE/EN screens, errors, focus, reduced motion, scaling |
 | Long-term cosmetic rewards | Sections 5, 8 | Verified deduplication, distinct discoveries, no power transfer |
 | Sparse meaningful tests | Section 9 | Changed-surface evidence, bounded samples, required gates |
 | New branch and later owner review | Header, section 10 | codex/tower-echoes; reviewed commits/PRs; no automatic merge |
+| Careful larger refactoring | Section 10 | Clear dependency boundaries; move-only commits; retained behavior/performance evidence |
+| Carbon fixes before refactoring | Header, section 10 | Verify specific fixes in main, rebase, retain their regression fixtures |
 
 ## Readiness decision
 
 The design has explicit ownership, transitions, recipes, default policies,
 failure semantics and a bounded vertical-slice sequence. There is no known
 unresolved architectural contradiction blocking the first implementation
-milestone after these passes. This is not a guarantee of no defects or of player
-enjoyment, and does not mean the feature is implemented.
+milestone after these passes. Implementation remains explicitly paused pending
+Carbon's fixes in main and the resulting rebase/reference check. This is not a
+guarantee of no defects or of player enjoyment, and does not mean the feature is
+implemented.
 
 Still to establish through implementation/measurement:
 

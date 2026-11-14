@@ -7,6 +7,13 @@ Working branch: `codex/tower-echoes`, PR base `main` in Baylee. It preserves the
 existing Daily/Weekly and Tower foundation; it is not an orphan history or a PR
 stack that requires the old feature branch to merge first.
 
+**Owner sequencing constraint:** remain in planning while Carbon fixes engine
+bugs. Those fixes must land in main before this work starts refactoring. Do not
+edit engine code, cherry-pick incomplete fixes, coordinate/mutate Carbon's branch
+or begin a parallel rewrite from the older base. Before implementation, fetch
+main, verify the intended fixes are present, rebase this branch and establish the
+post-fix reference behavior. The review date does not override this dependency.
+
 This is the successor to [the initial proposal](tower-echoes.md). Code still
 implements the older short run, directly bought ranks and narrow supplies seam.
 Values below are explicit starting hypotheses, not measured game balance.
@@ -245,11 +252,42 @@ cron. Sources, controllers, durations, intervening conditions, counters and
 pending delayed work are part of deterministic state. Outside a duel, normal
 service scheduling may rotate seasons or retire expired reservations.
 
-Start with separately built Standard and Tower executables backed by shared
-engine code. The agent advertises locally allowlisted variants. Reserve an exact
-variant/build/pack/card-pool/AI-policy contract; independently verify it at engine
-attachment and replay. No remote filesystem path, shell command or download.
-Cargo's additive features mean a combined build is not proof of exclusion.
+The owner refined this to three separately compiled artifacts backed by shared
+engine code. Presence of loop detection is a compile-time decision in each:
+
+| Variant ID | Rules and AI | Loop detection | Selection |
+| --- | --- | --- | --- |
+| `standard` | Existing ordinary formats/policies | Absent | Default new ordinary table |
+| `standard-loops` | Same ordinary rules/policies | Compiled in and enabled | Explicit table-creation opt-in |
+| `tower` | Native Tower rules and fixed Tower AI extension | Absent | Tower reservation only |
+
+The table setting selects an artifact before launch; it does not install a
+runtime enabled/disabled switch in the game engine. An enabled variant may retain
+the explicit existing break/draw adjudication policy, frozen at setup. Do not
+create an artifact per item, rarity or arbitrary combination of extensions.
+Item choices remain validated data for the admitted Tower pack.
+
+The agent advertises bounded locally installed variant/build capabilities, and
+maps those IDs to operator-configured executables. The gateway/Tower reservation
+selects an exact compatible contract: variant, build, pack, card pool, AI policy
+and loop capability. StartEngine carries that identity, never a remote filesystem
+path, shell command or download. Validate again at engine attachment and setup.
+An unavailable variant waits or reports a specific capacity/incompatibility error;
+there is no fallback that changes rules. Count all variants against the agent's
+shared capacity, not three separate copies of the same available slots.
+
+Store the same contract with the record and use it for replay/resume/verification.
+A source commit alone cannot identify three differently compiled artifacts:
+include the variant/feature fingerprint and verify the installed artifact against
+operator-controlled build metadata. This is compatibility checking, not remote
+attestation of an untrusted operator. Retain old executors for supported records.
+
+Build release artifacts separately and inspect their resolved dependency features.
+Cargo combines dependency features within a build; a combined feature-unified
+workspace build is not proof that `standard` or `tower` omitted the detector.
+See the [Cargo feature-unification reference](https://doc.rust-lang.org/cargo/reference/features.html#feature-unification),
+checked 14 November 2026. Small entry points or static policy types can select
+the shared implementation without copying the rules kernel.
 
 The AI extension evaluates scarcity, synergy, threats, trigger ordering and
 multi-step plans through the same authorized PlayerView/Pending interface.
@@ -305,9 +343,11 @@ The player's finite repeat tool and the AI's tactical planning remain available:
 they select legal actions and exits rather than adjudicating a loop outcome.
 
 New ordinary table creation defaults to Off and exposes an opt-in control with
-an explanation of the selected enabled policy. Existing enabled break/draw policies
-remain explicit choices where supported; they must not become an invisible
-default. Off bypasses loop-signature work, not merely the final break action.
+an explanation of the selected enabled policy. This chooses `standard` versus
+`standard-loops` before launch. Existing enabled break/draw policies remain
+explicit choices where supported; they must not become an invisible default.
+The selected binary must match the frozen setting; it cannot toggle detection
+mid-game. Off removes loop-signature work, not merely the final break action.
 Technical memory/CPU/record bounds stay independent and never synthesize a rules
 result. AI recovery from rejected actions must remain, but cannot become a hidden
 Tower cycle detector that suppresses legal productive play.
@@ -351,18 +391,19 @@ path. Prefer extending the existing event collector to a parallel event bus.
 Profile before adding event indices or generic plugin machinery. Compile-time
 specialization is an opportunity, not proof of zero overhead.
 
-The owner's additional performance requirement makes disabled detection an
-explicit fast path. A small policy adapter owns all detector-only counters,
-signature construction, comparisons and reset state. Off bypasses the whole
-path, not just `on_loop_detected`. The ordinary executable retains optional
-detection selected at table creation; no allocation/hash/state maintenance for
-the detector is performed while Off. Keep any necessary runtime mode branch at
-the adapter boundary rather than repeating it inside each effect primitive.
+The owner's additional performance requirement makes disabled detection a
+compile-time path in both `standard` and `tower`. A small static policy adapter
+owns detector-only counters, signatures, comparisons and reset state; the disabled
+implementation is zero-sized. The release artifacts omit the detection code and
+nonempty watch state, including calls in both action and internal machine paths.
+There is no per-action enabled/disabled branch, detector allocation or detector
+state maintenance in these variants. `standard-loops` contains the real detector.
+Keep the normal game rules in one implementation and prove this property on the
+release artifacts instead of assuming inlining removed a runtime switch.
 
-Build the specialized Tower executable without the detection implementation and
-its nonempty watch state. A compile-time disabled adapter can be zero-sized, with
-calls optimized away; keep shared engine rules in one implementation. A binary
-without detection advertises only Off support and refuses an enabled preset.
+A binary without detection advertises only Off support and refuses an enabled
+preset; `standard-loops` similarly refuses a request for Off rather than acting
+as a universal switchable binary. Artifact selection happens in the agent.
 Verify the separately built release artifact/call path and feature graph; a
 combined feature-unified build cannot demonstrate this property. If a structural
 specialization causes excessive code size or complexity, measure and refine the
@@ -395,8 +436,8 @@ and produced objects. Use a quiet baseline, no giant repeated full-suite benchma
 An unextended Standard preset with an explicit historical policy must preserve
 behavior under its version contract. The deliberate new-table default change to
 Off is separately tested and documented. Differential tests compare ordinary
-execution against Tower-with-no-pack
-and accelerated against unaccelerated supported combos. If serialized schemas
+execution against Tower-with-no-pack and accelerated against unaccelerated
+supported combos. If serialized schemas
 must change, version and migrate/refuse explicitly rather than silently ignoring
 old supplies. Old Daily/Weekly frozen policies and records remain reproducible
 through their retained executor; do not mutate their contract to add Tower AI.
@@ -594,18 +635,65 @@ implementation iterations and gates; Fable's planned review/merge remains separa
 
 ## 10. Implementation sequence and review handoff
 
-1. Freeze contracts and adversarial fixtures: v2 economy, instance ownership,
-   fusion and ledger; migrate old local fixtures explicitly, preserve old records.
+The owner expressly permits careful larger refactorings for a clean, extensible,
+maintainable and efficient architecture. Plan changes around responsibilities,
+not a requirement to preserve the current file layout or Tower-specific seams.
+Keep working rules semantics and the owner's new explicit defaults distinct from
+structural compatibility. A broad rewrite is not a substitute for proving both.
+
+Intended boundaries:
+
+| Boundary | Responsibility |
+| --- | --- |
+| Shared rules kernel | Native Magic effects, choices, state transitions and replay |
+| Compiled mode/loop adapters | Admitted setup/effect definitions and fixed detection capability |
+| Shared AI plus mode strategy | Authorized observation, legal action proposals and deterministic planning |
+| Lightweight execution contract | Variant/build capabilities shared by gateway, agent and executors without importing engine rules into the gateway |
+| Tower domain and store | Runs, item instances, shop/fusion ledger, reservations and transactions |
+| Tower service and workers | Authentication, routing, verification supervision and durable delivery |
+| Client-core and rendering | Interaction state/projections versus presentation |
+
+Use a crate boundary when it enforces a dependency/trust or reusable-library
+boundary; do not create a separate crate for every small abstraction. Replace
+scattered item-name checks and special-case fields with a small typed vocabulary.
+Do not add a general plugin framework capable of rewriting priority or granting
+raw state access. Avoid an extra event bus/interpreter, duplicated rules or a
+second AI-only definition of an effect. Keep generated card sources in their
+existing pipeline and retain the repository's corpus/codegen constraints.
+
+Refactoring method: capture current contracts and meaningful reference fixtures,
+extract/move modules in behavior-preserving commits, then add behavior in separate
+commits. Preserve source/record identities or use explicit versioned conversion.
+Temporary adapters must name a removal milestone; retire the old path once its
+supported callers/records have a tested route. Measure allocation, throughput,
+binary size and build cost where a structural change affects them. Prefer a
+bounded working slice over carrying several unverified replacement subsystems.
+
+Sequence, gated by Carbon's fixes:
+
+0. Wait for the intended Carbon engine bugfixes to land in main. Record their
+   commits and regression fixtures, rebase, inspect touched overlaps and run only
+   the relevant existing checks to establish the new baseline. Do not claim this
+   dependency is satisfied merely because another unrelated commit reached main.
+1. Freeze contracts and planned adversarial fixtures. Make the necessary move-only
+   extractions; build and verify the three static execution variants/agent contract
+   against ordinary reference games before new Tower effects complicate the diff.
 2. Native rule-pack slice and matching AI semantics: setup, one upkeep relic,
-   one continuous effect and potions; retain ordinary-engine baseline behavior.
-3. Combo semantics and verified bounded shortcuts, with real opposing decisions,
+   one continuous effect and potions. Replace the narrow legacy supplies seam
+   through the tested versioned route, with all seat consumers represented.
+3. V2 economy and durable ownership: instance-based fusion, ledger and shops;
+   global Tower reservations, verification workers, same-stage echoes and gateway
+   switching. No service may treat a domain method name as result authentication.
+4. Combo execution and selective verified shortcuts, with real opposing decisions,
    replay/resume, all seat consumers and numerical/resource limits.
-4. Global durable Tower service, authenticated reservations, independent replay
-   workers, exact executor selection, same-stage echoes and gateway switching.
 5. Owned-pool shop/deckbuilder, rarity fusion, table equipment/potion UX, rankings
-   and idempotent Central accomplishment integration where required.
+   and minimum idempotent Central accomplishment integration where required.
 6. Complete supported catalog, targeted balance samples, manual play, at least
    five observed UX/refinement iterations, changed-surface gates and PR review.
+
+Carbon's regression cases remain acceptance cases through these milestones.
+If a refactor conflicts with a fix, understand the fixed invariant and preserve
+it; resolving a textual rebase conflict is not evidence that behavior survived.
 
 Each working milestone gets its own reviewable commit and focused evidence.
 Daily/Weekly remain Central-certified and keep their existing multi-solution
