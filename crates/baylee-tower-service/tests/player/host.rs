@@ -48,7 +48,14 @@ async fn other_operators(store: &Store, client: &Client, claim: &Request) -> Tok
     wrong
 }
 
-pub async fn run(store: &Store, client: &Client, player: &Token, host: &Token, run: &Run) {
+pub async fn run(
+    store: &Store,
+    client: &Client,
+    player: &Token,
+    host: &Token,
+    run: &Run,
+    account: Uuid,
+) {
     let sdk = baylee_account::TowerHost::new(
         client.origin(),
         Token::from_secret_bytes(host.to_secret_bytes()),
@@ -56,9 +63,11 @@ pub async fn run(store: &Store, client: &Client, player: &Token, host: &Token, r
     )
     .unwrap();
     let claim = Request::Claim {
+        account,
         run: run.id,
         claim: Uuid::now_v7(),
     };
+    foreign_owner(store, client, host, run.id, account).await;
     assert_eq!(request(client, player, &claim).await.0, 401);
     assert_eq!(
         client
@@ -73,7 +82,7 @@ pub async fn run(store: &Store, client: &Client, player: &Token, host: &Token, r
     let Response::Claimed { game } = serde_json::from_slice(&response.1).unwrap() else {
         panic!("private claim");
     };
-    assert_eq!(game.account.get_version_num(), 7);
+    assert_eq!(game.account, account);
     assert_eq!(store.get(game.account, run.id).await.unwrap().id, run.id);
     assert_eq!(
         request(client, host, &claim).await,
@@ -140,6 +149,21 @@ pub async fn run(store: &Store, client: &Client, player: &Token, host: &Token, r
     assert_eq!(
         state.state.economy, run.economy,
         "host seal cannot award currency"
+    );
+}
+
+async fn foreign_owner(store: &Store, client: &Client, host: &Token, run: Uuid, account: Uuid) {
+    let before = store.get(account, run).await.unwrap();
+    let foreign = Request::Claim {
+        account: Uuid::now_v7(),
+        run,
+        claim: Uuid::now_v7(),
+    };
+    assert_eq!(request(client, host, &foreign).await.0, 404);
+    assert_eq!(
+        store.get(account, run).await.unwrap(),
+        before,
+        "foreign identity cannot consume the victim's reservation or generation"
     );
 }
 

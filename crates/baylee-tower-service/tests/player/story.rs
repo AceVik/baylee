@@ -90,7 +90,16 @@ pub async fn run(store: Store, central: Arc<Central>, origin: String) {
         bought,
         "refusals changed no state"
     );
-    reserve(&store, &client, token, cohort, &published, &bought).await;
+    reserve(
+        &store,
+        &client,
+        token,
+        cohort,
+        &published,
+        &bought,
+        central.accounts[0],
+    )
+    .await;
     assert_eq!(client.send(token, &Request::WithdrawEchoes {}).await.0, 200);
 }
 
@@ -188,6 +197,7 @@ async fn reserve(
     cohort: Uuid,
     publication: &baylee_tower_store::Publication,
     run: &baylee_tower_api::Run,
+    account: Uuid,
 ) {
     let publisher = Token::generate().unwrap();
     store
@@ -241,5 +251,5 @@ async fn reserve(
         command: Command::Refresh {},
     };
     assert_eq!(client.send(token, &attempt).await.0, 409);
-    super::host::run(store, client, token, &host_secret, &reserved).await;
+    super::host::run(store, client, token, &host_secret, &reserved, account).await;
 }

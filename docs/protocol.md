@@ -6102,7 +6102,12 @@ current assignment/lease inside its transaction. Neither route accepts a rules
 outcome, currency, player replacement state or an executable path.
 
 `/v2/host` accepts bounded JSON operations `advertise`, `claim`, `renew`, `read`
-and `seal`. Claims retain their execution-instance UUID across retries. Only the
+and `seal`. Claims retain their execution-instance UUID across retries and carry
+the human Central UUID from the gateway's verified session. The service checks
+immutable ownership before changing the reservation; the SDK also checks that the
+claim reply names that same account. Knowledge of another run ID cannot consume
+its initial claim through a gateway. The public start route must never accept a
+caller-selected account field. Only the
 assigned host receives the immutable package, catalog, acknowledged prefix,
 lease and **Central owner UUID**; the gateway must bind its human seat to that
 owner. The authority chooses a 60-second renewable worker lease, unrelated to

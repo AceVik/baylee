@@ -113,9 +113,18 @@ impl Hosts {
                 self.store.advertise(principal, &engines).await?;
                 wire::Response::Advertised {}
             }
-            wire::Request::Claim { run, claim } => wire::Response::Claimed {
-                game: Box::new(self.store.claim(principal, run, claim, LEASE_MS).await?),
-            },
+            wire::Request::Claim {
+                account,
+                run,
+                claim,
+            } => {
+                // Ownership is immutable. Check before claiming so knowledge of
+                // another run UUID cannot reserve its worker through a gateway.
+                self.store.get(account, run).await?;
+                wire::Response::Claimed {
+                    game: Box::new(self.store.claim(principal, run, claim, LEASE_MS).await?),
+                }
+            }
             wire::Request::Renew { lease } => wire::Response::Renewed {
                 until: self.store.renew(principal, lease, LEASE_MS).await?,
             },

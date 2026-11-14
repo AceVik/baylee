@@ -63,8 +63,8 @@ impl TowerHost {
         let matching = match (request, &response) {
             (Request::Advertise { .. }, Response::Advertised {})
             | (Request::Renew { .. }, Response::Renewed { .. }) => true,
-            (Request::Claim { claim, .. }, Response::Claimed { game }) => {
-                game.lease.claim == *claim
+            (Request::Claim { claim, account, .. }, Response::Claimed { game }) => {
+                game.lease.claim == *claim && game.account == *account
             }
             (Request::Read { index, .. }, Response::Chunk { chunk }) => chunk.index == *index,
             (Request::Seal { lease, expected }, Response::Acknowledged { acknowledgement }) => {

@@ -1371,3 +1371,17 @@ end-to-end claim. Tower strict binary/test Clippy passes in
 `/tmp/baylee-tower-native-attachment-clippy-20261115-r3.log`.
 The ordinary binary's strict Clippy also passes in
 `/tmp/baylee-tower-ordinary-attachment-clippy-20261115.log`.
+
+## Owner check before host claim — forty-third working milestone
+
+Gateway integration review found a denial-of-start boundary: checking the human
+owner only after a private host claim could let a foreign run ID consume the
+victim's initial worker generation. The host request now carries the verified
+session's Central UUID, the authority checks immutable ownership before any claim
+mutation, and the async adapter checks the same identity in the reply. Gateways
+must derive this UUID from their authenticated session, never from the public body.
+The expanded real HTTP/PostgreSQL test passes in
+`/tmp/baylee-tower-preclaim-owner-tests-20261115.log` (0.48s), including unchanged
+victim state/revision/generation after the foreign request. Strict all-target
+Clippy for service/API/account passes in
+`/tmp/baylee-tower-preclaim-owner-clippy-20261115-r2.log`.

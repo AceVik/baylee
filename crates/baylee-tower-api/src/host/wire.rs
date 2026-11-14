@@ -18,6 +18,9 @@ pub enum Request {
     },
     /// Claim this host's assigned reservation. Retries retain the same claim ID.
     Claim {
+        /// Central identity from the gateway's verified native session, never the
+        /// caller's body. Checked before the reservation can change phase.
+        account: Uuid,
         /// Reserved run.
         run: Uuid,
         /// Execution-instance `UUIDv7`.
