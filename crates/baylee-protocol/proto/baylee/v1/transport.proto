@@ -377,6 +377,14 @@ message GameSetup {
   bytes execution = 6;
 }
 
+// Private Tower v2 engine plane only. Never forwarded to player/spectator sockets.
+// Strict typed JSON control from baylee-tower-api, at most 256 KiB, and at most
+// one 256-KiB raw record chunk. Whole operations receive one durable final ACK.
+message TowerFrame {
+  bytes control = 1;
+  bytes data = 2;
+}
+
 // Gateway → engine: a seat's socket opened.
 message SeatAttached {
   uint32 seat = 1;
@@ -639,6 +647,7 @@ message Envelope {
     ProjectRecord project_record = 40;
     TapeChunk tape_chunk = 41;
     SeatParticipationEnded seat_participation_ended = 42;
+    TowerFrame tower_frame = 43;
   }
 
 }

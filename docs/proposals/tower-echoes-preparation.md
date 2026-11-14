@@ -1325,3 +1325,24 @@ exit/port closure. It uses zero queue workers deliberately: native independent
 adjudication is covered by the earlier queue tests, not claimed by this transport
 scenario. Strict all-target Clippy for service/store passes in
 `/tmp/baylee-tower-bootstrap-clippy-20261115-r3.log`.
+
+## Bounded private engine plane — forty-first working milestone
+
+An initial move-only commit separates ordinary attachment from shared transport.
+Protocol 49 then adds the private Tower frame: bounded typed control plus one raw
+chunk, without raising socket limits. The pure assembler retains whole-operation
+semantics across those frames and checks complete content commitments before
+allowing further writes or sealing. Claims carry the original immutable record
+budget. Live endpoint loops are the next milestone, not claimed here.
+
+API/protocol unit tests pass in `/tmp/baylee-tower-engine-wire-tests-20261115.log`
+(5 API and 51 small protocol tests, 0.05s total). The new adversarial cases cover
+multipart protobuf-to-HTTP round trips, exact complete ACKs, retained-prefix
+restart, reordering, changed counts, wrong generations, interleaving, partial
+ACKs, incomplete record lines, the independent eight-MiB operation bound, unknown
+controls/fields and oversized metadata/data. The updated real HTTP claim scenario
+passes in `/tmp/baylee-tower-engine-claim-tests-20261115.log` (0.46s). A stale
+protocol-version regression still expected 47 despite the earlier move to 48;
+it now documents/checks the actual 49 contract.
+Strict all-target Clippy for the three changed runtime crates passes in
+`/tmp/baylee-tower-engine-wire-clippy-20261115-r3.log`.

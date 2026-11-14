@@ -6138,3 +6138,26 @@ their operation/claim/index or exact seal binding. Batch replies must match the
 fence and complete resulting byte/chunk counts; the native table still checks the
 content commitment before releasing its barrier. There is no automatic retry;
 the caller retains the exact claim ID/batch across ambiguous failures.
+
+### Private Tower engine frames (protocol 49)
+
+`Envelope.tower_frame` is reserved for the authenticated gateway/engine plane.
+It contains at most 256 KiB of strict typed JSON control and one raw chunk of at
+most 256 KiB. The existing socket frame limit is unchanged. Player/spectator
+routes never forward this message. `baylee_tower_api::engine` defines the closed
+Start/Read/Recovery/Append/Acknowledged/Seal/Sealed/Finished controls; role and ordering are
+also checked by each endpoint's state machine. No operator credential, external
+URL, executable path, arbitrary rules mutation or claimed win belongs in this
+contract. Start freezes the game ID, package/catalog, names, exact durable prefix,
+generation, original reservation byte budget and bounded replay resources.
+
+Append splits a complete operation into ordered parts carrying the same previous
+head, generation and total count. The gateway's bounded assembler produces one
+authority HTTP batch only after the last part; only the complete content-matching
+authority ACK unlocks another operation or sealing. Invalid ordering, interleaving,
+partial ACKs, changed counts, exceeded bounds and incomplete final lines poison
+the assembly. Reconnection must use fresh authenticated authority state. Recovery
+pulls committed chunks by exact index instead of allocating the entire recording.
+The claim response now includes the original byte budget, so reconnecting cannot
+silently enlarge an old reservation's allocation. This protocol contract precedes
+its live gateway/native-loop integration and does not itself make the mode playable.

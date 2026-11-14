@@ -51,6 +51,7 @@ impl Store {
             package,
             catalog: current.saved.publication.catalog.clone(),
             prefix: execution.prefix,
+            byte_limit: execution.byte_limit,
             lease_until: execution.lease_until,
         };
         tx.commit().await.map_err(|_| Error::Unavailable)?;

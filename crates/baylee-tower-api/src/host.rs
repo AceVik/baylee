@@ -38,6 +38,8 @@ pub struct Claimed {
     pub catalog: Catalog,
     /// Every acknowledged chunk must be replayed before continuing/revealing.
     pub prefix: Prefix,
+    /// Original immutable execution budget, unchanged on recovery.
+    pub byte_limit: u64,
     /// Authority Unix milliseconds, not a game or player clock.
     pub lease_until: u64,
 }

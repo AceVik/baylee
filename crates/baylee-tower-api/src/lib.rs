@@ -9,6 +9,7 @@ use baylee_tower::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+pub mod engine;
 pub mod host;
 mod view;
 pub use view::{Duel, Run};

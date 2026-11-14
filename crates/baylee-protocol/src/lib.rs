@@ -59,7 +59,8 @@ pub mod tape;
 /// `SpectatorView::held_choices`, `ViewField::HeldChoices`, and
 /// `LogEvent::CardsChosen`), plus `PublicObject`'s `second_chosen_subtype`,
 /// `chosen_card_type`, `chosen_number`, and `linked_exile`.
-pub const PROTOCOL_VERSION: u32 = 48;
+/// Version 49 adds the private, bounded Tower execution/recovery/whole-batch ACK plane.
+pub const PROTOCOL_VERSION: u32 = 49;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -290,7 +291,7 @@ mod tests {
     /// disagree on it do not talk. It is written down here so that raising
     /// it is a deliberate line in a diff rather than a number that drifted.
     #[test]
-    fn the_wire_version_is_forty_six() {
+    fn the_wire_version_covers_all_positional_and_private_contracts() {
         // 2: `SeatReady` and `Curtain` (#256).
         // 3: `SeatSettingMsg` (#265). An engine built before it drops the
         // frame without a word, so a client that sent one would wait for a
@@ -371,7 +372,8 @@ mod tests {
         // `ViewField::HeldChoices`, `LogEvent::CardsChosen`, and
         // `PublicObject`'s chosen card type, second subtype, chosen number,
         // and linked exile on positional binary frames.
-        assert_eq!(PROTOCOL_VERSION, 47);
+        // 48: compiled execution identity; 49: private Tower durable transport.
+        assert_eq!(PROTOCOL_VERSION, 49);
     }
 
     #[test]

@@ -2393,6 +2393,7 @@ version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-protocol",
  "baylee-tower",
+ "prost",
  "serde",
  "serde_json",
  "uuid",
