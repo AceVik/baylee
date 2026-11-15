@@ -1562,3 +1562,49 @@ The [Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy)
 was re-read during this work on 15 November. This asset addition does not change
 the previously documented owner decision about the rules implementation, and
 does not claim third-party permission or legal approval.
+
+### 4K 120 fps vista loops and public-domain classical/tavern score overhaul · 15 November 2026
+
+At the owner's request (15.11.2026), the two front-door and lobby vista loops
+were regenerated from the owner's supplied 720p/24p clips (`login.mp4`,
+`lobby.mp4`): upscaled to 3840 × 2160 and motion-interpolated to 120 fps with
+Topaz Video AI, stripped of audio (`-an`), cross-faded into seamless endless
+masters (`art/baylee/loops/world-loop.mp4`, `tavern-loop.mp4`), exported as
+matching 3840 × 2160 frame-0 stills (`assets/scenes/baylees-world.png`,
+`tavern-lobby.png`), and encoded with SVT-AV1 into compact 3840 × 2160 120 fps
+AVIF sequences (`crates/baylee-client/src/vista/loops/world.avif` 8.58 MiB,
+`tavern.avif` 7.01 MiB; `art/baylee/README.md` records the exact commands).
+They show no Wizards artwork and no third-party game art.
+
+Also at the owner's request (15.11.2026), the runtime Login (`Movement::Title`),
+Lobby/Deckbuilder (`Movement::Lobby`), five D-centric table suites
+(`score/manuscript.rs`), and three outcome cues (`Victory`, `Defeat`, `Draw`)
+were newly arranged in Rust (AGPL-3.0-only) after worldwide-public-domain
+compositions whose authors died more than 100 years ago and whose underlying
+musical works were published before 1905 (replacing the 10.11.2026 *Greensleeves*
+and *Scarborough Fair* exception):
+
+- **Gaspar Sanz** (1640–1710), *Españoleta*, from *Instrucción de música sobre la guitarra española* (1674).
+- **Johann Sebastian Bach** (1685–1750), *Suite in E minor, BWV 996: V. Bourrée* (c. 1712) and *Prelude in C minor, BWV 999* (c. 1720).
+- **George Frideric Handel** (1685–1759), *Suite in D minor, HWV 437: IV. Sarabande* (1733).
+- **Fernando Sor** (1778–1839), *Study in B minor, Op. 35 No. 22* (1828).
+- **Ludwig van Beethoven** (1770–1827), *Symphony No. 7 in A major, Op. 92: II. Allegretto* (1812).
+- **Modest Mussorgsky** (1839–1881), *Pictures at an Exhibition: Promenade* and *The Great Gate of Kiev* (1874).
+- **Antonín Dvořák** (1841–1904), *Symphony No. 9 in E minor, Op. 95 ("From the New World"): II. Largo* and *IV. Allegro con fuoco* (1893).
+- **Edvard Grieg** (1843–1907), *Peer Gynt Suite No. 1, Op. 46: II. Åse's Death* (1875 / 1888).
+- **Francisco Tárrega** (1852–1909), *Lágrima* (1891) and *Adelita* (c. 1901).
+- **Erik Satie** (1866–1925), *Gnossienne No. 1* (1890).
+
+No third-party audio recording, MIDI transcription, commercial edition, soundfont,
+or synthesizer preset was imported for this overhaul. The physical-modelled
+Acoustic Tavern Guitar (`orchestra/plucked.rs`: waveguide strings, soundboard
+resonators, sympathetic open-string filters) and the hybrid orchestral synthesizer
+voices (`orchestra/synth.rs`: French horn swell, bowed string ensemble pad,
+celesta, and Bessel-modal kettle drum) are original native 48-kHz Rust DSP code
+under AGPL-3.0-only. Recorded acoustic layers continue to use exclusively the
+existing pinned, hash-verified CC0 1.0 collections (`sgossner/VCSL`,
+`sgossner/VSCO-2-CE`, `freepats/bagpipe`, and `sfzinstruments/Osiris_Piano`)
+already documented above. All 75 suite phrases and all 6 sign-in/tavern sheet
+arrangements pass the six-directed-interval check against `art/music/avoid.json`;
+no Wizards, Blizzard, film, or game soundtrack material is used. Neither change
+adds a Scryfall request, card image, symbol or font.

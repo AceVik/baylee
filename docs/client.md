@@ -4727,26 +4727,23 @@ curled-up Baylee sleeps on a separate cloud with garden birds, pigeons and flowe
 Both wordmark and icon include her. Asset provenance, exact generation calls
 and photo mapping are in `art/baylee/README.md`.
 
-Each scene moves (`vista::loops`, since 12.11.2026): the world and the
-tavern are AVIF image sequences of our own (1280 × 720, 30 fps, about a
-megabyte each, embedded in the binary), decoded by `baylee-avif` on one
-parked thread per loop and copied as three 8-bit planes into three `R8`
-textures that `vista.wesl` turns into colour. A loop plays by the scene's
-own clock, not by the renderer's frames, so it runs at its true speed at any
-frame rate, decodes nothing under `reduce_motion` or at ambient `Low`, and
-asks for no cadence of its own (the lobby is no longer pinned at 60 fps).
-What it asks is not to be stopped: a menu whose loop is seen does not come
-to rest (`graphics::Showing::picture`, `vista::Moving`); it eases to 30
-frames after 2 s as every menu does and to the idle rate, at most 15, after
-30 s, and the film runs on. The loop is a third of the still's width; wherever its
-running frame agrees with its first, the shader draws the 3840 × 2160
-still's own detail over it, so the picture is as sharp as the painting
-except where it moves. A surface shows its still until the first frame is on
-the GPU, then the loop comes in over 0.6 s; an unseen loop parks at once and
-drops its decoder after 4 s. Desktop only; a browser and a phone show the
-stills. Before, the client piped 3840 × 2160 RGBA from a player's own
-`ffmpeg`, which players do not have (`docs/perf-client.md` has both
-measurements).
+Each scene moves (`vista::loops`, updated 15.11.2026): the world and the
+tavern are AVIF image sequences of our own (3840 × 2160, 120 fps, 8.58 MiB and
+7.01 MiB, embedded in the binary), decoded by `baylee-avif` on parked NEON
+tile-parallel threads per loop into an 8-slot lock-free SPSC ring and uploaded
+via reusable staging buffers as three 8-bit planes into three `R8` textures that
+`vista.wesl` turns into colour. A loop plays by the scene's own clock, not by
+the renderer's frames, so it runs at its exact `1.0×` speed at 30, 60 or 120 fps
+and decodes nothing under `reduce_motion`, at ambient `Low`, or when the window
+is minimized or occluded. Menus run up to `MENU_ACTIVE_FPS` = 120 (capped to the
+monitor's refresh rate when known) for 120 s after input, then ease to
+`RestLimit` (30 fps default; visible windows never drop below 30 fps even when
+unfocused). A surface shows its matching 3840 × 2160 frame-0 still until the
+first frame is on the GPU, then the loop comes in over 0.6 s; an unseen loop
+parks at once and drops both its decoder and its 4K ring buffers (`0` bytes held
+during duels) after 4 s. Desktop only; a browser and a phone show the stills.
+Before, the client piped 3840 × 2160 RGBA from a player's own `ffmpeg`, which
+players do not have (`docs/perf-client.md` has both measurements).
 
 `vista.rs` retains two full-screen `UiMaterial` surfaces for front/interior.
 `shaders/vista.wesl` fits the world with cover coordinates and supplies subtle
