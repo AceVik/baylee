@@ -1411,3 +1411,37 @@ It did not restart or change unrelated Docker services.
 This evidence does not yet prove the complete gateway/native/authority journey.
 That integration scenario, automatic expired-host reassignment, global reconnect
 discovery, historic opponent names and the new visible client remain outstanding.
+
+## Live gateway/native acceptance — forty-fifth working milestone
+
+After a move-only extraction of the existing Central server fixture, an optional
+Tower-only integration path now connects actual Central enrollment/native login,
+the gateway process, the global Tower HTTP/store, a separately compiled native
+Tower child and its independent automatic verification queue. Its synthetic agent
+control peer starts the real executable with an environment-only engine token;
+agent allowlist/path validation remains covered by the earlier agent tests.
+
+The focused test passes in `/tmp/baylee-tower-gateway-native-e2e-20261115-r2.log`
+(12.00s). It proves host discovery, exact artifact routing, private owner binding,
+unchanged reservation after foreign-player/extra-field requests, repeated start
+returning the same table with a renewed seat token, a real human concession,
+durable terminal views, one independently verified defeat and exactly one duel
+income. The ordinary rematch route cannot expose the private opponent build.
+No private Tower record frame reaches the seat. The automatic queue reports one
+settlement and zero quarantines. Every owned engine, gateway, authority, Central
+and native PostgreSQL process/listener is stopped and the test cluster removed.
+This is transport/economic evidence using Forest-only decks, not balance evidence.
+
+Strict integration-test Clippy passes in
+`/tmp/baylee-tower-gateway-native-e2e-clippy-20261115-r3.log`. The first execution
+found overlong synthetic display names; the fixture now observes Central's real
+16-character rule. Its copied runtime grants also include the pinned migration
+30 Tower-scope table. No auth bypass or weakened production rule was added.
+
+To repeat with the repository's owned Docker fixture, build/copy a separate Tower
+artifact (`--no-default-features --features tower`) before building the gateway
+test, then set `BAYLEE_TOWER_V2_ENGINE` to its absolute path and run
+`cargo dev central integration`. Only the Tower scenario runs in that mode;
+legacy challenge generation and unchanged Central scenarios are skipped. The
+native PostgreSQL fallback used here is retained as the temporary Rust harness
+`/tmp/astra-native-qa`, because this machine's Docker filesystem is read-only.

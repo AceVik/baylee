@@ -73,6 +73,14 @@ Store/configuration failures stop the service; unresolved evidence stays durable
 The gateway execution link is implemented; complete integration acceptance and
 the visible native v2 client flow remain separate work.
 
+The real gateway integration fixture accepts `BAYLEE_TOWER_V2_ENGINE`, an absolute
+path to a separately built Tower artifact. With `cargo dev central integration`
+this selects the Tower-only scenario (real Central authentication, gateway, native
+duel and independent automatic verification), excluding legacy challenge runs.
+Copy the Tower executable before a default engine build can replace its output.
+The fixture uses synthetic accounts, owns/closes its processes/listeners and removes
+the database. This variable is not read by shipped services.
+
 ## Neural player and offline evaluation (`baylee-train`)
 
 - `BAYLEE_CHALLENGE_BRIDGE_TOKEN`: the official publisher's Central bridge

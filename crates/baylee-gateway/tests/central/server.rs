@@ -26,6 +26,7 @@ pub(super) struct Served {
     pub(super) serving: JoinHandle<()>,
     pub(super) address: SocketAddr,
     pub(super) gateway_address: SocketAddr,
+    pub(super) tower: Option<super::tower_native::Fixture>,
 }
 
 pub(super) fn serve(
@@ -56,17 +57,19 @@ pub(super) fn serve(
     let endpoint = Endpoint::development(&format!("http://{address}")).unwrap();
     let bridge = Token::generate().unwrap();
     let secret_file = bridge_file(&endpoint, &bridge);
-    let gateway = common::spawn_gateway_with(
-        label,
-        &[
-            (
-                "BAYLEE_CENTRAL_CONFIG_FILE",
-                secret_file.0.to_string_lossy().into_owned(),
-            ),
-            ("BAYLEE_BIND", "127.0.0.1".into()),
-            ("BAYLEE_REGISTRATION", "open".into()),
-        ],
-    );
+    let tower = runtime.block_on(super::tower_native::Fixture::optional(&endpoint));
+    let mut environment = vec![
+        (
+            "BAYLEE_CENTRAL_CONFIG_FILE",
+            secret_file.0.to_string_lossy().into_owned(),
+        ),
+        ("BAYLEE_BIND", "127.0.0.1".into()),
+        ("BAYLEE_REGISTRATION", "open".into()),
+    ];
+    if let Some(tower) = &tower {
+        environment.extend(tower.environment());
+    }
+    let gateway = common::spawn_gateway_with(label, &environment);
     let gateway_address = format!("127.0.0.1:{}", gateway.port).parse().unwrap();
     let origin = format!("http://{gateway_address}");
     let service = Arc::new(
@@ -82,6 +85,8 @@ pub(super) fn serve(
         .with_aliases(vec![aliases::ALIAS.into()])
         .unwrap()
         .with_terms(terms)
+        .with_tower(tower.as_ref().map(|tower| tower.origin.as_str()))
+        .unwrap()
         .with_registration_challenge(0, central_crypto::proof::MIN_MEMORY, Duration::ZERO)
         .with_legacy(legacy.clone()),
     );
@@ -108,6 +113,7 @@ pub(super) fn serve(
         serving,
         address,
         gateway_address,
+        tower,
     }
 }
 
@@ -116,6 +122,9 @@ impl Served {
     pub(super) fn close(self, runtime: &Runtime) {
         drop(self.gateway);
         drop(self.secret_file);
+        if let Some(tower) = self.tower {
+            runtime.block_on(tower.close());
+        }
         let _ = self.stop.send(());
         runtime.block_on(async {
             tokio::time::timeout(Duration::from_secs(5), self.serving)

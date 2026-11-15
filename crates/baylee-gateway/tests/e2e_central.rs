@@ -7,6 +7,8 @@ mod server;
 use server::{Served, serve};
 #[path = "e2e_central/chat.rs"]
 mod chat;
+#[path = "central/tower_native/mod.rs"]
+mod tower_native;
 use crate::common;
 #[path = "central/challenges.rs"]
 mod challenges;
@@ -243,6 +245,10 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
     let served = serve(&runtime, &store, &legacy, "central", None);
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let (gateway, endpoint, origin) = (&served.gateway, &served.endpoint, &served.origin);
+        if served.tower.is_some() {
+            tower_native::exercise(&runtime, &served);
+            return;
+        }
         if std::env::var("BAYLEE_CENTRAL_CHALLENGES_ONLY").as_deref() == Ok("1") {
             fresh::run(
                 &runtime,

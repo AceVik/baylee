@@ -2148,6 +2148,8 @@ dependencies = [
  "baylee-seathost",
  "baylee-tower",
  "baylee-tower-api",
+ "baylee-tower-service",
+ "baylee-tower-store",
  "baylee-train",
  "baylee-view",
  "bytes",
@@ -2180,6 +2182,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "ureq",
+ "url",
  "uuid",
  "zeroize",
 ]

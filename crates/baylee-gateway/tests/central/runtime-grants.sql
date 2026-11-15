@@ -104,3 +104,6 @@ GRANT SELECT, INSERT, DELETE ON central_identity.tower_actions TO central_runtim
 GRANT SELECT, INSERT, UPDATE, DELETE ON central_identity.tower_participation,
     central_identity.tower_runs, central_identity.tower_scores,
     central_identity.tower_accomplishments TO central_runtime;
+
+-- Separate Tower service identity delegation, scoped to its configured audience.
+GRANT SELECT, INSERT, DELETE ON central_identity.tower_access TO central_runtime;

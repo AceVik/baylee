@@ -301,6 +301,9 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
         // A developer's live bridge must not leak into synthetic tests.
         // Explicit fixture overrides below may still select their own mocks.
         .env_remove("BAYLEE_CENTRAL_CONFIG_FILE")
+        .env_remove("BAYLEE_TOWER_ORIGIN")
+        .env_remove("BAYLEE_TOWER_HOST_TOKEN")
+        .env_remove("BAYLEE_TOWER_DEVELOPMENT")
         // Two, not the default eight. What binds is the other end: a stock
         // PostgreSQL allows a hundred connections in total, and this suite
         // has three dozen gateways alive at once. At eight apiece it would
