@@ -216,3 +216,47 @@ fn the_settings_over_a_table_write_nothing_at_rest() {
         );
     }
 }
+
+/// Red while `vista::paint` wrote `WorldClock` into `VistaParams::portal.z` on
+/// every frame, marking `Assets<VistaMaterial>` changed and rebuilding the
+/// 8-texture UI bind group on 100% of frames at rest.
+#[test]
+fn vista_paint_does_not_write_settled_materials_at_rest() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+            std::time::Duration::from_millis(100),
+        ))
+        .insert_resource(Assets::<vista::VistaMaterial>::default())
+        .insert_resource(vista::FrontScene::default())
+        .init_resource::<vista::Gaze>()
+        .init_resource::<vista::VistaClock>()
+        .add_systems(Update, vista::paint);
+    let handle = app
+        .world_mut()
+        .resource_mut::<Assets<vista::VistaMaterial>>()
+        .add(vista::VistaMaterial::of(Handle::default()));
+    app.world_mut().spawn((
+        vista::Vista::Front,
+        vista::Settled::default(),
+        ComputedNode {
+            size: Vec2::new(1920.0, 1080.0),
+            ..ComputedNode::default()
+        },
+        MaterialNode(handle),
+        Visibility::Inherited,
+    ));
+    for _ in 0..8 {
+        app.update();
+    }
+    let tick = app.world().read_change_tick();
+    app.update();
+    let now = app.world().read_change_tick();
+    assert!(
+        !app.world()
+            .resource_ref::<Assets<vista::VistaMaterial>>()
+            .last_changed()
+            .is_newer_than(tick, now),
+        "settled VistaMaterial must not be marked changed at rest"
+    );
+}

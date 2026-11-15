@@ -17,17 +17,14 @@
 //! decoder is told the largest frame it may make, and every decoded frame must
 //! be exactly the size its track declared.
 //!
-//! **Not yet for pictures.** rav1d 1.1.0 does not survive every damaged
-//! stream: `rav1d_submit_frame`'s error path unwraps a frame header that is
-//! not there, inside an `extern "C"` entry that cannot unwind, and the
-//! process aborts (found on 12.11.2026 by
-//! `tests/real_file.rs::a_damaged_frame_is_an_error_and_never_a_panic`, kept
-//! there as an ignored test). Nothing is corrupted, but a wrong or compromised
-//! server could stop a client with one picture. So until a rav1d that returns
-//! an error is pinned, or the decode runs outside the client's process,
-//! [`Player`] is opened only on files the client ships
-//! ([`Bounds::SHIPPED_LOOP`]). [`Bounds::PICTURE`] bounds what
-//! [`Sequence::read`] accepts, which is safe Rust and may read anything.
+//! **Security boundary (`Bounds::SHIPPED_LOOP` vs `Bounds::PICTURE`).**
+//! `re_rav1d` 0.1.3 fixes the `rav1d_submit_frame` error-path unwrap that
+//! aborted `rav1d` 1.1.0 on damaged bitstreams
+//! (`tests/real_file.rs::a_damaged_frame_is_an_error_and_never_a_panic`), and
+//! enables ARM64 NEON assembly on `aarch64`. As defense in depth, [`Player`]
+//! remains strictly reserved for trusted assets shipped with the client
+//! ([`Bounds::SHIPPED_LOOP`]), while untrusted profile avatars from the network
+//! ([`Bounds::PICTURE`]) touch only 100% safe [`Sequence::read`].
 //!
 //! The crate draws nothing and does no I/O: callers hand in bytes and take
 //! planes or RGBA out.
@@ -42,10 +39,10 @@ mod frame;
 mod player;
 mod sequence;
 
-pub use frame::{Frame, Matrix};
+pub use frame::{AlignedPlanes, Frame, Matrix, ROW_ALIGNMENT};
 #[cfg(not(target_arch = "wasm32"))]
 pub use player::Player;
-pub use sequence::{Sample, Sequence, Track};
+pub use sequence::{MIN_FRAME_MS, Sample, Sequence, Track};
 
 /// What a file may ask of the client before it is refused.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

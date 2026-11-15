@@ -6,16 +6,17 @@
 
 use std::sync::Arc;
 
-use baylee_avif::{Bounds, Frame, Player, Sequence};
+use baylee_avif::{AlignedPlanes, Bounds, Frame, Player, ROW_ALIGNMENT, Sequence};
 
 const OPAQUE: &[u8] = include_bytes!("fixtures/opaque.avif");
 
 #[test]
 fn ffmpegs_sequence_is_read_as_six_frames_of_a_tenth_that_repeat() {
     let seq = Sequence::read(OPAQUE, &Bounds::PICTURE).unwrap();
+    let ts = seq.colour.timescale;
     assert_eq!((seq.colour.width, seq.colour.height), (256, 256));
     assert_eq!(seq.colour.samples.len(), 6);
-    assert!(seq.colour.samples.iter().all(|s| s.duration_ms == 100));
+    assert!(seq.colour.samples.iter().all(|s| s.duration_ms(ts) == 100));
     assert!(seq.repeats);
     assert!(seq.alpha.is_none());
 }
@@ -23,15 +24,32 @@ fn ffmpegs_sequence_is_read_as_six_frames_of_a_tenth_that_repeat() {
 #[test]
 fn every_frame_decodes_at_its_tracks_size_and_the_second_pass_matches_the_first() {
     let mut player = Player::open(Arc::from(OPAQUE), &Bounds::PICTURE, 1).unwrap();
+    let mut aligned_player = Player::open_static(OPAQUE, &Bounds::PICTURE, 1).unwrap();
     let mut frame = Frame::default();
+    let mut planes = AlignedPlanes::default();
     let mut first = Vec::new();
     for i in 0..6 {
         let (index, ms) = player.advance(&mut frame).unwrap();
+        let aligned_index = aligned_player.advance_aligned(&mut planes).unwrap();
         assert_eq!((index, ms), (i, 100));
+        assert_eq!(aligned_index, i);
         assert_eq!((frame.width, frame.height), (256, 256));
         assert_eq!(frame.y.len(), 256 * 256);
         assert_eq!(frame.u.len(), 128 * 128);
         assert!(frame.alpha.is_none());
+        assert_eq!(planes.y_stride as usize, 256);
+        assert_eq!(planes.c_stride as usize, ROW_ALIGNMENT);
+        assert_eq!(planes.y_plane(), frame.y.as_slice());
+        for row in 0..128 {
+            assert_eq!(
+                &planes.u_plane()[row * ROW_ALIGNMENT..row * ROW_ALIGNMENT + 128],
+                &frame.u[row * 128..(row + 1) * 128]
+            );
+            assert_eq!(
+                &planes.v_plane()[row * ROW_ALIGNMENT..row * ROW_ALIGNMENT + 128],
+                &frame.v[row * 128..(row + 1) * 128]
+            );
+        }
         first.push(frame.y.clone());
     }
     assert_eq!(player.next_index(), 0);
@@ -63,15 +81,11 @@ fn the_picture_bounds_refuse_a_shipped_loops_size() {
     assert!(Player::open(Arc::from(OPAQUE), &narrow, 1).is_err());
 }
 
-/// Found on 12.11.2026, on this test's first run: rav1d 1.1.0 does not
-/// survive every damaged stream. `rav1d_submit_frame`'s `on_error` unwraps a
-/// frame header that is not there (`decode.rs:4997`), and a panic inside its
-/// `extern "C"` entry cannot unwind, so the process aborts. The test stays as
-/// the measurement (`cargo test -p baylee-avif -- --ignored` aborts until a
-/// rav1d that returns an error is pinned); until then only files we ship are
-/// decoded (`docs/legal.md`, the crate's own docs).
+/// Regression test for the `rav1d_submit_frame` error-path unwrap found on
+/// 12.11.2026 in `rav1d` 1.1.0 (`decode.rs:4997`): `re_rav1d` 0.1.3 guards
+/// `f.frame_hdr.as_ref().is_some_and(...)` so damaged streams cleanly return
+/// `Err` without panicking across `extern "C"`.
 #[test]
-#[ignore = "rav1d 1.1.0 aborts the process on a damaged frame (decode.rs:4997)"]
 fn a_damaged_frame_is_an_error_and_never_a_panic() {
     let seq = Sequence::read(OPAQUE, &Bounds::PICTURE).unwrap();
     let mut seed = 0x2545_F491_4F6C_DD1Du64;

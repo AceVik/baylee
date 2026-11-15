@@ -9,31 +9,33 @@
 //!
 //! # Pacing
 //!
-//! Bevy's default is to draw every frame the display offers while focused —
-//! 120 a second on a 120 Hz laptop display — and 60 behind other windows. Every
-//! one of those frames pays every shader again, which on an M1 was the fan
-//! the owner heard. A frame limit here is a `Reactive` update mode with the
-//! limit's interval as its wait: winit sleeps until the next frame is due
-//! instead of spinning, and the cap holds whatever the pointer does (window
-//! events do not wake it early while the window is in front). A table where
-//! nothing has been touched and nothing has happened for two seconds eases to
-//! thirty frames and stays there; a menu nobody has touched for two seconds
-//! eases to thirty frames, after half a minute to
-//! the background limit; behind other windows the background limit holds,
-//! and a hidden window draws one frame a second. Every reduced pace wakes on
-//! input at once (`baylee_client_core::graphics::Graphics::pace`).
+//! While active and focused, the client runs at its preset's full rate (60 fps
+//! on `Medium`, 120 fps on `High`, unlimited on `Ultra`). When `VSync` is
+//! active and the display's refresh rate is at or below the target cap (60 Hz
+//! at `Fps60`, 120 Hz `ProMotion` at `Fps120`), `UpdateMode::Continuous` hands
+//! pacing directly to hardware `VBlank` (`PresentMode::Fifo` / `AutoVsync`)
+//! with zero OS timer beat or dropped ticks; sub-refresh caps use exact
+//! `VBlank` multiples in nanoseconds. After `120.0` seconds without user or game
+//! activity, menus ease smoothly to 30 fps (and tables to `RestLimit`), waking
+//! back to the full active rate immediately on any input or game event. While
+//! visible — explicitly including when unfocused — the frame rate never drops
+//! below 30 fps. Only when minimised or completely occluded (`WindowOccluded`)
+//! does the window pause at 0 fps (`UpdateMode::reactive_low_power(Duration::MAX)`).
 
 use baylee_client_core::graphics::{
     AntiAliasing, DISPLAY_REVERT_SECS, DisplayMode, Graphics, Pace, Showing, VSync,
 };
 use bevy::anti_alias::fxaa::Fxaa;
+use bevy::input::gestures::{DoubleTapGesture, PanGesture, PinchGesture, RotationGesture};
 use bevy::input::keyboard::KeyboardInput;
-use bevy::input::mouse::{MouseButtonInput, MouseWheel};
+use bevy::input::mouse::{MouseButtonInput, MouseMotion, MouseWheel};
 use bevy::input::touch::TouchInput;
 use bevy::prelude::*;
 use bevy::render::renderer::RenderAdapterInfo;
 use bevy::render::view::Msaa;
-use bevy::window::{CursorMoved, PresentMode, PrimaryWindow, WindowOccluded};
+use bevy::window::{
+    CursorMoved, Monitor, OnMonitor, PresentMode, PrimaryMonitor, PrimaryWindow, WindowOccluded,
+};
 use bevy::winit::{UpdateMode, WinitSettings};
 use std::time::Duration;
 
@@ -50,8 +52,8 @@ impl Default for InUse {
     }
 }
 
-/// Whether a menu has come to rest (`Graphics::rests`): its ambient world
-/// holds still where it stands until something happens.
+/// Whether ambient clocks pause (`Graphics::rests`): when hidden (minimised or
+/// occluded), or on an idle menu with ambient motion already disabled.
 #[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Resting(pub bool);
 
@@ -61,6 +63,7 @@ pub struct Resting(pub bool);
 pub struct Watch {
     last_input: f64,
     hidden: bool,
+    was_hidden: bool,
     /// The front door's passage as last seen: a passage on the move counts
     /// as activity, so a flight that outlasts the settle time is not drawn
     /// at the settled rate.
@@ -253,7 +256,7 @@ fn show_frame_rate(
     let want = in_use.0.show_frame_rate;
     if !want {
         for (entity, ..) in &counters {
-            commands.entity(entity).despawn();
+            commands.entity(entity).try_despawn();
         }
         return;
     }
@@ -334,20 +337,33 @@ pub fn focused(windows: &Query<&Window, With<PrimaryWindow>>) -> bool {
     windows.single().map_or(true, |w| w.focused)
 }
 
+#[allow(clippy::too_many_arguments)] // Bevy system: every input stream that wakes an idle window
 fn note_input(
     time: Res<Time<Real>>,
     mut watch: ResMut<Watch>,
     mut keys: MessageReader<KeyboardInput>,
     mut buttons: MessageReader<MouseButtonInput>,
     mut moves: MessageReader<CursorMoved>,
+    mut motions: MessageReader<MouseMotion>,
     mut wheels: MessageReader<MouseWheel>,
     mut touches: MessageReader<TouchInput>,
+    mut gestures: (
+        MessageReader<PinchGesture>,
+        MessageReader<RotationGesture>,
+        MessageReader<DoubleTapGesture>,
+        MessageReader<PanGesture>,
+    ),
 ) {
     let touched = keys.read().count()
         + buttons.read().count()
         + moves.read().count()
+        + motions.read().count()
         + wheels.read().count()
-        + touches.read().count();
+        + touches.read().count()
+        + gestures.0.read().count()
+        + gestures.1.read().count()
+        + gestures.2.read().count()
+        + gestures.3.read().count();
     if touched > 0 {
         watch.last_input = time.elapsed_secs_f64();
     }
@@ -397,15 +413,30 @@ fn table_motion(duel: &crate::Duel) -> TableMotion {
     }
 }
 
-/// Whether the primary window has no pixels: minimised on Windows, which
-/// sends no `WindowOccluded` (winit reports occlusion on macOS, iOS, the web
-/// and Wayland), but resizes a minimised window to nothing. Measured on a
-/// Windows desktop before this: minimised, the client drew thirty frames a
-/// second at a fifth of a core (`docs/perf-client.md` §"Windows").
-fn minimised(windows: &Query<&Window, With<PrimaryWindow>>) -> bool {
-    windows
-        .single()
-        .is_ok_and(|w| w.resolution.physical_width() == 0 || w.resolution.physical_height() == 0)
+/// Whether the primary window is minimised or hidden: checks OS-level
+/// `winit::Window::is_minimized` on native targets alongside `!window.visible`
+/// and `0 × 0` physical resolution (Windows resizes minimised windows to `0 × 0`
+/// without sending `WindowOccluded`).
+fn window_minimised(entity: Entity, window: &Window) -> bool {
+    if !window.visible
+        || window.resolution.physical_width() == 0
+        || window.resolution.physical_height() == 0
+    {
+        return true;
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        bevy::winit::WINIT_WINDOWS.with_borrow(|ww| {
+            ww.get_window(entity)
+                .and_then(|win| win.is_minimized())
+                .unwrap_or(false)
+        })
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = entity;
+        false
+    }
 }
 
 fn note_hidden(mut watch: ResMut<Watch>, mut occluded: MessageReader<WindowOccluded>) {
@@ -416,8 +447,8 @@ fn note_hidden(mut watch: ResMut<Watch>, mut occluded: MessageReader<WindowOcclu
 
 /// A dev-control window opened passive (`BAYLEE_DEV_PASSIVE=1`) is *meant* to
 /// stand behind everything else while a harness drives it, so being covered
-/// is not being hidden: at one frame a second a click is five seconds and a
-/// two-frame comparison is a guess. Never in a shipped build.
+/// is not being hidden: at 0 fps a click or screenshot would never advance.
+/// Never in a shipped build.
 fn watched_from_behind() -> bool {
     #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
     {
@@ -498,42 +529,109 @@ fn apply_anti_aliasing(
         }
         match (aa == AntiAliasing::Fxaa, has_fxaa) {
             (true, false) => {
-                commands.entity(entity).insert(Fxaa::default());
+                commands.entity(entity).try_insert(Fxaa::default());
             }
             (false, true) => {
-                commands.entity(entity).remove::<Fxaa>();
+                commands.entity(entity).try_remove::<Fxaa>();
             }
             _ => {}
         }
     }
 }
 
-/// The update mode for a pace. `waking`: input wakes a frame at once,
-/// which a background or idle pace wants and a focused cap must not.
+/// Exact wait interval for `fps`, snapped to an integer multiple of the
+/// display's `VBlank` period when `monitor_mhz` divides cleanly.
+fn frame_wait(fps: u32, monitor_mhz: Option<u32>) -> Duration {
+    let fps = u64::from(fps.max(1));
+    if let Some(mhz) = monitor_mhz.filter(|&m| m > 0) {
+        let mhz = u64::from(mhz);
+        let target_mhz = fps * 1000;
+        let div = (mhz + target_mhz / 2) / target_mhz;
+        if div >= 2 {
+            let approx = div * target_mhz;
+            let diff = approx.abs_diff(mhz);
+            // Within 2% of an exact VBlank harmonic (e.g. 60/30 on 120 Hz or
+            // 59.94/119.88 Hz): lock to exact `div` hardware VBlanks.
+            if diff * 50 <= mhz {
+                return Duration::from_nanos(div * 1_000_000_000_000 / mhz);
+            }
+        }
+    }
+    Duration::from_nanos(1_000_000_000 / fps)
+}
+
+/// Display-aware update mode:
+/// - [`Pace::Paused`]: `UpdateMode::reactive_low_power(Duration::MAX)` (0 fps
+///   while minimised or occluded; wakes immediately on window restore/unocclude).
+/// - [`Pace::Unlimited`]: `UpdateMode::Continuous` on desktop.
+/// - [`Pace::Fps`]: when `VSync` is enabled on desktop and the display refresh
+///   rate is at or below `fps` (60 Hz at `Fps60`, 120 Hz `ProMotion` at `Fps120`),
+///   uses `UpdateMode::Continuous` so `CAMetalLayer` / hardware `VBlank` paces
+///   every frame without `CFRunLoopTimer` beat or dropped ticks; otherwise uses
+///   `UpdateMode::Reactive` with exact nanosecond / `VBlank`-harmonic intervals.
 #[must_use]
-pub fn update_mode(pace: Pace, waking: bool) -> UpdateMode {
-    match pace.interval_secs() {
-        None if !MOBILE => UpdateMode::Continuous,
-        // A phone's "no limit" is its display's own rate, asked for on a
-        // timer rather than by spinning.
-        None => UpdateMode::reactive(Duration::from_secs_f32(1.0 / 120.0)),
-        Some(interval) => UpdateMode::Reactive {
-            wait: Duration::from_secs_f32(interval),
-            react_to_device_events: false,
-            react_to_user_events: true,
-            react_to_window_events: waking,
-        },
+pub fn update_mode_for_display(
+    pace: Pace,
+    waking: bool,
+    vsync: VSync,
+    monitor_mhz: Option<u32>,
+) -> UpdateMode {
+    match pace {
+        Pace::Paused => UpdateMode::reactive_low_power(Duration::MAX),
+        Pace::Unlimited if !MOBILE => UpdateMode::Continuous,
+        Pace::Unlimited => UpdateMode::reactive(Duration::from_nanos(8_333_333)),
+        Pace::Fps(fps) => {
+            let vsync_caps = !MOBILE
+                && vsync != VSync::Off
+                && monitor_mhz
+                    .filter(|&m| m > 0)
+                    .is_some_and(|mhz| u64::from(fps) * 1000 + 500 >= u64::from(mhz));
+            if vsync_caps {
+                UpdateMode::Continuous
+            } else {
+                UpdateMode::Reactive {
+                    wait: frame_wait(fps, monitor_mhz),
+                    react_to_device_events: false,
+                    react_to_user_events: true,
+                    react_to_window_events: waking,
+                }
+            }
+        }
     }
 }
 
+/// The update mode for a pace without monitor refresh-rate metadata.
+#[must_use]
+pub fn update_mode(pace: Pace, waking: bool) -> UpdateMode {
+    update_mode_for_display(pace, waking, VSync::On, None)
+}
+
+fn current_monitor_mhz(
+    on_monitor: Option<&OnMonitor>,
+    monitors: &Query<(&Monitor, Has<PrimaryMonitor>)>,
+) -> Option<u32> {
+    if let Some(on) = on_monitor
+        && let Ok((monitor, _)) = monitors.get(on.0)
+        && let Some(mhz) = monitor.refresh_rate_millihertz
+    {
+        return Some(mhz);
+    }
+    monitors
+        .iter()
+        .find_map(|(m, primary)| primary.then_some(m.refresh_rate_millihertz).flatten())
+        .or_else(|| monitors.iter().find_map(|(m, _)| m.refresh_rate_millihertz))
+}
+
+#[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)] // Bevy system: the clocks, the window and the settings it reads
 fn pace(
     time: Res<Time<Real>>,
-    watch: Res<Watch>,
+    mut watch: ResMut<Watch>,
     in_use: Res<InUse>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     phase: Option<Res<State<crate::DuelPhase>>>,
-    windows: Query<&Window, With<PrimaryWindow>>,
+    windows: Query<(Entity, &Window, Option<&OnMonitor>), With<PrimaryWindow>>,
+    monitors: Query<(&Monitor, Has<PrimaryMonitor>)>,
     winit: Option<ResMut<WinitSettings>>,
     film: Option<Res<crate::vista::Moving>>,
     mut resting: ResMut<Resting>,
@@ -541,19 +639,30 @@ fn pace(
     let passive = watched_from_behind();
     let menu = phase.is_none_or(|p| *p.get() == crate::DuelPhase::Closed);
     let still = ambient_still(prefs.is_some_and(|p| p.all().reduce_motion), Some(&in_use));
-    // A moving picture asks for no cadence of its own: it plays by the
-    // scene's clock at whatever rate the menu is drawn (`vista::loops`).
-    // What it asks is not to be stopped: a menu whose film is seen eases to
-    // the idle rate and stays there (`Showing::picture`). (Until 12.11.2026
-    // the tavern pinned the lobby at 60 frames a second for good.)
+    let (is_focused, is_min, monitor_mhz) = match windows.single() {
+        Ok((entity, w, on_mon)) => (
+            w.focused,
+            window_minimised(entity, w),
+            current_monitor_mhz(on_mon, &monitors),
+        ),
+        Err(_) => (true, false, current_monitor_mhz(None, &monitors)),
+    };
+    let hidden = !passive && (watch.hidden || is_min);
+    if watch.was_hidden != hidden {
+        let waking_from_hidden = watch.was_hidden && !hidden;
+        watch.was_hidden = hidden;
+        if waking_from_hidden {
+            watch.last_input = time.elapsed_secs_f64();
+        }
+    }
     let untouched_secs = if passive {
         0.0
     } else {
-        (time.elapsed_secs_f64() - watch.last_input) as f32
+        (time.elapsed_secs_f64() - watch.last_input).max(0.0) as f32
     };
     let showing = Showing {
-        focused: focused(&windows) || passive,
-        hidden: watch.hidden || minimised(&windows),
+        focused: is_focused || passive,
+        hidden,
         menu,
         untouched_secs,
         still,
@@ -564,7 +673,7 @@ fn pace(
         return;
     };
     let (pace, waking) = in_use.0.pace(showing);
-    let mode = update_mode(pace, waking);
+    let mode = update_mode_for_display(pace, waking, in_use.0.vsync, monitor_mhz);
     if winit.focused_mode != mode || winit.unfocused_mode != mode {
         winit.focused_mode = mode;
         winit.unfocused_mode = mode;
@@ -575,8 +684,8 @@ fn pace(
 mod tests {
     use super::*;
 
-    /// A focused cap holds against the pointer; a background or idle pace
-    /// wakes on it; no limit is continuous on a desktop.
+    /// Focused caps, reduced paces, `VBlank`-locked `Continuous` modes on 60 Hz
+    /// and 120 Hz `ProMotion`, and `Duration::MAX` 0-fps pause when hidden.
     #[test]
     fn a_pace_becomes_an_update_mode() {
         match update_mode(Pace::Fps(60), false) {
@@ -586,26 +695,62 @@ mod tests {
                 react_to_device_events,
                 ..
             } => {
-                assert!((wait.as_secs_f32() - 1.0 / 60.0).abs() < 1e-4);
+                assert_eq!(wait, Duration::from_nanos(16_666_666));
                 assert!(!react_to_window_events && !react_to_device_events);
             }
-            UpdateMode::Continuous => panic!("a cap is reactive"),
+            UpdateMode::Continuous => panic!("headless cap without monitor is reactive"),
         }
         assert!(matches!(
-            update_mode(Pace::Fps(15), true),
+            update_mode(Pace::Fps(30), true),
             UpdateMode::Reactive {
                 react_to_window_events: true,
                 ..
             }
         ));
+        assert_eq!(
+            update_mode(Pace::Paused, true),
+            UpdateMode::reactive_low_power(Duration::MAX)
+        );
         if !MOBILE {
             assert_eq!(update_mode(Pace::Unlimited, false), UpdateMode::Continuous);
+            // 60 fps on 60 Hz / 59.94 Hz and 120 fps on 120 Hz ProMotion use
+            // VSync-locked `Continuous` to avoid `CFRunLoopTimer` beat judder.
+            assert_eq!(
+                update_mode_for_display(Pace::Fps(60), false, VSync::On, Some(60_000)),
+                UpdateMode::Continuous
+            );
+            assert_eq!(
+                update_mode_for_display(Pace::Fps(60), false, VSync::On, Some(59_940)),
+                UpdateMode::Continuous
+            );
+            assert_eq!(
+                update_mode_for_display(Pace::Fps(120), false, VSync::On, Some(120_000)),
+                UpdateMode::Continuous
+            );
+            // With VSync off, explicit caps stay timer-enforced instead of spinning.
+            assert!(matches!(
+                update_mode_for_display(Pace::Fps(60), false, VSync::Off, Some(60_000)),
+                UpdateMode::Reactive { .. }
+            ));
+            // 60 fps and 30 fps on 120 Hz snap to exact 2- and 4-VBlank multiples.
+            match update_mode_for_display(Pace::Fps(60), false, VSync::On, Some(120_000)) {
+                UpdateMode::Reactive { wait, .. } => {
+                    assert_eq!(wait, Duration::from_nanos(16_666_666));
+                }
+                UpdateMode::Continuous => panic!("60 on 120 Hz caps every 2 VBlanks"),
+            }
+            match update_mode_for_display(Pace::Fps(30), true, VSync::On, Some(120_000)) {
+                UpdateMode::Reactive { wait, .. } => {
+                    assert_eq!(wait, Duration::from_nanos(33_333_333));
+                }
+                UpdateMode::Continuous => panic!("30 on 120 Hz caps every 4 VBlanks"),
+            }
         }
     }
 
-    /// The pacer in a running app: focused at the table it caps at the
-    /// limit; behind another window it drops to the background rate; a
-    /// hidden window draws one frame a second. Proved by removing the focus.
+    /// Focused active window runs at 60 fps; unfocused visible window stays at
+    /// `>= 30` fps (never 15 fps!); occluded window pauses at 0 fps
+    /// (`Duration::MAX`) and wakes back to 60 fps when un-occluded.
     #[test]
     fn the_pacer_writes_the_winit_settings() {
         let mut app = App::new();
@@ -613,56 +758,77 @@ mod tests {
             .add_plugins(bevy::input::InputPlugin)
             .add_message::<CursorMoved>()
             .add_message::<WindowOccluded>()
-            .add_message::<TouchInput>()
             .insert_resource(WinitSettings::game())
             .insert_resource(ClientSettings::default())
             .add_plugins(QualityPlugin);
-        app.world_mut().spawn((
-            Window {
-                focused: true,
-                ..default()
-            },
-            PrimaryWindow,
-        ));
+        let win = app
+            .world_mut()
+            .spawn((
+                Window {
+                    focused: true,
+                    ..default()
+                },
+                PrimaryWindow,
+            ))
+            .id();
         app.update();
         let wait = |app: &App| match app.world().resource::<WinitSettings>().focused_mode {
-            UpdateMode::Reactive { wait, .. } => Some(wait.as_secs_f32()),
+            UpdateMode::Reactive { wait, .. } => Some(wait),
             UpdateMode::Continuous => None,
         };
-        let medium = 1.0 / 60.0;
-        // No `DuelPhase` state: the front door, but touched just now (the
-        // clock starts at zero), so not idle.
-        assert!((wait(&app).expect("capped") - medium).abs() < 1e-4);
-        let mut windows = app.world_mut().query::<&mut Window>();
-        windows.single_mut(app.world_mut()).expect("one").focused = false;
+        assert_eq!(wait(&app), Some(Duration::from_nanos(16_666_666)));
+        assert_eq!(*app.world().resource::<Resting>(), Resting(false));
+
+        // Unfocused but visible: hard >= 30 fps floor (`33_333_333 ns`).
+        app.world_mut()
+            .entity_mut(win)
+            .get_mut::<Window>()
+            .unwrap()
+            .focused = false;
         app.update();
-        assert!((wait(&app).expect("capped") - 1.0 / 15.0).abs() < 1e-4);
+        assert_eq!(wait(&app), Some(Duration::from_nanos(33_333_333)));
+        assert_eq!(*app.world().resource::<Resting>(), Resting(false));
+
+        // Truly occluded: 0 fps (`Duration::MAX`) + `Resting(true)`.
         app.world_mut().write_message(WindowOccluded {
-            window: Entity::PLACEHOLDER,
+            window: win,
             occluded: true,
         });
         app.update();
-        assert!((wait(&app).expect("capped") - 1.0).abs() < 1e-4);
+        assert_eq!(wait(&app), Some(Duration::MAX));
+        assert_eq!(*app.world().resource::<Resting>(), Resting(true));
+
+        // Visible and focused again: immediately back to 60 fps + `Resting(false)`.
+        app.world_mut()
+            .entity_mut(win)
+            .get_mut::<Window>()
+            .unwrap()
+            .focused = true;
+        app.world_mut().write_message(WindowOccluded {
+            window: win,
+            occluded: false,
+        });
+        app.update();
+        assert_eq!(wait(&app), Some(Duration::from_nanos(16_666_666)));
+        assert_eq!(*app.world().resource::<Resting>(), Resting(false));
     }
 
-    /// A window with no pixels is hidden though nothing said occluded:
-    /// Windows minimises that way and sends no `WindowOccluded`. Proved both
-    /// ways: back at its size it is paced as a window in front again.
+    /// A minimised window (`0 × 0` physical pixels or `!visible`) pauses at
+    /// 0 fps (`Duration::MAX`) and resumes at 60 fps when restored.
     #[test]
-    fn a_minimised_window_draws_a_frame_a_second() {
+    fn a_minimised_window_draws_no_frames() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
             .add_plugins(bevy::input::InputPlugin)
             .add_message::<CursorMoved>()
             .add_message::<WindowOccluded>()
-            .add_message::<TouchInput>()
             .insert_resource(WinitSettings::game())
             .insert_resource(ClientSettings::default())
             .add_plugins(QualityPlugin);
         app.world_mut().spawn((Window::default(), PrimaryWindow));
         let wait = |app: &App| match app.world().resource::<WinitSettings>().focused_mode {
-            UpdateMode::Reactive { wait, .. } => wait.as_secs_f32(),
-            UpdateMode::Continuous => 0.0,
+            UpdateMode::Reactive { wait, .. } => wait,
+            UpdateMode::Continuous => Duration::ZERO,
         };
         let resize = |app: &mut App, width: u32, height: u32| {
             let mut windows = app.world_mut().query::<&mut Window>();
@@ -674,16 +840,67 @@ mod tests {
         };
         resize(&mut app, 0, 0);
         app.update();
-        assert!((wait(&app) - 1.0).abs() < 1e-4, "minimised: {}", wait(&app));
-        // Back at its size and in front (`Window::default` is focused): the
-        // cap again, Medium's sixty for a device that never chose.
+        assert_eq!(wait(&app), Duration::MAX);
+        assert_eq!(*app.world().resource::<Resting>(), Resting(true));
+
         resize(&mut app, 1280, 720);
         app.update();
-        assert!(
-            (wait(&app) - 1.0 / 60.0).abs() < 1e-4,
-            "restored: {}",
-            wait(&app)
-        );
+        assert_eq!(wait(&app), Duration::from_nanos(16_666_666));
+        assert_eq!(*app.world().resource::<Resting>(), Resting(false));
+    }
+
+    /// Menu pacing policy: 60 fps for a full 120.0 seconds, smooth drop to
+    /// 30 fps at 120.0 seconds (never freezing ambient motion), and immediate
+    /// return to 60 fps on the very next frame after any user input.
+    #[test]
+    fn a_menu_holds_sixty_for_two_minutes_eases_to_thirty_and_wakes_on_input() {
+        use baylee_client_core::graphics::IDLE_AFTER_SECS;
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(bevy::input::InputPlugin)
+            .add_message::<CursorMoved>()
+            .add_message::<WindowOccluded>()
+            .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+                Duration::from_secs(30),
+            ))
+            .insert_resource(WinitSettings::game())
+            .insert_resource(ClientSettings::default())
+            .add_plugins(QualityPlugin);
+        let win = app
+            .world_mut()
+            .spawn((
+                Window {
+                    focused: true,
+                    ..default()
+                },
+                PrimaryWindow,
+            ))
+            .id();
+        // First update initializes `Time<Real>` (elapsed = 0s): 60 fps.
+        app.update();
+        assert!((focused_wait(&app) - 1.0 / 60.0).abs() < 1e-4);
+        // +30s, +60s, +90s (< 120.0s): still 60 fps!
+        for step in 1..=3 {
+            app.update();
+            assert!(
+                (focused_wait(&app) - 1.0 / 60.0).abs() < 1e-4,
+                "at {}s (< {IDLE_AFTER_SECS}s): {}",
+                step * 30,
+                focused_wait(&app)
+            );
+        }
+        // +120s (`IDLE_AFTER_SECS`): eases smoothly to 30 fps without resting!
+        app.update();
+        assert!((focused_wait(&app) - 1.0 / 30.0).abs() < 1e-4);
+        assert_eq!(*app.world().resource::<Resting>(), Resting(false));
+        // Any user action (`CursorMoved`) returns immediately to 60 fps!
+        app.world_mut().write_message(CursorMoved {
+            window: win,
+            position: Vec2::new(42.0, 24.0),
+            delta: Some(Vec2::ONE),
+        });
+        app.update();
+        assert!((focused_wait(&app) - 1.0 / 60.0).abs() < 1e-4);
     }
 
     /// A table under `settings`, a duel on it, its clock stepping a quarter
@@ -697,7 +914,6 @@ mod tests {
             .add_plugins(bevy::input::InputPlugin)
             .add_message::<CursorMoved>()
             .add_message::<WindowOccluded>()
-            .add_message::<TouchInput>()
             .init_state::<crate::DuelPhase>()
             .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
                 Duration::from_secs_f32(TABLE_SETTLE_SECS / 4.0),

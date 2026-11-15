@@ -276,12 +276,42 @@ fn a_zero_duration_is_shown_for_the_shortest_frame() {
     let mut spec = Spec::colour(2);
     spec.times = vec![(2, 0)];
     let seq = Sequence::read(&file(&[spec]), &Bounds::PICTURE).unwrap();
+    let ts = seq.colour.timescale;
     assert!(
         seq.colour
             .samples
             .iter()
-            .all(|s| s.duration_ms == MIN_FRAME_MS)
+            .all(|s| s.duration_ms(ts) == u64::from(MIN_FRAME_MS))
     );
+}
+
+#[test]
+fn sixty_frames_per_second_stays_exact_without_millisecond_truncation_drift() {
+    // ffmpeg's AVIF muxer writes 60/1 fps as timescale = 15360, delta = 256
+    // (15360 / 256 == 60 exact). Truncating to 16 ms turned 60 fps into 62.5 fps.
+    let mut spec = Spec::colour(370);
+    spec.side = (1280, 720);
+    spec.timescale = 15_360;
+    spec.times = vec![(370, 256)];
+    let seq = Sequence::read(&file(&[spec]), &Bounds::SHIPPED_LOOP).unwrap();
+    let track = &seq.colour;
+
+    // 370 / 60 s = 6_166_666_666 ns (not 370 * 16 ms = 5_920_000_000 ns!).
+    assert_eq!(track.duration_ns(), 6_166_666_666);
+    assert_eq!(track.duration_ms(), 6_166);
+    assert_eq!(track.samples[0].duration_ns(track.timescale), 16_666_666);
+
+    // After 1 second (1_000_000_000 ns), we must be at exact frame 60, not 62!
+    assert_eq!(track.sample_at_ns(1_000_000_000, true), (0, 60));
+
+    // After 100 hours (360_000 s = 21_600_000 exact 60fps frames), zero drift:
+    // 21_600_000 = 58_378 * 370 + 140.
+    let hundred_hours_ns = 360_000_u64 * 1_000_000_000;
+    assert_eq!(
+        track.monotonic_frame_at_ns(hundred_hours_ns, true),
+        21_600_000
+    );
+    assert_eq!(track.sample_at_ns(hundred_hours_ns, true), (58_378, 140));
 }
 
 #[test]

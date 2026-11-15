@@ -75,15 +75,13 @@ struct Globals { time: f32 };
     crate::cardmat::tests::check_wgsl(include_str!("../shaders/memorial_preview.wesl"), &prelude);
 }
 
-/// The lobby's world (Baylee's fireflies are drawn from its clock,
-/// `portal.z`, and only while `view.w`, its energy, is not zero), painted
-/// for `frames` frames of 50 ms; the last params, and each frame's clock.
-/// `panel_x` is the current scene's panel centre in screen heights.
+/// The lobby's world painted for `frames` frames of 50 ms; returns the last
+/// params and each frame's `VistaClock::nanos`.
 fn lobby_world(
     reduce_motion: bool,
     frames: usize,
     panel_x: Option<f32>,
-) -> (VistaParams, Vec<f32>) {
+) -> (VistaParams, Vec<u64>) {
     use bevy::time::TimeUpdateStrategy;
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
@@ -96,6 +94,7 @@ fn lobby_world(
             ..FrontScene::default()
         })
         .init_resource::<Gaze>()
+        .init_resource::<VistaClock>()
         .add_systems(Update, paint);
     let mut prefs = crate::prefs::Prefs::default();
     prefs.edit().reduce_motion = reduce_motion;
@@ -127,27 +126,119 @@ fn lobby_world(
     let mut clock = Vec::new();
     for _ in 0..frames {
         app.update();
-        let materials = app.world().resource::<Assets<VistaMaterial>>();
-        clock.push(materials.get(&handle).expect("painted").params.portal.z);
+        clock.push(app.world().resource::<VistaClock>().nanos);
     }
     let materials = app.world().resource::<Assets<VistaMaterial>>();
     (materials.get(&handle).expect("painted").params, clock)
 }
 
-/// Reduced motion stops Baylee's fireflies entirely: the lobby's world
-/// has no energy (the shader draws no mote then, only her still glow)
-/// and its clock stands. And the counter-test: with motion allowed the
-/// motes have energy and their clock runs, by the frame's delta.
+/// Reduced motion stops ambient motion entirely: `view.w` is zero and
+/// `VistaClock` stands still; with motion allowed `VistaClock` advances by
+/// exact `Time<Real>` nanoseconds while `portal.z` remains zero so
+/// `Assets<VistaMaterial>` is not dirtied every frame.
 #[test]
-#[allow(clippy::float_cmp)] // a stopped clock and zero energy are exact
+#[allow(clippy::float_cmp)] // zero energy and spare uniform channel are exact
 fn reduced_motion_stops_the_lobby_fireflies() {
     let (still, clock) = lobby_world(true, 8, None);
     assert_eq!(still.view.w, 0.0, "{still:?}");
-    assert!(clock.iter().all(|t| *t == clock[0]), "{clock:?}");
+    assert!(clock.iter().all(|t| *t == 0), "{clock:?}");
     let (moving, clock) = lobby_world(false, 8, None);
     assert_eq!(moving.view.w, 1.0, "{moving:?}");
-    assert!(clock.windows(2).skip(2).all(|w| w[1] > w[0]), "{clock:?}");
+    assert_eq!(
+        moving.portal.z, 0.0,
+        "clock lives in VistaClock, not uniform"
+    );
+    assert!(
+        clock.windows(2).skip(2).all(|w| w[1] - w[0] == 50_000_000),
+        "{clock:?}"
+    );
     assert_eq!(moving.gate_b.w, 1.0, "the interior draws Baylee at home");
+}
+
+/// Once presence and panel framing settle, `paint` never mutates
+/// `Assets<VistaMaterial>` while `VistaClock` continues advancing, avoiding
+/// every-frame 8-texture bind-group rebuilds. And resuming from `Resting(true)`
+/// suppresses the sleep duration so the loop never bursts forward.
+#[test]
+fn settled_vista_leaves_its_material_untouched_and_resumes_without_burst() {
+    use bevy::time::TimeUpdateStrategy;
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .insert_resource(TimeUpdateStrategy::ManualDuration(
+            std::time::Duration::from_millis(100),
+        ))
+        .insert_resource(Assets::<VistaMaterial>::default())
+        .insert_resource(FrontScene {
+            shown: false,
+            ..FrontScene::default()
+        })
+        .init_resource::<Gaze>()
+        .init_resource::<VistaClock>()
+        .insert_resource(crate::quality::Resting(false))
+        .add_systems(Update, paint);
+    let handle = app
+        .world_mut()
+        .resource_mut::<Assets<VistaMaterial>>()
+        .add(VistaMaterial::of(Handle::default()));
+    app.world_mut().spawn((
+        Vista::Interior,
+        Settled::default(),
+        ComputedNode {
+            size: Vec2::new(1708.0, 1032.0),
+            ..ComputedNode::default()
+        },
+        MaterialNode(handle),
+        Visibility::Inherited,
+    ));
+    // Let `presence` settle over `PRESENCE_SECONDS` (`0.4s`).
+    for _ in 0..8 {
+        app.update();
+    }
+    let settled_tick = app.world().read_change_tick();
+    let before_ns = app.world().resource::<VistaClock>().nanos;
+    app.update();
+    let now_tick = app.world().read_change_tick();
+    assert!(
+        !app.world()
+            .resource_ref::<Assets<VistaMaterial>>()
+            .last_changed()
+            .is_newer_than(settled_tick, now_tick),
+        "settled VistaMaterial must not be marked changed on steady frames"
+    );
+    assert_eq!(
+        app.world().resource::<VistaClock>().nanos - before_ns,
+        100_000_000
+    );
+
+    // Minimise / occlude (`Resting(true)`) for 10 minutes (`600s`), then wake:
+    let paused_at = app.world().resource::<VistaClock>().nanos;
+    app.world_mut()
+        .insert_resource(crate::quality::Resting(true));
+    app.world_mut()
+        .insert_resource(TimeUpdateStrategy::ManualDuration(
+            std::time::Duration::from_secs(600),
+        ));
+    app.update();
+    assert_eq!(app.world().resource::<VistaClock>().nanos, paused_at);
+    // Wake frame still carries the last sleep delta on real event loops:
+    app.world_mut()
+        .insert_resource(crate::quality::Resting(false));
+    app.update();
+    assert_eq!(
+        app.world().resource::<VistaClock>().nanos,
+        paused_at,
+        "wakeup frame must not inject sleep duration into VistaClock"
+    );
+    // Subsequent 16 ms frames advance normally at 1.0x tempo:
+    app.world_mut()
+        .insert_resource(TimeUpdateStrategy::ManualDuration(
+            std::time::Duration::from_millis(16),
+        ));
+    app.update();
+    assert_eq!(
+        app.world().resource::<VistaClock>().nanos,
+        paused_at + 16_000_000
+    );
 }
 
 /// Play's side panel, the unframed Decks screen and a differently placed

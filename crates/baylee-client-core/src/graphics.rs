@@ -172,15 +172,15 @@ impl FrameLimit {
 }
 
 /// The most frames drawn per second while the window is in the background
-/// (not focused) or a menu has stood untouched for [`IDLE_AFTER_SECS`]. A
-/// hidden or minimised window draws one frame a second whatever this says:
-/// nobody can see it; so does an idle menu with nothing ambient moving.
+/// (not focused) or a menu has stood untouched for [`IDLE_AFTER_SECS`].
+/// While visible, the effective pace never drops below [`MIN_VISIBLE_FPS`]
+/// (30 fps); a minimised or occluded window pauses at [`Pace::Paused`] (0 fps).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BackgroundLimit {
-    /// Five: the picture still follows the game, just in steps.
+    /// Five in stored settings; clamped to [`MIN_VISIBLE_FPS`] while visible.
     Fps5,
-    /// Fifteen.
+    /// Fifteen in stored settings; clamped to [`MIN_VISIBLE_FPS`] while visible.
     #[default]
     Fps15,
     /// Thirty.
@@ -205,11 +205,10 @@ impl BackgroundLimit {
     }
 }
 
-/// How many frames a table at rest draws (`Bildrate in Ruhe`): two seconds
-/// after the last input and the last thing the game did, the table eases to
-/// this and stays there until either comes back. Never above the frame
-/// limit; at or above it the table does not ease at all, which at the 60
-/// frames of Medium is exactly how the table paced before the setting.
+/// How many frames a table at rest draws (`Bildrate in Ruhe`): after
+/// [`TABLE_SETTLE_SECS`] without input and without anything happening in the
+/// game, the table eases to this and stays there until either comes back.
+/// Never above the frame limit; at or above it the table does not ease at all.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RestLimit {
@@ -342,40 +341,20 @@ impl DisplayMode {
 /// way back without seeing anything.
 pub const DISPLAY_REVERT_SECS: f32 = 15.0;
 
-/// Seconds without any input after which the front door and the lobby draw
-/// at the background rate. Never at the table, where an opponent's move is
-/// worth watching whether or not the mouse moves: a table at rest holds
-/// its [`RestLimit`], and its game moving brings the full rate back.
-pub const IDLE_AFTER_SECS: f32 = 30.0;
-
-/// Seconds without input after which a menu (front door, lobby, settings)
-/// eases from the frame limit to [`MENU_FPS`]: what moves there on its own is
-/// slow ambience, and a click or a key brings the full rate back at once.
-pub const MENU_SETTLE_SECS: f32 = 2.0;
-
-/// The most frames a settled menu draws per second. The front door's
-/// slowest-moving world reads the same at thirty as at sixty, and costs half.
-pub const MENU_FPS: u32 = 30;
+/// Seconds without any user or game action after which an active screen eases
+/// smoothly to [`MIN_VISIBLE_FPS`] (`30` fps). Any user action or game event
+/// brings the active rate back immediately.
+pub const IDLE_AFTER_SECS: f32 = 120.0;
 
 /// Seconds without input **or anything happening in the game** after which
-/// the table eases from the frame limit to its [`RestLimit`]. What moves
-/// there on its own then is the cloth's slow drift, a flier's bob and the
-/// rim's eleven-second swell; a card dealt, a tear or a camera visit begins
-/// with an input or a new view, and those bring the full rate back on the
-/// frame they arrive. An opponent's move arrives without waking the window,
-/// so the rest rate is also how late the first frame of it can be.
-pub const TABLE_SETTLE_SECS: f32 = 2.0;
+/// the table eases from the frame limit to its [`RestLimit`]. Any input or
+/// game event brings the full rate back on the frame it arrives.
+pub const TABLE_SETTLE_SECS: f32 = 120.0;
 
-/// Frames per second a hidden or minimised window still draws.
-pub const HIDDEN_FPS: u32 = 1;
-
-/// The most frames an idle menu draws whose world keeps moving (`High` and
-/// up; below that it rests at [`HIDDEN_FPS`]). Nobody has touched it for
-/// [`IDLE_AFTER_SECS`], and what moves is slow ambience. Measured on a
-/// Windows desktop's RTX 4070 Ti, an untouched front door at 30, 15 and 5
-/// frames drew 13.6, 6.5 and 2.2 W of board power over the desktop's own
-/// and 21, 12 and 4 % of a core (`docs/perf-client.md` §"Windows").
-pub const IDLE_MOVING_FPS: u32 = 15;
+/// Hard floor on frames per second whenever the window is visible (focused,
+/// unfocused, or idle). Only a minimised or completely occluded window drops
+/// below this (to [`Pace::Paused`], 0 fps).
+pub const MIN_VISIBLE_FPS: u32 = 30;
 
 /// The device's graphics settings.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -641,16 +620,12 @@ impl Graphics {
             return Preset::Medium;
         }
         if name.contains("apple") {
-            let plain_m1 = name.contains("m1")
-                && !(name.contains("pro") || name.contains("max") || name.contains("ultra"));
-            let later = ["m2", "m3", "m4", "m5", "m6"]
-                .iter()
-                .any(|m| name.contains(m));
-            let big = name.contains("max") || name.contains("ultra");
-            // A Max or Ultra of the second generation on has fans that
-            // hardly turn at High; the first generation, and every plain
-            // chip, stays at Medium.
-            return if later && big && !plain_m1 {
+            let pro_max_ultra =
+                name.contains("pro") || name.contains("max") || name.contains("ultra");
+            // Every Pro, Max or Ultra Apple Silicon GPU (including M1 Pro,
+            // M1 Max and M1 Ultra) starts at High; base M-series laptops and
+            // tablets stay at Medium.
+            return if pro_max_ultra {
                 Preset::High
             } else {
                 Preset::Medium
@@ -695,75 +670,79 @@ pub struct Showing {
     pub picture: bool,
 }
 
-/// How often frames are drawn: as fast as allowed, or one every so often.
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// How often frames are drawn: as fast as allowed, one every so often, or
+/// paused while hidden.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Pace {
     /// No limit beyond the display (or vsync off, none at all).
     Unlimited,
     /// At most this many frames a second.
     Fps(u32),
+    /// Zero frames: the window is minimised or completely occluded.
+    Paused,
 }
 
 impl Pace {
-    /// Seconds between frames, or `None` for no limit.
+    /// Seconds between frames, or `None` for no limit (`INFINITY` when paused).
     #[must_use]
     pub fn interval_secs(self) -> Option<f32> {
         match self {
             Self::Unlimited => None,
             #[allow(clippy::cast_precision_loss)]
             Self::Fps(fps) => Some(1.0 / fps.max(1) as f32),
+            Self::Paused => Some(f32::INFINITY),
         }
     }
 }
 
 impl Graphics {
-    /// Whether a menu has come to rest: untouched for [`IDLE_AFTER_SECS`],
-    /// with ambient effects below `High`. A resting menu holds its ambient
-    /// world still where it stands (the next input moves it on from there)
-    /// and draws one frame a second, so an idle front door costs next to
-    /// nothing; at `High`, and wherever a moving picture is shown
-    /// ([`Showing::picture`]), it keeps moving, at the background limit and
-    /// at most [`IDLE_MOVING_FPS`].
+    /// Whether ambient clocks may pause completely: when the window is hidden
+    /// (minimised or occluded), or on an idle menu whose ambient motion was
+    /// already turned off (`Effects::Low` or `reduce_motion`). Visible ambient
+    /// scenes and video loops never freeze at the 30 fps idle rate.
     #[must_use]
     pub fn rests(&self, showing: Showing) -> bool {
-        showing.menu
-            && showing.untouched_secs >= IDLE_AFTER_SECS
-            && (showing.still || (self.effects != Effects::High && !showing.picture))
+        showing.hidden
+            || (showing.menu && showing.still && showing.untouched_secs >= IDLE_AFTER_SECS)
     }
 
     /// The pace for a window in this state, and whether input should wake a
     /// frame at once (a reduced pace) or wait for the next one (a cap).
     ///
-    /// Hidden beats everything (nobody sees it). A menu left alone for
-    /// [`IDLE_AFTER_SECS`] comes to rest at one frame a second
-    /// ([`Self::rests`]), or at `High` draws at the background limit held to
-    /// [`IDLE_MOVING_FPS`], in front or behind; behind other windows, the
-    /// background limit; a menu settled for [`MENU_SETTLE_SECS`], at most
-    /// [`MENU_FPS`]; a table at rest for [`TABLE_SETTLE_SECS`], its
-    /// [`RestLimit`] where that is below the focused limit; otherwise the
-    /// focused limit. A reduced pace is never faster than the focused limit.
+    /// Policy:
+    /// - Hidden (minimised or completely occluded): [`Pace::Paused`] (0 fps).
+    /// - Visible (focused, unfocused, or idle): never below [`MIN_VISIBLE_FPS`]
+    ///   (30 fps).
+    /// - Active focused window: runs at [`Self::frame_limit`] (60 fps on
+    ///   `Medium`, 120 fps on `High`, unlimited on `Ultra`) for
+    ///   [`IDLE_AFTER_SECS`] (`120.0`s), then eases smoothly to 30 fps on menus
+    ///   (or [`Self::rest_limit`] at the table) and returns immediately on any
+    ///   user action or game event.
+    /// - Unfocused visible window: [`Self::background_limit`] clamped to at
+    ///   least [`MIN_VISIBLE_FPS`] (30 fps), and never faster than the focused
+    ///   cap.
     #[must_use]
     pub fn pace(&self, showing: Showing) -> (Pace, bool) {
         if showing.hidden {
-            return (Pace::Fps(HIDDEN_FPS), true);
+            return (Pace::Paused, true);
         }
-        let focused = self.frame_limit.fps();
-        let held = |fps: u32| Pace::Fps(focused.map_or(fps, |f| fps.min(f)));
-        let idle = showing.menu && showing.untouched_secs >= IDLE_AFTER_SECS;
-        if self.rests(showing) {
-            return (Pace::Fps(HIDDEN_FPS), true);
-        }
-        if idle {
-            let fps = self.background_limit.fps().min(IDLE_MOVING_FPS);
-            return (held(fps), true);
-        }
+        let focused = self.frame_limit.fps().map(|f| f.max(MIN_VISIBLE_FPS));
+        let held = |fps: u32| {
+            let floored = fps.max(MIN_VISIBLE_FPS);
+            Pace::Fps(focused.map_or(floored, |cap| floored.min(cap)))
+        };
         if !showing.focused {
-            return (held(self.background_limit.fps()), true);
+            let bg = if showing.menu && showing.untouched_secs >= IDLE_AFTER_SECS {
+                MIN_VISIBLE_FPS
+            } else {
+                self.background_limit.fps().max(MIN_VISIBLE_FPS)
+            };
+            return (held(bg), true);
         }
-        if showing.menu && showing.untouched_secs >= MENU_SETTLE_SECS {
-            return (held(MENU_FPS), true);
+        if showing.menu && showing.untouched_secs >= IDLE_AFTER_SECS {
+            return (held(MIN_VISIBLE_FPS), true);
         }
-        let rest = self.rest_limit.fps();
+        let rest = self.rest_limit.fps().max(MIN_VISIBLE_FPS);
         if !showing.menu
             && showing.untouched_secs >= TABLE_SETTLE_SECS
             && focused.is_none_or(|cap| rest < cap)
@@ -967,21 +946,27 @@ mod tests {
         assert_eq!(graphics.preset, Preset::High);
     }
 
-    /// The pace: the focused limit at a table where something happens,
-    /// whatever the pointer does, and thirty at a table at rest however long
-    /// it rests; a settled menu at thirty; an idle menu, or any screen behind
-    /// other windows, at the background limit — and an idle menu with
-    /// nothing moving, like a hidden window, at one frame a second. A reduced
-    /// pace wakes on input, a cap does not, and none is faster than the cap.
+    /// Active focused menus and tables hold their full rate for `120.0`s, ease
+    /// smoothly to 30 fps (or the table's `RestLimit`), and return immediately
+    /// on any user or game action.
     #[test]
     fn the_pace_follows_the_window() {
         let medium = Graphics::of(Preset::Medium);
         assert_eq!(medium.pace(AT_DESK), (Pace::Fps(60), false));
-        let table_busy = Showing {
-            untouched_secs: TABLE_SETTLE_SECS * 0.5,
-            ..AT_DESK
-        };
-        assert_eq!(medium.pace(table_busy), (Pace::Fps(60), false));
+        for active_secs in [0.0, 2.0, 30.0, 119.9] {
+            let table_active = Showing {
+                untouched_secs: active_secs,
+                ..AT_DESK
+            };
+            let menu_active = Showing {
+                menu: true,
+                untouched_secs: active_secs,
+                ..AT_DESK
+            };
+            assert_eq!(medium.pace(table_active), (Pace::Fps(60), false));
+            assert_eq!(medium.pace(menu_active), (Pace::Fps(60), false));
+            assert!(!medium.rests(menu_active));
+        }
         let table_resting = Showing {
             untouched_secs: TABLE_SETTLE_SECS,
             ..AT_DESK
@@ -991,106 +976,101 @@ mod tests {
             untouched_secs: 600.0,
             ..AT_DESK
         };
-        assert_eq!(
-            medium.pace(table_untouched),
-            (Pace::Fps(30), true),
-            "a table never idles below its rest rate: the game may move"
-        );
-        // Resting at sixty under a cap of sixty is not resting at all: the
-        // table holds the cap, input does not wake it, as before the knob.
+        assert_eq!(medium.pace(table_untouched), (Pace::Fps(30), true));
+        // Resting at sixty under a cap of sixty stays at the cap without waking.
         let mut sixty = medium;
         sixty.rest_limit = RestLimit::Fps60;
         assert_eq!(sixty.pace(table_untouched), (Pace::Fps(60), false));
         assert_eq!(sixty.pace(table_untouched), sixty.pace(AT_DESK));
-        // Above sixty it rests at sixty: High's cap is 120.
+        // High caps at 120 active, rests at 60 at the table, and eases to 30 on an idle menu.
         let high = Graphics::of(Preset::High);
         assert_eq!(high.rest_limit, RestLimit::Fps60);
-        assert_eq!(high.pace(table_untouched), (Pace::Fps(60), true));
         assert_eq!(high.pace(AT_DESK), (Pace::Fps(120), false));
-        // Low's cap is thirty already: nothing to ease to.
+        assert_eq!(high.pace(table_untouched), (Pace::Fps(60), true));
         let low = Graphics::of(Preset::Low);
         assert_eq!(low.pace(table_untouched), (Pace::Fps(30), false));
-        let menu = Showing {
+        let menu_idle = Showing {
             menu: true,
+            untouched_secs: IDLE_AFTER_SECS,
             ..AT_DESK
         };
-        assert_eq!(medium.pace(menu), (Pace::Fps(60), false));
-        let settled = Showing {
-            untouched_secs: MENU_SETTLE_SECS,
-            ..menu
-        };
-        assert_eq!(medium.pace(settled), (Pace::Fps(MENU_FPS), true));
-        let idle = Showing {
-            untouched_secs: IDLE_AFTER_SECS,
-            ..menu
-        };
-        // Medium comes to rest; High keeps its world moving, at the
-        // background rate held to `IDLE_MOVING_FPS`, unless nothing ambient
-        // moves anyway.
-        assert!(medium.rests(idle) && !medium.rests(settled));
-        assert_eq!(medium.pace(idle), (Pace::Fps(HIDDEN_FPS), true));
-        let high = Graphics::of(Preset::High);
-        assert!(!high.rests(idle));
-        assert_eq!(high.pace(idle), (Pace::Fps(IDLE_MOVING_FPS), true));
-        // In front or behind, the same: an idle window behind others never
-        // draws more than the same window idle in front. Behind and touched
-        // a moment ago, the background limit holds (30 at High).
-        let idle_behind = Showing {
-            focused: false,
-            ..idle
-        };
-        assert_eq!(high.pace(idle_behind), high.pace(idle));
+        assert_eq!(medium.pace(menu_idle), (Pace::Fps(30), true));
+        assert_eq!(high.pace(menu_idle), (Pace::Fps(30), true));
+        // Immediate return to 60 fps on any user action (`untouched_secs = 0.0`).
         assert_eq!(
-            high.pace(Showing {
-                focused: false,
-                ..settled
+            medium.pace(Showing {
+                untouched_secs: 0.0,
+                ..menu_idle
             }),
-            (Pace::Fps(30), true)
+            (Pace::Fps(60), false)
         );
-        // Below `IDLE_MOVING_FPS` the background limit stands.
-        let mut quiet = high;
-        quiet.background_limit = BackgroundLimit::Fps5;
-        assert_eq!(quiet.pace(idle), (Pace::Fps(5), true));
-        let idle_still = Showing {
-            still: true,
-            ..idle
-        };
-        assert!(high.rests(idle_still));
-        assert_eq!(high.pace(idle_still), (Pace::Fps(HIDDEN_FPS), true));
-        assert!(!medium.rests(Showing {
-            menu: false,
-            ..idle
-        }));
+        let interval = Pace::Fps(60).interval_secs().expect("a limit");
+        assert!((interval - 1.0 / 60.0).abs() < 1e-6);
+        assert_eq!(Pace::Unlimited.interval_secs(), None);
+        assert_eq!(Pace::Paused.interval_secs(), Some(f32::INFINITY));
+    }
+
+    /// Every visible window (including unfocused) stays at `>= 30` fps, and
+    /// `0` fps (`Pace::Paused`) happens strictly when minimised or occluded.
+    #[test]
+    fn visible_windows_never_drop_below_thirty_and_only_hidden_pauses() {
+        for preset in Preset::NAMED {
+            let g = Graphics::of(preset);
+            let hidden = Showing {
+                hidden: true,
+                ..AT_DESK
+            };
+            assert_eq!(g.pace(hidden), (Pace::Paused, true), "{preset:?} hidden");
+            assert!(g.rests(hidden), "{preset:?} hidden rests");
+            for focused in [true, false] {
+                for menu in [true, false] {
+                    for untouched_secs in [0.0, 2.0, 30.0, IDLE_AFTER_SECS, 3600.0] {
+                        let s = Showing {
+                            focused,
+                            hidden: false,
+                            menu,
+                            untouched_secs,
+                            still: false,
+                            picture: menu,
+                        };
+                        let (pace, _) = g.pace(s);
+                        assert_ne!(pace, Pace::Paused, "{preset:?} {s:?} paused while visible");
+                        if let Pace::Fps(fps) = pace {
+                            assert!(
+                                fps >= MIN_VISIBLE_FPS,
+                                "{preset:?} {s:?} dropped to {fps} fps"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        let medium = Graphics::of(Preset::Medium);
         let away = Showing {
             focused: false,
             ..AT_DESK
         };
-        assert_eq!(medium.pace(away), (Pace::Fps(15), true));
-        let hidden = Showing {
-            hidden: true,
-            ..AT_DESK
-        };
-        assert_eq!(medium.pace(hidden), (Pace::Fps(HIDDEN_FPS), true));
+        assert_eq!(medium.pace(away), (Pace::Fps(MIN_VISIBLE_FPS), true));
         let ultra = Graphics::of(Preset::Ultra);
         assert_eq!(ultra.pace(AT_DESK), (Pace::Unlimited, false));
         assert_eq!(ultra.pace(away), (Pace::Fps(60), true));
-        assert_eq!(ultra.pace(settled), (Pace::Fps(MENU_FPS), true));
-        // A reduced pace is held to the cap.
+        assert_eq!(
+            ultra.pace(Showing {
+                menu: true,
+                untouched_secs: IDLE_AFTER_SECS,
+                ..away
+            }),
+            (Pace::Fps(MIN_VISIBLE_FPS), true)
+        );
+        // A reduced pace is still held to the focused cap when that cap is 30.
         let mut odd = Graphics::of(Preset::Low);
         odd.background_limit = BackgroundLimit::Fps60;
         assert_eq!(odd.pace(away), (Pace::Fps(30), true));
-        let mut slow = Graphics::of(Preset::Medium);
-        slow.frame_limit = FrameLimit::Fps30;
-        slow.background_limit = BackgroundLimit::Fps60;
-        assert_eq!(slow.pace(settled), (Pace::Fps(30), true));
-        let interval = Pace::Fps(60).interval_secs().expect("a limit");
-        assert!((interval - 1.0 / 60.0).abs() < 1e-6);
-        assert_eq!(Pace::Unlimited.interval_secs(), None);
     }
 
-    /// A moving picture keeps an idle menu drawing at any preset, at the
-    /// idle rate and no faster; with nothing ambient moving there is no
-    /// picture to keep up, and the menu rests.
+    /// Visible moving scenes and loops never freeze at the 30 fps idle rate;
+    /// only `still` menus (`Effects::Low` / `reduce_motion`) or hidden windows
+    /// pause ambient clocks.
     #[test]
     fn a_moving_picture_keeps_an_idle_menu_drawing() {
         let medium = Graphics::of(Preset::Medium);
@@ -1100,27 +1080,39 @@ mod tests {
             untouched_secs: IDLE_AFTER_SECS,
             ..AT_DESK
         };
-        assert!(medium.rests(idle));
+        assert!(!medium.rests(idle));
+        assert!(!high.rests(idle));
         let idle_film = Showing {
             picture: true,
             ..idle
         };
         assert!(!medium.rests(idle_film));
-        assert_eq!(medium.pace(idle_film), (Pace::Fps(IDLE_MOVING_FPS), true));
+        assert_eq!(medium.pace(idle_film), (Pace::Fps(MIN_VISIBLE_FPS), true));
         assert_eq!(high.pace(idle_film), high.pace(idle));
-        assert!(medium.rests(Showing {
+        let idle_still = Showing {
             still: true,
             ..idle_film
+        };
+        assert!(medium.rests(idle_still));
+        assert!(high.rests(idle_still));
+        assert_eq!(medium.pace(idle_still), (Pace::Fps(MIN_VISIBLE_FPS), true));
+        assert!(!medium.rests(Showing {
+            menu: false,
+            ..idle_still
         }));
     }
 
-    /// The device's GPU picks the starting preset, quiet side first.
+    /// The device's GPU picks the starting preset, quiet side first, with
+    /// Apple M1 Pro / M1 Max / M1 Ultra selecting `Preset::High`.
     #[test]
     fn the_starting_preset_is_picked_from_the_gpu_quiet_first() {
         assert_eq!(Graphics::auto_preset("Apple M1", false), Preset::Medium);
-        assert_eq!(Graphics::auto_preset("Apple M1 Max", false), Preset::Medium);
+        assert_eq!(Graphics::auto_preset("Apple M1 Pro", false), Preset::High);
+        assert_eq!(Graphics::auto_preset("Apple M1 Max", false), Preset::High);
+        assert_eq!(Graphics::auto_preset("Apple M1 Ultra", false), Preset::High);
         assert_eq!(Graphics::auto_preset("Apple M3 Max", false), Preset::High);
         assert_eq!(Graphics::auto_preset("Apple M4", false), Preset::Medium);
+        assert_eq!(Graphics::auto_preset("Apple M1 Max", true), Preset::Medium);
         assert_eq!(
             Graphics::auto_preset("NVIDIA GeForce RTX 4070 Ti", false),
             Preset::High

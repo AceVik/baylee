@@ -1,7 +1,9 @@
 //! An AVIF image sequence's tracks and where each frame's bytes lie
 //! (ISO/IEC 23000-22 and 14496-12 §8): the colour track, an alpha track
 //! that refers to it (`auxl`), and for each, every sample's offset, length
-//! and duration. Nothing here decodes; [`crate::Player`] does.
+//! and exact rational timing. Nothing here decodes; [`crate::Player`] does.
+
+use std::num::NonZeroU64;
 
 use crate::boxes::{Atom, Cursor, children, full, needed, only};
 use crate::{Bounds, Error};
@@ -10,18 +12,47 @@ use crate::{Bounds, Error};
 /// a player that took it at its word would decode as fast as it could.
 pub const MIN_FRAME_MS: u32 = 10;
 
-/// One frame's bytes in the file, and how long it is shown.
+/// Nanoseconds per second.
+const NANOS_PER_SEC: u128 = 1_000_000_000;
+
+/// Milliseconds per second.
+const MILLIS_PER_SEC: u128 = 1_000;
+
+/// One frame's bytes in the file, and its exact rational timestamp and
+/// duration in [`Track::timescale`] ticks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Sample {
     /// Where its bytes start in the file.
     pub offset: usize,
     /// How many bytes it has.
     pub len: usize,
-    /// How long it is shown, at least [`MIN_FRAME_MS`].
-    pub duration_ms: u32,
+    /// When this frame begins within one pass, in [`Track::timescale`] ticks.
+    pub start_ticks: u64,
+    /// How long it is shown, in [`Track::timescale`] ticks (at least [`MIN_FRAME_MS`]).
+    pub duration_ticks: u64,
 }
 
-/// One track: its frames' size and its samples.
+impl Sample {
+    /// When this frame begins within one pass, in nanoseconds.
+    #[must_use]
+    pub fn start_ns(self, timescale: NonZeroU64) -> u64 {
+        (u128::from(self.start_ticks) * NANOS_PER_SEC / u128::from(timescale.get())) as u64
+    }
+
+    /// How long this frame is shown, in nanoseconds.
+    #[must_use]
+    pub fn duration_ns(self, timescale: NonZeroU64) -> u64 {
+        (u128::from(self.duration_ticks) * NANOS_PER_SEC / u128::from(timescale.get())) as u64
+    }
+
+    /// How long this frame is shown, rounded down to whole milliseconds.
+    #[must_use]
+    pub fn duration_ms(self, timescale: NonZeroU64) -> u64 {
+        (u128::from(self.duration_ticks) * MILLIS_PER_SEC / u128::from(timescale.get())) as u64
+    }
+}
+
+/// One track: its frames' size, exact rational clock, and samples.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Track {
     /// The track's id, which an alpha track names in its `auxl` reference.
@@ -30,15 +61,57 @@ pub struct Track {
     pub width: u32,
     /// Each frame's height in pixels.
     pub height: u32,
+    /// Ticks per second for [`Sample::start_ticks`] and [`Sample::duration_ticks`].
+    pub timescale: NonZeroU64,
+    /// Total ticks in one pass through [`Self::samples`].
+    pub total_ticks: u64,
     /// Every frame, in decoding order; the first is a key frame.
     pub samples: Vec<Sample>,
 }
 
 impl Track {
-    /// One pass through the track, in milliseconds.
+    /// One pass through the track, rounded down to whole milliseconds.
     #[must_use]
     pub fn duration_ms(&self) -> u64 {
-        self.samples.iter().map(|s| u64::from(s.duration_ms)).sum()
+        (u128::from(self.total_ticks) * MILLIS_PER_SEC / u128::from(self.timescale.get())) as u64
+    }
+
+    /// One pass through the track, in nanoseconds.
+    #[must_use]
+    pub fn duration_ns(&self) -> u64 {
+        (u128::from(self.total_ticks) * NANOS_PER_SEC / u128::from(self.timescale.get())) as u64
+    }
+
+    /// Exact `(pass_epoch, sample_index)` at `elapsed_ns` nanoseconds from the
+    /// start of playback, computed in 128-bit rational tick arithmetic so a
+    /// `60/1` fps sequence has zero drift over arbitrary hours.
+    #[must_use]
+    pub fn sample_at_ns(&self, elapsed_ns: u64, repeats: bool) -> (u64, usize) {
+        if self.samples.is_empty() || self.total_ticks == 0 {
+            return (0, 0);
+        }
+        let ticks = u128::from(elapsed_ns) * u128::from(self.timescale.get()) / NANOS_PER_SEC;
+        let total = u128::from(self.total_ticks);
+        if !repeats && ticks >= total {
+            return (0, self.samples.len() - 1);
+        }
+        let epoch = (ticks / total) as u64;
+        let in_pass = (ticks % total) as u64;
+        let index = self
+            .samples
+            .partition_point(|s| s.start_ticks <= in_pass)
+            .saturating_sub(1);
+        (epoch, index)
+    }
+
+    /// Monotonic 0-based frame counter (`epoch * samples.len() + sample_index`)
+    /// corresponding to `elapsed_ns` nanoseconds of real wall-clock playback.
+    #[must_use]
+    pub fn monotonic_frame_at_ns(&self, elapsed_ns: u64, repeats: bool) -> u64 {
+        let (epoch, index) = self.sample_at_ns(elapsed_ns, repeats);
+        epoch
+            .saturating_mul(self.samples.len() as u64)
+            .saturating_add(index as u64)
     }
 }
 
@@ -151,7 +224,12 @@ fn track(trak: &[u8], file_len: usize, bounds: &Bounds) -> Result<Read, Error> {
         None => false,
     };
     let mdia = children(needed(&atoms, b"mdia", "no media box")?.body)?;
-    let timescale = timescale(needed(&mdia, b"mdhd", "no media header")?.body)?;
+    let raw_timescale = timescale(needed(&mdia, b"mdhd", "no media header")?.body)?;
+    // Scale the 32-bit `mdhd` timescale by 1000 so `MIN_FRAME_MS` (10 ms) is
+    // always an exact integer number of ticks for every non-zero timescale
+    // while keeping rational ratios like `15360/256` (`60/1` fps) exact.
+    let scaled_timescale = NonZeroU64::new(u64::from(raw_timescale) * 1_000)
+        .ok_or(Error::Unsupported("a timescale of zero"))?;
     let role = match handler(needed(&mdia, b"hdlr", "no handler")?.body)? {
         h if &h == b"pict" || &h == b"vide" => Role::Colour,
         h if &h == b"auxv" => Role::Alpha,
@@ -175,15 +253,13 @@ fn track(trak: &[u8], file_len: usize, bounds: &Bounds) -> Result<Read, Error> {
     }
     let sizes = sample_sizes(needed(&stbl, b"stsz", "no sample sizes")?.body, bounds)?;
     let count = sizes.len();
-    let durations = durations(
+    let (durations, total_ticks) = durations(
         needed(&stbl, b"stts", "no sample times")?.body,
         count,
-        timescale,
+        raw_timescale,
+        scaled_timescale,
+        bounds.max_duration_ms,
     )?;
-    let total: u64 = durations.iter().map(|&d| u64::from(d)).sum();
-    if total > u64::from(bounds.max_duration_ms) {
-        return Err(Error::OutOfBounds("duration"));
-    }
     let chunks = match (only(&stbl, b"stco")?, only(&stbl, b"co64")?) {
         (Some(stco), None) => chunk_offsets(stco.body, false, count)?,
         (None, Some(co64)) => chunk_offsets(co64.body, true, count)?,
@@ -199,6 +275,7 @@ fn track(trak: &[u8], file_len: usize, bounds: &Bounds) -> Result<Read, Error> {
     }
     let mut samples = Vec::with_capacity(count);
     let mut index = 0;
+    let mut start_ticks = 0u64;
     for (chunk, &in_chunk) in chunks.iter().zip(&per_chunk) {
         let mut offset = *chunk;
         for _ in 0..in_chunk {
@@ -209,11 +286,14 @@ fn track(trak: &[u8], file_len: usize, bounds: &Bounds) -> Result<Read, Error> {
             if end > file_len as u64 || len == 0 {
                 return Err(Error::Truncated("sample past the file"));
             }
+            let duration_ticks = durations[index];
             samples.push(Sample {
                 offset: offset as usize,
                 len,
-                duration_ms: durations[index],
+                start_ticks,
+                duration_ticks,
             });
+            start_ticks += duration_ticks;
             offset = end;
             index += 1;
         }
@@ -223,6 +303,8 @@ fn track(trak: &[u8], file_len: usize, bounds: &Bounds) -> Result<Read, Error> {
             id,
             width,
             height,
+            timescale: scaled_timescale,
+            total_ticks,
             samples,
         },
         role,
@@ -304,28 +386,44 @@ fn sample_sizes(stsz: &[u8], bounds: &Bounds) -> Result<Vec<usize>, Error> {
         .collect()
 }
 
-/// Every sample's duration in milliseconds (`stts`), which must account for
-/// exactly `count` samples.
-fn durations(stts: &[u8], count: usize, timescale: u32) -> Result<Vec<u32>, Error> {
+/// Every sample's duration in scaled ticks (`stts`), which must account for
+/// exactly `count` samples and stay within `max_duration_ms`.
+fn durations(
+    stts: &[u8],
+    count: usize,
+    raw_timescale: u32,
+    scaled_timescale: NonZeroU64,
+    max_duration_ms: u32,
+) -> Result<(Vec<u64>, u64), Error> {
     let (_, _, mut at) = full(stts)?;
     let entries = at.u32("time entries")? as usize;
     if entries > count || at.rest().len() < entries * 8 {
         return Err(Error::Truncated("time entries"));
     }
+    let min_ticks = u64::from(raw_timescale) * u64::from(MIN_FRAME_MS);
+    let max_ticks =
+        u128::from(max_duration_ms) * u128::from(scaled_timescale.get()) / MILLIS_PER_SEC;
     let mut out = Vec::with_capacity(count);
+    let mut total_ticks = 0u64;
     for _ in 0..entries {
         let run = at.u32("time run")? as usize;
         let delta = at.u32("time delta")?;
         if run > count - out.len() {
             return Err(Error::Unsupported("times for more samples than there are"));
         }
-        let ms = (u64::from(delta) * 1000 / u64::from(timescale)).min(u64::from(u32::MAX)) as u32;
-        out.extend(std::iter::repeat_n(ms.max(MIN_FRAME_MS), run));
+        let ticks = (u64::from(delta) * 1_000).max(min_ticks);
+        let run_ticks = u128::from(ticks) * (run as u128);
+        let next_total = u128::from(total_ticks) + run_ticks;
+        if next_total > max_ticks || next_total > u128::from(u64::MAX) {
+            return Err(Error::OutOfBounds("duration"));
+        }
+        total_ticks = next_total as u64;
+        out.extend(std::iter::repeat_n(ticks, run));
     }
     if out.len() != count {
         return Err(Error::Unsupported("times for fewer samples than there are"));
     }
-    Ok(out)
+    Ok((out, total_ticks))
 }
 
 fn chunk_offsets(body: &[u8], wide: bool, samples: usize) -> Result<Vec<u64>, Error> {

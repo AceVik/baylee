@@ -16,11 +16,25 @@ thiserror.workspace = true
 
 # The decoder the owner chose for animated pictures (12.11.2026, Central's
 # `docs/dependency-proposal/profile-picture.md` §0.8): rav1d, the Rust port of
-# dav1d, behind the small `unsafe` wrapper in `src/dav1d.rs`. Without its
-# assembly: the published crate's arm64 assembly does not build (it lacks
-# `asm-offsets.h`), and the x86 assembly needs nasm on every builder. Eight-bit
-# only: every file Central stores and every loop we ship is eight-bit.
+# dav1d, behind the small `unsafe` wrapper in `src/dav1d.rs`. We link Rerun's
+# `re_rav1d` 0.1.3 (`BSD-2-Clause`), which packages `src/arm/asm-offsets.h` so
+# the full ARM64 NEON / DotProd / I8MM assembly builds cleanly via `cc` with
+# runtime CPU feature detection (`is_aarch64_feature_detected!`), and fixes the
+# `decode.rs:4999` error-path unwrap abort in `rav1d` 1.1.0. ARM64's assembly
+# links symbols from both 8-bit and 16-bit tables (`ipred.rs`), so both
+# bitdepth features are enabled on `aarch64`; x86 keeps scalar 8-bit so `nasm`
+# is never required on developer or CI machines.
 # It does not build for wasm32 (`libc::ptrdiff_t`); the browser shows stills.
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-rav1d = { version = "1.1.0", default-features = false, features = ["bitdepth_8"] }
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+rav1d = { package = "re_rav1d", version = "0.1.3", default-features = false, features = [
+    "asm",
+    "asm_arm64_dotprod",
+    "asm_arm64_i8mm",
+    "bitdepth_8",
+    "bitdepth_16",
+] }
+libc = "0.2"
+
+[target.'cfg(all(not(target_arch = "wasm32"), not(target_arch = "aarch64")))'.dependencies]
+rav1d = { package = "re_rav1d", version = "0.1.3", default-features = false, features = ["bitdepth_8"] }
 libc = "0.2"

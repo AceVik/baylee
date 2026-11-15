@@ -368,14 +368,66 @@ debug = "line-tables-only"
 [profile.dev.package."*"]
 debug = false
 
-# rav1d decodes the backdrops' loops (`baylee-avif`), and an AV1 decoder
-# without optimisation is seconds a frame: `vista::loops`' four tests, which
-# decode the shipped loops, took 10.2 s alone, and one ran into its own 20 s
-# deadline beside 1400 others (12.11.2026). A dependency is built once, so
-# this costs a developer's rebuild nothing.
-[profile.dev.package.rav1d]
+# re_rav1d decodes the backdrops' 720p60 AVIF loops (`baylee-avif`), and an AV1
+# decoder or its hot leaf crates without optimisation or with overflow/assertion
+# checks in inner pixel loops stalls `cargo run` for hundreds of milliseconds.
+# Dependencies are built once, and `baylee-avif` is tiny, so this keeps dev
+# builds well under 2.5 ms/frame on Apple Silicon without slowing rebuilds.
+[profile.dev.package.re_rav1d]
 opt-level = 3
 debug = false
+debug-assertions = false
+overflow-checks = false
+
+[profile.dev.package.baylee-avif]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
+
+[profile.dev.package.zerocopy]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
+
+[profile.dev.package.to_method]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
+
+[profile.dev.package.bitflags]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
+
+[profile.dev.package.smallvec]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
+
+[profile.dev.package.atomig]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
+
+[profile.dev.package.av-data]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
+
+[profile.dev.package.byte-slice-cast]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
+
+[profile.dev.package.libc]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
+
+[profile.dev.package.cfg-if]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
 
 # The gate's test run (`cargo dev gate`'s `test` step, nextest
 # `--cargo-profile gate`): the dev profile, with the crates the slowest tests

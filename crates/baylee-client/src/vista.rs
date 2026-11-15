@@ -199,7 +199,8 @@ pub struct VistaParams {
     /// The path's brightness, the ember rate, the scene's alpha, the floor's
     /// zoom.
     pub air: Vec4,
-    /// Login flight progress, active flag, virtual seconds, logical height.
+    /// Login flight progress, active flag, spare zero (`VistaClock` carries
+    /// real nanoseconds outside the uniform), logical height.
     pub portal: Vec4,
     /// How much of the scene's moving picture is drawn over its still, 0–1
     /// (`vista::loops::light` is its one writer); the rest is spare.
@@ -372,6 +373,7 @@ impl Plugin for VistaPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FrontScene>()
             .init_resource::<Gaze>()
+            .init_resource::<VistaClock>()
             .add_systems(Update, (gaze, paint).chain());
         // As for the ambient field: a headless test has no asset server and
         // no render world, and there is nothing to draw on there.
@@ -443,11 +445,15 @@ pub fn surface(
 /// Follows the pointer. A window with no pointer in it (a phone between
 /// touches) lets the scene drift back to the middle.
 fn gaze(
+    real_time: Option<Res<Time<Real>>>,
     time: Res<Time>,
     windows: Query<&Window, With<PrimaryWindow>>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     mut gaze: ResMut<Gaze>,
 ) {
+    let dt = real_time
+        .as_deref()
+        .map_or_else(|| time.delta_secs(), Time::delta_secs);
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
     let target = windows
         .single()
@@ -458,10 +464,15 @@ fn gaze(
             (size.x > 0.0 && size.y > 0.0).then(|| (at / size) * 2.0 - Vec2::ONE)
         })
         .unwrap_or(Vec2::ZERO);
-    let next = if still {
+    let raw = if still {
         Vec2::ZERO
     } else {
-        gaze.0 + (target - gaze.0) * (1.0 - (-GAZE_RATE * time.delta_secs()).exp())
+        gaze.0 + (target - gaze.0) * (1.0 - (-GAZE_RATE * dt).exp())
+    };
+    let next = if (target - raw).length_squared() < 1e-10 {
+        target
+    } else {
+        raw
     };
     if gaze.0 != next {
         gaze.0 = next;
@@ -496,34 +507,40 @@ fn towards(from: f32, to: f32, step: f32) -> f32 {
     }
 }
 
-/// The painted world's own clock, one for every surface that draws it, so the
-/// front door and the lobby behind its aperture show one world at one moment:
-/// seconds it has moved, stopped while a menu rests (`quality::Resting`) and
-/// going on from there, never jumping.
-#[derive(Default)]
-pub(crate) struct WorldClock(f32);
+/// Maximum single-frame wall-clock delta added to [`VistaClock`] (`250` ms),
+/// preventing OS stalls from leaping the background video playhead.
+const MAX_CLOCK_STEP_NS: u64 = 250_000_000;
 
-/// What the device's settings ask of the world this frame: whether it stands
-/// still (ambient `Low` freezes its own movement, never a transition), its
-/// detail, and how far its clock moves (none while a menu rests).
-fn ambience(
-    still: bool,
-    quality: Option<&crate::quality::InUse>,
-    resting: Option<&crate::quality::Resting>,
-    dt: f32,
-) -> (bool, f32, f32, f32) {
-    (
-        crate::quality::ambient_still(still, quality),
-        crate::quality::ambient_detail(quality),
-        // The backdrop (WP5): how much of the painting is drawn; none at
-        // all on Plain, whose surfaces are not drawn.
-        quality.map_or(1.0, |q| q.0.backdrop.share()),
-        if resting.is_some_and(|r| r.0) {
-            0.0
-        } else {
-            dt
-        },
-    )
+/// Drift-free real-time clock shared by the painted world's surfaces and AVIF
+/// loops: exact nanoseconds from `Time<Real>`, paused while `Resting` or
+/// frozen (`reduce_motion` / `Effects::Low`), and kept out of `VistaParams` so
+/// steady frames never dirty `Assets<VistaMaterial>` or rebuild its 8-texture
+/// bind group.
+#[derive(Resource, Default, Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct VistaClock {
+    /// Elapsed real nanoseconds while active and moving.
+    pub nanos: u64,
+    /// Whether ambient motion is permitted this frame.
+    pub energy: bool,
+    /// Suppresses the sleep delta on the first frame after resuming from pause.
+    was_paused: bool,
+}
+
+impl VistaClock {
+    fn advance(&mut self, raw_ns: u64, frozen: bool, resting: bool) {
+        let paused = frozen || resting;
+        if paused {
+            self.energy = !frozen;
+            self.was_paused = true;
+            return;
+        }
+        self.energy = true;
+        if self.was_paused {
+            self.was_paused = false;
+            return;
+        }
+        self.nanos = self.nanos.wrapping_add(raw_ns.min(MAX_CLOCK_STEP_NS));
+    }
 }
 
 /// Writes each surface's uniforms for this frame.
@@ -531,6 +548,7 @@ fn ambience(
 #[allow(clippy::too_many_arguments)] // Bevy system: the stage, the screen and the settings it reads
 #[allow(clippy::too_many_lines)] // one pass over the surfaces; its steps share the frame's numbers
 pub(crate) fn paint(
+    real_time: Option<Res<Time<Real>>>,
     time: Res<Time>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     gaze: Res<Gaze>,
@@ -547,16 +565,26 @@ pub(crate) fn paint(
     materials: Option<ResMut<Assets<VistaMaterial>>>,
     quality: Option<Res<crate::quality::InUse>>,
     resting: Option<Res<crate::quality::Resting>>,
-    mut clock: Local<WorldClock>,
+    mut clock: Option<ResMut<VistaClock>>,
 ) {
     let Some(mut materials) = materials else {
         return;
     };
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
-    let dt = time.delta_secs();
-    let (frozen, detail, backdrop, world_dt) =
-        ambience(still, quality.as_deref(), resting.as_deref(), dt);
-    clock.0 += world_dt;
+    let delta = real_time
+        .as_deref()
+        .map_or_else(|| time.delta(), Time::delta);
+    let dt = delta.as_secs_f32();
+    let raw_ns = u64::try_from(delta.as_nanos()).unwrap_or(u64::MAX);
+    let frozen = crate::quality::ambient_still(still, quality.as_deref());
+    let detail = crate::quality::ambient_detail(quality.as_deref());
+    let backdrop = quality.as_deref().map_or(1.0, |q| q.0.backdrop.share());
+    let is_resting = resting.as_deref().is_some_and(|r| r.0);
+    if let Some(clock_res) = clock.as_mut() {
+        let mut next = **clock_res;
+        next.advance(raw_ns, frozen, is_resting);
+        clock_res.set_if_neq(next);
+    }
     for (kind, mut settled, computed, handle, mut visibility, z) in &mut surfaces {
         let size = computed.size();
         if size.y <= 0.0 {
@@ -582,13 +610,13 @@ pub(crate) fn paint(
         {
             z.set_if_neq(GlobalZIndex(if entering { 50 } else { -1 }));
         }
-        settled.presence = if still || (*kind == Vista::Front && front.portal > 0.0 && !front.shown)
-        {
-            presence
-        } else {
-            towards(settled.presence, presence, dt / PRESENCE_SECONDS)
-        };
-        settled.hour = if still {
+        let next_presence =
+            if still || (*kind == Vista::Front && front.portal > 0.0 && !front.shown) {
+                presence
+            } else {
+                towards(settled.presence, presence, dt / PRESENCE_SECONDS)
+            };
+        let next_hour = if still {
             towards(settled.hour, stage.hour, dt / STILL_HOUR_SECONDS)
         } else {
             stage.hour
@@ -600,13 +628,20 @@ pub(crate) fn paint(
                 || unframed(aspect),
                 |(_, node, place)| frame_of(node, place, size),
             );
-        let panel = match settled.panel {
+        let raw_panel = match settled.panel {
             // The form has already gone; keep its aperture throughout the
             // flight instead of chasing the fallback panel behind the lobby.
             Some(panel) if entering => panel,
             Some(panel) if !still => panel + (target - panel) * (1.0 - (-FRAME_RATE * dt).exp()),
             _ => target,
         };
+        let panel = if !entering && (target - raw_panel).length_squared() < 1e-12 {
+            target
+        } else {
+            raw_panel
+        };
+        settled.presence = next_presence;
+        settled.hour = next_hour;
         settled.panel = Some(panel);
 
         let shown = settled.presence > 0.0 && backdrop > 0.0;
@@ -644,7 +679,7 @@ pub(crate) fn paint(
             portal: Vec4::new(
                 if entering { front.portal } else { 0.0 },
                 if entering { 1.0 } else { 0.0 },
-                clock.0 * energy,
+                0.0,
                 size.y * computed.inverse_scale_factor(),
             ),
             air: Vec4::new(

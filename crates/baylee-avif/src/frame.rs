@@ -1,5 +1,9 @@
-//! A decoded frame's planes, packed without the decoder's row padding, and
-//! their conversion to RGBA for a picture drawn as an ordinary image.
+//! A decoded frame's planes — either packed without row padding ([`Frame`])
+//! for RGBA conversion, or laid out in one contiguous 256-byte row-aligned
+//! buffer ([`AlignedPlanes`]) for zero-allocation GPU staging copies.
+
+/// Row byte-pitch alignment required by `wgpu::COPY_BYTES_PER_ROW_ALIGNMENT`.
+pub const ROW_ALIGNMENT: usize = 256;
 
 /// How luma and chroma were mixed from RGB (the sequence header's matrix
 /// coefficients, ITU-T H.273 table 4). Central writes BT.601 coefficients;
@@ -113,6 +117,127 @@ impl Frame {
 
 fn to_byte(x: f32) -> u8 {
     (x * 255.0).round().clamp(0.0, 255.0) as u8
+}
+
+/// One 8-bit 4:2:0 colour frame laid out in a single contiguous buffer with
+/// [`ROW_ALIGNMENT`]-byte row-pitch alignment on every plane (`Y`, then `U`,
+/// then `V`), ready for direct GPU `copy_buffer_to_texture` uploads with zero
+/// per-frame heap allocations.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct AlignedPlanes {
+    /// Width in pixels.
+    pub width: u32,
+    /// Height in pixels.
+    pub height: u32,
+    /// Byte stride between luma rows (a multiple of [`ROW_ALIGNMENT`]).
+    pub y_stride: u32,
+    /// Byte stride between chroma rows (a multiple of [`ROW_ALIGNMENT`]).
+    pub c_stride: u32,
+    /// Contiguous `Y | U | V` plane bytes.
+    pub data: Vec<u8>,
+    /// How chroma was mixed.
+    pub matrix: Matrix,
+    /// Whether the samples use the full 0–255 range rather than 16–235.
+    pub full_range: bool,
+}
+
+impl AlignedPlanes {
+    /// Pre-allocates an aligned plane buffer for `(width, height)`.
+    #[must_use]
+    pub fn with_dimensions(width: u32, height: u32) -> Self {
+        let mut planes = Self::default();
+        planes.prepare(width, height);
+        planes
+    }
+
+    /// Ensures `self.data` is sized for `(width, height)` with 256-byte row
+    /// alignment. Reusing an already-sized `AlignedPlanes` performs zero
+    /// allocations.
+    pub fn prepare(&mut self, width: u32, height: u32) {
+        let cw = width.div_ceil(2);
+        let ch = height.div_ceil(2);
+        let y_stride = (width as usize).next_multiple_of(ROW_ALIGNMENT);
+        let c_stride = (cw as usize).next_multiple_of(ROW_ALIGNMENT);
+        let total = y_stride * (height as usize) + 2 * c_stride * (ch as usize);
+        self.width = width;
+        self.height = height;
+        self.y_stride = y_stride as u32;
+        self.c_stride = c_stride as u32;
+        if self.data.len() != total {
+            self.data.resize(total, 0);
+        }
+    }
+
+    /// The chroma planes' width in pixels.
+    #[must_use]
+    pub fn chroma_width(&self) -> u32 {
+        self.width.div_ceil(2)
+    }
+
+    /// The chroma planes' height in pixels.
+    #[must_use]
+    pub fn chroma_height(&self) -> u32 {
+        self.height.div_ceil(2)
+    }
+
+    /// Byte offset of the luma plane inside [`Self::data`].
+    #[must_use]
+    pub fn y_offset(&self) -> usize {
+        0
+    }
+
+    /// Byte length of the padded luma plane.
+    #[must_use]
+    pub fn y_len(&self) -> usize {
+        self.y_stride as usize * self.height as usize
+    }
+
+    /// Byte length of one padded chroma plane (`U` or `V`).
+    #[must_use]
+    pub fn c_len(&self) -> usize {
+        self.c_stride as usize * self.chroma_height() as usize
+    }
+
+    /// Byte offset of the `U` (`Cb`) plane inside [`Self::data`].
+    #[must_use]
+    pub fn u_offset(&self) -> usize {
+        self.y_len()
+    }
+
+    /// Byte offset of the `V` (`Cr`) plane inside [`Self::data`].
+    #[must_use]
+    pub fn v_offset(&self) -> usize {
+        self.y_len() + self.c_len()
+    }
+
+    /// The padded luma plane (`y_stride * height` bytes).
+    #[must_use]
+    pub fn y_plane(&self) -> &[u8] {
+        &self.data[..self.y_len()]
+    }
+
+    /// The padded `U` (`Cb`) plane (`c_stride * chroma_height` bytes).
+    #[must_use]
+    pub fn u_plane(&self) -> &[u8] {
+        let u = self.u_offset();
+        &self.data[u..u + self.c_len()]
+    }
+
+    /// The padded `V` (`Cr`) plane (`c_stride * chroma_height` bytes).
+    #[must_use]
+    pub fn v_plane(&self) -> &[u8] {
+        let v = self.v_offset();
+        &self.data[v..v + self.c_len()]
+    }
+
+    /// Mutable borrows of `(y, u, v)` planes inside [`Self::data`].
+    pub(crate) fn planes_mut(&mut self) -> (&mut [u8], &mut [u8], &mut [u8]) {
+        let y_len = self.y_len();
+        let c_len = self.c_len();
+        let (y, rest) = self.data.split_at_mut(y_len);
+        let (u, v) = rest.split_at_mut(c_len);
+        (y, u, &mut v[..c_len])
+    }
 }
 
 #[cfg(test)]
