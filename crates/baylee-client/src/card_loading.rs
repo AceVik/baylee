@@ -88,8 +88,8 @@ pub(crate) fn images(
         let pending = art.is_some_and(|h| !images.contains(h.id()));
         if !pending {
             if let Some(waiting) = waiting {
-                commands.entity(waiting.overlay).despawn();
-                commands.entity(entity).remove::<AwaitingImage>();
+                commands.entity(waiting.overlay).try_despawn();
+                commands.entity(entity).try_remove::<AwaitingImage>();
             }
             continue;
         }
@@ -106,30 +106,47 @@ pub(crate) fn images(
             if waiting.image == image_id && (!waiting.failed || failed) {
                 return true;
             }
-            commands.entity(waiting.overlay).despawn();
+            commands.entity(waiting.overlay).try_despawn();
             false
         });
         if let Some(waiting) = waiting {
             if failed && !waiting.failed {
-                commands.entity(waiting.indicator).despawn();
-                for radians in [-0.78, 0.78] {
-                    commands.entity(waiting.overlay).with_child((
-                        Node {
-                            position_type: PositionType::Absolute,
-                            width: px(18),
-                            height: px(2),
-                            ..default()
-                        },
-                        UiTransform::from_rotation(Rot2::radians(radians)),
-                        BackgroundColor(Color::srgb(0.65, 0.73, 0.78)),
-                        Pickable::IGNORE,
-                    ));
-                }
-                commands.entity(entity).insert(AwaitingImage {
-                    image: image_id,
-                    overlay: waiting.overlay,
-                    indicator: waiting.overlay,
-                    failed: true,
+                commands.entity(waiting.indicator).try_despawn();
+                let overlay_id = waiting.overlay;
+                commands.queue_silenced(move |world: &mut World| {
+                    let mut marks = Vec::with_capacity(2);
+                    for radians in [-0.78_f32, 0.78_f32] {
+                        marks.push(
+                            world
+                                .spawn((
+                                    Node {
+                                        position_type: PositionType::Absolute,
+                                        width: px(18),
+                                        height: px(2),
+                                        ..default()
+                                    },
+                                    UiTransform::from_rotation(Rot2::radians(radians)),
+                                    BackgroundColor(Color::srgb(0.65, 0.73, 0.78)),
+                                    Pickable::IGNORE,
+                                ))
+                                .id(),
+                        );
+                    }
+                    if let Ok(mut overlay_mut) = world.get_entity_mut(overlay_id) {
+                        overlay_mut.add_children(&marks);
+                        if let Ok(mut card_mut) = world.get_entity_mut(entity) {
+                            card_mut.insert(AwaitingImage {
+                                image: image_id,
+                                overlay: overlay_id,
+                                indicator: overlay_id,
+                                failed: true,
+                            });
+                        }
+                    } else {
+                        for mark in marks {
+                            let _ = world.despawn(mark);
+                        }
+                    }
                 });
             }
             continue;
@@ -155,15 +172,18 @@ pub(crate) fn images(
             .id();
         let spinner = spinner(&mut commands, 22.0);
         commands.entity(overlay).add_child(spinner);
-        commands
-            .entity(entity)
-            .add_child(overlay)
-            .insert(AwaitingImage {
-                image: image_id,
-                overlay,
-                indicator: spinner,
-                failed: false,
-            });
+        commands.queue_silenced(move |world: &mut World| {
+            if let Ok(mut card_mut) = world.get_entity_mut(entity) {
+                card_mut.add_child(overlay).insert(AwaitingImage {
+                    image: image_id,
+                    overlay,
+                    indicator: spinner,
+                    failed: false,
+                });
+            } else if let Ok(overlay_mut) = world.get_entity_mut(overlay) {
+                overlay_mut.despawn();
+            }
+        });
     }
 }
 

@@ -1514,16 +1514,15 @@ generated or borrowed for this; they show no Wizards artwork and no other
 game's art, as the entry above records. The client no longer starts a
 player's `ffmpeg`.
 
-The decoder is `rav1d` 1.1.0 (the Rust port of dav1d; BSD-2-Clause, as
-dav1d is), built without its assembly and for 8-bit pictures only, behind
-`crates/baylee-avif`. It is one of "the Rust crates, under their own"
-licences that `NOTICE` and the client's About name; `deny.toml` allows
-BSD-2-Clause already. AV1 and AVIF are the Alliance for Open Media's
-royalty-free formats. The files it reads are ours: nothing from a gateway,
-from Central or from another player reaches it (`crates/baylee-avif`'s own
-docs say why it must stay so for now). Neither change adds a Scryfall
-request, a card image, a symbol or a font. This entry re-reads no policy
-page.
+The decoder is `re_rav1d` 0.1.3 (the maintained Rust port of dav1d; BSD-2-Clause,
+as dav1d is), built with its ARM64 NEON assembly on `aarch64` (scalar 8-bit on
+other native targets) behind `crates/baylee-avif`. It is one of "the Rust crates,
+under their own" licences that `NOTICE` and the client's About name; `deny.toml`
+allows BSD-2-Clause already. AV1 and AVIF are the Alliance for Open Media's
+royalty-free formats. Shipped scene loops use the streaming `Player` (`Bounds::SHIPPED_LOOP`),
+while untrusted avatars go only through the pure-Rust `Sequence::read` path (`Bounds::PICTURE`).
+Neither change adds a Scryfall request, a card image, a symbol or a font. This entry
+re-reads no policy page.
 
 ### Original Tower inventory portraits · 15 November 2026
 

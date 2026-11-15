@@ -85,7 +85,7 @@ fn dress(
             .mesh
             .get_or_insert_with(|| meshes.add(Rectangle::new(1.0, 1.0)))
             .clone();
-        commands.entity(entity).insert((
+        commands.entity(entity).try_insert((
             Mesh3d(mesh),
             MeshMaterial3d(handle),
             bevy::light::NotShadowCaster,

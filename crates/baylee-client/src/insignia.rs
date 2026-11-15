@@ -137,7 +137,7 @@ fn dress(
                 })
             })
             .clone();
-        commands.entity(entity).insert(MaterialNode(handle));
+        commands.entity(entity).try_insert(MaterialNode(handle));
     }
 }
 

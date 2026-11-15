@@ -46,7 +46,7 @@ impl Plugin for UiButtonPlugin {
                     };
                     holds.0.retain(|hold| hold.button != event.entity);
                     if pressed {
-                        commands.entity(event.entity).remove::<Pressed>();
+                        commands.entity(event.entity).try_remove::<Pressed>();
                     }
                 },
             )
@@ -57,7 +57,7 @@ impl Plugin for UiButtonPlugin {
                  disabled: Query<(), (With<UiButton>, With<InteractionDisabled>)>,
                  mut commands: Commands| {
                     if disabled.contains(event.entity) {
-                        commands.entity(event.entity).remove::<Pressed>();
+                        commands.entity(event.entity).try_remove::<Pressed>();
                     }
                 },
             );
@@ -150,7 +150,7 @@ fn settle_holds(
     }
     for entity in &pressed {
         if !holds.0.iter().any(|hold| hold.button == entity) {
-            commands.entity(entity).remove::<Pressed>();
+            commands.entity(entity).try_remove::<Pressed>();
         }
     }
     for (at, hold) in holds.0.iter().enumerate() {
@@ -159,7 +159,7 @@ fn settle_holds(
                 .iter()
                 .any(|earlier| earlier.button == hold.button)
         {
-            commands.entity(hold.button).insert(Pressed);
+            commands.entity(hold.button).try_insert(Pressed);
         }
     }
 }
