@@ -1,5 +1,23 @@
 # Account entry, collection and deck history
 
+## Tower Echoes v2 client state (implementation in progress)
+
+`baylee-client-core::echoes` is the new renderer-free state machine for the
+separate global Tower service. It permits one account-worker operation at a time,
+keeps an ambiguous mutation's exact request identity and applies no optimistic
+gold, offers or progression. Read/navigation never opens a game. Only explicit
+Reserve/Play/Retry can request a seat. A confirmed reservation whose subsequent
+gateway admission fails resumes without another opponent reservation.
+
+Historical retry receipts resolve uncertainty without replacing a newer displayed
+revision. A read alone cannot identify which uncertain mutation committed. Old
+worker responses are ignored; the native adapter must additionally discard the
+account-scoped mailbox and connection on sign-out. Quarantine cannot become a
+defeat or open the shop. The account SDK provides the confirmed gateway handover.
+This state machine is tested; the new v2 renderer/worker integration is still in
+progress. The existing Central expedition screen below is not proof of a
+completed Echoes v2 client.
+
 ## Global Daily and Weekly challenges
 
 The native Lobby is the home directly after Central sign-in, before selecting

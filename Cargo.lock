@@ -1902,6 +1902,8 @@ dependencies = [
  "baylee-keyring",
  "baylee-protocol",
  "baylee-seal",
+ "baylee-tower",
+ "baylee-tower-api",
  "baylee-view",
  "central-api",
  "chacha20poly1305",

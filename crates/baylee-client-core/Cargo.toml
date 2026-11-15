@@ -11,6 +11,8 @@ workspace = true
 
 [dependencies]
 central-api.workspace = true
+baylee-tower-api.workspace = true
+baylee-tower.workspace = true
 fluent-bundle.workspace = true
 unic-langid.workspace = true
 baylee-cardtext.workspace = true

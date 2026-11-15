@@ -1567,3 +1567,23 @@ transport and at the authority. It passes in
 one verified settlement, no quarantines, the original shop connection still
 usable, and all owned services/database closed. New lobby presentation and
 representative gameplay/balance remain outstanding.
+
+## Retry-safe client state — fiftieth working milestone
+
+The new `client-core::echoes` module owns v2 enrollment, run inspection, host
+selection, shop/deck commands and explicit play intent, without network or renderer
+dependencies. It serializes worker operations and retains exact mutation requests
+through ambiguous failures. A newer read does not clear uncertainty; an original
+retry receipt cannot rewind a newer displayed revision. Reservation acknowledgement
+and subsequent gateway admission are separate, so a failed attachment resumes the
+reserved duel without another opponent selection. No local economy, loss, reward
+or quarantine result is invented. Worker identities reject departed replies.
+
+The four focused model tests pass in
+`/tmp/baylee-tower-client-state-tests-20261115.log` (0.01s; 2,577 unrelated tests
+filtered out), including byte-identical mutation retries, delayed old workers,
+malformed success, explicit consent and admission failure after a committed
+reservation. Strict library/test Clippy passes in
+`/tmp/baylee-tower-client-state-clippy-20261115-r2.log`. No backend/native test was
+rerun for this renderer-free change. The native v2 screen/worker and observed
+visual refinement iterations remain outstanding.

@@ -72,6 +72,7 @@ pub mod deckcheck;
 pub mod deeplink;
 pub mod depart;
 pub mod dial;
+pub mod echoes;
 pub mod feltveins;
 pub mod feltwarp;
 pub mod filterdialog;
