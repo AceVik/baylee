@@ -48,6 +48,7 @@ mod arrival;
 pub mod arrowmat;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod artreader;
+mod itemart;
 pub mod badgemat;
 pub mod buildui;
 pub mod cachefill;

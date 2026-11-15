@@ -11,7 +11,7 @@ use bevy::{
 };
 
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
-pub(super) struct Portrait(pub Goods);
+pub(crate) struct Portrait(pub Goods);
 
 impl Portrait {
     fn indices(self) -> (usize, usize) {
@@ -84,7 +84,7 @@ const PICTURES: [&str; 15] = [
 
 impl UiMaterial for Material {
     fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/lobby/echoes/art.wesl".into()
+        "embedded://baylee_client/itemart/ui.wesl".into()
     }
 }
 
@@ -176,13 +176,13 @@ fn dress(
     }
 }
 
-pub(super) fn install(app: &mut App) {
+pub(crate) fn install(app: &mut App) {
     if !app.world().contains_resource::<AssetServer>()
         || app.get_sub_app(bevy::render::RenderApp).is_none()
     {
         return;
     }
-    embedded_asset!(app, "art.wesl");
+    embedded_asset!(app, "ui.wesl");
     app.init_resource::<Cache>()
         .add_plugins(UiMaterialPlugin::<Material>::default())
         .add_systems(PostUpdate, dress);

@@ -5,7 +5,7 @@ use super::*;
 pub(super) fn image(commands: &mut Commands, root: Entity, kit: Kit, goods: Goods, size: f32) {
     let image = commands
         .spawn((
-            super::super::art::Portrait(goods),
+            crate::itemart::Portrait(goods),
             Node {
                 width: kit.m.px(size),
                 height: kit.m.px(size),

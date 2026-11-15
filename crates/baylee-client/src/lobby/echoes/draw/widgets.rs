@@ -114,7 +114,7 @@ fn portrait_at(commands: &mut Commands, root: Entity, kit: Kit, goods: Goods, si
         });
     let image = commands
         .spawn((
-            super::super::art::Portrait(goods),
+            crate::itemart::Portrait(goods),
             Node {
                 width: kit.m.px(size),
                 height: kit.m.px(size),

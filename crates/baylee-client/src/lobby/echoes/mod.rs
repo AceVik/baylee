@@ -6,7 +6,6 @@ use domain::v2::{inventory::Slot, run::Command};
 use std::collections::VecDeque;
 use uuid::Uuid;
 
-mod art;
 mod choices;
 mod draw;
 pub(crate) mod keys;
@@ -95,7 +94,7 @@ pub(crate) struct Ui {
 }
 
 pub(super) fn install(app: &mut App) {
-    art::install(app);
+    crate::itemart::install(app);
     #[cfg(not(target_arch = "wasm32"))]
     {
         app.add_systems(

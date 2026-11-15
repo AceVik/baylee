@@ -57,7 +57,7 @@ fn rebuilt_portraits_share_materials_and_idle_frames_never_upload() {
 #[test]
 fn item_shader_validates_with_native_frontend() {
     crate::cardmat::tests::check_wgsl(
-        include_str!("../art.wesl"),
+        include_str!("ui.wesl"),
         "struct UiVertexOutput { @location(0) uv: vec2<f32>, @builtin(position) position: vec4<f32> }; struct Globals { time: f32 };",
     );
 }
