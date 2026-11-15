@@ -142,6 +142,15 @@ pub(super) fn keyboard(
         }
         return;
     }
+    if state.hub == Hub::Challenges && state.echoes.opened && codes.just_pressed(KeyCode::Escape) {
+        keys.clear();
+        if state.echoes.confirmation.is_some() {
+            state.echoes.confirmation = None;
+        } else {
+            state.echoes.opened = false;
+        }
+        return;
+    }
     if state.hub == Hub::Challenges
         && (state.challenges.model.confirmation.is_some()
             || state.challenges.model.tower.abandoning

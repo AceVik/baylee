@@ -51,6 +51,7 @@ pub(crate) const CHALLENGES: TabOrder = TabOrder {
         "active",
         "tasks",
         "tower",
+        "echoes",
         "upgrades",
         "cancel-choice",
         "choose",

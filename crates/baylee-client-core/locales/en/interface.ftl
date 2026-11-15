@@ -10325,3 +10325,122 @@ ChallengeNotEarned = Not earned yet
 
 # Global challenge interface.
 ChallengePendingResult = Your last result is being checked. Refresh to see the confirmed score and badge progress.
+
+# Tower Echoes: authority-owned expeditions played at gateways.
+EchoesTitle = Tower Echoes
+EchoesWithdraw = Withdraw future echo use
+EchoesWithdrawConfirm = Withdraw future use of your builds and public identity as opponents? Already reserved duels and private verification evidence remain. Starting a new expedition asks for fresh consent.
+EchoesWithdrawn = Future echo use has been withdrawn.
+EchoesLead = Eight victories to the crown. Build your deck, forge relics and face echoes of earlier expeditions.
+EchoesShop = Shop
+EchoesEquipment = Equipment & fusion
+EchoesRuns = Your expeditions
+EchoesNoRuns = Your first expedition awaits. Choose a starting deck below.
+EchoesNoEnrollment = No new expedition is available right now. You can continue your saved expeditions.
+EchoesStarterLead = Inspect the three starting decks. Your expedition begins only after you confirm your choice.
+# Arguments: number
+EchoesStarter = Starting deck { $number }
+# Arguments: number, revision
+EchoesConsent = Begin with starting deck { $number }? Confirm echo sharing (explanation { $revision }): your verified pre-duel builds may face other players at the same stage, played by Expert AI. Your public player identity may accompany them. You can withdraw future echo use below; private rules evidence is retained. This creates a new expedition, not a table.
+EchoesShopReady = Prepare your next duel
+EchoesVerifying = Your duel is being verified. Gold and the next shop appear after confirmation.
+EchoesQuarantined = This duel is paused for technical recovery. No defeat or income has been assigned.
+EchoesInterrupted = This expedition was closed after a technical interruption. No duel outcome was invented.
+EchoesWon = Victory
+EchoesLost = Defeat
+EchoesDraw = Draw
+EchoesVictories = Victories
+EchoesGold = Gold
+# Arguments: number
+EchoesStage = Stage { $number }
+# Arguments: number
+EchoesTurns = { $number } turns
+EchoesNoHost = No compatible table is available yet. Your build and shop are saved. Refresh to check again.
+EchoesMoreHosts = More available tables
+# Arguments: name
+EchoesPlayAt = Play at { $name }
+EchoesUncertain = Your last choice has not been confirmed. Retry the same choice before making another purchase or starting a duel.
+EchoesRetry = Resolve last choice
+EchoesRejected = The request could not be confirmed. Refresh your connection, then retry any pending choice.
+EchoesConflict = Your expedition changed elsewhere. Refresh to see its current state.
+EchoesTerms = Accept the current account terms before continuing.
+EchoesUpdate = Update Baylee before continuing this expedition.
+EchoesUnavailable = This choice is not currently available.
+EchoesUnsaved = Your deck has unsaved changes. Save or discard them before entering a duel.
+EchoesInspect = Select
+EchoesBuy = Review purchase
+EchoesSold = Sold
+# Arguments: price
+EchoesPrice = { $price } gold
+EchoesPin = Pin offer
+EchoesUnpin = Release pin
+EchoesShopRules = Eight saved offers. Pin up to two to keep them through refreshes and future shops. Each verified duel earns 12 gold, whatever its result.
+EchoesRefreshSpent = All three refreshes used
+# Arguments: price
+EchoesRefreshPrice = Refresh offers · { $price } gold
+EchoesMythicOffer = Stage seven: choose a utility offer to replace with a Mythic Potion at its full price. Your first shop transaction closes this choice.
+# Arguments: number
+EchoesReplaceOffer = Replace offer { $number }
+EchoesStartingLife = Starting life
+EchoesOpeningCards = Opening cards
+EchoesHandLimit = Hand limit
+EchoesMulligans = Free mulligans
+# Arguments: healing, mana
+EchoesCharges = Table potions: { $healing } healing · { $mana } mana. Two charges combined; use them at the table.
+EchoesSlotRules = Three active slots affect your next duel. Six reserve slots hold future combinations. Moving to an occupied slot swaps the two relics.
+# Arguments: number
+EchoesActiveSlot = Active { $number }
+# Arguments: number
+EchoesReserveSlot = Reserve { $number }
+EchoesMove = Review move
+# Arguments: price
+EchoesSellPrice = Review sale · { $price } gold
+EchoesFuse = Review fusion
+EchoesFusionRules = Select the exact ingredients and destination. Three identical Common relics become Uncommon; three Uncommon become Rare. One Rare + one Mythic Potion becomes Mythic Rare. A selected shop relic can supply the final ingredient in the same purchase.
+EchoesInventory = Your inventory
+EchoesHeartwood = Heartwood talisman
+EchoesSatchel = Scholar's satchel
+EchoesCompass = Wayfinder's compass
+EchoesGrove = Living grove
+EchoesHealing = Healing potion
+EchoesMana = Mana potion
+EchoesMythic = Mythic Potion
+EchoesUnknownCard = Card unavailable in this client
+EchoesCardEffect = Adds one copy to your collection. Edit your deck to include it.
+EchoesHealingEffect = One use: gain 5 life through an activated ability.
+EchoesManaEffect = One use: add one mana of any color through a mana ability.
+EchoesMythicEffect = Crafting material: combine with one Rare relic to create its Mythic Rare form. Cannot be used at the table.
+# Arguments: life
+EchoesLifeEffect = +{ $life } starting life while equipped.
+# Arguments: cards, maximum
+EchoesCardsEffect = +{ $cards } opening cards · +{ $maximum } maximum hand size while equipped.
+# Arguments: number
+EchoesMulliganEffect = +{ $number } free mulligans while equipped.
+# Arguments: count
+EchoesGroveEffect = { $count ->
+    [one] Begin with a removable artifact that creates one green 1/1 Plant at the beginning of each of your upkeeps.
+   *[other] Begin with a removable artifact that creates { $count } green 1/1 Plants at the beginning of each of your upkeeps.
+    }
+# Arguments: number
+EchoesDeckCount = Your deck · { $number } / 40–60 cards
+EchoesDeckRules = Basic lands are free. Use your owned cards, up to four copies each. Draft changes remain local until you save.
+EchoesSaveDeck = Save deck
+EchoesResetDeck = Discard changes
+EchoesAdd = Add
+EchoesRemove = Remove
+# Arguments: goods, price, destination
+EchoesConfirmBuy = Buy { $goods } for { $price } gold? Destination: { $destination }. The offer is consumed only after the server confirms the purchase.
+# Arguments: goods, price
+EchoesConfirmSell = Sell { $goods } for { $price } gold? This consumes that owned instance.
+# Arguments: goods, destination
+EchoesConfirmMove = Move { $goods } to { $destination }? An occupant swaps to the previous slot.
+# Arguments: ingredients, destination
+EchoesConfirmFuse = Consume these ingredients: { $ingredients }. The stronger relic goes to { $destination }. Consumed ingredients cannot be recovered.
+# Arguments: number
+EchoesConfirmDeck = Save this { $number }-card deck for your next duel?
+# Arguments: goods, action
+EchoesConfirmPin = { $action }: { $goods }?
+# Arguments: price
+EchoesConfirmRefresh = Spend { $price } gold to replace every unpinned offer? Your pins remain in place.
+# Arguments: number
+EchoesConfirmMythic = Replace utility offer { $number } with a Mythic Potion priced at 24 gold? An existing pin on that offer will be released. This does not buy the potion.

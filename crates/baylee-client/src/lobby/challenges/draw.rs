@@ -10,7 +10,7 @@ use baylee_client_core::challenges::{Confirmation, api};
 mod catalogue;
 mod detail;
 mod home;
-mod presentation;
+pub(in crate::lobby) mod presentation;
 mod rewards;
 mod tower;
 use catalogue::catalogue;
@@ -25,6 +25,10 @@ pub(in crate::lobby) fn draw(
     kit: Kit,
     scrolled: &Scrolled,
 ) {
+    if state.echoes.opened {
+        super::super::echoes::draw(commands, root, state, metrics, kit, scrolled);
+        return;
+    }
     let model = &state.challenges.model;
     let lang = state.lobby.lang();
     let body = commands
@@ -144,7 +148,12 @@ fn notices(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, state: &
     }
 }
 
-fn attach_body(commands: &mut Commands, root: Entity, body: Entity, frame: Frame) {
+pub(in crate::lobby) fn attach_body(
+    commands: &mut Commands,
+    root: Entity,
+    body: Entity,
+    frame: Frame,
+) {
     if frame == Frame::Compact {
         commands.entity(root).add_child(body);
     } else {
@@ -197,7 +206,7 @@ fn status(
     presentation::calendar(commands, root, kit, lang, task.description.period);
 }
 
-fn panel(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
+pub(in crate::lobby) fn panel(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
     let panel = commands
         .spawn((
             Node {
@@ -219,7 +228,7 @@ fn panel(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
     panel
 }
 
-fn row(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
+pub(in crate::lobby) fn row(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
     let row = commands
         .spawn((
             Node {
@@ -238,12 +247,18 @@ fn row(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
     row
 }
 
-fn heading(commands: &mut Commands, root: Entity, kit: Kit, text: &str) {
+pub(in crate::lobby) fn heading(commands: &mut Commands, root: Entity, kit: Kit, text: &str) {
     let heading = crate::shellkit::surfaces::heading(commands, kit, text);
     commands.entity(root).add_child(heading);
 }
 
-fn label(commands: &mut Commands, root: Entity, kit: Kit, text: &str, color: Color) {
+pub(in crate::lobby) fn label(
+    commands: &mut Commands,
+    root: Entity,
+    kit: Kit,
+    text: &str,
+    color: Color,
+) {
     let label = commands
         .spawn((
             Text::new(text),

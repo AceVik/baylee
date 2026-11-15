@@ -1606,3 +1606,41 @@ model regression passes in
 unrelated tests filtered out). Strict service, SDK and client-core library/test
 Clippy passes in `/tmp/baylee-tower-retained-catalog-clippy-20261115.log`. No native
 engine or renderer test was repeated for this read-only catalog path.
+
+## Native Tower lobby and choices — fifty-second working milestone
+
+The account home now opens the separate Echoes screen. Its adapter caches the
+short-lived Tower connection on the serial account worker, renews it before
+expiry and discards connection/mailbox state on account changes. It handles
+enrollment, saved-run inspection, approved host discovery, exact mutation retry,
+confirmed gateway handover and returning to authoritative result verification.
+The ordinary multiplayer rematch control is suppressed for an Echoes table.
+
+Shop, equipment/fusion and deck panels expose the saved offers, prices, pins,
+refresh limits, stage-seven material choice, owned slots, exact fusion ingredients,
+conserved sale refunds, consumable charges and verified history. Purchases can
+fuse directly into a full inventory. Client validation reuses the pure domain
+rules; a confirmation is bound to its displayed run/revision and rechecked before
+submission. Unsaved deck changes stay local and block a duel or another trade.
+Enrollment and future-echo withdrawal have explicit consent confirmations. UI
+strings are translated, controls have icons and semantic keyboard focus, and
+creation timestamps are formatted with an explicit UTC label. Malformed catalogs,
+oversized decks and invalid inventory slots are refused before rendering.
+
+Ten targeted client-core tests pass in
+`/tmp/baylee-tower-client-draft-tests-20261115-r2.log` (0.00s), including full-bag
+fusion, Rare plus Mythic Potion, unowned cards, deck size/draft preservation,
+malformed projections and repeatable withdrawal. Three native worker tests pass
+in `/tmp/baylee-tower-client-worker-tests-20261115.log` (0.01s), proving account
+mailbox isolation, refusal to remain busy after failed enqueue and protection
+against a stale control behind a confirmation. Their first native link took
+1m50s and reported the existing large debug unwind-table warning; the tests
+themselves started no graphical client or services. The language coverage test
+passes in `/tmp/baylee-tower-client-lobby-language-test-20261115.log` (0.07s).
+Strict library/test Clippy for both changed client crates passes in
+`/tmp/baylee-tower-client-lobby-clippy-20261115-r5.log` (11.66s).
+
+This is a functional native integration milestone, not its visual acceptance.
+The real rendered iterations, restart restoration of Tower context, current
+opponent attribution, permanent awards and a representative gameplay/balance demo
+remain outstanding. No backend or engine suite was rerun for these client changes.

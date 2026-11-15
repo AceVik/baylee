@@ -78,7 +78,7 @@ pub(super) fn spawn_leave_button(
     // finished game that would have asked a gateway for another of a table
     // it has never heard of. It was floating over the board where nobody
     // looked; the end screen put it in the middle of the sheet.
-    let challenge = super::challenges::current(&state);
+    let challenge = super::challenges::current(&state) || super::echoes::current(&state);
     let networked = !challenge
         && matches!(state.lobby.screen(), Screen::Seated(handover) if !handover.local && !handover.watching());
     // Watch replay: a game this client hosted, or a hosted one this player

@@ -255,6 +255,10 @@ impl HubPress {
             HubPress::Refresh => {
                 #[cfg(not(target_arch = "wasm32"))]
                 if state.hub == Hub::Challenges {
+                    if state.echoes.opened {
+                        super::echoes::native::ask(state, super::echoes::Action::Refresh);
+                        return;
+                    }
                     super::challenges::ask(state, baylee_client_core::challenges::Action::Refresh);
                     return;
                 }

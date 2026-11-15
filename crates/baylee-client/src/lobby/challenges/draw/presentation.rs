@@ -12,7 +12,7 @@ pub(super) fn scene(kind: api::Kind) -> Scene {
     }
 }
 
-pub(super) fn feature(
+pub(in crate::lobby) fn feature(
     commands: &mut Commands,
     parent: Entity,
     kit: Kit,
@@ -59,7 +59,13 @@ pub(super) fn feature(
     copy
 }
 
-pub(super) fn title(commands: &mut Commands, parent: Entity, kit: Kit, icon: char, words: &str) {
+pub(in crate::lobby) fn title(
+    commands: &mut Commands,
+    parent: Entity,
+    kit: Kit,
+    icon: char,
+    words: &str,
+) {
     let line = row(commands, parent, kit);
     commands.entity(line).entry::<Node>().and_modify(|mut n| {
         n.width = Val::Auto;
@@ -98,7 +104,7 @@ pub(super) fn calendar(
     }
 }
 
-pub(super) fn metric(
+pub(in crate::lobby) fn metric(
     commands: &mut Commands,
     parent: Entity,
     kit: Kit,

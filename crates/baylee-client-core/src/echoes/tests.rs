@@ -66,6 +66,185 @@ fn opened() -> (State, Cohort, Run) {
 }
 
 #[test]
+fn draft_deck_edits_never_spend_or_enter_with_an_unsaved_or_illegal_deck() {
+    use super::draft::{Draft, allowed};
+    let (_, cohort, mut run) = opened();
+    let mut draft = Draft::default();
+    draft.bind(&run);
+    assert!(draft.deck_unchanged(Some(&run)));
+    draft.card(&run, &cohort, CardIndex::new(1), true);
+    assert!(
+        draft.deck_unchanged(Some(&run)),
+        "unowned nonbasic is not added"
+    );
+    draft.card(&run, &cohort, CardIndex::new(0), false);
+    assert!(!draft.deck_unchanged(Some(&run)));
+    assert!(!allowed(
+        &run,
+        &cohort,
+        &Command::Edit {
+            deck: draft.deck.clone()
+        }
+    ));
+    draft.bind(&run);
+    assert_eq!(
+        draft.deck[0].copies, 39,
+        "same-revision refresh retains the draft"
+    );
+    draft.card(&run, &cohort, CardIndex::new(0), true);
+    assert!(allowed(
+        &run,
+        &cohort,
+        &Command::Edit {
+            deck: draft.deck.clone()
+        }
+    ));
+    for _ in 0..30 {
+        draft.card(&run, &cohort, CardIndex::new(0), true);
+    }
+    assert_eq!(draft.deck[0].copies, 60);
+    assert_eq!(
+        run.cards.deck[0].copies, 40,
+        "draft never replaces confirmed state"
+    );
+    run.revision += 1;
+    draft.bind(&run);
+    assert!(draft.deck_unchanged(Some(&run)));
+    let mut other = cohort;
+    other.id = Uuid::now_v7();
+    assert!(!allowed(&run, &other, &Command::Edit { deck: draft.deck }));
+}
+
+#[test]
+fn draft_full_bag_purchase_fuses_exact_inputs_without_requiring_an_empty_slot() {
+    use super::draft::{Draft, allowed};
+    use domain::v2::{
+        catalog::{Definition, Family, Rarity},
+        inventory::Slot,
+        shop::Goods,
+    };
+    let (_, cohort, mut run) = opened();
+    run.economy.gold = 100;
+    let definition = Definition {
+        family: Family::Heartwood,
+        rarity: Rarity::Common,
+    };
+    for slot in (0..3).map(Slot::Active).chain((0..6).map(Slot::Reserve)) {
+        run.economy = run.economy.bought(definition, slot).unwrap();
+    }
+    run.shop.offers[0].goods = Goods::Relic(definition);
+    let mut draft = Draft::default();
+    draft.bind(&run);
+    draft.offer = Some(run.shop.offers[0].id);
+    draft.slot = Slot::Active(0);
+    assert!(!allowed(&run, &cohort, &draft.purchase(&run).unwrap()));
+    draft.ingredient(&run, 1);
+    draft.ingredient(&run, 2);
+    let command = draft.purchase(&run).unwrap();
+    assert!(allowed(&run, &cohort, &command));
+    assert_eq!(run.economy.inventory.relics.len(), 9);
+    draft.ingredients = vec![1, 1];
+    assert!(!allowed(&run, &cohort, &draft.purchase(&run).unwrap()));
+    draft.ingredients = vec![1, 2];
+    run.shop.offers[0].sold = true;
+    assert!(draft.purchase(&run).is_none());
+    assert!(!allowed(&run, &cohort, &command));
+}
+
+#[test]
+fn draft_mythic_requires_exactly_one_rare_and_one_owned_potion() {
+    use super::draft::{Draft, allowed};
+    use domain::v2::{
+        catalog::{Definition, Family, Rarity},
+        inventory::Slot,
+    };
+    let (_, cohort, mut run) = opened();
+    run.economy.gold = 100;
+    run.economy = run
+        .economy
+        .bought(
+            Definition {
+                family: Family::Heartwood,
+                rarity: Rarity::Rare,
+            },
+            Slot::Active(0),
+        )
+        .unwrap();
+    run.economy = run.economy.bought_material().unwrap();
+    let mut draft = Draft::default();
+    draft.bind(&run);
+    draft.slot = Slot::Active(0);
+    draft.ingredient(&run, 1);
+    assert!(!allowed(
+        &run,
+        &cohort,
+        &Command::Fuse {
+            recipe: draft.recipe()
+        }
+    ));
+    draft.material = Some(2);
+    let command = Command::Fuse {
+        recipe: draft.recipe(),
+    };
+    assert!(allowed(&run, &cohort, &command));
+    let result = run.economy.fused(&draft.recipe()).unwrap();
+    assert_eq!(
+        result.inventory.relics[0].definition.rarity,
+        Rarity::MythicRare
+    );
+    assert!(result.inventory.materials.is_empty());
+    run.phase = Phase::Playing;
+    assert!(!allowed(&run, &cohort, &command));
+}
+
+#[test]
+fn malformed_catalogs_and_inventory_never_reach_the_renderer() {
+    let (mut state, mut cohort, mut run) = opened();
+    cohort.starters[0].deck[0].copies = u8::MAX;
+    let work = state.read(Uuid::now_v7(), Read::Cohort(cohort.id)).unwrap();
+    state.receive(
+        &work,
+        Some(Response::Cohort {
+            cohort: Box::new(cohort),
+        }),
+        None,
+    );
+    assert_eq!(state.failure(), Some(Error::Unavailable));
+    run.economy
+        .inventory
+        .relics
+        .push(domain::v2::inventory::Relic {
+            id: 1,
+            definition: domain::v2::catalog::Definition {
+                family: domain::v2::catalog::Family::Heartwood,
+                rarity: domain::v2::catalog::Rarity::Common,
+            },
+            slot: domain::v2::inventory::Slot::Active(u8::MAX),
+            basis: 0,
+        });
+    let work = state.read(Uuid::now_v7(), Read::Run(run.id)).unwrap();
+    state.receive(&work, Some(Response::Run { run: Box::new(run) }), None);
+    assert_eq!(state.failure(), Some(Error::Unavailable));
+    assert!(state.run().unwrap().economy.inventory.relics.is_empty());
+}
+
+#[test]
+fn echo_withdrawal_is_explicit_repeatable_and_cannot_resolve_an_ambiguous_purchase() {
+    let (mut state, _, run) = opened();
+    let first = state.withdraw(Uuid::now_v7()).unwrap();
+    assert_eq!(first.request(), Some(&Request::WithdrawEchoes {}));
+    assert!(first.play().is_none());
+    state.receive(&first, Some(Response::Withdrawn {}), None);
+    assert_eq!(state.run(), Some(&run));
+    let repeated = state.withdraw(Uuid::now_v7()).unwrap();
+    state.receive(&repeated, Some(Response::Withdrawn {}), None);
+    let pending = state.choose(Uuid::now_v7(), Command::Refresh {}).unwrap();
+    state.receive(&pending, None, Some(Error::Unavailable));
+    assert!(state.withdraw(Uuid::now_v7()).is_none());
+    assert!(state.uncertain());
+}
+
+#[test]
 fn lost_mutation_retries_identically_and_an_old_receipt_cannot_rewind_the_shop() {
     let (mut state, cohort, initial) = opened();
     let work = state.choose(Uuid::now_v7(), Command::Refresh {}).unwrap();

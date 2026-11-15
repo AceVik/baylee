@@ -1,0 +1,173 @@
+//! Gateway-hosted Tower expeditions; only the authority changes progression.
+#[allow(clippy::wildcard_imports)]
+use super::*;
+use baylee_client_core::echoes::{Read, State, Work, api, domain};
+use domain::v2::{inventory::Slot, run::Command};
+use std::collections::VecDeque;
+use uuid::Uuid;
+
+mod choices;
+mod draw;
+pub(crate) mod keys;
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) mod native;
+pub(super) use draw::{draw, entry};
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum Page {
+    #[default]
+    Shop,
+    Equipment,
+    Deck,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Action {
+    Open,
+    Back,
+    Refresh,
+    Read(Read),
+    Starter(Uuid, u8),
+    Accept,
+    Cancel,
+    Retry,
+    Play(Uuid),
+    Resume,
+    Page(Page),
+    Offer(u32),
+    Place(Slot),
+    Ingredient(u32),
+    Material(u32),
+    Buy,
+    Pin(u32),
+    Reroll,
+    Select(u32),
+    Move,
+    Sell,
+    Fuse,
+    Mythic(u8),
+    Abandon,
+    Card(baylee_core::ids::CardIndex, bool),
+    SaveDeck,
+    ResetDeck,
+    Withdraw,
+}
+
+pub(super) enum Confirmation {
+    Withdrawal,
+    Enrollment {
+        cohort: Uuid,
+        starter: u8,
+        consent: u16,
+    },
+    Choice {
+        run: Uuid,
+        revision: u64,
+        command: Command,
+    },
+}
+
+#[derive(Default)]
+pub(crate) struct Ui {
+    model: State,
+    pub(super) opened: bool,
+    page: Page,
+    pub(super) confirmation: Option<Confirmation>,
+    choices: choices::Draft,
+    reads: VecDeque<Read>,
+    loaded: bool,
+    withdrawn: bool,
+    playing: Option<(Uuid, Uuid)>,
+    #[cfg(not(target_arch = "wasm32"))]
+    session: Option<central::Handle>,
+    #[cfg(not(target_arch = "wasm32"))]
+    worker: native::Worker,
+}
+
+pub(super) fn install(app: &mut App) {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        app.add_systems(
+            Update,
+            native::tick
+                .after(poll)
+                .before(ui)
+                .run_if(in_state(DuelPhase::Closed)),
+        );
+        app.add_systems(
+            OnEnter(DuelPhase::Closed),
+            native::returned.after(super::systems::came_back),
+        );
+    }
+    #[cfg(target_arch = "wasm32")]
+    let _ = app;
+}
+
+pub(super) fn current(state: &LobbyState) -> bool {
+    matches!(state.lobby.screen(), Screen::Seated(seat)
+        if state.echoes.playing.is_some_and(|(_, game)| game.to_string() == seat.game_id))
+}
+
+pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if action == Action::Open {
+            cx.state.hub = Hub::Challenges;
+            cx.state.ensure_central_lobby(cx.mailbox);
+        }
+        if matches!(action, Action::Play(_) | Action::Resume) && cx.state.lobby.awaiting().is_some()
+        {
+            cx.state
+                .lobby
+                .tell_refusal(Phrase::ChallengeLeaveTable, &[]);
+            return;
+        }
+        native::ask(cx.state, action);
+        if matches!(
+            action,
+            Action::Open | Action::Back | Action::Page(_) | Action::Read(Read::Run(_))
+        ) {
+            cx.scrolled.set(List::Table, 0.0);
+        }
+    }
+    #[cfg(target_arch = "wasm32")]
+    let _ = (action, cx);
+}
+
+impl Ui {
+    fn refresh(&mut self) {
+        self.reads.clear();
+        self.reads.extend([Read::Cohorts(None), Read::Runs(None)]);
+        if let Some(run) = self.model.run() {
+            self.reads.push_back(Read::Run(run.id));
+        }
+    }
+
+    fn follow_run(&mut self) {
+        let Some(run) = self.model.run() else {
+            return;
+        };
+        if self.model.publication().is_none() {
+            self.reads.push_back(Read::Cohort(run.cohort));
+        }
+        match run.phase {
+            api::Phase::Shop => self.reads.push_back(Read::Hosts(None)),
+            api::Phase::Reserved | api::Phase::Playing => self.reads.push_back(Read::Locate),
+            _ => {}
+        }
+        self.choices.bind(run);
+    }
+
+    fn command(&mut self, command: Command) {
+        if let Some(run) = self.model.run()
+            && run.phase == api::Phase::Shop
+            && !self.model.uncertain()
+        {
+            self.confirmation = Some(Confirmation::Choice {
+                run: run.id,
+                revision: run.revision,
+                command,
+            });
+        }
+    }
+}

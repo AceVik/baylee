@@ -34,13 +34,16 @@ impl State {
 
     fn accept(&mut self, request: &Request, response: Response) -> bool {
         match (request, response) {
-            (Request::Cohort { cohort: id }, Response::Cohort { cohort }) if cohort.id == *id => {
+            (Request::WithdrawEchoes {}, Response::Withdrawn {}) => {}
+            (Request::Cohort { cohort: id }, Response::Cohort { cohort })
+                if cohort.id == *id && valid_cohort(&cohort) =>
+            {
                 self.publication = Some(*cohort);
             }
             (Request::Cohorts { .. }, Response::Cohorts { consent, cohorts })
                 if consent > 0
                     && cohorts.len() <= api::PAGE_SIZE
-                    && cohorts.iter().all(|c| uuid7(c.id)) =>
+                    && cohorts.iter().all(valid_cohort) =>
             {
                 self.cohorts = cohorts;
                 self.consent = consent;
@@ -121,10 +124,37 @@ impl State {
 }
 
 fn valid_run(run: &Run) -> bool {
+    use super::domain::cards::{COPIES, DECK_MAX, DECK_MIN, MAX_CATALOG};
+    let deck_count: u16 = run
+        .cards
+        .deck
+        .iter()
+        .take(usize::from(DECK_MAX) + 1)
+        .map(|stack| u16::from(stack.copies))
+        .sum();
     uuid7(run.id)
         && uuid7(run.cohort)
+        && run.economy.validate().is_ok()
+        && run.cards.owned.len() <= MAX_CATALOG
+        && run
+            .cards
+            .owned
+            .iter()
+            .all(|stack| (1..=COPIES).contains(&stack.copies))
+        && run.cards.deck.len() <= usize::from(DECK_MAX)
+        && run.cards.deck.iter().all(|stack| stack.copies > 0)
+        && (DECK_MIN..=DECK_MAX).contains(&deck_count)
         && run.history.len() <= usize::from(super::domain::v2::MAX_STAGES)
         && run.shop.offers.len() == super::domain::v2::shop::OFFERS
         && (run.phase != Phase::Playing
             || run.history.len() < usize::from(super::domain::v2::MAX_STAGES))
+}
+
+fn valid_cohort(cohort: &api::Cohort) -> bool {
+    uuid7(cohort.id)
+        && cohort.contract.validate(&cohort.catalog).is_ok()
+        && cohort
+            .starters
+            .iter()
+            .all(|starter| starter.validate(&cohort.catalog).is_ok())
 }

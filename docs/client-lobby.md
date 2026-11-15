@@ -16,9 +16,29 @@ account-scoped mailbox and connection on sign-out. Quarantine cannot become a
 defeat or open the shop. The account SDK provides the confirmed gateway handover.
 The selected run's immutable catalog can be read separately after enrollment
 closes; fetching that catalog does not make the cohort available for a new run.
-This state machine is tested; the new v2 renderer/worker integration is still in
-progress. The existing Central expedition screen below is not proof of a
-completed Echoes v2 client.
+The native `lobby::echoes` adapter uses the existing serial account worker and a
+private cached Tower connection, renewed before its five-minute expiry. Account
+changes discard both the mailbox and the connection. A committed reservation's
+response remains acknowledged even if seat admission subsequently fails. Only
+the separate approved gateway handover reaches the table; opening a panel or
+refreshing never reserves an opponent. Returning from a Tower duel rereads the
+run and waits for the verifier; it never invents an outcome or awards gold.
+
+The account home opens Echoes alongside Daily/Weekly. Its shop, equipment/fusion
+and deck panels display authoritative prices, conserved sale refunds, exact
+ingredients, three active/six reserve slots, potion charges and verified history.
+Enrollment, purchases, refreshes, fusion, retirement and echo withdrawal require
+an explicit confirmation. Confirmation is bound to the displayed run revision;
+the pure domain validators determine which choices are available. Deck edits
+stay local until saved, and an unsaved deck cannot enter a duel. A read of the
+same revision retains that draft; a different confirmed revision invalidates old
+choices. German/English phrases, icons, UTC creation timestamps and semantic
+keyboard focus accompany these controls. Catalogs and owned inventory are bounded
+and validated before the renderer receives them.
+
+The native presentation is under validation. Observed visual refinement and a
+representative, playable end-to-end demo remain required; neither the old Central
+expedition screen nor headless tests establish their completion.
 
 ## Global Daily and Weekly challenges
 

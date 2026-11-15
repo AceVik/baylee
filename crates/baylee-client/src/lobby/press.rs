@@ -40,6 +40,8 @@ pub(crate) enum Press {
     Replays(super::replays::ReplaysPress),
     /// Central's global Daily and Weekly tasks.
     Challenges(baylee_client_core::challenges::Action),
+    /// The global Tower authority's gateway-hosted expeditions.
+    Echoes(super::echoes::Action),
 }
 
 /// A control more than one screen draws.
@@ -213,6 +215,7 @@ pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
         Press::Play(press) => press.handle(cx),
         Press::Replays(press) => press.handle(cx),
         Press::Challenges(action) => super::challenges::press(action, cx),
+        Press::Echoes(action) => super::echoes::press(action, cx),
     }
 }
 

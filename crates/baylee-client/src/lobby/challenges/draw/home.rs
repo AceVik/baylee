@@ -95,6 +95,7 @@ pub(in crate::lobby) fn home(
         );
     }
     catalogue(commands, body, kit, lang, model, false);
+    crate::lobby::echoes::entry(commands, body, kit, lang);
     multiplayer(commands, body, kit, lang);
 }
 

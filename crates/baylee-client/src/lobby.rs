@@ -253,6 +253,7 @@ pub struct LobbyState {
     /// The Replays tab, and a replay being opened.
     pub(crate) replays: replays::ReplaysUi,
     pub(crate) challenges: challenges::Ui,
+    pub(crate) echoes: echoes::Ui,
     /// The Undo the toast lane offers (S-10).
     pub(crate) undo: Option<decks::Undo>,
     /// The tours as they were before the bubble's box or Restart tours,
@@ -594,6 +595,7 @@ impl LobbyState {
             play: play::PlayUi::default(),
             replays: replays::ReplaysUi::default(),
             challenges: challenges::Ui::default(),
+            echoes: echoes::Ui::default(),
             undo: None,
             tours_before: None,
             room_away: false,
@@ -969,6 +971,7 @@ mod confirm;
 pub(crate) mod decks;
 pub(crate) mod decksave;
 pub(crate) mod dock;
+pub(crate) mod echoes;
 mod editing;
 mod end_screen;
 mod entrance;

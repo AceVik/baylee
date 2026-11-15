@@ -3,7 +3,7 @@
 use super::*;
 use baylee_client_core::challenges::{Action, State};
 
-mod draw;
+pub(super) mod draw;
 mod keys;
 pub(super) use draw::{draw, home};
 #[cfg(not(target_arch = "wasm32"))]
@@ -15,7 +15,7 @@ pub(super) use native::{ask, returned, seated};
 pub(crate) struct Ui {
     pub(super) model: State,
     /// The task opened here, retained until its table has closed.
-    playing: Option<([u8; 16], String)>,
+    pub(super) playing: Option<([u8; 16], String)>,
     /// An ended table awaiting Central's durable result delivery.
     pub(super) pending_result: bool,
     #[cfg(not(target_arch = "wasm32"))]
@@ -56,6 +56,7 @@ pub(super) fn current(state: &LobbyState) -> bool {
 pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
     #[cfg(not(target_arch = "wasm32"))]
     {
+        cx.state.echoes.opened = false;
         if matches!(
             action,
             Action::Select(_) | Action::Tower(baylee_client_core::tower::Action::Open)

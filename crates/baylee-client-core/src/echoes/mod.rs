@@ -3,10 +3,11 @@
 use api::{Cohort, Host, Location, Phase, Request, Response, Run};
 pub use baylee_tower as domain;
 pub use baylee_tower_api as api;
-use central_api::Error;
+pub use central_api::Error;
 use domain::v2::run::Command;
 use uuid::Uuid;
 
+pub mod draft;
 mod receive;
 #[cfg(test)]
 mod tests;
@@ -232,6 +233,14 @@ impl State {
     pub fn retry(&mut self, id: Uuid) -> Option<Work> {
         let pending = self.pending.as_ref()?;
         self.begin(id, pending.request.clone(), pending.play)
+    }
+
+    /// Explicitly withdraw future echo use; repeating this monotonic choice is harmless.
+    pub fn withdraw(&mut self, id: Uuid) -> Option<Work> {
+        if self.uncertain() {
+            return None;
+        }
+        self.begin(id, Some(Request::WithdrawEchoes {}), None)
     }
 
     fn begin(&mut self, id: Uuid, request: Option<Request>, play: Option<Uuid>) -> Option<Work> {
