@@ -75,7 +75,14 @@ fn enrollment(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
             card,
             kit,
             crate::challenge_art::Scene::Tower,
-            &words::created(cohort.id, lang),
+            Phrase::EchoesNewRun.text(lang),
+        );
+        label(
+            commands,
+            card,
+            kit,
+            &Phrase::EchoesPublished.fill(lang, &[&words::created(cohort.id, lang)]),
+            tokens::MUTED,
         );
         label(
             commands,
@@ -131,6 +138,11 @@ fn enrollment(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
             tokens::MUTED,
         );
     }
+    enrollment_footer(commands, body, kit, ui);
+}
+
+fn enrollment_footer(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
+    let lang = lang(kit);
     let privacy = panel(commands, body, kit);
     if ui.withdrawn {
         label(
@@ -187,13 +199,17 @@ pub(super) fn progress(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui,
         (glyph::SUN, Phrase::EchoesGold, run.economy.gold.to_string()),
         (
             glyph::COMPASS,
-            Phrase::TowerRoute,
+            Phrase::EchoesOrdinal,
             run.shop.stage.to_string(),
         ),
     ] {
-        presentation::metric(commands, band, kit, icon, caption.text(lang), &value);
+        widgets::stat(commands, band, kit, icon, caption.text(lang), &value);
     }
-    let history = row(commands, root, kit);
+    let history = if run.history.is_empty() {
+        root
+    } else {
+        row(commands, root, kit)
+    };
     for (index, duel) in run.history.iter().enumerate() {
         let text = format!(
             "{} · {} · {}",

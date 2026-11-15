@@ -10377,6 +10377,11 @@ EchoesActiveSlots = Equipped · active in your next duel
 EchoesReserveSlots = Reserve · storage and fusion ingredients
 EchoesSlotEmpty = Empty slot
 EchoesCardRulesLanguage = Card rules · English original
+EchoesOpen = Enter your expedition
+EchoesNewRun = Begin a new expedition
+# Arguments: date
+EchoesPublished = Starting decks published { $date }
+EchoesOrdinal = Stage
 # Arguments: destination
 EchoesDestination = Destination: { $destination }
 # Arguments: destination

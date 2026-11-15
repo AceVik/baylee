@@ -1803,3 +1803,38 @@ coverage pass in `/tmp/baylee-tower-ui-refinement4-clippy-20261115-r2.log` and
 in `/tmp/baylee-tower-ui-refinement4-20261115.log`. The existing backend binary was
 reused for these UI-only checks. Duplicate focus destinations on the empty
 equipment shortcut and the ordinary shop tab need correction in the next pass.
+
+## Clear progression refinement 5 — fifty-ninth working milestone
+
+Four equal metric cards now distinguish victories, remaining lives, gold and the
+current stage. Empty history no longer reserves a row. Enrollment has an explicit
+title and separately formatted publication timestamp; the new expedition entry
+has its own label. The equipment-to-shop shortcut has a distinct keyboard stop,
+and read-only navigation allocates no mutation UUID. Confirmation guards still
+block stale navigation. Reduced-motion coverage includes existing and newly
+created portrait materials and verifies no idle material uploads.
+
+Ten targeted Tower client tests pass in
+`/tmp/baylee-tower-ui-refinement5-tests-20261115.log`; strict client library/test
+Clippy and exact translation arguments pass in
+`/tmp/baylee-tower-ui-refinement5-clippy-20261115-r3.log` and
+`/tmp/baylee-tower-ui-language-20261115-r5.log`. The real German shop was inspected
+at 1440×900 and equipment/return at 1280×720. A normal four-gold Heartwood purchase
+into Active 1 raised starting life to 24, observed both in equipment and the real
+native engine view. A free mulligan retained seven cards. Playing Forest and
+confirming the automatic mana plan put Llanowar Elves on the stack.
+
+The short manual test then deliberately conceded: the native end screen offered
+return/replay without an ordinary rematch. Returning loaded the independently
+verified defeat, stage 2, four remaining lives and exactly 12 gold (14 to 26).
+Evidence: `/tmp/tower-refinement5-equipped.png`,
+`/tmp/tower-native-duel-initial.png` and `/tmp/tower-refinement5-return.png`.
+The owned client, backend, native engine and PostgreSQL were stopped; listener
+closure and cluster removal are recorded in
+`/tmp/baylee-tower-ui-refinement5-20261115.log`.
+
+This completes five observed UI improvement passes, not final gameplay/balance
+acceptance. The opponent still uses the house label, permanent award delivery
+is outstanding and higher-rarity animation still needs direct visual inspection.
+The two-second recording made with the portrait outside the viewport is not
+animation evidence. No full engine suite was repeated for these client changes.

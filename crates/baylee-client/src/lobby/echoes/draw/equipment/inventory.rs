@@ -25,7 +25,7 @@ pub(super) fn inventory(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui
             kit,
             ui,
             Phrase::EchoesShop.text(lang),
-            Action::Page(Page::Shop),
+            Action::GoShop,
             true,
         );
     }

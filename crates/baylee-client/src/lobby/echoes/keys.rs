@@ -11,6 +11,7 @@ pub(crate) const ORDER: TabOrder = TabOrder {
         "play",
         "hosts",
         "tabs",
+        "shop-return",
         "offers",
         "pins",
         "slots",
@@ -70,6 +71,7 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
         Action::Overview => ("overview", 0),
         Action::Refresh => ("refresh", 0),
         Action::Retry => ("retry", 0),
+        Action::GoShop => ("shop-return", 0),
         Action::Withdraw => ("withdraw", 0),
         Action::Resume => ("play", 0),
         Action::Play(id) => (

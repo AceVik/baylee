@@ -95,6 +95,9 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
     {
         return;
     }
+    if navigate(ui, action) {
+        return;
+    }
     let id = Uuid::now_v7();
     let work = match action {
         Action::Overview if ui.choices.deck_unchanged(ui.model.run()) => {
@@ -108,10 +111,6 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
         }
         Action::Read(read) => read_page(ui, id, read),
         Action::Retry => ui.model.retry(id),
-        Action::InspectCard(card) => {
-            ui.preview = Some(card);
-            None
-        }
         Action::Play(host) if ui.choices.deck_unchanged(ui.model.run()) => {
             ui.model.reserve(id, host)
         }
@@ -161,11 +160,6 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
             ui.confirmation = Some(Confirmation::Withdrawal);
             None
         }
-        Action::Page(page) => {
-            ui.page = page;
-            ui.confirmation = None;
-            None
-        }
         _ => {
             super::choices::act(ui, action);
             None
@@ -174,6 +168,16 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
     if let Some(work) = work {
         submit(state, work);
     }
+}
+
+fn navigate(ui: &mut Ui, action: Action) -> bool {
+    match action {
+        Action::Page(page) => ui.page = page,
+        Action::GoShop => ui.page = Page::Shop,
+        Action::InspectCard(card) => ui.preview = Some(card),
+        _ => return false,
+    }
+    true
 }
 
 fn read_page(ui: &mut Ui, id: Uuid, read: Read) -> Option<Work> {

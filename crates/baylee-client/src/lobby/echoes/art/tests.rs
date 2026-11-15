@@ -50,3 +50,54 @@ fn item_shader_validates_with_native_frontend() {
         "struct UiVertexOutput { @location(0) uv: vec2<f32>, @builtin(position) position: vec4<f32> }; struct Globals { time: f32 };",
     );
 }
+
+#[test]
+fn reduced_motion_updates_cached_portraits_once_and_covers_new_ones() {
+    let mut app = App::new();
+    app.init_resource::<Assets<Material>>()
+        .init_resource::<Cache>()
+        .init_resource::<crate::prefs::Prefs>()
+        .add_systems(Update, dress);
+    app.world_mut()
+        .spawn(Portrait(Goods::Potion(Potion::Healing)));
+    app.update();
+    assert!(
+        app.world()
+            .resource::<Assets<Material>>()
+            .iter()
+            .all(|(_, material)| (material.params.shape.z - 1.0).abs() < f32::EPSILON)
+    );
+    app.world_mut()
+        .resource_mut::<crate::prefs::Prefs>()
+        .edit()
+        .reduce_motion = true;
+    app.update();
+    app.world_mut().spawn(Portrait(Goods::Mythic));
+    app.update();
+    assert_eq!(app.world().resource::<Assets<Material>>().len(), 2);
+    assert!(
+        app.world()
+            .resource::<Assets<Material>>()
+            .iter()
+            .all(|(_, material)| material.params.shape.z == 0.0)
+    );
+    let tick = app.world().read_change_tick();
+    app.update();
+    assert!(
+        !app.world()
+            .resource_ref::<Assets<Material>>()
+            .last_changed()
+            .is_newer_than(tick, app.world().read_change_tick())
+    );
+    app.world_mut()
+        .resource_mut::<crate::prefs::Prefs>()
+        .edit()
+        .reduce_motion = false;
+    app.update();
+    assert!(
+        app.world()
+            .resource::<Assets<Material>>()
+            .iter()
+            .all(|(_, material)| (material.params.shape.z - 1.0).abs() < f32::EPSILON)
+    );
+}

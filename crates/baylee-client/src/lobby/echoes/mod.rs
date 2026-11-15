@@ -37,6 +37,7 @@ pub(crate) enum Action {
     Play(Uuid),
     Resume,
     Page(Page),
+    GoShop,
     Offer(u32),
     Place(Slot),
     Ingredient(u32),
@@ -137,6 +138,7 @@ pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
                 | Action::Back
                 | Action::Overview
                 | Action::Page(_)
+                | Action::GoShop
                 | Action::Read(Read::Run(_))
                 | Action::Offer(_)
                 | Action::Select(_)

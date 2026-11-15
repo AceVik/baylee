@@ -240,7 +240,7 @@ pub(super) const fn icon(action: Action) -> char {
         Action::Play(_) | Action::Resume => glyph::ARROW_RIGHT,
         Action::Accept | Action::Buy | Action::SaveDeck | Action::Fuse => glyph::CHECK,
         Action::Overview | Action::Read(Read::Runs(_) | Read::Run(_)) => glyph::VIEW_ROWS,
-        Action::Page(Page::Shop) => glyph::VIEW_GRID,
+        Action::Page(Page::Shop) | Action::GoShop => glyph::VIEW_GRID,
         Action::Page(Page::Equipment) | Action::Move | Action::Place(_) => glyph::GEAR,
         Action::Page(Page::Deck) => glyph::LIBRARY,
         Action::Offer(_) | Action::Select(_) | Action::InspectCard(_) => glyph::EYE,

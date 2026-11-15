@@ -44,7 +44,7 @@ pub(in crate::lobby) fn entry(commands: &mut Commands, root: Entity, kit: Kit, l
         commands,
         kit,
         glyph::COMPASS,
-        Phrase::TowerOpen.text(lang),
+        Phrase::EchoesOpen.text(lang),
         Weight::Gold,
         Live::Yes,
         None,

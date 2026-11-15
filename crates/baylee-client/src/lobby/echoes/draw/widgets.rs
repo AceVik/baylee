@@ -84,6 +84,38 @@ pub(super) fn portrait(commands: &mut Commands, root: Entity, kit: Kit, goods: G
     heading(commands, band, kit, &words::goods(goods, lang(kit)));
 }
 
+pub(super) fn stat(
+    commands: &mut Commands,
+    root: Entity,
+    kit: Kit,
+    icon: char,
+    caption: &str,
+    value: &str,
+) {
+    let card = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                flex_basis: percent(20),
+                flex_grow: 1.0,
+                min_width: px(0),
+                align_self: AlignSelf::Stretch,
+                padding: UiRect::all(kit.m.px(8.0)),
+                row_gap: kit.m.px(4.0),
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(kit.m.px(8.0)),
+                ..default()
+            },
+            BackgroundColor(tokens::CONTROL),
+            BorderColor::all(tokens::BORDER),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(root).add_child(card);
+    presentation::title(commands, card, kit, icon, value);
+    label(commands, card, kit, caption, tokens::MUTED);
+}
+
 pub(super) fn tile(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
     let tile = panel(commands, root, kit);
     commands

@@ -59,12 +59,21 @@ fn a_stale_control_cannot_open_a_seat_behind_a_confirmation() {
     let (handle, jobs) = central::Handle::queued_for_test();
     let mut state = signed_in(handle);
     state.echoes.confirmation = Some(Confirmation::Withdrawal);
-    ask(&mut state, Action::Read(Read::Runs(None)));
+    for action in [
+        Action::Read(Read::Runs(None)),
+        Action::GoShop,
+        Action::Page(Page::Deck),
+        Action::InspectCard(baylee_core::ids::CardIndex(90)),
+    ] {
+        ask(&mut state, action);
+    }
     assert!(matches!(
         state.echoes.confirmation,
         Some(Confirmation::Withdrawal)
     ));
     assert!(!state.echoes.model.busy());
+    assert_eq!(state.echoes.page, Page::Shop);
+    assert!(state.echoes.preview.is_none());
     assert!(jobs.try_recv().is_err());
     ask(&mut state, Action::Cancel);
     assert!(state.echoes.confirmation.is_none());
