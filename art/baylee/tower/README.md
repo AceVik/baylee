@@ -1,5 +1,16 @@
 # Tower Echoes item portraits
 
+## Run equipment portraits (15 November 2026)
+
+Six further original 1254 × 1254 alpha portraits were created with the built-in
+image tool: Ember Lantern, Tideglass Lens, Grave Bell, Storm Spindle, Dawn Aegis
+and Gilded Acorn. Complete prompts and source paths are retained in
+`run-portraits-generation.json`; `RUN-SHA256SUMS` covers the unchanged copies in
+the native asset directory. Each was visually inspected. The Acorn received a
+second image-tool edit to remove an opaque white halo behind its leaves. These
+portraits are prepared assets; catalog effects and renderer mapping are still
+being integrated. No third-party artwork was supplied.
+
 ## Modular shop artwork (15 November 2026)
 
 The owner-approved direction for the redesigned run shop is recorded in

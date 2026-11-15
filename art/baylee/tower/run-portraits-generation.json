@@ -1,0 +1,56 @@
+{
+  "date": "2026-11-15",
+  "tool": "image_gen",
+  "transparent_background": true,
+  "description": "Six original workshop relic portraits; no external reference artwork. Gilded Acorn was refined to remove its exterior halo.",
+  "images": [
+    {
+      "id": "ember-lantern",
+      "prompt": "Create ONE ORIGINAL fantasy game inventory item portrait with premium painterly 3D-rendered realism, tangible detailed materials, sculpted bevels, polished metal, cinematic soft studio illumination and gentle rim light. Isolated single object centered in a square image, fully visible with 9 percent breathing room, three-quarter view slightly from above, readable at 64px. TRUE transparent alpha background, no floor, no cast shadow outside the object, no scenery, no card, no frame, no text, no letters, no logo, no UI. Warm wood, antique gold and saturated magical accent, matching a cohesive cozy dark-wood arcane workshop inventory. Do not imitate any existing game or intellectual property. Subject: Ember Lantern: a stout ancient bronze-and-dark-walnut lantern, claw-like carved wooden ribs, warm luminous orange crystal coal suspended inside smoked amber glass, tiny gold leaf ornaments, sturdy ring handle. Bold unique lantern silhouette.",
+      "generated_path": "/Users/viktor/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/exec-da55777a-db90-4437-a77a-913803c4955b.png",
+      "selected_path": "/Users/viktor/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/exec-da55777a-db90-4437-a77a-913803c4955b.png",
+      "destination": "crates/baylee-client/assets/tower/portraits/ember-lantern.png"
+    },
+    {
+      "id": "tideglass-lens",
+      "prompt": "Create ONE ORIGINAL fantasy game inventory item portrait with premium painterly 3D-rendered realism, tangible detailed materials, sculpted bevels, polished metal, cinematic soft studio illumination and gentle rim light. Isolated single object centered in a square image, fully visible with 9 percent breathing room, three-quarter view slightly from above, readable at 64px. TRUE transparent alpha background, no floor, no cast shadow outside the object, no scenery, no card, no frame, no text, no letters, no logo, no UI. Warm wood, antique gold and saturated magical accent, matching a cohesive cozy dark-wood arcane workshop inventory. Do not imitate any existing game or intellectual property. Subject: Tideglass Lens: a compact round arcane magnifying lens with a short carved dark walnut handle, thick polished antique gold setting, concentric deep blue glass with a luminous turquoise wave spiralling inside, two tiny pearl studs, maritime scholarly charm. Bold unique lens silhouette.",
+      "generated_path": "/Users/viktor/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/exec-264cf289-8ac4-45ef-bb4c-68738b0a1f3b.png",
+      "selected_path": "/Users/viktor/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/exec-264cf289-8ac4-45ef-bb4c-68738b0a1f3b.png",
+      "destination": "crates/baylee-client/assets/tower/portraits/tideglass-lens.png"
+    },
+    {
+      "id": "grave-bell",
+      "prompt": "Create ONE ORIGINAL fantasy game inventory item portrait with premium painterly 3D-rendered realism, tangible detailed materials, sculpted bevels, polished metal, cinematic soft studio illumination and gentle rim light. Isolated single object centered in a square image, fully visible with 9 percent breathing room, three-quarter view slightly from above, readable at 64px. TRUE transparent alpha background, no floor, no cast shadow outside the object, no scenery, no card, no frame, no text, no letters, no logo, no UI. Warm wood, antique gold and saturated magical accent, matching a cohesive cozy dark-wood arcane workshop inventory. Do not imitate any existing game or intellectual property. Subject: Grave Bell: a small heavy hanging handbell of patinated antique bronze, a carved dark walnut handle shaped like entwined roots, eerie soft violet light glowing inside the hollow bell, amethyst stone at the crown, subtle leaf engraving. Mysterious and elegant, not horror.",
+      "generated_path": "/Users/viktor/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/exec-727b4566-a19a-4f4f-8fa0-cdf831aa8b2e.png",
+      "selected_path": "/Users/viktor/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/exec-727b4566-a19a-4f4f-8fa0-cdf831aa8b2e.png",
+      "destination": "crates/baylee-client/assets/tower/portraits/grave-bell.png"
+    },
+    {
+      "id": "storm-spindle",
+      "prompt": "Create ONE ORIGINAL fantasy game inventory item portrait with premium painterly 3D-rendered realism, tangible detailed materials, sculpted bevels, polished metal, cinematic soft studio illumination and gentle rim light. Isolated single object centered in a square image, fully visible with 9 percent breathing room, three-quarter view slightly from above, readable at 64px. TRUE transparent alpha background, no floor, no cast shadow outside the object, no scenery, no card, no frame, no text, no letters, no logo, no UI. Warm wood, antique gold and saturated magical accent, matching a cohesive cozy dark-wood arcane workshop inventory. Do not imitate any existing game or intellectual property. Subject: Storm Spindle: a self-contained upright magical spindle device, thick deep walnut base and carved frame, polished brass flywheel and brackets, a suspended pale violet crystal spindle wrapped in blue electrical filaments, small gold highlights. A bold readable triangular mechanical silhouette.",
+      "generated_path": "/Users/viktor/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/exec-b69bc085-8425-44fd-b6fe-26e296b4e6c4.png",
+      "selected_path": "/Users/viktor/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/exec-b69bc085-8425-44fd-b6fe-26e296b4e6c4.png",
+      "destination": "crates/baylee-client/assets/tower/portraits/storm-spindle.png"
+    },
+    {
+      "id": "dawn-aegis",
+      "prompt": "Create ONE ORIGINAL fantasy game inventory item portrait with premium painterly 3D-rendered realism, tangible detailed materials, sculpted bevels, polished metal, cinematic soft studio illumination and gentle rim light. Isolated single object centered in a square image, fully visible with 9 percent breathing room, three-quarter view slightly from above, readable at 64px. TRUE transparent alpha background, no floor, no cast shadow outside the object, no scenery, no card, no frame, no text, no letters, no logo, no UI. Warm wood, antique gold and saturated magical accent, matching a cohesive cozy dark-wood arcane workshop inventory. Do not imitate any existing game or intellectual property. Subject: Dawn Aegis: a small broad teardrop shield standing upright with ivory ceramic face, heavy antique gold edge, glowing soft golden sun crystal at its center, two carved wooden leaf wings curving along the sides. A bold protective shield silhouette.",
+      "generated_path": "/Users/viktor/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/exec-fda8c508-b528-4341-817f-c93f2a744a9c.png",
+      "selected_path": "/Users/viktor/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/exec-fda8c508-b528-4341-817f-c93f2a744a9c.png",
+      "destination": "crates/baylee-client/assets/tower/portraits/dawn-aegis.png"
+    },
+    {
+      "id": "gilded-acorn",
+      "prompt": "Create ONE ORIGINAL fantasy game inventory item portrait with premium painterly 3D-rendered realism, tangible detailed materials, sculpted bevels, polished metal, cinematic soft studio illumination and gentle rim light. Isolated single object centered in a square image, fully visible with 9 percent breathing room, three-quarter view slightly from above, readable at 64px. TRUE transparent alpha background, no floor, no cast shadow outside the object, no scenery, no card, no frame, no text, no letters, no logo, no UI. Warm wood, antique gold and saturated magical accent, matching a cohesive cozy dark-wood arcane workshop inventory. Do not imitate any existing game or intellectual property. Subject: Gilded Acorn: a large ornate magical acorn, its cap carved from dark walnut with elegant overlapping scales, its body luminous honey amber glass filled with small gold coins, polished gold rim and curling root-like feet, two small green leaves. A bold round rich harvest silhouette.",
+      "generated_path": "/Users/viktor/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/exec-8c44b4d3-c0b0-4c75-bb60-8d38dd06227c.png",
+      "selected_path": "/Users/viktor/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/exec-18670b46-1d98-4caa-bb64-c74b892577a3.png",
+      "destination": "crates/baylee-client/assets/tower/portraits/gilded-acorn.png"
+    }
+  ],
+  "edits": [
+    {
+      "id": "gilded-acorn",
+      "prompt": "Edit the supplied original inventory icon. Preserve the entire beautiful acorn object, geometry, wood, gold, amber glass, coins, leaves, lighting, camera, colors and layout unchanged. ONLY remove all background: the pale white/green/grey opaque halo behind and between the top leaves and stem, and the glow haze outside the lower legs. Every pixel outside the actual object silhouette must be transparent alpha, including the holes between its feet and the spaces between leaves and stem. No glow, no backdrop, no floor, no cast shadow. Crisp clean cutout for display over a dark walnut UI. Do not erase the glass or gold inside the object."
+    }
+  ]
+}
