@@ -23,7 +23,14 @@ pub(super) fn effect(definition: Definition, lang: Lang) -> String {
             };
             phrase.fill(lang, &[&value])
         }
-        Family::Heartwood | Family::Satchel | Family::Compass | Family::Grove => {
+        Family::Heartwood
+        | Family::Satchel
+        | Family::Compass
+        | Family::Grove
+        | Family::SeedCradle
+        | Family::SwarmBanner
+        | Family::HarvestWheel
+        | Family::RootReservoir => {
             unreachable!("foundation text has its own reader")
         }
     };
@@ -39,7 +46,14 @@ pub(super) fn tier(definition: Definition, lang: Lang) -> String {
         Family::BloodAmber => Phrase::EchoesAmberTier,
         Family::LifeCoil if mythic => Phrase::EchoesCoilMythicTier,
         Family::LifeCoil => Phrase::EchoesCoilTier,
-        Family::Heartwood | Family::Satchel | Family::Compass | Family::Grove => {
+        Family::Heartwood
+        | Family::Satchel
+        | Family::Compass
+        | Family::Grove
+        | Family::SeedCradle
+        | Family::SwarmBanner
+        | Family::HarvestWheel
+        | Family::RootReservoir => {
             unreachable!("foundation text has its own reader")
         }
     };
@@ -53,7 +67,14 @@ fn amount(definition: Definition) -> u8 {
         Family::Hearthstone => definition.rarity.tier(),
         Family::BloodAmber => [1, 2, 3, 3][tier],
         Family::LifeCoil => [3, 2, 1, 1][tier],
-        Family::Heartwood | Family::Satchel | Family::Compass | Family::Grove => {
+        Family::Heartwood
+        | Family::Satchel
+        | Family::Compass
+        | Family::Grove
+        | Family::SeedCradle
+        | Family::SwarmBanner
+        | Family::HarvestWheel
+        | Family::RootReservoir => {
             unreachable!("foundation text has its own reader")
         }
     }

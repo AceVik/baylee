@@ -115,11 +115,19 @@ pub enum Family {
     BloodAmber,
     /// Mana and life buy a card; only Mythic loses the tap cost.
     LifeCoil,
+    /// Life-gain events offer an optional mana payment for Plants.
+    SeedCradle,
+    /// A removable artifact that supports only your creature tokens.
+    SwarmBanner,
+    /// Dying creature tokens store charges for colorless mana.
+    HarvestWheel,
+    /// Entering creature tokens store charges for green mana.
+    RootReservoir,
 }
 
 impl Family {
     /// Frozen catalog order, independent of map iteration or translated names.
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 12] = [
         Self::Heartwood,
         Self::Satchel,
         Self::Compass,
@@ -128,6 +136,10 @@ impl Family {
         Self::Hearthstone,
         Self::BloodAmber,
         Self::LifeCoil,
+        Self::SeedCradle,
+        Self::SwarmBanner,
+        Self::HarvestWheel,
+        Self::RootReservoir,
     ];
 
     const fn offset(self) -> u16 {
@@ -140,6 +152,10 @@ impl Family {
             Self::Hearthstone => 20,
             Self::BloodAmber => 24,
             Self::LifeCoil => 28,
+            Self::SeedCradle => 32,
+            Self::SwarmBanner => 36,
+            Self::HarvestWheel => 40,
+            Self::RootReservoir => 44,
         }
     }
 }
@@ -209,7 +225,11 @@ pub fn attributes(active: &[Definition]) -> Result<Attributes, Refusal> {
             | Family::SpringChalice
             | Family::Hearthstone
             | Family::BloodAmber
-            | Family::LifeCoil => {}
+            | Family::LifeCoil
+            | Family::SeedCradle
+            | Family::SwarmBanner
+            | Family::HarvestWheel
+            | Family::RootReservoir => {}
         }
     }
     if result.cards > 9 || result.maximum_hand > 9 || result.free_mulligans > 7 {

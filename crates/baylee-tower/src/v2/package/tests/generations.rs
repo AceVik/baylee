@@ -44,7 +44,7 @@ fn original_contract_keeps_its_native_revision_and_house_policy() {
 #[test]
 fn life_workshop_presets_cannot_be_smuggled_into_original_runs() {
     let (catalog, mut run, cohort, mut opponent) = fixture();
-    assert_eq!((cohort.generator, cohort.revision), (2, 3));
+    assert_eq!((cohort.generator, cohort.revision), (3, 4));
     assert_eq!(cohort.executor.ai, "tower-house-20");
     let definition = Definition {
         family: Family::SpringChalice,
@@ -93,7 +93,7 @@ fn life_workshop_presets_cannot_be_smuggled_into_original_runs() {
 fn unknown_generations_cannot_start_validate_or_reserve_an_execution() {
     let (catalog, run, cohort, opponent) = fixture();
     let build = Build::freeze(&run, &catalog).unwrap();
-    for generator in [0, 3, u16::MAX] {
+    for generator in [0, 4, u16::MAX] {
         assert!(catalog_digest_for(&catalog, generator).is_err());
         assert!(Cohort::for_generation(cohort.executor.clone(), &catalog, generator).is_err());
         assert!(Run::begin_for(&catalog, run.cards.clone(), &[3; 32], generator).is_err());
@@ -117,5 +117,32 @@ fn unknown_generations_cannot_start_validate_or_reserve_an_execution() {
         let mut changed_cohort = cohort.clone();
         changed_cohort.generator = generator;
         assert!(changed_cohort.validate(&catalog).is_err());
+    }
+}
+
+#[test]
+fn life_workshop_contract_remains_valid_but_refuses_token_workshop_definitions() {
+    let (catalog, run, cohort, _) = fixture();
+    let mut identity = cohort.executor;
+    identity.rules = "tower-3".into();
+    identity.ai = "tower-house-20".into();
+    let cohort = Cohort::for_generation(identity, &catalog, 2).unwrap();
+    cohort.validate(&catalog).unwrap();
+    assert_eq!(cohort.revision, 3);
+    let mut run = Run::begin_for(&catalog, run.cards, &[3; 32], 2).unwrap();
+    for family in [
+        Family::SeedCradle,
+        Family::SwarmBanner,
+        Family::HarvestWheel,
+        Family::RootReservoir,
+    ] {
+        let definition = Definition {
+            family,
+            rarity: Rarity::Common,
+        };
+        assert!(generation::definition(2, definition).is_err());
+        assert!(generation::definition(3, definition).is_ok());
+        run.shop.offers[2].goods = Goods::Relic(definition);
+        assert!(run.validate(&catalog).is_err());
     }
 }

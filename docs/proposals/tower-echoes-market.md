@@ -2,10 +2,39 @@
 
 15 November 2026, owner-requested direction for the next implementation passes.
 This is a researched design; the unimplemented candidates below are not content
-or balance evidence. Generation two now admits eight relic families, two ordinary
-potions and one Mythic crafting material. Eleven original portraits are mapped.
+or balance evidence. Generation three's token workshop is being admitted under
+native revision four: twelve families, two ordinary potions and one Mythic
+crafting material. Fifteen original portraits are mapped. Played-rule and AI
+acceptance of this new workshop is tracked in the preparation ledger.
 This supplement replaces the earlier approximate twelve-family content target;
 it does not mutate the saved generation-one contract.
+
+## Token workshop — generation three admission
+
+| Family | Common | Uncommon | Rare | Mythic Rare |
+| --- | --- | --- | --- | --- |
+| Saatwiege | Each own life-gain event: optionally pay 3 generic mana for one green 1/1 Plant | Pay 2 | Pay 1 | Pay 1 for two Plants |
+| Schwarmbanner | Own creature tokens get +1/+0 | +1/+1 | +2/+1 | +2/+2 and trample |
+| Ernterad | Each own creature-token death adds one charge; tap, remove 3 charges: add two colorless mana | Tap, remove 2 | Tap, remove 1 | Remove 1 for three colorless mana; no tap |
+| Wurzelspeicher | Each own creature-token entry adds one charge; tap, remove 3: add one green mana | Tap, remove 2 | Remove 2; no tap | Remove 1; no tap |
+
+All four are removable artifacts, with normal triggers, costs and mana abilities.
+Life gain is counted by event, token entry/death by individual creature. A card
+creature is not a token, and exile is not death. Reserve copies have no effect.
+Definition IDs 33–48 append to the two earlier workshops; no prior ID changes.
+Generation two keeps its exact native-three/policy-20 contract and a newly pinned
+offer-stream digest captured before this expansion. Generation three retains the
+2/4/2 stock distribution and bounded owned-family affinity, with its own explicit
+twelve-family pool. The existing prices and refresh limit remain provisional
+balance hypotheses, not a completed calibration.
+
+Herdstein + Rare Saatwiege + Mythic Wurzelspeicher can sustain a voluntary
+mana-to-token-to-life cycle once seeded. It uses all three active slots, an actual
+Mythic recipe and a starting life-gain or creature event. An opponent can remove
+its ordinary sources, and each continuation remains optional. No repetition
+detector or gameplay cap is introduced; the house policy must make a finite
+strategic decision about optional continuation. This combination needs explicit
+played and hosted acceptance before the catalog is considered ready.
 
 ## Implemented life workshop — generation two
 

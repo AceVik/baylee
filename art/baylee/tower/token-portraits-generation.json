@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-15",
+  "mode": "built-in image_gen",
+  "transparent_background": true,
+  "status": "Original portraits for the token-workshop families; native content admission tracked separately.",
+  "assets": [
+    {
+      "name": "seed-cradle",
+      "prompt": "Use case: stylized-concept. Asset type: one original premium fantasy RPG inventory portrait for Baylee Tower Echoes. High-end tangible 3D cinematic game illustration with physically convincing materials, broad readable silhouette and restrained craftsmanship; recognizable at 56 pixels. Warm soft key light from upper left, cool rim light, controlled specular reflections. One object only, centered three-quarter view, square composition, object occupies 72 percent of canvas with clear transparent padding on every side. True transparent alpha background. No environment, floor, pedestal, external cast shadow or checkerboard. No text, letters, numbers, logos, UI frame, rarity marks, watermarks or recognizable franchise design. Restrained magical light close to the object, clean edges. Final standalone production asset. Subject: a palm-sized enchanted seed cradle made of two thick curved polished walnut leaves in a warm brass oval armature, holding one large glowing pale-green seed with two fresh emerald shoots. Rounded horizontal nest silhouette, subtle green light inside, tactile wood grain and tiny brass rivets. All components physically joined as one artifact. Communicates growing new life from stored vitality.",
+      "source": "/Users/viktor/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/exec-efc00bad-64ef-4ade-aca5-59c8205dfe58.png",
+      "target": "crates/baylee-client/assets/tower/portraits/seed-cradle.png"
+    },
+    {
+      "name": "swarm-banner",
+      "prompt": "Use case: stylized-concept. Asset type: one original premium fantasy RPG inventory portrait for Baylee Tower Echoes. High-end tangible 3D cinematic game illustration with physically convincing materials, broad readable silhouette and restrained craftsmanship; recognizable at 56 pixels. Warm soft key light from upper left, cool rim light, controlled specular reflections. One object only, centered three-quarter view, square composition, object occupies 72 percent of canvas with clear transparent padding on every side. True transparent alpha background. No environment, floor, pedestal, external cast shadow or checkerboard. No text, letters, numbers, logos, UI frame, rarity marks, watermarks or recognizable franchise design. Restrained magical light close to the object, clean edges. Final standalone production asset. Subject: a compact ceremonial battle standard, one short dark wooden pole with an integral copper leaf-shaped foot, broad emerald-green cloth pennant with three raised gold seed shapes (abstract relief, no heraldry or lettering), topped by an amber seed finial. Cloth has thick woven edges and a restrained fold. Readable upright triangular flag silhouette. Communicates strength in many small growing allies, not a human character.",
+      "source": "/Users/viktor/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/exec-520b66cb-331a-417d-9448-4e0ce25a4737.png",
+      "target": "crates/baylee-client/assets/tower/portraits/swarm-banner.png"
+    },
+    {
+      "name": "harvest-wheel",
+      "prompt": "Use case: stylized-concept. Asset type: one original premium fantasy RPG inventory portrait for Baylee Tower Echoes. High-end tangible 3D cinematic game illustration with physically convincing materials, broad readable silhouette and restrained craftsmanship; recognizable at 56 pixels. Warm soft key light from upper left, cool rim light, controlled specular reflections. One object only, centered three-quarter view, square composition, object occupies 72 percent of canvas with clear transparent padding on every side. True transparent alpha background. No environment, floor, pedestal, external cast shadow or checkerboard. No text, letters, numbers, logos, UI frame, rarity marks, watermarks or recognizable franchise design. Restrained magical light close to the object, clean edges. Final standalone production asset. Subject: a small arcane harvest wheel, a thick upright antique bronze ring with six broad curved brass spokes around a luminous amber hub, a few joined polished walnut insets, supported by two short integral root-shaped feet. An enclosed dark-green seed pod fits one compartment in the ring. Strong round mechanical silhouette. Medieval hand-crafted, no sharp blades or futuristic electronics. Communicates reclaiming spent growth as energy.",
+      "source": "/Users/viktor/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/exec-477f0700-70ac-48e9-abb5-af306d4dae8e.png",
+      "target": "crates/baylee-client/assets/tower/portraits/harvest-wheel.png"
+    },
+    {
+      "name": "root-reservoir",
+      "prompt": "Use case: stylized-concept. Asset type: one original premium fantasy RPG inventory portrait for Baylee Tower Echoes. High-end tangible 3D cinematic game illustration with physically convincing materials, broad readable silhouette and restrained craftsmanship; recognizable at 56 pixels. Warm soft key light from upper left, cool rim light, controlled specular reflections. One object only, centered three-quarter view, square composition, object occupies 72 percent of canvas with clear transparent padding on every side. True transparent alpha background. No environment, floor, pedestal, external cast shadow or checkerboard. No text, letters, numbers, logos, UI frame, rarity marks, watermarks or recognizable franchise design. Restrained magical light close to the object, clean edges. Final standalone production asset. Subject: an enchanted reservoir, a squat translucent jade vessel with a broad bulb containing vivid green liquid light, embraced by four thick polished living walnut roots that form its integral foot and protective shoulder. A small gold rim and a round cork-like carved wooden cap, one bright emerald sprout growing from the cap. Strong flask silhouette, clean green refractions, tactile wood and restrained gold inlays. Communicates storing nature's growth as mana. Distinct from a drinking potion, substantial root-bound storage artifact.",
+      "source": "/Users/viktor/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/exec-4e4e6472-dcc3-441c-8ff4-df1e674c14f2.png",
+      "target": "crates/baylee-client/assets/tower/portraits/root-reservoir.png"
+    }
+  ]
+}

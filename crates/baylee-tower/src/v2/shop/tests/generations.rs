@@ -72,7 +72,7 @@ fn legacy_shop_encoding_defaults_to_one_and_unknown_generations_are_refused() {
     let decoded: Shop = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(decoded.generator, 1);
     assert_eq!(serde_json::to_vec(&decoded).unwrap(), bytes);
-    for generator in [0, 3, u16::MAX] {
+    for generator in [0, 4, u16::MAX] {
         assert!(Shop::open_for(generator, &[7; 32], 1, stock, None).is_err());
         let mut changed = value.clone();
         changed["generator"] = generator.into();
@@ -81,4 +81,68 @@ fn legacy_shop_encoding_defaults_to_one_and_unknown_generations_are_refused() {
         assert!(changed.refreshed(&[7; 32], stock).is_err());
         assert!(Shop::open(&[7; 32], 2, stock, Some(&changed)).is_err());
     }
+}
+
+#[test]
+fn life_workshop_offer_stream_and_commitment_stay_frozen() {
+    let (catalog, cards, economy) = fixture();
+    let economy = economy
+        .bought(
+            Definition {
+                family: Family::BloodAmber,
+                rarity: Rarity::Common,
+            },
+            Slot::Active(0),
+        )
+        .unwrap();
+    let mut digest = Sha256::new();
+    for seed in 0..32 {
+        let mut previous = None;
+        for stage in 1..=MAX_STAGES {
+            let mut shop = Shop::open_for(
+                2,
+                &[seed; 32],
+                stage,
+                Stock {
+                    catalog: &catalog,
+                    cards: &cards,
+                    economy: &economy,
+                },
+                previous.as_ref(),
+            )
+            .unwrap();
+            digest.update(serde_json::to_vec(&shop).unwrap());
+            shop = shop.pinned(shop.offers[3].id, true, &catalog).unwrap();
+            let mut wallet = economy.clone();
+            for _ in 0..REROLLS {
+                (shop, wallet) = shop
+                    .refreshed(
+                        &[seed; 32],
+                        Stock {
+                            catalog: &catalog,
+                            cards: &cards,
+                            economy: &wallet,
+                        },
+                    )
+                    .unwrap();
+                digest.update(serde_json::to_vec(&shop).unwrap());
+            }
+            previous = Some(shop);
+        }
+    }
+    // Captured before admitting the token workshop; includes owned-family affinity.
+    assert_eq!(
+        <[u8; 32]>::from(digest.finalize()),
+        [
+            116, 53, 118, 223, 138, 66, 0, 200, 26, 241, 141, 89, 104, 117, 200, 252, 123, 74, 192,
+            51, 188, 183, 221, 205, 68, 249, 12, 161, 86, 9, 53, 23
+        ]
+    );
+    assert_eq!(
+        crate::v2::package::catalog_digest_for(&catalog, 2).unwrap(),
+        [
+            28, 195, 20, 71, 15, 66, 139, 165, 223, 176, 238, 182, 191, 180, 214, 155, 54, 210, 44,
+            94, 80, 233, 214, 178, 181, 89, 88, 85, 169, 70, 110, 229
+        ]
+    );
 }

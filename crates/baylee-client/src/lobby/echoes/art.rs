@@ -27,6 +27,10 @@ impl Portrait {
                     Family::Hearthstone => 9,
                     Family::BloodAmber => 10,
                     Family::LifeCoil => 11,
+                    Family::SeedCradle => 12,
+                    Family::SwarmBanner => 13,
+                    Family::HarvestWheel => 14,
+                    Family::RootReservoir => 15,
                 },
                 match rarity {
                     Rarity::Common => 0,
@@ -60,7 +64,7 @@ struct Material {
 }
 
 // Loaded on first use, once per family across all rarities and rebuilt panels.
-const PICTURES: [&str; 11] = [
+const PICTURES: [&str; 15] = [
     "tower/portraits/heartwood.png",
     "tower/portraits/satchel.png",
     "tower/portraits/compass.png",
@@ -72,6 +76,10 @@ const PICTURES: [&str; 11] = [
     "tower/portraits/hearthstone.png",
     "tower/portraits/blood-amber.png",
     "tower/portraits/life-coil.png",
+    "tower/portraits/seed-cradle.png",
+    "tower/portraits/swarm-banner.png",
+    "tower/portraits/harvest-wheel.png",
+    "tower/portraits/root-reservoir.png",
 ];
 
 impl UiMaterial for Material {
@@ -112,6 +120,10 @@ fn params(kind: usize, tier: usize, energy: f32) -> Params {
                 [1.0, 0.64, 0.29],
                 [0.95, 0.30, 0.23],
                 [0.36, 0.78, 0.72],
+                [0.62, 0.91, 0.35],
+                [0.35, 0.78, 0.49],
+                [0.98, 0.73, 0.35],
+                [0.37, 0.93, 0.63],
             ][kind],
         ),
         shape: Vec4::new(kind as f32, tier as f32, energy, 0.0),

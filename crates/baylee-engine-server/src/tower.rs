@@ -1,6 +1,7 @@
 //! Tower's compiled native pack. All effects use the ordinary rules pipeline.
 use baylee_cards::tokens::tower::{
-    LIFE_RELICS, TOWER_GROVE_COMMON, TOWER_GROVE_MYTHIC, TOWER_GROVE_RARE, TOWER_GROVE_UNCOMMON,
+    GROWTH_RELICS, LIFE_RELICS, TOWER_GROVE_COMMON, TOWER_GROVE_MYTHIC, TOWER_GROVE_RARE,
+    TOWER_GROVE_UNCOMMON,
 };
 use baylee_engine::{
     extensions::{NativeDefinition, NativeRulePack},
@@ -43,6 +44,10 @@ impl NativeRulePack for Pack {
             Family::Hearthstone => NativeDefinition::Permanent(LIFE_RELICS[1][tier]),
             Family::BloodAmber => NativeDefinition::Permanent(LIFE_RELICS[2][tier]),
             Family::LifeCoil => NativeDefinition::Permanent(LIFE_RELICS[3][tier]),
+            Family::SeedCradle => NativeDefinition::Permanent(GROWTH_RELICS[0][tier]),
+            Family::SwarmBanner => NativeDefinition::Permanent(GROWTH_RELICS[1][tier]),
+            Family::HarvestWheel => NativeDefinition::Permanent(GROWTH_RELICS[2][tier]),
+            Family::RootReservoir => NativeDefinition::Permanent(GROWTH_RELICS[3][tier]),
         })
     }
 }

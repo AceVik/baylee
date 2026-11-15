@@ -3857,6 +3857,27 @@ EchoesAmberMythicEffect = Immer wenn du LeP erhältst, speichere eine Ladung. Be
 EchoesCoilEffect = Bezahle { $mana } Mana beliebigen Typs, tappe und bezahle 2 LeP: Ziehe eine Karte.
 EchoesCoilMythicEffect = Bezahle { $mana } Mana beliebigen Typs und 2 LeP: Ziehe eine Karte. Ohne Tappen.
 EchoesRemovableArtifact = Beginnt jede Partie als entfernbares Artefakt. Nur ausgerüstete Gegenstände wirken.
+EchoesCradle = Saatwiege
+EchoesBanner = Schwarmbanner
+EchoesHarvest = Ernterad
+EchoesRoots = Wurzelspeicher
+EchoesCradleEvent = Immer wenn du LeP erhältst, bietet dieses Artefakt eine freiwillige Zahlung an. Zählt Ereignisse, nicht einzelne LeP.
+EchoesCradleTier = Du kannst { $mana } Mana beliebigen Typs bezahlen, um eine grüne 1/1-Pflanze zu erzeugen.
+EchoesCradleTwoTier = Du kannst { $mana } Mana beliebigen Typs bezahlen, um zwei grüne 1/1-Pflanzen zu erzeugen.
+EchoesBannerTier = Kreaturenspielsteine unter deiner Kontrolle erhalten +{ $power }/+{ $toughness }.
+EchoesBannerTrample = Sie verursachen außerdem Trampelschaden.
+EchoesHarvestEvent = Jeder Kreaturenspielstein unter deiner Kontrolle, der stirbt, speichert hier eine Ladung. Andere Todesfälle und Exil zählen nicht.
+EchoesRootsEvent = Jeder Kreaturenspielstein, der unter deiner Kontrolle ins Spiel kommt, speichert hier eine Ladung. Kreaturenkarten zählen nicht.
+EchoesStoredManaTier = { $count ->
+    [one] Tappen und eine Ladung bezahlen: Erzeuge { $mana } { $color } Mana.
+   *[other] Tappen und { $count } Ladungen bezahlen: Erzeuge { $mana } { $color } Mana.
+    }
+EchoesStoredManaFreeTier = { $count ->
+    [one] Eine Ladung bezahlen: Erzeuge { $mana } { $color } Mana. Ohne Tappen.
+   *[other] { $count } Ladungen bezahlen: Erzeuge { $mana } { $color } Mana. Ohne Tappen.
+    }
+EchoesColorlessMana = farbloses
+EchoesGreenMana = grünes
 EchoesSatchel = Gelehrtentasche
 EchoesCompass = Pfadfinder-Kompass
 EchoesGrove = Lebendiger Hain

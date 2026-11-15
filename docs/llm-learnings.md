@@ -7914,3 +7914,17 @@ beneath it. What the author missed, for the next brief:
   now publish an explicit revision-two/policy-19 artifact. Both previously
   failed at package setup because their synthetic identities came from the
   current revision-three constructor.
+
+## 2026-11-15 — original Tower token workshop, authoring pass
+
+- Freeze the expanded generation-two stream before admitting a third catalog.
+  The new digest includes owned-family affinity, pins and every paid refresh
+  over 32 seeds and twelve visits; it was captured from the previous code.
+- The four new original families use existing optional payment, creature-token
+  filters, static modifiers, charge costs and mana-ability vocabulary. They add
+  no DSL variant or engine callback. Their sixteen append-only token identities
+  are generated through `codegen --tables`.
+- A renewable optional combination needs a played test and a real hosted house
+  policy test. Native legality alone does not prove the policy will stop building
+  a board and resume combat. That acceptance remains pending at this authoring
+  commit; it is not a balance or merge-ready claim.

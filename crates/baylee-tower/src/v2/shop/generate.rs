@@ -146,7 +146,7 @@ impl Shop {
         // A bounded third of new-generation relic offers follows an owned family.
         // Canonical catalog order, not item order or active/reserve placement.
         // Selection never reads an opponent and never rewrites already saved stock.
-        if self.generator == 2 && random[3] < 85 {
+        if matches!(self.generator, 2 | 3) && random[3] < 85 {
             let owned: Vec<_> = families
                 .iter()
                 .copied()

@@ -32,6 +32,7 @@ fn uses_documented_face_fallback(token: &TokenDef) -> bool {
     ]
     .into_iter()
     .chain(tower::LIFE_RELICS.into_iter().flatten())
+    .chain(tower::GROWTH_RELICS.into_iter().flatten())
     .any(|fallback| std::ptr::eq(token, fallback))
 }
 
@@ -50,6 +51,10 @@ fn every_token_written_here_has_an_id_in_the_ledger() {
         .chain(include_str!("tower/hearth.rs").lines())
         .chain(include_str!("tower/amber.rs").lines())
         .chain(include_str!("tower/coil.rs").lines())
+        .chain(include_str!("tower/cradle.rs").lines())
+        .chain(include_str!("tower/banner.rs").lines())
+        .chain(include_str!("tower/harvest.rs").lines())
+        .chain(include_str!("tower/roots.rs").lines())
         .filter_map(|line| {
             line.trim()
                 .strip_prefix("pub static ")?

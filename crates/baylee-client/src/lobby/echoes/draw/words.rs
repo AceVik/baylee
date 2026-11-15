@@ -2,6 +2,7 @@
 use super::*;
 use domain::v2::{run::Outcome, shop::Delivery};
 
+mod growth;
 mod life;
 
 pub(super) fn card(id: baylee_core::ids::CardIndex, lang: Lang) -> String {
@@ -94,6 +95,10 @@ pub(super) fn name(goods: Goods, lang: Lang) -> String {
             Family::Hearthstone => Phrase::EchoesHearth,
             Family::BloodAmber => Phrase::EchoesAmber,
             Family::LifeCoil => Phrase::EchoesCoil,
+            Family::SeedCradle => Phrase::EchoesCradle,
+            Family::SwarmBanner => Phrase::EchoesBanner,
+            Family::HarvestWheel => Phrase::EchoesHarvest,
+            Family::RootReservoir => Phrase::EchoesRoots,
         }
         .text(lang)
         .to_owned(),
@@ -135,6 +140,10 @@ pub(super) fn effect(goods: Goods, lang: Lang) -> String {
                 | Family::Hearthstone
                 | Family::BloodAmber
                 | Family::LifeCoil => life::effect(definition, lang),
+                Family::SeedCradle
+                | Family::SwarmBanner
+                | Family::HarvestWheel
+                | Family::RootReservoir => growth::effect(definition, lang),
             }
         }
     }
@@ -150,6 +159,9 @@ pub(super) fn tier(definition: Definition, lang: Lang) -> String {
         }
         Family::SpringChalice | Family::Hearthstone | Family::BloodAmber | Family::LifeCoil => {
             life::tier(definition, lang)
+        }
+        Family::SeedCradle | Family::SwarmBanner | Family::HarvestWheel | Family::RootReservoir => {
+            growth::tier(definition, lang)
         }
     }
 }

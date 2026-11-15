@@ -6,13 +6,15 @@ permanent accomplishment receipts. This runbook describes local/offline
 provisioning; release approval, calibration, retention and the final least-privilege
 runtime grants remain separate release requirements.
 
-The life-workshop catalog uses generator 2 / native `tower-3` and API header
-`baylee-tower-version: 3` on the existing `/v2/player` endpoint and host routes.
+The token-workshop catalog uses generator 3 / native `tower-4` and API header
+`baylee-tower-version: 4` on the existing `/v2/player` endpoint and host routes.
 Older API clients receive 426 before authentication rather than undecodable new
 families. Deploy matching service, gateway and client builds together. Retain the
-exact `tower-2` / `tower-house-19` executors for generation-one runs. Publishing
-a new cohort preserves existing runs and their snapshots. The life workshop
-uses `tower-3` / `tower-house-20` and refuses a revision-two manifest.
+exact `tower-2` / `tower-house-19` executors for generation-one runs and
+`tower-3` / `tower-house-20` for generation two. Publishing a new cohort preserves
+existing runs and their snapshots. The token workshop uses `tower-4` /
+`tower-house-20` and refuses older manifests. Both prior catalog/offer streams
+remain frozen; new families cannot enter old runs.
 
 ## Input and authority
 

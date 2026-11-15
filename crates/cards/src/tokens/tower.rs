@@ -13,19 +13,34 @@ use baylee_core::types::TypeSet;
 
 #[path = "tower/amber.rs"]
 mod amber;
+#[path = "tower/banner.rs"]
+mod banner;
 #[path = "tower/chalice.rs"]
 mod chalice;
 #[path = "tower/coil.rs"]
 mod coil;
+#[path = "tower/cradle.rs"]
+mod cradle;
+#[path = "tower/growth.rs"]
+mod growth;
+#[path = "tower/harvest.rs"]
+mod harvest;
 #[path = "tower/hearth.rs"]
 mod hearth;
 #[path = "tower/life.rs"]
 mod life;
+#[path = "tower/roots.rs"]
+mod roots;
 pub use amber::*;
+pub use banner::*;
 pub use chalice::*;
 pub use coil::*;
+pub use cradle::*;
+pub use growth::GROWTH_RELICS;
+pub use harvest::*;
 pub use hearth::*;
 pub use life::LIFE_RELICS;
+pub use roots::*;
 
 const CHARGE: Cost = Cost {
     parts: &[CostPart::RemoveCounterSelf {
@@ -166,6 +181,9 @@ pub fn potion_kind(id: u16) -> Option<TowerSupply> {
 /// Original rules text, not an Oracle quotation.
 pub(super) fn ability_text(token: &TokenDef, index: u32) -> Option<&'static str> {
     if let Some(text) = life::ability_text(token, index) {
+        return Some(text);
+    }
+    if let Some(text) = growth::ability_text(token, index) {
         return Some(text);
     }
     if index != 0 {

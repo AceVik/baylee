@@ -1527,6 +1527,15 @@ page.
 
 ### Original Tower inventory portraits · 15 November 2026
 
+The token-workshop addition supplies four original generated portraits (Seed
+Cradle, Swarm Banner, Harvest Wheel, Root Reservoir), without external reference
+images. Exact prompts and source/target paths are in
+`art/baylee/tower/token-portraits-generation.json`. Their sixteen original artifact
+definitions use no Oracle/Scryfall identity and retain the procedural table face.
+The same day's check re-read the [Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy),
+including “Tell the Community it’s unofficial.” Existing notices remain. Scryfall's
+image documentation returned 403; no new download path or borrowed asset is added.
+
 The life-workshop addition uses four further original generated illustrations:
 Spring Chalice, Hearthstone, Blood Amber and Life Coil, with no external image
 references. Their prompts/provenance are in `art/baylee/tower/life-portraits-generation.json`.

@@ -159,7 +159,7 @@ fn main() {
     println!(
         "No duel, card purchase, pivot, direct Uncommon purchase or human difficulty is modeled."
     );
-    for generator in [1, 2] {
+    for generator in [1, 2, 3] {
         let mut samples = Vec::new();
         for number in 0_u32..512 {
             let seed: [u8; 32] = Sha256::new()

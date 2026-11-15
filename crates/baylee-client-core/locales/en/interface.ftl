@@ -10459,6 +10459,32 @@ EchoesCoilEffect = Pay { $mana } mana of any type, tap and pay 2 life: draw a ca
 # Arguments: mana
 EchoesCoilMythicEffect = Pay { $mana } mana of any type and 2 life: draw a card. No tapping required.
 EchoesRemovableArtifact = Starts each duel as a removable artifact. Only equipped items contribute.
+EchoesCradle = Seed cradle
+EchoesBanner = Swarm banner
+EchoesHarvest = Harvest wheel
+EchoesRoots = Root reservoir
+EchoesCradleEvent = Each time you gain life, this artifact offers an optional payment. Counts events, not life points.
+# Arguments: mana
+EchoesCradleTier = You may pay { $mana } mana of any type to create one green 1/1 Plant.
+# Arguments: mana
+EchoesCradleTwoTier = You may pay { $mana } mana of any type to create two green 1/1 Plants.
+# Arguments: power, toughness
+EchoesBannerTier = Creature tokens you control get +{ $power }/+{ $toughness }.
+EchoesBannerTrample = They also have trample.
+EchoesHarvestEvent = Each creature token you control that dies stores one charge here. Other deaths and exile do not count.
+EchoesRootsEvent = Each creature token entering under your control stores one charge here. Nontoken creatures do not count.
+# Arguments: mana, color
+EchoesStoredManaTier = { $count ->
+    [one] Tap and spend one charge: add { $mana } { $color } mana.
+   *[other] Tap and spend { $count } charges: add { $mana } { $color } mana.
+    }
+# Arguments: mana, color
+EchoesStoredManaFreeTier = { $count ->
+    [one] Spend one charge: add { $mana } { $color } mana. No tapping.
+   *[other] Spend { $count } charges: add { $mana } { $color } mana. No tapping.
+    }
+EchoesColorlessMana = colorless
+EchoesGreenMana = green
 EchoesSatchel = Scholar's satchel
 EchoesCompass = Wayfinder's compass
 EchoesGrove = Living grove

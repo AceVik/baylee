@@ -18,7 +18,7 @@ pub use location::{Host, Location};
 pub use view::{Duel, Run};
 
 /// Distinct wire contract; incompatible versions are refused before authentication.
-pub const VERSION: &str = "3";
+pub const VERSION: &str = "4";
 /// Header carrying [`VERSION`].
 pub const VERSION_HEADER: &str = "baylee-tower-version";
 /// Sole player endpoint. The origin is delegated by Central, never a gateway.

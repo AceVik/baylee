@@ -21,6 +21,21 @@ const LIFE_WORKSHOP: [Family; 8] = [
     Family::LifeCoil,
 ];
 
+const TOKEN_WORKSHOP: [Family; 12] = [
+    Family::Heartwood,
+    Family::Satchel,
+    Family::Compass,
+    Family::Grove,
+    Family::SpringChalice,
+    Family::Hearthstone,
+    Family::BloodAmber,
+    Family::LifeCoil,
+    Family::SeedCradle,
+    Family::SwarmBanner,
+    Family::HarvestWheel,
+    Family::RootReservoir,
+];
+
 /// Rules and policy frozen alongside an offer stream, never read from live defaults.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Contract {
@@ -53,6 +68,10 @@ pub const fn contract(generation: u16) -> Result<Contract, Refusal> {
             revision: 3,
             ai_generation: AIProfile::PAY_LIFE_ACTIVATION_MANA,
         }),
+        3 => Ok(Contract {
+            revision: 4,
+            ai_generation: AIProfile::PAY_LIFE_ACTIVATION_MANA,
+        }),
         _ => Err(Refusal::Invalid),
     }
 }
@@ -80,6 +99,7 @@ pub fn families(generation: u16) -> Result<&'static [Family], Refusal> {
     match generation {
         1 => Ok(&FIRST),
         2 => Ok(&LIFE_WORKSHOP),
+        3 => Ok(&TOKEN_WORKSHOP),
         _ => Err(Refusal::Invalid),
     }
 }
