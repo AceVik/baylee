@@ -34,7 +34,7 @@ fn fixture() -> (Catalog, Run) {
             copies: 40,
         }],
     };
-    let run = Run::begin(&catalog, starter, &SEED).unwrap();
+    let run = Run::begin_for(&catalog, starter, &SEED, 3).unwrap();
     (catalog, run)
 }
 

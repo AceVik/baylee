@@ -28,18 +28,11 @@ fn cohort() -> Cohort {
             copies: 40,
         }],
     };
+    let mut identity = Identity::native(Variant::Tower, "client-test", "synthetic", 21);
+    identity.rules = "tower-4".into();
     Cohort {
         id: Uuid::now_v7(),
-        contract: domain::v2::package::Cohort::new(
-            Identity::native(
-                Variant::Tower,
-                "client-test",
-                "synthetic",
-                u32::from(domain::v2::generation::CURRENT.ai_generation),
-            ),
-            &catalog,
-        )
-        .unwrap(),
+        contract: domain::v2::package::Cohort::for_generation(identity, &catalog, 3).unwrap(),
         catalog,
         starters: vec![starter.clone(), starter.clone(), starter],
     }
@@ -48,7 +41,8 @@ fn cohort() -> Cohort {
 fn opened() -> (State, Cohort, Run) {
     let cohort = cohort();
     let raw =
-        domain::v2::run::Run::begin(&cohort.catalog, cohort.starters[0].clone(), &[7; 32]).unwrap();
+        domain::v2::run::Run::begin_for(&cohort.catalog, cohort.starters[0].clone(), &[7; 32], 3)
+            .unwrap();
     let run = Run::project(Uuid::now_v7(), cohort.id, raw);
     let mut state = State::default();
     let read = state.read(Uuid::now_v7(), Read::Cohorts(None)).unwrap();
@@ -269,7 +263,8 @@ fn lost_mutation_retries_identically_and_an_old_receipt_cannot_rewind_the_shop()
     assert!(state.choose(Uuid::now_v7(), Command::Refresh {}).is_none());
     assert!(state.start(Uuid::now_v7(), cohort.id, 0, 1).is_none());
     let raw =
-        domain::v2::run::Run::begin(&cohort.catalog, cohort.starters[0].clone(), &[7; 32]).unwrap();
+        domain::v2::run::Run::begin_for(&cohort.catalog, cohort.starters[0].clone(), &[7; 32], 3)
+            .unwrap();
     let once = raw
         .command(0, &Command::Refresh {}, &cohort.catalog, &[8; 32])
         .unwrap();

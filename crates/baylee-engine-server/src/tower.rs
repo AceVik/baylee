@@ -17,12 +17,13 @@ pub mod durable;
 #[cfg(feature = "tower")]
 pub mod verification;
 
-/// Statically bound current pack; no per-event dispatch or service callback.
+/// Retained generation-three rules for regression tests and development probes.
+/// Production recovery still requires the exact archived executable identity.
 #[derive(Clone, Copy, Debug)]
 pub struct Pack;
 
 /// Independent run equipment, with registry-verified Commander admission.
-/// Kept separate from the retained artifact pack until the release switch.
+/// The current compiled Tower executor; no dynamic dispatch or service callback.
 #[derive(Clone, Copy, Debug)]
 pub struct RunPack;
 
@@ -47,10 +48,10 @@ impl NativeRulePack for RunPack {
 
 impl NativeRulePack for Pack {
     const PACK: u16 = v2::PACK;
-    const REVISION: u16 = v2::REVISION;
+    const REVISION: u16 = 4;
 
     fn validate(preset: &baylee_core::preset::GamePreset) -> Result<(), SetupError> {
-        v2::loadout::validate(preset).map_err(|_| SetupError::UnsupportedRulePack)
+        v2::loadout::validate_for(preset, 3).map_err(|_| SetupError::UnsupportedRulePack)
     }
 
     fn definition(id: u16) -> Option<NativeDefinition> {

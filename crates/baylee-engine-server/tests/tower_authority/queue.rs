@@ -58,7 +58,7 @@ async fn queue_automatically_settles_and_stops_without_repeated_rewards() {
         let arrived = tokio::time::timeout(Duration::from_secs(5), async {
             loop {
                 let saved = store.get(flow.account, flow.run).await.unwrap();
-                if saved.state.phase == Phase::Shop {
+                if saved.state.phase == Phase::Reward {
                     return saved;
                 }
                 tokio::time::sleep(Duration::from_millis(10)).await;

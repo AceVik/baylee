@@ -104,6 +104,7 @@ async fn prepare(store: &Store) -> (Uuid, Principal) {
                 1,
                 archetype,
                 &Build {
+                    formation: None,
                     deck: publication.starters[usize::from(archetype - 1)]
                         .deck
                         .clone(),

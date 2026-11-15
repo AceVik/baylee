@@ -153,6 +153,7 @@ async fn house_commands(
         "role": "publisher", "credential": publisher.hex().as_str()}))
         .await;
     let build = Build {
+        formation: None,
         deck: publication.starters[0].deck.clone(),
         active: Vec::new(),
         potions: [0; 2],

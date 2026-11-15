@@ -85,7 +85,7 @@ fn exact_life_payment_remains_legal_and_expert_avoids_the_lethal_purchase() {
     );
     let player = game.state().turn.active;
     let coil = source(&game, player, LIFE_RELICS[3][3]);
-    let profile = v2::generation::CURRENT.expert();
+    let profile = v2::generation::contract(3).unwrap().expert();
     for activation in 0..10 {
         main(&mut game, 1 + activation * 2, player);
         land(&mut game, player);
@@ -135,9 +135,6 @@ fn exact_life_payment_remains_legal_and_expert_avoids_the_lethal_purchase() {
 
 #[test]
 fn hosted_expert_funds_life_coil_from_an_unspent_land_and_resumes() {
-    use baylee_gamehost::session::tower::{ReplayBudget, resume_native};
-    use std::time::{Duration, Instant};
-
     let preset = setup(&[item(Family::LifeCoil, Rarity::Rare)], &[("Plains", 40)]);
     let identity = test_identity();
     let mut game = Hosted::recorded_for_execution(&preset, &identity).unwrap();
@@ -172,17 +169,8 @@ fn hosted_expert_funds_life_coil_from_an_unspent_land_and_resumes() {
             }
         ]
     )));
-    let resumed = resume_native::<Registry>(
-        &preset,
-        &identity,
-        record.as_slice(),
-        ReplayBudget::default(),
-        Instant::now() + Duration::from_secs(2),
-    )
-    .unwrap()
-    .into_session(
-        "life-coil-review".into(),
-        vec!["Human".into(), "Expert".into()],
-    );
+    // This is the retained generation-three policy/registry, not today's
+    // executable identity. Production resume requires the archived artifact.
+    let resumed = Hosted::resume_with_detection(&record).unwrap();
     assert_eq!(resumed.snapshot_hash(), game.snapshot_hash());
 }

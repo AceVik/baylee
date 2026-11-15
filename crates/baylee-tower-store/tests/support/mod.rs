@@ -100,14 +100,10 @@ pub fn publication() -> Publication {
             copies: 40,
         }],
     };
-    let identity = Identity::native(
-        Variant::Tower,
-        "database-test",
-        "synthetic-registry",
-        u32::from(generation::CURRENT.ai_generation),
-    );
+    let mut identity = Identity::native(Variant::Tower, "database-test", "synthetic-registry", 21);
+    identity.rules = "tower-4".into();
     Publication {
-        cohort: Cohort::new(identity, &catalog).unwrap(),
+        cohort: Cohort::for_generation(identity, &catalog, 3).unwrap(),
         catalog,
         starters: vec![starter.clone(), starter.clone(), starter],
     }

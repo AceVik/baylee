@@ -268,6 +268,7 @@ async fn reserve(
             1,
             1,
             &Build {
+                formation: None,
                 deck: publication.starters[0].deck.clone(),
                 active: Vec::new(),
                 potions: [0; 2],

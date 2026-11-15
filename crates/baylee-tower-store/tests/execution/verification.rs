@@ -211,7 +211,7 @@ async fn adjudication_income_eligibility_and_outbox_commit_once_or_not_at_all() 
         assert_eq!(store.settle_verified(&verifier, job.lease, &different, [88; 32]).await, Err(Error::Conflict));
         store.command(flow.account, Uuid::now_v7(), result.id, result.state.revision, &baylee_tower::v2::run::Command::Abandon {}).await.unwrap();
         let restarted = store.start(flow.account, Uuid::now_v7(), super::Start { cohort: result.cohort, starter: 0, consent: super::CONSENT_REVISION }, [44; 32]).await.unwrap();
-        let expected = baylee_tower::v2::run::Run::begin(&super::publication().catalog, super::publication().starters[0].clone(), &[99; 32]).unwrap();
+        let expected = baylee_tower::v2::run::Run::begin_for(&super::publication().catalog, super::publication().starters[0].clone(), &[99; 32], 3).unwrap();
         assert_eq!(restarted.state.shop, expected.shop, "first verified duel rotates future starts once");
         assert_eq!(store.settle_verified(&verifier, job.lease, &report, [88; 32]).await.unwrap(), *result);
     }).await;

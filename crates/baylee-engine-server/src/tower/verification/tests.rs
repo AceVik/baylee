@@ -5,7 +5,7 @@ use baylee_engine::{
     zone::ZoneLocation,
 };
 use baylee_tower::{
-    cards::{Card, Catalog, Stack},
+    cards::Catalog,
     v2::{
         catalog::{Definition, Family, Rarity},
         execution::{Execution, MAX_RECORD_BYTES},
@@ -17,18 +17,12 @@ use std::{io::Cursor, time::Duration};
 const ME: PlayerId = PlayerId::new(0);
 
 fn package() -> (Package, Catalog) {
-    let card = baylee_cards::decks::by_name("Forest").unwrap();
-    let catalog = Catalog {
-        cards: vec![Card {
-            card,
-            price: 0,
-            basic_land: true,
-            run: None,
-        }],
-    };
+    let content = baylee_tower_content::standard().unwrap();
+    let catalog = content.catalog;
+    let starter = &content.starters[0];
     let build = Build {
-        formation: None,
-        deck: vec![Stack { card, copies: 40 }],
+        formation: starter.formation.clone(),
+        deck: starter.deck.clone(),
         active: vec![Definition {
             family: Family::Grove,
             rarity: Rarity::Common,

@@ -80,7 +80,8 @@ fn life_workshop_presets_cannot_be_smuggled_into_original_runs() {
     assert!(
         matches!(preset.seats[1].controller, SeatController::Ai(profile) if profile.generation == 21)
     );
-    assert!(crate::v2::loadout::validate(&preset).is_ok());
+    assert!(crate::v2::loadout::validate_for(&preset, 3).is_ok());
+    assert!(crate::v2::loadout::validate(&preset).is_err());
     let mut legacy = preset;
     legacy.house_rules.rule_pack.as_mut().unwrap().revision = 2;
     assert!(crate::v2::loadout::validate_for(&legacy, 1).is_err());

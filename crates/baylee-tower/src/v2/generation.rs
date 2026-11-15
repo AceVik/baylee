@@ -4,7 +4,7 @@ use crate::Refusal;
 use baylee_core::preset::AIProfile;
 
 /// Independent equipment, six active slots and the Commander run shop.
-/// Registered separately while its native executor is integrated.
+/// Frozen independently from the three retained artifact generations.
 pub const RUN: u16 = 4;
 
 const FIRST: [Family; 4] = [

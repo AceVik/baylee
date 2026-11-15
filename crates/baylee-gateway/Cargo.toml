@@ -96,6 +96,7 @@ uuid.workspace = true
 rustix.workspace = true
 
 [dev-dependencies]
+baylee-tower-content.workspace = true
 baylee-tower-service.workspace = true
 baylee-tower-store.workspace = true
 url.workspace = true

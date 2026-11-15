@@ -1,14 +1,11 @@
 use super::*;
 use baylee_engine::choice::PlayerAction;
 use baylee_protocol::v1;
-use baylee_tower::{
-    cards::{Card, Catalog, Stack},
-    v2::{
-        execution::Prefix,
-        package::{Build, Cohort, Origin, Package},
-        run::{Binding, Outcome},
-        verification::Resources,
-    },
+use baylee_tower::v2::{
+    execution::Prefix,
+    package::{Build, Cohort, Origin, Package},
+    run::{Binding, Outcome},
+    verification::Resources,
 };
 use baylee_tower_api::{
     engine::{Assembly, Setup},
@@ -21,18 +18,12 @@ use tokio_tungstenite::tungstenite::protocol::Role;
 use uuid::Uuid;
 
 fn setup(game: Uuid, prefix: Prefix, fence: u64) -> Setup {
-    let card = baylee_cards::decks::by_name("Forest").unwrap();
-    let catalog = Catalog {
-        cards: vec![Card {
-            card,
-            price: 0,
-            basic_land: true,
-            run: None,
-        }],
-    };
+    let content = baylee_tower_content::standard().unwrap();
+    let catalog = content.catalog;
+    let starter = &content.starters[0];
     let build = Build {
-        formation: None,
-        deck: vec![Stack { card, copies: 40 }],
+        formation: starter.formation.clone(),
+        deck: starter.deck.clone(),
         active: Vec::new(),
         potions: [0; 2],
     };

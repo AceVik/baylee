@@ -43,14 +43,22 @@ fn preset() -> GamePreset {
                     SeatController::Ai(generation::CURRENT.expert())
                 },
                 capabilities: SeatCapabilities::default(),
-                deck: vec![baylee_core::preset::DeckEntry {
-                    card: baylee_core::ids::CardIndex::new(0),
+                deck: vec![
+                    baylee_core::preset::DeckEntry {
+                        card: baylee_core::ids::CardIndex::new(0),
+                        print: baylee_core::ids::PrintRef::new(0),
+                        rule_print: None,
+                        choices: baylee_core::card_metadata::DeckChoices::default(),
+                    };
+                    39
+                ],
+                sideboard: Vec::new(),
+                commanders: vec![baylee_core::preset::DeckEntry {
+                    card: baylee_core::ids::CardIndex::new(1),
                     print: baylee_core::ids::PrintRef::new(0),
                     rule_print: None,
                     choices: baylee_core::card_metadata::DeckChoices::default(),
                 }],
-                sideboard: Vec::new(),
-                commanders: Vec::new(),
                 starting_life: Some(resource.life),
                 starting_hand: None,
                 starting_battlefield: Vec::new(),

@@ -91,10 +91,10 @@ fn a_three_slot_combination_can_repeat_with_real_mana_and_the_player_can_stop() 
 fn hosted_expert_uses_renewable_mana_then_finishes_its_build_turn() {
     let mut preset = setup(&COMBINATION, &[("Forest", 30), ("Llanowar Elves", 10)]);
     let resources = [
-        v2::loadout::resources(&[], [0, 0], 0).unwrap(),
-        v2::loadout::resources(&COMBINATION, [0, 0], 1).unwrap(),
+        v2::loadout::resources_for(&[], [0, 0], 0, 3).unwrap(),
+        v2::loadout::resources_for(&COMBINATION, [0, 0], 1, 3).unwrap(),
     ];
-    preset.house_rules = v2::loadout::rules(&resources, 17).unwrap();
+    preset.house_rules = v2::loadout::rules_for(&resources, 17, 3).unwrap();
     let identity = test_identity();
     let mut game = Hosted::recorded_for_execution(&preset, &identity).unwrap();
     let human = PlayerId::new(0);

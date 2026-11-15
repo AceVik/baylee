@@ -2,7 +2,6 @@ use super::*;
 use crate::{
     cards::Card,
     v2::{
-        REVISION,
         catalog::{Family, Potion, Rarity},
         generation,
         inventory::Slot,
@@ -49,14 +48,10 @@ fn fixture() -> (Catalog, Run, Cohort, Opponent) {
             },
         ],
     };
-    let run = Run::begin(&catalog, starter, &[3; 32]).unwrap();
-    let executor = Identity::native(
-        Variant::Tower,
-        "package-test",
-        "registry-test",
-        u32::from(generation::CURRENT.ai_generation),
-    );
-    let cohort = Cohort::new(executor, &catalog).unwrap();
+    let run = Run::begin_for(&catalog, starter, &[3; 32], 3).unwrap();
+    let mut executor = Identity::native(Variant::Tower, "package-test", "registry-test", 21);
+    executor.rules = "tower-4".into();
+    let cohort = Cohort::for_generation(executor, &catalog, 3).unwrap();
     let mut echo = Build::freeze(&run, &catalog).unwrap();
     echo.active = vec![Definition {
         family: Family::Compass,
@@ -153,10 +148,7 @@ fn freeze_excludes_reserves_and_binds_the_native_asymmetric_preset() {
     assert_eq!(preset.seed, 11);
     assert_eq!(preset.house_rules.challenge_policy_seed, Some(19));
     assert_eq!(preset.house_rules.loop_policy, LoopPolicy::Off);
-    assert_eq!(
-        preset.house_rules.rule_pack.as_ref().unwrap().revision,
-        REVISION
-    );
+    assert_eq!(preset.house_rules.rule_pack.as_ref().unwrap().revision, 4);
     assert_eq!(preset.seats[0].starting_life, Some(24));
     assert_eq!(preset.seats[1].starting_life, Some(20));
     assert_eq!(preset.house_rules.opening_for(0).free_mulligans, 1);
@@ -166,7 +158,7 @@ fn freeze_excludes_reserves_and_binds_the_native_asymmetric_preset() {
     assert_eq!(preset.seats[0].controller, SeatController::Open);
     assert_eq!(
         preset.seats[1].controller,
-        SeatController::Ai(generation::CURRENT.expert())
+        SeatController::Ai(generation::contract(3).unwrap().expert())
     );
     assert!(
         preset
@@ -333,5 +325,5 @@ fn commitments_bind_seeds_equipment_origin_and_prices_but_not_catalog_order() {
     let mut changed = catalog;
     changed.cards[1].price += 1;
     assert!(package.digest(&changed).is_err());
-    assert_ne!(catalog_digest(&changed).unwrap(), cohort.catalog);
+    assert_ne!(catalog_digest_for(&changed, 3).unwrap(), cohort.catalog);
 }

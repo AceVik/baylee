@@ -51,7 +51,8 @@ async fn retained_game_is_independently_played_and_rewarded_exactly_once() {
             .adjudicate(&store, &flow.verifier, flow.job.clone(), pending())
             .await
             .unwrap();
-        assert_eq!(after.state.phase, Phase::Shop);
+        assert_eq!(after.state.phase, Phase::Reward);
+        assert_eq!(after.state.reward.as_ref().unwrap().take, 1);
         assert_eq!(after.state.defeats(), 1);
         assert_eq!(after.state.wins(), 0);
         assert_eq!(after.state.economy.gold, before.state.economy.gold + 12);

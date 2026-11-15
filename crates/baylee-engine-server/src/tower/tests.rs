@@ -20,12 +20,14 @@ mod run;
 mod workshop;
 
 fn test_identity() -> Identity {
-    Identity::native(
+    let mut identity = Identity::native(
         Variant::Tower,
         baylee_build::short(),
         baylee_build::COMMIT,
-        u32::from(v2::generation::CURRENT.ai_generation),
-    )
+        21,
+    );
+    identity.rules = "tower-4".into();
+    identity
 }
 
 fn preset(active: &[Definition]) -> GamePreset {
@@ -39,12 +41,12 @@ fn preset(active: &[Definition]) -> GamePreset {
     let mut preset = baylee_cards::decks::preset_for(19, &a, &b);
     preset.format = FormatId::Custom;
     let resources = [
-        v2::loadout::resources(active, [1, 1], 0).unwrap(),
-        v2::loadout::resources(active, [0, 0], 1).unwrap(),
+        v2::loadout::resources_for(active, [1, 1], 0, 3).unwrap(),
+        v2::loadout::resources_for(active, [0, 0], 1, 3).unwrap(),
     ];
-    preset.house_rules = v2::loadout::rules(&resources, 17).unwrap();
+    preset.house_rules = v2::loadout::rules_for(&resources, 17, 3).unwrap();
     preset.seats[0].controller = SeatController::Open;
-    preset.seats[1].controller = SeatController::Ai(v2::generation::CURRENT.expert());
+    preset.seats[1].controller = SeatController::Ai(v2::generation::contract(3).unwrap().expert());
     for (seat, resource) in preset.seats.iter_mut().zip(resources) {
         seat.starting_life = Some(resource.life);
         // Acceptance decks carry tournament sideboards; this Tower pool admits
@@ -52,7 +54,7 @@ fn preset(active: &[Definition]) -> GamePreset {
         seat.sideboard.clear();
         seat.commanders.clear();
     }
-    v2::loadout::validate(&preset).unwrap();
+    v2::loadout::validate_for(&preset, 3).unwrap();
     preset
 }
 
@@ -139,8 +141,6 @@ fn native_tower_expert_play_resumes_and_replays_with_the_same_pack() {
     }]);
     let identity = test_identity();
     let mut live = Hosted::recorded_for_execution(&preset, &identity).unwrap();
-    #[cfg(feature = "tower")]
-    let _: &crate::variant::HostedSession = &live;
     let wrong = baylee_protocol::execution::Identity::native(
         baylee_protocol::execution::Variant::Standard,
         baylee_build::short(),

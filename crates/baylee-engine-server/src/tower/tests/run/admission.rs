@@ -1,6 +1,53 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
+#[cfg(feature = "tower")]
+#[test]
+fn compiled_executor_admits_all_five_published_starters_and_refuses_retained_setup() {
+    use v2::package::{Build, Cohort, Origin, Package};
+    let content = baylee_tower_content::standard().unwrap();
+    let identity = crate::variant::identity();
+    assert_eq!(identity.rules, "tower-5");
+    assert_eq!(identity.ai, "tower-house-22");
+    for starter in &content.starters {
+        let build = Build {
+            formation: starter.formation.clone(),
+            deck: starter.deck.clone(),
+            active: vec![item(Family::Grove, Rarity::Common)],
+            potions: [1, 1],
+        };
+        let package = Package {
+            schema: 2,
+            cohort: Cohort::new(identity.clone(), &content.catalog).unwrap(),
+            stage: 1,
+            opponent: Origin::House { archetype: 1 },
+            builds: [build.clone(), build],
+            shuffle_seed: 19,
+            policy_seed: 17,
+        };
+        let preset = package
+            .preset(&content.catalog, &identity, |card| {
+                Some(baylee_cards::decks::reference_print(card))
+            })
+            .unwrap();
+        let live =
+            crate::variant::HostedSession::recorded_for_execution(&preset, &identity).unwrap();
+        let _: &baylee_gamehost::Session<NoLoopDetection, Registry> = &live;
+        assert_eq!(preset.seats[0].deck.len(), 39);
+        assert_eq!(preset.seats[0].commanders.len(), 1);
+        assert!(
+            live.state()
+                .zones
+                .list(ZoneLocation::Battlefield)
+                .is_empty()
+        );
+        assert!(crate::tower::Pack::validate(&preset).is_err());
+    }
+    let retained = crate::tower::tests::preset(&[]);
+    assert!(crate::variant::HostedSession::recorded_for_execution(&retained, &identity).is_none());
+    assert!(crate::tower::Pack::validate(&retained).is_ok());
+}
+
 #[test]
 fn all_seventy_two_items_are_independent_registered_sources_with_complete_action_text() {
     for family in Family::ALL {

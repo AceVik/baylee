@@ -107,14 +107,26 @@ impl Operation {
             } => {
                 uuid7(*cohort)?;
                 if !(1..=MAX_STAGES).contains(stage)
-                    || !(1..=3).contains(archetype)
+                    || !(1..=8).contains(archetype)
                     || build.deck.len() > usize::from(baylee_tower::cards::DECK_MAX)
-                    || build.active.len() > usize::from(baylee_tower::v2::catalog::ACTIVE_SLOTS)
+                    || build.active.len() > 6
                 {
                     return Err(Error::Contract);
                 }
-                baylee_tower::v2::loadout::resources(&build.active, build.potions, 0)
-                    .map_err(|_| Error::Contract)?;
+                // The store rechecks the exact persisted cohort. This outer
+                // request bound admits both retained and Commander builds.
+                let generator = if build.formation.is_some() {
+                    baylee_tower::v2::generation::RUN
+                } else {
+                    3
+                };
+                baylee_tower::v2::loadout::resources_for(
+                    &build.active,
+                    build.potions,
+                    0,
+                    generator,
+                )
+                .map_err(|_| Error::Contract)?;
             }
             Self::PauseEnrollment { cohort } => uuid7(*cohort)?,
         }

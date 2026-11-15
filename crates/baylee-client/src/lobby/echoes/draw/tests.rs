@@ -22,27 +22,17 @@ fn opened() -> Ui {
             copies: 40,
         }],
     };
+    let mut identity = Identity::native(Variant::Tower, "ui-test", "synthetic", 21);
+    identity.rules = "tower-4".into();
     let cohort = api::Cohort {
         id: Uuid::now_v7(),
-        contract: domain::v2::package::Cohort::new(
-            Identity::native(
-                Variant::Tower,
-                "ui-test",
-                "synthetic",
-                u32::from(
-                    domain::v2::generation::contract(domain::v2::GENERATOR)
-                        .unwrap()
-                        .ai_generation,
-                ),
-            ),
-            &catalog,
-        )
-        .unwrap(),
+        contract: domain::v2::package::Cohort::for_generation(identity, &catalog, 3).unwrap(),
         catalog,
         starters: vec![starter.clone(), starter.clone(), starter],
     };
     let raw =
-        domain::v2::run::Run::begin(&cohort.catalog, cohort.starters[0].clone(), &[7; 32]).unwrap();
+        domain::v2::run::Run::begin_for(&cohort.catalog, cohort.starters[0].clone(), &[7; 32], 3)
+            .unwrap();
     let raw = raw
         .command(
             0,

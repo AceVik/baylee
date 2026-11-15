@@ -37,7 +37,7 @@ const BUILDS: [(&str, [Family; 3]); 3] = [
 ];
 
 fn main() {
-    println!("Native Common-item pilot; identical 40-card green decks, 12 gold per build.");
+    println!("Native Common-item pilot; identical 39+1 Emmara decks, 12 gold per build.");
     println!("Three fixed seeds, both build assignments; no shop policy or human-skill claim.");
     println!("Limits: 2000 questions/80 turns per duel, 60 seconds total; no invented outcomes.");
     println!("build,seed,challenger_seat,result,turns,questions,life0,life1");
@@ -83,6 +83,9 @@ fn play(
     preset.seats[1].controller = SeatController::Ai(profile);
     for (seat, resource) in preset.seats.iter_mut().zip(resources) {
         seat.starting_life = Some(resource.life);
+        for entry in seat.deck.iter_mut().chain(&mut seat.commanders) {
+            entry.rule_print = None;
+        }
     }
     let mut game = HostedSession::recorded_for_execution(&preset, &variant::identity())
         .expect("compiled executor admission");
@@ -129,25 +132,19 @@ fn play(
 }
 
 fn deck() -> LoadedDeck {
-    let main = [
-        ("Forest", 17),
-        ("Llanowar Elves", 4),
-        ("Grizzly Bears", 4),
-        ("Centaur Courser", 4),
-        ("Giant Spider", 3),
-        ("Giant Growth", 4),
-        ("Elvish Visionary", 4),
-    ]
-    .into_iter()
-    .flat_map(|(name, count)| {
-        let card = baylee_cards::decks::by_name(name).expect("implemented fixture card");
-        std::iter::repeat_n(DeckCard::plain(card), count)
-    })
-    .collect();
+    let content = baylee_tower_content::standard().expect("reviewed Commander pool");
+    let starter = &content.starters[0];
+    let main = starter
+        .deck
+        .iter()
+        .flat_map(|row| std::iter::repeat_n(DeckCard::plain(row.card), usize::from(row.copies)))
+        .collect();
     LoadedDeck {
-        name: "Synthetic green pilot".into(),
+        name: "Synthetic Emmara pilot".into(),
         main,
         sideboard: Vec::new(),
-        commanders: Vec::new(),
+        commanders: vec![DeckCard::plain(
+            starter.formation.as_ref().unwrap().commander,
+        )],
     }
 }

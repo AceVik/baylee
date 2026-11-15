@@ -6,20 +6,24 @@ permanent accomplishment receipts. This runbook describes local/offline
 provisioning; release approval, calibration, retention and the final least-privilege
 runtime grants remain separate release requirements.
 
-The token-workshop catalog uses generator 3 / native `tower-4` and API header
+The Commander run catalog uses generator 4 / native `tower-5` and API header
 `baylee-tower-version: 5` on the existing `/v2/player` endpoint and host routes.
 Older API clients receive 426 before authentication rather than undecodable new
 families. Deploy matching service, gateway and client builds together. Retain the
 exact `tower-2` / `tower-house-19` executors for generation-one runs and
-`tower-3` / `tower-house-20` for generation two. Publishing a new cohort preserves
-existing runs and their snapshots. The token workshop uses `tower-4` /
-`tower-house-21` and refuses older manifests. Both prior catalog/offer streams
-remain frozen; new families cannot enter old runs.
+`tower-3` / `tower-house-20` for generation two and `tower-4` /
+`tower-house-21` for generation three. Publishing a new cohort preserves
+existing runs and their snapshots. The current executor uses `tower-5` /
+`tower-house-22` and refuses retained manifests. All prior catalog/offer streams
+remain frozen; new families cannot enter old runs. An old run cannot silently
+resume on the current binary, even if its source registry appears compatible.
 
 API 5 adds the generation-four reward phase, six-slot run inventory and
-39+1 Commander formations. Generation four remains opt-in until its matching
-`tower-5` native executor and reviewed starter publication are available; the
-default publication is still generation three. After verified settlement, claim
+39+1 Commander formations. Generation four is the new-run default; enrollment
+still requires an explicit immutable publication and matching installed executor.
+The separate `baylee-tower-content` adapter builds five reviewed-card starter
+collections and validates their native metadata; it does not certify balance.
+After verified settlement, claim
 the pending cards before shopping or abandoning. Reconnecting preserves the
 same candidates. An already-owned singleton choice grants one gold instead.
 
@@ -63,8 +67,8 @@ a fixed diagnostic containing no input. A failed preflight never changes state.
 | `provision` | `name`, `role`, `credential` | `{"result":"operator","id":<UUIDv7>}`. Role is exactly `host`, `verifier`, `supervisor`, `publisher` or `courier`; credential is 64 lowercase hex digits. Names are 1–160 bytes, trimmed and without control characters. An exact enabled name/role/token retry returns the same ID. Changed name/role or a revoked credential refuses. |
 | `revoke` | `operator` | `{"result":"done"}`. Disables an existing operator; exact repeats succeed. Live authenticated principals lose their role on the next protected operation. No history is deleted or replacement credential minted. |
 | `approve_host` | `host`, `origin` | `done`. Binds an enabled Host to one canonical approved gateway origin. Production requires HTTPS; development allows only numeric-loopback HTTP. An exact repeat succeeds; changing the origin refuses. |
-| `publish` | `publication` | `{"result":"published","cohort":<UUIDv7>}`. Accepts the typed `baylee_tower_store::Publication`: frozen cohort/executor identity, reviewed catalog/prices and three starters. Exact canonical repeats return the same ID. Different content under the same contract refuses. |
-| `publish_house` | `publisher`, `cohort`, `stage`, `archetype`, `build` | `done`. Additionally requires a live dedicated Publisher credential. Stage is 1–12, archetype 1–3. The typed `Build` contains `deck`, `active`, `potions`; it must validate against that cohort's saved catalog and loadout bounds. An exact repeat succeeds; changing a published fallback refuses. |
+| `publish` | `publication` | `{"result":"published","cohort":<UUIDv7>}`. Accepts the typed `baylee_tower_store::Publication`: frozen cohort/executor identity, reviewed catalog/prices and 5–8 distinct Commander starters (three for retained generations). Exact canonical repeats return the same ID. Different content under the same contract refuses. |
+| `publish_house` | `publisher`, `cohort`, `stage`, `archetype`, `build` | `done`. Additionally requires a live dedicated Publisher credential. Stage is 1–12, archetype 1–8 (1–3 for retained cohorts). The typed `Build` contains `formation`, `deck`, `active`, `potions`; it must validate against that cohort's saved catalog and loadout bounds. Run equipment has six slots; retained builds keep three. An exact repeat succeeds; changing a published fallback refuses. |
 | `pause_enrollment` | `cohort` | `done`. Closes new enrollment, preserving existing runs, receipts and immutable content. Exact repeats succeed. Republishing the same content cannot reopen it. |
 
 All IDs must be UUIDv7. There is no arbitrary SQL, script, state patch, currency

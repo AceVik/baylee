@@ -84,11 +84,39 @@ fn public_ids_origins_and_house_bounds_are_checked_before_connecting() {
     house["operation"]["stage"] = json!(0);
     assert!(!parses(&house));
     house["operation"]["stage"] = json!(MAX_STAGES);
-    house["operation"]["archetype"] = json!(4);
+    house["operation"]["archetype"] = json!(9);
     assert!(!parses(&house));
     house["operation"]["archetype"] = json!(3);
     house["operation"]["build"]["potions"] = json!([2, 1]);
     assert!(!parses(&house));
+}
+
+#[test]
+fn run_house_shape_admits_six_slots_but_retained_builds_keep_their_limits() {
+    use baylee_tower::{
+        cards::Formation,
+        v2::catalog::{Definition, Family, Rarity},
+    };
+    let item = Definition {
+        family: Family::Grove,
+        rarity: Rarity::Common,
+    };
+    let mut house = input(json!({
+        "action": "publish_house", "publisher": "22".repeat(32),
+        "cohort": Uuid::now_v7(), "stage": 12, "archetype": 8,
+        "build": {
+            "formation": Formation { commander: baylee_core::ids::CardIndex::new(5), sideboard: vec![] },
+            "deck": [], "active": vec![item; 6], "potions": [1, 1]
+        }
+    }));
+    assert!(parses(&house));
+    house["operation"]["build"]["active"] = json!(vec![item; 7]);
+    assert!(!parses(&house));
+    house["operation"]["build"]["active"] = json!(vec![item; 4]);
+    house["operation"]["build"]["formation"] = json!(null);
+    assert!(!parses(&house));
+    house["operation"]["build"]["active"] = json!(vec![item; 3]);
+    assert!(parses(&house));
 }
 
 #[test]

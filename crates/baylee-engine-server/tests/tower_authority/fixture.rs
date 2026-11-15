@@ -1,12 +1,8 @@
-use super::support;
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
-use baylee_tower::{
-    cards::{Card, Catalog, Collection, Stack},
-    v2::{
-        execution::MAX_RECORD_BYTES,
-        package::{Build, Cohort, Seeds},
-    },
+use baylee_tower::v2::{
+    execution::MAX_RECORD_BYTES,
+    package::{Build, Cohort, Seeds},
 };
 use baylee_tower_store::{
     CONSENT_REVISION, Claimed, Entropy, Principal, Publication, Reserve, Role, Start, Store,
@@ -45,7 +41,7 @@ impl Flow {
                     1,
                     archetype,
                     &Build {
-                        formation: None,
+                        formation: publication.starters[0].formation.clone(),
                         deck: publication.starters[0].deck.clone(),
                         active: Vec::new(),
                         potions: [0; 2],
@@ -136,44 +132,12 @@ async fn retain(store: &Store, host: &Principal, claimed: &Claimed, corrupt: boo
 }
 
 fn publication() -> Publication {
-    let forest = baylee_cards::decks::by_name("Forest").unwrap();
-    let mut cards = vec![Card {
-        card: forest,
-        price: 0,
-        basic_land: true,
-        run: None,
-    }];
-    for name in [
-        "Llanowar Elves",
-        "Giant Growth",
-        "Grizzly Bears",
-        "Lightning Bolt",
-        "Shock",
-        "Counterspell",
-        "Opt",
-        "Duress",
-    ] {
-        cards.push(Card {
-            card: baylee_cards::decks::by_name(name).unwrap(),
-            price: 2,
-            basic_land: false,
-            run: None,
-        });
+    let content = baylee_tower_content::standard().unwrap();
+    Publication {
+        cohort: Cohort::new(baylee_engine_server::variant::identity(), &content.catalog).unwrap(),
+        catalog: content.catalog,
+        starters: content.starters,
     }
-    let catalog = Catalog { cards };
-    let starter = Collection {
-        formation: None,
-        owned: Vec::new(),
-        deck: vec![Stack {
-            card: forest,
-            copies: 40,
-        }],
-    };
-    let mut publication = support::publication();
-    publication.cohort = Cohort::new(baylee_engine_server::variant::identity(), &catalog).unwrap();
-    publication.catalog = catalog;
-    publication.starters = vec![starter.clone(), starter.clone(), starter];
-    publication
 }
 
 async fn operator(store: &Store, role: Role, secret: u8) -> Principal {

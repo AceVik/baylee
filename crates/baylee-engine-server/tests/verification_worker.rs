@@ -4,35 +4,24 @@
 use baylee_cards_pool as _;
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
-use baylee_tower::{
-    cards::{Card, Catalog, Stack},
-    v2::{
-        catalog::{Definition, Family, Rarity},
-        execution::{Execution, MAX_CHUNK_BYTES, MAX_RECORD_BYTES},
-        package::{Build, Cohort, Origin, Package},
-        run::{Binding, Outcome},
-        verification::{
-            MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES, Rejected, Request, Resources, Response,
-        },
-    },
+use baylee_tower::v2::{
+    catalog::{Definition, Family, Rarity},
+    execution::{Execution, MAX_CHUNK_BYTES, MAX_RECORD_BYTES},
+    package::{Build, Cohort, Origin, Package},
+    run::{Binding, Outcome},
+    verification::{MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES, Rejected, Request, Resources, Response},
 };
 use futures_util::FutureExt as _;
 use std::{panic::AssertUnwindSafe, process::Stdio, time::Duration};
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 
 fn fixture() -> (Request, Vec<u8>) {
-    let card = baylee_cards::decks::by_name("Forest").unwrap();
-    let catalog = Catalog {
-        cards: vec![Card {
-            card,
-            price: 0,
-            basic_land: true,
-            run: None,
-        }],
-    };
+    let content = baylee_tower_content::standard().unwrap();
+    let catalog = content.catalog;
+    let starter = &content.starters[0];
     let build = Build {
-        formation: None,
-        deck: vec![Stack { card, copies: 40 }],
+        formation: starter.formation.clone(),
+        deck: starter.deck.clone(),
         active: vec![Definition {
             family: Family::Grove,
             rarity: Rarity::Common,

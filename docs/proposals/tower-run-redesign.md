@@ -59,8 +59,10 @@ saved runs. They are design choices, not claims of measured balance.
 - Exactly 39 library cards + one commander; at most five sideboard cards.
   Singleton nonbasics across all three lists; normal commander color identity,
   command-zone return and tax. Deck validator and engine preset agree.
-  Commander-related combat loss uses the existing format semantics; document
-  the exact custom-format policy before enabling it.
+  Commander-related combat loss uses the existing engine semantics: 21 combat
+  damage from the same commander, tracked separately, including custom-format
+  presets with commanders. Command-zone return choices and the additional two
+  generic mana per previous command-zone cast remain the ordinary engine rules.
 - Infinite free supply of all five standard basics; only run-owned other cards.
   One unified builder uses a restricted Tower pool and Tower save adapter.
   Switching commander requires an owned eligible card and a fully legal edit.
@@ -331,3 +333,17 @@ Always stop owned test processes and verify listeners close.
   `/tmp/baylee-tower-workshop-clippy-20261116-r5.log`.
   These are headless correctness checks, not rendered refinement passes. Native
   layout, motion, drag feedback and tooltip edge placement still need inspection.
+- Current executor integration: new enrollment defaults to generation 4, native
+  rules 5 and Expert 22. The gateway advertises this exact identity; the durable
+  executor and verifier use RunPack. All five actual published starters pass
+  native admission, while retained setup is refused by this artifact. Historical
+  domain/test fixtures explicitly keep generation 3 and frozen commitments.
+  The changed native tests passed (50 in the first pass, then the one corrected
+  retained-registry replay test); 58 affected domain cases passed. Strict Clippy
+  passed for native all-targets and the affected host/service/store/core targets.
+  Logs: `/tmp/baylee-tower-activation-tests-20261116.log`,
+  `/tmp/baylee-tower-activation-tests-20261116-r2.log`,
+  `/tmp/baylee-tower-activation-native-clippy-20261116.log`,
+  `/tmp/baylee-tower-activation-host-clippy-20261116-r4.log`.
+  Real gateway settlement/frozen-stock/refill story is updated but not yet run
+  against the newly built executables. Publication balance remains unmeasured.

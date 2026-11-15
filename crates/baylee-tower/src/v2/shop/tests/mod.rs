@@ -52,10 +52,11 @@ fn all_visits_are_reproducible_bounded_and_respect_rarity_unlocks() {
                 cards: &cards,
                 economy: &economy,
             };
-            let shop = Shop::open(&[seed; 32], stage, stock, previous.as_ref()).unwrap();
+            let shop = Shop::open_for(3, &[seed; 32], stage, stock, previous.as_ref()).unwrap();
             assert_eq!(
                 shop,
-                Shop::open(
+                Shop::open_for(
+                    3,
                     &[seed; 32],
                     stage,
                     Stock {
@@ -85,7 +86,8 @@ fn all_visits_are_reproducible_bounded_and_respect_rarity_unlocks() {
 #[test]
 fn pins_consume_slots_refreshes_spend_exact_prices_and_old_offers_stay_stale() {
     let (catalog, cards, mut economy) = fixture();
-    let mut shop = Shop::open(
+    let mut shop = Shop::open_for(
+        3,
         &[19; 32],
         1,
         Stock {
@@ -159,7 +161,8 @@ fn pins_consume_slots_refreshes_spend_exact_prices_and_old_offers_stay_stale() {
             )
             .is_err()
     );
-    let next = Shop::open(
+    let next = Shop::open_for(
+        3,
         &[19; 32],
         2,
         Stock {
@@ -183,12 +186,12 @@ fn stage_seven_material_choice_requires_explicit_pin_replacement_and_is_once_onl
         cards: &cards,
         economy: &economy,
     };
-    let mut shop = Shop::open(&[2; 32], 1, stock, None).unwrap();
+    let mut shop = Shop::open_for(3, &[2; 32], 1, stock, None).unwrap();
     for stage in 2..=6 {
-        shop = Shop::open(&[2; 32], stage, stock, Some(&shop)).unwrap();
+        shop = Shop::open_for(3, &[2; 32], stage, stock, Some(&shop)).unwrap();
     }
     shop = shop.pinned(shop.offers[6].id, true, &catalog).unwrap();
-    shop = Shop::open(&[2; 32], 7, stock, Some(&shop)).unwrap();
+    shop = Shop::open_for(3, &[2; 32], 7, stock, Some(&shop)).unwrap();
     assert!(shop.mythic_choice);
     assert!(shop.chose_mythic(6, false, &catalog).is_err());
     assert!(shop.chose_mythic(0, true, &catalog).is_err());
@@ -233,7 +236,7 @@ fn affordability_includes_full_bag_fusion_and_zero_gold_terminates_without_inven
             cards: &cards,
             economy: &economy,
         };
-        let shop = Shop::open(&[seed; 32], 1, stock, None).unwrap();
+        let shop = Shop::open_for(3, &[seed; 32], 1, stock, None).unwrap();
         let offer = shop
             .offers
             .iter()
@@ -259,7 +262,7 @@ fn affordability_includes_full_bag_fusion_and_zero_gold_terminates_without_inven
         cards: &cards,
         economy: &economy,
     };
-    let shop = Shop::open(&[0; 32], 1, stock, None).unwrap();
+    let shop = Shop::open_for(3, &[0; 32], 1, stock, None).unwrap();
     assert!(!shop.offers.iter().any(|offer| offer.goods.usable(stock)));
     assert_eq!(shop.offers.len(), 8);
 }
@@ -347,8 +350,8 @@ fn an_affordable_fusion_may_need_reserve_because_equipping_it_would_exceed_caps(
         economy: &economy,
     };
     for seed in 0..16 {
-        let first = Shop::open(&[seed; 32], 1, stock, None).unwrap();
-        let next = Shop::open(&[seed; 32], 2, stock, Some(&first)).unwrap();
+        let first = Shop::open_for(3, &[seed; 32], 1, stock, None).unwrap();
+        let next = Shop::open_for(3, &[seed; 32], 2, stock, Some(&first)).unwrap();
         assert!(
             next.offers
                 .iter()

@@ -2,13 +2,10 @@ use super::*;
 use crate::recording::Transport as _;
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
-use baylee_tower::{
-    cards::{Card, Stack},
-    v2::{
-        execution::{MAX_CHUNK_BYTES, MAX_RECORD_BYTES},
-        package::{Build, Cohort, Origin},
-        run::{Binding, Outcome},
-    },
+use baylee_tower::v2::{
+    execution::{MAX_CHUNK_BYTES, MAX_RECORD_BYTES},
+    package::{Build, Cohort, Origin},
+    run::{Binding, Outcome},
 };
 use prost::Message as _;
 use std::time::{Duration, Instant};
@@ -16,18 +13,12 @@ use std::time::{Duration, Instant};
 mod recovery;
 
 fn fixture() -> (Package, Catalog) {
-    let card = baylee_cards::decks::by_name("Forest").unwrap();
-    let catalog = Catalog {
-        cards: vec![Card {
-            card,
-            price: 0,
-            basic_land: true,
-            run: None,
-        }],
-    };
+    let content = baylee_tower_content::standard().unwrap();
+    let catalog = content.catalog;
+    let starter = &content.starters[0];
     let build = Build {
-        formation: None,
-        deck: vec![Stack { card, copies: 40 }],
+        formation: starter.formation.clone(),
+        deck: starter.deck.clone(),
         active: Vec::new(),
         potions: [0; 2],
     };

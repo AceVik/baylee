@@ -22,7 +22,7 @@ pub type Registry = baylee_gamehost::RegistryLookup;
 /// The native Tower registry; ordinary setup is not admitted by this artifact.
 #[cfg(feature = "tower")]
 pub type Registry =
-    baylee_engine::extensions::NativeLookup<baylee_gamehost::RegistryLookup, crate::tower::Pack>;
+    baylee_engine::extensions::NativeLookup<baylee_gamehost::RegistryLookup, crate::tower::RunPack>;
 
 /// The concrete transport driver used by the executable.
 pub type CompiledRunner = crate::EngineRunner<Detection, Registry>;

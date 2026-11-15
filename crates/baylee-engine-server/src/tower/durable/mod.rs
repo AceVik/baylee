@@ -20,7 +20,7 @@ pub use barrier::Batch;
 use capture::Capture;
 pub use recovery::Recovery;
 
-type Driver = EngineRunner<NoLoopDetection, NativeLookup<RegistryLookup, super::Pack>, Capture>;
+type Driver = EngineRunner<NoLoopDetection, NativeLookup<RegistryLookup, super::RunPack>, Capture>;
 
 /// Exact native game with no API that bypasses its persisted-output barrier.
 /// The caller authenticates authority ACKs; this layer never contacts storage.

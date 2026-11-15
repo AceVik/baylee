@@ -3,7 +3,7 @@ use baylee_account::TowerHttp;
 use baylee_protocol::v1;
 use baylee_tower::v2::{
     DUEL_INCOME,
-    run::{Outcome, Phase},
+    run::{Command, Outcome, Phase},
 };
 use baylee_tower_api::{Request, Response, Run};
 use std::time::{Duration, Instant};
@@ -32,6 +32,7 @@ pub(super) fn run(runtime: &Runtime, served: &Served) {
             consent: baylee_tower_store::CONSENT_REVISION,
         },
     );
+    let initial = shop(&client, &initial);
     let discovered = discover(&client, initial.id, &served.origin);
     let (status, availability) = common::http(
         served.gateway.port,
@@ -222,6 +223,38 @@ fn refusals(
     );
 }
 
+fn shop(client: &TowerHttp, initial: &Run) -> Run {
+    let offer = initial
+        .shop
+        .offers
+        .iter()
+        .find(|offer| matches!(offer.goods, baylee_tower::v2::shop::Goods::Relic(_)))
+        .unwrap();
+    let bought = owned(
+        client,
+        &Request::Command {
+            request: Uuid::now_v7(),
+            run: initial.id,
+            revision: initial.revision,
+            command: Command::Buy {
+                offer: offer.id,
+                delivery: baylee_tower::v2::shop::Delivery::Slot(
+                    baylee_tower::v2::inventory::Slot::Active(0),
+                ),
+            },
+        },
+    );
+    owned(
+        client,
+        &Request::Command {
+            request: Uuid::now_v7(),
+            run: bought.id,
+            revision: bought.revision,
+            command: Command::Freeze { frozen: true },
+        },
+    )
+}
+
 fn start(served: &Served, token: &str, path: &str) -> serde_json::Value {
     let (status, grant) = common::http(served.gateway.port, "POST", path, Some(token), "{}");
     assert_eq!(status, 200, "{grant}");
@@ -247,9 +280,21 @@ fn settlement(
         );
         std::thread::sleep(Duration::from_millis(100));
     };
-    assert_eq!(settled.phase, Phase::Shop);
+    assert_eq!(settled.phase, Phase::Reward);
     assert_eq!(settled.history[0].outcome, Outcome::Defeat);
-    assert_eq!(settled.economy.gold, initial.economy.gold + DUEL_INCOME);
+    let bonus: u16 = initial
+        .economy
+        .inventory
+        .active()
+        .iter()
+        .filter(|item| item.family == baylee_tower::v2::catalog::Family::GildedAcorn)
+        .map(|item| u16::from(item.rarity.tier()))
+        .sum();
+    assert_eq!(settled.history[0].bonus_gold, bonus);
+    assert_eq!(
+        settled.economy.gold,
+        initial.economy.gold + DUEL_INCOME + bonus
+    );
     assert_eq!(settled.history[0].used, [0; 2]);
     let rematch = format!(
         "/lobby/games/{}/rematch",
@@ -263,5 +308,32 @@ fn settlement(
         owned(client, &Request::Run { run: initial.id }),
         settled,
         "retries and rematch refusal cannot award a second income"
+    );
+    let reward = settled.reward.as_ref().unwrap();
+    assert_eq!(reward.take, 1);
+    assert_eq!(reward.cards.len(), 5);
+    let claim = Request::Command {
+        request: Uuid::now_v7(),
+        run: settled.id,
+        revision: settled.revision,
+        command: Command::Claim {
+            cards: vec![reward.cards[0]],
+        },
+    };
+    let next = owned(client, &claim);
+    assert_eq!(next.phase, Phase::Shop);
+    assert_eq!(next.shop.stage, 2);
+    assert!(next.shop.frozen);
+    for (old, new) in initial.shop.offers.iter().zip(&next.shop.offers) {
+        if old.sold {
+            assert_ne!(old.id, new.id);
+        } else {
+            assert_eq!(old, new);
+        }
+    }
+    assert_eq!(
+        owned(client, &claim),
+        next,
+        "reward retry cannot duplicate gold or reroll frozen stock"
     );
 }

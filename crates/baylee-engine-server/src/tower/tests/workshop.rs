@@ -40,12 +40,12 @@ fn setup(active: &[Definition], cards: &[(&str, usize)]) -> GamePreset {
     let mut setup = baylee_cards::decks::preset_for(19, &deck, &deck);
     setup.format = FormatId::Custom;
     let resources = [
-        v2::loadout::resources(active, [0, 0], 0).unwrap(),
-        v2::loadout::resources(active, [0, 0], 1).unwrap(),
+        v2::loadout::resources_for(active, [0, 0], 0, 3).unwrap(),
+        v2::loadout::resources_for(active, [0, 0], 1, 3).unwrap(),
     ];
-    setup.house_rules = v2::loadout::rules(&resources, 17).unwrap();
+    setup.house_rules = v2::loadout::rules_for(&resources, 17, 3).unwrap();
     setup.seats[0].controller = SeatController::Open;
-    setup.seats[1].controller = SeatController::Ai(v2::generation::CURRENT.expert());
+    setup.seats[1].controller = SeatController::Ai(v2::generation::contract(3).unwrap().expert());
     for (seat, resource) in setup.seats.iter_mut().zip(resources) {
         seat.starting_life = Some(resource.life);
     }

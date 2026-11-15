@@ -86,7 +86,9 @@ impl Build {
         let generator = if catalog.is_run() {
             crate::v2::generation::RUN
         } else {
-            crate::v2::GENERATOR
+            // Legacy builds have no Commander formation. Never reinterpret
+            // their resource limits when the current new-run default changes.
+            3
         };
         loadout::resources_for(&self.active, self.potions, 0, generator)?;
         Ok(())
