@@ -140,6 +140,20 @@ pub(super) fn effect(goods: Goods, lang: Lang) -> String {
     }
 }
 
+pub(super) fn tier(definition: Definition, lang: Lang) -> String {
+    match definition.family {
+        Family::Grove => {
+            Phrase::EchoesGroveTier.fill_count(lang, usize::from(definition.rarity.tier()), &[])
+        }
+        Family::Heartwood | Family::Satchel | Family::Compass => {
+            effect(Goods::Relic(definition), lang)
+        }
+        Family::SpringChalice | Family::Hearthstone | Family::BloodAmber | Family::LifeCoil => {
+            life::tier(definition, lang)
+        }
+    }
+}
+
 pub(super) fn command(command: &Command, ui: &Ui, lang: Lang) -> String {
     let Some(run) = ui.model.run() else {
         return Phrase::EchoesConflict.text(lang).into();
@@ -258,7 +272,9 @@ pub(super) const fn icon(action: Action) -> char {
         Action::Card(_, false) | Action::Sell | Action::Abandon => glyph::MINUS,
         Action::Play(_) | Action::Resume => glyph::ARROW_RIGHT,
         Action::Accept | Action::Buy | Action::SaveDeck | Action::Fuse => glyph::CHECK,
-        Action::Overview | Action::Read(Read::Runs(_) | Read::Run(_)) => glyph::VIEW_ROWS,
+        Action::Overview | Action::Read(Read::Runs(_) | Read::Run(_)) | Action::Tiers(_) => {
+            glyph::VIEW_ROWS
+        }
         Action::Page(Page::Shop) | Action::GoShop => glyph::VIEW_GRID,
         Action::Page(Page::Equipment) | Action::Move | Action::Place(_) => glyph::GEAR,
         Action::Page(Page::Deck) => glyph::LIBRARY,
@@ -278,6 +294,7 @@ pub(super) fn selected(action: Action, ui: &Ui) -> bool {
         Action::Place(slot) => ui.choices.slot == slot,
         Action::Ingredient(id) => ui.choices.ingredients.contains(&id),
         Action::Material(id) => ui.choices.material == Some(id),
+        Action::Tiers(family) => ui.tiers == Some(family),
         _ => false,
     }
 }

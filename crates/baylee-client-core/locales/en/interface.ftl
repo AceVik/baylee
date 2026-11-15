@@ -10370,6 +10370,26 @@ EchoesUpdate = Update Baylee before continuing this expedition.
 EchoesUnavailable = This choice is not currently available.
 EchoesUnsaved = Your deck has unsaved changes. Save or discard them before entering a duel.
 EchoesInspect = Select
+EchoesTiersShow = Compare upgrade tiers
+EchoesTiersHide = Close tier comparison
+EchoesTiersLead = Upgrade preview: 3 matching Common → Uncommon; 3 matching Uncommon → Rare; 1 Rare + 1 Mythic Potion → Mythic Rare.
+# Arguments: life
+EchoesChaliceTier = Your upkeep: gain { $life } life.
+# Arguments: life
+EchoesHearthTier = Each creature you control entering: gain { $life } life.
+# Arguments: damage
+EchoesAmberTier = Tap + 2 charges → { $damage } damage to any target.
+# Arguments: damage
+EchoesAmberMythicTier = 2 charges → { $damage } damage to any target. No tapping.
+# Arguments: mana
+EchoesCoilTier = { $mana } mana + tap + 2 life → draw 1 card.
+# Arguments: mana
+EchoesCoilMythicTier = { $mana } mana + 2 life → draw 1 card. No tapping.
+# Arguments: count
+EchoesGroveTier = { $count ->
+    [one] Your upkeep: create a green 1/1 Plant.
+   *[other] Your upkeep: create { $count } green 1/1 Plants.
+    }
 EchoesBuy = Review purchase
 # Arguments: price
 EchoesBuyPrice = Review purchase · { $price } gold

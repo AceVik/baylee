@@ -131,6 +131,15 @@ pub(in crate::lobby::echoes::draw) fn detail(
             can(ui, &Command::Sell { item: id }),
         );
     }
+    if let Some(relic) = run
+        .economy
+        .inventory
+        .relics
+        .iter()
+        .find(|relic| Some(relic.id) == ui.choices.item)
+    {
+        tiers::draw(commands, detail, kit, ui, relic.definition);
+    }
     slots(commands, detail, kit, ui);
     label(
         commands,

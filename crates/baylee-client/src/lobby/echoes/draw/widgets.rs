@@ -68,10 +68,25 @@ pub(super) fn featured_portrait(commands: &mut Commands, root: Entity, kit: Kit,
 }
 
 pub(super) fn effect(commands: &mut Commands, root: Entity, kit: Kit, goods: Goods) {
-    let text =
-        crate::shellkit::surfaces::prose(commands, kit, &words::effect(goods, lang(kit)), true);
+    paragraph(
+        commands,
+        root,
+        kit,
+        &words::effect(goods, lang(kit)),
+        tokens::INK,
+    );
+}
+
+pub(super) fn paragraph(
+    commands: &mut Commands,
+    root: Entity,
+    kit: Kit,
+    words: &str,
+    color: Color,
+) {
+    let text = crate::shellkit::surfaces::prose(commands, kit, words, true);
     commands.entity(text).insert((
-        TextColor(tokens::INK),
+        TextColor(color),
         Node {
             width: percent(100),
             min_width: px_fixed(0.0),

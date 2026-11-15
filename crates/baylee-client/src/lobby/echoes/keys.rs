@@ -19,6 +19,7 @@ pub(crate) const ORDER: TabOrder = TabOrder {
         "ingredients",
         "materials",
         "buy",
+        "tiers",
         "items",
         "move",
         "sell",
@@ -82,15 +83,7 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
                 .position(|host| host.id == id)
                 .unwrap_or(0),
         ),
-        Action::Page(page) => (
-            "tabs",
-            match page {
-                Page::Overview => 3,
-                Page::Shop => 0,
-                Page::Equipment => 1,
-                Page::Deck => 2,
-            },
-        ),
+        Action::Page(page) => ("tabs", page_index(page)),
         Action::Offer(id) => ("offers", index(id, true)),
         Action::Pin(id) => ("pins", index(id, true)),
         Action::Select(id) => ("items", index(id, false)),
@@ -115,6 +108,7 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
                 .unwrap_or(0),
         ),
         Action::Buy => ("buy", 0),
+        Action::Tiers(_) => ("tiers", 0),
         Action::Move => ("move", 0),
         Action::Sell => ("sell", 0),
         Action::Fuse => ("fuse", 0),
@@ -146,4 +140,13 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
         ),
     };
     Stop::item(ORDER.name, key, u8::try_from(at).unwrap_or(u8::MAX))
+}
+
+const fn page_index(page: Page) -> usize {
+    match page {
+        Page::Overview => 3,
+        Page::Shop => 0,
+        Page::Equipment => 1,
+        Page::Deck => 2,
+    }
 }

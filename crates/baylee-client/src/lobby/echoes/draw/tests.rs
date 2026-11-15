@@ -1,5 +1,5 @@
 use super::*;
-use baylee_core::{ids::CardIndex, preset::AIProfile};
+use baylee_core::ids::CardIndex;
 use baylee_protocol::execution::{Identity, Variant};
 use domain::cards::{Card, Catalog, Collection, Stack};
 
@@ -27,7 +27,11 @@ fn opened() -> Ui {
                 Variant::Tower,
                 "ui-test",
                 "synthetic",
-                u32::from(AIProfile::GENERATION),
+                u32::from(
+                    domain::v2::generation::contract(domain::v2::GENERATOR)
+                        .unwrap()
+                        .ai_generation,
+                ),
             ),
             &catalog,
         )

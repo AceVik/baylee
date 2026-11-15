@@ -50,6 +50,32 @@ stock and stops at the first actual three-copy fusion. Generation one fused in
 direct Uncommon purchases and duels: availability evidence, not a player study,
 combat balance verdict, or proof that the remaining 24-family target works.
 
+## Read-only tier comparison and native play pilot
+
+The stock and inventory inspectors now offer a collapsible four-tier comparison.
+It keeps the selected purchase unchanged and presents concise effect/cost
+differences with the family's four material frames. Full rules stay beside the
+selected item. The comparison is local navigation, tied to a family and fenced
+behind an outstanding confirmation; it submits no account job.
+
+`cargo run --locked -p baylee-engine-server --no-default-features --features tower
+--example tower_build_pilot` exercises two three-Common-item builds against
+Grove/Heartwood/Satchel, all with identical synthetic 40-card green decks and a
+12-gold equipment basis. The life build uses Chalice/Hearthstone/Amber; the token
+build uses Grove/Hearthstone/Coil. Seeds 101, 991 and 2027 swap build assignments
+across chairs. One chair reads an authorized contextual view; the other uses the
+actual hosted Expert. These are different policy consumers, not human players.
+
+The first run completed seven duels in 25–56 turns with 821–1598 questions each;
+the eighth stopped unfinished at the explicit 60-second overall budget and four
+were not started. All six life-build duels completed: it lost all three from
+chair zero and won all three from the hosted chair. The first token-build duel
+won; its swapped counterpart was the unfinished duel. This reveals substantial
+chair/policy sensitivity and is **not** an item win-rate estimate. No price or
+power change follows from it. An unfinished duel is never relabeled a draw or
+loss. The helper also caps each duel at 2000 questions and 80 turns and does not
+alter shipped play clocks. Evidence: `/tmp/baylee-tower-build-pilot-20261115.log`.
+
 ## Reference images and observations
 
 The owner requested Oaken Tower references. These links were found and the first

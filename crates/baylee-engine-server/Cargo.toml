@@ -75,3 +75,7 @@ harness = false
 [[test]]
 name = "tower_authority"
 path = "tests/tower_authority/mod.rs"
+
+[[example]]
+name = "tower_build_pilot"
+required-features = ["tower"]

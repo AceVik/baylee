@@ -3793,6 +3793,19 @@ EchoesUpdate = Aktualisiere Baylee, bevor du diese Expedition fortsetzt.
 EchoesUnavailable = Diese Auswahl ist momentan nicht verfügbar.
 EchoesUnsaved = Dein Deck enthält ungespeicherte Änderungen. Speichere oder verwerfe sie vor der nächsten Partie.
 EchoesInspect = Auswählen
+EchoesTiersShow = Aufwertungsstufen vergleichen
+EchoesTiersHide = Stufenvergleich schließen
+EchoesTiersLead = Aufwertungsvorschau: 3 gleiche Common → Uncommon; 3 gleiche Uncommon → Rare; 1 Rare + 1 Mythic-Trank → Mythic Rare.
+EchoesChaliceTier = Dein Versorgungssegment: +{ $life } LeP.
+EchoesHearthTier = Jede Kreatur, die unter deiner Kontrolle ins Spiel kommt: +{ $life } LeP.
+EchoesAmberTier = Tappen + 2 Ladungen → { $damage } Schaden auf ein Ziel deiner Wahl.
+EchoesAmberMythicTier = 2 Ladungen → { $damage } Schaden auf ein Ziel deiner Wahl. Ohne Tappen.
+EchoesCoilTier = { $mana } Mana + Tappen + 2 LeP → 1 Karte ziehen.
+EchoesCoilMythicTier = { $mana } Mana + 2 LeP → 1 Karte ziehen. Ohne Tappen.
+EchoesGroveTier = { $count ->
+    [one] Dein Versorgungssegment: Erzeuge eine grüne 1/1-Pflanze.
+   *[other] Dein Versorgungssegment: Erzeuge { $count } grüne 1/1-Pflanzen.
+    }
 EchoesBuy = Kauf prüfen
 EchoesBuyPrice = Kauf prüfen · { $price } Gold
 EchoesActiveSlots = Ausgerüstet · wirkt in deiner nächsten Partie

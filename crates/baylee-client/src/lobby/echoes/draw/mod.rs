@@ -23,6 +23,7 @@ mod merchandise;
 mod shop;
 #[cfg(test)]
 mod tests;
+mod tiers;
 mod widgets;
 mod words;
 use widgets::{can, confirmation, control, featured_portrait, portrait, tile};

@@ -1,0 +1,153 @@
+//! Twelve bounded native duels: a reproducible content pilot, not a balance verdict.
+#![forbid(unsafe_code)]
+
+use baylee_ai::HeuristicAgent;
+use baylee_cards::decks::{DeckCard, LoadedDeck};
+use baylee_cards_pool as _;
+use baylee_core::{
+    ids::PlayerId,
+    preset::{FormatId, SeatController},
+};
+use baylee_engine::choice::Pending;
+use baylee_engine_server::variant::{self, HostedSession};
+use baylee_tower::v2::{
+    self,
+    catalog::{Definition, Family, Rarity},
+    generation, loadout,
+};
+use std::time::{Duration, Instant};
+
+const BUILDS: [(&str, [Family; 3]); 3] = [
+    (
+        "life",
+        [
+            Family::SpringChalice,
+            Family::Hearthstone,
+            Family::BloodAmber,
+        ],
+    ),
+    (
+        "tokens",
+        [Family::Grove, Family::Hearthstone, Family::LifeCoil],
+    ),
+    (
+        "reference",
+        [Family::Grove, Family::Heartwood, Family::Satchel],
+    ),
+];
+
+fn main() {
+    println!("Native Common-item pilot; identical 40-card green decks, 12 gold per build.");
+    println!("Three fixed seeds, both build assignments; no shop policy or human-skill claim.");
+    println!("Limits: 2000 questions/80 turns per duel, 60 seconds total; no invented outcomes.");
+    println!("build,seed,challenger_seat,result,turns,questions,life0,life1");
+    let deadline = Instant::now() + Duration::from_secs(60);
+    let deck = deck();
+    for (name, challenger) in BUILDS.into_iter().take(2) {
+        for seed in [101, 991, 2027] {
+            for challenger_seat in [0, 1] {
+                if Instant::now() >= deadline {
+                    println!("overall-budget-exhausted; remaining duels were not run");
+                    return;
+                }
+                play(name, challenger, seed, challenger_seat, &deck, deadline);
+            }
+        }
+    }
+}
+
+fn play(
+    name: &str,
+    challenger: [Family; 3],
+    seed: u64,
+    challenger_seat: u8,
+    deck: &LoadedDeck,
+    deadline: Instant,
+) {
+    let profile = generation::contract(v2::GENERATOR)
+        .expect("compiled generation")
+        .expert();
+    let mut preset = baylee_cards::decks::preset_for(seed, deck, deck);
+    preset.format = FormatId::Custom;
+    let mut builds = [BUILDS[2].1; 2];
+    builds[usize::from(challenger_seat)] = challenger;
+    let resources = [0, 1].map(|seat| {
+        let active = builds[usize::from(seat)].map(|family| Definition {
+            family,
+            rarity: Rarity::Common,
+        });
+        loadout::resources(&active, [0, 0], seat).expect("three Common relics")
+    });
+    preset.house_rules = loadout::rules(&resources, seed).expect("native rules");
+    preset.seats[0].controller = SeatController::Open;
+    preset.seats[1].controller = SeatController::Ai(profile);
+    for (seat, resource) in preset.seats.iter_mut().zip(resources) {
+        seat.starting_life = Some(resource.life);
+    }
+    let mut game = HostedSession::recorded_for_execution(&preset, &variant::identity())
+        .expect("compiled executor admission");
+    // The manually played chair uses only its authorized contextual view. The
+    // other chair runs the actual host policy; swapping builds exposes chair bias.
+    let player = PlayerId::new(0);
+    let agent = HeuristicAgent::new(profile).with_seed(seed);
+    let mut questions = 0;
+    while !matches!(game.pending(), Pending::GameOver(_))
+        && questions < 2000
+        && game.state().turn.number <= 80
+        && Instant::now() < deadline
+    {
+        if game.needs_pump() {
+            game.pump_slice(1);
+        } else {
+            let (pending, view) = game
+                .view_for_with_context(player)
+                .expect("manual chair asked");
+            let action = agent.act(&view, &pending);
+            game.act_slice(player, action, 0)
+                .expect("legal pilot answer");
+        }
+        questions += 1;
+    }
+    let result = if let Pending::GameOver(result) = game.pending() {
+        let winners = game.winning_seats(*result);
+        if winners.is_empty() {
+            "draw"
+        } else if winners.contains(&PlayerId::new(challenger_seat)) {
+            "win"
+        } else {
+            "loss"
+        }
+    } else {
+        "bounded-unfinished"
+    };
+    println!(
+        "{name},{seed},{challenger_seat},{result},{},{questions},{},{}",
+        game.state().turn.number,
+        game.state().players[0].life,
+        game.state().players[1].life,
+    );
+}
+
+fn deck() -> LoadedDeck {
+    let main = [
+        ("Forest", 17),
+        ("Llanowar Elves", 4),
+        ("Grizzly Bears", 4),
+        ("Centaur Courser", 4),
+        ("Giant Spider", 3),
+        ("Giant Growth", 4),
+        ("Elvish Visionary", 4),
+    ]
+    .into_iter()
+    .flat_map(|(name, count)| {
+        let card = baylee_cards::decks::by_name(name).expect("implemented fixture card");
+        std::iter::repeat_n(DeckCard::plain(card), count)
+    })
+    .collect();
+    LoadedDeck {
+        name: "Synthetic green pilot".into(),
+        main,
+        sideboard: Vec::new(),
+        commanders: Vec::new(),
+    }
+}

@@ -175,6 +175,7 @@ fn navigate(ui: &mut Ui, action: Action) -> bool {
         Action::Page(page) => ui.page = page,
         Action::GoShop => ui.page = Page::Shop,
         Action::InspectCard(card) => ui.preview = Some(card),
+        Action::Tiers(family) => ui.tiers = (ui.tiers != Some(family)).then_some(family),
         _ => return false,
     }
     true

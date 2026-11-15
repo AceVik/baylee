@@ -2308,3 +2308,43 @@ Verification on 15 November used the engine-server `tower::` library selection
 `run_scope` integration binaries (2 passed after both failed at the original
 fixture). Engine-server library/test Clippy passed with warnings denied. The
 isolated PostgreSQL 18 process exited and its loopback port closed.
+
+### Milestone 72 — compact tier comparison and bounded native pilot
+
+The stock and inventory inspectors offer a collapsible, family-bound comparison
+of all four rarities. Each row uses the original portrait and its material frame,
+with concise effect and payment differences. The selected item's complete rules
+remain above it. Comparison changes local navigation only, leaves the offered
+goods and purchase destination unchanged, and cannot run behind a confirmation.
+Common/Uncommon three-copy fusion and the single-Rare/Mythic-potion recipe are
+stated together without suggesting that three Rares can fuse.
+
+The real passive client was inspected at 1440 × 900 and 1280 × 720 with the
+social panel open. All four tiers, including the lower Mythic row and destination
+slots, remain reachable inside the inspector; stock and the next-duel/paid-refresh
+controls stay outside that scroll area. The final captured pixels are readable,
+and semantic layout checks pass. This completes the previously pending tooltip
+correction's visual inspection, without claiming a fix for the earlier black
+capture or an animation-performance measurement. Evidence:
+`/tmp/baylee-tower-tiers-final-{1440,720,bottom}-20261115.{png,json}`.
+
+Fourteen scoped Echoes client cases pass; the confirmation-fence case also passes
+after binding the comparison state to a family. Three locale checks and final
+strict dev-control client Clippy pass. Full native UI startup used matching
+revision-three/policy-20 artifacts and synthetic loopback-only PostgreSQL 18,
+Central, gateway, Tower and agent services. The harness closes its owned processes
+and verifies listener closure. An earlier attempt exhausted local disk during
+`initdb`, before any service started; removing obsolete binaries owned by this
+task made room for the successful final run.
+
+The new Rust `tower_build_pilot` example compares two actual three-Common-item
+builds with a 12-gold reference under fixed seeds and swapped chairs. It completed
+seven duels; the eighth remained unfinished at its explicit 60-second budget,
+and four were not started. The life build's results depend strongly on which
+policy consumer pilots it. This is diagnostic evidence, not a win-rate estimate
+or grounds to change prices. The helper passes scoped strict Clippy; its exact
+limits and observations are recorded in `tower-echoes-market.md`.
+
+The complete 24-family/eight-potion catalog, broader combat calibration, permanent
+cosmetic discovery and the remaining market acceptance scenes are still open.
+No full-workspace gate, CI wait, push or merge was performed for this milestone.

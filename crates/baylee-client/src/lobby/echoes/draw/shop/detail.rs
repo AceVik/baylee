@@ -77,7 +77,8 @@ pub(super) fn detail(
         if let Goods::Card(id) = offer.goods {
             card::rules(commands, detail, kit, id);
         }
-        if matches!(offer.goods, Goods::Relic(_)) {
+        if let Goods::Relic(definition) = offer.goods {
+            tiers::draw(commands, detail, kit, ui, definition);
             equipment::slots(commands, detail, kit, ui);
             equipment::ingredients(commands, detail, kit, ui, run);
         }
