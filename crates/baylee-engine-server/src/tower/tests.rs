@@ -16,7 +16,7 @@ type Registry = NativeLookup<RegistryLookup, Pack>;
 type Game = Engine<Registry, NoLoopDetection>;
 type Hosted = Session<NoLoopDetection, Registry>;
 
-mod life;
+mod workshop;
 
 fn test_identity() -> Identity {
     Identity::native(
