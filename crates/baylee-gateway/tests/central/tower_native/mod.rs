@@ -13,6 +13,7 @@ use std::{
 use tokio::{runtime::Runtime, sync::watch, task::JoinHandle};
 use uuid::Uuid;
 
+mod demo;
 mod native;
 mod recovery;
 mod story;
@@ -49,33 +50,11 @@ impl Fixture {
         let artifact = Artifact::probe(&binary).await.unwrap();
         let identity = artifact.identity().clone();
         let sandbox = support::Sandbox::open().await;
-        let mut publication = support::publication();
-        let forest = baylee_cards::decks::by_name("Forest").unwrap();
-        publication.catalog.cards.truncate(1);
-        publication.catalog.cards[0].card = forest;
-        for starter in &mut publication.starters {
-            starter.deck[0].card = forest;
-        }
-        publication.cohort =
-            baylee_tower::v2::package::Cohort::new(identity.clone(), &publication.catalog).unwrap();
+        let publication = demo::publication(&identity);
         let cohort = sandbox.store.publish(&publication).await.unwrap();
         let (_, publisher) =
             operator(&sandbox.store, "native fixture publisher", Role::Publisher).await;
-        sandbox
-            .store
-            .publish_house(
-                &publisher,
-                cohort,
-                1,
-                1,
-                &baylee_tower::v2::package::Build {
-                    deck: publication.starters[0].deck.clone(),
-                    active: Vec::new(),
-                    potions: [0; 2],
-                },
-            )
-            .await
-            .unwrap();
+        demo::publish_house(&sandbox.store, &publisher, cohort, &publication).await;
         let (host, _) = operator(&sandbox.store, "native fixture gateway", Role::Host).await;
         let (_, verifier) =
             operator(&sandbox.store, "native fixture verifier", Role::Verifier).await;
@@ -154,10 +133,18 @@ impl Fixture {
             .unwrap();
     }
 
-    pub(super) async fn close(self) {
+    pub(super) async fn close(mut self) {
         let _ = self.stop.send(true);
-        let server = tokio::time::timeout(Duration::from_secs(10), self.server).await;
-        let worker = tokio::time::timeout(Duration::from_secs(10), self.worker).await;
+        let server = tokio::time::timeout(Duration::from_secs(10), &mut self.server).await;
+        if server.is_err() {
+            self.server.abort();
+            let _ = self.server.await;
+        }
+        let worker = tokio::time::timeout(Duration::from_secs(10), &mut self.worker).await;
+        if worker.is_err() {
+            self.worker.abort();
+            let _ = self.worker.await;
+        }
         self.sandbox.close().await;
         server.expect("Tower HTTP shutdown").unwrap();
         let summary = worker
@@ -175,5 +162,9 @@ impl Fixture {
 }
 
 pub(super) fn exercise(runtime: &Runtime, served: &Served) {
-    story::run(runtime, served);
+    if demo::enabled() {
+        demo::run(runtime, served);
+    } else {
+        story::run(runtime, served);
+    }
 }

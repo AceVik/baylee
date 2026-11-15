@@ -41,9 +41,17 @@ pub(super) async fn next(socket: &mut common::Socket) -> v1::envelope::Msg {
 pub(super) struct Engine(Child);
 impl Engine {
     pub(super) fn start(start: &v1::StartEngine, fixture: &Fixture) -> Self {
-        assert_eq!(start.execution, fixture.identity.to_metadata());
+        Self::launch(start, &fixture.binary, &fixture.identity)
+    }
+
+    pub(super) fn launch(
+        start: &v1::StartEngine,
+        binary: &std::path::Path,
+        identity: &baylee_protocol::execution::Identity,
+    ) -> Self {
+        assert_eq!(start.execution, identity.to_metadata());
         Self(
-            Command::new(&fixture.binary)
+            Command::new(binary)
                 .env_clear()
                 .args(["--attach", &start.gateway_url, "--game", &start.game_id])
                 .env("BAYLEE_ENGINE_TOKEN", &start.engine_token)
@@ -53,6 +61,10 @@ impl Engine {
                 .spawn()
                 .unwrap(),
         )
+    }
+
+    pub(super) fn exited(&mut self) -> bool {
+        self.0.try_wait().unwrap().is_some()
     }
     pub(super) async fn finished(&mut self) {
         tokio::time::timeout(Duration::from_secs(10), async {

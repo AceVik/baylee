@@ -1676,3 +1676,41 @@ the four affected crates passes in
 `/tmp/baylee-tower-seat-context-clippy-20261115-r5.log`; generated OpenAPI includes
 the bounded optional metadata. The native fixture still uses a land-only deck,
 so it establishes transport/recovery correctness, not gameplay balance.
+
+## Playable native demo fixture — fifty-fourth working milestone
+
+The opt-in `BAYLEE_TOWER_V2_DEMO=1` branch of the existing native fixture publishes
+three legal 40-card starters (green creatures, red aggression, white creatures)
+from cards marked Implemented, with a distinct legal collection and fixed prices.
+All twelve ordinals have three explicit House fallback builds; gradual equipment
+is a playtest hypothesis, not calibrated balance. A real synthetic Central account
+owns a normally enrolled run. The native control peer keeps its advertised single
+slot alive, launches only the probed Tower artifact, handles stops and reaps every
+owned child. The default short acceptance scenario keeps its land-only package.
+Tower shutdown now aborts and joins timed-out worker/server tasks before dropping
+its schema, instead of detaching them.
+
+The opt-in demo also requires `BAYLEE_CENTRAL_DEMO=1`, a per-run password passed
+only through the parent process's environment, `BAYLEE_CENTRAL_UI_READY` and the
+existing isolated PostgreSQL fixture configuration. Readiness contains loopback
+origins and synthetic run IDs only. Its `.stop` sibling ends the bounded hold;
+`BAYLEE_CENTRAL_UI_HOLD_SECS` is limited to 1–1200 seconds. No authentication,
+shop, scoring or verifier bypass was added to shipped code.
+
+The focused catalog test passes in
+`/tmp/baylee-tower-playable-demo-catalog-20261115.log` (one test, 0.00s), and strict
+gateway integration Clippy passes in `/tmp/baylee-tower-demo-clippy-20261115.log`.
+The actual German 1440×900 client signed in, showed the owned run, loaded its
+live shop/host and switched to equipment. Baseline images:
+`/tmp/baylee-tower-ui-baseline-shop-20261115.png` and
+`/tmp/baylee-tower-ui-baseline-equipment-20261115.png`.
+The complete owned UI/backend/database cleanup is recorded in
+`/tmp/baylee-tower-ui-iteration1b-20261115.log`.
+
+The first diagnostic run clicked during the 1.65-second sign-in flight and was
+closed after its timeout. The corrected driver waits for that flight. A first
+capture of the occluded passive Mac window was black; two consecutive captures
+produced the real rendered frame. Black frames are not visual acceptance.
+These images establish the baseline, not five completed visual improvements:
+they expose excessive page length, repeated descriptions, generic icons and
+purchase details below all offers. No duel or balance result is claimed yet.
