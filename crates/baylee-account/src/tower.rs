@@ -93,6 +93,7 @@ impl TowerHttp {
         if !matches!(
             (request, &response),
             (Request::Cohorts { .. }, Response::Cohorts { .. })
+                | (Request::Cohort { .. }, Response::Cohort { .. })
                 | (Request::Locate { .. }, Response::Location { .. })
                 | (Request::Hosts { .. }, Response::Hosts { .. })
                 | (Request::Runs { .. }, Response::Runs { .. })
@@ -109,6 +110,12 @@ impl TowerHttp {
         }
         if let (Request::Locate { run }, Response::Location { location }) = (request, &response) {
             validate_location(*run, location, self.development)?;
+        }
+        if let (Request::Cohort { cohort: expected }, Response::Cohort { cohort }) =
+            (request, &response)
+            && (cohort.id != *expected || !uuid7(*expected))
+        {
+            return Err(Error::Rejected);
         }
         if let (
             Request::Hosts { run, before },

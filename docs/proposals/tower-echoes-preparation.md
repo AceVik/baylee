@@ -1587,3 +1587,22 @@ reservation. Strict library/test Clippy passes in
 `/tmp/baylee-tower-client-state-clippy-20261115-r2.log`. No backend/native test was
 rerun for this renderer-free change. The native v2 screen/worker and observed
 visual refinement iterations remain outstanding.
+
+## Retained run catalogs — fifty-first working milestone
+
+An authenticated player can read a published cohort's immutable catalog even
+after enrollment closes. The active enrollment list stays empty; this read
+neither admits a new run nor exposes opponents or private execution packages.
+The SDK binds the returned cohort to the requested UUID, and the client retains
+the catalog separately from currently accepting cohorts so an existing shop can
+still name its cards, equipment and authoritative prices.
+
+The affected real PostgreSQL/HTTP player scenario passes in
+`/tmp/baylee-tower-retained-catalog-http-tests-20261115.log` (0.68s), including
+closed enrollment, the exact retained catalog and an unknown cohort. Owned
+PostgreSQL exited and its listener and isolated cluster were removed. The focused
+model regression passes in
+`/tmp/baylee-tower-retained-catalog-model-test-20261115.log` (one test; 2,581
+unrelated tests filtered out). Strict service, SDK and client-core library/test
+Clippy passes in `/tmp/baylee-tower-retained-catalog-clippy-20261115.log`. No native
+engine or renderer test was repeated for this read-only catalog path.

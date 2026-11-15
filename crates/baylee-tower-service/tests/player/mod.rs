@@ -27,7 +27,10 @@ async fn native_player_scope_idempotency_and_private_projections() {
         .merge(Arc::new(Hosts::new(sandbox.store.clone())).router());
     let server = Server::bound(listener, router);
     let store = sandbox.store.clone();
-    let task = tokio::spawn(async move { story::run(store, authority, origin).await }).await;
+    let db = sandbox.db.clone();
+    let schema = sandbox.schema.clone();
+    let task =
+        tokio::spawn(async move { story::run(store, authority, origin, db, schema).await }).await;
     let tower_closed = server.close().await;
     let identity_closed = central.close().await;
     sandbox.close().await;

@@ -39,6 +39,11 @@ pub enum Request {
         /// Exclusive cursor from a previous page.
         before: Option<Uuid>,
     },
+    /// Frozen public catalog, also after enrollment closes.
+    Cohort {
+        /// Published contract identity, never a private run or opponent.
+        cohort: Uuid,
+    },
     /// This account's retained runs, newest first.
     Runs {
         /// Exclusive cursor from a previous page.
@@ -116,6 +121,11 @@ pub struct Cohort {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "result", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Response {
+    /// One immutable public catalog for a retained run or archive view.
+    Cohort {
+        /// No private builds, execution data or seeds.
+        cohort: Box<Cohort>,
+    },
     /// Current approved capacity hints, not reservations or gateway credentials.
     Hosts {
         /// Binds the list to the requested owned run.

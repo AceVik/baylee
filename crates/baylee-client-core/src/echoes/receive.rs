@@ -34,6 +34,9 @@ impl State {
 
     fn accept(&mut self, request: &Request, response: Response) -> bool {
         match (request, response) {
+            (Request::Cohort { cohort: id }, Response::Cohort { cohort }) if cohort.id == *id => {
+                self.publication = Some(*cohort);
+            }
             (Request::Cohorts { .. }, Response::Cohorts { consent, cohorts })
                 if consent > 0
                     && cohorts.len() <= api::PAGE_SIZE

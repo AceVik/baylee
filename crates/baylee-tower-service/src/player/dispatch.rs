@@ -17,13 +17,11 @@ impl Players {
                     .cohorts(before, page)
                     .await?
                     .into_iter()
-                    .map(|(id, publication)| baylee_tower_api::Cohort {
-                        id,
-                        contract: publication.cohort,
-                        catalog: publication.catalog,
-                        starters: publication.starters,
-                    })
+                    .map(|(id, saved)| publication(id, saved))
                     .collect(),
+            },
+            Request::Cohort { cohort } => Response::Cohort {
+                cohort: Box::new(publication(cohort, self.store.published(cohort).await?)),
             },
             Request::Runs { before } => Response::Runs {
                 runs: self
@@ -109,4 +107,13 @@ fn seed<const N: usize>() -> Result<[u8; N], Failure> {
     let mut bytes = [0; N];
     getrandom::fill(&mut bytes).map_err(|_| Failure::Unavailable)?;
     Ok(bytes)
+}
+
+fn publication(id: Uuid, saved: baylee_tower_store::Publication) -> baylee_tower_api::Cohort {
+    baylee_tower_api::Cohort {
+        id,
+        contract: saved.cohort,
+        catalog: saved.catalog,
+        starters: saved.starters,
+    }
 }

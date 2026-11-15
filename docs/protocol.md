@@ -6059,7 +6059,7 @@ gateway. Its reusable contract is `baylee-tower-api`, version `2` in the require
 duplicate credentials/version headers and unknown JSON fields are refused.
 No browser CORS route or caller-supplied identity/destination exists.
 
-The tagged `operation` is `cohorts`, `runs`, `run`, `locate`, `hosts`, `start`,
+The tagged `operation` is `cohorts`, `cohort`, `runs`, `run`, `locate`, `hosts`, `start`,
 `command`, `reserve` or `withdraw_echoes`. `start`, `command` and `reserve` carry a UUIDv7 request ID;
 the exact request must be retained after a lost answer. Commands carry the last
 observed run revision. The authority alone samples start/opponent/shuffle/policy
@@ -6074,6 +6074,12 @@ three starters. Runs expose only the owner's shop, cards, inventory, phase,
 revision and verified outcome/turn/potion history. Execution leases, package
 commitments, record heads, opponent builds and seeds are unrepresentable in the
 player projection. Ordinary run reads exclude expired rows and foreign owners.
+
+`cohort` reads one immutable public catalog by its published UUID, including after
+enrollment closes. This lets an existing run retain its exact card prices and
+starter interpretation independently of the current enrollment page. It reveals
+no private opponent, package or record and cannot reopen enrollment. The SDK
+requires the response to name the requested cohort.
 
 `locate` takes an owned `run` UUID and reads its current revision, phase and
 execution destination independently of immutable command retry receipts. Only

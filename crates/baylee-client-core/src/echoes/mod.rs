@@ -16,6 +16,8 @@ mod tests;
 pub enum Read {
     /// Published enrollment choices, using an exclusive cursor.
     Cohorts(Option<Uuid>),
+    /// Frozen catalog, including a run whose enrollment period has closed.
+    Cohort(Uuid),
     /// Owned retained runs, using an exclusive cursor.
     Runs(Option<Uuid>),
     /// Inspect one owned run without reserving or opening its game.
@@ -52,6 +54,7 @@ impl Work {
 #[derive(Default)]
 pub struct State {
     cohorts: Vec<Cohort>,
+    publication: Option<Cohort>,
     consent: u16,
     runs: Vec<Run>,
     selected: Option<Uuid>,
@@ -68,6 +71,15 @@ impl State {
     #[must_use]
     pub fn cohorts(&self) -> &[Cohort] {
         &self.cohorts
+    }
+    /// Frozen catalog matching the selected run, independent of current enrollment.
+    #[must_use]
+    pub fn publication(&self) -> Option<&Cohort> {
+        let id = self.run.as_ref()?.cohort;
+        self.publication
+            .iter()
+            .chain(self.cohorts.iter())
+            .find(|cohort| cohort.id == id)
     }
     /// Exact current explanation revision to display before explicit acceptance.
     #[must_use]
@@ -117,6 +129,12 @@ impl State {
         }
         let request = match read {
             Read::Cohorts(before) => Request::Cohorts { before },
+            Read::Cohort(cohort) => {
+                if !uuid7(cohort) {
+                    return None;
+                }
+                Request::Cohort { cohort }
+            }
             Read::Runs(before) => Request::Runs { before },
             Read::Run(run) => {
                 if !uuid7(run) || (self.uncertain() && self.selected != Some(run)) {

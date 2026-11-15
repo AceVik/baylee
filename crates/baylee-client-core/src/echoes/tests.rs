@@ -256,3 +256,37 @@ fn enrollment_is_explicit_and_a_departed_worker_cannot_populate_a_new_account() 
     assert!(!other.busy());
     assert!(other.run().is_none());
 }
+
+#[test]
+fn a_retained_run_uses_its_frozen_catalog_after_enrollment_closes() {
+    let (mut state, cohort, run) = opened();
+    let read = state.read(Uuid::now_v7(), Read::Cohorts(None)).unwrap();
+    state.receive(
+        &read,
+        Some(Response::Cohorts {
+            consent: 1,
+            cohorts: Vec::new(),
+        }),
+        None,
+    );
+    assert!(state.cohorts().is_empty());
+    assert!(state.publication().is_none());
+    assert_eq!(state.run(), Some(&run));
+    let read = state.read(Uuid::now_v7(), Read::Cohort(cohort.id)).unwrap();
+    state.receive(
+        &read,
+        Some(Response::Cohort {
+            cohort: Box::new(cohort.clone()),
+        }),
+        None,
+    );
+    assert_eq!(state.publication(), Some(&cohort));
+    assert!(
+        state.start(Uuid::now_v7(), cohort.id, 0, 1).is_none(),
+        "archive lookup cannot reopen enrollment"
+    );
+    assert!(
+        state.choose(Uuid::now_v7(), Command::Refresh {}).is_some(),
+        "the retained run can still use its shop"
+    );
+}

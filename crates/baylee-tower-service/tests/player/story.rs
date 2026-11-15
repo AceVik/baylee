@@ -10,10 +10,17 @@ use baylee_tower::v2::{
 use baylee_tower_api::{Request, Response};
 use baylee_tower_store::{Role, Store};
 use central_api::Token;
+use sea_orm::ConnectionTrait;
 use std::sync::{Arc, atomic::Ordering};
 use uuid::Uuid;
 
-pub async fn run(store: Store, central: Arc<Central>, origin: String) {
+pub async fn run(
+    store: Store,
+    central: Arc<Central>,
+    origin: String,
+    db: sea_orm::DatabaseConnection,
+    schema: String,
+) {
     let published = publication();
     let cohort = store.publish(&published).await.unwrap();
     let client = Client::new(origin);
@@ -101,6 +108,52 @@ pub async fn run(store: Store, central: Arc<Central>, origin: String) {
     )
     .await;
     assert_eq!(client.send(token, &Request::WithdrawEchoes {}).await.0, 200);
+    closed_catalog(&db, &schema, &client, token, &cohorts[0]).await;
+}
+
+async fn closed_catalog(
+    db: &sea_orm::DatabaseConnection,
+    schema: &str,
+    client: &Client,
+    token: &Token,
+    expected: &baylee_tower_api::Cohort,
+) {
+    // Only this fixture's unique schema; closing enrollment must not erase the
+    // public catalog needed to continue an already-owned run.
+    db.execute_unprepared(&format!(
+        "UPDATE \"{schema}\".cohorts SET accepting=false WHERE id='{}'",
+        expected.id
+    ))
+    .await
+    .unwrap();
+    let page = client.send(token, &Request::Cohorts { before: None }).await;
+    assert!(
+        matches!(serde_json::from_slice::<Response>(&page.1).unwrap(), Response::Cohorts { cohorts, .. } if cohorts.is_empty())
+    );
+    let answer = client
+        .send(
+            token,
+            &Request::Cohort {
+                cohort: expected.id,
+            },
+        )
+        .await;
+    assert_eq!(answer.0, 200);
+    assert!(
+        matches!(serde_json::from_slice::<Response>(&answer.1).unwrap(), Response::Cohort { cohort } if cohort.as_ref() == expected)
+    );
+    assert_eq!(
+        client
+            .send(
+                token,
+                &Request::Cohort {
+                    cohort: Uuid::now_v7()
+                }
+            )
+            .await
+            .0,
+        404
+    );
 }
 
 async fn boundaries(client: &Client, central: &Central, get: &Request) {

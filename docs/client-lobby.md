@@ -14,6 +14,8 @@ revision. A read alone cannot identify which uncertain mutation committed. Old
 worker responses are ignored; the native adapter must additionally discard the
 account-scoped mailbox and connection on sign-out. Quarantine cannot become a
 defeat or open the shop. The account SDK provides the confirmed gateway handover.
+The selected run's immutable catalog can be read separately after enrollment
+closes; fetching that catalog does not make the cohort available for a new run.
 This state machine is tested; the new v2 renderer/worker integration is still in
 progress. The existing Central expedition screen below is not proof of a
 completed Echoes v2 client.
