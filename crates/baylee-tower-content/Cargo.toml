@@ -1,0 +1,33 @@
+[package]
+name = "baylee-tower-content"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Registry-backed Commander starter content and native Tower admission"
+
+[lints]
+workspace = true
+
+[features]
+cli = ["dep:baylee-cards-pool"]
+
+[[bin]]
+name = "baylee-tower-content"
+path = "src/main.rs"
+required-features = ["cli"]
+
+[dependencies]
+baylee-core.workspace = true
+baylee-cards.workspace = true
+baylee-tower.workspace = true
+baylee-protocol.workspace = true
+baylee-cards-pool = { workspace = true, optional = true }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+baylee-cards-pool.workspace = true
+

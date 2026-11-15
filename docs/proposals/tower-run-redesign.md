@@ -64,10 +64,11 @@ saved runs. They are design choices, not claims of measured balance.
 - Infinite free supply of all five standard basics; only run-owned other cards.
   One unified builder uses a restricted Tower pool and Tower save adapter.
   Switching commander requires an owned eligible card and a fully legal edit.
-- Initial archetypes: green/white token community; white/black life exchanges;
-  blue/red spells and tempo; black/green graveyard growth; red/white equipment
-  and combat. Select actual commanders/cards from tested engine support after
-  merge; no unsupported card silently enters an offer or starter.
+- Initial supported archetypes: Emmara (green/white tokens), Elas il-Kor
+  (white/black life and sacrifice), Talrand (blue spells and tempo), Slimefoot
+  (black/green Saprolings), Pia and Kiran Nalaar (red artifacts). Each contains
+  22 nonbasic spells, 17 basics and its commander. Native support determines
+  this opening pool; it is not yet a measured balance conclusion.
 - Starting gold 18 and base duel income 12 are calibration starting points.
   Keep 8 wins / 5 defeats as the initial finite run contract. A rules draw
   receives the loss-sized choice, with explicit wording; technical voids grant
@@ -313,3 +314,10 @@ Always stop owned test processes and verify listeners close.
   independent re-review found the issue closed. Three targeted privacy cases
   passed in `/tmp/baylee-tower-review-privacy-20261115.log`; this is not a full
   repository audit.
+- A separate `baylee-tower-content` adapter derives five legal starters and 106
+  card records from the compiled registry, without linking that pool into the
+  authority. Three focused tests passed, including forged commander metadata,
+  off-color cards, singleton across zones, sideboard bounds and undeclared
+  printing/construction rules. Its offline `--check` command passed and reports
+  balance as unmeasured. Strict all-target Clippy passed for the content adapter
+  and the reviewed core/engine/host changes. Native publication remains pending.

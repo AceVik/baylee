@@ -2421,6 +2421,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-tower-content"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "baylee-cards",
+ "baylee-cards-pool",
+ "baylee-core",
+ "baylee-protocol",
+ "baylee-tower",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "baylee-tower-service"
 version = "0.2.0-beta.o1"
 dependencies = [
