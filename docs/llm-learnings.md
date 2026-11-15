@@ -7991,3 +7991,31 @@ beneath it. What the author missed, for the next brief:
   after concession, and host projection. The independent review was static
   and checked the recorded results. Full gates, hosted replay and UI acceptance
   were outside this review.
+
+## 2026-11-15 — independent Tower equipment review
+
+- Matched the 72 command-zone sources against their rarity descriptions and
+  table ability text. Checked setup-only bonuses against the loadout, and
+  compared Gilded Acorn's per-rarity income and Mythic victory bonus with
+  settlement. The native pack checks Commander admission before creating
+  objects. Retained generations keep their artifact definitions and family
+  pools. The 72-source matrix checks admission, identity and ability text
+  coverage. Played fixtures cover the main rules and payment paths.
+- Setup redraws were recorded as draws and collected by the new emblems
+  at the first upkeep. With the fix removed, a single mulligan put seven
+  charges on Tideglass Lens. The restored fix kept the journal entry for
+  replay, left Lens empty after the mulligan, and let the first real draw
+  charge Lens and trigger Life Coil. Retained native resume and replay
+  passed its exact-continuation test.
+- The earlier Expert estimated optional token payments from battlefield
+  objects and counted charge-funded activations without reading turn limits.
+  Policy 22 reads the payer's actual upcoming mana offer through in-process
+  context. The focused AI tests cover available and spent turn caps and
+  repeatable sources. In a real RunPack duel, policy 22 accepted Seed
+  Cradle's price and paid it with the common command-zone Root Reservoir.
+  Policy 21 kept its previous decision. Generic seat plans now also limit
+  repeated command-zone activations.
+- This closes review of the native content commit. Production executor
+  selection, localization and rendered UI acceptance require separate review.
+  Full repository gates and an exhaustive played assertion for every ability
+  and tier were outside the focused verification.
