@@ -55,6 +55,47 @@ impl Run {
         catalog: &Catalog,
         seed: &[u8; 32],
     ) -> Result<Self, Refusal> {
+        if self.shop.generator == crate::v2::generation::RUN {
+            return Err(Refusal::Unavailable);
+        }
+        self.settlement(revision, result, catalog, seed, None)
+    }
+
+    /// Settle against the retained immutable package, creating run rewards once.
+    /// The caller must have independently replayed the exact sealed record.
+    /// # Errors
+    /// Wrong package/stage/generation, stale verification or invalid terminal facts.
+    pub fn settled_against(
+        &self,
+        revision: u64,
+        result: Settlement,
+        catalog: &Catalog,
+        seed: &[u8; 32],
+        package: &crate::v2::package::Package,
+    ) -> Result<Self, Refusal> {
+        self.check(revision, catalog)?;
+        if package.stage != self.shop.stage
+            || package.cohort.generator != self.shop.generator
+            || package.digest(catalog)? != result.binding.package
+        {
+            return Err(Refusal::Stale);
+        }
+        let reward = if self.shop.generator == crate::v2::generation::RUN {
+            Some(super::Reward::sample(package, catalog, &result, seed)?)
+        } else {
+            None
+        };
+        self.settlement(revision, result, catalog, seed, reward)
+    }
+
+    fn settlement(
+        &self,
+        revision: u64,
+        result: Settlement,
+        catalog: &Catalog,
+        seed: &[u8; 32],
+        reward: Option<super::Reward>,
+    ) -> Result<Self, Refusal> {
         self.check(revision, catalog)?;
         result.validate()?;
         let execution = self.execution.as_ref().ok_or(Refusal::Unavailable)?;
@@ -74,17 +115,27 @@ impl Run {
         next.economy = self.economy.settled(result.used)?;
         next.history.push(result);
         next.execution = None;
-        next.phase = if next.wins() == usize::from(TARGET_WINS) {
+        next.reward = reward;
+        if next.reward.is_some() {
+            next.phase = Phase::Reward;
+        } else {
+            next.advance(catalog, seed)?;
+        }
+        next.revised(catalog)
+    }
+
+    pub(super) fn advance(&mut self, catalog: &Catalog, seed: &[u8; 32]) -> Result<(), Refusal> {
+        self.phase = if self.wins() == usize::from(TARGET_WINS) {
             Phase::Conquered
-        } else if next.defeats() == usize::from(DEFEAT_LIMIT) {
+        } else if self.defeats() == usize::from(DEFEAT_LIMIT) {
             Phase::Exhausted
         } else {
             Phase::Shop
         };
-        if next.phase == Phase::Shop {
-            let stage = u8::try_from(next.history.len() + 1).map_err(|_| Refusal::Capacity)?;
-            next.shop = Shop::open(seed, stage, next.stock(catalog), Some(&self.shop))?;
+        if self.phase == Phase::Shop {
+            let stage = u8::try_from(self.history.len() + 1).map_err(|_| Refusal::Capacity)?;
+            self.shop = Shop::open(seed, stage, self.stock(catalog), Some(&self.shop))?;
         }
-        next.revised(catalog)
+        Ok(())
     }
 }

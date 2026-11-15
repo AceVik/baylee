@@ -161,8 +161,32 @@ fn valid_run(run: &Run) -> bool {
         }
         && run.history.len() <= usize::from(super::domain::v2::MAX_STAGES)
         && run.shop.offers.len() == super::domain::v2::shop::OFFERS
+        && valid_reward(run)
         && (run.phase != Phase::Playing
             || run.history.len() < usize::from(super::domain::v2::MAX_STAGES))
+}
+
+fn valid_reward(run: &Run) -> bool {
+    let Some(reward) = &run.reward else {
+        return run.phase != Phase::Reward;
+    };
+    let Some(last) = run.history.last() else {
+        return false;
+    };
+    let allowance = if last.outcome == super::domain::run::Outcome::Victory {
+        3
+    } else {
+        1
+    };
+    run.phase == Phase::Reward
+        && run.shop.generator == super::domain::v2::generation::RUN
+        && reward.cards.len() <= 5
+        && usize::from(reward.take) == allowance.min(reward.cards.len())
+        && reward
+            .cards
+            .iter()
+            .enumerate()
+            .all(|(index, card)| !reward.cards[..index].contains(card))
 }
 
 fn valid_cohort(cohort: &api::Cohort) -> bool {

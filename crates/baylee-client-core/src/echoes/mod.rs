@@ -185,7 +185,7 @@ impl State {
     /// Shop/deck choice; never applies a local economy delta before the response.
     pub fn choose(&mut self, id: Uuid, command: Command) -> Option<Work> {
         let run = self.run.as_ref()?;
-        if self.uncertain() || run.phase != Phase::Shop {
+        if self.uncertain() || !matches!(run.phase, Phase::Shop | Phase::Reward) {
             return None;
         }
         self.begin(

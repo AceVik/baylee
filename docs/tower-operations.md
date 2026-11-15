@@ -7,7 +7,7 @@ provisioning; release approval, calibration, retention and the final least-privi
 runtime grants remain separate release requirements.
 
 The token-workshop catalog uses generator 3 / native `tower-4` and API header
-`baylee-tower-version: 4` on the existing `/v2/player` endpoint and host routes.
+`baylee-tower-version: 5` on the existing `/v2/player` endpoint and host routes.
 Older API clients receive 426 before authentication rather than undecodable new
 families. Deploy matching service, gateway and client builds together. Retain the
 exact `tower-2` / `tower-house-19` executors for generation-one runs and
@@ -15,6 +15,13 @@ exact `tower-2` / `tower-house-19` executors for generation-one runs and
 existing runs and their snapshots. The token workshop uses `tower-4` /
 `tower-house-21` and refuses older manifests. Both prior catalog/offer streams
 remain frozen; new families cannot enter old runs.
+
+API 5 adds the generation-four reward phase, six-slot run inventory and
+39+1 Commander formations. Generation four remains opt-in until its matching
+`tower-5` native executor and reviewed starter publication are available; the
+default publication is still generation three. After verified settlement, claim
+the pending cards before shopping or abandoning. Reconnecting preserves the
+same candidates. An already-owned singleton choice grants one gold instead.
 
 ## Input and authority
 

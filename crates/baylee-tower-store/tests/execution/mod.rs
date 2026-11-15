@@ -12,6 +12,7 @@ mod reservations;
 #[path = "../support/mod.rs"]
 mod support;
 mod verification;
+mod workshop;
 
 use baylee_tower::v2::package::{Build, Seeds};
 use baylee_tower_store::{
@@ -60,7 +61,11 @@ impl Flow {
     }
     async fn prepare(store: &Store) -> Self {
         let published = publication();
-        let cohort = store.publish(&published).await.unwrap();
+        Self::prepare_with(store, &published).await
+    }
+
+    async fn prepare_with(store: &Store, published: &baylee_tower_store::Publication) -> Self {
+        let cohort = store.publish(published).await.unwrap();
         let publisher = operator(store, Role::Publisher, 1).await;
         let host = operator(store, Role::Host, 2).await;
         let next_host = operator(store, Role::Host, 3).await;
@@ -75,7 +80,7 @@ impl Flow {
                 .await
                 .unwrap();
         }
-        for archetype in 1..=3 {
+        for archetype in 1..=u8::try_from(published.starters.len()).unwrap() {
             store
                 .publish_house(
                     &publisher,
@@ -83,7 +88,9 @@ impl Flow {
                     1,
                     archetype,
                     &Build {
-                        formation: None,
+                        formation: published.starters[usize::from(archetype - 1)]
+                            .formation
+                            .clone(),
                         deck: published.starters[usize::from(archetype - 1)].deck.clone(),
                         active: Vec::new(),
                         potions: [0; 2],

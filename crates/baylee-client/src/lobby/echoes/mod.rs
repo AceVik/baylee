@@ -55,6 +55,9 @@ pub(crate) enum Action {
     Tiers(domain::v2::catalog::Family),
     SaveDeck,
     ResetDeck,
+    Reward(baylee_core::ids::CardIndex),
+    ClaimReward,
+    Freeze,
     Withdraw,
 }
 
@@ -184,7 +187,7 @@ impl Ui {
 
     fn command(&mut self, command: Command) {
         if let Some(run) = self.model.run()
-            && run.phase == api::Phase::Shop
+            && matches!(run.phase, api::Phase::Shop | api::Phase::Reward)
             && !self.model.uncertain()
         {
             self.confirmation = Some(Confirmation::Choice {

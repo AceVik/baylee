@@ -3,6 +3,8 @@ use baylee_core::ids::CardIndex;
 use baylee_protocol::execution::{Identity, Variant};
 use domain::cards::{Card, Catalog, Collection, Stack};
 
+mod rewards;
+
 fn cohort() -> Cohort {
     let mut cards = vec![Card {
         card: CardIndex::new(0),

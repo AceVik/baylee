@@ -59,11 +59,12 @@ impl Store {
         let mut current = self.verifier(&tx, principal, lease).await?;
         let package = current.package()?;
         let state = &current.saved.snapshot.state;
-        current.saved.snapshot.state = state.settled(
+        current.saved.snapshot.state = state.settled_against(
             state.revision,
             report.clone(),
             &current.saved.publication.catalog,
             &current.saved.seed,
+            &package,
         )?;
         self.save_current(&tx, &current).await?;
         let response = &current.saved.snapshot;

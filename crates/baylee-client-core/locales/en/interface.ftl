@@ -9996,6 +9996,18 @@ EchoesConfirmDeck = Save this { $number }-card deck for your next duel?
 EchoesConfirmPin = { $action }: { $goods }?
 EchoesFreezeConfirm = Freeze the shelf? Unsold items stay for your next visit. Empty slots refill.
 EchoesThawConfirm = Unfreeze the shelf? All items will roll again on your next refresh or visit.
+EchoesRewardReady = Choose your spoils
+EchoesConfirmReward = Take these { $count } cards? Already owned cards give 1 gold each.
+EchoesRewardCount = { $selected } of { $required } selected
+EchoesRewardLead = A piece of your opponent's build, earned in battle. Choose cards for this run; add them to your deck in the shop. Cards already in your collection give 1 gold instead.
+EchoesRewardDuplicate = Already owned · +1 gold
+EchoesRewardInspect = Read card
+EchoesRewardSelected = Selected
+EchoesRewardSelect = Choose
+EchoesRewardEmpty = This opponent had no eligible nonbasic cards. You still receive your duel gold.
+EchoesRewardClaim = Claim spoils & continue
+EchoesFreezeShelf = Freeze shelf
+EchoesShelfFrozen = Shelf frozen
 # Arguments: price
 EchoesConfirmRefresh = Spend { $price } gold to replace every unpinned offer? Your pins remain in place.
 # Arguments: number

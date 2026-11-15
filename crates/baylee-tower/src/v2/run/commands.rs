@@ -1,7 +1,7 @@
 //! Only owner choices; no prices, result claims, definitions, seeds or opponent input.
 use super::{Catalog, Phase, Refusal, Run};
 use crate::{
-    cards::Stack,
+    cards::{Formation, Stack},
     v2::{economy::Recipe, inventory::Slot, shop::Delivery},
 };
 use serde::{Deserialize, Serialize};
@@ -38,6 +38,18 @@ pub enum Command {
     Edit {
         /// Complete bounded legal deck.
         deck: Vec<Stack>,
+    },
+    /// Replace the run's library, commander and sideboard in one validated edit.
+    Refit {
+        /// Exactly 39 library cards.
+        deck: Vec<Stack>,
+        /// One owned commander and at most five sideboard cards.
+        formation: Formation,
+    },
+    /// Claim the saved post-duel reward exactly once, then enter the next shop.
+    Claim {
+        /// Distinct identities from the saved offers, with the exact required count.
+        cards: Vec<baylee_core::ids::CardIndex>,
     },
     /// Preserve/release one live offer in its existing slot.
     Pin {
@@ -76,6 +88,9 @@ impl Run {
         seed: &[u8; 32],
     ) -> Result<Self, Refusal> {
         self.check(revision, catalog)?;
+        if let Command::Claim { cards } = command {
+            return self.claimed(cards, catalog, seed);
+        }
         if self.phase != Phase::Shop {
             return Err(Refusal::Unavailable);
         }
@@ -91,6 +106,12 @@ impl Run {
             Command::Move { item, slot } => next.economy = self.economy.moved(*item, *slot)?,
             Command::Fuse { recipe } => next.economy = self.economy.fused(recipe)?,
             Command::Edit { deck } => next.cards = self.cards.edited(catalog, deck.clone())?,
+            Command::Refit { deck, formation } => {
+                next.cards = self
+                    .cards
+                    .refitted(catalog, deck.clone(), formation.clone())?;
+            }
+            Command::Claim { .. } => return Err(Refusal::Unavailable),
             Command::Pin { offer, pinned } => {
                 next.shop = self.shop.pinned(*offer, *pinned, catalog)?;
             }

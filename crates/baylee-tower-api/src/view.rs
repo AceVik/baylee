@@ -3,7 +3,7 @@ use baylee_tower::{
     cards::Collection,
     v2::{
         economy::Economy,
-        run::{Outcome, Phase},
+        run::{Claim, Outcome, Phase},
         shop::Shop,
     },
 };
@@ -20,6 +20,19 @@ pub struct Duel {
     pub turns: u32,
     /// Healing/mana potions actually consumed in this duel.
     pub used: [u8; 2],
+    /// The owner's completed card choice, absent until chosen or for a legacy duel.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub claim: Option<Claim>,
+}
+
+/// Only the intentionally revealed reward; no opponent deck or package commitment.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Reward {
+    /// At most five distinct eligible cards from the settled opponent.
+    pub cards: Vec<baylee_tower::cards::CardIndex>,
+    /// Exact number to choose, reduced for an opponent with fewer eligible cards.
+    pub take: u8,
 }
 
 /// Owner projection. It cannot be submitted as an authoritative replacement state.
@@ -42,6 +55,9 @@ pub struct Run {
     pub cards: Collection,
     /// Exact saved offers; reconnecting cannot refresh them.
     pub shop: Shop,
+    /// Persisted post-duel card choice, present only in the Reward phase.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reward: Option<Reward>,
 }
 
 impl Run {
@@ -56,15 +72,21 @@ impl Run {
             history: state
                 .history
                 .into_iter()
-                .map(|duel| Duel {
+                .enumerate()
+                .map(|(index, duel)| Duel {
                     outcome: duel.outcome,
                     turns: duel.turns,
                     used: duel.used,
+                    claim: state.claims.get(index).cloned(),
                 })
                 .collect(),
             economy: state.economy,
             cards: state.cards,
             shop: state.shop,
+            reward: state.reward.map(|reward| Reward {
+                cards: reward.cards,
+                take: reward.take,
+            }),
         }
     }
 }

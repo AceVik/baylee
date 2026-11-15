@@ -31,6 +31,8 @@ pub struct Draft {
     pub material: Option<u32>,
     /// Unsaved deck, separate from the confirmed collection.
     pub deck: Vec<Stack>,
+    /// Selected post-duel cards, bound to the same immutable pending reward.
+    pub rewards: Vec<CardIndex>,
 }
 
 impl Default for Draft {
@@ -43,11 +45,27 @@ impl Default for Draft {
             ingredients: Vec::new(),
             material: None,
             deck: Vec::new(),
+            rewards: Vec::new(),
         }
     }
 }
 
 impl Draft {
+    /// Toggle a saved reward candidate without exceeding the required choice count.
+    pub fn reward(&mut self, run: &Run, card: CardIndex) {
+        if self.bound != Some((run.id, run.revision)) || run.phase != Phase::Reward {
+            return;
+        }
+        let Some(reward) = &run.reward else {
+            return;
+        };
+        if let Some(index) = self.rewards.iter().position(|selected| *selected == card) {
+            self.rewards.remove(index);
+        } else if self.rewards.len() < usize::from(reward.take) && reward.cards.contains(&card) {
+            self.rewards.push(card);
+        }
+    }
+
     /// Discard obsolete choices when the authority confirms another revision.
     pub fn bind(&mut self, run: &Run) {
         if self.bound != Some((run.id, run.revision)) {
@@ -149,7 +167,19 @@ impl Draft {
 /// Advisory button validation, rerun on confirm. Authorization still belongs to the server.
 #[must_use]
 pub fn allowed(run: &Run, cohort: &Cohort, command: &Command) -> bool {
-    if run.phase != Phase::Shop || run.cohort != cohort.id {
+    if run.cohort != cohort.id {
+        return false;
+    }
+    if let Command::Claim { cards } = command {
+        return run.phase == Phase::Reward
+            && run.reward.as_ref().is_some_and(|reward| {
+                cards.len() == usize::from(reward.take)
+                    && cards.iter().enumerate().all(|(index, card)| {
+                        reward.cards.contains(card) && !cards[..index].contains(card)
+                    })
+            });
+    }
+    if run.phase != Phase::Shop {
         return false;
     }
     let stock = Stock {
@@ -163,6 +193,11 @@ pub fn allowed(run: &Run, cohort: &Cohort, command: &Command) -> bool {
         Command::Move { item, slot } => run.economy.moved(*item, *slot).is_ok(),
         Command::Fuse { recipe } => run.economy.fused(recipe).is_ok(),
         Command::Edit { deck } => run.cards.edited(&cohort.catalog, deck.clone()).is_ok(),
+        Command::Refit { deck, formation } => run
+            .cards
+            .refitted(&cohort.catalog, deck.clone(), formation.clone())
+            .is_ok(),
+        Command::Claim { .. } => false,
         Command::Pin { offer, pinned } => run.shop.pinned(*offer, *pinned, &cohort.catalog).is_ok(),
         Command::Freeze { frozen } => run.shop.frozen(*frozen, &cohort.catalog).is_ok(),
         Command::Refresh {} => run

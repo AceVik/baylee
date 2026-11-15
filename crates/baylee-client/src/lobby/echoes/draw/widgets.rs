@@ -26,7 +26,12 @@ pub(super) fn control(
         words,
         if matches!(
             action,
-            Action::Accept | Action::Buy | Action::Play(_) | Action::Resume | Action::SaveDeck
+            Action::Accept
+                | Action::Buy
+                | Action::Play(_)
+                | Action::Resume
+                | Action::SaveDeck
+                | Action::ClaimReward
         ) {
             Weight::Gold
         } else if words::selected(action, ui) {

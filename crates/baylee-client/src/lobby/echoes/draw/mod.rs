@@ -20,6 +20,7 @@ mod deck;
 mod equipment;
 mod landing;
 mod merchandise;
+mod reward;
 mod shop;
 #[cfg(test)]
 mod tests;
@@ -209,6 +210,10 @@ fn selected(
 ) {
     let lang = lang(kit);
     if let Some(run) = ui.model.run() {
+        if run.phase == api::Phase::Reward {
+            reward::draw(commands, body, kit, ui, run);
+            return;
+        }
         if ui.page != Page::Shop {
             landing::progress(commands, hero, kit, ui, run);
         }

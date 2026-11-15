@@ -10,6 +10,7 @@ fn opened() -> Ui {
                 card: CardIndex::new(id),
                 price: if id == 0 { 0 } else { 2 },
                 basic_land: id == 0,
+                run: None,
             })
             .collect(),
     };

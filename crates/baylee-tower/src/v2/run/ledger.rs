@@ -30,9 +30,15 @@ impl Ledger {
         Ok(next)
     }
 
-    pub(super) fn validate(self, economy: &Economy, games: usize) -> Result<(), Refusal> {
+    pub(super) fn validate(
+        self,
+        economy: &Economy,
+        games: usize,
+        reward_gold: u16,
+    ) -> Result<(), Refusal> {
         let earned = u64::from(STARTING_GOLD)
-            + u64::from(DUEL_INCOME) * u64::try_from(games).map_err(|_| Refusal::Invalid)?;
+            + u64::from(DUEL_INCOME) * u64::try_from(games).map_err(|_| Refusal::Invalid)?
+            + u64::from(reward_gold);
         let wallet = earned
             .checked_add(self.resold)
             .and_then(|amount| amount.checked_sub(self.spent));

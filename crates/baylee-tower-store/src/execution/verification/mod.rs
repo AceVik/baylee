@@ -73,6 +73,7 @@ impl Store {
             Phase::Quarantined
             | Phase::Interrupted
             | Phase::Shop
+            | Phase::Reward
             | Phase::Conquered
             | Phase::Exhausted => {
                 db.execute_raw(self.statement("UPDATE @tower.verification_jobs SET ready=false,lease_until=0,generation=generation+1 WHERE reservation=$1 AND (ready OR lease_until<>0)", vec![current.reservation.into()]))

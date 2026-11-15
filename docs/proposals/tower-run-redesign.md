@@ -104,13 +104,15 @@ Choose starter -> Shop(visit 1) -> Reserved -> Playing -> Verifying
 
 Rewards are created once from the actual frozen opponent deck at verified
 settlement, with a private deterministic stream distinct from the shop stream.
-Sample five distinct eligible card identities without replacement, excluding
+Sample five distinct eligible identities from the main deck and commander without replacement, excluding
 basics, sideboard, conjured/copy objects and unrelated cards. If fewer than five
 exist, offer only those available and require min(choice count, candidate count).
 The UI labels color-incompatible/already-owned cards; it does not forge a useful
-replacement. Repeated requests/reconnects cannot resample or claim twice.
+replacement. An already-owned singleton choice grants one gold, accounted for
+in the same atomic claim and ledger. Repeated requests/reconnects cannot resample or claim twice.
 On the terminal duel the choice can complete into the run summary; there is no
-fake playable next stage. Abandon/resume behavior is explicit in RewardChoice.
+fake playable next stage. A pending choice can be left and resumed; shop actions
+and abandonment remain unavailable until the claim is committed.
 
 Do not generate the next shop in the current `Run::settled` branch immediately.
 Persist the pending reward first. Claiming it and opening the next visit are one
@@ -278,6 +280,19 @@ Always stop owned test processes and verify listeners close.
   strict library/test Clippy passed. The first Clippy pass found an unnecessary
   `expect` during sideboard sorting; sorting before construction removed it.
   Logs: `/tmp/baylee-tower-commander-{domain,starters,clippy-20261115-r2}.log`
-  (the first two filenames also carry `-20261115`). The new migration awaits the
-  combined isolated PostgreSQL transaction run after reward integration.
+  (the first two filenames also carry `-20261115`).
+- Reward milestone: four focused domain cases cover immutable opponent sampling,
+  exact choice cardinality, duplicate compensation, terminal wins/defeats and
+  package mismatch. Twenty-seven native client/core/API cases passed, including
+  five-starter enrollment and strict request shapes. Strict Clippy passed for
+  the affected library/test targets. The reward screen uses card thumbnails,
+  inspection, selection count and duplicate labels; rendered acceptance is pending.
+- Isolated PostgreSQL exercised migration 013, the fifth starter, verified
+  settlement retries, concurrent identical claims, persistent frozen offers,
+  cross-account refusal and a fresh empty run. All three selected execution
+  cases passed. The owned PostgreSQL process exited and its listener and
+  temporary cluster were removed. Logs:
+  `/tmp/baylee-tower-run-postgres-20261115.log`,
+  `/tmp/baylee-tower-reward-client-tests-20261115.log`,
+  `/tmp/baylee-tower-reward-client-clippy-20261115-r3.log`.
 

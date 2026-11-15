@@ -119,8 +119,11 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
         Action::Starter(cohort, starter) => {
             if !ui.model.uncertain()
                 && ui.choices.deck_unchanged(ui.model.run())
-                && ui.model.cohorts().iter().any(|c| c.id == cohort)
-                && starter < 3
+                && ui
+                    .model
+                    .cohorts()
+                    .iter()
+                    .any(|c| c.id == cohort && usize::from(starter) < c.starters.len())
             {
                 ui.confirmation = Some(Confirmation::Enrollment {
                     cohort,

@@ -31,6 +31,7 @@ pub(super) const fn phase(phase: api::Phase) -> Phrase {
         api::Phase::Shop => Phrase::EchoesShopReady,
         api::Phase::Reserved | api::Phase::Playing => Phrase::TowerPlaying,
         api::Phase::Verifying => Phrase::EchoesVerifying,
+        api::Phase::Reward => Phrase::EchoesRewardReady,
         api::Phase::Quarantined => Phrase::EchoesQuarantined,
         api::Phase::Conquered => Phrase::TowerConquered,
         api::Phase::Exhausted => Phrase::TowerExhausted,
@@ -171,23 +172,7 @@ pub(super) fn command(command: &Command, ui: &Ui, lang: Lang) -> String {
     let Some(run) = ui.model.run() else {
         return Phrase::EchoesConflict.text(lang).into();
     };
-    let item = |id| {
-        run.economy
-            .inventory
-            .relics
-            .iter()
-            .find(|relic| relic.id == id)
-            .map_or_else(
-                || Phrase::EchoesMythic.text(lang).to_string(),
-                |relic| {
-                    format!(
-                        "{} ({})",
-                        goods(Goods::Relic(relic.definition), lang),
-                        slot(relic.slot, lang)
-                    )
-                },
-            )
-    };
+    let item = |id| item_name(run, id, lang);
     let recipe = |recipe: &domain::v2::economy::Recipe| {
         let mut inputs: Vec<_> = recipe.relics.iter().map(|id| item(*id)).collect();
         if recipe.mythic.is_some() {
@@ -198,6 +183,35 @@ pub(super) fn command(command: &Command, ui: &Ui, lang: Lang) -> String {
             &[&inputs.join(" + "), &slot(recipe.destination, lang)],
         )
     };
+    command_text(command, ui, run, lang, item, recipe)
+}
+
+fn item_name(run: &api::Run, id: u32, lang: Lang) -> String {
+    run.economy
+        .inventory
+        .relics
+        .iter()
+        .find(|relic| relic.id == id)
+        .map_or_else(
+            || Phrase::EchoesMythic.text(lang).to_string(),
+            |relic| {
+                format!(
+                    "{} ({})",
+                    goods(Goods::Relic(relic.definition), lang),
+                    slot(relic.slot, lang)
+                )
+            },
+        )
+}
+
+fn command_text(
+    command: &Command,
+    ui: &Ui,
+    run: &api::Run,
+    lang: Lang,
+    item: impl Fn(u32) -> String,
+    recipe: impl Fn(&domain::v2::economy::Recipe) -> String,
+) -> String {
     match command {
         Command::Buy { offer, delivery } => {
             let Some(offer) = run.shop.offers.iter().find(|entry| entry.id == *offer) else {
@@ -239,6 +253,10 @@ pub(super) fn command(command: &Command, ui: &Ui, lang: Lang) -> String {
                 .sum::<u16>()
                 .to_string()],
         ),
+        Command::Refit { .. } => Phrase::EchoesConfirmDeck.fill(lang, &["40"]),
+        Command::Claim { cards } => {
+            Phrase::EchoesConfirmReward.fill(lang, &[&cards.len().to_string()])
+        }
         Command::Pin { offer, pinned } => Phrase::EchoesConfirmPin.fill(
             lang,
             &[
@@ -291,7 +309,12 @@ pub(super) const fn icon(action: Action) -> char {
         }
         Action::Card(_, false) | Action::Sell | Action::Abandon => glyph::MINUS,
         Action::Play(_) | Action::Resume => glyph::ARROW_RIGHT,
-        Action::Accept | Action::Buy | Action::SaveDeck | Action::Fuse => glyph::CHECK,
+        Action::Accept
+        | Action::Buy
+        | Action::SaveDeck
+        | Action::Fuse
+        | Action::Reward(_)
+        | Action::ClaimReward => glyph::CHECK,
         Action::Overview | Action::Read(Read::Runs(_) | Read::Run(_)) | Action::Tiers(_) => {
             glyph::VIEW_ROWS
         }
@@ -299,7 +322,7 @@ pub(super) const fn icon(action: Action) -> char {
         Action::Page(Page::Equipment) | Action::Move | Action::Place(_) => glyph::GEAR,
         Action::Page(Page::Deck) => glyph::LIBRARY,
         Action::Offer(_) | Action::Select(_) | Action::InspectCard(_) => glyph::EYE,
-        Action::Pin(_) => glyph::CLOCK,
+        Action::Pin(_) | Action::Freeze => glyph::CLOCK,
         Action::Withdraw => glyph::EYE_SLASH,
         _ => glyph::COMPASS,
     }
@@ -312,6 +335,8 @@ pub(super) fn selected(action: Action, ui: &Ui) -> bool {
         Action::Select(id) => ui.choices.item == Some(id),
         Action::InspectCard(id) => ui.preview == Some(id),
         Action::Place(slot) => ui.choices.slot == slot,
+        Action::Reward(card) => ui.choices.rewards.contains(&card),
+        Action::Freeze => ui.model.run().is_some_and(|run| run.shop.frozen),
         Action::Ingredient(id) => ui.choices.ingredients.contains(&id),
         Action::Material(id) => ui.choices.material == Some(id),
         Action::Tiers(family) => ui.tiers == Some(family),

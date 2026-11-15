@@ -7,12 +7,25 @@ pub(super) fn act(ui: &mut Ui, action: Action) {
     let Some(run) = ui.model.run() else {
         return;
     };
-    if ui.model.uncertain() || run.phase != Phase::Shop || ui.confirmation.is_some() {
+    if ui.model.uncertain()
+        || !matches!(run.phase, Phase::Shop | Phase::Reward)
+        || ui.confirmation.is_some()
+    {
         return;
     }
     ui.choices.bind(run);
     let draft = &mut ui.choices;
     let command = match action {
+        Action::Reward(card) => {
+            draft.reward(run, card);
+            None
+        }
+        Action::ClaimReward => Some(Command::Claim {
+            cards: draft.rewards.clone(),
+        }),
+        Action::Freeze => Some(Command::Freeze {
+            frozen: !run.shop.frozen,
+        }),
         Action::Offer(id) => {
             draft.offer = Some(id);
             draft.item = None;

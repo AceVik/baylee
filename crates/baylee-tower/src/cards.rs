@@ -1,6 +1,6 @@
 //! Run-owned cards and legal deck editing. Basic lands are free and never have resale value.
 use crate::Refusal;
-use baylee_core::ids::CardIndex;
+pub use baylee_core::ids::CardIndex;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 

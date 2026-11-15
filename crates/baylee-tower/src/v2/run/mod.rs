@@ -16,11 +16,13 @@ mod commands;
 mod execution;
 mod ledger;
 mod lifecycle;
+mod reward;
 pub use crate::run::Outcome;
 pub use commands::Command;
 pub use execution::WorkerCommand;
 pub use ledger::Ledger;
 pub use lifecycle::{Binding, Settlement};
+pub use reward::{Claim, Reward};
 
 /// Exactly one permitted activity; technical states grant no advancement.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,6 +36,8 @@ pub enum Phase {
     Playing,
     /// Sealed record awaits independent verification.
     Verifying,
+    /// Verified result; choose the saved card reward before the next shop.
+    Reward,
     /// Trusted technical failure; no shopping, spending or rewards.
     Quarantined,
     /// Eight victories, with no further shop.
@@ -56,6 +60,12 @@ pub struct Run {
     pub phase: Phase,
     /// At most twelve verified settlements, in duel ordinal order.
     pub history: Vec<Settlement>,
+    /// Saved card offers from the exact settled opponent; never resampled by reads.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reward: Option<Reward>,
+    /// Completed owner choices in duel order. Absent in legacy saved runs.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub claims: Vec<Claim>,
     /// Run-local wallet, relics and charges.
     pub economy: Economy,
     /// Owned card pool and selected legal deck.
@@ -105,6 +115,8 @@ impl Run {
             revision: 0,
             phase: Phase::Shop,
             history: Vec::new(),
+            reward: None,
+            claims: Vec::new(),
             economy,
             cards: starter,
             shop,
@@ -169,15 +181,18 @@ impl Run {
         let completed = match self.phase {
             Phase::Conquered => wins == TARGET_WINS && defeats < DEFEAT_LIMIT,
             Phase::Exhausted => defeats == DEFEAT_LIMIT && wins < TARGET_WINS,
+            Phase::Reward => wins <= TARGET_WINS && defeats <= DEFEAT_LIMIT,
             _ => wins < TARGET_WINS && defeats < DEFEAT_LIMIT,
         };
         let terminal = matches!(self.phase, Phase::Conquered | Phase::Exhausted);
-        let stage = self.history.len() + usize::from(!terminal);
+        let stage = self.history.len() + usize::from(!terminal && self.phase != Phase::Reward);
         if !completed || usize::from(self.shop.stage) != stage {
             return Err(Refusal::Invalid);
         }
         self.validate_execution()?;
-        self.ledger.validate(&self.economy, self.history.len())
+        let reward_gold = self.validate_rewards(catalog)?;
+        self.ledger
+            .validate(&self.economy, self.history.len(), reward_gold)
     }
 
     /// Bind decoded private state to its immutable publication before any operation.

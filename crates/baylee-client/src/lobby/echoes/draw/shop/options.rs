@@ -12,8 +12,37 @@ pub(in crate::lobby::echoes::draw) fn toolbar(
     let footer = root;
     let spacer = crate::lobby::parts::grow(commands);
     commands.entity(footer).add_child(spacer);
+    if run.shop.generator == domain::v2::generation::RUN {
+        control(
+            commands,
+            footer,
+            kit,
+            ui,
+            if run.shop.frozen {
+                Phrase::EchoesShelfFrozen
+            } else {
+                Phrase::EchoesFreezeShelf
+            }
+            .text(lang),
+            Action::Freeze,
+            can(
+                ui,
+                &Command::Freeze {
+                    frozen: !run.shop.frozen,
+                },
+            ),
+        );
+    }
     let text = run.shop.reroll_price().map_or_else(
-        || Phrase::EchoesRefreshSpent.text(lang).to_string(),
+        || {
+            if run.shop.frozen {
+                Phrase::EchoesShelfFrozen
+            } else {
+                Phrase::EchoesRefreshSpent
+            }
+            .text(lang)
+            .to_string()
+        },
         |price| Phrase::EchoesRefreshPrice.fill(lang, &[&price.to_string()]),
     );
     control(

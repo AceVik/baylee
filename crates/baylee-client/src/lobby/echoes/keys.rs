@@ -13,6 +13,9 @@ pub(crate) const ORDER: TabOrder = TabOrder {
         "tabs",
         "shop-return",
         "reroll",
+        "freeze",
+        "rewards",
+        "claim-reward",
         "offers",
         "pins",
         "slots",
@@ -46,25 +49,26 @@ pub(crate) const CONFIRM: TabOrder = TabOrder {
     modal: true,
 };
 
+fn index(ui: &Ui, id: u32, offer: bool) -> usize {
+    ui.model
+        .run()
+        .and_then(|run| {
+            if offer {
+                run.shop.offers.iter().position(|entry| entry.id == id)
+            } else {
+                run.economy
+                    .inventory
+                    .relics
+                    .iter()
+                    .map(|item| item.id)
+                    .chain(run.economy.inventory.materials.iter().map(|item| item.id))
+                    .position(|item| item == id)
+            }
+        })
+        .unwrap_or(0)
+}
+
 pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
-    let index = |id, offer| {
-        ui.model
-            .run()
-            .and_then(|run| {
-                if offer {
-                    run.shop.offers.iter().position(|entry| entry.id == id)
-                } else {
-                    run.economy
-                        .inventory
-                        .relics
-                        .iter()
-                        .map(|item| item.id)
-                        .chain(run.economy.inventory.materials.iter().map(|item| item.id))
-                        .position(|item| item == id)
-                }
-            })
-            .unwrap_or(0)
-    };
     let (key, at) = match action {
         Action::Accept => return Stop::new(CONFIRM.name, "confirm"),
         Action::Cancel => return Stop::new(CONFIRM.name, "cancel"),
@@ -84,11 +88,11 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
                 .unwrap_or(0),
         ),
         Action::Page(page) => ("tabs", page_index(page)),
-        Action::Offer(id) => ("offers", index(id, true)),
-        Action::Pin(id) => ("pins", index(id, true)),
-        Action::Select(id) => ("items", index(id, false)),
-        Action::Ingredient(id) => ("ingredients", index(id, false)),
-        Action::Material(id) => ("materials", index(id, false)),
+        Action::Offer(id) => ("offers", index(ui, id, true)),
+        Action::Pin(id) => ("pins", index(ui, id, true)),
+        Action::Select(id) => ("items", index(ui, id, false)),
+        Action::Ingredient(id) => ("ingredients", index(ui, id, false)),
+        Action::Material(id) => ("materials", index(ui, id, false)),
         Action::Place(slot) => (
             "slots",
             match slot {
@@ -114,6 +118,16 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
         Action::Sell => ("sell", 0),
         Action::Fuse => ("fuse", 0),
         Action::Reroll => ("reroll", 0),
+        Action::Freeze => ("freeze", 0),
+        Action::ClaimReward => ("claim-reward", 0),
+        Action::Reward(card) => (
+            "rewards",
+            ui.model
+                .run()
+                .and_then(|run| run.reward.as_ref())
+                .and_then(|reward| reward.cards.iter().position(|id| *id == card))
+                .unwrap_or(0),
+        ),
         Action::Abandon => ("abandon", 0),
         Action::Mythic(slot) => ("mythic", usize::from(slot)),
         Action::SaveDeck => ("save", 0),
@@ -136,7 +150,7 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
                 .iter()
                 .position(|cohort| cohort.id == id)
                 .unwrap_or(0)
-                * 3
+                * 8
                 + usize::from(starter),
         ),
     };
