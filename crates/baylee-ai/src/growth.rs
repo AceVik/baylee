@@ -28,7 +28,12 @@ impl HeuristicAgent {
             .take(ENOUGH_TOKENS)
             .count()
             < ENOUGH_TOKENS
-            && policy::can_pay_token_price(view, &price)
+            && policy::can_pay_token_price(
+                view,
+                &price,
+                context,
+                self.profile.plays(AIProfile::RUN_EQUIPMENT_MANA),
+            )
     }
 }
 

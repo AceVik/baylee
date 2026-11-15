@@ -178,10 +178,14 @@ const fn tap_of(step: &manaplan::Step) -> PlayerAction {
 /// unrestricted ones as the house reads them, with a counter-paid mana
 /// ability once for each activation its counters pay, and the restricted
 /// taps, of which the engine says what each may pay for.
-fn mana_sources(view: &PlayerView, legal: &LegalActions) -> (Vec<Source>, Vec<Source>) {
+fn mana_sources(
+    view: &PlayerView,
+    legal: &LegalActions,
+    respect_limits: bool,
+) -> (Vec<Source>, Vec<Source>) {
     let (restricted, plain) = split_restricted(offers(view, legal));
     let mut plain = usable(view, legal, plain);
-    spend::repeat_counter_sources(view, &mut plain);
+    spend::repeat_counter_sources_with_limits(view, &mut plain, respect_limits);
     (
         plain,
         restricted.into_iter().map(|offer| offer.source).collect(),
@@ -202,7 +206,11 @@ impl HeuristicAgent {
     ) -> Option<PlayerAction> {
         let seat = view.seat(resource_player(view))?;
         let pool = &seat.mana_pool;
-        let (plain, restricted) = mana_sources(view, legal);
+        let (plain, restricted) = mana_sources(
+            view,
+            legal,
+            self.profile.plays(crate::AIProfile::RUN_EQUIPMENT_MANA),
+        );
         let keep = spend::keepers(view, legal, None);
         let life = Some(seat.life.saturating_sub(PHYREXIAN_FLOOR));
         let main = own_main_phase(view);
@@ -371,7 +379,11 @@ impl HeuristicAgent {
 /// [`super::pay_owed`] from generation 10: the price owed in a payment window
 /// (CR 605.3a), planned with the restricted mana the engine names for the
 /// window (`Spend::Owed`) and every counter of a counter-paid mana ability.
-pub(crate) fn pay_owed_full(view: &PlayerView, legal: &LegalActions) -> Option<PlayerAction> {
+pub(crate) fn pay_owed_full(
+    view: &PlayerView,
+    legal: &LegalActions,
+    respect_limits: bool,
+) -> Option<PlayerAction> {
     let owed = match view.owed? {
         ManaPayment::Fixed(cost) => cost,
         ManaPayment::AnyAmount { preventable_damage } => {
@@ -382,7 +394,7 @@ pub(crate) fn pay_owed_full(view: &PlayerView, legal: &LegalActions) -> Option<P
         return None;
     }
     let seat = view.seat(resource_player(view))?;
-    let (plain, restricted) = mana_sources(view, legal);
+    let (plain, restricted) = mana_sources(view, legal, respect_limits);
     let mana = Mana {
         pool: &seat.mana_pool,
         plain: &plain,

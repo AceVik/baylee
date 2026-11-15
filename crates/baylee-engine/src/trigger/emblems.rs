@@ -8,6 +8,11 @@ pub(super) fn collect_emblems(
     events: &[crate::event::JournalEntry],
     triggers: &mut Vec<PendingTrigger>,
 ) {
+    // Mulligan redraws remain in the journal for replay and presentation.
+    // They happened before the first turn, outside the emblem's gameplay.
+    let first_turn = events
+        .iter()
+        .position(|entry| matches!(entry.event, GameEvent::TurnStarted { number: 1, .. }));
     // Emblems (command zone, CR 114.2): their triggered abilities fire
     // from the command zone.
     for seat in 0..state.players.len() {
@@ -30,7 +35,12 @@ pub(super) fn collect_emblems(
                 let trigger = firing.trigger;
                 let context = ability_context(state, obj, &list, index);
                 // CR 603.4's first check, as in the battlefield loop below.
-                for entry in events {
+                for (at, entry) in events.iter().enumerate() {
+                    if first_turn.is_some_and(|start| at < start)
+                        && matches!(entry.event, GameEvent::CardsDrawn { .. })
+                    {
+                        continue;
+                    }
                     if !condition_matches(
                         state,
                         firing.condition,

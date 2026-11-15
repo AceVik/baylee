@@ -83,6 +83,7 @@ impl Noted {
             second_instance: note.second_instance,
             first_targets: &note.first_targets,
             copying: self.copying,
+            optional_mana_offer: None,
         }
     }
 }

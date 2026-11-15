@@ -73,6 +73,9 @@ pub struct DecisionContext<'a> {
     /// back to taking an opponent's permanent — Phyrexian Metamorph copied a
     /// Llanowar Elves over its own controller's Serra Angel (#227).
     pub copying: Option<&'static [CopyMod]>,
+    /// Live sources for an optional mana payment, lent by the host to the
+    /// in-process agent answering for the payer. Never serialized.
+    pub optional_mana_offer: Option<&'a crate::choice::LegalActions>,
 }
 
 /// Effects of the chosen ability or mode. An unknown ability stays unknown:
@@ -450,6 +453,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             first_targets: if several { &[] } else { &wizard.targets },
             // A clone chooses as it resolves, never while it is being cast.
             copying: None,
+            optional_mana_offer: None,
         }
     }
 }

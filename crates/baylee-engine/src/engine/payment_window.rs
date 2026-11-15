@@ -151,6 +151,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         legal.has_mana_source().then_some(legal)
     }
 
+    /// Read the mana sources an optional payment would offer to this decision
+    /// actor. Use the same legality checks as the actual payment window.
+    #[must_use]
+    pub fn optional_mana_offer_for(&self, viewer: PlayerId) -> Option<crate::choice::LegalActions> {
+        let crate::choice::Pending::YesNo { player, prompt, .. } = self.pending else {
+            return None;
+        };
+        if self.decision_actor() != Some(viewer)
+            || !matches!(
+                prompt,
+                crate::choice::YesNoPrompt::PayTax { .. }
+                    | crate::choice::YesNoPrompt::PayMana { .. }
+            )
+        {
+            return None;
+        }
+        Some(self.mana_window_legal(player).unwrap_or_default())
+    }
+
     /// Ends a payment window and settles the payment it was opened for, and
     /// says how it settled ([`WindowClose`]).
     ///

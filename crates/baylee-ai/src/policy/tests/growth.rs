@@ -4,7 +4,7 @@ use crate::{AIProfile, HeuristicAgent};
 use baylee_cards_dsl::{Amount, Effect, PlayerRel};
 use baylee_core::{ids::PlayerId, mana::ManaCost};
 use baylee_engine::{
-    choice::{Pending, PlayerAction, YesNoPrompt},
+    choice::{LegalActions, Pending, PlayerAction, YesNoPrompt},
     engine::DecisionContext,
 };
 use baylee_view::{CounterEntry, CounterKind, ObjectStatus};
@@ -29,6 +29,65 @@ const MIXED: &[Effect] = &[Effect::PlayerMayPayThen {
     mana: Amount::Fixed(1),
     effects: &[REWARD[0], Effect::draw(1)],
 }];
+
+#[test]
+fn run_growth_prices_use_offered_command_mana_without_repeating_a_capped_source() {
+    use baylee_cards::tokens::{token_id, tower::run::RUN_RELICS};
+
+    let mut view = base_view();
+    let mut reservoir = test_public_object(1, "Sol Ring", 0, None);
+    reservoir.card = None;
+    reservoir.rules = None;
+    reservoir.token = Some(token_id(RUN_RELICS[11][0]));
+    reservoir.counters.push(CounterEntry {
+        kind: CounterKind::Charge,
+        count: 6,
+    });
+    let id = reservoir.id;
+    view.command[0].push(reservoir);
+    let offered = LegalActions {
+        abilities: vec![(id, 1)],
+        ..Default::default()
+    };
+    let spent = LegalActions::default();
+    let context = |offer| DecisionContext {
+        effects: PRICE,
+        optional_mana_offer: Some(offer),
+        ..Default::default()
+    };
+    let agent = |generation| {
+        HeuristicAgent::new(AIProfile {
+            generation,
+            ..AIProfile::TOWER_EXPERT
+        })
+    };
+    let run = agent(AIProfile::RUN_EQUIPMENT_MANA);
+    let retained = agent(AIProfile::OPTIONAL_TOKEN_SATURATION);
+    let one = ManaCost::parse("{1}");
+    let two = ManaCost::parse("{2}");
+    assert!(!retained.pays_optional_price(&view, one, &context(&offered)));
+    assert!(run.pays_optional_price(&view, one, &context(&offered)));
+    assert!(!run.pays_optional_price(&view, two, &context(&offered)));
+    assert!(!run.pays_optional_price(&view, one, &context(&spent)));
+
+    let mut sources = crate::mana_sources(&view, &offered);
+    crate::spend::repeat_counter_sources(&view, &mut sources);
+    assert_eq!(
+        sources.len(),
+        1,
+        "seat plans respect command activation caps"
+    );
+
+    view.command[0][0].token = Some(token_id(RUN_RELICS[11][3]));
+    assert!(run.pays_optional_price(&view, two, &context(&offered)));
+    let mut sources = crate::mana_sources(&view, &offered);
+    crate::spend::repeat_counter_sources(&view, &mut sources);
+    assert_eq!(
+        sources.len(),
+        6,
+        "the unlimited command source reads all charges"
+    );
+}
 
 #[test]
 fn only_new_policy_declines_pure_growth_on_an_ample_own_token_board() {

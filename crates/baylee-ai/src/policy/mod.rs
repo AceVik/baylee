@@ -1056,7 +1056,11 @@ impl HeuristicAgent {
     /// ([`pay_owed_full`]).
     pub(crate) fn owed_tap(&self, view: &PlayerView, legal: &LegalActions) -> Option<PlayerAction> {
         if self.profile.plays(crate::AIProfile::FULL_CASTS) {
-            pay_owed_full(view, legal)
+            pay_owed_full(
+                view,
+                legal,
+                self.profile.plays(crate::AIProfile::RUN_EQUIPMENT_MANA),
+            )
         } else {
             pay_owed(view, legal)
         }
@@ -3775,12 +3779,24 @@ pub(crate) fn can_pay(view: &PlayerView, cost: &baylee_core::mana::ManaCost) -> 
 
 /// A policy-21 optional token price can be paid with stored charges, once
 /// per available activation. No legal offer accompanies the yes/no prompt.
-pub(crate) fn can_pay_token_price(view: &PlayerView, cost: &ManaCost) -> bool {
+pub(crate) fn can_pay_token_price(
+    view: &PlayerView,
+    cost: &ManaCost,
+    context: &DecisionContext<'_>,
+    live_offer: bool,
+) -> bool {
     let Some(seat) = view.seat(resource_player(view)) else {
         return false;
     };
-    let mut sources = sources(view, &own_offer(view, ManaEstimate::TokenPrice));
-    crate::spend::repeat_counter_sources(view, &mut sources);
+    let estimate;
+    let offer = if let Some(offer) = context.optional_mana_offer.filter(|_| live_offer) {
+        offer
+    } else {
+        estimate = own_offer(view, ManaEstimate::TokenPrice);
+        &estimate
+    };
+    let mut sources = sources(view, offer);
+    crate::spend::repeat_counter_sources_with_limits(view, &mut sources, live_offer);
     manaplan::plan_frozen(cost, &seat.mana_pool, &sources)
         .is_some_and(|plan| plan_survives(view, &plan.steps, 0))
 }

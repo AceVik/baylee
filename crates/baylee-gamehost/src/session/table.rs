@@ -325,7 +325,15 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
             return None;
         };
         let view = self.house_view(player, pending);
-        let context = self.engine.decision_context();
+        let optional_mana_offer = agent
+            .profile()
+            .plays(AIProfile::RUN_EQUIPMENT_MANA)
+            .then(|| self.engine.optional_mana_offer_for(player))
+            .flatten();
+        let context = baylee_engine::engine::DecisionContext {
+            optional_mana_offer: optional_mana_offer.as_ref(),
+            ..self.engine.decision_context()
+        };
         let scouting = agent.scouting_request(pending).and_then(|mut request| {
             if self.fair_scouting {
                 request = crate::scouting::own_deck_only(request);

@@ -332,7 +332,25 @@ const MOST_REPEATS: u16 = 8;
 /// activation. Only for the planners of [`plan_for`]; the frozen reference
 /// and the house before generation 10 keep their own reading.
 pub fn repeat_counter_sources(view: &PlayerView, sources: &mut Vec<Source>) {
-    use baylee_cards_dsl::{AbilityDef, CostPart};
+    repeat_counter_sources_where(view, sources, |id| {
+        !view.command.iter().flatten().any(|object| object.id == id)
+    });
+}
+
+pub(crate) fn repeat_counter_sources_with_limits(
+    view: &PlayerView,
+    sources: &mut Vec<Source>,
+    respect_limits: bool,
+) {
+    repeat_counter_sources_where(view, sources, |_| !respect_limits);
+}
+
+fn repeat_counter_sources_where(
+    view: &PlayerView,
+    sources: &mut Vec<Source>,
+    allow_limited_repeat: impl Fn(ObjectId) -> bool,
+) {
+    use baylee_cards_dsl::{AbilityDef, ActivationLimit, CostPart};
     let mut more: Vec<Source> = Vec::new();
     for source in sources.iter() {
         let Tap::Ability(index) = source.tap else {
@@ -345,17 +363,24 @@ pub fn repeat_counter_sources(view: &PlayerView, sources: &mut Vec<Source>) {
             AbilityDef::Activated {
                 cost,
                 mana_ability: true,
+                limit,
                 ..
             }
             | AbilityDef::ActivatedConditional {
                 cost,
                 mana_ability: true,
+                limit,
                 ..
             },
         ) = crate::activate::printed(view, source.id, index)
         else {
             continue;
         };
+        // An actual offer certifies one available activation. Only an
+        // unlimited ability certifies that counters alone buy another.
+        if *limit != ActivationLimit::Unlimited && !allow_limited_repeat(source.id) {
+            continue;
+        }
         let [CostPart::RemoveCounterSelf { kind, n }] = cost.parts else {
             continue;
         };

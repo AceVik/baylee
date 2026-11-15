@@ -19,8 +19,10 @@ type Registry = NativeLookup<RegistryLookup, RunPack>;
 type Game = Engine<Registry, NoLoopDetection>;
 
 mod admission;
+mod ai;
 mod arcane;
 mod growth;
+mod mulligans;
 mod protection;
 mod resources;
 mod vitality;
