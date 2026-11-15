@@ -419,7 +419,21 @@ pub fn sync_menu(
         offer_weight,
         None,
     );
-    if offer_weight != Weight::Dead {
+    if offer_weight == Weight::Dead {
+        let why = if next.watching {
+            Phrase::YouAreWatching
+        } else if next.eliminated {
+            Phrase::SeatEliminated
+        } else if next.armed {
+            Phrase::ConcedeConfirm
+        } else {
+            Phrase::HoldingPriority
+        };
+        commands.entity(offer).insert((
+            crate::hud::Hint(why.text(lang).to_string()),
+            Pickable::default(),
+        ));
+    } else {
         commands.entity(offer).insert(MenuButton {
             action: MenuAction::OfferDraw,
         });
@@ -451,7 +465,12 @@ pub fn sync_menu(
         }
     };
     let concede = answer(&mut commands, &fonts, words, weight, None);
-    if weight != Weight::Dead {
+    if weight == Weight::Dead {
+        commands.entity(concede).insert((
+            crate::hud::Hint(Phrase::SeatEliminated.text(lang).to_string()),
+            Pickable::default(),
+        ));
+    } else {
         commands.entity(concede).insert(MenuButton {
             action: MenuAction::Concede,
         });
@@ -536,6 +555,11 @@ pub fn sync_menu(
         commands.entity(settings_row).insert(MenuButton {
             action: MenuAction::Settings,
         });
+    } else {
+        commands.entity(settings_row).insert((
+            crate::hud::Hint(Phrase::SettingsMenuRowAway.text(lang).to_string()),
+            Pickable::default(),
+        ));
     }
     crate::hud::add_child_if_alive(&mut commands, panel, settings_row);
 

@@ -101,7 +101,7 @@ pub(super) fn composer_parts(
                 flex_shrink: 0.0,
                 ..default()
             },
-            BackgroundColor(inks.line.with_alpha(0.45)),
+            BackgroundColor(inks.line),
             Pickable::IGNORE,
         ))
         .id();
@@ -127,6 +127,7 @@ pub(super) fn composer_parts(
                 padding: UiRect::axes(zpx(4.0), zpx(2.0)),
                 border: UiRect::all(zpx(1.0)),
                 border_radius: BorderRadius::all(zpx(6.0)),
+                overflow: Overflow::clip(),
                 ..default()
             },
             // Opaque: what is typed is read on the field alone. At half
@@ -134,9 +135,9 @@ pub(super) fn composer_parts(
             // stands over, was read through it under the caret.
             BackgroundColor(Color::srgb(0.015, 0.036, 0.054)),
             BorderColor::all(if focused {
-                inks.accent.with_alpha(0.85)
+                inks.accent.with_alpha(0.88)
             } else {
-                inks.line.with_alpha(0.55)
+                rows::GLASS_RULE
             }),
             Pickable::IGNORE,
         ))
@@ -155,7 +156,7 @@ pub(super) fn composer_parts(
                     padding: UiRect::new(zpx(0.0), zpx(4.0), zpx(3.0), zpx(3.0)),
                     ..default()
                 },
-                Pickable::IGNORE,
+                super::super::hint_bundle(ChatPhrase::GuestNoLobbyChat.text(lang)),
             ))
             .id();
         commands.entity(frame).add_children(&[chip, sep, why]);
@@ -310,35 +311,40 @@ pub(super) fn composer_parts(
     } else {
         Color::NONE
     };
-    let send = commands
-        .spawn((
-            UiButton,
-            ChatPress::Send,
-            Node {
-                width: zpx(24.0),
-                height: zpx(22.0),
-                align_self: AlignSelf::FlexEnd,
-                margin: UiRect::bottom(zpx(1.0)),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border_radius: BorderRadius::all(zpx(4.0)),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            BackgroundColor(send_bg),
-            Feel::new(send_bg),
-            children![(
-                Text::new(glyph::SEND.to_string()),
-                icon_tf(fonts, z(10.0)),
-                TextColor(if can_send {
-                    inks.accent
-                } else {
-                    inks.soft.with_alpha(0.55)
-                }),
-                Pickable::IGNORE,
-            )],
-        ))
-        .id();
+    let mut send_cmd = commands.spawn((
+        Node {
+            width: zpx(24.0),
+            height: zpx(22.0),
+            align_self: AlignSelf::FlexEnd,
+            margin: UiRect::bottom(zpx(1.0)),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            border_radius: BorderRadius::all(zpx(4.0)),
+            flex_shrink: 0.0,
+            ..default()
+        },
+        BackgroundColor(send_bg),
+        children![(
+            Text::new(glyph::SEND.to_string()),
+            icon_tf(fonts, z(10.0)),
+            TextColor(if can_send {
+                inks.accent
+            } else {
+                inks.soft.with_alpha(0.55)
+            }),
+            Pickable::IGNORE,
+        )],
+    ));
+    if can_send {
+        send_cmd.insert((UiButton, ChatPress::Send, Feel::new(send_bg)));
+    } else {
+        send_cmd.insert(super::super::hint_bundle(placeholder(
+            machine,
+            c.target(),
+            lang,
+        )));
+    }
+    let send = send_cmd.id();
     let light = commands
         .spawn(crate::social::glass::layer(
             crate::social::glass::Glass::Field,
@@ -367,8 +373,10 @@ pub(super) fn composer_parts(
                     border_radius: BorderRadius::all(zpx(6.0)),
                     ..default()
                 },
-                BackgroundColor(inks.ground.with_alpha(0.94)),
-                BorderColor::all(inks.accent.with_alpha(0.6)),
+                BackgroundColor(rows::window_glass()[0]),
+                rows::dialog_glass(),
+                BorderColor::all(rows::GLASS_EDGE),
+                rows::glass_shadow(),
                 stacked(30),
             ))
             .id();

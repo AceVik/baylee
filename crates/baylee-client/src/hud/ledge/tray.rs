@@ -163,6 +163,8 @@ pub struct StripRevision {
     /// session: lit while the panel stands on a chat tab, its unread count,
     /// and whether a whisper or a mention is among them.
     chat: Option<(bool, u32, bool)>,
+    /// Active UI language for door tooltips.
+    lang: Option<Lang>,
 }
 
 /// Where the row stands: in the shelf's button row, directly left of the
@@ -240,14 +242,17 @@ pub(in crate::hud) fn spawn_tray_strip(commands: &mut Commands) -> Entity {
 /// retained node here does: the children are despawned and rebuilt, and
 /// rebuilding them under the pointer would take the hover with it on each
 /// frame.
+#[allow(clippy::too_many_arguments)] // a Bevy system
 pub fn sync_tray_strip(
     mut commands: Commands,
     duel: Res<Duel>,
     fonts: Res<UiFonts>,
+    settings: Option<Res<crate::settings::ClientSettings>>,
     mut revision: ResMut<StripRevision>,
     strip: Query<(Entity, Option<&Children>), With<TrayStrip>>,
     social: Option<Res<crate::social::SocialHost>>,
     chat_ui: Option<Res<crate::social::ChatUi>>,
+    texts: Option<Res<crate::cardtext::CardTexts>>,
 ) {
     let Ok((strip, kids)) = strip.single() else {
         // No strip yet — the overlay has not built its root. Nothing of ours
@@ -255,6 +260,7 @@ pub fn sync_tray_strip(
         // that has one builds on it.
         return;
     };
+    let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
     let chat = social.as_ref().and_then(|s| s.machine()).map(|machine| {
         let all = baylee_client_core::social::TabFilter::standard(
             baylee_client_core::social::ChatTab::All,
@@ -270,6 +276,7 @@ pub fn sync_tray_strip(
         ai_heard: duel.ai_log_heard,
         ai_log: duel.ai_log_open,
         chat,
+        lang: Some(lang),
     };
     // The counter alone is not enough, and the reason is the same one
     // `sync_tray`'s `drawn` records: the overlay can take this node away and
@@ -291,20 +298,32 @@ pub fn sync_tray_strip(
     // sheet is put away into that button, and `zones_button_centre` counts
     // it from the right margin. The AI log's door, when it stands, goes
     // left of the scroll; `WIDTH` keeps room for it either way.
-    let mut doors = Vec::with_capacity(3);
+    let mut doors = Vec::with_capacity(4);
     if next.ai_heard {
-        doors.push(ai_log_button(&mut commands, &fonts, next.ai_log));
+        doors.push(ai_log_button(&mut commands, &fonts, next.ai_log, lang));
     }
     if let Some((lit, count, urgent)) = next.chat {
-        doors.push(chat_button(&mut commands, &fonts, lit, count, urgent));
+        doors.push(chat_button(&mut commands, &fonts, lit, count, urgent, lang));
     }
-    doors.push(log_button(&mut commands, &fonts, next.log));
-    doors.push(zone_button(&mut commands, &fonts, next.open, next.free));
+    doors.push(log_button(&mut commands, &fonts, next.log, lang));
+    let empty_texts = crate::cardtext::CardTexts::default();
+    let held_reason = (!next.free).then(|| {
+        duel.headline(lang, texts.as_deref().unwrap_or(&empty_texts))
+            .unwrap_or_else(|| Phrase::ActToggleBrowser.text(lang).to_string())
+    });
+    doors.push(zone_button(
+        &mut commands,
+        &fonts,
+        next.open,
+        next.free,
+        lang,
+        held_reason,
+    ));
     crate::hud::add_children_if_alive(&mut commands, strip, &doors);
 }
 
 /// The AI log's door: what an AI seat's mind said (debug builds only).
-fn ai_log_button(commands: &mut Commands, fonts: &UiFonts, open: bool) -> Entity {
+fn ai_log_button(commands: &mut Commands, fonts: &UiFonts, open: bool, lang: Lang) -> Entity {
     let ground = if open {
         palette::DIALOG_LIT
     } else {
@@ -325,6 +344,11 @@ fn ai_log_button(commands: &mut Commands, fonts: &UiFonts, open: bool) -> Entity
             BorderColor::all(palette::DIALOG_LINE),
             UiButton,
             Feel::new(ground),
+            crate::hud::Hint(format!(
+                "{} · {}",
+                Phrase::RoomAi.text(lang),
+                Phrase::GameLogTitle.text(lang)
+            )),
             MenuButton {
                 action: MenuAction::ToggleAiLog,
             },
@@ -348,11 +372,19 @@ fn chat_button(
     open: bool,
     count: u32,
     urgent: bool,
+    lang: Lang,
 ) -> Entity {
     let ground = if open {
         palette::DIALOG_LIT
     } else {
         palette::DIALOG
+    };
+    let hint = if count > 0 {
+        baylee_client_core::social::ChatPhrase::ChatDoor.fill(lang, &[&count.to_string()])
+    } else {
+        baylee_client_core::social::ChatPhrase::ChatTitle
+            .text(lang)
+            .to_string()
     };
     let button = commands
         .spawn((
@@ -369,6 +401,7 @@ fn chat_button(
             BorderColor::all(palette::DIALOG_LINE),
             UiButton,
             Feel::new(ground),
+            crate::hud::Hint(hint),
             MenuButton {
                 action: MenuAction::ToggleChat,
             },
@@ -424,7 +457,7 @@ fn chat_button(
 /// Never held. Nothing a question asks lives in the log, so there is no
 /// moment it may not be opened or put away. `open` lights its ground the way
 /// the zones button's is lit while the sheet is up.
-fn log_button(commands: &mut Commands, fonts: &UiFonts, open: bool) -> Entity {
+fn log_button(commands: &mut Commands, fonts: &UiFonts, open: bool, lang: Lang) -> Entity {
     let ground = if open {
         palette::DIALOG_LIT
     } else {
@@ -445,6 +478,7 @@ fn log_button(commands: &mut Commands, fonts: &UiFonts, open: bool) -> Entity {
             BorderColor::all(palette::DIALOG_LINE),
             UiButton,
             Feel::new(ground),
+            crate::hud::Hint(Phrase::ActToggleLog.text(lang).to_string()),
             MenuButton {
                 action: MenuAction::ToggleLog,
             },
@@ -470,7 +504,14 @@ fn log_button(commands: &mut Commands, fonts: &UiFonts, open: bool) -> Entity {
 /// its [`Feel`] and its `Button`, which is the same three-part answer the
 /// unlit Confirm on the shelf gives: it is visibly there, visibly not now,
 /// and it does not light under the pointer to promise otherwise.
-fn zone_button(commands: &mut Commands, fonts: &UiFonts, open: bool, free: bool) -> Entity {
+fn zone_button(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    open: bool,
+    free: bool,
+    lang: Lang,
+    held_reason: Option<String>,
+) -> Entity {
     let ground = if open {
         palette::DIALOG_LIT
     } else {
@@ -499,9 +540,16 @@ fn zone_button(commands: &mut Commands, fonts: &UiFonts, open: bool, free: bool)
         ))
         .id();
     if free {
+        commands.entity(button).insert((
+            TrayZones,
+            UiButton,
+            Feel::new(ground),
+            crate::hud::Hint(Phrase::ActToggleBrowser.text(lang).to_string()),
+        ));
+    } else if let Some(reason) = held_reason {
         commands
             .entity(button)
-            .insert((TrayZones, UiButton, Feel::new(ground)));
+            .insert((crate::hud::Hint(reason), Pickable::default()));
     }
     button
 }
@@ -615,11 +663,25 @@ mod tests {
         let (held, free) = {
             let mut commands = Commands::new(&mut queue, app.world());
             (
-                zone_button(&mut commands, &fonts, true, false),
-                zone_button(&mut commands, &fonts, true, true),
+                zone_button(
+                    &mut commands,
+                    &fonts,
+                    true,
+                    false,
+                    Lang::En,
+                    Some("Choose a card".into()),
+                ),
+                zone_button(&mut commands, &fonts, true, true, Lang::En, None),
             )
         };
         queue.apply(app.world_mut());
+        assert_eq!(
+            app.world()
+                .get::<crate::hud::Hint>(held)
+                .map(|h| h.0.as_str()),
+            Some("Choose a card"),
+            "a held tray button explains why via hover tooltip"
+        );
         assert!(
             app.world().get::<UiButton>(held).is_none(),
             "a held tray button still answers the pointer"

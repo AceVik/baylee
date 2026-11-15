@@ -669,6 +669,10 @@ fn write_the_log(
         ),
         settle,
     );
+    commands.entity(bar).insert((
+        crate::hud::ledge::log::OnDemandScrollbar(list),
+        Visibility::Hidden,
+    ));
     let mut frame = commands.spawn((
         Node {
             width: percent(100),
@@ -701,7 +705,12 @@ pub(crate) fn sync_finish_log(
     nodes: Query<&ComputedNode>,
     mut spacers: Query<&mut Node, With<virtual_list::LogSpacer>>,
     folds: Option<Res<super::LogFolds>>,
+    mut bars: Query<
+        (&crate::hud::ledge::log::OnDemandScrollbar, &mut Visibility),
+        Without<crate::hud::LogPanel>,
+    >,
 ) {
+    crate::hud::ledge::log::sync_on_demand_scrollbars(&mut bars, &nodes);
     let Some(fonts) = fonts else {
         return;
     };

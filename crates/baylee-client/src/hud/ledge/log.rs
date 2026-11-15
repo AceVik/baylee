@@ -242,6 +242,76 @@ impl LogRevision {
     }
 }
 
+/// Marks a scrollbar track that stays hidden unless its target scroll list
+/// overflows vertically, preventing empty scrollbar chrome on short lists.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct OnDemandScrollbar(pub Entity);
+
+/// Updates [`OnDemandScrollbar`] visibility only when the overflow state
+/// flips, writing nothing at rest.
+pub(crate) fn sync_on_demand_scrollbars<F: bevy::ecs::query::QueryFilter>(
+    bars: &mut Query<(&OnDemandScrollbar, &mut Visibility), F>,
+    lists: &Query<&ComputedNode>,
+) {
+    for (bar, mut vis) in bars {
+        let Ok(list) = lists.get(bar.0) else {
+            continue;
+        };
+        let want = if list.content_size().y > list.size().y + 1.0 {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        vis.set_if_neq(want);
+    }
+}
+
+/// Frosted smoked-glass vertical gradient for floating table log panels.
+pub(crate) fn log_glass_ground() -> bevy::ui::BackgroundGradient {
+    use bevy::ui::{ColorStop, LinearGradient};
+    LinearGradient::new(
+        std::f32::consts::PI,
+        vec![
+            ColorStop::auto(palette::LOG_GLASS_TOP),
+            ColorStop::auto(palette::LOG_GLASS_BOTTOM),
+        ],
+    )
+    .into()
+}
+
+/// Translucent frosted-glass sheen for a log panel's header bar.
+pub(crate) fn log_head_ground() -> bevy::ui::BackgroundGradient {
+    use bevy::ui::{ColorStop, LinearGradient};
+    LinearGradient::new(
+        std::f32::consts::PI,
+        vec![
+            ColorStop::auto(palette::LOG_HEAD_TOP),
+            ColorStop::auto(palette::LOG_HEAD_BOTTOM),
+        ],
+    )
+    .into()
+}
+
+/// Two-layer depth shadow lifting a smoked-glass log panel off the felt.
+pub(crate) fn log_glass_shadow() -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.58),
+            x_offset: px(0),
+            y_offset: px(8),
+            spread_radius: px(0),
+            blur_radius: px(22),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.34),
+            x_offset: px(0),
+            y_offset: px(2),
+            spread_radius: px(0),
+            blur_radius: px(5),
+        },
+    ])
+}
+
 /// Where the panel stands.
 ///
 /// On the strip's top edge rather than the strip's bottom: see the module
@@ -256,6 +326,7 @@ pub(crate) fn root_node() -> Node {
         flex_direction: FlexDirection::Column,
         border: UiRect::all(px(1)),
         border_radius: BorderRadius::top(px(STRIP_R)),
+        overflow: Overflow::clip(),
         ..default()
     }
 }
@@ -300,8 +371,10 @@ pub(crate) fn spawn_log_panel(commands: &mut Commands) -> Entity {
             LogPanel,
             LogZoom::default(),
             root_node(),
-            BackgroundColor(palette::DIALOG.with_alpha(0.68)),
-            BorderColor::all(palette::DIALOG_LINE),
+            BackgroundColor(palette::LOG_GLASS_BOTTOM),
+            log_glass_ground(),
+            BorderColor::all(palette::LOG_GLASS_EDGE),
+            log_glass_shadow(),
             ZIndex(Z_LOG),
             Visibility::Hidden,
         ))
@@ -481,7 +554,7 @@ fn draw_all(
     fonts: &UiFonts,
     wording: &Wording,
     lines: &[LogLine],
-) -> ([Entity; 2], Entity) {
+) -> ([Entity; 3], Entity) {
     let lang = wording.lang;
     let head = head(commands, fonts, lang);
     let body = commands
@@ -494,6 +567,7 @@ fn draw_all(
                 column_gap: px(4),
                 ..default()
             },
+            ZIndex(1),
             Pickable::IGNORE,
         ))
         .id();
@@ -518,7 +592,7 @@ fn draw_all(
             .spawn((
                 Text::new(Phrase::GameLogEmpty.text(lang)),
                 tf(fonts, LOG_LINE_PT),
-                TextColor(palette::DIALOG_SOFT),
+                TextColor(palette::LOG_SOFT),
                 Pickable::IGNORE,
             ))
             .id();
@@ -528,14 +602,23 @@ fn draw_all(
         commands,
         list,
         (
-            palette::DOCK_EDGE.with_alpha(0.35),
-            palette::CANDLE.with_alpha(0.8),
+            palette::LOG_GLASS_EDGE.with_alpha(0.32),
+            palette::CANDLE.with_alpha(0.84),
         ),
         at_rest,
     );
+    commands
+        .entity(track)
+        .insert((OnDemandScrollbar(list), Visibility::Hidden));
     let pill = new_lines_pill(commands, fonts, lang);
     commands.entity(body).add_children(&[list, track, pill]);
-    ([head, body], list)
+    let rim = commands
+        .spawn(crate::social::glass::layer(
+            crate::social::glass::Glass::Panel,
+            px(STRIP_R),
+        ))
+        .id();
+    ([head, body, rim], list)
 }
 
 /// The catalog's text as the log reads it: card names, and the words of a
@@ -836,13 +919,14 @@ fn head(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
                 border_radius: btn_radius(),
                 ..default()
             },
-            BackgroundColor(palette::DIALOG.with_alpha(0.45)),
-            BorderColor::all(palette::DIALOG_LINE),
-            Feel::new(palette::DIALOG.with_alpha(0.45)),
+            BackgroundColor(palette::LOG_GLASS_TOP.with_alpha(0.55)),
+            BorderColor::all(palette::LOG_GLASS_RULE),
+            Feel::new(palette::LOG_GLASS_TOP.with_alpha(0.55)),
+            crate::hud::Hint(Phrase::SheetClose.text(lang).to_string()),
             children![(
                 Text::new(glyph::CLOSE.to_string()),
                 icon_tf(fonts, LOG_CLOSE_PT),
-                TextColor(palette::DIALOG_SOFT),
+                TextColor(palette::LOG_SOFT),
                 Pickable::IGNORE,
             )],
         ))
@@ -860,8 +944,10 @@ fn head(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
                 border_radius: BorderRadius::top(px(STRIP_R)),
                 ..default()
             },
-            BackgroundColor(palette::DIALOG_LIT.with_alpha(0.36)),
-            BorderColor::all(palette::DIALOG_LINE),
+            BackgroundColor(Color::NONE),
+            log_head_ground(),
+            BorderColor::all(palette::LOG_GLASS_RULE),
+            ZIndex(1),
             Pickable::IGNORE,
         ))
         .add_children(&[title, close])
@@ -926,9 +1012,10 @@ pub(crate) fn new_lines_pill(commands: &mut Commands, fonts: &UiFonts, lang: Lan
                 border_radius: BorderRadius::all(px(10)),
                 ..default()
             },
-            BackgroundColor(palette::DIALOG_LIT),
+            BackgroundColor(palette::LOG_GLASS_TOP.with_alpha(0.96)),
             BorderColor::all(palette::CANDLE),
-            Feel::new(palette::DIALOG_LIT),
+            soft_shadow(),
+            Feel::new(palette::LOG_GLASS_TOP.with_alpha(0.96)),
             children![
                 (
                     Text::new(glyph::CARET_DOWN.to_string()),
@@ -1007,9 +1094,9 @@ pub(crate) const PANEL_INKS: LineInks = LineInks {
     line_pt: LOG_LINE_PT,
     turn_pt: LOG_TURN_PT,
     ink: palette::DIALOG_INK,
-    soft: palette::DIALOG_SOFT,
+    soft: palette::LOG_SOFT,
     link: palette::CANDLE,
-    rule: palette::DIALOG_LINE,
+    rule: palette::LOG_GLASS_RULE,
     paint: at_rest,
 };
 
@@ -1228,7 +1315,7 @@ pub(crate) const CLOCK_SCALE: f32 = 0.84;
 pub(crate) const CLOCK_AIR: f32 = 6.0;
 
 /// How much of the quieter ink a line's time takes.
-pub(crate) const CLOCK_FADE: f32 = 0.7;
+pub(crate) const CLOCK_FADE: f32 = 0.80;
 
 /// How far the smaller time stands down, so its figures sit on the
 /// sentence's first line rather than above it: the difference of the two
@@ -1559,7 +1646,10 @@ pub fn grow_the_log(
     time: Res<Time>,
     prefs: Res<crate::prefs::Prefs>,
     mut panels: Query<(&mut LogZoom, &mut UiTransform, &mut Visibility), With<LogPanel>>,
+    mut bars: Query<(&OnDemandScrollbar, &mut Visibility), Without<LogPanel>>,
+    lists: Query<&ComputedNode>,
 ) {
+    sync_on_demand_scrollbars(&mut bars, &lists);
     let still = prefs.all().reduce_motion;
     for (mut fold, mut transform, mut seen) in &mut panels {
         if fold.t >= 1.0 {

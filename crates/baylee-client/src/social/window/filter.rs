@@ -1,6 +1,5 @@
 //! A tab's filter dialog.
 
-use super::head::text_button;
 #[allow(clippy::wildcard_imports)] // the window's own vocabulary
 use super::*;
 
@@ -60,11 +59,13 @@ pub(super) fn filter_dialog(
                 padding: UiRect::all(zpx(14.0)),
                 border: UiRect::all(zpx(1.0)),
                 border_radius: BorderRadius::all(zpx(crate::shellkit::tokens::RADIUS_PANEL)),
+                overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(crate::shellkit::tokens::OPAQUE),
-            BorderColor::all(crate::shellkit::tokens::PRIMARY_EDGE.with_alpha(0.55)),
-            crate::shellkit::surfaces::popover_shadow(),
+            BackgroundColor(rows::window_glass()[0]),
+            rows::dialog_glass(),
+            BorderColor::all(rows::GLASS_EDGE),
+            rows::glass_shadow(),
             stacked(45),
         ))
         .id();
@@ -136,27 +137,79 @@ pub(super) fn filter_dialog(
         ))
         .id();
     let buttons = commands
-        .spawn(Node {
-            flex_direction: FlexDirection::Row,
-            justify_content: JustifyContent::FlexEnd,
-            column_gap: zpx(8.0),
-            ..default()
-        })
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: zpx(8.0),
+                margin: UiRect::top(zpx(4.0)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
         .id();
-    let reset = text_button(
+    let action_btn = |commands: &mut Commands, label: &str, press: ChatPress, primary: bool| {
+        let bg = if primary {
+            inks.accent.with_alpha(0.22)
+        } else {
+            crate::shellkit::tokens::CONTROL
+        };
+        let border = if primary {
+            inks.accent
+        } else {
+            rows::GLASS_RULE
+        };
+        commands
+            .spawn((
+                UiButton,
+                press,
+                Node {
+                    flex_grow: 1.0,
+                    flex_basis: zpx(0.0),
+                    min_height: zpx(32.0),
+                    padding: UiRect::axes(zpx(10.0), zpx(5.0)),
+                    border: UiRect::all(zpx(1.0)),
+                    border_radius: BorderRadius::all(zpx(crate::shellkit::tokens::RADIUS_CONTROL)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                BackgroundColor(bg),
+                BorderColor::all(border),
+                Feel::tinting_to(bg, crate::shellkit::tokens::HOVER),
+                crate::ambience::FeelBorder {
+                    rest: border,
+                    hot: inks.accent,
+                    press: inks.accent,
+                },
+                children![(
+                    Text::new(label.to_string()),
+                    tf(&fonts, z(12.0)),
+                    TextColor(inks.ink),
+                    Pickable::IGNORE,
+                )],
+            ))
+            .id()
+    };
+    let reset = action_btn(
         &mut commands,
-        &fonts,
         ChatPhrase::Reset.text(lang),
         ChatPress::FilterReset,
-        &inks,
+        false,
     );
-    let done = text_button(
+    let done = action_btn(
         &mut commands,
-        &fonts,
         ChatPhrase::Done.text(lang),
         ChatPress::FilterDone,
-        &inks,
+        true,
     );
+    let rim = commands
+        .spawn(super::super::glass::layer(
+            super::super::glass::Glass::Panel,
+            zpx(crate::shellkit::tokens::RADIUS_PANEL),
+        ))
+        .id();
     commands.entity(buttons).add_children(&[reset, done]);
-    commands.entity(root).add_children(&[note, buttons]);
+    commands.entity(root).add_children(&[note, buttons, rim]);
 }

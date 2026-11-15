@@ -59,7 +59,7 @@ pub(crate) const LOBBY_GROUND: Color = Color::srgb(0.035, 0.075, 0.105);
 pub(crate) const LOBBY_INKS: Inks = Inks {
     ground: Color::srgba(0.035, 0.075, 0.105, 0.66),
     lit: Color::srgba(0.07, 0.13, 0.17, 0.34),
-    line: crate::shellkit::tokens::BORDER,
+    line: GLASS_RULE,
     ink: crate::shellkit::tokens::INK,
     soft: crate::shellkit::tokens::MUTED,
     link: palette::CANDLE,
@@ -67,13 +67,15 @@ pub(crate) const LOBBY_INKS: Inks = Inks {
     pt: crate::hud::logpanel::LOG_LINE_PT,
 };
 
-/// The chat window's ground: the panel navy as a glass that lets the room
-/// behind it through as a glow and no more, a shade lighter at its head than
-/// at its foot. Until 12.11.2026 it was [`LOBBY_INKS`]'s flat 0.66: the
-/// tavern's fire then stood behind the lines at a third of its light, and
-/// the quiet ink (times, notices, the empty line) read 2.5:1 on it.
-/// [`WINDOW_GLASS`] is the least that keeps that ink at 4.5:1 there, in the
-/// linear light the UI is blended in
+/// Luminous cut-glass outer border shared across smoked-glass chat surfaces.
+pub(crate) const GLASS_EDGE: Color = Color::srgba(0.56, 0.78, 0.92, 0.42);
+/// Inner frosted bevel rule separating headers, sub-bars, and composers.
+pub(crate) const GLASS_RULE: Color = Color::srgba(0.52, 0.72, 0.86, 0.24);
+
+/// The chat window's ground: smoked slate-obsidian glass that lets the room
+/// behind it through as a cool glow and no more, slightly denser than before
+/// so timestamps, sender names, prose and card links read crisply over bright
+/// 4K vistas and battlefields while keeping quiet ink comfortably above 4.5:1
 /// (`the_window_is_glass_and_its_quiet_ink_still_reads_over_the_fire`).
 pub(crate) fn window_ground() -> BackgroundGradient {
     let [head, foot] = window_glass();
@@ -86,13 +88,66 @@ pub(crate) fn window_ground() -> BackgroundGradient {
 /// The glass at the window's head and at its foot.
 pub(crate) fn window_glass() -> [Color; 2] {
     [
-        Color::srgba(0.050, 0.100, 0.140, WINDOW_GLASS.0),
-        Color::srgba(0.030, 0.066, 0.094, WINDOW_GLASS.1),
+        Color::srgba(0.046, 0.096, 0.136, WINDOW_GLASS.0),
+        Color::srgba(0.024, 0.056, 0.084, WINDOW_GLASS.1),
     ]
 }
 
 /// How opaque the chat window's ground is at its head and at its foot.
-pub(crate) const WINDOW_GLASS: (f32, f32) = (0.93, 0.90);
+pub(crate) const WINDOW_GLASS: (f32, f32) = (0.95, 0.92);
+
+/// Top-lit frosted sheen for chat window and drawer header bars.
+pub(crate) fn head_glass() -> BackgroundGradient {
+    BackgroundGradient::from(LinearGradient::new(
+        std::f32::consts::PI,
+        vec![
+            ColorStop::auto(Color::srgba(0.11, 0.20, 0.27, 0.56)),
+            ColorStop::auto(Color::srgba(0.05, 0.10, 0.15, 0.24)),
+        ],
+    ))
+}
+
+/// Inverted frosted bevel for bottom composer and drawer action bars.
+pub(crate) fn foot_glass() -> BackgroundGradient {
+    BackgroundGradient::from(LinearGradient::new(
+        std::f32::consts::PI,
+        vec![
+            ColorStop::auto(Color::srgba(0.04, 0.08, 0.12, 0.28)),
+            ColorStop::auto(Color::srgba(0.08, 0.15, 0.21, 0.52)),
+        ],
+    ))
+}
+
+/// Denser smoked glass for floating chat dialogs, menus, and sheets.
+pub(crate) fn dialog_glass() -> BackgroundGradient {
+    BackgroundGradient::from(LinearGradient::new(
+        std::f32::consts::PI,
+        vec![
+            ColorStop::auto(Color::srgba(0.050, 0.102, 0.144, 0.96)),
+            ColorStop::auto(Color::srgba(0.026, 0.060, 0.090, 0.94)),
+        ],
+    ))
+}
+
+/// Two-layer depth shadow under floating smoked-glass chat surfaces.
+pub(crate) fn glass_shadow() -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.56),
+            x_offset: zpx(0.0),
+            y_offset: zpx(8.0),
+            spread_radius: zpx(0.0),
+            blur_radius: zpx(24.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.32),
+            x_offset: zpx(0.0),
+            y_offset: zpx(2.0),
+            spread_radius: zpx(0.0),
+            blur_radius: zpx(6.0),
+        },
+    ])
+}
 
 /// The ink a conversation's lines are drawn in (the channel's colour).
 pub(crate) fn channel_ink(conv: &ConvId, inks: &Inks) -> Color {
@@ -361,7 +416,7 @@ pub(crate) fn fill_row(
             commands,
             format!("{}   ", clock(line.at)),
             tf(fonts, z(inks.pt * 0.78)),
-            inks.soft.with_alpha(0.60),
+            inks.soft.with_alpha(0.78),
         );
     }
     match &line.kind {

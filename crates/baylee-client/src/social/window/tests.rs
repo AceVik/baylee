@@ -452,3 +452,122 @@ fn head_parts_omits_friends_button_for_guest_sessions() {
         assert_eq!(has_friends, !guest, "guest={guest}");
     }
 }
+
+#[test]
+fn filter_dialog_distributes_reset_and_done_symmetrically() {
+    use baylee_client_core::social::{ChatPrefs, Me};
+
+    let (machine, _) = Social::start(
+        Me {
+            tag: "AB12".into(),
+            handle: "Alice#AB12".into(),
+            guest: false,
+            gateway: "https://example.test".into(),
+        },
+        None,
+        None,
+        ChatPrefs::default(),
+        1_000,
+        &mut crate::social::OsEntropy,
+    );
+    let mut app = app();
+    app.insert_resource(SocialHost {
+        machine: Some(machine),
+        ..default()
+    })
+    .insert_resource(ChatUi {
+        filters: Some(ChatTab::Table),
+        ..default()
+    })
+    .insert_resource(UiFonts::default())
+    .init_resource::<super::super::zoom::Zoom>()
+    .add_systems(Update, filter::filter_dialog);
+    app.update();
+
+    let mut buttons = app
+        .world_mut()
+        .query::<(Entity, &ChatPress, &Node, &ChildOf)>();
+    let actions: Vec<(ChatPress, Node, Entity)> = buttons
+        .iter(app.world())
+        .filter(|(_, p, _, _)| matches!(p, ChatPress::FilterReset | ChatPress::FilterDone))
+        .map(|(_, p, n, parent)| (p.clone(), n.clone(), parent.parent()))
+        .collect();
+    assert_eq!(actions.len(), 2);
+    assert_eq!(actions[0].2, actions[1].2, "shared horizontal footer row");
+    assert_eq!(
+        app.world().get::<Node>(actions[0].2).unwrap().width,
+        Val::Percent(100.0)
+    );
+    for (_, node, _) in &actions {
+        assert!((node.flex_grow - 1.0).abs() < f32::EPSILON);
+        assert_eq!(node.flex_basis, Val::Px(0.0));
+    }
+}
+
+#[test]
+fn empty_composer_disables_send_with_hover_tooltip() {
+    use baylee_client_core::social::{ChatPrefs, Me};
+
+    let (mut machine, _) = Social::start(
+        Me {
+            tag: "AB12".into(),
+            handle: "Alice#AB12".into(),
+            guest: false,
+            gateway: "https://example.test".into(),
+        },
+        None,
+        None,
+        ChatPrefs::default(),
+        1_000,
+        &mut crate::social::OsEntropy,
+    );
+    let mut empty_app = app();
+    let fonts = UiFonts::default();
+    let ui = ChatUi::default();
+    let _ = composer::composer_parts(
+        &mut empty_app.world_mut().commands(),
+        &fonts,
+        Lang::En,
+        &machine,
+        &ui,
+        &[],
+        0,
+        Frame::Lobby,
+    );
+    empty_app.world_mut().flush();
+    let has_send_press = empty_app
+        .world_mut()
+        .query::<&ChatPress>()
+        .iter(empty_app.world())
+        .any(|p| *p == ChatPress::Send);
+    assert!(
+        !has_send_press,
+        "empty composer does not offer clickable Send"
+    );
+    let has_hint = empty_app
+        .world_mut()
+        .query::<(&crate::lobby::HoverHint, &crate::hud::Hint)>()
+        .iter(empty_app.world())
+        .any(|(lobby_h, hud_h)| !lobby_h.0.is_empty() && lobby_h.0 == hud_h.0);
+    assert!(has_hint, "disabled Send exposes a hover tooltip");
+
+    machine.composer_mut().typed("gg");
+    let mut ready_app = app();
+    let _ = composer::composer_parts(
+        &mut ready_app.world_mut().commands(),
+        &fonts,
+        Lang::En,
+        &machine,
+        &ui,
+        &[],
+        0,
+        Frame::Lobby,
+    );
+    ready_app.world_mut().flush();
+    let has_send_press = ready_app
+        .world_mut()
+        .query::<(&ChatPress, &UiButton)>()
+        .iter(ready_app.world())
+        .any(|(p, _)| *p == ChatPress::Send);
+    assert!(has_send_press, "non-empty composer offers clickable Send");
+}

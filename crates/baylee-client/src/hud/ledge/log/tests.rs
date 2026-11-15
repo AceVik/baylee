@@ -1044,3 +1044,104 @@ fn the_list_follows_its_newest_line_until_the_player_scrolls_up() {
         "scrolled back to the end, it did not follow the next line"
     );
 }
+
+#[test]
+fn smoked_log_glass_keeps_ink_and_quiet_ink_readable_over_bright_fire() {
+    let fire = Color::srgb(0.90, 0.50, 0.15).to_linear();
+    let luminance = |c: LinearRgba| 0.2126 * c.red + 0.7152 * c.green + 0.0722 * c.blue;
+    let contrast = |ink: Color, glass: Color| {
+        let over = glass.to_linear();
+        let share = over.alpha;
+        let under = LinearRgba::rgb(
+            over.red * share + fire.red * (1.0 - share),
+            over.green * share + fire.green * (1.0 - share),
+            over.blue * share + fire.blue * (1.0 - share),
+        );
+        (luminance(ink.to_linear()) + 0.05) / (luminance(under) + 0.05)
+    };
+    for glass in [palette::LOG_GLASS_TOP, palette::LOG_GLASS_BOTTOM] {
+        assert!(glass.alpha() >= 0.88 && glass.alpha() < 0.97, "{glass:?}");
+        assert!(
+            contrast(PANEL_INKS.ink, glass) >= 7.0,
+            "ink contrast over fire: {}",
+            contrast(PANEL_INKS.ink, glass)
+        );
+        assert!(
+            contrast(PANEL_INKS.soft, glass) >= 4.5,
+            "soft ink contrast over fire: {}",
+            contrast(PANEL_INKS.soft, glass)
+        );
+    }
+
+    let (mut app, panel) = panel_over(3);
+    assert!(
+        app.world()
+            .get::<bevy::ui::BackgroundGradient>(panel)
+            .is_some()
+    );
+    assert!(app.world().get::<bevy::ui::BoxShadow>(panel).is_some());
+    let has_rim = app
+        .world_mut()
+        .query::<&crate::social::glass::Glass>()
+        .iter(app.world())
+        .any(|g| *g == crate::social::glass::Glass::Panel);
+    assert!(has_rim, "LogPanel carries the static frosted cut-glass rim");
+}
+
+#[test]
+fn on_demand_scrollbar_stays_hidden_until_overflow_and_is_quiet_at_rest() {
+    let mut app = App::new();
+    let list = app
+        .world_mut()
+        .spawn(ComputedNode {
+            size: Vec2::new(100.0, 200.0),
+            content_size: Vec2::new(100.0, 180.0),
+            inverse_scale_factor: 1.0,
+            ..default()
+        })
+        .id();
+    let bar = app
+        .world_mut()
+        .spawn((OnDemandScrollbar(list), Visibility::Hidden))
+        .id();
+    let run = |app: &mut App| {
+        app.world_mut()
+            .run_system_once(
+                |mut bars: Query<(&OnDemandScrollbar, &mut Visibility), Without<LogPanel>>,
+                 lists: Query<&ComputedNode>| {
+                    sync_on_demand_scrollbars(&mut bars, &lists);
+                },
+            )
+            .unwrap();
+    };
+    run(&mut app);
+    assert_eq!(
+        *app.world().get::<Visibility>(bar).unwrap(),
+        Visibility::Hidden
+    );
+
+    app.world_mut()
+        .get_mut::<ComputedNode>(list)
+        .unwrap()
+        .content_size
+        .y = 260.0;
+    run(&mut app);
+    assert_eq!(
+        *app.world().get::<Visibility>(bar).unwrap(),
+        Visibility::Inherited
+    );
+
+    let tick = app.world().read_change_tick();
+    app.update();
+    run(&mut app);
+    let now = app.world().read_change_tick();
+    assert!(
+        !app.world()
+            .entity(bar)
+            .get_ref::<Visibility>()
+            .unwrap()
+            .last_changed()
+            .is_newer_than(tick, now),
+        "resting scrollbar must not mark Visibility changed"
+    );
+}

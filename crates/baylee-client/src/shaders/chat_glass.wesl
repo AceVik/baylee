@@ -64,23 +64,31 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
 
     var light = 0.0;
     if params.kind < 0.5 {
-        // The window: the rim, stronger along the top, and a breath of
-        // light falling a little way in from the top edge.
+        // Smoked cut glass: a four-sided frosted bevel rim, brightest along
+        // the top catchlight with a cool top-corner reflection and a shallow
+        // top wash that fades out well before the central reading column.
         let top = 1.0 - in.uv.y;
-        light = rim * (0.08 + 0.20 * top * top) + exp(-depth / 22.0) * 0.035 * top;
-        let t = (globals.time - params.arrived) / ARRIVAL;
-        if params.motion > 0.5 && t > 0.0 && t < 1.0 {
-            // A band climbing from the foot to the head, fading as it goes,
-            // that lights the rim and washes the panel in from its sides.
-            let at = 1.0 - t;
-            let band = exp(-pow((in.uv.y - at) / 0.10, 2.0)) * (1.0 - t);
-            light += band * (0.70 * rim + 0.20 * exp(-depth / 26.0));
+        let bot = in.uv.y;
+        let corner = exp(-(in.uv.x * 2.6 + depth * 0.14)) * 0.055 * top * top;
+        light = rim * (0.14 + 0.34 * top * top + 0.05 * bot * bot)
+            + exp(-depth / 18.0) * 0.068 * top
+            + corner;
+        if params.motion > 0.5 && params.arrived > -1000.0 {
+            let t = (globals.time - params.arrived) / ARRIVAL;
+            if t > 0.0 && t < 1.0 {
+                // A band climbing from the foot to the head, fading as it goes,
+                // that lights the rim and washes the panel in from its sides.
+                let at = 1.0 - t;
+                let band = exp(-pow((in.uv.y - at) / 0.10, 2.0)) * (1.0 - t);
+                light += band * (0.72 * rim + 0.22 * exp(-depth / 26.0));
+            }
         }
     } else {
-        // The field: a faint rim without the caret; with it, a lit rim, a
-        // glow rising from the foot, and the glint going round.
-        light = rim * (0.08 + 0.30 * params.focus)
-            + exp(-depth / 10.0) * 0.06 * params.focus * in.uv.y;
+        // The field: a crisp frosted rim without the caret; with it, a lit
+        // rim, a glow rising from the foot, and the glint going round.
+        let top = 1.0 - in.uv.y;
+        light = rim * (0.13 + 0.32 * params.focus)
+            + exp(-depth / 10.0) * (0.025 * top * (1.0 - params.focus) + 0.065 * params.focus * in.uv.y);
         if params.focus > 0.5 {
             // Round the edge by angle, measured in the field's own shape so
             // the glint keeps its pace on a long, low box.

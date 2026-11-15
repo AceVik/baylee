@@ -1094,3 +1094,60 @@ fn veil_and_tray_reveal_stay_quiet_at_rest() {
         "at rest neither `Veil`, `TrayReveal`, nor their UI nodes may be marked changed"
     );
 }
+
+#[test]
+fn footer_buttons_share_width_symmetrically_and_hover_hint_explains_unready_confirm() {
+    use baylee_core::ids::{ObjectId, PlayerId};
+    use baylee_engine::choice::{ChoicePrompt, Pending};
+
+    let build = |min: u8| {
+        let it = baylee_client_core::Interaction::new(
+            Pending::ChooseCards {
+                player: PlayerId::new(0),
+                options: vec![ObjectId::new(1, 0), ObjectId::new(2, 0)],
+                min,
+                max: 2,
+                prompt: ChoicePrompt::SearchLibrary,
+                total: None,
+            },
+            PlayerId::new(0),
+        );
+        let mut app = App::new();
+        let fonts = UiFonts::default();
+        let view = ViewBuilder::new(2).build();
+        let mut queue = bevy::ecs::world::CommandQueue::default();
+        let foot = {
+            let mut commands = Commands::new(&mut queue, app.world());
+            spawn_footer(&mut commands, &fonts, Lang::En, Some(&it), &view).unwrap()
+        };
+        queue.apply(app.world_mut());
+        (app, foot)
+    };
+
+    let (app, foot) = build(0);
+    assert_eq!(app.world().get::<Node>(foot).unwrap().width, percent(100));
+    let kids: Vec<Entity> = app.world().get::<Children>(foot).unwrap().iter().collect();
+    assert_eq!(kids.len(), 2, "[Confirm | None] row");
+    for kid in kids {
+        let node = app.world().get::<Node>(kid).unwrap();
+        assert!((node.flex_grow - 1.0).abs() < f32::EPSILON);
+        assert_eq!(node.flex_basis, px(0));
+    }
+
+    let (app, unready_foot) = build(1);
+    let kids: Vec<Entity> = app
+        .world()
+        .get::<Children>(unready_foot)
+        .unwrap()
+        .iter()
+        .collect();
+    assert_eq!(kids.len(), 1);
+    let confirm = kids[0];
+    assert!(app.world().get::<PromptButton>(confirm).is_none());
+    assert!(app.world().get::<UiButton>(confirm).is_none());
+    let hint = app
+        .world()
+        .get::<crate::hud::Hint>(confirm)
+        .expect("disabled Confirm carries a hover Hint");
+    assert!(!hint.0.is_empty());
+}

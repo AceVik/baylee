@@ -133,8 +133,13 @@ pub(crate) fn install(app: &mut App) {
 /// Shows the drawer's scrollbar track only when its list overflows vertically.
 /// Uses `Visibility` rather than `Display` so toggling the scrollbar never
 /// changes the list's horizontal width or triggers a layout oscillation.
+#[allow(clippy::type_complexity)]
 fn show_drawer_scrollbar(
-    mut bars: Query<(&DrawerScrollbar, &mut Visibility)>,
+    mut bars: Query<(&DrawerScrollbar, &mut Visibility), Without<crate::hud::LogPanel>>,
+    mut extra: Query<
+        (&crate::hud::logpanel::OnDemandScrollbar, &mut Visibility),
+        (Without<DrawerScrollbar>, Without<crate::hud::LogPanel>),
+    >,
     lists: Query<&ComputedNode>,
 ) {
     for (bar, mut vis) in &mut bars {
@@ -149,6 +154,7 @@ fn show_drawer_scrollbar(
         };
         vis.set_if_neq(want);
     }
+    crate::hud::logpanel::sync_on_demand_scrollbars(&mut extra, &lists);
 }
 
 /// How far the drawer is in: 0 shut, 1 open (eased when drawn).
@@ -771,10 +777,11 @@ fn sync_door(
     host: Res<SocialHost>,
     ui: Res<ChatUi>,
     fonts: Res<UiFonts>,
+    settings: Option<Res<crate::settings::ClientSettings>>,
     phase: Option<Res<State<crate::DuelPhase>>>,
     lobby: Option<Res<crate::lobby::LobbyState>>,
     doors: Query<(Entity, &mut Visibility), With<FriendsDoor>>,
-    mut drawn: Local<Option<(usize, bool, bool)>>,
+    mut drawn: Local<Option<(usize, bool, bool, u8)>>,
     zoom: Res<super::zoom::Zoom>,
 ) {
     let _zoom = super::zoom::Scope::new(zoom.0);
@@ -809,14 +816,16 @@ fn sync_door(
         }
         return;
     };
+    let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
     let online = machine.contacts().online_count();
     let waiting = machine.contacts().waiting();
-    let now = (online, waiting, ui.drawer);
+    let now = (online, waiting, ui.drawer, lang as u8);
     let door = if let Some((door, mut seen)) = doors.iter_mut().next() {
         seen.set_if_neq(Visibility::Visible);
         door
     } else {
         *drawn = None;
+        let ground = super::rows::window_glass()[1];
         commands
             .spawn((
                 FriendsDoor,
@@ -834,11 +843,14 @@ fn sync_door(
                     padding: UiRect::axes(zpx(14.0), zpx(8.0)),
                     border: UiRect::all(zpx(1.0)),
                     border_radius: BorderRadius::all(zpx(18.0)),
+                    overflow: Overflow::clip(),
                     ..default()
                 },
-                BackgroundColor(super::rows::LOBBY_GROUND),
-                BorderColor::all(tokens::BORDER),
-                Feel::new(super::rows::LOBBY_GROUND),
+                BackgroundColor(ground),
+                super::rows::window_ground(),
+                BorderColor::all(super::rows::GLASS_EDGE),
+                super::rows::glass_shadow(),
+                Feel::new(ground),
                 super::window::stacked(1),
             ))
             .id()
@@ -848,6 +860,14 @@ fn sync_door(
     }
     *drawn = Some(now);
     commands.entity(door).despawn_children();
+    commands.entity(door).insert((
+        BorderColor::all(if waiting {
+            super::rows::WHISPER_INK
+        } else {
+            super::rows::GLASS_EDGE
+        }),
+        super::hint_bundle(ChatPhrase::FriendsTitle.text(lang)),
+    ));
     let icon = commands
         .spawn((
             Text::new(glyph::FRIENDS.to_string()),
@@ -864,7 +884,10 @@ fn sync_door(
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(door).add_children(&[icon, count]);
+    let rim = commands
+        .spawn(super::glass::layer(super::glass::Glass::Panel, zpx(18.0)))
+        .id();
+    commands.entity(door).add_children(&[icon, count, rim]);
     if waiting {
         let dot = commands
             .spawn((
@@ -1263,9 +1286,9 @@ fn sync_drawer(
                     ..default()
                 },
                 UiTransform::from_translation(Val2::px(WIDTH * zoom.0, 0.0)),
-                // A hair translucent over the painting (owner, 13.10.).
-                BackgroundColor(super::rows::LOBBY_GROUND.with_alpha(0.95)),
-                BorderColor::all(tokens::BORDER),
+                BackgroundColor(super::rows::window_glass()[1]),
+                super::rows::window_ground(),
+                BorderColor::all(super::rows::GLASS_EDGE),
                 BoxShadow(vec![
                     ShadowStyle {
                         color: Color::srgba(0.0, 0.0, 0.0, 0.65),
@@ -1306,7 +1329,10 @@ fn sync_drawer(
                 flex_shrink: 0.0,
                 ..default()
             },
-            BorderColor::all(tokens::BORDER),
+            BackgroundColor(Color::NONE),
+            super::rows::head_glass(),
+            BorderColor::all(super::rows::GLASS_RULE),
+            ZIndex(1),
         ))
         .id();
     let title = commands
@@ -1322,6 +1348,9 @@ fn sync_drawer(
         ))
         .id();
     let close = close_button(&mut commands, &fonts);
+    commands.entity(close).insert(super::hint_bundle(
+        baylee_client_core::i18n::Phrase::TransferClose.text(lang),
+    ));
     commands.entity(head).add_children(&[title, close]);
     // The list.
     let list = commands
@@ -1967,8 +1996,10 @@ fn sync_drawer(
                 flex_shrink: 0.0,
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.03, 0.06, 0.09, 0.55)),
-            BorderColor::all(tokens::BORDER),
+            BackgroundColor(Color::NONE),
+            super::rows::foot_glass(),
+            BorderColor::all(super::rows::GLASS_RULE),
+            ZIndex(1),
         ))
         .id();
     let top_row = commands
@@ -2034,7 +2065,12 @@ fn sync_drawer(
         });
         commands.entity(foot).add_child(new);
     }
-    commands.entity(root).add_children(&[head, middle, foot]);
+    let rim = commands
+        .spawn(super::glass::layer(super::glass::Glass::Panel, zpx(0.0)))
+        .id();
+    commands
+        .entity(root)
+        .add_children(&[head, middle, foot, rim]);
 }
 
 /// Renders the floating context menu (`DrawerContextMenu`) when a contact or

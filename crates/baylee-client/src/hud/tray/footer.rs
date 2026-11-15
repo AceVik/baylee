@@ -26,6 +26,7 @@ pub(super) fn spawn_footer(
     let foot = commands
         .spawn((
             Node {
+                width: percent(100),
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 column_gap: px(10),
@@ -46,15 +47,16 @@ pub(super) fn spawn_footer(
         ))
         .id();
 
-    // Lit only when the answer is complete. An unlit Confirm is not a button
-    // at all — no `Button`, no `Feel`, `Pickable::IGNORE` — for the reason a
-    // pinned zone tab is not one: a control that lights under the pointer and
-    // then refuses the click is worse than one that never invited it.
+    // Lit only when the answer is complete. An unlit Confirm carries no
+    // `Button` and no `Feel`, so it never lights under the pointer to promise
+    // a click it will refuse, while exposing why it is held as a hover tooltip.
     let ready = it.can_confirm();
     let confirm = commands
         .spawn((
             Node {
                 height: px(TRAY_FOOT_H),
+                flex_grow: 1.0,
+                flex_basis: px(0),
                 padding: UiRect::horizontal(px(18)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
@@ -117,22 +119,18 @@ pub(super) fn spawn_footer(
             Feel::new(palette::CANDLE),
         ));
     } else {
-        commands.entity(confirm).insert(Pickable::IGNORE);
+        let why = it.answer_fault().map_or_else(
+            || {
+                let turn = baylee_client_core::Turn::of(view.active, view.seat);
+                it.prompt_in(view).headline(lang, turn, None, false)
+            },
+            |fault| baylee_client_core::i18n::server_message(lang, fault.reason()),
+        );
+        commands
+            .entity(confirm)
+            .insert((crate::hud::Hint(why), Pickable::default()));
     }
     commands.entity(foot).add_child(confirm);
-    // Complete, and held back by a bound the question states (a crew short
-    // of its power): the question's own reason beside the unlit Confirm,
-    // which is what the engine would have answered the click with.
-    if let Some(fault) = it.answer_fault() {
-        let why = dialog_label(
-            commands,
-            fonts,
-            &baylee_client_core::i18n::server_message(lang, fault.reason()),
-            11.0,
-            palette::DIALOG_SOFT,
-        );
-        commands.entity(foot).add_child(why);
-    }
     if let Some(baylee_engine::choice::PlayerAction::ChooseTargetBatch { count, .. }) =
         baylee_client_core::targeting::batch_answer(it, view)
     {
@@ -146,6 +144,15 @@ pub(super) fn spawn_footer(
             &Phrase::TargetingBatch.fill(lang, &[&count.to_string()]),
             11.0,
         );
+        commands
+            .entity(batch)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.height = px(TRAY_FOOT_H);
+                node.flex_grow = 1.0;
+                node.flex_basis = px(0);
+                node.justify_content = JustifyContent::Center;
+            });
         commands.entity(foot).add_child(batch);
     }
 
@@ -183,13 +190,17 @@ pub(super) fn spawn_footer(
                 UiButton,
                 Node {
                     height: px(TRAY_FOOT_H),
+                    flex_grow: 1.0,
+                    flex_basis: px(0),
                     padding: UiRect::horizontal(px(14)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
+                    border: UiRect::all(px(1)),
                     border_radius: btn_radius(),
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
+                BorderColor::all(palette::DIALOG_LINE),
                 // A ghost button that fills in under the pointer rather than
                 // one that lightens: see the resize corner for why a rest of
                 // `Color::NONE` has to state its hot end.

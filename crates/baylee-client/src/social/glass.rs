@@ -31,8 +31,11 @@ use super::window::list::Arrive;
 /// Which look a [`Glass`] node wears.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Glass {
-    /// Over the whole window, above its parts.
+    /// Over the whole chat window, above its parts; carries chat arrivals.
     Window,
+    /// Over a static glass surface (game log, drawer, sheet, pill): wears the
+    /// cut-glass frost rim without reacting to chat arrivals.
+    Panel,
     /// Inside the composer's box.
     Field,
 }
@@ -70,10 +73,11 @@ impl UiMaterial for GlassMaterial {
 /// An arrival long enough ago that its band has run.
 pub const NEVER: f32 = -1.0e6;
 
-/// The two materials every chat surface shares, made once.
+/// The materials shared across glass surfaces, made once on first use.
 #[derive(Resource, Default)]
 pub(crate) struct Lights {
     window: Option<Handle<GlassMaterial>>,
+    panel: Option<Handle<GlassMaterial>>,
     field: Option<Handle<GlassMaterial>>,
 }
 
@@ -89,14 +93,27 @@ fn colour() -> Vec4 {
 /// the last arrival at `arrived`, and motion allowed or not.
 #[must_use]
 pub fn params(glass: Glass, focus: bool, arrived: f32, still: bool) -> GlassParams {
-    GlassParams {
-        light: colour(),
-        focus: if focus { 1.0 } else { 0.0 },
-        arrived,
-        motion: if still { 0.0 } else { 1.0 },
-        kind: match glass {
-            Glass::Window => 0.0,
-            Glass::Field => 1.0,
+    match glass {
+        Glass::Panel => GlassParams {
+            light: colour(),
+            focus: 0.0,
+            arrived: NEVER,
+            motion: 0.0,
+            kind: 0.0,
+        },
+        Glass::Window | Glass::Field => GlassParams {
+            light: colour(),
+            focus: if glass == Glass::Field && focus {
+                1.0
+            } else {
+                0.0
+            },
+            arrived,
+            motion: if still { 0.0 } else { 1.0 },
+            kind: match glass {
+                Glass::Window | Glass::Panel => 0.0,
+                Glass::Field => 1.0,
+            },
         },
     }
 }
@@ -139,7 +156,7 @@ fn dress(
     nodes: Query<(Entity, &Glass), Without<MaterialNode<GlassMaterial>>>,
     materials: Option<ResMut<Assets<GlassMaterial>>>,
     mut lights: ResMut<Lights>,
-    ui: Res<super::ChatUi>,
+    ui: Option<Res<super::ChatUi>>,
     prefs: Option<Res<crate::prefs::Prefs>>,
 ) {
     let Some(mut materials) = materials else {
@@ -149,10 +166,11 @@ fn dress(
         return;
     }
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
-    let focus = ui.typing && ui.field == Field::Composer;
+    let focus = ui.is_some_and(|u| u.typing && u.field == Field::Composer);
     for (node, glass) in &nodes {
         let slot = match glass {
             Glass::Window => &mut lights.window,
+            Glass::Panel => &mut lights.panel,
             Glass::Field => &mut lights.field,
         };
         let handle = slot
@@ -166,13 +184,13 @@ fn dress(
     }
 }
 
-/// Writes the two lights when the caret comes or goes, `reduce_motion`
-/// changes, or a chat line arrives; never at rest. A game log line arriving
-/// in the table's window moves its row but lights nothing: at a busy table
-/// that would be a band every few frames.
+/// Writes the two dynamic lights when the caret comes or goes, `reduce_motion`
+/// changes, or a chat line arrives; never at rest, and never for [`Glass::Panel`].
+/// A game log line arriving in the table's window moves its row but lights
+/// nothing: at a busy table that would be a band every few frames.
 fn light(
     time: Res<Time>,
-    ui: Res<super::ChatUi>,
+    ui: Option<Res<super::ChatUi>>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     lights: Res<Lights>,
     arrivals: Query<(), (Added<Arrive>, With<ChatRow>)>,
@@ -182,7 +200,7 @@ fn light(
         return;
     };
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
-    let focus = ui.typing && ui.field == Field::Composer;
+    let focus = ui.is_some_and(|u| u.typing && u.field == Field::Composer);
     let arrived = (!arrivals.is_empty()).then(|| time.elapsed_secs_wrapped());
     for (glass, handle) in [
         (Glass::Window, &lights.window),
@@ -196,7 +214,7 @@ fn light(
         };
         // Only the window carries an arrival; the field never moves for one.
         let since = match glass {
-            Glass::Window => arrived.unwrap_or(was.arrived),
+            Glass::Window | Glass::Panel => arrived.unwrap_or(was.arrived),
             Glass::Field => was.arrived,
         };
         let want = params(glass, focus, since, still);
@@ -238,6 +256,7 @@ mod tests {
             .init_resource::<Lights>()
             .add_systems(Update, (dress, light).chain());
         app.world_mut().spawn(layer(Glass::Window, Val::Px(6.0)));
+        app.world_mut().spawn(layer(Glass::Panel, Val::Px(6.0)));
         app.world_mut().spawn(layer(Glass::Field, Val::Px(4.0)));
         app.update();
         app.update();
@@ -272,6 +291,29 @@ mod tests {
             .resource_mut::<super::super::ChatUi>()
             .typing = true;
         app.update();
-        assert!(modified(&mut app) >= 1, "the caret lights the field");
+        assert_eq!(
+            modified(&mut app),
+            1,
+            "the caret lights only the field while static panels stay untouched"
+        );
+    }
+
+    #[test]
+    fn the_chat_glass_shader_compiles_and_fits_std140_alignment() {
+        let prelude = "\
+struct Globals {
+    time: f32,
+};
+struct UiVertexOutput {
+    @location(0) uv: vec2<f32>,
+    @location(1) border_widths: vec4<f32>,
+    @location(2) border_radius_x: vec4<f32>,
+    @location(3) border_radius_y: vec4<f32>,
+    @location(4) @interpolate(flat) size: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+";
+        crate::cardmat::tests::check_wgsl(include_str!("../shaders/chat_glass.wesl"), prelude);
+        assert_eq!(GlassParams::min_size().get(), 32);
     }
 }

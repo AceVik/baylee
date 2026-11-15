@@ -4,6 +4,53 @@
 #[allow(clippy::wildcard_imports)] // the window's own vocabulary
 use super::*;
 
+fn tab_chip(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    lang: Lang,
+    (tab, unread, urgent): (ChatTab, u32, bool),
+    on: bool,
+    inks: &Inks,
+) -> Entity {
+    let ink = if on || unread > 0 {
+        inks.ink
+    } else {
+        inks.soft
+    };
+    let label = commands
+        .spawn((
+            Text::new(tab_name(tab, lang)),
+            tf(fonts, z(12.5)),
+            TextColor(ink),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let button = commands
+        .spawn((
+            UiButton,
+            ChatPress::Tab(tab),
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                column_gap: zpx(4.0),
+                padding: UiRect::new(zpx(8.0), zpx(8.0), zpx(2.0), zpx(0.0)),
+                border: UiRect::bottom(zpx(2.0)),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            BorderColor::all(if on { inks.accent } else { Color::NONE }),
+            Feel::new(Color::NONE),
+        ))
+        .add_child(label)
+        .id();
+    if unread > 0 {
+        let pill = count_pill(commands, fonts, unread, urgent, inks);
+        commands.entity(button).add_child(pill);
+    }
+    button
+}
+
 /// The tab row's contents: the tabs left, the head's buttons right.
 pub(super) fn head_parts(
     commands: &mut Commands,
@@ -16,45 +63,15 @@ pub(super) fn head_parts(
 ) -> Vec<Entity> {
     let inks = frame.inks();
     let mut out = Vec::new();
-    for (tab, unread, urgent) in counts {
-        let on = *tab == active;
-        let ink = if on || *unread > 0 {
-            inks.ink
-        } else {
-            inks.soft
-        };
-        let label = commands
-            .spawn((
-                Text::new(tab_name(*tab, lang)),
-                tf(fonts, z(12.5)),
-                TextColor(ink),
-                Pickable::IGNORE,
-            ))
-            .id();
-        let button = commands
-            .spawn((
-                UiButton,
-                ChatPress::Tab(*tab),
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    column_gap: zpx(4.0),
-                    padding: UiRect::new(zpx(8.0), zpx(8.0), zpx(2.0), zpx(0.0)),
-                    border: UiRect::bottom(zpx(2.0)),
-                    ..default()
-                },
-                BackgroundColor(Color::NONE),
-                BorderColor::all(if on { inks.accent } else { Color::NONE }),
-                Feel::new(Color::NONE),
-            ))
-            .add_child(label)
-            .id();
-        if *unread > 0 {
-            let pill = count_pill(commands, fonts, *unread, *urgent, &inks);
-            commands.entity(button).add_child(pill);
-        }
-        out.push(button);
+    for &entry in counts {
+        out.push(tab_chip(
+            commands,
+            fonts,
+            lang,
+            entry,
+            entry.0 == active,
+            &inks,
+        ));
     }
     let spacer = commands
         .spawn((
@@ -66,7 +83,7 @@ pub(super) fn head_parts(
         ))
         .id();
     out.push(spacer);
-    let tool = |commands: &mut Commands, glyph: char, press: ChatPress| {
+    let tool = |commands: &mut Commands, glyph: char, press: ChatPress, tip: String| {
         commands
             .spawn((
                 UiButton,
@@ -83,6 +100,7 @@ pub(super) fn head_parts(
                 },
                 BackgroundColor(Color::NONE),
                 Feel::new(Color::NONE),
+                super::super::hint_bundle(tip),
                 children![(
                     Text::new(glyph.to_string()),
                     icon_tf(fonts, z(10.0)),
@@ -94,13 +112,37 @@ pub(super) fn head_parts(
     };
     // The lock is the line under the tabs (owner, 13.10.), not a tool here.
     if !guest {
-        out.push(tool(commands, glyph::FRIENDS, ChatPress::Friends));
+        out.push(tool(
+            commands,
+            glyph::FRIENDS,
+            ChatPress::Friends,
+            ChatPhrase::FriendsTitle.text(lang).to_string(),
+        ));
     }
-    out.push(tool(commands, glyph::GEAR, ChatPress::Gear));
+    out.push(tool(
+        commands,
+        glyph::GEAR,
+        ChatPress::Gear,
+        baylee_client_core::i18n::Phrase::ShowFilters
+            .text(lang)
+            .to_string(),
+    ));
     if frame == Frame::Lobby {
-        out.push(tool(commands, glyph::MINUS, ChatPress::Minimise));
+        out.push(tool(
+            commands,
+            glyph::MINUS,
+            ChatPress::Minimise,
+            ChatPhrase::ChatTitle.text(lang).to_string(),
+        ));
     }
-    out.push(tool(commands, glyph::CLOSE, ChatPress::Close));
+    out.push(tool(
+        commands,
+        glyph::CLOSE,
+        ChatPress::Close,
+        baylee_client_core::i18n::Phrase::TransferClose
+            .text(lang)
+            .to_string(),
+    ));
     out
 }
 
@@ -237,8 +279,10 @@ pub(super) fn group_bar(
                     border_radius: BorderRadius::all(zpx(6.0)),
                     ..default()
                 },
-                BackgroundColor(inks.ground.with_alpha(0.94)),
-                BorderColor::all(inks.line),
+                BackgroundColor(rows::window_glass()[0]),
+                rows::dialog_glass(),
+                BorderColor::all(rows::GLASS_EDGE),
+                rows::glass_shadow(),
                 stacked(20),
             ))
             .id();

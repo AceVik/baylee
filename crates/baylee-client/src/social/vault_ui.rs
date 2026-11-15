@@ -220,6 +220,37 @@ fn insert(form: &mut Form, text: &str) {
     }
 }
 
+fn action_disabled_reason(choice: Choice, form: &Form, host: &SocialHost) -> Option<ChatPhrase> {
+    if host.vault.busy() {
+        return Some(ChatPhrase::VaultWorking);
+    }
+    let creating = matches!(
+        choice,
+        Choice::Create | Choice::ImportFile | Choice::ImportKeychain
+    );
+    let chosen = if creating && !form.new_password.is_empty() {
+        form.new_password.text()
+    } else {
+        form.password.text()
+    };
+    if chosen.is_empty() {
+        return Some(ChatPhrase::VaultPassword);
+    }
+    let confirm = if creating {
+        chosen
+    } else {
+        form.new_password.text()
+    };
+    if confirm != form.again.text() {
+        return Some(if form.again.is_empty() {
+            ChatPhrase::VaultPasswordAgain
+        } else {
+            ChatPhrase::VaultPasswordMismatch
+        });
+    }
+    None
+}
+
 fn button(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -227,39 +258,82 @@ fn button(
     press: Press,
     focus: bool,
 ) -> Entity {
+    styled_button(commands, fonts, label, press, focus, false, None)
+}
+
+fn styled_button(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    label: &str,
+    press: Press,
+    focus: bool,
+    stretch: bool,
+    disabled_hint: Option<String>,
+) -> Entity {
+    let enabled = disabled_hint.is_none();
     let rest_border = if focus {
         tokens::ACCENT
+    } else if enabled {
+        super::rows::GLASS_RULE
     } else {
-        tokens::BORDER
+        tokens::BORDER.with_alpha(0.45)
     };
-    commands
-        .spawn((
+    let rest_bg = if enabled {
+        tokens::CONTROL
+    } else {
+        tokens::CONTROL.with_alpha(0.45)
+    };
+    let mut ent = commands.spawn((
+        Node {
+            min_height: px(42.0),
+            flex_grow: if stretch { 1.0 } else { 0.0 },
+            flex_basis: if stretch { px(0.0) } else { Val::Auto },
+            padding: UiRect::axes(px(14.0), px(9.0)),
+            border: UiRect::all(px(1.0)),
+            border_radius: BorderRadius::all(px(tokens::RADIUS_CONTROL)),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+        },
+        BackgroundColor(rest_bg),
+        BorderColor::all(rest_border),
+        children![(
+            Text::new(label),
+            tf(fonts, 13.5),
+            TextColor(if enabled { tokens::INK } else { tokens::MUTED }),
+            Pickable::IGNORE
+        )],
+    ));
+    if let Some(reason) = disabled_hint {
+        ent.insert(super::hint_bundle(reason));
+    } else {
+        ent.insert((
             UiButton,
             press,
-            Node {
-                min_height: px(44.0),
-                padding: UiRect::axes(px(14.0), px(10.0)),
-                border: UiRect::all(px(1.0)),
-                border_radius: BorderRadius::all(px(tokens::RADIUS_CONTROL)),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
-            BackgroundColor(tokens::CONTROL),
-            BorderColor::all(rest_border),
             crate::ambience::Feel::tinting_to(tokens::CONTROL, tokens::HOVER),
             crate::ambience::FeelBorder {
                 rest: rest_border,
                 hot: tokens::ACCENT,
                 press: tokens::ACCENT,
             },
-            children![(
-                Text::new(label),
-                tf(fonts, 14.0),
-                TextColor(tokens::INK),
-                Pickable::IGNORE
-            )],
+        ));
+    }
+    ent.id()
+}
+
+fn button_row(commands: &mut Commands, items: &[Entity]) -> Entity {
+    commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Stretch,
+                column_gap: px(8.0),
+                ..default()
+            },
+            Pickable::IGNORE,
         ))
+        .add_children(items)
         .id()
 }
 
@@ -415,25 +489,77 @@ fn draw(
                 max_width: Val::Percent(95.0),
                 max_height: Val::Percent(90.0),
                 flex_direction: FlexDirection::Column,
-                row_gap: px(10.0),
-                padding: UiRect::all(px(20.0)),
                 border: UiRect::all(px(1.0)),
                 border_radius: BorderRadius::all(px(tokens::RADIUS_PANEL)),
-                overflow: Overflow::scroll_y(),
+                overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(tokens::BORDER),
-            crate::shellkit::surfaces::popover_shadow(),
-            crate::hud::Scrolls,
-            bevy::ui::ScrollPosition::default(),
+            BackgroundColor(super::rows::window_glass()[0]),
+            super::rows::dialog_glass(),
+            BorderColor::all(super::rows::GLASS_EDGE),
+            super::rows::glass_shadow(),
         ))
         .id();
     commands.entity(root).add_child(card);
-    let mut children = vec![
-        words(&mut commands, &fonts, ChatPhrase::VaultTitle.text(lang)),
-        words(&mut commands, &fonts, ChatPhrase::VaultExplain.text(lang)),
-    ];
+    let head = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                padding: UiRect::axes(px(20.0), px(14.0)),
+                border: UiRect::bottom(px(1.0)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            super::rows::head_glass(),
+            BorderColor::all(super::rows::GLASS_RULE),
+            ZIndex(1),
+        ))
+        .id();
+    let title = commands
+        .spawn((
+            Text::new(ChatPhrase::VaultTitle.text(lang)),
+            crate::hud::tf_bold(&fonts, 16.0),
+            TextColor(tokens::INK),
+            Node {
+                flex_grow: 1.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let close_x = commands
+        .spawn((
+            UiButton,
+            Press::Close,
+            Node {
+                width: px(28.0),
+                height: px(28.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::all(px(tokens::RADIUS_CONTROL)),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            crate::ambience::Feel::tinting_to(Color::NONE, tokens::HOVER),
+            super::hint_bundle(baylee_client_core::i18n::Phrase::TransferClose.text(lang)),
+            children![(
+                Text::new(crate::hud::glyph::CLOSE.to_string()),
+                crate::hud::icon_tf(&fonts, 11.0),
+                TextColor(tokens::MUTED),
+                Pickable::IGNORE,
+            )],
+        ))
+        .id();
+    commands.entity(head).add_children(&[title, close_x]);
+    let mut children = vec![words(
+        &mut commands,
+        &fonts,
+        ChatPhrase::VaultExplain.text(lang),
+    )];
     if let Some(session) = host.session.as_ref() {
         children.push(words(
             &mut commands,
@@ -466,7 +592,7 @@ fn draw(
     .into_iter()
     .enumerate()
     {
-        children.push(button(
+        let field_btn = button(
             &mut commands,
             &fonts,
             &format!(
@@ -476,40 +602,136 @@ fn draw(
             ),
             Press::Field(at),
             form.focus == at,
-        ));
+        );
+        commands
+            .entity(field_btn)
+            .entry::<Node>()
+            .and_modify(|mut n| {
+                n.width = Val::Percent(100.0);
+                n.justify_content = JustifyContent::FlexStart;
+            });
+        children.push(field_btn);
     }
-    for (at, (phrase, choice)) in [
-        (ChatPhrase::VaultUnlock, Choice::Unlock),
-        (ChatPhrase::VaultImportFile, Choice::ImportFile),
-        (ChatPhrase::VaultImportKeychain, Choice::ImportKeychain),
-        (
-            if form.create_armed {
-                ChatPhrase::VaultConfirmCreate
-            } else {
-                ChatPhrase::VaultCreate
-            },
-            Choice::Create,
-        ),
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        children.push(button(
-            &mut commands,
-            &fonts,
-            phrase.text(lang),
-            Press::Action(choice),
-            form.focus == at + 3,
-        ));
-    }
-    children.push(button(
+    let reason_text = |choice: Choice| {
+        action_disabled_reason(choice, &form, &host).map(|p| p.text(lang).to_string())
+    };
+    let import_file = styled_button(
+        &mut commands,
+        &fonts,
+        ChatPhrase::VaultImportFile.text(lang),
+        Press::Action(Choice::ImportFile),
+        form.focus == 4,
+        true,
+        reason_text(Choice::ImportFile),
+    );
+    let import_keychain = styled_button(
+        &mut commands,
+        &fonts,
+        ChatPhrase::VaultImportKeychain.text(lang),
+        Press::Action(Choice::ImportKeychain),
+        form.focus == 5,
+        true,
+        reason_text(Choice::ImportKeychain),
+    );
+    children.push(button_row(&mut commands, &[import_file, import_keychain]));
+
+    let create_phrase = if form.create_armed {
+        ChatPhrase::VaultConfirmCreate
+    } else {
+        ChatPhrase::VaultCreate
+    };
+    let create_btn = styled_button(
+        &mut commands,
+        &fonts,
+        create_phrase.text(lang),
+        Press::Action(Choice::Create),
+        form.focus == 6,
+        true,
+        reason_text(Choice::Create),
+    );
+    children.push(button_row(&mut commands, &[create_btn]));
+
+    let later = styled_button(
         &mut commands,
         &fonts,
         ChatPhrase::VaultLater.text(lang),
         Press::Close,
         form.focus == 7,
-    ));
-    commands.entity(card).add_children(&children);
+        true,
+        None,
+    );
+    let unlock = styled_button(
+        &mut commands,
+        &fonts,
+        ChatPhrase::VaultUnlock.text(lang),
+        Press::Action(Choice::Unlock),
+        form.focus == 3,
+        true,
+        reason_text(Choice::Unlock),
+    );
+    children.push(button_row(&mut commands, &[later, unlock]));
+
+    let list = commands
+        .spawn((
+            crate::hud::Scrolls,
+            bevy::ui::ScrollPosition::default(),
+            Node {
+                flex_direction: FlexDirection::Column,
+                flex_grow: 1.0,
+                min_width: px(0.0),
+                min_height: px(0.0),
+                row_gap: px(10.0),
+                padding: UiRect::all(px(20.0)),
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+        ))
+        .id();
+    commands.entity(list).add_children(&children);
+    let track = crate::hud::logpanel::scrollbar(
+        &mut commands,
+        list,
+        (
+            super::rows::GLASS_EDGE.with_alpha(0.32),
+            tokens::ACCENT.with_alpha(0.84),
+        ),
+        crate::hud::logpanel::at_rest,
+    );
+    commands
+        .entity(track)
+        .insert((
+            crate::hud::logpanel::OnDemandScrollbar(list),
+            Visibility::Hidden,
+        ))
+        .entry::<Node>()
+        .and_modify(|mut n| {
+            n.position_type = PositionType::Absolute;
+            n.right = px(4.0);
+            n.top = px(8.0);
+            n.bottom = px(8.0);
+            n.width = px(5.0);
+        });
+    let body = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Row,
+                flex_grow: 1.0,
+                min_height: px(0.0),
+                ..default()
+            },
+            ZIndex(1),
+            Pickable::IGNORE,
+        ))
+        .add_children(&[list, track])
+        .id();
+    let rim = commands
+        .spawn(super::glass::layer(
+            super::glass::Glass::Panel,
+            px(tokens::RADIUS_PANEL),
+        ))
+        .id();
+    commands.entity(card).add_children(&[head, body, rim]);
 }
 
 fn error_words(error: Error) -> ChatPhrase {
@@ -651,5 +873,72 @@ mod tests {
         assert_eq!(form.password.text(), "password");
         act(Press::Close, &mut form, &mut host, &mut ChatUi::default());
         assert!(!form.create_armed);
+    }
+
+    #[test]
+    fn vault_rows_are_symmetric_and_disabled_actions_expose_hover_reasons() {
+        let mut form = Form::default();
+        let host = SocialHost::default();
+        assert_eq!(
+            action_disabled_reason(Choice::Unlock, &form, &host),
+            Some(ChatPhrase::VaultPassword)
+        );
+        form.password.set("secret", 6, None);
+        assert_eq!(action_disabled_reason(Choice::Unlock, &form, &host), None);
+        assert_eq!(
+            action_disabled_reason(Choice::Create, &form, &host),
+            Some(ChatPhrase::VaultPasswordAgain)
+        );
+        form.again.set("typo", 4, None);
+        assert_eq!(
+            action_disabled_reason(Choice::Create, &form, &host),
+            Some(ChatPhrase::VaultPasswordMismatch)
+        );
+        form.again.set("secret", 6, None);
+        assert_eq!(action_disabled_reason(Choice::Create, &form, &host), None);
+
+        let mut app = App::new();
+        let fonts = UiFonts::default();
+        let (row, disabled, enabled) = {
+            let mut commands = app.world_mut().commands();
+            let a = styled_button(
+                &mut commands,
+                &fonts,
+                "Unlock",
+                Press::Action(Choice::Unlock),
+                false,
+                true,
+                Some("Password required".into()),
+            );
+            let b = styled_button(
+                &mut commands,
+                &fonts,
+                "Later",
+                Press::Close,
+                false,
+                true,
+                None,
+            );
+            let r = button_row(&mut commands, &[a, b]);
+            (r, a, b)
+        };
+        app.world_mut().flush();
+        assert_eq!(
+            app.world().get::<Node>(row).unwrap().width,
+            Val::Percent(100.0)
+        );
+        for btn in [disabled, enabled] {
+            let n = app.world().get::<Node>(btn).unwrap();
+            assert!((n.flex_grow - 1.0).abs() < f32::EPSILON);
+            assert_eq!(n.flex_basis, px(0.0));
+        }
+        assert!(app.world().get::<UiButton>(disabled).is_none());
+        assert_eq!(
+            app.world()
+                .get::<crate::hud::Hint>(disabled)
+                .map(|h| h.0.as_str()),
+            Some("Password required")
+        );
+        assert!(app.world().get::<UiButton>(enabled).is_some());
     }
 }

@@ -234,6 +234,7 @@ fn line(commands: &mut Commands) -> Entity {
     commands
         .spawn((
             Node {
+                width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 flex_wrap: FlexWrap::Wrap,
@@ -244,6 +245,17 @@ fn line(commands: &mut Commands) -> Entity {
             Pickable::IGNORE,
         ))
         .id()
+}
+
+fn stretch(commands: &mut Commands, id: Entity) -> Entity {
+    commands.entity(id).entry::<Node>().and_modify(|mut n| {
+        n.flex_grow = 1.0;
+        n.flex_basis = zpx(0.0);
+        n.min_height = zpx(32.0);
+        n.align_items = AlignItems::Center;
+        n.justify_content = JustifyContent::Center;
+    });
+    id
 }
 
 fn switch(
@@ -379,7 +391,10 @@ fn safety_block(
             true,
         )
     };
-    out.push(verify);
+    let verify_row = line(commands);
+    let verify = stretch(commands, verify);
+    commands.entity(verify_row).add_child(verify);
+    out.push(verify_row);
     out
 }
 
@@ -445,18 +460,15 @@ fn sync(
                 width: zpx(560.0),
                 max_height: Val::Percent(88.0),
                 flex_direction: FlexDirection::Column,
-                row_gap: zpx(10.0),
-                padding: UiRect::all(zpx(20.0)),
                 border: UiRect::all(zpx(1.0)),
                 border_radius: BorderRadius::all(zpx(tokens::RADIUS_PANEL)),
-                overflow: Overflow::scroll_y(),
+                overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(tokens::BORDER),
-            crate::shellkit::surfaces::popover_shadow(),
-            crate::hud::Scrolls,
-            bevy::ui::ScrollPosition::default(),
+            BackgroundColor(super::rows::window_glass()[0]),
+            super::rows::dialog_glass(),
+            BorderColor::all(super::rows::GLASS_EDGE),
+            super::rows::glass_shadow(),
         ))
         .id();
     commands.entity(scrim).add_child(card);
@@ -464,7 +476,24 @@ fn sync(
         Sheet::Encryption(_) | Sheet::Safety(_) => ChatPhrase::EncryptionTitle,
         Sheet::Privacy => ChatPhrase::PrivacyTitle,
     };
-    let head = line(&mut commands);
+    let head = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                padding: UiRect::axes(zpx(20.0), zpx(14.0)),
+                border: UiRect::bottom(zpx(1.0)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            super::rows::head_glass(),
+            BorderColor::all(super::rows::GLASS_RULE),
+            ZIndex(1),
+        ))
+        .id();
     let name = commands
         .spawn((
             Text::new(format!("{} {}", glyph::LOCK, title.text(lang))),
@@ -491,6 +520,7 @@ fn sync(
             },
             BackgroundColor(Color::NONE),
             Feel::tinting_to(Color::NONE, tokens::HOVER),
+            super::hint_bundle(baylee_client_core::i18n::Phrase::TransferClose.text(lang)),
             children![(
                 Text::new(glyph::CLOSE.to_string()),
                 icon_tf(&fonts, z(11.0)),
@@ -500,7 +530,7 @@ fn sync(
         ))
         .id();
     commands.entity(head).add_children(&[name, close]);
-    let mut kids = vec![head];
+    let mut kids = Vec::new();
     if let Some(backup) = backup {
         kids.push(words(
             &mut commands,
@@ -528,13 +558,17 @@ fn sync(
                 12.5,
             ));
             if !note.seen {
-                kids.push(button(
+                let row = line(&mut commands);
+                let got_it = button(
                     &mut commands,
                     &fonts,
                     ChatPhrase::GotIt.text(lang),
                     SheetPress::GotIt,
                     true,
-                ));
+                );
+                let got_it = stretch(&mut commands, got_it);
+                commands.entity(row).add_child(got_it);
+                kids.push(row);
             }
             if let Some(conv) = conv {
                 if let Some((people, devices)) = machine.encrypted_to(conv) {
@@ -563,7 +597,7 @@ fn sync(
                 if let [only] = partners.as_slice() {
                     let block = safety_block(&mut commands, &fonts, lang, machine, only);
                     kids.extend(block);
-                } else {
+                } else if !partners.is_empty() {
                     let row = line(&mut commands);
                     for tag in partners {
                         let b = button(
@@ -573,6 +607,7 @@ fn sync(
                             SheetPress::Safety(tag),
                             false,
                         );
+                        let b = stretch(&mut commands, b);
                         commands.entity(row).add_child(b);
                     }
                     kids.push(row);
@@ -616,6 +651,7 @@ fn sync(
                     SheetPress::WhispersFrom(WhispersFrom::Friends),
                     social.whispers_from == WhispersFrom::Friends,
                 );
+                let a = stretch(&mut commands, a);
                 let b = button(
                     &mut commands,
                     &fonts,
@@ -623,6 +659,7 @@ fn sync(
                     SheetPress::WhispersFrom(WhispersFrom::FriendsAndTables),
                     social.whispers_from == WhispersFrom::FriendsAndTables,
                 );
+                let b = stretch(&mut commands, b);
                 commands.entity(row).add_children(&[a, b]);
                 kids.push(row);
                 kids.push(switch(
@@ -701,6 +738,12 @@ fn sync(
                     SheetPress::Sound(u8::try_from(n).unwrap_or(0)),
                     on,
                 );
+                commands.entity(b).entry::<Node>().and_modify(|mut node| {
+                    node.flex_grow = 1.0;
+                    node.min_height = zpx(30.0);
+                    node.align_items = AlignItems::Center;
+                    node.justify_content = JustifyContent::Center;
+                });
                 commands.entity(row).add_child(b);
             }
             kids.push(row);
@@ -760,13 +803,15 @@ fn sync(
                     11.5,
                 ));
             } else {
-                kids.push(button(
+                let actions = line(&mut commands);
+                let safety_btn = button(
                     &mut commands,
                     &fonts,
                     ChatPhrase::SafetyButton.text(lang),
                     SheetPress::Safety(machine.me().tag.clone()),
                     false,
-                ));
+                );
+                let safety_btn = stretch(&mut commands, safety_btn);
                 let forget = button(
                     &mut commands,
                     &fonts,
@@ -774,16 +819,23 @@ fn sync(
                     SheetPress::Forget,
                     ui.forget_armed,
                 );
-                kids.push(forget);
+                let forget = stretch(&mut commands, forget);
                 if ui.forget_armed {
-                    kids.push(words(
-                        &mut commands,
-                        &fonts,
-                        ChatPhrase::ForgetConfirm.text(lang).to_string(),
-                        palette::DANGER,
-                        12.0,
+                    let bg = palette::DANGER.with_alpha(0.22);
+                    commands.entity(forget).insert((
+                        BackgroundColor(bg),
+                        BorderColor::all(palette::DANGER),
+                        Feel::tinting_to(bg, tokens::HOVER),
+                        crate::ambience::FeelBorder {
+                            rest: palette::DANGER,
+                            hot: palette::DANGER,
+                            press: palette::DANGER,
+                        },
+                        super::hint_bundle(ChatPhrase::ForgetConfirm.text(lang)),
                     ));
                 }
+                commands.entity(actions).add_children(&[safety_btn, forget]);
+                kids.push(actions);
             }
             let blocked = &machine.contacts().blocked;
             if !blocked.is_empty() {
@@ -803,6 +855,10 @@ fn sync(
                         tokens::INK,
                         12.0,
                     );
+                    commands.entity(name).insert(Node {
+                        flex_grow: 1.0,
+                        ..default()
+                    });
                     let b = button(
                         &mut commands,
                         &fonts,
@@ -823,7 +879,67 @@ fn sync(
             ));
         }
     }
-    commands.entity(card).add_children(&kids);
+    let list = commands
+        .spawn((
+            crate::hud::Scrolls,
+            bevy::ui::ScrollPosition::default(),
+            Node {
+                flex_direction: FlexDirection::Column,
+                flex_grow: 1.0,
+                min_width: zpx(0.0),
+                min_height: zpx(0.0),
+                row_gap: zpx(10.0),
+                padding: UiRect::all(zpx(20.0)),
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+        ))
+        .id();
+    commands.entity(list).add_children(&kids);
+    let track = crate::hud::logpanel::scrollbar(
+        &mut commands,
+        list,
+        (
+            super::rows::GLASS_EDGE.with_alpha(0.32),
+            tokens::ACCENT.with_alpha(0.84),
+        ),
+        crate::hud::logpanel::at_rest,
+    );
+    commands
+        .entity(track)
+        .insert((
+            crate::hud::logpanel::OnDemandScrollbar(list),
+            Visibility::Hidden,
+        ))
+        .entry::<Node>()
+        .and_modify(|mut n| {
+            n.position_type = PositionType::Absolute;
+            n.right = zpx(4.0);
+            n.top = zpx(8.0);
+            n.bottom = zpx(8.0);
+            n.width = zpx(5.0);
+        });
+    let body = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Row,
+                flex_grow: 1.0,
+                min_height: zpx(0.0),
+                ..default()
+            },
+            ZIndex(1),
+            Pickable::IGNORE,
+        ))
+        .add_children(&[list, track])
+        .id();
+    let rim = commands
+        .spawn(super::glass::layer(
+            super::glass::Glass::Panel,
+            zpx(tokens::RADIUS_PANEL),
+        ))
+        .id();
+    commands.entity(card).add_children(&[head, body, rim]);
 }
 
 #[cfg(test)]

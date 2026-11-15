@@ -71,13 +71,7 @@ pub(crate) fn stacked(offset: i32) -> (GlobalZIndex, Stack) {
 
 /// The quiet elevation shared by the lobby window and the table's panel.
 fn elevation() -> BoxShadow {
-    BoxShadow::new(
-        Color::srgba(0.0, 0.0, 0.0, 0.42),
-        zpx(0.0),
-        zpx(8.0),
-        zpx(0.0),
-        zpx(22.0),
-    )
+    rows::glass_shadow()
 }
 
 /// Where a surface `offset` over [`G_PANEL`] at the table stands in the
@@ -90,7 +84,8 @@ pub(crate) fn lobby_z(offset: i32) -> i32 {
         0 => z::PAGE + 2,
         1 => z::PAGE + 3,
         40 => z::TOAST,
-        50 => z::SHEET + 1,
+        50 | 51 => z::SHEET + 1,
+        70 => z::SHEET + 2,
         menu => (z::PAGE + 5 + menu / 15).min(z::POPOVER - 1),
     }
 }
@@ -929,10 +924,12 @@ fn sync_lobby_window(
                     width: zpx(size.width),
                     flex_direction: FlexDirection::Column,
                     border_radius: BorderRadius::all(zpx(6.0)),
+                    overflow: Overflow::clip(),
                     ..default()
                 },
+                BackgroundColor(rows::window_glass()[1]),
                 rows::window_ground(),
-                BorderColor::all(LOBBY_INKS.line),
+                BorderColor::all(rows::GLASS_EDGE),
                 elevation(),
                 stacked(0),
                 Visibility::Visible,
@@ -1009,7 +1006,11 @@ fn sync_lobby_window(
                 Val::Auto,
                 zpx(0.0),
                 BorderRadius::all(zpx(6.0)),
-                UiRect::ZERO,
+                if ui.open {
+                    UiRect::all(zpx(1.0))
+                } else {
+                    UiRect::ZERO
+                },
             )
         };
         if node.left != left {
@@ -1169,11 +1170,17 @@ fn chat_pill(
     urgent: bool,
 ) -> Entity {
     let label = ChatPhrase::ChatTitle.text(lang).to_string();
+    let tip = if unread > 0 {
+        ChatPhrase::ChatDoor.fill(lang, &[&unread.to_string()])
+    } else {
+        label.clone()
+    };
     let border = if urgent {
         rows::WHISPER_INK
     } else {
-        LOBBY_INKS.line
+        rows::GLASS_EDGE
     };
+    let ground = rows::window_glass()[1];
     let pill = commands
         .spawn((
             UiButton,
@@ -1188,11 +1195,15 @@ fn chat_pill(
                 margin: UiRect::bottom(zpx(12.0)),
                 border: UiRect::all(zpx(1.0)),
                 border_radius: BorderRadius::all(zpx(18.0)),
+                overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(LOBBY_INKS.ground),
+            BackgroundColor(ground),
+            rows::window_ground(),
             BorderColor::all(border),
-            Feel::new(LOBBY_INKS.ground),
+            rows::glass_shadow(),
+            Feel::new(ground),
+            super::hint_bundle(tip),
             children![
                 (
                     Text::new(glyph::CHAT.to_string()),
@@ -1213,6 +1224,10 @@ fn chat_pill(
         let dot = count_pill(commands, fonts, unread, urgent, &LOBBY_INKS);
         commands.entity(pill).add_child(dot);
     }
+    let rim = commands
+        .spawn(super::glass::layer(super::glass::Glass::Panel, zpx(18.0)))
+        .id();
+    commands.entity(pill).add_child(rim);
     pill
 }
 
@@ -1275,8 +1290,9 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
                 border_radius: BorderRadius::top(zpx(6.0)),
                 ..default()
             },
-            BackgroundColor(inks.lit),
-            BorderColor::all(inks.line),
+            BackgroundColor(Color::NONE),
+            rows::head_glass(),
+            BorderColor::all(rows::GLASS_RULE),
             BoxShadow::new(
                 Color::srgba(0.0, 0.0, 0.0, 0.22),
                 zpx(0.0),
@@ -1301,8 +1317,9 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
                 border: UiRect::bottom(zpx(1.0)),
                 ..default()
             },
-            BackgroundColor(inks.lit),
-            BorderColor::all(inks.line),
+            BackgroundColor(Color::NONE),
+            rows::head_glass(),
+            BorderColor::all(rows::GLASS_RULE),
             BoxShadow::new(
                 Color::srgba(0.0, 0.0, 0.0, 0.22),
                 zpx(0.0),
@@ -1378,7 +1395,10 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
     let track = logpanel::scrollbar(
         commands,
         list,
-        (inks.line.with_alpha(0.35), inks.accent.with_alpha(0.8)),
+        (
+            rows::GLASS_EDGE.with_alpha(0.32),
+            inks.accent.with_alpha(0.84),
+        ),
         logpanel::at_rest,
     );
     commands.entity(track).insert(ChatScrollbar);
@@ -1452,8 +1472,9 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
                 border: UiRect::top(zpx(1.0)),
                 ..default()
             },
-            BackgroundColor(inks.lit),
-            BorderColor::all(inks.line),
+            BackgroundColor(Color::NONE),
+            rows::foot_glass(),
+            BorderColor::all(rows::GLASS_RULE),
             BoxShadow::new(
                 Color::srgba(0.0, 0.0, 0.0, 0.24),
                 zpx(0.0),

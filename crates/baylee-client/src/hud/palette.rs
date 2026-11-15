@@ -271,3 +271,26 @@ pub const TABLE_VEIL: Color = Color::srgba(0.020, 0.030, 0.055, 0.70);
 /// that way is a slightly paler tenth, which is not an answer a player
 /// can see. Twice the wash is.
 pub const CANDLE_WASH_LIT: Color = Color::srgba(0.878, 0.604, 0.227, 0.20);
+
+// ------------------------------------------------------ smoked log glass
+//
+// The game log and AI log stand over bright card frames, fire and baize while
+// the game goes on under them. A flat `DIALOG` at 0.68 let saturated card art
+// bleed straight through prose and timestamps; smoked obsidian-slate glass at
+// 0.91 → 0.88 keeps the feeling of cut glass floating over the felt while
+// holding primary and quiet ink well above 4.5 : 1 even over bright orange art.
+
+/// Smoked-glass top stop for floating table log panels.
+pub const LOG_GLASS_TOP: Color = Color::srgba(0.066, 0.078, 0.096, 0.91);
+/// Smoked-glass bottom stop for floating table log panels.
+pub const LOG_GLASS_BOTTOM: Color = Color::srgba(0.040, 0.048, 0.062, 0.88);
+/// Luminous frosted cut-glass outer rim on floating log panels and tooltips.
+pub const LOG_GLASS_EDGE: Color = Color::srgba(0.60, 0.72, 0.84, 0.38);
+/// Subtle inner glass rule separating a log panel's header and turn headings.
+pub const LOG_GLASS_RULE: Color = Color::srgba(0.54, 0.66, 0.78, 0.24);
+/// Translucent frosted top sheen on a log panel's header bar.
+pub const LOG_HEAD_TOP: Color = Color::srgba(0.15, 0.18, 0.22, 0.58);
+/// Translucent frosted bottom stop on a log panel's header bar.
+pub const LOG_HEAD_BOTTOM: Color = Color::srgba(0.07, 0.08, 0.11, 0.26);
+/// Quiet ink lifted for smoked-glass log surfaces (>= 5.0 : 1 over bright fire).
+pub const LOG_SOFT: Color = Color::srgb(0.71, 0.67, 0.58);

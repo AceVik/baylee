@@ -729,6 +729,7 @@ pub(super) fn spawn_tray(
             Node {
                 flex_direction: FlexDirection::Column,
                 flex_grow: 1.0,
+                min_width: px(0),
                 min_height: px(0),
                 overflow: Overflow::scroll_y(),
                 ..default()
@@ -898,7 +899,41 @@ pub(super) fn spawn_tray(
             .id()
     });
 
-    commands.entity(panel).add_children(&[head, list]);
+    let bar = crate::hud::ledge::log::scrollbar(
+        commands,
+        list,
+        (
+            palette::DOCK_EDGE.with_alpha(0.35),
+            palette::CANDLE.with_alpha(0.8),
+        ),
+        crate::hud::ledge::log::at_rest,
+    );
+    let bar_bottom = if corner.is_some() { 26.0 } else { 4.0 };
+    commands
+        .entity(bar)
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            node.margin = UiRect::new(px(2), px(4), px(4), px(bar_bottom));
+        });
+    commands.entity(bar).insert((
+        crate::hud::ledge::log::OnDemandScrollbar(list),
+        Visibility::Hidden,
+    ));
+    let body = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                flex_grow: 1.0,
+                min_height: px(0),
+                width: percent(100),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .add_children(&[list, bar])
+        .id();
+
+    commands.entity(panel).add_children(&[head, body]);
     if let Some(foot) = foot {
         commands.entity(panel).add_child(foot);
     }

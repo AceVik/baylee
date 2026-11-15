@@ -22,6 +22,7 @@ use super::*;
 
 /// The words a control is named by.
 #[derive(Component, Clone, PartialEq, Eq, Debug)]
+#[require(bevy::picking::hover::PickingInteraction)]
 pub struct Hint(pub String);
 
 /// The one bubble that says the hovered control's [`Hint`].
@@ -142,13 +143,14 @@ fn spawn_bubble(commands: &mut Commands, fonts: &UiFonts) {
         Node {
             position_type: PositionType::Absolute,
             max_width: px(HINT_MAX_W),
-            padding: UiRect::axes(px(8), px(5)),
+            padding: UiRect::axes(px(9), px(5)),
             border: UiRect::all(px(1)),
-            border_radius: BorderRadius::all(px(4)),
+            border_radius: BorderRadius::all(px(5)),
             ..default()
         },
-        BackgroundColor(palette::DIALOG_LIT.with_alpha(0.96)),
-        BorderColor::all(palette::DIALOG_LINE),
+        BackgroundColor(palette::LOG_GLASS_TOP.with_alpha(0.96)),
+        BorderColor::all(palette::LOG_GLASS_EDGE),
+        soft_shadow(),
         GlobalZIndex(G_HINT),
         Visibility::Hidden,
         Pickable::IGNORE,
@@ -161,6 +163,7 @@ fn spawn_bubble(commands: &mut Commands, fonts: &UiFonts) {
     ));
 }
 
-/// The bubble's rung: over the table's HUD and its sheets, under nothing a
-/// player summons on purpose.
-const G_HINT: i32 = 6;
+/// The bubble's rung: above the table's HUD, zone sheets, game menu and
+/// floating chat/vault dialogs (`900..970`), so disabled-control explanations
+/// on modal sheets are never buried underneath the sheet they explain.
+const G_HINT: i32 = 1200;

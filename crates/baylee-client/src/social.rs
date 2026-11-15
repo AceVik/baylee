@@ -729,6 +729,19 @@ pub(crate) fn install(app: &mut App) {
     vault_ui::install(app);
 }
 
+/// Attaches a hover tooltip that renders in both the lobby (`HoverHint`) and
+/// at a game table (`hud::Hint`), including on disabled controls without
+/// `UiButton`.
+pub(crate) fn hint_bundle(words: impl Into<String>) -> impl Bundle {
+    let words = words.into();
+    (
+        crate::lobby::HoverHint(words.clone()),
+        crate::hud::Hint(words),
+        Pickable::default(),
+        bevy::picking::hover::PickingInteraction::default(),
+    )
+}
+
 /// The lobby's chat grows with the shell past 1920 × 1080 and with the text
 /// step; at the table the HUD's `UiScale` grows it, so the zoom is 1 there.
 /// A change takes the lobby's chat surfaces down to be drawn again at it.

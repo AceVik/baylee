@@ -12,16 +12,28 @@
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
+use crate::ui_button::UiButton;
 use baylee_client_core::aisaid::{self, Kind};
 
-use super::log::{LOG_H, LOG_PAD};
+use super::log::{LOG_H, LOG_HEAD_H, LOG_PAD, LOG_ROW_GAP};
 const LINE_PT: f32 = 13.0;
+const CLOSE_SIZE: f32 = LOG_HEAD_H - 2.0;
+const CLOSE_PT: f32 = 10.0;
 
 /// The panel.
 #[derive(Component)]
 pub struct AiLogPanel;
 
-/// Spawns the panel, hidden; [`update_ai_log`] shows it while it is open.
+/// The scrolling list inside [`AiLogPanel`].
+#[derive(Component)]
+pub(crate) struct AiLogList;
+
+/// The panel's header title, kept in step with the active language.
+#[derive(Component)]
+pub struct AiLogTitle;
+
+/// Spawns the panel, hidden; [`update_ai_log`] dresses its interior on first
+/// use and shows it while it is open.
 pub(in crate::hud) fn spawn(commands: &mut Commands) -> Entity {
     commands
         .spawn((
@@ -35,24 +47,147 @@ pub(in crate::hud) fn spawn(commands: &mut Commands) -> Entity {
                 flex_direction: FlexDirection::Column,
                 border: UiRect::all(px(1)),
                 border_radius: BorderRadius::top(px(STRIP_R)),
-                overflow: Overflow::scroll_y(),
-                padding: UiRect::all(px(10.0)),
+                overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(palette::DIALOG),
-            BorderColor::all(palette::DIALOG_LINE),
+            BackgroundColor(palette::LOG_GLASS_BOTTOM),
+            log::log_glass_ground(),
+            BorderColor::all(palette::LOG_GLASS_EDGE),
+            log::log_glass_shadow(),
             ZIndex(Z_LOG),
             Visibility::Hidden,
-            bevy::ui::ScrollPosition::default(),
         ))
         .id()
+}
+
+fn title_words(lang: Lang) -> String {
+    format!(
+        "{} · {}",
+        Phrase::RoomAi.text(lang),
+        Phrase::GameLogTitle.text(lang)
+    )
+}
+
+fn ai_log_head(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
+    let title = commands
+        .spawn((
+            AiLogTitle,
+            Text::new(title_words(lang)),
+            tf(fonts, LABEL_PT),
+            TextColor(palette::DIALOG_INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let close = commands
+        .spawn((
+            UiButton,
+            MenuButton {
+                action: MenuAction::ToggleAiLog,
+            },
+            Node {
+                width: px(CLOSE_SIZE),
+                height: px(CLOSE_SIZE),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px(1)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(palette::LOG_GLASS_TOP.with_alpha(0.55)),
+            BorderColor::all(palette::LOG_GLASS_RULE),
+            Feel::new(palette::LOG_GLASS_TOP.with_alpha(0.55)),
+            crate::hud::Hint(Phrase::SheetClose.text(lang).to_string()),
+            children![(
+                Text::new(glyph::CLOSE.to_string()),
+                icon_tf(fonts, CLOSE_PT),
+                TextColor(palette::LOG_SOFT),
+                Pickable::IGNORE,
+            )],
+        ))
+        .id();
+    commands
+        .spawn((
+            Node {
+                height: px(LOG_HEAD_H),
+                flex_shrink: 0.0,
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                padding: UiRect::new(px(LOG_PAD), px(1), px(0), px(0)),
+                border: UiRect::bottom(px(1)),
+                border_radius: BorderRadius::top(px(STRIP_R)),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            log::log_head_ground(),
+            BorderColor::all(palette::LOG_GLASS_RULE),
+            ZIndex(1),
+            Pickable::IGNORE,
+        ))
+        .add_children(&[title, close])
+        .id()
+}
+
+fn build_inside(commands: &mut Commands, panel: Entity, fonts: &UiFonts, lang: Lang) -> Entity {
+    let head = ai_log_head(commands, fonts, lang);
+    let list = commands
+        .spawn((
+            AiLogList,
+            Scrolls,
+            bevy::ui::ScrollPosition::default(),
+            Node {
+                flex_direction: FlexDirection::Column,
+                flex_grow: 1.0,
+                min_width: px(0),
+                min_height: px(0),
+                row_gap: px(LOG_ROW_GAP),
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+        ))
+        .id();
+    let track = log::scrollbar(
+        commands,
+        list,
+        (
+            palette::LOG_GLASS_EDGE.with_alpha(0.32),
+            palette::CANDLE.with_alpha(0.84),
+        ),
+        log::at_rest,
+    );
+    commands
+        .entity(track)
+        .insert((log::OnDemandScrollbar(list), Visibility::Hidden));
+    let body = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Row,
+                flex_grow: 1.0,
+                min_height: px(0),
+                padding: UiRect::all(px(LOG_PAD)),
+                column_gap: px(4),
+                ..default()
+            },
+            ZIndex(1),
+            Pickable::IGNORE,
+        ))
+        .add_children(&[list, track])
+        .id();
+    let rim = commands
+        .spawn(crate::social::glass::layer(
+            crate::social::glass::Glass::Panel,
+            px(STRIP_R),
+        ))
+        .id();
+    crate::hud::add_children_if_alive(commands, panel, &[head, body, rim]);
+    list
 }
 
 /// The ink a line is drawn in.
 fn ink(kind: Kind) -> Color {
     match kind {
         Kind::Head => palette::DIALOG_INK,
-        Kind::Thinking | Kind::Cost => palette::DIALOG_SOFT,
+        Kind::Thinking | Kind::Cost => palette::LOG_SOFT,
         Kind::Chose | Kind::Say => palette::LEDGE_SOFT,
     }
 }
@@ -61,6 +196,8 @@ fn ink(kind: Kind) -> Color {
 pub fn update_ai_log(
     mut commands: Commands,
     mut panels: Query<(Entity, &mut Visibility), With<AiLogPanel>>,
+    lists: Query<Entity, With<AiLogList>>,
+    mut titles: Query<&mut Text, With<AiLogTitle>>,
     fonts: Res<UiFonts>,
     settings: Res<crate::settings::ClientSettings>,
     mut duel: ResMut<Duel>,
@@ -89,10 +226,23 @@ pub fn update_ai_log(
     } else {
         Visibility::Hidden
     };
+    let existing = lists.iter().next();
+    if existing.is_some() {
+        let want = title_words(lang);
+        for mut title in &mut titles {
+            if title.0 != want {
+                title.0.clone_from(&want);
+            }
+        }
+    }
     for (panel, mut seen) in &mut panels {
         if *seen != shown {
             *seen = shown;
         }
+        if !duel.ai_log_open && lines.is_empty() {
+            continue;
+        }
+        let target = existing.unwrap_or_else(|| build_inside(&mut commands, panel, &fonts, lang));
         for line in &lines {
             let row = commands
                 .spawn((
@@ -100,12 +250,15 @@ pub fn update_ai_log(
                     tf(&fonts, LINE_PT),
                     TextColor(ink(line.kind)),
                     Node {
-                        margin: UiRect::all(px(4.0)),
+                        margin: UiRect::vertical(px(2.0)),
+                        overflow: log::TEXT_OWN_HEIGHT,
+                        flex_shrink: 0.0,
                         ..default()
                     },
+                    Pickable::IGNORE,
                 ))
                 .id();
-            crate::hud::add_child_if_alive(&mut commands, panel, row);
+            crate::hud::add_child_if_alive(&mut commands, target, row);
         }
     }
 }
