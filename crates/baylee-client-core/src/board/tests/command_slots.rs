@@ -202,3 +202,34 @@ fn a_dungeon_in_a_non_commander_game_shows_the_command_slot() {
         Some("Lost Mine of Phandelver — Cave Entrance")
     );
 }
+
+#[test]
+fn a_visible_native_command_object_keeps_its_portrait_identity() {
+    let mut potion = token(90, 0, "Mana Draught", 0, 0);
+    potion.token = Some(8);
+    let expected = Some(ImageKey::token(8, ArtSize::Small));
+    let view = ViewBuilder::new(2)
+        .with_command(0, vec![potion.clone()])
+        .build();
+    let piles = zone_piles(&view, PlayerId::new(0));
+    let command = piles.iter().find(|p| p.kind == PileKind::Command).unwrap();
+    assert_eq!(command.art, expected);
+    assert_eq!(fanned(&potion).art, expected);
+
+    potion.status = ObjectStatus::FACE_DOWN;
+    assert!(
+        zone_art(&potion).is_none(),
+        "a hidden token identity is not illustrated"
+    );
+    potion.status = ObjectStatus::default();
+    potion.token = None;
+    assert!(
+        zone_art(&potion).is_none(),
+        "a name cannot invent an identity"
+    );
+    let card = printed(91, 0, "Ordinary card", 0);
+    assert_eq!(
+        zone_art(&card),
+        card.card.map(|c| ImageKey::of(c, ArtSize::Small))
+    );
+}

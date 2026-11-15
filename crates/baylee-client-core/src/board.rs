@@ -1907,9 +1907,7 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
             ZonePile {
                 kind,
                 count,
-                art: top
-                    .and_then(|o| o.card)
-                    .map(|c| ImageKey::of(c, ArtSize::Small)),
+                art: top.and_then(zone_art),
                 name: top.map(|o| o.name.to_string()),
                 top: top.map(|o| o.id),
                 fan,
@@ -1927,17 +1925,29 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
 
 /// One card of a pile, as the fan wants it.
 ///
-/// The picture is read off `card` exactly as the pile's own top card is, and
-/// not through [`art_of`]: a card nobody may look at has no `card` at all —
-/// the view is what withholds it — so the blank slot here is the view's
-/// answer and not a second rule.
+/// The picture uses the same visible identity as the pile's own top card.
 fn fanned(object: &PublicObject) -> FannedCard {
     FannedCard {
         object: object.id,
-        art: object.card.map(|c| ImageKey::of(c, ArtSize::Small)),
+        art: zone_art(object),
         name: object.name.to_string(),
         time: time_of(object),
     }
+}
+
+/// Zone objects keep their own public printing or token identity, not a
+/// battlefield copy's derived appearance. This includes emblems, dungeons
+/// and Tower consumables, which have no printed card identity.
+fn zone_art(object: &PublicObject) -> Option<ImageKey> {
+    object
+        .card
+        .map(|card| ImageKey::of(card, ArtSize::Small))
+        .or_else(|| {
+            object
+                .token
+                .filter(|_| !object.status.is_face_down())
+                .map(|token| ImageKey::token(token, ArtSize::Small))
+        })
 }
 
 /// Builds one [`StackItem`] from a stack [`PublicObject`].

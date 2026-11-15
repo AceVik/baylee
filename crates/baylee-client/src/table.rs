@@ -433,6 +433,9 @@ pub use stage::*;
 mod camera_tests;
 
 #[cfg(test)]
+mod command_strip_tests;
+
+#[cfg(test)]
 mod visit_tests;
 
 #[cfg(test)]

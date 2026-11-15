@@ -108,8 +108,9 @@ The creature lane includes a full `STAGE_STEP` of combat clearance, taken from
 the spare spacing between the three rows. Advancing attackers stay inside the
 battlefield and clear of the information band. Identity and phases have wider
 separation, and wide duels frame the table more closely. A seat without any
-designated commanders reclaims the left command strip; its right-hand piles
-and the camera's footprint remain fixed.
+designated commanders reclaims the left command strip only while its command
+zone is empty. A Tower consumable, emblem or dungeon reserves the same strip
+as a commander; its right-hand piles and the camera's footprint remain fixed.
 
 The entire player summary accepts player targeting, including its life and
 hand cells. Legal targets receive a gold outline and selected players remain

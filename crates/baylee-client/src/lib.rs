@@ -48,7 +48,6 @@ mod arrival;
 pub mod arrowmat;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod artreader;
-mod itemart;
 pub mod badgemat;
 pub mod buildui;
 pub mod cachefill;
@@ -81,6 +80,7 @@ pub mod host;
 pub mod hud;
 pub mod input;
 mod insignia;
+mod itemart;
 /// The keyboard stays with the active window, or Windows beeps at every key.
 #[cfg(windows)]
 mod keyboard_focus;
@@ -1700,6 +1700,24 @@ impl Tear {
     }
 }
 
+/// Give back only a genuinely unused strip: consumables, emblems and dungeons
+/// need the same reserved place as designated commanders.
+fn reclaim_unused_command_space(layout: &mut TableLayout, view: &PlayerView) {
+    for slot in &mut layout.slots {
+        if view
+            .seats
+            .iter()
+            .any(|seat| seat.player == slot.player && seat.commanders.is_empty())
+            && view
+                .command
+                .get(slot.player.get() as usize)
+                .is_none_or(Vec::is_empty)
+        {
+            slot.reclaim_command_strip();
+        }
+    }
+}
+
 /// Rebuilds the render model from the current view.
 ///
 /// `pub` because the three indigo sets it computes — [`Duel::reachable`],
@@ -1767,15 +1785,7 @@ pub fn rebuild_board(duel: &mut Duel) {
             .unwrap_or(baylee_client_core::tableview::TableFrame::Wide),
     );
     duel.interest_laid = duel.visiting;
-    for slot in &mut layout.slots {
-        if view
-            .seats
-            .iter()
-            .any(|seat| seat.player == slot.player && seat.commanders.is_empty())
-        {
-            slot.reclaim_command_strip();
-        }
-    }
+    reclaim_unused_command_space(&mut layout, view);
 
     // A tear under way keeps its stages: the table rebuilt is the one it
     // ends on, and what the cards glide to now is the stage it is in.

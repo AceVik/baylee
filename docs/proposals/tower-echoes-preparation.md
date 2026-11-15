@@ -2489,3 +2489,51 @@ Broader combat calibration, permanent cosmetic discovery, further visual polish,
 remaining acceptance scenes and final gates/review remain open. An earlier
 visual pass also exposed a partially clipped command-zone potion at this
 viewport; that separate layout issue remains to be addressed.
+
+### Milestone 76 — preserve occupied command strips and potion portraits
+
+The native potion-clipping finding is fixed. Layout now reclaims the left strip
+only when the seat has neither designated commanders nor command-zone objects.
+The two focused client regressions failed first: one measured a potion corner
+beyond the native viewport, the other caught the occupied strip being reclaimed.
+Both pass after correction. They cover both duel chairs at 1440 × 900 and
+1280 × 720, preserve the camera footprint/right-hand piles, retain an empty
+designated commander's space, and release a genuinely emptied unreserved strip.
+
+Zone-pile images also retain a visible native token identity rather than requiring
+a printed card. This fixes the missing potion portrait without deriving pictures
+from names or copying battlefield appearances into other zones. The same helper
+serves pile tops and fans, rejects a face-down token identity and retains ordinary
+printed-card behavior. Nine command-slot cases pass, including the existing
+Commander/dungeon cases and the new visible/hidden/missing identity regression.
+Strict library/test Clippy passes for the changed client and client-core crates.
+
+The final native UI check buys a Healing Potion for three gold, starts the duel,
+keeps the hand and activates the potion through its actual card/ability controls.
+The full card is now on screen; table and large hover preview show the original
+image. Passing priority resolves five life gained (20 → 25); the charge is gone
+and the engine no longer offers that activation. The empty-charge object remains
+in the command zone, as its existing rules specify. This is one real activation,
+not a full duel or an authority-settlement test. Native rendered/semantic checks
+pass at 1440 × 900 and 1280 × 720 with no shader/text-layout errors. All owned
+client, engine, backend and PostgreSQL processes exited and listeners closed.
+Evidence: `/tmp/baylee-tower-command-*-20261115*.log` and
+`/tmp/baylee-tower-potion-{shop,table,used,720}-20261115.{png,json}`.
+
+The current preview artifacts are preserved as
+`/tmp/baylee-tower-growth-engine-20261115`,
+`/tmp/baylee-tower-growth-backend-20261115` and
+`/tmp/baylee-tower-table-art-client-20261115`. The Rust launcher is
+`/tmp/astra-native-qa/target/debug/astra-native-qa ui`, with those paths in
+`BAYLEE_TOWER_V2_ENGINE`, `BAYLEE_TOWER_UI_BACKEND`, `BAYLEE_TOWER_UI_CLIENT`,
+and `BAYLEE_TOWER_UI_INSPECT=1`. The explicit
+`BAYLEE_TOWER_UI_INTERACTIVE=1` switch prepares an 18-minute user session;
+omit it for passive QA. The launcher owns isolated synthetic state and performs
+cleanup on close, finish marker or timeout. No user preview has started yet.
+
+Next after the owner's weekly-quota reset: launch that interactive current-state
+preview before further feature work. App computer control refused access to
+Codex, so the assistant did not spend the reset credit; the owner must invoke
+the app's Full reset. The remaining catalog, calibration, cosmetic discovery,
+UI refinement and final acceptance/gates/review are still open. No push or merge
+was performed in this milestone.
