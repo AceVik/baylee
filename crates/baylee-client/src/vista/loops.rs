@@ -2,10 +2,10 @@
 //! the tavern behind the lobby.
 //!
 //! Each is an AVIF image sequence of our own (`loops/world.avif`,
-//! `loops/tavern.avif`: 1280 × 720, 60/1 frames a second, `2 × 2` tiles,
+//! `loops/tavern.avif`: 3840 × 2160, 120/1 frames a second, `2 × 4` tiles,
 //! low-delay 1-frame-per-sample; `art/baylee/README.md` has their provenance
-//! and the `ffmpeg` command that made them), shipped inside the binary and
-//! decoded by `baylee-avif` with ARM64 NEON on Apple Silicon.
+//! and the Topaz Video AI + `ffmpeg` commands that made them), shipped inside
+//! the binary and decoded by `baylee-avif` with ARM64 NEON on Apple Silicon.
 //!
 //! How a loop plays:
 //!
@@ -15,27 +15,31 @@
 //!   rational `(ticks, timescale)` without integer-millisecond truncation.
 //!   Whether the window renders at 30, 60 or 120 fps, the animation runs at
 //!   exact `1.0×` wall-clock tempo with zero drift over arbitrary hours.
-//! - **Lock-free SPSC lookahead.** One background worker per loop decodes
-//!   `256`-byte row-aligned YUV420 planes directly into a pre-allocated 6-slot
-//!   single-producer/single-consumer ring (`0` per-frame heap allocations, no
-//!   `Mutex`), staying up to 6 frames (`100` ms) ahead of the playhead and
-//!   parking whenever the ring is full or the window is paused.
+//! - **Lazy, duel-evictable lock-free SPSC lookahead.** One background worker
+//!   per loop decodes `256`-byte row-aligned 4K YUV420 planes directly into an
+//!   8-slot single-producer/single-consumer ring (`66.7` ms lookahead at
+//!   120 fps, two full 4-sample ticks at 30 fps idle; `0` per-frame heap
+//!   allocations after warm-up, no `Mutex`), parking whenever the ring is full
+//!   or the window is paused. Unseen loops hold `0` bytes of YUV plane memory
+//!   at startup and release all ring + `first` buffers back to `0` bytes in
+//!   [`evict_player`] after [`KEEP`] unseen during a duel.
 //! - **Zero-churn GPU upload.** In `RenderSystems::PrepareAssets`, [`copy`]
 //!   writes the due frame into a persistent pool of reusable `MAP_WRITE |
 //!   COPY_SRC` staging buffers and issues a single `CommandEncoder` with three
-//!   256-byte pitch-aligned `copy_buffer_to_texture` DMA transfers.
+//!   256-byte pitch-aligned `copy_buffer_to_texture` DMA transfers, releasing
+//!   idle mapped staging buffers once all loops are evicted.
 //! - **Pre-warmed transitions & clean eviction.** Entering the sign-in form or
 //!   auth wait pre-warms `tavern.avif` off-thread before the portal opens. An
-//!   unseen loop parks immediately and drops its decoder after [`KEEP`],
-//!   resetting [`Loop::showing`] and bumping its generation so stale GPU frames
-//!   never flash.
+//!   unseen loop parks immediately and drops its decoder and plane buffers
+//!   after [`KEEP`], resetting [`Loop::showing`] and bumping its generation so
+//!   stale GPU frames never flash.
 //!
 //! The files are ours and are read under `Bounds::SHIPPED_LOOP`; no file from
 //! outside reaches this decoder (`baylee-avif`'s own docs say why).
 
 use std::cell::UnsafeCell;
 use std::num::NonZeroU64;
-use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -63,11 +67,12 @@ const FADE_IN: f32 = 0.6;
 /// How long a loop nobody sees keeps its decoder before freeing it.
 const KEEP: Duration = Duration::from_secs(4);
 
-/// Pre-allocated lookahead slots in the lock-free SPSC ring (`100` ms at 60 fps).
-const RING_CAP: usize = 6;
+/// Lookahead slots in the lock-free SPSC ring (`66.7` ms at 120 fps; 2 full
+/// 4-sample render ticks at the 30 fps idle rate).
+const RING_CAP: usize = 8;
 
-/// Tile-parallel worker threads (`2 × 2` AV1 tiles).
-const DECODE_THREADS: u32 = 4;
+/// Tile- and postfilter-parallel worker threads (`2 × 4` 4K AV1 tiles on NEON).
+const DECODE_THREADS: u32 = 8;
 
 /// Maximum lag (`250` ms) before re-anchoring stream ticks to `playhead_ns`.
 const MAX_BEHIND_NS: u64 = 250_000_000;
@@ -79,6 +84,10 @@ const FIRST_EMPTY: u8 = 0;
 const FIRST_READY: u8 = 1;
 const FIRST_UPLOADED: u8 = 2;
 
+const CONSUMER_IDLE: u8 = 0;
+const CONSUMER_READING: u8 = 1;
+const CONSUMER_EVICTING: u8 = 2;
+
 const CHUNK_MAPPED: u8 = 0;
 const CHUNK_PENDING: u8 = 1;
 const CHUNK_FAILED: u8 = 2;
@@ -87,38 +96,71 @@ const CHUNK_FAILED: u8 = 2;
 /// first frame's.
 pub(crate) type Planes = [Handle<Image>; 6];
 
-/// One pre-allocated slot in [`FrameRing`].
+/// One lazily-sized slot in [`FrameRing`].
 struct RingSlot {
     planes: AlignedPlanes,
     stream_pts_ns: u64,
     generation: u64,
 }
 
-/// Pre-allocated lock-free single-producer / single-consumer frame ring.
+/// Lock-free single-producer / single-consumer frame ring whose 4K YUV plane
+/// buffers allocate lazily when active/warming and release to `0` bytes on
+/// [`evict_player`].
 struct FrameRing {
     slots: [UnsafeCell<RingSlot>; RING_CAP],
     /// Monotonic count of slots published by the worker thread.
     write_pos: AtomicU64,
     /// Monotonic count of slots consumed by the render-world uploader.
     read_pos: AtomicU64,
-    /// Pre-allocated frame-0 buffer for the 4K-still residual mask.
+    /// Lazily-sized frame-0 buffer for the 4K-still residual mask.
     first: UnsafeCell<AlignedPlanes>,
     /// Lifecycle of `first`: `FIRST_EMPTY -> FIRST_READY -> FIRST_UPLOADED`.
     first_state: AtomicU8,
+    /// Lock-free mutual exclusion between the single consumer (`CONSUMER_READING`)
+    /// and worker-side buffer eviction (`CONSUMER_EVICTING`).
+    consumer_state: AtomicU8,
+    /// Total heap bytes currently owned by `slots` and `first`.
+    allocated_bytes: AtomicUsize,
+}
+
+/// RAII token proving the single consumer transitioned `consumer_state` from
+/// `CONSUMER_IDLE` to `CONSUMER_READING`, preventing [`FrameRing::evict_buffers`]
+/// from freeing `slots` or `first` until dropped.
+struct ConsumerBorrow<'a>(&'a AtomicU8);
+
+impl<'a> ConsumerBorrow<'a> {
+    fn try_acquire(state: &'a AtomicU8) -> Option<Self> {
+        state
+            .compare_exchange(
+                CONSUMER_IDLE,
+                CONSUMER_READING,
+                Ordering::Acquire,
+                Ordering::Relaxed,
+            )
+            .ok()
+            .map(|_| Self(state))
+    }
+}
+
+impl Drop for ConsumerBorrow<'_> {
+    fn drop(&mut self) {
+        self.0.store(CONSUMER_IDLE, Ordering::Release);
+    }
 }
 
 // SAFETY: `FrameRing` enforces single-producer (the `Loop`'s sole worker
 // thread) and single-consumer (`loops::copy` in `RenderSystems::PrepareAssets`,
 // or the single test thread in headless unit tests) ownership via `Acquire` /
-// `Release` atomic cursors `write_pos`, `read_pos`, and `first_state`. No slot
-// is ever accessed concurrently by producer and consumer.
+// `Release` atomic cursors `write_pos`, `read_pos`, and `first_state`, gated by
+// `consumer_state` (`ConsumerBorrow` vs `evict_buffers`) so worker-side buffer
+// deallocation never overlaps any consumer read.
 unsafe impl Sync for FrameRing {}
 
 impl FrameRing {
-    fn new(width: u32, height: u32) -> Self {
+    fn new() -> Self {
         let slots = std::array::from_fn(|_| {
             UnsafeCell::new(RingSlot {
-                planes: AlignedPlanes::with_dimensions(width, height),
+                planes: AlignedPlanes::default(),
                 stream_pts_ns: 0,
                 generation: 0,
             })
@@ -127,9 +169,48 @@ impl FrameRing {
             slots,
             write_pos: AtomicU64::new(0),
             read_pos: AtomicU64::new(0),
-            first: UnsafeCell::new(AlignedPlanes::with_dimensions(width, height)),
+            first: UnsafeCell::new(AlignedPlanes::default()),
             first_state: AtomicU8::new(FIRST_EMPTY),
+            consumer_state: AtomicU8::new(CONSUMER_IDLE),
+            allocated_bytes: AtomicUsize::new(0),
         }
+    }
+
+    /// Acquires `CONSUMER_EVICTING` on the sole worker thread, atomically
+    /// resets playback/ring state, bumps `generation`, and releases all heap
+    /// plane allocations back to `0` bytes.
+    fn evict_buffers(&self, showing: &AtomicBool, generation: &AtomicU64) {
+        while self
+            .consumer_state
+            .compare_exchange_weak(
+                CONSUMER_IDLE,
+                CONSUMER_EVICTING,
+                Ordering::AcqRel,
+                Ordering::Relaxed,
+            )
+            .is_err()
+        {
+            std::hint::spin_loop();
+        }
+        showing.store(false, Ordering::Release);
+        self.read_pos.store(0, Ordering::Relaxed);
+        self.write_pos.store(0, Ordering::Relaxed);
+        self.first_state.store(FIRST_EMPTY, Ordering::Relaxed);
+        for slot in &self.slots {
+            // SAFETY: Runs on the sole worker thread while `consumer_state ==
+            // CONSUMER_EVICTING`, after `Acquire` synchronization with any
+            // prior `ConsumerBorrow::drop`; no consumer can enter until the
+            // `Release` store of `CONSUMER_IDLE` below.
+            let slot = unsafe { &mut *slot.get() };
+            slot.planes.clear();
+            slot.stream_pts_ns = 0;
+            slot.generation = 0;
+        }
+        // SAFETY: Same exclusive ownership proof under `CONSUMER_EVICTING`.
+        unsafe { (*self.first.get()).clear() };
+        self.allocated_bytes.store(0, Ordering::Release);
+        generation.fetch_add(1, Ordering::AcqRel);
+        self.consumer_state.store(CONSUMER_IDLE, Ordering::Release);
     }
 }
 
@@ -252,7 +333,7 @@ impl Loop {
             stop: AtomicBool::new(false),
             showing: AtomicBool::new(false),
             failed: AtomicBool::new(false),
-            ring: FrameRing::new(size.x, size.y),
+            ring: FrameRing::new(),
             worker: OnceLock::new(),
         });
         let theirs = Arc::downgrade(&lp);
@@ -275,16 +356,18 @@ impl Loop {
     }
 }
 
-/// Drops an unseen decoder after `keep`, resetting `showing` and `generation`
-/// so stale GPU frames never flash when the scene is entered again.
+/// Drops an unseen decoder and all 4K ring plane buffers after `keep`,
+/// resetting `showing` and bumping `generation` so stale GPU frames never flash
+/// when the scene is entered again and duels hold `0` bytes of YUV ring RAM.
 fn evict_player(lp: &Loop, player: &mut Option<Player>, stream_ticks: &mut u64) {
-    if player.is_some() {
+    let has_buffers = lp.ring.allocated_bytes.load(Ordering::Relaxed) > 0
+        || lp.ring.write_pos.load(Ordering::Relaxed) > 0;
+    if player.is_some() || has_buffers {
         *player = None;
         *stream_ticks = 0;
-        lp.showing.store(false, Ordering::Release);
         lp.anchored.store(false, Ordering::Release);
         lp.playhead_ns.store(0, Ordering::Release);
-        lp.generation.fetch_add(1, Ordering::AcqRel);
+        lp.ring.evict_buffers(&lp.showing, &lp.generation);
     }
 }
 
@@ -311,10 +394,12 @@ fn decode_into_slot(
     let pts_ns = ticks_to_ns(*stream_ticks, lp.timescale);
     let slot_idx = (write_pos % RING_CAP as u64) as usize;
     // SAFETY: Only this single worker thread writes `ring.slots` and updates
-    // `write_pos`. The caller verified `write_pos - read_pos < RING_CAP` with
-    // `Acquire` on `read_pos`, so `slot_idx` is not readable by the consumer
-    // until `write_pos.store(write_pos + 1, Release)` below.
+    // `write_pos` (and `evict_buffers` also runs only on this worker thread).
+    // The caller verified `write_pos - read_pos < RING_CAP` with `Acquire` on
+    // `read_pos`, so `slot_idx` is not readable by the consumer until
+    // `write_pos.store(write_pos + 1, Release)` below.
     let slot = unsafe { &mut *lp.ring.slots[slot_idx].get() };
+    let before_slot = slot.planes.allocated_bytes();
     let index = match decoder.advance_aligned(&mut slot.planes) {
         Ok(step) => step,
         Err(e) => {
@@ -322,6 +407,12 @@ fn decode_into_slot(
             return false;
         }
     };
+    let after_slot = slot.planes.allocated_bytes();
+    if after_slot > before_slot {
+        lp.ring
+            .allocated_bytes
+            .fetch_add(after_slot - before_slot, Ordering::Release);
+    }
     let fits = slot.planes.width == lp.size.x
         && slot.planes.height == lp.size.y
         && matches!(slot.planes.matrix, Matrix::Bt709)
@@ -333,10 +424,17 @@ fn decode_into_slot(
     if index == 0 && lp.ring.first_state.load(Ordering::Acquire) == FIRST_EMPTY {
         // SAFETY: Only the worker writes `ring.first`, strictly while
         // `first_state == FIRST_EMPTY` before publishing `FIRST_READY` with
-        // `Release`; the consumer reads `ring.first` only after observing
-        // `FIRST_READY` with `Acquire`.
+        // `Release`; the consumer reads `ring.first` only while holding
+        // `ConsumerBorrow` after observing `FIRST_READY` with `Acquire`.
         let first = unsafe { &mut *lp.ring.first.get() };
+        let before_first = first.allocated_bytes();
         first.clone_from(&slot.planes);
+        let after_first = first.allocated_bytes();
+        if after_first > before_first {
+            lp.ring
+                .allocated_bytes
+                .fetch_add(after_first - before_first, Ordering::Release);
+        }
         lp.ring.first_state.store(FIRST_READY, Ordering::Release);
     }
     let dur = lp.durations_ticks.get(index).copied().unwrap_or(0);
@@ -347,9 +445,9 @@ fn decode_into_slot(
     true
 }
 
-/// Background decode worker: fills the 6-slot lookahead ring while active or
-/// warming, parks immediately when full or paused, and frees its decoder after
-/// `keep` unseen.
+/// Background decode worker: fills the 8-slot lookahead ring while active or
+/// warming, parks immediately when full or paused, and frees its decoder and
+/// plane buffers after `keep` unseen.
 fn work(lp: &std::sync::Weak<Loop>, bytes: &'static [u8], keep: Duration) {
     let mut player: Option<Player> = None;
     let mut stream_ticks = 0u64;
@@ -583,6 +681,14 @@ impl StagingPool {
             .retain(|c| c.state.load(Ordering::Acquire) != CHUNK_FAILED);
     }
 
+    /// Drops mapped staging buffers once all loops are evicted (`!active`,
+    /// `!warm`, and `!showing()`), keeping only in-flight `map_buffer` chunks
+    /// until their callback lands.
+    fn release_idle(&mut self) {
+        self.chunks
+            .retain(|c| c.state.load(Ordering::Acquire) == CHUNK_PENDING);
+    }
+
     fn acquire(&mut self, device: &RenderDevice, size: u64) -> usize {
         if let Some(idx) = self
             .chunks
@@ -709,17 +815,19 @@ fn upload_aligned(
 }
 
 /// Selects the newest due frame (`stream_pts_ns <= playhead_ns`) from `lp.ring`,
-/// discarding any stale-generation slots ahead of it.
-fn select_due_slot(lp: &Loop) -> Option<u64> {
+/// discarding any stale-generation slots ahead of it and waking the worker if
+/// `read_pos` advances.
+fn select_due_slot(lp: &Loop, _borrow: &ConsumerBorrow<'_>) -> Option<u64> {
     let initial_r = lp.ring.read_pos.load(Ordering::Relaxed);
     let mut r = initial_r;
     let w = lp.ring.write_pos.load(Ordering::Acquire);
     let cur_gen = lp.generation.load(Ordering::Acquire);
     while r < w {
         let idx = (r % RING_CAP as u64) as usize;
-        // SAFETY: `r < w` after `Acquire` on `write_pos` guarantees the worker
-        // finished writing `slots[idx]` and will not touch it until `read_pos`
-        // advances past `r`.
+        // SAFETY: `_borrow` (`CONSUMER_READING`) prevents `evict_buffers` from
+        // touching `slots`, and `r < w` after `Acquire` on `write_pos`
+        // guarantees the worker finished writing `slots[idx]` and will not
+        // touch it until `read_pos` advances past `r`.
         let slot_gen = unsafe { (*lp.ring.slots[idx].get()).generation };
         if slot_gen == cur_gen {
             break;
@@ -740,7 +848,7 @@ fn select_due_slot(lp: &Loop) -> Option<u64> {
     let mut pos = r;
     while pos < w {
         let idx = (pos % RING_CAP as u64) as usize;
-        // SAFETY: Same SPSC invariant for `pos` in `r..w`.
+        // SAFETY: Same `_borrow` + SPSC invariant for `pos` in `r..w`.
         let (slot_gen, pts) = unsafe {
             let s = &*lp.ring.slots[idx].get();
             (s.generation, s.stream_pts_ns)
@@ -771,30 +879,42 @@ fn copy(
         return;
     };
     pool.reclaim(&device);
+    let any_live = loops.0.iter().any(|lp| {
+        lp.active.load(Ordering::Acquire) || lp.warm.load(Ordering::Acquire) || lp.showing()
+    });
+    if !any_live {
+        pool.release_idle();
+        return;
+    }
     for lp in loops.0.iter() {
         if lp.paused.load(Ordering::Acquire)
             || (!lp.active.load(Ordering::Acquire) && !lp.warm.load(Ordering::Acquire))
         {
             continue;
         }
+        let Some(borrow) = ConsumerBorrow::try_acquire(&lp.ring.consumer_state) else {
+            continue;
+        };
         let mut first_done = lp.ring.first_state.load(Ordering::Acquire) == FIRST_UPLOADED;
         if lp.ring.first_state.load(Ordering::Acquire) == FIRST_READY {
-            // SAFETY: Observing `FIRST_READY` with `Acquire` synchronizes-with
-            // the worker's `Release` store after writing `ring.first`, and the
-            // worker never mutates `ring.first` again.
+            // SAFETY: `borrow` (`CONSUMER_READING`) prevents `evict_buffers`
+            // from touching `ring.first`, and observing `FIRST_READY` with
+            // `Acquire` synchronizes-with the worker's `Release` store after
+            // writing `ring.first`.
             let first = unsafe { &*lp.ring.first.get() };
             if upload_aligned(&images, &device, &queue, &mut pool, &lp.planes[3..], first) {
                 lp.ring.first_state.store(FIRST_UPLOADED, Ordering::Release);
                 first_done = true;
             }
         }
-        let Some(chosen) = select_due_slot(lp) else {
+        let Some(chosen) = select_due_slot(lp, &borrow) else {
             continue;
         };
         let idx = (chosen % RING_CAP as u64) as usize;
-        // SAFETY: `chosen` is in `read_pos..write_pos` (observed with `Acquire`
-        // in `select_due_slot`), so `slots[idx]` is immutable until `read_pos`
-        // is updated with `Release` below.
+        // SAFETY: `borrow` (`CONSUMER_READING`) prevents `evict_buffers` from
+        // freeing `slots`, and `chosen` is in `read_pos..write_pos` (observed
+        // with `Acquire` in `select_due_slot`), so `slots[idx]` is immutable
+        // until `read_pos` advances with `Release` below.
         let uploaded = unsafe {
             let slot = &*lp.ring.slots[idx].get();
             upload_aligned(
@@ -822,21 +942,22 @@ fn copy(
 mod tests {
     use super::*;
 
-    /// The shipped files are 1280 × 720 (16:9), exact 60/1 fps (`370` & `480`
-    /// samples, zero ms truncation), 8-bit limited-range BT.709, opaque, and
-    /// repeat cleanly with 256-byte row-aligned plane strides.
+    /// The shipped files are 3840 × 2160 (16:9 4K), exact 120/1 fps (`1_620` &
+    /// `942` samples, zero ms truncation), 8-bit limited-range BT.709,
+    /// opaque, and repeat cleanly with 256-byte row-aligned plane strides and
+    /// real-time ARM64 NEON decoding.
     #[test]
     fn the_shipped_loops_are_what_the_shader_converts() {
         for (name, bytes, expected_samples, expected_ns) in [
-            ("world", WORLD, 370usize, 6_166_666_666u64),
-            ("tavern", TAVERN, 480usize, 8_000_000_000u64),
+            ("world", WORLD, 1_620usize, 13_500_000_000u64),
+            ("tavern", TAVERN, 942usize, 7_850_000_000u64),
         ] {
             let sequence = Sequence::read(bytes, &Bounds::SHIPPED_LOOP)
                 .unwrap_or_else(|e| panic!("{name}: {e}"));
             let track = &sequence.colour;
-            assert_eq!((track.width, track.height), (1280, 720), "{name}");
+            assert_eq!((track.width, track.height), (3840, 2160), "{name}");
             assert_eq!(track.samples.len(), expected_samples, "{name}");
-            assert_eq!(track.duration_ns(), expected_ns, "{name} exact 60/1 fps");
+            assert_eq!(track.duration_ns(), expected_ns, "{name} exact 120/1 fps");
             assert!(sequence.repeats, "{name} repeats");
             assert!(sequence.alpha.is_none(), "{name} is opaque");
 
@@ -847,16 +968,29 @@ mod tests {
                 .advance_aligned(&mut planes)
                 .unwrap_or_else(|e| panic!("{name}: {e}"));
             assert_eq!(index, 0);
-            assert_eq!((planes.width, planes.height), (1280, 720));
-            assert_eq!((planes.y_stride, planes.c_stride), (1280, 768));
+            assert_eq!((planes.width, planes.height), (3840, 2160));
+            assert_eq!((planes.y_stride, planes.c_stride), (3840, 2048));
             assert!(matches!(planes.matrix, Matrix::Bt709), "{name}");
             assert!(!planes.full_range, "{name}");
+
+            // Decode 60 consecutive 4K 120fps frames to verify 1-sample-to-1-frame
+            // low-delay decoding with zero compound altref packets.
+            let t0 = Instant::now();
+            for expected_idx in 1..=60 {
+                let idx = player
+                    .advance_aligned(&mut planes)
+                    .unwrap_or_else(|e| panic!("{name} sample {expected_idx}: {e}"));
+                assert_eq!(idx, expected_idx);
+            }
+            let ms_per_frame = t0.elapsed().as_secs_f64() * 1000.0 / 60.0;
+            eprintln!("{name}: decoded 60 4K@120 frames at {ms_per_frame:.2} ms/frame");
         }
     }
 
-    /// Constant `1.0×` playback tempo: stepping `t = 0.0..=10.0s` at 30 fps,
-    /// 60 fps, and 120 fps produces identical wall-clock timestamps and
-    /// selects the exact same `(pass, sample_index)` at every shared instant.
+    /// Constant `1.0×` playback tempo: stepping `t = 0.0..=15.0s` at 30 fps
+    /// (4 samples/tick), 60 fps (2 samples/tick), and 120 fps (1 sample/tick)
+    /// produces identical wall-clock timestamps and selects the exact same
+    /// `(pass, sample_index)` at every shared instant.
     #[test]
     fn playback_tempo_is_identical_across_thirty_sixty_and_one_twenty_fps() {
         for (name, bytes) in [("world", WORLD), ("tavern", TAVERN)] {
@@ -865,7 +999,7 @@ mod tests {
 
             let simulate = |fps: u64| -> Vec<(u64, (u64, usize))> {
                 let mut clock = VistaClock::default();
-                let total_steps = 10 * fps;
+                let total_steps = 15 * fps;
                 let mut out = Vec::with_capacity(usize::try_from(total_steps + 1).unwrap());
                 let mut prev_ns = 0u64;
                 out.push((0, track.sample_at_ns(0, seq.repeats)));
@@ -889,76 +1023,102 @@ mod tests {
             for (i, sample_60) in at_60.iter().enumerate() {
                 assert_eq!(*sample_60, at_120[i * 2], "{name} 60 vs 120 at step {i}");
             }
-            // At exactly t = 10.0s: 600 frames elapsed (`pass 1, sample 230` for
-            // 370-frame world; `pass 1, sample 120` for 480-frame tavern).
-            let expected_10s = if name == "world" { (1, 230) } else { (1, 120) };
-            assert_eq!(at_60.last().unwrap().1, expected_10s, "{name} 1.0x at 10s");
+            // At exactly t = 15.0s: 1_800 frames elapsed (`pass 1, sample 180`
+            // for 1_620-frame world; `pass 1, sample 858` for 942-frame tavern).
+            let expected_15s = if name == "world" { (1, 180) } else { (1, 858) };
+            assert_eq!(at_120.last().unwrap().1, expected_15s, "{name} 1.0x at 15s");
         }
     }
 
     const PATIENCE: Duration = Duration::from_secs(30);
 
-    /// Unseen loops stay parked; active loops fill the 6-slot lookahead ring
-    /// and `first` frame without allocations, park while `paused` (minimised /
-    /// occluded), reset `showing = false` when evicted after `keep`, and
-    /// immediately unpark + refill when `select_due_slot` drains a full ring of
-    /// stale-generation frames.
+    fn wait_for_write_pos(lp: &Loop, target: u64) {
+        let deadline = Instant::now() + PATIENCE;
+        while lp.ring.write_pos.load(Ordering::Acquire) < target && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert_eq!(lp.ring.write_pos.load(Ordering::Acquire), target);
+    }
+
+    /// Unseen loops start with `0` bytes of YUV plane memory; active loops
+    /// lazily allocate and fill the 8-slot lookahead ring + `first` frame,
+    /// advance at exact `1.0×` tempo across 120/60/30 fps consumer ticks while
+    /// unparking the worker on every `read_pos` advance, and park while
+    /// `paused` (minimised/occluded).
     #[test]
-    fn a_loop_fills_its_lookahead_ring_pauses_when_hidden_and_resets_after_keep() {
+    fn a_loop_fills_its_lookahead_ring_and_pauses_when_hidden() {
         let mut images = Assets::<Image>::default();
-        let lp = Loop::start_with_keep(false, WORLD, &mut images, Duration::from_millis(25))
+        let lp = Loop::start_with_keep(false, WORLD, &mut images, Duration::from_secs(10))
             .expect("world loop starts");
         std::thread::sleep(Duration::from_millis(50));
+        assert_eq!(lp.ring.write_pos.load(Ordering::Acquire), 0);
         assert_eq!(
-            lp.ring.write_pos.load(Ordering::Acquire),
+            lp.ring.allocated_bytes.load(Ordering::Acquire),
             0,
-            "parked unseen"
+            "0 bytes of 4K YUV ring RAM before activation"
         );
 
         lp.active.store(true, Ordering::Release);
         lp.worker.get().unwrap().unpark();
-        let deadline = Instant::now() + PATIENCE;
-        while lp.ring.write_pos.load(Ordering::Acquire) < RING_CAP as u64
-            && Instant::now() < deadline
-        {
-            std::thread::sleep(Duration::from_millis(2));
+        wait_for_write_pos(&lp, RING_CAP as u64);
+        assert_eq!(lp.ring.first_state.load(Ordering::Acquire), FIRST_READY);
+        let one_plane_bytes = 3840 * 2160 + 2 * 2048 * 1080;
+        let full_ring_bytes = lp.ring.allocated_bytes.load(Ordering::Acquire);
+        assert!(full_ring_bytes >= (RING_CAP + 1) * one_plane_bytes);
+
+        // Verify 120 fps (1 sample), 60 fps (2 samples), and 30 fps (4 samples)
+        // consumer ticks select exact due slots (`0 -> 1 -> 3 -> 7`) and unpark
+        // the worker so the 8-slot ring refills without starving.
+        lp.showing.store(true, Ordering::Release);
+        for &(playhead_ns, expected_slot) in &[
+            (0u64, 0u64),
+            (8_333_334, 1),  // +1/120s (120 fps): advances 1 sample
+            (25_000_001, 3), // +1/60s  (60 fps):  advances 2 samples
+            (58_333_334, 7), // +1/30s  (30 fps):  advances 4 samples
+        ] {
+            lp.playhead_ns.store(playhead_ns, Ordering::Release);
+            let borrow = ConsumerBorrow::try_acquire(&lp.ring.consumer_state).expect("idle");
+            let chosen = select_due_slot(&lp, &borrow).expect("due slot available");
+            assert_eq!(chosen, expected_slot, "at playhead {playhead_ns} ns");
+            lp.ring.read_pos.store(chosen + 1, Ordering::Release);
+            drop(borrow);
+            lp.worker.get().unwrap().unpark();
+            wait_for_write_pos(&lp, chosen + 1 + RING_CAP as u64);
         }
         assert_eq!(
-            lp.ring.write_pos.load(Ordering::Acquire),
-            RING_CAP as u64,
-            "worker fills all 6 lookahead slots and parks"
+            lp.ring.allocated_bytes.load(Ordering::Acquire),
+            full_ring_bytes,
+            "steady-state ring reuse allocates 0 additional bytes"
         );
-        assert_eq!(lp.ring.first_state.load(Ordering::Acquire), FIRST_READY);
 
         // Simulate paused (minimised/occluded) + freeing 2 slots: stays parked!
+        let cur_r = lp.ring.read_pos.load(Ordering::Acquire);
+        let cur_w = lp.ring.write_pos.load(Ordering::Acquire);
         lp.paused.store(true, Ordering::Release);
-        lp.ring.read_pos.store(2, Ordering::Release);
+        lp.ring.read_pos.store(cur_r + 2, Ordering::Release);
         lp.worker.get().unwrap().unpark();
         std::thread::sleep(Duration::from_millis(50));
-        assert_eq!(
-            lp.ring.write_pos.load(Ordering::Acquire),
-            RING_CAP as u64,
-            "paused worker decodes 0 frames while hidden"
-        );
+        assert_eq!(lp.ring.write_pos.load(Ordering::Acquire), cur_w);
 
-        // Unpause: worker immediately refills the 2 freed lookahead slots
-        // (`write_pos == 8, read_pos == 2`, so the 6-slot ring is 100% full).
         lp.paused.store(false, Ordering::Release);
         lp.worker.get().unwrap().unpark();
-        let deadline = Instant::now() + PATIENCE;
-        while lp.ring.write_pos.load(Ordering::Acquire) < (RING_CAP as u64 + 2)
-            && Instant::now() < deadline
-        {
-            std::thread::sleep(Duration::from_millis(2));
-        }
-        assert_eq!(
-            lp.ring.write_pos.load(Ordering::Acquire),
-            RING_CAP as u64 + 2
-        );
+        wait_for_write_pos(&lp, cur_w + 2);
+    }
 
-        // Leave unseen past `keep` (`25 ms`) while the ring is full: worker
-        // evicts its decoder, resets `showing = false`, and bumps `generation`.
+    /// Leaving a loop unseen past `keep` evicts its decoder and shrinks all 4K
+    /// YUV plane buffers back to `0` bytes; pre-warming lazily reallocates and
+    /// drains stale-generation rings immediately without waiting for `NAP`.
+    #[test]
+    fn unseen_loop_releases_plane_buffers_on_eviction_and_drains_stale_generations() {
+        let mut images = Assets::<Image>::default();
+        let lp = Loop::start_with_keep(false, WORLD, &mut images, Duration::from_millis(25))
+            .expect("world loop starts");
+        lp.active.store(true, Ordering::Release);
         lp.showing.store(true, Ordering::Release);
+        lp.worker.get().unwrap().unpark();
+        wait_for_write_pos(&lp, RING_CAP as u64);
+        assert!(lp.ring.allocated_bytes.load(Ordering::Acquire) > 0);
+
         let gen_before = lp.generation.load(Ordering::Acquire);
         lp.active.store(false, Ordering::Release);
         lp.worker.get().unwrap().unpark();
@@ -966,38 +1126,41 @@ mod tests {
         while lp.generation.load(Ordering::Acquire) == gen_before && Instant::now() < deadline {
             std::thread::sleep(Duration::from_millis(2));
         }
-        assert!(
-            !lp.showing(),
-            "showing reset so stale GPU frames never flash"
-        );
+        assert!(!lp.showing());
         assert_eq!(lp.generation.load(Ordering::Acquire), gen_before + 1);
+        assert_eq!(
+            lp.ring.allocated_bytes.load(Ordering::Acquire),
+            0,
+            "evicted duel loop holds 0 bytes of 4K YUV ring RAM"
+        );
+        assert_eq!(lp.ring.write_pos.load(Ordering::Acquire), 0);
+        assert_eq!(lp.ring.read_pos.load(Ordering::Acquire), 0);
+        assert_eq!(lp.ring.first_state.load(Ordering::Acquire), FIRST_EMPTY);
 
-        // Pre-warm (`warm = true`, `visible = false`) on a full stale ring:
-        // worker opens `Player` and parks on full ring; `select_due_slot` drains
-        // all 6 stale-generation slots AND immediately unparks the worker so it
-        // refills 6 fresh generation-2 frames without waiting for `NAP` (250 ms).
         lp.warm.store(true, Ordering::Release);
         lp.worker.get().unwrap().unpark();
-        std::thread::sleep(Duration::from_millis(10));
+        wait_for_write_pos(&lp, RING_CAP as u64);
+
+        lp.generation.fetch_add(1, Ordering::AcqRel);
         let drain_start = Instant::now();
-        assert_eq!(select_due_slot(&lp), None);
-        assert_eq!(
-            lp.ring.read_pos.load(Ordering::Acquire),
-            RING_CAP as u64 + 2,
-            "all 6 stale-generation slots drained"
-        );
-        let target_write = (RING_CAP as u64 * 2) + 2;
-        while lp.ring.write_pos.load(Ordering::Acquire) < target_write
+        {
+            let borrow = ConsumerBorrow::try_acquire(&lp.ring.consumer_state).expect("idle");
+            assert_eq!(select_due_slot(&lp, &borrow), None);
+        }
+        assert_eq!(lp.ring.read_pos.load(Ordering::Acquire), RING_CAP as u64);
+        let first_slot_target = RING_CAP as u64 + 1;
+        while lp.ring.write_pos.load(Ordering::Acquire) < first_slot_target
             && drain_start.elapsed() < PATIENCE
         {
             std::thread::sleep(Duration::from_millis(1));
         }
-        assert_eq!(lp.ring.write_pos.load(Ordering::Acquire), target_write);
+        let first_refill = drain_start.elapsed();
         assert!(
-            drain_start.elapsed() < NAP,
-            "stale-ring drain unparked worker immediately ({:?} < {NAP:?})",
-            drain_start.elapsed()
+            first_refill < NAP,
+            "stale-ring drain unparked worker immediately ({first_refill:?} < {NAP:?})"
         );
-        assert_eq!(select_due_slot(&lp), Some(RING_CAP as u64 + 2));
+        wait_for_write_pos(&lp, RING_CAP as u64 * 2);
+        let borrow = ConsumerBorrow::try_acquire(&lp.ring.consumer_state).expect("idle");
+        assert_eq!(select_due_slot(&lp, &borrow), Some(RING_CAP as u64));
     }
 }

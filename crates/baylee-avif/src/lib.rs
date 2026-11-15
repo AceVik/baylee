@@ -77,7 +77,7 @@ impl Bounds {
     pub const SHIPPED_LOOP: Self = Self {
         max_bytes: 32 * 1024 * 1024,
         max_side: 3840,
-        max_samples: 900,
+        max_samples: 2_400,
         max_duration_ms: 30_000,
         exact_side: None,
     };

@@ -9,21 +9,23 @@
 //!
 //! # Pacing
 //!
-//! While active and focused, menus (sign-in, lobby, settings) run at 60 fps
-//! across `Medium`, `High` and `Ultra` (`MENU_ACTIVE_FPS`, matching the `60/1`
-//! fps painted-world AVIF loops), while 3D tables run at the preset's full rate
-//! (60 fps on `Medium`, 120 fps on `High`, unlimited on `Ultra`). When `VSync`
-//! is active and the display's refresh rate is at or below the target cap
-//! (60 Hz at `Fps60`, 120 Hz `ProMotion` at `Fps120`), `UpdateMode::Continuous`
-//! hands pacing directly to hardware `VBlank` (`PresentMode::Fifo` /
-//! `AutoVsync`) with zero OS timer beat or dropped ticks; sub-refresh caps use
-//! exact `VBlank` multiples in nanoseconds. After `120.0` seconds without user
-//! or game activity, both menus and tables ease smoothly to 30 fps (or an
-//! explicit `RestLimit` override at the table), waking back to the active rate
-//! immediately on any input or game event. While visible — explicitly including
-//! when unfocused — the frame rate never drops below 30 fps. Only when
-//! minimised or completely occluded (`WindowOccluded`) does the window pause at
-//! 0 fps (`UpdateMode::reactive_low_power(Duration::MAX)`).
+//! While active and focused, menus (sign-in, lobby, settings) run at up to
+//! 120 fps (`MENU_ACTIVE_FPS`, matching the `120/1` fps 4K painted-world AVIF
+//! loops on `High` and `Ultra`, 60 fps on `Medium`, and 30 fps on `Low`),
+//! capped to the monitor's refresh rate when known (e.g. 60 fps on a 60 Hz
+//! display, 120 fps on 120 Hz `ProMotion`), while 3D tables run at the preset's
+//! full rate (60 fps on `Medium`, 120 fps on `High`, unlimited on `Ultra`).
+//! When `VSync` is active and the display's refresh rate is at or below the
+//! target cap (60 Hz at `Fps60`, 120 Hz `ProMotion` at `Fps120`),
+//! `UpdateMode::Continuous` hands pacing directly to hardware `VBlank`
+//! (`PresentMode::Fifo` / `AutoVsync`) with zero OS timer beat or dropped ticks;
+//! sub-refresh caps use exact `VBlank` multiples in nanoseconds. After `120.0`
+//! seconds without user or game activity, both menus and tables ease smoothly
+//! to 30 fps (or an explicit `RestLimit` override at the table), waking back to
+//! the active rate immediately on any input or game event. While visible —
+//! explicitly including when unfocused — the frame rate never drops below
+//! 30 fps. Only when minimised or completely occluded (`WindowOccluded`) does
+//! the window pause at 0 fps (`UpdateMode::reactive_low_power(Duration::MAX)`).
 
 use baylee_client_core::graphics::{
     AntiAliasing, DISPLAY_REVERT_SECS, DisplayMode, Graphics, Pace, Showing, VSync,
@@ -609,20 +611,43 @@ pub fn update_mode(pace: Pace, waking: bool) -> UpdateMode {
     update_mode_for_display(pace, waking, VSync::On, None)
 }
 
+fn monitor_refresh_mhz(monitor: &Monitor) -> Option<u32> {
+    monitor
+        .refresh_rate_millihertz
+        .filter(|&mhz| mhz > 0)
+        .or_else(|| {
+            let native = UVec2::new(monitor.physical_width, monitor.physical_height);
+            monitor
+                .video_modes
+                .iter()
+                .filter(|mode| mode.physical_size == native && mode.refresh_rate_millihertz > 0)
+                .map(|mode| mode.refresh_rate_millihertz)
+                .max()
+                .or_else(|| {
+                    monitor
+                        .video_modes
+                        .iter()
+                        .map(|mode| mode.refresh_rate_millihertz)
+                        .filter(|&mhz| mhz > 0)
+                        .max()
+                })
+        })
+}
+
 fn current_monitor_mhz(
     on_monitor: Option<&OnMonitor>,
     monitors: &Query<(&Monitor, Has<PrimaryMonitor>)>,
 ) -> Option<u32> {
     if let Some(on) = on_monitor
         && let Ok((monitor, _)) = monitors.get(on.0)
-        && let Some(mhz) = monitor.refresh_rate_millihertz
+        && let Some(mhz) = monitor_refresh_mhz(monitor)
     {
         return Some(mhz);
     }
     monitors
         .iter()
-        .find_map(|(m, primary)| primary.then_some(m.refresh_rate_millihertz).flatten())
-        .or_else(|| monitors.iter().find_map(|(m, _)| m.refresh_rate_millihertz))
+        .find_map(|(m, primary)| primary.then(|| monitor_refresh_mhz(m)).flatten())
+        .or_else(|| monitors.iter().find_map(|(m, _)| monitor_refresh_mhz(m)))
 }
 
 #[allow(clippy::type_complexity)]
@@ -675,7 +700,7 @@ fn pace(
     let Some(mut winit) = winit else {
         return;
     };
-    let (pace, waking) = in_use.0.pace(showing);
+    let (pace, waking) = in_use.0.pace_for_monitor(showing, monitor_mhz);
     let mode = update_mode_for_display(pace, waking, in_use.0.vsync, monitor_mhz);
     if winit.focused_mode != mode || winit.unfocused_mode != mode {
         winit.focused_mode = mode;
@@ -852,14 +877,20 @@ mod tests {
         assert_eq!(*app.world().resource::<Resting>(), Resting(false));
     }
 
-    /// Menu pacing policy across `Medium` and `High` (Apple M1 Max): 60 fps for
-    /// a full 120.0 seconds, smooth drop to 30 fps at 120.0 seconds (never
-    /// freezing ambient motion), and immediate return to 60 fps on the very
-    /// next frame after any user input.
+    /// Menu pacing policy across `Medium` (60 fps) and `High` / `Ultra`
+    /// (120 fps on unknown / 120 Hz+ displays, capped to monitor refresh rate
+    /// when lower): holds the active rate for a full 120.0 seconds, eases
+    /// smoothly to 30 fps at 120.0 seconds (never freezing ambient motion), and
+    /// returns immediately to the active rate on the very next frame after any
+    /// user input.
     #[test]
-    fn a_menu_holds_sixty_for_two_minutes_eases_to_thirty_and_wakes_on_input() {
+    fn a_menu_holds_active_rate_for_two_minutes_eases_to_thirty_and_wakes_on_input() {
         use baylee_client_core::graphics::{IDLE_AFTER_SECS, Preset};
-        for preset in [Preset::Medium, Preset::High] {
+        for (preset, active_fps) in [
+            (Preset::Medium, 60.0f32),
+            (Preset::High, 120.0),
+            (Preset::Ultra, 120.0),
+        ] {
             let mut app = App::new();
             app.add_plugins(MinimalPlugins)
                 .add_plugins(bevy::input::InputPlugin)
@@ -884,17 +915,17 @@ mod tests {
                     PrimaryWindow,
                 ))
                 .id();
-            // First update initializes `Time<Real>` (elapsed = 0s): 60 fps.
+            // First update initializes `Time<Real>` (elapsed = 0s): active rate.
             app.update();
             assert!(
-                (focused_wait(&app) - 1.0 / 60.0).abs() < 1e-4,
+                (focused_wait(&app) - 1.0 / active_fps).abs() < 1e-4,
                 "{preset:?} active menu"
             );
-            // +30s, +60s, +90s (< 120.0s): still 60 fps!
+            // +30s, +60s, +90s (< 120.0s): still active rate!
             for step in 1..=3 {
                 app.update();
                 assert!(
-                    (focused_wait(&app) - 1.0 / 60.0).abs() < 1e-4,
+                    (focused_wait(&app) - 1.0 / active_fps).abs() < 1e-4,
                     "{preset:?} at {}s (< {IDLE_AFTER_SECS}s): {}",
                     step * 30,
                     focused_wait(&app)
@@ -907,7 +938,7 @@ mod tests {
                 "{preset:?} at 120s"
             );
             assert_eq!(*app.world().resource::<Resting>(), Resting(false));
-            // Any user action (`CursorMoved`) returns immediately to 60 fps!
+            // Any user action (`CursorMoved`) returns immediately to active rate!
             app.world_mut().write_message(CursorMoved {
                 window: win,
                 position: Vec2::new(42.0, 24.0),
@@ -915,10 +946,93 @@ mod tests {
             });
             app.update();
             assert!(
-                (focused_wait(&app) - 1.0 / 60.0).abs() < 1e-4,
-                "{preset:?} woke back to 60 fps"
+                (focused_wait(&app) - 1.0 / active_fps).abs() < 1e-4,
+                "{preset:?} woke back to {active_fps} fps"
             );
         }
+    }
+
+    /// Active menu pacing respects `Monitor` refresh rate (`60 Hz`, `75 Hz` via
+    /// `video_modes` fallback, `120 Hz` `ProMotion`, and `240 Hz` capped at
+    /// `120` fps).
+    #[test]
+    fn active_menu_pacing_caps_to_monitor_refresh_rate_up_to_one_twenty() {
+        use baylee_client_core::graphics::Preset;
+        use bevy::window::VideoMode;
+
+        let mut graphics = Graphics::of(Preset::Ultra);
+        graphics.adjust(|g| g.vsync = VSync::Off);
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(bevy::input::InputPlugin)
+            .add_message::<CursorMoved>()
+            .add_message::<WindowOccluded>()
+            .insert_resource(WinitSettings::game())
+            .insert_resource(ClientSettings {
+                graphics: Some(graphics),
+                ..default()
+            })
+            .add_plugins(QualityPlugin);
+        let mon = app
+            .world_mut()
+            .spawn((
+                Monitor {
+                    name: Some("External 60Hz".into()),
+                    physical_height: 2160,
+                    physical_width: 3840,
+                    physical_position: IVec2::ZERO,
+                    refresh_rate_millihertz: Some(60_000),
+                    scale_factor: 2.0,
+                    video_modes: Vec::new(),
+                },
+                PrimaryMonitor,
+            ))
+            .id();
+        app.world_mut().spawn((
+            Window {
+                focused: true,
+                ..default()
+            },
+            OnMonitor(mon),
+            PrimaryWindow,
+        ));
+
+        // 60 Hz monitor caps active menu to 60 fps (`16_666_666 ns`).
+        app.update();
+        assert!((focused_wait(&app) - 1.0 / 60.0).abs() < 1e-4);
+
+        // Fallback to `video_modes` when `refresh_rate_millihertz` is `None` (`75 Hz`).
+        {
+            let mut m = app.world_mut().entity_mut(mon);
+            let mut monitor = m.get_mut::<Monitor>().unwrap();
+            monitor.refresh_rate_millihertz = None;
+            monitor.video_modes = vec![VideoMode {
+                physical_size: UVec2::new(3840, 2160),
+                bit_depth: 24,
+                refresh_rate_millihertz: 75_000,
+            }];
+        }
+        app.update();
+        assert!((focused_wait(&app) - 1.0 / 75.0).abs() < 1e-4);
+
+        // 120 Hz ProMotion runs at 120 fps (`8_333_333 ns`).
+        app.world_mut()
+            .entity_mut(mon)
+            .get_mut::<Monitor>()
+            .unwrap()
+            .refresh_rate_millihertz = Some(120_000);
+        app.update();
+        assert!((focused_wait(&app) - 1.0 / 120.0).abs() < 1e-4);
+
+        // 240 Hz display still caps active menu at 120 fps (`8_333_333 ns`, 2 VBlanks).
+        app.world_mut()
+            .entity_mut(mon)
+            .get_mut::<Monitor>()
+            .unwrap()
+            .refresh_rate_millihertz = Some(240_000);
+        app.update();
+        assert!((focused_wait(&app) - 1.0 / 120.0).abs() < 1e-4);
     }
 
     /// A table under `settings`, a duel on it, its clock stepping a quarter

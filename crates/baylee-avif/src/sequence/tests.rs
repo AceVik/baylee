@@ -315,6 +315,36 @@ fn sixty_frames_per_second_stays_exact_without_millisecond_truncation_drift() {
 }
 
 #[test]
+fn one_hundred_twenty_frames_per_second_4k_loop_stays_exact_without_drift() {
+    // ffmpeg's AVIF muxer writes 120/1 fps as timescale = 15_360, delta = 128
+    // (15_360 / 128 == 120 exact). Truncating 8.333 ms to 8 ms would turn
+    // 120 fps into 125 fps (+4.17% drift).
+    let mut spec = Spec::colour(1_620);
+    spec.side = (3840, 2160);
+    spec.timescale = 15_360;
+    spec.times = vec![(1_620, 128)];
+    let seq = Sequence::read(&file(&[spec]), &Bounds::SHIPPED_LOOP).unwrap();
+    let track = &seq.colour;
+
+    assert_eq!((track.width, track.height), (3840, 2160));
+    assert_eq!(track.duration_ns(), 13_500_000_000);
+    assert_eq!(track.duration_ms(), 13_500);
+    assert_eq!(track.samples[0].duration_ns(track.timescale), 8_333_333);
+
+    // After 1 second (1_000_000_000 ns), we must be at exact frame 120, not 125.
+    assert_eq!(track.sample_at_ns(1_000_000_000, true), (0, 120));
+
+    // After 100 hours (360_000 s = 43_200_000 exact 120fps frames), zero drift:
+    // 43_200_000 = 26_666 * 1_620 + 1_080.
+    let hundred_hours_ns = 360_000_u64 * 1_000_000_000;
+    assert_eq!(
+        track.monotonic_frame_at_ns(hundred_hours_ns, true),
+        43_200_000
+    );
+    assert_eq!(track.sample_at_ns(hundred_hours_ns, true), (26_666, 1_080));
+}
+
+#[test]
 fn a_sample_past_the_file_is_refused() {
     let mut bytes = file(&[Spec::colour(2)]);
     bytes.truncate(bytes.len() - 1);

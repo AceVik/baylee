@@ -168,6 +168,18 @@ impl AlignedPlanes {
         }
     }
 
+    /// Releases the underlying plane allocation back to the allocator (`0`
+    /// capacity), so evicted 4K rings hold zero heap memory during a duel.
+    pub fn clear(&mut self) {
+        *self = Self::default();
+    }
+
+    /// Heap capacity currently owned by [`Self::data`], in bytes.
+    #[must_use]
+    pub fn allocated_bytes(&self) -> usize {
+        self.data.capacity()
+    }
+
     /// The chroma planes' width in pixels.
     #[must_use]
     pub fn chroma_width(&self) -> u32 {
@@ -298,5 +310,18 @@ mod tests {
         frame.to_rgba(&mut out);
         let alphas: Vec<u8> = out.chunks(4).map(|p| p[3]).collect();
         assert_eq!(alphas, (0..9).collect::<Vec<u8>>());
+    }
+
+    #[test]
+    fn aligned_planes_4k_stride_and_clear_releases_heap_capacity() {
+        let mut planes = AlignedPlanes::default();
+        assert_eq!(planes.allocated_bytes(), 0);
+        planes.prepare(3840, 2160);
+        assert_eq!((planes.y_stride, planes.c_stride), (3840, 2048));
+        assert_eq!(planes.data.len(), 3840 * 2160 + 2 * 2048 * 1080);
+        assert!(planes.allocated_bytes() >= planes.data.len());
+        planes.clear();
+        assert_eq!(planes.data.len(), 0);
+        assert_eq!(planes.allocated_bytes(), 0);
     }
 }

@@ -8,9 +8,10 @@ use std::num::NonZeroU64;
 use crate::boxes::{Atom, Cursor, children, full, needed, only};
 use crate::{Bounds, Error};
 
-/// The shortest a frame is shown, in milliseconds. A file may state zero;
-/// a player that took it at its word would decode as fast as it could.
-pub const MIN_FRAME_MS: u32 = 10;
+/// The shortest a frame is shown, in milliseconds (4 ms = 250 fps ceiling,
+/// keeping 60, 120 and 240 fps tracks exact). A file may state zero; a player
+/// that took it at its word would decode as fast as it could.
+pub const MIN_FRAME_MS: u32 = 4;
 
 /// Nanoseconds per second.
 const NANOS_PER_SEC: u128 = 1_000_000_000;
@@ -225,9 +226,9 @@ fn track(trak: &[u8], file_len: usize, bounds: &Bounds) -> Result<Read, Error> {
     };
     let mdia = children(needed(&atoms, b"mdia", "no media box")?.body)?;
     let raw_timescale = timescale(needed(&mdia, b"mdhd", "no media header")?.body)?;
-    // Scale the 32-bit `mdhd` timescale by 1000 so `MIN_FRAME_MS` (10 ms) is
+    // Scale the 32-bit `mdhd` timescale by 1000 so `MIN_FRAME_MS` (4 ms) is
     // always an exact integer number of ticks for every non-zero timescale
-    // while keeping rational ratios like `15360/256` (`60/1` fps) exact.
+    // while keeping rational ratios like `15360/128` (`120/1` fps) exact.
     let scaled_timescale = NonZeroU64::new(u64::from(raw_timescale) * 1_000)
         .ok_or(Error::Unsupported("a timescale of zero"))?;
     let role = match handler(needed(&mdia, b"hdlr", "no handler")?.body)? {
