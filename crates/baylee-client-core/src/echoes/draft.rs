@@ -5,7 +5,7 @@ use super::{
 };
 use baylee_core::ids::CardIndex;
 use domain::{
-    cards::{DECK_MAX, Stack},
+    cards::{DECK_MAX, Formation, Stack},
     v2::{
         catalog::Rarity,
         economy::Recipe,
@@ -15,6 +15,9 @@ use domain::{
     },
 };
 use uuid::Uuid;
+
+mod formation;
+pub use formation::DeckZone;
 
 /// Selection and unsaved deck changes, always bound to one confirmed revision.
 pub struct Draft {
@@ -31,6 +34,8 @@ pub struct Draft {
     pub material: Option<u32>,
     /// Unsaved deck, separate from the confirmed collection.
     pub deck: Vec<Stack>,
+    /// Commander and sideboard draft, absent for retained legacy runs.
+    pub formation: Option<Formation>,
     /// Selected post-duel cards, bound to the same immutable pending reward.
     pub rewards: Vec<CardIndex>,
 }
@@ -45,6 +50,7 @@ impl Default for Draft {
             ingredients: Vec::new(),
             material: None,
             deck: Vec::new(),
+            formation: None,
             rewards: Vec::new(),
         }
     }
@@ -72,6 +78,7 @@ impl Draft {
             *self = Self {
                 bound: Some((run.id, run.revision)),
                 deck: run.cards.deck.clone(),
+                formation: run.cards.formation.clone(),
                 ..Self::default()
             };
         }
@@ -81,7 +88,8 @@ impl Draft {
     #[must_use]
     pub fn deck_unchanged(&self, run: Option<&Run>) -> bool {
         run.is_none_or(|run| {
-            self.bound != Some((run.id, run.revision)) || self.deck == run.cards.deck
+            self.bound != Some((run.id, run.revision))
+                || (self.deck == run.cards.deck && self.formation == run.cards.formation)
         })
     }
 
@@ -135,6 +143,10 @@ impl Draft {
 
     /// Edit locally; temporary decks under forty cards are allowed until Save.
     pub fn card(&mut self, run: &Run, cohort: &Cohort, card: CardIndex, add: bool) {
+        if self.formation.is_some() {
+            self.card_in(run, cohort, card, DeckZone::Main, add);
+            return;
+        }
         if self.bound != Some((run.id, run.revision)) || run.phase != Phase::Shop {
             return;
         }

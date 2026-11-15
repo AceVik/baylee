@@ -101,6 +101,10 @@ pub use bevy::ui::InteractionDisabled as Disabled;
 #[component(on_discard = cleanup_tooltip)]
 pub struct Tooltip(pub Entity);
 
+/// Rich previews are also available from keyboard focus while the action is enabled.
+#[derive(Component)]
+pub(crate) struct FocusTooltip;
+
 fn cleanup_tooltip(
     mut world: bevy::ecs::world::DeferredWorld,
     context: bevy::ecs::lifecycle::HookContext,
@@ -425,6 +429,7 @@ pub(crate) fn show_tooltips(
         &Tooltip,
         Option<&PickingInteraction>,
         Has<Disabled>,
+        Has<FocusTooltip>,
         Option<&ComputedNode>,
         Option<&UiGlobalTransform>,
     )>,
@@ -443,10 +448,10 @@ pub(crate) fn show_tooltips(
     let canvas = windows.single().map_or(Vec2::new(1280.0, 800.0), |w| {
         crate::hud::scale::space(w, ui.as_deref())
     });
-    for (owner, tip, interaction, is_disabled, computed, transform) in &owners {
+    for (owner, tip, interaction, is_disabled, focus_tip, computed, transform) in &owners {
         let by_pick = interaction.is_some_and(|i| *i != PickingInteraction::None);
         let by_hover = !by_pick && hovered_has_ancestor(owner, hovers.as_deref(), &parents);
-        let by_focus = is_disabled && focused == Some(owner);
+        let by_focus = (is_disabled || focus_tip) && focused == Some(owner);
         let active = (by_pick || by_hover || by_focus)
             && tooltip_owner_visible(owner, &parents, &owner_vis, &owner_nodes);
         let Ok((mut shown, mut node)) = tips.get_mut(tip.0) else {

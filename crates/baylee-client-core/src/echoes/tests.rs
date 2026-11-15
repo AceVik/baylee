@@ -3,6 +3,7 @@ use baylee_core::ids::CardIndex;
 use baylee_protocol::execution::{Identity, Variant};
 use domain::cards::{Card, Catalog, Collection, Stack};
 
+mod formation;
 mod rewards;
 
 fn cohort() -> Cohort {

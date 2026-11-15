@@ -41,13 +41,7 @@ pub(super) fn draw(
         ui,
         Phrase::EchoesSaveDeck.text(lang),
         Action::SaveDeck,
-        !ui.choices.deck_unchanged(Some(run))
-            && can(
-                ui,
-                &Command::Edit {
-                    deck: ui.choices.deck.clone(),
-                },
-            ),
+        !ui.choices.deck_unchanged(Some(run)) && can(ui, &ui.choices.save_deck()),
     );
     control(
         commands,

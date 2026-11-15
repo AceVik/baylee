@@ -1,21 +1,48 @@
-//! Translate explicit presses into revision-bound confirmation candidates.
-use super::{Action, Command, Ui, api::Phase};
+//! Translate explicit presses into revision-bound authority commands.
+use super::{Action, Command, Ui, Work, api::Phase};
 pub(super) use baylee_client_core::echoes::draft::Draft;
 use baylee_client_core::echoes::draft::allowed;
 
-pub(super) fn act(ui: &mut Ui, action: Action) {
-    let Some(run) = ui.model.run() else {
-        return;
-    };
+pub(super) fn act(ui: &mut Ui, action: Action) -> Option<Work> {
+    let run = ui.model.run()?;
     if ui.model.uncertain()
         || !matches!(run.phase, Phase::Shop | Phase::Reward)
         || ui.confirmation.is_some()
     {
-        return;
+        return None;
     }
     ui.choices.bind(run);
-    let draft = &mut ui.choices;
-    let command = match action {
+    let command = selected(&mut ui.choices, run, ui.model.publication(), action)?;
+    if (matches!(command, Command::Edit { .. } | Command::Refit { .. })
+        || ui.choices.deck_unchanged(Some(run)))
+        && ui
+            .model
+            .publication()
+            .is_some_and(|cohort| allowed(run, cohort, &command))
+    {
+        return ui.command(command);
+    }
+    None
+}
+
+fn selected(
+    draft: &mut Draft,
+    run: &super::api::Run,
+    cohort: Option<&super::api::Cohort>,
+    action: Action,
+) -> Option<Command> {
+    match action {
+        Action::Purchase(offer) => Some(Command::Buy {
+            offer,
+            delivery: super::domain::v2::shop::Delivery::Inventory,
+        }),
+        Action::QuickEquip(id) => {
+            baylee_client_core::echoes::workshop::quick_move(&run.economy.inventory, id)
+        }
+        Action::Transfer(item, slot) => Some(Command::Move { item, slot }),
+        Action::Upgrade(item, potion) => {
+            baylee_client_core::echoes::workshop::mythic(&run.economy.inventory, item, potion)
+        }
         Action::Reward(card) => {
             draft.reward(run, card);
             None
@@ -80,28 +107,17 @@ pub(super) fn act(ui: &mut Ui, action: Action) {
             replace_pinned: true,
         }),
         Action::Abandon => Some(Command::Abandon {}),
-        Action::SaveDeck => Some(Command::Edit {
-            deck: draft.deck.clone(),
-        }),
+        Action::SaveDeck => Some(draft.save_deck()),
         Action::ResetDeck => {
-            draft.deck = run.cards.deck.clone();
+            draft.reset_deck(run);
             None
         }
         Action::Card(card, add) => {
-            if let Some(cohort) = ui.model.publication() {
+            if let Some(cohort) = cohort {
                 draft.card(run, cohort, card, add);
             }
             None
         }
         _ => None,
-    };
-    if let Some(command) = command
-        && (matches!(command, Command::Edit { .. }) || ui.choices.deck_unchanged(Some(run)))
-        && ui
-            .model
-            .publication()
-            .is_some_and(|cohort| allowed(run, cohort, &command))
-    {
-        ui.command(command);
     }
 }

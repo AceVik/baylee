@@ -1846,6 +1846,7 @@ dependencies = [
  "baylee-gamehost",
  "baylee-protocol",
  "baylee-seal",
+ "baylee-tower-content",
  "baylee-update",
  "baylee-view",
  "baylee-worker",

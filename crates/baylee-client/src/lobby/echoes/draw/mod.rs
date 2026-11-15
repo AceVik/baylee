@@ -21,6 +21,7 @@ mod equipment;
 mod landing;
 mod merchandise;
 mod reward;
+mod runshop;
 mod shop;
 #[cfg(test)]
 mod tests;
@@ -212,6 +213,13 @@ fn selected(
     if let Some(run) = ui.model.run() {
         if run.phase == api::Phase::Reward {
             reward::draw(commands, body, kit, ui, run);
+            return;
+        }
+        if run.shop.generator == domain::v2::generation::RUN
+            && ui.page == Page::Shop
+            && let Some(cohort) = ui.model.publication()
+        {
+            runshop::draw(commands, body, kit, ui, run, cohort);
             return;
         }
         if ui.page != Page::Shop {

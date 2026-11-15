@@ -164,10 +164,7 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
             ui.confirmation = Some(Confirmation::Withdrawal);
             None
         }
-        _ => {
-            super::choices::act(ui, action);
-            None
-        }
+        _ => super::choices::act(ui, action),
     };
     if let Some(work) = work {
         submit(state, work);
@@ -180,6 +177,15 @@ fn navigate(ui: &mut Ui, action: Action) -> bool {
         Action::GoShop => ui.page = Page::Shop,
         Action::InspectCard(card) => ui.preview = Some(card),
         Action::Tiers(family) => ui.tiers = (ui.tiers != Some(family)).then_some(family),
+        Action::InventoryPage(page) => ui.bag.page = page,
+        Action::InventoryOrder(order) => {
+            ui.bag.order = order;
+            ui.bag.page = 0;
+        }
+        Action::InventoryGroups(grouped) => {
+            ui.bag.grouped = grouped;
+            ui.bag.page = 0;
+        }
         _ => return false,
     }
     true

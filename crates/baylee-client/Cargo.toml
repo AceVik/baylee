@@ -72,6 +72,7 @@ webbrowser.workspace = true
 qrcodegen.workspace = true
 
 [dev-dependencies]
+baylee-tower-content.workspace = true
 # Assert wire compatibility against the exact browser SDK crypto build.
 central-crypto.workspace = true
 # The same crate as above, with its view builders switched on. A test target

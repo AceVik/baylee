@@ -2,7 +2,7 @@ use super::*;
 use baylee_core::color::{Color, ColorSet};
 use domain::cards::{Formation, RunCard};
 
-fn fixture() -> (State, Cohort, Run) {
+pub(super) fn fixture() -> (State, Cohort, Run) {
     let mut cards: Vec<_> = Color::ALL
         .into_iter()
         .enumerate()

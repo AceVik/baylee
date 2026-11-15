@@ -321,3 +321,13 @@ Always stop owned test processes and verify listeners close.
   printing/construction rules. Its offline `--check` command passed and reports
   balance as unmeasured. Strict all-target Clippy passed for the content adapter
   and the reviewed core/engine/host changes. Native publication remains pending.
+- First workshop implementation: modular original frame/shelves, six equipment
+  positions, potion row, paginated sortable/grouped bag, revision-bound direct
+  purchases and drag/right-click commands, shared keyboard/hover details and
+  cached rarity/fusion shader. Thirteen focused client tests and two domain-facing
+  inventory tests passed; strict client/core Clippy passed. Evidence:
+  `/tmp/baylee-tower-workshop-tests-20261116.log`,
+  `/tmp/baylee-tower-workshop-core-tests-20261116.log`,
+  `/tmp/baylee-tower-workshop-clippy-20261116-r5.log`.
+  These are headless correctness checks, not rendered refinement passes. Native
+  layout, motion, drag feedback and tooltip edge placement still need inspection.

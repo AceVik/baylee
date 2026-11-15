@@ -10,7 +10,9 @@ pub(in crate::lobby::echoes::draw) fn market_progress(
 ) {
     if let Some(run) = ui.model.run() {
         metrics(commands, root, kit, run, true);
-        play(commands, root, kit, ui, run);
+        if run.shop.generator != domain::v2::generation::RUN {
+            play(commands, root, kit, ui, run);
+        }
     }
 }
 

@@ -101,7 +101,7 @@ fn mounted(ui: &Ui) -> World {
 #[test]
 fn market_has_one_action_per_offer_destination_and_owned_instance() {
     let mut ui = opened();
-    super::super::choices::act(&mut ui, Action::Offer(5));
+    assert!(super::super::choices::act(&mut ui, Action::Offer(5)).is_none());
     let mut world = mounted(&ui);
     let actions: Vec<_> = world
         .query::<&Press>()
@@ -155,7 +155,7 @@ fn sold_offers_and_confirming_market_cannot_look_like_live_purchases() {
         disabled.is_some(),
         "the purchased offer keeps its disabled placeholder"
     );
-    super::super::choices::act(&mut ui, Action::Offer(5));
+    assert!(super::super::choices::act(&mut ui, Action::Offer(5)).is_none());
     ui.confirmation = Some(Confirmation::Withdrawal);
     let mut world = mounted(&ui);
     for (press, disabled) in world
@@ -178,13 +178,13 @@ fn sold_offers_and_confirming_market_cannot_look_like_live_purchases() {
 fn inspecting_stock_then_inventory_changes_only_the_single_inspector() {
     let mut ui = opened();
     let before = ui.model.run().unwrap().clone();
-    super::super::choices::act(&mut ui, Action::Offer(5));
+    assert!(super::super::choices::act(&mut ui, Action::Offer(5)).is_none());
     assert_eq!(ui.choices.offer, Some(5));
     assert_eq!(ui.choices.item, None);
-    super::super::choices::act(&mut ui, Action::Select(1));
+    assert!(super::super::choices::act(&mut ui, Action::Select(1)).is_none());
     assert_eq!(ui.choices.offer, None);
     assert_eq!(ui.choices.item, Some(1));
-    super::super::choices::act(&mut ui, Action::Offer(6));
+    assert!(super::super::choices::act(&mut ui, Action::Offer(6)).is_none());
     assert_eq!(ui.choices.offer, Some(6));
     assert_eq!(ui.choices.item, None);
     assert_eq!(ui.model.run(), Some(&before));

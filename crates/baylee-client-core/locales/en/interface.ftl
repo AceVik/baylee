@@ -3494,6 +3494,25 @@ MultikickerHowOften = Multikicker { $cost }: pay it how many times? ({ $min }–
 
 # The buyback question. $price is the whole cost, one or more of the
 # price phrases below joined by commas.
+EchoesRunWorkshop = The Wayfarer's Workshop
+EchoesRunEquipmentHint = Right-click to equip or store. Drag onto a slot to swap.
+EchoesRunBagEmpty = Your inventory is empty. Purchased items appear here.
+EchoesRunNewest = Newest
+EchoesRunFamily = Item family
+EchoesRunRarity = Rarity
+EchoesRunGroups = Group items
+EchoesRunPrevious = Previous
+EchoesRunNext = Next
+# Arguments: page, pages
+EchoesRunPage = Page { $page } / { $pages }
+EchoesRunPotions = Supplies
+EchoesRunPotionsHint = Potions can be used during a duel. They last only for this run.
+EchoesRunEquip = Equip / store
+EchoesRunUpgrade = Ascend to Mythic Rare
+EchoesRunSold = Sold
+EchoesRunFull = All six equipment slots are occupied. Drag onto a slot to swap, or store an equipped item first.
+EchoesRunShelfHint = Three identical items combine automatically. Freeze the shelf to keep unsold offers for the next visit.
+
 # Arguments: price
 BuybackAsk = Buyback: { $price }? The spell comes back to your hand as it resolves.
 

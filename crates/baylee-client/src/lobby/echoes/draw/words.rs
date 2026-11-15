@@ -192,6 +192,24 @@ pub(super) fn run_effect(definition: Definition, lang: Lang) -> String {
         return String::new();
     };
     let mut lines = Vec::new();
+    if let Ok(stats) = domain::v2::catalog::run_attributes(&[definition]) {
+        match definition.family {
+            Family::Heartwood => {
+                lines.push(Phrase::EchoesLifeEffect.fill(lang, &[&(stats.life - 20).to_string()]))
+            }
+            Family::Satchel => lines.push(Phrase::EchoesCardsEffect.fill(
+                lang,
+                &[
+                    &(stats.cards - 7).to_string(),
+                    &(stats.maximum_hand - 7).to_string(),
+                ],
+            )),
+            Family::Compass => lines.push(
+                Phrase::EchoesMulliganEffect.fill(lang, &[&(stats.free_mulligans - 1).to_string()]),
+            ),
+            _ => {}
+        }
+    }
     if definition.family == Family::GildedAcorn {
         lines.push(Phrase::EchoesAcornEffect.fill(lang, &[&definition.rarity.tier().to_string()]));
         if definition.rarity == Rarity::MythicRare {
@@ -372,6 +390,8 @@ pub(super) const fn icon(action: Action) -> char {
 pub(super) fn selected(action: Action, ui: &Ui) -> bool {
     match action {
         Action::Page(page) => page == ui.page,
+        Action::InventoryOrder(order) => order == ui.bag.order,
+        Action::InventoryGroups(grouped) => grouped == ui.bag.grouped,
         Action::Offer(id) => ui.choices.offer == Some(id),
         Action::Select(id) => ui.choices.item == Some(id),
         Action::InspectCard(id) => ui.preview == Some(id),

@@ -56,7 +56,8 @@ pub(super) fn control(
 
 pub(super) fn can(ui: &Ui, command: &Command) -> bool {
     !ui.model.uncertain()
-        && (matches!(command, Command::Edit { .. }) || ui.choices.deck_unchanged(ui.model.run()))
+        && (matches!(command, Command::Edit { .. } | Command::Refit { .. })
+            || ui.choices.deck_unchanged(ui.model.run()))
         && ui
             .model
             .run()

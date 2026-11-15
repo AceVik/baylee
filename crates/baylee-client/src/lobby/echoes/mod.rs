@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 mod choices;
 mod draw;
+mod gestures;
 pub(crate) mod keys;
 #[cfg(not(target_arch = "wasm32"))]
 pub(super) mod native;
@@ -38,6 +39,13 @@ pub(crate) enum Action {
     Page(Page),
     GoShop,
     Offer(u32),
+    Purchase(u32),
+    QuickEquip(u32),
+    Transfer(u32, Slot),
+    Upgrade(u32, u32),
+    InventoryPage(usize),
+    InventoryOrder(baylee_client_core::echoes::workshop::Order),
+    InventoryGroups(bool),
     Place(Slot),
     Ingredient(u32),
     Material(u32),
@@ -76,12 +84,20 @@ pub(super) enum Confirmation {
 }
 
 #[derive(Default)]
+struct Bag {
+    page: usize,
+    order: baylee_client_core::echoes::workshop::Order,
+    grouped: bool,
+}
+
+#[derive(Default)]
 pub(crate) struct Ui {
     model: State,
     pub(super) opened: bool,
     page: Page,
     pub(super) confirmation: Option<Confirmation>,
     choices: choices::Draft,
+    bag: Bag,
     preview: Option<baylee_core::ids::CardIndex>,
     tiers: Option<domain::v2::catalog::Family>,
     reads: VecDeque<Read>,
@@ -98,6 +114,8 @@ pub(crate) struct Ui {
 
 pub(super) fn install(app: &mut App) {
     crate::itemart::install(app);
+    crate::towerui::install(app);
+    gestures::install(app);
     #[cfg(not(target_arch = "wasm32"))]
     {
         app.add_systems(
@@ -185,16 +203,25 @@ impl Ui {
         self.choices.bind(run);
     }
 
-    fn command(&mut self, command: Command) {
+    fn command(&mut self, command: Command) -> Option<Work> {
         if let Some(run) = self.model.run()
             && matches!(run.phase, api::Phase::Shop | api::Phase::Reward)
             && !self.model.uncertain()
         {
+            if run.shop.generator == domain::v2::generation::RUN
+                && !matches!(
+                    command,
+                    Command::Abandon {} | Command::Sell { .. } | Command::Fuse { .. }
+                )
+            {
+                return self.model.choose(Uuid::now_v7(), command);
+            }
             self.confirmation = Some(Confirmation::Choice {
                 run: run.id,
                 revision: run.revision,
                 command,
             });
         }
+        None
     }
 }

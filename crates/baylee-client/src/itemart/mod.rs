@@ -17,6 +17,38 @@ use bevy::{
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Portrait(pub Goods);
 
+/// Cached shelf emphasis; animation stays in the shared GPU clock.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum Emphasis {
+    #[default]
+    None,
+    Owned,
+    Uncommon,
+    Rare,
+    Mythic,
+}
+
+impl Emphasis {
+    const fn index(self) -> usize {
+        match self {
+            Self::None => 0,
+            Self::Owned => 1,
+            Self::Uncommon => 2,
+            Self::Rare => 3,
+            Self::Mythic => 4,
+        }
+    }
+    const fn bits(self) -> u32 {
+        match self {
+            Self::None => 0,
+            Self::Owned => 8,
+            Self::Uncommon => 16,
+            Self::Rare => 32,
+            Self::Mythic => 64,
+        }
+    }
+}
+
 impl Portrait {
     fn indices(self) -> (usize, usize) {
         match self.0 {
@@ -105,7 +137,7 @@ impl UiMaterial for Material {
 }
 
 #[derive(Resource, Default)]
-struct Cache([[Option<Handle<Material>>; 4]; PICTURES.len() + 1]);
+struct Cache([[[Option<Handle<Material>>; 5]; 4]; PICTURES.len() + 1]);
 
 fn linear(rgb: [f32; 3]) -> Vec4 {
     let color = Color::srgb(rgb[0], rgb[1], rgb[2]).to_linear();
@@ -116,7 +148,7 @@ fn params(kind: usize, tier: usize, energy: f32) -> Params {
     Params {
         metal: linear(
             [
-                [0.66, 0.52, 0.36],
+                [0.43, 0.48, 0.51],
                 [0.76, 0.85, 0.89],
                 [0.97, 0.74, 0.34],
                 [1.0, 0.62, 0.34],
@@ -152,9 +184,13 @@ fn params(kind: usize, tier: usize, energy: f32) -> Params {
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn dress(
     mut commands: Commands,
-    portraits: Query<(Entity, &Portrait), Changed<Portrait>>,
+    portraits: Query<
+        (Entity, &Portrait, Option<&Emphasis>),
+        Or<(Changed<Portrait>, Changed<Emphasis>)>,
+    >,
     mut cache: ResMut<Cache>,
     mut assets: ResMut<Assets<Material>>,
     server: Res<AssetServer>,
@@ -172,7 +208,7 @@ fn dress(
     if prefs.as_ref().is_some_and(DetectChanges::is_changed)
         || quality.as_ref().is_some_and(DetectChanges::is_changed)
     {
-        for handle in cache.0.iter().flatten().flatten() {
+        for handle in cache.0.iter().flatten().flatten().flatten() {
             if assets
                 .get(handle)
                 .is_some_and(|material| (material.params.shape.z - energy).abs() > f32::EPSILON)
@@ -182,12 +218,15 @@ fn dress(
             }
         }
     }
-    for (entity, portrait) in &portraits {
+    for (entity, portrait, emphasis) in &portraits {
         let (kind, tier) = portrait.indices();
-        let handle = cache.0[kind][tier]
+        let emphasis = emphasis.copied().unwrap_or_default();
+        let handle = cache.0[kind][tier][emphasis.index()]
             .get_or_insert_with(|| {
+                let mut params = params(kind, tier, energy);
+                params.shape.w = emphasis.bits() as f32;
                 assets.add(Material {
-                    params: params(kind, tier, energy),
+                    params,
                     portrait: kind
                         .checked_sub(1)
                         .map(|index| server.load(PICTURES[index])),

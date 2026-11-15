@@ -11,6 +11,7 @@ pub mod draft;
 mod receive;
 #[cfg(test)]
 mod tests;
+pub mod workshop;
 
 /// Explicit read/navigation operation, never a progression mutation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
