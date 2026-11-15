@@ -6089,8 +6089,8 @@ Failures contain no remote diagnostics. Every handled player response carries
 `Account::tower` obtains its trusted origin from Central, then `TowerHttp::exchange`
 sends only that scoped credential. It performs no automatic mutation retry and
 follows no redirects. The player router, standalone launcher and native SDK are
-implemented; the gateway worker transport and visible client flow remain
-separate integration milestones, not implied by this protocol surface.
+implemented. Gateway attachment is described below; complete native client
+acceptance remains a separate milestone, not implied by this protocol surface.
 
 ### Private Tower host API
 
@@ -6130,8 +6130,10 @@ Host admission is capped at 16 concurrent operations, with an additional four
 record-body slots. Authentication precedes reading large bodies; reading is
 bounded to ten seconds. Native headers, no-store responses and closed error
 statuses follow the player transport policy. A private response has no printable
-diagnostic implementation. These routes are exercised over real HTTP/PostgreSQL;
-gateway orchestration remains separate work. The standalone launcher combines
+diagnostic implementation. These routes are exercised over real HTTP/PostgreSQL.
+`advertise` returns the authenticated host UUID, which a gateway can report to its
+player for reservation without accepting a caller-selected host identity.
+The standalone launcher combines
 both routers with exact cohort verification queues; its configuration and graceful
 shutdown contract are in `docs/dev/environment.md`.
 
@@ -6145,6 +6147,22 @@ content commitment before releasing its barrier. There is no automatic retry;
 the caller retains the exact claim ID/batch across ambiguous failures.
 
 ### Private Tower engine frames (protocol 49)
+
+The gateway exposes authenticated `GET /tower` discovery and
+`POST /tower/{run}/play` with the strict empty JSON body `{}`. Discovery reports
+the authority origin, authenticated Host UUID and available exact Tower engine
+identities. Both require a current non-admin Central player session. Play derives
+the owner UUID from that session, checks participation/admission, retains its
+claim ID across ambiguous failures and launches only an agent advertising the
+complete reserved identity. Pending starts are serialized and capped at 32.
+An attached owner's repeat reclaims the same human seat. Spectators and ordinary
+rematches are disabled: the latter must not copy the private opponent build.
+
+The gateway retains no authority to award a result. It renews its 60-second lease
+every 20 seconds while attached, stopping renewal before sealing to prevent a
+late renewal conflict from racing final views. Technical interruption closes the
+local table and retains the authority's durable prefix. Automatic expired-host
+reassignment and cross-gateway reconnect discovery are not yet implemented.
 
 `Envelope.tower_frame` is reserved for the authenticated gateway/engine plane.
 It contains at most 256 KiB of strict typed JSON control and one raw chunk of at

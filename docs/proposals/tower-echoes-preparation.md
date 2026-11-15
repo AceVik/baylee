@@ -1385,3 +1385,29 @@ The expanded real HTTP/PostgreSQL test passes in
 victim state/revision/generation after the foreign request. Strict all-target
 Clippy for service/API/account passes in
 `/tmp/baylee-tower-preclaim-owner-clippy-20261115-r2.log`.
+
+## Gateway attachment — forty-fourth working milestone
+
+Following a move-only extraction of gateway startup/state and ordinary engine
+attachment, the gateway now discovers its authenticated Tower host identity,
+claims only for its verified Central player, chooses an exact advertised agent
+capability and attaches the native Tower protocol. Recovery reads verify the
+original prefix; complete operations pass through the atomic authority batch
+transport before an ACK can unlock views. Lease renewal stops before sealing,
+and private Tower games refuse ordinary rematches and spectators.
+
+Three focused gateway tests pass in
+`/tmp/baylee-gateway-tower-unit-tests-20261115-r2.log`: strict configuration/body,
+exact capability/capacity selection and refusal to copy private opponent builds
+through ordinary rematches. Strict gateway binary/tests Clippy passes in
+`/tmp/baylee-gateway-tower-integration-clippy-20261115-r4.log`.
+The expanded host identity HTTP/storage test passes in
+`/tmp/baylee-tower-gateway-host-identity-native-20261115-r2.log` (1.24s).
+Docker's internal filesystem became read-only, so this run used an owned native
+PostgreSQL 18.7 cluster with SCRAM authentication and loopback TCP. The Rust
+fixture reaped its database process, proved port closure and removed the cluster.
+It did not restart or change unrelated Docker services.
+
+This evidence does not yet prove the complete gateway/native/authority journey.
+That integration scenario, automatic expired-host reassignment, global reconnect
+discovery, historic opponent names and the new visible client remain outstanding.

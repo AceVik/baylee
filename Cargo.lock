@@ -2146,6 +2146,8 @@ dependencies = [
  "baylee-seal",
  "baylee-seat",
  "baylee-seathost",
+ "baylee-tower",
+ "baylee-tower-api",
  "baylee-train",
  "baylee-view",
  "bytes",

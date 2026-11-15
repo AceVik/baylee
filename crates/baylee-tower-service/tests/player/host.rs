@@ -83,6 +83,7 @@ pub async fn run(
         panic!("private claim");
     };
     assert_eq!(game.account, account);
+    host_identity(&sdk, store, host, &game.package.cohort.executor).await;
     assert_eq!(store.get(game.account, run.id).await.unwrap().id, run.id);
     assert_eq!(
         request(client, host, &claim).await,
@@ -164,6 +165,31 @@ async fn foreign_owner(store: &Store, client: &Client, host: &Token, run: Uuid, 
         store.get(account, run).await.unwrap(),
         before,
         "foreign identity cannot consume the victim's reservation or generation"
+    );
+}
+
+async fn host_identity(
+    sdk: &baylee_account::TowerHost,
+    store: &Store,
+    credential: &Token,
+    engine: &baylee_protocol::execution::Identity,
+) {
+    let Response::Advertised { host } = sdk
+        .control(&Request::Advertise {
+            engines: vec![engine.clone()],
+        })
+        .await
+        .unwrap()
+    else {
+        panic!("host identity from authority");
+    };
+    assert_eq!(
+        host,
+        store
+            .authenticate_operator(credential.digest())
+            .await
+            .unwrap()
+            .id()
     );
 }
 

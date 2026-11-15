@@ -2,6 +2,9 @@
 use baylee_core::preset::LoopPolicy;
 use baylee_protocol::execution::{Identity, Variant};
 
+#[cfg(test)]
+mod tests;
+
 pub(super) fn native(variant: Variant) -> Identity {
     Identity::native(
         variant,
@@ -19,6 +22,37 @@ pub(crate) const fn standard_variant(policy: LoopPolicy) -> Variant {
 }
 
 impl super::Agents {
+    /// Least busy installed exact artifact. A cohort can never fall back to this release.
+    pub(crate) fn pick_exact(&self, identity: &Identity) -> Option<(String, Identity)> {
+        self.connected
+            .iter()
+            .filter(|(_, agent)| agent.has_room() && agent.engines.contains(identity))
+            .min_by(|(a_id, a), (b_id, b)| {
+                a.games
+                    .len()
+                    .cmp(&b.games.len())
+                    .then_with(|| a_id.cmp(b_id))
+            })
+            .map(|(id, _)| (id.clone(), identity.clone()))
+    }
+
+    /// Exact currently available Tower inventory, bounded before advertising it.
+    pub(crate) fn tower_inventory(&self) -> Option<Vec<Identity>> {
+        let mut identities = Vec::new();
+        for agent in self.connected.values().filter(|agent| agent.has_room()) {
+            for identity in &agent.engines {
+                if identity.variant == Variant::Tower && !identities.contains(identity) {
+                    identities.push(identity.clone());
+                    if identities.len() > baylee_protocol::execution::MAX_CAPABILITIES {
+                        return None;
+                    }
+                }
+            }
+        }
+        identities.sort_by_key(Identity::to_metadata);
+        baylee_protocol::execution::valid_capabilities(&identities).then_some(identities)
+    }
+
     /// Least busy compatible agent, deterministic tie break, and its exact artifact.
     /// Retained certified v1 challenges freeze a build; ordinary games use this release.
     pub(crate) fn pick_variant(

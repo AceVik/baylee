@@ -57,6 +57,7 @@ mod store;
 mod terms;
 mod termsadmin;
 mod texts;
+mod tower;
 mod wsticket;
 
 use axum::Router;

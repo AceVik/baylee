@@ -26,7 +26,9 @@ dev-table = []
 [dependencies]
 # Its programs look cards up, so they hold the pool (`baylee-cards-pool`).
 baylee-cards-pool.workspace = true
-baylee-account.workspace = true
+baylee-account = { workspace = true, features = ["tower-host"] }
+baylee-tower.workspace = true
+baylee-tower-api.workspace = true
 # Verifying Central's tokens and revocations; signing stays at Central.
 central-crypto = { workspace = true, features = ["jwt"] }
 zeroize.workspace = true

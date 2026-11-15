@@ -70,8 +70,8 @@ The service provides `/health`, `/v2/player`, `/v2/host` and `/v2/host/record`.
 coverage. SIGTERM on Unix or Ctrl-C triggers graceful shutdown: listeners close,
 queue workers stop and owned verifier children are reaped before database closure.
 Store/configuration failures stop the service; unresolved evidence stays durable.
-The gateway execution link and visible native v2 client flow are still separate
-integration work.
+The gateway execution link is implemented; complete integration acceptance and
+the visible native v2 client flow remain separate work.
 
 ## Neural player and offline evaluation (`baylee-train`)
 
@@ -119,6 +119,17 @@ integration work.
   off unless this bind is supplied.
 
 ## Gateway (`baylee-gateway`)
+
+- `BAYLEE_TOWER_ORIGIN`: canonical HTTPS origin of the separate Baylee Tower
+  authority. Required together with `BAYLEE_TOWER_HOST_TOKEN`; leaving both unset
+  disables Tower v2 hosting. No alternate origin or engine fallback is selected.
+- `BAYLEE_TOWER_HOST_TOKEN`: dedicated Tower operator credential with the Host
+  role, exactly 64 lowercase hexadecimal characters. Supplied only through the
+  process environment, never client input or logs. It is not a Central bridge key.
+- `BAYLEE_TOWER_DEVELOPMENT`: absent or `0` requires production HTTPS; explicit
+  `1` requires numeric-loopback HTTP. Partial configuration, other values, URL
+  paths and cross-environment origins refuse startup. This changes transport
+  selection only; player identity and host authorization remain enforced.
 
 - `PORT` (default 28766; `0` binds any free port; `BAYLEE_PORT_FILE`, a path, receives the bound port just before serving, which is how e2e helpers find it, #279).
 - `BAYLEE_BIND` (the address the TCP port listens on, a numeric IP; unset or empty = `127.0.0.1`, this machine only; `0.0.0.0` or `::` = every interface, which only an operator who means it sets, never a default; anything else refuses startup). A public gateway needs no value: its TLS proxy dials `127.0.0.1:28766` and its agent the unix socket (`docs/releasing.md` §"Where the gateway listens"). With `BAYLEE_ENGINE_URL` unset, engines are told to dial the bound address, or loopback when it is every interface.

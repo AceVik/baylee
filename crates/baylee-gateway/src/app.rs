@@ -1,8 +1,13 @@
 //! Shared gateway state, independent of startup and route assembly.
-use super::*;
+use super::{
+    Arc, IpAddr, Lobby, Mutex, admission, art, auth, authmode, banlists, blocks, central,
+    cosmetics, engine, metrics, namebook, poolfacts, presence, record, registration, replays,
+    report, seathost, sessions, social, terms, texts, tower, wsticket,
+};
 
 /// Shared gateway state.
 pub(super) struct AppState {
+    pub(super) tower: Option<Arc<tower::Tower>>,
     pub(super) central: central::Link,
     pub(super) central_barrier: tokio::sync::RwLock<()>,
     /// Accounts, sessions, decks, links, preferences.

@@ -31,6 +31,7 @@ use uuid::Uuid;
 
 pub(crate) mod execution;
 mod lifecycle;
+mod tower;
 mod wire;
 use wire::{
     Incoming, hello_of, next_envelope, outbox_of, refusal, send, send_queued, spectator_outbox_of,
@@ -527,6 +528,7 @@ async fn run_job_socket(state: &Shared, mut socket: WebSocket, hello: &v1::Engin
 
 /// Marks a game finished and releases its engine.
 pub(crate) fn end_game(state: &Shared, game_id: &str) {
+    crate::tower::ended(state, game_id);
     {
         let mut lobby = state.lobby.lock();
         if let Some(game) = lobby.games.get_mut(game_id) {

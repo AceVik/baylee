@@ -111,7 +111,9 @@ impl Hosts {
         let response = match request {
             wire::Request::Advertise { engines } => {
                 self.store.advertise(principal, &engines).await?;
-                wire::Response::Advertised {}
+                wire::Response::Advertised {
+                    host: principal.id(),
+                }
             }
             wire::Request::Claim {
                 account,

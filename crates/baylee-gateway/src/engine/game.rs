@@ -1,5 +1,9 @@
 //! Existing ordinary engine attachment and routing.
-use super::*;
+use super::{
+    Envelope, Incoming, LobbyState, Shared, Uuid, WebSocket, auth, end_game, execution, hello_of,
+    mpsc, next_envelope, outbox_of, refusal, run_job_socket, send, send_queued,
+    spectator_outbox_of, stop_engine, tower, v1,
+};
 
 #[allow(clippy::too_many_lines)] // the attach, in the order it happens
 pub(super) async fn run_engine_socket(
@@ -12,6 +16,12 @@ pub(super) async fn run_engine_socket(
     let Some(v1::envelope::Msg::EngineHello(hello)) = hello else {
         return;
     };
+    if let Some(authority) = state.tower.clone()
+        && let Some(game) = authority.game(&hello.game_id)
+    {
+        tower::run(&state, socket, &hello, authority, game).await;
+        return;
+    }
     if hello.game_id.starts_with(crate::replays::JOB_PREFIX) {
         run_job_socket(&state, socket, &hello).await;
         return;

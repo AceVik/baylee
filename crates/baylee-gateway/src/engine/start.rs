@@ -1,5 +1,5 @@
 //! Reserve and launch exactly one compatible engine.
-use super::*;
+use super::{Envelope, LobbyState, Shared, auth, execution, lifecycle, v1};
 
 /// Asks an agent to start the engine for a game.
 ///
@@ -28,9 +28,16 @@ pub fn start_engine(state: &Shared, game_id: &str) -> Result<(), &'static str> {
         let preset = game.preset.as_ref().ok_or("no game preset")?;
         let variant = execution::standard_variant(preset.house_rules.loop_policy);
         let mut agents = state.agents.lock();
-        let (id, execution) = agents
-            .pick_variant(variant, game.challenge_executor.as_deref())
-            .ok_or("no compatible engine capacity")?;
+        let (id, execution) = if let Some(required) = game
+            .execution
+            .as_ref()
+            .filter(|identity| identity.variant == baylee_protocol::execution::Variant::Tower)
+        {
+            agents.pick_exact(required)
+        } else {
+            agents.pick_variant(variant, game.challenge_executor.as_deref())
+        }
+        .ok_or("no compatible engine capacity")?;
         let agent = agents.connected.get_mut(&id).ok_or("the agent went away")?;
         let order = Envelope {
             msg: Some(v1::envelope::Msg::StartEngine(v1::StartEngine {

@@ -61,7 +61,7 @@ impl TowerHost {
             .exchange(host::CONTROL_PATH, "application/json", body)
             .await?;
         let matching = match (request, &response) {
-            (Request::Advertise { .. }, Response::Advertised {})
+            (Request::Advertise { .. }, Response::Advertised { .. })
             | (Request::Renew { .. }, Response::Renewed { .. }) => true,
             (Request::Claim { claim, account, .. }, Response::Claimed { game }) => {
                 game.lease.claim == *claim && game.account == *account

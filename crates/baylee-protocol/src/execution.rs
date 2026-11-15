@@ -14,6 +14,7 @@ pub const MAX_CAPABILITIES: usize = 16;
 pub const SCHEMA: u32 = 1;
 
 /// A separately built engine artifact; never selected within the rules hot path.
+/// @openapi
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Variant {
@@ -26,6 +27,7 @@ pub enum Variant {
 }
 
 /// The exact executable capabilities frozen by a game reservation.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Identity {

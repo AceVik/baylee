@@ -1,5 +1,18 @@
 //! Gateway startup; individual transports remain separate modules.
-use super::*;
+use super::{
+    AppState, Arc, EnvFilter, GUESTS_A_DAY_PER_ADDRESS, LARGE_BODIES_PER_ADDRESS, Lobby, Mutex,
+    PathBuf, Router, Shared, SocketAddr, account, account_routes, admin, admission, announce,
+    archive_replay, art, auth, authmode, banlists, blocks, catalog_search, catalog_text, central,
+    chair, challenges, clock, connect_catalog, cors, cosmetics, create_game, deck_routes,
+    departure, display_name, engine, game_cosmetics, game_ws, get, guest_cap, hand_over, health,
+    impressum_url, info, join_game, launch, leave_game, legacyexport, list_games, list_replays,
+    list_seats, listen, lobby_stats, lobby_ws, metrics, namebook, open_database, pool, poolfacts,
+    post, presence, put, record, recordexport, registration, rematch, replay_tape, replays, report,
+    room, routes, seathost, sessions, set_ready, set_seat, share_replay, social, source,
+    source_url, spawn_cleanup, spawn_session_sweep, spawn_ticket_sweep, start_room, switched_on,
+    take_seat, terms, texts, tower, trusted_proxies, validate_the_dev_board, watch_ws, whole_body,
+    write_port_file, ws_ticket, wsticket,
+};
 mod router;
 
 #[allow(clippy::too_many_lines)] // one statement per setting and route, read top to bottom
@@ -153,6 +166,8 @@ pub(super) async fn run() {
     }
     let (lobby_changed, _) = tokio::sync::broadcast::channel(16);
     let state = Arc::new(AppState {
+        tower: tower::Tower::from_env()
+            .unwrap_or_else(|()| panic!("Tower host configuration rejected")),
         central: central::Link::from_env()
             .unwrap_or_else(|()| panic!("central bridge configuration rejected")),
         central_barrier: tokio::sync::RwLock::new(()),
@@ -287,7 +302,7 @@ pub(super) async fn run() {
 
     #[cfg(unix)]
     if let Some(path) = std::env::var_os("BAYLEE_UNIX_SOCKET").filter(|p| !p.is_empty()) {
-        serve_unix(std::path::Path::new(&path), app.clone());
+        crate::serve_unix(std::path::Path::new(&path), app.clone());
     }
     state.central.bound(port);
     announce(address);

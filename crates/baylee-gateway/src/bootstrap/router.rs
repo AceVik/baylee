@@ -1,5 +1,12 @@
 //! Existing route/middleware order, extracted without behavior changes.
-use super::*;
+use super::{
+    Router, Shared, account_routes, archive_replay, art, banlists, catalog_search, catalog_text,
+    central, chair, challenges, cors, cosmetics, create_game, deck_routes, departure, engine,
+    game_cosmetics, game_ws, get, hand_over, health, info, join_game, leave_game, list_games,
+    list_replays, list_seats, lobby_stats, lobby_ws, metrics, pool, poolfacts, post, put, rematch,
+    replay_tape, report, room, routes, seathost, set_ready, set_seat, share_replay, social, source,
+    start_room, take_seat, tower, watch_ws, whole_body, ws_ticket,
+};
 
 pub(super) fn build(state: &Shared) -> Router {
     Router::new()
@@ -15,6 +22,8 @@ pub(super) fn build(state: &Shared) -> Router {
         .route("/social/ws", get(social::socket::social_ws))
         .route("/lobby/games", get(list_games).post(create_game))
         .route("/challenges/{attempt}/play", post(challenges::play))
+        .route("/tower", get(tower::routes::available))
+        .route("/tower/{run}/play", post(tower::routes::play))
         .route("/lobby/seats", get(list_seats))
         .route("/lobby/stats", get(lobby_stats))
         // Replays (`docs/protocol.md` §"Replays"): the games an account sat

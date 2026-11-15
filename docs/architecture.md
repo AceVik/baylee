@@ -35,8 +35,9 @@ information is unrepresentable in a view, and the gateway runs no rules.
   the destination directly from Central and opens the strict native transport.
   The standalone launcher reads bounded private-pipe configuration, checks exact
   cohort workers, serves both APIs and owns graceful worker shutdown. The gateway
-  execution link remains under implementation; neither this route nor its SDK
-  claims playable client completion (`docs/dev/environment.md`).
+  execution link now selects exact agent capabilities, claims only for verified
+  Central owners and renews live leases; native client completion and global
+  reconnect assignment remain separate milestones (`docs/dev/environment.md`).
 - The shared table driver selects its record transport statically. Ordinary
   hosting keeps the existing gzip stream; the native Tower adapter captures raw
   pieces and withholds associated views/endings behind exact ordered ACKs. Its
@@ -46,7 +47,8 @@ information is unrepresentable in a view, and the gateway runs no rules.
   recomputes the frozen Expert's history and resumes the existing record sequence.
   The compiled Tower websocket attachment now exercises this path with bounded
   pull-based recovery and waits for a committed terminal seal before publishing
-  final frames. Public gateway launch/lease management is still under integration.
+  final frames. The gateway owns authenticated launch/lease management and the
+  bounded whole-batch assembler; only independent replay can settle an outcome.
   It preserves settings/declaration allowances and potion charges, does not reseed
   the opponent when restoring display names, and requires renewed client readiness.
   A terminal committed prefix can proceed straight to sealing and verification.

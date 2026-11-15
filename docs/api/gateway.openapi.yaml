@@ -5832,6 +5832,132 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+  /tower:
+    get:
+      summary: Discover this gateway's Tower execution capacity
+      description: |-
+        Requires a live Central player session. Reports the authenticated
+        Tower host UUID, configured authority origin and currently available exact
+        Tower engine identities. No player, deck or outcome is accepted.
+      operationId: available
+      tags:
+      - Tower
+      security:
+      - bearer: []
+      responses:
+        "200":
+          description: Host UUID, authority origin and exact engine identities
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Availability"
+        "401":
+          description: No bearer token, or one that is invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            The account is banned (`ban`) or must accept the terms in force first
+            (`terms_required`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: Request budget or host admission busy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: |-
+            - The account store is unavailable
+            - Tower authority or compatible agent unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  "/tower/{run}/play":
+    post:
+      summary: Attach the owner's reserved Tower duel
+      description: |-
+        The body is an empty JSON object. Central identity comes from
+        the gateway session. The global authority supplies the immutable reservation;
+        only its exact engine can launch. Repeating while attached reclaims the human
+        seat. Progression and rewards require independent authority verification.
+      operationId: play_tower
+      tags:
+      - Tower
+      parameters:
+      - name: run
+        in: path
+        required: true
+        description: The owner's UUIDv7 Tower run
+        schema:
+          type: string
+      security:
+      - bearer: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Play"
+        required: true
+      responses:
+        "200":
+          description: Private human seat in the reserved duel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeatGrant"
+        "400":
+          description: Malformed run UUID or nonempty request object
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: No bearer token, or one that is invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            The account is banned (`ban`) or must accept the terms in force first
+            (`terms_required`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: Reservation conflict or player already in another game
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "426":
+          description: Incompatible Tower contract
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: Request budget or host admission busy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: |-
+            - The account store is unavailable
+            - Tower authority or exact engine unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
 components:
   securitySchemes:
     bearer:
@@ -5932,6 +6058,22 @@ components:
       - central
       - mixed
       description: "Who this gateway lets in: `guests` (guests only), `central` (Baylee Central's accounts only, the default) or `mixed` (both)."
+    Availability:
+      type: object
+      properties:
+        host:
+          type: string
+          format: uuid
+        origin:
+          type: string
+        engines:
+          type: array
+          items:
+            $ref: "#/components/schemas/Identity"
+      required:
+      - host
+      - origin
+      - engines
     BanBody:
       type: object
       properties:
@@ -7735,6 +7877,54 @@ components:
       - state
       - until_unix
       description: "A profile that cannot be seated now: unknown here, or not available."
+    Identity:
+      type: object
+      properties:
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Contract schema.
+        protocol:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Transport protocol spoken by this executable.
+        variant:
+          $ref: "#/components/schemas/Variant"
+          description: The statically selected engine variant.
+        build:
+          type: string
+          description: >-
+            Source/build identity; identical source with different features still differs
+            below.
+        features:
+          type: string
+          description: >-
+            Lowercase SHA-256 of the executable's canonical compile-time feature
+            description.
+        rules:
+          type: string
+          description: Native rule-pack identity, including its revision.
+        cards:
+          type: string
+          description: Card-registry identity.
+        ai:
+          type: string
+          description: Deterministic AI policy identity.
+      required:
+      - schema
+      - protocol
+      - variant
+      - build
+      - features
+      - rules
+      - cards
+      - ai
+      additionalProperties: false
+      description: The exact executable capabilities frozen by a game reservation.
     ImageUploaded:
       type: object
       properties:
@@ -8326,6 +8516,8 @@ components:
       - profile
       additionalProperties: false
       description: The profile to seat, and the deck it plays.
+    Play:
+      type: object
     PlayerLookup:
       type: object
       properties:
@@ -10031,6 +10223,13 @@ components:
       - expires_in
       - ticket
       description: A single-use ticket and how long it lives.
+    Variant:
+      type: string
+      enum:
+      - standard
+      - standard-loops
+      - tower
+      description: A separately built engine artifact; never selected within the rules hot path.
     WhispersFrom:
       type: string
       enum:

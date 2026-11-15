@@ -182,5 +182,52 @@ fn may_rematch(game: &LobbyGame, account: &str) -> Result<(), (StatusCode, Json<
             "start challenge retries through Central",
         ));
     }
+    if game
+        .execution
+        .as_ref()
+        .is_some_and(|identity| identity.variant == baylee_protocol::execution::Variant::Tower)
+    {
+        return Err(err(
+            StatusCode::CONFLICT,
+            "continue Tower runs through the Tower service",
+        ));
+    }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn tower_private_opponent_build_cannot_be_copied_into_an_ordinary_rematch() {
+        use baylee_core::{
+            card_metadata::RulesMetadata,
+            preset::{AIProfile, FormatId, GamePreset, HouseRules},
+        };
+        use baylee_protocol::execution::{Identity, Variant};
+        let preset = GamePreset {
+            format: FormatId::Custom,
+            seed: 0,
+            house_rules: HouseRules::default(),
+            seats: Vec::new(),
+            prints: Vec::new(),
+            modifiers: Vec::new(),
+            rules: RulesMetadata::default(),
+        };
+        let mut chair = crate::lobby::LobbySeat::open(0);
+        chair.account_id = Some("owner".into());
+        let mut game = LobbyGame::playing("synthetic".into(), vec![chair], preset, 0);
+        assert!(may_rematch(&game, "owner").is_ok());
+        assert!(may_rematch(&game, "foreign").is_err());
+        game.execution = Some(Identity::native(
+            Variant::Tower,
+            baylee_build::short(),
+            baylee_build::COMMIT,
+            u32::from(AIProfile::GENERATION),
+        ));
+        assert!(matches!(
+            may_rematch(&game, "owner"),
+            Err((StatusCode::CONFLICT, _))
+        ));
+    }
 }

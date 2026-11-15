@@ -52,7 +52,10 @@ pub enum Request {
 #[serde(tag = "result", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Response {
     /// Capabilities accepted; no additional authority granted.
-    Advertised {},
+    Advertised {
+        /// Authority-resolved operator identity; never selected by the caller.
+        host: Uuid,
+    },
     /// Immutable private execution material and human owner binding.
     Claimed {
         /// All acknowledged bytes must be reconstructed before continuation.
