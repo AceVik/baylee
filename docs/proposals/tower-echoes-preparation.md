@@ -2045,3 +2045,51 @@ Evidence on 15 November 2026:
 - `/tmp/baylee-tower-generation-clippy-20261115-r3.log`: strict touched-library
   and test Clippy passes. The isolated PostgreSQL fixture exited and its owned
   listener/cluster were removed. No engine or unrelated test suite was run.
+
+### Milestone 65 — original 3D-style inventory art, two presentation passes
+
+The owner's requested fantasy pictures now ship for all four implemented relic
+families and all three potion/material types. Seven separate built-in image
+generation calls produced the original alpha PNGs, without external reference
+art. Prompts, generation paths, hashes and use are recorded in
+`art/baylee/tower/`. The client samples the full image inside its original rarity
+setting; all tiers reuse the family texture. Loading is lazy, bounded to seven
+images, with no network art request or per-frame image/material upload.
+
+An initial native inspection found the detail illustration too small. The second
+pass enlarged shop/equipment details to 128 logical pixels while keeping repeated
+tiles at 84. The final German shop was inspected at 1440 × 900 and 1280 × 720;
+name, actual effect, destination, price and purchase review remain visible. A
+normal four-gold Grove purchase reduced gold from 18 to 14; selecting the owned
+reserve item showed the same new portrait in equipment. This is presentation and
+purchase-flow evidence, not an expanded item catalog or full-run balance test.
+
+Evidence on 15 November 2026:
+
+- `/tmp/baylee-tower-art-tests-20261115.log`: four targeted portrait tests pass
+  in 0.59s, covering shader validation, shared family textures across tiers and
+  repeated rebuilds, reduced motion/idle writes, and all seven shipped PNGs'
+  genuine alpha and bounded square dimensions.
+- `/tmp/baylee-tower-art-clippy-20261115-r2.log`: strict client library/test
+  Clippy including `dev-control` passes. The native dev client builds; its linker
+  reports the existing large compact-unwind-table warning, not a shader error.
+- `/tmp/baylee-tower-art-before-interval-20261115.json` and
+  `/tmp/baylee-tower-art-final-interval-20261115.json`: before/after passive
+  1440 × 900 shop samples, excluding startup, show median frames of 16.649/16.614
+  ms and 58.55/58.23 FPS under the 60-FPS cap. These are debug-client samples,
+  with independently seeded fixture shops, not an isolated GPU benchmark or
+  evidence of a speedup. Entity/system counts remain 1058/859. The intermediate
+  image report showed only three item textures loaded, shared across the view.
+- `/tmp/baylee-tower-portraits-compact-20261115-r3.png` and
+  `/tmp/baylee-tower-portraits-equipment-20261115.png`: inspected final compact
+  purchase and owned-item views. Earlier black captures after resizing an
+  occluded passive window are not visual evidence; unpausing and capturing two
+  consecutive frames produced the inspected result.
+
+The baseline and both new-art client runs closed their owned clients, backend
+services and PostgreSQL clusters/listeners. Cleanup is recorded in
+`/tmp/baylee-tower-art-baseline-20261115.log`,
+`/tmp/baylee-tower-art-native-20261115.log` and its `-r2` sibling. No unrelated or
+full engine tests ran. Higher-rarity animation still needs direct visual
+acceptance in a real inventory; its motion/cache tests pass, but the Common
+screenshots here are not evidence of the higher-tier animation.

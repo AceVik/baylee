@@ -22,7 +22,7 @@ mod landing;
 mod shop;
 mod widgets;
 mod words;
-use widgets::{can, confirmation, control, portrait, tile};
+use widgets::{can, confirmation, control, featured_portrait, portrait, tile};
 
 pub(in crate::lobby) fn entry(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang) {
     let card = panel(commands, root, kit);

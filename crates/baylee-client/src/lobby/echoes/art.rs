@@ -1,4 +1,4 @@
-//! Original item portraits. A bounded shared cache; animation uses the GPU clock.
+//! Original raster item portraits in rarity settings. Shared images, GPU-clock animation.
 use baylee_client_core::echoes::domain::v2::{
     catalog::{Definition, Family, Potion, Rarity},
     shop::Goods,
@@ -50,7 +50,21 @@ struct Params {
 struct Material {
     #[uniform(0)]
     params: Params,
+    #[texture(1)]
+    #[sampler(2)]
+    portrait: Option<Handle<Image>>,
 }
+
+// Loaded on first use, once per family across all rarities and rebuilt panels.
+const PICTURES: [&str; 7] = [
+    "tower/portraits/heartwood.png",
+    "tower/portraits/satchel.png",
+    "tower/portraits/compass.png",
+    "tower/portraits/grove.png",
+    "tower/portraits/healing.png",
+    "tower/portraits/mana.png",
+    "tower/portraits/mythic.png",
+];
 
 impl UiMaterial for Material {
     fn fragment_shader() -> ShaderRef {
@@ -97,6 +111,7 @@ fn dress(
     portraits: Query<(Entity, &Portrait), Changed<Portrait>>,
     mut cache: ResMut<Cache>,
     mut assets: ResMut<Assets<Material>>,
+    server: Res<AssetServer>,
     prefs: Option<Res<crate::prefs::Prefs>>,
     quality: Option<Res<crate::quality::InUse>>,
 ) {
@@ -127,6 +142,9 @@ fn dress(
             .get_or_insert_with(|| {
                 assets.add(Material {
                     params: params(kind, tier, energy),
+                    portrait: kind
+                        .checked_sub(1)
+                        .map(|index| server.load(PICTURES[index])),
                 })
             })
             .clone();

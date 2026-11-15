@@ -80,7 +80,7 @@ fn detail(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::R
         .iter()
         .find(|relic| Some(relic.id) == ui.choices.item)
     {
-        portrait(commands, detail, kit, Goods::Relic(relic.definition));
+        featured_portrait(commands, detail, kit, Goods::Relic(relic.definition));
     }
     label(
         commands,

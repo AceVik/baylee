@@ -1524,3 +1524,19 @@ from Central or from another player reaches it (`crates/baylee-avif`'s own
 docs say why it must stay so for now). Neither change adds a Scryfall
 request, a card image, a symbol or a font. This entry re-reads no policy
 page.
+
+### Original Tower inventory portraits · 15 November 2026
+
+At the owner's explicit request, seven original fantasy item illustrations were
+generated with the built-in image-generation tool: Heartwood, Satchel, Compass,
+Grove, Healing, Mana and Mythic elixirs. No existing game's art or reference
+image was supplied. They contain no Wizards logos, card images, fonts or copied
+interface elements. Generated alpha PNGs ship in the client's own asset bundle;
+the exact prompt set and source paths are in
+`art/baylee/tower/portraits-generation.json`. The UI's original rarity settings
+and the existing unofficial fan-content notice remain in place.
+
+The [Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy)
+was re-read during this work on 15 November. This asset addition does not change
+the previously documented owner decision about the rules implementation, and
+does not claim third-party permission or legal approval.

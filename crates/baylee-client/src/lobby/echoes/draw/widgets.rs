@@ -60,6 +60,14 @@ pub(super) fn can(ui: &Ui, command: &Command) -> bool {
 }
 
 pub(super) fn portrait(commands: &mut Commands, root: Entity, kit: Kit, goods: Goods) {
+    portrait_at(commands, root, kit, goods, 84.0);
+}
+
+pub(super) fn featured_portrait(commands: &mut Commands, root: Entity, kit: Kit, goods: Goods) {
+    portrait_at(commands, root, kit, goods, 128.0);
+}
+
+fn portrait_at(commands: &mut Commands, root: Entity, kit: Kit, goods: Goods, size: f32) {
     let band = row(commands, root, kit);
     commands
         .entity(band)
@@ -72,8 +80,8 @@ pub(super) fn portrait(commands: &mut Commands, root: Entity, kit: Kit, goods: G
         .spawn((
             super::super::art::Portrait(goods),
             Node {
-                width: kit.m.px(84.0),
-                height: kit.m.px(84.0),
+                width: kit.m.px(size),
+                height: kit.m.px(size),
                 flex_shrink: 0.0,
                 ..default()
             },

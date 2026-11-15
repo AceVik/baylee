@@ -89,7 +89,7 @@ fn detail(
         commands
             .entity(detail)
             .insert(BorderColor::all(tokens::ACCENT));
-        portrait(commands, detail, kit, offer.goods);
+        featured_portrait(commands, detail, kit, offer.goods);
         label(
             commands,
             detail,
