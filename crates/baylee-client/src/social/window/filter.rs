@@ -47,6 +47,7 @@ pub(super) fn filter_dialog(
         .spawn((
             FilterDialog,
             ChatSurface,
+            crate::shellkit::role::Role::Opaque,
             RelativeCursorPosition::default(),
             Node {
                 position_type: PositionType::Absolute,
@@ -58,11 +59,12 @@ pub(super) fn filter_dialog(
                 row_gap: zpx(6.0),
                 padding: UiRect::all(zpx(14.0)),
                 border: UiRect::all(zpx(1.0)),
-                border_radius: BorderRadius::all(zpx(8.0)),
+                border_radius: BorderRadius::all(zpx(crate::shellkit::tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(inks.ground.with_alpha(0.94)),
-            BorderColor::all(inks.accent.with_alpha(0.6)),
+            BackgroundColor(crate::shellkit::tokens::OPAQUE),
+            BorderColor::all(crate::shellkit::tokens::PRIMARY_EDGE.with_alpha(0.55)),
+            crate::shellkit::surfaces::popover_shadow(),
             stacked(45),
         ))
         .id();

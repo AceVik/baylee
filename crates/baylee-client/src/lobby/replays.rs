@@ -894,7 +894,7 @@ fn replay_filter_pill(
                 hot: tokens::PRIMARY_EDGE,
                 press: tokens::ACCENT,
             },
-            press,
+            Pickable::IGNORE,
         ))
         .id();
     let glyph = commands
@@ -915,7 +915,7 @@ fn replay_filter_pill(
         ))
         .id();
     commands.entity(pill).add_children(&[glyph, txt]);
-    pill
+    controls::hit(commands, kit, pill, press)
 }
 
 /// Rich empty state when no replays exist yet or no replay matches the active filters.

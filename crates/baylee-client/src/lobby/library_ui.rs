@@ -19,6 +19,9 @@ impl LibraryPress {
         let Cx { state, mailbox, .. } = cx;
         match self {
             LibraryPress::BrowseHistory => {
+                if !state.can_use_deck_history() {
+                    return;
+                }
                 state.decks.show_all = false;
                 state.confirm_restore = false;
                 let request = if let Some(Page::History(id)) = state.lobby.library().page.clone() {

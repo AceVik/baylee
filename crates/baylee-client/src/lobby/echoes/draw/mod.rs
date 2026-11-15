@@ -128,7 +128,7 @@ pub(in crate::lobby) fn draw(
             tokens::MUTED,
         );
     }
-    if !state.central_ready() {
+    if !state.can_enter_tower() {
         label(
             commands,
             hero,

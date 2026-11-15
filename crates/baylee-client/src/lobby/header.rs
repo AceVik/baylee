@@ -131,7 +131,7 @@ pub(crate) fn spawn_popover_nipple(commands: &mut Commands) -> Entity {
                 border_radius: BorderRadius::top_left(px_fixed(2.0)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.16, 0.25, 0.34, 0.98)),
+            BackgroundColor(tokens::OPAQUE),
             BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.55)),
             UiTransform {
                 rotation: Rot2::radians(std::f32::consts::FRAC_PI_4),
@@ -289,7 +289,7 @@ pub(super) fn draw(
     if wears_header(state) {
         if let Some(kept) = retained {
             kept.attach(commands, root);
-            sync_retained_nav(commands, active(state));
+            sync_retained_nav(commands, active(state), brand_table(state));
         } else {
             bar(commands, root, state, kit, seated.is_some());
         }
@@ -308,10 +308,47 @@ pub(super) fn draw(
     }
 }
 
+/// Active `TabOrder` table name for the header's top-left `BrandMark` focus stop.
+fn brand_table(state: &LobbyState) -> &'static str {
+    if state.settings_open()
+        || matches!(state.lobby.screen(), Screen::SignIn { .. })
+        || state.showing_gateway_hub()
+    {
+        return super::front::keys::table_of(state).name;
+    }
+    if state.lobby.awaiting().is_some_and(|h| {
+        !state.room_away
+            && state
+                .lobby
+                .games()
+                .iter()
+                .any(|g| g.id == h.game_id && g.state == "waiting")
+    }) {
+        return super::orders::ROOM.name;
+    }
+    match state.hub {
+        Hub::Play | Hub::Challenges if state.can_enter_challenges() => {
+            super::orders::CHALLENGES.name
+        }
+        Hub::Decks => super::orders::DECKS.name,
+        Hub::Play | Hub::Tables | Hub::Gateways | Hub::Challenges | Hub::Replays => {
+            super::orders::PLAY.name
+        }
+    }
+}
+
 /// Updates the active navigation pill inside a retained header in place so
 /// switching top tabs (`Play`, `Decks`, `Replays`) never despawns the header.
-fn sync_retained_nav(commands: &mut Commands, now: Option<usize>) {
+fn sync_retained_nav(commands: &mut Commands, now: Option<usize>, table: &'static str) {
     commands.queue(move |world: &mut World| {
+        let target_stop = crate::shellkit::focus::Stop::new(table, "baylee");
+        let mut brands = world
+            .query_filtered::<&mut crate::shellkit::focus::Stop, With<kit_header::BrandMark>>();
+        for mut stop in brands.iter_mut(world) {
+            if *stop != target_stop {
+                *stop = target_stop;
+            }
+        }
         let mut faces = world.query::<(
             &controls::NavPillFace,
             &mut BackgroundColor,
@@ -482,14 +519,7 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
                 .insert_children(2 + nav_labels.len(), &[fill_mark]);
         }
         let memorial_hint = Phrase::MemorialInvitation.text(lang).to_string();
-        let table = if matches!(state.hub, Hub::Play | Hub::Challenges)
-            && state.central_ready()
-            && !state.settings_open()
-        {
-            super::orders::CHALLENGES.name
-        } else {
-            super::front::keys::table_of(state).name
-        };
+        let table = brand_table(state);
         // Clicking the top-left Baylee brand logo opens the Memorial album.
         commands.queue(move |world: &mut World| {
             let brand = world.get::<Children>(bar).and_then(|c| {
@@ -822,11 +852,7 @@ fn gateway_popover(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ent
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE.with_alpha(0.96)),
-            BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                Color::srgba(0.16, 0.25, 0.34, 0.98).into(),
-                Color::srgba(0.05, 0.08, 0.12, 0.98).into(),
-            ])),
+            BackgroundColor(tokens::OPAQUE),
             BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.55)),
             surfaces::popover_shadow(),
             GlobalZIndex(tokens::z::POPOVER),
@@ -972,11 +998,7 @@ fn language_popover(commands: &mut Commands, state: &LobbyState, kit: Kit) -> En
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE.with_alpha(0.96)),
-            BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                Color::srgba(0.16, 0.25, 0.34, 0.98).into(),
-                Color::srgba(0.05, 0.08, 0.12, 0.98).into(),
-            ])),
+            BackgroundColor(tokens::OPAQUE),
             BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.55)),
             surfaces::popover_shadow(),
             GlobalZIndex(tokens::z::POPOVER),
@@ -1155,11 +1177,7 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
                         border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                         ..default()
                     },
-                    BackgroundColor(tokens::OPAQUE.with_alpha(0.97)),
-                    BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                        Color::srgba(0.16, 0.25, 0.34, 0.98).into(),
-                        Color::srgba(0.05, 0.08, 0.12, 0.98).into(),
-                    ])),
+                    BackgroundColor(tokens::OPAQUE),
                     BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.55)),
                     surfaces::popover_shadow(),
                     GlobalZIndex(tokens::z::POPOVER),

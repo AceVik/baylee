@@ -201,3 +201,107 @@ fn deck_history_menu_item_requires_online_gateway_session() {
         "online deck menu offers History: {on_presses:?}"
     );
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn central_guest_door_suppresses_challenges_and_keeps_play_shortcuts_and_brand_stop() {
+    use crate::shellkit::focus::Stop;
+    use baylee_client_core::shellkeys::ShellAction;
+
+    let mut app = headless();
+    sized(&mut app, 1400.0);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        central::restored_for_test(&mut state, Vec::new());
+        state.lobby.apply(LobbyEvent::GuestIn(KeptGuest {
+            token: "guest-tok".to_string(),
+            handle: "Casper#0007".to_string(),
+        }));
+        state.lobby.apply(LobbyEvent::Decks(vec![DeckSummary {
+            id: "d1".to_string(),
+            name: "Allytifact".to_string(),
+            cards: 60,
+            ..Default::default()
+        }]));
+        state.lobby.apply(LobbyEvent::Seats(
+            baylee_client_core::lobby::resume::Listing::default(),
+        ));
+        state.lobby.apply(LobbyEvent::Games(GameListing::default()));
+    }
+    app_settle(&mut app);
+
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert!(state.central_ready());
+        assert!(state.lobby.guest());
+        assert!(!state.can_use_contacts());
+        assert!(!state.can_enter_challenges());
+        assert!(!state.can_enter_tower());
+        assert!(!offered_nav(state).contains(&NavTab::Challenges));
+        assert_eq!(
+            super::super::shortcuts::press_for(state, ShellAction::CreateTable),
+            Some(Press::Play(PlayPress::CreateTable)),
+        );
+        assert_eq!(
+            super::super::shortcuts::press_for(state, ShellAction::Search),
+            Some(Press::Shared(SharedPress::Focus(Field::Search))),
+        );
+    }
+
+    let brand_tables: Vec<&'static str> = app
+        .world_mut()
+        .query::<&Stop>()
+        .iter(app.world())
+        .filter(|s| s.id == "baylee")
+        .map(|s| s.table)
+        .collect();
+    assert!(
+        brand_tables.contains(&super::super::orders::PLAY.name)
+            && !brand_tables.contains(&super::super::orders::CHALLENGES.name),
+        "Central+Guest on Hub::Play must attach brand stop to PLAY, not CHALLENGES: {brand_tables:?}"
+    );
+}
+
+#[test]
+fn settings_account_section_is_offered_only_with_gateway_token_and_falls_back_cleanly() {
+    use baylee_client_core::settings_map::Section;
+
+    // 1. Signed-out Front Door: no gateway token -> Account section is hidden.
+    let mut fresh = headless();
+    {
+        let mut state = fresh.world_mut().resource_mut::<LobbyState>();
+        assert!(!state.settings_offered(Section::Account));
+        state.set_settings_section(Section::Account);
+        assert_eq!(state.settings_section(), Section::default());
+        state.settings_view.section = Section::Account;
+        assert_eq!(state.settings_section(), Section::default());
+    }
+
+    // 2. Offline mode: no gateway token -> Account section is hidden.
+    let mut offline = offline_app();
+    {
+        let mut state = offline.world_mut().resource_mut::<LobbyState>();
+        assert!(!state.settings_offered(Section::Account));
+        state.set_settings_section(Section::Account);
+        assert_eq!(state.settings_section(), Section::default());
+    }
+
+    // 3. Online Guest: has gateway token -> Account section is offered.
+    let mut guest = guest_app();
+    {
+        let mut state = guest.world_mut().resource_mut::<LobbyState>();
+        assert!(state.settings_offered(Section::Account));
+        state.set_settings_section(Section::Account);
+        assert_eq!(state.settings_section(), Section::Account);
+    }
+
+    // 4. Online Registered Gateway Account: has gateway token -> Account section is offered.
+    let mut online = headless();
+    stocked(&mut online);
+    {
+        let mut state = online.world_mut().resource_mut::<LobbyState>();
+        assert!(state.settings_offered(Section::Account));
+        state.set_settings_section(Section::Account);
+        assert_eq!(state.settings_section(), Section::Account);
+    }
+}

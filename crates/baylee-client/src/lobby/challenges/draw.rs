@@ -95,7 +95,7 @@ pub(in crate::lobby) fn draw(
         model,
         Weight::Ghost,
     );
-    if !state.central_ready() {
+    if !state.can_enter_challenges() {
         label(
             commands,
             body,

@@ -988,6 +988,7 @@ pub(super) fn gear_menu(
         .id();
     let menu = commands
         .spawn((
+            crate::shellkit::role::Role::Opaque,
             Node {
                 position_type: PositionType::Absolute,
                 top: px(HEADER_TOP + HEADER_HEIGHT + 6.0),
@@ -997,15 +998,11 @@ pub(super) fn gear_menu(
                 row_gap: px_fixed(12.0),
                 padding: UiRect::all(px_fixed(16.0)),
                 border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(14.0)),
+                border_radius: BorderRadius::all(px_fixed(crate::shellkit::tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.05, 0.08, 0.13, 0.98)),
-            BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                Color::srgba(0.10, 0.16, 0.24, 0.99).into(),
-                Color::srgba(0.04, 0.07, 0.11, 0.99).into(),
-            ])),
-            BorderColor::all(crate::shellkit::tokens::ACCENT.with_alpha(0.32)),
+            BackgroundColor(crate::shellkit::tokens::OPAQUE),
+            BorderColor::all(crate::shellkit::tokens::PRIMARY_EDGE.with_alpha(0.55)),
             crate::shellkit::surfaces::popover_shadow(),
             UiTransform::default(),
             GlobalZIndex(600),

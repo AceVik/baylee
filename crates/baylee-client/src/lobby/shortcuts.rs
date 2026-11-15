@@ -195,7 +195,7 @@ pub(super) fn press_for(state: &LobbyState, action: ShellAction) -> Option<Press
             Some(client_core::lobby::library::Page::History(_))
         );
     let play = hub
-        && (state.hub == Hub::Tables || (state.hub == Hub::Play && !state.central_ready()))
+        && (state.hub == Hub::Tables || (state.hub == Hub::Play && !state.can_enter_challenges()))
         && !sheet;
     let decks = hub && state.hub == Hub::Decks && !sheet;
     let builder = matches!(state.lobby.screen(), Screen::Build)

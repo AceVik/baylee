@@ -391,6 +391,11 @@ impl LobbyState {
         &self,
         section: baylee_client_core::settings_map::Section,
     ) -> bool {
+        if section == baylee_client_core::settings_map::Section::Account
+            && self.lobby.token().is_none()
+        {
+            return false;
+        }
         !self.settings_view.over_table || section.at_table()
     }
 
@@ -423,7 +428,11 @@ impl LobbyState {
     /// The settings section shown.
     #[must_use]
     pub(crate) fn settings_section(&self) -> baylee_client_core::settings_map::Section {
-        self.settings_view.section
+        if self.settings_offered(self.settings_view.section) {
+            self.settings_view.section
+        } else {
+            baylee_client_core::settings_map::Section::default()
+        }
     }
 
     /// Shows a settings section, if it is offered where the screen stands

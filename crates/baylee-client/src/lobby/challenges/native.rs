@@ -204,7 +204,7 @@ pub(in crate::lobby) fn tick(
 
 /// Acceptance may still be finishing the account migration after its sheet closes.
 fn ready(state: &LobbyState) -> bool {
-    state.central_ready()
+    state.can_enter_challenges()
         && !state.central_terms_pending()
         && state.terms_subject != crate::lobby::front::terms::Subject::Central
 }
