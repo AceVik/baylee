@@ -13,6 +13,8 @@ mod rematch;
 mod replays;
 pub(crate) mod room_list;
 mod rooms;
+mod seat_grant;
+pub(crate) use seat_grant::SeatGrant;
 pub(crate) mod seat_socket;
 mod settings;
 pub(crate) mod signin;
