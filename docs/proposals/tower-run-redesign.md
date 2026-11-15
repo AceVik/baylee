@@ -306,4 +306,10 @@ Always stop owned test processes and verify listeners close.
   `/tmp/baylee-tower-native-inventory-clippy-20261115.log`,
   `/tmp/baylee-tower-private-negative-20261115.log`,
   `/tmp/baylee-tower-private-positive-20261115.log`.
-
+- Independent native review found that an eliminated seat's last-known source
+  and retained journal could preserve private charge counts in a simulation.
+  Concealed stock is now a two-seat contract; every fair fork explicitly refuses
+  a departed seat, including games prolonged by win-prevention effects. The
+  independent re-review found the issue closed. Three targeted privacy cases
+  passed in `/tmp/baylee-tower-review-privacy-20261115.log`; this is not a full
+  repository audit.

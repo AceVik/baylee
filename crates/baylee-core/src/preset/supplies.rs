@@ -24,7 +24,7 @@ pub struct SeatSupplies {
     pub mana: u8,
     /// Whether the seat starts with its one seedling.
     pub seedling: bool,
-    /// Native run inventory: only the owner may inspect unspent potion charges.
+    /// Two-seat native run inventory: only the owner may inspect unspent potion charges.
     /// Two fixed source objects exist even at zero charges, so their existence
     /// reveals no inventory to fair simulations or object-handle consumers.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -37,7 +37,35 @@ pub(super) fn valid_list(rules: &[SeatSupplies], seats: usize, custom: bool) -> 
             && rules.len() <= seats
             && rules.iter().enumerate().all(|(i, rule)| {
                 usize::from(rule.seat) < seats
+                    && (!rule.concealed || seats == 2)
                     && u16::from(rule.healing) + u16::from(rule.mana) <= 2
                     && !rules[..i].iter().any(|previous| previous.seat == rule.seat)
             }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn concealed_inventory_is_a_duel_contract_not_a_multiplayer_switch() {
+        let supply = SeatSupplies {
+            seat: 0,
+            healing: 1,
+            mana: 1,
+            seedling: false,
+            concealed: true,
+        };
+        assert!(valid_list(&[supply], 2, true));
+        assert!(!valid_list(&[supply], 3, true));
+        assert!(!valid_list(&[supply], 2, false));
+        assert!(valid_list(
+            &[SeatSupplies {
+                concealed: false,
+                ..supply
+            }],
+            3,
+            true
+        ));
+    }
 }

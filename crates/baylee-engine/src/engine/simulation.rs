@@ -242,6 +242,10 @@ pub enum ForkRefusal {
     /// seat's own setting.
     #[error("the journal records another seat's standing answers")]
     PrivatePolicy,
+    /// A departed seat's native inventory can survive in historical sources.
+    /// Continue by the ordinary fair policy instead of exposing those snapshots.
+    #[error("a seat with owner-private inventory has left the duel")]
+    PrivateInventoryDeparture,
     /// [`DeckKnowledge::Prior`] with a prior that cannot be dealt from.
     #[error("the public prior cannot be dealt from: {0}")]
     UnusablePrior(PriorFault),
@@ -355,6 +359,19 @@ impl<L: CardLookup + Clone, D: crate::engine::LoopDetection> Engine<L, D> {
             DeckKnowledge::Prior(prior) => Some(prior),
             DeckKnowledge::Unknown => return Err(ForkRefusal::UnknownDecks),
         };
+        if self
+            .house_rules
+            .supplies
+            .iter()
+            .any(|supply| supply.concealed)
+            && self
+                .state
+                .players
+                .iter()
+                .any(crate::state::Player::has_lost)
+        {
+            return Err(ForkRefusal::PrivateInventoryDeparture);
+        }
         if self.state.game_end.is_some() {
             return Err(ForkRefusal::GameOver);
         }

@@ -78,7 +78,8 @@ The seedling is an ordinary green 1/1 Plant token on the starting battlefield.
 These are Baylee custom-mode rules, not additional card printings.
 
 `SeatSupplies::concealed` marks run inventory as owner-private. Its absent/false
-encoding preserves earlier presets. A concealed seat always receives the same
+encoding preserves earlier presets. This contract is admitted only for two-seat
+custom games, never for multiplayer. A concealed seat always receives the same
 two command-zone source objects, including zero stock, marked by the internal
 `PRIVATE_INVENTORY` bit. The bit changes no public object status. Opponent and
 spectator projections omit these objects and exact source inspections; control
@@ -92,6 +93,10 @@ preserving fixed source IDs and already-paid effects. Own/controlled inventory
 is retained. The regression compares complete continuation hashes and journals
 between otherwise identical games with different initial and remaining stock.
 Normal games with no concealed supplies return before scanning command zones.
+Once any seat has lost, a concealed-inventory search fails closed with
+`PrivateInventoryDeparture`. This also covers the unusual continuation where a
+win-prevention effect keeps the surviving seat from winning; historical source
+copies and already-retired source IDs are never handed to a search policy.
 
 Result verification must retain the original potion source identities and read
 the paid counter-removal events, including after a player is eliminated. Treating

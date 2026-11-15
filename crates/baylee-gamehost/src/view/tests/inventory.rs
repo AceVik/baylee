@@ -2,10 +2,7 @@
 use super::*;
 use baylee_core::preset::SeatSupplies;
 
-#[test]
-fn private_inventory_is_absent_from_opponents_spectators_and_counter_logs() {
-    let owner = PlayerId::new(0);
-    let opponent = PlayerId::new(1);
+fn private_table() -> Engine<crate::RegistryLookup> {
     let mut preset = baylee_cards::decks::probe_preset(71, island()).unwrap();
     preset.format = FormatId::Custom;
     preset.house_rules.starting_player = Some(0);
@@ -20,6 +17,14 @@ fn private_inventory_is_absent_from_opponents_spectators_and_counter_logs() {
     while let Pending::Mulligan { player, .. } = *engine.pending() {
         engine.apply(player, PlayerAction::MulliganKeep).unwrap();
     }
+    engine
+}
+
+#[test]
+fn private_inventory_is_absent_from_opponents_spectators_and_counter_logs() {
+    let owner = PlayerId::new(0);
+    let opponent = PlayerId::new(1);
+    let mut engine = private_table();
     let context = SeatContext::default();
     let own = player_view(engine.state(), owner, 0, None, &context, &[]);
     assert_eq!(
@@ -36,6 +41,20 @@ fn private_inventory_is_absent_from_opponents_spectators_and_counter_logs() {
     assert!(other.command[0].is_empty());
     assert!(public_object(&ViewBoard::new(engine.state()), source, opponent).is_none());
     assert!(visible_event_object(engine.state(), source, opponent).is_none());
+    let reference = baylee_core::ids::DamageSourceRef {
+        object: source,
+        version: engine.state().object(source).unwrap().version,
+    };
+    assert!(
+        exact_object_view_with_access(
+            engine.state(),
+            opponent,
+            reference,
+            SeatSet::new(),
+            &std::collections::BTreeMap::new()
+        )
+        .is_none()
+    );
     let public = spectator_view(
         engine.state(),
         0,

@@ -91,12 +91,26 @@ fn fair_search_cannot_distinguish_private_potion_stock_or_spending_history() {
     let a = fork(&once, P1);
     let b = fork(&twice, P1);
     assert_eq!(a.snapshot_hash(), b.snapshot_hash());
+    assert_eq!(a.fingerprint(), b.fingerprint());
+    assert_eq!(
+        (
+            b.house_rules.supplies[0].healing,
+            b.house_rules.supplies[0].mana
+        ),
+        (0, 0)
+    );
+    assert_eq!(fork(&twice, P0).house_rules.supplies[0].healing, 2);
     assert_eq!(format!("{:?}", a.journal()), format!("{:?}", b.journal()));
     assert!(!a.compute_legal(P0).abilities.iter().any(|(source, _)| {
         a.state
             .object(*source)
             .is_some_and(GameObject::private_inventory)
     }));
+    twice.apply(P0, PlayerAction::Concede).unwrap();
+    assert!(matches!(
+        twice.fork_for(P1, DeckKnowledge::Known, 91),
+        Err(ForkRefusal::PrivateInventoryDeparture)
+    ));
 }
 
 #[test]

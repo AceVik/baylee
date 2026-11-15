@@ -54,7 +54,8 @@ impl GameState {
                     enduring_story: false,
                     citys_blessing: false,
                     mana_pool: ManaPool::new(),
-                    // Preset validation bounds this to 1..=9.
+                    // Preset validation bounds this to 1..=32 for native packs,
+                    // and 1..=9 otherwise; subtracting seven fits in i8.
                     hand_modifier: preset.house_rules.opening_for(i as u8).maximum_hand as i8 - 7,
                     lands_played_this_turn: 0,
                     turn_start_timestamp: 0,
