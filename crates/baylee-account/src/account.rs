@@ -14,6 +14,7 @@ mod social;
 mod tower;
 
 pub use pairing::{PairedSession, PairingClaim};
+pub use tower::TowerPlay;
 
 /// Restored native account. All network operations are blocking and belong on a worker.
 pub struct Account {

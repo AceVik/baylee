@@ -105,6 +105,18 @@ does not change the gateway-session policy below and adds no Central calls to
 engine frames. The native Tower transport verifies TLS, refuses redirects and
 bounds requests/responses; ambiguous mutations retain their original request UUID.
 
+`Account::play_tower` takes an owned run UUID and reuses the account's existing
+Tower connection, checking its account and Central endpoint binding first. A
+game start therefore does not rotate the shop credential. It reads the current approved
+gateway from the Tower, obtains a separate Central gateway-audience ticket and
+gateway-local admission, then requests the human seat. A second fresh Tower read
+must confirm the returned execution game and the same host identity/origin before
+the SDK returns a handover. A reassignment, quarantine or stale seat refuses
+without guessing another destination. Neither the Central session nor the Tower
+bearer crosses this gateway boundary. The seat token is zeroized on drop and the
+handover is deliberately not printable. This is native SDK support; the v2 lobby
+screen remains under implementation.
+
 A session of a Central account never asks Central anything once it is open: not
 on a request, not on a socket, not before a frame (§"Sessions"). Nobody's load
 reaches Central, so nobody's load can cost another account its session.

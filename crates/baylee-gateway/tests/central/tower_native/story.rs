@@ -62,7 +62,7 @@ pub(super) fn run(runtime: &Runtime, served: &Served) {
     refusals(runtime, served, &admission.token, &path, &client, &reserved);
     let grant = start(served, &admission.token, &path);
     busy(served, &client, initial.id, &admission.token);
-    let again = start(served, &admission.token, &path);
+    let again = sdk_start(&account, &client, initial.id, &served.origin);
     assert_eq!(again["game_id"], grant["game_id"]);
     assert_ne!(again["seat_token"], grant["seat_token"]);
     location(
@@ -72,7 +72,7 @@ pub(super) fn run(runtime: &Runtime, served: &Served) {
         grant["game_id"].as_str(),
     );
     let pending = recovery::crash(runtime, served, initial.id, &again, &mut agent);
-    let restored = start(served, &admission.token, &path);
+    let restored = sdk_start(&account, &client, initial.id, &served.origin);
     location(
         &client,
         initial.id,
@@ -136,6 +136,18 @@ fn player(runtime: &Runtime, served: &Served, name: &str) -> baylee_account::Acc
     fresh::register(runtime, &served.service, &served.endpoint, name, br#"{"version":1,"gateways":[],"preferences":{},"legacy":null,"chat":{"devices":[],"installations":[]}}"#)
 }
 
+fn sdk_start(
+    account: &baylee_account::Account,
+    client: &TowerHttp,
+    run: Uuid,
+    origin: &str,
+) -> serde_json::Value {
+    let play = account.play_tower(client, run).unwrap();
+    assert_eq!(play.run, run);
+    assert_eq!(play.host.origin, origin);
+    serde_json::json!({ "game_id": play.seat.game_id, "seat": play.seat.seat, "seat_token": play.seat.seat_token.as_str() })
+}
+
 fn location(client: &TowerHttp, run: Uuid, origin: &str, game: Option<&str>) {
     let Response::Location { location } = client.exchange(&Request::Locate { run }).unwrap() else {
         panic!("fresh owned routing");
@@ -163,6 +175,12 @@ fn refusals(
     assert!(matches!(status, 400 | 422));
     assert_eq!(&owned(client, &Request::Run { run: reserved.id }), reserved);
     let foreign = player(runtime, served, "tower_foreign");
+    assert!(foreign.play_tower(client, reserved.id).is_err());
+    assert!(
+        foreign
+            .play_tower(&foreign.tower().unwrap(), reserved.id)
+            .is_err()
+    );
     let foreign = foreign.admit(&served.origin).unwrap();
     assert_eq!(
         common::http(

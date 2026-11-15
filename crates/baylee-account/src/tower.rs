@@ -10,10 +10,12 @@ pub struct TowerHttp {
     grant: Grant,
     agent: ureq::Agent,
     development: bool,
+    central: Endpoint,
+    account: [u8; 16],
 }
 
 impl TowerHttp {
-    pub(crate) fn new(central: &Endpoint, grant: Grant) -> Result<Self, Error> {
+    pub(crate) fn new(central: &Endpoint, account: [u8; 16], grant: Grant) -> Result<Self, Error> {
         central_api::gateway::validate_origin(&grant.origin, central.legacy_origin().is_none())?;
         if grant.origin == central.origin() {
             return Err(Error::Rejected);
@@ -22,7 +24,13 @@ impl TowerHttp {
             grant,
             agent: crate::http::agent(central.legacy_origin().is_some()),
             development: central.legacy_origin().is_none(),
+            central: central.clone(),
+            account,
         })
+    }
+
+    pub(crate) fn belongs_to(&self, central: &Endpoint, account: [u8; 16]) -> bool {
+        &self.central == central && self.account == account
     }
 
     /// Canonical service origin, learned directly from the authenticated Central response.

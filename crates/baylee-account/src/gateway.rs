@@ -3,6 +3,12 @@ use crate::{Error, SignedToken};
 use std::io::Read as _;
 use zeroize::Zeroize;
 
+#[cfg(feature = "client")]
+#[path = "gateway/tower.rs"]
+mod tower;
+#[cfg(feature = "client")]
+pub use tower::TowerSeat;
+
 /// The most of a gateway's refusal that is read (`docs/protocol.md` §"Refusals").
 const MOST_SAID: u64 = 1024;
 

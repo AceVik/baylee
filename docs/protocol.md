@@ -6111,7 +6111,12 @@ Failures contain no remote diagnostics. Every handled player response carries
 `Account::tower` obtains its trusted origin from Central, then `TowerHttp::exchange`
 sends only that scoped credential. It performs no automatic mutation retry and
 follows no redirects. The player router, standalone launcher and native SDK are
-implemented. Gateway attachment is described below; complete native client
+implemented. `Account::play_tower` combines fresh owned location, separate Central
+gateway admission and the strict empty-body gateway play operation. Its returned
+human seat must have a canonical UUIDv7 and lowercase 64-hex capability, and a
+second location read must confirm that game and the selected host/origin. No
+caller-supplied address receives an account credential. Gateway attachment is
+described below; complete native client
 acceptance remains a separate milestone, not implied by this protocol surface.
 
 ### Private Tower host API

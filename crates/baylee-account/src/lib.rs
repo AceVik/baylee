@@ -19,10 +19,14 @@ pub mod client_record;
 pub mod data;
 pub mod reports;
 #[cfg(feature = "client")]
+pub use account::TowerPlay;
+#[cfg(feature = "client")]
 pub use account::{Account, PairedSession, PairingClaim};
 #[path = "gateway.rs"]
 mod admission;
 mod http;
+#[cfg(feature = "client")]
+pub use admission::TowerSeat;
 pub use admission::{Admission, ChallengeSeat, GatewayHttp, Turned};
 pub use central_api::{
     Bearer, Endpoint, Error, SignedToken, Token, challenges, chat as chat_api, gateway, groups,

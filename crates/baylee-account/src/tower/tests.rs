@@ -19,6 +19,7 @@ fn reply_to(asked: &Request, status: u16, headers: &str, body: &[u8]) -> Result<
     let digest = token.digest();
     let client = TowerHttp::new(
         &Endpoint::development("http://127.0.0.1:1").unwrap(),
+        *uuid::Uuid::now_v7().as_bytes(),
         Grant {
             origin: format!("http://{address}"),
             token,
@@ -46,6 +47,9 @@ fn reply_to(asked: &Request, status: u16, headers: &str, body: &[u8]) -> Result<
                 _ => panic!("synthetic listener did not receive the bounded request"),
             }
         };
+        // macOS may inherit the listener's nonblocking mode on accepted sockets.
+        // The listener polls admission; each owned connection uses bounded blocking I/O.
+        stream.set_nonblocking(false).unwrap();
         stream
             .set_read_timeout(Some(Duration::from_secs(3)))
             .unwrap();
@@ -150,6 +154,7 @@ fn production_and_development_cannot_exchange_credential_destinations() {
         assert!(
             TowerHttp::new(
                 &central,
+                *uuid::Uuid::now_v7().as_bytes(),
                 Grant {
                     origin: origin.into(),
                     token: central_api::Token::generate().unwrap(),

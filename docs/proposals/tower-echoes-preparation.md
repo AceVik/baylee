@@ -1536,3 +1536,34 @@ one recovery, one settlement and no quarantine. Owned services and PostgreSQL ar
 stopped and their listeners checked. Cross-host supervision is available through
 the existing explicit recovery path; automatic migration to another gateway and
 the visible v2 client are not claimed by this milestone.
+
+## Native account-to-seat handover — forty-ninth working milestone
+
+`Account::play_tower` now reuses an existing Tower connection, checks that its
+account and Central endpoint match, locates the owned execution, obtains a
+separate gateway-audience admission and asks for the strict human seat. A second
+authority location read must confirm the returned game and the same approved
+host/origin. Canonical UUIDv7, human chair zero and a lowercase 64-hex seat token
+are required; unexpected response fields are refused. The token wipes on drop.
+A gateway's forbidden response cannot impersonate a Central terms requirement.
+
+The first live integration exposed why the account worker should reuse its scoped
+Tower connection: repeated fresh grants correctly evict the oldest of Central's
+bounded two grants, invalidating a separately cached shop connection. The corrected
+SDK reuses that connection instead of weakening Central's credential policy.
+The focused HTTP test fixture also explicitly switches accepted sockets to
+blocking I/O with deadlines, because macOS can inherit its polling listener's
+nonblocking flag. No production timeout or authorization rule changed for that fix.
+
+Six affected SDK tests pass in
+`/tmp/baylee-tower-sdk-handover-unit-tests-20261115-r2.log` (0.10s), including stale
+or redirected handovers and malformed/private-chair capabilities. Strict SDK and
+gateway integration Clippy passes in
+`/tmp/baylee-tower-sdk-handover-clippy-20261115-r3.log`.
+The actual native scenario now uses this SDK handover both for an attached game
+and after automatic crash recovery, and rejects a different account both before
+transport and at the authority. It passes in
+`/tmp/baylee-tower-sdk-handover-native-tests-20261115-r2.log` (31.90s): one recovery,
+one verified settlement, no quarantines, the original shop connection still
+usable, and all owned services/database closed. New lobby presentation and
+representative gameplay/balance remain outstanding.
