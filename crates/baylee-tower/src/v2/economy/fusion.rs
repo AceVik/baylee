@@ -43,8 +43,9 @@ impl Economy {
         })
     }
 
-    fn fuse(&mut self, recipe: &Recipe) -> Result<(), Refusal> {
-        if !matches!(recipe.relics.len(), 1 | 3) || !recipe.destination.valid() {
+    pub(super) fn fuse(&mut self, recipe: &Recipe) -> Result<(), Refusal> {
+        if !matches!(recipe.relics.len(), 1 | 3) || !recipe.destination.valid(self.inventory.layout)
+        {
             return Err(Refusal::Invalid);
         }
         let mut selected = Vec::with_capacity(recipe.relics.len());

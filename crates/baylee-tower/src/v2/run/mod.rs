@@ -133,6 +133,13 @@ impl Run {
         }
         self.cards.validate(catalog)?;
         self.economy.validate()?;
+        // New inventory rules are admitted only with their own frozen run
+        // generation; legacy publications cannot acquire extra active slots.
+        if self.shop.generator <= 3
+            && self.economy.inventory.layout != super::inventory::Layout::Legacy
+        {
+            return Err(Refusal::Invalid);
+        }
         self.shop.validate(catalog)?;
         for relic in &self.economy.inventory.relics {
             super::generation::definition(self.shop.generator, relic.definition)?;

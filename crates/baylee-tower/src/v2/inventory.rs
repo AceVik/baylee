@@ -3,6 +3,32 @@ use super::catalog::{self, Definition};
 use crate::Refusal;
 use serde::{Deserialize, Serialize};
 
+/// Frozen storage contract; absent in the original saved generations.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Layout {
+    /// The retained three-equipped/six-reserve contract.
+    #[default]
+    Legacy,
+    /// Six equipped positions, with densely stored run inventory.
+    Run,
+}
+
+impl Layout {
+    #[allow(clippy::trivially_copy_pass_by_ref)] // serde's skip predicate
+    const fn is_legacy(&self) -> bool {
+        matches!(self, Self::Legacy)
+    }
+
+    /// Number of active item positions; never the amount of stored inventory.
+    pub const fn active_slots(self) -> u8 {
+        match self {
+            Self::Legacy => catalog::ACTIVE_SLOTS,
+            Self::Run => catalog::RUN_ACTIVE_SLOTS,
+        }
+    }
+}
+
 /// A visible, explicit destination; reserve equipment never affects the duel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
@@ -16,13 +42,17 @@ pub enum Slot {
     Active(u8),
     /// Zero-based inactive storage slot.
     Reserve(u8),
+    /// Run inventory has no numbered empty slots. Items retain their own IDs.
+    Inventory,
 }
 
 impl Slot {
-    pub(super) const fn valid(self) -> bool {
-        match self {
-            Self::Active(index) => index < catalog::ACTIVE_SLOTS,
-            Self::Reserve(index) => index < catalog::RESERVE_SLOTS,
+    pub(super) const fn valid(self, layout: Layout) -> bool {
+        match (self, layout) {
+            (Self::Active(index), layout) => index < layout.active_slots(),
+            (Self::Reserve(index), Layout::Legacy) => index < catalog::RESERVE_SLOTS,
+            (Self::Inventory, Layout::Run) => true,
+            _ => false,
         }
     }
 }
@@ -55,9 +85,12 @@ pub struct Material {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Inventory {
+    /// Kept out of legacy serialization so old commitments stay byte-identical.
+    #[serde(default, skip_serializing_if = "Layout::is_legacy")]
+    pub layout: Layout,
     /// Next unused ordinal. Exhaustion refuses the operation, never wraps.
     pub next_id: u32,
-    /// Canonical ascending instance order, at most nine relics.
+    /// Canonical ascending instance order; only occupied inventory uses memory.
     pub relics: Vec<Relic>,
     /// Canonical ascending instance order, at most two crafting potions.
     pub materials: Vec<Material>,
@@ -66,6 +99,7 @@ pub struct Inventory {
 impl Default for Inventory {
     fn default() -> Self {
         Self {
+            layout: Layout::Legacy,
             next_id: 1,
             relics: Vec::new(),
             materials: Vec::new(),
@@ -74,24 +108,46 @@ impl Default for Inventory {
 }
 
 impl Inventory {
+    /// Empty independent-run inventory. Nothing carries over from another run.
+    #[must_use]
+    pub fn for_run() -> Self {
+        Self {
+            layout: Layout::Run,
+            ..Self::default()
+        }
+    }
+
     /// Reject identity reuse, overlapping slots, forged basis and invalid loadouts.
     /// # Errors
     /// Malformed persisted state or an impossible combined active loadout.
     pub fn validate(&self) -> Result<(), Refusal> {
-        if self.next_id == 0 || self.relics.len() > 9 || self.materials.len() > 2 {
+        if self.next_id == 0
+            || (self.layout == Layout::Legacy
+                && (self.relics.len() > 9 || self.materials.len() > 2))
+        {
             return Err(Refusal::Invalid);
         }
+        let mut occupied = 0_u16;
         for (index, relic) in self.relics.iter().enumerate() {
             if relic.id == 0
                 || relic.id >= self.next_id
-                || !relic.slot.valid()
+                || !relic.slot.valid(self.layout)
                 || relic.basis > relic.definition.rarity.maximum_basis()
                 || (index > 0 && self.relics[index - 1].id >= relic.id)
-                || self.relics[..index]
-                    .iter()
-                    .any(|other| other.slot == relic.slot)
             {
                 return Err(Refusal::Invalid);
+            }
+            let position = match relic.slot {
+                Slot::Active(index) => Some(index),
+                Slot::Reserve(index) => Some(catalog::ACTIVE_SLOTS + index),
+                Slot::Inventory => None,
+            };
+            if let Some(position) = position {
+                let bit = 1_u16 << position;
+                if occupied & bit != 0 {
+                    return Err(Refusal::Invalid);
+                }
+                occupied |= bit;
             }
         }
         for (index, material) in self.materials.iter().enumerate() {
@@ -99,19 +155,25 @@ impl Inventory {
                 || material.id >= self.next_id
                 || material.basis > catalog::MYTHIC_PRICE
                 || (index > 0 && self.materials[index - 1].id >= material.id)
-                || self.relics.iter().any(|relic| relic.id == material.id)
+                || self
+                    .relics
+                    .binary_search_by_key(&material.id, |relic| relic.id)
+                    .is_ok()
             {
                 return Err(Refusal::Invalid);
             }
         }
-        catalog::attributes(&self.active())?;
+        match self.layout {
+            Layout::Legacy => catalog::attributes(&self.active())?,
+            Layout::Run => catalog::run_attributes(&self.active())?,
+        };
         Ok(())
     }
 
     /// Active definitions in slot order, suitable for a frozen native manifest.
     /// Call `validate` before using deserialized state.
     pub fn active(&self) -> Vec<Definition> {
-        (0..catalog::ACTIVE_SLOTS)
+        (0..self.layout.active_slots())
             .filter_map(|index| {
                 self.relics
                     .iter()

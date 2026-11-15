@@ -2,11 +2,12 @@
 use super::{
     STARTING_GOLD,
     catalog::{Definition, MYTHIC_PRICE, Potion},
-    inventory::{Inventory, Material, Relic, Slot},
+    inventory::{Inventory, Layout, Material, Relic, Slot},
 };
 use crate::{MAX_GOLD, Refusal};
 use serde::{Deserialize, Serialize};
 
+mod automatic;
 mod fusion;
 pub use fusion::Recipe;
 
@@ -33,6 +34,15 @@ impl Default for Economy {
 }
 
 impl Economy {
+    /// Fresh run economy; no account or earlier-run item state is accepted.
+    #[must_use]
+    pub fn for_run() -> Self {
+        Self {
+            inventory: Inventory::for_run(),
+            ..Self::default()
+        }
+    }
+
     /// Check persisted state before any price calculation or mutation.
     /// # Errors
     /// Malformed inventory or wallet/charge bounds.
@@ -130,7 +140,7 @@ impl Economy {
     /// Unknown instance, illegal slot or combined active resources beyond bounds.
     pub fn moved(&self, id: u32, slot: Slot) -> Result<Self, Refusal> {
         self.changed(|next| {
-            if !slot.valid() {
+            if !slot.valid(next.inventory.layout) {
                 return Err(Refusal::Invalid);
             }
             let index = next
@@ -144,7 +154,7 @@ impl Economy {
                 .inventory
                 .relics
                 .iter_mut()
-                .find(|item| item.slot == slot)
+                .find(|item| slot != Slot::Inventory && item.slot == slot)
             {
                 other.slot = previous;
             }

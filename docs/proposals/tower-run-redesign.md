@@ -247,4 +247,13 @@ Always stop owned test processes and verify listeners close.
   Rendered visual acceptance is still pending; these tests do not establish it.
 - Client/client-core library and test Clippy with `dev-control` and warnings
   denied passed; `git diff --check` passed. No service or GUI process was started.
+- Inventory foundation: explicit legacy/run layout preserves old serialized
+  commitments. Six active positions and dense unnumbered storage use a slot
+  bitmask and sorted instance IDs. Automatic purchase/fusion is atomic, prefers
+  equipped ingredients in slot order, cascades Common → Uncommon → Rare and
+  never consumes a Mythic material. Right-click toggles without displacing an
+  equipped item; explicit moves swap. This foundation is not yet enabled for a
+  published generation. Fourteen focused economy tests passed, including rollback,
+  legacy byte identity, 30 stored items, slot/ID aliases and fusion placement;
+  tower library/test strict Clippy passed (7.38 s test build, <0.01 s tests).
 

@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 pub const ACTIVE_SLOTS: u8 = 3;
 /// Inactive copies available for future builds and fusion.
 pub const RESERVE_SLOTS: u8 = 6;
+/// Independent equipment slots in the redesigned run contract.
+pub const RUN_ACTIVE_SLOTS: u8 = 6;
 /// Full-price crafting material; never a table activation.
 pub const MYTHIC_PRICE: u16 = 24;
 
@@ -203,7 +205,23 @@ pub struct Attributes {
 /// # Errors
 /// Too many active relics or a combined opening resource outside engine bounds.
 pub fn attributes(active: &[Definition]) -> Result<Attributes, Refusal> {
-    if active.len() > usize::from(ACTIVE_SLOTS) {
+    derive_attributes(active, ACTIVE_SLOTS, 9, 7)
+}
+
+/// Six-slot run attributes; all bonuses apply without hidden clamping.
+/// # Errors
+/// More than six equipped items or an unsupported derived starting resource.
+pub fn run_attributes(active: &[Definition]) -> Result<Attributes, Refusal> {
+    derive_attributes(active, RUN_ACTIVE_SLOTS, 32, 32)
+}
+
+fn derive_attributes(
+    active: &[Definition],
+    slots: u8,
+    hand_limit: u8,
+    mulligan_limit: u8,
+) -> Result<Attributes, Refusal> {
+    if active.len() > usize::from(slots) {
         return Err(Refusal::Capacity);
     }
     let mut result = Attributes {
@@ -232,7 +250,10 @@ pub fn attributes(active: &[Definition]) -> Result<Attributes, Refusal> {
             | Family::RootReservoir => {}
         }
     }
-    if result.cards > 9 || result.maximum_hand > 9 || result.free_mulligans > 7 {
+    if result.cards > hand_limit
+        || result.maximum_hand > hand_limit
+        || result.free_mulligans > mulligan_limit
+    {
         return Err(Refusal::Capacity);
     }
     Ok(result)

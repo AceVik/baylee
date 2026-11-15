@@ -62,6 +62,7 @@ pub(super) fn slot(slot: Slot, lang: Lang) -> String {
     let (phrase, index) = match slot {
         Slot::Active(index) => (Phrase::EchoesActiveSlot, index),
         Slot::Reserve(index) => (Phrase::EchoesReserveSlot, index),
+        Slot::Inventory => return Phrase::EchoesInventory.text(lang).to_owned(),
     };
     phrase.fill(lang, &[&(index + 1).to_string()])
 }

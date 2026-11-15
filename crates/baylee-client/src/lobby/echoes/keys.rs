@@ -94,6 +94,7 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
             match slot {
                 Slot::Active(i) => usize::from(i),
                 Slot::Reserve(i) => usize::from(i) + 3,
+                Slot::Inventory => 9,
             },
         ),
         Action::Card(card, _) | Action::InspectCard(card) => (
