@@ -107,6 +107,17 @@ pub(in crate::lobby) fn draw(
     );
     let spacer = crate::lobby::parts::grow(commands);
     commands.entity(top).add_child(spacer);
+    if ui.model.run().is_some() && ui.page != Page::Overview {
+        control(
+            commands,
+            top,
+            kit,
+            ui,
+            Phrase::EchoesRuns.text(lang),
+            Action::Overview,
+            ui.choices.deck_unchanged(ui.model.run()),
+        );
+    }
     control(
         commands,
         top,
@@ -125,13 +136,15 @@ pub(in crate::lobby) fn draw(
         Action::Refresh,
         true,
     );
-    label(
-        commands,
-        hero,
-        kit,
-        Phrase::EchoesLead.text(lang),
-        tokens::MUTED,
-    );
+    if ui.model.run().is_none() || ui.page == Page::Overview {
+        label(
+            commands,
+            hero,
+            kit,
+            Phrase::EchoesLead.text(lang),
+            tokens::MUTED,
+        );
+    }
     if !state.central_ready() {
         label(
             commands,
@@ -146,8 +159,11 @@ pub(in crate::lobby) fn draw(
     if ui.confirmation.is_some() {
         confirmation(commands, body, kit, ui);
     }
-    selected(commands, body, hero, kit, ui);
-    landing::draw(commands, body, kit, ui);
+    if ui.model.run().is_none() || ui.page == Page::Overview {
+        landing::draw(commands, body, kit, ui);
+    } else {
+        selected(commands, body, hero, kit, ui);
+    }
 }
 
 fn selected(commands: &mut Commands, body: Entity, hero: Entity, kit: Kit, ui: &Ui) {
@@ -158,7 +174,7 @@ fn selected(commands: &mut Commands, body: Entity, hero: Entity, kit: Kit, ui: &
         for (page, title) in [
             (Page::Shop, Phrase::EchoesShop),
             (Page::Equipment, Phrase::EchoesEquipment),
-            (Page::Deck, Phrase::ChallengeDeck),
+            (Page::Deck, Phrase::EchoesDeck),
         ] {
             control(
                 commands,
@@ -172,6 +188,7 @@ fn selected(commands: &mut Commands, body: Entity, hero: Entity, kit: Kit, ui: &
         }
         if let Some(cohort) = ui.model.publication() {
             match ui.page {
+                Page::Overview => {}
                 Page::Shop => shop::draw(commands, body, kit, ui, run, cohort),
                 Page::Equipment => equipment::draw(commands, body, kit, ui, run, cohort),
                 Page::Deck => deck::draw(commands, body, kit, ui, run, cohort),

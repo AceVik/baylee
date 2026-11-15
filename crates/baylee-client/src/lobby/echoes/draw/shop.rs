@@ -10,6 +10,7 @@ pub(super) fn draw(
     cohort: &api::Cohort,
 ) {
     let lang = lang(kit);
+    detail(commands, root, kit, ui, run);
     let offers = row(commands, root, kit);
     for offer in &run.shop.offers {
         let card = tile(commands, offers, kit);
@@ -19,13 +20,6 @@ pub(super) fn draw(
             kit,
             words::goods_icon(offer.goods),
             &words::goods(offer.goods, lang),
-        );
-        label(
-            commands,
-            card,
-            kit,
-            &words::effect(offer.goods, lang),
-            tokens::MUTED,
         );
         let price = offer.goods.price(&cohort.catalog).ok();
         let price_text = price.map_or_else(
@@ -43,6 +37,11 @@ pub(super) fn draw(
             },
             tokens::GOLD,
         );
+        if ui.choices.offer == Some(offer.id) {
+            commands
+                .entity(card)
+                .insert(BorderColor::all(tokens::ACCENT));
+        }
         let band = row(commands, card, kit);
         control(
             commands,
@@ -74,6 +73,11 @@ pub(super) fn draw(
             ),
         );
     }
+    options(commands, root, kit, ui, run);
+}
+
+fn detail(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
+    let lang = lang(kit);
     if let Some(offer) = run
         .shop
         .offers
@@ -81,7 +85,17 @@ pub(super) fn draw(
         .find(|offer| Some(offer.id) == ui.choices.offer && !offer.sold)
     {
         let detail = panel(commands, root, kit);
+        commands
+            .entity(detail)
+            .insert(BorderColor::all(tokens::ACCENT));
         heading(commands, detail, kit, &words::goods(offer.goods, lang));
+        label(
+            commands,
+            detail,
+            kit,
+            &words::effect(offer.goods, lang),
+            tokens::INK,
+        );
         if matches!(offer.goods, Goods::Relic(_)) {
             equipment::slots(commands, detail, kit, ui);
             equipment::ingredients(commands, detail, kit, ui, run);
@@ -98,7 +112,6 @@ pub(super) fn draw(
             );
         }
     }
-    options(commands, root, kit, ui, run);
 }
 
 fn options(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {

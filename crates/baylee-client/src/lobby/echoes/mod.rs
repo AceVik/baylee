@@ -15,6 +15,7 @@ pub(super) use draw::{draw, entry};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum Page {
+    Overview,
     #[default]
     Shop,
     Equipment,
@@ -25,6 +26,7 @@ pub(crate) enum Page {
 pub(crate) enum Action {
     Open,
     Back,
+    Overview,
     Refresh,
     Read(Read),
     Starter(Uuid, u8),
@@ -127,7 +129,12 @@ pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
         native::ask(cx.state, action);
         if matches!(
             action,
-            Action::Open | Action::Back | Action::Page(_) | Action::Read(Read::Run(_))
+            Action::Open
+                | Action::Back
+                | Action::Overview
+                | Action::Page(_)
+                | Action::Read(Read::Run(_))
+                | Action::Offer(_)
         ) {
             cx.scrolled.set(List::Table, 0.0);
         }

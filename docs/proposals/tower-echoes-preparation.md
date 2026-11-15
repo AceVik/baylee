@@ -1714,3 +1714,29 @@ produced the real rendered frame. Black frames are not visual acceptance.
 These images establish the baseline, not five completed visual improvements:
 they expose excessive page length, repeated descriptions, generic icons and
 purchase details below all offers. No duel or balance result is claimed yet.
+
+## Native layout refinement 1 — fifty-fifth working milestone
+
+The overview and selected expedition now occupy separate pages. Three starter
+decks are aligned in equal columns, selected shop details precede the offers,
+repeated effect paragraphs are removed from the grid, and compact next-duel,
+deck and navigation labels have distinct icons. The selected run remains bound
+while its overview is open; an unsaved deck prevents switching runs.
+
+The real German 1440×900 client was inspected at enrollment, shop and purchase
+detail. A normally authorized compass purchase reduced gold from 18 to 14 and
+marked its offer sold. The overview reopened the starter list. Evidence:
+`/tmp/tower-refinement1-shop.png`, `/tmp/tower-refinement1-detail.png` and
+`/tmp/baylee-tower-ui-refinement1-20261115.log` (all owned processes/listeners
+closed). Strict client library/test Clippy passes in
+`/tmp/baylee-tower-ui-refinement1-clippy-20261115-r3.log`; its feedback simplified
+the page state into the existing enum. The observed controls still need stronger
+selection, clearer equipment slots and item artwork. This is the first observed
+improvement, not final visual acceptance.
+
+Before introducing item shaders, the debug client baseline was saved to
+`/tmp/tower-refinement1-perf.json`: 11,672 frames, 57.77 FPS, update p50 6.446 ms,
+p95 7.276 ms, including startup and navigation. The 120-frame change sample is
+`/tmp/tower-refinement1-changed.json`; it does not name all components in this
+build and is not proof of a completely idle UI. These are diagnostic baselines,
+not an isolated GPU benchmark or a release-performance claim.

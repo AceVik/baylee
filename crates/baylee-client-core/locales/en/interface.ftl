@@ -10328,6 +10328,8 @@ ChallengePendingResult = Your last result is being checked. Refresh to see the c
 
 # Tower Echoes: authority-owned expeditions played at gateways.
 EchoesTitle = Tower Echoes
+EchoesDeck = Your deck
+EchoesPlay = Next duel
 EchoesWithdraw = Withdraw future echo use
 EchoesWithdrawConfirm = Withdraw future use of your builds and public identity as opponents? Already reserved duels and private verification evidence remain. Starting a new expedition asks for fresh consent.
 EchoesWithdrawn = Future echo use has been withdrawn.

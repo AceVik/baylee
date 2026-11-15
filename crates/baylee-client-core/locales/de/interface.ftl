@@ -3756,6 +3756,8 @@ ChallengeNotEarned = Noch nicht erreicht
 ChallengePendingResult = Dein letztes Ergebnis wird geprüft. Aktualisiere die Ansicht, um die bestätigte Wertung und deinen Abzeichenfortschritt zu sehen.
 
 EchoesTitle = Echos des Turms
+EchoesDeck = Dein Deck
+EchoesPlay = Nächste Partie
 EchoesWithdraw = Zukünftige Echo-Nutzung widerrufen
 EchoesWithdrawConfirm = Die zukünftige Nutzung deiner Builds und öffentlichen Identität als Gegner widerrufen? Bereits reservierte Partien und private Prüfbelege bleiben erhalten. Eine neue Expedition fragt erneut nach deiner Zustimmung.
 EchoesWithdrawn = Die zukünftige Echo-Nutzung wurde widerrufen.

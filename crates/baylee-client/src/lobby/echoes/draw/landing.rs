@@ -84,20 +84,36 @@ fn enrollment(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
             Phrase::EchoesStarterLead.text(lang),
             tokens::MUTED,
         );
+        let choices = row(commands, card, kit);
         for (index, starter) in cohort.starters.iter().enumerate() {
+            let choice = tile(commands, choices, kit);
+            commands
+                .entity(choice)
+                .entry::<Node>()
+                .and_modify(move |mut node| {
+                    node.flex_basis = if kit.m.frame == crate::shellkit::Frame::Phone {
+                        percent(100)
+                    } else {
+                        percent(30)
+                    };
+                });
             let number = u8::try_from(index).unwrap_or(0);
             let label_text = Phrase::EchoesStarter.fill(lang, &[&(number + 1).to_string()]);
-            heading(commands, card, kit, &label_text);
-            let cards = starter
-                .deck
-                .iter()
-                .map(|stack| format!("{} × {}", stack.copies, words::card(stack.card, lang)))
-                .collect::<Vec<_>>()
-                .join(" · ");
-            label(commands, card, kit, &cards, tokens::MUTED);
+            heading(commands, choice, kit, &label_text);
+            for stack in &starter.deck {
+                label(
+                    commands,
+                    choice,
+                    kit,
+                    &format!("{} × {}", stack.copies, words::card(stack.card, lang)),
+                    tokens::MUTED,
+                );
+            }
+            let space = crate::lobby::parts::grow(commands);
+            commands.entity(choice).add_child(space);
             control(
                 commands,
-                card,
+                choice,
                 kit,
                 ui,
                 &label_text,
@@ -177,13 +193,6 @@ pub(super) fn progress(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui,
     ] {
         presentation::metric(commands, band, kit, icon, caption.text(lang), &value);
     }
-    label(
-        commands,
-        root,
-        kit,
-        words::phase(run.phase).text(lang),
-        tokens::ACCENT,
-    );
     let history = row(commands, root, kit);
     for (index, duel) in run.history.iter().enumerate() {
         let text = format!(
@@ -212,10 +221,20 @@ fn play(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run
     let lang = lang(kit);
     match run.phase {
         api::Phase::Shop => {
+            let band = row(commands, root, kit);
+            label(
+                commands,
+                band,
+                kit,
+                words::phase(run.phase).text(lang),
+                tokens::ACCENT,
+            );
+            let spacer = crate::lobby::parts::grow(commands);
+            commands.entity(band).add_child(spacer);
             if !ui.choices.deck_unchanged(Some(run)) {
                 label(
                     commands,
-                    root,
+                    band,
                     kit,
                     Phrase::EchoesUnsaved.text(lang),
                     tokens::GOLD,
@@ -233,10 +252,14 @@ fn play(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run
             for host in ui.model.hosts() {
                 control(
                     commands,
-                    root,
+                    band,
                     kit,
                     ui,
-                    &Phrase::EchoesPlayAt.fill(lang, &[&host.name]),
+                    &if ui.model.hosts().len() == 1 {
+                        Phrase::EchoesPlay.text(lang).to_owned()
+                    } else {
+                        Phrase::EchoesPlayAt.fill(lang, &[&host.name])
+                    },
                     Action::Play(host.id),
                     !ui.model.uncertain() && ui.choices.deck_unchanged(Some(run)),
                 );
@@ -269,6 +292,14 @@ fn play(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run
                 !ui.model.uncertain(),
             );
         }
-        _ => {}
+        _ => {
+            label(
+                commands,
+                root,
+                kit,
+                words::phase(run.phase).text(lang),
+                tokens::ACCENT,
+            );
+        }
     }
 }

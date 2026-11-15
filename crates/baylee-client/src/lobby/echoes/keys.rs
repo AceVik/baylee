@@ -5,6 +5,7 @@ pub(crate) const ORDER: TabOrder = TabOrder {
     name: "echoes",
     stops: &[
         "back",
+        "overview",
         "refresh",
         "retry",
         "play",
@@ -65,6 +66,7 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
         Action::Accept => return Stop::new(CONFIRM.name, "confirm"),
         Action::Cancel => return Stop::new(CONFIRM.name, "cancel"),
         Action::Open | Action::Back => ("back", 0),
+        Action::Overview => ("overview", 0),
         Action::Refresh => ("refresh", 0),
         Action::Retry => ("retry", 0),
         Action::Withdraw => ("withdraw", 0),
@@ -80,6 +82,7 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
         Action::Page(page) => (
             "tabs",
             match page {
+                Page::Overview => 3,
                 Page::Shop => 0,
                 Page::Equipment => 1,
                 Page::Deck => 2,
