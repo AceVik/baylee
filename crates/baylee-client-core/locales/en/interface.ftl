@@ -10422,6 +10422,23 @@ EchoesFuse = Review fusion
 EchoesFusionRules = Select the exact ingredients and destination. Three identical Common relics become Uncommon; three Uncommon become Rare. One Rare + one Mythic Potion becomes Mythic Rare. A selected shop relic can supply the final ingredient in the same purchase.
 EchoesInventory = Your inventory
 EchoesHeartwood = Heartwood talisman
+EchoesChalice = Spring Chalice
+EchoesHearth = Hearthstone
+EchoesAmber = Blood Amber
+EchoesCoil = Life Coil
+# Arguments: life
+EchoesChaliceEffect = At the beginning of your upkeep, you gain { $life } life.
+# Arguments: life
+EchoesHearthEffect = Whenever a creature you control enters, you gain { $life } life. Includes tokens.
+# Arguments: damage
+EchoesAmberEffect = Whenever you gain life, store one charge. Tap and spend 2 charges: deal { $damage } damage to any target.
+# Arguments: damage
+EchoesAmberMythicEffect = Whenever you gain life, store one charge. Spend 2 charges: deal { $damage } damage to any target. No tapping required.
+# Arguments: mana
+EchoesCoilEffect = Pay { $mana } mana of any type, tap and pay 2 life: draw a card.
+# Arguments: mana
+EchoesCoilMythicEffect = Pay { $mana } mana of any type and 2 life: draw a card. No tapping required.
+EchoesRemovableArtifact = Starts each duel as a removable artifact. Only equipped items contribute.
 EchoesSatchel = Scholar's satchel
 EchoesCompass = Wayfinder's compass
 EchoesGrove = Living grove

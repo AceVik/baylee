@@ -30,7 +30,11 @@ impl Flow {
         let host = operator(store, Role::Host, 2).await;
         let verifier = operator(store, Role::Verifier, 3).await;
         store
-            .advertise(&host, &[publication.cohort.executor])
+            .advertise(
+                &host,
+                std::slice::from_ref(&publication.cohort.executor),
+                std::slice::from_ref(&publication.cohort.executor),
+            )
             .await
             .unwrap();
         for archetype in 1..=3 {

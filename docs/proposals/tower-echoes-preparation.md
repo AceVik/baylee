@@ -2217,3 +2217,64 @@ unchanged golden stream across 32 seeds, every stage, pins and paid refreshes,
 its old catalog digest, and a new retained native/policy preset regression.
 Library/test Clippy with warnings denied passes. This compatibility milestone
 does not enable new equipment or alter generation-one prices and offers.
+
+### Milestone 70 — playable life workshop, frozen generation two
+
+Four original families are now admitted at four tiers each: Spring Chalice,
+Hearthstone, Blood Amber and Life Coil. The catalog therefore has eight playable
+families / 32 definitions. All new effects use existing native DSL operations,
+ordinary stack resolution, real costs and legal targets. Their starting
+artifacts can be removed; reserves supply no duel power. Mythic Amber/Coil lose
+their tap cost, not their charge/mana/life costs. Exact-life payment stays legal.
+
+Generation two freezes its eight-family pool, native revision 3 and Expert
+policy 19; every Expert setting is frozen for both generations. New stock uses
+two card/four relic/two utility slots and bounded own-family affinity. The old
+generator's golden bytes remain unchanged. API header 3 fences old clients
+before authentication; retained runs still require their exact old executor.
+The token ledger appends 16 identities through `codegen --tables`; existing IDs
+are unchanged. Matching DE/EN rules, four-tier animated frames and the four
+prepared portraits are wired into the actual client.
+
+Focused verification (15 November; logs `/tmp/baylee-tower-life-…-20261115…`):
+
+- Domain: 36 of the 37 v2 cases passed on the first expanded run; a test that
+  fabricated paid inventory instead of using `Buy` correctly failed the ledger.
+  After fixing that fixture, all three generation cases pass, including the
+  corrected case. New shop cases exercise 128 seeds, owned-family affinity,
+  active/reserve invariance and rejection of new goods in old generations.
+- Seven played life-item tests pass (0.06s), covering every tier, own/opponent
+  events, per-event charges, actual payment, source destruction with an already
+  stacked trigger, repeated Mythic activations and exact-life game loss.
+  Expert Amber uses the real hosted targeting view and reproduces an exact
+  recorded replay. Three retained native setup/replay cases also pass.
+- Eight token-ledger cases, four portrait/cache/frame cases, three translation
+  checks, the HTTP upgrade fence and compiled variant identity test pass.
+  `codegen --tables --check` reports current output and zero new identities.
+- Scoped strict Clippy passes for Tower all targets, Tower engine-server
+  library/tests and the dev-control client library. The all-tests compile also
+  repaired a pre-existing fixture's stale agent-advertisement argument list.
+- The bounded 512-seed real-economy experiment is recorded in
+  `tower-echoes-market.md`; it measures first-fusion availability only, not duel
+  balance or player enjoyment. No broad engine suite or CI wait was added.
+- A native loopback-only PostgreSQL 18 / Central / Tower / gateway / agent /
+  client run buys Life Coil and Spring Chalice through the authenticated shop,
+  equips them in active slots, and starts the matching native executor. Both
+  artifacts appear in the client battlefield. Keeping the opening hand reaches
+  21 life after the first own Chalice upkeep. Captures and semantic states:
+  `/tmp/baylee-tower-life-{shop,equipped,table-ready,upkeep}-20261115.{png,json}`.
+  All owned processes and listeners were closed. Long effect paragraphs in
+  stock hover labels were found visually and removed; full rules remain in the
+  scrollable inspector.
+- The rebuilt tooltip correction passes semantic layout checks at 1280 × 720
+  and 1440 × 900. Its second passive-client run returned black raster captures
+  despite advancing frames and working controls (no renderer error logged).
+  Those frames are not visual acceptance evidence; final raster inspection of
+  that presentation correction remains pending. Its owned processes also exit
+  cleanly. The earlier successful purchase/table captures remain valid for the
+  unchanged native item mechanics.
+
+This is a content milestone, not a merge-ready claim for the whole mode. The
+24-family/eight-potion target, complete combat calibration, discovery collection,
+four-tier comparisons and the remaining market acceptance scenes are still
+outstanding. No new gameplay power persists between runs.

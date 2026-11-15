@@ -1527,6 +1527,13 @@ page.
 
 ### Original Tower inventory portraits · 15 November 2026
 
+The life-workshop addition uses four further original generated illustrations:
+Spring Chalice, Hearthstone, Blood Amber and Life Coil, with no external image
+references. Their prompts/provenance are in `art/baylee/tower/life-portraits-generation.json`.
+The sixteen original native artifact definitions have no Oracle or Scryfall
+identity; their on-table rendering uses the existing procedural text face.
+The inventory portraits ship locally. No copied third-party art is added.
+
 At the owner's explicit request, seven original fantasy item illustrations were
 generated with the built-in image-generation tool: Heartwood, Satchel, Compass,
 Grove, Healing, Mana and Mythic elixirs. No existing game's art or reference

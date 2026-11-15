@@ -11,6 +11,22 @@ use baylee_core::generated::subtypes::creature;
 use baylee_core::preset::TowerSupply;
 use baylee_core::types::TypeSet;
 
+#[path = "tower/amber.rs"]
+mod amber;
+#[path = "tower/chalice.rs"]
+mod chalice;
+#[path = "tower/coil.rs"]
+mod coil;
+#[path = "tower/hearth.rs"]
+mod hearth;
+#[path = "tower/life.rs"]
+mod life;
+pub use amber::*;
+pub use chalice::*;
+pub use coil::*;
+pub use hearth::*;
+pub use life::LIFE_RELICS;
+
 const CHARGE: Cost = Cost {
     parts: &[CostPart::RemoveCounterSelf {
         kind: CounterKind::Charge,
@@ -149,6 +165,9 @@ pub fn potion_kind(id: u16) -> Option<TowerSupply> {
 
 /// Original rules text, not an Oracle quotation.
 pub(super) fn ability_text(token: &TokenDef, index: u32) -> Option<&'static str> {
+    if let Some(text) = life::ability_text(token, index) {
+        return Some(text);
+    }
     if index != 0 {
         return None;
     }

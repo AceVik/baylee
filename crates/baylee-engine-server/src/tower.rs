@@ -1,6 +1,6 @@
 //! Tower's compiled native pack. All effects use the ordinary rules pipeline.
 use baylee_cards::tokens::tower::{
-    TOWER_GROVE_COMMON, TOWER_GROVE_MYTHIC, TOWER_GROVE_RARE, TOWER_GROVE_UNCOMMON,
+    LIFE_RELICS, TOWER_GROVE_COMMON, TOWER_GROVE_MYTHIC, TOWER_GROVE_RARE, TOWER_GROVE_UNCOMMON,
 };
 use baylee_engine::{
     extensions::{NativeDefinition, NativeRulePack},
@@ -16,7 +16,7 @@ pub mod durable;
 #[cfg(feature = "tower")]
 pub mod verification;
 
-/// Statically bound revision-two pack; no per-event dispatch or service callback.
+/// Statically bound current pack; no per-event dispatch or service callback.
 #[derive(Clone, Copy, Debug)]
 pub struct Pack;
 
@@ -30,15 +30,20 @@ impl NativeRulePack for Pack {
 
     fn definition(id: u16) -> Option<NativeDefinition> {
         let definition = Definition::from_id(id)?;
-        if definition.family != Family::Grove {
-            return Some(NativeDefinition::SetupOnly);
-        }
-        Some(NativeDefinition::Permanent(match definition.rarity {
-            Rarity::Common => &TOWER_GROVE_COMMON,
-            Rarity::Uncommon => &TOWER_GROVE_UNCOMMON,
-            Rarity::Rare => &TOWER_GROVE_RARE,
-            Rarity::MythicRare => &TOWER_GROVE_MYTHIC,
-        }))
+        let tier = usize::from(definition.rarity.tier() - 1);
+        Some(match definition.family {
+            Family::Heartwood | Family::Satchel | Family::Compass => NativeDefinition::SetupOnly,
+            Family::Grove => NativeDefinition::Permanent(match definition.rarity {
+                Rarity::Common => &TOWER_GROVE_COMMON,
+                Rarity::Uncommon => &TOWER_GROVE_UNCOMMON,
+                Rarity::Rare => &TOWER_GROVE_RARE,
+                Rarity::MythicRare => &TOWER_GROVE_MYTHIC,
+            }),
+            Family::SpringChalice => NativeDefinition::Permanent(LIFE_RELICS[0][tier]),
+            Family::Hearthstone => NativeDefinition::Permanent(LIFE_RELICS[1][tier]),
+            Family::BloodAmber => NativeDefinition::Permanent(LIFE_RELICS[2][tier]),
+            Family::LifeCoil => NativeDefinition::Permanent(LIFE_RELICS[3][tier]),
+        })
     }
 }
 

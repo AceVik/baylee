@@ -1,4 +1,4 @@
-//! Frozen identities and balance hypotheses for the first native vertical slice.
+//! Stable identities and balance hypotheses for generation-bound native catalogs.
 use crate::Refusal;
 use serde::{Deserialize, Serialize};
 
@@ -95,7 +95,7 @@ impl Rarity {
     }
 }
 
-/// Original equipment families in the first native pack.
+/// Original equipment families; a run's generation admits its frozen subset.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Family {
@@ -107,11 +107,28 @@ pub enum Family {
     Compass,
     /// A removable starting artifact that grows Plants at its controller's upkeep.
     Grove,
+    /// A removable artifact that gains life at its controller's upkeep.
+    SpringChalice,
+    /// A removable artifact that gains life when its controller's creatures enter.
+    Hearthstone,
+    /// Life-gain events store charges for a paid damage activation.
+    BloodAmber,
+    /// Mana and life buy a card; only Mythic loses the tap cost.
+    LifeCoil,
 }
 
 impl Family {
     /// Frozen catalog order, independent of map iteration or translated names.
-    pub const ALL: [Self; 4] = [Self::Heartwood, Self::Satchel, Self::Compass, Self::Grove];
+    pub const ALL: [Self; 8] = [
+        Self::Heartwood,
+        Self::Satchel,
+        Self::Compass,
+        Self::Grove,
+        Self::SpringChalice,
+        Self::Hearthstone,
+        Self::BloodAmber,
+        Self::LifeCoil,
+    ];
 
     const fn offset(self) -> u16 {
         match self {
@@ -119,11 +136,15 @@ impl Family {
             Self::Satchel => 4,
             Self::Compass => 8,
             Self::Grove => 12,
+            Self::SpringChalice => 16,
+            Self::Hearthstone => 20,
+            Self::BloodAmber => 24,
+            Self::LifeCoil => 28,
         }
     }
 }
 
-/// An immutable family/tier pair in revision two; never contains caller effects.
+/// An immutable family/tier pair in Tower v2; never contains caller effects.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Definition {
@@ -184,7 +205,11 @@ pub fn attributes(active: &[Definition]) -> Result<Attributes, Refusal> {
                 result.maximum_hand += [1, 1, 2, 2][tier];
             }
             Family::Compass => result.free_mulligans += item.rarity.tier(),
-            Family::Grove => {}
+            Family::Grove
+            | Family::SpringChalice
+            | Family::Hearthstone
+            | Family::BloodAmber
+            | Family::LifeCoil => {}
         }
     }
     if result.cards > 9 || result.maximum_hand > 9 || result.free_mulligans > 7 {

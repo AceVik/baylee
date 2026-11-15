@@ -492,9 +492,17 @@ pub(crate) fn render_token_ledger(
     let mut text = fs::read_to_string(&tokens)?;
     // Original custom-mode objects share the same append-only identity ledger.
     // Their definitions are kept separate from the card token vocabulary.
-    text.push_str(&fs::read_to_string(
-        root.join("crates/cards/src/tokens/tower.rs"),
-    )?);
+    for source in [
+        "tower.rs",
+        "tower/chalice.rs",
+        "tower/hearth.rs",
+        "tower/amber.rs",
+        "tower/coil.rs",
+    ] {
+        text.push_str(&fs::read_to_string(
+            root.join("crates/cards/src/tokens").join(source),
+        )?);
+    }
     let hand: Vec<String> = text
         .lines()
         .filter_map(|line| {

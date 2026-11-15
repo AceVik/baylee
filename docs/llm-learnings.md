@@ -7870,3 +7870,28 @@ beneath it. What the author missed, for the next brief:
   tests. Combining both had pushed the AI test beyond the all-targets Clippy
   limit, missed by the earlier library-only lint selection. The directory
   module moves precede these changes in their own commits.
+
+## 2026-11-15 — original Tower life workshop
+
+- Catalog generation, native revision and AI settings must be frozen together.
+  Reading today's constants while validating an old cohort invalidates saved
+  runs; including today's native revision in its catalog hash changes receipts.
+  Retained generation one now explicitly uses revision 2 / policy 19; new
+  generation two uses revision 3 with unchanged frozen Expert settings.
+- An original artifact can use the existing token ability registry without an
+  invented Oracle identity. Append its IDs through `codegen --tables` and extend
+  both the source reader and ledger-coverage test for its small source modules.
+  Sixteen life-workshop definitions append; no original token ID is renumbered.
+- A bare `player_view` intentionally lacks targeting context. It is not a valid
+  harness for testing the house's ability targeting: the initial Amber probe
+  chose its own token under that incomplete view. The replacement drives the
+  real hosted Expert echo, including origin enrichment and exact record replay.
+  No AI policy or normal engine rule was changed for these four families.
+- Test the saved run through an actual `Buy` command, including its ledger.
+  Replacing only `run.economy` correctly fails the run's finance validation.
+  The original-contract and new-family injection tests now use valid receipts.
+- Life-gain triggers count events, not life points. Separate Plant entries
+  produce separate Hearthstone gains and Amber charges. Removing the source
+  stops future upkeep gains but does not erase its already-stacked ability.
+  Paying the last two life for Life Coil remains legal and loses before its
+  draw resolves; Expert avoids that payment while using a safe paid draw.

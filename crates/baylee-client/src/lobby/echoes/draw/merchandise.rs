@@ -119,6 +119,8 @@ fn description(ui: &Ui, action: Action, lang: Lang) -> String {
                     words::slot(item.slot, lang)
                 )
             }),
+        // Full rules live in the scrollable inspector; compact hover labels must
+        // not grow an unwrapped effect paragraph beyond the stock or viewport.
         Action::Offer(id) => run
             .shop
             .offers
@@ -126,9 +128,8 @@ fn description(ui: &Ui, action: Action, lang: Lang) -> String {
             .find(|offer| offer.id == id)
             .map_or_else(String::new, |offer| {
                 format!(
-                    "{}\n{}{}",
+                    "{}{}",
                     words::goods(offer.goods, lang),
-                    words::effect(offer.goods, lang),
                     if offer.pinned {
                         format!("\n{}", Phrase::EchoesUnpin.text(lang))
                     } else {

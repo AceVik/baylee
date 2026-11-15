@@ -72,7 +72,7 @@ fn legacy_shop_encoding_defaults_to_one_and_unknown_generations_are_refused() {
     let decoded: Shop = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(decoded.generator, 1);
     assert_eq!(serde_json::to_vec(&decoded).unwrap(), bytes);
-    for generator in [0, 2, u16::MAX] {
+    for generator in [0, 3, u16::MAX] {
         assert!(Shop::open_for(generator, &[7; 32], 1, stock, None).is_err());
         let mut changed = value.clone();
         changed["generator"] = generator.into();

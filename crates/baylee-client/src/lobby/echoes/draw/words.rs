@@ -2,6 +2,8 @@
 use super::*;
 use domain::v2::{run::Outcome, shop::Delivery};
 
+mod life;
+
 pub(super) fn card(id: baylee_core::ids::CardIndex, lang: Lang) -> String {
     baylee_cards::by_index(id).map_or_else(
         || Phrase::EchoesUnknownCard.text(lang).to_string(),
@@ -88,6 +90,10 @@ pub(super) fn name(goods: Goods, lang: Lang) -> String {
             Family::Satchel => Phrase::EchoesSatchel,
             Family::Compass => Phrase::EchoesCompass,
             Family::Grove => Phrase::EchoesGrove,
+            Family::SpringChalice => Phrase::EchoesChalice,
+            Family::Hearthstone => Phrase::EchoesHearth,
+            Family::BloodAmber => Phrase::EchoesAmber,
+            Family::LifeCoil => Phrase::EchoesCoil,
         }
         .text(lang)
         .to_owned(),
@@ -125,6 +131,10 @@ pub(super) fn effect(goods: Goods, lang: Lang) -> String {
                     usize::from(definition.rarity.tier()),
                     &[],
                 ),
+                Family::SpringChalice
+                | Family::Hearthstone
+                | Family::BloodAmber
+                | Family::LifeCoil => life::effect(definition, lang),
             }
         }
     }

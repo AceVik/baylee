@@ -23,6 +23,10 @@ impl Portrait {
                     Family::Satchel => 2,
                     Family::Compass => 3,
                     Family::Grove => 4,
+                    Family::SpringChalice => 8,
+                    Family::Hearthstone => 9,
+                    Family::BloodAmber => 10,
+                    Family::LifeCoil => 11,
                 },
                 match rarity {
                     Rarity::Common => 0,
@@ -56,7 +60,7 @@ struct Material {
 }
 
 // Loaded on first use, once per family across all rarities and rebuilt panels.
-const PICTURES: [&str; 7] = [
+const PICTURES: [&str; 11] = [
     "tower/portraits/heartwood.png",
     "tower/portraits/satchel.png",
     "tower/portraits/compass.png",
@@ -64,6 +68,10 @@ const PICTURES: [&str; 7] = [
     "tower/portraits/healing.png",
     "tower/portraits/mana.png",
     "tower/portraits/mythic.png",
+    "tower/portraits/spring-chalice.png",
+    "tower/portraits/hearthstone.png",
+    "tower/portraits/blood-amber.png",
+    "tower/portraits/life-coil.png",
 ];
 
 impl UiMaterial for Material {
@@ -73,7 +81,7 @@ impl UiMaterial for Material {
 }
 
 #[derive(Resource, Default)]
-struct Cache([[Option<Handle<Material>>; 4]; 8]);
+struct Cache([[Option<Handle<Material>>; 4]; PICTURES.len() + 1]);
 
 fn linear(rgb: [f32; 3]) -> Vec4 {
     let color = Color::srgb(rgb[0], rgb[1], rgb[2]).to_linear();
@@ -100,6 +108,10 @@ fn params(kind: usize, tier: usize, energy: f32) -> Params {
                 [0.93, 0.31, 0.42],
                 [0.40, 0.56, 1.0],
                 [0.86, 0.45, 1.0],
+                [0.36, 0.88, 0.79],
+                [1.0, 0.64, 0.29],
+                [0.95, 0.30, 0.23],
+                [0.36, 0.78, 0.72],
             ][kind],
         ),
         shape: Vec4::new(kind as f32, tier as f32, energy, 0.0),

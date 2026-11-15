@@ -47,13 +47,21 @@ pub const fn default_loop_policy() -> baylee_core::preset::LoopPolicy {
 }
 
 /// Emits compatibility metadata without opening a socket or reading credentials.
+/// # Panics
+/// Only if the compiled Tower generation has no registered native contract.
 #[must_use]
 pub fn identity() -> Identity {
+    #[cfg(feature = "tower")]
+    let ai_generation = baylee_tower::v2::generation::contract(baylee_tower::v2::GENERATOR)
+        .expect("compiled Tower generation")
+        .ai_generation;
+    #[cfg(not(feature = "tower"))]
+    let ai_generation = baylee_core::preset::AIProfile::GENERATION;
     Identity::native(
         VARIANT,
         baylee_build::short(),
         baylee_build::COMMIT,
-        u32::from(baylee_core::preset::AIProfile::GENERATION),
+        u32::from(ai_generation),
     )
 }
 
@@ -83,6 +91,11 @@ mod tests {
             cfg!(feature = "loop-detection")
         );
         assert_eq!(identity.variant == Variant::Tower, cfg!(feature = "tower"));
+        #[cfg(feature = "tower")]
+        assert_eq!(
+            identity.rules,
+            format!("tower-{}", baylee_tower::v2::REVISION)
+        );
         if !cfg!(feature = "loop-detection") {
             assert_eq!(std::mem::size_of::<Detection>(), 0);
         }

@@ -1,13 +1,24 @@
 //! Frozen shop catalogs. Adding a family never changes an existing offer stream.
 use super::catalog::{Definition, Family};
 use crate::Refusal;
-use baylee_core::preset::AIProfile;
+use baylee_core::preset::{AIProfile, HoldUp, Politics, Sight};
 
 const FIRST: [Family; 4] = [
     Family::Heartwood,
     Family::Satchel,
     Family::Compass,
     Family::Grove,
+];
+
+const LIFE_WORKSHOP: [Family; 8] = [
+    Family::Heartwood,
+    Family::Satchel,
+    Family::Compass,
+    Family::Grove,
+    Family::SpringChalice,
+    Family::Hearthstone,
+    Family::BloodAmber,
+    Family::LifeCoil,
 ];
 
 /// Rules and policy frozen alongside an offer stream, never read from live defaults.
@@ -23,8 +34,14 @@ impl Contract {
     /// Expert's Tower settings with the saved policy generation.
     pub const fn expert(self) -> AIProfile {
         AIProfile {
+            lookahead: 2,
+            temperature_milli: 12,
+            mulligan_skill: 2,
+            politics: Politics::AttackLeader,
+            hold_up: HoldUp::ThreatAware,
+            sight: Sight::Fair,
             generation: self.ai_generation,
-            ..AIProfile::TOWER_EXPERT
+            foresight: 0,
         }
     }
 }
@@ -36,6 +53,10 @@ pub const fn contract(generation: u16) -> Result<Contract, Refusal> {
     match generation {
         1 => Ok(Contract {
             revision: 2,
+            ai_generation: 19,
+        }),
+        2 => Ok(Contract {
+            revision: 3,
             ai_generation: 19,
         }),
         _ => Err(Refusal::Invalid),
@@ -58,6 +79,7 @@ pub(crate) fn is_original(generation: &u16) -> bool {
 pub fn families(generation: u16) -> Result<&'static [Family], Refusal> {
     match generation {
         1 => Ok(&FIRST),
+        2 => Ok(&LIFE_WORKSHOP),
         _ => Err(Refusal::Invalid),
     }
 }

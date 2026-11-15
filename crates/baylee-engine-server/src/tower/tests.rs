@@ -15,6 +15,8 @@ type Registry = NativeLookup<RegistryLookup, Pack>;
 type Game = Engine<Registry, NoLoopDetection>;
 type Hosted = Session<NoLoopDetection, Registry>;
 
+mod life;
+
 fn preset(active: &[Definition]) -> GamePreset {
     let text = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),

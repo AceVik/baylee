@@ -102,3 +102,38 @@ impl IntoResponse for Failure {
         response
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clients_without_life_workshop_support_are_upgraded_before_authentication() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::CONTENT_TYPE,
+            header::HeaderValue::from_static("application/json"),
+        );
+        for version in ["1", "2"] {
+            headers.insert(
+                api::VERSION_HEADER,
+                header::HeaderValue::from_static(version),
+            );
+            assert!(matches!(
+                credential(&headers, "application/json"),
+                Err(Failure::Version)
+            ));
+        }
+        let response = reply(Err(Failure::Version));
+        assert_eq!(response.status(), StatusCode::UPGRADE_REQUIRED);
+        assert_eq!(response.headers()[api::VERSION_HEADER], "3");
+        headers.insert(
+            api::VERSION_HEADER,
+            header::HeaderValue::from_static(api::VERSION),
+        );
+        assert!(matches!(
+            credential(&headers, "application/json"),
+            Err(Failure::Unauthorized)
+        ));
+    }
+}

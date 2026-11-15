@@ -279,8 +279,8 @@ fn all_native_definition_ids_round_trip_and_unknown_ids_are_refused() {
             ids.push(definition.id());
         }
     }
-    assert_eq!(ids, (1..=16).collect::<Vec<_>>());
-    for id in [0, 17, 256, u16::MAX] {
+    assert_eq!(ids, (1..=32).collect::<Vec<_>>());
+    for id in [0, 33, 256, u16::MAX] {
         assert!(Definition::from_id(id).is_none());
     }
 }

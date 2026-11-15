@@ -9,26 +9,24 @@ fn rebuilt_portraits_share_materials_and_idle_frames_never_upload() {
         .init_resource::<Cache>()
         .add_systems(Update, dress);
     for _ in 0..3 {
-        let entities: Vec<_> = [
-            Family::Heartwood,
-            Family::Satchel,
-            Family::Compass,
-            Family::Grove,
-        ]
-        .into_iter()
-        .flat_map(|family| {
-            [
-                Rarity::Common,
-                Rarity::Uncommon,
-                Rarity::Rare,
-                Rarity::MythicRare,
-            ]
-            .map(|rarity| Portrait(Goods::Relic(Definition { family, rarity })))
-        })
-        .map(|portrait| app.world_mut().spawn(portrait).id())
-        .collect();
+        let entities: Vec<_> = Family::ALL
+            .into_iter()
+            .flat_map(|family| {
+                [
+                    Rarity::Common,
+                    Rarity::Uncommon,
+                    Rarity::Rare,
+                    Rarity::MythicRare,
+                ]
+                .map(|rarity| Portrait(Goods::Relic(Definition { family, rarity })))
+            })
+            .map(|portrait| app.world_mut().spawn(portrait).id())
+            .collect();
         app.update();
-        assert_eq!(app.world().resource::<Assets<Material>>().len(), 16);
+        assert_eq!(
+            app.world().resource::<Assets<Material>>().len(),
+            Family::ALL.len() * 4
+        );
         let image_ids: std::collections::HashSet<_> = app
             .world()
             .resource::<Assets<Material>>()
@@ -37,7 +35,7 @@ fn rebuilt_portraits_share_materials_and_idle_frames_never_upload() {
             .collect();
         assert_eq!(
             image_ids.len(),
-            4,
+            Family::ALL.len(),
             "all four tiers share their family's image"
         );
         for entity in entities {

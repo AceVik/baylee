@@ -42,10 +42,54 @@ fn original_contract_keeps_its_native_revision_and_house_policy() {
 }
 
 #[test]
+fn life_workshop_presets_cannot_be_smuggled_into_original_runs() {
+    let (catalog, mut run, cohort, mut opponent) = fixture();
+    assert_eq!((cohort.generator, cohort.revision), (2, 3));
+    let definition = Definition {
+        family: Family::SpringChalice,
+        rarity: Rarity::Common,
+    };
+    run.shop.offers[0].goods = Goods::Relic(definition);
+    run = run
+        .command(
+            run.revision,
+            &Command::Buy {
+                offer: run.shop.offers[0].id,
+                delivery: Delivery::Slot(Slot::Active(0)),
+            },
+            &catalog,
+            &[3; 32],
+        )
+        .unwrap();
+    opponent.build.active = vec![definition];
+    let package = Package::reserve(
+        &run,
+        run.revision,
+        &catalog,
+        &cohort,
+        opponent,
+        seeds(),
+        4096,
+    )
+    .unwrap()
+    .package;
+    let preset = package
+        .preset(&catalog, &cohort.executor, printing)
+        .unwrap();
+    assert!(crate::v2::loadout::validate(&preset).is_ok());
+    let mut legacy = preset;
+    legacy.house_rules.rule_pack.as_mut().unwrap().revision = 2;
+    assert!(crate::v2::loadout::validate_for(&legacy, 1).is_err());
+    let mut legacy_run = run;
+    legacy_run.shop.generator = 1;
+    assert!(legacy_run.validate(&catalog).is_err());
+}
+
+#[test]
 fn unknown_generations_cannot_start_validate_or_reserve_an_execution() {
     let (catalog, run, cohort, opponent) = fixture();
     let build = Build::freeze(&run, &catalog).unwrap();
-    for generator in [0, 2, u16::MAX] {
+    for generator in [0, 3, u16::MAX] {
         assert!(catalog_digest_for(&catalog, generator).is_err());
         assert!(Cohort::for_generation(cohort.executor.clone(), &catalog, generator).is_err());
         assert!(Run::begin_for(&catalog, run.cards.clone(), &[3; 32], generator).is_err());

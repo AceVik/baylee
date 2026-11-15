@@ -112,7 +112,7 @@ impl Shop {
 
     fn select(&self, seed: &[u8; 32], slot: u8, stock: Stock<'_>) -> Result<Goods, Refusal> {
         let random = score(seed, self.stage, self.rerolls, slot, 0);
-        if slot < 3 {
+        if slot < if self.generator == 1 { 3 } else { 2 } {
             if let Some(card) = stock
                 .catalog
                 .cards
@@ -142,10 +142,26 @@ impl Shop {
             _ => Rarity::Common,
         };
         let families = generation::families(self.generator)?;
-        Ok(Goods::Relic(Definition {
-            family: families[usize::from(random[2]) % families.len()],
-            rarity,
-        }))
+        let mut family = families[usize::from(random[2]) % families.len()];
+        // A bounded third of new-generation relic offers follows an owned family.
+        // Canonical catalog order, not item order or active/reserve placement.
+        // Selection never reads an opponent and never rewrites already saved stock.
+        if self.generator == 2 && random[3] < 85 {
+            let owned: Vec<_> = families
+                .iter()
+                .copied()
+                .filter(|candidate| {
+                    stock.economy.inventory.relics.iter().any(|item| {
+                        item.definition.family == *candidate
+                            && item.definition.rarity != Rarity::MythicRare
+                    })
+                })
+                .collect();
+            if !owned.is_empty() {
+                family = owned[usize::from(random[4]) % owned.len()];
+            }
+        }
+        Ok(Goods::Relic(Definition { family, rarity }))
     }
 }
 
