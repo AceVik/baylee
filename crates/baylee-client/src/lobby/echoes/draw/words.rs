@@ -100,6 +100,8 @@ pub(super) fn effect(goods: Goods, lang: Lang) -> String {
                 Family::Heartwood => {
                     Phrase::EchoesLifeEffect.fill(lang, &[&(stats.life - 20).to_string()])
                 }
+                Family::Satchel if stats.cards == 7 => Phrase::EchoesHandLimitEffect
+                    .fill(lang, &[&(stats.maximum_hand - 7).to_string()]),
                 Family::Satchel => Phrase::EchoesCardsEffect.fill(
                     lang,
                     &[
@@ -214,6 +216,17 @@ pub(super) fn command(command: &Command, ui: &Ui, lang: Lang) -> String {
         }
         Command::Abandon {} => Phrase::TowerRetireConfirm.text(lang).to_string(),
     }
+}
+
+pub(super) fn destination(delivery: &Delivery, lang: Lang) -> String {
+    let name = match delivery {
+        Delivery::Inventory => Phrase::EchoesInventory.text(lang).to_owned(),
+        Delivery::Slot(place) => slot(*place, lang),
+        Delivery::Fuse(recipe) => {
+            Phrase::EchoesFusionDestination.fill(lang, &[&slot(recipe.destination, lang)])
+        }
+    };
+    Phrase::EchoesDestination.fill(lang, &[&name])
 }
 
 pub(super) const fn icon(action: Action) -> char {

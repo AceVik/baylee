@@ -3,6 +3,32 @@ use super::*;
 
 pub(super) fn inventory(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
     let lang = lang(kit);
+    if ui.choices.item.is_some() {
+        detail(commands, root, kit, ui, run);
+    } else {
+        let hint = panel(commands, root, kit);
+        label(
+            commands,
+            hint,
+            kit,
+            if run.economy.inventory.relics.is_empty() && run.economy.inventory.materials.is_empty()
+            {
+                Phrase::EchoesEmptyEquipment.text(lang)
+            } else {
+                Phrase::EchoesSelectEquipment.text(lang)
+            },
+            tokens::MUTED,
+        );
+        control(
+            commands,
+            hint,
+            kit,
+            ui,
+            Phrase::EchoesShop.text(lang),
+            Action::Page(Page::Shop),
+            true,
+        );
+    }
     let band = row(commands, root, kit);
     for relic in &run.economy.inventory.relics {
         let card = tile(commands, band, kit);
@@ -42,7 +68,20 @@ pub(super) fn inventory(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui
             run.phase == api::Phase::Shop,
         );
     }
+}
+
+fn detail(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
+    let lang = lang(kit);
     let detail = panel(commands, root, kit);
+    if let Some(relic) = run
+        .economy
+        .inventory
+        .relics
+        .iter()
+        .find(|relic| Some(relic.id) == ui.choices.item)
+    {
+        portrait(commands, detail, kit, Goods::Relic(relic.definition));
+    }
     label(
         commands,
         detail,
@@ -50,11 +89,18 @@ pub(super) fn inventory(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui
         Phrase::EchoesSlotRules.text(lang),
         tokens::MUTED,
     );
-    slots(commands, detail, kit, ui);
+    label(
+        commands,
+        detail,
+        kit,
+        &Phrase::EchoesDestination.fill(lang, &[&words::slot(ui.choices.slot, lang)]),
+        tokens::ACCENT,
+    );
+    let actions = row(commands, detail, kit);
     if let Some(id) = ui.choices.item {
         control(
             commands,
-            detail,
+            actions,
             kit,
             ui,
             Phrase::EchoesMove.text(lang),
@@ -70,7 +116,7 @@ pub(super) fn inventory(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui
         let refund = baylee_client_core::echoes::draft::refund(run, id).unwrap_or(0);
         control(
             commands,
-            detail,
+            actions,
             kit,
             ui,
             &Phrase::EchoesSellPrice.fill(lang, &[&refund.to_string()]),
@@ -78,6 +124,7 @@ pub(super) fn inventory(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui
             can(ui, &Command::Sell { item: id }),
         );
     }
+    slots(commands, detail, kit, ui);
     ingredients(commands, detail, kit, ui, run);
     control(
         commands,
@@ -94,4 +141,3 @@ pub(super) fn inventory(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui
         ),
     );
 }
-

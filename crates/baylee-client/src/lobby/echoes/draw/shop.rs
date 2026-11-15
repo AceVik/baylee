@@ -97,14 +97,22 @@ fn detail(
             &words::effect(offer.goods, lang),
             tokens::INK,
         );
-        if matches!(offer.goods, Goods::Relic(_)) {
-            equipment::slots(commands, detail, kit, ui);
-            equipment::ingredients(commands, detail, kit, ui, run);
-        }
         if let Some(command) = ui.choices.purchase(run) {
+            let actions = row(commands, detail, kit);
+            if let Command::Buy { delivery, .. } = &command {
+                label(
+                    commands,
+                    actions,
+                    kit,
+                    &words::destination(delivery, lang),
+                    tokens::ACCENT,
+                );
+                let spacer = crate::lobby::parts::grow(commands);
+                commands.entity(actions).add_child(spacer);
+            }
             control(
                 commands,
-                detail,
+                actions,
                 kit,
                 ui,
                 &offer.goods.price(&cohort.catalog).map_or_else(
@@ -114,6 +122,10 @@ fn detail(
                 Action::Buy,
                 can(ui, &command),
             );
+        }
+        if matches!(offer.goods, Goods::Relic(_)) {
+            equipment::slots(commands, detail, kit, ui);
+            equipment::ingredients(commands, detail, kit, ui, run);
         }
     }
 }

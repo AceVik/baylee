@@ -1766,3 +1766,21 @@ Cleanup is recorded in `/tmp/baylee-tower-ui-refinement2-20261115.log` and its
 `refinement2b` sibling. Higher rarity animation has not yet received full visual
 acceptance. The shorter viewport also showed that the purchase button and
 equipment actions still sit too far down: the next refinement addresses that.
+
+## Visible decisions refinement 3 — fifty-seventh working milestone
+
+Purchase review and the explicit destination now precede the slot grid. The
+empty equipment page explains the active/reserve limit and links to the shop;
+move/sale/fusion controls appear only for a selected item, above the inventory.
+Selecting an item returns to those controls. Common satchels describe the actual
+hand-limit benefit without advertising a zero-card opening-hand increase.
+Inventory and destination rendering were extracted in a separate move-only commit.
+
+The 1280×720 client now keeps the price, destination and purchase button visible:
+`/tmp/tower-refinement3-purchase.png`. The empty state and current deck were also
+inspected in `/tmp/tower-refinement3-empty.png` and `...-deck.png`. The deck remains
+too text-heavy and shop cards lack useful rules previews; those are outstanding
+presentation work. Strict changed-client Clippy and the language argument check
+pass in `/tmp/baylee-tower-ui-refinement3-clippy-20261115.log` and
+`/tmp/baylee-tower-ui-language-20261115-r3.log`. The owned client, backend and
+PostgreSQL are closed (`/tmp/baylee-tower-ui-refinement3-20261115.log`).

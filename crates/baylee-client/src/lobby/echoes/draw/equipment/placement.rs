@@ -1,7 +1,12 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
-pub(in crate::lobby::echoes::draw) fn slots(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
+pub(in crate::lobby::echoes::draw) fn slots(
+    commands: &mut Commands,
+    root: Entity,
+    kit: Kit,
+    ui: &Ui,
+) {
     let lang = lang(kit);
     for (active, count, title) in [
         (true, ACTIVE_SLOTS, Phrase::EchoesActiveSlots),

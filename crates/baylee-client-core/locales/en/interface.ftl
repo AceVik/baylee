@@ -10376,6 +10376,14 @@ EchoesBuyPrice = Review purchase · { $price } gold
 EchoesActiveSlots = Equipped · active in your next duel
 EchoesReserveSlots = Reserve · storage and fusion ingredients
 EchoesSlotEmpty = Empty slot
+# Arguments: destination
+EchoesDestination = Destination: { $destination }
+# Arguments: destination
+EchoesFusionDestination = Fusion → { $destination }
+# Arguments: number
+EchoesHandLimitEffect = While equipped: +{ $number } maximum hand size.
+EchoesEmptyEquipment = Your equipment starts here. Buy relics at the shop, equip up to three, and keep six in reserve for later combinations.
+EchoesSelectEquipment = Select a relic to move, sell or combine it. Only equipped relics affect your next duel.
 EchoesSold = Sold
 # Arguments: price
 EchoesPrice = { $price } gold

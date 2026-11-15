@@ -137,6 +137,7 @@ pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
                 | Action::Page(_)
                 | Action::Read(Read::Run(_))
                 | Action::Offer(_)
+                | Action::Select(_)
         ) {
             cx.scrolled.set(List::Table, 0.0);
         }
