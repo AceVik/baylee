@@ -10371,6 +10371,11 @@ EchoesUnavailable = This choice is not currently available.
 EchoesUnsaved = Your deck has unsaved changes. Save or discard them before entering a duel.
 EchoesInspect = Select
 EchoesBuy = Review purchase
+# Arguments: price
+EchoesBuyPrice = Review purchase · { $price } gold
+EchoesActiveSlots = Equipped · active in your next duel
+EchoesReserveSlots = Reserve · storage and fusion ingredients
+EchoesSlotEmpty = Empty slot
 EchoesSold = Sold
 # Arguments: price
 EchoesPrice = { $price } gold

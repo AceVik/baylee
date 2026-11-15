@@ -1740,3 +1740,29 @@ p95 7.276 ms, including startup and navigation. The 120-frame change sample is
 `/tmp/tower-refinement1-changed.json`; it does not name all components in this
 build and is not proof of a completely idle UI. These are diagnostic baselines,
 not an isolated GPU benchmark or a release-performance claim.
+
+## Item presentation refinement 2 — fifty-sixth working milestone
+
+Tower objects now have original analytic portraits: carved heartwood, satchel,
+compass, grove and distinct potion bottles. A bounded shared material cache adds
+engraving, corner gemstones and a crown with rarity; animation reads the GPU
+clock and honors reduced motion/ambient quality. It is separate from permanent
+achievement medals. Selected controls have a checkmark and filled background.
+Active and reserve destinations form separate aligned three-column grids with
+occupancy labels, and the purchase button includes the actual gold price.
+
+Nine focused Tower-client tests pass (shader frontend, shared material reuse and
+idle uploads, account isolation and seat recovery) in
+`/tmp/baylee-tower-ui-refinement2-tests-20261115.log`. Strict client library/test
+Clippy passes in `/tmp/baylee-tower-ui-refinement2-clippy-20261115.log`. The language
+test caught a missing English argument declaration; after correction the exact
+cross-language argument test passes in `/tmp/baylee-tower-ui-language-20261115-r2.log`.
+
+The live 1440×900 shop and equipment were inspected; purchasing a compass into
+Active 1 reduced gold by four and changed free mulligans from one to two.
+`/tmp/tower-refinement2-equipped.png` shows the result. A fresh client verified
+the corrected price text at 1280×720 in `/tmp/tower-refinement2b-compact.png`.
+Cleanup is recorded in `/tmp/baylee-tower-ui-refinement2-20261115.log` and its
+`refinement2b` sibling. Higher rarity animation has not yet received full visual
+acceptance. The shorter viewport also showed that the purchase button and
+equipment actions still sit too far down: the next refinement addresses that.

@@ -88,31 +88,6 @@ pub(super) fn goods(goods: Goods, lang: Lang) -> String {
     }
 }
 
-pub(super) const fn goods_icon(goods: Goods) -> char {
-    match goods {
-        Goods::Card(_)
-        | Goods::Relic(Definition {
-            family: Family::Satchel,
-            ..
-        }) => glyph::LIBRARY,
-        Goods::Relic(Definition {
-            family: Family::Heartwood,
-            ..
-        })
-        | Goods::Potion(Potion::Healing) => glyph::HEART,
-        Goods::Relic(Definition {
-            family: Family::Compass,
-            ..
-        }) => glyph::COMPASS,
-        Goods::Relic(Definition {
-            family: Family::Grove,
-            ..
-        }) => glyph::SUN,
-        Goods::Potion(Potion::Mana) => glyph::ENERGY,
-        Goods::Mythic => glyph::CROWN,
-    }
-}
-
 pub(super) fn effect(goods: Goods, lang: Lang) -> String {
     match goods {
         Goods::Card(_) => Phrase::EchoesCardEffect.text(lang).into(),

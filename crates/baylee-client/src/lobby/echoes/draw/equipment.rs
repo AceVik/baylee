@@ -65,13 +65,7 @@ fn inventory(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api
     let band = row(commands, root, kit);
     for relic in &run.economy.inventory.relics {
         let card = tile(commands, band, kit);
-        presentation::title(
-            commands,
-            card,
-            kit,
-            words::goods_icon(Goods::Relic(relic.definition)),
-            &words::goods(Goods::Relic(relic.definition), lang),
-        );
+        portrait(commands, card, kit, Goods::Relic(relic.definition));
         label(
             commands,
             card,
@@ -161,20 +155,55 @@ fn inventory(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api
 }
 
 pub(super) fn slots(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
-    let band = row(commands, root, kit);
-    for slot in (0..ACTIVE_SLOTS)
-        .map(Slot::Active)
-        .chain((0..RESERVE_SLOTS).map(Slot::Reserve))
-    {
-        control(
-            commands,
-            band,
-            kit,
-            ui,
-            &words::slot(slot, lang(kit)),
-            Action::Place(slot),
-            true,
-        );
+    let lang = lang(kit);
+    for (active, count, title) in [
+        (true, ACTIVE_SLOTS, Phrase::EchoesActiveSlots),
+        (false, RESERVE_SLOTS, Phrase::EchoesReserveSlots),
+    ] {
+        label(commands, root, kit, title.text(lang), tokens::MUTED);
+        let band = row(commands, root, kit);
+        for index in 0..count {
+            let slot = if active {
+                Slot::Active(index)
+            } else {
+                Slot::Reserve(index)
+            };
+            let cell = commands
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        flex_basis: percent(30),
+                        flex_grow: 1.0,
+                        min_width: px(0),
+                        row_gap: kit.m.px(4.0),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(band).add_child(cell);
+            control(
+                commands,
+                cell,
+                kit,
+                ui,
+                &words::slot(slot, lang),
+                Action::Place(slot),
+                true,
+            );
+            let occupant = ui.model.run().and_then(|run| {
+                run.economy
+                    .inventory
+                    .relics
+                    .iter()
+                    .find(|relic| relic.slot == slot)
+            });
+            let description = occupant.map_or_else(
+                || Phrase::EchoesSlotEmpty.text(lang).to_owned(),
+                |relic| words::goods(Goods::Relic(relic.definition), lang),
+            );
+            label(commands, cell, kit, &description, tokens::MUTED);
+        }
     }
 }
 
@@ -186,6 +215,9 @@ pub(super) fn ingredients(
     run: &api::Run,
 ) {
     let lang = lang(kit);
+    if run.economy.inventory.relics.is_empty() && run.economy.inventory.materials.is_empty() {
+        return;
+    }
     label(
         commands,
         root,

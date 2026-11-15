@@ -10,17 +10,11 @@ pub(super) fn draw(
     cohort: &api::Cohort,
 ) {
     let lang = lang(kit);
-    detail(commands, root, kit, ui, run);
+    detail(commands, root, kit, ui, run, cohort);
     let offers = row(commands, root, kit);
     for offer in &run.shop.offers {
         let card = tile(commands, offers, kit);
-        presentation::title(
-            commands,
-            card,
-            kit,
-            words::goods_icon(offer.goods),
-            &words::goods(offer.goods, lang),
-        );
+        portrait(commands, card, kit, offer.goods);
         let price = offer.goods.price(&cohort.catalog).ok();
         let price_text = price.map_or_else(
             || "—".into(),
@@ -76,7 +70,14 @@ pub(super) fn draw(
     options(commands, root, kit, ui, run);
 }
 
-fn detail(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
+fn detail(
+    commands: &mut Commands,
+    root: Entity,
+    kit: Kit,
+    ui: &Ui,
+    run: &api::Run,
+    cohort: &api::Cohort,
+) {
     let lang = lang(kit);
     if let Some(offer) = run
         .shop
@@ -88,7 +89,7 @@ fn detail(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::R
         commands
             .entity(detail)
             .insert(BorderColor::all(tokens::ACCENT));
-        heading(commands, detail, kit, &words::goods(offer.goods, lang));
+        portrait(commands, detail, kit, offer.goods);
         label(
             commands,
             detail,
@@ -106,7 +107,10 @@ fn detail(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::R
                 detail,
                 kit,
                 ui,
-                Phrase::EchoesBuy.text(lang),
+                &offer.goods.price(&cohort.catalog).map_or_else(
+                    |_| Phrase::EchoesBuy.text(lang).to_owned(),
+                    |price| Phrase::EchoesBuyPrice.fill(lang, &[&price.to_string()]),
+                ),
                 Action::Buy,
                 can(ui, &command),
             );

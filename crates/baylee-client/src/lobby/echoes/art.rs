@@ -1,0 +1,150 @@
+//! Original item portraits. A bounded shared cache; animation uses the GPU clock.
+use baylee_client_core::echoes::domain::v2::{
+    catalog::{Definition, Family, Potion, Rarity},
+    shop::Goods,
+};
+use bevy::{
+    asset::embedded_asset,
+    prelude::*,
+    render::render_resource::{AsBindGroup, ShaderType},
+    shader::ShaderRef,
+};
+
+#[derive(Component, Clone, Copy, PartialEq, Eq)]
+pub(super) struct Portrait(pub Goods);
+
+impl Portrait {
+    fn indices(self) -> (usize, usize) {
+        match self.0 {
+            Goods::Card(_) => (0, 0),
+            Goods::Relic(Definition { family, rarity }) => (
+                match family {
+                    Family::Heartwood => 1,
+                    Family::Satchel => 2,
+                    Family::Compass => 3,
+                    Family::Grove => 4,
+                },
+                match rarity {
+                    Rarity::Common => 0,
+                    Rarity::Uncommon => 1,
+                    Rarity::Rare => 2,
+                    Rarity::MythicRare => 3,
+                },
+            ),
+            Goods::Potion(Potion::Healing) => (5, 0),
+            Goods::Potion(Potion::Mana) => (6, 0),
+            Goods::Mythic => (7, 3),
+        }
+    }
+}
+
+#[derive(Clone, Copy, ShaderType, Debug)]
+struct Params {
+    metal: Vec4,
+    gem: Vec4,
+    // motif, rarity, animation energy, reserved; no per-frame uniform writes.
+    shape: Vec4,
+}
+
+#[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
+struct Material {
+    #[uniform(0)]
+    params: Params,
+}
+
+impl UiMaterial for Material {
+    fn fragment_shader() -> ShaderRef {
+        "embedded://baylee_client/lobby/echoes/art.wesl".into()
+    }
+}
+
+#[derive(Resource, Default)]
+struct Cache([[Option<Handle<Material>>; 4]; 8]);
+
+fn linear(rgb: [f32; 3]) -> Vec4 {
+    let color = Color::srgb(rgb[0], rgb[1], rgb[2]).to_linear();
+    Vec4::new(color.red, color.green, color.blue, 1.0)
+}
+
+fn params(kind: usize, tier: usize, energy: f32) -> Params {
+    Params {
+        metal: linear(
+            [
+                [0.66, 0.52, 0.36],
+                [0.76, 0.85, 0.89],
+                [0.97, 0.74, 0.34],
+                [1.0, 0.62, 0.34],
+            ][tier],
+        ),
+        gem: linear(
+            [
+                [0.71, 0.76, 0.90],
+                [0.83, 0.43, 0.29],
+                [0.56, 0.74, 0.88],
+                [0.30, 0.84, 0.83],
+                [0.42, 0.85, 0.48],
+                [0.93, 0.31, 0.42],
+                [0.40, 0.56, 1.0],
+                [0.86, 0.45, 1.0],
+            ][kind],
+        ),
+        shape: Vec4::new(kind as f32, tier as f32, energy, 0.0),
+    }
+}
+
+fn dress(
+    mut commands: Commands,
+    portraits: Query<(Entity, &Portrait), Changed<Portrait>>,
+    mut cache: ResMut<Cache>,
+    mut assets: ResMut<Assets<Material>>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    quality: Option<Res<crate::quality::InUse>>,
+) {
+    let energy = if crate::quality::ambient_still(
+        prefs.as_ref().is_some_and(|p| p.all().reduce_motion),
+        quality.as_deref(),
+    ) {
+        0.0
+    } else {
+        1.0
+    };
+    if prefs.as_ref().is_some_and(DetectChanges::is_changed)
+        || quality.as_ref().is_some_and(DetectChanges::is_changed)
+    {
+        for handle in cache.0.iter().flatten().flatten() {
+            if assets
+                .get(handle)
+                .is_some_and(|material| (material.params.shape.z - energy).abs() > f32::EPSILON)
+                && let Some(mut material) = assets.get_mut(handle)
+            {
+                material.params.shape.z = energy;
+            }
+        }
+    }
+    for (entity, portrait) in &portraits {
+        let (kind, tier) = portrait.indices();
+        let handle = cache.0[kind][tier]
+            .get_or_insert_with(|| {
+                assets.add(Material {
+                    params: params(kind, tier, energy),
+                })
+            })
+            .clone();
+        commands.entity(entity).insert(MaterialNode(handle));
+    }
+}
+
+pub(super) fn install(app: &mut App) {
+    if !app.world().contains_resource::<AssetServer>()
+        || app.get_sub_app(bevy::render::RenderApp).is_none()
+    {
+        return;
+    }
+    embedded_asset!(app, "art.wesl");
+    app.init_resource::<Cache>()
+        .add_plugins(UiMaterialPlugin::<Material>::default())
+        .add_systems(PostUpdate, dress);
+}
+
+#[cfg(test)]
+mod tests;

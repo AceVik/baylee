@@ -18,13 +18,19 @@ pub(super) fn control(
     let button = controls::button_with_icon(
         commands,
         kit,
-        words::icon(action),
+        if words::selected(action, ui) {
+            glyph::CHECK
+        } else {
+            words::icon(action)
+        },
         words,
         if matches!(
             action,
             Action::Accept | Action::Buy | Action::Play(_) | Action::Resume | Action::SaveDeck
         ) {
             Weight::Gold
+        } else if words::selected(action, ui) {
+            Weight::Primary
         } else {
             Weight::Secondary
         },
@@ -51,6 +57,31 @@ pub(super) fn can(ui: &Ui, command: &Command) -> bool {
             .run()
             .zip(ui.model.publication())
             .is_some_and(|(run, cohort)| allowed(run, cohort, command))
+}
+
+pub(super) fn portrait(commands: &mut Commands, root: Entity, kit: Kit, goods: Goods) {
+    let band = row(commands, root, kit);
+    commands
+        .entity(band)
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.flex_wrap = FlexWrap::NoWrap;
+            node.align_items = AlignItems::Center;
+        });
+    let image = commands
+        .spawn((
+            super::super::art::Portrait(goods),
+            Node {
+                width: kit.m.px(84.0),
+                height: kit.m.px(84.0),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(band).add_child(image);
+    heading(commands, band, kit, &words::goods(goods, lang(kit)));
 }
 
 pub(super) fn tile(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
