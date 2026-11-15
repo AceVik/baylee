@@ -54,6 +54,13 @@ pub enum Request {
         /// Owned run, never an arbitrary account or destination.
         run: Uuid,
     },
+    /// Approved gateways currently offering the owned run's exact engine.
+    Hosts {
+        /// Owned run; its cohort selects compatibility, never a caller's build string.
+        run: Uuid,
+        /// Exclusive descending host UUID cursor.
+        before: Option<Uuid>,
+    },
     /// Explicit enrollment after displaying the current echo-consent explanation.
     Start {
         /// Idempotency identity retained until a definitive answer.
@@ -109,6 +116,13 @@ pub struct Cohort {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "result", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Response {
+    /// Current approved capacity hints, not reservations or gateway credentials.
+    Hosts {
+        /// Binds the list to the requested owned run.
+        run: Uuid,
+        /// Up to [`PAGE_SIZE`] destinations, descending by host UUID.
+        hosts: Vec<Host>,
+    },
     /// Current owned execution routing; contains no token, package or record head.
     Location {
         /// Re-read after technical recovery; an earlier game ID can be retired.

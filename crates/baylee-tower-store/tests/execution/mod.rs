@@ -1,6 +1,7 @@
 //! Synthetic byte streams test storage, never claim to be legal game records.
 #![forbid(unsafe_code)]
 mod batches;
+mod discovery;
 mod expiry;
 mod location;
 mod pool;
@@ -65,7 +66,11 @@ impl Flow {
         let supervisor = operator(store, Role::Supervisor, 4).await;
         for actor in [&host, &next_host] {
             store
-                .advertise(actor, std::slice::from_ref(&published.cohort.executor))
+                .advertise(
+                    actor,
+                    std::slice::from_ref(&published.cohort.executor),
+                    std::slice::from_ref(&published.cohort.executor),
+                )
                 .await
                 .unwrap();
         }

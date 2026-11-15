@@ -284,6 +284,7 @@ pub(super) async fn run() {
         );
     }
     let _central_heartbeat = central::Heartbeat::start(state.clone());
+    let _tower_heartbeat = tower::Heartbeat::start(state.clone());
     let _challenge_delivery = challenges::start_delivery(state.clone());
     central::spawn_terms_publisher(state.clone());
     social::sweep::sweep(&state).await;

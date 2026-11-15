@@ -155,7 +155,8 @@ async fn migration_backfill(store: &Store, db: &sea_orm::DatabaseConnection, sch
         "DROP TABLE \"{schema}\".execution_watch;
         ALTER TABLE \"{schema}\".reservations DROP COLUMN automatic_recoveries;
         DELETE FROM \"{schema}\".schema_version WHERE version>=9;
-        DROP TABLE \"{schema}\".host_locations;"
+        DROP TABLE \"{schema}\".host_locations;
+        DROP TABLE \"{schema}\".host_availability;"
     ))
     .await
     .unwrap();

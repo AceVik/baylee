@@ -177,6 +177,7 @@ async fn host_identity(
     let Response::Advertised { host } = sdk
         .control(&Request::Advertise {
             engines: vec![engine.clone()],
+            available: vec![engine.clone()],
         })
         .await
         .unwrap()

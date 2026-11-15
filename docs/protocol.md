@@ -6059,8 +6059,8 @@ gateway. Its reusable contract is `baylee-tower-api`, version `2` in the require
 duplicate credentials/version headers and unknown JSON fields are refused.
 No browser CORS route or caller-supplied identity/destination exists.
 
-The tagged `operation` is `cohorts`, `runs`, `run`, `locate`, `start`, `command`, `reserve`
-or `withdraw_echoes`. `start`, `command` and `reserve` carry a UUIDv7 request ID;
+The tagged `operation` is `cohorts`, `runs`, `run`, `locate`, `hosts`, `start`,
+`command`, `reserve` or `withdraw_echoes`. `start`, `command` and `reserve` carry a UUIDv7 request ID;
 the exact request must be retained after a lost answer. Commands carry the last
 observed run revision. The authority alone samples start/opponent/shuffle/policy
 randomness; stored request receipts return the original committed answer on an
@@ -6088,6 +6088,14 @@ production HTTPS versus numeric-loopback development origins. The client must
 obtain a separate gateway admission from Central for that origin; it must never
 forward its Tower bearer. A destination is a fresh routing hint, not a seat grant
 or capacity guarantee.
+
+`hosts` takes an owned run and an exclusive optional `before` host UUID. It returns
+at most eight approved, enabled gateway destinations with fresh available capacity
+for that run's exact frozen executor, descending by host UUID. It does not expose
+another player's activity or private builds. The SDK binds the returned run and
+validates every origin, ID, ordering and page bound. Installed-but-busy artifacts
+remain compatible for existing runs but are absent from this availability list.
+An expired heartbeat disappears from reads without waiting for a cleanup job.
 
 Requests are bounded to 16 KiB, responses to 1 MiB; body reading lasts at most
 three seconds and online identity lookup five seconds. Admission is limited to
@@ -6129,6 +6137,14 @@ how long the player or duel takes. `read` returns one retained private chunk,
 and `seal` moves the exact durable prefix to independent verification without
 awarding anything. Private JSON responses are bounded to two MiB, including
 worst-case JSON expansion of one 256-KiB record chunk.
+
+`advertise` carries two bounded deduplicated sets: `engines` is the installed
+inventory, including busy agents; `available` is its currently free subset. Both
+may be empty after disconnection. Capability replacement and indexed availability
+commit together under the operator lock. The authority fixes availability at
+60 seconds; no remote expiry or destination is accepted. Gateways refresh every
+20 seconds and on explicit discovery/start, suppress available capacity while
+admission is held, and cancel their owned periodic task when it is dropped.
 
 `/v2/host/record` requires `application/octet-stream`: a four-byte big-endian
 metadata length, strict JSON `{lease, expected, chunks}`, then exactly that many

@@ -13,8 +13,10 @@ pub const RECORD_PATH: &str = "/v2/host/record";
 pub enum Request {
     /// Publish the local agents' exact, approved executable inventory.
     Advertise {
-        /// Exact identities; bounded/deduplicated by the store.
+        /// Installed exact identities, including busy agents; empty when disconnected.
         engines: Vec<Identity>,
+        /// Subset with currently free capacity. Empty does not revoke compatibility.
+        available: Vec<Identity>,
     },
     /// Claim this host's assigned reservation. Retries retain the same claim ID.
     Claim {

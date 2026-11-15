@@ -122,16 +122,22 @@ impl Store {
         Ok(())
     }
 
-    /// Advertise only bounded exact executable identities, not paths or remote commands.
-    /// The host obtains them by probing its approved agents' local installations.
+    /// Advertise installed exact identities separately from currently free capacity.
+    /// Busy agents retain compatibility; empty inventories withdraw discovery.
     /// # Errors
     /// Wrong/disabled role or invalid/duplicate/unbounded capabilities.
     pub async fn advertise(
         &self,
         principal: &Principal,
         identities: &[Identity],
+        available: &[Identity],
     ) -> Result<(), Error> {
-        if !valid_capabilities(identities) {
+        if (!identities.is_empty() && !valid_capabilities(identities))
+            || (!available.is_empty() && !valid_capabilities(available))
+            || available
+                .iter()
+                .any(|identity| !identities.contains(identity))
+        {
             return Err(Refusal::Invalid.into());
         }
         if principal.role != Role::Host {
@@ -143,6 +149,7 @@ impl Store {
         if changed.rows_affected() != 1 {
             return Err(Error::NotFound);
         }
+        self.save_availability(&tx, principal.id, available).await?;
         tx.commit().await.map_err(|_| Error::Unavailable)
     }
 

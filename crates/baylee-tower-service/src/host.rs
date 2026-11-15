@@ -109,8 +109,10 @@ impl Hosts {
             serde_json::from_slice(&admitted.bytes).map_err(|_| Failure::Invalid)?;
         let principal = &admitted.principal;
         let response = match request {
-            wire::Request::Advertise { engines } => {
-                self.store.advertise(principal, &engines).await?;
+            wire::Request::Advertise { engines, available } => {
+                self.store
+                    .advertise(principal, &engines, &available)
+                    .await?;
                 wire::Response::Advertised {
                     host: principal.id(),
                 }

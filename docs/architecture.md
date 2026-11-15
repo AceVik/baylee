@@ -38,8 +38,10 @@ information is unrepresentable in a view, and the gateway runs no rules.
   execution link now selects exact agent capabilities, claims only for verified
   Central owners and renews live leases. Owner-only location reads return the
   fresh execution at an explicitly approved gateway, independent of retry
-  receipts. Global host discovery and native client acceptance remain separate
-  milestones (`docs/dev/environment.md`).
+  receipts. The global approved-host directory indexes fresh availability by the
+  owner's exact cohort engine; periodic gateway advertisements distinguish busy
+  installations from free capacity. Native client acceptance remains a separate
+  milestone (`docs/dev/environment.md`).
 - The shared table driver selects its record transport statically. Ordinary
   hosting keeps the existing gzip stream; the native Tower adapter captures raw
   pieces and withholds associated views/endings behind exact ordered ACKs. Its

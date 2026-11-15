@@ -143,6 +143,12 @@ the database. This variable is not read by shipped services.
   paths and cross-environment origins refuse startup. This changes transport
   selection only; player identity and host authorization remain enforced.
 
+Enabled Tower hosts publish their connected agents' installed and available exact
+artifacts every 20 seconds. The authority expires discovery entries after 60
+seconds and only exposes separately approved gateway origins. Holding gateway
+admission removes availability while preserving installed compatibility. These
+intervals are service policy, not caller-selected leases or rules deadlines.
+
 - `PORT` (default 28766; `0` binds any free port; `BAYLEE_PORT_FILE`, a path, receives the bound port just before serving, which is how e2e helpers find it, #279).
 - `BAYLEE_BIND` (the address the TCP port listens on, a numeric IP; unset or empty = `127.0.0.1`, this machine only; `0.0.0.0` or `::` = every interface, which only an operator who means it sets, never a default; anything else refuses startup). A public gateway needs no value: its TLS proxy dials `127.0.0.1:28766` and its agent the unix socket (`docs/releasing.md` §"Where the gateway listens"). With `BAYLEE_ENGINE_URL` unset, engines are told to dial the bound address, or loopback when it is every interface.
 - `DATABASE_URL` (required).

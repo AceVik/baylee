@@ -73,6 +73,14 @@ each origin to one host. Owner-only location reads join enabled operators with
 this approval and the current reservation/claim under transaction locks. No
 unapproved address or historic receipt supplies a fallback destination.
 
+Migration eleven indexes available host slots by the complete canonical executor
+metadata and host UUID. At most sixteen entries per host are replaced in the
+same transaction as its installed inventory. Their authority timestamp expires
+after sixty seconds. Owner discovery joins this index with approved locations
+and live operator enablement, using bounded descending cursor pages. Free capacity
+and installed compatibility remain separate, so filling an agent cannot revoke
+its ability to recover an existing frozen execution.
+
 ## Gateway and catalog
 
 The gateway's store (`baylee-db`) and the optional card catalog

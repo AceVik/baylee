@@ -2,6 +2,40 @@ use super::{Error, Request, Response, api, reply_to, validate_location};
 use uuid::Uuid;
 
 #[test]
+fn global_hosts_bind_the_owned_run_and_refuse_duplicates_redirects_and_bad_cursors() {
+    let run = Uuid::now_v7();
+    let host = api::Host {
+        id: Uuid::now_v7(),
+        name: "Approved host".into(),
+        origin: "http://127.0.0.1:19822".into(),
+    };
+    let reply = |asked_run, before, returned, hosts| {
+        reply_to(
+            &Request::Hosts {
+                run: asked_run,
+                before,
+            },
+            200,
+            "Content-Type: application/json\r\nBaylee-Tower-Version: 2\r\n",
+            &serde_json::to_vec(&Response::Hosts {
+                run: returned,
+                hosts,
+            })
+            .unwrap(),
+        )
+    };
+    assert!(
+        matches!(reply(run, None, run, vec![host.clone()]), Ok(Response::Hosts { hosts, .. }) if hosts == vec![host.clone()])
+    );
+    assert!(reply(run, None, Uuid::now_v7(), vec![host.clone()]).is_err());
+    assert!(reply(run, Some(host.id), run, vec![host.clone()]).is_err());
+    assert!(reply(run, None, run, vec![host.clone(), host.clone()]).is_err());
+    let mut malicious = host;
+    malicious.origin = "http://secret@127.0.0.1:19822/path".into();
+    assert!(reply(run, None, run, vec![malicious]).is_err());
+}
+
+#[test]
 fn tower_location_is_bound_to_the_requested_run_and_transport_environment() {
     let run = Uuid::now_v7();
     let valid = api::Location {

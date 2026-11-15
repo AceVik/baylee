@@ -56,7 +56,7 @@ async fn rejected_host_and_owner(store: &Store, flow: &Flow) {
     // A declared artifact skew cannot be silently replaced by another engine.
     let mut skew = super::publication().cohort.executor;
     skew.build.push('x');
-    store.advertise(&flow.host, &[skew]).await.unwrap();
+    store.advertise(&flow.host, &[skew], &[]).await.unwrap();
     assert!(
         store
             .reserve(
@@ -74,7 +74,7 @@ async fn rejected_host_and_owner(store: &Store, flow: &Flow) {
         flow.initial
     );
     store
-        .advertise(&flow.host, &[super::publication().cohort.executor])
+        .advertise(&flow.host, &[super::publication().cohort.executor], &[])
         .await
         .unwrap();
 }

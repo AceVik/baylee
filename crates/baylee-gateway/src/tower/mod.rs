@@ -6,8 +6,10 @@ use std::{collections::BTreeMap, sync::Arc};
 use uuid::Uuid;
 
 mod config;
+mod heartbeat;
 mod launch;
 pub(crate) mod routes;
+pub(crate) use heartbeat::Heartbeat;
 const CAPACITY: usize = 32;
 
 pub(crate) struct Tower {
@@ -89,7 +91,7 @@ impl Tower {
     }
 
     async fn advertise(&self, state: &Shared) -> Result<routes::Availability, Error> {
-        let engines = state
+        let inventory = state
             .agents
             .lock()
             .tower_inventory()
@@ -97,7 +99,12 @@ impl Tower {
         let Response::Advertised { host } = self
             .client
             .control(&Request::Advertise {
-                engines: engines.clone(),
+                engines: inventory.installed,
+                available: if state.admission.held() {
+                    Vec::new()
+                } else {
+                    inventory.available.clone()
+                },
             })
             .await?
         else {
@@ -106,7 +113,11 @@ impl Tower {
         Ok(routes::Availability {
             host,
             origin: self.origin.clone(),
-            engines,
+            engines: if state.admission.held() {
+                Vec::new()
+            } else {
+                inventory.available
+            },
         })
     }
 }

@@ -11,6 +11,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/008_record_batches.sql"),
     include_str!("migrations/009_execution_watch.sql"),
     include_str!("migrations/010_host_locations.sql"),
+    include_str!("migrations/011_host_availability.sql"),
 ];
 
 impl Store {

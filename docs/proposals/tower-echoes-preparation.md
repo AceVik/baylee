@@ -1505,3 +1505,34 @@ after each claim. It passes in
 one settlement, no quarantine and verified cleanup of owned services/database.
 This establishes fresh routing; global host availability and the new native
 client remain subsequent work.
+
+## Global exact-host availability — forty-eighth working milestone
+
+Gateways now publish installed exact engines separately from their free subset.
+Filling an agent therefore cannot silently revoke compatibility for recovery.
+An owned 20-second task advertises even without player traffic; admission holds
+withdraw only free capacity. Migration eleven atomically replaces at most sixteen
+indexed availability entries per host and fixes their lifetime at sixty seconds.
+The owner-only `hosts` API joins these with explicit origin approval and enabled
+roles, matches the complete frozen executor and returns bounded cursor pages.
+The SDK checks account-run binding, ordering, page size and every destination.
+
+Four SDK tests pass in `/tmp/baylee-tower-discovery-sdk-tests-20261115.log` (0.09s).
+Five affected real PostgreSQL tests pass in
+`/tmp/baylee-tower-discovery-store-tests-20261115.log` (1.00s combined), including
+atomic concurrent advertising, invalid subsets, expiry, exact build skew, foreign
+ownership, revocation, pagination and the updated migration/recovery scenarios.
+The gateway inventory/assignment test passes in
+`/tmp/baylee-tower-discovery-gateway-tests-20261115.log`.
+Strict all-target Clippy for the five affected crates passes in
+`/tmp/baylee-tower-discovery-clippy-20261115.log`.
+
+The live native acceptance passes in
+`/tmp/baylee-tower-discovery-native-tests-20261115.log` (31.80s). It discovers the
+gateway through the background heartbeat before any player gateway request,
+fills its sole agent, observes empty public availability, then still recovers the
+exact acknowledged decision after a native crash. The independent worker reports
+one recovery, one settlement and no quarantine. Owned services and PostgreSQL are
+stopped and their listeners checked. Cross-host supervision is available through
+the existing explicit recovery path; automatic migration to another gateway and
+the visible v2 client are not claimed by this milestone.

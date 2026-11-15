@@ -86,6 +86,7 @@ impl TowerHttp {
             (request, &response),
             (Request::Cohorts { .. }, Response::Cohorts { .. })
                 | (Request::Locate { .. }, Response::Location { .. })
+                | (Request::Hosts { .. }, Response::Hosts { .. })
                 | (Request::Runs { .. }, Response::Runs { .. })
                 | (
                     Request::Run { .. }
@@ -101,6 +102,26 @@ impl TowerHttp {
         if let (Request::Locate { run }, Response::Location { location }) = (request, &response) {
             validate_location(*run, location, self.development)?;
         }
+        if let (
+            Request::Hosts { run, before },
+            Response::Hosts {
+                run: returned,
+                hosts,
+            },
+        ) = (request, &response)
+        {
+            if run != returned || !uuid7(*run) || hosts.len() > api::PAGE_SIZE {
+                return Err(Error::Rejected);
+            }
+            let mut prior = *before;
+            for host in hosts {
+                validate_host(host, self.development)?;
+                if prior.is_some_and(|prior| host.id >= prior) {
+                    return Err(Error::Rejected);
+                }
+                prior = Some(host.id);
+            }
+        }
         Ok(response)
     }
 }
@@ -114,23 +135,34 @@ fn validate_location(
     development: bool,
 ) -> Result<(), Error> {
     use api::Phase;
-    let uuid7 =
-        |id: uuid::Uuid| id.get_version_num() == 7 && id.get_variant() == uuid::Variant::RFC4122;
     if location.run != run || !uuid7(run) || location.game.is_some_and(|id| !uuid7(id)) {
         return Err(Error::Rejected);
     }
     if let Some(host) = &location.host {
-        central_api::gateway::validate_origin(&host.origin, development)?;
-        if !uuid7(host.id)
-            || host.name.is_empty()
-            || host.name.len() > 160
-            || host.name.chars().any(char::is_control)
-            || !matches!(location.phase, Phase::Reserved | Phase::Playing)
+        validate_host(host, development)?;
+        if !matches!(location.phase, Phase::Reserved | Phase::Playing)
             || (location.phase == Phase::Playing) != location.game.is_some()
         {
             return Err(Error::Rejected);
         }
     } else if location.game.is_some() {
+        return Err(Error::Rejected);
+    }
+    Ok(())
+}
+
+fn uuid7(id: uuid::Uuid) -> bool {
+    id.get_version_num() == 7 && id.get_variant() == uuid::Variant::RFC4122
+}
+
+fn validate_host(host: &api::Host, development: bool) -> Result<(), Error> {
+    central_api::gateway::validate_origin(&host.origin, development)?;
+    if !uuid7(host.id)
+        || host.name.is_empty()
+        || host.name.len() > 160
+        || host.name.trim() != host.name
+        || host.name.chars().any(char::is_control)
+    {
         return Err(Error::Rejected);
     }
     Ok(())

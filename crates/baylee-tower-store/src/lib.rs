@@ -22,6 +22,7 @@ use uuid::Uuid;
 
 mod browse;
 mod commands;
+mod discovery;
 mod execution;
 mod house;
 mod location;

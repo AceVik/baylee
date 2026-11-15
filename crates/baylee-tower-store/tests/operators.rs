@@ -37,14 +37,17 @@ async fn only_live_dedicated_roles_can_advertise_or_publish_house_opponents() {
                 .unwrap()
         );
         let identities = [published.cohort.executor.clone()];
-        store.advertise(&host, &identities).await.unwrap();
+        store
+            .advertise(&host, &identities, &identities)
+            .await
+            .unwrap();
         assert!(store.host_supports(host_id, &identities[0]).await.unwrap());
         let mut other = identities[0].clone();
         other.build.push('x');
         assert!(!store.host_supports(host_id, &other).await.unwrap());
         assert!(
             store
-                .advertise(&host, &[identities[0].clone(), identities[0].clone()])
+                .advertise(&host, &[identities[0].clone(), identities[0].clone()], &[])
                 .await
                 .is_err()
         );
@@ -64,7 +67,7 @@ async fn only_live_dedicated_roles_can_advertise_or_publish_house_opponents() {
             let host = host.clone();
             let identities = identities.clone();
             updates.push(tokio::spawn(async move {
-                store.advertise(&host, &identities).await
+                store.advertise(&host, &identities, &identities).await
             }));
         }
         for update in updates {
@@ -80,7 +83,7 @@ async fn only_live_dedicated_roles_can_advertise_or_publish_house_opponents() {
             Err(Error::NotFound)
         ));
         assert_eq!(
-            store.advertise(&host, &identities).await,
+            store.advertise(&host, &identities, &identities).await,
             Err(Error::NotFound)
         );
         assert_eq!(
@@ -105,7 +108,7 @@ async fn publication_roles(store: &Store, cohort: Uuid, build: &Build, identitie
             .unwrap();
         let actor = store.authenticate_operator(digest).await.unwrap();
         assert_eq!(
-            store.advertise(&actor, identities).await,
+            store.advertise(&actor, identities, identities).await,
             Err(Error::NotFound)
         );
         let result = store.publish_house(&actor, cohort, 1, 1, build).await;

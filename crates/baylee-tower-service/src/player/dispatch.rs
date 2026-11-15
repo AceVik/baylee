@@ -38,6 +38,10 @@ impl Players {
             Request::Locate { run } => Response::Location {
                 location: self.store.locate(account, run).await?,
             },
+            Request::Hosts { run, before } => Response::Hosts {
+                run,
+                hosts: self.store.hosts(account, run, before, page).await?,
+            },
             Request::Start {
                 request,
                 cohort,

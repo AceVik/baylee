@@ -36,21 +36,33 @@ impl super::Agents {
             .map(|(id, _)| (id.clone(), identity.clone()))
     }
 
-    /// Exact currently available Tower inventory, bounded before advertising it.
-    pub(crate) fn tower_inventory(&self) -> Option<Vec<Identity>> {
-        let mut identities = Vec::new();
-        for agent in self.connected.values().filter(|agent| agent.has_room()) {
+    /// Installed compatibility survives full agents; availability is a separate subset.
+    pub(crate) fn tower_inventory(&self) -> Option<TowerInventory> {
+        let mut installed = Vec::new();
+        let mut available = Vec::new();
+        for agent in self.connected.values() {
             for identity in &agent.engines {
-                if identity.variant == Variant::Tower && !identities.contains(identity) {
-                    identities.push(identity.clone());
-                    if identities.len() > baylee_protocol::execution::MAX_CAPABILITIES {
+                if identity.variant != Variant::Tower {
+                    continue;
+                }
+                if !installed.contains(identity) {
+                    installed.push(identity.clone());
+                    if installed.len() > baylee_protocol::execution::MAX_CAPABILITIES {
                         return None;
                     }
                 }
+                if agent.has_room() && !available.contains(identity) {
+                    available.push(identity.clone());
+                }
             }
         }
-        identities.sort_by_key(Identity::to_metadata);
-        baylee_protocol::execution::valid_capabilities(&identities).then_some(identities)
+        installed.sort_by_key(Identity::to_metadata);
+        available.sort_by_key(Identity::to_metadata);
+        (installed.is_empty() || baylee_protocol::execution::valid_capabilities(&installed))
+            .then_some(TowerInventory {
+                installed,
+                available,
+            })
     }
 
     /// Least busy compatible agent, deterministic tie break, and its exact artifact.
@@ -87,6 +99,11 @@ impl super::Agents {
             })
             .map(|(id, _, engine)| (id.clone(), engine.clone()))
     }
+}
+
+pub(crate) struct TowerInventory {
+    pub installed: Vec<Identity>,
+    pub available: Vec<Identity>,
 }
 
 /// Every field must agree, including the legacy build used by record/challenge readers.

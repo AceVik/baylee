@@ -26,21 +26,28 @@ fn tower_inventory_and_assignment_never_substitute_another_build_or_full_agent()
     agents
         .connected
         .insert("standard".into(), agent(&native(Variant::Standard), false));
-    assert!(agents.tower_inventory().is_none());
+    assert!(agents.tower_inventory().unwrap().installed.is_empty());
     assert!(agents.pick_exact(&identity).is_none());
     agents.connected.insert("old".into(), agent(&old, false));
     assert!(agents.pick_exact(&identity).is_none());
     agents
         .connected
         .insert("current".into(), agent(&identity, true));
-    assert_eq!(agents.tower_inventory().unwrap(), vec![old.clone()]);
+    let inventory = agents.tower_inventory().unwrap();
+    assert_eq!(
+        inventory.installed.len(),
+        2,
+        "busy agents retain compatibility"
+    );
+    assert!(inventory.installed.contains(&identity));
+    assert_eq!(inventory.available, vec![old.clone()]);
     assert!(agents.pick_exact(&identity).is_none());
     agents.connected.get_mut("current").unwrap().games.clear();
     agents
         .connected
         .insert("copy".into(), agent(&identity, false));
     assert_eq!(
-        agents.tower_inventory().unwrap().len(),
+        agents.tower_inventory().unwrap().available.len(),
         2,
         "deduplicate exact inventories"
     );

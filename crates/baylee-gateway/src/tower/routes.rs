@@ -121,7 +121,15 @@ pub(crate) async fn play(
             "gateway admission held",
         ));
     }
-    tower.advertise(&state).await.map_err(failure)?;
+    if tower
+        .advertise(&state)
+        .await
+        .map_err(failure)?
+        .engines
+        .is_empty()
+    {
+        return Err(unavailable());
+    }
     let claimed = tower.claim(player.central, run).await.map_err(failure)?;
     launch::start(&state, tower, run, player, claimed).map(Json)
 }

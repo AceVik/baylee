@@ -185,6 +185,7 @@ async fn isolated_cohort(store: &Store, template: &Flow) {
                 super::publication().cohort.executor,
                 published.cohort.executor,
             ],
+            &[],
         )
         .await
         .unwrap();

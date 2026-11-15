@@ -23,6 +23,16 @@ pub(super) fn run(runtime: &Runtime, served: &Served) {
     let client = account.tower().unwrap();
     assert_eq!(client.origin(), fixture.origin);
     let mut agent = runtime.block_on(native::agent(&served.gateway, fixture));
+    let initial = owned(
+        &client,
+        &Request::Start {
+            request: Uuid::now_v7(),
+            cohort: fixture.cohort,
+            starter: 0,
+            consent: baylee_tower_store::CONSENT_REVISION,
+        },
+    );
+    let discovered = discover(&client, initial.id, &served.origin);
     let (status, availability) = common::http(
         served.gateway.port,
         "GET",
@@ -37,15 +47,7 @@ pub(super) fn run(runtime: &Runtime, served: &Served) {
         serde_json::to_value(&fixture.identity).unwrap()
     );
     let host = Uuid::parse_str(availability["host"].as_str().unwrap()).unwrap();
-    let initial = owned(
-        &client,
-        &Request::Start {
-            request: Uuid::now_v7(),
-            cohort: fixture.cohort,
-            starter: 0,
-            consent: baylee_tower_store::CONSENT_REVISION,
-        },
-    );
+    assert_eq!(host, discovered);
     let reserve = Request::Reserve {
         request: Uuid::now_v7(),
         run: initial.id,
@@ -59,6 +61,7 @@ pub(super) fn run(runtime: &Runtime, served: &Served) {
     let path = format!("/tower/{}/play", initial.id);
     refusals(runtime, served, &admission.token, &path, &client, &reserved);
     let grant = start(served, &admission.token, &path);
+    busy(served, &client, initial.id, &admission.token);
     let again = start(served, &admission.token, &path);
     assert_eq!(again["game_id"], grant["game_id"]);
     assert_ne!(again["seat_token"], grant["seat_token"]);
@@ -94,6 +97,38 @@ pub(super) fn run(runtime: &Runtime, served: &Served) {
     settlement(served, &client, &initial, &restored, &admission.token);
     println!(
         "Real Central identity → gateway → exact native Tower → durable records → independent automatic verification passed; one defeat and one gold payment."
+    );
+}
+
+fn discover(client: &TowerHttp, run: Uuid, gateway: &str) -> Uuid {
+    let deadline = Instant::now() + Duration::from_secs(25);
+    loop {
+        let Response::Hosts { hosts, .. } = client
+            .exchange(&Request::Hosts { run, before: None })
+            .unwrap()
+        else {
+            panic!("global host discovery");
+        };
+        if let Some(host) = hosts.first() {
+            assert_eq!(hosts.len(), 1);
+            assert_eq!(host.origin, gateway);
+            return host.id;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "background heartbeat discovers an agent without a player gateway request"
+        );
+        std::thread::sleep(Duration::from_millis(500));
+    }
+}
+
+fn busy(served: &Served, client: &TowerHttp, run: Uuid, token: &str) {
+    let (status, body) = common::http(served.gateway.port, "GET", "/tower", Some(token), "");
+    assert_eq!(status, 200);
+    let body: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(body["engines"], serde_json::json!([]));
+    assert!(
+        matches!(client.exchange(&Request::Hosts { run, before: None }).unwrap(), Response::Hosts { hosts, .. } if hosts.is_empty())
     );
 }
 

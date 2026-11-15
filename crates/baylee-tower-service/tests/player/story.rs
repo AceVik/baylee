@@ -232,7 +232,11 @@ async fn reserve(
         .await
         .unwrap();
     store
-        .advertise(&host, std::slice::from_ref(&publication.cohort.executor))
+        .advertise(
+            &host,
+            std::slice::from_ref(&publication.cohort.executor),
+            std::slice::from_ref(&publication.cohort.executor),
+        )
         .await
         .unwrap();
     let reserve = Request::Reserve {
