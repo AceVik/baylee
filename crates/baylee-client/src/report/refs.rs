@@ -229,7 +229,7 @@ pub(super) fn show_the_preview(
         return;
     }
     for (entity, _) in current {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
     let Some(((key, url), at)) = wanted else {
         return;

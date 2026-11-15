@@ -373,7 +373,17 @@ pub(crate) fn window(
     } else {
         format!("{} \u{b7} {}", card.english_name, card.name)
     };
-    let surface = surfaces::sheet_box(commands, kit, SheetWidth::Large, &title, &[pane], &foot);
+    let surface = surfaces::sheet_box_headed(
+        commands,
+        kit,
+        SheetWidth::Large,
+        surfaces::SheetHeader::new(&title)
+            .icon('\u{f03e}')
+            .close(Press::Build(BuildPress::PickerClose)),
+        &[pane],
+        &foot,
+        (),
+    );
     // A press inside the window is not a press on the scrim behind it.
     commands
         .entity(surface)

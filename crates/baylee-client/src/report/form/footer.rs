@@ -40,14 +40,14 @@ fn footer_button(
                 justify_content: JustifyContent::Center,
                 border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(RADIUS_PILL)),
+                overflow: Overflow::clip(),
                 ..default()
             },
             BackgroundColor(ground),
             BorderColor::all(rim),
-            crate::ambience::Feel::new(ground),
-            crate::shellkit::sheen::Sheen,
         ))
         .id();
+    controls::attach_live_feel(commands, face, ground, weight);
     let icon = icon.map(|glyph| {
         commands
             .spawn((
@@ -246,10 +246,10 @@ pub(in crate::report) fn lock_while_sending(
         let lock = sending && press.locked_while_sending();
         match (lock, disabled) {
             (true, false) => {
-                commands.entity(entity).insert(Disabled);
+                commands.entity(entity).try_insert(Disabled);
             }
             (false, true) => {
-                commands.entity(entity).remove::<Disabled>();
+                commands.entity(entity).try_remove::<Disabled>();
             }
             _ => {}
         }
@@ -311,22 +311,35 @@ pub(in crate::report) fn sync_footer(
     for (entity, mut button, tooltip, disabled) in &mut send {
         if button.reason != reason {
             if let Some(tooltip) = tooltip {
-                commands.entity(tooltip.0).despawn();
+                commands.entity(tooltip.0).try_despawn();
             }
             button.reason.clone_from(&reason);
             if let Some(reason) = &reason {
                 let tip = controls::tooltip(&mut commands, kit, reason);
-                commands.entity(entity).add_child(tip).insert(Tooltip(tip));
+                commands
+                    .entity(entity)
+                    .queue_silenced(move |mut ent: EntityWorldMut| {
+                        if ent.world().get_entity(tip).is_ok() {
+                            ent.add_child(tip).insert(Tooltip(tip));
+                        }
+                    });
+                commands.queue(move |world: &mut World| {
+                    if world.get_entity(entity).is_err()
+                        && let Ok(orphan) = world.get_entity_mut(tip)
+                    {
+                        orphan.despawn();
+                    }
+                });
             } else {
-                commands.entity(entity).remove::<Tooltip>();
+                commands.entity(entity).try_remove::<Tooltip>();
             }
         }
         match (reason.is_some(), disabled) {
             (true, false) => {
-                commands.entity(entity).insert(Disabled);
+                commands.entity(entity).try_insert(Disabled);
             }
             (false, true) => {
-                commands.entity(entity).remove::<Disabled>();
+                commands.entity(entity).try_remove::<Disabled>();
             }
             _ => {}
         }

@@ -240,6 +240,15 @@ fn grouping_controls(commands: &mut Commands, env: &Env) -> Vec<Entity> {
                 },
                 tokens::HOVER,
             ),
+            crate::ambience::FeelBorder {
+                rest: if open {
+                    tokens::ACCENT.with_alpha(0.55)
+                } else {
+                    tokens::BORDER
+                },
+                hot: tokens::ACCENT.with_alpha(0.75),
+                press: tokens::BORDER,
+            },
             Pickable::IGNORE,
         ))
         .id();

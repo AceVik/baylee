@@ -256,11 +256,11 @@ pub(super) fn sheet(commands: &mut Commands, env: &Env, list: &ListEditor) -> En
     } else {
         Phrase::ListTitle.text(lang).to_string()
     };
-    surfaces::sheet_box_listed(
+    surfaces::sheet_box_headed_listed(
         commands,
         kit,
         SheetWidth::Medium,
-        &title,
+        surfaces::SheetHeader::new(&title).icon('\u{f05e}'),
         &body,
         &footer,
         Scrollable(List::Check),

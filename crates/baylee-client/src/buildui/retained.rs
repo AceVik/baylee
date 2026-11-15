@@ -500,7 +500,11 @@ fn redraw<K: PartialEq>(
     if drawn.as_ref() == Some(&now) {
         return 0;
     }
-    commands.entity(holder).despawn_children();
+    commands
+        .entity(holder)
+        .queue_silenced(|mut e: EntityWorldMut| {
+            e.despawn_related::<Children>();
+        });
     draw(commands, holder);
     *drawn = Some(now);
     1

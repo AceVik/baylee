@@ -54,7 +54,7 @@ impl Out<'_, '_, '_> {
         let control = if self.answers(row) {
             control
         } else {
-            self.commands.entity(control).despawn();
+            self.commands.entity(control).try_despawn();
             controls::label(
                 self.commands,
                 self.kit,
@@ -126,7 +126,7 @@ impl Out<'_, '_, '_> {
             self.commands.entity(holder).add_children(body);
         } else {
             for entity in body {
-                self.commands.entity(*entity).despawn();
+                self.commands.entity(*entity).try_despawn();
             }
         }
         self.commands.entity(self.column).add_child(holder);

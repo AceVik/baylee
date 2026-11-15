@@ -196,14 +196,21 @@ pub(crate) fn build(
         .spawn((
             Node {
                 flex_direction: FlexDirection::Column,
-                row_gap: px(GAP),
-                padding: UiRect::all(px(9)),
+                row_gap: px(GAP + 1.0),
+                padding: UiRect::all(px(10)),
                 border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(7)),
+                border_radius: BorderRadius::all(px(8)),
                 ..default()
             },
             BackgroundColor(look.ground),
             BorderColor::all(look.line),
+            BoxShadow::new(
+                Color::srgba(0.0, 0.0, 0.0, 0.35),
+                px(0),
+                px(4),
+                px(0),
+                px(14),
+            ),
             Pickable::IGNORE,
         ))
         .id();
@@ -276,13 +283,29 @@ pub(crate) fn build(
 
 /// The line over the rows, which names what the panel is.
 fn heading(commands: &mut Commands, fonts: &UiFonts, lang: Lang, look: Register) -> Entity {
-    label(
-        commands,
-        fonts,
-        Phrase::FilterBuild.text(lang),
-        LABEL,
-        look.soft,
-    )
+    let row = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                padding: UiRect::bottom(px(4)),
+                border: UiRect::bottom(px(1)),
+                ..default()
+            },
+            BorderColor::all(look.line.with_alpha(0.55)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let title = commands
+        .spawn((
+            Text::new(Phrase::FilterBuild.text(lang).to_string()),
+            tf_bold(fonts, LABEL),
+            TextColor(look.soft),
+            TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(row).add_child(title);
+    row
 }
 
 /// What a row needs to draw itself.
@@ -947,6 +970,11 @@ fn word(
             BackgroundColor(ground),
             BorderColor::all(if on { look.lit } else { look.line }),
             Feel::new(ground),
+            crate::ambience::FeelBorder {
+                rest: if on { look.lit } else { look.line },
+                hot: look.lit.with_alpha(if on { 0.95 } else { 0.65 }),
+                press: crate::ambience::lighter(if on { look.lit } else { look.line }, -0.15),
+            },
         ))
         .id();
     let words = commands
@@ -993,6 +1021,11 @@ fn icon(
             BackgroundColor(ground),
             BorderColor::all(if on { look.lit } else { look.line }),
             Feel::new(ground),
+            crate::ambience::FeelBorder {
+                rest: if on { look.lit } else { look.line },
+                hot: look.lit.with_alpha(if on { 0.95 } else { 0.65 }),
+                press: crate::ambience::lighter(if on { look.lit } else { look.line }, -0.15),
+            },
         ))
         .id();
     let glyph_node = commands

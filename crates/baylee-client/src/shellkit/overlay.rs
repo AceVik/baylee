@@ -221,7 +221,7 @@ fn draw(
     if !overlay.open {
         if !roots.is_empty() {
             for root in &roots {
-                commands.entity(root).despawn();
+                commands.entity(root).try_despawn();
             }
             match overlay.opener.filter(|e| alive.contains(*e)) {
                 Some(opener) => focus.set(opener, FocusCause::Navigated),
@@ -360,7 +360,7 @@ fn draw_rows(
     };
     if let Some(children) = children {
         for child in children.iter() {
-            commands.entity(child).despawn();
+            commands.entity(child).try_despawn();
         }
     }
     let (width, height) = windows.single().map_or((1280.0, 800.0), |w| {
@@ -386,25 +386,36 @@ fn draw_rows(
     let standard = ShellKeymap::standard();
     let keymap = prefs.as_deref().map_or(&standard, |p| &p.all().shell_keys);
     let rows = matching(&overlay.query, keymap, lang, &learnt);
+    let mut spawned = Vec::with_capacity(rows.len().max(1));
     if rows.is_empty() {
-        let none = surfaces::prose(
+        spawned.push(surfaces::prose(
             &mut commands,
             kit,
             Phrase::ShellOverlayNoMatch.text(lang),
             true,
-        );
-        commands.entity(list).add_child(none);
-        return;
-    }
-    for (i, (action, name, keys)) in rows.iter().enumerate() {
-        let row = surfaces::list_row(&mut commands, kit, name, keys, &[], OverlayRow(*action));
-        if i == overlay.cursor {
-            commands
-                .entity(row)
-                .insert(BackgroundColor(tokens::SELECTED));
+        ));
+    } else {
+        for (i, (action, name, keys)) in rows.iter().enumerate() {
+            let row = surfaces::list_row(&mut commands, kit, name, keys, &[], OverlayRow(*action));
+            if i == overlay.cursor {
+                commands
+                    .entity(row)
+                    .try_insert(BackgroundColor(tokens::SELECTED));
+            }
+            spawned.push(row);
         }
-        commands.entity(list).add_child(row);
     }
+    commands.queue(move |world: &mut World| {
+        if world.get_entity(list).is_ok() {
+            world.entity_mut(list).add_children(&spawned);
+        } else {
+            for orphan in spawned {
+                if let Ok(ent) = world.get_entity_mut(orphan) {
+                    ent.despawn();
+                }
+            }
+        }
+    });
 }
 
 /// A click on a row runs it; Edit keys… opens Settings; Close closes.

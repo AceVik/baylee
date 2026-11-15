@@ -170,7 +170,7 @@ fn draw(
 ) {
     if !gallery.open {
         for root in &roots {
-            commands.entity(root).despawn();
+            commands.entity(root).try_despawn();
         }
         *drawn = None;
         return;
@@ -208,7 +208,7 @@ fn draw(
     let touch = now.input;
     *drawn = Some(now);
     for root in &roots {
-        commands.entity(root).despawn();
+        commands.entity(root).try_despawn();
     }
     let view = Viewport {
         width,

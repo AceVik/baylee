@@ -179,7 +179,7 @@ pub(crate) fn follow_the_pointer(
     }
     let want = shape.icon();
     if now != Some(&want) {
-        commands.entity(window).insert(want);
+        commands.entity(window).try_insert(want);
     }
 }
 

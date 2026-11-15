@@ -246,9 +246,9 @@ pub fn wear_portraits(
 ) {
     // No faces to set letters in yet: the discs keep what they were drawn
     // with, and are looked at again when the pictures change.
-    let Some(fonts) = fonts else {
+    if fonts.is_none() {
         return;
-    };
+    }
     let all = portraits.is_changed();
     for (disc, avatar, children) in &discs {
         if !all && !avatar.is_added() {
@@ -267,21 +267,26 @@ pub fn wear_portraits(
             continue;
         }
         for old in worn {
-            commands.entity(old).despawn();
+            commands.entity(old).try_despawn();
         }
         let picture = match want {
             AvatarFace::Picture(image) => Some(image),
             AvatarFace::Letters => None,
         };
-        let new = face(
-            &mut commands,
-            &fonts,
-            &avatar.handle,
-            avatar.size,
-            avatar.quiet,
-            picture,
-        );
-        commands.entity(disc).add_child(new);
+        let handle = avatar.handle.clone();
+        let size = avatar.size;
+        let quiet = avatar.quiet;
+        commands.queue(move |world: &mut World| {
+            if world.get_entity(disc).is_err() {
+                return;
+            }
+            let Some(fonts) = world.get_resource::<UiFonts>().cloned() else {
+                return;
+            };
+            let mut cmds = world.commands();
+            let new = face(&mut cmds, &fonts, &handle, size, quiet, picture);
+            cmds.entity(disc).add_child(new);
+        });
     }
 }
 

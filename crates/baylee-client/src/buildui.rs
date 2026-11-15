@@ -684,6 +684,14 @@ pub(crate) fn icon_button(
             } else {
                 tokens::CONTROL
             }),
+            crate::ambience::FeelBorder {
+                rest: if on { tokens::ACCENT } else { tokens::BORDER },
+                hot: tokens::ACCENT.with_alpha(if on { 0.85 } else { 0.55 }),
+                press: crate::ambience::lighter(
+                    if on { tokens::ACCENT } else { tokens::BORDER },
+                    -0.15,
+                ),
+            },
         ))
         .id();
     let mark = glyph(commands, kit, mark, kit.m.small, tokens::INK);
@@ -702,10 +710,12 @@ pub(crate) fn link(commands: &mut Commands, kit: Kit, text: &str, action: impl B
                 padding: UiRect::axes(kit.m.px(4.0), px_fixed(0.0)),
                 align_items: AlignItems::Center,
                 border: UiRect::bottom(px_fixed(1.0)),
+                border_radius: BorderRadius::top(px_fixed(4.0)),
                 ..default()
             },
             BorderColor::all(tokens::ACCENT.with_alpha(0.5)),
             BackgroundColor(Color::NONE),
+            crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
         ))
         .id();
     let words = controls::label(commands, kit, text, kit.m.small, tokens::ACCENT);

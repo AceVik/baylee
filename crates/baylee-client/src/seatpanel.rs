@@ -735,11 +735,12 @@ pub(crate) fn draw(
 /// The shown profile's sheet (§12): its name, model, key and effort, and
 /// behind Advanced its protocol, address, command, answers and money;
 /// Save, Discard and Close at its foot. `None` where nothing is shown.
+#[allow(clippy::too_many_arguments)] // settings screen context + kit + scroll state
 pub(crate) fn sheet(
     commands: &mut Commands,
     seat: &SeatDesk,
     lang: Lang,
-    fonts: &UiFonts,
+    kit: crate::shellkit::controls::Kit<'_>,
     metrics: Metrics,
     advanced: bool,
     scroll: f32,
@@ -747,51 +748,25 @@ pub(crate) fn sheet(
     if !DESKTOP {
         return None;
     }
+    let fonts = kit.fonts;
     let panel = seat.panel()?;
     let at = panel.selected()?;
     if !panel.editable() {
         return None;
     }
-    let phone = metrics.frame == crate::lobby::Frame::Compact;
-    let surface = commands
-        .spawn((
-            crate::shellkit::role::Role::Opaque,
-            Node {
-                width: if phone { percent(100) } else { px(760) },
-                max_width: percent(100),
-                max_height: percent(100),
-                flex_direction: FlexDirection::Column,
-                padding: UiRect::all(px(metrics.pad * 1.5)),
-                row_gap: px(metrics.gap * 0.8),
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(if phone { 0 } else { 14 })),
-                ..default()
-            },
-            BackgroundColor(crate::shellkit::tokens::OPAQUE),
-            BorderColor::all(crate::shellkit::tokens::BORDER),
-            Press::Shared(crate::lobby::SharedPress::PickerNothing),
-        ))
-        .id();
     let name = panel.name(at).unwrap_or_default().to_string();
-    let title = heading(commands, fonts, metrics, &name);
     let body = commands
         .spawn((
             Node {
+                width: percent(100),
                 flex_direction: FlexDirection::Column,
-                flex_shrink: 1.0,
-                min_height: px(0),
                 row_gap: px(metrics.gap * 0.8),
-                overflow: Overflow::scroll_y(),
                 ..default()
             },
-            ScrollPosition(Vec2::new(0.0, scroll)),
-            crate::lobby::Scrollable(crate::lobby::List::ProfileSheet),
-            crate::shellkit::role::Role::Scroll,
-            Pickable::default(),
+            Pickable::IGNORE,
         ))
         .id();
     let foot = row(commands, metrics, true);
-    commands.entity(surface).add_children(&[title, body, foot]);
     let faults = panel.faults();
     let mut out = Drawn {
         commands,
@@ -830,6 +805,26 @@ pub(crate) fn sheet(
     }
     out.tabs = Tabs::new(crate::settingsui::keys::PROFILE_SHEET.name, "foot");
     out.sheet_foot(foot);
+
+    let surface = crate::shellkit::surfaces::sheet_box_headed_listed(
+        commands,
+        kit,
+        crate::shellkit::surfaces::SheetWidth::Medium,
+        crate::shellkit::surfaces::SheetHeader::new(&name)
+            .icon('\u{f544}')
+            .close(Press::Settings(SettingsPress::CloseProfile)),
+        &[body],
+        &[foot],
+        (
+            ScrollPosition(Vec2::new(0.0, scroll)),
+            crate::lobby::Scrollable(crate::lobby::List::ProfileSheet),
+            crate::shellkit::role::Role::Scroll,
+            Pickable::default(),
+        ),
+    );
+    commands
+        .entity(surface)
+        .insert(Press::Shared(crate::lobby::SharedPress::PickerNothing));
     Some(crate::shellkit::surfaces::sheet(commands, surface))
 }
 

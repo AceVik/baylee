@@ -54,7 +54,7 @@ pub(super) fn keep_the_corner(
         }
         (false, Some(_)) => {
             for button in &standing {
-                commands.entity(button).despawn();
+                commands.entity(button).try_despawn();
             }
         }
         _ => {}

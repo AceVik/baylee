@@ -220,9 +220,10 @@ pub struct FocusSystems;
 pub(crate) struct FocusVisuals;
 
 /// Every stop gets its ring hidden, so focusing it later changes a colour
-/// and inserts nothing.
+/// and inserts nothing. `try_insert` guards stops despawned in the same
+/// command flush before their observer's deferred insert lands.
 fn give_a_ring(added: On<Add<Stop>>, mut commands: Commands) {
-    commands.entity(added.entity).insert(Outline::new(
+    commands.entity(added.entity).try_insert(Outline::new(
         px_fixed(tokens::RING_WIDTH),
         px_fixed(tokens::RING_OFFSET),
         Color::NONE,
@@ -809,5 +810,21 @@ mod tests {
             typed_text(&key("q"), false, false, false).as_deref(),
             Some("q")
         );
+    }
+
+    /// Spawning a [`Stop`] and despawning it in the same command flush must
+    /// never panic or fault inside [`give_a_ring`] (the `settingsui::rows::row`
+    /// pattern before sign-in).
+    #[test]
+    fn stop_despawned_in_the_same_flush_never_faults() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_message::<KeyboardInput>();
+        install(&mut app);
+        app.add_systems(Update, |mut commands: Commands| {
+            let transient = commands.spawn(Stop::new("settings", "transient")).id();
+            commands.entity(transient).try_despawn();
+        });
+        app.update();
     }
 }

@@ -18,7 +18,7 @@ pub struct HeaderSurfaceDressed;
 /// Attaches the silk-aurora shader child to `bar` in `world` if `AmbienceMaterial`
 /// assets are available and `bar` has not yet been dressed.
 pub(super) fn dress_bar_world(world: &mut World, bar: Entity, is_strip: bool) {
-    if world.get::<HeaderSurfaceDressed>(bar).is_some() || world.get_entity(bar).is_err() {
+    if world.get_entity(bar).is_err() || world.get::<HeaderSurfaceDressed>(bar).is_some() {
         return;
     }
     let still = crate::quality::ambient_still(
@@ -76,6 +76,8 @@ pub(super) fn dress_bar_world(world: &mut World, bar: Entity, is_strip: bool) {
         bar_ent
             .insert((HeaderSurfaceDressed, BackgroundColor(Color::NONE)))
             .insert_children(0, &[surface]);
+    } else if let Ok(orphan) = world.get_entity_mut(surface) {
+        orphan.despawn();
     }
 }
 
@@ -146,5 +148,38 @@ mod tests {
         for bar in bars {
             assert_eq!(app.world().get::<Children>(bar).unwrap().len(), 1);
         }
+    }
+
+    #[test]
+    fn despawned_header_bar_allocates_zero_materials_or_orphans() {
+        fn despawn_bars(mut commands: Commands, bars: Query<Entity, With<HeaderSurface>>) {
+            for bar in &bars {
+                commands.entity(bar).try_despawn();
+            }
+        }
+
+        let mut app = App::new();
+        app.init_resource::<Assets<crate::ambience::AmbienceMaterial>>()
+            .add_systems(
+                Update,
+                (despawn_bars, dress_header_surfaces).chain_ignore_deferred(),
+            );
+        app.world_mut()
+            .spawn((HeaderSurface(false), BackgroundColor(tokens::PANEL)));
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<Assets<crate::ambience::AmbienceMaterial>>()
+                .len(),
+            0
+        );
+        let world = app.world_mut();
+        assert_eq!(
+            world
+                .query_filtered::<(), With<MaterialNode<crate::ambience::AmbienceMaterial>>>()
+                .iter(world)
+                .count(),
+            0
+        );
     }
 }

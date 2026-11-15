@@ -395,7 +395,7 @@ pub(crate) fn update(
             .collect();
         for i in gone {
             if let Some(row) = list.mounted.remove(&i) {
-                commands.entity(row).despawn();
+                commands.entity(row).try_despawn();
             }
         }
         for i in within(&list, (from - overscan).max(0.0), to + overscan) {

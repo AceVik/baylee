@@ -404,11 +404,11 @@ pub(super) fn draw(
     let retained = retained.flatten();
     if retained.is_some() {
         for (entity, ..) in &foots {
-            commands.entity(entity).remove::<ChildOf>();
+            commands.entity(entity).try_remove::<ChildOf>();
         }
     }
     for root in &roots {
-        commands.entity(root).despawn();
+        commands.entity(root).try_despawn();
     }
     desk.redraws += 1;
     desk.drawn_form = desk.open && !desk.form.confirming;
@@ -523,7 +523,13 @@ pub(super) fn retick(
     desk: Res<ReportDesk>,
     settings: Res<ClientSettings>,
     mut controls: Query<(&DeskPress, &Children, Option<&mut Current>)>,
-    mut grounds: Query<(&mut BackgroundColor, Option<&Children>)>,
+    mut grounds: Query<(
+        &mut BackgroundColor,
+        Option<&mut BorderColor>,
+        Option<&mut crate::ambience::Feel>,
+        Option<&mut crate::ambience::FeelBorder>,
+        Option<&Children>,
+    )>,
     mut marks: Query<(&mut Text, &mut TextColor), Without<AttachedCount>>,
     mut counts: Query<&mut Text, With<AttachedCount>>,
 ) {
@@ -550,12 +556,33 @@ pub(super) fn retick(
                 {
                     current.0 = on;
                 }
-                let Ok((mut ground, inner)) = grounds.get_mut(first) else {
+                let Ok((mut ground, border, feel, feel_border, inner)) = grounds.get_mut(first)
+                else {
                     continue;
                 };
-                let want = if on { tokens::SELECTED } else { Color::NONE };
-                if ground.0 != want {
-                    ground.0 = want;
+                let (want_ground, want_rim, want_feel, want_fb) =
+                    crate::shellkit::controls::segment_style(on);
+                if ground.0 != want_ground {
+                    ground.0 = want_ground;
+                }
+                if let Some(mut border) = border {
+                    let want = BorderColor::all(want_rim);
+                    if *border != want {
+                        *border = want;
+                    }
+                }
+                if let Some(mut feel) = feel
+                    && (feel.base != want_feel.base || feel.hot != want_feel.hot)
+                {
+                    feel.base = want_feel.base;
+                    feel.hot = want_feel.hot;
+                }
+                if let Some(mut fb) = feel_border
+                    && (fb.rest != want_fb.rest
+                        || fb.hot != want_fb.hot
+                        || fb.press != want_fb.press)
+                {
+                    *fb = want_fb;
                 }
                 if let Some(&label) = inner.and_then(|c| c.first())
                     && let Ok((_, mut ink)) = marks.get_mut(label)

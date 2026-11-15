@@ -10,8 +10,10 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::hud::{btn_radius, palette};
-use crate::lobby::{List, button, chip, heading, note, row, spacer};
+use crate::lobby::List;
+use crate::shellkit::controls::{self, Kit, Live, Weight};
+use crate::shellkit::surfaces::{self, SheetHeader, SheetWidth};
+use crate::shellkit::{InputClass, Platform, ShellMetrics, TextSize, Viewport, px_fixed, tokens};
 use baylee_client_core::deckbuilder::transfer::{
     FormatId, Importing, Line, Said, Stage, Tone, Transfer, format_label,
 };
@@ -32,250 +34,303 @@ pub(crate) enum Ask {
     Save,
 }
 
+fn kit_of(fonts: &UiFonts, metrics: crate::lobby::Metrics, lang: Lang) -> Kit<'_> {
+    let width = match metrics.frame {
+        crate::lobby::Frame::Phone => 390.0,
+        crate::lobby::Frame::Compact => 640.0,
+        crate::lobby::Frame::Narrow => 900.0,
+        crate::lobby::Frame::Wide => 1400.0,
+        crate::lobby::Frame::Vast => 1920.0,
+    };
+    let input = if metrics.tap >= 44.0 {
+        InputClass::Touch
+    } else {
+        InputClass::Pointer
+    };
+    Kit {
+        fonts,
+        m: ShellMetrics::of(
+            Viewport {
+                width,
+                height: 800.0,
+                platform: Platform::current(),
+                input,
+            },
+            TextSize::default(),
+        ),
+        german: lang == Lang::De,
+    }
+}
+
 /// The import or export dialog, over the whole builder.
-#[allow(clippy::too_many_lines)] // one dialog, two faces, each a column of rows
+#[allow(clippy::too_many_lines)] // one dialog, two faces, unified onto shellkit::surfaces
 pub(crate) fn transfer_dialog(
     commands: &mut Commands,
     fonts: &UiFonts,
-    metrics: Metrics,
+    metrics: crate::lobby::Metrics,
     lang: Lang,
     deck: &DeckBuilder,
     transfer: &Transfer,
     scrolled: &Scrolled,
 ) -> Entity {
-    let shade = commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                left: px(0),
-                top: px(0),
-                width: percent(100),
-                height: percent(100),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                padding: UiRect::all(px(metrics.pad)),
-                ..default()
-            },
-            BackgroundColor(palette::SHADOW.with_alpha(0.82)),
-            Press::Build(BuildPress::TransferClose),
-            ZIndex(20),
-        ))
-        .id();
-    let panel = commands
-        .spawn((
-            Node {
-                width: percent(100),
-                max_height: percent(100),
-                overflow: Overflow::scroll_y(),
-                max_width: px(if metrics.frame == Frame::Compact {
-                    520.0
-                } else {
-                    760.0
-                }),
-                flex_direction: FlexDirection::Column,
-                row_gap: px(metrics.gap),
-                padding: UiRect::all(px(metrics.pad)),
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(14)),
-                ..default()
-            },
-            BackgroundColor(palette::PANEL.with_alpha(0.98)),
-            BorderColor::all(palette::DOCK_EDGE),
-            crate::hud::soft_shadow(),
-            Press::Build(BuildPress::TransferNothing),
-            crate::lobby::Scrollable(List::Transfer),
-            ScrollPosition(Vec2::new(0.0, scrolled.get(List::Transfer))),
-        ))
-        .id();
-    commands.entity(shade).add_child(panel);
-
-    let head = row(commands, metrics, false);
-    let title = heading(
-        commands,
-        fonts,
-        metrics,
-        match transfer {
-            Transfer::Import(_) => Phrase::ImportTitle,
-            Transfer::Export(_) => Phrase::ExportTitle,
-        }
-        .text(lang),
-    );
-    let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
-    let close = button(
-        commands,
-        fonts,
-        metrics,
-        Phrase::TransferClose.text(lang),
-        Press::Build(BuildPress::TransferClose),
-        palette::PANEL_LIT,
-        true,
-    );
-    for child in [title, gap, close] {
-        commands.entity(head).add_child(child);
-    }
-    commands.entity(panel).add_child(head);
+    let kit = kit_of(fonts, metrics, lang);
+    let (title, icon) = match transfer {
+        Transfer::Import(_) => (Phrase::ImportTitle.text(lang), '\u{f56f}'),
+        Transfer::Export(_) => (Phrase::ExportTitle.text(lang), '\u{f56e}'),
+    };
+    let mut body = Vec::new();
+    let mut footer = Vec::new();
 
     match transfer {
         Transfer::Import(importing) => {
-            import_face(commands, fonts, metrics, lang, deck, importing, panel);
+            import_face(commands, kit, lang, deck, importing, &mut body, &mut footer);
         }
         Transfer::Export(exporting) => {
             let written = deck.export(exporting.format);
-            let chips = row(commands, metrics, true);
+            let chips = commands
+                .spawn((
+                    Node {
+                        width: Val::Percent(100.0),
+                        flex_wrap: FlexWrap::Wrap,
+                        column_gap: kit.m.px(6.0),
+                        row_gap: kit.m.px(6.0),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
             for format in FormatId::ALL {
-                let chip = chip(
+                let chip = controls::chip(
                     commands,
-                    fonts,
-                    metrics,
+                    kit,
                     format_label(format, lang),
-                    Press::Build(BuildPress::ExportFormat(format)),
                     format == exporting.format,
+                    None,
+                    false,
+                    Press::Build(BuildPress::ExportFormat(format)),
                 );
                 commands.entity(chips).add_child(chip);
             }
-            commands.entity(panel).add_child(chips);
-            let preview = text_box(commands, fonts, metrics, &written.text, None);
-            commands.entity(panel).add_child(preview);
-            said(
+            body.push(chips);
+            body.push(text_box(commands, kit, &written.text, None));
+            said(commands, kit, &mut body, &deck.export_lines(&written, lang));
+            body.push(surfaces::prose(
                 commands,
-                fonts,
-                metrics,
-                panel,
-                &deck.export_lines(&written, lang),
-            );
-            let actions = row(commands, metrics, true);
-            let copy = button(
-                commands,
-                fonts,
-                metrics,
-                Phrase::CopyToClipboard.text(lang),
-                Press::Build(BuildPress::ExportCopy),
-                palette::ACCENT,
+                kit,
+                Phrase::ExportKeys.text(lang),
                 true,
-            );
-            commands.entity(actions).add_child(copy);
+            ));
+
+            footer.push(controls::button(
+                commands,
+                kit,
+                Phrase::TransferClose.text(lang),
+                Weight::Secondary,
+                Live::Yes,
+                Some("Esc"),
+                Press::Build(BuildPress::TransferClose),
+            ));
             if can_save_files() {
-                let save = button(
+                footer.push(controls::button_with_icon(
                     commands,
-                    fonts,
-                    metrics,
+                    kit,
+                    '\u{f019}',
                     Phrase::SaveToFile.text(lang),
+                    Weight::Secondary,
+                    Live::Yes,
+                    None,
                     Press::Build(BuildPress::ExportSave),
-                    palette::PANEL_LIT,
-                    true,
-                );
-                commands.entity(actions).add_child(save);
+                ));
             }
-            commands.entity(panel).add_child(actions);
-            let keys = note(commands, fonts, metrics, Phrase::ExportKeys.text(lang));
-            commands.entity(panel).add_child(keys);
+            footer.push(controls::button_with_icon(
+                commands,
+                kit,
+                '\u{f0c5}',
+                Phrase::CopyToClipboard.text(lang),
+                Weight::Primary,
+                Live::Yes,
+                None,
+                Press::Build(BuildPress::ExportCopy),
+            ));
         }
     }
+
+    let surface = surfaces::sheet_box_headed_listed(
+        commands,
+        kit,
+        SheetWidth::Medium,
+        SheetHeader::new(title)
+            .icon(icon)
+            .close(Press::Build(BuildPress::TransferClose)),
+        &body,
+        &footer,
+        (
+            crate::lobby::Scrollable(List::Transfer),
+            ScrollPosition(Vec2::new(0.0, scrolled.get(List::Transfer))),
+        ),
+    );
+    commands
+        .entity(surface)
+        .insert(Press::Build(BuildPress::TransferNothing));
+    let shade = surfaces::sheet(commands, surface);
+    commands
+        .entity(shade)
+        .insert(Press::Build(BuildPress::TransferClose));
     shade
 }
 
-/// The import dialog's body: the paste box, what it was read as, and the
-/// way to take it.
+fn import_toolbar(commands: &mut Commands, kit: Kit, lang: Lang, has_pasted: bool) -> Entity {
+    let tools = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_wrap: FlexWrap::Wrap,
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(8.0),
+                row_gap: kit.m.px(6.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let paste = controls::button_with_icon(
+        commands,
+        kit,
+        '\u{f0ea}',
+        Phrase::PasteFromClipboard.text(lang),
+        Weight::Secondary,
+        Live::Yes,
+        None,
+        Press::Build(BuildPress::ImportPaste),
+    );
+    let clear = if has_pasted {
+        controls::button(
+            commands,
+            kit,
+            Phrase::ImportClear.text(lang),
+            Weight::Ghost,
+            Live::Yes,
+            None,
+            Press::Build(BuildPress::ImportClear),
+        )
+    } else {
+        controls::button(
+            commands,
+            kit,
+            Phrase::ImportClear.text(lang),
+            Weight::Ghost,
+            Live::No(Phrase::ImportBoxEmpty.text(lang)),
+            None,
+            (),
+        )
+    };
+    commands.entity(tools).add_children(&[paste, clear]);
+    tools
+}
+
+/// The import dialog's body and sticky footer actions.
 fn import_face(
     commands: &mut Commands,
-    fonts: &UiFonts,
-    metrics: Metrics,
+    kit: Kit,
     lang: Lang,
     deck: &DeckBuilder,
     importing: &Importing,
-    panel: Entity,
+    body: &mut Vec<Entity>,
+    footer: &mut Vec<Entity>,
 ) {
     let done = matches!(importing.stage(), Stage::Done(_));
     if !done {
-        let tools = row(commands, metrics, true);
-        let paste = button(
+        body.push(import_toolbar(
             commands,
-            fonts,
-            metrics,
-            Phrase::PasteFromClipboard.text(lang),
-            Press::Build(BuildPress::ImportPaste),
-            palette::ACCENT,
-            true,
-        );
-        let clear = button(
-            commands,
-            fonts,
-            metrics,
-            Phrase::ImportClear.text(lang),
-            Press::Build(BuildPress::ImportClear),
-            palette::PANEL_LIT,
+            kit,
+            lang,
             !importing.pasted().is_empty(),
-        );
-        commands.entity(tools).add_children(&[paste, clear]);
-        commands.entity(panel).add_child(tools);
-        let pasted = text_box(
+        ));
+        body.push(text_box(
             commands,
-            fonts,
-            metrics,
+            kit,
             importing.pasted(),
             Some(Phrase::ImportBoxEmpty.text(lang)),
-        );
-        commands.entity(panel).add_child(pasted);
+        ));
     }
-    said(commands, fonts, metrics, panel, &deck.import_lines(lang));
-    let actions = row(commands, metrics, true);
-    if done {
-        let close = button(
-            commands,
-            fonts,
-            metrics,
-            Phrase::TransferClose.text(lang),
-            Press::Build(BuildPress::TransferClose),
-            palette::ACCENT,
-            true,
-        );
-        commands.entity(actions).add_child(close);
-    } else {
-        let take = button(
-            commands,
-            fonts,
-            metrics,
-            Phrase::ImportTake.text(lang),
-            Press::Build(BuildPress::ImportTake),
-            palette::ACCENT,
-            importing.ready(),
-        );
-        commands.entity(actions).add_child(take);
-    }
-    commands.entity(panel).add_child(actions);
+    said(commands, kit, body, &deck.import_lines(lang));
     if !done {
-        let keys = note(commands, fonts, metrics, Phrase::ImportKeys.text(lang));
-        commands.entity(panel).add_child(keys);
+        body.push(surfaces::prose(
+            commands,
+            kit,
+            Phrase::ImportKeys.text(lang),
+            true,
+        ));
+    }
+
+    if done {
+        footer.push(controls::button(
+            commands,
+            kit,
+            Phrase::TransferClose.text(lang),
+            Weight::Primary,
+            Live::Yes,
+            Some("Esc"),
+            Press::Build(BuildPress::TransferClose),
+        ));
+    } else {
+        footer.push(controls::button(
+            commands,
+            kit,
+            Phrase::TransferClose.text(lang),
+            Weight::Secondary,
+            Live::Yes,
+            Some("Esc"),
+            Press::Build(BuildPress::TransferClose),
+        ));
+        let take = if importing.ready() {
+            controls::button_with_icon(
+                commands,
+                kit,
+                mark::CHECK,
+                Phrase::ImportTake.text(lang),
+                Weight::Primary,
+                Live::Yes,
+                None,
+                Press::Build(BuildPress::ImportTake),
+            )
+        } else {
+            controls::button_with_icon(
+                commands,
+                kit,
+                mark::CHECK,
+                Phrase::ImportTake.text(lang),
+                Weight::Primary,
+                Live::No(Phrase::ImportBoxEmpty.text(lang)),
+                None,
+                (),
+            )
+        };
+        footer.push(take);
     }
 }
 
 /// A framed block of text: the paste, or the export. At most
 /// [`PREVIEW_LINES`] of it; the count of the rest after that.
-fn text_box(
-    commands: &mut Commands,
-    fonts: &UiFonts,
-    metrics: Metrics,
-    text: &str,
-    empty: Option<&str>,
-) -> Entity {
+fn text_box(commands: &mut Commands, kit: Kit, text: &str, empty: Option<&str>) -> Entity {
     let frame = commands
         .spawn((
             Node {
-                width: percent(100),
+                width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
-                padding: UiRect::all(px(metrics.pad * 0.6)),
-                border: UiRect::all(px(1)),
-                border_radius: btn_radius(),
-                min_height: px(metrics.tap * 1.5),
+                padding: UiRect::all(kit.m.px(12.0)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                min_height: kit.m.px(72.0),
                 ..default()
             },
-            BackgroundColor(palette::SHADOW.with_alpha(0.35)),
-            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.5)),
+            BackgroundColor(tokens::CONTROL.with_alpha(0.55)),
+            BorderColor::all(tokens::BORDER),
             Pickable::IGNORE,
         ))
         .id();
     let (shown, ink) = if text.trim().is_empty() {
-        (empty.unwrap_or_default().to_string(), palette::MUTED)
+        (empty.unwrap_or_default().to_string(), tokens::MUTED)
     } else {
         let lines: Vec<&str> = text.lines().collect();
         let mut shown = lines
@@ -287,12 +342,12 @@ fn text_box(
         if lines.len() > PREVIEW_LINES {
             let _ = write!(shown, "\n… +{}", lines.len() - PREVIEW_LINES);
         }
-        (shown, palette::INK)
+        (shown, tokens::INK)
     };
     let body = commands
         .spawn((
             Text::new(shown),
-            tf(fonts, metrics.small),
+            tf(kit.fonts, kit.m.small),
             TextColor(ink),
             Pickable::IGNORE,
         ))
@@ -302,22 +357,22 @@ fn text_box(
 }
 
 /// The dialog's lines, coloured by what they are.
-fn said(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, panel: Entity, lines: &[Line]) {
+fn said(commands: &mut Commands, kit: Kit, body: &mut Vec<Entity>, lines: &[Line]) {
     for line in lines {
         let ink = match line.tone {
-            Tone::Info => palette::MUTED,
-            Tone::Good => palette::INK,
-            Tone::Warn => palette::ACTIVE,
+            Tone::Info => tokens::MUTED,
+            Tone::Good => tokens::INK,
+            Tone::Warn => tokens::GOLD,
         };
         let text = commands
             .spawn((
                 Text::new(line.text.clone()),
-                tf(fonts, metrics.small),
+                tf(kit.fonts, kit.m.small),
                 TextColor(ink),
                 Pickable::IGNORE,
             ))
             .id();
-        commands.entity(panel).add_child(text);
+        body.push(text);
     }
 }
 

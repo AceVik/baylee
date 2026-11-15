@@ -128,7 +128,7 @@ pub(crate) fn screen(commands: &mut Commands, root: Entity, view: &View, kit: Ki
             commands,
             &state.seat,
             lang,
-            kit.fonts,
+            kit,
             view.metrics,
             state.settings_view.profile_advanced,
             view.sheet_scroll,

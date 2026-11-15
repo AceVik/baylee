@@ -19,7 +19,9 @@ use bevy::prelude::*;
 
 mod compact;
 pub(crate) use compact::tooltip;
-pub use compact::{button_compact, button_compact_with};
+pub use compact::{
+    button_compact, button_compact_with, segmented_compact, segmented_icons_compact,
+};
 
 /// What every maker needs: the fonts, the sizes, and whether the labels are
 /// German (which takes 10 px of side padding instead of 12, §2.3).
@@ -258,6 +260,7 @@ fn shaped(
                 justify_content: JustifyContent::Center,
                 border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL)),
+                overflow: Overflow::clip(),
                 ..default()
             },
             BackgroundColor(ground),
@@ -341,7 +344,12 @@ fn shaped(
     wrapper
 }
 
-fn attach_live_feel(commands: &mut Commands, face: Entity, ground: Color, weight: Weight) {
+pub(crate) fn attach_live_feel(
+    commands: &mut Commands,
+    face: Entity,
+    ground: Color,
+    weight: Weight,
+) {
     // A ghost has no ground to lighten: it rises out of nothing to the
     // hover ground, as a tab does.
     let feel = if ground.alpha() < 0.01 {
@@ -350,18 +358,24 @@ fn attach_live_feel(commands: &mut Commands, face: Entity, ground: Color, weight
         crate::ambience::Feel::new(ground)
     };
     let rim = weight.rim();
+    let (hot, press) = match weight {
+        Weight::Secondary => (
+            tokens::ACCENT.with_alpha(0.55),
+            crate::ambience::lighter(rim, -0.15),
+        ),
+        Weight::Ghost => (
+            tokens::BORDER.with_alpha(0.75),
+            tokens::BORDER.with_alpha(0.55),
+        ),
+        Weight::Primary | Weight::Gold | Weight::Danger => (
+            crate::ambience::lighter(rim, 0.35),
+            crate::ambience::lighter(rim, -0.15),
+        ),
+    };
     let fb = crate::ambience::FeelBorder {
         rest: rim,
-        hot: if rim.alpha() < 0.01 {
-            tokens::BORDER
-        } else {
-            crate::ambience::lighter(rim, 0.35)
-        },
-        press: if rim.alpha() < 0.01 {
-            tokens::BORDER
-        } else {
-            crate::ambience::lighter(rim, -0.15)
-        },
+        hot,
+        press,
     };
     commands.entity(face).insert((feel, fb));
     if matches!(weight, Weight::Primary | Weight::Gold | Weight::Danger) {
@@ -692,6 +706,79 @@ pub fn tabs<B: Bundle>(
 /// less than a button's, as it stands shoulder to shoulder with others.
 const SEGMENT_LIFT: f32 = 0.03;
 
+/// Visual ground, border, and pointer feel for a segment in its active or idle state.
+pub(crate) fn segment_style(
+    on: bool,
+) -> (
+    Color,
+    Color,
+    crate::ambience::Feel,
+    crate::ambience::FeelBorder,
+) {
+    if on {
+        let rim = tokens::ACCENT.with_alpha(0.45);
+        (
+            tokens::SELECTED,
+            rim,
+            crate::ambience::Feel::lifting(
+                tokens::SELECTED,
+                crate::ambience::lighter(tokens::SELECTED, 0.12),
+                SEGMENT_LIFT,
+            ),
+            crate::ambience::FeelBorder {
+                rest: rim,
+                hot: tokens::ACCENT.with_alpha(0.75),
+                press: tokens::ACCENT.with_alpha(0.35),
+            },
+        )
+    } else {
+        (
+            Color::NONE,
+            Color::NONE,
+            crate::ambience::Feel::lifting(Color::NONE, tokens::HOVER, SEGMENT_LIFT),
+            crate::ambience::FeelBorder {
+                rest: Color::NONE,
+                hot: tokens::BORDER.with_alpha(0.65),
+                press: tokens::BORDER.with_alpha(0.45),
+            },
+        )
+    }
+}
+
+pub(super) fn segment_face(
+    commands: &mut Commands,
+    min_height: f32,
+    pad_x: Val,
+    width: Option<Val>,
+    outer_radius: f32,
+    on: bool,
+) -> Entity {
+    let radius = (outer_radius - 2.0).max(4.0);
+    let (ground, rim, feel, fb) = segment_style(on);
+    let mut node = Node {
+        min_height: px_fixed(min_height),
+        padding: UiRect::axes(pad_x, px_fixed(0.0)),
+        align_items: AlignItems::Center,
+        justify_content: JustifyContent::Center,
+        border: UiRect::all(px_fixed(1.0)),
+        border_radius: BorderRadius::all(px_fixed(radius)),
+        ..default()
+    };
+    if let Some(w) = width {
+        node.width = w;
+    }
+    commands
+        .spawn((
+            Role::Segment,
+            node,
+            BackgroundColor(ground),
+            BorderColor::all(rim),
+            feel,
+            fb,
+        ))
+        .id()
+}
+
 /// A segmented control of two to eight options; the chosen one filled.
 pub fn segmented<B: Bundle>(
     commands: &mut Commands,
@@ -700,15 +787,19 @@ pub fn segmented<B: Bundle>(
     selected: usize,
     action: impl Fn(usize) -> B,
 ) -> Entity {
+    let outer_h = kit.m.control.max(kit.m.hit);
+    let inner_h = (outer_h - 6.0).max(20.0);
     let group = commands
         .spawn((
             Node {
-                padding: UiRect::all(px_fixed(2.0)),
+                min_height: px_fixed(outer_h),
+                padding: UiRect::horizontal(px_fixed(2.0)),
                 column_gap: px_fixed(2.0),
+                align_items: AlignItems::Center,
                 // Wider than its row (four German camera choices at 640 px,
                 // beta.6 QA), its segments wrap rather than leave the window.
                 flex_wrap: FlexWrap::Wrap,
-                row_gap: px_fixed(2.0),
+                row_gap: px_fixed(4.0),
                 max_width: Val::Percent(100.0),
                 border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL)),
@@ -721,35 +812,7 @@ pub fn segmented<B: Bundle>(
         .id();
     for (i, text) in items.iter().enumerate() {
         let on = i == selected;
-        let face = commands
-            .spawn((
-                Role::Segment,
-                Node {
-                    min_height: px_fixed(if kit.m.touch() {
-                        34.0
-                    } else {
-                        kit.m.scaled(30.0)
-                    }),
-                    padding: UiRect::axes(kit.m.px(12.0), px_fixed(0.0)),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL - 2.0)),
-                    ..default()
-                },
-                BackgroundColor(if on { tokens::SELECTED } else { Color::NONE }),
-                // A segment answers the pointer as a button does: it lights,
-                // and gives a little under a press (owner, 09.10.2026).
-                if on {
-                    crate::ambience::Feel::lifting(
-                        tokens::SELECTED,
-                        crate::ambience::lighter(tokens::SELECTED, 0.12),
-                        SEGMENT_LIFT,
-                    )
-                } else {
-                    crate::ambience::Feel::lifting(Color::NONE, tokens::HOVER, SEGMENT_LIFT)
-                },
-            ))
-            .id();
+        let face = segment_face(commands, inner_h, kit.m.px(12.0), None, RADIUS_CONTROL, on);
         let words = label(
             commands,
             kit,
@@ -759,6 +822,15 @@ pub fn segmented<B: Bundle>(
         );
         commands.entity(face).add_child(words);
         let wrapper = hit(commands, kit, face, action(i));
+        commands
+            .entity(wrapper)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                // Bleed the hit box 1 px into the outer frame's 1 px border so
+                // the outer track matches `button` height to the pixel while
+                // `Role::Hit` keeps its full `kit.m.hit` vertical span.
+                node.margin = UiRect::vertical(px_fixed(-1.0));
+            });
         commands.entity(group).add_child(wrapper);
     }
     group
@@ -774,12 +846,18 @@ pub fn segmented_icons<B: Bundle>(
     selected: usize,
     action: impl Fn(usize) -> B,
 ) -> Entity {
+    let outer_h = kit.m.control.max(kit.m.hit);
+    let inner_h = (outer_h - 6.0).max(20.0);
+    let seg_w = (inner_h + 2.0).max(28.0);
     let group = commands
         .spawn((
             Node {
-                padding: UiRect::all(px_fixed(2.0)),
+                height: px_fixed(outer_h),
+                min_height: px_fixed(outer_h),
+                padding: UiRect::horizontal(px_fixed(2.0)),
                 column_gap: px_fixed(2.0),
                 align_items: AlignItems::Center,
+                flex_shrink: 0.0,
                 border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL)),
                 ..default()
@@ -791,34 +869,14 @@ pub fn segmented_icons<B: Bundle>(
         .id();
     for (i, (glyph, tip)) in items.iter().enumerate() {
         let on = i == selected;
-        let size = if kit.m.touch() {
-            34.0
-        } else {
-            kit.m.scaled(28.0)
-        };
-        let face = commands
-            .spawn((
-                Role::Segment,
-                Node {
-                    width: px_fixed(kit.m.scaled(32.0)),
-                    min_height: px_fixed(size),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL - 2.0)),
-                    ..default()
-                },
-                BackgroundColor(if on { tokens::SELECTED } else { Color::NONE }),
-                if on {
-                    crate::ambience::Feel::lifting(
-                        tokens::SELECTED,
-                        crate::ambience::lighter(tokens::SELECTED, 0.12),
-                        SEGMENT_LIFT,
-                    )
-                } else {
-                    crate::ambience::Feel::lifting(Color::NONE, tokens::HOVER, SEGMENT_LIFT)
-                },
-            ))
-            .id();
+        let face = segment_face(
+            commands,
+            inner_h,
+            px_fixed(0.0),
+            Some(px_fixed(seg_w)),
+            RADIUS_CONTROL,
+            on,
+        );
         let icon_node = commands
             .spawn((
                 Text::new(glyph.to_string()),
@@ -834,6 +892,16 @@ pub fn segmented_icons<B: Bundle>(
             face,
             (action(i), HoverHint((*tip).to_owned())),
         );
+        let touch = kit.m.touch();
+        commands
+            .entity(wrapper)
+            .entry::<Node>()
+            .and_modify(move |mut node| {
+                if !touch {
+                    node.min_width = px_fixed(seg_w);
+                }
+                node.margin = UiRect::vertical(px_fixed(-1.0));
+            });
         commands.entity(group).add_child(wrapper);
     }
     group
@@ -1682,5 +1750,123 @@ mod tests {
         let track = face_of(&app, on);
         app.update();
         assert!((knob_left_of(&app, track) - knob_left(1.0)).abs() < 1e-3);
+    }
+
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+    fn spawn_row_for_height_check(
+        commands: &mut Commands,
+        kit: Kit,
+    ) -> (Entity, Entity, Entity, Entity) {
+        let root = commands
+            .spawn(Node {
+                width: px_fixed(1200.0),
+                height: px_fixed(400.0),
+                align_items: AlignItems::Center,
+                column_gap: px_fixed(8.0),
+                ..default()
+            })
+            .id();
+        let btn = button(
+            commands,
+            kit,
+            "Filters",
+            Weight::Secondary,
+            Live::Yes,
+            None,
+            (),
+        );
+        let seg = segmented(commands, kit, &["List", "Grid", "Compact"], 0, |_| ());
+        let icons = segmented_icons(
+            commands,
+            kit,
+            &[
+                ('\u{f03a}', "List"),
+                ('\u{f009}', "Grid"),
+                ('\u{f0c9}', "Compact"),
+            ],
+            1,
+            |_| (),
+        );
+        commands.entity(root).add_children(&[btn, seg, icons]);
+        (root, btn, seg, icons)
+    }
+
+    /// `segmented` and `segmented_icons` match `button` outer height to the
+    /// exact pixel across pointer/touch and every text step, while keeping
+    /// 44 × 44 touch hit areas on each segment.
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+    #[test]
+    fn segmented_and_segmented_icons_match_button_height_to_the_pixel() {
+        use super::super::size::{InputClass, Platform, TextSize, Viewport};
+
+        let (mut app, fonts) = super::super::header::tests::layout_app();
+        let views = [
+            Viewport::desktop(1440.0, 900.0),
+            Viewport {
+                width: 1024.0,
+                height: 768.0,
+                input: InputClass::Touch,
+                platform: Platform::Desktop,
+            },
+        ];
+        for view in views {
+            for step in [
+                TextSize::Xs,
+                TextSize::S,
+                TextSize::M,
+                TextSize::L,
+                TextSize::Xl,
+            ] {
+                let kit = Kit {
+                    fonts: &fonts,
+                    m: ShellMetrics::of(view, step),
+                    german: false,
+                };
+                let (root, btn, seg, icons) =
+                    spawn_row_for_height_check(&mut app.world_mut().commands(), kit);
+                app.world_mut().flush();
+                app.update();
+                app.update();
+
+                let h_of = |e: Entity| {
+                    app.world()
+                        .get::<ComputedNode>(e)
+                        .expect("laid out")
+                        .size()
+                        .y
+                };
+                let btn_h = h_of(btn);
+                let seg_h = h_of(seg);
+                let icons_h = h_of(icons);
+                assert!(btn_h > 0.0);
+                assert!(
+                    (seg_h - btn_h).abs() < f32::EPSILON,
+                    "segmented height ({seg_h}) != button height ({btn_h}) at {:?} {step:?}",
+                    view.input
+                );
+                assert!(
+                    (icons_h - btn_h).abs() < f32::EPSILON,
+                    "segmented_icons height ({icons_h}) != button height ({btn_h}) at {:?} {step:?}",
+                    view.input
+                );
+                if view.input == InputClass::Touch {
+                    for group in [seg, icons] {
+                        for &hit_entity in app.world().get::<Children>(group).expect("segments") {
+                            let size = app
+                                .world()
+                                .get::<ComputedNode>(hit_entity)
+                                .expect("hit laid out")
+                                .size();
+                            assert!(
+                                size.x >= 43.5 && size.y >= 43.5,
+                                "touch segment hit box {size:?} below 44px at {step:?}"
+                            );
+                        }
+                    }
+                }
+                app.world_mut().entity_mut(root).despawn();
+                app.update();
+            }
+        }
     }
 }

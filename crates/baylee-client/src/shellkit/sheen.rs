@@ -99,7 +99,7 @@ type Undressed = (With<Sheen>, Without<SheenSurface>);
 /// no orphaned surface is left at the window's root either.
 pub(crate) fn dress(
     mut commands: Commands,
-    faces: Query<(Entity, &Feel), Undressed>,
+    faces: Query<(Entity, &Feel, Option<&Node>), Undressed>,
     materials: Option<ResMut<Assets<SheenMaterial>>>,
     prefs: Option<Res<crate::prefs::Prefs>>,
 ) {
@@ -107,7 +107,13 @@ pub(crate) fn dress(
         return;
     };
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
-    for (face, feel) in &faces {
+    let pill = BorderRadius::all(px_fixed(tokens::RADIUS_PILL));
+    for (face, feel, node) in &faces {
+        let border_radius = if node.is_some_and(|n| n.border_radius == pill) {
+            BorderRadius::all(px_fixed(tokens::RADIUS_PILL - 1.0))
+        } else {
+            BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL - 1.0))
+        };
         let handle = materials.add(SheenMaterial {
             params: params(feel.warmth, still),
         });
@@ -126,9 +132,7 @@ pub(crate) fn dress(
                                 right: px_fixed(0.0),
                                 top: px_fixed(0.0),
                                 bottom: px_fixed(0.0),
-                                border_radius: BorderRadius::all(px_fixed(
-                                    tokens::RADIUS_CONTROL - 1.0,
-                                )),
+                                border_radius,
                                 ..default()
                             },
                             MaterialNode(handle.clone()),
@@ -265,7 +269,7 @@ mod tests {
         struct Tree;
         let rebuild = |mut commands: Commands, tree: Query<Entity, With<Tree>>| {
             for entity in &tree {
-                commands.entity(entity).despawn();
+                commands.entity(entity).try_despawn();
             }
         };
         let mut app = App::new();

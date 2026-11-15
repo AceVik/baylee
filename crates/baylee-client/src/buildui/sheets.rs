@@ -246,13 +246,15 @@ fn leave(commands: &mut Commands, env: &Env) -> Entity {
         None,
         (Press::Build(BuildPress::KeepEditing), sheet_stop("keep")),
     );
-    surfaces::sheet_box(
+    surfaces::sheet_box_headed(
         commands,
         kit,
         SheetWidth::Small,
-        Phrase::BuildDiscardQuestion.text(lang),
+        surfaces::SheetHeader::new(Phrase::BuildDiscardQuestion.text(lang))
+            .icon_colored(mark::WARN, tokens::GOLD),
         &[body],
         &[discard, keep],
+        (),
     )
 }
 
@@ -269,13 +271,14 @@ fn filters(commands: &mut Commands, env: &Env) -> Entity {
         None,
         (Press::Build(BuildPress::ToggleRail), sheet_stop("close")),
     );
-    surfaces::sheet_box(
+    surfaces::sheet_box_headed(
         commands,
         kit,
         SheetWidth::Small,
-        Phrase::BuildFilters.text(env.lang()),
+        surfaces::SheetHeader::new(Phrase::BuildFilters.text(env.lang())).icon('\u{f0b0}'),
         &body,
         &[close],
+        (),
     )
 }
 
@@ -295,12 +298,13 @@ fn stats(commands: &mut Commands, env: &Env) -> Entity {
             sheet_stop("close"),
         ),
     );
-    surfaces::sheet_box(
+    surfaces::sheet_box_headed(
         commands,
         kit,
         SheetWidth::Large,
-        Phrase::BuildTabStats.text(env.lang()),
+        surfaces::SheetHeader::new(Phrase::BuildTabStats.text(env.lang())).icon('\u{f201}'),
         &[numbers],
         &[close],
+        (),
     )
 }

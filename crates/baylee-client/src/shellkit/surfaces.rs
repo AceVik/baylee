@@ -106,6 +106,115 @@ pub enum SheetWidth {
     Large,
 }
 
+/// Header specification for a modal sheet: title (`tf_bold`), optional
+/// leading Font Awesome badge, optional subtitle, and optional top-right close
+/// `×` button.
+pub struct SheetHeader<'a, C = ()> {
+    title: &'a str,
+    icon: Option<(char, Color)>,
+    subtitle: Option<(&'a str, Color)>,
+    close: Option<C>,
+}
+
+impl<'a> SheetHeader<'a, ()> {
+    /// Creates a plain header with `title`.
+    #[must_use]
+    pub const fn new(title: &'a str) -> Self {
+        Self {
+            title,
+            icon: None,
+            subtitle: None,
+            close: None,
+        }
+    }
+}
+
+impl<'a, C> SheetHeader<'a, C> {
+    /// Prepends a Font Awesome icon badge tinted with [`tokens::ACCENT`].
+    #[must_use]
+    pub const fn icon(mut self, glyph: char) -> Self {
+        self.icon = Some((glyph, tokens::ACCENT));
+        self
+    }
+
+    /// Prepends a Font Awesome icon badge with a custom accent `color`.
+    #[must_use]
+    pub const fn icon_colored(mut self, glyph: char, color: Color) -> Self {
+        self.icon = Some((glyph, color));
+        self
+    }
+
+    /// Adds a muted subtitle line beneath the title.
+    #[must_use]
+    pub const fn subtitle(mut self, text: &'a str) -> Self {
+        self.subtitle = Some((text, tokens::MUTED));
+        self
+    }
+
+    /// Adds a subtitle line beneath the title with custom `color`.
+    #[must_use]
+    pub const fn subtitle_colored(mut self, text: &'a str, color: Color) -> Self {
+        self.subtitle = Some((text, color));
+        self
+    }
+
+    /// Attaches a top-right close `×` button carrying `action`.
+    #[must_use]
+    pub fn close<N: Bundle>(self, action: N) -> SheetHeader<'a, N> {
+        SheetHeader {
+            title: self.title,
+            icon: self.icon,
+            subtitle: self.subtitle,
+            close: Some(action),
+        }
+    }
+}
+
+/// A compact `×` close button for sheet and dialog headers, wrapped in
+/// [`super::controls::hit`] so touch targets stay 44 × 44.
+pub fn sheet_close_button(commands: &mut Commands, kit: Kit, action: impl Bundle) -> Entity {
+    let face = commands
+        .spawn((
+            Role::Button,
+            Node {
+                width: kit.m.px(30.0),
+                height: kit.m.px(30.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL)),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            BorderColor::all(Color::NONE),
+            crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
+            crate::ambience::FeelBorder {
+                rest: Color::NONE,
+                hot: tokens::BORDER.with_alpha(0.75),
+                press: tokens::BORDER.with_alpha(0.55),
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let glyph = commands
+        .spawn((
+            Text::new("\u{f00d}"),
+            icon_tf(kit.fonts, kit.m.small),
+            TextColor(tokens::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(face).add_child(glyph);
+    let wrapper = super::controls::hit(commands, kit, face, action);
+    commands
+        .entity(wrapper)
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.margin = UiRect::vertical(px_fixed(-3.0));
+        });
+    wrapper
+}
+
 /// The footer of a sheet drawn by [`sheet_box_with_footer`].
 pub struct SheetFooter<'a> {
     entities: &'a [Entity],
@@ -200,7 +309,7 @@ pub fn sheet_box_listed(
         commands,
         kit,
         width,
-        title,
+        SheetHeader::new(title),
         body,
         SheetFooter::regular(footer),
         (marker, ()),
@@ -224,7 +333,7 @@ pub fn sheet_box_with_footer(
         commands,
         kit,
         width,
-        title,
+        SheetHeader::new(title),
         body,
         footer,
         (marker, footer_marker),
@@ -232,14 +341,173 @@ pub fn sheet_box_with_footer(
     )
 }
 
-/// The sheet's three bands: head, body (with its bar where `bar`) and foot.
-#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
-// the three sheet bands and both footer paths
-fn sheet_box_parts(
+/// A modal sheet box with a rich [`SheetHeader`] (icon badge, subtitle, or
+/// top-right close `×` button) and optional body marker.
+pub fn sheet_box_headed<C: Bundle>(
     commands: &mut Commands,
     kit: Kit,
     width: SheetWidth,
-    title: &str,
+    header: SheetHeader<'_, C>,
+    body: &[Entity],
+    footer: &[Entity],
+    marker: impl Bundle,
+) -> Entity {
+    sheet_box_parts(
+        commands,
+        kit,
+        width,
+        header,
+        body,
+        SheetFooter::regular(footer),
+        (marker, ()),
+        false,
+    )
+}
+
+/// A [`sheet_box_headed`] whose scrolling body stands beside an on-demand
+/// scrollbar.
+pub fn sheet_box_headed_listed<C: Bundle>(
+    commands: &mut Commands,
+    kit: Kit,
+    width: SheetWidth,
+    header: SheetHeader<'_, C>,
+    body: &[Entity],
+    footer: &[Entity],
+    marker: impl Bundle,
+) -> Entity {
+    sheet_box_parts(
+        commands,
+        kit,
+        width,
+        header,
+        body,
+        SheetFooter::regular(footer),
+        (marker, ()),
+        true,
+    )
+}
+
+fn spawn_sheet_badge(commands: &mut Commands, kit: Kit, glyph: char, accent: Color) -> Entity {
+    let badge = commands
+        .spawn((
+            Node {
+                width: kit.m.px(32.0),
+                height: kit.m.px(32.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(accent.with_alpha(0.14)),
+            BorderColor::all(accent.with_alpha(0.38)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let mark = commands
+        .spawn((
+            Text::new(glyph.to_string()),
+            icon_tf(kit.fonts, kit.m.small),
+            TextColor(accent),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(badge).add_child(mark);
+    badge
+}
+
+fn spawn_sheet_head<C: Bundle>(
+    commands: &mut Commands,
+    kit: Kit,
+    header: SheetHeader<'_, C>,
+) -> Entity {
+    let head = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                padding: UiRect::axes(px_fixed(kit.m.pad), kit.m.px(14.0)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                column_gap: px_fixed(kit.m.gap),
+                flex_shrink: 0.0,
+                border: UiRect::bottom(px_fixed(1.0)),
+                ..default()
+            },
+            BorderColor::all(tokens::BORDER),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let lead = commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(10.0),
+                flex_grow: 1.0,
+                flex_shrink: 1.0,
+                min_width: px_fixed(0.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    if let Some((glyph, accent)) = header.icon {
+        let badge = spawn_sheet_badge(commands, kit, glyph, accent);
+        commands.entity(lead).add_child(badge);
+    }
+    let titles = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: kit.m.px(2.0),
+                flex_grow: 1.0,
+                flex_shrink: 1.0,
+                min_width: px_fixed(0.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let title = commands
+        .spawn((
+            Text::new(header.title),
+            tf_bold(kit.fonts, kit.m.head),
+            TextColor(tokens::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(titles).add_child(title);
+    if let Some((sub, ink)) = header.subtitle {
+        let sub_node = commands
+            .spawn((
+                Text::new(sub),
+                tf(kit.fonts, whole_pixels(kit.m.small)),
+                TextColor(ink),
+                bevy::ui::LayoutConfig {
+                    use_rounding: false,
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(titles).add_child(sub_node);
+    }
+    commands.entity(lead).add_child(titles);
+    commands.entity(head).add_child(lead);
+    if let Some(close_action) = header.close {
+        let close = sheet_close_button(commands, kit, close_action);
+        commands.entity(head).add_child(close);
+    }
+    head
+}
+
+/// The sheet's three bands: head, body (with its bar where `bar`) and foot.
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+// the three sheet bands and both footer paths
+fn sheet_box_parts<C: Bundle>(
+    commands: &mut Commands,
+    kit: Kit,
+    width: SheetWidth,
+    header: SheetHeader<'_, C>,
     body: &[Entity],
     footer: SheetFooter,
     (marker, footer_marker): (impl Bundle, impl Bundle),
@@ -265,30 +533,32 @@ fn sheet_box_parts(
                 flex_direction: FlexDirection::Column,
                 border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(if phone { 0.0 } else { RADIUS_PANEL })),
+                overflow: Overflow::clip(),
                 ..default()
             },
             BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(tokens::BORDER),
+            BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                Color::srgb(0.075, 0.115, 0.165).into(),
+                tokens::OPAQUE.into(),
+            ])),
+            BorderColor::all(if phone {
+                tokens::BORDER
+            } else {
+                tokens::PRIMARY_EDGE.with_alpha(0.38)
+            }),
         ))
         .id();
-    let head = commands
-        .spawn((
-            Node {
-                padding: UiRect::all(px_fixed(kit.m.pad)),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let title = heading(commands, kit, title);
-    commands.entity(head).add_child(title);
+    if !phone {
+        commands.entity(surface).insert(sheet_shadow());
+    }
+    let head = spawn_sheet_head(commands, kit, header);
     let scroller = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Column,
                 flex_shrink: 1.0,
                 min_height: px_fixed(0.0),
-                padding: UiRect::axes(px_fixed(kit.m.pad), px_fixed(0.0)),
+                padding: UiRect::all(px_fixed(kit.m.pad)),
                 row_gap: px_fixed(kit.m.gap),
                 overflow: Overflow::scroll_y(),
                 ..default()
@@ -304,7 +574,7 @@ fn sheet_box_parts(
         scroller
     };
     commands.entity(surface).add_children(&[head, band]);
-    if footer.retained {
+    if footer.retained || footer.entities.is_empty() {
         return surface;
     }
     let (padding, gap) = if footer.compact {
@@ -328,6 +598,7 @@ fn sheet_box_parts(
                 border: UiRect::top(px_fixed(1.0)),
                 ..default()
             },
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.16)),
             BorderColor::all(tokens::BORDER),
             Pickable::IGNORE,
         ))
@@ -335,6 +606,27 @@ fn sheet_box_parts(
     commands.entity(foot).add_children(footer.entities);
     commands.entity(surface).add_child(foot);
     surface
+}
+
+/// Elevation shadow for modal sheets and dialog windows over a scrim.
+#[must_use]
+pub fn sheet_shadow() -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.42),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(6.0),
+            spread_radius: px_fixed(0.0),
+            blur_radius: px_fixed(16.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.66),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(22.0),
+            spread_radius: px_fixed(0.0),
+            blur_radius: px_fixed(48.0),
+        },
+    ])
 }
 
 /// A sheet over a scrim, in the sheet band, centred (a phone's fills the
@@ -656,7 +948,7 @@ pub fn drawer(
         commands.entity(column).add_children(body);
     } else {
         for entity in body {
-            commands.entity(*entity).despawn();
+            commands.entity(*entity).try_despawn();
         }
     }
     column
@@ -684,6 +976,7 @@ pub fn toast(commands: &mut Commands, kit: Kit, text: &str, action: Option<Entit
                 tokens::OPAQUE.with_alpha(0.90).into(),
             ])),
             BorderColor::all(tokens::BORDER),
+            popover_shadow(),
             super::sheen::Sheen,
             crate::ambience::Feel {
                 warmth: 0.35,
@@ -746,6 +1039,7 @@ pub fn toast_card(
                 base.into(),
             ])),
             BorderColor::all(accent.with_alpha(0.55)),
+            popover_shadow(),
             super::sheen::Sheen,
             crate::ambience::Feel {
                 warmth: 0.35,

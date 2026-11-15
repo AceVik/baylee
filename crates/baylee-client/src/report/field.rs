@@ -348,6 +348,7 @@ fn popover(
             },
             BackgroundColor(tokens::OPAQUE),
             BorderColor::all(tokens::BORDER),
+            crate::shellkit::surfaces::popover_shadow(),
             GlobalZIndex(1001),
             // Hidden until the caret has been found, so it never flashes at
             // the box's corner.

@@ -163,7 +163,7 @@ pub(super) fn toolbar(commands: &mut Commands, holder: Entity, env: &Env) {
             lead: Some(crate::hud::glyph::MAGNIFIER),
             hint: Some(Phrase::SearchCards.text(lang)),
             tail: Some(FieldTail {
-                glyph: '\u{f1de}',
+                glyph: mark::HELP,
                 press: Press::Build(BuildPress::ToggleSyntax),
                 lit: ui.syntax,
             }),
@@ -539,7 +539,17 @@ fn sort_controls(commands: &mut Commands, env: &Env) -> Entity {
     let lang = env.lang();
     let deck = env.deck();
     let menu_open = env.ui().menu == Some(BuildMenu::Sort);
-    let height = if m.touch() { 40.0 } else { m.scaled(32.0) };
+    let height = m.control.min(m.scaled(36.0)).max(m.scaled(28.0));
+    let ground = if menu_open {
+        tokens::SELECTED
+    } else {
+        tokens::CONTROL
+    };
+    let rim = if menu_open {
+        tokens::ACCENT
+    } else {
+        tokens::BORDER
+    };
 
     let sort_glyph = deck.sort().icon();
     let face = commands
@@ -551,19 +561,17 @@ fn sort_controls(commands: &mut Commands, env: &Env) -> Entity {
                 column_gap: m.px(6.0),
                 align_items: AlignItems::Center,
                 border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                 ..default()
             },
-            BackgroundColor(if menu_open {
-                tokens::SELECTED
-            } else {
-                tokens::CONTROL
-            }),
-            BorderColor::all(if menu_open {
-                tokens::ACCENT
-            } else {
-                tokens::BORDER
-            }),
+            BackgroundColor(ground),
+            BorderColor::all(rim),
+            crate::ambience::Feel::new(ground),
+            crate::ambience::FeelBorder {
+                rest: rim,
+                hot: tokens::ACCENT.with_alpha(if menu_open { 0.85 } else { 0.55 }),
+                press: crate::ambience::lighter(rim, -0.15),
+            },
         ))
         .id();
     let sign = glyph(commands, kit, sort_glyph, m.small * 0.9, tokens::ACCENT);
@@ -763,7 +771,8 @@ pub(super) fn over(commands: &mut Commands, holder: Entity, env: &Env) {
                     ..default()
                 },
                 BackgroundColor(tokens::OPAQUE),
-                BorderColor::all(tokens::BORDER),
+                BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.42)),
+                crate::shellkit::surfaces::popover_shadow(),
                 GlobalZIndex(tokens::z::POPOVER),
                 Press::Build(BuildPress::TransferNothing),
             ))
@@ -956,7 +965,12 @@ fn syntax(commands: &mut Commands, env: &Env) -> Entity {
             Role::Opaque,
             Node::default(),
             BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(tokens::BORDER),
+            BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                Color::srgb(0.075, 0.115, 0.165).into(),
+                tokens::OPAQUE.into(),
+            ])),
+            BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.45)),
+            crate::shellkit::surfaces::popover_shadow(),
             GlobalZIndex(tokens::z::POPOVER),
         ))
         .id();
@@ -1003,4 +1017,30 @@ fn syntax(commands: &mut Commands, env: &Env) -> Entity {
         commands.entity(pop).add_child(row);
     }
     pop
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn search_syntax_tail_always_uses_circle_question_glyph() {
+        assert_eq!(mark::HELP, '\u{f059}');
+        let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        for rel in [
+            "buildui/pool.rs",
+            "buildui/lists.rs",
+            "filterui.rs",
+            "settingsui/mod.rs",
+            "shellkit/controls.rs",
+            "shellkit/overlay.rs",
+        ] {
+            let content = std::fs::read_to_string(src.join(rel)).expect(rel);
+            let prod = content.split("#[cfg(test)]").next().unwrap_or("");
+            assert!(
+                !prod.contains("\\u{f1de}"),
+                "{rel} must not use fa-sliders (\\u{{f1de}}) on search/syntax controls"
+            );
+        }
+    }
 }

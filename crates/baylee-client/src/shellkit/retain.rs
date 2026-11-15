@@ -73,9 +73,16 @@ impl Kept {
     /// 28.10.2026).
     pub fn attach(&self, commands: &mut Commands, parent: Entity) {
         if let Some(target) = &self.target {
-            commands.entity(parent).insert(target.clone());
+            commands.entity(parent).try_insert(target.clone());
         }
-        commands.entity(parent).add_child(self.entity);
+        let child = self.entity;
+        commands
+            .entity(parent)
+            .queue_silenced(move |mut p: EntityWorldMut| {
+                if p.world().get_entity(child).is_ok() {
+                    p.add_child(child);
+                }
+            });
     }
 }
 

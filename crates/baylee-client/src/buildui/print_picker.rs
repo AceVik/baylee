@@ -571,7 +571,7 @@ fn picker_art(
                 commands, cards, frame, lang, &face, fonts, &widths, finish, width,
             );
         } else {
-            commands.entity(frame).despawn();
+            commands.entity(frame).try_despawn();
             let empty = note(
                 commands,
                 fonts,
@@ -703,7 +703,7 @@ pub(crate) fn face_lost_art(
     };
     for (frame, awaiting) in &waiting {
         if images.contains(awaiting.art.id()) {
-            commands.entity(frame).remove::<AwaitingArt>();
+            commands.entity(frame).try_remove::<AwaitingArt>();
             continue;
         }
         if !lost(&server, &awaiting.art) {
@@ -719,24 +719,21 @@ pub(crate) fn face_lost_art(
             .iter()
             .find(|c| c.index == awaiting.card)
         else {
-            commands.entity(frame).remove::<AwaitingArt>();
+            commands.entity(frame).try_remove::<AwaitingArt>();
             continue;
         };
         let face = crate::face::of_pool(card);
         let widths =
             crate::face::Widths::of(font_assets.as_deref().and_then(|a| a.get(&fonts.text)));
-        commands
-            .entity(frame)
-            .remove::<AwaitingArt>()
-            .despawn_related::<Children>();
+        let holder = commands.spawn_empty().id();
         let mut cards = UiCards {
             cache,
             assets: store,
         };
-        crate::face::spawn_ui_card(
+        let fallback = crate::face::spawn_ui_card(
             &mut commands,
             &mut cards,
-            frame,
+            holder,
             lobby.lang(),
             &face,
             &fonts,
@@ -744,6 +741,18 @@ pub(crate) fn face_lost_art(
             awaiting.finish,
             awaiting.width,
         );
+        commands.queue(move |world: &mut World| {
+            if world.get_entity(frame).is_ok() {
+                world
+                    .entity_mut(frame)
+                    .remove::<AwaitingArt>()
+                    .despawn_related::<Children>()
+                    .add_child(fallback);
+            }
+            if let Ok(temp) = world.get_entity_mut(holder) {
+                temp.despawn();
+            }
+        });
     }
 }
 
@@ -1037,5 +1046,91 @@ mod tests {
     fn a_printing_with_no_picture_is_its_text_face_at_once() {
         let mut app = window(birds("00000000-0000-0000-0000-000000000000"), 1);
         assert_eq!(shown(&mut app), (true, false));
+    }
+
+    /// If the picker frame is despawned in the same command flush as
+    /// [`face_lost_art`] replacing a failed picture, neither an `Entity
+    /// despawned` fault nor an orphaned full-screen fallback card may remain.
+    #[test]
+    fn despawned_frame_when_art_fails_leaves_zero_orphans_or_faults() {
+        fn concurrent_despawn(
+            mut commands: Commands,
+            waiting: Query<(Entity, &AwaitingArt)>,
+            server: Res<AssetServer>,
+        ) {
+            for (frame, awaiting) in &waiting {
+                if lost(&server, &awaiting.art) {
+                    commands.entity(frame).try_despawn();
+                }
+            }
+        }
+
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_asset::<Image>()
+            .init_asset::<Font>()
+            .init_asset::<CardUiMaterial>()
+            .init_resource::<UiCardMaterials>()
+            .init_resource::<LobbyState>()
+            .insert_resource(UiFonts {
+                text: Handle::default(),
+                medium: Handle::default(),
+                bold: Handle::default(),
+                italic: Handle::default(),
+                medium_italic: Handle::default(),
+                serif: Handle::default(),
+                serif_italic: Handle::default(),
+                icons: Handle::default(),
+                mana: Handle::default(),
+            })
+            .add_systems(Update, draw)
+            .add_systems(
+                PostUpdate,
+                (concurrent_despawn, face_lost_art).chain_ignore_deferred(),
+            );
+        {
+            let mut state = app.world_mut().resource_mut::<LobbyState>();
+            let builder = state.lobby.builder_mut();
+            builder.set_pool(vec![birds("2f40613b-1bde-4939-86ad-6bd40f9db0d6")], false);
+            builder.open_picker(0, Zone::Main);
+        }
+        app.update();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while {
+            let world = app.world_mut();
+            world
+                .query_filtered::<(), With<AwaitingArt>>()
+                .iter(world)
+                .count()
+                > 0
+        } && std::time::Instant::now() < deadline
+        {
+            app.update();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        let world = app.world_mut();
+        assert_eq!(
+            world
+                .query_filtered::<(), With<AwaitingArt>>()
+                .iter(world)
+                .count(),
+            0
+        );
+        assert_eq!(
+            world
+                .query_filtered::<(), With<crate::face::FaceTextBox>>()
+                .iter(world)
+                .count(),
+            0,
+            "fallback text face must not leak orphaned at world root"
+        );
+        assert_eq!(
+            world
+                .query_filtered::<(), With<crate::flip::Side>>()
+                .iter(world)
+                .count(),
+            0,
+            "fallback card surface must not leak orphaned at world root"
+        );
     }
 }

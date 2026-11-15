@@ -198,8 +198,9 @@ fn section_card(commands: &mut Commands, kit: Kit, children: &[Entity]) -> Entit
 }
 
 /// The sheet: what the deck is held to, and everything the check found.
-/// Has an upgraded header lockup with a top-right `×` close button and no bottom footer.
-#[allow(clippy::too_many_lines)] // header lockup + format section + banlist section + standing section
+/// Uses [`surfaces::sheet_box_headed_listed`] with an icon badge, standing
+/// subtitle, top-right `×` close button, and empty footer.
+#[allow(clippy::too_many_lines)] // format section + variants section + banlist section + standing section
 pub(super) fn sheet(commands: &mut Commands, env: &Env) -> Entity {
     let kit = env.kit;
     let m = kit.m;
@@ -207,141 +208,7 @@ pub(super) fn sheet(commands: &mut Commands, env: &Env) -> Entity {
     let deck = env.deck();
     let overview = deck.overview(lang);
     let (mark_ch, ink) = sign(overview.standing);
-    let phone = m.frame == Frame::Phone;
-    let wide = match SheetWidth::Medium {
-        SheetWidth::Small => 560.0,
-        SheetWidth::Medium => 720.0,
-        SheetWidth::Large => 960.0,
-    };
-
-    let surface = commands
-        .spawn((
-            Role::Opaque,
-            Node {
-                width: if phone {
-                    Val::Percent(100.0)
-                } else {
-                    m.px(wide)
-                },
-                max_width: Val::Percent(100.0),
-                max_height: Val::Percent(100.0),
-                flex_direction: FlexDirection::Column,
-                border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(if phone {
-                    0.0
-                } else {
-                    tokens::RADIUS_PANEL
-                })),
-                overflow: Overflow::clip(),
-                ..default()
-            },
-            BackgroundColor(tokens::OPAQUE),
-            BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                Color::srgba(0.11, 0.16, 0.22, 0.99).into(),
-                tokens::OPAQUE.into(),
-            ])),
-            BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.55)),
-            surfaces::popover_shadow(),
-        ))
-        .id();
-
-    // ---- Upgraded Dialog Header with Icon Badge, Title + Subtitle, and Top-Right × Button
-    let head = commands
-        .spawn((
-            Node {
-                width: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::SpaceBetween,
-                column_gap: m.px(12.0),
-                padding: UiRect::axes(px_fixed(m.pad), m.px(14.0)),
-                border: UiRect::bottom(px_fixed(1.0)),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.14, 0.20, 0.28, 0.45)),
-            BorderColor::all(tokens::BORDER.with_alpha(0.75)),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let head_left = commands
-        .spawn((
-            Node {
-                align_items: AlignItems::Center,
-                column_gap: m.px(12.0),
-                flex_shrink: 1.0,
-                min_width: px_fixed(0.0),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let badge_box = commands
-        .spawn((
-            Node {
-                width: m.px(38.0),
-                height: m.px(38.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(10.0)),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            BackgroundColor(tokens::SELECTED),
-            BorderColor::all(tokens::ACCENT.with_alpha(0.55)),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let badge_icon = glyph(commands, kit, '\u{f24e}', m.text, tokens::ACCENT);
-    commands.entity(badge_box).add_child(badge_icon);
-
-    let title_col = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Column,
-                row_gap: m.px(2.0),
-                flex_shrink: 1.0,
-                min_width: px_fixed(0.0),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let title_text = commands
-        .spawn((
-            Text::new(Phrase::CheckTitle.text(lang)),
-            tf_bold(kit.fonts, m.head * 1.05),
-            TextColor(tokens::INK),
-            TextShadow {
-                offset: Vec2::new(0.0, 1.5),
-                color: Color::srgba(0.0, 0.0, 0.0, 0.65),
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let sub_text = cell(
-        commands,
-        kit,
-        &format!("{} \u{b7} {}", overview.headline, overview.count),
-        m.small,
-        ink,
-        false,
-    );
-    commands
-        .entity(title_col)
-        .add_children(&[title_text, sub_text]);
-    commands
-        .entity(head_left)
-        .add_children(&[badge_box, title_col]);
-
-    let close_btn = icon_button(
-        commands,
-        kit,
-        mark::CLOSE,
-        false,
-        (Press::Build(BuildPress::CloseCheck), sheet_stop("close")),
-    );
-    commands.entity(head).add_children(&[head_left, close_btn]);
+    let sub_line = format!("{} \u{b7} {}", overview.headline, overview.count);
 
     // ---- Body Sections
     let mut body = Vec::new();
@@ -519,29 +386,18 @@ pub(super) fn sheet(commands: &mut Commands, env: &Env) -> Entity {
     }
     body.push(section_card(commands, kit, &status_items));
 
-    let scroller = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Column,
-                flex_grow: 1.0,
-                flex_shrink: 1.0,
-                flex_basis: px_fixed(0.0),
-                min_width: px_fixed(0.0),
-                min_height: px_fixed(0.0),
-                padding: UiRect::all(px_fixed(m.pad)),
-                row_gap: px_fixed(m.gap),
-                overflow: Overflow::scroll_y(),
-                ..default()
-            },
-            ScrollPosition::default(),
-            crate::lobby::Scrollable(crate::lobby::List::Check),
-        ))
-        .id();
-    commands.entity(scroller).add_children(&body);
-
-    let band = crate::lobby::scrollbars::band_when_needed(commands, scroller, phone);
-    commands.entity(surface).add_children(&[head, band]);
-    surface
+    surfaces::sheet_box_headed_listed(
+        commands,
+        kit,
+        SheetWidth::Medium,
+        surfaces::SheetHeader::new(Phrase::CheckTitle.text(lang))
+            .icon('\u{f24e}')
+            .subtitle_colored(&sub_line, ink)
+            .close((Press::Build(BuildPress::CloseCheck), sheet_stop("close"))),
+        &body,
+        &[],
+        crate::lobby::Scrollable(crate::lobby::List::Check),
+    )
 }
 
 /// Chips in rows that wrap.
