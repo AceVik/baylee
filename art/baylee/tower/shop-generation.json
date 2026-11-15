@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-15",
+  "tool": "built-in image_gen",
+  "status": "Visually inspected preparation assets; native integration pending.",
+  "assets": [
+    {
+      "path": "art/baylee/tower/shop-concept.png",
+      "source": "/Users/viktor/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/exec-956fc968-34bc-4a9f-bfd7-be91fba5aee0.png",
+      "prompt": "Use case: stylized-concept. Asset type: original background plate for the item shop in Baylee Tower, a premium fantasy roguelike card game. Primary request: a beautiful orderly symmetrical magical merchant's cabinet, two broad empty display shelves, in tangible polished 3D fantasy illustration. Landscape composition, approximately 3:2. Almost straight-on orthographic camera, shallow depth; avoid dramatic perspective. The shelves span the central 86 percent of the canvas, with two broad continuous dark empty recessed display bays; no vertical partitions and no individual item slots. Enough calm negative space for real item icons to be composited later. Side columns and upper cornice use restrained carved ancient wood, subtle branching organic relief and aged bronze fittings, a little moss-green oxidized metal and tiny amber light sources at the extreme sides. Lower shelf base has finely crafted shallow relief. Material palette: rich dark walnut, midnight teal recesses, restrained warm antique gold. Warm soft overhead lighting gives gentle depth to the shelves. Dark even backing within the bays makes jewel-colored objects legible. Luxurious, inviting, fantastical, polished PC game quality, disciplined symmetry and crisp material definition. No items, no potions, no characters, no cards, no text, no letters, no UI controls, no prices, no labels, no trademark, no franchise imagery, no logo, no watermark. Original artwork. Do not paint large glowing effects; those will be real animated shaders. Opaque background.",
+      "transparent_background": false
+    },
+    {
+      "path": "art/baylee/tower/shop-frame.png",
+      "source": "/Users/viktor/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/exec-fc0a36af-d797-4702-bfb7-17292313d2bf.png",
+      "reference": "art/baylee/tower/shop-concept.png",
+      "prompt": "Use case: stylized-concept. Asset type: reusable nine-slice outer frame texture for a responsive fantasy shop UI. The supplied image is STYLE REFERENCE ONLY. Create a NEW independent frame asset matching its beautiful ancient dark walnut and antique bronze craftsmanship, the very same original Baylee fantasy shop aesthetic. A symmetrical rectangular outer frame, with small decorative corner blocks and straight extendable rails, around a COMPLETELY TRANSPARENT EMPTY CENTER. Wide landscape 3:2. Frame occupies only outer 12 percent of image on each edge. Four corners have modest sculpted botanical bronze ornaments over polished wood. Top and bottom rail central 60 percent must be a restrained continuous straight beveled molding, no centered medallion and no special centerpiece. Vertical rails central 60 percent similarly straight molding, no mounted lanterns and no central ornaments. No shelf inside, no solid backing, no scene inside. This must be usable as a 9-slice border: four corners preserved, horizontal/vertical middle rails can stretch or tile without distorting objects. Warm studio light from above, gently beveled 3D geometry, rich premium game material shading, quiet faint teal patina. True transparent alpha background including the large center and outside edge; no checkerboard. No words, labels, runes, logo, watermark, game items, cards or interface controls. Original design, no franchise imagery. Do not paint animated glows; UI shader will add a slow gold rim shimmer.",
+      "transparent_background": true
+    },
+    {
+      "path": "art/baylee/tower/shop-shelf.png",
+      "source": "/Users/viktor/.codex/generated_images/01a1d418-8db5-7b62-bef0-20ef43ae63d3/exec-d53ddc20-1be0-499d-9172-4711a21410a4.png",
+      "reference": "art/baylee/tower/shop-concept.png",
+      "prompt": "Use case: stylized-concept. Asset type: standalone horizontal wooden shelf module for a responsive fantasy shop game UI; meant to be repeated at independently placed heights, with left and right end caps preserved and the long plain center stretchable. Use the attached original cabinet only as a STYLE REFERENCE. Generate one single completely isolated long HORIZONTAL SHELF BEAM in polished dark walnut with thin antique bronze edge molding. Wide landscape canvas, shelf spans 94 percent of image width and occupies just the middle 24 percent of image height. Straight on camera, only a very narrow visible top surface to suggest depth, no strong vanishing point. Tiny restrained angular end caps, straight long center without ornamental medallions, no supports or legs below. Smooth bevels, detailed fine wood grain, warm soft golden light from above, physically convincing premium 3D fantasy game asset. All space above, below and outside the shelf is genuinely transparent alpha. No back wall, no room, no floor, no cast shadow outside the object, no fog, no glow, no checkerboard. No items, no frame, no text, no logo, no watermark. Original design matching the reference's craftsmanship. The empty area must remain transparent, not brown or black.",
+      "transparent_background": true
+    }
+  ]
+}

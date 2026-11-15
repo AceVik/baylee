@@ -1,5 +1,19 @@
 # Tower Echoes item portraits
 
+## Modular shop artwork (15 November 2026)
+
+The owner-approved direction for the redesigned run shop is recorded in
+`docs/proposals/tower-run-redesign.md`. Three new original preparation PNGs
+are kept here: `shop-concept.png` (1536 × 1024), `shop-frame.png`
+(1536 × 1024, alpha) and `shop-shelf.png` (2172 × 724, alpha).
+The frame and shelf use the original generated concept as their only reference.
+`shop-generation.json` retains the complete prompts, source paths and tool.
+These assets are not yet wired into the native client. The intended renderer
+preserves corners/endcaps, scales only rails and creates independent shelf rows;
+shader ornament must obey reduced motion and use GPU time without idle writes.
+
+## Inventory portraits
+
 Seven original fantasy inventory illustrations generated with the built-in
 `image_gen` tool on 15 November 2026 at the owner's request. These are raster
 illustrations with rendered 3D lighting, not meshes or real-time 3D models.
