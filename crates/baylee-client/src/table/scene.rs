@@ -521,7 +521,7 @@ pub fn sync_scene(
             continue;
         };
         let (built, fit) = *fitted;
-        let spawned = face::spawn_world(
+        let mut spawned = face::spawn_world(
             &mut commands,
             entity,
             &built,
@@ -530,6 +530,18 @@ pub fn sync_scene(
             placement.corner.plate,
             fonts,
         );
+        // Only our original native items, and only where the band has no cost.
+        if built.cost.is_empty()
+            && let Some(portrait) = crate::itemart::faces::world(
+                &mut commands,
+                entity,
+                placement.art,
+                baylee_client_core::textface::Regions::table(fit.lines()).band,
+                placement.veil,
+            )
+        {
+            spawned.push(portrait);
+        }
         index.faces.insert(
             placement.object,
             ShownFace {

@@ -1,4 +1,8 @@
 //! Original raster item portraits in rarity settings. Shared images, GPU-clock animation.
+pub(crate) mod faces;
+pub(crate) mod identity;
+mod world;
+
 use baylee_client_core::echoes::domain::v2::{
     catalog::{Definition, Family, Potion, Rarity},
     shop::Goods,
@@ -50,7 +54,7 @@ impl Portrait {
 struct Params {
     metal: Vec4,
     gem: Vec4,
-    // motif, rarity, animation energy, reserved; no per-frame uniform writes.
+    // motif, rarity, animation energy, passing-state bits; no per-frame writes.
     shape: Vec4,
 }
 
@@ -183,6 +187,8 @@ pub(crate) fn install(app: &mut App) {
         return;
     }
     embedded_asset!(app, "ui.wesl");
+    bevy::shader::load_shader_library!(app, "common.wesl");
+    world::install(app);
     app.init_resource::<Cache>()
         .add_plugins(UiMaterialPlugin::<Material>::default())
         .add_systems(PostUpdate, dress);

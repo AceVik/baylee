@@ -1527,6 +1527,13 @@ page.
 
 ### Original Tower inventory portraits · 15 November 2026
 
+The table/preview follow-up reuses these same locally shipped portraits and
+original rarity settings inside unused areas of the native items' procedural
+faces. Names, types and rules remain visible. Only compiled original token
+identities qualify; printed cards, hidden faces and unknown identities never
+receive these illustrations. No new asset, download path or policy permission
+is introduced by this reuse.
+
 The token-workshop addition supplies four original generated portraits (Seed
 Cradle, Swarm Banner, Harvest Wheel, Root Reservoir), without external reference
 images. Exact prompts and source/target paths are in

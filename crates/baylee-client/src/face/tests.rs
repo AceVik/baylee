@@ -2,6 +2,15 @@ use super::*;
 use baylee_core::mana::ManaCost;
 use baylee_core::types::{SubtypeSet, TypeSet};
 
+fn above_card(world: &World, entity: Entity) -> Vec3 {
+    let at = world.get::<Transform>(entity).expect("a place").translation;
+    assert!(
+        at.z > crate::table::CARD_THICKNESS,
+        "text is hidden under the card's surface"
+    );
+    at
+}
+
 /// The shipped Regular cut, read the way the client reads it.
 fn regular() -> Font {
     let path = format!(
@@ -46,6 +55,39 @@ fn creature(name: &str, type_line: &str) -> CardFace {
         text_pending: false,
         credit: None,
     }
+}
+
+#[test]
+fn original_portraits_get_more_room_only_when_rules_keep_their_readable_size() {
+    let font = regular();
+    let widths = Widths::of(Some(&font));
+    let mut face = creature("Hearthstone — Common", "Artifact");
+    face.cost.clear();
+    face.stats = None;
+    face.types = TypeSet::ARTIFACT;
+    face.body = vec![TextBlock::Rules(
+        "Whenever a creature you control enters, you gain 1 life.".into(),
+    )];
+    let ordinary = UiFace::lay(&face, Lang::En, 400.0, Detail::Full, &widths, 0);
+    let before = ordinary.regions.band;
+    let size = ordinary.body;
+    let illustrated = ordinary.illustrated(&face, Lang::En, &widths);
+    assert_eq!(illustrated.layout, Layout::Table);
+    assert!(illustrated.regions.band[3] - illustrated.regions.band[1] > before[3] - before[1]);
+    assert_eq!(illustrated.body, size);
+    assert!(!illustrated.overflows());
+    face.body = vec![TextBlock::Rules(
+        "Whenever a creature you control enters, you gain 1 life. ".repeat(40),
+    )];
+    let ordinary = UiFace::lay(&face, Lang::En, 400.0, Detail::Full, &widths, 0);
+    let before = ordinary.regions;
+    let size = ordinary.body;
+    let illustrated = ordinary.illustrated(&face, Lang::En, &widths);
+    assert_eq!(
+        illustrated.regions, before,
+        "long rules never lose room to decoration"
+    );
+    assert_eq!(illustrated.body, size);
 }
 
 /// The widths are the shipped font's own advances, summed: read off the
@@ -294,7 +336,7 @@ fn the_table_face_stands_in_its_bars() {
                     bevy::text::FontSize::Px(px) => px / PX_PER_UNIT,
                     other => panic!("{other:?}"),
                 };
-                let at = entity.get::<Transform>().expect("a place").translation;
+                let at = above_card(&world, text);
                 let anchor = entity.get::<Anchor>().expect("an anchor").as_vec();
                 let rows: Vec<&str> = words.split('\n').collect();
                 let w = rows.iter().map(|r| widths.width(r)).fold(0.0, f32::max) * em;
@@ -492,6 +534,10 @@ fn a_preview_wears_its_band_its_credit_and_its_scrollbar() {
         artist: "Ryan Pancoast".to_owned(),
     });
     let (world, laid, card) = overlay_face(&face, 308.0, Detail::Full);
+    assert!(
+        laid.vacant_band().is_none(),
+        "pictures cannot cover subtype or keyword information"
+    );
     let nodes = nodes_under(&world, card);
     let texts: Vec<&str> = nodes
         .iter()

@@ -3115,8 +3115,25 @@ that window as a flat dark tint under the card's metal light — the owner's
 "dunkle Metall-Platte" — and a lane of text tokens read as a row of holes.
 Now the window is laid out and drawn as a card is:
 `baylee_client_core::textface` is the geometry, the shader's `text_face`
-(`card_common.wesl`) draws its parts, and the table's `Text2d` lines stand
-on them.
+(`card_common.wesl`) draws its parts. Bevy's `Text2d` pipeline shapes the
+lines; `face::world_text` draws its glyph atlases as unlit mesh batches in
+the table's 3D phase. A 2D sprite cannot draw through the table's 3D camera.
+Text and original item portraits stand above `CARD_THICKNESS`, not above the
+slab's bottom plane. Glyph meshes change only with layout/color/anchor changes,
+share atlas materials, and disappear with their face. The bounded material
+lookup retains IDs rather than keeping unused font atlases alive.
+The public text pipeline runs independently of 2D-camera visibility, with two
+atlas texels per fixed logical font pixel. Mesh batches live beneath a stable
+child so their creation cannot invalidate the text hierarchy that produced them.
+Camera movement and settled idle frames do not rebuild glyphs.
+
+Original Tower items reuse their shop portraits and rarity settings through
+`itemart` in both table and hover views. Only compiled original visible token
+identities qualify. Pictures occupy unused bands; long rules, subtypes, keywords,
+names and costs keep priority. A short original-item preview gets the larger
+table-style illustration band only if every rule still fits at the same font
+size. Passing states affect the table portrait, and reduced motion freezes both
+UI and table ornament without per-frame material uploads.
 
 - A dark border (`BORDER`, 0.040 card widths) inside the card, then a name
   bar, a pinline, an art box, a type bar and a text box, in a card's order.

@@ -88,6 +88,41 @@ fn a_same_sequence_replay_replacement_refits_the_constructed_face() {
 }
 
 #[test]
+fn original_item_portraits_follow_passing_state_changes_without_frame_refits() {
+    use baylee_client_core::images::{ArtSize, ImageKey};
+    let mut world = World::new();
+    let entity = world.spawn_empty().id();
+    let mut input = input();
+    input.placement.art = Some(ImageKey::token(
+        baylee_cards::tokens::token_id(&baylee_cards::tokens::TOWER_ROOTS_COMMON),
+        ArtSize::Normal,
+    ));
+    let stamp = CardStamp::new(entity, &input, None);
+    assert!(!stamp.face_changed(&input, None));
+    input.veil = crate::cardmat::Veil::settled(crate::cardmat::veil::DIM);
+    assert!(
+        !stamp.face_changed(&input, None),
+        "animation frames do not rebuild faces"
+    );
+    input.placement.veil = crate::cardmat::veil::DIM;
+    assert!(
+        stamp.face_changed(&input, None),
+        "the portrait follows the changed state"
+    );
+    input.placement.art = Some(ImageKey::card_back(ArtSize::Normal));
+    assert!(
+        stamp.face_changed(&input, None),
+        "hiding an original identity removes its previous portrait"
+    );
+    let hidden = CardStamp::new(entity, &input, None);
+    input.placement.veil = 0;
+    assert!(
+        !hidden.face_changed(&input, None),
+        "ordinary cards keep their existing path"
+    );
+}
+
+#[test]
 fn cached_cards_keep_hover_and_flight_but_reduce_motion_stays_still() {
     let mut placement = input().placement;
     let (rest, _) = super::super::pose_of(&placement, None, false, 0.0);

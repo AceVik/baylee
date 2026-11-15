@@ -125,7 +125,13 @@ impl CardStamp {
         input: &CardInput,
         object: Option<&baylee_view::PublicObject>,
     ) -> bool {
-        self.input.text_epoch != input.text_epoch || self.face.as_ref() != object
+        self.input.text_epoch != input.text_epoch
+            || self.face.as_ref() != object
+            || (self.input.placement.veil != input.placement.veil
+                && crate::itemart::identity::of(input.placement.art).is_some())
+            || (self.input.placement.art != input.placement.art
+                && (crate::itemart::identity::of(input.placement.art).is_some()
+                    || crate::itemart::identity::of(self.input.placement.art).is_some()))
     }
 }
 

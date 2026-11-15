@@ -5,10 +5,10 @@
 //!
 //! - as **UI nodes** for everything in the overlay — hand, preview, the
 //!   own-board panel, the command zone;
-//! - as **`Text2d` children of the card quad** for permanents on the table,
+//! - as **shaped glyph meshes, laid out by `Text2d`**, for permanents on the table,
 //!   where they inherit tap rotation, hover lift and stacking from the parent
-//!   transform for free, and stay crisp at any zoom because they are laid out
-//!   by the text pipeline rather than baked into a texture.
+//!   transform for free. Bevy owns shaping and the shared glyph atlases;
+//!   `world_text` draws them in the table's 3D render phase.
 //!
 //! # Two detail levels, on purpose
 //!
@@ -38,6 +38,8 @@ use baylee_core::mana::ManaSymbol;
 use bevy::prelude::*;
 
 use crate::hud::UiFonts;
+
+pub(crate) mod world_text;
 
 /// How much of a card to draw.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -604,6 +606,34 @@ pub struct UiFace {
 }
 
 impl UiFace {
+    /// Original item portraits may occupy an empty band, never its keywords
+    /// or subtypes. The normal layout still owns all text and its full rules.
+    pub(crate) fn vacant_band(&self) -> Option<[f32; 4]> {
+        (self.subtypes.is_empty() && self.chips.is_empty()).then_some(self.regions.band)
+    }
+
+    /// Give an original illustration the larger table-style band only when
+    /// every rule still fits at the same readable size. Long rules keep the
+    /// ordinary preview layout and its smaller portrait.
+    pub(crate) fn illustrated(mut self, face: &CardFace, lang: Lang, widths: &Widths<'_>) -> Self {
+        let Some(body) = self.body else {
+            return self;
+        };
+        if self.vacant_band().is_none() || !face.cost.is_empty() {
+            return self;
+        }
+        let regions = Regions::laid(Layout::Table, self.sizes.depths(self.name.lines.len()));
+        if body_depth(&body_blocks(face, lang), body, self.width, widths)
+            <= body_room(&regions, self.stats, &self.sizes)
+        {
+            self.regions = regions;
+            self.layout = Layout::Table;
+            self.word = textface::laid(self.word, Layout::Table);
+            self.overflow = None;
+        }
+        self
+    }
+
     /// `face` laid out on a card `width` pixels wide, its lines measured by
     /// `widths` at the step `widths` carries. `plate` is what the strip over
     /// the card says, packed (`cardrail::Strip::plate`): numbers it already
@@ -1490,10 +1520,13 @@ fn text_font(fonts: &UiFonts, size: f32) -> TextFont {
 #[derive(Component)]
 pub struct WorldFace;
 
+/// Text stands above the slab's printed surface, not above its bottom plane.
+pub(crate) const WORLD_FACE_Z: f32 = crate::table::CARD_THICKNESS + 0.002;
+
 /// `Text2d` is laid out in pixels and scaled into the card's units: a
 /// hundred to a card width, so an em in card widths is a hundredth of its
-/// font size. A small font scaled up stays sharp, because the glyphs are
-/// rasterised at the size the camera actually needs.
+/// font size. `world_text` rasterises at twice that logical size and shares
+/// glyph atlases across cards; camera movement does not invalidate the layout.
 const PX_PER_UNIT: f32 = 100.0;
 
 /// The body's numbers on the table's face, as an em in card widths, when the
@@ -1683,6 +1716,8 @@ pub fn spawn_world(
             let entity = commands
                 .spawn((
                     WorldFace,
+                    // Layout only: world_text supplies its 3D glyph meshes.
+                    bevy::camera::visibility::RenderLayers::none(),
                     Text2d::new(text),
                     TextFont {
                         font: bevy::text::FontSource::Handle(fonts.text.clone()),
@@ -1696,7 +1731,7 @@ pub fn spawn_world(
                     anchor,
                     // z lifts the text off the quad so it is never z-fought
                     // by the card.
-                    Transform::from_translation(at.extend(0.002))
+                    Transform::from_translation(at.extend(WORLD_FACE_Z))
                         .with_scale(Vec3::splat(1.0 / PX_PER_UNIT)),
                     ChildOf(card),
                 ))
@@ -1829,6 +1864,7 @@ fn spawn_discs(
             let entity = commands
                 .spawn((
                     WorldFace,
+                    bevy::camera::visibility::RenderLayers::none(),
                     Text2d::new(glyph.to_string()),
                     TextFont {
                         font: bevy::text::FontSource::Handle(fonts.mana.clone()),
@@ -1838,7 +1874,7 @@ fn spawn_discs(
                     TextColor(FACE_INKS.0),
                     crate::manaui::ManaInk::in_line(glyph, DISC_GLYPH_EM * PX_PER_UNIT),
                     Anchor::CENTER,
-                    Transform::from_translation(on_the_card(x, y).extend(0.002))
+                    Transform::from_translation(on_the_card(x, y).extend(WORLD_FACE_Z))
                         .with_scale(Vec3::splat(1.0 / PX_PER_UNIT)),
                     ChildOf(card),
                 ))
@@ -1868,6 +1904,7 @@ fn spawn_sentence(
     let root = commands
         .spawn((
             WorldFace,
+            bevy::camera::visibility::RenderLayers::none(),
             Text2d::default(),
             TextFont {
                 font: bevy::text::FontSource::Handle(fonts.text.clone()),
@@ -1877,8 +1914,10 @@ fn spawn_sentence(
             TextColor(FACE_INKS.0),
             TextLayout::new(Justify::Left, LineBreak::NoWrap),
             Anchor::TOP_LEFT,
-            Transform::from_translation(on_the_card(x0 + TEXT_INSET, top + BAR_PAD).extend(0.002))
-                .with_scale(Vec3::splat(1.0 / PX_PER_UNIT)),
+            Transform::from_translation(
+                on_the_card(x0 + TEXT_INSET, top + BAR_PAD).extend(WORLD_FACE_Z),
+            )
+            .with_scale(Vec3::splat(1.0 / PX_PER_UNIT)),
             ChildOf(card),
         ))
         .id();

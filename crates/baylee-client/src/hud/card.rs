@@ -111,6 +111,11 @@ pub(super) fn spawn_card_art(
         // No strip lies over a text face in the interface, so the face
         // writes its own numbers: the plate it is told about is none.
         let laid = crate::face::UiFace::lay(face, lang, width, detail, widths, 0);
+        let laid = if crate::itemart::identity::of(surface.art).is_some() {
+            laid.illustrated(face, lang, widths)
+        } else {
+            laid
+        };
         let tint = crate::face::table_color(face.colors);
         let card = commands
             .spawn(Node {
@@ -133,6 +138,7 @@ pub(super) fn spawn_card_art(
             }
         }
         crate::face::spawn_ui(commands, card, lang, face, &laid, fonts);
+        crate::itemart::faces::ui(commands, card, surface.art, laid.vacant_band(), width);
         card
     } else if let Some(cards) = cards {
         commands

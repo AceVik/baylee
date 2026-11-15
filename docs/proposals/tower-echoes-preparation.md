@@ -2435,3 +2435,57 @@ The final table preview exposes a presentation gap: original artifacts still
 draw the ordinary text face without their shop illustration. Extending the
 shared original art to table and hover preview is the next presentation pass.
 No animation-performance or complete-mode acceptance is claimed here.
+
+### Milestone 75 — original item portraits at the table and readable text faces
+
+The move-only `f49c0045d` precedes this integration. Shop, table and hover
+preview now share the original portraits, rarity parameters and shader body.
+A compiled identity table admits 38 native artifacts/consumables; printed cards,
+unknown tokens and hidden faces do not receive original art. Pictures occupy
+vacant bands, with names, costs, subtypes, keywords and complete preview rules
+taking priority. A larger illustration band is selected only when all rules
+still fit at the same font size. Passing states and reduced motion apply to
+both presentation paths. World portrait materials have a bounded cache.
+
+Native inspection exposed two pre-existing text-face defects: text stood below
+the slab surface, and `Text2d` neither drew in the 3D table phase nor obtained
+layout without a visible 2D camera. Text and portraits now stand above the
+actual slab. A small adapter uses Bevy's public shaping pipeline and draws its
+glyph atlases in unlit 3D mesh batches. Material lookup retains bounded IDs,
+not ownership of unused atlases. Stable intermediate parents prevent generated
+meshes from invalidating their own text hierarchy. The real-font regression
+failed on that feedback loop before the correction; it now proves actual text
+without a 2D camera and no mesh/image writes on the next idle frame.
+
+Focused verification: the three world-text cases pass; the face selection
+passed 33 cases with two previously ignored, the three portrait placement cases
+pass, and all eight scene-cache cases pass. The original-art selection exposed
+two test assertions (physical card aspect and observer-internal entity count)
+that were corrected, with the failing selections rerun. Shader validation,
+identity boundaries, cache reuse, reduced motion and cleanup are covered.
+Final dev-control client library/test Clippy passes with warnings denied. Only
+the client was rebuilt for this native verification; no engine/backend tests,
+full-workspace gate, CI wait, push or merge ran for this milestone.
+
+Four native visual passes caught and corrected the shared shader import, slab
+height and 3D text-pipeline integration. The final pass used the unchanged
+matching native-four/policy-21 backend and engine with synthetic loopback-only
+PostgreSQL 18, Central, Tower and gateway services. Real client purchases equip
+Seed Cradle and Root Reservoir, reducing gold from 18 to 10. Starting a duel,
+keeping the opening hand and hovering both original artifacts shows their
+portraits, names, types and rules. The 1440 × 900 shop/table/preview semantic
+layout checks pass; native stderr has no shader or text-shaping error.
+This pass did not play a complete duel or establish balancing/performance.
+All four passes closed their owned clients/services and verified exit/listener
+closure. Evidence: `/tmp/baylee-tower-table-art-*-20261115*.log` and
+`/tmp/baylee-tower-table-art-{shop4,table4,preview4,cradle4}-20261115.{png,json}`.
+
+The requested post-quota-reset preview is next, before further catalog work.
+The local Rust launcher now supports an explicitly interactive, synthetic
+18-minute session and cleans up on close or timeout; its interactive branch
+has been prepared but not yet exercised. The catalog is still twelve of the
+planned 24 families, with two battle potions plus the Mythic crafting potion.
+Broader combat calibration, permanent cosmetic discovery, further visual polish,
+remaining acceptance scenes and final gates/review remain open. An earlier
+visual pass also exposed a partially clipped command-zone potion at this
+viewport; that separate layout issue remains to be addressed.

@@ -58,7 +58,21 @@ fn rebuilt_portraits_share_materials_and_idle_frames_never_upload() {
 fn item_shader_validates_with_native_frontend() {
     crate::cardmat::tests::check_wgsl(
         include_str!("ui.wesl"),
-        "struct UiVertexOutput { @location(0) uv: vec2<f32>, @builtin(position) position: vec4<f32> }; struct Globals { time: f32 };",
+        &format!(
+            "struct UiVertexOutput {{ @location(0) uv: vec2<f32>, @builtin(position) position: vec4<f32> }}; struct Globals {{ time: f32 }}; {}",
+            include_str!("common.wesl")
+        ),
+    );
+}
+
+#[test]
+fn table_shader_validates_with_native_frontend() {
+    crate::cardmat::tests::check_wgsl(
+        include_str!("world.wesl"),
+        &format!(
+            "struct VertexOutput {{ @location(2) uv: vec2<f32>, @builtin(position) position: vec4<f32> }}; struct Globals {{ time: f32 }}; @group(0) @binding(11) var<uniform> globals: Globals; {}",
+            include_str!("common.wesl")
+        ),
     );
 }
 
