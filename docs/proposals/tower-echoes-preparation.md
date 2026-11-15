@@ -2390,3 +2390,48 @@ pending at this commit. This is not a full mode completion or balance claim;
 the remaining catalog, consumables, cosmetic discovery, combat calibration and
 market acceptance scenes are still outstanding. No full-workspace gate, CI
 wait, push or merge was performed.
+
+### Milestone 74 — independent review and rendered token-workshop acceptance
+
+Independent review `629808bef` closes the two token-workshop author commits.
+Its dry-reservoir regression failed before the correction: the yes/no estimate
+invented mana from a zero-charge artifact and counted repeatable counter-only
+sources only once. Policy 21 now uses charge/tap-aware sources and the existing
+payment planner. Older policies retain their estimate. Two AI cases and six
+focused native cases pass, including exact color/tapped status and both hosted
+replays. The manual combination now performs 40 paid cycles before declining,
+beyond the house's strategic target. Final strict AI library/test Clippy passes.
+
+Fourteen Echoes client cases pass, including every shipped portrait's alpha and
+dimensions, material reuse, reduced motion, shader validation and market input
+fences. The locale-wide check caught the two new charge plurals omitting `count`
+from their argument declarations. That is fixed; `count` follows `mana, color`
+to preserve positional arguments. Three locale coverage checks and a rendered
+EN/DE singular/plural value regression pass. Strict Tower all-target and final
+dev-control client library Clippy pass. `codegen --tables --check` reports
+300 tokens (zero new), 77 handwritten / 223 generated and no drift. The API
+upgrade and gateway exact-assignment tests each pass. No full gate ran.
+
+The matching native-four/policy-21 engine, gateway fixture and dev-control client
+ran against synthetic loopback-only PostgreSQL 18, Central and Tower services.
+The harness selects and verifies the Mac's built-in display (index one in this
+run), with virtual input and a passive silent client. Readable captures and
+semantic layout checks cover 1440 × 900 and 1280 × 720, including the lower
+Mythic comparison row with social open. The Wurzelspeicher text correctly renders
+three charges for one green mana and its higher-tier differences.
+
+Real purchases equip Hearthstone and Root Reservoir. Two paid refreshes deduct
+their displayed prices and preserve those owned objects. Starting the duel routes
+to the exact native executor. Through ordinary client controls, keeping the
+hand, playing Forest and casting Llanowar Elves increases life from 20 to 21
+through Hearthstone; Root correctly earns no charge from a creature card and
+offers no unfunded mana activation. This is a focused interaction check, not a
+completed duel or balance trial. The harness verifies client, engine, backend,
+database exit and loopback listener closure.
+
+Captures and semantic states: `/tmp/baylee-tower-growth-{shop,banner-720,
+banner-bottom,roots,roots-tiers,equipped,table,root-preview}-20261115.{png,json}`.
+The final table preview exposes a presentation gap: original artifacts still
+draw the ordinary text face without their shop illustration. Extending the
+shared original art to table and hover preview is the next presentation pass.
+No animation-performance or complete-mode acceptance is claimed here.
