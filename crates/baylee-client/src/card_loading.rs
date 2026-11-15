@@ -64,6 +64,51 @@ pub(crate) fn spin(
     }
 }
 
+fn mark_failed_overlay(
+    commands: &mut Commands,
+    entity: Entity,
+    image_id: AssetId<Image>,
+    waiting: &AwaitingImage,
+) {
+    commands.entity(waiting.indicator).try_despawn();
+    let overlay_id = waiting.overlay;
+    commands.queue_silenced(move |world: &mut World| {
+        let mut marks = Vec::with_capacity(2);
+        for radians in [-0.78_f32, 0.78_f32] {
+            marks.push(
+                world
+                    .spawn((
+                        Node {
+                            position_type: PositionType::Absolute,
+                            width: px(18),
+                            height: px(2),
+                            ..default()
+                        },
+                        UiTransform::from_rotation(Rot2::radians(radians)),
+                        BackgroundColor(Color::srgb(0.65, 0.73, 0.78)),
+                        Pickable::IGNORE,
+                    ))
+                    .id(),
+            );
+        }
+        if let Ok(mut overlay_mut) = world.get_entity_mut(overlay_id) {
+            overlay_mut.add_children(&marks);
+            if let Ok(mut card_mut) = world.get_entity_mut(entity) {
+                card_mut.insert(AwaitingImage {
+                    image: image_id,
+                    overlay: overlay_id,
+                    indicator: overlay_id,
+                    failed: true,
+                });
+            }
+        } else {
+            for mark in marks {
+                let _ = world.despawn(mark);
+            }
+        }
+    });
+}
+
 #[allow(clippy::type_complexity)]
 pub(crate) fn images(
     mut commands: Commands,
@@ -111,43 +156,7 @@ pub(crate) fn images(
         });
         if let Some(waiting) = waiting {
             if failed && !waiting.failed {
-                commands.entity(waiting.indicator).try_despawn();
-                let overlay_id = waiting.overlay;
-                commands.queue_silenced(move |world: &mut World| {
-                    let mut marks = Vec::with_capacity(2);
-                    for radians in [-0.78_f32, 0.78_f32] {
-                        marks.push(
-                            world
-                                .spawn((
-                                    Node {
-                                        position_type: PositionType::Absolute,
-                                        width: px(18),
-                                        height: px(2),
-                                        ..default()
-                                    },
-                                    UiTransform::from_rotation(Rot2::radians(radians)),
-                                    BackgroundColor(Color::srgb(0.65, 0.73, 0.78)),
-                                    Pickable::IGNORE,
-                                ))
-                                .id(),
-                        );
-                    }
-                    if let Ok(mut overlay_mut) = world.get_entity_mut(overlay_id) {
-                        overlay_mut.add_children(&marks);
-                        if let Ok(mut card_mut) = world.get_entity_mut(entity) {
-                            card_mut.insert(AwaitingImage {
-                                image: image_id,
-                                overlay: overlay_id,
-                                indicator: overlay_id,
-                                failed: true,
-                            });
-                        }
-                    } else {
-                        for mark in marks {
-                            let _ = world.despawn(mark);
-                        }
-                    }
-                });
+                mark_failed_overlay(&mut commands, entity, image_id, waiting);
             }
             continue;
         }
