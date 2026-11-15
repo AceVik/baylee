@@ -435,6 +435,15 @@ fn builder_header_keeps_contextual_actions_inside_the_shared_frame() {
             let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
             state.lobby.set_lang(lang);
             state.chat_header = Some(true);
+            let _ = state
+                .lobby
+                .apply(baylee_client_core::lobby::LobbyEvent::LoggedIn {
+                    token: "test-token".to_string(),
+                    username: Some(HANDLE.to_string()),
+                });
+            let _ = state
+                .lobby
+                .apply(baylee_client_core::lobby::LobbyEvent::RoomList(None));
             state.lobby.set_me(baylee_client_core::lobby::strips::Me {
                 handle: HANDLE.to_string(),
                 guest: false,
@@ -527,4 +536,51 @@ fn builder_header_keeps_contextual_actions_inside_the_shared_frame() {
             app.world_mut().entity_mut(root).despawn();
         }
     }
+
+    // Guest and Offline builder headers never leak unavailable Contacts/Friends actions.
+    let mut guest_state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+    guest_state.chat_header = Some(true);
+    let _ = guest_state.lobby.play_offline();
+    let _ = guest_state
+        .lobby
+        .apply(baylee_client_core::lobby::LobbyEvent::RoomList(None));
+    guest_state
+        .lobby
+        .set_me(baylee_client_core::lobby::strips::Me {
+            handle: "Guest#0001".to_string(),
+            guest: true,
+        });
+    let m = ShellMetrics::of(Viewport::desktop(1280.0, 800.0), TextSize::M);
+    let prefs = baylee_client_core::prefs::Preferences::default();
+    let env = Env {
+        kit: Kit {
+            fonts: &fonts,
+            m,
+            german: false,
+        },
+        state: &guest_state,
+        prefs: &prefs,
+        scrolled: &scrolled,
+        layout: Layout::of(m.frame, 1280.0),
+        save_keys: None,
+    };
+    let mut commands = app.world_mut().commands();
+    let root = commands
+        .spawn(Node {
+            width: px_fixed(1280.0),
+            height: px_fixed(800.0),
+            flex_direction: FlexDirection::Column,
+            ..default()
+        })
+        .id();
+    let _retained = crate::buildui::builder(&mut commands, root, &env, None, None);
+    app.world_mut().flush();
+    assert!(
+        app.world_mut()
+            .query::<&Press>()
+            .iter(app.world())
+            .all(|p| *p != Press::Header(HeaderPress::Friends)),
+        "Guest builder header must not leak unavailable Friends/Contacts button"
+    );
+    app.world_mut().entity_mut(root).despawn();
 }

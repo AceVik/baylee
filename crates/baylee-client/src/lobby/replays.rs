@@ -1280,6 +1280,8 @@ pub(super) fn draw(
     // ---- 4. Scrollable Replay List
     let scroll = commands
         .spawn((
+            crate::shellkit::Role::Scroll,
+            Pickable::default(),
             Node {
                 width: percent(100),
                 flex_grow: 1.0,
@@ -1293,7 +1295,12 @@ pub(super) fn draw(
             ScrollPosition(Vec2::new(0.0, scrolled.get(List::Replays))),
         ))
         .id();
-    commands.entity(panel).add_child(scroll);
+    super::scrollbars::attach_when_needed(
+        commands,
+        panel,
+        scroll,
+        kit.m.frame == crate::shellkit::Frame::Phone,
+    );
 
     if ui.library.entries().is_empty() {
         let empty = spawn_replays_empty_state(commands, kit, lang, true);
@@ -1337,7 +1344,7 @@ pub(super) fn draw(
             ReplayPhrase::OlderOnline.text(lang),
             Weight::Secondary,
             if matches!(ui.online, Online::Asking(_)) {
-                Live::No("\u{2026}")
+                Live::No(Phrase::VeilTalking.text(lang))
             } else {
                 Live::Yes
             },

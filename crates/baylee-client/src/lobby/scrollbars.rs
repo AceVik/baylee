@@ -42,6 +42,44 @@ pub(crate) fn attach(
     track
 }
 
+/// Puts `list` and an [`OnlyWhenNeeded`] scrollbar side by side in `parent`;
+/// hidden (`Display::None`) while `list` fits so the content keeps 100% width.
+pub(crate) fn attach_when_needed(
+    commands: &mut Commands,
+    parent: Entity,
+    list: Entity,
+    wide: bool,
+) -> Entity {
+    let host = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_grow: 1.0,
+                flex_basis: px(0),
+                min_height: px(0),
+                column_gap: px(8),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(list).entry::<Node>().and_modify(|mut n| {
+        n.width = Val::Auto;
+        n.flex_grow = 1.0;
+        n.flex_basis = px(0);
+        n.min_width = px(0);
+    });
+    let bar = track(commands, list, wide);
+    commands
+        .entity(bar)
+        .insert(OnlyWhenNeeded)
+        .entry::<Node>()
+        .and_modify(|mut node| node.display = Display::None);
+    commands.entity(host).add_children(&[list, bar]);
+    commands.entity(parent).add_child(host);
+    bar
+}
+
 /// Wraps `scroller` and an [`OnlyWhenNeeded`] scrollbar in a horizontal band
 /// and returns that band entity (used by sheets and dialogs).
 pub(crate) fn band_when_needed(commands: &mut Commands, scroller: Entity, wide: bool) -> Entity {
@@ -54,34 +92,43 @@ pub(crate) fn band_when_needed(commands: &mut Commands, scroller: Entity, wide: 
             height: percent(100),
             flex_shrink: 0.0,
             display: Display::None,
+            margin: UiRect::right(px(6)),
             border_radius: BorderRadius::all(px(w * 0.5)),
             ..default()
         },
     ));
-    commands
-        .entity(scroller)
-        .entry::<Node>()
-        .and_modify(|mut node| {
-            node.flex_grow = 1.0;
-            node.flex_basis = px(0);
-            node.min_width = px(0);
-            node.max_height = percent(100);
-        });
     let host = commands
         .spawn((
             Node {
+                width: percent(100),
                 flex_direction: FlexDirection::Row,
                 flex_shrink: 1.0,
                 min_height: px(0),
                 overflow: Overflow::clip_y(),
                 column_gap: px(6),
-                padding: UiRect::right(px(6)),
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
     commands.entity(host).add_children(&[scroller, track]);
+    commands.queue(move |world: &mut World| {
+        let mut transferred_max_height = Val::Auto;
+        if let Some(mut node) = world.get_mut::<Node>(scroller) {
+            if node.max_height != Val::Auto && node.max_height != percent(100) {
+                transferred_max_height = node.max_height;
+            }
+            node.flex_grow = 1.0;
+            node.flex_basis = px(0);
+            node.min_width = px(0);
+            node.max_height = percent(100);
+        }
+        if transferred_max_height != Val::Auto
+            && let Some(mut host_node) = world.get_mut::<Node>(host)
+        {
+            host_node.max_height = transferred_max_height;
+        }
+    });
     host
 }
 
@@ -139,7 +186,7 @@ pub(crate) struct OnlyWhenNeeded;
 ///
 /// Taken out of the layout while hidden (`Display::None`), so a page that
 /// fits keeps its whole width and stays centred.
-pub(super) fn show_when_needed(
+pub(crate) fn show_when_needed(
     mut bars: Query<(&Scrollbar, &mut Node), With<OnlyWhenNeeded>>,
     lists: Query<&ComputedNode>,
 ) {
@@ -164,22 +211,8 @@ pub(super) fn remember(
     mut memory: ResMut<Scrolled>,
 ) {
     for (position, which) in &rows {
-        if matches!(
-            which.0,
-            List::Deck
-                | List::Pool
-                | List::Gateways
-                | List::Games
-                | List::Table
-                | List::EchoesInspector
-                | List::Settings
-                | List::SettingsNav
-                | List::Terms
-                | List::About
-                | List::Memorial
-                | List::DeckPicker
-                | List::TableRules
-        ) && (memory.get(which.0) - position.y).abs() > f32::EPSILON
+        if !matches!(which.0, List::PickerSets)
+            && (memory.get(which.0) - position.y).abs() > f32::EPSILON
         {
             memory.set(which.0, position.y);
         }

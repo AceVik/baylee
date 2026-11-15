@@ -268,7 +268,7 @@ pub(super) fn hero(
         .id();
     commands.entity(panel).add_child(buttons);
     let house_live = match (&off, deck) {
-        (Some(_), _) => Live::No(""),
+        (Some(reason), _) => Live::No(reason),
         (None, None) => Live::No(Phrase::PlayPickToStart.text(lang)),
         (None, Some(_)) if lobby.busy() => Live::No(Phrase::VeilTalking.text(lang)),
         (None, Some(_)) => Live::Yes,
@@ -310,8 +310,8 @@ pub(super) fn hero(
         .entry::<Node>()
         .and_modify(|mut n| n.flex_grow = 1.0);
     commands.entity(pair).add_children(&[house, caret]);
-    let create_live = if off.is_some() {
-        Live::No("")
+    let create_live = if let Some(reason) = &off {
+        Live::No(reason)
     } else if lobby.busy() {
         Live::No(Phrase::VeilTalking.text(lang))
     } else {
@@ -328,11 +328,6 @@ pub(super) fn hero(
     );
     orders::stop(commands, create, &orders::PLAY, "create");
     commands.entity(buttons).add_children(&[pair, create]);
-    // The reason stands once, under the pair (S4-3).
-    if let Some(reason) = &off {
-        let why = parts::line(commands, kit, reason, kit.m.small, tokens::GOLD);
-        commands.entity(buttons).add_child(why);
-    }
     let _ = metrics;
     anchors
 }

@@ -1033,7 +1033,7 @@ pub(crate) mod dock;
 pub(crate) mod echoes;
 mod editing;
 mod end_screen;
-mod entrance;
+pub(crate) mod entrance;
 mod feed;
 mod field;
 mod focusing;
@@ -1124,7 +1124,6 @@ use clicks::clicks;
 use http::{ask_about_registration, ask_about_saved_gateways, dispatch};
 use keyboard::keyboard;
 use preview::{Hovered, despawn_preview, hovers, preview, scroll_the_preview};
-use scrolling::scrolls;
 use systems::{
     art_follows_the_session, came_back, leave_clicks, leave_keys, lend_the_pool, poll, softkeys,
     text_follows_the_session, waiting, watch,
@@ -1150,6 +1149,7 @@ pub(crate) use press::{Press, SharedPress};
 pub(crate) use preview::{HoverCard, hover_of_card, hover_of_entry, hover_of_index};
 pub(crate) use room::RoomPress;
 pub(crate) use scrolling::Scrollable;
+pub(crate) use scrolling::scrolls;
 pub(crate) use scrolling::{List, Scrolled};
 pub(crate) use settings_press::SettingsPress;
 pub(crate) use shell::{Frame, Metrics};

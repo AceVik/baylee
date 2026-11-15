@@ -7,7 +7,7 @@ use bevy::prelude::*;
 const SECONDS: f32 = 1.65;
 
 #[derive(Resource, Default)]
-pub(super) struct Entrance {
+pub(crate) struct Entrance {
     saw_front: bool,
     progress: Option<f32>,
 }

@@ -185,7 +185,7 @@ fn search_field(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity
 fn nav(commands: &mut Commands, view: &View, kit: Kit, side: bool) -> Entity {
     let state = view.state;
     let lang = state.lobby.lang();
-    let (panel, holder) = nav_holder(commands, kit, side, view.nav_scroll, view.metrics);
+    let (panel, holder) = nav_holder(commands, kit, side, view.nav_scroll);
     // The way back to where the screen was opened over (the builder, the
     // front door, Play): before sign-in no header stands over it at all.
     {
@@ -200,7 +200,9 @@ fn nav(commands: &mut Commands, view: &View, kit: Kit, side: bool) -> Entity {
             // signed in, Settings' Esc is nothing (`KEYBOARD.md` §2.5) and
             // the header leaves it.
             (state.settings_over_table()
-                || (state.lobby.token().is_none() && !state.lobby.offline()))
+                || (state.lobby.token().is_none()
+                    && !state.lobby.offline()
+                    && !state.central_ready()))
             .then_some("Esc"),
             (Press::Settings(SettingsPress::CloseSettings), stop("back")),
         );
@@ -265,13 +267,7 @@ fn nav(commands: &mut Commands, view: &View, kit: Kit, side: bool) -> Entity {
 }
 
 /// The nav's own panel: a column beside the rows, or a wrapping row.
-fn nav_holder(
-    commands: &mut Commands,
-    kit: Kit,
-    side: bool,
-    scroll: f32,
-    metrics: Metrics,
-) -> (Entity, Entity) {
+fn nav_holder(commands: &mut Commands, kit: Kit, side: bool, scroll: f32) -> (Entity, Entity) {
     let panel = commands
         .spawn((
             Role::Panel,
@@ -328,12 +324,12 @@ fn nav_holder(
     if side {
         // All sections and even a long development build identifier remain
         // reachable at the supported canvas floor, with a visible scroll cue.
-        let bar = crate::lobby::scrollbars::attach(commands, panel, list, metrics);
-        commands
-            .entity(bar)
-            .insert(crate::lobby::scrollbars::OnlyWhenNeeded)
-            .entry::<Node>()
-            .and_modify(|mut node| node.display = Display::None);
+        crate::lobby::scrollbars::attach_when_needed(
+            commands,
+            panel,
+            list,
+            kit.m.frame == Frame::Phone,
+        );
     } else {
         commands.entity(panel).add_child(list);
     }
@@ -488,9 +484,17 @@ fn section_panel(
     // rather than squeeze them out and overflow the panel's bottom.
     if kit.m.frame == Frame::Phone || !sidebar(kit.m.frame) {
         commands.entity(rows).add_child(save);
-        commands.entity(panel).add_children(&[head, rows]);
+        commands.entity(panel).add_child(head);
+        crate::lobby::scrollbars::attach_when_needed(
+            commands,
+            panel,
+            rows,
+            kit.m.frame == Frame::Phone,
+        );
     } else {
-        commands.entity(panel).add_children(&[head, rows, save]);
+        commands.entity(panel).add_child(head);
+        crate::lobby::scrollbars::attach_when_needed(commands, panel, rows, false);
+        commands.entity(panel).add_child(save);
     }
     panel
 }

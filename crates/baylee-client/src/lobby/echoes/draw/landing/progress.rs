@@ -76,12 +76,13 @@ fn metrics(commands: &mut Commands, root: Entity, kit: Kit, run: &api::Run, comp
     ] {
         if compact {
             let badge = crate::lobby::parts::badge_with(commands, kit, icon, &value, tokens::INK);
-            let tip =
-                controls::tooltip(commands, kit, &format!("{} · {value}", caption.text(lang)));
-            commands
-                .entity(badge)
-                .insert((Pickable::default(), controls::Tooltip(tip)))
-                .add_child(tip);
+            commands.entity(badge).insert(Pickable::default());
+            controls::attach_tooltip(
+                commands,
+                badge,
+                kit,
+                &format!("{} · {value}", caption.text(lang)),
+            );
             commands.entity(root).add_child(badge);
         } else {
             widgets::stat(commands, root, kit, icon, caption.text(lang), &value);

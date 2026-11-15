@@ -1951,6 +1951,7 @@ pub(crate) fn about(
         body.push(para(commands, phrase.text(lang), false));
     }
     commands.entity(text).add_children(&body);
+    let text_band = crate::lobby::scrollbars::band_when_needed(commands, text, phone);
     let close = controls::button(
         commands,
         kit,
@@ -1960,18 +1961,10 @@ pub(crate) fn about(
         Some("Esc"),
         (Press::Front(FrontPress::About(false)), at("close")),
     );
-    let foot = commands
-        .spawn((
-            Node {
-                justify_content: JustifyContent::FlexEnd,
-                flex_shrink: 0.0,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(foot).add_child(close);
-    commands.entity(surface).add_children(&[title, text, foot]);
+    let foot = surfaces::dialog_button_row(commands, kit, &[close]);
+    commands
+        .entity(surface)
+        .add_children(&[title, text_band, foot]);
     let scrim = surfaces::sheet(commands, surface);
     commands.entity(root).add_child(scrim);
 }

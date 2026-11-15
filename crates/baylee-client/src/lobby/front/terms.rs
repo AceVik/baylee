@@ -1051,7 +1051,8 @@ pub(crate) fn sheet(
                 ));
             }
             commands.entity(text).add_children(&blocks);
-            body.push(text);
+            let text_band = crate::lobby::scrollbars::band_when_needed(commands, text, phone);
+            body.push(text_band);
             let track = commands
                 .spawn((
                     Node {
@@ -1148,21 +1149,7 @@ pub(crate) fn sheet(
             footer.push(accept);
         }
     }
-    let foot = commands
-        .spawn((
-            Node {
-                column_gap: px_fixed(kit.m.gap),
-                justify_content: JustifyContent::FlexEnd,
-                align_items: AlignItems::FlexStart,
-                flex_wrap: FlexWrap::Wrap,
-                row_gap: px_fixed(kit.m.gap),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(foot).add_children(&footer);
+    let foot = crate::shellkit::surfaces::dialog_button_row(commands, kit, &footer);
     commands.entity(surface).add_children(&body);
     commands.entity(surface).add_child(foot);
     let scrim = crate::shellkit::surfaces::sheet(commands, surface);

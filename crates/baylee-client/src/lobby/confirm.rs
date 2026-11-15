@@ -424,6 +424,12 @@ pub(super) fn draw_refusal(
         let said = note(commands, fonts, metrics, &line);
         commands.entity(reasons).add_child(said);
     }
+    commands.entity(reasons).insert(Pickable::default());
+    let reasons_band = super::scrollbars::band_when_needed(
+        commands,
+        reasons,
+        metrics.frame == super::Frame::Compact,
+    );
     let close = split_button(
         commands,
         fonts,
@@ -436,7 +442,7 @@ pub(super) fn draw_refusal(
     let actions = dialog_actions(commands, &[close]);
     commands
         .entity(panel)
-        .add_children(&[title, reasons, actions]);
+        .add_children(&[title, reasons_band, actions]);
 }
 
 #[derive(Clone, Copy)]
@@ -700,7 +706,7 @@ fn split_button(
         Node {
             flex_grow: 1.0,
             flex_basis: px(0),
-            width: percent(50),
+            min_width: px(100),
             height: px(metrics.tap.max(40.0)),
             padding: UiRect::axes(px(14), px(8)),
             column_gap: px(8),

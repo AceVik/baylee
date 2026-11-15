@@ -88,8 +88,7 @@ pub(super) fn button(
         c.entity(hit).insert(controls::Disabled);
         c.entity(face).remove::<crate::ambience::Feel>();
         c.entity(words).insert(TextColor(INK.with_alpha(0.42)));
-        let tip = controls::tooltip(c, kit, reason);
-        c.entity(hit).add_child(tip).insert(controls::Tooltip(tip));
+        controls::attach_tooltip(c, hit, kit, reason);
     }
     hit
 }

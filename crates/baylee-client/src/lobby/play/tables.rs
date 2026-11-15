@@ -390,6 +390,11 @@ fn finish_tables(
         commands.entity(list).add_child(top_spacer);
     }
     let mut walked = start;
+    let held_reason = held.as_ref().map(|s| match s {
+        Strip::Seated { table, .. } | Strip::Playing { table, .. } => {
+            Phrase::PlayJoinOff.fill(lang, &[table])
+        }
+    });
     for &index in &order[start..end] {
         let game = &lobby.games()[index];
         let row = table_row(
@@ -399,7 +404,7 @@ fn finish_tables(
             index,
             game,
             &mine_format,
-            held.is_some(),
+            held_reason.as_deref(),
             &mut walked,
         );
         commands.entity(list).add_child(row);
@@ -426,20 +431,15 @@ fn finish_tables(
         let bar = parts::row(commands, kit, false);
         let first = lobby.offset() + 1;
         let last = lobby.offset() + lobby.games().len();
-        let count = parts::line(
-            commands,
-            kit,
-            &Phrase::PageOf.fill(
-                lang,
-                &[
-                    &first.to_string(),
-                    &last.to_string(),
-                    &lobby.total().to_string(),
-                ],
-            ),
-            kit.m.small,
-            tokens::MUTED,
+        let page_said = Phrase::PageOf.fill(
+            lang,
+            &[
+                &first.to_string(),
+                &last.to_string(),
+                &lobby.total().to_string(),
+            ],
         );
+        let count = parts::line(commands, kit, &page_said, kit.m.small, tokens::MUTED);
         commands.entity(bar).add_child(count);
         for (label, forwards, live) in [
             (Phrase::PageBack.text(lang), false, lobby.offset() > 0),
@@ -450,10 +450,12 @@ fn finish_tables(
                 kit,
                 label,
                 Weight::Ghost,
-                if live && !lobby.busy() {
+                if lobby.busy() {
+                    Live::No(Phrase::VeilTalking.text(lang))
+                } else if live {
                     Live::Yes
                 } else {
-                    Live::No("")
+                    Live::No(&page_said)
                 },
                 None,
                 Press::Hub(HubPress::Page(forwards)),
@@ -478,7 +480,7 @@ fn table_row(
     index: usize,
     game: &GameSummary,
     mine_format: &str,
-    held: bool,
+    held_reason: Option<&str>,
     walked: &mut usize,
 ) -> Entity {
     let lobby = &state.lobby;
@@ -705,8 +707,8 @@ fn table_row(
             kit,
             Phrase::Join.text(lang),
             Weight::Primary,
-            if held {
-                Live::No("")
+            if let Some(reason) = held_reason {
+                Live::No(reason)
             } else if lobby.busy() {
                 Live::No(Phrase::VeilTalking.text(lang))
             } else {

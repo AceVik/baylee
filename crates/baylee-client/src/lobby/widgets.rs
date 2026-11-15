@@ -123,6 +123,10 @@ pub(crate) fn button(
     super::button_style::icon(commands, fonts, id, press, metrics.small);
     if enabled {
         commands.entity(id).insert(press);
+    } else {
+        commands
+            .entity(id)
+            .insert(crate::shellkit::controls::Disabled);
     }
     id
 }

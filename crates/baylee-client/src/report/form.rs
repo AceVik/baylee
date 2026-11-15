@@ -110,8 +110,6 @@ pub(super) struct SendWords;
 pub(super) struct SendMark;
 #[derive(Component)]
 pub(crate) struct SendSpinner;
-#[derive(Component)]
-pub(super) struct SendTouchReason;
 
 /// The retained disclosure's mutable parts.
 #[derive(Component)]

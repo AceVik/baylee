@@ -837,15 +837,24 @@ fn foot(commands: &mut Commands, fonts: &UiFonts, lang: Lang, look: Register) ->
     let line = commands
         .spawn((
             Node {
+                width: percent(100),
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
-                justify_content: JustifyContent::FlexEnd,
+                justify_content: JustifyContent::Center,
                 column_gap: px(GAP),
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
+    let clear = word(
+        commands,
+        fonts,
+        Phrase::FilterClear.text(lang),
+        Act::Clear,
+        false,
+        look,
+    );
     let done = word(
         commands,
         fonts,
@@ -859,18 +868,14 @@ fn foot(commands: &mut Commands, fonts: &UiFonts, lang: Lang, look: Register) ->
     // closing the panel is its container's, and a player pressing *Done*
     // means both at once.
     commands.entity(done).insert(FilterDone);
-    let kids = [
-        word(
-            commands,
-            fonts,
-            Phrase::FilterClear.text(lang),
-            Act::Clear,
-            false,
-            look,
-        ),
-        done,
-    ];
-    commands.entity(line).add_children(&kids);
+    for btn in [clear, done] {
+        commands.entity(btn).entry::<Node>().and_modify(|mut node| {
+            node.flex_grow = 1.0;
+            node.flex_basis = px(0);
+            node.justify_content = JustifyContent::Center;
+        });
+    }
+    commands.entity(line).add_children(&[clear, done]);
     line
 }
 

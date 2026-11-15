@@ -112,10 +112,13 @@ impl Plugin for LobbyPlugin {
                     )
                         .chain(),
                     (
-                        scrolls.run_if(table_settings::lobby_or_over_table),
+                        scrolls,
                         scroll_the_preview.run_if(in_state(DuelPhase::Closed)),
                     ),
-                    (hovers, hint::hint_hovers).run_if(in_state(DuelPhase::Closed)),
+                    (
+                        hovers.run_if(in_state(DuelPhase::Closed)),
+                        hint::hint_hovers.run_if(table_settings::lobby_or_over_table),
+                    ),
                     // The motion decides which panels are drawn, and the
                     // pose lands on the panels the rebuild just stood up.
                     (
@@ -143,12 +146,12 @@ impl Plugin for LobbyPlugin {
                     dock::materialize.run_if(in_state(DuelPhase::Closed)),
                     (button_style::materialize, crate::shellkit::sheen::dress)
                         .run_if(table_settings::lobby_or_over_table),
+                    hint::hint_panel.run_if(table_settings::lobby_or_over_table),
                     // The duel's own runs only while there is a duel, and a
                     // text face in the deckbuilder shows its scrollbar too.
                     (
                         (
                             (preview, preview::animate_preview).chain(),
-                            hint::hint_panel,
                             crate::face::show_scrollbars,
                         ),
                         (
@@ -196,9 +199,7 @@ impl Plugin for LobbyPlugin {
             // After layout, which is what says whether a page runs over.
             .add_systems(
                 PostUpdate,
-                scrollbars::show_when_needed
-                    .after(bevy::ui::UiSystems::Layout)
-                    .run_if(table_settings::lobby_or_over_table),
+                scrollbars::show_when_needed.after(bevy::ui::UiSystems::Layout),
             )
             .add_systems(
                 Update,

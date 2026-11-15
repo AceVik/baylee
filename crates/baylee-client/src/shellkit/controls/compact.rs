@@ -89,8 +89,7 @@ pub fn button_compact_with(
     }
     let wrapper = hit(commands, kit, face, (action, Disabled));
     if let Live::No(reason) = live {
-        let tip = tooltip(commands, kit, reason);
-        commands.entity(wrapper).add_child(tip).insert(Tooltip(tip));
+        attach_tooltip(commands, wrapper, kit, reason);
     }
     wrapper
 }
@@ -218,26 +217,56 @@ pub fn segmented_icons_compact<B: Bundle>(
     group
 }
 
-/// A tooltip's box, hidden until the pointer rests on its owner.
+/// Attaches a floating root-level tooltip to `owner` when `reason` is non-empty,
+/// or removes any existing [`Tooltip`] when `reason` is blank.
+pub fn attach_tooltip(commands: &mut Commands, owner: Entity, kit: Kit, reason: &str) {
+    let trimmed = reason.trim();
+    if trimmed.is_empty() {
+        commands.entity(owner).try_remove::<Tooltip>();
+        return;
+    }
+    let tip = tooltip(commands, kit, trimmed);
+    commands.queue(move |world: &mut World| {
+        if let Ok(mut ent) = world.get_entity_mut(owner) {
+            ent.insert(Tooltip(tip));
+        } else if let Ok(orphan) = world.get_entity_mut(tip) {
+            orphan.despawn();
+        }
+    });
+}
+
+/// A floating root-level tooltip box, hidden until its owner is hovered or
+/// keyboard-focused while disabled. Spawning at the root keeps tooltips above
+/// every dialog and free of parent `Overflow::clip()` surfaces.
 pub(crate) fn tooltip(commands: &mut Commands, kit: Kit, text: &str) -> Entity {
-    let words = label(commands, kit, text, kit.m.small, tokens::INK);
+    let words = commands
+        .spawn((
+            Text::new(text),
+            tf(kit.fonts, kit.m.small),
+            TextColor(tokens::INK),
+            TextLayout::new(Justify::Left, LineBreak::WordBoundary),
+            Pickable::IGNORE,
+        ))
+        .id();
     let tip = commands
         .spawn((
+            super::FloatingTooltip,
             Role::Opaque,
             Node {
+                display: Display::None,
                 position_type: PositionType::Absolute,
-                top: Val::Percent(100.0),
-                left: px_fixed(0.0),
-                margin: UiRect::top(kit.m.px(4.0)),
-                padding: UiRect::axes(kit.m.px(8.0), kit.m.px(4.0)),
+                top: px_fixed(8.0),
+                left: px_fixed(8.0),
+                max_width: kit.m.px(300.0),
+                padding: UiRect::axes(kit.m.px(10.0), kit.m.px(6.0)),
                 border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL)),
                 ..default()
             },
             BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(tokens::BORDER),
+            BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.65)),
             crate::shellkit::surfaces::popover_shadow(),
-            GlobalZIndex(tokens::z::POPOVER),
+            GlobalZIndex(tokens::z::TOOLTIP),
             Visibility::Hidden,
             Pickable::IGNORE,
         ))

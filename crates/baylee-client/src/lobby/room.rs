@@ -184,7 +184,10 @@ pub(super) fn draw(
     let gap = super::parts::grow(commands);
     commands.entity(title).add_child(gap);
     let reason = start_reason(state, game, lang);
-    if !phone && let Some(reason) = &reason {
+    if !phone
+        && !game.yours
+        && let Some(reason) = &reason
+    {
         let why = commands
             .spawn((
                 Text::new(reason.clone()),
@@ -960,6 +963,16 @@ fn seat_card(
             commands
                 .entity(toggle)
                 .insert(crate::shellkit::controls::Disabled);
+            controls::attach_tooltip(
+                commands,
+                toggle,
+                kit,
+                if own_deck {
+                    Phrase::VeilTalking.text(lang)
+                } else {
+                    Phrase::PlayPickToStart.text(lang)
+                },
+            );
         }
         walk(commands, toggle);
         commands.entity(line).add_children(&[words, toggle]);
@@ -1284,15 +1297,18 @@ fn hosted_sheet(
             kit,
             &row.words,
             Weight::Secondary,
-            Live::Yes,
+            if !row.available || lobby.busy() {
+                Live::No(
+                    row.why
+                        .as_deref()
+                        .unwrap_or_else(|| Phrase::VeilTalking.text(lang)),
+                )
+            } else {
+                Live::Yes
+            },
             None,
             Press::Room(press),
         );
-        if !row.available || lobby.busy() {
-            commands
-                .entity(button)
-                .insert(crate::shellkit::controls::Disabled);
-        }
         super::orders::item(commands, button, &super::orders::CHAIR, "controls", at);
         commands.entity(item).add_child(button);
         let details: Vec<&str> = [row.kind.as_deref(), row.model_caption.as_deref()]
@@ -1308,10 +1324,6 @@ fn hosted_sheet(
                 tokens::MUTED,
             );
             commands.entity(item).add_child(meta);
-        }
-        if let Some(why) = &row.why {
-            let l = super::parts::line(commands, kit, why, kit.m.small, tokens::MUTED);
-            commands.entity(item).add_child(l);
         }
         commands.entity(column).add_child(item);
     }

@@ -79,11 +79,7 @@ pub(super) fn surface(
     } else {
         Phrase::EchoesUnavailable.text(lang(kit)).to_owned()
     };
-    let tip = controls::tooltip(commands, kit, &description);
-    commands
-        .entity(hit)
-        .add_child(tip)
-        .insert(controls::Tooltip(tip));
+    controls::attach_tooltip(commands, hit, kit, &description);
     commands.entity(root).add_child(hit);
     face
 }

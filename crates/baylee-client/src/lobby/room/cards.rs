@@ -144,6 +144,7 @@ pub(super) fn draw(
             }
             let dropdown = commands
                 .spawn((
+                    Pickable::default(),
                     Node {
                         width: percent(100),
                         max_height: px(280),
@@ -158,7 +159,12 @@ pub(super) fn draw(
                     BackgroundColor(palette::PANEL_HOT),
                 ))
                 .id();
-            commands.entity(surface).add_child(dropdown);
+            let dropdown_band = super::super::scrollbars::band_when_needed(
+                commands,
+                dropdown,
+                m.frame == super::super::Frame::Compact,
+            );
+            commands.entity(surface).add_child(dropdown_band);
             for slot in matches {
                 let Some(card) = lobby.builder().card(slot) else {
                     continue;

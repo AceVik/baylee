@@ -74,6 +74,7 @@ pub(crate) fn printing_picker(
     commands.entity(panel).insert((
         crate::lobby::Scrollable(List::PickerPanel),
         ScrollPosition(Vec2::new(0.0, scrolled.get(List::PickerPanel))),
+        Pickable::default(),
     ));
     commands.entity(shade).add_child(panel);
 
@@ -425,7 +426,6 @@ pub(crate) fn printing_picker(
     }
 
     // ---- the way in
-    let foot = row(commands, metrics, false);
     let held = note(
         commands,
         fonts,
@@ -442,7 +442,27 @@ pub(crate) fn printing_picker(
             ],
         ),
     );
-    let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
+    commands.entity(panel).add_child(held);
+
+    let foot = row(commands, metrics, true);
+    let foot_gap = metrics.gap;
+    commands
+        .entity(foot)
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            node.width = percent(100);
+            node.justify_content = JustifyContent::Center;
+            node.column_gap = px(foot_gap);
+        });
+    let close_foot = chip(
+        commands,
+        fonts,
+        metrics,
+        Phrase::ShellClose.text(lang),
+        Press::Build(BuildPress::PickerClose),
+        false,
+    );
+    let valid = deck.picker_choices_valid();
     let add = chip(
         commands,
         fonts,
@@ -454,23 +474,28 @@ pub(crate) fn printing_picker(
         }
         .text(lang),
         Press::Build(BuildPress::PickerConfirm),
-        deck.picker_choices_valid(),
+        valid,
     );
-    if !deck.picker_choices_valid() {
-        commands.entity(add).remove::<Press>();
+    if !valid {
+        commands.entity(add).remove::<Press>().insert((
+            crate::shellkit::controls::Disabled,
+            crate::lobby::HoverHint(Phrase::PickerHint.text(lang).to_string()),
+        ));
     }
-    commands.entity(add).insert(Node {
-        min_height: px(metrics.tap),
-        align_items: AlignItems::Center,
-        justify_content: JustifyContent::Center,
-        padding: UiRect::axes(px(metrics.pad), px(metrics.pad * 0.4)),
-        flex_shrink: 0.0,
-        border_radius: btn_radius(),
-        ..default()
-    });
-    for child in [held, gap, add] {
-        commands.entity(foot).add_child(child);
+    for btn in [close_foot, add] {
+        commands.entity(btn).insert(Node {
+            min_height: px(metrics.tap),
+            flex_grow: 1.0,
+            flex_basis: px(0),
+            min_width: px(110),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            padding: UiRect::axes(px(metrics.pad), px(metrics.pad * 0.4)),
+            border_radius: btn_radius(),
+            ..default()
+        });
     }
+    commands.entity(foot).add_children(&[close_foot, add]);
     commands.entity(panel).add_child(foot);
     let hint = note(commands, fonts, metrics, Phrase::PickerHint.text(lang));
     commands.entity(panel).add_child(hint);
@@ -826,15 +851,12 @@ pub(super) fn set_search(
     if !picker.set_open() {
         return root;
     }
-    let popup = commands
+    let popup_box = commands
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
                 top: percent(100),
                 width: percent(100),
-                max_height: px(160),
-                overflow: Overflow::scroll_y(),
-                flex_direction: FlexDirection::Column,
                 padding: UiRect::all(px(4)),
                 border: UiRect::all(px(1)),
                 ..default()
@@ -842,6 +864,20 @@ pub(super) fn set_search(
             BackgroundColor(palette::PANEL),
             BorderColor::all(palette::ACCENT),
             GlobalZIndex(80),
+            Press::Shared(SharedPress::PickerNothing),
+        ))
+        .id();
+    let popup = commands
+        .spawn((
+            Pickable::default(),
+            Node {
+                width: percent(100),
+                max_height: px(152),
+                min_height: px(0),
+                overflow: Overflow::scroll_y(),
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
             crate::lobby::Scrollable(List::PickerSets),
             ScrollPosition(Vec2::new(
                 0.0,
@@ -849,9 +885,14 @@ pub(super) fn set_search(
                     - 160.0)
                     .max(0.0),
             )),
-            Press::Shared(SharedPress::PickerNothing),
         ))
         .id();
+    let popup_band = crate::lobby::scrollbars::band_when_needed(
+        commands,
+        popup,
+        metrics.frame == Frame::Compact,
+    );
+    commands.entity(popup_box).add_child(popup_band);
     let all = chip(
         commands,
         fonts,
@@ -882,7 +923,7 @@ pub(super) fn set_search(
         });
         commands.entity(popup).add_child(item);
     }
-    commands.entity(root).add_child(popup);
+    commands.entity(root).add_child(popup_box);
     root
 }
 

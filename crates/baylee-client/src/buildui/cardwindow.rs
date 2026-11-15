@@ -907,7 +907,6 @@ fn foot(
                 stop("commander"),
             ),
         ));
-        out.push(spring(commands));
     }
     out.push(controls::button(
         commands,

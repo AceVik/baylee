@@ -18,19 +18,28 @@ pub(crate) struct Scrollable(pub(crate) List);
 mod memory;
 pub(crate) use memory::{List, Scrolled};
 
+type ScrollFilter = (
+    Or<(
+        With<Scrollable>,
+        With<crate::shellkit::surfaces::SheetScroller>,
+    )>,
+    Without<crate::report::form::DeskScroll>,
+);
+
 /// Turns a wheel or a swipe into scrolling on the list under the pointer.
-#[allow(clippy::too_many_arguments)]
-pub(super) fn scrolls(
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+pub(crate) fn scrolls(
     mut wheels: MessageReader<PointerScroll>,
     mut drags: MessageReader<PointerDrag>,
     parents: Query<&ChildOf>,
     scrollbars: Query<&bevy::ui_widgets::Scrollbar>,
-    mut lists: Query<(&mut ScrollPosition, &ComputedNode, &Scrollable)>,
-    mut memory: ResMut<Scrolled>,
-    entrance: Res<super::entrance::Entrance>,
+    mut lists: Query<(&mut ScrollPosition, &ComputedNode, Option<&Scrollable>), ScrollFilter>,
+    mut memory: Option<ResMut<Scrolled>>,
+    entrance: Option<Res<super::entrance::Entrance>>,
     (journey, ui): (Option<Res<crate::arrival::Journey>>, Option<Res<UiScale>>),
 ) {
-    if journey.as_ref().is_some_and(|j| j.active()) || entrance.active() {
+    if journey.as_ref().is_some_and(|j| j.active()) || entrance.as_ref().is_some_and(|e| e.active())
+    {
         wheels.clear();
         drags.clear();
         return;
@@ -43,7 +52,13 @@ pub(super) fn scrolls(
         };
         // A wheel pushed away from the reader moves the content up, which is
         // an *increase* in the scroll offset.
-        scroll_lineage(wheel.entity, -travel, &parents, &mut lists, &mut memory);
+        scroll_lineage(
+            wheel.entity,
+            -travel,
+            &parents,
+            &mut lists,
+            memory.as_deref_mut(),
+        );
     }
     for drag in drags.read() {
         if in_scrollbar(drag.entity, &scrollbars, &parents) {
@@ -55,7 +70,7 @@ pub(super) fn scrolls(
             -drag.delta.y / ui,
             &parents,
             &mut lists,
-            &mut memory,
+            memory.as_deref_mut(),
         );
     }
 }
@@ -77,13 +92,15 @@ fn in_scrollbar(
 
 /// Scrolls the nearest list at or above an entity, so a gesture over a row
 /// scrolls the list the row is in.
+#[allow(clippy::type_complexity)]
 fn scroll_lineage(
     entity: Entity,
     by: f32,
     parents: &Query<&ChildOf>,
-    lists: &mut Query<(&mut ScrollPosition, &ComputedNode, &Scrollable)>,
-    memory: &mut Scrolled,
+    lists: &mut Query<(&mut ScrollPosition, &ComputedNode, Option<&Scrollable>), ScrollFilter>,
+    memory: Option<&mut Scrolled>,
 ) {
+    let mut memory = memory;
     let mut current = Some(entity);
     while let Some(e) = current {
         if let Ok((mut position, computed, which)) = lists.get_mut(e) {
@@ -96,7 +113,9 @@ fn scroll_lineage(
                 computed.inverse_scale_factor(),
             );
             if (position.y - before).abs() > f32::EPSILON {
-                memory.set(which.0, position.y);
+                if let (Some(memory), Some(which)) = (memory.as_deref_mut(), which) {
+                    memory.set(which.0, position.y);
+                }
                 return;
             }
             // An exhausted inner list must not trap a short screen's form.
@@ -207,18 +226,18 @@ mod scrolling_tests {
             .id();
         let mut system = SystemState::<(
             Query<&ChildOf>,
-            Query<(&mut ScrollPosition, &ComputedNode, &Scrollable)>,
+            Query<(&mut ScrollPosition, &ComputedNode, Option<&Scrollable>), ScrollFilter>,
             ResMut<Scrolled>,
         )>::new(&mut world);
         let scroll = |world: &mut World,
                       system: &mut SystemState<(
             Query<&ChildOf>,
-            Query<(&mut ScrollPosition, &ComputedNode, &Scrollable)>,
+            Query<(&mut ScrollPosition, &ComputedNode, Option<&Scrollable>), ScrollFilter>,
             ResMut<Scrolled>,
         )>,
                       by| {
             let (parents, mut lists, mut memory) = system.get_mut(world).expect("scroll query");
-            scroll_lineage(inner, by, &parents, &mut lists, &mut memory);
+            scroll_lineage(inner, by, &parents, &mut lists, Some(&mut *memory));
         };
         scroll(&mut world, &mut system, 30.0);
         assert!((world.get::<ScrollPosition>(form).unwrap().y - 30.0).abs() < 0.001);

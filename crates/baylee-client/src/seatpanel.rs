@@ -766,7 +766,6 @@ pub(crate) fn sheet(
             Pickable::IGNORE,
         ))
         .id();
-    let foot = row(commands, metrics, true);
     let faults = panel.faults();
     let mut out = Drawn {
         commands,
@@ -804,7 +803,7 @@ pub(crate) fn sheet(
         out.advanced(body, at);
     }
     out.tabs = Tabs::new(crate::settingsui::keys::PROFILE_SHEET.name, "foot");
-    out.sheet_foot(foot);
+    let foot_items = out.sheet_foot_items();
 
     let surface = crate::shellkit::surfaces::sheet_box_headed_listed(
         commands,
@@ -814,7 +813,7 @@ pub(crate) fn sheet(
             .icon('\u{f544}')
             .close(Press::Settings(SettingsPress::CloseProfile)),
         &[body],
-        &[foot],
+        &foot_items,
         (
             ScrollPosition(Vec2::new(0.0, scroll)),
             crate::lobby::Scrollable(crate::lobby::List::ProfileSheet),
@@ -1364,6 +1363,7 @@ impl Drawn<'_, '_, '_> {
     /// entry (never the key), a masked box to type one into, and Keep and
     /// Forget. Unavailable, with the reason, where this machine has no
     /// store the bridge can open; the variable keeps working everywhere.
+    #[allow(clippy::too_many_lines)]
     fn key_box(&mut self, parent: Entity, at: usize) {
         let lang = self.lang;
         let cell = self.cell(parent);
@@ -1420,6 +1420,7 @@ impl Drawn<'_, '_, '_> {
         self.commands.entity(cell).add_child(boxed);
         let doors = row(self.commands, self.metrics, true);
         self.commands.entity(cell).add_child(doors);
+        let can_keep = typing.is_some_and(|(_, b)| !b.is_empty()) && !busy;
         let keep = button(
             self.commands,
             self.fonts,
@@ -1427,8 +1428,19 @@ impl Drawn<'_, '_, '_> {
             Phrase::SeatKeyKeep.text(lang),
             Press::Settings(SettingsPress::SeatKey(KeyPress::Submit)),
             palette::ACCENT,
-            typing.is_some_and(|(_, b)| !b.is_empty()) && !busy,
+            can_keep,
         );
+        if !can_keep {
+            let reason = if busy {
+                Phrase::SeatKeyAsking.text(lang)
+            } else {
+                Phrase::SeatKeyHint.text(lang)
+            };
+            self.commands
+                .entity(keep)
+                .insert(crate::lobby::HoverHint(reason.to_string()));
+        }
+        let can_forget = matches!(state, Some(KeyState::Set)) && !busy;
         let forget = button(
             self.commands,
             self.fonts,
@@ -1436,8 +1448,18 @@ impl Drawn<'_, '_, '_> {
             Phrase::SeatKeyForget.text(lang),
             Press::Settings(SettingsPress::SeatKey(KeyPress::Delete(at))),
             palette::DANGER,
-            matches!(state, Some(KeyState::Set)) && !busy,
+            can_forget,
         );
+        if !can_forget {
+            let reason = if busy {
+                Phrase::SeatKeyAsking.text(lang).to_string()
+            } else {
+                Phrase::SeatKeyNoneKept.fill(lang, &[&host])
+            };
+            self.commands
+                .entity(forget)
+                .insert(crate::lobby::HoverHint(reason));
+        }
         self.tab(keep);
         self.tab(forget);
         self.commands.entity(doors).add_children(&[keep, forget]);
@@ -1479,9 +1501,22 @@ impl Drawn<'_, '_, '_> {
         }
     }
 
-    /// Save, Discard and Close at a sheet's foot.
-    fn sheet_foot(&mut self, line: Entity) {
-        self.save_buttons(line);
+    /// Save, Discard and Close items for a sheet's symmetric footer.
+    fn sheet_foot_items(&mut self) -> Vec<Entity> {
+        let mut items = Vec::with_capacity(4);
+        if let Some((words, ink)) = self.save_status() {
+            let status = self
+                .commands
+                .spawn((
+                    Text::new(words),
+                    tf(self.fonts, self.metrics.small),
+                    TextColor(ink),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            items.push(status);
+        }
+        let (save, revert) = self.spawn_save_pair();
         let close = button(
             self.commands,
             self.fonts,
@@ -1492,7 +1527,8 @@ impl Drawn<'_, '_, '_> {
             true,
         );
         self.tab(close);
-        self.commands.entity(line).add_child(close);
+        items.extend([save, revert, close]);
+        items
     }
 
     /// Save, Discard, and how the last save went or why none can be made.
@@ -1503,8 +1539,7 @@ impl Drawn<'_, '_, '_> {
         self.save_buttons(line);
     }
 
-    /// Save and Discard into `line`, and the save's state after them.
-    fn save_buttons(&mut self, line: Entity) {
+    fn spawn_save_pair(&mut self) -> (Entity, Entity) {
         let lang = self.lang;
         let can_save = self.panel.to_save().is_some();
         let save = button(
@@ -1516,6 +1551,16 @@ impl Drawn<'_, '_, '_> {
             palette::ACCENT,
             can_save,
         );
+        if !can_save {
+            let why = if self.faults.is_empty() {
+                Phrase::SeatSavedNote.text(lang)
+            } else {
+                Phrase::SeatFixFirst.text(lang)
+            };
+            self.commands
+                .entity(save)
+                .insert(crate::lobby::HoverHint(why.to_string()));
+        }
         let can_revert = self.panel.changed() || self.panel.newer_on_disk();
         let revert = button(
             self.commands,
@@ -1526,10 +1571,19 @@ impl Drawn<'_, '_, '_> {
             palette::PANEL_LIT,
             can_revert,
         );
+        if !can_revert {
+            self.commands.entity(revert).insert(crate::lobby::HoverHint(
+                Phrase::SeatSavedNote.text(lang).to_string(),
+            ));
+        }
         self.tab(save);
         self.tab(revert);
-        self.commands.entity(line).add_children(&[save, revert]);
-        let status = match self.panel.last_save() {
+        (save, revert)
+    }
+
+    fn save_status(&self) -> Option<(String, Color)> {
+        let lang = self.lang;
+        match self.panel.last_save() {
             Some(Saved::Written) => {
                 Some((Phrase::SeatSavedNote.text(lang).to_string(), palette::MUTED))
             }
@@ -1544,8 +1598,14 @@ impl Drawn<'_, '_, '_> {
                 Some((Phrase::SeatUnsaved.text(lang).to_string(), palette::MUTED))
             }
             None => None,
-        };
-        if let Some((words, ink)) = status {
+        }
+    }
+
+    /// Save and Discard into `line`, and the save's state after them.
+    fn save_buttons(&mut self, line: Entity) {
+        let (save, revert) = self.spawn_save_pair();
+        self.commands.entity(line).add_children(&[save, revert]);
+        if let Some((words, ink)) = self.save_status() {
             self.line(line, &words, ink);
         }
     }

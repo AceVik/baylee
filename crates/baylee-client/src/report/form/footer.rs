@@ -33,6 +33,8 @@ fn footer_button(
         .spawn((
             Role::Button,
             Node {
+                width: Val::Percent(100.0),
+                flex_grow: 1.0,
                 min_height: px_fixed(28.0),
                 padding: UiRect::axes(kit.m.px(10.0), px_fixed(0.0)),
                 column_gap: kit.m.px(6.0),
@@ -75,6 +77,15 @@ fn footer_button(
         commands.entity(face).add_child(cap);
     }
     let root = controls::hit(commands, kit, face, action);
+    commands
+        .entity(root)
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            node.flex_grow = 1.0;
+            node.flex_shrink = 1.0;
+            node.flex_basis = px_fixed(0.0);
+            node.min_width = kit.m.px(96.0);
+        });
     FootButton {
         root,
         face,
@@ -147,18 +158,7 @@ pub(super) fn form_foot(
     if let Some(icon) = what.icon {
         commands.entity(icon).insert(PreviewMark);
     }
-    let left = commands
-        .spawn((
-            Node {
-                flex_grow: 1.0,
-                justify_content: JustifyContent::FlexStart,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(left).add_child(what.root);
-    let mut footer = vec![left];
+    let mut footer = vec![what.root];
     if matches!(route, Route::Nowhere) {
         let copy = footer_button(
             commands,
@@ -204,31 +204,7 @@ pub(super) fn form_foot(
         .entity(spinner)
         .insert((SendSpinner, Visibility::Hidden));
     commands.entity(send.face).add_child(spinner);
-    // Centred like its neighbours. The reason under it is a finger's only
-    // (a pointer has the tooltip): a hidden line still takes its height,
-    // which stood Send higher than Close beside it, so only a touch footer
-    // has one (the footer is rebuilt when the input class changes).
-    let column = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::End,
-                justify_content: JustifyContent::Center,
-                row_gap: kit.m.px(2.0),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(column).add_child(send.root);
-    if kit.m.touch() {
-        let reason = words(commands, tf(kit.fonts, kit.m.small), "", tokens::MUTED);
-        commands
-            .entity(reason)
-            .insert((SendTouchReason, Visibility::Hidden));
-        commands.entity(column).add_child(reason);
-    }
-    footer.push(column);
+    footer.push(send.root);
     footer
 }
 
@@ -271,7 +247,7 @@ pub(in crate::report) fn sync_footer(
     input: Option<Res<InputClass>>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     ui: Option<Res<UiScale>>,
-    mut send: Query<(Entity, &mut SendButton, Option<&Tooltip>, Has<Disabled>)>,
+    mut send: Query<(Entity, &mut SendButton, Has<Disabled>)>,
     mut faces: Query<(&mut BackgroundColor, &mut BorderColor), With<SendFace>>,
     mut words: Query<(&mut Text, &mut TextColor), With<SendWords>>,
     mut icons: Query<
@@ -308,28 +284,11 @@ pub(in crate::report) fn sync_footer(
         lang,
         ui.as_deref().map_or(1.0, |ui| ui.0),
     );
-    for (entity, mut button, tooltip, disabled) in &mut send {
+    for (entity, mut button, disabled) in &mut send {
         if button.reason != reason {
-            if let Some(tooltip) = tooltip {
-                commands.entity(tooltip.0).try_despawn();
-            }
             button.reason.clone_from(&reason);
             if let Some(reason) = &reason {
-                let tip = controls::tooltip(&mut commands, kit, reason);
-                commands
-                    .entity(entity)
-                    .queue_silenced(move |mut ent: EntityWorldMut| {
-                        if ent.world().get_entity(tip).is_ok() {
-                            ent.add_child(tip).insert(Tooltip(tip));
-                        }
-                    });
-                commands.queue(move |world: &mut World| {
-                    if world.get_entity(entity).is_err()
-                        && let Ok(orphan) = world.get_entity_mut(tip)
-                    {
-                        orphan.despawn();
-                    }
-                });
+                controls::attach_tooltip(&mut commands, entity, kit, reason);
             } else {
                 commands.entity(entity).try_remove::<Tooltip>();
             }
@@ -413,36 +372,9 @@ pub(in crate::report) fn sync_footer(
     }
 }
 
-/// A disabled Send says why beneath the button under a finger.
-pub(in crate::report) fn sync_touch_reason(
-    desk: Res<ReportDesk>,
-    settings: Res<ClientSettings>,
-    lobby: Option<Res<LobbyState>>,
-    input: Option<Res<InputClass>>,
-    mut reasons: Query<(&mut Text, &mut Visibility), With<SendTouchReason>>,
-) {
-    if !desk.open || input.as_deref() != Some(&InputClass::Touch) {
-        return;
-    }
-    let lang = Lang::of(&settings.lang);
-    let reason = send_reason(
-        &desk,
-        &crate::report::route(lobby.as_deref(), &settings),
-        &settings.reports,
-        lang,
-    );
-    for (mut text, mut shown) in &mut reasons {
-        let said = reason.as_deref().unwrap_or_default();
-        if text.0 != said {
-            text.0 = said.to_string();
-        }
-        shown.set_if_neq(if reason.is_some() {
-            Visibility::Inherited
-        } else {
-            Visibility::Hidden
-        });
-    }
-}
+/// Kept for the report plugin's system tuple; disabled Send reasons now live
+/// in the floating [`Tooltip`] managed by [`sync_footer`].
+pub(in crate::report) fn sync_touch_reason() {}
 
 #[cfg(test)]
 mod tests {

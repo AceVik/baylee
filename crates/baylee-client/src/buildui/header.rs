@@ -214,7 +214,7 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
             kids.push(btn);
         }
         let history = env.state.lobby.token().is_some() && deck.editing().is_some();
-        let why = if env.state.lobby.offline() {
+        let why = if env.state.lobby.offline() || env.state.central_without_gateway() {
             Phrase::HistoryNeedsGateway
         } else {
             Phrase::HistorySaveHint
@@ -277,7 +277,7 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
     kids.push(save_button(commands, env));
 
     commands.entity(bar).add_children(&kids);
-    let reach = if env.state.lobby.offline() {
+    let reach = if env.state.lobby.offline() || env.state.central_without_gateway() {
         kit_header::Reach::Offline
     } else if env.state.feed_down {
         kit_header::Reach::Down
@@ -298,13 +298,17 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
             reach,
             gateway: "",
             counts: "",
-            unread: env.state.bell.unread(),
+            unread: env.state.bell.unread() + env.state.social_unread,
             handle: handle.as_deref(),
             return_pill: None,
             tools: &tools,
         },
         kit_header::StatusActions {
-            gateway: Press::Header(HeaderPress::Gateway),
+            gateway: if env.state.central_without_gateway() {
+                Press::Hub(crate::lobby::HubPress::Tab(crate::lobby::Hub::Gateways))
+            } else {
+                Press::Header(HeaderPress::Gateway)
+            },
             bell: (
                 Press::Header(HeaderPress::Bell),
                 crate::lobby::HoverHint(Phrase::HeaderNotifications.text(lang).to_string()),

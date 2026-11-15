@@ -692,10 +692,11 @@ fn unreachable_line(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Op
 /// cap under a pointer.
 fn submit(commands: &mut Commands, state: &LobbyState, kit: Kit, text: &str) -> Entity {
     let lobby = &state.lobby;
-    // A busy form says why in the status line under it already; a gateway
-    // not chosen explicitly signs nothing in (#187).
-    let live = if lobby.busy() || (!state.gateway_selected && !is_central_login_face(state)) {
-        Live::No("")
+    let lang = lobby.lang();
+    let live = if lobby.busy() {
+        Live::No(Phrase::VeilTalking.text(lang))
+    } else if !state.gateway_selected && !is_central_login_face(state) {
+        Live::No(Phrase::ChooseGatewayFirst.text(lang))
     } else {
         Live::Yes
     };
@@ -857,7 +858,7 @@ pub(super) fn sign_in(
             Phrase::CreateAccount.text(lang),
             Weight::Secondary,
             if lobby.busy() {
-                Live::No("")
+                Live::No(Phrase::VeilTalking.text(lang))
             } else {
                 Live::Yes
             },
@@ -870,12 +871,19 @@ pub(super) fn sign_in(
     });
     let guest = (lobby.guest_offered() && (!is_central_login_face(state) || state.central_bound()))
         .then(|| {
+            let disabled_why = if lobby.busy() {
+                Some(Phrase::VeilTalking.text(lang))
+            } else if !(state.gateway_selected || state.central_bound()) {
+                Some(Phrase::ChooseGatewayFirst.text(lang))
+            } else {
+                None
+            };
             controls::wide_button(
                 commands,
                 kit,
                 &guest_words(state),
                 Weight::Secondary,
-                if lobby.busy() || !(state.gateway_selected || state.central_bound()) {
+                if disabled_why.is_some() {
                     Live::No("")
                 } else {
                     Live::Yes
@@ -884,7 +892,11 @@ pub(super) fn sign_in(
                 (
                     Press::Front(FrontPress::GuestFace),
                     keys::stop(state, "guest"),
-                    super::super::hint::HoverHint(Phrase::GuestNotice.text(lang).to_string()),
+                    super::super::hint::HoverHint(
+                        disabled_why
+                            .unwrap_or_else(|| Phrase::GuestNotice.text(lang))
+                            .to_string(),
+                    ),
                 ),
             )
         });
@@ -1204,7 +1216,7 @@ pub(super) fn gateway(
         if !busy && state.adding.is_none() {
             Live::Yes
         } else {
-            Live::No("")
+            Live::No(Phrase::VeilTalking.text(lang))
         },
         None,
         (

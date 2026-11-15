@@ -235,8 +235,10 @@ pub(super) fn sheet(commands: &mut Commands, env: &Env, list: &ListEditor) -> En
             Weight::Primary,
             if list.saveable() {
                 Live::Yes
+            } else if !list.dirty() {
+                Live::No(Phrase::SeatSavedNote.text(lang))
             } else {
-                Live::No(Phrase::ListSave.text(lang))
+                Live::No(Phrase::SeatFixFirst.text(lang))
             },
             None,
             (Press::Build(BuildPress::ListSave), sheet_stop("list-save")),

@@ -420,13 +420,18 @@ fn recent(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: Kit)
             ))
             .id();
         commands.entity(words).add_children(&[what, how, deck]);
-        let off = starts_off(state, lang).is_some() || lobby.busy();
+        let off_why = starts_off(state, lang).or_else(|| {
+            lobby
+                .busy()
+                .then(|| Phrase::VeilTalking.text(lang).to_string())
+        });
+        let recent_live = off_why.as_deref().map_or(Live::Yes, Live::No);
         let again = controls::button(
             commands,
             kit,
             Phrase::PlayRematch.text(lang),
             Weight::Secondary,
-            if off { Live::No("") } else { Live::Yes },
+            recent_live,
             None,
             Press::Play(PlayPress::Rematch(at)),
         );
@@ -435,7 +440,7 @@ fn recent(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: Kit)
             kit,
             Phrase::PlayEditAndRematch.text(lang),
             Weight::Ghost,
-            if off { Live::No("") } else { Live::Yes },
+            recent_live,
             None,
             Press::Play(PlayPress::EditAndRematch(at)),
         );

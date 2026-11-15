@@ -18,9 +18,8 @@ use bevy::picking::hover::PickingInteraction;
 use bevy::prelude::*;
 
 mod compact;
-pub(crate) use compact::tooltip;
 pub use compact::{
-    button_compact, button_compact_with, segmented_compact, segmented_icons_compact,
+    attach_tooltip, button_compact, button_compact_with, segmented_compact, segmented_icons_compact,
 };
 
 /// What every maker needs: the fonts, the sizes, and whether the labels are
@@ -95,9 +94,25 @@ pub enum Live<'a> {
 /// removing it updates the native widgets too, with no second sticky marker.
 pub use bevy::ui::InteractionDisabled as Disabled;
 
-/// The hover text of a disabled control under a pointer.
+/// Floating root-level tooltip attached to a control (typically disabled).
+/// Replacing or removing this component, or despawning its owner, automatically
+/// despawns the floating tooltip entity.
 #[derive(Component)]
+#[component(on_discard = cleanup_tooltip)]
 pub struct Tooltip(pub Entity);
+
+fn cleanup_tooltip(
+    mut world: bevy::ecs::world::DeferredWorld,
+    context: bevy::ecs::lifecycle::HookContext,
+) {
+    if let Some(tip) = world.get::<Tooltip>(context.entity).map(|t| t.0) {
+        world.commands().entity(tip).try_despawn();
+    }
+}
+
+/// Marker on the root-level floating tooltip box spawned by [`attach_tooltip`].
+#[derive(Component)]
+pub(crate) struct FloatingTooltip;
 
 /// Wraps `visual` in a hit area at least [`ShellMetrics::hit`] square, and
 /// puts the action on the wrapper.
@@ -313,34 +328,9 @@ fn shaped(
     // reads an action skips a wrapper marked [`Disabled`].
     let wrapper = hit(commands, kit, face, (action, Disabled));
     let wrapper = widen(commands, wrapper);
-    let Live::No(reason) = live else {
-        return wrapper;
-    };
-    if kit.m.touch() {
-        let column = commands
-            .spawn((
-                Node {
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::Start,
-                    row_gap: kit.m.px(2.0),
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        let why = commands
-            .spawn((
-                Text::new(reason),
-                tf(kit.fonts, kit.m.small),
-                TextColor(tokens::MUTED),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(column).add_children(&[wrapper, why]);
-        return column;
+    if let Live::No(reason) = live {
+        attach_tooltip(commands, wrapper, kit, reason);
     }
-    let tip = tooltip(commands, kit, reason);
-    commands.entity(wrapper).add_child(tip).insert(Tooltip(tip));
     wrapper
 }
 
@@ -383,19 +373,143 @@ pub(crate) fn attach_live_feel(
     }
 }
 
-/// Shows a tooltip while the pointer rests on its owner.
-fn show_tooltips(
-    owners: Query<(&Tooltip, &PickingInteraction), Changed<PickingInteraction>>,
-    mut tips: Query<&mut Visibility>,
-) {
-    for (tip, interaction) in &owners {
-        if let Ok(mut shown) = tips.get_mut(tip.0) {
-            shown.set_if_neq(if *interaction == PickingInteraction::None {
-                Visibility::Hidden
-            } else {
-                Visibility::Inherited
-            });
+fn tooltip_owner_visible(
+    mut current: Entity,
+    parents: &Query<&ChildOf>,
+    visibilities: &Query<&Visibility, Without<FloatingTooltip>>,
+    nodes: &Query<&Node, Without<FloatingTooltip>>,
+) -> bool {
+    loop {
+        if matches!(visibilities.get(current), Ok(Visibility::Hidden)) {
+            return false;
         }
+        if nodes.get(current).is_ok_and(|n| n.display == Display::None) {
+            return false;
+        }
+        let Ok(parent) = parents.get(current) else {
+            return true;
+        };
+        current = parent.parent();
+    }
+}
+
+fn hovered_has_ancestor(
+    target: Entity,
+    hovers: Option<&bevy::picking::hover::HoverMap>,
+    parents: &Query<&ChildOf>,
+) -> bool {
+    let Some(hovers) = hovers else {
+        return false;
+    };
+    for map in hovers.values() {
+        for &hit in map.keys() {
+            let mut cur = Some(hit);
+            while let Some(e) = cur {
+                if e == target {
+                    return true;
+                }
+                cur = parents.get(e).ok().map(ChildOf::parent);
+            }
+        }
+    }
+    false
+}
+
+/// Shows a floating root-level tooltip while the pointer rests on its owner
+/// (including [`Disabled`] controls via [`HoverMap`]) or while keyboard
+/// [`InputFocus`] rests on a [`Disabled`] owner.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+pub(crate) fn show_tooltips(
+    owners: Query<(
+        Entity,
+        &Tooltip,
+        Option<&PickingInteraction>,
+        Has<Disabled>,
+        Option<&ComputedNode>,
+        Option<&UiGlobalTransform>,
+    )>,
+    parents: Query<&ChildOf>,
+    owner_vis: Query<&Visibility, Without<FloatingTooltip>>,
+    owner_nodes: Query<&Node, Without<FloatingTooltip>>,
+    hovers: Option<Res<bevy::picking::hover::HoverMap>>,
+    focus: Option<Res<bevy::input_focus::InputFocus>>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    ui: Option<Res<UiScale>>,
+    mut tips: Query<(&mut Visibility, &mut Node), With<FloatingTooltip>>,
+) {
+    let focused = focus
+        .as_deref()
+        .and_then(bevy::input_focus::InputFocus::get);
+    let canvas = windows.single().map_or(Vec2::new(1280.0, 800.0), |w| {
+        crate::hud::scale::space(w, ui.as_deref())
+    });
+    for (owner, tip, interaction, is_disabled, computed, transform) in &owners {
+        let by_pick = interaction.is_some_and(|i| *i != PickingInteraction::None);
+        let by_hover = !by_pick && hovered_has_ancestor(owner, hovers.as_deref(), &parents);
+        let by_focus = is_disabled && focused == Some(owner);
+        let active = (by_pick || by_hover || by_focus)
+            && tooltip_owner_visible(owner, &parents, &owner_vis, &owner_nodes);
+        let Ok((mut shown, mut node)) = tips.get_mut(tip.0) else {
+            continue;
+        };
+        if !active {
+            shown.set_if_neq(Visibility::Hidden);
+            if node.display != Display::None {
+                node.display = Display::None;
+            }
+            continue;
+        }
+        let (want_left, want_right, want_top, want_bottom) = if let Some((c, t)) = computed
+            .zip(transform)
+            .filter(|(c, _)| c.size().x > 0.0 && c.size().y > 0.0)
+        {
+            let inv = c.inverse_scale_factor();
+            let center = t.translation * inv;
+            let size = c.size() * inv;
+            let box_top = center.y - size.y * 0.5;
+            let box_bottom = center.y + size.y * 0.5;
+            let box_left = center.x - size.x * 0.5;
+            let box_right = center.x + size.x * 0.5;
+            let place_above = box_bottom > canvas.y - 96.0 && box_top > 64.0;
+            let snap = |v: f32| (v * 2.0).round() * 0.5;
+            let (top, bottom) = if place_above {
+                (
+                    Val::Auto,
+                    px_fixed(snap((canvas.y - box_top + 8.0).max(8.0))),
+                )
+            } else {
+                (px_fixed(snap((box_bottom + 8.0).max(8.0))), Val::Auto)
+            };
+            let max_w = 300.0_f32.min((canvas.x - 20.0).max(80.0));
+            let (left, right) = if center.x > canvas.x * 0.65 {
+                (Val::Auto, px_fixed(snap((canvas.x - box_right).max(10.0))))
+            } else if center.x < canvas.x * 0.35 {
+                (px_fixed(snap(box_left.max(10.0))), Val::Auto)
+            } else {
+                (
+                    px_fixed(snap(
+                        (center.x - size.x * 0.5).clamp(10.0, (canvas.x - max_w - 10.0).max(10.0)),
+                    )),
+                    Val::Auto,
+                )
+            };
+            (left, right, top, bottom)
+        } else {
+            (node.left, node.right, node.top, node.bottom)
+        };
+        if node.display != Display::Flex
+            || node.left != want_left
+            || node.right != want_right
+            || node.top != want_top
+            || node.bottom != want_bottom
+        {
+            node.display = Display::Flex;
+            node.left = want_left;
+            node.right = want_right;
+            node.top = want_top;
+            node.bottom = want_bottom;
+        }
+        shown.set_if_neq(Visibility::Visible);
     }
 }
 
@@ -1415,8 +1529,26 @@ pub fn search(
 
 /// The controls' own systems.
 pub(super) fn install(app: &mut App) {
+    use bevy::ecs::schedule::common_conditions::{not, resource_exists};
+
+    if !app.is_plugin_added::<bevy::ui_widgets::ScrollbarPlugin>() {
+        app.add_plugins(bevy::ui_widgets::ScrollbarPlugin);
+    }
     app.init_resource::<ToggleShown>()
-        .add_systems(Update, (show_tooltips, draw_sliders, animate_toggles));
+        .add_systems(Update, (show_tooltips, draw_sliders, animate_toggles))
+        .add_systems(
+            Update,
+            crate::lobby::scrolls
+                .run_if(not(resource_exists::<crate::lobby::Scrolled>))
+                .run_if(resource_exists::<Messages<bevy::picking::events::PointerScroll>>)
+                .run_if(resource_exists::<Messages<bevy::picking::events::PointerDrag>>),
+        )
+        .add_systems(
+            PostUpdate,
+            crate::lobby::scrollbars::show_when_needed
+                .after(bevy::ui::UiSystems::Layout)
+                .run_if(not(resource_exists::<crate::lobby::Scrolled>)),
+        );
 }
 
 #[cfg(test)]
@@ -1868,5 +2000,396 @@ mod tests {
                 app.update();
             }
         }
+    }
+
+    /// Disabled buttons spawn a root-level floating tooltip above sheets and
+    /// dialogs (never a squashed column under the button, even under Touch),
+    /// trigger on `PickingInteraction`, `HoverMap` over `Disabled` controls, and
+    /// keyboard `InputFocus` on `Disabled` controls, write nothing at rest, and
+    /// clean up their floating tooltip when despawned.
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn disabled_button_uses_unclipped_root_tooltip_on_hover_and_focus_without_squashed_label() {
+        use super::super::size::{InputClass, Platform, TextSize, Viewport};
+        use bevy::input_focus::{FocusCause, InputFocus};
+        use bevy::picking::backend::HitData;
+        use bevy::picking::hover::HoverMap;
+        use bevy::picking::pointer::PointerId;
+
+        let (mut app, fonts) = super::super::header::tests::layout_app();
+        app.init_resource::<InputFocus>();
+        install(&mut app);
+
+        for input in [InputClass::Pointer, InputClass::Touch] {
+            let kit = Kit {
+                fonts: &fonts,
+                m: ShellMetrics::of(
+                    Viewport {
+                        width: 1280.0,
+                        height: 800.0,
+                        input,
+                        platform: Platform::Desktop,
+                    },
+                    TextSize::M,
+                ),
+                german: false,
+            };
+            let (root, btn) = {
+                let mut commands = app.world_mut().commands();
+                let root = commands
+                    .spawn(Node {
+                        width: px_fixed(600.0),
+                        height: px_fixed(200.0),
+                        overflow: Overflow::clip(),
+                        ..default()
+                    })
+                    .id();
+                let btn = button(
+                    &mut commands,
+                    kit,
+                    "Create table",
+                    Weight::Primary,
+                    Live::No("Choose a gateway first"),
+                    None,
+                    (),
+                );
+                commands.entity(root).add_child(btn);
+                (root, btn)
+            };
+            app.world_mut().flush();
+            app.update();
+            app.update();
+
+            assert!(app.world().get::<Disabled>(btn).is_some());
+            assert_eq!(
+                app.world().get::<Role>(btn),
+                Some(&Role::Hit),
+                "disabled button returns its hit wrapper directly ({input:?})"
+            );
+            assert_eq!(
+                app.world().get::<Children>(btn).map(Children::len),
+                Some(1),
+                "no squashed under-button reason label or child tooltip ({input:?})"
+            );
+
+            let tip = app.world().get::<Tooltip>(btn).expect("tooltip attached").0;
+            assert!(
+                app.world().get::<ChildOf>(tip).is_none(),
+                "tooltip must be root-level so parent Overflow::clip() cannot clip it ({input:?})"
+            );
+            assert_eq!(
+                app.world().get::<GlobalZIndex>(tip).map(|z| z.0),
+                Some(tokens::z::TOOLTIP)
+            );
+            assert_eq!(
+                app.world().get::<Visibility>(tip),
+                Some(&Visibility::Hidden)
+            );
+            assert_eq!(
+                app.world().get::<Node>(tip).map(|n| n.display),
+                Some(Display::None)
+            );
+
+            // Resting frame writes nothing on the tooltip.
+            let rest_vis_tick = app
+                .world()
+                .entity(tip)
+                .get_ref::<Visibility>()
+                .map(|r| r.last_changed());
+            app.update();
+            assert_eq!(
+                app.world()
+                    .entity(tip)
+                    .get_ref::<Visibility>()
+                    .map(|r| r.last_changed()),
+                rest_vis_tick,
+                "hidden tooltip writes nothing at rest"
+            );
+
+            // 1. HoverMap hit on the inner face of a `Disabled` button reveals the tooltip.
+            let face = face_of(&app, btn);
+            {
+                let mut map = app.world_mut().resource_mut::<HoverMap>();
+                map.0
+                    .entry(PointerId::Mouse)
+                    .or_default()
+                    .insert(face, HitData::new(Entity::PLACEHOLDER, 0.0, None, None));
+            }
+            bevy::ecs::system::RunSystemOnce::run_system_once(app.world_mut(), show_tooltips)
+                .expect("show_tooltips runs");
+            assert_eq!(
+                app.world().get::<Visibility>(tip),
+                Some(&Visibility::Visible),
+                "HoverMap over Disabled control reveals floating tooltip ({input:?})"
+            );
+            assert_eq!(
+                app.world().get::<Node>(tip).map(|n| n.display),
+                Some(Display::Flex)
+            );
+
+            // Clearing HoverMap (which PreUpdate also does when no pointer hits) hides it again.
+            app.world_mut().resource_mut::<HoverMap>().0.clear();
+            app.update();
+            assert_eq!(
+                app.world().get::<Visibility>(tip),
+                Some(&Visibility::Hidden)
+            );
+
+            // 2. Keyboard InputFocus on a `Disabled` button also reveals the tooltip.
+            app.world_mut()
+                .resource_mut::<InputFocus>()
+                .set(btn, FocusCause::Navigated);
+            app.update();
+            assert_eq!(
+                app.world().get::<Visibility>(tip),
+                Some(&Visibility::Visible),
+                "keyboard focus on Disabled control reveals floating tooltip ({input:?})"
+            );
+
+            app.world_mut().resource_mut::<InputFocus>().clear();
+            app.update();
+            assert_eq!(
+                app.world().get::<Visibility>(tip),
+                Some(&Visibility::Hidden)
+            );
+
+            // 3. Despawning the dialog/button cleans up the root-level tooltip entity.
+            app.world_mut().entity_mut(root).despawn();
+            app.world_mut().flush();
+            assert!(
+                app.world().get_entity(tip).is_err(),
+                "on_discard hook despawns the root-level tooltip with its owner"
+            );
+        }
+    }
+
+    /// Every `sheet_box` dialog distributes 2 and 3 footer buttons symmetrically
+    /// across 100% of the footer width, shows its `OnlyWhenNeeded` scrollbar only
+    /// when body content overflows, and scrolls its body on `PointerScroll`.
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn sheet_box_distributes_footer_buttons_symmetrically_and_scrolls_with_on_demand_bar() {
+        use super::super::size::{TextSize, Viewport};
+        use super::super::surfaces::{self, SheetScroller, SheetWidth};
+        use bevy::camera::{ManualTextureViewHandle, NormalizedRenderTarget};
+        use bevy::input::mouse::MouseScrollUnit;
+        use bevy::picking::{
+            backend::HitData,
+            events::{Pointer, PointerScroll},
+            pointer::{Location, PointerId},
+        };
+        use bevy::ui_widgets::Scrollbar;
+
+        let (mut app, fonts) = super::super::header::tests::layout_app();
+        install(&mut app);
+
+        let kit = Kit {
+            fonts: &fonts,
+            m: ShellMetrics::of(Viewport::desktop(1280.0, 800.0), TextSize::M),
+            german: false,
+        };
+
+        // 1. Short dialog with 2 buttons: symmetric 50%/50% split and hidden scrollbar.
+        let (short_root, cancel2, create2) = {
+            let mut commands = app.world_mut().commands();
+            let root = commands
+                .spawn(Node {
+                    width: px_fixed(800.0),
+                    height: px_fixed(600.0),
+                    ..default()
+                })
+                .id();
+            let line = surfaces::prose(&mut commands, kit, "Short body", false);
+            let cancel = button(
+                &mut commands,
+                kit,
+                "Cancel",
+                Weight::Ghost,
+                Live::Yes,
+                None,
+                (),
+            );
+            let create = button(
+                &mut commands,
+                kit,
+                "Create table",
+                Weight::Primary,
+                Live::Yes,
+                None,
+                (),
+            );
+            let sheet = surfaces::sheet_box(
+                &mut commands,
+                kit,
+                SheetWidth::Small,
+                "Create table",
+                &[line],
+                &[cancel, create],
+            );
+            commands.entity(root).add_child(sheet);
+            (root, cancel, create)
+        };
+        app.world_mut().flush();
+        app.update();
+        app.update();
+
+        let w_of = |app: &App, e: Entity| {
+            app.world()
+                .get::<ComputedNode>(e)
+                .expect("computed")
+                .size()
+                .x
+        };
+        let cancel2_w = w_of(&app, cancel2);
+        let create2_w = w_of(&app, create2);
+        assert!(
+            cancel2_w > 150.0,
+            "footer button stretches across half the dialog ({cancel2_w})"
+        );
+        assert!(
+            (cancel2_w - create2_w).abs() <= 1.0,
+            "two dialog footer buttons split symmetrically ({cancel2_w} vs {create2_w})"
+        );
+        assert!(
+            (w_of(&app, face_of(&app, cancel2)) - cancel2_w).abs() <= 1.0,
+            "inner button face stretches across its hit wrapper"
+        );
+        {
+            let world = app.world_mut();
+            let mut bars =
+                world.query_filtered::<&Node, With<crate::lobby::scrollbars::OnlyWhenNeeded>>();
+            for bar_node in bars.iter(world) {
+                assert_eq!(
+                    bar_node.display,
+                    Display::None,
+                    "short dialog hides its OnlyWhenNeeded scrollbar"
+                );
+            }
+        }
+        app.world_mut().entity_mut(short_root).despawn();
+        app.update();
+
+        // 2. Overflowing dialog with 3 buttons: symmetric 33.3% split, visible scrollbar,
+        // and wheel scrolling over a body child row.
+        let (tall_root, b1, b2, b3, first_row) = {
+            let mut commands = app.world_mut().commands();
+            let root = commands
+                .spawn(Node {
+                    width: px_fixed(800.0),
+                    height: px_fixed(260.0),
+                    ..default()
+                })
+                .id();
+            let mut rows = Vec::new();
+            for i in 0..16 {
+                rows.push(surfaces::list_row(
+                    &mut commands,
+                    kit,
+                    &format!("Shortcut {i}"),
+                    "Cmd+K",
+                    &[],
+                    (),
+                ));
+            }
+            let first_row = rows[0];
+            let b1 = button(
+                &mut commands,
+                kit,
+                "Reset",
+                Weight::Ghost,
+                Live::Yes,
+                None,
+                (),
+            );
+            let b2 = button(
+                &mut commands,
+                kit,
+                "Cancel",
+                Weight::Secondary,
+                Live::Yes,
+                None,
+                (),
+            );
+            let b3 = button(
+                &mut commands,
+                kit,
+                "Apply",
+                Weight::Primary,
+                Live::Yes,
+                None,
+                (),
+            );
+            let sheet = surfaces::sheet_box(
+                &mut commands,
+                kit,
+                SheetWidth::Medium,
+                "Keyboard shortcuts",
+                &rows,
+                &[b1, b2, b3],
+            );
+            commands.entity(root).add_child(sheet);
+            (root, b1, b2, b3, first_row)
+        };
+        app.world_mut().flush();
+        app.update();
+        app.update();
+
+        let (w1, w2, w3) = (w_of(&app, b1), w_of(&app, b2), w_of(&app, b3));
+        assert!(w1 > 120.0);
+        assert!(
+            (w1 - w2).abs() <= 1.0 && (w2 - w3).abs() <= 1.0,
+            "three dialog footer buttons split evenly ({w1}, {w2}, {w3})"
+        );
+
+        let scroller = {
+            let world = app.world_mut();
+            let mut q = world.query_filtered::<Entity, With<SheetScroller>>();
+            q.single(world).expect("sheet scroller")
+        };
+        {
+            let world = app.world_mut();
+            let mut bars = world.query_filtered::<(&Scrollbar, &Node), With<crate::lobby::scrollbars::OnlyWhenNeeded>>();
+            let (_, bar_node) = bars
+                .iter(world)
+                .find(|(bar, _)| bar.target == scroller)
+                .expect("sheet scrollbar");
+            assert_eq!(
+                bar_node.display,
+                Display::Flex,
+                "overflowing dialog shows its OnlyWhenNeeded scrollbar"
+            );
+        }
+
+        // Send a wheel scroll event over a row inside `sheet_box` (like `?` overlay).
+        app.world_mut().write_message(PointerScroll {
+            entity: first_row,
+            pointer: Pointer::new(
+                PointerId::Mouse,
+                Location {
+                    target: NormalizedRenderTarget::TextureView(ManualTextureViewHandle(1)),
+                    position: Vec2::new(200.0, 100.0),
+                },
+            ),
+            unit: MouseScrollUnit::Line,
+            x: 0.0,
+            y: -2.0,
+            hit: HitData::new(Entity::PLACEHOLDER, 0.0, None, None),
+            phase: bevy::input::touch::TouchPhase::Moved,
+        });
+        app.update();
+        let scrolled_y = app
+            .world()
+            .get::<ScrollPosition>(scroller)
+            .expect("scroll pos")
+            .y;
+        assert!(
+            scrolled_y > 10.0,
+            "wheel over sheet_box body row scrolls SheetScroller (got {scrolled_y})"
+        );
+
+        app.world_mut().entity_mut(tall_root).despawn();
+        app.update();
     }
 }

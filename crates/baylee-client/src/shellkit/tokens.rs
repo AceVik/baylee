@@ -89,6 +89,8 @@ pub mod z {
     pub const TOAST: i32 = 30;
     /// The loading veil.
     pub const VEIL: i32 = 40;
+    /// Floating tooltips, above every sheet, modal, and report surface.
+    pub const TOOLTIP: i32 = 1200;
 }
 
 /// How many characters a label may take before its component must give it an

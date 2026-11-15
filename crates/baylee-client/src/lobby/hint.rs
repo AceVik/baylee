@@ -12,12 +12,14 @@ use super::*;
 #[derive(Component, Clone, PartialEq, Eq)]
 pub(crate) struct HoverHint(pub(crate) String);
 
-/// The mark the pointer is over, and where the pointer was.
+/// The mark the pointer or keyboard focus is over, and where the pointer was.
 #[derive(Resource, Default)]
 pub(super) struct Hinted {
     text: Option<String>,
     source: Option<Entity>,
     at: Vec2,
+    by_focus: bool,
+    by_hover_map: bool,
     /// Bumped whenever either changes, so the panel knows to redraw.
     epoch: u64,
 }
@@ -37,42 +39,127 @@ pub(super) struct HintPanelWords;
 /// The widest a hint is drawn, in logical pixels, before it wraps.
 const HINT_WIDTH: f32 = 300.0;
 
-/// Tracks which mark the pointer is over.
+/// Tracks which mark the pointer (including [`HoverMap`] over [`Disabled`]
+/// controls) or keyboard [`InputFocus`] (on [`Disabled`] controls) is over.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 pub(super) fn hint_hovers(
     mut overs: MessageReader<PointerOver>,
     mut outs: MessageReader<PointerOut>,
     hints: Query<&HoverHint>,
+    disabled: Query<(), With<crate::shellkit::controls::Disabled>>,
     parents: Query<&ChildOf>,
+    hovers: Option<Res<bevy::picking::hover::HoverMap>>,
+    focus: Option<Res<bevy::input_focus::InputFocus>>,
     mut hinted: ResMut<Hinted>,
 ) {
     let mut text = hinted.text.clone();
     let mut source = hinted.source;
     let mut at = hinted.at;
+    let mut by_focus = hinted.by_focus;
+    let mut by_hover_map = hinted.by_hover_map;
     // A rebuild takes the mark away under a still pointer, and no `Out`
     // says so.
     if source.is_some_and(|entity| hints.get(entity).is_err()) {
         text = None;
         source = None;
+        by_focus = false;
+        by_hover_map = false;
+    }
+    let focused = focus
+        .as_deref()
+        .and_then(bevy::input_focus::InputFocus::get);
+    if by_focus && focused != source {
+        text = None;
+        source = None;
+        by_focus = false;
     }
     for out in outs.read() {
         if lineage(out.entity, &hints, &parents).is_some_and(|e| Some(e) == source) {
             text = None;
             source = None;
+            by_focus = false;
+            by_hover_map = false;
         }
     }
     for over in overs.read() {
         if let Some(entity) = lineage(over.entity, &hints, &parents)
             && let Ok(hint) = hints.get(entity)
         {
-            source = Some(entity);
-            text = Some(hint.0.clone());
-            at = over.pointer.position;
+            let trimmed = hint.0.trim();
+            if trimmed.is_empty() {
+                text = None;
+                source = None;
+            } else {
+                source = Some(entity);
+                text = Some(trimmed.to_owned());
+                at = over.pointer.position;
+            }
+            by_focus = false;
+            by_hover_map = false;
         }
     }
-    if text != hinted.text || source != hinted.source {
+    let hover_map_entity = hovers.as_deref().and_then(|map| {
+        let mut hits: Vec<(Entity, f32)> = map
+            .values()
+            .flat_map(|m| m.iter().map(|(&e, hit)| (e, hit.depth)))
+            .collect();
+        hits.sort_by(|a, b| a.1.total_cmp(&b.1));
+        hits.into_iter()
+            .find_map(|(e, _)| lineage(e, &hints, &parents))
+    });
+    if by_hover_map && hover_map_entity != source {
+        text = None;
+        source = None;
+        by_hover_map = false;
+    }
+    if source.is_none()
+        && let Some(entity) = hover_map_entity
+        && let Ok(hint) = hints.get(entity)
+    {
+        let trimmed = hint.0.trim();
+        if !trimmed.is_empty() {
+            source = Some(entity);
+            text = Some(trimmed.to_owned());
+            by_hover_map = true;
+            by_focus = false;
+        }
+    }
+    if source.is_none()
+        && let Some(entity) = focused
+        && disabled.contains(entity)
+        && let Ok(hint) = hints.get(entity)
+    {
+        let trimmed = hint.0.trim();
+        if !trimmed.is_empty() {
+            source = Some(entity);
+            text = Some(trimmed.to_owned());
+            by_focus = true;
+            by_hover_map = false;
+        }
+    }
+    if let Some(entity) = source
+        && let Ok(hint) = hints.get(entity)
+    {
+        let trimmed = hint.0.trim();
+        if trimmed.is_empty() {
+            text = None;
+            source = None;
+            by_focus = false;
+            by_hover_map = false;
+        } else if text.as_deref() != Some(trimmed) {
+            text = Some(trimmed.to_owned());
+        }
+    }
+    if text != hinted.text
+        || source != hinted.source
+        || by_focus != hinted.by_focus
+        || by_hover_map != hinted.by_hover_map
+    {
         hinted.text = text;
         hinted.source = source;
         hinted.at = at;
+        hinted.by_focus = by_focus;
+        hinted.by_hover_map = by_hover_map;
         hinted.epoch = hinted.epoch.wrapping_add(1);
     }
 }
@@ -162,7 +249,7 @@ pub(super) fn hint_panel(
         .and_then(|src| nodes.get(src).ok())
         .filter(|(c, _)| c.size().x > 0.0 && c.size().y > 0.0)
         .map(|(c, t)| {
-            let inv = c.inverse_scale_factor() / ui_scale;
+            let inv = c.inverse_scale_factor();
             let center = t.translation * inv;
             let size = c.size() * inv;
             (center, size)
@@ -236,7 +323,7 @@ pub(super) fn hint_panel(
             BackgroundColor(palette::PANEL_LIT.with_alpha(0.96)),
             BorderColor::all(palette::DOCK_EDGE.with_alpha(0.55)),
             soft_shadow(),
-            GlobalZIndex(700),
+            GlobalZIndex(crate::shellkit::tokens::z::TOOLTIP),
             // A hint must never eat the click meant for what is under it.
             Pickable::IGNORE,
         ))

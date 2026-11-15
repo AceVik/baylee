@@ -500,7 +500,98 @@ fn spawn_sheet_head<C: Bundle>(
     head
 }
 
-/// The sheet's three bands: head, body (with its bar where `bar`) and foot.
+/// Marker placed on the scrolling body of every [`sheet_box`] surface so mouse
+/// wheel and pointer drag scroll the dialog body automatically.
+#[derive(Component, Clone, Copy, Default, PartialEq, Eq, Debug)]
+pub struct SheetScroller;
+
+/// Spawns a full-width dialog action row that distributes its buttons
+/// symmetrically across the available width, wrapping cleanly on narrow frames.
+pub fn dialog_button_row(commands: &mut Commands, kit: Kit, entities: &[Entity]) -> Entity {
+    let row = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                column_gap: px_fixed(kit.m.gap),
+                row_gap: px_fixed(kit.m.gap),
+                flex_wrap: FlexWrap::Wrap,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Stretch,
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(row).add_children(entities);
+    stretch_footer_items(commands, kit, entities);
+    row
+}
+
+fn stretch_footer_items(commands: &mut Commands, kit: Kit, entities: &[Entity]) {
+    if entities.is_empty() {
+        return;
+    }
+    let items = entities.to_vec();
+    commands.queue(move |world: &mut World| {
+        let button_count = items
+            .iter()
+            .filter(|&&e| {
+                world.get::<Text>(e).is_none()
+                    && (matches!(world.get::<Role>(e), Some(Role::Hit | Role::Button))
+                        || world.get::<bevy::ui_widgets::Button>(e).is_some())
+            })
+            .count();
+        let floor = kit.m.px(if button_count >= 4 { 88.0 } else { 104.0 });
+        for entity in items {
+            if world.get_entity(entity).is_err() {
+                continue;
+            }
+            if world.get::<Text>(entity).is_some() {
+                if let Some(mut node) = world.get_mut::<Node>(entity) {
+                    node.width = Val::Percent(100.0);
+                    node.flex_shrink = 0.0;
+                }
+                continue;
+            }
+            let role = world.get::<Role>(entity).copied();
+            let is_button = matches!(role, Some(Role::Hit | Role::Button))
+                || world.get::<bevy::ui_widgets::Button>(entity).is_some();
+            if is_button {
+                if let Some(mut node) = world.get_mut::<Node>(entity) {
+                    node.flex_grow = 1.0;
+                    node.flex_shrink = 1.0;
+                    node.flex_basis = px_fixed(0.0);
+                    node.justify_content = JustifyContent::Center;
+                    if node.min_width == Val::Auto
+                        || matches!(node.min_width, Val::Px(w) if w < 60.0)
+                    {
+                        node.min_width = floor;
+                    }
+                }
+                if role == Some(Role::Hit) {
+                    let faces: Vec<Entity> = world.get::<Children>(entity).map_or_default(|c| {
+                        c.iter()
+                            .filter(|&child| world.get::<Role>(child) == Some(&Role::Button))
+                            .collect()
+                    });
+                    for face in faces {
+                        if let Some(mut face_node) = world.get_mut::<Node>(face) {
+                            face_node.flex_grow = 1.0;
+                            face_node.width = Val::Percent(100.0);
+                            face_node.justify_content = JustifyContent::Center;
+                        }
+                    }
+                }
+            } else if let Some(mut node) = world.get_mut::<Node>(entity) {
+                node.width = Val::Percent(100.0);
+                node.flex_grow = 1.0;
+            }
+        }
+    });
+}
+
+/// The sheet's three bands: head, body (with its on-demand scrollbar) and foot.
 #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
 // the three sheet bands and both footer paths
 fn sheet_box_parts<C: Bundle>(
@@ -513,6 +604,7 @@ fn sheet_box_parts<C: Bundle>(
     (marker, footer_marker): (impl Bundle, impl Bundle),
     bar: bool,
 ) -> Entity {
+    let _ = bar;
     let phone = kit.m.frame == super::Frame::Phone;
     let wide = match width {
         SheetWidth::Small => 560.0,
@@ -554,6 +646,9 @@ fn sheet_box_parts<C: Bundle>(
     let head = spawn_sheet_head(commands, kit, header);
     let scroller = commands
         .spawn((
+            SheetScroller,
+            Role::Scroll,
+            Pickable::default(),
             Node {
                 flex_direction: FlexDirection::Column,
                 flex_shrink: 1.0,
@@ -568,11 +663,7 @@ fn sheet_box_parts<C: Bundle>(
         .insert(marker)
         .id();
     commands.entity(scroller).add_children(body);
-    let band = if bar {
-        crate::lobby::scrollbars::band_when_needed(commands, scroller, phone)
-    } else {
-        scroller
-    };
+    let band = crate::lobby::scrollbars::band_when_needed(commands, scroller, phone);
     commands.entity(surface).add_children(&[head, band]);
     if footer.retained || footer.entities.is_empty() {
         return surface;
@@ -586,6 +677,7 @@ fn sheet_box_parts<C: Bundle>(
         .spawn((
             footer_marker,
             Node {
+                width: Val::Percent(100.0),
                 padding,
                 column_gap: gap,
                 // More actions than a narrow sheet holds in a row (the report's
@@ -593,7 +685,8 @@ fn sheet_box_parts<C: Bundle>(
                 // the sheet.
                 flex_wrap: FlexWrap::Wrap,
                 row_gap: gap,
-                justify_content: JustifyContent::FlexEnd,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Stretch,
                 flex_shrink: 0.0,
                 border: UiRect::top(px_fixed(1.0)),
                 ..default()
@@ -604,6 +697,7 @@ fn sheet_box_parts<C: Bundle>(
         ))
         .id();
     commands.entity(foot).add_children(footer.entities);
+    stretch_footer_items(commands, kit, footer.entities);
     commands.entity(surface).add_child(foot);
     surface
 }

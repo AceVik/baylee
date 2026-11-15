@@ -297,6 +297,8 @@ pub(super) fn draw(
 
     let scroll = commands
         .spawn((
+            Role::Scroll,
+            Pickable::default(),
             Node {
                 width: percent(100),
                 flex_grow: 1.0,
@@ -310,7 +312,12 @@ pub(super) fn draw(
             ScrollPosition(Vec2::new(0.0, scrolled.get(List::Library))),
         ))
         .id();
-    commands.entity(panel).add_child(scroll);
+    super::scrollbars::attach_when_needed(
+        commands,
+        panel,
+        scroll,
+        kit.m.frame == ShellFrame::Phone,
+    );
     let grid = grid(commands, kit, ui.view);
     commands.entity(scroll).add_child(grid);
 

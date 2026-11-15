@@ -931,20 +931,31 @@ fn compact_footer_buttons_keep_their_touch_hitboxes() {
     let face = app.world().get::<Children>(send).expect("Send face")[0];
     let face = app.world().get::<Node>(face).expect("compact face");
     assert!(matches!(face.min_height, Val::Px(height) if height <= 30.0));
-    let column = app
+    let foot = app
         .world()
         .get::<ChildOf>(send)
-        .expect("Send column")
+        .expect("Send sits directly in the dialog footer")
         .parent();
-    let reason = app
-        .world()
-        .get::<Children>(column)
-        .expect("disabled reason")[1];
-    assert_eq!(
-        app.world().get::<Visibility>(reason),
-        Some(&Visibility::Inherited),
-        "Touch keeps the disabled reason visible"
+    assert!(
+        app.world()
+            .get::<crate::report::form::DeskFoot>(foot)
+            .is_some(),
+        "no squashed reason column stands under Send"
     );
+    let tip = app
+        .world()
+        .get::<crate::shellkit::controls::Tooltip>(send)
+        .expect("Send keeps its floating disabled tooltip")
+        .0;
+    assert!(
+        app.world().get::<ChildOf>(tip).is_none(),
+        "disabled tooltip floats at root level outside clipping ancestors"
+    );
+    assert_eq!(
+        app.world().get::<GlobalZIndex>(tip).map(|z| z.0),
+        Some(crate::shellkit::tokens::z::TOOLTIP)
+    );
+    let reason = app.world().get::<Children>(tip).expect("tooltip words")[0];
     assert_eq!(
         app.world().get::<Text>(reason).map(|text| text.0.as_str()),
         Some(Phrase::ReportTextHint.text(Lang::En))
