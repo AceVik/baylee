@@ -40,7 +40,7 @@ impl Tower {
             client: TowerHost::new(origin, credential, development).map_err(|_| ())?,
             origin: origin.into(),
             starts: tokio::sync::Mutex::new(()),
-            pending: Mutex::new(BTreeMap::new()),
+            pending: Mutex::new(super::pending::Claims::default()),
             games: Mutex::new(BTreeMap::new()),
         })))
     }

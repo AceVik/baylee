@@ -8,21 +8,18 @@ use uuid::Uuid;
 mod config;
 mod heartbeat;
 mod launch;
+mod pending;
 pub(crate) mod routes;
 pub(crate) use heartbeat::Heartbeat;
-const CAPACITY: usize = 32;
+#[cfg(test)]
+mod tests;
 
 pub(crate) struct Tower {
     pub client: TowerHost,
     origin: String,
     starts: tokio::sync::Mutex<()>,
-    pending: Mutex<BTreeMap<Uuid, Pending>>,
+    pending: Mutex<pending::Claims>,
     games: Mutex<BTreeMap<String, Arc<Game>>>,
-}
-
-struct Pending {
-    account: Uuid,
-    claim: Uuid,
 }
 
 pub(crate) struct Game {
@@ -49,25 +46,15 @@ impl Tower {
     pub(crate) fn ended(&self, id: &str) {
         if let Some(game) = self.games.lock().remove(id) {
             let _ = game.stop.send(true);
-            self.pending.lock().remove(&game.run);
+            self.pending.lock().remove(game.claimed.account, game.run);
         }
     }
 
     async fn claim(&self, account: Uuid, run: Uuid) -> Result<Claimed, Error> {
-        let claim = {
-            let mut pending = self.pending.lock();
-            if pending.len() >= CAPACITY && !pending.contains_key(&run) {
-                return Err(Error::Busy);
-            }
-            let entry = pending.entry(run).or_insert_with(|| Pending {
-                account,
-                claim: Uuid::now_v7(),
-            });
-            if entry.account != account {
-                return Err(Error::Rejected);
-            }
-            entry.claim
-        };
+        let claim = self
+            .pending
+            .lock()
+            .begin(account, run, std::time::Instant::now())?;
         match self
             .client
             .control(&Request::Claim {
@@ -80,15 +67,7 @@ impl Tower {
             Ok(Response::Claimed { game }) => Ok(*game),
             Ok(_) => Err(Error::Unavailable),
             Err(error) => {
-                if matches!(
-                    error,
-                    Error::Rejected
-                        | Error::Conflict
-                        | Error::TermsRequired
-                        | Error::UpdateRequired
-                ) {
-                    self.pending.lock().remove(&run);
-                }
+                self.pending.lock().refused(account, run, error);
                 Err(error)
             }
         }

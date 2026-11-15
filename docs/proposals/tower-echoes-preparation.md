@@ -1985,3 +1985,36 @@ Evidence on 15 November 2026:
 Owned child commands, two private PostgreSQL clusters, login roles and listeners
 were closed/removed. Touched-crate formatting and whitespace checks pass. No
 engine, graphical or unrelated test suite was repeated.
+
+### Milestone 63 — bounded, account-isolated gateway start retries
+
+Gateway retry identities now have a two-slot per-Central-account limit alongside
+the existing 32-slot process bound, and expire after ten minutes without extension
+by retries. Successful attachment releases its pending slot. The cache never
+grants a lease; every new identity still passes the global ownership, assignment,
+live lease and recovery checks. Invalid/truncated HTTP replies retain the original
+claim because a remote commit may already have happened.
+
+The first real integration run exposed a regression in retaining ambiguous
+refusals with the old run-only key: a foreign account's refused attempt could
+occupy the owner's slot. The key now includes authenticated Central account and
+run, including removal paths; both a focused regression and the existing real
+foreign-account/start sequence cover this boundary. No shared-session identity,
+rules, reward or durable execution format changed.
+
+Evidence on 15 November 2026:
+
+- `/tmp/baylee-tower-claim-tests-20261115-r2.log`: five targeted gateway tests pass
+  in 0.01s. They cover both caps, exact retry, expiry without sleeps, foreign-slot
+  isolation and real loopback HTTP malformed/unavailable/conflict replies.
+- `/tmp/baylee-tower-claim-native-e2e-20261115-r2.log`: one real Central/gateway/
+  retained native Tower integration passes in 31.79s. It verifies foreign-owner
+  refusal, repeated seat reclaim, one actual engine crash, preserved prefix and
+  fenced recovery, then deliberate concession and one independently verified
+  defeat/gold payment. It is not a difficulty or successful-victory playtest.
+- `/tmp/baylee-tower-claim-clippy-20261115-r4.log`: strict gateway binary/test
+  Clippy passes. Formatting and whitespace checks pass. No unrelated tests or
+  full engine suite ran.
+
+Both the failed diagnostic and successful real run closed all owned services,
+native children and PostgreSQL clusters/listeners. No graphical client opened.

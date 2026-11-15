@@ -6226,7 +6226,16 @@ the authority origin, authenticated Host UUID and available exact Tower engine
 identities. Both require a current non-admin Central player session. Play derives
 the owner UUID from that session, checks participation/admission, retains its
 claim ID across ambiguous failures and launches only an agent advertising the
-complete reserved identity. Pending starts are serialized and capped at 32.
+complete reserved identity. Pending starts are serialized and capped at 32 total,
+with at most two per authenticated Central account. Retry identities expire ten
+minutes after first creation and are pruned at the next admission; repeated
+attempts cannot extend that retention. An invalid/truncated authority reply is
+ambiguous and retains the same claim, just like a transport outage. Definite
+conflict/terms/version refusals clear it; a successfully attached game releases
+its pending slot. Local expiry never grants execution: a fresh claim still goes
+through the authority's live lease, ownership and fenced-recovery checks.
+The cache key includes both authenticated account and run: a foreign attempt can
+neither occupy nor clear the owner's retry identity, even after an ambiguous reply.
 An attached owner's repeat reclaims the same human seat. Spectators and ordinary
 rematches are disabled: the latter must not copy the private opponent build.
 

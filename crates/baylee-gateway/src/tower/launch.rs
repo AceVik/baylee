@@ -60,6 +60,9 @@ pub(super) fn start(
         engine::end_game(state, &game_id);
         return Err(routes::unavailable());
     }
+    // The active-game map now owns recovery of this live attachment. Pending
+    // admission slots are only for unanswered/failed starts, never active tables.
+    tower.pending.lock().remove(player.central, run);
     state.lobby_moved();
     Ok(crate::routes::SeatGrant {
         game_id,
