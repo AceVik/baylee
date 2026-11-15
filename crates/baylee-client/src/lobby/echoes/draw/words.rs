@@ -101,6 +101,12 @@ pub(super) fn name(goods: Goods, lang: Lang) -> String {
             Family::SwarmBanner => Phrase::EchoesBanner,
             Family::HarvestWheel => Phrase::EchoesHarvest,
             Family::RootReservoir => Phrase::EchoesRoots,
+            Family::EmberLantern => Phrase::EchoesLantern,
+            Family::TideglassLens => Phrase::EchoesLens,
+            Family::GraveBell => Phrase::EchoesBell,
+            Family::StormSpindle => Phrase::EchoesSpindle,
+            Family::DawnAegis => Phrase::EchoesAegis,
+            Family::GildedAcorn => Phrase::EchoesAcorn,
         }
         .text(lang)
         .to_owned(),
@@ -146,6 +152,12 @@ pub(super) fn effect(goods: Goods, lang: Lang) -> String {
                 | Family::SwarmBanner
                 | Family::HarvestWheel
                 | Family::RootReservoir => growth::effect(definition, lang),
+                Family::EmberLantern
+                | Family::TideglassLens
+                | Family::GraveBell
+                | Family::StormSpindle
+                | Family::DawnAegis
+                | Family::GildedAcorn => run_effect(definition, lang),
             }
         }
     }
@@ -165,7 +177,36 @@ pub(super) fn tier(definition: Definition, lang: Lang) -> String {
         Family::SeedCradle | Family::SwarmBanner | Family::HarvestWheel | Family::RootReservoir => {
             growth::tier(definition, lang)
         }
+        Family::EmberLantern
+        | Family::TideglassLens
+        | Family::GraveBell
+        | Family::StormSpindle
+        | Family::DawnAegis
+        | Family::GildedAcorn => run_effect(definition, lang),
     }
+}
+
+/// Generation-five native sentences; the redesigned shop adds localized detail rows.
+pub(super) fn run_effect(definition: Definition, lang: Lang) -> String {
+    let Some(token) = baylee_cards::tokens::tower::run::definition(definition.id()) else {
+        return String::new();
+    };
+    let mut lines = Vec::new();
+    if definition.family == Family::GildedAcorn {
+        lines.push(Phrase::EchoesAcornEffect.fill(lang, &[&definition.rarity.tier().to_string()]));
+        if definition.rarity == Rarity::MythicRare {
+            lines.push(Phrase::EchoesAcornMythic.text(lang).to_owned());
+        }
+    }
+    for index in 0..token.abilities.len() {
+        if let Some(text) = baylee_cards::tokens::tower::run::ability_text(
+            token,
+            u32::try_from(index).expect("bounded native abilities"),
+        ) {
+            lines.push(text.to_owned());
+        }
+    }
+    lines.join("\n")
 }
 
 pub(super) fn command(command: &Command, ui: &Ui, lang: Lang) -> String {

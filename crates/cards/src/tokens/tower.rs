@@ -31,6 +31,8 @@ mod hearth;
 mod life;
 #[path = "tower/roots.rs"]
 mod roots;
+#[path = "tower/run/mod.rs"]
+pub mod run;
 pub use amber::*;
 pub use banner::*;
 pub use chalice::*;
@@ -180,6 +182,9 @@ pub fn potion_kind(id: u16) -> Option<TowerSupply> {
 
 /// Original rules text, not an Oracle quotation.
 pub(super) fn ability_text(token: &TokenDef, index: u32) -> Option<&'static str> {
+    if let Some(text) = run::ability_text(token, index) {
+        return Some(text);
+    }
     if let Some(text) = life::ability_text(token, index) {
         return Some(text);
     }

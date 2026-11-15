@@ -14,7 +14,13 @@ pub(super) fn effect(definition: Definition, lang: Lang) -> String {
         | Family::SpringChalice
         | Family::Hearthstone
         | Family::BloodAmber
-        | Family::LifeCoil => {
+        | Family::LifeCoil
+        | Family::EmberLantern
+        | Family::TideglassLens
+        | Family::GraveBell
+        | Family::StormSpindle
+        | Family::DawnAegis
+        | Family::GildedAcorn => {
             unreachable!("other workshops have their own text")
         }
     };
@@ -74,7 +80,13 @@ pub(super) fn tier(definition: Definition, lang: Lang) -> String {
         | Family::SpringChalice
         | Family::Hearthstone
         | Family::BloodAmber
-        | Family::LifeCoil => {
+        | Family::LifeCoil
+        | Family::EmberLantern
+        | Family::TideglassLens
+        | Family::GraveBell
+        | Family::StormSpindle
+        | Family::DawnAegis
+        | Family::GildedAcorn => {
             unreachable!("other workshops have their own text")
         }
     }

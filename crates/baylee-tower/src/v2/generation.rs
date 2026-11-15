@@ -78,7 +78,7 @@ pub const fn contract(generation: u16) -> Result<Contract, Refusal> {
         }),
         RUN => Ok(Contract {
             revision: 5,
-            ai_generation: AIProfile::OPTIONAL_TOKEN_SATURATION,
+            ai_generation: AIProfile::RUN_EQUIPMENT_MANA,
         }),
         _ => Err(Refusal::Invalid),
     }
@@ -107,7 +107,8 @@ pub fn families(generation: u16) -> Result<&'static [Family], Refusal> {
     match generation {
         1 => Ok(&FIRST),
         2 => Ok(&LIFE_WORKSHOP),
-        3 | RUN => Ok(&TOKEN_WORKSHOP),
+        3 => Ok(&TOKEN_WORKSHOP),
+        RUN => Ok(&Family::ALL),
         _ => Err(Refusal::Invalid),
     }
 }

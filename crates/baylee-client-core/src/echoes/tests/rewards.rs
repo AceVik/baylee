@@ -44,6 +44,7 @@ fn fixture() -> (State, Cohort, Run) {
         .collect();
     let mut executor = cohort().contract.executor;
     executor.rules = "tower-5".into();
+    executor.ai = "tower-house-22".into();
     let cohort = Cohort {
         id: Uuid::now_v7(),
         contract: domain::v2::package::Cohort::for_generation(
@@ -69,6 +70,7 @@ fn fixture() -> (State, Cohort, Run) {
         outcome: domain::run::Outcome::Victory,
         turns: 12,
         used: [0; 2],
+        bonus_gold: 0,
         claim: None,
     });
     run.reward = Some(api::Reward {

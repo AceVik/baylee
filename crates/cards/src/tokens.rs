@@ -32,6 +32,7 @@ use baylee_core::types::TypeSet;
 
 #[path = "tokens/tower.rs"]
 pub mod tower;
+pub use tower::run::*;
 pub use tower::{
     TOWER_AMBER_COMMON, TOWER_AMBER_MYTHIC, TOWER_AMBER_RARE, TOWER_AMBER_UNCOMMON,
     TOWER_CHALICE_COMMON, TOWER_CHALICE_MYTHIC, TOWER_CHALICE_RARE, TOWER_CHALICE_UNCOMMON,

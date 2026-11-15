@@ -669,6 +669,9 @@ impl AIProfile {
     /// Decline pure optional creature-token rewards once an ample board is built.
     /// A house-policy choice only; neither a rules cap nor repetition detection.
     pub const OPTIONAL_TOKEN_SATURATION: u16 = 21;
+    /// Read the live mana offer when evaluating an optional token price and
+    /// respect turn limits on counter-paid sources. Used by independent Tower equipment.
+    pub const RUN_EQUIPMENT_MANA: u16 = 22;
     /// What the ordinary named profiles play.
     pub const GENERATION: u16 = Self::CHOSEN_AND_LINKED_FILTERS;
 

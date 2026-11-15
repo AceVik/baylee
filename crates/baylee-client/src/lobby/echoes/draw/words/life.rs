@@ -30,7 +30,13 @@ pub(super) fn effect(definition: Definition, lang: Lang) -> String {
         | Family::SeedCradle
         | Family::SwarmBanner
         | Family::HarvestWheel
-        | Family::RootReservoir => {
+        | Family::RootReservoir
+        | Family::EmberLantern
+        | Family::TideglassLens
+        | Family::GraveBell
+        | Family::StormSpindle
+        | Family::DawnAegis
+        | Family::GildedAcorn => {
             unreachable!("foundation text has its own reader")
         }
     };
@@ -53,7 +59,13 @@ pub(super) fn tier(definition: Definition, lang: Lang) -> String {
         | Family::SeedCradle
         | Family::SwarmBanner
         | Family::HarvestWheel
-        | Family::RootReservoir => {
+        | Family::RootReservoir
+        | Family::EmberLantern
+        | Family::TideglassLens
+        | Family::GraveBell
+        | Family::StormSpindle
+        | Family::DawnAegis
+        | Family::GildedAcorn => {
             unreachable!("foundation text has its own reader")
         }
     };
@@ -74,7 +86,13 @@ fn amount(definition: Definition) -> u8 {
         | Family::SeedCradle
         | Family::SwarmBanner
         | Family::HarvestWheel
-        | Family::RootReservoir => {
+        | Family::RootReservoir
+        | Family::EmberLantern
+        | Family::TideglassLens
+        | Family::GraveBell
+        | Family::StormSpindle
+        | Family::DawnAegis
+        | Family::GildedAcorn => {
             unreachable!("foundation text has its own reader")
         }
     }

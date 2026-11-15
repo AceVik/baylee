@@ -21,6 +21,30 @@ pub mod verification;
 #[derive(Clone, Copy, Debug)]
 pub struct Pack;
 
+/// Independent run equipment, with registry-verified Commander admission.
+/// Kept separate from the retained artifact pack until the release switch.
+#[derive(Clone, Copy, Debug)]
+pub struct RunPack;
+
+impl NativeRulePack for RunPack {
+    const PACK: u16 = v2::PACK;
+    const REVISION: u16 = 5;
+
+    fn validate(preset: &baylee_core::preset::GamePreset) -> Result<(), SetupError> {
+        v2::loadout::validate_for(preset, v2::generation::RUN)
+            .map_err(|_| SetupError::UnsupportedRulePack)?;
+        for seat in &preset.seats {
+            baylee_tower_content::validate_seat(seat)
+                .map_err(|_| SetupError::UnsupportedRulePack)?;
+        }
+        Ok(())
+    }
+
+    fn definition(id: u16) -> Option<NativeDefinition> {
+        baylee_cards::tokens::tower::run::definition(id).map(NativeDefinition::Emblem)
+    }
+}
+
 impl NativeRulePack for Pack {
     const PACK: u16 = v2::PACK;
     const REVISION: u16 = v2::REVISION;
@@ -48,6 +72,12 @@ impl NativeRulePack for Pack {
             Family::SwarmBanner => NativeDefinition::Permanent(GROWTH_RELICS[1][tier]),
             Family::HarvestWheel => NativeDefinition::Permanent(GROWTH_RELICS[2][tier]),
             Family::RootReservoir => NativeDefinition::Permanent(GROWTH_RELICS[3][tier]),
+            Family::EmberLantern
+            | Family::TideglassLens
+            | Family::GraveBell
+            | Family::StormSpindle
+            | Family::DawnAegis
+            | Family::GildedAcorn => return None,
         })
     }
 }

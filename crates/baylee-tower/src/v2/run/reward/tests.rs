@@ -11,6 +11,56 @@ use baylee_protocol::execution::{Identity, Variant};
 
 const SEED: [u8; 32] = [43; 32];
 
+#[test]
+fn income_uses_only_frozen_equipment_and_cannot_be_replayed_or_forged() {
+    use crate::v2::{
+        catalog::{Definition, Family, Rarity},
+        inventory::Slot,
+    };
+    let (catalog, mut run, cohort, enemy) = fixture();
+    let acorn = Definition {
+        family: Family::GildedAcorn,
+        rarity: Rarity::Common,
+    };
+    let before = run.economy.gold;
+    run.economy = run.economy.bought_automatic(acorn).unwrap();
+    let id = run.economy.inventory.relics[0].id;
+    run.economy = run.economy.moved(id, Slot::Active(0)).unwrap();
+    run.economy = run.economy.bought_automatic(acorn).unwrap();
+    run.ledger = run.ledger.traded(before, run.economy.gold).unwrap();
+    run.validate(&catalog).unwrap();
+    let gold = run.economy.gold;
+    let (sealed, package, result) = verified(&run, &catalog, &cohort, &enemy, Outcome::Victory);
+    let settled = sealed
+        .settled_against(sealed.revision, result.clone(), &catalog, &SEED, &package)
+        .unwrap();
+    assert_eq!(
+        settled.economy.gold,
+        gold + 12 + 1,
+        "stored copy earns nothing"
+    );
+    assert_eq!(settled.income[0].acorns, [1, 0, 0, 0]);
+    assert!(
+        settled
+            .settled_against(settled.revision, result.clone(), &catalog, &SEED, &package)
+            .is_err()
+    );
+    let mut changed = sealed;
+    changed.economy = changed.economy.moved(id, Slot::Inventory).unwrap();
+    assert!(
+        changed
+            .settled_against(changed.revision, result, &catalog, &SEED, &package)
+            .is_err(),
+        "changing equipment after reservation fails"
+    );
+    let mut forged = settled;
+    forged.income[0].acorns = [2, 0, 0, 0];
+    assert!(
+        forged.validate(&catalog).is_err(),
+        "income and conserved wallet must agree"
+    );
+}
+
 fn fixture() -> (Catalog, Run, Cohort, Build) {
     let (mut catalog, cards) = crate::cards::run_tests::fixture();
     for id in 10..18 {
@@ -20,7 +70,7 @@ fn fixture() -> (Catalog, Run, Cohort, Build) {
         });
     }
     let run = Run::begin_for(&catalog, cards, &SEED, generation::RUN).unwrap();
-    let mut identity = Identity::native(Variant::Tower, "reward-test", "synthetic", 21);
+    let mut identity = Identity::native(Variant::Tower, "reward-test", "synthetic", 22);
     identity.rules = "tower-5".into();
     let cohort = Cohort::for_generation(identity, &catalog, generation::RUN).unwrap();
     let mut enemy = Build::freeze(&run, &catalog).unwrap();

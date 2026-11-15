@@ -9931,6 +9931,15 @@ EchoesCradle = Seed cradle
 EchoesBanner = Swarm banner
 EchoesHarvest = Harvest wheel
 EchoesRoots = Root reservoir
+EchoesLantern = Ember lantern
+EchoesLens = Tideglass lens
+EchoesBell = Grave bell
+EchoesSpindle = Storm spindle
+EchoesAegis = Dawn aegis
+EchoesAcorn = Gilded acorn
+# Arguments: gold
+EchoesAcornEffect = After each verified duel: +{ $gold } gold while equipped.
+EchoesAcornMythic = Legendary — a victory grants another 3 gold.
 EchoesCradleEvent = Each time you gain life, this artifact offers an optional payment. Counts events, not life points.
 # Arguments: mana
 EchoesCradleTier = You may pay { $mana } mana of any type to create one green 1/1 Plant.

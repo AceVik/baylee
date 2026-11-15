@@ -6,6 +6,7 @@ fn frozen_run_keeps_all_zones_and_commander_in_the_native_preset() {
     let run = Run::begin_for(&catalog, cards, &[7; 32], generation::RUN).unwrap();
     let mut executor = fixture().2.executor;
     executor.rules = "tower-5".into();
+    executor.ai = "tower-house-22".into();
     let cohort = Cohort::for_generation(executor, &catalog, generation::RUN).unwrap();
     let build = Build::freeze(&run, &catalog).unwrap();
     assert_eq!(build.formation, run.cards.formation);

@@ -125,11 +125,23 @@ pub enum Family {
     HarvestWheel,
     /// Entering creature tokens store charges for green mana.
     RootReservoir,
+    /// Noncreature spells drain opposing life.
+    EmberLantern,
+    /// Draws store charges for card selection.
+    TideglassLens,
+    /// Your nontoken creature deaths drain opposing life.
+    GraveBell,
+    /// Noncreature spells store charges for mana.
+    StormSpindle,
+    /// Toughness and keyword protection for your creatures.
+    DawnAegis,
+    /// Bounded additional income after verified duels.
+    GildedAcorn,
 }
 
 impl Family {
     /// Frozen catalog order, independent of map iteration or translated names.
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 18] = [
         Self::Heartwood,
         Self::Satchel,
         Self::Compass,
@@ -142,6 +154,12 @@ impl Family {
         Self::SwarmBanner,
         Self::HarvestWheel,
         Self::RootReservoir,
+        Self::EmberLantern,
+        Self::TideglassLens,
+        Self::GraveBell,
+        Self::StormSpindle,
+        Self::DawnAegis,
+        Self::GildedAcorn,
     ];
 
     const fn offset(self) -> u16 {
@@ -158,6 +176,12 @@ impl Family {
             Self::SwarmBanner => 36,
             Self::HarvestWheel => 40,
             Self::RootReservoir => 44,
+            Self::EmberLantern => 48,
+            Self::TideglassLens => 52,
+            Self::GraveBell => 56,
+            Self::StormSpindle => 60,
+            Self::DawnAegis => 64,
+            Self::GildedAcorn => 68,
         }
     }
 }
@@ -235,8 +259,13 @@ fn derive_attributes(
         match item.family {
             Family::Heartwood => result.life += [4, 7, 11, 16][tier],
             Family::Satchel => {
-                result.cards += [0, 1, 1, 2][tier];
-                result.maximum_hand += [1, 1, 2, 2][tier];
+                if slots == RUN_ACTIVE_SLOTS {
+                    result.cards += [0, 1, 2, 3][tier];
+                    result.maximum_hand += [1, 2, 3, 4][tier];
+                } else {
+                    result.cards += [0, 1, 1, 2][tier];
+                    result.maximum_hand += [1, 1, 2, 2][tier];
+                }
             }
             Family::Compass => result.free_mulligans += item.rarity.tier(),
             Family::Grove
@@ -247,7 +276,13 @@ fn derive_attributes(
             | Family::SeedCradle
             | Family::SwarmBanner
             | Family::HarvestWheel
-            | Family::RootReservoir => {}
+            | Family::RootReservoir
+            | Family::EmberLantern
+            | Family::TideglassLens
+            | Family::GraveBell
+            | Family::StormSpindle
+            | Family::DawnAegis
+            | Family::GildedAcorn => {}
         }
     }
     if result.cards > hand_limit

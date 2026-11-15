@@ -62,6 +62,14 @@ static IDENTITIES: LazyLock<Box<[Option<Goods>]>> = LazyLock::new(|| {
     ] {
         identities[usize::from(tokens::token_id(token))] = Some(Goods::Potion(potion));
     }
+    for (kind, tiers) in Family::ALL.into_iter().zip(tokens::tower::run::RUN_RELICS) {
+        for (token, rarity) in tiers.into_iter().zip(Rarity::ALL) {
+            identities[usize::from(tokens::token_id(token))] = Some(Goods::Relic(Definition {
+                family: kind,
+                rarity,
+            }));
+        }
+    }
     identities
 });
 
@@ -72,7 +80,7 @@ mod tests {
 
     #[test]
     fn stable_original_identities_keep_their_rarity_and_exclude_prints() {
-        assert_eq!(IDENTITIES.iter().flatten().count(), 38);
+        assert_eq!(IDENTITIES.iter().flatten().count(), 110);
         let key = |token| Some(ImageKey::token(tokens::token_id(token), ArtSize::Normal));
         assert_eq!(
             of(key(&tokens::TOWER_ROOTS_MYTHIC)),

@@ -160,6 +160,11 @@ fn valid_run(run: &Run) -> bool {
                 && (DECK_MIN..=DECK_MAX).contains(&deck_count)
         }
         && run.history.len() <= usize::from(super::domain::v2::MAX_STAGES)
+        && run.history.iter().all(|duel| {
+            duel.bonus_gold <= 42
+                && (run.shop.generator == super::domain::v2::generation::RUN
+                    || duel.bonus_gold == 0)
+        })
         && run.shop.offers.len() == super::domain::v2::shop::OFFERS
         && valid_reward(run)
         && (run.phase != Phase::Playing

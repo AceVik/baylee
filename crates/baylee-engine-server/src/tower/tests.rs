@@ -16,6 +16,7 @@ type Registry = NativeLookup<RegistryLookup, Pack>;
 type Game = Engine<Registry, NoLoopDetection>;
 type Hosted = Session<NoLoopDetection, Registry>;
 
+mod run;
 mod workshop;
 
 fn test_identity() -> Identity {
@@ -115,7 +116,7 @@ fn every_native_grove_rarity_uses_a_real_upkeep_trigger_and_ordinary_stack() {
 
 #[test]
 fn every_definition_is_admitted_and_resource_forgery_fails_in_the_actual_engine() {
-    for family in Family::ALL {
+    for &family in v2::generation::families(3).unwrap() {
         for rarity in Rarity::ALL {
             let preset = preset(&[Definition { family, rarity }]);
             assert!(Game::with_detection(&preset, Registry::default()).is_ok());

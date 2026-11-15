@@ -47,10 +47,21 @@ impl Economy {
     /// # Errors
     /// Malformed inventory or wallet/charge bounds.
     pub fn validate(&self) -> Result<(), Refusal> {
-        if self.gold > MAX_GOLD || self.potions.iter().map(|n| u16::from(*n)).sum::<u16>() > 2 {
+        if self.gold > self.gold_limit()
+            || self.potions.iter().map(|n| u16::from(*n)).sum::<u16>() > 2
+        {
             return Err(Refusal::Invalid);
         }
         self.inventory.validate()
+    }
+
+    /// Generation-four's maximum is below 1024 even with six Mythics every duel;
+    /// older wallets retain their exact bound of 200.
+    const fn gold_limit(&self) -> u16 {
+        match self.inventory.layout {
+            Layout::Legacy => MAX_GOLD,
+            Layout::Run => 1024,
+        }
     }
 
     fn changed(
@@ -129,7 +140,7 @@ impl Economy {
             next.gold = next
                 .gold
                 .checked_add(super::DUEL_INCOME)
-                .filter(|gold| *gold <= MAX_GOLD)
+                .filter(|gold| *gold <= next.gold_limit())
                 .ok_or(Refusal::Capacity)?;
             Ok(())
         })
@@ -184,7 +195,7 @@ impl Economy {
             next.gold = next
                 .gold
                 .checked_add(price)
-                .filter(|gold| *gold <= MAX_GOLD)
+                .filter(|gold| *gold <= next.gold_limit())
                 .ok_or(Refusal::Capacity)?;
             Ok(())
         })

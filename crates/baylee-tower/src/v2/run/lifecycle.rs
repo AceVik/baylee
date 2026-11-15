@@ -81,7 +81,13 @@ impl Run {
             return Err(Refusal::Stale);
         }
         let reward = if self.shop.generator == crate::v2::generation::RUN {
-            Some(super::Reward::sample(package, catalog, &result, seed)?)
+            if package.builds[0].active != self.economy.inventory.active() {
+                return Err(Refusal::Stale);
+            }
+            Some((
+                super::Reward::sample(package, catalog, &result, seed)?,
+                super::Income::freeze(&package.builds[0].active)?,
+            ))
         } else {
             None
         };
@@ -94,7 +100,7 @@ impl Run {
         result: Settlement,
         catalog: &Catalog,
         seed: &[u8; 32],
-        reward: Option<super::Reward>,
+        reward: Option<(super::Reward, super::Income)>,
     ) -> Result<Self, Refusal> {
         self.check(revision, catalog)?;
         result.validate()?;
@@ -113,9 +119,17 @@ impl Run {
         }
         let mut next = self.clone();
         next.economy = self.economy.settled(result.used)?;
+        if let Some((_, income)) = &reward {
+            next.economy.gold = next
+                .economy
+                .gold
+                .checked_add(income.bonus(result.outcome)?)
+                .ok_or(Refusal::Capacity)?;
+            next.income.push(*income);
+        }
         next.history.push(result);
         next.execution = None;
-        next.reward = reward;
+        next.reward = reward.map(|(reward, _)| reward);
         if next.reward.is_some() {
             next.phase = Phase::Reward;
         } else {

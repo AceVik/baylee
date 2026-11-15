@@ -3686,6 +3686,15 @@ EchoesCradle = Saatwiege
 EchoesBanner = Schwarmbanner
 EchoesHarvest = Ernterad
 EchoesRoots = Wurzelspeicher
+EchoesLantern = Glutlaterne
+EchoesLens = Gezeitenlinse
+EchoesBell = Grabglocke
+EchoesSpindle = Sturmspindel
+EchoesAegis = Morgenlicht-Ägide
+EchoesAcorn = Goldene Eichel
+# Arguments: gold
+EchoesAcornEffect = Nach jedem geprüften Duell: +{ $gold } Gold, solange ausgerüstet.
+EchoesAcornMythic = Legendär — ein Sieg gewährt weitere 3 Gold.
 EchoesCradleEvent = Immer wenn du LeP erhältst, bietet dieses Artefakt eine freiwillige Zahlung an. Zählt Ereignisse, nicht einzelne LeP.
 EchoesCradleTier = Du kannst { $mana } Mana beliebigen Typs bezahlen, um eine grüne 1/1-Pflanze zu erzeugen.
 EchoesCradleTwoTier = Du kannst { $mana } Mana beliebigen Typs bezahlen, um zwei grüne 1/1-Pflanzen zu erzeugen.

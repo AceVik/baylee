@@ -2064,6 +2064,7 @@ dependencies = [
  "baylee-protocol",
  "baylee-tower",
  "baylee-tower-api",
+ "baylee-tower-content",
  "baylee-tower-service",
  "baylee-tower-store",
  "baylee-view",

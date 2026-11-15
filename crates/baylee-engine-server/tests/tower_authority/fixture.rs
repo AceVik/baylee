@@ -172,7 +172,7 @@ fn publication() -> Publication {
     let mut publication = support::publication();
     publication.cohort = Cohort::new(baylee_engine_server::variant::identity(), &catalog).unwrap();
     publication.catalog = catalog;
-    publication.starters = [starter.clone(), starter.clone(), starter];
+    publication.starters = vec![starter.clone(), starter.clone(), starter];
     publication
 }
 

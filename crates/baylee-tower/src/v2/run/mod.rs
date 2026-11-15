@@ -14,12 +14,14 @@ use serde::{Deserialize, Serialize};
 
 mod commands;
 mod execution;
+mod income;
 mod ledger;
 mod lifecycle;
 mod reward;
 pub use crate::run::Outcome;
 pub use commands::Command;
 pub use execution::WorkerCommand;
+pub use income::Income;
 pub use ledger::Ledger;
 pub use lifecycle::{Binding, Settlement};
 pub use reward::{Claim, Reward};
@@ -60,6 +62,9 @@ pub struct Run {
     pub phase: Phase,
     /// At most twelve verified settlements, in duel ordinal order.
     pub history: Vec<Settlement>,
+    /// Verified generation-four equipment income in duel order; absent in legacy runs.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub income: Vec<Income>,
     /// Saved card offers from the exact settled opponent; never resampled by reads.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reward: Option<Reward>,
@@ -115,6 +120,7 @@ impl Run {
             revision: 0,
             phase: Phase::Shop,
             history: Vec::new(),
+            income: Vec::new(),
             reward: None,
             claims: Vec::new(),
             economy,
@@ -190,7 +196,17 @@ impl Run {
             return Err(Refusal::Invalid);
         }
         self.validate_execution()?;
-        let reward_gold = self.validate_rewards(catalog)?;
+        let mut reward_gold = self.validate_rewards(catalog)?;
+        if self.shop.generator == super::generation::RUN {
+            if self.income.len() != self.history.len() {
+                return Err(Refusal::Invalid);
+            }
+            for (income, result) in self.income.iter().zip(&self.history) {
+                reward_gold += income.bonus(result.outcome)?;
+            }
+        } else if !self.income.is_empty() {
+            return Err(Refusal::Invalid);
+        }
         self.ledger
             .validate(&self.economy, self.history.len(), reward_gold)
     }

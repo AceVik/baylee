@@ -20,6 +20,9 @@ pub struct Duel {
     pub turns: u32,
     /// Healing/mana potions actually consumed in this duel.
     pub used: [u8; 2],
+    /// Additional gold from the player's equipped items at this duel's reservation.
+    #[serde(default)]
+    pub bonus_gold: u16,
     /// The owner's completed card choice, absent until chosen or for a legacy duel.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub claim: Option<Claim>,
@@ -77,6 +80,11 @@ impl Run {
                     outcome: duel.outcome,
                     turns: duel.turns,
                     used: duel.used,
+                    bonus_gold: state
+                        .income
+                        .get(index)
+                        .and_then(|income| income.bonus(duel.outcome).ok())
+                        .unwrap_or(0),
                     claim: state.claims.get(index).cloned(),
                 })
                 .collect(),

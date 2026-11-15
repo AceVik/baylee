@@ -70,6 +70,7 @@ fn publication() -> Publication {
         .collect();
     let mut executor = super::publication().cohort.executor;
     executor.rules = "tower-5".into();
+    executor.ai = "tower-house-22".into();
     Publication {
         cohort: Cohort::for_generation(executor, &catalog, generation::RUN).unwrap(),
         catalog,

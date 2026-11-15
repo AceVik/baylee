@@ -502,6 +502,10 @@ pub(crate) fn render_token_ledger(
         "tower/banner.rs",
         "tower/harvest.rs",
         "tower/roots.rs",
+        "tower/run/opening.rs",
+        "tower/run/vitality.rs",
+        "tower/run/growth.rs",
+        "tower/run/arcane.rs",
     ] {
         text.push_str(&fs::read_to_string(
             root.join("crates/cards/src/tokens").join(source),
