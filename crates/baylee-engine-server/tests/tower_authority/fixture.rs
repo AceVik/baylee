@@ -45,6 +45,7 @@ impl Flow {
                     1,
                     archetype,
                     &Build {
+                        formation: None,
                         deck: publication.starters[0].deck.clone(),
                         active: Vec::new(),
                         potions: [0; 2],
@@ -140,6 +141,7 @@ fn publication() -> Publication {
         card: forest,
         price: 0,
         basic_land: true,
+        run: None,
     }];
     for name in [
         "Llanowar Elves",
@@ -155,10 +157,12 @@ fn publication() -> Publication {
             card: baylee_cards::decks::by_name(name).unwrap(),
             price: 2,
             basic_land: false,
+            run: None,
         });
     }
     let catalog = Catalog { cards };
     let starter = Collection {
+        formation: None,
         owned: Vec::new(),
         deck: vec![Stack {
             card: forest,

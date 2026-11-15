@@ -23,9 +23,11 @@ fn package() -> (Package, Catalog) {
             card,
             price: 0,
             basic_land: true,
+            run: None,
         }],
     };
     let build = Build {
+        formation: None,
         deck: vec![Stack { card, copies: 40 }],
         active: vec![Definition {
             family: Family::Grove,

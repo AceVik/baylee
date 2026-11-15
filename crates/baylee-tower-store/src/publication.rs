@@ -11,8 +11,8 @@ pub struct Publication {
     pub cohort: Cohort,
     /// Reviewed, fully implemented card pool and frozen prices.
     pub catalog: Catalog,
-    /// Three starting choices; equal funding and calibration are release checks.
-    pub starters: [Collection; 3],
+    /// Three legacy choices, or five to eight independent run choices.
+    pub starters: Vec<Collection>,
 }
 
 impl Publication {
@@ -21,9 +21,7 @@ impl Publication {
     /// Incompatible cohort or invalid starter/card pool.
     pub fn validate(&self) -> Result<(), Error> {
         self.cohort.validate(&self.catalog)?;
-        for starter in &self.starters {
-            starter.validate(&self.catalog)?;
-        }
+        self.catalog.validate_starters(&self.starters)?;
         Ok(())
     }
 }
@@ -40,6 +38,9 @@ impl Store {
         for starter in &mut publication.starters {
             starter.owned.sort_by_key(|stack| stack.card);
             starter.deck.sort_by_key(|stack| stack.card);
+            if let Some(formation) = &mut starter.formation {
+                formation.sideboard.sort_by_key(|stack| stack.card);
+            }
         }
         let bytes = encode(&publication)?;
         let contract = Sha256::new()

@@ -14,6 +14,7 @@ fn opened() -> Ui {
             .collect(),
     };
     let starter = Collection {
+        formation: None,
         owned: Vec::new(),
         deck: vec![Stack {
             card: CardIndex::new(0),
@@ -37,7 +38,7 @@ fn opened() -> Ui {
         )
         .unwrap(),
         catalog,
-        starters: [starter.clone(), starter.clone(), starter],
+        starters: vec![starter.clone(), starter.clone(), starter],
     };
     let raw =
         domain::v2::run::Run::begin(&cohort.catalog, cohort.starters[0].clone(), &[7; 32]).unwrap();

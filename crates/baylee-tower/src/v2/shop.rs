@@ -133,7 +133,9 @@ impl Shop {
     fn check_stock(&self, stock: Stock<'_>) -> Result<(), Refusal> {
         stock.validate()?;
         let run = self.generator == super::generation::RUN;
-        if run != (stock.economy.inventory.layout == super::inventory::Layout::Run) {
+        if run != (stock.economy.inventory.layout == super::inventory::Layout::Run)
+            || run != stock.catalog.is_run()
+        {
             return Err(Refusal::Invalid);
         }
         Ok(())

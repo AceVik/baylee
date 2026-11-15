@@ -8,20 +8,24 @@ fn setup() -> (Catalog, Collection) {
                     card: CardIndex(1),
                     price: 0,
                     basic_land: true,
+                    run: None,
                 },
                 Card {
                     card: CardIndex(2),
                     price: 4,
                     basic_land: false,
+                    run: None,
                 },
                 Card {
                     card: CardIndex(3),
                     price: 7,
                     basic_land: false,
+                    run: None,
                 },
             ],
         },
         Collection {
+            formation: None,
             owned: vec![Stack {
                 card: CardIndex(2),
                 copies: 4,

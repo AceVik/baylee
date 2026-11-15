@@ -164,8 +164,9 @@ impl State {
         if self.uncertain()
             || consent == 0
             || consent != self.consent
-            || starter >= 3
-            || !self.cohorts.iter().any(|published| published.id == cohort)
+            || !self.cohorts.iter().any(|published| {
+                published.id == cohort && usize::from(starter) < published.starters.len()
+            })
         {
             return None;
         }

@@ -27,10 +27,30 @@ pub struct Resources {
 /// # Errors
 /// Unknown seat, excessive charges or combined active resources beyond bounds.
 pub fn resources(active: &[Definition], charges: [u8; 2], seat: u8) -> Result<Resources, Refusal> {
+    resources_for(active, charges, seat, GENERATOR)
+}
+
+/// Derive under the saved generation's equipment contract.
+/// # Errors
+/// Unknown generation, unsupported family, seat or combined resource bounds.
+pub fn resources_for(
+    active: &[Definition],
+    charges: [u8; 2],
+    seat: u8,
+    generator: u16,
+) -> Result<Resources, Refusal> {
+    generation::contract(generator)?;
+    for definition in active {
+        generation::definition(generator, *definition)?;
+    }
     if seat > 1 || charges.iter().map(|n| u16::from(*n)).sum::<u16>() > 2 {
         return Err(Refusal::Invalid);
     }
-    let attributes = catalog::attributes(active)?;
+    let attributes = if generator == generation::RUN {
+        catalog::run_attributes(active)?
+    } else {
+        catalog::attributes(active)?
+    };
     Ok(Resources {
         life: attributes.life,
         opening: SeatOpening {
@@ -134,8 +154,11 @@ pub fn validate_for(preset: &GamePreset, generator: u16) -> Result<(), Refusal> 
             || seat.starting_hand.is_some()
             || !seat.starting_battlefield.is_empty()
             || !seat.emblems.is_empty()
-            || !seat.commanders.is_empty()
-            || !seat.sideboard.is_empty()
+            || if generator == generation::RUN {
+                seat.commanders.len() != 1 || seat.deck.len() != 39 || seat.sideboard.len() > 5
+            } else {
+                !seat.commanders.is_empty() || !seat.sideboard.is_empty()
+            }
         {
             return Err(Refusal::Invalid);
         }
@@ -145,7 +168,12 @@ pub fn validate_for(preset: &GamePreset, generator: u16) -> Result<(), Refusal> 
             .map(|id| Definition::from_id(*id))
             .collect::<Option<Vec<_>>>()
             .ok_or(Refusal::Invalid)?;
-        let resource = resources(&active, [supplies.healing, supplies.mana], entry.seat)?;
+        let resource = resources_for(
+            &active,
+            [supplies.healing, supplies.mana],
+            entry.seat,
+            generator,
+        )?;
         if seat.starting_life != Some(resource.life) {
             return Err(Refusal::Invalid);
         }

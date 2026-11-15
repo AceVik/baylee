@@ -31,6 +31,7 @@ fn playable(identity: &Identity) -> Publication {
                 card: card(name),
                 price: 0,
                 basic_land: true,
+                run: None,
             })
             .into(),
     };
@@ -79,7 +80,7 @@ fn playable(identity: &Identity) -> Publication {
     Publication {
         cohort: Cohort::new(identity.clone(), &catalog).unwrap(),
         catalog,
-        starters,
+        starters: starters.into(),
     }
 }
 
@@ -103,6 +104,7 @@ fn starter(land: &str, spells: &[(&str, u8, u8)], catalog: &mut Catalog) -> Coll
                 card,
                 price,
                 basic_land: false,
+                run: None,
             });
             Stack { card, copies }
         })
@@ -113,7 +115,11 @@ fn starter(land: &str, spells: &[(&str, u8, u8)], catalog: &mut Catalog) -> Coll
         copies: 17,
     });
     deck.sort_by_key(|stack| stack.card);
-    Collection { owned, deck }
+    Collection {
+        formation: None,
+        owned,
+        deck,
+    }
 }
 
 pub(in super::super) async fn publish_house(
@@ -155,6 +161,7 @@ pub(in super::super) async fn publish_house(
                 });
             }
             let build = Build {
+                formation: starter.formation.clone(),
                 deck: starter.deck.clone(),
                 active,
                 potions: [0; 2],

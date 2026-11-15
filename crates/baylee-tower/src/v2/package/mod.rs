@@ -41,17 +41,22 @@ pub enum Origin {
     },
     /// Explicitly labelled fallback using a reviewed starter archetype.
     House {
-        /// One-based frozen starter identity, initially three archetypes.
+        /// One-based frozen starter identity within its cohort's admitted choices.
         archetype: u8,
     },
 }
 
 impl Origin {
-    fn validate(&self) -> Result<(), Refusal> {
+    fn validate(&self, generator: u16) -> Result<(), Refusal> {
         let uuid7 = |bytes: &[u8; 16]| bytes[6] >> 4 == 7 && bytes[8] >> 6 == 2;
         let valid = match self {
             Self::Echo { snapshot, account } => uuid7(snapshot) && uuid7(account),
-            Self::House { archetype } => (1..=3).contains(archetype),
+            Self::House { archetype } => (1..=if generator == crate::v2::generation::RUN {
+                8
+            } else {
+                3
+            })
+                .contains(archetype),
         };
         if valid { Ok(()) } else { Err(Refusal::Invalid) }
     }
@@ -153,7 +158,7 @@ impl Package {
         {
             return Err(Refusal::Invalid);
         }
-        self.opponent.validate()?;
+        self.opponent.validate(self.cohort.generator)?;
         for build in &self.builds {
             build.validate_for(catalog, self.cohort.generator)?;
         }

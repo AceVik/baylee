@@ -1,6 +1,11 @@
 use super::*;
 use crate::v2::generation::RUN;
 
+fn fixture() -> (Catalog, Collection, Economy) {
+    let (catalog, collection) = crate::cards::run_tests::fixture();
+    (catalog, collection, Economy::for_run())
+}
+
 #[test]
 fn freeze_persists_and_only_bought_slots_refill_across_visits() {
     let (catalog, cards, _) = fixture();

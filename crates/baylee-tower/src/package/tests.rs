@@ -16,11 +16,13 @@ fn fixture() -> (Catalog, Package) {
             Card {
                 card: CardIndex::new(0),
                 basic_land: true,
+                run: None,
                 price: 0,
             },
             Card {
                 card: CardIndex::new(1),
                 basic_land: false,
+                run: None,
                 price: 4,
             },
         ],
@@ -162,6 +164,7 @@ fn catalog_fingerprint_ignores_order_but_binds_prices_and_card_identity() {
 fn frozen_build_requires_owned_cards_and_a_shop_before_reservation() {
     let (catalog, package) = fixture();
     let starter = Collection {
+        formation: None,
         owned: vec![Stack {
             card: CardIndex::new(1),
             copies: 4,

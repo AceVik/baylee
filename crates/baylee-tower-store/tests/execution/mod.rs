@@ -83,6 +83,7 @@ impl Flow {
                     1,
                     archetype,
                     &Build {
+                        formation: None,
                         deck: published.starters[usize::from(archetype - 1)].deck.clone(),
                         active: Vec::new(),
                         potions: [0; 2],

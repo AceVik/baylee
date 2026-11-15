@@ -4,6 +4,9 @@ use baylee_core::ids::CardIndex;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
+mod commander;
+pub use commander::{Formation, RunCard};
+
 /// A deliberately finite reviewed card catalog for a rules revision.
 pub const MAX_CATALOG: usize = 128;
 /// Tower's limited-size decks allow extra cards, but cannot be unbounded.
@@ -23,6 +26,9 @@ pub struct Card {
     pub price: u8,
     /// Unlimited free deck-building supply, excluded from paid inventory and sales.
     pub basic_land: bool,
+    /// Reviewed Commander facts, absent in legacy catalog commitments.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run: Option<RunCard>,
 }
 
 /// Immutable catalog, content-bound to a matching cohort.
@@ -50,7 +56,13 @@ impl Catalog {
                 return Err(Refusal::Invalid);
             }
         }
+        commander::catalog(self)?;
         Ok(())
+    }
+
+    /// Whether the immutable catalog uses the forty-card Commander run format.
+    pub fn is_run(&self) -> bool {
+        self.cards.first().is_some_and(|card| card.run.is_some())
     }
 
     /// Find an admitted card; arbitrary registry cards are not part of this run.
@@ -73,6 +85,9 @@ pub struct Stack {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Collection {
+    /// Commander and sideboard for an independent run, absent in older runs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub formation: Option<Formation>,
     /// Nonbasic cards granted at start or bought, including ones currently in the deck.
     pub owned: Vec<Stack>,
     /// Forty to sixty cards; edits cannot introduce unowned nonbasics.
@@ -85,6 +100,12 @@ impl Collection {
     /// Malformed lists, unknown cards, unowned copies or an illegal deck size.
     pub fn validate(&self, catalog: &Catalog) -> Result<(), Refusal> {
         catalog.validate()?;
+        if catalog.is_run() {
+            return commander::validate(self, catalog);
+        }
+        if self.formation.is_some() {
+            return Err(Refusal::Invalid);
+        }
         if self.owned.len() > MAX_CATALOG || self.deck.len() > usize::from(DECK_MAX) {
             return Err(Refusal::Capacity);
         }
@@ -130,7 +151,7 @@ impl Collection {
         if catalog.card(card).ok_or(Refusal::Unavailable)?.basic_land {
             return Err(Refusal::Unavailable);
         }
-        if self.copies(card) == COPIES {
+        if self.copies(card) == if catalog.is_run() { 1 } else { COPIES } {
             return Err(Refusal::Capacity);
         }
         let mut next = self.clone();
@@ -152,6 +173,7 @@ impl Collection {
         }
         self.validate(catalog)?;
         let mut next = Self {
+            formation: self.formation.clone(),
             owned: self.owned.clone(),
             deck,
         };
@@ -163,3 +185,6 @@ impl Collection {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+pub(crate) mod run_tests;

@@ -83,14 +83,17 @@ pub fn publication() -> Publication {
         card: CardIndex::new(0),
         price: 0,
         basic_land: true,
+        run: None,
     }];
     cards.extend((1..=8).map(|id| Card {
         card: CardIndex::new(id),
         price: 2,
         basic_land: false,
+        run: None,
     }));
     let catalog = Catalog { cards };
     let starter = Collection {
+        formation: None,
         owned: Vec::new(),
         deck: vec![Stack {
             card: CardIndex::new(0),
@@ -106,7 +109,7 @@ pub fn publication() -> Publication {
     Publication {
         cohort: Cohort::new(identity, &catalog).unwrap(),
         catalog,
-        starters: [starter.clone(), starter.clone(), starter],
+        starters: vec![starter.clone(), starter.clone(), starter],
     }
 }
 

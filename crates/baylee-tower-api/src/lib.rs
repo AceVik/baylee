@@ -113,8 +113,8 @@ pub struct Cohort {
     pub contract: baylee_tower::v2::package::Cohort,
     /// Reviewed cards and immutable prices for deck construction.
     pub catalog: Catalog,
-    /// Exactly three starting choices.
-    pub starters: [Collection; 3],
+    /// Five to eight run starters, or three for a retained legacy cohort.
+    pub starters: Vec<Collection>,
 }
 
 /// Successful bounded player responses. Failures use closed HTTP status codes.

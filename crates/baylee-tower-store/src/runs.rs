@@ -9,7 +9,7 @@ use super::{
 pub struct Start {
     /// Published compatible cohort.
     pub cohort: Uuid,
-    /// Zero-based starter, among the publication's three choices.
+    /// Zero-based starter, within the immutable publication's choices.
     pub starter: u8,
     /// Explicit acceptance of the current visible echo-use explanation.
     pub consent: u16,
@@ -33,7 +33,7 @@ impl Store {
             starter,
             consent,
         } = choice;
-        if starter >= 3 || consent != CONSENT_REVISION {
+        if starter >= 8 || consent != CONSENT_REVISION {
             return Err(Refusal::Invalid.into());
         }
         let digest = requests::digest(b"start", &choice)?;
@@ -50,6 +50,11 @@ impl Store {
         .await
         .map_err(|_| Error::Unavailable)?;
         let publication = self.publication(&tx, cohort, true).await?;
+        let starter = publication
+            .starters
+            .get(usize::from(starter))
+            .ok_or(Refusal::Invalid)?
+            .clone();
         if tx
             .query_one_raw(self.statement(
                 "SELECT id FROM @tower.runs WHERE account=$1 AND cohort=$2 AND active",
@@ -87,7 +92,7 @@ impl Store {
             .map_err(|_| Error::Unavailable)?;
         let state = Run::begin_for(
             &publication.catalog,
-            publication.starters[usize::from(starter)].clone(),
+            starter,
             &seed,
             publication.cohort.generator,
         )?;

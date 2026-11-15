@@ -12,6 +12,7 @@ use crate::{
 };
 use baylee_core::preset::{Finish, LoopPolicy, SeatCapabilities, SeatController};
 
+mod commander;
 mod generations;
 
 fn fixture() -> (Catalog, Run, Cohort, Opponent) {
@@ -21,15 +22,18 @@ fn fixture() -> (Catalog, Run, Cohort, Opponent) {
                 card: CardIndex::new(0),
                 price: 0,
                 basic_land: true,
+                run: None,
             },
             Card {
                 card: CardIndex::new(1),
                 price: 4,
                 basic_land: false,
+                run: None,
             },
         ],
     };
     let starter = Collection {
+        formation: None,
         owned: vec![Stack {
             card: CardIndex::new(1),
             copies: 4,

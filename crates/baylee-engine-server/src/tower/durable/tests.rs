@@ -22,9 +22,11 @@ fn fixture() -> (Package, Catalog) {
             card,
             price: 0,
             basic_land: true,
+            run: None,
         }],
     };
     let build = Build {
+        formation: None,
         deck: vec![Stack { card, copies: 40 }],
         active: Vec::new(),
         potions: [0; 2],

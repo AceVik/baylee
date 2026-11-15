@@ -7,6 +7,9 @@ use super::{
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Build {
+    /// Run commander and sideboard; absent in legacy frozen builds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub formation: Option<crate::cards::Formation>,
     /// Forty to sixty cards in canonical ascending identity order.
     pub deck: Vec<Stack>,
     /// Active definitions in slot order; reserve equipment contributes nothing.
@@ -25,11 +28,15 @@ impl Build {
             return Err(Refusal::Unavailable);
         }
         let mut build = Self {
+            formation: run.cards.formation.clone(),
             deck: run.cards.deck.clone(),
             active: run.economy.inventory.active(),
             potions: run.economy.potions,
         };
         build.deck.sort_by_key(|stack| stack.card);
+        if let Some(formation) = &mut build.formation {
+            formation.sideboard.sort_by_key(|stack| stack.card);
+        }
         build.validate(catalog)?;
         Ok(build)
     }
@@ -46,17 +53,42 @@ impl Build {
         {
             return Err(Refusal::Invalid);
         }
+        let mut owned: Vec<_> = self
+            .deck
+            .iter()
+            .chain(
+                self.formation
+                    .iter()
+                    .flat_map(|formation| &formation.sideboard),
+            )
+            .filter(|stack| catalog.card(stack.card).is_none_or(|card| !card.basic_land))
+            .copied()
+            .collect();
+        if let Some(formation) = &self.formation {
+            if formation
+                .sideboard
+                .windows(2)
+                .any(|pair| pair[0].card >= pair[1].card)
+            {
+                return Err(Refusal::Invalid);
+            }
+            owned.push(Stack {
+                card: formation.commander,
+                copies: 1,
+            });
+        }
         Collection {
-            owned: self
-                .deck
-                .iter()
-                .filter(|stack| catalog.card(stack.card).is_none_or(|card| !card.basic_land))
-                .copied()
-                .collect(),
+            formation: self.formation.clone(),
+            owned,
             deck: self.deck.clone(),
         }
         .validate(catalog)?;
-        loadout::resources(&self.active, self.potions, 0)?;
+        let generator = if catalog.is_run() {
+            crate::v2::generation::RUN
+        } else {
+            crate::v2::GENERATOR
+        };
+        loadout::resources_for(&self.active, self.potions, 0, generator)?;
         Ok(())
     }
 
@@ -65,6 +97,9 @@ impl Build {
     /// Invalid build or an unsupported generation/definition.
     pub fn validate_for(&self, catalog: &Catalog, generator: u16) -> Result<(), Refusal> {
         crate::v2::generation::families(generator)?;
+        if (generator == crate::v2::generation::RUN) != catalog.is_run() {
+            return Err(Refusal::Invalid);
+        }
         for definition in &self.active {
             crate::v2::generation::definition(generator, *definition)?;
         }

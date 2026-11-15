@@ -265,4 +265,19 @@ Always stop owned test processes and verify listeners close.
   both older offer streams, persistent freeze, sold-slot refill and atomic gold.
   Tower library/test strict Clippy passed. Native generation-five equipment and
   Commander admission must be integrated before making generation four default.
+- Commander foundation: frozen card metadata, 39+1 and <=5 sideboard validation,
+  singleton across zones, color identity, owned commander and five free basics.
+  The authority admits five to eight distinct commander starters for the new
+  generation, preserves the three-choice legacy publication encoding and fences
+  requested starter indices against the exact publication. Native packages carry
+  all three zones and bind the metadata in their catalog digest. Migration 013
+  widens house fallback archetypes to eight; application admission still uses the
+  saved publication's exact count. Native default remains generation three.
+- Domain validation: 79 tower tests passed in 0.16 s, followed by the added
+  five-distinct-commanders case. Tower/API/store/client-core all-target checks and
+  strict library/test Clippy passed. The first Clippy pass found an unnecessary
+  `expect` during sideboard sorting; sorting before construction removed it.
+  Logs: `/tmp/baylee-tower-commander-{domain,starters,clippy-20261115-r2}.log`
+  (the first two filenames also carry `-20261115`). The new migration awaits the
+  combined isolated PostgreSQL transaction run after reward integration.
 

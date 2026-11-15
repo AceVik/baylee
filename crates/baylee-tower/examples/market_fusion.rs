@@ -26,15 +26,18 @@ fn fixture() -> (Catalog, Collection) {
         card: CardIndex::new(0),
         price: 0,
         basic_land: true,
+        run: None,
     }];
     cards.extend((1..=8).map(|id| Card {
         card: CardIndex::new(id),
         price: 4,
         basic_land: false,
+        run: None,
     }));
     (
         Catalog { cards },
         Collection {
+            formation: None,
             owned: Vec::new(),
             deck: vec![Stack {
                 card: CardIndex::new(0),

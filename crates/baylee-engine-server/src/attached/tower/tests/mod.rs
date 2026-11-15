@@ -27,9 +27,11 @@ fn setup(game: Uuid, prefix: Prefix, fence: u64) -> Setup {
             card,
             price: 0,
             basic_land: true,
+            run: None,
         }],
     };
     let build = Build {
+        formation: None,
         deck: vec![Stack { card, copies: 40 }],
         active: Vec::new(),
         potions: [0; 2],

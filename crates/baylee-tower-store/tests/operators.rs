@@ -52,6 +52,7 @@ async fn only_live_dedicated_roles_can_advertise_or_publish_house_opponents() {
                 .is_err()
         );
         let build = Build {
+            formation: None,
             deck: published.starters[0].deck.clone(),
             active: Vec::new(),
             potions: [0; 2],

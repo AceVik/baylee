@@ -63,6 +63,7 @@ impl Build {
             return Err(Refusal::Capacity);
         }
         Collection {
+            formation: None,
             owned: self
                 .deck
                 .iter()

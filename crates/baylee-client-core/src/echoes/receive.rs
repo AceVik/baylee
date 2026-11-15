@@ -143,7 +143,22 @@ fn valid_run(run: &Run) -> bool {
             .all(|stack| (1..=COPIES).contains(&stack.copies))
         && run.cards.deck.len() <= usize::from(DECK_MAX)
         && run.cards.deck.iter().all(|stack| stack.copies > 0)
-        && (DECK_MIN..=DECK_MAX).contains(&deck_count)
+        && if let Some(formation) = &run.cards.formation {
+            run.shop.generator == super::domain::v2::generation::RUN
+                && deck_count == 39
+                && formation.sideboard.len() <= 5
+                && formation
+                    .sideboard
+                    .iter()
+                    .map(|stack| u16::from(stack.copies))
+                    .sum::<u16>()
+                    <= 5
+                && formation.sideboard.iter().all(|stack| stack.copies > 0)
+                && run.cards.copies(formation.commander) == 1
+        } else {
+            run.shop.generator != super::domain::v2::generation::RUN
+                && (DECK_MIN..=DECK_MAX).contains(&deck_count)
+        }
         && run.history.len() <= usize::from(super::domain::v2::MAX_STAGES)
         && run.shop.offers.len() == super::domain::v2::shop::OFFERS
         && (run.phase != Phase::Playing
@@ -153,8 +168,5 @@ fn valid_run(run: &Run) -> bool {
 fn valid_cohort(cohort: &api::Cohort) -> bool {
     uuid7(cohort.id)
         && cohort.contract.validate(&cohort.catalog).is_ok()
-        && cohort
-            .starters
-            .iter()
-            .all(|starter| starter.validate(&cohort.catalog).is_ok())
+        && cohort.catalog.validate_starters(&cohort.starters).is_ok()
 }

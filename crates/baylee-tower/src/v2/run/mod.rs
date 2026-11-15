@@ -141,6 +141,7 @@ impl Run {
         // generation; legacy publications cannot acquire extra active slots.
         if (self.shop.generator == super::generation::RUN)
             != (self.economy.inventory.layout == super::inventory::Layout::Run)
+            || (self.shop.generator == super::generation::RUN) != catalog.is_run()
         {
             return Err(Refusal::Invalid);
         }

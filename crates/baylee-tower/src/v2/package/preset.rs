@@ -21,8 +21,18 @@ impl Package {
         self.validate(catalog, executor)?;
         let profile = crate::v2::generation::contract(self.cohort.generator)?.expert();
         let resources = [
-            loadout::resources(&self.builds[0].active, self.builds[0].potions, 0)?,
-            loadout::resources(&self.builds[1].active, self.builds[1].potions, 1)?,
+            loadout::resources_for(
+                &self.builds[0].active,
+                self.builds[0].potions,
+                0,
+                self.cohort.generator,
+            )?,
+            loadout::resources_for(
+                &self.builds[1].active,
+                self.builds[1].potions,
+                1,
+                self.cohort.generator,
+            )?,
         ];
         let mut prints = Vec::new();
         let seats = vec![
@@ -62,8 +72,47 @@ fn seat(
     prints: &mut Vec<PrintInfo>,
     printing: &impl Fn(CardIndex) -> Option<PrintInfo>,
 ) -> Result<SeatSpec, Refusal> {
+    let deck = entries(&build.deck, prints, printing)?;
+    let (sideboard, commanders) = if let Some(formation) = &build.formation {
+        (
+            entries(&formation.sideboard, prints, printing)?,
+            entries(
+                &[crate::cards::Stack {
+                    card: formation.commander,
+                    copies: 1,
+                }],
+                prints,
+                printing,
+            )?,
+        )
+    } else {
+        (Vec::new(), Vec::new())
+    };
+    Ok(SeatSpec {
+        controller: if resources.opening.seat == 0 {
+            SeatController::Open
+        } else {
+            SeatController::Ai(profile)
+        },
+        capabilities: SeatCapabilities::default(),
+        deck,
+        sideboard,
+        commanders,
+        starting_life: Some(resources.life),
+        starting_hand: None,
+        starting_battlefield: Vec::new(),
+        emblems: Vec::new(),
+        team: None,
+    })
+}
+
+fn entries(
+    stacks: &[crate::cards::Stack],
+    prints: &mut Vec<PrintInfo>,
+    printing: &impl Fn(CardIndex) -> Option<PrintInfo>,
+) -> Result<Vec<DeckEntry>, Refusal> {
     let mut deck = Vec::new();
-    for stack in &build.deck {
+    for stack in stacks {
         let print = PrintRef::new(u16::try_from(prints.len()).map_err(|_| Refusal::Capacity)?);
         prints.push(printing(stack.card).ok_or(Refusal::Unavailable)?);
         deck.extend(std::iter::repeat_n(
@@ -76,20 +125,5 @@ fn seat(
             usize::from(stack.copies),
         ));
     }
-    Ok(SeatSpec {
-        controller: if resources.opening.seat == 0 {
-            SeatController::Open
-        } else {
-            SeatController::Ai(profile)
-        },
-        capabilities: SeatCapabilities::default(),
-        deck,
-        sideboard: Vec::new(),
-        commanders: Vec::new(),
-        starting_life: Some(resources.life),
-        starting_hand: None,
-        starting_battlefield: Vec::new(),
-        emblems: Vec::new(),
-        team: None,
-    })
+    Ok(deck)
 }

@@ -200,6 +200,7 @@ async fn earlier_run_ordinals_fence_later_delivery_without_blocking_other_runs()
                     2,
                     archetype,
                     &baylee_tower::v2::package::Build {
+                        formation: None,
                         deck: publication.starters[usize::from(archetype - 1)]
                             .deck
                             .clone(),

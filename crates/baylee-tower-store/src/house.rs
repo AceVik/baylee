@@ -15,12 +15,15 @@ impl Store {
         archetype: u8,
         build: &Build,
     ) -> Result<(), Error> {
-        if !(1..=MAX_STAGES).contains(&stage) || !(1..=3).contains(&archetype) {
+        if !(1..=MAX_STAGES).contains(&stage) || !(1..=8).contains(&archetype) {
             return Err(Refusal::Invalid.into());
         }
         let tx = self.transaction().await?;
         self.role(&tx, principal, Role::Publisher).await?;
         let publication = self.publication(&tx, cohort, false).await?;
+        if usize::from(archetype) > publication.starters.len() {
+            return Err(Refusal::Invalid.into());
+        }
         build.validate_for(&publication.catalog, publication.cohort.generator)?;
         let bytes = encode(build)?;
         if bytes.len() > 16 * 1024 {
