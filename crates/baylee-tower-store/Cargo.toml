@@ -11,6 +11,7 @@ description = "Isolated transactional PostgreSQL authority for global Tower Echo
 workspace = true
 
 [dependencies]
+central-api.workspace = true
 baylee-tower.workspace = true
 baylee-tower-api.workspace = true
 baylee-protocol.workspace = true

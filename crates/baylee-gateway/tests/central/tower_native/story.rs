@@ -55,14 +55,27 @@ pub(super) fn run(runtime: &Runtime, served: &Served) {
     let reserved = owned(&client, &reserve);
     assert_eq!(reserved.phase, Phase::Reserved);
     assert_eq!(owned(&client, &reserve), reserved);
+    location(&client, initial.id, &served.origin, None);
     let path = format!("/tower/{}/play", initial.id);
     refusals(runtime, served, &admission.token, &path, &client, &reserved);
     let grant = start(served, &admission.token, &path);
     let again = start(served, &admission.token, &path);
     assert_eq!(again["game_id"], grant["game_id"]);
     assert_ne!(again["seat_token"], grant["seat_token"]);
+    location(
+        &client,
+        initial.id,
+        &served.origin,
+        grant["game_id"].as_str(),
+    );
     let pending = recovery::crash(runtime, served, initial.id, &again, &mut agent);
     let restored = start(served, &admission.token, &path);
+    location(
+        &client,
+        initial.id,
+        &served.origin,
+        restored["game_id"].as_str(),
+    );
     assert_ne!(
         restored["game_id"], grant["game_id"],
         "a fresh execution has a separate transport identity"
@@ -86,6 +99,15 @@ pub(super) fn run(runtime: &Runtime, served: &Served) {
 
 fn player(runtime: &Runtime, served: &Served, name: &str) -> baylee_account::Account {
     fresh::register(runtime, &served.service, &served.endpoint, name, br#"{"version":1,"gateways":[],"preferences":{},"legacy":null,"chat":{"devices":[],"installations":[]}}"#)
+}
+
+fn location(client: &TowerHttp, run: Uuid, origin: &str, game: Option<&str>) {
+    let Response::Location { location } = client.exchange(&Request::Locate { run }).unwrap() else {
+        panic!("fresh owned routing");
+    };
+    assert_eq!(location.run, run);
+    assert_eq!(location.host.unwrap().origin, origin);
+    assert_eq!(location.game.map(|id| id.to_string()).as_deref(), game);
 }
 
 fn refusals(

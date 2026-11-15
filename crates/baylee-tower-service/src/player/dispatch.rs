@@ -35,6 +35,9 @@ impl Players {
                     .collect(),
             },
             Request::Run { run } => response(self.store.get(account, run).await?),
+            Request::Locate { run } => Response::Location {
+                location: self.store.locate(account, run).await?,
+            },
             Request::Start {
                 request,
                 cohort,

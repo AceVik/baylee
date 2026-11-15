@@ -1480,3 +1480,28 @@ Strict Clippy for the changed gateway binary/integration test, Tower store
 library/execution tests and service library passes in
 `/tmp/baylee-tower-expiry-clippy-20261115-r8.log`. The generated API documents
 also match the gateway's routes, including the empty-body rejection status.
+
+## Fresh owned gateway location — forty-seventh working milestone
+
+Migration ten adds immutable offline approval of canonical gateway origins.
+The new owner-only `locate` operation reads the current reservation/claim rather
+than reusing the historical result of an idempotent command. It exposes only an
+approved enabled host and the current transport game, hides quarantined/disabled
+assignments, and never supplies a token, fence, private package or record prefix.
+The native SDK binds the response to the requested run and transport environment;
+gateway admission remains a separate Central capability.
+
+Three SDK transport tests pass in
+`/tmp/baylee-tower-location-sdk-tests-20261115.log` (0.08s). The three affected
+PostgreSQL location/expiry tests pass in
+`/tmp/baylee-tower-location-store-tests-20261115.log` (0.61s), including foreign
+owners, changed/invalid origins, disabled hosts, explicit cross-host reassignment,
+fresh execution identity and migration backfill. Strict SDK/store test Clippy
+passes in `/tmp/baylee-tower-location-tests-clippy-20261115-r2.log`; gateway and
+service runtime Clippy passed in `/tmp/baylee-tower-location-clippy-20261115-r2.log`.
+The actual native crash/recovery scenario also checks location before launch and
+after each claim. It passes in
+`/tmp/baylee-tower-location-native-tests-20261115.log` (14.85s), with one recovery,
+one settlement, no quarantine and verified cleanup of owned services/database.
+This establishes fresh routing; global host availability and the new native
+client remain subsequent work.

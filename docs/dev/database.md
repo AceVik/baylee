@@ -60,6 +60,19 @@ quota/run write avoid a database round trip per chunk. Retrying a different batc
 at the same start refuses. The single-chunk primitive remains for retained legacy
 adapters/tests and must not be exposed as the new native operation boundary.
 
+Migration nine adds the indexed execution lease watch, backfilled from existing
+playing states. Each run write maintains it transactionally. A supervisor must
+recheck the discovered fence and deadline under owner/run/reservation locks;
+discovery alone grants no recovery authority. At most three automatic recoveries
+retain the exact package, record prefix and original budget without rewards.
+
+Migration ten stores explicitly approved host gateway origins separately from
+advertised executable capabilities. Offline approval accepts canonical production
+HTTPS or isolated numeric-loopback HTTP, refuses remote address changes and binds
+each origin to one host. Owner-only location reads join enabled operators with
+this approval and the current reservation/claim under transaction locks. No
+unapproved address or historic receipt supplies a fallback destination.
+
 ## Gateway and catalog
 
 The gateway's store (`baylee-db`) and the optional card catalog

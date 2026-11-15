@@ -24,6 +24,7 @@ mod browse;
 mod commands;
 mod execution;
 mod house;
+mod location;
 mod migration;
 mod operators;
 mod pool;

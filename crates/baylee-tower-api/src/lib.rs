@@ -11,7 +11,10 @@ use uuid::Uuid;
 
 pub mod engine;
 pub mod host;
+mod location;
 mod view;
+pub use baylee_tower::v2::run::Phase;
+pub use location::{Host, Location};
 pub use view::{Duel, Run};
 
 /// Distinct wire contract; incompatible versions are refused before authentication.
@@ -44,6 +47,11 @@ pub enum Request {
     /// One owned run, including its saved shop.
     Run {
         /// Owned run ID.
+        run: Uuid,
+    },
+    /// Fresh routing for an owned outstanding duel, including another gateway.
+    Locate {
+        /// Owned run, never an arbitrary account or destination.
         run: Uuid,
     },
     /// Explicit enrollment after displaying the current echo-consent explanation.
@@ -101,6 +109,11 @@ pub struct Cohort {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "result", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Response {
+    /// Current owned execution routing; contains no token, package or record head.
+    Location {
+        /// Re-read after technical recovery; an earlier game ID can be retired.
+        location: Location,
+    },
     /// Up to [`PAGE_SIZE`] enrollment choices, with the consent revision to display.
     Cohorts {
         /// Current required explanation revision.

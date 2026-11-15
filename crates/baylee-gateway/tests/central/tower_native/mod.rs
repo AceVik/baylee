@@ -140,6 +140,20 @@ impl Fixture {
         ]
     }
 
+    pub(super) async fn approve(&self, gateway: &str) {
+        let host = self
+            .sandbox
+            .store
+            .authenticate_operator(self.host.digest())
+            .await
+            .unwrap();
+        self.sandbox
+            .store
+            .approve_host(host.id(), gateway, true)
+            .await
+            .unwrap();
+    }
+
     pub(super) async fn close(self) {
         let _ = self.stop.send(true);
         let server = tokio::time::timeout(Duration::from_secs(10), self.server).await;

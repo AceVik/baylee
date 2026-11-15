@@ -1,4 +1,5 @@
 use super::*;
+mod location;
 use std::{
     io::Write,
     net::{TcpListener, TcpStream},
@@ -7,6 +8,10 @@ use std::{
 };
 
 fn reply(status: u16, headers: &str, body: &[u8]) -> Result<Response, Error> {
+    reply_to(&Request::Runs { before: None }, status, headers, body)
+}
+
+fn reply_to(asked: &Request, status: u16, headers: &str, body: &[u8]) -> Result<Response, Error> {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     listener.set_nonblocking(true).unwrap();
     let address = listener.local_addr().unwrap();
@@ -26,6 +31,7 @@ fn reply(status: u16, headers: &str, body: &[u8]) -> Result<Response, Error> {
         body.len()
     );
     let body = body.to_vec();
+    let expected = asked.clone();
     let server = thread::spawn(move || {
         let deadline = Instant::now() + Duration::from_secs(5);
         let mut stream = loop {
@@ -72,14 +78,11 @@ fn reply(status: u16, headers: &str, body: &[u8]) -> Result<Response, Error> {
         assert!(size <= api::MAX_REQUEST_BYTES);
         let mut request = vec![0; size];
         stream.read_exact(&mut request).unwrap();
-        assert_eq!(
-            api::decode(&request).unwrap(),
-            Request::Runs { before: None }
-        );
+        assert_eq!(api::decode(&request).unwrap(), expected);
         let _ = stream.write_all(response.as_bytes());
         let _ = stream.write_all(&body);
     });
-    let result = client.exchange(&Request::Runs { before: None });
+    let result = client.exchange(asked);
     server.join().unwrap();
     assert!(TcpStream::connect_timeout(&address, Duration::from_secs(1)).is_err());
     result

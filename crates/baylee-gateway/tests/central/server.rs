@@ -72,6 +72,9 @@ pub(super) fn serve(
     let gateway = common::spawn_gateway_with(label, &environment);
     let gateway_address = format!("127.0.0.1:{}", gateway.port).parse().unwrap();
     let origin = format!("http://{gateway_address}");
+    if let Some(tower) = &tower {
+        runtime.block_on(tower.approve(&origin));
+    }
     let service = Arc::new(
         IdentityService::new(
             store.clone(),

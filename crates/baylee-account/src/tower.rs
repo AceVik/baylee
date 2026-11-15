@@ -9,6 +9,7 @@ use std::io::Read;
 pub struct TowerHttp {
     grant: Grant,
     agent: ureq::Agent,
+    development: bool,
 }
 
 impl TowerHttp {
@@ -20,6 +21,7 @@ impl TowerHttp {
         Ok(Self {
             grant,
             agent: crate::http::agent(central.legacy_origin().is_some()),
+            development: central.legacy_origin().is_none(),
         })
     }
 
@@ -83,6 +85,7 @@ impl TowerHttp {
         if !matches!(
             (request, &response),
             (Request::Cohorts { .. }, Response::Cohorts { .. })
+                | (Request::Locate { .. }, Response::Location { .. })
                 | (Request::Runs { .. }, Response::Runs { .. })
                 | (
                     Request::Run { .. }
@@ -95,9 +98,40 @@ impl TowerHttp {
         ) {
             return Err(Error::Rejected);
         }
+        if let (Request::Locate { run }, Response::Location { location }) = (request, &response) {
+            validate_location(*run, location, self.development)?;
+        }
         Ok(response)
     }
 }
 
 #[cfg(test)]
 mod tests;
+
+fn validate_location(
+    run: uuid::Uuid,
+    location: &api::Location,
+    development: bool,
+) -> Result<(), Error> {
+    use api::Phase;
+    let uuid7 =
+        |id: uuid::Uuid| id.get_version_num() == 7 && id.get_variant() == uuid::Variant::RFC4122;
+    if location.run != run || !uuid7(run) || location.game.is_some_and(|id| !uuid7(id)) {
+        return Err(Error::Rejected);
+    }
+    if let Some(host) = &location.host {
+        central_api::gateway::validate_origin(&host.origin, development)?;
+        if !uuid7(host.id)
+            || host.name.is_empty()
+            || host.name.len() > 160
+            || host.name.chars().any(char::is_control)
+            || !matches!(location.phase, Phase::Reserved | Phase::Playing)
+            || (location.phase == Phase::Playing) != location.game.is_some()
+        {
+            return Err(Error::Rejected);
+        }
+    } else if location.game.is_some() {
+        return Err(Error::Rejected);
+    }
+    Ok(())
+}

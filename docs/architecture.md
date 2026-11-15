@@ -36,8 +36,10 @@ information is unrepresentable in a view, and the gateway runs no rules.
   The standalone launcher reads bounded private-pipe configuration, checks exact
   cohort workers, serves both APIs and owns graceful worker shutdown. The gateway
   execution link now selects exact agent capabilities, claims only for verified
-  Central owners and renews live leases; native client completion and global
-  reconnect assignment remain separate milestones (`docs/dev/environment.md`).
+  Central owners and renews live leases. Owner-only location reads return the
+  fresh execution at an explicitly approved gateway, independent of retry
+  receipts. Global host discovery and native client acceptance remain separate
+  milestones (`docs/dev/environment.md`).
 - The shared table driver selects its record transport statically. Ordinary
   hosting keeps the existing gzip stream; the native Tower adapter captures raw
   pieces and withholds associated views/endings behind exact ordered ACKs. Its

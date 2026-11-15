@@ -6059,7 +6059,7 @@ gateway. Its reusable contract is `baylee-tower-api`, version `2` in the require
 duplicate credentials/version headers and unknown JSON fields are refused.
 No browser CORS route or caller-supplied identity/destination exists.
 
-The tagged `operation` is `cohorts`, `runs`, `run`, `start`, `command`, `reserve`
+The tagged `operation` is `cohorts`, `runs`, `run`, `locate`, `start`, `command`, `reserve`
 or `withdraw_echoes`. `start`, `command` and `reserve` carry a UUIDv7 request ID;
 the exact request must be retained after a lost answer. Commands carry the last
 observed run revision. The authority alone samples start/opponent/shuffle/policy
@@ -6074,6 +6074,20 @@ three starters. Runs expose only the owner's shop, cards, inventory, phase,
 revision and verified outcome/turn/potion history. Execution leases, package
 commitments, record heads, opponent builds and seeds are unrepresentable in the
 player projection. Ordinary run reads exclude expired rows and foreign owners.
+
+`locate` takes an owned `run` UUID and reads its current revision, phase and
+execution destination independently of immutable command retry receipts. Only
+Reserved/Playing runs with an enabled host and an explicitly approved destination
+return a host UUID, label and canonical gateway origin. Playing additionally
+returns the current claim's transport game UUID. No fence, private package or
+credential is exposed; quarantine, missing approval and disabled hosts return no
+destination. Approval is an offline administrator operation, immutable for that
+host identity. A remote host cannot choose an origin through this API.
+The native SDK checks the requested run, UUIDs, phase/game relationship and
+production HTTPS versus numeric-loopback development origins. The client must
+obtain a separate gateway admission from Central for that origin; it must never
+forward its Tower bearer. A destination is a fresh routing hint, not a seat grant
+or capacity guarantee.
 
 Requests are bounded to 16 KiB, responses to 1 MiB; body reading lasts at most
 three seconds and online identity lookup five seconds. Admission is limited to
