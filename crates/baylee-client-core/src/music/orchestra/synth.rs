@@ -1,11 +1,12 @@
-//! Original, band-limited additive patches and synthesized percussion, native 48 kHz.
-//! Tables and pitch increments are prepared outside the callback. No samples,
-//! presets, loops or melodies from a third-party synthesizer are embedded.
+//! Original, band-limited additive/orchestral patches and synthesized percussion, native 48 kHz.
+//! Includes warm French horn ensemble swells, lush bowed string pads, crystalline celesta,
+//! and pitched orchestral timpani. Tables and pitch increments are prepared outside the
+//! callback. No samples, presets, loops or melodies from a third-party synthesizer are embedded.
 use super::{Instrument, RATE, Touch};
 use std::sync::OnceLock;
 const SIZE: usize = 2048;
-const TONES: usize = 11;
-const VOICES: usize = 64;
+const TONES: usize = 14;
+const VOICES: usize = 80;
 
 struct Timbre {
     bright: Box<[f32]>,
@@ -40,8 +41,8 @@ fn wave(partials: &[f32; 12]) -> Box<[f32]> {
 #[allow(clippy::too_many_lines)] // Original spectral/envelope presets, reviewed as a table.
 fn timbre(instrument: Instrument) -> Timbre {
     use Instrument::{
-        AnalogLead, Bell, ChipLead, Clav, ElectricPiano, Flute, Guitar, Marimba, Pad, Piano,
-        SynthBass,
+        AnalogLead, Bell, Celesta, ChipLead, Clav, ElectricPiano, Flute, FrenchHorn, Guitar,
+        Marimba, Pad, Piano, StringPad, SynthBass,
     };
     let (partials, attack, decay, colour, room) = match instrument {
         Piano => (
@@ -141,6 +142,33 @@ fn timbre(instrument: Instrument) -> Timbre {
             7.0,
             0.015,
         ),
+        FrenchHorn => (
+            [
+                1.0, 0.88, 0.72, 0.52, 0.34, 0.20, 0.12, 0.06, 0.03, 0.012, 0.0, 0.0,
+            ],
+            0.065,
+            0.032,
+            1.35,
+            0.26,
+        ),
+        StringPad => (
+            [
+                1.0, 0.60, 0.42, 0.28, 0.20, 0.14, 0.10, 0.07, 0.045, 0.028, 0.016, 0.008,
+            ],
+            0.14,
+            0.010,
+            0.75,
+            0.30,
+        ),
+        Celesta => (
+            [
+                1.0, 0.18, 0.06, 0.34, 0.0, 0.14, 0.0, 0.05, 0.0, 0.02, 0.0, 0.0,
+            ],
+            0.003,
+            1.45,
+            3.8,
+            0.26,
+        ),
         _ => unreachable!("melodic synthetic palette"),
     };
     let mut body = partials;
@@ -203,6 +231,9 @@ fn bank() -> &'static Bank {
             Instrument::Bell,
             Instrument::Pad,
             Instrument::SynthBass,
+            Instrument::FrenchHorn,
+            Instrument::StringPad,
+            Instrument::Celesta,
         ]
         .map(timbre)
         .into(),
@@ -224,10 +255,12 @@ fn read(table: &[f32], phase: f64) -> f32 {
 enum Source {
     Tone(&'static Timbre),
     Drum(&'static [f32]),
+    Kettle { f0: f32 },
 }
 struct Voice {
     source: Source,
     chorus: bool,
+    tremolo: bool,
     phase_two: f64,
     phase: f64,
     step: f64,
@@ -248,14 +281,29 @@ impl Voice {
     fn new(instrument: Instrument, pitch: u8, seconds: f32, gain: [f32; 2], touch: Touch) -> Self {
         let index = instrument as usize - Instrument::Piano as usize;
         let tone = bank().tones.get(index);
-        let release = if instrument == Instrument::Pad {
-            0.40
+        let release = if matches!(
+            instrument,
+            Instrument::Pad | Instrument::StringPad | Instrument::FrenchHorn | Instrument::Celesta
+        ) {
+            0.82
+        } else if instrument == Instrument::Timpani {
+            0.72
         } else {
-            0.12
+            0.46
+        };
+        let source = if instrument == Instrument::Timpani {
+            let f0 = 440.0 * 2.0_f32.powf((f32::from(pitch.clamp(28, 64)) - 69.0) / 12.0);
+            Source::Kettle { f0 }
+        } else {
+            tone.map_or_else(|| Source::Drum(&bank().drums[index - TONES]), Source::Tone)
         };
         Self {
-            source: tone.map_or_else(|| Source::Drum(&bank().drums[index - TONES]), Source::Tone),
-            chorus: instrument == Instrument::Pad,
+            source,
+            chorus: matches!(
+                instrument,
+                Instrument::Pad | Instrument::StringPad | Instrument::FrenchHorn
+            ),
+            tremolo: instrument == Instrument::StringPad,
             phase_two: SIZE as f64 * 0.17,
             phase: 0.0,
             step: bank().steps[usize::from(pitch.clamp(28, 88))],
@@ -263,14 +311,26 @@ impl Voice {
             wait: (touch.late * RATE as f32) as u32,
             hold: (seconds * RATE as f32) as u32,
             gain,
-            attack: tone.map_or(1.0, |t| t.attack * RATE as f32),
+            attack: if instrument == Instrument::Timpani {
+                0.003 * RATE as f32
+            } else {
+                tone.map_or(1.0, |t| t.attack * RATE as f32)
+            },
             envelope: 1.0,
-            decay: tone.map_or(1.0, |t| (-t.decay / RATE as f32).exp()),
+            decay: if instrument == Instrument::Timpani {
+                (-2.5 / RATE as f32).exp()
+            } else {
+                tone.map_or(1.0, |t| (-t.decay / RATE as f32).exp())
+            },
             colour: 1.0,
             colour_decay: tone.map_or(1.0, |t| (-t.colour_decay / RATE as f32).exp()),
-            release: (-9.0 / (release * RATE as f32)).exp(),
+            release: (-9.4 / (release * RATE as f32)).exp(),
             releasing: false,
-            room: tone.map_or(0.025, |t| t.room),
+            room: if instrument == Instrument::Timpani {
+                0.22
+            } else {
+                tone.map_or(0.025, |t| t.room)
+            },
         }
     }
     fn release(&mut self) {
@@ -298,19 +358,41 @@ impl Voice {
                     self.phase -= SIZE as f64;
                 }
                 let note = body + (bright - body) * self.colour;
-                if self.chorus {
-                    // A second, very gently detuned body gives the ambient bed movement.
+                let voiced = if self.chorus {
+                    // A second, very gently detuned body gives ensemble horns and strings breadth.
                     let other = read(&tone.body, self.phase_two);
-                    self.phase_two += self.step * 1.0015;
+                    self.phase_two += self.step * 1.0018;
                     if self.phase_two >= SIZE as f64 {
                         self.phase_two -= SIZE as f64;
                     }
-                    note * 0.72 + other * 0.28
+                    note * 0.70 + other * 0.30
                 } else {
                     note
+                };
+                if self.tremolo {
+                    let shimmer = 0.91
+                        + 0.09
+                            * (self.age as f32 * (std::f32::consts::TAU * 5.4 / RATE as f32)).sin();
+                    voiced * shimmer
+                } else {
+                    voiced
                 }
             }
             Source::Drum(data) => *data.get(self.age as usize)?,
+            Source::Kettle { f0 } => {
+                let t = self.age as f32 / RATE as f32;
+                // Circular kettle membrane: brief impact tension bend + 1.504x / 1.996x modes.
+                let bend = 1.0 + 0.088 * (-t * 28.0).exp();
+                let dp = std::f64::consts::TAU * f64::from(f0 * bend) / f64::from(RATE);
+                self.phase = (self.phase + dp).rem_euclid(std::f64::consts::TAU);
+                self.phase_two = (self.phase_two + dp * 1.504).rem_euclid(std::f64::consts::TAU);
+                let head = (self.phase.sin() as f32) * 0.72
+                    + (self.phase_two.sin() as f32) * 0.22 * (-t * 5.5).exp()
+                    + ((self.phase * 1.996).sin() as f32) * 0.08 * (-t * 9.0).exp();
+                let mallet =
+                    (std::f32::consts::TAU * f0 * 3.1 * t).sin() * (-t * 95.0).exp() * 0.18;
+                (head + mallet) * 0.62
+            }
         };
         let attack = (self.age as f32 / self.attack).min(1.0);
         let value = value * self.envelope * attack;

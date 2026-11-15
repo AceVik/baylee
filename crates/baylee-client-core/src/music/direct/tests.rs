@@ -88,18 +88,29 @@ fn a_request_packs_into_one_word() {
         turn_seat: 5,
         theme: Theme::Tide,
         samples: SampleSet::Original441,
+        stack_depth: 5,
+        blockers: true,
+        action_intensity: 0.842,
     };
     assert_eq!(ScoreRequest::unpack(request.pack()), request);
     let nan = ScoreRequest {
         tension: f32::NAN,
+        action_intensity: f32::NAN,
         ..ScoreRequest::default()
     };
-    assert!(ScoreRequest::unpack(nan.pack()).tension.abs() < f32::EPSILON);
+    let unpacked_nan = ScoreRequest::unpack(nan.pack());
+    assert!(unpacked_nan.tension.abs() < f32::EPSILON);
+    assert!(unpacked_nan.action_intensity.abs() < f32::EPSILON);
     let loud = ScoreRequest {
         tension: 3.0,
+        stack_depth: 42,
+        action_intensity: 2.5,
         ..ScoreRequest::default()
     };
-    assert!((ScoreRequest::unpack(loud.pack()).tension - 1.0).abs() < f32::EPSILON);
+    let unpacked_loud = ScoreRequest::unpack(loud.pack());
+    assert!((unpacked_loud.tension - 1.0).abs() < f32::EPSILON);
+    assert_eq!(unpacked_loud.stack_depth, 7);
+    assert!((unpacked_loud.action_intensity - 1.0).abs() < f32::EPSILON);
 }
 
 /// The screens: the front door, the lobby and the builder each their scene;
@@ -362,4 +373,71 @@ fn rotation_never_repeats_or_skips_when_arrival_counters_wrap() {
             );
         }
     }
+}
+
+#[test]
+fn stack_depth_scales_intensity_from_calm_to_epic_and_settles_on_resolution() {
+    let mut memory = Memory::default();
+    let mut view = quiet();
+    let r0 = at_table(&view, &mut memory);
+    assert_eq!(r0.stack_depth, 0);
+    assert!(
+        r0.epicness() < 0.15,
+        "empty stack is calm: {}",
+        r0.epicness()
+    );
+
+    let mut last_epic = r0.epicness();
+    for depth in 1..=5_u32 {
+        view.seq += 1;
+        view.stack = (0..depth)
+            .map(|i| {
+                let mut spell = token(50 + i, 0, "Bolt", 0, 0);
+                spell.mana_value = 2;
+                spell
+            })
+            .collect();
+        let req = at_table(&view, &mut memory);
+        assert_eq!(usize::from(req.stack_depth), depth as usize);
+        assert_eq!(ScoreRequest::unpack(req.pack()), req);
+        if depth <= 4 {
+            assert!(
+                req.epicness() > last_epic,
+                "depth {depth}: {} <= {last_epic}",
+                req.epicness()
+            );
+        }
+        last_epic = req.epicness();
+    }
+    assert!(
+        last_epic > 0.90,
+        "deep stack reaches epic climax: {last_epic}"
+    );
+
+    // Stack resolves back to empty: stack_depth clears immediately and flurry decays smoothly.
+    view.seq += 1;
+    view.stack.clear();
+    let after_resolve = direct(
+        Place::Table,
+        Some(&view),
+        None,
+        MusicTheme::Thorn,
+        &mut memory,
+        0.1,
+    );
+    assert_eq!(after_resolve.stack_depth, 0);
+    assert!(after_resolve.epicness() < last_epic);
+    let settled = direct(
+        Place::Table,
+        Some(&view),
+        None,
+        MusicTheme::Thorn,
+        &mut memory,
+        12.0,
+    );
+    assert!(
+        settled.epicness() < 0.12,
+        "settled back to calm: {}",
+        settled.epicness()
+    );
 }

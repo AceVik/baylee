@@ -1,10 +1,12 @@
-//! A piano remembrance for login/lobby and fifteen original suites for games.
-//! The remembrance uses a stereo CC0 grand piano, violin and cello at 48 kHz.
-//! Game recordings offer studio 48-kHz or original 44.1-kHz banks.
-//! One persistent orchestra admits scene changes on the next eighth-note pulse;
-//! releases and room tails bridge the change, and tempo moves continuously.
-//! Recorded source rate is 44.1 kHz in both banks; studio preparation resamples
-//! and tunes before playback. The lyre is our own native 48-kHz string model.
+//! Unified D-minor / D-Dorian / F-major / D-major public-domain-oriented score:
+//! - Login (`Place::FrontDoor`): noble Title suite (Handel *Sarabande HWV 437*, Dvořák *Largo*, Mussorgsky *Promenade*).
+//! - Lobby & Deckbuilder (`Place::Lobby | Place::Build`): cozy Acoustic-Tavern-Guitar suite (Sanz, Tárrega, Sor, Bach).
+//! - Arrival / Loading (`Place::Opening`): warm harmonic hush; Table music begins only after the loading cover clears.
+//! - Table (`Place::Table`) & Endings: fifteen suites scaling continuously from Calm to Epic with live stack depth,
+//!   resolved by D-major Victory, D-minor Defeat, and D-Dorian Draw cues.
+//!
+//! Native 48-kHz physical-modelled Acoustic Tavern Guitar, Renaissance lyre, and hybrid orchestral synthesizer layers
+//! share one stereo room with CC0 acoustic recordings (`Studio48` or `Original441`), gliding seamlessly across beats.
 
 #[allow(dead_code)] // Historical generated bank retains unused documented families.
 mod bank;

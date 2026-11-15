@@ -6,8 +6,9 @@
 //! exactly as a hosted one does, so both sound the same by construction.
 //!
 //! The answer is a [`ScoreRequest`], packed into one `u64` that the audio
-//! thread reads atomically ([`super::ScoreControl`]). Legacy event counters remain packed for diagnostics. The current suites
-//! use combat/tension for movements and compose their accents in the score.
+//! thread reads atomically ([`super::ScoreControl`]). It encodes the scene,
+//! combat, danger flags, live stack depth (`view.stack.len()`), and continuous
+//! action intensity so the table score scales smoothly from Calm to Epic.
 #![allow(clippy::cast_precision_loss)] // small board counts and life totals
 use baylee_core::ids::PlayerId;
 use baylee_core::types::TypeSet;
@@ -24,9 +25,9 @@ pub enum Place {
     Lobby,
     /// Building a deck.
     Build,
-    /// A table being prepared beneath its loading cover.
+    /// A table being prepared beneath its loading cover (hushed bridge; table music waits).
     Opening,
-    /// A game on screen.
+    /// A game on screen after the loading screen has cleared.
     Table,
     /// A game over, its result on screen.
     Finished,
@@ -60,22 +61,22 @@ impl Ending {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Scene {
-    /// The title screen: the full B♭ Dorian suite.
+    /// The sign-in screen: noble D-minor / D-Dorian title suite.
     #[default]
     FrontDoor = 0,
-    /// The lobby: a relaxed Dorian tavern arrangement.
+    /// The lobby: cozy acoustic-guitar tavern suite.
     Lobby = 1,
-    /// Deck building shares the relaxed Dorian tavern.
+    /// Deck building shares the cozy acoustic-guitar tavern suite.
     Build = 2,
-    /// A table opening: the arrival.
+    /// A table opening beneath the loading screen: sustained harmonic hush before table music.
     Opening = 3,
-    /// A game: standard, combat or endgame, by pressure and combat state.
+    /// A game: scales smoothly from calm chamber music to poised tension and epic climax.
     Table = 4,
-    /// The victory, in B♭.
+    /// The victory: radiant D-major fanfare and triumphant cadence.
     Victory = 5,
-    /// The draw: open-fifth cue, then major/minor ambiguity.
+    /// The draw: open-fifth cue and contemplative D-Dorian modal suspension.
     Draw = 6,
-    /// The defeat: falling cue, then a B♭-centred lament.
+    /// The defeat: falling cue and noble D-minor elegy.
     Defeat = 7,
 }
 
@@ -100,9 +101,17 @@ impl Scene {
     }
 }
 
-/// One request to the score: a scene, how tense the game is, what is going
-/// on, and four accent counters. Everything the audio thread needs, in one
-/// word.
+fn quantize_unit(value: f32) -> f32 {
+    if value.is_finite() {
+        (value.clamp(0.0, 1.0) * 1000.0).round() / 1000.0
+    } else {
+        0.0
+    }
+}
+
+/// One request to the score: a scene, how tense the game is, live stack depth,
+/// continuous action intensity, combat/danger flags, and four accent counters.
+/// Everything the audio thread needs, in one `u64` word.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[allow(clippy::struct_excessive_bools)] // flags by nature: they travel as bits of one word
 pub struct ScoreRequest {
@@ -112,7 +121,7 @@ pub struct ScoreRequest {
     pub tension: f32,
     /// Creatures are attacking.
     pub combat: bool,
-    /// A big spell is on the stack.
+    /// A big spell is on the stack, or 3+ items are stacked.
     pub big_spell: bool,
     /// A life total is low.
     pub low_life: bool,
@@ -139,19 +148,54 @@ pub struct ScoreRequest {
     pub theme: Theme,
     /// Recorded sound bank, independent of the theme.
     pub samples: SampleSet,
+    /// Live items on the stack (`view.stack.len()`, capped at 7 in the packed word).
+    pub stack_depth: u8,
+    /// At least one attacker has been blocked in combat.
+    pub blockers: bool,
+    /// Continuous action & stack intensity, 0 to 1 (kept to thousandths).
+    pub action_intensity: f32,
 }
 
 impl ScoreRequest {
-    /// The request as one word.
+    /// Unified 0..=1 intensity combining stack depth, action flurry, combat and danger.
     #[must_use]
-    pub fn pack(self) -> u64 {
-        let tension = if self.tension.is_finite() {
-            self.tension.clamp(0.0, 1.0)
+    pub fn epicness(self) -> f32 {
+        let stack_floor = match self.stack_depth {
+            0 => 0.0,
+            1 => 0.22,
+            2 => 0.48,
+            3 => 0.76,
+            _ => 0.96,
+        };
+        let combat = if self.combat {
+            if self.blockers { 0.46 } else { 0.36 }
         } else {
             0.0
         };
+        let danger = if self.lethal || self.about_to_lose {
+            0.82
+        } else if self.low_life {
+            0.62
+        } else {
+            0.0
+        };
+        self.action_intensity
+            .max(self.tension * 0.92)
+            .max(stack_floor)
+            .max(combat)
+            .max(danger)
+            .clamp(0.0, 1.0)
+    }
+
+    /// The request as one word.
+    #[must_use]
+    pub fn pack(self) -> u64 {
+        let tension = quantize_unit(self.tension);
+        let intensity = quantize_unit(self.action_intensity);
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // 0..=1000
         let tension = (tension * 1000.0).round() as u64;
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // 0..=1000
+        let intensity = (intensity * 1000.0).round() as u64;
         let flag = |on: bool, bit: u32| u64::from(on) << bit;
         u64::from(self.scene as u8)
             | tension << 4
@@ -169,6 +213,9 @@ impl ScoreRequest {
             | u64::from(self.turn_seat & 7) << 37
             | u64::from(self.theme as u8 & 15) << 40
             | u64::from(self.samples as u8) << 44
+            | u64::from(self.stack_depth.min(7)) << 45
+            | flag(self.blockers, 48)
+            | intensity << 49
     }
 
     /// The request a word holds.
@@ -198,12 +245,15 @@ impl ScoreRequest {
             } else {
                 SampleSet::Studio48
             },
+            stack_depth: nibble(45) & 7,
+            blockers: bit(48),
+            action_intensity: (word >> 49 & 1023).min(1000) as f32 / 1000.0,
         }
     }
 }
 
 /// What [`direct`] remembers between calls: the previous view's counts, the
-/// decaying activity, and the accent counters.
+/// decaying activity, recent spell/ability flurry, and the accent counters.
 #[derive(Clone, Debug, Default)]
 #[allow(clippy::struct_excessive_bools)] // edges remembered between views
 pub struct Memory {
@@ -214,6 +264,9 @@ pub struct Memory {
     /// Activity: bursts of life lost and board and stack changes, decaying
     /// with a nine-second time constant.
     activity: f32,
+    /// Short-term spell/ability & combat flurry, decaying over 4.5 seconds
+    /// so vertical stack layers settle gracefully after resolution.
+    flurry: f32,
     attacking: bool,
     big: bool,
     monarch: Option<PlayerId>,
@@ -243,19 +296,30 @@ impl Memory {
 }
 
 /// How tense a view is, 0 to 1, and what is going on in it (design §3.1):
-/// combat, a big spell, low life, a player about to lose and a lethal board
-/// add up, with the decaying activity on top.
+/// combat, stack depth, a big spell, low life, a player about to lose and a
+/// lethal board add up, with the decaying activity and action flurry on top.
 fn reading(view: &PlayerView) -> (f32, ScoreRequest) {
     let mut tension = 0.0;
     let mut request = ScoreRequest::default();
     let attackers = view.combat.attackers.len();
+    request.blockers = view.combat.attackers.iter().any(|a| a.blocked);
     if attackers > 0 {
         request.combat = true;
         tension += 0.25 + 0.05 * attackers.saturating_sub(2) as f32;
     }
-    if view.stack.iter().any(|object| object.mana_value >= 5) || view.stack.len() >= 3 {
+    let stack_len = view.stack.len();
+    #[allow(clippy::cast_possible_truncation)] // clamped to 0..=7
+    {
+        request.stack_depth = stack_len.min(7) as u8;
+    }
+    if view.stack.iter().any(|object| object.mana_value >= 5) || stack_len >= 3 {
         request.big_spell = true;
         tension += 0.2;
+    } else if stack_len == 1 {
+        tension += 0.08;
+    }
+    if stack_len >= 2 {
+        tension += (stack_len - 1).min(4) as f32 * 0.14;
     }
     let playing = || view.seats.iter().filter(|seat| !seat.has_lost());
     let low = |life: i32, poison: u16| life <= 5 || poison >= 8;
@@ -273,8 +337,7 @@ fn reading(view: &PlayerView) -> (f32, ScoreRequest) {
         tension += 0.2;
     }
     // Lethal on board, as the public board reads: the active player's
-    // untapped creatures that may attack reach a living opponent's life. The client
-    // runs no rules, so this is an approximation and is only a colour.
+    // untapped creatures that may attack reach a living opponent's life.
     let power: i32 = view
         .battlefield
         .iter()
@@ -294,11 +357,41 @@ fn reading(view: &PlayerView) -> (f32, ScoreRequest) {
     {
         request.turn_seat = view.active.get() & 7;
     }
+
+    let stack_drive = match stack_len {
+        0 => 0.0,
+        1 => 0.20,
+        2 => 0.42,
+        3 => 0.62,
+        4 => 0.80,
+        _ => 0.92,
+    } + if view.stack.iter().any(|object| object.mana_value >= 5) {
+        0.10
+    } else {
+        0.0
+    };
+    let combat_drive = if request.combat {
+        0.34 + 0.05 * attackers.min(5) as f32 + if request.blockers { 0.10 } else { 0.0 }
+    } else {
+        0.0
+    };
+    let board_drive = (view.battlefield.len().min(14) as f32 / 14.0) * 0.14
+        + (view.turn.saturating_sub(1).min(8) as f32 / 8.0) * 0.08;
+    let danger_drive = if request.lethal || request.about_to_lose {
+        0.44
+    } else if request.low_life {
+        0.28
+    } else {
+        0.0
+    };
+    request.action_intensity =
+        quantize_unit(stack_drive + combat_drive + board_drive + danger_drive);
+
     (tension, request)
 }
 
 /// The score's request for this frame. `dt` is the frame's length in
-/// seconds; the activity decays over it.
+/// seconds; the activity and spell flurry decay over it.
 pub fn direct(
     place: Place,
     view: Option<&PlayerView>,
@@ -307,7 +400,9 @@ pub fn direct(
     memory: &mut Memory,
     dt: f32,
 ) -> ScoreRequest {
-    memory.activity *= (-dt.max(0.0) / 9.0).exp();
+    let dt = dt.max(0.0);
+    memory.activity *= (-dt / 9.0).exp();
+    memory.flurry *= (-dt / 4.5).exp();
     let mut request = ScoreRequest::default();
     if place == Place::Opening && !memory.opening {
         memory.arrivals = memory.arrivals.wrapping_add(1);
@@ -336,10 +431,13 @@ pub fn direct(
         if memory.seq != Some(view.seq) {
             let life = view.seats.iter().map(|seat| seat.life).sum::<i32>();
             if memory.seq.is_some() {
-                let burst = (memory.life - life).max(0) as f32 * 0.04
-                    + memory.objects.abs_diff(view.battlefield.len()) as f32 * 0.04
-                    + memory.stack.abs_diff(view.stack.len()) as f32 * 0.06;
+                let stack_delta = memory.stack.abs_diff(view.stack.len()) as f32;
+                let board_delta = memory.objects.abs_diff(view.battlefield.len()) as f32;
+                let life_loss = (memory.life - life).max(0) as f32;
+                let burst = life_loss * 0.04 + board_delta * 0.04 + stack_delta * 0.06;
                 memory.activity = (memory.activity + burst.min(0.3)).min(0.3);
+                let flurry_step = stack_delta * 0.055 + board_delta * 0.035 + life_loss * 0.025;
+                memory.flurry = (memory.flurry + flurry_step.min(0.18)).min(0.22);
             }
             // Accents: the edge of an attack (one horn call a turn at most),
             // the monarch changing hands, a big spell arriving.
@@ -360,8 +458,6 @@ pub fn direct(
             memory.monarch_seen = true;
             let losses = view.seats.iter().filter(|seat| seat.has_lost()).count();
             if view.seats.len() > 2 && losses > memory.losses && memory.seq.is_some() {
-                // Somebody fell at a table that plays on: about to lose, for
-                // a while.
                 memory.activity = (memory.activity + 0.2).min(0.3);
             }
             memory.losses = losses;
@@ -372,7 +468,8 @@ pub fn direct(
         }
         request = ScoreRequest {
             scene: Scene::Table,
-            tension: (tension + memory.activity).min(1.0),
+            tension: quantize_unit(tension + memory.activity),
+            action_intensity: quantize_unit(reading.action_intensity + memory.flurry),
             ..reading
         };
     }

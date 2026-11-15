@@ -142,7 +142,11 @@ impl Theme {
             other => super::styles::profile(other).ticks,
         }
     }
+    #[cfg(test)]
     pub(super) fn eighth(self, movement: Movement) -> f64 {
+        self.eighth_with_intensity(movement, 0.0)
+    }
+    pub(super) fn eighth_with_intensity(self, movement: Movement, intensity: f32) -> f64 {
         let quarter = match self {
             Self::Ember => 112.0,
             Self::Glass => 132.0,
@@ -151,17 +155,22 @@ impl Theme {
             Self::Star => 120.0,
             other => super::styles::profile(other).bpm,
         };
-        let pace = match movement {
+        let surge = if movement.table() {
+            1.0 + 0.055 * f64::from(intensity.clamp(0.0, 1.0))
+        } else {
+            1.0
+        };
+        let mult = match movement {
             Movement::Title => 1.0,
             Movement::Lobby => 0.88,
             Movement::Standard => 0.96,
-            Movement::Combat => 1.18,
+            Movement::Combat => 1.15,
             Movement::Endgame => 1.13,
             Movement::Victory => 1.14,
             Movement::Defeat => 0.78,
             Movement::Draw => 0.90,
         };
-        30.0 / (quarter * pace)
+        30.0 / (quarter * mult * surge)
     }
     pub(super) const fn pages(self) -> &'static Pages {
         match self {

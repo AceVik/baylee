@@ -1,7 +1,9 @@
-//! A public-domain memorial performance and fifteen original duel suites.
-//! Composition is in `manuscript`; arranging is a pure, bounded note scheduler.
-//! Scene/theme changes are admitted on the next
-//! eighth (about 0.18–0.35 seconds). Result cues finish before leaving the result.
+//! Unified D-minor / D-Dorian / F-major / D-major public-domain-oriented score:
+//! - Login (`FrontDoor` -> `Movement::Title`): Handel *Sarabande HWV 437* & Dvořák *Largo* / Mussorgsky *Promenade*.
+//! - Lobby & Deckbuilder (`Lobby | Build` -> `Movement::Lobby`): Acoustic-Tavern-Guitar suite (Sanz, Tárrega, Sor, Bach).
+//! - Loading / Arrival (`Scene::Opening`): Warm sustained D–A harmonic hush; Table music waits until loading finishes.
+//! - Table (`Scene::Table`): Phrase-continuous Calm ("Ruhig") -> Tense -> Epic ("Episch") scaling with live stack depth.
+//! - Endings (`Victory`, `Defeat`, `Draw`): Triumphant D-major fanfare, D-minor elegy, and D-Dorian open-fifth suspension.
 #![allow(
     clippy::cast_precision_loss,
     clippy::cast_possible_truncation,
@@ -9,9 +11,10 @@
 )]
 // Bounded MIDI, tick and audio-frame arithmetic.
 use super::{
-    RATE, SampleSet, ScoreRequest,
+    RATE, SampleSet, Scene, ScoreRequest,
     orchestra::{BLOCK, Orchestra, Touch},
 };
+use arrangement::Instrument;
 use std::sync::{
     Arc,
     atomic::{AtomicU64, Ordering},
@@ -55,7 +58,7 @@ pub struct Position {
     pub phrase_bar: u32,
 }
 
-/// Subtle, endless-loop tavern room murmur and hearth warmth for Lobby and Table.
+/// Subtle, endless-loop tavern room murmur and hearth warmth for the Lobby and calm Table.
 struct TavernAmbience {
     seed: u32,
     env: f32,
@@ -103,7 +106,7 @@ impl TavernAmbience {
         }
         let n_l = self.next_noise();
         let n_r = self.next_noise();
-        // Slow syllable-rate modulation (2.4 Hz, 3.7 Hz, 5.1 Hz) for distant warm tavern murmur.
+        // Slow syllable-rate modulation (2.4 Hz, 3.7 Hz, 0.43 Hz) for distant warm tavern murmur.
         self.cadence_a = (self.cadence_a + std::f32::consts::TAU * 2.4 / RATE as f32)
             .rem_euclid(std::f32::consts::TAU);
         self.cadence_b = (self.cadence_b + std::f32::consts::TAU * 3.7 / RATE as f32)
@@ -129,7 +132,7 @@ impl TavernAmbience {
         self.crackle_env *= 0.985;
         let hearth = self.hearth_lp * 0.45 + self.left_lp1 * self.crackle_env;
 
-        let gain = 0.0075 * self.env;
+        let gain = 0.0070 * self.env;
         [
             (murmur_l * 0.75 + murmur_r * 0.25 + hearth * 0.45) * gain,
             (murmur_r * 0.75 + murmur_l * 0.25 + hearth * 0.20) * gain,
@@ -138,7 +141,7 @@ impl TavernAmbience {
 }
 
 /// Endless stereo performance with bounded polyphony and no render-time allocation.
-/// Held notes and the room survive scene changes, as does the sample clock.
+/// Held notes and the stereo room survive scene changes, as does the sample clock.
 pub struct Tune {
     control: Arc<ScoreControl>,
     orchestra: Orchestra,
@@ -149,6 +152,11 @@ pub struct Tune {
     until_tick: f64,
     eighth: f64,
     target: f64,
+    intensity: f32,
+    target_intensity: f32,
+    stack_depth: u8,
+    opening_hush: bool,
+    hush_pulses: u8,
     started: bool,
     pending_result: Option<ScoreRequest>,
     ahead: Vec<[f32; 2]>,
@@ -172,7 +180,8 @@ impl Tune {
     pub fn with_control(control: Arc<ScoreControl>) -> Self {
         let request = control.get();
         let movement = Movement::wanted(request, Movement::Title);
-        let eighth = request.theme.eighth(movement);
+        let intensity = request.epicness();
+        let eighth = request.theme.eighth_with_intensity(movement, intensity);
         Self {
             control,
             orchestra: Orchestra::default(),
@@ -189,6 +198,11 @@ impl Tune {
             until_tick: 0.0,
             eighth,
             target: eighth,
+            intensity,
+            target_intensity: intensity,
+            stack_depth: request.stack_depth,
+            opening_hush: false,
+            hush_pulses: 0,
             started: false,
             pending_result: None,
             ahead: vec![[0.0; 2]; BLOCK],
@@ -202,21 +216,93 @@ impl Tune {
     pub const fn position(&self) -> Position {
         self.position
     }
+    /// Whether the conductor is holding the loading-screen harmonic hush before table reveal.
+    #[must_use]
+    pub const fn in_opening_hush(&self) -> bool {
+        self.opening_hush
+    }
+
+    fn schedule_opening_bridge(&mut self, initial: bool) {
+        let samples = self.position.samples;
+        // Soft D3–A3 open-fifth bridge hush connects Lobby to Table without starting the table theme.
+        self.orchestra.note_with_samples(
+            Instrument::StringPad,
+            50,
+            2.6,
+            if initial { 0.052 } else { 0.042 },
+            Touch::at(-0.22),
+            samples,
+        );
+        self.orchestra.note_with_samples(
+            Instrument::FrenchHorn,
+            57,
+            2.4,
+            if initial { 0.038 } else { 0.030 },
+            Touch::at(0.16).late(0.025),
+            samples,
+        );
+        if initial {
+            self.orchestra.note_with_samples(
+                Instrument::Harp,
+                74,
+                2.2,
+                0.065,
+                Touch::at(-0.32).attack(0.006).release(0.45),
+                samples,
+            );
+        }
+    }
 
     fn admit(&mut self) {
         let request = self
             .pending_result
             .take()
             .unwrap_or_else(|| self.control.get());
-        let movement = Movement::wanted(request, self.position.movement);
         let protected =
             self.position.movement.ending() && self.position.phrase_bar == 0 && self.tick < 4;
+
+        // Loading / arrival screen: release Lobby notes into a warm sustained hush; wait for Table.
+        if request.scene == Scene::Opening && !protected {
+            if self.opening_hush {
+                self.position.theme = request.theme;
+                self.position.samples = request.samples;
+                self.hush_pulses = self.hush_pulses.wrapping_add(1);
+                if self.hush_pulses.is_multiple_of(11) {
+                    self.schedule_opening_bridge(false);
+                }
+            } else {
+                self.orchestra.release_notes();
+                self.opening_hush = true;
+                self.hush_pulses = 0;
+                self.position.movement = Movement::Lobby;
+                self.position.theme = request.theme;
+                self.position.samples = request.samples;
+                self.schedule_opening_bridge(true);
+            }
+            self.started = true;
+            return;
+        }
+
+        let movement = Movement::wanted(request, self.position.movement);
         let urgent = movement.ending() && movement != self.position.movement;
         if !self.started || (!protected || urgent) {
-            if movement != self.position.movement || request.theme != self.position.theme {
-                let continuous =
-                    memorial::contains(movement) && memorial::contains(self.position.movement);
-                if !continuous {
+            let leaving_hush = self.opening_hush;
+            self.opening_hush = false;
+            let prev = self.position.movement;
+            let same_theme = request.theme == self.position.theme;
+            if leaving_hush || movement != prev || !same_theme {
+                let table_flow = !leaving_hush && same_theme && prev.table() && movement.table();
+                let lobby_stay =
+                    !leaving_hush && prev == Movement::Lobby && movement == Movement::Lobby;
+                if table_flow {
+                    // Phrase-continuous within the duel: keep bar & tick; gently release heavy brass on step-down.
+                    if prev == Movement::Endgame && movement == Movement::Standard {
+                        self.orchestra.release_notes();
+                    }
+                } else if !lobby_stay {
+                    if movement == Movement::Lobby && (prev.table() || prev.ending()) {
+                        self.memorial.next_lobby_piece();
+                    }
                     self.orchestra.release_notes();
                     self.position.phrase_bar = 0;
                     self.tick = 0;
@@ -225,7 +311,15 @@ impl Tune {
                 self.position.theme = request.theme;
             }
             self.position.samples = request.samples;
-            self.target = self.position.theme.eighth(movement);
+            self.stack_depth = request.stack_depth;
+            self.target_intensity = request.epicness();
+            if !self.started || leaving_hush {
+                self.intensity = self.target_intensity;
+            }
+            self.target = self
+                .position
+                .theme
+                .eighth_with_intensity(movement, self.intensity);
         }
         self.started = true;
     }
@@ -241,24 +335,35 @@ impl Tune {
         if self.until_tick > 0.0 {
             return;
         }
-        if self.tick == self.position.theme.ticks() {
+        if !self.opening_hush
+            && !memorial::contains(self.position.movement)
+            && self.tick >= self.position.theme.ticks()
+        {
             self.tick = 0;
             self.position.bar += 1;
             self.position.phrase_bar = self.position.phrase_bar.saturating_add(1);
         }
         self.admit();
-        if memorial::contains(self.position.movement) {
-            self.until_tick += f64::from(
-                self.memorial
-                    .play(&mut self.orchestra, self.position.samples),
-            );
+        if self.opening_hush {
+            // Poll every 0.18 s during loading so Table music begins promptly once loading clears.
+            self.until_tick += f64::from(RATE) * 0.18;
             return;
         }
-        let notes = arrangement::notes(
+        if memorial::contains(self.position.movement) {
+            self.until_tick += f64::from(self.memorial.play(
+                self.position.movement,
+                &mut self.orchestra,
+                self.position.samples,
+            ));
+            return;
+        }
+        let notes = arrangement::notes_with_intensity(
             self.position.theme,
             self.position.movement,
             self.position.phrase_bar,
             self.tick,
+            self.stack_depth,
+            self.intensity,
         );
         for note in notes.as_slice() {
             let length = note.length * self.eighth as f32;
@@ -269,7 +374,7 @@ impl Tune {
                 } else {
                     0.045
                 })
-                .release(if note.instrument.short() { 0.10 } else { 0.28 });
+                .release(if note.instrument.short() { 0.12 } else { 0.34 });
             self.orchestra.note_with_samples(
                 note.instrument,
                 note.pitch,
@@ -287,22 +392,29 @@ impl Tune {
         };
         self.until_tick += f64::from(RATE) * self.eighth * swing;
     }
+
     fn advance(&mut self) {
-        if memorial::contains(self.position.movement) && self.memorial.advance() {
+        if !self.opening_hush
+            && memorial::contains(self.position.movement)
+            && self.memorial.advance_for(self.position.movement)
+        {
             self.position.bar += 1;
             self.position.phrase_bar = self.position.phrase_bar.saturating_add(1);
         }
-        self.eighth += (self.target - self.eighth) / (f64::from(RATE) * 3.0);
+        self.eighth += (self.target - self.eighth) / (f64::from(RATE) * 2.4);
+        self.intensity += (self.target_intensity - self.intensity) / (RATE as f32 * 1.6);
         self.until_tick -= 1.0;
     }
+
+    const fn ambience_active(&self) -> bool {
+        !self.opening_hush && matches!(self.position.movement, Movement::Lobby | Movement::Standard)
+    }
+
     /// Render one stereo frame, the scalar reference for the block renderer.
     pub fn frame(&mut self) -> [f32; 2] {
         self.transport();
         self.advance();
-        let active = matches!(
-            self.position.movement,
-            Movement::Title | Movement::Lobby | Movement::Standard
-        );
+        let active = self.ambience_active();
         let amb = self.tavern_ambience.step(active);
         let [l, r] = self.orchestra.frame();
         [l + amb[0], r + amb[1]]
@@ -319,10 +431,7 @@ impl Tune {
             }
             self.orchestra
                 .render(&mut out[done..done + run], &mut self.scratch[..]);
-            let active = matches!(
-                self.position.movement,
-                Movement::Title | Movement::Lobby | Movement::Standard
-            );
+            let active = self.ambience_active();
             for frame in &mut out[done..done + run] {
                 let amb = self.tavern_ambience.step(active);
                 frame[0] += amb[0];

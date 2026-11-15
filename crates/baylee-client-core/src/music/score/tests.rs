@@ -28,10 +28,16 @@ fn each_suite_has_complete_distinct_manuscripts() {
                 assert!(bar.iter().all(|note| note.1 > 0));
             }
         }
+        // D minor / D Dorian / F major / Handel D-minor Sarabande pitch classes.
+        let allowed: &[u8] = if theme == Theme::Glass {
+            &[2, 4, 5, 7, 9, 10, 0, 1]
+        } else {
+            &[2, 4, 5, 7, 9, 10, 11, 0]
+        };
         for phrase in [book.tavern, book.table] {
             for &(pitch, _) in phrase.iter().flat_map(|bar| bar.iter()) {
                 assert!(
-                    pitch == 0 || [10, 0, 1, 3, 5, 7, 8].contains(&(pitch % 12)),
+                    pitch == 0 || allowed.contains(&(pitch % 12)),
                     "{theme:?}: {pitch}"
                 );
             }
@@ -111,14 +117,23 @@ fn all_forty_arrangements_use_the_requested_groups_and_registers() {
                     assert!(has(instrument), "{theme:?} {movement:?}: {instrument:?}");
                 }
             }
+            if movement == Movement::Endgame {
+                assert!(has(Instrument::Timpani) && has(Instrument::StringPad));
+            }
             if movement == Movement::Lobby {
                 assert!(!has(Instrument::Trombone));
                 assert!(!has(Instrument::Bass));
-                assert!(has(Instrument::Lyre) && has(Instrument::Harp));
+                assert!(
+                    has(Instrument::TavernGuitar) && has(Instrument::Lyre) && has(Instrument::Harp)
+                );
             }
             if movement == Movement::Standard {
                 assert!(!has(Instrument::Trombone));
-                assert!(has(Instrument::Lyre) && has(Instrument::Viola));
+                assert!(
+                    has(Instrument::TavernGuitar)
+                        && has(Instrument::Lyre)
+                        && has(Instrument::Viola)
+                );
             }
             if movement == Movement::Combat {
                 let brass = notes
@@ -162,7 +177,10 @@ fn result_cues_have_the_requested_contours_and_do_not_repeat() {
                 assert!(pitches.windows(2).all(|w| w[1] < w[0]));
             }
             if movement == Movement::Draw && !theme.exploration() {
-                assert!(pitches.iter().all(|p| [5, 10].contains(&(p % 12))));
+                assert!(
+                    pitches.iter().all(|p| [2, 9].contains(&(p % 12))),
+                    "D–A open-fifth suspension: {pitches:?}"
+                );
             }
             let after: Vec<_> = (0..theme.ticks())
                 .flat_map(|tick| {
@@ -232,7 +250,18 @@ fn blocks_and_scalar_frames_match_through_mid_phrase_changes() {
         let mut block = Tune::with_control(control.clone());
         let mut out = [[0.0; 2]; 257];
         for (i, theme) in Theme::ALL.into_iter().enumerate() {
-            let mut request = Movement::ALL[i % 8].request(theme);
+            let mut request = if i == 3 {
+                ScoreRequest {
+                    scene: Scene::Opening,
+                    theme,
+                    samples,
+                    ..ScoreRequest::default()
+                }
+            } else {
+                let mut r = Movement::ALL[i % 8].request(theme);
+                r.samples = samples;
+                r
+            };
             request.samples = samples;
             control.set(request);
             for round in 0..100 {
@@ -273,12 +302,12 @@ fn every_scene_has_finite_audio_and_headroom() {
                 }
                 let rms = (power / (frames.len() * 2) as f64).sqrt();
                 assert!(
-                    (0.008..0.88).contains(&peak),
-                    "{theme:?}/{movement:?}: {peak}"
+                    (0.008..0.65).contains(&peak),
+                    "{samples:?}/{theme:?}/{movement:?}: peak {peak}"
                 );
                 assert!(
-                    (0.001..0.25).contains(&rms),
-                    "{theme:?}/{movement:?}: {rms}"
+                    (0.001..0.24).contains(&rms),
+                    "{samples:?}/{theme:?}/{movement:?}: rms {rms}"
                 );
                 assert!(jump < 0.25, "{theme:?}/{movement:?}: {jump}");
             }
@@ -330,6 +359,32 @@ fn no_melody_echoes_a_tune_we_must_not() {
     let avoid: serde_json::Value =
         serde_json::from_str(include_str!("../../../../../art/music/avoid.json"))
             .expect("interval signatures");
+    let check_intervals = |label: &str, pitches: &[i64]| {
+        let ours: Vec<_> = pitches.windows(2).map(|w| w[1] - w[0]).collect();
+        for tune in avoid.as_array().expect("avoid list") {
+            let mut settings = vec![&tune["intervals"]];
+            if let Some(alts) = tune["alt_intervals"].as_array() {
+                settings.extend(alts);
+            }
+            for setting in settings {
+                let Some(intervals) = setting.as_array() else {
+                    continue;
+                };
+                let theirs: Vec<_> = intervals
+                    .iter()
+                    .map(|v| v.as_i64().expect("semitones"))
+                    .collect();
+                for run in ours.windows(6) {
+                    assert!(
+                        !theirs.windows(6).any(|other| other == run),
+                        "{label}: {} ({run:?})",
+                        tune["name"]
+                    );
+                }
+            }
+        }
+    };
+
     let mut checked = 0;
     for theme in Theme::ALL {
         let pages = theme.pages();
@@ -346,48 +401,41 @@ fn no_melody_echoes_a_tune_we_must_not() {
                 .filter(|n| n.0 > 0)
                 .map(|n| i64::from(n.0))
                 .collect();
-            let ours: Vec<_> = pitches.windows(2).map(|w| w[1] - w[0]).collect();
-            for tune in avoid.as_array().expect("avoid list") {
-                let mut settings = vec![&tune["intervals"]];
-                if let Some(alts) = tune["alt_intervals"].as_array() {
-                    settings.extend(alts);
-                }
-                for setting in settings {
-                    let Some(intervals) = setting.as_array() else {
-                        continue;
-                    };
-                    let theirs: Vec<_> = intervals
-                        .iter()
-                        .map(|v| v.as_i64().expect("semitones"))
-                        .collect();
-                    for run in ours.windows(6) {
-                        assert!(
-                            !theirs.windows(6).any(|other| other == run),
-                            "{theme:?}: {}",
-                            tune["name"]
-                        );
-                    }
-                }
-            }
+            check_intervals(theme.name(), &pitches);
             checked += 1;
         }
     }
     assert_eq!(checked, Theme::ALL.len() * 5);
+
+    for (name, raw_pitches) in memorial::sheet_melodies() {
+        let pitches: Vec<_> = raw_pitches.into_iter().map(i64::from).collect();
+        check_intervals(name, &pitches);
+    }
 }
 
 #[test]
-fn each_tavern_is_strictly_dorian_with_a_distinct_harmonic_route() {
+fn each_tavern_is_centered_in_d_with_a_distinct_harmonic_route() {
     let mut routes = Vec::new();
     for theme in Theme::DORIAN {
         let mut route = Vec::new();
+        let allowed: &[u8] = if theme == Theme::Glass {
+            &[2, 4, 5, 7, 9, 10, 0, 1]
+        } else {
+            &[2, 4, 5, 7, 9, 10, 11, 0]
+        };
         for bar in 0..8 {
             let arrangement::Chord(root, third, fifth) =
                 arrangement::chord(theme, Movement::Lobby, bar);
             route.push((root, third, fifth));
             for pitch in [root, root + third, root + fifth] {
-                assert!([10, 0, 1, 3, 5, 7, 8].contains(&(pitch % 12)));
+                assert!(
+                    allowed.contains(&(pitch % 12)),
+                    "{theme:?} bar {bar}: pitch {pitch}"
+                );
             }
         }
+        assert_eq!(route[0].0 % 12, 2, "{theme:?} opens on D");
+        assert_eq!(route[7].0 % 12, 2, "{theme:?} cadences on D");
         assert!(!routes.contains(&route));
         routes.push(route);
     }
@@ -423,11 +471,21 @@ fn two_bar_themes_return_and_every_written_note_belongs_to_its_harmony() {
                 );
                 let tones = [root % 12, (root + third) % 12, (root + fifth) % 12];
                 for tick in 0..theme.ticks() {
-                    for note in arrangement::notes(theme, movement, bar, tick).as_slice() {
-                        assert!(
-                            tones.contains(&(note.pitch % 12)),
-                            "{theme:?}/{movement:?} bar {bar} tick {tick}: {note:?} vs {tones:?}"
+                    for &(stack, intensity) in &[(0, 0.0), (2, 0.55), (5, 1.0)] {
+                        let notes = arrangement::notes_with_intensity(
+                            theme, movement, bar, tick, stack, intensity,
                         );
+                        assert!(notes.as_slice().len() <= 16, "leave transition headroom");
+                        for note in notes.as_slice() {
+                            assert!(
+                                (28..=88).contains(&note.pitch),
+                                "{theme:?}/{movement:?} bar {bar} tick {tick}: {note:?}"
+                            );
+                            assert!(
+                                tones.contains(&(note.pitch % 12)),
+                                "{theme:?}/{movement:?} bar {bar} tick {tick}: {note:?} vs {tones:?}"
+                            );
+                        }
                     }
                 }
             }
@@ -460,27 +518,155 @@ fn sample_banks_change_without_resetting_the_musical_phrase() {
 }
 
 #[test]
-fn title_and_lobby_share_continuous_tavern_sheet_music_performance() {
+fn lobby_and_deckbuilder_continue_uninterrupted_on_acoustic_tavern_guitar() {
     let left = Arc::new(ScoreControl::default());
     let right = Arc::new(ScoreControl::default());
+    left.set(ScoreRequest {
+        scene: Scene::Lobby,
+        theme: Theme::Ember,
+        ..ScoreRequest::default()
+    });
+    right.set(ScoreRequest {
+        scene: Scene::Lobby,
+        theme: Theme::Ember,
+        ..ScoreRequest::default()
+    });
     let mut a = Tune::with_control(left.clone());
     let mut b = Tune::with_control(right.clone());
     let mut x = [[0.0; 2]; 256];
     let mut y = [[0.0; 2]; 256];
-    for i in 0..600 {
-        if i == 150 {
-            right.set(Movement::Lobby.request(Theme::Ember));
+    for i in 0..450 {
+        if i == 120 {
+            right.set(ScoreRequest {
+                scene: Scene::Build,
+                theme: Theme::Star,
+                ..ScoreRequest::default()
+            });
         }
-        if i == 300 {
-            right.set(Movement::Lobby.request(Theme::Lantern));
+        if i == 280 {
+            right.set(ScoreRequest {
+                scene: Scene::Lobby,
+                theme: Theme::Glass,
+                ..ScoreRequest::default()
+            });
         }
         a.render(&mut x);
         b.render(&mut y);
         assert_eq!(
             x, y,
-            "title to lobby and theme choice preserve the continuous tavern sheet-music score"
+            "Lobby <-> Deckbuilder and theme changes never interrupt the Acoustic Tavern Guitar suite"
         );
     }
     assert_eq!(b.position.movement, Movement::Lobby);
-    assert_eq!(b.position.theme, Theme::Lantern);
+    assert_eq!(b.position.theme, Theme::Glass);
+}
+
+#[test]
+fn table_music_waits_for_the_loading_screen_and_scales_from_calm_to_epic() {
+    let control = Arc::new(ScoreControl::default());
+    // 1. Lobby plays cozy guitar suite.
+    control.set(ScoreRequest {
+        scene: Scene::Lobby,
+        theme: Theme::Ember,
+        ..ScoreRequest::default()
+    });
+    let mut tune = Tune::with_control(control.clone());
+    render_seconds(&mut tune, 2);
+    assert_eq!(tune.position().movement, Movement::Lobby);
+    assert!(!tune.in_opening_hush());
+
+    // 2. Loading screen (`Scene::Opening`): enters harmonic hush, NEVER starts Table music.
+    control.set(ScoreRequest {
+        scene: Scene::Opening,
+        theme: Theme::Ember,
+        ..ScoreRequest::default()
+    });
+    let hush_audio = render_seconds(&mut tune, 3);
+    assert!(tune.in_opening_hush());
+    assert_ne!(
+        tune.position().movement,
+        Movement::Standard,
+        "table music must not start while loading screen is active"
+    );
+    let hush_rms = (hush_audio
+        .iter()
+        .flatten()
+        .map(|s| f64::from(*s).powi(2))
+        .sum::<f64>()
+        / (hush_audio.len() * 2) as f64)
+        .sqrt();
+    assert!(
+        (0.0002..0.06).contains(&hush_rms),
+        "gentle bridge hush: {hush_rms}"
+    );
+
+    // 3. Loading screen clears (`Scene::Table`, stack 0): Table music begins at phrase_bar 0!
+    control.set(ScoreRequest {
+        scene: Scene::Table,
+        theme: Theme::Ember,
+        stack_depth: 0,
+        action_intensity: 0.05,
+        ..ScoreRequest::default()
+    });
+    let mut first_pulse = vec![[0.0; 2]; RATE as usize / 2];
+    tune.render(&mut first_pulse);
+    assert!(!tune.in_opening_hush());
+    assert_eq!(tune.position().movement, Movement::Standard);
+    assert_eq!(
+        tune.position().phrase_bar,
+        0,
+        "table theme starts cleanly at bar 0 after loading"
+    );
+    let calm = render_seconds(&mut tune, 3);
+    let bar_before_stack = tune.position().phrase_bar;
+
+    // 4. Stack grows to 2 -> Poised/Tense (`Combat`), phrase_bar continues without resetting!
+    control.set(ScoreRequest {
+        scene: Scene::Table,
+        theme: Theme::Ember,
+        stack_depth: 2,
+        action_intensity: 0.54,
+        tension: 0.35,
+        ..ScoreRequest::default()
+    });
+    render_seconds(&mut tune, 2);
+    assert_eq!(tune.position().movement, Movement::Combat);
+    assert!(
+        tune.position().phrase_bar >= bar_before_stack,
+        "phrase-continuous escalation"
+    );
+
+    // 5. Stack grows to 4+ -> Epic (`Endgame`), peak remains safe (< 0.65)!
+    control.set(ScoreRequest {
+        scene: Scene::Table,
+        theme: Theme::Ember,
+        stack_depth: 5,
+        big_spell: true,
+        action_intensity: 0.98,
+        tension: 0.88,
+        ..ScoreRequest::default()
+    });
+    let epic = render_seconds(&mut tune, 3);
+    assert_eq!(tune.position().movement, Movement::Endgame);
+
+    let rms = |buf: &[[f32; 2]]| {
+        (buf.iter()
+            .flatten()
+            .map(|s| f64::from(*s).powi(2))
+            .sum::<f64>()
+            / (buf.len() * 2) as f64)
+            .sqrt()
+    };
+    let epic_peak = epic
+        .iter()
+        .flatten()
+        .map(|s| s.abs())
+        .fold(0.0_f32, f32::max);
+    assert!(epic_peak < 0.65, "epic climax peak safe: {epic_peak}");
+    assert!(
+        rms(&epic) > rms(&calm) * 1.12,
+        "epic stack climax swells above calm table: {} vs {}",
+        rms(&epic),
+        rms(&calm)
+    );
 }

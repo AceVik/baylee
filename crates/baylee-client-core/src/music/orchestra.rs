@@ -1,4 +1,5 @@
-//! Recorded orchestra and our modelled lyre, sharing one continuous room.
+//! Recorded orchestra, physical-modelled Acoustic Tavern Guitar and Renaissance lute/lyre,
+//! and hybrid orchestral synthesizer layers sharing one continuous stereo room.
 //! Studio resampling is prepared before playback; both banks render allocation-free.
 #![allow(
     clippy::cast_precision_loss,
@@ -12,7 +13,7 @@ mod sampled;
 mod synth;
 pub(super) use sampled::{Def, Family, Kind};
 mod plucked;
-use plucked::{Lute, STRINGS};
+use plucked::{Lute, STRINGS, TavernGuitar};
 use sampled::Voice;
 
 pub(super) fn prepare() {
@@ -106,6 +107,7 @@ pub(super) struct Orchestra {
     synth: synth::Synth,
     chamber: chamber::Ensemble,
     strings: [Lute; STRINGS],
+    guitar: TavernGuitar,
     plucks: u32,
     room: [Delay; 8],
     scatter: [Delay; 4],
@@ -119,6 +121,7 @@ impl Default for Orchestra {
             synth: synth::Synth::default(),
             chamber: chamber::Ensemble::default(),
             strings: std::array::from_fn(|_| Lute::new()),
+            guitar: TavernGuitar::new(),
             plucks: 0,
             room: [1631, 2043, 2327, 2821, 1697, 2101, 2399, 2921].map(Delay::new),
             scatter: [379, 123, 413, 139].map(Delay::new),
@@ -167,6 +170,9 @@ impl Orchestra {
         if instrument.synthetic() {
             self.synth
                 .note(instrument, pitch, seconds, panned(gain, touch.pan), touch);
+        } else if instrument == Instrument::TavernGuitar {
+            self.guitar
+                .pluck(pitch, seconds, panned(gain * 1.65, touch.pan), touch.late);
         } else if instrument == Instrument::Lyre {
             // A free voice normally exists; deterministic stealing is a last resort.
             let slot = self
@@ -205,6 +211,7 @@ impl Orchestra {
     pub(super) fn release_notes(&mut self) {
         self.synth.release();
         self.chamber.release();
+        self.guitar.release();
         for voice in &mut self.voices {
             voice.release();
         }
@@ -256,6 +263,7 @@ impl Orchestra {
                 feed += (frame[0] + frame[1]) * PLUCK_ROOM;
             }
         }
+        self.guitar.frame(&mut dry, &mut feed);
         self.synth.frame(&mut dry, &mut feed);
         self.chamber.frame(&mut dry, &mut feed);
         self.finish(dry, feed)
@@ -291,6 +299,7 @@ impl Orchestra {
                 *send += (note[0] + note[1]) * PLUCK_ROOM;
             }
         }
+        self.guitar.render(out, feed);
         self.synth.render(out, feed);
         self.chamber.render(out, feed);
         for (frame, send) in out.iter_mut().zip(feed.iter()) {

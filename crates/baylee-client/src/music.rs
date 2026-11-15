@@ -132,16 +132,21 @@ pub fn install(app: &mut App) {
 }
 
 /// Where the player is, as the score's drivers read it: a duel's phase
-/// first, else the lobby's screen.
-fn place(phase: DuelPhase, screen: Option<&Screen>) -> Place {
+/// first, else the lobby's screen. Sitting down (`Screen::Seated`), preparing
+/// a table (`DuelPhase::Opening`), or waiting for the `arrival::Journey`
+/// loading cover to clear on `DuelPhase::Playing` all hold `Place::Opening`
+/// so table music begins only after the loading screen finishes.
+fn place(phase: DuelPhase, screen: Option<&Screen>, journey_active: bool) -> Place {
     match phase {
         DuelPhase::Opening => Place::Opening,
+        DuelPhase::Playing if journey_active => Place::Opening,
         DuelPhase::Playing => Place::Table,
         DuelPhase::Finished => Place::Finished,
         DuelPhase::Closed => match screen {
             None | Some(Screen::SignIn { .. }) => Place::FrontDoor,
             Some(Screen::Build) => Place::Build,
-            Some(Screen::Table | Screen::Seated(_) | Screen::Replay(_)) => Place::Lobby,
+            Some(Screen::Seated(_)) => Place::Opening,
+            Some(Screen::Table | Screen::Replay(_)) => Place::Lobby,
         },
     }
 }
@@ -152,6 +157,7 @@ fn place(phase: DuelPhase, screen: Option<&Screen>) -> Place {
 fn direction(
     phase: DuelPhase,
     screen: Option<&Screen>,
+    journey_active: bool,
     duel: Option<&Duel>,
     theme: music::MusicTheme,
     memory: &mut Memory,
@@ -165,15 +171,23 @@ fn direction(
             baylee_client_core::interaction::outcome(result, view.seat, duel.my_team()).won(),
         ))
     });
-    music::direct(place(phase, screen), view, ending, theme, memory, dt)
+    music::direct(
+        place(phase, screen, journey_active),
+        view,
+        ending,
+        theme,
+        memory,
+        dt,
+    )
 }
 
-#[allow(clippy::too_many_arguments)] // Bevy system: conductor, screen, game, settings and the persistent player
+#[allow(clippy::too_many_arguments)] // Bevy system: conductor, screen, arrival cover, game, settings and persistent player
 fn perform(
     mut commands: Commands,
     time: Res<Time<Real>>,
     conductor: Res<Conductor>,
     phase: Option<Res<State<DuelPhase>>>,
+    journey: Option<Res<crate::arrival::Journey>>,
     duel: Option<Res<Duel>>,
     lobby: Option<Res<LobbyState>>,
     settings: Option<Res<ClientSettings>>,
@@ -191,9 +205,13 @@ fn perform(
     let theme = settings
         .as_ref()
         .map_or_else(music::MusicTheme::default, |s| s.music.theme());
+    let journey_active = journey
+        .as_deref()
+        .is_some_and(crate::arrival::Journey::active);
     let mut request = direction(
         phase.map_or(DuelPhase::Closed, |p| *p.get()),
         lobby.as_deref().map(|lobby| lobby.lobby.screen()),
+        journey_active,
         duel.as_deref(),
         theme,
         memory,
@@ -530,20 +548,105 @@ mod tests {
     }
 
     /// The screens and the phases name their places: a duel's phase wins
-    /// over the lobby's screen.
+    /// over the lobby's screen, and table music waits until the loading /
+    /// arrival cover finishes.
     #[test]
     fn the_screens_and_phases_are_places() {
         let sign_in = Screen::SignIn { registering: false };
-        assert_eq!(place(DuelPhase::Closed, None), Place::FrontDoor);
-        assert_eq!(place(DuelPhase::Closed, Some(&sign_in)), Place::FrontDoor);
-        assert_eq!(place(DuelPhase::Closed, Some(&Screen::Table)), Place::Lobby);
-        assert_eq!(place(DuelPhase::Closed, Some(&Screen::Build)), Place::Build);
+        assert_eq!(place(DuelPhase::Closed, None, false), Place::FrontDoor);
+        assert_eq!(place(DuelPhase::Closed, None, true), Place::FrontDoor);
         assert_eq!(
-            place(DuelPhase::Opening, Some(&Screen::Build)),
+            place(DuelPhase::Closed, Some(&sign_in), false),
+            Place::FrontDoor
+        );
+        assert_eq!(
+            place(DuelPhase::Closed, Some(&Screen::Table), false),
+            Place::Lobby
+        );
+        assert_eq!(
+            place(DuelPhase::Closed, Some(&Screen::Build), false),
+            Place::Build
+        );
+        assert_eq!(
+            place(DuelPhase::Opening, Some(&Screen::Build), false),
             Place::Opening
         );
-        assert_eq!(place(DuelPhase::Playing, None), Place::Table);
-        assert_eq!(place(DuelPhase::Finished, None), Place::Finished);
+        assert_eq!(
+            place(DuelPhase::Playing, None, true),
+            Place::Opening,
+            "table music stays hushed while arrival loading cover is still active"
+        );
+        assert_eq!(place(DuelPhase::Playing, None, false), Place::Table);
+        assert_eq!(place(DuelPhase::Finished, None, false), Place::Finished);
+    }
+
+    #[test]
+    fn table_music_starts_only_after_the_loading_screen_clears() {
+        use baylee_client_core::{
+            music::{Movement, Scene},
+            test_support::ViewBuilder,
+        };
+        let mut memory = Memory::default();
+        let control = Arc::new(ScoreControl::default());
+        let mut tune = Tune::with_control(control.clone());
+        let mut buf = vec![[0.0_f32; 2]; music::RATE as usize / 2];
+
+        // 1. Lobby before sitting down: Lobby guitar suite plays.
+        let req_lobby = direction(
+            DuelPhase::Closed,
+            Some(&Screen::Table),
+            false,
+            None,
+            music::MusicTheme::Ember,
+            &mut memory,
+            0.05,
+        );
+        assert_eq!(req_lobby.scene, Scene::Lobby);
+        control.set(req_lobby);
+        tune.render(&mut buf);
+        assert_eq!(tune.position().movement, Movement::Lobby);
+        assert!(!tune.in_opening_hush());
+
+        // 2. DuelPhase::Opening and DuelPhase::Playing while arrival::Journey is still active:
+        //    must stay in Scene::Opening hush and NEVER start Movement::Standard!
+        let duel = Duel {
+            view: Some(ViewBuilder::new(2).build()),
+            ..Default::default()
+        };
+        for (phase, cover_active) in [(DuelPhase::Opening, true), (DuelPhase::Playing, true)] {
+            let req = direction(
+                phase,
+                Some(&Screen::Table),
+                cover_active,
+                Some(&duel),
+                music::MusicTheme::Ember,
+                &mut memory,
+                0.05,
+            );
+            assert_eq!(req.scene, Scene::Opening);
+            control.set(req);
+            tune.render(&mut buf);
+            assert!(tune.in_opening_hush());
+            assert_ne!(tune.position().movement, Movement::Standard);
+        }
+
+        // 3. Loading cover finishes (`journey.active() == false` on `DuelPhase::Playing`):
+        //    Table music begins cleanly at Bar 0!
+        let req_table = direction(
+            DuelPhase::Playing,
+            Some(&Screen::Table),
+            false,
+            Some(&duel),
+            music::MusicTheme::Ember,
+            &mut memory,
+            0.05,
+        );
+        assert_eq!(req_table.scene, Scene::Table);
+        control.set(req_table);
+        tune.render(&mut buf);
+        assert!(!tune.in_opening_hush());
+        assert_eq!(tune.position().movement, Movement::Standard);
+        assert_eq!(tune.position().phrase_bar, 0);
     }
 
     /// A priority cue ducks the music 6 dB within 30 ms and gives it back
@@ -589,6 +692,7 @@ mod tests {
             let request = direction(
                 DuelPhase::Finished,
                 None,
+                false,
                 Some(&duel),
                 music::MusicTheme::Thorn,
                 &mut Memory::default(),

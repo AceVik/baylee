@@ -211,9 +211,15 @@ fn clips() -> &'static [Option<Clip>] {
             for movement in Movement::ALL {
                 for bar in 0..33 {
                     for tick in 0..theme.ticks() {
-                        for note in arrangement::notes(theme, movement, bar, tick).as_slice() {
-                            if note.instrument != Instrument::Lyre && !note.instrument.synthetic() {
-                                used[key(note.instrument, note.pitch)] = true;
+                        for &(stack, intensity) in &[(0, 0.0), (2, 0.55), (5, 1.0)] {
+                            for note in arrangement::notes_with_intensity(
+                                theme, movement, bar, tick, stack, intensity,
+                            )
+                            .as_slice()
+                            {
+                                if note.instrument.sampled_acoustic() {
+                                    used[key(note.instrument, note.pitch)] = true;
+                                }
                             }
                         }
                     }
@@ -414,7 +420,8 @@ impl Voice {
     pub(super) fn release(&mut self) {
         if !self.released {
             self.released = true;
-            self.release = self.envelope / (RATE as f32 * 0.18);
+            // Smooth 0.82s S-curve transition fade into the shared room (finishes < 1.0s).
+            self.release = self.envelope.max(0.05) / (RATE as f32 * 0.82);
         }
     }
     pub(super) fn next(&mut self) -> Option<[f32; 2]> {

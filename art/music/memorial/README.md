@@ -1,8 +1,41 @@
-# In sunlight · Baylee's remembrance
+# Public-domain Login & Tavern suites · Retained piano remembrance assets
 
-A flowing grand-piano performance with restrained violin and cello, replacing
-the earlier harp-led three-Lieder arrangement. Its complete cycle is 511.17
-seconds. Login and lobby share the same uninterrupted performance.
+Runtime sign-in (`Movement::Title`) and the Lobby / Deckbuilder (`Movement::Lobby`)
+perform dedicated public-domain suites in `crates/baylee-client-core/src/music/score/memorial.rs`,
+unified in **D minor / D Dorian / F major / D major** with the fifteen table suites so
+transitions across sign-in, tavern, loading hush (`Scene::Opening`) and duel play
+like one continuous composition:
+
+- **Login (`Place::FrontDoor` → `Movement::Title`):** noble, atmospheric chamber
+  and orchestral title suite after:
+  1. **George Frideric Handel** (1685–1759), *Suite in D minor, HWV 437: IV. Sarabande* (1733).
+  2. **Antonín Dvořák** (1841–1904), *Symphony No. 9 in E minor, Op. 95 ("From the New World"): II. Largo* (1893),
+     paired with **Modest Mussorgsky** (1839–1881), *Pictures at an Exhibition: Promenade* (1874).
+- **Lobby & Deckbuilder (`Place::Lobby | Place::Build` → `Movement::Lobby`):** cozy,
+  intimate fingerstyle tavern suite led by the native 48-kHz physical-modelled
+  **Acoustic Tavern Guitar** (`orchestra/plucked.rs`) with gentle folk harp,
+  Renaissance lute/lyre, cello/viola hearth accompaniment and warm room murmur, after:
+  1. **Gaspar Sanz** (1640–1710), *Españoleta* (*Instrucción de música sobre la guitarra española*, 1674, D minor).
+  2. **Francisco Tárrega** (1852–1909), *Lágrima* (1891, D major) and *Adelita* (c. 1901, D minor).
+  3. **Fernando Sor** (1778–1839), *Study in B minor, Op. 35 No. 22* (1828, arranged in D minor / F major).
+  4. **Johann Sebastian Bach** (1685–1750), *Suite in E minor, BWV 996: V. Bourrée* (c. 1712)
+     and *Prelude in C minor, BWV 999* (c. 1720, arranged in D minor).
+
+Switching between Lobby and Deckbuilder preserves the exact sample-accurate guitar
+cursor without restarting; returning from a finished duel advances cleanly to the
+next 16-bar tavern guitar piece. All composers above died more than 100 years ago
+and every underlying musical work was published before 1905 (worldwide public domain);
+all arrangements in `score/memorial.rs` are authored directly in Rust for Baylee
+under `AGPL-3.0-only` and verified against `art/music/avoid.json`.
+
+---
+
+## Retained Debussy / Satie chamber edition (`performance.bin` & `assets/chamber/`)
+
+The binary event stream (`performance.bin`, `BAY2`) and stereo CC0 chamber bank
+(`crates/baylee-client-core/assets/chamber/`) remain checked in and verified by
+unit tests and `cargo tools art memorial`: a flowing grand-piano performance with
+restrained violin and cello (511.17 seconds).
 
 ## Repertoire and permissions
 

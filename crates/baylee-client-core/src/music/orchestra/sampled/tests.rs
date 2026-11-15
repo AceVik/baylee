@@ -20,9 +20,15 @@ fn studio_cache_is_bounded_and_covers_every_composed_pitch() {
         for movement in Movement::ALL {
             for bar in 0..33 {
                 for tick in 0..theme.ticks() {
-                    for note in arrangement::notes(theme, movement, bar, tick).as_slice() {
-                        if note.instrument != Instrument::Lyre && !note.instrument.synthetic() {
-                            assert!(clips()[key(note.instrument, note.pitch)].is_some());
+                    for &(stack, intensity) in &[(0, 0.0), (2, 0.55), (5, 1.0)] {
+                        for note in arrangement::notes_with_intensity(
+                            theme, movement, bar, tick, stack, intensity,
+                        )
+                        .as_slice()
+                        {
+                            if note.instrument.sampled_acoustic() {
+                                assert!(clips()[key(note.instrument, note.pitch)].is_some());
+                            }
                         }
                     }
                 }

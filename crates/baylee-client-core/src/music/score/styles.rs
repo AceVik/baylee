@@ -1,5 +1,6 @@
 //! Ten deliberately separate idioms, sharing only the conductor and note budget.
-//! Each owns its tonal route, melody book, pulse, palette and accompaniment.
+//! Each owns its tonal route, melody book, pulse, palette, accompaniment, and
+//! stack-depth climax layers.
 use super::{
     Movement, Theme,
     arrangement::{self, Chord, Instrument, Notes, Role},
@@ -67,27 +68,70 @@ fn cue(out: &mut Notes, theme: Theme, movement: Movement, tick: u8) {
         } else {
             0.9
         },
-        0.40,
+        0.38,
         Role::Melody,
     );
 }
 fn balance(theme: Theme, out: &mut Notes) {
     let gain = match theme {
         Theme::Velvet | Theme::Circuit => 1.0,
-        Theme::Copper => 1.28,
+        Theme::Copper => 1.24,
         Theme::Juniper => 0.85,
         Theme::Lagoon | Theme::Orbit => 0.96,
         Theme::Lantern => 0.97,
-        Theme::Neon => 0.86,
-        Theme::Mosaic => 1.04,
-        Theme::Iron => 0.87,
+        Theme::Neon | Theme::Iron => 0.86,
+        Theme::Mosaic => 1.02,
         _ => unreachable!("new palettes only"),
     };
     for note in &mut out.events[..out.len] {
         note.gain *= gain;
     }
 }
-pub(super) fn notes(theme: Theme, movement: Movement, bar: u32, tick: u8) -> Notes {
+
+fn add_stack_layers(
+    out: &mut Notes,
+    theme: Theme,
+    harmony: Chord,
+    arc: f32,
+    stack_depth: u8,
+    intensity: f32,
+) {
+    if (stack_depth < 2 && intensity < 0.52) || out.len + 2 > 16 {
+        return;
+    }
+    let ticks = profile(theme).ticks;
+    let Chord(root, _, fifth) = harmony;
+    let swell = if theme == Theme::Circuit {
+        Instrument::Pad
+    } else {
+        Instrument::FrenchHorn
+    };
+    out.add(
+        swell,
+        arrangement::near(root + fifth, 60),
+        f32::from(ticks) * 0.78,
+        (0.055 + 0.045 * intensity) * arc,
+        Role::Harmony,
+    );
+    if (stack_depth >= 3 || intensity >= 0.76) && out.len < 16 {
+        out.add(
+            Instrument::Timpani,
+            arrangement::near(root, 38),
+            1.2,
+            0.13 * arc,
+            Role::Rhythm,
+        );
+    }
+}
+
+pub(super) fn notes_with_intensity(
+    theme: Theme,
+    movement: Movement,
+    bar: u32,
+    tick: u8,
+    stack_depth: u8,
+    intensity: f32,
+) -> Notes {
     let mut out = Notes {
         events: [arrangement::EMPTY; 24],
         len: 0,
@@ -145,27 +189,31 @@ pub(super) fn notes(theme: Theme, movement: Movement, bar: u32, tick: u8) -> Not
         } else {
             1.0
         };
+        let boost = if quiet { 1.0 } else { 1.0 + 0.12 * intensity };
         out.add(
             lead,
             pitch,
             length * breath,
-            if quiet { 0.29 } else { 0.38 } * arc * accent * response_gain,
+            if quiet { 0.28 } else { 0.36 } * boost * arc * accent * response_gain,
             Role::Melody,
         );
-        // The B section answers in another colour; the coda opens the register.
         if matches!(movement, Movement::Endgame | Movement::Victory)
             || (movement == Movement::Title && local % 32 >= 16)
+            || (!quiet && (stack_depth >= 2 || intensity >= 0.55))
         {
             out.add(
                 p.accent,
                 if pitch >= 76 { pitch - 12 } else { pitch },
                 length * 0.88,
-                0.13 * arc,
+                (0.11 + 0.04 * intensity) * arc,
                 Role::Accent,
             );
         }
     }
     rhythm::accompany(&mut out, theme, movement, local, tick, harmony, arc);
+    if !quiet && tick == 0 {
+        add_stack_layers(&mut out, theme, harmony, arc, stack_depth, intensity);
+    }
     balance(theme, &mut out);
     out
 }

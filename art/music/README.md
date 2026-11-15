@@ -1,32 +1,87 @@
-# Fifteen suites: five Dorian originals plus ten contrasting styles
+# Unified public-domain-oriented score & hybrid 48-kHz Rust synthesizer
 
-Login and lobby now use the dedicated [piano remembrance](memorial/README.md):
-public-domain Debussy/Satie with stereo CC0 grand piano, violin and cello.
-The suite and bank descriptions below apply to game music; the earlier title
-and lobby arrangements remain historical authoring material.
+Baylee performs one continuous, beat-aligned stereo 48-kHz score across every
+screen, unified around **D minor / D Dorian / F major / D major** so sign-in,
+tavern, loading bridge, duel, and result cues flow together like one living piece:
 
-Five independently composed two-bar title themes, each developed into eight
-movements. See `score/manuscript.rs` and the table in `docs/client.md` for
-motifs, phrase structure, instrumentation and faster tempos. The revised score
-uses consonant major/minor triads; augmented/diminished chords and chromatic
-neighbours have been removed. The user's Risen files are private references,
-never copied, transcribed into the score or distributed.
+- **Login (`Place::FrontDoor` → `Movement::Title`):** noble, atmospheric chamber
+  and orchestral title suite in `score/memorial.rs` after George Frideric Handel
+  (*Suite in D minor, HWV 437: IV. Sarabande*, 1733), Antonín Dvořák (*Symphony No. 9,
+  Op. 95: II. Largo*, 1893) and Modest Mussorgsky (*Pictures at an Exhibition:
+  Promenade*, 1874).
+- **Lobby & Deckbuilder (`Place::Lobby | Place::Build` → `Movement::Lobby`):**
+  cozy, intimate fingerstyle tavern music led by the physical-modelled **Acoustic
+  Tavern Guitar** (`Instrument::TavernGuitar`) with folk harp, Renaissance lyre,
+  cello/viola hearth warmth and subtle room murmur, after Gaspar Sanz (*Españoleta*,
+  1674), Francisco Tárrega (*Lágrima*, 1891; *Adelita*, c. 1901), Fernando Sor
+  (*Study Op. 35 No. 22*, 1828) and Johann Sebastian Bach (*Bourrée BWV 996*,
+  c. 1712; *Prelude BWV 999*, c. 1720). See [memorial/README.md](memorial/README.md).
+- **Loading / Arrival (`Place::Opening` → `Scene::Opening`):** sitting at a table,
+  `DuelPhase::Opening`, and `DuelPhase::Playing` while `arrival::Journey::active()`
+  still covers the screen hold a gentle D3–A3 open-fifth harmonic hush (`Tune::in_opening_hush`)
+  while the Lobby guitar tail decays into the shared stereo room. **Table music
+  begins cleanly at bar 0, beat 0 only after the loading cover clears.**
+- **In-Game (`Place::Table` → `Scene::Table`, Calm to Epic):** `ScoreRequest` packs
+  live `stack_depth` (`view.stack.len()`, 0..=7), `blockers`, and continuous
+  `action_intensity` (`epicness()`) plus decaying 4.5-second spell/ability `flurry`
+  into one atomic `u64` word. Across all fifteen suites, empty stack / quiet turns
+  play **Calm** (`Movement::Standard`: chamber guitar, harp, flute, warm strings),
+  developing boards and 2+ stack items or attackers step phrase-continuously into
+  **Poised / Tense** (`Movement::Combat`: rhythmic ostinato, spiccato strings,
+  French horn & cello counterpoint), and deep stacks (`3–4+`), big spells, or
+  lethal danger bloom into **Epic** (`Movement::Endgame`: soaring brass & French
+  horn swells, driving spiccato strings, pitched timpani, taiko/snare percussion,
+  celesta shimmer), settling smoothly when the stack resolves.
+- **Three Outcome Melodies (`Ending::Victory`, `Ending::Defeat`, `Ending::Draw`):**
+  - **Victory:** radiant ascending **D-major** fanfare & triumphant chorale (after
+    Mussorgsky, *The Great Gate of Kiev*, 1874, and Handel).
+  - **Defeat:** somber descending **D-minor** cue & noble elegy (after Edvard Grieg,
+    *Peer Gynt Suite No. 1, Op. 46: Åse's Death*, 1875/1888).
+  - **Draw:** poised open-fifth (`D–A`) **D-Dorian** modal suspension (after Erik
+    Satie, *Gnossienne No. 1*, 1890).
 
-## Ten further compositions
+Five D-centric classical suites (`score/manuscript.rs`: `Ember` after Dvořák *Op. 95*,
+`Glass` after Handel *HWV 437*, `Thorn` after Ludwig van Beethoven *Symphony No. 7,
+Op. 92: II. Allegretto* [1812], `Tide` after Sanz/Bach, `Star` after Mussorgsky
+*Pictures at an Exhibition* [1874]) pair with ten contrasting genre suites
+(`score/styles/manuscript.rs`), all verified for consonant major/minor triad
+membership and zero six-interval overlaps against `art/music/avoid.json`. Every
+referenced composer died more than 100 years ago and every underlying work was
+published before 1915 (worldwide public domain). The user's Risen files remain
+private references, never copied, transcribed into the score or distributed.
 
-The original five remain intact. `score/styles/manuscript.rs` adds ten independent
-two-bar themes and fifty authored phrases; `styles/rhythm.rs` supplies separate
-accompaniment idioms. Piano nocturne, baroque chamber, folk jig, bossa nova,
-jazz waltz, synthwave, chiptune, marimba minimalism, ambient and orchestral
-breakbeat each have all eight movements. The table in `docs/client.md` gives
-keys and tempos. `Theme::DORIAN` and `Theme::EXPLORATIONS` keep the two sets
-explicit; settings and automatic rotation cover all fifteen.
+## Ten further compositions and native 48-kHz synthesizer extensions
 
-`orchestra/synth.rs` supplies eleven original additive patches and three original
-percussion sounds. These are native 48-kHz models, not sampled acoustic instruments
-or imported synthesizer presets. Recorded layers continue to use only the same
-51 pinned CC0 recordings. Bank selection affects recordings only; native models
-sound the same under either setting. Output is always stereo 48 kHz.
+`score/styles/manuscript.rs` provides ten independent two-bar themes and fifty
+authored phrases; `styles/rhythm.rs` supplies separate accompaniment idioms.
+Piano nocturne, baroque chamber, folk jig, bossa nova, jazz waltz, synthwave,
+chiptune, marimba minimalism, ambient and orchestral breakbeat each have all eight
+movements and scale dynamically with `stack_depth` / `epicness()`. `Theme::DORIAN`
+and `Theme::EXPLORATIONS` keep the two sets explicit; settings and automatic
+rotation cover all fifteen.
+
+Native 48-kHz synthesis (`orchestra/plucked.rs` and `orchestra/synth.rs`) renders
+allocation-free alongside the 51 active pinned CC0 acoustic recordings:
+
+- **Acoustic Tavern Guitar (`orchestra/plucked.rs`, `Instrument::TavernGuitar`):**
+  16 polyphonic waveguide strings with symmetric 3-tap linear-phase bridge loss
+  filtering and fractional Thiran all-pass tuning (`< 6` cents across `D2..D5`),
+  two-pole thumb-flesh Drop-D bass vs finger-plucked nylon/gut treble excitation,
+  three trapezoidal SVF soundboard body modes (`98 Hz` air cavity, `205 Hz` spruce
+  top monopole, `395 Hz` wood cross-dipole) and subtle `D3`/`A3` sympathetic
+  open-string resonators, alongside the 12-string Renaissance `Lyre` model.
+- **Hybrid Orchestral Synthesizer (`orchestra/synth.rs`):** 14 band-limited
+  wavetable patches across an 80-voice pool plus 4 drum/percussion synthesizers,
+  adding warm brass ensemble swell (`FrenchHorn`), stereo-chorused bowed string
+  ensemble with 5.4 Hz shimmer (`StringPad`), crystalline bell-plate (`Celesta`),
+  and pitched circular-membrane kettle drum (`Timpani`, Bessel modal ratios) to
+  the electric piano, clavinet, jazz guitar, warm pad, saw brass, sub-bass,
+  8-bit pulse lead, marimba, glass bell, ambient drone and drum voices. Smooth
+  `~0.80–0.85 s` release envelopes into the `~0.45 s` stereo room bridge every
+  pulse-aligned transition without clicks or abrupt cuts.
+
+Bank selection affects recordings only; native physical and additive models sound
+the same under either setting. Output is always stereo 48 kHz.
 
 ## Two sound banks for every suite
 
@@ -68,17 +123,18 @@ payload is 6,595,212 bytes, selected at compile time from the historical
 19,577,282-byte bank; decoded Original PCM is 13,190,424 bytes, and 135 cached
 Studio pitches occupy 36,730,796 bytes. No additional sound files are fetched.
 
-Final fifteen-suite check: 300 seconds across the ten new combat arrangements
-render in median **1.043 s (Studio)** / **1.047 s (Original)**. The original
-five still render 150 seconds in **0.539 / 0.582 s**. Preparation is **0.311 s**;
-195 cached recorded pitches occupy **49,907,064 bytes**. Original decoded PCM
-and embedded recordings are unchanged. New synthesized wave/percussion data
-add **343,512 bytes**. These are local whole-score measurements, not a promise
-for every device. The new final renders peak below **0.420**, with all twenty
-tours completing their ten changes. The 90 baseline PCM checks for the old five
-are byte-identical. All 32 suite/rotation-bank selections persisted in the live
-client; all 240 preview requests and compact-window keyboard navigation passed.
-Automatic rotation remains sequential even when the arrival cue counter wraps.
+Public-domain-oriented fifteen-suite + Acoustic Tavern Guitar benchmark (`ci-release`,
+3 rounds per bank): the five D-centric classical suites render 150 seconds of
+multi-layer combat/orchestral audio in median **0.774 s (Studio)** / **0.798 s
+(Original)** (~194× real-time), and the ten contrasting genre suites render 300
+seconds in median **1.342 s (Studio)** / **1.341 s (Original)** (~224× real-time),
+with deterministic floating-point checksums across all three rounds. One-time
+startup preparation (including Studio sinc resampling across all table, title and
+tavern pitches, 14 band-limited synth tables, percussion buffers and chamber bank
+preparation) completes in **1.321 s** with zero render-time heap allocation. Every
+movement across all fifteen suites and both banks peaks below **0.65** with zero
+NaN or clipping. Automatic rotation remains sequential even when the arrival cue
+counter wraps.
 
 Live development preview (no change to saved settings):
 

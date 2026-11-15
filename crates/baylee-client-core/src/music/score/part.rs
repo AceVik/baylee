@@ -5,22 +5,22 @@ use crate::music::{Scene, ScoreRequest};
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Movement {
-    /// Baylee's public-domain chamber remembrance, shared with the lobby.
+    /// Noble D-minor / D-Dorian public-domain Title suite at sign-in (`FrontDoor`).
     #[default]
     Title,
-    /// Continue the same remembrance without restarting after sign-in.
+    /// Cozy Acoustic-Guitar-led public-domain Tavern suite for Lobby and Deckbuilder.
     Lobby,
-    /// Plucked melody and bowed accompaniment at the table.
+    /// Calm ("Ruhig") chamber guitar, harp, flute and strings at the table.
     Standard,
-    /// Close intervals and rhythmic bowed strings.
+    /// Poised / tense rhythmic ostinato, spiccato strings and horn counterpoint.
     Combat,
-    /// Wide intervals and foreground brass and strings.
+    /// Epic ("Episch") full brass, timpani, soaring strings and celesta climax.
     Endgame,
-    /// An ascending attention cue followed by a bright celebration.
+    /// Radiant ascending D-major fanfare followed by triumphant celebration.
     Victory,
-    /// A descending attention cue followed by a slow lament.
+    /// Somber descending D-minor cue followed by a noble elegy.
     Defeat,
-    /// An open-fifth cue followed by major/minor ambiguity.
+    /// Open-fifth D–A cue followed by contemplative D-Dorian modal suspension.
     Draw,
 }
 
@@ -68,6 +68,12 @@ impl Movement {
             combat: self == Self::Combat,
             low_life: self == Self::Endgame,
             tension: if self == Self::Endgame { 0.9 } else { 0.0 },
+            stack_depth: if self == Self::Endgame { 4 } else { 0 },
+            action_intensity: match self {
+                Self::Endgame => 0.92,
+                Self::Combat => 0.45,
+                _ => 0.0,
+            },
             ..ScoreRequest::default()
         }
     }
@@ -76,24 +82,37 @@ impl Movement {
         matches!(self, Self::Victory | Self::Defeat | Self::Draw)
     }
 
+    pub(super) const fn table(self) -> bool {
+        matches!(self, Self::Standard | Self::Combat | Self::Endgame)
+    }
+
     pub(super) fn wanted(request: ScoreRequest, previous: Self) -> Self {
         match request.scene {
             Scene::FrontDoor => Self::Title,
-            Scene::Lobby | Scene::Build => Self::Lobby,
-            Scene::Opening => Self::Standard,
+            // Opening holds a hushed harmonic bridge in Tune; table music never starts during loading.
+            Scene::Lobby | Scene::Build | Scene::Opening => Self::Lobby,
             Scene::Victory => Self::Victory,
             Scene::Defeat => Self::Defeat,
             Scene::Draw => Self::Draw,
             Scene::Table => {
-                // Hysteresis prevents repeated changes near an intensity threshold.
-                let threshold = if previous == Self::Endgame {
-                    0.58
+                let epic = request.epicness();
+                // Hysteresis prevents repeated flips near an intensity or stack threshold.
+                let endgame_threshold = if previous == Self::Endgame {
+                    0.56
                 } else {
-                    0.78
+                    0.75
                 };
-                if request.tension >= threshold || request.about_to_lose || request.lethal {
+                let combat_threshold = if previous == Self::Combat { 0.28 } else { 0.44 };
+                if request.tension >= endgame_threshold
+                    || epic >= endgame_threshold
+                    || request.stack_depth >= 4
+                    || (request.stack_depth >= 3
+                        && (request.big_spell || request.combat || request.low_life))
+                    || request.about_to_lose
+                    || request.lethal
+                {
                     Self::Endgame
-                } else if request.combat {
+                } else if request.combat || request.stack_depth >= 2 || epic >= combat_threshold {
                     Self::Combat
                 } else {
                     Self::Standard
