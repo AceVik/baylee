@@ -666,6 +666,9 @@ impl AIProfile {
     /// Fund fixed mana plus life activations from the engine's unpaid offers.
     /// Admitted by the Tower life workshop.
     pub const PAY_LIFE_ACTIVATION_MANA: u16 = 20;
+    /// Decline pure optional creature-token rewards once an ample board is built.
+    /// A house-policy choice only; neither a rules cap nor repetition detection.
+    pub const OPTIONAL_TOKEN_SATURATION: u16 = 21;
     /// What the ordinary named profiles play.
     pub const GENERATION: u16 = Self::CHOSEN_AND_LINKED_FILTERS;
 

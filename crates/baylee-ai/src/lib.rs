@@ -25,6 +25,7 @@ mod fight;
 mod filter;
 pub mod foresight;
 mod granted;
+mod growth;
 mod held;
 pub mod intelligence;
 mod land;
@@ -962,17 +963,17 @@ impl HeuristicAgent {
                 // What refusing a tax costs is not the same question for
                 // every tax, so it is asked of the effect rather than of the
                 // prompt: ward counters the spell this seat has just cast.
-                YesNoPrompt::PayTax { mana } => PlayerAction::YesNo(policy::pays_tax(
+                YesNoPrompt::PayTax { mana } => PlayerAction::YesNo(self.pays_optional_price(
                     view,
                     baylee_core::mana::ManaCost::ZERO.with_more_generic(u32::from(mana)),
                     context,
                 )),
                 YesNoPrompt::PayMana { cost } => {
-                    PlayerAction::YesNo(policy::pays_tax(view, cost, context))
+                    PlayerAction::YesNo(self.pays_optional_price(view, cost, context))
                 }
                 YesNoPrompt::PayManaAndLife { cost, life } => PlayerAction::YesNo(
                     view.seat(player).is_some_and(|seat| i64::from(seat.life) > i64::from(life) + 5)
-                        && policy::pays_tax(view, cost, context),
+                        && self.pays_optional_price(view, cost, context),
                 ),
                 // Kicker and "you may waterbend" alike: paid when the pool
                 // already covers it, because the engine pays from the pool

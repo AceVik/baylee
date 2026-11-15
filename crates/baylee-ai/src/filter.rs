@@ -865,7 +865,7 @@ impl HeuristicAgent {
 }
 
 /// A registered token is known; an anonymous copy's public identity is not.
-fn public_token_identity(object: &PublicObject) -> Option<bool> {
+pub(crate) fn public_token_identity(object: &PublicObject) -> Option<bool> {
     if object
         .status
         .contains(baylee_view::ObjectStatus::MELDED_CARD)

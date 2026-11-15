@@ -7,9 +7,14 @@ use baylee_engine::turn::Step;
 use baylee_gamehost::record::{Line, Source};
 
 mod amber;
+mod banner;
 mod chalice;
 mod coil;
+mod combination;
+mod cradle;
+mod harvest;
 mod hearth;
+mod roots;
 
 fn item(family: Family, rarity: Rarity) -> Definition {
     Definition { family, rarity }
@@ -17,7 +22,7 @@ fn item(family: Family, rarity: Rarity) -> Definition {
 
 fn setup(active: &[Definition], cards: &[(&str, usize)]) -> GamePreset {
     let deck = baylee_cards::decks::LoadedDeck {
-        name: "Native life fixture".into(),
+        name: "Native workshop fixture".into(),
         main: cards
             .iter()
             .flat_map(|(name, count)| {
@@ -177,4 +182,66 @@ fn recorded_expert_actions(record: &[u8]) -> impl Iterator<Item = PlayerAction> 
             } => Some(action),
             _ => None,
         })
+}
+
+fn creatures(
+    state: &baylee_engine::state::GameState,
+    seat: PlayerId,
+    tokens: bool,
+) -> Vec<ObjectId> {
+    state
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .copied()
+        .filter(|id| {
+            let object = state.arena.get(*id).unwrap();
+            object.controller == seat
+                && object.token.is_some() == tokens
+                && object
+                    .characteristics()
+                    .types
+                    .contains(baylee_core::types::TypeSet::CREATURE)
+        })
+        .collect()
+}
+
+fn charges(game: &Game, source: ObjectId) -> u16 {
+    game.state()
+        .arena
+        .get(source)
+        .unwrap()
+        .counters
+        .get(CounterKind::Charge)
+}
+
+fn cast(game: &mut Game, player: PlayerId, name: &str, lands: usize, targets: &[ObjectId]) {
+    let index = baylee_cards::decks::by_name(name).unwrap();
+    let card = *game
+        .state()
+        .zones
+        .list(ZoneLocation::Hand(player))
+        .iter()
+        .find(|id| {
+            game.state()
+                .arena
+                .get(**id)
+                .unwrap()
+                .card
+                .is_some_and(|card| card.index == index)
+        })
+        .unwrap_or_else(|| panic!("seeded fixture is missing {name}"));
+    mana(game, player, lands);
+    game.apply(player, PlayerAction::CastSpell { card })
+        .unwrap();
+    if !targets.is_empty() {
+        game.apply(
+            player,
+            PlayerAction::ChooseTargets {
+                objects: targets.to_vec(),
+                players: vec![],
+            },
+        )
+        .unwrap();
+    }
 }

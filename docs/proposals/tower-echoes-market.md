@@ -33,8 +33,20 @@ mana-to-token-to-life cycle once seeded. It uses all three active slots, an actu
 Mythic recipe and a starting life-gain or creature event. An opponent can remove
 its ordinary sources, and each continuation remains optional. No repetition
 detector or gameplay cap is introduced; the house policy must make a finite
-strategic decision about optional continuation. This combination needs explicit
-played and hosted acceptance before the catalog is considered ready.
+strategic decision about optional continuation. The native played test repeats
+eight paid cycles and returns to ordinary priority after declining. The real
+hosted Expert test exposed unbounded continuation under policy 20. Generation
+three now freezes policy 21, which declines pure optional token rewards once
+it controls 32 unphased creature tokens, then resumes the duel. Both hosted
+payment scenarios replay to identical snapshot hashes. This is rules and policy
+acceptance, not a calibrated build-strength claim.
+
+The bounded stock probe used 512 seeds per generation with a fixed first-family
+Common fusion policy, normal gold and at most two paid refreshes per visit. In
+generation three, 451 seeds fused by visit one, 509 by visit two and all 512 by
+visit three; mean total spending was 15.34 gold and mean refresh count 1.45.
+It simulates no duels, card purchases, build pivots or human decisions. This
+checks opportunity under that policy, not difficulty or competitive balance.
 
 ## Implemented life workshop — generation two
 

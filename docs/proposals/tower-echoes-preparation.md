@@ -2348,3 +2348,45 @@ limits and observations are recorded in `tower-echoes-market.md`.
 The complete 24-family/eight-potion catalog, broader combat calibration, permanent
 cosmetic discovery and the remaining market acceptance scenes are still open.
 No full-workspace gate, CI wait, push or merge was performed for this milestone.
+
+### Milestone 73 — native token workshop and finite Expert continuation
+
+Generation three appends Seed Cradle, Swarm Banner, Harvest Wheel and Root
+Reservoir in four rarities each: twelve families / 48 equipment definitions
+total. Four new original transparent portraits are shipped, with their prompts
+and provenance. The shared inspector and tier comparison show EN/DE prices,
+charge costs and removable-artifact rules. Generation one and two retain their
+catalog streams and exact execution contracts; the new cohort requires native
+revision four, policy 21 and API header four. Old clients receive 426 before
+authentication. Standard tables continue to use policy 19.
+
+The move-only workshop-fixture commit precedes native played tests for all
+sixteen new definitions. They cover own/opposing token events, nontoken controls,
+exile versus death, optional payment and refusal, real mana production and
+charge removal, tap restrictions, removal of static sources, actual combat and
+trample. The manually driven renewable combination performs eight paid cycles
+and stops through its ordinary optional choice. Tower still has no repetition
+detector or gameplay cap.
+
+The hosted renewable-combination test failed under policy 20: Expert continued
+building beyond the test's 1024-question limit. Policy 21 recognizes pure
+optional creature-token rewards and declines them at 32 own unphased creature
+tokens. The same test now advances the turn; both hosted Cradle scenarios replay
+to identical hashes. Semantic policy tests retain the prior generation and
+exclude opposing, phased, nontoken and melded-card objects from the target; draw
+and mixed rewards retain their usual evaluation.
+
+Verification so far: the native workshop selection passed 16 cases and exposed
+one Harvest fixture draw failure. After selecting a genuine adequate opening
+hand through a bounded seed search, that remaining case passes too. Strict
+engine-server library/test and AI library/test Clippy pass. Eight frozen/current
+package contract cases, eight token-ledger cases, the focused definition census
+and the API upgrade-fence case pass. The 512-seed-per-generation stock probe
+completed; its constrained results are recorded in the market supplement.
+Evidence is in `/tmp/baylee-tower-growth-*-20261115*.log`.
+
+Independent review and rendered native UI acceptance of this workshop remain
+pending at this commit. This is not a full mode completion or balance claim;
+the remaining catalog, consumables, cosmetic discovery, combat calibration and
+market acceptance scenes are still outstanding. No full-workspace gate, CI
+wait, push or merge was performed.

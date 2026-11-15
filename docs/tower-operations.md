@@ -13,7 +13,7 @@ families. Deploy matching service, gateway and client builds together. Retain th
 exact `tower-2` / `tower-house-19` executors for generation-one runs and
 `tower-3` / `tower-house-20` for generation two. Publishing a new cohort preserves
 existing runs and their snapshots. The token workshop uses `tower-4` /
-`tower-house-20` and refuses older manifests. Both prior catalog/offer streams
+`tower-house-21` and refuses older manifests. Both prior catalog/offer streams
 remain frozen; new families cannot enter old runs.
 
 ## Input and authority

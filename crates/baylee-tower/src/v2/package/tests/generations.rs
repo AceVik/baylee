@@ -45,7 +45,7 @@ fn original_contract_keeps_its_native_revision_and_house_policy() {
 fn life_workshop_presets_cannot_be_smuggled_into_original_runs() {
     let (catalog, mut run, cohort, mut opponent) = fixture();
     assert_eq!((cohort.generator, cohort.revision), (3, 4));
-    assert_eq!(cohort.executor.ai, "tower-house-20");
+    assert_eq!(cohort.executor.ai, "tower-house-21");
     let definition = Definition {
         family: Family::SpringChalice,
         rarity: Rarity::Common,
@@ -78,7 +78,7 @@ fn life_workshop_presets_cannot_be_smuggled_into_original_runs() {
         .preset(&catalog, &cohort.executor, printing)
         .unwrap();
     assert!(
-        matches!(preset.seats[1].controller, SeatController::Ai(profile) if profile.generation == 20)
+        matches!(preset.seats[1].controller, SeatController::Ai(profile) if profile.generation == 21)
     );
     assert!(crate::v2::loadout::validate(&preset).is_ok());
     let mut legacy = preset;

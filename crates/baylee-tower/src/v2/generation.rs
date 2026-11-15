@@ -70,7 +70,7 @@ pub const fn contract(generation: u16) -> Result<Contract, Refusal> {
         }),
         3 => Ok(Contract {
             revision: 4,
-            ai_generation: AIProfile::PAY_LIFE_ACTIVATION_MANA,
+            ai_generation: AIProfile::OPTIONAL_TOKEN_SATURATION,
         }),
         _ => Err(Refusal::Invalid),
     }

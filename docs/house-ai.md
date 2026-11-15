@@ -15,6 +15,16 @@ The house reserves mana for interaction and prices the life using its ordinary
 safety margin. It rechecks the offer and that margin after each tap. Ordinary
 named profiles continue to use policy 19.
 
+The token workshop uses policy 21. At 32 own, unphased creature tokens, the
+house declines an optional payment whose only reward is more own creature
+tokens. It reads the effect and public board, never the item's name. Mixed
+rewards, card draws and mandatory payments retain their existing evaluation.
+This finite strategic target lets a renewable token combination finish its
+turn; it is not a game limit or repetition detector. Manual players can keep
+going. Retained Tower generations keep their frozen policies 19 and 20.
+Played native tests verify the house builds, stops and replays identically;
+the threshold is an initial policy, not calibrated optimal play.
+
 Tower potions use the existing activated-ability and color-choice paths. Their
 stable registry identities carry their rules into human, house, trained and
 language-model views. A healing charge is valued as a limited resource that

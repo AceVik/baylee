@@ -7928,3 +7928,25 @@ beneath it. What the author missed, for the next brief:
   policy test. Native legality alone does not prove the policy will stop building
   a board and resume combat. That acceptance remains pending at this authoring
   commit; it is not a balance or merge-ready claim.
+
+### Token-workshop played acceptance
+
+- A legal optional renewable chain can still trap a deterministic house policy.
+  The real hosted Cradle/Hearthstone/Root scenario failed its bounded test under
+  policy 20: Expert kept producing Plants instead of finishing the turn. Policy
+  21 declines pure optional creature-token rewards at an ample own token board.
+  The same hosted regression now finishes the turn and replays exactly. This
+  changes neither manual rules nor the prior frozen policy generations.
+- Token identity uses the shared public reader, including anonymous token flags
+  and the melded-card exception. Opposing, phased-out and actual card creatures
+  must not prematurely satisfy the policy's target. Draw and mixed rewards keep
+  their ordinary price valuation.
+- A deterministic played fixture must actually draw its required cards. The
+  Harvest sweep initially stalled waiting for four Plains; changing deck ratios
+  then lost its opening creature. A bounded seed search now selects a genuine
+  opening hand with the required cards and lands, then plays every turn and
+  payment normally. No native preset or opening-resource bypass was added.
+- All four rarities are played through their triggers, payments and removals:
+  Cradle can be declined; Banner changes real combat and trample damage; Harvest
+  excludes exile and nontoken deaths; Root excludes creature-card entries. The
+  mana artifacts really remove charges and honor their tier's tap requirement.

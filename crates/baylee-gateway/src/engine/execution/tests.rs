@@ -20,7 +20,8 @@ fn agent(engine: &Identity, occupied: bool) -> Agent {
 #[test]
 fn tower_inventory_and_assignment_never_substitute_another_build_or_full_agent() {
     let identity = native(Variant::Tower);
-    assert_eq!(identity.ai, "tower-house-20");
+    assert_eq!(identity.ai, "tower-house-21");
+    assert_eq!(identity.rules, "tower-4");
     assert_eq!(native(Variant::Standard).ai, "standard-house-19");
     let mut old = identity.clone();
     old.build = "retained-tower-build".into();
