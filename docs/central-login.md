@@ -194,6 +194,15 @@ type to a distinct operator-configured Tower origin with online session
 introspection. They add no cryptographic primitives or dependency features.
 The same exact-source and reverse-consumer checks remain in force.
 
+The Tower accomplishments SDK pin advances to
+`4b14dcf05c770639deb49443e34d23e3536e8c74` on 15 November 2026. All three SDK
+manifests, Central's root manifest and lockfile, and the entire
+`central-crypto` tree remain byte-for-byte unchanged from
+`913a3bed81b6187b30529d4114cd8334d15e30ce`; the diff adds only `tower_awards`
+JSON wire types in `central-api` and HTTP transport methods in
+`central-client`. The same exact-source and reverse-consumer checks remain in
+force.
+
 The former Central revision
 `0a941953f8c0d5573e82e0979e7faf1fb9e40299` contains the `central-crypto`
 source tree reviewed independently by two models on 24.10.2026, with two
