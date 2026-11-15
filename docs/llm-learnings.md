@@ -7972,3 +7972,22 @@ beneath it. What the author missed, for the next brief:
   paths; they add no new engine or wire choice. The append-only token registry
   carries their abilities into the client, language-model menu and trained
   features. Earlier shop streams and engine identities remain generation-bound.
+
+## 2026-11-15 — independent Tower opening and inventory review
+
+- Live command zones alone are insufficient for redacting a fair fork. A
+  departing seat loses its command objects, but the engine retains last-known
+  objects and the journal still names their charge changes. The fix limits
+  concealed supplies to two-seat Custom games and refuses fair forks after any
+  seat loses, before copying state or projecting the journal. It also covers a
+  surviving seat subject to a win-prevention effect.
+- Review traced the native pack admission, ordinary 9/9/7 opening bounds, and
+  owner and controlled-seat access. Paid effects and their source names remain
+  public. The host withholds exact source inspection and counter log lines
+  from other seats, including delayed log projection after concession.
+- The author ran a negative control that failed after fork redaction was
+  removed and passed when restored. The follow-up run passed its three focused
+  privacy tests, covering two-seat admission, fork fingerprints and refusal
+  after concession, and host projection. The independent review was static
+  and checked the recorded results. Full gates, hosted replay and UI acceptance
+  were outside this review.
