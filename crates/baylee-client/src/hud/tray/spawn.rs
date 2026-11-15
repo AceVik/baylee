@@ -26,7 +26,7 @@ pub(super) fn spawn_tray(
     mut cards: Option<&mut UiCards<'_>>,
     place: Placement,
     maximised: bool,
-    mode: ViewMode,
+    (mode, syntax_open): (ViewMode, bool),
     scroll_y: f32,
     lit: &[(ObjectId, crate::Reach)],
     facts: Option<&baylee_client_core::cardquery::PoolFacts>,
@@ -462,11 +462,56 @@ pub(super) fn spawn_tray(
                 Feel::new(palette::DIALOG),
             ))
             .id();
-        // The gear lives *inside* the box, which is what says it is about what
-        // the box holds. It stays lit while the builder is open, because the
-        // builder has no frame of its own to say so — it is a mode of this field
-        // and not a window.
+        // The `?` syntax help and the gear live *inside* the box, which is what
+        // says they are about what the box holds. Either stays lit while its
+        // sheet is open, because neither sheet has a frame of its own to say so.
         let building = browser.builder().is_some();
+        let help = commands
+            .spawn((
+                super::TraySyntaxHelp,
+                UiButton,
+                crate::hud::Hint(Phrase::BuildSyntaxTitle.text(lang).to_string()),
+                Node {
+                    width: px(TRAY_CTRL_H - 8.0),
+                    height: px(TRAY_CTRL_H - 8.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    flex_shrink: 0.0,
+                    // `auto` on the left pushes the `[?, ⚙]` pair to the far end
+                    // of the box so typing never walks them along.
+                    margin: UiRect::left(Val::Auto),
+                    border_radius: btn_radius(),
+                    ..default()
+                },
+                BackgroundColor(if syntax_open {
+                    palette::CANDLE_WASH
+                } else {
+                    Color::NONE
+                }),
+                Feel::tinting_to(
+                    if syntax_open {
+                        palette::CANDLE_WASH
+                    } else {
+                        Color::NONE
+                    },
+                    palette::CANDLE_WASH_LIT,
+                ),
+            ))
+            .observe(toggle_tray_syntax)
+            .id();
+        let question = commands
+            .spawn((
+                Text::new(glyph::QUESTION_CIRCLE.to_string()),
+                icon_tf(fonts, 11.0),
+                TextColor(if syntax_open {
+                    palette::CANDLE
+                } else {
+                    palette::DIALOG_SOFT
+                }),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(help).add_child(question);
         let gear = commands
             .spawn((
                 TrayGear,
@@ -477,11 +522,7 @@ pub(super) fn spawn_tray(
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     flex_shrink: 0.0,
-                    // `auto` on the left is what puts it at the far end of the
-                    // box rather than beside the text: the runs are sized to the
-                    // letters in them, so a fixed margin would walk the gear
-                    // along as the player typed.
-                    margin: UiRect::left(Val::Auto),
+                    margin: UiRect::left(px(2.0)),
                     border_radius: btn_radius(),
                     ..default()
                 },
@@ -515,7 +556,7 @@ pub(super) fn spawn_tray(
         commands.entity(gear).add_child(cog);
         commands.entity(filter_line).add_child(lens);
         commands.entity(filter_line).add_children(&filter_text);
-        commands.entity(filter_line).add_child(gear);
+        commands.entity(filter_line).add_children(&[help, gear]);
         // A library is a hundred cards and a long graveyard is thirty, so "look
         // through this pile" is not a question the pile's own order answers on
         // its own. The key and the direction are two buttons because they are two
@@ -553,6 +594,10 @@ pub(super) fn spawn_tray(
         // three buttons rather than a fourth cycling one, for the reason
         // [`super::TrayView`] gives: a sort key is a ring of equivalent answers
         // and a view is a shape you are looking at.
+        // Each segment carries its own 1 px border and concentric outer corner
+        // (`spawn_view`) so every segment resolves to the full `TRAY_CTRL_H`
+        // (28 px) button height and `bevy_ui`'s rectangular `Overflow::clip()`
+        // never paints a square segment fill over a rounded outer arc.
         let views = commands
             .spawn((
                 Node {
@@ -560,12 +605,8 @@ pub(super) fn spawn_tray(
                     align_items: AlignItems::Center,
                     height: percent(100),
                     flex_shrink: 0.0,
-                    overflow: Overflow::clip(),
-                    border: UiRect::all(px(1)),
-                    border_radius: btn_radius(),
                     ..default()
                 },
-                BorderColor::all(palette::DIALOG_LINE),
                 Pickable::IGNORE,
             ))
             .id();
@@ -663,6 +704,9 @@ pub(super) fn spawn_tray(
             crate::filterui::Register::TRAY,
         );
         commands.entity(head).add_child(built);
+    } else if syntax_open {
+        let sheet = spawn_syntax_help(commands, fonts, lang, names.surface());
+        commands.entity(head).add_child(sheet);
     }
 
     // ---- the list ----
@@ -862,4 +906,133 @@ pub(super) fn spawn_tray(
         commands.entity(panel).add_child(corner);
     }
     frame
+}
+
+fn toggle_tray_syntax(
+    mut click: On<bevy::picking::events::PointerClick>,
+    mut commands: Commands,
+    mut duel: ResMut<crate::Duel>,
+    syntax: Option<Res<super::TraySyntax>>,
+) {
+    click.propagate(false);
+    let next = !syntax.is_some_and(|s| s.open);
+    if next {
+        duel.browser.close_builder();
+    }
+    commands.insert_resource(super::TraySyntax { open: next });
+}
+
+/// Which `SYNTAX` examples apply to a given `cardquery::Surface`.
+pub(in crate::hud) fn syntax_for_surface(
+    surface: baylee_client_core::cardquery::Surface<'_>,
+) -> Vec<(&'static str, Phrase)> {
+    use baylee_client_core::cardquery::Key;
+    let has_oracle = surface.keys.contains(&Key::Oracle);
+    let has_facts = surface.pool_facts().is_some();
+    let has_lists = surface.lists().is_some();
+    crate::buildui::pool::SYNTAX
+        .iter()
+        .copied()
+        .filter(|(example, _)| match *example {
+            "o:draw" | "id<=wu" | "m:{G}{G}" | "is:partial" => has_oracle,
+            "r:rare" | "s:m21" | "f:modern" | "banned:commander" => has_facts,
+            "list:\"My Commander\"" => has_lists,
+            _ => true,
+        })
+        .collect()
+}
+
+fn spawn_syntax_help(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    lang: Lang,
+    surface: baylee_client_core::cardquery::Surface<'_>,
+) -> Entity {
+    let sheet = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(2.0),
+                padding: UiRect::axes(px(10.0), px(8.0)),
+                margin: UiRect::top(px(6.0)),
+                border: UiRect::all(px(1)),
+                border_radius: btn_radius(),
+                max_height: px(220.0),
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+            BackgroundColor(palette::DIALOG),
+            BorderColor::all(palette::DIALOG_LINE),
+            super::super::Scrolls,
+            ScrollPosition::default(),
+        ))
+        .id();
+    let title = dialog_label(
+        commands,
+        fonts,
+        Phrase::BuildSyntaxTitle.text(lang),
+        11.0,
+        palette::DIALOG_INK,
+    );
+    commands.entity(sheet).add_child(title);
+    for (example, meaning) in syntax_for_surface(surface) {
+        let row = commands
+            .spawn((
+                UiButton,
+                Node {
+                    width: percent(100),
+                    min_height: px(24.0),
+                    align_items: AlignItems::Center,
+                    column_gap: px(10.0),
+                    padding: UiRect::axes(px(6.0), px(2.0)),
+                    border_radius: btn_radius(),
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                BackgroundColor(Color::NONE),
+                Feel::tinting_to(Color::NONE, palette::CANDLE_WASH_LIT),
+            ))
+            .observe(
+                move |mut click: On<bevy::picking::events::PointerClick>,
+                      mut commands: Commands,
+                      mut duel: ResMut<crate::Duel>| {
+                    click.propagate(false);
+                    let current = duel.browser.filter().to_owned();
+                    let next = if current.is_empty() || current.ends_with(' ') {
+                        format!("{current}{example}")
+                    } else {
+                        format!("{current} {example}")
+                    };
+                    duel.browser.set_filter(&next);
+                    duel.browser.start_typing();
+                    commands.insert_resource(super::TraySyntax { open: false });
+                },
+            )
+            .id();
+        let code = commands
+            .spawn((
+                Text::new(example),
+                tf_bold(fonts, 11.0),
+                TextColor(palette::CANDLE),
+                TextLayout::no_wrap(),
+                Node {
+                    width: px(140.0),
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        let what = dialog_text(
+            commands,
+            fonts,
+            meaning.text(lang),
+            10.5,
+            palette::DIALOG_SOFT,
+        );
+        commands.entity(row).add_children(&[code, what]);
+        commands.entity(sheet).add_child(row);
+    }
+    sheet
 }

@@ -2006,5 +2006,67 @@ pub use tray::{TrayCarry, TrayReveal, TrayRevision, carry_the_rows, reveal_tray,
 pub(crate) use seatbar::attached::describe_phase;
 pub(crate) use seatbar::attached::highlight_player;
 
+/// Attaches `child` under `parent` if `parent` is still alive when deferred
+/// commands apply; otherwise despawns `child` so neither an `Entity despawned`
+/// warning nor an orphan UI node is produced when a retained root goes down in
+/// the same schedule.
+pub(crate) fn add_child_if_alive(commands: &mut Commands, parent: Entity, child: Entity) {
+    commands.queue(move |world: &mut World| {
+        if let Ok(mut entity) = world.get_entity_mut(parent) {
+            entity.add_child(child);
+        } else if let Ok(orphan) = world.get_entity_mut(child) {
+            orphan.despawn();
+        }
+    });
+}
+
+/// Attaches `children` under `parent` if `parent` is still alive; otherwise
+/// despawns any surviving `children` without emitting `Entity despawned`.
+pub(crate) fn add_children_if_alive(commands: &mut Commands, parent: Entity, children: &[Entity]) {
+    let kids: Vec<Entity> = children.to_vec();
+    commands.queue(move |world: &mut World| {
+        if let Ok(mut entity) = world.get_entity_mut(parent) {
+            entity.add_children(&kids);
+        } else {
+            for kid in kids {
+                if let Ok(orphan) = world.get_entity_mut(kid) {
+                    orphan.despawn();
+                }
+            }
+        }
+    });
+}
+
+/// Replaces `parent`'s children with `children` if `parent` is still alive;
+/// otherwise despawns any surviving `children` without emitting warnings.
+pub(crate) fn replace_children_if_alive(
+    commands: &mut Commands,
+    parent: Entity,
+    children: &[Entity],
+) {
+    let kids: Vec<Entity> = children.to_vec();
+    commands.queue(move |world: &mut World| {
+        if let Ok(mut entity) = world.get_entity_mut(parent) {
+            entity.replace_children(&kids);
+        } else {
+            for kid in kids {
+                if let Ok(orphan) = world.get_entity_mut(kid) {
+                    orphan.despawn();
+                }
+            }
+        }
+    });
+}
+
+/// Despawns `parent`'s children if `parent` is still alive, silencing races
+/// when an ancestor despawned `parent` earlier in the same frame.
+pub(crate) fn despawn_children_if_alive(commands: &mut Commands, parent: Entity) {
+    commands.queue(move |world: &mut World| {
+        if let Ok(mut entity) = world.get_entity_mut(parent) {
+            entity.despawn_children();
+        }
+    });
+}
+
 #[cfg(test)]
 mod damage_confirmation_tests;

@@ -93,6 +93,28 @@ pub(super) fn tail(t: f32) -> f32 {
     ((t - ZOOM_TAIL) / (1.0 - ZOOM_TAIL)).clamp(0.0, 1.0)
 }
 
+/// Sanitizes a frame delta in seconds against negative, non-finite, or
+/// multi-second wake spikes (e.g. first frame after window un-minimize).
+#[inline]
+pub(crate) fn sanitize_dt(delta: f32) -> f32 {
+    if delta.is_finite() {
+        delta.clamp(0.0, 0.1)
+    } else {
+        0.0
+    }
+}
+
+/// Exponential smoothing step `1.0 - (-rate * dt).exp()`, clamped and
+/// `reduce_motion`-aware.
+#[inline]
+pub(crate) fn exp_step(rate: f32, delta: f32, still: bool) -> f32 {
+    if still {
+        1.0
+    } else {
+        1.0 - (-rate * sanitize_dt(delta)).exp()
+    }
+}
+
 /// Advances one `t` by a frame, or puts it at the end for a player who has
 /// turned motion off.
 ///
@@ -103,7 +125,13 @@ pub(crate) fn step(t: f32, span: f32, delta: f32, still: bool) -> f32 {
     if still {
         1.0
     } else {
-        (t + delta / span).min(1.0)
+        let dt = if delta.is_finite() {
+            delta.max(0.0)
+        } else {
+            0.0
+        };
+        let t = if t.is_finite() { t } else { 0.0 };
+        (t + dt / span.max(f32::EPSILON)).clamp(0.0, 1.0)
     }
 }
 

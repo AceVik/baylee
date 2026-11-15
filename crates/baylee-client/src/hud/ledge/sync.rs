@@ -127,7 +127,7 @@ pub fn sync_ledge(
         // a strip: mana arrives and is spent *inside* one question, and §4.1
         // wants that drawn arriving.
         if retained.get(*child).is_err() {
-            commands.entity(*child).despawn();
+            commands.entity(*child).try_despawn();
         }
     }
 
@@ -144,7 +144,7 @@ pub fn sync_ledge(
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(shelf).add_child(tools);
+    crate::hud::add_child_if_alive(&mut commands, shelf, tools);
     // A replay's bar takes the shelf's whole width: the hand's tools are
     // the live table's, and a spectator holds no hand to sort.
     let orders = if duel.replay.is_some() || duel.watching {
@@ -250,7 +250,7 @@ pub fn sync_ledge(
         column_node(Side::Right),
     ]
     .map(|node| commands.spawn(node).id());
-    commands.entity(shelf).add_children(&columns);
+    crate::hud::add_children_if_alive(&mut commands, shelf, &columns);
 
     ways_out(&mut commands, &fonts, columns[1], &revision);
 

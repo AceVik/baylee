@@ -122,7 +122,7 @@ pub fn sync_plate_clocks(
         return;
     }
     for (entity, _) in &roots {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
     let root = commands
         .spawn((

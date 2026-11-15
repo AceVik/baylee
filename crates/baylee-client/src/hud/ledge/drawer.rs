@@ -231,7 +231,20 @@ struct Naming {
     /// What to say when the box asks what only a gateway answers, while this
     /// client has not got it.
     lacking: Option<Phrase>,
+    /// Whether the `?` syntax help sheet is open under the box.
+    syntax_open: bool,
 }
+
+/// Whether the card-name chooser's `?` search syntax sheet is open.
+#[derive(Resource, Default, Clone, Copy, PartialEq, Eq, Debug)]
+pub struct DrawerSyntax {
+    /// Open under the search field, mutually exclusive with the gear's builder.
+    pub open: bool,
+}
+
+/// Marker on the card-name chooser's `?` syntax help button.
+#[derive(Component)]
+pub struct DrawerSyntaxHelp;
 
 impl DrawerRevision {
     /// Whether there is anything at all to draw.
@@ -301,13 +314,20 @@ pub fn sync_drawer(
     mut cloth: Option<ResMut<crate::frontal::Cloth>>,
     mut materials: Option<ResMut<Assets<crate::frontal::FrontalMaterial>>>,
     (pills, windows): (Query<(), With<SheetPill>>, Query<&Window>),
-    ui: Option<Res<UiScale>>,
+    (ui, syntax): (Option<Res<UiScale>>, Option<Res<DrawerSyntax>>),
 ) {
     let Ok((root, standing)) = root.single() else {
         return;
     };
     let lang = Lang::of(&settings.lang);
     let mut next = reading(&duel, lang, &texts, &layout);
+    let raw_syntax = syntax.is_some_and(|s| s.open);
+    if let Some(naming) = next.naming.as_mut() {
+        naming.syntax_open = raw_syntax && naming.panel.is_none();
+    }
+    if raw_syntax && next.naming.as_ref().is_none_or(|n| !n.syntax_open) {
+        commands.insert_resource(DrawerSyntax { open: false });
+    }
     next.phone = windows.single().is_ok_and(|w| {
         baylee_client_core::tableview::TableFrame::of(
             crate::hud::scale::desktop_space(w, ui.as_deref()).x,
@@ -357,12 +377,17 @@ pub fn sync_drawer(
     if let Ok(mut node) = node.single_mut() {
         // Folded, the pill stands at the window's right edge; open, the
         // sheet over the question.
-        if folded {
-            node.padding = UiRect::right(px(EDGE));
-            node.justify_content = JustifyContent::FlexEnd;
+        let (padding, justify) = if folded {
+            (UiRect::right(px(EDGE)), JustifyContent::FlexEnd)
         } else {
-            node.padding = super::mid_padding(layout.mid_x, layout.window_w);
-            node.justify_content = JustifyContent::Center;
+            (
+                super::mid_padding(layout.mid_x, layout.window_w),
+                JustifyContent::Center,
+            )
+        };
+        if node.padding != padding || node.justify_content != justify {
+            node.padding = padding;
+            node.justify_content = justify;
         }
     }
 
@@ -375,7 +400,7 @@ pub fn sync_drawer(
             // make the whole thing pop a second time. A pill is rewritten
             // too: emptied and left, it was a bare blob over the table.
             Fate::Refill => {
-                commands.entity(kid).despawn_related::<Children>();
+                crate::hud::despawn_children_if_alive(&mut commands, kid);
                 kept = Some(kid);
             }
             // Sent away rather than despawned. `zoom_the_drawer` is what
@@ -393,7 +418,9 @@ pub fn sync_drawer(
             // cannot be caught and turned round: its `t` runs on the closing
             // span and against the closing curve, so it goes and a fresh one
             // opens in its place on the same frame.
-            Fate::Despawn => commands.entity(kid).despawn(),
+            Fate::Despawn => {
+                commands.entity(kid).try_despawn();
+            }
         }
     }
 
@@ -461,7 +488,7 @@ fn fill_panel(
             (MenuAction::FoldDecision, revision.fold_cap.as_deref()),
             None,
         );
-        commands.entity(panel).add_child(written);
+        crate::hud::add_child_if_alive(commands, panel, written);
     }
 
     // A phone's type chooser has no line to spare: the box says it is
@@ -480,26 +507,26 @@ fn fill_panel(
             },
             TextLayout::justify(Justify::Center),
         ));
-        commands.entity(panel).add_child(written);
+        crate::hud::add_child_if_alive(commands, panel, written);
     }
 
     if let Some(value) = revision.number {
         let row = stepper(commands, fonts, value);
-        commands.entity(panel).add_child(row);
+        crate::hud::add_child_if_alive(commands, panel, row);
     }
 
     if !revision.quick.is_empty() {
         let quick = quick_list(commands, fonts, lang, revision, spare);
-        commands.entity(panel).add_children(&quick);
+        crate::hud::add_children_if_alive(commands, panel, &quick);
     }
 
     if let Some(typed) = revision.filter.clone() {
-        let field = filter_field(commands, fonts, lang, &typed);
+        let field = filter_field(commands, fonts, lang, &typed, revision.phone);
         if let Some(naming) = &revision.naming {
-            let line = name_search(commands, fonts, lang, field, naming);
-            commands.entity(panel).add_child(line);
+            let line = name_search(commands, fonts, lang, field, naming, revision.phone);
+            crate::hud::add_child_if_alive(commands, panel, line);
         } else {
-            commands.entity(panel).add_child(field);
+            crate::hud::add_child_if_alive(commands, panel, field);
         }
     }
 
@@ -511,7 +538,7 @@ fn fill_panel(
             revision.filter.as_deref(),
             revision.phone,
         );
-        commands.entity(panel).add_child(cells);
+        crate::hud::add_child_if_alive(commands, panel, cells);
     }
 
     if !revision.seat_filters.is_empty() {
@@ -525,7 +552,7 @@ fn fill_panel(
             &[],
             (None, revision.phone),
         );
-        commands.entity(panel).add_child(filters);
+        crate::hud::add_child_if_alive(commands, panel, filters);
     }
     if !revision.rows.is_empty() {
         let rows = chooser(
@@ -556,9 +583,9 @@ fn fill_panel(
                 ))
                 .id();
             commands.entity(scroller).add_child(rows);
-            commands.entity(panel).add_child(scroller);
+            crate::hud::add_child_if_alive(commands, panel, scroller);
         } else {
-            commands.entity(panel).add_child(rows);
+            crate::hud::add_child_if_alive(commands, panel, rows);
         }
     }
     if !revision.selected_targets.is_empty() {
@@ -569,7 +596,7 @@ fn fill_panel(
             &revision.selected_targets,
             selected_pictures,
         );
-        commands.entity(panel).add_child(selected);
+        crate::hud::add_child_if_alive(commands, panel, selected);
     }
 }
 
@@ -745,7 +772,7 @@ fn hang_the_pill(
             ..default()
         },
     ));
-    commands.entity(root).add_child(pill);
+    crate::hud::add_child_if_alive(commands, root, pill);
 }
 
 /// Rewrites a standing pill (its children already gone) for a reading that
@@ -849,7 +876,7 @@ fn spawn_panel(
             .entity(panel)
             .insert((MaterialNode(handle), crate::frontal::Hanging));
     }
-    commands.entity(root).add_child(panel);
+    crate::hud::add_child_if_alive(commands, root, panel);
     panel
 }
 
@@ -878,18 +905,27 @@ pub fn zoom_the_drawer(
         } else {
             motion::ZOOM_IN
         };
-        zoom.t = motion::step(zoom.t, span, time.delta_secs(), still);
-        if zoom.closing && zoom.t >= 1.0 {
-            commands.entity(panel).despawn();
+        let next_t = motion::step(zoom.t, span, time.delta_secs(), still);
+        if next_t.to_bits() != zoom.t.to_bits() {
+            zoom.t = next_t;
+        }
+        if zoom.closing && next_t >= 1.0 {
+            commands.entity(panel).try_despawn();
             continue;
         }
         let scale = if zoom.closing {
-            motion::shutting(zoom.t)
+            motion::shutting(next_t)
         } else {
-            motion::opening(zoom.t)
+            motion::opening(next_t)
         };
-        transform.scale = Vec2::splat(scale);
-        transform.translation = motion::from_bottom(scale);
+        let next_scale = Vec2::splat(scale);
+        let next_translation = motion::from_bottom(scale);
+        if transform.scale != next_scale {
+            transform.scale = next_scale;
+        }
+        if transform.translation != next_translation {
+            transform.translation = next_translation;
+        }
     }
 }
 
@@ -1072,6 +1108,7 @@ fn reading(
                     &duel.naming.search.parsed(),
                     naming_surface(duel.pool_facts.as_deref(), duel.list_shelf.as_deref()),
                 ),
+                syntax_open: false,
             }),
             _ => None,
         });
@@ -1361,13 +1398,113 @@ fn naming_surface<'a>(
         .with_lists(lists)
 }
 
+fn spawn_drawer_syntax_button(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    lang: Lang,
+    row_h: f32,
+    open: bool,
+    phone: bool,
+) -> Entity {
+    commands
+        .spawn((
+            DrawerSyntaxHelp,
+            crate::ui_button::UiButton,
+            Feel::new(palette::DOCK_GROUND),
+            crate::hud::Hint(Phrase::BuildSyntaxTitle.text(lang).to_string()),
+            Node {
+                min_width: px(if phone { 44.0 } else { 32.0 }),
+                min_height: px(row_h),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border: UiRect::all(px(1)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(palette::DOCK_GROUND),
+            BorderColor::all(if open {
+                palette::CANDLE
+            } else {
+                palette::DOCK_INK.with_alpha(0.3)
+            }),
+            children![(
+                Text::new(glyph::QUESTION_CIRCLE.to_string()),
+                icon_tf(fonts, SENTENCE_PT * 0.8),
+                TextColor(if open {
+                    palette::CANDLE
+                } else {
+                    palette::DOCK_INK
+                }),
+                Pickable::IGNORE,
+            )],
+        ))
+        .observe(
+            |mut click: On<bevy::picking::events::PointerClick>,
+             mut commands: Commands,
+             mut duel: ResMut<Duel>,
+             syntax: Option<Res<DrawerSyntax>>| {
+                click.propagate(false);
+                let next = !syntax.is_some_and(|s| s.open);
+                if next {
+                    duel.naming.search.close_panel();
+                }
+                commands.insert_resource(DrawerSyntax { open: next });
+            },
+        )
+        .id()
+}
+
+fn spawn_drawer_gear_button(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    row_h: f32,
+    open: bool,
+) -> Entity {
+    commands
+        .spawn((
+            crate::ui_button::UiButton,
+            Feel::new(palette::DOCK_GROUND),
+            MenuButton {
+                action: MenuAction::NameFilters,
+            },
+            Node {
+                min_width: px(44),
+                min_height: px(row_h),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border: UiRect::all(px(1)),
+                border_radius: btn_radius(),
+                ..default()
+            },
+            BackgroundColor(palette::DOCK_GROUND),
+            BorderColor::all(if open {
+                palette::CANDLE
+            } else {
+                palette::DOCK_INK.with_alpha(0.3)
+            }),
+            children![(
+                Text::new(glyph::GEAR.to_string()),
+                icon_tf(fonts, SENTENCE_PT * 0.8),
+                TextColor(if open {
+                    palette::CANDLE
+                } else {
+                    palette::DOCK_INK
+                }),
+                Pickable::IGNORE,
+            )],
+        ))
+        .id()
+}
+
 fn name_search(
     commands: &mut Commands,
     fonts: &UiFonts,
     lang: Lang,
     field: Entity,
     naming: &Naming,
+    phone: bool,
 ) -> Entity {
+    let row_h = if phone { 44.0 } else { 28.0 };
     let column = commands
         .spawn((
             Node {
@@ -1384,40 +1521,15 @@ fn name_search(
             Node {
                 column_gap: px(6),
                 align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
-    let gear = commands
-        .spawn((
-            MenuButton {
-                action: MenuAction::NameFilters,
-            },
-            Node {
-                min_width: px(44),
-                min_height: px(26),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                border: UiRect::all(px(1)),
-                border_radius: btn_radius(),
-                ..default()
-            },
-            BackgroundColor(palette::DOCK_GROUND),
-            BorderColor::all(if naming.panel.is_some() {
-                palette::CANDLE
-            } else {
-                palette::DOCK_INK.with_alpha(0.3)
-            }),
-            children![(
-                Text::new(glyph::GEAR.to_string()),
-                icon_tf(fonts, SENTENCE_PT * 0.8),
-                TextColor(palette::DOCK_INK),
-                Pickable::IGNORE,
-            )],
-        ))
-        .id();
-    commands.entity(line).add_children(&[field, gear]);
+    let help = spawn_drawer_syntax_button(commands, fonts, lang, row_h, naming.syntax_open, phone);
+    let gear = spawn_drawer_gear_button(commands, fonts, row_h, naming.panel.is_some());
+    commands.entity(line).add_children(&[field, help, gear]);
     commands.entity(column).add_child(line);
     if let Some(fixed) = &naming.restriction {
         let words = commands
@@ -1432,7 +1544,10 @@ fn name_search(
     }
     // An empty list under a line of the query language reads as "no such
     // card", and here it is not: nothing could be asked.
-    if let Some(lacking) = naming.lacking.filter(|_| naming.panel.is_none()) {
+    if let Some(lacking) = naming
+        .lacking
+        .filter(|_| naming.panel.is_none() && !naming.syntax_open)
+    {
         let words = commands
             .spawn((
                 Text::new(lacking.text(lang).to_string()),
@@ -1443,24 +1558,131 @@ fn name_search(
             .id();
         commands.entity(column).add_child(words);
     }
+    let surface = naming_surface(naming.facts.as_deref(), naming.lists.as_deref());
     if let Some(panel) = &naming.panel {
         let built = crate::filterui::build(
             commands,
             fonts,
             panel,
-            naming_surface(naming.facts.as_deref(), naming.lists.as_deref()),
+            surface,
             None,
             lang,
             crate::filterui::Register::TRAY,
         );
         commands.entity(column).add_child(built);
+    } else if naming.syntax_open {
+        let built = spawn_drawer_syntax(commands, fonts, lang, surface, phone);
+        commands.entity(column).add_child(built);
     }
     column
 }
 
+fn spawn_drawer_syntax(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    lang: Lang,
+    surface: baylee_client_core::cardquery::Surface<'_>,
+    phone: bool,
+) -> Entity {
+    let sheet = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(2.0),
+                padding: UiRect::axes(px(10.0), px(8.0)),
+                border: UiRect::all(px(1)),
+                border_radius: btn_radius(),
+                max_height: px(if phone { 150.0 } else { 200.0 }),
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+            BackgroundColor(palette::DOCK_GROUND),
+            BorderColor::all(palette::DOCK_INK.with_alpha(0.25)),
+            crate::hud::scroll::Scrolls,
+            bevy::ui::ScrollPosition::default(),
+        ))
+        .id();
+    let title = commands
+        .spawn((
+            Text::new(Phrase::BuildSyntaxTitle.text(lang)),
+            tf_bold(fonts, HINT_PT),
+            TextColor(palette::DOCK_INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(sheet).add_child(title);
+    for (example, meaning) in crate::hud::tray::syntax_for_surface(surface) {
+        let row = commands
+            .spawn((
+                crate::ui_button::UiButton,
+                Node {
+                    width: percent(100),
+                    min_height: px(if phone { 36.0 } else { 24.0 }),
+                    align_items: AlignItems::Center,
+                    column_gap: px(10.0),
+                    padding: UiRect::axes(px(6.0), px(2.0)),
+                    border_radius: btn_radius(),
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                BackgroundColor(Color::NONE),
+                Feel::tinting_to(Color::NONE, palette::CANDLE_WASH_LIT),
+            ))
+            .observe(
+                move |mut click: On<bevy::picking::events::PointerClick>,
+                      mut commands: Commands,
+                      mut duel: ResMut<Duel>| {
+                    click.propagate(false);
+                    let current = duel.naming.search.field.text().to_owned();
+                    let next = if current.is_empty() || current.ends_with(' ') {
+                        format!("{current}{example}")
+                    } else {
+                        format!("{current} {example}")
+                    };
+                    let end = next.len();
+                    duel.naming.search.field.set(&next, end, None);
+                    commands.insert_resource(DrawerSyntax { open: false });
+                },
+            )
+            .id();
+        let code = commands
+            .spawn((
+                Text::new(example),
+                tf_bold(fonts, HINT_PT),
+                TextColor(palette::CANDLE),
+                TextLayout::no_wrap(),
+                Node {
+                    width: px(140.0),
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        let what = commands
+            .spawn((
+                Text::new(meaning.text(lang)),
+                tf(fonts, HINT_PT),
+                TextColor(palette::DOCK_INK.with_alpha(0.75)),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(row).add_children(&[code, what]);
+        commands.entity(sheet).add_child(row);
+    }
+    sheet
+}
+
 /// The type-to-filter box, for the one choice whose list is too long to look
 /// at.
-fn filter_field(commands: &mut Commands, fonts: &UiFonts, lang: Lang, typed: &str) -> Entity {
+fn filter_field(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    lang: Lang,
+    typed: &str,
+    phone: bool,
+) -> Entity {
     // A search box that looks like one (report 16: a player naming a card
     // for Pithing Needle saw "no text box to search"): a magnifier, the
     // words typed or, before any, what to type in the quieter ink, and the
@@ -1474,6 +1696,7 @@ fn filter_field(commands: &mut Commands, fonts: &UiFonts, lang: Lang, typed: &st
                 align_items: AlignItems::Center,
                 column_gap: px(8),
                 min_width: px(FILTER_MIN_W),
+                min_height: px(if phone { 44.0 } else { 28.0 }),
                 ..default()
             },
             BackgroundColor(palette::DOCK_GROUND),
@@ -2308,5 +2531,158 @@ mod targeting_tests {
         crate::input::pick_choice(&mut duel, targeting::filter_index(None));
         assert_eq!(read(&duel).1[0].index, 0);
         assert_eq!(target_filters(&duel, Lang::En).len(), 4);
+    }
+
+    #[test]
+    fn name_search_syntax_help_inserts_into_naming_field() {
+        use crate::ui_button::UiButton;
+        use bevy::camera::NormalizedRenderTarget;
+        use bevy::picking::backend::HitData;
+        use bevy::picking::pointer::{Location, PointerButton, PointerId};
+        use bevy::window::WindowRef;
+        use std::time::Duration;
+
+        let mut app = App::new();
+        let fonts = UiFonts::default();
+        app.init_resource::<Duel>();
+        let naming = Naming {
+            panel: None,
+            restriction: None,
+            facts: None,
+            lists: None,
+            lacking: None,
+            syntax_open: false,
+        };
+        let col = {
+            let mut queue = bevy::ecs::world::CommandQueue::default();
+            let col = {
+                let mut commands = Commands::new(&mut queue, app.world());
+                let field = commands.spawn(Node::default()).id();
+                name_search(&mut commands, &fonts, Lang::En, field, &naming, false)
+            };
+            queue.apply(app.world_mut());
+            col
+        };
+
+        let help = app
+            .world_mut()
+            .query_filtered::<(Entity, &Node), With<DrawerSyntaxHelp>>()
+            .single(app.world())
+            .expect("DrawerSyntaxHelp `?` button exists in name_search");
+        assert_eq!(help.1.min_height, px(28.0));
+        let help_entity = help.0;
+
+        let click = |app: &mut App, entity: Entity| {
+            let ev = crate::test_pointer::aim(
+                PointerId::Mouse,
+                Location {
+                    target: NormalizedRenderTarget::Window(
+                        WindowRef::Primary
+                            .normalize(Some(Entity::PLACEHOLDER))
+                            .unwrap(),
+                    ),
+                    position: Vec2::ZERO,
+                },
+                crate::test_pointer::Click {
+                    button: PointerButton::Primary,
+                    hit: HitData::new(entity, 0.0, None, None),
+                    duration: Duration::ZERO,
+                    count: 1,
+                },
+                entity,
+            );
+            app.world_mut().trigger(ev);
+            app.world_mut().flush();
+        };
+
+        click(&mut app, help_entity);
+        assert!(
+            app.world()
+                .get_resource::<DrawerSyntax>()
+                .is_some_and(|s| s.open),
+            "clicking `?` opens DrawerSyntax"
+        );
+
+        app.world_mut().entity_mut(col).despawn();
+        let open_naming = Naming {
+            syntax_open: true,
+            ..naming
+        };
+        {
+            let mut queue = bevy::ecs::world::CommandQueue::default();
+            {
+                let mut commands = Commands::new(&mut queue, app.world());
+                let field = commands.spawn(Node::default()).id();
+                name_search(&mut commands, &fonts, Lang::En, field, &open_naming, false);
+            }
+            queue.apply(app.world_mut());
+        }
+        let oracle_row = app
+            .world_mut()
+            .query_filtered::<(Entity, &Children), With<UiButton>>()
+            .iter(app.world())
+            .find_map(|(entity, kids)| {
+                kids.iter().find_map(|k| {
+                    app.world()
+                        .get::<Text>(k)
+                        .filter(|t| t.0 == "o:draw")
+                        .map(|_| entity)
+                })
+            })
+            .expect("card name search supports POOL syntax (`o:draw`)");
+        click(&mut app, oracle_row);
+        assert_eq!(
+            app.world().resource::<Duel>().naming.search.field.text(),
+            "o:draw"
+        );
+        assert!(
+            app.world()
+                .get_resource::<DrawerSyntax>()
+                .is_some_and(|s| !s.open)
+        );
+    }
+
+    #[test]
+    fn drawer_zoom_stays_quiet_at_rest() {
+        use std::time::Duration;
+
+        let mut zoom_app = App::new();
+        zoom_app
+            .init_resource::<Time>()
+            .init_resource::<crate::prefs::Prefs>()
+            .add_systems(Update, zoom_the_drawer);
+        let panel = zoom_app
+            .world_mut()
+            .spawn((
+                DrawerZoom {
+                    t: 1.0,
+                    closing: false,
+                },
+                UiTransform::default(),
+            ))
+            .id();
+        zoom_app
+            .world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_millis(16));
+        zoom_app.update();
+        let tick = zoom_app.world().read_change_tick();
+        zoom_app
+            .world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_millis(16));
+        zoom_app.update();
+        let now = zoom_app.world().read_change_tick();
+        let p = zoom_app.world().entity(panel);
+        let zoom_changed = p
+            .get_ref::<DrawerZoom>()
+            .unwrap()
+            .last_changed()
+            .is_newer_than(tick, now)
+            || p.get_ref::<UiTransform>()
+                .unwrap()
+                .last_changed()
+                .is_newer_than(tick, now);
+        assert!(!zoom_changed, "`zoom_the_drawer` must stay quiet at rest");
     }
 }

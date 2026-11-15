@@ -439,7 +439,7 @@ impl VirtualLog {
     {
         if self.dirty {
             for (_, entity) in std::mem::take(&mut self.mounted) {
-                commands.entity(entity).despawn();
+                commands.entity(entity).try_despawn();
             }
         } else {
             let outside: Vec<usize> = self
@@ -450,16 +450,16 @@ impl VirtualLog {
                 .collect();
             for index in outside {
                 if let Some(entity) = self.mounted.remove(&index) {
-                    commands.entity(entity).despawn();
+                    commands.entity(entity).try_despawn();
                 }
             }
         }
         if self.entries.is_empty() {
             if let Some((before, after)) = self.spacers.take() {
-                commands.entity(before).despawn();
-                commands.entity(after).despawn();
+                commands.entity(before).try_despawn();
+                commands.entity(after).try_despawn();
             }
-            commands.entity(list).replace_children(&[]);
+            crate::hud::replace_children_if_alive(commands, list, &[]);
             self.dirty = false;
             return;
         }
@@ -508,7 +508,7 @@ impl VirtualLog {
             children.push(entity);
         }
         children.push(after);
-        commands.entity(list).replace_children(&children);
+        crate::hud::replace_children_if_alive(commands, list, &children);
         self.dirty = false;
     }
 

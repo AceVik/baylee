@@ -519,7 +519,7 @@ pub(in crate::hud) fn fill_pill(
             .entity(thumb)
             .remove::<ChoicePreview>()
             .insert(Pickable::IGNORE);
-        commands.entity(pill).add_child(thumb);
+        crate::hud::add_child_if_alive(commands, pill, thumb);
     }
     let words = commands
         .spawn((
@@ -544,7 +544,7 @@ pub(in crate::hud) fn fill_pill(
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(pill).add_children(&[words, restore]);
+    crate::hud::add_children_if_alive(commands, pill, &[words, restore]);
     if let Some(cap) = cap {
         let legend = commands
             .spawn((
@@ -554,6 +554,6 @@ pub(in crate::hud) fn fill_pill(
                 Pickable::IGNORE,
             ))
             .id();
-        commands.entity(pill).add_child(legend);
+        crate::hud::add_child_if_alive(commands, pill, legend);
     }
 }

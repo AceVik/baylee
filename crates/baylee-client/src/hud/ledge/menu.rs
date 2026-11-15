@@ -394,7 +394,7 @@ pub fn sync_menu(
 
     if let Some(kids) = standing {
         for kid in kids {
-            commands.entity(*kid).despawn();
+            commands.entity(*kid).try_despawn();
         }
     }
     if !next.open {
@@ -424,7 +424,7 @@ pub fn sync_menu(
             action: MenuAction::OfferDraw,
         });
     }
-    commands.entity(panel).add_child(offer);
+    crate::hud::add_child_if_alive(&mut commands, panel, offer);
 
     let leave_replay = baylee_client_core::replay::words::ReplayPhrase::LeaveReplay.text(lang);
     let (words, weight) = if next.replay {
@@ -456,7 +456,7 @@ pub fn sync_menu(
             action: MenuAction::Concede,
         });
     }
-    commands.entity(panel).add_child(concede);
+    crate::hud::add_child_if_alive(&mut commands, panel, concede);
 
     // Getting up without conceding (report 33): a spectator's *Stop
     // watching* above already is that, so a player's chair only.
@@ -470,7 +470,7 @@ pub fn sync_menu(
         commands.entity(leave).insert(MenuButton {
             action: MenuAction::LeaveGame,
         });
-        commands.entity(panel).add_child(leave);
+        crate::hud::add_child_if_alive(&mut commands, panel, leave);
         // What leaving costs stands under the row, as the host's Leave says
         // it under its question (DESIGN-v5 §5): the armed row itself is as
         // short as the concession's (owner, 22.10.2026: the armed words were
@@ -495,7 +495,7 @@ pub fn sync_menu(
                 Pickable::IGNORE,
             ))
             .id();
-        commands.entity(panel).add_child(line);
+        crate::hud::add_child_if_alive(&mut commands, panel, line);
     }
 
     // The arrangement, on every frame (DESIGN-v8 §2.4); on a phone this is
@@ -511,7 +511,7 @@ pub fn sync_menu(
         commands.entity(row).insert(MenuButton {
             action: MenuAction::ArrangementMenu,
         });
-        commands.entity(panel).add_child(row);
+        crate::hud::add_child_if_alive(&mut commands, panel, row);
     }
     let report = answer(
         &mut commands,
@@ -523,7 +523,7 @@ pub fn sync_menu(
     commands.entity(report).insert(MenuButton {
         action: MenuAction::Report,
     });
-    commands.entity(panel).add_child(report);
+    crate::hud::add_child_if_alive(&mut commands, panel, report);
     // Every setting, over the table (`lobby::table_settings`): dead where
     // no lobby stands behind it, and saying so.
     let (words, weight) = if next.settings {
@@ -537,19 +537,19 @@ pub fn sync_menu(
             action: MenuAction::Settings,
         });
     }
-    commands.entity(panel).add_child(settings_row);
+    crate::hud::add_child_if_alive(&mut commands, panel, settings_row);
 
     let music = crate::music::controls(&mut commands, &fonts, menu_metrics(), lang);
-    commands.entity(panel).add_child(music);
+    crate::hud::add_child_if_alive(&mut commands, panel, music);
     let priority = priority_switch(&mut commands, &fonts);
-    commands.entity(panel).add_child(priority);
+    crate::hud::add_child_if_alive(&mut commands, panel, priority);
     if let Some(line) =
         crate::update::menu_line(&mut commands, &fonts, lang, update.as_deref(), VERSION_PT)
     {
-        commands.entity(panel).add_child(line);
+        crate::hud::add_child_if_alive(&mut commands, panel, line);
     }
     for part in version_block(&mut commands, &fonts, lang) {
-        commands.entity(panel).add_child(part);
+        crate::hud::add_child_if_alive(&mut commands, panel, part);
     }
 }
 

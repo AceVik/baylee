@@ -248,7 +248,12 @@ fn breathe(
     );
     for (ambient, computed, handle) in &nodes {
         let size = computed.size();
-        let aspect = if size.y > 0.0 { size.x / size.y } else { 1.0 };
+        let raw_aspect = if size.y > 0.0 { size.x / size.y } else { 1.0 };
+        let aspect = if raw_aspect.is_finite() && raw_aspect > 0.0 {
+            raw_aspect
+        } else {
+            1.0
+        };
         let energy = if still { 0.0 } else { ambient.energy };
         // Read before written: a write marks the material changed and
         // uploads it again, and this ran every frame for numbers that
@@ -296,10 +301,16 @@ pub(crate) fn feel(
     held: Query<&PickingInteraction>,
 ) {
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    let raw_dt = time.delta_secs();
+    let dt = if raw_dt.is_finite() {
+        raw_dt.clamp(0.0, 0.1)
+    } else {
+        0.0
+    };
     let step = if still {
         1.0
     } else {
-        1.0 - (-FEEL_RATE * time.delta_secs()).exp()
+        1.0 - (-FEEL_RATE * dt).exp()
     };
     for (mut feel, own, pickable, parent, mut colour, mut transform, border_opt) in &mut buttons {
         let ignored = pickable.is_some_and(|p| !p.is_hoverable && !p.should_block_lower);
@@ -316,24 +327,29 @@ pub(crate) fn feel(
         // `is_changed` and not `is_added`: a control whose resting tone was
         // changed in place (the report's boxes, `report::form::retick`) has
         // to be painted again although the pointer never moved.
-        if (feel.warmth - target).abs() < f32::EPSILON && !feel.is_changed() {
+        let settled = (feel.warmth - target).abs() < f32::EPSILON;
+        if settled && !feel.is_changed() {
             continue;
         }
-        if (feel.warmth - target).abs() >= f32::EPSILON {
+        if !settled {
             let mut next_warmth = feel.warmth + (target - feel.warmth) * step;
             if (next_warmth - target).abs() < 0.001 {
                 next_warmth = target;
             }
-            feel.warmth = next_warmth;
+            if next_warmth.to_bits() != feel.warmth.to_bits() {
+                feel.warmth = next_warmth;
+            } else if !feel.is_changed() {
+                continue;
+            }
         }
 
         let hot = feel.warmth.max(0.0);
         let cold = (-feel.warmth).max(0.0);
         // Hover never grows a control's scale (preventing edge-hover flicker);
         // only a press sinks the face slightly inward.
-        let scale = 1.0 - feel.lift * cold;
-        if transform.scale != Vec2::splat(scale) {
-            transform.scale = Vec2::splat(scale);
+        let scale = Vec2::splat(1.0 - feel.lift * cold);
+        if transform.scale != scale {
+            transform.scale = scale;
         }
         // The press is a shade either way; only the hover has two readings,
         // and a stated hot end is interpolated in all four channels so an
@@ -343,16 +359,11 @@ pub(crate) fn feel(
             None => shade(feel.base, HOVER_LIFT * hot),
         };
         let next = shade(resting, -PRESS_SINK * cold);
-        if colour.0 != next {
-            colour.0 = next;
-        }
+        colour.set_if_neq(BackgroundColor(next));
         if let Some((fb, mut border)) = border_opt {
             let b_hover = blend(fb.rest, fb.hot, hot);
             let b_next = blend(b_hover, fb.press, cold);
-            let next_border = BorderColor::all(b_next);
-            if *border != next_border {
-                *border = next_border;
-            }
+            border.set_if_neq(BorderColor::all(b_next));
         }
     }
 }
@@ -495,5 +506,188 @@ struct Globals { time: f32 };
         // whole point of it being shared.
         let prelude = format!("{prelude}{}", include_str!("shaders/noise.wesl"));
         crate::cardmat::tests::check_wgsl(include_str!("shaders/ambience.wesl"), &prelude);
+    }
+
+    #[test]
+    fn feel_handles_extreme_dt_and_stays_quiet_at_rest() {
+        use std::time::Duration;
+
+        let mut app = App::new();
+        app.init_resource::<Time>().add_systems(Update, feel);
+        let button = app
+            .world_mut()
+            .spawn((
+                Feel::new(Color::srgb(0.11, 0.13, 0.16)),
+                PickingInteraction::None,
+                BackgroundColor(Color::BLACK),
+                UiTransform::default(),
+                FeelBorder {
+                    rest: Color::srgb(0.20, 0.22, 0.26),
+                    hot: Color::srgb(0.55, 0.48, 0.30),
+                    press: Color::srgb(0.10, 0.11, 0.14),
+                },
+                BorderColor::all(Color::BLACK),
+            ))
+            .id();
+
+        // First frame paints the initial resting colours from `is_changed()`.
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_millis(16));
+        app.update();
+
+        // Second frame at rest: zero change-detection mutations across all components.
+        let tick = app.world().read_change_tick();
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_millis(16));
+        app.update();
+        let now = app.world().read_change_tick();
+        let w = app.world();
+        let btn = w.entity(button);
+        let any_changed = btn
+            .get_ref::<Feel>()
+            .unwrap()
+            .last_changed()
+            .is_newer_than(tick, now)
+            || btn
+                .get_ref::<BackgroundColor>()
+                .unwrap()
+                .last_changed()
+                .is_newer_than(tick, now)
+            || btn
+                .get_ref::<UiTransform>()
+                .unwrap()
+                .last_changed()
+                .is_newer_than(tick, now)
+            || btn
+                .get_ref::<BorderColor>()
+                .unwrap()
+                .last_changed()
+                .is_newer_than(tick, now);
+        assert!(!any_changed, "a resting button must touch no component");
+
+        // Hovering with dt == 0.0 must not spuriously mutate `Feel`.
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::ZERO);
+        *app.world_mut()
+            .get_mut::<PickingInteraction>(button)
+            .unwrap() = PickingInteraction::Hovered;
+        let tick = app.world().read_change_tick();
+        app.update();
+        let now = app.world().read_change_tick();
+        let changed_on_zero_dt = app
+            .world()
+            .entity(button)
+            .get_ref::<Feel>()
+            .unwrap()
+            .last_changed()
+            .is_newer_than(tick, now);
+        assert!(!changed_on_zero_dt, "zero dt cannot advance warmth");
+
+        // A multi-second un-minimise wake spike (dt = 5.0s) must clamp cleanly
+        // without overshooting past 1.0 or producing non-finite values.
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_secs(5));
+        app.update();
+        let warmth = app.world().get::<Feel>(button).unwrap().warmth;
+        assert!(
+            warmth.is_finite() && warmth > 0.0 && warmth <= 1.0,
+            "clamped wake spike must stay in (0, 1], got {warmth}"
+        );
+        let scale = app.world().get::<UiTransform>(button).unwrap().scale;
+        assert!(scale.is_finite());
+    }
+
+    #[test]
+    fn concurrent_despawn_and_hud_commands_log_zero_ecs_errors() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::time::Duration;
+
+        static ECS_ERRORS: AtomicUsize = AtomicUsize::new(0);
+        fn count_ecs_error(
+            _err: bevy::ecs::error::BevyError,
+            _ctx: bevy::ecs::error::ErrorContext,
+        ) {
+            ECS_ERRORS.fetch_add(1, Ordering::SeqCst);
+        }
+
+        #[derive(Component)]
+        struct DoomedRoot;
+        #[derive(Component)]
+        struct OrphanProbe;
+
+        ECS_ERRORS.store(0, Ordering::SeqCst);
+        let mut app = App::new();
+        app.set_error_handler(count_ecs_error);
+        app.init_resource::<Time>().add_systems(
+            Update,
+            (
+                |mut commands: Commands, roots: Query<Entity, With<DoomedRoot>>| {
+                    for root in &roots {
+                        commands.entity(root).try_despawn();
+                    }
+                },
+                feel,
+                |mut commands: Commands,
+                 roots: Query<Entity, With<DoomedRoot>>,
+                 buttons: Query<Entity, With<Feel>>| {
+                    for root in &roots {
+                        let c1 = commands.spawn(OrphanProbe).id();
+                        let c2 = commands.spawn(OrphanProbe).id();
+                        let c3 = commands.spawn(OrphanProbe).id();
+                        crate::hud::add_child_if_alive(&mut commands, root, c1);
+                        crate::hud::add_children_if_alive(&mut commands, root, &[c2]);
+                        crate::hud::despawn_children_if_alive(&mut commands, root);
+                        crate::hud::replace_children_if_alive(&mut commands, root, &[c3]);
+                        commands.entity(root).try_despawn();
+                    }
+                    for button in &buttons {
+                        commands.entity(button).try_insert(Visibility::Hidden);
+                        commands.entity(button).try_remove::<FeelBorder>();
+                        commands.entity(button).try_despawn();
+                    }
+                },
+            )
+                .chain(),
+        );
+
+        let root = app.world_mut().spawn(DoomedRoot).id();
+        let button = app
+            .world_mut()
+            .spawn((
+                Feel::new(Color::srgb(0.2, 0.2, 0.2)),
+                PickingInteraction::Hovered,
+                BackgroundColor(Color::BLACK),
+                UiTransform::default(),
+            ))
+            .id();
+        app.world_mut().entity_mut(root).add_child(button);
+
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_millis(16));
+        app.update();
+
+        assert_eq!(
+            ECS_ERRORS.load(Ordering::SeqCst),
+            0,
+            "concurrent despawn + feel + HUD deferred commands must emit zero ECS errors"
+        );
+        assert!(
+            app.world().get_entity(root).is_err() && app.world().get_entity(button).is_err(),
+            "doomed hierarchy was cleanly despawned"
+        );
+        let leaked = app
+            .world_mut()
+            .query_filtered::<Entity, With<OrphanProbe>>()
+            .iter(app.world())
+            .count();
+        assert_eq!(
+            leaked, 0,
+            "children queued onto a concurrently despawned parent must not leak as orphans"
+        );
     }
 }

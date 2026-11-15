@@ -857,3 +857,240 @@ fn search_zone_labels_count_eligible_cards_but_manual_labels_count_the_inspectio
         );
     }
 }
+
+fn spawn_test_tray(app: &mut App, view: &PlayerView, syntax_open: bool) -> Entity {
+    let fonts = UiFonts::default();
+    let asset_server = app.world().resource::<AssetServer>().clone();
+    let mut images = Assets::<Image>::default();
+    let mut textures = CardTextures::new(&mut images, 1024 * 1024);
+    let faces_texts = crate::cardtext::CardTexts::default();
+    let faces_mode = crate::face::FaceMode::default();
+    let faces_settings = crate::settings::ClientSettings::default();
+    let widths = crate::face::Widths::of(None);
+    let faces = crate::hud::FaceCtx {
+        view: Some(view),
+        texts: &faces_texts,
+        mode: &faces_mode,
+        settings: &faces_settings,
+        widths,
+    };
+    let place = Placement::centred(band_in(Vec2::new(1280.0, 720.0)));
+    let mut queue = bevy::ecs::world::CommandQueue::default();
+    let built = {
+        let duel_ref = app.world().resource::<crate::Duel>();
+        let mut commands = Commands::new(&mut queue, app.world());
+        spawn::spawn_tray(
+            &mut commands,
+            Lang::En,
+            &duel_ref.browser,
+            view,
+            duel_ref.interaction.as_ref(),
+            duel_ref.statics.as_ref().unwrap(),
+            &mut textures,
+            &asset_server,
+            &fonts,
+            &faces,
+            None,
+            place,
+            false,
+            (ViewMode::Detailed, syntax_open),
+            0.0,
+            &[],
+            None,
+            None,
+            None,
+        )
+    };
+    queue.apply(app.world_mut());
+    built
+}
+
+#[test]
+fn question_circle_glyph_and_tray_split_buttons_match_height() {
+    assert_eq!(glyph::QUESTION_CIRCLE, '\u{f059}');
+    let awesome =
+        swash::FontRef::from_index(include_bytes!("../../../assets/fonts/fa-solid-900.ttf"), 0)
+            .expect("shipped Font Awesome face");
+    assert_ne!(
+        awesome.charmap().map(glyph::QUESTION_CIRCLE),
+        0,
+        "QUESTION_CIRCLE must exist in fa-solid-900.ttf"
+    );
+
+    let view = ViewBuilder::new(2)
+        .with_graveyard(0, vec![printed(10, 0, "Lightning Bolt", 1)])
+        .build();
+    let mut app = App::new();
+    app.add_plugins(AssetPlugin::default());
+    let mut duel = crate::Duel {
+        statics: Some(statics()),
+        view: Some(view.clone()),
+        ..Default::default()
+    };
+    duel.browser
+        .open_at(BrowseZone::Graveyard(PlayerId::new(0)));
+    app.insert_resource(duel);
+    let _root = spawn_test_tray(&mut app, &view, false);
+
+    let view_nodes: Vec<(ViewMode, Node)> = app
+        .world_mut()
+        .query::<(&TrayView, &Node)>()
+        .iter(app.world())
+        .map(|(v, n)| (v.mode, n.clone()))
+        .collect();
+    assert_eq!(view_nodes.len(), 3);
+    for (mode, node) in &view_nodes {
+        assert_eq!(node.height, percent(100), "{mode:?} must fill TRAY_CTRL_H");
+        assert_eq!(node.width, px(TRAY_CTRL_H));
+    }
+}
+
+#[test]
+fn tray_syntax_help_inserts_example_without_stealing_typing() {
+    use bevy::camera::NormalizedRenderTarget;
+    use bevy::picking::backend::HitData;
+    use bevy::picking::pointer::{Location, PointerButton, PointerId};
+    use bevy::window::WindowRef;
+
+    let view = ViewBuilder::new(2)
+        .with_graveyard(0, vec![printed(10, 0, "Lightning Bolt", 1)])
+        .build();
+    let mut app = App::new();
+    app.add_plugins(AssetPlugin::default());
+    let mut duel = crate::Duel {
+        statics: Some(statics()),
+        view: Some(view.clone()),
+        ..Default::default()
+    };
+    duel.browser
+        .open_at(BrowseZone::Graveyard(PlayerId::new(0)));
+    duel.browser.start_typing();
+    app.insert_resource(duel);
+
+    let root = spawn_test_tray(&mut app, &view, false);
+    let help = app
+        .world_mut()
+        .query_filtered::<Entity, With<TraySyntaxHelp>>()
+        .single(app.world())
+        .expect("TraySyntaxHelp `?` button exists in filter bar");
+    let click = |app: &mut App, entity: Entity| {
+        let ev = crate::test_pointer::aim(
+            PointerId::Mouse,
+            Location {
+                target: NormalizedRenderTarget::Window(
+                    WindowRef::Primary
+                        .normalize(Some(Entity::PLACEHOLDER))
+                        .unwrap(),
+                ),
+                position: Vec2::ZERO,
+            },
+            crate::test_pointer::Click {
+                button: PointerButton::Primary,
+                hit: HitData::new(entity, 0.0, None, None),
+                duration: std::time::Duration::ZERO,
+                count: 1,
+            },
+            entity,
+        );
+        app.world_mut().trigger(ev);
+        app.world_mut().flush();
+    };
+    click(&mut app, help);
+    assert!(
+        app.world()
+            .get_resource::<TraySyntax>()
+            .is_some_and(|s| s.open),
+        "clicking `?` opens TraySyntax"
+    );
+    assert!(
+        app.world().resource::<crate::Duel>().browser.is_typing(),
+        "`?` click must not steal typing state"
+    );
+
+    app.world_mut().entity_mut(root).despawn();
+    let _rebuilt = spawn_test_tray(&mut app, &view, true);
+    let example_row = app
+        .world_mut()
+        .query_filtered::<(Entity, &Children), With<UiButton>>()
+        .iter(app.world())
+        .find_map(|(entity, kids)| {
+            kids.iter().find_map(|k| {
+                app.world()
+                    .get::<Text>(k)
+                    .filter(|t| t.0 == "t:creature")
+                    .map(|_| entity)
+            })
+        })
+        .expect("syntax help sheet lists `t:creature`");
+    click(&mut app, example_row);
+    assert_eq!(
+        app.world().resource::<crate::Duel>().browser.filter(),
+        "t:creature"
+    );
+    assert!(
+        app.world()
+            .get_resource::<TraySyntax>()
+            .is_some_and(|s| !s.open),
+        "choosing an example closes TraySyntax"
+    );
+}
+
+#[test]
+fn veil_and_tray_reveal_stay_quiet_at_rest() {
+    use std::time::Duration;
+
+    let mut app = App::new();
+    app.init_resource::<Time>()
+        .init_resource::<Veil>()
+        .insert_resource(TrayReveal {
+            t: 1.0,
+            closing: false,
+            to_tray: false,
+        })
+        .init_resource::<crate::prefs::Prefs>()
+        .init_resource::<crate::Duel>()
+        .add_systems(Update, (dim_the_table, reveal_tray));
+
+    let veil = app
+        .world_mut()
+        .spawn((TableVeil, BackgroundColor(Color::NONE)))
+        .id();
+    let frame = app
+        .world_mut()
+        .spawn((TrayPanel, Node::default(), UiTransform::default()))
+        .id();
+
+    app.world_mut()
+        .resource_mut::<Time>()
+        .advance_by(Duration::from_millis(16));
+    app.update();
+    let tick = app.world().read_change_tick();
+    app.world_mut()
+        .resource_mut::<Time>()
+        .advance_by(Duration::from_millis(16));
+    app.update();
+    let now = app.world().read_change_tick();
+
+    let w = app.world();
+    let changed = w
+        .resource_ref::<Veil>()
+        .last_changed()
+        .is_newer_than(tick, now)
+        || w.resource_ref::<TrayReveal>()
+            .last_changed()
+            .is_newer_than(tick, now)
+        || w.entity(veil)
+            .get_ref::<BackgroundColor>()
+            .unwrap()
+            .last_changed()
+            .is_newer_than(tick, now)
+        || w.entity(frame)
+            .get_ref::<UiTransform>()
+            .unwrap()
+            .last_changed()
+            .is_newer_than(tick, now);
+    assert!(
+        !changed,
+        "at rest neither `Veil`, `TrayReveal`, nor their UI nodes may be marked changed"
+    );
+}

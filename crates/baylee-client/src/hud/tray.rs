@@ -54,6 +54,7 @@ use super::*;
 use crate::ui_button::UiButton;
 use baylee_client_core::browser::{BrowseRow, BrowseZone, Browser, Names, ViewMode, grid_across};
 use spawn::spawn_tray;
+pub(in crate::hud) use spawn::syntax_for_surface;
 
 /// How long the sheet takes to arrive.
 ///
@@ -212,10 +213,13 @@ pub fn reveal_tray(
     } else {
         REVEAL_IN
     };
-    reveal.t = super::motion::step(reveal.t, span, time.delta_secs(), still);
-    if reveal.closing && reveal.t >= 1.0 {
+    let next_t = super::motion::step(reveal.t, span, time.delta_secs(), still);
+    if next_t.to_bits() != reveal.t.to_bits() {
+        reveal.t = next_t;
+    }
+    if reveal.closing && next_t >= 1.0 {
         for entity in tree.panel.iter().chain(tree.veil.iter()) {
-            commands.entity(entity).despawn();
+            commands.entity(entity).try_despawn();
         }
         return;
     }
@@ -226,9 +230,9 @@ pub fn reveal_tray(
     // slows into place and a thing leaving gathers speed, which is the same
     // pair `motion::opening` and `motion::shutting` are.
     let eased = if reveal.closing {
-        reveal.t * reveal.t
+        next_t * next_t
     } else {
-        1.0 - (1.0 - reveal.t).powi(3)
+        1.0 - (1.0 - next_t).powi(3)
     };
     for (node, mut transform) in &mut panels {
         let (scale, travel, drop) = match (reveal.closing, reveal.to_tray) {
@@ -245,7 +249,7 @@ pub fn reveal_tray(
             // Answered: it goes where it stands. `motion::shutting`'s range
             // exactly, because this *is* a dismissal and the drawer's is the
             // movement it should read like.
-            (true, false) => (super::motion::shutting(reveal.t), Vec2::ZERO, 0.0),
+            (true, false) => (super::motion::shutting(next_t), Vec2::ZERO, 0.0),
             // Arriving, either way. One entrance, because a sheet is a sheet
             // however it was asked for, and a player who saw two would be
             // learning a distinction the interface does not otherwise make.
@@ -255,8 +259,14 @@ pub fn reveal_tray(
                 (1.0 - eased) * REVEAL_RISE,
             ),
         };
-        transform.scale = Vec2::splat(scale);
-        transform.translation = Val2::new(px(travel.x), px(travel.y + drop));
+        let next_scale = Vec2::splat(scale);
+        let next_translation = Val2::new(px(travel.x), px(travel.y + drop));
+        if transform.scale != next_scale {
+            transform.scale = next_scale;
+        }
+        if transform.translation != next_translation {
+            transform.translation = next_translation;
+        }
     }
 }
 
@@ -561,6 +571,7 @@ pub(crate) struct TrayScroll;
 /// directly precisely so that dragging the sheet does not rebuild it, and a
 /// field here would undo that at the first pixel of the drag.
 #[derive(Resource, Default)]
+#[allow(clippy::struct_excessive_bools)] // independent revision-gate inputs
 pub struct TrayRevision {
     /// The panel's own state: open, which tab, the filter, the sort.
     browser: super::BrowserGate,
@@ -605,6 +616,8 @@ pub struct TrayRevision {
     lists: usize,
     /// The window, rounded to whole pixels — a band a sheet is re-fitted to.
     window: (i32, i32),
+    /// Whether the search field's `?` syntax sheet stands open.
+    syntax: bool,
     /// Set by whatever has just finished changing the sheet's **size**.
     ///
     /// The rectangle is deliberately not one of the fields above: a drag
@@ -669,7 +682,7 @@ pub fn sync_tray(
     mode: Res<crate::face::FaceMode>,
     ui_materials: Option<ResMut<UiCardMaterials>>,
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
-    (rows, mut carry): (TrayRows, ResMut<TrayCarry>),
+    (rows, mut carry, syntax): (TrayRows, ResMut<TrayCarry>, Option<Res<TraySyntax>>),
 ) {
     let Ok(root) = tree.root.single() else {
         // No overlay yet. Nothing of ours can be standing either — a despawn
@@ -686,6 +699,11 @@ pub fn sync_tray(
         descending: duel.browser.descending(),
         view: settings.zone_view,
     };
+    let raw_syntax = syntax.is_some_and(|s| s.open);
+    let syntax_open = raw_syntax && browser.sheet.open() && duel.browser.builder().is_none();
+    if raw_syntax && !syntax_open {
+        commands.insert_resource(TraySyntax { open: false });
+    }
     let seq = duel.board.as_ref().map(|b| b.seq);
     let selected: Vec<ObjectId> = duel
         .interaction
@@ -739,6 +757,7 @@ pub fn sync_tray(
         && revision.facts == duel.pool_facts.is_some()
         && revision.lists == lists_lent(&duel)
         && revision.window == canvas
+        && revision.syntax == syntax_open
         && showing == browser.sheet.open()
         && !revision.stale
     {
@@ -770,6 +789,7 @@ pub fn sync_tray(
     revision.facts = duel.pool_facts.is_some();
     revision.lists = lists_lent(&duel);
     revision.window = canvas;
+    revision.syntax = syntax_open;
 
     // Sent away rather than despawned, which is `sync_drawer`'s word for the
     // same handover: [`reveal_tray`] flies the sheet into the tray and takes
@@ -789,7 +809,7 @@ pub fn sync_tray(
         .map(|(card, feel, held)| (card.object, feel.warmth, held.copied()))
         .collect();
     for entity in &tree.panel {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
     reveal.arrives(!drawn, !browser.sheet.for_choice());
 
@@ -859,15 +879,26 @@ pub fn sync_tray(
         cards.as_mut(),
         place,
         place.is_maximised(band),
-        settings.zone_view,
+        (settings.zone_view, syntax_open),
         scroll_y,
         &lit,
         duel.pool_facts.as_deref(),
         duel.list_shelf.as_deref(),
         duel.trigger_sheet.as_ref(),
     );
-    commands.entity(root).add_child(tray);
+    super::add_child_if_alive(&mut commands, root, tray);
 }
+
+/// Whether the zone browser's `?` search syntax sheet is open.
+#[derive(Resource, Default, Clone, Copy, PartialEq, Eq, Debug)]
+pub struct TraySyntax {
+    /// Open under the search field, mutually exclusive with the gear's builder.
+    pub open: bool,
+}
+
+/// Marker on the zone browser's `?` syntax help button.
+#[derive(Component)]
+pub struct TraySyntaxHelp;
 
 /// Which lists the lobby has lent: their place, or nothing. A list edited in
 /// the lobby is a new shelf, and a `list:` in the box reads it.
@@ -921,7 +952,7 @@ pub fn carry_the_rows(
         };
         feel.warmth = warmth;
         if let Some(held) = held {
-            commands.entity(entity).insert(held);
+            commands.entity(entity).try_insert(held);
         }
     }
     carry.0.clear();
@@ -1023,7 +1054,7 @@ const VEIL_RATE: f32 = 9.0;
 fn spawn_tray_veil(commands: &mut Commands, root: Entity) {
     let veil = spawn_veil(commands);
     commands.entity(veil).insert(TrayVeil);
-    commands.entity(root).add_child(veil);
+    super::add_child_if_alive(commands, root, veil);
 }
 
 /// The veil over the table, and the number behind it.
@@ -1100,18 +1131,17 @@ pub(crate) fn dim_the_table(
     } else {
         0.0
     };
-    let step = if still {
-        1.0
-    } else {
-        1.0 - (-VEIL_RATE * time.delta_secs()).exp()
-    };
-    veil.lit += (target - veil.lit) * step;
-    if (veil.lit - target).abs() < 0.001 {
-        veil.lit = target;
+    let step = super::motion::exp_step(VEIL_RATE, time.delta_secs(), still);
+    let mut next_lit = veil.lit + (target - veil.lit) * step;
+    if (next_lit - target).abs() < 0.001 {
+        next_lit = target;
     }
-    let colour = veil_at(veil.lit);
+    if next_lit.to_bits() != veil.lit.to_bits() {
+        veil.lit = next_lit;
+    }
+    let colour = BackgroundColor(veil_at(next_lit));
     for mut background in &mut nodes {
-        background.0 = colour;
+        background.set_if_neq(colour);
     }
 }
 

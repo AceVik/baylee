@@ -284,7 +284,7 @@ pub fn sync_tray_strip(
     *revision = next;
     if let Some(kids) = kids {
         for kid in kids {
-            commands.entity(*kid).despawn();
+            commands.entity(*kid).try_despawn();
         }
     }
     // The log's scroll first, so the zones stay the strip's right end: the
@@ -300,7 +300,7 @@ pub fn sync_tray_strip(
     }
     doors.push(log_button(&mut commands, &fonts, next.log));
     doors.push(zone_button(&mut commands, &fonts, next.open, next.free));
-    commands.entity(strip).add_children(&doors);
+    crate::hud::add_children_if_alive(&mut commands, strip, &doors);
 }
 
 /// The AI log's door: what an AI seat's mind said (debug builds only).

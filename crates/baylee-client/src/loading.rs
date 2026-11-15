@@ -127,6 +127,18 @@ pub(crate) fn install(app: &mut App) {
 /// Rebuilt only when what is drawn changes — which is at most twice per wait,
 /// so the retained tree costs nothing and the dots below animate on entities
 /// that survive the whole wait.
+fn sanitize_wait_dt(raw_dt: f32) -> f32 {
+    if !raw_dt.is_finite() || raw_dt < 0.0 {
+        0.0
+    } else if raw_dt > 0.5 {
+        // Clamp single-frame un-minimize / occlusion wake spikes so a
+        // one-frame local action never trips GRACE from an idle stall.
+        0.1
+    } else {
+        raw_dt
+    }
+}
+
 #[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
 fn raise(
     mut commands: Commands,
@@ -145,7 +157,7 @@ fn raise(
     // "One moment", then "Taking your seat" — swaps the line rather than
     // starting the clock again and taking the veil back down.
     if loading.what.is_some() {
-        *asked += time.delta_secs();
+        *asked += sanitize_wait_dt(time.delta_secs());
     } else {
         *asked = 0.0;
     }
@@ -163,7 +175,7 @@ fn raise(
         return;
     }
     for entity in &veil {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
     let (Some(what), Some(fonts)) = (want.map(str::to_owned), fonts) else {
         // Without fonts nothing can be drawn yet; leaving `shown` alone means
@@ -283,8 +295,13 @@ fn pulse(
             // as it went.
             0.5 - 0.5 * (turn * std::f32::consts::TAU).cos()
         };
-        transform.scale = Vec2::splat(0.7 + 0.5 * wave);
-        colour.0 = palette::ACCENT.with_alpha(0.35 + 0.65 * wave);
+        let scale = Vec2::splat(0.7 + 0.5 * wave);
+        if transform.scale != scale {
+            transform.scale = scale;
+        }
+        colour.set_if_neq(BackgroundColor(
+            palette::ACCENT.with_alpha(0.35 + 0.65 * wave),
+        ));
     }
 }
 
@@ -386,6 +403,56 @@ mod tests {
             .show("Taking your seat");
         tick(&mut app, 16);
         assert_eq!(veils(&mut app), 1, "the same wait, in different words");
+    }
+
+    #[test]
+    fn a_wake_spike_on_one_frame_does_not_flash_the_veil_and_still_pulse_stays_quiet() {
+        let mut app = veil_app();
+        app.world_mut().resource_mut::<Loading>().show("One moment");
+        // Simulate a 5-second un-minimise / un-occlusion frame spike: a single
+        // local-request frame must clamp its dt spike rather than flashing the veil.
+        tick(&mut app, 5_000);
+        assert_eq!(
+            veils(&mut app),
+            0,
+            "a single wake-spike frame must not trip the 250 ms grace period"
+        );
+
+        // And under reduce_motion, `pulse` settles on the first frame and
+        // writes nothing on resting frames after.
+        let mut prefs = crate::prefs::Prefs::default();
+        prefs.edit().reduce_motion = true;
+        let mut pulse_app = App::new();
+        pulse_app
+            .init_resource::<Time>()
+            .insert_resource(prefs)
+            .add_systems(Update, pulse);
+        let dot = pulse_app
+            .world_mut()
+            .spawn((
+                Pulse { phase: 0.25 },
+                UiTransform::default(),
+                BackgroundColor(Color::BLACK),
+            ))
+            .id();
+        tick(&mut pulse_app, 16);
+        let mark = pulse_app.world().read_change_tick();
+        tick(&mut pulse_app, 16);
+        let now = pulse_app.world().read_change_tick();
+        let d = pulse_app.world().entity(dot);
+        let mutated = d
+            .get_ref::<UiTransform>()
+            .unwrap()
+            .last_changed()
+            .is_newer_than(mark, now)
+            || d.get_ref::<BackgroundColor>()
+                .unwrap()
+                .last_changed()
+                .is_newer_than(mark, now);
+        assert!(
+            !mutated,
+            "reduced-motion loading dots must not mark components changed at rest"
+        );
     }
 
     /// An app with just enough in it to raise the veil.

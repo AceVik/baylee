@@ -59,7 +59,7 @@ pub(crate) fn sync_spectator_line(
         }
         (Some(words), Err(_)) => {
             for entity in &banner {
-                commands.entity(entity).despawn();
+                commands.entity(entity).try_despawn();
             }
             commands.spawn((
                 SpectatorBanner,
@@ -96,7 +96,7 @@ pub(crate) fn sync_spectator_line(
         }
         (None, Ok(_)) => {
             for entity in &banner {
-                commands.entity(entity).despawn();
+                commands.entity(entity).try_despawn();
             }
         }
         (None, Err(_)) => {}

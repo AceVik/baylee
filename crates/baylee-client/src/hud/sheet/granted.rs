@@ -188,7 +188,7 @@ pub(crate) fn sync_granted_sheet(
         seq,
     });
     for entity in &existing {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
     if !duel.granted_menu.open {
         return;
@@ -392,7 +392,7 @@ pub(crate) fn focus_granted_sheet(
         } else if bottom > height {
             scroll.y += bottom - height;
         }
-        commands.entity(entity).remove::<FocusedOffer>();
+        commands.entity(entity).try_remove::<FocusedOffer>();
     }
 }
 

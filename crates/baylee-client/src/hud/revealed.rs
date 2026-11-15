@@ -197,7 +197,7 @@ pub fn sync(
     }
     *revision = next;
     for sheet in &standing {
-        commands.entity(sheet).despawn();
+        commands.entity(sheet).try_despawn();
     }
     let (Some(reveal), Some(statics), Ok(root)) = (shown, duel.statics.as_ref(), roots.single())
     else {
@@ -262,7 +262,7 @@ pub fn sync(
             card
         },
     );
-    commands.entity(root).add_child(sheet);
+    crate::hud::add_child_if_alive(&mut commands, root, sheet);
 }
 
 /// How many of `reveal`'s pictures are on the GPU.
@@ -300,9 +300,9 @@ pub fn light_the_hovered(
         if want && !outlined {
             commands
                 .entity(card)
-                .insert(Outline::new(px(2), px(2), palette::CANDLE));
+                .try_insert(Outline::new(px(2), px(2), palette::CANDLE));
         } else if !want && outlined {
-            commands.entity(card).remove::<Outline>();
+            commands.entity(card).try_remove::<Outline>();
         }
     }
 }

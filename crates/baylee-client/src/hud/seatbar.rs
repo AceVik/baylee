@@ -518,7 +518,7 @@ pub fn sync_seat_bars(
     let view = paced.as_ref().unwrap_or(view);
 
     for entity in &existing {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
 
     let root = commands

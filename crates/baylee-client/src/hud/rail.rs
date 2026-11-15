@@ -89,10 +89,11 @@ pub fn flash_the_designation(
             state.seen = Some(block.0);
             state.at = now;
         }
-        let raw = if still {
+        let elapsed = (now - state.at).max(0.0);
+        let raw = if still || !elapsed.is_finite() {
             0.0
         } else {
-            (-FLASH_DECAY * (now - state.at)).exp()
+            (-FLASH_DECAY * elapsed).exp()
         };
         let flash = if raw < 1e-3 { 0.0 } else { raw };
         let tone = match block.0 {
@@ -235,13 +236,7 @@ pub fn glow_the_steps(
         .shown()
         .filter(|s| s.row().grants_priority())
         .map(|s| (s.active, s.row()));
-    let ease = |rate: f32| {
-        if still {
-            1.0
-        } else {
-            1.0 - (-rate * time.delta_secs()).exp()
-        }
-    };
+    let ease = |rate: f32| super::motion::exp_step(rate, time.delta_secs(), still);
     // The light leaves twice as fast as it comes: at the pace's hold a step
     // left still glowed when the next was lit, and the gold trailed three
     // tiles behind the step shown (recorded 30.10.2026).

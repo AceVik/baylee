@@ -229,7 +229,7 @@ pub(crate) fn sync(
     let wanted = wanted_labels(&duel, lang, detail);
     for (entity, mark, _, _, _, _, _) in &mut labels {
         if !wanted.iter().any(|(id, _, _)| *id == mark.object) {
-            commands.entity(entity).despawn();
+            commands.entity(entity).try_despawn();
         }
     }
     let boxes: Vec<_> = lens

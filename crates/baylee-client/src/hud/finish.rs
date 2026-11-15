@@ -706,9 +706,12 @@ pub(crate) fn sync_finish_log(
         return;
     };
     for (list, mut log, mut follow, mut scroll) in &mut lists {
+        let log = log.bypass_change_detection();
         let lang = log.lang;
+        let mut next_follow = *follow;
+        let mut next_scroll = scroll.clone();
         if let Some(folds) = &folds {
-            log.rows.fold_with(folds, scroll.y);
+            log.rows.fold_with(folds, next_scroll.y);
         }
         log.rows.sync(
             &mut commands,
@@ -717,12 +720,16 @@ pub(crate) fn sync_finish_log(
             lang,
             None,
             &SHEET_INKS,
-            &mut follow,
-            &mut scroll,
+            &mut next_follow,
+            &mut next_scroll,
             &nodes,
             &mut spacers,
             &mut |_, _, _, _| {},
         );
+        follow.set_if_neq(next_follow);
+        if scroll.0 != next_scroll.0 {
+            *scroll = next_scroll;
+        }
     }
 }
 
@@ -796,7 +803,7 @@ pub(crate) fn settle_the_sheet(
 /// anything else.
 pub(crate) fn despawn_finish(mut commands: Commands, roots: Query<Entity, With<FinishRoot>>) {
     for root in &roots {
-        commands.entity(root).despawn();
+        commands.entity(root).try_despawn();
     }
 }
 

@@ -609,19 +609,18 @@ pub fn fold_the_stack(
     mut group_toggles: StackGroupToggleQuery,
 ) {
     let reduce_motion = prefs.all().reduce_motion;
-    let step = if reduce_motion {
-        1.0
-    } else {
-        1.0 - (-16.0 * time.delta_secs()).exp()
-    };
+    let step = crate::hud::motion::exp_step(16.0, time.delta_secs(), reduce_motion);
     let target = if fold.collapsed { 0.0 } else { 1.0 };
     if (fold.open - target).abs() > f32::EPSILON {
         let open = fold.open + (target - fold.open) * step;
-        fold.open = if (open - target).abs() < 0.001 {
+        let next = if (open - target).abs() < 0.001 {
             target
         } else {
             open
         };
+        if next.to_bits() != fold.open.to_bits() {
+            fold.open = next;
+        }
     }
     let room = windows.single().map_or(
         PanelRoom {
@@ -703,12 +702,23 @@ pub fn fold_the_stack(
             **text = mark.to_string();
         }
     }
-    fold_stack_groups(&mut fold, step, &mut group_bodies, &mut group_toggles);
+    let mut groups_moved = false;
+    fold_stack_groups(
+        fold.bypass_change_detection(),
+        step,
+        &mut groups_moved,
+        &mut group_bodies,
+        &mut group_toggles,
+    );
+    if groups_moved {
+        fold.set_changed();
+    }
 }
 
 fn fold_stack_groups(
     fold: &mut StackFold,
     step: f32,
+    groups_moved: &mut bool,
     group_bodies: &mut StackGroupBodyQuery,
     group_toggles: &mut StackGroupToggleQuery,
 ) {
@@ -716,11 +726,15 @@ fn fold_stack_groups(
         let g_target = if *expanded { 1.0 } else { 0.0 };
         if (*open - g_target).abs() > f32::EPSILON {
             let next = *open + (g_target - *open) * step;
-            *open = if (next - g_target).abs() < 0.001 {
+            let next = if (next - g_target).abs() < 0.001 {
                 g_target
             } else {
                 next
             };
+            if next.to_bits() != open.to_bits() {
+                *open = next;
+                *groups_moved = true;
+            }
         }
     }
     for (group, mut node, mut visibility, computed, mut transform) in group_bodies {

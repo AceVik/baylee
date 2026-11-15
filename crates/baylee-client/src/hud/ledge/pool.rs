@@ -155,7 +155,8 @@ pub fn sync_pool(
     // A strip folding away keeps what it said until it is gone.
     if let Some(owing) = &next.owed {
         let group = owed_group(&mut commands, &fonts, lang, owing);
-        commands.entity(strip).despawn_children().add_child(group);
+        crate::hud::despawn_children_if_alive(&mut commands, strip);
+        crate::hud::add_child_if_alive(&mut commands, strip, group);
     }
     *revision = next;
 }

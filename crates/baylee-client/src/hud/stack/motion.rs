@@ -112,32 +112,40 @@ pub fn ease_the_stack_in(
             live.push(arriving.key);
         }
     }
-    track(&mut motion, &live);
+    let quiet = motion.bypass_change_detection();
+    let before_len = quiet.rows.len();
+    let same_keys =
+        before_len == live.len() && quiet.rows.iter().zip(&live).all(|(r, k)| r.key == *k);
+    if !same_keys {
+        track(quiet, &live);
+    }
 
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
-    let ease = |rate: f32| {
-        if still {
-            1.0
-        } else {
-            1.0 - (-rate * time.delta_secs()).exp()
-        }
-    };
+    let ease = |rate: f32| crate::hud::motion::exp_step(rate, time.delta_secs(), still);
     let step = ease(ARRIVE_RATE);
     let settle = ease(SETTLE_RATE);
     let mut moving = false;
-    for rise in &mut motion.rows {
+    for rise in &mut quiet.rows {
         if rise.at >= 1.0 && rise.cooled >= 1.0 {
             continue;
         }
-        rise.at = (rise.at + (1.0 - rise.at) * step).min(1.0);
-        if rise.at > 0.999 {
-            rise.at = 1.0;
-        }
-        rise.cooled = (rise.cooled + (1.0 - rise.cooled) * settle).min(1.0);
-        if rise.cooled > 0.999 {
-            rise.cooled = 1.0;
+        let next_at = {
+            let v = (rise.at + (1.0 - rise.at) * step).min(1.0);
+            if v > 0.999 { 1.0 } else { v }
+        };
+        let next_cooled = {
+            let v = (rise.cooled + (1.0 - rise.cooled) * settle).min(1.0);
+            if v > 0.999 { 1.0 } else { v }
+        };
+        if next_at.to_bits() != rise.at.to_bits() || next_cooled.to_bits() != rise.cooled.to_bits()
+        {
+            rise.at = next_at;
+            rise.cooled = next_cooled;
         }
         moving = true;
+    }
+    if !same_keys || moving {
+        motion.set_changed();
     }
     // Every node is spawned at rest, so a panel that has finished arriving
     // needs nothing written to it at all — including on the frame it is

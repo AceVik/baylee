@@ -216,7 +216,7 @@ pub fn sync_overlay(
         // guard above then finds no root and rebuilds from the first frame
         // there is one, which is what this early return has always bought.
         for (root, _) in &tree.root {
-            commands.entity(root).despawn();
+            commands.entity(root).try_despawn();
         }
         return;
     };
@@ -283,7 +283,7 @@ pub fn sync_overlay(
                 && !tree.ai_log.contains(*child)
                 && !tree.reveal.contains(*child)
             {
-                commands.entity(*child).despawn();
+                commands.entity(*child).try_despawn();
             }
         }
         root
@@ -407,7 +407,7 @@ pub fn sync_overlay(
             );
             commands.entity(hand_zone).insert_children(1, &frame);
         }
-        commands.entity(root).add_child(hand_zone);
+        crate::hud::add_child_if_alive(&mut commands, root, hand_zone);
 
         // ---- card preview: a speech-bubble tooltip over the hovered
         // card (hand, own battlefield, or command zone). No title text —
@@ -940,7 +940,7 @@ pub fn sync_overlay(
                     super::preview_keys::spawn(&mut commands, &fonts, lang, card_box.x, turn);
                 commands.entity(tooltip).add_child(hint);
             }
-            commands.entity(root).add_child(tooltip);
+            crate::hud::add_child_if_alive(&mut commands, root, tooltip);
             // Over the end screen once it stands: its log's links open this
             // preview, and one drawn at the overlay's own rung is behind the
             // sheet the pointer is on. Everything below that hangs off the
@@ -1049,7 +1049,7 @@ pub fn sync_overlay(
                 commands
                     .entity(beside)
                     .insert_recursive::<Children>(Pickable::IGNORE);
-                commands.entity(root).add_child(beside);
+                crate::hud::add_child_if_alive(&mut commands, root, beside);
                 lift(&mut commands, beside);
             }
 
@@ -1164,7 +1164,7 @@ pub fn sync_overlay(
                 commands
                     .entity(beside)
                     .insert_recursive::<Children>(Pickable::IGNORE);
-                commands.entity(root).add_child(beside);
+                crate::hud::add_child_if_alive(&mut commands, root, beside);
                 lift(&mut commands, beside);
             }
 
@@ -1190,7 +1190,7 @@ pub fn sync_overlay(
                         )],
                     ))
                     .id();
-                commands.entity(root).add_child(tail);
+                crate::hud::add_child_if_alive(&mut commands, root, tail);
                 lift(&mut commands, tail);
             }
         }
@@ -1200,7 +1200,7 @@ pub fn sync_overlay(
     // drawn, or, where the pointer has left, sent on its way (`pop::leave`).
     if previewed {
         for (node, _) in stood {
-            commands.entity(node).despawn();
+            commands.entity(node).try_despawn();
         }
     } else {
         let animated = motion.preview.is_some() && !prefs.all().reduce_motion;
@@ -1259,7 +1259,7 @@ pub fn sync_overlay(
             &faces,
             cards.as_mut(),
         );
-        commands.entity(root).add_child(stack);
+        crate::hud::add_child_if_alive(&mut commands, root, stack);
     }
 
     // ---- the zone browser ------------------------------------------------

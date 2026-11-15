@@ -442,7 +442,7 @@ pub struct Washing {
 ///
 /// One slip at a time, so this is a struct and not a map: the preview shows
 /// one card, and the pointer is in one place.
-#[derive(Resource, Default)]
+#[derive(Resource, Default, PartialEq)]
 pub struct SlipWash {
     /// What the slip on screen is saying, or `None` when there is no slip.
     saying: Option<ObjectId>,
@@ -513,7 +513,9 @@ pub fn wash_the_slip_in(
     // wash goes with the slip — a progress kept after the bubble closed would
     // greet the next hover with no animation at all.
     let Some((says, across)) = slips.iter().next().map(|w| (w.says, w.across)) else {
-        *wash = SlipWash::default();
+        if *wash != SlipWash::default() {
+            *wash = SlipWash::default();
+        }
         return;
     };
     if wash.saying != Some(says) {
@@ -531,18 +533,23 @@ pub fn wash_the_slip_in(
     }
 
     if prefs.is_some_and(|p| p.all().reduce_motion) {
-        *wash = SlipWash {
+        let done = SlipWash {
             saying: Some(says),
             ..SlipWash::done()
         };
+        if *wash == done {
+            return;
+        }
+        *wash = done;
     } else if wash.moving() {
-        let ease = |rate: f32| 1.0 - (-rate * time.delta_secs()).exp();
+        let dt = super::motion::sanitize_dt(time.delta_secs());
+        let ease = |rate: f32| 1.0 - (-rate * dt).exp();
         let feel = ease(crate::ambience::FEEL_RATE);
         wash.ground = towards(wash.ground, feel);
         if wash.ground >= INK_STARTS {
             wash.ink = towards(wash.ink, feel);
             // Linear, and therefore the one of the four that arrives exactly.
-            wash.wipe = (wash.wipe + time.delta_secs() / across).min(1.0);
+            wash.wipe = (wash.wipe + dt / across.max(1e-4)).min(1.0);
             wash.dried = towards(wash.dried, ease(DRY_RATE));
         }
     } else {
@@ -554,29 +561,42 @@ pub fn wash_the_slip_in(
     for (w, mut node, mut fill, mut transform) in &mut shapes {
         match w.part {
             Part::Ground => {
-                *fill = BackgroundColor(w.base.with_alpha(w.base.alpha() * wash.ground));
-                transform.translation = Val2::px(0.0, -SLIP_LIFT * (1.0 - wash.ground));
+                fill.set_if_neq(BackgroundColor(
+                    w.base.with_alpha(w.base.alpha() * wash.ground),
+                ));
+                let translation = Val2::px(0.0, -SLIP_LIFT * (1.0 - wash.ground));
+                if transform.translation != translation {
+                    transform.translation = translation;
+                }
             }
-            Part::Veil => node.top = Val::Percent(wash.wipe * 100.0),
+            Part::Veil => {
+                let top = Val::Percent(wash.wipe * 100.0);
+                if node.top != top {
+                    node.top = top;
+                }
+            }
             _ => {}
         }
     }
     for (w, ink, image) in &mut paints {
         match w.part {
             Part::Grain => {
-                if let Some(mut image) = image {
-                    image.color = w.base.with_alpha(w.base.alpha() * wash.ground);
+                let color = w.base.with_alpha(w.base.alpha() * wash.ground);
+                if let Some(mut image) = image
+                    && image.color != color
+                {
+                    image.color = color;
                 }
             }
             Part::Heading => {
                 if let Some(mut ink) = ink {
-                    *ink = TextColor(w.base.with_alpha(w.base.alpha() * wash.ground));
+                    ink.set_if_neq(TextColor(w.base.with_alpha(w.base.alpha() * wash.ground)));
                 }
             }
             Part::Ink => {
                 if let Some(mut ink) = ink {
                     let wet = w.base.mix(&palette::PARCHMENT, WET * (1.0 - wash.dried));
-                    *ink = TextColor(wet.with_alpha(w.base.alpha() * wash.ink));
+                    ink.set_if_neq(TextColor(wet.with_alpha(w.base.alpha() * wash.ink)));
                 }
             }
             Part::Ground | Part::Veil => {}

@@ -198,7 +198,7 @@ pub fn sync_peeks(
     }
     revision.clone_from(&next);
     for e in &standing {
-        commands.entity(e).despawn();
+        commands.entity(e).try_despawn();
     }
     let Some(fonts) = fonts else {
         return;

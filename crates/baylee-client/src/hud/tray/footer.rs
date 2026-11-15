@@ -400,18 +400,32 @@ pub(super) fn spawn_view(
             Pickable::IGNORE,
         ))
         .id();
+    let (border, radius) = match mode {
+        ViewMode::Detailed => (
+            UiRect::all(px(1)),
+            BorderRadius::left(px(crate::hud::BTN_R)),
+        ),
+        ViewMode::Large => (UiRect::new(px(0), px(1), px(1), px(1)), BorderRadius::ZERO),
+        ViewMode::Grid => (
+            UiRect::new(px(0), px(1), px(1), px(1)),
+            BorderRadius::right(px(crate::hud::BTN_R)),
+        ),
+    };
     let button = commands
         .spawn((
             super::super::TrayView { mode },
             UiButton,
             Node {
-                width: px(26),
+                width: px(super::TRAY_CTRL_H),
                 height: percent(100),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
+                border,
+                border_radius: radius,
                 ..default()
             },
             BackgroundColor(fill),
+            BorderColor::all(palette::DIALOG_LINE),
             // Both ends stated, because `Feel::new` shades towards white and
             // **keeps the alpha**: an unchosen segment rests at nothing and
             // would be lifted to a brighter nothing, which is a control that

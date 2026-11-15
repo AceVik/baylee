@@ -19,7 +19,7 @@ pub fn despawn_overlay(
     (strips, badges, plates, shells): PreviewObjects<'_>,
 ) {
     for entity in &existing {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
     *revision = HudRevision::default();
     // The shelf goes with the root it hangs off, so its own counter describes

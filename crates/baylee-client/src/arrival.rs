@@ -156,7 +156,7 @@ struct PassageMaterial {
     params: PassageParams,
 }
 
-#[derive(ShaderType, Clone, Copy, Default)]
+#[derive(ShaderType, Clone, Copy, Default, PartialEq)]
 struct PassageParams {
     // aspect, time, flight, reduced motion
     scene: Vec4,
@@ -387,13 +387,16 @@ fn prepare(
         }
         Destination::Hidden => return,
     };
-    journey.milestone = if !fonts_ok {
+    let milestone = if !fonts_ok {
         0
     } else if !data_ok {
         1
     } else {
         2
     };
+    if journey.milestone != milestone {
+        journey.milestone = milestone;
+    }
     if !fonts_ok || !data_ok {
         // A changed view during a reconnect must earn a new acknowledgement.
         if prepared.requested {
@@ -432,7 +435,9 @@ fn prepare(
     if !prepared.ready() {
         return;
     }
-    journey.milestone = 3;
+    if journey.milestone != 3 {
+        journey.milestone = 3;
+    }
     if journey.destination == Destination::Login {
         journey.departure.get_or_insert(now);
     } else {
@@ -476,6 +481,7 @@ fn spawn(mut commands: Commands, mut materials: ResMut<Assets<PassageMaterial>>)
                 ..default()
             },
             GlobalZIndex(500),
+            Visibility::Hidden,
             BackgroundColor(Color::srgb(0.009, 0.013, 0.029)),
         ))
         .with_children(|root| {
@@ -539,6 +545,7 @@ fn spawn(mut commands: Commands, mut materials: ResMut<Assets<PassageMaterial>>)
                 },
                 BorderColor::all(Color::srgba(0.65, 0.52, 0.35, 0.35)),
                 BackgroundColor(Color::srgba(0.02, 0.03, 0.05, 0.6)),
+                Visibility::Hidden,
             ))
             .with_children(|button| {
                 button.spawn((
@@ -587,21 +594,27 @@ fn paint(
     let table = journey.destination == Destination::Table;
     let lang = settings.map_or(Lang::En, |s| Lang::of(&s.lang));
     for (size, handle) in &surface {
-        if let Some(mut material) = materials.get_mut(&handle.0) {
-            material.params = PassageParams {
-                scene: Vec4::new(
-                    size.size().x / size.size().y.max(1.0),
-                    if still { 0.0 } else { now as f32 },
-                    progress,
-                    f32::from(still),
-                ),
-                state: Vec4::new(f32::from(journey.milestone), f32::from(table), 0.0, 0.0),
-            };
+        let next_params = PassageParams {
+            scene: Vec4::new(
+                size.size().x / size.size().y.max(1.0),
+                if still { 0.0 } else { now as f32 },
+                progress,
+                f32::from(still),
+            ),
+            state: Vec4::new(f32::from(journey.milestone), f32::from(table), 0.0, 0.0),
+        };
+        if materials
+            .get(&handle.0)
+            .is_some_and(|m| m.params != next_params)
+            && let Some(mut material) = materials.get_mut(&handle.0)
+        {
+            material.params = next_params;
         }
     }
     // Opaque even before the shader has compiled. Reveal only after readiness.
-    backdrop.0 =
-        Color::srgb(0.009, 0.013, 0.029).with_alpha(if progress > 0.0 { 0.0 } else { 1.0 });
+    backdrop.set_if_neq(BackgroundColor(
+        Color::srgb(0.009, 0.013, 0.029).with_alpha(if progress > 0.0 { 0.0 } else { 1.0 }),
+    ));
     let title = if journey.error.is_some() {
         Phrase::ArrivalHeld
     } else if table {
@@ -612,25 +625,25 @@ fn paint(
     let status = status(&journey, progress, lang);
     for (word, mut text, mut font, mut color) in &mut words {
         let value = match word.0 {
-            0 => title.text(lang).to_string(),
-            1 => status.clone(),
+            0 => title.text(lang),
+            1 => status.as_str(),
             2 => if table {
                 Phrase::ArrivalTableSteps
             } else {
                 Phrase::ArrivalLoginSteps
             }
-            .text(lang)
-            .to_string(),
-            4 => "B A Y L E E".to_string(),
+            .text(lang),
+            4 => "B A Y L E E",
             _ => if lobby.is_some() {
                 Phrase::ArrivalLeave
             } else {
                 Phrase::ArrivalLeaveTable
             }
-            .text(lang)
-            .to_string(),
+            .text(lang),
         };
-        text.set_if_neq(Text::new(value));
+        if text.0 != value {
+            value.clone_into(&mut text.0);
+        }
         if let Some(fonts) = &fonts {
             let handle = if word.0 == 0 {
                 &fonts.serif
@@ -646,16 +659,16 @@ fn paint(
                 font.font = wanted;
             }
         }
-        color.0 = INK.with_alpha(
+        color.set_if_neq(TextColor(INK.with_alpha(
             (1.0 - progress * 3.0).clamp(0.0, 1.0) * if word.0 == 2 { 0.5 } else { 1.0 },
-        );
+        )));
     }
     for mut visibility in &mut exit {
-        *visibility = if table && progress == 0.0 {
+        visibility.set_if_neq(if table && progress == 0.0 {
             Visibility::Inherited
         } else {
             Visibility::Hidden
-        };
+        });
     }
 }
 

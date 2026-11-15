@@ -98,6 +98,9 @@ pub const MINUS: char = '\u{f068}';
 pub const PLUS: char = '\u{f067}';
 /// A backspace arrow: take the last symbol off a mana cost.
 pub const BACKSPACE: char = '\u{f55a}';
+/// A `?` in a circle (`circle-question` in the shipped `fa-solid-900.ttf`
+/// cmap, neighbour of [`INFO`]): what a search field understands.
+pub const QUESTION_CIRCLE: char = '\u{f059}';
 /// An `i` in a circle: the line under a panel that qualifies it.
 pub const INFO: char = '\u{f05a}';
 /// A window's bottom rule: put this sheet down into the tray.

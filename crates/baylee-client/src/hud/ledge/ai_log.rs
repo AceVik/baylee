@@ -105,7 +105,7 @@ pub fn update_ai_log(
                     },
                 ))
                 .id();
-            commands.entity(panel).add_child(row);
+            crate::hud::add_child_if_alive(&mut commands, panel, row);
         }
     }
 }

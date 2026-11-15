@@ -217,21 +217,33 @@ pub(crate) fn leave(
     }
     // The handle is the old preview's: there is one preview, so one handle.
     for handle in handles {
-        commands.entity(handle).despawn();
+        commands.entity(handle).try_despawn();
     }
     for (node, rise) in nodes {
         if animated {
-            commands
-                .entity(node)
-                .remove::<(PreviewRise, super::PreviewBounds)>()
-                .insert(PreviewLeave {
-                    t: 0.0,
-                    toward: rise.toward,
-                    lean: rise.lean,
-                })
-                .insert_recursive::<Children>(Pickable::IGNORE);
+            commands.queue(move |world: &mut World| {
+                let Ok(mut entity) = world.get_entity_mut(node) else {
+                    return;
+                };
+                entity
+                    .remove::<(PreviewRise, super::PreviewBounds)>()
+                    .insert(PreviewLeave {
+                        t: 0.0,
+                        toward: rise.toward,
+                        lean: rise.lean,
+                    });
+                let mut stack = vec![node];
+                while let Some(current) = stack.pop() {
+                    if let Some(children) = world.get::<Children>(current) {
+                        stack.extend(children.iter());
+                    }
+                    if let Ok(mut target) = world.get_entity_mut(current) {
+                        target.insert(Pickable::IGNORE);
+                    }
+                }
+            });
         } else {
-            commands.entity(node).despawn();
+            commands.entity(node).try_despawn();
         }
     }
 }
@@ -251,33 +263,41 @@ pub fn pop_the_preview(
     let delta = time.delta_secs();
     let opened = pop.opening().then(|| {
         let t = motion::step(pop.t, motion::ZOOM_IN, delta, still);
-        pop.t = t;
+        if (pop.t - t).abs() > f32::EPSILON {
+            pop.t = t;
+        }
         t
     });
     if let Some(t) = opened {
         for (node, mut transform) in &mut rise {
-            *transform = rising(t, *node);
+            transform.set_if_neq(rising(t, *node));
         }
     }
     for (entity, mut node, mut transform) in &mut leave {
         let t = motion::step(node.t, motion::ZOOM_OUT, delta, still);
         if t >= 1.0 {
-            commands.entity(entity).despawn();
+            commands.entity(entity).try_despawn();
             continue;
         }
-        node.t = t;
+        if (node.t - t).abs() > f32::EPSILON {
+            node.t = t;
+        }
         let (scale, translation) = pose(motion::shutting(t), SINK * t * t, node.toward, node.lean);
-        transform.scale = scale;
-        transform.translation = translation;
+        if transform.scale != scale {
+            transform.scale = scale;
+        }
+        if transform.translation != translation {
+            transform.translation = translation;
+        }
     }
     for (parent, mut shadow) in &mut shades {
         let bubble = parent.parent();
         if let Ok((_, node, _)) = leave.get(bubble) {
-            *shadow = shade(1.0 - node.t);
+            shadow.set_if_neq(shade(1.0 - node.t));
         } else if let Some(t) = opened
             && rise.contains(bubble)
         {
-            *shadow = shade(height(t));
+            shadow.set_if_neq(shade(height(t)));
         }
     }
 }

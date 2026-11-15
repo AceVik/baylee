@@ -700,7 +700,7 @@ pub fn sync_players(
             };
             for child in children {
                 if writing.contains(*child) {
-                    commands.entity(*child).despawn();
+                    commands.entity(*child).try_despawn();
                 }
             }
             let flash = (!still)
@@ -716,11 +716,11 @@ pub fn sync_players(
                 *hint = said;
             }
             let words = write(&mut commands, &fonts, facts, tier, step, lang, flash);
-            commands.entity(*kid).add_child(words);
+            crate::hud::add_child_if_alive(&mut commands, *kid, words);
         }
     } else {
         for kid in kids.into_iter().flatten() {
-            commands.entity(*kid).despawn();
+            commands.entity(*kid).try_despawn();
         }
         let mut last_side = None;
         let row: Vec<Entity> = next
@@ -742,7 +742,7 @@ pub fn sync_players(
                 button
             })
             .collect();
-        commands.entity(strip).replace_children(&row);
+        crate::hud::replace_children_if_alive(&mut commands, strip, &row);
     }
     *revision = next;
 }
@@ -876,7 +876,7 @@ pub fn show_the_control_badges(
         if link.and_then(|l| l.card) != source {
             match source {
                 Some(card) => {
-                    commands.entity(entity).insert((
+                    commands.entity(entity).try_insert((
                         LogLink {
                             card: Some(card),
                             token: None,
@@ -885,7 +885,7 @@ pub fn show_the_control_badges(
                     ));
                 }
                 None => {
-                    commands.entity(entity).remove::<(LogLink, CardLens)>();
+                    commands.entity(entity).try_remove::<(LogLink, CardLens)>();
                 }
             }
         }

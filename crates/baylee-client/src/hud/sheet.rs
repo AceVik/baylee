@@ -854,7 +854,7 @@ pub fn sync_ability_sheet(
         if revision.object.is_some() {
             *revision = SheetRevision::default();
             for (entity, _) in &standing {
-                commands.entity(entity).insert(SheetZoom {
+                commands.entity(entity).try_insert(SheetZoom {
                     t: 0.0,
                     closing: true,
                 });
@@ -914,7 +914,7 @@ pub fn sync_ability_sheet(
     revision.texts = faces.generation();
 
     for entity in &existing {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
 
     let root = commands
@@ -1195,32 +1195,40 @@ pub fn zoom_the_sheet(
         } else {
             motion::ZOOM_IN
         };
-        zoom.t = motion::step(zoom.t, span, time.delta_secs(), still);
-        let done = zoom.t >= 1.0;
+        let next_t = motion::step(zoom.t, span, time.delta_secs(), still);
+        if next_t.to_bits() != zoom.t.to_bits() {
+            zoom.t = next_t;
+        }
+        let done = next_t >= 1.0;
         if zoom.closing && done {
             // The whole tree, not the sheet: the nub is its sibling and the
             // root is what one despawn clears.
-            commands.entity(parent.parent()).despawn();
+            commands.entity(parent.parent()).try_despawn();
             continue;
         }
-        let scale = if zoom.closing {
-            motion::shutting(zoom.t)
+        let scale = Vec2::splat(if zoom.closing {
+            motion::shutting(next_t)
         } else {
-            motion::opening(zoom.t)
-        };
-        transform.scale = Vec2::splat(scale);
+            motion::opening(next_t)
+        });
+        if transform.scale != scale {
+            transform.scale = scale;
+        }
 
-        // The attached piece, on its own ramp — written every frame and
-        // never guarded on `display`, because the placer is what reveals it
-        // and a tail that was skipped while hidden would be shown at
+        // The attached piece, on its own ramp — written every frame of the
+        // movement and never guarded on `display`, because the placer is what
+        // reveals it and a tail that was skipped while hidden would be shown at
         // whatever scale it was left at for the frame in between.
-        let tail = motion::tail(zoom.t);
+        let tail = motion::tail(next_t);
+        let piece_scale = Vec2::splat(if zoom.closing {
+            1.0 - (1.0 - motion::ZOOM_FROM) * next_t
+        } else {
+            tail
+        });
         for mut piece in &mut trim {
-            piece.scale = Vec2::splat(if zoom.closing {
-                1.0 - (1.0 - motion::ZOOM_FROM) * zoom.t
-            } else {
-                tail
-            });
+            if piece.scale != piece_scale {
+                piece.scale = piece_scale;
+            }
         }
     }
 }

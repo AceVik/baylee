@@ -162,7 +162,7 @@ pub struct LogList;
 pub struct LogNewBelow;
 
 /// Whether the list is following its newest line.
-#[derive(Component, Clone, Copy, Debug)]
+#[derive(Component, Clone, Copy, PartialEq, Debug)]
 pub struct LogFollow {
     /// At the end, and kept there as lines arrive.
     pub(crate) stuck: bool,
@@ -375,7 +375,9 @@ pub fn sync_log(
     if !next.open {
         // Closing keeps what it shows, so the fold takes the lines with it.
         // The next opening writes them all again.
-        revision.open = false;
+        if revision.open {
+            revision.open = false;
+        }
         return;
     }
     let len = duel.log.len();
@@ -386,6 +388,8 @@ pub fn sync_log(
         };
         let lookup = LogTexts(texts.as_deref());
         let wording = wording(&duel, lang, &lookup);
+        let mut next_follow = *follow;
+        let mut next_scroll = scroll.clone();
         if len > revision.drawn {
             let from = revision.drawn;
             let mut run = revision.run;
@@ -393,29 +397,34 @@ pub fn sync_log(
             revision
                 .rows
                 .append(virtual_list::append_entries(&lines, from, &mut run));
-            if !follow.stuck {
-                follow.unseen = true;
+            if !next_follow.stuck {
+                next_follow.unseen = true;
             }
             revision.drawn = len;
             revision.run = run;
         }
+        let rev = revision.bypass_change_detection();
         if let Some(folds) = &folds {
-            revision.rows.fold_with(folds, scroll.y);
+            rev.rows.fold_with(folds, next_scroll.y);
         }
         if len > 0 {
-            revision.rows.sync(
+            rev.rows.sync(
                 &mut commands,
                 list,
                 &fonts,
                 lang,
                 Some(&wording),
                 &PANEL_INKS,
-                &mut follow,
-                &mut scroll,
+                &mut next_follow,
+                &mut next_scroll,
                 &nodes,
                 &mut spacers,
                 &mut |_, _, _, _| {},
             );
+        }
+        follow.set_if_neq(next_follow);
+        if scroll.0 != next_scroll.0 {
+            *scroll = next_scroll;
         }
         return;
     }
@@ -425,7 +434,7 @@ pub fn sync_log(
     revision.rows.reset();
     if let Some(kids) = standing {
         for kid in kids {
-            commands.entity(*kid).despawn();
+            commands.entity(*kid).try_despawn();
         }
     }
     let lookup = LogTexts(texts.as_deref());
@@ -433,7 +442,7 @@ pub fn sync_log(
     let lines = duel.log.lines(&wording);
     let (entries, run) = virtual_list::entries(&lines);
     let (parts, list) = draw_all(&mut commands, &fonts, &wording, &lines);
-    commands.entity(panel).add_children(&parts);
+    crate::hud::add_children_if_alive(&mut commands, panel, &parts);
     let mut rows = std::mem::take(&mut revision.rows);
     rows.replace(entries);
     if let Some(folds) = &folds {

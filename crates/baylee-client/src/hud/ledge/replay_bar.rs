@@ -274,7 +274,7 @@ pub fn sync_replay_bar(
         return;
     }
     for bar in &bars {
-        commands.entity(bar).despawn();
+        commands.entity(bar).try_despawn();
     }
     revision.0.clone_from(&look);
     let (Some(look), Some(status)) = (look, status) else {
