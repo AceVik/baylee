@@ -2203,3 +2203,17 @@ families, preserve old cohort/AI/native identities, calibrate the larger offer
 pool and implement native effects, four upgrade tiers, client rules and house-AI
 handling with actual event/cost/targeting tests. The catalog target remains the
 24-family design in `tower-echoes-market.md`.
+
+### Milestone 69 — retain native and AI contracts across catalog upgrades
+
+Generation one now explicitly owns native revision 2 and house generation 19.
+Catalog commitments, cohort admission and reconstructed presets read that saved
+contract rather than today's native/AI defaults. Authority-side preset derivation
+can address a retained generation; the compiled executor still admits only its
+own pack. Unknown generations and substituted rules/policies fail closed.
+
+Focused verification: all 35 `baylee-tower` v2 tests pass (0.19s), including the
+unchanged golden stream across 32 seeds, every stage, pins and paid refreshes,
+its old catalog digest, and a new retained native/policy preset regression.
+Library/test Clippy with warnings denied passes. This compatibility milestone
+does not enable new equipment or alter generation-one prices and offers.

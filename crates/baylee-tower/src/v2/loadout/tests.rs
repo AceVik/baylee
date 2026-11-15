@@ -1,5 +1,6 @@
 use super::*;
 use crate::v2::catalog::{Family, Rarity};
+use baylee_core::preset::AIProfile;
 
 fn preset() -> GamePreset {
     let resources = [

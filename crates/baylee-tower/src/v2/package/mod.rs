@@ -1,7 +1,7 @@
 //! Private immutable execution material. Players receive only a deliberately
 //! restricted projection, never this package or its historical hidden deck.
 use super::{
-    GENERATOR, MAX_STAGES, PACK, REVISION,
+    GENERATOR, MAX_STAGES, PACK,
     catalog::Definition,
     loadout,
     run::{Phase, Run},

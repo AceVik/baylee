@@ -1,8 +1,7 @@
 use super::{
-    Catalog, Deserialize, Digest, GENERATOR, Identity, PACK, REVISION, Refusal, Serialize, Sha256,
-    Variant,
+    Catalog, Deserialize, Digest, GENERATOR, Identity, PACK, Refusal, Serialize, Sha256, Variant,
 };
-use baylee_core::preset::AIProfile;
+use crate::v2::generation;
 
 /// Full frozen compatibility identity, independent of gateway or calendar date.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -29,14 +28,14 @@ pub fn catalog_digest(catalog: &Catalog) -> Result<[u8; 32], Refusal> {
 /// # Errors
 /// Unsupported generation or malformed catalog.
 pub fn catalog_digest_for(catalog: &Catalog, generator: u16) -> Result<[u8; 32], Refusal> {
-    crate::v2::generation::families(generator)?;
+    let contract = generation::contract(generator)?;
     catalog.validate()?;
     let mut cards = catalog.cards.clone();
     cards.sort_by_key(|card| card.card);
     Ok(Sha256::new()
         .chain_update(b"baylee/tower/catalog/v2\0")
         .chain_update(PACK.to_le_bytes())
-        .chain_update(REVISION.to_le_bytes())
+        .chain_update(contract.revision.to_le_bytes())
         .chain_update(generator.to_le_bytes())
         .chain_update(serde_json::to_vec(&cards).map_err(|_| Refusal::Invalid)?)
         .finalize()
@@ -60,7 +59,7 @@ impl Cohort {
         generator: u16,
     ) -> Result<Self, Refusal> {
         let result = Self {
-            revision: REVISION,
+            revision: generation::contract(generator)?.revision,
             generator,
             executor,
             catalog: catalog_digest_for(catalog, generator)?,
@@ -73,11 +72,12 @@ impl Cohort {
     /// # Errors
     /// A changed rules, generation, policy, variant or catalog contract.
     pub fn validate(&self, catalog: &Catalog) -> Result<(), Refusal> {
-        if self.revision != REVISION
+        let contract = generation::contract(self.generator)?;
+        if self.revision != contract.revision
             || !self.executor.valid()
             || self.executor.variant != Variant::Tower
-            || self.executor.rules != format!("tower-{REVISION}")
-            || self.executor.ai != format!("tower-house-{}", AIProfile::GENERATION)
+            || self.executor.rules != format!("tower-{}", contract.revision)
+            || self.executor.ai != format!("tower-house-{}", contract.ai_generation)
             || self.catalog != catalog_digest_for(catalog, self.generator)?
         {
             return Err(Refusal::Invalid);

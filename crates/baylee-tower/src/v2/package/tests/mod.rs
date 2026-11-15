@@ -2,6 +2,7 @@ use super::*;
 use crate::{
     cards::Card,
     v2::{
+        REVISION,
         catalog::{Family, Potion, Rarity},
         inventory::Slot,
         run::Command,

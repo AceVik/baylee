@@ -1,12 +1,13 @@
 //! The same derivation at authority setup and native executor admission.
 use super::{
-    PACK, REVISION,
+    GENERATOR, PACK,
     catalog::{self, Definition},
+    generation,
 };
 use crate::Refusal;
 use baylee_core::preset::{
-    AIProfile, FormatId, GamePreset, HouseRules, LoopPolicy, RulePackSetup, SeatCapabilities,
-    SeatController, SeatExtensions, SeatOpening, SeatSupplies,
+    FormatId, GamePreset, HouseRules, LoopPolicy, RulePackSetup, SeatCapabilities, SeatController,
+    SeatExtensions, SeatOpening, SeatSupplies,
 };
 
 /// Public resources and immutable native definitions for one frozen seat.
@@ -55,12 +56,27 @@ pub fn resources(active: &[Definition], charges: [u8; 2], seat: u8) -> Result<Re
 /// # Errors
 /// The resources do not represent exactly seats zero and one, in that order.
 pub fn rules(seats: &[Resources; 2], policy_seed: u64) -> Result<HouseRules, Refusal> {
+    rules_for(seats, policy_seed, GENERATOR)
+}
+
+/// Derive rules for a retained run without using the current native revision.
+/// # Errors
+/// Unknown generation, invalid seat order or a definition outside its frozen pool.
+pub fn rules_for(
+    seats: &[Resources; 2],
+    policy_seed: u64,
+    generator: u16,
+) -> Result<HouseRules, Refusal> {
+    let contract = generation::contract(generator)?;
     for (index, seat) in seats.iter().enumerate() {
         if usize::from(seat.extensions.seat) != index
             || seat.opening.seat != seat.extensions.seat
             || seat.supplies.seat != seat.extensions.seat
         {
             return Err(Refusal::Invalid);
+        }
+        for id in &seat.extensions.definitions {
+            generation::definition(generator, Definition::from_id(*id).ok_or(Refusal::Invalid)?)?;
         }
     }
     Ok(HouseRules {
@@ -73,7 +89,7 @@ pub fn rules(seats: &[Resources; 2], policy_seed: u64) -> Result<HouseRules, Ref
         supplies: seats.iter().map(|seat| seat.supplies).collect(),
         rule_pack: Some(RulePackSetup {
             pack: PACK,
-            revision: REVISION,
+            revision: contract.revision,
             seats: seats.iter().map(|seat| seat.extensions.clone()).collect(),
         }),
         ..HouseRules::for_a_table()
@@ -85,6 +101,14 @@ pub fn rules(seats: &[Resources; 2], policy_seed: u64) -> Result<HouseRules, Ref
 /// # Errors
 /// Any unsupported manifest, bonus, administrative capability or policy override.
 pub fn validate(preset: &GamePreset) -> Result<(), Refusal> {
+    validate_for(preset, GENERATOR)
+}
+
+/// Validate a saved generation at the authority; the executor admits its own pack only.
+/// # Errors
+/// Unknown generation or any setup not derived from that generation's definitions.
+pub fn validate_for(preset: &GamePreset, generator: u16) -> Result<(), Refusal> {
+    let contract = generation::contract(generator)?;
     preset.validate().map_err(|_| Refusal::Invalid)?;
     let house = &preset.house_rules;
     let pack = house.rule_pack.as_ref().ok_or(Refusal::Invalid)?;
@@ -93,7 +117,7 @@ pub fn validate(preset: &GamePreset) -> Result<(), Refusal> {
         || preset.seats.len() != 2
         || !preset.modifiers.is_empty()
         || pack.pack != PACK
-        || pack.revision != REVISION
+        || pack.revision != contract.revision
         || pack.seats.len() != 2
         || house.supplies.len() != 2
     {
@@ -130,11 +154,12 @@ pub fn validate(preset: &GamePreset) -> Result<(), Refusal> {
     if !matches!(
         preset.seats[0].controller,
         SeatController::Open | SeatController::Human { .. }
-    ) || preset.seats[1].controller != SeatController::Ai(AIProfile::TOWER_EXPERT)
+    ) || preset.seats[1].controller != SeatController::Ai(contract.expert())
         || *house
-            != rules(
+            != rules_for(
                 &derived.try_into().map_err(|_| Refusal::Invalid)?,
                 policy_seed,
+                generator,
             )?
     {
         return Err(Refusal::Invalid);

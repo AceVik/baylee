@@ -1,6 +1,7 @@
 //! Frozen shop catalogs. Adding a family never changes an existing offer stream.
 use super::catalog::{Definition, Family};
 use crate::Refusal;
+use baylee_core::preset::AIProfile;
 
 const FIRST: [Family; 4] = [
     Family::Heartwood,
@@ -8,6 +9,38 @@ const FIRST: [Family; 4] = [
     Family::Compass,
     Family::Grove,
 ];
+
+/// Rules and policy frozen alongside an offer stream, never read from live defaults.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Contract {
+    /// Compiled native pack/economy revision.
+    pub revision: u16,
+    /// Deterministic house-policy generation.
+    pub ai_generation: u16,
+}
+
+impl Contract {
+    /// Expert's Tower settings with the saved policy generation.
+    pub const fn expert(self) -> AIProfile {
+        AIProfile {
+            generation: self.ai_generation,
+            ..AIProfile::TOWER_EXPERT
+        }
+    }
+}
+
+/// Resolve an immutable generation without silently upgrading its executor.
+/// # Errors
+/// Unknown generations have no execution contract.
+pub const fn contract(generation: u16) -> Result<Contract, Refusal> {
+    match generation {
+        1 => Ok(Contract {
+            revision: 2,
+            ai_generation: 19,
+        }),
+        _ => Err(Refusal::Invalid),
+    }
+}
 
 /// The original stored shops predate an explicit generation field.
 pub const fn original() -> u16 {

@@ -19,25 +19,38 @@ impl Package {
         printing: impl Fn(CardIndex) -> Option<PrintInfo>,
     ) -> Result<GamePreset, Refusal> {
         self.validate(catalog, executor)?;
+        let profile = crate::v2::generation::contract(self.cohort.generator)?.expert();
         let resources = [
             loadout::resources(&self.builds[0].active, self.builds[0].potions, 0)?,
             loadout::resources(&self.builds[1].active, self.builds[1].potions, 1)?,
         ];
         let mut prints = Vec::new();
         let seats = vec![
-            seat(&self.builds[0], &resources[0], &mut prints, &printing)?,
-            seat(&self.builds[1], &resources[1], &mut prints, &printing)?,
+            seat(
+                &self.builds[0],
+                &resources[0],
+                profile,
+                &mut prints,
+                &printing,
+            )?,
+            seat(
+                &self.builds[1],
+                &resources[1],
+                profile,
+                &mut prints,
+                &printing,
+            )?,
         ];
         let preset = GamePreset {
             format: FormatId::Custom,
             seed: self.shuffle_seed,
-            house_rules: loadout::rules(&resources, self.policy_seed)?,
+            house_rules: loadout::rules_for(&resources, self.policy_seed, self.cohort.generator)?,
             modifiers: Vec::new(),
             prints,
             rules: RulesMetadata::default(),
             seats,
         };
-        loadout::validate(&preset)?;
+        loadout::validate_for(&preset, self.cohort.generator)?;
         Ok(preset)
     }
 }
@@ -45,6 +58,7 @@ impl Package {
 fn seat(
     build: &Build,
     resources: &loadout::Resources,
+    profile: AIProfile,
     prints: &mut Vec<PrintInfo>,
     printing: &impl Fn(CardIndex) -> Option<PrintInfo>,
 ) -> Result<SeatSpec, Refusal> {
@@ -66,7 +80,7 @@ fn seat(
         controller: if resources.opening.seat == 0 {
             SeatController::Open
         } else {
-            SeatController::Ai(AIProfile::TOWER_EXPERT)
+            SeatController::Ai(profile)
         },
         capabilities: SeatCapabilities::default(),
         deck,
