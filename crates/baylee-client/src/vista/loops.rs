@@ -225,10 +225,12 @@ pub(crate) struct Loop {
     total_ticks: u64,
     /// Monotonic stream playhead in nanoseconds from `origin_clock_ns`.
     playhead_ns: AtomicU64,
-    /// `VistaClock::nanos` when the current active playback epoch started.
+    /// `generation` for which `playhead_ns` was written (`0` before first anchor).
+    playhead_gen: AtomicU64,
+    /// `VistaClock::nanos` when the current playback epoch was anchored.
     origin_clock_ns: AtomicU64,
-    /// Whether `origin_clock_ns` has been latched for the current epoch.
-    anchored: AtomicBool,
+    /// `generation` for which `origin_clock_ns` was latched (`0` before first anchor).
+    anchored_gen: AtomicU64,
     /// Incremented whenever the decoder resets so stale ring slots are skipped.
     generation: AtomicU64,
     /// A visible surface is actively showing this loop.
@@ -272,6 +274,16 @@ impl Loop {
     /// Whether the loop is on the GPU and may be drawn.
     pub(crate) fn showing(&self) -> bool {
         self.showing.load(Ordering::Acquire)
+    }
+
+    /// Returns `playhead_ns` if written for `generation`, else `0` so a new or
+    /// pre-warming generation never reads a prior generation's playhead.
+    fn playhead_for(&self, generation: u64) -> u64 {
+        if self.playhead_gen.load(Ordering::Acquire) == generation {
+            self.playhead_ns.load(Ordering::Acquire)
+        } else {
+            0
+        }
     }
 
     /// Reads a shipped file's tables, pre-allocates its textures and SPSC ring,
@@ -324,8 +336,9 @@ impl Loop {
             durations_ticks,
             total_ticks: track.total_ticks,
             playhead_ns: AtomicU64::new(0),
+            playhead_gen: AtomicU64::new(0),
             origin_clock_ns: AtomicU64::new(0),
-            anchored: AtomicBool::new(false),
+            anchored_gen: AtomicU64::new(0),
             generation: AtomicU64::new(1),
             active: AtomicBool::new(false),
             warm: AtomicBool::new(false),
@@ -365,8 +378,6 @@ fn evict_player(lp: &Loop, player: &mut Option<Player>, stream_ticks: &mut u64) 
     if player.is_some() || has_buffers {
         *player = None;
         *stream_ticks = 0;
-        lp.anchored.store(false, Ordering::Release);
-        lp.playhead_ns.store(0, Ordering::Release);
         lp.ring.evict_buffers(&lp.showing, &lp.generation);
     }
 }
@@ -379,7 +390,7 @@ fn decode_into_slot(
     generation: u64,
     stream_ticks: &mut u64,
 ) -> bool {
-    let playhead = lp.playhead_ns.load(Ordering::Acquire);
+    let playhead = lp.playhead_for(generation);
     let next_pts = ticks_to_ns(*stream_ticks, lp.timescale);
     if playhead > next_pts.saturating_add(MAX_BEHIND_NS) {
         let target_ticks = (u128::from(playhead) * u128::from(lp.timescale.get())) / 1_000_000_000;
@@ -546,6 +557,33 @@ pub(super) fn install(app: &mut App) {
     }
 }
 
+/// Advances `lp`'s generation-keyed playhead from `clock_ns`, anchoring at `0`
+/// on a new `generation` and shifting `origin_clock_ns` across `< KEEP` unseen
+/// gaps so re-entering a still-loaded loop resumes seamlessly without freezing.
+fn advance_playhead(lp: &Loop, visible: bool, was_visible: bool, clock_ns: u64) -> bool {
+    if !visible {
+        return false;
+    }
+    let cur_gen = lp.generation.load(Ordering::Acquire);
+    let seen_gen = lp.anchored_gen.load(Ordering::Acquire);
+    let origin = if seen_gen != cur_gen {
+        lp.origin_clock_ns.store(clock_ns, Ordering::Release);
+        lp.anchored_gen.store(cur_gen, Ordering::Release);
+        clock_ns
+    } else if !was_visible {
+        let prev = lp.playhead_for(cur_gen);
+        let resumed_origin = clock_ns.saturating_sub(prev);
+        lp.origin_clock_ns.store(resumed_origin, Ordering::Release);
+        resumed_origin
+    } else {
+        lp.origin_clock_ns.load(Ordering::Acquire)
+    };
+    let playhead = clock_ns.saturating_sub(origin);
+    let changed = lp.playhead_ns.swap(playhead, Ordering::AcqRel) != playhead;
+    lp.playhead_gen.store(cur_gen, Ordering::Release);
+    changed
+}
+
 /// Updates each loop's visibility, pre-warm hint, pause state, and exact
 /// real-nanosecond playhead from [`VistaClock`].
 #[allow(clippy::too_many_arguments)]
@@ -594,19 +632,10 @@ fn step(
         any_active |= visible && !lp.failed.load(Ordering::Relaxed);
 
         let mut wake = lp.paused.swap(is_paused, Ordering::AcqRel) != is_paused;
-        wake |= lp.active.swap(visible, Ordering::AcqRel) != visible;
+        let was_visible = lp.active.swap(visible, Ordering::AcqRel);
+        wake |= was_visible != visible;
         wake |= lp.warm.swap(warm, Ordering::AcqRel) != warm;
-
-        if visible {
-            if !lp.anchored.swap(true, Ordering::AcqRel) {
-                lp.origin_clock_ns.store(clock_val.nanos, Ordering::Release);
-            }
-            let origin = lp.origin_clock_ns.load(Ordering::Acquire);
-            let playhead = clock_val.nanos.saturating_sub(origin);
-            wake |= lp.playhead_ns.swap(playhead, Ordering::AcqRel) != playhead;
-        } else if !warm {
-            lp.anchored.store(false, Ordering::Release);
-        }
+        wake |= advance_playhead(lp, visible, was_visible, clock_val.nanos);
 
         if wake
             && !is_paused
@@ -843,7 +872,7 @@ fn select_due_slot(lp: &Loop, _borrow: &ConsumerBorrow<'_>) -> Option<u64> {
     if r >= w {
         return None;
     }
-    let playhead = lp.playhead_ns.load(Ordering::Acquire);
+    let playhead = lp.playhead_for(cur_gen);
     let mut chosen = None;
     let mut pos = r;
     while pos < w {
@@ -1070,13 +1099,16 @@ mod tests {
         // consumer ticks select exact due slots (`0 -> 1 -> 3 -> 7`) and unpark
         // the worker so the 8-slot ring refills without starving.
         lp.showing.store(true, Ordering::Release);
-        for &(playhead_ns, expected_slot) in &[
+        for (i, &(playhead_ns, expected_slot)) in [
             (0u64, 0u64),
             (8_333_334, 1),  // +1/120s (120 fps): advances 1 sample
             (25_000_001, 3), // +1/60s  (60 fps):  advances 2 samples
             (58_333_334, 7), // +1/30s  (30 fps):  advances 4 samples
-        ] {
-            lp.playhead_ns.store(playhead_ns, Ordering::Release);
+        ]
+        .iter()
+        .enumerate()
+        {
+            advance_playhead(&lp, true, i > 0, playhead_ns);
             let borrow = ConsumerBorrow::try_acquire(&lp.ring.consumer_state).expect("idle");
             let chosen = select_due_slot(&lp, &borrow).expect("due slot available");
             assert_eq!(chosen, expected_slot, "at playhead {playhead_ns} ns");
@@ -1162,5 +1194,63 @@ mod tests {
         wait_for_write_pos(&lp, RING_CAP as u64 * 2);
         let borrow = ConsumerBorrow::try_acquire(&lp.ring.consumer_state).expect("idle");
         assert_eq!(select_due_slot(&lp, &borrow), Some(RING_CAP as u64));
+    }
+
+    /// Going unseen for `< KEEP` (no eviction) and becoming `visible` again
+    /// shifts `origin_clock_ns` so `playhead_ns` resumes at the exact frame on
+    /// screen (`> 13.6s`) without resetting to `0` or freezing `select_due_slot`,
+    /// while a `generation` bump immediately masks stale `playhead_ns` to `0`.
+    #[test]
+    fn reentering_within_keep_resumes_immediately_without_freezing() {
+        let mut images = Assets::<Image>::default();
+        let lp = Loop::start_with_keep(false, WORLD, &mut images, Duration::from_secs(10))
+            .expect("world loop starts");
+        let gen1 = lp.generation.load(Ordering::Acquire);
+
+        let was_visible = lp.active.swap(true, Ordering::AcqRel);
+        advance_playhead(&lp, true, was_visible, 1_000_000_000);
+        lp.worker.get().unwrap().unpark();
+        wait_for_write_pos(&lp, RING_CAP as u64);
+        lp.showing.store(true, Ordering::Release);
+
+        // Advance past 1 full 13.50s revolution (`playhead = 13.60s` at `clock = 14.60s`).
+        advance_playhead(&lp, true, true, 14_600_000_000);
+        assert_eq!(lp.playhead_for(gen1), 13_600_000_000);
+        for expected_chosen in [7u64, 12u64] {
+            let borrow = ConsumerBorrow::try_acquire(&lp.ring.consumer_state).expect("idle");
+            let chosen = select_due_slot(&lp, &borrow).expect("due slot");
+            assert_eq!(chosen, expected_chosen);
+            lp.ring.read_pos.store(chosen + 1, Ordering::Release);
+            drop(borrow);
+            lp.worker.get().unwrap().unpark();
+            wait_for_write_pos(&lp, chosen + 1 + RING_CAP as u64);
+        }
+
+        // Go unseen for 2.5s (`< KEEP`, no eviction): `VistaClock` advances to 17.10s.
+        let was_visible = lp.active.swap(false, Ordering::AcqRel);
+        assert!(!advance_playhead(&lp, false, was_visible, 17_100_000_000));
+        assert_eq!(lp.generation.load(Ordering::Acquire), gen1);
+
+        // Re-enter at `clock = 17.10s`: playhead resumes at 13.60s, and the very
+        // next 120 fps tick (`+8_333_334 ns`) immediately selects slot 13 (`13_608_333_333 ns`).
+        let was_visible = lp.active.swap(true, Ordering::AcqRel);
+        assert!(!was_visible);
+        advance_playhead(&lp, true, was_visible, 17_100_000_000);
+        assert_eq!(lp.playhead_for(gen1), 13_600_000_000);
+
+        advance_playhead(&lp, true, true, 17_108_333_334);
+        assert_eq!(lp.playhead_for(gen1), 13_608_333_334);
+        {
+            let borrow = ConsumerBorrow::try_acquire(&lp.ring.consumer_state).expect("idle");
+            assert_eq!(select_due_slot(&lp, &borrow), Some(13));
+        }
+
+        // Across an eviction boundary (`gen2 = gen1 + 1`), `playhead_for(gen2)`
+        // immediately returns `0` before and on the first `advance_playhead` tick.
+        let gen2 = lp.generation.fetch_add(1, Ordering::AcqRel) + 1;
+        assert_eq!(lp.playhead_for(gen2), 0);
+        advance_playhead(&lp, true, true, 20_000_000_000);
+        assert_eq!(lp.playhead_for(gen2), 0);
+        assert_eq!(lp.anchored_gen.load(Ordering::Acquire), gen2);
     }
 }
