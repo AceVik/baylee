@@ -61,7 +61,7 @@ fn secret<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Zeroizing<String
     String::deserialize(deserializer).map(Zeroizing::new)
 }
 
-fn token<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Token, D::Error> {
+pub(super) fn token<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Token, D::Error> {
     let text = secret(deserializer)?;
     Token::from_hex(&text).map_err(|_| serde::de::Error::custom("invalid operator credential"))
 }
@@ -72,14 +72,19 @@ impl Config {
             return Err(Error::Contract);
         }
         let config: Self = serde_json::from_slice(bytes).map_err(|_| Error::Contract)?;
-        if !baylee_tower_store::valid_schema(&config.schema) {
+        config.validate()?;
+        Ok(config)
+    }
+
+    pub(super) fn validate(&self) -> Result<(), Error> {
+        if !baylee_tower_store::valid_schema(&self.schema) {
             return Err(Error::Contract);
         }
-        config.database()?;
-        if let Some(service) = &config.service {
-            service.validate(config.development)?;
+        self.database()?;
+        if let Some(service) = &self.service {
+            service.validate(self.development)?;
         }
-        Ok(config)
+        Ok(())
     }
 
     fn database(&self) -> Result<(), Error> {

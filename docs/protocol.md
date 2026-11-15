@@ -6062,6 +6062,12 @@ before a counter doubler can apply.
 
 ## Separate Tower v2 player API
 
+Offline content/operator administration is deliberately absent from the HTTP API.
+The executable's stdin-only `--admin` / `--check-admin` commands accept a closed
+operation set under schema-owner SQL authority; neither a player credential nor
+any application operator role can open an administrative route. The exact input,
+idempotency and revocation rules are in [Tower operations](tower-operations.md).
+
 The global Baylee Tower authority exposes `POST /v2/player` independently of a
 gateway. Its reusable contract is `baylee-tower-api`, version `2` in the required
 `Baylee-Tower-Version` header. Requests require exactly one canonical opaque

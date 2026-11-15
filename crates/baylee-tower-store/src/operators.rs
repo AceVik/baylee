@@ -68,7 +68,8 @@ impl Store {
     /// The caller uses the reviewed token library's independent secret and digest;
     /// neither a Central session nor a gateway credential is reused.
     /// # Errors
-    /// Invalid name, duplicate credential digest or storage failure.
+    /// Invalid name, conflicting/disabled credential identity or storage failure.
+    /// An exact enabled name/role/credential retry returns the original identity.
     pub async fn provision_operator(
         &self,
         name: &str,
@@ -82,7 +83,9 @@ impl Store {
         {
             return Err(Refusal::Invalid.into());
         }
-        let row = self.db.query_one_raw(self.statement("INSERT INTO @tower.operators(name,role,credential_digest) VALUES($1,$2,$3) ON CONFLICT(credential_digest) DO NOTHING RETURNING id",
+        let row = self.db.query_one_raw(self.statement("INSERT INTO @tower.operators AS saved(name,role,credential_digest) VALUES($1,$2,$3)
+            ON CONFLICT(credential_digest) DO UPDATE SET name=EXCLUDED.name
+            WHERE saved.name=EXCLUDED.name AND saved.role=EXCLUDED.role AND saved.enabled RETURNING id",
             vec![name.into(), role.name().into(), credential_digest.to_vec().into()])).await.map_err(|_| Error::Unavailable)?.ok_or(Error::Conflict)?;
         column(&row, "id")
     }

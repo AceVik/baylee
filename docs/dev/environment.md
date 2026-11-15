@@ -30,6 +30,10 @@ Central challenge service and is not an automatic production deployment.
 - `--migrate` explicitly migrates the configured schema and exits. Use separate
   migration/admin database credentials; ordinary startup checks readiness and
   never silently migrates. Migration mode may omit `service`.
+- `--check-admin` validates a bounded offline operation without connecting;
+  `--admin` executes it with schema-owner database access and then closes the pool.
+  These modes read `{configuration, operation}` instead of a bare configuration,
+  accept at most 196 KiB and forbid `service`. See [Tower operations](../tower-operations.md).
 - No argument starts the HTTP service and its configured verification queues.
   Unknown/extra arguments and unknown configuration fields are errors. Diagnostics
   contain no configuration values. Readiness prints only the bound public address.

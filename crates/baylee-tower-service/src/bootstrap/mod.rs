@@ -4,27 +4,38 @@ use sea_orm::{ConnectOptions, Database};
 use std::{io::Read as _, time::Duration};
 use zeroize::Zeroizing;
 
+mod admin;
 mod config;
 mod serve;
 
 pub(super) fn run() -> Result<(), Error> {
     let mode = mode(std::env::args().skip(1))?;
+    let bound = if matches!(mode, Mode::Admin | Mode::CheckAdmin) {
+        admin::MAX_INPUT
+    } else {
+        config::MAX_CONFIG
+    };
     let mut bytes = Zeroizing::new(Vec::new());
     std::io::stdin()
         .lock()
-        .take((config::MAX_CONFIG + 1) as u64)
+        .take((bound + 1) as u64)
         .read_to_end(&mut bytes)
         .map_err(|_| Error::Contract)?;
-    let config = config::Config::parse(&bytes)?;
+    let (config, operation) = if matches!(mode, Mode::Admin | Mode::CheckAdmin) {
+        let input = admin::Input::parse(&bytes)?;
+        (input.configuration, Some(input.operation))
+    } else {
+        (config::Config::parse(&bytes)?, None)
+    };
     drop(bytes);
-    if mode == Mode::Check {
+    if matches!(mode, Mode::Check | Mode::CheckAdmin) {
         return Ok(());
     }
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .map_err(|_| Error::Process)?;
-    runtime.block_on(start(config, mode))
+    runtime.block_on(start(config, mode, operation))
 }
 
 #[derive(PartialEq, Eq)]
@@ -32,6 +43,8 @@ enum Mode {
     Serve,
     Check,
     Migrate,
+    Admin,
+    CheckAdmin,
 }
 
 fn mode(mut args: impl Iterator<Item = String>) -> Result<Mode, Error> {
@@ -39,6 +52,8 @@ fn mode(mut args: impl Iterator<Item = String>) -> Result<Mode, Error> {
         None => Mode::Serve,
         Some("--check") => Mode::Check,
         Some("--migrate") => Mode::Migrate,
+        Some("--admin") => Mode::Admin,
+        Some("--check-admin") => Mode::CheckAdmin,
         _ => return Err(Error::Contract),
     };
     if args.next().is_some() {
@@ -47,7 +62,11 @@ fn mode(mut args: impl Iterator<Item = String>) -> Result<Mode, Error> {
     Ok(selected)
 }
 
-async fn start(mut config: config::Config, mode: Mode) -> Result<(), Error> {
+async fn start(
+    mut config: config::Config,
+    mode: Mode,
+    operation: Option<admin::Operation>,
+) -> Result<(), Error> {
     let mut options = ConnectOptions::new(config.database_url.as_str());
     options
         .max_connections(8)
@@ -63,6 +82,16 @@ async fn start(mut config: config::Config, mode: Mode) -> Result<(), Error> {
         let store = Store::new(db.clone(), &config.schema)?;
         if mode == Mode::Migrate {
             return store.migrate().await.map_err(Error::from);
+        }
+        if let Some(operation) = operation {
+            let reply = operation.execute(&store, config.development).await?;
+            // Only closed public result variants reach stdout; never the config,
+            // credentials, private house decks or database diagnostics.
+            println!(
+                "{}",
+                serde_json::to_string(&reply).map_err(|_| Error::Contract)?
+            );
+            return Ok(());
         }
         store.ready().await?;
         let service = config.service.take().ok_or(Error::Contract)?;

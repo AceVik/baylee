@@ -12,8 +12,10 @@ Schema selection accepts only a bounded identifier and every table is qualified.
 Runtime connections must disable SQL/value logging and bound pool/timeouts.
 Migration is an explicit operator action, checks an exact recorded digest and
 never drops/reset existing data. IDs are `DEFAULT uuidv7()` with `RETURNING`;
-external account/request IDs must also be UUIDv7. The migration owner and runtime
-role still need their final privilege/runbook checks before service release.
+external account/request IDs must also be UUIDv7. Offline administration checks
+effective membership in the schema owner's SQL role; ordinary table grants and
+application tokens do not grant this capability. The final least-privilege runtime
+grant inventory remains a release check. See [Tower operations](../tower-operations.md).
 
 Owner mutations lock the account before its run. Request digest, original result,
 wallet/inventory and revision commit together. Same key with different contents

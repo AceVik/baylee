@@ -1950,3 +1950,38 @@ Strict store/service/account library, binary and test Clippy passes in
 `/tmp/baylee-tower-award-courier-clippy-20261115-r6.log`; the integration harness
 passes strict Clippy in `/tmp/baylee-tower-award-gateway-clippy-20261115-r2.log`.
 Touched-crate formatting and whitespace checks pass. No engine test suite was run.
+
+### Milestone 62 — bounded offline operator administration
+
+The standalone service now accepts `--check-admin` and `--admin` with a strict
+196 KiB stdin-only envelope, independently of its HTTP configuration. The closed
+operations provision/revoke operator credentials, approve immutable host origins,
+publish immutable cohorts/house builds and pause enrollment. SQL schema ownership
+is checked independently of application roles. House publication additionally
+requires a live Publisher. Exact provisioning retries preserve identity; changed
+roles/names and revoked secrets refuse. Closing enrollment preserves old runs and
+cannot be undone by an exact re-publication. No migration or dependency changed.
+
+Review passes examined (1) input/secret/SQL authority boundaries, (2) repeat and
+revocation behavior, and (3) real process/DB evidence and cleanup. The operator
+manual documents calibration and final runtime SQL grants as outstanding release
+checks; neither structural publication nor this milestone claims balanced decks
+or full production readiness. No public administrative route was added.
+
+Evidence on 15 November 2026:
+
+- `/tmp/baylee-tower-admin-tests-20261115.log`: four binary configuration/input
+  tests pass; three integration scenarios pass in 1.25s with real child processes
+  and PostgreSQL 18; existing standalone migration/start/HTTP/shutdown passes in
+  0.18s. Broad runtime table grants plus a valid Host token still cannot execute
+  any administration action. All expected refusals emit only the fixed public
+  diagnostic. The synthetic all-basic-land publication is not calibration data.
+- `/tmp/baylee-tower-admin-store-tests-20261115.log`: existing live role,
+  immutable fallback and concurrent host advertisement regression passes (0.17s).
+- `/tmp/baylee-tower-admin-clippy-20261115-r4.log`: strict library/binary/test
+  Clippy passes for the two touched crates. Earlier compile checks corrected
+  test imports, secret-string borrowing and test layout before execution.
+
+Owned child commands, two private PostgreSQL clusters, login roles and listeners
+were closed/removed. Touched-crate formatting and whitespace checks pass. No
+engine, graphical or unrelated test suite was repeated.
