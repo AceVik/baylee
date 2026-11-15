@@ -15,6 +15,8 @@ pub enum Role {
     Publisher,
     /// Explicit technical recovery; cannot grant rules wins or currency.
     Supervisor,
+    /// Delivery of already verified cosmetic facts; cannot create game results.
+    Courier,
 }
 
 impl Role {
@@ -24,6 +26,7 @@ impl Role {
             Self::Verifier => "verifier",
             Self::Publisher => "publisher",
             Self::Supervisor => "supervisor",
+            Self::Courier => "courier",
         }
     }
 
@@ -33,6 +36,7 @@ impl Role {
             Self::Verifier,
             Self::Publisher,
             Self::Supervisor,
+            Self::Courier,
         ]
         .into_iter()
         .find(|role| role.name() == name)

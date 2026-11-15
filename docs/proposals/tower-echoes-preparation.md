@@ -1838,3 +1838,58 @@ acceptance. The opponent still uses the house label, permanent award delivery
 is outstanding and higher-rarity animation still needs direct visual inspection.
 The two-second recording made with the portrait outside the viewport is not
 animation evidence. No full engine suite was repeated for these client changes.
+
+## Permanent accomplishment delivery — design pass
+
+The verified-settlement transaction already writes one immutable award event per
+reservation. Delivery must use that event's stable database UUID, account and
+run/stage as its idempotency identity; it must never invent achievements from a
+client score, gateway statement or failed technical execution. A separate Courier
+operator role may claim and acknowledge outbox rows, but cannot adjudicate games,
+publish content or change gold. Host, verifier, publisher and supervisor roles do
+not inherit it. Every operation rechecks revocation inside its transaction.
+
+Claims use database-generated UUIDv7 fences, a bounded lease and SKIP LOCKED.
+Expired workers cannot acknowledge a replacement claim. A lost remote reply
+causes at-least-once delivery of the same event, requiring Central's immutable
+receipt and deduplication before local acknowledgment. Delivery failures retain
+the event and use bounded exponential backoff, without storing remote response
+text or credentials. Account deletion cascades pending events; Central must also
+refuse deleted accounts during a request already in flight. Run retention must
+preserve undelivered accomplishments. Central downtime must not change duel
+outcomes, currency or the native shop flow.
+
+The first implementation slice covers only the durable delivery queue. Central's
+explicit issuer credential, ingestion receipt, account-owned badge projection and
+the service delivery worker remain separate required integration work. No generic
+gateway achievement permission or public outbox endpoint is introduced.
+
+## Fenced accomplishment outbox — sixtieth working milestone
+
+Migration twelve adds the separate Courier role and a bounded two-minute delivery
+claim. Claims use database UUIDv7 fences and SKIP LOCKED; acknowledgment checks
+the current database clock and exact courier/fence, preserves its first receipt
+time and is idempotent after success. Deferred attempts retain the immutable event,
+clear the fence and back off from five seconds to at most one hour. Revocation is
+checked under the operator lock on every call. No remote error body is stored and
+there is no externally callable delivery route yet.
+
+Three focused real PostgreSQL scenarios pass in
+`/tmp/baylee-tower-award-outbox-tests-20261115-r2.log` (0.23s): disjoint concurrent
+claims, stable event/account/result across recovery, late/foreign acknowledgments,
+wrong roles, live revocation, exact acknowledgment retry, backoff cap and removal
+of an in-flight event after account deletion. The deletion fixture first withdraws
+consent and prunes the dense echo index; its deliberate RESTRICT constraint must
+not be weakened to leave index holes. This does not implement the cross-service
+account-deletion worker.
+
+The existing version-one upgrade fixture was stale after migrations nine through
+eleven: its reverse setup omitted execution-watch and host-location/availability
+tables. The fixture now removes those explicitly before reconstructing version
+one. Both migration/data-preservation and role-isolation scenarios pass in
+`/tmp/baylee-tower-award-migration-roles-20261115-r3.log` (0.17s each). All owned
+PostgreSQL instances, listeners and temporary clusters were closed, including the
+failed diagnostic runs. Strict store library/test Clippy passes in
+`/tmp/baylee-tower-award-outbox-clippy-20261115.log`. No engine or graphical test
+was repeated for this storage-only milestone. Central ingestion and the delivery
+worker are still outstanding; this is not a claim of end-to-end badge delivery.

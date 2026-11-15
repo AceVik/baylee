@@ -97,9 +97,14 @@ async fn only_live_dedicated_roles_can_advertise_or_publish_house_opponents() {
 }
 
 async fn publication_roles(store: &Store, cohort: Uuid, build: &Build, identities: &[Identity]) {
-    for (index, role) in [Role::Verifier, Role::Supervisor, Role::Publisher]
-        .into_iter()
-        .enumerate()
+    for (index, role) in [
+        Role::Verifier,
+        Role::Supervisor,
+        Role::Publisher,
+        Role::Courier,
+    ]
+    .into_iter()
+    .enumerate()
     {
         let digest = [u8::try_from(index + 2).unwrap(); 32];
         store

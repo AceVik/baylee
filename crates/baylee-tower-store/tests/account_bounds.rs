@@ -29,7 +29,9 @@ async fn existing_history_upgrades_and_quota_failures_leave_no_partial_mutation(
         // only this fixture's uniquely named schema is ever modified.
         db.execute_unprepared(&format!("DROP TABLE \"{schema}\".eligible_echoes, \"{schema}\".echo_snapshots, \"{schema}\".echo_partitions;
             DROP TABLE \"{schema}\".award_outbox, \"{schema}\".settled_duels, \"{schema}\".verification_claims, \"{schema}\".verification_jobs;
+            DROP TABLE \"{schema}\".execution_watch;
             DROP TABLE \"{schema}\".record_batches, \"{schema}\".record_chunks, \"{schema}\".execution_claims, \"{schema}\".reservations;
+            DROP TABLE \"{schema}\".host_availability, \"{schema}\".host_locations;
             DROP TABLE \"{schema}\".house_builds, \"{schema}\".operators;
             ALTER TABLE \"{schema}\".players DROP COLUMN consent_revision,
             DROP COLUMN consent_at,DROP COLUMN receipt_bytes,DROP COLUMN run_count,DROP COLUMN record_bytes,DROP COLUMN record_chunks,DROP COLUMN echo_epoch;

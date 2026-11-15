@@ -4,6 +4,7 @@ mod batches;
 mod discovery;
 mod expiry;
 mod location;
+mod outbox;
 mod pool;
 mod records;
 mod recovery;
