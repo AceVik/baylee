@@ -9,7 +9,7 @@ it does not mutate the saved generation-one contract.
 
 ## Implemented life workshop — generation two
 
-Native revision 3, house policy 19, player/host API header version 3. The original
+Native revision 3, house policy 20, player/host API header version 3. The original
 generation remains native revision 2 / policy 19 with its own exact executor.
 Both generations freeze all Expert settings, not just its policy number. Native
 definition IDs 1–16 retain their meanings; the four additions use 17–32.
@@ -27,6 +27,10 @@ The paid draw is optional; paying exactly the remaining life remains legal and
 loses through ordinary state-based actions. Mythic abilities may repeat only
 while their actual costs remain payable. Nothing adds an administrative rules
 callback, a new pending question or a per-event service request.
+
+Policy 20 uses the engine's unpaid-activation hints to make mana for worthy
+fixed-price activations that also cost life. It retains Expert's existing safe
+life margin and mana reserve. Ordinary house profiles stay at policy 19.
 
 New shops contain two card, four relic and two utility slots. A bounded 85/256
 of relic family choices prefers a canonically ordered family already owned at

@@ -1,5 +1,5 @@
 use super::*;
-use baylee_core::{ids::CardIndex, preset::AIProfile};
+use baylee_core::ids::CardIndex;
 use baylee_protocol::execution::{Identity, Variant};
 use domain::cards::{Card, Catalog, Collection, Stack};
 
@@ -29,7 +29,7 @@ fn cohort() -> Cohort {
                 Variant::Tower,
                 "client-test",
                 "synthetic",
-                u32::from(AIProfile::GENERATION),
+                u32::from(domain::v2::generation::CURRENT.ai_generation),
             ),
             &catalog,
         )

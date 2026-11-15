@@ -10,12 +10,22 @@ use baylee_engine::{
     zone::ZoneLocation,
 };
 use baylee_gamehost::{RegistryLookup, Session};
+use baylee_protocol::execution::{Identity, Variant};
 
 type Registry = NativeLookup<RegistryLookup, Pack>;
 type Game = Engine<Registry, NoLoopDetection>;
 type Hosted = Session<NoLoopDetection, Registry>;
 
 mod life;
+
+fn test_identity() -> Identity {
+    Identity::native(
+        Variant::Tower,
+        baylee_build::short(),
+        baylee_build::COMMIT,
+        u32::from(v2::generation::CURRENT.ai_generation),
+    )
+}
 
 fn preset(active: &[Definition]) -> GamePreset {
     let text = std::fs::read_to_string(concat!(
@@ -33,7 +43,7 @@ fn preset(active: &[Definition]) -> GamePreset {
     ];
     preset.house_rules = v2::loadout::rules(&resources, 17).unwrap();
     preset.seats[0].controller = SeatController::Open;
-    preset.seats[1].controller = SeatController::Ai(AIProfile::TOWER_EXPERT);
+    preset.seats[1].controller = SeatController::Ai(v2::generation::CURRENT.expert());
     for (seat, resource) in preset.seats.iter_mut().zip(resources) {
         seat.starting_life = Some(resource.life);
         // Acceptance decks carry tournament sideboards; this Tower pool admits
@@ -126,12 +136,7 @@ fn native_tower_expert_play_resumes_and_replays_with_the_same_pack() {
         family: Family::Grove,
         rarity: Rarity::Common,
     }]);
-    let identity = baylee_protocol::execution::Identity::native(
-        baylee_protocol::execution::Variant::Tower,
-        baylee_build::short(),
-        baylee_build::COMMIT,
-        u32::from(AIProfile::GENERATION),
-    );
+    let identity = test_identity();
     let mut live = Hosted::recorded_for_execution(&preset, &identity).unwrap();
     #[cfg(feature = "tower")]
     let _: &crate::variant::HostedSession = &live;

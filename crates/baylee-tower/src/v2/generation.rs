@@ -1,7 +1,7 @@
 //! Frozen shop catalogs. Adding a family never changes an existing offer stream.
 use super::catalog::{Definition, Family};
 use crate::Refusal;
-use baylee_core::preset::{AIProfile, HoldUp, Politics, Sight};
+use baylee_core::preset::AIProfile;
 
 const FIRST: [Family; 4] = [
     Family::Heartwood,
@@ -34,14 +34,8 @@ impl Contract {
     /// Expert's Tower settings with the saved policy generation.
     pub const fn expert(self) -> AIProfile {
         AIProfile {
-            lookahead: 2,
-            temperature_milli: 12,
-            mulligan_skill: 2,
-            politics: Politics::AttackLeader,
-            hold_up: HoldUp::ThreatAware,
-            sight: Sight::Fair,
             generation: self.ai_generation,
-            foresight: 0,
+            ..AIProfile::TOWER_EXPERT
         }
     }
 }
@@ -53,15 +47,21 @@ pub const fn contract(generation: u16) -> Result<Contract, Refusal> {
     match generation {
         1 => Ok(Contract {
             revision: 2,
-            ai_generation: 19,
+            ai_generation: AIProfile::TOWER_EXPERT.generation,
         }),
         2 => Ok(Contract {
             revision: 3,
-            ai_generation: 19,
+            ai_generation: AIProfile::PAY_LIFE_ACTIVATION_MANA,
         }),
         _ => Err(Refusal::Invalid),
     }
 }
+
+/// Native rules and house policy of the compiled release.
+pub const CURRENT: Contract = match contract(super::GENERATOR) {
+    Ok(contract) => contract,
+    Err(_) => panic!("unknown current Tower generation"),
+};
 
 /// The original stored shops predate an explicit generation field.
 pub const fn original() -> u16 {

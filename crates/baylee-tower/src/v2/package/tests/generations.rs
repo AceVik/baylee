@@ -35,7 +35,7 @@ fn original_contract_keeps_its_native_revision_and_house_policy() {
         if field == "rules" {
             changed.executor.rules = "tower-3".into();
         } else {
-            changed.executor.ai = "tower-house-20".into();
+            changed.executor.ai = format!("tower-house-{}", generation::CURRENT.ai_generation);
         }
         assert!(changed.validate(&catalog).is_err());
     }
@@ -45,6 +45,7 @@ fn original_contract_keeps_its_native_revision_and_house_policy() {
 fn life_workshop_presets_cannot_be_smuggled_into_original_runs() {
     let (catalog, mut run, cohort, mut opponent) = fixture();
     assert_eq!((cohort.generator, cohort.revision), (2, 3));
+    assert_eq!(cohort.executor.ai, "tower-house-20");
     let definition = Definition {
         family: Family::SpringChalice,
         rarity: Rarity::Common,
@@ -76,6 +77,9 @@ fn life_workshop_presets_cannot_be_smuggled_into_original_runs() {
     let preset = package
         .preset(&catalog, &cohort.executor, printing)
         .unwrap();
+    assert!(
+        matches!(preset.seats[1].controller, SeatController::Ai(profile) if profile.generation == 20)
+    );
     assert!(crate::v2::loadout::validate(&preset).is_ok());
     let mut legacy = preset;
     legacy.house_rules.rule_pack.as_mut().unwrap().revision = 2;

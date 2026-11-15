@@ -2228,8 +2228,9 @@ artifacts can be removed; reserves supply no duel power. Mythic Amber/Coil lose
 their tap cost, not their charge/mana/life costs. Exact-life payment stays legal.
 
 Generation two freezes its eight-family pool, native revision 3 and Expert
-policy 19; every Expert setting is frozen for both generations. New stock uses
-two card/four relic/two utility slots and bounded own-family affinity. The old
+policy 20 after the independent review. Both generations freeze every Expert
+setting. New stock uses two card/four relic/two utility slots and bounded
+own-family affinity. The old
 generator's golden bytes remain unchanged. API header 3 fences old clients
 before authentication; retained runs still require their exact old executor.
 The token ledger appends 16 identities through `codegen --tables`; existing IDs
@@ -2278,3 +2279,32 @@ This is a content milestone, not a merge-ready claim for the whole mode. The
 24-family/eight-potion target, complete combat calibration, discovery collection,
 four-tier comparisons and the remaining market acceptance scenes are still
 outstanding. No new gameplay power persists between runs.
+
+### Milestone 71 — independent life-workshop review
+
+The played Life Coil fixture supplied floating mana manually. In a hosted
+game with only Plains and the equipped Coil, Expert passed without ever
+making mana for the ability. The new regression failed with Expert still at
+20 life. Policy 20 lets the house fund fixed mana-and-life costs from the
+engine's unpaid activation list while retaining its life margin and mana
+reserve. The recorded Expert now taps a Plains, pays the price and draws.
+Native resume recomputes those decisions and yields the same snapshot hash.
+Amber now checks its actual recorded target in the configured Expert chair.
+
+Generation two uses policy 20, with all other Expert settings unchanged.
+Ordinary profiles and generation one stay at 19. Native verification and
+resume validate the preset with the compiled pack before deriving its exact
+policy identity. The gateway routes the current Tower projection to policy 20
+and still selects retained runs by all fields of their saved artifact identity.
+The authority's two retained PostgreSQL tests previously
+failed while creating their cohorts with revision-three fixture metadata.
+Both pass with exact synthetic revision-two/policy-19 identities. The tests
+cover retained encoding, receipt replay, paid refresh, run isolation and
+rejection of a corrupt saved generator. The review did not start a retained
+binary end to end.
+
+Verification on 15 November used the engine-server `tower::` library selection
+(22 passed), the 37 Tower v2 library tests and the store's `generations` and
+`run_scope` integration binaries (2 passed after both failed at the original
+fixture). Engine-server library/test Clippy passed with warnings denied. The
+isolated PostgreSQL 18 process exited and its loopback port closed.

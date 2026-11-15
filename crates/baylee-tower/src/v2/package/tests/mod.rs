@@ -4,12 +4,13 @@ use crate::{
     v2::{
         REVISION,
         catalog::{Family, Potion, Rarity},
+        generation,
         inventory::Slot,
         run::Command,
         shop::{Delivery, Goods},
     },
 };
-use baylee_core::preset::{AIProfile, Finish, LoopPolicy, SeatCapabilities, SeatController};
+use baylee_core::preset::{Finish, LoopPolicy, SeatCapabilities, SeatController};
 
 mod generations;
 
@@ -49,7 +50,7 @@ fn fixture() -> (Catalog, Run, Cohort, Opponent) {
         Variant::Tower,
         "package-test",
         "registry-test",
-        u32::from(AIProfile::GENERATION),
+        u32::from(generation::CURRENT.ai_generation),
     );
     let cohort = Cohort::new(executor, &catalog).unwrap();
     let mut echo = Build::freeze(&run, &catalog).unwrap();
@@ -161,7 +162,7 @@ fn freeze_excludes_reserves_and_binds_the_native_asymmetric_preset() {
     assert_eq!(preset.seats[0].controller, SeatController::Open);
     assert_eq!(
         preset.seats[1].controller,
-        SeatController::Ai(AIProfile::TOWER_EXPERT)
+        SeatController::Ai(generation::CURRENT.expert())
     );
     assert!(
         preset

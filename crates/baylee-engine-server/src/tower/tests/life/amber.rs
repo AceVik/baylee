@@ -111,12 +111,7 @@ fn expert_reads_the_native_charge_ability_and_aims_at_the_opposing_side() {
         ],
         &[("Plains", 40)],
     );
-    let identity = baylee_protocol::execution::Identity::native(
-        baylee_protocol::execution::Variant::Tower,
-        "life-test",
-        "registry",
-        19,
-    );
+    let identity = test_identity();
     let mut game = Hosted::recorded_for_execution(&preset, &identity).unwrap();
     let player = PlayerId::new(1);
     let amber = *game
@@ -134,40 +129,41 @@ fn expert_reads_the_native_charge_ability_and_aims_at_the_opposing_side() {
         .unwrap();
     let mut activated = false;
     let mut targeted = false;
+    let mut record = Vec::new();
     for _ in 0..512 {
         if targeted && game.state().zones.list(ZoneLocation::Stack).is_empty() {
             break;
         }
         if game.needs_pump() {
-            if let Some(action) = game.house_action(player) {
+            let choosing =
+                activated && !targeted && matches!(game.pending(), Pending::ChooseTargets { .. });
+            game.pump_slice(1);
+            let accepted = game.take_record();
+            for action in recorded_expert_actions(&accepted) {
                 if matches!(action, PlayerAction::ActivateAbility { source, ability_index: 1 } if source == amber)
                 {
                     activated = true;
-                } else if activated && matches!(game.pending(), Pending::ChooseTargets { .. }) {
-                    // The real host enriches this question with its ability origin.
-                    // A bare player_view intentionally has no targeting context.
-                    match action {
-                        PlayerAction::ChooseTargets { objects, players } => {
-                            assert!(players.iter().all(|seat| *seat != player));
-                            assert!(
-                                objects.iter().all(|id| game
-                                    .state()
-                                    .arena
-                                    .get(*id)
-                                    .unwrap()
-                                    .base_controller
-                                    != player)
-                            );
-                        }
-                        PlayerAction::ChooseObjects { objects } => assert!(objects.iter().all(
-                            |id| game.state().arena.get(*id).unwrap().base_controller != player
-                        )),
+                } else if choosing {
+                    let (objects, players) = match action {
+                        PlayerAction::ChooseTargets { objects, players } => (objects, players),
+                        PlayerAction::ChooseObjects { objects } => (objects, vec![]),
                         _ => panic!("expected a damage target"),
-                    }
+                    };
+                    assert_eq!(objects.len() + players.len(), 1);
+                    assert!(players.iter().all(|seat| *seat != player));
+                    assert!(
+                        objects.iter().all(|id| game
+                            .state()
+                            .arena
+                            .get(*id)
+                            .unwrap()
+                            .base_controller
+                            != player)
+                    );
                     targeted = true;
                 }
             }
-            game.pump_slice(1);
+            record.extend(accepted);
         } else {
             let human = PlayerId::new(0);
             let action = game.house_action(human).unwrap();
@@ -187,7 +183,7 @@ fn expert_reads_the_native_charge_ability_and_aims_at_the_opposing_side() {
             .get(CounterKind::Charge),
         0
     );
-    let record = game.take_record();
+    record.extend(game.take_record());
     let replay =
         baylee_gamehost::record::replay_exact_with_registry::<NoLoopDetection, Registry>(&record)
             .unwrap();

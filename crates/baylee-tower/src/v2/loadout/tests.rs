@@ -1,6 +1,5 @@
 use super::*;
 use crate::v2::catalog::{Family, Rarity};
-use baylee_core::preset::AIProfile;
 
 fn preset() -> GamePreset {
     let resources = [
@@ -41,7 +40,7 @@ fn preset() -> GamePreset {
                 controller: if index == 0 {
                     SeatController::Open
                 } else {
-                    SeatController::Ai(AIProfile::TOWER_EXPERT)
+                    SeatController::Ai(generation::CURRENT.expert())
                 },
                 capabilities: SeatCapabilities::default(),
                 deck: vec![baylee_core::preset::DeckEntry {

@@ -527,13 +527,17 @@ impl AIProfile {
         foresight: 5,
         ..Self::SHARP
     };
-    /// Expert's tactical policy for a replay-verifiable Tower opponent.
-    /// Keeps Expert's combat search, mulligans, threat handling and noise;
-    /// disables the separate host-load-adaptive foresight scheduler so that
-    /// another gateway can reproduce every decision from the frozen view.
+    /// The original Tower Expert profile, frozen independently of ordinary tables.
+    /// Disables adaptive foresight so another host can reproduce every decision.
     pub const TOWER_EXPERT: Self = Self {
+        lookahead: 2,
+        temperature_milli: 12,
+        mulligan_skill: 2,
+        politics: Politics::AttackLeader,
+        hold_up: HoldUp::ThreatAware,
+        sight: Sight::Fair,
+        generation: Self::CHOSEN_AND_LINKED_FILTERS,
         foresight: 0,
-        ..Self::EXPERT
     };
     /// `expert` that peeks: it is told every opponent's decklist and hand
     /// and the next three cards of every library. Unfair by design, listed
@@ -659,7 +663,10 @@ impl AIProfile {
     /// `Filter::OfSourceChosenColor`, `Filter::SameNameAsLinkedExile`,
     /// `Filter::SharesColorWithExiledWithSource`).
     pub const CHOSEN_AND_LINKED_FILTERS: u16 = 19;
-    /// What every level a player is offered plays: the newest generation.
+    /// Fund fixed mana plus life activations from the engine's unpaid offers.
+    /// Admitted by the Tower life workshop.
+    pub const PAY_LIFE_ACTIVATION_MANA: u16 = 20;
+    /// What the ordinary named profiles play.
     pub const GENERATION: u16 = Self::CHOSEN_AND_LINKED_FILTERS;
 
     /// The widest noise a level plays with from [`Self::NOISE_BAND`]: the

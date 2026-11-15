@@ -6,11 +6,16 @@ use baylee_protocol::execution::{Identity, Variant};
 mod tests;
 
 pub(super) fn native(variant: Variant) -> Identity {
+    let ai_generation = if variant == Variant::Tower {
+        baylee_tower::v2::generation::CURRENT.ai_generation
+    } else {
+        baylee_core::preset::AIProfile::GENERATION
+    };
     Identity::native(
         variant,
         baylee_build::short(),
         baylee_build::COMMIT,
-        u32::from(baylee_core::preset::AIProfile::GENERATION),
+        u32::from(ai_generation),
     )
 }
 

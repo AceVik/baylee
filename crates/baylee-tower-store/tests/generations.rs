@@ -2,10 +2,10 @@
 #![forbid(unsafe_code)]
 mod support;
 
-use baylee_tower::v2::{package::Cohort, run::Command};
+use baylee_tower::v2::run::Command;
 use baylee_tower_store::{CONSENT_REVISION, Start};
 use sea_orm::{ConnectionTrait, DbBackend, Statement};
-use support::{Sandbox, publication};
+use support::{Sandbox, retained_publication};
 use uuid::Uuid;
 
 #[tokio::test]
@@ -15,10 +15,7 @@ async fn legacy_state_retries_and_refreshes_keep_the_published_generation() {
     let db = sandbox.db.clone();
     let schema = sandbox.schema.clone();
     let observed = tokio::spawn(async move {
-        let mut publication = publication();
-        publication.cohort =
-            Cohort::for_generation(publication.cohort.executor.clone(), &publication.catalog, 1)
-                .unwrap();
+        let publication = retained_publication();
         let cohort = store.publish(&publication).await.unwrap();
         let account = Uuid::now_v7();
         let request = Uuid::now_v7();

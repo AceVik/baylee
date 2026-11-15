@@ -4,6 +4,7 @@ use super::*;
 use baylee_cards_dsl::{CounterKind, TokenDef};
 use baylee_core::ids::ObjectId;
 use baylee_engine::turn::Step;
+use baylee_gamehost::record::{Line, Source};
 
 mod amber;
 mod chalice;
@@ -39,7 +40,7 @@ fn setup(active: &[Definition], cards: &[(&str, usize)]) -> GamePreset {
     ];
     setup.house_rules = v2::loadout::rules(&resources, 17).unwrap();
     setup.seats[0].controller = SeatController::Open;
-    setup.seats[1].controller = SeatController::Ai(AIProfile::TOWER_EXPERT);
+    setup.seats[1].controller = SeatController::Ai(v2::generation::CURRENT.expert());
     for (seat, resource) in setup.seats.iter_mut().zip(resources) {
         seat.starting_life = Some(resource.life);
     }
@@ -144,8 +145,8 @@ fn land(game: &mut Game, seat: PlayerId) {
     .unwrap();
 }
 
-fn ai(game: &Game, seat: PlayerId) -> PlayerAction {
-    let agent = baylee_ai::HeuristicAgent::new(AIProfile::TOWER_EXPERT);
+fn ai(game: &Game, seat: PlayerId, profile: AIProfile) -> PlayerAction {
+    let agent = baylee_ai::HeuristicAgent::new(profile);
     let view = baylee_gamehost::player_view(
         game.state(),
         seat,
@@ -160,4 +161,20 @@ fn ai(game: &Game, seat: PlayerId) -> PlayerAction {
     let action = agent.act(&view, game.pending());
     assert_eq!(agent.fallbacks(), 0);
     action
+}
+
+fn recorded_expert_actions(record: &[u8]) -> impl Iterator<Item = PlayerAction> + '_ {
+    record
+        .split(|byte| *byte == b'\n')
+        .filter(|line| !line.is_empty())
+        .map(|line| serde_json::from_slice::<Line>(line).unwrap())
+        .filter_map(|line| match line {
+            Line::Input {
+                seat: 1,
+                by: Source::House,
+                action,
+                ..
+            } => Some(action),
+            _ => None,
+        })
 }

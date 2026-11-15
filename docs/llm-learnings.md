@@ -7895,3 +7895,22 @@ beneath it. What the author missed, for the next brief:
   stops future upkeep gains but does not erase its already-stacked ability.
   Paying the last two life for Life Coil remains legal and loses before its
   draw resolves; Expert avoids that payment while using a safe paid draw.
+
+### Independent life-workshop review
+
+- A draw test that floats the mana for the house skips the actual funding
+  decision. In the hosted regression, the original Expert left its Life Coil
+  unused for 192 decisions. Policy 20 reads the repriced unpaid-activation
+  hint for fixed mana-and-life costs, then uses the existing valuation and mana
+  planner. The accepted house actions now show the mana tap and the payment.
+  The exact-life test also proves policy 20 declines to fund the lethal cost.
+- `Session::house_action` uses a fresh default-profile agent. Read accepted
+  recorded house actions after pumping the configured chair when testing its
+  actual target. The Amber test now checks its one chosen opposing target.
+- Replay and resume must authenticate the profile through the compiled native
+  pack before using its generation in the exact artifact identity. Standard
+  and retained Tower stay on policy 19. The gateway's current-variant projection
+  also reads policy 20 from the Tower contract. The two retained PostgreSQL fixtures
+  now publish an explicit revision-two/policy-19 artifact. Both previously
+  failed at package setup because their synthetic identities came from the
+  current revision-three constructor.

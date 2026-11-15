@@ -10,13 +10,12 @@ use baylee_tower::{
         catalog::{Family, Potion, Rarity, attributes},
         economy::Recipe,
         inventory::Slot,
-        package::Cohort,
         run::{Command, Phase, Run},
         shop::{Delivery, Goods},
     },
 };
 use baylee_tower_store::{CONSENT_REVISION, Error, Publication, Snapshot, Start, Store};
-use support::{Sandbox, publication};
+use support::{Sandbox, retained_publication};
 use uuid::Uuid;
 
 #[tokio::test]
@@ -155,9 +154,7 @@ async fn improve(store: &Store, account: Uuid, run: &mut Snapshot) {
 }
 
 async fn run_scope_story(store: Store) {
-    let mut published = publication();
-    published.cohort =
-        Cohort::for_generation(published.cohort.executor.clone(), &published.catalog, 1).unwrap();
+    let published = retained_publication();
     let seed = fusion_seed(&published);
     let choice = Start {
         cohort: store.publish(&published).await.unwrap(),

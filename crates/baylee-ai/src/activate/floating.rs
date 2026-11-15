@@ -15,13 +15,18 @@
 //!
 //! Only shapes the offer will follow: an ability printed on a permanent of
 //! this seat's, used from the battlefield, with no limit and no condition,
-//! a fixed mana cost and nothing else but tapping itself, at a moment its
-//! timing allows. Mana kept up for a counterspell or a trick is not spent
-//! here ([`HeuristicAgent::reserve`]).
+//! a fixed mana cost and an optional tap, at a moment its timing allows.
+//! From generation 20, a fixed life payment may accompany that cost when
+//! the engine lists only mana as unpaid. Mana reserved for interaction is
+//! kept up ([`HeuristicAgent::reserve`]).
 
-use baylee_cards_dsl::{AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, CostPart};
+use baylee_cards_dsl::{
+    AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Cost, CostPart,
+};
 use baylee_client_core::decision::resource_player;
 use baylee_client_core::manaplan::Tap;
+use baylee_core::ids::ObjectId;
+use baylee_core::mana::ManaCost;
 use baylee_core::preset::{AIProfile, HoldUp};
 use baylee_core::types::TypeSet;
 use baylee_engine::choice::{LegalActions, PlayerAction};
@@ -55,7 +60,7 @@ pub(crate) fn float_for(
     let available =
         seat.mana_pool.total() + sources.iter().map(|s| u64::from(s.amount)).sum::<u64>();
     let room = available.saturating_sub(u64::from(agent.reserve(view, main)));
-    let mut best: Option<(i64, baylee_core::ids::ObjectId, &'static AbilityDef)> = None;
+    let mut best: Option<(i64, ObjectId, ManaCost, bool)> = None;
     for object in view.battlefield_of(view.seat) {
         if object.status.contains(ObjectStatus::PHASED_OUT) {
             continue;
@@ -73,17 +78,20 @@ pub(crate) fn float_for(
             else {
                 continue;
             };
-            let price = cost
-                .mana
-                .cmc()
-                .saturating_add(legal.activation_increase(object.id));
-            if cost.mana.cmc() == 0 || cost.mana.has_variable() || u64::from(price) > room {
+            if cost.mana.cmc() == 0 || cost.mana.has_variable() {
                 continue;
             }
-            if cost.parts.iter().any(|part| *part != CostPart::TapSelf) {
+            let Ok(index) = u32::try_from(index) else {
+                continue;
+            };
+            let Some(price) = funding_cost(legal, agent.profile(), object.id, index, cost) else {
+                continue;
+            };
+            if u64::from(price.cmc()) > room {
                 continue;
             }
-            if cost.parts.contains(&CostPart::TapSelf)
+            let taps_self = cost.parts.contains(&CostPart::TapSelf);
+            if taps_self
                 && (object.status.contains(ObjectStatus::TAPPED)
                     || object.types.contains(TypeSet::CREATURE) && object.summoning_sick)
             {
@@ -92,9 +100,6 @@ pub(crate) fn float_for(
             if *timing == ActivationTiming::SorcerySpeed && !main {
                 continue;
             }
-            let Ok(index) = u32::try_from(index) else {
-                continue;
-            };
             if legal.abilities.contains(&(object.id, index)) || on_the_stack(view, object.id, index)
             {
                 continue;
@@ -103,22 +108,15 @@ pub(crate) fn float_for(
                 continue;
             };
             if worth > THRESHOLD
-                && best.is_none_or(|(w, id, _)| {
+                && best.is_none_or(|(w, id, _, _)| {
                     (worth, std::cmp::Reverse(object.id)) > (w, std::cmp::Reverse(id))
                 })
             {
-                best = Some((worth, object.id, def));
+                best = Some((worth, object.id, price, taps_self));
             }
         }
     }
-    let (_, source, def) = best?;
-    let AbilityDef::Activated { cost, .. } = def else {
-        return None;
-    };
-    let mana = cost
-        .mana
-        .with_more_generic(legal.activation_increase(source));
-    let taps_self = cost.parts.contains(&CostPart::TapSelf);
+    let (_, source, mana, taps_self) = best?;
     // From generation 10 through the shared planner, which keeps a second
     // Port untapped for its own ability and reads every restricted tap the
     // engine names for this one.
@@ -139,4 +137,33 @@ pub(crate) fn float_for(
             ability_index,
         },
     })
+}
+
+fn funding_cost(
+    legal: &LegalActions,
+    profile: AIProfile,
+    source: ObjectId,
+    index: u32,
+    cost: &Cost,
+) -> Option<ManaCost> {
+    if cost.parts.iter().all(|part| *part == CostPart::TapSelf) {
+        return Some(
+            cost.mana
+                .with_more_generic(legal.activation_increase(source)),
+        );
+    }
+    if !profile.plays(AIProfile::PAY_LIFE_ACTIVATION_MANA)
+        || cost
+            .parts
+            .iter()
+            .any(|part| !matches!(part, CostPart::TapSelf | CostPart::PayLife(_)))
+    {
+        return None;
+    }
+    // The hint has already checked life payment, timing, targets and locks.
+    // Worth keeps a safe life margin, and each subsequent tap rechecks it.
+    legal
+        .unpaid_abilities
+        .iter()
+        .find_map(|&(id, ability, mana)| (id == source && ability == index).then_some(mana))
 }

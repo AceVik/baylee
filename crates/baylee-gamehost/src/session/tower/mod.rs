@@ -98,17 +98,22 @@ fn native_preset<R: super::SessionRegistry>(
     identity: &baylee_protocol::execution::Identity,
 ) -> Result<(), Refused> {
     use baylee_protocol::execution::{Identity, Variant};
+    if !R::supports_execution(Variant::Tower)
+        || !replay::valid_preset(preset)
+        || R::default().validate_rule_pack(preset).is_err()
+    {
+        return Err(Refused::Invalid);
+    }
+    let SeatController::Ai(profile) = preset.seats[1].controller else {
+        return Err(Refused::Invalid);
+    };
     let expected = Identity::native(
         Variant::Tower,
         baylee_build::short(),
         baylee_build::COMMIT,
-        u32::from(AIProfile::GENERATION),
+        u32::from(profile.generation),
     );
-    if identity != &expected
-        || !R::supports_execution(Variant::Tower)
-        || preset.house_rules.rule_pack.is_none()
-        || !replay::valid_preset(preset)
-    {
+    if identity != &expected {
         return Err(Refused::Invalid);
     }
     Ok(())

@@ -1,9 +1,9 @@
 #![forbid(unsafe_code)]
-use baylee_core::{ids::CardIndex, preset::AIProfile};
+use baylee_core::ids::CardIndex;
 use baylee_protocol::execution::{Identity, Variant};
 use baylee_tower::{
     cards::{Card, Catalog, Collection, Stack},
-    v2::package::Cohort,
+    v2::{generation, package::Cohort},
 };
 use baylee_tower_store::{Publication, Store};
 use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseConnection};
@@ -101,11 +101,22 @@ pub fn publication() -> Publication {
         Variant::Tower,
         "database-test",
         "synthetic-registry",
-        u32::from(AIProfile::GENERATION),
+        u32::from(generation::CURRENT.ai_generation),
     );
     Publication {
         cohort: Cohort::new(identity, &catalog).unwrap(),
         catalog,
         starters: [starter.clone(), starter.clone(), starter],
     }
+}
+
+#[allow(dead_code)] // only the retained-run integration binaries use this fixture
+pub fn retained_publication() -> Publication {
+    let mut publication = publication();
+    let mut identity = publication.cohort.executor;
+    identity.rules = "tower-2".into();
+    identity.ai = "tower-house-19".into();
+    publication.cohort =
+        Cohort::for_generation(identity, &publication.catalog, generation::original()).unwrap();
+    publication
 }

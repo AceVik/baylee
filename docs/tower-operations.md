@@ -10,10 +10,9 @@ The life-workshop catalog uses generator 2 / native `tower-3` and API header
 `baylee-tower-version: 3` on the existing `/v2/player` endpoint and host routes.
 Older API clients receive 426 before authentication rather than undecodable new
 families. Deploy matching service, gateway and client builds together. Retain the
-exact old `tower-2` executors for generation-one runs; publishing a new cohort
-does not upgrade existing runs or their snapshots. Both current generations use
-frozen Expert policy 19. The new artifact rejects an old native manifest rather
-than silently running it with today's pack.
+exact `tower-2` / `tower-house-19` executors for generation-one runs. Publishing
+a new cohort preserves existing runs and their snapshots. The life workshop
+uses `tower-3` / `tower-house-20` and refuses a revision-two manifest.
 
 ## Input and authority
 

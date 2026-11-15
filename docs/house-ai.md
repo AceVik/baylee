@@ -2,13 +2,18 @@
 
 ## Original Tower supplies
 
-Global Tower packages use `AIProfile::TOWER_EXPERT`: Expert's tactical search,
-mulligan skill, threat handling and seeded noise, with `foresight = 0`. This is
-explicitly a mode-specific Expert policy. The additional host-load-adaptive
+Global Tower packages freeze Expert's tactical search, mulligan skill, threat
+handling and seeded noise, with `foresight = 0`. The additional host-load-adaptive
 foresight scheduler used by ordinary Expert tables cannot be recomputed from
 an immutable record on another gateway and is therefore not enabled here.
 The reserved build identifies the exact policy implementation. Its strength
 still requires measured full-duel balance comparisons before release.
+
+The original Tower contract freezes policy 19. The life workshop uses policy
+20 to fund fixed mana-and-life activations from the engine's unpaid-offer list.
+The house reserves mana for interaction and prices the life using its ordinary
+safety margin. It rechecks the offer and that margin after each tap. Ordinary
+named profiles continue to use policy 19.
 
 Tower potions use the existing activated-ability and color-choice paths. Their
 stable registry identities carry their rules into human, house, trained and

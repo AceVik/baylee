@@ -47,14 +47,10 @@ pub const fn default_loop_policy() -> baylee_core::preset::LoopPolicy {
 }
 
 /// Emits compatibility metadata without opening a socket or reading credentials.
-/// # Panics
-/// Only if the compiled Tower generation has no registered native contract.
 #[must_use]
 pub fn identity() -> Identity {
     #[cfg(feature = "tower")]
-    let ai_generation = baylee_tower::v2::generation::contract(baylee_tower::v2::GENERATOR)
-        .expect("compiled Tower generation")
-        .ai_generation;
+    let ai_generation = baylee_tower::v2::generation::CURRENT.ai_generation;
     #[cfg(not(feature = "tower"))]
     let ai_generation = baylee_core::preset::AIProfile::GENERATION;
     Identity::native(

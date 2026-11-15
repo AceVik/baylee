@@ -17,7 +17,10 @@ pub(super) fn preflight(
     if bytes.is_empty() || bytes.len() > MAX_RECORD_BYTES {
         return Err(Refused::Budget);
     }
-    if !bytes.ends_with(b"\n") || !valid_preset(preset) {
+    if !bytes.ends_with(b"\n")
+        || !valid_preset(preset)
+        || preset.seats[1].controller != SeatController::Ai(AIProfile::TOWER_EXPERT)
+    {
         return Err(Refused::Invalid);
     }
     for (n, line) in bytes[..bytes.len() - 1]
@@ -40,7 +43,7 @@ pub(super) fn valid_preset(preset: &GamePreset) -> bool {
         && super::super::challenge::valid(preset)
         && preset.house_rules.challenge_policy_seed.is_some()
         && preset.seats[0].controller == SeatController::Open
-        && preset.seats[1].controller == SeatController::Ai(AIProfile::TOWER_EXPERT)
+        && matches!(preset.seats[1].controller, SeatController::Ai(_))
         && preset
             .seats
             .iter()

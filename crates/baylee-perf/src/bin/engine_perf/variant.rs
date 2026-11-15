@@ -33,10 +33,10 @@ pub(super) fn prepare(preset: &mut GamePreset) -> anyhow::Result<()> {
 // across the fixed seeds/decks. Policy randomness is independent of the shuffle.
 #[cfg(feature = "tower")]
 fn prepare_tower(preset: &mut GamePreset) -> anyhow::Result<()> {
-    use baylee_core::preset::{AIProfile, FormatId, SeatController};
+    use baylee_core::preset::{FormatId, SeatController};
     use baylee_tower::v2::{
         catalog::{Definition, Family, Rarity},
-        loadout,
+        generation, loadout,
     };
     anyhow::ensure!(preset.seats.len() == 2, "Tower workload requires two seats");
     let first = usize::try_from(preset.seed % 4)?;
@@ -61,7 +61,7 @@ fn prepare_tower(preset: &mut GamePreset) -> anyhow::Result<()> {
     preset.format = FormatId::Custom;
     preset.house_rules = loadout::rules(&resources, 0x7067_6f2d_746f_7765)?;
     preset.seats[0].controller = SeatController::Open;
-    preset.seats[1].controller = SeatController::Ai(AIProfile::TOWER_EXPERT);
+    preset.seats[1].controller = SeatController::Ai(generation::CURRENT.expert());
     for (seat, resource) in preset.seats.iter_mut().zip(resources) {
         seat.starting_life = Some(resource.life);
         seat.sideboard.clear();
