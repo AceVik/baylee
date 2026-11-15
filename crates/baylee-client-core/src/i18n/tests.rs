@@ -1,6 +1,26 @@
 use super::*;
 
 #[test]
+fn stored_mana_prices_keep_charge_count_separate_from_mana_and_color() {
+    assert_eq!(
+        Phrase::EchoesStoredManaTier.fill_count(Lang::En, 3, &["2", "colorless"]),
+        "Tap and spend 3 charges: add 2 colorless mana."
+    );
+    assert_eq!(
+        Phrase::EchoesStoredManaTier.fill_count(Lang::De, 1, &["2", "farbloses"]),
+        "Tappen und eine Ladung bezahlen: Erzeuge 2 farbloses Mana."
+    );
+    assert_eq!(
+        Phrase::EchoesStoredManaFreeTier.fill_count(Lang::En, 1, &["1", "green"]),
+        "Spend one charge: add 1 green mana. No tapping."
+    );
+    assert_eq!(
+        Phrase::EchoesStoredManaFreeTier.fill_count(Lang::De, 2, &["1", "grünes"]),
+        "2 Ladungen bezahlen: Erzeuge 1 grünes Mana. Ohne Tappen."
+    );
+}
+
+#[test]
 fn compact_challenge_metadata_renders_its_values_in_both_languages() {
     for lang in [Lang::En, Lang::De] {
         for phrase in [Phrase::ChallengeMinutes, Phrase::ChallengeTargetCompact] {

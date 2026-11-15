@@ -10473,12 +10473,12 @@ EchoesBannerTier = Creature tokens you control get +{ $power }/+{ $toughness }.
 EchoesBannerTrample = They also have trample.
 EchoesHarvestEvent = Each creature token you control that dies stores one charge here. Other deaths and exile do not count.
 EchoesRootsEvent = Each creature token entering under your control stores one charge here. Nontoken creatures do not count.
-# Arguments: mana, color
+# Arguments: mana, color, count
 EchoesStoredManaTier = { $count ->
     [one] Tap and spend one charge: add { $mana } { $color } mana.
    *[other] Tap and spend { $count } charges: add { $mana } { $color } mana.
     }
-# Arguments: mana, color
+# Arguments: mana, color, count
 EchoesStoredManaFreeTier = { $count ->
     [one] Spend one charge: add { $mana } { $color } mana. No tapping.
    *[other] Spend { $count } charges: add { $mana } { $color } mana. No tapping.
