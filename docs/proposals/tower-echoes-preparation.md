@@ -1893,3 +1893,60 @@ failed diagnostic runs. Strict store library/test Clippy passes in
 `/tmp/baylee-tower-award-outbox-clippy-20261115.log`. No engine or graphical test
 was repeated for this storage-only milestone. Central ingestion and the delivery
 worker are still outstanding; this is not a claim of end-to-end badge delivery.
+
+### Milestone 61 — permanent-fact delivery to Central
+
+The separate background `Courier` consumes the durable outbox with its own local
+operator role and a separately provisioned Central issuer secret. The fixed
+Central transport uses verified TLS in production, no redirects, a five-second
+total deadline and a 4 KiB response limit. It accepts only the exact event/account/
+run/ordinal acknowledgment. A lost response or local acknowledgment repeats the
+same event; remote failures defer with durable backoff. Local revocation/storage
+failure pauses only this worker, never gameplay or verification. Production stdin
+configuration requires the two separate credentials and refuses reuse with its
+verification/recovery credentials. No public courier route was introduced.
+
+Review found that concurrent couriers could otherwise deliver later run ordinals
+before an earlier receipt and cause unnecessary Central conflicts/backoff. Claim
+selection now fences later ordinals on earlier undelivered events, including an
+active lease or backoff. It joins the indexed reservation run/stage and unique
+outbox reservation keys; each run has at most twelve stages. Independent runs
+continue, and Central still validates ordering independently.
+
+The API/client and synthetic gateway fixture pin the same published Central
+commit `4b14dcf05c770639deb49443e34d23e3536e8c74`; only ten first-party Central
+source IDs changed in the lockfile, with no external package version/feature
+update. The mirrored fixture grants match that commit. `Account` exposes permanent
+progress and bounded receipt export through its original Central session, even
+while the Tower service is down. Rendering those new badges remains separate work.
+
+Targeted evidence:
+
+- `/tmp/baylee-tower-award-courier-tests-20261115-r2.log`: real outbox plus bounded
+  synthetic HTTP, 0.25s, exercises unavailable/wrong/oversized/redirected replies,
+  cancellation after remote acceptance, lost local ACK, exact retry, absent account,
+  live local revocation and unchanged gold/wins. The existing player identity HTTP
+  scenario passes in the same run (0.18s) after the shared transport extraction.
+- The standalone service migration/start/shutdown test passes in the first run;
+  its courier test exposed a test-only lease-reset mistake (zero expiry with a
+  non-null claim), corrected to an expired positive lease without weakening SQL
+  constraints. Strict production config tests pass in
+  `/tmp/baylee-tower-award-courier-config-20261115.log`.
+- `/tmp/baylee-tower-awards-real-central-20261115.log`: real enrolled/restored account,
+  real Central HTTP/PostgreSQL, automatic courier, permanent SDK reads/export and
+  lost-ACK deduplication pass in 4.03s. The input fact comes from the explicitly
+  synthetic trusted-verifier fixture; this is delivery evidence, not another native
+  game-rules/replay test. Select it with `BAYLEE_CENTRAL_TOWER_AWARDS_ONLY=1` in the
+  owned Central integration fixture, without `BAYLEE_TOWER_V2_ENGINE`.
+- `/tmp/baylee-tower-award-ordering-tests-20261115.log`: four outbox scenarios pass
+  (0.25s), including concurrent same-run claims, backoff ordering, another run's
+  independent delivery, fencing, role revocation and deletion.
+
+All owned databases/listeners/processes were stopped. The temporary native QA
+helper now uses PostgreSQL fast shutdown; its earlier detached shared-memory
+segments were attributed to exact own-run log timestamps, checked for no attached
+processes, and removed. No unrelated process or kernel setting was changed.
+Strict store/service/account library, binary and test Clippy passes in
+`/tmp/baylee-tower-award-courier-clippy-20261115-r6.log`; the integration harness
+passes strict Clippy in `/tmp/baylee-tower-award-gateway-clippy-20261115-r2.log`.
+Touched-crate formatting and whitespace checks pass. No engine test suite was run.

@@ -1,5 +1,5 @@
 use super::config::Service;
-use baylee_tower_service::{Artifact, Error, Hosts, Players, Queue};
+use baylee_tower_service::{Artifact, Courier, Error, Hosts, Players, Queue};
 use baylee_tower_store::Store;
 use std::sync::Arc;
 use tokio::{net::TcpListener, sync::watch, task::JoinSet};
@@ -13,6 +13,18 @@ pub(super) async fn run(store: Store, service: Service, development: bool) -> Re
         &service.origin,
         service.record_bytes,
     )?;
+    let courier = if let Some(awards) = service.awards {
+        let principal = store.authenticate_operator(awards.courier.digest()).await?;
+        Some(Courier::new(
+            store.clone(),
+            principal,
+            &endpoint,
+            &service.origin,
+            awards.issuer,
+        )?)
+    } else {
+        None
+    };
     let mut queues = Vec::with_capacity(service.workers.len());
     for worker in service.workers {
         let verifier = store
@@ -56,6 +68,14 @@ pub(super) async fn run(store: Store, service: Service, development: bool) -> Re
     for (cohort, queue) in queues {
         let stop = receive.clone();
         tasks.spawn(async move { queue.serve(cohort, stopped(stop)).await.map(|_| ()) });
+    }
+    if let Some(mut courier) = courier {
+        let stop = receive.clone();
+        tasks.spawn(async move {
+            let summary = courier.serve(stopped(stop)).await;
+            println!("Tower accomplishment delivery stopped: {summary:?}");
+            Ok(())
+        });
     }
     // Public listener identity only; no configuration, credential or database diagnostics.
     println!("Tower ready on {address}");

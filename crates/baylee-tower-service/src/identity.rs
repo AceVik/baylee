@@ -51,17 +51,43 @@ impl Central {
     }
 
     pub(super) async fn authenticate(&self, token: &Token) -> Result<Identity, Failure> {
-        tokio::time::timeout(Duration::from_secs(5), self.send(token))
+        let Response::TowerIdentity { identity } =
+            self.exchange(&Request::TowerIdentity {}, token).await?
+        else {
+            return Err(Failure::Unavailable);
+        };
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|_| Failure::Unavailable)?
+            .as_secs();
+        let expires = u64::try_from(identity.expires_at).map_err(|_| Failure::Unavailable)?;
+        let account = uuid::Uuid::from_bytes(identity.account);
+        if identity.origin != self.own_origin
+            || expires <= now
+            || account.get_version_num() != 7
+            || account.get_variant() != uuid::Variant::RFC4122
+        {
+            return Err(Failure::Unauthorized);
+        }
+        Ok(identity)
+    }
+
+    /// Fixed configured destination, no redirects, bounded response and total timeout.
+    pub(super) async fn exchange(
+        &self,
+        request: &Request,
+        token: &Token,
+    ) -> Result<Response, Failure> {
+        tokio::time::timeout(Duration::from_secs(5), self.send(request, token))
             .await
             .unwrap_or(Err(Failure::Unavailable))
     }
 
-    async fn send(&self, token: &Token) -> Result<Identity, Failure> {
+    async fn send(&self, operation: &Request, token: &Token) -> Result<Response, Failure> {
         let mut bearer =
             HeaderValue::from_str(&token.bearer()).map_err(|_| Failure::Unavailable)?;
         bearer.set_sensitive(true);
-        let body =
-            central_api::encode(&Request::TowerIdentity {}).map_err(|_| Failure::Unavailable)?;
+        let body = central_api::encode(operation).map_err(|_| Failure::Unavailable)?;
         let request = hyper::Request::post(&self.url)
             .header(CONTENT_TYPE, "application/json")
             .header(central_api::PROTOCOL_HEADER, central_api::PROTOCOL_VERSION)
@@ -89,24 +115,6 @@ impl Central {
             .await
             .map_err(|_| Failure::Unavailable)?
             .to_bytes();
-        let response: Response = central_api::decode(&Zeroizing::new(bytes.to_vec()))
-            .map_err(|_| Failure::Unavailable)?;
-        let Response::TowerIdentity { identity } = response else {
-            return Err(Failure::Unavailable);
-        };
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|_| Failure::Unavailable)?
-            .as_secs();
-        let expires = u64::try_from(identity.expires_at).map_err(|_| Failure::Unavailable)?;
-        let account = uuid::Uuid::from_bytes(identity.account);
-        if identity.origin != self.own_origin
-            || expires <= now
-            || account.get_version_num() != 7
-            || account.get_variant() != uuid::Variant::RFC4122
-        {
-            return Err(Failure::Unauthorized);
-        }
-        Ok(identity)
+        central_api::decode(&Zeroizing::new(bytes.to_vec())).map_err(|_| Failure::Unavailable)
     }
 }

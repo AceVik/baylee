@@ -49,6 +49,17 @@ The pool has eight connections maximum and five-second connect/acquire bounds.
 | `central` | Omit/null for the compiled live Central; development requires an explicit numeric-loopback Central origin. |
 | `record_bytes` | Private raw-record budget, 1–536870912 bytes. Worker byte budgets must cover it. Resource exhaustion is technical recovery, never a fabricated game result. |
 | `workers` | At most eight exact cohort workers; at least one in production. Empty development workers support transport tests only and cannot adjudicate games. |
+| `awards` | Required in production; optional only for isolated development fixtures. Contains separate lowercase-hex `courier` (local Tower Courier role) and `issuer` (Central award issuer) credentials. No reuse with one another or the verifier/supervisor credentials. |
+
+The award courier sends only immutable independently verified facts, not gameplay
+state. It checks Central's exact receipt before acknowledging the durable outbox.
+Earlier undelivered ordinals fence later facts of that run; other runs continue.
+Central failures back off without stopping HTTP/game verification, and credentials
+are rechecked live on both sides. Production startup refuses a missing courier
+configuration; development omission never awards anything. Central issuer grants
+must be provisioned separately with migration/operator authority, never a normal
+gateway, player session or the challenge bridge. Its origin must equal `origin`.
+Local shutdown reports only aggregate delivery counters, without account IDs.
 
 Each worker contains a UUIDv7 `cohort`, an absolute native `artifact` path, separate
 64-character lowercase hexadecimal `verifier` and `supervisor` credentials, and

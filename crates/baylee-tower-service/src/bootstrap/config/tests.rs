@@ -14,6 +14,7 @@ fn production() -> Value {
     );
     value["service"]["origin"] = json!("https://tower.example.invalid");
     value["service"]["central"] = Value::Null;
+    value["service"]["awards"] = json!({"courier":"03".repeat(32),"issuer":"04".repeat(32)});
     value["service"]["workers"] = json!([{ "cohort": Uuid::now_v7(), "artifact": "/tmp/synthetic-engine", "verifier": "01".repeat(32), "supervisor": "02".repeat(32) }]);
     value
 }
@@ -73,6 +74,10 @@ fn bootstrap_configuration_rejects_unbounded_and_cross_environment_authority() {
         ("/service/central", json!("http://127.0.0.1:29872")),
         ("/service/workers/0/artifact", json!("relative-engine")),
         ("/service/workers/0/verifier", json!("untrusted-key")),
+        ("/service/awards", Value::Null),
+        ("/service/awards/issuer", json!("03".repeat(32))),
+        ("/service/awards/courier", json!("01".repeat(32))),
+        ("/service/awards/issuer", json!("02".repeat(32))),
     ] {
         let mut bad = production();
         *bad.pointer_mut(pointer).unwrap() = replacement;

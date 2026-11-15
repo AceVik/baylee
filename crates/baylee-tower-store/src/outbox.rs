@@ -24,7 +24,9 @@ pub struct AwardDelivery {
 
 impl Store {
     /// Claim at most one due event for two minutes, without blocking another worker.
-    /// A crash leaves the event eligible after expiry. No game state is modified.
+    /// A crash leaves the event eligible after expiry. Earlier undelivered ordinals
+    /// fence later facts of the same run, including during backoff or another lease.
+    /// Independent runs remain eligible. No game state is modified.
     /// # Errors
     /// Wrong/disabled operator role, malformed stored event or database failure.
     pub async fn claim_award(&self, principal: &Principal) -> Result<Option<AwardDelivery>, Error> {
@@ -34,9 +36,13 @@ impl Store {
         let until = now.checked_add(LEASE_MS).ok_or(Error::Unavailable)?;
         let row = tx
             .query_one_raw(self.statement(
-                "WITH next AS (SELECT id FROM @tower.award_outbox
-                WHERE delivered_at IS NULL AND retry_after<=$1 AND lease_until<=$1
-                ORDER BY retry_after,created_at,id LIMIT 1 FOR UPDATE SKIP LOCKED)
+                "WITH next AS (SELECT a.id FROM @tower.award_outbox a
+                JOIN @tower.reservations r ON r.id=a.reservation
+                WHERE a.delivered_at IS NULL AND a.retry_after<=$1 AND a.lease_until<=$1
+                AND NOT EXISTS (SELECT 1 FROM @tower.reservations earlier
+                    JOIN @tower.award_outbox pending ON pending.reservation=earlier.id
+                    WHERE earlier.run=r.run AND earlier.stage<r.stage AND pending.delivered_at IS NULL)
+                ORDER BY a.retry_after,a.created_at,a.id LIMIT 1 FOR UPDATE OF a SKIP LOCKED)
              UPDATE @tower.award_outbox a SET courier=$2,claim=pg_catalog.uuidv7(),lease_until=$3
              FROM next WHERE a.id=next.id RETURNING a.id,a.claim,a.account,a.event",
                 vec![now.into(), principal.id.into(), until.into()],

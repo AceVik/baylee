@@ -16,6 +16,23 @@ pub struct TowerPlay {
 }
 
 impl Account {
+    /// Read permanent Tower accomplishments directly from Central, even while
+    /// the live Tower service is unavailable.
+    /// # Errors
+    /// Missing/expired session, invalid response or unavailable Central.
+    pub fn tower_award_progress(&self) -> Result<central_api::tower_awards::Progress, Error> {
+        self.session.tower_award_progress(&self.http)
+    }
+
+    /// Export a bounded own-account page of confirmed permanent Tower receipts.
+    /// # Errors
+    /// Missing/expired session, invalid cursor/response or unavailable Central.
+    pub fn tower_award_export(
+        &self,
+        after: Option<[u8; 16]>,
+    ) -> Result<central_api::tower_awards::Export, Error> {
+        self.session.tower_award_export(&self.http, after)
+    }
     /// Open the distinct Tower origin delegated by Central. No gateway chooses it
     /// or receives this credential. Refresh this handle after its five-minute expiry.
     /// Like all account methods, run on the client's worker, never the render thread.

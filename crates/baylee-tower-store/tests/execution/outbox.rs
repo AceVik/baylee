@@ -181,3 +181,74 @@ async fn concurrent_couriers_get_distinct_events_and_deletion_cannot_resurrect_t
     sandbox.close().await;
     observed.expect("award concurrent claim and deletion scenario completed");
 }
+
+#[tokio::test]
+async fn earlier_run_ordinals_fence_later_delivery_without_blocking_other_runs() {
+    let sandbox = Sandbox::open().await;
+    let store = sandbox.store.clone();
+    let db = sandbox.db.clone();
+    let schema = sandbox.schema.clone();
+    let observed = tokio::spawn(async move {
+        let (flow, verifier) = event(&store).await;
+        let publication = super::publication();
+        let publisher = operator(&store, Role::Publisher, 7).await;
+        for archetype in 1..=3 {
+            store
+                .publish_house(
+                    &publisher,
+                    flow.initial.cohort,
+                    2,
+                    archetype,
+                    &baylee_tower::v2::package::Build {
+                        deck: publication.starters[usize::from(archetype - 1)]
+                            .deck
+                            .clone(),
+                        active: Vec::new(),
+                        potions: [0; 2],
+                    },
+                )
+                .await
+                .unwrap();
+        }
+        let continued = flow.continued(store.get(flow.account, flow.initial.id).await.unwrap());
+        verified_fixture(&store, &continued, &verifier, Outcome::Victory).await;
+        let one = operator(&store, Role::Courier, 8).await;
+        let two = operator(&store, Role::Courier, 9).await;
+        let (first, second) = tokio::join!(store.claim_award(&one), store.claim_award(&two));
+        let (principal, claim) = match (first.unwrap(), second.unwrap()) {
+            (Some(first), None) => (&one, first),
+            (None, Some(second)) => (&two, second),
+            _ => panic!("only one run ordinal may be in flight"),
+        };
+        assert_eq!(claim.award.stage, 1);
+        store.defer_award(principal, claim.lease).await.unwrap();
+        assert!(
+            store.claim_award(&one).await.unwrap().is_none(),
+            "stage two cannot overtake backoff"
+        );
+        let unrelated = flow.another(&store).await;
+        verified_fixture(&store, &unrelated, &verifier, Outcome::Victory).await;
+        let other = store.claim_award(&two).await.unwrap().unwrap();
+        assert_eq!(other.award.run, unrelated.initial.id);
+        store.acknowledge_award(&two, other.lease).await.unwrap();
+        db.execute_unprepared(&format!(
+            "UPDATE \"{schema}\".award_outbox SET retry_after=0"
+        ))
+        .await
+        .unwrap();
+        let first = store.claim_award(&one).await.unwrap().unwrap();
+        assert_eq!(first.award.stage, 1);
+        assert!(store.claim_award(&two).await.unwrap().is_none());
+        store.acknowledge_award(&one, first.lease).await.unwrap();
+        let second = store.claim_award(&two).await.unwrap().unwrap();
+        assert_eq!(
+            (second.award.stage, second.award.wins, second.award.defeats),
+            (2, 1, 1)
+        );
+        store.acknowledge_award(&two, second.lease).await.unwrap();
+        assert!(store.claim_award(&one).await.unwrap().is_none());
+    })
+    .await;
+    sandbox.close().await;
+    observed.expect("ordered delivery and independent-run fairness completed");
+}

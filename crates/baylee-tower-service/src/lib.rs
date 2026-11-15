@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 
 mod artifact;
+mod courier;
 mod host;
 mod http;
 mod identity;
@@ -10,6 +11,7 @@ mod process;
 mod queue;
 mod verifier;
 pub use artifact::Artifact;
+pub use courier::{Courier, DeliveryStep, DeliverySummary};
 pub use host::Hosts;
 pub use player::Players;
 pub use queue::{Queue, QueueResult, QueueSummary};

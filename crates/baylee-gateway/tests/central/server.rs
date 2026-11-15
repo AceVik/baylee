@@ -88,7 +88,12 @@ pub(super) fn serve(
         .with_aliases(vec![aliases::ALIAS.into()])
         .unwrap()
         .with_terms(terms)
-        .with_tower(tower.as_ref().map(|tower| tower.origin.as_str()))
+        .with_tower(
+            tower
+                .as_ref()
+                .map(|tower| tower.origin.as_str())
+                .or_else(|| super::tower_awards::enabled().then_some(super::tower_awards::ORIGIN)),
+        )
         .unwrap()
         .with_registration_challenge(0, central_crypto::proof::MIN_MEMORY, Duration::ZERO)
         .with_legacy(legacy.clone()),

@@ -6136,6 +6136,20 @@ caller-supplied address receives an account credential. Gateway attachment is
 described below; complete native client
 acceptance remains a separate milestone, not implied by this protocol surface.
 
+Permanent v2 accomplishments use a separate native Central `TowerAward` RPC,
+never a player/host route. The background courier sends only event UUID, account
+UUID and the verified schema/run/cohort/stage/outcome/wins/defeats fact. It uses a
+dedicated operator-provisioned issuer credential; the ordinary bridge and Tower
+identity token grant no award authority. An exact event/account/run/stage receipt
+is required before acknowledging the durable outbox. Central's `recorded` and
+`account_gone` are terminal; all unavailable/invalid replies retain the event.
+Local claim fences expire after two minutes; deferred facts back off from five
+seconds to one hour and later ordinals cannot overtake an earlier undelivered
+fact. HTTP responses are bounded to 4 KiB and five seconds, with no redirect.
+`Account::tower_award_progress` and `Account::tower_award_export` instead use the
+owner's original Central session. They work independently of Tower availability
+and export at most 128 account-owned receipts per exclusive UUIDv7 cursor page.
+
 ### Private Tower host API
 
 The same authority has separate `POST /v2/host` and `POST /v2/host/record`

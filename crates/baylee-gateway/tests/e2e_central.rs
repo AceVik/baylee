@@ -7,6 +7,8 @@ mod server;
 use server::{Served, serve};
 #[path = "e2e_central/chat.rs"]
 mod chat;
+#[path = "central/tower_awards.rs"]
+mod tower_awards;
 #[path = "central/tower_native/mod.rs"]
 mod tower_native;
 use crate::common;
@@ -245,6 +247,10 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
     let served = serve(&runtime, &store, &legacy, "central", None);
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let (gateway, endpoint, origin) = (&served.gateway, &served.endpoint, &served.origin);
+        if tower_awards::enabled() {
+            tower_awards::run(&runtime, &served, &operator);
+            return;
+        }
         if served.tower.is_some() {
             tower_native::exercise(&runtime, &served);
             return;

@@ -31,6 +31,17 @@ pub(super) struct Service {
     pub central: Option<String>,
     pub record_bytes: u64,
     pub workers: Vec<Worker>,
+    /// Separate local Courier and Central issuer credentials, mandatory in production.
+    pub awards: Option<Awards>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct Awards {
+    #[serde(deserialize_with = "token")]
+    pub courier: Token,
+    #[serde(deserialize_with = "token")]
+    pub issuer: Token,
 }
 
 #[derive(Deserialize)]
@@ -134,6 +145,19 @@ impl Service {
             || self.record_bytes > MAX_RECORD_BYTES
             || self.workers.len() > 8
             || (!development && self.workers.is_empty())
+            || (!development && self.awards.is_none())
+        {
+            return Err(Error::Contract);
+        }
+        if let Some(awards) = &self.awards
+            && (awards.courier.digest() == awards.issuer.digest()
+                || self.workers.iter().any(|worker| {
+                    [worker.verifier.digest(), worker.supervisor.digest()]
+                        .iter()
+                        .any(|digest| {
+                            *digest == awards.courier.digest() || *digest == awards.issuer.digest()
+                        })
+                }))
         {
             return Err(Error::Contract);
         }

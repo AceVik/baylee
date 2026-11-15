@@ -18,7 +18,7 @@ mod native;
 mod recovery;
 mod story;
 #[path = "../../../../baylee-tower-store/tests/support/mod.rs"]
-mod support;
+pub(super) mod support;
 
 pub(super) struct Fixture {
     pub origin: String,

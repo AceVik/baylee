@@ -93,17 +93,18 @@ GRANT SELECT, INSERT, UPDATE ON central_identity.picture_budgets TO central_runt
 
 -- Global daily/weekly tasks: frozen publications may only be withdrawn.
 GRANT SELECT, INSERT ON central_identity.challenges TO central_runtime;
-GRANT UPDATE (withdrawn) ON central_identity.challenges TO central_runtime;
-GRANT SELECT, INSERT, UPDATE, DELETE ON central_identity.challenge_participation,
-    central_identity.challenge_attempts, central_identity.challenge_completions TO central_runtime;
-
--- Weekly expeditions: immutable manifests/nodes, owned progression and reversible consent.
 GRANT SELECT, INSERT ON central_identity.tower_seasons, central_identity.tower_nodes TO central_runtime;
 GRANT UPDATE (published, withdrawn) ON central_identity.tower_seasons TO central_runtime;
 GRANT SELECT, INSERT, DELETE ON central_identity.tower_actions TO central_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON central_identity.tower_participation,
     central_identity.tower_runs, central_identity.tower_scores,
     central_identity.tower_accomplishments TO central_runtime;
-
--- Separate Tower service identity delegation, scoped to its configured audience.
 GRANT SELECT, INSERT, DELETE ON central_identity.tower_access TO central_runtime;
+GRANT SELECT ON central_identity.tower_award_issuers TO central_runtime;
+GRANT UPDATE (last_used_at) ON central_identity.tower_award_issuers TO central_runtime;
+GRANT SELECT, INSERT, UPDATE ON central_identity.tower_award_runs,
+    central_identity.tower_award_progress TO central_runtime;
+GRANT SELECT, INSERT ON central_identity.tower_award_receipts TO central_runtime;
+GRANT UPDATE (withdrawn) ON central_identity.challenges TO central_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON central_identity.challenge_participation,
+    central_identity.challenge_attempts, central_identity.challenge_completions TO central_runtime;
