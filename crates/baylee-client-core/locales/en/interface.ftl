@@ -9794,6 +9794,8 @@ ChallengePendingResult = Your last result is being checked. Refresh to see the c
 
 # Tower Echoes: authority-owned expeditions played at gateways.
 EchoesTitle = Tower Echoes
+TowerRunTitle = Tower run
+TowerRunEntry = Choose a deck, collect treasures and build your way to the crown.
 EchoesDeck = Your deck
 EchoesPlay = Next duel
 EchoesWithdraw = Withdraw future echo use

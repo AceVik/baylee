@@ -9,12 +9,10 @@ use baylee_client_core::challenges::{Confirmation, api};
 
 mod catalogue;
 mod detail;
-mod home;
 pub(in crate::lobby) mod presentation;
 mod rewards;
 mod tower;
 use catalogue::catalogue;
-pub(in crate::lobby) use home::home;
 use rewards::badges;
 
 pub(in crate::lobby) fn draw(

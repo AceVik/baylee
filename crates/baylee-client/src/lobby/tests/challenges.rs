@@ -13,14 +13,13 @@ fn screen(lang: Lang) -> (App, std::sync::mpsc::Receiver<central::Job>) {
         central::restored_for_test(&mut state, Vec::new());
         state.central.as_mut().unwrap().handle = Some(handle);
         state.lobby.set_lang(lang);
+        // A deep-linked detail remains account-global; lobby tile entry is
+        // exercised separately with an admitted gateway below.
+        state.hub = Hub::Challenges;
+        state.ensure_central_lobby(&Mailbox::default());
     }
     app.update();
     settle(&mut app);
-    press(
-        &mut app,
-        crate::lobby::header::nav_press(crate::lobby::header::NavTab::Challenges),
-    );
-    app.update();
     let id = *uuid::Uuid::now_v7().as_bytes();
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
@@ -68,16 +67,19 @@ fn screen(lang: Lang) -> (App, std::sync::mpsc::Receiver<central::Job>) {
 }
 
 #[test]
-fn lobby_home_exposes_tasks_and_multiplayer_without_gateway_diagnostics() {
+fn gateway_lobby_exposes_three_activities_beside_the_table_controls() {
     let (mut app, _jobs) = screen(Lang::De);
+    stocked(&mut app);
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
         let task = state.challenges.model.detail.clone().unwrap();
-        state.challenges.model.catalogue = vec![task];
-        state.challenges.model.badges = api::BadgeKind::ALL
-            .into_iter()
-            .map(|kind| kind.progress(1))
-            .collect();
+        let mut weekly = task.clone();
+        weekly.id = *uuid::Uuid::now_v7().as_bytes();
+        weekly.description.period =
+            api::Period::containing(api::Kind::Weekly, state.challenges.model.now).unwrap();
+        state.challenges.model.catalogue = vec![task, weekly];
+        state.gateway_selected = true;
+        state.lobby.apply(LobbyEvent::Games(GameListing::default()));
     }
     press(
         &mut app,
@@ -85,38 +87,45 @@ fn lobby_home_exposes_tasks_and_multiplayer_without_gateway_diagnostics() {
     );
     settle(&mut app);
     let found = presses(&mut app);
-    assert!(found.contains(&Press::Hub(HubPress::Tab(Hub::Tables))));
-    assert!(
+    assert!(found.contains(&Press::Play(PlayPress::CreateTable)));
+    assert!(found.contains(&Press::Echoes(crate::lobby::echoes::Action::Open)));
+    assert_eq!(
         found
             .iter()
-            .any(|p| matches!(p, Press::Challenges(Action::Select(_))))
+            .filter(|p| matches!(p, Press::Challenges(Action::Select(_))))
+            .count(),
+        2
     );
-    assert!(labels(&mut app).contains(&Phrase::ChallengeHome.text(Lang::De).to_string()));
+    let words = labels(&mut app);
+    for title in [
+        Phrase::TowerRunTitle,
+        Phrase::ChallengeDaily,
+        Phrase::ChallengeWeekly,
+        Phrase::Tables,
+    ] {
+        assert!(
+            words.contains(&title.text(Lang::De).to_string()),
+            "{words:?}"
+        );
+    }
+    assert!(!words.contains(&Phrase::ChallengeNav.text(Lang::De).to_string()));
     assert!(!app.world().resource::<LobbyState>().showing_gateway_hub());
-    press(
-        &mut app,
-        Press::Challenges(Action::Badge(api::BadgeKind::Daily)),
-    );
+    let before = app.world().resource::<UiRebuilds>().total;
+    app.update();
+    app.update();
+    assert_eq!(app.world().resource::<UiRebuilds>().total, before);
+    let daily = app
+        .world()
+        .resource::<LobbyState>()
+        .challenges
+        .model
+        .catalogue[0]
+        .id;
+    tap_control(&mut app, "daily activity", |p| {
+        *p == Press::Challenges(Action::Select(daily))
+    });
     settle(&mut app);
-    assert!(labels(&mut app).contains(&Phrase::ChallengeObsidian.text(Lang::De).to_string()));
-    assert_eq!(
-        app.world().resource::<LobbyState>().challenges.model.badges[0].count,
-        1
-    );
-    press(
-        &mut app,
-        Press::Challenges(Action::Badge(api::BadgeKind::Daily)),
-    );
-    settle(&mut app);
-    press(&mut app, Press::Hub(HubPress::Tab(Hub::Tables)));
-    settle(&mut app);
-    assert!(app.world().resource::<LobbyState>().showing_gateway_hub());
-    press(
-        &mut app,
-        crate::lobby::header::nav_press(crate::lobby::header::NavTab::Play),
-    );
-    settle(&mut app);
-    assert!(!app.world().resource::<LobbyState>().showing_gateway_hub());
+    assert_eq!(app.world().resource::<LobbyState>().hub, Hub::Challenges);
 }
 
 #[test]
@@ -162,11 +171,22 @@ fn challenge_pages_scroll_over_empty_space_and_keep_the_offset_on_refresh() {
         .into_iter()
         .map(|kind| kind.progress(0))
         .collect();
-    for tab in [
-        crate::lobby::header::NavTab::Challenges,
-        crate::lobby::header::NavTab::Play,
-    ] {
-        press(&mut app, crate::lobby::header::nav_press(tab));
+    for detailed in [true, false] {
+        let id = app
+            .world()
+            .resource::<LobbyState>()
+            .challenges
+            .model
+            .detail
+            .as_ref()
+            .unwrap()
+            .id;
+        app.world_mut()
+            .resource_mut::<LobbyState>()
+            .challenges
+            .model
+            .selected = detailed.then_some(id);
+        app.world_mut().resource_mut::<LobbyState>().hub = Hub::Challenges;
         settle(&mut app);
         let body = app
             .world_mut()
@@ -203,10 +223,10 @@ fn challenge_pages_scroll_over_empty_space_and_keep_the_offset_on_refresh() {
             ));
         app.update();
         assert!((app.world().get::<ScrollPosition>(body).unwrap().y - 120.0).abs() < 0.01);
-        let action = if tab == crate::lobby::header::NavTab::Play {
-            Action::Badge(api::BadgeKind::Daily)
-        } else {
+        let action = if detailed {
             Action::Rules
+        } else {
+            Action::Badge(api::BadgeKind::Daily)
         };
         press(&mut app, Press::Challenges(action));
         settle(&mut app);

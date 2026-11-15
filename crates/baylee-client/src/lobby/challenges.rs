@@ -5,7 +5,7 @@ use baylee_client_core::challenges::{Action, State};
 
 pub(super) mod draw;
 mod keys;
-pub(super) use draw::{draw, home};
+pub(super) use draw::draw;
 #[cfg(not(target_arch = "wasm32"))]
 mod native;
 #[cfg(not(target_arch = "wasm32"))]

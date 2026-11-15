@@ -77,6 +77,7 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
     session(state);
     if action == Action::Back {
         state.echoes.close();
+        state.hub = Hub::Play;
         return;
     }
     if !ready(state) {

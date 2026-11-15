@@ -39,7 +39,7 @@ fn an_empty_search_has_a_working_way_back_to_all_tables() {
         .apply(LobbyEvent::Games(GameListing::default()));
     app.update();
     assert!(labels(&mut app).contains(&Phrase::ShellNoOneWaiting.text(Lang::En).to_owned()));
-    assert!(labels(&mut app).contains(&Phrase::DiscoveryHelp.text(Lang::En).to_owned()));
+    assert!(labels(&mut app).contains(&Phrase::TowerRunEntry.text(Lang::En).to_owned()));
     assert!(!presses(&mut app).contains(&Press::Play(PlayPress::ChangeDeck)));
     assert!(presses(&mut app).contains(&Press::Play(PlayPress::CreateTable)));
     assert!(!presses(&mut app).contains(&Press::Play(PlayPress::ClearSearch)));
@@ -85,7 +85,7 @@ fn the_table_screen_builds_once_there_is_a_deck() {
             }])));
     }
     app.update();
-    assert!(labels(&mut app).contains(&Phrase::DiscoveryChoose.text(Lang::En).to_owned()));
+    assert!(labels(&mut app).contains(&Phrase::TowerRunTitle.text(Lang::En).to_owned()));
     assert!(!labels(&mut app).contains(&Phrase::DiscoveryGateway.text(Lang::En).to_owned()));
     assert!(!labels(&mut app).iter().any(|text| text == "Allytifact"));
     let found = presses(&mut app);

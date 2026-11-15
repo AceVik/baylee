@@ -152,36 +152,18 @@ pub(super) enum NavTab {
     Decks,
     /// Replays (desktop only).
     Replays,
-    Challenges,
 }
 
-/// The nav pills this build draws when Central Challenges are available.
+/// Activities are entered from the lobby's tiles, never from a separate tab.
 pub(super) const NAV: &[NavTab] = if super::replays::SHOWN {
-    &[
-        NavTab::Play,
-        NavTab::Decks,
-        NavTab::Challenges,
-        NavTab::Replays,
-    ]
+    &[NavTab::Play, NavTab::Decks, NavTab::Replays]
 } else {
     &[NavTab::Play, NavTab::Decks]
 };
 
-/// The nav pills offered in the current session: Challenges requires a Central
-/// account (`LobbyState::can_enter_challenges`) and is omitted otherwise.
-pub(super) fn offered_nav(state: &LobbyState) -> &'static [NavTab] {
-    if !super::replays::SHOWN {
-        &[NavTab::Play, NavTab::Decks]
-    } else if state.can_enter_challenges() {
-        &[
-            NavTab::Play,
-            NavTab::Decks,
-            NavTab::Challenges,
-            NavTab::Replays,
-        ]
-    } else {
-        &[NavTab::Play, NavTab::Decks, NavTab::Replays]
-    }
+/// The stable header order is shared by all account modes.
+pub(super) fn offered_nav(_state: &LobbyState) -> &'static [NavTab] {
+    NAV
 }
 
 /// The press of a nav pill in the full desktop order (for Central-ready callers and tests).
@@ -208,13 +190,11 @@ fn active(state: &LobbyState) -> Option<usize> {
         Screen::Table => match state.hub {
             Hub::Decks => NavTab::Decks,
             Hub::Replays => NavTab::Replays,
-            Hub::Challenges if state.can_enter_challenges() => NavTab::Challenges,
             Hub::Play | Hub::Tables | Hub::Gateways | Hub::Challenges => NavTab::Play,
         },
         Screen::SignIn { .. } if state.central_ready() => match state.hub {
             Hub::Decks => NavTab::Decks,
             Hub::Replays => NavTab::Replays,
-            Hub::Challenges if state.can_enter_challenges() => NavTab::Challenges,
             Hub::Play | Hub::Tables | Hub::Gateways | Hub::Challenges => NavTab::Play,
         },
         _ => return None,
@@ -472,7 +452,6 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
             .map(|tab| match tab {
                 NavTab::Play => Phrase::ShellPlay.text(lang),
                 NavTab::Decks => Phrase::ShellDecks.text(lang),
-                NavTab::Challenges => Phrase::ChallengeNav.text(lang),
                 NavTab::Replays => {
                     baylee_client_core::replay::words::ReplayPhrase::NavReplays.text(lang)
                 }

@@ -196,7 +196,7 @@ control/layout evidence and issue corrections, not just an iteration counter.
 
 ## Implementation order and targeted acceptance
 
-1. [ ] Lobby entry: remove Tasks nav, three tiles beside tables, gated availability.
+1. [x] Lobby entry: remove Tasks nav, three tiles beside tables, gated availability.
 2. [ ] New generation: Commander collection/preset, five starters, reward phase.
 3. [ ] Economy: six slots, paginated reserves, auto-fusion, freeze/refill.
 4. [ ] Engine: independent sources, hidden potions, active effects and all seats.
@@ -233,4 +233,18 @@ Always stop owned test processes and verify listeners close.
   pins, immediate post-settlement shop and public command-zone supplies.
 - Original cabinet concept visually inspected; modular frame and shelf generated
   using it as the sole style reference. Native integration/animation still pending.
+- Lobby milestone: Tasks navigation removed; authenticated gateway sessions show
+  Tower/Daily/Weekly beside tables, while table creation moves to that panel.
+  Central login opens gateway selection first; deep-linked account-global task
+  details remain readable before joining. Tower Back returns to the lobby.
+  Guest/offline controls retain their existing mode. Three stable illustrations
+  share cached materials and controls participate in the keyboard order.
+- Targeted native headless checks: 107 selected, 97 passed initially; the ten
+  remaining fixtures still tried removed controls. Corrected fixtures passed
+  in the focused 11-test rerun (1.093 s; 34.73 s incremental compilation).
+  The initial build after Gemini's dependency/profile changes took 3m26s.
+  Logs: `/tmp/baylee-tower-lobby-redesign-20261115{,-r2}.log`.
+  Rendered visual acceptance is still pending; these tests do not establish it.
+- Client/client-core library and test Clippy with `dev-control` and warnings
+  denied passed; `git diff --check` passed. No service or GUI process was started.
 

@@ -12,6 +12,7 @@
 //!   primary (M-7, S-8). On a phone the header's Return pill is the one way
 //!   back and the rail shows no second (S4-3).
 
+mod activities;
 mod create;
 pub(super) mod discovery;
 mod hero;
@@ -212,17 +213,21 @@ pub(super) fn draw(
     }
     let lane = lane.id();
     commands.entity(body).add_child(lane);
-    let hero_more = if state.lobby.offline() {
+    let activities = state.can_play_online() && !state.lobby.guest();
+    let hero_more = if activities {
+        activities::draw(commands, lane, state, kit);
+        HeroAnchors::default()
+    } else if state.lobby.offline() {
         hero(commands, lane, state, metrics, kit)
     } else {
         discovery::sidebar(commands, lane, state, kit);
         HeroAnchors::default()
     };
-    if side && !phone {
+    if side && !phone && !activities {
         recent(commands, lane, state, kit);
     }
     let tables_more = tables(commands, body, state, metrics, kit, scrolled);
-    if !side || phone {
+    if (!side || phone) && !activities {
         // Narrow and Phone: Recent games is a row under the list.
         recent(commands, body, state, kit);
     }

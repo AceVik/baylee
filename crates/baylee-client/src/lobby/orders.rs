@@ -12,6 +12,9 @@ use bevy::prelude::*;
 pub(crate) const PLAY: TabOrder = TabOrder {
     name: "play",
     stops: &[
+        "tower",
+        "daily",
+        "weekly",
         "minis",
         "return",
         "change-deck",

@@ -172,7 +172,9 @@ pub(in crate::lobby) fn tick(
             return;
         }
     }
-    let showing = matches!(state.hub, Hub::Play | Hub::Challenges) && ready(&state);
+    let showing = matches!(state.hub, Hub::Play | Hub::Tables | Hub::Challenges)
+        && ready(&state)
+        && (state.hub == Hub::Challenges || state.can_play_online());
     let opened = showing && !clock.1;
     clock.1 = showing;
     if showing

@@ -105,6 +105,20 @@ pub(super) fn tables(
             commands.entity(head).add_child(gap);
         }
         if !offline {
+            if !lobby.guest() {
+                let off = starts_off(state, lang);
+                let create = controls::button(
+                    commands,
+                    kit,
+                    Phrase::CreateTable.text(lang),
+                    Weight::Primary,
+                    off.as_deref().map_or(Live::Yes, Live::No),
+                    None,
+                    Press::Play(PlayPress::CreateTable),
+                );
+                orders::stop(commands, create, &orders::PLAY, "create");
+                commands.entity(head).add_child(create);
+            }
             let hunt = commands
                 .spawn((
                     Node {

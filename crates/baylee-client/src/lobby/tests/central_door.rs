@@ -587,8 +587,7 @@ fn central_sign_in_wears_lobby_header_allows_decks_before_gateway_and_refreshes_
     assert!(found.contains(&Press::Header(HeaderPress::Nav(0))));
     assert!(found.contains(&Press::Header(HeaderPress::Nav(1))));
     assert!(found.contains(&Press::Header(HeaderPress::Account)));
-    assert!(!found.contains(&Press::Front(FrontPress::SelectGateway(0))));
-    assert!(found.contains(&Press::Hub(HubPress::Tab(Hub::Tables))));
+    assert!(found.contains(&Press::Front(FrontPress::SelectGateway(0))));
     // The account pill: the name, and the tag after it as a text of its own.
     let drawn = labels(&mut app);
     assert!(drawn.iter().any(|l| l == "AceVik"), "{drawn:?}");
@@ -603,11 +602,8 @@ fn central_sign_in_wears_lobby_header_allows_decks_before_gateway_and_refreshes_
         Screen::Table
     );
 
-    // Lobby returns home; choosing multiplayer explicitly opens the picker.
+    // Lobby goes directly to gateway selection until a gateway is joined.
     press(&mut app, Press::Header(HeaderPress::Nav(0)));
-    app.update();
-    assert!(!app.world().resource::<LobbyState>().showing_gateway_hub());
-    press(&mut app, Press::Hub(HubPress::Tab(Hub::Tables)));
     app.update();
     assert!(app.world().resource::<LobbyState>().showing_gateway_hub());
     assert!(presses(&mut app).contains(&Press::Front(FrontPress::SelectGateway(0))));

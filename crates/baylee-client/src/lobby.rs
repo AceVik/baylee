@@ -783,11 +783,10 @@ impl LobbyState {
         self.central_ready() && !self.lobby.offline() && self.lobby.token().is_none()
     }
 
-    /// Explicit multiplayer connection selection before gateway admission.
-    /// The signed-in home remains available independently of this picker.
+    /// Lobby entry selects a gateway before showing its tables and activities.
     pub(crate) fn showing_gateway_hub(&self) -> bool {
         self.central_without_gateway()
-            && self.hub == Hub::Gateways
+            && matches!(self.hub, Hub::Play | Hub::Tables | Hub::Gateways)
             && matches!(self.lobby.screen(), Screen::SignIn { .. } | Screen::Table)
     }
 

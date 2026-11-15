@@ -61,7 +61,7 @@ fn offline_and_guest_sessions_never_offer_contacts_or_challenges_in_header() {
         let state = app.world().resource::<LobbyState>();
         assert!(!state.can_use_contacts());
         assert!(!state.can_enter_challenges());
-        assert!(!offered_nav(state).contains(&NavTab::Challenges));
+        assert_eq!(offered_nav(state), super::super::header::NAV);
         assert!(state.chat_header.is_none());
 
         let found = presses(&mut app);
@@ -78,15 +78,13 @@ fn offline_and_guest_sessions_never_offer_contacts_or_challenges_in_header() {
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
-fn challenges_nav_is_hidden_for_local_gateway_and_shown_for_central_accounts() {
+fn activities_use_lobby_tiles_and_never_add_an_account_dependent_nav_tab() {
     let mut local = headless();
     sized(&mut local, 1400.0);
     stocked(&mut local);
     app_settle(&mut local);
-    assert!(
-        !offered_nav(local.world().resource::<LobbyState>()).contains(&NavTab::Challenges),
-        "non-Central gateway accounts must not see Central Challenges nav"
-    );
+    let local_nav = offered_nav(local.world().resource::<LobbyState>());
+    assert_eq!(local_nav, &[NavTab::Play, NavTab::Decks, NavTab::Replays]);
 
     let mut central_app = headless();
     sized(&mut central_app, 1400.0);
@@ -95,9 +93,9 @@ fn challenges_nav_is_hidden_for_local_gateway_and_shown_for_central_accounts() {
         central::restored_for_test(&mut state, Vec::new());
     }
     app_settle(&mut central_app);
-    assert!(
-        offered_nav(central_app.world().resource::<LobbyState>()).contains(&NavTab::Challenges),
-        "Central accounts must see Challenges nav"
+    assert_eq!(
+        offered_nav(central_app.world().resource::<LobbyState>()),
+        local_nav
     );
 }
 
@@ -237,7 +235,7 @@ fn central_guest_door_suppresses_challenges_and_keeps_play_shortcuts_and_brand_s
         assert!(!state.can_use_contacts());
         assert!(!state.can_enter_challenges());
         assert!(!state.can_enter_tower());
-        assert!(!offered_nav(state).contains(&NavTab::Challenges));
+        assert_eq!(offered_nav(state), super::super::header::NAV);
         assert_eq!(
             super::super::shortcuts::press_for(state, ShellAction::CreateTable),
             Some(Press::Play(PlayPress::CreateTable)),
