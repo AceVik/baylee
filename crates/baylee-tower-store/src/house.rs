@@ -21,7 +21,7 @@ impl Store {
         let tx = self.transaction().await?;
         self.role(&tx, principal, Role::Publisher).await?;
         let publication = self.publication(&tx, cohort, false).await?;
-        build.validate(&publication.catalog)?;
+        build.validate_for(&publication.catalog, publication.cohort.generator)?;
         let bytes = encode(build)?;
         if bytes.len() > 16 * 1024 {
             return Err(Refusal::Capacity.into());

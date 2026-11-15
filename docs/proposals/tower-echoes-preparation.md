@@ -2018,3 +2018,30 @@ Evidence on 15 November 2026:
 
 Both the failed diagnostic and successful real run closed all owned services,
 native children and PostgreSQL clusters/listeners. No graphical client opened.
+
+### Milestone 64 — frozen offer generations before catalog expansion
+
+Retained shops now carry their cohort's generation explicitly. The original
+generation defaults from old JSON and is omitted again on serialization, keeping
+old receipts byte-identical. Shop opening, refresh, run loading/listing, house
+publication and native package admission bind to the saved generation instead of
+the latest default. Unknown generations fail closed. Only generation one is
+enabled in this milestone; additional items are not silently added to old runs.
+
+Before changing production code, a golden commitment captured 1,536 original
+shop states (32 seeds, all twelve visits and three paid refreshes per visit,
+with carried pins) and the original catalog digest. Both remain identical.
+This freezes the current algorithm and encoding; it is not proof that future
+price/effect changes can ignore their own version contracts.
+
+Evidence on 15 November 2026:
+
+- `/tmp/baylee-tower-generation-domain-20261115.log`: all 57 Tower-domain tests
+  pass in 0.17s, including the golden and unsupported-generation admission tests.
+- `/tmp/baylee-tower-generation-postgres-20261115.log`: one retained-state test
+  and three existing transaction regressions pass (0.13s + 0.19s). An old start
+  receipt remains identical after a paid refresh; corrupt generations cannot be
+  read/listed or mutated, and refusal leaves the saved bytes/revision unchanged.
+- `/tmp/baylee-tower-generation-clippy-20261115-r3.log`: strict touched-library
+  and test Clippy passes. The isolated PostgreSQL fixture exited and its owned
+  listener/cluster were removed. No engine or unrelated test suite was run.

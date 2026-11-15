@@ -10,6 +10,8 @@ use crate::{
 };
 use baylee_core::preset::{AIProfile, Finish, LoopPolicy, SeatCapabilities, SeatController};
 
+mod generations;
+
 fn fixture() -> (Catalog, Run, Cohort, Opponent) {
     let catalog = Catalog {
         cards: vec![

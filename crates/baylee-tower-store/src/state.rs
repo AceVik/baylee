@@ -24,7 +24,7 @@ impl Store {
         let cohort = column(&row, "cohort")?;
         let publication = self.publication(db, cohort, false).await?;
         let state: Run = decode(&column::<Vec<u8>>(&row, "state")?)?;
-        state.validate(&publication.catalog)?;
+        state.validate_for(&publication.catalog, publication.cohort.generator)?;
         if i64::try_from(state.revision).ok() != Some(column(&row, "revision")?) {
             return Err(Error::Unavailable);
         }

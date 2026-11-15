@@ -22,6 +22,14 @@ pub struct Cohort {
 /// # Errors
 /// Malformed catalog or encoding failure.
 pub fn catalog_digest(catalog: &Catalog) -> Result<[u8; 32], Refusal> {
+    catalog_digest_for(catalog, GENERATOR)
+}
+
+/// Canonical commitment using the saved generation, never the current default.
+/// # Errors
+/// Unsupported generation or malformed catalog.
+pub fn catalog_digest_for(catalog: &Catalog, generator: u16) -> Result<[u8; 32], Refusal> {
+    crate::v2::generation::families(generator)?;
     catalog.validate()?;
     let mut cards = catalog.cards.clone();
     cards.sort_by_key(|card| card.card);
@@ -29,7 +37,7 @@ pub fn catalog_digest(catalog: &Catalog) -> Result<[u8; 32], Refusal> {
         .chain_update(b"baylee/tower/catalog/v2\0")
         .chain_update(PACK.to_le_bytes())
         .chain_update(REVISION.to_le_bytes())
-        .chain_update(GENERATOR.to_le_bytes())
+        .chain_update(generator.to_le_bytes())
         .chain_update(serde_json::to_vec(&cards).map_err(|_| Refusal::Invalid)?)
         .finalize()
         .into())
@@ -40,11 +48,22 @@ impl Cohort {
     /// # Errors
     /// Unsupported execution variant/policy or malformed catalog.
     pub fn new(executor: Identity, catalog: &Catalog) -> Result<Self, Refusal> {
+        Self::for_generation(executor, catalog, GENERATOR)
+    }
+
+    /// Construct an explicitly supported frozen contract without changing an old run.
+    /// # Errors
+    /// Unsupported generation, execution identity or malformed catalog.
+    pub fn for_generation(
+        executor: Identity,
+        catalog: &Catalog,
+        generator: u16,
+    ) -> Result<Self, Refusal> {
         let result = Self {
             revision: REVISION,
-            generator: GENERATOR,
+            generator,
             executor,
-            catalog: catalog_digest(catalog)?,
+            catalog: catalog_digest_for(catalog, generator)?,
         };
         result.validate(catalog)?;
         Ok(result)
@@ -55,12 +74,11 @@ impl Cohort {
     /// A changed rules, generation, policy, variant or catalog contract.
     pub fn validate(&self, catalog: &Catalog) -> Result<(), Refusal> {
         if self.revision != REVISION
-            || self.generator != GENERATOR
             || !self.executor.valid()
             || self.executor.variant != Variant::Tower
             || self.executor.rules != format!("tower-{REVISION}")
             || self.executor.ai != format!("tower-house-{}", AIProfile::GENERATION)
-            || self.catalog != catalog_digest(catalog)?
+            || self.catalog != catalog_digest_for(catalog, self.generator)?
         {
             return Err(Refusal::Invalid);
         }

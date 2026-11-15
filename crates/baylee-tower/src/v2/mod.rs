@@ -5,6 +5,7 @@
 pub mod catalog;
 pub mod economy;
 pub mod execution;
+pub mod generation;
 pub mod inventory;
 pub mod loadout;
 pub mod matching;

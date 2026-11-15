@@ -8,6 +8,8 @@ use crate::{
 };
 use baylee_core::ids::CardIndex;
 
+mod generations;
+
 fn fixture() -> (Catalog, Collection, Economy) {
     let mut cards = vec![Card {
         card: CardIndex::new(0),

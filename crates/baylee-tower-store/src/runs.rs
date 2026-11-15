@@ -85,10 +85,11 @@ impl Store {
         let seed: [u8; 32] = column::<Vec<u8>>(&row, "start_seed")?
             .try_into()
             .map_err(|_| Error::Unavailable)?;
-        let state = Run::begin(
+        let state = Run::begin_for(
             &publication.catalog,
             publication.starters[usize::from(starter)].clone(),
             &seed,
+            publication.cohort.generator,
         )?;
         let row = tx.query_one_raw(self.statement("INSERT INTO @tower.runs(account,cohort,revision,active,state,shop_seed) VALUES($1,$2,0,true,$3,$4) RETURNING id",
             vec![account.into(), cohort.into(), encode(&state)?.into(), seed.to_vec().into()]))
@@ -115,7 +116,7 @@ impl Store {
         let cohort = column(&row, "cohort")?;
         let publication = self.publication(&self.db, cohort, false).await?;
         let state: Run = decode(&column::<Vec<u8>>(&row, "state")?)?;
-        state.validate(&publication.catalog)?;
+        state.validate_for(&publication.catalog, publication.cohort.generator)?;
         if i64::try_from(state.revision).ok() != Some(column(&row, "revision")?) {
             return Err(Error::Unavailable);
         }

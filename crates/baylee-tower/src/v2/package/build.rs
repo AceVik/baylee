@@ -59,4 +59,15 @@ impl Build {
         loadout::resources(&self.active, self.potions, 0)?;
         Ok(())
     }
+
+    /// Reject definitions introduced after the historical cohort's shop generation.
+    /// # Errors
+    /// Invalid build or an unsupported generation/definition.
+    pub fn validate_for(&self, catalog: &Catalog, generator: u16) -> Result<(), Refusal> {
+        crate::v2::generation::families(generator)?;
+        for definition in &self.active {
+            crate::v2::generation::definition(generator, *definition)?;
+        }
+        self.validate(catalog)
+    }
 }

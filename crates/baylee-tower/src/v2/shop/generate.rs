@@ -1,6 +1,9 @@
 //! Bounded selection, with an affordable legal fallback and no rejection loop.
 use super::{Goods, OFFERS, Refusal, Shop, Stock};
-use crate::v2::catalog::{Definition, Family, Potion, Rarity};
+use crate::v2::{
+    catalog::{Definition, Potion, Rarity},
+    generation,
+};
 use sha2::{Digest, Sha256};
 
 fn score(seed: &[u8; 32], stage: u8, reroll: u8, slot: u8, identity: u32) -> [u8; 32] {
@@ -24,10 +27,30 @@ impl Shop {
         stock: Stock<'_>,
         previous: Option<&Self>,
     ) -> Result<Self, Refusal> {
+        Self::open_for(
+            previous.map_or(crate::v2::GENERATOR, |shop| shop.generator),
+            seed,
+            stage,
+            stock,
+            previous,
+        )
+    }
+
+    /// Open under an explicitly frozen cohort generation, including retained runs.
+    /// # Errors
+    /// Unknown/changed generation, invalid state or skipped/repeated stage.
+    pub fn open_for(
+        generator: u16,
+        seed: &[u8; 32],
+        stage: u8,
+        stock: Stock<'_>,
+        previous: Option<&Self>,
+    ) -> Result<Self, Refusal> {
+        generation::families(generator)?;
         stock.validate()?;
         if let Some(previous) = previous {
             previous.validate(stock.catalog)?;
-            if previous.stage.checked_add(1) != Some(stage) {
+            if previous.stage.checked_add(1) != Some(stage) || previous.generator != generator {
                 return Err(Refusal::Stale);
             }
         } else if stage != 1 {
@@ -37,6 +60,7 @@ impl Shop {
             return Err(Refusal::Unavailable);
         }
         let mut shop = Self {
+            generator,
             stage,
             rerolls: 0,
             next_id: previous.map_or(1, |shop| shop.next_id),
@@ -50,6 +74,12 @@ impl Shop {
             .any(|offer| !offer.pinned && offer.goods.usable(stock))
             && let Some(goods) = candidates(stock)
                 .into_iter()
+                .filter(|goods| match goods {
+                    Goods::Relic(definition) => {
+                        generation::definition(generator, *definition).is_ok()
+                    }
+                    _ => true,
+                })
                 .filter(|goods| goods.admitted(stage) && goods.usable(stock))
                 .min_by_key(|goods| goods.price(stock.catalog).unwrap_or(u16::MAX))
             && let Some(slot) = shop.offers.iter().position(|offer| !offer.pinned)
@@ -69,7 +99,7 @@ impl Shop {
             {
                 continue;
             }
-            let goods = self.select(seed, u8::try_from(slot).expect("eight slots"), stock);
+            let goods = self.select(seed, u8::try_from(slot).expect("eight slots"), stock)?;
             let offer = self.allocate(goods)?;
             if slot < self.offers.len() {
                 self.offers[slot] = offer;
@@ -80,7 +110,7 @@ impl Shop {
         Ok(())
     }
 
-    fn select(&self, seed: &[u8; 32], slot: u8, stock: Stock<'_>) -> Goods {
+    fn select(&self, seed: &[u8; 32], slot: u8, stock: Stock<'_>) -> Result<Goods, Refusal> {
         let random = score(seed, self.stage, self.rerolls, slot, 0);
         if slot < 3 {
             if let Some(card) = stock
@@ -97,24 +127,25 @@ impl Shop {
                     )
                 })
             {
-                return Goods::Card(card.card);
+                return Ok(Goods::Card(card.card));
             }
         } else if slot >= 6 {
-            return match random[0] {
+            return Ok(match random[0] {
                 0..=11 if self.stage >= 5 => Goods::Mythic,
                 0..=127 => Goods::Potion(Potion::Healing),
                 _ => Goods::Potion(Potion::Mana),
-            };
+            });
         }
         let rarity = match random[1] {
             0..=11 if self.stage >= 4 => Rarity::Rare,
             0..=71 if self.stage >= 2 => Rarity::Uncommon,
             _ => Rarity::Common,
         };
-        Goods::Relic(Definition {
-            family: Family::ALL[usize::from(random[2] % 4)],
+        let families = generation::families(self.generator)?;
+        Ok(Goods::Relic(Definition {
+            family: families[usize::from(random[2]) % families.len()],
             rarity,
-        })
+        }))
     }
 }
 
@@ -128,7 +159,7 @@ fn candidates(stock: Stock<'_>) -> Vec<Goods> {
         .collect();
     cards.sort_unstable();
     let mut candidates: Vec<_> = cards.into_iter().map(Goods::Card).collect();
-    for family in Family::ALL {
+    for family in crate::v2::catalog::Family::ALL {
         for rarity in [Rarity::Common, Rarity::Uncommon, Rarity::Rare] {
             candidates.push(Goods::Relic(Definition { family, rarity }));
         }

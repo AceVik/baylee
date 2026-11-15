@@ -73,8 +73,21 @@ impl Run {
     /// # Errors
     /// Invalid catalog or starter.
     pub fn begin(catalog: &Catalog, starter: Collection, seed: &[u8; 32]) -> Result<Self, Refusal> {
+        Self::begin_for(catalog, starter, seed, super::GENERATOR)
+    }
+
+    /// Start under the saved cohort's supported generation rather than the latest default.
+    /// # Errors
+    /// Unknown generation, invalid catalog or starter.
+    pub fn begin_for(
+        catalog: &Catalog,
+        starter: Collection,
+        seed: &[u8; 32],
+        generator: u16,
+    ) -> Result<Self, Refusal> {
         let economy = Economy::default();
-        let shop = Shop::open(
+        let shop = Shop::open_for(
+            generator,
             seed,
             1,
             Stock {
@@ -121,6 +134,9 @@ impl Run {
         self.cards.validate(catalog)?;
         self.economy.validate()?;
         self.shop.validate(catalog)?;
+        for relic in &self.economy.inventory.relics {
+            super::generation::definition(self.shop.generator, relic.definition)?;
+        }
         let (mut wins, mut defeats) = (0, 0);
         for (index, result) in self.history.iter().enumerate() {
             if wins == TARGET_WINS
@@ -150,6 +166,16 @@ impl Run {
         }
         self.validate_execution()?;
         self.ledger.validate(&self.economy, self.history.len())
+    }
+
+    /// Bind decoded private state to its immutable publication before any operation.
+    /// # Errors
+    /// Invalid state or a changed/mismatched cohort generation.
+    pub fn validate_for(&self, catalog: &Catalog, generator: u16) -> Result<(), Refusal> {
+        if self.shop.generator != generator {
+            return Err(Refusal::Invalid);
+        }
+        self.validate(catalog)
     }
 
     fn validate_execution(&self) -> Result<(), Refusal> {

@@ -55,6 +55,12 @@ pub struct Offer {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Shop {
+    /// Frozen generator; omitted original encoding stays byte-identical in receipts.
+    #[serde(
+        default = "super::generation::original",
+        skip_serializing_if = "super::generation::is_original"
+    )]
+    pub generator: u16,
     /// Next duel ordinal, starting at one and counting preceding losses/draws.
     pub stage: u8,
     /// Paid refreshes in this visit.
@@ -73,6 +79,7 @@ impl Shop {
     /// Invalid visit, repeated IDs, unsupported goods or too many pins.
     pub fn validate(&self, catalog: &Catalog) -> Result<(), Refusal> {
         catalog.validate()?;
+        super::generation::families(self.generator)?;
         if !(1..=MAX_STAGES).contains(&self.stage)
             || self.rerolls > REROLLS
             || self.next_id == 0
@@ -86,6 +93,9 @@ impl Shop {
             return Err(Refusal::Invalid);
         }
         for (index, offer) in self.offers.iter().enumerate() {
+            if let Goods::Relic(definition) = offer.goods {
+                super::generation::definition(self.generator, definition)?;
+            }
             if offer.id == 0
                 || offer.id >= self.next_id
                 || (offer.sold && offer.pinned)

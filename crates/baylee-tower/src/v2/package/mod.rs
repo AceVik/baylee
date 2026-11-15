@@ -22,7 +22,7 @@ mod build;
 mod cohort;
 mod preset;
 pub use build::Build;
-pub use cohort::{Cohort, catalog_digest};
+pub use cohort::{Cohort, catalog_digest, catalog_digest_for};
 
 /// Both bounded decks and active equipment, including the full execution identity.
 pub const MAX_PACKAGE_BYTES: usize = 128 * 1024;
@@ -122,7 +122,10 @@ impl Package {
         seeds: Seeds,
         byte_limit: u64,
     ) -> Result<Reservation, Refusal> {
-        if opponent.stage != run.shop.stage || &opponent.cohort != cohort {
+        if opponent.stage != run.shop.stage
+            || &opponent.cohort != cohort
+            || run.shop.generator != cohort.generator
+        {
             return Err(Refusal::Invalid);
         }
         let package = Self {
@@ -152,7 +155,7 @@ impl Package {
         }
         self.opponent.validate()?;
         for build in &self.builds {
-            build.validate(catalog)?;
+            build.validate_for(catalog, self.cohort.generator)?;
         }
         Ok(())
     }
