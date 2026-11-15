@@ -90,10 +90,9 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
         }
         return;
     }
-    if ui.model.busy() {
-        return;
-    }
-    if ui.confirmation.is_some() && !matches!(action, Action::Accept | Action::Cancel) {
+    if ui.model.busy()
+        || (ui.confirmation.is_some() && !matches!(action, Action::Accept | Action::Cancel))
+    {
         return;
     }
     let id = Uuid::now_v7();
@@ -109,6 +108,10 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
         }
         Action::Read(read) => read_page(ui, id, read),
         Action::Retry => ui.model.retry(id),
+        Action::InspectCard(card) => {
+            ui.preview = Some(card);
+            None
+        }
         Action::Play(host) if ui.choices.deck_unchanged(ui.model.run()) => {
             ui.model.reserve(id, host)
         }
@@ -182,6 +185,7 @@ fn read_page(ui: &mut Ui, id: Uuid, read: Read) -> Option<Work> {
     let work = ui.model.read(id, read);
     if work.is_some() && matches!(read, Read::Run(_)) {
         ui.page = Page::Shop;
+        ui.preview = None;
     }
     work
 }
@@ -271,6 +275,7 @@ pub(super) fn tick(time: Res<Time>, mut state: ResMut<LobbyState>, mut clock: Lo
             if enrolled {
                 state.echoes.withdrawn = false;
                 state.echoes.page = Page::Shop;
+                state.echoes.preview = None;
             }
             if let Some(run) = state.echoes.model.run().cloned() {
                 state.echoes.choices.bind(&run);
@@ -378,6 +383,7 @@ pub(in crate::lobby) fn returned(mut state: ResMut<LobbyState>) {
     state.echoes.opened = true;
     state.echoes.returning = Some(run);
     state.echoes.page = Page::Shop;
+    state.echoes.preview = None;
     state.hub = Hub::Challenges;
     if ready(&state) && !state.echoes.model.busy() {
         state.echoes.returning = None;

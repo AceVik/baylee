@@ -10,6 +10,9 @@ pub(super) fn draw(
     cohort: &api::Cohort,
 ) {
     let lang = lang(kit);
+    if let Some(id) = ui.preview {
+        card::preview(commands, root, kit, id);
+    }
     let card = panel(commands, root, kit);
     let count: u16 = ui
         .choices
@@ -55,6 +58,19 @@ pub(super) fn draw(
         Action::ResetDeck,
         !ui.choices.deck_unchanged(Some(run)),
     );
+    collection(commands, card, kit, ui, run, cohort, count);
+}
+
+fn collection(
+    commands: &mut Commands,
+    card: Entity,
+    kit: Kit,
+    ui: &Ui,
+    run: &api::Run,
+    cohort: &api::Cohort,
+    count: u16,
+) {
+    let lang = lang(kit);
     for entry in &cohort.catalog.cards {
         let owned = run.cards.copies(entry.card);
         if !entry.basic_land && owned == 0 {
@@ -76,8 +92,17 @@ pub(super) fn draw(
             commands,
             band,
             kit,
-            &format!("{copies} / {supply}  {}", words::card(entry.card, lang)),
-            tokens::INK,
+            &format!("{copies} / {supply}"),
+            tokens::ACCENT,
+        );
+        control(
+            commands,
+            band,
+            kit,
+            ui,
+            &words::card(entry.card, lang),
+            Action::InspectCard(entry.card),
+            true,
         );
         let spacer = crate::lobby::parts::grow(commands);
         commands.entity(band).add_child(spacer);

@@ -123,6 +123,9 @@ fn detail(
                 can(ui, &command),
             );
         }
+        if let Goods::Card(id) = offer.goods {
+            card::rules(commands, detail, kit, id);
+        }
         if matches!(offer.goods, Goods::Relic(_)) {
             equipment::slots(commands, detail, kit, ui);
             equipment::ingredients(commands, detail, kit, ui, run);

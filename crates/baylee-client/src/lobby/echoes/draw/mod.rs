@@ -15,6 +15,7 @@ use domain::v2::{
     shop::Goods,
 };
 
+mod card;
 mod deck;
 mod equipment;
 mod landing;

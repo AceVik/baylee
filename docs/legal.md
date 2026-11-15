@@ -27,6 +27,16 @@ below remain the basis for runtime card images and finishes.
 
 ## Guardrails for every change
 
+The 15 November Echoes presentation pass rechecked the
+[Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy),
+including “Tell the Community it’s unofficial.” The item portraits are original
+analytic shaders. Card previews use the existing registry's English rules and
+the already approved, bundled Mana font; the normal unofficial notices remain
+available. No card-script corpus, third-party artwork or font file is added.
+Scryfall's image documentation returned HTTP 403 during this check; its wording
+was not newly verified, and this pass adds no new image download path. This is
+the presentation asset review, not a broader legal approval.
+
 Challenge surfaces review (13 November 2026): the
 [Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy)
 were checked, including “Tell the Community it’s unofficial.” The new task

@@ -1784,3 +1784,22 @@ presentation work. Strict changed-client Clippy and the language argument check
 pass in `/tmp/baylee-tower-ui-refinement3-clippy-20261115.log` and
 `/tmp/baylee-tower-ui-language-20261115-r3.log`. The owned client, backend and
 PostgreSQL are closed (`/tmp/baylee-tower-ui-refinement3-20261115.log`).
+
+## Informed card choices refinement 4 — fifty-eighth working milestone
+
+Selected shop cards now show the existing English rules, mana symbols, type and
+creature stats; every face is available without an image request. Deck card names
+are explicit preview controls with their own keyboard stops. The preview is
+read-only and clears when entering a different run or returning from a duel.
+Prices and purchase review remain above potentially long rules text.
+
+The native shop showed Goblin Arsonist's red mana cost, 1/1 and death trigger;
+selecting Giant Growth in the deck showed its green cost and full effect.
+`/tmp/tower-refinement4-deck-preview.png` records the latter. The English view at
+1280×720 and XL text remains readable (`/tmp/tower-refinement4-xl-deck.png`);
+Tab enters the Tower keyboard context. Strict client Clippy and language argument
+coverage pass in `/tmp/baylee-tower-ui-refinement4-clippy-20261115-r2.log` and
+`/tmp/baylee-tower-ui-language-20261115-r4.log`. All owned processes are closed
+in `/tmp/baylee-tower-ui-refinement4-20261115.log`. The existing backend binary was
+reused for these UI-only checks. Duplicate focus destinations on the empty
+equipment shortcut and the ordinary shop tab need correction in the next pass.

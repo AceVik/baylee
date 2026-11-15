@@ -10376,6 +10376,7 @@ EchoesBuyPrice = Review purchase · { $price } gold
 EchoesActiveSlots = Equipped · active in your next duel
 EchoesReserveSlots = Reserve · storage and fusion ingredients
 EchoesSlotEmpty = Empty slot
+EchoesCardRulesLanguage = Card rules · English original
 # Arguments: destination
 EchoesDestination = Destination: { $destination }
 # Arguments: destination

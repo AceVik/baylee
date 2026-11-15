@@ -51,6 +51,7 @@ pub(crate) enum Action {
     Mythic(u8),
     Abandon,
     Card(baylee_core::ids::CardIndex, bool),
+    InspectCard(baylee_core::ids::CardIndex),
     SaveDeck,
     ResetDeck,
     Withdraw,
@@ -77,6 +78,7 @@ pub(crate) struct Ui {
     page: Page,
     pub(super) confirmation: Option<Confirmation>,
     choices: choices::Draft,
+    preview: Option<baylee_core::ids::CardIndex>,
     reads: VecDeque<Read>,
     loaded: bool,
     withdrawn: bool,
@@ -138,6 +140,7 @@ pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
                 | Action::Read(Read::Run(_))
                 | Action::Offer(_)
                 | Action::Select(_)
+                | Action::InspectCard(_)
         ) {
             cx.scrolled.set(List::Table, 0.0);
         }

@@ -21,6 +21,7 @@ pub(crate) const ORDER: TabOrder = TabOrder {
         "move",
         "sell",
         "fuse",
+        "card-preview",
         "remove",
         "add",
         "save",
@@ -100,8 +101,12 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
                 Slot::Reserve(i) => usize::from(i) + 3,
             },
         ),
-        Action::Card(card, add) => (
-            if add { "add" } else { "remove" },
+        Action::Card(card, _) | Action::InspectCard(card) => (
+            match action {
+                Action::Card(_, true) => "add",
+                Action::Card(_, false) => "remove",
+                _ => "card-preview",
+            },
             ui.model
                 .publication()
                 .and_then(|c| c.catalog.cards.iter().position(|entry| entry.card == card))

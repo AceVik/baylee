@@ -3798,6 +3798,7 @@ EchoesBuyPrice = Kauf prüfen · { $price } Gold
 EchoesActiveSlots = Ausgerüstet · wirkt in deiner nächsten Partie
 EchoesReserveSlots = Reserve · zum Aufbewahren und Kombinieren
 EchoesSlotEmpty = Freier Platz
+EchoesCardRulesLanguage = Kartenregeln · englisches Original
 EchoesDestination = Ziel: { $destination }
 EchoesFusionDestination = Fusion → { $destination }
 EchoesHandLimitEffect = Ausgerüstet: +{ $number } maximales Handkartenlimit.
