@@ -19,15 +19,35 @@ pub(super) fn detail(
         let detail = panel(commands, root, kit);
         commands
             .entity(detail)
+            .entry::<Node>()
+            .and_modify(move |mut node| {
+                node.padding = UiRect::all(kit.m.px(12.0));
+            });
+        commands
+            .entity(detail)
             .insert(BorderColor::all(tokens::ACCENT));
         featured_portrait(commands, detail, kit, offer.goods);
-        label(
+        control(
             commands,
             detail,
             kit,
-            &words::effect(offer.goods, lang),
-            tokens::INK,
+            ui,
+            if offer.pinned {
+                Phrase::EchoesUnpin
+            } else {
+                Phrase::EchoesPin
+            }
+            .text(lang),
+            Action::Pin(offer.id),
+            can(
+                ui,
+                &Command::Pin {
+                    offer: offer.id,
+                    pinned: !offer.pinned,
+                },
+            ),
         );
+        widgets::effect(commands, detail, kit, offer.goods);
         if let Some(command) = ui.choices.purchase(run) {
             let actions = row(commands, detail, kit);
             if let Command::Buy { delivery, .. } = &command {

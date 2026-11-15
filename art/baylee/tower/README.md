@@ -24,8 +24,10 @@ These pictures are distinct from permanent achievement medals. Adding a new
 family requires its own original portrait and explicit catalog/client mapping;
 an unrelated existing picture must not be silently reused.
 
-Shop and equipment details use a 128-pixel portrait; the repeated catalog tiles
-stay at 84 pixels. Both use the same cached texture/material. The first real
-render showed the 84-pixel detail image was too small, which led to this second
-presentation pass. The 1280 × 720 purchase view retains its visible price,
-destination and review button. `SHA256SUMS` is checked from the repository root.
+The shared market now uses 84-pixel detail portraits, 56-pixel stock portraits,
+32-pixel owned-slot portraits and 24-pixel charge/material markers, following
+the shell's text/window scale. The compact inspector separates name and rarity
+and keeps the effect, destination and purchase control together. These sizes
+replace the earlier vertically stacked 128-pixel inspector after the native
+market refinement passes. All appearances use the same cached texture/material.
+`SHA256SUMS` is checked from the repository root.

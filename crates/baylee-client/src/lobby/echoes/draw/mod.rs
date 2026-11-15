@@ -19,7 +19,10 @@ mod card;
 mod deck;
 mod equipment;
 mod landing;
+mod merchandise;
 mod shop;
+#[cfg(test)]
+mod tests;
 mod widgets;
 mod words;
 use widgets::{can, confirmation, control, featured_portrait, portrait, tile};
@@ -69,35 +72,8 @@ pub(in crate::lobby) fn draw(
 ) {
     let ui = &state.echoes;
     let lang = state.lobby.lang();
-    let body = commands
-        .spawn((
-            Node {
-                width: percent(100),
-                max_width: px_fixed(kit.m.body_max),
-                align_self: AlignSelf::Center,
-                flex_direction: FlexDirection::Column,
-                flex_grow: 1.0,
-                min_height: px(0),
-                row_gap: px_fixed(kit.m.gap),
-                padding: UiRect::all(px_fixed(kit.m.body)),
-                overflow: if metrics.frame == Frame::Compact {
-                    Overflow::DEFAULT
-                } else {
-                    Overflow::scroll_y()
-                },
-                ..default()
-            },
-            Pickable::default(),
-        ))
-        .id();
-    if metrics.frame != Frame::Compact {
-        commands.entity(body).insert((
-            Scrollable(List::Table),
-            ScrollPosition(Vec2::new(0.0, scrolled.get(List::Table))),
-        ));
-    }
-    attach_body(commands, root, body, metrics.frame);
-    let hero = panel(commands, body, kit);
+    let body = body(commands, root, kit, metrics, scrolled);
+    let hero = compact_panel(commands, body, kit);
     let top = row(commands, hero, kit);
     presentation::title(
         commands,
@@ -108,7 +84,10 @@ pub(in crate::lobby) fn draw(
     );
     let spacer = crate::lobby::parts::grow(commands);
     commands.entity(top).add_child(spacer);
-    if ui.model.run().is_some() && ui.page != Page::Overview {
+    let market = ui.page == Page::Shop && ui.model.run().is_some();
+    if market {
+        landing::market_progress(commands, top, kit, ui);
+    } else if ui.model.run().is_some() && ui.page != Page::Overview {
         control(
             commands,
             top,
@@ -128,15 +107,17 @@ pub(in crate::lobby) fn draw(
         Action::Back,
         true,
     );
-    control(
-        commands,
-        top,
-        kit,
-        ui,
-        Phrase::Refresh.text(lang),
-        Action::Refresh,
-        true,
-    );
+    if !market {
+        control(
+            commands,
+            top,
+            kit,
+            ui,
+            Phrase::Refresh.text(lang),
+            Action::Refresh,
+            true,
+        );
+    }
     if ui.model.run().is_none() || ui.page == Page::Overview {
         label(
             commands,
@@ -163,14 +144,73 @@ pub(in crate::lobby) fn draw(
     if ui.model.run().is_none() || ui.page == Page::Overview {
         landing::draw(commands, body, kit, ui);
     } else {
-        selected(commands, body, hero, kit, ui);
+        selected(commands, body, hero, kit, ui, scrolled);
     }
 }
 
-fn selected(commands: &mut Commands, body: Entity, hero: Entity, kit: Kit, ui: &Ui) {
+fn body(
+    commands: &mut Commands,
+    root: Entity,
+    kit: Kit,
+    metrics: Metrics,
+    scrolled: &Scrolled,
+) -> Entity {
+    let body = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                max_width: px_fixed(kit.m.collection_max),
+                align_self: AlignSelf::Center,
+                flex_direction: FlexDirection::Column,
+                flex_grow: 1.0,
+                min_height: px(0),
+                row_gap: px_fixed(kit.m.gap),
+                padding: UiRect::all(px_fixed(kit.m.body)),
+                overflow: if metrics.frame == Frame::Compact {
+                    Overflow::DEFAULT
+                } else {
+                    Overflow::scroll_y()
+                },
+                ..default()
+            },
+            Pickable::default(),
+        ))
+        .id();
+    if metrics.frame != Frame::Compact {
+        commands.entity(body).insert((
+            Scrollable(List::Table),
+            ScrollPosition(Vec2::new(0.0, scrolled.get(List::Table))),
+        ));
+    }
+    attach_body(commands, root, body, metrics.frame);
+    body
+}
+
+fn compact_panel(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
+    let panel = panel(commands, root, kit);
+    commands
+        .entity(panel)
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            node.padding = UiRect::all(kit.m.px(12.0));
+            node.row_gap = kit.m.px(8.0);
+        });
+    panel
+}
+
+fn selected(
+    commands: &mut Commands,
+    body: Entity,
+    hero: Entity,
+    kit: Kit,
+    ui: &Ui,
+    scrolled: &Scrolled,
+) {
     let lang = lang(kit);
     if let Some(run) = ui.model.run() {
-        landing::progress(commands, hero, kit, ui, run);
+        if ui.page != Page::Shop {
+            landing::progress(commands, hero, kit, ui, run);
+        }
         let tabs = row(commands, body, kit);
         for (page, title) in [
             (Page::Shop, Phrase::EchoesShop),
@@ -188,9 +228,12 @@ fn selected(commands: &mut Commands, body: Entity, hero: Entity, kit: Kit, ui: &
             );
         }
         if let Some(cohort) = ui.model.publication() {
+            if ui.page == Page::Shop {
+                shop::toolbar(commands, tabs, kit, ui, run);
+            }
             match ui.page {
                 Page::Overview => {}
-                Page::Shop => shop::draw(commands, body, kit, ui, run, cohort),
+                Page::Shop => shop::draw(commands, body, kit, ui, run, cohort, scrolled),
                 Page::Equipment => equipment::draw(commands, body, kit, ui, run, cohort),
                 Page::Deck => deck::draw(commands, body, kit, ui, run, cohort),
             }

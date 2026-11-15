@@ -11,6 +11,8 @@ pub(crate) enum List {
     Deck,
     /// The tables and decks on the lobby screen.
     Table,
+    /// Tower shop details, independent of the stock/inventory surface.
+    EchoesInspector,
     /// The saved gateways on the front door.
     Gateways,
     /// Gateway information and discovery actions.
@@ -54,6 +56,7 @@ pub(crate) struct Scrolled {
     check: f32,
     deck: f32,
     table: f32,
+    echoes_inspector: f32,
     gateways: f32,
     discovery: f32,
     games: f32,
@@ -79,6 +82,7 @@ impl Scrolled {
             List::Check => self.check,
             List::Deck => self.deck,
             List::Table => self.table,
+            List::EchoesInspector => self.echoes_inspector,
             List::Gateways => self.gateways,
             List::Discovery => self.discovery,
             List::Games => self.games,
@@ -105,6 +109,7 @@ impl Scrolled {
             List::Check => self.check = at,
             List::Deck => self.deck = at,
             List::Table => self.table = at,
+            List::EchoesInspector => self.echoes_inspector = at,
             List::Gateways => self.gateways = at,
             List::Discovery => self.discovery = at,
             List::Games => self.games = at,
@@ -125,4 +130,3 @@ impl Scrolled {
         }
     }
 }
-

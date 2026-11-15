@@ -70,7 +70,13 @@ pub(super) fn inventory(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui
     }
 }
 
-fn detail(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
+pub(in crate::lobby::echoes::draw) fn detail(
+    commands: &mut Commands,
+    root: Entity,
+    kit: Kit,
+    ui: &Ui,
+    run: &api::Run,
+) {
     let lang = lang(kit);
     let detail = panel(commands, root, kit);
     if let Some(relic) = run
@@ -81,14 +87,15 @@ fn detail(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::R
         .find(|relic| Some(relic.id) == ui.choices.item)
     {
         featured_portrait(commands, detail, kit, Goods::Relic(relic.definition));
+        label(
+            commands,
+            detail,
+            kit,
+            &words::slot(relic.slot, lang),
+            tokens::MUTED,
+        );
+        widgets::effect(commands, detail, kit, Goods::Relic(relic.definition));
     }
-    label(
-        commands,
-        detail,
-        kit,
-        Phrase::EchoesSlotRules.text(lang),
-        tokens::MUTED,
-    );
     label(
         commands,
         detail,
@@ -125,6 +132,13 @@ fn detail(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::R
         );
     }
     slots(commands, detail, kit, ui);
+    label(
+        commands,
+        detail,
+        kit,
+        Phrase::EchoesSlotRules.text(lang),
+        tokens::MUTED,
+    );
     ingredients(commands, detail, kit, ui, run);
     control(
         commands,

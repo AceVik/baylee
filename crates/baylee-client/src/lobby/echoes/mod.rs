@@ -145,6 +145,7 @@ pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
                 | Action::InspectCard(_)
         ) {
             cx.scrolled.set(List::Table, 0.0);
+            cx.scrolled.set(List::EchoesInspector, 0.0);
         }
     }
     #[cfg(target_arch = "wasm32")]

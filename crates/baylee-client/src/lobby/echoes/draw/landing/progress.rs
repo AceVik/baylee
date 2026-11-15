@@ -2,6 +2,18 @@
 use super::*;
 use domain::v2::run::Outcome;
 
+pub(in crate::lobby::echoes::draw) fn market_progress(
+    commands: &mut Commands,
+    root: Entity,
+    kit: Kit,
+    ui: &Ui,
+) {
+    if let Some(run) = ui.model.run() {
+        metrics(commands, root, kit, run, true);
+        play(commands, root, kit, ui, run);
+    }
+}
+
 pub(in crate::lobby::echoes::draw) fn progress(
     commands: &mut Commands,
     root: Entity,
@@ -11,28 +23,7 @@ pub(in crate::lobby::echoes::draw) fn progress(
 ) {
     let lang = lang(kit);
     let band = row(commands, root, kit);
-    let wins = run
-        .history
-        .iter()
-        .filter(|duel| duel.outcome == Outcome::Victory)
-        .count();
-    let defeats = run.history.len() - wins;
-    for (icon, caption, value) in [
-        (glyph::CROWN, Phrase::EchoesVictories, format!("{wins}/8")),
-        (
-            glyph::HEART,
-            Phrase::TowerLives,
-            (5_usize.saturating_sub(defeats)).to_string(),
-        ),
-        (glyph::SUN, Phrase::EchoesGold, run.economy.gold.to_string()),
-        (
-            glyph::COMPASS,
-            Phrase::EchoesOrdinal,
-            run.shop.stage.to_string(),
-        ),
-    ] {
-        widgets::stat(commands, band, kit, icon, caption.text(lang), &value);
-    }
+    metrics(commands, band, kit, run, false);
     let history = if run.history.is_empty() {
         root
     } else {
@@ -61,20 +52,56 @@ pub(in crate::lobby::echoes::draw) fn progress(
     play(commands, root, kit, ui, run);
 }
 
+fn metrics(commands: &mut Commands, root: Entity, kit: Kit, run: &api::Run, compact: bool) {
+    let lang = lang(kit);
+    let wins = run
+        .history
+        .iter()
+        .filter(|duel| duel.outcome == Outcome::Victory)
+        .count();
+    let defeats = run.history.len() - wins;
+    for (icon, caption, value) in [
+        (glyph::CROWN, Phrase::EchoesVictories, format!("{wins}/8")),
+        (
+            glyph::HEART,
+            Phrase::TowerLives,
+            (5_usize.saturating_sub(defeats)).to_string(),
+        ),
+        (glyph::SUN, Phrase::EchoesGold, run.economy.gold.to_string()),
+        (
+            glyph::COMPASS,
+            Phrase::EchoesOrdinal,
+            run.shop.stage.to_string(),
+        ),
+    ] {
+        if compact {
+            let badge = crate::lobby::parts::badge_with(commands, kit, icon, &value, tokens::INK);
+            let tip =
+                controls::tooltip(commands, kit, &format!("{} · {value}", caption.text(lang)));
+            commands
+                .entity(badge)
+                .insert((Pickable::default(), controls::Tooltip(tip)))
+                .add_child(tip);
+            commands.entity(root).add_child(badge);
+        } else {
+            widgets::stat(commands, root, kit, icon, caption.text(lang), &value);
+        }
+    }
+}
+
 fn play(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
     let lang = lang(kit);
     match run.phase {
         api::Phase::Shop => {
             let band = row(commands, root, kit);
-            label(
-                commands,
-                band,
-                kit,
-                words::phase(run.phase).text(lang),
-                tokens::ACCENT,
-            );
-            let spacer = crate::lobby::parts::grow(commands);
-            commands.entity(band).add_child(spacer);
+            commands
+                .entity(band)
+                .entry::<Node>()
+                .and_modify(|mut node| {
+                    node.width = Val::Auto;
+                    node.flex_grow = 1.0;
+                    node.justify_content = JustifyContent::End;
+                });
             if !ui.choices.deck_unchanged(Some(run)) {
                 label(
                     commands,

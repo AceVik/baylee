@@ -1,16 +1,17 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
-pub(super) fn options(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
+pub(in crate::lobby::echoes::draw) fn toolbar(
+    commands: &mut Commands,
+    root: Entity,
+    kit: Kit,
+    ui: &Ui,
+    run: &api::Run,
+) {
     let lang = lang(kit);
-    let footer = panel(commands, root, kit);
-    label(
-        commands,
-        footer,
-        kit,
-        Phrase::EchoesShopRules.text(lang),
-        tokens::MUTED,
-    );
+    let footer = root;
+    let spacer = crate::lobby::parts::grow(commands);
+    commands.entity(footer).add_child(spacer);
     let text = run.shop.reroll_price().map_or_else(
         || Phrase::EchoesRefreshSpent.text(lang).to_string(),
         |price| Phrase::EchoesRefreshPrice.fill(lang, &[&price.to_string()]),
@@ -24,6 +25,31 @@ pub(super) fn options(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, 
         Action::Reroll,
         can(ui, &Command::Refresh {}),
     );
+}
+
+pub(super) fn options(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
+    let lang = lang(kit);
+    let footer = row(commands, root, kit);
+    control(
+        commands,
+        footer,
+        kit,
+        ui,
+        Phrase::EchoesRuns.text(lang),
+        Action::Overview,
+        ui.choices.deck_unchanged(ui.model.run()),
+    );
+    control(
+        commands,
+        footer,
+        kit,
+        ui,
+        Phrase::Refresh.text(lang),
+        Action::Refresh,
+        true,
+    );
+    let spacer = crate::lobby::parts::grow(commands);
+    commands.entity(footer).add_child(spacer);
     if run.shop.mythic_choice {
         label(
             commands,

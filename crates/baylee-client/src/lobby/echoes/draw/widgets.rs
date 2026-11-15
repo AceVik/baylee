@@ -64,7 +64,28 @@ pub(super) fn portrait(commands: &mut Commands, root: Entity, kit: Kit, goods: G
 }
 
 pub(super) fn featured_portrait(commands: &mut Commands, root: Entity, kit: Kit, goods: Goods) {
-    portrait_at(commands, root, kit, goods, 128.0);
+    portrait_at(commands, root, kit, goods, 84.0);
+}
+
+pub(super) fn effect(commands: &mut Commands, root: Entity, kit: Kit, goods: Goods) {
+    let text =
+        crate::shellkit::surfaces::prose(commands, kit, &words::effect(goods, lang(kit)), true);
+    commands.entity(text).insert((
+        TextColor(tokens::INK),
+        Node {
+            width: percent(100),
+            min_width: px_fixed(0.0),
+            flex_shrink: 0.0,
+            // Leave room for glyph overhang after the desktop UI scale is applied.
+            padding: UiRect::right(kit.m.px(4.0)),
+            ..default()
+        },
+        TextLayout {
+            linebreak: LineBreak::WordOrCharacter,
+            ..default()
+        },
+    ));
+    commands.entity(root).add_child(text);
 }
 
 fn portrait_at(commands: &mut Commands, root: Entity, kit: Kit, goods: Goods, size: f32) {
@@ -89,7 +110,43 @@ fn portrait_at(commands: &mut Commands, root: Entity, kit: Kit, goods: Goods, si
         ))
         .id();
     commands.entity(band).add_child(image);
-    heading(commands, band, kit, &words::goods(goods, lang(kit)));
+    let copy = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                flex_grow: 1.0,
+                flex_basis: px_fixed(0.0),
+                min_width: px_fixed(0.0),
+                row_gap: kit.m.px(6.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(band).add_child(copy);
+    let name = merchandise::caption(
+        commands,
+        copy,
+        kit,
+        &words::name(goods, lang(kit)),
+        tokens::INK,
+    );
+    commands.entity(name).insert((
+        crate::hud::tf_bold(kit.fonts, kit.m.text),
+        TextLayout {
+            linebreak: LineBreak::WordOrCharacter,
+            ..default()
+        },
+    ));
+    if let Goods::Relic(definition) = goods {
+        label(
+            commands,
+            copy,
+            kit,
+            words::rarity(definition.rarity),
+            tokens::MUTED,
+        );
+    }
 }
 
 pub(super) fn stat(
@@ -100,28 +157,14 @@ pub(super) fn stat(
     caption: &str,
     value: &str,
 ) {
-    let card = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Column,
-                flex_basis: percent(20),
-                flex_grow: 1.0,
-                min_width: px(0),
-                align_self: AlignSelf::Stretch,
-                padding: UiRect::all(kit.m.px(8.0)),
-                row_gap: kit.m.px(4.0),
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(kit.m.px(8.0)),
-                ..default()
-            },
-            BackgroundColor(tokens::CONTROL),
-            BorderColor::all(tokens::BORDER),
-            Pickable::IGNORE,
-        ))
-        .id();
+    let card = crate::lobby::parts::badge_with(
+        commands,
+        kit,
+        icon,
+        &format!("{value} · {caption}"),
+        tokens::INK,
+    );
     commands.entity(root).add_child(card);
-    presentation::title(commands, card, kit, icon, value);
-    label(commands, card, kit, caption, tokens::MUTED);
 }
 
 pub(super) fn tile(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {

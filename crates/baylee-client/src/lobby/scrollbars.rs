@@ -171,6 +171,7 @@ pub(super) fn remember(
                 | List::Gateways
                 | List::Games
                 | List::Table
+                | List::EchoesInspector
                 | List::Settings
                 | List::SettingsNav
                 | List::Terms

@@ -1,7 +1,7 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 mod progress;
-pub(super) use progress::progress;
+pub(super) use progress::{market_progress, progress};
 
 pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
     saved(commands, body, kit, ui);

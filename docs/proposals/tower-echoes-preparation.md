@@ -2122,3 +2122,67 @@ Evidence on 15 November 2026:
 - `/tmp/baylee-tower-run-scope-clippy-20261115.log`: strict Clippy passes for the
   new store integration test. Formatting and whitespace checks pass. No engine,
   client or unrelated suites ran.
+
+### Milestone 67 — shared native market and inventory
+
+The existing eight offers now form one image-led grid beside a single inspector.
+Three equipped and six reserve slots, charges and crafting-material counts stay
+under the stock. Selecting an owned relic replaces the offer inspector instead
+of requiring a page change. Its effect and current location are explicit. The
+paid reroll sits beside the shop tabs; run metrics and the next duel occupy one
+compact header. Expedition history remains available on the other run pages.
+
+The inspector scrolls independently, remembers its own position, and resets when
+its selected object changes. Its three-column destination picker uses numbered
+controls with the shell's minimum hit size, an icon-font checkmark and full
+location/occupant tooltips.
+The inventory itself has one selection action per owned instance; empty slots
+are placeholders, so no duplicate destination actions enter the keyboard order.
+Sold stock keeps its place and height. Item titles wrap within their measured
+width; German uses the natural compound spelling `Pfadfinder-Kompass`.
+
+Nine native refinement passes corrected text-width measurement, duplicate
+placement actions, the oversized run header, misaligned inventory rows,
+overlapping destination buttons, sold-tile height changes, long compound words
+and verbose narrow-layout headings. The final two passes use the shell's
+pixel-aligned paragraph rendering and a small glyph-overhang gutter for long
+effect text under desktop UI scaling. Each pass used an isolated synthetic
+account and loopback backend/PostgreSQL, virtual input and a passive client.
+Every owned client, backend and database was closed after its pass, with exit
+and listener closure checked by the Rust owner harness.
+
+Focused evidence on 15 November 2026:
+
+- `/tmp/baylee-tower-market-tests-20261115-final.log`: three UI regression
+  tests pass in 0.05s. They check unique offer/place/item actions, sold and
+  confirmation fencing, and mutually exclusive inspections without changing
+  authoritative run state.
+- Native pass two purchases a Common relic (18 → 14 gold), pins a second
+  matching offer, then refreshes (14 → 12); the pin survives and the next price
+  becomes 3. Screenshots and semantic states are kept under
+  `/tmp/baylee-tower-market2-{bought,final}.{png,json}`.
+- Native pass five purchases into reserve and moves the actual instance into
+  active slot one. The confirmation names both locations; the resulting owned
+  selection is at the active dock position. Its Tab check exposes the visible
+  `echoes/back` focus stop. Evidence: `/tmp/baylee-tower-market5-{owned,moving,moved,keyboard}.{png,json}`.
+- Pass six checks DE 1280 × 720 with social open and EN 1440 × 900. The word-wrap
+  fix passes on a newly rolled Compass; 1024 × 768 subsequently identifies the
+  verbose inventory headings, replaced with short localized headings in pass
+  seven. Menu-overlay overlap reports were inspected separately from page
+  layout; they are intentional menu-over-background overlap.
+- Final pass nine passes the layout check at DE 1024 × 768 with social closed,
+  1280 × 720 with social open, and 1440 × 900 with social open. The long Grove
+  effect and Compass name are both present. Evidence:
+  `/tmp/baylee-tower-market9-{1024,720,1440}.{png,json}`. A selected final preview
+  also lives in the chat's `tower-market-20261115/shop.png` visualization folder.
+- `/tmp/baylee-tower-market-locales-20261115.log`: three targeted phrase checks
+  pass in 0.08s, including every phrase and argument parity in both shipped
+  languages. Strict client-library `dev-control` Clippy, formatting and diff
+  whitespace checks pass; no broad engine suite or CI wait was added.
+
+This milestone changes presentation and selection only. It retains the existing
+revision-bound command/confirmation path, frozen stock generation, prices,
+run-local ownership and gameplay rules. It does not claim the proposed 24-family
+catalog, four-tier comparison, ready-fusion guidance, enlarged-text acceptance,
+or streamlined purchase submission is complete. Those remain separate work;
+new pictures or enum entries alone do not count as new playable families.

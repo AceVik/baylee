@@ -15,10 +15,12 @@ pub(super) fn act(ui: &mut Ui, action: Action) {
     let command = match action {
         Action::Offer(id) => {
             draft.offer = Some(id);
+            draft.item = None;
             None
         }
         Action::Select(id) => {
             draft.item = Some(id);
+            draft.offer = None;
             None
         }
         Action::Place(slot) => {

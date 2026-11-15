@@ -64,24 +64,33 @@ pub(super) fn slot(slot: Slot, lang: Lang) -> String {
 }
 
 pub(super) fn goods(goods: Goods, lang: Lang) -> String {
+    if let Goods::Relic(definition) = goods {
+        format!("{} · {}", name(goods, lang), rarity(definition.rarity))
+    } else {
+        name(goods, lang)
+    }
+}
+
+pub(super) const fn rarity(rarity: Rarity) -> &'static str {
+    match rarity {
+        Rarity::Common => "Common",
+        Rarity::Uncommon => "Uncommon",
+        Rarity::Rare => "Rare",
+        Rarity::MythicRare => "Mythic Rare",
+    }
+}
+
+pub(super) fn name(goods: Goods, lang: Lang) -> String {
     match goods {
         Goods::Card(id) => card(id, lang),
-        Goods::Relic(Definition { family, rarity }) => format!(
-            "{} · {}",
-            match family {
-                Family::Heartwood => Phrase::EchoesHeartwood,
-                Family::Satchel => Phrase::EchoesSatchel,
-                Family::Compass => Phrase::EchoesCompass,
-                Family::Grove => Phrase::EchoesGrove,
-            }
-            .text(lang),
-            match rarity {
-                Rarity::Common => "Common",
-                Rarity::Uncommon => "Uncommon",
-                Rarity::Rare => "Rare",
-                Rarity::MythicRare => "Mythic Rare",
-            }
-        ),
+        Goods::Relic(Definition { family, .. }) => match family {
+            Family::Heartwood => Phrase::EchoesHeartwood,
+            Family::Satchel => Phrase::EchoesSatchel,
+            Family::Compass => Phrase::EchoesCompass,
+            Family::Grove => Phrase::EchoesGrove,
+        }
+        .text(lang)
+        .to_owned(),
         Goods::Potion(Potion::Healing) => Phrase::EchoesHealing.text(lang).to_string(),
         Goods::Potion(Potion::Mana) => Phrase::EchoesMana.text(lang).to_string(),
         Goods::Mythic => Phrase::EchoesMythic.text(lang).to_string(),

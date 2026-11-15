@@ -14,7 +14,7 @@ pub(super) fn draw(
     inventory(commands, root, kit, ui, run);
 }
 
-fn attributes(commands: &mut Commands, root: Entity, kit: Kit, run: &api::Run) {
+pub(super) fn attributes(commands: &mut Commands, root: Entity, kit: Kit, run: &api::Run) {
     let lang = lang(kit);
     let stats = panel(commands, root, kit);
     heading(commands, stats, kit, Phrase::EchoesEquipment.text(lang));
@@ -62,5 +62,6 @@ fn attributes(commands: &mut Commands, root: Entity, kit: Kit, run: &api::Run) {
 
 mod inventory;
 mod placement;
+pub(super) use inventory::detail;
 use inventory::inventory;
 pub(super) use placement::{ingredients, slots};
