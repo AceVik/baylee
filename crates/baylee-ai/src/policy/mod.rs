@@ -3773,10 +3773,22 @@ pub(crate) fn can_pay(view: &PlayerView, cost: &baylee_core::mana::ManaCost) -> 
     })
 }
 
+/// A policy-21 optional token price can be paid with stored charges, once
+/// per available activation. No legal offer accompanies the yes/no prompt.
+pub(crate) fn can_pay_token_price(view: &PlayerView, cost: &ManaCost) -> bool {
+    let Some(seat) = view.seat(resource_player(view)) else {
+        return false;
+    };
+    let mut sources = sources(view, &own_offer(view, ManaEstimate::TokenPrice));
+    crate::spend::repeat_counter_sources(view, &mut sources);
+    manaplan::plan_frozen(cost, &seat.mana_pool, &sources)
+        .is_some_and(|plan| plan_survives(view, &plan.steps, 0))
+}
+
 /// Only for evaluating a colour response. Actual taps always come from the
 /// engine's offer in `sources`, including its timing and conditional checks.
 pub(crate) fn remaining_sources(view: &PlayerView) -> Vec<Source> {
-    own_sources(view, true)
+    sources(view, &own_offer(view, ManaEstimate::Now))
 }
 
 /// [`remaining_sources`], and beside them the restricted taps of the same
@@ -3790,7 +3802,7 @@ pub(crate) fn remaining_sources_for(
     view: &PlayerView,
     spell: ObjectId,
 ) -> (Vec<Source>, Vec<Source>) {
-    let estimate = own_offer(view, true);
+    let estimate = own_offer(view, ManaEstimate::Now);
     let (restricted, plain) = split_restricted(offers(view, &estimate));
     let reader = HeuristicAgent::new(crate::AIProfile::default());
     let restricted = restricted
@@ -3829,37 +3841,42 @@ pub(crate) fn pays_next_turn(view: &PlayerView, cost: &baylee_core::mana::ManaCo
     manaplan::plan_frozen(
         cost,
         &baylee_view::ManaPoolView::default(),
-        &own_sources(view, false),
+        &sources(view, &own_offer(view, ManaEstimate::NextUntap)),
     )
     .is_some()
 }
 
-/// The seat's mana sources: those it can tap `now`, or every one it has,
-/// as they stand once its untap step has untapped them and its creatures
-/// have been under its control since the turn began.
-fn own_sources(view: &PlayerView, now: bool) -> Vec<Source> {
-    sources(view, &own_offer(view, now))
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ManaEstimate {
+    /// A snapshot of current taps, frozen for older policies.
+    Now,
+    /// After untap, with creatures no longer summoning sick.
+    NextUntap,
+    /// A current price, with counter-paid abilities priced explicitly.
+    TokenPrice,
 }
 
-/// The mana abilities [`own_sources`] reads, as an offer would list them:
-/// an estimate off the view, never actions to send.
-fn own_offer(view: &PlayerView, now: bool) -> LegalActions {
+/// The mana abilities, as an offer would list them: an estimate off the
+/// view, never actions to send.
+fn own_offer(view: &PlayerView, mode: ManaEstimate) -> LegalActions {
+    let price = mode == ManaEstimate::TokenPrice;
     let mut estimate = LegalActions::default();
     for object in view.battlefield_of(resource_player(view)) {
-        if object
-            .status
-            .contains(baylee_view::ObjectStatus::PHASED_OUT)
-            || now
-                && (object.status.contains(baylee_view::ObjectStatus::TAPPED)
-                    || (object.summoning_sick
-                        && object.types.contains(TypeSet::CREATURE)
-                        && object.keywords & KeywordSet::HASTE.bits() == 0))
-        {
+        if object.status.is_phased_out() {
             continue;
         }
-        if manaplan::basic_land_colors(&object.subtypes)
-            .next()
-            .is_some()
+        let can_tap = mode == ManaEstimate::NextUntap
+            || !(object.status.contains(baylee_view::ObjectStatus::TAPPED)
+                || (object.summoning_sick
+                    && object.types.contains(TypeSet::CREATURE)
+                    && object.keywords & KeywordSet::HASTE.bits() == 0));
+        if !can_tap && !price {
+            continue;
+        }
+        if can_tap
+            && manaplan::basic_land_colors(&object.subtypes)
+                .next()
+                .is_some()
         {
             estimate.mana_abilities.push(object.id);
         }
@@ -3876,11 +3893,15 @@ fn own_offer(view: &PlayerView, now: bool) -> LegalActions {
             let index = baylee_engine::choice::granted_ability(slot);
             // A real offer certifies a conditional activation. An estimate
             // has no such certification and must not assume its condition.
-            if matches!(
-                crate::activate::printed(view, object.id, index),
-                Some(AbilityDef::ActivatedConditional { .. })
-            ) {
-                continue;
+            match crate::activate::printed(view, object.id, index) {
+                Some(AbilityDef::ActivatedConditional { .. }) => continue,
+                Some(AbilityDef::Activated { cost, .. }) if price => {
+                    if !can_pay_mana_ability_cost(object, cost.parts, can_tap) {
+                        continue;
+                    }
+                }
+                _ if !can_tap => continue,
+                _ => {}
             }
             let action = (object.id, index);
             if !estimate.abilities.contains(&action) {
@@ -3893,13 +3914,13 @@ fn own_offer(view: &PlayerView, now: bool) -> LegalActions {
         for (index, ability) in crate::activate::printed_list(object).iter().enumerate() {
             // Conditional activations need an offer to certify them. The
             // colour estimate can omit a source but must not rely on one.
-            if matches!(
-                ability,
-                AbilityDef::Activated {
-                    mana_ability: true,
-                    ..
-                }
-            ) {
+            if let AbilityDef::Activated {
+                cost,
+                mana_ability: true,
+                ..
+            } = ability
+                && (!price || can_pay_mana_ability_cost(object, cost.parts, can_tap))
+            {
                 estimate
                     .abilities
                     .push((object.id, u32::try_from(index).unwrap_or(u32::MAX)));
@@ -3907,6 +3928,30 @@ fn own_offer(view: &PlayerView, now: bool) -> LegalActions {
         }
     }
     estimate
+}
+
+fn can_pay_mana_ability_cost(
+    object: &baylee_view::PublicObject,
+    parts: &[CostPart],
+    can_tap: bool,
+) -> bool {
+    // Without a fresh tap, only a pure counter price is modeled here.
+    (can_tap || matches!(parts, [CostPart::RemoveCounterSelf { .. }]))
+        && parts.iter().all(|part| {
+            let CostPart::RemoveCounterSelf { kind, .. } = part else {
+                return true;
+            };
+            let owed: u32 = parts
+                .iter()
+                .filter_map(|part| match part {
+                    CostPart::RemoveCounterSelf { kind: other, n } if other == kind => {
+                        Some(u32::from(*n))
+                    }
+                    _ => None,
+                })
+                .sum();
+            u32::from(object.counter_count(crate::worth::counter_view(*kind))) >= owed
+        })
 }
 
 /// The cards that keep a total the question states (crew's "total power N

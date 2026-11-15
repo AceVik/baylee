@@ -19,6 +19,10 @@ The token workshop uses policy 21. At 32 own, unphased creature tokens, the
 house declines an optional payment whose only reward is more own creature
 tokens. It reads the effect and public board, never the item's name. Mixed
 rewards, card draws and mandatory payments retain their existing evaluation.
+For a token purchase below that target, the affordability estimate checks the
+source's charge cost and whether the ability taps. It counts payable uses of
+counter-only abilities, including when the source is tapped. Actual activations
+still come from the engine's legal offer.
 This finite strategic target lets a renewable token combination finish its
 turn; it is not a game limit or repetition detector. Manual players can keep
 going. Retained Tower generations keep their frozen policies 19 and 20.

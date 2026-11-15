@@ -19,6 +19,8 @@ const COMBINATION: [Definition; 3] = [
 
 #[test]
 fn a_three_slot_combination_can_repeat_with_real_mana_and_the_player_can_stop() {
+    // A human can continue beyond Expert's 32-token strategic target.
+    const CYCLES: u16 = 40;
     let mut game = prepared(&COMBINATION, &[("Forest", 30), ("Llanowar Elves", 10)]);
     let player = game.state().turn.active;
     for turn in [1, 3] {
@@ -35,7 +37,7 @@ fn a_three_slot_combination_can_repeat_with_real_mana_and_the_player_can_stop() 
         0,
         "a creature card does not supply token charges"
     );
-    for cycle in 0..8 {
+    for cycle in 0..CYCLES {
         game.apply(player, PlayerAction::YesNo(true)).unwrap();
         if cycle == 0 {
             mana(&mut game, player, 1);
@@ -53,7 +55,10 @@ fn a_three_slot_combination_can_repeat_with_real_mana_and_the_player_can_stop() 
         until(&mut game, |game| {
             matches!(game.pending(), Pending::YesNo { .. })
         });
-        assert_eq!(creatures(game.state(), player, true).len(), cycle + 1);
+        assert_eq!(
+            creatures(game.state(), player, true).len(),
+            usize::from(cycle + 1)
+        );
         assert_eq!(
             charges(&game, roots),
             1,
@@ -68,8 +73,14 @@ fn a_three_slot_combination_can_repeat_with_real_mana_and_the_player_can_stop() 
     }
     game.apply(player, PlayerAction::YesNo(false)).unwrap();
     resolve(&mut game);
-    assert_eq!(game.state().players[player.get() as usize].life, 29);
-    assert_eq!(creatures(game.state(), player, true).len(), 8);
+    assert_eq!(
+        game.state().players[player.get() as usize].life,
+        21 + i32::from(CYCLES)
+    );
+    assert_eq!(
+        creatures(game.state(), player, true).len(),
+        usize::from(CYCLES)
+    );
     assert!(
         matches!(game.pending(), Pending::Priority { .. }),
         "declining resumes the ordinary duel, never a detector draw"

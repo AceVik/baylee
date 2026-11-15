@@ -1,5 +1,7 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use baylee_core::mana::ManaColor;
+use baylee_engine::object::Status;
 
 // Native manifests forbid injected opening hands. Choose a bounded synthetic
 // shuffle whose ordinary opening hand can actually play this four-land story.
@@ -108,11 +110,22 @@ fn harvest_tiers_count_only_own_token_deaths_and_pay_their_costs() {
             )
             .unwrap();
             assert_eq!(charges(&game, wheel), mine - price * used);
+            let pool = &game.state().players[player.get() as usize].mana_pool;
             assert_eq!(
-                game.state().players[player.get() as usize]
-                    .mana_pool
-                    .total(),
-                u64::from(used) * if tier == 3 { 3 } else { 2 }
+                pool.available(ManaColor::Colorless),
+                u32::from(used) * if tier == 3 { 3 } else { 2 }
+            );
+            assert_eq!(
+                pool.total(),
+                u64::from(pool.available(ManaColor::Colorless))
+            );
+            assert_eq!(
+                game.state()
+                    .object(wheel)
+                    .unwrap()
+                    .status
+                    .contains(Status::TAPPED),
+                tier < 3
             );
             assert!(game.state().zones.list(ZoneLocation::Stack).is_empty());
         }

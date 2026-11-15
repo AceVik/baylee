@@ -7950,3 +7950,25 @@ beneath it. What the author missed, for the next brief:
   Cradle can be declined; Banner changes real combat and trample damage; Harvest
   excludes exile and nontoken deaths; Root excludes creature-card entries. The
   mana artifacts really remove charges and honor their tier's tap requirement.
+
+### Independent token-workshop review
+
+- A yes/no price arrives before the engine offers legal mana abilities. The
+  house's earlier estimate counted a dry Root Reservoir as a source, and counted
+  a charged no-tap Reservoir only once. The new policy's pure token purchase
+  now checks the counter cost, reads no-tap counter sources even when tapped,
+  and counts funded activations through the shared mana planner. The regression
+  failed on the empty Reservoir before the fix; older policies and mixed rewards
+  retain their previous decisions.
+- Check the resulting tap flag and mana color alongside total output and
+  whether another activation is legal. Common Root cannot afford a second
+  activation with four starting charges even if its tap cost is accidentally
+  removed. Harvest's total alone would also pass if it made the wrong color.
+- The manual renewable scenario plays 40 cycles and declines through the normal
+  prompt. Crossing Expert's 32-token target demonstrates that it is a policy
+  decision, not a gameplay limit. The two hosted token scenarios use accepted
+  decisions and replay to the same snapshot.
+- The new families match the existing native token, offer, payment and view
+  paths; they add no new engine or wire choice. The append-only token registry
+  carries their abilities into the client, language-model menu and trained
+  features. Earlier shop streams and engine identities remain generation-bound.

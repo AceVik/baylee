@@ -1,6 +1,7 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use baylee_core::mana::ManaColor;
+use baylee_engine::object::Status;
 
 #[test]
 fn root_tiers_count_own_token_entries_and_spend_real_charges_as_mana() {
@@ -54,6 +55,15 @@ fn root_tiers_count_own_token_entries_and_spend_real_charges_as_mana() {
                     .mana_pool
                     .available(ManaColor::Green),
                 u32::from(used)
+            );
+            assert_eq!(
+                game.state()
+                    .object(root)
+                    .unwrap()
+                    .status
+                    .contains(Status::TAPPED),
+                tier < 2,
+                "the Common tier runs out of charges after one use even if tapping is omitted"
             );
         }
         assert!(

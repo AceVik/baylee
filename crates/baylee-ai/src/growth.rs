@@ -5,6 +5,8 @@ use baylee_core::{mana::ManaCost, types::TypeSet};
 use baylee_engine::engine::DecisionContext;
 use baylee_view::PlayerView;
 
+const ENOUGH_TOKENS: usize = 32;
+
 impl HeuristicAgent {
     pub(crate) fn pays_optional_price(
         &self,
@@ -12,22 +14,21 @@ impl HeuristicAgent {
         price: ManaCost,
         context: &DecisionContext<'_>,
     ) -> bool {
-        if self.profile.generation >= AIProfile::OPTIONAL_TOKEN_SATURATION
-            && pure_token_reward(context.effects)
-            && view
-                .battlefield_of(baylee_client_core::decision::resource_player(view))
-                .filter(|object| {
-                    crate::filter::public_token_identity(object) == Some(true)
-                        && object.types.contains(TypeSet::CREATURE)
-                        && !object.status.is_phased_out()
-                })
-                .take(32)
-                .count()
-                == 32
+        if !self.profile.plays(AIProfile::OPTIONAL_TOKEN_SATURATION)
+            || !pure_token_reward(context.effects)
         {
-            return false;
+            return policy::pays_tax(view, price, context);
         }
-        policy::pays_tax(view, price, context)
+        view.battlefield_of(baylee_client_core::decision::resource_player(view))
+            .filter(|object| {
+                crate::filter::public_token_identity(object) == Some(true)
+                    && object.types.contains(TypeSet::CREATURE)
+                    && !object.status.is_phased_out()
+            })
+            .take(ENOUGH_TOKENS)
+            .count()
+            < ENOUGH_TOKENS
+            && policy::can_pay_token_price(view, &price)
     }
 }
 
