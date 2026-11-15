@@ -459,43 +459,45 @@ pub(crate) fn show_tooltips(
             }
             continue;
         }
-        let (want_left, want_right, want_top, want_bottom) = if let Some((c, t)) = computed
+        let Some((c, t)) = computed
             .zip(transform)
             .filter(|(c, _)| c.size().x > 0.0 && c.size().y > 0.0)
-        {
-            let inv = c.inverse_scale_factor();
-            let center = t.translation * inv;
-            let size = c.size() * inv;
-            let box_top = center.y - size.y * 0.5;
-            let box_bottom = center.y + size.y * 0.5;
-            let box_left = center.x - size.x * 0.5;
-            let box_right = center.x + size.x * 0.5;
-            let place_above = box_bottom > canvas.y - 96.0 && box_top > 64.0;
-            let snap = |v: f32| (v * 2.0).round() * 0.5;
-            let (top, bottom) = if place_above {
-                (
-                    Val::Auto,
-                    px_fixed(snap((canvas.y - box_top + 8.0).max(8.0))),
-                )
-            } else {
-                (px_fixed(snap((box_bottom + 8.0).max(8.0))), Val::Auto)
-            };
-            let max_w = 300.0_f32.min((canvas.x - 20.0).max(80.0));
-            let (left, right) = if center.x > canvas.x * 0.65 {
-                (Val::Auto, px_fixed(snap((canvas.x - box_right).max(10.0))))
-            } else if center.x < canvas.x * 0.35 {
-                (px_fixed(snap(box_left.max(10.0))), Val::Auto)
-            } else {
-                (
-                    px_fixed(snap(
-                        (center.x - size.x * 0.5).clamp(10.0, (canvas.x - max_w - 10.0).max(10.0)),
-                    )),
-                    Val::Auto,
-                )
-            };
-            (left, right, top, bottom)
+        else {
+            shown.set_if_neq(Visibility::Hidden);
+            if node.display != Display::None {
+                node.display = Display::None;
+            }
+            continue;
+        };
+        let inv = c.inverse_scale_factor();
+        let center = t.translation * inv;
+        let size = c.size() * inv;
+        let box_top = center.y - size.y * 0.5;
+        let box_bottom = center.y + size.y * 0.5;
+        let box_left = center.x - size.x * 0.5;
+        let box_right = center.x + size.x * 0.5;
+        let place_above = box_bottom > canvas.y - 96.0 && box_top > 64.0;
+        let snap = |v: f32| (v * 2.0).round() * 0.5;
+        let (want_top, want_bottom) = if place_above {
+            (
+                Val::Auto,
+                px_fixed(snap((canvas.y - box_top + 8.0).max(8.0))),
+            )
         } else {
-            (node.left, node.right, node.top, node.bottom)
+            (px_fixed(snap((box_bottom + 8.0).max(8.0))), Val::Auto)
+        };
+        let max_w = 300.0_f32.min((canvas.x - 20.0).max(80.0));
+        let (want_left, want_right) = if center.x > canvas.x * 0.65 {
+            (Val::Auto, px_fixed(snap((canvas.x - box_right).max(10.0))))
+        } else if center.x < canvas.x * 0.35 {
+            (px_fixed(snap(box_left.max(10.0))), Val::Auto)
+        } else {
+            (
+                px_fixed(snap(
+                    (center.x - size.x * 0.5).clamp(10.0, (canvas.x - max_w - 10.0).max(10.0)),
+                )),
+                Val::Auto,
+            )
         };
         if node.display != Display::Flex
             || node.left != want_left
@@ -2058,6 +2060,20 @@ mod tests {
                 (root, btn)
             };
             app.world_mut().flush();
+            // Before `PostUpdate` computes `btn`'s layout size, focusing `btn` must
+            // keep the tooltip hidden rather than flashing at (8px, 8px).
+            let pre_tip = app.world().get::<Tooltip>(btn).expect("tooltip attached").0;
+            app.world_mut()
+                .resource_mut::<InputFocus>()
+                .set(btn, FocusCause::Navigated);
+            bevy::ecs::system::RunSystemOnce::run_system_once(app.world_mut(), show_tooltips)
+                .expect("show_tooltips pre-layout");
+            assert_eq!(
+                app.world().get::<Visibility>(pre_tip),
+                Some(&Visibility::Hidden),
+                "pre-layout tooltip must stay hidden ({input:?})"
+            );
+            app.world_mut().resource_mut::<InputFocus>().clear();
             app.update();
             app.update();
 

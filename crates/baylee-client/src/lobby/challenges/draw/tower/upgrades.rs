@@ -70,12 +70,9 @@ pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, 
 
 fn confirmation(commands: &mut Commands, section: Entity, kit: Kit, lang: Lang, model: &State) {
     if model.tower.upgrade_preview().is_some() {
-        let controls = row(commands, section, kit);
-        commands
-            .entity(controls)
-            .entry::<Node>()
-            .and_modify(|mut node| node.justify_content = JustifyContent::FlexEnd);
-        control(
+        let controls = crate::shellkit::surfaces::dialog_button_row(commands, kit, &[]);
+        commands.entity(section).add_child(controls);
+        let cancel = control(
             commands,
             controls,
             kit,
@@ -85,7 +82,7 @@ fn confirmation(commands: &mut Commands, section: Entity, kit: Kit, lang: Lang, 
             model,
             Weight::Ghost,
         );
-        control(
+        let choose = control(
             commands,
             controls,
             kit,
@@ -95,6 +92,7 @@ fn confirmation(commands: &mut Commands, section: Entity, kit: Kit, lang: Lang, 
             model,
             Weight::Gold,
         );
+        crate::shellkit::surfaces::stretch_footer_items(commands, kit, &[cancel, choose]);
     }
 }
 

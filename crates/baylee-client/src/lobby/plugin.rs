@@ -117,7 +117,7 @@ impl Plugin for LobbyPlugin {
                     ),
                     (
                         hovers.run_if(in_state(DuelPhase::Closed)),
-                        hint::hint_hovers.run_if(table_settings::lobby_or_over_table),
+                        hint::hint_hovers,
                     ),
                     // The motion decides which panels are drawn, and the
                     // pose lands on the panels the rebuild just stood up.
@@ -146,7 +146,7 @@ impl Plugin for LobbyPlugin {
                     dock::materialize.run_if(in_state(DuelPhase::Closed)),
                     (button_style::materialize, crate::shellkit::sheen::dress)
                         .run_if(table_settings::lobby_or_over_table),
-                    hint::hint_panel.run_if(table_settings::lobby_or_over_table),
+                    hint::hint_panel,
                     // The duel's own runs only while there is a duel, and a
                     // text face in the deckbuilder shows its scrollbar too.
                     (

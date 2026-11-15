@@ -273,6 +273,9 @@ pub(super) fn draw(
                 m,
                 Phrase::RoomCounterHint.text(lang),
             );
+            let counter_valid =
+                baylee_cards_dsl::CounterKind::from_setup_name(lobby.field(Field::RoomCounter))
+                    .is_some();
             let add = button(
                 commands,
                 fonts,
@@ -280,9 +283,13 @@ pub(super) fn draw(
                 Phrase::RoomAddCounter.text(lang),
                 Press::Room(RoomPress::RoomCounterAdd(seat, at)),
                 palette::PANEL_LIT,
-                baylee_cards_dsl::CounterKind::from_setup_name(lobby.field(Field::RoomCounter))
-                    .is_some(),
+                counter_valid,
             );
+            if !counter_valid {
+                commands.entity(add).insert(crate::lobby::HoverHint(
+                    Phrase::RoomCounterHint.text(lang).to_string(),
+                ));
+            }
             commands.entity(surface).add_child(add);
         }
     }

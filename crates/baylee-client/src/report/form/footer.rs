@@ -209,12 +209,31 @@ pub(super) fn form_foot(
 }
 
 /// Locks every report-changing control while its one request is in flight.
+#[allow(clippy::too_many_arguments)]
 pub(in crate::report) fn lock_while_sending(
     mut commands: Commands,
     desk: Res<ReportDesk>,
+    settings: Option<Res<ClientSettings>>,
+    fonts: Option<Res<UiFonts>>,
+    input: Option<Res<InputClass>>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    ui: Option<Res<UiScale>>,
     mut controls: Query<(Entity, &DeskPress, Has<Disabled>)>,
 ) {
     let sending = desk.open && desk.form.status == Status::Sending;
+    let lang = settings.as_deref().map_or(Lang::En, |s| Lang::of(&s.lang));
+    let kit = fonts.as_deref().map(|f| {
+        let window = windows.single().map_or(Vec2::new(1280.0, 800.0), |w| {
+            Vec2::new(w.width(), w.height())
+        });
+        kit_for(
+            f,
+            window,
+            input.as_deref().copied().unwrap_or(InputClass::Pointer),
+            lang,
+            ui.as_deref().map_or(1.0, |ui| ui.0),
+        )
+    });
     for (entity, press, disabled) in &mut controls {
         if matches!(press, DeskPress::Send) {
             continue; // sync_footer owns Send, including its preparation/validation state.
@@ -223,9 +242,17 @@ pub(in crate::report) fn lock_while_sending(
         match (lock, disabled) {
             (true, false) => {
                 commands.entity(entity).try_insert(Disabled);
+                if let Some(kit) = kit {
+                    controls::attach_tooltip(
+                        &mut commands,
+                        entity,
+                        kit,
+                        Phrase::ReportSending.text(lang),
+                    );
+                }
             }
             (false, true) => {
-                commands.entity(entity).try_remove::<Disabled>();
+                commands.entity(entity).try_remove::<(Disabled, Tooltip)>();
             }
             _ => {}
         }

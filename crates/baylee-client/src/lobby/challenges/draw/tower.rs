@@ -195,7 +195,7 @@ fn control(
     action: TowerAction,
     model: &State,
     weight: Weight,
-) {
+) -> Entity {
     button(
         commands,
         root,
@@ -204,5 +204,5 @@ fn control(
         Action::Tower(action),
         model,
         weight,
-    );
+    )
 }

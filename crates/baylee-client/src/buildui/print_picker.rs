@@ -50,7 +50,7 @@ pub(crate) fn printing_picker(
             Node {
                 width: percent(100),
                 max_height: percent(100),
-                overflow: Overflow::scroll_y(),
+                overflow: Overflow::clip(),
                 max_width: px(if metrics.frame == Frame::Compact {
                     520.0
                 } else {
@@ -71,11 +71,6 @@ pub(crate) fn printing_picker(
             Press::Shared(SharedPress::PickerNothing),
         ))
         .id();
-    commands.entity(panel).insert((
-        crate::lobby::Scrollable(List::PickerPanel),
-        ScrollPosition(Vec2::new(0.0, scrolled.get(List::PickerPanel))),
-        Pickable::default(),
-    ));
     commands.entity(shade).add_child(panel);
 
     // ---- what card this is, and the way out
@@ -112,6 +107,27 @@ pub(crate) fn printing_picker(
         commands.entity(head).add_child(child);
     }
     commands.entity(panel).add_child(head);
+
+    let body = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                flex_shrink: 1.0,
+                min_width: px(0),
+                min_height: px(0),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(metrics.gap),
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+            crate::lobby::Scrollable(List::PickerPanel),
+            ScrollPosition(Vec2::new(0.0, scrolled.get(List::PickerPanel))),
+            Pickable::default(),
+        ))
+        .id();
+    let body_band =
+        crate::lobby::scrollbars::band_when_needed(commands, body, metrics.frame == Frame::Compact);
+    commands.entity(panel).add_child(body_band);
 
     // ---- the carousel
     let stage = row(commands, metrics, false);
@@ -168,7 +184,7 @@ pub(crate) fn printing_picker(
     for child in [back, art, forward] {
         commands.entity(stage).add_child(child);
     }
-    commands.entity(panel).add_child(stage);
+    commands.entity(body).add_child(stage);
 
     // ---- which printing, in words
     let current = picker.current();
@@ -202,7 +218,7 @@ pub(crate) fn printing_picker(
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(panel).add_child(label);
+    commands.entity(body).add_child(label);
 
     let count = note(
         commands,
@@ -234,7 +250,7 @@ pub(crate) fn printing_picker(
         commands.entity(status).add_child(spin);
     }
     commands.entity(status).add_child(count);
-    commands.entity(panel).add_child(status);
+    commands.entity(body).add_child(status);
 
     // A bounded contact sheet lets people compare images without opening each one.
     let gallery = row(commands, metrics, false);
@@ -281,10 +297,10 @@ pub(crate) fn printing_picker(
         ));
         commands.entity(gallery).add_child(thumb);
     }
-    commands.entity(panel).add_child(gallery);
+    commands.entity(body).add_child(gallery);
 
     let sets = set_search(commands, fonts, metrics, lang, deck, picker);
-    commands.entity(panel).add_child(sets);
+    commands.entity(body).add_child(sets);
 
     // ---- language
     if picker.langs().len() > 1 {
@@ -310,7 +326,7 @@ pub(crate) fn printing_picker(
             );
             commands.entity(langs).add_child(c);
         }
-        commands.entity(panel).add_child(langs);
+        commands.entity(body).add_child(langs);
     }
 
     let force = chip(
@@ -377,19 +393,22 @@ pub(crate) fn printing_picker(
         // between, and a row of buttons that changes length as the carousel
         // moves is harder to read than one that greys out.
         if !sold {
-            commands.entity(c).remove::<Press>();
-            commands.entity(c).insert(Pickable::IGNORE);
-            commands.entity(c).insert(BackgroundColor(Color::NONE));
+            commands.entity(c).remove::<Press>().insert((
+                Pickable::default(),
+                crate::shellkit::controls::Disabled,
+                crate::lobby::HoverHint(Phrase::PickerForceFinish.text(lang).to_string()),
+                BackgroundColor(Color::NONE),
+            ));
         }
         commands.entity(finishes).add_child(c);
     }
     let gap = commands.spawn((spacer(), Pickable::IGNORE)).id();
     commands.entity(finishes).add_children(&[gap, force]);
-    commands.entity(panel).add_child(finishes);
+    commands.entity(body).add_child(finishes);
 
     if picker.needs_circles() {
         let label = note(commands, fonts, metrics, Phrase::SpiresCircles.text(lang));
-        commands.entity(panel).add_child(label);
+        commands.entity(body).add_child(label);
         let choices = row(commands, metrics, true);
         let colors = [
             (baylee_core::color::Color::White, Phrase::ColorWhite),
@@ -417,12 +436,17 @@ pub(crate) fn printing_picker(
                     allowed,
                 );
                 if !allowed {
-                    commands.entity(option).remove::<Press>();
+                    commands
+                        .entity(option)
+                        .remove::<Press>()
+                        .insert(crate::lobby::HoverHint(
+                            Phrase::SpiresOutsideIdentity.text(lang).to_string(),
+                        ));
                 }
                 commands.entity(choices).add_child(option);
             }
         }
-        commands.entity(panel).add_child(choices);
+        commands.entity(body).add_child(choices);
     }
 
     // ---- the way in
@@ -442,7 +466,7 @@ pub(crate) fn printing_picker(
             ],
         ),
     );
-    commands.entity(panel).add_child(held);
+    commands.entity(body).add_child(held);
 
     let foot = row(commands, metrics, true);
     let foot_gap = metrics.gap;
@@ -477,9 +501,14 @@ pub(crate) fn printing_picker(
         valid,
     );
     if !valid {
+        let why = if picker.circles().is_none() {
+            Phrase::SpiresNeedsCircles
+        } else {
+            Phrase::SpiresOutsideIdentity
+        };
         commands.entity(add).remove::<Press>().insert((
             crate::shellkit::controls::Disabled,
-            crate::lobby::HoverHint(Phrase::PickerHint.text(lang).to_string()),
+            crate::lobby::HoverHint(why.text(lang).to_string()),
         ));
     }
     for btn in [close_foot, add] {

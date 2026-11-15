@@ -528,7 +528,7 @@ pub fn dialog_button_row(commands: &mut Commands, kit: Kit, entities: &[Entity])
     row
 }
 
-fn stretch_footer_items(commands: &mut Commands, kit: Kit, entities: &[Entity]) {
+pub(crate) fn stretch_footer_items(commands: &mut Commands, kit: Kit, entities: &[Entity]) {
     if entities.is_empty() {
         return;
     }

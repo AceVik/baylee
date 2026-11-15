@@ -571,7 +571,11 @@ fn toolbar_icon_btn(
             action,
         ));
     } else {
-        commands.entity(btn).insert(Pickable::IGNORE);
+        commands.entity(btn).insert((
+            Pickable::default(),
+            bevy::picking::hover::PickingInteraction::default(),
+            crate::shellkit::controls::Disabled,
+        ));
     }
     let icon = commands
         .spawn((
@@ -667,12 +671,17 @@ pub(super) fn toolbar(
             keys::stop(state, "gateway-sort"),
         ),
     );
+    let can_refresh = !state.lobby.busy() && state.adding.is_none();
     let refresh_btn = toolbar_icon_btn(
         commands,
         kit,
         '\u{f2f1}',
-        !state.lobby.busy() && state.adding.is_none(),
-        Phrase::GatewayRefresh.text(lang).to_string(),
+        can_refresh,
+        if can_refresh {
+            Phrase::GatewayRefresh.text(lang).to_string()
+        } else {
+            Phrase::VeilTalking.text(lang).to_string()
+        },
         (
             Press::Front(FrontPress::RefreshGateways),
             keys::stop(state, "gateway-refresh"),
@@ -1295,16 +1304,23 @@ fn gateway_row(
                 bottom: px(5),
             };
         });
-    commands.entity(control).insert((
-        BackgroundColor(rest_bg),
-        BorderColor::all(rest_border),
-        crate::ambience::Feel::tinting_to(rest_bg, hot_bg),
-        crate::ambience::FeelBorder {
-            rest: rest_border,
-            hot: palette::ACCENT.with_alpha(0.95),
-            press: palette::ACCENT,
-        },
-    ));
+    commands
+        .entity(control)
+        .insert((BackgroundColor(rest_bg), BorderColor::all(rest_border)));
+    if enabled {
+        commands.entity(control).insert((
+            crate::ambience::Feel::tinting_to(rest_bg, hot_bg),
+            crate::ambience::FeelBorder {
+                rest: rest_border,
+                hot: palette::ACCENT.with_alpha(0.95),
+                press: palette::ACCENT,
+            },
+        ));
+    } else {
+        commands.entity(control).insert(super::hint::HoverHint(
+            Phrase::VeilTalking.text(lang).to_string(),
+        ));
+    }
 
     let dot = reach_dot(commands, &words);
     commands.entity(dot).insert(passes_presses());
@@ -1593,7 +1609,11 @@ fn bin(
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            super::hint::HoverHint(Phrase::ForgetGateway.text(lang).to_string()),
+            super::hint::HoverHint(if enabled {
+                Phrase::ForgetGateway.text(lang).to_string()
+            } else {
+                Phrase::VeilTalking.text(lang).to_string()
+            }),
         ))
         .id();
     if enabled {
@@ -1602,7 +1622,11 @@ fn bin(
             crate::ambience::Feel::tinting_to(Color::NONE, palette::DANGER.with_alpha(0.22)),
         ));
     } else {
-        commands.entity(bin).insert(Pickable::IGNORE);
+        commands.entity(bin).insert((
+            Pickable::default(),
+            bevy::picking::hover::PickingInteraction::default(),
+            crate::shellkit::controls::Disabled,
+        ));
     }
     let glyph = commands
         .spawn((

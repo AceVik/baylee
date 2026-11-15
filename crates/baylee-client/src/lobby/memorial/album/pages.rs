@@ -80,7 +80,9 @@ pub(super) fn draw(
     commands.entity(reading).add_child(ornament);
     let track = commands
         .spawn((
+            crate::lobby::scrollbars::OnlyWhenNeeded,
             Node {
+                display: Display::None,
                 width: kit.m.px(12.0),
                 height: Val::Percent(100.0),
                 flex_shrink: 0.0,

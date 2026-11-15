@@ -184,8 +184,9 @@ fn consent(commands: &mut Commands, parent: Entity, kit: Kit, lang: Lang, model:
             Phrase::TowerRetireConfirm.text(lang),
             tokens::DANGER,
         );
-        let row = row(commands, parent, kit);
-        control(
+        let row = crate::shellkit::surfaces::dialog_button_row(commands, kit, &[]);
+        commands.entity(parent).add_child(row);
+        let cancel = control(
             commands,
             row,
             kit,
@@ -195,7 +196,7 @@ fn consent(commands: &mut Commands, parent: Entity, kit: Kit, lang: Lang, model:
             model,
             Weight::Secondary,
         );
-        control(
+        let confirm = control(
             commands,
             row,
             kit,
@@ -205,5 +206,6 @@ fn consent(commands: &mut Commands, parent: Entity, kit: Kit, lang: Lang, model:
             model,
             Weight::Gold,
         );
+        crate::shellkit::surfaces::stretch_footer_items(commands, kit, &[cancel, confirm]);
     }
 }

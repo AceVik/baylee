@@ -41,17 +41,48 @@ const HINT_WIDTH: f32 = 300.0;
 
 /// Tracks which mark the pointer (including [`HoverMap`] over [`Disabled`]
 /// controls) or keyboard [`InputFocus`] (on [`Disabled`] controls) is over.
-#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+#[allow(
+    clippy::too_many_arguments,
+    clippy::too_many_lines,
+    clippy::type_complexity
+)]
 pub(super) fn hint_hovers(
     mut overs: MessageReader<PointerOver>,
     mut outs: MessageReader<PointerOut>,
-    hints: Query<&HoverHint>,
+    hints: Query<(&HoverHint, Has<crate::hud::Hint>)>,
     disabled: Query<(), With<crate::shellkit::controls::Disabled>>,
     parents: Query<&ChildOf>,
     hovers: Option<Res<bevy::picking::hover::HoverMap>>,
     focus: Option<Res<bevy::input_focus::InputFocus>>,
+    (phase, lobby_state, report): (
+        Option<Res<State<DuelPhase>>>,
+        Option<Res<LobbyState>>,
+        Option<Res<crate::report::ReportDesk>>,
+    ),
     mut hinted: ResMut<Hinted>,
 ) {
+    let in_duel = phase
+        .as_deref()
+        .is_some_and(|p| *p.get() != DuelPhase::Closed);
+    let over_table = super::table_settings::covers_the_table(lobby_state.as_deref());
+    let report_open = report.as_deref().is_some_and(|r| r.open);
+    if in_duel && !over_table && !report_open {
+        overs.clear();
+        outs.clear();
+        if hinted.text.is_some()
+            || hinted.source.is_some()
+            || hinted.by_focus
+            || hinted.by_hover_map
+        {
+            hinted.text = None;
+            hinted.source = None;
+            hinted.by_focus = false;
+            hinted.by_hover_map = false;
+            hinted.epoch = hinted.epoch.wrapping_add(1);
+        }
+        return;
+    }
+
     let mut text = hinted.text.clone();
     let mut source = hinted.source;
     let mut at = hinted.at;
@@ -59,7 +90,11 @@ pub(super) fn hint_hovers(
     let mut by_hover_map = hinted.by_hover_map;
     // A rebuild takes the mark away under a still pointer, and no `Out`
     // says so.
-    if source.is_some_and(|entity| hints.get(entity).is_err()) {
+    if source.is_some_and(|entity| {
+        !hints
+            .get(entity)
+            .is_ok_and(|(_, has_hud_hint)| !(in_duel && has_hud_hint))
+    }) {
         text = None;
         source = None;
         by_focus = false;
@@ -74,7 +109,7 @@ pub(super) fn hint_hovers(
         by_focus = false;
     }
     for out in outs.read() {
-        if lineage(out.entity, &hints, &parents).is_some_and(|e| Some(e) == source) {
+        if lineage(out.entity, &hints, &parents, in_duel).is_some_and(|e| Some(e) == source) {
             text = None;
             source = None;
             by_focus = false;
@@ -82,8 +117,8 @@ pub(super) fn hint_hovers(
         }
     }
     for over in overs.read() {
-        if let Some(entity) = lineage(over.entity, &hints, &parents)
-            && let Ok(hint) = hints.get(entity)
+        if let Some(entity) = lineage(over.entity, &hints, &parents, in_duel)
+            && let Ok((hint, _)) = hints.get(entity)
         {
             let trimmed = hint.0.trim();
             if trimmed.is_empty() {
@@ -99,13 +134,11 @@ pub(super) fn hint_hovers(
         }
     }
     let hover_map_entity = hovers.as_deref().and_then(|map| {
-        let mut hits: Vec<(Entity, f32)> = map
-            .values()
-            .flat_map(|m| m.iter().map(|(&e, hit)| (e, hit.depth)))
-            .collect();
-        hits.sort_by(|a, b| a.1.total_cmp(&b.1));
-        hits.into_iter()
-            .find_map(|(e, _)| lineage(e, &hints, &parents))
+        map.values()
+            .flat_map(|m| m.iter())
+            .filter_map(|(&e, hit)| lineage(e, &hints, &parents, in_duel).map(|h| (h, hit.depth)))
+            .min_by(|a, b| a.1.total_cmp(&b.1))
+            .map(|(h, _)| h)
     });
     if by_hover_map && hover_map_entity != source {
         text = None;
@@ -114,7 +147,7 @@ pub(super) fn hint_hovers(
     }
     if source.is_none()
         && let Some(entity) = hover_map_entity
-        && let Ok(hint) = hints.get(entity)
+        && let Ok((hint, _)) = hints.get(entity)
     {
         let trimmed = hint.0.trim();
         if !trimmed.is_empty() {
@@ -127,7 +160,8 @@ pub(super) fn hint_hovers(
     if source.is_none()
         && let Some(entity) = focused
         && disabled.contains(entity)
-        && let Ok(hint) = hints.get(entity)
+        && let Ok((hint, has_hud_hint)) = hints.get(entity)
+        && !(in_duel && has_hud_hint)
     {
         let trimmed = hint.0.trim();
         if !trimmed.is_empty() {
@@ -138,7 +172,7 @@ pub(super) fn hint_hovers(
         }
     }
     if let Some(entity) = source
-        && let Ok(hint) = hints.get(entity)
+        && let Ok((hint, _)) = hints.get(entity)
     {
         let trimmed = hint.0.trim();
         if trimmed.is_empty() {
@@ -164,12 +198,19 @@ pub(super) fn hint_hovers(
     }
 }
 
-/// The nearest entity at or above this one that carries a hint.
-fn lineage(entity: Entity, hints: &Query<&HoverHint>, parents: &Query<&ChildOf>) -> Option<Entity> {
+/// The nearest entity at or above this one that carries a shell hint.
+/// Over a table (`in_duel`), controls that also carry [`crate::hud::Hint`] are
+/// owned by the HUD's tooltip system so two tooltips never stack.
+fn lineage(
+    entity: Entity,
+    hints: &Query<(&HoverHint, Has<crate::hud::Hint>)>,
+    parents: &Query<&ChildOf>,
+    in_duel: bool,
+) -> Option<Entity> {
     let mut current = Some(entity);
     while let Some(e) = current {
-        if hints.contains(e) {
-            return Some(e);
+        if let Ok((_, has_hud_hint)) = hints.get(e) {
+            return (!(in_duel && has_hud_hint)).then_some(e);
         }
         current = parents.get(e).ok().map(ChildOf::parent);
     }
@@ -194,12 +235,17 @@ pub(super) fn hint_panel(
     hints: Query<&HoverHint>,
     nodes: Query<(&ComputedNode, &UiGlobalTransform)>,
     windows: Query<&Window>,
-    fonts: Res<UiFonts>,
+    fonts: Option<Res<UiFonts>>,
     ui: Option<Res<UiScale>>,
 ) {
+    if hinted.text.is_none() && hinted.source.is_none() && existing.is_empty() {
+        return;
+    }
     if hinted.source.is_some_and(|e| hints.get(e).is_err()) {
         hinted.text = None;
         hinted.source = None;
+        hinted.by_focus = false;
+        hinted.by_hover_map = false;
         hinted.epoch = hinted.epoch.wrapping_add(1);
     }
     if existing
@@ -230,7 +276,7 @@ pub(super) fn hint_panel(
     for (entity, ..) in &existing {
         commands.entity(entity).try_despawn();
     }
-    let Some(text) = hinted.text.clone() else {
+    let (Some(text), Some(fonts)) = (hinted.text.clone(), fonts.as_deref()) else {
         return;
     };
     let canvas = windows.iter().next().map_or(Vec2::new(1280.0, 800.0), |w| {
@@ -254,6 +300,9 @@ pub(super) fn hint_panel(
             let size = c.size() * inv;
             (center, size)
         });
+    if hinted.source.is_some() && source_box.is_none() && (hinted.by_focus || hinted.by_hover_map) {
+        return;
+    }
 
     let (left, right, top, bottom, above) = if let Some((center, size)) = source_box {
         let box_top = center.y - size.y * 0.5;
@@ -332,7 +381,7 @@ pub(super) fn hint_panel(
         .spawn((
             HintPanelWords,
             Text::new(text),
-            tf(&fonts, metrics.small),
+            tf(fonts, metrics.small),
             TextColor(palette::INK),
             Pickable::IGNORE,
         ))
@@ -350,4 +399,130 @@ pub(super) fn despawn_hint(
         commands.entity(entity).try_despawn();
     }
     *hinted = Hinted::default();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::input_focus::{FocusCause, InputFocus};
+    use bevy::state::app::StatesPlugin;
+
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn hint_waits_for_layout_clears_over_table_and_skips_hud_hints_in_duels() {
+        let (mut app, fonts) = crate::shellkit::header::tests::layout_app();
+        app.add_plugins(StatesPlugin)
+            .init_state::<DuelPhase>()
+            .init_resource::<Hinted>()
+            .init_resource::<InputFocus>()
+            .insert_resource(LobbyState::from_settings(
+                crate::settings::ClientSettings::default(),
+            ))
+            .insert_resource(fonts)
+            .add_systems(Update, (hint_hovers, hint_panel).chain());
+
+        // Spawn a Disabled control with HoverHint and focus it BEFORE PostUpdate layout.
+        let btn = app
+            .world_mut()
+            .spawn((
+                Node {
+                    left: px(240),
+                    top: px(160),
+                    width: px(120),
+                    height: px(40),
+                    position_type: PositionType::Absolute,
+                    ..default()
+                },
+                crate::shellkit::controls::Disabled,
+                HoverHint("Choose a gateway first".to_string()),
+            ))
+            .id();
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(btn, FocusCause::Navigated);
+
+        // Run only `Update` once before layout has computed `btn`'s size: must NOT pin at (8, 18).
+        bevy::ecs::system::RunSystemOnce::run_system_once(app.world_mut(), hint_hovers).unwrap();
+        bevy::ecs::system::RunSystemOnce::run_system_once(app.world_mut(), hint_panel).unwrap();
+        app.world_mut().flush();
+        assert_eq!(
+            app.world_mut()
+                .query_filtered::<Entity, With<HintPanel>>()
+                .iter(app.world())
+                .count(),
+            0,
+            "HintPanel waits for layout instead of spawning at top-left (8px, 18px)"
+        );
+
+        // Full frame runs PostUpdate layout, then the next frame spawns HintPanel at `btn`.
+        app.update();
+        app.update();
+        let panel = app
+            .world_mut()
+            .query_filtered::<&Node, With<HintPanel>>()
+            .single(app.world())
+            .expect("HintPanel spawned once laid out");
+        assert!(
+            matches!(panel.top, Val::Px(y) if y > 180.0),
+            "HintPanel anchors below the laid-out control ({:?})",
+            panel.top
+        );
+
+        // Entering a duel (with Settings closed) clears Hinted and despawns HintPanel,
+        // and subsequent frames over the 3D table do not mutate Hinted at rest.
+        app.world_mut()
+            .resource_mut::<NextState<DuelPhase>>()
+            .set(DuelPhase::Playing);
+        app.update();
+        app.update();
+        assert_eq!(
+            app.world_mut()
+                .query_filtered::<Entity, With<HintPanel>>()
+                .iter(app.world())
+                .count(),
+            0,
+            "HintPanel never stays stranded over the 3D table"
+        );
+        let rest_tick = app
+            .world()
+            .get_resource_ref::<Hinted>()
+            .map(|r| r.last_changed());
+        app.update();
+        assert_eq!(
+            app.world()
+                .get_resource_ref::<Hinted>()
+                .map(|r| r.last_changed()),
+            rest_tick,
+            "resting duel frame does not mutate Hinted"
+        );
+
+        // Even when Report is open over the table, controls carrying `hud::Hint` (social)
+        // are skipped by `hint_hovers` so two tooltips never stack.
+        let mut desk = crate::report::ReportDesk::default();
+        desk.open = true;
+        app.insert_resource(desk);
+        let dual_btn = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px(80),
+                    height: px(32),
+                    ..default()
+                },
+                crate::shellkit::controls::Disabled,
+                HoverHint("Social hint".to_string()),
+                crate::hud::Hint("Social hint".to_string()),
+            ))
+            .id();
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(dual_btn, FocusCause::Navigated);
+        app.update();
+        app.update();
+        assert!(
+            app.world().resource::<Hinted>().source.is_none(),
+            "dual HoverHint + hud::Hint control defers to HUD tooltip in duels"
+        );
+    }
 }

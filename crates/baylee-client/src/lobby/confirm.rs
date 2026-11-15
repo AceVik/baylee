@@ -200,6 +200,7 @@ pub(super) fn draw(
         Destructive::SignOutGuest { to_gateways: true } => Phrase::ShellSwitchGateway,
         _ => Phrase::ConfirmOk,
     };
+    let can_confirm = !state.lobby.busy();
     let yes = split_button(
         commands,
         fonts,
@@ -207,8 +208,14 @@ pub(super) fn draw(
         yes_phrase.text(lang),
         Press::Shared(SharedPress::ConfirmDestructive),
         SplitTone::Danger,
-        !state.lobby.busy(),
+        can_confirm,
     );
+    if !can_confirm {
+        commands.entity(yes).insert((
+            crate::shellkit::controls::Disabled,
+            super::hint::HoverHint(Phrase::VeilTalking.text(lang).to_string()),
+        ));
+    }
     let actions = dialog_actions(commands, &[cancel, yes]);
     commands.entity(panel).add_children(&[head, hint, actions]);
 }
@@ -256,6 +263,7 @@ fn draw_proposal(
         SplitTone::Neutral,
         true,
     );
+    let can_add = !state.lobby.busy() && state.adding.is_none();
     let add = split_button(
         commands,
         fonts,
@@ -263,8 +271,14 @@ fn draw_proposal(
         Phrase::LinkGatewayAdd.text(lang),
         Press::Shared(SharedPress::ConfirmDestructive),
         SplitTone::Accent,
-        !state.lobby.busy() && state.adding.is_none(),
+        can_add,
     );
+    if !can_add {
+        commands.entity(add).insert((
+            crate::shellkit::controls::Disabled,
+            super::hint::HoverHint(Phrase::VeilTalking.text(lang).to_string()),
+        ));
+    }
     let actions = dialog_actions(commands, &[not_now, add]);
     commands
         .entity(panel)
@@ -732,6 +746,12 @@ fn split_button(
             },
             Sheen,
         ));
+    } else {
+        node.insert((
+            Pickable::default(),
+            bevy::picking::hover::PickingInteraction::default(),
+            crate::shellkit::controls::Disabled,
+        ));
     }
     let id = node
         .with_child((
@@ -831,6 +851,7 @@ pub(super) fn draw_deletion(
         SplitTone::Neutral,
         true,
     );
+    let can_delete = !lobby.busy();
     let yes = split_button(
         commands,
         fonts,
@@ -838,8 +859,14 @@ pub(super) fn draw_deletion(
         Phrase::DeleteAccountConfirm.text(lang),
         Press::Settings(SettingsPress::ConfirmAccountDeletion),
         SplitTone::Danger,
-        !lobby.busy(),
+        can_delete,
     );
+    if !can_delete {
+        commands.entity(yes).insert((
+            crate::shellkit::controls::Disabled,
+            super::hint::HoverHint(Phrase::VeilTalking.text(lang).to_string()),
+        ));
+    }
     let actions = dialog_actions(commands, &[cancel, yes]);
     commands.entity(panel).add_child(actions);
 }
