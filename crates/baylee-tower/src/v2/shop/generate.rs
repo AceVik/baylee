@@ -66,7 +66,9 @@ impl Shop {
             next_id: previous.map_or(1, |shop| shop.next_id),
             offers: previous.map_or_else(Vec::new, |shop| shop.offers.clone()),
             mythic_choice: stage == 7,
+            frozen: previous.is_some_and(|shop| shop.frozen),
         };
+        shop.check_stock(stock)?;
         shop.refill(seed, stock)?;
         if !shop
             .offers
@@ -80,9 +82,13 @@ impl Shop {
                     }
                     _ => true,
                 })
+                .filter(|goods| generator != generation::RUN || !matches!(goods, Goods::Card(_)))
                 .filter(|goods| goods.admitted(stage) && goods.usable(stock))
                 .min_by_key(|goods| goods.price(stock.catalog).unwrap_or(u16::MAX))
-            && let Some(slot) = shop.offers.iter().position(|offer| !offer.pinned)
+            && let Some(slot) = shop
+                .offers
+                .iter()
+                .position(|offer| !offer.pinned && !shop.frozen)
         {
             shop.offers[slot] = shop.allocate(goods)?;
         }
@@ -95,7 +101,7 @@ impl Shop {
             if self
                 .offers
                 .get(slot)
-                .is_some_and(|offer| offer.pinned && !offer.sold)
+                .is_some_and(|offer| (offer.pinned || self.frozen) && !offer.sold)
             {
                 continue;
             }
@@ -112,7 +118,7 @@ impl Shop {
 
     fn select(&self, seed: &[u8; 32], slot: u8, stock: Stock<'_>) -> Result<Goods, Refusal> {
         let random = score(seed, self.stage, self.rerolls, slot, 0);
-        if slot < if self.generator == 1 { 3 } else { 2 } {
+        if self.generator != generation::RUN && slot < if self.generator == 1 { 3 } else { 2 } {
             if let Some(card) = stock
                 .catalog
                 .cards
@@ -146,7 +152,7 @@ impl Shop {
         // A bounded third of new-generation relic offers follows an owned family.
         // Canonical catalog order, not item order or active/reserve placement.
         // Selection never reads an opponent and never rewrites already saved stock.
-        if matches!(self.generator, 2 | 3) && random[3] < 85 {
+        if matches!(self.generator, 2 | 3 | generation::RUN) && random[3] < 85 {
             let owned: Vec<_> = families
                 .iter()
                 .copied()

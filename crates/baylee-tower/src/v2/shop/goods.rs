@@ -96,6 +96,9 @@ impl Goods {
             Self::Potion(potion) => economy.bought_potion(potion).is_ok(),
             Self::Mythic => economy.bought_material().is_ok(),
             Self::Relic(definition) => {
+                if economy.inventory.layout == crate::v2::inventory::Layout::Run {
+                    return economy.bought_automatic(definition).is_ok();
+                }
                 if (0..3)
                     .map(Slot::Active)
                     .chain((0..6).map(Slot::Reserve))

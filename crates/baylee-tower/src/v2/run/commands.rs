@@ -48,6 +48,11 @@ pub enum Command {
     },
     /// Pay the saved visit's next 2/3/4-gold refresh.
     Refresh {},
+    /// Preserve all unsold shelf items across rerolls and later shop visits.
+    Freeze {
+        /// Desired persistent shelf state.
+        frozen: bool,
+    },
     /// Replace one utility slot with the full-price stage-seven material offer.
     ChooseMythic {
         /// Utility slot six or seven.
@@ -92,6 +97,7 @@ impl Run {
             Command::Refresh {} => {
                 (next.shop, next.economy) = self.shop.refreshed(seed, self.stock(catalog))?;
             }
+            Command::Freeze { frozen } => next.shop = self.shop.frozen(*frozen, catalog)?,
             Command::ChooseMythic {
                 slot,
                 replace_pinned,

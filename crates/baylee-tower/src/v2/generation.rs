@@ -3,6 +3,10 @@ use super::catalog::{Definition, Family};
 use crate::Refusal;
 use baylee_core::preset::AIProfile;
 
+/// Independent equipment, six active slots and the Commander run shop.
+/// Registered separately while its native executor is integrated.
+pub const RUN: u16 = 4;
+
 const FIRST: [Family; 4] = [
     Family::Heartwood,
     Family::Satchel,
@@ -72,6 +76,10 @@ pub const fn contract(generation: u16) -> Result<Contract, Refusal> {
             revision: 4,
             ai_generation: AIProfile::OPTIONAL_TOKEN_SATURATION,
         }),
+        RUN => Ok(Contract {
+            revision: 5,
+            ai_generation: AIProfile::OPTIONAL_TOKEN_SATURATION,
+        }),
         _ => Err(Refusal::Invalid),
     }
 }
@@ -99,7 +107,7 @@ pub fn families(generation: u16) -> Result<&'static [Family], Refusal> {
     match generation {
         1 => Ok(&FIRST),
         2 => Ok(&LIFE_WORKSHOP),
-        3 => Ok(&TOKEN_WORKSHOP),
+        3 | RUN => Ok(&TOKEN_WORKSHOP),
         _ => Err(Refusal::Invalid),
     }
 }

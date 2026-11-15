@@ -71,6 +71,9 @@ pub struct Shop {
     pub offers: Vec<Offer>,
     /// One stage-seven choice, closed by choosing or the first shop transaction.
     pub mythic_choice: bool,
+    /// Run-wide shelf freeze; bought slots still refill. Absent in legacy bytes.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub frozen: bool,
 }
 
 impl Shop {
@@ -81,10 +84,16 @@ impl Shop {
         catalog.validate()?;
         super::generation::families(self.generator)?;
         if !(1..=MAX_STAGES).contains(&self.stage)
-            || self.rerolls > REROLLS
+            || (self.generator < super::generation::RUN && self.rerolls > REROLLS)
             || self.next_id == 0
             || self.offers.len() != OFFERS
             || self.offers.iter().filter(|offer| offer.pinned).count() > PINS
+            || (self.generator < super::generation::RUN && self.frozen)
+            || (self.generator == super::generation::RUN
+                && self
+                    .offers
+                    .iter()
+                    .any(|offer| offer.pinned || matches!(offer.goods, Goods::Card(_))))
             || (self.mythic_choice
                 && (self.stage != 7
                     || self.rerolls != 0
@@ -113,7 +122,21 @@ impl Shop {
 
     /// Fixed next refresh price, or none after the third refresh.
     pub fn reroll_price(&self) -> Option<u16> {
+        if self.generator == super::generation::RUN {
+            return (self.rerolls < u8::MAX
+                && (!self.frozen || self.offers.iter().any(|offer| offer.sold)))
+            .then_some(2 + u16::from(self.rerolls.min(4)));
+        }
         (self.rerolls < REROLLS).then_some(2 + u16::from(self.rerolls))
+    }
+
+    fn check_stock(&self, stock: Stock<'_>) -> Result<(), Refusal> {
+        stock.validate()?;
+        let run = self.generator == super::generation::RUN;
+        if run != (stock.economy.inventory.layout == super::inventory::Layout::Run) {
+            return Err(Refusal::Invalid);
+        }
+        Ok(())
     }
 
     fn allocate(&mut self, goods: Goods) -> Result<Offer, Refusal> {

@@ -85,7 +85,11 @@ impl Run {
         seed: &[u8; 32],
         generator: u16,
     ) -> Result<Self, Refusal> {
-        let economy = Economy::default();
+        let economy = if generator == super::generation::RUN {
+            Economy::for_run()
+        } else {
+            Economy::default()
+        };
         let shop = Shop::open_for(
             generator,
             seed,
@@ -135,8 +139,8 @@ impl Run {
         self.economy.validate()?;
         // New inventory rules are admitted only with their own frozen run
         // generation; legacy publications cannot acquire extra active slots.
-        if self.shop.generator <= 3
-            && self.economy.inventory.layout != super::inventory::Layout::Legacy
+        if (self.shop.generator == super::generation::RUN)
+            != (self.economy.inventory.layout == super::inventory::Layout::Run)
         {
             return Err(Refusal::Invalid);
         }

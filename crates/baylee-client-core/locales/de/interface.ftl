@@ -3733,5 +3733,7 @@ EchoesConfirmMove = { $goods } nach { $destination } verschieben? Ein dort vorha
 EchoesConfirmFuse = Diese Zutaten verbrauchen: { $ingredients }. Das stärkere Relikt kommt nach { $destination }. Verbrauchte Zutaten können nicht zurückgeholt werden.
 EchoesConfirmDeck = Dieses Deck mit { $number } Karten für deine nächste Partie speichern?
 EchoesConfirmPin = { $action }: { $goods }?
+EchoesFreezeConfirm = Regal einfrieren? Nicht gekaufte Gegenstände bleiben beim nächsten Besuch erhalten. Leere Plätze werden aufgefüllt.
+EchoesThawConfirm = Regal auftauen? Beim nächsten Neuwürfeln oder Besuch werden alle Gegenstände neu ausgewürfelt.
 EchoesConfirmRefresh = Für { $price } Gold alle nicht vorgemerkten Angebote ersetzen? Deine Vormerkungen bleiben erhalten.
 EchoesConfirmMythic = Verbrauchsangebot { $number } durch einen Mythic-Trank für 24 Gold ersetzen? Eine vorhandene Vormerkung wird gelöst. Der Trank wird dadurch noch nicht gekauft.

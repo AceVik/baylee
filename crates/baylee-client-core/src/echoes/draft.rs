@@ -102,6 +102,7 @@ impl Draft {
             .iter()
             .find(|offer| Some(offer.id) == self.offer && !offer.sold)?;
         let delivery = match offer.goods {
+            _ if run.shop.generator == domain::v2::generation::RUN => Delivery::Inventory,
             Goods::Relic(_) if !self.ingredients.is_empty() || self.material.is_some() => {
                 Delivery::Fuse(self.recipe())
             }
@@ -163,6 +164,7 @@ pub fn allowed(run: &Run, cohort: &Cohort, command: &Command) -> bool {
         Command::Fuse { recipe } => run.economy.fused(recipe).is_ok(),
         Command::Edit { deck } => run.cards.edited(&cohort.catalog, deck.clone()).is_ok(),
         Command::Pin { offer, pinned } => run.shop.pinned(*offer, *pinned, &cohort.catalog).is_ok(),
+        Command::Freeze { frozen } => run.shop.frozen(*frozen, &cohort.catalog).is_ok(),
         Command::Refresh {} => run
             .shop
             .reroll_price()

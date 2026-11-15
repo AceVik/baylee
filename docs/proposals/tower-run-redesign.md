@@ -256,4 +256,13 @@ Always stop owned test processes and verify listeners close.
   published generation. Fourteen focused economy tests passed, including rollback,
   legacy byte identity, 30 stored items, slot/ID aliases and fusion placement;
   tower library/test strict Clippy passed (7.38 s test build, <0.01 s tests).
+- Shop foundation: the separately registered, not-yet-default generation four
+  sells six equipment and two supply offers; duplicate offers are intentional.
+  Relic purchases always use automatic fusion. A persistent shelf switch retains
+  unsold identities and refills purchased slots; a fully frozen shelf cannot
+  charge a reroll. New rerolls cost 2/3/4/5/6 gold, then stay at 6. The first
+  fourteen scoped shop tests passed (0.16 s), including exact byte digests for
+  both older offer streams, persistent freeze, sold-slot refill and atomic gold.
+  Tower library/test strict Clippy passed. Native generation-five equipment and
+  Commander admission must be integrated before making generation four default.
 

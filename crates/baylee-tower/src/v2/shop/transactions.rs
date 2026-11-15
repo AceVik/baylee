@@ -18,7 +18,7 @@ impl Shop {
     /// Stale offer, incorrect delivery, insufficient gold or invalid resulting inventory.
     pub fn buy(&self, id: u32, delivery: &Delivery, stock: Stock<'_>) -> Result<Purchase, Refusal> {
         self.validate(stock.catalog)?;
-        stock.validate()?;
+        self.check_stock(stock)?;
         let index = self
             .offers
             .iter()
@@ -38,10 +38,19 @@ impl Shop {
                     .checked_sub(self.offers[index].goods.price(stock.catalog)?)
                     .ok_or(Refusal::Gold)?;
             }
-            (Goods::Relic(definition), Delivery::Slot(slot)) => {
+            (Goods::Relic(definition), Delivery::Inventory)
+                if self.generator == crate::v2::generation::RUN =>
+            {
+                next.economy = next.economy.bought_automatic(definition)?;
+            }
+            (Goods::Relic(definition), Delivery::Slot(slot))
+                if self.generator != crate::v2::generation::RUN =>
+            {
                 next.economy = next.economy.bought(definition, *slot)?;
             }
-            (Goods::Relic(definition), Delivery::Fuse(recipe)) => {
+            (Goods::Relic(definition), Delivery::Fuse(recipe))
+                if self.generator != crate::v2::generation::RUN =>
+            {
                 next.economy = next.economy.bought_and_fused(definition, recipe)?;
             }
             (Goods::Potion(potion), Delivery::Inventory) => {
@@ -71,6 +80,9 @@ impl Shop {
         catalog: &crate::cards::Catalog,
     ) -> Result<Self, Refusal> {
         self.validate(catalog)?;
+        if self.generator == crate::v2::generation::RUN {
+            return Err(Refusal::Unavailable);
+        }
         let mut next = self.clone();
         let offer = next
             .offers
@@ -90,12 +102,12 @@ impl Shop {
     /// Refresh limit, insufficient gold or invalid stored state.
     pub fn refreshed(&self, seed: &[u8; 32], stock: Stock<'_>) -> Result<(Self, Economy), Refusal> {
         self.validate(stock.catalog)?;
-        stock.validate()?;
+        self.check_stock(stock)?;
         let price = self.reroll_price().ok_or(Refusal::Unavailable)?;
         let mut economy = stock.economy.clone();
         economy.gold = economy.gold.checked_sub(price).ok_or(Refusal::Gold)?;
         let mut next = self.clone();
-        next.rerolls += 1;
+        next.rerolls = next.rerolls.checked_add(1).ok_or(Refusal::Capacity)?;
         next.mythic_choice = false;
         next.refill(
             seed,
@@ -106,6 +118,20 @@ impl Shop {
         )?;
         next.validate(stock.catalog)?;
         Ok((next, economy))
+    }
+
+    /// Keep every unsold offer across visits until explicitly unfrozen.
+    /// # Errors
+    /// Invalid saved shop or a legacy generation with per-offer pins instead.
+    pub fn frozen(&self, frozen: bool, catalog: &crate::cards::Catalog) -> Result<Self, Refusal> {
+        self.validate(catalog)?;
+        if self.generator != crate::v2::generation::RUN {
+            return Err(Refusal::Unavailable);
+        }
+        let mut next = self.clone();
+        next.frozen = frozen;
+        next.mythic_choice = false;
+        Ok(next)
     }
 
     /// One full-price stage-seven material offer replaces a chosen utility slot.

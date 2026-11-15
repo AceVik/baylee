@@ -9994,6 +9994,8 @@ EchoesConfirmFuse = Consume these ingredients: { $ingredients }. The stronger re
 EchoesConfirmDeck = Save this { $number }-card deck for your next duel?
 # Arguments: goods, action
 EchoesConfirmPin = { $action }: { $goods }?
+EchoesFreezeConfirm = Freeze the shelf? Unsold items stay for your next visit. Empty slots refill.
+EchoesThawConfirm = Unfreeze the shelf? All items will roll again on your next refresh or visit.
 # Arguments: price
 EchoesConfirmRefresh = Spend { $price } gold to replace every unpinned offer? Your pins remain in place.
 # Arguments: number

@@ -257,6 +257,13 @@ pub(super) fn command(command: &Command, ui: &Ui, lang: Lang) -> String {
         ),
         Command::Refresh {} => Phrase::EchoesConfirmRefresh
             .fill(lang, &[&run.shop.reroll_price().unwrap_or(0).to_string()]),
+        Command::Freeze { frozen } => if *frozen {
+            Phrase::EchoesFreezeConfirm
+        } else {
+            Phrase::EchoesThawConfirm
+        }
+        .text(lang)
+        .to_owned(),
         Command::ChooseMythic { slot, .. } => {
             Phrase::EchoesConfirmMythic.fill(lang, &[&(*slot + 1).to_string()])
         }
