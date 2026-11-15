@@ -1,0 +1,212 @@
+# Tower market and expanded item catalog
+
+15 November 2026, owner-requested direction for the next implementation passes.
+This is a researched design, **not implemented content or balance evidence**.
+The shipped vertical slice still has four relic families, two ordinary potions
+and one Mythic crafting material. Its seven original portraits are implemented.
+This supplement replaces the earlier approximate twelve-family content target;
+it does not mutate the saved generation-one contract.
+
+## Reference images and observations
+
+The owner requested Oaken Tower references. These links were found and the first
+two images were visually inspected in the browser on 15 November:
+
+- [Developer Steam gallery](https://store.steampowered.com/app/3400960/Oaken_Tower/),
+  [shop image](https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/3400960/7a7223b264c96927801cc0ff5f4285e4e7985ff5/ss_7a7223b264c96927801cc0ff5f4285e4e7985ff5.1920x1080.jpg?t=1773406124):
+  equipped build at left, priced merchandise in the center/right, reroll beside
+  stock, visible reserve inventory below. Short run counters occupy the top.
+- [Q3 update reproduction on the community site](https://www.oaken.gg/news/q3-update-v0-6),
+  [collection image](https://www.oaken.gg/img/news/ca3e65053c5aef602357dd2f9462b8814a52d822.png):
+  items grouped by theme, consistent silhouettes, visible prices and rarity
+  filters. This is a collection browser, not the in-run reserve.
+- [Shop mechanics reference](https://oakentower.wiki.gg/wiki/Shop): the indexed
+  community description reports new stock each in-game day, gold rerolls and
+  freezing. Its exact prices are version-dependent and are not Baylee's prices.
+  The full page returned HTTP 403; the search index supplied these mechanics.
+- [Developer announcements](https://steamcommunity.com/app/3400960/announcements/):
+  recent readability work highlights item/potion keywords. This supports using
+  short, inspectable effects without repeating every full rule on each tile.
+
+The reference assets are not copied into Baylee or used as generation inputs.
+Baylee keeps its original 3D-style illustrations, native typography and material
+frames. We borrow the information hierarchy, not pixel art, item definitions or
+the real-time auto-battle rules. The observed Steam screenshot is an example of
+layout, not proof of the latest release's exact slot count or prices.
+
+Current Baylee evidence: `/tmp/baylee-tower-portraits-compact-20261115-r3.png`
+at 1280 × 720 shows the large run header and selected-item panel occupying the
+viewport before the stock list. Inventory is on another tab and paid reroll is
+below all eight offers. Better portraits alone do not correct that hierarchy.
+
+## One market workbench
+
+| Area | Visible information and actions |
+| --- | --- |
+| Compact run strip | Stage, wins, remaining defeats, gold; history opens on demand |
+| Equipped build | Three active slots and derived life/hand/mulligan values; reserved items clearly do not contribute |
+| Stock | Eight equal tiles in a regular grid, original portrait, short name, rarity, price, pinned/sold state and matching-owned count |
+| Stock toolbar | Gold and `Reroll · N gold`, next refresh cost and pin count beside the offers |
+| Reserve dock | Six visible reserve slots, potion charges and separate crafting materials; empty slots remain visible |
+| Inspector | One selected item, full effect, source/counterplay, four-tier comparison, purchase destination and fusion result |
+| Footer | Deck validity and the primary `Next duel` action; abandon is secondary and separated from buying/rerolling |
+
+At wide desktop widths, equipment, stock and inspector sit side by side, with
+the reserve under stock. At narrower available widths the inspector becomes a
+drawer; it must not precede and push all stock below the fold. Breakpoints use
+the actual space remaining after the social panel, not physical screen width.
+The stock toolbar and next-duel action remain reachable without scrolling long
+rules. Long descriptions/history scroll inside their own panel. Ordinary shop
+navigation does not silently close the user's chat or reset their deck draft.
+
+Interaction refinements:
+
+- Clicking the item itself selects it; keyboard focus opens the same inspector.
+  Avoid separate repeated `Inspect` buttons on every tile.
+- The inspector always shows total cost, destination and actual resulting stats.
+  A clearly labeled purchase submits once; do not put a second generic review
+  dialog in front of every low-cost purchase or reroll. Selling, abandonment and
+  consequential fusion keep explicit result previews/confirmation.
+- An affordable reroll spends gold and replaces only unpinned offers. Show sold
+  placeholders until refresh so stock does not jump around after a purchase.
+- Pins are visible on the tile and survive eligible refresh/next-shop creation.
+  Never silently unpin an unaffordable item or sell reserve contents.
+- Show matching copies as `1/3`, `2/3` or a ready fusion indicator. For Rare show
+  the owned/missing Mythic Potion instead of implying three Rares are needed.
+- Inventory grouping/sorting changes presentation only. Equipment assignments,
+  owned IDs and paid basis cannot change during a visual sort.
+- Buying into a full inventory offers a legal explicit buy-and-fuse when one
+  exists. Otherwise explain the required free slot without inventing a purchase.
+- Dragging can supplement click/keyboard placement later; it must not be the
+  only way to equip, sell, combine or use a consumable.
+- Rarity uses frame geometry, a written tier and restrained motion as well as
+  color. Reduced-motion settings preserve all information.
+
+Acceptance scenes: empty start, stocked reserve, ready Common fusion, Rare plus
+Mythic Potion, insufficient gold, pinned/sold stock, uncertain server response
+and completed run. Inspect 1280 × 720 and 1440 × 900, with long German names and
+the social panel both open and closed. Check pointer/keyboard access and pending
+request fencing. No per-frame rebuilding, asset loading or material uploads.
+
+## Expanded catalog: 24 distinct families
+
+Target: **24 mechanical families**, each with Common, Uncommon, Rare and Mythic
+Rare forms. That means 24 distinct ideas and up to 96 tier definitions, not 96
+unrelated items. The four existing families remain recognizable. The following
+twenty additions are candidates; exact triggers, optional costs, quantities,
+prices and AI policies must be frozen and tested before admission.
+
+| Theme | Family | Mechanical identity / build contribution |
+| --- | --- | --- |
+| Foundation | Heartwood, existing | Starting life; survivability while assembling a build |
+| Foundation | Satchel, existing | Opening cards and hand capacity, within explicit setup limits |
+| Foundation | Compass, existing | Free London mulligans; consistency rather than permanent power |
+| Foundation | Grove, existing | Removable upkeep source producing Plants |
+| Life | Quellkelch | Upkeep life gain as a dependable recurring trigger |
+| Life | Herdstein | Own creature entry gains life; joins creatures and token engines |
+| Life | Blutbernstein | Life gain charges an artifact; spending its counters fuels damage |
+| Life | Lebensspule | Optional life payment for a bounded resource benefit; actual Magic payment rules remain authoritative |
+| Tokens | Saatwiege | Life gain offers a mana payment to create a Plant; player may decline |
+| Tokens | Schwarmbanner | Improves token combat; turns a large board into a plan to win |
+| Tokens | Ernterad | Own token deaths feed mana, with explicit color and timing |
+| Tokens | Wurzelspeicher | Token entries store resources; a high-tier native definition can complete a recurring mana loop |
+| Spells | Glutfeder | Casting noncreature spells triggers damage through the ordinary stack |
+| Spells | Sternensanduhr | Spell events provide scrying/setup, without drawing for free on every event |
+| Spells | Resonanzspule | Multi-spell turns unlock a defined mana rebate; the threshold is explicit |
+| Spells | Archivlinse | Spell events accumulate counters that can be spent to draw |
+| Combat/counters | Saatensiegel | Own land entries grow a chosen creature through ordinary counters |
+| Combat/counters | Rudelhorn | Attacking with a group rewards board development |
+| Combat/counters | Dornenpanzer | Blocking supports a chosen defender, with explicit duration/target |
+| Combat/counters | Dämmerungsstandarte | A removable source supports vigilance/attack resilience |
+| Graveyard | Erinnerungsurne | Own nontoken creature death offers a payment to draw |
+| Graveyard | Knochenlaterne | Own creature deaths improve the next draw via scrying |
+| Graveyard | Gruftschlüssel | Paid, tap-limited creature recovery to hand; no hidden free reanimation |
+| Graveyard | Aschengefäß | Consumes own graveyard cards to build a resource reserve |
+
+Do not solve every tier with a larger number. Common establishes the function,
+Uncommon improves efficiency, Rare makes a build commitment worthwhile and Mythic
+can add a precisely defined new interaction. Multiple Common copies can remain
+useful compared with a single upgraded copy; every preview shows the slot trade.
+No unpriced automatic source of permanent hand size or opening mana is admitted.
+
+Two intended build paths illustrate distinct play patterns:
+
+1. Herdstein + Saatwiege + a high-tier Wurzelspeicher: a token starts life gain,
+   life gain offers the optional mana-to-token step, and the final piece supplies
+   that mana. The exact loop needs three active slots, setup and a rare enabler;
+   opponents can remove its ordinary sources. The player can decline continuation.
+2. Grove + Ernterad + Erinnerungsurne: growing a board supplies resources when
+   tokens die; actual creature cards can supply paid card advantage. The words
+   `token` and `nontoken` matter: the urn must not accidentally draw for token
+   deaths merely because the family is tagged as synergistic.
+
+## Consumables and permanent discovery
+
+Target eight distinct one-use duel potions: existing Healing and Mana, plus
+candidates for scrying, a small token, a temporary creature boost, temporary
+protection, graveyard recovery and paid card selection. Specify legal targets,
+priority, mana-ability status and failure behavior individually. Keep the Mythic
+crafting potion separate. Do not add free pregame redraws through a charge that
+can be consumed only after ordinary game actions start.
+
+All carried charges, crafted items and stock expire with the run. A permanent
+discovery book can retain found tiers, first successful fusion, best run and
+victories with each family. Those records unlock display treatments/badges only,
+never extra starting gold, hidden shop luck or stronger next-run equipment.
+
+## Finding combinations in a larger pool
+
+Increasing the pool from four to 24 while keeping the same sparse shop makes
+three-copy fusion substantially harder. Content expansion therefore needs a
+generator experiment, not just extending an enum.
+
+Compare two frozen candidate schedules using actual generated shops and budgets:
+
+1. Four relic offers, two cards and two utilities; a bounded proportion of relic
+   offers prefer an already owned family while the remainder explores the full
+   pool. No opponent knowledge, guaranteed win combo or caller-provided weight.
+2. A declared, run-frozen smaller pool assembled from thematic packs plus the
+   foundation families. Any selection must be visible before enrollment and
+   cannot be changed by reconnecting, swapping gateways or losing.
+
+Prefer the least complex schedule that supplies both useful copies and genuine
+pivots. Measure time/gold to first Uncommon, first Rare and a Mythic opportunity,
+unusable-offer rate, refresh spend, family variety and inventory pressure. Include
+save-for-fusion and pivot policies; an omniscient optimizer is not a human proxy.
+Keep deterministic seeds, candidate sets and budgets in reproducible Rust tools.
+
+The current three-refresh cap and 2/3/4 prices are generation-one facts. For the
+expanded catalog, evaluate further affordable refreshes with visible increasing
+cost, e.g. 2/3/4/5/... per visit. Distinguish an economy limit from service rate
+limits; do not silently present a transport refusal as exhausted shop stock.
+No reroll change is admitted to old runs, and counters/identities stay bounded.
+
+Every verified nonterminal duel returns to a fresh shop and grants the base
+income exactly once. A terminal duel opens the result summary instead. Resumption
+reads saved stock, and early abandonment retains the existing anti-reroll seed
+rule. Free refresh through repeated `Start` or repeated settlement stays invalid.
+
+## Safe implementation order
+
+1. Replace the current vertically stacked shop with the shared workbench using
+   the existing catalog and authoritative commands. Visually verify the above
+   scenes before expanding gameplay; the redesigned screen is not done on compile.
+2. Freeze native definitions for the first synergy families. Add original art,
+   four-tier rules text and Expert AI handling in the same admitted milestone.
+   Test real engine events, removal, optional choices, targeting, ordinary costs,
+   repetition and an echo piloted by the matching AI policy.
+3. Calibrate the full pool and revised refresh/offer schedule. Admit it under new
+   generation/pack/AI contracts as needed. Retain old executable identities and
+   admit old cohorts explicitly; `Cohort::validate` currently compares the current
+   AI generation, which must not invalidate old runs when the AI is extended.
+4. Expand to all 24 families and the potion set only as each complete definition
+   passes its changed-surface checks. No enum-only or picture-only placeholder
+   counts as a playable item. Do not require whole-engine suites per addition.
+5. Verify exact income/new stock after a real duel, paid refresh/pins across
+   restart, a full-inventory purchase/fusion, no transfer into a new run, and a
+   manual multi-stage playthrough for difficulty. Reuse existing unchanged-path
+   evidence and do not wait for CI.
+
+This research pass ran no additional engine/client suite or game services.
+The separate run-local persistence regression and its successful isolated
+PostgreSQL/Clippy evidence are recorded in preparation milestone 66.

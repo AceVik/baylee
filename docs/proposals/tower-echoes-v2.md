@@ -189,10 +189,14 @@ to different people; do not claim Sybil resistance from account IDs alone.
 
 ## 4. Content and counterplay
 
-The first full catalog should cover about twelve relic families, four rarities,
-ordinary potions and the Mythic Potion. Freeze exact rules and prices before
-admitting each family; a four-rarity label cannot stand in for unimplemented rules.
-The first complete vertical slice uses a smaller fully supported subset.
+After the owner's 15 November request for substantially more items and a clearer
+Oaken-style market, the full catalog target is 24 distinct relic families, four
+rarities, eight ordinary potion types and the separate Mythic Potion. The
+[market/content supplement](tower-echoes-market.md) records the inspected image
+references, shared shop/inventory layout, candidate families and acquisition
+experiments. This is a target, not implemented content. Freeze exact rules and
+prices before admitting each family; a four-rarity label cannot stand in for
+unimplemented rules. The current complete vertical slice uses four families.
 
 Families support token growth, life conversion, spells/resources, and resilient
 combat. Utility families add start life, bounded free mulligans, opening/maximum
