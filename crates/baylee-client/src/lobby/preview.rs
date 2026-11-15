@@ -375,7 +375,7 @@ pub(super) fn preview(
             if !p.closing {
                 p.closing = true;
                 p.takes_pointer = false;
-                commands.entity(entity).insert(Pickable::IGNORE);
+                commands.entity(entity).try_insert(Pickable::IGNORE);
             }
         }
         return;
@@ -386,14 +386,14 @@ pub(super) fn preview(
             if !p.closing {
                 p.closing = true;
                 p.takes_pointer = false;
-                commands.entity(entity).insert(Pickable::IGNORE);
+                commands.entity(entity).try_insert(Pickable::IGNORE);
             }
         }
         return;
     }
     let warm = existing.iter().any(|(_, p)| !p.closing);
     for (entity, _) in &existing {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
     let (Some(mut cache), Some(mut store)) = (ui_materials, material_assets) else {
         return;
@@ -528,12 +528,12 @@ pub(super) fn animate_preview(
     for (entity, mut preview, flip, mut transform, mut shadow) in &mut previews {
         if preview.closing {
             if still || dt <= 0.0 {
-                commands.entity(entity).despawn();
+                commands.entity(entity).try_despawn();
                 continue;
             }
             preview.appear = (preview.appear - dt * 11.5).max(0.0);
             if preview.appear <= 0.01 {
-                commands.entity(entity).despawn();
+                commands.entity(entity).try_despawn();
                 continue;
             }
         } else if still || dt <= 0.0 {
@@ -620,7 +620,7 @@ fn place(at: Vec2, canvas: Vec2) -> Rect {
 /// Takes the preview down when the builder does.
 pub(super) fn despawn_preview(mut commands: Commands, previews: Query<Entity, With<CardPreview>>) {
     for entity in previews {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
 }
 

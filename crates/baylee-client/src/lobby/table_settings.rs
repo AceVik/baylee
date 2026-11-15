@@ -177,7 +177,7 @@ pub(crate) fn draw(
     if !state.settings_over_table() {
         if !roots.is_empty() {
             for root in &roots {
-                commands.entity(root).despawn();
+                commands.entity(root).try_despawn();
             }
         }
         *drawn = None;
@@ -209,7 +209,7 @@ pub(crate) fn draw(
         return;
     }
     for root in &roots {
-        commands.entity(root).despawn();
+        commands.entity(root).try_despawn();
     }
     let shell_m = crate::shellkit::ShellMetrics::under(
         crate::shellkit::Viewport {

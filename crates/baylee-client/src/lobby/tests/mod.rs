@@ -42,6 +42,7 @@ mod sign_in;
 mod table_settings;
 mod tables;
 mod transfer;
+mod visibility;
 
 #[allow(clippy::wildcard_imports)]
 use super::*;

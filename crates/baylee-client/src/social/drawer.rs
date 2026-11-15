@@ -251,7 +251,7 @@ fn clear_the_lane(
                 right: node.right,
                 bottom: node.bottom,
             };
-            commands.entity(lane).insert(base);
+            commands.entity(lane).try_insert(base);
             base
         });
         let (Val::Px(right), Val::Px(bottom)) = (base.right, base.bottom) else {
@@ -451,7 +451,7 @@ fn slide_the_drawer(
             if margin > 0.0 {
                 let base = squeezed.map_or(node.width, |s| s.0);
                 if squeezed.is_none() {
-                    commands.entity(*kid).insert(Squeezed(node.width));
+                    commands.entity(*kid).try_insert(Squeezed(node.width));
                 }
                 let (width, right) = match base {
                     // The margin too: a parent that centres its children
@@ -471,7 +471,7 @@ fn slide_the_drawer(
             } else if let Some(Squeezed(width)) = squeezed {
                 node.width = *width;
                 node.margin.right = Val::ZERO;
-                commands.entity(*kid).remove::<Squeezed>();
+                commands.entity(*kid).try_remove::<Squeezed>();
             }
         }
     }
@@ -2065,14 +2065,14 @@ fn sync_context_menu(
     let _zoom = super::zoom::Scope::new(zoom.0);
     let Some(target) = ui.drawer_menu.as_ref().filter(|_| ui.drawer) else {
         for root in &roots {
-            commands.entity(root).despawn();
+            commands.entity(root).try_despawn();
         }
         *drawn = None;
         return;
     };
     let Some(machine) = host.machine() else {
         for root in &roots {
-            commands.entity(root).despawn();
+            commands.entity(root).try_despawn();
         }
         *drawn = None;
         return;
@@ -2096,7 +2096,7 @@ fn sync_context_menu(
     }
     *drawn = Some(menu_key);
     for root in &roots {
-        commands.entity(root).despawn();
+        commands.entity(root).try_despawn();
     }
     let header_title: String;
     let header_sub: String;

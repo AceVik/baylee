@@ -148,9 +148,9 @@ pub(super) fn load(
             && let (Some(materials), Some(store)) = (materials.as_deref_mut(), store.as_deref_mut())
         {
             let material = materials.preview(&thumb.0, thumb.1, handle, store);
-            commands.entity(entity).insert(MaterialNode(material));
+            commands.entity(entity).try_insert(MaterialNode(material));
         } else {
-            commands.entity(entity).insert(ImageNode::new(handle));
+            commands.entity(entity).try_insert(ImageNode::new(handle));
         }
     }
 }
@@ -322,12 +322,12 @@ pub(super) fn load_art(
         let first = !cache.seen.contains(&band.0);
         cache.seen.insert(band.0.clone());
         if first && !prefs.all().reduce_motion {
-            commands.entity(entity).insert((
+            commands.entity(entity).try_insert((
                 ImageNode::new(handle).with_color(Color::WHITE.with_alpha(0.0)),
                 ArtFade(0.0),
             ));
         } else {
-            commands.entity(entity).insert(ImageNode::new(handle));
+            commands.entity(entity).try_insert(ImageNode::new(handle));
         }
     }
     while budget > 0
@@ -352,7 +352,7 @@ pub(super) fn fade_art(
         fade.0 = (fade.0 + time.delta_secs() / ART_FADE_SECS).min(1.0);
         image.color = Color::WHITE.with_alpha(fade.0);
         if fade.0 >= 1.0 {
-            commands.entity(entity).remove::<ArtFade>();
+            commands.entity(entity).try_remove::<ArtFade>();
         }
     }
 }

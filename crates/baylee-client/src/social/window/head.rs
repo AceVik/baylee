@@ -12,6 +12,7 @@ pub(super) fn head_parts(
     counts: &[(ChatTab, u32, bool)],
     active: ChatTab,
     frame: Frame,
+    guest: bool,
 ) -> Vec<Entity> {
     let inks = frame.inks();
     let mut out = Vec::new();
@@ -92,7 +93,9 @@ pub(super) fn head_parts(
             .id()
     };
     // The lock is the line under the tabs (owner, 13.10.), not a tool here.
-    out.push(tool(commands, glyph::FRIENDS, ChatPress::Friends));
+    if !guest {
+        out.push(tool(commands, glyph::FRIENDS, ChatPress::Friends));
+    }
     out.push(tool(commands, glyph::GEAR, ChatPress::Gear));
     if frame == Frame::Lobby {
         out.push(tool(commands, glyph::MINUS, ChatPress::Minimise));

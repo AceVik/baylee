@@ -164,11 +164,12 @@ pub(super) fn draw(
         ),
         Destructive::AddGateway(_) => unreachable!("drawn by `draw_proposal`"),
     };
-    let (shade, panel) = modal(
+    let panel = modal(
         commands,
+        root,
         metrics,
         Press::Shared(SharedPress::CancelDestructive),
-        true,
+        DialogKind::Destructive,
     );
     let subtitle = match action {
         Destructive::ForgetGateway(url) if chosen != *url => Some(url.as_str()),
@@ -181,10 +182,9 @@ pub(super) fn draw(
         metrics,
         &phrase.fill(lang, &[name]),
         subtitle,
-        true,
+        DialogKind::Destructive,
     );
     let hint = dialog_body(commands, fonts, metrics, said.text(lang));
-    let actions = action_row(commands);
     let cancel = split_button(
         commands,
         fonts,
@@ -209,10 +209,8 @@ pub(super) fn draw(
         SplitTone::Danger,
         !state.lobby.busy(),
     );
-    commands.entity(actions).add_children(&[cancel, yes]);
+    let actions = dialog_actions(commands, &[cancel, yes]);
     commands.entity(panel).add_children(&[head, hint, actions]);
-    commands.entity(shade).add_child(panel);
-    commands.entity(root).add_child(shade);
 }
 
 /// A link's gateway, asked about: the address in full as it would be saved,
@@ -227,11 +225,12 @@ fn draw_proposal(
     url: &str,
 ) {
     let lang = state.lobby.lang();
-    let (shade, panel) = modal(
+    let panel = modal(
         commands,
+        root,
         metrics,
         Press::Shared(SharedPress::CancelDestructive),
-        false,
+        DialogKind::Proposal,
     );
     let head = dialog_header(
         commands,
@@ -239,7 +238,7 @@ fn draw_proposal(
         metrics,
         &Phrase::LinkGatewayQuestion.fill(lang, &[url]),
         None,
-        false,
+        DialogKind::Proposal,
     );
     let hint = dialog_body(commands, fonts, metrics, Phrase::LinkGatewayHint.text(lang));
     let joins = if state.central_ready() {
@@ -248,7 +247,6 @@ fn draw_proposal(
         Phrase::LinkGatewayJoinsDevice
     };
     let list = note(commands, fonts, metrics, joins.text(lang));
-    let actions = action_row(commands);
     let not_now = split_button(
         commands,
         fonts,
@@ -267,12 +265,10 @@ fn draw_proposal(
         SplitTone::Accent,
         !state.lobby.busy() && state.adding.is_none(),
     );
-    commands.entity(actions).add_children(&[not_now, add]);
+    let actions = dialog_actions(commands, &[not_now, add]);
     commands
         .entity(panel)
         .add_children(&[head, hint, list, actions]);
-    commands.entity(shade).add_child(panel);
-    commands.entity(root).add_child(shade);
 }
 
 /// The sign-in from baylee.app (`central::pairing`), over Central's sign-in:
@@ -295,7 +291,7 @@ pub(super) fn draw_pairing(
     };
     let lang = state.lobby.lang();
     let cancel_press = Press::Shared(SharedPress::PairCancel);
-    let (shade, panel) = modal(commands, metrics, cancel_press, false);
+    let panel = modal(commands, root, metrics, cancel_press, DialogKind::Proposal);
     let (title, body, code) = match &pairing.stage {
         Stage::Claiming => (
             Phrase::PairTitle.fill(lang, &[]),
@@ -319,14 +315,13 @@ pub(super) fn draw_pairing(
         ),
     };
     let mut kids = vec![
-        dialog_header(commands, fonts, metrics, &title, None, false),
+        dialog_header(commands, fonts, metrics, &title, None, DialogKind::Proposal),
         dialog_body(commands, fonts, metrics, body.text(lang)),
     ];
     if let Some(code) = code {
         kids.push(code_line(commands, fonts, metrics, code));
     }
-    let actions = action_row(commands);
-    let cancel = split_button(
+    let mut buttons = vec![split_button(
         commands,
         fonts,
         metrics,
@@ -334,10 +329,9 @@ pub(super) fn draw_pairing(
         cancel_press,
         SplitTone::Neutral,
         true,
-    );
-    commands.entity(actions).add_child(cancel);
+    )];
     if matches!(pairing.stage, Stage::Asking { .. }) {
-        let yes = split_button(
+        buttons.push(split_button(
             commands,
             fonts,
             metrics,
@@ -345,13 +339,10 @@ pub(super) fn draw_pairing(
             Press::Shared(SharedPress::PairSignIn),
             SplitTone::Accent,
             true,
-        );
-        commands.entity(actions).add_child(yes);
+        ));
     }
-    kids.push(actions);
+    kids.push(dialog_actions(commands, &buttons));
     commands.entity(panel).add_children(&kids);
-    commands.entity(shade).add_child(panel);
-    commands.entity(root).add_child(shade);
 }
 
 /// The pairing's comparison code, large and centred: the one thing the
@@ -371,7 +362,7 @@ fn code_line(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, code: &
         .with_child((
             Text::new(code),
             tf_bold(fonts, metrics.head * 1.6),
-            TextColor(palette::INK),
+            TextColor(tokens::INK),
             Pickable::IGNORE,
         ))
         .id()
@@ -391,18 +382,21 @@ pub(super) fn draw_refusal(
         return;
     };
     let lang = state.lobby.lang();
-    let (shade, panel) = modal(
+    let panel = modal(
         commands,
+        root,
         metrics,
         Press::Shared(SharedPress::CloseRefusal),
-        false,
+        DialogKind::Warning,
     );
     let name = baylee_client_core::deckcheck::format_name(&refusal.list, lang);
-    let title = heading(
+    let title = dialog_header(
         commands,
         fonts,
         metrics,
         &Phrase::RefusedTitle.fill(lang, &[name]),
+        None,
+        DialogKind::Warning,
     );
     // A hundred-card deck can bring a hundred reasons: they scroll between
     // the heading and the way out.
@@ -414,9 +408,14 @@ pub(super) fn draw_refusal(
                 min_height: px(0),
                 flex_direction: FlexDirection::Column,
                 row_gap: px(6),
+                padding: UiRect::axes(px(14), px(12)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                 overflow: Overflow::scroll_y(),
                 ..default()
             },
+            BackgroundColor(tokens::CONTROL),
+            BorderColor::all(tokens::BORDER),
             super::Scrollable(super::List::Check),
             ScrollPosition::default(),
         ))
@@ -425,22 +424,26 @@ pub(super) fn draw_refusal(
         let said = note(commands, fonts, metrics, &line);
         commands.entity(reasons).add_child(said);
     }
-    let mut kids = vec![title, reasons];
-    let actions = row(commands, metrics, true);
-    let close = button(
+    let close = split_button(
         commands,
         fonts,
         metrics,
         Phrase::ShellClose.text(lang),
         Press::Shared(SharedPress::CloseRefusal),
-        palette::ACCENT,
+        SplitTone::Accent,
         true,
     );
-    commands.entity(actions).add_child(close);
-    kids.push(actions);
-    commands.entity(panel).add_children(&kids);
-    commands.entity(shade).add_child(panel);
-    commands.entity(root).add_child(shade);
+    let actions = dialog_actions(commands, &[close]);
+    commands
+        .entity(panel)
+        .add_children(&[title, reasons, actions]);
+}
+
+#[derive(Clone, Copy)]
+enum DialogKind {
+    Destructive,
+    Proposal,
+    Warning,
 }
 
 #[derive(Clone, Copy)]
@@ -450,37 +453,23 @@ enum SplitTone {
     Accent,
 }
 
-/// A confirmation's shade over the whole screen, which cancels when it is
-/// tapped, and the panel on it.
+/// A confirmation's shade over the whole screen (`surfaces::sheet`), which
+/// cancels when tapped, and the opaque panel on it.
 fn modal(
     commands: &mut Commands,
+    root: Entity,
     metrics: Metrics,
     cancel: Press,
-    destructive: bool,
-) -> (Entity, Entity) {
-    let shade = commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                width: percent(100),
-                height: percent(100),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                padding: UiRect::all(px(metrics.pad)),
-                ..default()
-            },
-            BackgroundColor(Color::BLACK.with_alpha(0.78)),
-            GlobalZIndex(800),
-            cancel,
-        ))
-        .id();
-    let border_col = if destructive {
-        Color::srgba(0.82, 0.30, 0.38, 0.42)
-    } else {
-        Color::srgba(0.36, 0.56, 0.88, 0.42)
+    kind: DialogKind,
+) -> Entity {
+    let border_col = match kind {
+        DialogKind::Destructive => tokens::DANGER.with_alpha(0.46),
+        DialogKind::Proposal => tokens::PRIMARY_EDGE.with_alpha(0.62),
+        DialogKind::Warning => tokens::GOLD.with_alpha(0.48),
     };
     let panel = commands
         .spawn((
+            Role::Opaque,
             Node {
                 width: percent(100),
                 max_width: px(460),
@@ -488,22 +477,23 @@ fn modal(
                 row_gap: px(14),
                 padding: UiRect::all(px(22)),
                 border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px(16)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.06, 0.07, 0.11, 0.98)),
+            BackgroundColor(tokens::OPAQUE),
             BorderColor::all(border_col),
-            BoxShadow::new(
-                Color::BLACK.with_alpha(0.68),
-                Val::ZERO,
-                px_fixed(16.0),
-                px_fixed(2.0),
-                px_fixed(36.0),
-            ),
+            crate::shellkit::surfaces::popover_shadow(),
             Press::Shared(SharedPress::PickerNothing),
         ))
         .id();
-    (shade, panel)
+    let shade = crate::shellkit::surfaces::sheet(commands, panel);
+    commands
+        .entity(shade)
+        .insert((GlobalZIndex(tokens::z::SHEET + 2), cancel))
+        .entry::<Node>()
+        .and_modify(move |mut node| node.padding = UiRect::all(px(metrics.pad)));
+    commands.entity(root).add_child(shade);
+    panel
 }
 
 fn dialog_header(
@@ -512,22 +502,27 @@ fn dialog_header(
     metrics: Metrics,
     title_text: &str,
     subtitle: Option<&str>,
-    destructive: bool,
+    kind: DialogKind,
 ) -> Entity {
-    let (badge_bg, badge_border, badge_fg, glyph) = if destructive {
-        (
-            Color::srgba(0.86, 0.22, 0.30, 0.16),
-            Color::srgba(0.94, 0.34, 0.42, 0.38),
-            Color::srgb(0.96, 0.42, 0.48),
+    let (badge_bg, badge_border, badge_fg, glyph) = match kind {
+        DialogKind::Destructive => (
+            tokens::DANGER.with_alpha(0.16),
+            tokens::DANGER.with_alpha(0.44),
+            tokens::DANGER,
             "\u{f2ed}",
-        )
-    } else {
-        (
-            Color::srgba(0.24, 0.52, 0.92, 0.18),
-            Color::srgba(0.38, 0.66, 0.98, 0.40),
-            Color::srgb(0.56, 0.80, 0.99),
+        ),
+        DialogKind::Proposal => (
+            tokens::PRIMARY.with_alpha(0.55),
+            tokens::PRIMARY_EDGE.with_alpha(0.65),
+            tokens::ACCENT,
             "\u{f0c1}",
-        )
+        ),
+        DialogKind::Warning => (
+            tokens::GOLD.with_alpha(0.16),
+            tokens::GOLD.with_alpha(0.46),
+            tokens::GOLD,
+            "\u{f071}",
+        ),
     };
     let head = commands
         .spawn((
@@ -550,7 +545,7 @@ fn dialog_header(
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px(10)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                 ..default()
             },
             BackgroundColor(badge_bg),
@@ -580,7 +575,7 @@ fn dialog_header(
         .spawn((
             Text::new(title_text),
             tf_bold(fonts, metrics.head),
-            TextColor(palette::INK),
+            TextColor(tokens::INK),
             Pickable::IGNORE,
         ))
         .id();
@@ -590,7 +585,7 @@ fn dialog_header(
             .spawn((
                 Text::new(sub),
                 tf(fonts, (metrics.small - 1.0).max(11.0)),
-                TextColor(palette::MUTED),
+                TextColor(tokens::MUTED),
                 Pickable::IGNORE,
             ))
             .id();
@@ -607,24 +602,24 @@ fn dialog_body(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, text:
                 width: percent(100),
                 padding: UiRect::axes(px(14), px(12)),
                 border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px(10)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.09, 0.11, 0.16, 0.72)),
-            BorderColor::all(Color::srgba(0.32, 0.38, 0.54, 0.24)),
+            BackgroundColor(tokens::CONTROL),
+            BorderColor::all(tokens::BORDER),
             Pickable::IGNORE,
         ))
         .with_child((
             Text::new(text),
             tf(fonts, metrics.text),
-            TextColor(palette::MUTED),
+            TextColor(tokens::MUTED),
             Pickable::IGNORE,
         ))
         .id()
 }
 
-fn action_row(commands: &mut Commands) -> Entity {
-    commands
+fn dialog_actions(commands: &mut Commands, buttons: &[Entity]) -> Entity {
+    let row = commands
         .spawn((
             Node {
                 width: percent(100),
@@ -636,7 +631,9 @@ fn action_row(commands: &mut Commands) -> Entity {
             },
             Pickable::IGNORE,
         ))
-        .id()
+        .id();
+    commands.entity(row).add_children(buttons);
+    row
 }
 
 fn split_button(
@@ -650,48 +647,52 @@ fn split_button(
 ) -> Entity {
     let (bg, hover_bg, border, hover_border, fg) = match tone {
         SplitTone::Neutral => (
-            Color::srgba(0.13, 0.15, 0.22, 0.94),
-            Color::srgba(0.19, 0.22, 0.31, 0.98),
-            Color::srgba(0.42, 0.48, 0.68, 0.36),
-            Color::srgba(0.56, 0.64, 0.86, 0.62),
-            palette::INK,
+            tokens::CONTROL,
+            tokens::SELECTED,
+            tokens::BORDER,
+            tokens::ACCENT,
+            if enabled {
+                tokens::INK
+            } else {
+                tokens::DISABLED
+            },
         ),
         SplitTone::Danger => (
             if enabled {
-                palette::DANGER
+                tokens::DANGER
             } else {
                 tokens::CONTROL
             },
             Color::srgba(0.92, 0.28, 0.36, 0.98),
             if enabled {
-                Color::srgba(0.98, 0.46, 0.52, 0.58)
+                tokens::DANGER.with_alpha(0.75)
             } else {
                 tokens::BORDER
             },
-            Color::srgba(1.0, 0.58, 0.64, 0.85),
+            tokens::INK,
             if enabled {
-                palette::INK
+                tokens::INK
             } else {
-                palette::MUTED
+                tokens::DISABLED
             },
         ),
         SplitTone::Accent => (
             if enabled {
-                palette::ACCENT
+                tokens::PRIMARY
             } else {
                 tokens::CONTROL
             },
-            Color::srgba(0.32, 0.62, 0.96, 0.98),
+            tokens::SELECTED,
             if enabled {
-                Color::srgba(0.45, 0.72, 0.98, 0.58)
+                tokens::PRIMARY_EDGE
             } else {
                 tokens::BORDER
             },
-            Color::srgba(0.60, 0.82, 1.0, 0.85),
+            tokens::ACCENT,
             if enabled {
-                palette::INK
+                tokens::INK
             } else {
-                palette::MUTED
+                tokens::DISABLED
             },
         ),
     };
@@ -700,13 +701,13 @@ fn split_button(
             flex_grow: 1.0,
             flex_basis: px(0),
             width: percent(50),
-            height: px(40),
+            height: px(metrics.tap.max(40.0)),
             padding: UiRect::axes(px(14), px(8)),
             column_gap: px(8),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             border: UiRect::all(px_fixed(1.0)),
-            border_radius: BorderRadius::all(px(10)),
+            border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
             overflow: Overflow::clip(),
             ..default()
         },
@@ -757,14 +758,22 @@ pub(super) fn draw_deletion(
         return;
     };
     let lang = lobby.lang();
-    let (shade, panel) = modal(
+    let panel = modal(
         commands,
+        root,
         metrics,
         Press::Settings(SettingsPress::CancelAccountDeletion),
-        true,
+        DialogKind::Destructive,
     );
     let question = Phrase::DeleteAccountQuestion.fill(lang, &[lobby.account_name()]);
-    let title = dialog_header(commands, fonts, metrics, &question, None, true);
+    let title = dialog_header(
+        commands,
+        fonts,
+        metrics,
+        &question,
+        None,
+        DialogKind::Destructive,
+    );
     let said = if lobby.guest() {
         Phrase::DeleteGuestHint
     } else if lobby.central_bound() {
@@ -801,13 +810,12 @@ pub(super) fn draw_deletion(
             .spawn((
                 Text::new(refusal.clone()),
                 tf(fonts, metrics.small),
-                TextColor(palette::DANGER),
+                TextColor(tokens::DANGER),
                 Pickable::IGNORE,
             ))
             .id();
         commands.entity(panel).add_child(refusal);
     }
-    let actions = action_row(commands);
     let cancel = split_button(
         commands,
         fonts,
@@ -826,8 +834,6 @@ pub(super) fn draw_deletion(
         SplitTone::Danger,
         !lobby.busy(),
     );
-    commands.entity(actions).add_children(&[cancel, yes]);
+    let actions = dialog_actions(commands, &[cancel, yes]);
     commands.entity(panel).add_child(actions);
-    commands.entity(shade).add_child(panel);
-    commands.entity(root).add_child(shade);
 }

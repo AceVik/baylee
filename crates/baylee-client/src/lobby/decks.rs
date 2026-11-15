@@ -193,6 +193,8 @@ pub(crate) enum DecksPress {
     TogglePlayableOnly,
     /// Reset all active shelf filters and search text.
     ClearFilters,
+    /// Clear only the deck search text box.
+    ClearSearch,
 }
 
 /// All play modes / formats selectable in the Decks format dropdown:
@@ -452,7 +454,7 @@ fn toolbar(
     commands: &mut Commands,
     panel: Entity,
     state: &LobbyState,
-    metrics: Metrics,
+    _metrics: Metrics,
     kit: Kit,
 ) -> (Option<Entity>, Option<Entity>) {
     let lobby = &state.lobby;
@@ -524,10 +526,11 @@ fn toolbar(
                 Pickable::IGNORE,
             ))
             .id();
-        let field = text_field(
+        let typed = !lobby.field(Field::DeckSearch).is_empty();
+        let field = super::field::text_field_hinted(
             commands,
             kit.fonts,
-            metrics,
+            super::front::faces::field_metrics(kit),
             "",
             &FieldLook {
                 buffer: lobby.buffer(Field::DeckSearch),
@@ -536,8 +539,14 @@ fn toolbar(
                 press: Press::Shared(SharedPress::Focus(Field::DeckSearch)),
                 lead: Some(crate::hud::glyph::MAGNIFIER),
                 hint: Some(Phrase::DecksSearchHint.text(lang)),
-                tail: None,
+                tail: typed.then_some(FieldTail {
+                    glyph: crate::hud::glyph::CLOSE,
+                    press: Press::Decks(DecksPress::ClearSearch),
+                    lit: false,
+                }),
             },
+            None,
+            Some(Phrase::FilterClear.text(lang)),
         );
         orders::field(commands, field, &orders::DECKS, "search");
         commands.entity(hunt).add_child(field);
@@ -1242,7 +1251,7 @@ fn mine(
                     Press::Decks(DecksPress::Duplicate(index)),
                 ),
             ];
-            if !lobby.offline() {
+            if state.can_use_deck_history() {
                 items.push(menus::item(
                     Phrase::DecksHistory.text(lang),
                     Press::Decks(DecksPress::History(index)),
@@ -2849,12 +2858,18 @@ fn preview_sheet(
         n.justify_content = JustifyContent::SpaceBetween;
     });
     let grouped = !state.decks.preview_ungrouped;
-    let group_pill = quick_filter_pill(
+    let group_pill = controls::button_with_icon(
         commands,
         kit,
-        Some('\u{f0ca}'),
+        '\u{f0ca}',
         Phrase::DecksGroupByType.text(lang),
-        grouped,
+        if grouped {
+            Weight::Primary
+        } else {
+            Weight::Secondary
+        },
+        Live::Yes,
+        None,
         Press::Decks(DecksPress::TogglePreviewGrouped),
     );
     let modes = [DecksView::List, DecksView::Gallery, DecksView::Compact];
@@ -3073,6 +3088,10 @@ impl DecksPress {
                 state.lobby.set_field(Field::DeckSearch, "");
                 scrolled.set(List::Library, 0.0);
             }
+            DecksPress::ClearSearch => {
+                state.lobby.set_field(Field::DeckSearch, "");
+                scrolled.set(List::Library, 0.0);
+            }
             DecksPress::OpenSearch => {
                 state.decks.searching = true;
                 state.lobby.focus_on(Field::DeckSearch);
@@ -3091,6 +3110,9 @@ impl DecksPress {
                 dispatch(state, mailbox, request);
             }
             DecksPress::History(index) => {
+                if !state.can_use_deck_history() {
+                    return;
+                }
                 if let Some(id) = state.lobby.decks().get(index).map(|d| d.id.clone()) {
                     state.decks.show_all = false;
                     let request = state.lobby.browse_deck_history(&id);
@@ -3098,6 +3120,9 @@ impl DecksPress {
                 }
             }
             DecksPress::HouseHistory(index) => {
+                if !state.can_use_deck_history() {
+                    return;
+                }
                 let id = state.lobby.library().house.get(index).map(|d| d.id.clone());
                 if let Some(id) = id {
                     state.decks.show_all = false;

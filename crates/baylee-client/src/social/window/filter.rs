@@ -25,7 +25,7 @@ pub(super) fn filter_dialog(
     let _zoom = super::super::zoom::Scope::new(zoom.0);
     let Some((machine, tab)) = host.machine().zip(ui.filters) else {
         for root in &roots {
-            commands.entity(root).despawn();
+            commands.entity(root).try_despawn();
         }
         *drawn = None;
         return;
@@ -37,7 +37,7 @@ pub(super) fn filter_dialog(
     }
     *drawn = Some(key);
     for root in &roots {
-        commands.entity(root).despawn();
+        commands.entity(root).try_despawn();
     }
     let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
     let at_table =

@@ -194,25 +194,28 @@ pub(super) fn create_sheet(
         tokens::ACCENT,
     );
     let b_life = parts::badge_with(commands, kit, '\u{f004}', &draft.summary(lang), tokens::INK);
-    let has_pw = !lobby.field(Field::RoomPassword).is_empty();
-    let b_access = parts::badge_with(
-        commands,
-        kit,
-        if has_pw { '\u{f023}' } else { '\u{f09c}' },
-        if has_pw {
-            Phrase::CreatePasswordProtected.text(lang)
-        } else {
-            Phrase::CreatePublic.text(lang)
-        },
-        if has_pw {
-            tokens::GOLD
-        } else {
-            Color::srgb(0.36, 0.84, 0.56)
-        },
-    );
     commands
         .entity(ov_badges)
-        .add_children(&[b_mode, b_seats, b_life, b_access]);
+        .add_children(&[b_mode, b_seats, b_life]);
+    if state.can_play_online() {
+        let has_pw = !lobby.field(Field::RoomPassword).is_empty();
+        let b_access = parts::badge_with(
+            commands,
+            kit,
+            if has_pw { '\u{f023}' } else { '\u{f09c}' },
+            if has_pw {
+                Phrase::CreatePasswordProtected.text(lang)
+            } else {
+                Phrase::CreatePublic.text(lang)
+            },
+            if has_pw {
+                tokens::GOLD
+            } else {
+                Color::srgb(0.36, 0.84, 0.56)
+            },
+        );
+        commands.entity(ov_badges).add_child(b_access);
+    }
     commands.entity(overview).add_child(ov_badges);
     body.push(overview);
 
@@ -625,71 +628,64 @@ pub(super) fn create_sheet(
     // =========================================================================
     // SECTION 3: Bedenkzeit, Zugang & Zuschauer (Clock, Privacy & Spectators)
     // =========================================================================
-    let sec3 = spawn_create_section(
-        commands,
-        kit,
-        "3",
-        '\u{f017}',
-        if lobby.offline() {
-            Phrase::CreateSectionAccessOffline.text(lang)
-        } else {
-            Phrase::CreateSectionAccess.text(lang)
-        },
-        if lobby.offline() {
-            Phrase::CreateSectionAccessOfflineAbout.text(lang)
-        } else {
-            Phrase::CreateSectionAccessAbout.text(lang)
-        },
-        Color::srgb(0.38, 0.84, 0.56),
-    );
+    // Spectators, room passwords, and gateway clocks apply only to online tables.
+    if state.can_play_online() {
+        let sec3 = spawn_create_section(
+            commands,
+            kit,
+            "3",
+            '\u{f017}',
+            Phrase::CreateSectionAccess.text(lang),
+            Phrase::CreateSectionAccessAbout.text(lang),
+            Color::srgb(0.38, 0.84, 0.56),
+        );
 
-    let spec_row = parts::row(commands, kit, true);
-    commands
-        .entity(spec_row)
-        .entry::<Node>()
-        .and_modify(|mut n| {
-            n.width = percent(100);
-            n.justify_content = JustifyContent::SpaceBetween;
-        });
-    let spectators = controls::button_with_icon(
-        commands,
-        kit,
-        if draft.spectators {
-            '\u{f14a}'
-        } else {
-            '\u{f0c8}'
-        },
-        Phrase::AllowSpectators.text(lang),
-        Weight::Secondary,
-        Live::Yes,
-        None,
-        Press::Play(PlayPress::Spectators),
-    );
-    let spec_badge = parts::badge_with(
-        commands,
-        kit,
-        if draft.spectators {
-            '\u{f06e}'
-        } else {
-            '\u{f070}'
-        },
-        if draft.spectators {
-            Phrase::CreateSpectatorsAllowed.text(lang)
-        } else {
-            Phrase::CreateNoSpectators.text(lang)
-        },
-        if draft.spectators {
-            Color::srgb(0.36, 0.84, 0.56)
-        } else {
-            tokens::MUTED
-        },
-    );
-    commands
-        .entity(spec_row)
-        .add_children(&[spectators, spec_badge]);
-    commands.entity(sec3).add_child(spec_row);
+        let spec_row = parts::row(commands, kit, true);
+        commands
+            .entity(spec_row)
+            .entry::<Node>()
+            .and_modify(|mut n| {
+                n.width = percent(100);
+                n.justify_content = JustifyContent::SpaceBetween;
+            });
+        let spectators = controls::button_with_icon(
+            commands,
+            kit,
+            if draft.spectators {
+                '\u{f14a}'
+            } else {
+                '\u{f0c8}'
+            },
+            Phrase::AllowSpectators.text(lang),
+            Weight::Secondary,
+            Live::Yes,
+            None,
+            Press::Play(PlayPress::Spectators),
+        );
+        let spec_badge = parts::badge_with(
+            commands,
+            kit,
+            if draft.spectators {
+                '\u{f06e}'
+            } else {
+                '\u{f070}'
+            },
+            if draft.spectators {
+                Phrase::CreateSpectatorsAllowed.text(lang)
+            } else {
+                Phrase::CreateNoSpectators.text(lang)
+            },
+            if draft.spectators {
+                Color::srgb(0.36, 0.84, 0.56)
+            } else {
+                tokens::MUTED
+            },
+        );
+        commands
+            .entity(spec_row)
+            .add_children(&[spectators, spec_badge]);
+        commands.entity(sec3).add_child(spec_row);
 
-    if !lobby.offline() {
         let pw_lbl = label(commands, Phrase::SheetPassword.text(lang));
         let pw_field = text_field(
             commands,
@@ -711,42 +707,42 @@ pub(super) fn create_sheet(
         );
         orders::field(commands, pw_field, &orders::CREATE, "password");
         commands.entity(sec3).add_children(&[pw_lbl, pw_field]);
-    }
 
-    // The clock: the gateway's list, the first the default (M-4). A room's
-    // clock is set when it opens, so Apply shows it and offers no change.
-    if !lobby.offline() && !editing {
-        let clock_lbl = label(commands, Phrase::SheetClock.text(lang));
-        let clocks = lobby.clocks();
-        let labels: Vec<String> = clocks.iter().map(|c| model::clock_label(lang, c)).collect();
-        let at_clock = draft.clock.min(clocks.len().saturating_sub(1));
-        let widest = labels
-            .iter()
-            .max_by_key(|l| l.chars().count())
-            .cloned()
-            .unwrap_or_default();
-        let clock_step = controls::stepper_room(
-            commands,
-            kit,
-            labels.get(at_clock).map_or("", String::as_str),
-            &widest,
-            Press::Play(PlayPress::StepClock(false)),
-            Press::Play(PlayPress::StepClock(true)),
-        );
-        orders::items_of(commands, clock_step, &orders::CREATE, "clock");
-        commands.entity(sec3).add_children(&[clock_lbl, clock_step]);
-        if let Some(clock) = clocks.get(draft.clock) {
-            let help_line = parts::line(
+        // The clock: the gateway's list, the first the default (M-4). A room's
+        // clock is set when it opens, so Apply shows it and offers no change.
+        if !editing {
+            let clock_lbl = label(commands, Phrase::SheetClock.text(lang));
+            let clocks = lobby.clocks();
+            let labels: Vec<String> = clocks.iter().map(|c| model::clock_label(lang, c)).collect();
+            let at_clock = draft.clock.min(clocks.len().saturating_sub(1));
+            let widest = labels
+                .iter()
+                .max_by_key(|l| l.chars().count())
+                .cloned()
+                .unwrap_or_default();
+            let clock_step = controls::stepper_room(
                 commands,
                 kit,
-                &model::clock_help(lang, clock),
-                kit.m.small,
-                tokens::MUTED,
+                labels.get(at_clock).map_or("", String::as_str),
+                &widest,
+                Press::Play(PlayPress::StepClock(false)),
+                Press::Play(PlayPress::StepClock(true)),
             );
-            commands.entity(sec3).add_child(help_line);
+            orders::items_of(commands, clock_step, &orders::CREATE, "clock");
+            commands.entity(sec3).add_children(&[clock_lbl, clock_step]);
+            if let Some(clock) = clocks.get(draft.clock) {
+                let help_line = parts::line(
+                    commands,
+                    kit,
+                    &model::clock_help(lang, clock),
+                    kit.m.small,
+                    tokens::MUTED,
+                );
+                commands.entity(sec3).add_child(help_line);
+            }
         }
+        body.push(sec3);
     }
-    body.push(sec3);
 
     let cancel = controls::button(
         commands,

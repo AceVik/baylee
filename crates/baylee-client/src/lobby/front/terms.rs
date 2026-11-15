@@ -934,6 +934,7 @@ pub(crate) fn sheet(
             },
             BackgroundColor(tokens::OPAQUE),
             BorderColor::all(tokens::BORDER),
+            crate::shellkit::surfaces::popover_shadow(),
             // A press on the sheet's own ground is no press behind it.
             Press::Shared(super::super::SharedPress::PickerNothing),
         ))

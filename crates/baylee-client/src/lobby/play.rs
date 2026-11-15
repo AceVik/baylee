@@ -134,6 +134,8 @@ pub(crate) enum PlayPress {
     Retry,
     /// Clear the table search and read the first page again.
     ClearSearch,
+    /// Clear the table search from the search field's inline tail button.
+    ClearSearchField,
     /// Take the chair kept for this player at a listed rematch room.
     PlayAgain(usize),
 }
@@ -918,7 +920,7 @@ impl PlayPress {
                     state.lobby.focus_on(Field::Search);
                 }
             }
-            PlayPress::ClearSearch => {
+            PlayPress::ClearSearch | PlayPress::ClearSearchField => {
                 state.lobby.set_field(Field::Search, "");
                 let request = state.lobby.search_again();
                 dispatch(state, mailbox, request);

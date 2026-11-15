@@ -211,7 +211,7 @@ fn paint_selection(
             }
             None if on => {
                 row.base = Some(Color::NONE);
-                commands.entity(entity).insert(BackgroundColor(lit));
+                commands.entity(entity).try_insert(BackgroundColor(lit));
             }
             None => {}
         }
@@ -428,7 +428,7 @@ fn sync(
     });
     let Some((key, line)) = line else {
         for root in &roots {
-            commands.entity(root).despawn();
+            commands.entity(root).try_despawn();
         }
         *drawn = None;
         return;
@@ -438,7 +438,7 @@ fn sync(
     }
     *drawn = Some(key);
     for root in &roots {
-        commands.entity(root).despawn();
+        commands.entity(root).try_despawn();
     }
     let Some(machine) = host.machine() else {
         return;

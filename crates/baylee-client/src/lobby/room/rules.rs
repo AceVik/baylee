@@ -50,7 +50,7 @@ pub(super) fn draw(
     }
     let waiting = game.state == "waiting";
     // Lists live on a gateway, so an offline room offers none.
-    if game.yours && waiting && state.offline.is_none() {
+    if game.yours && waiting && state.can_use_banlists() {
         let choose = controls::button(
             commands,
             kit,

@@ -33,7 +33,7 @@ pub(super) fn peek(
             ui.peek.clear();
         }
         for (root, _) in &roots {
-            commands.entity(root).despawn();
+            commands.entity(root).try_despawn();
         }
         *drawn = 0;
         return;

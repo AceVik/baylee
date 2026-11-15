@@ -70,25 +70,32 @@ pub(super) fn materialize(
             cache.0.insert(slot.0, handle.clone());
             handle
         };
-        let ground = commands
-            .spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px(0),
-                    top: px(0),
-                    right: px(0),
-                    bottom: px(0),
-                    ..default()
-                },
-                MaterialNode(handle),
-                Hanging,
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(parent).insert_children(0, &[ground]);
-        if (3..=6).contains(&slot.0) {
-            // The fallback fill must not make translucent material opaque.
-            commands.entity(parent).insert(BackgroundColor(Color::NONE));
-        }
+        let slot_id = slot.0;
+        commands.queue(move |world: &mut World| {
+            if world.get_entity(parent).is_err() {
+                return;
+            }
+            let ground = world
+                .spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: px(0),
+                        top: px(0),
+                        right: px(0),
+                        bottom: px(0),
+                        ..default()
+                    },
+                    MaterialNode(handle),
+                    Hanging,
+                    Pickable::IGNORE,
+                ))
+                .id();
+            let mut parent_mut = world.entity_mut(parent);
+            parent_mut.insert_children(0, &[ground]);
+            if (3..=6).contains(&slot_id) {
+                // The fallback fill must not make translucent material opaque.
+                parent_mut.insert(BackgroundColor(Color::NONE));
+            }
+        });
     }
 }

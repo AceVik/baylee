@@ -217,6 +217,13 @@ impl ReplaysPress {
         }
         match self {
             Self::Source(source) => {
+                let source = if !state.can_use_server_replays()
+                    && matches!(source, SourceFilter::Online | SourceFilter::House)
+                {
+                    SourceFilter::All
+                } else {
+                    source
+                };
                 state.replays.filters.source = source;
                 if source == SourceFilter::Archived && state.replays.archived == Online::Unasked {
                     ask_archived(state, cx.mailbox);
@@ -397,14 +404,14 @@ fn send(
 
 /// Asks the gateway for the account's archived games.
 fn ask_archived(state: &mut LobbyState, mailbox: &Mailbox) {
+    if !state.can_use_server_replays() {
+        state.replays.archived = Online::Read;
+        return;
+    }
     let Some(token) = state.lobby.token() else {
         state.replays.archived = Online::Read;
         return;
     };
-    if state.lobby.offline() {
-        state.replays.archived = Online::Read;
-        return;
-    }
     state.replays.archived = Online::Asking(0);
     super::http::ask_aside::<ReplayPage>(
         &state.gateway,
@@ -425,12 +432,12 @@ pub(super) fn archived_page(state: &mut LobbyState, page: &ReplayPage) {
 
 /// Asks the gateway for a page of the account's games.
 pub(super) fn ask_online(state: &mut LobbyState, mailbox: &Mailbox, offset: u64) {
+    if !state.can_use_server_replays() {
+        return;
+    }
     let Some(token) = state.lobby.token() else {
         return;
     };
-    if state.lobby.offline() {
-        return;
-    }
     state.replays.online = Online::Asking(offset);
     super::http::ask_aside::<ReplayPage>(
         &state.gateway,
@@ -467,7 +474,7 @@ pub(super) fn visit(mut state: ResMut<LobbyState>, mailbox: Res<Mailbox>) {
         state.replays.local_read = true;
     }
     if state.replays.online == Online::Unasked {
-        if state.lobby.token().is_some() && !state.lobby.offline() {
+        if state.can_use_server_replays() {
             ask_online(&mut state, &mailbox, 0);
         } else {
             state.replays.library.forget_online();
@@ -711,6 +718,7 @@ fn spawn_replays_stats_bar(
     kit: Kit,
     entries: &[Entry],
     lang: Lang,
+    can_online: bool,
 ) -> Entity {
     use baylee_client_core::replay::library::EntryCheck;
     let total = entries.len();
@@ -790,14 +798,19 @@ fn spawn_replays_stats_bar(
         ))
         .id();
 
+    let recorded_sub = if can_online {
+        Phrase::ReplaysKpiRecordedSub
+            .fill(lang, &[&local_count.to_string(), &online_count.to_string()])
+    } else {
+        ReplayPhrase::FilterHouse.text(lang).to_string()
+    };
     let c1 = spawn_replay_kpi_card(
         commands,
         kit,
         '\u{f1da}',
         Phrase::ReplaysKpiRecorded.text(lang),
         &format!("{total}"),
-        &Phrase::ReplaysKpiRecordedSub
-            .fill(lang, &[&local_count.to_string(), &online_count.to_string()]),
+        &recorded_sub,
         tokens::ACCENT,
     );
     let c2 = spawn_replay_kpi_card(
@@ -862,7 +875,7 @@ fn replay_filter_pill(
         .spawn((
             crate::shellkit::role::Role::Button,
             Node {
-                min_height: kit.m.px(32.0),
+                min_height: px_fixed(kit.m.control),
                 padding: UiRect::axes(kit.m.px(11.0), kit.m.px(4.0)),
                 column_gap: kit.m.px(6.0),
                 align_items: AlignItems::Center,
@@ -876,6 +889,11 @@ fn replay_filter_pill(
             BorderColor::all(border),
             UiTransform::default(),
             crate::ambience::Feel::rising_to(bg, tokens::HOVER),
+            crate::ambience::FeelBorder {
+                rest: border,
+                hot: tokens::PRIMARY_EDGE,
+                press: tokens::ACCENT,
+            },
             press,
         ))
         .id();
@@ -1019,7 +1037,7 @@ pub(super) fn draw(
     commands: &mut Commands,
     root: Entity,
     state: &LobbyState,
-    metrics: Metrics,
+    _metrics: Metrics,
     kit: Kit,
     scrolled: &Scrolled,
 ) {
@@ -1062,7 +1080,11 @@ pub(super) fn draw(
         .id();
     commands.entity(body).add_child(panel);
 
+    let can_online = state.can_use_server_replays();
     let mut filters = ui.filters.clone();
+    if !can_online && matches!(filters.source, SourceFilter::Online | SourceFilter::House) {
+        filters.source = SourceFilter::All;
+    }
     filters.query = lobby.field(Field::ReplaySearch).to_string();
     let names = |index: u32| card_name(index);
     let mut shown: Vec<(usize, &Entry)> = ui
@@ -1123,10 +1145,10 @@ pub(super) fn draw(
         .id();
     let typing = lobby.focus() == Field::ReplaySearch && lobby.typing_here();
     let typed = !lobby.field(Field::ReplaySearch).is_empty();
-    let field = text_field(
+    let field = super::field::text_field_hinted(
         commands,
         kit.fonts,
-        metrics,
+        super::front::faces::field_metrics(kit),
         "",
         &FieldLook {
             buffer: lobby.buffer(Field::ReplaySearch),
@@ -1141,6 +1163,8 @@ pub(super) fn draw(
                 lit: false,
             }),
         },
+        None,
+        Some(Phrase::FilterClear.text(lang)),
     );
     commands.entity(hunt).add_child(field);
     commands
@@ -1149,7 +1173,7 @@ pub(super) fn draw(
     commands.entity(panel).add_child(head);
 
     // ---- 2. Analytics & KPI Dashboard Strip
-    let stats_bar = spawn_replays_stats_bar(commands, kit, ui.library.entries(), lang);
+    let stats_bar = spawn_replays_stats_bar(commands, kit, ui.library.entries(), lang, can_online);
     commands.entity(panel).add_child(stats_bar);
 
     // ---- 3. Filter, Sort & View Toolbar
@@ -1157,21 +1181,38 @@ pub(super) fn draw(
     commands.entity(bar).entry::<Node>().and_modify(|mut n| {
         n.width = percent(100);
     });
-    let sources = [
-        (SourceFilter::All, ReplayPhrase::FilterAll),
-        (SourceFilter::House, ReplayPhrase::FilterHouse),
-        (SourceFilter::Online, ReplayPhrase::FilterOnline),
-        (SourceFilter::Archived, ReplayPhrase::Archived),
-    ];
-    let words: Vec<&str> = sources.iter().map(|(_, p)| p.text(lang)).collect();
-    let at = sources
-        .iter()
-        .position(|(s, _)| *s == ui.filters.source)
-        .unwrap_or(0);
-    let segments = controls::segmented(commands, kit, &words, at, |i| {
-        Press::Replays(ReplaysPress::Source(sources[i].0))
-    });
-    commands.entity(bar).add_child(segments);
+    if can_online {
+        let sources = [
+            (SourceFilter::All, ReplayPhrase::FilterAll),
+            (SourceFilter::House, ReplayPhrase::FilterHouse),
+            (SourceFilter::Online, ReplayPhrase::FilterOnline),
+            (SourceFilter::Archived, ReplayPhrase::Archived),
+        ];
+        let words: Vec<&str> = sources.iter().map(|(_, p)| p.text(lang)).collect();
+        let at = sources
+            .iter()
+            .position(|(s, _)| *s == filters.source)
+            .unwrap_or(0);
+        let segments = controls::segmented(commands, kit, &words, at, |i| {
+            Press::Replays(ReplaysPress::Source(sources[i].0))
+        });
+        commands.entity(bar).add_child(segments);
+    } else {
+        let archived_on = filters.source == SourceFilter::Archived;
+        let archived_pill = replay_filter_pill(
+            commands,
+            kit,
+            '\u{f187}',
+            ReplayPhrase::Archived.text(lang),
+            archived_on,
+            Press::Replays(ReplaysPress::Source(if archived_on {
+                SourceFilter::All
+            } else {
+                SourceFilter::Archived
+            })),
+        );
+        commands.entity(bar).add_child(archived_pill);
+    }
     let results = [
         (None, '\u{f00a}'),
         (Some(Outcome::Won), '\u{f091}'),

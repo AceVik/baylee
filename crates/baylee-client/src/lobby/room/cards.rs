@@ -102,16 +102,33 @@ pub(super) fn draw(
         }
     }
     if host {
-        field(
+        let board_field = super::super::field::text_field_hinted(
             commands,
-            surface,
-            state,
             fonts,
             m,
             Phrase::RoomBoard.text(lang),
-            Field::RoomBoard(seat),
-            false,
+            &FieldLook {
+                buffer: lobby.buffer(Field::RoomBoard(seat)),
+                focused: lobby.focus() == Field::RoomBoard(seat) && lobby.typing_here(),
+                mask: None,
+                press: Press::Shared(SharedPress::Focus(Field::RoomBoard(seat))),
+                lead: Some(crate::hud::glyph::MAGNIFIER),
+                hint: Some(Phrase::SearchCards.text(lang)),
+                tail: Some(FieldTail {
+                    glyph: '\u{f059}',
+                    press: Press::Room(RoomPress::ToggleBoardSyntax),
+                    lit: state.room_board_syntax,
+                }),
+            },
+            None,
+            Some(Phrase::BuildSyntaxTitle.text(lang)),
         );
+        super::super::orders::field(commands, board_field, &super::super::orders::ROOM, "board");
+        commands.entity(surface).add_child(board_field);
+        if state.room_board_syntax {
+            let help = spawn_board_syntax_help(commands, fonts, m, lang, seat);
+            commands.entity(surface).add_child(help);
+        }
         if lobby.focus() == Field::RoomBoard(seat)
             && !lobby.field(Field::RoomBoard(seat)).trim().is_empty()
         {
@@ -263,4 +280,85 @@ pub(super) fn draw(
             commands.entity(surface).add_child(add);
         }
     }
+}
+
+/// Compact card-query syntax reference under `Field::RoomBoard`: each row shows
+/// an example query and inserts it when pressed.
+fn spawn_board_syntax_help(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    m: Metrics,
+    lang: Lang,
+    seat: u8,
+) -> Entity {
+    use crate::shellkit::tokens;
+    let card = commands
+        .spawn((
+            crate::shellkit::role::Role::Panel,
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(2),
+                padding: UiRect::all(px(m.gap)),
+                border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px(tokens::RADIUS_CONTROL)),
+                ..default()
+            },
+            BackgroundColor(tokens::OPAQUE),
+            BorderColor::all(tokens::BORDER),
+        ))
+        .id();
+    let title = commands
+        .spawn((
+            Text::new(Phrase::BuildSyntaxTitle.text(lang)),
+            crate::hud::tf_bold(fonts, m.small),
+            TextColor(tokens::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(card).add_child(title);
+    for (i, (example, meaning)) in crate::buildui::pool::SYNTAX.iter().take(8).enumerate() {
+        let row = commands
+            .spawn((
+                crate::shellkit::role::Role::Button,
+                Node {
+                    width: percent(100),
+                    min_height: px(26),
+                    align_items: AlignItems::Center,
+                    column_gap: px(m.gap),
+                    padding: UiRect::axes(px(6), px(2)),
+                    border_radius: BorderRadius::all(px(tokens::RADIUS_CONTROL)),
+                    ..default()
+                },
+                BackgroundColor(Color::NONE),
+                crate::ambience::Feel::tinting_to(Color::NONE, tokens::SELECTED),
+                Press::Room(RoomPress::InsertBoardSyntax(seat, i)),
+            ))
+            .id();
+        let code = commands
+            .spawn((
+                Text::new(*example),
+                crate::hud::tf_bold(fonts, m.small * 0.9),
+                TextColor(tokens::ACCENT),
+                TextLayout::no_wrap(),
+                Node {
+                    width: px(136),
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        let what = commands
+            .spawn((
+                Text::new(meaning.text(lang)),
+                tf(fonts, m.small * 0.9),
+                TextColor(tokens::MUTED),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(row).add_children(&[code, what]);
+        commands.entity(card).add_child(row);
+    }
+    card
 }

@@ -1043,7 +1043,7 @@ fn sync_lobby_window(
         if minimised {
             commands.entity(root).add_child(ids.head);
             for id in [ids.sub, ids.note, ids.body, ids.composer, ids.light] {
-                commands.entity(id).despawn();
+                commands.entity(id).try_despawn();
             }
             drawn.head = Some(ids.head);
         } else {
@@ -1511,11 +1511,18 @@ fn fill(
                 }
             })
             .collect();
-        let key = key_of(&(counts.clone(), ui.tab, lang as u8, ui.filters.is_some()));
+        let guest = machine.me().guest;
+        let key = key_of(&(
+            counts.clone(),
+            ui.tab,
+            lang as u8,
+            ui.filters.is_some(),
+            guest,
+        ));
         if key != drawn.head_key {
             drawn.head_key = key;
             commands.entity(head).despawn_children();
-            let kids = head_parts(commands, fonts, lang, &counts, ui.tab, frame);
+            let kids = head_parts(commands, fonts, lang, &counts, ui.tab, frame, guest);
             commands.entity(head).add_children(&kids);
         }
     }
@@ -1726,7 +1733,7 @@ fn lobby_card_links(
                 || crate::lobby::hover_of_index(link.card),
                 crate::lobby::hover_of_card,
             );
-        commands.entity(entity).insert(card);
+        commands.entity(entity).try_insert(card);
     }
 }
 

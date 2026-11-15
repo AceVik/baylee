@@ -58,7 +58,7 @@ pub(super) fn spawn_leave_button(
     if state.replays.end_redraw {
         state.replays.end_redraw = false;
         for way in &placed {
-            commands.entity(way).despawn();
+            commands.entity(way).try_despawn();
         }
         return;
     }
@@ -173,11 +173,16 @@ pub(super) fn spawn_leave_button(
         // Over the row of ways: the parent's children, the toggle placed
         // just before the row.
         commands.queue(move |world: &mut World| {
+            if world.get_entity(toggle).is_err() {
+                return;
+            }
             let at = world
                 .get::<Children>(parent)
                 .and_then(|c| c.iter().position(|e| e == holder));
             if let Some(at) = at {
                 world.entity_mut(parent).insert_children(at, &[toggle]);
+            } else if let Ok(toggle_mut) = world.get_entity_mut(toggle) {
+                toggle_mut.despawn();
             }
         });
     }
@@ -248,7 +253,7 @@ pub(super) fn despawn_leave_button(
     buttons: Query<Entity, With<LeaveButton>>,
 ) {
     for entity in &buttons {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
 }
 

@@ -408,7 +408,7 @@ fn show_the_note(
 ) {
     let Some(mut note) = note else {
         for panel in &panels {
-            commands.entity(panel).despawn();
+            commands.entity(panel).try_despawn();
         }
         return;
     };

@@ -214,7 +214,7 @@ pub(super) fn draw(
     );
     super::orders::stop(commands, leave, &super::orders::ROOM, "leave");
     commands.entity(title).add_child(leave);
-    if !lobby.offline() && !phone {
+    if state.can_play_online() && !phone {
         let invite = controls::button(
             commands,
             kit,
@@ -1500,6 +1500,10 @@ pub(crate) enum RoomPress {
     HostedNothing,
     /// A seat's own starting life: the same drawer as its starting position.
     LifeOverride(u8),
+    /// Toggle the card-query syntax help under the room's starting-board search.
+    ToggleBoardSyntax,
+    /// Insert a card-query syntax example into `Field::RoomBoard(seat)`.
+    InsertBoardSyntax(u8, usize),
 }
 
 /// Leaves the listed table at `index`: the host's Leave hands the table on
@@ -1569,6 +1573,7 @@ impl RoomPress {
             RoomPress::RoomSetup(seat) => {
                 state.room_setup_seat = (state.room_setup_seat != Some(seat)).then_some(seat);
                 state.room_card_edit = None;
+                state.room_board_syntax = false;
                 // Collapsing or switching editors must not leave a hidden
                 // card search (or counter field) receiving keyboard input.
                 if matches!(
@@ -1657,6 +1662,22 @@ impl RoomPress {
             RoomPress::StepAway => {
                 state.room_away = true;
                 state.hub = Hub::Play;
+            }
+            RoomPress::ToggleBoardSyntax => {
+                state.room_board_syntax = !state.room_board_syntax;
+            }
+            RoomPress::InsertBoardSyntax(seat, i) => {
+                if let Some((example, _)) = crate::buildui::pool::SYNTAX.get(i) {
+                    let current = state.lobby.field(Field::RoomBoard(seat)).trim().to_string();
+                    let next = if current.is_empty() {
+                        (*example).to_string()
+                    } else {
+                        format!("{current} {example}")
+                    };
+                    state.lobby.set_field(Field::RoomBoard(seat), &next);
+                    state.lobby.focus_on(Field::RoomBoard(seat));
+                }
+                state.room_board_syntax = false;
             }
             RoomPress::CopyInvite(index) => {
                 if let Some(game) = state.lobby.games().get(index) {

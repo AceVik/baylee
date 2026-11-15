@@ -5,6 +5,9 @@ use super::*;
 
 /// The session the lobby is signed in to, if any.
 fn wanted_session(lobby: &LobbyState) -> Option<Session> {
+    if !lobby.can_use_contacts() {
+        return None;
+    }
     if lobby.central_ready() {
         if lobby.central_terms_pending() {
             return None;
@@ -60,16 +63,10 @@ fn wanted_session(lobby: &LobbyState) -> Option<Session> {
             guest: false,
         });
     }
-    if lobby.lobby.offline() {
-        return Some(Session {
-            gateway: String::new(),
-            token: String::new(),
-            handle: "Guest#0000".to_string(),
-            tag: "0000".to_string(),
-            guest: true,
-        });
-    }
     let me = lobby.lobby.me()?;
+    if me.guest {
+        return None;
+    }
     let tag = social::tag_of(&me.handle)?.to_string();
     if let Some(token) = lobby.lobby.token() {
         return Some(Session {
@@ -77,7 +74,7 @@ fn wanted_session(lobby: &LobbyState) -> Option<Session> {
             token: token.to_string(),
             handle: me.handle.clone(),
             tag,
-            guest: me.guest,
+            guest: false,
         });
     }
     None

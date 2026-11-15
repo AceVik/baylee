@@ -504,16 +504,35 @@ fn lobby_side(
     phase: Option<Res<State<crate::DuelPhase>>>,
 ) {
     use baylee_client_core::shellkeys::ShellAction;
-    let header = if lobby.central_ready() || lobby.lobby.offline() {
+    let can_contacts = lobby.can_use_contacts();
+    let header = if !can_contacts {
+        None
+    } else if lobby.central_ready() {
         Some(true)
     } else {
-        host.machine().map(|m| !m.me().guest)
+        host.machine().filter(|m| !m.me().guest).map(|_| true)
     };
+    if !can_contacts
+        && (ui.open
+            || ui.drawer
+            || ui.typing
+            || ui.sheet.is_some()
+            || ui.vault_open
+            || ui.row_menu.is_some()
+            || ui.drawer_menu.is_some())
+    {
+        ui.open = false;
+        ui.drawer = false;
+        ui.typing = false;
+        ui.sheet = None;
+        ui.vault_open = false;
+        ui.row_menu = None;
+        ui.drawer_menu = None;
+    }
     if lobby.chat_header != header {
         // The friends list stands open from the start of a session (owner,
-        // 13.10.); a guest or pure-offline session starts with it closed until
-        // the player clicks the header button.
-        if lobby.chat_header != Some(true) && header == Some(true) && !lobby.lobby.offline() {
+        // 13.10.).
+        if lobby.chat_header != Some(true) && header == Some(true) {
             ui.drawer = true;
         }
         lobby.chat_header = header;
@@ -754,7 +773,7 @@ fn follow_the_zoom(
     if (zoom.0 - now).abs() > f32::EPSILON {
         zoom.0 = now;
         for root in &roots {
-            commands.entity(root).despawn();
+            commands.entity(root).try_despawn();
         }
     }
 }

@@ -143,7 +143,7 @@ pub(super) fn place(
         };
         let Some((anchor_size, mid)) = anchor_info else {
             // The opener is gone: nothing to hang from.
-            commands.entity(entity).remove::<Unplaced>();
+            commands.entity(entity).try_remove::<Unplaced>();
             continue;
         };
         let scale = computed.inverse_scale_factor;
@@ -184,7 +184,7 @@ pub(super) fn place(
             }
         }
         *shown = Visibility::Inherited;
-        commands.entity(entity).remove::<Unplaced>();
+        commands.entity(entity).try_remove::<Unplaced>();
     }
 }
 

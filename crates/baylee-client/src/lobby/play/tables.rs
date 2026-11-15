@@ -52,143 +52,206 @@ pub(super) fn tables(
         ))
         .id();
     commands.entity(parent).add_child(panel);
-    let offline = lobby.offline();
+    let offline = !state.can_play_online();
+    let query = lobby.field(Field::Search).trim();
+    let order: Vec<usize> = model::table_order(lobby.games(), state.play.filter, state.play.sort)
+        .into_iter()
+        .filter(|&i| model::matches_search(&lobby.games()[i], query))
+        .collect();
 
     // Head: "Tables · 3 waiting · updated just now" and the search.
-    let head = parts::row(commands, kit, !phone);
-    commands
-        .entity(head)
-        .entry::<Node>()
-        .and_modify(|mut n| n.flex_shrink = 0.0);
-    if !phone {
-        let title = commands
-            .spawn((
-                Text::new(Phrase::Tables.text(lang)),
-                crate::hud::tf(kit.fonts, kit.m.head),
-                TextColor(tokens::INK),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(head).add_child(title);
-        let waiting = lobby
-            .games()
-            .iter()
-            .filter(|g| g.state == "waiting")
-            .count();
-        let fresh = if lobby.unreachable() || state.feed_down {
-            String::new()
-        } else {
-            format!(" · {}", Phrase::ShellUpdatedJustNow.text(lang))
-        };
-        let note = parts::line(
-            commands,
-            kit,
-            &format!(
-                "{}{fresh}",
-                Phrase::ShellTablesWaiting.fill(lang, &[&waiting.to_string()])
-            ),
-            kit.m.small,
-            tokens::MUTED,
-        );
-        commands.entity(head).add_child(note);
-        let gap = parts::grow(commands);
-        commands.entity(head).add_child(gap);
-    }
-    if !offline {
-        let hunt = commands
-            .spawn((
-                Node {
-                    width: if phone { percent(42) } else { kit.m.px(320.0) },
-                    flex_shrink: if phone { 0.0 } else { 1.0 },
-                    min_width: px(100),
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        let field = text_field(
-            commands,
-            kit.fonts,
-            metrics,
-            "",
-            &FieldLook {
-                buffer: lobby.buffer(Field::Search),
-                focused: lobby.focus() == Field::Search && lobby.typing_here(),
-                mask: None,
-                press: Press::Shared(SharedPress::Focus(Field::Search)),
-                lead: Some(crate::hud::glyph::MAGNIFIER),
-                hint: Some(Phrase::SearchTables.text(lang)),
-                tail: None,
-            },
-        );
-        orders::field(commands, field, &orders::PLAY, "search");
-        commands.entity(hunt).add_child(field);
-        commands.entity(head).add_child(hunt);
-    }
-    commands.entity(panel).add_child(head);
-
-    // Chips and Sort: one row; on a phone they share the search's row and
-    // scroll sideways there, Sort first (M4-6: search and chips in one 44
-    // row).
-    let mut sort_anchor = None;
-    if !offline {
-        let chips = commands
-            .spawn((
-                Node {
-                    align_items: AlignItems::Center,
-                    column_gap: kit.m.px(8.0),
-                    row_gap: kit.m.px(6.0),
-                    flex_wrap: if phone {
-                        FlexWrap::NoWrap
-                    } else {
-                        FlexWrap::Wrap
+    // Offline there are no other players waiting and no gateway feed to poll,
+    // so only draw the heading when the player's own local room is listed.
+    if !offline || (!phone && !order.is_empty()) {
+        let head = parts::row(commands, kit, !phone);
+        commands
+            .entity(head)
+            .entry::<Node>()
+            .and_modify(|mut n| n.flex_shrink = 0.0);
+        if !phone {
+            let title = commands
+                .spawn((
+                    Text::new(Phrase::Tables.text(lang)),
+                    crate::hud::tf(kit.fonts, kit.m.head),
+                    TextColor(tokens::INK),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(head).add_child(title);
+            if !offline {
+                let waiting = lobby
+                    .games()
+                    .iter()
+                    .filter(|g| g.state == "waiting")
+                    .count();
+                let fresh = if lobby.unreachable() || state.feed_down {
+                    String::new()
+                } else {
+                    format!(" · {}", Phrase::ShellUpdatedJustNow.text(lang))
+                };
+                let note = parts::line(
+                    commands,
+                    kit,
+                    &format!(
+                        "{}{fresh}",
+                        Phrase::ShellTablesWaiting.fill(lang, &[&waiting.to_string()])
+                    ),
+                    kit.m.small,
+                    tokens::MUTED,
+                );
+                commands.entity(head).add_child(note);
+            }
+            let gap = parts::grow(commands);
+            commands.entity(head).add_child(gap);
+        }
+        if !offline {
+            let hunt = commands
+                .spawn((
+                    Node {
+                        width: if phone { percent(42) } else { kit.m.px(320.0) },
+                        flex_shrink: if phone { 0.0 } else { 1.0 },
+                        min_width: px(100),
+                        ..default()
                     },
-                    overflow: if phone {
-                        Overflow::scroll_x()
-                    } else {
-                        Overflow::visible()
-                    },
-                    flex_shrink: if phone { 1.0 } else { 0.0 },
-                    flex_grow: if phone { 1.0 } else { 0.0 },
-                    min_width: px(0),
-                    ..default()
+                    Pickable::IGNORE,
+                ))
+                .id();
+            let typed = !lobby.field(Field::Search).is_empty();
+            let field = super::super::field::text_field_hinted(
+                commands,
+                kit.fonts,
+                super::super::front::faces::field_metrics(kit),
+                "",
+                &FieldLook {
+                    buffer: lobby.buffer(Field::Search),
+                    focused: lobby.focus() == Field::Search && lobby.typing_here(),
+                    mask: None,
+                    press: Press::Shared(SharedPress::Focus(Field::Search)),
+                    lead: Some(crate::hud::glyph::MAGNIFIER),
+                    hint: Some(Phrase::SearchTables.text(lang)),
+                    tail: typed.then_some(super::super::FieldTail {
+                        glyph: crate::hud::glyph::CLOSE,
+                        press: Press::Play(PlayPress::ClearSearchField),
+                        lit: false,
+                    }),
                 },
-                Pickable::IGNORE,
-            ))
-            .id();
-        for chip in Chip::ALL {
-            let c = controls::chip(
+                None,
+                Some(Phrase::ClearTableSearch.text(lang)),
+            );
+            orders::field(commands, field, &orders::PLAY, "search");
+            commands.entity(hunt).add_child(field);
+            commands.entity(head).add_child(hunt);
+        }
+        commands.entity(panel).add_child(head);
+        // Chips and Sort: one row; on a phone they share the search's row and
+        // scroll sideways there, Sort first (M4-6: search and chips in one 44
+        // row).
+        let mut sort_anchor = None;
+        if !offline {
+            let chips = commands
+                .spawn((
+                    Node {
+                        align_items: AlignItems::Center,
+                        column_gap: kit.m.px(8.0),
+                        row_gap: kit.m.px(6.0),
+                        flex_wrap: if phone {
+                            FlexWrap::NoWrap
+                        } else {
+                            FlexWrap::Wrap
+                        },
+                        overflow: if phone {
+                            Overflow::scroll_x()
+                        } else {
+                            Overflow::visible()
+                        },
+                        flex_shrink: if phone { 1.0 } else { 0.0 },
+                        flex_grow: if phone { 1.0 } else { 0.0 },
+                        min_width: px(0),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
+            for chip in Chip::ALL {
+                let c = controls::chip(
+                    commands,
+                    kit,
+                    chip.phrase().text(lang),
+                    state.play.filter.on(chip),
+                    None,
+                    false,
+                    Press::Play(PlayPress::Chip(chip)),
+                );
+                orders::item(commands, c, &orders::PLAY, "chips", chip as usize);
+                commands.entity(chips).add_child(c);
+            }
+            let sort = parts::menu_button(
                 commands,
                 kit,
-                chip.phrase().text(lang),
-                state.play.filter.on(chip),
-                None,
-                false,
-                Press::Play(PlayPress::Chip(chip)),
+                &Phrase::PlaySortBy.fill(lang, &[state.play.sort.phrase().text(lang)]),
+                Weight::Ghost,
+                Press::Shared(SharedPress::OpenMenu(ShellMenu::TableSort)),
             );
-            orders::item(commands, c, &orders::PLAY, "chips", chip as usize);
-            commands.entity(chips).add_child(c);
+            orders::stop(commands, sort, &orders::PLAY, "sort");
+            sort_anchor = Some(sort);
+            if phone {
+                commands.entity(chips).insert_children(0, &[sort]);
+                commands.entity(head).add_child(chips);
+            } else {
+                let gap = parts::grow(commands);
+                commands.entity(chips).add_children(&[gap, sort]);
+                commands.entity(panel).add_child(chips);
+            }
         }
-        let sort = parts::menu_button(
+        let held = strips::strip(lobby);
+        if let Some(Strip::Seated { table, .. } | Strip::Playing { table, .. }) = &held {
+            let line = parts::line(
+                commands,
+                kit,
+                &Phrase::PlayJoinOff.fill(lang, &[table]),
+                kit.m.small,
+                tokens::GOLD,
+            );
+            commands.entity(panel).add_child(line);
+        }
+        if lobby.unreachable() && !offline {
+            let retry = controls::button(
+                commands,
+                kit,
+                Phrase::ShellRetry.text(lang),
+                Weight::Secondary,
+                Live::Yes,
+                None,
+                Press::Play(PlayPress::Retry),
+            );
+            let name = state
+                .gateway_name()
+                .unwrap_or_else(|| state.gateway.clone());
+            let line = crate::shellkit::states::error_line(
+                commands,
+                kit,
+                &Phrase::ShellCouldNotReach.fill(lang, &[&name]),
+                retry,
+            );
+            commands.entity(panel).add_child(line);
+        }
+        if !offline {
+            discovery::loading_notice(commands, panel, kit, order.len());
+        }
+        return finish_tables(
             commands,
+            panel,
+            state,
+            metrics,
             kit,
-            &Phrase::PlaySortBy.fill(lang, &[state.play.sort.phrase().text(lang)]),
-            Weight::Ghost,
-            Press::Shared(SharedPress::OpenMenu(ShellMenu::TableSort)),
+            scrolled,
+            &order,
+            sort_anchor,
+            offline,
         );
-        orders::stop(commands, sort, &orders::PLAY, "sort");
-        sort_anchor = Some(sort);
-        if phone {
-            commands.entity(chips).insert_children(0, &[sort]);
-            commands.entity(head).add_child(chips);
-        } else {
-            let gap = parts::grow(commands);
-            commands.entity(chips).add_children(&[gap, sort]);
-            commands.entity(panel).add_child(chips);
-        }
     }
 
-    // While seated, Join is off for every other row, said once (§2.1).
+    // Pure offline with no active local table: only the seated strip notice (if any) and the ready state.
     let held = strips::strip(lobby);
     if let Some(Strip::Seated { table, .. } | Strip::Playing { table, .. }) = &held {
         let line = parts::line(
@@ -200,36 +263,26 @@ pub(super) fn tables(
         );
         commands.entity(panel).add_child(line);
     }
-    if lobby.unreachable() && !offline {
-        let retry = controls::button(
-            commands,
-            kit,
-            Phrase::ShellRetry.text(lang),
-            Weight::Secondary,
-            Live::Yes,
-            None,
-            Press::Play(PlayPress::Retry),
-        );
-        let name = state
-            .gateway_name()
-            .unwrap_or_else(|| state.gateway.clone());
-        let line = crate::shellkit::states::error_line(
-            commands,
-            kit,
-            &Phrase::ShellCouldNotReach.fill(lang, &[&name]),
-            retry,
-        );
-        commands.entity(panel).add_child(line);
-    }
+    finish_tables(
+        commands, panel, state, metrics, kit, scrolled, &order, None, offline,
+    )
+}
 
-    let query = lobby.field(Field::Search).trim();
-    let order: Vec<usize> = model::table_order(lobby.games(), state.play.filter, state.play.sort)
-        .into_iter()
-        .filter(|&i| model::matches_search(&lobby.games()[i], query))
-        .collect();
-    if !offline {
-        discovery::loading_notice(commands, panel, kit, order.len());
-    }
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+fn finish_tables(
+    commands: &mut Commands,
+    panel: Entity,
+    state: &LobbyState,
+    metrics: Metrics,
+    kit: Kit,
+    scrolled: &Scrolled,
+    order: &[usize],
+    sort_anchor: Option<Entity>,
+    offline: bool,
+) -> Option<Entity> {
+    let lobby = &state.lobby;
+    let lang = lobby.lang();
+    let held = strips::strip(lobby);
     let list = commands
         .spawn((
             Node {

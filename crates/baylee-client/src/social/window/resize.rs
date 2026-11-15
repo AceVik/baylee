@@ -187,7 +187,7 @@ pub(super) fn cursor(
     let want = CursorIcon::System(icon);
     for (window, now) in &windows {
         if now != Some(&want) {
-            commands.entity(window).insert(want.clone());
+            commands.entity(window).try_insert(want.clone());
         }
     }
 }

@@ -150,17 +150,17 @@ pub(super) fn table(
     // The two screens under the header (WP2, WP3): the header's nav is
     // the way between them.
     match state.hub {
-        Hub::Play if state.central_ready() => {
+        Hub::Play if state.can_enter_challenges() => {
             super::challenges::home(commands, root, state, metrics, kit, scrolled_to);
         }
-        Hub::Play | Hub::Tables | Hub::Gateways => {
+        Hub::Challenges if state.can_enter_challenges() => {
+            super::challenges::draw(commands, root, state, metrics, kit, scrolled_to);
+        }
+        Hub::Play | Hub::Tables | Hub::Gateways | Hub::Challenges => {
             super::play::draw(commands, root, state, metrics, kit, scrolled_to);
         }
         Hub::Decks => super::decks::draw(commands, root, state, prefs, metrics, kit, scrolled_to),
         Hub::Replays => super::replays::draw(commands, root, state, metrics, kit, scrolled_to),
-        Hub::Challenges => {
-            super::challenges::draw(commands, root, state, metrics, kit, scrolled_to);
-        }
     }
 }
 
@@ -214,6 +214,8 @@ impl HubPress {
             HubPress::Tab(hub) => {
                 let hub = if hub == Hub::Tables && state.central_without_gateway() {
                     Hub::Gateways
+                } else if hub == Hub::Challenges && !state.can_enter_challenges() {
+                    Hub::Play
                 } else {
                     hub
                 };
@@ -255,11 +257,20 @@ impl HubPress {
             HubPress::Refresh => {
                 #[cfg(not(target_arch = "wasm32"))]
                 if state.hub == Hub::Challenges {
+                    if !state.can_enter_challenges() {
+                        return;
+                    }
                     if state.echoes.opened {
                         super::echoes::native::ask(state, super::echoes::Action::Refresh);
                         return;
                     }
                     super::challenges::ask(state, baylee_client_core::challenges::Action::Refresh);
+                    return;
+                }
+                if state.hub == Hub::Play
+                    && !state.can_play_online()
+                    && !state.can_enter_challenges()
+                {
                     return;
                 }
                 let request = state.lobby.refresh();

@@ -250,7 +250,7 @@ pub(super) fn teardown(
 ) {
     loading.clear();
     for entity in &screen {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
 }
 
@@ -477,10 +477,10 @@ pub(super) fn ui(
             crate::shellkit::retain::Kept::of(entity, camera, target)
         });
     for (entity, ..) in &headers {
-        commands.entity(entity).remove::<ChildOf>();
+        commands.entity(entity).try_remove::<ChildOf>();
     }
     for entity in &root {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
     drawn.0 = Some(metrics.frame);
     drawn.1.clone_from(&history_now);

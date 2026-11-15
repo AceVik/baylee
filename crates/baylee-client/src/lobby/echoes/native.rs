@@ -51,7 +51,7 @@ fn session(state: &mut LobbyState) -> Option<central::Handle> {
 }
 
 fn ready(state: &LobbyState) -> bool {
-    state.central_ready()
+    state.can_enter_tower()
         && !state.central_terms_pending()
         && state.terms_subject != super::super::front::terms::Subject::Central
 }

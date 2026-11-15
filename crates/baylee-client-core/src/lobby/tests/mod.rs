@@ -12,6 +12,7 @@ mod seating;
 mod sign_in;
 mod status;
 mod table_list;
+mod visibility;
 
 use super::*;
 

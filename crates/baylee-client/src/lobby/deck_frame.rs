@@ -105,6 +105,9 @@ pub(crate) fn attach(
         .id();
     commands.entity(tile_face).add_child(overlay);
     commands.queue(move |world: &mut World| {
+        if world.get_entity(overlay).is_err() {
+            return;
+        }
         let motion = world
             .get_resource::<crate::prefs::Prefs>()
             .map_or(1.0, |p| if p.all().reduce_motion { 0.0 } else { 1.0 });

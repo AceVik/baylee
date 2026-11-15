@@ -227,22 +227,32 @@ fn button(
     press: Press,
     focus: bool,
 ) -> Entity {
+    let rest_border = if focus {
+        tokens::ACCENT
+    } else {
+        tokens::BORDER
+    };
     commands
         .spawn((
             UiButton,
             press,
             Node {
                 min_height: px(44.0),
-                padding: UiRect::all(px(10.0)),
+                padding: UiRect::axes(px(14.0), px(10.0)),
                 border: UiRect::all(px(1.0)),
+                border_radius: BorderRadius::all(px(tokens::RADIUS_CONTROL)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
                 ..default()
             },
-            BackgroundColor(tokens::PANEL),
-            BorderColor::all(if focus {
-                tokens::ACCENT
-            } else {
-                tokens::BORDER
-            }),
+            BackgroundColor(tokens::CONTROL),
+            BorderColor::all(rest_border),
+            crate::ambience::Feel::tinting_to(tokens::CONTROL, tokens::HOVER),
+            crate::ambience::FeelBorder {
+                rest: rest_border,
+                hot: tokens::ACCENT,
+                press: tokens::ACCENT,
+            },
             children![(
                 Text::new(label),
                 tf(fonts, 14.0),
@@ -331,7 +341,7 @@ fn draw(
     }
     *drawn = key;
     for root in &roots {
-        commands.entity(root).despawn();
+        commands.entity(root).try_despawn();
     }
     if !visible || host.vault.is_central() {
         return;
@@ -399,6 +409,7 @@ fn draw(
         .id();
     let card = commands
         .spawn((
+            crate::shellkit::Role::Opaque,
             Node {
                 width: px(600.0),
                 max_width: Val::Percent(95.0),
@@ -406,10 +417,14 @@ fn draw(
                 flex_direction: FlexDirection::Column,
                 row_gap: px(10.0),
                 padding: UiRect::all(px(20.0)),
+                border: UiRect::all(px(1.0)),
+                border_radius: BorderRadius::all(px(tokens::RADIUS_PANEL)),
                 overflow: Overflow::scroll_y(),
                 ..default()
             },
-            BackgroundColor(tokens::PANEL),
+            BackgroundColor(tokens::OPAQUE),
+            BorderColor::all(tokens::BORDER),
+            crate::shellkit::surfaces::popover_shadow(),
             crate::hud::Scrolls,
             bevy::ui::ScrollPosition::default(),
         ))

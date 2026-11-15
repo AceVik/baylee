@@ -168,12 +168,20 @@ impl Lobby {
 
 impl Lobby {
     /// Permanent search suggestions, bounded to keep the dropdown readable.
+    ///
+    /// Understands the full [`crate::cardquery`] search syntax (`t:land`,
+    /// `c:rg`, `mv<=3`, `o:draw`, etc.) in addition to plain name matching.
     #[must_use]
     pub fn room_matches(&self, seat: u8) -> Vec<usize> {
-        let query = self.field(Field::RoomBoard(seat)).trim().to_lowercase();
-        if query.is_empty() {
+        let raw = self.field(Field::RoomBoard(seat)).trim();
+        if raw.is_empty() {
             return Vec::new();
         }
+        let parsed = crate::cardquery::parse(raw);
+        if parsed.is_anything() {
+            return Vec::new();
+        }
+        let surface = self.builder.surface();
         self.builder
             .pool()
             .iter()
@@ -189,8 +197,7 @@ impl Lobby {
                         "Battle",
                     ]
                     .contains(&k.as_str())
-                }) && (c.name.to_lowercase().contains(&query)
-                    || c.english_name.to_lowercase().contains(&query))
+                }) && crate::cardsearch::pool_card_matches(&parsed, c, surface)
             })
             .take(8)
             .map(|(at, _)| at)

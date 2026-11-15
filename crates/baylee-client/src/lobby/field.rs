@@ -161,7 +161,7 @@ pub(crate) fn text_field(
     label: &str,
     look: &FieldLook,
 ) -> Entity {
-    text_field_with(commands, fonts, metrics, label, look, None)
+    text_field_hinted(commands, fonts, metrics, label, look, None, None)
 }
 
 /// [`text_field`], carrying the kit's focus stops.
@@ -173,6 +173,20 @@ pub(crate) fn text_field_with(
     look: &FieldLook,
     stops: Option<FieldStops>,
 ) -> Entity {
+    text_field_hinted(commands, fonts, metrics, label, look, stops, None)
+}
+
+/// [`text_field_with`], with an optional tooltip on the trailing action button.
+pub(super) fn text_field_hinted(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    label: &str,
+    look: &FieldLook,
+    stops: Option<FieldStops>,
+    tail_hint: Option<&str>,
+) -> Entity {
+    use crate::shellkit::tokens;
     let column = commands
         .spawn((
             Node {
@@ -189,7 +203,7 @@ pub(crate) fn text_field_with(
             .spawn((
                 Text::new(label),
                 tf(fonts, metrics.small * 0.8),
-                TextColor(palette::MUTED),
+                TextColor(tokens::MUTED),
                 Pickable::IGNORE,
             ))
             .id();
@@ -200,33 +214,36 @@ pub(crate) fn text_field_with(
         .spawn((
             Node {
                 width: percent(100),
-                min_height: px(metrics.tap * if is_search { 0.80 } else { 1.0 }),
+                min_height: px(metrics.tap),
                 overflow: Overflow::clip_x(),
                 align_items: AlignItems::Center,
-                padding: UiRect::axes(
-                    px(metrics.pad * if is_search { 0.75 } else { 0.7 }),
-                    px(if is_search { 3 } else { 6 }),
-                ),
-                // Two pixels whether or not it has the caret, so that taking
-                // the caret rings the box instead of moving everything in it
-                // a pixel to the left.
-                border: UiRect::all(px(2)),
+                padding: UiRect::axes(px(metrics.pad * 0.72), px(2)),
+                // Constant 1 px border whether or not it has the caret, so that
+                // taking the caret rings the box instead of shifting its text.
+                border: UiRect::all(px(1)),
                 border_radius: if is_search {
-                    BorderRadius::all(px(18))
+                    BorderRadius::all(px(tokens::RADIUS_PILL))
                 } else {
-                    btn_radius()
+                    BorderRadius::all(px(tokens::RADIUS_CONTROL))
                 },
                 ..default()
             },
-            BackgroundColor(palette::PANEL),
+            BackgroundColor(tokens::CONTROL),
             BorderColor::all(if look.focused {
-                palette::ACCENT
+                tokens::ACCENT
             } else {
-                Color::srgba(1.0, 1.0, 1.0, 0.08)
+                tokens::BORDER
             }),
             look.press,
         ))
         .id();
+    if !look.focused {
+        commands.entity(boxed).insert(crate::ambience::FeelBorder {
+            rest: tokens::BORDER,
+            hot: tokens::PRIMARY_EDGE,
+            press: tokens::ACCENT,
+        });
+    }
     if let Some(stops) = stops {
         commands
             .entity(boxed)
@@ -267,7 +284,7 @@ pub(crate) fn text_field_with(
         }
         commands.entity(boxed).add_children(eye.as_slice());
         if let Some(tail) = look.tail {
-            let button = icon_button(commands, fonts, metrics, tail);
+            let button = icon_button(commands, fonts, metrics, tail, tail_hint);
             commands.entity(boxed).add_child(button);
         }
     }
@@ -281,7 +298,7 @@ fn lead_mark(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, glyph: 
         .spawn((
             Text::new(glyph.to_string()),
             crate::hud::icon_tf(fonts, metrics.small * 0.85),
-            TextColor(palette::MUTED),
+            TextColor(crate::shellkit::tokens::MUTED),
             Node {
                 margin: UiRect::right(px(metrics.gap * 0.5)),
                 flex_shrink: 0.0,
@@ -320,6 +337,7 @@ fn eye_button(
             press: Press::Shared(SharedPress::Reveal(field)),
             lit: masked.shown,
         },
+        None,
     ))
 }
 
@@ -329,33 +347,58 @@ fn icon_button(
     fonts: &UiFonts,
     metrics: Metrics,
     tail: FieldTail,
+    hint: Option<&str>,
 ) -> Entity {
+    use crate::shellkit::tokens;
+    // Syntax help in search fields always uses the `?` circle-question glyph,
+    // never filter sliders (`\u{f1de}`).
+    let glyph = if tail.glyph == '\u{f1de}'
+        && matches!(tail.press, Press::Build(super::BuildPress::ToggleSyntax))
+    {
+        '\u{f059}'
+    } else {
+        tail.glyph
+    };
+    let rest_bg = if tail.lit {
+        tokens::SELECTED
+    } else {
+        Color::NONE
+    };
+    let size = (metrics.tap - 8.0).max(24.0);
     let mark = commands
         .spawn((
-            Text::new(tail.glyph.to_string()),
+            Text::new(glyph.to_string()),
             crate::hud::icon_tf(fonts, metrics.small),
             TextColor(if tail.lit {
-                palette::ACCENT
+                tokens::ACCENT
             } else {
-                palette::MUTED
+                tokens::MUTED
             }),
             Pickable::IGNORE,
         ))
         .id();
     let button = commands
         .spawn((
+            crate::shellkit::role::Role::Button,
             Node {
-                // A finger's worth of height, and enough width to be hit
-                // without pushing the text out of a narrow box.
-                min_width: px(metrics.tap * 0.7),
-                align_self: AlignSelf::Stretch,
+                min_width: px(size),
+                height: px(size),
+                align_self: AlignSelf::Center,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::all(px(tokens::RADIUS_CONTROL)),
                 ..default()
             },
+            BackgroundColor(rest_bg),
+            crate::ambience::Feel::tinting_to(rest_bg, tokens::HOVER),
             tail.press,
         ))
         .id();
+    if let Some(hint) = hint.filter(|s| !s.is_empty()) {
+        commands
+            .entity(button)
+            .insert(super::hint::HoverHint(hint.to_string()));
+    }
     commands.entity(button).add_child(mark);
     button
 }
@@ -518,7 +561,7 @@ pub(super) fn retrace_runs(
         drawn.at = at;
         for child in children {
             if runs.contains(*child) {
-                commands.entity(*child).despawn();
+                commands.entity(*child).try_despawn();
             }
         }
         let look = FieldLook {

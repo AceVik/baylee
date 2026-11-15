@@ -850,7 +850,7 @@ pub(super) fn sync_virtual_rows(
         if let Ok(existing) = children_q.get(vlist.window_box) {
             let old: Vec<Entity> = existing.iter().collect();
             for child in old {
-                commands.entity(child).despawn();
+                commands.entity(child).try_despawn();
             }
         }
         let mut mounted = Vec::with_capacity(end.saturating_sub(start));

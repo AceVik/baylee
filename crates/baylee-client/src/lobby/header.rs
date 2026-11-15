@@ -155,9 +155,7 @@ pub(super) enum NavTab {
     Challenges,
 }
 
-/// The nav pills this build draws, in order: a desktop's four (Lobby,
-/// Decks, Challenges, Replays), the web's and a phone's two (`replays::SHOWN`).
-/// Settings lives solely on the gear icon.
+/// The nav pills this build draws when Central Challenges are available.
 pub(super) const NAV: &[NavTab] = if super::replays::SHOWN {
     &[
         NavTab::Play,
@@ -169,10 +167,36 @@ pub(super) const NAV: &[NavTab] = if super::replays::SHOWN {
     &[NavTab::Play, NavTab::Decks]
 };
 
-/// The press of a nav pill.
+/// The nav pills offered in the current session: Challenges requires a Central
+/// account (`LobbyState::can_enter_challenges`) and is omitted otherwise.
+pub(super) fn offered_nav(state: &LobbyState) -> &'static [NavTab] {
+    if !super::replays::SHOWN {
+        &[NavTab::Play, NavTab::Decks]
+    } else if state.can_enter_challenges() {
+        &[
+            NavTab::Play,
+            NavTab::Decks,
+            NavTab::Challenges,
+            NavTab::Replays,
+        ]
+    } else {
+        &[NavTab::Play, NavTab::Decks, NavTab::Replays]
+    }
+}
+
+/// The press of a nav pill in the full desktop order (for Central-ready callers and tests).
+#[allow(dead_code)]
 pub(super) fn nav_press(tab: NavTab) -> Press {
     let at = NAV.iter().position(|t| *t == tab).unwrap_or(0);
     Press::Header(HeaderPress::Nav(u8::try_from(at).unwrap_or(0)))
+}
+
+/// The press of a nav pill in `state`'s currently offered header tabs.
+pub(super) fn nav_press_for(state: &LobbyState, tab: NavTab) -> Option<Press> {
+    let at = offered_nav(state).iter().position(|t| *t == tab)?;
+    Some(Press::Header(HeaderPress::Nav(
+        u8::try_from(at).unwrap_or(0),
+    )))
 }
 
 /// Which nav pill is the screen shown.
@@ -182,20 +206,20 @@ fn active(state: &LobbyState) -> Option<usize> {
     }
     let tab = match state.lobby.screen() {
         Screen::Table => match state.hub {
-            Hub::Play | Hub::Tables | Hub::Gateways => NavTab::Play,
             Hub::Decks => NavTab::Decks,
             Hub::Replays => NavTab::Replays,
-            Hub::Challenges => NavTab::Challenges,
+            Hub::Challenges if state.can_enter_challenges() => NavTab::Challenges,
+            Hub::Play | Hub::Tables | Hub::Gateways | Hub::Challenges => NavTab::Play,
         },
         Screen::SignIn { .. } if state.central_ready() => match state.hub {
-            Hub::Play | Hub::Tables | Hub::Gateways => NavTab::Play,
             Hub::Decks => NavTab::Decks,
             Hub::Replays => NavTab::Replays,
-            Hub::Challenges => NavTab::Challenges,
+            Hub::Challenges if state.can_enter_challenges() => NavTab::Challenges,
+            Hub::Play | Hub::Tables | Hub::Gateways | Hub::Challenges => NavTab::Play,
         },
         _ => return None,
     };
-    NAV.iter().position(|t| *t == tab)
+    offered_nav(state).iter().position(|t| *t == tab)
 }
 
 /// The seated strip the lobby calls for, unless the room itself is shown.
@@ -354,7 +378,7 @@ pub(super) fn identity(state: &LobbyState, kit: Kit) -> String {
     let gateway = Phrase::ChallengeConnection.text(lobby.lang());
     let counts = "";
     format!(
-        "{}|{}|{}|{}|{}|{:?}|{}|{}|{}|{}|{:?}|{}|{}|{}|{}|{}",
+        "{}|{}|{}|{}|{}|{:?}|{}|{}|{}|{}|{}|{}|{:?}|{}|{}|{}|{}|{}",
         lobby.offline(),
         state.central_without_gateway(),
         state.feed_down,
@@ -364,6 +388,8 @@ pub(super) fn identity(state: &LobbyState, kit: Kit) -> String {
         seated(state).is_some(),
         state.bell.unread(),
         state.social_unread,
+        state.can_enter_challenges(),
+        state.can_use_contacts(),
         state.chat_header == Some(true),
         kit.m.frame,
         kit.m.scale,
@@ -380,7 +406,7 @@ fn discard_detached(
     headers: Query<Entity, (With<RetainedHeader>, Without<ChildOf>)>,
 ) {
     for entity in &headers {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
 }
 
@@ -404,7 +430,7 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
             bar_tools.push(header_lang_pill(commands, state, kit));
         }
         bar_tools.extend(tools(commands, state, kit));
-        let nav_labels = NAV
+        let nav_labels = offered_nav(state)
             .iter()
             .map(|tab| match tab {
                 NavTab::Play => Phrase::ShellPlay.text(lang),
@@ -590,7 +616,7 @@ pub(crate) fn tools(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ve
     if crate::settingsui::builds().desktop && matches!(state.lobby.screen(), Screen::Build) {
         tools.insert(0, super::card_fill::mark(commands, kit));
     }
-    if let Some(true) = state.chat_header {
+    if state.can_use_contacts() && state.chat_header == Some(true) {
         let friends = chat_tool(
             commands,
             kit,
@@ -1696,7 +1722,7 @@ fn animate_toasts(
         if motion.0 >= 1.0 {
             transform.translation = Val2::ZERO;
             transform.scale = Vec2::ONE;
-            commands.entity(entity).remove::<ToastCardMotion>();
+            commands.entity(entity).try_remove::<ToastCardMotion>();
         }
     }
 }
@@ -1773,7 +1799,7 @@ pub(super) fn toast_lane(
         return;
     };
     for lane in &lanes {
-        commands.entity(lane).despawn();
+        commands.entity(lane).try_despawn();
     }
     toasts.drawn.clone_from(&now);
     toasts
@@ -1964,7 +1990,7 @@ fn put_the_toasts_away(
     lanes: Query<Entity, With<ToastLane>>,
 ) {
     for lane in &lanes {
-        commands.entity(lane).despawn();
+        commands.entity(lane).try_despawn();
     }
     toasts.shown.clear();
     toasts.drawn.clear();
@@ -2007,7 +2033,9 @@ pub(super) fn carry_out(
             }
             ShellAsk::DismissToast(ToastId::Undo) => state.undo = None,
             ShellAsk::Chat | ShellAsk::Friends | ShellAsk::ChatPrivacy => {
-                if let (Some(ui), Some(host)) = (chat.as_deref_mut(), host.as_deref_mut()) {
+                if state.can_use_contacts()
+                    && let (Some(ui), Some(host)) = (chat.as_deref_mut(), host.as_deref_mut())
+                {
                     if matches!(ask, ShellAsk::Friends) && state.central_ready() && !host.active() {
                         ui.drawer = !ui.drawer;
                     } else {
@@ -2042,7 +2070,7 @@ pub(super) fn install(app: &mut App) {
                     ring_the_bell,
                     toast_lane,
                     stand_over_the_update_card.after(toast_lane),
-                    animate_toasts,
+                    animate_toasts.after(toast_lane),
                     super::front::faces::animate_status_banners,
                     super::feed::follow_the_feed.after(super::feed::feed),
                 )

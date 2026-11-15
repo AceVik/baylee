@@ -1520,6 +1520,63 @@ impl Lobby {
         matches!(self.performer, Performer::Offline)
     }
 
+    /// Whether this session is connected to a live gateway (registered account or guest).
+    #[must_use]
+    pub fn can_play_online(&self) -> bool {
+        !self.offline() && self.token().is_some()
+    }
+
+    /// Whether this session is signed into a gateway with a registered (non-guest) account.
+    #[must_use]
+    pub fn has_registered_gateway_account(&self) -> bool {
+        matches!(self.performer, Performer::Gateway(_))
+    }
+
+    /// Whether Contacts, Friends, and Social chat are available in this session.
+    ///
+    /// Offline play and Guest sessions never have contacts or friends.
+    #[must_use]
+    pub fn can_use_contacts(&self, central_ready: bool) -> bool {
+        !self.offline() && !self.guest() && (central_ready || self.has_registered_gateway_account())
+    }
+
+    /// Whether Central-account features (Daily/Weekly Challenges, Tower Echoes,
+    /// Central E2EE Vault) are available in this session.
+    #[must_use]
+    pub fn has_central_account(&self, central_ready: bool) -> bool {
+        !self.offline() && !self.guest() && central_ready
+    }
+
+    /// Whether Daily and Weekly Challenges can be entered.
+    #[must_use]
+    pub fn can_enter_challenges(&self, central_ready: bool) -> bool {
+        self.has_central_account(central_ready)
+    }
+
+    /// Whether Tower Echoes expeditions can be entered.
+    #[must_use]
+    pub fn can_enter_tower(&self, central_ready: bool) -> bool {
+        self.has_central_account(central_ready)
+    }
+
+    /// Whether server-hosted replays (`GET /replays`) are available.
+    #[must_use]
+    pub fn can_use_server_replays(&self) -> bool {
+        self.can_play_online()
+    }
+
+    /// Whether gateway-stored deck version history (`GET /decks/{id}/history`) is available.
+    #[must_use]
+    pub fn can_use_deck_history(&self) -> bool {
+        self.can_play_online()
+    }
+
+    /// Whether gateway banlists (`GET /banlists`) are available.
+    #[must_use]
+    pub fn can_use_banlists(&self) -> bool {
+        self.can_play_online()
+    }
+
     /// Whether a request is in flight.
     #[must_use]
     pub fn busy(&self) -> bool {
@@ -1940,6 +1997,9 @@ impl Lobby {
         if field == Field::GuestName && !self.guest_name_offered() {
             return;
         }
+        if field == Field::RoomPassword && self.offline() {
+            return;
+        }
         if self.revealed != Some(field) {
             self.revealed = None;
         }
@@ -2008,6 +2068,9 @@ impl Lobby {
                 Tab::Back => at + ring.len() - 1,
             } % ring.len()];
         } else if self.screen == Screen::Table {
+            if self.offline() {
+                return;
+            }
             self.focus = match self.focus {
                 Field::Search => Field::RoomPassword,
                 _ => Field::Search,
@@ -2128,8 +2191,9 @@ impl Lobby {
                     self.awaiting.is_some() && self.room_edit.as_ref().is_some_and(|d| d.host)
                 }
                 Field::RoomPassword => {
-                    self.awaiting.is_none()
-                        || (!self.offline() && self.room_edit.as_ref().is_some_and(|d| d.host))
+                    !self.offline()
+                        && (self.awaiting.is_none()
+                            || self.room_edit.as_ref().is_some_and(|d| d.host))
                 }
                 Field::Search => !self.offline(),
                 Field::DeckSearch | Field::ReplaySearch => true,

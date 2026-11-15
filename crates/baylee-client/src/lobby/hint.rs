@@ -141,7 +141,7 @@ pub(super) fn hint_panel(
         return;
     }
     for (entity, ..) in &existing {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
     let Some(text) = hinted.text.clone() else {
         return;
@@ -260,7 +260,7 @@ pub(super) fn despawn_hint(
     mut hinted: ResMut<Hinted>,
 ) {
     for entity in panels {
-        commands.entity(entity).despawn();
+        commands.entity(entity).try_despawn();
     }
     *hinted = Hinted::default();
 }

@@ -147,8 +147,7 @@ impl Plugin for LobbyPlugin {
                     // text face in the deckbuilder shows its scrollbar too.
                     (
                         (
-                            preview,
-                            preview::animate_preview,
+                            (preview, preview::animate_preview).chain(),
                             hint::hint_panel,
                             crate::face::show_scrollbars,
                         ),

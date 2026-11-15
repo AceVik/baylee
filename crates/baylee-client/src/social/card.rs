@@ -386,7 +386,7 @@ fn stand(
             if hover.shown.is_some() || still {
                 // Handed on: the next card stands where this one stood.
                 handed = hover.shown.is_some();
-                commands.entity(entity).despawn();
+                commands.entity(entity).try_despawn();
                 continue;
             }
             panel.leaving = true;
@@ -395,7 +395,7 @@ fn stand(
         if panel.leaving {
             panel.t = motion::step(panel.t, motion::ZOOM_OUT, dt, still);
             if panel.t >= 1.0 {
-                commands.entity(entity).despawn();
+                commands.entity(entity).try_despawn();
             } else {
                 *transform = held(motion::shutting(panel.t), panel.corner);
             }

@@ -215,7 +215,7 @@ pub(super) fn press_for(state: &LobbyState, action: ShellAction) -> Option<Press
         ShellAction::GoReplays
             if super::replays::SHOWN && table && (in_room || state.hub != Hub::Replays) =>
         {
-            Some(super::header::nav_press(super::header::NavTab::Replays))
+            super::header::nav_press_for(state, super::header::NavTab::Replays)
         }
         ShellAction::Search if table && state.hub == Hub::Replays && !in_room => {
             Some(Press::Shared(SharedPress::Focus(Field::ReplaySearch)))
@@ -239,8 +239,17 @@ pub(super) fn press_for(state: &LobbyState, action: ShellAction) -> Option<Press
         {
             Some(Press::Settings(SettingsPress::CloseSettings))
         }
-        ShellAction::Refresh if hub => Some(Press::Hub(HubPress::Refresh)),
-        ShellAction::Search if play => Some(Press::Shared(SharedPress::Focus(Field::Search))),
+        ShellAction::Refresh
+            if hub
+                && (state.hub != Hub::Play
+                    || state.can_play_online()
+                    || state.can_enter_challenges()) =>
+        {
+            Some(Press::Hub(HubPress::Refresh))
+        }
+        ShellAction::Search if play && state.can_play_online() => {
+            Some(Press::Shared(SharedPress::Focus(Field::Search)))
+        }
         // The builder's doors (`KEYBOARD.md` §7.7), while nothing stands
         // over it.
         ShellAction::Search if builder => Some(Press::Build(BuildPress::FocusBuild(

@@ -178,24 +178,31 @@ fn button(
     press: SheetPress,
     lit: bool,
 ) -> Entity {
+    let rest_bg = if lit {
+        tokens::ACCENT.with_alpha(0.25)
+    } else {
+        tokens::CONTROL
+    };
+    let rest_border = if lit { tokens::ACCENT } else { tokens::BORDER };
     commands
         .spawn((
             UiButton,
             press,
             Node {
-                padding: UiRect::axes(zpx(10.0), zpx(4.0)),
+                padding: UiRect::axes(zpx(10.0), zpx(5.0)),
                 border: UiRect::all(zpx(1.0)),
-                border_radius: BorderRadius::all(zpx(5.0)),
+                border_radius: BorderRadius::all(zpx(tokens::RADIUS_CONTROL)),
                 flex_shrink: 0.0,
                 ..default()
             },
-            BackgroundColor(if lit {
-                tokens::ACCENT.with_alpha(0.25)
-            } else {
-                Color::NONE
-            }),
-            BorderColor::all(if lit { tokens::ACCENT } else { tokens::BORDER }),
-            Feel::new(Color::NONE),
+            BackgroundColor(rest_bg),
+            BorderColor::all(rest_border),
+            Feel::tinting_to(rest_bg, tokens::HOVER),
+            crate::ambience::FeelBorder {
+                rest: rest_border,
+                hot: tokens::ACCENT,
+                press: tokens::ACCENT,
+            },
             children![(
                 Text::new(label.to_string()),
                 tf(fonts, z(12.0)),
@@ -390,7 +397,7 @@ fn sync(
     let _zoom = super::zoom::Scope::new(zoom.0);
     let Some((machine, sheet)) = host.machine().zip(ui.sheet.as_ref()) else {
         for root in &roots {
-            commands.entity(root).despawn();
+            commands.entity(root).try_despawn();
         }
         *drawn = None;
         return;
@@ -409,7 +416,7 @@ fn sync(
     }
     *drawn = Some(key);
     for root in &roots {
-        commands.entity(root).despawn();
+        commands.entity(root).try_despawn();
     }
     let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
     let scrim = commands
@@ -433,6 +440,7 @@ fn sync(
         .id();
     let card = commands
         .spawn((
+            crate::shellkit::Role::Opaque,
             Node {
                 width: zpx(560.0),
                 max_height: Val::Percent(88.0),
@@ -440,12 +448,13 @@ fn sync(
                 row_gap: zpx(10.0),
                 padding: UiRect::all(zpx(20.0)),
                 border: UiRect::all(zpx(1.0)),
-                border_radius: BorderRadius::all(zpx(10.0)),
+                border_radius: BorderRadius::all(zpx(tokens::RADIUS_PANEL)),
                 overflow: Overflow::scroll_y(),
                 ..default()
             },
-            BackgroundColor(super::rows::LOBBY_GROUND),
+            BackgroundColor(tokens::OPAQUE),
             BorderColor::all(tokens::BORDER),
+            crate::shellkit::surfaces::popover_shadow(),
             crate::hud::Scrolls,
             bevy::ui::ScrollPosition::default(),
         ))
@@ -468,22 +477,20 @@ fn sync(
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(name).insert(TextFont {
-        ..tf_bold(&fonts, z(16.0))
-    });
     let close = commands
         .spawn((
             UiButton,
             SheetPress::Close,
             Node {
-                width: zpx(26.0),
-                height: zpx(26.0),
+                width: zpx(28.0),
+                height: zpx(28.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::all(zpx(tokens::RADIUS_CONTROL)),
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            Feel::new(Color::NONE),
+            Feel::tinting_to(Color::NONE, tokens::HOVER),
             children![(
                 Text::new(glyph::CLOSE.to_string()),
                 icon_tf(&fonts, z(11.0)),

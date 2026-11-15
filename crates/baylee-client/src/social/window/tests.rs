@@ -431,3 +431,24 @@ fn the_window_is_glass_and_its_quiet_ink_still_reads_over_the_fire() {
     }
     assert!(reads(LOBBY_INKS.ground) < 3.0);
 }
+
+#[test]
+fn head_parts_omits_friends_button_for_guest_sessions() {
+    for guest in [false, true] {
+        let mut app = app();
+        let fonts = UiFonts::default();
+        let _ = head::head_parts(
+            &mut app.world_mut().commands(),
+            &fonts,
+            Lang::En,
+            &[(ChatTab::Table, 0, false)],
+            ChatTab::Table,
+            Frame::Lobby,
+            guest,
+        );
+        app.world_mut().flush();
+        let mut q = app.world_mut().query::<&ChatPress>();
+        let has_friends = q.iter(app.world()).any(|p| *p == ChatPress::Friends);
+        assert_eq!(has_friends, !guest, "guest={guest}");
+    }
+}

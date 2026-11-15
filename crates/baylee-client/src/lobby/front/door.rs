@@ -1588,7 +1588,7 @@ pub(super) fn community_dialog(
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.05, 0.09, 0.14, 0.98)),
+            BackgroundColor(tokens::OPAQUE),
             BorderColor::all(accent.with_alpha(0.55)),
             surfaces::popover_shadow(),
             Press::Shared(SharedPress::PickerNothing),
@@ -1863,6 +1863,7 @@ pub(crate) fn about(
             },
             BackgroundColor(tokens::OPAQUE),
             BorderColor::all(tokens::BORDER),
+            surfaces::popover_shadow(),
             Press::Shared(SharedPress::PickerNothing),
         ))
         .id();

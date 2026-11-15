@@ -300,7 +300,7 @@ pub(super) fn fill_list(
     // first drawing, shows what it has standing still.
     for (stamp, _, _, row) in &entries {
         if same_list && !first_draw && *stamp > newest {
-            commands.entity(*row).insert(Arrive::default());
+            commands.entity(*row).try_insert(Arrive::default());
         }
     }
     drawn.newest = entries.iter().map(|(stamp, ..)| *stamp).max().unwrap_or(0);
@@ -398,7 +398,7 @@ pub(crate) fn arrive(
         arrive.0 = crate::hud::motion::step(arrive.0, ARRIVE_SECS, time.delta_secs(), still);
         if arrive.0 >= 1.0 {
             transform.translation = Val2::ZERO;
-            commands.entity(row).remove::<Arrive>();
+            commands.entity(row).try_remove::<Arrive>();
             continue;
         }
         // Ease-out cubic: most of the way at once, settling.

@@ -41,7 +41,7 @@ use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::input::mouse::MouseScrollUnit;
 use bevy::prelude::*;
 
-use crate::hud::{UiFonts, btn_radius, palette, soft_shadow, tf};
+use crate::hud::{UiFonts, palette, soft_shadow, tf};
 use crate::net::{NetworkHost, SeatTicket};
 use crate::softkeys::{SoftKey, SoftKeyboard};
 use crate::{DuelCommand, DuelPhase, InstalledHost};
@@ -185,6 +185,8 @@ pub struct LobbyState {
     /// The seat whose optional starting-position editor is expanded.
     pub(crate) room_setup_seat: Option<u8>,
     pub(crate) room_card_edit: Option<(u8, usize)>,
+    /// Whether the room's starting-board card search syntax help is open.
+    pub(crate) room_board_syntax: bool,
     /// Whether the settings screen is up, and what it is waiting for.
     settings: SettingsPane,
     /// The language-model seat's panel on the settings screen, opened the
@@ -566,6 +568,7 @@ impl LobbyState {
             room_deck_seat: None,
             room_setup_seat: None,
             room_card_edit: None,
+            room_board_syntax: false,
             settings: SettingsPane::Closed,
             seat: crate::seatpanel::SeatDesk::default(),
             llm: crate::tableseats::TableSeats::default(),
@@ -777,6 +780,57 @@ impl LobbyState {
         self.central_without_gateway()
             && self.hub == Hub::Gateways
             && matches!(self.lobby.screen(), Screen::SignIn { .. } | Screen::Table)
+    }
+
+    /// Whether this session is connected to a live gateway (registered account or guest).
+    #[must_use]
+    pub(crate) fn can_play_online(&self) -> bool {
+        self.lobby.can_play_online()
+    }
+
+    /// Whether Contacts, Friends, and Social chat are available in this session.
+    #[must_use]
+    pub(crate) fn can_use_contacts(&self) -> bool {
+        self.lobby.can_use_contacts(self.central_ready())
+    }
+
+    /// Whether Central-account features (Daily/Weekly Challenges, Tower Echoes,
+    /// Central E2EE Vault) are available in this session.
+    #[must_use]
+    #[allow(dead_code)]
+    pub(crate) fn has_central_account(&self) -> bool {
+        self.lobby.has_central_account(self.central_ready())
+    }
+
+    /// Whether Daily and Weekly Challenges can be entered.
+    #[must_use]
+    pub(crate) fn can_enter_challenges(&self) -> bool {
+        self.lobby.can_enter_challenges(self.central_ready())
+    }
+
+    /// Whether Tower Echoes expeditions can be entered.
+    #[must_use]
+    #[allow(dead_code)]
+    pub(crate) fn can_enter_tower(&self) -> bool {
+        self.lobby.can_enter_tower(self.central_ready())
+    }
+
+    /// Whether server-hosted replays (`GET /replays`) are available.
+    #[must_use]
+    pub(crate) fn can_use_server_replays(&self) -> bool {
+        self.lobby.can_use_server_replays()
+    }
+
+    /// Whether gateway-stored deck version history (`GET /decks/{id}/history`) is available.
+    #[must_use]
+    pub(crate) fn can_use_deck_history(&self) -> bool {
+        self.lobby.can_use_deck_history()
+    }
+
+    /// Whether gateway banlists (`GET /banlists`) are available.
+    #[must_use]
+    pub(crate) fn can_use_banlists(&self) -> bool {
+        self.offline.is_none() && (self.lobby.can_use_banlists() || self.lobby.awaiting().is_some())
     }
 
     /// Transitions the lobby state machine to [`Screen::Table`] for a Central

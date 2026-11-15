@@ -30,6 +30,9 @@ impl HeaderPress {
                 cx.state.shell_asks.push(ShellAsk::Report);
             }
             HeaderPress::Friends | HeaderPress::Chat => {
+                if !cx.state.can_use_contacts() {
+                    return;
+                }
                 let ask = if self == HeaderPress::Chat {
                     ShellAsk::Chat
                 } else {
@@ -43,7 +46,11 @@ impl HeaderPress {
                     cx.state.shell_asks.push(ask);
                 }
             }
-            HeaderPress::ChatPrivacy => cx.state.shell_asks.push(ShellAsk::ChatPrivacy),
+            HeaderPress::ChatPrivacy => {
+                if cx.state.can_use_contacts() {
+                    cx.state.shell_asks.push(ShellAsk::ChatPrivacy);
+                }
+            }
             HeaderPress::SwitchGateway => {
                 cx.state.header_menu = None;
                 if cx.state.central_ready() {
@@ -79,7 +86,7 @@ impl HeaderPress {
                 if cx.state.library_open() {
                     cx.state.lobby.close_library();
                 }
-                let hub = match NAV.get(usize::from(n)) {
+                let hub = match offered_nav(cx.state).get(usize::from(n)) {
                     Some(NavTab::Decks) => Hub::Decks,
                     Some(NavTab::Replays) => Hub::Replays,
                     Some(NavTab::Challenges) => Hub::Challenges,

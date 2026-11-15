@@ -255,7 +255,7 @@ pub(super) fn sync(
     }
     *shown = Some(key);
     for root in &roots {
-        commands.entity(root).despawn();
+        commands.entity(root).try_despawn();
     }
     let (Some(request), Some(duel)) = (hovered.0.as_ref(), duel) else {
         return;
