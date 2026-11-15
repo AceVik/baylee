@@ -30,6 +30,7 @@ fn position(mana: bool) -> Session {
         healing: u8::from(!mana),
         mana: u8::from(mana),
         seedling: false,
+        concealed: false,
     }];
     for seat in &mut preset.seats {
         seat.controller = SeatController::Human { user_id: 0 };

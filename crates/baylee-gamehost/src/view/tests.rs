@@ -24,6 +24,7 @@ mod grants;
 mod hidden;
 mod hidden_exile;
 mod historical;
+mod inventory;
 mod library_top;
 mod log;
 mod mana;

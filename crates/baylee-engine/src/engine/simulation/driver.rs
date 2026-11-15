@@ -303,3 +303,64 @@ pub(super) fn forget_settings<L: CardLookup, D: crate::engine::LoopDetection>(
         }
     }
 }
+
+/// A fair search assumes no unobserved opponent consumables. Concealed supplies
+/// always create the same two source objects, including empty stock: resetting
+/// only their counters therefore preserves public IDs and reveals no capacity.
+/// Effects already paid for remain on the stack, with their ordinary outcomes.
+pub(super) fn forget_inventory<L: CardLookup, D: crate::engine::LoopDetection>(
+    fork: &mut Engine<L, D>,
+    seat: PlayerId,
+) {
+    use crate::{event::GameEvent, object::CounterKind, zone::ZoneLocation};
+    if !fork
+        .house_rules
+        .supplies
+        .iter()
+        .any(|supply| supply.concealed)
+    {
+        return;
+    }
+    let mut hidden = Vec::new();
+    for index in 0..fork.state.players.len() {
+        let owner = PlayerId::new(u8::try_from(index).expect("validated seat count"));
+        if fork.may_inspect_private(seat, owner) {
+            continue;
+        }
+        let zone = ZoneLocation::Command(owner);
+        for position in 0..fork.state.zones.list(zone).len() {
+            let id = fork.state.zones.list(zone)[position];
+            if fork
+                .state
+                .object(id)
+                .is_some_and(crate::object::GameObject::private_inventory)
+            {
+                hidden.push(id);
+                fork.state
+                    .object_mut(id)
+                    .expect("listed source")
+                    .counters
+                    .set(CounterKind::Charge, 0);
+            }
+        }
+        for supply in &mut fork.house_rules.supplies {
+            if supply.seat == owner.get() && supply.concealed {
+                supply.healing = 0;
+                supply.mana = 0;
+            }
+        }
+    }
+    if hidden.is_empty() {
+        return;
+    }
+    fork.state.journal.rewrite(|entry| {
+        if let GameEvent::CounterChanged {
+            object, old, new, ..
+        } = &mut entry.event
+            && hidden.contains(object)
+        {
+            *old = 0;
+            *new = 0;
+        }
+    });
+}

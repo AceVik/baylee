@@ -73,6 +73,9 @@ fn exact_object_view(
     references: &SourceReferences,
 ) -> Option<baylee_view::DamageSourceView> {
     let obj = state.source_object(source)?;
+    if obj.private_inventory() && obj.owner != seat {
+        return None;
+    }
     let known = may_know_card(obj, seat)
         && (!obj.zone.is_hidden_by_default() || (obj.zone == Zone::Hand && obj.owner == seat));
     let chars = obj.characteristics();
@@ -344,6 +347,9 @@ pub(super) fn public_object(
 ) -> Option<PublicObject> {
     let state = board.state;
     let obj = state.object(id)?;
+    if obj.private_inventory() && obj.owner != seat {
+        return None;
+    }
     let chars = obj.characteristics();
     let known = may_know_card(obj, seat);
     let public_face = known

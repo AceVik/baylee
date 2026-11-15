@@ -241,6 +241,9 @@ pub struct Naming {
 /// Every seat's game log, kept once for the whole table.
 #[derive(Clone, Debug)]
 pub struct GameLog {
+    /// Native inventory is fixed at setup. Retain its IDs even when a player
+    /// leaves before a batched journal is projected, so stock counts never leak.
+    private_inventory: Box<[ObjectId]>,
     /// Journal entries read so far.
     read: usize,
     /// Snapshot of the journal at `read`, shared via `Arc`, to detect a
@@ -316,6 +319,11 @@ impl GameLog {
             .map(|(i, player)| (PlayerId::new(seat_byte(i)), player.life))
             .collect();
         let mut log = Self {
+            private_inventory: state
+                .arena
+                .iter()
+                .filter_map(|(id, object)| object.private_inventory().then_some(id))
+                .collect(),
             read: 0,
             journal: baylee_engine::event::Journal::default(),
             logged_life,
@@ -773,6 +781,11 @@ impl GameLog {
                 new,
                 ..
             } => {
+                // Inventory counts are not public facts, even when the effect
+                // of spending a charge is. Owners read live stock in their view.
+                if self.private_inventory.contains(object) {
+                    return;
+                }
                 let (object, sees) = self.refer(state, *object);
                 self.push(
                     LogEvent::Counters {
@@ -2205,6 +2218,7 @@ mod tests {
 
     fn a_log() -> GameLog {
         GameLog {
+            private_inventory: Box::default(),
             step: None,
             now: 0,
             read: 0,

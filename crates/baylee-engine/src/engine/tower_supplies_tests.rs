@@ -4,7 +4,7 @@ use super::testkit::{
     RegistryLookup, keep_mulligans, pass_until, reach_main_phase, stack_is_empty,
 };
 use super::*;
-use crate::object::{CounterKind, ObjectKind};
+use crate::object::{CounterKind, GameObject, ObjectKind};
 use baylee_core::ids::CardIndex;
 use baylee_core::preset::{SeatSupplies, TowerSupply};
 
@@ -18,6 +18,7 @@ fn preset(healing: u8, mana: u8, seedling: bool) -> GamePreset {
         healing,
         mana,
         seedling,
+        concealed: false,
     }];
     p
 }
@@ -48,6 +49,54 @@ fn drink(source: ObjectId) -> PlayerAction {
         source,
         ability_index: 0,
     }
+}
+
+fn private_stock(healing: u8, mana: u8) -> Engine<RegistryLookup> {
+    let mut preset = preset(healing, mana, false);
+    preset.house_rules.supplies[0].concealed = true;
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, P0);
+    engine
+}
+
+#[test]
+fn fair_search_cannot_distinguish_private_potion_stock_or_spending_history() {
+    let empty = private_stock(0, 0);
+    let full = private_stock(1, 1);
+    assert_ne!(empty.snapshot_hash(), full.snapshot_hash());
+    for engine in [&empty, &full] {
+        assert_eq!(engine.state.zones.list(ZoneLocation::Command(P0)).len(), 2);
+    }
+    let fork = |engine: &Engine<RegistryLookup>, seat| {
+        engine.fork_for(seat, DeckKnowledge::Known, 91).unwrap()
+    };
+    assert_eq!(
+        fork(&empty, P1).snapshot_hash(),
+        fork(&full, P1).snapshot_hash()
+    );
+    assert_ne!(
+        fork(&empty, P0).snapshot_hash(),
+        fork(&full, P0).snapshot_hash()
+    );
+
+    let mut once = private_stock(1, 0);
+    let mut twice = private_stock(2, 0);
+    for engine in [&mut once, &mut twice] {
+        let id = potion(engine, TowerSupply::HealingPotion);
+        engine.apply(P0, drink(id)).unwrap();
+        pass_until(engine, stack_is_empty);
+    }
+    assert_eq!(once.state.players[0].life, twice.state.players[0].life);
+    let a = fork(&once, P1);
+    let b = fork(&twice, P1);
+    assert_eq!(a.snapshot_hash(), b.snapshot_hash());
+    assert_eq!(format!("{:?}", a.journal()), format!("{:?}", b.journal()));
+    assert!(!a.compute_legal(P0).abilities.iter().any(|(source, _)| {
+        a.state
+            .object(*source)
+            .is_some_and(GameObject::private_inventory)
+    }));
 }
 
 #[test]

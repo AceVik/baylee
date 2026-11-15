@@ -10,6 +10,13 @@ use baylee_view::PublicObject;
 
 /// A controller may inspect what the controlled player can inspect (CR 724.4).
 pub(super) fn entitled_viewer(obj: &GameObject, seat: PlayerId, controlled: SeatSet) -> PlayerId {
+    if obj.private_inventory() {
+        return if controlled.contains(obj.owner) {
+            obj.owner
+        } else {
+            seat
+        };
+    }
     if obj.zone == Zone::Exile
         && obj
             .status
@@ -131,7 +138,10 @@ fn offered(pending: &Pending) -> Vec<ObjectId> {
 /// hand; a library, a sideboard and somebody else's hand are counts. An
 /// object in one of those is an object the client has no other way to draw,
 /// which is exactly what [`PlayerView::looking_at`] is for.
-pub(super) const fn shown_elsewhere(obj: &GameObject, seat: PlayerId) -> bool {
+pub(super) fn shown_elsewhere(obj: &GameObject, seat: PlayerId) -> bool {
+    if obj.private_inventory() {
+        return obj.owner == seat;
+    }
     match obj.zone {
         Zone::Battlefield | Zone::Stack | Zone::Graveyard | Zone::Exile | Zone::Command => true,
         Zone::Hand => match obj.zone_owner {

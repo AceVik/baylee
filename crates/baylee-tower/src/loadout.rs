@@ -38,6 +38,7 @@ pub fn resources(economy: &Economy, seat: u8) -> Result<DuelResources, Refusal> 
             healing: economy.potions[0],
             mana: economy.potions[1],
             seedling: attributes.seedlings == 1,
+            concealed: false,
         },
     })
 }
@@ -84,7 +85,8 @@ mod tests {
                 seat: 1,
                 healing: 1,
                 mana: 1,
-                seedling: false
+                seedling: false,
+                concealed: false
             }
         );
         economy.equipment[0] = Equipment {

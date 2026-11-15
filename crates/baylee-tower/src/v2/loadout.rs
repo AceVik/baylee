@@ -64,6 +64,7 @@ pub fn resources_for(
             healing: charges[0],
             mana: charges[1],
             seedling: false,
+            concealed: generator == generation::RUN,
         },
         extensions: SeatExtensions {
             seat,

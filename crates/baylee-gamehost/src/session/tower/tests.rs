@@ -26,6 +26,7 @@ fn fixture(spend: bool) -> (GamePreset, Vec<u8>) {
             healing: 1,
             mana: 1,
             seedling: false,
+            concealed: false,
         })
         .collect();
     for (index, seat) in preset.seats.iter_mut().enumerate() {

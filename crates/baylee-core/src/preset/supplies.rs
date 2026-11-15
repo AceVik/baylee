@@ -24,6 +24,11 @@ pub struct SeatSupplies {
     pub mana: u8,
     /// Whether the seat starts with its one seedling.
     pub seedling: bool,
+    /// Native run inventory: only the owner may inspect unspent potion charges.
+    /// Two fixed source objects exist even at zero charges, so their existence
+    /// reveals no inventory to fair simulations or object-handle consumers.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub concealed: bool,
 }
 
 pub(super) fn valid_list(rules: &[SeatSupplies], seats: usize, custom: bool) -> bool {

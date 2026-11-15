@@ -8,7 +8,7 @@ fn tower_supplies_have_known_rule_features_and_distinct_legal_actions() {
     let mut preset = baylee_cards::decks::probe_preset(1, forest).unwrap();
     preset.format = FormatId::Custom;
     preset.house_rules.starting_player = Some(0);
-    preset.house_rules.supplies = vec![SeatSupplies { seat: 0, healing: 1, mana: 1, seedling: false }];
+    preset.house_rules.supplies = vec![SeatSupplies { seat: 0, healing: 1, mana: 1, seedling: false, concealed: false }];
     for seat in &mut preset.seats { seat.controller = SeatController::Human { user_id: 0 }; }
     let mut session = Session::new(&preset).unwrap();
     let me = PlayerId::new(0);

@@ -70,6 +70,7 @@ fn starting_supplies_are_custom_only_bounded_unique_and_legacy_optional() {
         healing: 1,
         mana: 1,
         seedling: true,
+        concealed: false,
     };
     p.house_rules.supplies = vec![good];
     assert_eq!(p.validate(), Err(PresetError::StartingSupplies));

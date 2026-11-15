@@ -825,6 +825,9 @@ impl Status {
     /// Reset on departure and every turn boundary, hidden from the wire.
     #[doc(hidden)]
     pub const UNTAPPED_AT_TURN_START: Self = Self(32);
+    /// Native inventory bookkeeping, never a public permanent status. Only the
+    /// owning seat may inspect this command-zone emblem's unspent charges.
+    pub const PRIVATE_INVENTORY: Self = Self(64);
 
     /// Whether all bits of `other` are set.
     #[must_use]
@@ -1607,6 +1610,15 @@ pub struct GameObject {
 }
 
 impl GameObject {
+    /// Whether this is an owner-private native inventory source. Its activated
+    /// effect is public, but its remaining stock is not. No card can set this bit.
+    #[must_use]
+    pub fn private_inventory(&self) -> bool {
+        self.kind == ObjectKind::Emblem
+            && self.zone == Zone::Command
+            && self.status.contains(Status::PRIVATE_INVENTORY)
+    }
+
     /// Creates a card-backed object.
     #[must_use]
     pub fn new_card(

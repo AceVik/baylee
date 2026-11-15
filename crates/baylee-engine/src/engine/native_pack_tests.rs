@@ -167,6 +167,41 @@ fn native_pack_has_no_adapter_storage_and_setup_only_ids_remain_in_the_hash() {
 }
 
 #[test]
+fn admitted_native_openings_keep_large_hands_and_bounded_free_redraws() {
+    let mut preset = preset(vec![3]);
+    preset.seats[0].starting_hand = None;
+    preset.house_rules.opening = vec![baylee_core::preset::SeatOpening {
+        seat: 0,
+        cards: 19,
+        maximum_hand: 19,
+        free_mulligans: 25,
+    }];
+    let mut engine = game(&preset).unwrap();
+    for taken in 0..=26 {
+        assert_eq!(engine.state.zones.list(ZoneLocation::Hand(P0)).len(), 19);
+        assert!(
+            matches!(engine.pending_for(P0), Some(Pending::Mulligan { next_is_free, .. })
+            if *next_is_free == (taken < 25))
+        );
+        if taken < 26 {
+            engine.apply(P0, PlayerAction::MulliganTake).unwrap();
+        }
+    }
+    assert_eq!(engine.state.maximum_hand_size(P0), Some(19));
+    assert_eq!(engine.state.maximum_hand_size(P1), Some(7));
+    engine.apply(P0, PlayerAction::MulliganKeep).unwrap();
+    assert!(matches!(
+        engine.pending_for(P0),
+        Some(Pending::MulliganBottom { count: 1, .. })
+    ));
+    preset.house_rules.rule_pack = None;
+    assert!(
+        preset.validate().is_err(),
+        "ordinary custom games keep their existing bounds"
+    );
+}
+
+#[test]
 fn a_native_source_without_a_shared_presentation_identity_is_refused_before_card_lookup() {
     struct MissingIdentity;
     impl CardLookup for MissingIdentity {

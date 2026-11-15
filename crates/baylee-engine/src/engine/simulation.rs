@@ -382,6 +382,7 @@ impl<L: CardLookup + Clone, D: crate::engine::LoopDetection> Engine<L, D> {
             fork.state.decide_graveyard_order_from_cards(&self.lookup);
         }
         transcript::withhold(&mut fork.state.journal, &self.state, seat, deal.retired());
+        driver::forget_inventory(&mut fork, seat);
         fork.state.rng = GameRng::stream(policy_seed, FUTURE);
         fork.settle_fork(deal.retired());
         Ok(fork)

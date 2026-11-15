@@ -71,6 +71,7 @@ fn game<D: LoopDetection>(policy: LoopPolicy, stored: bool) -> Engine<Lookup, D>
             healing: 1,
             mana: 0,
             seedling: true,
+            concealed: false,
         })
         .collect();
     // Empty hands avoid unrelated cleanup choices on the way to the next upkeep.

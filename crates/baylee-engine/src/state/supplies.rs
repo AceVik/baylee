@@ -18,7 +18,7 @@ impl GameState {
                 (TowerSupply::HealingPotion, supply.healing),
                 (TowerSupply::ManaPotion, supply.mana),
             ] {
-                if charges == 0 {
+                if charges == 0 && !supply.concealed {
                     continue;
                 }
                 let definition = lookup
@@ -36,6 +36,11 @@ impl GameState {
                 // seats; Emblem keeps the object outside permanent/token SBAs.
                 object.token = Some(definition);
                 object.counters.set(CounterKind::Charge, u16::from(charges));
+                if supply.concealed {
+                    object
+                        .status
+                        .insert(crate::object::Status::PRIVATE_INVENTORY);
+                }
             }
             if supply.seedling {
                 let definition = lookup

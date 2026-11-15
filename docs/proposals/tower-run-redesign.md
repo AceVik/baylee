@@ -295,4 +295,15 @@ Always stop owned test processes and verify listeners close.
   `/tmp/baylee-tower-run-postgres-20261115.log`,
   `/tmp/baylee-tower-reward-client-tests-20261115.log`,
   `/tmp/baylee-tower-reward-client-clippy-20261115-r3.log`.
+- Native opening/privacy milestone: fourteen focused core/engine/host cases passed
+  (0.14 s execution). Bounds remain unchanged without a compiled pack; native
+  London redraws cover 19-card hands and 25 free mulligans. Private consumables
+  have fixed source identities, owner-only wire projections and sanitized search
+  copies. Removing the simulation redaction deliberately made the new regression
+  fail; restoring it and adding the delayed-log/owner-concession case passed both
+  targeted cases (0.06 s). Strict Clippy passed for core/engine/host/Tower libraries
+  and tests. Logs: `/tmp/baylee-tower-native-inventory-20261115.log`,
+  `/tmp/baylee-tower-native-inventory-clippy-20261115.log`,
+  `/tmp/baylee-tower-private-negative-20261115.log`,
+  `/tmp/baylee-tower-private-positive-20261115.log`.
 

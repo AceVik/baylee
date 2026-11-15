@@ -59,6 +59,12 @@ An empty override list preserves existing serialized presets and continuation
 hashes; nonempty rules participate in the continuation hash. Public ordinary
 table setup does not accept these custom overrides.
 
+An explicit compiled native pack raises the structural opening/hand/mulligan
+ceilings to 32. Its lookup still verifies the exact pack and derives the allowed
+resources before allocating the game. Ordinary presets retain 9/9/7. The Tower
+run's six equipment slots can therefore apply all their bonuses; they do not
+silently clamp paid items to the older three-slot limits.
+
 `HouseRules::supplies` is restricted to custom presets, with one entry per seat,
 at most two combined potion charges and one starting seedling. A registry that
 cannot resolve a requested supply refuses setup. Original Tower potion objects
@@ -70,6 +76,22 @@ share the append-only token/ability identity ledger for all view consumers, but
 the engine and public status distinguish an emblem from a permanent token.
 The seedling is an ordinary green 1/1 Plant token on the starting battlefield.
 These are Baylee custom-mode rules, not additional card printings.
+
+`SeatSupplies::concealed` marks run inventory as owner-private. Its absent/false
+encoding preserves earlier presets. A concealed seat always receives the same
+two command-zone source objects, including zero stock, marked by the internal
+`PRIVATE_INVENTORY` bit. The bit changes no public object status. Opponent and
+spectator projections omit these objects and exact source inspections; control
+of another player's turn grants the usual owner access. A paid effect is still
+public on the stack. Counter log lines for these setup identities are withheld,
+including after their owner leaves before a batched journal is consumed.
+
+Fair simulation forks assume zero unseen opponent consumables. They clear the
+private counters, original supply settings and counter-history values, while
+preserving fixed source IDs and already-paid effects. Own/controlled inventory
+is retained. The regression compares complete continuation hashes and journals
+between otherwise identical games with different initial and remaining stock.
+Normal games with no concealed supplies return before scanning command zones.
 
 Result verification must retain the original potion source identities and read
 the paid counter-removal events, including after a player is eliminated. Treating

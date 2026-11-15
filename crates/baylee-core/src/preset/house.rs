@@ -130,7 +130,7 @@ impl HouseRules {
         seats: usize,
         format: super::FormatId,
     ) -> Result<(), super::PresetError> {
-        if !super::opening::valid_list(&self.opening, seats) {
+        if !super::opening::valid_list(&self.opening, seats, self.rule_pack.is_some()) {
             return Err(super::PresetError::SeatOpening);
         }
         if !super::supplies::valid_list(&self.supplies, seats, format == super::FormatId::Custom) {
