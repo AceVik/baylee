@@ -9,18 +9,21 @@
 //!
 //! # Pacing
 //!
-//! While active and focused, the client runs at its preset's full rate (60 fps
-//! on `Medium`, 120 fps on `High`, unlimited on `Ultra`). When `VSync` is
-//! active and the display's refresh rate is at or below the target cap (60 Hz
-//! at `Fps60`, 120 Hz `ProMotion` at `Fps120`), `UpdateMode::Continuous` hands
-//! pacing directly to hardware `VBlank` (`PresentMode::Fifo` / `AutoVsync`)
-//! with zero OS timer beat or dropped ticks; sub-refresh caps use exact
-//! `VBlank` multiples in nanoseconds. After `120.0` seconds without user or game
-//! activity, menus ease smoothly to 30 fps (and tables to `RestLimit`), waking
-//! back to the full active rate immediately on any input or game event. While
-//! visible — explicitly including when unfocused — the frame rate never drops
-//! below 30 fps. Only when minimised or completely occluded (`WindowOccluded`)
-//! does the window pause at 0 fps (`UpdateMode::reactive_low_power(Duration::MAX)`).
+//! While active and focused, menus (sign-in, lobby, settings) run at 60 fps
+//! across `Medium`, `High` and `Ultra` (`MENU_ACTIVE_FPS`, matching the `60/1`
+//! fps painted-world AVIF loops), while 3D tables run at the preset's full rate
+//! (60 fps on `Medium`, 120 fps on `High`, unlimited on `Ultra`). When `VSync`
+//! is active and the display's refresh rate is at or below the target cap
+//! (60 Hz at `Fps60`, 120 Hz `ProMotion` at `Fps120`), `UpdateMode::Continuous`
+//! hands pacing directly to hardware `VBlank` (`PresentMode::Fifo` /
+//! `AutoVsync`) with zero OS timer beat or dropped ticks; sub-refresh caps use
+//! exact `VBlank` multiples in nanoseconds. After `120.0` seconds without user
+//! or game activity, both menus and tables ease smoothly to 30 fps (or an
+//! explicit `RestLimit` override at the table), waking back to the active rate
+//! immediately on any input or game event. While visible — explicitly including
+//! when unfocused — the frame rate never drops below 30 fps. Only when
+//! minimised or completely occluded (`WindowOccluded`) does the window pause at
+//! 0 fps (`UpdateMode::reactive_low_power(Duration::MAX)`).
 
 use baylee_client_core::graphics::{
     AntiAliasing, DISPLAY_REVERT_SECS, DisplayMode, Graphics, Pace, Showing, VSync,
@@ -849,58 +852,73 @@ mod tests {
         assert_eq!(*app.world().resource::<Resting>(), Resting(false));
     }
 
-    /// Menu pacing policy: 60 fps for a full 120.0 seconds, smooth drop to
-    /// 30 fps at 120.0 seconds (never freezing ambient motion), and immediate
-    /// return to 60 fps on the very next frame after any user input.
+    /// Menu pacing policy across `Medium` and `High` (Apple M1 Max): 60 fps for
+    /// a full 120.0 seconds, smooth drop to 30 fps at 120.0 seconds (never
+    /// freezing ambient motion), and immediate return to 60 fps on the very
+    /// next frame after any user input.
     #[test]
     fn a_menu_holds_sixty_for_two_minutes_eases_to_thirty_and_wakes_on_input() {
-        use baylee_client_core::graphics::IDLE_AFTER_SECS;
-        let mut app = App::new();
-        app.add_plugins(MinimalPlugins)
-            .add_plugins(bevy::input::InputPlugin)
-            .add_message::<CursorMoved>()
-            .add_message::<WindowOccluded>()
-            .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
-                Duration::from_secs(30),
-            ))
-            .insert_resource(WinitSettings::game())
-            .insert_resource(ClientSettings::default())
-            .add_plugins(QualityPlugin);
-        let win = app
-            .world_mut()
-            .spawn((
-                Window {
-                    focused: true,
+        use baylee_client_core::graphics::{IDLE_AFTER_SECS, Preset};
+        for preset in [Preset::Medium, Preset::High] {
+            let mut app = App::new();
+            app.add_plugins(MinimalPlugins)
+                .add_plugins(bevy::input::InputPlugin)
+                .add_message::<CursorMoved>()
+                .add_message::<WindowOccluded>()
+                .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+                    Duration::from_secs(30),
+                ))
+                .insert_resource(WinitSettings::game())
+                .insert_resource(ClientSettings {
+                    graphics: Some(Graphics::of(preset)),
                     ..default()
-                },
-                PrimaryWindow,
-            ))
-            .id();
-        // First update initializes `Time<Real>` (elapsed = 0s): 60 fps.
-        app.update();
-        assert!((focused_wait(&app) - 1.0 / 60.0).abs() < 1e-4);
-        // +30s, +60s, +90s (< 120.0s): still 60 fps!
-        for step in 1..=3 {
+                })
+                .add_plugins(QualityPlugin);
+            let win = app
+                .world_mut()
+                .spawn((
+                    Window {
+                        focused: true,
+                        ..default()
+                    },
+                    PrimaryWindow,
+                ))
+                .id();
+            // First update initializes `Time<Real>` (elapsed = 0s): 60 fps.
             app.update();
             assert!(
                 (focused_wait(&app) - 1.0 / 60.0).abs() < 1e-4,
-                "at {}s (< {IDLE_AFTER_SECS}s): {}",
-                step * 30,
-                focused_wait(&app)
+                "{preset:?} active menu"
+            );
+            // +30s, +60s, +90s (< 120.0s): still 60 fps!
+            for step in 1..=3 {
+                app.update();
+                assert!(
+                    (focused_wait(&app) - 1.0 / 60.0).abs() < 1e-4,
+                    "{preset:?} at {}s (< {IDLE_AFTER_SECS}s): {}",
+                    step * 30,
+                    focused_wait(&app)
+                );
+            }
+            // +120s (`IDLE_AFTER_SECS`): eases smoothly to 30 fps without resting!
+            app.update();
+            assert!(
+                (focused_wait(&app) - 1.0 / 30.0).abs() < 1e-4,
+                "{preset:?} at 120s"
+            );
+            assert_eq!(*app.world().resource::<Resting>(), Resting(false));
+            // Any user action (`CursorMoved`) returns immediately to 60 fps!
+            app.world_mut().write_message(CursorMoved {
+                window: win,
+                position: Vec2::new(42.0, 24.0),
+                delta: Some(Vec2::ONE),
+            });
+            app.update();
+            assert!(
+                (focused_wait(&app) - 1.0 / 60.0).abs() < 1e-4,
+                "{preset:?} woke back to 60 fps"
             );
         }
-        // +120s (`IDLE_AFTER_SECS`): eases smoothly to 30 fps without resting!
-        app.update();
-        assert!((focused_wait(&app) - 1.0 / 30.0).abs() < 1e-4);
-        assert_eq!(*app.world().resource::<Resting>(), Resting(false));
-        // Any user action (`CursorMoved`) returns immediately to 60 fps!
-        app.world_mut().write_message(CursorMoved {
-            window: win,
-            position: Vec2::new(42.0, 24.0),
-            delta: Some(Vec2::ONE),
-        });
-        app.update();
-        assert!((focused_wait(&app) - 1.0 / 60.0).abs() < 1e-4);
     }
 
     /// A table under `settings`, a duel on it, its clock stepping a quarter

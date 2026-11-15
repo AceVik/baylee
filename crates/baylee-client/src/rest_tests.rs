@@ -217,9 +217,9 @@ fn the_settings_over_a_table_write_nothing_at_rest() {
     }
 }
 
-/// Red while `vista::paint` wrote `WorldClock` into `VistaParams::portal.z` on
-/// every frame, marking `Assets<VistaMaterial>` changed and rebuilding the
-/// 8-texture UI bind group on 100% of frames at rest.
+/// Red while `vista::paint` wrote `WorldClock` into `VistaParams::portal.z` or
+/// mutated `Settled` unconditionally on every frame, marking
+/// `Assets<VistaMaterial>` and `Settled` changed on 100% of frames at rest.
 #[test]
 fn vista_paint_does_not_write_settled_materials_at_rest() {
     let mut app = App::new();
@@ -236,16 +236,19 @@ fn vista_paint_does_not_write_settled_materials_at_rest() {
         .world_mut()
         .resource_mut::<Assets<vista::VistaMaterial>>()
         .add(vista::VistaMaterial::of(Handle::default()));
-    app.world_mut().spawn((
-        vista::Vista::Front,
-        vista::Settled::default(),
-        ComputedNode {
-            size: Vec2::new(1920.0, 1080.0),
-            ..ComputedNode::default()
-        },
-        MaterialNode(handle),
-        Visibility::Inherited,
-    ));
+    let surface = app
+        .world_mut()
+        .spawn((
+            vista::Vista::Front,
+            vista::Settled::default(),
+            ComputedNode {
+                size: Vec2::new(1920.0, 1080.0),
+                ..ComputedNode::default()
+            },
+            MaterialNode(handle),
+            Visibility::Inherited,
+        ))
+        .id();
     for _ in 0..8 {
         app.update();
     }
@@ -258,5 +261,14 @@ fn vista_paint_does_not_write_settled_materials_at_rest() {
             .last_changed()
             .is_newer_than(tick, now),
         "settled VistaMaterial must not be marked changed at rest"
+    );
+    assert!(
+        !app.world()
+            .entity(surface)
+            .get_ref::<vista::Settled>()
+            .expect("Settled component")
+            .last_changed()
+            .is_newer_than(tick, now),
+        "settled Settled component must not be marked changed at rest"
     );
 }

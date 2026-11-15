@@ -341,6 +341,11 @@ impl DisplayMode {
 /// way back without seeing anything.
 pub const DISPLAY_REVERT_SECS: f32 = 15.0;
 
+/// Active frame-rate cap on menus (sign-in, lobby, deck builder, settings):
+/// matches the `60/1` fps painted-world AVIF loops even on `High` (`120` fps
+/// in 3D play) and `Ultra` (`Unlimited` in 3D play).
+pub const MENU_ACTIVE_FPS: u32 = 60;
+
 /// Seconds without any user or game action after which an active screen eases
 /// smoothly to [`MIN_VISIBLE_FPS`] (`30` fps). Any user action or game event
 /// brings the active rate back immediately.
@@ -509,13 +514,9 @@ impl Graphics {
             vsync: VSync::On,
             frame_limit,
             background_limit,
-            // The quiet presets rest at thirty; High and Ultra, which draw
-            // more than sixty in play, rest at sixty.
-            rest_limit: if matches!(preset, Preset::High | Preset::Ultra) {
-                RestLimit::Fps60
-            } else {
-                RestLimit::Fps30
-            },
+            // Every preset eases an untouched screen to 30 fps after 120s;
+            // `RestLimit::Fps60` remains available as an explicit user setting.
+            rest_limit: RestLimit::Fps30,
             effects,
             backdrop: if matches!(preset, Preset::Low) {
                 Backdrop::Plain
@@ -713,10 +714,14 @@ impl Graphics {
     /// - Hidden (minimised or completely occluded): [`Pace::Paused`] (0 fps).
     /// - Visible (focused, unfocused, or idle): never below [`MIN_VISIBLE_FPS`]
     ///   (30 fps).
-    /// - Active focused window: runs at [`Self::frame_limit`] (60 fps on
+    /// - Active focused menu (sign-in, lobby, settings): runs at
+    ///   [`MENU_ACTIVE_FPS`] (60 fps, or [`Self::frame_limit`] when lower) for
+    ///   [`IDLE_AFTER_SECS`] (`120.0`s), eases smoothly to 30 fps, and returns
+    ///   immediately to 60 fps on any user action.
+    /// - Active focused table: runs at [`Self::frame_limit`] (60 fps on
     ///   `Medium`, 120 fps on `High`, unlimited on `Ultra`) for
-    ///   [`IDLE_AFTER_SECS`] (`120.0`s), then eases smoothly to 30 fps on menus
-    ///   (or [`Self::rest_limit`] at the table) and returns immediately on any
+    ///   [`TABLE_SETTLE_SECS`] (`120.0`s), eases to [`Self::rest_limit`]
+    ///   (30 fps by default across all presets), and returns immediately on any
     ///   user action or game event.
     /// - Unfocused visible window: [`Self::background_limit`] clamped to at
     ///   least [`MIN_VISIBLE_FPS`] (30 fps), and never faster than the focused
@@ -735,18 +740,24 @@ impl Graphics {
             let bg = if showing.menu && showing.untouched_secs >= IDLE_AFTER_SECS {
                 MIN_VISIBLE_FPS
             } else {
-                self.background_limit.fps().max(MIN_VISIBLE_FPS)
+                let raw = self.background_limit.fps().max(MIN_VISIBLE_FPS);
+                if showing.menu {
+                    raw.min(MENU_ACTIVE_FPS)
+                } else {
+                    raw
+                }
             };
             return (held(bg), true);
         }
-        if showing.menu && showing.untouched_secs >= IDLE_AFTER_SECS {
-            return (held(MIN_VISIBLE_FPS), true);
+        if showing.menu {
+            if showing.untouched_secs >= IDLE_AFTER_SECS {
+                return (held(MIN_VISIBLE_FPS), true);
+            }
+            let menu_fps = focused.map_or(MENU_ACTIVE_FPS, |cap| cap.min(MENU_ACTIVE_FPS));
+            return (Pace::Fps(menu_fps), false);
         }
         let rest = self.rest_limit.fps().max(MIN_VISIBLE_FPS);
-        if !showing.menu
-            && showing.untouched_secs >= TABLE_SETTLE_SECS
-            && focused.is_none_or(|cap| rest < cap)
-        {
+        if showing.untouched_secs >= TABLE_SETTLE_SECS && focused.is_none_or(|cap| rest < cap) {
             return (Pace::Fps(rest), true);
         }
         (focused.map_or(Pace::Unlimited, Pace::Fps), false)
@@ -825,16 +836,16 @@ mod tests {
         assert_eq!(junk, Graphics::default());
     }
 
-    /// A file from before the rest rate takes its preset's (High rests at
-    /// sixty, the rest at thirty) and stays that preset; one that names it
-    /// keeps it, and one that names nonsense takes the preset's.
+    /// A file from before the rest rate takes its preset's (`Fps30` across all
+    /// presets) and stays that preset; one that names it keeps it, and one that
+    /// names nonsense takes the preset's.
     #[test]
     fn a_file_without_a_rest_rate_takes_its_preset_s() {
         for preset in Preset::NAMED {
             let mut old = serde_json::to_value(Graphics::of(preset)).unwrap();
             old.as_object_mut().unwrap().remove("rest_limit");
             let g: Graphics = serde_json::from_value(old).expect("reads");
-            assert_eq!(g.rest_limit, Graphics::of(preset).rest_limit);
+            assert_eq!(g.rest_limit, RestLimit::Fps30);
             assert_eq!(g.matching_preset(), preset, "still {preset:?}");
         }
         let named: Graphics =
@@ -843,7 +854,7 @@ mod tests {
         assert_eq!(named.matching_preset(), Preset::Custom);
         let junk: Graphics =
             serde_json::from_str(r#"{"preset":"high","rest_limit":7}"#).expect("reads");
-        assert_eq!(junk.rest_limit, RestLimit::Fps60);
+        assert_eq!(junk.rest_limit, RestLimit::Fps30);
     }
 
     /// *Custom* appears iff a device row differs from the preset's table
@@ -982,11 +993,30 @@ mod tests {
         sixty.rest_limit = RestLimit::Fps60;
         assert_eq!(sixty.pace(table_untouched), (Pace::Fps(60), false));
         assert_eq!(sixty.pace(table_untouched), sixty.pace(AT_DESK));
-        // High caps at 120 active, rests at 60 at the table, and eases to 30 on an idle menu.
+        // High (e.g. Apple M1 Max): menus run 60 -> 120s -> 30 -> 60; tables
+        // run 120 -> 120s -> 30 -> 120.
         let high = Graphics::of(Preset::High);
-        assert_eq!(high.rest_limit, RestLimit::Fps60);
+        let ultra = Graphics::of(Preset::Ultra);
+        assert_eq!(high.rest_limit, RestLimit::Fps30);
+        assert_eq!(ultra.rest_limit, RestLimit::Fps30);
         assert_eq!(high.pace(AT_DESK), (Pace::Fps(120), false));
-        assert_eq!(high.pace(table_untouched), (Pace::Fps(60), true));
+        assert_eq!(high.pace(table_resting), (Pace::Fps(30), true));
+        assert_eq!(high.pace(table_untouched), (Pace::Fps(30), true));
+        assert_eq!(ultra.pace(table_resting), (Pace::Fps(30), true));
+        let high_menu_active = Showing {
+            menu: true,
+            untouched_secs: 0.0,
+            ..AT_DESK
+        };
+        assert_eq!(high.pace(high_menu_active), (Pace::Fps(60), false));
+        assert_eq!(ultra.pace(high_menu_active), (Pace::Fps(60), false));
+        assert_eq!(
+            high.pace(Showing {
+                untouched_secs: 119.9,
+                ..high_menu_active
+            }),
+            (Pace::Fps(60), false)
+        );
         let low = Graphics::of(Preset::Low);
         assert_eq!(low.pace(table_untouched), (Pace::Fps(30), false));
         let menu_idle = Showing {
@@ -996,14 +1026,17 @@ mod tests {
         };
         assert_eq!(medium.pace(menu_idle), (Pace::Fps(30), true));
         assert_eq!(high.pace(menu_idle), (Pace::Fps(30), true));
+        assert_eq!(ultra.pace(menu_idle), (Pace::Fps(30), true));
         // Immediate return to 60 fps on any user action (`untouched_secs = 0.0`).
-        assert_eq!(
-            medium.pace(Showing {
-                untouched_secs: 0.0,
-                ..menu_idle
-            }),
-            (Pace::Fps(60), false)
-        );
+        for g in [medium, high, ultra] {
+            assert_eq!(
+                g.pace(Showing {
+                    untouched_secs: 0.0,
+                    ..menu_idle
+                }),
+                (Pace::Fps(60), false)
+            );
+        }
         let interval = Pace::Fps(60).interval_secs().expect("a limit");
         assert!((interval - 1.0 / 60.0).abs() < 1e-6);
         assert_eq!(Pace::Unlimited.interval_secs(), None);

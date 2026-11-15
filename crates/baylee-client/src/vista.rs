@@ -336,7 +336,7 @@ pub struct Gaze(pub Vec2);
 
 /// What one surface has settled on so far: the things that follow their
 /// targets rather than jump to them.
-#[derive(Component, Clone, Copy, Debug, Default)]
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct Settled {
     panel: Option<Vec4>,
     presence: f32,
@@ -591,7 +591,12 @@ pub(crate) fn paint(
             continue;
         }
         let aspect = size.x / size.y;
-        settled.age += dt;
+        let next_age =
+            if *kind == Vista::Wait && !frozen && !is_resting && settled.age < WAIT_HOUR_SECONDS {
+                (settled.age + dt).min(WAIT_HOUR_SECONDS)
+            } else {
+                settled.age
+            };
         let (stage, presence) = match kind {
             Vista::Front => (front.stage, if front.shown { 1.0 } else { 0.0 }),
             Vista::Interior => (
@@ -602,7 +607,7 @@ pub(crate) fn paint(
                     0.0
                 },
             ),
-            Vista::Wait => (waiting(settled.age), WAIT_PRESENCE),
+            Vista::Wait => (waiting(next_age), WAIT_PRESENCE),
         };
         let entering = *kind == Vista::Front && front.entering && !still;
         if *kind == Vista::Front
@@ -640,11 +645,15 @@ pub(crate) fn paint(
         } else {
             raw_panel
         };
-        settled.presence = next_presence;
-        settled.hour = next_hour;
-        settled.panel = Some(panel);
+        let next_settled = Settled {
+            panel: Some(panel),
+            presence: next_presence,
+            hour: next_hour,
+            age: next_age,
+        };
+        settled.set_if_neq(next_settled);
 
-        let shown = settled.presence > 0.0 && backdrop > 0.0;
+        let shown = next_presence > 0.0 && backdrop > 0.0;
         let wanted = if shown {
             Visibility::Inherited
         } else {
@@ -663,7 +672,7 @@ pub(crate) fn paint(
             panel,
             home: home_anchor(aspect),
             view: Vec4::new(gaze.0.x, gaze.0.y, aspect, energy),
-            hour: Vec4::new(settled.hour, stage.haze, stage.glow, detail),
+            hour: Vec4::new(next_hour, stage.haze, stage.glow, detail),
             gate_a: Vec4::new(
                 stage.before.opening,
                 stage.before.alpha,

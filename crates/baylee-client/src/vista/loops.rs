@@ -196,6 +196,15 @@ impl Loop {
     /// Reads a shipped file's tables, pre-allocates its textures and SPSC ring,
     /// and spawns its parked worker thread.
     fn start(tavern: bool, bytes: &'static [u8], images: &mut Assets<Image>) -> Option<Arc<Self>> {
+        Self::start_with_keep(tavern, bytes, images, KEEP)
+    }
+
+    fn start_with_keep(
+        tavern: bool,
+        bytes: &'static [u8],
+        images: &mut Assets<Image>,
+        keep: Duration,
+    ) -> Option<Arc<Self>> {
         let sequence = Sequence::read(bytes, &Bounds::SHIPPED_LOOP).ok()?;
         let track = &sequence.colour;
         if track.samples.is_empty() || track.total_ticks == 0 {
@@ -249,7 +258,7 @@ impl Loop {
         let theirs = Arc::downgrade(&lp);
         let worker = std::thread::Builder::new()
             .name(if tavern { "tavern-loop" } else { "world-loop" }.to_string())
-            .spawn(move || work(&theirs, bytes, KEEP))
+            .spawn(move || work(&theirs, bytes, keep))
             .ok()?;
         let _ = lp.worker.set(worker.thread().clone());
         Some(lp)
@@ -702,7 +711,8 @@ fn upload_aligned(
 /// Selects the newest due frame (`stream_pts_ns <= playhead_ns`) from `lp.ring`,
 /// discarding any stale-generation slots ahead of it.
 fn select_due_slot(lp: &Loop) -> Option<u64> {
-    let mut r = lp.ring.read_pos.load(Ordering::Relaxed);
+    let initial_r = lp.ring.read_pos.load(Ordering::Relaxed);
+    let mut r = initial_r;
     let w = lp.ring.write_pos.load(Ordering::Acquire);
     let cur_gen = lp.generation.load(Ordering::Acquire);
     while r < w {
@@ -716,8 +726,11 @@ fn select_due_slot(lp: &Loop) -> Option<u64> {
         }
         r += 1;
     }
-    if r != lp.ring.read_pos.load(Ordering::Relaxed) {
+    if r != initial_r {
         lp.ring.read_pos.store(r, Ordering::Release);
+        if let Some(worker) = lp.worker.get() {
+            worker.unpark();
+        }
     }
     if r >= w {
         return None;
@@ -887,12 +900,15 @@ mod tests {
 
     /// Unseen loops stay parked; active loops fill the 6-slot lookahead ring
     /// and `first` frame without allocations, park while `paused` (minimised /
-    /// occluded), and reset `showing = false` when evicted after `keep`.
+    /// occluded), reset `showing = false` when evicted after `keep`, and
+    /// immediately unpark + refill when `select_due_slot` drains a full ring of
+    /// stale-generation frames.
     #[test]
     fn a_loop_fills_its_lookahead_ring_pauses_when_hidden_and_resets_after_keep() {
         let mut images = Assets::<Image>::default();
-        let lp = Loop::start(false, WORLD, &mut images).expect("world loop starts");
-        std::thread::sleep(Duration::from_millis(60));
+        let lp = Loop::start_with_keep(false, WORLD, &mut images, Duration::from_millis(25))
+            .expect("world loop starts");
+        std::thread::sleep(Duration::from_millis(50));
         assert_eq!(
             lp.ring.write_pos.load(Ordering::Acquire),
             0,
@@ -918,14 +934,15 @@ mod tests {
         lp.paused.store(true, Ordering::Release);
         lp.ring.read_pos.store(2, Ordering::Release);
         lp.worker.get().unwrap().unpark();
-        std::thread::sleep(Duration::from_millis(60));
+        std::thread::sleep(Duration::from_millis(50));
         assert_eq!(
             lp.ring.write_pos.load(Ordering::Acquire),
             RING_CAP as u64,
             "paused worker decodes 0 frames while hidden"
         );
 
-        // Unpause: worker immediately refills the 2 freed lookahead slots!
+        // Unpause: worker immediately refills the 2 freed lookahead slots
+        // (`write_pos == 8, read_pos == 2`, so the 6-slot ring is 100% full).
         lp.paused.store(false, Ordering::Release);
         lp.worker.get().unwrap().unpark();
         let deadline = Instant::now() + PATIENCE;
@@ -939,18 +956,48 @@ mod tests {
             RING_CAP as u64 + 2
         );
 
-        // Eviction resets `showing` to `false` and increments `generation`.
+        // Leave unseen past `keep` (`25 ms`) while the ring is full: worker
+        // evicts its decoder, resets `showing = false`, and bumps `generation`.
         lp.showing.store(true, Ordering::Release);
         let gen_before = lp.generation.load(Ordering::Acquire);
-        let mut dummy_player =
-            Some(Player::open_static(WORLD, &Bounds::SHIPPED_LOOP, 1).expect("opens"));
-        let mut ticks = 512;
-        evict_player(&lp, &mut dummy_player, &mut ticks);
-        assert!(dummy_player.is_none());
+        lp.active.store(false, Ordering::Release);
+        lp.worker.get().unwrap().unpark();
+        let deadline = Instant::now() + PATIENCE;
+        while lp.generation.load(Ordering::Acquire) == gen_before && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(2));
+        }
         assert!(
             !lp.showing(),
             "showing reset so stale GPU frames never flash"
         );
         assert_eq!(lp.generation.load(Ordering::Acquire), gen_before + 1);
+
+        // Pre-warm (`warm = true`, `visible = false`) on a full stale ring:
+        // worker opens `Player` and parks on full ring; `select_due_slot` drains
+        // all 6 stale-generation slots AND immediately unparks the worker so it
+        // refills 6 fresh generation-2 frames without waiting for `NAP` (250 ms).
+        lp.warm.store(true, Ordering::Release);
+        lp.worker.get().unwrap().unpark();
+        std::thread::sleep(Duration::from_millis(10));
+        let drain_start = Instant::now();
+        assert_eq!(select_due_slot(&lp), None);
+        assert_eq!(
+            lp.ring.read_pos.load(Ordering::Acquire),
+            RING_CAP as u64 + 2,
+            "all 6 stale-generation slots drained"
+        );
+        let target_write = (RING_CAP as u64 * 2) + 2;
+        while lp.ring.write_pos.load(Ordering::Acquire) < target_write
+            && drain_start.elapsed() < PATIENCE
+        {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert_eq!(lp.ring.write_pos.load(Ordering::Acquire), target_write);
+        assert!(
+            drain_start.elapsed() < NAP,
+            "stale-ring drain unparked worker immediately ({:?} < {NAP:?})",
+            drain_start.elapsed()
+        );
+        assert_eq!(select_due_slot(&lp), Some(RING_CAP as u64 + 2));
     }
 }
