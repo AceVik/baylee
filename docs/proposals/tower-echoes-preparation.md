@@ -13,6 +13,7 @@ from production functionality. Nothing here establishes that Tower v2 is playabl
 | Same-stage player builds, manually played against Expert AI | Eight wins/five unsuccessful duels; 10–20 minute ordinary duels |
 | Global Baylee Tower authority, duels hosted on gateways | Three active relics, six reserve slots, two duel charges |
 | Central identity/permanent achievements; Daily/Weekly stay Central | 18 starting gold, 12 per verified terminal duel |
+| Equipment, upgrades, cards, consumables and gold reset for every new run; resuming preserves them | Starter choice and initial budget are restored; no permanent power bonuses |
 | Three compiled engine variants; detection absent from standard default and Tower | Higher-rarity opportunities at stages 2/4/5, full-price potion offer at 7 |
 | Difficult, powerful combos allowed; no automatic Tower loop adjudication | Exact item effects, rarity distribution, matching preference and badge thresholds |
 | Careful substantial refactoring permitted after the complete handoff | First diagnostic samples, then targeted expansion based on findings |
@@ -2093,3 +2094,31 @@ services and PostgreSQL clusters/listeners. Cleanup is recorded in
 full engine tests ran. Higher-rarity animation still needs direct visual
 acceptance in a real inventory; its motion/cache tests pass, but the Common
 screenshots here are not evidence of the higher-tier animation.
+
+### Milestone 66 — run-local power, persistent history
+
+The owner's clarification is now an explicit binding requirement: a new run
+inherits no equipment, upgrades, gold, purchased cards, charges, crafting
+materials or gameplay bonuses. Its regular starter and starting budget are
+restored. Resuming the same run preserves its saved build. Permanent cosmetic
+accomplishments and historical echo snapshots are distinct from owned power.
+The existing authority already constructs fresh run state; no production logic
+or schema change was necessary.
+
+A focused PostgreSQL regression uses only ordinary Store operations: buy three
+matching relics, a healing charge and a card, edit the deck, fuse an equipped
+Uncommon, pin an offer, resume, abandon and enroll again with the same account.
+The new run equals the original starting state under its frozen generation.
+Exact old purchase retries return the original receipt, request reuse with the
+new run conflicts, and attempts to move/sell the old item or import its purchased
+card are refused without mutation. The old finished record remains unchanged.
+This covers the abandonment transition, not an additional conquest playtest.
+
+Evidence on 15 November 2026:
+
+- `/tmp/baylee-tower-run-scope-tests-20261115.log`: the one targeted real
+  PostgreSQL test passes in 0.16s. The owned database exited and its listener and
+  temporary cluster were removed.
+- `/tmp/baylee-tower-run-scope-clippy-20261115.log`: strict Clippy passes for the
+  new store integration test. Formatting and whitespace checks pass. No engine,
+  client or unrelated suites ran.

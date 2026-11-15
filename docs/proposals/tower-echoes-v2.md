@@ -53,6 +53,11 @@ Binding requirements:
 - Three identical Common items become one Uncommon; three identical Uncommons
   become one Rare; **one Rare plus one Mythic Potion becomes one Mythic Rare**.
   Three Rares are never required for the final upgrade.
+- Owner clarification, 15 November: equipment, upgrades, gold, purchased cards,
+  consumables, crafting materials and their gameplay bonuses belong to one run
+  only. A new run starts with its selected starter and regular starting budget;
+  only cosmetic accomplishments and records persist across runs. Resuming an
+  existing run preserves its saved build and resources.
 - Powerful interactions and difficult-to-assemble infinite combos are intended.
   A technical work limit must not masquerade as a rules outcome.
 - Owner clarification during this review: loop detection is **off by default
@@ -77,6 +82,12 @@ consumables persist within the run. Damage does not silently become persistent
 injury. An echo spends its frozen charges only in this duel, never in its owner's
 live inventory.
 
+Ending a run never transfers its power to the next one, whether the player wins,
+exhausts the defeat allowance or abandons it. Its saved final build can remain
+available as history or an eligible opponent echo; that does not grant its owner
+equipment in a new run. Delayed commands and retries remain bound to the original
+run identity and cannot spend or grant resources in the next run.
+
 Target ordinary duel duration is approximately 10–20 minutes, with longer
 interactive duels allowed. A run spans several sessions. Save after every shop
 command and verified duel; make a one-duel session satisfying. No speed ranking,
@@ -97,7 +108,7 @@ does not open another shop or transfer into another run.
 ## 3. Economy, luck and fusion
 
 Start with 18 gold; each verified terminal duel grants 12. There is no interest
-or win-streak income. Gold is run-local and never transfers between accounts.
+or win-streak income. Gold is run-local and never transfers between runs or accounts.
 Initial relic prices: Common 4, Uncommon 10, Rare 26; the Mythic Potion costs 24.
 Individual exceptional items may have explicit, visible catalog prices instead.
 Those are balance parameters frozen with the run, not caller-provided prices.
