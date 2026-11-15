@@ -32,6 +32,10 @@ pub(crate) struct Game {
 }
 
 impl Game {
+    pub(crate) fn run_id(&self) -> Uuid {
+        self.run
+    }
+
     pub(crate) fn sealed(&self) {
         let _ = self.stop.send(true);
     }

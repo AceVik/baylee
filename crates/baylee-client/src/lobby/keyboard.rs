@@ -147,7 +147,7 @@ pub(super) fn keyboard(
         if state.echoes.confirmation.is_some() {
             state.echoes.confirmation = None;
         } else {
-            state.echoes.opened = false;
+            state.echoes.close();
         }
         return;
     }

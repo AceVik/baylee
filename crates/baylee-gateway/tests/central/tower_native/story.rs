@@ -65,6 +65,7 @@ pub(super) fn run(runtime: &Runtime, served: &Served) {
     let again = sdk_start(&account, &client, initial.id, &served.origin);
     assert_eq!(again["game_id"], grant["game_id"]);
     assert_ne!(again["seat_token"], grant["seat_token"]);
+    let again = resumed(served, &admission.token, &again, initial.id);
     location(
         &client,
         initial.id,
@@ -134,6 +135,27 @@ fn busy(served: &Served, client: &TowerHttp, run: Uuid, token: &str) {
 
 fn player(runtime: &Runtime, served: &Served, name: &str) -> baylee_account::Account {
     fresh::register(runtime, &served.service, &served.endpoint, name, br#"{"version":1,"gateways":[],"preferences":{},"legacy":null,"chat":{"devices":[],"installations":[]}}"#)
+}
+
+fn resumed(
+    served: &Served,
+    token: &str,
+    previous: &serde_json::Value,
+    run: Uuid,
+) -> serde_json::Value {
+    let path = format!(
+        "/lobby/games/{}/seat",
+        previous["game_id"].as_str().unwrap()
+    );
+    let (status, body) = common::http(served.gateway.port, "POST", &path, Some(token), "");
+    assert_eq!(status, 200);
+    let granted: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(granted["tower"], serde_json::json!(run.as_bytes()));
+    assert!(granted.get("challenge").is_none());
+    assert_eq!(granted["game_id"], previous["game_id"]);
+    assert_eq!(granted["seat"], 0);
+    assert_ne!(granted["seat_token"], previous["seat_token"]);
+    granted
 }
 
 fn sdk_start(

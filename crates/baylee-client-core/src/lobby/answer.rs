@@ -303,7 +303,7 @@ impl Lobby {
                     .or_else(|| self.awaiting.is_some().then(|| self.needs_pool()).flatten())
                     .or_else(|| self.hosted_for_room())
             }
-            LobbyEvent::ChallengeSeated { seat, .. } => {
+            LobbyEvent::ChallengeSeated { seat, .. } | LobbyEvent::TowerSeated { seat, .. } => {
                 self.enter_challenge(seat);
                 None
             }

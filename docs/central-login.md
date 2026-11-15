@@ -114,8 +114,9 @@ must confirm the returned execution game and the same host identity/origin befor
 the SDK returns a handover. A reassignment, quarantine or stale seat refuses
 without guessing another destination. Neither the Central session nor the Tower
 bearer crosses this gateway boundary. The seat token is zeroized on drop and the
-handover is deliberately not printable. This is native SDK support; the v2 lobby
-screen remains under implementation.
+handover is deliberately not printable. Its optional Tower recovery context must
+match the requested run; unrelated fields and Daily/Weekly context are refused.
+The native Echoes lobby uses this path for both entry and resumption.
 
 A session of a Central account never asks Central anything once it is open: not
 on a request, not on a socket, not before a frame (§"Sessions"). Nobody's load

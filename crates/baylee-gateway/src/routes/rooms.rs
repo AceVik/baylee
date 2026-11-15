@@ -2,9 +2,9 @@
 //! handing the host on, and leaving.
 
 use crate::{
-    Deserialize, ErrorBody, HeaderMap, Json, LobbyGame, LobbyState, MAX_SEATS, Path, Serialize,
-    Shared, State, StatusCode, ai_preset, auth, authed, chair, clock, engine, err, err_saying,
-    listing, lobby, own_deck,
+    Deserialize, ErrorBody, HeaderMap, Json, LobbyGame, LobbyState, MAX_SEATS, Path, Shared, State,
+    StatusCode, ai_preset, auth, authed, chair, clock, engine, err, err_saying, listing, lobby,
+    own_deck,
     routes::{LobbyListing, SeatGrant},
     table_prints, try_start,
 };
@@ -475,6 +475,11 @@ pub(crate) async fn take_seat(
     // No `lobby_moved()`: the arrangement of the table is exactly as it was.
     Ok(Json(SeatGrant {
         challenge,
+        tower: state
+            .tower
+            .as_ref()
+            .and_then(|tower| tower.game(&id))
+            .map(|game| *game.run_id().as_bytes()),
         game_id: id,
         seat,
         seat_token,

@@ -23,6 +23,12 @@ response remains acknowledged even if seat admission subsequently fails. Only
 the separate approved gateway handover reaches the table; opening a panel or
 refreshing never reserves an opponent. Returning from a Tower duel rereads the
 run and waits for the verifier; it never invents an outcome or awards gold.
+The ordinary authenticated seat-recovery route also carries a separate `tower`
+expedition marker. The client restores it after its gateway epoch check, so a
+restarted client does not offer a multiplayer rematch or return to a Central task.
+If technical recovery has replaced the game identity, the old game's seat cannot
+be reclaimed; the saved expedition's explicit Resume follows its fresh authority
+location instead.
 
 The account home opens Echoes alongside Daily/Weekly. Its shop, equipment/fusion
 and deck panels display authoritative prices, conserved sale refunds, exact

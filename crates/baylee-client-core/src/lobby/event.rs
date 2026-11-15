@@ -1,9 +1,9 @@
 use super::{
-    BlockedCard, DeckSummary, GameListing, KeptGuest, ListFor, LobbyRequest, SeatHandover, hosted,
-    library, resume,
+    BlockedCard, DeckSummary, GameListing, KeptGuest, ListFor, SeatHandover, hosted, library,
+    resume,
 };
 
-/// The outcome of a [`LobbyRequest`], handed back by the shell.
+/// The outcome of a [`super::LobbyRequest`], handed back by the shell.
 #[derive(Clone, PartialEq, Eq)]
 pub enum LobbyEvent {
     /// Account library response.
@@ -28,7 +28,7 @@ pub enum LobbyEvent {
     },
     /// A new guest, and its session (#269).
     GuestIn(KeptGuest),
-    /// A session ended on the gateway ([`LobbyRequest::LogOut`]). Nothing
+    /// A session ended on the gateway ([`super::LobbyRequest::LogOut`]). Nothing
     /// follows: the lobby forgot it when it asked.
     LoggedOut,
     /// The account's decks.
@@ -111,6 +111,13 @@ pub enum LobbyEvent {
         seat: SeatHandover,
         /// Public task identity used to return to its results.
         challenge: [u8; 16],
+    },
+    /// An owned gateway-hosted Tower seat; distinct from Central's task identity.
+    TowerSeated {
+        /// Normal authenticated seat capability.
+        seat: SeatHandover,
+        /// Owned expedition to reread on returning; never a result claim.
+        run: [u8; 16],
     },
     /// The hosted models the gateway offers.
     HostedProfiles(Vec<hosted::HostedProfile>),

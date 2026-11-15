@@ -112,6 +112,7 @@ impl fmt::Debug for LobbyEvent {
             Self::Moved => "Moved",
             Self::Seated(_) => "Seated",
             Self::ChallengeSeated { .. } => "ChallengeSeated",
+            Self::TowerSeated { .. } => "TowerSeated",
             Self::HostedProfiles(_) => "HostedProfiles",
             Self::PasswordChangeNeeded => "PasswordChangeNeeded",
             Self::Banned { .. } => "Banned",

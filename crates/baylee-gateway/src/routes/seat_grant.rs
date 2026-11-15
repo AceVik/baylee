@@ -22,12 +22,16 @@ pub(crate) struct SeatGrant {
     /// table's cosmetics. Handed out once; a new one
     /// (`POST /lobby/games/{id}/seat`) ends the old.
     pub(crate) seat_token: String,
+    /// @description Optional owned Tower expedition UUID, as sixteen bytes. Present on seat resumption; never a scoring credential or a Daily/Weekly task.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) tower: Option<[u8; 16]>,
 }
 
 impl SeatGrant {
     pub(crate) fn ordinary(game_id: String, seat: usize, seat_token: String) -> Self {
         Self {
             challenge: None,
+            tower: None,
             game_id,
             seat,
             seat_token,

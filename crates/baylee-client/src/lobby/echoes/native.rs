@@ -32,9 +32,18 @@ fn session(state: &mut LobbyState) -> Option<central::Handle> {
         _ => false,
     };
     if !unchanged {
+        // A gateway's authenticated resume marker can precede the first Central
+        // worker. Retain only that navigation intent; the new account must still
+        // read/authorize the run. Never retain anything across an account departure.
+        let first = state.echoes.session.is_none() && handle.is_some();
+        let playing = first.then_some(state.echoes.playing).flatten();
+        let returning = first.then_some(state.echoes.returning).flatten();
         // Departed jobs hold only their departed connection and mailbox.
         state.echoes = Ui {
             session: handle.clone(),
+            playing,
+            returning,
+            opened: returning.is_some(),
             ..Ui::default()
         };
     }
@@ -47,10 +56,27 @@ fn ready(state: &LobbyState) -> bool {
         && state.terms_subject != super::super::front::terms::Subject::Central
 }
 
+/// Called only after the gateway reply passes the ordinary epoch check.
+pub(in crate::lobby) fn seated(state: &mut LobbyState, event: &LobbyEvent) {
+    match event {
+        LobbyEvent::TowerSeated { seat, run } => {
+            session(state);
+            state.echoes.playing = Uuid::parse_str(&seat.game_id)
+                .ok()
+                .map(|game| (Uuid::from_bytes(*run), game));
+        }
+        LobbyEvent::Seated(_) | LobbyEvent::ChallengeSeated { .. } => {
+            state.echoes.playing = None;
+            state.echoes.returning = None;
+        }
+        _ => {}
+    }
+}
+
 pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
     session(state);
     if action == Action::Back {
-        state.echoes.opened = false;
+        state.echoes.close();
         return;
     }
     if !ready(state) {
@@ -253,6 +279,12 @@ pub(super) fn tick(time: Res<Time>, mut state: ResMut<LobbyState>, mut clock: Lo
     if !ready(&state) || state.echoes.model.busy() {
         return;
     }
+    if let Some(run) = state.echoes.returning {
+        state.echoes.returning = None;
+        state.hub = Hub::Challenges;
+        ask(&mut state, Action::Read(Read::Run(run)));
+        return;
+    }
     let showing = state.hub == Hub::Challenges && state.echoes.opened;
     if !showing {
         return;
@@ -324,7 +356,7 @@ fn enter(state: &mut LobbyState, mut play: TowerPlay) {
         });
 }
 
-pub(super) fn returned(mut state: ResMut<LobbyState>) {
+pub(in crate::lobby) fn returned(mut state: ResMut<LobbyState>) {
     if matches!(state.lobby.screen(), Screen::Replay(_)) {
         return;
     }
@@ -332,7 +364,11 @@ pub(super) fn returned(mut state: ResMut<LobbyState>) {
         return;
     };
     state.echoes.opened = true;
+    state.echoes.returning = Some(run);
     state.echoes.page = Page::Shop;
     state.hub = Hub::Challenges;
-    ask(&mut state, Action::Read(Read::Run(run)));
+    if ready(&state) && !state.echoes.model.busy() {
+        state.echoes.returning = None;
+        ask(&mut state, Action::Read(Read::Run(run)));
+    }
 }

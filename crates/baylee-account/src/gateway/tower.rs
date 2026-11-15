@@ -13,11 +13,15 @@ pub struct TowerSeat {
     /// Gateway-local seat capability, wiped on drop.
     #[serde(deserialize_with = "super::seat_secret")]
     pub seat_token: zeroize::Zeroizing<String>,
+    /// Optional navigation context from the common authenticated seat route.
+    #[serde(default)]
+    tower: Option<[u8; 16]>,
 }
 
 impl TowerSeat {
-    fn validate(&self) -> Result<(), Error> {
+    fn validate(&self, run: Uuid) -> Result<(), Error> {
         if self.seat != 0
+            || self.tower.is_some_and(|id| id != *run.as_bytes())
             || self.game_id.get_version_num() != 7
             || self.game_id.get_variant() != uuid::Variant::RFC4122
             || self.seat_token.len() != 64
@@ -48,7 +52,7 @@ impl GatewayHttp {
             return Err(error);
         }
         let seat: TowerSeat = crate::http::decode_response(response)?;
-        seat.validate()?;
+        seat.validate(run)?;
         Ok(seat)
     }
 }
@@ -59,12 +63,13 @@ mod tests {
 
     #[test]
     fn tower_capability_accepts_only_canonical_human_execution_seats() {
+        let run = Uuid::now_v7();
         let valid =
             serde_json::json!({"game_id": Uuid::now_v7(), "seat": 0, "seat_token": "a".repeat(64)});
         assert!(
             serde_json::from_value::<TowerSeat>(valid.clone())
                 .unwrap()
-                .validate()
+                .validate(run)
                 .is_ok()
         );
         for (field, value) in [
@@ -78,12 +83,34 @@ mod tests {
             assert!(
                 serde_json::from_value::<TowerSeat>(changed)
                     .unwrap()
-                    .validate()
+                    .validate(run)
                     .is_err()
             );
         }
         let mut extended = valid;
         extended["gateway"] = "https://untrusted.invalid".into();
         assert!(serde_json::from_value::<TowerSeat>(extended).is_err());
+    }
+
+    #[test]
+    fn tower_capability_binds_optional_recovery_context_to_the_requested_run() {
+        let run = Uuid::now_v7();
+        let mut response = serde_json::json!({
+            "game_id": Uuid::now_v7(), "seat": 0, "seat_token": "a".repeat(64),
+            "tower": run.as_bytes(),
+        });
+        let seat: TowerSeat = serde_json::from_value(response.clone()).unwrap();
+        assert!(seat.validate(run).is_ok());
+        assert!(seat.validate(Uuid::now_v7()).is_err());
+        response["tower"] = serde_json::json!(Uuid::nil().as_bytes());
+        assert!(
+            serde_json::from_value::<TowerSeat>(response.clone())
+                .unwrap()
+                .validate(run)
+                .is_err()
+        );
+        response["tower"] = serde_json::json!(run.as_bytes());
+        response["challenge"] = serde_json::json!(run.as_bytes());
+        assert!(serde_json::from_value::<TowerSeat>(response).is_err());
     }
 }

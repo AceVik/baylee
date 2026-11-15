@@ -66,6 +66,7 @@ pub(super) fn start(
         seat: 0,
         seat_token: token,
         challenge: None,
+        tower: Some(*run.as_bytes()),
     })
 }
 

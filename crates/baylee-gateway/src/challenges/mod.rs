@@ -248,6 +248,7 @@ async fn launch(
     state.lobby_moved();
     Ok(Json(crate::routes::SeatGrant {
         challenge: Some(challenge),
+        tower: None,
         game_id,
         seat: 0,
         seat_token,

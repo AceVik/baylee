@@ -434,3 +434,48 @@ fn ordinary_seat_response_restores_challenge_context_but_stale_replies_cannot() 
     assert_eq!(state.challenges.model.selected, Some(task));
     assert!(state.challenges.model.busy, "the result refresh was queued");
 }
+
+#[test]
+fn tower_context_survives_seat_discovery_only_after_the_gateway_epoch_check() {
+    let (mut app, _jobs) = screen(Lang::En);
+    let run = *uuid::Uuid::now_v7().as_bytes();
+    let response = answer(
+        200,
+        &serde_json::json!({
+            "game_id": uuid::Uuid::now_v7().to_string(), "seat": 0,
+            "seat_token": "synthetic-only", "tower": run,
+        })
+        .to_string(),
+    );
+    let event = crate::lobby::http::decode(Lang::En, Expect::Seat, &response);
+    assert!(matches!(event, LobbyEvent::TowerSeated { run: id, .. } if id == run));
+    let epoch = app.world().resource::<LobbyState>().gateway_epoch;
+    app.world_mut().resource_mut::<LobbyState>().connected = true;
+    let mailbox = app.world().resource::<Mailbox>().clone();
+    mailbox.0.lock().unwrap().push(Reply::Remote(
+        epoch.wrapping_add(1),
+        Box::new(Reply::Event(event.clone())),
+    ));
+    app.update();
+    assert!(!crate::lobby::echoes::current(
+        app.world().resource::<LobbyState>()
+    ));
+    mailbox
+        .0
+        .lock()
+        .unwrap()
+        .push(Reply::Remote(epoch, Box::new(Reply::Event(event))));
+    app.update();
+    assert!(crate::lobby::echoes::current(
+        app.world().resource::<LobbyState>()
+    ));
+    assert!(!crate::lobby::challenges::current(
+        app.world().resource::<LobbyState>()
+    ));
+    app.world_mut()
+        .run_system_once(crate::lobby::echoes::native::returned)
+        .unwrap();
+    let state = app.world().resource::<LobbyState>();
+    assert_eq!(state.hub, Hub::Challenges);
+    assert!(state.echoes.opened);
+}

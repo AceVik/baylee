@@ -78,6 +78,8 @@ pub(crate) struct Ui {
     loaded: bool,
     withdrawn: bool,
     playing: Option<(Uuid, Uuid)>,
+    /// An authenticated gateway seat may arrive before the first Central worker.
+    returning: Option<Uuid>,
     #[cfg(not(target_arch = "wasm32"))]
     session: Option<central::Handle>,
     #[cfg(not(target_arch = "wasm32"))]
@@ -135,6 +137,11 @@ pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
 }
 
 impl Ui {
+    pub(super) fn close(&mut self) {
+        self.opened = false;
+        self.returning = None;
+    }
+
     fn refresh(&mut self) {
         self.reads.clear();
         self.reads.extend([Read::Cohorts(None), Read::Runs(None)]);

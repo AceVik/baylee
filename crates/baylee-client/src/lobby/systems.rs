@@ -188,9 +188,12 @@ pub(super) fn poll(
                     #[cfg(not(target_arch = "wasm32"))]
                     if matches!(
                         event,
-                        LobbyEvent::ChallengeSeated { .. } | LobbyEvent::Seated(_)
+                        LobbyEvent::ChallengeSeated { .. }
+                            | LobbyEvent::TowerSeated { .. }
+                            | LobbyEvent::Seated(_)
                     ) {
                         super::challenges::seated(&mut state, &event);
+                        super::echoes::native::seated(&mut state, &event);
                     }
                     if matches!(event, LobbyEvent::BearerRenewed { .. }) {
                         let _ = state.bypass_change_detection().lobby.apply(event);

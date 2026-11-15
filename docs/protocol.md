@@ -2408,12 +2408,23 @@ preserving legacy loop policy and refusing an incompatible advertised artifact.
 
 These checks establish compatibility and catch a stale/replaced executable. They
 are not remote attestation and cannot prove a hosting operator honest. Gateway,
-agent, engine and clients must all speak protocol 48; no old-agent fallback exists.
+agent, engine and clients must all speak the current `PROTOCOL_VERSION`; no
+old-agent fallback exists.
 
 An authenticated challenge `SeatGrant` includes optional `challenge`, the public
 task UUID as sixteen bytes. Ordinary `POST /lobby/games/{id}/seat` recovery returns
 the same context. Other grants omit it. Clients use it to restore the challenge
 end screen; it is neither the private attempt identity nor scoring authority.
+
+Tower v2 seat recovery instead includes optional `tower`, the owned expedition
+UUID as sixteen bytes. It is mutually exclusive with `challenge`; the client
+requires a canonical UUIDv7 game identity and human chair zero, and restores this
+context only after the gateway reply's epoch check. Returning from that table
+reads the owned run from the Tower authority, never the Central task API. The
+direct `/tower/{run}/play` SDK handover binds this optional context to the requested
+run and independently confirms the execution through fresh authority reads. Ordinary
+games omit both context fields. Neither context grants scoring or progression
+authority, and recovery still rotates the authenticated owner's seat token.
 
 **`SeatFrame{seat, envelope}`** is what makes the routing possible without the
 gateway understanding a word of the game: it nests an *encoded* player-facing

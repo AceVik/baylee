@@ -69,3 +69,120 @@ fn a_stale_control_cannot_open_a_seat_behind_a_confirmation() {
     ask(&mut state, Action::Cancel);
     assert!(state.echoes.confirmation.is_none());
 }
+
+#[test]
+fn tower_context_resumes_its_owned_run_without_another_reservation() {
+    use bevy::ecs::system::RunSystemOnce;
+    let (handle, jobs) = central::Handle::queued_for_test();
+    let mut state = signed_in(handle);
+    let run = Uuid::now_v7();
+    let game = Uuid::now_v7();
+    let event = LobbyEvent::TowerSeated {
+        seat: baylee_client_core::lobby::SeatHandover {
+            game_id: game.to_string(),
+            seat: 0,
+            seat_token: "synthetic-only".into(),
+            local: false,
+        },
+        run: *run.as_bytes(),
+    };
+    seated(&mut state, &event);
+    let _ = state.lobby.apply(event);
+    assert!(crate::lobby::echoes::current(&state));
+    assert_eq!(state.echoes.playing, Some((run, game)));
+    let mut app = App::new();
+    app.insert_resource(state);
+    app.world_mut().run_system_once(returned).unwrap();
+    let state = app.world().resource::<LobbyState>();
+    assert!(state.echoes.opened);
+    assert_eq!(state.hub, Hub::Challenges);
+    assert!(state.echoes.playing.is_none());
+    assert!(state.echoes.model.busy());
+    assert!(
+        !state.echoes.model.uncertain(),
+        "returning only reads the owned run"
+    );
+    assert!(jobs.try_recv().is_ok());
+}
+
+#[test]
+fn tower_context_waits_for_the_first_account_worker_and_only_reads_once() {
+    use bevy::ecs::system::RunSystemOnce;
+    let run = Uuid::now_v7();
+    let game = Uuid::now_v7();
+    let mut state = LobbyState::default();
+    state.echoes.playing = Some((run, game));
+    let mut app = App::new();
+    app.insert_resource(state);
+    app.insert_resource(Time::<()>::default());
+    app.world_mut().run_system_once(returned).unwrap();
+    assert_eq!(
+        app.world().resource::<LobbyState>().echoes.returning,
+        Some(run)
+    );
+    let (handle, jobs) = central::Handle::queued_for_test();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        central::restored_for_test(&mut state, Vec::new());
+        state.central.as_mut().unwrap().handle = Some(handle);
+    }
+    app.world_mut().run_system_once(tick).unwrap();
+    let state = app.world().resource::<LobbyState>();
+    assert!(state.echoes.opened);
+    assert!(state.echoes.returning.is_none());
+    assert!(state.echoes.model.busy());
+    assert!(!state.echoes.model.uncertain());
+    assert_eq!(state.hub, Hub::Challenges);
+    assert!(jobs.try_recv().is_ok());
+    app.world_mut().run_system_once(tick).unwrap();
+    assert!(jobs.try_recv().is_err(), "never reserve or read twice");
+}
+
+#[test]
+fn tower_context_never_crosses_an_account_departure() {
+    let run = Uuid::now_v7();
+    let game = Uuid::now_v7();
+    let mut state = LobbyState::default();
+    state.echoes.playing = Some((run, game));
+    let (handle, _jobs) = central::Handle::queued_for_test();
+    central::restored_for_test(&mut state, Vec::new());
+    state.central.as_mut().unwrap().handle = Some(handle);
+    session(&mut state);
+    assert_eq!(state.echoes.playing, Some((run, game)));
+    state.echoes.returning = Some(run);
+    state.central.as_mut().unwrap().handle = None;
+    session(&mut state);
+    assert!(state.echoes.playing.is_none());
+    assert!(state.echoes.returning.is_none());
+    let (handle, _jobs) = central::Handle::queued_for_test();
+    state.central.as_mut().unwrap().handle = Some(handle);
+    session(&mut state);
+    assert!(state.echoes.playing.is_none());
+    assert!(state.echoes.returning.is_none());
+}
+
+#[test]
+fn tower_context_cancelled_before_account_restore_stays_closed_and_idle() {
+    use bevy::ecs::system::RunSystemOnce;
+    let mut state = LobbyState::default();
+    state.echoes.returning = Some(Uuid::now_v7());
+    state.echoes.opened = true;
+    ask(&mut state, Action::Back);
+    let (handle, jobs) = central::Handle::queued_for_test();
+    central::restored_for_test(&mut state, Vec::new());
+    state.central.as_mut().unwrap().handle = Some(handle);
+    session(&mut state);
+    let mut app = App::new();
+    app.insert_resource(state);
+    app.insert_resource(Time::<()>::default());
+    app.world_mut().clear_trackers();
+    app.world_mut().run_system_once(tick).unwrap();
+    let state = app.world().get_resource_ref::<LobbyState>().unwrap();
+    assert!(
+        !state.is_changed(),
+        "an idle poll must not rebuild the lobby"
+    );
+    assert!(!state.echoes.opened);
+    assert!(state.echoes.returning.is_none());
+    assert!(jobs.try_recv().is_err());
+}

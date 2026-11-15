@@ -40,7 +40,7 @@ pub(in crate::lobby) fn seated(state: &mut LobbyState, event: &LobbyEvent) {
             session(state);
             state.challenges.playing = Some((*challenge, seat.game_id.clone()));
         }
-        LobbyEvent::Seated(_) => state.challenges.playing = None,
+        LobbyEvent::Seated(_) | LobbyEvent::TowerSeated { .. } => state.challenges.playing = None,
         _ => {}
     }
 }

@@ -1644,3 +1644,35 @@ This is a functional native integration milestone, not its visual acceptance.
 The real rendered iterations, restart restoration of Tower context, current
 opponent attribution, permanent awards and a representative gameplay/balance demo
 remain outstanding. No backend or engine suite was rerun for these client changes.
+
+## Authenticated Tower seat recovery — fifty-third working milestone
+
+The common gateway seat route now returns a distinct optional Tower run context,
+only after the ordinary owner/seat authorization and token rotation. It cannot
+be combined with a Daily/Weekly challenge marker. The client validates UUIDs and
+human chair zero, accepts the marker only after its gateway epoch check, restores
+the Tower end-screen behavior and reads that owned run on returning. A gateway
+response arriving before the first Central worker retains only navigation intent;
+account departure clears it. Back/Escape cancels a deferred read, and idle polling
+does not dirty/rebuild the lobby. Event Debug output contains no seat credential.
+
+Six targeted client regressions pass in
+`/tmp/baylee-tower-seat-context-client-tests-20261115-r2.log` (0.29s). The existing
+Daily/Weekly seat restoration regression passes in
+`/tmp/baylee-tower-seat-context-legacy-test-20261115.log` (0.23s). The initial
+native test exposed a genuine SDK incompatibility: an existing execution takes
+the common seat route, so its strict decoder also needed the optional context.
+It now binds that context to the requested run and still refuses foreign runs,
+unrelated fields and challenge context. Two SDK regressions pass in
+`/tmp/baylee-tower-seat-context-sdk-tests-20261115-r2.log` (with `client` enabled;
+the earlier featureless invocation ran zero relevant tests and is not evidence).
+
+The real Central/PostgreSQL/gateway/native-executor acceptance passes in
+`/tmp/baylee-tower-seat-context-native-tests-20261115-r2.log` (31.80s): fresh and
+existing SDK handovers, common seat recovery with token rotation, one exact-prefix
+crash recovery, one independently verified outcome and one gold payment. Every
+owned service, native child and isolated database was closed. Strict Clippy for
+the four affected crates passes in
+`/tmp/baylee-tower-seat-context-clippy-20261115-r5.log`; generated OpenAPI includes
+the bounded optional metadata. The native fixture still uses a land-only deck,
+so it establishes transport/recovery correctness, not gameplay balance.
