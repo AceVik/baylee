@@ -19,7 +19,9 @@ mod deck;
 mod equipment;
 mod landing;
 mod shop;
+mod widgets;
 mod words;
+use widgets::{can, confirmation, control, tile};
 
 pub(in crate::lobby) fn entry(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang) {
     let card = panel(commands, root, kit);
@@ -220,128 +222,4 @@ fn notices(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
             true,
         );
     }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn control(
-    commands: &mut Commands,
-    root: Entity,
-    kit: Kit,
-    ui: &Ui,
-    words: &str,
-    action: Action,
-    available: bool,
-) {
-    let lang = lang(kit);
-    let allowed = available
-        && !ui.model.busy()
-        && (ui.confirmation.is_none() || matches!(action, Action::Accept | Action::Cancel));
-    let button = controls::button_with_icon(
-        commands,
-        kit,
-        words::icon(action),
-        words,
-        if matches!(
-            action,
-            Action::Accept | Action::Buy | Action::Play(_) | Action::Resume | Action::SaveDeck
-        ) {
-            Weight::Gold
-        } else {
-            Weight::Secondary
-        },
-        if allowed {
-            Live::Yes
-        } else {
-            Live::No(Phrase::EchoesUnavailable.text(lang))
-        },
-        None,
-        Press::Echoes(action),
-    );
-    commands.entity(button).insert((
-        super::keys::stop(action, ui),
-        crate::shellkit::focus::Current(words::selected(action, ui)),
-    ));
-    commands.entity(root).add_child(button);
-}
-
-fn can(ui: &Ui, command: &Command) -> bool {
-    !ui.model.uncertain()
-        && (matches!(command, Command::Edit { .. }) || ui.choices.deck_unchanged(ui.model.run()))
-        && ui
-            .model
-            .run()
-            .zip(ui.model.publication())
-            .is_some_and(|(run, cohort)| allowed(run, cohort, command))
-}
-
-fn tile(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
-    let tile = panel(commands, root, kit);
-    commands
-        .entity(tile)
-        .entry::<Node>()
-        .and_modify(move |mut n| {
-            n.width = Val::Auto;
-            n.flex_basis = if kit.m.frame == crate::shellkit::Frame::Phone {
-                percent(100)
-            } else {
-                percent(47)
-            };
-            n.flex_grow = 1.0;
-            n.min_width = px(0);
-            n.align_self = AlignSelf::Stretch;
-        });
-    tile
-}
-
-fn confirmation(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
-    let lang = lang(kit);
-    let card = panel(commands, root, kit);
-    commands.entity(card).insert(BorderColor::all(tokens::GOLD));
-    heading(commands, card, kit, Phrase::ChallengeConfirm.text(lang));
-    let (text, valid) = match ui.confirmation.as_ref().expect("shown confirmation") {
-        Confirmation::Withdrawal => (
-            Phrase::EchoesWithdrawConfirm.text(lang).to_string(),
-            !ui.model.uncertain(),
-        ),
-        Confirmation::Enrollment {
-            cohort,
-            starter,
-            consent,
-        } => (
-            Phrase::EchoesConsent.fill(lang, &[&(*starter + 1).to_string(), &consent.to_string()]),
-            *consent == ui.model.consent()
-                && ui.model.cohorts().iter().any(|entry| entry.id == *cohort),
-        ),
-        Confirmation::Choice {
-            run,
-            revision,
-            command,
-        } => (
-            words::command(command, ui, lang),
-            ui.model
-                .run()
-                .is_some_and(|current| current.id == *run && current.revision == *revision)
-                && can(ui, command),
-        ),
-    };
-    label(commands, card, kit, &text, tokens::INK);
-    let band = row(commands, card, kit);
-    control(
-        commands,
-        band,
-        kit,
-        ui,
-        Phrase::ChallengeCancel.text(lang),
-        Action::Cancel,
-        true,
-    );
-    control(
-        commands,
-        band,
-        kit,
-        ui,
-        Phrase::ChallengeConfirm.text(lang),
-        Action::Accept,
-        valid,
-    );
 }
