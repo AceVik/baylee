@@ -1,6 +1,7 @@
 //! Synthetic byte streams test storage, never claim to be legal game records.
 #![forbid(unsafe_code)]
 mod batches;
+mod expiry;
 mod pool;
 mod records;
 mod recovery;

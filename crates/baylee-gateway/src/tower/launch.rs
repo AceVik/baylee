@@ -19,7 +19,10 @@ pub(super) fn start(
             baylee_cards::by_index(card).map(|_| baylee_cards::decks::reference_print(card))
         })
         .map_err(|_| routes::unavailable())?;
-    let game_id = claimed.lease.reservation.to_string();
+    // A fresh execution gets a distinct transport identity. Late stop/status/
+    // socket callbacks from its predecessor must never address the new table.
+    // The authority reservation and retained rules prefix remain unchanged.
+    let game_id = claimed.lease.claim.to_string();
     let token = auth::new_token();
     let mut seats = vec![lobby::LobbySeat::open(0), lobby::LobbySeat::open(1)];
     seats[0].account_id = Some(player.local.clone());

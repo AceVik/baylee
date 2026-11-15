@@ -81,9 +81,10 @@ pub(crate) async fn available(
 /// @tag Tower
 /// @security bearer
 /// @insert `SessionRefusals`
-/// @path-param run: String "The owner's UUIDv7 Tower run"
+/// @path-param run: String "The owner's `UUIDv7` Tower run"
 /// @return 200: `$SeatGrant` "Private human seat in the reserved duel"
-/// @return 400: `$ErrorBody` "Malformed run UUID or nonempty request object"
+/// @return 400: `$ErrorBody` "Malformed run UUID"
+/// @return 422: `{ type: string }` "Malformed or nonempty request object"
 /// @return 409: `$ErrorBody` "Reservation conflict or player already in another game"
 /// @return 426: `$ErrorBody` "Incompatible Tower contract"
 /// @return 429: `$ErrorBody` "Request budget or host admission busy"

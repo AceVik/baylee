@@ -5,6 +5,8 @@ use baylee_tower_store::{Principal, Role, Snapshot, Store, VerificationFailure};
 use std::{future::Future, sync::Arc, time::Duration};
 use tokio::sync::Semaphore;
 use uuid::Uuid;
+mod recovery;
+use recovery::Expiration;
 
 /// One queue worker with separate adjudication and technical-recovery identities.
 /// Clone shares its single slot; configure more independent workers for capacity.
@@ -40,6 +42,10 @@ pub struct QueueSummary {
     pub settled: u64,
     /// Retained failed jobs that require recovery, never losses/draws.
     pub quarantined: u64,
+    /// Expired execution generations safely returned to their existing reservation.
+    pub recovered: u64,
+    /// Expired executions retained for explicit supervision after automatic retries.
+    pub execution_quarantined: u64,
 }
 
 impl Queue {
@@ -143,6 +149,15 @@ impl Queue {
         tokio::pin!(stop);
         let mut summary = QueueSummary::default();
         loop {
+            match self.recover_one(cohort, &mut stop).await {
+                Ok(Expiration::Resumed) => summary.recovered = summary.recovered.saturating_add(1),
+                Ok(Expiration::Quarantined) => {
+                    summary.execution_quarantined = summary.execution_quarantined.saturating_add(1);
+                }
+                Ok(Expiration::Idle) => {}
+                Err(Error::Cancelled) => return Ok(summary),
+                Err(error) => return Err(error),
+            }
             match self.next(cohort, &mut stop).await {
                 Ok(QueueResult::Settled(_)) => summary.settled = summary.settled.saturating_add(1),
                 Ok(QueueResult::Quarantined { .. }) => {

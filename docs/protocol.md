@@ -6161,8 +6161,22 @@ rematches are disabled: the latter must not copy the private opponent build.
 The gateway retains no authority to award a result. It renews its 60-second lease
 every 20 seconds while attached, stopping renewal before sealing to prevent a
 late renewal conflict from racing final views. Technical interruption closes the
-local table and retains the authority's durable prefix. Automatic expired-host
-reassignment and cross-gateway reconnect discovery are not yet implemented.
+local table and retains the authority's durable prefix. Each execution uses its
+claim UUID as the transport game ID; a recovered execution therefore cannot be
+closed by a delayed stop/status/socket callback for its predecessor. The authority
+reservation, opponent and committed rules prefix remain unchanged.
+
+Configured cohort queues also supervise expired unsealed executions. Migration 9
+adds a small expiry index maintained in the same transaction as every run write,
+and backfills existing playing states. Bounded discovery never grants recovery:
+the supervisor locks owner/run/reservation and rechecks the exact generation,
+deadline, phase and current authority time. A renewal or competing recovery wins
+over an older queue hint. Revocation and restoration preserve every committed
+byte, original allocation, frozen build and seed. Only a still-enabled compatible
+assigned host may resume automatically. Three such retries per reservation are
+allowed; further expiry or a disabled/incompatible host retains quarantine for
+explicit supervision, without a rules result or economic compensation.
+Cross-gateway reconnect discovery/reassignment remains separate work.
 
 `Envelope.tower_frame` is reserved for the authenticated gateway/engine plane.
 It contains at most 256 KiB of strict typed JSON control and one raw chunk of at

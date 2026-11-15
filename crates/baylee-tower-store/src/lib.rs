@@ -33,7 +33,7 @@ mod reservation;
 mod runs;
 mod state;
 pub use execution::verification::{Award, VerificationFailure, VerificationJob, VerificationLease};
-pub use execution::{Acknowledged, Claimed, Lease, Recovery, StoredChunk};
+pub use execution::{Acknowledged, Claimed, ExpiredExecution, Lease, Recovery, StoredChunk};
 pub use operators::{Principal, Role};
 pub use publication::Publication;
 pub use reservation::{Entropy, Reserve};
@@ -53,6 +53,8 @@ pub const MAX_ACCOUNT_RECORD_BYTES: i64 = 2 * 1024 * 1024 * 1024;
 pub const MAX_ACCOUNT_RECORD_CHUNKS: i64 = 262_144;
 /// Finite technical recovery attempts per reservation; exhaustion grants no outcome.
 pub const MAX_EXECUTION_CLAIMS: i64 = 64;
+/// Automatic retries of one expired unsealed duel; further failures need supervision.
+pub const MAX_AUTOMATIC_RECOVERIES: i16 = 3;
 /// Version of the visible enrollment explanation; not implicit from authentication.
 pub const CONSENT_REVISION: u16 = 1;
 

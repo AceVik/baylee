@@ -14,6 +14,7 @@ use tokio::{runtime::Runtime, sync::watch, task::JoinHandle};
 use uuid::Uuid;
 
 mod native;
+mod recovery;
 mod story;
 #[path = "../../../../baylee-tower-store/tests/support/mod.rs"]
 mod support;
@@ -153,8 +154,8 @@ impl Fixture {
             .expect_err("owned Tower port closed");
         assert_eq!(error.kind(), std::io::ErrorKind::ConnectionRefused);
         println!(
-            "Tower authority closed; independent settlements: {}, quarantines: {}",
-            summary.settled, summary.quarantined
+            "Tower authority closed; settlements: {}, quarantines: {}, recovered executions: {}, execution quarantines: {}",
+            summary.settled, summary.quarantined, summary.recovered, summary.execution_quarantined
         );
     }
 }

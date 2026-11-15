@@ -1445,3 +1445,38 @@ test, then set `BAYLEE_TOWER_V2_ENGINE` to its absolute path and run
 legacy challenge generation and unchanged Central scenarios are skipped. The
 native PostgreSQL fallback used here is retained as the temporary Rust harness
 `/tmp/astra-native-qa`, because this machine's Docker filesystem is read-only.
+
+## Automatic exact-prefix recovery — forty-sixth working milestone
+
+Migration 9 adds a bounded-query expiry index and preserves existing playing
+states through a one-time backfill. Normal Rust transactions maintain that index
+without scanning/deserializing all active runs. Supervisor discovery and actual
+recovery are separate: a fresh locked check refuses live, renewed, superseded,
+sealed or settled work. Up to three automatic retries retain the same reservation,
+package, prefix and original allocation; a disabled/incompatible host or exhausted
+budget remains quarantined without rewards. Configured cohort queues supervise
+expiry alongside independent adjudication, with separate value-only counters.
+
+Review found a transport race: reusing the reservation UUID as each successor's
+game ID let late stop/status callbacks address that successor. The gateway now
+uses the execution claim UUID for transport; recovery already restores its
+presentation identity independently of the immutable record. An owner's repeated
+start during one live execution still returns the same table.
+
+All 13 affected authority execution tests pass in
+`/tmp/baylee-tower-expiry-storage-tests-20261115.log` (5.57s), including migration
+backfill, simultaneous supervisors, renewed hints, exhausted retries, disabled
+hosts, preserved bytes, old-worker fencing and existing atomic settlement/matching.
+The expanded live scenario passes in
+`/tmp/baylee-tower-gateway-recovery-e2e-20261115.log` (16.06s): kill the owned native
+child after an acknowledged visible decision, expire only that synthetic lease,
+observe automatic restoration, launch a separate transport generation, send a
+late predecessor failure, recover the exact same encoded decision and concede.
+The automatic worker reports one recovery, one settlement and no quarantine;
+currency is paid once. All owned processes/listeners and the temporary cluster
+are closed. These tests do not claim representative human difficulty or complete
+cross-gateway discovery/attribution/client acceptance.
+Strict Clippy for the changed gateway binary/integration test, Tower store
+library/execution tests and service library passes in
+`/tmp/baylee-tower-expiry-clippy-20261115-r8.log`. The generated API documents
+also match the gateway's routes, including the empty-body rejection status.

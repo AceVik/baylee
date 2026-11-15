@@ -77,7 +77,7 @@ impl Drop for Engine {
     }
 }
 
-pub(super) async fn concede(gateway: &common::Gateway, grant: &serde_json::Value) {
+pub(super) async fn concede(gateway: &common::Gateway, grant: &serde_json::Value, expected: &[u8]) {
     let mut socket = common::dial_seat(
         gateway.port,
         grant["game_id"].as_str().unwrap(),
@@ -102,6 +102,11 @@ pub(super) async fn concede(gateway: &common::Gateway, grant: &serde_json::Value
                     if conceded {
                         continue;
                     }
+                    assert_eq!(
+                        question.pending.as_slice(),
+                        expected,
+                        "reconstruction retains the exact observed decision"
+                    );
                     conceded = true;
                     Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
                         game_id: String::new(),

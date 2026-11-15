@@ -70,8 +70,12 @@ The service provides `/health`, `/v2/player`, `/v2/host` and `/v2/host/record`.
 coverage. SIGTERM on Unix or Ctrl-C triggers graceful shutdown: listeners close,
 queue workers stop and owned verifier children are reaped before database closure.
 Store/configuration failures stop the service; unresolved evidence stays durable.
-The gateway execution link is implemented; complete integration acceptance and
-the visible native v2 client flow remain separate work.
+The gateway execution link has live native-duel and crash-recovery acceptance;
+the visible native v2 client flow remains separate work. Each configured cohort
+queue also checks expired execution leases, with at most three automatic
+restorations of the same retained prefix. Disabled/incompatible hosts or exhausted
+retries leave the run quarantined for explicit operator supervision. This is
+technical recovery, never an automatic win, loss, refund or new opponent.
 
 The real gateway integration fixture accepts `BAYLEE_TOWER_V2_ENGINE`, an absolute
 path to a separately built Tower artifact. With `cargo dev central integration`

@@ -52,6 +52,7 @@ impl Store {
         if changed.rows_affected() != 1 {
             return Err(Error::NotFound);
         }
+        self.execution_watch(db, response).await?;
         Ok(())
     }
 

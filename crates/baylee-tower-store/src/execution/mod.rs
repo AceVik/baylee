@@ -15,7 +15,9 @@ mod claim;
 mod record;
 mod recovery;
 pub(super) mod verification;
+mod watch;
 pub use recovery::Recovery;
+pub use watch::ExpiredExecution;
 
 struct Current {
     saved: Loaded,

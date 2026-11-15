@@ -1,4 +1,4 @@
-use super::{Runtime, Served, common, fresh, native};
+use super::{Runtime, Served, common, fresh, native, recovery};
 use baylee_account::TowerHttp;
 use baylee_protocol::v1;
 use baylee_tower::v2::{
@@ -61,17 +61,24 @@ pub(super) fn run(runtime: &Runtime, served: &Served) {
     let again = start(served, &admission.token, &path);
     assert_eq!(again["game_id"], grant["game_id"]);
     assert_ne!(again["seat_token"], grant["seat_token"]);
+    let pending = recovery::crash(runtime, served, initial.id, &again, &mut agent);
+    let restored = start(served, &admission.token, &path);
+    assert_ne!(
+        restored["game_id"], grant["game_id"],
+        "a fresh execution has a separate transport identity"
+    );
     runtime.block_on(async {
         let v1::envelope::Msg::StartEngine(start) = native::next(&mut agent).await else {
             panic!("exact Tower start");
         };
-        assert_eq!(start.game_id, again["game_id"].as_str().unwrap());
+        assert_eq!(start.game_id, restored["game_id"].as_str().unwrap());
+        recovery::stale_status(&mut agent, grant["game_id"].as_str().unwrap()).await;
         let mut engine = native::Engine::start(&start, fixture);
-        native::concede(&served.gateway, &again).await;
+        native::concede(&served.gateway, &restored, &pending).await;
         engine.finished().await;
         agent.close(None).await.unwrap();
     });
-    settlement(served, &client, &initial, &grant, &admission.token);
+    settlement(served, &client, &initial, &restored, &admission.token);
     println!(
         "Real Central identity → gateway → exact native Tower → durable records → independent automatic verification passed; one defeat and one gold payment."
     );
