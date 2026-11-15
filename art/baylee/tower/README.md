@@ -31,3 +31,17 @@ and keeps the effect, destination and purchase control together. These sizes
 replace the earlier vertically stacked 128-pixel inspector after the native
 market refinement passes. All appearances use the same cached texture/material.
 `SHA256SUMS` is checked from the repository root.
+
+## Prepared life-synergy portraits
+
+Four additional original images were generated on 15 November 2026 for the next
+catalog milestone: `spring-chalice`, `hearthstone`, `blood-amber` and `life-coil`.
+Their complete prompts and original paths are in `life-portraits-generation.json`.
+They use the same 1254 × 1254 generated alpha format, were visually inspected,
+and were copied unchanged into the project's portrait directory. They have no
+external reference art. The checksums below cover these images too.
+
+These are prepared assets, not four newly admitted playable families. The
+current client mapping and frozen gameplay catalog still use the original seven
+pictures. Rules, tier values, native registration, matching client/AI behavior
+and focused gameplay checks must land together before these families are offered.

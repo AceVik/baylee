@@ -2186,3 +2186,20 @@ run-local ownership and gameplay rules. It does not claim the proposed 24-family
 catalog, four-tier comparison, ready-fusion guidance, enlarged-text acceptance,
 or streamlined purchase submission is complete. Those remain separate work;
 new pictures or enum entries alone do not count as new playable families.
+
+### Milestone 68 — original portraits for the first life-synergy families
+
+Prepared four distinct transparent 3D-style illustrations for Quellkelch,
+Herdstein, Blutbernstein and Lebensspule. Each has its own silhouette, materials
+and visual identity; no existing-game imagery was provided as a reference.
+The generated 1254 × 1254 PNGs retain alpha and are stored in the project, with
+prompts, original output paths and SHA-256 records under `art/baylee/tower/`.
+Visual inspection, dimension/alpha inspection and all portrait checksums pass.
+No engine or client runtime test was needed for these inactive raster assets.
+
+Admission is still pending. Do not count these images as implemented item
+families or silently repurpose the original frozen generator. Before adding
+families, preserve old cohort/AI/native identities, calibrate the larger offer
+pool and implement native effects, four upgrade tiers, client rules and house-AI
+handling with actual event/cost/targeting tests. The catalog target remains the
+24-family design in `tower-echoes-market.md`.
