@@ -34,6 +34,10 @@ pub enum Sheet {
 #[derive(Component)]
 pub(crate) struct SheetRoot;
 
+/// The scrollable body inside a sheet.
+#[derive(Component)]
+pub(crate) struct SheetList;
+
 /// A press on a sheet.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum SheetPress {
@@ -406,7 +410,9 @@ fn sync(
     fonts: Res<UiFonts>,
     settings: Option<Res<crate::settings::ClientSettings>>,
     roots: Query<Entity, With<SheetRoot>>,
+    scrolls: Query<&bevy::ui::ScrollPosition, With<SheetList>>,
     mut drawn: Local<Option<(u64, String, bool)>>,
+    mut last_sheet: Local<Option<Sheet>>,
     zoom: Res<super::zoom::Zoom>,
 ) {
     let _zoom = super::zoom::Scope::new(zoom.0);
@@ -415,6 +421,7 @@ fn sync(
             commands.entity(root).try_despawn();
         }
         *drawn = None;
+        *last_sheet = None;
         return;
     };
     let backup = host.vault.sync_status();
@@ -429,6 +436,12 @@ fn sync(
     if drawn.as_ref() == Some(&key) && !roots.is_empty() {
         return;
     }
+    let keep = if last_sheet.as_ref() == Some(sheet) {
+        scrolls.iter().next().cloned().unwrap_or_default()
+    } else {
+        bevy::ui::ScrollPosition::default()
+    };
+    *last_sheet = Some(sheet.clone());
     *drawn = Some(key);
     for root in &roots {
         commands.entity(root).try_despawn();
@@ -465,7 +478,7 @@ fn sync(
                 overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(super::rows::window_glass()[0]),
+            BackgroundColor(Color::NONE),
             super::rows::dialog_glass(),
             BorderColor::all(super::rows::GLASS_EDGE),
             super::rows::glass_shadow(),
@@ -881,8 +894,9 @@ fn sync(
     }
     let list = commands
         .spawn((
+            SheetList,
             crate::hud::Scrolls,
-            bevy::ui::ScrollPosition::default(),
+            keep,
             Node {
                 flex_direction: FlexDirection::Column,
                 flex_grow: 1.0,

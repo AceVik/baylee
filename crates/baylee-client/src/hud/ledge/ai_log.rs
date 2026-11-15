@@ -50,7 +50,7 @@ pub(in crate::hud) fn spawn(commands: &mut Commands) -> Entity {
                 overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(palette::LOG_GLASS_BOTTOM),
+            BackgroundColor(Color::NONE),
             log::log_glass_ground(),
             BorderColor::all(palette::LOG_GLASS_EDGE),
             log::log_glass_shadow(),

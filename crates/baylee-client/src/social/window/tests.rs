@@ -122,19 +122,18 @@ fn the_scrollbar_appears_only_when_the_list_overflows() {
         .id();
     let track = app
         .world_mut()
-        .spawn((ChatScrollbar, Node::default(), ChildOf(list)))
+        .spawn((
+            ChatScrollbar,
+            Node::default(),
+            Visibility::Hidden,
+            ChildOf(list),
+        ))
         .id();
     app.update();
     assert_eq!(
-        app.world().get::<Node>(track).unwrap().display,
-        Display::None
+        *app.world().get::<Visibility>(track).unwrap(),
+        Visibility::Hidden
     );
-
-    app.world_mut()
-        .get_mut::<ComputedNode>(list)
-        .unwrap()
-        .content_size = Vec2::new(300.0, 101.0);
-    app.update();
     assert_eq!(
         app.world().get::<Node>(track).unwrap().display,
         Display::Flex
@@ -143,11 +142,38 @@ fn the_scrollbar_appears_only_when_the_list_overflows() {
     app.world_mut()
         .get_mut::<ComputedNode>(list)
         .unwrap()
+        .content_size = Vec2::new(300.0, 101.0);
+    app.update();
+    assert_eq!(
+        *app.world().get::<Visibility>(track).unwrap(),
+        Visibility::Inherited
+    );
+    assert_eq!(
+        app.world().get::<Node>(track).unwrap().display,
+        Display::Flex
+    );
+
+    let tick = app.world().read_change_tick();
+    app.update();
+    let now = app.world().read_change_tick();
+    assert!(
+        !app.world()
+            .entity(track)
+            .get_ref::<Visibility>()
+            .unwrap()
+            .last_changed()
+            .is_newer_than(tick, now),
+        "resting scrollbar must not mark Visibility changed"
+    );
+
+    app.world_mut()
+        .get_mut::<ComputedNode>(list)
+        .unwrap()
         .content_size = Vec2::new(300.0, 80.0);
     app.update();
     assert_eq!(
-        app.world().get::<Node>(track).unwrap().display,
-        Display::None
+        *app.world().get::<Visibility>(track).unwrap(),
+        Visibility::Hidden
     );
 }
 
@@ -427,9 +453,63 @@ fn the_window_is_glass_and_its_quiet_ink_still_reads_over_the_fire() {
     };
     for glass in rows::window_glass() {
         assert!(reads(glass) >= 4.5, "{glass:?}: {}", reads(glass));
+        assert!(glass.alpha() <= 0.92, "{glass:?}");
         assert!(glass.alpha() < crate::shellkit::tokens::PANEL.alpha());
     }
     assert!(reads(LOBBY_INKS.ground) < 3.0);
+
+    let mut app = app();
+    let fonts = UiFonts::default();
+    let pill = chat_pill(&mut app.world_mut().commands(), &fonts, Lang::En, 2, false);
+    app.world_mut().flush();
+    assert_eq!(
+        app.world().get::<BackgroundColor>(pill).unwrap().0,
+        rows::PILL_GLASS
+    );
+    assert!(
+        app.world()
+            .get::<bevy::ui::BackgroundGradient>(pill)
+            .is_none(),
+        "chat_pill must not cover BackgroundColor with a gradient so Feel hover shows"
+    );
+
+    app.insert_resource(UiFonts::default())
+        .init_resource::<Windows>()
+        .init_resource::<crate::social::zoom::Zoom>()
+        .init_resource::<LobbyChatSizing>()
+        .insert_resource(State::new(DuelPhase::Playing))
+        .insert_resource(SocialHost {
+            machine: Some(
+                Social::start(
+                    baylee_client_core::social::Me {
+                        tag: "AB12".into(),
+                        handle: "Alice#AB12".into(),
+                        guest: false,
+                        gateway: "https://example.test".into(),
+                    },
+                    None,
+                    None,
+                    baylee_client_core::social::ChatPrefs::default(),
+                    1_000,
+                    &mut crate::social::OsEntropy,
+                )
+                .0,
+            ),
+            ..default()
+        })
+        .add_systems(Update, sync_lobby_window);
+    app.world_mut().resource_mut::<ChatUi>().open = true;
+    app.update();
+    let chat_root = app
+        .world_mut()
+        .query_filtered::<Entity, With<LobbyChat>>()
+        .single(app.world())
+        .expect("LobbyChat spawned");
+    assert_eq!(
+        app.world().get::<BackgroundColor>(chat_root).unwrap().0,
+        Color::NONE,
+        "LobbyChat must not double-composite BackgroundColor under window_ground()"
+    );
 }
 
 #[test]

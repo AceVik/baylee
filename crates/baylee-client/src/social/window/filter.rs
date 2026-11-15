@@ -62,7 +62,7 @@ pub(super) fn filter_dialog(
                 overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(rows::window_glass()[0]),
+            BackgroundColor(Color::NONE),
             rows::dialog_glass(),
             BorderColor::all(rows::GLASS_EDGE),
             rows::glass_shadow(),

@@ -1074,6 +1074,11 @@ fn smoked_log_glass_keeps_ink_and_quiet_ink_readable_over_bright_fire() {
     }
 
     let (mut app, panel) = panel_over(3);
+    assert_eq!(
+        app.world().get::<BackgroundColor>(panel).unwrap().0,
+        Color::NONE,
+        "LogPanel must not double-composite BackgroundColor under log_glass_ground()"
+    );
     assert!(
         app.world()
             .get::<bevy::ui::BackgroundGradient>(panel)

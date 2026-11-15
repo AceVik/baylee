@@ -261,3 +261,129 @@ fn the_window_moves_before_the_view_reaches_its_edge() {
     assert_eq!(window_chunk(-30.0, pitch), 0);
     assert_eq!(window_chunk(pitch * 8.5, pitch), 1);
 }
+
+fn app_with_machine() -> App {
+    use baylee_client_core::social::{ChatPrefs, Me};
+
+    let (machine, _) = Social::start(
+        Me {
+            tag: "AB12".into(),
+            handle: "Alice#AB12".into(),
+            guest: false,
+            gateway: "https://example.test".into(),
+        },
+        None,
+        None,
+        ChatPrefs::default(),
+        1_000,
+        &mut crate::social::OsEntropy,
+    );
+    let mut app = app();
+    app.insert_resource(UiFonts::default())
+        .init_resource::<crate::social::zoom::Zoom>()
+        .insert_resource(SocialHost {
+            machine: Some(machine),
+            ..default()
+        });
+    app
+}
+
+#[test]
+fn door_and_drawer_use_single_layer_glass_grounds() {
+    use bevy::ecs::system::RunSystemOnce;
+
+    let mut app = app_with_machine();
+    app.insert_resource(State::new(crate::DuelPhase::Opening));
+    app.world_mut().resource_mut::<ChatUi>().drawer = true;
+    app.world_mut().run_system_once(sync_door).unwrap();
+    app.world_mut().run_system_once(sync_drawer).unwrap();
+
+    let door = app
+        .world_mut()
+        .query_filtered::<Entity, With<FriendsDoor>>()
+        .single(app.world())
+        .unwrap();
+    assert_eq!(
+        app.world().get::<BackgroundColor>(door).unwrap().0,
+        crate::social::rows::PILL_GLASS
+    );
+    assert!(
+        app.world()
+            .get::<bevy::ui::BackgroundGradient>(door)
+            .is_none()
+    );
+
+    let drawer = app
+        .world_mut()
+        .query_filtered::<Entity, With<Drawer>>()
+        .single(app.world())
+        .unwrap();
+    assert_eq!(
+        app.world().get::<BackgroundColor>(drawer).unwrap().0,
+        Color::NONE
+    );
+}
+
+#[test]
+fn entry_prompt_distributes_buttons_symmetrically_and_disables_empty_ok_with_hint() {
+    use baylee_client_core::textbuf::TextBuffer;
+    use bevy::ecs::system::RunSystemOnce;
+
+    let mut app = app_with_machine();
+    app.world_mut().resource_mut::<ChatUi>().drawer = true;
+    app.world_mut().resource_mut::<ChatUi>().entry = Some((Entry::NewGroup, TextBuffer::default()));
+    app.world_mut().run_system_once(sync_drawer).unwrap();
+
+    let cancel = app
+        .world_mut()
+        .query::<(Entity, &DrawerPress)>()
+        .iter(app.world())
+        .find_map(|(e, p)| (*p == DrawerPress::EntryCancel).then_some(e))
+        .expect("Cancel button present");
+    let has_ok_press = app
+        .world_mut()
+        .query::<&DrawerPress>()
+        .iter(app.world())
+        .any(|p| *p == DrawerPress::EntryOk);
+    assert!(!has_ok_press, "empty NewGroup must disable EntryOk");
+
+    let row = app.world().get::<ChildOf>(cancel).unwrap().parent();
+    assert_eq!(
+        app.world().get::<Node>(row).unwrap().width,
+        Val::Percent(100.0)
+    );
+    let kids: Vec<Entity> = app.world().get::<Children>(row).unwrap().iter().collect();
+    assert_eq!(kids, [kids[0], cancel]);
+    for btn in [kids[0], cancel] {
+        let node = app.world().get::<Node>(btn).unwrap();
+        assert!((node.flex_grow - 1.0).abs() < f32::EPSILON);
+        assert_eq!(node.flex_basis, Val::Px(0.0));
+    }
+    assert!(app.world().get::<UiButton>(kids[0]).is_none());
+    assert!(app.world().get::<crate::hud::Hint>(kids[0]).is_some());
+    assert!(
+        app.world()
+            .get::<crate::lobby::HoverHint>(kids[0])
+            .is_some()
+    );
+
+    app.world_mut().resource_mut::<ChatUi>().entry =
+        Some((Entry::NewGroup, TextBuffer::new("Cube Pod")));
+    app.world_mut().run_system_once(sync_drawer).unwrap();
+    assert!(
+        app.world_mut()
+            .query::<(&DrawerPress, Has<UiButton>)>()
+            .iter(app.world())
+            .any(|(p, b)| *p == DrawerPress::EntryOk && b)
+    );
+
+    app.world_mut().resource_mut::<ChatUi>().entry =
+        Some((Entry::Nickname("CD34".into()), TextBuffer::default()));
+    app.world_mut().run_system_once(sync_drawer).unwrap();
+    assert!(
+        app.world_mut()
+            .query::<(&DrawerPress, Has<UiButton>)>()
+            .iter(app.world())
+            .any(|(p, b)| *p == DrawerPress::EntryOk && b)
+    );
+}

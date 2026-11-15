@@ -478,7 +478,7 @@ fn sync(
                 overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.05, 0.10, 0.14, 0.98)),
+            BackgroundColor(Color::NONE),
             BackgroundGradient::from(LinearGradient::new(
                 145.0_f32.to_radians(),
                 vec![

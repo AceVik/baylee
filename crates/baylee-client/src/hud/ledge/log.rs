@@ -371,7 +371,7 @@ pub(crate) fn spawn_log_panel(commands: &mut Commands) -> Entity {
             LogPanel,
             LogZoom::default(),
             root_node(),
-            BackgroundColor(palette::LOG_GLASS_BOTTOM),
+            BackgroundColor(Color::NONE),
             log_glass_ground(),
             BorderColor::all(palette::LOG_GLASS_EDGE),
             log_glass_shadow(),

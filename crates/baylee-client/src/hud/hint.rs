@@ -43,7 +43,7 @@ const HINT_MAX_W: f32 = 340.0;
 
 /// Shows the hovered control's hint, and hides it when nothing named is
 /// under the pointer.
-#[allow(clippy::too_many_arguments)] // a Bevy system
+#[allow(clippy::too_many_arguments, clippy::type_complexity)] // a Bevy system
 pub fn show_hint(
     mut commands: Commands,
     fonts: Res<UiFonts>,
@@ -55,10 +55,12 @@ pub fn show_hint(
         &bevy::picking::hover::PickingInteraction,
         Option<&HintSeat>,
     )>,
-    (duel, settings): (
+    (duel, settings, focus): (
         Option<Res<Duel>>,
         Option<Res<crate::settings::ClientSettings>>,
+        Option<Res<bevy::input_focus::InputFocus>>,
     ),
+    transforms: Query<(&ComputedNode, &UiGlobalTransform)>,
     mut bubble: Query<(
         Entity,
         &mut HintBubble,
@@ -68,22 +70,42 @@ pub fn show_hint(
     )>,
     mut texts: Query<&mut Text>,
 ) {
-    let hovered = hints
+    let pointer_hit = hints
         .iter()
         .find(|(_, _, i, _)| **i == bevy::picking::hover::PickingInteraction::Hovered);
+    let from_pointer = pointer_hit.is_some();
+    let active = pointer_hit.or_else(|| {
+        focus
+            .as_ref()
+            .and_then(|f| f.get())
+            .and_then(|e| hints.get(e).ok())
+    });
     let Ok((_, mut state, mut node, mut seen, children)) = bubble.single_mut() else {
-        if hovered.is_some() {
+        if active.is_some() {
             spawn_bubble(&mut commands, &fonts);
         }
         return;
     };
-    let Some((control, hint, _, seat)) = hovered else {
+    let Some((control, hint, _, seat)) = active else {
         if state.shown.is_some() {
             state.shown = None;
             *seen = Visibility::Hidden;
         }
         return;
     };
+    let focus_box = (!from_pointer).then(|| {
+        transforms
+            .get(control)
+            .ok()
+            .filter(|(c, _)| c.size().x > 0.0 && c.size().y > 0.0)
+    });
+    if matches!(focus_box, Some(None)) {
+        if state.shown.is_some() {
+            state.shown = None;
+            *seen = Visibility::Hidden;
+        }
+        return;
+    }
     let same_control = state.shown == Some(control);
     if same_control
         && !duel.as_ref().is_some_and(Res::is_changed)
@@ -93,10 +115,10 @@ pub fn show_hint(
     }
     let mut words = hint.0.clone();
     let view = duel.as_ref().and_then(|d| d.view.as_ref());
-    if let (Some(HintSeat(player)), Some(view)) = (seat, view) {
+    if let (Some(&HintSeat(player)), Some(view)) = (seat, view) {
         let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
         for kind in [TagKind::Turn, TagKind::Priority] {
-            if kind.shows(view, *player) {
+            if kind.shows(view, player) {
                 words.push_str(" · ");
                 words.push_str(kind.words().text(lang));
             }
@@ -117,18 +139,26 @@ pub fn show_hint(
             crate::hud::scale::cursor(w, ui.as_deref()).unwrap_or_default(),
         )
     });
-    let at = pointer + HINT_OFFSET;
+    let anchor = if let Some(Some((computed, xf))) = focus_box {
+        let scale = ui.as_ref().map_or(1.0, |s| s.0.max(0.001));
+        let factor = computed.inverse_scale_factor() / scale;
+        let centre = xf.translation * factor;
+        let half = computed.size() * (0.5 * factor);
+        Vec2::new(centre.x - half.x, centre.y + half.y + 6.0)
+    } else {
+        pointer + HINT_OFFSET
+    };
     // Kept inside the window: a bubble past the right edge flips to the
     // pointer's left, one past the bottom stands above it.
-    let left = if at.x + HINT_MAX_W > window.x {
-        (pointer.x - HINT_OFFSET.x - HINT_MAX_W).max(EDGE)
+    let left = if anchor.x + HINT_MAX_W > window.x && window.x > 0.0 {
+        (window.x - HINT_MAX_W - EDGE).max(EDGE)
     } else {
-        at.x
+        anchor.x.max(EDGE)
     };
-    let top = if at.y + 60.0 > window.y {
-        (pointer.y - 60.0).max(EDGE)
+    let top = if anchor.y + 60.0 > window.y && window.y > 0.0 {
+        (anchor.y - 60.0).max(EDGE)
     } else {
-        at.y
+        anchor.y.max(EDGE)
     };
     node.left = px(left);
     node.top = px(top);

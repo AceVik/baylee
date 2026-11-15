@@ -24,6 +24,8 @@ use crate::{
 
 #[derive(Component)]
 struct Root;
+#[derive(Component)]
+pub(crate) struct VaultList;
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Press {
     Open,
@@ -175,10 +177,10 @@ fn typing(
             Key::Tab => form.focus = (form.focus + if shift { 7 } else { 1 }) % 8,
             Key::Enter => {
                 let press = match form.focus {
-                    4 => Press::Action(Choice::ImportFile),
-                    5 => Press::Action(Choice::ImportKeychain),
-                    6 => Press::Action(Choice::Create),
-                    7 => Press::Close,
+                    3 => Press::Action(Choice::ImportFile),
+                    4 => Press::Action(Choice::ImportKeychain),
+                    5 => Press::Action(Choice::Create),
+                    6 => Press::Close,
                     _ => Press::Action(Choice::Unlock),
                 };
                 act(press, &mut form, &mut host, &mut ui);
@@ -348,7 +350,11 @@ fn words(commands: &mut Commands, fonts: &UiFonts, text: impl Into<String>) -> E
         .id()
 }
 
-#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one small native sheet, two masked fields and explicit choices
+#[allow(
+    clippy::too_many_arguments,
+    clippy::too_many_lines,
+    clippy::type_complexity
+)] // one small native sheet, two masked fields and explicit choices
 fn draw(
     mut commands: Commands,
     fonts: Res<UiFonts>,
@@ -357,6 +363,11 @@ fn draw(
     mut form: ResMut<Form>,
     settings: Option<Res<crate::settings::ClientSettings>>,
     roots: Query<Entity, With<Root>>,
+    (scrolls, mut input_focus, mut was_open): (
+        Query<&bevy::ui::ScrollPosition, With<VaultList>>,
+        Option<ResMut<bevy::input_focus::InputFocus>>,
+        Local<bool>,
+    ),
     mut drawn: Local<String>,
     phase: Option<Res<State<crate::DuelPhase>>>,
     windows: Query<&Window>,
@@ -386,6 +397,15 @@ fn draw(
         form.clear();
         ui.vault_open = false;
     }
+    let sheet_showing = visible && !host.vault.is_central() && !host.active() && ui.vault_open;
+    if !sheet_showing && *was_open {
+        *was_open = false;
+        if let Some(focus) = input_focus.as_mut()
+            && focus.get().is_some()
+        {
+            focus.clear();
+        }
+    }
     let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
     // Only masks/counts and public UI state enter the render cache.
     let key = format!(
@@ -407,12 +427,19 @@ fn draw(
         ui.minimised
     );
     let key = format!(
-        "{key}:{:?}:{at_table}:{left:?}",
-        host.session.as_ref().map(|s| (&s.gateway, &s.handle))
+        "{key}:{:?}:{at_table}:{left:?}:{:?}:{:?}",
+        host.session.as_ref().map(|s| (&s.gateway, &s.handle)),
+        action_disabled_reason(Choice::Unlock, &form, &host),
+        action_disabled_reason(Choice::Create, &form, &host),
     );
     if *drawn == key && !roots.is_empty() {
         return;
     }
+    let keep = if sheet_showing && *was_open {
+        scrolls.iter().next().cloned().unwrap_or_default()
+    } else {
+        bevy::ui::ScrollPosition::default()
+    };
     *drawn = key;
     for root in &roots {
         commands.entity(root).try_despawn();
@@ -462,6 +489,7 @@ fn draw(
             .insert((Root, place, super::window::stacked(51)));
         return;
     }
+    *was_open = true;
     let root = commands
         .spawn((
             Root,
@@ -494,7 +522,7 @@ fn draw(
                 overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(super::rows::window_glass()[0]),
+            BackgroundColor(Color::NONE),
             super::rows::dialog_glass(),
             BorderColor::all(super::rows::GLASS_EDGE),
             super::rows::glass_shadow(),
@@ -620,7 +648,7 @@ fn draw(
         &fonts,
         ChatPhrase::VaultImportFile.text(lang),
         Press::Action(Choice::ImportFile),
-        form.focus == 4,
+        form.focus == 3,
         true,
         reason_text(Choice::ImportFile),
     );
@@ -629,7 +657,7 @@ fn draw(
         &fonts,
         ChatPhrase::VaultImportKeychain.text(lang),
         Press::Action(Choice::ImportKeychain),
-        form.focus == 5,
+        form.focus == 4,
         true,
         reason_text(Choice::ImportKeychain),
     );
@@ -645,7 +673,7 @@ fn draw(
         &fonts,
         create_phrase.text(lang),
         Press::Action(Choice::Create),
-        form.focus == 6,
+        form.focus == 5,
         true,
         reason_text(Choice::Create),
     );
@@ -656,7 +684,7 @@ fn draw(
         &fonts,
         ChatPhrase::VaultLater.text(lang),
         Press::Close,
-        form.focus == 7,
+        form.focus == 6,
         true,
         None,
     );
@@ -665,16 +693,34 @@ fn draw(
         &fonts,
         ChatPhrase::VaultUnlock.text(lang),
         Press::Action(Choice::Unlock),
-        form.focus == 3,
+        form.focus == 7,
         true,
         reason_text(Choice::Unlock),
     );
     children.push(button_row(&mut commands, &[later, unlock]));
 
+    let want_focus = match form.focus {
+        3 => Some(import_file),
+        4 => Some(import_keychain),
+        5 => Some(create_btn),
+        6 => Some(later),
+        7 => Some(unlock),
+        _ => None,
+    };
+    if let Some(focus) = input_focus.as_mut()
+        && focus.get() != want_focus
+    {
+        match want_focus {
+            Some(entity) => focus.set(entity, bevy::input_focus::FocusCause::Navigated),
+            None => focus.clear(),
+        }
+    }
+
     let list = commands
         .spawn((
+            VaultList,
             crate::hud::Scrolls,
-            bevy::ui::ScrollPosition::default(),
+            keep,
             Node {
                 flex_direction: FlexDirection::Column,
                 flex_grow: 1.0,
@@ -940,5 +986,167 @@ mod tests {
             Some("Password required")
         );
         assert!(app.world().get::<UiButton>(enabled).is_some());
+    }
+
+    fn open_vault_app() -> App {
+        let mut app = App::new();
+        app.init_resource::<UiFonts>()
+            .init_resource::<bevy::input_focus::InputFocus>()
+            .init_resource::<Form>()
+            .insert_resource(SocialHost {
+                session: Some(super::super::Session {
+                    gateway: "https://example.test".into(),
+                    token: "tok".into(),
+                    handle: "Alice#AB12".into(),
+                    tag: "AB12".into(),
+                    guest: false,
+                }),
+                info: InfoState::Known(Some((baylee_protocol::social::SOCIAL_VERSION, 30))),
+                ..Default::default()
+            })
+            .init_resource::<ChatUi>()
+            .add_systems(Update, draw);
+        // First update latches `form.session` to the new session.
+        app.update();
+        app.world_mut().resource_mut::<ChatUi>().vault_open = true;
+        app
+    }
+
+    #[test]
+    fn vault_rebuilds_on_equal_length_confirmation_and_preserves_scroll() {
+        let mut app = open_vault_app();
+        {
+            let mut form = app.world_mut().resource_mut::<Form>();
+            form.password.set("secret", 6, None);
+            form.again.set("typos!", 6, None);
+        }
+        app.update();
+
+        let root = app
+            .world_mut()
+            .query_filtered::<Entity, With<Root>>()
+            .single(app.world())
+            .unwrap();
+        let card = app.world().get::<Children>(root).unwrap()[0];
+        assert_eq!(
+            app.world().get::<BackgroundColor>(card).unwrap().0,
+            Color::NONE
+        );
+
+        let create_enabled = |app: &mut App| {
+            app.world_mut()
+                .query::<(&Press, Has<UiButton>)>()
+                .iter(app.world())
+                .any(|(p, b)| *p == Press::Action(Choice::Create) && b)
+        };
+        assert!(!create_enabled(&mut app));
+
+        let list = app
+            .world_mut()
+            .query_filtered::<Entity, With<VaultList>>()
+            .single(app.world())
+            .unwrap();
+        app.world_mut()
+            .get_mut::<bevy::ui::ScrollPosition>(list)
+            .unwrap()
+            .y = 128.0;
+
+        // Fixing `again` to an equal-length match (still 6 chars) must bust the cache.
+        app.world_mut()
+            .resource_mut::<Form>()
+            .again
+            .set("secret", 6, None);
+        app.update();
+        assert!(create_enabled(&mut app));
+
+        let rebuilt_list = app
+            .world_mut()
+            .query_filtered::<Entity, With<VaultList>>()
+            .single(app.world())
+            .unwrap();
+        assert_ne!(rebuilt_list, list);
+        assert!(
+            (app.world()
+                .get::<bevy::ui::ScrollPosition>(rebuilt_list)
+                .unwrap()
+                .y
+                - 128.0)
+                .abs()
+                < f32::EPSILON
+        );
+    }
+
+    #[test]
+    fn vault_tab_order_syncs_visual_input_focus_with_zero_resting_churn() {
+        use bevy::input_focus::InputFocus;
+
+        let mut app = open_vault_app();
+        // While empty, Tab onto ImportFile focuses the disabled button with its Hint.
+        app.world_mut().resource_mut::<Form>().focus = 3;
+        app.update();
+        let disabled_focus = app
+            .world()
+            .resource::<InputFocus>()
+            .get()
+            .expect("disabled button focused");
+        assert!(app.world().get::<Press>(disabled_focus).is_none());
+        assert!(
+            app.world()
+                .get::<crate::hud::Hint>(disabled_focus)
+                .is_some()
+        );
+
+        // With matching passwords, visual Tab order 3..=7 focuses each action in order.
+        {
+            let mut form = app.world_mut().resource_mut::<Form>();
+            form.password.set("secret", 6, None);
+            form.new_password.set("secret", 6, None);
+            form.again.set("secret", 6, None);
+        }
+        let expected = [
+            (3, Press::Action(Choice::ImportFile)),
+            (4, Press::Action(Choice::ImportKeychain)),
+            (5, Press::Action(Choice::Create)),
+            (6, Press::Close),
+            (7, Press::Action(Choice::Unlock)),
+        ];
+        for (idx, expected_press) in expected {
+            app.world_mut().resource_mut::<Form>().focus = idx;
+            app.update();
+            let focused = app
+                .world()
+                .resource::<InputFocus>()
+                .get()
+                .expect("button focused");
+            assert_eq!(
+                app.world().get::<Press>(focused).copied(),
+                Some(expected_press)
+            );
+        }
+
+        let tick = app.world().read_change_tick();
+        app.update();
+        let now = app.world().read_change_tick();
+        assert!(
+            !app.world()
+                .resource_ref::<InputFocus>()
+                .last_changed()
+                .is_newer_than(tick, now),
+            "resting open VaultUi must not mutate InputFocus"
+        );
+
+        app.world_mut().resource_mut::<ChatUi>().vault_open = false;
+        app.update();
+        assert_eq!(app.world().resource::<InputFocus>().get(), None);
+        let tick = app.world().read_change_tick();
+        app.update();
+        let now = app.world().read_change_tick();
+        assert!(
+            !app.world()
+                .resource_ref::<InputFocus>()
+                .last_changed()
+                .is_newer_than(tick, now),
+            "closed VaultUi must not mutate InputFocus at rest"
+        );
     }
 }

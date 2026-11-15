@@ -279,7 +279,7 @@ pub(super) fn group_bar(
                     border_radius: BorderRadius::all(zpx(6.0)),
                     ..default()
                 },
-                BackgroundColor(rows::window_glass()[0]),
+                BackgroundColor(Color::NONE),
                 rows::dialog_glass(),
                 BorderColor::all(rows::GLASS_EDGE),
                 rows::glass_shadow(),

@@ -927,7 +927,7 @@ fn sync_lobby_window(
                     overflow: Overflow::clip(),
                     ..default()
                 },
-                BackgroundColor(rows::window_glass()[1]),
+                BackgroundColor(Color::NONE),
                 rows::window_ground(),
                 BorderColor::all(rows::GLASS_EDGE),
                 elevation(),
@@ -1180,7 +1180,7 @@ fn chat_pill(
     } else {
         rows::GLASS_EDGE
     };
-    let ground = rows::window_glass()[1];
+    let ground = rows::PILL_GLASS;
     let pill = commands
         .spawn((
             UiButton,
@@ -1199,7 +1199,6 @@ fn chat_pill(
                 ..default()
             },
             BackgroundColor(ground),
-            rows::window_ground(),
             BorderColor::all(border),
             rows::glass_shadow(),
             Feel::new(ground),
@@ -1401,7 +1400,9 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
         ),
         logpanel::at_rest,
     );
-    commands.entity(track).insert(ChatScrollbar);
+    commands
+        .entity(track)
+        .insert((ChatScrollbar, Visibility::Hidden));
     let pill = logpanel::new_lines_pill(commands, fonts, lang);
     let top_edge = commands
         .spawn((
@@ -1796,7 +1797,7 @@ fn show_scrollbars_only_on_overflow(
     lists: Query<(&ComputedNode, Option<&ScrollPosition>), With<LogList>>,
     children_q: Query<&Children>,
     parents: Query<&ChildOf>,
-    mut tracks: Query<(Entity, &mut Node), (With<ChatScrollbar>, Without<ChatScrollEdge>)>,
+    mut tracks: Query<(Entity, &mut Visibility), (With<ChatScrollbar>, Without<ChatScrollEdge>)>,
     mut edges: Query<(Entity, &ChatScrollEdge, &mut Node), Without<ChatScrollbar>>,
 ) {
     let body_list = |entity: Entity| -> Option<(&ComputedNode, Option<&ScrollPosition>)> {
@@ -1807,16 +1808,13 @@ fn show_scrollbars_only_on_overflow(
         let kids = children_q.get(parent).ok()?;
         kids.iter().find_map(|c| lists.get(c).ok())
     };
-    for (entity, mut track) in &mut tracks {
+    for (entity, mut vis) in &mut tracks {
         let overflow = body_list(entity).is_some_and(|(node, _)| overflows(node));
-        let display = if overflow {
-            Display::Flex
+        vis.set_if_neq(if overflow {
+            Visibility::Inherited
         } else {
-            Display::None
-        };
-        if track.display != display {
-            track.display = display;
-        }
+            Visibility::Hidden
+        });
     }
     for (entity, edge, mut node) in &mut edges {
         let show = body_list(entity).is_some_and(|(list_node, scroll)| {

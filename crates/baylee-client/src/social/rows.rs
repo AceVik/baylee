@@ -61,7 +61,7 @@ pub(crate) const LOBBY_INKS: Inks = Inks {
     lit: Color::srgba(0.07, 0.13, 0.17, 0.34),
     line: GLASS_RULE,
     ink: crate::shellkit::tokens::INK,
-    soft: crate::shellkit::tokens::MUTED,
+    soft: Color::srgb(0.63, 0.68, 0.72),
     link: palette::CANDLE,
     accent: crate::shellkit::tokens::ACCENT,
     pt: crate::hud::logpanel::LOG_LINE_PT,
@@ -71,6 +71,9 @@ pub(crate) const LOBBY_INKS: Inks = Inks {
 pub(crate) const GLASS_EDGE: Color = Color::srgba(0.56, 0.78, 0.92, 0.42);
 /// Inner frosted bevel rule separating headers, sub-bars, and composers.
 pub(crate) const GLASS_RULE: Color = Color::srgba(0.52, 0.72, 0.86, 0.24);
+/// Smoked-glass fill for interactive pills (`chat_pill`, `FriendsDoor`) whose
+/// hover lift animates [`BackgroundColor`] directly without a second quad.
+pub(crate) const PILL_GLASS: Color = Color::srgba(0.036, 0.078, 0.112, 0.89);
 
 /// The chat window's ground: smoked slate-obsidian glass that lets the room
 /// behind it through as a cool glow and no more, slightly denser than before
@@ -88,13 +91,13 @@ pub(crate) fn window_ground() -> BackgroundGradient {
 /// The glass at the window's head and at its foot.
 pub(crate) fn window_glass() -> [Color; 2] {
     [
-        Color::srgba(0.046, 0.096, 0.136, WINDOW_GLASS.0),
+        Color::srgba(0.042, 0.088, 0.126, WINDOW_GLASS.0),
         Color::srgba(0.024, 0.056, 0.084, WINDOW_GLASS.1),
     ]
 }
 
 /// How opaque the chat window's ground is at its head and at its foot.
-pub(crate) const WINDOW_GLASS: (f32, f32) = (0.95, 0.92);
+pub(crate) const WINDOW_GLASS: (f32, f32) = (0.91, 0.88);
 
 /// Top-lit frosted sheen for chat window and drawer header bars.
 pub(crate) fn head_glass() -> BackgroundGradient {

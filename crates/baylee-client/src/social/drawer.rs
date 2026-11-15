@@ -825,7 +825,7 @@ fn sync_door(
         door
     } else {
         *drawn = None;
-        let ground = super::rows::window_glass()[1];
+        let ground = super::rows::PILL_GLASS;
         commands
             .spawn((
                 FriendsDoor,
@@ -847,7 +847,6 @@ fn sync_door(
                     ..default()
                 },
                 BackgroundColor(ground),
-                super::rows::window_ground(),
                 BorderColor::all(super::rows::GLASS_EDGE),
                 super::rows::glass_shadow(),
                 Feel::new(ground),
@@ -997,6 +996,57 @@ fn small_button(
             )],
         ))
         .id()
+}
+
+fn entry_button(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    label: &str,
+    press: DrawerPress,
+    disabled_hint: Option<String>,
+) -> Entity {
+    let enabled = disabled_hint.is_none();
+    let rest_bg = if enabled {
+        tokens::CONTROL
+    } else {
+        tokens::CONTROL.with_alpha(0.35)
+    };
+    let rest_border = if enabled {
+        super::rows::GLASS_RULE
+    } else {
+        tokens::BORDER.with_alpha(0.45)
+    };
+    let mut ent = commands.spawn((
+        Node {
+            flex_grow: 1.0,
+            flex_basis: zpx(0.0),
+            min_height: zpx(30.0),
+            padding: UiRect::axes(zpx(8.0), zpx(4.0)),
+            border: UiRect::all(zpx(1.0)),
+            border_radius: BorderRadius::all(zpx(4.0)),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+        },
+        BackgroundColor(rest_bg),
+        BorderColor::all(rest_border),
+        children![(
+            Text::new(label.to_string()),
+            tf(fonts, z(11.5)),
+            TextColor(if enabled { tokens::INK } else { tokens::MUTED }),
+            Pickable::IGNORE,
+        )],
+    ));
+    if let Some(reason) = disabled_hint {
+        ent.insert(super::hint_bundle(reason));
+    } else {
+        ent.insert((
+            UiButton,
+            press,
+            Feel::tinting_to(tokens::CONTROL, Color::srgba(1.0, 1.0, 1.0, 0.10)),
+        ));
+    }
+    ent.id()
 }
 
 fn icon_button(
@@ -1286,7 +1336,7 @@ fn sync_drawer(
                     ..default()
                 },
                 UiTransform::from_translation(Val2::px(WIDTH * zoom.0, 0.0)),
-                BackgroundColor(super::rows::window_glass()[1]),
+                BackgroundColor(Color::NONE),
                 super::rows::window_ground(),
                 BorderColor::all(super::rows::GLASS_EDGE),
                 BoxShadow(vec![
@@ -1379,7 +1429,8 @@ fn sync_drawer(
             }
             Entry::InviteToGroup(_) => ChatPhrase::InviteLabel.text(lang).to_string(),
         };
-        let caption = label(&mut commands, &fonts, words, tokens::MUTED, false);
+        let ok_disabled = !matches!(entry, Entry::Nickname(_)) && buffer.text().trim().is_empty();
+        let caption = label(&mut commands, &fonts, words.clone(), tokens::MUTED, false);
         let field = text_box(
             &mut commands,
             &fonts,
@@ -1388,21 +1439,48 @@ fn sync_drawer(
             "",
             DrawerPress::Entry,
         );
-        let ok = small_button(
+        let field_line = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    padding: UiRect::vertical(zpx(3.0)),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .add_child(field)
+            .id();
+        let ok = entry_button(
             &mut commands,
             &fonts,
             ChatPhrase::OkButton.text(lang),
             DrawerPress::EntryOk,
+            ok_disabled.then_some(words),
         );
-        let cancel = small_button(
+        let cancel = entry_button(
             &mut commands,
             &fonts,
             ChatPhrase::CancelButton.text(lang),
             DrawerPress::EntryCancel,
+            None,
         );
-        let line = row(&mut commands);
-        commands.entity(line).add_children(&[field, ok, cancel]);
-        kids.extend([caption, line]);
+        let btn_line = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Stretch,
+                    column_gap: zpx(8.0),
+                    padding: UiRect::new(zpx(0.0), zpx(0.0), zpx(2.0), zpx(4.0)),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .add_children(&[ok, cancel])
+            .id();
+        kids.extend([caption, field_line, btn_line]);
     }
     // Find or add.
     if !me.guest {
@@ -2303,7 +2381,7 @@ fn sync_context_menu(
                 translation: Val2::px(0.0, -4.0),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.05, 0.10, 0.14, 0.98)),
+            BackgroundColor(Color::NONE),
             BackgroundGradient::from(LinearGradient::new(
                 145.0_f32.to_radians(),
                 vec![
