@@ -8019,3 +8019,19 @@ beneath it. What the author missed, for the next brief:
   selection, localization and rendered UI acceptance require separate review.
   Full repository gates and an exhaustive played assertion for every ability
   and tier were outside the focused verification.
+
+## 2026-11-16 — independent review of Tower review corrections
+
+- Reviewed all thirteen files of `29ed8a3c7` separately from its author.
+  The optional payment preview uses the decision actor and the engine's actual
+  mana-window legality; it is borrowed in process and never serialized. Empty
+  legal offers remain empty rather than falling back to a fabricated source.
+  Hosted policies before generation 22 keep their former planning path.
+- Limited command sources contribute one activation to generic seat plans;
+  unlimited sources retain their counter-funded repetitions. The genuine
+  Seed Cradle fixture exercises a command-only payment, alongside the focused
+  spent-cap and legacy-policy assertions. The mulligan fix preserves journal
+  records and skips only draw events preceding the first turn in their collected
+  batch. Its negative-control result and restored played regression were read.
+- No further defect found in this correction scope. This review does not certify
+  production activation, balance, UI acceptance or full gates.
