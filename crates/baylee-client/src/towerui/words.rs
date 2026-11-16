@@ -73,7 +73,7 @@ pub(crate) fn name(goods: Goods, lang: Lang) -> String {
     }
 }
 
-/// Generation-five native sentences; the redesigned shop adds localized detail rows.
+/// Every run ability uses the same localized copy on the shelf and at the table.
 pub(crate) fn run_effect(definition: Definition, lang: Lang) -> String {
     let Some(token) = baylee_cards::tokens::tower::run::definition(definition.id()) else {
         return String::new();
@@ -104,12 +104,24 @@ pub(crate) fn run_effect(definition: Definition, lang: Lang) -> String {
         }
     }
     for index in 0..token.abilities.len() {
-        if let Some(text) = baylee_cards::tokens::tower::run::ability_text(
-            token,
-            u32::try_from(index).expect("bounded native abilities"),
-        ) {
-            lines.push(text.to_owned());
+        if let Some(text) = super::rules::ability(definition, index, lang) {
+            lines.push(text);
         }
     }
     lines.join("\n")
+}
+
+pub(crate) fn token_ability(token: u16, index: u32, lang: Lang) -> Option<String> {
+    match crate::itemart::identity::run_token(token)? {
+        Goods::Relic(item) => super::rules::ability(item, usize::try_from(index).ok()?, lang),
+        Goods::Potion(potion) if index == 0 => Some(
+            match potion {
+                Potion::Healing => Phrase::TowerRuleHealing,
+                Potion::Mana => Phrase::TowerRuleMana,
+            }
+            .text(lang)
+            .to_owned(),
+        ),
+        _ => None,
+    }
 }

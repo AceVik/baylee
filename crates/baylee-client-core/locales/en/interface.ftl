@@ -1771,6 +1771,7 @@ ActToggleBrowser = Open the zone browser, also when a graveyard's top card is li
 
 # Open the game log (#262).
 ActToggleLog = Open the game log
+ActToggleTowerItems = Inspect Tower equipment
 
 # Let the stack resolve
 ActHoldForStack = Let the stack resolve
@@ -3505,6 +3506,70 @@ EchoesRunSideboard = Sideboard
 EchoesRunTableItems = Run items
 EchoesRunTableHint = Hover for details. Click an available item to choose its ability. Only your own potion stock is visible.
 EchoesRunOpponent = Opponent
+EchoesRunNoEquipment = No equipment
+TowerRuleUpkeepLife = At the beginning of your upkeep, you gain 1 life.
+TowerRuleCreatureLife = Whenever a creature you control enters, you gain 1 life.
+TowerRuleLifeDrain = Whenever you gain life, each opponent loses 1 life.
+TowerRuleUpkeepScry = At the beginning of your upkeep, scry 1.
+TowerRuleLoot = { "{2}" }: Draw a card, then discard a card. Activate only once each turn from the command zone.
+TowerRuleDrawLife = Whenever you draw a card, you gain 1 life.
+TowerRuleFilter = { "{1}" }: Add one mana of any color. Activate only once each turn from the command zone.
+TowerRuleFirstSpellDraw = Whenever you cast your first noncreature spell each turn, draw a card.
+TowerRuleTokenLife = Whenever a creature token you control enters, you gain 1 life.
+TowerRuleTokensPlusOne = Creature tokens you control get +1/+1.
+TowerRuleTokensTrample = Creature tokens you control have trample.
+TowerRulePaidDraw = { "{2}" }, Pay 2 life: Draw a card. Activate only once each turn from the command zone.
+TowerRuleUpkeepDraw = At the beginning of your upkeep, draw a card.
+TowerRuleUpkeepPlant = At the beginning of your upkeep, create a 1/1 green Plant creature token.
+TowerRuleTokensToughness = Creature tokens you control get +0/+1.
+TowerRuleUpkeepCharge = At the beginning of your upkeep, put a charge counter on this item.
+TowerRuleUpkeepTwoLife = At the beginning of your upkeep, you gain 2 life.
+TowerRuleDrawDrain = Whenever you draw a card, each opponent loses 1 life.
+TowerRuleTokensHaste = Creature tokens you control have haste.
+TowerRuleTokensVigilance = Creature tokens you control have vigilance.
+TowerRuleTokensLifelink = Creature tokens you control have lifelink.
+TowerRuleDeathLife = Whenever a creature you control dies, you gain 1 life.
+TowerRuleSpellLife = Whenever you cast a noncreature spell, you gain 1 life.
+TowerRuleSpellPlant = Whenever you cast a noncreature spell, create a 1/1 green Plant creature token.
+TowerRuleDeathDraw = Whenever a nontoken creature you control dies, draw a card.
+TowerRuleVigilance = Creatures you control have vigilance.
+TowerRuleLifelink = Creatures you control have lifelink.
+TowerRuleHexproof = Creatures you control have hexproof.
+# Arguments: count
+TowerRulePlants = At the beginning of your upkeep, create { $count } 1/1 green Plant creature tokens.
+# Arguments: life
+TowerRuleGainUpkeep = At the beginning of your upkeep, you gain { $life } life.
+# Arguments: life
+TowerRuleGainCreature = Whenever a creature you control enters, you gain { $life } life.
+TowerRuleLifeCharge = Whenever you gain life, put a charge counter on this item.
+# Arguments: damage
+TowerRuleDamage = Remove two charge counters: This item deals { $damage } damage to any target.
+# Arguments: mana
+TowerRuleDrawCost = { $mana }, Pay 2 life: Draw a card.
+# Arguments: mana, count
+TowerRuleCradle = Whenever you gain life, you may pay { $mana }. If you do, create { $count } 1/1 green Plant creature tokens.
+# Arguments: power, toughness
+TowerRuleBanner = Creature tokens you control get +{ $power }/+{ $toughness }.
+TowerRuleDeathCharge = Whenever a creature token you control dies, put a charge counter on this item.
+# Arguments: count, mana
+TowerRuleStoredMana = Remove { $count } charge counters: Add { $mana }.
+TowerRuleTokenCharge = Whenever a creature token you control enters, put a charge counter on this item.
+# Arguments: life
+TowerRuleSpellDrain = Whenever you cast a noncreature spell, each opponent loses { $life } life.
+TowerRuleDrawCharge = Whenever you draw a card, put a charge counter on this item.
+# Arguments: count
+TowerRuleScry = Remove three charge counters: Scry { $count }. Activate from the command zone.
+# Arguments: life
+TowerRuleDeathDrain = Whenever a nontoken creature you control dies, each opponent loses { $life } life.
+TowerRuleSpellCharge = Whenever you cast a noncreature spell, put a charge counter on this item.
+# Arguments: count
+TowerRuleStoredAny = Remove { $count } charge counters: Add one mana of any color.
+# Arguments: toughness
+TowerRuleAegis = Creatures you control get +0/+{ $toughness }.
+TowerRuleActivate = Activate from the command zone.
+TowerRuleOnce = Activate only once each turn from the command zone.
+TowerRuleHealing = Remove a charge: You gain 5 life. Activate from the command zone.
+TowerRuleMana = Remove a charge: Add one mana of any color. Activate from the command zone.
 EchoesRunFinished = This expedition is complete. Your achievements remain; the next run starts with a fresh deck, empty inventory and starting gold.
 EchoesRunStarterFormat = 39 cards + commander · empty inventory · first shop
 EchoesRunChoose = Begin expedition

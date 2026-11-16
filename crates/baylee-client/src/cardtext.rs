@@ -56,6 +56,19 @@ pub fn token_sentence(token: u16, index: u32) -> Option<Vec<TextBlock>> {
     baylee_cards::tokens::ability_text(token, index).map(split_blocks)
 }
 
+/// Original run rules follow the interface language; printed token rules keep
+/// their verified registry fallback.
+#[must_use]
+pub fn token_sentence_in(
+    token: u16,
+    index: u32,
+    lang: baylee_client_core::Lang,
+) -> Option<Vec<TextBlock>> {
+    crate::towerui::words::token_ability(token, index, lang)
+        .map(|text| split_blocks(&text))
+        .or_else(|| token_sentence(token, index))
+}
+
 /// Where the fetch callback leaves its answer.
 ///
 /// A channel would be the obvious choice, but `Receiver` is not `Sync` and a

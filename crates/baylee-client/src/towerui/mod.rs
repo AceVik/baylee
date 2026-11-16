@@ -9,6 +9,7 @@ use crate::{
 };
 use baylee_client_core::echoes::domain::v2::{catalog::Rarity, shop::Goods};
 use bevy::prelude::*;
+mod rules;
 mod scenery;
 pub(crate) mod words;
 pub(crate) use scenery::{Decor, install};
@@ -95,7 +96,7 @@ fn detail(commands: &mut Commands, kit: Kit, item: &Item<'_>, live: Live<'_>) ->
             Node {
                 display: Display::None,
                 position_type: PositionType::Absolute,
-                width: kit.m.px(300.0),
+                width: kit.m.px(420.0),
                 max_width: Val::Vw(90.0),
                 padding: UiRect::all(kit.m.px(16.0)),
                 flex_direction: FlexDirection::Column,
@@ -140,8 +141,11 @@ fn detail(commands: &mut Commands, kit: Kit, item: &Item<'_>, live: Live<'_>) ->
         TextColor(color(item.goods)),
     ));
     commands.entity(header).add_child(name);
-    let description = crate::shellkit::surfaces::prose(commands, kit, item.description, false);
-    commands.entity(tip).add_child(description);
+    for line in item.description.lines() {
+        let description =
+            crate::manaui::spawn_rich(commands, kit.fonts, line, kit.m.small, tokens::INK);
+        commands.entity(tip).add_child(description);
+    }
     if let Live::No(reason) = live {
         let reason = crate::shellkit::surfaces::prose(commands, kit, reason, true);
         commands.entity(tip).add_child(reason);

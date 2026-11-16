@@ -126,6 +126,49 @@ fn owned_item_opens_regular_ability_chooser_without_spending_and_rejects_stale_o
 }
 
 #[test]
+fn keyboard_activation_cannot_also_answer_the_game_beneath_the_drawer() {
+    use bevy::input::keyboard::KeyboardInput;
+    use shellkit::focus::{Activated, FocusReport, Stop};
+    for key in [KeyCode::Enter, KeyCode::Space] {
+        let mut app = App::new();
+        app.insert_resource(fixture())
+            .insert_resource(FocusReport {
+                table: Some(keys::ORDER.name),
+                ..default()
+            })
+            .init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<crate::prefs::Prefs>()
+            .init_resource::<ClientSettings>()
+            .add_message::<KeyboardInput>()
+            .add_message::<Activated>()
+            .add_systems(Update, (keys::activate, crate::input::keyboard).chain());
+        let button = app
+            .world_mut()
+            .spawn(MenuButton {
+                action: MenuAction::UseTowerItem(ObjectId::new(10, 0)),
+            })
+            .id();
+        app.world_mut()
+            .resource_mut::<Messages<Activated>>()
+            .write(Activated {
+                entity: button,
+                stop: Stop::item(keys::ORDER.name, "potions", 0),
+                by_key: true,
+            });
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(key);
+        app.update();
+        let duel = app.world().resource::<Duel>();
+        assert_eq!(duel.ability_menu, Some(ObjectId::new(10, 0)));
+        assert!(
+            duel.outbox().is_empty(),
+            "opening the chooser spent or passed: {key:?}"
+        );
+    }
+}
+
+#[test]
 fn drawer_sources_do_not_replace_commander_art_and_do_not_hide_retained_artifacts() {
     let leader = baylee_client_core::test_support::printed(1, 0, "Commander", 1);
     let item = source(2, 0, tokens::tower::run::definition(1).unwrap(), 0);

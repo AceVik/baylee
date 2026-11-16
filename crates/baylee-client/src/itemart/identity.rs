@@ -33,10 +33,11 @@ pub(crate) fn run_source(object: &baylee_view::PublicObject) -> Option<Goods> {
     if object.card.is_some() {
         return None;
     }
-    let identity = IDENTITIES
-        .get(usize::from(object.token?))
-        .copied()
-        .flatten()?;
+    run_token(object.token?)
+}
+
+pub(crate) fn run_token(token: u16) -> Option<Goods> {
+    let identity = IDENTITIES.get(usize::from(token)).copied().flatten()?;
     identity.run.then_some(identity.goods)
 }
 

@@ -1,5 +1,7 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use baylee_client_core::echoes::domain::v2::catalog::Potion;
+use shellkit::focus::Stop;
 use shellkit::{controls, px_fixed};
 
 pub(super) fn draw(commands: &mut Commands, kit: Kit, duel: &Duel, canvas: Vec2, lang: Lang) {
@@ -25,7 +27,7 @@ pub(super) fn draw(commands: &mut Commands, kit: Kit, duel: &Duel, canvas: Vec2,
                 shellkit::Role::Opaque,
                 ScrollPosition::default(),
                 Node {
-                    width: kit.m.px(480.0),
+                    width: kit.m.px(448.0),
                     max_width: px_fixed(canvas.x - 32.0),
                     max_height: px_fixed(canvas.y - 100.0),
                     overflow: Overflow::scroll_y(),
@@ -42,11 +44,8 @@ pub(super) fn draw(commands: &mut Commands, kit: Kit, duel: &Duel, canvas: Vec2,
                 ChildOf(root),
             ))
             .id();
-        heading(commands, panel, kit, Phrase::EchoesRunTableItems.text(lang));
+        title(commands, panel, kit, lang);
         seats(commands, panel, kit, duel, lang);
-        let hint =
-            shellkit::surfaces::prose(commands, kit, Phrase::EchoesRunTableHint.text(lang), true);
-        commands.entity(panel).add_child(hint);
     }
     let toggle = controls::button_with_icon(
         commands,
@@ -68,6 +67,18 @@ pub(super) fn draw(commands: &mut Commands, kit: Kit, duel: &Duel, canvas: Vec2,
             },
         ),
     );
+    if duel.tower_inventory {
+        commands
+            .entity(toggle)
+            .insert(Stop::new(keys::ORDER.name, "close"));
+    }
+    if let Some(object) = duel.ability_menu
+        && can_use(duel, object)
+    {
+        commands
+            .entity(toggle)
+            .insert(super::super::sheet::AbilityAnchor(object));
+    }
     commands.entity(root).add_child(toggle);
 }
 
@@ -77,6 +88,31 @@ fn heading(commands: &mut Commands, parent: Entity, kit: Kit, name: &str) {
         .entity(title)
         .insert(crate::hud::tf_bold(kit.fonts, kit.m.text));
     commands.entity(parent).add_child(title);
+}
+
+fn title(commands: &mut Commands, parent: Entity, kit: Kit, lang: Lang) {
+    let row = commands
+        .spawn((
+            Node {
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            ChildOf(parent),
+            Pickable::IGNORE,
+        ))
+        .id();
+    heading(commands, row, kit, Phrase::EchoesRunTableItems.text(lang));
+    let info = commands
+        .spawn((
+            Text::new(super::super::glyph::INFO.to_string()),
+            super::super::icon_tf(kit.fonts, kit.m.small),
+            TextColor(tokens::MUTED),
+            ChildOf(row),
+            Pickable::default(),
+        ))
+        .id();
+    controls::attach_tooltip(commands, info, kit, Phrase::EchoesRunTableHint.text(lang));
 }
 
 fn items(commands: &mut Commands, parent: Entity, kit: Kit) -> Entity {
@@ -102,7 +138,7 @@ fn item(
     object: &baylee_view::PublicObject,
     goods: Goods,
     lang: Lang,
-) {
+) -> Entity {
     let name = towerui::words::goods(goods, lang);
     let description = towerui::words::description(goods, lang);
     let count = object.counter_count(baylee_view::CounterKind::Charge);
@@ -143,6 +179,7 @@ fn item(
         ));
     }
     commands.entity(parent).add_child(button);
+    button
 }
 
 fn seats(commands: &mut Commands, panel: Entity, kit: Kit, duel: &Duel, lang: Lang) {
@@ -155,7 +192,13 @@ fn seats(commands: &mut Commands, panel: Entity, kit: Kit, duel: &Duel, lang: La
                 .and_then(|game| game.seats.iter().find(|entry| entry.player == player))
                 .map_or_else(
                     || Phrase::EchoesRunOpponent.text(lang),
-                    |entry| entry.display_name.as_str(),
+                    |entry| {
+                        if entry.is_ai && entry.display_name == "House AI" {
+                            Phrase::SeatHouse.text(lang)
+                        } else {
+                            entry.display_name.as_str()
+                        }
+                    },
                 );
             heading(
                 commands,
@@ -168,10 +211,26 @@ fn seats(commands: &mut Commands, panel: Entity, kit: Kit, duel: &Duel, lang: La
                 },
             );
             let row = items(commands, panel, kit);
+            let mut count = 0;
             for object in objects {
                 if let Some(goods @ Goods::Relic(_)) = visible(object, view.seat, duel.watching) {
-                    item(commands, row, kit, duel, object, goods, lang);
+                    let button = item(commands, row, kit, duel, object, goods, lang);
+                    commands.entity(button).insert(Stop::item(
+                        keys::ORDER.name,
+                        if player == view.seat { "own" } else { "enemy" },
+                        count,
+                    ));
+                    count = count.saturating_add(1);
                 }
+            }
+            if count == 0 {
+                let empty = shellkit::surfaces::prose(
+                    commands,
+                    kit,
+                    Phrase::EchoesRunNoEquipment.text(lang),
+                    true,
+                );
+                commands.entity(row).add_child(empty);
             }
         }
         if !duel.watching {
@@ -184,7 +243,12 @@ fn seats(commands: &mut Commands, panel: Entity, kit: Kit, duel: &Duel, lang: La
                 .flatten()
             {
                 if let Some(goods @ Goods::Potion(_)) = visible(object, view.seat, false) {
-                    item(commands, row, kit, duel, object, goods, lang);
+                    let button = item(commands, row, kit, duel, object, goods, lang);
+                    commands.entity(button).insert(Stop::item(
+                        keys::ORDER.name,
+                        "potions",
+                        u8::from(goods == Goods::Potion(Potion::Mana)),
+                    ));
                 }
             }
         }

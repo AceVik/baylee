@@ -392,3 +392,31 @@ Always stop owned test processes and verify listeners close.
   `/tmp/baylee-tower-table-identity-20261116.log`,
   `/tmp/baylee-tower-table-clippy-20261116-r5.log`.
   The third rendered inspection and real table interaction are pending.
+- Rendered refinement 3 (1280×720): bought two items and a mana potion,
+  equipped both by right-click and entered the real hosted game. Heartwood
+  changed the opening from 20 to 24 life; the own potion appeared with one
+  charge and opposing potion sources were absent. The Commanders retained
+  their separate piles. Opening a potion exposed a real UI defect: the normal
+  ability chooser had no card visual to anchor to and remained hidden. This
+  pass is not acceptance of potion interaction. A generic UI ability anchor
+  and its running-system regression address that finding next. Screens:
+  `/tmp/baylee-tower-pass3-equipped.png`,
+  `/tmp/baylee-tower-pass3-table-drawer.png`,
+  `/tmp/baylee-tower-pass3-potion-chooser.png`.
+  Client 51187, backend 51169 and PostgreSQL 51137 exited; ports 53010 and
+  52958 closed. All nine existing Command-pile cases passed independently.
+- Original item copy now has German rules for every family/tier, rich mana
+  symbols and shared wording in the tooltip, ability chooser and stack.
+  The 72-variant comparison checks every English sentence against the native
+  ability description (only number spelling/plural editorial differences are
+  normalized) and complete German coverage. It and the rich tooltip lifecycle
+  test passed in `/tmp/baylee-tower-localized-rules-tests-20261116.log`.
+  Seven sheet-placement cases, including the new independent-item anchor,
+  passed in `/tmp/baylee-tower-ability-anchor-tests-20261116.log`.
+- The table drawer is keyboard-accessible through rebindable Shift+I and a
+  modal focus order. A running-system test delivers keyboard activation before
+  the game's keyboard handler and proves Enter/Space only open the chooser,
+  never consume an item or answer the game underneath. Four focused drawer
+  tests passed in `/tmp/baylee-tower-pass4-input-tests-20261116.log`; strict
+  client/core Clippy passed in `/tmp/baylee-tower-pass4-clippy-20261116-r4.log`.
+  The fourth native visual pass remains pending.

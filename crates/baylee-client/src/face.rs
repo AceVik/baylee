@@ -157,7 +157,9 @@ pub fn of_object(
             && let Some(token_def) = baylee_cards::tokens::by_token_id(token_id)
         {
             for idx in 0..u32::try_from(token_def.abilities.len()).unwrap_or(0) {
-                if let Some(blocks) = crate::cardtext::token_sentence(token_id, idx) {
+                if let Some(blocks) =
+                    crate::cardtext::token_sentence_in(token_id, idx, texts.display_language())
+                {
                     face.body.extend(blocks);
                 }
             }

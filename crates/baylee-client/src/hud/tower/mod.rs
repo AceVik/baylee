@@ -16,6 +16,7 @@ use baylee_core::ids::ObjectId;
 use bevy::prelude::*;
 
 mod draw;
+pub(crate) mod keys;
 #[cfg(test)]
 mod tests;
 
@@ -27,6 +28,7 @@ struct Drawn {
     game: Option<String>,
     seq: Option<u64>,
     open: bool,
+    ability: Option<ObjectId>,
     over: bool,
     watching: bool,
     lang: Option<Lang>,
@@ -44,7 +46,11 @@ pub(crate) fn install(app: &mut App) {
             sync.in_set(DuelSet::Present)
                 .run_if(not(in_state(DuelPhase::Closed))),
         )
-        .add_systems(OnEnter(DuelPhase::Closed), cleanup);
+        .add_systems(OnEnter(DuelPhase::Closed), cleanup)
+        .add_systems(
+            Update,
+            keys::activate.run_if(not(in_state(DuelPhase::Closed))),
+        );
 }
 
 fn cleanup(mut commands: Commands, roots: Query<Entity, With<Root>>, mut drawn: ResMut<Drawn>) {
@@ -73,6 +79,7 @@ fn sync(
     if drawn.game.as_deref() == game
         && drawn.seq == seq
         && drawn.open == duel.tower_inventory
+        && drawn.ability == duel.ability_menu
         && drawn.lang == Some(lang)
         && drawn.canvas == size
         && drawn.over == over
@@ -85,6 +92,7 @@ fn sync(
         game: game.map(str::to_owned),
         seq,
         open: duel.tower_inventory,
+        ability: duel.ability_menu,
         over,
         watching: duel.watching,
         lang: Some(lang),
@@ -138,12 +146,25 @@ pub(crate) fn use_item(duel: &mut Duel, object: ObjectId) {
 pub(crate) fn click(duel: &mut Duel, action: MenuAction) {
     match action {
         MenuAction::ToggleTowerItems => {
+            if !available(duel) {
+                return;
+            }
             duel.tower_inventory = !duel.tower_inventory;
             duel.game_menu = false;
         }
         MenuAction::UseTowerItem(object) => use_item(duel, object),
         _ => {}
     }
+}
+
+pub(crate) fn available(duel: &Duel) -> bool {
+    duel.ending().is_none()
+        && duel.view.as_ref().is_some_and(|view| {
+            view.command
+                .iter()
+                .flatten()
+                .any(|object| visible(object, view.seat, duel.watching).is_some())
+        })
 }
 
 fn can_use(duel: &Duel, object: ObjectId) -> bool {

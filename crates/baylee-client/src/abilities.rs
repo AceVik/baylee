@@ -1089,7 +1089,11 @@ pub fn printed_words(
             if object.status.is_face_down() {
                 return None;
             }
-            crate::cardtext::token_sentence(object.token?, ability_index)?
+            crate::cardtext::token_sentence_in(
+                object.token?,
+                ability_index,
+                texts.map_or(Lang::En, crate::cardtext::CardTexts::display_language),
+            )?
         }
     } else {
         let held = baylee_client_core::decision::known_cards(view).find(|c| c.id == object)?;

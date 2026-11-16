@@ -14,6 +14,7 @@ pub struct KeyClaims<'w> {
     stack_text: Option<ResMut<'w, crate::hud::StackTextScroll>>,
     chat: Option<Res<'w, crate::social::ChatUi>>,
     lobby: Option<Res<'w, crate::LobbyState>>,
+    focus: Option<Res<'w, crate::shellkit::focus::FocusReport>>,
 }
 
 impl KeyClaims<'_> {
@@ -59,6 +60,9 @@ pub fn keyboard(
     // The one thing a quiet frame still owes is the typing guard's memory.
     if fired.quiet() && typed.is_empty() {
         *had_keyboard = duel.browser.is_typing();
+        return;
+    }
+    if tower_keys(fired, &mut typed, &mut duel, claims.focus.as_deref()) {
         return;
     }
     // The arrangement menu, while it stands, has every key too (DESIGN-v8
@@ -238,6 +242,24 @@ fn between_questions(fired: Fired, duel: &mut Duel) {
     }
 }
 
+fn tower_keys(
+    fired: Fired,
+    typed: &mut MessageReader<KeyboardInput>,
+    duel: &mut Duel,
+    focus: Option<&crate::shellkit::focus::FocusReport>,
+) -> bool {
+    if !duel.tower_inventory
+        && focus.is_none_or(|focus| focus.table != Some(crate::hud::tower::keys::ORDER.name))
+    {
+        return false;
+    }
+    if fired.has(Action::Cancel) || fired.has(Action::ToggleTowerItems) {
+        duel.tower_inventory = false;
+    }
+    typed.clear();
+    true
+}
+
 /// Camera, phase rail, fast-forward and display toggles — everything that
 /// changes what the player sees rather than what the game hears.
 pub(super) fn look_around(
@@ -304,6 +326,9 @@ pub(super) fn look_around(
             duel.game_menu = false;
         }
         duel.chat_door = Some(crate::ChatDoor::Log);
+    }
+    if fired.has(Action::ToggleTowerItems) {
+        crate::hud::tower::click(duel, crate::hud::MenuAction::ToggleTowerItems);
     }
     // Here rather than beside the other answers, because a hold is the one
     // thing a seat says while it is *not* being asked: the engine takes a

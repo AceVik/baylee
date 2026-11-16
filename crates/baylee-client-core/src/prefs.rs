@@ -80,6 +80,8 @@ pub enum Action {
     ToggleBrowser,
     /// Open the game log, or shut it again (#262).
     ToggleLog,
+    /// Inspect run equipment and use available supplies.
+    ToggleTowerItems,
     /// Stop being asked until the stack has resolved — or, if a hold is
     /// already running, start being asked again.
     HoldForStack,
@@ -159,7 +161,7 @@ pub enum Action {
 
 impl Action {
     /// Every action, in the order a settings screen should list them.
-    pub const ALL: [Self; 51] = [
+    pub const ALL: [Self; 52] = [
         Self::Primary,
         Self::Confirm,
         Self::ConfirmTargetBatch,
@@ -199,6 +201,7 @@ impl Action {
         Self::ToggleTextView,
         Self::ToggleBrowser,
         Self::ToggleLog,
+        Self::ToggleTowerItems,
         Self::Report,
         Self::ReplayTurnBack,
         Self::ReplayTurnForward,
@@ -240,6 +243,7 @@ impl Action {
             Self::ToggleTextView => Phrase::ActToggleTextView,
             Self::ToggleBrowser => Phrase::ActToggleBrowser,
             Self::ToggleLog => Phrase::ActToggleLog,
+            Self::ToggleTowerItems => Phrase::ActToggleTowerItems,
             Self::HoldForStack => Phrase::ActHoldForStack,
             Self::HoldForTurn => Phrase::ActHoldForTurn,
             Self::MulliganKeep => Phrase::ActMulliganKeep,
@@ -318,6 +322,7 @@ impl Action {
             Self::ToggleTextView
             | Self::ToggleBrowser
             | Self::ToggleLog
+            | Self::ToggleTowerItems
             | Self::Report
             | Self::TextPageUp
             | Self::TextPageDown => Phrase::GroupDisplay,
@@ -564,6 +569,7 @@ impl Keymap {
         bind(Action::ToggleTextView, vec![Chord::key("KeyT")]);
         bind(Action::ToggleBrowser, vec![Chord::key("KeyG")]);
         bind(Action::ToggleLog, vec![Chord::key("KeyL")]);
+        bind(Action::ToggleTowerItems, vec![Chord::shift("KeyI")]);
         bind(Action::HoldForStack, vec![Chord::key("F6")]);
         bind(Action::HoldForTurn, vec![Chord::key("F7")]);
         bind(Action::MulliganKeep, vec![Chord::key("KeyK")]);

@@ -2016,7 +2016,7 @@ fn ability_row_words(believed: &Believed, index: usize) -> String {
                 && let baylee_engine::choice::PlayerAction::ActivateAbility {
                     ability_index, ..
                 } = option.action
-                && let Some(blocks) = crate::cardtext::token_sentence(token, ability_index)
+                && let Some(blocks) = crate::cardtext::token_sentence_in(token, ability_index, lang)
             {
                 return Some(prose(&blocks));
             }

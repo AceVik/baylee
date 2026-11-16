@@ -117,6 +117,49 @@ fn a_sheet_whose_card_is_not_drawn_is_put_away() {
     assert_eq!(node.display, Display::None);
 }
 
+#[test]
+fn an_independent_item_has_a_visible_chooser_without_a_card_visual() {
+    let (mut app, sheet, _, size) = harness(obj(81));
+    let anchor = app
+        .world_mut()
+        .spawn((
+            AbilityAnchor(obj(81)),
+            bevy::ui::ComputedNode {
+                size: Vec2::new(180.0, 44.0),
+                ..default()
+            },
+            bevy::ui::UiGlobalTransform::from_translation(size - Vec2::new(106.0, 38.0)),
+        ))
+        .id();
+    app.update();
+    let placed = app
+        .world()
+        .get::<AbilitySheet>(sheet)
+        .unwrap()
+        .placed_rect()
+        .unwrap();
+    assert!(placed.min.x >= 0.0 && placed.min.y >= 0.0);
+    assert!(placed.max.x <= size.x && placed.max.y < size.y - 60.0);
+    assert_eq!(
+        *app.world().get::<Visibility>(sheet).unwrap(),
+        Visibility::Inherited
+    );
+    app.update();
+    assert_eq!(
+        app.world()
+            .get::<AbilitySheet>(sheet)
+            .unwrap()
+            .placed_rect(),
+        Some(placed)
+    );
+    app.world_mut().entity_mut(anchor).remove::<AbilityAnchor>();
+    app.update();
+    assert_eq!(
+        app.world().get::<Node>(sheet).unwrap().display,
+        Display::None
+    );
+}
+
 /// A card standing in the player's own hand row.
 ///
 /// A hand card is `bevy_ui` from end to end — a `ComputedNode` the layout

@@ -336,6 +336,28 @@ fn pressed(rest: Color) -> Color {
 #[derive(Component)]
 pub struct AbilitySheetRoot;
 
+/// A non-card UI source can anchor the ordinary ability chooser here.
+#[derive(Component)]
+pub struct AbilityAnchor(
+    /// The source whose ordinary ability chooser this control anchors.
+    pub ObjectId,
+);
+
+/// UI geometry for a hand card or a separate non-card ability control.
+pub type UiAbilitySources<'w, 's> = Query<
+    'w,
+    's,
+    (
+        (
+            Option<&'static crate::hud::HandCardVisual>,
+            Option<&'static AbilityAnchor>,
+        ),
+        &'static bevy::ui::ComputedNode,
+        &'static bevy::ui::UiGlobalTransform,
+    ),
+    Or<(With<crate::hud::HandRowCard>, With<AbilityAnchor>)>,
+>;
+
 /// The sheet, and where it was last put.
 #[derive(Component)]
 pub struct AbilitySheet {
@@ -1066,14 +1088,7 @@ pub fn place_ability_sheet(
     windows: Query<&Window>,
     ui: Option<Res<UiScale>>,
     cards: Query<(&crate::table::CardVisual, &crate::table::CardRest)>,
-    hand: Query<
-        (
-            &crate::hud::HandCardVisual,
-            &bevy::ui::ComputedNode,
-            &bevy::ui::UiGlobalTransform,
-        ),
-        With<crate::hud::HandRowCard>,
-    >,
+    ui_sources: UiAbilitySources,
     mut sheet: Query<(
         &mut AbilitySheet,
         &mut Node,
@@ -1102,8 +1117,14 @@ pub fn place_ability_sheet(
     // The table is asked first because that is where a permanent's abilities
     // are activated from, and an object is never in both lists at once.
     let Some((mid, card)) = on_the_table.or_else(|| {
-        hand.iter()
-            .find(|(visual, _, _)| visual.object == sheet.object)
+        ui_sources
+            .iter()
+            .find(|((card, anchor), _, _)| {
+                anchor
+                    .map(|anchor| anchor.0)
+                    .or_else(|| card.map(|card| card.object))
+                    == Some(sheet.object)
+            })
             .map(|(_, computed, place)| {
                 let scale = computed.inverse_scale_factor;
                 (place.translation * scale, computed.size() * scale)

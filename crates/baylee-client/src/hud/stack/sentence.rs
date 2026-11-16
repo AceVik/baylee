@@ -110,7 +110,11 @@ pub(in crate::hud) fn ability_sentence(
     faces: &FaceCtx<'_>,
 ) -> Option<Vec<TextBlock>> {
     if let Some(token) = token {
-        return crate::cardtext::token_sentence(token.token, token.index);
+        return crate::cardtext::token_sentence_in(
+            token.token,
+            token.index,
+            faces.texts.display_language(),
+        );
     }
     let rules = rules.or_else(|| {
         ability.map(|ability| baylee_view::RulesFace {

@@ -561,6 +561,7 @@ ActNextTurn = Zum nächsten Zug springen
 ActToggleTextView = Kartentext statt Bild lesen
 ActToggleBrowser = Zonenbrowser öffnen, auch wenn die oberste Karte eines Friedhofs leuchtet
 ActToggleLog = Spielprotokoll öffnen
+ActToggleTowerItems = Turm-Ausrüstung ansehen
 ActHoldForStack = Stapel auflösen lassen
 ActHoldForTurn = Nichts mehr in diesem Zug
 ActMulliganKeep = Diese Hand behalten
@@ -3766,6 +3767,82 @@ EchoesRunSideboard = Sideboard
 EchoesRunTableItems = Run-Ausrüstung
 EchoesRunTableHint = Details beim Darüberfahren. Klicke auf einen verfügbaren Gegenstand, um seine Fähigkeit zu wählen. Nur dein eigener Trankvorrat ist sichtbar.
 EchoesRunOpponent = Gegner
+EchoesRunNoEquipment = Keine Ausrüstung
+TowerRuleUpkeepLife = Zu Beginn deines Versorgungssegments erhältst du 1 LeP.
+TowerRuleCreatureLife = Immer wenn eine Kreatur unter deiner Kontrolle ins Spiel kommt, erhältst du 1 LeP.
+TowerRuleLifeDrain = Immer wenn du LeP erhältst, verliert jeder Gegner 1 LeP.
+TowerRuleUpkeepScry = Zu Beginn deines Versorgungssegments: Hellsicht 1.
+TowerRuleLoot = { "{2}" }: Ziehe eine Karte und wirf dann eine Karte ab. Nur einmal pro Zug aus der Kommandozone aktivierbar.
+TowerRuleDrawLife = Immer wenn du eine Karte ziehst, erhältst du 1 LeP.
+TowerRuleFilter = { "{1}" }: Erzeuge ein Mana einer beliebigen Farbe. Nur einmal pro Zug aus der Kommandozone aktivierbar.
+TowerRuleFirstSpellDraw = Immer wenn du deinen ersten Nichtkreatur-Zauberspruch in einem Zug wirkst, ziehe eine Karte.
+TowerRuleTokenLife = Immer wenn ein Kreaturenspielstein unter deiner Kontrolle ins Spiel kommt, erhältst du 1 LeP.
+TowerRuleTokensPlusOne = Kreaturenspielsteine unter deiner Kontrolle erhalten +1/+1.
+TowerRuleTokensTrample = Kreaturenspielsteine unter deiner Kontrolle verursachen Trampelschaden.
+TowerRulePaidDraw = { "{2}" }, bezahle 2 LeP: Ziehe eine Karte. Nur einmal pro Zug aus der Kommandozone aktivierbar.
+TowerRuleUpkeepDraw = Zu Beginn deines Versorgungssegments ziehe eine Karte.
+TowerRuleUpkeepPlant = Zu Beginn deines Versorgungssegments erzeuge einen grünen 1/1-Pflanzen-Kreaturenspielstein.
+TowerRuleTokensToughness = Kreaturenspielsteine unter deiner Kontrolle erhalten +0/+1.
+TowerRuleUpkeepCharge = Zu Beginn deines Versorgungssegments lege eine Ladungsmarke auf diesen Gegenstand.
+TowerRuleUpkeepTwoLife = Zu Beginn deines Versorgungssegments erhältst du 2 LeP.
+TowerRuleDrawDrain = Immer wenn du eine Karte ziehst, verliert jeder Gegner 1 LeP.
+TowerRuleTokensHaste = Kreaturenspielsteine unter deiner Kontrolle haben Eile.
+TowerRuleTokensVigilance = Kreaturenspielsteine unter deiner Kontrolle haben Wachsamkeit.
+TowerRuleTokensLifelink = Kreaturenspielsteine unter deiner Kontrolle haben Lebensverknüpfung.
+TowerRuleDeathLife = Immer wenn eine Kreatur unter deiner Kontrolle stirbt, erhältst du 1 LeP.
+TowerRuleSpellLife = Immer wenn du einen Nichtkreatur-Zauberspruch wirkst, erhältst du 1 LeP.
+TowerRuleSpellPlant = Immer wenn du einen Nichtkreatur-Zauberspruch wirkst, erzeuge einen grünen 1/1-Pflanzen-Kreaturenspielstein.
+TowerRuleDeathDraw = Immer wenn eine Nichtspielstein-Kreatur unter deiner Kontrolle stirbt, ziehe eine Karte.
+TowerRuleVigilance = Kreaturen unter deiner Kontrolle haben Wachsamkeit.
+TowerRuleLifelink = Kreaturen unter deiner Kontrolle haben Lebensverknüpfung.
+TowerRuleHexproof = Kreaturen unter deiner Kontrolle haben Fluchsicherheit.
+# Arguments: count
+TowerRulePlants = { $count ->
+    [one] Zu Beginn deines Versorgungssegments erzeuge einen grünen 1/1-Pflanzen-Kreaturenspielstein.
+   *[other] Zu Beginn deines Versorgungssegments erzeuge { $count } grüne 1/1-Pflanzen-Kreaturenspielsteine.
+    }
+# Arguments: life
+TowerRuleGainUpkeep = Zu Beginn deines Versorgungssegments erhältst du { $life } LeP.
+# Arguments: life
+TowerRuleGainCreature = Immer wenn eine Kreatur unter deiner Kontrolle ins Spiel kommt, erhältst du { $life } LeP.
+TowerRuleLifeCharge = Immer wenn du LeP erhältst, lege eine Ladungsmarke auf diesen Gegenstand.
+# Arguments: damage
+TowerRuleDamage = Entferne zwei Ladungsmarken: Dieser Gegenstand fügt einem Ziel deiner Wahl { $damage } Schaden zu.
+# Arguments: mana
+TowerRuleDrawCost = { $mana }, bezahle 2 LeP: Ziehe eine Karte.
+# Arguments: mana, count
+TowerRuleCradle = { $count ->
+    [one] Immer wenn du LeP erhältst, kannst du { $mana } bezahlen. Falls du dies tust, erzeuge einen grünen 1/1-Pflanzen-Kreaturenspielstein.
+   *[other] Immer wenn du LeP erhältst, kannst du { $mana } bezahlen. Falls du dies tust, erzeuge { $count } grüne 1/1-Pflanzen-Kreaturenspielsteine.
+    }
+# Arguments: power, toughness
+TowerRuleBanner = Kreaturenspielsteine unter deiner Kontrolle erhalten +{ $power }/+{ $toughness }.
+TowerRuleDeathCharge = Immer wenn ein Kreaturenspielstein unter deiner Kontrolle stirbt, lege eine Ladungsmarke auf diesen Gegenstand.
+# Arguments: count, mana
+TowerRuleStoredMana = { $count ->
+    [one] Entferne eine Ladungsmarke: Erzeuge { $mana }.
+   *[other] Entferne { $count } Ladungsmarken: Erzeuge { $mana }.
+    }
+TowerRuleTokenCharge = Immer wenn ein Kreaturenspielstein unter deiner Kontrolle ins Spiel kommt, lege eine Ladungsmarke auf diesen Gegenstand.
+# Arguments: life
+TowerRuleSpellDrain = Immer wenn du einen Nichtkreatur-Zauberspruch wirkst, verliert jeder Gegner { $life } LeP.
+TowerRuleDrawCharge = Immer wenn du eine Karte ziehst, lege eine Ladungsmarke auf diesen Gegenstand.
+# Arguments: count
+TowerRuleScry = Entferne drei Ladungsmarken: Hellsicht { $count }. Aus der Kommandozone aktivierbar.
+# Arguments: life
+TowerRuleDeathDrain = Immer wenn eine Nichtspielstein-Kreatur unter deiner Kontrolle stirbt, verliert jeder Gegner { $life } LeP.
+TowerRuleSpellCharge = Immer wenn du einen Nichtkreatur-Zauberspruch wirkst, lege eine Ladungsmarke auf diesen Gegenstand.
+# Arguments: count
+TowerRuleStoredAny = { $count ->
+    [one] Entferne eine Ladungsmarke: Erzeuge ein Mana einer beliebigen Farbe.
+   *[other] Entferne { $count } Ladungsmarken: Erzeuge ein Mana einer beliebigen Farbe.
+    }
+# Arguments: toughness
+TowerRuleAegis = Kreaturen unter deiner Kontrolle erhalten +0/+{ $toughness }.
+TowerRuleActivate = Aus der Kommandozone aktivierbar.
+TowerRuleOnce = Nur einmal pro Zug aus der Kommandozone aktivierbar.
+TowerRuleHealing = Verbrauche eine Ladung: Du erhältst 5 LeP. Aus der Kommandozone aktivierbar.
+TowerRuleMana = Verbrauche eine Ladung: Erzeuge ein Mana einer beliebigen Farbe. Aus der Kommandozone aktivierbar.
 EchoesRunFinished = Diese Expedition ist abgeschlossen. Deine Erfolge bleiben; der nächste Run beginnt mit einem neuen Deck, leerem Inventar und Startgold.
 EchoesRunStarterFormat = 39 Karten + Commander · leeres Inventar · erster Shop
 EchoesRunChoose = Expedition beginnen
