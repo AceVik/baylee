@@ -1,16 +1,10 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
+pub(super) use crate::towerui::words::{card, goods, name, rarity, run_effect};
 use domain::v2::{run::Outcome, shop::Delivery};
 
 mod growth;
 mod life;
-
-pub(super) fn card(id: baylee_core::ids::CardIndex, lang: Lang) -> String {
-    baylee_cards::by_index(id).map_or_else(
-        || Phrase::EchoesUnknownCard.text(lang).to_string(),
-        |card| card.name().to_string(),
-    )
-}
 
 pub(super) fn created(id: Uuid, lang: Lang) -> String {
     id.get_timestamp()
@@ -66,54 +60,6 @@ pub(super) fn slot(slot: Slot, lang: Lang) -> String {
         Slot::Inventory => return Phrase::EchoesInventory.text(lang).to_owned(),
     };
     phrase.fill(lang, &[&(index + 1).to_string()])
-}
-
-pub(super) fn goods(goods: Goods, lang: Lang) -> String {
-    if let Goods::Relic(definition) = goods {
-        format!("{} · {}", name(goods, lang), rarity(definition.rarity))
-    } else {
-        name(goods, lang)
-    }
-}
-
-pub(super) const fn rarity(rarity: Rarity) -> &'static str {
-    match rarity {
-        Rarity::Common => "Common",
-        Rarity::Uncommon => "Uncommon",
-        Rarity::Rare => "Rare",
-        Rarity::MythicRare => "Mythic Rare",
-    }
-}
-
-pub(super) fn name(goods: Goods, lang: Lang) -> String {
-    match goods {
-        Goods::Card(id) => card(id, lang),
-        Goods::Relic(Definition { family, .. }) => match family {
-            Family::Heartwood => Phrase::EchoesHeartwood,
-            Family::Satchel => Phrase::EchoesSatchel,
-            Family::Compass => Phrase::EchoesCompass,
-            Family::Grove => Phrase::EchoesGrove,
-            Family::SpringChalice => Phrase::EchoesChalice,
-            Family::Hearthstone => Phrase::EchoesHearth,
-            Family::BloodAmber => Phrase::EchoesAmber,
-            Family::LifeCoil => Phrase::EchoesCoil,
-            Family::SeedCradle => Phrase::EchoesCradle,
-            Family::SwarmBanner => Phrase::EchoesBanner,
-            Family::HarvestWheel => Phrase::EchoesHarvest,
-            Family::RootReservoir => Phrase::EchoesRoots,
-            Family::EmberLantern => Phrase::EchoesLantern,
-            Family::TideglassLens => Phrase::EchoesLens,
-            Family::GraveBell => Phrase::EchoesBell,
-            Family::StormSpindle => Phrase::EchoesSpindle,
-            Family::DawnAegis => Phrase::EchoesAegis,
-            Family::GildedAcorn => Phrase::EchoesAcorn,
-        }
-        .text(lang)
-        .to_owned(),
-        Goods::Potion(Potion::Healing) => Phrase::EchoesHealing.text(lang).to_string(),
-        Goods::Potion(Potion::Mana) => Phrase::EchoesMana.text(lang).to_string(),
-        Goods::Mythic => Phrase::EchoesMythic.text(lang).to_string(),
-    }
 }
 
 pub(super) fn effect(goods: Goods, lang: Lang) -> String {
@@ -184,47 +130,6 @@ pub(super) fn tier(definition: Definition, lang: Lang) -> String {
         | Family::DawnAegis
         | Family::GildedAcorn => run_effect(definition, lang),
     }
-}
-
-/// Generation-five native sentences; the redesigned shop adds localized detail rows.
-pub(super) fn run_effect(definition: Definition, lang: Lang) -> String {
-    let Some(token) = baylee_cards::tokens::tower::run::definition(definition.id()) else {
-        return String::new();
-    };
-    let mut lines = Vec::new();
-    if let Ok(stats) = domain::v2::catalog::run_attributes(&[definition]) {
-        match definition.family {
-            Family::Heartwood => {
-                lines.push(Phrase::EchoesLifeEffect.fill(lang, &[&(stats.life - 20).to_string()]));
-            }
-            Family::Satchel => lines.push(Phrase::EchoesCardsEffect.fill(
-                lang,
-                &[
-                    &(stats.cards - 7).to_string(),
-                    &(stats.maximum_hand - 7).to_string(),
-                ],
-            )),
-            Family::Compass => lines.push(
-                Phrase::EchoesMulliganEffect.fill(lang, &[&(stats.free_mulligans - 1).to_string()]),
-            ),
-            _ => {}
-        }
-    }
-    if definition.family == Family::GildedAcorn {
-        lines.push(Phrase::EchoesAcornEffect.fill(lang, &[&definition.rarity.tier().to_string()]));
-        if definition.rarity == Rarity::MythicRare {
-            lines.push(Phrase::EchoesAcornMythic.text(lang).to_owned());
-        }
-    }
-    for index in 0..token.abilities.len() {
-        if let Some(text) = baylee_cards::tokens::tower::run::ability_text(
-            token,
-            u32::try_from(index).expect("bounded native abilities"),
-        ) {
-            lines.push(text.to_owned());
-        }
-    }
-    lines.join("\n")
 }
 
 pub(super) fn command(command: &Command, ui: &Ui, lang: Lang) -> String {

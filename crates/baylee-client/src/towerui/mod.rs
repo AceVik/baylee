@@ -10,6 +10,7 @@ use crate::{
 use baylee_client_core::echoes::domain::v2::{catalog::Rarity, shop::Goods};
 use bevy::prelude::*;
 mod scenery;
+pub(crate) mod words;
 pub(crate) use scenery::{Decor, install};
 #[cfg(test)]
 mod tests;
