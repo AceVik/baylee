@@ -14,15 +14,44 @@ pub(crate) fn of(key: Option<ImageKey>) -> Option<Goods> {
     let ImageSource::Token(id) = key.source else {
         return None;
     };
-    IDENTITIES.get(usize::from(id)).copied().flatten()
+    IDENTITIES
+        .get(usize::from(id))
+        .copied()
+        .flatten()
+        .map(|identity| identity.goods)
 }
 
-static IDENTITIES: LazyLock<Box<[Option<Goods>]>> = LazyLock::new(|| {
+#[derive(Clone, Copy)]
+struct Identity {
+    goods: Goods,
+    run: bool,
+}
+
+/// Only compiled run sources belong in the drawer. A matching name is never enough.
+/// Callers inspect command-zone objects; retained artifact items stay on the table.
+pub(crate) fn run_source(object: &baylee_view::PublicObject) -> Option<Goods> {
+    if object.card.is_some() {
+        return None;
+    }
+    let identity = IDENTITIES
+        .get(usize::from(object.token?))
+        .copied()
+        .flatten()?;
+    identity.run.then_some(identity.goods)
+}
+
+pub(crate) fn auxiliary(object: &baylee_view::PublicObject) -> bool {
+    run_source(object).is_some()
+}
+
+static IDENTITIES: LazyLock<Box<[Option<Identity>]>> = LazyLock::new(|| {
     let mut identities = vec![None; tokens::ALL.len()].into_boxed_slice();
     let mut family = |family, tiers: [&baylee_cards_dsl::TokenDef; 4]| {
         for (token, rarity) in tiers.into_iter().zip(Rarity::ALL) {
-            identities[usize::from(tokens::token_id(token))] =
-                Some(Goods::Relic(Definition { family, rarity }));
+            identities[usize::from(tokens::token_id(token))] = Some(Identity {
+                goods: Goods::Relic(Definition { family, rarity }),
+                run: false,
+            });
         }
     };
     family(
@@ -60,14 +89,20 @@ static IDENTITIES: LazyLock<Box<[Option<Goods>]>> = LazyLock::new(|| {
         (&tokens::TOWER_HEALING_POTION, Potion::Healing),
         (&tokens::TOWER_MANA_POTION, Potion::Mana),
     ] {
-        identities[usize::from(tokens::token_id(token))] = Some(Goods::Potion(potion));
+        identities[usize::from(tokens::token_id(token))] = Some(Identity {
+            goods: Goods::Potion(potion),
+            run: true,
+        });
     }
     for (kind, tiers) in Family::ALL.into_iter().zip(tokens::tower::run::RUN_RELICS) {
         for (token, rarity) in tiers.into_iter().zip(Rarity::ALL) {
-            identities[usize::from(tokens::token_id(token))] = Some(Goods::Relic(Definition {
-                family: kind,
-                rarity,
-            }));
+            identities[usize::from(tokens::token_id(token))] = Some(Identity {
+                goods: Goods::Relic(Definition {
+                    family: kind,
+                    rarity,
+                }),
+                run: true,
+            });
         }
     }
     identities

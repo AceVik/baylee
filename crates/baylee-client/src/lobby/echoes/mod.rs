@@ -179,9 +179,19 @@ pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
                 | Action::GoShop
                 | Action::Read(Read::Run(_))
                 | Action::Offer(_)
-                | Action::Select(_)
                 | Action::InspectCard(_)
         ) {
+            cx.scrolled.set(List::Table, 0.0);
+            cx.scrolled.set(List::EchoesInspector, 0.0);
+        }
+        if matches!(action, Action::Select(_))
+            && cx
+                .state
+                .echoes
+                .model
+                .run()
+                .is_some_and(|run| run.shop.generator != domain::v2::generation::RUN)
+        {
             cx.scrolled.set(List::Table, 0.0);
             cx.scrolled.set(List::EchoesInspector, 0.0);
         }

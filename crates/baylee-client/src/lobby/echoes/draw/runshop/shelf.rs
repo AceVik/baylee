@@ -10,6 +10,21 @@ pub(super) fn draw(
     cohort: &api::Cohort,
 ) {
     let title = row(commands, root, kit);
+    let info = commands
+        .spawn((
+            Text::new(glyph::INFO.to_string()),
+            crate::hud::icon_tf(kit.fonts, kit.m.small),
+            TextColor(tokens::MUTED),
+            Pickable::default(),
+            ChildOf(title),
+        ))
+        .id();
+    controls::attach_tooltip(
+        commands,
+        info,
+        kit,
+        Phrase::EchoesRunShelfHint.text(lang(kit)),
+    );
     shop::toolbar(commands, title, kit, ui, run);
     let market = commands
         .spawn((
@@ -90,13 +105,6 @@ pub(super) fn draw(
             Pickable::IGNORE,
         ));
     }
-    label(
-        commands,
-        root,
-        kit,
-        Phrase::EchoesRunShelfHint.text(lang(kit)),
-        tokens::MUTED,
-    );
 }
 
 fn affinity(run: &api::Run, goods: Goods) -> Emphasis {
@@ -112,14 +120,7 @@ fn affinity(run: &api::Run, goods: Goods) -> Emphasis {
     }
 }
 
-pub(super) fn actions(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
-    let footer = row(commands, root, kit);
-    heading(
-        commands,
-        footer,
-        kit,
-        Phrase::EchoesRunWorkshop.text(lang(kit)),
-    );
+pub(super) fn actions(commands: &mut Commands, footer: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
     let spacer = crate::lobby::parts::grow(commands);
     commands.entity(footer).add_child(spacer);
     control(

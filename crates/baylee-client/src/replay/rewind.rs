@@ -136,6 +136,7 @@ impl Duel {
             tray_restore: old.tray_restore,
             browser: old.browser,
             game_menu: old.game_menu,
+            tower_inventory: old.tower_inventory,
             log_open: old.log_open,
             // The chat's door is a press this frame; the panel's being the
             // chat window is the session's, which a jump does not change.

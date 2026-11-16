@@ -223,6 +223,8 @@ fn between_questions(fired: Fired, duel: &mut Duel) {
         // A reveal stands between two questions as well, and is put away
         // first, as it is in front of one (`answer_the_question`).
         duel.reveals.dismiss();
+    } else if duel.tower_inventory {
+        duel.tower_inventory = false;
     } else if duel.game_menu {
         duel.game_menu = false;
     } else if duel.log_open && !duel.chat_panel {

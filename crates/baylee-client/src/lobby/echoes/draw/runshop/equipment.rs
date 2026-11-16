@@ -2,7 +2,13 @@
 use super::*;
 
 pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
-    heading(commands, root, kit, Phrase::EchoesEquipped.text(lang(kit)));
+    help_heading(
+        commands,
+        root,
+        kit,
+        Phrase::EchoesEquipped,
+        Phrase::EchoesRunEquipmentHint,
+    );
     let equipment = grid(commands, root, kit, 3);
     for slot in 0..6 {
         let target = Slot::Active(slot);
@@ -54,22 +60,16 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run
             .entity(cell)
             .insert(super::super::super::gestures::Destination::new(run, target));
     }
-    label(
-        commands,
-        root,
-        kit,
-        Phrase::EchoesRunEquipmentHint.text(lang(kit)),
-        tokens::MUTED,
-    );
     supplies(commands, root, kit, ui, run);
 }
 
 fn supplies(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
-    heading(
+    help_heading(
         commands,
         root,
         kit,
-        Phrase::EchoesRunPotions.text(lang(kit)),
+        Phrase::EchoesRunPotions,
+        Phrase::EchoesRunPotionsHint,
     );
     let potions = grid(commands, root, kit, 3);
     for (goods, count, action) in [
@@ -108,11 +108,4 @@ fn supplies(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api:
             matches!(goods, Goods::Mythic) && count > 0,
         );
     }
-    label(
-        commands,
-        root,
-        kit,
-        Phrase::EchoesRunPotionsHint.text(lang(kit)),
-        tokens::MUTED,
-    );
 }

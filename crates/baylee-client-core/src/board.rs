@@ -1516,6 +1516,9 @@ pub type BodyLookup = dyn Fn(&PublicObject) -> Option<Wears>;
 /// answer would be judged a copy of its own twin.
 #[derive(Clone, Copy)]
 pub struct Registry<'a> {
+    /// Public auxiliary sources drawn in a dedicated mode panel instead of a card pile.
+    /// This affects presentation only; the full view remains available for rules actions.
+    pub auxiliary: Option<&'a dyn Fn(&PublicObject) -> bool>,
     /// What the registry prints under a name: a card, a token, or nothing.
     pub named: &'a dyn Fn(&str) -> Option<Wears>,
     /// The name a registry token is printed with.
@@ -1565,6 +1568,7 @@ impl Registry<'_> {
         static TOKEN_NAME: fn(u16) -> Option<&'static str> = no_token_named;
         static UTILITY_LAND: fn(RulesFace) -> bool = no_utility_land;
         Registry {
+            auxiliary: None,
             named: &NAMED,
             token_name: &TOKEN_NAME,
             token_face: &|_| None,
@@ -1582,6 +1586,7 @@ impl Registry<'_> {
         static TOKEN_NAME: fn(u16) -> Option<&'static str> = no_token_named;
         static UTILITY_LAND: fn(RulesFace) -> bool = no_utility_land;
         Registry {
+            auxiliary: None,
             named,
             token_name: &TOKEN_NAME,
             token_face: &|_| None,
@@ -1799,7 +1804,16 @@ pub fn provenance_of(obj: &PublicObject, reg: Registry<'_>) -> Provenance {
     }
 }
 
+#[cfg(test)]
 fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
+    zone_piles_with_registry(view, player, Registry::none())
+}
+
+fn zone_piles_with_registry(
+    view: &PlayerView,
+    player: PlayerId,
+    reg: Registry<'_>,
+) -> Vec<ZonePile> {
     let i = player.get() as usize;
     let seat = view.seats.get(i);
     // The command zone is one zone drawn as two places, one per commander
@@ -1824,7 +1838,12 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
             // has no command zone to draw at all unless a dungeon or emblem
             // occupies it, and one playing a single commander has one slot
             // rather than two.
-            PileKind::Command => !commanders.is_empty() || !command_objects.is_empty(),
+            PileKind::Command => {
+                !commanders.is_empty()
+                    || command_objects
+                        .iter()
+                        .any(|object| !reg.auxiliary.is_some_and(|auxiliary| auxiliary(object)))
+            }
             PileKind::Command2 => second.is_some(),
             // And a waiting place only while something waits on it. It
             // stands in a cell nothing else uses, so its coming and going
@@ -1842,6 +1861,7 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
                         .get(i)
                         .map_or_default(Vec::as_slice)
                         .iter()
+                        .filter(|object| !reg.auxiliary.is_some_and(|auxiliary| auxiliary(object)))
                         .filter(|o| (Some(o.id) == second) == (kind == PileKind::Command2))
                         .collect()
                 });
@@ -2228,7 +2248,7 @@ fn build_pod(
         is_awaited: is_awaited(view, player),
         role,
         lanes,
-        piles: zone_piles(view, player),
+        piles: zone_piles_with_registry(view, player, reg),
         tokens: token_chips(&permanents),
         threat: threat_summary(&permanents, seat.map_or(0, |s| s.hand_count)),
     }

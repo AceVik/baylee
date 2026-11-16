@@ -240,6 +240,7 @@ fn dress(
 pub(crate) fn install(app: &mut App) {
     if !app.world().contains_resource::<AssetServer>()
         || app.get_sub_app(bevy::render::RenderApp).is_none()
+        || app.world().contains_resource::<Cache>()
     {
         return;
     }

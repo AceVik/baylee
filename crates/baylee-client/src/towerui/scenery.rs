@@ -15,7 +15,7 @@ pub(crate) enum Decor {
 struct Art([Option<Handle<Image>>; 2]);
 
 pub(crate) fn install(app: &mut App) {
-    if app.world().contains_resource::<AssetServer>() {
+    if app.world().contains_resource::<AssetServer>() && !app.world().contains_resource::<Art>() {
         app.init_resource::<Art>().add_systems(PostUpdate, dress);
     }
 }

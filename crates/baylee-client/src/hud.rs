@@ -420,6 +420,10 @@ pub struct MenuButton {
 /// What a menu button does.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum MenuAction {
+    /// Open or close this duel's independent run equipment drawer.
+    ToggleTowerItems,
+    /// Inspect the ordinary legal ability choices for an owned run source.
+    UseTowerItem(ObjectId),
     /// Set presentation order without sending an engine action.
     SortHand(crate::hand_order::HandOrder),
     /// Move the hand by a page in either direction.
@@ -1904,6 +1908,7 @@ mod hand;
 pub(crate) mod hint;
 mod ledge;
 pub(crate) mod lostbanner;
+pub(crate) mod tower;
 pub(crate) use ledge::ai_log::update_ai_log;
 pub(crate) mod hand_drawer;
 pub(crate) mod motion;

@@ -8,6 +8,16 @@ use domain::v2::{
     shop::Goods,
 };
 
+pub(crate) fn description(goods: Goods, lang: Lang) -> String {
+    match goods {
+        Goods::Relic(definition) => run_effect(definition, lang),
+        Goods::Potion(Potion::Healing) => Phrase::EchoesHealingEffect.text(lang).into(),
+        Goods::Potion(Potion::Mana) => Phrase::EchoesManaEffect.text(lang).into(),
+        Goods::Mythic => Phrase::EchoesMythicEffect.text(lang).into(),
+        Goods::Card(_) => Phrase::EchoesCardEffect.text(lang).into(),
+    }
+}
+
 pub(crate) fn card(id: baylee_core::ids::CardIndex, lang: Lang) -> String {
     baylee_cards::by_index(id).map_or_else(
         || Phrase::EchoesUnknownCard.text(lang).to_string(),

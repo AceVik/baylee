@@ -372,3 +372,23 @@ Always stop owned test processes and verify listeners close.
   `/tmp/baylee-tower-workshop-pass2-{tests,tooltips,details,formation}-20261116.log`,
   `/tmp/baylee-tower-workshop-pass2-clippy-20261116-r3.log`.
   The second rendered inspection is still pending at this commit.
+- Rendered refinement 2 (native 1440×900 and 1280×720): the quieter cabinet,
+  visible Play/Deck actions and six equipment slots improve the hierarchy.
+  Purchase and the run-owned deck editor were exercised, including main-to-side
+  movement and a replacement basic land. The small viewport still pushes the
+  bag too low; the next pass combines the status/action band and moves repeated
+  help into tooltips. Screens: `/tmp/baylee-tower-pass2-owned-glow.png`,
+  `/tmp/baylee-tower-pass2-deck.png`,
+  `/tmp/baylee-tower-pass2-1280-settled.png`. Client 48888, backend 48868 and
+  PostgreSQL 48837 exited; ports 65509 and 65457 closed. English ability copy
+  and insufficiently distinct duplicate highlighting remain open findings.
+- Table equipment drawer: shared item portraits/details, public opponent
+  equipment, owner-only potions and ordinary ability selection. Independent
+  run sources no longer cover the Commander's card pile. Three targeted tests
+  cover malicious opponent potion projections, foreign/stale activation,
+  spectator access and unchanged Commander/legacy presentation. Identity tests
+  and strict client/core Clippy passed. Logs:
+  `/tmp/baylee-tower-table-tests-20261116.log`,
+  `/tmp/baylee-tower-table-identity-20261116.log`,
+  `/tmp/baylee-tower-table-clippy-20261116-r5.log`.
+  The third rendered inspection and real table interaction are pending.

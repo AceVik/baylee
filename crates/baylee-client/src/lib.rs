@@ -923,6 +923,8 @@ pub struct Duel {
     /// away because the opponent passed priority is a menu a player cannot
     /// read.
     pub game_menu: bool,
+    /// Independent run items, public opponent equipment and private owned potions.
+    pub(crate) tower_inventory: bool,
     /// Whether the game log's panel is open (#262).
     ///
     /// The player's, like [`Self::game_menu`]: no question opens or closes

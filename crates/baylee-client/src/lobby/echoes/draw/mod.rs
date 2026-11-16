@@ -88,7 +88,10 @@ pub(in crate::lobby) fn draw(
     );
     let spacer = crate::lobby::parts::grow(commands);
     commands.entity(top).add_child(spacer);
-    let market = ui.page == Page::Shop && ui.model.run().is_some();
+    let market = ui.model.run().is_some_and(|run| {
+        ui.page == Page::Shop
+            || (run.shop.generator == domain::v2::generation::RUN && ui.page != Page::Overview)
+    });
     if market {
         landing::market_progress(commands, top, kit, ui);
     } else if ui.model.run().is_some() && ui.page != Page::Overview {
@@ -234,7 +237,7 @@ fn selected(
             runshop::draw(commands, body, kit, ui, run, cohort);
             return;
         }
-        if ui.page != Page::Shop {
+        if ui.page != Page::Shop && run.shop.generator != domain::v2::generation::RUN {
             landing::progress(commands, hero, kit, ui, run);
         }
         let tabs = row(commands, body, kit);

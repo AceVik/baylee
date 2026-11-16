@@ -18,7 +18,6 @@ pub(super) fn draw(
     run: &api::Run,
     cohort: &api::Cohort,
 ) {
-    shelf::actions(commands, root, kit, ui, run);
     let stats = row(commands, root, kit);
     if let Ok(stats_value) = domain::v2::catalog::run_attributes(&run.economy.inventory.active()) {
         for (icon, phrase, value) in [
@@ -46,6 +45,7 @@ pub(super) fn draw(
             presentation::metric(commands, stats, kit, icon, phrase.text(lang(kit)), &value);
         }
     }
+    shelf::actions(commands, stats, kit, ui, run);
     let workspace = row(commands, root, kit);
     commands
         .entity(workspace)
@@ -73,6 +73,21 @@ pub(super) fn draw(
     shelf::draw(commands, market, kit, ui, run, cohort);
     bag::draw(commands, root, kit, ui, run);
     shop::options(commands, root, kit, ui, run);
+}
+
+fn help_heading(commands: &mut Commands, root: Entity, kit: Kit, title: Phrase, help: Phrase) {
+    let band = row(commands, root, kit);
+    heading(commands, band, kit, title.text(lang(kit)));
+    let info = commands
+        .spawn((
+            Text::new(glyph::INFO.to_string()),
+            crate::hud::icon_tf(kit.fonts, kit.m.small),
+            TextColor(tokens::MUTED),
+            Pickable::default(),
+            ChildOf(band),
+        ))
+        .id();
+    controls::attach_tooltip(commands, info, kit, help.text(lang(kit)));
 }
 
 fn column(commands: &mut Commands, parent: Entity, kit: Kit, basis: f32, grow: f32) -> Entity {

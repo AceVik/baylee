@@ -3,6 +3,16 @@
 #[allow(clippy::wildcard_imports)] // the input module's shared vocabulary
 use super::*;
 
+fn sort_hand(duel: &mut Duel, order: crate::hand_order::HandOrder) {
+    duel.hand_order = order;
+    duel.hand_scroll = 0.0;
+    duel.hovered = None;
+    duel.hovered_at = None;
+    if let (Some(board), Some(view)) = (&mut duel.board, &duel.view) {
+        duel.hand_groups = order.apply(&mut board.hand, crate::shown_hand(view, duel.perspective));
+    }
+}
+
 /// *Leave the table* in the game menu (report 33): the first press arms it,
 /// the second gets up. `was_leaving` is whether it stood armed before this
 /// click, taken as [`menu_click`]'s `was_armed` is.
@@ -32,19 +42,13 @@ pub(crate) fn leave_click(duel: &mut Duel, was_leaving: bool) {
 /// when nothing happened in between.
 pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
     match action {
+        MenuAction::ToggleTowerItems | MenuAction::UseTowerItem(_) => {
+            crate::hud::tower::click(duel, action);
+        }
         MenuAction::ToggleGrantedActions
         | MenuAction::PickGranted(_)
         | MenuAction::ConfirmGranted => crate::hud::granted_click(duel, action),
-        MenuAction::SortHand(order) => {
-            duel.hand_order = order;
-            duel.hand_scroll = 0.0;
-            duel.hovered = None;
-            duel.hovered_at = None;
-            if let (Some(board), Some(view)) = (&mut duel.board, &duel.view) {
-                duel.hand_groups =
-                    order.apply(&mut board.hand, crate::shown_hand(view, duel.perspective));
-            }
-        }
+        MenuAction::SortHand(order) => sort_hand(duel, order),
         MenuAction::ScrollHand(direction) => {
             duel.hand_scroll = (duel.hand_scroll + f32::from(direction) * 480.0).max(0.0);
             duel.hovered = None;

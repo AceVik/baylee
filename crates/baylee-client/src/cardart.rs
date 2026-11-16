@@ -194,6 +194,7 @@ pub fn registry() -> Registry<'static> {
     // the board is built only through here.
     baylee_client_core::images::know_second_pictures(baylee_cards::sides::has_back_image);
     Registry {
+        auxiliary: Some(&crate::itemart::identity::auxiliary),
         named: &NAMED,
         token_name: &TOKEN_NAME,
         token_face: &crate::tokenart::matching_body,

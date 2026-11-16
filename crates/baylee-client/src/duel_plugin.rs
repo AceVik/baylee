@@ -52,6 +52,7 @@ pub struct DuelPlugin {
 /// it is drawn once at full strength before its arrival is ever applied.
 #[allow(clippy::too_many_lines)] // one registration list, which grows with every animation
 pub(super) fn add_present_systems(app: &mut App) {
+    hud::tower::install(app);
     app.init_resource::<hud::StackFold>()
         .init_resource::<hud::HandArrival>()
         .init_resource::<hud::PreviewPop>()
