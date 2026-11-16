@@ -77,7 +77,12 @@ fn metrics(commands: &mut Commands, root: Entity, kit: Kit, run: &api::Run, comp
         ),
     ] {
         if compact {
-            let badge = crate::lobby::parts::badge_with(commands, kit, icon, &value, tokens::INK);
+            let text = if caption == Phrase::EchoesGold {
+                format!("{value} {}", caption.text(lang))
+            } else {
+                value.clone()
+            };
+            let badge = crate::lobby::parts::badge_with(commands, kit, icon, &text, tokens::INK);
             commands.entity(badge).insert(Pickable::default());
             controls::attach_tooltip(
                 commands,

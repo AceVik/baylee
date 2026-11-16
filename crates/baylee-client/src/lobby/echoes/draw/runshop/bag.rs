@@ -205,4 +205,24 @@ fn selected(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api:
         Action::Sell,
         can(ui, &Command::Sell { item: item.id }),
     );
+    let destinations = row(commands, root, kit);
+    for at in 0..6 {
+        let slot = Slot::Active(at);
+        control(
+            commands,
+            destinations,
+            kit,
+            ui,
+            &words::slot(slot, lang(kit)),
+            Action::Transfer(item.id, slot),
+            item.slot != slot
+                && can(
+                    ui,
+                    &Command::Move {
+                        item: item.id,
+                        slot,
+                    },
+                ),
+        );
+    }
 }

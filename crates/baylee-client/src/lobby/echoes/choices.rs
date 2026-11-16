@@ -31,6 +31,9 @@ fn selected(
     cohort: Option<&super::api::Cohort>,
     action: Action,
 ) -> Option<Command> {
+    if edit_deck(draft, run, cohort, action) {
+        return None;
+    }
     match action {
         Action::Purchase(offer) => Some(Command::Buy {
             offer,
@@ -112,12 +115,22 @@ fn selected(
             draft.reset_deck(run);
             None
         }
-        Action::Card(card, add) => {
-            if let Some(cohort) = cohort {
-                draft.card(run, cohort, card, add);
-            }
-            None
-        }
         _ => None,
     }
+}
+
+fn edit_deck(
+    draft: &mut Draft,
+    run: &super::api::Run,
+    cohort: Option<&super::api::Cohort>,
+    action: Action,
+) -> bool {
+    let Some(cohort) = cohort else { return false };
+    match action {
+        Action::Card(card, add) => draft.card(run, cohort, card, add),
+        Action::ZoneCard(card, zone, add) => draft.card_in(run, cohort, card, zone, add),
+        Action::Commander(card) => draft.commander(run, cohort, card),
+        _ => return false,
+    }
+    true
 }

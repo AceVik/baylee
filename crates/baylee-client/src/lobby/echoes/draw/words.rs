@@ -195,7 +195,7 @@ pub(super) fn run_effect(definition: Definition, lang: Lang) -> String {
     if let Ok(stats) = domain::v2::catalog::run_attributes(&[definition]) {
         match definition.family {
             Family::Heartwood => {
-                lines.push(Phrase::EchoesLifeEffect.fill(lang, &[&(stats.life - 20).to_string()]))
+                lines.push(Phrase::EchoesLifeEffect.fill(lang, &[&(stats.life - 20).to_string()]));
             }
             Family::Satchel => lines.push(Phrase::EchoesCardsEffect.fill(
                 lang,
@@ -363,10 +363,16 @@ pub(super) const fn icon(action: Action) -> char {
     match action {
         Action::Back | Action::Cancel => glyph::ARROW_LEFT,
         Action::Refresh | Action::Retry | Action::Reroll | Action::ResetDeck => glyph::REFRESH,
-        Action::Card(_, true) | Action::Ingredient(_) | Action::Material(_) | Action::Mythic(_) => {
-            glyph::PLUS
+        Action::Card(_, true)
+        | Action::ZoneCard(_, _, true)
+        | Action::Ingredient(_)
+        | Action::Material(_)
+        | Action::Mythic(_) => glyph::PLUS,
+        Action::Card(_, false) | Action::ZoneCard(_, _, false) | Action::Sell | Action::Abandon => {
+            glyph::MINUS
         }
-        Action::Card(_, false) | Action::Sell | Action::Abandon => glyph::MINUS,
+        Action::Commander(_) => glyph::CROWN,
+        Action::ClosePreview => glyph::CLOSE,
         Action::Play(_) | Action::Resume => glyph::ARROW_RIGHT,
         Action::Accept
         | Action::Buy
@@ -379,7 +385,7 @@ pub(super) const fn icon(action: Action) -> char {
         }
         Action::Page(Page::Shop) | Action::GoShop => glyph::VIEW_GRID,
         Action::Page(Page::Equipment) | Action::Move | Action::Place(_) => glyph::GEAR,
-        Action::Page(Page::Deck) => glyph::LIBRARY,
+        Action::Page(Page::Deck) | Action::DeckZone(_) => glyph::LIBRARY,
         Action::Offer(_) | Action::Select(_) | Action::InspectCard(_) => glyph::EYE,
         Action::Pin(_) | Action::Freeze => glyph::CLOCK,
         Action::Withdraw => glyph::EYE_SLASH,
@@ -389,9 +395,15 @@ pub(super) const fn icon(action: Action) -> char {
 
 pub(super) fn selected(action: Action, ui: &Ui) -> bool {
     match action {
+        Action::DeckZone(zone) => ui.deck.zone == zone,
+        Action::Commander(card) => ui
+            .choices
+            .formation
+            .as_ref()
+            .is_some_and(|f| f.commander == card),
         Action::Page(page) => page == ui.page,
         Action::InventoryOrder(order) => order == ui.bag.order,
-        Action::InventoryGroups(grouped) => grouped == ui.bag.grouped,
+        Action::InventoryGroups(_) => ui.bag.grouped,
         Action::Offer(id) => ui.choices.offer == Some(id),
         Action::Select(id) => ui.choices.item == Some(id),
         Action::InspectCard(id) => ui.preview == Some(id),

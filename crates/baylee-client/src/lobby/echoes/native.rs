@@ -176,6 +176,12 @@ fn navigate(ui: &mut Ui, action: Action) -> bool {
         Action::Page(page) => ui.page = page,
         Action::GoShop => ui.page = Page::Shop,
         Action::InspectCard(card) => ui.preview = Some(card),
+        Action::ClosePreview => ui.preview = None,
+        Action::DeckZone(zone) => {
+            ui.deck.zone = zone;
+            ui.deck.page = 0;
+        }
+        Action::DeckPage(page) => ui.deck.page = page,
         Action::Tiers(family) => ui.tiers = (ui.tiers != Some(family)).then_some(family),
         Action::InventoryPage(page) => ui.bag.page = page,
         Action::InventoryOrder(order) => {

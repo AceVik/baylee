@@ -59,6 +59,15 @@ pub(crate) enum Action {
     Mythic(u8),
     Abandon,
     Card(baylee_core::ids::CardIndex, bool),
+    ZoneCard(
+        baylee_core::ids::CardIndex,
+        baylee_client_core::echoes::draft::DeckZone,
+        bool,
+    ),
+    Commander(baylee_core::ids::CardIndex),
+    DeckZone(baylee_client_core::echoes::draft::DeckZone),
+    DeckPage(usize),
+    ClosePreview,
     InspectCard(baylee_core::ids::CardIndex),
     Tiers(domain::v2::catalog::Family),
     SaveDeck,
@@ -91,6 +100,12 @@ struct Bag {
 }
 
 #[derive(Default)]
+struct Deck {
+    zone: baylee_client_core::echoes::draft::DeckZone,
+    page: usize,
+}
+
+#[derive(Default)]
 pub(crate) struct Ui {
     model: State,
     pub(super) opened: bool,
@@ -98,6 +113,7 @@ pub(crate) struct Ui {
     pub(super) confirmation: Option<Confirmation>,
     choices: choices::Draft,
     bag: Bag,
+    deck: Deck,
     preview: Option<baylee_core::ids::CardIndex>,
     tiers: Option<domain::v2::catalog::Family>,
     reads: VecDeque<Read>,

@@ -31,23 +31,24 @@ impl Draft {
         )
     }
 
-    /// Change a run zone. Incomplete drafts are allowed; Save validates the whole formation.
-    pub fn card_in(
-        &mut self,
+    /// Whether a zone edit is available, without constructing or submitting a command.
+    #[must_use]
+    pub fn can_card_in(
+        &self,
         run: &Run,
         cohort: &Cohort,
         card: CardIndex,
         zone: DeckZone,
         add: bool,
-    ) {
+    ) -> bool {
         if self.bound != Some((run.id, run.revision)) || run.phase != Phase::Shop {
-            return;
+            return false;
         }
-        let Some(formation) = self.formation.as_mut() else {
-            return;
+        let Some(formation) = &self.formation else {
+            return false;
         };
         let Some(entry) = cohort.catalog.card(card) else {
-            return;
+            return false;
         };
         if add {
             let Some(identity) = cohort
@@ -55,7 +56,7 @@ impl Draft {
                 .card(formation.commander)
                 .and_then(|card| card.run)
             else {
-                return;
+                return false;
             };
             if entry
                 .run
@@ -69,19 +70,42 @@ impl Draft {
                             .chain(&formation.sideboard)
                             .any(|row| row.card == card)))
             {
-                return;
+                return false;
             }
         }
+        let rows = match zone {
+            DeckZone::Main => &self.deck,
+            DeckZone::Sideboard => &formation.sideboard,
+        };
+        if add {
+            let limit = if zone == DeckZone::Main { 39 } else { 5 };
+            rows.iter().map(|row| u16::from(row.copies)).sum::<u16>() < limit
+        } else {
+            rows.iter().any(|row| row.card == card)
+        }
+    }
+
+    /// Change a run zone. Incomplete drafts are allowed; Save validates the whole formation.
+    pub fn card_in(
+        &mut self,
+        run: &Run,
+        cohort: &Cohort,
+        card: CardIndex,
+        zone: DeckZone,
+        add: bool,
+    ) {
+        if !self.can_card_in(run, cohort, card, zone, add) {
+            return;
+        }
+        let Some(formation) = self.formation.as_mut() else {
+            return;
+        };
         let rows = match zone {
             DeckZone::Main => &mut self.deck,
             DeckZone::Sideboard => &mut formation.sideboard,
         };
         let at = rows.iter().position(|row| row.card == card);
         if add {
-            let limit = if zone == DeckZone::Main { 39 } else { 5 };
-            if rows.iter().map(|row| u16::from(row.copies)).sum::<u16>() >= limit {
-                return;
-            }
             if let Some(at) = at {
                 rows[at].copies += 1;
             } else {

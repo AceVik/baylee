@@ -28,9 +28,14 @@ pub(crate) const ORDER: TabOrder = TabOrder {
         "inventory-order",
         "inventory-groups",
         "move",
+        "move-slot",
         "sell",
         "fuse",
         "card-preview",
+        "close-preview",
+        "deck-zone",
+        "deck-page",
+        "commander",
         "remove",
         "add",
         "save",
@@ -92,7 +97,14 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
         ),
         Action::Page(page) => ("tabs", page_index(page)),
         Action::Offer(id) | Action::Purchase(id) => ("offers", index(ui, id, true)),
-        Action::QuickEquip(id) | Action::Transfer(id, _) => ("move", index(ui, id, false)),
+        Action::QuickEquip(id) => ("move", index(ui, id, false)),
+        Action::Transfer(_, slot) => (
+            "move-slot",
+            match slot {
+                Slot::Active(at) | Slot::Reserve(at) => usize::from(at),
+                Slot::Inventory => 6,
+            },
+        ),
         Action::Upgrade(id, _) => ("fuse", index(ui, id, false)),
         Action::InventoryPage(page) => ("inventory-page", page),
         Action::InventoryOrder(order) => (
@@ -116,17 +128,16 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
                 Slot::Inventory => 9,
             },
         ),
-        Action::Card(card, _) | Action::InspectCard(card) => (
-            match action {
-                Action::Card(_, true) => "add",
-                Action::Card(_, false) => "remove",
-                _ => "card-preview",
-            },
-            ui.model
-                .publication()
-                .and_then(|c| c.catalog.cards.iter().position(|entry| entry.card == card))
-                .unwrap_or(0),
+        Action::ClosePreview => ("close-preview", 0),
+        Action::DeckPage(page) => ("deck-page", page),
+        Action::DeckZone(zone) => (
+            "deck-zone",
+            usize::from(zone == baylee_client_core::echoes::draft::DeckZone::Sideboard),
         ),
+        Action::Card(card, _)
+        | Action::ZoneCard(card, _, _)
+        | Action::Commander(card)
+        | Action::InspectCard(card) => (card_key(action), card_index(ui, card)),
         Action::Buy => ("buy", 0),
         Action::Tiers(_) => ("tiers", 0),
         Action::Move => ("move", 0),
@@ -158,18 +169,35 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
         Action::Read(Read::Runs(before)) => ("run-page", usize::from(before.is_some())),
         Action::Read(Read::Hosts(_)) => ("hosts", 0),
         Action::Read(_) => ("cohort-page", 0),
-        Action::Starter(id, starter) => (
-            "starters",
-            ui.model
-                .cohorts()
-                .iter()
-                .position(|cohort| cohort.id == id)
-                .unwrap_or(0)
-                * 8
-                + usize::from(starter),
-        ),
+        Action::Starter(id, starter) => ("starters", starter_index(ui, id, starter)),
     };
     Stop::item(ORDER.name, key, u8::try_from(at).unwrap_or(u8::MAX))
+}
+
+fn starter_index(ui: &Ui, id: uuid::Uuid, starter: u8) -> usize {
+    ui.model
+        .cohorts()
+        .iter()
+        .position(|cohort| cohort.id == id)
+        .unwrap_or(0)
+        * 8
+        + usize::from(starter)
+}
+
+fn card_key(action: Action) -> &'static str {
+    match action {
+        Action::Card(_, true) | Action::ZoneCard(_, _, true) => "add",
+        Action::Card(_, false) | Action::ZoneCard(_, _, false) => "remove",
+        Action::Commander(_) => "commander",
+        _ => "card-preview",
+    }
+}
+
+fn card_index(ui: &Ui, card: baylee_core::ids::CardIndex) -> usize {
+    ui.model
+        .publication()
+        .and_then(|c| c.catalog.cards.iter().position(|entry| entry.card == card))
+        .unwrap_or(0)
 }
 
 const fn page_index(page: Page) -> usize {

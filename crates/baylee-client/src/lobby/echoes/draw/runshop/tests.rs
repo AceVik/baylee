@@ -124,3 +124,45 @@ fn single_purchase_click_creates_one_revision_bound_job_and_keeps_the_confirmed_
         "busy authority operation cannot duplicate"
     );
 }
+
+#[test]
+fn commander_editor_controls_move_owned_card_to_sideboard_and_save_all_zones_together() {
+    use baylee_client_core::echoes::draft::DeckZone;
+    let mut ui = opened();
+    let run = ui.model.run().unwrap().clone();
+    let cohort = ui.model.publication().unwrap().clone();
+    let spell = run
+        .cards
+        .deck
+        .iter()
+        .find(|row| !cohort.catalog.card(row.card).unwrap().basic_land)
+        .unwrap()
+        .card;
+    let basic = run
+        .cards
+        .deck
+        .iter()
+        .find(|row| cohort.catalog.card(row.card).unwrap().basic_land)
+        .unwrap()
+        .card;
+    let act = super::super::super::choices::act;
+    assert!(act(&mut ui, Action::ZoneCard(spell, DeckZone::Main, false)).is_none());
+    assert!(act(&mut ui, Action::ZoneCard(spell, DeckZone::Sideboard, true)).is_none());
+    assert!(
+        act(&mut ui, Action::SaveDeck).is_none(),
+        "38-card library cannot be saved"
+    );
+    assert!(act(&mut ui, Action::ZoneCard(basic, DeckZone::Main, true)).is_none());
+    let work = act(&mut ui, Action::SaveDeck).expect("complete legal formation");
+    assert!(
+        matches!(work.request(), Some(api::Request::Command { command: Command::Refit { deck, formation }, .. })
+        if deck.iter().map(|row| u16::from(row.copies)).sum::<u16>() == 39
+        && formation.commander == run.cards.formation.as_ref().unwrap().commander
+        && formation.sideboard.len() == 1 && formation.sideboard[0].card == spell)
+    );
+    assert_eq!(
+        ui.model.run(),
+        Some(&run),
+        "confirmed deck remains unchanged until response"
+    );
+}

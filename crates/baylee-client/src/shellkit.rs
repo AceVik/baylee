@@ -48,6 +48,7 @@ pub mod size;
 pub mod states;
 pub mod surfaces;
 pub mod tokens;
+mod tooltip;
 
 pub use metrics::{ShellMetrics, px_fixed};
 pub use role::Role;

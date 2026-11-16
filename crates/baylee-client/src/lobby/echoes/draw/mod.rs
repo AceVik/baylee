@@ -16,6 +16,7 @@ use domain::v2::{
 };
 
 mod card;
+mod completed;
 mod deck;
 mod equipment;
 mod landing;
@@ -176,6 +177,7 @@ fn body(
                 },
                 ..default()
             },
+            BackgroundColor(tokens::OPAQUE),
             Pickable::default(),
         ))
         .id();
@@ -215,6 +217,16 @@ fn selected(
             reward::draw(commands, body, kit, ui, run);
             return;
         }
+        if matches!(
+            run.phase,
+            api::Phase::Conquered
+                | api::Phase::Exhausted
+                | api::Phase::Abandoned
+                | api::Phase::Interrupted
+        ) {
+            completed::draw(commands, body, kit, ui, run);
+            return;
+        }
         if run.shop.generator == domain::v2::generation::RUN
             && ui.page == Page::Shop
             && let Some(cohort) = ui.model.publication()
@@ -231,6 +243,9 @@ fn selected(
             (Page::Equipment, Phrase::EchoesEquipment),
             (Page::Deck, Phrase::EchoesDeck),
         ] {
+            if page == Page::Equipment && run.shop.generator == domain::v2::generation::RUN {
+                continue;
+            }
             control(
                 commands,
                 tabs,

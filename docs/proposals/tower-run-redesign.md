@@ -347,3 +347,28 @@ Always stop owned test processes and verify listeners close.
   `/tmp/baylee-tower-activation-host-clippy-20261116-r4.log`.
   Real gateway settlement/frozen-stock/refill story is updated but not yet run
   against the newly built executables. Publication balance remains unmeasured.
+- The native gateway story now passes against the current Tower executable:
+  purchase, equip, frozen offers, reservation, crash recovery, verified loss,
+  five-card reward, exact one-card claim, next shop and idempotent retries.
+  One settlement, one recovery, zero quarantines; 32.05 s execution. The fixture
+  was corrected to buy into Inventory before the explicit move (generation four
+  intentionally refuses the legacy Delivery::Slot purchase). Log:
+  `/tmp/baylee-tower-run-gateway-story-20261116-r2.log`.
+- Rendered refinement 1 (native 1440×900 and 1280×720, left external monitor):
+  purchase, right-click equip and drag between equipment slots worked. The
+  measured rich tooltip fits above a bottom-row item. Found excessive backdrop
+  contrast, wrapping shop toolbar, primary actions below the viewport and an
+  oversized shelf pushing inventory down. These are failures to correct, not
+  visual acceptance. Screens: `/tmp/baylee-tower-pass1-1280.png`,
+  `/tmp/baylee-tower-pass1-tooltip.png`, `/tmp/baylee-tower-pass1-dropped.png`.
+  Client PID 46775, backend 46746 and PostgreSQL 46731 exited; their loopback
+  listeners closed. This is the first actual rendered pass, not the first five.
+- Workshop refinement implementation: quiet backdrop, shorter shelf and toolbar,
+  early Deck/Play actions, five Commander profiles, closed-run summary and all
+  zones of the run-owned deck editor. Accessible explicit equipment destinations
+  supplement drag/right-click. Thirteen affected UI cases, three tooltip cases,
+  the rich-detail idle/cleanup case and two formation cases passed. Strict
+  client/core Clippy passed. Evidence:
+  `/tmp/baylee-tower-workshop-pass2-{tests,tooltips,details,formation}-20261116.log`,
+  `/tmp/baylee-tower-workshop-pass2-clippy-20261116-r3.log`.
+  The second rendered inspection is still pending at this commit.

@@ -9,6 +9,7 @@ use baylee_tower_api::{Request, Response, Run};
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
+#[track_caller]
 fn owned(client: &TowerHttp, request: &Request) -> Run {
     let Response::Run { run } = client.exchange(request).unwrap() else {
         panic!("owned Tower run");
@@ -238,9 +239,19 @@ fn shop(client: &TowerHttp, initial: &Run) -> Run {
             revision: initial.revision,
             command: Command::Buy {
                 offer: offer.id,
-                delivery: baylee_tower::v2::shop::Delivery::Slot(
-                    baylee_tower::v2::inventory::Slot::Active(0),
-                ),
+                delivery: baylee_tower::v2::shop::Delivery::Inventory,
+            },
+        },
+    );
+    let equipped = owned(
+        client,
+        &Request::Command {
+            request: Uuid::now_v7(),
+            run: bought.id,
+            revision: bought.revision,
+            command: Command::Move {
+                item: bought.economy.inventory.relics[0].id,
+                slot: baylee_tower::v2::inventory::Slot::Active(0),
             },
         },
     );
@@ -248,8 +259,8 @@ fn shop(client: &TowerHttp, initial: &Run) -> Run {
         client,
         &Request::Command {
             request: Uuid::now_v7(),
-            run: bought.id,
-            revision: bought.revision,
+            run: equipped.id,
+            revision: equipped.revision,
             command: Command::Freeze { frozen: true },
         },
     )

@@ -56,7 +56,13 @@ pub(in crate::lobby::echoes::draw) fn toolbar(
     );
 }
 
-pub(super) fn options(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
+pub(in crate::lobby::echoes::draw) fn options(
+    commands: &mut Commands,
+    root: Entity,
+    kit: Kit,
+    ui: &Ui,
+    run: &api::Run,
+) {
     let lang = lang(kit);
     let footer = row(commands, root, kit);
     control(

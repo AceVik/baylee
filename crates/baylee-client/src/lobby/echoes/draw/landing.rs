@@ -1,9 +1,22 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 mod progress;
+mod starter;
 pub(super) use progress::{market_progress, progress};
 
 pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
+    if let Some(id) = ui.preview {
+        card::preview(commands, body, kit, id);
+        control(
+            commands,
+            body,
+            kit,
+            ui,
+            Phrase::ShellClose.text(lang(kit)),
+            Action::ClosePreview,
+            true,
+        );
+    }
     saved(commands, body, kit, ui);
     enrollment(commands, body, kit, ui);
 }
@@ -94,6 +107,19 @@ fn enrollment(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
         );
         let choices = row(commands, card, kit);
         for (index, starter) in cohort.starters.iter().enumerate() {
+            let number = u8::try_from(index).unwrap_or(0);
+            if let Some(formation) = &starter.formation {
+                starter::draw(
+                    commands,
+                    choices,
+                    kit,
+                    ui,
+                    cohort.id,
+                    number,
+                    formation.commander,
+                );
+                continue;
+            }
             let choice = tile(commands, choices, kit);
             commands
                 .entity(choice)
@@ -105,7 +131,6 @@ fn enrollment(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
                         percent(30)
                     };
                 });
-            let number = u8::try_from(index).unwrap_or(0);
             let label_text = Phrase::EchoesStarter.fill(lang, &[&(number + 1).to_string()]);
             heading(commands, choice, kit, &label_text);
             for stack in &starter.deck {

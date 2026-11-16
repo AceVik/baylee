@@ -10,23 +10,17 @@ pub(super) fn draw(
     cohort: &api::Cohort,
 ) {
     let title = row(commands, root, kit);
-    heading(
-        commands,
-        title,
-        kit,
-        Phrase::EchoesRunWorkshop.text(lang(kit)),
-    );
     shop::toolbar(commands, title, kit, ui, run);
     let market = commands
         .spawn((
             Node {
                 width: percent(100),
                 flex_direction: FlexDirection::Column,
-                padding: UiRect::axes(kit.m.px(34.0), kit.m.px(30.0)),
-                row_gap: kit.m.px(6.0),
+                padding: UiRect::axes(kit.m.px(28.0), kit.m.px(20.0)),
+                row_gap: kit.m.px(2.0),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.025, 0.016, 0.010, 0.82)),
+            BackgroundColor(Color::srgb(0.055, 0.035, 0.020)),
             ChildOf(root),
             Pickable::IGNORE,
         ))
@@ -53,7 +47,7 @@ pub(super) fn draw(
                     .entity(space)
                     .entry::<Node>()
                     .and_modify(move |mut node| {
-                        node.height = kit.m.px(132.0);
+                        node.height = kit.m.px(112.0);
                         node.justify_content = JustifyContent::Center;
                         node.align_items = AlignItems::Center;
                     });
@@ -79,7 +73,7 @@ pub(super) fn draw(
                 ui,
                 offer.goods,
                 Some(&price),
-                106.0,
+                88.0,
                 emphasis,
                 Action::Purchase(offer.id),
                 can(ui, &command),
@@ -89,7 +83,7 @@ pub(super) fn draw(
             towerui::Decor::Shelf,
             Node {
                 width: percent(100),
-                height: kit.m.px(32.0),
+                height: kit.m.px(18.0),
                 ..default()
             },
             ChildOf(market),
@@ -103,7 +97,6 @@ pub(super) fn draw(
         Phrase::EchoesRunShelfHint.text(lang(kit)),
         tokens::MUTED,
     );
-    footer(commands, root, kit, ui, run);
 }
 
 fn affinity(run: &api::Run, goods: Goods) -> Emphasis {
@@ -119,8 +112,16 @@ fn affinity(run: &api::Run, goods: Goods) -> Emphasis {
     }
 }
 
-fn footer(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
+pub(super) fn actions(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
     let footer = row(commands, root, kit);
+    heading(
+        commands,
+        footer,
+        kit,
+        Phrase::EchoesRunWorkshop.text(lang(kit)),
+    );
+    let spacer = crate::lobby::parts::grow(commands);
+    commands.entity(footer).add_child(spacer);
     control(
         commands,
         footer,

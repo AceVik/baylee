@@ -20,7 +20,7 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run
                 ui,
                 Goods::Relic(item.definition),
                 None,
-                76.0,
+                68.0,
                 Emphasis::None,
                 Action::Select(item.id),
                 true,
@@ -33,8 +33,8 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run
             let cell = commands
                 .spawn((
                     Node {
-                        width: kit.m.px(76.0),
-                        height: kit.m.px(76.0),
+                        width: kit.m.px(68.0),
+                        height: kit.m.px(68.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         border: UiRect::all(px_fixed(1.0)),
@@ -102,7 +102,7 @@ fn supplies(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api:
             ui,
             goods,
             Some(&format!("×{count}")),
-            66.0,
+            56.0,
             Emphasis::None,
             action,
             matches!(goods, Goods::Mythic) && count > 0,

@@ -18,6 +18,7 @@ pub(super) fn draw(
     run: &api::Run,
     cohort: &api::Cohort,
 ) {
+    shelf::actions(commands, root, kit, ui, run);
     let stats = row(commands, root, kit);
     if let Ok(stats_value) = domain::v2::catalog::run_attributes(&run.economy.inventory.active()) {
         for (icon, phrase, value) in [
@@ -53,11 +54,25 @@ pub(super) fn draw(
             node.align_items = AlignItems::Start;
             node.flex_wrap = FlexWrap::Wrap;
         });
-    let equipment = column(commands, workspace, kit, 260.0, 0.0);
+    let equipment = column(commands, workspace, kit, 244.0, 0.0);
+    commands
+        .entity(equipment)
+        .insert((
+            BackgroundColor(tokens::CONTROL),
+            BorderColor::all(tokens::BORDER),
+        ))
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            node.padding = UiRect::all(kit.m.px(12.0));
+            node.border = UiRect::all(px_fixed(1.0));
+            node.border_radius = BorderRadius::all(kit.m.px(12.0));
+            node.row_gap = kit.m.px(8.0);
+        });
     equipment::draw(commands, equipment, kit, ui, run);
     let market = column(commands, workspace, kit, 500.0, 1.0);
     shelf::draw(commands, market, kit, ui, run, cohort);
     bag::draw(commands, root, kit, ui, run);
+    shop::options(commands, root, kit, ui, run);
 }
 
 fn column(commands: &mut Commands, parent: Entity, kit: Kit, basis: f32, grow: f32) -> Entity {

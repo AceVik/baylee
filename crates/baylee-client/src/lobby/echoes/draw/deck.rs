@@ -1,5 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
+mod formation;
 
 pub(super) fn draw(
     commands: &mut Commands,
@@ -9,6 +10,10 @@ pub(super) fn draw(
     run: &api::Run,
     cohort: &api::Cohort,
 ) {
+    if ui.choices.formation.is_some() {
+        formation::draw(commands, root, kit, ui, run, cohort);
+        return;
+    }
     let lang = lang(kit);
     if let Some(id) = ui.preview {
         card::preview(commands, root, kit, id);

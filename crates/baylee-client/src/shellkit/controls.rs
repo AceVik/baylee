@@ -440,7 +440,7 @@ pub(crate) fn show_tooltips(
     focus: Option<Res<bevy::input_focus::InputFocus>>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     ui: Option<Res<UiScale>>,
-    mut tips: Query<(&mut Visibility, &mut Node), With<FloatingTooltip>>,
+    mut tips: Query<(&mut Visibility, &mut Node, Option<&ComputedNode>), With<FloatingTooltip>>,
 ) {
     let focused = focus
         .as_deref()
@@ -454,7 +454,7 @@ pub(crate) fn show_tooltips(
         let by_focus = (is_disabled || focus_tip) && focused == Some(owner);
         let active = (by_pick || by_hover || by_focus)
             && tooltip_owner_visible(owner, &parents, &owner_vis, &owner_nodes);
-        let Ok((mut shown, mut node)) = tips.get_mut(tip.0) else {
+        let Ok((mut shown, mut node, tip_size)) = tips.get_mut(tip.0) else {
             continue;
         };
         if !active {
@@ -477,6 +477,16 @@ pub(crate) fn show_tooltips(
         let inv = c.inverse_scale_factor();
         let center = t.translation * inv;
         let size = c.size() * inv;
+        if focus_tip {
+            super::tooltip::show_detail(
+                shown,
+                node,
+                tip_size,
+                Rect::from_center_size(center, size),
+                canvas,
+            );
+            continue;
+        }
         let box_top = center.y - size.y * 0.5;
         let box_bottom = center.y + size.y * 0.5;
         let box_left = center.x - size.x * 0.5;

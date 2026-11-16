@@ -3495,6 +3495,21 @@ MultikickerHowOften = Multikicker { $cost }: pay it how many times? ({ $min }–
 # The buyback question. $price is the whole cost, one or more of the
 # price phrases below joined by commas.
 EchoesRunWorkshop = The Wayfarer's Workshop
+# Arguments: library, sideboard
+EchoesRunDeckCount = Library { $library } / 39 · Commander 1 · Sideboard { $sideboard } / 5
+EchoesRunDeckRules = 40 cards including your commander. One of each nonbasic across all zones, in your commander's colours. Your run's cards only; basic lands are unlimited.
+EchoesRunDeckInvalid = Complete the 39-card library and remove cards outside your commander's colour identity before saving.
+EchoesRunCommander = Commander
+EchoesRunLibrary = Library
+EchoesRunSideboard = Sideboard
+EchoesRunFinished = This expedition is complete. Your achievements remain; the next run starts with a fresh deck, empty inventory and starting gold.
+EchoesRunStarterFormat = 39 cards + commander · empty inventory · first shop
+EchoesRunChoose = Begin expedition
+EchoesRunEmmara = Build a token army
+EchoesRunElas = Sacrifice, drain and recover
+EchoesRunTalrand = Spells become flying allies
+EchoesRunSlimefoot = Grow, sacrifice, regrow
+EchoesRunPia = Artifacts fuel your assault
 EchoesRunEquipmentHint = Right-click to equip or store. Drag onto a slot to swap.
 EchoesRunBagEmpty = Your inventory is empty. Purchased items appear here.
 EchoesRunNewest = Newest
@@ -9826,7 +9841,7 @@ EchoesEquipment = Equipment & fusion
 EchoesRuns = Your expeditions
 EchoesNoRuns = Your first expedition awaits. Choose a starting deck below.
 EchoesNoEnrollment = No new expedition is available right now. You can continue your saved expeditions.
-EchoesStarterLead = Inspect the three starting decks. Your expedition begins only after you confirm your choice.
+EchoesStarterLead = Choose your commander and a playstyle. Every expedition starts fresh; your choice opens the first shop.
 # Arguments: number
 EchoesStarter = Starting deck { $number }
 # Arguments: number, revision
@@ -9907,7 +9922,7 @@ EchoesUnpin = Release pin
 EchoesShopRules = Eight saved offers. Pin up to two to keep them through refreshes and future shops. Each verified duel earns 12 gold, whatever its result.
 EchoesRefreshSpent = All three refreshes used
 # Arguments: price
-EchoesRefreshPrice = Refresh offers · { $price } gold
+EchoesRefreshPrice = Reroll · { $price } gold
 EchoesMythicOffer = Stage seven: choose a utility offer to replace with a Mythic Potion at its full price. Your first shop transaction closes this choice.
 # Arguments: number
 EchoesReplaceOffer = Replace offer { $number }
