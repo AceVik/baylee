@@ -509,11 +509,12 @@ Always stop owned test processes and verify listeners close.
   1280×720. Choosing Crown conqueror changes its motif/requirements. A further
   real duel and claim returned to stage 2, and changing text size/language kept
   the choices usable. Screens: `/tmp/baylee-tower-pass8-{collection-de,ascents-de,return-a,return-b,shop-a,shop-b}.png`.
-  A presentation observation remains for final review: some earlier captures
-  lacked the header title despite valid visible node geometry. Seven later
+  Some earlier captures were initially interpreted as missing the header title
+  despite valid visible node geometry. This was a visual inspection error,
+  disproved by the raw-pixel comparison recorded below. Seven later
   native captures over 24 seconds, spanning rebuild counts 154–162, each
-  contained exactly 1,137 bright title pixels; this does not establish the
-  earlier cause. Evidence: `/tmp/baylee-tower-title-probe-20261116.log` and
+  contained exactly 1,137 bright title pixels. Evidence:
+  `/tmp/baylee-tower-title-probe-20261116.log` and
   `/tmp/baylee-tower-title-probe-{0..6}.png`.
   Client 59953, backend 59923 and PostgreSQL 59907 exited; ports 54384/54341 closed.
 - Verified leaderboards: API 6 and migration 014 retain one completed personal
@@ -620,11 +621,88 @@ Always stop owned test processes and verify listeners close.
   when its refresh helper did nothing. Bevy correctly treated that borrow as a
   change. The helper is now guarded by a shared-reference due check; a targeted
   idle/change-detection regression covers shop, overview and ranking, including
-  one real scheduled worker submission. This is a plausible cause of the earlier
-  intermittent heading captures; the next rendered pass must establish the
-  corrected idle behavior and keyboard interaction. No complete-run acceptance
+  one real scheduled worker submission. The next rendered pass must establish
+  the corrected idle behavior and keyboard interaction. No complete-run acceptance
   is claimed for this interrupted pass. Client 5092, backend 5074 and PostgreSQL
   5059 exited; ports 64690/64638 closed.
   Ten focused poller/navigation/recovery regressions passed in 0.335 seconds;
   strict client dev-control/dev-reload all-target Clippy, formatting and whitespace
   checks passed (`/tmp/baylee-tower-idle-{tests,clippy}-20261116.log`).
+- Rendered refinement 12 confirmed the idle guard: a settled overview had zero
+  full-page rebuilds during a three-second sample, and actual Tab could reach
+  Refresh and the ranking lanes. Native arrows/Enter changed the ranking lane;
+  the confirmation trapped Tab between Confirm and Cancel and restored the
+  underlying page. It also exposed a separate missing modal-stack flag: global
+  navigation shortcuts could still act while Tower confirmation was visible.
+  The visible Tower confirmation now contributes to the shared modal stack.
+  Six focused modal/navigation regressions, including Digit2 suppression, passed
+  in 0.536 seconds; strict all-target client dev-control/dev-reload Clippy and
+  formatting passed (`/tmp/baylee-tower-modal-{tests,clippy}-20261116.log`).
+  The saved live shop capture includes its heading and crown. Four consecutive
+  real engine concessions each offered five distinct cards, accepted one, and
+  returned to the next shop. The fixture's bounded lifetime then expired during
+  the fifth duel; this is not complete-run acceptance. The next owned fixture
+  allows enough bounded time for the complete sequence without weakening any
+  production timeout. Client 6448, backend 6428 and PostgreSQL 6413 exited;
+  ports 50404/50352 closed. Evidence:
+  `/tmp/baylee-tower-pass12-live-shop.png`,
+  `/tmp/baylee-tower-pass12-complete-run-20261116-r4.log`.
+- Rendered refinement 13 completed a real five-defeat expedition. Every engine
+  concession was independently settled, exposed five distinct reward choices,
+  accepted one, and returned to the next shop or the terminal run. The terminal
+  run offered no next duel. A fresh enrollment then showed 18 gold, five lives,
+  stage 1, 20 starting life, seven-card hand/limit, six empty equipment slots,
+  an empty bag and zero of every potion. This confirms native run reset for
+  the visible economy; acquired-card isolation is also covered by the earlier
+  storage/domain regressions. No game outcome or production deadline was patched.
+  The first driver attempt used a 720-pixel visibility cutoff on a 900-pixel
+  window and refused an otherwise visible reward; the driver was corrected to
+  explicitly select 1280x720 and resumed the same pending reward.
+  The actual keyboard driver passed Refresh access, ranking Home/Right/Enter,
+  a modal confirmation with Digit2 blocked, Tab containment, cancellation and
+  the return to the lobby's Tower tile. Screens/logs:
+  `/tmp/baylee-tower-pass13-{duel-5-claimed,fresh-run}.png`,
+  `/tmp/baylee-tower-pass13-complete-run-20261116-r2.log`,
+  `/tmp/baylee-tower-pass13-focus-20261116.log`.
+  The separate heading observation was subsequently disproved by direct pixel
+  comparison, as recorded below. Client 8247, backend 8216 and PostgreSQL 8201 exited;
+  ports 55741/55684 closed.
+- Rendered refinements 14–22 investigated an apparent heading disappearance.
+  **This was a visual inspection error, not a reproduced renderer defect.**
+  The final negative-control check read the original PNGs directly: the
+  supposedly failing captures from passes 14 and 18, the manual cache-reset
+  capture from pass 19, and the pass-22 capture each contain 1,137 bright title
+  pixels and 941 bright inventory-heading pixels. The entire title rectangle
+  is byte-for-byte identical (zero different RGB pixels) before and after the
+  experimental cache change. There is no evidence for a broken GPU binding or
+  for benefit from invalidation. The experimental camera/cache guard, its test,
+  temporary render tracing and manual repair probe were removed before commit.
+  Evidence: `/tmp/baylee-tower-heading-negative-control-20261116.log` and the
+  PNG paths named there. The historical `missing-title` filename is misleading;
+  it is retained solely to make the correction reproducible.
+  The useful dev-control additions remain: text alpha and computed stack index,
+  read-only diagnostics without changing rendering or gameplay. The earlier
+  idle-rebuild, focus and modal defects have independent running-system and
+  native evidence; this correction does not invalidate those findings.
+  Passes 21 and 22 also completed five real concessions, verified five distinct
+  reward candidates per duel, terminal settlement and fresh enrollment; pass 13
+  had already completed the same sequence without the experimental guard.
+  No new run inherited equipment or supplies. Logs:
+  `/tmp/baylee-tower-pass{21,22}-complete-render-run-20261116.log`.
+  All owned clients/backends/PostgreSQL processes exited after their runs;
+  listener pairs 58393/58338, 62616/62561, 64530/64471, 49884/49828,
+  51959/51899, 54741/54686, 57065/57011, 58600/58546 and 61173/61118
+  were checked closed. Superseded temporary client binaries were removed.
+- Final native refinement 23 used the clean client without any experimental
+  cache guard or tracing. The authenticated showcase opened, inventory sorting
+  worked, the shop title again measured 1,137 bright pixels, and `/state`
+  reported its alpha 1.0 and stack index 10 at x=63/y=94, 184×35 pixels.
+  This is the final read-only diagnostic change; gameplay remains the version
+  covered by the complete run and keyboard acceptance in pass 13. Strict
+  client all-target Clippy with dev-control/dev-reload passed in 22.92 seconds;
+  formatting, whitespace checks and the clean native build passed. No extra
+  engine/server suite was rerun for these diagnostic fields.
+  Evidence: `/tmp/baylee-tower-final-{diagnostics-clippy,native-smoke}-20261116.log`,
+  `/tmp/baylee-tower-final-clean-client-build-20261116.log`, and
+  `/tmp/baylee-tower-final-shop.png`. Client 28312, backend 28281 and PostgreSQL
+  28248 exited; ports 63966/63908 closed.

@@ -147,6 +147,8 @@ pub(super) struct Believed<'w, 's> {
             Option<&'static Node>,
             Option<&'static ComputedUiTargetCamera>,
             Option<&'static CalculatedClip>,
+            Option<&'static bevy::ui::ComputedStackIndex>,
+            Option<&'static TextColor>,
         ),
     >,
     legal_text: Query<
@@ -684,8 +686,22 @@ fn walk_tree(
     root: Option<&str>,
     out: &mut Vec<String>,
 ) {
-    let Ok((text, _, node, place, children, pressable, role, laid, shown, style, camera, clip)) =
-        believed.shell_nodes.get(entity)
+    let Ok((
+        text,
+        _,
+        node,
+        place,
+        children,
+        pressable,
+        role,
+        laid,
+        shown,
+        style,
+        camera,
+        clip,
+        stack,
+        ink,
+    )) = believed.shell_nodes.get(entity)
     else {
         return;
     };
@@ -711,26 +727,22 @@ fn walk_tree(
         }
         row.push_str(",\"t\":");
         row.push_str(&quoted(&said));
+        if let Some(ink) = ink {
+            let _ = std::fmt::Write::write_fmt(
+                &mut row,
+                format_args!(",\"alpha\":{:.3}", ink.0.alpha()),
+            );
+        }
         // What the glyphs measure, beside the box they were given: a
         // label wider than its box spills or is cut, which the box's
         // own rect cannot show (`check.py`'s `fit`), and how many lines
         // it broke into (`lines`: one inside a control).
         if let Some(laid) = laid {
-            let extent = laid.size * scale;
-            let lines = laid
-                .glyphs
-                .iter()
-                .map(|g| g.line_index + 1)
-                .max()
-                .unwrap_or(0);
-            let _ = std::fmt::Write::write_fmt(
-                &mut row,
-                format_args!(
-                    ",\"tw\":{:.1},\"th\":{:.1},\"ln\":{lines}",
-                    extent.x, extent.y
-                ),
-            );
+            text_geometry(&mut row, laid, scale);
         }
+    }
+    if let Some(stack) = stack {
+        let _ = std::fmt::Write::write_fmt(&mut row, format_args!(",\"stack\":{}", stack.0));
     }
     if shown.is_some_and(|v| !v.get()) {
         row.push_str(",\"hid\":true");
@@ -773,6 +785,23 @@ fn walk_tree(
     for child in children.into_iter().flatten() {
         walk_tree(believed, *child, depth + 1, None, out);
     }
+}
+
+fn text_geometry(row: &mut String, laid: &bevy::text::TextLayoutInfo, scale: f32) {
+    let extent = laid.size * scale;
+    let lines = laid
+        .glyphs
+        .iter()
+        .map(|g| g.line_index + 1)
+        .max()
+        .unwrap_or(0);
+    let _ = std::fmt::Write::write_fmt(
+        row,
+        format_args!(
+            ",\"tw\":{:.1},\"th\":{:.1},\"ln\":{lines}",
+            extent.x, extent.y
+        ),
+    );
 }
 
 /// Every node of the lobby's tree, in tree order: depth, rect in logical

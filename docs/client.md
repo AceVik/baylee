@@ -11371,7 +11371,10 @@ keystroke one, a moving caret or a ticked report box zero (§10 of the shell
 design). `shell_nodes` is every node under the lobby's root in tree order —
 depth, rect in logical pixels, its text, `"i"` where it carries a `Press` —
 and nothing a behaviour-free refactor may change (no entity index, no `Press`
-spelling): two dumps of the same screen compare byte for byte. A row says
+spelling): two dumps of the same screen compare byte for byte. A row includes
+`"stack"` for its computed drawing order; text rows include `"alpha"`, so
+renderer diagnosis can distinguish invisible ink from a missing or covered node.
+A row says
 `"cx"`/`"cy"` (`"scroll"` or `"cut"`) where the node clips its children
 across or down, so a check can tell a row scrolled out of its list from a
 control cut off at the window's edge. `ui_nodes` is every other UI tree in
