@@ -136,6 +136,7 @@ impl Plugin for LobbyPlugin {
                         // as the round says on its first frame.
                         front::door::beckon,
                         front::door::animate_front_logo,
+                        front::links::animate_hyperlinks,
                     )
                         .chain()
                         .run_if(in_state(DuelPhase::Closed)),

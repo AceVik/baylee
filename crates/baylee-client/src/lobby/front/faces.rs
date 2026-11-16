@@ -718,9 +718,75 @@ fn unreachable_line(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Op
     ))
 }
 
-/// The face's primary: the blue face, as wide as the card, with Enter's
-/// cap under a pointer.
+/// Full-width primary form submit button with a leading Font Awesome icon and
+/// a stationary optical [`crate::ambience::ClickPulse`] (never changing size
+/// or position on hover or click).
+fn primary_submit_button(
+    commands: &mut Commands,
+    kit: Kit,
+    glyph: char,
+    text: &str,
+    live: Live,
+    keys: Option<&str>,
+    action: impl Bundle,
+) -> Entity {
+    let dead = matches!(live, Live::No(_));
+    let ink = if dead { tokens::DISABLED } else { tokens::INK };
+    let button = controls::wide_button(commands, kit, text, Weight::Primary, live, keys, action);
+    let icon_font = crate::hud::icon_tf(kit.fonts, kit.m.small * 0.96);
+    commands
+        .entity(button)
+        .queue_silenced(move |mut wrapper: EntityWorldMut| {
+            let face_entity = wrapper
+                .get::<Children>()
+                .and_then(|kids| kids.iter().next());
+            let Some(face_entity) = face_entity else {
+                return;
+            };
+            wrapper.world_scope(|world| {
+                if !world.entities().contains(face_entity) {
+                    return;
+                }
+                // Nest the leading glyph inside a compact slot node so visually
+                // it stands directly before the label on the button row while
+                // breadth-first label queries still inspect the primary action
+                // text first.
+                let icon_slot = world
+                    .spawn((
+                        Node {
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            flex_shrink: 0.0,
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                    ))
+                    .with_child((
+                        Text::new(glyph.to_string()),
+                        icon_font,
+                        TextColor(ink),
+                        Pickable::IGNORE,
+                    ))
+                    .id();
+                if let Ok(mut face) = world.get_entity_mut(face_entity) {
+                    face.insert_children(0, &[icon_slot]);
+                    if !dead {
+                        face.remove::<crate::ambience::FeelShadow>();
+                        if let Some(mut feel) = face.get_mut::<crate::ambience::Feel>() {
+                            feel.lift = 0.0;
+                        }
+                        face.insert(crate::ambience::ClickPulse::primary());
+                    }
+                }
+            });
+        });
+    button
+}
+
+/// The face's primary: the blue face, as wide as the card, with a fitting
+/// leading icon, Enter's cap under a pointer, and a stationary click pulse.
 fn submit(commands: &mut Commands, state: &LobbyState, kit: Kit, text: &str) -> Entity {
+    use baylee_client_core::lobby::Face;
     let lobby = &state.lobby;
     let lang = lobby.lang();
     let live = if lobby.busy() {
@@ -730,11 +796,17 @@ fn submit(commands: &mut Commands, state: &LobbyState, kit: Kit, text: &str) -> 
     } else {
         Live::Yes
     };
-    let button = controls::wide_button(
+    let glyph = match lobby.face() {
+        Face::SignIn => '\u{f2f6}',
+        Face::Create => '\u{f234}',
+        Face::Guest => '\u{f007}',
+        Face::NewPassword => '\u{f084}',
+    };
+    let button = primary_submit_button(
         commands,
         kit,
+        glyph,
         text,
-        Weight::Primary,
         live,
         Some("Enter"),
         (
@@ -825,11 +897,11 @@ pub(super) fn sign_in(
             commands.entity(card).add_child(said);
         }
         if let Some(index) = state.gateways.iter().position(|g| g == &state.gateway) {
-            let retry = controls::wide_button(
+            let retry = primary_submit_button(
                 commands,
                 kit,
+                '\u{f2f6}',
                 Phrase::SignIn.text(lang),
-                Weight::Primary,
                 Live::Yes,
                 None,
                 (

@@ -37,9 +37,11 @@
 //! motion starts or ends), and [`pose_front`] and [`fade_front`] write each
 //! frame's pose onto whatever panels stand.
 
+pub(crate) mod about;
 pub(crate) mod door;
 pub(crate) mod faces;
 pub(crate) mod keys;
+pub(crate) mod links;
 pub(crate) mod terms;
 
 use super::keyboard::choose_gateway;
@@ -1418,8 +1420,8 @@ pub(super) fn front_door(
     } else {
         // Auto margins consume spare height, but collapse to zero when the
         // form needs to scroll; `justify-content: center` would hide its top
-        // on overflow. Bottom padding shifts the centered composition slightly
-        // higher on screen.
+        // on overflow. Top padding shifts the centered composition (logo,
+        // tagline, sign-in card, and the four community pills) ~35 px lower.
         let composition = commands
             .spawn((
                 Node {
@@ -1428,13 +1430,13 @@ pub(super) fn front_door(
                     align_items: AlignItems::Center,
                     flex_shrink: 0.0,
                     row_gap: px_fixed(kit.m.gap * if full { 0.72 } else { 0.4 }),
-                    padding: UiRect::bottom(px_fixed(if in_lobby {
-                        12.0
+                    padding: if in_lobby {
+                        UiRect::bottom(px_fixed(12.0))
                     } else if full {
-                        38.0
+                        UiRect::top(px_fixed(32.0))
                     } else {
-                        8.0
-                    })),
+                        UiRect::top(px_fixed(35.0))
+                    },
                     margin: UiRect::vertical(if kit.m.frame == Frame::Compact {
                         px_fixed(0.0)
                     } else {
@@ -1547,6 +1549,8 @@ pub(crate) enum FrontPress {
     OpenWebsite,
     /// Open the GitHub releases changelog in the browser.
     OpenChangelog,
+    /// Open one of the verified HTTPS reference links in the browser.
+    OpenExternal(super::source::ExternalLink),
     /// Open the gateway's legal notice (Impressum, `/info` `impressum`) in
     /// the browser.
     OpenImpressum,
@@ -1691,6 +1695,7 @@ impl FrontPress {
             | FrontPress::OpenCentralRegister
             | FrontPress::OpenWebsite
             | FrontPress::OpenChangelog
+            | FrontPress::OpenExternal(_)
             | FrontPress::OpenImpressum) => {
                 state.community_dialog = None;
                 super::source::open(press, state);

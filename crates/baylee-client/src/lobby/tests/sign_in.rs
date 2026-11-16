@@ -2249,3 +2249,115 @@ fn front_field_prefix_icons_and_version_tag_exist_in_shipped_font_and_tint_on_fo
         "bottom Fan Content notice capitalizes Baylee"
     );
 }
+
+#[test]
+fn colophon_and_about_render_hover_underlined_hyperlinks_and_centered_full_build_footer() {
+    use super::super::front::about::full_build_line;
+    use super::super::source::ExternalLink;
+    use bevy::picking::hover::PickingInteraction;
+
+    let mut app = headless();
+    sized(&mut app, 1920.0);
+    app.update();
+
+    // 1. Bottom colophon under the Sign-In form links both Fan Content Policy and Scryfall.
+    let front_presses = presses(&mut app);
+    assert!(
+        front_presses.contains(&Press::Front(FrontPress::OpenExternal(
+            ExternalLink::FanContentPolicy
+        ))),
+        "bottom colophon must link Fan Content Policy"
+    );
+    assert!(
+        front_presses.contains(&Press::Front(FrontPress::OpenExternal(
+            ExternalLink::Scryfall
+        ))),
+        "bottom colophon must link Scryfall"
+    );
+
+    // Inline hyperlinks start NOT underlined (`UnderlineColor::NONE`) and reveal
+    // their underline only when hovered.
+    let mut inline_q = app.world_mut().query::<(
+        Entity,
+        &super::super::front::links::InlineHyperlink,
+        &UnderlineColor,
+    )>();
+    let label_spans: Vec<(Entity, Color)> = inline_q
+        .iter(app.world())
+        .map(|(e, _, ul)| (e, ul.0))
+        .collect();
+    assert!(!label_spans.is_empty(), "inline hyperlink spans exist");
+    for &(_, rest_ul) in &label_spans {
+        assert_eq!(
+            rest_ul.alpha(),
+            0.0,
+            "hyperlink must not be underlined at rest"
+        );
+    }
+    let first_span = label_spans[0].0;
+    *app.world_mut()
+        .get_mut::<PickingInteraction>(first_span)
+        .unwrap() = PickingInteraction::Hovered;
+    for _ in 0..5 {
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(std::time::Duration::from_millis(32));
+        app.update();
+    }
+    let hovered_ul = app.world().get::<UnderlineColor>(first_span).unwrap().0;
+    assert!(
+        hovered_ul.alpha() > 0.5,
+        "hovering a hyperlink must reveal its underline, got {hovered_ul:?}"
+    );
+
+    // 2. Submit button carries a leading icon and stationary ClickPulse (`lift == 0.0`).
+    let mut submit_q = app
+        .world_mut()
+        .query_filtered::<&Children, With<super::super::front::AccountSubmit>>();
+    let submit_kids: Vec<Entity> = submit_q.single(app.world()).unwrap().to_vec();
+    let submit_face = submit_kids[0];
+    assert_eq!(
+        app.world()
+            .get::<crate::ambience::Feel>(submit_face)
+            .unwrap()
+            .lift,
+        0.0,
+        "Submit button must never change size on press/hover"
+    );
+    assert!(
+        app.world()
+            .get::<crate::ambience::ClickPulse>(submit_face)
+            .is_some(),
+        "Submit button must carry stationary ClickPulse"
+    );
+
+    // 3. About dialog: top-right `×` close button, no bottom `Close` button,
+    // expanded third-party hyperlinks, and full build version at the bottom.
+    press(&mut app, Press::Front(FrontPress::About(true)));
+    let about_labels = labels(&mut app);
+    assert!(
+        about_labels.contains(&full_build_line()),
+        "About dialog must show full build identification at the bottom"
+    );
+    assert!(
+        !about_labels
+            .iter()
+            .any(|l| l == Phrase::SheetClose.text(Lang::En)),
+        "old bottom Close button footer was removed in favour of top-right ×"
+    );
+    let about_presses = presses(&mut app);
+    for expected in [
+        ExternalLink::FanContentPolicy,
+        ExternalLink::Scryfall,
+        ExternalLink::AgplLicence,
+        ExternalLink::Bevy,
+        ExternalLink::Rav1d,
+        ExternalLink::OpaqueKe,
+        ExternalLink::Vsco2,
+    ] {
+        assert!(
+            about_presses.contains(&Press::Front(FrontPress::OpenExternal(expected))),
+            "About dialog missing hyperlink for {expected:?}"
+        );
+    }
+}

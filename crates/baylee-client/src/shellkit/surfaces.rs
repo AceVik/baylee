@@ -194,7 +194,13 @@ impl<'a, C> SheetHeader<'a, C> {
 
 /// A compact `×` close button for sheet and dialog headers, wrapped in
 /// [`super::controls::hit`] so touch targets stay 44 × 44.
+///
+/// Uses a stationary optical [`crate::ambience::ClickPulse`] (`lift: 0.0`, no
+/// scale or position shift on hover or click).
 pub fn sheet_close_button(commands: &mut Commands, kit: Kit, action: impl Bundle) -> Entity {
+    let rest_bg = Color::srgba(1.0, 1.0, 1.0, 0.04);
+    let hot_bg = Color::srgba(0.12, 0.24, 0.32, 0.78);
+    let rest_rim = tokens::BORDER.with_alpha(0.65);
     let face = commands
         .spawn((
             Role::Button,
@@ -207,14 +213,21 @@ pub fn sheet_close_button(commands: &mut Commands, kit: Kit, action: impl Bundle
                 border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL)),
                 ..default()
             },
-            BackgroundColor(Color::NONE),
-            BorderColor::all(Color::NONE),
-            crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
+            BackgroundColor(rest_bg),
+            BorderColor::all(rest_rim),
+            BoxShadow::default(),
+            UiTransform::default(),
+            crate::ambience::Feel::tinting_to(rest_bg, hot_bg),
             crate::ambience::FeelBorder {
-                rest: Color::NONE,
-                hot: tokens::BORDER.with_alpha(0.75),
-                press: tokens::BORDER.with_alpha(0.55),
+                rest: rest_rim,
+                hot: tokens::ACCENT.with_alpha(0.72),
+                press: tokens::ACCENT,
             },
+            crate::ambience::ClickPulse::subtle(
+                Color::srgba(0.22, 0.52, 0.64, 0.92),
+                Color::srgb(0.74, 0.96, 1.0),
+                Color::srgba(0.30, 0.82, 0.90, 0.48),
+            ),
             Pickable::IGNORE,
         ))
         .id();
@@ -222,7 +235,7 @@ pub fn sheet_close_button(commands: &mut Commands, kit: Kit, action: impl Bundle
         .spawn((
             Text::new("\u{f00d}"),
             icon_tf(kit.fonts, kit.m.small),
-            TextColor(tokens::MUTED),
+            TextColor(tokens::INK.with_alpha(0.86)),
             Pickable::IGNORE,
         ))
         .id();
@@ -410,11 +423,15 @@ pub fn sheet_box_headed_listed<C: Bundle>(
 }
 
 fn spawn_sheet_badge(commands: &mut Commands, kit: Kit, glyph: char, accent: Color) -> Entity {
+    use bevy::ui::{ColorStop, InterpolationColorSpace, LinearGradient};
+    let top_lit = crate::ambience::blend(Color::srgba(0.14, 0.24, 0.34, 0.94), accent, 0.28);
+    let mid_core = crate::ambience::blend(Color::srgba(0.06, 0.12, 0.19, 0.90), accent, 0.16);
+    let deep_base = crate::ambience::blend(Color::srgba(0.03, 0.07, 0.12, 0.94), accent, 0.10);
     let badge = commands
         .spawn((
             Node {
-                width: kit.m.px(32.0),
-                height: kit.m.px(32.0),
+                width: kit.m.px(34.0),
+                height: kit.m.px(34.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 border: UiRect::all(px_fixed(1.0)),
@@ -422,16 +439,36 @@ fn spawn_sheet_badge(commands: &mut Commands, kit: Kit, glyph: char, accent: Col
                 flex_shrink: 0.0,
                 ..default()
             },
-            BackgroundColor(accent.with_alpha(0.14)),
-            BorderColor::all(accent.with_alpha(0.38)),
+            BackgroundColor(Color::NONE),
+            BackgroundGradient::from(
+                LinearGradient::to_bottom(vec![
+                    ColorStop::percent(top_lit, 0.0),
+                    ColorStop::percent(mid_core, 52.0),
+                    ColorStop::percent(deep_base, 100.0),
+                ])
+                .in_color_space(InterpolationColorSpace::Srgba),
+            ),
+            BorderColor {
+                top: crate::ambience::lighter(accent, 0.25).with_alpha(0.68),
+                right: accent.with_alpha(0.46),
+                bottom: accent.with_alpha(0.36),
+                left: accent.with_alpha(0.46),
+            },
+            BoxShadow(vec![ShadowStyle {
+                color: accent.with_alpha(0.28),
+                x_offset: px_fixed(0.0),
+                y_offset: px_fixed(0.0),
+                spread_radius: px_fixed(0.5),
+                blur_radius: px_fixed(12.0),
+            }]),
             Pickable::IGNORE,
         ))
         .id();
     let mark = commands
         .spawn((
             Text::new(glyph.to_string()),
-            icon_tf(kit.fonts, kit.m.small),
-            TextColor(accent),
+            icon_tf(kit.fonts, kit.m.small * 1.06),
+            TextColor(crate::ambience::lighter(accent, 0.14)),
             Pickable::IGNORE,
         ))
         .id();

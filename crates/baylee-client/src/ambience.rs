@@ -191,6 +191,57 @@ pub struct FeelBorder {
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct FeelShadow;
 
+/// Stationary optical click/press pulse for controls whose size and position
+/// must never change (`Feel::lift == 0.0`, without [`FeelShadow`]).
+///
+/// Pressing or clicking surges [`Self::energy`] to `1.0`, flaring the surface,
+/// border rim, and a centered zero-offset halo in place, then exponentially
+/// decays back to `0.0` with zero per-frame ECS mutations at rest.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct ClickPulse {
+    /// Luminous peak surface colour on press/click.
+    pub flash_bg: Color,
+    /// Luminous peak border colour on press/click.
+    pub flash_border: Color,
+    /// Centered zero-offset radial halo colour (`alpha` scaled by `energy`).
+    pub halo: Color,
+    /// Whether resting [`BoxShadow`] keeps [`crate::shellkit::surfaces::elevation_control`].
+    pub keep_elevation: bool,
+    /// Current pulse intensity in `0.0..=1.0`.
+    pub energy: f32,
+    /// Whether the control was pressed on the previous frame.
+    pub was_pressed: bool,
+}
+
+impl ClickPulse {
+    /// Stationary luminous click pulse for a primary action button.
+    #[must_use]
+    pub const fn primary() -> Self {
+        Self {
+            flash_bg: Color::srgb(0.24, 0.56, 0.78),
+            flash_border: Color::srgb(0.76, 0.95, 1.0),
+            halo: Color::srgba(0.38, 0.84, 0.98, 0.52),
+            keep_elevation: true,
+            energy: 0.0,
+            was_pressed: false,
+        }
+    }
+
+    /// Stationary luminous click pulse for a compact dialog `×` close button
+    /// or inline/chip hyperlink.
+    #[must_use]
+    pub const fn subtle(flash_bg: Color, flash_border: Color, halo: Color) -> Self {
+        Self {
+            flash_bg,
+            flash_border,
+            halo,
+            keep_elevation: false,
+            energy: 0.0,
+            was_pressed: false,
+        }
+    }
+}
+
 /// Registers the material, ships its shader inside the binary, and runs the
 /// two animations.
 ///
@@ -205,7 +256,7 @@ impl Plugin for AmbiencePlugin {
         // The button animation is arithmetic over components and runs
         // anywhere, including in the headless tests that build the lobby's
         // node tree without a renderer.
-        app.add_systems(Update, feel)
+        app.add_systems(Update, (feel, click_pulse).chain())
             .add_systems(PostUpdate, breathe.after(bevy::ui::UiSystems::Layout));
         // The surface is not: embedding a shader needs an asset server, and a
         // UI material needs a render world. A test app has neither, and
@@ -375,6 +426,166 @@ pub(crate) fn feel(
         }
         if let Some((_, mut shadow)) = shadow_opt {
             shadow.set_if_neq(crate::shellkit::surfaces::elevation_control_at(feel.warmth));
+        }
+    }
+}
+
+/// Drives stationary [`ClickPulse`] flares without touching `UiTransform`.
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+pub(crate) fn click_pulse(
+    time: Res<Time>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    clicks: Option<Res<Messages<bevy::picking::events::PointerClick>>>,
+    mut click_cursor: Local<bevy::ecs::message::MessageCursor<bevy::picking::events::PointerClick>>,
+    mut controls: Query<(
+        Entity,
+        Ref<Feel>,
+        &mut ClickPulse,
+        Option<&PickingInteraction>,
+        Option<&Pickable>,
+        Option<&ChildOf>,
+        &mut BackgroundColor,
+        Option<(&FeelBorder, &mut BorderColor)>,
+        Option<&mut BoxShadow>,
+        Option<&crate::shellkit::sheen::SheenSurface>,
+    )>,
+    held: Query<&PickingInteraction>,
+    mut sheen_materials: Option<ResMut<Assets<crate::shellkit::sheen::SheenMaterial>>>,
+) {
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    let raw_dt = time.delta_secs();
+    let dt = if raw_dt.is_finite() {
+        raw_dt.clamp(0.0, 0.1)
+    } else {
+        0.0
+    };
+    let mut clicked_entities: Vec<Entity> = Vec::new();
+    if let Some(clicks) = clicks.as_deref() {
+        for ev in click_cursor.read(clicks) {
+            if ev.button == PointerButton::Primary {
+                clicked_entities.push(ev.entity);
+            }
+        }
+    }
+    let decay = (-11.0 * dt).exp();
+    for (
+        entity,
+        feel,
+        mut pulse,
+        own,
+        pickable,
+        parent,
+        mut colour,
+        border_opt,
+        shadow_opt,
+        sheen_opt,
+    ) in &mut controls
+    {
+        let ignored = pickable.is_some_and(|p| !p.is_hoverable && !p.should_block_lower);
+        let hit_target = if ignored {
+            parent.map_or(entity, ChildOf::parent)
+        } else {
+            entity
+        };
+        let interaction = if ignored {
+            parent.and_then(|p| held.get(p.parent()).ok())
+        } else {
+            own
+        };
+        let pressed = matches!(interaction, Some(PickingInteraction::Pressed));
+        let just_clicked =
+            clicked_entities.contains(&entity) || clicked_entities.contains(&hit_target);
+        let prev_energy = pulse.energy;
+        let next_energy = if still {
+            if pressed { 1.0 } else { 0.0 }
+        } else if (pressed && !pulse.was_pressed) || just_clicked {
+            1.0
+        } else if pressed {
+            prev_energy.max(0.72)
+        } else if prev_energy > 0.0 {
+            let next = prev_energy * decay;
+            if next < 0.004 { 0.0 } else { next }
+        } else {
+            0.0
+        };
+
+        if pulse.was_pressed == pressed
+            && prev_energy == 0.0
+            && next_energy == 0.0
+            && !feel.is_changed()
+        {
+            continue;
+        }
+        if pulse.was_pressed != pressed || prev_energy.to_bits() != next_energy.to_bits() {
+            pulse.was_pressed = pressed;
+            pulse.energy = next_energy;
+        }
+        if prev_energy == 0.0 && next_energy == 0.0 {
+            continue;
+        }
+
+        paint_pulse_state(
+            &feel,
+            &pulse,
+            next_energy,
+            &mut colour,
+            border_opt,
+            shadow_opt,
+            sheen_opt,
+            sheen_materials.as_deref_mut(),
+        );
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn paint_pulse_state(
+    feel: &Feel,
+    pulse: &ClickPulse,
+    energy: f32,
+    colour: &mut Mut<BackgroundColor>,
+    border_opt: Option<(&FeelBorder, Mut<BorderColor>)>,
+    shadow_opt: Option<Mut<BoxShadow>>,
+    sheen_opt: Option<&crate::shellkit::sheen::SheenSurface>,
+    sheen_materials: Option<&mut Assets<crate::shellkit::sheen::SheenMaterial>>,
+) {
+    let hot = feel.warmth.max(0.0);
+    let resting = match feel.hot {
+        Some(target) => blend(feel.base, target, hot),
+        None => shade(feel.base, HOVER_LIFT * hot),
+    };
+    colour.set_if_neq(BackgroundColor(blend(resting, pulse.flash_bg, energy)));
+    if let Some((fb, mut border)) = border_opt {
+        let b_hover = blend(fb.rest, fb.hot, hot);
+        border.set_if_neq(BorderColor::all(blend(b_hover, pulse.flash_border, energy)));
+    }
+    if let Some(mut shadow) = shadow_opt {
+        let mut layers = if pulse.keep_elevation {
+            crate::shellkit::surfaces::elevation_control().0
+        } else {
+            Vec::new()
+        };
+        if energy > 0.002 {
+            layers.insert(
+                0,
+                ShadowStyle {
+                    color: pulse.halo.with_alpha(pulse.halo.alpha() * energy),
+                    x_offset: crate::shellkit::metrics::px_fixed(0.0),
+                    y_offset: crate::shellkit::metrics::px_fixed(0.0),
+                    spread_radius: crate::shellkit::metrics::px_fixed(1.5 * energy),
+                    blur_radius: crate::shellkit::metrics::px_fixed(14.0),
+                },
+            );
+        }
+        shadow.set_if_neq(BoxShadow(layers));
+    }
+    if let (Some(sheen), Some(materials)) = (sheen_opt, sheen_materials) {
+        let want_glow = crate::shellkit::sheen::GLOW + 0.28 * energy;
+        if materials
+            .get(&sheen.0)
+            .is_some_and(|m| (m.params.glow - want_glow).abs() > 1e-4)
+            && let Some(mut mat) = materials.get_mut(&sheen.0)
+        {
+            mat.params.glow = want_glow;
         }
     }
 }
@@ -706,6 +917,105 @@ struct Globals { time: f32 };
         assert_eq!(
             leaked, 0,
             "children queued onto a concurrently despawned parent must not leak as orphans"
+        );
+    }
+
+    #[test]
+    fn click_pulse_flashes_without_moving_size_or_position_and_settles_quietly() {
+        use std::time::Duration;
+
+        let mut app = App::new();
+        app.init_resource::<Time>()
+            .add_systems(Update, (feel, click_pulse).chain());
+        let base = Color::srgb(0.14, 0.28, 0.44);
+        let button = app
+            .world_mut()
+            .spawn((
+                Feel {
+                    lift: 0.0,
+                    ..Feel::new(base)
+                },
+                ClickPulse::primary(),
+                PickingInteraction::None,
+                BackgroundColor(base),
+                UiTransform::default(),
+                FeelBorder {
+                    rest: Color::srgb(0.30, 0.50, 0.68),
+                    hot: Color::srgb(0.45, 0.72, 0.90),
+                    press: Color::srgb(0.76, 0.95, 1.0),
+                },
+                BorderColor::all(Color::srgb(0.30, 0.50, 0.68)),
+                crate::shellkit::surfaces::elevation_control(),
+            ))
+            .id();
+
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_millis(16));
+        app.update();
+
+        // Press: colour brightens toward `flash_bg` instead of darkening, while
+        // `UiTransform` scale and translation remain strictly untouched.
+        *app.world_mut()
+            .get_mut::<PickingInteraction>(button)
+            .unwrap() = PickingInteraction::Pressed;
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_millis(16));
+        app.update();
+        let tf_pressed = *app.world().get::<UiTransform>(button).unwrap();
+        assert_eq!(tf_pressed.scale, Vec2::ONE);
+        assert_eq!(tf_pressed.translation, bevy::ui::Val2::ZERO);
+        let lit = app
+            .world()
+            .get::<BackgroundColor>(button)
+            .unwrap()
+            .0
+            .to_srgba();
+        assert!(
+            lit.blue > base.to_srgba().blue + 0.15,
+            "pulse must brighten in place, got {lit:?}"
+        );
+
+        // Release and decay back to rest: zero ECS writes once settled.
+        *app.world_mut()
+            .get_mut::<PickingInteraction>(button)
+            .unwrap() = PickingInteraction::None;
+        for _ in 0..50 {
+            app.world_mut()
+                .resource_mut::<Time>()
+                .advance_by(Duration::from_millis(16));
+            app.update();
+        }
+        assert_eq!(app.world().get::<ClickPulse>(button).unwrap().energy, 0.0);
+        assert_eq!(
+            app.world().get::<UiTransform>(button).unwrap().scale,
+            Vec2::ONE
+        );
+
+        let tick = app.world().read_change_tick();
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_millis(16));
+        app.update();
+        let now = app.world().read_change_tick();
+        let e = app.world().entity(button);
+        assert!(
+            !e.get_ref::<ClickPulse>()
+                .unwrap()
+                .last_changed()
+                .is_newer_than(tick, now)
+                && !e
+                    .get_ref::<BackgroundColor>()
+                    .unwrap()
+                    .last_changed()
+                    .is_newer_than(tick, now)
+                && !e
+                    .get_ref::<BoxShadow>()
+                    .unwrap()
+                    .last_changed()
+                    .is_newer_than(tick, now),
+            "settled ClickPulse must write zero components at rest"
         );
     }
 }

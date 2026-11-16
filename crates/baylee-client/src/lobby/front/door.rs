@@ -12,7 +12,7 @@
 
 #[allow(clippy::wildcard_imports)] // the lobby widget vocabulary
 use super::super::*;
-use super::keys::{self, ABOUT};
+use super::keys;
 use super::{FAN_CONTENT_NOTICE, FrontPress, source_address};
 use crate::shellkit::controls::{self, Kit, Live, Weight};
 use crate::shellkit::focus::{Current, Stop};
@@ -1286,33 +1286,37 @@ pub(super) fn onward_cta(
 /// code). One line at 640 px. The build stands under the text row
 /// ([`version_line`], owner 09.10.2026).
 pub(super) fn one_line(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
+    use crate::lobby::source::ExternalLink;
     let lang = state.lobby.lang();
     let table = keys::table_of(state).name;
     let row = plate(commands, kit);
-    let notice = link(
+    let notice = super::links::hyperlink(
         commands,
         kit,
+        '\u{f05a}',
         Phrase::ColophonNotice.text(lang),
-        Look::Underlined,
+        true,
         (
             Press::Front(FrontPress::About(true)),
             Stop::new(table, "notice"),
         ),
     );
-    let credit = controls::label(
+    let credit = super::links::hyperlink(
         commands,
         kit,
+        super::links::EXTERNAL_ICON,
         Phrase::ColophonScryfall.text(lang),
-        kit.m.small,
-        tokens::INK,
+        true,
+        Press::Front(FrontPress::OpenExternal(ExternalLink::Scryfall)),
     );
     // The link opens the address the gateway gave only where it passed the
     // check at the door; else it opens About, which says it as text.
-    let source = link(
+    let source = super::links::hyperlink(
         commands,
         kit,
+        '\u{f126}',
         Phrase::ColophonSource.text(lang),
-        Look::Underlined,
+        true,
         (
             Press::Front(if state.source_code.is_some() {
                 FrontPress::OpenSource
@@ -1335,10 +1339,10 @@ pub(super) fn one_line(commands: &mut Commands, state: &LobbyState, kit: Kit) ->
 
 /// The full colophon (Wide, Vast): the Fan Content notice word for word and
 /// Scryfall's credit, set as a short centred paragraph on a mist plate
-/// rather than run into one long line (owner, 09.10.2026). The build stands
-/// under the text row ([`version_line`]) and the source with its QR in the
-/// top-left corner ([`corner_tiles`]).
+/// rather than run into one long line (owner, 09.10.2026), with inline styled
+/// hyperlinks on `Fan Content Policy` and `Scryfall`.
 pub(super) fn full(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
+    use crate::lobby::source::ExternalLink;
     let lang = state.lobby.lang();
     let holder = commands
         .spawn((
@@ -1378,22 +1382,31 @@ pub(super) fn full(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ent
             glass_mist_gradient(),
             glass_mist_border(),
             surfaces::elevation_control(),
-            Pickable::IGNORE,
+            Pickable {
+                should_block_lower: false,
+                is_hoverable: true,
+            },
         ))
         .id();
-    let line = |commands: &mut Commands, text: &str| {
-        commands
-            .spawn((
-                Text::new(text),
-                crate::hud::tf(kit.fonts, kit.m.small),
-                TextColor(tokens::INK),
-                TextLayout::justify(Justify::Center),
-                Pickable::IGNORE,
-            ))
-            .id()
-    };
-    let notice = line(commands, FAN_CONTENT_NOTICE);
-    let credit = line(commands, Phrase::ScryfallCredit.text(lang));
+    let notice = super::links::prose_with_inline_links(
+        commands,
+        kit,
+        FAN_CONTENT_NOTICE,
+        &[(
+            "Fan Content Policy",
+            FrontPress::OpenExternal(ExternalLink::FanContentPolicy),
+        )],
+        Justify::Center,
+        true,
+    );
+    let credit = super::links::prose_with_inline_links(
+        commands,
+        kit,
+        Phrase::ScryfallCredit.text(lang),
+        &[("Scryfall", FrontPress::OpenExternal(ExternalLink::Scryfall))],
+        Justify::Center,
+        true,
+    );
     commands.entity(words).add_children(&[notice, credit]);
     commands.entity(holder).add_child(words);
     holder
@@ -2141,7 +2154,7 @@ pub(super) fn community_dialog(
 }
 
 /// A QR code in its thin dark frame (used in the About sheet).
-fn qr(commands: &mut Commands, code: &super::super::source::Code) -> Entity {
+pub(super) fn qr(commands: &mut Commands, code: &super::super::source::Code) -> Entity {
     let side = px_fixed(code.side as f32 * super::super::source::MODULE_PX);
     let picture = commands
         .spawn((
@@ -2204,9 +2217,7 @@ pub(super) fn tagline(commands: &mut Commands, state: &LobbyState, kit: Kit) -> 
     plate
 }
 
-#[allow(clippy::too_many_lines)] // one sheet, read top to bottom
-/// The About sheet (N4-8): every colophon sentence in full, the licence,
-/// the source as a link and a code, and the third-party licences.
+/// The About sheet (`Über Baylee`): delegates to [`super::about::about`].
 pub(crate) fn about(
     commands: &mut Commands,
     root: Entity,
@@ -2214,136 +2225,5 @@ pub(crate) fn about(
     kit: Kit,
     scrolled: &Scrolled,
 ) {
-    if !state.about_open {
-        return;
-    }
-    let lang = state.lobby.lang();
-    let at = |id: &'static str| Stop::new(ABOUT.name, id);
-    let phone = kit.m.frame == Frame::Phone;
-    let surface = surfaces::dialog(
-        commands,
-        kit,
-        kit.m.px(720.0),
-        tokens::PRIMARY_EDGE.with_alpha(0.45),
-        Press::Shared(SharedPress::PickerNothing),
-    );
-    let head = surfaces::dialog_header(
-        commands,
-        kit,
-        surfaces::SheetHeader::new(Phrase::AboutTitle.text(lang)).icon('\u{f05a}'),
-    );
-    let text = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Column,
-                flex_shrink: 1.0,
-                min_height: px_fixed(0.0),
-                padding: UiRect::all(px_fixed(kit.m.pad)),
-                row_gap: kit.m.px(10.0),
-                overflow: Overflow::scroll_y(),
-                ..default()
-            },
-            ScrollPosition(Vec2::new(0.0, scrolled.get(List::About))),
-            Scrollable(List::About),
-            Role::Scroll,
-            at("text"),
-            Pickable::default(),
-        ))
-        .id();
-    // Each paragraph as wide as the sheet's column, a definite width: at
-    // another, a long one was given the height of fewer lines than it
-    // broke into (the `fit` check, a phone at XL).
-    let para = |commands: &mut Commands, words: &str, muted: bool| {
-        let text = surfaces::prose(commands, kit, words, muted);
-        commands.entity(text).insert(Node {
-            width: Val::Percent(100.0),
-            ..default()
-        });
-        text
-    };
-    let mut body = vec![
-        para(commands, &format!("Baylee {}", baylee_build::short()), true),
-        para(commands, FAN_CONTENT_NOTICE, false),
-        para(commands, Phrase::ScryfallCredit.text(lang), false),
-        para(commands, Phrase::AboutLicence.text(lang), false),
-    ];
-    let address = Phrase::SourceCode.fill(lang, &[source_address(state)]);
-    let source = if state.source_code.is_some() {
-        link(
-            commands,
-            kit,
-            &address,
-            Look::Underlined,
-            (Press::Front(FrontPress::OpenSource), at("source")),
-        )
-    } else {
-        para(commands, &address, false)
-    };
-    body.push(source);
-    if let Some(code) = state.source_code.as_ref() {
-        body.push(qr(commands, code));
-    }
-    // The gateway operator's legal notice, where it names one: a link with
-    // the host it opens in sight.
-    if let Some((_, host)) = super::impressum_link(state) {
-        body.push(link(
-            commands,
-            kit,
-            &Phrase::ImpressumLink.fill(lang, &[&host]),
-            Look::Underlined,
-            (Press::Front(FrontPress::OpenImpressum), at("impressum")),
-        ));
-    }
-    body.push(surfaces::heading(
-        commands,
-        kit,
-        Phrase::AboutThirdParty.text(lang),
-    ));
-    for phrase in [
-        Phrase::AboutFonts,
-        Phrase::AboutIcons,
-        Phrase::AboutMana,
-        Phrase::AboutCrates,
-        Phrase::AboutPrecons,
-    ] {
-        body.push(para(commands, phrase.text(lang), false));
-    }
-    commands.entity(text).add_children(&body);
-    let text_band = crate::lobby::scrollbars::band_when_needed(commands, text, phone);
-    let close = controls::button(
-        commands,
-        kit,
-        Phrase::SheetClose.text(lang),
-        Weight::Primary,
-        Live::Yes,
-        Some("Esc"),
-        (Press::Front(FrontPress::About(false)), at("close")),
-    );
-    let foot_row = surfaces::dialog_button_row(commands, kit, &[close]);
-    let foot = commands
-        .spawn((
-            Node {
-                width: Val::Percent(100.0),
-                padding: UiRect::all(px_fixed(kit.m.pad)),
-                flex_shrink: 0.0,
-                border: UiRect::top(px_fixed(1.0)),
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.16)),
-            BorderColor::all(tokens::BORDER),
-            Pickable::IGNORE,
-        ))
-        .add_child(foot_row)
-        .id();
-    commands
-        .entity(surface)
-        .add_children(&[head, text_band, foot]);
-    let scrim = surfaces::scrim(
-        commands,
-        kit,
-        tokens::z::SHEET,
-        Press::Front(FrontPress::About(false)),
-        surface,
-    );
-    commands.entity(root).add_child(scrim);
+    super::about::about(commands, root, state, kit, scrolled);
 }
