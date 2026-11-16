@@ -10,9 +10,28 @@ pub(super) const STRINGS: usize = 24;
 /// Polyphony for the physical-modelled Acoustic Tavern Guitar.
 pub(super) const GUITAR_STRINGS: usize = 16;
 
+/// Exact first-order all-pass coefficient yielding phase delay `frac_delay` at `omega0`:
+/// solves `arg((c + e^{-j w0}) / (1 + c e^{-j w0})) = -w0 * frac_delay` in closed form.
+/// Keeping `frac_delay` in `[0.5, 1.5)` bounds `|c| <= 0.34`, avoiding Nyquist pole ringing.
+#[inline]
+fn exact_allpass_coeff(omega0: f64, frac_delay: f64) -> f32 {
+    let half_w = 0.5 * omega0;
+    let denom = (half_w * (1.0 + frac_delay)).sin();
+    if denom.abs() < 1e-12 {
+        ((1.0 - frac_delay) / (1.0 + frac_delay)) as f32
+    } else {
+        ((half_w * (1.0 - frac_delay)).sin() / denom).clamp(-0.95, 0.95) as f32
+    }
+}
+
+#[inline]
+fn pitch_hz(pitch: u8, cents: f32) -> f64 {
+    440.0 * 2.0_f64.powf((f64::from(pitch) - 69.0 + f64::from(cents) / 100.0) / 12.0)
+}
+
 /// A plucked string synthesised by Karplus–Strong: a delay line of one
-/// period, filled with a burst of filtered noise, fed back through a two-tap
-/// average. Original excitation shared by the lyre model.
+/// period, filled with a burst of filtered noise and `1/n^p` harmonics, fed back
+/// through a two-tap average and exact-phase-compensated all-pass filter.
 /// Its buffer is allocated once, with the orchestra.
 pub(super) struct Lute {
     line: Box<[f32; STRING]>,
@@ -47,7 +66,8 @@ impl Lute {
         }
     }
 
-    /// Plucks it: a burst of noise from `seed`, darkened by `bright`.
+    /// Plucks it: a DC-free burst of warm filtered noise and `1/n^p` harmonics from `seed`.
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn pluck(
         &mut self,
         pitch: u8,
@@ -56,27 +76,47 @@ impl Lute {
         bright: f32,
         decay: f32,
         seed: u32,
+        cents: f32,
     ) {
         self.decay = decay;
-        let frequency = 440.0 * 2.0_f32.powf((f32::from(pitch) - 69.0) / 12.0);
-        // N slots and a two-tap average yield N - 0.5 frames; all-pass holds the fraction.
-        let delay = (RATE as f32 / frequency + 0.5).clamp(2.0, (STRING - 1) as f32);
-        self.period = delay as usize;
-        let rest = delay - self.period as f32;
-        self.allpass = (1.0 - rest) / (1.0 + rest);
-        self.allpass_in = 0.0;
-        self.allpass_out = 0.0;
+        let frequency = pitch_hz(pitch.clamp(28, 88), cents);
+        let target_delay = (f64::from(RATE) / frequency).clamp(2.5, (STRING - 2) as f64);
+        // Two-tap average has exact linear-phase delay `period - 0.5`; choosing
+        // `period = floor(target_delay)` keeps `frac_delay` in `[0.5, 1.5)`.
+        self.period = (target_delay.floor() as usize).max(2);
+        let frac_delay = target_delay - (self.period as f64 - 0.5);
+        let omega0 = std::f64::consts::TAU / target_delay;
+        self.allpass = exact_allpass_coeff(omega0, frac_delay);
+
         let mut state = seed.wrapping_mul(0x9E37_79B9) | 1;
-        let mut low = 0.0_f32;
+        let cutoff = (1.0 - bright).clamp(0.08, 0.45);
+        let mut lp1 = 0.0_f32;
+        let mut lp2 = 0.0_f32;
+        let mut mean = 0.0_f32;
         for (i, slot) in self.line[..self.period].iter_mut().enumerate() {
             state ^= state << 13;
             state ^= state >> 17;
             state ^= state << 5;
             let noise = (state as f32 / u32::MAX as f32) * 2.0 - 1.0;
-            low += (noise - low) * (1.0 - bright);
-            *slot =
-                low * 0.28 + (std::f32::consts::TAU * i as f32 / self.period as f32).sin() * 0.34;
+            lp1 += (noise - lp1) * cutoff;
+            lp2 += (lp1 - lp2) * cutoff;
+            let phase = std::f32::consts::TAU * i as f32 / self.period as f32;
+            // Smooth 1/n^1.75 harmonic series avoids high-frequency metallic aliasing.
+            let harmonics = phase.sin() * 0.30
+                + (2.0 * phase).sin() * 0.090
+                + (3.0 * phase).sin() * 0.044
+                + (4.0 * phase).sin() * 0.026;
+            let sample = lp2 * 0.24 + harmonics;
+            *slot = sample;
+            mean += sample;
         }
+        mean /= self.period as f32;
+        for slot in &mut self.line[..self.period] {
+            *slot -= mean;
+        }
+        let last = self.line[self.period - 1];
+        self.allpass_in = last;
+        self.allpass_out = last;
         self.at = 0;
         self.age = 0;
         self.hold = (seconds * RATE as f32) as u32;
@@ -210,18 +250,17 @@ impl GuitarString {
         }
     }
 
-    fn pluck(&mut self, pitch: u8, seconds: f32, gain: [f32; 2], late: f32, seed: u32) {
+    fn pluck(&mut self, pitch: u8, seconds: f32, gain: [f32; 2], late: f32, cents: f32, seed: u32) {
         let pitch = pitch.clamp(33, 88);
         let reg = ((f32::from(pitch) - 38.0) / 44.0).clamp(0.0, 1.0);
-        let frequency = 440.0 * 2.0_f32.powf((f32::from(pitch) - 69.0) / 12.0);
-        // Symmetric 3-tap FIR centered at s1 has exact delay (period - 1) across all frequencies.
-        let target_delay = (RATE as f32 / frequency).clamp(4.0, (STRING - 2) as f32);
+        let frequency = pitch_hz(pitch, cents);
+        // Symmetric 3-tap FIR centered at s1 has exact linear-phase delay `period - 1 = int_delay`.
+        let target_delay = (f64::from(RATE) / frequency).clamp(4.0, (STRING - 2) as f64);
         let int_delay = (target_delay - 0.5).floor().max(3.0);
         self.period = (int_delay as usize) + 1;
         let rest = target_delay - int_delay;
-        self.allpass = (1.0 - rest) / (1.0 + rest);
-        self.allpass_in = 0.0;
-        self.allpass_out = 0.0;
+        let omega0 = std::f64::consts::TAU / target_delay;
+        self.allpass = exact_allpass_coeff(omega0, rest);
 
         // Wound bass strings sustain warmly with gentle damping; gut/nylon trebles sing clearly.
         self.decay = 0.9990 - 0.0014 * reg;
@@ -238,7 +277,7 @@ impl GuitarString {
         };
         let apex = ((self.period as f32 * pick_pos).round() as usize).clamp(1, self.period - 1);
         // Two-pole flesh/nail filter: soft warm thumb pad on bass, articulate finger release on treble.
-        let cutoff = 0.09 + 0.30 * reg;
+        let cutoff = 0.09 + 0.26 * reg;
         let mut state =
             seed.wrapping_mul(0x85EB_CA6B) ^ u32::from(pitch).wrapping_mul(0xC2B2_AE35) | 1;
         let mut lp1 = 0.0_f32;
@@ -251,16 +290,18 @@ impl GuitarString {
             let noise = (state as f32 / u32::MAX as f32) * 2.0 - 1.0;
             lp1 += (noise - lp1) * cutoff;
             lp2 += (lp1 - lp2) * cutoff;
-            // Plucked string displacement triangle + second-harmonic soundhole warmth.
+            // Plucked string displacement triangle + smooth 1/n^1.8 soundhole harmonics.
             let tri = if i < apex {
                 i as f32 / apex as f32
             } else {
                 (self.period - i) as f32 / (self.period - apex) as f32
             };
             let phase = std::f32::consts::TAU * i as f32 / self.period as f32;
-            let fundamental = phase.sin() * (0.34 - 0.08 * reg) + (2.0 * phase).sin() * 0.11;
-            let transient = lp2 * (0.20 + 0.16 * reg);
-            let sample = (tri - 0.5) * 0.42 + fundamental + transient;
+            let fundamental = phase.sin() * (0.34 - 0.07 * reg)
+                + (2.0 * phase).sin() * 0.10
+                + (3.0 * phase).sin() * 0.045;
+            let transient = lp2 * (0.19 + 0.14 * reg);
+            let sample = (tri - 0.5) * 0.40 + fundamental + transient;
             *slot = sample;
             mean += sample;
         }
@@ -268,6 +309,9 @@ impl GuitarString {
         for slot in &mut self.line[..self.period] {
             *slot -= mean;
         }
+        let last = self.line[self.period - 1];
+        self.allpass_in = last;
+        self.allpass_out = last;
 
         self.at = 0;
         self.age = 0;
@@ -368,7 +412,7 @@ impl TavernGuitar {
         }
     }
 
-    pub(super) fn pluck(&mut self, pitch: u8, seconds: f32, gain: [f32; 2], late: f32) {
+    pub(super) fn pluck(&mut self, pitch: u8, seconds: f32, gain: [f32; 2], late: f32, cents: f32) {
         let slot = self
             .strings
             .iter()
@@ -381,7 +425,7 @@ impl TavernGuitar {
                     .map_or(0, |(i, _)| i)
             });
         self.plucks = self.plucks.wrapping_add(1);
-        self.strings[slot].pluck(pitch, seconds, gain, late, self.plucks);
+        self.strings[slot].pluck(pitch, seconds, gain, late, cents, self.plucks);
         self.tail_frames = RATE / 2;
     }
 

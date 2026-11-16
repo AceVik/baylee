@@ -7,6 +7,9 @@ use std::sync::OnceLock;
 const SIZE: usize = 2048;
 const TONES: usize = 14;
 const VOICES: usize = 80;
+/// Symmetric +/-2.00-cent stereo ensemble detune (`2^(+/-2/1200)`), keeping chord center at 0.0c.
+const DETUNE_UP: f64 = 1.001_155_96;
+const DETUNE_DOWN: f64 = 0.998_845_38;
 
 struct Timbre {
     bright: Box<[f32]>,
@@ -47,69 +50,71 @@ fn timbre(instrument: Instrument) -> Timbre {
     let (partials, attack, decay, colour, room) = match instrument {
         Piano => (
             [
-                1.0, 0.55, 0.24, 0.18, 0.08, 0.05, 0.03, 0.02, 0.01, 0.0, 0.0, 0.0,
+                1.0, 0.52, 0.26, 0.15, 0.08, 0.045, 0.025, 0.015, 0.008, 0.0, 0.0, 0.0,
             ],
             0.004,
             0.58,
-            3.5,
+            3.6,
             0.12,
         ),
         Clav => (
             [
-                1.0, 0.70, 0.55, 0.36, 0.25, 0.18, 0.10, 0.07, 0.04, 0.03, 0.02, 0.01,
+                1.0, 0.62, 0.44, 0.30, 0.20, 0.13, 0.08, 0.05, 0.03, 0.018, 0.01, 0.005,
             ],
             0.002,
             1.3,
-            2.5,
+            2.8,
             0.08,
         ),
         Flute => (
             [
-                1.0, 0.06, 0.20, 0.02, 0.04, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0,
+                1.0, 0.08, 0.18, 0.03, 0.035, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             ],
             0.024,
             0.04,
-            1.8,
+            1.9,
             0.12,
         ),
         Guitar => (
             [
-                1.0, 0.40, 0.30, 0.14, 0.04, 0.10, 0.02, 0.015, 0.01, 0.0, 0.0, 0.0,
+                1.0, 0.40, 0.26, 0.13, 0.06, 0.04, 0.018, 0.01, 0.0, 0.0, 0.0, 0.0,
             ],
             0.003,
             1.1,
-            6.0,
+            5.8,
             0.07,
         ),
         ElectricPiano => (
             [
-                1.0, 0.10, 0.56, 0.015, 0.05, 0.0, 0.13, 0.0, 0.015, 0.0, 0.0, 0.0,
+                1.0, 0.26, 0.32, 0.12, 0.06, 0.035, 0.0, 0.018, 0.0, 0.0, 0.0, 0.0,
             ],
             0.006,
             0.72,
-            5.0,
+            4.8,
             0.09,
         ),
         AnalogLead => (
             [
-                1.0, 0.45, 0.25, 0.14, 0.08, 0.05, 0.03, 0.02, 0.014, 0.01, 0.007, 0.005,
+                1.0, 0.44, 0.24, 0.13, 0.075, 0.045, 0.026, 0.016, 0.01, 0.006, 0.0, 0.0,
             ],
             0.012,
             0.09,
-            7.0,
+            6.5,
             0.07,
         ),
         ChipLead => (
             [
-                1.0, 0.0, 0.333, 0.0, 0.20, 0.0, 0.143, 0.0, 0.111, 0.0, 0.091, 0.0,
+                1.0, 0.0, 0.31, 0.0, 0.16, 0.0, 0.09, 0.0, 0.055, 0.0, 0.032, 0.0,
             ],
             0.003,
             0.14,
-            0.0,
+            1.1,
             0.015,
         ),
         Marimba => (
-            [1.0, 0.0, 0.0, 0.50, 0.0, 0.0, 0.0, 0.0, 0.0, 0.13, 0.0, 0.0],
+            [
+                1.0, 0.0, 0.0, 0.44, 0.0, 0.0, 0.0, 0.08, 0.0, 0.04, 0.0, 0.0,
+            ],
             0.002,
             2.8,
             13.0,
@@ -117,16 +122,16 @@ fn timbre(instrument: Instrument) -> Timbre {
         ),
         Bell => (
             [
-                1.0, 0.28, 0.48, 0.0, 0.13, 0.18, 0.0, 0.08, 0.0, 0.0, 0.0, 0.0,
+                1.0, 0.30, 0.40, 0.12, 0.08, 0.11, 0.0, 0.04, 0.0, 0.0, 0.0, 0.0,
             ],
             0.004,
             0.72,
-            1.8,
+            2.0,
             0.24,
         ),
         Pad => (
             [
-                1.0, 0.16, 0.22, 0.07, 0.10, 0.03, 0.04, 0.0, 0.01, 0.0, 0.0, 0.0,
+                1.0, 0.22, 0.20, 0.09, 0.07, 0.035, 0.0, 0.015, 0.0, 0.0, 0.0, 0.0,
             ],
             0.20,
             0.012,
@@ -135,16 +140,16 @@ fn timbre(instrument: Instrument) -> Timbre {
         ),
         SynthBass => (
             [
-                1.0, 0.24, 0.12, 0.06, 0.03, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                1.0, 0.28, 0.14, 0.065, 0.03, 0.012, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             ],
             0.009,
             0.35,
-            7.0,
+            6.8,
             0.015,
         ),
         FrenchHorn => (
             [
-                1.0, 0.88, 0.72, 0.52, 0.34, 0.20, 0.12, 0.06, 0.03, 0.012, 0.0, 0.0,
+                1.0, 0.82, 0.62, 0.43, 0.27, 0.16, 0.085, 0.042, 0.018, 0.0, 0.0, 0.0,
             ],
             0.065,
             0.032,
@@ -153,29 +158,32 @@ fn timbre(instrument: Instrument) -> Timbre {
         ),
         StringPad => (
             [
-                1.0, 0.60, 0.42, 0.28, 0.20, 0.14, 0.10, 0.07, 0.045, 0.028, 0.016, 0.008,
+                1.0, 0.56, 0.37, 0.24, 0.16, 0.105, 0.068, 0.042, 0.025, 0.014, 0.007, 0.0,
             ],
             0.14,
             0.010,
-            0.75,
+            0.78,
             0.30,
         ),
         Celesta => (
             [
-                1.0, 0.18, 0.06, 0.34, 0.0, 0.14, 0.0, 0.05, 0.0, 0.02, 0.0, 0.0,
+                1.0, 0.22, 0.10, 0.26, 0.0, 0.10, 0.0, 0.035, 0.0, 0.0, 0.0, 0.0,
             ],
             0.003,
             1.45,
-            3.8,
+            3.9,
             0.26,
         ),
         _ => unreachable!("melodic synthetic palette"),
     };
     let mut body = partials;
     for (i, partial) in body.iter_mut().enumerate() {
-        if instrument != ChipLead {
-            *partial /= (i + 1) as f32;
-        }
+        let rolloff = if instrument == ChipLead {
+            1.0 + 0.35 * i as f32
+        } else {
+            (i + 1) as f32
+        };
+        *partial /= rolloff;
     }
     Timbre {
         bright: wave(&partials),
@@ -257,11 +265,18 @@ enum Source {
     Drum(&'static [f32]),
     Kettle { f0: f32 },
 }
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Articulation {
+    Direct,
+    BreathVibrato,
+    Ensemble,
+    BowedEnsemble,
+}
 struct Voice {
     source: Source,
-    chorus: bool,
-    tremolo: bool,
-    phase_two: f64,
+    articulation: Articulation,
+    phase_up: f64,
+    phase_down: f64,
     phase: f64,
     step: f64,
     age: u32,
@@ -279,6 +294,7 @@ struct Voice {
 }
 impl Voice {
     fn new(instrument: Instrument, pitch: u8, seconds: f32, gain: [f32; 2], touch: Touch) -> Self {
+        let clamped = pitch.clamp(28, 88);
         let index = instrument as usize - Instrument::Piano as usize;
         let tone = bank().tones.get(index);
         let release = if matches!(
@@ -291,22 +307,35 @@ impl Voice {
         } else {
             0.46
         };
+        let cent_ratio = if touch.cents == 0.0 {
+            1.0
+        } else {
+            2.0_f64.powf(f64::from(touch.cents) / 1200.0)
+        };
         let source = if instrument == Instrument::Timpani {
-            let f0 = 440.0 * 2.0_f32.powf((f32::from(pitch.clamp(28, 64)) - 69.0) / 12.0);
+            let f0 = 440.0
+                * 2.0_f32
+                    .powf((f32::from(pitch.clamp(28, 64)) - 69.0 + touch.cents / 100.0) / 12.0);
             Source::Kettle { f0 }
         } else {
             tone.map_or_else(|| Source::Drum(&bank().drums[index - TONES]), Source::Tone)
         };
+        // Gently soften initial upper-partial brightness above F#4 to avoid 3-5 kHz roughness.
+        let reg_colour =
+            (1.0 - f32::from(clamped.saturating_sub(66)) / 38.0 * 0.40).clamp(0.56, 1.0);
+        let articulation = match instrument {
+            Instrument::StringPad => Articulation::BowedEnsemble,
+            Instrument::Pad | Instrument::FrenchHorn => Articulation::Ensemble,
+            Instrument::Flute => Articulation::BreathVibrato,
+            _ => Articulation::Direct,
+        };
         Self {
             source,
-            chorus: matches!(
-                instrument,
-                Instrument::Pad | Instrument::StringPad | Instrument::FrenchHorn
-            ),
-            tremolo: instrument == Instrument::StringPad,
-            phase_two: SIZE as f64 * 0.17,
+            articulation,
+            phase_up: SIZE as f64 * 0.125,
+            phase_down: SIZE as f64 * 0.875,
             phase: 0.0,
-            step: bank().steps[usize::from(pitch.clamp(28, 88))],
+            step: bank().steps[usize::from(clamped)] * cent_ratio,
             age: 0,
             wait: (touch.late * RATE as f32) as u32,
             hold: (seconds * RATE as f32) as u32,
@@ -322,7 +351,7 @@ impl Voice {
             } else {
                 tone.map_or(1.0, |t| (-t.decay / RATE as f32).exp())
             },
-            colour: 1.0,
+            colour: reg_colour,
             colour_decay: tone.map_or(1.0, |t| (-t.colour_decay / RATE as f32).exp()),
             release: (-9.4 / (release * RATE as f32)).exp(),
             releasing: false,
@@ -341,6 +370,60 @@ impl Voice {
             self.releasing = true;
         }
     }
+    fn step_tone(&mut self, tone: &'static Timbre) -> [f32; 2] {
+        let t = self.age as f32 / RATE as f32;
+        let has_vibrato = matches!(
+            self.articulation,
+            Articulation::BreathVibrato | Articulation::BowedEnsemble
+        );
+        let has_chorus = matches!(
+            self.articulation,
+            Articulation::Ensemble | Articulation::BowedEnsemble
+        );
+        let vib_env = if has_vibrato {
+            ((t - 0.22) * 2.8).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let lfo = self.age as f32 * (std::f32::consts::TAU * 5.1 / RATE as f32);
+        let step = if vib_env > 0.0 {
+            self.step * (1.0 + 0.000_82 * f64::from(vib_env * lfo.sin()))
+        } else {
+            self.step
+        };
+        let body = read(&tone.body, self.phase);
+        let bright = read(&tone.bright, self.phase);
+        self.phase += step;
+        if self.phase >= SIZE as f64 {
+            self.phase -= SIZE as f64;
+        }
+        let note = body + (bright - body) * self.colour;
+        let stereo = if has_chorus {
+            // Symmetric +2c / -2c stereo ensemble around 0c locks chord centers without beating.
+            let up = read(&tone.body, self.phase_up);
+            let down = read(&tone.body, self.phase_down);
+            self.phase_up += step * DETUNE_UP;
+            if self.phase_up >= SIZE as f64 {
+                self.phase_up -= SIZE as f64;
+            }
+            self.phase_down += step * DETUNE_DOWN;
+            if self.phase_down >= SIZE as f64 {
+                self.phase_down -= SIZE as f64;
+            }
+            [
+                note * 0.68 + up * 0.21 + down * 0.11,
+                note * 0.68 + down * 0.21 + up * 0.11,
+            ]
+        } else {
+            [note, note]
+        };
+        if self.articulation == Articulation::BowedEnsemble && vib_env > 0.0 {
+            let expr = 1.0 - 0.032 * vib_env * (1.0 - lfo.cos());
+            [stereo[0] * expr, stereo[1] * expr]
+        } else {
+            stereo
+        }
+    }
     fn next(&mut self) -> Option<[f32; 2]> {
         if self.wait > 0 {
             self.wait -= 1;
@@ -349,53 +432,30 @@ impl Voice {
         if self.envelope < 0.0001 {
             return None;
         }
-        let value = match self.source {
-            Source::Tone(tone) => {
-                let body = read(&tone.body, self.phase);
-                let bright = read(&tone.bright, self.phase);
-                self.phase += self.step;
-                if self.phase >= SIZE as f64 {
-                    self.phase -= SIZE as f64;
-                }
-                let note = body + (bright - body) * self.colour;
-                let voiced = if self.chorus {
-                    // A second, very gently detuned body gives ensemble horns and strings breadth.
-                    let other = read(&tone.body, self.phase_two);
-                    self.phase_two += self.step * 1.0018;
-                    if self.phase_two >= SIZE as f64 {
-                        self.phase_two -= SIZE as f64;
-                    }
-                    note * 0.70 + other * 0.30
-                } else {
-                    note
-                };
-                if self.tremolo {
-                    let shimmer = 0.91
-                        + 0.09
-                            * (self.age as f32 * (std::f32::consts::TAU * 5.4 / RATE as f32)).sin();
-                    voiced * shimmer
-                } else {
-                    voiced
-                }
+        let stereo = match self.source {
+            Source::Tone(tone) => self.step_tone(tone),
+            Source::Drum(data) => {
+                let v = *data.get(self.age as usize)?;
+                [v, v]
             }
-            Source::Drum(data) => *data.get(self.age as usize)?,
             Source::Kettle { f0 } => {
                 let t = self.age as f32 / RATE as f32;
-                // Circular kettle membrane: brief impact tension bend + 1.504x / 1.996x modes.
-                let bend = 1.0 + 0.088 * (-t * 28.0).exp();
+                // Circular kettle membrane: brief impact tension bend + 1.504x / 2.0x modes.
+                let bend = 1.0 + 0.065 * (-t * 34.0).exp();
                 let dp = std::f64::consts::TAU * f64::from(f0 * bend) / f64::from(RATE);
                 self.phase = (self.phase + dp).rem_euclid(std::f64::consts::TAU);
-                self.phase_two = (self.phase_two + dp * 1.504).rem_euclid(std::f64::consts::TAU);
-                let head = (self.phase.sin() as f32) * 0.72
-                    + (self.phase_two.sin() as f32) * 0.22 * (-t * 5.5).exp()
-                    + ((self.phase * 1.996).sin() as f32) * 0.08 * (-t * 9.0).exp();
+                self.phase_up = (self.phase_up + dp * 1.504).rem_euclid(std::f64::consts::TAU);
+                let head = (self.phase.sin() as f32) * 0.74
+                    + (self.phase_up.sin() as f32) * 0.20 * (-t * 6.0).exp()
+                    + ((self.phase * 2.0).sin() as f32) * 0.08 * (-t * 9.0).exp();
                 let mallet =
-                    (std::f32::consts::TAU * f0 * 3.1 * t).sin() * (-t * 95.0).exp() * 0.18;
-                (head + mallet) * 0.62
+                    (std::f32::consts::TAU * f0 * 3.0 * t).sin() * (-t * 95.0).exp() * 0.16;
+                let v = (head + mallet) * 0.62;
+                [v, v]
             }
         };
         let attack = (self.age as f32 / self.attack).min(1.0);
-        let value = value * self.envelope * attack;
+        let amp = self.envelope * attack;
         self.age += 1;
         self.colour *= self.colour_decay;
         if self.age >= self.hold {
@@ -406,7 +466,10 @@ impl Voice {
         } else {
             self.decay
         };
-        Some(self.gain.map(|g| value * g))
+        Some([
+            stereo[0] * amp * self.gain[0],
+            stereo[1] * amp * self.gain[1],
+        ])
     }
 }
 /// A fixed-capacity pool; note admission and rendering never allocate.

@@ -33,6 +33,8 @@ pub(super) struct Touch {
     /// Seconds after the tick it is asked on that it begins: heterophony's
     /// breath, an ornament's place.
     pub late: f32,
+    /// Microtonal cent offset from 12-TET for pure harmonic chord sweetening.
+    pub cents: f32,
 }
 
 impl Touch {
@@ -42,6 +44,7 @@ impl Touch {
             attack: None,
             release: None,
             late: 0.0,
+            cents: 0.0,
         }
     }
     pub(super) const fn attack(mut self, seconds: f32) -> Self {
@@ -54,6 +57,10 @@ impl Touch {
     }
     pub(super) const fn late(mut self, seconds: f32) -> Self {
         self.late += seconds;
+        self
+    }
+    pub(super) const fn cents(mut self, cents: f32) -> Self {
+        self.cents = cents;
         self
     }
 }
@@ -171,8 +178,13 @@ impl Orchestra {
             self.synth
                 .note(instrument, pitch, seconds, panned(gain, touch.pan), touch);
         } else if instrument == Instrument::TavernGuitar {
-            self.guitar
-                .pluck(pitch, seconds, panned(gain * 1.65, touch.pan), touch.late);
+            self.guitar.pluck(
+                pitch,
+                seconds,
+                panned(gain * 1.65, touch.pan),
+                touch.late,
+                touch.cents,
+            );
         } else if instrument == Instrument::Lyre {
             // A free voice normally exists; deterministic stealing is a last resort.
             let slot = self
@@ -194,6 +206,7 @@ impl Orchestra {
                 0.80,
                 0.9955,
                 self.plucks,
+                touch.cents,
             );
         } else if self.voices.len() < POLYPHONY {
             self.voices.push(Voice::new(

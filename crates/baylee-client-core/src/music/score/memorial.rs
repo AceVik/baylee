@@ -29,8 +29,11 @@ const RECORD: usize = 20;
 const TITLE_STEP_FRAMES: u32 = 9_600;
 const TITLE_STEP_SECONDS: f32 = TITLE_STEP_FRAMES as f32 / RATE as f32;
 
-/// Sixteenth-note pulse for the cozy Lobby Acoustic Guitar suite: 8,400 frames (0.175 s -> 2.10 s per bar).
-const LOBBY_STEP_FRAMES: u32 = 8_400;
+/// Sixteenth-note pulse for the cozy Lobby Acoustic Guitar suite: 7,500 frames at 48 kHz
+/// (`0.15625 s` sixteenth -> `0.625 s` quarter beat [`96.0 BPM` in `3/4`, `75f @ 120fps`] ->
+/// `1.875 s` bar [`225f @ 120fps`] -> `15.000 s` exact 8-bar period [`1,800f @ 120fps`,
+/// `900f @ 60fps`, `450f @ 30fps`], zero cumulative phase drift across infinite loops).
+pub(in crate::music) const LOBBY_STEP_FRAMES: u32 = 7_500;
 const LOBBY_STEP_SECONDS: f32 = LOBBY_STEP_FRAMES as f32 / RATE as f32;
 
 pub(super) const fn contains(movement: Movement) -> bool {
@@ -39,6 +42,7 @@ pub(super) const fn contains(movement: Movement) -> bool {
 
 #[derive(Clone, Copy)]
 struct SheetBar {
+    split: u8,
     bass1: u8,
     tones1: [u8; 3],
     bass2: u8,
@@ -48,6 +52,7 @@ struct SheetBar {
 
 const fn bar_same(bass: u8, tones: [u8; 3], melody: &'static [(u8, u8, u8)]) -> SheetBar {
     SheetBar {
+        split: 12,
         bass1: bass,
         tones1: tones,
         bass2: bass,
@@ -64,6 +69,7 @@ const fn bar_split(
     melody: &'static [(u8, u8, u8)],
 ) -> SheetBar {
     SheetBar {
+        split: 6,
         bass1,
         tones1,
         bass2,
@@ -72,26 +78,67 @@ const fn bar_split(
     }
 }
 
+const fn bar_split_at(
+    split: u8,
+    bass1: u8,
+    tones1: [u8; 3],
+    bass2: u8,
+    tones2: [u8; 3],
+    melody: &'static [(u8, u8, u8)],
+) -> SheetBar {
+    SheetBar {
+        split,
+        bass1,
+        tones1,
+        bass2,
+        tones2,
+        melody,
+    }
+}
+
+/// Subtle drift-free Just-Intonation sweetening for sustained brass/pad voices in Title.
+const fn sheet_sweeten_cents(bass: u8, tones: [u8; 3], pitch: u8) -> f32 {
+    let root_pc = bass % 12;
+    let rel = (pitch + 120 - root_pc) % 12;
+    if rel == 7 {
+        return 1.5;
+    }
+    let has_maj3 = (tones[0] % 12 == (root_pc + 4) % 12)
+        || (tones[1] % 12 == (root_pc + 4) % 12)
+        || (tones[2] % 12 == (root_pc + 4) % 12);
+    let has_min3 = (tones[0] % 12 == (root_pc + 3) % 12)
+        || (tones[1] % 12 == (root_pc + 3) % 12)
+        || (tones[2] % 12 == (root_pc + 3) % 12);
+    if rel == 4 && has_maj3 {
+        -3.0
+    } else if rel == 3 && has_min3 {
+        3.0
+    } else {
+        0.0
+    }
+}
+
 /// Login Piece I: Handel *Sarabande in D minor, HWV 437* (1733 — stately 3/4 sarabande, 16 bars).
+/// Voiced with parsimonious contrary/oblique inner motion retaining common tones across chords.
 const HANDEL_SARABANDE: [SheetBar; 16] = [
     // d -> F -> Bb -> A
     bar_same(38, [50, 57, 62], &[(0, 74, 4), (4, 77, 6), (10, 69, 2)]),
-    bar_same(41, [53, 60, 65], &[(0, 72, 4), (4, 81, 6), (10, 77, 2)]),
+    bar_same(41, [53, 57, 60], &[(0, 72, 4), (4, 81, 6), (10, 77, 2)]),
     bar_same(46, [53, 58, 62], &[(0, 74, 4), (4, 82, 6), (10, 77, 2)]),
     bar_same(45, [52, 57, 61], &[(0, 76, 4), (4, 73, 6), (10, 69, 2)]),
     // d -> F -> C -> F
     bar_same(38, [50, 57, 62], &[(0, 74, 4), (4, 69, 4), (8, 65, 4)]),
-    bar_same(41, [53, 60, 65], &[(0, 69, 4), (4, 72, 6), (10, 77, 2)]),
+    bar_same(41, [53, 57, 60], &[(0, 69, 4), (4, 72, 6), (10, 77, 2)]),
     bar_same(36, [48, 55, 60], &[(0, 76, 4), (4, 79, 6), (10, 72, 2)]),
-    bar_same(41, [53, 60, 65], &[(0, 77, 8), (8, 72, 4)]),
+    bar_same(41, [53, 57, 60], &[(0, 77, 8), (8, 72, 4)]),
     // d -> g -> C -> F
     bar_same(38, [50, 57, 62], &[(0, 81, 4), (4, 77, 6), (10, 74, 2)]),
     bar_same(43, [50, 55, 58], &[(0, 79, 4), (4, 74, 6), (10, 70, 2)]),
     bar_same(36, [48, 55, 60], &[(0, 76, 4), (4, 72, 6), (10, 67, 2)]),
-    bar_same(41, [53, 60, 65], &[(0, 69, 4), (4, 77, 6), (10, 72, 2)]),
+    bar_same(41, [53, 57, 60], &[(0, 69, 4), (4, 77, 6), (10, 72, 2)]),
     // Bb -> g -> A -> d
     bar_same(46, [53, 58, 62], &[(0, 74, 4), (4, 70, 4), (8, 65, 4)]),
-    bar_same(43, [50, 55, 58], &[(0, 67, 4), (4, 74, 6), (10, 70, 2)]),
+    bar_same(43, [55, 58, 62], &[(0, 67, 4), (4, 74, 6), (10, 70, 2)]),
     bar_same(45, [52, 57, 61], &[(0, 69, 4), (4, 73, 6), (10, 76, 2)]),
     bar_same(38, [50, 57, 62], &[(0, 74, 12)]),
 ];
@@ -107,20 +154,22 @@ const DVORAK_PROMENADE_TITLE: [SheetBar; 16] = [
         [50, 57, 62],
         &[(0, 69, 3), (3, 67, 3), (6, 65, 6)],
     ),
-    bar_split(
+    bar_split_at(
+        4,
         46,
         [53, 58, 62],
-        36,
-        [48, 55, 60],
+        41,
+        [53, 57, 60],
         &[(0, 70, 4), (4, 69, 4), (8, 72, 4)],
     ),
     bar_same(36, [48, 55, 60], &[(0, 67, 12)]),
     bar_same(41, [53, 57, 60], &[(0, 69, 3), (3, 72, 3), (6, 77, 6)]),
-    bar_split(
+    bar_split_at(
+        3,
+        45,
+        [52, 57, 60],
         38,
         [50, 57, 62],
-        43,
-        [50, 55, 59],
         &[(0, 76, 3), (3, 74, 3), (6, 69, 6)],
     ),
     bar_split(
@@ -134,17 +183,18 @@ const DVORAK_PROMENADE_TITLE: [SheetBar; 16] = [
     // Mussorgsky Promenade stately modal answer, pivoting home to D minor
     bar_same(
         41,
-        [53, 60, 65],
+        [53, 57, 60],
         &[(0, 67, 3), (3, 65, 3), (6, 69, 3), (9, 72, 3)],
     ),
     bar_split(
         46,
         [53, 58, 62],
         41,
-        [53, 60, 65],
+        [53, 57, 60],
         &[(0, 77, 3), (3, 74, 3), (6, 72, 6)],
     ),
-    bar_split(
+    bar_split_at(
+        8,
         38,
         [50, 57, 62],
         36,
@@ -152,18 +202,20 @@ const DVORAK_PROMENADE_TITLE: [SheetBar; 16] = [
         &[(0, 74, 4), (4, 69, 4), (8, 72, 4)],
     ),
     bar_same(43, [50, 55, 59], &[(0, 71, 6), (6, 67, 6)]),
-    bar_split(
+    bar_split_at(
+        8,
         38,
         [50, 57, 62],
         41,
-        [53, 60, 65],
+        [53, 57, 60],
         &[(0, 69, 4), (4, 74, 4), (8, 77, 4)],
     ),
-    bar_split(
+    bar_split_at(
+        8,
         46,
         [53, 58, 62],
         43,
-        [50, 55, 58],
+        [55, 58, 62],
         &[(0, 74, 4), (4, 70, 4), (8, 67, 4)],
     ),
     bar_same(45, [52, 57, 61], &[(0, 69, 6), (6, 73, 6)]),
@@ -172,7 +224,14 @@ const DVORAK_PROMENADE_TITLE: [SheetBar; 16] = [
 
 /// Lobby Piece I: Gaspar Sanz *Españoleta* (1674 — Spanish baroque guitar air in D minor, 16 bars).
 const SANZ_ESPANOLETA: [SheetBar; 16] = [
-    bar_same(38, [50, 57, 62], &[(0, 69, 4), (4, 74, 4), (8, 73, 4)]),
+    bar_split_at(
+        8,
+        38,
+        [50, 57, 62],
+        45,
+        [52, 57, 61],
+        &[(0, 69, 4), (4, 74, 4), (8, 73, 4)],
+    ),
     bar_same(38, [50, 57, 62], &[(0, 74, 4), (4, 76, 4), (8, 77, 4)]),
     bar_split(
         36,
@@ -181,16 +240,25 @@ const SANZ_ESPANOLETA: [SheetBar; 16] = [
         [53, 57, 60],
         &[(0, 76, 6), (6, 72, 4), (10, 69, 2)],
     ),
-    bar_same(41, [53, 57, 60], &[(0, 77, 8), (8, 76, 4)]),
-    bar_split(
+    bar_split_at(
+        8,
+        41,
+        [53, 57, 60],
+        36,
+        [48, 55, 60],
+        &[(0, 77, 8), (8, 76, 4)],
+    ),
+    bar_split_at(
+        8,
         46,
         [53, 58, 62],
         43,
-        [50, 55, 58],
+        [55, 58, 62],
         &[(0, 74, 4), (4, 70, 4), (8, 67, 4)],
     ),
     bar_same(45, [52, 57, 61], &[(0, 69, 6), (6, 64, 6)]),
-    bar_split(
+    bar_split_at(
+        8,
         38,
         [50, 57, 62],
         45,
@@ -199,21 +267,24 @@ const SANZ_ESPANOLETA: [SheetBar; 16] = [
     ),
     bar_same(38, [50, 57, 62], &[(0, 74, 12)]),
     // Second period (Sanz variation in thirds and sixths)
-    bar_split(
+    bar_split_at(
+        8,
         41,
         [53, 57, 60],
         36,
         [48, 55, 60],
         &[(0, 81, 4), (4, 77, 4), (8, 76, 4)],
     ),
-    bar_split(
+    bar_split_at(
+        4,
         38,
         [50, 57, 62],
         45,
         [52, 57, 60],
         &[(0, 74, 4), (4, 72, 4), (8, 69, 4)],
     ),
-    bar_split(
+    bar_split_at(
+        8,
         46,
         [53, 58, 62],
         41,
@@ -221,21 +292,24 @@ const SANZ_ESPANOLETA: [SheetBar; 16] = [
         &[(0, 70, 4), (4, 74, 4), (8, 72, 4)],
     ),
     bar_same(36, [48, 55, 60], &[(0, 67, 8), (8, 72, 4)]),
-    bar_split(
+    bar_split_at(
+        8,
         38,
         [50, 57, 62],
         43,
         [50, 55, 58],
         &[(0, 74, 4), (4, 77, 4), (8, 70, 4)],
     ),
-    bar_split(
+    bar_split_at(
+        8,
         38,
         [50, 57, 62],
         45,
         [52, 57, 61],
         &[(0, 69, 4), (4, 65, 4), (8, 64, 4)],
     ),
-    bar_split(
+    bar_split_at(
+        8,
         43,
         [50, 55, 58],
         45,
@@ -248,7 +322,7 @@ const SANZ_ESPANOLETA: [SheetBar; 16] = [
 /// Lobby Piece II: Francisco Tárrega *Lágrima* (1891, D major) & *Adelita* (c. 1901, D minor), 16 bars.
 const TARREGA_LAGRIMA_ADELITA: [SheetBar; 16] = [
     // Bars 1–8: Warm D-major parlor guitar (*Lágrima* lyrical contour over Drop-D thumb bass)
-    bar_same(38, [50, 57, 66], &[(0, 78, 4), (4, 76, 4), (8, 74, 4)]),
+    bar_same(38, [50, 57, 62], &[(0, 78, 4), (4, 76, 4), (8, 74, 4)]),
     bar_split(
         43,
         [50, 55, 59],
@@ -256,7 +330,8 @@ const TARREGA_LAGRIMA_ADELITA: [SheetBar; 16] = [
         [50, 57, 66],
         &[(0, 71, 6), (6, 74, 6)],
     ),
-    bar_split(
+    bar_split_at(
+        4,
         43,
         [50, 55, 59],
         45,
@@ -274,7 +349,7 @@ const TARREGA_LAGRIMA_ADELITA: [SheetBar; 16] = [
     bar_same(36, [48, 55, 60], &[(0, 76, 6), (6, 72, 3), (9, 67, 3)]),
     bar_same(41, [53, 57, 60], &[(0, 69, 8), (8, 72, 4)]),
     bar_same(46, [53, 58, 62], &[(0, 74, 6), (6, 70, 3), (9, 65, 3)]),
-    bar_same(43, [50, 55, 58], &[(0, 67, 6), (6, 70, 6)]),
+    bar_same(43, [55, 58, 62], &[(0, 67, 6), (6, 70, 6)]),
     bar_same(45, [52, 57, 61], &[(0, 69, 4), (4, 73, 4), (8, 69, 4)]),
     bar_same(38, [50, 57, 62], &[(0, 62, 12)]),
 ];
@@ -294,14 +369,15 @@ const SOR_STUDY_OP35_22: [SheetBar; 16] = [
     bar_same(45, [52, 57, 61], &[(0, 76, 8), (8, 73, 4)]),
     bar_same(38, [50, 57, 62], &[(0, 74, 8), (8, 65, 4)]),
     bar_same(46, [53, 58, 62], &[(0, 70, 8), (8, 74, 4)]),
-    bar_same(43, [50, 55, 58], &[(0, 67, 8), (8, 70, 4)]),
+    bar_same(43, [55, 58, 62], &[(0, 67, 8), (8, 70, 4)]),
     bar_same(45, [52, 57, 61], &[(0, 69, 4), (4, 64, 4), (8, 69, 4)]),
     bar_same(38, [50, 57, 62], &[(0, 62, 12)]),
 ];
 
 /// Lobby Piece IV: J.S. Bach *Bourrée BWV 996* & *Prelude BWV 999* (c. 1712–1720, D minor, 16 bars).
 const BACH_BOURREE_BWV996: [SheetBar; 16] = [
-    bar_split(
+    bar_split_at(
+        9,
         38,
         [50, 57, 62],
         45,
@@ -311,11 +387,12 @@ const BACH_BOURREE_BWV996: [SheetBar; 16] = [
     bar_split(
         38,
         [50, 57, 62],
-        36,
-        [48, 55, 60],
+        45,
+        [52, 57, 60],
         &[(0, 74, 6), (6, 69, 3), (9, 72, 3)],
     ),
-    bar_split(
+    bar_split_at(
+        3,
         46,
         [53, 58, 62],
         41,
@@ -329,7 +406,8 @@ const BACH_BOURREE_BWV996: [SheetBar; 16] = [
         [52, 57, 61],
         &[(0, 67, 6), (6, 69, 6)],
     ),
-    bar_split(
+    bar_split_at(
+        3,
         38,
         [50, 57, 62],
         36,
@@ -375,10 +453,12 @@ const BACH_BOURREE_BWV996: [SheetBar; 16] = [
     ),
     bar_same(
         43,
-        [50, 55, 58],
+        [55, 58, 62],
         &[(0, 70, 3), (3, 67, 3), (6, 74, 3), (9, 70, 3)],
     ),
-    bar_same(
+    bar_split(
+        38,
+        [50, 57, 62],
         45,
         [52, 57, 61],
         &[(0, 69, 3), (3, 65, 3), (6, 64, 3), (9, 61, 3)],
@@ -431,6 +511,137 @@ pub(in crate::music) fn mark_studio_pitches(used: &mut [bool], key: fn(Instrumen
             for &(_, pitch, _) in bar.melody {
                 used[key(Instrument::Harp, pitch)] = true;
                 used[key(Instrument::Violin, pitch)] = true;
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+pub(in crate::music) fn audit_memorial_harmony() -> (usize, usize, usize, usize, f64) {
+    let mut low_violations = 0usize;
+    let mut m2_clashes = 0usize;
+    let mut maj7_clashes = 0usize;
+    let mut tritone_clashes = 0usize;
+    let mut l1_sum = 0.0_f64;
+    let mut l1_steps = 0usize;
+
+    for pieces_and_mode in [(&TITLE_PIECES[..], true), (&LOBBY_PIECES[..], false)] {
+        let (pieces, is_title) = pieces_and_mode;
+        for piece in pieces {
+            let mut prev_tones: Option<[u8; 3]> = None;
+            for rep in 0..2_usize {
+                let mut active: Vec<(f32, f32, u8)> = Vec::new();
+                for (b_idx, bar) in piece.iter().enumerate() {
+                    for tones in [bar.tones1, bar.tones2] {
+                        if let Some(prev) = prev_tones
+                            && prev != tones
+                        {
+                            let d: usize = prev
+                                .iter()
+                                .zip(tones.iter())
+                                .map(|(a, b)| usize::from(a.abs_diff(*b)))
+                                .sum();
+                            l1_sum += d as f64;
+                            l1_steps += 1;
+                        }
+                        prev_tones = Some(tones);
+                    }
+                    collect_bar_notes(&mut active, *bar, b_idx, rep, is_title);
+                    for sub in 0..12_u8 {
+                        let now = (b_idx * 12) as f32 + f32::from(sub) + 0.1;
+                        let mut sounding: Vec<u8> = active
+                            .iter()
+                            .filter(|&&(st, en, _)| st <= now && now < en)
+                            .map(|&(_, _, p)| p)
+                            .collect();
+                        sounding.sort_unstable();
+                        sounding.dedup();
+                        for i in 0..sounding.len() {
+                            for j in (i + 1)..sounding.len() {
+                                let diff = sounding[j] - sounding[i];
+                                if sounding[i] < 50 && diff < 7 {
+                                    low_violations += 1;
+                                }
+                                if diff % 12 == 1 {
+                                    m2_clashes += 1;
+                                } else if diff % 12 == 11 {
+                                    maj7_clashes += 1;
+                                } else if diff % 12 == 6 {
+                                    tritone_clashes += 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    (
+        low_violations,
+        m2_clashes,
+        maj7_clashes,
+        tritone_clashes,
+        l1_sum / l1_steps.max(1) as f64,
+    )
+}
+
+#[cfg(test)]
+fn collect_bar_notes(
+    active: &mut Vec<(f32, f32, u8)>,
+    bar: SheetBar,
+    b_idx: usize,
+    rep: usize,
+    is_title: bool,
+) {
+    let base = (b_idx * 12) as f32;
+    let has_split = bar.split < 12 && (bar.bass1 != bar.bass2 || bar.tones1 != bar.tones2);
+    let split_f = f32::from(bar.split);
+    let hold1 = if has_split { split_f - 0.2 } else { 11.6 };
+    active.push((base, base + hold1, bar.bass1));
+    active.push((base, base + hold1, bar.bass1 + 12));
+    if is_title {
+        active.push((base, base + hold1, bar.tones1[1]));
+        active.push((base, base + hold1, bar.tones1[2]));
+    } else if rep == 1 {
+        active.push((base, base + hold1, bar.tones1[1]));
+    }
+    if has_split {
+        let hold2 = (12.0 - split_f) - 0.2;
+        active.push((base + split_f, base + split_f + hold2, bar.bass2));
+        active.push((base + split_f, base + split_f + hold2, bar.bass2 + 12));
+        if is_title {
+            active.push((base + split_f, base + split_f + hold2, bar.tones2[1]));
+            active.push((base + split_f, base + split_f + hold2, bar.tones2[2]));
+        } else if rep == 1 {
+            active.push((base + split_f, base + split_f + hold2, bar.tones2[1]));
+        }
+    }
+    for sub in 0..12_u8 {
+        let first = sub < bar.split;
+        let tones = if first { bar.tones1 } else { bar.tones2 };
+        let seg_end = if first && has_split { bar.split } else { 12 };
+        let rem = (f32::from(seg_end - sub) - 0.18).max(0.5);
+        let s = base + f32::from(sub);
+        if is_title && [0, 4, 8].contains(&sub) {
+            active.push((s, s + rem.min(5.4), tones[(sub / 4) as usize]));
+        } else if !is_title && sub.is_multiple_of(2) {
+            let arp = match sub {
+                0 | 6 => tones[0],
+                2 | 8 => tones[1],
+                _ => tones[2],
+            };
+            active.push((s, s + rem.min(4.8), arp));
+            if sub == 0 || sub == 6 {
+                active.push((s, s + rem.min(5.4), tones[2]));
+            }
+        }
+        for &(onset, mp, dur) in bar.melody {
+            if onset == sub {
+                let mdur = f32::from(dur).min(rem);
+                active.push((s, s + mdur, mp));
+                if is_title {
+                    active.push((s, s + mdur, mp - 12));
+                }
             }
         }
     }
@@ -594,62 +805,62 @@ impl Performance {
         piece_idx: usize,
         bar_in_piece: usize,
     ) {
-        let tones = if sub < 6 { sheet.tones1 } else { sheet.tones2 };
-        if sub == 0 {
-            let hold = if sheet.bass1 == sheet.bass2 {
-                TITLE_STEP_SECONDS * 11.4
-            } else {
-                TITLE_STEP_SECONDS * 5.7
-            };
-            orchestra.note_with_samples(
-                Instrument::Bass,
-                sheet.bass1,
-                hold,
-                0.135,
-                Touch::at(0.0).attack(0.065).release(0.38),
-                samples,
-            );
-            orchestra.note_with_samples(
-                Instrument::Cello,
-                sheet.bass1 + 12,
-                hold,
-                0.135,
-                Touch::at(0.16).attack(0.060).release(0.36),
-                samples,
-            );
-            orchestra.note_with_samples(
-                Instrument::StringPad,
-                sheet.tones1[1],
-                TITLE_STEP_SECONDS * 11.2,
-                0.075,
-                Touch::at(-0.22),
-                samples,
-            );
-            orchestra.note_with_samples(
-                Instrument::Viola,
-                sheet.tones1[2],
-                TITLE_STEP_SECONDS * 10.6,
-                0.085,
-                Touch::at(0.24).attack(0.075).release(0.36).late(0.030),
-                samples,
-            );
-        } else if sub == 6 && sheet.bass2 != sheet.bass1 {
-            orchestra.note_with_samples(
-                Instrument::Bass,
-                sheet.bass2,
-                TITLE_STEP_SECONDS * 5.7,
-                0.125,
-                Touch::at(0.0).attack(0.065).release(0.36),
-                samples,
-            );
-            orchestra.note_with_samples(
-                Instrument::Cello,
-                sheet.bass2 + 12,
-                TITLE_STEP_SECONDS * 5.7,
-                0.125,
-                Touch::at(0.16).attack(0.060).release(0.34),
-                samples,
-            );
+        let has_split =
+            sheet.split < 12 && (sheet.bass1 != sheet.bass2 || sheet.tones1 != sheet.tones2);
+        let first_half = sub < sheet.split;
+        let bass = if first_half { sheet.bass1 } else { sheet.bass2 };
+        let tones = if first_half {
+            sheet.tones1
+        } else {
+            sheet.tones2
+        };
+        let seg_end = if first_half && has_split {
+            sheet.split
+        } else {
+            12
+        };
+        let rem_steps = (f32::from(seg_end - sub) - 0.18).max(0.55);
+
+        if sub == 0 || (has_split && sub == sheet.split) {
+            let hold = TITLE_STEP_SECONDS * rem_steps;
+            let b_gain = if sub == 0 { 0.135 } else { 0.125 };
+            if sub == 0 || sheet.bass2 != sheet.bass1 {
+                orchestra.note_with_samples(
+                    Instrument::Bass,
+                    bass,
+                    hold,
+                    b_gain,
+                    Touch::at(0.0).attack(0.065).release(0.36),
+                    samples,
+                );
+                orchestra.note_with_samples(
+                    Instrument::Cello,
+                    bass + 12,
+                    hold,
+                    b_gain,
+                    Touch::at(0.16).attack(0.060).release(0.34),
+                    samples,
+                );
+            }
+            if sub == 0 || sheet.tones2 != sheet.tones1 {
+                let pad_c = sheet_sweeten_cents(bass, tones, tones[1]);
+                orchestra.note_with_samples(
+                    Instrument::StringPad,
+                    tones[1],
+                    hold,
+                    0.075,
+                    Touch::at(-0.22).cents(pad_c),
+                    samples,
+                );
+                orchestra.note_with_samples(
+                    Instrument::Viola,
+                    tones[2],
+                    hold * 0.96,
+                    0.085,
+                    Touch::at(0.24).attack(0.075).release(0.34).late(0.030),
+                    samples,
+                );
+            }
         }
 
         // Noble Harp & Acoustic Guitar sarabande/promenade rolled chords
@@ -658,16 +869,16 @@ impl Performance {
             orchestra.note_with_samples(
                 Instrument::Harp,
                 tones[idx],
-                TITLE_STEP_SECONDS * 5.4,
+                TITLE_STEP_SECONDS * rem_steps.min(5.4),
                 if sub == 4 { 0.16 } else { 0.135 },
-                Touch::at(-0.36).attack(0.004).release(0.32),
+                Touch::at(-0.36).attack(0.004).release(0.30),
                 samples,
             );
             if sub == 0 || sub == 4 {
                 orchestra.note_with_samples(
                     Instrument::TavernGuitar,
                     tones[idx],
-                    TITLE_STEP_SECONDS * 4.8,
+                    TITLE_STEP_SECONDS * rem_steps.min(4.8),
                     0.125,
                     Touch::at(-0.08).late(0.014),
                     samples,
@@ -677,44 +888,59 @@ impl Performance {
         Self::schedule_title_melody(
             orchestra,
             samples,
-            sheet.melody,
+            sheet,
             sub,
+            rem_steps,
             rep,
             piece_idx,
             bar_in_piece,
         );
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn schedule_title_melody(
         orchestra: &mut Orchestra,
         samples: SampleSet,
-        melody: &[(u8, u8, u8)],
+        sheet: SheetBar,
         sub: u8,
+        rem_steps: f32,
         rep: usize,
         piece_idx: usize,
         bar_in_piece: usize,
     ) {
-        for &(onset, pitch, dur_ticks) in melody {
+        let bass = if sub < sheet.split {
+            sheet.bass1
+        } else {
+            sheet.bass2
+        };
+        let tones = if sub < sheet.split {
+            sheet.tones1
+        } else {
+            sheet.tones2
+        };
+        for &(onset, pitch, dur_ticks) in sheet.melody {
             if onset != sub {
                 continue;
             }
-            let dur = f32::from(dur_ticks) * TITLE_STEP_SECONDS;
+            let max_dur = rem_steps * TITLE_STEP_SECONDS;
+            let dur = (f32::from(dur_ticks) * TITLE_STEP_SECONDS).min(max_dur);
+            let horn_c = sheet_sweeten_cents(bass, tones, pitch - 12);
             if piece_idx == 0 {
                 // Handel Sarabande: warm French Horn + Violin + Harp accent
                 orchestra.note_with_samples(
                     Instrument::FrenchHorn,
                     pitch - 12,
-                    dur * 1.05,
+                    (dur * 1.02).min(max_dur),
                     0.165,
-                    Touch::at(0.14),
+                    Touch::at(0.14).cents(horn_c),
                     samples,
                 );
                 orchestra.note_with_samples(
                     Instrument::Violin,
                     pitch,
-                    dur * 0.98,
+                    dur * 0.96,
                     0.215,
-                    Touch::at(-0.22).attack(0.050).release(0.32),
+                    Touch::at(-0.22).attack(0.050).release(0.30),
                     samples,
                 );
             } else {
@@ -722,7 +948,7 @@ impl Performance {
                 orchestra.note_with_samples(
                     Instrument::Flute,
                     pitch,
-                    dur * 1.02,
+                    dur.min(max_dur),
                     0.225,
                     Touch::at(-0.12),
                     samples,
@@ -730,18 +956,18 @@ impl Performance {
                 orchestra.note_with_samples(
                     Instrument::FrenchHorn,
                     pitch - 12,
-                    dur * 1.06,
+                    (dur * 1.02).min(max_dur),
                     0.155,
-                    Touch::at(0.16).late(0.010),
+                    Touch::at(0.16).late(0.010).cents(horn_c),
                     samples,
                 );
                 if rep == 1 || bar_in_piece >= 8 {
                     orchestra.note_with_samples(
                         Instrument::Violin,
                         pitch,
-                        dur * 0.96,
+                        dur * 0.95,
                         0.175,
-                        Touch::at(-0.24).attack(0.055).release(0.32).late(0.008),
+                        Touch::at(-0.24).attack(0.055).release(0.30).late(0.008),
                         samples,
                     );
                 }
@@ -749,16 +975,16 @@ impl Performance {
             orchestra.note_with_samples(
                 Instrument::Harp,
                 pitch,
-                dur * 1.2,
+                (dur * 1.12).min(max_dur),
                 0.135,
-                Touch::at(-0.30).attack(0.004).release(0.32).late(0.012),
+                Touch::at(-0.30).attack(0.004).release(0.30).late(0.012),
                 samples,
             );
             if onset == 0 && bar_in_piece.is_multiple_of(4) {
                 orchestra.note_with_samples(
                     Instrument::Celesta,
                     pitch.min(86),
-                    TITLE_STEP_SECONDS * 5.0,
+                    (TITLE_STEP_SECONDS * 5.0).min(max_dur),
                     0.075,
                     Touch::at(0.28).late(0.018),
                     samples,
@@ -775,58 +1001,53 @@ impl Performance {
         rep: usize,
         bar_in_piece: usize,
     ) {
-        let tones = if sub < 6 { sheet.tones1 } else { sheet.tones2 };
+        let has_split =
+            sheet.split < 12 && (sheet.bass1 != sheet.bass2 || sheet.tones1 != sheet.tones2);
+        let first_half = sub < sheet.split;
+        let bass = if first_half { sheet.bass1 } else { sheet.bass2 };
+        let tones = if first_half {
+            sheet.tones1
+        } else {
+            sheet.tones2
+        };
+        let seg_end = if first_half && has_split {
+            sheet.split
+        } else {
+            12
+        };
+        let rem_steps = (f32::from(seg_end - sub) - 0.18).max(0.55);
 
         // 1. Warm thumb-plucked Drop-D Acoustic Tavern Guitar bass + soft Cello hearth root
-        if sub == 0 {
-            let hold = if sheet.bass1 == sheet.bass2 {
-                LOBBY_STEP_SECONDS * 11.2
-            } else {
-                LOBBY_STEP_SECONDS * 5.6
-            };
-            orchestra.note_with_samples(
-                Instrument::TavernGuitar,
-                sheet.bass1,
-                hold,
-                0.235,
-                Touch::at(-0.08),
-                samples,
-            );
-            orchestra.note_with_samples(
-                Instrument::Cello,
-                sheet.bass1 + 12,
-                hold,
-                0.095,
-                Touch::at(0.18).attack(0.065).release(0.34),
-                samples,
-            );
-            if rep == 1 {
+        if sub == 0 || (has_split && sub == sheet.split) {
+            let hold = LOBBY_STEP_SECONDS * rem_steps;
+            if sub == 0 || sheet.bass2 != sheet.bass1 {
                 orchestra.note_with_samples(
-                    Instrument::Viola,
-                    sheet.tones1[1],
-                    LOBBY_STEP_SECONDS * 10.2,
-                    0.072,
-                    Touch::at(0.26).attack(0.075).release(0.34).late(0.025),
+                    Instrument::TavernGuitar,
+                    bass,
+                    hold,
+                    if sub == 0 { 0.235 } else { 0.22 },
+                    Touch::at(-0.08),
+                    samples,
+                );
+                orchestra.note_with_samples(
+                    Instrument::Cello,
+                    bass + 12,
+                    hold,
+                    if sub == 0 { 0.095 } else { 0.088 },
+                    Touch::at(0.18).attack(0.065).release(0.32),
                     samples,
                 );
             }
-        } else if sub == 6 && sheet.bass2 != sheet.bass1 {
-            orchestra.note_with_samples(
-                Instrument::TavernGuitar,
-                sheet.bass2,
-                LOBBY_STEP_SECONDS * 5.6,
-                0.22,
-                Touch::at(-0.08),
-                samples,
-            );
-            orchestra.note_with_samples(
-                Instrument::Cello,
-                sheet.bass2 + 12,
-                LOBBY_STEP_SECONDS * 5.6,
-                0.088,
-                Touch::at(0.18).attack(0.065).release(0.32),
-                samples,
-            );
+            if rep == 1 && (sub == 0 || sheet.tones2 != sheet.tones1) {
+                orchestra.note_with_samples(
+                    Instrument::Viola,
+                    tones[1],
+                    hold * 0.94,
+                    0.072,
+                    Touch::at(0.26).attack(0.075).release(0.32).late(0.025),
+                    samples,
+                );
+            }
         }
 
         // 2. Intimate fingerstyle Acoustic Guitar arpeggio + gentle Folk Harp droplets
@@ -839,7 +1060,7 @@ impl Performance {
             orchestra.note_with_samples(
                 Instrument::TavernGuitar,
                 arp_pitch,
-                LOBBY_STEP_SECONDS * 4.8,
+                LOBBY_STEP_SECONDS * rem_steps.min(4.6),
                 if sub == 0 || sub == 6 { 0.145 } else { 0.13 },
                 Touch::at(-0.04).late(0.010),
                 samples,
@@ -848,23 +1069,31 @@ impl Performance {
                 orchestra.note_with_samples(
                     Instrument::Harp,
                     tones[2],
-                    LOBBY_STEP_SECONDS * 5.4,
+                    LOBBY_STEP_SECONDS * rem_steps.min(5.2),
                     0.135,
-                    Touch::at(-0.36).attack(0.004).release(0.30).late(0.016),
+                    Touch::at(-0.36).attack(0.004).release(0.28).late(0.016),
                     samples,
                 );
             } else if sub == 4 && rep == 1 {
                 orchestra.note_with_samples(
                     Instrument::Zither,
                     tones[1],
-                    LOBBY_STEP_SECONDS * 4.2,
+                    LOBBY_STEP_SECONDS * rem_steps.min(4.0),
                     0.085,
                     Touch::at(0.34).attack(0.004).release(0.26).late(0.018),
                     samples,
                 );
             }
         }
-        Self::schedule_lobby_melody(orchestra, samples, sheet.melody, sub, rep, bar_in_piece);
+        Self::schedule_lobby_melody(
+            orchestra,
+            samples,
+            sheet.melody,
+            sub,
+            rem_steps,
+            rep,
+            bar_in_piece,
+        );
     }
 
     // 3. Singing nylon/gut Acoustic Tavern Guitar melody (+ gentle Lute/Flute/Violin warmth)
@@ -873,6 +1102,7 @@ impl Performance {
         samples: SampleSet,
         melody: &[(u8, u8, u8)],
         sub: u8,
+        rem_steps: f32,
         rep: usize,
         bar_in_piece: usize,
     ) {
@@ -880,11 +1110,12 @@ impl Performance {
             if onset != sub {
                 continue;
             }
-            let dur = f32::from(dur_ticks) * LOBBY_STEP_SECONDS;
+            let max_dur = rem_steps * LOBBY_STEP_SECONDS;
+            let dur = (f32::from(dur_ticks) * LOBBY_STEP_SECONDS).min(max_dur);
             orchestra.note_with_samples(
                 Instrument::TavernGuitar,
                 pitch,
-                dur * 1.18,
+                (dur * 1.12).min(max_dur),
                 0.295,
                 Touch::at(-0.05).late(0.004),
                 samples,
@@ -892,7 +1123,7 @@ impl Performance {
             orchestra.note_with_samples(
                 Instrument::Lyre,
                 pitch,
-                dur * 1.10,
+                (dur * 1.06).min(max_dur),
                 0.135,
                 Touch::at(0.12).late(0.012),
                 samples,
@@ -901,9 +1132,9 @@ impl Performance {
                 orchestra.note_with_samples(
                     Instrument::Harp,
                     pitch,
-                    dur * 1.25,
+                    (dur * 1.15).min(max_dur),
                     0.13,
-                    Touch::at(-0.28).attack(0.004).release(0.30).late(0.015),
+                    Touch::at(-0.28).attack(0.004).release(0.28).late(0.015),
                     samples,
                 );
             }

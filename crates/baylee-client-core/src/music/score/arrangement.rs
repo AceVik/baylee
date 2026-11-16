@@ -94,6 +94,7 @@ pub(in crate::music) struct Note {
     pub length: f32,
     pub gain: f32,
     pub late: f32,
+    pub cents: f32,
     #[cfg_attr(not(test), allow(dead_code))]
     pub(super) role: Role,
 }
@@ -103,6 +104,7 @@ pub(super) const EMPTY: Note = Note {
     length: 0.0,
     gain: 0.0,
     late: 0.0,
+    cents: 0.0,
     role: Role::Harmony,
 };
 
@@ -122,12 +124,24 @@ impl Notes {
         gain: f32,
         role: Role,
     ) {
+        self.add_tuned(instrument, pitch, length, gain, role, 0.0);
+    }
+    pub(super) fn add_tuned(
+        &mut self,
+        instrument: Instrument,
+        pitch: u8,
+        length: f32,
+        gain: f32,
+        role: Role,
+        cents: f32,
+    ) {
         assert!(self.len < self.events.len(), "a tick fits the note budget");
         self.events[self.len] = Note {
             instrument,
             pitch,
             length,
             gain,
+            cents,
             role,
             late: if instrument == Instrument::Viola {
                 0.045
@@ -142,7 +156,7 @@ impl Notes {
 }
 
 /// Root, third and fifth as semitone intervals. Unified around D minor / D Dorian / F major / D major.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct Chord(pub u8, pub u8, pub u8);
 const DM: Chord = Chord(62, 3, 7);
 const D_MAJ: Chord = Chord(62, 4, 7);
@@ -192,6 +206,111 @@ pub(super) fn near(pitch: u8, centre: u8) -> u8 {
         value += 12;
     }
     u8::try_from(value).expect("instrument register")
+}
+
+/// Fundamental bass pitch in `[36..=47]` (`C2..=B2`), keeping `bass + 12` in `[48..=59]`.
+pub(super) const fn bass_root(root: u8) -> u8 {
+    36 + (root % 12)
+}
+
+/// Plomp-Levelt critical-band guard: keep non-bass voices `>= 55` (`G3`), ensuring
+/// at least a pure 3:2 fifth (`>= 7` semitones) above any bass note below `D3` (`MIDI 50`).
+pub(super) const fn clear_register(mut pitch: u8) -> u8 {
+    while pitch < 55 {
+        pitch += 12;
+    }
+    pitch
+}
+
+/// Subtle drift-free Just-Intonation chord sweetening relative to the stationary 12-TET root:
+/// pure 3:2 fifths (`+1.5..+1.8c`), softened 5:4 major thirds (`-3.2..-8.5c`), and warmed
+/// 6:5 minor thirds (`+3.2..+8.5c`) on sustained synth pads/horns.
+pub(super) const fn sweeten_cents(
+    instrument: Instrument,
+    pitch: u8,
+    Chord(root, third, fifth): Chord,
+    pure_synth: bool,
+) -> f32 {
+    if !matches!(
+        instrument,
+        Instrument::Pad | Instrument::StringPad | Instrument::FrenchHorn
+    ) {
+        return 0.0;
+    }
+    let rel = (pitch + 120 - (root % 12)) % 12;
+    if rel == fifth {
+        if pure_synth { 1.8 } else { 1.5 }
+    } else if rel == third {
+        let depth = if pure_synth { 8.0 } else { 3.0 };
+        if third == 4 { -depth } else { depth }
+    } else {
+        0.0
+    }
+}
+
+/// Close-position triad inversions `[c0, c1, c2]` anchored with `c0` in `[55..=66]`.
+const fn close_inversions(Chord(root, third, fifth): Chord) -> [[u8; 3]; 3] {
+    let pcs = [root % 12, (root + third) % 12, (root + fifth) % 12];
+    let mut out = [[0_u8; 3]; 3];
+    let mut inv = 0;
+    while inv < 3 {
+        let p0 = pcs[inv];
+        let p1 = pcs[(inv + 1) % 3];
+        let p2 = pcs[(inv + 2) % 3];
+        let c0 = 55 + ((p0 + 12 - (55 % 12)) % 12);
+        let c1 = c0 + ((p1 + 12 - (c0 % 12)) % 12);
+        let c2 = c1 + ((p2 + 12 - (c1 % 12)) % 12);
+        out[inv] = [c0, c1, c2];
+        inv += 1;
+    }
+    out
+}
+
+/// Tymoczko minimal-L1 voice-leading mapped through the Drop-2 open-tenth isometry
+/// `(c0, c1, c2) -> [c0, c2, c1 + 12]`, yielding open `7..9`-semitone chord spacing in `G3..F#5`
+/// while retaining common tones and moving inner voices by `1..2` semitones.
+pub(super) fn parsimonious_open_triad(theme: Theme, movement: Movement, bar: u32) -> [u8; 3] {
+    let steps = (bar % 16) as usize;
+    let first = close_inversions(chord(theme, movement, 0))[0];
+    let mut voice = first;
+    for step in 1..=steps {
+        let candidates = close_inversions(chord(theme, movement, step as u32));
+        let mut best = candidates[0];
+        let mut best_l1 = u16::MAX;
+        for cand in candidates {
+            let l1 = u16::from(voice[0].abs_diff(cand[0]))
+                + u16::from(voice[1].abs_diff(cand[1]))
+                + u16::from(voice[2].abs_diff(cand[2]));
+            if l1 < best_l1 {
+                best_l1 = l1;
+                best = cand;
+            }
+        }
+        voice = best;
+    }
+    [voice[0], voice[2], (voice[1] + 12).min(86)]
+}
+
+/// Clamp a note's sustain length so non-common chord tones finish cleanly before a chord change,
+/// while common tones shimmer seamlessly across the barline.
+pub(super) fn clamp_for_next_chord(
+    pitch: u8,
+    length: f32,
+    tick: u8,
+    ticks: u8,
+    current: Chord,
+    next: Chord,
+) -> f32 {
+    if current == next {
+        return length;
+    }
+    let next_pcs = [next.0 % 12, (next.0 + next.1) % 12, (next.0 + next.2) % 12];
+    if next_pcs.contains(&(pitch % 12)) {
+        length
+    } else {
+        let remaining = f32::from(ticks.saturating_sub(tick)) - 0.14;
+        length.min(remaining.max(0.25))
+    }
 }
 
 /// Notes beginning at this tick, with composed rests retained.
@@ -263,6 +382,7 @@ fn melody(
     tick: u8,
     arc: f32,
     harmony: Chord,
+    next_harmony: Chord,
     stack_depth: u8,
     intensity: f32,
 ) {
@@ -270,8 +390,16 @@ fn melody(
     let Some((pitch, length)) = onset(line(theme, movement, bar), tick) else {
         return;
     };
+    let ticks = theme.ticks();
     let pitch = colour(pitch, harmony);
-    let length = f32::from(length) * 0.94;
+    let length = clamp_for_next_chord(
+        pitch,
+        f32::from(length) * 0.94,
+        tick,
+        ticks,
+        harmony,
+        next_harmony,
+    );
     let pluck = match theme {
         Theme::Glass | Theme::Star => Harp,
         Theme::Ember => Flute,
@@ -282,11 +410,15 @@ fn melody(
         Movement::Title => match theme {
             Theme::Ember => (Violin, pitch, 0.32),
             Theme::Glass if bar % 32 < 8 => (Harp, pitch, 0.38),
-            Theme::Thorn if bar % 8 < 2 => (Trombone, pitch - 12, 0.28),
+            Theme::Thorn if bar % 8 < 2 => (Trombone, clear_register(pitch - 12), 0.28),
             Theme::Tide if bar % 32 < 16 => (Lyre, pitch, 0.36),
             _ => (Violin, pitch, 0.30),
         },
-        Movement::Lobby => (if bar % 16 < 8 { TavernGuitar } else { Lyre }, pitch, 0.34),
+        Movement::Lobby => (
+            if bar % 16 < 8 { TavernGuitar } else { Lyre },
+            clear_register(pitch),
+            0.34,
+        ),
         Movement::Standard => (
             if bar % 16 < 8 {
                 TavernGuitar
@@ -295,14 +427,18 @@ fn melody(
             } else {
                 Lyre
             },
-            pitch,
+            clear_register(pitch),
             0.21 + 0.07 * intensity,
         ),
-        Movement::Combat => (ViolinShort, pitch, 0.28 * dyn_scale),
-        Movement::Endgame => (Violin, pitch, 0.31 * dyn_scale),
-        Movement::Victory => (Violin, pitch + 12, 0.28),
-        Movement::Defeat => (Cello, pitch - 12, 0.22),
-        Movement::Draw => (if bar % 16 < 8 { Harp } else { Lyre }, pitch, 0.25),
+        Movement::Combat => (ViolinShort, clear_register(pitch), 0.28 * dyn_scale),
+        Movement::Endgame => (Violin, clear_register(pitch), 0.31 * dyn_scale),
+        Movement::Victory => (Violin, (pitch + 12).min(88), 0.28),
+        Movement::Defeat => (Cello, clear_register(pitch - 12), 0.22),
+        Movement::Draw => (
+            if bar % 16 < 8 { Harp } else { Lyre },
+            clear_register(pitch),
+            0.25,
+        ),
     };
     out.add(voice, pitch, length, gain * arc, Role::Melody);
     melody_layers(
@@ -315,6 +451,8 @@ fn melody(
         pitch,
         length,
         arc,
+        harmony,
+        next_harmony,
         stack_depth,
         intensity,
     );
@@ -331,99 +469,168 @@ fn melody_layers(
     pitch: u8,
     length: f32,
     arc: f32,
+    harmony: Chord,
+    next_harmony: Chord,
     stack_depth: u8,
     intensity: f32,
 ) {
-    use Instrument::{Celesta, Flute, FrenchHorn, Harp, Lyre, Trombone, Violin};
+    use Instrument::{Celesta, Flute, FrenchHorn, Harp, Trombone, Violin};
+    let ticks = theme.ticks();
+    let low_oct = clear_register(pitch.saturating_sub(12));
+    let fit = |p: u8, len: f32| clamp_for_next_chord(p, len, tick, ticks, harmony, next_harmony);
     match movement {
         Movement::Title | Movement::Endgame => {
-            if movement == Movement::Endgame || (bar % 8 >= 4 && tick == 0) {
-                out.add(
-                    Trombone,
-                    pitch - 12,
-                    length,
-                    if movement == Movement::Endgame {
-                        0.22 + 0.05 * intensity
-                    } else {
-                        0.12
-                    } * arc,
-                    Role::Melody,
-                );
-            }
-            if movement == Movement::Endgame && (stack_depth >= 2 || intensity >= 0.65) {
-                out.add(
-                    FrenchHorn,
-                    pitch - 12,
-                    length * 1.05,
-                    (0.13 + 0.06 * intensity) * arc,
-                    Role::Harmony,
-                );
-            }
-            if movement == Movement::Endgame
-                && (stack_depth >= 3 || intensity >= 0.80)
-                && tick.is_multiple_of(2)
-            {
-                out.add(
-                    Celesta,
-                    near(pitch, 79),
-                    length * 0.85,
-                    0.085 * arc,
-                    Role::Accent,
-                );
-            }
-            if movement == Movement::Title && voice != Violin && bar % 4 >= 2 {
-                out.add(Violin, pitch, length, 0.13 * arc, Role::Melody);
-            }
-            if tick == 0 && bar.is_multiple_of(4) {
-                out.add(Lyre, pitch, 1.8, 0.24 * arc, Role::Accent);
-            }
+            melody_epic_layers(
+                out,
+                movement,
+                voice,
+                bar,
+                tick,
+                pitch,
+                low_oct,
+                length,
+                arc,
+                harmony,
+                next_harmony,
+                ticks,
+                stack_depth,
+                intensity,
+            );
         }
         Movement::Victory => {
-            out.add(Trombone, pitch - 12, length, 0.15 * arc, Role::Melody);
             out.add(
+                Trombone,
+                low_oct,
+                fit(low_oct, length),
+                0.15 * arc,
+                Role::Melody,
+            );
+            let cents = sweeten_cents(FrenchHorn, low_oct, harmony, false);
+            out.add_tuned(
                 FrenchHorn,
-                pitch - 12,
-                length * 1.1,
+                low_oct,
+                fit(low_oct, length),
                 0.12 * arc,
                 Role::Harmony,
+                cents,
             );
             if tick == 0 {
-                out.add(Celesta, pitch.min(86), 2.0, 0.10 * arc, Role::Accent);
+                let cel = pitch.min(86);
+                out.add(Celesta, cel, fit(cel, 2.0), 0.10 * arc, Role::Accent);
             }
         }
         Movement::Standard => {
             if bar % 4 == 2 {
-                out.add(Harp, pitch - 12, length, 0.11 * arc, Role::Melody);
+                out.add(
+                    Harp,
+                    low_oct,
+                    fit(low_oct, length),
+                    0.11 * arc,
+                    Role::Melody,
+                );
             }
-            // As stack/action grows in Standard, a solo violin/flute gently doubles the melody.
             if (stack_depth >= 1 || intensity >= 0.28) && tick.is_multiple_of(2) {
                 out.add(
                     Violin,
                     pitch,
-                    length * 0.95,
+                    fit(pitch, length * 0.95),
                     (0.08 + 0.09 * intensity) * arc,
                     Role::Melody,
                 );
             }
         }
-        Movement::Combat if stack_depth >= 2 || intensity >= 0.48 => {
-            if tick == 0 || tick == theme.ticks() / 2 {
-                out.add(
-                    FrenchHorn,
-                    pitch - 12,
-                    length * 1.15,
-                    (0.09 + 0.06 * intensity) * arc,
-                    Role::Harmony,
-                );
-            }
+        Movement::Combat
+            if (stack_depth >= 2 || intensity >= 0.48) && (tick == 0 || tick == ticks / 2) =>
+        {
+            let cents = sweeten_cents(FrenchHorn, low_oct, harmony, false);
+            out.add_tuned(
+                FrenchHorn,
+                low_oct,
+                fit(low_oct, length * 1.05),
+                (0.09 + 0.06 * intensity) * arc,
+                Role::Harmony,
+                cents,
+            );
         }
         Movement::Lobby if bar % 4 == 2 => {
-            out.add(Violin, pitch + 12, length, 0.12 * arc, Role::Melody);
+            let hi = (pitch + 12).min(88);
+            out.add(Violin, hi, fit(hi, length), 0.12 * arc, Role::Melody);
         }
         Movement::Draw if tick == 0 => {
-            out.add(Flute, pitch, length * 1.1, 0.11 * arc, Role::Harmony);
+            out.add(
+                Flute,
+                pitch,
+                fit(pitch, length * 1.05),
+                0.11 * arc,
+                Role::Harmony,
+            );
         }
         _ => {}
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn melody_epic_layers(
+    out: &mut Notes,
+    movement: Movement,
+    voice: Instrument,
+    bar: u32,
+    tick: u8,
+    pitch: u8,
+    low_oct: u8,
+    length: f32,
+    arc: f32,
+    harmony: Chord,
+    next_harmony: Chord,
+    ticks: u8,
+    stack_depth: u8,
+    intensity: f32,
+) {
+    use Instrument::{Celesta, FrenchHorn, Lyre, Trombone, Violin};
+    let fit = |p: u8, len: f32| clamp_for_next_chord(p, len, tick, ticks, harmony, next_harmony);
+    if movement == Movement::Endgame || (bar % 8 >= 4 && tick == 0) {
+        let g = if movement == Movement::Endgame {
+            0.22 + 0.05 * intensity
+        } else {
+            0.12
+        };
+        out.add(
+            Trombone,
+            low_oct,
+            fit(low_oct, length),
+            g * arc,
+            Role::Melody,
+        );
+    }
+    if movement == Movement::Endgame && (stack_depth >= 2 || intensity >= 0.65) {
+        let cents = sweeten_cents(FrenchHorn, low_oct, harmony, false);
+        out.add_tuned(
+            FrenchHorn,
+            low_oct,
+            fit(low_oct, length * 1.02),
+            (0.13 + 0.06 * intensity) * arc,
+            Role::Harmony,
+            cents,
+        );
+    }
+    if movement == Movement::Endgame
+        && (stack_depth >= 3 || intensity >= 0.80)
+        && tick.is_multiple_of(2)
+    {
+        let cel = near(pitch, 79);
+        out.add(
+            Celesta,
+            cel,
+            fit(cel, length * 0.85),
+            0.085 * arc,
+            Role::Accent,
+        );
+    }
+    if movement == Movement::Title && voice != Violin && bar % 4 >= 2 {
+        out.add(Violin, pitch, length, 0.13 * arc, Role::Melody);
+    }
+    if tick == 0 && bar.is_multiple_of(4) {
+        out.add(Lyre, pitch, fit(pitch, 1.8), 0.24 * arc, Role::Accent);
     }
 }
 
@@ -447,13 +654,15 @@ fn accompaniment(
     bar: u32,
     tick: u8,
     harmony: Chord,
+    next_harmony: Chord,
     arc: f32,
     stack_depth: u8,
     intensity: f32,
 ) {
     use Instrument::{Bass, Cello, TavernGuitar, Viola};
     let ticks = theme.ticks();
-    let Chord(root, third, _) = harmony;
+    let bass = bass_root(harmony.0);
+    let open = parsimonious_open_triad(theme, movement, bar);
     let quiet = matches!(
         movement,
         Movement::Lobby | Movement::Defeat | Movement::Draw
@@ -469,19 +678,20 @@ fn accompaniment(
         } else {
             0.14 + 0.035 * intensity
         };
-        out.add(Cello, near(root, 49), length, cello_gain * arc, Role::Bass);
+        // Exact 2:1 octave between Bass (C2..B2) and Cello (C3..B3); zero mud below D3.
+        out.add(Cello, bass + 12, length, cello_gain * arc, Role::Bass);
         if !quiet {
             let bass_gain = if movement == Movement::Standard {
                 0.07 + 0.04 * intensity
             } else {
                 0.12 + 0.035 * intensity
             };
-            out.add(Bass, near(root, 38), length, bass_gain * arc, Role::Bass);
+            out.add(Bass, bass, length, bass_gain * arc, Role::Bass);
         }
         if matches!(movement, Movement::Lobby | Movement::Standard) {
             out.add(
                 TavernGuitar,
-                near(root, 48),
+                if bass < 38 { bass + 12 } else { bass },
                 length * 0.65,
                 if movement == Movement::Lobby {
                     0.18
@@ -500,75 +710,110 @@ fn accompaniment(
         };
         out.add(
             Viola,
-            near(root + third, 61),
-            length,
+            open[0],
+            clamp_for_next_chord(open[0], length, 0, ticks, harmony, next_harmony),
             viola_gain * arc,
             Role::Harmony,
         );
-        accompaniment_pads(out, movement, harmony, length, arc, stack_depth, intensity);
+        accompaniment_pads(
+            out,
+            movement,
+            harmony,
+            next_harmony,
+            open,
+            ticks,
+            length,
+            arc,
+            stack_depth,
+            intensity,
+        );
     }
-    accompaniment_arpeggio(out, movement, theme, bar, tick, harmony, arc, intensity);
+    accompaniment_arpeggio(
+        out,
+        movement,
+        theme,
+        bar,
+        tick,
+        harmony,
+        next_harmony,
+        open,
+        arc,
+        intensity,
+    );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn accompaniment_pads(
     out: &mut Notes,
     movement: Movement,
-    Chord(root, third, fifth): Chord,
+    harmony: Chord,
+    next_harmony: Chord,
+    open: [u8; 3],
+    ticks: u8,
     length: f32,
     arc: f32,
     stack_depth: u8,
     intensity: f32,
 ) {
     use Instrument::{FrenchHorn, StringPad, Trombone, Viola};
+    let fit = |p: u8, len: f32| clamp_for_next_chord(p, len, 0, ticks, harmony, next_harmony);
     if matches!(
         movement,
         Movement::Title | Movement::Endgame | Movement::Victory | Movement::Draw
     ) {
         out.add(
             Viola,
-            near(root + fifth, 66),
-            length,
+            open[1],
+            fit(open[1], length),
             0.075 * arc,
             Role::Harmony,
         );
-        out.add(
+        let cents = sweeten_cents(StringPad, open[1], harmony, false);
+        out.add_tuned(
             StringPad,
-            near(root + fifth, 64),
-            length,
+            open[1],
+            fit(open[1], length),
             if movement == Movement::Endgame {
                 0.075 + 0.035 * intensity
             } else {
                 0.055
             } * arc,
             Role::Harmony,
+            cents,
         );
     } else if matches!(
         movement,
         Movement::Standard | Movement::Combat | Movement::Defeat
     ) && (movement == Movement::Defeat || stack_depth >= 1 || intensity >= 0.24)
     {
-        out.add(
+        let cents = sweeten_cents(StringPad, open[0], harmony, false);
+        out.add_tuned(
             StringPad,
-            near(root + third, 61),
-            length,
+            open[0],
+            fit(open[0], length),
             (0.05 + 0.045 * intensity) * arc,
             Role::Harmony,
+            cents,
         );
     }
     if movement == Movement::Standard && (stack_depth >= 2 || intensity >= 0.38) {
-        out.add(
+        let horn_p = open[1];
+        let cents = sweeten_cents(FrenchHorn, horn_p, harmony, false);
+        out.add_tuned(
             FrenchHorn,
-            near(root + fifth, 57),
-            length * 0.78,
+            horn_p,
+            fit(horn_p, length * 0.78),
             (0.065 + 0.04 * intensity) * arc,
             Role::Harmony,
+            cents,
         );
     }
     if movement == Movement::Combat {
+        // Voice Trombone on the open Drop-2 chord voice (>= 55, G3), never a muddy low third.
         out.add(
             Trombone,
-            near(root + third, 53),
-            length * 0.65,
+            open[0],
+            fit(open[0], length * 0.65),
             0.060 * arc,
             Role::Harmony,
         );
@@ -583,12 +828,14 @@ fn accompaniment_arpeggio(
     bar: u32,
     tick: u8,
     harmony: Chord,
+    next_harmony: Chord,
+    open: [u8; 3],
     arc: f32,
     intensity: f32,
 ) {
     use Instrument::{Harp, Lyre, TavernGuitar, Zither};
     let ticks = theme.ticks();
-    let Chord(root, third, fifth) = harmony;
+    let fit = |p: u8, len: f32| clamp_for_next_chord(p, len, tick, ticks, harmony, next_harmony);
     let quiet = matches!(
         movement,
         Movement::Lobby | Movement::Defeat | Movement::Draw
@@ -609,7 +856,7 @@ fn accompaniment_arpeggio(
             && bar % 4 == 3
             && tick > 0)
     {
-        let note = arpeggio(theme, harmony, tick, stride);
+        let note = clear_register(arpeggio(theme, harmony, tick, stride));
         let family = if movement == Movement::Lobby && bar % 2 == 1 {
             Zither
         } else {
@@ -626,20 +873,20 @@ fn accompaniment_arpeggio(
         } else {
             0.14
         };
-        out.add(family, note, 2.2, arp_gain * arc, Role::Rhythm);
+        out.add(family, note, fit(note, 2.2), arp_gain * arc, Role::Rhythm);
         if movement == Movement::Lobby && (tick == 2 || tick == 4) {
             out.add(
                 TavernGuitar,
-                near(root + fifth, 62),
-                1.7,
+                open[1],
+                fit(open[1], 1.7),
                 0.14 * arc,
                 Role::Rhythm,
             );
-            out.add(Lyre, near(root + third, 65), 1.5, 0.10 * arc, Role::Rhythm);
+            out.add(Lyre, open[2], fit(open[2], 1.5), 0.10 * arc, Role::Rhythm);
         }
     }
     if matches!(movement, Movement::Title | Movement::Endgame) && tick + 2 == ticks {
-        out.add(Lyre, near(root + third, 73), 1.5, 0.22 * arc, Role::Accent);
+        out.add(Lyre, open[2], fit(open[2], 1.5), 0.22 * arc, Role::Accent);
     }
 }
 
@@ -650,6 +897,7 @@ fn drive(
     movement: Movement,
     tick: u8,
     harmony: Chord,
+    next_harmony: Chord,
     arc: f32,
     stack_depth: u8,
     intensity: f32,
@@ -657,12 +905,14 @@ fn drive(
     use Instrument::{CelloShort, Timpani, ViolaShort};
     let ticks = theme.ticks();
     let Chord(root, third, fifth) = harmony;
+    let bass = bass_root(root);
+    let fit = |p: u8, len: f32| clamp_for_next_chord(p, len, tick, ticks, harmony, next_harmony);
     if movement == Movement::Standard && (stack_depth >= 2 || intensity >= 0.42) {
         if tick == 0 || tick == ticks / 2 {
             out.add(
                 CelloShort,
-                near(root, 48),
-                0.60,
+                bass + 12,
+                fit(bass + 12, 0.60),
                 (0.08 + 0.06 * intensity) * arc,
                 Role::Rhythm,
             );
@@ -686,45 +936,46 @@ fn drive(
             } else {
                 4
             };
-    let pitch = near(root + if tick % 4 < 2 { fifth } else { third }, 61);
+    let pitch = clear_register(near(root + if tick % 4 < 2 { fifth } else { third }, 61));
     let boost = 1.0 + 0.16 * intensity;
     out.add(
         ViolaShort,
         pitch,
-        0.58,
+        fit(pitch, 0.58),
         if strong { 0.21 } else { 0.12 } * boost * arc,
         Role::Rhythm,
     );
     if strong || tick.is_multiple_of(2) {
         out.add(
             CelloShort,
-            near(root, 48),
-            0.65,
+            bass + 12,
+            fit(bass + 12, 0.65),
             if strong { 0.20 } else { 0.12 } * boost * arc,
             Role::Rhythm,
         );
     }
-    // Pitched orchestral Timpani blooms on stack chains (2+) and epic Endgame climaxes.
+    // Pitched orchestral Timpani reinforces pure 1:1 / 2:1 root octaves on stack climaxes.
     let wants_timpani = movement == Movement::Endgame || stack_depth >= 2 || intensity >= 0.52;
     if wants_timpani {
         if tick == 0 {
             out.add(
                 Timpani,
-                near(root, 38),
-                1.4,
+                bass,
+                fit(bass, 1.4),
                 (0.14 + 0.06 * intensity) * arc,
                 Role::Rhythm,
             );
         } else if (full_climax || stack_depth >= 3) && tick == ticks / 2 {
+            let oct = if bass <= 40 { bass + 12 } else { bass };
             out.add(
                 Timpani,
-                near(root + fifth, 43),
-                1.1,
+                oct,
+                fit(oct, 1.1),
                 (0.11 + 0.05 * intensity) * arc,
                 Role::Rhythm,
             );
         } else if stack_depth >= 4 && tick + 1 == ticks {
-            out.add(Timpani, near(root, 38), 0.75, 0.11 * arc, Role::Rhythm);
+            out.add(Timpani, bass, fit(bass, 0.75), 0.11 * arc, Role::Rhythm);
         }
     }
 }
@@ -851,6 +1102,7 @@ pub(in crate::music) fn notes_with_intensity(
         [0.90, 0.76, 1.0, 0.87][section] * [0.91, 0.97, 1.0, 0.90][(local % 4) as usize]
     };
     let harmony = chord(theme, movement, local % 16);
+    let next_harmony = chord(theme, movement, (local + 1) % 16);
     melody(
         &mut out,
         theme,
@@ -859,6 +1111,7 @@ pub(in crate::music) fn notes_with_intensity(
         tick,
         arc,
         harmony,
+        next_harmony,
         stack_depth,
         intensity,
     );
@@ -869,6 +1122,7 @@ pub(in crate::music) fn notes_with_intensity(
         local,
         tick,
         harmony,
+        next_harmony,
         arc,
         stack_depth,
         intensity,
@@ -879,6 +1133,7 @@ pub(in crate::music) fn notes_with_intensity(
         movement,
         tick,
         harmony,
+        next_harmony,
         arc,
         stack_depth,
         intensity,

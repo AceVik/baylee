@@ -91,7 +91,8 @@ fn balance(theme: Theme, out: &mut Notes) {
 fn add_stack_layers(
     out: &mut Notes,
     theme: Theme,
-    harmony: Chord,
+    movement: Movement,
+    bar: u32,
     arc: f32,
     stack_depth: u8,
     intensity: f32,
@@ -100,26 +101,142 @@ fn add_stack_layers(
         return;
     }
     let ticks = profile(theme).ticks;
-    let Chord(root, _, fifth) = harmony;
+    let harmony = chord(theme, movement, bar);
+    let next_harmony = chord(theme, movement, bar + 1);
+    let open = arrangement::parsimonious_open_triad(theme, movement, bar);
     let swell = if theme == Theme::Circuit {
         Instrument::Pad
     } else {
         Instrument::FrenchHorn
     };
-    out.add(
-        swell,
-        arrangement::near(root + fifth, 60),
+    let pure_synth = matches!(theme, Theme::Neon | Theme::Circuit | Theme::Lagoon);
+    let cents = arrangement::sweeten_cents(swell, open[1], harmony, pure_synth);
+    let len = arrangement::clamp_for_next_chord(
+        open[1],
         f32::from(ticks) * 0.78,
+        0,
+        ticks,
+        harmony,
+        next_harmony,
+    );
+    out.add_tuned(
+        swell,
+        open[1],
+        len,
         (0.055 + 0.045 * intensity) * arc,
         Role::Harmony,
+        cents,
     );
     if (stack_depth >= 3 || intensity >= 0.76) && out.len < 16 {
+        let bass = arrangement::bass_root(harmony.0);
         out.add(
             Instrument::Timpani,
-            arrangement::near(root, 38),
-            1.2,
+            bass,
+            arrangement::clamp_for_next_chord(bass, 1.2, 0, ticks, harmony, next_harmony),
             0.13 * arc,
             Role::Rhythm,
+        );
+    }
+}
+
+fn add_melody_voice(
+    out: &mut Notes,
+    theme: Theme,
+    movement: Movement,
+    bar: u32,
+    tick: u8,
+    stack_depth: u8,
+    intensity: f32,
+) {
+    let local = if movement.ending() { bar - 1 } else { bar };
+    let Some((pitch, duration)) = arrangement::onset(arrangement::line(theme, movement, bar), tick)
+    else {
+        return;
+    };
+    let p = profile(theme);
+    let harmony = chord(theme, movement, local);
+    let next_harmony = chord(theme, movement, local + 1);
+    let arc = [0.88, 0.96, 1.0, 0.93][(local as usize / 8) % 4];
+    let quiet = matches!(
+        movement,
+        Movement::Lobby | Movement::Defeat | Movement::Draw
+    );
+    let pitch = colour(pitch, p.harmony[local as usize % 8], harmony);
+    let answering = movement == Movement::Title && (8..16).contains(&(local % 32));
+    let lead = if movement == Movement::Defeat {
+        p.comp
+    } else if answering {
+        p.accent
+    } else {
+        p.lead
+    };
+    let pitch = if movement == Movement::Defeat {
+        arrangement::clear_register(pitch.saturating_sub(12))
+    } else {
+        arrangement::clear_register(pitch)
+    };
+    let length = f32::from(duration)
+        * if movement == Movement::Combat {
+            0.72
+        } else {
+            0.93
+        };
+    let breath = if local % 4 == 3 { 0.84 } else { 1.0 };
+    let accent = if tick == 0 {
+        1.05
+    } else if tick.is_multiple_of(2) {
+        0.97
+    } else {
+        0.91
+    };
+    let response_gain = if answering {
+        match lead {
+            Instrument::Flute => 0.80,
+            Instrument::Bell | Instrument::Violin => 0.90,
+            _ => 0.95,
+        }
+    } else {
+        1.0
+    };
+    let boost = if quiet { 1.0 } else { 1.0 + 0.12 * intensity };
+    let lead_len = arrangement::clamp_for_next_chord(
+        pitch,
+        length * breath,
+        tick,
+        p.ticks,
+        harmony,
+        next_harmony,
+    );
+    out.add(
+        lead,
+        pitch,
+        lead_len,
+        if quiet { 0.28 } else { 0.36 } * boost * arc * accent * response_gain,
+        Role::Melody,
+    );
+    if matches!(movement, Movement::Endgame | Movement::Victory)
+        || (movement == Movement::Title && local % 32 >= 16)
+        || (!quiet && (stack_depth >= 2 || intensity >= 0.55))
+    {
+        let acc_p = if pitch >= 76 {
+            arrangement::clear_register(pitch - 12)
+        } else {
+            pitch
+        };
+        let acc_len = arrangement::clamp_for_next_chord(
+            acc_p,
+            length * 0.88,
+            tick,
+            p.ticks,
+            harmony,
+            next_harmony,
+        );
+        out.add(
+            p.accent,
+            acc_p,
+            acc_len,
+            (0.11 + 0.04 * intensity) * arc,
+            Role::Accent,
         );
     }
 }
@@ -142,77 +259,34 @@ pub(super) fn notes_with_intensity(
         return out;
     }
     let local = if movement.ending() { bar - 1 } else { bar };
-    let p = profile(theme);
     let harmony = chord(theme, movement, local);
+    let next_harmony = chord(theme, movement, local + 1);
     let arc = [0.88, 0.96, 1.0, 0.93][(local as usize / 8) % 4];
     let quiet = matches!(
         movement,
         Movement::Lobby | Movement::Defeat | Movement::Draw
     );
-    if let Some((pitch, duration)) =
-        arrangement::onset(arrangement::line(theme, movement, bar), tick)
-    {
-        let pitch = colour(pitch, p.harmony[local as usize % 8], harmony);
-        let lead = if movement == Movement::Defeat {
-            p.comp
-        } else if movement == Movement::Title && (8..16).contains(&(local % 32)) {
-            p.accent
-        } else {
-            p.lead
-        };
-        let pitch = if movement == Movement::Defeat {
-            pitch.saturating_sub(12)
-        } else {
-            pitch
-        };
-        let length = f32::from(duration)
-            * if movement == Movement::Combat {
-                0.72
-            } else {
-                0.93
-            };
-        let breath = if local % 4 == 3 { 0.84 } else { 1.0 };
-        let accent = if tick == 0 {
-            1.05
-        } else if tick.is_multiple_of(2) {
-            0.97
-        } else {
-            0.91
-        };
-        let answering = movement == Movement::Title && (8..16).contains(&(local % 32));
-        let response_gain = if answering {
-            match lead {
-                Instrument::Flute => 0.80,
-                Instrument::Bell | Instrument::Violin => 0.90,
-                _ => 0.95,
-            }
-        } else {
-            1.0
-        };
-        let boost = if quiet { 1.0 } else { 1.0 + 0.12 * intensity };
-        out.add(
-            lead,
-            pitch,
-            length * breath,
-            if quiet { 0.28 } else { 0.36 } * boost * arc * accent * response_gain,
-            Role::Melody,
-        );
-        if matches!(movement, Movement::Endgame | Movement::Victory)
-            || (movement == Movement::Title && local % 32 >= 16)
-            || (!quiet && (stack_depth >= 2 || intensity >= 0.55))
-        {
-            out.add(
-                p.accent,
-                if pitch >= 76 { pitch - 12 } else { pitch },
-                length * 0.88,
-                (0.11 + 0.04 * intensity) * arc,
-                Role::Accent,
-            );
-        }
-    }
-    rhythm::accompany(&mut out, theme, movement, local, tick, harmony, arc);
+    add_melody_voice(&mut out, theme, movement, bar, tick, stack_depth, intensity);
+    rhythm::accompany(
+        &mut out,
+        theme,
+        movement,
+        local,
+        tick,
+        harmony,
+        next_harmony,
+        arc,
+    );
     if !quiet && tick == 0 {
-        add_stack_layers(&mut out, theme, harmony, arc, stack_depth, intensity);
+        add_stack_layers(
+            &mut out,
+            theme,
+            movement,
+            local,
+            arc,
+            stack_depth,
+            intensity,
+        );
     }
     balance(theme, &mut out);
     out

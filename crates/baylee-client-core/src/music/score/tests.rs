@@ -670,3 +670,168 @@ fn table_music_waits_for_the_loading_screen_and_scales_from_calm_to_epic() {
         rms(&calm)
     );
 }
+
+/// Plomp-Levelt / Sethares sensory roughness summed over the first 6 harmonics (`1/n^1.5`).
+fn plomp_levelt_roughness(notes_midi_cents: &[(u8, f32)]) -> f64 {
+    let mut partials = Vec::with_capacity(notes_midi_cents.len() * 6);
+    for &(midi, cents) in notes_midi_cents {
+        let f0 = 440.0 * 2.0_f64.powf((f64::from(midi) - 69.0 + f64::from(cents) / 100.0) / 12.0);
+        for n in 1..=6_u32 {
+            partials.push((f0 * f64::from(n), 1.0 / f64::from(n).powf(1.5)));
+        }
+    }
+    let mut total = 0.0_f64;
+    for i in 0..partials.len() {
+        for j in (i + 1)..partials.len() {
+            let (f1, a1) = partials[i];
+            let (f2, a2) = partials[j];
+            let f_min = f1.min(f2);
+            let df = (f2 - f1).abs();
+            let s = 0.24 / (0.0207 * f_min + 18.96);
+            let r = (a1 * a2) * ((-3.5 * s * df).exp() - (-5.75 * s * df).exp()).max(0.0);
+            total += r;
+        }
+    }
+    total
+}
+
+#[test]
+fn low_interval_limit_holds_across_all_arrangements_and_memorial_suites() {
+    let (mem_low, _, _, _, _) = memorial::audit_memorial_harmony();
+    assert_eq!(mem_low, 0, "Login & Lobby must obey D3 low-interval limit");
+    for theme in Theme::ALL {
+        let ticks = theme.ticks();
+        for movement in Movement::ALL {
+            for &(stack, intensity) in &[(0_u8, 0.0_f32), (2, 0.55), (5, 1.0)] {
+                let mut active: Vec<(f32, f32, u8)> = Vec::new();
+                for bar in 0..16_u32 {
+                    for tick in 0..ticks {
+                        let t0 = (bar * u32::from(ticks) + u32::from(tick)) as f32;
+                        let ns = arrangement::notes_with_intensity(
+                            theme, movement, bar, tick, stack, intensity,
+                        );
+                        for n in ns.as_slice() {
+                            if !n.instrument.percussion() || n.instrument == Instrument::Timpani {
+                                active.push((t0, t0 + n.length, n.pitch));
+                            }
+                        }
+                        let now = t0 + 0.1;
+                        let mut sounding: Vec<u8> = active
+                            .iter()
+                            .filter(|&&(s, e, _)| s <= now && now < e)
+                            .map(|&(_, _, p)| p)
+                            .collect();
+                        sounding.sort_unstable();
+                        sounding.dedup();
+                        for i in 0..sounding.len() {
+                            for j in (i + 1)..sounding.len() {
+                                let (a, b) = (sounding[i], sounding[j]);
+                                assert!(
+                                    !(a < 50 && b - a < 7),
+                                    "low-interval violation {theme:?}/{movement:?} b={bar} t={tick}: {a} vs {b}"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn vertical_consonance_plomp_levelt_and_parsimonious_voice_leading_hold() {
+    let (_, mem_m2, mem_m7, mem_tri, mem_l1) = memorial::audit_memorial_harmony();
+    assert_eq!(
+        (mem_m2, mem_m7, mem_tri),
+        (0, 0, 0),
+        "Login & Lobby vertical consonance"
+    );
+    assert!(
+        mem_l1 < 5.5,
+        "parsimonious sheet voice leading: {mem_l1:.2}"
+    );
+
+    let (mut l1_sum, mut l1_cnt, mut max_roughness) = (0.0_f64, 0usize, 0.0_f64);
+    for theme in Theme::ALL {
+        let ticks = theme.ticks();
+        for movement in Movement::ALL {
+            for &(stack, intensity) in &[(0_u8, 0.0_f32), (2, 0.55), (5, 1.0)] {
+                let mut active: Vec<(f32, f32, u8, f32)> = Vec::new();
+                let mut prev_harm: Vec<u8> = Vec::new();
+                for bar in 0..16_u32 {
+                    for tick in 0..ticks {
+                        let t0 = (bar * u32::from(ticks) + u32::from(tick)) as f32;
+                        let ns = arrangement::notes_with_intensity(
+                            theme, movement, bar, tick, stack, intensity,
+                        );
+                        if tick == 0 {
+                            let mut h: Vec<u8> = ns
+                                .as_slice()
+                                .iter()
+                                .filter(|n| !n.instrument.percussion() && n.role == Role::Harmony)
+                                .map(|n| n.pitch)
+                                .collect();
+                            h.sort_unstable();
+                            h.dedup();
+                            if h.len() >= 2 && prev_harm.len() == h.len() && prev_harm != h {
+                                l1_sum += prev_harm
+                                    .iter()
+                                    .zip(&h)
+                                    .map(|(a, b)| f64::from(a.abs_diff(*b)))
+                                    .sum::<f64>();
+                                l1_cnt += 1;
+                            }
+                            if h.len() >= 2 {
+                                prev_harm = h;
+                            }
+                        }
+                        for n in ns.as_slice() {
+                            if !n.instrument.percussion() || n.instrument == Instrument::Timpani {
+                                active.push((t0, t0 + n.length, n.pitch, n.cents));
+                            }
+                        }
+                        let now = t0 + 0.1;
+                        let mut sounding: Vec<(u8, f32)> = active
+                            .iter()
+                            .filter(|&&(s, e, _, _)| s <= now && now < e)
+                            .map(|&(_, _, p, c)| (p, c))
+                            .collect();
+                        sounding.sort_by_key(|&(p, _)| p);
+                        sounding.dedup_by_key(|(p, _)| *p);
+                        max_roughness = max_roughness.max(plomp_levelt_roughness(&sounding));
+                        for i in 0..sounding.len() {
+                            for j in (i + 1)..sounding.len() {
+                                let diff = sounding[j].0 - sounding[i].0;
+                                assert!(
+                                    !matches!(diff % 12, 1 | 6 | 11),
+                                    "dissonance {theme:?}/{movement:?} b={bar} t={tick}: {sounding:?}"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let avg_l1 = l1_sum / l1_cnt.max(1) as f64;
+    assert!(avg_l1 < 4.5, "parsimonious L1 voice leading: {avg_l1:.2}");
+    assert!(
+        max_roughness < 1.8,
+        "bounded Plomp-Levelt roughness: {max_roughness:.3}"
+    );
+    let muddy_closed = plomp_levelt_roughness(&[(38, 0.0), (42, 0.0), (45, 0.0), (74, 0.0)]);
+    let open_et = plomp_levelt_roughness(&[(38, 0.0), (57, 0.0), (66, 0.0), (74, 0.0)]);
+    let open_ji = plomp_levelt_roughness(&[(38, 0.0), (57, 1.8), (66, -8.0), (74, 0.0)]);
+    assert!(open_et < muddy_closed * 0.45 && open_ji < open_et);
+}
+
+#[test]
+fn lobby_tavern_guitar_locks_to_exact_fifteen_second_eight_bar_video_loop() {
+    // 96.000 BPM in 3/4: 1 sixteenth = 7,500 samples (0.15625s), 1 beat = 30,000 samples (0.625s = 75f @ 120fps),
+    // 1 bar = 90,000 samples (1.875s = 225f @ 120fps), 8 bars = 720,000 samples = 15.000000s exact!
+    assert_eq!(memorial::LOBBY_STEP_FRAMES * 12 * 8, 15 * RATE);
+    assert_eq!((memorial::LOBBY_STEP_FRAMES * 4 * 120) % RATE, 0);
+    assert_eq!(memorial::LOBBY_STEP_FRAMES * 4 * 120 / RATE, 75);
+    assert_eq!(memorial::LOBBY_STEP_FRAMES * 12 * 120 / RATE, 225);
+}

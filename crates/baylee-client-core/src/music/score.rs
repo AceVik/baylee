@@ -224,7 +224,7 @@ impl Tune {
 
     fn schedule_opening_bridge(&mut self, initial: bool) {
         let samples = self.position.samples;
-        // Soft D3–A3 open-fifth bridge hush connects Lobby to Table without starting the table theme.
+        // Pure 3:2 open-fifth D3–A3 bridge hush connects Lobby to Table without starting the table theme.
         self.orchestra.note_with_samples(
             Instrument::StringPad,
             50,
@@ -238,7 +238,7 @@ impl Tune {
             57,
             2.4,
             if initial { 0.038 } else { 0.030 },
-            Touch::at(0.16).late(0.025),
+            Touch::at(0.16).late(0.025).cents(1.8),
             samples,
         );
         if initial {
@@ -369,6 +369,7 @@ impl Tune {
             let length = note.length * self.eighth as f32;
             let touch = Touch::at(note.instrument.pan())
                 .late(note.late * self.eighth as f32)
+                .cents(note.cents)
                 .attack(if note.instrument.short() {
                     0.006
                 } else {
