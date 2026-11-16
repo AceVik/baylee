@@ -7,6 +7,7 @@ use std::collections::VecDeque;
 use uuid::Uuid;
 
 mod choices;
+mod collection;
 mod draw;
 mod gestures;
 pub(crate) mod keys;
@@ -21,6 +22,7 @@ pub(crate) enum Page {
     Shop,
     Equipment,
     Deck,
+    Collection,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -76,6 +78,7 @@ pub(crate) enum Action {
     ClaimReward,
     Freeze,
     Withdraw,
+    Badge(baylee_client_core::echoes::awards_api::BadgeKind),
 }
 
 pub(super) enum Confirmation {
@@ -116,6 +119,7 @@ pub(crate) struct Ui {
     deck: Deck,
     preview: Option<baylee_core::ids::CardIndex>,
     tiers: Option<domain::v2::catalog::Family>,
+    collection: collection::Collection,
     reads: VecDeque<Read>,
     loaded: bool,
     withdrawn: bool,
@@ -136,7 +140,8 @@ pub(super) fn install(app: &mut App) {
     {
         app.add_systems(
             Update,
-            native::tick
+            (native::tick, collection::poll)
+                .chain()
                 .after(poll)
                 .after(super::scrollbars::remember)
                 .before(ui)

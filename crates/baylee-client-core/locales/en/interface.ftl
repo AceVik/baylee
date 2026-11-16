@@ -1,5 +1,16 @@
 ### One thing the interface says.
 
+# Permanent Tower cosmetics, independently confirmed by Central.
+EchoesCollection = Tower medals
+EchoesCollectionLead = Your victories leave a mark. These permanent medals grow from Bronze to Obsidian across expeditions. They never expire and give no gameplay advantage.
+EchoesCollectionUnavailable = Your collection could not be refreshed. Previously confirmed progress stays visible; try again shortly.
+EchoesBadgeVictories = Duel master
+EchoesBadgeAscents = Crown conqueror
+EchoesBadgeUnbroken = Immaculate
+EchoesEarnVictories = Win verified duels in Tower Echoes. Every victory counts, even when the expedition later ends in defeat.
+EchoesEarnAscents = Complete expeditions with eight victories. Each conquered crown counts once.
+EchoesEarnUnbroken = Reach eight victories without a defeat or a draw in the same expedition.
+
 # Army selected without targeting for amass.
 # Arguments: count
 NounArmiesToAmass =

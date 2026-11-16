@@ -107,7 +107,11 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
             None
         }
         Action::Refresh => {
-            ui.refresh();
+            if ui.page == Page::Collection {
+                ui.collection.refresh();
+            } else {
+                ui.refresh();
+            }
             None
         }
         Action::Read(read) => read_page(ui, id, read),
@@ -174,6 +178,7 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
 fn navigate(ui: &mut Ui, action: Action) -> bool {
     match action {
         Action::Page(page) => ui.page = page,
+        Action::Badge(kind) => ui.collection.selected = kind,
         Action::GoShop => ui.page = Page::Shop,
         Action::InspectCard(card) => ui.preview = Some(card),
         Action::ClosePreview => ui.preview = None,
@@ -334,7 +339,9 @@ pub(super) fn tick(
         ask(&mut state, Action::Read(Read::Run(run)));
         return;
     }
-    let showing = state.hub == Hub::Challenges && state.echoes.opened;
+    let showing = state.hub == Hub::Challenges
+        && state.echoes.opened
+        && state.echoes.page != Page::Collection;
     if !showing {
         return;
     }
@@ -414,6 +421,7 @@ pub(in crate::lobby) fn returned(mut state: ResMut<LobbyState>) {
     };
     state.echoes.opened = true;
     state.echoes.returning = Some(run);
+    state.echoes.collection.refresh();
     state.echoes.page = Page::Shop;
     state.echoes.preview = None;
     state.hub = Hub::Challenges;

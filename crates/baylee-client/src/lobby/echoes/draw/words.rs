@@ -277,6 +277,7 @@ pub(super) const fn icon(action: Action) -> char {
             glyph::MINUS
         }
         Action::Commander(_) => glyph::CROWN,
+        Action::Badge(_) | Action::Page(Page::Collection) => glyph::TROPHY,
         Action::ClosePreview => glyph::CLOSE,
         Action::Play(_) | Action::Resume => glyph::ARROW_RIGHT,
         Action::Accept
@@ -307,6 +308,7 @@ pub(super) fn selected(action: Action, ui: &Ui) -> bool {
             .as_ref()
             .is_some_and(|f| f.commander == card),
         Action::Page(page) => page == ui.page,
+        Action::Badge(kind) => kind == ui.collection.selected,
         Action::InventoryOrder(order) => order == ui.bag.order,
         Action::InventoryGroups(_) => ui.bag.grouped,
         Action::Offer(id) => ui.choices.offer == Some(id),

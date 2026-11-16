@@ -202,11 +202,11 @@ control/layout evidence and issue corrections, not just an iteration counter.
 ## Implementation order and targeted acceptance
 
 1. [x] Lobby entry: remove Tasks nav, three tiles beside tables, gated availability.
-2. [ ] New generation: Commander collection/preset, five starters, reward phase.
-3. [ ] Economy: six slots, paginated reserves, auto-fusion, freeze/refill.
-4. [ ] Engine: independent sources, hidden potions, active effects and all seats.
-5. [ ] Item catalog: every tier adds abilities; expand families and balance data.
-6. [ ] Shared icon/detail/frame renderer, modular shelf and restricted builder.
+2. [x] New generation: Commander collection/preset, five starters, reward phase.
+3. [x] Economy: six slots, paginated reserves, auto-fusion, freeze/refill.
+4. [x] Engine: independent sources, hidden potions, active effects and all seats.
+5. [x] Item catalog: every tier adds abilities; expand families and bounded prices/income. Human balance calibration remains a release task.
+6. [x] Shared icon/detail/frame renderer, modular shelf and restricted builder.
 7. [ ] Native full run, rendered refinements, focused gates, PR/review.
 
 | Area | Essential regression / adversarial checks |
@@ -485,3 +485,34 @@ Always stop owned test processes and verify listeners close.
   `/tmp/baylee-tower-pass6-{tests,echoes-tests,clippy}-20261116-r2.log`,
   `/tmp/baylee-tower-pass6-item-art-tests-20261116.log`,
   `/tmp/baylee-tower-pass6-{focus,disabled-tooltip}-tests-20261116.log`.
+- Permanent native collection: Central's existing authenticated progress reader
+  supplies Duel master, Crown conqueror and Immaculate. No client-owned counters
+  establish an earned tier. One account-scoped mailbox and one in-flight read
+  bound work; a visible collection refreshes at most every 30 seconds unless the
+  player explicitly refreshes. Failed/corrupt replies preserve confirmed totals,
+  and account replacement discards both the cache and departed mailbox. Three
+  new original procedural motifs extend the existing cache to 66 fixed slots.
+  All five cosmetic tiers and exact goals have DE/EN previews. Sixteen Echoes
+  tests and three medal/shader tests passed; strict client/core dev-control
+  Clippy passed after the compact layout refinement. Logs:
+  `/tmp/baylee-tower-collection-tests-20261116.log`,
+  `/tmp/baylee-tower-collection-medal-tests-20261116.log`,
+  `/tmp/baylee-tower-collection-clippy-20261116-r3.log`.
+- Rendered refinement 7 verified the real Central collection at DE/M and EN/XL,
+  dismissed mouse-only item detail after moving away, and replayed a native
+  duel/reward/shop cycle. All five reward buttons fit at the 720-pixel floor;
+  claiming from a scrolled reward view restored the shop title to y=94 and its
+  Play control to y=180. The final compact collection required another pass.
+  Screens: `/tmp/baylee-tower-pass7-{collection-de,collection-xl-en,unbroken-de,mouse-tooltip-dismissed,reward,return-shop}.png`.
+  Client 59176, backend 59151 and PostgreSQL 59127 exited; ports 52246/52193 closed.
+- Rendered refinement 8 fits the three tracks and all five labelled goals at
+  1280×720. Choosing Crown conqueror changes its motif/requirements. A further
+  real duel and claim returned to stage 2, and changing text size/language kept
+  the choices usable. Screens: `/tmp/baylee-tower-pass8-{collection-de,ascents-de,return-a,return-b,shop-a,shop-b}.png`.
+  A presentation observation remains for final review: some earlier captures
+  lacked the header title despite valid visible node geometry. Seven later
+  native captures over 24 seconds, spanning rebuild counts 154–162, each
+  contained exactly 1,137 bright title pixels; this does not establish the
+  earlier cause. Evidence: `/tmp/baylee-tower-title-probe-20261116.log` and
+  `/tmp/baylee-tower-title-probe-{0..6}.png`.
+  Client 59953, backend 59923 and PostgreSQL 59907 exited; ports 54384/54341 closed.

@@ -36,6 +36,14 @@ are in [the run specification](proposals/tower-run-redesign.md) and
 the specification's evidence ledger; broad human balance calibration remains a
 separate release task.
 
+The run overview also opens **Tower medals**: Duel master tracks verified
+victories, Crown conqueror tracks completed eight-win runs, and Immaculate tracks
+those completed without a defeat or draw. Each has five permanent tiers from
+Bronze to Obsidian, an original animated emblem and exact visible requirements.
+These are cosmetic account achievements confirmed by Central across gateways;
+new runs still start without inherited resources. Collection errors preserve
+the last confirmed count, and account changes discard it.
+
 ## Retained Verdant Tower campaign
 
 The remainder of this document describes the earlier certified weekly campaign,

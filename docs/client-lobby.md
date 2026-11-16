@@ -1,6 +1,6 @@
 # Account entry, collection and deck history
 
-## Tower Echoes v2 client state (implementation in progress)
+## Tower Echoes run client
 
 `baylee-client-core::echoes` is the new renderer-free state machine for the
 separate global Tower service. It permits one account-worker operation at a time,
@@ -30,27 +30,45 @@ If technical recovery has replaced the game identity, the old game's seat cannot
 be reclaimed; the saved expedition's explicit Resume follows its fresh authority
 location instead.
 
-The account home opens Echoes alongside Daily/Weekly. Its shop, equipment/fusion
-and deck panels display authoritative prices, conserved sale refunds, exact
-ingredients, three active/six reserve slots, potion charges and verified history.
-Enrollment, purchases, refreshes, fusion, retirement and echo withdrawal require
-an explicit confirmation. Confirmation is bound to the displayed run revision;
-the pure domain validators determine which choices are available. Deck edits
+After gateway selection, the authenticated Lobby places Tower, Daily and Weekly
+tiles beside the table list. There is no Tasks navigation tab. Each new Echoes
+run chooses one of five 39+1 Commander starters and enters its own shop. The
+current shop displays six equipment slots, private supplies, a duplicate-capable
+icon shelf and paginated reserves. A purchase automatically combines three
+identical items across equipment and reserves, preserving the first equipped
+slot. The shelf can be frozen across rerolls and round transitions; purchased
+positions refill. Run-owned card claims precede each return to the shop.
+
+Purchases, equipment changes, rerolls and ordinary automatic fusion execute
+their explicit control directly; enrollment, Mythic upgrades, retirement and
+echo withdrawal retain confirmation. Confirmation is bound to the displayed run
+revision; the pure domain validators determine which choices are available. Deck edits
 stay local until saved, and an unsaved deck cannot enter a duel. A read of the
 same revision retains that draft; a different confirmed revision invalidates old
 choices. German/English phrases, icons, UTC creation timestamps and semantic
 keyboard focus accompany these controls. Catalogs and owned inventory are bounded
 and validated before the renderer receives them.
 
-The native presentation is under validation. Observed visual refinement and a
-representative, playable end-to-end demo remain required; neither the old Central
-expedition screen nor headless tests establish their completion.
+The duel drawer reuses the shop's item art, rarity frames and localized rules.
+Shift+I opens its modal keyboard focus order. It shows both players' public
+equipment but only the local player's potion stock. Activating an item opens the
+ordinary ability chooser; auxiliary run sources anchor that chooser without
+pretending to be battlefield cards. Account-scoped permanent medals are read
+directly from Central, independently of Tower service availability. Only confirmed
+counts establish earned tiers; unavailable counts stay unknown, and refresh
+failures preserve the last confirmed projection. A departed session loses its
+collection and mailbox. Three original medal motifs share the bounded procedural
+cache and offer explicitly labelled previews of all five tiers.
+
+Native rendered passes and real shop/duel/reward interactions are recorded in
+`docs/proposals/tower-run-redesign.md`; headless tests alone do not establish
+visual acceptance or gameplay balance.
 
 ## Global Daily and Weekly challenges
 
-The native Lobby is the home directly after Central sign-in, before selecting
-a gateway. Equal Daily/Weekly cards lead to task details, with the permanent
-collection below. The Challenges tab also holds the archive. Both read the
+The native Lobby is the home directly after Central sign-in. After gateway
+selection, equal Daily/Weekly tiles lead to task details, with the permanent
+collection and archive accessible within that view. Both read the
 shared calendar, archive, task rules, personal
 progress, three independent rankings and permanent badges from the account's
 existing worker. No gateway owns this state. Public leaderboard listing defaults
@@ -63,8 +81,8 @@ activates controls with Enter/Space. Confirmation traps Tab on Cancel/Confirm.
 Task details put play and consent beside independent rankings; scoring rules
 expand on request. Choosing a badge shows its five tiers, exact requirements
 and earned status. Five original procedural motifs gain bezels, laurels, gems
-and crowns through Bronze → Obsidian. Together with the Tower's three original
-relic motifs, forty-eight shared material slots bound the
+and crowns through Bronze → Obsidian. Together with three retained Tower motifs
+and three current Echoes motifs, sixty-six shared material slots bound the
 cache. Motion reads the GPU clock, respects reduced motion and ambient-effects
 settings, and does not rebuild the UI or upload uniforms on idle frames.
 Motion reduction remains adjustable before gateway admission, stored locally

@@ -16,6 +16,7 @@ use domain::v2::{
 };
 
 mod card;
+mod collection;
 mod completed;
 mod deck;
 mod equipment;
@@ -84,18 +85,23 @@ pub(in crate::lobby) fn draw(
         top,
         kit,
         glyph::CROWN,
-        Phrase::EchoesTitle.text(lang),
+        if ui.page == Page::Collection {
+            Phrase::EchoesCollection
+        } else {
+            Phrase::EchoesTitle
+        }
+        .text(lang),
     );
     let spacer = crate::lobby::parts::grow(commands);
     commands.entity(top).add_child(spacer);
-    let market = ui.model.run().is_some_and(|run| {
-        ui.page == Page::Shop
-            || (run.shop.generator == domain::v2::generation::RUN && ui.page != Page::Overview)
-    });
+    let market = !matches!(ui.page, Page::Overview | Page::Collection)
+        && ui.model.run().is_some_and(|run| {
+            ui.page == Page::Shop || run.shop.generator == domain::v2::generation::RUN
+        });
     if market {
         landing::market_progress(commands, top, kit, ui);
     }
-    if ui.model.run().is_some() && ui.page != Page::Overview {
+    if (ui.model.run().is_some() || ui.page == Page::Collection) && ui.page != Page::Overview {
         control(
             commands,
             top,
@@ -104,6 +110,17 @@ pub(in crate::lobby) fn draw(
             Phrase::EchoesRuns.text(lang),
             Action::Overview,
             ui.choices.deck_unchanged(ui.model.run()),
+        );
+    }
+    if !market && ui.page != Page::Collection {
+        control(
+            commands,
+            top,
+            kit,
+            ui,
+            Phrase::EchoesCollection.text(lang),
+            Action::Page(Page::Collection),
+            true,
         );
     }
     control(
@@ -143,6 +160,10 @@ pub(in crate::lobby) fn draw(
             Phrase::ChallengeSignIn.text(lang),
             tokens::MUTED,
         );
+        return;
+    }
+    if ui.page == Page::Collection {
+        collection::draw(commands, body, kit, ui);
         return;
     }
     notices(commands, hero, kit, ui);
@@ -265,7 +286,7 @@ fn selected(
                 shop::toolbar(commands, tabs, kit, ui, run);
             }
             match ui.page {
-                Page::Overview => {}
+                Page::Overview | Page::Collection => {}
                 Page::Shop => shop::draw(commands, body, kit, ui, run, cohort, scrolled),
                 Page::Equipment => equipment::draw(commands, body, kit, ui, run, cohort),
                 Page::Deck => deck::draw(commands, body, kit, ui, run, cohort),

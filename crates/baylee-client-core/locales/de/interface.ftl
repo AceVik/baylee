@@ -3870,3 +3870,14 @@ EchoesRunShelfHint = Drei identische Gegenstände fusionieren automatisch. Frier
 EchoesShelfFrozen = Regal eingefroren
 EchoesConfirmRefresh = Für { $price } Gold alle nicht vorgemerkten Angebote ersetzen? Deine Vormerkungen bleiben erhalten.
 EchoesConfirmMythic = Verbrauchsangebot { $number } durch einen Mythic-Trank für 24 Gold ersetzen? Eine vorhandene Vormerkung wird gelöst. Der Trank wird dadurch noch nicht gekauft.
+
+## Dauerhafte, von Central bestätigte Tower-Abzeichen.
+EchoesCollection = Turm-Abzeichen
+EchoesCollectionLead = Deine Siege hinterlassen Spuren. Diese dauerhaften Abzeichen wachsen über Expeditionen hinweg von Bronze bis Obsidian. Sie verfallen nie und bringen keinen Spielvorteil.
+EchoesCollectionUnavailable = Deine Sammlung konnte nicht aktualisiert werden. Bereits bestätigte Fortschritte bleiben sichtbar; versuche es gleich erneut.
+EchoesBadgeVictories = Duellmeister
+EchoesBadgeAscents = Kronenbezwinger
+EchoesBadgeUnbroken = Makellos
+EchoesEarnVictories = Gewinne bestätigte Duelle in den Echos des Turms. Jeder Sieg zählt, auch wenn die Expedition später mit einer Niederlage endet.
+EchoesEarnAscents = Schließe Expeditionen mit acht Siegen ab. Jede eroberte Krone zählt einmal.
+EchoesEarnUnbroken = Erreiche acht Siege ohne Niederlage oder Unentschieden in derselben Expedition.

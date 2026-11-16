@@ -1,4 +1,4 @@
-// Five original emblems, five earned silhouettes. No textures or copied artwork.
+// Eleven original emblems, five earned silhouettes. No textures or copied artwork.
 // Linear-light metal, recessed enamel, engraved bezels and gemstone settings.
 // Motion only touches ornament, never text. Reduced motion has a designed still pose.
 import bevy_ui_render::ui_vertex_output::UiVertexOutput;
@@ -56,6 +56,25 @@ fn emblem(p: vec2<f32>, kind: f32, aa: f32) -> f32 {
         let shaft = stroke(segment(p, vec2<f32>(-0.19, 0.22), vec2<f32>(0.14, -0.17)), 0.018, aa);
         let head = max(stroke(segment(p, vec2<f32>(0.14, -0.17), vec2<f32>(0.02, -0.16)), 0.018, aa), stroke(segment(p, vec2<f32>(0.14, -0.17), vec2<f32>(0.15, -0.05)), 0.018, aa));
         return max(ring, max(shaft, head));
+    }
+    if kind > 9.5 { // Echoes immaculate: a winged shield enclosing a star.
+        let shield = max(abs(p.x) - 0.14, max(-p.y - 0.19, p.y + abs(p.x) * 0.85 - 0.23));
+        let star = max(fill(diamond(p, vec2<f32>(0.04, 0.13)), aa), fill(diamond(p, vec2<f32>(0.09, 0.04)), aa));
+        let wing = max(stroke(segment(vec2<f32>(abs(p.x), p.y), vec2<f32>(0.16, 0.10), vec2<f32>(0.26, -0.15)), 0.018, aa), stroke(segment(vec2<f32>(abs(p.x), p.y), vec2<f32>(0.18, 0.02), vec2<f32>(0.28, -0.02)), 0.016, aa));
+        return max(stroke(shield, 0.018, aa), max(star, wing));
+    }
+    if kind > 8.5 { // Echoes ascents: eight-faceted summit beneath a crown.
+        let peak = stroke(diamond(p - vec2<f32>(0.0, 0.07), vec2<f32>(0.16, 0.19)), 0.020, aa);
+        let facets = max(stroke(p.x, 0.012, aa), stroke(p.y - 0.07, 0.012, aa)) * fill(diamond(p - vec2<f32>(0.0, 0.07), vec2<f32>(0.16, 0.19)), aa);
+        let crown = fill(max(abs(p.x) - 0.22, max(p.y + 0.13, -p.y - 0.20 - 0.045 * cos(p.x * 42.0))), aa);
+        return max(crown, max(peak, facets));
+    }
+    if kind > 7.5 { // Echoes duellist: two crossed blades with separate guards.
+        let q = vec2<f32>(abs(p.x), p.y);
+        let blade = stroke(segment(q, vec2<f32>(0.0, 0.0), vec2<f32>(0.20, -0.23)), 0.026, aa);
+        let grip = stroke(segment(q, vec2<f32>(0.0, 0.0), vec2<f32>(0.19, 0.20)), 0.016, aa);
+        let guard = stroke(segment(q, vec2<f32>(0.045, 0.19), vec2<f32>(0.20, 0.045)), 0.022, aa);
+        return max(blade, max(grip, guard));
     }
     if kind > 6.5 { // Unbroken: a cut shield enclosing a continuous diamond knot.
         let shield = max(abs(p.x) - 0.21, max(-p.y - 0.22, p.y + abs(p.x) * 0.72 - 0.25));

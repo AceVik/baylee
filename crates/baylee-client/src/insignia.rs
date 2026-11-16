@@ -1,4 +1,4 @@
-//! Original, procedural earned medals. Forty-eight shared materials bound the cache.
+//! Original, procedural earned medals. Sixty-six shared materials bound the cache.
 //! The GPU clock animates them; idle frames never upload material uniforms.
 use baylee_client_core::challenges::api::{BadgeKind, Tier};
 use bevy::{
@@ -19,11 +19,15 @@ pub(crate) struct Insignia {
 pub(crate) enum Motif {
     Challenge(BadgeKind),
     Tower(baylee_client_core::tower::api::BadgeKind),
+    Echoes(baylee_client_core::echoes::awards_api::BadgeKind),
 }
 
 impl Insignia {
     fn indices(self) -> (usize, usize) {
         let kind = match self.kind {
+            Motif::Echoes(baylee_client_core::echoes::awards_api::BadgeKind::Victories) => 8,
+            Motif::Echoes(baylee_client_core::echoes::awards_api::BadgeKind::Ascents) => 9,
+            Motif::Echoes(baylee_client_core::echoes::awards_api::BadgeKind::Unbroken) => 10,
             Motif::Tower(baylee_client_core::tower::api::BadgeKind::Pathfinder) => 5,
             Motif::Tower(baylee_client_core::tower::api::BadgeKind::Summit) => 6,
             Motif::Tower(baylee_client_core::tower::api::BadgeKind::Unbroken) => 7,
@@ -68,7 +72,7 @@ impl UiMaterial for Medal {
 }
 
 #[derive(Resource, Default)]
-struct Medals([[Option<Handle<Medal>>; 6]; 8]);
+struct Medals([[Option<Handle<Medal>>; 6]; 11]);
 
 fn linear(rgb: [f32; 3]) -> Vec4 {
     let c = Color::srgb(rgb[0], rgb[1], rgb[2]).to_linear();
@@ -93,6 +97,9 @@ fn params(kind: usize, tier: usize, energy: f32) -> Params {
         [0.40, 0.86, 0.76],
         [0.96, 0.72, 0.28],
         [0.64, 0.58, 0.98],
+        [0.96, 0.38, 0.29],
+        [0.32, 0.86, 0.77],
+        [0.72, 0.58, 1.0],
     ][kind];
     Params {
         metal: linear(metal),
@@ -202,11 +209,23 @@ mod tests {
     #[test]
     fn every_motif_and_tier_has_a_unique_bounded_cache_slot() {
         let mut slots = std::collections::BTreeSet::new();
-        for kind in BadgeKind::ALL.into_iter().map(Motif::Challenge).chain(
-            baylee_client_core::tower::api::BadgeKind::ALL
-                .into_iter()
-                .map(Motif::Tower),
-        ) {
+        for kind in BadgeKind::ALL
+            .into_iter()
+            .map(Motif::Challenge)
+            .chain(
+                baylee_client_core::tower::api::BadgeKind::ALL
+                    .into_iter()
+                    .map(Motif::Tower),
+            )
+            .chain(
+                [
+                    baylee_client_core::echoes::awards_api::BadgeKind::Victories,
+                    baylee_client_core::echoes::awards_api::BadgeKind::Ascents,
+                    baylee_client_core::echoes::awards_api::BadgeKind::Unbroken,
+                ]
+                .map(Motif::Echoes),
+            )
+        {
             for tier in [
                 None,
                 Some(Tier::Bronze),
@@ -216,12 +235,12 @@ mod tests {
                 Some(Tier::Obsidian),
             ] {
                 let slot = Insignia { kind, tier }.indices();
-                assert!(slot.0 < 8 && slot.1 < 6 && slots.insert(slot));
+                assert!(slot.0 < 11 && slot.1 < 6 && slots.insert(slot));
                 let p = params(slot.0, slot.1, 0.0);
                 assert!(p.metal.is_finite() && p.gem.is_finite());
                 assert_eq!(p.shape.z, 0.0);
             }
         }
-        assert_eq!(slots.len(), 48);
+        assert_eq!(slots.len(), 66);
     }
 }

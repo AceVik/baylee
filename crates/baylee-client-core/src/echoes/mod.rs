@@ -4,6 +4,7 @@ use api::{Cohort, Host, Location, Phase, Request, Response, Run};
 pub use baylee_tower as domain;
 pub use baylee_tower_api as api;
 pub use central_api::Error;
+pub use central_api::tower_awards as awards_api;
 use domain::v2::run::Command;
 use uuid::Uuid;
 

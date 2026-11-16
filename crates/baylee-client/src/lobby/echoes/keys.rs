@@ -11,6 +11,7 @@ pub(crate) const ORDER: TabOrder = TabOrder {
         "play",
         "hosts",
         "tabs",
+        "badges",
         "shop-return",
         "reroll",
         "freeze",
@@ -96,6 +97,7 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
                 .unwrap_or(0),
         ),
         Action::Page(page) => ("tabs", page_index(page)),
+        Action::Badge(kind) => ("badges", badge_index(kind)),
         Action::Offer(id) | Action::Purchase(id) => ("offers", index(ui, id, true)),
         Action::QuickEquip(id) => ("move", index(ui, id, false)),
         Action::Transfer(_, slot) => (
@@ -206,5 +208,15 @@ const fn page_index(page: Page) -> usize {
         Page::Shop => 0,
         Page::Equipment => 1,
         Page::Deck => 2,
+        Page::Collection => 4,
+    }
+}
+
+const fn badge_index(kind: baylee_client_core::echoes::awards_api::BadgeKind) -> usize {
+    use baylee_client_core::echoes::awards_api::BadgeKind;
+    match kind {
+        BadgeKind::Victories => 0,
+        BadgeKind::Ascents => 1,
+        BadgeKind::Unbroken => 2,
     }
 }
