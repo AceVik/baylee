@@ -338,6 +338,7 @@ and cleanup rules are unchanged (`../tower.md`).
 ## Client (`baylee-client`)
 
 - `BAYLEE_GATEWAY` + `BAYLEE_GAME`, `BAYLEE_SEAT_TOKEN`, optional `BAYLEE_SEAT`; in a browser `?game=…&token=…`.
+- `BAYLEE_CENTRAL_DEV_ENDPOINT` (local desktop debug and `dev-control` builds only; ignored in shipped release builds): numeric loopback `http://127.0.0.1:<port>` Central native endpoint (`Endpoint::development`; remote hosts or invalid URLs refuse sign-in instead of falling back to live). `BAYLEE_CENTRAL_WEB_ORIGIN` (same build scope): numeric loopback `http://127.0.0.1:<port>` origin for the front door's website and create-account links (defaults to `http://127.0.0.1:28794` when `BAYLEE_CENTRAL_DEV_ENDPOINT` is `http://127.0.0.1:28790`).
 - At build time `BAYLEE_FEEDBACK_PUBLIC_URL` (`option_env!`) names the feedback service (the offline count); `feedback_url` in the settings file overrides it (`""` = off). `BAYLEE_REPORT_PUBLIC_URL` names where a client signed in nowhere sends reports (the official gateway's `POST /client/reports`), `report_url` in the settings file overrides it (`""` = off, and `feedback_url = ""` without a `report_url` is off too, as before there was one); without either, that service; none of them = such a client sends nothing. A `LocalHost` game is recorded and the last 20 kept in `records/` beside the settings (native); a report carries one only when ticked for that report, never remembered.
 
 ## Seat bridge (`baylee-seat`)
@@ -366,3 +367,4 @@ keychain (service `baylee-macos-runner`) and handed to each `gh` child alone.
 - `BAYLEE_BUILD_STAMP`: `none` builds a debug profile without its stamp (commit, branch, build number and date say `unknown` or `0`), so that a commit is no reason to compile `baylee-build` and everything above it again. `cargo dev gate` sets it for its test step (`target/gate`); a release profile ignores it. Anything else, or unset: the build says what it is.
 - `BAYLEE_SCCACHE`: `0` keeps `cargo dev gate`, `gate features` and `land` from compiling through sccache where it is installed.
 - `BAYLEE_GATE_ALL`: set, `cargo dev gate` and `cargo dev land` run every test, also the slow ones left out while their crate is untouched (`--all`).
+- `BAYLEE_PG_BIN`: optional directory containing `initdb`, `pg_ctl`, `psql` and `pg_isready` for `cargo dev stack` when PostgreSQL 18 is neither in a standard prefix nor on `PATH`.

@@ -211,7 +211,10 @@ pub(super) fn tile(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
 pub(super) fn confirmation(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
     let lang = lang(kit);
     let card = panel(commands, root, kit);
-    commands.entity(card).insert(BorderColor::all(tokens::GOLD));
+    commands.entity(card).insert((
+        BorderColor::all(tokens::GOLD),
+        surfaces::elevation_floating(),
+    ));
     heading(commands, card, kit, Phrase::ChallengeConfirm.text(lang));
     let (text, valid) = match ui.confirmation.as_ref().expect("shown confirmation") {
         Confirmation::Listing(revision) => (

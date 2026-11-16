@@ -6908,14 +6908,32 @@ ColophonSource = Source (AGPL-3.0)
 # The About sheet's title.
 AboutTitle = About Baylee
 
+# The About sheet's header subtitle.
+AboutSubtitle = Unofficial, non-commercial open-source fan project
+
+# The About sheet: section heading over the fan-content and card-data notices.
+AboutSectionLegal = Fan Content & Card Data
+
+# The About sheet: section heading over the software licence and source offer.
+AboutSectionSource = Free Software & Source Code
+
+# The About sheet: hyperlink label for the GNU AGPL v3.0 licence text.
+AboutLicenceLink = GNU AGPL v3.0 Licence
+
 # The About sheet: the licence of this program.
 AboutLicence = Baylee is free software: you may run, study, share and change it under the GNU Affero General Public License, version 3. Whoever runs a changed gateway offers its players that version’s source. A changed version says so and does not pass itself off as the official Baylee (NOTICE).
 
 # The About sheet: the heading over the third-party licences.
 AboutThirdParty = Third-party licences
 
+# The About sheet: subheading for typefaces.
+AboutCatTypography = Typefaces
+
 # The About sheet: the interface's and the card text's typefaces.
 AboutFonts = Alegreya Sans (Juan Pablo del Peral, Huerta Tipográfica) and Faustina (Omnibus-Type): SIL Open Font License 1.1.
+
+# The About sheet: subheading for icons and card symbols.
+AboutCatIcons = Icons & Card Symbols
 
 # The About sheet: the icon font.
 AboutIcons = Font Awesome Free 6.7.2 (Fonticons, Inc.): the font files under the SIL Open Font License 1.1.
@@ -6923,11 +6941,41 @@ AboutIcons = Font Awesome Free 6.7.2 (Fonticons, Inc.): the font files under the
 # The About sheet: the mana font.
 AboutMana = Mana 1.18 (Andrew Gioia): SIL Open Font License 1.1. The symbols it draws are Wizards of the Coast’s.
 
-# The About sheet: the engine and the libraries.
-AboutCrates = Bevy and the other Rust crates this build links: each under its own licence (MIT, Apache-2.0 and the like), held to an allow-list by cargo-deny; NOTICE in the source names the rest.
+# The About sheet: subheading for preconstructed deck lists.
+AboutCatDecks = Preconstructed Decks
 
 # The About sheet: the preconstructed deck lists.
 AboutPrecons = Preconstructed deck lists from MTGJSON (Zach Halpern): MIT License.
+
+# The About sheet: subheading for the engine, graphics and video libraries.
+AboutCatEngine = Engine, Graphics & Video
+
+# The About sheet: engine, WebGPU and AV1/AVIF decoding credits.
+AboutEngine = Bevy 0.20 and wgpu / Naga (MIT or Apache-2.0) render the 3D table, shaders and interface; rav1d / dav1d via re_rav1d (VideoLAN, ISRG Prossimo & Rerun: BSD-2-Clause) decodes animated AV1 / AVIF backdrops and portraits.
+
+# The About sheet: subheading for networking, server and persistence crates.
+AboutCatNetwork = Networking, Server & Database
+
+# The About sheet: networking, TLS and database credits.
+AboutNetwork = Tokio, Axum and Hyper (MIT), Rustls (Apache-2.0, ISC or MIT), ureq / ehttp / ewebsock and SeaORM (MIT or Apache-2.0) power asynchronous networking, TLS transport and PostgreSQL persistence.
+
+# The About sheet: subheading for cryptography and credential storage.
+AboutCatCrypto = Cryptography & Account Security
+
+# The About sheet: cryptography and OS keyring credits.
+AboutCrypto = OPAQUE (opaque-ke), Argon2id, Ed25519 / X25519 (dalek), ChaCha20-Poly1305 and HKDF (RustCrypto: MIT, Apache-2.0 or BSD-3-Clause) secure sign-in, release signatures and end-to-end encrypted chat; GNOME libsecret (LGPL-2.1+) stores credentials on Linux via D-Bus.
+
+# The About sheet: subheading for music, acoustic samples and scores.
+AboutCatAudio = Music, Acoustic Samples & Scores
+
+# The About sheet: procedural synthesis, CC0 acoustic sample banks and scores.
+AboutAudio = Original procedural synthesis and physical string models, paired with CC0 1.0 public-domain recordings from VSCO 2 Community Edition & VCSL (Versilian Studios) and FreePats (Gilles Sadowski), plus public-domain classical editions from the Mutopia Project.
+
+# The About sheet: subheading for localisation, QR generation and remaining Rust crates.
+AboutCatEcosystem = Localisation, QR & Rust Ecosystem
+
+# The About sheet: the engine and the libraries.
+AboutCrates = Bevy and the other Rust crates this build links: each under its own licence (MIT, Apache-2.0 and the like), held to an allow-list by cargo-deny; NOTICE in the source names the rest.
 
 # Closes a sheet.
 SheetClose = Close

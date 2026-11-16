@@ -326,6 +326,7 @@ fn text_box(commands: &mut Commands, kit: Kit, text: &str, empty: Option<&str>) 
             },
             BackgroundColor(tokens::CONTROL.with_alpha(0.55)),
             BorderColor::all(tokens::BORDER),
+            surfaces::elevation_subcard(),
             Pickable::IGNORE,
         ))
         .id();

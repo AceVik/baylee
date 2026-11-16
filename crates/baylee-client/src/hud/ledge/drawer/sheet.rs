@@ -281,7 +281,9 @@ fn square_button(
             },
             BackgroundColor(fill),
             BorderColor::all(edge),
+            crate::shellkit::surfaces::elevation_control(),
             Feel::new(fill),
+            crate::ambience::FeelShadow,
             children![(
                 Text::new(mark.to_string()),
                 icon_tf(fonts, 11.0),
@@ -318,7 +320,9 @@ pub(in crate::hud) fn footer_button(
             },
             BackgroundColor(fill),
             BorderColor::all(edge),
+            crate::shellkit::surfaces::elevation_control(),
             Feel::new(fill),
+            crate::ambience::FeelShadow,
         ))
         .id();
     if let Some(cap) = cap {
@@ -377,6 +381,7 @@ fn thumbnail(
             },
             BackgroundColor(palette::DOCK_GROUND),
             BorderColor::all(crate::shellkit::tokens::BORDER),
+            palette::elevation_pill(),
         ))
         .id();
     if let Some(image) = image {
@@ -423,7 +428,9 @@ fn fold_button(
             },
             BackgroundColor(fill),
             BorderColor::all(edge),
+            crate::shellkit::surfaces::elevation_control(),
             Feel::new(fill),
+            crate::ambience::FeelShadow,
         ))
         .id();
     let mark = commands
@@ -485,14 +492,9 @@ pub(in crate::hud) fn spawn_pill(
             },
             BackgroundColor(crate::shellkit::tokens::OPAQUE),
             BorderColor::all(palette::CANDLE.with_alpha(0.75)),
+            crate::shellkit::surfaces::elevation_control(),
             Feel::new(crate::shellkit::tokens::OPAQUE),
-            BoxShadow(vec![ShadowStyle {
-                color: palette::SHADOW,
-                x_offset: px(0.0),
-                y_offset: px(-3.0),
-                spread_radius: px(0.0),
-                blur_radius: px(10.0),
-            }]),
+            crate::ambience::FeelShadow,
         ))
         .id();
     fill_pill(commands, fonts, head, picture, cap, pill);

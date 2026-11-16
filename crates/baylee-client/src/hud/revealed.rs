@@ -394,13 +394,7 @@ fn spawn_sheet(
             BackgroundColor(palette::DOCK_GROUND),
             BorderColor::all(palette::DOCK_EDGE),
             // Upward, onto the table, as the decision sheet's.
-            BoxShadow(vec![ShadowStyle {
-                color: palette::SHADOW,
-                x_offset: px(0.0),
-                y_offset: px(-6.0),
-                spread_radius: px(0.0),
-                blur_radius: px(18.0),
-            }]),
+            palette::elevation_upward(),
         ))
         .id();
     let grid = spawn_grid(commands, paper, (width, row_w, grid_h), card);

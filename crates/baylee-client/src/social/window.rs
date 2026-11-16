@@ -1347,13 +1347,6 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
             },
             BackgroundColor(Color::NONE),
             Feel::new(Color::NONE),
-            BoxShadow::new(
-                Color::srgba(0.0, 0.0, 0.0, 0.22),
-                zpx(0.0),
-                zpx(3.0),
-                zpx(0.0),
-                zpx(6.0),
-            ),
         ))
         .id();
     let body = commands
@@ -1422,13 +1415,22 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
             },
             BackgroundColor(inks.ground.with_alpha(0.92)),
             BorderColor::all(inks.accent.with_alpha(0.60)),
-            BoxShadow::new(
-                inks.accent.with_alpha(0.28),
-                zpx(0.0),
-                zpx(2.0),
-                zpx(0.0),
-                zpx(5.0),
-            ),
+            BoxShadow(vec![
+                ShadowStyle {
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.42),
+                    x_offset: zpx(0.0),
+                    y_offset: zpx(2.0),
+                    spread_radius: zpx(0.0),
+                    blur_radius: zpx(5.0),
+                },
+                ShadowStyle {
+                    color: inks.accent.with_alpha(0.28),
+                    x_offset: zpx(0.0),
+                    y_offset: zpx(3.0),
+                    spread_radius: zpx(0.0),
+                    blur_radius: zpx(8.0),
+                },
+            ]),
             Pickable::IGNORE,
         ))
         .id();
@@ -1450,13 +1452,22 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
             },
             BackgroundColor(inks.ground.with_alpha(0.92)),
             BorderColor::all(inks.accent.with_alpha(0.60)),
-            BoxShadow::new(
-                inks.accent.with_alpha(0.28),
-                zpx(0.0),
-                zpx(-2.0),
-                zpx(0.0),
-                zpx(5.0),
-            ),
+            BoxShadow(vec![
+                ShadowStyle {
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.42),
+                    x_offset: zpx(0.0),
+                    y_offset: zpx(-2.0),
+                    spread_radius: zpx(0.0),
+                    blur_radius: zpx(5.0),
+                },
+                ShadowStyle {
+                    color: inks.accent.with_alpha(0.28),
+                    x_offset: zpx(0.0),
+                    y_offset: zpx(-3.0),
+                    spread_radius: zpx(0.0),
+                    blur_radius: zpx(8.0),
+                },
+            ]),
             Pickable::IGNORE,
         ))
         .id();

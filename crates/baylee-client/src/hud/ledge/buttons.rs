@@ -338,6 +338,10 @@ pub(crate) fn answer_sized(
     // A machined key, not a floating pill. Both bevels stay inside the
     // existing border box and neither adds a target or changes measurement.
     if matches!(weight, Weight::Candle | Weight::Secondary | Weight::Danger) {
+        commands.entity(button).insert((
+            crate::shellkit::surfaces::elevation_control(),
+            crate::ambience::FeelShadow,
+        ));
         for (top, colour) in [
             (true, palette::DOCK_INK.with_alpha(0.18)),
             (false, palette::DOCK_GROUND.with_alpha(0.65)),

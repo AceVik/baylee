@@ -540,6 +540,7 @@ fn header_lang_pill(commands: &mut Commands, state: &LobbyState, kit: Kit) -> En
             },
             BackgroundColor(tokens::CONTROL.with_alpha(0.65)),
             BorderColor::all(tokens::BORDER),
+            surfaces::elevation_control(),
             UiTransform::default(),
             crate::ambience::Feel::tinting_to(tokens::CONTROL.with_alpha(0.65), tokens::HOVER),
             crate::ambience::FeelBorder {
@@ -547,6 +548,7 @@ fn header_lang_pill(commands: &mut Commands, state: &LobbyState, kit: Kit) -> En
                 hot: tokens::ACCENT.with_alpha(0.65),
                 press: tokens::ACCENT,
             },
+            crate::ambience::FeelShadow,
         ))
         .id();
     let flag = super::front::door::flag_icon(commands, lang);
@@ -747,6 +749,13 @@ fn badge(
                 ..default()
             },
             BackgroundColor(tokens::GOLD),
+            BoxShadow(vec![ShadowStyle {
+                color: Color::srgba(0.0, 0.0, 0.0, 0.42),
+                x_offset: px_fixed(0.0),
+                y_offset: px_fixed(1.5),
+                spread_radius: px_fixed(0.0),
+                blur_radius: px_fixed(4.0),
+            }]),
             if initial.is_empty() {
                 Visibility::Hidden
             } else {
@@ -907,6 +916,7 @@ fn gateway_popover(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ent
                 },
                 BackgroundColor(tokens::CONTROL.with_alpha(0.75)),
                 BorderColor::all(tokens::BORDER),
+                surfaces::elevation_subcard(),
                 Pickable::IGNORE,
             ))
             .id();

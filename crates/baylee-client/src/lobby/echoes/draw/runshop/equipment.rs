@@ -49,6 +49,7 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run
                     },
                     BorderColor::all(tokens::BORDER),
                     BackgroundColor(tokens::CONTROL),
+                    surfaces::elevation_control_disabled(),
                     Pickable::default(),
                     ChildOf(equipment),
                 ))

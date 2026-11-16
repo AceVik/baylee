@@ -231,13 +231,38 @@ fn tap_control(app: &mut App, what: &str, pick: impl Fn(&Press) -> bool) {
     }
 }
 
-/// Every text drawn: each `Text`, and each run of a text set in spans (the
-/// colophon's paragraph), on its own.
+/// Every text drawn: each `Text`, each `TextSpan`, and the reconstructed
+/// plain sentence of any multi-span `Text` paragraph (omitting private-use icon
+/// glyphs).
 fn labels(app: &mut App) -> Vec<String> {
-    let mut query = app.world_mut().query::<&Text>();
-    let mut said: Vec<String> = query.iter(app.world()).map(|t| t.0.clone()).collect();
+    let mut query = app.world_mut().query::<(&Text, Option<&Children>)>();
+    let mut said: Vec<String> = Vec::new();
+    let mut multi: Vec<(String, Vec<Entity>)> = Vec::new();
+    for (t, kids) in query.iter(app.world()) {
+        said.push(t.0.clone());
+        if let Some(kids) = kids {
+            multi.push((t.0.clone(), kids.to_vec()));
+        }
+    }
     let mut spans = app.world_mut().query::<&TextSpan>();
     said.extend(spans.iter(app.world()).map(|t| t.0.clone()));
+    for (head, kids) in multi {
+        let mut full = head;
+        for kid in kids {
+            if let Some(span) = app.world().get::<TextSpan>(kid) {
+                let is_icon = span
+                    .0
+                    .chars()
+                    .any(|c| ('\u{e000}'..='\u{f8ff}').contains(&c));
+                if !is_icon {
+                    full.push_str(&span.0);
+                }
+            }
+        }
+        if !said.contains(&full) {
+            said.push(full);
+        }
+    }
     said
 }
 

@@ -155,13 +155,7 @@ pub fn frame(commands: &mut Commands, kit: Kit) -> Entity {
             BackgroundColor(tokens::PANEL.with_alpha(surface::OPACITY)),
             BorderColor::all(tokens::BORDER.with_alpha(0.65)),
             GlobalZIndex(tokens::z::POPOVER - 1),
-            BoxShadow(vec![ShadowStyle {
-                color: Color::srgba(0.0, 0.0, 0.0, 0.36),
-                x_offset: px_fixed(0.0),
-                y_offset: px_fixed(4.0),
-                spread_radius: px_fixed(0.0),
-                blur_radius: px_fixed(12.0),
-            }]),
+            super::surfaces::elevation_panel(),
         ))
         .id();
     commands.queue(move |world: &mut World| {
@@ -257,6 +251,7 @@ fn gateway_pill(
                 },
                 BackgroundColor(tokens::CONTROL.with_alpha(0.82)),
                 BorderColor::all(tokens::BORDER),
+                super::surfaces::elevation_control(),
                 UiTransform::default(),
                 crate::ambience::Feel::tinting_to(tokens::CONTROL.with_alpha(0.82), tokens::HOVER),
                 crate::ambience::FeelBorder {
@@ -264,6 +259,7 @@ fn gateway_pill(
                     hot: tokens::ACCENT.with_alpha(0.65),
                     press: tokens::ACCENT,
                 },
+                crate::ambience::FeelShadow,
             ))
             .id();
         let icon = commands
@@ -300,8 +296,10 @@ fn gateway_pill(
             },
             BackgroundColor(tokens::CONTROL),
             BorderColor::all(tokens::BORDER),
+            super::surfaces::elevation_control(),
             UiTransform::default(),
             crate::ambience::Feel::new(tokens::CONTROL),
+            crate::ambience::FeelShadow,
         ))
         .id();
     let dot = commands
@@ -449,6 +447,13 @@ pub fn bell(commands: &mut Commands, kit: Kit, unread: usize, action: impl Bundl
                     ..default()
                 },
                 BackgroundColor(tokens::GOLD),
+                BoxShadow(vec![ShadowStyle {
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.42),
+                    x_offset: px_fixed(0.0),
+                    y_offset: px_fixed(1.5),
+                    spread_radius: px_fixed(0.0),
+                    blur_radius: px_fixed(4.0),
+                }]),
                 Pickable::IGNORE,
             ))
             .id();
@@ -485,8 +490,10 @@ pub fn account(
         let ground = super::avatar::palette(baylee_client_core::avatar::monogram(handle).tint).0;
         commands.entity(disc).insert((
             Role::Pill,
+            super::surfaces::elevation_control(),
             UiTransform::default(),
             crate::ambience::Feel::new(ground),
+            crate::ambience::FeelShadow,
         ));
         let control = hit(commands, kit, disc, action);
         commands
@@ -512,8 +519,10 @@ pub fn account(
             },
             BackgroundColor(tokens::CONTROL),
             BorderColor::all(tokens::BORDER),
+            super::surfaces::elevation_control(),
             UiTransform::default(),
             crate::ambience::Feel::new(tokens::CONTROL),
+            crate::ambience::FeelShadow,
         ))
         .id();
     // The name in the interface's ink and the tag quieter after it: the tag
@@ -577,13 +586,22 @@ pub fn strip(commands: &mut Commands, kit: Kit, sentence: &str, actions: &[Entit
             },
             BackgroundColor(tokens::PANEL.with_alpha(surface::OPACITY)),
             BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.45)),
-            BoxShadow(vec![ShadowStyle {
-                color: Color::srgba(0.0, 0.0, 0.0, 0.32),
-                x_offset: px_fixed(0.0),
-                y_offset: px_fixed(3.0),
-                spread_radius: px_fixed(0.0),
-                blur_radius: px_fixed(10.0),
-            }]),
+            BoxShadow(vec![
+                ShadowStyle {
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.34),
+                    x_offset: px_fixed(0.0),
+                    y_offset: px_fixed(2.0),
+                    spread_radius: px_fixed(0.0),
+                    blur_radius: px_fixed(6.0),
+                },
+                ShadowStyle {
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.48),
+                    x_offset: px_fixed(0.0),
+                    y_offset: px_fixed(8.0),
+                    spread_radius: px_fixed(-1.0),
+                    blur_radius: px_fixed(20.0),
+                },
+            ]),
             SeatStrip,
         ))
         .id();

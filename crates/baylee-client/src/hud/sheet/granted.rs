@@ -227,7 +227,7 @@ pub(crate) fn sync_granted_sheet(
             },
             BackgroundColor(palette::DIALOG),
             BorderColor::all(palette::DIALOG_LINE),
-            crate::hud::sheet_shadow(),
+            palette::elevation_sheet(),
         ))
         .id();
     commands.entity(root).add_child(sheet);

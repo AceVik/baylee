@@ -307,17 +307,22 @@ fn styled_button(
         )],
     ));
     if let Some(reason) = disabled_hint {
-        ent.insert(super::hint_bundle(reason));
+        ent.insert((
+            crate::shellkit::surfaces::elevation_control_disabled(),
+            super::hint_bundle(reason),
+        ));
     } else {
         ent.insert((
             UiButton,
             press,
+            crate::shellkit::surfaces::elevation_control(),
             crate::ambience::Feel::tinting_to(tokens::CONTROL, tokens::HOVER),
             crate::ambience::FeelBorder {
                 rest: rest_border,
                 hot: tokens::ACCENT,
                 press: tokens::ACCENT,
             },
+            crate::ambience::FeelShadow,
         ));
     }
     ent.id()

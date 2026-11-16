@@ -482,10 +482,16 @@ fn modal(
     cancel: Press,
     kind: DialogKind,
 ) -> Entity {
-    let border_col = match kind {
-        DialogKind::Destructive => tokens::DANGER.with_alpha(0.46),
-        DialogKind::Proposal => tokens::PRIMARY_EDGE.with_alpha(0.62),
-        DialogKind::Warning => tokens::GOLD.with_alpha(0.48),
+    use bevy::ui::{ColorStop, InterpolationColorSpace};
+    let top_rim = match kind {
+        DialogKind::Destructive => tokens::DANGER.with_alpha(0.54),
+        DialogKind::Proposal => Color::srgba(0.86, 0.78, 0.62, 0.48),
+        DialogKind::Warning => tokens::GOLD.with_alpha(0.54),
+    };
+    let side_rim = match kind {
+        DialogKind::Destructive => tokens::DANGER.with_alpha(0.34),
+        DialogKind::Proposal => Color::srgba(0.58, 0.66, 0.76, 0.34),
+        DialogKind::Warning => tokens::GOLD.with_alpha(0.34),
     };
     let panel = commands
         .spawn((
@@ -500,9 +506,22 @@ fn modal(
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(border_col),
-            crate::shellkit::surfaces::popover_shadow(),
+            BackgroundColor(Color::NONE),
+            BackgroundGradient::from(
+                LinearGradient::to_bottom(vec![
+                    ColorStop::percent(Color::srgba(0.080, 0.130, 0.200, 0.64), 0.0),
+                    ColorStop::percent(Color::srgba(0.035, 0.068, 0.115, 0.58), 48.0),
+                    ColorStop::percent(Color::srgba(0.025, 0.050, 0.088, 0.68), 100.0),
+                ])
+                .in_color_space(InterpolationColorSpace::Srgba),
+            ),
+            BorderColor {
+                top: top_rim,
+                right: side_rim,
+                bottom: side_rim,
+                left: side_rim,
+            },
+            crate::shellkit::surfaces::elevation_card(),
             Press::Shared(SharedPress::PickerNothing),
         ))
         .id();
@@ -625,14 +644,14 @@ fn dialog_body(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, text:
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                 ..default()
             },
-            BackgroundColor(tokens::CONTROL),
-            BorderColor::all(tokens::BORDER),
+            BackgroundColor(Color::srgba(0.018, 0.038, 0.068, 0.46)),
+            BorderColor::all(Color::srgba(0.64, 0.70, 0.78, 0.26)),
             Pickable::IGNORE,
         ))
         .with_child((
             Text::new(text),
             tf(fonts, metrics.text),
-            TextColor(tokens::MUTED),
+            TextColor(tokens::INK.with_alpha(0.90)),
             Pickable::IGNORE,
         ))
         .id()
@@ -656,26 +675,19 @@ fn dialog_actions(commands: &mut Commands, buttons: &[Entity]) -> Entity {
     row
 }
 
-fn split_button(
-    commands: &mut Commands,
-    fonts: &UiFonts,
-    metrics: Metrics,
-    label: &str,
-    press: Press,
-    tone: SplitTone,
-    enabled: bool,
-) -> Entity {
-    let (bg, hover_bg, border, hover_border, fg) = match tone {
+fn split_tone_colors(tone: SplitTone, enabled: bool) -> (Color, Color, Color, Color, Color) {
+    let fg = if enabled {
+        tokens::INK
+    } else {
+        tokens::DISABLED
+    };
+    match tone {
         SplitTone::Neutral => (
             tokens::CONTROL,
             tokens::SELECTED,
             tokens::BORDER,
             tokens::ACCENT,
-            if enabled {
-                tokens::INK
-            } else {
-                tokens::DISABLED
-            },
+            fg,
         ),
         SplitTone::Danger => (
             if enabled {
@@ -690,11 +702,7 @@ fn split_button(
                 tokens::BORDER
             },
             tokens::INK,
-            if enabled {
-                tokens::INK
-            } else {
-                tokens::DISABLED
-            },
+            fg,
         ),
         SplitTone::Accent => (
             if enabled {
@@ -709,13 +717,21 @@ fn split_button(
                 tokens::BORDER
             },
             tokens::ACCENT,
-            if enabled {
-                tokens::INK
-            } else {
-                tokens::DISABLED
-            },
+            fg,
         ),
-    };
+    }
+}
+
+fn split_button(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    label: &str,
+    press: Press,
+    tone: SplitTone,
+    enabled: bool,
+) -> Entity {
+    let (bg, hover_bg, border, hover_border, fg) = split_tone_colors(tone, enabled);
     let mut node = commands.spawn((
         Node {
             flex_grow: 1.0,
@@ -738,18 +754,21 @@ fn split_button(
         node.insert((
             press,
             Role::Button,
+            crate::shellkit::surfaces::elevation_control(),
             Feel::tinting_to(bg, hover_bg),
             FeelBorder {
                 rest: border,
                 hot: hover_border,
                 press: hover_border,
             },
+            crate::ambience::FeelShadow,
             Sheen,
         ));
     } else {
         node.insert((
             Pickable::default(),
             bevy::picking::hover::PickingInteraction::default(),
+            crate::shellkit::surfaces::elevation_control_disabled(),
             crate::shellkit::controls::Disabled,
         ));
     }
@@ -824,7 +843,7 @@ pub(super) fn draw_deletion(
                     shown: lobby.showing(field),
                 }),
                 press: Press::Shared(SharedPress::Focus(field)),
-                lead: None,
+                lead: Some(super::field::lead_glyph::LOCK),
                 hint: None,
                 tail: None,
             },

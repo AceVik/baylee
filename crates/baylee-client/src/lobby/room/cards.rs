@@ -29,6 +29,7 @@ pub(super) fn draw(
             },
             BackgroundColor(palette::PANEL),
             BorderColor::all(palette::DOCK_EDGE.with_alpha(0.45)),
+            crate::shellkit::surfaces::elevation_subcard(),
         ))
         .id();
     commands.entity(parent).add_child(surface);
@@ -52,6 +53,7 @@ pub(super) fn draw(
                     },
                     BackgroundColor(palette::PANEL_LIT),
                     BorderColor::all(palette::DOCK_EDGE),
+                    crate::shellkit::surfaces::elevation_control(),
                     Press::Room(RoomPress::RoomCardEdit(seat, at)),
                 ))
                 .id();
@@ -152,11 +154,13 @@ pub(super) fn draw(
                         flex_direction: FlexDirection::Column,
                         overflow: Overflow::scroll_y(),
                         row_gap: px(4),
+                        border_radius: BorderRadius::all(px(6)),
                         ..default()
                     },
                     Scrollable(List::RoomCards),
                     ScrollPosition::default(),
                     BackgroundColor(palette::PANEL_HOT),
+                    crate::shellkit::surfaces::elevation_popover(),
                 ))
                 .id();
             let dropdown_band = super::super::scrollbars::band_when_needed(
@@ -319,6 +323,7 @@ fn spawn_board_syntax_help(
             },
             BackgroundColor(tokens::OPAQUE),
             BorderColor::all(tokens::BORDER),
+            crate::shellkit::surfaces::elevation_popover(),
         ))
         .id();
     let title = commands

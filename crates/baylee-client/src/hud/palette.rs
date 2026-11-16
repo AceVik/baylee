@@ -1,4 +1,4 @@
-use bevy::prelude::Color;
+use bevy::prelude::{Alpha, BoxShadow, Color, ShadowStyle, Val};
 
 /// Panel background.
 pub const PANEL: Color = Color::srgba(0.05, 0.06, 0.08, 0.88);
@@ -294,3 +294,150 @@ pub const LOG_HEAD_TOP: Color = Color::srgba(0.15, 0.18, 0.22, 0.58);
 pub const LOG_HEAD_BOTTOM: Color = Color::srgba(0.07, 0.08, 0.11, 0.26);
 /// Quiet ink lifted for smoked-glass log surfaces (>= 5.0 : 1 over bright fire).
 pub const LOG_SOFT: Color = Color::srgb(0.71, 0.67, 0.58);
+
+// --------------------------------------------------------- HUD elevation
+//
+// In-game HUD elements sit directly over a lit 3D table, card frames, and
+// spell VFX. Single-blur shadows either vanish over dark felt or smear into
+// mud over bright art; pairing a tight contact rim with a wider key/ambient
+// drop grounds plates, badges, drawers, and parchment sheets cleanly.
+
+/// Crisp two-layer elevation shadow for player seat plates, stack panels, and
+/// docked table furniture standing over the 3D board.
+#[must_use]
+pub fn elevation_plate() -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.44),
+            x_offset: Val::Px(0.0),
+            y_offset: Val::Px(2.0),
+            spread_radius: Val::Px(0.0),
+            blur_radius: Val::Px(5.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.58),
+            x_offset: Val::Px(0.0),
+            y_offset: Val::Px(6.0),
+            spread_radius: Val::Px(-1.0),
+            blur_radius: Val::Px(16.0),
+        },
+    ])
+}
+
+/// Deep three-layer elevation shadow for modal sheets, parchment prompts,
+/// mulligan/end-of-game panels, and zone browsers floating high above the felt.
+#[must_use]
+pub fn elevation_sheet() -> BoxShadow {
+    let mut base = crate::hud::sheet_shadow().0;
+    let key_color = base
+        .pop()
+        .map_or(SHEET_SHADOW, |layer| layer.color)
+        .with_alpha(0.68);
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.46),
+            x_offset: Val::Px(0.0),
+            y_offset: Val::Px(4.0),
+            spread_radius: Val::Px(0.0),
+            blur_radius: Val::Px(10.0),
+        },
+        ShadowStyle {
+            color: key_color,
+            x_offset: Val::Px(0.0),
+            y_offset: Val::Px(16.0),
+            spread_radius: Val::Px(-1.0),
+            blur_radius: Val::Px(38.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.34),
+            x_offset: Val::Px(0.0),
+            y_offset: Val::Px(8.0),
+            spread_radius: Val::Px(1.0),
+            blur_radius: Val::Px(22.0),
+        },
+    ])
+}
+
+/// Upward-cast three-layer elevation shadow for drawers, reveal sheets, menus,
+/// and strips growing out of the bottom ledge onto the table above.
+#[must_use]
+pub fn elevation_upward() -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.42),
+            x_offset: Val::Px(0.0),
+            y_offset: Val::Px(-2.0),
+            spread_radius: Val::Px(0.0),
+            blur_radius: Val::Px(6.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.62),
+            x_offset: Val::Px(0.0),
+            y_offset: Val::Px(-10.0),
+            spread_radius: Val::Px(-1.0),
+            blur_radius: Val::Px(28.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.30),
+            x_offset: Val::Px(0.0),
+            y_offset: Val::Px(-5.0),
+            spread_radius: Val::Px(0.0),
+            blur_radius: Val::Px(16.0),
+        },
+    ])
+}
+
+/// Compact two-layer elevation shadow for HUD pills, clocks, status banners,
+/// badges, and floating labels over the 3D table.
+#[must_use]
+pub fn elevation_pill() -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.40),
+            x_offset: Val::Px(0.0),
+            y_offset: Val::Px(2.0),
+            spread_radius: Val::Px(0.0),
+            blur_radius: Val::Px(4.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.52),
+            x_offset: Val::Px(0.0),
+            y_offset: Val::Px(5.0),
+            spread_radius: Val::Px(-1.0),
+            blur_radius: Val::Px(12.0),
+        },
+    ])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn px_of(val: Val) -> f32 {
+        match val {
+            Val::Px(v) => v,
+            other => panic!("expected Val::Px, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn hud_elevation_tiers_separate_pills_plates_sheets_and_upward_drawers() {
+        let pill = elevation_pill();
+        let plate = elevation_plate();
+        let sheet = elevation_sheet();
+        let upward = elevation_upward();
+        assert_eq!(pill.0.len(), 2);
+        assert_eq!(plate.0.len(), 2);
+        assert_eq!(sheet.0.len(), 3);
+        assert_eq!(upward.0.len(), 3);
+        assert!(px_of(pill.0[1].blur_radius) < px_of(plate.0[1].blur_radius));
+        assert!(px_of(plate.0[1].blur_radius) < px_of(sheet.0[1].blur_radius));
+        for layer in &upward.0 {
+            assert!(
+                px_of(layer.y_offset) < 0.0,
+                "upward elevation must cast above the ledge: {:?}",
+                layer.y_offset
+            );
+        }
+    }
+}

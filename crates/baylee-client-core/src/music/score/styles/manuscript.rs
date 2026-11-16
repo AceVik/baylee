@@ -736,7 +736,7 @@ pub(super) const SCORES: [Profile; 10] = [
             Chord(62, 4, 7),
             Chord(55, 4, 7),
         ],
-        lead: Instrument::Flute,
+        lead: Instrument::ConcertHarp,
         comp: Instrument::Guitar,
         bass: Instrument::Guitar,
         accent: Instrument::Violin,
@@ -758,7 +758,7 @@ pub(super) const SCORES: [Profile; 10] = [
         lead: Instrument::Guitar,
         comp: Instrument::ElectricPiano,
         bass: Instrument::SynthBass,
-        accent: Instrument::Flute,
+        accent: Instrument::ConcertHarp,
         pages: &LAGOON_PAGES,
     },
     Profile {

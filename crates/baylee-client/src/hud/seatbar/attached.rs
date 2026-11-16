@@ -815,6 +815,7 @@ fn spawn_identity(
         TurnedClip(Overflow::clip()),
         BackgroundColor(PLATE_GROUND),
         BorderColor::all(PLATE_RIM),
+        palette::elevation_plate(),
     ));
     let lost = plate.lost;
     let away = role == baylee_client_core::board::SeatRole::Away;

@@ -521,6 +521,7 @@ pub(in crate::hud) fn spawn_players_strip(commands: &mut Commands) -> Entity {
             },
             BackgroundColor(palette::DIALOG_LIT),
             BorderColor::all(palette::DIALOG_LINE),
+            palette::elevation_upward(),
             ZIndex(Z_LEDGE),
             // Hidden until there is a table to list: a strip standing empty
             // over the lobby's last frame is a box with nothing in it.
@@ -942,6 +943,7 @@ fn control_badge_bundle(fonts: &UiFonts, player: PlayerId, step: f32) -> impl Bu
         },
         BackgroundColor(palette::PANEL),
         BorderColor::all(palette::CONTROL),
+        palette::elevation_pill(),
         Visibility::Hidden,
         Hint(String::new()),
         children![
@@ -983,6 +985,7 @@ fn guest_badge_bundle(fonts: &UiFonts, player: PlayerId, step: f32, lang: Lang) 
         },
         BackgroundColor(palette::PANEL),
         BorderColor::all(RIM),
+        palette::elevation_pill(),
         Visibility::Hidden,
         Hint(ChatPhrase::GuestNoContact.text(lang).to_string()),
         children![(
@@ -1044,8 +1047,10 @@ fn spawn_button(
             },
             BackgroundColor(ground),
             BorderColor::all(RIM),
+            crate::shellkit::surfaces::elevation_control(),
             UiButton,
             Feel::rising_to(ground, GROUND_HOT),
+            crate::ambience::FeelShadow,
             children![
                 (
                     TurnLine,

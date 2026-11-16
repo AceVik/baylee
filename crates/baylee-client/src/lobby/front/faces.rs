@@ -117,10 +117,30 @@ pub(super) fn rule(commands: &mut Commands) -> Entity {
                 flex_shrink: 0.0,
                 ..default()
             },
-            BackgroundColor(tokens::BORDER),
+            BackgroundColor(Color::srgba(0.76, 0.74, 0.68, 0.20)),
             Pickable::IGNORE,
         ))
         .id()
+}
+
+/// Maps each front-door [`Field`] to its leading Font Awesome glyph.
+const fn field_lead_glyph(which: Field, caption: Phrase) -> Option<char> {
+    use super::super::field::lead_glyph;
+    match which {
+        Field::Username => Some(lead_glyph::USER),
+        Field::DisplayName | Field::GuestName => Some(lead_glyph::ID_CARD),
+        Field::Password => {
+            if matches!(caption, Phrase::NewPassword) {
+                Some(lead_glyph::KEY)
+            } else {
+                Some(lead_glyph::LOCK)
+            }
+        }
+        Field::PasswordAgain => Some(lead_glyph::LOCK),
+        Field::Gateway => Some(lead_glyph::GLOBE),
+        Field::GatewaySearch => Some(lead_glyph::SEARCH),
+        _ => None,
+    }
 }
 
 /// A lobby text field with its caption, its stops, and help under it.
@@ -145,7 +165,7 @@ fn field(
             shown: lobby.showing(which),
         }),
         press: Press::Shared(SharedPress::Focus(which)),
-        lead: None,
+        lead: field_lead_glyph(which, caption),
         hint: placeholder,
         tail: None,
     };
@@ -355,6 +375,8 @@ fn glyph_button(
     hint: &str,
     action: impl Bundle,
 ) -> Entity {
+    let rest_bg = Color::srgba(0.04, 0.08, 0.14, 0.56);
+    let hot_bg = Color::srgba(0.11, 0.19, 0.28, 0.86);
     let face = commands
         .spawn((
             Role::Button,
@@ -363,10 +385,20 @@ fn glyph_button(
                 min_height: px_fixed(kit.m.control * 0.8),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                 ..default()
             },
-            BackgroundColor(Color::NONE),
+            BackgroundColor(rest_bg),
+            BorderColor::all(tokens::BORDER),
+            surfaces::elevation_control(),
+            crate::ambience::Feel::tinting_to(rest_bg, hot_bg),
+            crate::ambience::FeelBorder {
+                rest: tokens::BORDER,
+                hot: tokens::ACCENT.with_alpha(0.70),
+                press: tokens::ACCENT,
+            },
+            crate::ambience::FeelShadow,
             super::super::hint::HoverHint(hint.to_string()),
         ))
         .id();
@@ -379,9 +411,7 @@ fn glyph_button(
         ))
         .id();
     commands.entity(face).add_child(mark);
-    let wrapper = controls::hit(commands, kit, face, action);
-    commands.entity(face).insert(Pickable::default());
-    wrapper
+    controls::hit(commands, kit, face, action)
 }
 
 /// A reach dot.
@@ -688,9 +718,75 @@ fn unreachable_line(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Op
     ))
 }
 
-/// The face's primary: the blue face, as wide as the card, with Enter's
-/// cap under a pointer.
+/// Full-width primary form submit button with a leading Font Awesome icon and
+/// a stationary optical [`crate::ambience::ClickPulse`] (never changing size
+/// or position on hover or click).
+fn primary_submit_button(
+    commands: &mut Commands,
+    kit: Kit,
+    glyph: char,
+    text: &str,
+    live: Live,
+    keys: Option<&str>,
+    action: impl Bundle,
+) -> Entity {
+    let dead = matches!(live, Live::No(_));
+    let ink = if dead { tokens::DISABLED } else { tokens::INK };
+    let button = controls::wide_button(commands, kit, text, Weight::Primary, live, keys, action);
+    let icon_font = crate::hud::icon_tf(kit.fonts, kit.m.small * 0.96);
+    commands
+        .entity(button)
+        .queue_silenced(move |mut wrapper: EntityWorldMut| {
+            let face_entity = wrapper
+                .get::<Children>()
+                .and_then(|kids| kids.iter().next());
+            let Some(face_entity) = face_entity else {
+                return;
+            };
+            wrapper.world_scope(|world| {
+                if !world.entities().contains(face_entity) {
+                    return;
+                }
+                // Nest the leading glyph inside a compact slot node so visually
+                // it stands directly before the label on the button row while
+                // breadth-first label queries still inspect the primary action
+                // text first.
+                let icon_slot = world
+                    .spawn((
+                        Node {
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            flex_shrink: 0.0,
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                    ))
+                    .with_child((
+                        Text::new(glyph.to_string()),
+                        icon_font,
+                        TextColor(ink),
+                        Pickable::IGNORE,
+                    ))
+                    .id();
+                if let Ok(mut face) = world.get_entity_mut(face_entity) {
+                    face.insert_children(0, &[icon_slot]);
+                    if !dead {
+                        face.remove::<crate::ambience::FeelShadow>();
+                        if let Some(mut feel) = face.get_mut::<crate::ambience::Feel>() {
+                            feel.lift = 0.0;
+                        }
+                        face.insert(crate::ambience::ClickPulse::primary());
+                    }
+                }
+            });
+        });
+    button
+}
+
+/// The face's primary: the blue face, as wide as the card, with a fitting
+/// leading icon, Enter's cap under a pointer, and a stationary click pulse.
 fn submit(commands: &mut Commands, state: &LobbyState, kit: Kit, text: &str) -> Entity {
+    use baylee_client_core::lobby::Face;
     let lobby = &state.lobby;
     let lang = lobby.lang();
     let live = if lobby.busy() {
@@ -700,11 +796,17 @@ fn submit(commands: &mut Commands, state: &LobbyState, kit: Kit, text: &str) -> 
     } else {
         Live::Yes
     };
-    let button = controls::wide_button(
+    let glyph = match lobby.face() {
+        Face::SignIn => '\u{f2f6}',
+        Face::Create => '\u{f234}',
+        Face::Guest => '\u{f007}',
+        Face::NewPassword => '\u{f084}',
+    };
+    let button = primary_submit_button(
         commands,
         kit,
+        glyph,
         text,
-        Weight::Primary,
         live,
         Some("Enter"),
         (
@@ -795,11 +897,11 @@ pub(super) fn sign_in(
             commands.entity(card).add_child(said);
         }
         if let Some(index) = state.gateways.iter().position(|g| g == &state.gateway) {
-            let retry = controls::wide_button(
+            let retry = primary_submit_button(
                 commands,
                 kit,
+                '\u{f2f6}',
                 Phrase::SignIn.text(lang),
-                Weight::Primary,
                 Live::Yes,
                 None,
                 (
@@ -1172,8 +1274,13 @@ pub(super) fn gateway(
     }
     let list =
         super::super::gateway::list(commands, state, kit.fonts, field_metrics(kit), scrolled_to);
-    commands.entity(card).add_child(list);
+    let add_box = gateway_add_box(commands, state, kit);
+    commands.entity(card).add_children(&[list, add_box]);
+}
 
+fn gateway_add_box(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
+    use bevy::ui::{ColorStop, InterpolationColorSpace, LinearGradient};
+    let lang = state.lobby.lang();
     let add_box = commands
         .spawn((
             Node {
@@ -1186,8 +1293,17 @@ pub(super) fn gateway(
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.05, 0.08, 0.13, 0.72)),
-            BorderColor::all(tokens::BORDER.with_alpha(0.85)),
+            BackgroundColor(Color::NONE),
+            BackgroundGradient::from(
+                LinearGradient::to_bottom(vec![
+                    ColorStop::percent(Color::srgba(0.055, 0.095, 0.150, 0.40), 0.0),
+                    ColorStop::percent(Color::srgba(0.028, 0.054, 0.092, 0.34), 50.0),
+                    ColorStop::percent(Color::srgba(0.020, 0.042, 0.074, 0.44), 100.0),
+                ])
+                .in_color_space(InterpolationColorSpace::Srgba),
+            ),
+            BorderColor::all(Color::srgba(0.64, 0.70, 0.78, 0.28)),
+            surfaces::elevation_control(),
             Pickable::IGNORE,
         ))
         .id();
@@ -1258,5 +1374,5 @@ pub(super) fn gateway(
     if let Some(guest) = refused_guest_door(commands, state, kit) {
         commands.entity(add_box).add_child(guest);
     }
-    commands.entity(card).add_child(add_box);
+    add_box
 }

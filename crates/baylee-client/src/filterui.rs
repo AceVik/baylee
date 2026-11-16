@@ -204,13 +204,7 @@ pub(crate) fn build(
             },
             BackgroundColor(look.ground),
             BorderColor::all(look.line),
-            BoxShadow::new(
-                Color::srgba(0.0, 0.0, 0.0, 0.35),
-                px(0),
-                px(4),
-                px(0),
-                px(14),
-            ),
+            crate::shellkit::surfaces::elevation_popover(),
             Pickable::IGNORE,
         ))
         .id();
@@ -544,7 +538,9 @@ fn field(
             },
             BackgroundColor(look.ground),
             BorderColor::all(if caret.is_some() { look.lit } else { look.line }),
+            crate::shellkit::surfaces::elevation_control(),
             Feel::new(look.ground),
+            crate::ambience::FeelShadow,
         ))
         .id();
     let kids = match caret {
@@ -941,7 +937,11 @@ fn band(commands: &mut Commands, fence: Option<Color>) -> Entity {
         node.border_radius = BorderRadius::all(px(4));
         node.overflow = Overflow::clip();
         node.flex_wrap = FlexWrap::NoWrap;
-        entity.insert(BorderColor::all(line));
+        entity.insert((
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.28)),
+            BorderColor::all(line),
+            crate::shellkit::surfaces::elevation_control(),
+        ));
     }
     entity.insert((node, Pickable::IGNORE));
     entity.id()
@@ -980,6 +980,8 @@ fn word(
                 hot: look.lit.with_alpha(if on { 0.95 } else { 0.65 }),
                 press: crate::ambience::lighter(if on { look.lit } else { look.line }, -0.15),
             },
+            crate::shellkit::surfaces::elevation_control(),
+            crate::ambience::FeelShadow,
         ))
         .id();
     let words = commands
@@ -1031,6 +1033,8 @@ fn icon(
                 hot: look.lit.with_alpha(if on { 0.95 } else { 0.65 }),
                 press: crate::ambience::lighter(if on { look.lit } else { look.line }, -0.15),
             },
+            crate::shellkit::surfaces::elevation_control(),
+            crate::ambience::FeelShadow,
         ))
         .id();
     let glyph_node = commands

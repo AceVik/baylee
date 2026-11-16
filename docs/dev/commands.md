@@ -18,6 +18,7 @@ DATABASE_URL=… cargo dev gate features        # non-default desktop and server
 cargo dev gate shipped-features               # release graphs: shipped hooks, hooks a --workspace build would unify, reviewed advisory scope
 cargo dev central gate                        # same full gate with an owned synthetic PostgreSQL 18 fixture
 cargo dev central gate --features             # same feature gate with an owned synthetic PostgreSQL 18 fixture
+cargo dev stack gate [--features] [--workspace] # full/feature gate with an owned native PostgreSQL 18 (no Docker)
 cargo dev central integration --challenges-only # only the real Daily/Weekly pipeline and recovery regressions
 cargo dev gate wasm                           # optional experimental browser check (coming soon)
 DATABASE_URL=… cargo dev land [--check]       # full + features under the cargo lock, then ff-push to main
@@ -137,6 +138,10 @@ dev-table --seats 4 --ai sharp [--play] [--teams 1,1,2] [--bridge house|scripted
 ## Running
 
 ```bash
+cargo dev stack up                            # local PostgreSQL 18 + feedback + gateway + agent + interactive client (monitor 2)
+cargo dev stack status                        # check liveness of the local stack
+cargo dev stack client [--monitor 2]          # open an interactive client against the running local stack
+cargo dev stack down                          # stop the local stack and verify its ports closed
 cargo run -p baylee-client
 BAYLEE_REPLAY=<record or tape file> cargo run -p baylee-client   # a replay, every perspective (report records: never commit them)
 BAYLEE_DEV_CONTROL=28770 cargo run -p baylee-client --features dev-control

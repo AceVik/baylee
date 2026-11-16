@@ -1273,7 +1273,7 @@ pub(super) fn spawn_stack_panel(
             BackgroundColor(palette::DIALOG),
             BorderColor::all(palette::DIALOG_LINE),
             ZIndex(Z_STACK),
-            upward_shadow(),
+            palette::elevation_plate(),
             Pickable::default(),
             Arriving::fill(key, palette::DIALOG.alpha()),
             ArrivingRow {

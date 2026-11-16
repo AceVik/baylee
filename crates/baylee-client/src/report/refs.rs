@@ -259,6 +259,7 @@ pub(super) fn show_the_preview(
             ..default()
         },
         BackgroundColor(crate::hud::palette::PANEL),
+        crate::shellkit::surfaces::elevation_card(),
         GlobalZIndex(1002),
         Pickable::IGNORE,
     ));

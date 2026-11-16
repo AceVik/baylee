@@ -1,9 +1,9 @@
-//! Unified D-minor / D-Dorian / F-major / D-major public-domain-oriented score:
-//! - Login (`FrontDoor` -> `Movement::Title`): Handel *Sarabande HWV 437* & Dvořák *Largo* / Mussorgsky *Promenade*.
+//! Unified D-minor / D-Dorian / F-major / D-major score:
+//! - Login (`FrontDoor` -> `Movement::Title`): Epic Baylee Signature Overture (Concert Harp, French Horns, Strings).
 //! - Lobby & Deckbuilder (`Lobby | Build` -> `Movement::Lobby`): Acoustic-Tavern-Guitar suite (Sanz, Tárrega, Sor, Bach).
 //! - Loading / Arrival (`Scene::Opening`): Warm sustained D–A harmonic hush; Table music waits until loading finishes.
 //! - Table (`Scene::Table`): Phrase-continuous Calm ("Ruhig") -> Tense -> Epic ("Episch") scaling with live stack depth.
-//! - Endings (`Victory`, `Defeat`, `Draw`): Triumphant D-major fanfare, D-minor elegy, and D-Dorian open-fifth suspension.
+//! - Endings (`Victory`, `Defeat`, `Draw`): Triumphant D-major Baylee Signature fanfare, D-minor elegy, and D-Dorian suspension.
 #![allow(
     clippy::cast_precision_loss,
     clippy::cast_possible_truncation,
@@ -224,7 +224,7 @@ impl Tune {
 
     fn schedule_opening_bridge(&mut self, initial: bool) {
         let samples = self.position.samples;
-        // Soft D3–A3 open-fifth bridge hush connects Lobby to Table without starting the table theme.
+        // Pure 3:2 open-fifth D3–A3 bridge hush connects Lobby to Table without starting the table theme.
         self.orchestra.note_with_samples(
             Instrument::StringPad,
             50,
@@ -238,16 +238,24 @@ impl Tune {
             57,
             2.4,
             if initial { 0.038 } else { 0.030 },
-            Touch::at(0.16).late(0.025),
+            Touch::at(0.16).late(0.025).cents(1.8),
             samples,
         );
         if initial {
             self.orchestra.note_with_samples(
+                Instrument::ConcertHarp,
+                62,
+                2.3,
+                0.058,
+                Touch::at(-0.22),
+                samples,
+            );
+            self.orchestra.note_with_samples(
                 Instrument::Harp,
                 74,
                 2.2,
-                0.065,
-                Touch::at(-0.32).attack(0.006).release(0.45),
+                0.062,
+                Touch::at(-0.32).attack(0.006).release(0.45).late(0.024),
                 samples,
             );
         }
@@ -369,6 +377,7 @@ impl Tune {
             let length = note.length * self.eighth as f32;
             let touch = Touch::at(note.instrument.pan())
                 .late(note.late * self.eighth as f32)
+                .cents(note.cents)
                 .attack(if note.instrument.short() {
                     0.006
                 } else {

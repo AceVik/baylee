@@ -265,6 +265,7 @@ pub(in crate::hud) fn spawn_menu_panel(commands: &mut Commands) -> Entity {
             root_node(),
             BackgroundColor(palette::DIALOG),
             BorderColor::all(palette::DIALOG_LINE),
+            palette::elevation_upward(),
             ZIndex(Z_MENU),
             Visibility::Hidden,
         ))
@@ -306,8 +307,10 @@ pub(super) fn burger(commands: &mut Commands, fonts: &UiFonts, open: bool) -> En
             },
             BackgroundColor(ground),
             BorderColor::all(palette::DIALOG_LINE),
+            crate::shellkit::surfaces::elevation_control(),
             UiButton,
             Feel::new(ground),
+            crate::ambience::FeelShadow,
             MenuButton {
                 action: MenuAction::ToggleGameMenu,
             },

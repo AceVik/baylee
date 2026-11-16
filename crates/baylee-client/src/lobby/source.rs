@@ -34,9 +34,155 @@ pub(crate) const CENTRAL_WEBSITE_URL: &str = "https://baylee.app";
 /// Central's sign-in form links to (baylee-central `docs/web-accounts.md`).
 pub(crate) const CENTRAL_REGISTER_URL: &str = "https://baylee.app/register";
 
+/// Resolves the Central website origin for the current environment: strictly
+/// [`CENTRAL_WEBSITE_URL`] in shipped builds and unit tests, or a validated
+/// loopback `http://127.0.0.1:<port>` origin in local debug/`dev-control` runs
+/// when `BAYLEE_CENTRAL_WEB_ORIGIN` (or `BAYLEE_CENTRAL_DEV_ENDPOINT` on the
+/// standard 28790->28794 pair) is set.
+pub(crate) fn central_website_url() -> String {
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(debug_assertions, feature = "dev-control")
+    ))]
+    if !cfg!(test)
+        && let Some(origin) = central_web_origin_from_env(
+            std::env::var("BAYLEE_CENTRAL_WEB_ORIGIN").ok().as_deref(),
+            std::env::var("BAYLEE_CENTRAL_DEV_ENDPOINT").ok().as_deref(),
+        )
+    {
+        return origin;
+    }
+    CENTRAL_WEBSITE_URL.to_owned()
+}
+
+/// Resolves the Central registration URL for the current environment.
+pub(crate) fn central_register_url() -> String {
+    let base = central_website_url();
+    if base == CENTRAL_WEBSITE_URL {
+        CENTRAL_REGISTER_URL.to_owned()
+    } else {
+        format!("{base}/register")
+    }
+}
+
+#[cfg(any(
+    test,
+    all(
+        not(target_arch = "wasm32"),
+        any(debug_assertions, feature = "dev-control")
+    )
+))]
+fn central_web_origin_from_env(
+    web_origin: Option<&str>,
+    dev_endpoint: Option<&str>,
+) -> Option<String> {
+    if let Some(raw) = web_origin {
+        return baylee_account::Endpoint::development(raw)
+            .ok()
+            .map(|ep| ep.origin().to_owned());
+    }
+    let ep = baylee_account::Endpoint::development(dev_endpoint?).ok()?;
+    if ep.origin() == "http://127.0.0.1:28790" {
+        return Some("http://127.0.0.1:28794".to_owned());
+    }
+    None
+}
+
 /// Releases and changelog on GitHub, opened when clicking the bottom-left
 /// version badge.
 pub(crate) const CHANGELOG_URL: &str = "https://github.com/AceVik/baylee/releases";
+
+/// Official Wizards of the Coast Fan Content Policy page (`NOTICE`, `docs/legal.md`).
+pub(crate) const FAN_CONTENT_POLICY_URL: &str =
+    "https://company.wizards.com/en/legal/fancontentpolicy";
+
+/// Scryfall's home page (`NOTICE`, `docs/legal.md` §3).
+pub(crate) const SCRYFALL_URL: &str = "https://scryfall.com";
+
+/// Closed set of verified external HTTPS reference links opened from the front
+/// door's colophon and the About sheet.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+pub(crate) enum ExternalLink {
+    FanContentPolicy,
+    Scryfall,
+    AgplLicence,
+    AlegreyaSans,
+    Faustina,
+    FontAwesome,
+    ManaFont,
+    MtgJson,
+    Bevy,
+    Wgpu,
+    Rav1d,
+    Tokio,
+    Rustls,
+    SeaOrm,
+    OpaqueKe,
+    RustCrypto,
+    Libsecret,
+    Vsco2,
+    FreePats,
+    Mutopia,
+    Fluent,
+    Qrcodegen,
+}
+
+impl ExternalLink {
+    #[cfg(test)]
+    pub(crate) const ALL: [Self; 22] = [
+        Self::FanContentPolicy,
+        Self::Scryfall,
+        Self::AgplLicence,
+        Self::AlegreyaSans,
+        Self::Faustina,
+        Self::FontAwesome,
+        Self::ManaFont,
+        Self::MtgJson,
+        Self::Bevy,
+        Self::Wgpu,
+        Self::Rav1d,
+        Self::Tokio,
+        Self::Rustls,
+        Self::SeaOrm,
+        Self::OpaqueKe,
+        Self::RustCrypto,
+        Self::Libsecret,
+        Self::Vsco2,
+        Self::FreePats,
+        Self::Mutopia,
+        Self::Fluent,
+        Self::Qrcodegen,
+    ];
+
+    /// Compile-time HTTPS destination for this reference link.
+    #[must_use]
+    pub(crate) const fn url(self) -> &'static str {
+        match self {
+            Self::FanContentPolicy => FAN_CONTENT_POLICY_URL,
+            Self::Scryfall => SCRYFALL_URL,
+            Self::AgplLicence => "https://www.gnu.org/licenses/agpl-3.0.html",
+            Self::AlegreyaSans => "https://github.com/huertatipografica/Alegreya-Sans",
+            Self::Faustina => "https://github.com/Omnibus-Type/Faustina",
+            Self::FontAwesome => "https://fontawesome.com",
+            Self::ManaFont => "https://mana.andrewgioia.com",
+            Self::MtgJson => "https://mtgjson.com",
+            Self::Bevy => "https://bevy.org",
+            Self::Wgpu => "https://wgpu.rs",
+            Self::Rav1d => "https://github.com/memorysafety/rav1d",
+            Self::Tokio => "https://tokio.rs",
+            Self::Rustls => "https://github.com/rustls/rustls",
+            Self::SeaOrm => "https://www.sea-ql.org/SeaORM/",
+            Self::OpaqueKe => "https://github.com/facebook/opaque-ke",
+            Self::RustCrypto => "https://github.com/RustCrypto",
+            Self::Libsecret => "https://gitlab.gnome.org/GNOME/libsecret",
+            Self::Vsco2 => "https://versilian-studios.com/vsco-community/",
+            Self::FreePats => "https://freepats.zenvoid.org",
+            Self::Mutopia => "https://www.mutopiaproject.org",
+            Self::Fluent => "https://projectfluent.org",
+            Self::Qrcodegen => "https://www.nayuki.io/page/qr-code-generator-library",
+        }
+    }
+}
 
 /// The light round a code, in modules: the standard's quiet zone.
 const QUIET: i32 = 4;
@@ -86,7 +232,8 @@ pub(super) fn keep_the_code(mut state: ResMut<LobbyState>, images: Option<ResMut
         state.whatsapp_code = code(&mut images, WHATSAPP_URL);
     }
     if state.website_code.is_none() {
-        state.website_code = code(&mut images, CENTRAL_WEBSITE_URL);
+        let site = central_website_url();
+        state.website_code = code(&mut images, &site);
     }
     let url = super::front::source_address(&state);
     let drawn = state.source_code.as_ref().map(|code| code.url.as_str());
@@ -157,9 +304,10 @@ pub(crate) fn address_of(press: super::front::FrontPress, state: &LobbyState) ->
         FrontPress::OpenSource => web_address(super::front::source_address(state)),
         FrontPress::OpenDiscord => web_address(DISCORD_URL),
         FrontPress::OpenWhatsApp => web_address(WHATSAPP_URL),
-        FrontPress::OpenWebsite => web_address(CENTRAL_WEBSITE_URL),
-        FrontPress::OpenCentralRegister => web_address(CENTRAL_REGISTER_URL),
+        FrontPress::OpenWebsite => web_address(&central_website_url()),
+        FrontPress::OpenCentralRegister => web_address(&central_register_url()),
         FrontPress::OpenChangelog => web_address(CHANGELOG_URL),
+        FrontPress::OpenExternal(link) => web_address(link.url()),
         FrontPress::OpenImpressum => super::front::impressum_link(state).map(|(url, _)| url),
         _ => None,
     }
@@ -247,5 +395,48 @@ mod tests {
         assert!(dark(q, q), "the finder's outer ring");
         assert!(!dark(q + 1, q + 1), "the finder's light ring");
         assert!(dark(q + 3, q + 3), "the finder's core");
+    }
+
+    #[test]
+    fn central_web_origin_maps_local_loopback_env_and_rejects_remote_overrides() {
+        assert_eq!(central_web_origin_from_env(None, None), None);
+        assert_eq!(
+            central_web_origin_from_env(None, Some("http://127.0.0.1:28790")).as_deref(),
+            Some("http://127.0.0.1:28794")
+        );
+        assert_eq!(
+            central_web_origin_from_env(
+                Some("http://127.0.0.1:29000"),
+                Some("http://127.0.0.1:28790")
+            )
+            .as_deref(),
+            Some("http://127.0.0.1:29000")
+        );
+        for bad in [
+            "https://evil.example",
+            "https://127.0.0.1:28794",
+            "http://192.168.0.53:28794",
+            "http://localhost:28794",
+        ] {
+            assert_eq!(central_web_origin_from_env(Some(bad), None), None, "{bad}");
+        }
+    }
+
+    #[test]
+    fn every_external_reference_link_is_a_valid_https_address() {
+        let state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+        for link in ExternalLink::ALL {
+            let resolved = address_of(super::super::front::FrontPress::OpenExternal(link), &state);
+            assert_eq!(
+                resolved.as_deref(),
+                Some(link.url()),
+                "{link:?} failed web_address check"
+            );
+            assert!(
+                link.url().starts_with("https://"),
+                "{link:?} must use HTTPS: {}",
+                link.url()
+            );
+        }
     }
 }

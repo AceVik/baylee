@@ -223,6 +223,7 @@ pub fn sync_hand_tab(
             },
             BackgroundColor(ground),
             BorderColor::all(palette::DIALOG_LINE),
+            palette::elevation_upward(),
             UiButton,
             crate::ambience::Feel::new(ground),
             GlobalZIndex(650),

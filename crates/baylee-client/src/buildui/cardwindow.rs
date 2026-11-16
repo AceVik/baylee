@@ -203,6 +203,7 @@ pub(crate) fn window(
             },
             BackgroundColor(tokens::CONTROL.with_alpha(0.42)),
             BorderColor::all(tokens::BORDER.with_alpha(0.75)),
+            surfaces::elevation_subcard(),
             Pickable::IGNORE,
         ))
         .id();
@@ -284,6 +285,7 @@ pub(crate) fn window(
             },
             BackgroundColor(tokens::CONTROL.with_alpha(0.42)),
             BorderColor::all(tokens::BORDER.with_alpha(0.75)),
+            surfaces::elevation_subcard(),
             Pickable::IGNORE,
         ))
         .id();
@@ -447,7 +449,7 @@ fn picture(
                 border_radius: BorderRadius::all(px_fixed(12.0)),
                 ..default()
             },
-            crate::hud::soft_shadow(),
+            surfaces::elevation_card(),
             Pickable::IGNORE,
         ))
         .id();
@@ -624,8 +626,10 @@ fn strip(commands: &mut Commands, env: &Env, picker: &Picker) -> Entity {
                 width: px_fixed(48.0),
                 height: px_fixed(67.0),
                 flex_shrink: 0.0,
+                border_radius: BorderRadius::all(px_fixed(4.0)),
                 ..default()
             },
+            surfaces::elevation_control(),
             // The ring stands outside the print, never on it.
             Outline::new(
                 px_fixed(2.0),
@@ -712,6 +716,7 @@ fn printing(commands: &mut Commands, env: &Env, picker: &Picker) -> Entity {
             },
             BackgroundColor(tokens::CONTROL.with_alpha(0.48)),
             BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.45)),
+            surfaces::elevation_subcard(),
             Pickable::IGNORE,
         ))
         .id();

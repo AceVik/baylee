@@ -47,6 +47,7 @@ fn footer_button(
             },
             BackgroundColor(ground),
             BorderColor::all(rim),
+            crate::shellkit::surfaces::elevation_control(),
         ))
         .id();
     controls::attach_live_feel(commands, face, ground, weight);
@@ -275,7 +276,16 @@ pub(in crate::report) fn sync_footer(
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     ui: Option<Res<UiScale>>,
     mut send: Query<(Entity, &mut SendButton, Has<Disabled>)>,
-    mut faces: Query<(&mut BackgroundColor, &mut BorderColor), With<SendFace>>,
+    mut faces: Query<
+        (
+            Entity,
+            &mut BackgroundColor,
+            &mut BorderColor,
+            &mut BoxShadow,
+            Has<crate::ambience::FeelShadow>,
+        ),
+        With<SendFace>,
+    >,
     mut words: Query<(&mut Text, &mut TextColor), With<SendWords>>,
     mut icons: Query<
         (&mut Visibility, &mut TextColor),
@@ -339,12 +349,31 @@ pub(in crate::report) fn sync_footer(
     } else {
         (tokens::PRIMARY, tokens::PRIMARY_EDGE, tokens::INK)
     };
-    for (mut ground_now, mut rim_now) in &mut faces {
+    for (face_entity, mut ground_now, mut rim_now, mut shadow, has_feel_shadow) in &mut faces {
         if ground_now.0 != ground {
             ground_now.0 = ground;
         }
         if *rim_now != BorderColor::all(rim) {
             *rim_now = BorderColor::all(rim);
+        }
+        if reason.is_some() {
+            shadow.set_if_neq(crate::shellkit::surfaces::elevation_control_disabled());
+            if has_feel_shadow {
+                commands.entity(face_entity).try_remove::<(
+                    crate::ambience::Feel,
+                    crate::ambience::FeelBorder,
+                    crate::ambience::FeelShadow,
+                    crate::shellkit::sheen::Sheen,
+                )>();
+            }
+        } else if !has_feel_shadow {
+            shadow.set_if_neq(crate::shellkit::surfaces::elevation_control());
+            controls::attach_live_feel(
+                &mut commands,
+                face_entity,
+                tokens::PRIMARY,
+                Weight::Primary,
+            );
         }
     }
     let send_words = if sending {

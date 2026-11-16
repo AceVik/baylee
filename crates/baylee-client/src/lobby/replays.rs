@@ -21,6 +21,7 @@ use super::menus::{self, ShellMenu};
 #[allow(clippy::wildcard_imports)] // the lobby's own vocabulary
 use super::*;
 use crate::shellkit::controls::{self, Kit, Live, Weight};
+use crate::shellkit::surfaces;
 use crate::shellkit::{px_fixed, tokens};
 
 /// Whether this build shows the Replays tab: desktop only.
@@ -636,6 +637,7 @@ fn spawn_replay_kpi_card(
             },
             BackgroundColor(tokens::CONTROL.with_alpha(0.45)),
             BorderColor::all(tokens::BORDER.with_alpha(0.75)),
+            surfaces::elevation_subcard(),
             Pickable::IGNORE,
         ))
         .id();
@@ -887,6 +889,7 @@ fn replay_filter_pill(
             },
             BackgroundColor(bg),
             BorderColor::all(border),
+            surfaces::elevation_control(),
             UiTransform::default(),
             crate::ambience::Feel::rising_to(bg, tokens::HOVER),
             crate::ambience::FeelBorder {
@@ -894,6 +897,7 @@ fn replay_filter_pill(
                 hot: tokens::PRIMARY_EDGE,
                 press: tokens::ACCENT,
             },
+            crate::ambience::FeelShadow,
             Pickable::IGNORE,
         ))
         .id();
@@ -942,6 +946,7 @@ fn spawn_replays_empty_state(
             },
             BackgroundColor(tokens::CONTROL.with_alpha(0.32)),
             BorderColor::all(tokens::BORDER.with_alpha(0.65)),
+            surfaces::elevation_subcard(),
             Pickable::IGNORE,
         ))
         .id();
@@ -1076,6 +1081,7 @@ pub(super) fn draw(
             },
             BackgroundColor(tokens::PANEL),
             BorderColor::all(tokens::BORDER),
+            surfaces::elevation_card(),
         ))
         .id();
     commands.entity(body).add_child(panel);
@@ -1739,8 +1745,10 @@ fn entry_row(
                 right: tokens::BORDER.with_alpha(0.75),
                 bottom: tokens::BORDER.with_alpha(0.75),
             },
+            surfaces::elevation_control(),
             UiTransform::default(),
             crate::ambience::Feel::tinting_to(tokens::CONTROL.with_alpha(0.36), tokens::HOVER),
+            crate::ambience::FeelShadow,
             Press::Replays(ReplaysPress::Watch(i)),
         ))
         .id();

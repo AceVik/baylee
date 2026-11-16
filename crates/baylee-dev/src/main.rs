@@ -17,6 +17,7 @@ mod reach;
 mod run;
 mod secret;
 mod shipping;
+mod stack;
 mod tower;
 
 use clap::{Parser, Subcommand};
@@ -118,6 +119,8 @@ enum Task {
     E2e(e2e::E2e),
     /// Offline Tower design fixtures and adapter conformance; starts no game or service.
     Tower(tower::Options),
+    /// Local interactive Baylee stack (`up`/`down`/`status`/`client`) and native PostgreSQL gate wrapper.
+    Stack(stack::Options),
     /// Central's integration checks against an owned PostgreSQL container.
     Central {
         #[command(subcommand)]
@@ -250,6 +253,7 @@ fn main() -> ExitCode {
             Task::Deploy { force } => ("deploy", deploy::run(force)),
             Task::E2e(options) => ("e2e", e2e::run(&options)),
             Task::Tower(options) => ("tower", tower::run(options)),
+            Task::Stack(options) => ("stack", stack::run(options)),
             Task::Android {
                 env: Some(AndroidEnv::Env),
                 ..

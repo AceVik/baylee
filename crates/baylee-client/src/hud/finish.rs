@@ -351,7 +351,7 @@ pub(crate) fn spawn_finish(
             },
             BackgroundColor(palette::PARCHMENT.with_alpha(0.0)),
             BorderColor::all(palette::PARCHMENT_EDGE.with_alpha(0.0)),
-            sheet_shadow(),
+            palette::elevation_sheet(),
             Settling::panel(palette::PARCHMENT, palette::PARCHMENT_EDGE),
             UiTransform::from_translation(Val2::px(0.0, SHEET_LIFT)),
             // Above the veil, which is its **sibling** under this root and

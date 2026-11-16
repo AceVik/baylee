@@ -28,6 +28,7 @@ pub fn panel(commands: &mut Commands, kit: Kit, width: Val) -> Entity {
             },
             BackgroundColor(tokens::PANEL),
             BorderColor::all(tokens::BORDER),
+            elevation_card(),
         ))
         .id()
 }
@@ -44,6 +45,7 @@ pub fn mist(commands: &mut Commands, kit: Kit, text: &str) -> Entity {
                 ..default()
             },
             BackgroundColor(tokens::MIST),
+            elevation_control(),
         ))
         .id();
     let words = label(commands, kit, text, kit.m.small, tokens::INK);
@@ -106,13 +108,15 @@ pub enum SheetWidth {
     Large,
 }
 
-/// Header specification for a modal sheet: title (`tf_bold`), optional
-/// leading Font Awesome badge, optional subtitle, and optional top-right close
-/// `×` button.
+/// Header specification for a modal sheet or dialog: title (`tf_bold`),
+/// optional leading Font Awesome badge or custom entity, optional subtitle
+/// and metadata line, and optional top-right close `×` button.
 pub struct SheetHeader<'a, C = ()> {
     title: &'a str,
+    lead: Option<Entity>,
     icon: Option<(char, Color)>,
     subtitle: Option<(&'a str, Color)>,
+    meta: Option<&'a str>,
     close: Option<C>,
 }
 
@@ -122,14 +126,23 @@ impl<'a> SheetHeader<'a, ()> {
     pub const fn new(title: &'a str) -> Self {
         Self {
             title,
+            lead: None,
             icon: None,
             subtitle: None,
+            meta: None,
             close: None,
         }
     }
 }
 
 impl<'a, C> SheetHeader<'a, C> {
+    /// Prepends a caller-built leading entity (such as a portrait vignette).
+    #[must_use]
+    pub const fn lead(mut self, entity: Entity) -> Self {
+        self.lead = Some(entity);
+        self
+    }
+
     /// Prepends a Font Awesome icon badge tinted with [`tokens::ACCENT`].
     #[must_use]
     pub const fn icon(mut self, glyph: char) -> Self {
@@ -158,13 +171,22 @@ impl<'a, C> SheetHeader<'a, C> {
         self
     }
 
+    /// Adds a secondary muted metadata line beneath the subtitle.
+    #[must_use]
+    pub const fn meta(mut self, text: &'a str) -> Self {
+        self.meta = Some(text);
+        self
+    }
+
     /// Attaches a top-right close `×` button carrying `action`.
     #[must_use]
     pub fn close<N: Bundle>(self, action: N) -> SheetHeader<'a, N> {
         SheetHeader {
             title: self.title,
+            lead: self.lead,
             icon: self.icon,
             subtitle: self.subtitle,
+            meta: self.meta,
             close: Some(action),
         }
     }
@@ -172,7 +194,13 @@ impl<'a, C> SheetHeader<'a, C> {
 
 /// A compact `×` close button for sheet and dialog headers, wrapped in
 /// [`super::controls::hit`] so touch targets stay 44 × 44.
+///
+/// Uses a stationary optical [`crate::ambience::ClickPulse`] (`lift: 0.0`, no
+/// scale or position shift on hover or click).
 pub fn sheet_close_button(commands: &mut Commands, kit: Kit, action: impl Bundle) -> Entity {
+    let rest_bg = Color::srgba(1.0, 1.0, 1.0, 0.04);
+    let hot_bg = Color::srgba(0.12, 0.24, 0.32, 0.78);
+    let rest_rim = tokens::BORDER.with_alpha(0.65);
     let face = commands
         .spawn((
             Role::Button,
@@ -185,14 +213,21 @@ pub fn sheet_close_button(commands: &mut Commands, kit: Kit, action: impl Bundle
                 border_radius: BorderRadius::all(px_fixed(RADIUS_CONTROL)),
                 ..default()
             },
-            BackgroundColor(Color::NONE),
-            BorderColor::all(Color::NONE),
-            crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
+            BackgroundColor(rest_bg),
+            BorderColor::all(rest_rim),
+            BoxShadow::default(),
+            UiTransform::default(),
+            crate::ambience::Feel::tinting_to(rest_bg, hot_bg),
             crate::ambience::FeelBorder {
-                rest: Color::NONE,
-                hot: tokens::BORDER.with_alpha(0.75),
-                press: tokens::BORDER.with_alpha(0.55),
+                rest: rest_rim,
+                hot: tokens::ACCENT.with_alpha(0.72),
+                press: tokens::ACCENT,
             },
+            crate::ambience::ClickPulse::subtle(
+                Color::srgba(0.22, 0.52, 0.64, 0.92),
+                Color::srgb(0.74, 0.96, 1.0),
+                Color::srgba(0.30, 0.82, 0.90, 0.48),
+            ),
             Pickable::IGNORE,
         ))
         .id();
@@ -200,7 +235,7 @@ pub fn sheet_close_button(commands: &mut Commands, kit: Kit, action: impl Bundle
         .spawn((
             Text::new("\u{f00d}"),
             icon_tf(kit.fonts, kit.m.small),
-            TextColor(tokens::MUTED),
+            TextColor(tokens::INK.with_alpha(0.86)),
             Pickable::IGNORE,
         ))
         .id();
@@ -388,11 +423,15 @@ pub fn sheet_box_headed_listed<C: Bundle>(
 }
 
 fn spawn_sheet_badge(commands: &mut Commands, kit: Kit, glyph: char, accent: Color) -> Entity {
+    use bevy::ui::{ColorStop, InterpolationColorSpace, LinearGradient};
+    let top_lit = crate::ambience::blend(Color::srgba(0.14, 0.24, 0.34, 0.94), accent, 0.28);
+    let mid_core = crate::ambience::blend(Color::srgba(0.06, 0.12, 0.19, 0.90), accent, 0.16);
+    let deep_base = crate::ambience::blend(Color::srgba(0.03, 0.07, 0.12, 0.94), accent, 0.10);
     let badge = commands
         .spawn((
             Node {
-                width: kit.m.px(32.0),
-                height: kit.m.px(32.0),
+                width: kit.m.px(34.0),
+                height: kit.m.px(34.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 border: UiRect::all(px_fixed(1.0)),
@@ -400,21 +439,52 @@ fn spawn_sheet_badge(commands: &mut Commands, kit: Kit, glyph: char, accent: Col
                 flex_shrink: 0.0,
                 ..default()
             },
-            BackgroundColor(accent.with_alpha(0.14)),
-            BorderColor::all(accent.with_alpha(0.38)),
+            BackgroundColor(Color::NONE),
+            BackgroundGradient::from(
+                LinearGradient::to_bottom(vec![
+                    ColorStop::percent(top_lit, 0.0),
+                    ColorStop::percent(mid_core, 52.0),
+                    ColorStop::percent(deep_base, 100.0),
+                ])
+                .in_color_space(InterpolationColorSpace::Srgba),
+            ),
+            BorderColor {
+                top: crate::ambience::lighter(accent, 0.25).with_alpha(0.68),
+                right: accent.with_alpha(0.46),
+                bottom: accent.with_alpha(0.36),
+                left: accent.with_alpha(0.46),
+            },
+            BoxShadow(vec![ShadowStyle {
+                color: accent.with_alpha(0.28),
+                x_offset: px_fixed(0.0),
+                y_offset: px_fixed(0.0),
+                spread_radius: px_fixed(0.5),
+                blur_radius: px_fixed(12.0),
+            }]),
             Pickable::IGNORE,
         ))
         .id();
     let mark = commands
         .spawn((
             Text::new(glyph.to_string()),
-            icon_tf(kit.fonts, kit.m.small),
-            TextColor(accent),
+            icon_tf(kit.fonts, kit.m.small * 1.06),
+            TextColor(crate::ambience::lighter(accent, 0.14)),
             Pickable::IGNORE,
         ))
         .id();
     commands.entity(badge).add_child(mark);
     badge
+}
+
+/// Standardized modal dialog header band: optional leading portrait or icon
+/// badge, bold title with optional subtitle/meta lines, bottom rule, and
+/// top-right `×` close button.
+pub fn dialog_header<C: Bundle>(
+    commands: &mut Commands,
+    kit: Kit,
+    header: SheetHeader<'_, C>,
+) -> Entity {
+    spawn_sheet_head(commands, kit, header)
 }
 
 fn spawn_sheet_head<C: Bundle>(
@@ -442,7 +512,7 @@ fn spawn_sheet_head<C: Bundle>(
         .spawn((
             Node {
                 align_items: AlignItems::Center,
-                column_gap: kit.m.px(10.0),
+                column_gap: kit.m.px(12.0),
                 flex_grow: 1.0,
                 flex_shrink: 1.0,
                 min_width: px_fixed(0.0),
@@ -451,7 +521,9 @@ fn spawn_sheet_head<C: Bundle>(
             Pickable::IGNORE,
         ))
         .id();
-    if let Some((glyph, accent)) = header.icon {
+    if let Some(custom_lead) = header.lead {
+        commands.entity(lead).add_child(custom_lead);
+    } else if let Some((glyph, accent)) = header.icon {
         let badge = spawn_sheet_badge(commands, kit, glyph, accent);
         commands.entity(lead).add_child(badge);
     }
@@ -477,7 +549,11 @@ fn spawn_sheet_head<C: Bundle>(
         ))
         .id();
     commands.entity(titles).add_child(title);
-    if let Some((sub, ink)) = header.subtitle {
+    for (sub, ink) in header
+        .subtitle
+        .into_iter()
+        .chain(header.meta.map(|m| (m, tokens::MUTED)))
+    {
         let sub_node = commands
             .spawn((
                 Text::new(sub),
@@ -702,25 +778,302 @@ fn sheet_box_parts<C: Bundle>(
     surface
 }
 
+/// Tier-3 deep multi-layer elevation shadow (contact + key + ambient halo) for
+/// foreground cards, panels, and modal dialogs over the animated backdrop.
+#[must_use]
+pub fn elevation_card() -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.48),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(4.0),
+            spread_radius: px_fixed(0.0),
+            blur_radius: px_fixed(10.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.68),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(18.0),
+            spread_radius: px_fixed(-2.0),
+            blur_radius: px_fixed(42.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.34),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(8.0),
+            spread_radius: px_fixed(1.0),
+            blur_radius: px_fixed(24.0),
+        },
+    ])
+}
+
+/// Tier-1/2 crisp contact + key drop shadow for buttons, interactive pills,
+/// mist plates, and foreground controls at rest.
+#[must_use]
+pub fn elevation_control() -> BoxShadow {
+    elevation_control_at(0.0)
+}
+
+/// Subdued resting drop shadow for disabled foreground controls.
+#[must_use]
+pub fn elevation_control_disabled() -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.22),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(1.5),
+            spread_radius: px_fixed(0.0),
+            blur_radius: px_fixed(4.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.28),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(4.0),
+            spread_radius: px_fixed(-1.0),
+            blur_radius: px_fixed(10.0),
+        },
+    ])
+}
+
+/// Dynamic Tier-1/2 control shadow interpolated by pointer `warmth`
+/// (`-1.0` pressed .. `0.0` resting .. `+1.0` hovered): lifts subtly on hover
+/// and settles closer to the surface on press.
+#[must_use]
+pub fn elevation_control_at(warmth: f32) -> BoxShadow {
+    let w = warmth.clamp(-1.0, 1.0);
+    let hot = w.max(0.0);
+    let cold = (-w).max(0.0);
+    let contact_alpha = 0.38 + 0.07 * hot - 0.08 * cold;
+    let contact_y = 2.0 + 1.0 * hot - 1.0 * cold;
+    let contact_blur = 5.0 + 2.0 * hot - 2.0 * cold;
+    let key_alpha = 0.48 + 0.11 * hot - 0.14 * cold;
+    let key_y = 6.0 + 3.0 * hot - 3.5 * cold;
+    let key_blur = 14.0 + 6.0 * hot - 7.0 * cold;
+    let key_spread = -1.0 + 0.5 * hot;
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, contact_alpha),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(contact_y),
+            spread_radius: px_fixed(0.0),
+            blur_radius: px_fixed(contact_blur),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, key_alpha),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(key_y),
+            spread_radius: px_fixed(key_spread),
+            blur_radius: px_fixed(key_blur),
+        },
+    ])
+}
+
+/// Elevation shadow for docked navigation bars, headers, and major structural
+/// sub-panels.
+#[must_use]
+pub fn elevation_panel() -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.42),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(3.0),
+            spread_radius: px_fixed(0.0),
+            blur_radius: px_fixed(8.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.58),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(12.0),
+            spread_radius: px_fixed(-1.0),
+            blur_radius: px_fixed(28.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.28),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(5.0),
+            spread_radius: px_fixed(0.0),
+            blur_radius: px_fixed(16.0),
+        },
+    ])
+}
+
+/// Elevation shadow for floating drawers, confirmation sheets, and detached
+/// utility windows.
+#[must_use]
+pub fn elevation_floating() -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.44),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(4.0),
+            spread_radius: px_fixed(0.0),
+            blur_radius: px_fixed(10.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.66),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(16.0),
+            spread_radius: px_fixed(-1.0),
+            blur_radius: px_fixed(36.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.32),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(7.0),
+            spread_radius: px_fixed(1.0),
+            blur_radius: px_fixed(20.0),
+        },
+    ])
+}
+
+/// Crisp multi-layer elevation shadow for dropdown menus, syntax popovers,
+/// and anchored floating overlays.
+#[must_use]
+pub fn elevation_popover() -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.40),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(3.0),
+            spread_radius: px_fixed(0.0),
+            blur_radius: px_fixed(8.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.64),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(14.0),
+            spread_radius: px_fixed(-1.0),
+            blur_radius: px_fixed(32.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.30),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(6.0),
+            spread_radius: px_fixed(1.0),
+            blur_radius: px_fixed(18.0),
+        },
+    ])
+}
+
+/// Subtle two-layer elevation shadow for nested summary cards, KPI tiles,
+/// footer bars, and inner framed boxes inside a parent panel.
+#[must_use]
+pub fn elevation_subcard() -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.30),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(2.0),
+            spread_radius: px_fixed(0.0),
+            blur_radius: px_fixed(5.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.40),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(6.0),
+            spread_radius: px_fixed(-1.0),
+            blur_radius: px_fixed(14.0),
+        },
+    ])
+}
+
 /// Elevation shadow for modal sheets and dialog windows over a scrim.
 #[must_use]
 pub fn sheet_shadow() -> BoxShadow {
     BoxShadow(vec![
         ShadowStyle {
-            color: Color::srgba(0.0, 0.0, 0.0, 0.42),
+            color: Color::srgba(0.0, 0.0, 0.0, 0.46),
             x_offset: px_fixed(0.0),
             y_offset: px_fixed(6.0),
             spread_radius: px_fixed(0.0),
-            blur_radius: px_fixed(16.0),
+            blur_radius: px_fixed(14.0),
         },
         ShadowStyle {
-            color: Color::srgba(0.0, 0.0, 0.0, 0.66),
+            color: Color::srgba(0.0, 0.0, 0.0, 0.70),
             x_offset: px_fixed(0.0),
             y_offset: px_fixed(22.0),
-            spread_radius: px_fixed(0.0),
+            spread_radius: px_fixed(-2.0),
             blur_radius: px_fixed(48.0),
         },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.34),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(10.0),
+            spread_radius: px_fixed(1.0),
+            blur_radius: px_fixed(26.0),
+        },
     ])
+}
+
+/// Standardized smoked obsidian-slate out-of-table modal dialog surface
+/// (`Role::Opaque`, vertical surface gradient, crisp border, and
+/// [`elevation_card`] shadow).
+pub fn dialog(
+    commands: &mut Commands,
+    kit: Kit,
+    width: Val,
+    border: Color,
+    action: impl Bundle,
+) -> Entity {
+    let phone = kit.m.frame == super::Frame::Phone;
+    let surface = commands
+        .spawn((
+            Role::Opaque,
+            Node {
+                width: if phone { Val::Percent(100.0) } else { width },
+                max_width: Val::Percent(100.0),
+                max_height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(if phone { 0.0 } else { RADIUS_PANEL })),
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            BackgroundColor(tokens::OPAQUE),
+            BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                Color::srgb(0.075, 0.115, 0.165).into(),
+                tokens::OPAQUE.into(),
+            ])),
+            BorderColor::all(border),
+            action,
+        ))
+        .id();
+    if !phone {
+        commands.entity(surface).insert(elevation_card());
+    }
+    surface
+}
+
+/// Standardized modal scrim backdrop centering `surface` at `z_index` and
+/// attaching `action` for click-outside dismissal.
+pub fn scrim(
+    commands: &mut Commands,
+    kit: Kit,
+    z_index: i32,
+    action: impl Bundle,
+    surface: Entity,
+) -> Entity {
+    let phone = kit.m.frame == super::Frame::Phone;
+    let backdrop = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: px_fixed(0.0),
+                top: px_fixed(0.0),
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                padding: UiRect::all(px_fixed(if phone { 0.0 } else { kit.m.body })),
+                ..default()
+            },
+            BackgroundColor(tokens::SCRIM),
+            GlobalZIndex(z_index),
+            action,
+        ))
+        .id();
+    commands.entity(backdrop).add_child(surface);
+    backdrop
 }
 
 /// A sheet over a scrim, in the sheet band, centred (a phone's fills the
@@ -749,22 +1102,7 @@ pub fn sheet(commands: &mut Commands, surface: Entity) -> Entity {
 /// Elevation shadow shared by dropdown popovers and menus.
 #[must_use]
 pub fn popover_shadow() -> BoxShadow {
-    BoxShadow(vec![
-        ShadowStyle {
-            color: Color::srgba(0.0, 0.0, 0.0, 0.35),
-            x_offset: px_fixed(0.0),
-            y_offset: px_fixed(3.0),
-            spread_radius: px_fixed(0.0),
-            blur_radius: px_fixed(8.0),
-        },
-        ShadowStyle {
-            color: Color::srgba(0.0, 0.0, 0.0, 0.58),
-            x_offset: px_fixed(0.0),
-            y_offset: px_fixed(12.0),
-            spread_radius: px_fixed(0.0),
-            blur_radius: px_fixed(28.0),
-        },
-    ])
+    elevation_popover()
 }
 
 /// Which glyph a menu label takes: the first row with one of its words in the
@@ -1495,6 +1833,7 @@ pub fn tile(commands: &mut Commands, kit: Kit, look: &TileLook, actions: &[Entit
             },
             BackgroundColor(tokens::PANEL),
             BorderColor::all(tokens::BORDER),
+            elevation_card(),
         ))
         .id();
     let top = commands
@@ -1573,4 +1912,126 @@ pub fn tile(commands: &mut Commands, kit: Kit, look: &TileLook, actions: &[Entit
         .entity(card)
         .add_children(&[top, meta, badge_line, row_of_actions]);
     card
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::hud::UiFonts;
+    use crate::shellkit::{ShellMetrics, TextSize, Viewport};
+
+    fn test_kit(fonts: &UiFonts) -> Kit<'_> {
+        Kit {
+            fonts,
+            m: ShellMetrics::of(Viewport::desktop(1440.0, 900.0), TextSize::default()),
+            german: false,
+        }
+    }
+
+    fn px_of(val: Val) -> f32 {
+        match val {
+            Val::Px(v) => v,
+            other => panic!("expected Val::Px, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn control_elevation_lifts_on_hover_and_settles_on_press() {
+        let pressed = elevation_control_at(-1.0);
+        let rest = elevation_control();
+        let hovered = elevation_control_at(1.0);
+        assert_eq!(rest, elevation_control_at(0.0));
+        assert_eq!(rest.0.len(), 2);
+        for layer in 0..2 {
+            let p_y = px_of(pressed.0[layer].y_offset);
+            let r_y = px_of(rest.0[layer].y_offset);
+            let h_y = px_of(hovered.0[layer].y_offset);
+            assert!(
+                p_y < r_y && r_y < h_y,
+                "layer {layer} y_offset should settle on press and lift on hover: {p_y} < {r_y} < {h_y}"
+            );
+            let p_a = pressed.0[layer].color.alpha();
+            let r_a = rest.0[layer].color.alpha();
+            let h_a = hovered.0[layer].color.alpha();
+            assert!(
+                p_a < r_a && r_a < h_a,
+                "layer {layer} alpha should settle on press and lift on hover: {p_a} < {r_a} < {h_a}"
+            );
+        }
+        let card = elevation_card();
+        assert_eq!(card.0.len(), 3);
+        assert!(px_of(card.0[1].blur_radius) > px_of(hovered.0[1].blur_radius));
+    }
+
+    #[test]
+    fn unified_dialog_and_header_attach_elevation_and_close_target() {
+        #[derive(Component)]
+        struct Dismiss;
+
+        let mut world = World::new();
+        let fonts = UiFonts::default();
+        let kit = test_kit(&fonts);
+        let (backdrop, surface, head) = {
+            let mut commands = world.commands();
+            let surface = dialog(&mut commands, kit, kit.m.px(720.0), tokens::BORDER, ());
+            let head = dialog_header(
+                &mut commands,
+                kit,
+                SheetHeader::new("Baylee")
+                    .subtitle("Forever in the sunlight")
+                    .meta("2025 – 2026")
+                    .close(Dismiss),
+            );
+            commands.entity(surface).add_child(head);
+            let backdrop = scrim(&mut commands, kit, tokens::z::SHEET, Dismiss, surface);
+            (backdrop, surface, head)
+        };
+        world.flush();
+        assert_eq!(world.get::<Role>(surface), Some(&Role::Opaque));
+        assert_eq!(world.get::<BoxShadow>(surface), Some(&elevation_card()));
+        assert!(world.get::<BackgroundGradient>(surface).is_some());
+        assert!(world.get::<Children>(backdrop).unwrap().contains(&surface));
+        assert_eq!(world.get::<Children>(head).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn domain_elevation_tiers_maintain_monotonic_depth_hierarchy() {
+        let subcard = elevation_subcard();
+        let panel = elevation_panel();
+        let popover = elevation_popover();
+        let floating = elevation_floating();
+        let card = elevation_card();
+        assert_eq!(subcard.0.len(), 2);
+        assert_eq!(panel.0.len(), 3);
+        assert_eq!(popover.0.len(), 3);
+        assert_eq!(floating.0.len(), 3);
+        assert_eq!(popover, popover_shadow());
+        assert!(px_of(subcard.0[1].blur_radius) < px_of(panel.0[1].blur_radius));
+        assert!(px_of(panel.0[1].blur_radius) < px_of(popover.0[1].blur_radius));
+        assert!(px_of(popover.0[1].blur_radius) < px_of(floating.0[1].blur_radius));
+        assert!(px_of(floating.0[1].blur_radius) < px_of(card.0[1].blur_radius));
+    }
+
+    #[test]
+    fn deck_tile_attaches_card_elevation() {
+        let mut world = World::new();
+        let fonts = UiFonts::default();
+        let kit = test_kit(&fonts);
+        let card = {
+            let mut commands = world.commands();
+            tile(
+                &mut commands,
+                kit,
+                &TileLook {
+                    name: "Azorius Control",
+                    identity: "WU",
+                    meta: "60 cards",
+                    badges: "Standard",
+                },
+                &[],
+            )
+        };
+        world.flush();
+        assert_eq!(world.get::<BoxShadow>(card), Some(&elevation_card()));
+    }
 }

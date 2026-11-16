@@ -1944,3 +1944,420 @@ fn a_password_goes_nowhere_with_central_off() {
         "nothing was sent to the gateway"
     );
 }
+
+#[test]
+fn front_logo_casts_silhouette_shadows_and_warm_aura_without_box_or_layout_shift() {
+    use super::super::front::door::{FrontLogoAura, FrontLogoFace, logo_face_color};
+    use bevy::picking::hover::Hovered;
+
+    let mut app = headless();
+    app.world_mut()
+        .insert_resource(crate::prefs::Prefs::default());
+    app.world_mut()
+        .resource_mut::<crate::prefs::Prefs>()
+        .edit()
+        .reduce_motion = true;
+    sized(&mut app, 1920.0);
+    app.update();
+
+    let brand = press_target(
+        &mut app,
+        Press::Memorial(crate::lobby::memorial::MemorialPress::Open),
+    );
+    assert!(
+        app.world()
+            .get::<super::super::hint::HoverHint>(brand)
+            .is_none(),
+        "login Baylee emblem must not display a hover tooltip"
+    );
+    assert!(
+        app.world()
+            .get::<crate::shellkit::controls::Tooltip>(brand)
+            .is_none(),
+        "login Baylee emblem must not attach a floating tooltip"
+    );
+    assert_eq!(
+        app.world().get::<BackgroundColor>(brand),
+        Some(&BackgroundColor(Color::NONE)),
+        "transparent emblem wrapper must have no rectangular fill"
+    );
+    assert!(
+        app.world().get::<BoxShadow>(brand).is_none(),
+        "transparent PNG wrapper must never wear a rectangular BoxShadow"
+    );
+    assert_eq!(
+        app.world().get::<Node>(brand).unwrap().border,
+        UiRect::DEFAULT,
+        "transparent emblem wrapper must have zero border width"
+    );
+    assert_eq!(
+        app.world().get::<BorderColor>(brand),
+        Some(&BorderColor::DEFAULT),
+        "transparent emblem wrapper must have transparent BorderColor"
+    );
+    assert!(
+        app.world()
+            .get::<crate::ambience::FeelBorder>(brand)
+            .is_none(),
+        "transparent emblem wrapper must have no hover border"
+    );
+    assert!(
+        app.world().get::<crate::ambience::Feel>(brand).is_none(),
+        "emblem uses warm ImageNode color lift instead of rectangular Feel ground"
+    );
+
+    let kids: Vec<Entity> = app.world().get::<Children>(brand).unwrap().to_vec();
+    assert_eq!(
+        kids.len(),
+        5,
+        "dark veil + 2 silhouettes + aura + crisp logo"
+    );
+    let aura = kids
+        .iter()
+        .copied()
+        .find(|&e| app.world().get::<FrontLogoAura>(e).is_some())
+        .expect("aura child");
+    let crisp = kids
+        .iter()
+        .copied()
+        .find(|&e| app.world().get::<FrontLogoFace>(e).is_some())
+        .expect("crisp logo child");
+    assert_eq!(
+        app.world().get::<Visibility>(aura),
+        Some(&Visibility::Hidden)
+    );
+    assert_eq!(
+        app.world().get::<ImageNode>(crisp).unwrap().color,
+        Color::WHITE
+    );
+
+    app.world_mut().entity_mut(brand).insert(Hovered(true));
+    app.update();
+
+    assert_eq!(
+        app.world().get::<ImageNode>(crisp).unwrap().color,
+        logo_face_color(1.0)
+    );
+    assert_eq!(
+        app.world().get::<Visibility>(aura),
+        Some(&Visibility::Inherited)
+    );
+    assert_eq!(
+        app.world().get::<UiTransform>(brand).unwrap().scale,
+        Vec2::ONE,
+        "hovering the emblem must cause zero layout shift or scale jitter"
+    );
+}
+
+#[test]
+fn login_screen_cards_and_controls_carry_shellkit_elevation_shadows() {
+    use crate::shellkit::surfaces::{elevation_card, elevation_control};
+
+    let mut app = headless();
+    sized(&mut app, 1920.0);
+    app.update();
+
+    let card_shadows = app
+        .world_mut()
+        .query_filtered::<&BoxShadow, With<super::super::front::FrontCard>>()
+        .iter(app.world())
+        .count();
+    assert_eq!(card_shadows, 1);
+    let card_shadow = app
+        .world_mut()
+        .query_filtered::<&BoxShadow, With<super::super::front::FrontCard>>()
+        .iter(app.world())
+        .next()
+        .unwrap();
+    assert_eq!(card_shadow, &elevation_card());
+
+    let version = press_target(&mut app, Press::Front(FrontPress::OpenChangelog));
+    assert_eq!(
+        app.world().get::<BoxShadow>(version),
+        Some(&elevation_control())
+    );
+    let info = press_target(&mut app, Press::Front(FrontPress::About(true)));
+    assert_eq!(
+        app.world().get::<BoxShadow>(info),
+        Some(&elevation_control())
+    );
+}
+
+#[test]
+fn login_cards_mist_plates_and_confirm_modals_use_single_quad_cut_glass() {
+    use crate::shellkit::role::Role;
+    use bevy::ui::Gradient;
+
+    let mut app = headless();
+    app.world_mut().resource_mut::<LobbyState>().gateways = vec!["https://a.example".into()];
+    sized(&mut app, 1920.0);
+    app.update();
+
+    let check_single_quad_glass = |world: &World,
+                                   entity: Entity,
+                                   min_alpha: f32,
+                                   max_alpha: f32,
+                                   label: &str| {
+        assert_eq!(
+            world.get::<BackgroundColor>(entity),
+            Some(&BackgroundColor(Color::NONE)),
+            "{label}: BackgroundColor must be Color::NONE to prevent Bevy 0.20 double-quad opacity stacking"
+        );
+        let grad = world
+            .get::<BackgroundGradient>(entity)
+            .unwrap_or_else(|| panic!("{label}: missing BackgroundGradient"));
+        let Gradient::Linear(linear) = &grad.0[0] else {
+            panic!("{label}: expected linear glass gradient");
+        };
+        assert_eq!(
+            linear.stops.len(),
+            3,
+            "{label}: expected 3-stop cut-glass gradient"
+        );
+        for stop in &linear.stops {
+            let a = stop.color.alpha();
+            assert!(
+                (min_alpha..=max_alpha).contains(&a),
+                "{label}: stop alpha {a} outside {min_alpha}..={max_alpha}"
+            );
+        }
+    };
+
+    let sign_in_card = app
+        .world_mut()
+        .query_filtered::<Entity, With<super::super::front::FrontCard>>()
+        .single(app.world())
+        .expect("sign-in FrontCard");
+    check_single_quad_glass(app.world(), sign_in_card, 0.50, 0.68, "sign-in FrontCard");
+
+    let mist_plates: Vec<Entity> = app
+        .world_mut()
+        .query::<(Entity, &Role)>()
+        .iter(app.world())
+        .filter_map(|(e, r)| (*r == Role::Mist).then_some(e))
+        .collect();
+    assert!(
+        mist_plates.len() >= 2,
+        "expected tagline + bottom colophon mist plates"
+    );
+    for plate in mist_plates {
+        check_single_quad_glass(app.world(), plate, 0.36, 0.50, "Role::Mist plate");
+    }
+
+    to_gateway_face(&mut app);
+    let gateway_card = app
+        .world_mut()
+        .query_filtered::<Entity, With<super::super::front::FrontCard>>()
+        .single(app.world())
+        .expect("gateway FrontCard");
+    check_single_quad_glass(app.world(), gateway_card, 0.50, 0.68, "gateway FrontCard");
+
+    press(&mut app, Press::Front(FrontPress::ForgetGateway(0)));
+    let confirm_modal = press_target(&mut app, Press::Shared(SharedPress::PickerNothing));
+    check_single_quad_glass(app.world(), confirm_modal, 0.54, 0.70, "confirm modal");
+}
+
+#[test]
+fn front_field_prefix_icons_and_version_tag_exist_in_shipped_font_and_tint_on_focus() {
+    use super::super::field::{FieldLeadIcon, LEAD_FOCUS_INK, LEAD_REST_INK, lead_glyph};
+    use super::super::front::door::VERSION_TAG_GLYPH;
+
+    let fa_bytes = include_bytes!("../../../assets/fonts/fa-solid-900.ttf");
+    let font = swash::FontRef::from_index(fa_bytes, 0).expect("fa-solid-900.ttf");
+    let cmap = font.charmap();
+    for (name, ch) in [
+        ("USER", lead_glyph::USER),
+        ("ID_CARD", lead_glyph::ID_CARD),
+        ("LOCK", lead_glyph::LOCK),
+        ("KEY", lead_glyph::KEY),
+        ("GLOBE", lead_glyph::GLOBE),
+        ("SEARCH", lead_glyph::SEARCH),
+        ("VERSION_TAG", VERSION_TAG_GLYPH),
+    ] {
+        assert_ne!(
+            cmap.map(ch),
+            0,
+            "{name} ({}) missing from shipped fa-solid-900.ttf",
+            ch as u32
+        );
+    }
+
+    let lead_of = |app: &mut App, field: Field| -> (String, Color) {
+        let mut boxes = app.world_mut().query::<(&Press, &Children)>();
+        let kids: Vec<Entity> = boxes
+            .iter(app.world())
+            .find(|(p, _)| **p == Press::Shared(SharedPress::Focus(field)))
+            .expect("field box")
+            .1
+            .to_vec();
+        let slot = kids
+            .into_iter()
+            .find(|&e| app.world().get::<FieldLeadIcon>(e).is_some())
+            .expect("FieldLeadIcon inside field box");
+        let glyph_entity = app.world().get::<Children>(slot).unwrap()[0];
+        let text = app.world().get::<Text>(glyph_entity).unwrap().0.clone();
+        let color = app.world().get::<TextColor>(glyph_entity).unwrap().0;
+        (text, color)
+    };
+
+    let mut app = headless();
+    sized(&mut app, 1920.0);
+    app.update();
+
+    let (u_glyph, u_ink) = lead_of(&mut app, Field::Username);
+    let (p_glyph, p_ink) = lead_of(&mut app, Field::Password);
+    assert_eq!(u_glyph, lead_glyph::USER.to_string());
+    assert_eq!(p_glyph, lead_glyph::LOCK.to_string());
+    assert_eq!(u_ink, LEAD_FOCUS_INK, "focused Username icon warms up");
+    assert_eq!(p_ink, LEAD_REST_INK, "unfocused Password icon stays muted");
+
+    press(&mut app, Press::Front(FrontPress::ToggleRegistering));
+    settle(&mut app);
+    assert_eq!(
+        lead_of(&mut app, Field::DisplayName).0,
+        lead_glyph::ID_CARD.to_string()
+    );
+    assert_eq!(
+        lead_of(&mut app, Field::PasswordAgain).0,
+        lead_glyph::LOCK.to_string()
+    );
+
+    app.world_mut().resource_mut::<LobbyState>().gateways = vec!["https://a.example".into()];
+    to_gateway_face(&mut app);
+    assert_eq!(
+        lead_of(&mut app, Field::Gateway).0,
+        lead_glyph::GLOBE.to_string()
+    );
+    assert_eq!(
+        lead_of(&mut app, Field::GatewaySearch).0,
+        lead_glyph::SEARCH.to_string()
+    );
+
+    let version = press_target(&mut app, Press::Front(FrontPress::OpenChangelog));
+    let ver_kids: Vec<Entity> = app.world().get::<Children>(version).unwrap().to_vec();
+    assert_eq!(
+        app.world().get::<Text>(ver_kids[0]).unwrap().0,
+        VERSION_TAG_GLYPH.to_string(),
+        "version pill leads with release-tag icon"
+    );
+    assert_eq!(
+        app.world().get::<Text>(ver_kids[1]).unwrap().0,
+        baylee_build::VERSION
+    );
+    assert!(
+        super::super::front::FAN_CONTENT_NOTICE.starts_with("Baylee is unofficial Fan Content"),
+        "bottom Fan Content notice capitalizes Baylee"
+    );
+}
+
+#[test]
+fn colophon_and_about_render_hover_underlined_hyperlinks_and_centered_full_build_footer() {
+    use super::super::front::about::full_build_line;
+    use super::super::source::ExternalLink;
+    use bevy::picking::hover::PickingInteraction;
+
+    let mut app = headless();
+    sized(&mut app, 1920.0);
+    app.update();
+
+    // 1. Bottom colophon under the Sign-In form links both Fan Content Policy and Scryfall.
+    let front_presses = presses(&mut app);
+    assert!(
+        front_presses.contains(&Press::Front(FrontPress::OpenExternal(
+            ExternalLink::FanContentPolicy
+        ))),
+        "bottom colophon must link Fan Content Policy"
+    );
+    assert!(
+        front_presses.contains(&Press::Front(FrontPress::OpenExternal(
+            ExternalLink::Scryfall
+        ))),
+        "bottom colophon must link Scryfall"
+    );
+
+    // Inline hyperlinks start NOT underlined (`UnderlineColor::NONE`) and reveal
+    // their underline only when hovered.
+    let mut inline_q = app.world_mut().query::<(
+        Entity,
+        &super::super::front::links::InlineHyperlink,
+        &UnderlineColor,
+    )>();
+    let label_spans: Vec<(Entity, Color)> = inline_q
+        .iter(app.world())
+        .map(|(e, _, ul)| (e, ul.0))
+        .collect();
+    assert!(!label_spans.is_empty(), "inline hyperlink spans exist");
+    for &(_, rest_ul) in &label_spans {
+        assert_eq!(
+            rest_ul.alpha(),
+            0.0,
+            "hyperlink must not be underlined at rest"
+        );
+    }
+    let first_span = label_spans[0].0;
+    *app.world_mut()
+        .get_mut::<PickingInteraction>(first_span)
+        .unwrap() = PickingInteraction::Hovered;
+    for _ in 0..5 {
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(std::time::Duration::from_millis(32));
+        app.update();
+    }
+    let hovered_ul = app.world().get::<UnderlineColor>(first_span).unwrap().0;
+    assert!(
+        hovered_ul.alpha() > 0.5,
+        "hovering a hyperlink must reveal its underline, got {hovered_ul:?}"
+    );
+
+    // 2. Submit button carries a leading icon and stationary ClickPulse (`lift == 0.0`).
+    let mut submit_q = app
+        .world_mut()
+        .query_filtered::<&Children, With<super::super::front::AccountSubmit>>();
+    let submit_kids: Vec<Entity> = submit_q.single(app.world()).unwrap().to_vec();
+    let submit_face = submit_kids[0];
+    assert_eq!(
+        app.world()
+            .get::<crate::ambience::Feel>(submit_face)
+            .unwrap()
+            .lift,
+        0.0,
+        "Submit button must never change size on press/hover"
+    );
+    assert!(
+        app.world()
+            .get::<crate::ambience::ClickPulse>(submit_face)
+            .is_some(),
+        "Submit button must carry stationary ClickPulse"
+    );
+
+    // 3. About dialog: top-right `×` close button, no bottom `Close` button,
+    // expanded third-party hyperlinks, and full build version at the bottom.
+    press(&mut app, Press::Front(FrontPress::About(true)));
+    let about_labels = labels(&mut app);
+    assert!(
+        about_labels.contains(&full_build_line()),
+        "About dialog must show full build identification at the bottom"
+    );
+    assert!(
+        !about_labels
+            .iter()
+            .any(|l| l == Phrase::SheetClose.text(Lang::En)),
+        "old bottom Close button footer was removed in favour of top-right ×"
+    );
+    let about_presses = presses(&mut app);
+    for expected in [
+        ExternalLink::FanContentPolicy,
+        ExternalLink::Scryfall,
+        ExternalLink::AgplLicence,
+        ExternalLink::Bevy,
+        ExternalLink::Rav1d,
+        ExternalLink::OpaqueKe,
+        ExternalLink::Vsco2,
+    ] {
+        assert!(
+            about_presses.contains(&Press::Front(FrontPress::OpenExternal(expected))),
+            "About dialog missing hyperlink for {expected:?}"
+        );
+    }
+}

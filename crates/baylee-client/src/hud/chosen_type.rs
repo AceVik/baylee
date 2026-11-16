@@ -452,6 +452,7 @@ fn spawn_label(
         tf(fonts, 13.0),
         TextColor(palette::CANDLE),
         BackgroundColor(palette::DIALOG),
+        palette::elevation_pill(),
         Pickable::IGNORE,
         GlobalZIndex(-1),
         visible,

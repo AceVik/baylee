@@ -60,6 +60,7 @@ pub(super) fn draw(
         .insert((
             BackgroundColor(tokens::CONTROL),
             BorderColor::all(tokens::BORDER),
+            surfaces::elevation_card(),
         ))
         .entry::<Node>()
         .and_modify(move |mut node| {

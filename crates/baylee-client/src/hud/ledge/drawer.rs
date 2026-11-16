@@ -862,13 +862,7 @@ fn spawn_panel(
             // Upward, onto the table. The shelf's own shadow falls the other
             // way, onto the cards, and the two together are what make the
             // pair read as one piece of furniture with a drawer out of it.
-            BoxShadow(vec![ShadowStyle {
-                color: palette::SHADOW,
-                x_offset: px(0.0),
-                y_offset: px(-6.0),
-                spread_radius: px(0.0),
-                blur_radius: px(18.0),
-            }]),
+            palette::elevation_upward(),
         ))
         .id();
     if let Some(handle) = cloth {

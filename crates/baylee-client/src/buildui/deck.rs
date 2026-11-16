@@ -8,6 +8,7 @@
 use super::*;
 use crate::lobby::{List, hover_of_card, hover_of_entry};
 use crate::shellkit::focus::Current;
+use crate::shellkit::surfaces;
 
 /// The zone the deck side shows: the tab's, or (on Stats) where `+` adds.
 pub(crate) fn shown_zone(env: &Env) -> Zone {
@@ -50,7 +51,9 @@ pub(super) fn panel(commands: &mut Commands, env: &Env, holders: &mut retained::
         1.0
     };
     let panel = super::panel(commands, kit, grow, None);
-    commands.entity(panel).insert(crate::lobby::dock::Dock(5));
+    commands
+        .entity(panel)
+        .insert((crate::lobby::dock::Dock(5), surfaces::elevation_card()));
     holders.deck_head = Some(holder(
         commands,
         panel,
@@ -108,6 +111,7 @@ pub(super) fn rail_panel(
         0.0,
         Some(kit.m.scaled(260.0).clamp(220.0, 300.0)),
     );
+    commands.entity(panel).insert(surfaces::elevation_card());
     holders.rail = Some(holder(
         commands,
         panel,
@@ -249,6 +253,8 @@ fn grouping_controls(commands: &mut Commands, env: &Env) -> Vec<Entity> {
                 hot: tokens::ACCENT.with_alpha(0.75),
                 press: tokens::BORDER,
             },
+            surfaces::elevation_control(),
+            crate::ambience::FeelShadow,
             Pickable::IGNORE,
         ))
         .id();
@@ -316,8 +322,15 @@ fn grouping_controls(commands: &mut Commands, env: &Env) -> Vec<Entity> {
             },
             BackgroundColor(tokens::CONTROL.with_alpha(0.50)),
             BorderColor::all(tokens::BORDER),
+            surfaces::elevation_control(),
             UiTransform::default(),
             crate::ambience::Feel::tinting_to(tokens::CONTROL.with_alpha(0.50), tokens::HOVER),
+            crate::ambience::FeelBorder {
+                rest: tokens::BORDER,
+                hot: tokens::ACCENT.with_alpha(0.65),
+                press: tokens::BORDER,
+            },
+            crate::ambience::FeelShadow,
             Pickable::IGNORE,
         ))
         .id();
@@ -401,6 +414,7 @@ fn commander_slot(commands: &mut Commands, env: &Env, compact: bool) -> Entity {
                 ..default()
             },
             BorderColor::all(tokens::BORDER),
+            surfaces::elevation_control(),
             hover,
         ));
         if held.is_some() {
@@ -411,6 +425,7 @@ fn commander_slot(commands: &mut Commands, env: &Env, compact: bool) -> Entity {
                     hot: tokens::ACCENT,
                     press: tokens::ACCENT,
                 },
+                crate::ambience::FeelShadow,
                 crate::lobby::HoverHint(Phrase::BuildChoosePrinting.text(lang).to_string()),
                 Press::Build(BuildPress::PickCommanderPrint(first)),
                 Pickable::default(),
@@ -503,13 +518,15 @@ fn commander_slot(commands: &mut Commands, env: &Env, compact: bool) -> Entity {
     }
     if !compact {
         for &slot in leaders {
-            second.push(icon_button(
+            let remove = icon_button(
                 commands,
                 kit,
                 mark::CLOSE,
                 false,
                 Press::Build(BuildPress::RemoveCommander(slot)),
-            ));
+            );
+            super::pool::elevate_icon_button(commands, remove);
+            second.push(remove);
         }
     }
     let second = line(commands, kit, &second);
@@ -703,6 +720,22 @@ pub(super) fn tabbar(commands: &mut Commands, holder: Entity, env: &Env) {
             },
             BackgroundColor(tokens::PANEL),
             BorderColor::all(tokens::BORDER),
+            BoxShadow(vec![
+                ShadowStyle {
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.36),
+                    x_offset: px_fixed(0.0),
+                    y_offset: px_fixed(-2.0),
+                    spread_radius: px_fixed(0.0),
+                    blur_radius: px_fixed(6.0),
+                },
+                ShadowStyle {
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.50),
+                    x_offset: px_fixed(0.0),
+                    y_offset: px_fixed(-8.0),
+                    spread_radius: px_fixed(-1.0),
+                    blur_radius: px_fixed(20.0),
+                },
+            ]),
         ))
         .id();
     let panes = [

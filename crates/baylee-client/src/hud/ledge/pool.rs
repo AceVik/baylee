@@ -120,6 +120,7 @@ pub(in crate::hud) fn spawn_pool_strip(commands: &mut Commands) -> Entity {
             },
             BackgroundColor(palette::DIALOG_LIT),
             BorderColor::all(palette::DIALOG_LINE),
+            palette::elevation_upward(),
             ZIndex(Z_TRAY),
             Visibility::Hidden,
             Pickable::IGNORE,

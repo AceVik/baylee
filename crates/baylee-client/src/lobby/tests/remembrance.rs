@@ -254,3 +254,154 @@ fn selecting_the_current_chapter_or_its_boundary_preserves_reading_position() {
         137.0
     );
 }
+
+#[test]
+fn memorial_uses_shellkit_dialog_elevation_symmetric_bars_and_disabled_tooltips() {
+    use crate::shellkit::{
+        controls::{Disabled, Tooltip},
+        role::Role,
+        surfaces::elevation_card,
+    };
+    let mut app = headless();
+    press(&mut app, Press::Memorial(M::Open));
+
+    let surface = press_target(&mut app, Press::Memorial(M::Nothing));
+    assert_eq!(app.world().get::<Role>(surface), Some(&Role::Opaque));
+    assert_eq!(
+        app.world().get::<BoxShadow>(surface),
+        Some(&elevation_card())
+    );
+    assert!(app.world().get::<BackgroundGradient>(surface).is_some());
+
+    let back = press_target(&mut app, Press::Memorial(M::Back));
+    let forward = press_target(&mut app, Press::Memorial(M::Forward));
+    assert!(app.world().get::<Disabled>(back).is_some());
+    assert!(app.world().get::<Disabled>(forward).is_none());
+    let tip = app
+        .world()
+        .get::<Tooltip>(back)
+        .expect("chapter 1 Back button carries floating disabled tooltip")
+        .0;
+    let tip_text = app.world().get::<Children>(tip).unwrap()[0];
+    assert_eq!(
+        app.world().get::<Text>(tip_text).unwrap().0,
+        Phrase::MemorialFirstChapter.text(Lang::En)
+    );
+    assert_eq!(app.world().get::<Node>(back).unwrap().flex_grow, 1.0);
+    assert_eq!(app.world().get::<Node>(forward).unwrap().flex_grow, 1.0);
+
+    press(&mut app, Press::Memorial(M::Chapter(7)));
+    let forward = press_target(&mut app, Press::Memorial(M::Forward));
+    assert!(app.world().get::<Disabled>(forward).is_some());
+    let end_tip = app
+        .world()
+        .get::<Tooltip>(forward)
+        .expect("last chapter Forward button carries floating disabled tooltip")
+        .0;
+    let end_text = app.world().get::<Children>(end_tip).unwrap()[0];
+    assert_eq!(
+        app.world().get::<Text>(end_text).unwrap().0,
+        Phrase::MemorialLastChapter.text(Lang::En)
+    );
+}
+
+#[test]
+fn memorial_layout_is_symmetric_and_shows_scrollbar_on_smaller_screens() {
+    use crate::lobby::scrollbars::OnlyWhenNeeded;
+    use bevy::ui_widgets::Scrollbar;
+
+    let mut app = headless();
+    sized(&mut app, 1280.0);
+    press(&mut app, Press::Memorial(M::Open));
+
+    let surface = press_target(&mut app, Press::Memorial(M::Nothing));
+    assert_eq!(
+        app.world().get::<BackgroundColor>(surface),
+        Some(&BackgroundColor(Color::NONE)),
+        "single-quad memorial surface avoids stacked BackgroundColor + BackgroundGradient"
+    );
+    let surface_kids: Vec<Entity> = app.world().get::<Children>(surface).unwrap().to_vec();
+    assert_eq!(
+        surface_kids.len(),
+        4,
+        "header + centered chapter ribbon + scrollable body + symmetric footer"
+    );
+
+    // Header has equal left and right balance slots (`flex_grow: 1.0`) so the
+    // title column sits on the exact center symmetry axis.
+    let head_kids: Vec<Entity> = app
+        .world()
+        .get::<Children>(surface_kids[0])
+        .unwrap()
+        .to_vec();
+    assert_eq!(head_kids.len(), 3);
+    assert_eq!(
+        app.world().get::<Node>(head_kids[0]).unwrap().flex_grow,
+        1.0
+    );
+    assert_eq!(
+        app.world().get::<Node>(head_kids[2]).unwrap().flex_grow,
+        1.0
+    );
+
+    // Chapter strip centers all 8 chapter pills symmetrically.
+    let chapter_bar = app.world().get::<Node>(surface_kids[1]).unwrap();
+    assert_eq!(chapter_bar.justify_content, JustifyContent::Center);
+    assert_eq!(
+        app.world().get::<Children>(surface_kids[1]).unwrap().len(),
+        8
+    );
+
+    // Both the matted photo frame and the story live inside the single
+    // scrollable `Reading` viewport so compact/720p screens scroll everything.
+    let viewport = reading(&mut app);
+    let photo = press_target(&mut app, Press::Memorial(M::PhotoOpen));
+    let mut cursor = Some(photo);
+    let mut inside_reading = false;
+    while let Some(e) = cursor {
+        if e == viewport {
+            inside_reading = true;
+            break;
+        }
+        cursor = app.world().get::<ChildOf>(e).map(ChildOf::parent);
+    }
+    assert!(
+        inside_reading,
+        "photo showcase must sit inside the scrollable Reading body"
+    );
+
+    // Verify `OnlyWhenNeeded` scrollbar switches to `Display::Flex` when the
+    // viewport overflows on smaller screens, and hides (`Display::None`) when it fits.
+    let bar = app
+        .world_mut()
+        .query_filtered::<(Entity, &Scrollbar), With<OnlyWhenNeeded>>()
+        .iter(app.world())
+        .find_map(|(e, s)| (s.target == viewport).then_some(e))
+        .expect("OnlyWhenNeeded scrollbar targeting Memorial Reading viewport");
+
+    app.world_mut().entity_mut(viewport).insert(ComputedNode {
+        size: Vec2::new(720.0, 360.0),
+        content_size: Vec2::new(720.0, 820.0),
+        inverse_scale_factor: 1.0,
+        ..default()
+    });
+    app.update();
+    assert_eq!(
+        app.world().get::<Node>(bar).unwrap().display,
+        Display::Flex,
+        "scrollbar becomes visible on smaller screens when content overflows"
+    );
+
+    app.world_mut().entity_mut(viewport).insert(ComputedNode {
+        size: Vec2::new(720.0, 760.0),
+        content_size: Vec2::new(720.0, 620.0),
+        inverse_scale_factor: 1.0,
+        ..default()
+    });
+    app.update();
+    assert_eq!(
+        app.world().get::<Node>(bar).unwrap().display,
+        Display::None,
+        "scrollbar hides cleanly when the entire chapter fits"
+    );
+}

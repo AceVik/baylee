@@ -48,6 +48,7 @@ pub(super) fn tables(
             },
             BackgroundColor(tokens::PANEL),
             BorderColor::all(tokens::BORDER),
+            surfaces::elevation_card(),
             super::super::dock::Dock(4),
         ))
         .id();
@@ -522,8 +523,10 @@ fn table_row(
             },
             BackgroundColor(tokens::CONTROL),
             BorderColor::all(tokens::BORDER.with_alpha(0.45)),
+            surfaces::elevation_control(),
             UiTransform::default(),
             crate::ambience::Feel::tinting_to(tokens::CONTROL, tokens::SELECTED),
+            crate::ambience::FeelShadow,
             Pickable::default(),
         ))
         .id();

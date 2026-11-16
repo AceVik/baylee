@@ -95,7 +95,9 @@ fn ai_log_head(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
             },
             BackgroundColor(palette::LOG_GLASS_TOP.with_alpha(0.55)),
             BorderColor::all(palette::LOG_GLASS_RULE),
+            crate::shellkit::surfaces::elevation_control(),
             Feel::new(palette::LOG_GLASS_TOP.with_alpha(0.55)),
+            crate::ambience::FeelShadow,
             crate::hud::Hint(Phrase::SheetClose.text(lang).to_string()),
             children![(
                 Text::new(glyph::CLOSE.to_string()),

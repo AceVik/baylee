@@ -54,6 +54,13 @@ pub fn status<G: Bundle, B: Bundle, A: Bundle, R: Bundle>(
                     ..default()
                 },
                 BackgroundColor(look.reach.colour()),
+                BoxShadow(vec![ShadowStyle {
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.38),
+                    x_offset: px_fixed(0.0),
+                    y_offset: px_fixed(1.5),
+                    spread_radius: px_fixed(0.0),
+                    blur_radius: px_fixed(4.0),
+                }]),
                 UiTransform::default(),
                 crate::ambience::Feel::new(look.reach.colour()),
             ))

@@ -36,6 +36,24 @@ pub(super) fn counts(commands: &mut Commands, env: &Env, slot: usize) -> Entity 
                 Stop::item(CARD, id, 1),
             ),
         );
+        commands.queue(move |world: &mut World| {
+            let buttons: Vec<Entity> = world
+                .get::<Children>(stepper)
+                .map_or_default(|kids| [kids.first().copied(), kids.get(2).copied()])
+                .into_iter()
+                .flatten()
+                .collect();
+            for wrapper in buttons {
+                let face = world
+                    .get::<Children>(wrapper)
+                    .and_then(|children| children.first().copied());
+                if let Some(face) = face
+                    && let Ok(mut face) = world.get_entity_mut(face)
+                {
+                    face.insert((surfaces::elevation_control(), crate::ambience::FeelShadow));
+                }
+            }
+        });
         // A label and its stepper are one piece: the row wraps between
         // the pairs, never between "Sideboard" and its − n + (4K pass,
         // 09.10.2026).

@@ -26,6 +26,7 @@ pub(super) fn surface(
     action: Action,
 ) -> Entity {
     let selected = words::selected(action, ui);
+    let available = available(ui, action);
     let ground = if selected {
         tokens::PRIMARY
     } else {
@@ -51,10 +52,20 @@ pub(super) fn surface(
             } else {
                 tokens::BORDER
             }),
-            crate::ambience::Feel::new(ground),
             Pickable::IGNORE,
         ))
         .id();
+    if available {
+        commands.entity(face).insert((
+            surfaces::elevation_control(),
+            crate::ambience::Feel::new(ground),
+            crate::ambience::FeelShadow,
+        ));
+    } else {
+        commands
+            .entity(face)
+            .insert(surfaces::elevation_control_disabled());
+    }
     let hit = controls::hit(commands, kit, face, Press::Echoes(action));
     commands
         .entity(hit)
@@ -70,7 +81,6 @@ pub(super) fn surface(
             node.align_self = AlignSelf::Stretch;
             node.align_items = AlignItems::Stretch;
         });
-    let available = available(ui, action);
     if !available {
         commands.entity(hit).insert(controls::Disabled);
     }

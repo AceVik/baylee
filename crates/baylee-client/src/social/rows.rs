@@ -132,22 +132,56 @@ pub(crate) fn dialog_glass() -> BackgroundGradient {
     ))
 }
 
-/// Two-layer depth shadow under floating smoked-glass chat surfaces.
+/// Three-layer depth shadow under floating smoked-glass chat surfaces.
 pub(crate) fn glass_shadow() -> BoxShadow {
     BoxShadow(vec![
         ShadowStyle {
-            color: Color::srgba(0.0, 0.0, 0.0, 0.56),
+            color: Color::srgba(0.0, 0.0, 0.0, 0.46),
+            x_offset: zpx(0.0),
+            y_offset: zpx(4.0),
+            spread_radius: zpx(0.0),
+            blur_radius: zpx(10.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.68),
+            x_offset: zpx(0.0),
+            y_offset: zpx(18.0),
+            spread_radius: zpx(-2.0),
+            blur_radius: zpx(42.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.34),
             x_offset: zpx(0.0),
             y_offset: zpx(8.0),
-            spread_radius: zpx(0.0),
+            spread_radius: zpx(1.0),
             blur_radius: zpx(24.0),
+        },
+    ])
+}
+
+/// Crisp three-layer elevation shadow for compact smoked-glass context menus.
+pub(crate) fn popover_glass_shadow() -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.44),
+            x_offset: zpx(0.0),
+            y_offset: zpx(3.0),
+            spread_radius: zpx(0.0),
+            blur_radius: zpx(8.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.68),
+            x_offset: zpx(0.0),
+            y_offset: zpx(14.0),
+            spread_radius: zpx(-1.0),
+            blur_radius: zpx(32.0),
         },
         ShadowStyle {
             color: Color::srgba(0.0, 0.0, 0.0, 0.32),
             x_offset: zpx(0.0),
-            y_offset: zpx(2.0),
-            spread_radius: zpx(0.0),
-            blur_radius: zpx(6.0),
+            y_offset: zpx(6.0),
+            spread_radius: zpx(1.0),
+            blur_radius: zpx(18.0),
         },
     ])
 }
