@@ -31,7 +31,7 @@ pub(super) fn draw(
             Node {
                 width: percent(100),
                 flex_direction: FlexDirection::Column,
-                padding: UiRect::axes(kit.m.px(28.0), kit.m.px(20.0)),
+                padding: UiRect::axes(kit.m.px(24.0), kit.m.px(12.0)),
                 row_gap: kit.m.px(2.0),
                 ..default()
             },
@@ -62,7 +62,7 @@ pub(super) fn draw(
                     .entity(space)
                     .entry::<Node>()
                     .and_modify(move |mut node| {
-                        node.height = kit.m.px(112.0);
+                        node.height = kit.m.px(100.0);
                         node.justify_content = JustifyContent::Center;
                         node.align_items = AlignItems::Center;
                     });
@@ -88,7 +88,7 @@ pub(super) fn draw(
                 ui,
                 offer.goods,
                 Some(&price),
-                88.0,
+                72.0,
                 emphasis,
                 Action::Purchase(offer.id),
                 can(ui, &command),

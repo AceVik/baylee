@@ -99,6 +99,8 @@ fn candidate(
             node.flex_grow = 1.0;
             node.max_width = kit.m.px(240.0);
             node.align_items = AlignItems::Center;
+            node.padding = UiRect::all(kit.m.px(12.0));
+            node.row_gap = kit.m.px(8.0);
         });
     if selected {
         commands.entity(tile).insert(BorderColor::all(tokens::GOLD));

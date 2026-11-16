@@ -94,7 +94,8 @@ pub(in crate::lobby) fn draw(
     });
     if market {
         landing::market_progress(commands, top, kit, ui);
-    } else if ui.model.run().is_some() && ui.page != Page::Overview {
+    }
+    if ui.model.run().is_some() && ui.page != Page::Overview {
         control(
             commands,
             top,

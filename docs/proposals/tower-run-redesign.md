@@ -465,3 +465,23 @@ Always stop owned test processes and verify listeners close.
   `/tmp/baylee-tower-pass5-preferences-tests-20261116-r2.log`,
   `/tmp/baylee-tower-pass5-ui-tests-20261116.log`,
   `/tmp/baylee-tower-pass5-clippy-20261116-r2.log`.
+- Rendered refinement 6: all five equal starter choices fit side by side at
+  1280×720; the compact workshop exposes the first inventory row. An upgrade
+  initiated below the fold now brings its confirmation to the top. Real
+  concede/leave shows the translated `0 von 1` count and reachable claim;
+  choosing one duplicate adds one gold and opens stage 2 with fresh stock.
+  This revealed that the scroll-memory system could overwrite the phase reset;
+  the reply handler now follows that system. Reward tiles also use tighter
+  padding/gaps; these last two corrections require the next native pass.
+  Screens: `/tmp/baylee-tower-pass6-{1280,confirm-visible,five-starters,reward,return-shop}.png`.
+  A fixed shelf crop changed 12,136/228,000 pixels with animation enabled.
+  The previous reduced-motion pair changed 0/290,700 pixels. These are motion
+  observations, not performance measurements. Client 57317, backend 57297 and
+  PostgreSQL 57266 exited; ports 64655 and 64603 closed.
+- Four Tower UI tests, thirteen Echoes UI tests and five item-art tests passed.
+  A follow-up focus test proves mouse focus does not pin an enabled item tooltip;
+  the existing disabled-control tooltip regression also passes. Strict client
+  and client-core dev-control Clippy passed. Evidence uses
+  `/tmp/baylee-tower-pass6-{tests,echoes-tests,clippy}-20261116-r2.log`,
+  `/tmp/baylee-tower-pass6-item-art-tests-20261116.log`,
+  `/tmp/baylee-tower-pass6-{focus,disabled-tooltip}-tests-20261116.log`.

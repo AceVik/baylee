@@ -118,7 +118,7 @@ fn tile(commands: &mut Commands, parent: Entity, kit: Kit, tile: Tile<'_>) {
         .entity(card)
         .entry::<Node>()
         .and_modify(move |mut node| {
-            node.min_height = kit.m.px(148.0);
+            node.min_height = kit.m.px(168.0);
             node.row_gap = kit.m.px(8.0);
             node.flex_shrink = 0.0;
         });
@@ -126,9 +126,10 @@ fn tile(commands: &mut Commands, parent: Entity, kit: Kit, tile: Tile<'_>) {
     commands
         .entity(line)
         .entry::<Node>()
-        .and_modify(|mut node| {
+        .and_modify(move |mut node| {
             node.align_items = AlignItems::Center;
             node.flex_wrap = FlexWrap::NoWrap;
+            node.min_height = kit.m.px(76.0);
         });
     let picture = commands
         .spawn((

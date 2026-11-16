@@ -138,6 +138,7 @@ pub(super) fn install(app: &mut App) {
             Update,
             native::tick
                 .after(poll)
+                .after(super::scrollbars::remember)
                 .before(ui)
                 .run_if(in_state(DuelPhase::Closed)),
         );
@@ -169,18 +170,21 @@ pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
                 .tell_refusal(Phrase::ChallengeLeaveTable, &[]);
             return;
         }
+        let confirming = cx.state.echoes.confirmation.is_some();
         native::ask(cx.state, action);
-        if matches!(
-            action,
-            Action::Open
-                | Action::Back
-                | Action::Overview
-                | Action::Page(_)
-                | Action::GoShop
-                | Action::Read(Read::Run(_))
-                | Action::Offer(_)
-                | Action::InspectCard(_)
-        ) {
+        if (!confirming && cx.state.echoes.confirmation.is_some())
+            || matches!(
+                action,
+                Action::Open
+                    | Action::Back
+                    | Action::Overview
+                    | Action::Page(_)
+                    | Action::GoShop
+                    | Action::Read(Read::Run(_))
+                    | Action::Offer(_)
+                    | Action::InspectCard(_)
+            )
+        {
             cx.scrolled.set(List::Table, 0.0);
             cx.scrolled.set(List::EchoesInspector, 0.0);
         }

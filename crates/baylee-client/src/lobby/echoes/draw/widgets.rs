@@ -27,6 +27,7 @@ pub(super) fn control(
         if matches!(
             action,
             Action::Accept
+                | Action::Starter(..)
                 | Action::Buy
                 | Action::Play(_)
                 | Action::Resume

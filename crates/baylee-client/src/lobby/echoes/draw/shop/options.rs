@@ -70,15 +70,6 @@ pub(in crate::lobby::echoes::draw) fn options(
         footer,
         kit,
         ui,
-        Phrase::EchoesRuns.text(lang),
-        Action::Overview,
-        ui.choices.deck_unchanged(ui.model.run()),
-    );
-    control(
-        commands,
-        footer,
-        kit,
-        ui,
         Phrase::Refresh.text(lang),
         Action::Refresh,
         true,

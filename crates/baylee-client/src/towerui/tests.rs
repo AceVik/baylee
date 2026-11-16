@@ -6,6 +6,7 @@ use bevy::input_focus::{FocusCause, InputFocus};
 fn enabled_item_details_follow_keyboard_focus_remain_idle_and_leave_no_orphan() {
     let (mut app, fonts) = crate::shellkit::header::tests::layout_app();
     app.init_resource::<InputFocus>()
+        .insert_resource(bevy::input_focus::InputFocusVisible(true))
         .add_systems(Update, controls::show_tooltips);
     let kit = Kit {
         fonts: &fonts,
@@ -61,6 +62,16 @@ fn enabled_item_details_follow_keyboard_focus_remain_idle_and_leave_no_orphan() 
             .unwrap()
             .last_changed(),
         last
+    );
+    // A pointer click retains the focus target, but must not pin a hover detail
+    // over later shop interactions after the pointer leaves the item.
+    app.world_mut()
+        .resource_mut::<bevy::input_focus::InputFocusVisible>()
+        .0 = false;
+    app.update();
+    assert_eq!(
+        app.world().get::<Visibility>(tip),
+        Some(&Visibility::Hidden)
     );
     app.world_mut().despawn(owner);
     app.update();

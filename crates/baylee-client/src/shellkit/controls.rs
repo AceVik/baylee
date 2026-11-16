@@ -438,6 +438,7 @@ pub(crate) fn show_tooltips(
     owner_nodes: Query<&Node, Without<FloatingTooltip>>,
     hovers: Option<Res<bevy::picking::hover::HoverMap>>,
     focus: Option<Res<bevy::input_focus::InputFocus>>,
+    focus_visible: Option<Res<bevy::input_focus::InputFocusVisible>>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     ui: Option<Res<UiScale>>,
     mut tips: Query<(&mut Visibility, &mut Node, Option<&ComputedNode>), With<FloatingTooltip>>,
@@ -451,7 +452,8 @@ pub(crate) fn show_tooltips(
     for (owner, tip, interaction, is_disabled, focus_tip, computed, transform) in &owners {
         let by_pick = interaction.is_some_and(|i| *i != PickingInteraction::None);
         let by_hover = !by_pick && hovered_has_ancestor(owner, hovers.as_deref(), &parents);
-        let by_focus = (is_disabled || focus_tip) && focused == Some(owner);
+        let keyboard_tip = focus_tip && focus_visible.as_ref().is_none_or(|visible| visible.0);
+        let by_focus = (is_disabled || keyboard_tip) && focused == Some(owner);
         let active = (by_pick || by_hover || by_focus)
             && tooltip_owner_visible(owner, &parents, &owner_vis, &owner_nodes);
         let Ok((mut shown, mut node, tip_size)) = tips.get_mut(tip.0) else {

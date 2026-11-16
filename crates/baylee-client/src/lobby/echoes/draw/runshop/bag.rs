@@ -3,6 +3,13 @@ use super::*;
 
 pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
     let bag = panel(commands, root, kit);
+    commands
+        .entity(bag)
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            node.padding = UiRect::all(kit.m.px(10.0));
+            node.row_gap = kit.m.px(8.0);
+        });
     commands.entity(bag).insert((
         super::super::super::gestures::Destination::new(run, Slot::Inventory),
         Pickable::default(),
@@ -101,7 +108,7 @@ fn contents(commands: &mut Commands, bag: Entity, kit: Kit, ui: &Ui, run: &api::
             ui,
             Goods::Relic(item.definition),
             None,
-            76.0,
+            64.0,
             Emphasis::None,
             Action::Select(item.id),
             true,

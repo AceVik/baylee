@@ -17,14 +17,31 @@ pub(super) fn draw(
         .entity(choice)
         .entry::<Node>()
         .and_modify(move |mut node| {
-            node.flex_basis = kit.m.px(280.0);
-            node.flex_grow = 1.0;
-            node.row_gap = kit.m.px(10.0);
+            node.min_width = px(0);
+            node.row_gap = kit.m.px(8.0);
+            node.padding = UiRect::all(kit.m.px(12.0));
+            node.align_items = AlignItems::Center;
         });
     let name = words::card(commander, lang);
-    heading(commands, choice, kit, &name);
+    let title = controls::label(commands, kit, &name, kit.m.text, tokens::INK);
+    commands
+        .entity(title)
+        .insert((
+            crate::hud::tf_bold(kit.fonts, kit.m.text),
+            TextLayout::justify(Justify::Center),
+        ))
+        .entry::<Node>()
+        .and_modify(move |mut node| node.min_height = kit.m.px(48.0));
+    commands.entity(choice).add_child(title);
     if let Some((family, strategy)) = identity(&name) {
         let band = row(commands, choice, kit);
+        commands
+            .entity(band)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.flex_direction = FlexDirection::Column;
+                node.align_items = AlignItems::Center;
+            });
         commands.spawn((
             crate::itemart::Portrait(Goods::Relic(Definition {
                 family,
@@ -41,13 +58,6 @@ pub(super) fn draw(
         ));
         label(commands, band, kit, strategy.text(lang), tokens::GOLD);
     }
-    label(
-        commands,
-        choice,
-        kit,
-        Phrase::EchoesRunStarterFormat.text(lang),
-        tokens::MUTED,
-    );
     let spacer = crate::lobby::parts::grow(commands);
     commands.entity(choice).add_child(spacer);
     let actions = row(commands, choice, kit);

@@ -54,7 +54,7 @@ pub(super) fn draw(
             node.align_items = AlignItems::Start;
             node.flex_wrap = FlexWrap::Wrap;
         });
-    let equipment = column(commands, workspace, kit, 244.0, 0.0);
+    let equipment = column(commands, workspace, kit, 220.0, 0.0);
     commands
         .entity(equipment)
         .insert((
@@ -63,10 +63,10 @@ pub(super) fn draw(
         ))
         .entry::<Node>()
         .and_modify(move |mut node| {
-            node.padding = UiRect::all(kit.m.px(12.0));
+            node.padding = UiRect::all(kit.m.px(10.0));
             node.border = UiRect::all(px_fixed(1.0));
             node.border_radius = BorderRadius::all(kit.m.px(12.0));
-            node.row_gap = kit.m.px(8.0);
+            node.row_gap = kit.m.px(6.0);
         });
     equipment::draw(commands, equipment, kit, ui, run);
     let market = column(commands, workspace, kit, 500.0, 1.0);
@@ -77,7 +77,17 @@ pub(super) fn draw(
 
 fn help_heading(commands: &mut Commands, root: Entity, kit: Kit, title: Phrase, help: Phrase) {
     let band = row(commands, root, kit);
-    heading(commands, band, kit, title.text(lang(kit)));
+    let title = controls::label(
+        commands,
+        kit,
+        title.text(lang(kit)),
+        kit.m.text,
+        tokens::INK,
+    );
+    commands
+        .entity(title)
+        .insert(crate::hud::tf_bold(kit.fonts, kit.m.text));
+    commands.entity(band).add_child(title);
     let info = commands
         .spawn((
             Text::new(glyph::INFO.to_string()),
@@ -98,7 +108,7 @@ fn column(commands: &mut Commands, parent: Entity, kit: Kit, basis: f32, grow: f
                 flex_basis: kit.m.px(basis),
                 flex_grow: grow,
                 min_width: px_fixed(0.0),
-                row_gap: kit.m.px(12.0),
+                row_gap: kit.m.px(8.0),
                 ..default()
             },
             ChildOf(parent),

@@ -17,8 +17,9 @@ pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
             true,
         );
     }
-    saved(commands, body, kit, ui);
     enrollment(commands, body, kit, ui);
+    saved(commands, body, kit, ui);
+    enrollment_footer(commands, body, kit, ui);
 }
 
 fn saved(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
@@ -83,21 +84,27 @@ fn enrollment(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
     let lang = lang(kit);
     let band = row(commands, body, kit);
     for cohort in ui.model.cohorts() {
+        let run_format = cohort
+            .starters
+            .iter()
+            .all(|starter| starter.formation.is_some());
         let card = tile(commands, band, kit);
-        presentation::feature(
+        presentation::title(
             commands,
             card,
             kit,
-            crate::challenge_art::Scene::Tower,
+            glyph::CROWN,
             Phrase::EchoesNewRun.text(lang),
         );
-        label(
-            commands,
-            card,
-            kit,
-            &Phrase::EchoesPublished.fill(lang, &[&words::created(cohort.id, lang)]),
-            tokens::MUTED,
-        );
+        if !run_format {
+            label(
+                commands,
+                card,
+                kit,
+                &Phrase::EchoesPublished.fill(lang, &[&words::created(cohort.id, lang)]),
+                tokens::MUTED,
+            );
+        }
         label(
             commands,
             card,
@@ -105,7 +112,7 @@ fn enrollment(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
             Phrase::EchoesStarterLead.text(lang),
             tokens::MUTED,
         );
-        let choices = row(commands, card, kit);
+        let choices = choices(commands, card, kit, run_format);
         for (index, starter) in cohort.starters.iter().enumerate() {
             let number = u8::try_from(index).unwrap_or(0);
             if let Some(formation) = &starter.formation {
@@ -154,6 +161,15 @@ fn enrollment(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
                 !ui.model.uncertain() && ui.choices.deck_unchanged(ui.model.run()),
             );
         }
+        if run_format {
+            label(
+                commands,
+                card,
+                kit,
+                Phrase::EchoesRunStarterFormat.text(lang),
+                tokens::MUTED,
+            );
+        }
     }
     if ui.loaded && ui.model.cohorts().is_empty() {
         label(
@@ -164,7 +180,25 @@ fn enrollment(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
             tokens::MUTED,
         );
     }
-    enrollment_footer(commands, body, kit, ui);
+}
+
+fn choices(commands: &mut Commands, card: Entity, kit: Kit, run_format: bool) -> Entity {
+    let choices = row(commands, card, kit);
+    if run_format {
+        commands
+            .entity(choices)
+            .entry::<Node>()
+            .and_modify(move |mut node| {
+                node.display = Display::Grid;
+                node.grid_template_columns = vec![RepeatedGridTrack::minmax(
+                    GridTrackRepetition::AutoFill,
+                    MinTrackSizingFunction::Px(kit.m.scaled(210.0)),
+                    MaxTrackSizingFunction::Fraction(1.0),
+                )];
+                node.align_items = AlignItems::Stretch;
+            });
+    }
+    choices
 }
 
 fn enrollment_footer(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {

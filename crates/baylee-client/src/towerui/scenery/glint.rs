@@ -3,6 +3,8 @@ use super::Decor;
 use bevy::{
     asset::embedded_asset, prelude::*, render::render_resource::AsBindGroup, shader::ShaderRef,
 };
+#[cfg(test)]
+mod tests;
 
 #[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
 struct Finish {
