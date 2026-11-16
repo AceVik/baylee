@@ -22,7 +22,7 @@ pub(crate) fn deck_row(
     let (is_deck_fav, is_global_fav) = super::pool::fav_flags(state, prefs, &card.english_name);
     let m = kit.m;
     let height = pitch - m.scaled(4.0);
-    let hover = hover_of_entry(card, &entry.print);
+    let hover = crate::towerprints::hover(deck, card, Some(&entry.print), state.lobby.lang());
     let row = commands
         .spawn((
             Role::Row,

@@ -6,7 +6,7 @@
 
 #[allow(clippy::wildcard_imports)] // the builder's own vocabulary
 use super::*;
-use crate::lobby::{List, hover_of_card, hover_of_entry};
+use crate::lobby::List;
 use crate::shellkit::focus::Current;
 use crate::shellkit::surfaces;
 
@@ -398,10 +398,7 @@ fn commander_slot(commands: &mut Commands, env: &Env, compact: bool) -> Entity {
         let held = deck
             .commander_row(first)
             .and_then(|at| deck.entries(Zone::Main).get(at));
-        let hover = held.map_or_else(
-            || hover_of_card(card),
-            |entry| hover_of_entry(card, &entry.print),
-        );
+        let hover = crate::towerprints::hover(deck, card, held.map(|entry| &entry.print), lang);
         let thumb = crate::lobby::thumbnails::spawn(commands, &hover);
         let mut entity = commands.entity(thumb);
         entity.insert((
@@ -644,7 +641,7 @@ pub(super) fn rail(commands: &mut Commands, holder: Entity, env: &Env) {
         let Some(card) = deck.card(slot) else {
             continue;
         };
-        let hover = hover_of_card(card);
+        let hover = crate::towerprints::hover(deck, card, None, lang);
         let row = commands
             .spawn((
                 Role::Row,

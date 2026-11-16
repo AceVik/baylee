@@ -66,6 +66,16 @@ reach shipped feature graphs.
 
 ## Tower preparation
 
+`cargo tools prints --catalog PATH --cache PATH --output PATH [--fetch]` builds
+the client's exact-edition Tower language palette. Export the source JSON with
+`cargo run -p baylee-tower-content --features cli -- --catalog`. The default reads
+only cached public metadata; `--fetch` explicitly permits missing records from
+Scryfall, serially with a 150 ms minimum interval, bounded bodies/timeouts and
+no redirects. Only identical Oracle identity, edition and collector number with
+a usable German scan form a pair. Missing translations remain English. Review
+the JSON and update `assets/tower/print-languages.md` after regenerating it; the
+tool never downloads or packages card images.
+
 `cargo dev tower check` validates the versioned recipe/resale/execution reference
 corpus without compiling or running the engine. `fixtures` exports its inputs;
 `compare PATH` checks complete results from a future production adapter;

@@ -130,6 +130,7 @@ const RETRY_AFTER: f32 = 4.0;
 /// Card art held by the client.
 #[derive(Resource)]
 pub struct CardTextures {
+    tower_prints: Option<crate::towerprints::Policy>,
     budget: TextureBudget,
     handles: HashMap<ImageKey, Handle<Image>>,
     /// Drawn whenever the real art is missing, unknown, or still loading.
@@ -164,9 +165,19 @@ pub struct CardTextures {
 }
 
 impl CardTextures {
+    pub(crate) const fn tower_prints(&self) -> Option<crate::towerprints::Policy> {
+        self.tower_prints
+    }
+
+    pub(crate) fn localize_tower(&mut self, policy: Option<crate::towerprints::Policy>) {
+        self.tower_prints = policy;
+        self.reset_prints();
+    }
+
     /// Builds the cache and its placeholder texture.
     pub fn new(images: &mut Assets<Image>, budget_bytes: usize) -> Self {
         Self {
+            tower_prints: None,
             budget: TextureBudget::new(budget_bytes),
             handles: HashMap::new(),
             card_back: images.add(solid_texture([26, 30, 38, 255])),
@@ -405,7 +416,11 @@ impl CardTextures {
             self.budget.touch(key);
             return handle.clone();
         }
-        let Some(request) = resolve(statics, key, crate::tokenart::of, crate::cardart::of) else {
+        let request = self
+            .tower_prints
+            .and_then(|policy| policy.request(statics, key))
+            .or_else(|| resolve(statics, key, crate::tokenart::of, crate::cardart::of));
+        let Some(request) = request else {
             // An unresolvable printing never even becomes a request, so no
             // load state will ever report it — which is why it has to be
             // recorded here, and why this is the one failure that says so out

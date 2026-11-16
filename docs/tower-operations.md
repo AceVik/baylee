@@ -56,7 +56,12 @@ These are initial balance hypotheses, not measured competitive parity.
 
 After verified settlement, claim
 the pending cards before shopping or abandoning. Reconnecting preserves the
-same candidates. An already-owned singleton choice grants one gold instead.
+same candidates. Generation six grants three gold per already-owned selection,
+with the same durable claim receipt; retained generations keep one. Its five distinct
+nonbasic offers are weighted toward the player's commander identity and higher
+rarities, preserving the opponent's frozen printing and finish. Victory takes
+three; defeat/draw takes one. The client resolves exact-edition German images
+locally where available, with English fallback and no change to replay identity.
 
 API 6 adds cohort-scoped Tower rankings and a separate reversible publication
 setting. Migration 014 stores one best completed verified run per account/cohort/

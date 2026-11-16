@@ -139,6 +139,7 @@ pub(crate) struct Ui {
 }
 
 pub(super) fn install(app: &mut App) {
+    crate::towerprints::install(app);
     crate::itemart::install(app);
     crate::towerui::install(app);
     gestures::install(app);
@@ -216,6 +217,12 @@ pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
 }
 
 impl Ui {
+    pub(crate) const fn game(&self) -> Option<Uuid> {
+        match self.playing {
+            Some((_, game)) => Some(game),
+            None => None,
+        }
+    }
     /// Retry an unacknowledged refit even when later local edits are incomplete.
     pub(crate) fn refit_uncertain(&self) -> bool {
         #[cfg(not(target_arch = "wasm32"))]

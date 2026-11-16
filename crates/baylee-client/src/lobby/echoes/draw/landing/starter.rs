@@ -30,6 +30,7 @@ pub(super) fn draw(
             .iter()
             .find(|entry| entry.id == cohort)
             .map(|entry| &entry.catalog),
+        lang,
     );
     let image = crate::lobby::thumbnails::spawn_sized(
         commands,
@@ -97,19 +98,39 @@ pub(super) fn inspect(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) 
     let Some((cohort, index)) = ui.starter_preview else {
         return;
     };
-    let Some(starter) = ui
-        .model
-        .cohorts()
-        .iter()
-        .find(|entry| entry.id == cohort)
-        .and_then(|entry| entry.starters.get(usize::from(index)))
-    else {
+    let Some(publication) = ui.model.cohorts().iter().find(|entry| entry.id == cohort) else {
         return;
     };
+    let Some(starter) = publication.starters.get(usize::from(index)) else {
+        return;
+    };
+    let deck_row = |id, count| {
+        let print = publication
+            .catalog
+            .card(id)
+            .and_then(|card| card.run)
+            .and_then(|run| run.presentation)
+            .map_or_else(baylee_core::deckrow::PrintChoice::default, |art| {
+                baylee_core::deckrow::PrintChoice {
+                    scryfall_id: Some(art.printing.to_string()),
+                    lang: Some("en".into()),
+                    finish: Some(art.finish),
+                    ..default()
+                }
+            });
+        baylee_core::deckrow::Row {
+            count,
+            name: words::card(id, Lang::En),
+            print: crate::towerprints::choice(&print, lang(kit)).into_owned(),
+            note: None,
+        }
+        .to_string()
+    };
     let mut body = Vec::new();
-    let rows = starter.formation.as_ref().map_or_default(|formation| {
-        vec![format!("1 {}", words::card(formation.commander, Lang::En))]
-    });
+    let rows = starter
+        .formation
+        .as_ref()
+        .map_or_default(|formation| vec![deck_row(formation.commander, 1)]);
     body.push(crate::lobby::decks::spawn_preview_section_container(
         commands,
         kit,
@@ -119,7 +140,7 @@ pub(super) fn inspect(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) 
     let rows: Vec<_> = starter
         .deck
         .iter()
-        .map(|stack| format!("{} {}", stack.copies, words::card(stack.card, Lang::En)))
+        .map(|stack| deck_row(stack.card, u32::from(stack.copies)))
         .collect();
     body.push(crate::lobby::decks::spawn_preview_section_container(
         commands,

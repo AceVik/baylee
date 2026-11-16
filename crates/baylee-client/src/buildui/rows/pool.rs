@@ -3,13 +3,8 @@
 #[allow(clippy::wildcard_imports)] // the builder module's shared vocabulary
 use super::*;
 
-fn collection_hover(deck: &DeckBuilder, card: &PoolCard) -> crate::lobby::HoverCard {
-    deck.limited()
-        .and_then(|limits| limits.stock.get(&card.index))
-        .map_or_else(
-            || hover_of_card(card),
-            |holding| hover_of_entry(card, &holding.print),
-        )
+fn collection_hover(deck: &DeckBuilder, card: &PoolCard, lang: Lang) -> crate::lobby::HoverCard {
+    crate::towerprints::hover(deck, card, None, lang)
 }
 
 /// Returns `(is_deck_fav, is_global_fav)` for `english_name`.
@@ -72,7 +67,7 @@ pub(crate) fn pool_row_at(
     let m = kit.m;
     let gap = m.scaled(4.0);
     let height = pitch - gap;
-    let hover = collection_hover(deck, card);
+    let hover = collection_hover(deck, card, state.lobby.lang());
     let row = commands
         .spawn((
             Role::Row,
@@ -315,7 +310,7 @@ pub(crate) fn pool_compact_row(
     let m = kit.m;
     let gap = m.scaled(3.0);
     let height = pitch - gap;
-    let hover = collection_hover(deck, card);
+    let hover = collection_hover(deck, card, state.lobby.lang());
     let row = commands
         .spawn((
             Role::Row,
@@ -454,7 +449,7 @@ pub(crate) fn pool_grid_row(
         let Some(card) = deck.card(slot) else {
             continue;
         };
-        let hover = collection_hover(deck, card);
+        let hover = collection_hover(deck, card, state.lobby.lang());
         let tile = commands
             .spawn((
                 Role::Row,

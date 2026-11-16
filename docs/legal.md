@@ -36,6 +36,14 @@ card-image and font paths; no card-image files or script corpus are added.
 The Scryfall API documentation still returned HTTP 403. Existing notices and
 image restrictions remain applicable; this is not a broader legal approval.
 
+The same day's Tower language palette stores only public printing identifiers
+and the edition facts required to prove an exact-language match. The maintenance
+tool fetches bounded metadata with an identifying User-Agent and Accept header,
+at least 150 ms between serial requests, explicit opt-in and reusable local cache.
+No card image, rules corpus or price is bundled. Runtime pictures retain the
+existing whole-image delivery, caching and attribution paths; no new proxy or
+metadata service is introduced. Provenance is beside `assets/tower/print-languages.json`.
+
 The 16 November runic-equipment pass rechecked the
 [Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy),
 including “Tell the Community it’s unofficial.” The ten item atlases are original

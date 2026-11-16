@@ -178,7 +178,11 @@ fn candidate(
     {
         commands.entity(tile).insert(controls::Disabled);
     }
-    let hover = card::hover(id, ui.model.publication().map(|cohort| &cohort.catalog));
+    let hover = card::hover(
+        id,
+        ui.model.publication().map(|cohort| &cohort.catalog),
+        lang,
+    );
     let image = crate::lobby::thumbnails::spawn_sized(
         commands,
         &hover,
@@ -207,6 +211,10 @@ fn candidate(
     }
     let space = crate::lobby::parts::grow(commands);
     commands.entity(tile).add_child(space);
+    selection_mark(commands, tile, kit, selected);
+}
+
+fn selection_mark(commands: &mut Commands, tile: Entity, kit: Kit, selected: bool) {
     let mark = commands
         .spawn((
             Text::new(glyph::CHECK.to_string()),

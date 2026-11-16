@@ -4966,6 +4966,15 @@ preview and list machinery remains shared. Run printings and finishes are fixed;
 the card window reads them without fetching a printing catalogue. A cold Tower
 pool does not construct the ordinary pairwise commander-partner catalogue.
 
+`towerprints` adapts only the presentation to the client's language using a
+bundled, sorted exact-edition UUID palette. Starter/loot previews, the scoped
+editor and the live Tower table share it. Missing German editions fall back to
+the frozen English print. The table policy is bound to the current Tower game
+and can read only prints already projected to that seat; it never mutates the
+preset, replay, ordinary deck or earned-print table. It invalidates texture and
+UI material caches only when this policy changes, with no runtime metadata HTTP
+requests. Prints and foil treatments remain identical across loot and refits.
+
 `Lobby::open_scoped_builder` preserves the normal editor and closes any library
 sheet before entry. Ordinary pool/save replies still target that normal editor.
 The Tower adapter (`lobby/echoes/builder`) saves an explicit revision-bound refit
@@ -6586,6 +6595,15 @@ there is no object restriction, so older payloads retain their previous shape.
 stands, the question is an arrangement like any other: the browser locks to the
 Stack tab and draws `PlayerView::trigger_order` as its rows, named by source and
 what each is about (`Browser::rows`), one pile, the first row resolving first.
+Public token-ability identities take precedence over printed-card art, just as
+on the stack, including when the source no longer exists. Run items therefore
+use their shared icon, rarity frame and item detail hover in this dialog.
+The log shows up to four distinct public run-item portraits per sentence, with
+the same details, while preserving all names in the text. Equipment names do not
+open fabricated card previews. The virtual log still measures mounted row height.
+Opening an item's ordinary ability chooser keeps its visible portrait as the
+shared `AbilityAnchor`; a single offered ability remains keyboard-operable and
+uses the normal arm/confirm/current-legality path before spending anything.
 
 ## A choice you answer by picking, not by clicking the table
 

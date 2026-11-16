@@ -518,10 +518,17 @@ fn picture(
     if reads_text {
         return outer;
     }
-    let entry = |p: &baylee_client_core::deckbuilder::Printing| baylee_view::PrintEntry {
-        scryfall_id: p.scryfall_id.clone(),
-        lang: p.lang.clone(),
-        finish: baylee_view::Finish::Normal,
+    let entry = |p: &baylee_client_core::deckbuilder::Printing| {
+        let held = baylee_view::PrintEntry {
+            scryfall_id: p.scryfall_id.clone(),
+            lang: p.lang.clone(),
+            finish: baylee_view::Finish::Normal,
+        };
+        if env.deck().limited().is_some() {
+            crate::towerprints::entry(&held, lang).into_owned()
+        } else {
+            held
+        }
     };
     let url = picker.current().and_then(|p| {
         baylee_client_core::images::image_url(

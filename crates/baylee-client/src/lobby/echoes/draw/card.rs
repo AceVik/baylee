@@ -6,6 +6,7 @@ use baylee_core::{ids::CardIndex, types::TypeSet};
 pub(super) fn hover(
     id: CardIndex,
     catalog: Option<&domain::cards::Catalog>,
+    lang: Lang,
 ) -> crate::lobby::HoverCard {
     let Some(art) = catalog
         .and_then(|catalog| catalog.card(id))
@@ -14,15 +15,13 @@ pub(super) fn hover(
     else {
         return crate::lobby::hover_of_index(id.get());
     };
-    crate::lobby::preview::hover_of_print(
-        id.get(),
-        &baylee_core::deckrow::PrintChoice {
-            scryfall_id: Some(art.printing.to_string()),
-            lang: Some("en".to_owned()),
-            finish: Some(art.finish),
-            ..default()
-        },
-    )
+    let print = baylee_core::deckrow::PrintChoice {
+        scryfall_id: Some(art.printing.to_string()),
+        lang: Some("en".to_owned()),
+        finish: Some(art.finish),
+        ..default()
+    };
+    crate::lobby::preview::hover_of_print(id.get(), &crate::towerprints::choice(&print, lang))
 }
 
 pub(super) fn rules(commands: &mut Commands, root: Entity, kit: Kit, id: CardIndex) {

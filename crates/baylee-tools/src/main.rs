@@ -6,6 +6,7 @@ mod installers;
 mod package;
 mod perf;
 mod pgo;
+mod prints;
 mod recording;
 mod release;
 mod shell;
@@ -27,6 +28,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Resolve exact-edition German print IDs for the frozen Tower palette.
+    Prints(prints::Args),
     /// Capture and inspect dev-control recordings (GIF, WebP, contact sheets).
     #[command(disable_help_flag = true)]
     Recording {
@@ -130,6 +133,7 @@ fn main() -> anyhow::Result<()> {
         Command::Installers { args } => installers::run(root, &args),
         Command::Site { args } => site::run(root, &args),
         Command::Forge { args } => forge::run(root, &args),
+        Command::Prints(args) => prints::run(&args),
         Command::Art { args } => art::run(root, &args),
         Command::Hooks { args } => hooks::run(root, &args),
         Command::Perf { args } => perf::run(root, &args),

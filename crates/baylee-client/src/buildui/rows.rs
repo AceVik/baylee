@@ -5,7 +5,7 @@
 
 #[allow(clippy::wildcard_imports)] // the builder's own vocabulary
 use super::*;
-use crate::lobby::{hover_of_card, hover_of_entry, print_mark};
+use crate::lobby::print_mark;
 use baylee_client_core::deckbuilder::PoolCard;
 
 mod deck;
