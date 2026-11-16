@@ -6,6 +6,30 @@ use shellkit::{controls, px_fixed};
 
 pub(super) fn draw(commands: &mut Commands, kit: Kit, duel: &Duel, canvas: Vec2, lang: Lang) {
     if !duel.tower_inventory {
+        // The source is run equipment, not a card on the felt. Keep a real,
+        // visible anchor after closing the inventory so the shared ability
+        // chooser can place itself and show what is about to be consumed.
+        if let Some(object) = duel.ability_menu
+            && can_use(duel, object)
+            && let Some(source) = duel.view.as_ref().and_then(|view| view.object(object))
+            && let Some(goods) = crate::itemart::identity::run_source(source)
+        {
+            let anchor = towerui::inspectable(commands, goods, kit.fonts, lang, 64.0);
+            commands.entity(anchor).insert((
+                Root,
+                super::super::sheet::AbilityAnchor(object),
+                Node {
+                    position_type: PositionType::Absolute,
+                    right: px_fixed(24.0),
+                    bottom: px_fixed(super::super::hand::HAND_ZONE_H + 64.0),
+                    width: px_fixed(64.0),
+                    height: px_fixed(64.0),
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                GlobalZIndex(super::super::Z_MENU),
+            ));
+        }
         return;
     }
     let root = commands

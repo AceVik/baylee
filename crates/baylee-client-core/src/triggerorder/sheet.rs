@@ -49,6 +49,21 @@ pub fn card_of(trigger: &OrderedTrigger, view: &PlayerView) -> Option<CardIdenti
     }
 }
 
+/// The public ability's own token identity survives its source leaving play.
+/// Run equipment and ordinary tokens therefore keep their picture even though
+/// neither has a printed card. This is the same precedence as the stack.
+#[must_use]
+pub fn art_of(trigger: &OrderedTrigger, view: &PlayerView) -> Option<crate::images::ImageKey> {
+    use crate::images::{ArtSize, ImageKey};
+    if let StackItem::Ability {
+        token: Some(token), ..
+    } = trigger.item
+    {
+        return Some(ImageKey::token(token.token, ArtSize::Small));
+    }
+    card_of(trigger, view).map(|card| ImageKey::of(card, ArtSize::Small))
+}
+
 /// Whether the player may decline this row as it resolves.
 #[must_use]
 pub fn is_optional(trigger: &OrderedTrigger, view: &PlayerView) -> bool {

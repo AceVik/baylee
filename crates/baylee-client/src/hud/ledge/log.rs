@@ -70,6 +70,7 @@ use bevy::ui::ScrollPosition;
 use bevy::ui_widgets::{ControlOrientation, Scrollbar, ScrollbarThumb};
 use std::collections::BTreeMap;
 
+mod items;
 pub(crate) mod virtual_list;
 
 /// How wide the panel is at least, where the window has the room.
@@ -1231,6 +1232,7 @@ pub(crate) fn spawn_line(
         let crown = crown.id();
         commands.entity(row).add_child(crown);
     }
+    items::portraits(commands, fonts, lang, line, row, inks.line_pt);
     commands.entity(row).add_child(sentence);
     row
 }
@@ -1291,7 +1293,11 @@ fn sentence(
         );
         let mut span = commands.spawn((TextSpan::new(text), font));
         if let Piece::Link(link) = piece {
-            span.insert(link);
+            // Equipment is inspected through its icon beside this sentence;
+            // treating its name as a card link would invent a printed card.
+            if !items::is_item(link) {
+                span.insert(link);
+            }
             (inks.paint)(&mut span, Paint::Ink(inks.link));
         } else {
             (inks.paint)(&mut span, Paint::Ink(inks.ink));

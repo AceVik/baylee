@@ -112,6 +112,33 @@ fn owned_item_opens_regular_ability_chooser_without_spending_and_rejects_stale_o
     assert_eq!(duel.ability_menu, Some(mine));
     assert!(!duel.tower_inventory);
     assert!(duel.outbox().is_empty(), "opening is not consumption");
+    let mut world = World::new();
+    let fonts = UiFonts::default();
+    draw::draw(
+        &mut world.commands(),
+        Kit {
+            fonts: &fonts,
+            german: false,
+            m: shellkit::ShellMetrics::of(
+                shellkit::Viewport::desktop(1280.0, 720.0),
+                shellkit::TextSize::M,
+            ),
+        },
+        &duel,
+        Vec2::new(1280.0, 720.0),
+        Lang::En,
+    );
+    world.flush();
+    let anchors: Vec<_> = world
+        .query::<&super::super::sheet::AbilityAnchor>()
+        .iter(&world)
+        .map(|anchor| anchor.0)
+        .collect();
+    assert_eq!(
+        anchors,
+        vec![mine],
+        "closed drawer retains the chooser's source geometry"
+    );
     duel.ability_menu = None;
     duel.interaction = None;
     use_item(&mut duel, mine);
@@ -123,6 +150,34 @@ fn owned_item_opens_regular_ability_chooser_without_spending_and_rejects_stale_o
     watching.watching = true;
     use_item(&mut watching, mine);
     assert!(watching.ability_menu.is_none());
+}
+
+#[test]
+fn a_single_potion_option_takes_the_keyboard_and_arms_before_sending() {
+    use baylee_client_core::prefs::Keymap;
+    use baylee_engine::choice::PlayerAction;
+    let mut duel = fixture();
+    let mine = ObjectId::new(10, 0);
+    use_item(&mut duel, mine);
+    let mut keys = ButtonInput::default();
+    keys.press(KeyCode::Enter);
+    assert!(
+        crate::input::ability_menu_keys(
+            crate::keys::Fired::of(&keys, &Keymap::standard()),
+            &mut duel,
+        ),
+        "one option must not dismiss the sheet and pass priority"
+    );
+    assert!(duel.outbox().is_empty());
+    assert!(duel.armed.is_some());
+    crate::input::fire_armed(&mut duel);
+    assert_eq!(
+        duel.outbox(),
+        &[PlayerAction::ActivateAbility {
+            source: mine,
+            ability_index: 0
+        }]
+    );
 }
 
 #[test]

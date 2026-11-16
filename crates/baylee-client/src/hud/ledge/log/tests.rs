@@ -92,7 +92,7 @@ fn the_panel_stands_under_the_report_button() {
     }
 }
 
-fn line(text: &str, names: &[(usize, usize)], times: u32) -> LogLine {
+pub(super) fn line(text: &str, names: &[(usize, usize)], times: u32) -> LogLine {
     LogLine {
         at: 0,
         players: Vec::new(),
@@ -145,7 +145,7 @@ fn a_name_is_its_own_piece() {
     assert_eq!(pieces(&broken), [("Björn drew".to_string(), Piece::Words)]);
 }
 
-fn bolt_identity() -> CardIdentity {
+pub(super) fn bolt_identity() -> CardIdentity {
     CardIdentity {
         index: CardIndex::new(7),
         print: baylee_core::ids::PrintRef::new(3),

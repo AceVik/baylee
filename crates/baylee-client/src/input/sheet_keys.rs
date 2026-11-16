@@ -94,7 +94,7 @@ pub fn sheet_digit(duel: &mut Duel, digit: char) -> bool {
     let Some(object) = duel.ability_menu else {
         return false;
     };
-    let Some(options) = abilities_of(duel, object).filter(|o| o.len() > 1) else {
+    let Some(options) = abilities_of(duel, object).filter(|o| !o.is_empty()) else {
         return false;
     };
     // The digits count the **written** rows and skip the pips a mana header

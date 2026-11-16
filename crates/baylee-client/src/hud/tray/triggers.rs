@@ -256,7 +256,9 @@ fn spawn_row(
     );
     // The picture is the link, and not the row: a preview opened from the
     // row would stand over the words the player is reading.
-    if let Some(card) = sheet::card_of(trigger, grid.view) {
+    if crate::itemart::identity::run_art(row.art).is_none()
+        && let Some(card) = sheet::card_of(trigger, grid.view)
+    {
         commands.entity(thumb).insert((
             Pickable::default(),
             LogLink {

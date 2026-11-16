@@ -281,9 +281,9 @@ pub const CANDLE_WASH_LIT: Color = Color::srgba(0.878, 0.604, 0.227, 0.20);
 // holding primary and quiet ink well above 4.5 : 1 even over bright orange art.
 
 /// Smoked-glass top stop for floating table log panels.
-pub const LOG_GLASS_TOP: Color = Color::srgba(0.066, 0.078, 0.096, 0.91);
+pub const LOG_GLASS_TOP: Color = Color::srgba(0.066, 0.078, 0.096, 0.96);
 /// Smoked-glass bottom stop for floating table log panels.
-pub const LOG_GLASS_BOTTOM: Color = Color::srgba(0.040, 0.048, 0.062, 0.88);
+pub const LOG_GLASS_BOTTOM: Color = Color::srgba(0.040, 0.048, 0.062, 0.95);
 /// Luminous frosted cut-glass outer rim on floating log panels and tooltips.
 pub const LOG_GLASS_EDGE: Color = Color::srgba(0.60, 0.72, 0.84, 0.38);
 /// Subtle inner glass rule separating a log panel's header and turn headings.

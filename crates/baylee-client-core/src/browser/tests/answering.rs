@@ -298,6 +298,25 @@ fn a_trigger_order_draws_the_views_rows_on_the_stack_tab() {
             (cards[1], "Dingus Egg · Mountain"),
         ]
     );
+    assert!(rows.iter().all(|row| row.art.is_none()));
+    // A public token ability has no printed card and its source need not
+    // survive. Its explicit identity, never its display name, supplies the art.
+    let baylee_view::StackItem::Ability { token, .. } = &mut view.trigger_order[0].item else {
+        unreachable!();
+    };
+    *token = Some(baylee_view::TokenAbility {
+        token: 312,
+        index: 0,
+    });
+    let rows = b.rows(&view, Some(&it), Names::projected());
+    assert_eq!(
+        rows[0].art,
+        Some(crate::images::ImageKey::token(
+            312,
+            crate::images::ArtSize::Small
+        ))
+    );
+    assert!(rows[1].art.is_none());
 }
 
 /// A scry draws its piles one after the other, each numbered from one: the

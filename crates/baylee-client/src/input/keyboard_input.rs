@@ -720,7 +720,7 @@ pub fn ability_menu_keys(fired: Fired, duel: &mut Duel) -> bool {
     let Some(object) = duel.ability_menu else {
         return false;
     };
-    let Some(options) = abilities_of(duel, object).filter(|o| o.len() > 1) else {
+    let Some(options) = abilities_of(duel, object).filter(|o| !o.is_empty()) else {
         // Nothing left to choose: the sheet is stale, and holding it open
         // would keep the keyboard hostage.
         duel.ability_menu = None;
