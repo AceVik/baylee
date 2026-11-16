@@ -9,6 +9,7 @@ use std::{
 use tokio::sync::oneshot;
 
 mod catalog;
+mod showcase;
 pub(super) use catalog::{publication, publish_house};
 
 pub(super) fn enabled() -> bool {
@@ -52,6 +53,9 @@ pub(super) fn run(runtime: &Runtime, served: &Served) {
         else {
             panic!("owned synthetic run");
         };
+        if std::env::var("BAYLEE_TOWER_UI_SHOWCASE").as_deref() == Ok("1") {
+            runtime.block_on(showcase::prepare(fixture, run.id));
+        }
         std::fs::write(
             &ready,
             serde_json::to_vec(&serde_json::json!({

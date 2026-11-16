@@ -420,3 +420,22 @@ Always stop owned test processes and verify listeners close.
   tests passed in `/tmp/baylee-tower-pass4-input-tests-20261116.log`; strict
   client/core Clippy passed in `/tmp/baylee-tower-pass4-clippy-20261116-r4.log`.
   The fourth native visual pass remains pending.
+- Rendered refinement 4 (1280×720): German item rules fit the shared tooltip.
+  Shift+I opened the table drawer; Tab/arrow focus and Enter opened the mana
+  chooser without spending a charge or advancing view sequence 5. Choosing
+  green visibly changed stock 1→0 and the pool 0→1 (sequence 7). Concede/leave
+  produced five distinct opponent cards, an exact one-card choice and 12 gold;
+  claiming returned to stage 2 with new offer IDs 9–16. Found raw reward count
+  placeholders, a claim action below the viewport and a retained reward scroll
+  offset in the new shop. Corrections are part of the next pass. Evidence:
+  `/tmp/baylee-tower-pass4-{german-tooltip,table-drawer,mana-chooser,reward,return-shop}.png`.
+  Client 53276, backend 53255 and PostgreSQL 53224 exited; ports 56649 and
+  56595 closed. This validates interaction, not broad balance.
+- The opt-in `BAYLEE_TOWER_UI_SHOWCASE=1` native demo fixture supplies a valid
+  isolated run with six active items, all rarities, more than two inventory
+  pages and a Common→Uncommon→Rare purchase cascade. It exists only in the
+  gateway test binary and still uses ordinary authenticated APIs. No production
+  hook or normal starting resources change. Its domain validation/cascade test
+  and strict gateway test-target Clippy passed:
+  `/tmp/baylee-tower-showcase-test-20261116-r2.log`,
+  `/tmp/baylee-tower-showcase-clippy-20261116.log`.
