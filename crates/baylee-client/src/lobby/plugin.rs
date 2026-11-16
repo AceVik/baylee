@@ -73,6 +73,7 @@ impl Plugin for LobbyPlugin {
             .init_resource::<front::terms::SheetFocus>()
             .init_resource::<front::keys::MovedByTheLobby>()
             .init_resource::<front::door::FrontLogoMemory>()
+            .init_resource::<front::progress::AuthProgressMemory>()
             .init_resource::<menus::MenuMemory>()
             .add_systems(Startup, (ask_about_registration, ask_about_saved_gateways))
             // One chain, each link on its own condition: most of it is the
@@ -125,6 +126,7 @@ impl Plugin for LobbyPlugin {
                     (
                         source::keep_the_code,
                         front::move_front,
+                        front::progress::tick_auth_progress,
                         front::show_scene.before(crate::vista::paint),
                         ui,
                         shell::animate_screen_transition,
@@ -137,6 +139,7 @@ impl Plugin for LobbyPlugin {
                         front::door::beckon,
                         front::door::animate_front_logo,
                         front::links::animate_hyperlinks,
+                        front::progress::paint_auth_progress,
                     )
                         .chain()
                         .run_if(in_state(DuelPhase::Closed)),

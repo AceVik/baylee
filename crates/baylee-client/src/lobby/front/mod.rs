@@ -42,6 +42,7 @@ pub(crate) mod door;
 pub(crate) mod faces;
 pub(crate) mod keys;
 pub(crate) mod links;
+pub(crate) mod progress;
 pub(crate) mod terms;
 
 use super::keyboard::choose_gateway;
@@ -248,18 +249,30 @@ pub(super) struct FrontCast {
 #[derive(Component)]
 pub(super) struct FrontStage;
 
-/// How tall the stage stood when nothing moved, and on which panel: a panel
-/// measures a little differently once the stage holds it to a height, and a
-/// motion that started from any other number would start with a step.
+/// How long a same-panel height change (entering/leaving the authentication or
+/// queue view, or revealing a status banner) glides along [`ease`].
+const SAME_PANEL_GLIDE_SECONDS: f32 = 0.34;
+
+/// How tall the stage stood when nothing moved, and any active same-panel
+/// S-curve height glide.
 #[derive(Resource, Default, Clone, Copy, PartialEq, Debug)]
 pub(super) struct StageAtRest {
     panel: Panel,
     height: f32,
+    glide_from: f32,
+    glide_to: f32,
+    glide_t: f32,
 }
 
 /// A panel on screen, for [`pose_front`] and [`fade_front`].
 #[derive(Component)]
 pub(super) struct FrontCard(pub(super) Panel);
+
+/// Natural-height content column inside [`FrontCard`], kept `flex_shrink: 0.0`
+/// so [`glide_the_stage`] can measure the panel's true target height while the
+/// outer glass card and stage smoothly glide between heights.
+#[derive(Component)]
+pub(super) struct FrontCardInner(pub(super) Panel);
 
 /// The dark a panel takes on as it turns away.
 #[derive(Component)]
@@ -477,48 +490,150 @@ fn stage_height(from: f32, to: f32, t: f32) -> f32 {
     from + (to - from) * ease(t)
 }
 
-/// Eases the stage between the panels' heights while a motion runs.
+#[allow(clippy::type_complexity)]
+fn measure_panel_height(
+    wanted: Panel,
+    inners: &Query<(&FrontCardInner, &ComputedNode)>,
+    cards: &Query<(&FrontCard, &mut Node, &ComputedNode), Without<FrontStage>>,
+) -> Option<f32> {
+    let logical_h = |node: &ComputedNode| node.size().y * node.inverse_scale_factor();
+    inners
+        .iter()
+        .find(|(inner, _)| inner.0 == wanted)
+        .map(|(_, node)| logical_h(node))
+        .filter(|h| *h > 0.0)
+        .map(|h| h + 2.0)
+        .or_else(|| {
+            cards
+                .iter()
+                .find(|(card, _, _)| card.0 == wanted)
+                .map(|(_, _, node)| logical_h(node))
+                .filter(|h| *h > 0.0)
+        })
+}
+
+#[allow(clippy::type_complexity)]
+fn settle_stage_and_cards(
+    panel: Panel,
+    settled_h: f32,
+    rest: &mut ResMut<StageAtRest>,
+    stage: &mut Node,
+    cards: &mut Query<(&FrontCard, &mut Node, &ComputedNode), Without<FrontStage>>,
+) {
+    rest.set_if_neq(StageAtRest {
+        panel,
+        height: settled_h,
+        glide_from: settled_h,
+        glide_to: settled_h,
+        glide_t: 1.0,
+    });
+    if stage.height != Val::Auto {
+        stage.height = Val::Auto;
+        stage.grid_template_rows = vec![GridTrack::auto()];
+    }
+    for (_, mut node, _) in cards {
+        if node.height != Val::Auto {
+            node.height = Val::Auto;
+        }
+    }
+}
+
+/// Eases the stage and active card smoothly whenever height changes — both
+/// between two panels (`motion.moving()`) and within the same panel (entering
+/// or leaving the authentication/queue view, or showing/clearing a status banner).
 ///
-/// The logo stands in a column centred on the page and the stage is the
-/// tallest part of it, so a panel of another height moved everything above
-/// and below it, at once, on the frame the tree changed. Held to a height that
-/// travels with the motion, the column glides with the passage instead. The
-/// panels stand on the stage's centre and may overhang it meanwhile.
+/// The logo stands above the stage and the four community pills stand below it,
+/// so holding `FrontStage` and `FrontCard` to an eased height makes the entire
+/// composition glide together without a single-frame jump.
+#[allow(clippy::type_complexity)]
 pub(super) fn glide_the_stage(
+    time: Res<Time>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
     motion: Res<FrontMotion>,
     mut rest: ResMut<StageAtRest>,
-    cards: Query<(&FrontCard, &ComputedNode)>,
+    inners: Query<(&FrontCardInner, &ComputedNode)>,
+    mut cards: Query<(&FrontCard, &mut Node, &ComputedNode), Without<FrontStage>>,
     mut stages: Query<(&mut Node, &ComputedNode), With<FrontStage>>,
 ) {
-    let Ok((mut stage, computed)) = stages.single_mut() else {
+    let Ok((mut stage, stage_computed)) = stages.single_mut() else {
         return;
     };
-    let height = |node: &ComputedNode| node.size().y * node.inverse_scale_factor();
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+
     if !motion.moving() {
-        if computed.size().y > 0.0 {
-            rest.set_if_neq(StageAtRest {
-                panel: motion.to,
-                height: height(computed),
-            });
+        let Some(target_h) = measure_panel_height(motion.to, &inners, &cards) else {
+            // Freshly rebuilt in `Update` before `PostUpdate` layout has run:
+            // hold the previous height on Frame 1 so layout never steps once.
+            if !still && rest.panel == motion.to && rest.height > 0.0 {
+                let held = px_fixed(rest.height);
+                if stage.height != held {
+                    stage.height = held;
+                    stage.grid_template_rows = vec![GridTrack::px(rest.height)];
+                }
+                for (card, mut node, _) in &mut cards {
+                    if card.0 == motion.to && node.height != held {
+                        node.height = held;
+                    }
+                }
+            }
+            return;
+        };
+
+        let raw_dt = time.delta_secs();
+        let dt = if raw_dt.is_finite() {
+            raw_dt.clamp(0.0, 1.0 / 30.0)
+        } else {
+            0.0
+        };
+        let settled_h = if stage_computed.size().y > 0.0 && stage.height == Val::Auto {
+            stage_computed.size().y * stage_computed.inverse_scale_factor()
+        } else {
+            target_h
+        };
+
+        if still || rest.panel != motion.to || rest.height <= 0.0 {
+            settle_stage_and_cards(motion.to, settled_h, &mut rest, &mut stage, &mut cards);
+            return;
         }
-        if stage.height != Val::Auto {
-            stage.height = Val::Auto;
-            stage.grid_template_rows = vec![GridTrack::auto()];
+        if (rest.glide_to - target_h).abs() > 0.5 {
+            rest.glide_from = rest.height;
+            rest.glide_to = target_h;
+            rest.glide_t = 0.0;
+        }
+        if rest.glide_t >= 1.0 || (rest.height - target_h).abs() <= 0.5 {
+            settle_stage_and_cards(motion.to, settled_h, &mut rest, &mut stage, &mut cards);
+            return;
+        }
+
+        rest.glide_t = (rest.glide_t + dt / SAME_PANEL_GLIDE_SECONDS).min(1.0);
+        let next_h = stage_height(rest.glide_from, rest.glide_to, rest.glide_t);
+        rest.height = next_h;
+        let px_h = px_fixed(next_h);
+        if stage.height != px_h {
+            stage.height = px_h;
+            stage.grid_template_rows = vec![GridTrack::px(next_h)];
+        }
+        for (card, mut node, _) in &mut cards {
+            if card.0 == motion.to && node.height != px_h {
+                node.height = px_h;
+            }
         }
         return;
+    }
+
+    for (_, mut node, _) in &mut cards {
+        if node.height != Val::Auto {
+            node.height = Val::Auto;
+        }
     }
     // The panel it stood on keeps that height, either way round, so a motion
     // turned back on itself runs back along the same numbers. The other is
     // measured the frame after it was drawn: until then the stage stands.
     let panel = |wanted: Panel| {
-        if wanted == rest.panel {
+        if wanted == rest.panel && rest.height > 0.0 {
             return Some(rest.height);
         }
-        cards
-            .iter()
-            .find(|(card, _)| card.0 == wanted)
-            .map(|(_, node)| height(node))
-            .filter(|height| *height > 0.0)
+        measure_panel_height(wanted, &inners, &cards)
     };
     let from = panel(motion.from).unwrap_or(rest.height);
     let wanted = stage_height(from, panel(motion.to).unwrap_or(from), motion.t);
@@ -910,19 +1025,8 @@ fn card(
                 width: Val::Percent(100.0),
                 align_self: AlignSelf::Center,
                 flex_direction: FlexDirection::Column,
-                row_gap: kit.m.px(if panel == Panel::Gateway {
-                    6.0
-                } else if kit.m.frame == Frame::Phone {
-                    8.0
-                } else {
-                    14.0
-                }),
-                padding: UiRect {
-                    left: px_fixed(side),
-                    right: px_fixed(side),
-                    top: px_fixed(side * if panel == Panel::Gateway { 0.72 } else { 0.90 }),
-                    bottom: px_fixed(side * if panel == Panel::Gateway { 0.76 } else { 0.94 }),
-                },
+                justify_content: JustifyContent::Center,
+                overflow: Overflow::clip(),
                 border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(CARD_RADIUS)),
                 ..default()
@@ -936,12 +1040,42 @@ fn card(
             Pickable::IGNORE,
         ))
         .id();
-    match panel {
-        Panel::Gateway => faces::gateway(commands, card, state, kit, scrolled_to, music_on),
-        Panel::SignIn => faces::sign_in(commands, card, state, kit, music_on),
-        Panel::Create => faces::create(commands, card, state, kit, music_on),
-        Panel::Guest => faces::guest(commands, card, state, kit, music_on),
-        Panel::NewPassword => faces::new_password(commands, card, state, kit, music_on),
+    let inner = commands
+        .spawn((
+            FrontCardInner(panel),
+            Node {
+                width: Val::Percent(100.0),
+                flex_shrink: 0.0,
+                flex_direction: FlexDirection::Column,
+                row_gap: kit.m.px(if panel == Panel::Gateway {
+                    6.0
+                } else if kit.m.frame == Frame::Phone {
+                    8.0
+                } else {
+                    14.0
+                }),
+                padding: UiRect {
+                    left: px_fixed(side),
+                    right: px_fixed(side),
+                    top: px_fixed(side * if panel == Panel::Gateway { 0.72 } else { 0.90 }),
+                    bottom: px_fixed(side * if panel == Panel::Gateway { 0.76 } else { 0.94 }),
+                },
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(card).add_child(inner);
+    if panel != Panel::Gateway && progress::is_active(state) {
+        progress::draw(commands, inner, state, kit);
+    } else {
+        match panel {
+            Panel::Gateway => faces::gateway(commands, inner, state, kit, scrolled_to, music_on),
+            Panel::SignIn => faces::sign_in(commands, inner, state, kit, music_on),
+            Panel::Create => faces::create(commands, inner, state, kit, music_on),
+            Panel::Guest => faces::guest(commands, inner, state, kit, music_on),
+            Panel::NewPassword => faces::new_password(commands, inner, state, kit, music_on),
+        }
     }
     let shade = commands
         .spawn((
@@ -1330,7 +1464,7 @@ pub(super) fn front_door(
                     px_fixed(kit.m.body),
                     px_fixed(if full { kit.m.body } else { 4.0 }),
                 ),
-                row_gap: px_fixed(if full { kit.m.gap } else { kit.m.gap * 0.4 }),
+                row_gap: px_fixed(0.0),
                 ..default()
             },
             Scrollable(List::Table),
@@ -1418,10 +1552,44 @@ pub(super) fn front_door(
         commands.entity(panes).add_children(&[left, stage]);
         commands.entity(page).add_child(panes);
     } else {
-        // Auto margins consume spare height, but collapse to zero when the
-        // form needs to scroll; `justify-content: center` would hide its top
-        // on overflow. Top padding shifts the centered composition (logo,
-        // tagline, sign-in card, and the four community pills) ~35 px lower.
+        // Flexible top and bottom spacers position the front-door stack (logo,
+        // tagline, sign-in card, and the four community pills) ~116 px below
+        // geometric centre when vertical room permits (+35 px + +100 px), while
+        // shrinking smoothly down to zero before ever triggering a scrollbar.
+        let compact = kit.m.frame == Frame::Compact;
+        let top_basis = if in_lobby {
+            0.0
+        } else if compact {
+            135.0
+        } else {
+            232.0
+        };
+        let top_spacer = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    flex_basis: px_fixed(top_basis),
+                    flex_grow: if compact { 0.0 } else { 1.0 },
+                    flex_shrink: 1.0,
+                    min_height: px_fixed(0.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        let bottom_spacer = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    flex_basis: px_fixed(if in_lobby { 12.0 } else { 0.0 }),
+                    flex_grow: if compact { 0.0 } else { 1.0 },
+                    flex_shrink: 1.0,
+                    min_height: px_fixed(0.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
         let composition = commands
             .spawn((
                 Node {
@@ -1430,18 +1598,6 @@ pub(super) fn front_door(
                     align_items: AlignItems::Center,
                     flex_shrink: 0.0,
                     row_gap: px_fixed(kit.m.gap * if full { 0.72 } else { 0.4 }),
-                    padding: if in_lobby {
-                        UiRect::bottom(px_fixed(12.0))
-                    } else if full {
-                        UiRect::top(px_fixed(32.0))
-                    } else {
-                        UiRect::top(px_fixed(35.0))
-                    },
-                    margin: UiRect::vertical(if kit.m.frame == Frame::Compact {
-                        px_fixed(0.0)
-                    } else {
-                        Val::Auto
-                    }),
                     ..default()
                 },
                 Pickable::IGNORE,
@@ -1460,7 +1616,9 @@ pub(super) fn front_door(
             let top_right = door::top_right_controls(commands, state, kit, music_on);
             commands.entity(root).add_child(top_right);
         }
-        commands.entity(page).add_child(composition);
+        commands
+            .entity(page)
+            .add_children(&[top_spacer, composition, bottom_spacer]);
         commands.entity(root).add_children(&[version, info]);
     }
     let colophon = if full {
@@ -1697,7 +1855,9 @@ impl FrontPress {
             | FrontPress::OpenChangelog
             | FrontPress::OpenExternal(_)
             | FrontPress::OpenImpressum) => {
-                state.community_dialog = None;
+                if state.community_dialog.is_some() {
+                    state.community_dialog = None;
+                }
                 super::source::open(press, state);
             }
             FrontPress::ToggleGatewayGroup(group) => {

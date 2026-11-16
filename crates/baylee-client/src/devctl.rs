@@ -176,12 +176,14 @@ fn shell_knobs(
     settings: Option<ResMut<ClientSettings>>,
     gallery: Option<ResMut<crate::shellkit::gallery::Gallery>>,
     lobby: Option<ResMut<crate::lobby::LobbyState>>,
+    auth_progress: Option<ResMut<crate::lobby::front::progress::AuthProgressMemory>>,
     notice: Option<ResMut<crate::update::UpdateNotice>>,
 ) {
     if control.shell_jobs.is_empty() {
         return;
     }
-    let (mut settings, mut gallery, mut lobby, mut notice) = (settings, gallery, lobby, notice);
+    let (mut settings, mut gallery, mut lobby, mut auth_progress, mut notice) =
+        (settings, gallery, lobby, auth_progress, notice);
     for job in std::mem::take(&mut control.shell_jobs) {
         let body = job.body.as_str();
         // Empty or unavailable knobs still yield a valid JSON response.
@@ -238,6 +240,20 @@ fn shell_knobs(
         {
             crate::lobby::central::demo_central_lobby(lobby);
             said.push("\"central_lobby\":true".to_string());
+        }
+        if let (Some(stage), Some(mem)) = (field(body, "auth_demo"), auth_progress.as_mut()) {
+            use crate::lobby::front::progress::AuthDemo;
+            mem.demo = match stage {
+                "connecting" => Some(AuthDemo::Connecting),
+                "authenticating" => Some(AuthDemo::Authenticating),
+                "queued" => Some(AuthDemo::Queued {
+                    position: Some(3),
+                    estimated_seconds: Some(12),
+                }),
+                "opening" => Some(AuthDemo::OpeningSession),
+                _ => None,
+            };
+            said.push(format!("\"auth_demo\":{}", quoted(stage)));
         }
         // A ready update, faked for the restart's live check: the notice
         // offers "Restart now" as a verified, staged release would. A

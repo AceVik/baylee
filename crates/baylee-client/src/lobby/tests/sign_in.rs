@@ -2251,11 +2251,14 @@ fn front_field_prefix_icons_and_version_tag_exist_in_shipped_font_and_tint_on_fo
 }
 
 #[test]
-fn colophon_and_about_render_hover_underlined_hyperlinks_and_centered_full_build_footer() {
-    use super::super::front::about::full_build_line;
-    use super::super::source::ExternalLink;
+fn colophon_renders_hover_underlined_hyperlinks_and_always_opens_on_click() {
+    use super::super::front::links::{HyperlinkFace, HyperlinkPart, SpanRole};
+    use super::super::source::{
+        ExternalLink, FAN_CONTENT_POLICY_URL, SCRYFALL_URL, take_opened_urls_for_test,
+    };
     use bevy::picking::hover::PickingInteraction;
 
+    let _ = take_opened_urls_for_test();
     let mut app = headless();
     sized(&mut app, 1920.0);
     app.update();
@@ -2275,42 +2278,89 @@ fn colophon_and_about_render_hover_underlined_hyperlinks_and_centered_full_build
         "bottom colophon must link Scryfall"
     );
 
-    // Inline hyperlinks start NOT underlined (`UnderlineColor::NONE`) and reveal
-    // their underline only when hovered.
-    let mut inline_q = app.world_mut().query::<(
-        Entity,
-        &super::super::front::links::InlineHyperlink,
-        &UnderlineColor,
-    )>();
-    let label_spans: Vec<(Entity, Color)> = inline_q
-        .iter(app.world())
-        .map(|(e, _, ul)| (e, ul.0))
-        .collect();
-    assert!(!label_spans.is_empty(), "inline hyperlink spans exist");
-    for &(_, rest_ul) in &label_spans {
-        assert_eq!(
-            rest_ul.alpha(),
-            0.0,
-            "hyperlink must not be underlined at rest"
+    // Every hyperlink icon node holds strictly a single codepoint (no Thin Space
+    // `U+2009` in `fa-solid-900.ttf`, which caused a `.notdef` `☒` tofu box), and
+    // every hyperlink label starts NOT underlined (`UnderlineColor::NONE`) and
+    // reveals its underline on hover.
+    let mut part_q = app
+        .world_mut()
+        .query::<(Entity, &HyperlinkPart, &Text, Option<&UnderlineColor>)>();
+    let mut first_label = None;
+    for (e, part, text, ul) in part_q.iter(app.world()) {
+        assert!(
+            !text.0.contains('\u{2009}'),
+            "no U+2009 Thin Space in hyperlink text: {:?}",
+            text.0
         );
+        match part.role {
+            SpanRole::Icon => assert_eq!(
+                text.0.chars().count(),
+                1,
+                "Font Awesome icon node must hold a single glyph: {:?}",
+                text.0
+            ),
+            SpanRole::Label => {
+                let ul_col = ul.expect("label carries UnderlineColor").0;
+                assert_eq!(
+                    ul_col.alpha(),
+                    0.0,
+                    "hyperlink must not be underlined at rest"
+                );
+                first_label.get_or_insert(e);
+            }
+        }
     }
-    let first_span = label_spans[0].0;
+    let label_entity = first_label.expect("at least one hyperlink label on front door");
+    let face_entity = app
+        .world()
+        .get::<ChildOf>(label_entity)
+        .expect("label inside HyperlinkFace")
+        .parent();
+    assert!(app.world().get::<HyperlinkFace>(face_entity).is_some());
+    let hit_entity = app
+        .world()
+        .get::<ChildOf>(face_entity)
+        .map_or(face_entity, ChildOf::parent);
     *app.world_mut()
-        .get_mut::<PickingInteraction>(first_span)
+        .get_mut::<PickingInteraction>(hit_entity)
         .unwrap() = PickingInteraction::Hovered;
+    app.world_mut()
+        .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+            std::time::Duration::from_millis(32),
+        ));
     for _ in 0..5 {
-        app.world_mut()
-            .resource_mut::<Time>()
-            .advance_by(std::time::Duration::from_millis(32));
         app.update();
     }
-    let hovered_ul = app.world().get::<UnderlineColor>(first_span).unwrap().0;
+    let hovered_ul = app.world().get::<UnderlineColor>(label_entity).unwrap().0;
     assert!(
         hovered_ul.alpha() > 0.5,
         "hovering a hyperlink must reveal its underline, got {hovered_ul:?}"
     );
 
-    // 2. Submit button carries a leading icon and stationary ClickPulse (`lift == 0.0`).
+    // Clicking front-door colophon links while Username holds focus opens them immediately.
+    let _ = take_opened_urls_for_test();
+    press(
+        &mut app,
+        Press::Front(FrontPress::OpenExternal(ExternalLink::FanContentPolicy)),
+    );
+    press(
+        &mut app,
+        Press::Front(FrontPress::OpenExternal(ExternalLink::Scryfall)),
+    );
+    let opened_front = take_opened_urls_for_test();
+    assert!(
+        opened_front.contains(&FAN_CONTENT_POLICY_URL.to_string())
+            && opened_front.contains(&SCRYFALL_URL.to_string()),
+        "front-door colophon links must always open on click, got {opened_front:?}"
+    );
+}
+
+#[test]
+fn submit_button_carries_leading_icon_and_stationary_click_pulse() {
+    let mut app = headless();
+    sized(&mut app, 1920.0);
+    app.update();
+
     let mut submit_q = app
         .world_mut()
         .query_filtered::<&Children, With<super::super::front::AccountSubmit>>();
@@ -2330,9 +2380,18 @@ fn colophon_and_about_render_hover_underlined_hyperlinks_and_centered_full_build
             .is_some(),
         "Submit button must carry stationary ClickPulse"
     );
+}
 
-    // 3. About dialog: top-right `×` close button, no bottom `Close` button,
-    // expanded third-party hyperlinks, and full build version at the bottom.
+#[test]
+fn about_dialog_renders_structured_hyperlinks_and_always_opens_on_click() {
+    use super::super::front::about::full_build_line;
+    use super::super::source::{ExternalLink, take_opened_urls_for_test};
+
+    let _ = take_opened_urls_for_test();
+    let mut app = headless();
+    sized(&mut app, 1920.0);
+    app.update();
+
     press(&mut app, Press::Front(FrontPress::About(true)));
     let about_labels = labels(&mut app);
     assert!(
@@ -2360,4 +2419,105 @@ fn colophon_and_about_render_hover_underlined_hyperlinks_and_centered_full_build
             "About dialog missing hyperlink for {expected:?}"
         );
     }
+    let _ = take_opened_urls_for_test();
+    press(
+        &mut app,
+        Press::Front(FrontPress::OpenExternal(ExternalLink::Bevy)),
+    );
+    press(
+        &mut app,
+        Press::Front(FrontPress::OpenExternal(ExternalLink::AgplLicence)),
+    );
+    let opened_about = take_opened_urls_for_test();
+    assert!(
+        opened_about.contains(&ExternalLink::Bevy.url().to_string())
+            && opened_about.contains(&ExternalLink::AgplLicence.url().to_string()),
+        "About dialog hyperlinks must open even while state.about_open modal guard is active, got {opened_about:?}"
+    );
+}
+
+#[test]
+fn login_in_progress_replaces_inner_form_and_buttons_with_connection_and_queue_view() {
+    use super::super::front::progress::{AuthDemo, AuthProgressMemory, AuthProgressRoot};
+
+    let mut app = headless();
+    sized(&mut app, 1920.0);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        super::super::central::enable(&mut state);
+        state.lobby.set_field(Field::Username, "viktor_test");
+        state.lobby.set_field(Field::Password, "correct-horse-9");
+    }
+    app.update();
+
+    // Before login: SignIn submit + secondary buttons exist; AuthProgressRoot is absent.
+    assert!(presses(&mut app).contains(&Press::Front(FrontPress::Submit)));
+    assert!(presses(&mut app).contains(&Press::Front(FrontPress::PlayOffline)));
+    assert_eq!(
+        app.world_mut()
+            .query::<&AuthProgressRoot>()
+            .iter(app.world())
+            .count(),
+        0
+    );
+
+    // Submit login: inner form fields & buttons disappear on the same frame,
+    // replaced inside FrontCard by AuthProgressRoot while outer community pills remain intact.
+    press(&mut app, Press::Front(FrontPress::Submit));
+    assert!(!presses(&mut app).contains(&Press::Front(FrontPress::Submit)));
+    assert!(!presses(&mut app).contains(&Press::Front(FrontPress::PlayOffline)));
+    assert!(
+        presses(&mut app).contains(&Press::Front(FrontPress::OpenCommunityDialog(
+            super::super::front::CommunityKind::Discord
+        ))),
+        "outer community buttons stay visible below the glass card"
+    );
+    assert_eq!(
+        app.world_mut()
+            .query::<&AuthProgressRoot>()
+            .iter(app.world())
+            .count(),
+        1
+    );
+    let connecting_labels = labels(&mut app);
+    assert!(
+        connecting_labels.contains(&"viktor_test".to_string()),
+        "AuthProgress displays the signing-in account badge"
+    );
+    assert!(
+        connecting_labels.contains(&Phrase::AuthStepConnect.text(Lang::En).to_string()),
+        "AuthProgress displays the 3-step connection strip"
+    );
+
+    // Step through all four AuthDemo stages (Connecting, Authenticating, Queued,
+    // OpeningSession) and verify each renders its distinct phase copy cleanly.
+    for (demo, expected_phrase) in [
+        (AuthDemo::Connecting, Phrase::AuthDescConnecting),
+        (AuthDemo::Authenticating, Phrase::AuthDescAuthenticating),
+        (AuthDemo::OpeningSession, Phrase::AuthDescOpeningSession),
+    ] {
+        app.world_mut().resource_mut::<AuthProgressMemory>().demo = Some(demo);
+        app.update();
+        let stage_labels = labels(&mut app);
+        assert!(
+            stage_labels.contains(&expected_phrase.text(Lang::En).to_string()),
+            "{demo:?} missing expected copy: {stage_labels:?}"
+        );
+    }
+
+    // Step into the login queue state and verify queue position & estimate render.
+    app.world_mut().resource_mut::<AuthProgressMemory>().demo = Some(AuthDemo::Queued {
+        position: Some(4),
+        estimated_seconds: Some(15),
+    });
+    app.update();
+    let queued_labels = labels(&mut app);
+    assert!(
+        queued_labels.contains(&Phrase::AuthQueueBanner.fill(Lang::En, &["4"])),
+        "Queued state shows queue position: {queued_labels:?}"
+    );
+    assert!(
+        queued_labels.contains(&Phrase::AuthQueueEstimate.fill(Lang::En, &["15"])),
+        "Queued state shows estimated wait time: {queued_labels:?}"
+    );
 }

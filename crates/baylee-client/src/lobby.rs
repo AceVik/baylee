@@ -240,6 +240,8 @@ pub struct LobbyState {
     pub(crate) terms_subject: front::terms::Subject,
     /// The About sheet is up (the front door's text row, WP1).
     pub(crate) about_open: bool,
+    /// Active step of the front-door sign-in / connection / queue progress view.
+    pub(crate) auth_step: Option<front::progress::AuthStep>,
     pub(crate) memorial: client_core::memorial::Album,
     /// Caps Lock looks on: a letter arrived upper case with Shift up (the
     /// platform tells the key, not the lock). Shown under a password.
@@ -596,6 +598,7 @@ impl LobbyState {
             terms_stale: None,
             terms_subject: front::terms::Subject::Gateway,
             about_open: false,
+            auth_step: None,
             memorial: client_core::memorial::Album::default(),
             caps_lock: false,
             settings_view: SettingsView::default(),

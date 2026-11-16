@@ -363,7 +363,12 @@ pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
             && !matches!(
                 press,
                 Press::Front(
-                    FrontPress::About(_) | FrontPress::OpenSource | FrontPress::OpenImpressum
+                    FrontPress::About(_)
+                        | FrontPress::OpenSource
+                        | FrontPress::OpenImpressum
+                        | FrontPress::OpenExternal(_)
+                        | FrontPress::OpenChangelog
+                        | FrontPress::OpenWebsite
                 ) | Press::Shared(SharedPress::PickerNothing)
             )
         {

@@ -313,8 +313,27 @@ pub(crate) fn address_of(press: super::front::FrontPress, state: &LobbyState) ->
     }
 }
 
-/// Hands `url` to the system's browser.
+#[cfg(test)]
+static OPENED_URLS: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+#[cfg(test)]
+pub(crate) fn take_opened_urls_for_test() -> Vec<String> {
+    OPENED_URLS.lock().map_or_else(
+        |e| std::mem::take(&mut *e.into_inner()),
+        |mut g| std::mem::take(&mut *g),
+    )
+}
+
+/// Hands `url` to the system's browser (or records it under `#[cfg(test)]` so
+/// unit tests can verify real end-to-end clicks without spawning browser tabs).
 fn browse(url: &str) {
+    #[cfg(test)]
+    {
+        if let Ok(mut urls) = OPENED_URLS.lock() {
+            urls.push(url.to_owned());
+        }
+    }
+    #[cfg(not(test))]
     if let Err(err) = webbrowser::open(url) {
         warn!("could not open {url}: {err}");
     }

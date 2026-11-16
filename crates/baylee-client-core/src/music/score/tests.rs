@@ -407,7 +407,10 @@ fn no_melody_echoes_a_tune_we_must_not() {
     }
     assert_eq!(checked, Theme::ALL.len() * 5);
 
-    for (name, raw_pitches) in memorial::sheet_melodies() {
+    for (name, raw_pitches) in memorial::sheet_melodies()
+        .into_iter()
+        .chain(memorial::sheet_counters())
+    {
         let pitches: Vec<_> = raw_pitches.into_iter().map(i64::from).collect();
         check_intervals(name, &pitches);
     }
@@ -977,4 +980,71 @@ fn login_title_presents_baylee_signature_leitmotif_and_epic_symphonic_swell() {
         peak < 0.65 && seam_jump < 0.08,
         "headroom {peak}, seam {seam_jump}"
     );
+}
+
+#[test]
+fn login_and_lobby_feature_cantabile_phrasing_and_contrapuntal_counter_melodies() {
+    let mut distinct_rhythms = memorial::overture_bar_rhythms();
+    distinct_rhythms.sort();
+    distinct_rhythms.dedup();
+    assert!(
+        distinct_rhythms.len() >= 8,
+        "Login Overture sings with varied cantabile phrasing, not one rigid pattern: {distinct_rhythms:?}"
+    );
+
+    let melodies = memorial::sheet_melodies();
+    let counters = memorial::sheet_counters();
+    assert_eq!(melodies.len(), 6);
+    assert_eq!(counters.len(), 6);
+    for ((m_name, m_pitches), (c_name, c_pitches)) in melodies.iter().zip(counters.iter()) {
+        assert!(
+            m_pitches.len() >= 48,
+            "{m_name}: rich lyrical melody ({})",
+            m_pitches.len()
+        );
+        assert!(
+            c_pitches.len() >= 32,
+            "{c_name}: singing contrapuntal inner voice ({})",
+            c_pitches.len()
+        );
+    }
+
+    // Render across all 4 Lobby pieces (returns from table advance to the next guitar piece)
+    let control = Arc::new(ScoreControl::default());
+    control.set(ScoreRequest {
+        scene: Scene::Lobby,
+        theme: Theme::Ember,
+        ..ScoreRequest::default()
+    });
+    let mut tune = Tune::with_control(control.clone());
+    for piece in 0..4_usize {
+        let frames = render_seconds(&mut tune, 4);
+        let peak = frames
+            .iter()
+            .flatten()
+            .map(|s| s.abs())
+            .fold(0.0_f32, f32::max);
+        let rms = (frames
+            .iter()
+            .flatten()
+            .map(|s| f64::from(*s).powi(2))
+            .sum::<f64>()
+            / (frames.len() * 2) as f64)
+            .sqrt();
+        assert!(
+            (0.015..0.60).contains(&peak) && (0.003..0.20).contains(&rms),
+            "Lobby piece {piece} warm headroom: peak={peak:.4}, rms={rms:.4}"
+        );
+        control.set(ScoreRequest {
+            scene: Scene::Table,
+            theme: Theme::Ember,
+            ..ScoreRequest::default()
+        });
+        render_seconds(&mut tune, 1);
+        control.set(ScoreRequest {
+            scene: Scene::Lobby,
+            theme: Theme::Ember,
+            ..ScoreRequest::default()
+        });
+    }
 }

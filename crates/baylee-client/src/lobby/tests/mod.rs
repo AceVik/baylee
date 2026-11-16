@@ -231,9 +231,10 @@ fn tap_control(app: &mut App, what: &str, pick: impl Fn(&Press) -> bool) {
     }
 }
 
-/// Every text drawn: each `Text`, each `TextSpan`, and the reconstructed
-/// plain sentence of any multi-span `Text` paragraph (omitting private-use icon
-/// glyphs).
+/// Every text drawn: each `Text`, each `TextSpan`, the reconstructed plain
+/// sentence of any multi-span `Text` paragraph, and the reconstructed plain
+/// sentence of any [`super::front::links::LinkedSentence`] row (omitting
+/// private-use icon glyphs).
 fn labels(app: &mut App) -> Vec<String> {
     let mut query = app.world_mut().query::<(&Text, Option<&Children>)>();
     let mut said: Vec<String> = Vec::new();
@@ -263,7 +264,34 @@ fn labels(app: &mut App) -> Vec<String> {
             said.push(full);
         }
     }
+    let linked_rows: Vec<Entity> = app
+        .world_mut()
+        .query_filtered::<Entity, With<super::front::links::LinkedSentence>>()
+        .iter(app.world())
+        .collect();
+    for row in linked_rows {
+        let mut sentence = String::new();
+        collect_linked_sentence_text(app.world(), row, &mut sentence);
+        if !sentence.is_empty() && !said.contains(&sentence) {
+            said.push(sentence);
+        }
+    }
     said
+}
+
+fn collect_linked_sentence_text(world: &World, entity: Entity, out: &mut String) {
+    use super::front::links::{HyperlinkPart, SpanRole};
+    let skip_icon = world
+        .get::<HyperlinkPart>(entity)
+        .is_some_and(|part| part.role == SpanRole::Icon);
+    if !skip_icon && let Some(text) = world.get::<Text>(entity) {
+        out.push_str(&text.0);
+    }
+    if let Some(kids) = world.get::<Children>(entity) {
+        for kid in kids.iter() {
+            collect_linked_sentence_text(world, kid, out);
+        }
+    }
 }
 
 /// Moves the app into a phase and lets that transition's systems run.

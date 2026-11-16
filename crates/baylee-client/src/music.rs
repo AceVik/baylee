@@ -131,18 +131,35 @@ pub fn install(app: &mut App) {
         .add_systems(Update, perform);
 }
 
+/// Whether the player has already stepped past the front-door sign-in into the
+/// lobby interior (`Vista::Interior` — Tavern Bard background and lobby chrome),
+/// matching `lobby::front::show_scene`: Central sign-in is active
+/// (`central_ready()`) or offline play was entered, even while `Screen::SignIn`
+/// still presents the Gateway Hub before a gateway is selected.
+fn lobby_entered(lobby: Option<&LobbyState>) -> bool {
+    lobby.is_some_and(|state| state.central_ready() || state.lobby.offline())
+}
+
 /// Where the player is, as the score's drivers read it: a duel's phase
-/// first, else the lobby's screen. Sitting down (`Screen::Seated`), preparing
+/// first, else the lobby's screen. Once authenticated at Central or offline,
+/// `Screen::SignIn` (the Gateway Hub) is already inside `Place::Lobby` where
+/// the Tavern Bard background begins. Sitting down (`Screen::Seated`), preparing
 /// a table (`DuelPhase::Opening`), or waiting for the `arrival::Journey`
 /// loading cover to clear on `DuelPhase::Playing` all hold `Place::Opening`
 /// so table music begins only after the loading screen finishes.
-fn place(phase: DuelPhase, screen: Option<&Screen>, journey_active: bool) -> Place {
+fn place(
+    phase: DuelPhase,
+    screen: Option<&Screen>,
+    entered_lobby: bool,
+    journey_active: bool,
+) -> Place {
     match phase {
         DuelPhase::Opening => Place::Opening,
         DuelPhase::Playing if journey_active => Place::Opening,
         DuelPhase::Playing => Place::Table,
         DuelPhase::Finished => Place::Finished,
         DuelPhase::Closed => match screen {
+            Some(Screen::SignIn { .. }) if entered_lobby => Place::Lobby,
             None | Some(Screen::SignIn { .. }) => Place::FrontDoor,
             Some(Screen::Build) => Place::Build,
             Some(Screen::Seated(_)) => Place::Opening,
@@ -154,9 +171,11 @@ fn place(phase: DuelPhase, screen: Option<&Screen>, journey_active: bool) -> Pla
 /// The request for this frame: the duel's view and result, through the pure
 /// drivers in client-core — the same for a hosted game and a `LocalHost`
 /// game, which fill `Duel::view` alike.
+#[allow(clippy::too_many_arguments)] // pure score driver inputs including post-login lobby state
 fn direction(
     phase: DuelPhase,
     screen: Option<&Screen>,
+    entered_lobby: bool,
     journey_active: bool,
     duel: Option<&Duel>,
     theme: music::MusicTheme,
@@ -172,7 +191,7 @@ fn direction(
         ))
     });
     music::direct(
-        place(phase, screen, journey_active),
+        place(phase, screen, entered_lobby, journey_active),
         view,
         ending,
         theme,
@@ -205,12 +224,14 @@ fn perform(
     let theme = settings
         .as_ref()
         .map_or_else(music::MusicTheme::default, |s| s.music.theme());
+    let entered_lobby = lobby_entered(lobby.as_deref());
     let journey_active = journey
         .as_deref()
         .is_some_and(crate::arrival::Journey::active);
     let mut request = direction(
         phase.map_or(DuelPhase::Closed, |p| *p.get()),
         lobby.as_deref().map(|lobby| lobby.lobby.screen()),
+        entered_lobby,
         journey_active,
         duel.as_deref(),
         theme,
@@ -548,36 +569,159 @@ mod tests {
     }
 
     /// The screens and the phases name their places: a duel's phase wins
-    /// over the lobby's screen, and table music waits until the loading /
-    /// arrival cover finishes.
+    /// over the lobby's screen, Lobby music starts immediately once Central
+    /// login or offline mode opens the Lobby interior (even before gateway
+    /// selection), and table music waits until the loading cover finishes.
     #[test]
     fn the_screens_and_phases_are_places() {
         let sign_in = Screen::SignIn { registering: false };
-        assert_eq!(place(DuelPhase::Closed, None, false), Place::FrontDoor);
-        assert_eq!(place(DuelPhase::Closed, None, true), Place::FrontDoor);
         assert_eq!(
-            place(DuelPhase::Closed, Some(&sign_in), false),
+            place(DuelPhase::Closed, None, false, false),
             Place::FrontDoor
         );
         assert_eq!(
-            place(DuelPhase::Closed, Some(&Screen::Table), false),
+            place(DuelPhase::Closed, None, false, true),
+            Place::FrontDoor
+        );
+        assert_eq!(
+            place(DuelPhase::Closed, Some(&sign_in), false, false),
+            Place::FrontDoor,
+            "before Central login or offline play, SignIn stays at FrontDoor"
+        );
+        assert_eq!(
+            place(DuelPhase::Closed, Some(&sign_in), true, false),
+            Place::Lobby,
+            "immediately after Central login, Gateway Hub on SignIn plays Lobby music"
+        );
+        assert_eq!(
+            place(DuelPhase::Closed, Some(&Screen::Table), false, false),
             Place::Lobby
         );
         assert_eq!(
-            place(DuelPhase::Closed, Some(&Screen::Build), false),
+            place(DuelPhase::Closed, Some(&Screen::Build), false, false),
             Place::Build
         );
         assert_eq!(
-            place(DuelPhase::Opening, Some(&Screen::Build), false),
+            place(DuelPhase::Opening, Some(&Screen::Build), true, false),
             Place::Opening
         );
         assert_eq!(
-            place(DuelPhase::Playing, None, true),
+            place(DuelPhase::Playing, None, true, true),
             Place::Opening,
             "table music stays hushed while arrival loading cover is still active"
         );
-        assert_eq!(place(DuelPhase::Playing, None, false), Place::Table);
-        assert_eq!(place(DuelPhase::Finished, None, false), Place::Finished);
+        assert_eq!(place(DuelPhase::Playing, None, true, false), Place::Table);
+        assert_eq!(
+            place(DuelPhase::Finished, None, true, false),
+            Place::Finished
+        );
+    }
+
+    #[test]
+    fn lobby_music_starts_immediately_after_login_before_gateway_selection() {
+        use baylee_client_core::music::{Movement, Scene};
+        let sign_in = Screen::SignIn { registering: false };
+        let mut memory = Memory::default();
+        let control = Arc::new(ScoreControl::default());
+        let mut tune = Tune::with_control(control.clone());
+        let mut buf = vec![[0.0_f32; 2]; music::RATE as usize / 2];
+
+        // 1. Unauthenticated FrontDoor (`Screen::SignIn`, `!central_ready && !offline`):
+        let state = LobbyState::from_settings(ClientSettings::default());
+        assert!(matches!(state.lobby.screen(), Screen::SignIn { .. }));
+        assert!(!lobby_entered(Some(&state)));
+        let req_login = direction(
+            DuelPhase::Closed,
+            Some(&sign_in),
+            lobby_entered(Some(&state)),
+            false,
+            None,
+            music::MusicTheme::Ember,
+            &mut memory,
+            0.05,
+        );
+        assert_eq!(req_login.scene, Scene::FrontDoor);
+        control.set(req_login);
+        tune.render(&mut buf);
+        assert_eq!(tune.position().movement, Movement::Title);
+
+        // 2. Immediately after Central login (`central_ready() == true`), while STILL on
+        //    `Screen::SignIn` (Gateway Hub, before gateway selection), Lobby music starts!
+        let req_post_login = direction(
+            DuelPhase::Closed,
+            Some(&sign_in),
+            true,
+            false,
+            None,
+            music::MusicTheme::Ember,
+            &mut memory,
+            0.05,
+        );
+        assert_eq!(req_post_login.scene, Scene::Lobby);
+        control.set(req_post_login);
+        tune.render(&mut buf);
+        assert_eq!(tune.position().movement, Movement::Lobby);
+
+        // 3. Selecting a gateway (`Screen::SignIn` -> `Screen::Table`) continues Lobby seamlessly.
+        let req_gateway_chosen = direction(
+            DuelPhase::Closed,
+            Some(&Screen::Table),
+            true,
+            false,
+            None,
+            music::MusicTheme::Ember,
+            &mut memory,
+            0.05,
+        );
+        assert_eq!(req_gateway_chosen.scene, Scene::Lobby);
+        control.set(req_gateway_chosen);
+        tune.render(&mut buf);
+        assert_eq!(tune.position().movement, Movement::Lobby);
+    }
+
+    #[test]
+    fn perform_switches_to_lobby_music_on_central_login_and_offline_mode() {
+        use baylee_client_core::music::Scene;
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(bevy::state::app::StatesPlugin)
+            .init_state::<DuelPhase>()
+            .insert_resource(ClientSettings::default())
+            .insert_resource(LobbyState::from_settings(ClientSettings::default()))
+            .insert_resource(Conductor {
+                handle: Handle::default(),
+                control: Arc::new(ScoreControl::default()),
+            })
+            .init_resource::<Heard>()
+            .init_resource::<Duck>()
+            .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+                Duration::from_millis(50),
+            ))
+            .add_systems(Update, perform);
+        app.update();
+        assert_eq!(app.world().resource::<Heard>().0.scene, Scene::FrontDoor);
+
+        #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+        {
+            let mut st = app.world_mut().resource_mut::<LobbyState>();
+            crate::lobby::central::demo_central_lobby(&mut st);
+            assert!(matches!(st.lobby.screen(), Screen::SignIn { .. }));
+            assert!(st.central_ready());
+            assert!(!st.lobby.gateway_chosen());
+            app.update();
+            assert_eq!(
+                app.world().resource::<Heard>().0.scene,
+                Scene::Lobby,
+                "Central login starts Lobby music immediately before gateway selection"
+            );
+        }
+
+        app.world_mut()
+            .resource_mut::<LobbyState>()
+            .lobby
+            .play_offline();
+        app.update();
+        assert_eq!(app.world().resource::<Heard>().0.scene, Scene::Lobby);
     }
 
     #[test]
@@ -595,6 +739,7 @@ mod tests {
         let req_lobby = direction(
             DuelPhase::Closed,
             Some(&Screen::Table),
+            true,
             false,
             None,
             music::MusicTheme::Ember,
@@ -617,6 +762,7 @@ mod tests {
             let req = direction(
                 phase,
                 Some(&Screen::Table),
+                true,
                 cover_active,
                 Some(&duel),
                 music::MusicTheme::Ember,
@@ -635,6 +781,7 @@ mod tests {
         let req_table = direction(
             DuelPhase::Playing,
             Some(&Screen::Table),
+            true,
             false,
             Some(&duel),
             music::MusicTheme::Ember,
@@ -692,6 +839,7 @@ mod tests {
             let request = direction(
                 DuelPhase::Finished,
                 None,
+                true,
                 false,
                 Some(&duel),
                 music::MusicTheme::Thorn,

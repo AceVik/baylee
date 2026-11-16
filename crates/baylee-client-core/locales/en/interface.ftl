@@ -6991,6 +6991,50 @@ AboutCatEcosystem = Localisation, QR & Rust Ecosystem
 # The About sheet: the engine and the libraries.
 AboutCrates = Bevy and the other Rust crates this build links: each under its own licence (MIT, Apache-2.0 and the like), held to an allow-list by cargo-deny; NOTICE in the source names the rest.
 
+# In-card sign-in progress title.
+AuthProgressTitle = Signing in
+
+# In-card registration progress title.
+AuthProgressRegisterTitle = Creating account
+
+# In-card guest session progress title.
+AuthProgressGuestTitle = Entering as guest
+
+# In-card queue status title.
+AuthProgressQueueTitle = Waiting in Login Queue
+
+# Step 1 pill in the sign-in progress view.
+AuthStepConnect = Connection
+
+# Step 2 pill in the sign-in progress view.
+AuthStepVerify = Verification
+
+# Step 3 pill in the sign-in progress view.
+AuthStepSession = Session
+
+# Description while connecting to Baylee Central.
+AuthDescConnecting = Establishing encrypted connection to Baylee Central…
+
+# Description while connecting to a direct gateway.
+AuthDescConnectingGateway = Establishing connection to gateway…
+
+# Description during OPAQUE password-authenticated key exchange.
+AuthDescAuthenticating = Performing cryptographic key exchange (OPAQUE)…
+
+# Description while restoring profile and opening session.
+AuthDescOpeningSession = Synchronising profile, gateways and session…
+
+# Queue position badge text. `$position` is the 1-based queue slot.
+# Arguments: position
+AuthQueueBanner = Queue position #{ $position } · Your place is reserved
+
+# Estimated queue wait line. `$seconds` is the estimated wait in seconds.
+# Arguments: seconds
+AuthQueueEstimate = Estimated wait: ~{ $seconds } s
+
+# Queue fallback text when exact position is not reported.
+AuthQueueStandby = High server load · Holding your spot in the login queue…
+
 # Closes a sheet.
 SheetClose = Close
 

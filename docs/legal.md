@@ -1599,7 +1599,7 @@ Topaz Video AI, stripped of audio (`-an`), cross-faded into seamless endless
 masters (`art/baylee/loops/world-loop.mp4`, `tavern-loop.mp4`), exported as
 matching 3840 × 2160 frame-0 stills (`assets/scenes/baylees-world.png`,
 `tavern-lobby.png`), and encoded with SVT-AV1 into compact 3840 × 2160 120 fps
-AVIF sequences (`crates/baylee-client/src/vista/loops/world.avif` 8.58 MiB,
+AVIF sequences (`crates/baylee-client/src/vista/loops/world.avif` 28.70 MiB,
 `tavern.avif` 7.01 MiB; `art/baylee/README.md` records the exact commands).
 They show no Wizards artwork and no third-party game art.
 

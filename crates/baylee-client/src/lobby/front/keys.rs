@@ -284,7 +284,7 @@ pub(crate) fn kit_to_lobby(
     stops: Query<&Stop>,
     mut state: ResMut<LobbyState>,
 ) {
-    if !focus.is_changed() || !bridged(&state) {
+    if !focus.is_changed() || !bridged(&state) || super::progress::is_active(&state) {
         return;
     }
     let Some(entity) = focus.get() else {

@@ -227,8 +227,8 @@ pub(super) const fn clear_register(mut pitch: u8) -> u8 {
 }
 
 /// Subtle drift-free Just-Intonation chord sweetening relative to the stationary 12-TET root:
-/// pure 3:2 fifths (`+1.5..+1.8c`), softened 5:4 major thirds (`-3.2..-8.5c`), and warmed
-/// 6:5 minor thirds (`+3.2..+8.5c`) on sustained synth pads/horns.
+/// pure 3:2 fifths (`+1.8c`), softened 5:4 major thirds (`-6.5..-8.0c`), and warmed
+/// 6:5 minor thirds (`+6.5..+8.0c`) on sustained synth pads/horns.
 pub(super) const fn sweeten_cents(
     instrument: Instrument,
     pitch: u8,
@@ -243,9 +243,9 @@ pub(super) const fn sweeten_cents(
     }
     let rel = (pitch + 120 - (root % 12)) % 12;
     if rel == fifth {
-        if pure_synth { 1.8 } else { 1.5 }
+        1.8
     } else if rel == third {
-        let depth = if pure_synth { 8.0 } else { 3.0 };
+        let depth = if pure_synth { 8.0 } else { 6.5 };
         if third == 4 { -depth } else { depth }
     } else {
         0.0
@@ -837,7 +837,7 @@ fn accompaniment_arpeggio(
     arc: f32,
     intensity: f32,
 ) {
-    use Instrument::{Harp, Lyre, TavernGuitar, Zither};
+    use Instrument::{ConcertHarp, Harp, Lyre, TavernGuitar, Zither};
     let ticks = theme.ticks();
     let fit = |p: u8, len: f32| clamp_for_next_chord(p, len, tick, ticks, harmony, next_harmony);
     let quiet = matches!(
@@ -887,6 +887,14 @@ fn accompaniment_arpeggio(
                 Role::Rhythm,
             );
             out.add(Lyre, open[2], fit(open[2], 1.5), 0.10 * arc, Role::Rhythm);
+        } else if movement == Movement::Standard && tick == ticks / 2 && out.len < 14 {
+            out.add(
+                ConcertHarp,
+                open[2],
+                fit(open[2], 2.0),
+                (0.082 + 0.025 * intensity) * arc,
+                Role::Rhythm,
+            );
         }
     }
     if matches!(movement, Movement::Title | Movement::Endgame) && tick + 2 == ticks {
