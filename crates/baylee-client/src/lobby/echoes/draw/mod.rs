@@ -22,6 +22,7 @@ mod deck;
 mod equipment;
 mod landing;
 mod merchandise;
+mod ranking;
 mod reward;
 mod runshop;
 mod shop;
@@ -79,71 +80,10 @@ pub(in crate::lobby) fn draw(
     let lang = state.lobby.lang();
     let body = body(commands, root, kit, metrics, scrolled);
     let hero = compact_panel(commands, body, kit);
-    let top = row(commands, hero, kit);
-    presentation::title(
-        commands,
-        top,
-        kit,
-        glyph::CROWN,
-        if ui.page == Page::Collection {
-            Phrase::EchoesCollection
-        } else {
-            Phrase::EchoesTitle
-        }
-        .text(lang),
-    );
-    let spacer = crate::lobby::parts::grow(commands);
-    commands.entity(top).add_child(spacer);
-    let market = !matches!(ui.page, Page::Overview | Page::Collection)
-        && ui.model.run().is_some_and(|run| {
-            ui.page == Page::Shop || run.shop.generator == domain::v2::generation::RUN
-        });
-    if market {
-        landing::market_progress(commands, top, kit, ui);
-    }
-    if (ui.model.run().is_some() || ui.page == Page::Collection) && ui.page != Page::Overview {
-        control(
-            commands,
-            top,
-            kit,
-            ui,
-            Phrase::EchoesRuns.text(lang),
-            Action::Overview,
-            ui.choices.deck_unchanged(ui.model.run()),
-        );
-    }
-    if !market && ui.page != Page::Collection {
-        control(
-            commands,
-            top,
-            kit,
-            ui,
-            Phrase::EchoesCollection.text(lang),
-            Action::Page(Page::Collection),
-            true,
-        );
-    }
-    control(
-        commands,
-        top,
-        kit,
-        ui,
-        Phrase::Back.text(lang),
-        Action::Back,
-        true,
-    );
-    if !market {
-        control(
-            commands,
-            top,
-            kit,
-            ui,
-            Phrase::Refresh.text(lang),
-            Action::Refresh,
-            true,
-        );
-    }
-    if ui.model.run().is_none() || ui.page == Page::Overview {
+    header(commands, hero, kit, ui);
+    if (ui.model.run().is_none() && !matches!(ui.page, Page::Collection | Page::Ranking))
+        || ui.page == Page::Overview
+    {
         label(
             commands,
             hero,
@@ -170,10 +110,97 @@ pub(in crate::lobby) fn draw(
     if ui.confirmation.is_some() {
         confirmation(commands, body, kit, ui);
     }
+    if ui.page == Page::Ranking {
+        ranking::draw(commands, body, kit, ui);
+        return;
+    }
     if ui.model.run().is_none() || ui.page == Page::Overview {
         landing::draw(commands, body, kit, ui);
     } else {
         selected(commands, body, hero, kit, ui, scrolled);
+    }
+}
+
+fn header(commands: &mut Commands, hero: Entity, kit: Kit, ui: &Ui) {
+    let lang = lang(kit);
+    let top = row(commands, hero, kit);
+    presentation::title(
+        commands,
+        top,
+        kit,
+        glyph::CROWN,
+        if ui.page == Page::Ranking {
+            Phrase::EchoesRanking
+        } else if ui.page == Page::Collection {
+            Phrase::EchoesCollection
+        } else {
+            Phrase::EchoesTitle
+        }
+        .text(lang),
+    );
+    let spacer = crate::lobby::parts::grow(commands);
+    commands.entity(top).add_child(spacer);
+    let market = !matches!(ui.page, Page::Overview | Page::Collection | Page::Ranking)
+        && ui.model.run().is_some_and(|run| {
+            ui.page == Page::Shop || run.shop.generator == domain::v2::generation::RUN
+        });
+    if market {
+        landing::market_progress(commands, top, kit, ui);
+    }
+    if (ui.model.run().is_some() || matches!(ui.page, Page::Collection | Page::Ranking))
+        && ui.page != Page::Overview
+    {
+        control(
+            commands,
+            top,
+            kit,
+            ui,
+            Phrase::EchoesRuns.text(lang),
+            Action::Overview,
+            ui.choices.deck_unchanged(ui.model.run()),
+        );
+    }
+    if !market && ui.page != Page::Collection {
+        control(
+            commands,
+            top,
+            kit,
+            ui,
+            Phrase::EchoesCollection.text(lang),
+            Action::Page(Page::Collection),
+            true,
+        );
+    }
+    if !market && ui.page != Page::Ranking {
+        control(
+            commands,
+            top,
+            kit,
+            ui,
+            Phrase::EchoesRanking.text(lang),
+            Action::Page(Page::Ranking),
+            !ui.model.cohorts().is_empty() || ui.model.run().is_some(),
+        );
+    }
+    control(
+        commands,
+        top,
+        kit,
+        ui,
+        Phrase::Back.text(lang),
+        Action::Back,
+        true,
+    );
+    if !market {
+        control(
+            commands,
+            top,
+            kit,
+            ui,
+            Phrase::Refresh.text(lang),
+            Action::Refresh,
+            true,
+        );
     }
 }
 
@@ -286,7 +313,7 @@ fn selected(
                 shop::toolbar(commands, tabs, kit, ui, run);
             }
             match ui.page {
-                Page::Overview | Page::Collection => {}
+                Page::Overview | Page::Collection | Page::Ranking => {}
                 Page::Shop => shop::draw(commands, body, kit, ui, run, cohort, scrolled),
                 Page::Equipment => equipment::draw(commands, body, kit, ui, run, cohort),
                 Page::Deck => deck::draw(commands, body, kit, ui, run, cohort),

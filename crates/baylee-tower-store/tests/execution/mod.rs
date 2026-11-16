@@ -6,6 +6,7 @@ mod expiry;
 mod location;
 mod outbox;
 mod pool;
+mod ranking;
 mod records;
 mod recovery;
 mod reservations;

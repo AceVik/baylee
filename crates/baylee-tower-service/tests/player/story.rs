@@ -92,6 +92,7 @@ pub async fn run(
     };
     assert_eq!(client.send(token, &stale).await.0, 409);
     boundaries(&client, &central, &get).await;
+    super::ranking::exercise(&client, &central, cohort).await;
     assert_eq!(
         run_response(client.send(token, &get).await),
         bought,

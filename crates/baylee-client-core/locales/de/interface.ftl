@@ -3872,6 +3872,22 @@ EchoesConfirmRefresh = Für { $price } Gold alle nicht vorgemerkten Angebote ers
 EchoesConfirmMythic = Verbrauchsangebot { $number } durch einen Mythic-Trank für 24 Gold ersetzen? Eine vorhandene Vormerkung wird gelöst. Der Trank wird dadurch noch nicht gekauft.
 
 ## Dauerhafte, von Central bestätigte Tower-Abzeichen.
+EchoesRanking = Rangliste
+EchoesRankingLead = Mehr Siege, dann weniger Niederlagen oder Unentschieden. Gleiche Ergebnisse teilen einen Rang. Verglichen werden abgeschlossene Expeditionen mit denselben Spielregeln.
+EchoesRankingCohort = Regelstand vom { $date }
+EchoesRankingEchoes = Nur Spieler-Echos
+EchoesRankingHouse = Mit Hausgegnern
+EchoesRankingBest = Deine persönliche Bestleistung
+EchoesRankingNoBest = Beende eine Expedition mit acht Siegen oder fünf Niederlagen/Unentschieden, um hier eine Bestleistung festzuhalten. Abgebrochene Runs zählen nicht.
+EchoesRankingPublish = Bestleistungen veröffentlichen
+EchoesRankingHide = Bestleistungen verbergen
+EchoesRankingPublic = Dein öffentlicher Name und deine Bestleistungen stehen in den Ranglisten.
+EchoesRankingPrivate = Deine Bestleistungen sind privat. Die Veröffentlichung ist freiwillig.
+EchoesRankingConsent = Deinen Central-Anzeigenamen, deinen öffentlichen Tag und deine besten abgeschlossenen Ergebnisse in den Turm-Ranglisten veröffentlichen? Du kannst sie jederzeit wieder verbergen. Die Echo-Teilnahme und Spielbelohnungen ändern sich dadurch nicht.
+EchoesRankingTop = Top 25 · geteilte Ränge
+EchoesRankingEmpty = In dieser Liste gibt es noch keine veröffentlichten abgeschlossenen Expeditionen. Dein nächster Run könnte hier die erste Spur hinterlassen.
+EchoesRankingYou = Du · privat
+EchoesRankingScore = { $wins } Siege · { $defeats } Niederlagen/Remis
 EchoesCollection = Turm-Abzeichen
 EchoesCollectionLead = Deine Siege hinterlassen Spuren. Diese dauerhaften Abzeichen wachsen über Expeditionen hinweg von Bronze bis Obsidian. Sie verfallen nie und bringen keinen Spielvorteil.
 EchoesCollectionUnavailable = Deine Sammlung konnte nicht aktualisiert werden. Bereits bestätigte Fortschritte bleiben sichtbar; versuche es gleich erneut.

@@ -53,7 +53,11 @@ async fn execute(players: &Players, request: axum::extract::Request) -> Result<V
     }
     // A client may retry a mutation with the same request ID after any lost answer.
     // Never timeout-cancel its commit and invent a new request on the client's behalf.
-    let response = players.dispatch(account, request).await?;
+    let name = identity
+        .display_name
+        .zip(identity.tag)
+        .map(|(display, tag)| api::ranking::Name { display, tag });
+    let response = players.dispatch(account, request, name.as_ref()).await?;
     let encoded = serde_json::to_vec(&response).map_err(|_| Failure::Unavailable)?;
     if encoded.len() > api::MAX_RESPONSE_BYTES {
         return Err(Failure::Unavailable);

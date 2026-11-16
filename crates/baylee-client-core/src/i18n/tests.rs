@@ -230,6 +230,21 @@ fn filling_a_phrase_puts_the_arguments_where_the_language_wants_them() {
     );
     // An argument that was not supplied leaves its placeholder showing.
     assert!(Phrase::PageOf.fill(Lang::En, &["1"]).contains("{1}"));
+    assert_eq!(
+        Phrase::EchoesRankingScore.fill(Lang::De, &["8", "1"]),
+        "8 Siege · 1 Niederlagen/Remis"
+    );
+    assert_eq!(
+        Phrase::EchoesRankingScore.fill(Lang::En, &["8", "1"]),
+        "8 wins · 1 defeats/draws"
+    );
+    for lang in Lang::ALL {
+        assert!(
+            Phrase::EchoesRankingCohort
+                .fill(lang, &["16.11.2026"])
+                .contains("16.11.2026")
+        );
+    }
 }
 
 /// The attachment boxes of the report form are a choice the player can

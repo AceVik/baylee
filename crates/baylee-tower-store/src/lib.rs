@@ -32,6 +32,7 @@ mod operators;
 mod outbox;
 mod pool;
 mod publication;
+mod ranking;
 mod requests;
 mod reservation;
 mod runs;

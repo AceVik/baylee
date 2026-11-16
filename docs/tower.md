@@ -44,6 +44,15 @@ These are cosmetic account achievements confirmed by Central across gateways;
 new runs still start without inherited resources. Collection errors preserve
 the last confirmed count, and account changes discard it.
 
+**Leaderboard** in the run overview compares completed expeditions within one
+rules cohort. More victories rank first, then fewer defeats or draws; equal
+scores share the rank. Runs with any house opponent have a separate board from
+all-player-echo runs. The top 25 and your personal best are visible together.
+Your best stays private until you explicitly publish your Central display name
+and public tag. You can hide it again without losing progress or rewards.
+Active and abandoned runs do not establish a best; an eight-win or five-loss/draw
+verified completion does. Only the Tower authority computes these scores.
+
 ## Retained Verdant Tower campaign
 
 The remainder of this document describes the earlier certified weekly campaign,

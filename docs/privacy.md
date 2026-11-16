@@ -8,6 +8,29 @@ the pointers, because line numbers move.
 
 "Kept until deleted by hand" means no code path removes it.
 
+## Tower authority personal bests
+
+Tower Echoes runs in a separate Baylee service/database. Migration 014 adds one
+best completed verified score per account/cohort/opponent lane. This compact
+projection contains wins and unsuccessful duels, not decks, shuffle seeds,
+replays or timing. It persists independently of raw run retention until removed
+by hand or by deletion of the Tower player (foreign-key cascade).
+
+Public leaderboard participation is separately opt-in and defaults off. Only a
+live Central identity response supplies the public display name and tag. The
+player can withdraw publication in the client; the transaction immediately
+removes public eligibility and the copied name/tag, while retaining the private
+best. A monotonic privacy revision prevents stale publish requests from undoing
+withdrawal. Listed names refresh when their owner reads a board; removal of the
+public identity at that point withdraws listing. Reads expose at most the top 25
+public bests and the authenticated owner's own best, without account/run IDs.
+
+Deleting an account at Central alone does not currently deliver an erasure event
+to Tower. The operator's account-erasure workflow must also remove the Tower
+player after draining its echo eligibility. This is an explicit integration and
+release constraint, not a claim of automatic cross-service erasure or compliance.
+See [Tower operations](tower-operations.md) for versioning and retention limits.
+
 ## At a glance
 
 For Central accounts, personal contacts, blocks and group membership are stored

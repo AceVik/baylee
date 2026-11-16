@@ -34,6 +34,25 @@ impl State {
 
     fn accept(&mut self, request: &Request, response: Response) -> bool {
         match (request, response) {
+            (Request::Ranking { cohort, lane }, Response::Ranking { board })
+                if board.cohort == *cohort && board.lane == *lane && board.valid() =>
+            {
+                if self
+                    .ranking
+                    .as_ref()
+                    .is_none_or(|old| old.listing.revision <= board.listing.revision)
+                {
+                    self.ranking = Some(board);
+                }
+            }
+            (Request::Listing { revision, listed }, Response::Listing { listing })
+                if revision.checked_add(1) == Some(listing.revision)
+                    && listing.listed == *listed =>
+            {
+                // Do not leave an old public/private projection on screen after a toggle.
+                // The following cohort read obtains scores, names and ranks atomically.
+                self.ranking = None;
+            }
             (Request::WithdrawEchoes {}, Response::Withdrawn {}) => {}
             (Request::Cohort { cohort: id }, Response::Cohort { cohort })
                 if cohort.id == *id && valid_cohort(&cohort) =>

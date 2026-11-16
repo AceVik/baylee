@@ -90,55 +90,76 @@ impl TowerHttp {
             return Err(Error::Rejected);
         }
         let response: Response = serde_json::from_slice(&bytes).map_err(|_| Error::Rejected)?;
-        if !matches!(
-            (request, &response),
-            (Request::Cohorts { .. }, Response::Cohorts { .. })
-                | (Request::Cohort { .. }, Response::Cohort { .. })
-                | (Request::Locate { .. }, Response::Location { .. })
-                | (Request::Hosts { .. }, Response::Hosts { .. })
-                | (Request::Runs { .. }, Response::Runs { .. })
-                | (
-                    Request::Run { .. }
-                        | Request::Start { .. }
-                        | Request::Command { .. }
-                        | Request::Reserve { .. },
-                    Response::Run { .. }
-                )
-                | (Request::WithdrawEchoes {}, Response::Withdrawn {})
-        ) {
-            return Err(Error::Rejected);
-        }
-        if let (Request::Locate { run }, Response::Location { location }) = (request, &response) {
-            validate_location(*run, location, self.development)?;
-        }
-        if let (Request::Cohort { cohort: expected }, Response::Cohort { cohort }) =
-            (request, &response)
-            && (cohort.id != *expected || !uuid7(*expected))
-        {
-            return Err(Error::Rejected);
-        }
-        if let (
-            Request::Hosts { run, before },
-            Response::Hosts {
-                run: returned,
-                hosts,
-            },
-        ) = (request, &response)
-        {
-            if run != returned || !uuid7(*run) || hosts.len() > api::PAGE_SIZE {
-                return Err(Error::Rejected);
-            }
-            let mut prior = *before;
-            for host in hosts {
-                validate_host(host, self.development)?;
-                if prior.is_some_and(|prior| host.id >= prior) {
-                    return Err(Error::Rejected);
-                }
-                prior = Some(host.id);
-            }
-        }
+        validate_response(request, &response, self.development)?;
         Ok(response)
     }
+}
+
+fn validate_response(
+    request: &Request,
+    response: &Response,
+    development: bool,
+) -> Result<(), Error> {
+    if !matches!(
+        (request, response),
+        (Request::Cohorts { .. }, Response::Cohorts { .. })
+            | (Request::Ranking { .. }, Response::Ranking { .. })
+            | (Request::Listing { .. }, Response::Listing { .. })
+            | (Request::Cohort { .. }, Response::Cohort { .. })
+            | (Request::Locate { .. }, Response::Location { .. })
+            | (Request::Hosts { .. }, Response::Hosts { .. })
+            | (Request::Runs { .. }, Response::Runs { .. })
+            | (
+                Request::Run { .. }
+                    | Request::Start { .. }
+                    | Request::Command { .. }
+                    | Request::Reserve { .. },
+                Response::Run { .. }
+            )
+            | (Request::WithdrawEchoes {}, Response::Withdrawn {})
+    ) {
+        return Err(Error::Rejected);
+    }
+    if let (Request::Ranking { cohort, lane }, Response::Ranking { board }) = (request, response)
+        && (board.cohort != *cohort || board.lane != *lane || !uuid7(*cohort) || !board.valid())
+    {
+        return Err(Error::Rejected);
+    }
+    if let (Request::Listing { revision, listed }, Response::Listing { listing }) =
+        (request, response)
+        && (revision.checked_add(1) != Some(listing.revision) || listing.listed != *listed)
+    {
+        return Err(Error::Rejected);
+    }
+    if let (Request::Locate { run }, Response::Location { location }) = (request, response) {
+        validate_location(*run, location, development)?;
+    }
+    if let (Request::Cohort { cohort: expected }, Response::Cohort { cohort }) = (request, response)
+        && (cohort.id != *expected || !uuid7(*expected))
+    {
+        return Err(Error::Rejected);
+    }
+    if let (
+        Request::Hosts { run, before },
+        Response::Hosts {
+            run: returned,
+            hosts,
+        },
+    ) = (request, response)
+    {
+        if run != returned || !uuid7(*run) || hosts.len() > api::PAGE_SIZE {
+            return Err(Error::Rejected);
+        }
+        let mut prior = *before;
+        for host in hosts {
+            validate_host(host, development)?;
+            if prior.is_some_and(|prior| host.id >= prior) {
+                return Err(Error::Rejected);
+            }
+            prior = Some(host.id);
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

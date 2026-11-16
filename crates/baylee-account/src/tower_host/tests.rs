@@ -80,7 +80,11 @@ async fn reply(
 #[tokio::test]
 async fn host_transport_refuses_partial_wrong_generation_and_unbounded_acknowledgements() {
     let batch = batch();
-    let valid = "Content-Type: application/json\r\nBaylee-Tower-Version: 2\r\n";
+    let header = format!(
+        "Content-Type: application/json\r\nBaylee-Tower-Version: {}\r\n",
+        baylee_tower_api::VERSION
+    );
+    let valid = header.as_str();
     let expected = Acknowledged {
         fence: batch.lease.fence,
         prefix: Prefix::default(),

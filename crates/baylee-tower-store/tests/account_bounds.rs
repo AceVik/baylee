@@ -33,8 +33,10 @@ async fn existing_history_upgrades_and_quota_failures_leave_no_partial_mutation(
             DROP TABLE \"{schema}\".record_batches, \"{schema}\".record_chunks, \"{schema}\".execution_claims, \"{schema}\".reservations;
             DROP TABLE \"{schema}\".host_availability, \"{schema}\".host_locations;
             DROP TABLE \"{schema}\".house_builds, \"{schema}\".operators;
+            DROP TABLE \"{schema}\".personal_bests;
             ALTER TABLE \"{schema}\".players DROP COLUMN consent_revision,
-            DROP COLUMN consent_at,DROP COLUMN receipt_bytes,DROP COLUMN run_count,DROP COLUMN record_bytes,DROP COLUMN record_chunks,DROP COLUMN echo_epoch;
+            DROP COLUMN consent_at,DROP COLUMN receipt_bytes,DROP COLUMN run_count,DROP COLUMN record_bytes,DROP COLUMN record_chunks,DROP COLUMN echo_epoch,
+            DROP COLUMN rank_revision,DROP COLUMN rank_listed,DROP COLUMN rank_name,DROP COLUMN rank_tag;
             DELETE FROM \"{schema}\".schema_version WHERE version>=2")).await.unwrap();
         assert_eq!(store.ready().await, Err(Error::Schema));
         store.migrate().await.unwrap();

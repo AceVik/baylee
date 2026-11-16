@@ -1,5 +1,6 @@
 use super::*;
 mod location;
+mod ranking;
 use std::{
     io::Write,
     net::{TcpListener, TcpStream},
@@ -94,7 +95,11 @@ fn reply_to(asked: &Request, status: u16, headers: &str, body: &[u8]) -> Result<
 
 #[test]
 fn tower_transport_binds_scope_and_refuses_redirects_and_untrusted_responses() {
-    let valid = "Content-Type: application/json\r\nBaylee-Tower-Version: 2\r\n";
+    let header = format!(
+        "Content-Type: application/json\r\nBaylee-Tower-Version: {}\r\n",
+        api::VERSION
+    );
+    let valid = header.as_str();
     let runs = br#"{"result":"runs","runs":[]}"#;
     assert!(matches!(reply(200, valid, runs), Ok(Response::Runs { runs }) if runs.is_empty()));
     let sink = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -113,7 +118,10 @@ fn tower_transport_binds_scope_and_refuses_redirects_and_untrusted_responses() {
     assert!(
         reply(
             200,
-            "Content-Type: text/html\r\nBaylee-Tower-Version: 2\r\n",
+            &format!(
+                "Content-Type: text/html\r\nBaylee-Tower-Version: {}\r\n",
+                api::VERSION
+            ),
             runs
         )
         .is_err()

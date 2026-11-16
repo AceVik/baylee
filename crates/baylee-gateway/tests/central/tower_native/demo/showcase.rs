@@ -8,6 +8,7 @@ use baylee_tower::v2::{
 };
 use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use uuid::Uuid;
+mod ranking;
 
 pub(super) async fn prepare(fixture: &Fixture, id: Uuid) {
     assert!(
@@ -25,7 +26,7 @@ pub(super) async fn prepare(fixture: &Fixture, id: Uuid) {
     let row = db
         .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
-            format!("SELECT state FROM \"{schema}\".runs WHERE id=$1 AND cohort=$2"),
+            format!("SELECT state,account FROM \"{schema}\".runs WHERE id=$1 AND cohort=$2"),
             [id.into(), fixture.cohort.into()],
         ))
         .await
@@ -52,6 +53,13 @@ pub(super) async fn prepare(fixture: &Fixture, id: Uuid) {
         .await
         .unwrap();
     assert_eq!(changed.rows_affected(), 1);
+    ranking::prepare(
+        db,
+        schema,
+        fixture.cohort,
+        row.try_get("", "account").unwrap(),
+    )
+    .await;
 }
 
 fn populate(run: &mut Run) {

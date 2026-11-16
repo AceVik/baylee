@@ -16,7 +16,10 @@ fn global_hosts_bind_the_owned_run_and_refuse_duplicates_redirects_and_bad_curso
                 before,
             },
             200,
-            "Content-Type: application/json\r\nBaylee-Tower-Version: 2\r\n",
+            &format!(
+                "Content-Type: application/json\r\nBaylee-Tower-Version: {}\r\n",
+                baylee_tower_api::VERSION
+            ),
             &serde_json::to_vec(&Response::Hosts {
                 run: returned,
                 hosts,
@@ -53,7 +56,10 @@ fn tower_location_is_bound_to_the_requested_run_and_transport_environment() {
         reply_to(
             &Request::Locate { run },
             200,
-            "Content-Type: application/json\r\nBaylee-Tower-Version: 2\r\n",
+            &format!(
+                "Content-Type: application/json\r\nBaylee-Tower-Version: {}\r\n",
+                baylee_tower_api::VERSION
+            ),
             &serde_json::to_vec(&Response::Location { location }).unwrap(),
         )
     };

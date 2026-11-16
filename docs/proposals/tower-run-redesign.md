@@ -516,3 +516,52 @@ Always stop owned test processes and verify listeners close.
   earlier cause. Evidence: `/tmp/baylee-tower-title-probe-20261116.log` and
   `/tmp/baylee-tower-title-probe-{0..6}.png`.
   Client 59953, backend 59923 and PostgreSQL 59907 exited; ports 54384/54341 closed.
+- Verified leaderboards: API 6 and migration 014 retain one completed personal
+  best per account/cohort/lane. Eight wins or five losses/draws establish a best
+  inside independent verified settlement; any house opponent puts the run on
+  the separate house board. Equal scores share competition ranks, and the top
+  25 plus the requesting owner's best are bounded projections without account
+  IDs. Publication defaults off, requires a live Central public identity and a
+  revisioned explicit choice, and may be withdrawn without losing progress.
+  The client binds replies to the requested cohort/lane, preserves ambiguous
+  mutations for exact retry, and offers the board from the run overview.
+- Scoped final gate, first pass: 11,299 tests across the 27 changed packages ran
+  in 605 seconds after compilation; 10,902 passed and 397 failed. Most failures
+  shared the headless Lobby fixture's missing drag/drop message registration.
+  Remaining failures exposed stale navigation/action counts, shader-path audit
+  assumptions, old loop-policy replay fixtures, API version headers and migration
+  rollback fixtures. These were corrected without changing gameplay to satisfy
+  obsolete assertions. The targeted follow-up ran 505 tests in 40.742 seconds:
+  504 passed, including all new ranking/HTTP/privacy/storage tests. One legacy
+  wire-policy assertion required a second correction: explicit wire 0 remains
+  RunOnceThenBreak, 2 is Off, and absent historical wire rules retain the legacy
+  semantics. New table creation explicitly selects Off. Its final rerun and
+  the strict lint/feature checks remain pending at this entry. Evidence:
+  `/tmp/baylee-tower-push-gate-20261116/{tests,regressions}.log`.
+  The regression fixture's PostgreSQL PID 91198 was reaped and port 61692 closed.
+- Disk exhaustion interrupted two supplemental compile attempts before their
+  tests ran. Only this checkout's regenerable debug/gate incremental caches
+  were removed; sources, logs and preserved native executables were retained.
+  The subsequent regression run above compiled successfully. Interrupted
+  compilations are not counted as successful tests.
+- The final legacy-wire assertion passed in isolation (0.026 seconds); all
+  originally failed test names now have a successful targeted rerun. Strict
+  all-target Clippy across the 27 changed packages and scoped formatting passed
+  (`/tmp/baylee-tower-final-lint-20261116-r2.log`). The client dev-control/dev-reload
+  Clippy pass also succeeded; its feature tests and the remaining matrix are
+  still running at this entry. The AVIF example's duration display now uses
+  `Duration::as_secs_f64`, removing its lossy integer cast without touching decoding.
+- Rendered refinement 9 verified both leaderboard lanes, shared ranks 1/1/3,
+  private personal bests, explicit publication confirmation and removal of the
+  public identity after hiding. It found missing Fluent argument declarations
+  for date/score; these are fixed, with shorter player-facing copy and 17 passing
+  localization/ranking tests (`/tmp/baylee-tower-ranking-copy-tests-20261116.log`).
+  Corrected copy still needs the next native capture. Shop captures at 1440×900
+  and 1280×720 showed the title; a real conceded duel offered five cards, accepted
+  one, returned to stage 2 with four run lives/26 gold and fresh shelf stock.
+  The first return screenshot lacked the crown icon; the later capture included
+  it. Both contained the heading. Derived camera/clipping inspection found no
+  missing target or clipped text center in the observed settled state; this does
+  not resolve the earlier intermittent capture observation.
+  Screens: `/tmp/baylee-tower-pass9-{shop-1440,shop-1280,ranking-echoes,ranking-public,return-shop,return-shop-b}.png`.
+  Client 94312, backend 94116 and PostgreSQL 94085 exited; ports 64074/64018 closed.

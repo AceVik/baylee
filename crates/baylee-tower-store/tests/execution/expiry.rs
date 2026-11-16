@@ -156,7 +156,18 @@ async fn migration_backfill(store: &Store, db: &sea_orm::DatabaseConnection, sch
         ALTER TABLE \"{schema}\".reservations DROP COLUMN automatic_recoveries;
         DELETE FROM \"{schema}\".schema_version WHERE version>=9;
         DROP TABLE \"{schema}\".host_locations;
-        DROP TABLE \"{schema}\".host_availability;"
+        DROP TABLE \"{schema}\".host_availability;
+        ALTER TABLE \"{schema}\".award_outbox DROP COLUMN courier, DROP COLUMN claim,
+            DROP COLUMN lease_until, DROP COLUMN retry_after, DROP COLUMN backoff;
+        ALTER TABLE \"{schema}\".operators DROP CONSTRAINT operators_role_check;
+        ALTER TABLE \"{schema}\".operators ADD CONSTRAINT operators_role_check
+            CHECK(role IN ('host','verifier','publisher','supervisor'));
+        ALTER TABLE \"{schema}\".house_builds DROP CONSTRAINT house_builds_archetype_check;
+        ALTER TABLE \"{schema}\".house_builds ADD CONSTRAINT house_builds_archetype_check
+            CHECK(archetype BETWEEN 1 AND 3);
+        DROP TABLE \"{schema}\".personal_bests;
+        ALTER TABLE \"{schema}\".players DROP COLUMN rank_revision, DROP COLUMN rank_listed,
+            DROP COLUMN rank_name, DROP COLUMN rank_tag;"
     ))
     .await
     .unwrap();

@@ -12,6 +12,8 @@ pub(crate) const ORDER: TabOrder = TabOrder {
         "hosts",
         "tabs",
         "badges",
+        "ranking-lane",
+        "listing",
         "shop-return",
         "reroll",
         "freeze",
@@ -98,6 +100,10 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
         ),
         Action::Page(page) => ("tabs", page_index(page)),
         Action::Badge(kind) => ("badges", badge_index(kind)),
+        Action::Listing(_) => ("listing", 0),
+        Action::Read(Read::Ranking(cohort, lane)) => {
+            ("ranking-lane", ranking_index(ui, cohort, lane))
+        }
         Action::Offer(id) | Action::Purchase(id) => ("offers", index(ui, id, true)),
         Action::QuickEquip(id) => ("move", index(ui, id, false)),
         Action::Transfer(_, slot) => (
@@ -176,6 +182,20 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
     Stop::item(ORDER.name, key, u8::try_from(at).unwrap_or(u8::MAX))
 }
 
+fn ranking_index(ui: &Ui, cohort: uuid::Uuid, lane: super::api::ranking::Lane) -> usize {
+    let at = if ui.ranking.is_some_and(|(shown, _)| shown == cohort) {
+        0
+    } else {
+        1 + ui
+            .model
+            .cohorts()
+            .iter()
+            .position(|c| c.id == cohort)
+            .unwrap_or(8)
+    };
+    at * 2 + usize::from(lane == super::api::ranking::Lane::House)
+}
+
 fn starter_index(ui: &Ui, id: uuid::Uuid, starter: u8) -> usize {
     ui.model
         .cohorts()
@@ -209,6 +229,7 @@ const fn page_index(page: Page) -> usize {
         Page::Equipment => 1,
         Page::Deck => 2,
         Page::Collection => 4,
+        Page::Ranking => 5,
     }
 }
 

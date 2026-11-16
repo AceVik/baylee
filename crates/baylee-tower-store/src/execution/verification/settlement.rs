@@ -82,6 +82,8 @@ impl Store {
             &package,
         )
         .await?;
+        self.rank_completed(&tx, current.saved.account, response)
+            .await?;
         if package.stage == 1 {
             // Authority randomness, never an owner/host-provided result field.
             tx.execute_raw(self.statement(

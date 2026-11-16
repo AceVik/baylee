@@ -12,13 +12,14 @@ use uuid::Uuid;
 pub mod engine;
 pub mod host;
 mod location;
+pub mod ranking;
 mod view;
 pub use baylee_tower::v2::run::Phase;
 pub use location::{Host, Location};
 pub use view::{Duel, Reward, Run};
 
 /// Distinct wire contract; incompatible versions are refused before authentication.
-pub const VERSION: &str = "5";
+pub const VERSION: &str = "6";
 /// Header carrying [`VERSION`].
 pub const VERSION_HEADER: &str = "baylee-tower-version";
 /// Sole player endpoint. The origin is delegated by Central, never a gateway.
@@ -34,6 +35,20 @@ pub const PAGE_SIZE: usize = 8;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Request {
+    /// Global top 25 and private personal best for one exact compatibility cohort.
+    Ranking {
+        /// Published cohort; incompatible versions never share a board.
+        cohort: Uuid,
+        /// All-player echoes and house-assisted runs are separate.
+        lane: ranking::Lane,
+    },
+    /// Explicit public-name/score publication choice, independent of echo consent.
+    Listing {
+        /// Last confirmed privacy revision; prevents stale retries from republishing.
+        revision: u64,
+        /// Publish or withdraw all of this account's cohort personal bests.
+        listed: bool,
+    },
     /// Published enrollment choices, newest first.
     Cohorts {
         /// Exclusive cursor from a previous page.
@@ -121,6 +136,16 @@ pub struct Cohort {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "result", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Response {
+    /// Bounded public comparison and authenticated owner's private best.
+    Ranking {
+        /// Scores derived solely from completed verified runs.
+        board: ranking::Board,
+    },
+    /// Committed publication setting; exact immediate retries return the same value.
+    Listing {
+        /// Current revision and public participation.
+        listing: ranking::Listing,
+    },
     /// One immutable public catalog for a retained run or archive view.
     Cohort {
         /// No private builds, execution data or seeds.

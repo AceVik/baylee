@@ -277,7 +277,9 @@ pub(super) const fn icon(action: Action) -> char {
             glyph::MINUS
         }
         Action::Commander(_) => glyph::CROWN,
-        Action::Badge(_) | Action::Page(Page::Collection) => glyph::TROPHY,
+        Action::Badge(_)
+        | Action::Page(Page::Collection | Page::Ranking)
+        | Action::Read(Read::Ranking(..)) => glyph::TROPHY,
         Action::ClosePreview => glyph::CLOSE,
         Action::Play(_) | Action::Resume => glyph::ARROW_RIGHT,
         Action::Accept
@@ -292,9 +294,11 @@ pub(super) const fn icon(action: Action) -> char {
         Action::Page(Page::Shop) | Action::GoShop => glyph::VIEW_GRID,
         Action::Page(Page::Equipment) | Action::Move | Action::Place(_) => glyph::GEAR,
         Action::Page(Page::Deck) | Action::DeckZone(_) => glyph::LIBRARY,
-        Action::Offer(_) | Action::Select(_) | Action::InspectCard(_) => glyph::EYE,
+        Action::Listing(true) | Action::Offer(_) | Action::Select(_) | Action::InspectCard(_) => {
+            glyph::EYE
+        }
         Action::Pin(_) | Action::Freeze => glyph::CLOCK,
-        Action::Withdraw => glyph::EYE_SLASH,
+        Action::Listing(false) | Action::Withdraw => glyph::EYE_SLASH,
         _ => glyph::COMPASS,
     }
 }
@@ -308,6 +312,7 @@ pub(super) fn selected(action: Action, ui: &Ui) -> bool {
             .as_ref()
             .is_some_and(|f| f.commander == card),
         Action::Page(page) => page == ui.page,
+        Action::Read(Read::Ranking(cohort, lane)) => ui.ranking == Some((cohort, lane)),
         Action::Badge(kind) => kind == ui.collection.selected,
         Action::InventoryOrder(order) => order == ui.bag.order,
         Action::InventoryGroups(_) => ui.bag.grouped,

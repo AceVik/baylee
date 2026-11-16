@@ -214,6 +214,14 @@ pub(super) fn confirmation(commands: &mut Commands, root: Entity, kit: Kit, ui: 
     commands.entity(card).insert(BorderColor::all(tokens::GOLD));
     heading(commands, card, kit, Phrase::ChallengeConfirm.text(lang));
     let (text, valid) = match ui.confirmation.as_ref().expect("shown confirmation") {
+        Confirmation::Listing(revision) => (
+            Phrase::EchoesRankingConsent.text(lang).to_string(),
+            !ui.model.uncertain()
+                && ui
+                    .model
+                    .ranking()
+                    .is_some_and(|b| b.listing.revision == *revision),
+        ),
         Confirmation::Withdrawal => (
             Phrase::EchoesWithdrawConfirm.text(lang).to_string(),
             !ui.model.uncertain(),

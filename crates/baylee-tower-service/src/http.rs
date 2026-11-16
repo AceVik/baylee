@@ -114,7 +114,7 @@ mod tests {
             header::CONTENT_TYPE,
             header::HeaderValue::from_static("application/json"),
         );
-        for version in ["1", "2", "3"] {
+        for version in ["1", "2", "3", "4", "5"] {
             headers.insert(
                 api::VERSION_HEADER,
                 header::HeaderValue::from_static(version),
@@ -126,7 +126,7 @@ mod tests {
         }
         let response = reply(Err(Failure::Version));
         assert_eq!(response.status(), StatusCode::UPGRADE_REQUIRED);
-        assert_eq!(response.headers()[api::VERSION_HEADER], "4");
+        assert_eq!(response.headers()[api::VERSION_HEADER], api::VERSION);
         headers.insert(
             api::VERSION_HEADER,
             header::HeaderValue::from_static(api::VERSION),

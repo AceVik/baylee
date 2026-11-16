@@ -1,6 +1,7 @@
 //! Real Tower HTTP/storage with an explicit synthetic Central identity boundary.
 #![forbid(unsafe_code)]
 mod host;
+mod ranking;
 mod story;
 #[path = "../../../baylee-tower-store/tests/support/mod.rs"]
 mod support;

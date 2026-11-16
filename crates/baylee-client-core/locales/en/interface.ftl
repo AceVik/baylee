@@ -1,6 +1,24 @@
 ### One thing the interface says.
 
 # Permanent Tower cosmetics, independently confirmed by Central.
+EchoesRanking = Leaderboard
+EchoesRankingLead = More victories, then fewer defeats or draws. Equal results share a rank. Only completed expeditions played under the same rules are compared.
+# Arguments: date
+EchoesRankingCohort = Rules published { $date }
+EchoesRankingEchoes = Player echoes only
+EchoesRankingHouse = With house opponents
+EchoesRankingBest = Your personal best
+EchoesRankingNoBest = Finish an expedition with eight victories or five defeats/draws to record a best in this board. Abandoned runs do not count.
+EchoesRankingPublish = Publish my bests
+EchoesRankingHide = Hide my bests
+EchoesRankingPublic = Your public name and personal bests appear on the leaderboards.
+EchoesRankingPrivate = Your bests are private. Publishing is optional.
+EchoesRankingConsent = Publish your Central display name, public tag and best completed scores on the Tower leaderboards? You can hide them again at any time. This does not change echo participation or gameplay rewards.
+EchoesRankingTop = Top 25 · shared ranks
+EchoesRankingEmpty = No published completed expeditions in this board yet. Your next run could leave its first mark.
+EchoesRankingYou = You · private
+# Arguments: wins, defeats
+EchoesRankingScore = { $wins } wins · { $defeats } defeats/draws
 EchoesCollection = Tower medals
 EchoesCollectionLead = Your victories leave a mark. These permanent medals grow from Bronze to Obsidian across expeditions. They never expire and give no gameplay advantage.
 EchoesCollectionUnavailable = Your collection could not be refreshed. Previously confirmed progress stays visible; try again shortly.

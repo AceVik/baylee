@@ -7,7 +7,7 @@ provisioning; release approval, calibration, retention and the final least-privi
 runtime grants remain separate release requirements.
 
 The Commander run catalog uses generator 4 / native `tower-5` and API header
-`baylee-tower-version: 5` on the existing `/v2/player` endpoint and host routes.
+`baylee-tower-version: 6` on the existing `/v2/player` endpoint and host routes.
 Older API clients receive 426 before authentication rather than undecodable new
 families. Deploy matching service, gateway and client builds together. Retain the
 exact `tower-2` / `tower-house-19` executors for generation-one runs and
@@ -18,7 +18,7 @@ existing runs and their snapshots. The current executor uses `tower-5` /
 remain frozen; new families cannot enter old runs. An old run cannot silently
 resume on the current binary, even if its source registry appears compatible.
 
-API 5 adds the generation-four reward phase, six-slot run inventory and
+API 5 introduced the generation-four reward phase, six-slot run inventory and
 39+1 Commander formations. Generation four is the new-run default; enrollment
 still requires an explicit immutable publication and matching installed executor.
 The separate `baylee-tower-content` adapter builds five reviewed-card starter
@@ -26,6 +26,29 @@ collections and validates their native metadata; it does not certify balance.
 After verified settlement, claim
 the pending cards before shopping or abandoning. Reconnecting preserves the
 same candidates. An already-owned singleton choice grants one gold instead.
+
+API 6 adds cohort-scoped Tower rankings and a separate reversible publication
+setting. Migration 014 stores one best completed verified run per account/cohort/
+opponent lane. Every all-echo run belongs to the echo board; any verified house
+opponent puts the entire run in the house board. Sort by victories descending,
+then defeats/rules draws ascending; true ties share competition rank. Time, gold,
+life, and stable row IDs never break a score tie. The response contains the top 25
+and the authenticated owner's own best. Abandoned/partial/technical runs do not
+count. A final pending card reward does not delay the already verified score.
+
+Public listing defaults off, independent of echo consent. The service obtains
+display name/tag from live Central introspection, never from request fields.
+Names refresh when the owner reads a board; removing the public identity withdraws
+the listing. Publication and withdrawal use a monotonic compare-and-set revision;
+an old publish retry cannot undo a later withdrawal. Deleting the Tower player
+cascades its bests. This does not implement cross-service Central account-erasure
+delivery: operators must include the Tower player in their deletion workflow and
+must not claim that Central deletion alone has removed Tower data. Private bests
+survive raw-run retention until player/cohort removal; the new projection starts
+with verified completions after migration, without inventing scores for old runs.
+Apply migration with the schema owner and renew the reviewed runtime table grants
+before starting the matched API-6 service. Production retention/privacy approval
+remains a release requirement.
 
 ## Input and authority
 

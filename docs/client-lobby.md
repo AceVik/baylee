@@ -60,6 +60,17 @@ failures preserve the last confirmed projection. A departed session loses its
 collection and mailbox. Three original medal motifs share the bounded procedural
 cache and offer explicitly labelled previews of all five tiers.
 
+The overview's Leaderboard opens the exact selected run/publication cohort,
+with separate all-player-echo and house-opponent tabs. It presents a bounded
+top 25, shared ranks, and the owner's best even outside that podium. Personal
+bests default to private. Publishing requires an explicit explanation and
+confirmation; hiding is immediate after the authority acknowledges it. The
+client retains the same privacy revision across ambiguous retries and never
+predicts scores, rank or publication success. Cohort/lane switches reset scroll
+and have distinct keyboard stops. Display names are confirmed Central public
+identities, not names supplied by the player client. See the operator guide for
+retention and cross-service deletion limits.
+
 Native rendered passes and real shop/duel/reward interactions are recorded in
 `docs/proposals/tower-run-redesign.md`; headless tests alone do not establish
 visual acceptance or gameplay balance.

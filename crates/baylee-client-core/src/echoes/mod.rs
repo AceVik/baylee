@@ -17,6 +17,8 @@ pub mod workshop;
 /// Explicit read/navigation operation, never a progression mutation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Read {
+    /// Global comparison for one exact cohort, with separate house-assisted results.
+    Ranking(Uuid, api::ranking::Lane),
     /// Published enrollment choices, using an exclusive cursor.
     Cohorts(Option<Uuid>),
     /// Frozen catalog, including a run whose enrollment period has closed.
@@ -56,6 +58,7 @@ impl Work {
 /// Account-bound screen state. Dropping it on sign-out also drops pending choices.
 #[derive(Default)]
 pub struct State {
+    ranking: Option<api::ranking::Board>,
     cohorts: Vec<Cohort>,
     publication: Option<Cohort>,
     consent: u16,
@@ -70,6 +73,20 @@ pub struct State {
 }
 
 impl State {
+    /// Last validated cohort comparison; never locally predicts a score or rank.
+    #[must_use]
+    pub const fn ranking(&self) -> Option<&api::ranking::Board> {
+        self.ranking.as_ref()
+    }
+
+    /// Explicit publication choice using the last confirmed privacy revision.
+    pub fn listing(&mut self, id: Uuid, listed: bool) -> Option<Work> {
+        if self.uncertain() {
+            return None;
+        }
+        let revision = self.ranking.as_ref()?.listing.revision;
+        self.begin(id, Some(Request::Listing { revision, listed }), None)
+    }
     /// Current enrollment page.
     #[must_use]
     pub fn cohorts(&self) -> &[Cohort] {
@@ -131,6 +148,12 @@ impl State {
             return None;
         }
         let request = match read {
+            Read::Ranking(cohort, lane) => {
+                if !uuid7(cohort) {
+                    return None;
+                }
+                Request::Ranking { cohort, lane }
+            }
             Read::Cohorts(before) => Request::Cohorts { before },
             Read::Cohort(cohort) => {
                 if !uuid7(cohort) {
@@ -268,7 +291,10 @@ impl State {
 fn mutation(request: &Request) -> bool {
     matches!(
         request,
-        Request::Start { .. } | Request::Command { .. } | Request::Reserve { .. }
+        Request::Start { .. }
+            | Request::Command { .. }
+            | Request::Reserve { .. }
+            | Request::Listing { .. }
     )
 }
 

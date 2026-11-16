@@ -7,9 +7,19 @@ impl Players {
         &self,
         account: Uuid,
         request: Request,
+        name: Option<&baylee_tower_api::ranking::Name>,
     ) -> Result<Response, Failure> {
         let page = u8::try_from(baylee_tower_api::PAGE_SIZE).map_err(|_| Failure::Unavailable)?;
         Ok(match request {
+            Request::Ranking { cohort, lane } => {
+                self.store.ranking_identity(account, name).await?;
+                Response::Ranking {
+                    board: self.store.ranking(account, cohort, lane).await?,
+                }
+            }
+            Request::Listing { revision, listed } => Response::Listing {
+                listing: self.store.listing(account, revision, listed, name).await?,
+            },
             Request::Cohorts { before } => Response::Cohorts {
                 consent: baylee_tower_store::CONSENT_REVISION,
                 cohorts: self
@@ -84,13 +94,7 @@ impl Players {
                             revision,
                             host,
                         },
-                        Entropy {
-                            opponent: seed()?,
-                            game: Seeds {
-                                shuffle: u64::from_le_bytes(seed()?),
-                                policy: u64::from_le_bytes(seed()?),
-                            },
-                        },
+                        entropy()?,
                         self.record_bytes,
                     )
                     .await?,
@@ -107,6 +111,16 @@ fn seed<const N: usize>() -> Result<[u8; N], Failure> {
     let mut bytes = [0; N];
     getrandom::fill(&mut bytes).map_err(|_| Failure::Unavailable)?;
     Ok(bytes)
+}
+
+fn entropy() -> Result<Entropy, Failure> {
+    Ok(Entropy {
+        opponent: seed()?,
+        game: Seeds {
+            shuffle: u64::from_le_bytes(seed()?),
+            policy: u64::from_le_bytes(seed()?),
+        },
+    })
 }
 
 fn publication(id: Uuid, saved: baylee_tower_store::Publication) -> baylee_tower_api::Cohort {

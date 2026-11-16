@@ -23,6 +23,7 @@ pub(crate) enum Page {
     Equipment,
     Deck,
     Collection,
+    Ranking,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -79,9 +80,11 @@ pub(crate) enum Action {
     Freeze,
     Withdraw,
     Badge(baylee_client_core::echoes::awards_api::BadgeKind),
+    Listing(bool),
 }
 
 pub(super) enum Confirmation {
+    Listing(u64),
     Withdrawal,
     Enrollment {
         cohort: Uuid,
@@ -120,6 +123,7 @@ pub(crate) struct Ui {
     preview: Option<baylee_core::ids::CardIndex>,
     tiers: Option<domain::v2::catalog::Family>,
     collection: collection::Collection,
+    ranking: Option<(Uuid, api::ranking::Lane)>,
     reads: VecDeque<Read>,
     loaded: bool,
     withdrawn: bool,
@@ -185,7 +189,7 @@ pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
                     | Action::Overview
                     | Action::Page(_)
                     | Action::GoShop
-                    | Action::Read(Read::Run(_))
+                    | Action::Read(Read::Run(_) | Read::Ranking(..))
                     | Action::Offer(_)
                     | Action::InspectCard(_)
             )
@@ -217,6 +221,12 @@ impl Ui {
 
     fn refresh(&mut self) {
         self.reads.clear();
+        if self.page == Page::Ranking
+            && let Some((cohort, lane)) = self.ranking
+        {
+            self.reads.push_back(Read::Ranking(cohort, lane));
+            return;
+        }
         self.reads.extend([Read::Cohorts(None), Read::Runs(None)]);
         if let Some(run) = self.model.run() {
             self.reads.push_back(Read::Run(run.id));

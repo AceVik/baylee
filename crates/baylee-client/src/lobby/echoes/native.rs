@@ -137,31 +137,16 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
             }
             None
         }
-        Action::Accept => match ui.confirmation.take() {
-            Some(Confirmation::Withdrawal) => ui.model.withdraw(id),
-            Some(Confirmation::Enrollment {
-                cohort,
-                starter,
-                consent,
-            }) => ui.model.start(id, cohort, starter, consent),
-            Some(Confirmation::Choice {
-                run,
-                revision,
-                command,
-            }) if ui.model.run().is_some_and(|current| {
-                current.id == run
-                    && current.revision == revision
-                    && ui.model.publication().is_some_and(|cohort| {
-                        baylee_client_core::echoes::draft::allowed(current, cohort, &command)
-                    })
-            }) =>
-            {
-                ui.model.choose(id, command)
-            }
-            _ => None,
-        },
+        Action::Accept => accept(ui, id),
         Action::Cancel => {
             ui.confirmation = None;
+            None
+        }
+        Action::Listing(false) => ui.model.listing(id, false),
+        Action::Listing(true) if !ui.model.uncertain() => {
+            if let Some(board) = ui.model.ranking() {
+                ui.confirmation = Some(Confirmation::Listing(board.listing.revision));
+            }
             None
         }
         Action::Withdraw if !ui.model.uncertain() => {
@@ -175,8 +160,54 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
     }
 }
 
+fn accept(ui: &mut Ui, id: Uuid) -> Option<Work> {
+    match ui.confirmation.take() {
+        Some(Confirmation::Listing(revision))
+            if ui
+                .model
+                .ranking()
+                .is_some_and(|b| b.listing.revision == revision) =>
+        {
+            ui.model.listing(id, true)
+        }
+        Some(Confirmation::Withdrawal) => ui.model.withdraw(id),
+        Some(Confirmation::Enrollment {
+            cohort,
+            starter,
+            consent,
+        }) => ui.model.start(id, cohort, starter, consent),
+        Some(Confirmation::Choice {
+            run,
+            revision,
+            command,
+        }) if ui.model.run().is_some_and(|current| {
+            current.id == run
+                && current.revision == revision
+                && ui.model.publication().is_some_and(|cohort| {
+                    baylee_client_core::echoes::draft::allowed(current, cohort, &command)
+                })
+        }) =>
+        {
+            ui.model.choose(id, command)
+        }
+        _ => None,
+    }
+}
+
 fn navigate(ui: &mut Ui, action: Action) -> bool {
     match action {
+        Action::Page(Page::Ranking) => {
+            let cohort = ui
+                .model
+                .run()
+                .map(|r| r.cohort)
+                .or_else(|| ui.model.cohorts().first().map(|c| c.id));
+            if let Some(cohort) = cohort {
+                ui.ranking = Some((cohort, api::ranking::Lane::Echoes));
+                ui.page = Page::Ranking;
+                ui.refresh();
+            }
+        }
         Action::Page(page) => ui.page = page,
         Action::Badge(kind) => ui.collection.selected = kind,
         Action::GoShop => ui.page = Page::Shop,
@@ -209,6 +240,12 @@ fn read_page(ui: &mut Ui, id: Uuid, read: Read) -> Option<Work> {
     ui.reads.clear();
     ui.confirmation = None;
     let work = ui.model.read(id, read);
+    if work.is_some()
+        && let Read::Ranking(cohort, lane) = read
+    {
+        ui.page = Page::Ranking;
+        ui.ranking = Some((cohort, lane));
+    }
     if work.is_some() && matches!(read, Read::Run(_)) {
         ui.page = Page::Shop;
         ui.preview = None;
@@ -297,6 +334,7 @@ pub(super) fn tick(
             && matches!(reply.response, Some(api::Response::Run { .. }));
         let follows = matches!(reply.response, Some(api::Response::Run { .. }));
         let loaded = matches!(reply.response, Some(api::Response::Cohorts { .. }));
+        let listed = matches!(reply.response, Some(api::Response::Listing { .. }));
         if state
             .echoes
             .model
@@ -319,6 +357,9 @@ pub(super) fn tick(
             }
             if follows {
                 state.echoes.follow_run();
+            }
+            if listed {
+                state.echoes.refresh();
             }
             if reply.failure.is_some() {
                 state.echoes.reads.clear();
@@ -345,24 +386,7 @@ pub(super) fn tick(
     if !showing {
         return;
     }
-    if state.echoes.reads.is_empty()
-        && state.echoes.confirmation.is_none()
-        && !state.echoes.model.uncertain()
-        && state
-            .echoes
-            .choices
-            .deck_unchanged(state.echoes.model.run())
-        && ((!state.echoes.loaded && state.echoes.model.failure().is_none())
-            || time.elapsed_secs_f64() - *clock >= 15.0)
-    {
-        *clock = time.elapsed_secs_f64();
-        if let Some(run) = state.echoes.model.run() {
-            let id = run.id;
-            state.echoes.reads.push_back(Read::Run(id));
-        } else {
-            state.echoes.refresh();
-        }
-    }
+    refresh_visible(&mut state.echoes, time.elapsed_secs_f64(), &mut clock);
     if !state.echoes.reads.is_empty() {
         let read = state
             .echoes
@@ -371,6 +395,25 @@ pub(super) fn tick(
             .expect("observed nonempty queue");
         if let Some(work) = state.echoes.model.read(Uuid::now_v7(), read) {
             submit(&mut state, work);
+        }
+    }
+}
+
+fn refresh_visible(ui: &mut Ui, now: f64, clock: &mut f64) {
+    if ui.reads.is_empty()
+        && ui.confirmation.is_none()
+        && !ui.model.uncertain()
+        && ui.choices.deck_unchanged(ui.model.run())
+        && ((!ui.loaded && ui.model.failure().is_none()) || now - *clock >= 15.0)
+    {
+        *clock = now;
+        if ui.page == Page::Ranking {
+            ui.refresh();
+        } else if let Some(run) = ui.model.run() {
+            let id = run.id;
+            ui.reads.push_back(Read::Run(id));
+        } else {
+            ui.refresh();
         }
     }
 }

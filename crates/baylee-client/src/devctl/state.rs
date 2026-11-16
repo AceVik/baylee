@@ -145,6 +145,8 @@ pub(super) struct Believed<'w, 's> {
             Option<&'static bevy::text::TextLayoutInfo>,
             Option<&'static InheritedVisibility>,
             Option<&'static Node>,
+            Option<&'static ComputedUiTargetCamera>,
+            Option<&'static CalculatedClip>,
         ),
     >,
     legal_text: Query<
@@ -682,7 +684,7 @@ fn walk_tree(
     root: Option<&str>,
     out: &mut Vec<String>,
 ) {
-    let Ok((text, _, node, place, children, pressable, role, laid, shown, style)) =
+    let Ok((text, _, node, place, children, pressable, role, laid, shown, style, camera, clip)) =
         believed.shell_nodes.get(entity)
     else {
         return;
@@ -732,6 +734,14 @@ fn walk_tree(
     }
     if shown.is_some_and(|v| !v.get()) {
         row.push_str(",\"hid\":true");
+    }
+    // A laid-out, visible text can still have no render camera or be clipped.
+    // Report the derived state without exposing unstable entity identifiers.
+    if camera.is_none_or(|camera| camera.get().is_none()) {
+        row.push_str(",\"no_camera\":true");
+    }
+    if clip.is_some_and(|clip| !clip.contains_point(place.translation)) {
+        row.push_str(",\"center_clipped\":true");
     }
     // A node that clips what it holds, per axis (`cx`, `cy`): what lies
     // outside its box is not drawn, which a layout check cannot tell from
