@@ -207,7 +207,7 @@ control/layout evidence and issue corrections, not just an iteration counter.
 4. [x] Engine: independent sources, hidden potions, active effects and all seats.
 5. [x] Item catalog: every tier adds abilities; expand families and bounded prices/income. Human balance calibration remains a release task.
 6. [x] Shared icon/detail/frame renderer, modular shelf and restricted builder.
-7. [ ] Native full run, rendered refinements, focused gates, PR/review.
+7. [x] Native full run, rendered refinements, focused gates, PR/author review. Fable's independent review and human balance calibration remain pending.
 
 | Area | Essential regression / adversarial checks |
 | --- | --- |
@@ -706,3 +706,12 @@ Always stop owned test processes and verify listeners close.
   `/tmp/baylee-tower-final-clean-client-build-20261116.log`, and
   `/tmp/baylee-tower-final-shop.png`. Client 28312, backend 28281 and PostgreSQL
   28248 exited; ports 63966/63908 closed.
+- Publication: `codex/tower-echoes` is pushed to `origin`, with
+  [Baylee PR #427](https://github.com/AceVik/baylee/pull/427) against `main`;
+  `codex/tower-achievements` is current on `origin`, with companion
+  [Central PR #67](https://github.com/AceVik/baylee-central/pull/67).
+  Both are drafts for the owner's Fable review. Author review comments document
+  the latest code checks, evidence limits and cross-service erasure workflow;
+  they are not independent approval or a complete security audit. Both branches
+  include their freshly fetched `origin/main`; Gemini's Baylee `7d8878e40` and
+  Central `bbb45df5` are included. No main merge, deployment or CI wait was made.
