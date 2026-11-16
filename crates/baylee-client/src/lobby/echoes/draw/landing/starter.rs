@@ -27,8 +27,8 @@ pub(super) fn draw(
     let image = crate::lobby::thumbnails::spawn_sized(
         commands,
         &hover,
-        kit.m.px(126.0),
-        kit.m.px(176.0),
+        kit.m.px(112.0),
+        kit.m.px(156.0),
         kit.m.px(8.0),
     );
     commands.entity(choice).add_child(image);
@@ -62,7 +62,7 @@ pub(super) fn draw(
         .entry::<Node>()
         .and_modify(move |mut node| node.min_height = kit.m.px(48.0));
     commands.entity(choice).add_child(title);
-    if let Some((_, strategy)) = identity(&words::card(commander, Lang::En)) {
+    if let Some(strategy) = strategy(&words::card(commander, Lang::En)) {
         let band = row(commands, choice, kit);
         commands
             .entity(band)
@@ -151,13 +151,53 @@ pub(super) fn inspect(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) 
     commands.entity(root).add_child(scrim);
 }
 
-fn identity(name: &str) -> Option<(Family, Phrase)> {
+fn strategy(name: &str) -> Option<Phrase> {
     Some(match name {
-        "Emmara, Soul of the Accord" => (Family::Grove, Phrase::EchoesRunEmmara),
-        "Elas il-Kor, Sadistic Pilgrim" => (Family::SpringChalice, Phrase::EchoesRunElas),
-        "Talrand, Sky Summoner" => (Family::StormSpindle, Phrase::EchoesRunTalrand),
-        "Slimefoot, the Stowaway" => (Family::HarvestWheel, Phrase::EchoesRunSlimefoot),
-        "Pia and Kiran Nalaar" => (Family::EmberLantern, Phrase::EchoesRunPia),
+        "Emmara, Soul of the Accord"
+        | "Rin and Seri, Inseparable"
+        | "Maja, Bretagard Protector"
+        | "Arasta of the Endless Web" => Phrase::EchoesRunEmmara,
+        "Elas il-Kor, Sadistic Pilgrim" | "Ayara, First of Locthwain" => Phrase::EchoesRunElas,
+        "Talrand, Sky Summoner"
+        | "Kykar, Wind's Fury"
+        | "Tura Kennerüd, Skyknight"
+        | "Alela, Artful Provocateur" => Phrase::EchoesRunTalrand,
+        "Slimefoot, the Stowaway"
+        | "Judith, the Scourge Diva"
+        | "Yahenni, Undying Partisan"
+        | "Mahadi, Emporium Master" => Phrase::EchoesRunSlimefoot,
+        "Pia and Kiran Nalaar"
+        | "Galazeth Prismari"
+        | "Padeem, Consul of Innovation"
+        | "Glissa, the Traitor"
+        | "Emry, Lurker of the Loch" => Phrase::EchoesRunPia,
+        "Radha, Heir to Keld"
+        | "Rishkar, Peema Renegade"
+        | "Ashaya, Soul of the Wild"
+        | "Titania, Protector of Argoth"
+        | "Tatyova, Benthic Druid" => Phrase::EchoesPlanLands,
+        "Sram, Senior Edificer" => Phrase::EchoesPlanEquipment,
+        "Hapatra, Vizier of Poisons" | "Grist, the Hunger Tide" => Phrase::EchoesPlanCounters,
+        "Giada, Font of Hope" | "Lyra Dawnbringer" => Phrase::EchoesPlanAngels,
+        "Dwynen, Gilt-Leaf Daen" => Phrase::EchoesPlanElves,
+        "Pashalik Mons" => Phrase::EchoesPlanGoblins,
+        "Sythis, Harvest's Hand" | "Ghen, Arcanum Weaver" | "Eutropia the Twice-Favored" => {
+            Phrase::EchoesPlanEnchantments
+        }
+        "Kess, Dissident Mage" | "Muldrotha, the Gravetide" => Phrase::EchoesPlanGraveyard,
+        "Emiel the Blessed" | "Derevi, Empyrial Tactician" | "Garna, the Bloodflame" => {
+            Phrase::EchoesPlanReturns
+        }
+        "Thrun, the Last Troll" | "Samut, Voice of Dissent" | "Saryth, the Viper's Fang" => {
+            Phrase::EchoesPlanCombat
+        }
+        "Vona, Butcher of Magan"
+        | "Chevill, Bane of Monsters"
+        | "Ertai Resurrected"
+        | "Kaervek, the Spiteful" => Phrase::EchoesPlanControl,
+        "Kambal, Consul of Allocation" | "Linden, the Steadfast Queen" => Phrase::EchoesPlanLife,
+        "Birgi, God of Storytelling" => Phrase::EchoesPlanStorm,
+        "Arvad the Cursed" => Phrase::EchoesPlanLegends,
         _ => return None,
     })
 }

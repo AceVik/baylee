@@ -19,7 +19,9 @@ pub const PACK: u16 = 1;
 /// Immutable native setup and economy revision.
 pub const REVISION: u16 = generation::CURRENT.revision;
 /// Frozen offer-generation algorithm for this native revision.
-pub const GENERATOR: u16 = generation::RUN;
+pub const GENERATOR: u16 = generation::EXPEDITIONS;
+
+pub mod draft;
 /// Run-local starting currency.
 pub const STARTING_GOLD: u16 = 18;
 /// Equal reward for a verified win, loss or rules draw.

@@ -7,7 +7,8 @@ use central_api::Token;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-pub(super) const MAX_INPUT: usize = baylee_tower_store::MAX_STATE_BYTES + config::MAX_CONFIG + 4096;
+pub(super) const MAX_INPUT: usize =
+    baylee_tower_store::MAX_PUBLICATION_BYTES + config::MAX_CONFIG + 4096;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -107,7 +108,7 @@ impl Operation {
             } => {
                 uuid7(*cohort)?;
                 if !(1..=MAX_STAGES).contains(stage)
-                    || !(1..=8).contains(archetype)
+                    || !(1..=64).contains(archetype)
                     || build.deck.len() > usize::from(baylee_tower::cards::DECK_MAX)
                     || build.active.len() > 6
                 {

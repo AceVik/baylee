@@ -1,6 +1,99 @@
 use super::*;
 
 #[test]
+fn fifty_build_arounds_pass_native_admission_with_real_mana_bases() {
+    let content = expeditions().unwrap();
+    validate_catalog(&content.catalog).unwrap();
+    assert_eq!(content.starters.len(), 50);
+    assert!(content.catalog.cards.len() <= baylee_tower::cards::MAX_CATALOG);
+    let mut with_nonbasics = 0;
+    for starter in &content.starters {
+        validate_seat(&seat(starter)).unwrap();
+        let commander =
+            baylee_cards::by_index(starter.formation.as_ref().unwrap().commander).unwrap();
+        for color in commander.color_identity.iter() {
+            let basic = baylee_cards::decks::basic_lands()[color as usize].unwrap();
+            assert!(
+                starter.deck.iter().any(|row| row.card == basic),
+                "{} has no basic search target for {color:?}",
+                commander.name()
+            );
+        }
+        let mut lands = 0;
+        let mut nonbasics = 0;
+        for row in &starter.deck {
+            let definition = baylee_cards::by_index(row.card).unwrap();
+            if definition.faces[0]
+                .types
+                .contains(baylee_core::types::TypeSet::LAND)
+            {
+                lands += u16::from(row.copies);
+                if !baylee_cards::formats::is_basic_land(row.card) {
+                    nonbasics += 1;
+                    assert_eq!(starter.copies(row.card), 1);
+                }
+            }
+        }
+        assert!((15..=18).contains(&lands), "land count {lands}");
+        with_nonbasics += usize::from(nonbasics > 0);
+    }
+    assert!(
+        with_nonbasics >= 40,
+        "only {with_nonbasics} developed mana bases"
+    );
+    // A legal generic pile is not a tribal build-around. These independent
+    // checks inspect the final native definitions, after builder refinement.
+    for (leader, tribes) in [
+        (
+            "Rin and Seri, Inseparable",
+            vec![
+                baylee_core::generated::subtypes::creature::CAT,
+                baylee_core::generated::subtypes::creature::DOG,
+            ],
+        ),
+        (
+            "Giada, Font of Hope",
+            vec![baylee_core::generated::subtypes::creature::ANGEL],
+        ),
+        (
+            "Dwynen, Gilt-Leaf Daen",
+            vec![baylee_core::generated::subtypes::creature::ELF],
+        ),
+        (
+            "Pashalik Mons",
+            vec![baylee_core::generated::subtypes::creature::GOBLIN],
+        ),
+    ] {
+        let leader_card = baylee_cards::decks::by_name(leader).unwrap();
+        let starter = content
+            .starters
+            .iter()
+            .find(|starter| starter.formation.as_ref().unwrap().commander == leader_card)
+            .unwrap();
+        let tribal = starter
+            .deck
+            .iter()
+            .filter(|row| {
+                let face = &baylee_cards::by_index(row.card).unwrap().faces[0];
+                tribes.iter().any(|tribe| face.subtypes.contains(tribe))
+            })
+            .count();
+        assert!(tribal >= 6, "{leader}: only {tribal} tribal spells");
+    }
+    // Standard Commander keeps its independent hundred-card size contract.
+    let first = seat(&content.starters[0]);
+    let main: Vec<_> = first.deck.iter().map(|row| row.card).collect();
+    assert!(
+        !baylee_cards::formats::check(
+            baylee_cards::formats::Shape::Commander,
+            &main,
+            &[first.commanders[0].card]
+        )
+        .is_empty()
+    );
+}
+
+#[test]
 fn five_distinct_starters_use_only_tested_cards_and_actual_commander_identity() {
     let mut unavailable = Vec::new();
     for template in starters::ALL {

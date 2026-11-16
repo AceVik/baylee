@@ -27,6 +27,9 @@ use uuid::Uuid;
 const HEARTBEAT: Duration = Duration::from_secs(15);
 const FLUSH: Duration = Duration::from_millis(300);
 
+#[cfg(test)]
+mod tests;
+
 pub(super) async fn upgrade(
     State(players): State<Arc<Players>>,
     OriginalUri(uri): OriginalUri,
@@ -173,10 +176,11 @@ fn watch(
     Ok(())
 }
 
-fn dirty(watches: &mut [Watch], change: Change) {
+fn dirty(watches: &mut [Watch], change: Change, account: Uuid) {
     for watch in watches {
         watch.dirty |= match (&watch.request, change) {
             (Request::Run { run }, Change::Run(changed)) => *run == changed,
+            (Request::Cohorts { .. }, Change::Draft(changed)) => account == changed,
             (_, Change::Resync)
             | (Request::Ranking { .. }, Change::Ranking)
             | (Request::Cohorts { .. }, Change::Catalog) => true,
@@ -259,7 +263,7 @@ async fn serve(
                 }
             }
             change = changes.recv() => {
-                dirty(&mut watches, change.unwrap_or(Change::Resync));
+                dirty(&mut watches, change.unwrap_or(Change::Resync), account);
                 Ok(())
             }
             _ = flush.tick(), if watches.iter().any(|w| w.dirty) => {

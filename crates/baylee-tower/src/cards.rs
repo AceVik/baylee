@@ -8,7 +8,7 @@ mod commander;
 pub use commander::{Formation, RunCard};
 
 /// A deliberately finite reviewed card catalog for a rules revision.
-pub const MAX_CATALOG: usize = 128;
+pub const MAX_CATALOG: usize = 2048;
 /// Tower's limited-size decks allow extra cards, but cannot be unbounded.
 pub const DECK_MIN: u16 = 40;
 /// Hard deck bound; basic lands do not bypass it.
@@ -44,7 +44,8 @@ impl Catalog {
     /// # Errors
     /// Oversized/empty catalog, duplicate identity, invalid free card or price.
     pub fn validate(&self) -> Result<(), Refusal> {
-        if self.cards.is_empty() || self.cards.len() > MAX_CATALOG {
+        let limit = if self.is_run() { MAX_CATALOG } else { 128 };
+        if self.cards.is_empty() || self.cards.len() > limit {
             return Err(Refusal::Invalid);
         }
         let mut seen = BTreeSet::new();
@@ -100,6 +101,11 @@ impl Collection {
     /// Malformed lists, unknown cards, unowned copies or an illegal deck size.
     pub fn validate(&self, catalog: &Catalog) -> Result<(), Refusal> {
         catalog.validate()?;
+        self.validate_cards(catalog)
+    }
+
+    // The caller has validated this immutable catalog once for the whole batch.
+    fn validate_cards(&self, catalog: &Catalog) -> Result<(), Refusal> {
         if catalog.is_run() {
             return commander::validate(self, catalog);
         }

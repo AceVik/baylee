@@ -7,20 +7,22 @@ use baylee_tower::cards::{Card, Catalog, Collection, Formation, RunCard, Stack};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+mod expeditions;
 mod starters;
+pub use expeditions::expeditions;
 
 #[cfg(test)]
 use baylee_cards_pool as _;
 #[cfg(test)]
 mod tests;
 
-/// An operator can bind this content to one exact generation-four executor.
+/// An operator binds frozen content to the publication's exact native executor.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Content {
     /// Frozen card identity and Commander metadata, derived from the compiled registry.
     pub catalog: Catalog,
-    /// Five distinct, independently legal opening collections.
+    /// Distinct, independently legal opening collections, frozen at publication.
     pub starters: Vec<Collection>,
 }
 
@@ -36,6 +38,9 @@ pub enum Error {
     /// The generation-four deck contract was violated.
     #[error("invalid forty-card Commander formation")]
     Formation,
+    /// The shared curve/synergy/mana-base builder could not make a starter.
+    #[error("starter deck generation failed: {0}")]
+    Generation(#[from] baylee_cards::deckgen::DeckGenError),
 }
 
 /// Build the five opening archetypes. No random deck changes occur at enrollment.

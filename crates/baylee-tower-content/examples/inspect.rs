@@ -4,8 +4,10 @@ use baylee_cards_pool as _;
 
 fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
+    let commanders = args.first().is_some_and(|arg| arg == "--commanders");
     let colors = args
         .first()
+        .filter(|_| !commanders)
         .map_or("WUBRG", String::as_str)
         .chars()
         .filter_map(baylee_core::color::Color::from_symbol)
@@ -17,10 +19,19 @@ fn main() {
         {
             continue;
         }
+        if commanders
+            && !baylee_cards::decks::leader_of(card.index)
+                .is_some_and(|leader| leader.eligible && !leader.background)
+        {
+            continue;
+        }
         let face = &card.faces[0];
         let text = format!("{} {:?}", face.name, card.abilities).to_lowercase();
         if terms.is_empty() || terms.iter().any(|term| text.contains(term)) {
-            println!("{} | {:?}", face.name, face.mana_cost);
+            println!(
+                "{} | {:?} | {:?}",
+                face.name, face.mana_cost, card.color_identity
+            );
         }
     }
 }

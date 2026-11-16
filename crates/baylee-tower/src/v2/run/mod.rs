@@ -100,7 +100,7 @@ impl Run {
         seed: &[u8; 32],
         generator: u16,
     ) -> Result<Self, Refusal> {
-        let economy = if generator == super::generation::RUN {
+        let economy = if super::generation::is_run(generator) {
             Economy::for_run()
         } else {
             Economy::default()
@@ -157,9 +157,9 @@ impl Run {
         self.economy.validate()?;
         // New inventory rules are admitted only with their own frozen run
         // generation; legacy publications cannot acquire extra active slots.
-        if (self.shop.generator == super::generation::RUN)
+        if (super::generation::is_run(self.shop.generator))
             != (self.economy.inventory.layout == super::inventory::Layout::Run)
-            || (self.shop.generator == super::generation::RUN) != catalog.is_run()
+            || (super::generation::is_run(self.shop.generator)) != catalog.is_run()
         {
             return Err(Refusal::Invalid);
         }
@@ -197,7 +197,7 @@ impl Run {
         }
         self.validate_execution()?;
         let mut reward_gold = self.validate_rewards(catalog)?;
-        if self.shop.generator == super::generation::RUN {
+        if super::generation::is_run(self.shop.generator) {
             if self.income.len() != self.history.len() {
                 return Err(Refusal::Invalid);
             }

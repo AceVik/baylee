@@ -126,6 +126,25 @@ pub(crate) fn shape_problems(
     side: &[CardIndex],
     leaders: &[CardIndex],
 ) -> Vec<Problem> {
+    shape_problems_at_size(shape, main, side, leaders, SINGLETON_SIZE)
+}
+
+/// Internal limited Commander builder: share every eligibility/copy/identity check.
+pub(crate) fn commander_at_size(
+    main: &[CardIndex],
+    leaders: &[CardIndex],
+    size: usize,
+) -> Vec<Problem> {
+    shape_problems_at_size(Shape::Commander, main, &[], leaders, size)
+}
+
+fn shape_problems_at_size(
+    shape: Shape,
+    main: &[CardIndex],
+    side: &[CardIndex],
+    leaders: &[CardIndex],
+    singleton_size: usize,
+) -> Vec<Problem> {
     let mut problems = Vec::new();
     for card in main.iter().chain(side).chain(leaders) {
         if crate::by_index(*card).is_none() {
@@ -160,10 +179,10 @@ pub(crate) fn shape_problems(
             }
         }
         Shape::Highlander | Shape::Commander => {
-            if size != SINGLETON_SIZE {
+            if size != singleton_size {
                 problems.push(Problem::WrongSize {
                     have: count(size),
-                    need: count(SINGLETON_SIZE),
+                    need: count(singleton_size),
                 });
             }
         }

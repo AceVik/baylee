@@ -97,17 +97,6 @@ pub(in crate::lobby) fn draw(
     if !workspace {
         header(commands, hero, kit, ui);
     }
-    if (ui.model.run().is_none() && !matches!(ui.page, Page::Collection | Page::Ranking))
-        || ui.page == Page::Overview
-    {
-        label(
-            commands,
-            hero,
-            kit,
-            Phrase::EchoesLead.text(lang),
-            tokens::MUTED,
-        );
-    }
     if !state.can_enter_tower() {
         label(
             commands,
@@ -158,7 +147,7 @@ fn header(commands: &mut Commands, hero: Entity, kit: Kit, ui: &Ui) {
     commands.entity(top).add_child(spacer);
     let market = !matches!(ui.page, Page::Overview | Page::Collection | Page::Ranking)
         && ui.model.run().is_some_and(|run| {
-            ui.page == Page::Shop || run.shop.generator == domain::v2::generation::RUN
+            ui.page == Page::Shop || domain::v2::generation::is_run(run.shop.generator)
         });
     if !market && ui.page != Page::Collection {
         control(
@@ -263,14 +252,14 @@ fn selected(
             completed::draw(commands, body, kit, ui, run);
             return;
         }
-        if run.shop.generator == domain::v2::generation::RUN
+        if domain::v2::generation::is_run(run.shop.generator)
             && ui.page == Page::Shop
             && let Some(cohort) = ui.model.publication()
         {
             runshop::draw(commands, body, kit, ui, run, cohort);
             return;
         }
-        if ui.page != Page::Shop && run.shop.generator != domain::v2::generation::RUN {
+        if ui.page != Page::Shop && !domain::v2::generation::is_run(run.shop.generator) {
             landing::progress(commands, hero, kit, ui, run);
         }
         let tabs = row(commands, body, kit);
@@ -279,7 +268,7 @@ fn selected(
             (Page::Equipment, Phrase::EchoesEquipment),
             (Page::Deck, Phrase::EchoesDeck),
         ] {
-            if page == Page::Equipment && run.shop.generator == domain::v2::generation::RUN {
+            if page == Page::Equipment && domain::v2::generation::is_run(run.shop.generator) {
                 continue;
             }
             control(
@@ -330,7 +319,9 @@ fn notices(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
             tokens::DANGER,
         );
     }
-    if ui.model.uncertain() {
+    // Pending is also set during an ordinary in-flight mutation. Only offer
+    // recovery after its transport has actually stopped answering.
+    if ui.model.uncertain() && !ui.model.busy() {
         label(
             commands,
             root,

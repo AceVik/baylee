@@ -2474,10 +2474,12 @@ dependencies = [
 name = "baylee-tower-store"
 version = "0.2.0-beta.o1"
 dependencies = [
+ "baylee-cards-pool",
  "baylee-core",
  "baylee-protocol",
  "baylee-tower",
  "baylee-tower-api",
+ "baylee-tower-content",
  "central-api",
  "sea-orm",
  "serde",

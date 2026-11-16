@@ -6,9 +6,9 @@ permanent accomplishment receipts. This runbook describes local/offline
 provisioning; release approval, calibration, retention and the final least-privilege
 runtime grants remain separate release requirements.
 
-The Commander run catalog uses generator 4 / native `tower-5` and API header
-`baylee-tower-version: 6` on the existing `/v2/player` endpoint and host routes.
-Native players may also use `/v2/player/ws/6`; reverse proxies must forward
+The expanded Commander run catalog uses generator 5 / native `tower-5` and API header
+`baylee-tower-version: 7` on the existing `/v2/player` endpoint and host routes.
+Native players may also use `/v2/player/ws/7`; reverse proxies must forward
 WebSocket upgrades and allow the 15-second ping/pong heartbeat. Migration 015 adds
 transactional invalidation triggers with invoker rights and a fixed `pg_catalog`
 search path. Each authority listens on its schema name; hints are private-data-free
@@ -25,10 +25,21 @@ remain frozen; new families cannot enter old runs. An old run cannot silently
 resume on the current binary, even if its source registry appears compatible.
 
 API 5 introduced the generation-four reward phase, six-slot run inventory and
-39+1 Commander formations. Generation four is the new-run default; enrollment
+39+1 Commander formations. Generation five is the new-run default; enrollment
 still requires an explicit immutable publication and matching installed executor.
-The separate `baylee-tower-content` adapter builds five reviewed-card starter
-collections and validates their native metadata; it does not certify balance.
+The separate `baylee-tower-content` adapter builds fifty reviewed-card starter
+collections through the existing synergy/curve/mana-source builder and validates
+their native metadata; it does not certify measured balance. Generation four's
+five original lists remain supported. Migration 016 expands the house-archetype
+bound to 64; the publication still enforces its exact generation's pool. API 7
+offers three stable owner-bound indices and rejects forged selections at Start.
+Draft reads do not opt into echo sharing. Enrollment seeds share the existing
+per-account run-count bound and cannot be freely resampled by abandoning.
+Immutable publications have a separate 256-KiB encoded limit; mutable run state
+retains its 128-KiB limit. Cohort pages contain at most three publications so
+their envelopes remain below the one-MiB player response bound. Migration 016
+notifies only changed existing enrollment seeds: first reads cannot create a
+notification/read loop, and seed invalidations reach only that account's sockets.
 After verified settlement, claim
 the pending cards before shopping or abandoning. Reconnecting preserves the
 same candidates. An already-owned singleton choice grants one gold instead.
@@ -53,7 +64,7 @@ must not claim that Central deletion alone has removed Tower data. Private bests
 survive raw-run retention until player/cohort removal; the new projection starts
 with verified completions after migration, without inventing scores for old runs.
 Apply migration with the schema owner and renew the reviewed runtime table grants
-before starting the matched API-6 service. Production retention/privacy approval
+before starting the matched API-7 service. Production retention/privacy approval
 remains a release requirement.
 
 ## Input and authority
@@ -96,7 +107,7 @@ a fixed diagnostic containing no input. A failed preflight never changes state.
 | `provision` | `name`, `role`, `credential` | `{"result":"operator","id":<UUIDv7>}`. Role is exactly `host`, `verifier`, `supervisor`, `publisher` or `courier`; credential is 64 lowercase hex digits. Names are 1–160 bytes, trimmed and without control characters. An exact enabled name/role/token retry returns the same ID. Changed name/role or a revoked credential refuses. |
 | `revoke` | `operator` | `{"result":"done"}`. Disables an existing operator; exact repeats succeed. Live authenticated principals lose their role on the next protected operation. No history is deleted or replacement credential minted. |
 | `approve_host` | `host`, `origin` | `done`. Binds an enabled Host to one canonical approved gateway origin. Production requires HTTPS; development allows only numeric-loopback HTTP. An exact repeat succeeds; changing the origin refuses. |
-| `publish` | `publication` | `{"result":"published","cohort":<UUIDv7>}`. Accepts the typed `baylee_tower_store::Publication`: frozen cohort/executor identity, reviewed catalog/prices and 5–8 distinct Commander starters (three for retained generations). Exact canonical repeats return the same ID. Different content under the same contract refuses. |
+| `publish` | `publication` | `{"result":"published","cohort":<UUIDv7>}`. Accepts the typed `baylee_tower_store::Publication`: frozen cohort/executor identity, reviewed catalog/prices and 50–64 distinct Commander starters for generation five (5–8 for generation four, three for earlier generations). Exact canonical repeats return the same ID. Different content under the same contract refuses. |
 | `publish_house` | `publisher`, `cohort`, `stage`, `archetype`, `build` | `done`. Additionally requires a live dedicated Publisher credential. Stage is 1–12, archetype 1–8 (1–3 for retained cohorts). The typed `Build` contains `formation`, `deck`, `active`, `potions`; it must validate against that cohort's saved catalog and loadout bounds. Run equipment has six slots; retained builds keep three. An exact repeat succeeds; changing a published fallback refuses. |
 | `pause_enrollment` | `cohort` | `done`. Closes new enrollment, preserving existing runs, receipts and immutable content. Exact repeats succeed. Republishing the same content cannot reopen it. |
 

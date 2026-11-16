@@ -201,7 +201,7 @@ pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
                 .echoes
                 .model
                 .run()
-                .is_some_and(|run| run.shop.generator != domain::v2::generation::RUN)
+                .is_some_and(|run| !domain::v2::generation::is_run(run.shop.generator))
         {
             cx.scrolled.set(List::Table, 0.0);
             cx.scrolled.set(List::EchoesInspector, 0.0);
@@ -260,7 +260,7 @@ impl Ui {
             && matches!(run.phase, api::Phase::Shop | api::Phase::Reward)
             && !self.model.uncertain()
         {
-            if run.shop.generator == domain::v2::generation::RUN
+            if domain::v2::generation::is_run(run.shop.generator)
                 && !matches!(
                     command,
                     Command::Abandon {} | Command::Sell { .. } | Command::Fuse { .. }

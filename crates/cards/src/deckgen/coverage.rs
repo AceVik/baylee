@@ -101,15 +101,24 @@ pub struct CoverageReport {
 /// # Errors
 /// Returns an error if the pool has too few spells in the chosen colours or if
 /// the resulting deck fails [`crate::formats::check`].
+pub fn build_synergistic(
+    pool: &Pool,
+    req: &DeckBuildRequest<'_>,
+) -> Result<Generated, DeckGenError> {
+    build_sized(pool, req, None, &[])
+}
+
 #[allow(
     clippy::too_many_lines,
     clippy::cast_precision_loss,
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss
 )]
-pub fn build_synergistic(
+pub(super) fn build_sized(
     pool: &Pool,
     req: &DeckBuildRequest<'_>,
+    commander_size: Option<usize>,
+    required: &[CardIndex],
 ) -> Result<Generated, DeckGenError> {
     let mut rng = Rng::new(req.seed ^ 0x5eed_dec5);
     let shape = req.shape;
@@ -173,7 +182,8 @@ pub fn build_synergistic(
                 60
             }
         }
-        Shape::Highlander | Shape::Commander => formats::SINGLETON_SIZE,
+        Shape::Highlander => formats::SINGLETON_SIZE,
+        Shape::Commander => commander_size.unwrap_or(formats::SINGLETON_SIZE),
     };
     let library = size - leaders.len();
     let lands = ((size as f64) * archetype.land_share()).round() as usize;
@@ -255,6 +265,19 @@ pub fn build_synergistic(
             main.push(seed_card.card);
         }
         theme.add(&seed_card.profile, add_n as u16);
+    }
+
+    for &card in required {
+        let entry = pool_by_id
+            .get(&card)
+            .ok_or_else(|| DeckGenError("required card is absent".into()))?;
+        if entry.land || !fits(entry) || !taken.insert(card) || main.len() >= spells {
+            return Err(DeckGenError("invalid required spell package".into()));
+        }
+        main.push(card);
+        protected.insert(card);
+        theme.add(&entry.profile, 1);
+        wanted_partners.extend(entry.profile.named_partners.iter().copied());
     }
 
     let anchor_is_artifact_or_colorless = anchor_entry.is_some_and(|ae| {
@@ -542,7 +565,10 @@ pub fn build_synergistic(
         main,
         leaders,
     };
-    let problems = formats::check(shape, &generated.main, &generated.leaders);
+    let problems = commander_size.map_or_else(
+        || formats::check(shape, &generated.main, &generated.leaders),
+        |size| formats::commander_at_size(&generated.main, &generated.leaders, size),
+    );
     if !problems.is_empty() {
         return Err(DeckGenError(format!(
             "a generated {} deck is not one: {problems:?}",

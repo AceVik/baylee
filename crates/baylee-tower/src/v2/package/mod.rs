@@ -51,7 +51,9 @@ impl Origin {
         let uuid7 = |bytes: &[u8; 16]| bytes[6] >> 4 == 7 && bytes[8] >> 6 == 2;
         let valid = match self {
             Self::Echo { snapshot, account } => uuid7(snapshot) && uuid7(account),
-            Self::House { archetype } => (1..=if generator == crate::v2::generation::RUN {
+            Self::House { archetype } => (1..=if generator == crate::v2::generation::EXPEDITIONS {
+                64
+            } else if crate::v2::generation::is_run(generator) {
                 8
             } else {
                 3

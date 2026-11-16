@@ -31,6 +31,7 @@ use baylee_core::types::{SupertypeSet, TypeSet};
 pub mod coverage;
 pub mod manabase;
 pub mod profile;
+mod run;
 pub mod strategy;
 pub mod synergy;
 
@@ -39,6 +40,7 @@ pub use coverage::{
     build_coverage_corpus_scoped, build_synergistic,
 };
 pub use profile::CardProfile;
+pub use run::{build_commander_run, build_commander_run_with_core};
 
 /// An error encountered while generating a deck or coverage corpus.
 #[derive(Clone, Debug, PartialEq, Eq)]

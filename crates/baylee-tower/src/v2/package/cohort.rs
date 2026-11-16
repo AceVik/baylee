@@ -30,7 +30,7 @@ pub fn catalog_digest(catalog: &Catalog) -> Result<[u8; 32], Refusal> {
 pub fn catalog_digest_for(catalog: &Catalog, generator: u16) -> Result<[u8; 32], Refusal> {
     let contract = generation::contract(generator)?;
     catalog.validate()?;
-    if (generator == generation::RUN) != catalog.is_run() {
+    if (generation::is_run(generator)) != catalog.is_run() {
         return Err(Refusal::Invalid);
     }
     let mut cards = catalog.cards.clone();

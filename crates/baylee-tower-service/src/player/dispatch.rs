@@ -20,18 +20,12 @@ impl Players {
             Request::Listing { revision, listed } => Response::Listing {
                 listing: self.store.listing(account, revision, listed, name).await?,
             },
-            Request::Cohorts { before } => Response::Cohorts {
-                consent: baylee_tower_store::CONSENT_REVISION,
-                cohorts: self
-                    .store
-                    .cohorts(before, page)
-                    .await?
-                    .into_iter()
-                    .map(|(id, saved)| publication(id, saved))
-                    .collect(),
-            },
+            Request::Cohorts { before } => self.cohorts(account, before).await?,
             Request::Cohort { cohort } => Response::Cohort {
-                cohort: Box::new(publication(cohort, self.store.published(cohort).await?)),
+                cohort: Box::new(
+                    self.publication(account, cohort, self.store.published(cohort).await?)
+                        .await?,
+                ),
             },
             Request::Runs { before } => Response::Runs {
                 runs: self
@@ -105,6 +99,41 @@ impl Players {
             }
         })
     }
+
+    async fn cohorts(&self, account: Uuid, before: Option<Uuid>) -> Result<Response, Failure> {
+        let bound =
+            u8::try_from(baylee_tower_api::COHORT_PAGE_SIZE).map_err(|_| Failure::Unavailable)?;
+        let saved = self.store.cohorts(before, bound).await?;
+        let mut cohorts = Vec::with_capacity(saved.len());
+        for (id, publication) in saved {
+            cohorts.push(self.publication(account, id, publication).await?);
+        }
+        Ok(Response::Cohorts {
+            consent: baylee_tower_store::CONSENT_REVISION,
+            cohorts,
+        })
+    }
+
+    async fn publication(
+        &self,
+        account: Uuid,
+        id: Uuid,
+        saved: baylee_tower_store::Publication,
+    ) -> Result<baylee_tower_api::Cohort, Failure> {
+        let offered = if saved.cohort.generator == baylee_tower::v2::generation::EXPEDITIONS {
+            self.store.starter_choices(account, id, seed()?).await?
+        } else {
+            let count = u8::try_from(saved.starters.len()).map_err(|_| Failure::Unavailable)?;
+            (0..count).collect()
+        };
+        Ok(baylee_tower_api::Cohort {
+            id,
+            contract: saved.cohort,
+            catalog: saved.catalog,
+            starters: saved.starters,
+            offered,
+        })
+    }
 }
 
 fn seed<const N: usize>() -> Result<[u8; N], Failure> {
@@ -121,13 +150,4 @@ fn entropy() -> Result<Entropy, Failure> {
             policy: u64::from_le_bytes(seed()?),
         },
     })
-}
-
-fn publication(id: Uuid, saved: baylee_tower_store::Publication) -> baylee_tower_api::Cohort {
-    baylee_tower_api::Cohort {
-        id,
-        contract: saved.cohort,
-        catalog: saved.catalog,
-        starters: saved.starters,
-    }
 }

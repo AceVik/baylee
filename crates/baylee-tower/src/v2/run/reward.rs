@@ -116,7 +116,7 @@ fn unique_nonbasics(cards: &[CardIndex], catalog: &Catalog) -> Result<(), Refusa
 
 impl Run {
     pub(super) fn validate_rewards(&self, catalog: &Catalog) -> Result<u16, Refusal> {
-        if self.shop.generator != crate::v2::generation::RUN {
+        if !crate::v2::generation::is_run(self.shop.generator) {
             return if self.reward.is_none() && self.claims.is_empty() {
                 Ok(0)
             } else {

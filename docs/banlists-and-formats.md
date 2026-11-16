@@ -13,6 +13,13 @@ Legality lives entirely in the gateway; the engine enforces game rules only and
 has no format, list or legality code. The deck builder shows the same verdict
 live, from the same function; the gateway's is the one that counts.
 
+Tower's forty-card Commander formation is an explicit limited-format adapter:
+`deckgen::build_commander_run` shares the synergy, curve, mana-source and
+eligibility/identity checks, with a 39-card library and one named commander.
+It does not relax `formats::check(Shape::Commander)`, which still requires 100
+cards. The Tower authority additionally enforces its owned pool and five-card
+sideboard limit. Published lists are frozen rather than regenerated at enrollment.
+
 House-rule overrides per lobby are out of scope for now: a lobby's host picks one
 list or none, and that is all a lobby can say about legality.
 

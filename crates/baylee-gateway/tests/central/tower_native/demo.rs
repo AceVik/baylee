@@ -42,18 +42,10 @@ pub(super) fn run(runtime: &Runtime, served: &Served) {
             &super::super::demo::document(&served.origin),
         );
         let tower = account.tower().unwrap();
-        let baylee_tower_api::Response::Run { run } = tower
-            .exchange(&baylee_tower_api::Request::Start {
-                request: uuid::Uuid::now_v7(),
-                cohort: fixture.cohort,
-                starter: 0,
-                consent: baylee_tower_store::CONSENT_REVISION,
-            })
-            .unwrap()
-        else {
-            panic!("owned synthetic run");
-        };
-        if std::env::var("BAYLEE_TOWER_UI_SHOWCASE").as_deref() == Ok("1") {
+        let run = starting_run(&tower, fixture.cohort);
+        if std::env::var("BAYLEE_TOWER_UI_SHOWCASE").as_deref() == Ok("1")
+            && let Some(run) = &run
+        {
             runtime.block_on(showcase::prepare(fixture, run.id));
         }
         std::fs::write(
@@ -61,7 +53,7 @@ pub(super) fn run(runtime: &Runtime, served: &Served) {
             serde_json::to_vec(&serde_json::json!({
                 "mode": "synthetic-only", "central": served.endpoint.origin(),
                 "gateway": served.origin, "tower": fixture.origin, "account": "echoes_demo",
-                "run": run.id, "cohort": fixture.cohort,
+                "run": run.as_ref().map(|run| run.id), "cohort": fixture.cohort,
             }))
             .unwrap(),
         )
@@ -92,6 +84,33 @@ pub(super) fn run(runtime: &Runtime, served: &Served) {
     if let Err(panic) = result {
         std::panic::resume_unwind(panic);
     }
+}
+
+fn starting_run(
+    tower: &baylee_account::TowerHttp,
+    cohort: uuid::Uuid,
+) -> Option<Box<baylee_tower_api::Run>> {
+    if std::env::var("BAYLEE_TOWER_UI_FRESH").as_deref() == Ok("1") {
+        return None;
+    }
+    let baylee_tower_api::Response::Cohort { cohort: draft } = tower
+        .exchange(&baylee_tower_api::Request::Cohort { cohort })
+        .unwrap()
+    else {
+        panic!("owned starter draft")
+    };
+    let baylee_tower_api::Response::Run { run } = tower
+        .exchange(&baylee_tower_api::Request::Start {
+            request: uuid::Uuid::now_v7(),
+            cohort,
+            starter: draft.offered[0],
+            consent: baylee_tower_store::CONSENT_REVISION,
+        })
+        .unwrap()
+    else {
+        panic!("owned synthetic run")
+    };
+    Some(run)
 }
 
 async fn agent(

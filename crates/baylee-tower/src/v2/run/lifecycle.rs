@@ -55,7 +55,7 @@ impl Run {
         catalog: &Catalog,
         seed: &[u8; 32],
     ) -> Result<Self, Refusal> {
-        if self.shop.generator == crate::v2::generation::RUN {
+        if crate::v2::generation::is_run(self.shop.generator) {
             return Err(Refusal::Unavailable);
         }
         self.settlement(revision, result, catalog, seed, None)
@@ -80,7 +80,7 @@ impl Run {
         {
             return Err(Refusal::Stale);
         }
-        let reward = if self.shop.generator == crate::v2::generation::RUN {
+        let reward = if crate::v2::generation::is_run(self.shop.generator) {
             if package.builds[0].active != self.economy.inventory.active() {
                 return Err(Refusal::Stale);
             }

@@ -5,10 +5,10 @@ use std::io::{Read, Write};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().skip(1).collect();
-    let content = baylee_tower_content::standard()?;
+    let content = baylee_tower_content::expeditions()?;
     let value = match args.as_slice() {
         [mode] if mode == "--check" => serde_json::json!({
-            "generation": baylee_tower::v2::generation::RUN,
+            "generation": baylee_tower::v2::generation::EXPEDITIONS,
             "starters": content.starters.len(),
             "tested_cards": content.catalog.cards.len(),
             "balance_measured": false,
@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let cohort = baylee_tower::v2::package::Cohort::for_generation(
                 identity,
                 &content.catalog,
-                baylee_tower::v2::generation::RUN,
+                baylee_tower::v2::generation::EXPEDITIONS,
             )?;
             serde_json::json!({"cohort": cohort, "catalog": content.catalog, "starters": content.starters})
         }

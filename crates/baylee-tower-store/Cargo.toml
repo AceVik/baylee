@@ -24,6 +24,8 @@ uuid.workspace = true
 
 [dev-dependencies]
 baylee-core.workspace = true
+baylee-tower-content.workspace = true
+baylee-cards-pool.workspace = true
 tokio.workspace = true
 url.workspace = true
 

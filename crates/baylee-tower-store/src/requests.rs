@@ -22,7 +22,7 @@ impl Store {
     ) -> Result<(), Error> {
         uuid7(account)?;
         if create {
-            db.execute_raw(self.statement("INSERT INTO @tower.players(account,echo_consent) VALUES($1,true) ON CONFLICT(account) DO NOTHING", vec![account.into()]))
+            db.execute_raw(self.statement("INSERT INTO @tower.players(account,echo_consent) VALUES($1,false) ON CONFLICT(account) DO NOTHING", vec![account.into()]))
                 .await.map_err(|_| Error::Unavailable)?;
         }
         db.query_one_raw(self.statement(

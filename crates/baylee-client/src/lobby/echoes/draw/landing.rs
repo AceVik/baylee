@@ -25,19 +25,19 @@ pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
 fn enrollment(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
     let lang = lang(kit);
     let band = row(commands, body, kit);
-    for cohort in ui.model.cohorts() {
+    for cohort in ui.model.cohorts().iter().take(1) {
         let run_format = cohort
             .starters
             .iter()
             .all(|starter| starter.formation.is_some());
         let card = tile(commands, band, kit);
-        presentation::title(
-            commands,
-            card,
-            kit,
-            glyph::CROWN,
-            Phrase::EchoesNewRun.text(lang),
-        );
+        commands
+            .entity(card)
+            .entry::<Node>()
+            .and_modify(move |mut node| {
+                node.padding = UiRect::all(kit.m.px(12.0));
+                node.row_gap = kit.m.px(10.0);
+            });
         if !run_format {
             label(
                 commands,
@@ -54,16 +54,11 @@ fn enrollment(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
             Phrase::EchoesStarterLead.text(lang),
             tokens::MUTED,
         );
-        widgets::paragraph(
-            commands,
-            card,
-            kit,
-            Phrase::EchoesStartSharing.text(lang),
-            tokens::MUTED,
-        );
         let choices = choices(commands, card, kit, run_format);
-        for (index, starter) in cohort.starters.iter().enumerate() {
-            let number = u8::try_from(index).unwrap_or(0);
+        for &number in &cohort.offered {
+            let Some(starter) = cohort.starters.get(usize::from(number)) else {
+                continue;
+            };
             if let Some(formation) = &starter.formation {
                 starter::draw(
                     commands,
@@ -143,10 +138,13 @@ fn choices(commands: &mut Commands, card: Entity, kit: Kit, run_format: bool) ->
             .entry::<Node>()
             .and_modify(move |mut node| {
                 node.display = Display::Grid;
-                node.grid_template_columns = vec![RepeatedGridTrack::minmax(
-                    GridTrackRepetition::AutoFill,
-                    MinTrackSizingFunction::Px(kit.m.scaled(210.0)),
-                    MaxTrackSizingFunction::Fraction(1.0),
+                node.grid_template_columns = vec![RepeatedGridTrack::flex(
+                    if kit.m.frame == crate::shellkit::Frame::Phone {
+                        1
+                    } else {
+                        3
+                    },
+                    1.0,
                 )];
                 node.align_items = AlignItems::Stretch;
             });
@@ -156,7 +154,14 @@ fn choices(commands: &mut Commands, card: Entity, kit: Kit, run_format: bool) ->
 
 fn enrollment_footer(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
     let lang = lang(kit);
-    let privacy = panel(commands, body, kit);
+    let privacy = row(commands, body, kit);
+    widgets::paragraph(
+        commands,
+        privacy,
+        kit,
+        Phrase::EchoesStartSharing.text(lang),
+        tokens::MUTED,
+    );
     if ui.withdrawn {
         label(
             commands,
@@ -175,20 +180,4 @@ fn enrollment_footer(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
         Action::Withdraw,
         !ui.model.uncertain(),
     );
-    if let Some(last) = ui
-        .model
-        .cohorts()
-        .last()
-        .filter(|_| ui.model.cohorts().len() == api::PAGE_SIZE)
-    {
-        control(
-            commands,
-            body,
-            kit,
-            ui,
-            Phrase::ChallengeOlder.text(lang),
-            Action::Read(Read::Cohorts(Some(last.id))),
-            true,
-        );
-    }
 }

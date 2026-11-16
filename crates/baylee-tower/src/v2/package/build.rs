@@ -99,7 +99,7 @@ impl Build {
     /// Invalid build or an unsupported generation/definition.
     pub fn validate_for(&self, catalog: &Catalog, generator: u16) -> Result<(), Refusal> {
         crate::v2::generation::families(generator)?;
-        if (generator == crate::v2::generation::RUN) != catalog.is_run() {
+        if (crate::v2::generation::is_run(generator)) != catalog.is_run() {
             return Err(Refusal::Invalid);
         }
         for definition in &self.active {

@@ -55,6 +55,7 @@ pub(super) fn fixture() -> (State, Cohort, Run) {
         .unwrap(),
         catalog,
         starters,
+        offered: vec![0, 1, 2, 3, 4],
     };
     let raw = domain::v2::run::Run::begin_for(
         &cohort.catalog,

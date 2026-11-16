@@ -28,7 +28,6 @@ impl Catalog {
     /// # Errors
     /// Invalid catalog/decks, wrong choice count or repeated run commanders.
     pub fn validate_starters(&self, starters: &[Collection]) -> Result<(), Refusal> {
-        self.validate()?;
         if if self.is_run() {
             !(5..=8).contains(&starters.len())
         } else {
@@ -36,9 +35,25 @@ impl Catalog {
         } {
             return Err(Refusal::Invalid);
         }
+        self.validate_distinct_starters(starters)
+    }
+
+    /// The expanded, immutable publication pool. Enrollment separately authorizes
+    /// three sampled choices; this does not change the older five-choice contract.
+    /// # Errors
+    /// Wrong pool size, legacy format, repeated commander or illegal formation.
+    pub fn validate_starter_pool(&self, starters: &[Collection]) -> Result<(), Refusal> {
+        if !self.is_run() || !(50..=64).contains(&starters.len()) {
+            return Err(Refusal::Invalid);
+        }
+        self.validate_distinct_starters(starters)
+    }
+
+    fn validate_distinct_starters(&self, starters: &[Collection]) -> Result<(), Refusal> {
+        self.validate()?;
         let mut leaders = BTreeSet::new();
         for starter in starters {
-            starter.validate(self)?;
+            starter.validate_cards(self)?;
             if let Some(formation) = &starter.formation
                 && !leaders.insert(formation.commander)
             {

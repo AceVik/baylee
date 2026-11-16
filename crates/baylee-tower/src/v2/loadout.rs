@@ -46,7 +46,7 @@ pub fn resources_for(
     if seat > 1 || charges.iter().map(|n| u16::from(*n)).sum::<u16>() > 2 {
         return Err(Refusal::Invalid);
     }
-    let attributes = if generator == generation::RUN {
+    let attributes = if generation::is_run(generator) {
         catalog::run_attributes(active)?
     } else {
         catalog::attributes(active)?
@@ -64,7 +64,7 @@ pub fn resources_for(
             healing: charges[0],
             mana: charges[1],
             seedling: false,
-            concealed: generator == generation::RUN,
+            concealed: generation::is_run(generator),
         },
         extensions: SeatExtensions {
             seat,
@@ -155,7 +155,7 @@ pub fn validate_for(preset: &GamePreset, generator: u16) -> Result<(), Refusal> 
             || seat.starting_hand.is_some()
             || !seat.starting_battlefield.is_empty()
             || !seat.emblems.is_empty()
-            || if generator == generation::RUN {
+            || if generation::is_run(generator) {
                 seat.commanders.len() != 1 || seat.deck.len() != 39 || seat.sideboard.len() > 5
             } else {
                 !seat.commanders.is_empty() || !seat.sideboard.is_empty()

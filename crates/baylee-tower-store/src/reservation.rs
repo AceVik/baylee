@@ -111,7 +111,7 @@ impl Store {
         let stage = saved.snapshot.state.shop.stage;
         let archetypes =
             i16::try_from(saved.publication.starters.len()).map_err(|_| Error::Unavailable)?;
-        let rows = db.query_all_raw(self.statement("SELECT archetype,build FROM @tower.house_builds WHERE cohort=$1 AND stage=$2 AND archetype<=$3 ORDER BY archetype LIMIT 8",
+        let rows = db.query_all_raw(self.statement("SELECT archetype,build FROM @tower.house_builds WHERE cohort=$1 AND stage=$2 AND archetype<=$3 ORDER BY archetype LIMIT 64",
             vec![saved.snapshot.cohort.into(), i16::from(stage).into(), archetypes.into()])).await.map_err(|_| Error::Unavailable)?;
         let population = Population {
             count: rows.len() as u64,

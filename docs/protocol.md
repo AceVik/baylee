@@ -6069,7 +6069,7 @@ any application operator role can open an administrative route. The exact input,
 idempotency and revocation rules are in [Tower operations](tower-operations.md).
 
 The global Baylee Tower authority exposes `POST /v2/player` independently of a
-gateway. Its reusable contract is `baylee-tower-api`, version `6` in the required
+gateway. Its reusable contract is `baylee-tower-api`, version `7` in the required
 `Baylee-Tower-Version` header. Requests require exactly one canonical opaque
 `Authorization: Bearer …` issued by Central for this Tower origin, and exactly
 `Content-Type: application/json`. Origin, Cookie, Content-Encoding, query strings,
@@ -6085,9 +6085,15 @@ exact repeat. Account ownership comes from fresh Central introspection, never
 from a JSON field. Neither a result nor a replacement state can be submitted.
 
 `cohorts` and `runs` accept an exclusive optional UUID cursor `before`, return at
-most eight results ordered by descending ID, and continue below the last returned
-ID. Cohorts expose their exact registry/rules contract, reviewed card prices and
-three starters. Runs expose only the owner's shop, cards, inventory, phase,
+most three publications or eight runs ordered by descending ID, and continue below
+the last returned ID. Cohorts expose their exact registry/rules contract, reviewed
+card prices, frozen starter pool and owner-specific canonical `offered` indices.
+Generation five publishes fifty to sixty-four Commander decks and offers exactly
+three; retained generations offer their original three or five-to-eight choices.
+Draft reads create only a bounded technical seed, never echo consent or a run.
+Concurrent reads use the owner lock and the same saved seed. Start independently
+rejects unoffered choices; unpaid abandonment/reload reuses the sample. Only
+verified settlement advances the seed. Runs expose only the owner's shop, cards, inventory, phase,
 revision and verified outcome/turn/potion history. Execution leases, package
 commitments, record heads, opponent builds and seeds are unrepresentable in the
 player projection. Ordinary run reads exclude expired rows and foreign owners.
@@ -6133,10 +6139,10 @@ Failures contain no remote diagnostics. Every handled player response carries
 
 ### Native live Tower transport
 
-`GET /v2/player/ws/6` upgrades the native client to a WebSocket; the path binds the
+`GET /v2/player/ws/7` upgrades the native client to a WebSocket; the path binds the
 wire version before authentication. It requires the same single Tower bearer and
 rejects Origin, Cookie, Content-Encoding and queries. The initial `ready` event
-confirms version 6. Each client frame contains a UUIDv7 transport `serial` and an
+confirms version 7. Each client frame contains a UUIDv7 transport `serial` and an
 ordinary `request`; `reply` echoes the serial and carries the ordinary response or
 a closed, value-free refusal. The serial is not the mutation's durable request ID.
 An uncertain mutation must keep its original request and revision on retry.
@@ -6147,6 +6153,10 @@ PostgreSQL invalidation hints, consumed by one listener per authority process;
 coalesced/missed hints and reconnects resynchronize those bounded subscriptions.
 Hints carry no inventory and cannot authorize a read. SHA-256 snapshot digests
 suppress unchanged frames without retaining four serialized snapshots per socket.
+Migration 016 adds owner-bound draft invalidation after a verified settlement
+changes the saved enrollment seed. Initial draft creation is silent; other
+accounts cannot observe or invalidate that selection. Immutable publications are
+bounded to 256 KiB independently of the 128-KiB mutable run state limit.
 The native client ignores stale run revisions and never treats a pushed snapshot
 as acknowledgment of an uncertain command.
 

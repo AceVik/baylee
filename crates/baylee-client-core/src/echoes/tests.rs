@@ -83,6 +83,7 @@ fn cohort() -> Cohort {
         contract: domain::v2::package::Cohort::for_generation(identity, &catalog, 3).unwrap(),
         catalog,
         starters: vec![starter.clone(), starter.clone(), starter],
+        offered: vec![0, 1, 2],
     }
 }
 

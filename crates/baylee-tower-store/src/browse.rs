@@ -25,7 +25,7 @@ impl Store {
         )).await.map_err(|_| Error::Unavailable)?;
         rows.iter()
             .map(|row| {
-                let publication: Publication = decode(&column::<Vec<u8>>(row, "publication")?)?;
+                let publication = Publication::decoded(&column::<Vec<u8>>(row, "publication")?)?;
                 publication.validate()?;
                 Ok((column(row, "id")?, publication))
             })
@@ -50,7 +50,7 @@ impl Store {
         )).await.map_err(|_| Error::Unavailable)?;
         rows.iter()
             .map(|row| {
-                let publication: Publication = decode(&column::<Vec<u8>>(row, "publication")?)?;
+                let publication = Publication::decoded(&column::<Vec<u8>>(row, "publication")?)?;
                 publication.validate()?;
                 let state: Run = decode(&column::<Vec<u8>>(row, "state")?)?;
                 state.validate_for(&publication.catalog, publication.cohort.generator)?;

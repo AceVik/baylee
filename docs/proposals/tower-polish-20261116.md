@@ -27,7 +27,7 @@ not shipped or validated. No production deployment is authorized.
      correlation and existing mutation receipts. No credential in URL or log.
    - [x] Remove regular UI HTTP polling; unchanged data must not rebuild panels.
 2. **Run flow and content**
-   - [ ] Three stable randomized starter offers from at least 50 meaningful decks;
+   - [x] Three stable randomized starter offers from at least 50 meaningful decks;
      commander art/preview, shared deck inspection, immediate click-to-start.
    - [ ] At least 175 distinct item families with tier progression and actual effects.
    - [ ] More offers, consistent item prices, automatic cross-bag/equipment fusion,
@@ -104,6 +104,36 @@ explicit limits. UI transport state is separate from render-state equality.
   and inspected natively. Idle HUD rebuild counters stayed 93→93 across the first
   inspection interval. Every owned client, backend and PostgreSQL instance was
   stopped and its PID/listener closure verified after each run.
-- Still pending: 50 starters/three offers, 175 item families, additional shop
+- At that milestone still pending: 50 starters/three offers, 175 item families, additional shop
   offers, print/foil-aware weighted loot and three-gold duplicates, transactional
   animations, complete builder integration and the final run-ending scene.
+
+### Generation five: starter draft and native passes five/six
+
+- Fifty explicit Commander build-arounds use the shared curve/synergy builder.
+  The first native inspector exposed a generic-spell problem in Rin and Seri;
+  protected thematic cores now preserve 6–10 relevant cards through refinement.
+  Final-deck tests independently count four tribal packages. Short mana bases
+  retain a basic search target in every commander colour. Ordinary Commander
+  still requires one hundred cards. These are construction checks, not measured
+  win-rate calibration for all fifty matchups.
+- API 7 offers three distinct stable owner-bound indices. PostgreSQL tests cover
+  competing initial reads, forged starts, consent/allocation rollback, exact
+  receipts, unplayed abandonment, changed-seed notifications and the real content
+  publication's encoded/response bounds. Draft creation itself does not notify.
+  An explicit 256-KiB immutable-content bound leaves run state at 128 KiB.
+- Strict clippy passed for client, content, store and service. Focused checks
+  include 88 Tower tests, 24 format regressions, 18 Echoes core tests and socket
+  owner-invalidation isolation. Subsequent content corrections use the same
+  fifty-deck admission test instead of rerunning unrelated suites.
+- Native pass six at 1280×720 shows three equal-width choices, the shared deck
+  inspector and immediate click-to-start. Normal in-flight requests no longer
+  show the ambiguous-command recovery warning. Shop idle rebuild count stayed
+  85→85. Evidence: `baylee-recording-01a1e54e-d690-71c3-9c70-039e429b11fd`
+  (10/10 choice frames), `baylee-recording-01a1e54f-5d05-71be-8c5b-f5014a6417b8`
+  (inspector) and `baylee-recording-01a1e550-80d4-774a-8f16-a5ffba68369a`
+  (shop transition, 23 written and seven dropped samples). Sampling does not
+  prove the absence of every transient frame. The final basic-target correction
+  is covered by the content test, not by this earlier native fixture.
+- Passes five and six each closed their owned client, backend and PostgreSQL;
+  PID and loopback listener closure were verified. No test service remains.

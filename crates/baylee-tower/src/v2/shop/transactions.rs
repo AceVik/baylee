@@ -39,25 +39,25 @@ impl Shop {
                     .ok_or(Refusal::Gold)?;
             }
             (Goods::Relic(definition), Delivery::Inventory)
-                if self.generator == crate::v2::generation::RUN =>
+                if crate::v2::generation::is_run(self.generator) =>
             {
                 next.economy = next.economy.bought_automatic(definition)?;
             }
             (Goods::Relic(definition), Delivery::Slot(slot))
-                if self.generator != crate::v2::generation::RUN =>
+                if !crate::v2::generation::is_run(self.generator) =>
             {
                 next.economy = next.economy.bought(definition, *slot)?;
             }
             (
                 Goods::Relic(definition),
                 Delivery::Slot(crate::v2::inventory::Slot::Active(slot)),
-            ) if self.generator == crate::v2::generation::RUN => {
+            ) if crate::v2::generation::is_run(self.generator) => {
                 next.economy = next
                     .economy
                     .bought_automatic_into(definition, Some(*slot))?;
             }
             (Goods::Relic(definition), Delivery::Fuse(recipe))
-                if self.generator != crate::v2::generation::RUN =>
+                if !crate::v2::generation::is_run(self.generator) =>
             {
                 next.economy = next.economy.bought_and_fused(definition, recipe)?;
             }
@@ -88,7 +88,7 @@ impl Shop {
         catalog: &crate::cards::Catalog,
     ) -> Result<Self, Refusal> {
         self.validate(catalog)?;
-        if self.generator == crate::v2::generation::RUN {
+        if crate::v2::generation::is_run(self.generator) {
             return Err(Refusal::Unavailable);
         }
         let mut next = self.clone();
@@ -133,7 +133,7 @@ impl Shop {
     /// Invalid saved shop or a legacy generation with per-offer pins instead.
     pub fn frozen(&self, frozen: bool, catalog: &crate::cards::Catalog) -> Result<Self, Refusal> {
         self.validate(catalog)?;
-        if self.generator != crate::v2::generation::RUN {
+        if !crate::v2::generation::is_run(self.generator) {
             return Err(Refusal::Unavailable);
         }
         let mut next = self.clone();

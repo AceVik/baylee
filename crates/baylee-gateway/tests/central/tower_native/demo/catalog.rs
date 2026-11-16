@@ -7,9 +7,19 @@ use baylee_tower::v2::{
 use baylee_tower_store::Publication;
 
 pub(in super::super) fn publication(identity: &Identity) -> Publication {
-    let content = baylee_tower_content::standard().unwrap();
+    let (content, generation) = if super::enabled() {
+        (
+            baylee_tower_content::expeditions().unwrap(),
+            baylee_tower::v2::generation::EXPEDITIONS,
+        )
+    } else {
+        (
+            baylee_tower_content::standard().unwrap(),
+            baylee_tower::v2::generation::RUN,
+        )
+    };
     Publication {
-        cohort: Cohort::new(identity.clone(), &content.catalog).unwrap(),
+        cohort: Cohort::for_generation(identity.clone(), &content.catalog, generation).unwrap(),
         catalog: content.catalog,
         starters: content.starters,
     }

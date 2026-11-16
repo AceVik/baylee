@@ -26,7 +26,7 @@ impl State {
             }
             Response::Cohorts { consent, cohorts } => {
                 *consent > 0
-                    && cohorts.len() <= api::PAGE_SIZE
+                    && cohorts.len() <= api::COHORT_PAGE_SIZE
                     && cohorts.iter().all(valid_cohort)
                     && (self.consent != *consent || self.cohorts != *cohorts)
             }
@@ -116,7 +116,7 @@ impl State {
             }
             (Request::Cohorts { .. }, Response::Cohorts { consent, cohorts })
                 if consent > 0
-                    && cohorts.len() <= api::PAGE_SIZE
+                    && cohorts.len() <= api::COHORT_PAGE_SIZE
                     && cohorts.iter().all(valid_cohort) =>
             {
                 self.cohorts = cohorts;
@@ -218,7 +218,7 @@ fn valid_run(run: &Run) -> bool {
         && run.cards.deck.len() <= usize::from(DECK_MAX)
         && run.cards.deck.iter().all(|stack| stack.copies > 0)
         && if let Some(formation) = &run.cards.formation {
-            run.shop.generator == super::domain::v2::generation::RUN
+            super::domain::v2::generation::is_run(run.shop.generator)
                 && deck_count == 39
                 && formation.sideboard.len() <= 5
                 && formation
@@ -230,13 +230,13 @@ fn valid_run(run: &Run) -> bool {
                 && formation.sideboard.iter().all(|stack| stack.copies > 0)
                 && run.cards.copies(formation.commander) == 1
         } else {
-            run.shop.generator != super::domain::v2::generation::RUN
+            !super::domain::v2::generation::is_run(run.shop.generator)
                 && (DECK_MIN..=DECK_MAX).contains(&deck_count)
         }
         && run.history.len() <= usize::from(super::domain::v2::MAX_STAGES)
         && run.history.iter().all(|duel| {
             duel.bonus_gold <= 42
-                && (run.shop.generator == super::domain::v2::generation::RUN
+                && (super::domain::v2::generation::is_run(run.shop.generator)
                     || duel.bonus_gold == 0)
         })
         && run.shop.offers.len() == super::domain::v2::shop::OFFERS
@@ -258,7 +258,7 @@ fn valid_reward(run: &Run) -> bool {
         1
     };
     run.phase == Phase::Reward
-        && run.shop.generator == super::domain::v2::generation::RUN
+        && super::domain::v2::generation::is_run(run.shop.generator)
         && reward.cards.len() <= 5
         && usize::from(reward.take) == allowance.min(reward.cards.len())
         && reward
@@ -269,7 +269,5 @@ fn valid_reward(run: &Run) -> bool {
 }
 
 fn valid_cohort(cohort: &api::Cohort) -> bool {
-    uuid7(cohort.id)
-        && cohort.contract.validate(&cohort.catalog).is_ok()
-        && cohort.catalog.validate_starters(&cohort.starters).is_ok()
+    uuid7(cohort.id) && cohort.validate().is_ok()
 }

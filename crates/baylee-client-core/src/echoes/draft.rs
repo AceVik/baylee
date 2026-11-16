@@ -128,7 +128,7 @@ impl Draft {
             .iter()
             .find(|offer| Some(offer.id) == self.offer && !offer.sold)?;
         let delivery = match offer.goods {
-            _ if run.shop.generator == domain::v2::generation::RUN => Delivery::Inventory,
+            _ if domain::v2::generation::is_run(run.shop.generator) => Delivery::Inventory,
             Goods::Relic(_) if !self.ingredients.is_empty() || self.material.is_some() => {
                 Delivery::Fuse(self.recipe())
             }

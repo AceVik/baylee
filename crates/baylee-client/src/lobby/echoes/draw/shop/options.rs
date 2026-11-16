@@ -12,7 +12,7 @@ pub(in crate::lobby::echoes::draw) fn toolbar(
     let footer = root;
     let spacer = crate::lobby::parts::grow(commands);
     commands.entity(footer).add_child(spacer);
-    if run.shop.generator == domain::v2::generation::RUN {
+    if domain::v2::generation::is_run(run.shop.generator) {
         control(
             commands,
             footer,

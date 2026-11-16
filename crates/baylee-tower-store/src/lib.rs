@@ -24,6 +24,7 @@ mod administration;
 mod browse;
 mod commands;
 mod discovery;
+mod draft;
 mod execution;
 mod house;
 mod location;
@@ -45,8 +46,10 @@ pub use publication::Publication;
 pub use reservation::{Entropy, Reserve};
 pub use runs::Start;
 
-/// Maximum persisted owner state or immutable cohort publication.
+/// Maximum persisted owner state; the larger immutable publication is separate.
 pub const MAX_STATE_BYTES: usize = 128 * 1024;
+/// Reviewed fifty-deck content, bounded independently from player mutations.
+pub const MAX_PUBLICATION_BYTES: usize = 256 * 1024;
 /// Maximum saved shop/start receipts per run; record chunks use a separate stream.
 pub const MAX_REQUESTS: i64 = 4096;
 /// Retained owner responses across runs, independent of request-count limits.

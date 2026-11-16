@@ -33,7 +33,7 @@ impl Store {
             starter,
             consent,
         } = choice;
-        if starter >= 8 || consent != CONSENT_REVISION {
+        if starter >= 64 || consent != CONSENT_REVISION {
             return Err(Refusal::Invalid.into());
         }
         let digest = requests::digest(b"start", &choice)?;
@@ -50,7 +50,7 @@ impl Store {
         .await
         .map_err(|_| Error::Unavailable)?;
         let publication = self.publication(&tx, cohort, true).await?;
-        let starter = publication
+        let selected = publication
             .starters
             .get(usize::from(starter))
             .ok_or(Refusal::Invalid)?
@@ -76,23 +76,16 @@ impl Store {
         if allocated.rows_affected() != 1 {
             return Err(Refusal::Capacity.into());
         }
-        tx.execute_raw(self.statement("INSERT INTO @tower.enrollment(account,cohort,start_seed) VALUES($1,$2,$3) ON CONFLICT(account,cohort) DO NOTHING",
-            vec![account.into(), cohort.into(), seed.to_vec().into()]))
-            .await.map_err(|_| Error::Unavailable)?;
-        let row = tx
-            .query_one_raw(self.statement(
-                "SELECT start_seed FROM @tower.enrollment WHERE account=$1 AND cohort=$2",
-                vec![account.into(), cohort.into()],
-            ))
-            .await
-            .map_err(|_| Error::Unavailable)?
-            .ok_or(Error::Unavailable)?;
-        let seed: [u8; 32] = column::<Vec<u8>>(&row, "start_seed")?
-            .try_into()
-            .map_err(|_| Error::Unavailable)?;
+        let seed = self.start_seed(&tx, account, cohort, seed).await?;
+        if publication.cohort.generator == baylee_tower::v2::generation::EXPEDITIONS
+            && !baylee_tower::v2::draft::choices(&seed, publication.starters.len())?
+                .contains(&starter)
+        {
+            return Err(Refusal::Unavailable.into());
+        }
         let state = Run::begin_for(
             &publication.catalog,
-            starter,
+            selected,
             &seed,
             publication.cohort.generator,
         )?;

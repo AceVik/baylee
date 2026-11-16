@@ -194,9 +194,10 @@ impl State {
         if self.uncertain()
             || consent == 0
             || consent != self.consent
-            || !self.cohorts.iter().any(|published| {
-                published.id == cohort && usize::from(starter) < published.starters.len()
-            })
+            || !self
+                .cohorts
+                .iter()
+                .any(|published| published.id == cohort && published.offered.contains(&starter))
         {
             return None;
         }

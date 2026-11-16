@@ -89,7 +89,7 @@ impl Shop {
             || self.offers.len() != OFFERS
             || self.offers.iter().filter(|offer| offer.pinned).count() > PINS
             || (self.generator < super::generation::RUN && self.frozen)
-            || (self.generator == super::generation::RUN
+            || (super::generation::is_run(self.generator)
                 && self
                     .offers
                     .iter()
@@ -122,7 +122,7 @@ impl Shop {
 
     /// Fixed next refresh price, or none after the third refresh.
     pub fn reroll_price(&self) -> Option<u16> {
-        if self.generator == super::generation::RUN {
+        if super::generation::is_run(self.generator) {
             return (self.rerolls < u8::MAX
                 && (!self.frozen || self.offers.iter().any(|offer| offer.sold)))
             .then_some(2 + u16::from(self.rerolls.min(4)));
@@ -132,7 +132,7 @@ impl Shop {
 
     fn check_stock(&self, stock: Stock<'_>) -> Result<(), Refusal> {
         stock.validate()?;
-        let run = self.generator == super::generation::RUN;
+        let run = super::generation::is_run(self.generator);
         if run != (stock.economy.inventory.layout == super::inventory::Layout::Run)
             || run != stock.catalog.is_run()
         {

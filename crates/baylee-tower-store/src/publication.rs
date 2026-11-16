@@ -1,6 +1,6 @@
 use super::{
     Catalog, Cohort, Collection, ConnectionTrait, Deserialize, Digest, Error, Serialize, Sha256,
-    Store, Uuid, column, decode, encode, uuid7,
+    Store, Uuid, column, encode, uuid7,
 };
 
 /// Reviewed immutable cohort inputs. No secrets, external decks or caller-defined effects.
@@ -11,17 +11,36 @@ pub struct Publication {
     pub cohort: Cohort,
     /// Reviewed, fully implemented card pool and frozen prices.
     pub catalog: Catalog,
-    /// Three legacy choices, or five to eight independent run choices.
+    /// Frozen generation-specific choices or the expanded fifty-to-sixty-four pool.
     pub starters: Vec<Collection>,
 }
 
 impl Publication {
+    pub(crate) fn encoded(&self) -> Result<Vec<u8>, Error> {
+        let bytes = serde_json::to_vec(self).map_err(|_| Error::Unavailable)?;
+        if bytes.len() > super::MAX_PUBLICATION_BYTES {
+            return Err(super::Refusal::Capacity.into());
+        }
+        Ok(bytes)
+    }
+
+    pub(crate) fn decoded(bytes: &[u8]) -> Result<Self, Error> {
+        if bytes.len() > super::MAX_PUBLICATION_BYTES {
+            return Err(Error::Unavailable);
+        }
+        serde_json::from_slice(bytes).map_err(|_| Error::Unavailable)
+    }
+
     /// Structural admission; does not certify engine coverage or game balance.
     /// # Errors
     /// Incompatible cohort or invalid starter/card pool.
     pub fn validate(&self) -> Result<(), Error> {
         self.cohort.validate(&self.catalog)?;
-        self.catalog.validate_starters(&self.starters)?;
+        if self.cohort.generator == baylee_tower::v2::generation::EXPEDITIONS {
+            self.catalog.validate_starter_pool(&self.starters)?;
+        } else {
+            self.catalog.validate_starters(&self.starters)?;
+        }
         Ok(())
     }
 }
@@ -42,7 +61,7 @@ impl Store {
                 formation.sideboard.sort_by_key(|stack| stack.card);
             }
         }
-        let bytes = encode(&publication)?;
+        let bytes = publication.encoded()?;
         let contract = Sha256::new()
             .chain_update(b"baylee/tower/cohort/v2\0")
             .chain_update(encode(&publication.cohort)?)
@@ -82,7 +101,7 @@ impl Store {
             .await
             .map_err(|_| Error::Unavailable)?
             .ok_or(Error::NotFound)?;
-        let publication: Publication = decode(&column::<Vec<u8>>(&row, "publication")?)?;
+        let publication = Publication::decoded(&column::<Vec<u8>>(&row, "publication")?)?;
         publication.validate()?;
         Ok(publication)
     }

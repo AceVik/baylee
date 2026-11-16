@@ -7,6 +7,7 @@ use uuid::Uuid;
 #[derive(Clone, Copy, Debug)]
 pub(super) enum Change {
     Run(Uuid),
+    Draft(Uuid),
     Ranking,
     Catalog,
     Resync,
@@ -35,7 +36,13 @@ impl Changes {
                                     payload => payload
                                         .strip_prefix("run:")
                                         .and_then(|id| Uuid::parse_str(id).ok())
-                                        .map(Change::Run),
+                                        .map(Change::Run)
+                                        .or_else(|| {
+                                            payload
+                                                .strip_prefix("draft:")
+                                                .and_then(|id| Uuid::parse_str(id).ok())
+                                                .map(Change::Draft)
+                                        }),
                                 };
                                 if let Some(hint) = hint {
                                     let _ = news.send(hint);

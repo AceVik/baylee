@@ -20,7 +20,7 @@ pub use location::{Host, Location};
 pub use view::{Duel, Reward, Run};
 
 /// Distinct wire contract; incompatible versions are refused before authentication.
-pub const VERSION: &str = "6";
+pub const VERSION: &str = "7";
 /// Header carrying [`VERSION`].
 pub const VERSION_HEADER: &str = "baylee-tower-version";
 /// Sole player endpoint. The origin is delegated by Central, never a gateway.
@@ -31,6 +31,8 @@ pub const MAX_REQUEST_BYTES: usize = 16 * 1024;
 pub const MAX_RESPONSE_BYTES: usize = 1024 * 1024;
 /// Fixed descending UUID page size; clients continue with the last returned ID.
 pub const PAGE_SIZE: usize = 8;
+/// Expanded catalogs are larger; three bounded publications fit a response.
+pub const COHORT_PAGE_SIZE: usize = 3;
 
 /// Only owner choices. Account, seed, prices, outcomes and executable paths are absent.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -129,8 +131,37 @@ pub struct Cohort {
     pub contract: baylee_tower::v2::package::Cohort,
     /// Reviewed cards and immutable prices for deck construction.
     pub catalog: Catalog,
-    /// Five to eight run starters, or three for a retained legacy cohort.
+    /// Frozen starter pool; only indices in `offered` may start a new run.
     pub starters: Vec<Collection>,
+    /// Owner-specific canonical indices, stable across reloads and unpaid abandons.
+    pub offered: Vec<u8>,
+}
+
+impl Cohort {
+    /// Verify public structure without pretending to authenticate the secret sample.
+    /// # Errors
+    /// Unknown contract, invalid decks, repeated/out-of-range or wrong-count offers.
+    pub fn validate(&self) -> Result<(), baylee_tower::Refusal> {
+        use baylee_tower::{Refusal, v2::generation};
+        self.contract.validate(&self.catalog)?;
+        if self.contract.generator == generation::EXPEDITIONS {
+            self.catalog.validate_starter_pool(&self.starters)?;
+            if self.offered.len() != 3 {
+                return Err(Refusal::Invalid);
+            }
+        } else {
+            self.catalog.validate_starters(&self.starters)?;
+            if self.offered.len() != self.starters.len() {
+                return Err(Refusal::Invalid);
+            }
+        }
+        if self.offered.iter().enumerate().any(|(position, index)| {
+            usize::from(*index) >= self.starters.len() || self.offered[..position].contains(index)
+        }) {
+            return Err(Refusal::Invalid);
+        }
+        Ok(())
+    }
 }
 
 /// Successful bounded player responses. Failures use closed HTTP status codes.
@@ -164,7 +195,7 @@ pub enum Response {
         /// Re-read after technical recovery; an earlier game ID can be retired.
         location: Location,
     },
-    /// Up to [`PAGE_SIZE`] enrollment choices, with the consent revision to display.
+    /// Up to [`COHORT_PAGE_SIZE`] enrollment choices, with the visible consent revision.
     Cohorts {
         /// Current required explanation revision.
         consent: u16,

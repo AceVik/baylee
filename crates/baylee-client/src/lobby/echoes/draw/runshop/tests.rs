@@ -19,6 +19,7 @@ fn opened() -> Ui {
         .unwrap(),
         catalog: content.catalog,
         starters: content.starters,
+        offered: vec![0, 1, 2, 3, 4],
     };
     let raw = domain::v2::run::Run::begin_for(
         &cohort.catalog,

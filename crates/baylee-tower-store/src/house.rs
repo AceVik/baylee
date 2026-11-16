@@ -15,7 +15,7 @@ impl Store {
         archetype: u8,
         build: &Build,
     ) -> Result<(), Error> {
-        if !(1..=MAX_STAGES).contains(&stage) || !(1..=8).contains(&archetype) {
+        if !(1..=MAX_STAGES).contains(&stage) || !(1..=64).contains(&archetype) {
             return Err(Refusal::Invalid.into());
         }
         let tx = self.transaction().await?;
