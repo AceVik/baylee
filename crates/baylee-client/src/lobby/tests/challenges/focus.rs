@@ -24,6 +24,21 @@ fn tower_keys_survive_the_retained_header_and_confirmation() {
         .copied()
         .collect();
     assert_eq!(brands, vec![Stop::new("echoes", "baylee")]);
+    assert!(
+        app.world()
+            .resource::<crate::shellkit::keys::ShellStack>()
+            .stack
+            .modal
+    );
+    front_keys::press_key(&mut app, KeyCode::Digit2, Key::Character("2".into()), &[]);
+    assert_eq!(app.world().resource::<LobbyState>().hub, Hub::Challenges);
+    assert!(
+        app.world()
+            .resource::<LobbyState>()
+            .echoes
+            .confirmation
+            .is_some()
+    );
     assert_eq!(
         front_keys::focused(&app),
         Some(Stop::new("echoes-confirm", "cancel"))
@@ -42,6 +57,12 @@ fn tower_keys_survive_the_retained_header_and_confirmation() {
     );
     front_keys::tab(&mut app, false);
     assert_eq!(app.world().resource::<FocusReport>().table, Some("echoes"));
+    assert!(
+        !app.world()
+            .resource::<crate::shellkit::keys::ShellStack>()
+            .stack
+            .modal
+    );
     for _ in 0..12 {
         if front_keys::focused_id(&app) == Some("refresh") {
             break;
