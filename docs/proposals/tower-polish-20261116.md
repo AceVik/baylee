@@ -213,3 +213,32 @@ explicit limits. UI transport state is separate from render-state equality.
 - Both passes closed their exact owned client, backend and PostgreSQL processes.
   Weighted/printed loot, shared full builder and final ending screens still need
   implementation and their own targeted validation.
+
+## Printed loot and ending scenes, native passes 11–12 — 16 November
+
+- Runic rewards sample five distinct eligible cards from the verified opponent
+  deck, weighted toward the player's color identity and rarer cards. Select
+  three on victory and one on defeat. Owned selections yield exactly three gold;
+  retained generations keep their original uniform sampling and one gold.
+- The published catalog now binds a reference printing and finish to each card;
+  both players' packages and the reward/commander previews reuse them. At least
+  a quarter of the curated palette and all eligible commanders are foil.
+  Language-specific image resolution remains unfinished.
+- Focused tests cover offer provenance, deterministic weights across 512 seeds,
+  claim replay, duplicate proceeds, catalog substitution, frozen deck prints and
+  catalog size. Strict domain/content/client/core clippy passed.
+- Two original generated landscapes use the shared lazy scene cache and frame
+  shader. Native victory and defeat fixtures each presented five reward tiles,
+  accepted the required 3/1 selection through the authority, then displayed the
+  corresponding full run ending. Victory → Lobby → Tower offered three starters
+  for a fresh run. These are synthetic outcome fixtures, not evidence that an
+  independently verified native replay completed eight wins or five defeats.
+- Sampled 5-fps captures wrote 10/10 reward and 12/12 victory frames, then 10/10
+  selected-defeat-reward and 10/10 defeat frames, without drops. Ending evidence:
+  `baylee-recording-01a1e5b1-e5bb-70a4-92ba-d5eba340e0b2` and
+  `baylee-recording-01a1e5b3-b17a-76a4-9b3c-2b0ac558c6a8`.
+  Owned client/backend/PostgreSQL PIDs and listeners closed after each pass.
+- Round-income feedback now uses a separate once-per-visible-round latch, since
+  worker lease/record revisions may be skipped while the game is visible. Three
+  transition tests pass, including stale rounds and repeated pending rewards;
+  its native capture is still pending.

@@ -104,11 +104,6 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
     }
     let id = Uuid::now_v7();
     let work = match action {
-        Action::Overview if ui.choices.deck_unchanged(ui.model.run()) => {
-            ui.page = Page::Overview;
-            ui.refresh();
-            None
-        }
         Action::Refresh => {
             if ui.page == Page::Collection {
                 ui.collection.refresh();

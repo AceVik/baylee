@@ -24,7 +24,7 @@ pub use execution::WorkerCommand;
 pub use income::Income;
 pub use ledger::Ledger;
 pub use lifecycle::{Binding, Settlement};
-pub use reward::{Claim, Reward};
+pub use reward::{Claim, Reward, duplicate_gold};
 
 /// Exactly one permitted activity; technical states grant no advancement.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

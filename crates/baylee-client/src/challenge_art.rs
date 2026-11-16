@@ -6,6 +6,8 @@ pub(crate) enum Scene {
     Day,
     Night,
     Tower,
+    Victory,
+    Defeat,
 }
 
 impl Scene {
@@ -14,12 +16,14 @@ impl Scene {
             Self::Day => 0,
             Self::Night => 1,
             Self::Tower => 2,
+            Self::Victory => 3,
+            Self::Defeat => 4,
         }
     }
 }
 
 #[derive(Resource, Default)]
-struct Landscapes([Option<Handle<Image>>; 3]);
+struct Landscapes([Option<Handle<Image>>; 5]);
 
 fn dress(
     mut commands: Commands,
@@ -35,6 +39,8 @@ fn dress(
                     "tower/scenes/daily.png",
                     "tower/scenes/weekly.png",
                     "tower/scenes/tower.png",
+                    "tower/run-victory.png",
+                    "tower/run-defeat.png",
                 ][index],
             )
         });

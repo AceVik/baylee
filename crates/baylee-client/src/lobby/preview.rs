@@ -646,6 +646,11 @@ pub(crate) fn hover_of_index(index: u32) -> HoverCard {
     )
 }
 
+/// Reuse the builder's exact-print preview for frozen challenge/run rewards.
+pub(crate) fn hover_of_print(index: u32, print: &baylee_core::deckrow::PrintChoice) -> HoverCard {
+    compiled_row(index).map_or_else(|| hover_of_index(index), |row| hover_of_entry(&row, print))
+}
+
 /// The art a pool row previews: the printing the registry names.
 pub(crate) fn hover_of_card(card: &baylee_client_core::deckbuilder::PoolCard) -> HoverCard {
     let entry = baylee_view::PrintEntry {

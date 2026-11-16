@@ -1,6 +1,64 @@
 use super::*;
 
 #[test]
+fn published_print_and_foil_are_frozen_for_both_decks_and_cannot_be_substituted() {
+    use crate::cards::{CardRarity, Presentation};
+    let (mut catalog, cards) = crate::cards::run_tests::fixture();
+    for card in &mut catalog.cards {
+        card.run.as_mut().unwrap().presentation = Some(Presentation {
+            printing: uuid::Uuid::from_u128(u128::from(card.card.get()) + 1),
+            finish: Finish::Foil,
+            rarity: CardRarity::Rare,
+        });
+    }
+    let run = Run::begin_for(&catalog, cards, &[7; 32], generation::RUNIC).unwrap();
+    let mut executor = fixture().2.executor;
+    executor.rules = "tower-6".into();
+    executor.ai = "tower-house-23".into();
+    let cohort = Cohort::for_generation(executor, &catalog, generation::RUNIC).unwrap();
+    let opponent = Opponent {
+        stage: 1,
+        cohort: cohort.clone(),
+        origin: Origin::House { archetype: 1 },
+        build: Build::freeze(&run, &catalog).unwrap(),
+    };
+    let package = Package::reserve(&run, 0, &catalog, &cohort, opponent, seeds(), 4096)
+        .unwrap()
+        .package;
+    let preset = package
+        .preset(&catalog, &cohort.executor, |_| {
+            panic!("must use the frozen palette")
+        })
+        .unwrap();
+    for seat in &preset.seats {
+        for entry in seat
+            .deck
+            .iter()
+            .chain(&seat.commanders)
+            .chain(&seat.sideboard)
+        {
+            let art = catalog
+                .card(entry.card)
+                .unwrap()
+                .run
+                .unwrap()
+                .presentation
+                .unwrap();
+            assert_eq!(preset.prints[usize::from(entry.print.get())], art.print());
+        }
+    }
+    catalog.cards[6]
+        .run
+        .as_mut()
+        .unwrap()
+        .presentation
+        .as_mut()
+        .unwrap()
+        .finish = Finish::Normal;
+    assert!(package.validate(&catalog, &cohort.executor).is_err());
+}
+
+#[test]
 fn frozen_run_keeps_all_zones_and_commander_in_the_native_preset() {
     let (catalog, cards) = crate::cards::run_tests::fixture();
     let run = Run::begin_for(&catalog, cards, &[7; 32], generation::RUN).unwrap();

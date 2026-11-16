@@ -28,6 +28,7 @@ struct Transient;
 #[derive(Default)]
 struct Retained {
     trace: Trace,
+    income: feedback::Income,
     run: Option<uuid::Uuid>,
     positions: BTreeMap<Anchor, Vec2>,
 }
@@ -51,7 +52,9 @@ fn observe(
         for entity in &effects {
             commands.entity(entity).try_despawn();
         }
-        *previous = Retained::default();
+        previous.trace = Trace::default();
+        previous.run = None;
+        previous.positions.clear();
         return;
     };
     let visible = state.echoes.opened
@@ -80,9 +83,20 @@ fn observe(
     }) {
         return;
     }
-    let changes = previous
+    let mut changes = previous
         .trace
         .observe(run.id, run.revision, &run.economy, &run.shop.offers);
+    // Worker leases and record chunks advance several revisions during a duel.
+    // Its settled income therefore cannot depend on adjacent shop revisions.
+    if let Some(gold) = previous.income.observe(
+        run.id,
+        run.history.len(),
+        run.reward.is_some(),
+        baylee_client_core::echoes::domain::v2::DUEL_INCOME
+            + run.history.last().map_or(0, |duel| duel.bonus_gold),
+    ) {
+        changes.get_or_insert_default().gold = i32::from(gold);
+    }
     let layout_changed = places
         .iter()
         .any(|(_, node, transform)| node.is_changed() || transform.is_changed());

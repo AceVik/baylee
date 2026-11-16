@@ -69,6 +69,7 @@ fn publication() -> Publication {
         price: 0,
         basic_land: true,
         run: Some(RunCard {
+            presentation: None,
             identity: identity(color),
             commander: false,
         }),
@@ -82,6 +83,7 @@ fn publication() -> Publication {
                 price: 4,
                 basic_land: false,
                 run: Some(RunCard {
+                    presentation: None,
                     identity: identity(Color::Green),
                     commander: true,
                 }),

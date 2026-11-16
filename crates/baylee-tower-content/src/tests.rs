@@ -1,6 +1,68 @@
 use super::*;
 
 #[test]
+fn runic_palette_has_many_foils_and_native_metadata_rejects_forged_prints() {
+    let mut content = runic().unwrap();
+    let bytes = serde_json::to_vec(&content).unwrap().len();
+    assert!(
+        bytes < 240 * 1024,
+        "{bytes} content bytes must leave room in the 256 KiB publication envelope"
+    );
+    let foils = content
+        .catalog
+        .cards
+        .iter()
+        .filter(|card| {
+            card.run.unwrap().presentation.unwrap().finish == baylee_core::preset::Finish::Foil
+        })
+        .count();
+    assert!(foils * 4 >= content.catalog.cards.len());
+    for starter in &content.starters {
+        let commander = starter.formation.as_ref().unwrap().commander;
+        assert_eq!(
+            content
+                .catalog
+                .card(commander)
+                .unwrap()
+                .run
+                .unwrap()
+                .presentation
+                .unwrap()
+                .finish,
+            baylee_core::preset::Finish::Foil
+        );
+    }
+    validate_catalog(&content.catalog).unwrap();
+    content.catalog.cards[0]
+        .run
+        .as_mut()
+        .unwrap()
+        .presentation
+        .as_mut()
+        .unwrap()
+        .printing = content.catalog.cards[1]
+        .run
+        .unwrap()
+        .presentation
+        .unwrap()
+        .printing;
+    assert!(validate_catalog(&content.catalog).is_err());
+    let legacy = expeditions().unwrap();
+    assert!(
+        legacy
+            .catalog
+            .cards
+            .iter()
+            .all(|card| card.run.unwrap().presentation.is_none())
+    );
+    assert!(
+        !serde_json::to_string(&legacy.catalog)
+            .unwrap()
+            .contains("presentation")
+    );
+}
+
+#[test]
 fn fifty_build_arounds_pass_native_admission_with_real_mana_bases() {
     let content = expeditions().unwrap();
     validate_catalog(&content.catalog).unwrap();

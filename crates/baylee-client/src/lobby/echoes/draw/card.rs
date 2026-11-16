@@ -3,6 +3,28 @@
 use super::*;
 use baylee_core::{ids::CardIndex, types::TypeSet};
 
+pub(super) fn hover(
+    id: CardIndex,
+    catalog: Option<&domain::cards::Catalog>,
+) -> crate::lobby::HoverCard {
+    let Some(art) = catalog
+        .and_then(|catalog| catalog.card(id))
+        .and_then(|card| card.run)
+        .and_then(|rules| rules.presentation)
+    else {
+        return crate::lobby::hover_of_index(id.get());
+    };
+    crate::lobby::preview::hover_of_print(
+        id.get(),
+        &baylee_core::deckrow::PrintChoice {
+            scryfall_id: Some(art.printing.to_string()),
+            lang: Some("en".to_owned()),
+            finish: Some(art.finish),
+            ..default()
+        },
+    )
+}
+
 pub(super) fn rules(commands: &mut Commands, root: Entity, kit: Kit, id: CardIndex) {
     let Some(definition) = baylee_cards::by_index(id) else {
         return;

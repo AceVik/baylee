@@ -54,6 +54,27 @@ pub struct Change {
 #[derive(Default)]
 pub struct Trace(Option<Snapshot>);
 
+/// Remembers the latest visibly presented reward, independently of socket
+/// revision gaps during a duel. Cosmetic only; never credits the wallet.
+#[derive(Default)]
+pub struct Income(Option<(Uuid, usize)>);
+
+impl Income {
+    /// The first presentation of a pending reward may celebrate its settled
+    /// income. Navigating away, repeated replies and stale rounds cannot replay it.
+    #[must_use]
+    pub fn observe(&mut self, id: Uuid, rounds: usize, pending: bool, gold: u16) -> Option<u16> {
+        if self
+            .0
+            .is_some_and(|(old, seen)| old == id && seen >= rounds)
+        {
+            return None;
+        }
+        self.0 = Some((id, rounds));
+        (pending && rounds > 0).then_some(gold)
+    }
+}
+
 struct Snapshot {
     id: Uuid,
     revision: u64,
@@ -163,7 +184,9 @@ fn changes(old: &Snapshot, economy: &Economy, offers: &[Offer]) -> Change {
             result.flights.push(Flight { goods: offer.goods, from: Anchor::Offer(offer.id), to, fusion });
         }
     }
-    if let Some(offer) = purchased.filter(|offer| !matches!(offer.goods, Goods::Relic(_))) {
+    if let Some(offer) = purchased.filter(|offer| !matches!(offer.goods, Goods::Relic(_)))
+        && result.flights.len() < 16
+    {
         result.flights.push(Flight {
             goods: offer.goods,
             from: Anchor::Offer(offer.id),

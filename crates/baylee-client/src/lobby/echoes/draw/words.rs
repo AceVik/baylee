@@ -290,9 +290,7 @@ pub(super) const fn icon(action: Action) -> char {
         | Action::Fuse
         | Action::Reward(_)
         | Action::ClaimReward => glyph::CHECK,
-        Action::Overview | Action::Read(Read::Runs(_) | Read::Run(_)) | Action::Tiers(_) => {
-            glyph::VIEW_ROWS
-        }
+        Action::Read(Read::Runs(_) | Read::Run(_)) | Action::Tiers(_) => glyph::VIEW_ROWS,
         Action::Page(Page::Shop) | Action::GoShop => glyph::VIEW_GRID,
         Action::Page(Page::Equipment) | Action::Move | Action::Place(_) => glyph::GEAR,
         Action::InspectStarter(..) | Action::Page(Page::Deck) | Action::DeckZone(_) => {

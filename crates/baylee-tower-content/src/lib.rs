@@ -8,8 +8,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 mod expeditions;
+mod presentation;
 mod starters;
 pub use expeditions::expeditions;
+pub use presentation::runic;
 
 #[cfg(test)]
 use baylee_cards_pool as _;
@@ -120,6 +122,7 @@ fn metadata(index: CardIndex) -> Option<Card> {
         run: Some(RunCard {
             identity: definition.color_identity,
             commander,
+            presentation: None,
         }),
     })
 }
@@ -131,7 +134,14 @@ pub fn validate_catalog(catalog: &Catalog) -> Result<(), Error> {
     catalog.validate().map_err(|_| Error::Metadata)?;
     for card in &catalog.cards {
         let actual = metadata(card.card).ok_or(Error::Metadata)?;
-        if card.run != actual.run || card.basic_land != actual.basic_land {
+        let mut rules = card.run;
+        if let Some(rules) = &mut rules
+            && let Some(art) = rules.presentation.take()
+            && art != presentation::of(card.card)?
+        {
+            return Err(Error::Metadata);
+        }
+        if rules != actual.run || card.basic_land != actual.basic_land {
             return Err(Error::Metadata);
         }
     }

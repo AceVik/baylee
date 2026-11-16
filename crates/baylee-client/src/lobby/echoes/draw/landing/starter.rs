@@ -23,7 +23,14 @@ pub(super) fn draw(
             node.align_items = AlignItems::Center;
         });
     let name = words::card(commander, lang);
-    let hover = crate::lobby::hover_of_index(commander.get());
+    let hover = card::hover(
+        commander,
+        ui.model
+            .cohorts()
+            .iter()
+            .find(|entry| entry.id == cohort)
+            .map(|entry| &entry.catalog),
+    );
     let image = crate::lobby::thumbnails::spawn_sized(
         commands,
         &hover,

@@ -5,6 +5,24 @@ use crate::echoes::domain::v2::{
 };
 
 #[test]
+fn reward_income_survives_revision_gaps_and_only_celebrates_each_visible_round_once() {
+    let id = Uuid::from_u128(1);
+    let mut income = Income::default();
+    assert_eq!(income.observe(id, 0, false, 9), None);
+    // The client returns directly from a duel to a pending reward. The wallet
+    // revision may already have been received while the shop was not visible.
+    assert_eq!(income.observe(id, 1, true, 12), Some(12));
+    assert_eq!(income.observe(id, 1, true, 12), None);
+    assert_eq!(income.observe(id, 1, false, 12), None);
+    assert_eq!(income.observe(id, 0, true, 9), None);
+    assert_eq!(income.observe(id, 2, true, 9), Some(9));
+    // Opening an already claimed round does not replay it later from a stale view.
+    assert_eq!(income.observe(id, 3, false, 9), None);
+    assert_eq!(income.observe(id, 3, true, 9), None);
+    assert_eq!(income.observe(Uuid::from_u128(2), 1, true, 9), Some(9));
+}
+
+#[test]
 fn confirmed_purchase_fusion_and_move_are_once_only_across_bag_and_equipment() {
     let id = Uuid::from_u128(1);
     let definition = Definition {

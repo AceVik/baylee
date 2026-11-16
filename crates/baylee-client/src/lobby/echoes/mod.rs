@@ -31,7 +31,6 @@ pub(crate) enum Page {
 pub(crate) enum Action {
     Open,
     Back,
-    Overview,
     Refresh,
     Read(Read),
     Starter(Uuid, u8),
@@ -186,7 +185,6 @@ pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
                 action,
                 Action::Open
                     | Action::Back
-                    | Action::Overview
                     | Action::Page(_)
                     | Action::GoShop
                     | Action::Read(Read::Run(_) | Read::Ranking(..))
@@ -226,6 +224,17 @@ impl Ui {
         self.opened = false;
         self.starter_preview = None;
         self.returning = None;
+        if self.model.run().is_some_and(|run| {
+            matches!(
+                run.phase,
+                api::Phase::Conquered
+                    | api::Phase::Exhausted
+                    | api::Phase::Abandoned
+                    | api::Phase::Interrupted
+            )
+        }) {
+            self.page = Page::Overview;
+        }
     }
 
     fn refresh(&mut self) {

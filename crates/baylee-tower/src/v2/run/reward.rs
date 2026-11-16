@@ -17,18 +17,27 @@ pub struct Reward {
     pub take: u8,
 }
 
-/// Retained owner choice. Duplicate owned cards yield one gold each instead.
+/// Retained owner choice. Duplicate proceeds follow the frozen generation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Claim {
     /// Chosen cards, in canonical identity order.
     pub cards: Vec<CardIndex>,
-    /// Number already owned at claim time; also the exact bonus gold granted.
+    /// Number already owned at claim time, never a client-supplied gold amount.
     pub duplicates: u8,
 }
 
 const fn allowance(outcome: Outcome) -> u8 {
     if matches!(outcome, Outcome::Victory) {
+        3
+    } else {
+        1
+    }
+}
+
+/// Fixed duplicate proceeds; retained generations keep their original one gold.
+pub const fn duplicate_gold(generator: u16) -> u16 {
+    if generator == crate::v2::generation::RUNIC {
         3
     } else {
         1
@@ -60,9 +69,22 @@ impl Reward {
             .collect();
         candidates.sort_unstable();
         candidates.dedup();
+        let identity = package.builds[0]
+            .formation
+            .as_ref()
+            .and_then(|formation| catalog.card(formation.commander))
+            .and_then(|card| card.run)
+            .map_or(baylee_core::color::ColorSet::EMPTY, |rules| rules.identity);
         let mut scored: Vec<([u8; 32], CardIndex)> = candidates
             .into_iter()
             .map(|card| {
+                if package.cohort.generator == crate::v2::generation::RUNIC {
+                    let tickets = tickets(catalog, card, identity);
+                    return (
+                        weighted_score(seed, &result.binding.package, card, tickets),
+                        card,
+                    );
+                }
                 let score = Sha256::new()
                     .chain_update(b"baylee/tower/card-reward/v1\0")
                     .chain_update(seed)
@@ -142,7 +164,7 @@ impl Run {
                 return Err(Refusal::Invalid);
             }
             unique_nonbasics(&claim.cards, catalog)?;
-            gold += u16::from(claim.duplicates);
+            gold += u16::from(claim.duplicates) * duplicate_gold(self.shop.generator);
         }
         Ok(gold)
     }
@@ -177,13 +199,46 @@ impl Run {
         next.economy.gold = next
             .economy
             .gold
-            .checked_add(u16::from(claim.duplicates))
+            .checked_add(u16::from(claim.duplicates) * duplicate_gold(self.shop.generator))
             .ok_or(Refusal::Capacity)?;
         next.claims.push(claim);
         next.reward = None;
         next.advance(catalog, seed)?;
         next.revised(catalog)
     }
+}
+
+fn tickets(catalog: &Catalog, card: CardIndex, identity: baylee_core::color::ColorSet) -> u8 {
+    let Some(rules) = catalog.card(card).and_then(|card| card.run) else {
+        return 1;
+    };
+    let affinity = if rules.identity.is_empty() {
+        3
+    } else if rules.identity.difference(identity).is_empty() {
+        4
+    } else {
+        1
+    };
+    affinity * rules.presentation.map_or(1, |art| art.rarity.tickets())
+}
+
+fn weighted_score(seed: &[u8; 32], package: &[u8; 32], card: CardIndex, tickets: u8) -> [u8; 32] {
+    // Distinct, domain-separated tickets implement sampling without replacement:
+    // keep each card's earliest ticket, then take the first five distinct cards.
+    // Maximum sixteen hashes per eligible card, independent of deck copy counts.
+    (0..tickets)
+        .map(|ticket| {
+            Sha256::new()
+                .chain_update(b"baylee/tower/card-reward/v2\0")
+                .chain_update(seed)
+                .chain_update(package)
+                .chain_update(card.get().to_le_bytes())
+                .chain_update([ticket])
+                .finalize()
+                .into()
+        })
+        .min()
+        .unwrap_or([u8::MAX; 32])
 }
 
 fn grant(cards: &Collection, catalog: &Catalog, card: CardIndex) -> Result<Collection, Refusal> {

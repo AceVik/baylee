@@ -5,7 +5,7 @@ use std::io::{Read, Write};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().skip(1).collect();
-    let content = baylee_tower_content::expeditions()?;
+    let content = baylee_tower_content::runic()?;
     let value = match args.as_slice() {
         [mode] if mode == "--check" => serde_json::json!({
             "generation": baylee_tower::v2::GENERATOR,

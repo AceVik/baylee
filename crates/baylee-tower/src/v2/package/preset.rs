@@ -35,6 +35,18 @@ impl Package {
             )?,
         ];
         let mut prints = Vec::new();
+        let printing = |index| {
+            if self.cohort.generator == crate::v2::generation::RUNIC
+                && let Some(art) = catalog
+                    .card(index)
+                    .and_then(|card| card.run)
+                    .and_then(|rules| rules.presentation)
+            {
+                Some(art.print())
+            } else {
+                printing(index)
+            }
+        };
         let seats = vec![
             seat(
                 &self.builds[0],

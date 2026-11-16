@@ -178,7 +178,7 @@ fn candidate(
     {
         commands.entity(tile).insert(controls::Disabled);
     }
-    let hover = crate::lobby::hover_of_index(id.get());
+    let hover = card::hover(id, ui.model.publication().map(|cohort| &cohort.catalog));
     let image = crate::lobby::thumbnails::spawn_sized(
         commands,
         &hover,
@@ -198,7 +198,10 @@ fn candidate(
             commands,
             tile,
             kit,
-            Phrase::EchoesRewardDuplicate.text(lang),
+            &Phrase::EchoesRewardDuplicate.fill(
+                lang,
+                &[&domain::v2::run::duplicate_gold(run.shop.generator).to_string()],
+            ),
             tokens::GOLD,
         );
     }

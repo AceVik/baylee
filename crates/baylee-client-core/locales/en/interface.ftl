@@ -10202,11 +10202,12 @@ EchoesFreezeConfirm = Freeze the shelf? Unsold items stay for your next visit. E
 EchoesThawConfirm = Unfreeze the shelf? All items will roll again on your next refresh or visit.
 EchoesRewardReady = Choose your spoils
 # Arguments: count
-EchoesConfirmReward = Take these { $count } cards? Already owned cards give 1 gold each.
+EchoesConfirmReward = Take these { $count } cards? Already owned cards give the displayed gold instead.
 # Arguments: selected, required
 EchoesRewardCount = { $selected } of { $required } selected
-EchoesRewardLead = A piece of your opponent's build, earned in battle. Choose cards for this run; add them to your deck in the shop. Cards already in your collection give 1 gold instead.
-EchoesRewardDuplicate = Already owned · +1 gold
+EchoesRewardLead = A piece of your opponent's build, earned in battle. Choose cards for this run; add them to your deck in the shop. Cards already in your collection give the displayed gold instead.
+# Arguments: gold
+EchoesRewardDuplicate = Already owned · +{ $gold } gold
 EchoesRewardInspect = Read card
 EchoesRewardSelected = Selected
 ## Runic equipment: closed native recipes, translated once for every item surface.

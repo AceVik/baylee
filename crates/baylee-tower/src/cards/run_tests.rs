@@ -10,6 +10,7 @@ pub(crate) fn fixture() -> (Catalog, Collection) {
             price: 0,
             basic_land: true,
             run: Some(RunCard {
+                presentation: None,
                 identity: ColorSet::of(color),
                 commander: false,
             }),
@@ -27,6 +28,7 @@ pub(crate) fn fixture() -> (Catalog, Collection) {
             price: 4,
             basic_land: false,
             run: Some(RunCard {
+                presentation: None,
                 identity: color.map_or(ColorSet::EMPTY, ColorSet::of),
                 commander,
             }),

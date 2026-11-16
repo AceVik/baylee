@@ -12,6 +12,105 @@ use baylee_protocol::execution::{Identity, Variant};
 const SEED: [u8; 32] = [43; 32];
 
 #[test]
+fn runic_duplicate_claim_pays_three_once_and_keeps_legacy_economy_frozen() {
+    for (generator, proceeds) in [(generation::RUN, 1), (generation::RUNIC, 3)] {
+        let (catalog, run, cohort, _) = fixture_for(generator);
+        let enemy = Build::freeze(&run, &catalog).unwrap();
+        let (reserved, package, result) =
+            verified(&run, &catalog, &cohort, &enemy, Outcome::Victory);
+        let pending = reserved
+            .settled_against(reserved.revision, result, &catalog, &SEED, &package)
+            .unwrap();
+        let chosen = pending.reward.as_ref().unwrap().cards.clone();
+        let command = Command::Claim { cards: chosen };
+        let claimed = pending
+            .command(pending.revision, &command, &catalog, &SEED)
+            .unwrap();
+        assert_eq!(claimed.claims[0].duplicates, 3);
+        assert_eq!(claimed.economy.gold, pending.economy.gold + 3 * proceeds);
+        claimed.validate(&catalog).unwrap();
+        assert!(
+            claimed
+                .command(claimed.revision, &command, &catalog, &SEED)
+                .is_err()
+        );
+        let mut forged = claimed;
+        forged.economy.gold += 1;
+        assert!(forged.validate(&catalog).is_err());
+    }
+}
+
+#[test]
+fn runic_reward_keeps_five_distinct_opponent_cards_and_victory_defeat_allowances() {
+    let (catalog, run, cohort, enemy) = fixture_for(generation::RUNIC);
+    for (outcome, take) in [(Outcome::Victory, 3), (Outcome::Defeat, 1)] {
+        let (_, package, result) = verified(&run, &catalog, &cohort, &enemy, outcome);
+        let first = Reward::sample(&package, &catalog, &result, &SEED).unwrap();
+        assert_eq!(
+            first,
+            Reward::sample(&package, &catalog, &result, &SEED).unwrap()
+        );
+        assert_eq!(first.cards.len(), 5);
+        assert_eq!(first.take, take);
+        unique_nonbasics(&first.cards, &catalog).unwrap();
+        assert!(first.cards.iter().all(|id| {
+            enemy.deck.iter().any(|entry| entry.card == *id)
+                || enemy
+                    .formation
+                    .as_ref()
+                    .is_some_and(|formation| formation.commander == *id)
+        }));
+        let mut forged = result;
+        forged.binding.package[0] ^= 1;
+        assert!(Reward::sample(&package, &catalog, &forged, &SEED).is_err());
+    }
+}
+
+#[test]
+fn matching_colors_and_higher_rarity_gain_weight_without_excluding_other_colors() {
+    use crate::cards::{CardRarity, Presentation};
+    use baylee_core::{
+        color::{Color, ColorSet},
+        preset::Finish,
+    };
+    let (mut catalog, _, _, _) = fixture_for(generation::RUNIC);
+    let green = ColorSet::of(Color::Green);
+    let id = CardIndex::new(6);
+    for card in &mut catalog.cards {
+        card.run.as_mut().unwrap().presentation = Some(Presentation {
+            printing: uuid::Uuid::from_u128(u128::from(card.card.get()) + 1),
+            finish: Finish::Foil,
+            rarity: CardRarity::Common,
+        });
+    }
+    assert_eq!(tickets(&catalog, id, green), 4);
+    assert_eq!(tickets(&catalog, id, ColorSet::of(Color::Red)), 1);
+    assert_eq!(tickets(&catalog, CardIndex::new(7), green), 3);
+    catalog.cards[6]
+        .run
+        .as_mut()
+        .unwrap()
+        .presentation
+        .as_mut()
+        .unwrap()
+        .rarity = CardRarity::Mythic;
+    assert_eq!(tickets(&catalog, id, green), 16);
+    let mut favored = 0;
+    for sample in 0_u16..512 {
+        let mut seed = [0; 32];
+        seed[..2].copy_from_slice(&sample.to_le_bytes());
+        favored += usize::from(
+            weighted_score(&seed, &[0; 32], id, 16)
+                < weighted_score(&seed, &[0; 32], CardIndex::new(8), 1),
+        );
+    }
+    assert!(
+        (440..505).contains(&favored),
+        "observed {favored}/512 weighted wins"
+    );
+}
+
+#[test]
 fn income_uses_only_frozen_equipment_and_cannot_be_replayed_or_forged() {
     use crate::v2::{
         catalog::{Definition, Family, Rarity},
@@ -62,6 +161,10 @@ fn income_uses_only_frozen_equipment_and_cannot_be_replayed_or_forged() {
 }
 
 fn fixture() -> (Catalog, Run, Cohort, Build) {
+    fixture_for(generation::RUN)
+}
+
+fn fixture_for(generator: u16) -> (Catalog, Run, Cohort, Build) {
     let (mut catalog, cards) = crate::cards::run_tests::fixture();
     for id in 10..18 {
         catalog.cards.push(crate::cards::Card {
@@ -69,10 +172,16 @@ fn fixture() -> (Catalog, Run, Cohort, Build) {
             ..catalog.cards[6]
         });
     }
-    let run = Run::begin_for(&catalog, cards, &SEED, generation::RUN).unwrap();
-    let mut identity = Identity::native(Variant::Tower, "reward-test", "synthetic", 22);
-    identity.rules = "tower-5".into();
-    let cohort = Cohort::for_generation(identity, &catalog, generation::RUN).unwrap();
+    let run = Run::begin_for(&catalog, cards, &SEED, generator).unwrap();
+    let current = generator == generation::RUNIC;
+    let mut identity = Identity::native(
+        Variant::Tower,
+        "reward-test",
+        "synthetic",
+        if current { 23 } else { 22 },
+    );
+    identity.rules = if current { "tower-6" } else { "tower-5" }.into();
+    let cohort = Cohort::for_generation(identity, &catalog, generator).unwrap();
     let mut enemy = Build::freeze(&run, &catalog).unwrap();
     enemy.deck[0].copies -= 8;
     enemy.deck.extend((10..18).map(|card| Stack {

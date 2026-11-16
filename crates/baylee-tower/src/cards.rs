@@ -6,6 +6,8 @@ use std::collections::BTreeSet;
 
 mod commander;
 pub use commander::{Formation, RunCard};
+mod presentation;
+pub use presentation::{CardRarity, Presentation};
 
 /// A deliberately finite reviewed card catalog for a rules revision.
 pub const MAX_CATALOG: usize = 2048;

@@ -114,7 +114,6 @@ fn stop_regular(action: Action, ui: &Ui) -> Stop {
         Action::Accept => return Stop::new(CONFIRM.name, "confirm"),
         Action::Cancel => return Stop::new(CONFIRM.name, "cancel"),
         Action::Open | Action::Back => ("back", 0),
-        Action::Overview => ("overview", 0),
         Action::Refresh => ("refresh", 0),
         Action::Retry => ("retry", 0),
         Action::GoShop => ("shop-return", 0),

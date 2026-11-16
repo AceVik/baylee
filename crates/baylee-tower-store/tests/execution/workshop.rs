@@ -25,6 +25,7 @@ fn publication() -> Publication {
             price: 0,
             basic_land: true,
             run: Some(RunCard {
+                presentation: None,
                 identity: ColorSet::of(color),
                 commander: false,
             }),
@@ -35,6 +36,7 @@ fn publication() -> Publication {
         price: 4,
         basic_land: false,
         run: Some(RunCard {
+            presentation: None,
             identity: ColorSet::of(Color::Green),
             commander: id < 10,
         }),

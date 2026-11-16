@@ -8,6 +8,7 @@ use baylee_tower::v2::{
 };
 use sea_orm::{ConnectionTrait, DbBackend, Statement};
 use uuid::Uuid;
+mod outcome;
 mod ranking;
 
 pub(super) async fn prepare(fixture: &Fixture, id: Uuid) {
@@ -36,6 +37,9 @@ pub(super) async fn prepare(fixture: &Fixture, id: Uuid) {
     let mut state: Run = serde_json::from_slice(&bytes).unwrap();
     populate(&mut state);
     let publication = demo::publication(&fixture.identity);
+    if let Ok(scenario) = std::env::var("BAYLEE_TOWER_UI_SCENARIO") {
+        state = outcome::prepare(state, &publication, &scenario);
+    }
     state
         .validate_for(&publication.catalog, publication.cohort.generator)
         .unwrap();

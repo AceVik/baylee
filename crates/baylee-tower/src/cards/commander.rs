@@ -11,6 +11,9 @@ pub struct RunCard {
     pub identity: ColorSet,
     /// Admitted as the single commander; partner pairs are not part of this format.
     pub commander: bool,
+    /// Edition, finish and rarity. Absent in retained generation-four/five bytes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub presentation: Option<super::Presentation>,
 }
 
 /// Cards outside the 39-card main library, still bound to the run's ownership.
@@ -72,6 +75,15 @@ pub(super) fn catalog(catalog: &Catalog) -> Result<(), Refusal> {
             return Err(Refusal::Invalid);
         }
         if let Some(rules) = card.run {
+            if rules.presentation.is_some_and(|art| art.printing.is_nil())
+                || rules.presentation.is_some()
+                    != catalog.cards[0]
+                        .run
+                        .and_then(|rules| rules.presentation)
+                        .is_some()
+            {
+                return Err(Refusal::Invalid);
+            }
             if !rules.identity.difference(ColorSet::ALL).is_empty() {
                 return Err(Refusal::Invalid);
             }

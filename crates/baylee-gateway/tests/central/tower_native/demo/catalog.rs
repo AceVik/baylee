@@ -9,7 +9,7 @@ use baylee_tower_store::Publication;
 pub(in super::super) fn publication(identity: &Identity) -> Publication {
     let (content, generation) = if identity.rules == "tower-6" {
         (
-            baylee_tower_content::expeditions().unwrap(),
+            baylee_tower_content::runic().unwrap(),
             baylee_tower::v2::generation::RUNIC,
         )
     } else {

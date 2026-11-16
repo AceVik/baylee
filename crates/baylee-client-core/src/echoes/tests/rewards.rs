@@ -11,6 +11,7 @@ pub(super) fn fixture() -> (State, Cohort, Run) {
             price: 0,
             basic_land: true,
             run: Some(RunCard {
+                presentation: None,
                 identity: ColorSet::of(color),
                 commander: false,
             }),
@@ -21,6 +22,7 @@ pub(super) fn fixture() -> (State, Cohort, Run) {
         price: 4,
         basic_land: false,
         run: Some(RunCard {
+            presentation: None,
             identity: ColorSet::of(Color::Green),
             commander: true,
         }),

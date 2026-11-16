@@ -43,7 +43,8 @@ pub(super) fn run(runtime: &Runtime, served: &Served) {
         );
         let tower = account.tower().unwrap();
         let run = starting_run(&tower, fixture.cohort);
-        if std::env::var("BAYLEE_TOWER_UI_SHOWCASE").as_deref() == Ok("1")
+        if (std::env::var("BAYLEE_TOWER_UI_SHOWCASE").as_deref() == Ok("1")
+            || std::env::var_os("BAYLEE_TOWER_UI_SCENARIO").is_some())
             && let Some(run) = &run
         {
             runtime.block_on(showcase::prepare(fixture, run.id));

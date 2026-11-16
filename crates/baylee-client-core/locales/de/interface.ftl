@@ -3764,10 +3764,11 @@ EchoesConfirmPin = { $action }: { $goods }?
 EchoesFreezeConfirm = Regal einfrieren? Nicht gekaufte Gegenstände bleiben beim nächsten Besuch erhalten. Leere Plätze werden aufgefüllt.
 EchoesThawConfirm = Regal auftauen? Beim nächsten Neuwürfeln oder Besuch werden alle Gegenstände neu ausgewürfelt.
 EchoesRewardReady = Wähle deine Beute
-EchoesConfirmReward = Diese { $count } Karten nehmen? Bereits bekannte Karten bringen je 1 Gold.
+EchoesConfirmReward = Diese { $count } Karten nehmen? Bereits bekannte Karten bringen stattdessen das angezeigte Gold.
 EchoesRewardCount = { $selected } von { $required } gewählt
-EchoesRewardLead = Ein Stück des gegnerischen Builds, im Kampf verdient. Wähle Karten für diesen Run und baue sie im Shop in dein Deck ein. Bereits gesammelte Karten bringen stattdessen je 1 Gold.
-EchoesRewardDuplicate = Bereits vorhanden · +1 Gold
+EchoesRewardLead = Ein Stück des gegnerischen Builds, im Kampf verdient. Wähle Karten für diesen Run und baue sie im Shop in dein Deck ein. Bereits gesammelte Karten bringen stattdessen das angezeigte Gold.
+# Arguments: gold
+EchoesRewardDuplicate = Bereits vorhanden · +{ $gold } Gold
 EchoesRewardInspect = Karte ansehen
 EchoesRewardSelected = Ausgewählt
 ## Runenausrüstung: dieselben Regeln im Shop, Inventar und am Tisch.
