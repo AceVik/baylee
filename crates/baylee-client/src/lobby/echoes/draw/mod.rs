@@ -1,9 +1,7 @@
 //! Retained, responsive Tower panels using the game's existing typography and art.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::lobby::challenges::draw::{
-    attach_body, heading, label, panel as challenge_panel, presentation, row,
-};
+use crate::lobby::challenges::draw::{heading, label, panel as challenge_panel, presentation, row};
 use crate::{
     hud::glyph,
     shellkit::{
@@ -184,8 +182,7 @@ fn body(
         .spawn((
             Node {
                 width: percent(100),
-                max_width: kit.m.px(1440.0),
-                align_self: AlignSelf::Center,
+                align_self: AlignSelf::Stretch,
                 flex_direction: FlexDirection::Column,
                 flex_grow: 1.0,
                 min_height: px(0),
@@ -209,7 +206,21 @@ fn body(
             ScrollPosition(Vec2::new(0.0, scrolled.get(List::Table))),
         ));
     }
-    attach_body(commands, root, body, metrics.frame);
+    let frame = if metrics.frame == Frame::Compact {
+        body
+    } else {
+        crate::lobby::scrollbars::band_stable(commands, body, false)
+    };
+    commands
+        .entity(frame)
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            node.width = percent(100);
+            node.max_width = kit.m.px(1440.0);
+            node.margin = UiRect::horizontal(Val::Auto);
+            node.flex_grow = 1.0;
+        });
+    commands.entity(root).add_child(frame);
     body
 }
 

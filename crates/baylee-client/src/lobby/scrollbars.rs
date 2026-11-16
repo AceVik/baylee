@@ -83,6 +83,19 @@ pub(crate) fn attach_when_needed(
 /// Wraps `scroller` and an [`OnlyWhenNeeded`] scrollbar in a horizontal band
 /// and returns that band entity (used by sheets and dialogs).
 pub(crate) fn band_when_needed(commands: &mut Commands, scroller: Entity, wide: bool) -> Entity {
+    band(commands, scroller, wide, false)
+}
+
+/// A stable-width viewport: the hidden scrollbar keeps its gutter during
+/// measurement and updates, so rebuilding content cannot move its controls.
+pub(crate) fn band_stable(commands: &mut Commands, scroller: Entity, wide: bool) -> Entity {
+    band(commands, scroller, wide, true)
+}
+
+#[derive(Component)]
+pub(crate) struct StableGutter;
+
+fn band(commands: &mut Commands, scroller: Entity, wide: bool, stable: bool) -> Entity {
     let w = bar_width(wide);
     let track = track(commands, scroller, wide);
     commands.entity(track).insert((
@@ -91,12 +104,17 @@ pub(crate) fn band_when_needed(commands: &mut Commands, scroller: Entity, wide: 
             width: px(w),
             height: percent(100),
             flex_shrink: 0.0,
-            display: Display::None,
+            display: if stable { Display::Flex } else { Display::None },
             margin: UiRect::right(px(6)),
             border_radius: BorderRadius::all(px(w * 0.5)),
             ..default()
         },
     ));
+    if stable {
+        commands
+            .entity(track)
+            .insert((StableGutter, Visibility::Hidden));
+    }
     let host = commands
         .spawn((
             Node {
@@ -187,21 +205,34 @@ pub(crate) struct OnlyWhenNeeded;
 /// Taken out of the layout while hidden (`Display::None`), so a page that
 /// fits keeps its whole width and stays centred.
 pub(crate) fn show_when_needed(
-    mut bars: Query<(&Scrollbar, &mut Node), With<OnlyWhenNeeded>>,
+    mut bars: Query<
+        (&Scrollbar, &mut Node, &mut Visibility, Has<StableGutter>),
+        With<OnlyWhenNeeded>,
+    >,
     lists: Query<&ComputedNode>,
 ) {
-    for (bar, mut node) in &mut bars {
+    for (bar, mut node, mut visibility, stable) in &mut bars {
         let Ok(list) = lists.get(bar.target) else {
             continue;
         };
         let runs_over = list.content_size.y > list.size.y + 1.0;
-        let display = if runs_over {
+        let display = if runs_over || stable {
             Display::Flex
         } else {
             Display::None
         };
         if node.display != display {
             node.display = display;
+        }
+        if stable {
+            let next = if runs_over {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
+            if *visibility != next {
+                *visibility = next;
+            }
         }
     }
 }

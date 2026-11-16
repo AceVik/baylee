@@ -38,6 +38,7 @@ pub(super) fn draw(
         .spawn((
             Node {
                 display: Display::Grid,
+                align_items: AlignItems::Center,
                 grid_template_columns: vec![RepeatedGridTrack::flex(
                     if run.shop.offers.len() > 8 { 6 } else { 4 },
                     1.0,

@@ -25,6 +25,7 @@ pub(super) fn draw(
         .and_modify(|mut node| {
             node.align_items = AlignItems::Stretch;
             node.flex_wrap = FlexWrap::Wrap;
+            node.flex_grow = 1.0;
         });
     let equipment = towerui::frame(commands, workspace, kit);
     commands
