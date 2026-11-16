@@ -1511,6 +1511,7 @@ pub(super) fn community_dialog(
         return;
     };
     let lang = state.lobby.lang();
+    let central_site = super::super::source::central_website_url();
     let (title_str, detail_str, icon_glyph, accent, address, code, open_press, open_label) =
         match kind {
             CommunityKind::WhatsApp => (
@@ -1548,7 +1549,7 @@ pub(super) fn community_dialog(
                 Phrase::CommunityWebsiteAbout.text(lang),
                 '\u{f0ac}',
                 tokens::ACCENT,
-                super::super::source::CENTRAL_WEBSITE_URL,
+                central_site.as_str(),
                 state.website_code.as_ref(),
                 FrontPress::OpenWebsite,
                 Phrase::CommunityWebsiteOpen.text(lang),

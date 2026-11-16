@@ -2,8 +2,11 @@
 
 The map of this repository, for every agent and person working on it. It
 names what always applies and where each subject is written down; the rules
-themselves live in the documents it points to. Before you change an area,
-read its document. `CLAUDE.md` imports this file.
+themselves live in the documents it points to. Before you change code in an
+area, read its document; pure operational requests (rebase, commit/push,
+starting or stopping the local stack or client) execute directly without
+upfront doc sweeps, consulting docs or logs only if a command conflicts or
+fails. `CLAUDE.md` imports this file.
 
 Baylee plays Magic: The Gathering: a deterministic rules engine, the servers
 that host it (gateway, agent, one engine process per game, a feedback
@@ -22,12 +25,17 @@ unofficial, non-commercial fan project.
   web-specific tooling. A Rust replacement also replaces its callers and tests.
   Existing CLI tools may be invoked directly; do not hide new program logic in
   shell pipelines or interpreter one-liners.
-- **Gate before you push.** `cargo dev gate` and `cargo dev gate features`
-  (with `DATABASE_URL`); `cargo dev land` runs both desktop gates and
-  fast-forwards `main`. On a branch the gate tests the crates its diff
-  reaches; `land` and `cargo dev gate --workspace` test every crate. Wasm is an optional experimental check until browser
-  support ships. A change lands after the local gates, not
-  after CI (`docs/dev/commands.md`, `docs/releasing.md` §"CI").
+- **Gate before you land or ready a PR.** `cargo dev gate` and
+  `cargo dev gate features` (with `DATABASE_URL`, or `cargo dev stack gate`
+  and `cargo dev stack gate --features` using an owned local PostgreSQL 18
+  instance); `cargo dev land` runs both desktop gates and fast-forwards `main`.
+  On a branch the gate tests the crates its diff reaches; `land` and
+  `cargo dev gate --workspace` test every crate. When the owner explicitly asks
+  to commit and push current WIP state on an agent branch (`agy/*`, `codex/*`,
+  `claude/*`) for handoff, commit and push immediately without blocking on the
+  full gates. Wasm is an optional experimental check until browser support
+  ships. A change lands after the local gates, not after CI
+  (`docs/dev/commands.md`, `docs/releasing.md` §"CI").
 - **Development features are local-only.** CI runs no dev-feature matrix;
   `shipped-features` only verifies that test hooks cannot reach shipped builds.
 - **Determinism.** The engine and core use the seeded RNG only; no
@@ -66,6 +74,14 @@ unofficial, non-commercial fan project.
   come from the owner (`docs/dev/environment.md`, `docs/llm-seat.md`).
 - **A client you start for a test, you close**, also on failure, and you
   check that it exited (`docs/dev/conventions.md`).
+- **Interactive local runs (`cargo dev stack`).** Start the local stack and
+  interactive client with `cargo dev stack up` (`docs/dev/commands.md`
+  §"Running"; defaults to `--monitor 2` on the left 2K display and builds
+  `baylee-client` without `dev-control` so input is never passive or
+  harnessed), and stop it with `cargo dev stack down`. When Baylee Central is
+  also requested locally, wire the sibling Central checkout on
+  `http://127.0.0.1:28790` (web `http://127.0.0.1:28794`) and enroll a test
+  account.
 - **Leave code better than you found it.** Split a large file into a
   directory module (a move-only commit, then a change commit); card files
   are placed by codegen and never moved.

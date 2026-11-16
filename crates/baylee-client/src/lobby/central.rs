@@ -656,7 +656,13 @@ fn close(state: &mut LobbyState) {
 /// password, one Argon2id run each (`attach_account_keys`).
 const ATTACH_LIMIT: usize = 8;
 
-#[cfg_attr(not(feature = "dev-control"), allow(clippy::unnecessary_wraps))] // The dev override can fail.
+#[cfg_attr(
+    not(all(
+        not(target_arch = "wasm32"),
+        any(debug_assertions, feature = "dev-control")
+    )),
+    allow(clippy::unnecessary_wraps)
+)] // The dev override can fail.
 fn endpoint() -> Result<Endpoint, Error> {
     // A unit test never reaches the live Central: a sign-in or a pairing it
     // starts meets a loopback port nobody answers on.
@@ -664,7 +670,10 @@ fn endpoint() -> Result<Endpoint, Error> {
         return Endpoint::development("http://127.0.0.1:9");
     }
     // Development is explicit and loopback-only; a bad override never falls back to live.
-    #[cfg(feature = "dev-control")]
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(debug_assertions, feature = "dev-control")
+    ))]
     if let Some(origin) = std::env::var_os("BAYLEE_CENTRAL_DEV_ENDPOINT") {
         return Endpoint::development(origin.to_str().ok_or(Error::Rejected)?);
     }
