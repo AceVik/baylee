@@ -180,7 +180,7 @@ fn spawn_bubble(commands: &mut Commands, fonts: &UiFonts) {
         },
         BackgroundColor(palette::LOG_GLASS_TOP.with_alpha(0.96)),
         BorderColor::all(palette::LOG_GLASS_EDGE),
-        soft_shadow(),
+        palette::elevation_pill(),
         GlobalZIndex(G_HINT),
         Visibility::Hidden,
         Pickable::IGNORE,

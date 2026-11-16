@@ -1038,12 +1038,17 @@ fn entry_button(
         )],
     ));
     if let Some(reason) = disabled_hint {
-        ent.insert(super::hint_bundle(reason));
+        ent.insert((
+            crate::shellkit::surfaces::elevation_control_disabled(),
+            super::hint_bundle(reason),
+        ));
     } else {
         ent.insert((
             UiButton,
             press,
+            crate::shellkit::surfaces::elevation_control(),
             Feel::tinting_to(tokens::CONTROL, Color::srgba(1.0, 1.0, 1.0, 0.10)),
+            crate::ambience::FeelShadow,
         ));
     }
     ent.id()
@@ -1098,7 +1103,9 @@ fn close_button(commands: &mut Commands, fonts: &UiFonts) -> Entity {
             },
             BackgroundColor(Color::srgba(0.08, 0.14, 0.19, 0.90)),
             BorderColor::all(tokens::BORDER),
+            crate::shellkit::surfaces::elevation_control(),
             Feel::new(Color::srgba(0.08, 0.14, 0.19, 0.90)),
+            crate::ambience::FeelShadow,
             children![(
                 Text::new(glyph::CLOSE.to_string()),
                 icon_tf(fonts, z(13.5)),
@@ -1341,18 +1348,25 @@ fn sync_drawer(
                 BorderColor::all(super::rows::GLASS_EDGE),
                 BoxShadow(vec![
                     ShadowStyle {
-                        color: Color::srgba(0.0, 0.0, 0.0, 0.65),
-                        x_offset: zpx(-10.0),
-                        y_offset: zpx(0.0),
-                        spread_radius: zpx(2.0),
-                        blur_radius: zpx(28.0),
-                    },
-                    ShadowStyle {
-                        color: Color::srgba(0.0, 0.0, 0.0, 0.38),
+                        color: Color::srgba(0.0, 0.0, 0.0, 0.44),
                         x_offset: zpx(-3.0),
                         y_offset: zpx(0.0),
                         spread_radius: zpx(0.0),
                         blur_radius: zpx(8.0),
+                    },
+                    ShadowStyle {
+                        color: Color::srgba(0.0, 0.0, 0.0, 0.68),
+                        x_offset: zpx(-14.0),
+                        y_offset: zpx(0.0),
+                        spread_radius: zpx(-1.0),
+                        blur_radius: zpx(36.0),
+                    },
+                    ShadowStyle {
+                        color: Color::srgba(0.0, 0.0, 0.0, 0.34),
+                        x_offset: zpx(-6.0),
+                        y_offset: zpx(0.0),
+                        spread_radius: zpx(1.0),
+                        blur_radius: zpx(20.0),
                     },
                 ]),
                 super::window::stacked(10),
@@ -2390,22 +2404,7 @@ fn sync_context_menu(
                 ],
             )),
             BorderColor::all(tokens::ACCENT.with_alpha(0.65)),
-            BoxShadow(vec![
-                ShadowStyle {
-                    color: Color::srgba(0.0, 0.0, 0.0, 0.72),
-                    x_offset: zpx(0.0),
-                    y_offset: zpx(8.0),
-                    spread_radius: zpx(1.0),
-                    blur_radius: zpx(22.0),
-                },
-                ShadowStyle {
-                    color: Color::srgba(0.0, 0.0, 0.0, 0.42),
-                    x_offset: zpx(0.0),
-                    y_offset: zpx(2.0),
-                    spread_radius: zpx(0.0),
-                    blur_radius: zpx(6.0),
-                },
-            ]),
+            super::rows::popover_glass_shadow(),
             crate::shellkit::sheen::Sheen,
             super::window::stacked(60),
         ))

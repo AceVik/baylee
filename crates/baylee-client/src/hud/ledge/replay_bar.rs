@@ -346,13 +346,7 @@ fn spawn_timeline(
                 ..default()
             },
             BackgroundColor(palette::DOCK_GROUND.with_alpha(0.92)),
-            BoxShadow::from(ShadowStyle {
-                color: palette::SHADOW,
-                x_offset: px(0.0),
-                y_offset: px(2.0),
-                spread_radius: px(0.0),
-                blur_radius: px(6.0),
-            }),
+            palette::elevation_pill(),
         ))
         .observe(seek_on_press)
         .observe(seek_on_drag)
@@ -576,6 +570,7 @@ fn spawn_controls(commands: &mut Commands, fonts: &UiFonts, look: &BarLook) -> E
                 ..default()
             },
             BackgroundColor(palette::DOCK_GROUND.with_alpha(0.85)),
+            palette::elevation_pill(),
             crate::hud::Hint(ReplayPhrase::Speed.text(lang).to_string()),
         ))
         .id();
@@ -752,7 +747,7 @@ fn round(
     } else {
         palette::PANEL_HOT
     };
-    commands
+    let button = commands
         .spawn((
             UiButton,
             Node {
@@ -781,7 +776,14 @@ fn round(
             Pickable::IGNORE,
         ))
         .observe(asks_on_click(ask))
-        .id()
+        .id();
+    if big {
+        commands.entity(button).insert((
+            crate::shellkit::surfaces::elevation_control(),
+            crate::ambience::FeelShadow,
+        ));
+    }
+    button
 }
 
 /// A speed pill: brass when chosen.
@@ -792,7 +794,7 @@ fn pill(commands: &mut Commands, fonts: &UiFonts, words: &str, on: bool, ask: Ba
     } else {
         palette::PANEL_HOT
     };
-    commands
+    let button = commands
         .spawn((
             UiButton,
             Node {
@@ -818,7 +820,14 @@ fn pill(commands: &mut Commands, fonts: &UiFonts, words: &str, on: bool, ask: Ba
             Pickable::IGNORE,
         ))
         .observe(asks_on_click(ask))
-        .id()
+        .id();
+    if on {
+        commands.entity(button).insert((
+            crate::shellkit::surfaces::elevation_control(),
+            crate::ambience::FeelShadow,
+        ));
+    }
+    button
 }
 
 /// What a chip on the right shows.
@@ -857,7 +866,9 @@ fn chip(commands: &mut Commands, fonts: &UiFonts, look: Chip, ask: BarAsk) -> En
             } else {
                 palette::DOCK_EDGE.with_alpha(0.5)
             }),
+            crate::shellkit::surfaces::elevation_control(),
             Feel::lifting(ground, palette::PANEL_HOT, 0.05),
+            crate::ambience::FeelShadow,
             crate::hud::Hint(look.hint.to_string()),
         ))
         .observe(asks_on_click(ask))
@@ -922,13 +933,7 @@ fn spawn_picker(commands: &mut Commands, fonts: &UiFonts, look: &BarLook) {
             UiTransform::default(),
             BackgroundColor(palette::DIALOG),
             BorderColor::all(palette::DIALOG_LINE),
-            BoxShadow::from(ShadowStyle {
-                color: palette::SHEET_SHADOW,
-                x_offset: px(0.0),
-                y_offset: px(4.0),
-                spread_radius: px(0.0),
-                blur_radius: px(14.0),
-            }),
+            palette::elevation_sheet(),
             GlobalZIndex(G_REPLAY_SHEET),
         ))
         .id();
@@ -1049,13 +1054,7 @@ fn spawn_sheet(commands: &mut Commands, fonts: &UiFonts, look: &BarLook) {
             },
             BackgroundColor(palette::DIALOG),
             BorderColor::all(palette::DIALOG_LINE),
-            BoxShadow::from(ShadowStyle {
-                color: palette::SHEET_SHADOW,
-                x_offset: px(0.0),
-                y_offset: px(4.0),
-                spread_radius: px(0.0),
-                blur_radius: px(14.0),
-            }),
+            palette::elevation_sheet(),
             GlobalZIndex(G_REPLAY_SHEET),
         ))
         .id();
@@ -1128,7 +1127,9 @@ fn sheet_button(commands: &mut Commands, fonts: &UiFonts, words: &str, lead: boo
                 ..default()
             },
             BackgroundColor(ground),
+            crate::shellkit::surfaces::elevation_control(),
             Feel::lifting(ground, crate::ambience::lighter(ground, 0.15), 0.05),
+            crate::ambience::FeelShadow,
         ))
         .with_child((
             Text::new(words),

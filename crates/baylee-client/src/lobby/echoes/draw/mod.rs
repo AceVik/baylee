@@ -1,12 +1,14 @@
 //! Retained, responsive Tower panels using the game's existing typography and art.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::lobby::challenges::draw::{attach_body, heading, label, panel, presentation, row};
+use crate::lobby::challenges::draw::{
+    attach_body, heading, label, panel as challenge_panel, presentation, row,
+};
 use crate::{
     hud::glyph,
     shellkit::{
         controls::{self, Kit, Live, Weight},
-        px_fixed, tokens,
+        px_fixed, surfaces, tokens,
     },
 };
 use baylee_client_core::echoes::draft::allowed;
@@ -32,6 +34,12 @@ mod tiers;
 mod widgets;
 mod words;
 use widgets::{can, confirmation, control, featured_portrait, portrait, tile};
+
+fn panel(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
+    let card = challenge_panel(commands, root, kit);
+    commands.entity(card).insert(surfaces::elevation_card());
+    card
+}
 
 pub(in crate::lobby) fn entry(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang) {
     let card = panel(commands, root, kit);
@@ -230,6 +238,7 @@ fn body(
                 ..default()
             },
             BackgroundColor(tokens::OPAQUE),
+            surfaces::elevation_panel(),
             Pickable::default(),
         ))
         .id();

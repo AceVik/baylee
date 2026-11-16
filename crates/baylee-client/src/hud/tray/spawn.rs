@@ -127,7 +127,7 @@ pub(super) fn spawn_tray(
             },
             BackgroundColor(palette::DIALOG),
             BorderColor::all(palette::DIALOG_LINE),
-            sheet_shadow(),
+            palette::elevation_sheet(),
         ))
         .id();
     commands.entity(frame).add_child(panel);

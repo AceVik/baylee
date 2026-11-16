@@ -6,6 +6,7 @@
 #[allow(clippy::wildcard_imports)] // the builder's own vocabulary
 use super::*;
 use crate::lobby::{FieldLook, FieldTail, List};
+use crate::shellkit::surfaces;
 use baylee_client_core::deckbuilder::BuildField;
 
 /// What the syntax popover offers (`docs/client.md` §"What the search box
@@ -45,6 +46,21 @@ fn compact(env: &Env) -> bool {
     matches!(env.layout, Layout::Rail | Layout::PhoneSingle)
 }
 
+/// Attaches [`surfaces::elevation_control`] and [`crate::ambience::FeelShadow`] to
+/// the visible `Role::Button` face of a standalone `buildui::icon_button` wrapper.
+pub(in crate::buildui) fn elevate_icon_button(commands: &mut Commands, wrapper: Entity) {
+    commands.queue(move |world: &mut World| {
+        let face = world
+            .get::<Children>(wrapper)
+            .and_then(|children| children.first().copied());
+        if let Some(face) = face
+            && let Ok(mut face) = world.get_entity_mut(face)
+        {
+            face.insert((surfaces::elevation_control(), crate::ambience::FeelShadow));
+        }
+    });
+}
+
 /// The pool panel and its holders.
 pub(super) fn panel(commands: &mut Commands, env: &Env, holders: &mut retained::Holders) -> Entity {
     let kit = env.kit;
@@ -54,7 +70,9 @@ pub(super) fn panel(commands: &mut Commands, env: &Env, holders: &mut retained::
         1.0
     };
     let panel = super::panel(commands, kit, grow, None);
-    commands.entity(panel).insert(crate::lobby::dock::Dock(6));
+    commands
+        .entity(panel)
+        .insert((crate::lobby::dock::Dock(6), surfaces::elevation_card()));
     holders.toolbar = Some(holder(
         commands,
         panel,
@@ -183,13 +201,15 @@ pub(super) fn toolbar(commands: &mut Commands, holder: Entity, env: &Env) {
     if compact(env) {
         first.push(filters_button(commands, env));
     }
-    first.push(icon_button(
+    let gear = icon_button(
         commands,
         kit,
         crate::hud::glyph::GEAR,
         deck.pool_panel().is_some(),
         (Press::Build(BuildPress::ToggleFilterPanel), stop("gear")),
-    ));
+    );
+    elevate_icon_button(commands, gear);
+    first.push(gear);
     let top = line(commands, kit, &first);
     commands.entity(holder).add_child(top);
 
@@ -470,6 +490,12 @@ fn colour_toggles(commands: &mut Commands, env: &Env) -> Vec<Entity> {
         .enumerate()
         .map(|(i, (letter, _))| {
             let on = deck.colors().contains(letter);
+            let bg = if on {
+                mana_tone(*letter)
+            } else {
+                tokens::CONTROL
+            };
+            let rim = if on { tokens::ACCENT } else { tokens::BORDER };
             let disc = commands
                 .spawn((
                     Role::Toggle,
@@ -482,12 +508,16 @@ fn colour_toggles(commands: &mut Commands, env: &Env) -> Vec<Entity> {
                         border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
                         ..default()
                     },
-                    BackgroundColor(if on {
-                        mana_tone(*letter)
-                    } else {
-                        tokens::CONTROL
-                    }),
-                    BorderColor::all(if on { tokens::ACCENT } else { tokens::BORDER }),
+                    BackgroundColor(bg),
+                    BorderColor::all(rim),
+                    surfaces::elevation_control(),
+                    crate::ambience::Feel::new(bg),
+                    crate::ambience::FeelBorder {
+                        rest: rim,
+                        hot: tokens::ACCENT.with_alpha(if on { 0.90 } else { 0.55 }),
+                        press: crate::ambience::lighter(rim, -0.15),
+                    },
+                    crate::ambience::FeelShadow,
                 ))
                 .id();
             let letter_ink = if on {
@@ -566,12 +596,14 @@ fn sort_controls(commands: &mut Commands, env: &Env) -> Entity {
             },
             BackgroundColor(ground),
             BorderColor::all(rim),
+            surfaces::elevation_control(),
             crate::ambience::Feel::new(ground),
             crate::ambience::FeelBorder {
                 rest: rim,
                 hot: tokens::ACCENT.with_alpha(if menu_open { 0.85 } else { 0.55 }),
                 press: crate::ambience::lighter(rim, -0.15),
             },
+            crate::ambience::FeelShadow,
         ))
         .id();
     let sign = glyph(commands, kit, sort_glyph, m.small * 0.9, tokens::ACCENT);
@@ -618,6 +650,7 @@ fn sort_controls(commands: &mut Commands, env: &Env) -> Entity {
             crate::lobby::HoverHint(dir_tip.to_string()),
         ),
     );
+    elevate_icon_button(commands, dir_btn);
 
     let group = commands
         .spawn((
@@ -696,6 +729,7 @@ pub(super) fn list(commands: &mut Commands, holder: Entity, env: &Env) {
             },
             BackgroundColor(tokens::CONTROL.with_alpha(0.45)),
             BorderColor::all(tokens::BORDER.with_alpha(0.65)),
+            surfaces::elevation_subcard(),
             Pickable::IGNORE,
         ))
         .id();
@@ -822,6 +856,7 @@ pub(crate) fn rail_head(commands: &mut Commands, env: &Env) -> Entity {
         false,
         (Press::Build(BuildPress::ToggleRail), stop("rail")),
     );
+    elevate_icon_button(commands, close);
     line(commands, kit, &[title, gap, close])
 }
 

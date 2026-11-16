@@ -339,9 +339,11 @@ pub(super) fn mini_tiles(
                 },
                 BackgroundColor(tokens::CONTROL),
                 BorderColor::all(tokens::BORDER),
+                surfaces::elevation_control(),
                 parts::identity_gradient(&deck.identity),
                 Press::Decks(DecksPress::AddAndUse(index)),
                 crate::ambience::Feel::new(tokens::CONTROL),
+                crate::ambience::FeelShadow,
             ))
             .id();
         if let Some(art) = deck.art() {
@@ -565,8 +567,10 @@ fn picker(
                     tokens::BORDER
                 }),
                 parts::identity_gradient(&deck.identity),
+                surfaces::elevation_control(),
                 Press::Play(PlayPress::PickDeck(index)),
                 crate::ambience::Feel::new(Color::NONE),
+                crate::ambience::FeelShadow,
             ))
             .id();
         if let Some(art) = deck.art() {
@@ -637,8 +641,10 @@ fn picker(
                     },
                     BorderColor::all(tokens::BORDER),
                     parts::identity_gradient(&deck.identity),
+                    surfaces::elevation_control(),
                     Press::Decks(super::decks::DecksPress::AddAndUse(h_idx)),
                     crate::ambience::Feel::new(Color::NONE),
+                    crate::ambience::FeelShadow,
                 ))
                 .id();
             if let Some(art) = deck.art() {

@@ -120,7 +120,7 @@ pub(super) fn spawn_sheet(
             // paper lying *over* the board, not a panel in the same plane as
             // one, and it is the same claim the tray and the finish card
             // make. One helper rather than a fourth set of four numbers.
-            crate::hud::sheet_shadow(),
+            palette::elevation_sheet(),
             // Deliberately *not* `Pickable::IGNORE`. The root is, and the
             // grain is, so the felt around the sheet still belongs to the
             // table — but a click on the paper itself has to land on the

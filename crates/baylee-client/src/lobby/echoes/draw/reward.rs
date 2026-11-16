@@ -113,6 +113,7 @@ fn candidate(
         kit.m.px(156.0),
         kit.m.px(7.0),
     );
+    commands.entity(image).insert(surfaces::elevation_control());
     commands.entity(tile).insert(hover).add_child(image);
     label(commands, tile, kit, &words::card(id, lang), tokens::INK);
     if run.cards.copies(id) > 0 {

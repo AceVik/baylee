@@ -451,6 +451,9 @@ pub(super) fn chip_row(
                 },
                 BackgroundColor(tokens::CONTROL),
                 BorderColor::all(tokens::BORDER),
+                crate::shellkit::surfaces::elevation_control(),
+                crate::ambience::Feel::new(tokens::CONTROL),
+                crate::ambience::FeelShadow,
             ))
             .id();
         let words = controls::label(commands, kit, &said, kit.m.small, tokens::INK);

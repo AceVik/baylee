@@ -192,11 +192,12 @@ pub(crate) fn answer_button(
             } else {
                 palette::PARCHMENT_EDGE
             }),
-            soft_shadow(),
+            crate::shellkit::surfaces::elevation_control(),
             // The same component every other button in the client carries:
             // `ambience::feel` leans it towards the pointer, sinks it under a
             // press and owns its `BackgroundColor` from the first frame on.
             Feel::new(rest),
+            crate::ambience::FeelShadow,
             children![(
                 Text::new(label),
                 tf_bold(fonts, ANSWER_PT),

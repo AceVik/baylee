@@ -65,7 +65,7 @@ pub(crate) fn printing_picker(
             },
             BackgroundColor(palette::PANEL.with_alpha(0.98)),
             BorderColor::all(palette::DOCK_EDGE),
-            crate::hud::soft_shadow(),
+            crate::shellkit::surfaces::elevation_card(),
             // Swallows the tap so a press inside the dialog is not also a
             // press on the shade behind it.
             Press::Shared(SharedPress::PickerNothing),
@@ -594,7 +594,7 @@ fn picker_art(
                 border_radius: BorderRadius::all(px(12)),
                 ..default()
             },
-            crate::hud::soft_shadow(),
+            crate::shellkit::surfaces::elevation_card(),
             Pickable::IGNORE,
         ))
         .id();
@@ -833,19 +833,31 @@ fn icon_button(
         ))
         .id();
     if loading {
+        commands
+            .entity(root)
+            .insert(crate::shellkit::surfaces::elevation_control_disabled());
         let spin = crate::card_loading::spinner(commands, 20.0);
         commands.entity(root).add_child(spin);
     } else {
-        commands.entity(root).insert(press).with_child((
-            Text::new(icon),
-            crate::hud::icon_tf(fonts, 18.0),
-            TextColor(palette::INK),
-            Pickable::IGNORE,
-        ));
+        commands
+            .entity(root)
+            .insert((
+                press,
+                crate::shellkit::surfaces::elevation_control(),
+                crate::ambience::Feel::new(palette::PANEL_LIT),
+                crate::ambience::FeelShadow,
+            ))
+            .with_child((
+                Text::new(icon),
+                crate::hud::icon_tf(fonts, 18.0),
+                TextColor(palette::INK),
+                Pickable::IGNORE,
+            ));
     }
     root
 }
 
+#[allow(clippy::too_many_lines)] // search box and its anchored set dropdown
 pub(super) fn set_search(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -888,10 +900,12 @@ pub(super) fn set_search(
                 width: percent(100),
                 padding: UiRect::all(px(4)),
                 border: UiRect::all(px(1)),
+                border_radius: BorderRadius::all(px_fixed(crate::shellkit::tokens::RADIUS_CONTROL)),
                 ..default()
             },
             BackgroundColor(palette::PANEL),
             BorderColor::all(palette::ACCENT),
+            crate::shellkit::surfaces::elevation_popover(),
             GlobalZIndex(80),
             Press::Shared(SharedPress::PickerNothing),
         ))

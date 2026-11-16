@@ -288,6 +288,7 @@ fn nav_holder(commands: &mut Commands, kit: Kit, side: bool, scroll: f32) -> (En
             },
             BackgroundColor(tokens::PANEL),
             BorderColor::all(tokens::BORDER),
+            surfaces::elevation_card(),
         ))
         .id();
     let list = commands
@@ -427,6 +428,7 @@ fn section_panel(
             },
             BackgroundColor(tokens::PANEL),
             BorderColor::all(tokens::BORDER),
+            surfaces::elevation_card(),
         ))
         .id();
     let query = state.settings_query();

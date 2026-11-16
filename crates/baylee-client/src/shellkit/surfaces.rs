@@ -831,23 +831,139 @@ pub fn elevation_control_at(warmth: f32) -> BoxShadow {
     ])
 }
 
+/// Elevation shadow for docked navigation bars, headers, and major structural
+/// sub-panels.
+#[must_use]
+pub fn elevation_panel() -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.42),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(3.0),
+            spread_radius: px_fixed(0.0),
+            blur_radius: px_fixed(8.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.58),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(12.0),
+            spread_radius: px_fixed(-1.0),
+            blur_radius: px_fixed(28.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.28),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(5.0),
+            spread_radius: px_fixed(0.0),
+            blur_radius: px_fixed(16.0),
+        },
+    ])
+}
+
+/// Elevation shadow for floating drawers, confirmation sheets, and detached
+/// utility windows.
+#[must_use]
+pub fn elevation_floating() -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.44),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(4.0),
+            spread_radius: px_fixed(0.0),
+            blur_radius: px_fixed(10.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.66),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(16.0),
+            spread_radius: px_fixed(-1.0),
+            blur_radius: px_fixed(36.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.32),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(7.0),
+            spread_radius: px_fixed(1.0),
+            blur_radius: px_fixed(20.0),
+        },
+    ])
+}
+
+/// Crisp multi-layer elevation shadow for dropdown menus, syntax popovers,
+/// and anchored floating overlays.
+#[must_use]
+pub fn elevation_popover() -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.40),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(3.0),
+            spread_radius: px_fixed(0.0),
+            blur_radius: px_fixed(8.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.64),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(14.0),
+            spread_radius: px_fixed(-1.0),
+            blur_radius: px_fixed(32.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.30),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(6.0),
+            spread_radius: px_fixed(1.0),
+            blur_radius: px_fixed(18.0),
+        },
+    ])
+}
+
+/// Subtle two-layer elevation shadow for nested summary cards, KPI tiles,
+/// footer bars, and inner framed boxes inside a parent panel.
+#[must_use]
+pub fn elevation_subcard() -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.30),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(2.0),
+            spread_radius: px_fixed(0.0),
+            blur_radius: px_fixed(5.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.40),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(6.0),
+            spread_radius: px_fixed(-1.0),
+            blur_radius: px_fixed(14.0),
+        },
+    ])
+}
+
 /// Elevation shadow for modal sheets and dialog windows over a scrim.
 #[must_use]
 pub fn sheet_shadow() -> BoxShadow {
     BoxShadow(vec![
         ShadowStyle {
-            color: Color::srgba(0.0, 0.0, 0.0, 0.42),
+            color: Color::srgba(0.0, 0.0, 0.0, 0.46),
             x_offset: px_fixed(0.0),
             y_offset: px_fixed(6.0),
             spread_radius: px_fixed(0.0),
-            blur_radius: px_fixed(16.0),
+            blur_radius: px_fixed(14.0),
         },
         ShadowStyle {
-            color: Color::srgba(0.0, 0.0, 0.0, 0.66),
+            color: Color::srgba(0.0, 0.0, 0.0, 0.70),
             x_offset: px_fixed(0.0),
             y_offset: px_fixed(22.0),
-            spread_radius: px_fixed(0.0),
+            spread_radius: px_fixed(-2.0),
             blur_radius: px_fixed(48.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.34),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(10.0),
+            spread_radius: px_fixed(1.0),
+            blur_radius: px_fixed(26.0),
         },
     ])
 }
@@ -949,22 +1065,7 @@ pub fn sheet(commands: &mut Commands, surface: Entity) -> Entity {
 /// Elevation shadow shared by dropdown popovers and menus.
 #[must_use]
 pub fn popover_shadow() -> BoxShadow {
-    BoxShadow(vec![
-        ShadowStyle {
-            color: Color::srgba(0.0, 0.0, 0.0, 0.35),
-            x_offset: px_fixed(0.0),
-            y_offset: px_fixed(3.0),
-            spread_radius: px_fixed(0.0),
-            blur_radius: px_fixed(8.0),
-        },
-        ShadowStyle {
-            color: Color::srgba(0.0, 0.0, 0.0, 0.58),
-            x_offset: px_fixed(0.0),
-            y_offset: px_fixed(12.0),
-            spread_radius: px_fixed(0.0),
-            blur_radius: px_fixed(28.0),
-        },
-    ])
+    elevation_popover()
 }
 
 /// Which glyph a menu label takes: the first row with one of its words in the
@@ -1695,6 +1796,7 @@ pub fn tile(commands: &mut Commands, kit: Kit, look: &TileLook, actions: &[Entit
             },
             BackgroundColor(tokens::PANEL),
             BorderColor::all(tokens::BORDER),
+            elevation_card(),
         ))
         .id();
     let top = commands
@@ -1853,5 +1955,46 @@ mod tests {
         assert!(world.get::<BackgroundGradient>(surface).is_some());
         assert!(world.get::<Children>(backdrop).unwrap().contains(&surface));
         assert_eq!(world.get::<Children>(head).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn domain_elevation_tiers_maintain_monotonic_depth_hierarchy() {
+        let subcard = elevation_subcard();
+        let panel = elevation_panel();
+        let popover = elevation_popover();
+        let floating = elevation_floating();
+        let card = elevation_card();
+        assert_eq!(subcard.0.len(), 2);
+        assert_eq!(panel.0.len(), 3);
+        assert_eq!(popover.0.len(), 3);
+        assert_eq!(floating.0.len(), 3);
+        assert_eq!(popover, popover_shadow());
+        assert!(px_of(subcard.0[1].blur_radius) < px_of(panel.0[1].blur_radius));
+        assert!(px_of(panel.0[1].blur_radius) < px_of(popover.0[1].blur_radius));
+        assert!(px_of(popover.0[1].blur_radius) < px_of(floating.0[1].blur_radius));
+        assert!(px_of(floating.0[1].blur_radius) < px_of(card.0[1].blur_radius));
+    }
+
+    #[test]
+    fn deck_tile_attaches_card_elevation() {
+        let mut world = World::new();
+        let fonts = UiFonts::default();
+        let kit = test_kit(&fonts);
+        let card = {
+            let mut commands = world.commands();
+            tile(
+                &mut commands,
+                kit,
+                &TileLook {
+                    name: "Azorius Control",
+                    identity: "WU",
+                    meta: "60 cards",
+                    badges: "Standard",
+                },
+                &[],
+            )
+        };
+        world.flush();
+        assert_eq!(world.get::<BoxShadow>(card), Some(&elevation_card()));
     }
 }

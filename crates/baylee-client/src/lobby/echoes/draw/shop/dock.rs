@@ -126,6 +126,7 @@ fn empty(commands: &mut Commands, root: Entity, kit: Kit, selected: bool) -> Ent
             } else {
                 tokens::BORDER
             }),
+            surfaces::elevation_control_disabled(),
             Pickable::IGNORE,
         ))
         .id();

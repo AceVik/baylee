@@ -274,8 +274,10 @@ fn spawn_peek(commands: &mut Commands, fonts: &UiFonts, facts: &PeekFacts) -> En
             },
             BackgroundColor(ground),
             BorderColor::all(edge),
+            crate::shellkit::surfaces::elevation_control(),
             UiButton,
             Feel::new(ground),
+            crate::ambience::FeelShadow,
         ))
         .id();
     let mut line = |text: String, font: TextFont, colour: Color| {

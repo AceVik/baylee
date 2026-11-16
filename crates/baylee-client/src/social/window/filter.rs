@@ -177,12 +177,14 @@ pub(super) fn filter_dialog(
                 },
                 BackgroundColor(bg),
                 BorderColor::all(border),
+                crate::shellkit::surfaces::elevation_control(),
                 Feel::tinting_to(bg, crate::shellkit::tokens::HOVER),
                 crate::ambience::FeelBorder {
                     rest: border,
                     hot: inks.accent,
                     press: inks.accent,
                 },
+                crate::ambience::FeelShadow,
                 children![(
                     Text::new(label.to_string()),
                     tf(&fonts, z(12.0)),

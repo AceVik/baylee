@@ -77,6 +77,7 @@ pub fn spawn_control_banner(
             },
             BackgroundColor(palette::PANEL),
             BorderColor::all(palette::CONTROL),
+            palette::elevation_pill(),
             Pickable::IGNORE,
             children![
                 (

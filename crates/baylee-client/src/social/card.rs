@@ -540,19 +540,26 @@ fn build(
             BorderColor::all(hue.with_alpha(0.36)),
             BoxShadow(vec![
                 ShadowStyle {
-                    color: Color::srgba(0.0, 0.0, 0.0, 0.70),
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.46),
                     x_offset: Val::Px(0.0),
-                    y_offset: zpx(6.0),
+                    y_offset: zpx(4.0),
                     spread_radius: Val::Px(0.0),
-                    blur_radius: zpx(22.0),
+                    blur_radius: zpx(10.0),
+                },
+                ShadowStyle {
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.72),
+                    x_offset: Val::Px(0.0),
+                    y_offset: zpx(16.0),
+                    spread_radius: zpx(-1.0),
+                    blur_radius: zpx(36.0),
                 },
                 // The person's own tint, as a breath of light round the card.
                 ShadowStyle {
-                    color: hue.with_alpha(0.14),
+                    color: hue.with_alpha(0.16),
                     x_offset: Val::Px(0.0),
                     y_offset: Val::Px(0.0),
                     spread_radius: zpx(1.0),
-                    blur_radius: zpx(14.0),
+                    blur_radius: zpx(16.0),
                 },
             ]),
             // Over every chat surface wherever it is stacked (`window::Stack`),
@@ -595,6 +602,22 @@ fn build(
             },
             UiTransform::from_scale(Vec2::splat(disc_scale(opening))),
             BackgroundColor(GROUND_MID),
+            BoxShadow(vec![
+                ShadowStyle {
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.42),
+                    x_offset: Val::Px(0.0),
+                    y_offset: zpx(2.0),
+                    spread_radius: Val::Px(0.0),
+                    blur_radius: zpx(5.0),
+                },
+                ShadowStyle {
+                    color: Color::srgba(0.0, 0.0, 0.0, 0.48),
+                    x_offset: Val::Px(0.0),
+                    y_offset: zpx(5.0),
+                    spread_radius: zpx(-1.0),
+                    blur_radius: zpx(12.0),
+                },
+            ]),
         ))
         .add_child(disc)
         .id();

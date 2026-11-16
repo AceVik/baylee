@@ -292,22 +292,29 @@ pub(crate) fn log_head_ground() -> bevy::ui::BackgroundGradient {
     .into()
 }
 
-/// Two-layer depth shadow lifting a smoked-glass log panel off the felt.
+/// Three-layer depth shadow lifting a smoked-glass log panel off the felt.
 pub(crate) fn log_glass_shadow() -> BoxShadow {
     BoxShadow(vec![
         ShadowStyle {
-            color: Color::srgba(0.0, 0.0, 0.0, 0.58),
-            x_offset: px(0),
-            y_offset: px(8),
-            spread_radius: px(0),
-            blur_radius: px(22),
-        },
-        ShadowStyle {
-            color: Color::srgba(0.0, 0.0, 0.0, 0.34),
+            color: Color::srgba(0.0, 0.0, 0.0, 0.42),
             x_offset: px(0),
             y_offset: px(2),
             spread_radius: px(0),
-            blur_radius: px(5),
+            blur_radius: px(6),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.66),
+            x_offset: px(0),
+            y_offset: px(12),
+            spread_radius: px(-1),
+            blur_radius: px(30),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.30),
+            x_offset: px(0),
+            y_offset: px(5),
+            spread_radius: px(1),
+            blur_radius: px(16),
         },
     ])
 }
@@ -921,7 +928,9 @@ fn head(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
             },
             BackgroundColor(palette::LOG_GLASS_TOP.with_alpha(0.55)),
             BorderColor::all(palette::LOG_GLASS_RULE),
+            crate::shellkit::surfaces::elevation_control(),
             Feel::new(palette::LOG_GLASS_TOP.with_alpha(0.55)),
+            crate::ambience::FeelShadow,
             crate::hud::Hint(Phrase::SheetClose.text(lang).to_string()),
             children![(
                 Text::new(glyph::CLOSE.to_string()),
@@ -1014,8 +1023,9 @@ pub(crate) fn new_lines_pill(commands: &mut Commands, fonts: &UiFonts, lang: Lan
             },
             BackgroundColor(palette::LOG_GLASS_TOP.with_alpha(0.96)),
             BorderColor::all(palette::CANDLE),
-            soft_shadow(),
+            crate::shellkit::surfaces::elevation_control(),
             Feel::new(palette::LOG_GLASS_TOP.with_alpha(0.96)),
+            crate::ambience::FeelShadow,
             children![
                 (
                     Text::new(glyph::CARET_DOWN.to_string()),

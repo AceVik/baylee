@@ -171,9 +171,28 @@ pub(crate) fn panel(commands: &mut Commands, metrics: Metrics, width: Val, grow:
             },
             BackgroundColor(palette::SANCTUARY_PANEL),
             BorderColor::all(palette::DOCK_EDGE.with_alpha(0.4)),
+            crate::shellkit::surfaces::elevation_card(),
             Pickable::IGNORE,
         ))
         .id()
+}
+
+/// Attaches [`crate::shellkit::surfaces::elevation_control`] and [`crate::ambience::FeelShadow`]
+/// to the visible `Role::Button` face inside a `controls::hit` wrapper.
+pub(in crate::lobby) fn elevate_hit_button(commands: &mut Commands, wrapper: Entity) {
+    commands.queue(move |world: &mut World| {
+        let face = world
+            .get::<Children>(wrapper)
+            .and_then(|children| children.first().copied());
+        if let Some(face) = face
+            && let Ok(mut face) = world.get_entity_mut(face)
+        {
+            face.insert((
+                crate::shellkit::surfaces::elevation_control(),
+                crate::ambience::FeelShadow,
+            ));
+        }
+    });
 }
 
 /// A panel heading.

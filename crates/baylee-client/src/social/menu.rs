@@ -487,22 +487,7 @@ fn sync(
                 ],
             )),
             BorderColor::all(inks.accent.with_alpha(0.65)),
-            BoxShadow(vec![
-                ShadowStyle {
-                    color: Color::srgba(0.0, 0.0, 0.0, 0.72),
-                    x_offset: zpx(0.0),
-                    y_offset: zpx(8.0),
-                    spread_radius: zpx(1.0),
-                    blur_radius: zpx(22.0),
-                },
-                ShadowStyle {
-                    color: Color::srgba(0.0, 0.0, 0.0, 0.42),
-                    x_offset: zpx(0.0),
-                    y_offset: zpx(2.0),
-                    spread_radius: zpx(0.0),
-                    blur_radius: zpx(6.0),
-                },
-            ]),
+            super::rows::popover_glass_shadow(),
             crate::shellkit::sheen::Sheen,
             super::window::stacked(60),
         ))

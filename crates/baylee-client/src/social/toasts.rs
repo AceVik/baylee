@@ -366,7 +366,29 @@ fn sync(
                     ],
                 )),
                 BorderColor::all(sender_col.with_alpha(0.65)),
-                BoxShadow::default(),
+                BoxShadow(vec![
+                    ShadowStyle {
+                        color: Color::srgba(0.0, 0.0, 0.0, 0.44),
+                        x_offset: zpx(0.0),
+                        y_offset: zpx(3.0),
+                        spread_radius: zpx(0.0),
+                        blur_radius: zpx(8.0),
+                    },
+                    ShadowStyle {
+                        color: Color::srgba(0.0, 0.0, 0.0, 0.66),
+                        x_offset: zpx(0.0),
+                        y_offset: zpx(14.0),
+                        spread_radius: zpx(-1.0),
+                        blur_radius: zpx(32.0),
+                    },
+                    ShadowStyle {
+                        color: sender_col.with_alpha(0.16),
+                        x_offset: zpx(0.0),
+                        y_offset: zpx(0.0),
+                        spread_radius: zpx(1.0),
+                        blur_radius: zpx(14.0),
+                    },
+                ]),
                 crate::shellkit::sheen::Sheen,
             ))
             .id();

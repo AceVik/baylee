@@ -92,6 +92,13 @@ pub(super) fn table(
                     ..default()
                 },
                 BackgroundColor(palette::PANEL_LIT),
+                BoxShadow::new(
+                    Color::srgba(0.0, 0.0, 0.0, 0.34),
+                    Val::Px(0.0),
+                    Val::Px(2.0),
+                    Val::Px(0.0),
+                    Val::Px(6.0),
+                ),
                 Pickable::IGNORE,
             ))
             .id();
@@ -132,6 +139,13 @@ pub(super) fn table(
                     ..default()
                 },
                 BackgroundColor(palette::PANEL_LIT),
+                BoxShadow::new(
+                    Color::srgba(0.0, 0.0, 0.0, 0.34),
+                    Val::Px(0.0),
+                    Val::Px(2.0),
+                    Val::Px(0.0),
+                    Val::Px(6.0),
+                ),
                 Pickable::IGNORE,
             ))
             .id();

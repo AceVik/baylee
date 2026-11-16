@@ -957,6 +957,7 @@ pub fn segmented<B: Bundle>(
             },
             BackgroundColor(tokens::CONTROL),
             BorderColor::all(tokens::BORDER),
+            super::surfaces::elevation_control(),
             Pickable::IGNORE,
         ))
         .id();
@@ -1014,6 +1015,7 @@ pub fn segmented_icons<B: Bundle>(
             },
             BackgroundColor(tokens::CONTROL),
             BorderColor::all(tokens::BORDER),
+            super::surfaces::elevation_control(),
             Pickable::IGNORE,
         ))
         .id();
@@ -1121,6 +1123,7 @@ pub fn toggle(commands: &mut Commands, kit: Kit, on: bool, action: impl Bundle) 
             },
             BackgroundColor(track_ground(at, 0.0)),
             BorderColor::all(tokens::BORDER),
+            super::surfaces::elevation_control_disabled(),
         ))
         .id();
     let knob = commands
@@ -1314,6 +1317,26 @@ pub struct Slider {
     readout: Entity,
 }
 
+/// Crisp two-layer contact shadow under slider and toggle thumbs.
+fn knob_shadow() -> BoxShadow {
+    BoxShadow(vec![
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.38),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(1.5),
+            spread_radius: px_fixed(0.0),
+            blur_radius: px_fixed(3.0),
+        },
+        ShadowStyle {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.44),
+            x_offset: px_fixed(0.0),
+            y_offset: px_fixed(4.0),
+            spread_radius: px_fixed(-1.0),
+            blur_radius: px_fixed(9.0),
+        },
+    ])
+}
+
 /// A slider: 0–100, a value label, a 44-tall track and a 20-px knob (§2.4).
 pub fn slider(commands: &mut Commands, kit: Kit, value: u8, action: impl Bundle) -> Entity {
     let value = value.min(100);
@@ -1378,6 +1401,7 @@ pub fn slider(commands: &mut Commands, kit: Kit, value: u8, action: impl Bundle)
                 ..default()
             },
             BackgroundColor(tokens::INK),
+            knob_shadow(),
             Pickable::IGNORE,
         ))
         .id();
@@ -1519,6 +1543,7 @@ pub fn search(
             },
             BackgroundColor(tokens::CONTROL),
             BorderColor::all(tokens::BORDER),
+            super::surfaces::elevation_subcard(),
             action,
         ))
         .id();

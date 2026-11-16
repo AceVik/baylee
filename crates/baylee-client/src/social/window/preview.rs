@@ -300,15 +300,10 @@ pub(super) fn sync(
                 top: zpx(rect.min.y),
                 width: zpx(width),
                 height: zpx(width / baylee_client_core::layout::CARD_ASPECT),
+                border_radius: BorderRadius::all(zpx(12.0)),
                 ..default()
             },
-            BoxShadow::new(
-                Color::srgba(0.0, 0.0, 0.0, 0.55),
-                zpx(0.0),
-                zpx(10.0),
-                zpx(2.0),
-                zpx(24.0),
-            ),
+            rows::glass_shadow(),
             stacked(55),
             Pickable::IGNORE,
         ))

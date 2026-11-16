@@ -180,6 +180,7 @@ pub(super) fn sheet(commands: &mut Commands, env: &Env, list: &ListEditor) -> En
                 sheet_stop("gear"),
             ),
         );
+        super::pool::elevate_icon_button(commands, gear);
         body.push(line(commands, kit, &[search, gear]));
         if let Some(built) = deck.panel() {
             body.push(crate::filterui::build(
@@ -323,7 +324,7 @@ fn entry_row(
                 sheet_stop("list-word"),
             ),
         ));
-        kids.push(icon_button(
+        let remove = icon_button(
             commands,
             kit,
             mark::CLOSE,
@@ -332,7 +333,9 @@ fn entry_row(
                 Press::Build(BuildPress::ListRemove(at)),
                 sheet_stop("list-remove"),
             ),
-        ));
+        );
+        super::pool::elevate_icon_button(commands, remove);
+        kids.push(remove);
     }
     line(commands, kit, &kids)
 }

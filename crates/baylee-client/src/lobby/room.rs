@@ -5,7 +5,7 @@ use super::press::Cx;
 use super::*;
 use super::{FieldLook, Masked, button, heading, note, row, text_field};
 use crate::shellkit::controls::{self, Kit, Live, Weight};
-use crate::shellkit::surfaces::MenuItem;
+use crate::shellkit::surfaces::{self, MenuItem};
 use crate::shellkit::{Frame as ShellFrame, Role, px_fixed, tokens};
 use baylee_client_core::lobby::room::Adjustment;
 use baylee_client_core::social::ChatPhrase;
@@ -119,6 +119,7 @@ pub(super) fn draw(
             },
             BackgroundColor(tokens::PANEL),
             BorderColor::all(tokens::BORDER),
+            surfaces::elevation_panel(),
         ))
         .id();
     commands.entity(body).add_child(title);
@@ -314,6 +315,7 @@ pub(super) fn draw(
             },
             BackgroundColor(tokens::PANEL),
             BorderColor::all(tokens::BORDER),
+            surfaces::elevation_card(),
             super::dock::Dock(3),
         ))
         .id();
@@ -631,6 +633,7 @@ fn seat_card(
             } else {
                 tokens::BORDER
             }),
+            surfaces::elevation_card(),
             Pickable::IGNORE,
         ))
         .id();
@@ -984,6 +987,7 @@ fn seat_card(
             super::parts::ELLIPSIS,
             Press::Shared(SharedPress::OpenMenu(ShellMenu::Seat(at))),
         );
+        super::widgets::elevate_hit_button(commands, more);
         walk(commands, more);
         anchor = Some((at, more, false));
         commands.entity(line).add_child(more);

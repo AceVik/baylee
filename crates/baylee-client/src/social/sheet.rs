@@ -201,12 +201,14 @@ fn button(
             },
             BackgroundColor(rest_bg),
             BorderColor::all(rest_border),
+            crate::shellkit::surfaces::elevation_control(),
             Feel::tinting_to(rest_bg, tokens::HOVER),
             crate::ambience::FeelBorder {
                 rest: rest_border,
                 hot: tokens::ACCENT,
                 press: tokens::ACCENT,
             },
+            crate::ambience::FeelShadow,
             children![(
                 Text::new(label.to_string()),
                 tf(fonts, z(12.0)),

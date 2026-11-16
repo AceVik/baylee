@@ -8,6 +8,7 @@
 use super::*;
 use crate::lobby::hover_of_card;
 use crate::shellkit::focus::Current;
+use crate::shellkit::surfaces;
 use baylee_client_core::deckbuilder::{Rarity, STAT_GROUPS};
 
 /// The tallest a curve bar gets, before the text step.
@@ -30,6 +31,7 @@ fn stat_card(commands: &mut Commands, kit: Kit, children: &[Entity]) -> Entity {
             },
             BackgroundColor(tokens::CONTROL.with_alpha(0.42)),
             BorderColor::all(tokens::BORDER.with_alpha(0.75)),
+            surfaces::elevation_subcard(),
             Pickable::IGNORE,
         ))
         .id();
@@ -63,6 +65,7 @@ fn kpi_tile(
             },
             BackgroundColor(tokens::CONTROL.with_alpha(0.55)),
             BorderColor::all(accent.with_alpha(0.42)),
+            surfaces::elevation_subcard(),
             Pickable::IGNORE,
         ))
         .id();
@@ -770,6 +773,9 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
                     ..default()
                 },
                 BorderColor::all(tokens::BORDER),
+                surfaces::elevation_control(),
+                crate::ambience::Feel::new(crate::hud::palette::PANEL),
+                crate::ambience::FeelShadow,
                 hover,
                 Pickable::default(),
                 Press::Build(BuildPress::Inspect(*slot)),

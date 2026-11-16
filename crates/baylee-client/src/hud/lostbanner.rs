@@ -72,6 +72,7 @@ pub fn spawn_lost_banner(
             },
             BackgroundColor(palette::PANEL),
             BorderColor::all(palette::ACTIVE.with_alpha(0.55)),
+            palette::elevation_pill(),
             Pickable::IGNORE,
             children![(
                 LostBannerText,

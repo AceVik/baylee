@@ -80,8 +80,10 @@ fn spawn(commands: &mut Commands, fonts: &UiFonts) {
             },
             BackgroundColor(ground),
             BorderColor::all(palette::DIALOG_LINE),
+            crate::shellkit::surfaces::elevation_control(),
             UiButton,
             Feel::new(ground),
+            crate::ambience::FeelShadow,
             GlobalZIndex(G_CORNER),
             children![(
                 Text::new(BUG.to_string()),

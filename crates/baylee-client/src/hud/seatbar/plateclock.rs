@@ -161,6 +161,7 @@ pub fn sync_plate_clocks(
                 },
                 BackgroundColor(palette::PANEL),
                 BorderColor::all(palette::DOCK_EDGE.with_alpha(0.35)),
+                palette::elevation_pill(),
                 Pickable::IGNORE,
                 children![
                     (

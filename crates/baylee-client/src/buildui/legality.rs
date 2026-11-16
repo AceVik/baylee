@@ -78,6 +78,7 @@ pub(super) fn foot(commands: &mut Commands, holder: Entity, env: &Env) {
             },
             BackgroundColor(tokens::CONTROL.with_alpha(0.52)),
             BorderColor::all(ink.with_alpha(0.55)),
+            surfaces::elevation_subcard(),
             Pickable::IGNORE,
         ))
         .id();
@@ -190,6 +191,7 @@ fn section_card(commands: &mut Commands, kit: Kit, children: &[Entity]) -> Entit
             },
             BackgroundColor(tokens::CONTROL.with_alpha(0.42)),
             BorderColor::all(tokens::BORDER.with_alpha(0.75)),
+            surfaces::elevation_subcard(),
             Pickable::IGNORE,
         ))
         .id();
@@ -298,6 +300,7 @@ pub(super) fn sheet(commands: &mut Commands, env: &Env) -> Entity {
                     tokens::CONTROL.with_alpha(0.55)
                 }),
                 BorderColor::all(v_ink.with_alpha(0.45)),
+                surfaces::elevation_subcard(),
                 Pickable::IGNORE,
             ))
             .id();
@@ -334,6 +337,7 @@ pub(super) fn sheet(commands: &mut Commands, env: &Env) -> Entity {
             false,
             Press::Build(BuildPress::DeleteFormatVariant(idx)),
         );
+        super::pool::elevate_icon_button(commands, del_btn);
         let row_gap = spring(commands);
         commands
             .entity(row_box)

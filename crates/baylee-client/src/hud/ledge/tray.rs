@@ -342,8 +342,10 @@ fn ai_log_button(commands: &mut Commands, fonts: &UiFonts, open: bool, lang: Lan
             },
             BackgroundColor(ground),
             BorderColor::all(palette::DIALOG_LINE),
+            crate::shellkit::surfaces::elevation_control(),
             UiButton,
             Feel::new(ground),
+            crate::ambience::FeelShadow,
             crate::hud::Hint(format!(
                 "{} · {}",
                 Phrase::RoomAi.text(lang),
@@ -399,8 +401,10 @@ fn chat_button(
             },
             BackgroundColor(ground),
             BorderColor::all(palette::DIALOG_LINE),
+            crate::shellkit::surfaces::elevation_control(),
             UiButton,
             Feel::new(ground),
+            crate::ambience::FeelShadow,
             crate::hud::Hint(hint),
             MenuButton {
                 action: MenuAction::ToggleChat,
@@ -438,6 +442,13 @@ fn chat_button(
                 } else {
                     palette::CANDLE
                 }),
+                BoxShadow::new(
+                    Color::srgba(0.0, 0.0, 0.0, 0.42),
+                    px(0.0),
+                    px(1.5),
+                    px(0.0),
+                    px(4.0),
+                ),
                 Pickable::IGNORE,
                 children![(
                     Text::new(text),
@@ -476,8 +487,10 @@ fn log_button(commands: &mut Commands, fonts: &UiFonts, open: bool, lang: Lang) 
             },
             BackgroundColor(ground),
             BorderColor::all(palette::DIALOG_LINE),
+            crate::shellkit::surfaces::elevation_control(),
             UiButton,
             Feel::new(ground),
+            crate::ambience::FeelShadow,
             crate::hud::Hint(Phrase::ActToggleLog.text(lang).to_string()),
             MenuButton {
                 action: MenuAction::ToggleLog,
@@ -542,14 +555,21 @@ fn zone_button(
     if free {
         commands.entity(button).insert((
             TrayZones,
+            crate::shellkit::surfaces::elevation_control(),
             UiButton,
             Feel::new(ground),
+            crate::ambience::FeelShadow,
             crate::hud::Hint(Phrase::ActToggleBrowser.text(lang).to_string()),
         ));
-    } else if let Some(reason) = held_reason {
+    } else {
         commands
             .entity(button)
-            .insert((crate::hud::Hint(reason), Pickable::default()));
+            .insert(crate::shellkit::surfaces::elevation_control_disabled());
+        if let Some(reason) = held_reason {
+            commands
+                .entity(button)
+                .insert((crate::hud::Hint(reason), Pickable::default()));
+        }
     }
     button
 }

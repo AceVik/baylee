@@ -61,6 +61,7 @@ pub(super) fn editor(
             },
             BackgroundColor(palette::PANEL),
             BorderColor::all(palette::PANEL_LIT),
+            crate::shellkit::surfaces::elevation_subcard(),
         ))
         .id();
     commands.entity(card).add_child(surface);

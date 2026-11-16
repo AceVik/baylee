@@ -36,6 +36,7 @@ pub(super) fn draw(
                 ..default()
             },
             BackgroundColor(Color::srgb(0.055, 0.035, 0.020)),
+            surfaces::elevation_card(),
             ChildOf(root),
             Pickable::IGNORE,
         ))

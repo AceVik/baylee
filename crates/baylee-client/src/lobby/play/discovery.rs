@@ -26,6 +26,7 @@ fn panel(commands: &mut Commands, parent: Entity, kit: Kit) -> Entity {
             },
             BackgroundColor(tokens::PANEL),
             BorderColor::all(tokens::BORDER),
+            surfaces::elevation_card(),
             Pickable::IGNORE,
         ))
         .id();

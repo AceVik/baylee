@@ -49,6 +49,7 @@ pub(super) fn hero(
             },
             BackgroundColor(tokens::PANEL),
             BorderColor::all(tokens::BORDER),
+            surfaces::elevation_card(),
             super::super::dock::Dock(3),
         ))
         .id();
@@ -201,6 +202,7 @@ pub(super) fn hero(
                 parts::ELLIPSIS,
                 Press::Shared(SharedPress::OpenMenu(ShellMenu::Hero)),
             );
+            crate::lobby::widgets::elevate_hit_button(commands, more);
             orders::stop(commands, more, &orders::PLAY, "more");
             anchors.more = Some(more);
             commands.entity(name_row).add_child(more);

@@ -53,6 +53,7 @@ fn spawn_create_section(
             },
             BackgroundColor(tokens::CONTROL.with_alpha(0.32)),
             BorderColor::all(tokens::BORDER.with_alpha(0.78)),
+            surfaces::elevation_subcard(),
             Pickable::IGNORE,
         ))
         .id();
@@ -374,6 +375,13 @@ pub(super) fn create_sheet(
                     tokens::CONTROL
                 }),
                 BorderColor::all(if on { tokens::ACCENT } else { tokens::BORDER }),
+                surfaces::elevation_control(),
+                crate::ambience::Feel::new(if on {
+                    tokens::SELECTED
+                } else {
+                    tokens::CONTROL
+                }),
+                crate::ambience::FeelShadow,
             ))
             .id();
         let icon_badge = commands
@@ -513,6 +521,7 @@ pub(super) fn create_sheet(
                 },
                 BackgroundColor(tokens::PANEL.with_alpha(0.65)),
                 BorderColor::all(tokens::BORDER.with_alpha(0.75)),
+                surfaces::elevation_subcard(),
                 Pickable::IGNORE,
             ))
             .id();
@@ -797,6 +806,7 @@ pub(super) fn create_sheet(
         crate::hud::glyph::CLOSE,
         Press::Play(PlayPress::CloseSheet),
     );
+    crate::lobby::widgets::elevate_hit_button(commands, close_x);
     let close_inset = px_fixed(kit.m.pad * 0.55);
     commands
         .entity(close_x)
