@@ -1,4 +1,46 @@
-# The Verdant Tower
+# Tower modes
+
+The current **Echoes of the Tower** run is the gateway Lobby's Tower tile. Its
+authority belongs to Baylee; gateways host the duels, and Central retains scoped
+permanent accomplishments. Each new run starts with a chosen 39+1 Commander deck,
+18 gold and no equipment, consumables or previously earned cards. The five
+starters have distinct commanders and game plans. Run rewards do not grant power
+to a subsequent run.
+
+The loop is **choose a deck → shop → duel → choose opponent cards → shop**.
+There are six equipment slots and a paginated, sortable bag. Right-click moves an
+item to the next free equipment slot or back to the bag; dragging can exchange
+occupied slots. Buying the third identical Common or Uncommon automatically
+combines it across equipment and inventory, preserving the first equipped slot
+and continuing any available cascade. A Rare requires one Mythic potion for a
+deliberate Mythic Rare upgrade. Each tier strengthens the item and adds an
+ability. Equipment is an independent run source, never an ordinary removable
+artifact on the battlefield.
+
+The shelf permits duplicate items. Matching copies highlight its frames; a
+purchase completing a fusion has a stronger, tier-colored animation. Freeze
+preserves every unsold offer across visits and rerolls; sold positions refill.
+A completely frozen, full shelf cannot charge a reroll. The deck editor uses only
+run-owned cards and unlimited standard basic lands, preserving 39+1 Commander
+construction and at most five sideboard cards.
+
+During a duel, the bottom-right item button or rebindable **Shift+I** opens own
+equipment and supplies, plus the opponent's public equipment. Opposing potion
+stock is private. Available active items and potions enter the ordinary ability
+chooser and cost/stack rules. After a verified result, choose three of five
+distinct opponent nonbasic cards on a win, or one on a loss/draw. The authority
+commits card claims, gold and the next shelf atomically. Technical voids do not
+award ordinary duel rewards. Exact costs, bounds, migration and security rules
+are in [the run specification](proposals/tower-run-redesign.md) and
+[the authority operations guide](tower-operations.md). Rendered evidence is in
+the specification's evidence ledger; broad human balance calibration remains a
+separate release task.
+
+## Retained Verdant Tower campaign
+
+The remainder of this document describes the earlier certified weekly campaign,
+which has a separate Central contract and remains readable for retained runs.
+It does not define the current run's equipment or economy.
 
 The expedition is an original five-duel weekly campaign. The player plays each
 duel and chooses one of three deck improvements between floors. It is not an

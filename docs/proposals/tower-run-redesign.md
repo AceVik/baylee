@@ -439,3 +439,29 @@ Always stop owned test processes and verify listeners close.
   and strict gateway test-target Clippy passed:
   `/tmp/baylee-tower-showcase-test-20261116-r2.log`,
   `/tmp/baylee-tower-showcase-clippy-20261116.log`.
+- Rendered refinement 5 used that synthetic high-rarity fixture at 1280×720.
+  The 4-gold Grove purchase cascaded Common→Uncommon→Rare into active slot 0
+  (instance 47, wallet 10→6); the fully frozen reroll before purchase charged
+  nothing. A confirmed Rare Heartwood + one Mythic potion became Mythic in the
+  same slot (instance 48, starting life 31→36, material stock 1→0). Dragging
+  occupied slots exchanged instances 47/5; right-clicking a reserve while all
+  six slots were occupied left them unchanged. Page 2 rendered only its 16 bag
+  items plus six equipped items (22 item controls, no off-page item controls).
+  German Mythic text fit at both M and XL. Matching/fusing offers now have
+  visibly different cyan/silver/gold/orange frames. The original modular frame
+  has a shared GPU-clock inlay, with static reduced-motion appearance.
+  Screens: `/tmp/baylee-tower-pass5-{showcase,fused,mythic-detail,xl-mythic,mythic-confirmed,page2,lobby}.png`.
+  Two further findings require a sixth pass: a newly opened upgrade confirmation
+  must scroll into view, and the 720-pixel shop should expose more of the bag.
+  Client 55057, backend 55018 and PostgreSQL 54987 exited; ports 60021 and
+  59968 closed. The mixed, unoptimized 356-second session averaged 53.24 fps
+  (p50 17.015 ms, p95 19.810 ms, p99 39.648 ms); it includes startup, compilation,
+  settings/layout changes and captures, so is not an isolated shader benchmark.
+- The reward placeholder regression passed; all 35 preference cases and 13
+  Echoes UI cases passed. Existing preference tests caught a missing removal of
+  the new action from the historical keymap and a stale action-count expectation;
+  both were corrected. Strict client/core dev-control Clippy passed. Logs:
+  `/tmp/baylee-tower-pass5-copy-tests-20261116.log`,
+  `/tmp/baylee-tower-pass5-preferences-tests-20261116-r2.log`,
+  `/tmp/baylee-tower-pass5-ui-tests-20261116.log`,
+  `/tmp/baylee-tower-pass5-clippy-20261116-r2.log`.

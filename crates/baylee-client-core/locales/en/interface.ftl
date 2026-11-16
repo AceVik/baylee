@@ -9897,7 +9897,7 @@ ChallengePendingResult = Your last result is being checked. Refresh to see the c
 # Tower Echoes: authority-owned expeditions played at gateways.
 EchoesTitle = Tower Echoes
 TowerRunTitle = Tower run
-TowerRunEntry = Choose a deck, collect treasures and build your way to the crown.
+TowerRunEntry = Your deck. Your treasures. Your path to the crown.
 EchoesDeck = Your deck
 EchoesPlay = Next duel
 EchoesWithdraw = Withdraw future echo use
@@ -10108,7 +10108,9 @@ EchoesConfirmPin = { $action }: { $goods }?
 EchoesFreezeConfirm = Freeze the shelf? Unsold items stay for your next visit. Empty slots refill.
 EchoesThawConfirm = Unfreeze the shelf? All items will roll again on your next refresh or visit.
 EchoesRewardReady = Choose your spoils
+# Arguments: count
 EchoesConfirmReward = Take these { $count } cards? Already owned cards give 1 gold each.
+# Arguments: selected, required
 EchoesRewardCount = { $selected } of { $required } selected
 EchoesRewardLead = A piece of your opponent's build, earned in battle. Choose cards for this run; add them to your deck in the shop. Cards already in your collection give 1 gold instead.
 EchoesRewardDuplicate = Already owned · +1 gold

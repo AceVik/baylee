@@ -67,10 +67,13 @@ fn draw(uv: vec2<f32>, params: Params, time: f32, portrait: texture_2d<f32>, por
     let owned = (veil & 8u) != 0u;
     let fusion = (veil & 112u) != 0u;
     if owned || fusion {
-        let strength = select(0.25, 0.80, fusion);
+        let strength = select(0.55, 1.10, fusion);
         let aura = exp(-abs(distance + 0.02) * 45.0);
         let pulse = 0.90 + 0.10 * sin(t * 1.4);
-        let upgrade = select(vec3<f32>(0.67, 0.80, 0.88), vec3<f32>(1.0, 0.62, 0.16), (veil & 96u) != 0u);
+        var upgrade = vec3<f32>(0.42, 0.80, 0.85);
+        if (veil & 16u) != 0u { upgrade = vec3<f32>(0.80, 0.91, 1.0); }
+        if (veil & 32u) != 0u { upgrade = vec3<f32>(1.0, 0.62, 0.16); }
+        if (veil & 64u) != 0u { upgrade = vec3<f32>(1.0, 0.28, 0.08); }
         color += upgrade * aura * strength * pulse;
         if fusion {
             let sweep = pow(max(0.0, cos(atan2(p.y, p.x) * 2.0 - t * 1.2)), 10.0);

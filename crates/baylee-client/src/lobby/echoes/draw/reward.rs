@@ -15,9 +15,10 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run
         glyph::CROWN,
         Phrase::EchoesRewardReady.text(lang),
     );
+    let actions = row(commands, surface, kit);
     label(
         commands,
-        surface,
+        actions,
         kit,
         &Phrase::EchoesRewardCount.fill(
             lang,
@@ -27,6 +28,20 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run
             ],
         ),
         tokens::GOLD,
+    );
+    control(
+        commands,
+        actions,
+        kit,
+        ui,
+        Phrase::EchoesRewardClaim.text(lang),
+        Action::ClaimReward,
+        can(
+            ui,
+            &Command::Claim {
+                cards: ui.choices.rewards.clone(),
+            },
+        ),
     );
     widgets::paragraph(
         commands,
@@ -58,20 +73,6 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run
     if let Some(card) = ui.preview.filter(|card| reward.cards.contains(card)) {
         card::preview(commands, surface, kit, card);
     }
-    control(
-        commands,
-        surface,
-        kit,
-        ui,
-        Phrase::EchoesRewardClaim.text(lang),
-        Action::ClaimReward,
-        can(
-            ui,
-            &Command::Claim {
-                cards: ui.choices.rewards.clone(),
-            },
-        ),
-    );
 }
 
 fn candidate(
@@ -111,7 +112,7 @@ fn candidate(
         kit.m.px(7.0),
     );
     commands.entity(tile).insert(hover).add_child(image);
-    heading(commands, tile, kit, &words::card(id, lang));
+    label(commands, tile, kit, &words::card(id, lang), tokens::INK);
     if run.cards.copies(id) > 0 {
         label(
             commands,

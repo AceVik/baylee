@@ -639,6 +639,7 @@ impl Keymap {
             .insert(Action::Confirm, vec![Chord::key("Enter")]);
         map.bindings.remove(&Action::ToggleBrowser);
         map.bindings.remove(&Action::ToggleLog);
+        map.bindings.remove(&Action::ToggleTowerItems);
         map.bindings.remove(&Action::HoldForStack);
         map.bindings.remove(&Action::HoldForTurn);
         map.bindings.remove(&Action::ActivateGroup);
@@ -2201,7 +2202,7 @@ mod tests {
     /// what they are bound to, and that the settings list names them.
     #[test]
     fn the_chat_actions_are_listed_grouped_and_bound_as_the_design_says() {
-        assert_eq!(Action::ALL.len(), 51);
+        assert_eq!(Action::ALL.len(), 52);
         let chat = [
             Action::ChatCommand,
             Action::ChatReply,

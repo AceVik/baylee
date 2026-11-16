@@ -264,7 +264,12 @@ fn execute(
     result
 }
 
-pub(super) fn tick(time: Res<Time>, mut state: ResMut<LobbyState>, mut clock: Local<f64>) {
+pub(super) fn tick(
+    time: Res<Time>,
+    mut state: ResMut<LobbyState>,
+    mut scrolled: ResMut<super::Scrolled>,
+    mut clock: Local<f64>,
+) {
     let changed = match (state.central_handle(), &state.echoes.session) {
         (Some(a), Some(b)) => !a.same_session(b),
         (None, None) => false,
@@ -281,6 +286,7 @@ pub(super) fn tick(time: Res<Time>, mut state: ResMut<LobbyState>, mut clock: Lo
         .ok()
         .and_then(|mut slot| slot.take());
     if let Some(reply) = reply {
+        let previous = state.echoes.model.run().map(|run| (run.id, run.phase));
         let withdrawn = matches!(reply.response, Some(api::Response::Withdrawn {}));
         let enrolled = matches!(reply.work.request(), Some(api::Request::Start { .. }))
             && matches!(reply.response, Some(api::Response::Run { .. }));
@@ -291,6 +297,11 @@ pub(super) fn tick(time: Res<Time>, mut state: ResMut<LobbyState>, mut clock: Lo
             .model
             .receive(&reply.work, reply.response, reply.failure)
         {
+            if previous != state.echoes.model.run().map(|run| (run.id, run.phase)) {
+                scrolled.set(super::List::Table, 0.0);
+                scrolled.set(super::List::EchoesInspector, 0.0);
+                state.echoes.preview = None;
+            }
             state.echoes.loaded |= loaded;
             state.echoes.withdrawn |= withdrawn;
             if enrolled {

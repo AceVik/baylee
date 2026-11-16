@@ -1,6 +1,17 @@
 use super::*;
 
 #[test]
+fn tower_reward_counts_render_without_fluent_placeholders() {
+    for lang in Lang::ALL {
+        let progress = Phrase::EchoesRewardCount.fill(lang, &["2", "3"]);
+        assert!(progress.contains('2') && progress.contains('3'));
+        assert!(!progress.contains('$'));
+        let confirmation = Phrase::EchoesConfirmReward.fill(lang, &["3"]);
+        assert!(confirmation.contains('3') && !confirmation.contains('$'));
+    }
+}
+
+#[test]
 fn stored_mana_prices_keep_charge_count_separate_from_mana_and_color() {
     assert_eq!(
         Phrase::EchoesStoredManaTier.fill_count(Lang::En, 3, &["2", "colorless"]),

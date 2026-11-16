@@ -3581,7 +3581,7 @@ ChallengePendingResult = Dein letztes Ergebnis wird geprüft. Aktualisiere die A
 
 EchoesTitle = Echos des Turms
 TowerRunTitle = Tower-Run
-TowerRunEntry = Wähle dein Deck, sammle Schätze und erspiele dir den Weg zur Krone.
+TowerRunEntry = Dein Deck. Deine Schätze. Dein Weg zur Krone.
 EchoesDeck = Dein Deck
 EchoesPlay = Nächste Partie
 EchoesWithdraw = Zukünftige Echo-Nutzung widerrufen

@@ -118,7 +118,7 @@ fn tile(commands: &mut Commands, parent: Entity, kit: Kit, tile: Tile<'_>) {
         .entity(card)
         .entry::<Node>()
         .and_modify(move |mut node| {
-            node.min_height = kit.m.px(136.0);
+            node.min_height = kit.m.px(148.0);
             node.row_gap = kit.m.px(8.0);
             node.flex_shrink = 0.0;
         });
@@ -134,7 +134,7 @@ fn tile(commands: &mut Commands, parent: Entity, kit: Kit, tile: Tile<'_>) {
         .spawn((
             tile.scene,
             Node {
-                width: kit.m.px(92.0),
+                width: kit.m.px(64.0),
                 height: kit.m.px(64.0),
                 flex_shrink: 0.0,
                 ..default()

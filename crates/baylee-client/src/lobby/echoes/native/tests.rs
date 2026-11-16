@@ -133,6 +133,7 @@ fn tower_context_waits_for_the_first_account_worker_and_only_reads_once() {
     let mut app = App::new();
     app.insert_resource(state);
     app.insert_resource(Time::<()>::default());
+    app.init_resource::<super::super::Scrolled>();
     app.world_mut().run_system_once(returned).unwrap();
     assert_eq!(
         app.world().resource::<LobbyState>().echoes.returning,
@@ -193,6 +194,7 @@ fn tower_context_cancelled_before_account_restore_stays_closed_and_idle() {
     let mut app = App::new();
     app.insert_resource(state);
     app.insert_resource(Time::<()>::default());
+    app.init_resource::<super::super::Scrolled>();
     app.world_mut().clear_trackers();
     app.world_mut().run_system_once(tick).unwrap();
     let state = app.world().get_resource_ref::<LobbyState>().unwrap();
