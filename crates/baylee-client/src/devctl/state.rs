@@ -189,6 +189,7 @@ pub(super) struct Believed<'w, 's> {
     /// fault in the probe rather than an answer from it.
     phase: Option<Res<'w, State<crate::DuelPhase>>>,
     journey: Option<Res<'w, crate::arrival::Journey>>,
+    entrance: Option<Res<'w, crate::lobby::entrance::Entrance>>,
     real_time: Option<Res<'w, Time<Real>>>,
     /// How many interface text faces have been built (WP6): a number that
     /// moves on every frame is a face rebuilt per frame.
@@ -1050,7 +1051,24 @@ fn account_json(believed: &Believed) -> String {
                 "saved_gateway_count": state.gateways.len(),
                 // Which question stands over the lobby, by kind only.
                 "asking": state.asking(),
-            "front_moving": believed.front_motion.as_ref().is_some_and(|motion| motion.moving()),
+                "front_moving": believed.front_motion.as_ref().is_some_and(|motion| motion.moving()),
+                "entrance_active": believed.entrance.as_ref().is_some_and(|entrance| entrance.active()),
+                "journey_active": believed.journey.as_ref().is_some_and(|journey| journey.active()),
+                "builder": {
+                    "scoped": state.lobby.scoped_builder(),
+                    "dirty": state.lobby.builder().dirty(),
+                    "saveable": state.lobby.builder().saveable(),
+                    "main": state.lobby.builder().counts().main,
+                    "side": state.lobby.builder().counts().side,
+                    "nav": format!("{:?}", state.build.nav),
+                    "tab": format!("{:?}", state.build.tab),
+                    "save": format!("{:?}", state.build.save),
+                    "query": state.lobby.builder().text(),
+                    "results": state.lobby.builder().results().len(),
+                    "commander_identity": state.lobby.builder().commanders().iter()
+                        .filter_map(|&slot| state.lobby.builder().card(slot))
+                        .map(|card| card.identity.as_str()).collect::<String>(),
+                },
                 "offline": state.offline.is_some()
             })
             .to_string()

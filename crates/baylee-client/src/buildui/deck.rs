@@ -508,7 +508,7 @@ fn commander_slot(commands: &mut Commands, env: &Env, compact: bool) -> Entity {
             stop("commander"),
         ),
     ));
-    if leaders.len() == 1 && !compact {
+    if leaders.len() == 1 && !compact && deck.limited().is_none() {
         second.push(link(
             commands,
             kit,

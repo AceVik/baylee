@@ -34,6 +34,10 @@ fn session(state: &mut LobbyState) -> Option<central::Handle> {
         _ => false,
     };
     if !unchanged {
+        if state.lobby.close_scoped_builder() {
+            state.build = crate::buildui::BuildUi::default();
+            state.confirm_leave = false;
+        }
         // A gateway's authenticated resume marker can precede the first Central
         // worker. Retain only that navigation intent; the new account must still
         // read/authorize the run. Never retain anything across an account departure.
@@ -83,6 +87,16 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
         return;
     }
     if !ready(state) {
+        return;
+    }
+    if action == Action::Page(Page::Deck)
+        && state
+            .echoes
+            .model
+            .run()
+            .is_some_and(|run| run.cards.formation.is_some())
+    {
+        super::builder::open(state);
         return;
     }
     let ui = &mut state.echoes;
@@ -247,7 +261,7 @@ fn read_page(ui: &mut Ui, id: Uuid, read: Read) -> Option<Work> {
     work
 }
 
-fn submit(state: &mut LobbyState, work: Work) {
+pub(super) fn submit(state: &mut LobbyState, work: Work) {
     if work.request().is_some() {
         let result = state
             .echoes
@@ -398,6 +412,9 @@ pub(super) fn tick(
                 return;
             }
         }
+    }
+    if !state.echoes.model.busy() && super::builder::pending(&state) {
+        super::builder::reconcile(&mut state, time.elapsed_secs_f64());
     }
     if !ready(&state) || state.echoes.model.busy() {
         return;

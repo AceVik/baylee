@@ -142,7 +142,11 @@ pub(super) fn keyboard(
         }
         return;
     }
-    if state.hub == Hub::Challenges && state.echoes.opened && codes.just_pressed(KeyCode::Escape) {
+    if state.hub == Hub::Challenges
+        && state.echoes.opened
+        && !state.lobby.scoped_builder()
+        && codes.just_pressed(KeyCode::Escape)
+    {
         keys.clear();
         if state.echoes.confirmation.is_some() {
             state.echoes.confirmation = None;

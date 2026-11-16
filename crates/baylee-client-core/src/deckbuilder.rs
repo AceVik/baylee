@@ -984,6 +984,7 @@ impl BuildField {
 #[derive(Clone, Debug, Default)]
 #[allow(clippy::struct_excessive_bools)] // independent facts: unsaved, naming, rules text, stubs shown
 pub struct DeckBuilder {
+    limited: Option<limited::Commander>,
     pool_revision: u64,
     pool: Vec<PoolCard>,
     /// Indices into `pool`, filtered and sorted. Rebuilt whenever a filter
@@ -1119,6 +1120,7 @@ pub struct DeckBuilder {
 
 mod builder;
 pub mod legality;
+pub mod limited;
 pub mod saves;
 pub mod statistics;
 pub mod transfer;

@@ -75,10 +75,12 @@ pub(super) fn menu(commands: &mut Commands, holder: Entity, env: &Env) {
                 other.0.text(lang),
                 BuildPress::AddFromPool(slot, other.1),
             ));
-            items.push(item(
-                Phrase::BuildChoosePrinting.text(lang),
-                BuildPress::PickPrint(slot),
-            ));
+            if deck.limited().is_none() {
+                items.push(item(
+                    Phrase::BuildChoosePrinting.text(lang),
+                    BuildPress::PickPrint(slot),
+                ));
+            }
             items.push(item(
                 Phrase::BuildOpenCard.text(lang),
                 BuildPress::Inspect(slot),
@@ -89,15 +91,17 @@ pub(super) fn menu(commands: &mut Commands, holder: Entity, env: &Env) {
                 let is_global_fav = env.prefs.card_favourite(&card.english_name);
                 let deck_fav_label = Phrase::BuildCardFavDeckItem.text(lang);
                 let global_fav_label = Phrase::BuildCardFavGlobalItem.text(lang);
-                items.push(MenuItem {
-                    text: deck_fav_label,
-                    keys: is_deck_fav.then_some("\u{2713}"),
-                    destructive: false,
-                    action: (
-                        Press::Build(BuildPress::ToggleCardFavDeck(slot)),
-                        sheet_stop("item"),
-                    ),
-                });
+                if deck.limited().is_none() {
+                    items.push(MenuItem {
+                        text: deck_fav_label,
+                        keys: is_deck_fav.then_some("\u{2713}"),
+                        destructive: false,
+                        action: (
+                            Press::Build(BuildPress::ToggleCardFavDeck(slot)),
+                            sheet_stop("item"),
+                        ),
+                    });
+                }
                 items.push(MenuItem {
                     text: global_fav_label,
                     keys: is_global_fav.then_some("\u{2713}"),
@@ -116,10 +120,12 @@ pub(super) fn menu(commands: &mut Commands, holder: Entity, env: &Env) {
                 Zone::Side => Phrase::BuildMoveToMain,
             };
             items.push(item(to.text(lang), BuildPress::MoveRow(at)));
-            items.push(item(
-                Phrase::BuildChoosePrinting.text(lang),
-                BuildPress::PickRowPrint(at),
-            ));
+            if deck.limited().is_none() {
+                items.push(item(
+                    Phrase::BuildChoosePrinting.text(lang),
+                    BuildPress::PickRowPrint(at),
+                ));
+            }
             if let Some(entry) = deck.entries(zone).get(at) {
                 if deck.card(entry.slot).is_some_and(|c| c.commander)
                     && !deck.is_commander(entry.slot)
@@ -135,15 +141,17 @@ pub(super) fn menu(commands: &mut Commands, holder: Entity, env: &Env) {
                     let is_global_fav = env.prefs.card_favourite(&card.english_name);
                     let deck_fav_label = Phrase::BuildCardFavDeckItem.text(lang);
                     let global_fav_label = Phrase::BuildCardFavGlobalItem.text(lang);
-                    items.push(MenuItem {
-                        text: deck_fav_label,
-                        keys: is_deck_fav.then_some("\u{2713}"),
-                        destructive: false,
-                        action: (
-                            Press::Build(BuildPress::ToggleCardFavDeck(entry.slot)),
-                            sheet_stop("item"),
-                        ),
-                    });
+                    if deck.limited().is_none() {
+                        items.push(MenuItem {
+                            text: deck_fav_label,
+                            keys: is_deck_fav.then_some("\u{2713}"),
+                            destructive: false,
+                            action: (
+                                Press::Build(BuildPress::ToggleCardFavDeck(entry.slot)),
+                                sheet_stop("item"),
+                            ),
+                        });
+                    }
                     items.push(MenuItem {
                         text: global_fav_label,
                         keys: is_global_fav.then_some("\u{2713}"),

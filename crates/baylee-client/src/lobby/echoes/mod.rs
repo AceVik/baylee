@@ -6,6 +6,8 @@ use domain::v2::{inventory::Slot, run::Command};
 use std::collections::VecDeque;
 use uuid::Uuid;
 
+#[cfg(not(target_arch = "wasm32"))]
+pub(in crate::lobby) mod builder;
 mod choices;
 mod collection;
 mod draw;
@@ -110,6 +112,8 @@ struct Deck {
 
 #[derive(Default)]
 pub(crate) struct Ui {
+    #[cfg(not(target_arch = "wasm32"))]
+    editor: Option<builder::Session>,
     model: State,
     pub(super) opened: bool,
     page: Page,
@@ -212,6 +216,14 @@ pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
 }
 
 impl Ui {
+    /// Retry an unacknowledged refit even when later local edits are incomplete.
+    pub(crate) fn refit_uncertain(&self) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        return self.editor.is_some() && self.model.uncertain();
+        #[cfg(target_arch = "wasm32")]
+        false
+    }
+
     pub(super) fn rewarding(&self) -> bool {
         self.opened
             && self.page == Page::Shop

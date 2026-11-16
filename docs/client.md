@@ -4959,6 +4959,21 @@ bridge, a listing or a key answer moved it (`bypass_change_detection`, then
 
 ## The deck builder
 
+Tower refits reuse this screen with `DeckBuilder::limited::Commander`: an
+isolated owned pool, unlimited basic lands, one commander in 40 main-deck cards
+and at most five sideboard cards. The standard identity, singleton, search,
+preview and list machinery remains shared. Run printings and finishes are fixed;
+the card window reads them without fetching a printing catalogue. A cold Tower
+pool does not construct the ordinary pairwise commander-partner catalogue.
+
+`Lobby::open_scoped_builder` preserves the normal editor and closes any library
+sheet before entry. Ordinary pool/save replies still target that normal editor.
+The Tower adapter (`lobby/echoes/builder`) saves an explicit revision-bound refit
+through the authenticated Tower socket; it never writes the deck library or
+ordinary autosave drafts. An ambiguous response retries the same mutation.
+Only an acknowledged matching composition is clean; edits made while it was
+pending remain dirty. Discard returns to the shop, and signing out drops the scope.
+
 A screen of its own (`Screen::Build`), and the same split again: every
 decision is in `baylee_client_core::deckbuilder::DeckBuilder`, tested as
 arithmetic, and the plugin only draws it and forwards the taps. The drawing

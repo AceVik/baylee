@@ -13,7 +13,7 @@ pub(crate) struct Entrance {
 }
 
 impl Entrance {
-    pub(super) fn active(&self) -> bool {
+    pub(crate) fn active(&self) -> bool {
         self.progress.is_some_and(|p| p < 1.0)
     }
 

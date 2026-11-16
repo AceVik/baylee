@@ -42,7 +42,7 @@ not shipped or validated. No production deployment is authorized.
      purchase/equip/fusion and income animations with reduced-motion alternatives.
    - [ ] Original modular art and lobby tiles; no copied game assets.
 4. **Deck and table integration**
-   - [ ] Reuse the real deckbuilder with a run-owned card pool and free basic lands.
+   - [x] Reuse the real deckbuilder with a run-owned card pool and free basic lands.
    - [ ] Chat initially closed everywhere. Gear tray icon and structured log-style
      panel, public opponent gear and private potions, item icons on stack/order/log.
    - [ ] Visible priority over item triggers, respecting explicit pass preferences.
@@ -241,4 +241,43 @@ explicit limits. UI transport state is separate from render-state equality.
 - Round-income feedback now uses a separate once-per-visible-round latch, since
   worker lease/record revisions may be skipped while the game is visible. Three
   transition tests pass, including stale rounds and repeated pending rewards;
-  its native capture is still pending.
+  native pass 13 captured the coin arc (66/75 scheduled samples written, nine
+  dropped under readback backpressure, so not full continuity evidence).
+
+## Shared editor correction passes 13–17 — 16 November
+
+- The real deckbuilder now edits a session-local Tower collection with ordinary
+  filters, list/drag code, legality display and card previews. No cloned library
+  pool, second editor layout, deck-library save or persistent autosave draft.
+  Main/side geometry is 40/5, one commander, shared color and singleton checks.
+  Frozen prints survive adding/moving; ordinary late pool/printing replies cannot
+  replace the collection. Local input remains usable during read-only requests.
+- Pass 13 exposed a cold-path stall: constructing the first Tower pool row also
+  built every commander partner pair. The single-commander path now shares the
+  row constructor without requesting that unrelated catalogue. The failed
+  fixture's watchdog closed its client/backend/database, rather than hiding the
+  stall with a longer timeout.
+- Passes 14–15 exposed a stale house-library page that suppressed editor patches.
+  Entry now uses the normal builder's library-closing path; the existing native
+  builder-entry regression test also covers scoped entry from house/history.
+- Pass 16 failed in the QA helper because its quoted search hit the dev-control
+  text parser's escaping limitation. The helper uses the equivalent unquoted
+  exact-name search for the single-word basic-land names; no product workaround.
+- Pass 17 passed actual virtual input: search for a basic of the commander's
+  identity, add it to the sideboard, send the refit, wait for authoritative clean
+  state, return to the shop and reopen with the persisted sideboard. Evidence:
+  `/tmp/baylee-tower-builder-reopen2-native-20261116.log`. Single-frame passive
+  screenshots were black and are not used as visual acceptance evidence.
+- Core checks cover geometry, ownership across zones, off-color loaded cards,
+  ordinary-editor isolation, fixed print inspection and refusing a full
+  destination without removing the source card. Normal Commander remains 100.
+  All owned fixtures from these passes exited; exact PIDs and ports were checked.
+
+- Pass 18 repeated the persisted refit and opened the shared fixed-print card
+  inspector. Both 2-second, 5-fps captures wrote ten samples without drops:
+  `baylee-recording-01a1e5dd-a852-7584-96e5-847a52c86bcb` (restored sideboard),
+  `baylee-recording-01a1e5dd-b5c9-73c3-8936-d3075d223b04` (inspector).
+  The native path exposes no cosmetic replacement controls for run cards.
+  Focused core tests (three cases), library-entry regression and strict clippy
+  passed. `/tmp/baylee-tower-builder-final-native-20261116.log` records cleanup;
+  all owned PIDs/ports were verified closed. No full gate claim is made here.

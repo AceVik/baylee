@@ -9,7 +9,10 @@ pub(super) fn save_button(commands: &mut Commands, env: &Env) -> Entity {
     let m = kit.m;
     let deck = env.deck();
     let lang = env.lang();
-    let live = deck.saveable() && !env.state.lobby.busy();
+    let pending = env.state.lobby.scoped_builder() && env.ui().save == SaveState::Saving;
+    let live = (deck.saveable() || env.state.echoes.refit_uncertain())
+        && !env.state.lobby.busy()
+        && !pending;
     // An auto-save that failed has nowhere else to stand once its toast is
     // gone: the button is Retry, and says so.
     let failed = env.ui().save == SaveState::Failed && deck.dirty();
@@ -18,8 +21,13 @@ pub(super) fn save_button(commands: &mut Commands, env: &Env) -> Entity {
         let ink = if failed { tokens::DANGER } else { tokens::GOLD };
         trailing.push(glyph(commands, kit, mark::DOT, m.small * 0.55, ink));
     }
-    let reason = if env.state.lobby.busy() {
+    let reason = if env.state.lobby.busy() || pending {
         Phrase::SavingDeck.text(lang).to_string()
+    } else if deck.limited().is_some() && !deck.saveable() {
+        deck.overview(lang).problems.first().map_or_else(
+            || Phrase::EchoesRunDeckInvalid.text(lang).to_string(),
+            |line| line.text.clone(),
+        )
     } else {
         deck.problems(lang)
             .into_iter()

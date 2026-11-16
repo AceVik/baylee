@@ -1208,6 +1208,9 @@ pub struct Lobby {
     /// The deck builder. Kept across visits so its pool is fetched once a
     /// session.
     builder: DeckBuilder,
+    /// An isolated editor owned by a minigame. Ordinary gateway replies keep
+    /// updating `builder`, so a late pool/save reply cannot replace this deck.
+    scoped_builder: Option<Box<DeckBuilder>>,
     /// Whether the pool has been asked for. See [`Lobby::needs_pool`].
     pool_requested: bool,
     /// Bumped every time the caret is placed, including onto the field it is
@@ -2528,11 +2531,42 @@ impl Lobby {
     /// The deck builder, whatever screen is showing.
     #[must_use]
     pub fn builder(&self) -> &DeckBuilder {
-        &self.builder
+        self.scoped_builder.as_deref().unwrap_or(&self.builder)
     }
 
     /// The deck builder, to type into.
     pub fn builder_mut(&mut self) -> &mut DeckBuilder {
+        self.scoped_builder
+            .as_deref_mut()
+            .unwrap_or(&mut self.builder)
+    }
+
+    /// Reuses the normal builder screen without cloning or replacing its library
+    /// pool. The session owner handles saving; normal replies remain isolated.
+    pub fn open_scoped_builder(&mut self, builder: DeckBuilder) {
+        self.scoped_builder = Some(Box::new(builder));
+        self.close_library_for_the_builder();
+        self.screen = Screen::Build;
+    }
+
+    /// Returns from a minigame editor without requesting a normal deck refresh.
+    pub fn close_scoped_builder(&mut self) -> bool {
+        if self.scoped_builder.take().is_none() {
+            return false;
+        }
+        self.screen = Screen::Table;
+        true
+    }
+
+    /// Whether the visible editor belongs to a minigame session.
+    #[must_use]
+    pub const fn scoped_builder(&self) -> bool {
+        self.scoped_builder.is_some()
+    }
+
+    /// The library editor targeted by a late normal auto-save acknowledgement,
+    /// even when a separate minigame editor is currently visible.
+    pub fn library_builder_mut(&mut self) -> &mut DeckBuilder {
         &mut self.builder
     }
 
@@ -2546,6 +2580,7 @@ impl Lobby {
         if !self.has_a_performer() {
             return None;
         }
+        self.scoped_builder = None;
         self.builder.start_new();
         self.close_library_for_the_builder();
         self.screen = Screen::Build;
@@ -2558,6 +2593,7 @@ impl Lobby {
             return None;
         }
         let deck_id = self.decks.get(index)?.id.clone();
+        self.scoped_builder = None;
         self.close_library_for_the_builder();
         // The deck last edited stands in the builder until this one lands, and
         // an answer that never comes would leave it there under this tile:
@@ -2583,6 +2619,9 @@ impl Lobby {
 
     /// Leaves the builder for the tables.
     pub fn close_builder(&mut self) -> Option<LobbyRequest> {
+        if self.close_scoped_builder() {
+            return None;
+        }
         self.screen = Screen::Table;
         self.busy = false;
         self.refresh()

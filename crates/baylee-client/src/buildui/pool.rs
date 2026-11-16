@@ -380,19 +380,21 @@ fn chip_row(commands: &mut Commands, env: &Env) -> Entity {
         u32::try_from(env.prefs.deck_card_favourites_for(deck_key).len()).unwrap_or(0);
     let global_fav_count = u32::try_from(env.prefs.card_favourites.len()).unwrap_or(0);
     let fav_deck_tip = Phrase::BuildFavDeckTip.text(lang);
-    kids.push(controls::chip(
-        commands,
-        kit,
-        "\u{2605} Deck",
-        env.ui().fav_deck,
-        (deck_fav_count > 0).then_some(deck_fav_count),
-        false,
-        (
-            Press::Build(BuildPress::ToggleFilterFavDeck),
-            stop("fav-deck"),
-            crate::lobby::HoverHint(fav_deck_tip.to_string()),
-        ),
-    ));
+    if deck.limited().is_none() {
+        kids.push(controls::chip(
+            commands,
+            kit,
+            "\u{2605} Deck",
+            env.ui().fav_deck,
+            (deck_fav_count > 0).then_some(deck_fav_count),
+            false,
+            (
+                Press::Build(BuildPress::ToggleFilterFavDeck),
+                stop("fav-deck"),
+                crate::lobby::HoverHint(fav_deck_tip.to_string()),
+            ),
+        ));
+    }
     let fav_global_label = Phrase::BuildFavGlobalChip.text(lang);
     let fav_global_tip = Phrase::BuildFavGlobalTip.text(lang);
     kids.push(controls::chip(
@@ -959,15 +961,17 @@ pub(crate) fn filters_body(commands: &mut Commands, env: &Env) -> Vec<Entity> {
         false,
         Press::Build(BuildPress::TogglePlayable),
     );
-    let fav_deck = controls::chip(
-        commands,
-        kit,
-        "\u{2605} Deck",
-        env.ui().fav_deck,
-        None,
-        false,
-        Press::Build(BuildPress::ToggleFilterFavDeck),
-    );
+    let fav_deck = deck.limited().is_none().then(|| {
+        controls::chip(
+            commands,
+            kit,
+            "\u{2605} Deck",
+            env.ui().fav_deck,
+            None,
+            false,
+            Press::Build(BuildPress::ToggleFilterFavDeck),
+        )
+    });
     let fav_global = controls::chip(
         commands,
         kit,
@@ -977,7 +981,12 @@ pub(crate) fn filters_body(commands: &mut Commands, env: &Env) -> Vec<Entity> {
         false,
         Press::Build(BuildPress::ToggleFilterFavGlobal),
     );
-    out.push(wrap(commands, &[playable, fav_deck, fav_global]));
+    let shown: Vec<_> = [playable]
+        .into_iter()
+        .chain(fav_deck)
+        .chain([fav_global])
+        .collect();
+    out.push(wrap(commands, &shown));
     if deck.filtered() || env.ui().fav_deck || env.ui().fav_global {
         let clear = link(
             commands,

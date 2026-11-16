@@ -268,6 +268,16 @@ fn partners(index: baylee_core::ids::CardIndex) -> Vec<u32> {
 /// One card's row, from the registry alone.
 #[must_use]
 pub fn row(def: &'static CardDef) -> PoolCard {
+    let mut card = row_without_partners(def);
+    card.partners = partners(def.index);
+    card
+}
+
+/// One registry row for a surface that permits a single commander. Reuses all
+/// printed metadata without initializing the global pairwise partner catalog.
+/// Ordinary builders must use [`row`] to retain their partner choices.
+#[must_use]
+pub fn row_without_partners(def: &'static CardDef) -> PoolCard {
     let face = def.faces.first();
     let cost = face.map_or_default(|f| f.mana_cost);
     let name = def.name().to_string();
@@ -292,7 +302,7 @@ pub fn row(def: &'static CardDef) -> PoolCard {
         coverage,
         note,
         commander: !matches!(def.commander, baylee_cards_dsl::CommanderRule::NotEligible),
-        partners: partners(def.index),
+        partners: Vec::new(),
         basic_land: face.is_some_and(|f| {
             f.supertypes.contains(SupertypeSet::BASIC) && f.types.contains(TypeSet::LAND)
         }),

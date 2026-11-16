@@ -95,7 +95,7 @@ pub(crate) fn deck_row(
     // A row that names a printing shows it, or two lines of one card would
     // read as a fault in the list.
     let chosen = print_mark(&entry.print);
-    if !chosen.is_empty() {
+    if !chosen.is_empty() && deck.limited().is_none() {
         let mark = cell(commands, kit, &chosen, m.small * 0.9, tokens::ACCENT, false);
         commands.entity(mark).insert(Node {
             max_width: m.px(110.0),

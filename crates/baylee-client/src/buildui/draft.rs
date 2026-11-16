@@ -160,6 +160,12 @@ pub(crate) fn keep_the_draft(
     mut kept: Local<Keeper>,
 ) {
     let on_screen = matches!(state.lobby.screen(), Screen::Build);
+    if state.lobby.scoped_builder() {
+        if kept.visiting {
+            *kept = Keeper::default();
+        }
+        return;
+    }
     if !on_screen {
         if kept.visiting {
             // Whatever becomes of the save that goes out now, the device
@@ -261,6 +267,11 @@ pub(crate) fn keep_the_draft(
 /// nothing when an edit overtook it (that has a save of its own coming, and a
 /// save that failed says so itself); and the minutes since, once a minute.
 pub(crate) fn follow_the_save(mut state: ResMut<LobbyState>, time: Option<Res<Time<Real>>>) {
+    // A minigame acknowledgement, rather than the library's HTTP save queue,
+    // owns this pending state. Its adapter marks the exact accepted composition.
+    if state.lobby.scoped_builder() && state.build.save == SaveState::Saving {
+        return;
+    }
     let at = now(time.as_deref());
     match state.build.save {
         SaveState::Saving => {

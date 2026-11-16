@@ -123,7 +123,11 @@ pub(super) fn foot(commands: &mut Commands, holder: Entity, env: &Env) {
     let open = link(
         commands,
         kit,
-        Phrase::CheckOpen.text(lang),
+        if deck.limited().is_some() {
+            Phrase::EchoesDeckCheck.text(lang)
+        } else {
+            Phrase::CheckOpen.text(lang)
+        },
         (Press::Build(BuildPress::OpenCheck), stop("check")),
     );
     commands.entity(open).insert(Node {
@@ -215,142 +219,151 @@ pub(super) fn sheet(commands: &mut Commands, env: &Env) -> Entity {
     // ---- Body Sections
     let mut body = Vec::new();
 
-    // 1. Format Section Card
-    let chosen = deck.format();
-    let chips: Vec<Entity> = deck
-        .format_choices()
-        .iter()
-        .enumerate()
-        .map(|(at, key)| {
-            controls::chip(
-                commands,
-                kit,
-                format_name(key, lang),
-                key == chosen,
-                None,
-                false,
-                (
-                    Press::Build(BuildPress::SetFormat(at)),
-                    sheet_stop("format"),
-                ),
-            )
-        })
-        .collect();
-    let fmt_head = caption(commands, kit, Phrase::CheckFormat.text(lang));
-    let fmt_wrap = wrapped(commands, kit, &chips);
-    body.push(section_card(commands, kit, &[fmt_head, fmt_wrap]));
-
-    // 1b. Multi-Format Deck Variants Section Card
-    let deck_key = deck.editing().unwrap_or("new");
-    let variants = env.prefs.variants_for_deck(deck_key);
-    let var_title = caption(commands, kit, Phrase::BuildVariantsTitle.text(lang));
-    let save_var_label = Phrase::BuildVariantSave.fill(lang, &[format_name(chosen, lang)]);
-    let save_var_btn = controls::chip(
-        commands,
-        kit,
-        &save_var_label,
-        false,
-        None,
-        false,
-        (
-            Press::Build(BuildPress::SaveFormatVariant),
-            sheet_stop("save-variant"),
-        ),
-    );
-    let head_gap = spring(commands);
-    let var_head_row = line(commands, kit, &[var_title, head_gap, save_var_btn]);
-    let var_desc = surfaces::prose(commands, kit, Phrase::BuildVariantsNote.text(lang), true);
-    let mut var_items = vec![var_head_row, var_desc];
-    for (idx, variant) in variants.iter().enumerate() {
-        let report = deck.validate_variant(variant);
-        let (v_mark, v_ink) = sign(report.standing());
-        let main_cnt: u32 = variant
-            .cards
-            .iter()
-            .filter_map(|r| baylee_core::deckrow::parse(r).ok())
-            .map(|r| r.count)
-            .sum();
-        let side_cnt: u32 = variant
-            .sideboard
-            .iter()
-            .filter_map(|r| baylee_core::deckrow::parse(r).ok())
-            .map(|r| r.count)
-            .sum();
-        let status_word = match report.standing() {
-            Standing::Legal => Phrase::BuildVariantLegal.text(lang).to_string(),
-            Standing::Illegal => {
-                Phrase::BuildVariantIssues.fill(lang, &[&report.problems.len().to_string()])
-            }
-            Standing::Unknown => Phrase::BuildVariantUnchecked.text(lang).to_string(),
-        };
-        let row_box = commands
-            .spawn((
-                Node {
-                    width: Val::Percent(100.0),
-                    align_items: AlignItems::Center,
-                    column_gap: m.px(8.0),
-                    padding: UiRect::axes(m.px(10.0), m.px(6.0)),
-                    border: UiRect::all(px_fixed(1.0)),
-                    border_radius: BorderRadius::all(px_fixed(8.0)),
-                    ..default()
-                },
-                BackgroundColor(if variant.format == chosen {
-                    tokens::SELECTED.with_alpha(0.55)
-                } else {
-                    tokens::CONTROL.with_alpha(0.55)
-                }),
-                BorderColor::all(v_ink.with_alpha(0.45)),
-                surfaces::elevation_subcard(),
-                Pickable::IGNORE,
-            ))
-            .id();
-        let v_sign = glyph(commands, kit, v_mark, m.small, v_ink);
-        let v_name = cell(
+    if deck.limited().is_some() {
+        body.push(surfaces::prose(
             commands,
             kit,
-            format_name(&variant.format, lang),
-            m.small,
-            tokens::INK,
-            true,
-        );
-        let v_meta = cell(
-            commands,
-            kit,
-            &format!("{main_cnt} / {side_cnt} \u{b7} {status_word}"),
-            m.small * 0.9,
-            v_ink,
+            Phrase::EchoesRunDeckRules.text(lang),
             false,
-        );
-        let load_chip = controls::chip(
+        ));
+    } else {
+        // 1. Format Section Card
+        let chosen = deck.format();
+        let chips: Vec<Entity> = deck
+            .format_choices()
+            .iter()
+            .enumerate()
+            .map(|(at, key)| {
+                controls::chip(
+                    commands,
+                    kit,
+                    format_name(key, lang),
+                    key == chosen,
+                    None,
+                    false,
+                    (
+                        Press::Build(BuildPress::SetFormat(at)),
+                        sheet_stop("format"),
+                    ),
+                )
+            })
+            .collect();
+        let fmt_head = caption(commands, kit, Phrase::CheckFormat.text(lang));
+        let fmt_wrap = wrapped(commands, kit, &chips);
+        body.push(section_card(commands, kit, &[fmt_head, fmt_wrap]));
+
+        // 1b. Multi-Format Deck Variants Section Card
+        let deck_key = deck.editing().unwrap_or("new");
+        let variants = env.prefs.variants_for_deck(deck_key);
+        let var_title = caption(commands, kit, Phrase::BuildVariantsTitle.text(lang));
+        let save_var_label = Phrase::BuildVariantSave.fill(lang, &[format_name(chosen, lang)]);
+        let save_var_btn = controls::chip(
             commands,
             kit,
-            Phrase::BuildVariantActivate.text(lang),
-            variant.format == chosen,
+            &save_var_label,
+            false,
             None,
             false,
-            Press::Build(BuildPress::LoadFormatVariant(idx)),
+            (
+                Press::Build(BuildPress::SaveFormatVariant),
+                sheet_stop("save-variant"),
+            ),
         );
-        let del_btn = icon_button(
-            commands,
-            kit,
-            '\u{f1f8}',
-            false,
-            Press::Build(BuildPress::DeleteFormatVariant(idx)),
-        );
-        super::pool::elevate_icon_button(commands, del_btn);
-        let row_gap = spring(commands);
-        commands
-            .entity(row_box)
-            .add_children(&[v_sign, v_name, v_meta, row_gap, load_chip, del_btn]);
-        var_items.push(row_box);
-    }
-    body.push(section_card(commands, kit, &var_items));
+        let head_gap = spring(commands);
+        let var_head_row = line(commands, kit, &[var_title, head_gap, save_var_btn]);
+        let var_desc = surfaces::prose(commands, kit, Phrase::BuildVariantsNote.text(lang), true);
+        let mut var_items = vec![var_head_row, var_desc];
+        for (idx, variant) in variants.iter().enumerate() {
+            let report = deck.validate_variant(variant);
+            let (v_mark, v_ink) = sign(report.standing());
+            let main_cnt: u32 = variant
+                .cards
+                .iter()
+                .filter_map(|r| baylee_core::deckrow::parse(r).ok())
+                .map(|r| r.count)
+                .sum();
+            let side_cnt: u32 = variant
+                .sideboard
+                .iter()
+                .filter_map(|r| baylee_core::deckrow::parse(r).ok())
+                .map(|r| r.count)
+                .sum();
+            let status_word = match report.standing() {
+                Standing::Legal => Phrase::BuildVariantLegal.text(lang).to_string(),
+                Standing::Illegal => {
+                    Phrase::BuildVariantIssues.fill(lang, &[&report.problems.len().to_string()])
+                }
+                Standing::Unknown => Phrase::BuildVariantUnchecked.text(lang).to_string(),
+            };
+            let row_box = commands
+                .spawn((
+                    Node {
+                        width: Val::Percent(100.0),
+                        align_items: AlignItems::Center,
+                        column_gap: m.px(8.0),
+                        padding: UiRect::axes(m.px(10.0), m.px(6.0)),
+                        border: UiRect::all(px_fixed(1.0)),
+                        border_radius: BorderRadius::all(px_fixed(8.0)),
+                        ..default()
+                    },
+                    BackgroundColor(if variant.format == chosen {
+                        tokens::SELECTED.with_alpha(0.55)
+                    } else {
+                        tokens::CONTROL.with_alpha(0.55)
+                    }),
+                    BorderColor::all(v_ink.with_alpha(0.45)),
+                    surfaces::elevation_subcard(),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            let v_sign = glyph(commands, kit, v_mark, m.small, v_ink);
+            let v_name = cell(
+                commands,
+                kit,
+                format_name(&variant.format, lang),
+                m.small,
+                tokens::INK,
+                true,
+            );
+            let v_meta = cell(
+                commands,
+                kit,
+                &format!("{main_cnt} / {side_cnt} \u{b7} {status_word}"),
+                m.small * 0.9,
+                v_ink,
+                false,
+            );
+            let load_chip = controls::chip(
+                commands,
+                kit,
+                Phrase::BuildVariantActivate.text(lang),
+                variant.format == chosen,
+                None,
+                false,
+                Press::Build(BuildPress::LoadFormatVariant(idx)),
+            );
+            let del_btn = icon_button(
+                commands,
+                kit,
+                '\u{f1f8}',
+                false,
+                Press::Build(BuildPress::DeleteFormatVariant(idx)),
+            );
+            super::pool::elevate_icon_button(commands, del_btn);
+            let row_gap = spring(commands);
+            commands
+                .entity(row_box)
+                .add_children(&[v_sign, v_name, v_meta, row_gap, load_chip, del_btn]);
+            var_items.push(row_box);
+        }
+        body.push(section_card(commands, kit, &var_items));
 
-    // 2. Banlist Section Card
-    let mut list_items = Vec::new();
-    super::lists::picker(commands, env, &mut list_items);
-    if !list_items.is_empty() {
-        body.push(section_card(commands, kit, &list_items));
+        // 2. Banlist Section Card
+        let mut list_items = Vec::new();
+        super::lists::picker(commands, env, &mut list_items);
+        if !list_items.is_empty() {
+            body.push(section_card(commands, kit, &list_items));
+        }
     }
 
     // 3. Standing & Problems Section Card

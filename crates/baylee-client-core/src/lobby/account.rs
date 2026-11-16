@@ -277,6 +277,7 @@ impl Lobby {
 
     /// Forgets the account and everything it bought.
     pub(super) fn forget_the_session(&mut self) {
+        self.scoped_builder = None;
         self.me = None;
         self.stats = None;
         // Which hosted models are open is the account's own.

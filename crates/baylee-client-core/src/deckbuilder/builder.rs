@@ -50,6 +50,12 @@ impl DeckBuilder {
         self.pool.get(slot)
     }
 
+    /// A cached card by rules identity without scanning the entire pool.
+    #[must_use]
+    pub fn card_by_index(&self, index: u32) -> Option<&PoolCard> {
+        self.slots.get(&index).and_then(|slot| self.pool.get(*slot))
+    }
+
     /// The filtered, sorted search results as pool slots.
     #[must_use]
     pub fn results(&self) -> &[usize] {
@@ -279,6 +285,9 @@ impl DeckBuilder {
 
     /// Takes the pool and rebuilds the results.
     pub fn set_pool(&mut self, cards: Vec<PoolCard>, has_text: bool) {
+        if self.limited.is_some() {
+            return;
+        }
         self.pool_revision = self.pool_revision.wrapping_add(1);
         self.keys = cards
             .iter()
@@ -852,6 +861,19 @@ impl DeckBuilder {
             loading: true,
             ..Picker::default()
         });
+        if let Some(limits) = &self.limited
+            && let Some(picker) = &mut self.picker
+        {
+            picker.loading = false;
+            picker.door = Door::Row;
+            picker.force_finish = true;
+            picker.finish = limits
+                .stock
+                .get(&index)
+                .and_then(|held| held.print.finish)
+                .unwrap_or_default();
+            return None;
+        }
         if let Some((prints, catalog)) = self.printings_cache.get(&index).cloned() {
             self.set_printings(index, prints, catalog);
             None
@@ -865,7 +887,9 @@ impl DeckBuilder {
         let entry = self.entries(zone).get(at)?.clone();
         let request = self.open_picker(entry.slot, zone);
         if let Some(picker) = &mut self.picker {
-            picker.replacing = Some(entry);
+            if self.limited.is_none() {
+                picker.replacing = Some(entry);
+            }
             picker.list = Some(zone);
             picker.select_original();
         }
@@ -875,6 +899,9 @@ impl DeckBuilder {
     /// Reuses the catalog dialog for a choice outside the saved deck.
     pub fn open_choice_picker(&mut self, slot: usize, print: PrintChoice) -> Option<LobbyRequest> {
         let request = self.open_picker(slot, Zone::Main);
+        if self.limited.is_some() {
+            return request;
+        }
         if let Some(picker) = &mut self.picker {
             picker.replacing = Some(Entry {
                 slot,
@@ -889,6 +916,9 @@ impl DeckBuilder {
 
     /// Forget the cached metadata and request a fresh printing catalog.
     pub fn refresh_printings(&mut self) -> Option<LobbyRequest> {
+        if self.limited.is_some() {
+            return None;
+        }
         let picker = self.picker.as_mut()?;
         if picker.loading {
             return None;
@@ -903,6 +933,9 @@ impl DeckBuilder {
 
     /// Toggle cosmetic finishes independently of physical availability.
     pub fn picker_force_finish(&mut self) {
+        if self.limited.is_some() {
+            return;
+        }
         if let Some(picker) = &mut self.picker {
             picker.force_finish = !picker.force_finish;
             picker.settle();
@@ -969,6 +1002,9 @@ impl DeckBuilder {
     /// answer for a card the player has already moved on from would otherwise
     /// replace the printings of the one they are looking at.
     pub fn set_printings(&mut self, card: u32, printings: Vec<Printing>, from_catalog: bool) {
+        if self.limited.is_some() {
+            return;
+        }
         let Some(picker) = self.picker.as_mut() else {
             return;
         };
@@ -1028,6 +1064,9 @@ impl DeckBuilder {
     /// to Scryfall for the rest ([`Picker::widening`]). Matched on the card
     /// as [`Self::set_printings`] is.
     pub fn widen_printings(&mut self, card: u32) {
+        if self.limited.is_some() {
+            return;
+        }
         if let Some(picker) = self.picker.as_mut()
             && picker.card == card
             && !picker.from_catalog
@@ -1124,6 +1163,9 @@ impl DeckBuilder {
 
     /// Chooses a finish, if the current printing was sold in it.
     pub fn picker_set_finish(&mut self, finish: Finish) {
+        if self.limited.is_some() {
+            return;
+        }
         let Some(picker) = self.picker.as_mut() else {
             return;
         };
@@ -1241,9 +1283,17 @@ impl DeckBuilder {
     /// on the *card*: four Lightning Bolts are four Lightning Bolts however
     /// many different pieces of cardboard they are.
     pub fn add_print(&mut self, slot: usize, zone: Zone, print: PrintChoice) -> bool {
+        if !self.limited_add(slot, zone) {
+            return false;
+        }
         let Some(card) = self.pool.get(slot) else {
             return false;
         };
+        let print = self
+            .limited
+            .as_ref()
+            .and_then(|limits| limits.stock.get(&card.index))
+            .map_or(print, |holding| holding.print.clone());
         let spires = card.index == baylee_core::generated::index::CRYPTIC_SPIRES.get();
         if !print.choices.is_valid()
             || spires != print.choices.circled_colors.is_some()
@@ -1884,6 +1934,7 @@ impl DeckBuilder {
         // English, because nothing is shown: only whether the list is empty
         // is being asked, and that answer is the same in every language.
         !self.problems(Lang::En).iter().any(|p| p.blocking)
+            && (self.limited.is_none() || self.standing() == baylee_cardtext::Standing::Legal)
     }
 
     // ------------------------------------------------------- the commander
@@ -1954,6 +2005,9 @@ impl DeckBuilder {
     /// Whether the server permits this card beside the selected commander.
     #[must_use]
     pub fn can_partner(&self, slot: usize) -> bool {
+        if self.limited.is_some() {
+            return false;
+        }
         let [first] = self.commanders.as_slice() else {
             return false;
         };
@@ -2005,7 +2059,9 @@ impl DeckBuilder {
     /// chosen printing: a foil moved to the sideboard has to arrive as the
     /// same piece of cardboard it left as.
     pub fn move_entry(&mut self, at: usize, from: Zone, to: Zone) -> bool {
-        if from == to {
+        // Refusing a full limited destination must not first remove the card
+        // from its source. Ownership itself is unchanged by a move.
+        if from == to || !self.limited_room(to) {
             return false;
         }
         let Some(entry) = self.entries(from).get(at) else {
@@ -2052,7 +2108,7 @@ impl DeckBuilder {
     /// The request that saves this deck, or `None` when it would be refused.
     #[must_use]
     pub fn save(&self) -> Option<LobbyRequest> {
-        if !self.saveable() {
+        if self.limited.is_some() || !self.saveable() {
             return None;
         }
         Some(LobbyRequest::SaveDeck {

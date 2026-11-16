@@ -238,6 +238,10 @@ impl BuildPress {
             mailbox,
             settings: _,
         } = cx;
+        #[cfg(not(target_arch = "wasm32"))]
+        if super::echoes::builder::press(state, self) {
+            return;
+        }
         // A press on anything but a menu's own opener puts the open menu
         // away; the item pressed then does what it says.
         if state.build.menu.is_some()

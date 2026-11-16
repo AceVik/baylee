@@ -158,9 +158,13 @@ pub(super) fn save_landed(
         if let Some(id) = &deck_id {
             carry_deck_prefs(prefs, "new", id);
         }
-        if state.lobby.builder().visit() == sent.visit {
+        if !state.lobby.scoped_builder() && state.lobby.builder().visit() == sent.visit {
             asked = landed_on_the_open_deck(state, &sent.draft, deck_id.as_deref(), archived);
         } else {
+            let library = state.lobby.library_builder_mut();
+            if library.visit() == sent.visit {
+                library.mark_auto_saved(&sent.draft, deck_id.as_deref(), archived);
+            }
             state.drafts.forget_landed(&sent.draft);
         }
     }
@@ -211,7 +215,7 @@ pub(super) fn save_failed(state: &mut LobbyState, mailbox: &Mailbox, why: Option
     let Some(Answered { sent, next, .. }) = state.deck_saves.failed() else {
         return;
     };
-    if state.lobby.builder().visit() == sent.visit {
+    if !state.lobby.scoped_builder() && state.lobby.builder().visit() == sent.visit {
         state.build.save = SaveState::Failed;
     }
     if let Some(why) = why {

@@ -159,8 +159,10 @@ pub(crate) fn window(
         );
         commands.entity(left).add_child(flip);
     }
-    let strip = strip(commands, env, picker);
-    commands.entity(left).add_child(strip);
+    if deck.limited().is_none() {
+        let strip = strip(commands, env, picker);
+        commands.entity(left).add_child(strip);
+    }
     if picker.from_catalog() && picker.sets().len() > 1 {
         let sets = super::print_picker::set_search(
             commands,
@@ -269,8 +271,10 @@ pub(crate) fn window(
     }
     commands.entity(right).add_child(oracle_box);
 
-    let printing = printing(commands, env, picker);
-    commands.entity(right).add_child(printing);
+    if deck.limited().is_none() {
+        let printing = printing(commands, env, picker);
+        commands.entity(right).add_child(printing);
+    }
 
     let deck_box = commands
         .spawn((
@@ -296,15 +300,17 @@ pub(crate) fn window(
     let is_global_fav = env.prefs.card_favourite(&card.english_name);
     let deck_fav_label = Phrase::BuildCardFavDeckChip.text(lang);
     let global_fav_label = Phrase::BuildCardFavGlobalChip.text(lang);
-    let fav_deck_chip = controls::chip(
-        commands,
-        kit,
-        deck_fav_label,
-        is_deck_fav,
-        None,
-        false,
-        Press::Build(BuildPress::ToggleCardFavDeck(slot)),
-    );
+    let fav_deck_chip = deck.limited().is_none().then(|| {
+        controls::chip(
+            commands,
+            kit,
+            deck_fav_label,
+            is_deck_fav,
+            None,
+            false,
+            Press::Build(BuildPress::ToggleCardFavDeck(slot)),
+        )
+    });
     let fav_global_chip = controls::chip(
         commands,
         kit,
@@ -314,7 +320,8 @@ pub(crate) fn window(
         false,
         Press::Build(BuildPress::ToggleCardFavGlobal(slot)),
     );
-    let fav_row = line(commands, kit, &[fav_deck_chip, fav_global_chip]);
+    let chips: Vec<_> = fav_deck_chip.into_iter().chain([fav_global_chip]).collect();
+    let fav_row = line(commands, kit, &chips);
     commands.entity(deck_box).add_child(fav_row);
     commands.entity(right).add_child(deck_box);
     if let Some((mark, ink)) = coverage_mark(card.coverage) {

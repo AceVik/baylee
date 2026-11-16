@@ -135,7 +135,11 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
         kit,
         Some(mark::BACK),
         if roomy {
-            Phrase::ShellDecks.text(lang)
+            if deck.limited().is_some() {
+                Phrase::EchoesShop.text(lang)
+            } else {
+                Phrase::ShellDecks.text(lang)
+            }
         } else {
             ""
         },
@@ -189,7 +193,7 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
         kids.push(switch);
     }
 
-    if !phone {
+    if !phone && deck.limited().is_none() {
         let busy = env.state.lobby.busy();
         for (text, icon, press, id) in [
             (
@@ -326,6 +330,9 @@ fn title(commands: &mut Commands, env: &Env) -> Entity {
     let m = kit.m;
     let deck = env.deck();
     let lang = env.lang();
+    if deck.limited().is_some() {
+        return words(commands, kit, deck.name(), m.text, tokens::GOLD);
+    }
     let renaming = env.ui().nav == Nav::Field && deck.focus() == BuildField::Name;
     if renaming {
         let row = commands

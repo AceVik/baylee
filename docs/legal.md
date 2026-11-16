@@ -27,6 +27,15 @@ below remain the basis for runtime card images and finishes.
 
 ## Guardrails for every change
 
+The 16 November run-ending/editor pass rechecked the same
+[Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy).
+The victory and defeat landscapes are original generated fantasy settings,
+without supplied franchise art or logos; prompts and provenance are in
+`crates/baylee-client/assets/tower/endings.md`. The editor reuses existing runtime
+card-image and font paths; no card-image files or script corpus are added.
+The Scryfall API documentation still returned HTTP 403. Existing notices and
+image restrictions remain applicable; this is not a broader legal approval.
+
 The 16 November runic-equipment pass rechecked the
 [Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy),
 including “Tell the Community it’s unofficial.” The ten item atlases are original

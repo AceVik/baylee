@@ -787,9 +787,13 @@ fn a_restore_from_the_shelf_stays_there_and_can_be_undone() {
 fn the_builder_opens_on_the_deck_not_on_a_page_the_decks_screen_left_open() {
     use crate::lobby::library::{HouseDeck, Page, Reply};
     type Open = fn(&mut Lobby) -> Option<LobbyRequest>;
-    let doors: [(&str, Open); 2] = [
+    let doors: [(&str, Open); 3] = [
         ("edit", |lobby| lobby.edit_deck(0)),
         ("new", Lobby::build_deck),
+        ("scoped", |lobby| {
+            lobby.open_scoped_builder(crate::deckbuilder::DeckBuilder::new());
+            None
+        }),
     ];
     for (door, open) in doors {
         for page in ["house", "history"] {

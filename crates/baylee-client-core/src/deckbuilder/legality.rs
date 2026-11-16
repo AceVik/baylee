@@ -272,7 +272,7 @@ impl DeckBuilder {
     /// (`set_commander` puts it there) and is one card, not a card in two
     /// places, so one copy of each is taken out, as the gateway's
     /// `loaded_deck` does.
-    fn cards(&self) -> (Vec<CardIndex>, Vec<CardIndex>, Vec<CardIndex>) {
+    pub(super) fn cards(&self) -> (Vec<CardIndex>, Vec<CardIndex>, Vec<CardIndex>) {
         let copies = |zone: Zone| -> Vec<CardIndex> {
             self.entries(zone)
                 .iter()
@@ -302,6 +302,9 @@ impl DeckBuilder {
 
     fn check(&self) -> Report {
         let (main, side, leaders) = self.cards();
+        if let Some(limits) = &self.limited {
+            return limits.check(&main, &side, &leaders);
+        }
         formats::validate(
             DeckCards {
                 main: &main,
@@ -391,6 +394,9 @@ impl DeckBuilder {
     fn count_line(&self, lang: Lang) -> String {
         let have = self.counts().main;
         let have = have.to_string();
+        if let Some(limits) = &self.limited {
+            return Phrase::CheckCountExactly.fill(lang, &[&have, &limits.total.to_string()]);
+        }
         match formats::shape_of(self.held_format()) {
             Some(formats::Shape::Constructed) => Phrase::CheckCountAtLeast
                 .fill(lang, &[&have, &formats::CONSTRUCTED_MIN.to_string()]),
@@ -405,7 +411,9 @@ impl DeckBuilder {
     #[must_use]
     pub fn overview(&self, lang: Lang) -> Overview {
         let format = self.held_format();
-        let named = if self.list.is_some() {
+        let named = if self.limited.is_some() {
+            Phrase::EchoesTitle.text(lang).to_string()
+        } else if self.list.is_some() {
             self.list_called(lang)
         } else {
             deckcheck::format_name(format, lang).to_string()
