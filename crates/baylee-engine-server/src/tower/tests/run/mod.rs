@@ -1,4 +1,4 @@
-//! Real independent-equipment execution under generation-five admission.
+//! Real independent-equipment execution under generation-six admission.
 use super::{Definition, Family, Rarity, RunPack, v2};
 use baylee_cards_dsl::{CounterKind, TokenDef};
 use baylee_core::{
@@ -25,6 +25,7 @@ mod growth;
 mod mulligans;
 mod protection;
 mod resources;
+mod runic;
 mod vitality;
 
 fn item(family: Family, rarity: Rarity) -> Definition {
@@ -47,13 +48,13 @@ fn setup(active: &[Definition], cards: &[&str], seed: u64) -> GamePreset {
     let mut preset = baylee_cards::decks::preset_for(seed, &deck, &deck);
     preset.format = FormatId::Custom;
     let resources = [
-        v2::loadout::resources_for(active, [0, 0], 0, v2::generation::RUN).unwrap(),
-        v2::loadout::resources_for(&[], [0, 0], 1, v2::generation::RUN).unwrap(),
+        v2::loadout::resources_for(active, [0, 0], 0, v2::generation::RUNIC).unwrap(),
+        v2::loadout::resources_for(&[], [0, 0], 1, v2::generation::RUNIC).unwrap(),
     ];
-    preset.house_rules = v2::loadout::rules_for(&resources, 17, v2::generation::RUN).unwrap();
+    preset.house_rules = v2::loadout::rules_for(&resources, 17, v2::generation::RUNIC).unwrap();
     preset.seats[0].controller = SeatController::Open;
     preset.seats[1].controller = SeatController::Ai(
-        v2::generation::contract(v2::generation::RUN)
+        v2::generation::contract(v2::generation::RUNIC)
             .unwrap()
             .expert(),
     );
@@ -64,7 +65,7 @@ fn setup(active: &[Definition], cards: &[&str], seed: u64) -> GamePreset {
             row.rule_print = None;
         }
     }
-    v2::loadout::validate_for(&preset, v2::generation::RUN).expect("derived run resources");
+    v2::loadout::validate_for(&preset, v2::generation::RUNIC).expect("derived run resources");
     for seat in &preset.seats {
         baylee_tower_content::validate_seat(seat).expect("native commander fixture");
     }

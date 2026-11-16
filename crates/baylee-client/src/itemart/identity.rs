@@ -116,8 +116,13 @@ static IDENTITIES: LazyLock<Box<[Option<Identity>]>> = LazyLock::new(|| {
             run: true,
         });
     }
-    for (kind, tiers) in Family::ALL.into_iter().zip(tokens::tower::run::RUN_RELICS) {
-        for (token, rarity) in tiers.into_iter().zip(Rarity::ALL) {
+    for kind in Family::ALL {
+        for rarity in Rarity::ALL {
+            let definition = Definition {
+                family: kind,
+                rarity,
+            };
+            let token = tokens::tower::run::definition(definition.id()).expect("compiled catalog");
             identities[usize::from(tokens::token_id(token))] = Some(Identity {
                 goods: Goods::Relic(Definition {
                     family: kind,
@@ -137,7 +142,7 @@ mod tests {
 
     #[test]
     fn stable_original_identities_keep_their_rarity_and_exclude_prints() {
-        assert_eq!(IDENTITIES.iter().flatten().count(), 110);
+        assert_eq!(IDENTITIES.iter().flatten().count(), 110 + 160 * 4);
         let key = |token| Some(ImageKey::token(tokens::token_id(token), ArtSize::Normal));
         assert_eq!(
             of(key(&tokens::TOWER_ROOTS_MYTHIC)),

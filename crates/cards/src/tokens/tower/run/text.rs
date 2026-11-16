@@ -97,6 +97,9 @@ pub fn ability_text(token: &TokenDef, index: u32) -> Option<&'static str> {
     if index >= token.abilities.len() {
         return None;
     }
+    if let Some(text) = super::runic::ability_text(token, index) {
+        return Some(text);
+    }
     let (family, tier) = RUN_RELICS.iter().enumerate().find_map(|(family, tiers)| {
         tiers
             .iter()

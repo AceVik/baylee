@@ -1,5 +1,6 @@
 //! Stable identities and balance hypotheses for generation-bound native catalogs.
 use crate::Refusal;
+pub use baylee_tower_relics::{Recipe as RunicRecipe, Sigil, Vessel};
 use serde::{Deserialize, Serialize};
 
 /// Relics contributing rules at a duel; reserve slots contribute nothing.
@@ -137,11 +138,13 @@ pub enum Family {
     DawnAegis,
     /// Bounded additional income after verified duels.
     GildedAcorn,
+    /// One of 160 closed event/action recipes, introduced in generation six.
+    Runic(RunicRecipe),
 }
 
 impl Family {
     /// Frozen catalog order, independent of map iteration or translated names.
-    pub const ALL: [Self; 18] = [
+    pub const ORIGINAL: [Self; 18] = [
         Self::Heartwood,
         Self::Satchel,
         Self::Compass,
@@ -161,6 +164,26 @@ impl Family {
         Self::DawnAegis,
         Self::GildedAcorn,
     ];
+
+    /// Complete catalog, without counting rarity upgrades as different families.
+    pub const ALL: [Self; 18 + RunicRecipe::COUNT] = Self::all();
+
+    const fn all() -> [Self; 18 + RunicRecipe::COUNT] {
+        let mut all = [Self::Heartwood; 18 + RunicRecipe::COUNT];
+        let mut index = 0;
+        while index < Self::ORIGINAL.len() {
+            all[index] = Self::ORIGINAL[index];
+            index += 1;
+        }
+        while index < all.len() {
+            all[index] = Self::Runic(match RunicRecipe::from_index(index - 18) {
+                Some(recipe) => recipe,
+                None => panic!("closed relic catalog"),
+            });
+            index += 1;
+        }
+        all
+    }
 
     const fn offset(self) -> u16 {
         match self {
@@ -182,6 +205,7 @@ impl Family {
             Self::StormSpindle => 60,
             Self::DawnAegis => 64,
             Self::GildedAcorn => 68,
+            Self::Runic(recipe) => 72 + recipe.index() as u16 * 4,
         }
     }
 }
@@ -197,6 +221,34 @@ pub struct Definition {
 }
 
 impl Definition {
+    /// Greatest inherited paid basis attainable through valid purchases/fusions.
+    pub const fn maximum_basis(self) -> u16 {
+        if matches!(self.family, Family::Runic(_)) {
+            match self.rarity {
+                Rarity::Common => 2,
+                Rarity::Uncommon => 6,
+                Rarity::Rare => 18,
+                Rarity::MythicRare => 42,
+            }
+        } else {
+            self.rarity.maximum_basis()
+        }
+    }
+
+    /// Fixed purchase price. Charge-driven relics trade slower setup for lower
+    /// entry cost; every copy of the same definition always costs the same.
+    pub const fn price(self) -> Option<u16> {
+        if matches!(self.family, Family::Runic(_)) {
+            match self.rarity {
+                Rarity::Common => Some(2),
+                Rarity::Uncommon => Some(5),
+                Rarity::Rare => Some(14),
+                Rarity::MythicRare => None,
+            }
+        } else {
+            self.rarity.price()
+        }
+    }
     /// Stable nonzero ID in a native manifest. Never reorder or reuse these IDs.
     pub const fn id(self) -> u16 {
         self.family.offset() + self.rarity.tier() as u16
@@ -282,7 +334,8 @@ fn derive_attributes(
             | Family::GraveBell
             | Family::StormSpindle
             | Family::DawnAegis
-            | Family::GildedAcorn => {}
+            | Family::GildedAcorn
+            | Family::Runic(_) => {}
         }
     }
     if result.cards > hand_limit

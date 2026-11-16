@@ -1693,6 +1693,7 @@ version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-cards-dsl",
  "baylee-core",
+ "baylee-tower-relics",
  "uuid",
 ]
 
@@ -2404,6 +2405,7 @@ version = "0.2.0-beta.o1"
 dependencies = [
  "baylee-core",
  "baylee-protocol",
+ "baylee-tower-relics",
  "serde",
  "serde_json",
  "sha2 0.11.1",
@@ -2435,6 +2437,13 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "baylee-tower-relics"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -12163,6 +12172,7 @@ dependencies = [
  "baylee-cards-pool",
  "baylee-core",
  "baylee-deckio",
+ "baylee-tower-relics",
  "baylee-train",
  "baylee-update",
  "clap",

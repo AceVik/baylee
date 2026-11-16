@@ -38,7 +38,10 @@ pub(super) fn draw(
         .spawn((
             Node {
                 display: Display::Grid,
-                grid_template_columns: vec![RepeatedGridTrack::flex(4, 1.0)],
+                grid_template_columns: vec![RepeatedGridTrack::flex(
+                    if run.shop.offers.len() > 8 { 6 } else { 4 },
+                    1.0,
+                )],
                 width: percent(100),
                 flex_grow: 1.0,
                 row_gap: kit.m.px(8.0),

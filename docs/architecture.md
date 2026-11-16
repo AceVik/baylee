@@ -16,6 +16,10 @@ information is unrepresentable in a view, and the gateway runs no rules.
 - Graph: core → engine → gamehost → engine-server; gamehost builds view and links `baylee-ai`; engine's choice taxonomy feeds client-core and `baylee-ai` (plays from the view; uses client-core's payment matching); core, view, protocol → client-core → client (Bevy); client-core links protocol only for shared rules such as `names::username`, and `baylee-cards` for the one deck check (`formats::validate`) and a card's name in a refusal. protocol → gateway (axum), agent (`tokio::process`, no rules). Each arrow drops a capability; test at the lowest layer possible.
 - `baylee-view` depends only on `baylee-core` ids, serde.
 - `baylee-client-core` is the client brain, knows no renderer, holds most client tests. Only `baylee-client` needs a GPU.
+- `baylee-tower-relics` holds the closed runic event/reward identities and tier
+  tuning shared by authority, native content generation and presentation. It has
+  no engine, transport or executable callbacks. Codegen emits ordinary static DSL
+  definitions; the engine never interprets arbitrary item scripts.
 - `baylee-tower` holds versioned pure Echoes progression, packages and native setup;
   `baylee-tower-store` is its separate PostgreSQL authority adapter. Neither runs
   duel rules. The new global service/execution boundary is under implementation;

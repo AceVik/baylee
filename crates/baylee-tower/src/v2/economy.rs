@@ -76,7 +76,7 @@ impl Economy {
     }
 
     fn purchase(&mut self, definition: Definition, slot: Slot) -> Result<u32, Refusal> {
-        let price = definition.rarity.price().ok_or(Refusal::Unavailable)?;
+        let price = definition.price().ok_or(Refusal::Unavailable)?;
         self.gold = self.gold.checked_sub(price).ok_or(Refusal::Gold)?;
         let id = self.inventory.allocate()?;
         self.inventory.relics.push(Relic {

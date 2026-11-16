@@ -8,7 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let content = baylee_tower_content::expeditions()?;
     let value = match args.as_slice() {
         [mode] if mode == "--check" => serde_json::json!({
-            "generation": baylee_tower::v2::generation::EXPEDITIONS,
+            "generation": baylee_tower::v2::GENERATOR,
             "starters": content.starters.len(),
             "tested_cards": content.catalog.cards.len(),
             "balance_measured": false,
@@ -24,13 +24,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let cohort = baylee_tower::v2::package::Cohort::for_generation(
                 identity,
                 &content.catalog,
-                baylee_tower::v2::generation::EXPEDITIONS,
+                baylee_tower::v2::GENERATOR,
             )?;
             serde_json::json!({"cohort": cohort, "catalog": content.catalog, "starters": content.starters})
         }
         _ => {
             return Err(
-                "use --check, --catalog, or --publication (exact tower-5 identity on stdin)".into(),
+                "use --check, --catalog, or --publication (exact tower-6 identity on stdin)".into(),
             );
         }
     };

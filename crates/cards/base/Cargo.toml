@@ -9,6 +9,7 @@ description = "What a card file is written with (tokens, shared filters, the tok
 workspace = true
 
 [dependencies]
+baylee-tower-relics.workspace = true
 baylee-core.workspace = true
 baylee-cards-dsl.workspace = true
 

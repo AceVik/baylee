@@ -3770,6 +3770,79 @@ EchoesRewardLead = Ein Stück des gegnerischen Builds, im Kampf verdient. Wähle
 EchoesRewardDuplicate = Bereits vorhanden · +1 Gold
 EchoesRewardInspect = Karte ansehen
 EchoesRewardSelected = Ausgewählt
+## Runenausrüstung: dieselben Regeln im Shop, Inventar und am Tisch.
+# Arguments: vessel, sigil
+RunicName = { $vessel } { $sigil }
+RunicChalice = Kelch
+RunicScepter = Zepter
+RunicPrism = Prisma
+RunicSeed = Saat
+RunicTome = Foliant
+RunicHorn = Horn
+RunicFlask = Phiole
+RunicBulwark = Bollwerk
+RunicBanner = Banner
+RunicLens = Linse
+RunicDawn = des Morgens
+RunicDusk = der Dämmerung
+RunicRoot = der Wurzeln
+RunicHearth = der Heimat
+RunicBloom = der Blüte
+RunicAsh = der Asche
+RunicEmber = der Glut
+RunicLore = des Wissens
+RunicPulse = des Lebensbluts
+RunicForge = der Schmiede
+RunicVeil = des Schleiers
+RunicValor = des Mutes
+RunicFang = des Fangs
+RunicEcho = des Echos
+RunicWraith = der Geister
+RunicStar = des Sternenfalls
+RunicEventDawn = Zu Beginn deines Versorgungssegments
+RunicEventDusk = Zu Beginn deines Endsegments
+RunicEventRoot = Immer wenn ein Land unter deiner Kontrolle ins Spiel kommt
+RunicEventHearth = Immer wenn eine Nichtspielsteinkreatur unter deiner Kontrolle ins Spiel kommt
+RunicEventBloom = Immer wenn ein Kreaturenspielstein unter deiner Kontrolle ins Spiel kommt
+RunicEventAsh = Immer wenn eine Kreatur unter deiner Kontrolle stirbt
+RunicEventEmber = Immer wenn du einen Nichtkreaturenzauber wirkst
+RunicEventLore = Immer wenn du eine Karte ziehst, außer der ersten in jedem deiner Ziehsegmente
+RunicEventPulse = Immer wenn du Lebenspunkte dazuerhältst
+RunicEventForge = Immer wenn ein Artefakt unter deiner Kontrolle ins Spiel kommt
+RunicEventVeil = Immer wenn du einen Verzauberungszauber wirkst
+RunicEventValor = Immer wenn eine oder mehrere Kreaturen unter deiner Kontrolle angreifen
+RunicEventFang = Immer wenn eine Kreatur unter deiner Kontrolle einem Gegner Kampfschaden zufügt
+RunicEventEcho = Immer wenn du eine Karte abwirfst
+RunicEventWraith = Immer wenn eine Kreatur unter gegnerischer Kontrolle stirbt
+RunicEventStar = Immer wenn du einen Spontanzauber oder eine Hexerei wirkst oder kopierst
+# Arguments: event, count
+RunicCharge = { $event }, lege { $count } Ladungsmarken auf diesen Gegenstand.
+# Arguments: mana, charges, reward
+RunicActivate = { $mana }Entferne { $charges } Ladungsmarken von diesem Gegenstand: { $reward }. Aktiviere dies aus der Kommandozone.
+RunicOnce = Aktiviere dies nur einmal pro Zug.
+# Arguments: count
+RunicLimit = Aktiviere dies nur { $count } Mal pro Zug.
+# Arguments: reward
+RunicLegend = Zu Beginn deines Versorgungssegments: { $reward }.
+# Arguments: count
+RunicRewardLife = Du erhältst { $count } Lebenspunkte dazu
+# Arguments: count
+RunicRewardDrain = Jeder Gegner verliert { $count } Lebenspunkte
+# Arguments: count
+RunicRewardScry = Hellsicht { $count }
+# Arguments: count
+RunicRewardPlant = Erzeuge { $count } grüne 1/1 Pflanzen-Kreaturenspielsteine
+RunicRewardDraw = Ziehe eine Karte
+# Arguments: count
+RunicRewardSoldier = Erzeuge { $count } weiße 1/1 Soldaten-Kreaturenspielsteine
+RunicRewardMana = Erzeuge ein Mana einer beliebigen Farbe
+# Arguments: count
+RunicRewardGuard = Kreaturen unter deiner Kontrolle erhalten +0/+{ $count } bis zum Ende des Zuges
+# Arguments: count
+RunicRewardPower = Kreaturen unter deiner Kontrolle erhalten +{ $count }/+0 bis zum Ende des Zuges
+RunicRewardLoot = Ziehe eine Karte und wirf dann eine Karte ab
+RunicAttackDrain = Immer wenn eine oder mehrere Kreaturen unter deiner Kontrolle angreifen, verliert jeder Gegner 1 Lebenspunkt.
+RunicDiscardLife = Immer wenn du eine Karte abwirfst, erhältst du 1 Lebenspunkt dazu.
 EchoesRewardSelect = Wählen
 EchoesRewardEmpty = Dieser Gegner hatte keine geeigneten Nichtstandardland-Karten. Dein Gold für das Duell erhältst du trotzdem.
 EchoesRewardClaim = Beute nehmen & weiter

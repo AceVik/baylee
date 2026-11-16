@@ -59,3 +59,39 @@ fn catalog_metadata_and_sideboard_are_bound_and_cannot_cross_generations() {
     assert!(duplicate.validate(&catalog).is_err());
     assert!(Run::begin_for(&catalog, run.cards, &[7; 32], 3).is_err());
 }
+
+#[test]
+fn expanded_equipment_freezes_into_a_package_without_weakening_retained_admission() {
+    let (catalog, cards) = crate::cards::run_tests::fixture();
+    let run = Run::begin_for(&catalog, cards, &[7; 32], generation::RUNIC).unwrap();
+    let mut build = Build::freeze(&run, &catalog).unwrap();
+    build
+        .active
+        .push(crate::v2::catalog::Definition::from_id(712).unwrap());
+    build.validate_for(&catalog, generation::RUNIC).unwrap();
+    assert!(
+        build
+            .validate_for(&catalog, generation::EXPEDITIONS)
+            .is_err()
+    );
+    let mut executor = fixture().2.executor;
+    executor.rules = "tower-6".into();
+    executor.ai = "tower-house-23".into();
+    let cohort = Cohort::for_generation(executor, &catalog, generation::RUNIC).unwrap();
+    let opponent = Opponent {
+        stage: 1,
+        cohort: cohort.clone(),
+        origin: Origin::House { archetype: 1 },
+        build,
+    };
+    let package = Package::reserve(&run, 0, &catalog, &cohort, opponent, seeds(), 4096)
+        .unwrap()
+        .package;
+    let preset = package
+        .preset(&catalog, &cohort.executor, |_| printing(CardIndex::new(0)))
+        .unwrap();
+    assert_eq!(
+        preset.house_rules.rule_pack.unwrap().seats[1].definitions,
+        vec![712]
+    );
+}

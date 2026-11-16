@@ -120,7 +120,7 @@ impl Players {
         id: Uuid,
         saved: baylee_tower_store::Publication,
     ) -> Result<baylee_tower_api::Cohort, Failure> {
-        let offered = if saved.cohort.generator == baylee_tower::v2::generation::EXPEDITIONS {
+        let offered = if baylee_tower::v2::generation::has_draft(saved.cohort.generator) {
             self.store.starter_choices(account, id, seed()?).await?
         } else {
             let count = u8::try_from(saved.starters.len()).map_err(|_| Failure::Unavailable)?;

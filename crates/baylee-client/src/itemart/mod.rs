@@ -13,6 +13,7 @@ use bevy::{
     render::render_resource::{AsBindGroup, ShaderType},
     shader::ShaderRef,
 };
+use std::collections::BTreeMap;
 
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Portrait(pub Goods);
@@ -73,6 +74,7 @@ impl Portrait {
                     Family::StormSpindle => 19,
                     Family::DawnAegis => 20,
                     Family::GildedAcorn => 21,
+                    Family::Runic(recipe) => 22 + recipe.index(),
                 },
                 match rarity {
                     Rarity::Common => 0,
@@ -94,6 +96,8 @@ struct Params {
     gem: Vec4,
     // motif, rarity, animation energy, passing-state bits; no per-frame writes.
     shape: Vec4,
+    // UV offset and scale; sixteen distinct paintings share one decoded atlas.
+    atlas: Vec4,
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
@@ -137,7 +141,31 @@ impl UiMaterial for Material {
 }
 
 #[derive(Resource, Default)]
-struct Cache([[[Option<Handle<Material>>; 5]; 4]; PICTURES.len() + 1]);
+struct Cache(BTreeMap<(usize, usize, usize), Handle<Material>>);
+
+const ATLASES: [&str; 10] = [
+    "tower/runic/chalice.png",
+    "tower/runic/scepter.png",
+    "tower/runic/prism.png",
+    "tower/runic/seed.png",
+    "tower/runic/tome.png",
+    "tower/runic/horn.png",
+    "tower/runic/flask.png",
+    "tower/runic/bulwark.png",
+    "tower/runic/banner.png",
+    "tower/runic/lens.png",
+];
+
+fn picture(kind: usize) -> Option<&'static str> {
+    if kind == 0 {
+        return None;
+    }
+    Some(if kind < 22 {
+        PICTURES[kind - 1]
+    } else {
+        ATLASES[(kind - 22) % 10]
+    })
+}
 
 fn linear(rgb: [f32; 3]) -> Vec4 {
     let color = Color::srgb(rgb[0], rgb[1], rgb[2]).to_linear();
@@ -178,9 +206,29 @@ fn params(kind: usize, tier: usize, energy: f32) -> Params {
                 [0.55, 0.70, 1.0],
                 [1.0, 0.91, 0.56],
                 [0.97, 0.70, 0.24],
-            ][kind],
+            ][if kind < 22 {
+                kind
+            } else {
+                [20, 18, 15, 9, 12, 10, 16, 17, 5, 14, 7, 21, 1, 3, 18, 19][(kind - 22) / 10]
+            }],
         ),
         shape: Vec4::new(kind as f32, tier as f32, energy, 0.0),
+        atlas: if kind < 22 {
+            Vec4::new(0.0, 0.0, 1.0, 1.0)
+        } else {
+            let sigil = (kind - 22) / 10;
+            // These two paintings include an outer transparent apron. Sample
+            // their measured grid rather than cutting a shield/standard in two.
+            let (origin, cell) = match (kind - 22) % 10 {
+                7 => (Vec2::new(100.0, 155.0), Vec2::new(260.0, 240.0)),
+                8 => (Vec2::new(100.0, 140.0), Vec2::new(260.0, 245.0)),
+                _ => (Vec2::ZERO, Vec2::splat(313.5)),
+            };
+            let origin =
+                (origin + Vec2::new((sigil % 4) as f32, (sigil / 4) as f32) * cell) / 1254.0;
+            let cell = cell / 1254.0;
+            Vec4::new(origin.x, origin.y, cell.x, cell.y)
+        },
     }
 }
 
@@ -208,7 +256,7 @@ fn dress(
     if prefs.as_ref().is_some_and(DetectChanges::is_changed)
         || quality.as_ref().is_some_and(DetectChanges::is_changed)
     {
-        for handle in cache.0.iter().flatten().flatten().flatten() {
+        for handle in cache.0.values() {
             if assets
                 .get(handle)
                 .is_some_and(|material| (material.params.shape.z - energy).abs() > f32::EPSILON)
@@ -221,15 +269,15 @@ fn dress(
     for (entity, portrait, emphasis) in &portraits {
         let (kind, tier) = portrait.indices();
         let emphasis = emphasis.copied().unwrap_or_default();
-        let handle = cache.0[kind][tier][emphasis.index()]
-            .get_or_insert_with(|| {
+        let handle = cache
+            .0
+            .entry((kind, tier, emphasis.index()))
+            .or_insert_with(|| {
                 let mut params = params(kind, tier, energy);
                 params.shape.w = emphasis.bits() as f32;
                 assets.add(Material {
                     params,
-                    portrait: kind
-                        .checked_sub(1)
-                        .map(|index| server.load(PICTURES[index])),
+                    portrait: picture(kind).map(|path| server.load(path)),
                 })
             })
             .clone();

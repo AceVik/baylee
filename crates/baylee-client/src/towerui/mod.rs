@@ -11,6 +11,7 @@ use baylee_client_core::echoes::domain::v2::{catalog::Rarity, shop::Goods};
 use bevy::prelude::*;
 mod layout;
 mod rules;
+mod runic;
 mod scenery;
 pub(crate) use layout::drag_ghost;
 pub(crate) use layout::{badge, coin, empty, frame};

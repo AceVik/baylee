@@ -36,7 +36,7 @@ impl Publication {
     /// Incompatible cohort or invalid starter/card pool.
     pub fn validate(&self) -> Result<(), Error> {
         self.cohort.validate(&self.catalog)?;
-        if self.cohort.generator == baylee_tower::v2::generation::EXPEDITIONS {
+        if baylee_tower::v2::generation::has_draft(self.cohort.generator) {
             self.catalog.validate_starter_pool(&self.starters)?;
         } else {
             self.catalog.validate_starters(&self.starters)?;

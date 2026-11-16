@@ -431,6 +431,7 @@ pub(crate) fn codegen(
     // on a machine with none checked out it rewrites every machine-owned
     // card as an honest stub. `--tables` is the way past it: the two tables
     // below are built from the compiled pool alone.
+    crate::tower_relics::prepare(root, check, registry_only, &mut changed)?;
     if registry_only {
         registry_cards(root, check, &agent, &cache, &names, &mut changed)?;
     } else if tables_only {

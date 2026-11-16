@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Version is part of the route so incompatible clients fail before authentication.
-pub const PATH: &str = "/v2/player/ws/7";
+pub const PATH: &str = "/v2/player/ws/8";
 /// Envelope allowance in addition to the bounded ordinary request.
 pub const MAX_CLIENT_BYTES: usize = crate::MAX_REQUEST_BYTES + 128;
 /// Envelope allowance in addition to a bounded ordinary response.

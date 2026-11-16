@@ -36,7 +36,8 @@ pub(super) fn effect(definition: Definition, lang: Lang) -> String {
         | Family::GraveBell
         | Family::StormSpindle
         | Family::DawnAegis
-        | Family::GildedAcorn => {
+        | Family::GildedAcorn
+        | Family::Runic(_) => {
             unreachable!("foundation text has its own reader")
         }
     };
@@ -65,7 +66,8 @@ pub(super) fn tier(definition: Definition, lang: Lang) -> String {
         | Family::GraveBell
         | Family::StormSpindle
         | Family::DawnAegis
-        | Family::GildedAcorn => {
+        | Family::GildedAcorn
+        | Family::Runic(_) => {
             unreachable!("foundation text has its own reader")
         }
     };
@@ -92,7 +94,8 @@ fn amount(definition: Definition) -> u8 {
         | Family::GraveBell
         | Family::StormSpindle
         | Family::DawnAegis
-        | Family::GildedAcorn => {
+        | Family::GildedAcorn
+        | Family::Runic(_) => {
             unreachable!("foundation text has its own reader")
         }
     }

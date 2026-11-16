@@ -10209,6 +10209,79 @@ EchoesRewardLead = A piece of your opponent's build, earned in battle. Choose ca
 EchoesRewardDuplicate = Already owned · +1 gold
 EchoesRewardInspect = Read card
 EchoesRewardSelected = Selected
+## Runic equipment: closed native recipes, translated once for every item surface.
+# Arguments: vessel, sigil
+RunicName = { $sigil } { $vessel }
+RunicChalice = Chalice
+RunicScepter = Scepter
+RunicPrism = Prism
+RunicSeed = Seed
+RunicTome = Tome
+RunicHorn = Horn
+RunicFlask = Flask
+RunicBulwark = Bulwark
+RunicBanner = Banner
+RunicLens = Lens
+RunicDawn = Dawn
+RunicDusk = Dusk
+RunicRoot = Rootbound
+RunicHearth = Hearth
+RunicBloom = Bloom
+RunicAsh = Ashen
+RunicEmber = Ember
+RunicLore = Lore
+RunicPulse = Lifeblood
+RunicForge = Forge
+RunicVeil = Veil
+RunicValor = Valor
+RunicFang = Fang
+RunicEcho = Echo
+RunicWraith = Wraith
+RunicStar = Starfall
+RunicEventDawn = At the beginning of your upkeep
+RunicEventDusk = At the beginning of your end step
+RunicEventRoot = Whenever a land you control enters
+RunicEventHearth = Whenever a nontoken creature you control enters
+RunicEventBloom = Whenever a creature token you control enters
+RunicEventAsh = Whenever a creature you control dies
+RunicEventEmber = Whenever you cast a noncreature spell
+RunicEventLore = Whenever you draw a card except the first one in each of your draw steps
+RunicEventPulse = Whenever you gain life
+RunicEventForge = Whenever an artifact you control enters
+RunicEventVeil = Whenever you cast an enchantment spell
+RunicEventValor = Whenever one or more creatures you control attack
+RunicEventFang = Whenever a creature you control deals combat damage to an opponent
+RunicEventEcho = Whenever you discard a card
+RunicEventWraith = Whenever a creature an opponent controls dies
+RunicEventStar = Whenever you cast or copy an instant or sorcery spell
+# Arguments: event, count
+RunicCharge = { $event }, put { $count } charge counters on this item.
+# Arguments: mana, charges, reward
+RunicActivate = { $mana }Remove { $charges } charge counters from this item: { $reward }. Activate from the command zone.
+RunicOnce = Activate only once each turn.
+# Arguments: count
+RunicLimit = Activate only { $count } times each turn.
+# Arguments: reward
+RunicLegend = At the beginning of your upkeep: { $reward }.
+# Arguments: count
+RunicRewardLife = You gain { $count } life
+# Arguments: count
+RunicRewardDrain = Each opponent loses { $count } life
+# Arguments: count
+RunicRewardScry = Scry { $count }
+# Arguments: count
+RunicRewardPlant = Create { $count } 1/1 green Plant creature tokens
+RunicRewardDraw = Draw a card
+# Arguments: count
+RunicRewardSoldier = Create { $count } 1/1 white Soldier creature tokens
+RunicRewardMana = Add one mana of any color
+# Arguments: count
+RunicRewardGuard = Creatures you control get +0/+{ $count } until end of turn
+# Arguments: count
+RunicRewardPower = Creatures you control get +{ $count }/+0 until end of turn
+RunicRewardLoot = Draw a card, then discard a card
+RunicAttackDrain = Whenever one or more creatures you control attack, each opponent loses 1 life.
+RunicDiscardLife = Whenever you discard a card, you gain 1 life.
 EchoesRewardSelect = Choose
 EchoesRewardEmpty = This opponent had no eligible nonbasic cards. You still receive your duel gold.
 EchoesRewardClaim = Claim spoils & continue

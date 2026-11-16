@@ -64,6 +64,7 @@ baylee-engine-server = { path = "crates/baylee-engine-server" }
 baylee-agent = { path = "crates/baylee-agent" }
 baylee-worker = { path = "crates/baylee-worker" }
 baylee-tower = { path = "crates/baylee-tower" }
+baylee-tower-relics = { path = "crates/baylee-tower-relics" }
 baylee-tower-content = { path = "crates/baylee-tower-content" }
 baylee-tower-api = { path = "crates/baylee-tower-api" }
 baylee-tower-store = { path = "crates/baylee-tower-store" }

@@ -5,6 +5,9 @@ use baylee_client_core::{
 };
 
 pub(super) fn ability(item: Definition, index: usize, lang: Lang) -> Option<String> {
+    if let Family::Runic(recipe) = item.family {
+        return super::runic::ability(recipe, usize::from(item.rarity.tier() - 1), index, lang);
+    }
     let token = baylee_cards::tokens::tower::run::definition(item.id())?;
     if index >= token.abilities.len() {
         return None;
@@ -27,6 +30,7 @@ pub(super) fn ability(item: Definition, index: usize, lang: Lang) -> Option<Stri
 fn extra(family: Family) -> [Phrase; 3] {
     use Phrase as P;
     match family {
+        Family::Runic(_) => unreachable!("runic abilities have their own shared metadata"),
         Family::Heartwood => [
             P::TowerRuleUpkeepLife,
             P::TowerRuleCreatureLife,

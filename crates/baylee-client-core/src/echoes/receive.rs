@@ -208,6 +208,7 @@ fn valid_run(run: &Run) -> bool {
         .sum();
     uuid7(run.id)
         && uuid7(run.cohort)
+        && super::domain::v2::generation::contract(run.shop.generator).is_ok()
         && run.economy.validate().is_ok()
         && run.cards.owned.len() <= MAX_CATALOG
         && run
@@ -239,7 +240,7 @@ fn valid_run(run: &Run) -> bool {
                 && (super::domain::v2::generation::is_run(run.shop.generator)
                     || duel.bonus_gold == 0)
         })
-        && run.shop.offers.len() == super::domain::v2::shop::OFFERS
+        && run.shop.offers.len() == super::domain::v2::shop::slots(run.shop.generator)
         && valid_reward(run)
         && (run.phase != Phase::Playing
             || run.history.len() < usize::from(super::domain::v2::MAX_STAGES))

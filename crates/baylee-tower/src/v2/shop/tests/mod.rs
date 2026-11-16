@@ -10,6 +10,7 @@ use baylee_core::ids::CardIndex;
 
 mod generations;
 mod run_shop;
+mod runic;
 mod workshop;
 
 fn fixture() -> (Catalog, Collection, Economy) {

@@ -103,7 +103,8 @@ pub(super) fn effect(goods: Goods, lang: Lang) -> String {
                 | Family::GraveBell
                 | Family::StormSpindle
                 | Family::DawnAegis
-                | Family::GildedAcorn => run_effect(definition, lang),
+                | Family::GildedAcorn
+                | Family::Runic(_) => run_effect(definition, lang),
             }
         }
     }
@@ -128,7 +129,8 @@ pub(super) fn tier(definition: Definition, lang: Lang) -> String {
         | Family::GraveBell
         | Family::StormSpindle
         | Family::DawnAegis
-        | Family::GildedAcorn => run_effect(definition, lang),
+        | Family::GildedAcorn
+        | Family::Runic(_) => run_effect(definition, lang),
     }
 }
 

@@ -132,7 +132,7 @@ impl Inventory {
             if relic.id == 0
                 || relic.id >= self.next_id
                 || !relic.slot.valid(self.layout)
-                || relic.basis > relic.definition.rarity.maximum_basis()
+                || relic.basis > relic.definition.maximum_basis()
                 || (index > 0 && self.relics[index - 1].id >= relic.id)
             {
                 return Err(Refusal::Invalid);

@@ -14,6 +14,17 @@ pub use transactions::Purchase;
 
 /// Exactly eight persisted offers; pinned offers occupy these same slots.
 pub const OFFERS: usize = 8;
+/// The expanded catalog presents ten relics and two supply slots.
+pub const RUNIC_OFFERS: usize = 12;
+
+/// Slot count is part of the frozen generation, never a live server setting.
+pub const fn slots(generator: u16) -> usize {
+    if generator == super::generation::RUNIC {
+        RUNIC_OFFERS
+    } else {
+        OFFERS
+    }
+}
 /// Maximum paid refreshes per visit, costing two, three, then four gold.
 pub const REROLLS: u8 = 3;
 /// Offers carried into a refresh or the next visit.
@@ -86,7 +97,7 @@ impl Shop {
         if !(1..=MAX_STAGES).contains(&self.stage)
             || (self.generator < super::generation::RUN && self.rerolls > REROLLS)
             || self.next_id == 0
-            || self.offers.len() != OFFERS
+            || self.offers.len() != slots(self.generator)
             || self.offers.iter().filter(|offer| offer.pinned).count() > PINS
             || (self.generator < super::generation::RUN && self.frozen)
             || (super::generation::is_run(self.generator)

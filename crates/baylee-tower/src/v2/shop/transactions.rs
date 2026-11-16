@@ -153,7 +153,8 @@ impl Shop {
         catalog: &crate::cards::Catalog,
     ) -> Result<Self, Refusal> {
         self.validate(catalog)?;
-        if !self.mythic_choice || !(6..=7).contains(&slot) {
+        let slots = super::slots(self.generator);
+        if !self.mythic_choice || !(slots - 2..slots).contains(&usize::from(slot)) {
             return Err(Refusal::Unavailable);
         }
         let index = usize::from(slot);

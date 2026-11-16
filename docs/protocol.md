@@ -6139,10 +6139,10 @@ Failures contain no remote diagnostics. Every handled player response carries
 
 ### Native live Tower transport
 
-`GET /v2/player/ws/7` upgrades the native client to a WebSocket; the path binds the
+`GET /v2/player/ws/8` upgrades the native client to a WebSocket; the path binds the
 wire version before authentication. It requires the same single Tower bearer and
 rejects Origin, Cookie, Content-Encoding and queries. The initial `ready` event
-confirms version 7. Each client frame contains a UUIDv7 transport `serial` and an
+confirms version 8. Each client frame contains a UUIDv7 transport `serial` and an
 ordinary `request`; `reply` echoes the serial and carries the ordinary response or
 a closed, value-free refusal. The serial is not the mutation's durable request ID.
 An uncertain mutation must keep its original request and revision on retry.

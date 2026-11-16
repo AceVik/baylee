@@ -8,10 +8,17 @@ use baylee_core::preset::AIProfile;
 pub const RUN: u16 = 4;
 /// Fifty frozen commanders with three account-bound starting offers.
 pub const EXPEDITIONS: u16 = 5;
+/// 178 distinct relic families and twelve offers; retained shops stay frozen.
+pub const RUNIC: u16 = 6;
+
+/// Cohorts that require three owner-bound choices from the expanded starter pool.
+pub const fn has_draft(generation: u16) -> bool {
+    matches!(generation, EXPEDITIONS | RUNIC)
+}
 
 /// Known independent-equipment contracts, excluding retained artifact games.
 pub const fn is_run(generation: u16) -> bool {
-    matches!(generation, RUN | EXPEDITIONS)
+    matches!(generation, RUN | EXPEDITIONS | RUNIC)
 }
 
 const FIRST: [Family; 4] = [
@@ -87,6 +94,10 @@ pub const fn contract(generation: u16) -> Result<Contract, Refusal> {
             revision: 5,
             ai_generation: AIProfile::RUN_EQUIPMENT_MANA,
         }),
+        RUNIC => Ok(Contract {
+            revision: 6,
+            ai_generation: AIProfile::RENEWABLE_RUN_CHARGES,
+        }),
         _ => Err(Refusal::Invalid),
     }
 }
@@ -115,7 +126,8 @@ pub fn families(generation: u16) -> Result<&'static [Family], Refusal> {
         1 => Ok(&FIRST),
         2 => Ok(&LIFE_WORKSHOP),
         3 => Ok(&TOKEN_WORKSHOP),
-        RUN | EXPEDITIONS => Ok(&Family::ALL),
+        RUN | EXPEDITIONS => Ok(&Family::ORIGINAL),
+        RUNIC => Ok(&Family::ALL),
         _ => Err(Refusal::Invalid),
     }
 }

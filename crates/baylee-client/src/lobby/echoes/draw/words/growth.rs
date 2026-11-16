@@ -20,7 +20,8 @@ pub(super) fn effect(definition: Definition, lang: Lang) -> String {
         | Family::GraveBell
         | Family::StormSpindle
         | Family::DawnAegis
-        | Family::GildedAcorn => {
+        | Family::GildedAcorn
+        | Family::Runic(_) => {
             unreachable!("other workshops have their own text")
         }
     };
@@ -86,7 +87,8 @@ pub(super) fn tier(definition: Definition, lang: Lang) -> String {
         | Family::GraveBell
         | Family::StormSpindle
         | Family::DawnAegis
-        | Family::GildedAcorn => {
+        | Family::GildedAcorn
+        | Family::Runic(_) => {
             unreachable!("other workshops have their own text")
         }
     }

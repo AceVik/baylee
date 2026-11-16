@@ -29,7 +29,7 @@ not shipped or validated. No production deployment is authorized.
 2. **Run flow and content**
    - [x] Three stable randomized starter offers from at least 50 meaningful decks;
      commander art/preview, shared deck inspection, immediate click-to-start.
-   - [ ] At least 175 distinct item families with tier progression and actual effects.
+   - [x] At least 175 distinct item families with tier progression and actual effects.
    - [ ] More offers, consistent item prices, automatic cross-bag/equipment fusion,
      right-click purchase-and-equip, freeze/refill and balanced income.
    - [ ] Weighted five-card loot, choose three on victory or one on defeat (explicit
@@ -137,3 +137,55 @@ explicit limits. UI transport state is separate from render-state equality.
   is covered by the content test, not by this earlier native fixture.
 - Passes five and six each closed their owned client, backend and PostgreSQL;
   PID and loopback listener closure were verified. No test service remains.
+
+## Runic catalog iteration and native passes 7–8 — 16 November
+
+- Generation 6 adds 160 event/reward families to the original 18, with 712
+  native rarity definitions in total. The new `baylee-tower-relics` crate
+  shares closed identities and tuning without linking server authority into
+  cards. Codegen emits static DSL definitions; `codegen --tables --check` is clean.
+- Twelve saved offers include ten relics and two supplies. An exact-tier affinity
+  slot improves upgrade availability without inventory order rerolling offers.
+  All 178 families were reached across the deterministic sampling test. Retained
+  generations keep their old families, eight offers, rules and AI identity.
+- Native tests play all 16 charge events, ten reward kinds at all four tiers,
+  activation costs/caps, added abilities and Expert decisions. Three single-item
+  Mythic feedback recipes were tuned to consume more charges than they generate.
+  Multi-item engines remain possible. Tower policy 23 values renewable charges
+  separately and voluntarily stops optional token growth at an ample board;
+  human actions and mandatory effects remain unrestricted.
+- Ten original transparent atlases supply sixteen portraits each. Lazy shared
+  materials keep image allocation bounded, and idle frames do not upload uniforms.
+  The scepter atlas failed its first transparency check and was replaced by a
+  clean built-in extraction edit; individual sampled cells and both shader paths
+  pass. The per-cell visibility check excludes the deliberately unused apron.
+- Pass 7 exposed two integration omissions: the client still required eight
+  offers, and the service's draft projection recognized only generation 5.
+  Both now use the shared generation contract. A client regression refuses wrong
+  slot counts and unknown generations; the real HTTP/engine story validates the
+  three-choice projection before starting its exact offered deck.
+- Focused evidence: 92 domain cases across the domain run and focused fixture
+  correction, 29 native Tower module cases across the module run and two feedback
+  follow-ups, 19 client-core Echoes cases, 11 item-art cases and strict clippy on
+  the changed domain/native/client/service/gateway surfaces. No full unrelated
+  suite or CI wait was added. Debug linking reports macOS's large unwind-table
+  warning; that is not a release performance measurement.
+- A fresh isolated native integration run passed Central authentication, owner
+  draft, purchase/equip, gateway routing, engine-crash recovery, independent
+  verification, one settlement, five-card reward and idempotent frozen-shop refill
+  in 34.99 seconds; zero quarantines. Evidence:
+  `/tmp/baylee-tower-runic-native-authority-final-20261116.log`.
+- Pass 8 at 1280×720 shows twelve complete shop slots and readable localized
+  details. Right purchase equipped Rootbound Scepter for two gold; virtual drag
+  moved it into the bag and right-click equipped it again. Buying the third
+  Common across bag and equipment produced one Uncommon in the original slot.
+  Six 2-second, 5-fps recordings inspected so far each wrote ten samples without
+  drops; these are sampled render evidence, not every displayed frame.
+- At 1600×900 the bounded panel was visibly left-aligned. The optional scrollbar
+  also changes available width while a rebuilt tree is being measured. The next
+  layout iteration must center the bounded workspace and reserve its gutter.
+  Idle rebuild count stayed at 106 across the final interval. Purchase/fusion
+  flights, weighted/printed loot, the full builder and endings remain unfinished.
+- Owned native clients, backend fixtures and PostgreSQL clusters were stopped;
+  exact PIDs and listeners were checked closed after both failed and successful
+  runs. No fixture from these passes remains running.

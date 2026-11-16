@@ -101,6 +101,42 @@ pub(super) fn fixture() -> (State, Cohort, Run) {
 }
 
 #[test]
+fn runic_shops_accept_twelve_and_refuse_wrong_size_or_unknown_generation() {
+    let (mut state, cohort, _) = fixture();
+    let raw = domain::v2::run::Run::begin_for(
+        &cohort.catalog,
+        cohort.starters[0].clone(),
+        &[4; 32],
+        domain::v2::generation::RUNIC,
+    )
+    .unwrap();
+    let run = Run::project(Uuid::now_v7(), cohort.id, raw);
+    assert_eq!(run.shop.offers.len(), 12);
+    let work = state.read(Uuid::now_v7(), Read::Run(run.id)).unwrap();
+    state.receive(
+        &work,
+        Some(Response::Run {
+            run: Box::new(run.clone()),
+        }),
+        None,
+    );
+    assert_eq!(state.run(), Some(&run));
+    let mut missing = run.clone();
+    missing.revision += 1;
+    missing.shop.offers.pop();
+    assert!(!state.push(Response::Run {
+        run: Box::new(missing)
+    }));
+    let mut unknown = run.clone();
+    unknown.revision += 1;
+    unknown.shop.generator = 999;
+    assert!(!state.push(Response::Run {
+        run: Box::new(unknown)
+    }));
+    assert_eq!(state.run(), Some(&run));
+}
+
+#[test]
 fn new_run_cards_select_exactly_three_and_never_change_on_read_refresh() {
     let (_, cohort, run) = fixture();
     let mut draft = draft::Draft::default();

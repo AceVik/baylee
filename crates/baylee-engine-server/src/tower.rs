@@ -29,10 +29,10 @@ pub struct RunPack;
 
 impl NativeRulePack for RunPack {
     const PACK: u16 = v2::PACK;
-    const REVISION: u16 = 5;
+    const REVISION: u16 = 6;
 
     fn validate(preset: &baylee_core::preset::GamePreset) -> Result<(), SetupError> {
-        v2::loadout::validate_for(preset, v2::generation::RUN)
+        v2::loadout::validate_for(preset, v2::generation::RUNIC)
             .map_err(|_| SetupError::UnsupportedRulePack)?;
         for seat in &preset.seats {
             baylee_tower_content::validate_seat(seat)
@@ -78,7 +78,8 @@ impl NativeRulePack for Pack {
             | Family::GraveBell
             | Family::StormSpindle
             | Family::DawnAegis
-            | Family::GildedAcorn => return None,
+            | Family::GildedAcorn
+            | Family::Runic(_) => return None,
         })
     }
 }

@@ -37,6 +37,7 @@ use crate::tactics::material;
 mod landwalk;
 mod linked_exile;
 mod permissions;
+mod run_charges;
 mod tokens;
 
 pub(crate) use landwalk::subtype_choice;
@@ -2203,7 +2204,15 @@ impl HeuristicAgent {
                         .is_some_and(|t| {
                             std::ptr::eq(t, &raw const baylee_cards::tokens::TOWER_HEALING_POTION)
                         });
-                    if healing { 220 } else { 40 }
+                    if healing {
+                        220
+                    } else if self.profile.plays(crate::AIProfile::RENEWABLE_RUN_CHARGES)
+                        && run_charges::renewable(view, origin, part)
+                    {
+                        0
+                    } else {
+                        40
+                    }
                 }
                 CostPart::PutCounterSelf { .. }
                 | CostPart::PutCounterOnOther { .. }

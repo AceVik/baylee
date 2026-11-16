@@ -1,8 +1,9 @@
 //! Bounded shared table materials. Idle frames perform no asset writes.
-use super::{PICTURES, Params};
+use super::Params;
 use bevy::{
     asset::embedded_asset, prelude::*, render::render_resource::AsBindGroup, shader::ShaderRef,
 };
+use std::collections::BTreeMap;
 
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
 pub(super) struct Portrait {
@@ -30,7 +31,7 @@ impl bevy::pbr::Material for Material {
 
 #[derive(Resource, Default)]
 struct Cache {
-    materials: [[[Option<Handle<Material>>; 8]; 4]; PICTURES.len() + 1],
+    materials: BTreeMap<(usize, usize, usize), Handle<Material>>,
     mesh: Option<Handle<Mesh>>,
 }
 
@@ -56,7 +57,7 @@ fn dress(
     if prefs.as_ref().is_some_and(DetectChanges::is_changed)
         || quality.as_ref().is_some_and(DetectChanges::is_changed)
     {
-        for handle in cache.materials.iter().flatten().flatten().flatten() {
+        for handle in cache.materials.values() {
             if assets
                 .get(handle)
                 .is_some_and(|material| (material.params.shape.z - energy).abs() > f32::EPSILON)
@@ -69,15 +70,15 @@ fn dress(
     for (entity, portrait) in &portraits {
         let (kind, tier) = portrait.goods.indices();
         let veil = portrait.veil & 7;
-        let handle = cache.materials[kind][tier][usize::from(veil)]
-            .get_or_insert_with(|| {
+        let handle = cache
+            .materials
+            .entry((kind, tier, usize::from(veil)))
+            .or_insert_with(|| {
                 let mut params = super::params(kind, tier, energy);
                 params.shape.w = f32::from(veil);
                 assets.add(Material {
                     params,
-                    portrait: kind
-                        .checked_sub(1)
-                        .map(|index| server.load(PICTURES[index])),
+                    portrait: super::picture(kind).map(|path| server.load(path)),
                 })
             })
             .clone();

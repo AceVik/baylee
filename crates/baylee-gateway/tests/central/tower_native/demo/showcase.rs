@@ -124,7 +124,7 @@ fn showcase_is_valid_and_contains_a_real_cascading_purchase() {
         baylee_protocol::execution::Variant::Tower,
         "fixture",
         "fixture",
-        22,
+        23,
     );
     let publication = demo::publication(&identity);
     let mut run = Run::begin_for(

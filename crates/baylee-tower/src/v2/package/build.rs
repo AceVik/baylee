@@ -84,7 +84,9 @@ impl Build {
         }
         .validate(catalog)?;
         let generator = if catalog.is_run() {
-            crate::v2::generation::RUN
+            // Structural maximum only. validate_for separately enforces the
+            // historical cohort's immutable catalog, including retained runs.
+            crate::v2::generation::RUNIC
         } else {
             // Legacy builds have no Commander formation. Never reinterpret
             // their resource limits when the current new-run default changes.

@@ -6,9 +6,9 @@ permanent accomplishment receipts. This runbook describes local/offline
 provisioning; release approval, calibration, retention and the final least-privilege
 runtime grants remain separate release requirements.
 
-The expanded Commander run catalog uses generator 5 / native `tower-5` and API header
-`baylee-tower-version: 7` on the existing `/v2/player` endpoint and host routes.
-Native players may also use `/v2/player/ws/7`; reverse proxies must forward
+The expanded Commander run catalog uses generator 6 / native `tower-6` and API header
+`baylee-tower-version: 8` on the existing `/v2/player` endpoint and host routes.
+Native players may also use `/v2/player/ws/8`; reverse proxies must forward
 WebSocket upgrades and allow the 15-second ping/pong heartbeat. Migration 015 adds
 transactional invalidation triggers with invoker rights and a fixed `pg_catalog`
 search path. Each authority listens on its schema name; hints are private-data-free
@@ -19,13 +19,14 @@ families. Deploy matching service, gateway and client builds together. Retain th
 exact `tower-2` / `tower-house-19` executors for generation-one runs and
 `tower-3` / `tower-house-20` for generation two and `tower-4` /
 `tower-house-21` for generation three. Publishing a new cohort preserves
-existing runs and their snapshots. The current executor uses `tower-5` /
-`tower-house-22` and refuses retained manifests. All prior catalog/offer streams
+existing runs and their snapshots. Retain `tower-5` / `tower-house-22` for
+generations four and five. The current executor uses `tower-6` /
+`tower-house-23` and refuses retained manifests. All prior catalog/offer streams
 remain frozen; new families cannot enter old runs. An old run cannot silently
 resume on the current binary, even if its source registry appears compatible.
 
 API 5 introduced the generation-four reward phase, six-slot run inventory and
-39+1 Commander formations. Generation five is the new-run default; enrollment
+39+1 Commander formations. Generation six is the new-run default; enrollment
 still requires an explicit immutable publication and matching installed executor.
 The separate `baylee-tower-content` adapter builds fifty reviewed-card starter
 collections through the existing synergy/curve/mana-source builder and validates
@@ -40,6 +41,19 @@ retains its 128-KiB limit. Cohort pages contain at most three publications so
 their envelopes remain below the one-MiB player response bound. Migration 016
 notifies only changed existing enrollment seeds: first reads cannot create a
 notification/read loop, and seed invalidations reach only that account's sockets.
+
+Generation six expands to 178 families (18 original plus 160 event/reward
+recipes), four tiers each. Ten relic slots and two supply slots replace the
+earlier eight offers; the guaranteed stage-seven crafting offer uses one of the
+last two slots. Existing stock never changes when inventory moves. One progression
+slot and bounded additional affinity use exact owned Common/Uncommon definitions;
+every family remains reachable. Runic purchase prices are 2/5/14 gold; original
+families retain 4/10/26. Three equal items automatically fuse across bag and
+equipment; a Rare plus the 24-gold material makes Mythic. Fusion carries actual
+paid basis and the first equipped slot. Individual Mythic feedback recipes cost
+more than their own generated charges; combinations across items remain allowed.
+These are initial balance hypotheses, not measured competitive parity.
+
 After verified settlement, claim
 the pending cards before shopping or abandoning. Reconnecting preserves the
 same candidates. An already-owned singleton choice grants one gold instead.
@@ -64,7 +78,7 @@ must not claim that Central deletion alone has removed Tower data. Private bests
 survive raw-run retention until player/cohort removal; the new projection starts
 with verified completions after migration, without inventing scores for old runs.
 Apply migration with the schema owner and renew the reviewed runtime table grants
-before starting the matched API-7 service. Production retention/privacy approval
+before starting the matched API-8 service. Production retention/privacy approval
 remains a release requirement.
 
 ## Input and authority

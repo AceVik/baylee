@@ -672,6 +672,9 @@ impl AIProfile {
     /// Read the live mana offer when evaluating an optional token price and
     /// respect turn limits on counter-paid sources. Used by independent Tower equipment.
     pub const RUN_EQUIPMENT_MANA: u16 = 22;
+    /// Spend renewable command-equipment charges and stop voluntary token
+    /// activations after an ample board, without limiting human combinations.
+    pub const RENEWABLE_RUN_CHARGES: u16 = 23;
     /// What the ordinary named profiles play.
     pub const GENERATION: u16 = Self::CHOSEN_AND_LINKED_FILTERS;
 

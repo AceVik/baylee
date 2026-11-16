@@ -2,6 +2,16 @@
 
 ## Original Tower supplies
 
+The runic catalog freezes Tower policy 23. A visible, typeless command-zone
+source that actually has a charge-generating trigger has no persistent charge
+opportunity cost; the ordinary effect valuation still decides whether to use it.
+Finite healing potions keep their reservation cost. This reads typed abilities,
+not item names, hidden decks or an authority-side strategy. Pure voluntary token
+activations stop at the same 32-token strategic target as optional token payments.
+Mandatory effects and human choices remain unrestricted. Policies 19–22 and the
+ordinary named profiles retain their previous behavior. Native tests cover a
+real charged activation, an ample board and a still-legal manual continuation.
+
 Global Tower packages freeze Expert's tactical search, mulligan skill, threat
 handling and seeded noise, with `foresight = 0`. The additional host-load-adaptive
 foresight scheduler used by ordinary Expert tables cannot be recomputed from

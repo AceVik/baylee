@@ -8,11 +8,13 @@ use baylee_cards_dsl::prelude::*;
 mod arcane;
 mod growth;
 mod opening;
+pub mod runic;
 mod text;
 mod vitality;
 pub use arcane::*;
 pub use growth::*;
 pub use opening::*;
+pub use runic::*;
 pub use text::ability_text;
 pub use vitality::*;
 
@@ -220,5 +222,9 @@ pub const RUN_RELICS: [[&TokenDef; 4]; 18] = [
 #[must_use]
 pub fn definition(id: u16) -> Option<&'static TokenDef> {
     let zero = usize::from(id.checked_sub(1)?);
-    RUN_RELICS.get(zero / 4).map(|tiers| tiers[zero % 4])
+    if zero < RUN_RELICS.len() * 4 {
+        Some(RUN_RELICS[zero / 4][zero % 4])
+    } else {
+        runic::definition(zero / 4 - RUN_RELICS.len(), zero % 4)
+    }
 }

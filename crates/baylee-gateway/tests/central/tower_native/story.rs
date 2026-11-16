@@ -24,12 +24,22 @@ pub(super) fn run(runtime: &Runtime, served: &Served) {
     let client = account.tower().unwrap();
     assert_eq!(client.origin(), fixture.origin);
     let mut agent = runtime.block_on(native::agent(&served.gateway, fixture));
+    let Response::Cohort { cohort: draft } = client
+        .exchange(&Request::Cohort {
+            cohort: fixture.cohort,
+        })
+        .unwrap()
+    else {
+        panic!("owner-bound starting choices");
+    };
+    draft.validate().unwrap();
+    assert_eq!(draft.offered.len(), 3);
     let initial = owned(
         &client,
         &Request::Start {
             request: Uuid::now_v7(),
             cohort: fixture.cohort,
-            starter: 0,
+            starter: draft.offered[0],
             consent: baylee_tower_store::CONSENT_REVISION,
         },
     );

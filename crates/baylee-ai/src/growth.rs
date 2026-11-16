@@ -19,15 +19,7 @@ impl HeuristicAgent {
         {
             return policy::pays_tax(view, price, context);
         }
-        view.battlefield_of(baylee_client_core::decision::resource_player(view))
-            .filter(|object| {
-                crate::filter::public_token_identity(object) == Some(true)
-                    && object.types.contains(TypeSet::CREATURE)
-                    && !object.status.is_phased_out()
-            })
-            .take(ENOUGH_TOKENS)
-            .count()
-            < ENOUGH_TOKENS
+        !enough_tokens(view)
             && policy::can_pay_token_price(
                 view,
                 &price,
@@ -35,6 +27,36 @@ impl HeuristicAgent {
                 self.profile.plays(AIProfile::RUN_EQUIPMENT_MANA),
             )
     }
+}
+
+fn enough_tokens(view: &PlayerView) -> bool {
+    view.battlefield_of(baylee_client_core::decision::resource_player(view))
+        .filter(|object| {
+            crate::filter::public_token_identity(object) == Some(true)
+                && object.types.contains(TypeSet::CREATURE)
+                && !object.status.is_phased_out()
+        })
+        .take(ENOUGH_TOKENS)
+        .count()
+        == ENOUGH_TOKENS
+}
+
+pub(crate) fn enough_for(view: &PlayerView, effects: &[Effect]) -> bool {
+    token_reward(effects) && enough_tokens(view)
+}
+
+fn token_reward(effects: &[Effect]) -> bool {
+    !effects.is_empty()
+        && effects.iter().all(|effect| match effect {
+            Effect::CreateToken { token, .. }
+            | Effect::CreateTokenN { token, .. }
+            | Effect::CreateTokensFor {
+                player: PlayerRel::You,
+                token,
+                ..
+            } => token.types.contains(TypeSet::CREATURE),
+            _ => false,
+        })
 }
 
 // Only a price whose sole reward is your creature tokens and whose refusal is
@@ -56,16 +78,6 @@ fn pure_token_reward(effects: &[Effect]) -> bool {
                 } => *effects,
                 _ => return false,
             };
-            !rewards.is_empty()
-                && rewards.iter().all(|reward| match reward {
-                    Effect::CreateToken { token, .. }
-                    | Effect::CreateTokenN { token, .. }
-                    | Effect::CreateTokensFor {
-                        player: PlayerRel::You,
-                        token,
-                        ..
-                    } => token.types.contains(TypeSet::CREATURE),
-                    _ => false,
-                })
+            token_reward(rewards)
         })
 }

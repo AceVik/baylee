@@ -1,6 +1,6 @@
 // Original expedition objects, distinct from permanent achievement medals.
 // One shared image sample, bounded analytic settings, no CPU animation uploads.
-struct Params { metal: vec4<f32>, gem: vec4<f32>, shape: vec4<f32> }
+struct Params { metal: vec4<f32>, gem: vec4<f32>, shape: vec4<f32>, atlas: vec4<f32> }
 
 fn fill(d: f32, aa: f32) -> f32 { return 1.0 - smoothstep(-aa, aa, d); }
 fn line(d: f32, width: f32, aa: f32) -> f32 { return fill(abs(d) - width, aa); }
@@ -48,7 +48,7 @@ fn draw(uv: vec2<f32>, params: Params, time: f32, portrait: texture_2d<f32>, por
         // Keep the complete transparent image inside the rarity setting. The
         // alpha bound prevents clamp-to-edge streaks from faint edge glows.
         let image_uv = (uv - 0.5) / 0.68 + 0.5;
-        let pixel = textureSample(portrait, portrait_sampler, image_uv);
+        let pixel = textureSample(portrait, portrait_sampler, image_uv * params.atlas.zw + params.atlas.xy);
         let within = all(image_uv >= vec2<f32>(0.0)) && all(image_uv <= vec2<f32>(1.0));
         color = mix(color, pixel.rgb, select(0.0, pixel.a, within));
     }

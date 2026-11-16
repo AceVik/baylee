@@ -7,8 +7,8 @@ fn compiled_executor_admits_all_five_published_starters_and_refuses_retained_set
     use v2::package::{Build, Cohort, Origin, Package};
     let content = baylee_tower_content::standard().unwrap();
     let identity = crate::variant::identity();
-    assert_eq!(identity.rules, "tower-5");
-    assert_eq!(identity.ai, "tower-house-22");
+    assert_eq!(identity.rules, "tower-6");
+    assert_eq!(identity.ai, "tower-house-23");
     for starter in &content.starters {
         let build = Build {
             formation: starter.formation.clone(),
@@ -49,7 +49,7 @@ fn compiled_executor_admits_all_five_published_starters_and_refuses_retained_set
 }
 
 #[test]
-fn all_seventy_two_items_are_independent_registered_sources_with_complete_action_text() {
+fn all_catalog_tiers_are_independent_registered_sources_with_complete_action_text() {
     for family in Family::ALL {
         let mut previous_abilities = None;
         for rarity in Rarity::ALL {
@@ -96,7 +96,7 @@ fn all_seventy_two_items_are_independent_registered_sources_with_complete_action
         }
     }
     assert!(RunPack::definition(0).is_none());
-    assert!(RunPack::definition(73).is_none());
+    assert!(RunPack::definition(u16::try_from(Family::ALL.len() * 4 + 1).unwrap()).is_none());
 }
 
 #[test]

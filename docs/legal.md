@@ -27,6 +27,16 @@ below remain the basis for runtime card images and finishes.
 
 ## Guardrails for every change
 
+The 16 November runic-equipment pass rechecked the
+[Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy),
+including “Tell the Community it’s unofficial.” The ten item atlases are original
+generated fantasy objects with no supplied franchise reference, logo, card face
+or card-script content. Their prompts and provenance are recorded in
+`crates/baylee-client/assets/tower/runic/README.md`. Existing unofficial notices,
+font licences and runtime-card-image rules remain applicable. Scryfall's image
+documentation returned HTTP 403; no new download path is added by this pass.
+This records the changed-asset review, not a broader legal approval.
+
 The 15 November Echoes presentation pass rechecked the
 [Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy),
 including “Tell the Community it’s unofficial.” The item portraits are original

@@ -46,6 +46,7 @@ pub(crate) fn name(goods: Goods, lang: Lang) -> String {
     match goods {
         Goods::Card(id) => card(id, lang),
         Goods::Relic(Definition { family, .. }) => match family {
+            Family::Runic(recipe) => return super::runic::name(recipe, lang),
             Family::Heartwood => Phrase::EchoesHeartwood,
             Family::Satchel => Phrase::EchoesSatchel,
             Family::Compass => Phrase::EchoesCompass,

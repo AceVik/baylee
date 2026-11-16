@@ -16,7 +16,7 @@ impl Store {
         let tx = self.transaction().await?;
         self.owner(&tx, account, true).await?;
         let publication = self.publication(&tx, cohort, false).await?;
-        let choices = if publication.cohort.generator == baylee_tower::v2::generation::EXPEDITIONS {
+        let choices = if baylee_tower::v2::generation::has_draft(publication.cohort.generator) {
             let seed = self.start_seed(&tx, account, cohort, seed).await?;
             baylee_tower::v2::draft::choices(&seed, publication.starters.len())?.to_vec()
         } else {

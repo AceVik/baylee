@@ -58,7 +58,7 @@ impl Goods {
                 .filter(|card| !card.basic_land)
                 .map(|card| u16::from(card.price))
                 .ok_or(Refusal::Unavailable),
-            Self::Relic(definition) => definition.rarity.price().ok_or(Refusal::Unavailable),
+            Self::Relic(definition) => definition.price().ok_or(Refusal::Unavailable),
             Self::Potion(potion) => Ok(potion.price()),
             Self::Mythic => Ok(MYTHIC_PRICE),
         }

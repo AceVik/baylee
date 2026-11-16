@@ -77,7 +77,7 @@ impl Store {
             return Err(Refusal::Capacity.into());
         }
         let seed = self.start_seed(&tx, account, cohort, seed).await?;
-        if publication.cohort.generator == baylee_tower::v2::generation::EXPEDITIONS
+        if baylee_tower::v2::generation::has_draft(publication.cohort.generator)
             && !baylee_tower::v2::draft::choices(&seed, publication.starters.len())?
                 .contains(&starter)
         {

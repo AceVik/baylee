@@ -1,5 +1,6 @@
 //! Bounded selection, with an affordable legal fallback and no rejection loop.
-use super::{Goods, OFFERS, Refusal, Shop, Stock};
+use super::{Goods, Refusal, Shop, Stock};
+mod runic;
 use crate::v2::{
     catalog::{Definition, Potion, Rarity},
     generation,
@@ -97,7 +98,7 @@ impl Shop {
     }
 
     pub(super) fn refill(&mut self, seed: &[u8; 32], stock: Stock<'_>) -> Result<(), Refusal> {
-        for slot in 0..OFFERS {
+        for slot in 0..super::slots(self.generator) {
             if self
                 .offers
                 .get(slot)
@@ -105,7 +106,7 @@ impl Shop {
             {
                 continue;
             }
-            let goods = self.select(seed, u8::try_from(slot).expect("eight slots"), stock)?;
+            let goods = self.select(seed, u8::try_from(slot).expect("bounded slots"), stock)?;
             let offer = self.allocate(goods)?;
             if slot < self.offers.len() {
                 self.offers[slot] = offer;
@@ -117,6 +118,9 @@ impl Shop {
     }
 
     fn select(&self, seed: &[u8; 32], slot: u8, stock: Stock<'_>) -> Result<Goods, Refusal> {
+        if self.generator == generation::RUNIC {
+            return Ok(runic::select(self, seed, slot, stock));
+        }
         let random = score(seed, self.stage, self.rerolls, slot, 0);
         if !generation::is_run(self.generator) && slot < if self.generator == 1 { 3 } else { 2 } {
             if let Some(card) = stock

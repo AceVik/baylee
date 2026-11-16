@@ -49,7 +49,8 @@ fn nine_common_path_preserves_basis_and_uses_exactly_one_rare_plus_potion() {
             destination: Slot::Active(0),
         };
         economy = economy.fused(&rare).unwrap().bought_material().unwrap();
-        assert_eq!(economy.gold, 140);
+        let basis = 9 * definition(family, Rarity::Common).price().unwrap() + catalog::MYTHIC_PRICE;
+        assert_eq!(economy.gold, 200 - basis);
         let recipe = Recipe {
             relics: vec![at(&economy, Slot::Active(0))],
             mythic: Some(economy.inventory.materials[0].id),
@@ -58,13 +59,16 @@ fn nine_common_path_preserves_basis_and_uses_exactly_one_rare_plus_potion() {
         let mythic = economy.fused(&recipe).unwrap();
         let item = &mythic.inventory.relics[0];
         assert_eq!(item.definition, definition(family, Rarity::MythicRare));
-        assert_eq!(item.basis, 60);
+        assert_eq!(item.basis, basis);
         assert!(mythic.inventory.materials.is_empty());
         assert!(
             mythic.fused(&recipe).is_err(),
             "consumed IDs cannot be spent twice"
         );
-        assert_eq!(mythic.sold(item.id).unwrap().gold, 165);
+        assert_eq!(
+            mythic.sold(item.id).unwrap().gold,
+            200 - basis + (basis / 2).min(25)
+        );
     }
 }
 
@@ -279,8 +283,8 @@ fn all_native_definition_ids_round_trip_and_unknown_ids_are_refused() {
             ids.push(definition.id());
         }
     }
-    assert_eq!(ids, (1..=72).collect::<Vec<_>>());
-    for id in [0, 73, 256, u16::MAX] {
+    assert_eq!(ids, (1..=712).collect::<Vec<_>>());
+    for id in [0, 713, u16::MAX] {
         assert!(Definition::from_id(id).is_none());
     }
 }

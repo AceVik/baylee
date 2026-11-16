@@ -111,6 +111,11 @@ fn best(
                     if !consumes(cost) && !settles(effects) {
                         return None;
                     }
+                    if agent.profile.plays(crate::AIProfile::RENEWABLE_RUN_CHARGES)
+                        && crate::growth::enough_for(view, effects)
+                    {
+                        return None;
+                    }
                     THRESHOLD
                 }
             };

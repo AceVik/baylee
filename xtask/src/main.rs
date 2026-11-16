@@ -28,6 +28,7 @@ mod printings;
 mod reclaim;
 mod sets;
 mod tables;
+mod tower_relics;
 mod transcode;
 mod update_key;
 mod validate;

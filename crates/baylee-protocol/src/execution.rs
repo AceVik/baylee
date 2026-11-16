@@ -81,7 +81,7 @@ impl Identity {
             variant,
             build: build.into(),
             features: fingerprint,
-            rules: format!("{pack}-{}", if variant == Variant::Tower { 5 } else { 2 }),
+            rules: format!("{pack}-{}", if variant == Variant::Tower { 6 } else { 2 }),
             cards: format!("registry@{revision}"),
             ai: format!("{pack}-house-{ai_generation}"),
         }

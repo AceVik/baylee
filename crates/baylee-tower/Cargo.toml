@@ -11,6 +11,7 @@ description = "Versioned global Tower economy and contracts, independent of Cent
 workspace = true
 
 [dependencies]
+baylee-tower-relics.workspace = true
 baylee-core.workspace = true
 baylee-protocol.workspace = true
 serde.workspace = true
