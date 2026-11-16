@@ -189,3 +189,27 @@ explicit limits. UI transport state is separate from render-state equality.
 - Owned native clients, backend fixtures and PostgreSQL clusters were stopped;
   exact PIDs and listeners were checked closed after both failed and successful
   runs. No fixture from these passes remains running.
+
+## Layout and confirmed feedback, native passes 9–10 — 16 November
+
+- Centered the bounded workspace, stretched its vertical body and reserved the
+  optional scrollbar gutter from the first frame. Pass 9 inspected 1280×720 and
+  1600×900; both two-second 5-fps recordings wrote all ten samples.
+- Shared, non-interactive icon/coin flights now render confirmed purchases,
+  equipment moves, fusion ingredients and the finished rarity glow. They live
+  outside layout, retain no credentials/decks and never dispatch mutations.
+  Only adjacent authoritative revisions animate; duplicate/stale replies,
+  reconnect gaps and another run cannot replay spending. Reduced motion cancels
+  travel. Bounded flights and binary instance lookup avoid a quadratic bag diff.
+- Two renderer-free transition tests and strict client/core clippy passed.
+  Native pass 10 inspected purchase/coin travel, right-click unequip/re-equip and
+  a three-copy fusion spanning bag and equipment. The upgraded copy remained in
+  its equipped slot. Sampled frames show convergence and the final glow.
+- The first 12-fps purchase capture dropped 20/42 scheduled samples under
+  readback backpressure; it is not evidence of full animation continuity.
+  Repeating movement/fusion at 5 fps and slowed virtual time wrote 20/20 and
+  28/28 samples. Evidence: `baylee-recording-01a1e59f-9922-72d5-814f-896743e155b0`
+  and `baylee-recording-01a1e5a0-6b26-7056-8c9b-50c74a3c2a6d`.
+- Both passes closed their exact owned client, backend and PostgreSQL processes.
+  Weighted/printed loot, shared full builder and final ending screens still need
+  implementation and their own targeted validation.

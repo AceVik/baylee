@@ -1,4 +1,5 @@
 //! One run workspace: equipped items, shelf, then the paged inventory.
+use super::super::feedback::{Anchor, Place};
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use crate::{itemart::Emphasis, towerui};

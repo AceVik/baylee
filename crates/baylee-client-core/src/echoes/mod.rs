@@ -9,6 +9,7 @@ use domain::v2::run::Command;
 use uuid::Uuid;
 
 pub mod draft;
+pub mod feedback;
 mod receive;
 #[cfg(test)]
 mod tests;

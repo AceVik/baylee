@@ -9,6 +9,7 @@ use uuid::Uuid;
 mod choices;
 mod collection;
 mod draw;
+mod feedback;
 mod gestures;
 pub(crate) mod keys;
 #[cfg(not(target_arch = "wasm32"))]
@@ -138,6 +139,7 @@ pub(super) fn install(app: &mut App) {
     crate::itemart::install(app);
     crate::towerui::install(app);
     gestures::install(app);
+    feedback::install(app);
     #[cfg(not(target_arch = "wasm32"))]
     {
         app.add_systems(

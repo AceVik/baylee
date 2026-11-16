@@ -10,6 +10,7 @@ use crate::{
 use baylee_client_core::echoes::domain::v2::{catalog::Rarity, shop::Goods};
 use bevy::prelude::*;
 mod layout;
+pub(crate) mod motion;
 mod rules;
 mod runic;
 mod scenery;

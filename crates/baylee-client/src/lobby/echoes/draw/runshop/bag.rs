@@ -3,6 +3,7 @@ use super::*;
 
 pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
     let bag = towerui::frame(commands, root, kit);
+    commands.entity(bag).insert(Place::new(run, Anchor::Bag));
     commands
         .entity(bag)
         .entry::<Node>()
@@ -112,9 +113,10 @@ fn contents(commands: &mut Commands, bag: Entity, kit: Kit, ui: &Ui, run: &api::
             Action::Select(item.id),
             true,
         );
-        commands
-            .entity(cell)
-            .insert(super::super::super::gestures::Owned::new(run, item.id));
+        commands.entity(cell).insert((
+            super::super::super::gestures::Owned::new(run, item.id),
+            Place::new(run, Anchor::Item(item.id)),
+        ));
     }
     for _ in shown..workshop::PAGE_SIZE {
         towerui::empty(commands, cells, kit, 52.0, glyph::DIAMOND);

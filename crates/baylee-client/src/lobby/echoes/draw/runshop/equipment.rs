@@ -48,9 +48,10 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run
                 Action::Select(item.id),
                 true,
             );
-            commands
-                .entity(cell)
-                .insert(super::super::super::gestures::Owned::new(run, item.id));
+            commands.entity(cell).insert((
+                super::super::super::gestures::Owned::new(run, item.id),
+                Place::new(run, Anchor::Item(item.id)),
+            ));
             cell
         } else {
             towerui::empty(commands, equipment, kit, 60.0, glyph::SHIELD)
@@ -83,6 +84,9 @@ fn supplies(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api:
         Phrase::EchoesRunPotionsHint,
     );
     let potions = grid(commands, root, kit, 3);
+    commands
+        .entity(potions)
+        .insert(Place::new(run, Anchor::Supplies));
     for (goods, count, action) in [
         (
             Goods::Potion(Potion::Healing),

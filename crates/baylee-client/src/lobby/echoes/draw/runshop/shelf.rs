@@ -56,6 +56,9 @@ pub(super) fn draw(
             Pickable::IGNORE,
         ))
         .id();
+    commands
+        .entity(market)
+        .insert(Place::new(run, Anchor::Shelf));
     commands.spawn((
         towerui::Decor::Frame,
         Node {
@@ -99,6 +102,9 @@ fn offer_tile(
             Pickable::IGNORE,
         ))
         .id();
+    commands
+        .entity(stand)
+        .insert(Place::new(run, Anchor::Offer(offer.id)));
     if offer.sold {
         towerui::empty(commands, stand, kit, 68.0, glyph::CHECK);
     } else {
@@ -166,7 +172,9 @@ fn offer_tile(
 fn footer(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
     let footer = row(commands, root, kit);
     let wallet = towerui::coin(commands, footer, kit, u32::from(run.economy.gold));
-    commands.entity(wallet).insert(Pickable::default());
+    commands
+        .entity(wallet)
+        .insert((Pickable::default(), Place::new(run, Anchor::Wallet)));
     controls::attach_tooltip(commands, wallet, kit, Phrase::EchoesGold.text(lang(kit)));
     let spacer = crate::lobby::parts::grow(commands);
     commands.entity(footer).add_child(spacer);
