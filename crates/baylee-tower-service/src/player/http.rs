@@ -1,5 +1,11 @@
 use super::{Failure, Players};
-use axum::{Router, body::to_bytes, extract::State, response::Response, routing::post};
+use axum::{
+    Router,
+    body::to_bytes,
+    extract::State,
+    response::Response,
+    routing::{get, post},
+};
 use baylee_tower_api as api;
 use std::{
     sync::Arc,
@@ -9,6 +15,7 @@ use std::{
 pub(super) fn router(players: Arc<Players>) -> Router {
     Router::new()
         .route(api::PLAYER_PATH, post(player))
+        .route(api::socket::PATH, get(super::socket::upgrade))
         .with_state(players)
 }
 

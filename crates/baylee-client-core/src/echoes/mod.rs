@@ -43,6 +43,11 @@ pub struct Work {
 }
 
 impl Work {
+    /// Ephemeral work correlation, separate from a mutation's durable request ID.
+    #[must_use]
+    pub const fn id(&self) -> Uuid {
+        self.id
+    }
     /// Authoritative read/choice to send first. None for an already reserved game.
     #[must_use]
     pub const fn request(&self) -> Option<&Request> {

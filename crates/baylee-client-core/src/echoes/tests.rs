@@ -7,6 +7,53 @@ mod formation;
 mod ranking;
 mod rewards;
 
+#[test]
+fn socket_snapshots_never_ack_an_uncertain_purchase_or_rewind_a_run() {
+    let (mut state, _, run) = opened();
+    let work = state.choose(Uuid::now_v7(), Command::Refresh {}).unwrap();
+    assert!(state.receive(&work, None, Some(Error::Unavailable)));
+    assert!(state.uncertain());
+    let mut fresh = run.clone();
+    fresh.revision += 1;
+    let response = Response::Run {
+        run: Box::new(fresh.clone()),
+    };
+    assert!(state.push_changes(&response));
+    assert!(state.push(response.clone()));
+    assert!(
+        !state.push_changes(&response),
+        "identical push does not rebuild the UI"
+    );
+    assert!(
+        state.uncertain(),
+        "a state update is not a mutation receipt"
+    );
+    assert!(!state.push(Response::Run {
+        run: Box::new(run.clone())
+    }));
+    let mut foreign = fresh.clone();
+    foreign.id = Uuid::now_v7();
+    foreign.revision += 1;
+    assert!(!state.push(Response::Run {
+        run: Box::new(foreign)
+    }));
+    let retry = state.retry(Uuid::now_v7()).unwrap();
+    assert_eq!(
+        retry.request(),
+        work.request(),
+        "durable mutation identity survives reconnect"
+    );
+    state.receive(
+        &retry,
+        Some(Response::Run {
+            run: Box::new(fresh.clone()),
+        }),
+        None,
+    );
+    assert!(!state.uncertain());
+    assert_eq!(state.run(), Some(&fresh));
+}
+
 fn cohort() -> Cohort {
     let mut cards = vec![Card {
         card: CardIndex::new(0),

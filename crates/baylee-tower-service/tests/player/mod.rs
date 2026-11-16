@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 mod host;
 mod ranking;
+mod socket;
 mod story;
 #[path = "../../../baylee-tower-store/tests/support/mod.rs"]
 mod support;

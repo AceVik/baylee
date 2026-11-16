@@ -1,6 +1,61 @@
 use super::{Error, Phase, Request, Response, Run, State, Work, api, mutation, uuid7};
 
 impl State {
+    /// Whether a pushed snapshot changes the visible selection. Inspect this with
+    /// a shared borrow before mutating a retained UI resource. A push never ACKs
+    /// a pending mutation and cannot rewind its selected run.
+    #[must_use]
+    pub fn push_changes(&self, response: &Response) -> bool {
+        match response {
+            Response::Run { run } => {
+                self.selected == Some(run.id)
+                    && valid_run(run)
+                    && self
+                        .run
+                        .as_ref()
+                        .is_some_and(|old| old.revision < run.revision)
+            }
+            Response::Ranking { board } => {
+                board.valid()
+                    && self.ranking.as_ref().is_some_and(|old| {
+                        old.cohort == board.cohort
+                            && old.lane == board.lane
+                            && old.listing.revision <= board.listing.revision
+                            && old != board
+                    })
+            }
+            Response::Cohorts { consent, cohorts } => {
+                *consent > 0
+                    && cohorts.len() <= api::PAGE_SIZE
+                    && cohorts.iter().all(valid_cohort)
+                    && (self.consent != *consent || self.cohorts != *cohorts)
+            }
+            Response::Hosts { run, hosts } => {
+                self.selected == Some(*run) && hosts.len() <= api::PAGE_SIZE && self.hosts != *hosts
+            }
+            _ => false,
+        }
+    }
+
+    /// Install a validated unsolicited snapshot without touching work/receipt state.
+    /// Returns false for an unchanged, stale or unrelated projection.
+    pub fn push(&mut self, response: Response) -> bool {
+        if !self.push_changes(&response) {
+            return false;
+        }
+        match response {
+            Response::Run { run } => self.install(*run),
+            Response::Ranking { board } => self.ranking = Some(board),
+            Response::Cohorts { consent, cohorts } => {
+                self.consent = consent;
+                self.cohorts = cohorts;
+            }
+            Response::Hosts { hosts, .. } => self.hosts = hosts,
+            _ => return false,
+        }
+        true
+    }
+
     /// Complete only the current work. A valid mutation ACK resolves its identity
     /// even if the following seat admission failed; a read never resolves an
     /// ambiguous mutation. Historical retry receipts cannot rewind a newer view.

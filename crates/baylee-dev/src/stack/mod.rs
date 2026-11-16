@@ -155,20 +155,28 @@ fn up(cfg: &UpConfig) -> Result<i32> {
     }
     create_private_dir(&cfg.state_dir)?;
     let state_dir = fs::canonicalize(&cfg.state_dir)?;
+    let _owner = lock_stack(&state_dir)?;
     let _ = fs::remove_file(state_dir.join(STOP_FILE));
     let bin_dir = state_dir.join("bin");
     let logs_dir = state_dir.join("logs");
     fs::create_dir_all(&logs_dir)?;
 
     build_and_stage(&bin_dir, !cfg.no_client)?;
-    let pg = LocalPostgres::start(state_dir.join("pgdata"), None, false)?;
+    if state_dir.join(STOP_FILE).exists() {
+        fs::remove_file(state_dir.join(STOP_FILE))?;
+        println!("Local stack startup cancelled before opening any listeners.");
+        return Ok(0);
+    }
+    let pg = LocalPostgres::start(state_dir.join("pgdata"), None, true)?;
     pg.create_database("baylee")?;
     pg.create_database("baylee_feedback_dev")?;
 
     let supervise_res = supervise(cfg, &state_dir, &bin_dir, &logs_dir, &pg);
-    let _ = fs::remove_file(state_dir.join(STATE_FILE));
-    let _ = fs::remove_file(state_dir.join(STOP_FILE));
     let pg_res = pg.finish();
+    if pg_res.is_ok() {
+        let _ = fs::remove_file(state_dir.join(STATE_FILE));
+        let _ = fs::remove_file(state_dir.join(STOP_FILE));
+    }
     supervise_res?;
     pg_res?;
     println!("Local stack stopped cleanly and all owned listeners are closed.");
@@ -376,30 +384,66 @@ fn spawn_interactive_client(
 }
 
 fn down(state_dir: &Path) -> Result<i32> {
+    if !state_dir.exists() {
+        println!("Local stack is down.");
+        return Ok(0);
+    }
     let state_path = state_dir.join(STATE_FILE);
     let recorded = fs::read(&state_path)
         .ok()
         .and_then(|raw| serde_json::from_slice::<StackState>(&raw).ok());
-    if state_dir.exists() {
-        fs::write(state_dir.join(STOP_FILE), b"stop\n")?;
-    }
+    let owner = open_stack_lock(state_dir)?;
     let deadline = Instant::now() + Duration::from_secs(12);
-    while state_path.exists() && Instant::now() < deadline {
-        std::thread::sleep(Duration::from_millis(200));
+    loop {
+        // The lock also covers compilation, before stack.json exists. Leave the
+        // stop request in place on timeout so a slow startup still cancels.
+        fs::write(state_dir.join(STOP_FILE), b"stop\n")?;
+        match owner.try_lock() {
+            Ok(()) => break,
+            Err(fs::TryLockError::WouldBlock) => {
+                ensure!(
+                    Instant::now() < deadline,
+                    "stack supervisor is still starting or stopping; stop request retained"
+                );
+                std::thread::sleep(Duration::from_millis(200));
+            }
+            Err(fs::TryLockError::Error(error)) => return Err(error.into()),
+        }
     }
-    if state_dir.join("pgdata").exists() {
-        let _ = LocalPostgres::stop_dir(&state_dir.join("pgdata"));
-    }
+    ensure!(
+        !state_path.exists(),
+        "stack supervisor has not completed shutdown; leaving its state intact"
+    );
     let _ = fs::remove_file(state_dir.join(STOP_FILE));
-    let _ = fs::remove_file(&state_path);
     if let Some(st) = recorded {
-        for port in [st.gateway_port, st.feedback_port, st.postgres_port] {
+        for port in [
+            st.gateway_port,
+            st.admin_port,
+            st.feedback_port,
+            st.postgres_port,
+        ] {
             fixture::refused(port)
                 .with_context(|| format!("port 127.0.0.1:{port} is still listening"))?;
         }
     }
     println!("Local stack is down.");
     Ok(0)
+}
+
+fn lock_stack(state_dir: &Path) -> Result<fs::File> {
+    let file = open_stack_lock(state_dir)?;
+    file.try_lock()
+        .context("a stack supervisor already owns this directory")?;
+    Ok(file)
+}
+
+fn open_stack_lock(state_dir: &Path) -> Result<fs::File> {
+    Ok(fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(state_dir.join("supervisor.lock"))?)
 }
 
 fn status(state_dir: &Path) -> Result<i32> {

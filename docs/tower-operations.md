@@ -8,6 +8,12 @@ runtime grants remain separate release requirements.
 
 The Commander run catalog uses generator 4 / native `tower-5` and API header
 `baylee-tower-version: 6` on the existing `/v2/player` endpoint and host routes.
+Native players may also use `/v2/player/ws/6`; reverse proxies must forward
+WebSocket upgrades and allow the 15-second ping/pong heartbeat. Migration 015 adds
+transactional invalidation triggers with invoker rights and a fixed `pg_catalog`
+search path. Each authority listens on its schema name; hints are private-data-free
+and snapshots always recheck account ownership. No new database role, external
+broker, credential or production network endpoint is required.
 Older API clients receive 426 before authentication rather than undecodable new
 families. Deploy matching service, gateway and client builds together. Retain the
 exact `tower-2` / `tower-house-19` executors for generation-one runs and

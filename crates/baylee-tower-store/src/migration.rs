@@ -15,6 +15,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/012_award_delivery.sql"),
     include_str!("migrations/013_run_starters.sql"),
     include_str!("migrations/014_rankings.sql"),
+    include_str!("migrations/015_live_changes.sql"),
 ];
 
 impl Store {

@@ -3,13 +3,15 @@ use crate::identity::Central;
 use baylee_tower_api::{Request, Response};
 use baylee_tower_store::{Snapshot, Store};
 use central_api::Endpoint;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use tokio::sync::Semaphore;
 use uuid::Uuid;
 
 mod dispatch;
 mod http;
 mod limits;
+mod live;
+mod socket;
 
 /// Authenticated player service. Clone the Arc, not an account authorization result.
 pub struct Players {
@@ -18,6 +20,9 @@ pub struct Players {
     slots: Semaphore,
     limits: Mutex<limits::Limits>,
     record_bytes: u64,
+    sockets: Arc<Semaphore>,
+    live: OnceLock<live::Changes>,
+    connections: Mutex<std::collections::BTreeMap<Uuid, u8>>,
 }
 
 impl Players {
@@ -41,6 +46,9 @@ impl Players {
             slots: Semaphore::new(16),
             limits: Mutex::new(limits::Limits::new()),
             record_bytes,
+            sockets: Arc::new(Semaphore::new(256)),
+            live: OnceLock::new(),
+            connections: Mutex::new(std::collections::BTreeMap::new()),
         })
     }
 

@@ -13,6 +13,7 @@ pub mod engine;
 pub mod host;
 mod location;
 pub mod ranking;
+pub mod socket;
 mod view;
 pub use baylee_tower::v2::run::Phase;
 pub use location::{Host, Location};

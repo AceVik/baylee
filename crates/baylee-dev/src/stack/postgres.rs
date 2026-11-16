@@ -96,12 +96,7 @@ impl LocalPostgres {
         remove_on_finish: bool,
     ) -> Result<Self> {
         let tools = PgTools::discover()?;
-        if data_dir.exists() {
-            stop_existing_dir(&tools.pg_ctl, &data_dir);
-            fs::remove_dir_all(&data_dir)
-                .with_context(|| format!("clearing {}", data_dir.display()))?;
-        }
-        create_private_dir(&data_dir)?;
+        claim_data_dir(&data_dir)?;
         let port = match port {
             Some(explicit) => explicit,
             None => free_loopback_port()?,
@@ -122,16 +117,6 @@ impl LocalPostgres {
             return Err(err);
         }
         Ok(instance)
-    }
-
-    /// Stops an existing cluster in `data_dir` if one is running.
-    pub(super) fn stop_dir(data_dir: &Path) -> Result<()> {
-        if !data_dir.join("PG_VERSION").is_file() {
-            return Ok(());
-        }
-        let tools = PgTools::discover()?;
-        stop_existing_dir(&tools.pg_ctl, data_dir);
-        Ok(())
     }
 
     pub(super) const fn port(&self) -> u16 {
@@ -243,17 +228,19 @@ impl LocalPostgres {
         if !self.active {
             return Ok(());
         }
-        self.active = false;
         stop_existing_dir(&self.tools.pg_ctl, &self.data_dir);
-        if self.remove_on_finish && self.data_dir.exists() {
-            let _ = fs::remove_dir_all(&self.data_dir);
-        }
+        // Never remove a live cluster after a failed stop. Drop retries it.
         fixture::refused(self.port).with_context(|| {
             format!(
                 "PostgreSQL listener on 127.0.0.1:{} remained open",
                 self.port
             )
-        })
+        })?;
+        self.active = false;
+        if self.remove_on_finish && self.data_dir.exists() {
+            let _ = fs::remove_dir_all(&self.data_dir);
+        }
+        Ok(())
     }
 }
 
@@ -309,6 +296,18 @@ fn stop_existing_dir(pg_ctl: &Path, data_dir: &Path) {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status();
+}
+
+/// Atomically claim a fresh directory. Existing data, including symlinks, belongs
+/// to someone else until proven otherwise; starting a fixture never deletes it.
+pub(super) fn claim_data_dir(path: &Path) -> Result<()> {
+    fs::create_dir(path).with_context(|| {
+        format!(
+            "refusing to replace PostgreSQL data at {}; use a fresh state directory",
+            path.display()
+        )
+    })?;
+    create_private_dir(path)
 }
 
 pub(super) fn create_private_dir(path: &Path) -> Result<()> {

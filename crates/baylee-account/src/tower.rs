@@ -14,7 +14,40 @@ pub struct TowerHttp {
     account: [u8; 16],
 }
 
+/// Validated native socket destination and short-lived scoped Authorization value.
+/// Deliberately not Debug/Serialize: credentials must not enter diagnostics.
+pub struct TowerSocket {
+    /// Canonical versioned WebSocket URL; contains no credential.
+    pub url: String,
+    /// Header value, moved into the client's existing strict TLS transport.
+    pub authorization: zeroize::Zeroizing<String>,
+    /// Scope expiry in Unix seconds; renew through the account worker.
+    pub expires_at: i64,
+    development: bool,
+}
+
+impl TowerSocket {
+    /// Apply the HTTP adapter's exact response/destination checks to a socket reply.
+    /// # Errors
+    /// Wrong reply kind, foreign selection or invalid host destination.
+    pub fn validate(&self, request: &Request, response: &Response) -> Result<(), Error> {
+        validate_response(request, response, self.development)
+    }
+}
+
 impl TowerHttp {
+    /// Open the same delegated authority over the versioned native socket route.
+    /// This does not dial or move the credential into a URL.
+    #[must_use]
+    pub fn websocket(&self) -> TowerSocket {
+        let socket = self.origin().replacen("http", "ws", 1);
+        TowerSocket {
+            url: format!("{socket}{}", api::socket::PATH),
+            authorization: self.grant.token.bearer(),
+            expires_at: self.grant.expires_at,
+            development: self.development,
+        }
+    }
     pub(crate) fn new(central: &Endpoint, account: [u8; 16], grant: Grant) -> Result<Self, Error> {
         central_api::gateway::validate_origin(&grant.origin, central.legacy_origin().is_none())?;
         if grant.origin == central.origin() {

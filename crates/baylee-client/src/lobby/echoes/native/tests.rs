@@ -9,7 +9,7 @@ fn signed_in(handle: central::Handle) -> LobbyState {
 }
 
 #[test]
-fn resting_tower_pages_do_not_rebuild_and_due_reads_still_run_once() {
+fn resting_tower_pages_do_not_rebuild_or_periodically_poll_over_http() {
     use bevy::ecs::system::RunSystemOnce;
     for page in [Page::Shop, Page::Overview, Page::Ranking] {
         let (handle, jobs) = central::Handle::queued_for_test();
@@ -29,16 +29,14 @@ fn resting_tower_pages_do_not_rebuild_and_due_reads_still_run_once() {
             !app.world().resource_ref::<LobbyState>().is_changed(),
             "idle {page:?} must retain its rendered controls and keyboard focus"
         );
-        assert!(jobs.try_recv().is_err());
+        assert!(jobs.try_recv().is_ok(), "one scoped socket acquisition");
         app.world_mut()
             .resource_mut::<Time>()
             .advance_by(std::time::Duration::from_secs(16));
         app.world_mut().run_system_once(tick).unwrap();
-        assert!(
-            jobs.try_recv().is_ok(),
-            "due refresh still reaches the worker"
-        );
-        assert!(app.world().resource::<LobbyState>().echoes.model.busy());
+        assert!(jobs.try_recv().is_err(), "no fifteen-second HTTP refresh");
+        assert!(!app.world().resource::<LobbyState>().echoes.model.busy());
+        assert!(!app.world().resource_ref::<LobbyState>().is_changed());
         app.world_mut().clear_trackers();
         app.world_mut().run_system_once(tick).unwrap();
         assert!(!app.world().resource_ref::<LobbyState>().is_changed());

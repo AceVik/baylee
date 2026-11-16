@@ -11,7 +11,7 @@ pub use baylee_tower_api as tower_api;
 #[cfg(feature = "tower-host")]
 mod tower_host;
 #[cfg(feature = "client")]
-pub use tower::TowerHttp;
+pub use tower::{TowerHttp, TowerSocket};
 #[cfg(feature = "tower-host")]
 pub use tower_host::TowerHost;
 pub mod chat;

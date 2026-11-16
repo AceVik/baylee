@@ -55,3 +55,24 @@ fn parse_http_200_body_extracts_ok_payload_and_rejects_errors() {
     let err = b"HTTP/1.1 503 Service Unavailable\r\n\r\n{\"ok\":false}";
     assert_eq!(parse_http_200_body(err), None);
 }
+
+#[test]
+fn a_second_supervisor_cannot_replace_data_or_take_ownership() {
+    let root =
+        std::env::temp_dir().join(format!("baylee-stack-{}", crate::secret::hex(12).unwrap()));
+    std::fs::create_dir(&root).unwrap();
+    let result = (|| -> anyhow::Result<()> {
+        let guard = super::lock_stack(&root)?;
+        assert!(super::lock_stack(&root).is_err());
+        let data = root.join("pgdata");
+        super::postgres::claim_data_dir(&data)?;
+        std::fs::write(data.join("sentinel"), b"existing data")?;
+        assert!(super::postgres::claim_data_dir(&data).is_err());
+        assert_eq!(std::fs::read(data.join("sentinel"))?, b"existing data");
+        drop(guard);
+        let _guard = super::lock_stack(&root)?;
+        Ok(())
+    })();
+    std::fs::remove_dir_all(&root).unwrap();
+    result.unwrap();
+}

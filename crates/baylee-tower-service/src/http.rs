@@ -73,7 +73,7 @@ pub(crate) fn credential(headers: &HeaderMap, content_type: &str) -> Result<Toke
         .map_err(|_| Failure::Unauthorized)
 }
 
-fn one<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
+pub(crate) fn one<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
     let mut values = headers.get_all(name).iter();
     let value = values.next()?.to_str().ok()?;
     values.next().is_none().then_some(value)

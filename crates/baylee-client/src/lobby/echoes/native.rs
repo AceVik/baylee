@@ -8,6 +8,7 @@ use bevy::prelude::*;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
+mod socket;
 #[cfg(test)]
 mod tests;
 
@@ -15,6 +16,7 @@ mod tests;
 pub(super) struct Worker {
     connection: Arc<Mutex<Option<TowerHttp>>>,
     inbox: Arc<Mutex<Option<Finished>>>,
+    socket: Mutex<socket::Live>,
 }
 
 struct Finished {
@@ -254,17 +256,44 @@ fn read_page(ui: &mut Ui, id: Uuid, read: Read) -> Option<Work> {
 }
 
 fn submit(state: &mut LobbyState, work: Work) {
+    if work.request().is_some() {
+        let result = state
+            .echoes
+            .worker
+            .socket
+            .lock()
+            .map_err(|_| Error::Unavailable)
+            .and_then(|mut live| {
+                live.enqueue(
+                    work.clone(),
+                    state.echoes.session.as_ref(),
+                    &state.echoes.worker.connection,
+                )
+            });
+        if let Err(error) = result {
+            state.echoes.model.receive(&work, None, Some(error));
+            state.echoes.reads.clear();
+        }
+        return;
+    }
+    admit(
+        state,
+        Finished {
+            work,
+            response: None,
+            failure: None,
+            seat: None,
+        },
+    );
+}
+
+fn admit(state: &mut LobbyState, mut finished: Finished) {
+    let work = finished.work.clone();
     let retry = work.clone();
     let inbox = Arc::clone(&state.echoes.worker.inbox);
     let connection = Arc::clone(&state.echoes.worker.connection);
     if !state.echoes.session.as_ref().is_some_and(|handle| {
         handle.submit(move |account| {
-            let mut finished = Finished {
-                work,
-                response: None,
-                failure: None,
-                seat: None,
-            };
             finished.failure = execute(account, &connection, &mut finished).err();
             if let Ok(mut slot) = inbox.lock() {
                 *slot = Some(finished);
@@ -291,9 +320,6 @@ fn execute(
     }
     let http = connection.as_ref().ok_or(Error::Unavailable)?;
     let result = (|| {
-        if let Some(request) = done.work.request() {
-            done.response = Some(http.exchange(request)?);
-        }
         if let Some(run) = done.work.play() {
             done.seat = Some(account.play_tower(http, run)?);
         }
@@ -319,6 +345,38 @@ pub(super) fn tick(
     };
     if changed {
         session(&mut state);
+    }
+    let showing = state.hub == Hub::Challenges
+        && state.echoes.opened
+        && state.echoes.page != Page::Collection
+        && ready(&state);
+    let updates = state.echoes.worker.socket.lock().ok().map(|mut live| {
+        live.poll(
+            showing,
+            state.echoes.session.as_ref(),
+            &state.echoes.worker.connection,
+        )
+    });
+    if let Some(updates) = updates {
+        for response in updates.pushed {
+            if state.echoes.model.push_changes(&response) {
+                let follows = matches!(response, api::Response::Run { .. });
+                state.echoes.model.push(response);
+                if follows {
+                    state.echoes.follow_run();
+                }
+            }
+        }
+        if let Some(done) = updates.finished {
+            if done.failure.is_none() && done.work.play().is_some() {
+                admit(&mut state, done);
+            } else if let Ok(mut inbox) = state.echoes.worker.inbox.lock() {
+                *inbox = Some(done);
+            }
+        }
+        if updates.resync && !state.echoes.model.busy() && !state.echoes.model.uncertain() {
+            state.echoes.refresh();
+        }
     }
     let reply = state
         .echoes
@@ -380,9 +438,6 @@ pub(super) fn tick(
         ask(&mut state, Action::Read(Read::Run(run)));
         return;
     }
-    let showing = state.hub == Hub::Challenges
-        && state.echoes.opened
-        && state.echoes.page != Page::Collection;
     if !showing {
         return;
     }
@@ -404,12 +459,13 @@ pub(super) fn tick(
     }
 }
 
-fn refresh_due(ui: &Ui, now: f64, clock: f64) -> bool {
+fn refresh_due(ui: &Ui, _now: f64, _clock: f64) -> bool {
     ui.reads.is_empty()
         && ui.confirmation.is_none()
         && !ui.model.uncertain()
         && ui.choices.deck_unchanged(ui.model.run())
-        && ((!ui.loaded && ui.model.failure().is_none()) || now - clock >= 15.0)
+        && !ui.loaded
+        && ui.model.failure().is_none()
 }
 
 fn refresh_visible(ui: &mut Ui, now: f64, clock: &mut f64) {

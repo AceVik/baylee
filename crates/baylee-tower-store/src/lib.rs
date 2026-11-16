@@ -104,6 +104,23 @@ pub struct Store {
 }
 
 impl Store {
+    /// One process-wide listener for committed invalidation hints. Hints never
+    /// authorize a read; consumers must query state under the authenticated owner.
+    /// # Errors
+    /// Database connection or LISTEN failure.
+    pub async fn changes(&self) -> Result<sea_orm::sqlx::postgres::PgListener, Error> {
+        let mut listener = sea_orm::sqlx::postgres::PgListener::connect_with(
+            self.db.get_postgres_connection_pool(),
+        )
+        .await
+        .map_err(|_| Error::Unavailable)?;
+        listener
+            .listen(&self.schema)
+            .await
+            .map_err(|_| Error::Unavailable)?;
+        Ok(listener)
+    }
+
     /// Select an operator-configured schema. This grants no database privileges.
     /// The connection must have SQL/value logging disabled and bounded timeouts/pool.
     /// # Errors

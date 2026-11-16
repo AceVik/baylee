@@ -19,6 +19,7 @@ baylee-worker.workspace = true
 getrandom.workspace = true
 serde_json.workspace = true
 serde.workspace = true
+sha2.workspace = true
 sea-orm.workspace = true
 url.workspace = true
 sysinfo.workspace = true
@@ -37,6 +38,8 @@ zeroize.workspace = true
 [dev-dependencies]
 baylee-account = { workspace = true, features = ["tower-host"] }
 baylee-core.workspace = true
+tokio-tungstenite.workspace = true
+futures-util.workspace = true
 
 [[test]]
 name = "player"

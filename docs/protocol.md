@@ -6069,7 +6069,7 @@ any application operator role can open an administrative route. The exact input,
 idempotency and revocation rules are in [Tower operations](tower-operations.md).
 
 The global Baylee Tower authority exposes `POST /v2/player` independently of a
-gateway. Its reusable contract is `baylee-tower-api`, version `2` in the required
+gateway. Its reusable contract is `baylee-tower-api`, version `6` in the required
 `Baylee-Tower-Version` header. Requests require exactly one canonical opaque
 `Authorization: Bearer …` issued by Central for this Tower origin, and exactly
 `Content-Type: application/json`. Origin, Cookie, Content-Encoding, query strings,
@@ -6130,6 +6130,35 @@ terms, 404 missing/foreign run, 409 conflict/domain refusal, 413 body limit,
 426 incompatible wire version, 429 capacity and 503 authority/storage failure.
 Failures contain no remote diagnostics. Every handled player response carries
 `Cache-Control: no-store`; success additionally carries JSON and version headers.
+
+### Native live Tower transport
+
+`GET /v2/player/ws/6` upgrades the native client to a WebSocket; the path binds the
+wire version before authentication. It requires the same single Tower bearer and
+rejects Origin, Cookie, Content-Encoding and queries. The initial `ready` event
+confirms version 6. Each client frame contains a UUIDv7 transport `serial` and an
+ordinary `request`; `reply` echoes the serial and carries the ordinary response or
+a closed, value-free refusal. The serial is not the mutation's durable request ID.
+An uncertain mutation must keep its original request and revision on retry.
+
+The connection retains up to four selected reads (run, ranking, hosts and cohorts).
+`changed` carries a freshly authorized snapshot. Migration 015 emits transactional
+PostgreSQL invalidation hints, consumed by one listener per authority process;
+coalesced/missed hints and reconnects resynchronize those bounded subscriptions.
+Hints carry no inventory and cannot authorize a read. SHA-256 snapshot digests
+suppress unchanged frames without retaining four serialized snapshots per socket.
+The native client ignores stale run revisions and never treats a pushed snapshot
+as acknowledgment of an uncertain command.
+
+There are at most 256 sockets and two per account; ordinary operation admission
+and account budgets still apply. Identity is rechecked on every request/push and
+every 15-second heartbeat. Unresponsive peers expire after 45 seconds; sends have
+a five-second bound. Envelope limits are the ordinary payload bounds plus 128
+bytes, bounded write buffering and no transparent replay. Host capacity is
+refreshed on heartbeat because a lease can expire without a database write.
+Native Tower browsing and commands use this transport without periodic HTTP
+polling. Fresh gateway handover continues to use the scoped location/admission
+flow below; no Tower credential is forwarded to a gateway.
 
 `Account::tower` obtains its trusted origin from Central, then `TowerHttp::exchange`
 sends only that scoped credential. It performs no automatic mutation retry and
