@@ -35,7 +35,7 @@ fn main() {
         track.width,
         track.height,
         track.samples.len(),
-        track.duration_ns() as f64 / 1_000_000.0,
+        std::time::Duration::from_nanos(track.duration_ns()).as_secs_f64() * 1000.0,
         track.duration_ns(),
     );
     let mut planes = AlignedPlanes::default();

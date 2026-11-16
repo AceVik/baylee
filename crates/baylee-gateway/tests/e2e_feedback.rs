@@ -580,7 +580,10 @@ async fn a_report_goes_from_the_client_through_the_gateway_to_the_service() {
     // names nobody either.
     let record = service.record(&with_game);
     assert_eq!(record, service.record(&bert_report), "one game, one record");
-    let replayed = baylee_gamehost::record::replay(&record).expect("the record replays");
+    let replayed = baylee_gamehost::record::replay_exact_with_detection::<
+        baylee_engine::engine::NoLoopDetection,
+    >(&record)
+    .expect("the record replays");
     assert!(replayed.ended, "to the end");
     let lines: Vec<serde_json::Value> = record
         .split(|&b| b == b'\n')
@@ -681,7 +684,10 @@ async fn a_report_mid_game_carries_the_record_up_to_the_moment_reported() {
             "the game stayed under one size-due piece ({} bytes)",
             record.len()
         );
-        let replayed = baylee_gamehost::record::replay(&record).expect("the record replays");
+        let replayed = baylee_gamehost::record::replay_exact_with_detection::<
+            baylee_engine::engine::NoLoopDetection,
+        >(&record)
+        .expect("the record replays");
         assert!(!replayed.ended, "the game goes on");
         assert!(replayed.inputs > 0, "both seats' answers are in it");
         assert_eq!(

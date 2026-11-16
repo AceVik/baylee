@@ -29,6 +29,7 @@ pub fn bench(c: &mut Criterion) {
             .with_stack(stack)
             .build();
         let registry = Registry {
+            auxiliary: None,
             named: &|_| None,
             token_name: &|_| None,
             token_face: &|_| None,

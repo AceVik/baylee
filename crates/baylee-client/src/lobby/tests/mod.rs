@@ -104,6 +104,7 @@ fn headless() -> App {
         .add_message::<PointerScroll>()
         .add_message::<PointerDrag>()
         .add_message::<PointerDragEnd>()
+        .add_message::<bevy::picking::events::PointerDragDrop>()
         // The duel plugin's startup system would load these; a test has
         // no asset server and does not need one to build a tree.
         .insert_resource(UiFonts {

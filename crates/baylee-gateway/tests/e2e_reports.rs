@@ -625,7 +625,10 @@ fn record_sent(sent: &serde_json::Value) -> Vec<u8> {
 
 /// The hash a record replays to.
 fn replays_to(record: &[u8]) -> u64 {
-    let replayed = baylee_gamehost::record::replay(record).expect("the record replays");
+    let replayed = baylee_gamehost::record::replay_exact_with_detection::<
+        baylee_engine::engine::NoLoopDetection,
+    >(record)
+    .expect("the record replays");
     assert!(!replayed.ended, "the game goes on");
     replayed.engine.snapshot_hash()
 }

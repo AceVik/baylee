@@ -151,7 +151,9 @@ async fn an_exported_record_names_no_account_and_still_replays() {
     let seats = lines[0]["preset"]["seats"].as_array().expect("seats");
     assert_eq!(seats.len(), 2);
     assert_eq!(seats[0]["deck"].as_array().map(Vec::len), Some(60));
-    let replayed = baylee_gamehost::record::replay(text.as_bytes());
+    let replayed = baylee_gamehost::record::replay_exact_with_detection::<
+        baylee_engine::engine::NoLoopDetection,
+    >(text.as_bytes());
     assert!(replayed.is_ok(), "the export no longer replays");
 
     // A second export into the same place is refused, not numbered over.

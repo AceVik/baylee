@@ -67,6 +67,7 @@ fn sources(name: &str) -> Vec<String> {
 fn scryfall_hosts_in_source() -> (BTreeSet<String>, usize) {
     let mut hosts = BTreeSet::new();
     let mut files = 0;
+    let mut visited = BTreeSet::new();
     let mut stack = vec![
         repo().join("crates/baylee-client/src"),
         repo().join("crates/baylee-client-core/src"),
@@ -88,6 +89,11 @@ fn scryfall_hosts_in_source() -> (BTreeSet<String>, usize) {
                 continue;
             }
             files += 1;
+            assert!(
+                visited.insert(path.clone()),
+                "source visited twice: {}",
+                path.display()
+            );
             let text = std::fs::read_to_string(&path).unwrap();
             let lines: Vec<&str> = text.lines().collect();
             for (at, line) in lines.iter().enumerate() {
@@ -130,10 +136,9 @@ fn host(url: &str) -> String {
 #[test]
 fn every_scryfall_host_the_client_fetches_from_is_a_constant() {
     let (found, files) = scryfall_hosts_in_source();
-    // Both crates together are 184 files (27.09.2026), 353 (09.10.2026, the
-    // music's score in modules), 450 (17.10.2026); a walk that read a handful,
-    // or everything twice, is not the walk this test means.
-    assert!((150..650).contains(&files), "walked {files} source files");
+    // Reject an incomplete traversal; duplicates are checked by identity above,
+    // rather than imposing an upper bound on legitimate new Rust modules.
+    assert!(files >= 150, "walked {files} source files");
     let constants: BTreeSet<String> = [SCRYFALL_CDN, SCRYFALL_BACKS_CDN, SCRYFALL_API]
         .into_iter()
         .map(host)

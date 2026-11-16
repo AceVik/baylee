@@ -2201,7 +2201,8 @@ fn every_module_a_shader_imports_is_registered_as_a_shader_library() {
 fn every_shader_the_code_names_is_a_wesl_file_that_exists() {
     let embed = ["embedded_asset", "!("].concat();
     let library = ["load_shader_library", "!("].concat();
-    let url = ["\"embedded", "://baylee_client/shaders/"].concat();
+    let url = ["\"embedded", "://baylee_client/"].concat();
+    let source_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
     let mut sources = Vec::new();
     rust_files(
         &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
@@ -2212,11 +2213,11 @@ fn every_shader_the_code_names_is_a_wesl_file_that_exists() {
     for path in sources {
         let source = std::fs::read_to_string(&path).expect("a source file");
         let file = path.file_name().unwrap_or_default().to_string_lossy();
-        let mut check = |name: &str, how: &str| {
+        let mut check = |name: &str, base: &std::path::Path, how: &str| {
             let is_wesl = std::path::Path::new(name)
                 .extension()
                 .is_some_and(|extension| extension == "wesl");
-            if !is_wesl || !shader_dir().join(name).is_file() {
+            if !is_wesl || !base.join(name).is_file() {
                 faults.push(format!("{file}: {how} names `{name}`, no .wesl shader"));
             }
         };
@@ -2235,13 +2236,21 @@ fn every_shader_the_code_names_is_a_wesl_file_that_exists() {
                 }
                 let name = call[open + 1..].split('"').next().unwrap_or("");
                 embedded += 1;
-                check(name.strip_prefix("shaders/").unwrap_or(name), how);
+                // Bevy resolves embedded assets relative to the declaring module.
+                check(name, path.parent().expect("source parent"), how);
             }
         }
         for (at, _) in source.match_indices(&url) {
             let name = source[at + url.len()..].split('"').next().unwrap_or("");
+            if !name.starts_with("shaders/")
+                && !std::path::Path::new(name).extension().is_some_and(|ext| {
+                    ext.eq_ignore_ascii_case("wesl") || ext.eq_ignore_ascii_case("wgsl")
+                })
+            {
+                continue;
+            }
             asked += 1;
-            check(name, "an embedded:// path");
+            check(name, &source_root, "an embedded:// path");
         }
     }
     assert!(

@@ -228,17 +228,14 @@ mod tests {
         }
     }
 
-    /// **A number this conversion does not know is refused in one field and
-    /// defaulted in every other**, and the split is deliberate rather than
-    /// an oversight.
+    /// Unknown rule/capability numbers refuse; AI preferences keep defaults.
     ///
     /// `format` decides what game is being played — a table whose format was
     /// silently read as Commander is not a degraded game, it is a different
     /// one — so an unknown id is an error and
     /// [`an_unknown_format_is_refused_rather_than_defaulted`] pins that.
-    /// Everything below is a *preference* with a sane default, and refusing
-    /// the whole preset over one would mean a newer gateway could never open
-    /// a table on an older host at all.
+    /// AI preferences keep a sane default. Loop detection selects a compiled
+    /// execution capability, so its unknown wire values must instead refuse.
     ///
     /// Pinned here so the asymmetry is a decision somebody can find rather
     /// than a shape three `match` arms happen to have. The day one of these
@@ -254,17 +251,23 @@ mod tests {
                 }),
                 ..msg(vec![seat_msg(), seat_msg()])
             })
-            .expect("two seats")
-            .house_rules
-            .loop_policy
+            .map(|preset| preset.house_rules.loop_policy)
         };
-        assert_eq!(with_rules(1), LoopPolicy::CompRulesDraw, "the one it knows");
-        assert_eq!(
-            with_rules(99),
-            LoopPolicy::RunOnceThenBreak,
-            "and a policy from a newer host is the default, not a refusal"
+        assert_eq!(with_rules(1).unwrap(), LoopPolicy::CompRulesDraw);
+        assert!(
+            with_rules(99).is_err(),
+            "unknown compiled capability refuses"
         );
-        assert_eq!(with_rules(0), LoopPolicy::RunOnceThenBreak);
+        assert_eq!(with_rules(0).unwrap(), LoopPolicy::RunOnceThenBreak);
+        assert_eq!(with_rules(2).unwrap(), LoopPolicy::Off);
+        assert_eq!(
+            from_proto(&msg(vec![seat_msg(), seat_msg()]))
+                .unwrap()
+                .house_rules
+                .loop_policy,
+            LoopPolicy::RunOnceThenBreak,
+            "absent historical wire rules retain legacy replay semantics"
+        );
 
         let ai = |politics, hold_up| {
             let seat = v1::SeatSpec {
