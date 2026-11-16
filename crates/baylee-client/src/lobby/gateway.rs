@@ -562,18 +562,21 @@ fn toolbar_icon_btn(
         commands.entity(btn).insert((
             Pickable::default(),
             bevy::picking::hover::PickingInteraction::default(),
+            crate::shellkit::surfaces::elevation_control(),
             crate::ambience::Feel::tinting_to(rest_bg, hot_bg),
             crate::ambience::FeelBorder {
                 rest: tokens::BORDER,
                 hot: tokens::PRIMARY_EDGE,
                 press: tokens::ACCENT,
             },
+            crate::ambience::FeelShadow,
             action,
         ));
     } else {
         commands.entity(btn).insert((
             Pickable::default(),
             bevy::picking::hover::PickingInteraction::default(),
+            crate::shellkit::surfaces::elevation_control_disabled(),
             crate::shellkit::controls::Disabled,
         ));
     }
@@ -1159,9 +1162,11 @@ fn group_header(
                 ..default()
             },
             BackgroundColor(palette::PANEL.with_alpha(0.45)),
+            crate::shellkit::surfaces::elevation_control(),
             Press::Front(FrontPress::ToggleGatewayGroup(group)),
             super::front::keys::stop(state, group_stop_id(group)),
             crate::ambience::Feel::tinting_to(palette::PANEL.with_alpha(0.45), palette::PANEL_HOT),
+            crate::ambience::FeelShadow,
         ))
         .id();
     let left = commands
@@ -1245,26 +1250,15 @@ fn group_header(
 /// name, and recency badge on the top line, the address and live stats on the
 /// subtitle line, and the two-line version/protocol pill + centered delete
 /// button on the right.
-fn gateway_row(
+fn style_gateway_control(
     commands: &mut Commands,
-    state: &LobbyState,
-    fonts: &UiFonts,
+    control: Entity,
     metrics: Metrics,
-    index: usize,
-    url: &str,
-) -> Entity {
-    let lang = state.lobby.lang();
-    let words = row_words(url, state.probes.get(url), lang);
-    let busy = if state.central_ready() {
-        state.central_admitting()
-    } else {
-        state.lobby.busy()
-    };
-    let enabled = !busy && state.adding.is_none();
-    let marked = state.gateway_cursor == Some(index);
-    let last_used = index == 0 && state.uses.of(url).count > 0;
+    lang: Lang,
+    marked: bool,
+    enabled: bool,
+) {
     let right_pad = bin_side(metrics) + 16.0;
-
     let rest_bg = if marked {
         Color::srgba(0.16, 0.25, 0.35, 0.96)
     } else {
@@ -1276,16 +1270,6 @@ fn gateway_row(
     } else {
         crate::shellkit::tokens::BORDER.with_alpha(0.85)
     };
-
-    let control = button(
-        commands,
-        fonts,
-        metrics,
-        "",
-        Press::Front(FrontPress::SelectGateway(index)),
-        rest_bg,
-        enabled,
-    );
     commands
         .entity(control)
         .entry::<Node>()
@@ -1309,18 +1293,56 @@ fn gateway_row(
         .insert((BackgroundColor(rest_bg), BorderColor::all(rest_border)));
     if enabled {
         commands.entity(control).insert((
+            crate::shellkit::surfaces::elevation_control(),
             crate::ambience::Feel::tinting_to(rest_bg, hot_bg),
             crate::ambience::FeelBorder {
                 rest: rest_border,
                 hot: palette::ACCENT.with_alpha(0.95),
                 press: palette::ACCENT,
             },
+            crate::ambience::FeelShadow,
         ));
     } else {
-        commands.entity(control).insert(super::hint::HoverHint(
-            Phrase::VeilTalking.text(lang).to_string(),
+        commands.entity(control).insert((
+            crate::shellkit::surfaces::elevation_control_disabled(),
+            super::hint::HoverHint(Phrase::VeilTalking.text(lang).to_string()),
         ));
     }
+}
+
+fn gateway_row(
+    commands: &mut Commands,
+    state: &LobbyState,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    index: usize,
+    url: &str,
+) -> Entity {
+    let lang = state.lobby.lang();
+    let words = row_words(url, state.probes.get(url), lang);
+    let busy = if state.central_ready() {
+        state.central_admitting()
+    } else {
+        state.lobby.busy()
+    };
+    let enabled = !busy && state.adding.is_none();
+    let marked = state.gateway_cursor == Some(index);
+    let last_used = index == 0 && state.uses.of(url).count > 0;
+    let rest_bg = if marked {
+        Color::srgba(0.16, 0.25, 0.35, 0.96)
+    } else {
+        Color::srgba(0.10, 0.15, 0.22, 0.92)
+    };
+    let control = button(
+        commands,
+        fonts,
+        metrics,
+        "",
+        Press::Front(FrontPress::SelectGateway(index)),
+        rest_bg,
+        enabled,
+    );
+    style_gateway_control(commands, control, metrics, lang, marked, enabled);
 
     let dot = reach_dot(commands, &words);
     commands.entity(dot).insert(passes_presses());

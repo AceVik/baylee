@@ -323,9 +323,19 @@ fn shaped(
         wrapper
     };
     if !dead {
+        if weight != Weight::Ghost {
+            commands
+                .entity(face)
+                .insert(super::surfaces::elevation_control());
+        }
         attach_live_feel(commands, face, ground, weight);
         let wrapper = hit(commands, kit, face, action);
         return widen(commands, wrapper);
+    }
+    if weight != Weight::Ghost {
+        commands
+            .entity(face)
+            .insert(super::surfaces::elevation_control_disabled());
     }
     // A dead button keeps its action bundle, so it stays a focus stop: a
     // disabled control is focusable so its reason can be read (APG). What
@@ -372,6 +382,9 @@ pub(crate) fn attach_live_feel(
         press,
     };
     commands.entity(face).insert((feel, fb));
+    if weight != Weight::Ghost {
+        commands.entity(face).insert(crate::ambience::FeelShadow);
+    }
     if matches!(weight, Weight::Primary | Weight::Gold | Weight::Danger) {
         commands.entity(face).insert(super::sheen::Sheen);
     }
@@ -555,8 +568,10 @@ pub fn pill(
             },
             BackgroundColor(tokens::CONTROL),
             BorderColor::all(tokens::BORDER),
+            super::surfaces::elevation_control(),
             UiTransform::default(),
             crate::ambience::Feel::new(tokens::CONTROL),
+            crate::ambience::FeelShadow,
         ))
         .id();
     if let Some(colour) = dot {
@@ -738,11 +753,13 @@ pub fn chip(
                 tokens::CONTROL
             }),
             BorderColor::all(if on { tokens::ACCENT } else { tokens::BORDER }),
+            super::surfaces::elevation_control(),
             crate::ambience::Feel::new(if on {
                 tokens::SELECTED
             } else {
                 tokens::CONTROL
             }),
+            crate::ambience::FeelShadow,
         ))
         .id();
     let words = if let Some(rest) = text.strip_prefix("\u{2605} ") {

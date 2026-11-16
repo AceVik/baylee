@@ -355,6 +355,8 @@ fn glyph_button(
     hint: &str,
     action: impl Bundle,
 ) -> Entity {
+    let rest_bg = Color::srgba(0.05, 0.09, 0.14, 0.86);
+    let hot_bg = Color::srgba(0.11, 0.18, 0.26, 0.96);
     let face = commands
         .spawn((
             Role::Button,
@@ -363,10 +365,20 @@ fn glyph_button(
                 min_height: px_fixed(kit.m.control * 0.8),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                 ..default()
             },
-            BackgroundColor(Color::NONE),
+            BackgroundColor(rest_bg),
+            BorderColor::all(tokens::BORDER),
+            surfaces::elevation_control(),
+            crate::ambience::Feel::tinting_to(rest_bg, hot_bg),
+            crate::ambience::FeelBorder {
+                rest: tokens::BORDER,
+                hot: tokens::ACCENT.with_alpha(0.70),
+                press: tokens::ACCENT,
+            },
+            crate::ambience::FeelShadow,
             super::super::hint::HoverHint(hint.to_string()),
         ))
         .id();
@@ -379,9 +391,7 @@ fn glyph_button(
         ))
         .id();
     commands.entity(face).add_child(mark);
-    let wrapper = controls::hit(commands, kit, face, action);
-    commands.entity(face).insert(Pickable::default());
-    wrapper
+    controls::hit(commands, kit, face, action)
 }
 
 /// A reach dot.
@@ -1172,8 +1182,12 @@ pub(super) fn gateway(
     }
     let list =
         super::super::gateway::list(commands, state, kit.fonts, field_metrics(kit), scrolled_to);
-    commands.entity(card).add_child(list);
+    let add_box = gateway_add_box(commands, state, kit);
+    commands.entity(card).add_children(&[list, add_box]);
+}
 
+fn gateway_add_box(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
+    let lang = state.lobby.lang();
     let add_box = commands
         .spawn((
             Node {
@@ -1188,6 +1202,7 @@ pub(super) fn gateway(
             },
             BackgroundColor(Color::srgba(0.05, 0.08, 0.13, 0.72)),
             BorderColor::all(tokens::BORDER.with_alpha(0.85)),
+            surfaces::elevation_control(),
             Pickable::IGNORE,
         ))
         .id();
@@ -1258,5 +1273,5 @@ pub(super) fn gateway(
     if let Some(guest) = refused_guest_door(commands, state, kit) {
         commands.entity(add_box).add_child(guest);
     }
-    commands.entity(card).add_child(add_box);
+    add_box
 }

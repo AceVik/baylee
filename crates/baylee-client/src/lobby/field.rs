@@ -176,6 +176,16 @@ pub(crate) fn text_field_with(
     text_field_hinted(commands, fonts, metrics, label, look, stops, None)
 }
 
+fn field_box_shadow() -> BoxShadow {
+    BoxShadow(vec![ShadowStyle {
+        color: Color::srgba(0.0, 0.0, 0.0, 0.28),
+        x_offset: px(0.0),
+        y_offset: px(2.0),
+        spread_radius: px(0.0),
+        blur_radius: px(6.0),
+    }])
+}
+
 /// [`text_field_with`], with an optional tooltip on the trailing action button.
 pub(super) fn text_field_hinted(
     commands: &mut Commands,
@@ -209,7 +219,16 @@ pub(super) fn text_field_hinted(
             .id();
         commands.entity(column).add_child(caption);
     }
-    let is_search = look.lead == Some(crate::hud::glyph::MAGNIFIER);
+    let radius = if look.lead == Some(crate::hud::glyph::MAGNIFIER) {
+        tokens::RADIUS_PILL
+    } else {
+        tokens::RADIUS_CONTROL
+    };
+    let border = if look.focused {
+        tokens::ACCENT
+    } else {
+        tokens::BORDER
+    };
     let boxed = commands
         .spawn((
             Node {
@@ -221,19 +240,12 @@ pub(super) fn text_field_hinted(
                 // Constant 1 px border whether or not it has the caret, so that
                 // taking the caret rings the box instead of shifting its text.
                 border: UiRect::all(px(1)),
-                border_radius: if is_search {
-                    BorderRadius::all(px(tokens::RADIUS_PILL))
-                } else {
-                    BorderRadius::all(px(tokens::RADIUS_CONTROL))
-                },
+                border_radius: BorderRadius::all(px(radius)),
                 ..default()
             },
             BackgroundColor(tokens::CONTROL),
-            BorderColor::all(if look.focused {
-                tokens::ACCENT
-            } else {
-                tokens::BORDER
-            }),
+            BorderColor::all(border),
+            field_box_shadow(),
             look.press,
         ))
         .id();
@@ -262,34 +274,47 @@ pub(super) fn text_field_hinted(
         commands.entity(boxed).add_child(run);
     }
     mark_runs(commands, boxed, metrics, look);
-    if look.mask.is_some() || look.tail.is_some() {
-        // Pushed to the far end of the row, so a button is in the same place
-        // whatever is typed and the letters never run into it.
-        let gap = commands
-            .spawn((
-                Node {
-                    flex_grow: 1.0,
-                    min_width: px(metrics.gap),
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(boxed).add_child(gap);
-        let eye = look
-            .mask
-            .and_then(|m| eye_button(commands, fonts, metrics, m));
-        if let (Some(eye), Some(stop)) = (eye, stops.and_then(|s| s.eye)) {
-            commands.entity(eye).insert(stop);
-        }
-        commands.entity(boxed).add_children(eye.as_slice());
-        if let Some(tail) = look.tail {
-            let button = icon_button(commands, fonts, metrics, tail, tail_hint);
-            commands.entity(boxed).add_child(button);
-        }
-    }
+    append_field_tail(commands, fonts, metrics, boxed, look, stops, tail_hint);
     commands.entity(column).add_child(boxed);
     column
+}
+
+fn append_field_tail(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    boxed: Entity,
+    look: &FieldLook,
+    stops: Option<FieldStops>,
+    tail_hint: Option<&str>,
+) {
+    if look.mask.is_none() && look.tail.is_none() {
+        return;
+    }
+    // Pushed to the far end of the row, so a button is in the same place
+    // whatever is typed and the letters never run into it.
+    let gap = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                min_width: px(metrics.gap),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(boxed).add_child(gap);
+    let eye = look
+        .mask
+        .and_then(|m| eye_button(commands, fonts, metrics, m));
+    if let (Some(eye), Some(stop)) = (eye, stops.and_then(|s| s.eye)) {
+        commands.entity(eye).insert(stop);
+    }
+    commands.entity(boxed).add_children(eye.as_slice());
+    if let Some(tail) = look.tail {
+        let button = icon_button(commands, fonts, metrics, tail, tail_hint);
+        commands.entity(boxed).add_child(button);
+    }
 }
 
 /// The glyph a box leads with (the search's magnifier).

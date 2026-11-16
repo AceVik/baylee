@@ -49,10 +49,8 @@ use super::systems::keep_gateways;
 use super::*;
 use crate::frontal::FrontalMaterial;
 use crate::shellkit::controls::Kit;
-use crate::shellkit::focus::Stop;
 use crate::shellkit::metrics::px_fixed;
 use crate::shellkit::role::Role;
-use crate::ui_button::UiButton;
 use bevy::ui::{UiTransform, Val2};
 
 /// How long the panels take to move, in either motion.
@@ -838,28 +836,10 @@ pub(super) fn stage(
     room
 }
 
-/// The card's elevation: a close ambient shadow and a long key shadow. It is
-/// the panel's own, so it goes wherever the panel goes.
-///
-/// Its own and not [`soft_shadow`]: that one is a control's, and a control
-/// sits on a surface where this panel stands off the page.
+/// The card's elevation: deep multi-layer contact, key, and ambient halo
+/// drop shadow (`surfaces::elevation_card`), carried wherever the panel goes.
 pub(super) fn card_shadow() -> BoxShadow {
-    BoxShadow(vec![
-        ShadowStyle {
-            color: Color::srgba(0.0, 0.0, 0.0, 0.35),
-            x_offset: px_fixed(0.0),
-            y_offset: px_fixed(2.0),
-            spread_radius: px_fixed(0.0),
-            blur_radius: px_fixed(6.0),
-        },
-        ShadowStyle {
-            color: Color::srgba(0.0, 0.0, 0.0, 0.50),
-            x_offset: px_fixed(0.0),
-            y_offset: px_fixed(12.0),
-            spread_radius: px_fixed(-2.0),
-            blur_radius: px_fixed(30.0),
-        },
-    ])
+    crate::shellkit::surfaces::elevation_card()
 }
 
 /// One panel: the dock's leather and its inlays, the card's own shadow,
@@ -1003,7 +983,7 @@ pub(super) fn gear_menu(
             },
             BackgroundColor(crate::shellkit::tokens::OPAQUE),
             BorderColor::all(crate::shellkit::tokens::PRIMARY_EDGE.with_alpha(0.55)),
-            crate::shellkit::surfaces::popover_shadow(),
+            crate::shellkit::surfaces::elevation_card(),
             UiTransform::default(),
             GlobalZIndex(600),
             // A press on the menu's own ground is not a press outside it.
@@ -1146,7 +1126,10 @@ pub(super) fn gear_menu(
             true,
         );
         let flag = door::flag_icon(commands, offered);
-        commands.entity(chip).insert_children(0, &[flag]);
+        commands
+            .entity(chip)
+            .insert(crate::shellkit::surfaces::elevation_control())
+            .insert_children(0, &[flag]);
         if active {
             commands.entity(chip).insert((
                 BackgroundColor(bg),
@@ -1202,7 +1185,9 @@ pub(super) fn gear_menu(
     );
     commands.entity(all).insert((
         BorderColor::all(crate::shellkit::tokens::PRIMARY_EDGE),
+        crate::shellkit::surfaces::elevation_control(),
         crate::ambience::Feel::new(crate::shellkit::tokens::PRIMARY),
+        crate::ambience::FeelShadow,
         crate::shellkit::sheen::Sheen,
     ));
     commands.entity(all).entry::<Node>().and_modify(|mut node| {
@@ -1330,6 +1315,7 @@ pub(super) fn front_door(
         .insert(super::scrollbars::OnlyWhenNeeded)
         .entry::<Node>()
         .and_modify(|mut node| node.display = Display::None);
+    let _ = cloud;
     let logo = assets.map_or_else(Handle::default, |a| a.load("brand/baylee-logo.png"));
     let logo_width = match kit.m.frame {
         Frame::Phone => 185.0,
@@ -1337,43 +1323,7 @@ pub(super) fn front_door(
         Frame::Wide => 520.0,
         Frame::Vast => 580.0,
     };
-    let name = Phrase::MemorialOpen.text(state.lobby.lang());
-    let mut a11y = accesskit::Node::new(accesskit::Role::Button);
-    a11y.set_label(name);
-    let brand = commands
-        .spawn((
-            super::memorial::Cloud { front: true },
-            UiButton,
-            Role::Hit,
-            Name::new(name.to_owned()),
-            super::hint::HoverHint(name.to_owned()),
-            bevy::a11y::AccessibilityNode(a11y),
-            Press::Memorial(super::memorial::MemorialPress::Open),
-            Stop::new(keys::table_of(state).name, "baylee"),
-            UiTransform::default(),
-            Node {
-                width: px_fixed(logo_width),
-                max_width: Val::Percent(100.0),
-                max_height: Val::Vh(if phone {
-                    32.0
-                } else if full {
-                    28.0
-                } else {
-                    23.5
-                }),
-                aspect_ratio: Some(1942.0 / 809.0),
-                flex_shrink: 0.0,
-                ..default()
-            },
-        ))
-        .id();
-    if let Some(art) = cloud {
-        commands
-            .entity(brand)
-            .insert(MaterialNode(art.logo.clone()));
-    } else {
-        commands.entity(brand).insert(ImageNode::new(logo));
-    }
+    let brand = door::front_logo(commands, state, logo, logo_width, phone, full);
     let stage = stage(commands, state, cast, kit, scrolled_to, music_on);
     let community = door::community_row(commands, state, kit, full);
     let version = door::version_line(commands, state, kit);

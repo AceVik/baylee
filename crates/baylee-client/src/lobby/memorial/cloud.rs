@@ -72,7 +72,7 @@ fn animate(
     let active = !state.memorial.open
         && clouds
             .iter()
-            .any(|(e, h, _, _)| h.0 || (ring.0 && focus.get() == Some(e)));
+            .any(|(e, h, c, _)| !c.front && (h.0 || (ring.0 && focus.get() == Some(e))));
     let still = crate::quality::ambient_still(prefs.all().reduce_motion, quality.as_deref());
     let target = if active { 1.0 } else { 0.0 };
     *glow = if still || (*glow - target).abs() < 0.001 {
@@ -80,17 +80,7 @@ fn animate(
     } else {
         *glow + (target - *glow) * (1.0 - (-7.5 * time.delta_secs()).exp())
     };
-    for (_, _, cloud, transform) in &mut clouds {
-        if cloud.front
-            && let Some(mut transform) = transform
-        {
-            transform.set_if_neq(UiTransform {
-                translation: bevy::ui::Val2::px(0.0, -2.5 * *glow),
-                scale: Vec2::splat(1.0 + 0.04 * *glow),
-                ..default()
-            });
-        }
-    }
+    let _ = &mut clouds;
     let moving = !still && !resting.is_some_and(|r| r.0);
     let motion = if moving { 1.0 } else { 0.0 };
     for (handle, is_logo) in [(&art.cloud, 0.0), (&art.logo, 1.0)] {

@@ -1,4 +1,4 @@
-//! A parchment remembrance book; photographs and writing keep independent places.
+//! Baylee's memorial dialog, standardized on `shellkit` out-of-table surfaces.
 mod chrome;
 mod pages;
 mod photos;
@@ -8,7 +8,7 @@ use super::{ALBUM_ORDER, CloudArt, MemorialPress};
 use crate::lobby::{LobbyState, Press, Scrolled};
 use crate::shellkit::controls::Kit;
 use crate::shellkit::metrics::px_fixed;
-use crate::shellkit::{role::Role, surfaces};
+use crate::shellkit::{Frame, surfaces, tokens};
 use bevy::prelude::*;
 pub(super) use pages::reading_keys;
 pub(super) use viewer::{PhotoPan, input as viewer_input, layout as viewer_layout};
@@ -27,45 +27,54 @@ pub(super) fn draw(
         viewer::draw(c, root, state, kit, assets);
         return;
     }
-    let surface = c
-        .spawn((
-            Role::Opaque,
-            style::elevation(24.0),
-            Node {
-                width: kit.m.px(1140.0),
-                max_width: Val::Percent(94.0),
-                height: Val::Percent(92.0),
-                max_height: kit.m.px(880.0),
-                flex_direction: FlexDirection::Column,
-                padding: UiRect::all(kit.m.px(24.0)),
-                row_gap: kit.m.px(10.0),
-                border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(10.0)),
-                ..default()
-            },
-            BackgroundColor(style::PAPER),
-            BorderColor::all(style::GOLD),
-            Press::Memorial(MemorialPress::Nothing),
-        ))
-        .id();
-    super::paper::attach(c, surface, false);
+    let phone = kit.m.frame == Frame::Phone;
+    let stacked = matches!(kit.m.frame, Frame::Phone | Frame::Compact);
+    let surface = surfaces::dialog(
+        c,
+        kit,
+        kit.m.px(1120.0),
+        style::BRASS_BORDER,
+        Press::Memorial(MemorialPress::Nothing),
+    );
+    c.entity(surface)
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            node.height = if phone {
+                Val::Percent(100.0)
+            } else {
+                Val::Percent(90.0)
+            };
+            node.max_height = if phone {
+                Val::Percent(100.0)
+            } else {
+                kit.m.px(860.0)
+            };
+        });
     super::motion::attach(c, surface, false);
+
     let header = chrome::header(c, state, kit, art);
-    let rule = style::rule(c, kit);
     let body = c
         .spawn((
             Node {
                 width: Val::Percent(100.0),
+                flex_direction: if stacked {
+                    FlexDirection::Column
+                } else {
+                    FlexDirection::Row
+                },
                 flex_grow: 1.0,
                 flex_basis: px_fixed(0.0),
                 min_height: px_fixed(0.0),
+                padding: UiRect::all(px_fixed(kit.m.pad)),
                 column_gap: kit.m.px(20.0),
+                row_gap: kit.m.px(14.0),
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
-    photos::draw(c, body, state, kit, assets);
+    photos::draw(c, body, state, kit, assets, stacked);
+
     let writing = c
         .spawn((
             Node {
@@ -74,41 +83,37 @@ pub(super) fn draw(
                 flex_basis: px_fixed(0.0),
                 min_width: px_fixed(0.0),
                 min_height: px_fixed(0.0),
-                row_gap: kit.m.px(10.0),
-                border: UiRect::left(px_fixed(1.0)),
-                padding: UiRect::left(kit.m.px(20.0)),
+                row_gap: kit.m.px(12.0),
+                border: if stacked {
+                    UiRect::top(px_fixed(1.0))
+                } else {
+                    UiRect::left(px_fixed(1.0))
+                },
+                padding: if stacked {
+                    UiRect::top(kit.m.px(12.0))
+                } else {
+                    UiRect::left(kit.m.px(20.0))
+                },
                 ..default()
             },
-            BorderColor::all(style::GOLD.with_alpha(0.3)),
+            BorderColor::all(tokens::BORDER),
             Pickable::IGNORE,
         ))
         .id();
     let chapters = chrome::chapters(c, state, kit);
-    let reading = c
-        .spawn((
-            Node {
-                flex_grow: 1.0,
-                flex_basis: px_fixed(0.0),
-                min_height: px_fixed(0.0),
-                width: Val::Percent(100.0),
-                overflow: Overflow::clip(),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    pages::draw(c, reading, state, kit, scrolled);
+    let reading = pages::draw(c, state, kit, scrolled);
     pages::leaf(c, reading, state, kit);
-    let rule = [rule, style::rule(c, kit)];
     let footer = chrome::footer(c, state, kit);
-    c.entity(writing)
-        .add_children(&[chapters, reading, rule[1], footer]);
+    c.entity(writing).add_children(&[chapters, reading, footer]);
     c.entity(body).add_child(writing);
-    c.entity(surface).add_children(&[header, rule[0], body]);
-    let scrim = surfaces::sheet(c, surface);
-    c.entity(scrim).insert((
-        GlobalZIndex(crate::shellkit::tokens::z::TOAST + 1),
+    c.entity(surface).add_children(&[header, body]);
+
+    let scrim = surfaces::scrim(
+        c,
+        kit,
+        tokens::z::TOAST + 1,
         Press::Memorial(MemorialPress::Close),
-    ));
+        surface,
+    );
     c.entity(root).add_child(scrim);
 }

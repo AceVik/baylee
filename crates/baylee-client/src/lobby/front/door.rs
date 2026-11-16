@@ -56,9 +56,320 @@ fn plate(commands: &mut Commands, kit: Kit) -> Entity {
                 ..default()
             },
             BackgroundColor(tokens::MIST),
+            surfaces::elevation_control(),
             Pickable::IGNORE,
         ))
         .id()
+}
+
+/// Retains the front-door emblem's smooth warmth (`-1.0` pressed .. `0.0`
+/// resting .. `+1.0` hovered/focused) across UI rebuilds without layout shift.
+#[derive(Resource, Default, Clone, Copy, Debug)]
+pub(crate) struct FrontLogoMemory {
+    warmth: f32,
+}
+
+#[derive(Component)]
+pub(crate) struct FrontLogoButton(Option<f32>);
+
+#[derive(Component)]
+pub(crate) struct FrontLogoFace;
+
+#[derive(Component)]
+pub(crate) struct FrontLogoAura;
+
+fn logo_aura_gradient(hot: f32) -> BackgroundGradient {
+    use bevy::ui::{
+        ColorStop, InterpolationColorSpace, RadialGradient, RadialGradientShape, UiPosition,
+    };
+    let a = hot.clamp(0.0, 1.0);
+    BackgroundGradient::from(
+        RadialGradient::new(
+            UiPosition::CENTER.at_y(Val::Percent(2.0)),
+            RadialGradientShape::Ellipse(Val::Percent(46.0), Val::Percent(43.0)),
+            vec![
+                ColorStop::percent(Color::srgba(1.0, 0.85, 0.48, 0.34 * a), 0.0),
+                ColorStop::percent(Color::srgba(0.96, 0.72, 0.32, 0.14 * a), 52.0),
+                ColorStop::percent(Color::srgba(0.96, 0.72, 0.32, 0.0), 100.0),
+            ],
+        )
+        .in_color_space(InterpolationColorSpace::Srgba),
+    )
+}
+
+pub(crate) fn logo_face_color(warmth: f32) -> Color {
+    let w = warmth.clamp(-1.0, 1.0);
+    if w >= 0.0 {
+        Color::LinearRgba(LinearRgba::new(
+            1.0 + 0.28 * w,
+            1.0 + 0.18 * w,
+            1.0 + 0.02 * w,
+            1.0,
+        ))
+    } else {
+        let sink = -w;
+        Color::LinearRgba(LinearRgba::new(
+            1.0 - 0.10 * sink,
+            1.0 - 0.12 * sink,
+            1.0 - 0.16 * sink,
+            1.0,
+        ))
+    }
+}
+
+fn spawn_logo_layers(commands: &mut Commands, logo: Handle<Image>) -> [Entity; 5] {
+    use bevy::ui::{
+        ColorStop, InterpolationColorSpace, RadialGradient, RadialGradientShape, UiPosition,
+    };
+    let veil = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Percent(-10.0),
+                right: Val::Percent(-10.0),
+                top: Val::Percent(-8.0),
+                bottom: Val::Percent(-14.0),
+                ..default()
+            },
+            BackgroundGradient::from(
+                RadialGradient::new(
+                    UiPosition::CENTER.at_y(Val::Percent(4.0)),
+                    RadialGradientShape::Ellipse(Val::Percent(47.0), Val::Percent(45.0)),
+                    vec![
+                        ColorStop::percent(Color::srgba(0.01, 0.02, 0.05, 0.48), 0.0),
+                        ColorStop::percent(Color::srgba(0.01, 0.02, 0.05, 0.24), 52.0),
+                        ColorStop::percent(Color::srgba(0.01, 0.02, 0.05, 0.0), 100.0),
+                    ],
+                )
+                .in_color_space(InterpolationColorSpace::Srgba),
+            ),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let silhouette = |commands: &mut Commands, y_px: f32, color: Color, img: Handle<Image>| {
+        commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px_fixed(0.0),
+                    top: px_fixed(y_px),
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    ..default()
+                },
+                ImageNode {
+                    image: img,
+                    color,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id()
+    };
+    let deep = silhouette(
+        commands,
+        11.0,
+        Color::srgba(0.01, 0.01, 0.02, 0.36),
+        logo.clone(),
+    );
+    let contact = silhouette(
+        commands,
+        5.0,
+        Color::srgba(0.02, 0.02, 0.04, 0.68),
+        logo.clone(),
+    );
+    let aura = commands
+        .spawn((
+            FrontLogoAura,
+            Visibility::Hidden,
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Percent(-8.0),
+                right: Val::Percent(-8.0),
+                top: Val::Percent(-10.0),
+                bottom: Val::Percent(-10.0),
+                ..default()
+            },
+            logo_aura_gradient(0.0),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let crisp = commands
+        .spawn((
+            FrontLogoFace,
+            Node {
+                position_type: PositionType::Absolute,
+                left: px_fixed(0.0),
+                top: px_fixed(0.0),
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                ..default()
+            },
+            ImageNode::new(logo),
+            Pickable::IGNORE,
+        ))
+        .id();
+    [veil, deep, contact, aura, crisp]
+}
+
+/// Builds the Login screen's Baylee emblem button with true silhouette drop
+/// shadows (two offset dark-silhouette `ImageNode` layers + soft elliptical
+/// radial dark-veil backdrop) and zero rectangular button box or layout shift.
+pub(super) fn front_logo(
+    commands: &mut Commands,
+    state: &LobbyState,
+    logo: Handle<Image>,
+    logo_width: f32,
+    phone: bool,
+    full: bool,
+) -> Entity {
+    let name = Phrase::MemorialOpen.text(state.lobby.lang());
+    let mut a11y = accesskit::Node::new(accesskit::Role::Button);
+    a11y.set_label(name);
+    let brand = commands
+        .spawn((
+            super::super::memorial::Cloud { front: true },
+            FrontLogoButton(None),
+            crate::ui_button::UiButton,
+            Role::Hit,
+            Name::new(name.to_owned()),
+            super::super::hint::HoverHint(name.to_owned()),
+            bevy::a11y::AccessibilityNode(a11y),
+            Press::Memorial(super::super::memorial::MemorialPress::Open),
+            Stop::new(keys::table_of(state).name, "baylee"),
+            UiTransform::default(),
+            BackgroundColor(Color::NONE),
+            Node {
+                width: px_fixed(logo_width),
+                max_width: Val::Percent(100.0),
+                max_height: Val::Vh(if phone {
+                    32.0
+                } else if full {
+                    28.0
+                } else {
+                    23.5
+                }),
+                aspect_ratio: Some(1942.0 / 809.0),
+                flex_shrink: 0.0,
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
+                ..default()
+            },
+        ))
+        .id();
+    let layers = spawn_logo_layers(commands, logo);
+    commands.entity(brand).add_children(&layers);
+    brand
+}
+
+/// Smoothly animates the Login emblem's warm luminous lift and radial aura on
+/// hover/focus and subtle settle on press, staying completely quiet at rest.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+pub(crate) fn animate_front_logo(
+    time: Res<Time>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    quality: Option<Res<crate::quality::InUse>>,
+    state: Res<LobbyState>,
+    focus: Res<bevy::input_focus::InputFocus>,
+    ring: Res<bevy::input_focus::InputFocusVisible>,
+    mut memory: ResMut<FrontLogoMemory>,
+    mut buttons: Query<(
+        Entity,
+        &mut FrontLogoButton,
+        &bevy::picking::hover::Hovered,
+        Has<bevy::ui::Pressed>,
+        Option<&bevy::picking::hover::PickingInteraction>,
+        &Children,
+    )>,
+    mut faces: Query<&mut ImageNode, With<FrontLogoFace>>,
+    mut auras: Query<(&mut BackgroundGradient, &mut Visibility), With<FrontLogoAura>>,
+) {
+    if buttons.is_empty() {
+        if memory.warmth.abs() > f32::EPSILON {
+            memory.bypass_change_detection().warmth = 0.0;
+        }
+        return;
+    }
+    let mut target = 0.0_f32;
+    if !state.memorial.open {
+        for (e, _, hovered, pressed, pick, _) in &buttons {
+            if pressed
+                || matches!(
+                    pick,
+                    Some(bevy::picking::hover::PickingInteraction::Pressed)
+                )
+            {
+                target = -1.0;
+                break;
+            }
+            if hovered.0
+                || matches!(
+                    pick,
+                    Some(bevy::picking::hover::PickingInteraction::Hovered)
+                )
+                || (ring.0 && focus.get() == Some(e))
+            {
+                target = 1.0;
+            }
+        }
+    }
+    let still = crate::quality::ambient_still(
+        prefs.is_some_and(|p| p.all().reduce_motion),
+        quality.as_deref(),
+    );
+    let dt = if time.delta_secs().is_finite() {
+        time.delta_secs().clamp(0.0, 0.1)
+    } else {
+        0.0
+    };
+    let current = memory.warmth;
+    let next = if still || (current - target).abs() < 0.001 {
+        target
+    } else {
+        let step = 1.0 - (-12.0 * dt).exp();
+        let cand = current + (target - current) * step;
+        if (cand - target).abs() < 0.001 {
+            target
+        } else {
+            cand
+        }
+    };
+    if next.to_bits() != current.to_bits() {
+        memory.bypass_change_detection().warmth = next;
+    }
+    for (_, mut painted, _, _, _, children) in &mut buttons {
+        if painted
+            .0
+            .is_some_and(|last| last.to_bits() == next.to_bits())
+        {
+            continue;
+        }
+        if painted.0.is_none() && next == 0.0 {
+            painted.0 = Some(0.0);
+            continue;
+        }
+        painted.0 = Some(next);
+        let want_face = logo_face_color(next);
+        let hot = next.max(0.0);
+        let want_vis = if hot > 0.002 {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        let want_aura = logo_aura_gradient(hot);
+        for child in children.iter() {
+            if let Ok(mut img) = faces.get_mut(child)
+                && img.color != want_face
+            {
+                img.color = want_face;
+            }
+            if let Ok((mut grad, mut vis)) = auras.get_mut(child) {
+                vis.set_if_neq(want_vis);
+                if hot > 0.002 {
+                    grad.set_if_neq(want_aura.clone());
+                }
+            }
+        }
+    }
 }
 
 /// How a [`link`] reads.
@@ -253,12 +564,14 @@ pub(in crate::lobby) fn header_icon_btn(
             },
             BackgroundColor(bg),
             BorderColor::all(border),
+            surfaces::elevation_control(),
             crate::ambience::Feel::tinting_to(bg, hot),
             crate::ambience::FeelBorder {
                 rest: border,
                 hot: tokens::ACCENT.with_alpha(0.70),
                 press: tokens::ACCENT,
             },
+            crate::ambience::FeelShadow,
             super::super::hint::HoverHint(hint.to_string()),
         ))
         .id();
@@ -301,12 +614,14 @@ fn header_sign_out_btn(
             },
             BackgroundColor(bg),
             BorderColor::all(border),
+            surfaces::elevation_control(),
             crate::ambience::Feel::tinting_to(bg, hot),
             crate::ambience::FeelBorder {
                 rest: border,
                 hot: tokens::DANGER.with_alpha(0.80),
                 press: tokens::DANGER,
             },
+            crate::ambience::FeelShadow,
         ))
         .id();
     let icon = commands
@@ -579,12 +894,14 @@ pub(in crate::lobby) fn lang_dropdown(
             },
             BackgroundColor(trigger_bg),
             BorderColor::all(trigger_border),
+            surfaces::elevation_control(),
             crate::ambience::Feel::tinting_to(trigger_bg, trigger_hot),
             crate::ambience::FeelBorder {
                 rest: trigger_border,
                 hot: tokens::ACCENT.with_alpha(0.70),
                 press: tokens::ACCENT,
             },
+            crate::ambience::FeelShadow,
             crate::shellkit::sheen::Sheen,
             super::super::hint::HoverHint(Phrase::Language.text(lang).to_string()),
         ))
@@ -841,12 +1158,14 @@ fn door(
             },
             BackgroundColor(look.rest),
             BorderColor::all(look.rim),
+            surfaces::elevation_control(),
             crate::ambience::Feel::tinting_to(look.rest, look.hot),
             crate::ambience::FeelBorder {
                 rest: look.rim,
                 hot: tokens::ACCENT,
                 press: tokens::PRIMARY_EDGE,
             },
+            crate::ambience::FeelShadow,
             crate::shellkit::sheen::Sheen,
         ))
         .id();
@@ -1024,6 +1343,7 @@ pub(super) fn full(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ent
                 ..default()
             },
             BackgroundColor(tokens::MIST),
+            surfaces::elevation_control(),
             Pickable::IGNORE,
         ))
         .id();
@@ -1106,7 +1426,11 @@ pub(super) fn community_row(
     );
     commands
         .entity(discord)
-        .insert((Beckon, BoxShadow(vec![glow(0.0)])));
+        .insert((Beckon, BoxShadow(vec![glow(0.0)])))
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.border_radius = BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL));
+        });
     commands.entity(row).add_children(&[whatsapp, discord]);
 
     if state.source_code.is_some() {
@@ -1185,12 +1509,14 @@ fn community_pill(
             },
             BackgroundColor(bg),
             BorderColor::all(border),
+            surfaces::elevation_control(),
             crate::ambience::Feel::tinting_to(bg, hot),
             crate::ambience::FeelBorder {
                 rest: border,
                 hot: accent,
                 press: tokens::PRIMARY_EDGE,
             },
+            crate::ambience::FeelShadow,
             crate::shellkit::sheen::Sheen,
             UiTransform::default(),
         ))
@@ -1358,6 +1684,7 @@ pub(crate) fn version_line(commands: &mut Commands, state: &LobbyState, kit: Kit
             },
             BackgroundColor(bg),
             BorderColor::all(border),
+            surfaces::elevation_control(),
             crate::ambience::Feel {
                 lift: 0.0,
                 ..crate::ambience::Feel::tinting_to(bg, Color::srgba(0.09, 0.15, 0.22, 0.95))
@@ -1367,6 +1694,7 @@ pub(crate) fn version_line(commands: &mut Commands, state: &LobbyState, kit: Kit
                 hot: tokens::ACCENT.with_alpha(0.70),
                 press: tokens::ACCENT,
             },
+            crate::ambience::FeelShadow,
             crate::shellkit::sheen::Sheen,
             bevy::picking::hover::PickingInteraction::default(),
             super::super::hint::HoverHint(hint.to_string()),
@@ -1451,6 +1779,7 @@ pub(crate) fn info_line(commands: &mut Commands, state: &LobbyState, kit: Kit) -
             },
             BackgroundColor(bg),
             BorderColor::all(border),
+            surfaces::elevation_control(),
             crate::ambience::Feel {
                 lift: 0.0,
                 ..crate::ambience::Feel::tinting_to(
@@ -1467,6 +1796,7 @@ pub(crate) fn info_line(commands: &mut Commands, state: &LobbyState, kit: Kit) -
                 hot: tokens::ACCENT.with_alpha(0.70),
                 press: tokens::ACCENT,
             },
+            crate::ambience::FeelShadow,
             crate::shellkit::sheen::Sheen,
             bevy::picking::hover::PickingInteraction::default(),
             super::super::hint::HoverHint(Phrase::FrontAbout.text(lang).to_string()),
@@ -1556,45 +1886,28 @@ pub(super) fn community_dialog(
             ),
         };
 
-    let scrim = commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                left: px_fixed(0.0),
-                top: px_fixed(0.0),
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                padding: UiRect::all(px_fixed(kit.m.body)),
-                ..default()
-            },
-            BackgroundColor(tokens::SCRIM),
-            GlobalZIndex(tokens::z::SHEET),
-            Press::Front(FrontPress::CloseCommunityDialog),
-        ))
-        .id();
-
-    let dialog = commands
-        .spawn((
-            Role::Opaque,
-            Node {
-                width: kit.m.px(396.0),
-                max_width: Val::Percent(100.0),
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                padding: UiRect::all(kit.m.px(20.0)),
-                row_gap: kit.m.px(14.0),
-                border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
-                ..default()
-            },
-            BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(accent.with_alpha(0.55)),
-            surfaces::popover_shadow(),
-            Press::Shared(SharedPress::PickerNothing),
-        ))
-        .id();
+    let dialog = surfaces::dialog(
+        commands,
+        kit,
+        kit.m.px(396.0),
+        accent.with_alpha(0.55),
+        Press::Shared(SharedPress::PickerNothing),
+    );
+    commands
+        .entity(dialog)
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            node.align_items = AlignItems::Center;
+            node.padding = UiRect::all(kit.m.px(20.0));
+            node.row_gap = kit.m.px(14.0);
+        });
+    let scrim = surfaces::scrim(
+        commands,
+        kit,
+        tokens::z::SHEET,
+        Press::Front(FrontPress::CloseCommunityDialog),
+        dialog,
+    );
 
     // Header row with icon badge + title + close button.
     let head = commands
@@ -1780,7 +2093,6 @@ pub(super) fn community_dialog(
         .and_modify(|mut node| node.width = Val::Percent(100.0));
 
     commands.entity(dialog).add_children(&[url_pill, open_btn]);
-    commands.entity(scrim).add_child(dialog);
     commands.entity(root).add_child(scrim);
 }
 
@@ -1840,48 +2152,25 @@ pub(crate) fn about(
     let lang = state.lobby.lang();
     let at = |id: &'static str| Stop::new(ABOUT.name, id);
     let phone = kit.m.frame == Frame::Phone;
-    let surface = commands
-        .spawn((
-            Role::Opaque,
-            Node {
-                width: if phone {
-                    Val::Percent(100.0)
-                } else {
-                    kit.m.px(720.0)
-                },
-                max_width: Val::Percent(100.0),
-                max_height: Val::Percent(100.0),
-                flex_direction: FlexDirection::Column,
-                padding: UiRect::all(px_fixed(kit.m.pad)),
-                row_gap: px_fixed(kit.m.gap),
-                border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(if phone {
-                    0.0
-                } else {
-                    tokens::RADIUS_PANEL
-                })),
-                ..default()
-            },
-            BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(tokens::BORDER),
-            surfaces::popover_shadow(),
-            Press::Shared(SharedPress::PickerNothing),
-        ))
-        .id();
-    let title = commands
-        .spawn((
-            Text::new(Phrase::AboutTitle.text(lang)),
-            crate::hud::tf(kit.fonts, kit.m.h1),
-            TextColor(tokens::INK),
-            Pickable::IGNORE,
-        ))
-        .id();
+    let surface = surfaces::dialog(
+        commands,
+        kit,
+        kit.m.px(720.0),
+        tokens::PRIMARY_EDGE.with_alpha(0.45),
+        Press::Shared(SharedPress::PickerNothing),
+    );
+    let head = surfaces::dialog_header(
+        commands,
+        kit,
+        surfaces::SheetHeader::new(Phrase::AboutTitle.text(lang)).icon('\u{f05a}'),
+    );
     let text = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Column,
                 flex_shrink: 1.0,
                 min_height: px_fixed(0.0),
+                padding: UiRect::all(px_fixed(kit.m.pad)),
                 row_gap: kit.m.px(10.0),
                 overflow: Overflow::scroll_y(),
                 ..default()
@@ -1962,10 +2251,31 @@ pub(crate) fn about(
         Some("Esc"),
         (Press::Front(FrontPress::About(false)), at("close")),
     );
-    let foot = surfaces::dialog_button_row(commands, kit, &[close]);
+    let foot_row = surfaces::dialog_button_row(commands, kit, &[close]);
+    let foot = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                padding: UiRect::all(px_fixed(kit.m.pad)),
+                flex_shrink: 0.0,
+                border: UiRect::top(px_fixed(1.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.16)),
+            BorderColor::all(tokens::BORDER),
+            Pickable::IGNORE,
+        ))
+        .add_child(foot_row)
+        .id();
     commands
         .entity(surface)
-        .add_children(&[title, text_band, foot]);
-    let scrim = surfaces::sheet(commands, surface);
+        .add_children(&[head, text_band, foot]);
+    let scrim = surfaces::scrim(
+        commands,
+        kit,
+        tokens::z::SHEET,
+        Press::Front(FrontPress::About(false)),
+        surface,
+    );
     commands.entity(root).add_child(scrim);
 }

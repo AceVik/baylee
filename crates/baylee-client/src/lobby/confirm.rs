@@ -501,8 +501,12 @@ fn modal(
                 ..default()
             },
             BackgroundColor(tokens::OPAQUE),
+            BackgroundGradient::from(LinearGradient::to_bottom(vec![
+                Color::srgb(0.075, 0.115, 0.165).into(),
+                tokens::OPAQUE.into(),
+            ])),
             BorderColor::all(border_col),
-            crate::shellkit::surfaces::popover_shadow(),
+            crate::shellkit::surfaces::elevation_card(),
             Press::Shared(SharedPress::PickerNothing),
         ))
         .id();
@@ -656,26 +660,19 @@ fn dialog_actions(commands: &mut Commands, buttons: &[Entity]) -> Entity {
     row
 }
 
-fn split_button(
-    commands: &mut Commands,
-    fonts: &UiFonts,
-    metrics: Metrics,
-    label: &str,
-    press: Press,
-    tone: SplitTone,
-    enabled: bool,
-) -> Entity {
-    let (bg, hover_bg, border, hover_border, fg) = match tone {
+fn split_tone_colors(tone: SplitTone, enabled: bool) -> (Color, Color, Color, Color, Color) {
+    let fg = if enabled {
+        tokens::INK
+    } else {
+        tokens::DISABLED
+    };
+    match tone {
         SplitTone::Neutral => (
             tokens::CONTROL,
             tokens::SELECTED,
             tokens::BORDER,
             tokens::ACCENT,
-            if enabled {
-                tokens::INK
-            } else {
-                tokens::DISABLED
-            },
+            fg,
         ),
         SplitTone::Danger => (
             if enabled {
@@ -690,11 +687,7 @@ fn split_button(
                 tokens::BORDER
             },
             tokens::INK,
-            if enabled {
-                tokens::INK
-            } else {
-                tokens::DISABLED
-            },
+            fg,
         ),
         SplitTone::Accent => (
             if enabled {
@@ -709,13 +702,21 @@ fn split_button(
                 tokens::BORDER
             },
             tokens::ACCENT,
-            if enabled {
-                tokens::INK
-            } else {
-                tokens::DISABLED
-            },
+            fg,
         ),
-    };
+    }
+}
+
+fn split_button(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    label: &str,
+    press: Press,
+    tone: SplitTone,
+    enabled: bool,
+) -> Entity {
+    let (bg, hover_bg, border, hover_border, fg) = split_tone_colors(tone, enabled);
     let mut node = commands.spawn((
         Node {
             flex_grow: 1.0,
@@ -738,18 +739,21 @@ fn split_button(
         node.insert((
             press,
             Role::Button,
+            crate::shellkit::surfaces::elevation_control(),
             Feel::tinting_to(bg, hover_bg),
             FeelBorder {
                 rest: border,
                 hot: hover_border,
                 press: hover_border,
             },
+            crate::ambience::FeelShadow,
             Sheen,
         ));
     } else {
         node.insert((
             Pickable::default(),
             bevy::picking::hover::PickingInteraction::default(),
+            crate::shellkit::surfaces::elevation_control_disabled(),
             crate::shellkit::controls::Disabled,
         ));
     }

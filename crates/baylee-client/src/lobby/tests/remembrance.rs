@@ -254,3 +254,53 @@ fn selecting_the_current_chapter_or_its_boundary_preserves_reading_position() {
         137.0
     );
 }
+
+#[test]
+fn memorial_uses_shellkit_dialog_elevation_symmetric_bars_and_disabled_tooltips() {
+    use crate::shellkit::{
+        controls::{Disabled, Tooltip},
+        role::Role,
+        surfaces::elevation_card,
+    };
+    let mut app = headless();
+    press(&mut app, Press::Memorial(M::Open));
+
+    let surface = press_target(&mut app, Press::Memorial(M::Nothing));
+    assert_eq!(app.world().get::<Role>(surface), Some(&Role::Opaque));
+    assert_eq!(
+        app.world().get::<BoxShadow>(surface),
+        Some(&elevation_card())
+    );
+    assert!(app.world().get::<BackgroundGradient>(surface).is_some());
+
+    let back = press_target(&mut app, Press::Memorial(M::Back));
+    let forward = press_target(&mut app, Press::Memorial(M::Forward));
+    assert!(app.world().get::<Disabled>(back).is_some());
+    assert!(app.world().get::<Disabled>(forward).is_none());
+    let tip = app
+        .world()
+        .get::<Tooltip>(back)
+        .expect("chapter 1 Back button carries floating disabled tooltip")
+        .0;
+    let tip_text = app.world().get::<Children>(tip).unwrap()[0];
+    assert_eq!(
+        app.world().get::<Text>(tip_text).unwrap().0,
+        Phrase::MemorialFirstChapter.text(Lang::En)
+    );
+    assert_eq!(app.world().get::<Node>(back).unwrap().flex_grow, 1.0);
+    assert_eq!(app.world().get::<Node>(forward).unwrap().flex_grow, 1.0);
+
+    press(&mut app, Press::Memorial(M::Chapter(7)));
+    let forward = press_target(&mut app, Press::Memorial(M::Forward));
+    assert!(app.world().get::<Disabled>(forward).is_some());
+    let end_tip = app
+        .world()
+        .get::<Tooltip>(forward)
+        .expect("last chapter Forward button carries floating disabled tooltip")
+        .0;
+    let end_text = app.world().get::<Children>(end_tip).unwrap()[0];
+    assert_eq!(
+        app.world().get::<Text>(end_text).unwrap().0,
+        Phrase::MemorialLastChapter.text(Lang::En)
+    );
+}

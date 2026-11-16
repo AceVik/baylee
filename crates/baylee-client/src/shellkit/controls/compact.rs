@@ -84,8 +84,18 @@ pub fn button_compact_with(
         .add_child(words)
         .add_children(trailing);
     if !dead {
+        if weight != Weight::Ghost {
+            commands
+                .entity(face)
+                .insert(crate::shellkit::surfaces::elevation_control());
+        }
         super::attach_live_feel(commands, face, ground, weight);
         return hit(commands, kit, face, action);
+    }
+    if weight != Weight::Ghost {
+        commands
+            .entity(face)
+            .insert(crate::shellkit::surfaces::elevation_control_disabled());
     }
     let wrapper = hit(commands, kit, face, (action, Disabled));
     if let Live::No(reason) = live {
@@ -120,6 +130,7 @@ pub fn segmented_compact<B: Bundle>(
             },
             BackgroundColor(tokens::CONTROL),
             BorderColor::all(tokens::BORDER),
+            crate::shellkit::surfaces::elevation_control(),
             Pickable::IGNORE,
         ))
         .id();
@@ -175,6 +186,7 @@ pub fn segmented_icons_compact<B: Bundle>(
             },
             BackgroundColor(tokens::CONTROL),
             BorderColor::all(tokens::BORDER),
+            crate::shellkit::surfaces::elevation_control(),
             Pickable::IGNORE,
         ))
         .id();

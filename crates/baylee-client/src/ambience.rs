@@ -186,6 +186,11 @@ pub struct FeelBorder {
     pub press: Color,
 }
 
+/// Optional control shadow elevation interpolation paired with [`Feel`]:
+/// lifts the drop shadow subtly under hover and settles it closer under press.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct FeelShadow;
+
 /// Registers the material, ships its shader inside the binary, and runs the
 /// two animations.
 ///
@@ -297,6 +302,7 @@ pub(crate) fn feel(
         &mut BackgroundColor,
         &mut UiTransform,
         Option<(&FeelBorder, &mut BorderColor)>,
+        Option<(&FeelShadow, &mut BoxShadow)>,
     )>,
     held: Query<&PickingInteraction>,
 ) {
@@ -312,7 +318,9 @@ pub(crate) fn feel(
     } else {
         1.0 - (-FEEL_RATE * dt).exp()
     };
-    for (mut feel, own, pickable, parent, mut colour, mut transform, border_opt) in &mut buttons {
+    for (mut feel, own, pickable, parent, mut colour, mut transform, border_opt, shadow_opt) in
+        &mut buttons
+    {
         let ignored = pickable.is_some_and(|p| !p.is_hoverable && !p.should_block_lower);
         let interaction = if ignored {
             parent.and_then(|p| held.get(p.parent()).ok())
@@ -364,6 +372,9 @@ pub(crate) fn feel(
             let b_hover = blend(fb.rest, fb.hot, hot);
             let b_next = blend(b_hover, fb.press, cold);
             border.set_if_neq(BorderColor::all(b_next));
+        }
+        if let Some((_, mut shadow)) = shadow_opt {
+            shadow.set_if_neq(crate::shellkit::surfaces::elevation_control_at(feel.warmth));
         }
     }
 }
@@ -527,6 +538,8 @@ struct Globals { time: f32 };
                     press: Color::srgb(0.10, 0.11, 0.14),
                 },
                 BorderColor::all(Color::BLACK),
+                FeelShadow,
+                crate::shellkit::surfaces::elevation_control(),
             ))
             .id();
 
@@ -562,6 +575,11 @@ struct Globals { time: f32 };
                 .is_newer_than(tick, now)
             || btn
                 .get_ref::<BorderColor>()
+                .unwrap()
+                .last_changed()
+                .is_newer_than(tick, now)
+            || btn
+                .get_ref::<BoxShadow>()
                 .unwrap()
                 .last_changed()
                 .is_newer_than(tick, now);

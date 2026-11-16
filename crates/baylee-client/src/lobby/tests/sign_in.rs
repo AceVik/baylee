@@ -1944,3 +1944,129 @@ fn a_password_goes_nowhere_with_central_off() {
         "nothing was sent to the gateway"
     );
 }
+
+#[test]
+fn front_logo_casts_silhouette_shadows_and_warm_aura_without_box_or_layout_shift() {
+    use super::super::front::door::{FrontLogoAura, FrontLogoFace, logo_face_color};
+    use bevy::picking::hover::Hovered;
+
+    let mut app = headless();
+    app.world_mut()
+        .insert_resource(crate::prefs::Prefs::default());
+    app.world_mut()
+        .resource_mut::<crate::prefs::Prefs>()
+        .edit()
+        .reduce_motion = true;
+    sized(&mut app, 1920.0);
+    app.update();
+
+    let brand = press_target(
+        &mut app,
+        Press::Memorial(crate::lobby::memorial::MemorialPress::Open),
+    );
+    assert_eq!(
+        app.world().get::<BackgroundColor>(brand),
+        Some(&BackgroundColor(Color::NONE)),
+        "transparent emblem wrapper must have no rectangular fill"
+    );
+    assert!(
+        app.world().get::<BoxShadow>(brand).is_none(),
+        "transparent PNG wrapper must never wear a rectangular BoxShadow"
+    );
+    assert_eq!(
+        app.world().get::<Node>(brand).unwrap().border,
+        UiRect::DEFAULT,
+        "transparent emblem wrapper must have zero border width"
+    );
+    assert_eq!(
+        app.world().get::<BorderColor>(brand),
+        Some(&BorderColor::DEFAULT),
+        "transparent emblem wrapper must have transparent BorderColor"
+    );
+    assert!(
+        app.world()
+            .get::<crate::ambience::FeelBorder>(brand)
+            .is_none(),
+        "transparent emblem wrapper must have no hover border"
+    );
+    assert!(
+        app.world().get::<crate::ambience::Feel>(brand).is_none(),
+        "emblem uses warm ImageNode color lift instead of rectangular Feel ground"
+    );
+
+    let kids: Vec<Entity> = app.world().get::<Children>(brand).unwrap().to_vec();
+    assert_eq!(
+        kids.len(),
+        5,
+        "dark veil + 2 silhouettes + aura + crisp logo"
+    );
+    let aura = kids
+        .iter()
+        .copied()
+        .find(|&e| app.world().get::<FrontLogoAura>(e).is_some())
+        .expect("aura child");
+    let crisp = kids
+        .iter()
+        .copied()
+        .find(|&e| app.world().get::<FrontLogoFace>(e).is_some())
+        .expect("crisp logo child");
+    assert_eq!(
+        app.world().get::<Visibility>(aura),
+        Some(&Visibility::Hidden)
+    );
+    assert_eq!(
+        app.world().get::<ImageNode>(crisp).unwrap().color,
+        Color::WHITE
+    );
+
+    app.world_mut().entity_mut(brand).insert(Hovered(true));
+    app.update();
+
+    assert_eq!(
+        app.world().get::<ImageNode>(crisp).unwrap().color,
+        logo_face_color(1.0)
+    );
+    assert_eq!(
+        app.world().get::<Visibility>(aura),
+        Some(&Visibility::Inherited)
+    );
+    assert_eq!(
+        app.world().get::<UiTransform>(brand).unwrap().scale,
+        Vec2::ONE,
+        "hovering the emblem must cause zero layout shift or scale jitter"
+    );
+}
+
+#[test]
+fn login_screen_cards_and_controls_carry_shellkit_elevation_shadows() {
+    use crate::shellkit::surfaces::{elevation_card, elevation_control};
+
+    let mut app = headless();
+    sized(&mut app, 1920.0);
+    app.update();
+
+    let card_shadows = app
+        .world_mut()
+        .query_filtered::<&BoxShadow, With<super::super::front::FrontCard>>()
+        .iter(app.world())
+        .count();
+    assert_eq!(card_shadows, 1);
+    let card_shadow = app
+        .world_mut()
+        .query_filtered::<&BoxShadow, With<super::super::front::FrontCard>>()
+        .iter(app.world())
+        .next()
+        .unwrap();
+    assert_eq!(card_shadow, &elevation_card());
+
+    let version = press_target(&mut app, Press::Front(FrontPress::OpenChangelog));
+    assert_eq!(
+        app.world().get::<BoxShadow>(version),
+        Some(&elevation_control())
+    );
+    let info = press_target(&mut app, Press::Front(FrontPress::About(true)));
+    assert_eq!(
+        app.world().get::<BoxShadow>(info),
+        Some(&elevation_control())
+    );
+}

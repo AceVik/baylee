@@ -72,6 +72,7 @@ impl Plugin for LobbyPlugin {
             .init_resource::<front::RowPlaces>()
             .init_resource::<front::terms::SheetFocus>()
             .init_resource::<front::keys::MovedByTheLobby>()
+            .init_resource::<front::door::FrontLogoMemory>()
             .init_resource::<menus::MenuMemory>()
             .add_systems(Startup, (ask_about_registration, ask_about_saved_gateways))
             // One chain, each link on its own condition: most of it is the
@@ -131,9 +132,10 @@ impl Plugin for LobbyPlugin {
                         front::keys::lobby_to_kit,
                         front::pose_front,
                         front::glide_the_stage,
-                        // After the rebuild, so a tile just stood up glows
+                        // After the rebuild, so a tile or emblem just stood up glows
                         // as the round says on its first frame.
                         front::door::beckon,
+                        front::door::animate_front_logo,
                     )
                         .chain()
                         .run_if(in_state(DuelPhase::Closed)),
