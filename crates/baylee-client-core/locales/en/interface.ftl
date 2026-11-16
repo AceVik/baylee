@@ -18,7 +18,7 @@ EchoesRankingTop = Top 25 · shared ranks
 EchoesRankingEmpty = No published completed expeditions in this board yet. Your next run could leave its first mark.
 EchoesRankingYou = You · private
 # Arguments: wins, defeats
-EchoesRankingScore = { $wins } wins · { $defeats } defeats/draws
+EchoesRankingScore = Wins: { $wins } · Defeats/draws: { $defeats }
 EchoesCollection = Tower medals
 EchoesCollectionLead = Your victories leave a mark. These permanent medals grow from Bronze to Obsidian across expeditions. They never expire and give no gameplay advantage.
 EchoesCollectionUnavailable = Your collection could not be refreshed. Previously confirmed progress stays visible; try again shortly.

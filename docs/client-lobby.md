@@ -48,6 +48,11 @@ same revision retains that draft; a different confirmed revision invalidates old
 choices. German/English phrases, icons, UTC creation timestamps and semantic
 keyboard focus accompany these controls. Catalogs and owned inventory are bounded
 and validated before the renderer receives them.
+The retained header follows the visible body's keyboard order: Play for the
+activity tiles, Challenges for Daily/Weekly, Echoes for Tower. Tower opens with
+Back focused; its confirmations start on Cancel and trap Tab until dismissed.
+The brand remains the last stop in the Tower page rather than selecting a second
+competing page order.
 
 The duel drawer reuses the shop's item art, rarity frames and localized rules.
 Shift+I opens its modal keyboard focus order. It shows both players' public

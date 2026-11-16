@@ -50,6 +50,7 @@ pub(crate) const ORDER: TabOrder = TabOrder {
         "starters",
         "cohort-page",
         "withdraw",
+        "baylee",
     ],
     modal: false,
 };

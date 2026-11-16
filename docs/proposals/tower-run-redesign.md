@@ -565,3 +565,51 @@ Always stop owned test processes and verify listeners close.
   not resolve the earlier intermittent capture observation.
   Screens: `/tmp/baylee-tower-pass9-{shop-1440,shop-1280,ranking-echoes,ranking-public,return-shop,return-shop-b}.png`.
   Client 94312, backend 94116 and PostgreSQL 94085 exited; ports 64074/64018 closed.
+- Rendered refinement 10 verified the corrected ranking date/score at 1280×720,
+  German/M and English/XL, both opponent lanes and the publication confirmation.
+  The final score wording uses labelled counts to avoid singular/plural mistakes;
+  all 17 localization/ranking tests passed again in 0.152 seconds. Screens:
+  `/tmp/baylee-tower-pass10-ranking-{de,en-xl}.png`; test log:
+  `/tmp/baylee-tower-ranking-copy-final-tests-20261116.log`.
+  A four-second capture requested 60 frames during Refresh: 35 were written,
+  25 dropped. Each written frame contained 996 bright title pixels and 199 gold
+  crown pixels in fixed crops. This is stable sampled evidence, not proof that
+  no unsampled frame flickered. The earlier intermittent header observation
+  remains unexplained. `/tmp/baylee-tower-title-frames-20261116.log` records counts.
+  A subsequent keyboard check found the retained header selecting the challenges
+  focus table over Tower controls; that finding requires correction and another
+  rendered pass. Client 97066, backend 97027 and PostgreSQL 96996 exited; ports
+  50807/50709 closed.
+- The complete feature matrix passed: client 2,708 unit and 108 integration tests,
+  gateway 328 unit and 342 integration tests, strict client/gateway feature Clippy,
+  dev-dylink, client/engine test support, engine fuzz/fork, gamehost normal/simulation,
+  card mutation and both Tower/no-loop engine-server all-target builds. The shipped
+  graph and reviewed crypto scope checks passed. PostgreSQL 95013 was reaped and
+  port 65162 closed. Evidence: `/tmp/baylee-tower-final-features-20261116-r2.log`.
+  Supplemental bench smoke, Scryfall cache, validation, generated API checks and
+  four API tests also passed (`/tmp/baylee-tower-final-extras-20261116.log`).
+  These results precede the final keyboard correction, which gets its own focused
+  tests and lint; no second full workspace run is implied.
+- The bounded Common-item pilot played 12 real engine duels: two three-item
+  packages, three seeds, both seat assignments, the same Emmara starter and equal
+  12-gold spend. Ten finished; two token/lifegain games reached 2,000 engine steps
+  at turns 40/41. The former `questions` column counted pump/action iterations and
+  is now correctly labelled `steps`; only the reporting name changed. One seat
+  uses the simple heuristic agent while the host uses Expert, so strong seat bias
+  prevents a fair balance conclusion. Do not change prices based on this sample
+  or describe the bounded unfinished games as engine-detected loops. Broad human
+  balance calibration remains a release task. Evidence:
+  `/tmp/baylee-tower-content-pilot-20261116.log`.
+- The retained header now uses the visible body's focus order: online activity
+  tiles use Play, Daily/Weekly uses Challenges, Tower uses Echoes. Tower's brand
+  is its last stop; page entry starts on Back and confirmations start on Cancel.
+  The running-system headless regression covers that retained header, Tab access,
+  confirmation containment/cancellation and the online activity tile. All 51
+  selected challenge, header, front-key and focus tests passed in 2.007 seconds
+  (`/tmp/baylee-tower-header-focus-tests-20261116-r3.log`). The first fixture had
+  opened a background read on an intentionally unanswered account worker before
+  injecting a confirmation; its setup was corrected to present the confirmation
+  before polling. No production transport or busy-state guard was relaxed.
+  Strict client/client-core all-target Clippy with dev-control/dev-reload passed
+  in 52.28 seconds (`/tmp/baylee-tower-header-focus-clippy-20261116.log`); scoped
+  formatting and whitespace checks passed.

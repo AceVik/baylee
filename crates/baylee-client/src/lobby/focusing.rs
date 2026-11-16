@@ -314,6 +314,8 @@ pub(super) fn initial_focus(
             .or_else(|| first("challenges", "play"))
             .or_else(|| first("challenges", "refresh")),
         Some("challenge-confirm") => first("challenge-confirm", "cancel"),
+        Some("echoes") => first("echoes", "back"),
+        Some("echoes-confirm") => first("echoes-confirm", "cancel"),
         Some("room") => first("room", "seats"),
         Some("create-table") => first("create-table", "name"),
         Some("history") => first("history", "versions"),

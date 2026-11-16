@@ -39,8 +39,10 @@ const BUILDS: [(&str, [Family; 3]); 3] = [
 fn main() {
     println!("Native Common-item pilot; identical 39+1 Emmara decks, 12 gold per build.");
     println!("Three fixed seeds, both build assignments; no shop policy or human-skill claim.");
-    println!("Limits: 2000 questions/80 turns per duel, 60 seconds total; no invented outcomes.");
-    println!("build,seed,challenger_seat,result,turns,questions,life0,life1");
+    println!(
+        "Limits: 2000 engine steps/80 turns per duel, 60 seconds total; no invented outcomes."
+    );
+    println!("build,seed,challenger_seat,result,turns,steps,life0,life1");
     let deadline = Instant::now() + Duration::from_secs(60);
     let deck = deck();
     for (name, challenger) in BUILDS.into_iter().take(2) {
@@ -93,9 +95,9 @@ fn play(
     // other chair runs the actual host policy; swapping builds exposes chair bias.
     let player = PlayerId::new(0);
     let agent = HeuristicAgent::new(profile).with_seed(seed);
-    let mut questions = 0;
+    let mut steps = 0;
     while !matches!(game.pending(), Pending::GameOver(_))
-        && questions < 2000
+        && steps < 2000
         && game.state().turn.number <= 80
         && Instant::now() < deadline
     {
@@ -109,7 +111,7 @@ fn play(
             game.act_slice(player, action, 0)
                 .expect("legal pilot answer");
         }
-        questions += 1;
+        steps += 1;
     }
     let result = if let Pending::GameOver(result) = game.pending() {
         let winners = game.winning_seats(*result);
@@ -124,7 +126,7 @@ fn play(
         "bounded-unfinished"
     };
     println!(
-        "{name},{seed},{challenger_seat},{result},{},{questions},{},{}",
+        "{name},{seed},{challenger_seat},{result},{},{steps},{},{}",
         game.state().turn.number,
         game.state().players[0].life,
         game.state().players[1].life,

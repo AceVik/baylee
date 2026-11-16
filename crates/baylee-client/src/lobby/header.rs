@@ -307,9 +307,8 @@ fn brand_table(state: &LobbyState) -> &'static str {
         return super::orders::ROOM.name;
     }
     match state.hub {
-        Hub::Play | Hub::Challenges if state.can_enter_challenges() => {
-            super::orders::CHALLENGES.name
-        }
+        Hub::Challenges if state.echoes.opened => super::echoes::keys::ORDER.name,
+        Hub::Challenges if state.can_enter_challenges() => super::orders::CHALLENGES.name,
         Hub::Decks => super::orders::DECKS.name,
         Hub::Play | Hub::Tables | Hub::Gateways | Hub::Challenges | Hub::Replays => {
             super::orders::PLAY.name

@@ -232,11 +232,11 @@ fn filling_a_phrase_puts_the_arguments_where_the_language_wants_them() {
     assert!(Phrase::PageOf.fill(Lang::En, &["1"]).contains("{1}"));
     assert_eq!(
         Phrase::EchoesRankingScore.fill(Lang::De, &["8", "1"]),
-        "8 Siege · 1 Niederlagen/Remis"
+        "Siege: 8 · Niederlagen/Remis: 1"
     );
     assert_eq!(
         Phrase::EchoesRankingScore.fill(Lang::En, &["8", "1"]),
-        "8 wins · 1 defeats/draws"
+        "Wins: 8 · Defeats/draws: 1"
     );
     for lang in Lang::ALL {
         assert!(
