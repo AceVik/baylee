@@ -613,3 +613,18 @@ Always stop owned test processes and verify listeners close.
   Strict client/client-core all-target Clippy with dev-control/dev-reload passed
   in 52.28 seconds (`/tmp/baylee-tower-header-focus-clippy-20261116.log`); scoped
   formatting and whitespace checks passed.
+- Rendered refinement 11 confirmed that the header now selects Echoes, but
+  actual Tab still lost focus. The native counter exposed continuous full-page
+  rebuilds: 1,459 total, 1,456 attributed to LobbyState. Inspection found that
+  the visible-page poller borrowed `state.echoes` mutably every idle frame even
+  when its refresh helper did nothing. Bevy correctly treated that borrow as a
+  change. The helper is now guarded by a shared-reference due check; a targeted
+  idle/change-detection regression covers shop, overview and ranking, including
+  one real scheduled worker submission. This is a plausible cause of the earlier
+  intermittent heading captures; the next rendered pass must establish the
+  corrected idle behavior and keyboard interaction. No complete-run acceptance
+  is claimed for this interrupted pass. Client 5092, backend 5074 and PostgreSQL
+  5059 exited; ports 64690/64638 closed.
+  Ten focused poller/navigation/recovery regressions passed in 0.335 seconds;
+  strict client dev-control/dev-reload all-target Clippy, formatting and whitespace
+  checks passed (`/tmp/baylee-tower-idle-{tests,clippy}-20261116.log`).

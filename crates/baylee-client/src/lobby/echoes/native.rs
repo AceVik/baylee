@@ -386,7 +386,12 @@ pub(super) fn tick(
     if !showing {
         return;
     }
-    refresh_visible(&mut state.echoes, time.elapsed_secs_f64(), &mut clock);
+    let now = time.elapsed_secs_f64();
+    // Even a no-op mutable borrow marks LobbyState changed and rebuilds the
+    // entire page. Decide with a shared reference before requesting a refresh.
+    if refresh_due(&state.echoes, now, *clock) {
+        refresh_visible(&mut state.echoes, now, &mut clock);
+    }
     if !state.echoes.reads.is_empty() {
         let read = state
             .echoes
@@ -399,22 +404,23 @@ pub(super) fn tick(
     }
 }
 
-fn refresh_visible(ui: &mut Ui, now: f64, clock: &mut f64) {
-    if ui.reads.is_empty()
+fn refresh_due(ui: &Ui, now: f64, clock: f64) -> bool {
+    ui.reads.is_empty()
         && ui.confirmation.is_none()
         && !ui.model.uncertain()
         && ui.choices.deck_unchanged(ui.model.run())
-        && ((!ui.loaded && ui.model.failure().is_none()) || now - *clock >= 15.0)
-    {
-        *clock = now;
-        if ui.page == Page::Ranking {
-            ui.refresh();
-        } else if let Some(run) = ui.model.run() {
-            let id = run.id;
-            ui.reads.push_back(Read::Run(id));
-        } else {
-            ui.refresh();
-        }
+        && ((!ui.loaded && ui.model.failure().is_none()) || now - clock >= 15.0)
+}
+
+fn refresh_visible(ui: &mut Ui, now: f64, clock: &mut f64) {
+    *clock = now;
+    if ui.page == Page::Ranking {
+        ui.refresh();
+    } else if let Some(run) = ui.model.run() {
+        let id = run.id;
+        ui.reads.push_back(Read::Run(id));
+    } else {
+        ui.refresh();
     }
 }
 

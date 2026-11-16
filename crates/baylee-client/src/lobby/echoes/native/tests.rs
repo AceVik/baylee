@@ -9,6 +9,44 @@ fn signed_in(handle: central::Handle) -> LobbyState {
 }
 
 #[test]
+fn resting_tower_pages_do_not_rebuild_and_due_reads_still_run_once() {
+    use bevy::ecs::system::RunSystemOnce;
+    for page in [Page::Shop, Page::Overview, Page::Ranking] {
+        let (handle, jobs) = central::Handle::queued_for_test();
+        let mut state = signed_in(handle);
+        state.hub = Hub::Challenges;
+        state.echoes.opened = true;
+        state.echoes.loaded = true;
+        state.echoes.page = page;
+        state.echoes.ranking = Some((Uuid::now_v7(), api::ranking::Lane::Echoes));
+        let mut app = App::new();
+        app.insert_resource(state)
+            .insert_resource(Time::<()>::default())
+            .init_resource::<super::super::super::Scrolled>();
+        app.world_mut().clear_trackers();
+        app.world_mut().run_system_once(tick).unwrap();
+        assert!(
+            !app.world().resource_ref::<LobbyState>().is_changed(),
+            "idle {page:?} must retain its rendered controls and keyboard focus"
+        );
+        assert!(jobs.try_recv().is_err());
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(std::time::Duration::from_secs(16));
+        app.world_mut().run_system_once(tick).unwrap();
+        assert!(
+            jobs.try_recv().is_ok(),
+            "due refresh still reaches the worker"
+        );
+        assert!(app.world().resource::<LobbyState>().echoes.model.busy());
+        app.world_mut().clear_trackers();
+        app.world_mut().run_system_once(tick).unwrap();
+        assert!(!app.world().resource_ref::<LobbyState>().is_changed());
+        assert!(jobs.try_recv().is_err(), "one read may be in flight");
+    }
+}
+
+#[test]
 fn departed_account_reply_and_credentials_cannot_populate_a_new_session() {
     let (first, _first_jobs) = central::Handle::queued_for_test();
     let mut state = signed_in(first);
