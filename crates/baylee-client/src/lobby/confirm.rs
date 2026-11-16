@@ -482,10 +482,16 @@ fn modal(
     cancel: Press,
     kind: DialogKind,
 ) -> Entity {
-    let border_col = match kind {
-        DialogKind::Destructive => tokens::DANGER.with_alpha(0.46),
-        DialogKind::Proposal => tokens::PRIMARY_EDGE.with_alpha(0.62),
-        DialogKind::Warning => tokens::GOLD.with_alpha(0.48),
+    use bevy::ui::{ColorStop, InterpolationColorSpace};
+    let top_rim = match kind {
+        DialogKind::Destructive => tokens::DANGER.with_alpha(0.54),
+        DialogKind::Proposal => Color::srgba(0.86, 0.78, 0.62, 0.48),
+        DialogKind::Warning => tokens::GOLD.with_alpha(0.54),
+    };
+    let side_rim = match kind {
+        DialogKind::Destructive => tokens::DANGER.with_alpha(0.34),
+        DialogKind::Proposal => Color::srgba(0.58, 0.66, 0.76, 0.34),
+        DialogKind::Warning => tokens::GOLD.with_alpha(0.34),
     };
     let panel = commands
         .spawn((
@@ -500,12 +506,21 @@ fn modal(
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
-            BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                Color::srgb(0.075, 0.115, 0.165).into(),
-                tokens::OPAQUE.into(),
-            ])),
-            BorderColor::all(border_col),
+            BackgroundColor(Color::NONE),
+            BackgroundGradient::from(
+                LinearGradient::to_bottom(vec![
+                    ColorStop::percent(Color::srgba(0.080, 0.130, 0.200, 0.64), 0.0),
+                    ColorStop::percent(Color::srgba(0.035, 0.068, 0.115, 0.58), 48.0),
+                    ColorStop::percent(Color::srgba(0.025, 0.050, 0.088, 0.68), 100.0),
+                ])
+                .in_color_space(InterpolationColorSpace::Srgba),
+            ),
+            BorderColor {
+                top: top_rim,
+                right: side_rim,
+                bottom: side_rim,
+                left: side_rim,
+            },
             crate::shellkit::surfaces::elevation_card(),
             Press::Shared(SharedPress::PickerNothing),
         ))
@@ -629,14 +644,14 @@ fn dialog_body(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, text:
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                 ..default()
             },
-            BackgroundColor(tokens::CONTROL),
-            BorderColor::all(tokens::BORDER),
+            BackgroundColor(Color::srgba(0.018, 0.038, 0.068, 0.46)),
+            BorderColor::all(Color::srgba(0.64, 0.70, 0.78, 0.26)),
             Pickable::IGNORE,
         ))
         .with_child((
             Text::new(text),
             tf(fonts, metrics.text),
-            TextColor(tokens::MUTED),
+            TextColor(tokens::INK.with_alpha(0.90)),
             Pickable::IGNORE,
         ))
         .id()
@@ -828,7 +843,7 @@ pub(super) fn draw_deletion(
                     shown: lobby.showing(field),
                 }),
                 press: Press::Shared(SharedPress::Focus(field)),
-                lead: None,
+                lead: Some(super::field::lead_glyph::LOCK),
                 hint: None,
                 tail: None,
             },

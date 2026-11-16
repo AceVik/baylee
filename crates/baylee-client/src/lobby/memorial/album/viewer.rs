@@ -20,53 +20,12 @@ pub(in crate::lobby::memorial) struct PhotoViewport;
 #[derive(Component)]
 pub(in crate::lobby::memorial) struct LargePhoto;
 
-pub(super) fn draw(
+fn photo_stage(
     c: &mut Commands,
-    root: Entity,
     state: &LobbyState,
     kit: Kit,
     assets: Option<&AssetServer>,
-) {
-    let lang = state.lobby.lang();
-    let phone = kit.m.frame == Frame::Phone;
-    let surface = surfaces::dialog(
-        c,
-        kit,
-        Val::Percent(94.0),
-        style::BRASS_BORDER,
-        Press::Memorial(MemorialPress::Nothing),
-    );
-    c.entity(surface)
-        .entry::<Node>()
-        .and_modify(move |mut node| {
-            node.height = if phone {
-                Val::Percent(100.0)
-            } else {
-                Val::Percent(92.0)
-            };
-        });
-    super::super::motion::attach(c, surface, false);
-
-    let mut close_access = accesskit::Node::new(accesskit::Role::Button);
-    close_access.set_label(Phrase::SheetClose.text(lang));
-    let sub = format!(
-        "Baylee · {:02} / {:02}",
-        state.memorial.photo + 1,
-        photos::PHOTOS.len()
-    );
-    let header = surfaces::dialog_header(
-        c,
-        kit,
-        surfaces::SheetHeader::new(Phrase::MemorialPhotos.text(lang))
-            .icon_colored('\u{f03e}', style::BRASS_LIGHT)
-            .subtitle_colored(&sub, style::BRASS_LIGHT)
-            .close((
-                Press::Memorial(MemorialPress::PhotoClose),
-                Stop::new(ALBUM_ORDER.name, "photo-close"),
-                bevy::a11y::AccessibilityNode(close_access),
-            )),
-    );
-
+) -> Entity {
     let stage = c
         .spawn((
             Node {
@@ -117,7 +76,68 @@ pub(super) fn draw(
     restore(c, image);
     c.entity(viewport).add_child(image);
     c.entity(stage).add_child(viewport);
+    stage
+}
 
+pub(super) fn draw(
+    c: &mut Commands,
+    root: Entity,
+    state: &LobbyState,
+    kit: Kit,
+    assets: Option<&AssetServer>,
+) {
+    let lang = state.lobby.lang();
+    let phone = kit.m.frame == Frame::Phone;
+    let surface = surfaces::dialog(
+        c,
+        kit,
+        Val::Percent(94.0),
+        style::BRASS_BORDER,
+        Press::Memorial(MemorialPress::Nothing),
+    );
+    c.entity(surface)
+        .insert((
+            BackgroundColor(Color::NONE),
+            style::dialog_gradient(),
+            style::dialog_border(),
+        ))
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            if phone {
+                node.width = Val::Percent(100.0);
+                node.max_width = Val::Percent(100.0);
+                node.height = Val::Percent(100.0);
+                node.max_height = Val::Percent(100.0);
+            } else {
+                node.width = Val::Percent(94.0);
+                node.max_width = kit.m.px(1040.0);
+                node.height = Val::Vh(88.0);
+                node.max_height = Val::Vh(90.0);
+            }
+        });
+    super::super::motion::attach(c, surface, false);
+
+    let mut close_access = accesskit::Node::new(accesskit::Role::Button);
+    close_access.set_label(Phrase::SheetClose.text(lang));
+    let sub = format!(
+        "Baylee · {:02} / {:02}",
+        state.memorial.photo + 1,
+        photos::PHOTOS.len()
+    );
+    let header = surfaces::dialog_header(
+        c,
+        kit,
+        surfaces::SheetHeader::new(Phrase::MemorialPhotos.text(lang))
+            .icon_colored('\u{f03e}', style::BRASS_LIGHT)
+            .subtitle_colored(&sub, style::BRASS_LIGHT)
+            .close((
+                Press::Memorial(MemorialPress::PhotoClose),
+                Stop::new(ALBUM_ORDER.name, "photo-close"),
+                bevy::a11y::AccessibilityNode(close_access),
+            )),
+    );
+
+    let stage = photo_stage(c, state, kit, assets);
     let toolbar = toolbar(c, state, kit);
     c.entity(surface).add_children(&[header, stage, toolbar]);
 
@@ -137,7 +157,7 @@ fn toolbar(c: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
         .spawn((
             Node {
                 width: Val::Percent(100.0),
-                padding: UiRect::axes(px_fixed(kit.m.pad), kit.m.px(12.0)),
+                padding: UiRect::axes(px_fixed(kit.m.pad), kit.m.px(11.0)),
                 column_gap: px_fixed(kit.m.gap),
                 row_gap: kit.m.px(8.0),
                 flex_wrap: FlexWrap::Wrap,
@@ -147,8 +167,8 @@ fn toolbar(c: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
                 border: UiRect::top(px_fixed(1.0)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.18)),
-            BorderColor::all(tokens::BORDER),
+            BackgroundColor(Color::srgba(0.018, 0.036, 0.062, 0.38)),
+            BorderColor::all(style::BRASS_BORDER.with_alpha(0.28)),
             Pickable::IGNORE,
         ))
         .id();

@@ -39,6 +39,35 @@ pub(crate) const FOOTER_BOTTOM: f32 = 10.0;
 /// Fixed height of the bottom-left version pill and bottom-right info pill.
 const FOOTER_PILL_H: f32 = 28.0;
 
+/// Leading release-tag glyph (`fa-tag`, `U+F02B`) inside the bottom-left version badge.
+pub(crate) const VERSION_TAG_GLYPH: char = '\u{f02b}';
+
+/// Airy 3-stop smoked cut-glass gradient for bottom colophon and tagline mist plates.
+///
+/// Paired with `BackgroundColor(Color::NONE)` so Bevy 0.20 draws a single airy
+/// glass quad (`0.38..0.48` alpha) over the animated world vista.
+pub(crate) fn glass_mist_gradient() -> BackgroundGradient {
+    use bevy::ui::{ColorStop, InterpolationColorSpace, LinearGradient};
+    BackgroundGradient::from(
+        LinearGradient::to_bottom(vec![
+            ColorStop::percent(Color::srgba(0.060, 0.110, 0.170, 0.46), 0.0),
+            ColorStop::percent(Color::srgba(0.030, 0.060, 0.100, 0.38), 50.0),
+            ColorStop::percent(Color::srgba(0.020, 0.045, 0.080, 0.48), 100.0),
+        ])
+        .in_color_space(InterpolationColorSpace::Srgba),
+    )
+}
+
+/// Subtle directional specular glass border for mist and colophon plates.
+pub(crate) const fn glass_mist_border() -> BorderColor {
+    BorderColor {
+        top: Color::srgba(0.86, 0.80, 0.66, 0.30),
+        right: Color::srgba(0.58, 0.66, 0.76, 0.20),
+        bottom: Color::srgba(0.46, 0.42, 0.34, 0.22),
+        left: Color::srgba(0.58, 0.66, 0.76, 0.20),
+    }
+}
+
 /// A mist plate holding a row of things that would stand on the painting.
 fn plate(commands: &mut Commands, kit: Kit) -> Entity {
     commands
@@ -52,10 +81,13 @@ fn plate(commands: &mut Commands, kit: Kit) -> Entity {
                 justify_content: JustifyContent::Center,
                 flex_wrap: FlexWrap::Wrap,
                 max_width: Val::Percent(100.0),
+                border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                 ..default()
             },
-            BackgroundColor(tokens::MIST),
+            BackgroundColor(Color::NONE),
+            glass_mist_gradient(),
+            glass_mist_border(),
             surfaces::elevation_control(),
             Pickable::IGNORE,
         ))
@@ -233,7 +265,6 @@ pub(super) fn front_logo(
             crate::ui_button::UiButton,
             Role::Hit,
             Name::new(name.to_owned()),
-            super::super::hint::HoverHint(name.to_owned()),
             bevy::a11y::AccessibilityNode(a11y),
             Press::Memorial(super::super::memorial::MemorialPress::Open),
             Stop::new(keys::table_of(state).name, "baylee"),
@@ -540,15 +571,15 @@ pub(in crate::lobby) fn header_icon_btn(
 ) -> Entity {
     let h = px_fixed(kit.m.control * 0.78);
     let bg = if active {
-        Color::srgba(0.08, 0.21, 0.23, 0.90)
+        Color::srgba(0.08, 0.21, 0.23, 0.72)
     } else {
-        Color::srgba(0.05, 0.09, 0.14, 0.88)
+        Color::srgba(0.04, 0.08, 0.13, 0.56)
     };
-    let hot = Color::srgba(0.11, 0.18, 0.26, 0.96);
+    let hot = Color::srgba(0.11, 0.19, 0.28, 0.86);
     let border = if active {
         tokens::ACCENT.with_alpha(0.55)
     } else {
-        tokens::BORDER
+        Color::srgba(0.64, 0.70, 0.78, 0.34)
     };
     let face = commands
         .spawn((
@@ -869,15 +900,15 @@ pub(in crate::lobby) fn lang_dropdown(
         ))
         .id();
     let trigger_bg = if open {
-        Color::srgba(0.08, 0.21, 0.23, 0.94)
+        Color::srgba(0.08, 0.21, 0.23, 0.82)
     } else {
-        Color::srgba(0.05, 0.09, 0.14, 0.88)
+        Color::srgba(0.04, 0.08, 0.13, 0.56)
     };
-    let trigger_hot = Color::srgba(0.11, 0.18, 0.26, 0.96);
+    let trigger_hot = Color::srgba(0.11, 0.19, 0.28, 0.86);
     let trigger_border = if open {
         tokens::ACCENT.with_alpha(0.70)
     } else {
-        tokens::BORDER
+        Color::srgba(0.64, 0.70, 0.78, 0.34)
     };
     let face = commands
         .spawn((
@@ -1204,9 +1235,9 @@ pub(super) fn register_cta(
     action: impl Bundle,
 ) -> Entity {
     let look = DoorLook {
-        rest: Color::srgba(0.11, 0.18, 0.30, 0.94),
-        hot: Color::srgba(0.16, 0.26, 0.42, 0.98),
-        rim: tokens::PRIMARY_EDGE.with_alpha(0.68),
+        rest: Color::srgba(0.10, 0.18, 0.30, 0.68),
+        hot: Color::srgba(0.16, 0.26, 0.42, 0.90),
+        rim: tokens::PRIMARY_EDGE.with_alpha(0.62),
         glyph: '\u{f234}',
         glyph_size: 0.88,
     };
@@ -1222,9 +1253,9 @@ pub(super) fn offline_cta(
     action: impl Bundle,
 ) -> Entity {
     let look = DoorLook {
-        rest: Color::srgba(0.10, 0.23, 0.22, 0.94),
-        hot: Color::srgba(0.15, 0.33, 0.31, 0.98),
-        rim: tokens::ACCENT.with_alpha(0.60),
+        rest: Color::srgba(0.09, 0.22, 0.21, 0.68),
+        hot: Color::srgba(0.15, 0.33, 0.31, 0.90),
+        rim: tokens::ACCENT.with_alpha(0.56),
         glyph: '\u{f04b}',
         glyph_size: 0.86,
     };
@@ -1240,9 +1271,9 @@ pub(super) fn onward_cta(
     action: impl Bundle,
 ) -> Entity {
     let look = DoorLook {
-        rest: Color::srgba(0.05, 0.09, 0.14, 0.88),
-        hot: Color::srgba(0.11, 0.18, 0.26, 0.96),
-        rim: tokens::BORDER,
+        rest: Color::srgba(0.04, 0.08, 0.14, 0.56),
+        hot: Color::srgba(0.11, 0.18, 0.26, 0.84),
+        rim: Color::srgba(0.64, 0.70, 0.78, 0.34),
         glyph: '\u{f061}',
         glyph_size: 0.84,
     };
@@ -1339,10 +1370,13 @@ pub(super) fn full(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ent
                 max_width: kit.m.px(COLOPHON_MEASURE),
                 padding: UiRect::axes(kit.m.px(16.0), kit.m.px(8.0)),
                 row_gap: kit.m.px(4.0),
+                border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                 ..default()
             },
-            BackgroundColor(tokens::MIST),
+            BackgroundColor(Color::NONE),
+            glass_mist_gradient(),
+            glass_mist_border(),
             surfaces::elevation_control(),
             Pickable::IGNORE,
         ))
@@ -1471,16 +1505,16 @@ pub(super) fn community_row(
 }
 
 const WHATSAPP_GREEN: Color = Color::srgb(0.32, 0.82, 0.49);
-const WHATSAPP_PILL_BG: Color = Color::srgba(0.08, 0.19, 0.14, 0.94);
-const WHATSAPP_PILL_HOT: Color = Color::srgba(0.12, 0.27, 0.20, 0.98);
+const WHATSAPP_PILL_BG: Color = Color::srgba(0.06, 0.16, 0.11, 0.62);
+const WHATSAPP_PILL_HOT: Color = Color::srgba(0.11, 0.26, 0.19, 0.88);
 const DISCORD_ACCENT: Color = Color::srgb(0.52, 0.62, 0.98);
-const DISCORD_PILL_BG: Color = Color::srgba(0.10, 0.14, 0.24, 0.94);
-const DISCORD_PILL_HOT: Color = Color::srgba(0.15, 0.20, 0.34, 0.98);
+const DISCORD_PILL_BG: Color = Color::srgba(0.08, 0.12, 0.22, 0.62);
+const DISCORD_PILL_HOT: Color = Color::srgba(0.14, 0.19, 0.33, 0.88);
 const GITHUB_ACCENT: Color = Color::srgb(0.82, 0.88, 0.96);
-const GITHUB_PILL_BG: Color = Color::srgba(0.09, 0.13, 0.18, 0.94);
-const GITHUB_PILL_HOT: Color = Color::srgba(0.14, 0.20, 0.27, 0.98);
-const WEBSITE_PILL_BG: Color = Color::srgba(0.07, 0.17, 0.22, 0.94);
-const WEBSITE_PILL_HOT: Color = Color::srgba(0.11, 0.25, 0.31, 0.98);
+const GITHUB_PILL_BG: Color = Color::srgba(0.07, 0.11, 0.16, 0.62);
+const GITHUB_PILL_HOT: Color = Color::srgba(0.13, 0.19, 0.26, 0.88);
+const WEBSITE_PILL_BG: Color = Color::srgba(0.06, 0.15, 0.20, 0.62);
+const WEBSITE_PILL_HOT: Color = Color::srgba(0.10, 0.24, 0.30, 0.88);
 
 #[allow(clippy::too_many_arguments)] // distinct visual tokens per community pill
 fn community_pill(
@@ -1648,15 +1682,16 @@ pub(crate) fn beckon(
 }
 
 /// Client version badge in the bottom-left corner of the window:
-/// `0.1.0-beta.9c` in bold, followed by `#<number>` smaller and subtler on the
-/// exact same horizontal line (`AlignItems::Center`), without `"Build"` or
-/// `"this client"`. Clicking it opens the Changelog in the browser.
+/// a leading release-tag glyph, `0.1.0-beta.9c` in bold, followed by
+/// `#<number>` smaller and subtler on the exact same horizontal line
+/// (`AlignItems::Center`), without `"Build"` or `"this client"`. Clicking it
+/// opens the Changelog in the browser.
 pub(crate) fn version_line(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
     let phone = kit.m.frame == Frame::Phone;
     let lang = state.lobby.lang();
     let table = keys::table_of(state).name;
-    let bg = Color::srgba(0.04, 0.07, 0.11, 0.88);
-    let border = tokens::BORDER.with_alpha(0.68);
+    let bg = Color::srgba(0.035, 0.068, 0.115, 0.50);
+    let border = Color::srgba(0.68, 0.74, 0.82, 0.32);
     let hint = Phrase::FrontChangelogHint.text(lang);
     let row = commands
         .spawn((
@@ -1687,7 +1722,7 @@ pub(crate) fn version_line(commands: &mut Commands, state: &LobbyState, kit: Kit
             surfaces::elevation_control(),
             crate::ambience::Feel {
                 lift: 0.0,
-                ..crate::ambience::Feel::tinting_to(bg, Color::srgba(0.09, 0.15, 0.22, 0.95))
+                ..crate::ambience::Feel::tinting_to(bg, Color::srgba(0.09, 0.16, 0.24, 0.84))
             },
             crate::ambience::FeelBorder {
                 rest: border,
@@ -1704,6 +1739,14 @@ pub(crate) fn version_line(commands: &mut Commands, state: &LobbyState, kit: Kit
     if matches!(state.lobby.screen(), Screen::SignIn { .. }) || state.showing_gateway_hub() {
         commands.entity(row).insert(Stop::new(table, "changelog"));
     }
+    let tag_icon = commands
+        .spawn((
+            Text::new(VERSION_TAG_GLYPH.to_string()),
+            crate::hud::icon_tf(kit.fonts, kit.m.small * 0.84),
+            TextColor(tokens::ACCENT),
+            Pickable::IGNORE,
+        ))
+        .id();
     let ver = commands
         .spawn((
             Text::new(baylee_build::VERSION),
@@ -1713,7 +1756,7 @@ pub(crate) fn version_line(commands: &mut Commands, state: &LobbyState, kit: Kit
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(row).add_child(ver);
+    commands.entity(row).add_children(&[tag_icon, ver]);
     if !baylee_build::BUILD_NUMBER.is_empty() {
         let build = commands
             .spawn((
@@ -1743,14 +1786,14 @@ pub(crate) fn info_line(commands: &mut Commands, state: &LobbyState, kit: Kit) -
     let table = keys::table_of(state).name;
     let active = state.about_open;
     let bg = if active {
-        Color::srgba(0.08, 0.21, 0.23, 0.90)
+        Color::srgba(0.08, 0.21, 0.24, 0.72)
     } else {
-        Color::srgba(0.04, 0.07, 0.11, 0.88)
+        Color::srgba(0.035, 0.068, 0.115, 0.50)
     };
     let border = if active {
         tokens::ACCENT.with_alpha(0.65)
     } else {
-        tokens::BORDER.with_alpha(0.68)
+        Color::srgba(0.68, 0.74, 0.82, 0.32)
     };
     let row = commands
         .spawn((
@@ -1785,9 +1828,9 @@ pub(crate) fn info_line(commands: &mut Commands, state: &LobbyState, kit: Kit) -
                 ..crate::ambience::Feel::tinting_to(
                     bg,
                     if active {
-                        Color::srgba(0.11, 0.27, 0.30, 0.96)
+                        Color::srgba(0.11, 0.27, 0.30, 0.90)
                     } else {
-                        Color::srgba(0.09, 0.15, 0.22, 0.95)
+                        Color::srgba(0.09, 0.16, 0.24, 0.84)
                     },
                 )
             },
@@ -1895,6 +1938,7 @@ pub(super) fn community_dialog(
     );
     commands
         .entity(dialog)
+        .insert((BackgroundColor(Color::NONE), super::glass_card_gradient()))
         .entry::<Node>()
         .and_modify(move |mut node| {
             node.align_items = AlignItems::Center;
@@ -2131,9 +2175,33 @@ fn qr_frame(commands: &mut Commands, picture: Entity) -> Entity {
         .id()
 }
 
-/// The tagline on its mist plate.
+/// The tagline on its airy cut-glass mist plate.
 pub(super) fn tagline(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
-    surfaces::mist(commands, kit, Phrase::WelcomeNote.text(state.lobby.lang()))
+    let plate = commands
+        .spawn((
+            Role::Mist,
+            Node {
+                padding: UiRect::axes(kit.m.px(12.0), kit.m.px(4.0)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            glass_mist_gradient(),
+            glass_mist_border(),
+            surfaces::elevation_control(),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let words = controls::label(
+        commands,
+        kit,
+        Phrase::WelcomeNote.text(state.lobby.lang()),
+        kit.m.small,
+        tokens::INK,
+    );
+    commands.entity(plate).add_child(words);
+    plate
 }
 
 #[allow(clippy::too_many_lines)] // one sheet, read top to bottom

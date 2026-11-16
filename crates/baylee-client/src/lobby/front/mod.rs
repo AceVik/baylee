@@ -95,7 +95,7 @@ const HEADER_HEIGHT: f32 = 36.0;
 ///
 /// Not a `Phrase`: it is quoted, not written, and a translation of it would
 /// be a notice nobody approved. It stands under the panel in every language.
-pub(crate) const FAN_CONTENT_NOTICE: &str = "baylee is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.";
+pub(crate) const FAN_CONTENT_NOTICE: &str = "Baylee is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.";
 
 /// The card's width (§3, §2.7): 720 × the text step on a desktop (600
 /// until the owner found the forms squeezed, 09.10.2026), the body's width
@@ -152,18 +152,6 @@ impl Panel {
             }
         } else {
             Self::Gateway
-        }
-    }
-
-    /// Each panel's own leather: a panel fades on its own, and the leather's
-    /// density is a uniform of its material, which is one per slot.
-    fn slot(self) -> u8 {
-        match self {
-            Self::Gateway => 1,
-            Self::SignIn => 10,
-            Self::Create => 11,
-            Self::Guest => 12,
-            Self::NewPassword => 13,
         }
     }
 }
@@ -598,9 +586,35 @@ pub(super) fn pose_front(
 #[derive(Component, Clone)]
 pub(super) struct Unfaded {
     fill: Option<Color>,
+    gradient: Option<BackgroundGradient>,
     border: Option<BorderColor>,
     ink: Option<Color>,
     shadow: Option<Vec<Color>>,
+}
+
+fn scale_gradient_alpha(base: &BackgroundGradient, alpha: f32) -> BackgroundGradient {
+    use bevy::ui::Gradient;
+    let mut scaled = base.clone();
+    for g in &mut scaled.0 {
+        match g {
+            Gradient::Linear(l) => {
+                for stop in &mut l.stops {
+                    stop.color = stop.color.with_alpha(stop.color.alpha() * alpha);
+                }
+            }
+            Gradient::Radial(r) => {
+                for stop in &mut r.stops {
+                    stop.color = stop.color.with_alpha(stop.color.alpha() * alpha);
+                }
+            }
+            Gradient::Conic(c) => {
+                for stop in &mut c.stops {
+                    stop.color = stop.color.with_alpha(stop.color.alpha() * alpha);
+                }
+            }
+        }
+    }
+    scaled
 }
 
 /// Fades a panel on its way through the door, and its leather with it.
@@ -619,6 +633,7 @@ pub(super) fn fade_front(
     children: Query<&Children>,
     mut nodes: Query<(
         Option<&mut BackgroundColor>,
+        Option<&mut BackgroundGradient>,
         Option<&mut BorderColor>,
         Option<&mut TextColor>,
         Option<&mut BoxShadow>,
@@ -640,7 +655,7 @@ pub(super) fn fade_front(
             if alpha >= 1.0 {
                 continue;
             }
-            let Ok((fill, border, ink, shadow, unfaded)) = nodes.get_mut(node) else {
+            let Ok((fill, gradient, border, ink, shadow, unfaded)) = nodes.get_mut(node) else {
                 continue;
             };
             // The first faded frame: what it is now is what it was. Faded in
@@ -652,6 +667,7 @@ pub(super) fn fade_front(
             } else {
                 fresh = Unfaded {
                     fill: fill.as_ref().map(|f| f.0),
+                    gradient: gradient.as_deref().cloned(),
                     border: border.as_deref().copied(),
                     ink: ink.as_ref().map(|i| i.0),
                     shadow: shadow
@@ -664,6 +680,9 @@ pub(super) fn fade_front(
             let share = |colour: Color| colour.with_alpha(colour.alpha() * alpha);
             if let (Some(mut fill), Some(base)) = (fill, unfaded.fill) {
                 fill.set_if_neq(BackgroundColor(share(base)));
+            }
+            if let (Some(mut gradient), Some(base)) = (gradient, unfaded.gradient.as_ref()) {
+                gradient.set_if_neq(scale_gradient_alpha(base, alpha));
             }
             if let (Some(mut border), Some(base)) = (border, unfaded.border) {
                 border.set_if_neq(BorderColor {
@@ -842,7 +861,33 @@ pub(super) fn card_shadow() -> BoxShadow {
     crate::shellkit::surfaces::elevation_card()
 }
 
-/// One panel: the dock's leather and its inlays, the card's own shadow,
+/// Translucent 3-stop smoked cut-glass gradient for front-door form cards.
+///
+/// Paired with `BackgroundColor(Color::NONE)` so Bevy 0.20 renders a single
+/// translucent glass quad over the animated world vista instead of stacking two.
+pub(crate) fn glass_card_gradient() -> BackgroundGradient {
+    use bevy::ui::{ColorStop, InterpolationColorSpace, LinearGradient};
+    BackgroundGradient::from(
+        LinearGradient::to_bottom(vec![
+            ColorStop::percent(Color::srgba(0.080, 0.130, 0.200, 0.60), 0.0),
+            ColorStop::percent(Color::srgba(0.035, 0.068, 0.115, 0.54), 48.0),
+            ColorStop::percent(Color::srgba(0.025, 0.050, 0.088, 0.64), 100.0),
+        ])
+        .in_color_space(InterpolationColorSpace::Srgba),
+    )
+}
+
+/// Crisp directional specular cut-glass rim for front-door form cards.
+pub(crate) const fn glass_card_border() -> BorderColor {
+    BorderColor {
+        top: Color::srgba(0.86, 0.78, 0.62, 0.44),
+        right: Color::srgba(0.58, 0.66, 0.76, 0.30),
+        bottom: Color::srgba(0.46, 0.42, 0.34, 0.34),
+        left: Color::srgba(0.58, 0.66, 0.76, 0.30),
+    }
+}
+
+/// One panel: smoked cut-glass optics, multi-layer elevation shadow,
 /// and the face it shows.
 fn card(
     commands: &mut Commands,
@@ -870,29 +915,22 @@ fn card(
                 } else {
                     14.0
                 }),
-                // The foot's inlays stand clear of the tooled line, and the
-                // last row stands clear of them.
                 padding: UiRect {
                     left: px_fixed(side),
                     right: px_fixed(side),
-                    top: px_fixed(side * if panel == Panel::Gateway { 0.45 } else { 0.8 }),
-                    bottom: px_fixed(
-                        side * if panel == Panel::Gateway { 0.5 } else { 1.0 }
-                            + super::dock::INLAY_LIFT,
-                    ),
+                    top: px_fixed(side * if panel == Panel::Gateway { 0.72 } else { 0.90 }),
+                    bottom: px_fixed(side * if panel == Panel::Gateway { 0.76 } else { 0.94 }),
                 },
                 border: UiRect::all(px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(CARD_RADIUS)),
                 ..default()
             },
-            // No fill of its own: the leather under it is the fill, cut to
-            // the same corners, and a square fill here is what showed past
-            // the rounding before.
-            BorderColor::all(palette::DOCK_EDGE.with_alpha(0.45)),
+            BackgroundColor(Color::NONE),
+            glass_card_gradient(),
+            glass_card_border(),
             card_shadow(),
             UiTransform::default(),
             ZIndex(1),
-            super::dock::Dock(panel.slot()),
             Pickable::IGNORE,
         ))
         .id();
@@ -1763,7 +1801,7 @@ mod tests {
                 .split_whitespace()
                 .collect::<Vec<_>>()
                 .join(" "),
-            "baylee is unofficial Fan Content permitted under the Fan Content Policy. \
+            "Baylee is unofficial Fan Content permitted under the Fan Content Policy. \
              Not approved/endorsed by Wizards. Portions of the materials used are \
              property of Wizards of the Coast. \u{a9}Wizards of the Coast LLC."
         );

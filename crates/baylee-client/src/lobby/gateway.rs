@@ -539,8 +539,9 @@ fn toolbar_icon_btn(
     use crate::shellkit::tokens;
 
     let side = kit.m.control;
-    let rest_bg = tokens::CONTROL.with_alpha(0.82);
-    let hot_bg = crate::ambience::lighter(rest_bg, 0.18);
+    let rest_bg = Color::srgba(0.035, 0.068, 0.115, 0.56);
+    let hot_bg = Color::srgba(0.10, 0.18, 0.27, 0.84);
+    let rest_border = Color::srgba(0.64, 0.70, 0.78, 0.34);
     let btn = commands
         .spawn((
             Node {
@@ -554,7 +555,7 @@ fn toolbar_icon_btn(
                 ..default()
             },
             BackgroundColor(rest_bg),
-            BorderColor::all(tokens::BORDER),
+            BorderColor::all(rest_border),
             super::hint::HoverHint(hint),
         ))
         .id();
@@ -565,7 +566,7 @@ fn toolbar_icon_btn(
             crate::shellkit::surfaces::elevation_control(),
             crate::ambience::Feel::tinting_to(rest_bg, hot_bg),
             crate::ambience::FeelBorder {
-                rest: tokens::BORDER,
+                rest: rest_border,
                 hot: tokens::PRIMARY_EDGE,
                 press: tokens::ACCENT,
             },
@@ -1058,8 +1059,8 @@ fn empty_matches(
                 border_radius: BorderRadius::all(px(10)),
                 ..default()
             },
-            BackgroundColor(palette::PANEL.with_alpha(0.65)),
-            BorderColor::all(crate::shellkit::tokens::BORDER.with_alpha(0.75)),
+            BackgroundColor(Color::srgba(0.024, 0.050, 0.088, 0.44)),
+            BorderColor::all(Color::srgba(0.64, 0.70, 0.78, 0.28)),
             Pickable::IGNORE,
         ))
         .id();
@@ -1161,11 +1162,14 @@ fn group_header(
                 column_gap: px(8),
                 ..default()
             },
-            BackgroundColor(palette::PANEL.with_alpha(0.45)),
+            BackgroundColor(Color::srgba(0.030, 0.060, 0.105, 0.36)),
             crate::shellkit::surfaces::elevation_control(),
             Press::Front(FrontPress::ToggleGatewayGroup(group)),
             super::front::keys::stop(state, group_stop_id(group)),
-            crate::ambience::Feel::tinting_to(palette::PANEL.with_alpha(0.45), palette::PANEL_HOT),
+            crate::ambience::Feel::tinting_to(
+                Color::srgba(0.030, 0.060, 0.105, 0.36),
+                Color::srgba(0.085, 0.155, 0.240, 0.64),
+            ),
             crate::ambience::FeelShadow,
         ))
         .id();
@@ -1211,6 +1215,18 @@ fn group_header(
         .entity(left)
         .add_children(&[arrow, status_dot, label]);
 
+    let badge = group_count_badge(commands, fonts, metrics, dot_color, count);
+    commands.entity(header).add_children(&[left, badge]);
+    header
+}
+
+fn group_count_badge(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    dot_color: Color,
+    count: usize,
+) -> Entity {
     let badge = commands
         .spawn((
             Node {
@@ -1237,8 +1253,7 @@ fn group_header(
         ))
         .id();
     commands.entity(badge).add_child(count_text);
-    commands.entity(header).add_children(&[left, badge]);
-    header
+    badge
 }
 
 /// One saved gateway:
@@ -1260,15 +1275,15 @@ fn style_gateway_control(
 ) {
     let right_pad = bin_side(metrics) + 16.0;
     let rest_bg = if marked {
-        Color::srgba(0.16, 0.25, 0.35, 0.96)
+        Color::srgba(0.12, 0.22, 0.33, 0.78)
     } else {
-        Color::srgba(0.10, 0.15, 0.22, 0.92)
+        Color::srgba(0.055, 0.105, 0.175, 0.58)
     };
-    let hot_bg = Color::srgba(0.20, 0.31, 0.43, 0.98);
+    let hot_bg = Color::srgba(0.14, 0.25, 0.38, 0.86);
     let rest_border = if marked {
         palette::ACCENT
     } else {
-        crate::shellkit::tokens::BORDER.with_alpha(0.85)
+        Color::srgba(0.64, 0.70, 0.78, 0.32)
     };
     commands
         .entity(control)
@@ -1329,9 +1344,9 @@ fn gateway_row(
     let marked = state.gateway_cursor == Some(index);
     let last_used = index == 0 && state.uses.of(url).count > 0;
     let rest_bg = if marked {
-        Color::srgba(0.16, 0.25, 0.35, 0.96)
+        Color::srgba(0.12, 0.22, 0.33, 0.78)
     } else {
-        Color::srgba(0.10, 0.15, 0.22, 0.92)
+        Color::srgba(0.055, 0.105, 0.175, 0.58)
     };
     let control = button(
         commands,

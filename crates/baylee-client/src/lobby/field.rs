@@ -5,6 +5,31 @@ use super::*;
 
 // ----------------------------------------------------------- node makers
 
+/// Verified Font Awesome Free (`fa-solid-900.ttf`) prefix glyphs for lobby fields.
+pub(crate) mod lead_glyph {
+    /// `fa-user` (`U+F007`): username / account handle field.
+    pub(crate) const USER: char = '\u{f007}';
+    /// `fa-id-card` (`U+F2C2`): display name / guest handle field.
+    pub(crate) const ID_CARD: char = '\u{f2c2}';
+    /// `fa-lock` (`U+F023`): password / password confirmation field.
+    pub(crate) const LOCK: char = crate::hud::glyph::LOCK;
+    /// `fa-key` (`U+F084`): new password / reset credential field.
+    pub(crate) const KEY: char = '\u{f084}';
+    /// `fa-globe` (`U+F0AC`): gateway URL / server address field.
+    pub(crate) const GLOBE: char = '\u{f0ac}';
+    /// `fa-magnifying-glass` (`U+F002`): search / filter field.
+    pub(crate) const SEARCH: char = crate::hud::glyph::MAGNIFIER;
+}
+
+/// Marker on the leading prefix-icon slot inside a [`text_field`].
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct FieldLeadIcon;
+
+/// Unfocused prefix-icon tint: muted warm brass/parchment.
+pub(crate) const LEAD_REST_INK: Color = Color::srgba(0.76, 0.70, 0.56, 0.76);
+/// Focused prefix-icon tint: warm luminous gold/ivory.
+pub(crate) const LEAD_FOCUS_INK: Color = Color::srgba(0.96, 0.85, 0.58, 1.0);
+
 /// Everything a [`text_field`] draws that is not its label.
 pub(crate) struct FieldLook<'a> {
     /// The text, the caret and the selection to draw.
@@ -212,8 +237,8 @@ pub(super) fn text_field_hinted(
         let caption = commands
             .spawn((
                 Text::new(label),
-                tf(fonts, metrics.small * 0.8),
-                TextColor(tokens::MUTED),
+                tf(fonts, metrics.small * 0.82),
+                TextColor(Color::srgb(0.82, 0.85, 0.89)),
                 Pickable::IGNORE,
             ))
             .id();
@@ -224,10 +249,16 @@ pub(super) fn text_field_hinted(
     } else {
         tokens::RADIUS_CONTROL
     };
+    let rest_border = Color::srgba(0.64, 0.70, 0.78, 0.34);
     let border = if look.focused {
         tokens::ACCENT
     } else {
-        tokens::BORDER
+        rest_border
+    };
+    let box_bg = if look.focused {
+        Color::srgba(0.026, 0.054, 0.092, 0.74)
+    } else {
+        Color::srgba(0.018, 0.038, 0.068, 0.60)
     };
     let boxed = commands
         .spawn((
@@ -243,7 +274,7 @@ pub(super) fn text_field_hinted(
                 border_radius: BorderRadius::all(px(radius)),
                 ..default()
             },
-            BackgroundColor(tokens::CONTROL),
+            BackgroundColor(box_bg),
             BorderColor::all(border),
             field_box_shadow(),
             look.press,
@@ -251,7 +282,7 @@ pub(super) fn text_field_hinted(
         .id();
     if !look.focused {
         commands.entity(boxed).insert(crate::ambience::FeelBorder {
-            rest: tokens::BORDER,
+            rest: rest_border,
             hot: tokens::PRIMARY_EDGE,
             press: tokens::ACCENT,
         });
@@ -267,7 +298,7 @@ pub(super) fn text_field_hinted(
         }
     }
     if let Some(glyph) = look.lead {
-        let mark = lead_mark(commands, fonts, metrics, glyph);
+        let mark = lead_mark(commands, fonts, metrics, glyph, look.focused);
         commands.entity(boxed).add_child(mark);
     }
     for run in field_runs(commands, fonts, metrics, look) {
@@ -317,18 +348,40 @@ fn append_field_tail(
     }
 }
 
-/// The glyph a box leads with (the search's magnifier).
-fn lead_mark(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, glyph: char) -> Entity {
+/// Fixed-width, vertically centered prefix-icon slot inside an input box.
+///
+/// Wrapped in its own container `Node` so every field's text aligns at the
+/// exact same left edge regardless of glyph advance, and muted warm
+/// brass/parchment brightens to warm gold/ivory when the field holds focus.
+fn lead_mark(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    glyph: char,
+    focused: bool,
+) -> Entity {
+    let ink = if focused {
+        LEAD_FOCUS_INK
+    } else {
+        LEAD_REST_INK
+    };
     commands
         .spawn((
-            Text::new(glyph.to_string()),
-            crate::hud::icon_tf(fonts, metrics.small * 0.85),
-            TextColor(crate::shellkit::tokens::MUTED),
+            FieldLeadIcon,
             Node {
-                margin: UiRect::right(px(metrics.gap * 0.5)),
+                width: px(18),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                margin: UiRect::right(px(metrics.gap * 0.65)),
                 flex_shrink: 0.0,
                 ..default()
             },
+            Pickable::IGNORE,
+        ))
+        .with_child((
+            Text::new(glyph.to_string()),
+            crate::hud::icon_tf(fonts, metrics.small * 0.90),
+            TextColor(ink),
             Pickable::IGNORE,
         ))
         .id()

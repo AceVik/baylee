@@ -1964,6 +1964,18 @@ fn front_logo_casts_silhouette_shadows_and_warm_aura_without_box_or_layout_shift
         &mut app,
         Press::Memorial(crate::lobby::memorial::MemorialPress::Open),
     );
+    assert!(
+        app.world()
+            .get::<super::super::hint::HoverHint>(brand)
+            .is_none(),
+        "login Baylee emblem must not display a hover tooltip"
+    );
+    assert!(
+        app.world()
+            .get::<crate::shellkit::controls::Tooltip>(brand)
+            .is_none(),
+        "login Baylee emblem must not attach a floating tooltip"
+    );
     assert_eq!(
         app.world().get::<BackgroundColor>(brand),
         Some(&BackgroundColor(Color::NONE)),
@@ -2068,5 +2080,172 @@ fn login_screen_cards_and_controls_carry_shellkit_elevation_shadows() {
     assert_eq!(
         app.world().get::<BoxShadow>(info),
         Some(&elevation_control())
+    );
+}
+
+#[test]
+fn login_cards_mist_plates_and_confirm_modals_use_single_quad_cut_glass() {
+    use crate::shellkit::role::Role;
+    use bevy::ui::Gradient;
+
+    let mut app = headless();
+    app.world_mut().resource_mut::<LobbyState>().gateways = vec!["https://a.example".into()];
+    sized(&mut app, 1920.0);
+    app.update();
+
+    let check_single_quad_glass = |world: &World,
+                                   entity: Entity,
+                                   min_alpha: f32,
+                                   max_alpha: f32,
+                                   label: &str| {
+        assert_eq!(
+            world.get::<BackgroundColor>(entity),
+            Some(&BackgroundColor(Color::NONE)),
+            "{label}: BackgroundColor must be Color::NONE to prevent Bevy 0.20 double-quad opacity stacking"
+        );
+        let grad = world
+            .get::<BackgroundGradient>(entity)
+            .unwrap_or_else(|| panic!("{label}: missing BackgroundGradient"));
+        let Gradient::Linear(linear) = &grad.0[0] else {
+            panic!("{label}: expected linear glass gradient");
+        };
+        assert_eq!(
+            linear.stops.len(),
+            3,
+            "{label}: expected 3-stop cut-glass gradient"
+        );
+        for stop in &linear.stops {
+            let a = stop.color.alpha();
+            assert!(
+                (min_alpha..=max_alpha).contains(&a),
+                "{label}: stop alpha {a} outside {min_alpha}..={max_alpha}"
+            );
+        }
+    };
+
+    let sign_in_card = app
+        .world_mut()
+        .query_filtered::<Entity, With<super::super::front::FrontCard>>()
+        .single(app.world())
+        .expect("sign-in FrontCard");
+    check_single_quad_glass(app.world(), sign_in_card, 0.50, 0.68, "sign-in FrontCard");
+
+    let mist_plates: Vec<Entity> = app
+        .world_mut()
+        .query::<(Entity, &Role)>()
+        .iter(app.world())
+        .filter_map(|(e, r)| (*r == Role::Mist).then_some(e))
+        .collect();
+    assert!(
+        mist_plates.len() >= 2,
+        "expected tagline + bottom colophon mist plates"
+    );
+    for plate in mist_plates {
+        check_single_quad_glass(app.world(), plate, 0.36, 0.50, "Role::Mist plate");
+    }
+
+    to_gateway_face(&mut app);
+    let gateway_card = app
+        .world_mut()
+        .query_filtered::<Entity, With<super::super::front::FrontCard>>()
+        .single(app.world())
+        .expect("gateway FrontCard");
+    check_single_quad_glass(app.world(), gateway_card, 0.50, 0.68, "gateway FrontCard");
+
+    press(&mut app, Press::Front(FrontPress::ForgetGateway(0)));
+    let confirm_modal = press_target(&mut app, Press::Shared(SharedPress::PickerNothing));
+    check_single_quad_glass(app.world(), confirm_modal, 0.54, 0.70, "confirm modal");
+}
+
+#[test]
+fn front_field_prefix_icons_and_version_tag_exist_in_shipped_font_and_tint_on_focus() {
+    use super::super::field::{FieldLeadIcon, LEAD_FOCUS_INK, LEAD_REST_INK, lead_glyph};
+    use super::super::front::door::VERSION_TAG_GLYPH;
+
+    let fa_bytes = include_bytes!("../../../assets/fonts/fa-solid-900.ttf");
+    let font = swash::FontRef::from_index(fa_bytes, 0).expect("fa-solid-900.ttf");
+    let cmap = font.charmap();
+    for (name, ch) in [
+        ("USER", lead_glyph::USER),
+        ("ID_CARD", lead_glyph::ID_CARD),
+        ("LOCK", lead_glyph::LOCK),
+        ("KEY", lead_glyph::KEY),
+        ("GLOBE", lead_glyph::GLOBE),
+        ("SEARCH", lead_glyph::SEARCH),
+        ("VERSION_TAG", VERSION_TAG_GLYPH),
+    ] {
+        assert_ne!(
+            cmap.map(ch),
+            0,
+            "{name} ({}) missing from shipped fa-solid-900.ttf",
+            ch as u32
+        );
+    }
+
+    let lead_of = |app: &mut App, field: Field| -> (String, Color) {
+        let mut boxes = app.world_mut().query::<(&Press, &Children)>();
+        let kids: Vec<Entity> = boxes
+            .iter(app.world())
+            .find(|(p, _)| **p == Press::Shared(SharedPress::Focus(field)))
+            .expect("field box")
+            .1
+            .to_vec();
+        let slot = kids
+            .into_iter()
+            .find(|&e| app.world().get::<FieldLeadIcon>(e).is_some())
+            .expect("FieldLeadIcon inside field box");
+        let glyph_entity = app.world().get::<Children>(slot).unwrap()[0];
+        let text = app.world().get::<Text>(glyph_entity).unwrap().0.clone();
+        let color = app.world().get::<TextColor>(glyph_entity).unwrap().0;
+        (text, color)
+    };
+
+    let mut app = headless();
+    sized(&mut app, 1920.0);
+    app.update();
+
+    let (u_glyph, u_ink) = lead_of(&mut app, Field::Username);
+    let (p_glyph, p_ink) = lead_of(&mut app, Field::Password);
+    assert_eq!(u_glyph, lead_glyph::USER.to_string());
+    assert_eq!(p_glyph, lead_glyph::LOCK.to_string());
+    assert_eq!(u_ink, LEAD_FOCUS_INK, "focused Username icon warms up");
+    assert_eq!(p_ink, LEAD_REST_INK, "unfocused Password icon stays muted");
+
+    press(&mut app, Press::Front(FrontPress::ToggleRegistering));
+    settle(&mut app);
+    assert_eq!(
+        lead_of(&mut app, Field::DisplayName).0,
+        lead_glyph::ID_CARD.to_string()
+    );
+    assert_eq!(
+        lead_of(&mut app, Field::PasswordAgain).0,
+        lead_glyph::LOCK.to_string()
+    );
+
+    app.world_mut().resource_mut::<LobbyState>().gateways = vec!["https://a.example".into()];
+    to_gateway_face(&mut app);
+    assert_eq!(
+        lead_of(&mut app, Field::Gateway).0,
+        lead_glyph::GLOBE.to_string()
+    );
+    assert_eq!(
+        lead_of(&mut app, Field::GatewaySearch).0,
+        lead_glyph::SEARCH.to_string()
+    );
+
+    let version = press_target(&mut app, Press::Front(FrontPress::OpenChangelog));
+    let ver_kids: Vec<Entity> = app.world().get::<Children>(version).unwrap().to_vec();
+    assert_eq!(
+        app.world().get::<Text>(ver_kids[0]).unwrap().0,
+        VERSION_TAG_GLYPH.to_string(),
+        "version pill leads with release-tag icon"
+    );
+    assert_eq!(
+        app.world().get::<Text>(ver_kids[1]).unwrap().0,
+        baylee_build::VERSION
+    );
+    assert!(
+        super::super::front::FAN_CONTENT_NOTICE.starts_with("Baylee is unofficial Fan Content"),
+        "bottom Fan Content notice capitalizes Baylee"
     );
 }

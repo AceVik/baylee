@@ -117,10 +117,30 @@ pub(super) fn rule(commands: &mut Commands) -> Entity {
                 flex_shrink: 0.0,
                 ..default()
             },
-            BackgroundColor(tokens::BORDER),
+            BackgroundColor(Color::srgba(0.76, 0.74, 0.68, 0.20)),
             Pickable::IGNORE,
         ))
         .id()
+}
+
+/// Maps each front-door [`Field`] to its leading Font Awesome glyph.
+const fn field_lead_glyph(which: Field, caption: Phrase) -> Option<char> {
+    use super::super::field::lead_glyph;
+    match which {
+        Field::Username => Some(lead_glyph::USER),
+        Field::DisplayName | Field::GuestName => Some(lead_glyph::ID_CARD),
+        Field::Password => {
+            if matches!(caption, Phrase::NewPassword) {
+                Some(lead_glyph::KEY)
+            } else {
+                Some(lead_glyph::LOCK)
+            }
+        }
+        Field::PasswordAgain => Some(lead_glyph::LOCK),
+        Field::Gateway => Some(lead_glyph::GLOBE),
+        Field::GatewaySearch => Some(lead_glyph::SEARCH),
+        _ => None,
+    }
 }
 
 /// A lobby text field with its caption, its stops, and help under it.
@@ -145,7 +165,7 @@ fn field(
             shown: lobby.showing(which),
         }),
         press: Press::Shared(SharedPress::Focus(which)),
-        lead: None,
+        lead: field_lead_glyph(which, caption),
         hint: placeholder,
         tail: None,
     };
@@ -355,8 +375,8 @@ fn glyph_button(
     hint: &str,
     action: impl Bundle,
 ) -> Entity {
-    let rest_bg = Color::srgba(0.05, 0.09, 0.14, 0.86);
-    let hot_bg = Color::srgba(0.11, 0.18, 0.26, 0.96);
+    let rest_bg = Color::srgba(0.04, 0.08, 0.14, 0.56);
+    let hot_bg = Color::srgba(0.11, 0.19, 0.28, 0.86);
     let face = commands
         .spawn((
             Role::Button,
@@ -1187,6 +1207,7 @@ pub(super) fn gateway(
 }
 
 fn gateway_add_box(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
+    use bevy::ui::{ColorStop, InterpolationColorSpace, LinearGradient};
     let lang = state.lobby.lang();
     let add_box = commands
         .spawn((
@@ -1200,8 +1221,16 @@ fn gateway_add_box(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ent
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.05, 0.08, 0.13, 0.72)),
-            BorderColor::all(tokens::BORDER.with_alpha(0.85)),
+            BackgroundColor(Color::NONE),
+            BackgroundGradient::from(
+                LinearGradient::to_bottom(vec![
+                    ColorStop::percent(Color::srgba(0.055, 0.095, 0.150, 0.40), 0.0),
+                    ColorStop::percent(Color::srgba(0.028, 0.054, 0.092, 0.34), 50.0),
+                    ColorStop::percent(Color::srgba(0.020, 0.042, 0.074, 0.44), 100.0),
+                ])
+                .in_color_space(InterpolationColorSpace::Srgba),
+            ),
+            BorderColor::all(Color::srgba(0.64, 0.70, 0.78, 0.28)),
             surfaces::elevation_control(),
             Pickable::IGNORE,
         ))
