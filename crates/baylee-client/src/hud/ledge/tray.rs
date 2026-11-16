@@ -154,6 +154,8 @@ pub struct StripRevision {
     /// Whether the game log's panel is up (#262). Its button says so the
     /// way the zones button does.
     log: bool,
+    /// Tower gear uses the same tray, only while a run exposes equipment.
+    tower: Option<bool>,
     /// Whether the AI log's door stands at all: only once an AI seat's mind
     /// has said something, in a debug build ([`Duel::ai_log_heard`]).
     ai_heard: bool,
@@ -273,6 +275,7 @@ pub fn sync_tray_strip(
         open: duel.browser.is_open(),
         free: duel.browser.may_be_put_away(),
         log: duel.log_open,
+        tower: crate::hud::tower::available(&duel).then_some(duel.tower_inventory),
         ai_heard: duel.ai_log_heard,
         ai_log: duel.ai_log_open,
         chat,
@@ -298,12 +301,30 @@ pub fn sync_tray_strip(
     // sheet is put away into that button, and `zones_button_centre` counts
     // it from the right margin. The AI log's door, when it stands, goes
     // left of the scroll; `WIDTH` keeps room for it either way.
-    let mut doors = Vec::with_capacity(4);
+    let mut doors = Vec::with_capacity(5);
     if next.ai_heard {
         doors.push(ai_log_button(&mut commands, &fonts, next.ai_log, lang));
     }
     if let Some((lit, count, urgent)) = next.chat {
         doors.push(chat_button(&mut commands, &fonts, lit, count, urgent, lang));
+    }
+    if let Some(open) = next.tower {
+        let button = panel_button(
+            &mut commands,
+            &fonts,
+            open,
+            glyph::GEAR,
+            Phrase::EchoesRunTableItems.text(lang),
+            MenuAction::ToggleTowerItems,
+        );
+        if let Some(object) = duel.ability_menu
+            && crate::hud::tower::can_use(&duel, object)
+        {
+            commands
+                .entity(button)
+                .insert(crate::hud::sheet::AbilityAnchor(object));
+        }
+        doors.push(button);
     }
     doors.push(log_button(&mut commands, &fonts, next.log, lang));
     let empty_texts = crate::cardtext::CardTexts::default();
@@ -469,6 +490,24 @@ fn chat_button(
 /// moment it may not be opened or put away. `open` lights its ground the way
 /// the zones button's is lit while the sheet is up.
 fn log_button(commands: &mut Commands, fonts: &UiFonts, open: bool, lang: Lang) -> Entity {
+    panel_button(
+        commands,
+        fonts,
+        open,
+        glyph::LOG,
+        Phrase::ActToggleLog.text(lang),
+        MenuAction::ToggleLog,
+    )
+}
+
+fn panel_button(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    open: bool,
+    icon: char,
+    hint: &str,
+    action: MenuAction,
+) -> Entity {
     let ground = if open {
         palette::DIALOG_LIT
     } else {
@@ -489,14 +528,15 @@ fn log_button(commands: &mut Commands, fonts: &UiFonts, open: bool, lang: Lang) 
             BorderColor::all(palette::DIALOG_LINE),
             crate::shellkit::surfaces::elevation_control(),
             UiButton,
-            Feel::new(ground),
-            crate::ambience::FeelShadow,
-            crate::hud::Hint(Phrase::ActToggleLog.text(lang).to_string()),
-            MenuButton {
-                action: MenuAction::ToggleLog,
+            Feel {
+                lift: 0.0,
+                ..Feel::new(ground)
             },
+            crate::ambience::FeelShadow,
+            crate::hud::Hint(hint.to_owned()),
+            MenuButton { action },
             children![(
-                Text::new(glyph::LOG.to_string()),
+                Text::new(icon.to_string()),
                 icon_tf(fonts, TRAY_ICON_PT),
                 TextColor(FREE_INK),
                 Pickable::IGNORE,

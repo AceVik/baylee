@@ -1379,6 +1379,7 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
                         hud::same_team(duel.statics.as_ref(), a, b)
                     })
                 }),
+                item_stack: view.stack.iter().any(itemart::identity::run_ability),
                 // What this client is offering that the engine's list does
                 // not name. Without it `pass_when_nothing_to_do` reads an
                 // empty `castable` over four untapped Forests as an empty

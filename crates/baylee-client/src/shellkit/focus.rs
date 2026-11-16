@@ -67,6 +67,8 @@ pub const TABLES: &[&TabOrder] = &[
     &crate::lobby::orders::CHALLENGE_CONFIRM,
     &crate::lobby::echoes::keys::ORDER,
     &crate::lobby::echoes::keys::CONFIRM,
+    &crate::lobby::echoes::keys::INSPECT,
+    &crate::lobby::echoes::keys::REWARD,
     &crate::hud::tower::keys::ORDER,
     &crate::lobby::orders::ROOM,
     &crate::lobby::orders::CREATE,

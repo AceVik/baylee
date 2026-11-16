@@ -354,12 +354,15 @@ pub(crate) fn attach_live_feel(
     ground: Color,
     weight: Weight,
 ) {
-    // A ghost has no ground to lighten: it rises out of nothing to the
-    // hover ground, as a tab does.
+    // Button feedback stays within the fixed hit rectangle. Use light and
+    // shadow rather than moving the control under the pointer.
     let feel = if ground.alpha() < 0.01 {
-        crate::ambience::Feel::rising_to(ground, tokens::HOVER)
+        crate::ambience::Feel::tinting_to(ground, tokens::HOVER)
     } else {
-        crate::ambience::Feel::new(ground)
+        crate::ambience::Feel {
+            lift: 0.0,
+            ..crate::ambience::Feel::new(ground)
+        }
     };
     let rim = weight.rim();
     let (hot, press) = match weight {

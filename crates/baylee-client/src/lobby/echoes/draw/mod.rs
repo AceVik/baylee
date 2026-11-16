@@ -12,6 +12,7 @@ use crate::{
     },
 };
 use baylee_client_core::echoes::draft::allowed;
+use bevy::picking::hover::PickingInteraction;
 use domain::v2::{
     catalog::{Definition, Family, Potion, Rarity},
     shop::Goods,
@@ -87,8 +88,15 @@ pub(in crate::lobby) fn draw(
     let ui = &state.echoes;
     let lang = state.lobby.lang();
     let body = body(commands, root, kit, metrics, scrolled);
-    let hero = compact_panel(commands, body, kit);
-    header(commands, hero, kit, ui);
+    let workspace = ui.page == Page::Shop && ui.model.run().is_some();
+    let hero = if workspace {
+        body
+    } else {
+        compact_panel(commands, body, kit)
+    };
+    if !workspace {
+        header(commands, hero, kit, ui);
+    }
     if (ui.model.run().is_none() && !matches!(ui.page, Page::Collection | Page::Ranking))
         || ui.page == Page::Overview
     {
@@ -152,22 +160,6 @@ fn header(commands: &mut Commands, hero: Entity, kit: Kit, ui: &Ui) {
         && ui.model.run().is_some_and(|run| {
             ui.page == Page::Shop || run.shop.generator == domain::v2::generation::RUN
         });
-    if market {
-        landing::market_progress(commands, top, kit, ui);
-    }
-    if (ui.model.run().is_some() || matches!(ui.page, Page::Collection | Page::Ranking))
-        && ui.page != Page::Overview
-    {
-        control(
-            commands,
-            top,
-            kit,
-            ui,
-            Phrase::EchoesRuns.text(lang),
-            Action::Overview,
-            ui.choices.deck_unchanged(ui.model.run()),
-        );
-    }
     if !market && ui.page != Page::Collection {
         control(
             commands,
@@ -190,26 +182,6 @@ fn header(commands: &mut Commands, hero: Entity, kit: Kit, ui: &Ui) {
             !ui.model.cohorts().is_empty() || ui.model.run().is_some(),
         );
     }
-    control(
-        commands,
-        top,
-        kit,
-        ui,
-        Phrase::Back.text(lang),
-        Action::Back,
-        true,
-    );
-    if !market {
-        control(
-            commands,
-            top,
-            kit,
-            ui,
-            Phrase::Refresh.text(lang),
-            Action::Refresh,
-            true,
-        );
-    }
 }
 
 fn body(
@@ -223,7 +195,7 @@ fn body(
         .spawn((
             Node {
                 width: percent(100),
-                max_width: px_fixed(kit.m.collection_max),
+                max_width: kit.m.px(1440.0),
                 align_self: AlignSelf::Center,
                 flex_direction: FlexDirection::Column,
                 flex_grow: 1.0,
@@ -275,6 +247,9 @@ fn selected(
     let lang = lang(kit);
     if let Some(run) = ui.model.run() {
         if run.phase == api::Phase::Reward {
+            if let Some(cohort) = ui.model.publication() {
+                runshop::draw(commands, body, kit, ui, run, cohort);
+            }
             reward::draw(commands, body, kit, ui, run);
             return;
         }
@@ -337,7 +312,7 @@ fn lang(kit: Kit) -> Lang {
 
 fn notices(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
     let lang = lang(kit);
-    if ui.model.busy() {
+    if ui.model.busy() && !ui.loaded && ui.model.run().is_none() {
         label(
             commands,
             root,

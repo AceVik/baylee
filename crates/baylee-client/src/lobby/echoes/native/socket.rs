@@ -1,4 +1,4 @@
-//! Nonblocking Tower socket. Network clocks and heartbeat state never touch LobbyState.
+//! Nonblocking Tower socket. Network clocks and heartbeat state never touch `LobbyState`.
 use super::{Finished, Work, central};
 use baylee_account::{Error, TowerHttp, TowerSocket};
 use baylee_client_core::echoes::api::{
@@ -127,8 +127,7 @@ impl Live {
         let events = self
             .link
             .as_ref()
-            .map(|link| crate::transport::drain_socket(&link.receiver))
-            .unwrap_or_default();
+            .map_or_default(|link| crate::transport::drain_socket(&link.receiver));
         for event in events {
             let result = match event {
                 WsEvent::Message(WsMessage::Binary(bytes)) => self.frame(&bytes, &mut updates),

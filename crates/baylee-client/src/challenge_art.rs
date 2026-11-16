@@ -1,7 +1,5 @@
-//! Original, static landscape vignettes; three shared materials, no downloaded art.
-use bevy::{
-    asset::embedded_asset, prelude::*, render::render_resource::AsBindGroup, shader::ShaderRef,
-};
+//! Original generated landscapes, loaded once and shared across activity surfaces.
+use bevy::prelude::*;
 
 #[derive(Component, Clone, Copy)]
 pub(crate) enum Scene {
@@ -20,37 +18,30 @@ impl Scene {
     }
 }
 
-#[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
-struct Landscape {
-    #[uniform(0)]
-    scene: Vec4,
-}
-
-impl UiMaterial for Landscape {
-    fn fragment_shader() -> ShaderRef {
-        "embedded://baylee_client/shaders/challenge_art.wesl".into()
-    }
-}
-
 #[derive(Resource, Default)]
-struct Landscapes([Option<Handle<Landscape>>; 3]);
+struct Landscapes([Option<Handle<Image>>; 3]);
 
 fn dress(
     mut commands: Commands,
     scenes: Query<(Entity, &Scene), Changed<Scene>>,
     mut cache: ResMut<Landscapes>,
-    mut assets: ResMut<Assets<Landscape>>,
+    server: Res<AssetServer>,
 ) {
     for (entity, scene) in &scenes {
         let index = scene.index();
         let material = cache.0[index].get_or_insert_with(|| {
-            assets.add(Landscape {
-                scene: Vec4::new(index as f32, 0.0, 0.0, 0.0),
-            })
+            server.load(
+                [
+                    "tower/scenes/daily.png",
+                    "tower/scenes/weekly.png",
+                    "tower/scenes/tower.png",
+                ][index],
+            )
         });
-        commands
-            .entity(entity)
-            .insert(MaterialNode(material.clone()));
+        commands.entity(entity).insert(ImageNode {
+            image_mode: bevy::ui::widget::NodeImageMode::Stretch,
+            ..ImageNode::new(material.clone())
+        });
     }
 }
 
@@ -60,10 +51,32 @@ pub(crate) fn install(app: &mut App) {
     {
         return;
     }
-    embedded_asset!(app, "shaders/challenge_art.wesl");
     app.init_resource::<Landscapes>()
-        .add_plugins(UiMaterialPlugin::<Landscape>::default())
-        .add_systems(PostUpdate, dress);
+        .add_systems(PostUpdate, (dress, cover).chain());
+}
+
+/// Crop the source, never stretch the landscape or let its intrinsic size reflow a tile.
+fn cover(
+    mut scenes: Query<(&ComputedNode, &mut ImageNode), With<Scene>>,
+    images: Res<Assets<Image>>,
+) {
+    for (node, mut image) in &mut scenes {
+        let Some(source) = images.get(&image.image) else {
+            continue;
+        };
+        let size = source.size().as_vec2();
+        let target = node.size();
+        if target.x <= 0.0 || target.y <= 0.0 {
+            continue;
+        }
+        let scale = (target.x / size.x).max(target.y / size.y);
+        let visible = target / scale;
+        let margin = (size - visible) * 0.5;
+        let rect = Some(Rect::from_corners(margin, size - margin));
+        if image.rect != rect {
+            image.rect = rect;
+        }
+    }
 }
 
 #[cfg(test)]

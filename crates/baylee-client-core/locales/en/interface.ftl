@@ -9982,6 +9982,7 @@ EchoesWithdrawConfirm = Withdraw future use of your builds and public identity a
 EchoesWithdrawn = Future echo use has been withdrawn.
 EchoesLead = Eight victories to the crown. Build your deck, forge relics and face echoes of earlier expeditions.
 EchoesShop = Shop
+EchoesReturnShop = Return to the shop
 EchoesEquipment = Equipment & fusion
 EchoesRuns = Your expeditions
 EchoesNoRuns = Your first expedition awaits. Choose a starting deck below.
@@ -9991,6 +9992,7 @@ EchoesStarterLead = Choose your commander and a playstyle. Every expedition star
 EchoesStarter = Starting deck { $number }
 # Arguments: number, revision
 EchoesConsent = Begin with starting deck { $number }? Confirm echo sharing (explanation { $revision }): your verified pre-duel builds may face other players at the same stage, played by Expert AI. Your public player identity may accompany them. You can withdraw future echo use below; private rules evidence is retained. This creates a new expedition, not a table.
+EchoesStartSharing = Choose a deck to begin a fresh run. Your verified builds and public player name may appear as Expert-AI opponents for players at the same stage. You can withdraw future echo sharing below; private rules evidence is retained.
 EchoesShopReady = Prepare your next duel
 EchoesVerifying = Your duel is being verified. Gold and the next shop appear after confirmation.
 EchoesQuarantined = This duel is paused for technical recovery. No defeat or income has been assigned.

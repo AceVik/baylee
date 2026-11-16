@@ -50,9 +50,9 @@ pub(super) fn icon_button(
             },
             BackgroundColor(tokens::CONTROL),
             BorderColor::all(tokens::BORDER),
-            crate::ambience::Feel::new(tokens::CONTROL),
         ))
         .id();
+    controls::attach_live_feel(commands, face, tokens::CONTROL, controls::Weight::Secondary);
     commands.entity(face).add_child(mark);
     controls::hit(commands, kit, face, action)
 }

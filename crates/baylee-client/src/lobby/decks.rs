@@ -2686,7 +2686,7 @@ fn spawn_preview_card_entry(
 
 /// Spawns a group of preview card entries (either in a vertical list, a 2-column
 /// compact grid, or a wrapping gallery grid).
-fn spawn_preview_section_container(
+pub(in crate::lobby) fn spawn_preview_section_container(
     commands: &mut Commands,
     kit: Kit,
     rows: &[String],

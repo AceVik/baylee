@@ -5,7 +5,7 @@ mod detail;
 mod dock;
 mod options;
 mod stock;
-pub(super) use options::{options, toolbar};
+pub(super) use options::toolbar;
 
 pub(super) fn draw(
     commands: &mut Commands,

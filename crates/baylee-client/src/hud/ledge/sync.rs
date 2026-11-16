@@ -227,6 +227,11 @@ pub fn sync_ledge(
             left: tools_reserved(window_w),
             mid,
             right: RIGHT_RESERVED
+                + if crate::hud::tower::available(&duel) {
+                    tray::CHAT_DOOR
+                } else {
+                    0.0
+                }
                 + if social.as_ref().is_some_and(|s| s.machine().is_some()) {
                     tray::CHAT_DOOR
                 } else {

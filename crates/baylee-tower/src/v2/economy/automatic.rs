@@ -9,8 +9,23 @@ impl Economy {
     /// # Errors
     /// Legacy inventory, unaffordable item, exhausted IDs or invalid final state.
     pub fn bought_automatic(&self, definition: Definition) -> Result<Self, Refusal> {
+        self.bought_automatic_into(definition, None)
+    }
+
+    /// Buy/fuse and equip atomically. A fusion keeps its first equipped slot;
+    /// otherwise the requested active slot must be free. Never displace gear.
+    /// # Errors
+    /// Invalid/occupied destination or any ordinary purchase/fusion refusal.
+    pub fn bought_automatic_into(
+        &self,
+        definition: Definition,
+        equip: Option<u8>,
+    ) -> Result<Self, Refusal> {
         if self.inventory.layout != Layout::Run {
             return Err(Refusal::Unavailable);
+        }
+        if equip.is_some_and(|slot| slot >= self.inventory.layout.active_slots()) {
+            return Err(Refusal::Invalid);
         }
         self.changed(|next| {
             let mut current = next.purchase(definition, Slot::Inventory)?;
@@ -61,6 +76,30 @@ impl Economy {
                 };
                 next.fuse(&recipe)?;
                 current = next.inventory.relics.last().ok_or(Refusal::Invalid)?.id;
+            }
+            if let Some(slot) = equip {
+                let item = next
+                    .inventory
+                    .relics
+                    .iter()
+                    .find(|item| item.id == current)
+                    .ok_or(Refusal::Invalid)?;
+                if item.slot == Slot::Inventory {
+                    if next
+                        .inventory
+                        .relics
+                        .iter()
+                        .any(|item| item.slot == Slot::Active(slot))
+                    {
+                        return Err(Refusal::Capacity);
+                    }
+                    next.inventory
+                        .relics
+                        .iter_mut()
+                        .find(|item| item.id == current)
+                        .ok_or(Refusal::Invalid)?
+                        .slot = Slot::Active(slot);
+                }
             }
             Ok(())
         })

@@ -115,7 +115,9 @@ pub(super) fn spawn_leave_button(
             ));
         }
         ways.push((
-            if challenge {
+            if super::echoes::current(&state) {
+                Phrase::EchoesReturnShop
+            } else if challenge {
                 Phrase::ChallengeNav
             } else {
                 Phrase::BackToLobby

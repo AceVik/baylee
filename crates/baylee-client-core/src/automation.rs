@@ -689,6 +689,9 @@ pub struct Situation {
     /// *wants*; an opponent's is the one thing a standing order must not
     /// answer for them.
     pub opposing_stack: bool,
+    /// A run-equipment ability is waiting on the stack. Its visible resolution
+    /// is part of understanding the run; only explicit engine yields skip it.
+    pub item_stack: bool,
     /// Whether this client is offering the seat something the engine's own
     /// list does not name.
     ///
@@ -757,6 +760,7 @@ pub fn auto_answer(
         // as a quiet window — a red draw step and `skip_opponent_turns` alike,
         // which is exactly where a miracle is revealed.
         Pending::Priority { .. } if at.owing => AutoAnswer::None,
+        Pending::Priority { .. } if at.item_stack => AutoAnswer::None,
         Pending::Priority { legal, .. }
             if rules.pass_when_nothing_to_do && !at.offering && nothing_to_do(legal) =>
         {
@@ -880,6 +884,7 @@ mod tests {
             phase,
             step,
             opposing_stack: false,
+            item_stack: false,
             offering: false,
             owing: false,
         }
@@ -1804,6 +1809,22 @@ mod tests {
                 None
             ),
             AutoAnswer::None
+        );
+    }
+
+    #[test]
+    fn run_item_triggers_remain_visible_even_without_a_legal_response() {
+        let orders = PhaseOrders::of(RailPreset::EveryStep);
+        let mut situation = at(true, true, Phase::Beginning, Step::Upkeep);
+        situation.item_stack = true;
+        assert_eq!(
+            auto_answer(&nothing_pending(), situation, &orders, &RULES, None),
+            AutoAnswer::None
+        );
+        situation.item_stack = false;
+        assert_eq!(
+            auto_answer(&nothing_pending(), situation, &orders, &RULES, None),
+            AutoAnswer::Pass
         );
     }
 

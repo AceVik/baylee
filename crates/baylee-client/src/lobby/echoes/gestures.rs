@@ -2,7 +2,7 @@
 use super::{Action, LobbyState, Slot};
 use bevy::{
     picking::{
-        events::{PointerClick, PointerDragDrop},
+        events::{PointerClick, PointerDrag, PointerDragDrop, PointerDragEnd},
         pointer::PointerButton,
     },
     prelude::*,
@@ -10,6 +10,20 @@ use bevy::{
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct Binding(uuid::Uuid, u64);
+
+#[derive(Component)]
+pub(super) struct Sale {
+    id: u32,
+    binding: Binding,
+}
+impl Sale {
+    pub(super) fn new(run: &super::api::Run, id: u32) -> Self {
+        Self {
+            id,
+            binding: Binding::of(run),
+        }
+    }
+}
 
 impl Binding {
     fn of(run: &super::api::Run) -> Self {
@@ -48,7 +62,7 @@ pub(super) fn install(app: &mut App) {
     #[cfg(not(target_arch = "wasm32"))]
     app.add_systems(
         Update,
-        gestures
+        (gestures, drag_visual)
             .before(super::ui)
             .run_if(in_state(super::DuelPhase::Closed)),
     );
@@ -76,6 +90,7 @@ fn gestures(
     mut clicks: MessageReader<PointerClick>,
     mut drops: MessageReader<PointerDragDrop>,
     owned: Query<&Owned>,
+    sales: Query<&Sale>,
     destinations: Query<&Destination>,
     parents: Query<&ChildOf>,
     mut state: ResMut<LobbyState>,
@@ -112,6 +127,17 @@ fn gestures(
         .read()
         .filter(|click| click.button == PointerButton::Secondary)
     {
+        if let Some(entity) = ancestor(click.entity, &sales, &parents)
+            && let Ok(offer) = sales.get(entity)
+            && state
+                .echoes
+                .model
+                .run()
+                .is_some_and(|run| offer.binding == Binding::of(run))
+        {
+            super::native::ask(&mut state, Action::PurchaseEquipped(offer.id));
+            continue;
+        }
         if let Some(entity) = ancestor(click.entity, &owned, &parents)
             && let Ok(item) = owned.get(entity)
             && state
@@ -121,6 +147,93 @@ fn gestures(
                 .is_some_and(|run| item.binding == Binding::of(run))
         {
             super::native::ask(&mut state, Action::QuickEquip(item.id));
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[allow(clippy::too_many_arguments)] // separate pointer streams and retained render state
+fn drag_visual(
+    mut commands: Commands,
+    drags: Option<MessageReader<PointerDrag>>,
+    ends: Option<MessageReader<PointerDragEnd>>,
+    owned: Query<&Owned>,
+    parents: Query<&ChildOf>,
+    mut nodes: Query<&mut Node>,
+    scale: Option<Res<UiScale>>,
+    state: Res<LobbyState>,
+    mut ghost: Local<Option<(Entity, Binding, Entity)>>,
+) {
+    let (Some(mut drags), Some(mut ends)) = (drags, ends) else {
+        return;
+    };
+    let ended = ends
+        .read()
+        .any(|event| event.button == PointerButton::Primary);
+    let stale = ghost.as_ref().is_some_and(|(_, binding, source)| {
+        !state.echoes.opened
+            || !owned.contains(*source)
+            || state
+                .echoes
+                .model
+                .run()
+                .is_none_or(|run| *binding != Binding::of(run))
+    });
+    if (ended || stale)
+        && let Some((entity, _, _)) = ghost.take()
+    {
+        commands.entity(entity).try_despawn();
+    }
+    if ended
+        || !state.echoes.opened
+        || state.echoes.model.busy()
+        || state.echoes.confirmation.is_some()
+    {
+        drags.clear();
+        return;
+    }
+    for drag in drags
+        .read()
+        .filter(|event| event.button == PointerButton::Primary)
+    {
+        let Some(source) = ancestor(drag.entity, &owned, &parents) else {
+            continue;
+        };
+        let Ok(item) = owned.get(source) else {
+            continue;
+        };
+        let Some(run) = state
+            .echoes
+            .model
+            .run()
+            .filter(|run| item.binding == Binding::of(run))
+        else {
+            continue;
+        };
+        let Some(item) = run
+            .economy
+            .inventory
+            .relics
+            .iter()
+            .find(|entry| entry.id == item.id)
+        else {
+            continue;
+        };
+        let position = drag.pointer.position / scale.as_ref().map_or(1.0, |scale| scale.0);
+        let side = 64.0;
+        if let Some((entity, _, _)) = *ghost {
+            if let Ok(mut node) = nodes.get_mut(entity) {
+                node.left = px(position.x - side * 0.5);
+                node.top = px(position.y - side * 0.5);
+            }
+        } else {
+            let entity = crate::towerui::drag_ghost(
+                &mut commands,
+                super::domain::v2::shop::Goods::Relic(item.definition),
+                position,
+                side,
+            );
+            *ghost = Some((entity, Binding::of(run), source));
         }
     }
 }

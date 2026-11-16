@@ -155,3 +155,40 @@ fn active_overlap_and_cross_kind_identity_aliases_are_rejected() {
     alias.inventory.materials[0].id = alias.inventory.relics[0].id;
     assert!(alias.validate().is_err());
 }
+
+#[test]
+fn purchase_and_equip_fuses_across_storage_and_keeps_the_first_equipped_slot() {
+    let common = definition(Rarity::Common);
+    let first = funded().bought_automatic_into(common, Some(4)).unwrap();
+    assert_eq!(first.inventory.relics[0].slot, Slot::Active(4));
+    let second = first.bought_automatic(common).unwrap();
+    let fused = second.bought_automatic_into(common, Some(0)).unwrap();
+    assert_eq!(fused.inventory.relics.len(), 1);
+    assert_eq!(
+        fused.inventory.relics[0].definition.rarity,
+        Rarity::Uncommon
+    );
+    assert_eq!(fused.inventory.relics[0].slot, Slot::Active(4));
+    assert_eq!(fused.gold, 188);
+    let other = Definition {
+        family: Family::Grove,
+        ..common
+    };
+    assert_eq!(
+        fused.bought_automatic_into(other, Some(4)),
+        Err(Refusal::Capacity)
+    );
+    assert_eq!(
+        fused.bought_automatic_into(other, Some(6)),
+        Err(Refusal::Invalid)
+    );
+    assert_eq!(fused.gold, 188, "refusal never spends the confirmed wallet");
+    let bag = funded()
+        .bought_automatic(common)
+        .unwrap()
+        .bought_automatic(common)
+        .unwrap();
+    let fused = bag.bought_automatic_into(common, Some(2)).unwrap();
+    assert_eq!(fused.inventory.relics.len(), 1);
+    assert_eq!(fused.inventory.relics[0].slot, Slot::Active(2));
+}

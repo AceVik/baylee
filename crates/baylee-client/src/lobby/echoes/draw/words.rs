@@ -293,7 +293,9 @@ pub(super) const fn icon(action: Action) -> char {
         }
         Action::Page(Page::Shop) | Action::GoShop => glyph::VIEW_GRID,
         Action::Page(Page::Equipment) | Action::Move | Action::Place(_) => glyph::GEAR,
-        Action::Page(Page::Deck) | Action::DeckZone(_) => glyph::LIBRARY,
+        Action::InspectStarter(..) | Action::Page(Page::Deck) | Action::DeckZone(_) => {
+            glyph::LIBRARY
+        }
         Action::Listing(true) | Action::Offer(_) | Action::Select(_) | Action::InspectCard(_) => {
             glyph::EYE
         }

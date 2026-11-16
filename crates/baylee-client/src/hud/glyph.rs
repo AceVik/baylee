@@ -8,6 +8,10 @@ pub const SUN: char = '\u{f185}';
 pub const MOON: char = '\u{f186}';
 /// Trophy: an activity's rankings.
 pub const TROPHY: char = '\u{f091}';
+/// Coins: Tower currency, distinct from the daily challenge sun.
+pub const COINS: char = '\u{f51e}';
+/// Gem: an empty run-inventory socket.
+pub const DIAMOND: char = '\u{f3a5}';
 /// Arrow left: return to the previous page.
 pub const ARROW_LEFT: char = '\u{f060}';
 /// Arrow right: advance to the next page or start playing.

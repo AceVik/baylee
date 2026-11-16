@@ -18,66 +18,8 @@ pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
         );
     }
     enrollment(commands, body, kit, ui);
-    saved(commands, body, kit, ui);
     enrollment_footer(commands, body, kit, ui);
-}
-
-fn saved(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
-    let lang = lang(kit);
-    let runs = panel(commands, body, kit);
-    heading(commands, runs, kit, Phrase::EchoesRuns.text(lang));
-    if ui.model.runs().is_empty() {
-        label(
-            commands,
-            runs,
-            kit,
-            Phrase::EchoesNoRuns.text(lang),
-            tokens::MUTED,
-        );
-    }
-    for run in ui.model.runs() {
-        let text = format!(
-            "{} · {} · {}",
-            words::created(run.id, lang),
-            words::phase(run.phase).text(lang),
-            Phrase::EchoesStage.fill(lang, &[&run.shop.stage.to_string()])
-        );
-        control(
-            commands,
-            runs,
-            kit,
-            ui,
-            &text,
-            Action::Read(Read::Run(run.id)),
-            !ui.model.uncertain() && ui.choices.deck_unchanged(ui.model.run()),
-        );
-    }
-    let paging = row(commands, runs, kit);
-    control(
-        commands,
-        paging,
-        kit,
-        ui,
-        Phrase::Refresh.text(lang),
-        Action::Read(Read::Runs(None)),
-        true,
-    );
-    if let Some(last) = ui
-        .model
-        .runs()
-        .last()
-        .filter(|_| ui.model.runs().len() == api::PAGE_SIZE)
-    {
-        control(
-            commands,
-            paging,
-            kit,
-            ui,
-            Phrase::ChallengeOlder.text(lang),
-            Action::Read(Read::Runs(Some(last.id))),
-            true,
-        );
-    }
+    starter::inspect(commands, body, kit, ui);
 }
 
 fn enrollment(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
@@ -110,6 +52,13 @@ fn enrollment(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
             card,
             kit,
             Phrase::EchoesStarterLead.text(lang),
+            tokens::MUTED,
+        );
+        widgets::paragraph(
+            commands,
+            card,
+            kit,
+            Phrase::EchoesStartSharing.text(lang),
             tokens::MUTED,
         );
         let choices = choices(commands, card, kit, run_format);
@@ -171,12 +120,16 @@ fn enrollment(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
             );
         }
     }
+    no_cohorts(commands, body, kit, ui);
+}
+
+fn no_cohorts(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
     if ui.loaded && ui.model.cohorts().is_empty() {
         label(
             commands,
             body,
             kit,
-            Phrase::EchoesNoEnrollment.text(lang),
+            Phrase::EchoesNoEnrollment.text(lang(kit)),
             tokens::MUTED,
         );
     }

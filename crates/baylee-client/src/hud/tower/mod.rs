@@ -167,7 +167,7 @@ pub(crate) fn available(duel: &Duel) -> bool {
         })
 }
 
-fn can_use(duel: &Duel, object: ObjectId) -> bool {
+pub(crate) fn can_use(duel: &Duel, object: ObjectId) -> bool {
     !duel.watching
         && duel.ending().is_none()
         && duel.view.as_ref().is_some_and(|view| {

@@ -2,13 +2,30 @@
 use super::*;
 
 pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
+    let top = row(commands, root, kit);
     help_heading(
         commands,
-        root,
+        top,
         kit,
         Phrase::EchoesEquipped,
         Phrase::EchoesRunEquipmentHint,
     );
+    let space = crate::lobby::parts::grow(commands);
+    commands.entity(top).add_child(space);
+    let deck = crate::lobby::parts::icon_button(
+        commands,
+        kit,
+        glyph::LIBRARY,
+        Press::Echoes(Action::Page(Page::Deck)),
+    );
+    commands
+        .entity(deck)
+        .insert(super::super::super::keys::stop(
+            Action::Page(Page::Deck),
+            ui,
+        ));
+    controls::attach_tooltip(commands, deck, kit, Phrase::EchoesDeck.text(lang(kit)));
+    commands.entity(top).add_child(deck);
     let equipment = grid(commands, root, kit, 3);
     for slot in 0..6 {
         let target = Slot::Active(slot);
@@ -36,32 +53,25 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run
                 .insert(super::super::super::gestures::Owned::new(run, item.id));
             cell
         } else {
-            let cell = commands
-                .spawn((
-                    Node {
-                        width: kit.m.px(60.0),
-                        height: kit.m.px(60.0),
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        border: UiRect::all(px_fixed(1.0)),
-                        border_radius: BorderRadius::all(kit.m.px(10.0)),
-                        ..default()
-                    },
-                    BorderColor::all(tokens::BORDER),
-                    BackgroundColor(tokens::CONTROL),
-                    surfaces::elevation_control_disabled(),
-                    Pickable::default(),
-                    ChildOf(equipment),
-                ))
-                .id();
-            label(commands, cell, kit, &(slot + 1).to_string(), tokens::MUTED);
-            cell
+            towerui::empty(commands, equipment, kit, 60.0, glyph::SHIELD)
         };
         commands
             .entity(cell)
             .insert(super::super::super::gestures::Destination::new(run, target));
     }
     supplies(commands, root, kit, ui, run);
+    let space = crate::lobby::parts::grow(commands);
+    commands.entity(root).add_child(space);
+    let footer = row(commands, root, kit);
+    control(
+        commands,
+        footer,
+        kit,
+        ui,
+        Phrase::TowerRetire.text(lang(kit)),
+        Action::Abandon,
+        can(ui, &Command::Abandon {}),
+    );
 }
 
 fn supplies(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {

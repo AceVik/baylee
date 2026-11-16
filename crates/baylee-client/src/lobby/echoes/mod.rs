@@ -72,6 +72,8 @@ pub(crate) enum Action {
     DeckPage(usize),
     ClosePreview,
     InspectCard(baylee_core::ids::CardIndex),
+    InspectStarter(Uuid, u8),
+    PurchaseEquipped(u32),
     Tiers(domain::v2::catalog::Family),
     SaveDeck,
     ResetDeck,
@@ -86,11 +88,6 @@ pub(crate) enum Action {
 pub(super) enum Confirmation {
     Listing(u64),
     Withdrawal,
-    Enrollment {
-        cohort: Uuid,
-        starter: u8,
-        consent: u16,
-    },
     Choice {
         run: Uuid,
         revision: u64,
@@ -121,6 +118,7 @@ pub(crate) struct Ui {
     bag: Bag,
     deck: Deck,
     preview: Option<baylee_core::ids::CardIndex>,
+    pub(super) starter_preview: Option<(Uuid, u8)>,
     tiers: Option<domain::v2::catalog::Family>,
     collection: collection::Collection,
     ranking: Option<(Uuid, api::ranking::Lane)>,
@@ -214,8 +212,17 @@ pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
 }
 
 impl Ui {
+    pub(super) fn rewarding(&self) -> bool {
+        self.opened
+            && self.page == Page::Shop
+            && self
+                .model
+                .run()
+                .is_some_and(|run| run.phase == api::Phase::Reward)
+    }
     pub(super) fn close(&mut self) {
         self.opened = false;
+        self.starter_preview = None;
         self.returning = None;
     }
 

@@ -69,13 +69,20 @@ fn metrics(commands: &mut Commands, root: Entity, kit: Kit, run: &api::Run, comp
             Phrase::TowerLives,
             (5_usize.saturating_sub(defeats)).to_string(),
         ),
-        (glyph::SUN, Phrase::EchoesGold, run.economy.gold.to_string()),
+        (
+            glyph::COINS,
+            Phrase::EchoesGold,
+            run.economy.gold.to_string(),
+        ),
         (
             glyph::COMPASS,
             Phrase::EchoesOrdinal,
             run.shop.stage.to_string(),
         ),
     ] {
+        if compact && caption == Phrase::EchoesGold {
+            continue;
+        }
         if compact {
             let text = if caption == Phrase::EchoesGold {
                 format!("{value} {}", caption.text(lang))

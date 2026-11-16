@@ -489,6 +489,9 @@ pub(in crate::hud) fn spawn_stack_card(
     cards: Option<&mut UiCards<'_>>,
     widths: &crate::face::Widths<'_>,
 ) -> Entity {
+    if let Some(goods) = crate::itemart::identity::run_art(art) {
+        return crate::towerui::inspectable(commands, goods, fonts, lang, width.min(height));
+    }
     let slot = commands
         .spawn((
             Node {

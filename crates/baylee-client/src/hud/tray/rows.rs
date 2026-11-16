@@ -810,6 +810,9 @@ pub(super) fn spawn_thumb(
     cards: &mut Option<&mut UiCards<'_>>,
     width: f32,
 ) -> Entity {
+    if let Some(goods) = crate::itemart::identity::run_art(row.art) {
+        return crate::towerui::inspectable(commands, goods, fonts, lang, width);
+    }
     let height = width * 88.0 / 63.0;
     let thumb = if let Some(key) = row.art {
         let image = textures.get(key, statics, assets);

@@ -5,6 +5,10 @@ use crate::{challenge_art::Scene, hud::glyph};
 use baylee_client_core::challenges::{Action, api};
 
 pub(super) fn draw(commands: &mut Commands, parent: Entity, state: &LobbyState, kit: Kit) {
+    commands
+        .entity(parent)
+        .entry::<Node>()
+        .and_modify(move |mut node| node.row_gap = kit.m.px(12.0));
     let lang = state.lobby.lang();
     let signed_in = state.can_enter_challenges();
     let account_hint = Phrase::ChallengeSignIn.text(lang);
@@ -118,54 +122,53 @@ fn tile(commands: &mut Commands, parent: Entity, kit: Kit, tile: Tile<'_>) {
         .entity(card)
         .entry::<Node>()
         .and_modify(move |mut node| {
-            node.min_height = kit.m.px(168.0);
-            node.row_gap = kit.m.px(8.0);
+            node.min_height = kit.m.px(164.0);
+            node.padding = UiRect::all(kit.m.px(12.0));
+            node.row_gap = kit.m.px(6.0);
             node.flex_shrink = 0.0;
-        });
-    let line = parts::row(commands, kit, false);
-    commands
-        .entity(line)
-        .entry::<Node>()
-        .and_modify(move |mut node| {
-            node.align_items = AlignItems::Center;
-            node.flex_wrap = FlexWrap::NoWrap;
-            node.min_height = kit.m.px(76.0);
         });
     let picture = commands
         .spawn((
             tile.scene,
             Node {
-                width: kit.m.px(64.0),
-                height: kit.m.px(64.0),
+                width: percent(100),
+                height: Val::Vh(10.0),
+                min_height: kit.m.px(64.0),
+                max_height: kit.m.px(128.0),
+                min_width: px(0),
+                border_radius: BorderRadius::all(kit.m.px(9.0)),
+                overflow: Overflow::clip(),
                 flex_shrink: 0.0,
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
-    let copy = surfaces::prose(commands, kit, tile.description, false);
+    let copy = surfaces::prose(commands, kit, tile.description, true);
     commands
         .entity(copy)
         .entry::<Node>()
         .and_modify(|mut node| {
-            node.flex_grow = 1.0;
+            node.flex_grow = 0.0;
             node.min_width = px(0);
         });
-    commands.entity(line).add_children(&[picture, copy]);
-    let button = controls::button_with_icon(
+    let button = controls::button_compact(
         commands,
         kit,
-        tile.icon,
+        Some(tile.icon),
         tile.title,
-        Weight::Secondary,
+        if tile.stop == "tower" {
+            Weight::Gold
+        } else {
+            Weight::Secondary
+        },
         tile.live,
-        None,
         tile.action,
     );
     orders::stop(commands, button, &orders::PLAY, tile.stop);
     commands
         .entity(card)
         .insert(BorderColor::all(tile.accent.with_alpha(0.4)));
-    commands.entity(card).add_children(&[line, button]);
+    commands.entity(card).add_children(&[picture, button, copy]);
     commands.entity(parent).add_child(card);
 }

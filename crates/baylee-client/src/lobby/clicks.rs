@@ -227,7 +227,11 @@ pub(super) fn clicks(
         pointer.clear();
         return;
     }
-    let raw_clicked: Vec<Entity> = pointer.read().map(|click| click.entity).collect();
+    let raw_clicked: Vec<Entity> = pointer
+        .read()
+        .filter(|click| click.button == PointerButton::Primary)
+        .map(|click| click.entity)
+        .collect();
     // If both a child control (e.g. a button inside a deck tile) and its
     // ancestor tile received a click event in the same frame, only the most
     // specific (deepest) entity handles the click — never propagate to the

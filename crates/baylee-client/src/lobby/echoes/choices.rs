@@ -39,6 +39,7 @@ fn selected(
             offer,
             delivery: super::domain::v2::shop::Delivery::Inventory,
         }),
+        Action::PurchaseEquipped(offer) => purchase_equipped(run, offer),
         Action::QuickEquip(id) => {
             baylee_client_core::echoes::workshop::quick_move(&run.economy.inventory, id)
         }
@@ -117,6 +118,40 @@ fn selected(
         }
         _ => None,
     }
+}
+
+fn purchase_equipped(run: &super::api::Run, offer: u32) -> Option<Command> {
+    use super::domain::v2::{
+        inventory::Slot,
+        shop::{Delivery, Goods},
+    };
+    let goods = run
+        .shop
+        .offers
+        .iter()
+        .find(|entry| entry.id == offer && !entry.sold)?
+        .goods;
+    let delivery = if let Goods::Relic(definition) = goods {
+        // Preview the shared pure transaction, including cascading fusion. A full
+        // loadout can still accept an upgrade that reuses an equipped ingredient.
+        let preview = run.economy.bought_automatic(definition).ok()?;
+        let item = preview.inventory.relics.last()?;
+        let slot = if let Slot::Active(slot) = item.slot {
+            slot
+        } else {
+            (0..preview.inventory.layout.active_slots()).find(|slot| {
+                !preview
+                    .inventory
+                    .relics
+                    .iter()
+                    .any(|item| item.slot == Slot::Active(*slot))
+            })?
+        };
+        Delivery::Slot(Slot::Active(slot))
+    } else {
+        Delivery::Inventory
+    };
+    Some(Command::Buy { offer, delivery })
 }
 
 fn edit_deck(

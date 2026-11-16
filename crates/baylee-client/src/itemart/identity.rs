@@ -41,8 +41,29 @@ pub(crate) fn run_token(token: u16) -> Option<Goods> {
     identity.run.then_some(identity.goods)
 }
 
+pub(crate) fn run_art(key: Option<ImageKey>) -> Option<Goods> {
+    let key = key?;
+    if key.face != Face::Front {
+        return None;
+    }
+    match key.source {
+        ImageSource::Token(id) => run_token(id),
+        _ => None,
+    }
+}
+
 pub(crate) fn auxiliary(object: &baylee_view::PublicObject) -> bool {
     run_source(object).is_some()
+}
+
+pub(crate) fn run_ability(object: &baylee_view::PublicObject) -> bool {
+    run_source(object).is_some()
+        || object.ability_sources.iter().any(|source| {
+            source
+                .token
+                .as_ref()
+                .is_some_and(|token| run_token(token.token).is_some())
+        })
 }
 
 static IDENTITIES: LazyLock<Box<[Option<Identity>]>> = LazyLock::new(|| {

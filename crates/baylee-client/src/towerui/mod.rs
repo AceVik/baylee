@@ -9,8 +9,11 @@ use crate::{
 };
 use baylee_client_core::echoes::domain::v2::{catalog::Rarity, shop::Goods};
 use bevy::prelude::*;
+mod layout;
 mod rules;
 mod scenery;
+pub(crate) use layout::drag_ghost;
+pub(crate) use layout::{badge, coin, empty, frame};
 pub(crate) mod words;
 pub(crate) use scenery::{Decor, install};
 #[cfg(test)]
@@ -33,7 +36,7 @@ pub(crate) fn color(goods: Goods) -> Color {
     };
     match rarity {
         Rarity::Common => Color::srgb(0.56, 0.61, 0.64),
-        Rarity::Uncommon => Color::srgb(0.76, 0.85, 0.89),
+        Rarity::Uncommon => Color::srgb(0.51, 0.80, 0.88),
         Rarity::Rare => Color::srgb(0.97, 0.74, 0.34),
         Rarity::MythicRare => Color::srgb(1.0, 0.62, 0.34),
     }
@@ -53,10 +56,15 @@ pub(crate) fn button(
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 width: kit.m.px(item.size),
-                row_gap: kit.m.px(2.0),
+                height: kit.m.px(item.size),
+                border_radius: BorderRadius::all(kit.m.px(10.0)),
                 ..default()
             },
             Pickable::IGNORE,
+            crate::shellkit::surfaces::elevation_control(),
+            BackgroundColor(tokens::CONTROL),
+            crate::ambience::Feel::tinting_to(tokens::CONTROL, tokens::HOVER),
+            crate::ambience::FeelShadow,
         ))
         .id();
     commands.spawn((
@@ -71,11 +79,7 @@ pub(crate) fn button(
         Pickable::IGNORE,
     ));
     if let Some(caption) = item.caption {
-        let label = controls::label(commands, kit, caption, kit.m.text, tokens::INK);
-        commands
-            .entity(label)
-            .insert(crate::hud::tf_bold(kit.fonts, kit.m.text));
-        commands.entity(face).add_child(label);
+        badge(commands, face, kit, caption, color(item.goods));
     }
     let owner = controls::hit(commands, kit, face, action);
     let tip = detail(commands, kit, &item, live);
@@ -86,6 +90,54 @@ pub(crate) fn button(
         commands.entity(owner).insert(controls::Disabled);
     }
     owner
+}
+
+/// A read-only table icon with exactly the shop's detail presentation.
+/// Table callers already apply their HUD scale; size is in that coordinate space.
+pub(crate) fn inspectable(
+    commands: &mut Commands,
+    goods: Goods,
+    fonts: &crate::hud::UiFonts,
+    lang: baylee_client_core::i18n::Lang,
+    size: f32,
+) -> Entity {
+    let kit = Kit {
+        fonts,
+        m: crate::shellkit::ShellMetrics::of(
+            crate::shellkit::Viewport::desktop(1280.0, 720.0),
+            crate::shellkit::TextSize::default(),
+        ),
+        german: lang == baylee_client_core::i18n::Lang::De,
+    };
+    let name = words::name(goods, lang);
+    let description = words::description(goods, lang);
+    let tip = detail(
+        commands,
+        kit,
+        &Item {
+            goods,
+            name: &name,
+            description: &description,
+            caption: None,
+            size,
+            emphasis: Emphasis::None,
+        },
+        Live::Yes,
+    );
+    commands
+        .spawn((
+            Portrait(goods),
+            Node {
+                width: px_fixed(size),
+                height: px_fixed(size),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            controls::Tooltip(tip),
+            bevy::picking::hover::PickingInteraction::default(),
+            Pickable::default(),
+        ))
+        .id()
 }
 
 fn detail(commands: &mut Commands, kit: Kit, item: &Item<'_>, live: Live<'_>) -> Entity {

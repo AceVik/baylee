@@ -507,6 +507,9 @@ impl WakeFilter {
             phase: view.phase,
             step: view.step,
             opposing_stack,
+            // The bridge has no visual stack to keep open. Its own wake rules
+            // already ask the mind about opposing effects and legal responses.
+            item_stack: false,
             offering,
             owing: view.owed.is_some(),
         };

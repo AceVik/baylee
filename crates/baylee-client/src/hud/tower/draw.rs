@@ -5,13 +5,18 @@ use shellkit::focus::Stop;
 use shellkit::{controls, px_fixed};
 
 pub(super) fn draw(commands: &mut Commands, kit: Kit, duel: &Duel, canvas: Vec2, lang: Lang) {
+    if !duel.tower_inventory {
+        return;
+    }
     let root = commands
         .spawn((
             Root,
             Node {
                 position_type: PositionType::Absolute,
                 right: px_fixed(16.0),
-                bottom: px_fixed(16.0),
+                bottom: px_fixed(
+                    super::super::hand::HAND_ZONE_H - super::super::hand::LEDGE_H + 56.0,
+                ),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::End,
                 row_gap: kit.m.px(8.0),
@@ -47,19 +52,16 @@ pub(super) fn draw(commands: &mut Commands, kit: Kit, duel: &Duel, canvas: Vec2,
         title(commands, panel, kit, lang);
         seats(commands, panel, kit, duel, lang);
     }
-    let toggle = controls::button_with_icon(
+}
+
+fn close(commands: &mut Commands, parent: Entity, kit: Kit, lang: Lang) {
+    let toggle = controls::button_compact(
         commands,
         kit,
-        super::super::glyph::GEAR,
-        if duel.tower_inventory {
-            Phrase::ShellClose
-        } else {
-            Phrase::EchoesRunTableItems
-        }
-        .text(lang),
+        Some(super::super::glyph::CLOSE),
+        Phrase::ShellClose.text(lang),
         Weight::Secondary,
         Live::Yes,
-        None,
         (
             UiButton,
             MenuButton {
@@ -67,19 +69,10 @@ pub(super) fn draw(commands: &mut Commands, kit: Kit, duel: &Duel, canvas: Vec2,
             },
         ),
     );
-    if duel.tower_inventory {
-        commands
-            .entity(toggle)
-            .insert(Stop::new(keys::ORDER.name, "close"));
-    }
-    if let Some(object) = duel.ability_menu
-        && can_use(duel, object)
-    {
-        commands
-            .entity(toggle)
-            .insert(super::super::sheet::AbilityAnchor(object));
-    }
-    commands.entity(root).add_child(toggle);
+    commands
+        .entity(toggle)
+        .insert(Stop::new(keys::ORDER.name, "close"));
+    commands.entity(parent).add_child(toggle);
 }
 
 fn heading(commands: &mut Commands, parent: Entity, kit: Kit, name: &str) {
@@ -113,6 +106,7 @@ fn title(commands: &mut Commands, parent: Entity, kit: Kit, lang: Lang) {
         ))
         .id();
     controls::attach_tooltip(commands, info, kit, Phrase::EchoesRunTableHint.text(lang));
+    close(commands, row, kit, lang);
 }
 
 fn items(commands: &mut Commands, parent: Entity, kit: Kit) -> Entity {
@@ -223,14 +217,8 @@ fn seats(commands: &mut Commands, panel: Entity, kit: Kit, duel: &Duel, lang: La
                     count = count.saturating_add(1);
                 }
             }
-            if count == 0 {
-                let empty = shellkit::surfaces::prose(
-                    commands,
-                    kit,
-                    Phrase::EchoesRunNoEquipment.text(lang),
-                    true,
-                );
-                commands.entity(row).add_child(empty);
+            for _ in count..6 {
+                towerui::empty(commands, row, kit, 64.0, crate::hud::glyph::SHIELD);
             }
         }
         if !duel.watching {

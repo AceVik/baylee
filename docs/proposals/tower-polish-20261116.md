@@ -77,3 +77,33 @@ explicit limits. UI transport state is separate from render-state equality.
   passed and confirms no periodic HTTP job or resource-change rebuild at rest.
 - Strict clippy passed on Tower API/store/service, account SDK and local dev tool.
   This is focused author QA, not full gate completion or independent review.
+
+### Shared presentation and transaction evidence
+
+- Four native correction passes, at 1440×900 and then 1280×720: replaced the
+  activity paintings, reduced tall entry tiles, aligned shop/equipment frames,
+  compacted the inventory until its complete slots and statistics fit the desktop
+  floor. Final images: `baylee-tower-visual-46f0cf152405/client/02-lobby.png` and
+  `05-shop.png` in the owned system temporary directory. Original asset prompts
+  are kept beside the three committed landscapes.
+- Shared item portrait/detail hover is used in the shop, inventory, gear drawer,
+  stack and ordering tray. A pointer-following, hit-test-ignored drag ghost was
+  exercised by moving a purchased equipped item back into the bag. Secondary
+  purchase equips atomically; primary purchases still go to inventory. Eight
+  automatic-fusion tests include cascades, full-slot refusal and rollback.
+- A real native duel held the Spring Chalice upkeep trigger at Priority with a
+  visible Pass control. The gear icon lives in the existing table toolbar. The
+  entry path that used to reopen chat was found during this test and corrected;
+  the next native run confirmed closed chat/drawer/typing at Mulligan.
+- A test concession returned through “Zum Händler” to the shop-backed five-card
+  modal; choosing one card and claiming it produced the next freshly rolled shop.
+  This tests the retained loss flow, not the forthcoming weighted/foil reward rules.
+- Focused checks: 17 native Echoes unit tests, four shared-item tests, the core
+  explicit-item-priority regression, eight economy tests and strict clippy on
+  client/Tower/seat. The last spacing/chat corrections were subsequently built
+  and inspected natively. Idle HUD rebuild counters stayed 93→93 across the first
+  inspection interval. Every owned client, backend and PostgreSQL instance was
+  stopped and its PID/listener closure verified after each run.
+- Still pending: 50 starters/three offers, 175 item families, additional shop
+  offers, print/foil-aware weighted loot and three-gold duplicates, transactional
+  animations, complete builder integration and the final run-ending scene.

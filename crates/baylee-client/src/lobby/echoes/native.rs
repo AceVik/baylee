@@ -95,6 +95,7 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
     }
     if ui.model.busy()
         || (ui.confirmation.is_some() && !matches!(action, Action::Accept | Action::Cancel))
+        || (ui.starter_preview.is_some() && action != Action::ClosePreview)
     {
         return;
     }
@@ -131,13 +132,10 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
                     .iter()
                     .any(|c| c.id == cohort && usize::from(starter) < c.starters.len())
             {
-                ui.confirmation = Some(Confirmation::Enrollment {
-                    cohort,
-                    starter,
-                    consent: ui.model.consent(),
-                });
+                ui.model.start(id, cohort, starter, ui.model.consent())
+            } else {
+                None
             }
-            None
         }
         Action::Accept => accept(ui, id),
         Action::Cancel => {
@@ -173,11 +171,6 @@ fn accept(ui: &mut Ui, id: Uuid) -> Option<Work> {
             ui.model.listing(id, true)
         }
         Some(Confirmation::Withdrawal) => ui.model.withdraw(id),
-        Some(Confirmation::Enrollment {
-            cohort,
-            starter,
-            consent,
-        }) => ui.model.start(id, cohort, starter, consent),
         Some(Confirmation::Choice {
             run,
             revision,
@@ -214,7 +207,11 @@ fn navigate(ui: &mut Ui, action: Action) -> bool {
         Action::Badge(kind) => ui.collection.selected = kind,
         Action::GoShop => ui.page = Page::Shop,
         Action::InspectCard(card) => ui.preview = Some(card),
-        Action::ClosePreview => ui.preview = None,
+        Action::InspectStarter(cohort, starter) => ui.starter_preview = Some((cohort, starter)),
+        Action::ClosePreview => {
+            ui.preview = None;
+            ui.starter_preview = None;
+        }
         Action::DeckZone(zone) => {
             ui.deck.zone = zone;
             ui.deck.page = 0;
@@ -350,34 +347,7 @@ pub(super) fn tick(
         && state.echoes.opened
         && state.echoes.page != Page::Collection
         && ready(&state);
-    let updates = state.echoes.worker.socket.lock().ok().map(|mut live| {
-        live.poll(
-            showing,
-            state.echoes.session.as_ref(),
-            &state.echoes.worker.connection,
-        )
-    });
-    if let Some(updates) = updates {
-        for response in updates.pushed {
-            if state.echoes.model.push_changes(&response) {
-                let follows = matches!(response, api::Response::Run { .. });
-                state.echoes.model.push(response);
-                if follows {
-                    state.echoes.follow_run();
-                }
-            }
-        }
-        if let Some(done) = updates.finished {
-            if done.failure.is_none() && done.work.play().is_some() {
-                admit(&mut state, done);
-            } else if let Ok(mut inbox) = state.echoes.worker.inbox.lock() {
-                *inbox = Some(done);
-            }
-        }
-        if updates.resync && !state.echoes.model.busy() && !state.echoes.model.uncertain() {
-            state.echoes.refresh();
-        }
-    }
+    socket_updates(&mut state, showing);
     let reply = state
         .echoes
         .worker
@@ -393,6 +363,8 @@ pub(super) fn tick(
         let follows = matches!(reply.response, Some(api::Response::Run { .. }));
         let loaded = matches!(reply.response, Some(api::Response::Cohorts { .. }));
         let listed = matches!(reply.response, Some(api::Response::Listing { .. }));
+        let resume = matches!(reply.response, Some(api::Response::Runs { .. }))
+            && state.echoes.model.run().is_none();
         if state
             .echoes
             .model
@@ -404,6 +376,9 @@ pub(super) fn tick(
                 state.echoes.preview = None;
             }
             state.echoes.loaded |= loaded;
+            if resume {
+                resume_active(&mut state.echoes);
+            }
             state.echoes.withdrawn |= withdrawn;
             if enrolled {
                 state.echoes.withdrawn = false;
@@ -455,6 +430,60 @@ pub(super) fn tick(
             .expect("observed nonempty queue");
         if let Some(work) = state.echoes.model.read(Uuid::now_v7(), read) {
             submit(&mut state, work);
+        }
+    }
+}
+
+fn resume_active(ui: &mut Ui) {
+    if let Some(run) = ui
+        .model
+        .runs()
+        .iter()
+        .find(|run| {
+            matches!(
+                run.phase,
+                api::Phase::Shop
+                    | api::Phase::Reward
+                    | api::Phase::Reserved
+                    | api::Phase::Playing
+                    | api::Phase::Verifying
+            )
+        })
+        .map(|run| run.id)
+    {
+        ui.reads.push_front(Read::Run(run));
+        ui.page = Page::Shop;
+    }
+}
+
+fn socket_updates(state: &mut ResMut<'_, LobbyState>, showing: bool) {
+    // Keep the ResMut wrapper: an idle socket must not mark the lobby changed.
+    let updates = state.echoes.worker.socket.lock().ok().map(|mut live| {
+        live.poll(
+            showing,
+            state.echoes.session.as_ref(),
+            &state.echoes.worker.connection,
+        )
+    });
+    if let Some(updates) = updates {
+        for response in updates.pushed {
+            if state.echoes.model.push_changes(&response) {
+                let follows = matches!(response, api::Response::Run { .. });
+                state.echoes.model.push(response);
+                if follows {
+                    state.echoes.follow_run();
+                }
+            }
+        }
+        if let Some(done) = updates.finished {
+            if done.failure.is_none() && done.work.play().is_some() {
+                admit(state, done);
+            } else if let Ok(mut inbox) = state.echoes.worker.inbox.lock() {
+                *inbox = Some(done);
+            }
+        }
+        if updates.resync && !state.echoes.model.busy() && !state.echoes.model.uncertain() {
+            state.echoes.refresh();
         }
     }
 }

@@ -49,6 +49,8 @@ pub(in crate::lobby) fn feature(
             Node {
                 width: kit.m.px(width),
                 height: kit.m.px(width / 2.0),
+                border_radius: BorderRadius::all(kit.m.px(8.0)),
+                overflow: Overflow::clip(),
                 flex_shrink: 0.0,
                 ..default()
             },

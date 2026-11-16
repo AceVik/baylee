@@ -2,13 +2,13 @@
 use super::*;
 
 pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
-    let bag = panel(commands, root, kit);
+    let bag = towerui::frame(commands, root, kit);
     commands
         .entity(bag)
         .entry::<Node>()
         .and_modify(move |mut node| {
-            node.padding = UiRect::all(kit.m.px(10.0));
-            node.row_gap = kit.m.px(8.0);
+            node.padding = UiRect::all(kit.m.px(8.0));
+            node.row_gap = kit.m.px(6.0);
         });
     commands.entity(bag).insert((
         super::super::super::gestures::Destination::new(run, Slot::Inventory),
@@ -17,11 +17,11 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run
     sorting(commands, bag, kit, ui);
     contents(commands, bag, kit, ui, run);
     selected(commands, bag, kit, ui, run);
+    stats(commands, bag, kit, run);
 }
 
 fn sorting(commands: &mut Commands, bag: Entity, kit: Kit, ui: &Ui) {
     let top = row(commands, bag, kit);
-    heading(commands, top, kit, Phrase::EchoesInventory.text(lang(kit)));
     for (order, title) in [
         (workshop::Order::Newest, Phrase::EchoesRunNewest),
         (workshop::Order::Family, Phrase::EchoesRunFamily),
@@ -56,21 +56,20 @@ fn contents(commands: &mut Commands, bag: Entity, kit: Kit, ui: &Ui, run: &api::
     };
     let entries = workshop::inventory(&run.economy.inventory, order);
     let (page, pages) = workshop::page(entries.len(), ui.bag.page);
-    if entries.is_empty() {
-        label(
-            commands,
-            bag,
-            kit,
-            Phrase::EchoesRunBagEmpty.text(lang(kit)),
-            tokens::MUTED,
-        );
-    }
+    let shown = entries
+        .len()
+        .saturating_sub(page * workshop::PAGE_SIZE)
+        .min(workshop::PAGE_SIZE);
     let mut previous = None;
     let mut cells = row(commands, bag, kit);
     commands
         .entity(cells)
         .entry::<Node>()
-        .and_modify(|mut node| node.flex_wrap = FlexWrap::Wrap);
+        .and_modify(|mut node| {
+            node.display = Display::Grid;
+            node.grid_template_columns = vec![RepeatedGridTrack::flex(9, 1.0)];
+            node.justify_items = JustifyItems::Center;
+        });
     for item in entries
         .into_iter()
         .skip(page * workshop::PAGE_SIZE)
@@ -108,7 +107,7 @@ fn contents(commands: &mut Commands, bag: Entity, kit: Kit, ui: &Ui, run: &api::
             ui,
             Goods::Relic(item.definition),
             None,
-            64.0,
+            52.0,
             Emphasis::None,
             Action::Select(item.id),
             true,
@@ -116,6 +115,9 @@ fn contents(commands: &mut Commands, bag: Entity, kit: Kit, ui: &Ui, run: &api::
         commands
             .entity(cell)
             .insert(super::super::super::gestures::Owned::new(run, item.id));
+    }
+    for _ in shown..workshop::PAGE_SIZE {
+        towerui::empty(commands, cells, kit, 52.0, glyph::DIAMOND);
     }
     if pages > 1 {
         let paging = row(commands, bag, kit);
@@ -158,13 +160,17 @@ fn selected(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api:
         return;
     };
     let band = row(commands, root, kit);
-    label(
-        commands,
-        band,
-        kit,
-        &words::goods(Goods::Relic(item.definition), lang(kit)),
-        towerui::color(Goods::Relic(item.definition)),
-    );
+    commands
+        .entity(band)
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            node.position_type = PositionType::Absolute;
+            node.top = kit.m.px(8.0);
+            node.right = kit.m.px(8.0);
+            node.width = Val::Auto;
+            node.max_width = percent(50);
+            node.flex_wrap = FlexWrap::NoWrap;
+        });
     let moving = workshop::quick_move(&run.economy.inventory, item.id);
     control(
         commands,
@@ -175,15 +181,6 @@ fn selected(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api:
         Action::QuickEquip(item.id),
         moving.as_ref().is_some_and(|command| can(ui, command)),
     );
-    if moving.is_none() {
-        label(
-            commands,
-            root,
-            kit,
-            Phrase::EchoesRunFull.text(lang(kit)),
-            tokens::MUTED,
-        );
-    }
     if item.definition.rarity == Rarity::Rare
         && let Some(potion) = run.economy.inventory.materials.first()
     {
@@ -212,24 +209,4 @@ fn selected(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api:
         Action::Sell,
         can(ui, &Command::Sell { item: item.id }),
     );
-    let destinations = row(commands, root, kit);
-    for at in 0..6 {
-        let slot = Slot::Active(at);
-        control(
-            commands,
-            destinations,
-            kit,
-            ui,
-            &words::slot(slot, lang(kit)),
-            Action::Transfer(item.id, slot),
-            item.slot != slot
-                && can(
-                    ui,
-                    &Command::Move {
-                        item: item.id,
-                        slot,
-                    },
-                ),
-        );
-    }
 }

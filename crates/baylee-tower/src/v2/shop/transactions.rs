@@ -48,6 +48,14 @@ impl Shop {
             {
                 next.economy = next.economy.bought(definition, *slot)?;
             }
+            (
+                Goods::Relic(definition),
+                Delivery::Slot(crate::v2::inventory::Slot::Active(slot)),
+            ) if self.generator == crate::v2::generation::RUN => {
+                next.economy = next
+                    .economy
+                    .bought_automatic_into(definition, Some(*slot))?;
+            }
             (Goods::Relic(definition), Delivery::Fuse(recipe))
                 if self.generator != crate::v2::generation::RUN =>
             {

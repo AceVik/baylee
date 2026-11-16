@@ -48,6 +48,7 @@ pub(crate) const ORDER: TabOrder = TabOrder {
         "runs",
         "run-page",
         "starters",
+        "starter-preview",
         "cohort-page",
         "withdraw",
         "baylee",
@@ -58,6 +59,16 @@ pub(crate) const ORDER: TabOrder = TabOrder {
 pub(crate) const CONFIRM: TabOrder = TabOrder {
     name: "echoes-confirm",
     stops: &["cancel", "confirm"],
+    modal: true,
+};
+pub(crate) const INSPECT: TabOrder = TabOrder {
+    name: "echoes-inspect",
+    stops: &["close-preview"],
+    modal: true,
+};
+pub(crate) const REWARD: TabOrder = TabOrder {
+    name: "echoes-reward",
+    stops: &["rewards", "claim-reward"],
     modal: true,
 };
 
@@ -81,6 +92,24 @@ fn index(ui: &Ui, id: u32, offer: bool) -> usize {
 }
 
 pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
+    if ui.rewarding() {
+        match action {
+            Action::Reward(card) => {
+                return Stop::item(
+                    REWARD.name,
+                    "rewards",
+                    u8::try_from(card_index(ui, card)).unwrap_or(0),
+                );
+            }
+            Action::ClaimReward => return Stop::new(REWARD.name, "claim-reward"),
+            _ => {}
+        }
+    }
+    stop_regular(action, ui)
+}
+
+#[allow(clippy::too_many_lines)] // One exhaustive action-to-focus mapping, without hidden fallbacks.
+fn stop_regular(action: Action, ui: &Ui) -> Stop {
     let (key, at) = match action {
         Action::Accept => return Stop::new(CONFIRM.name, "confirm"),
         Action::Cancel => return Stop::new(CONFIRM.name, "cancel"),
@@ -105,7 +134,9 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
         Action::Read(Read::Ranking(cohort, lane)) => {
             ("ranking-lane", ranking_index(ui, cohort, lane))
         }
-        Action::Offer(id) | Action::Purchase(id) => ("offers", index(ui, id, true)),
+        Action::Offer(id) | Action::Purchase(id) | Action::PurchaseEquipped(id) => {
+            ("offers", index(ui, id, true))
+        }
         Action::QuickEquip(id) => ("move", index(ui, id, false)),
         Action::Transfer(_, slot) => (
             "move-slot",
@@ -137,6 +168,10 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
                 Slot::Inventory => 9,
             },
         ),
+        Action::InspectStarter(_, index) => ("starter-preview", usize::from(index)),
+        Action::ClosePreview if ui.starter_preview.is_some() => {
+            return Stop::new(INSPECT.name, "close-preview");
+        }
         Action::ClosePreview => ("close-preview", 0),
         Action::DeckPage(page) => ("deck-page", page),
         Action::DeckZone(zone) => (

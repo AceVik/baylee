@@ -15,14 +15,14 @@ pub(super) fn control(
     let allowed = available
         && !ui.model.busy()
         && (ui.confirmation.is_none() || matches!(action, Action::Accept | Action::Cancel));
-    let button = controls::button_with_icon(
+    let button = controls::button_compact(
         commands,
         kit,
-        if words::selected(action, ui) {
+        Some(if words::selected(action, ui) {
             glyph::CHECK
         } else {
             words::icon(action)
-        },
+        }),
         words,
         if matches!(
             action,
@@ -45,7 +45,6 @@ pub(super) fn control(
         } else {
             Live::No(Phrase::EchoesUnavailable.text(lang))
         },
-        None,
         Press::Echoes(action),
     );
     commands.entity(button).insert((
@@ -228,15 +227,6 @@ pub(super) fn confirmation(commands: &mut Commands, root: Entity, kit: Kit, ui: 
         Confirmation::Withdrawal => (
             Phrase::EchoesWithdrawConfirm.text(lang).to_string(),
             !ui.model.uncertain(),
-        ),
-        Confirmation::Enrollment {
-            cohort,
-            starter,
-            consent,
-        } => (
-            Phrase::EchoesConsent.fill(lang, &[&(*starter + 1).to_string(), &consent.to_string()]),
-            *consent == ui.model.consent()
-                && ui.model.cohorts().iter().any(|entry| entry.id == *cohort),
         ),
         Confirmation::Choice {
             run,

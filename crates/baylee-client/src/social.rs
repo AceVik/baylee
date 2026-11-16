@@ -530,11 +530,8 @@ fn lobby_side(
         ui.drawer_menu = None;
     }
     if lobby.chat_header != header {
-        // The friends list stands open from the start of a session (owner,
-        // 13.10.).
-        if lobby.chat_header != Some(true) && header == Some(true) {
-            ui.drawer = true;
-        }
+        // Session readiness never opens a panel. Only an explicit chat/friends
+        // action does; arriving at a table must leave the board unobstructed.
         lobby.chat_header = header;
     }
     let at_table = phase.is_some_and(|p| {
@@ -821,7 +818,8 @@ fn table_context(
         host.carry_out(effects);
     }
     if new_conv.is_some() && new_conv != old_conv {
-        ui.open = true;
+        ui.open = false;
+        ui.typing = false;
         ui.minimised = false;
         window::select_tab(&mut host, &mut ui, ChatTab::Table);
     }
