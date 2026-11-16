@@ -1,6 +1,7 @@
-//! Recorded orchestra, physical-modelled Acoustic Tavern Guitar and Renaissance lute/lyre,
-//! and hybrid orchestral synthesizer layers sharing one continuous stereo room.
-//! Studio resampling is prepared before playback; both banks render allocation-free.
+//! Recorded orchestra, physical-modelled Acoustic Tavern Guitar, Concert Grand Harp
+//! and Renaissance lute/lyre, and hybrid orchestral synthesizer layers sharing one
+//! continuous stereo room. Studio resampling is prepared before playback; both banks
+//! render allocation-free.
 #![allow(
     clippy::cast_precision_loss,
     clippy::cast_possible_truncation,
@@ -13,7 +14,7 @@ mod sampled;
 mod synth;
 pub(super) use sampled::{Def, Family, Kind};
 mod plucked;
-use plucked::{Lute, STRINGS, TavernGuitar};
+use plucked::{ConcertHarp, Lute, STRINGS, TavernGuitar};
 use sampled::Voice;
 
 pub(super) fn prepare() {
@@ -115,10 +116,15 @@ pub(super) struct Orchestra {
     chamber: chamber::Ensemble,
     strings: [Lute; STRINGS],
     guitar: TavernGuitar,
+    harp: ConcertHarp,
     plucks: u32,
     room: [Delay; 8],
     scatter: [Delay; 4],
     tilt: [f32; 2],
+    #[cfg(test)]
+    pub(in crate::music) flute_notes: usize,
+    #[cfg(test)]
+    pub(in crate::music) concert_harp_notes: usize,
 }
 impl Default for Orchestra {
     fn default() -> Self {
@@ -129,10 +135,15 @@ impl Default for Orchestra {
             chamber: chamber::Ensemble::default(),
             strings: std::array::from_fn(|_| Lute::new()),
             guitar: TavernGuitar::new(),
+            harp: ConcertHarp::new(),
             plucks: 0,
             room: [1631, 2043, 2327, 2821, 1697, 2101, 2399, 2921].map(Delay::new),
             scatter: [379, 123, 413, 139].map(Delay::new),
             tilt: [0.0; 2],
+            #[cfg(test)]
+            flute_notes: 0,
+            #[cfg(test)]
+            concert_harp_notes: 0,
         }
     }
 }
@@ -174,6 +185,14 @@ impl Orchestra {
         touch: Touch,
         samples: super::SampleSet,
     ) {
+        #[cfg(test)]
+        {
+            if instrument == Instrument::Flute {
+                self.flute_notes += 1;
+            } else if instrument == Instrument::ConcertHarp {
+                self.concert_harp_notes += 1;
+            }
+        }
         if instrument.synthetic() {
             self.synth
                 .note(instrument, pitch, seconds, panned(gain, touch.pan), touch);
@@ -182,6 +201,14 @@ impl Orchestra {
                 pitch,
                 seconds,
                 panned(gain * 1.65, touch.pan),
+                touch.late,
+                touch.cents,
+            );
+        } else if instrument == Instrument::ConcertHarp {
+            self.harp.pluck(
+                pitch,
+                seconds,
+                panned(gain * 1.56, touch.pan),
                 touch.late,
                 touch.cents,
             );
@@ -225,6 +252,7 @@ impl Orchestra {
         self.synth.release();
         self.chamber.release();
         self.guitar.release();
+        self.harp.release();
         for voice in &mut self.voices {
             voice.release();
         }
@@ -277,6 +305,7 @@ impl Orchestra {
             }
         }
         self.guitar.frame(&mut dry, &mut feed);
+        self.harp.frame(&mut dry, &mut feed);
         self.synth.frame(&mut dry, &mut feed);
         self.chamber.frame(&mut dry, &mut feed);
         self.finish(dry, feed)
@@ -313,6 +342,7 @@ impl Orchestra {
             }
         }
         self.guitar.render(out, feed);
+        self.harp.render(out, feed);
         self.synth.render(out, feed);
         self.chamber.render(out, feed);
         for (frame, send) in out.iter_mut().zip(feed.iter()) {

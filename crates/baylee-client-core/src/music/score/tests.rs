@@ -835,3 +835,146 @@ fn lobby_tavern_guitar_locks_to_exact_fifteen_second_eight_bar_video_loop() {
     assert_eq!(memorial::LOBBY_STEP_FRAMES * 4 * 120 / RATE, 75);
     assert_eq!(memorial::LOBBY_STEP_FRAMES * 12 * 120 / RATE, 225);
 }
+
+#[test]
+fn zero_flute_voices_exist_across_login_lobby_table_and_ending_scores() {
+    let mut concert_harp_events = 0usize;
+    for theme in Theme::ALL {
+        for movement in Movement::ALL {
+            for bar in 0..33 {
+                for tick in 0..theme.ticks() {
+                    for &(stack, intensity) in &[(0_u8, 0.0_f32), (2, 0.55), (5, 1.0)] {
+                        let ns = arrangement::notes_with_intensity(
+                            theme, movement, bar, tick, stack, intensity,
+                        );
+                        for note in ns.as_slice() {
+                            assert_ne!(
+                                note.instrument,
+                                Instrument::Flute,
+                                "piercing Flute forbidden in {theme:?}/{movement:?} b={bar} t={tick}"
+                            );
+                            if note.instrument == Instrument::ConcertHarp {
+                                concert_harp_events += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    assert!(
+        concert_harp_events > 200,
+        "ConcertHarp replaces Flute: {concert_harp_events}"
+    );
+
+    let mut perf = memorial::Performance::default();
+    let mut orch = Orchestra::default();
+    for _ in 0..(64 * 12) {
+        let frames = perf.play(Movement::Title, &mut orch, SampleSet::Studio48);
+        for _ in 0..frames {
+            perf.advance_for(Movement::Title);
+        }
+    }
+    assert_eq!(
+        orch.flute_notes, 0,
+        "Login Title schedules zero Flute notes"
+    );
+    assert!(orch.concert_harp_notes >= 64 * 6);
+
+    let harp_after_title = orch.concert_harp_notes;
+    for _ in 0..(128 * 12) {
+        let frames = perf.play(Movement::Lobby, &mut orch, SampleSet::Studio48);
+        for _ in 0..frames {
+            perf.advance_for(Movement::Lobby);
+        }
+    }
+    assert_eq!(
+        orch.flute_notes, 0,
+        "Lobby Tavern schedules zero Flute notes"
+    );
+    assert!(orch.concert_harp_notes > harp_after_title);
+}
+
+#[test]
+fn login_title_presents_baylee_signature_leitmotif_and_epic_symphonic_swell() {
+    let sig = memorial::BAYLEE_SIGNATURE_MOTIF;
+    let sig_intervals: Vec<i16> = sig
+        .windows(2)
+        .map(|w| i16::from(w[1]) - i16::from(w[0]))
+        .collect();
+    assert_eq!(sig_intervals, vec![7, 5, 3, -3, -2, 4, -4]);
+
+    let sheets = memorial::sheet_melodies();
+    assert_eq!(
+        &sheets[0].1[..8],
+        &sig,
+        "Login Overture opens with Baylee Signature"
+    );
+    assert_eq!(
+        &sheets[0].1[14..18],
+        &sig[..4],
+        "Horn & Cello answer restates signature"
+    );
+    assert_eq!(
+        &sheets[2].1[..3],
+        &[62, 69, 74],
+        "Lobby Sanz echoes signature call"
+    );
+
+    let victory_call: Vec<u8> = (0..4)
+        .flat_map(|tick| {
+            arrangement::notes(Theme::Ember, Movement::Victory, 0, tick)
+                .as_slice()
+                .iter()
+                .filter(|n| n.role == Role::Melody)
+                .map(|n| n.pitch + 12)
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    assert_eq!(victory_call, vec![62, 69, 74, 78]);
+
+    let control = Arc::new(ScoreControl::default());
+    control.set(ScoreRequest {
+        scene: Scene::FrontDoor,
+        theme: Theme::Ember,
+        ..ScoreRequest::default()
+    });
+    let mut tune = Tune::with_control(control);
+    let bar_frames = 9_600_usize * 12;
+    let mut act_rms = [0.0_f64; 4];
+    let (mut peak, mut seam_jump) = (0.0_f32, 0.0_f32);
+    let mut prev = [0.0_f32; 2];
+    for bar in 0..17_usize {
+        let mut buf = vec![[0.0_f32; 2]; bar_frames];
+        tune.render(&mut buf);
+        let mut power = 0.0_f64;
+        for (idx, &frame) in buf.iter().enumerate() {
+            for ch in 0..2 {
+                assert!(frame[ch].is_finite());
+                peak = peak.max(frame[ch].abs());
+                power += f64::from(frame[ch]).powi(2);
+                if bar == 16 && idx < 64 {
+                    seam_jump = seam_jump.max((frame[ch] - prev[ch]).abs());
+                }
+            }
+            prev = frame;
+        }
+        if bar < 16 {
+            act_rms[bar / 4] += power / (bar_frames * 2 * 4) as f64;
+        }
+    }
+    let rms = act_rms.map(f64::sqrt);
+    assert!(
+        rms[0] > 0.008 && rms[1] > rms[0] * 1.15,
+        "Act I -> II swell: {rms:?}"
+    );
+    assert!(
+        rms[2] > rms[0] * 1.40 && rms[2] > rms[1] * 1.12,
+        "Act III climax: {rms:?}"
+    );
+    assert!(rms[3] < rms[2], "Act IV bridge decrescendo: {rms:?}");
+    assert!(
+        peak < 0.65 && seam_jump < 0.08,
+        "headroom {peak}, seam {seam_jump}"
+    );
+}

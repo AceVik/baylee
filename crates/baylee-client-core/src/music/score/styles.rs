@@ -191,7 +191,7 @@ fn add_melody_voice(
     };
     let response_gain = if answering {
         match lead {
-            Instrument::Flute => 0.80,
+            Instrument::ConcertHarp | Instrument::Flute => 0.88,
             Instrument::Bell | Instrument::Violin => 0.90,
             _ => 0.95,
         }

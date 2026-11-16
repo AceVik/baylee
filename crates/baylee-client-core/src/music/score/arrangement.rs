@@ -19,6 +19,7 @@ pub(in crate::music) enum Instrument {
     ViolaShort,
     CelloShort,
     TavernGuitar,
+    ConcertHarp,
     Piano,
     Clav,
     Flute,
@@ -43,7 +44,7 @@ impl Instrument {
         self as u8 >= Self::Piano as u8
     }
     pub(in crate::music) const fn sampled_acoustic(self) -> bool {
-        !matches!(self, Self::Lyre | Self::TavernGuitar) && !self.synthetic()
+        !matches!(self, Self::Lyre | Self::TavernGuitar | Self::ConcertHarp) && !self.synthetic()
     }
     #[cfg(test)]
     pub(in crate::music) const fn percussion(self) -> bool {
@@ -52,6 +53,7 @@ impl Instrument {
     pub(super) const fn pan(self) -> f32 {
         match self {
             Self::Harp => -0.38,
+            Self::ConcertHarp => -0.22,
             Self::Zither => 0.34,
             Self::Lyre => 0.08,
             Self::TavernGuitar => -0.06,
@@ -147,6 +149,8 @@ impl Notes {
                 0.045
             } else if instrument == Instrument::TavernGuitar && role != Role::Melody {
                 0.012
+            } else if instrument == Instrument::ConcertHarp && role != Role::Melody {
+                0.008
             } else {
                 0.0
             },
@@ -386,7 +390,7 @@ fn melody(
     stack_depth: u8,
     intensity: f32,
 ) {
-    use Instrument::{Cello, Flute, Harp, Lyre, TavernGuitar, Trombone, Violin, ViolinShort};
+    use Instrument::{Cello, ConcertHarp, Harp, Lyre, TavernGuitar, Trombone, Violin, ViolinShort};
     let Some((pitch, length)) = onset(line(theme, movement, bar), tick) else {
         return;
     };
@@ -402,7 +406,7 @@ fn melody(
     );
     let pluck = match theme {
         Theme::Glass | Theme::Star => Harp,
-        Theme::Ember => Flute,
+        Theme::Ember => ConcertHarp,
         _ => TavernGuitar,
     };
     let dyn_scale = 1.0 + 0.14 * intensity;
@@ -474,7 +478,7 @@ fn melody_layers(
     stack_depth: u8,
     intensity: f32,
 ) {
-    use Instrument::{Celesta, Flute, FrenchHorn, Harp, Trombone, Violin};
+    use Instrument::{Celesta, ConcertHarp, FrenchHorn, Harp, Trombone, Violin};
     let ticks = theme.ticks();
     let low_oct = clear_register(pitch.saturating_sub(12));
     let fit = |p: u8, len: f32| clamp_for_next_chord(p, len, tick, ticks, harmony, next_harmony);
@@ -498,25 +502,14 @@ fn melody_layers(
             );
         }
         Movement::Victory => {
-            out.add(
-                Trombone,
-                low_oct,
-                fit(low_oct, length),
-                0.15 * arc,
-                Role::Melody,
-            );
+            let f_low = fit(low_oct, length);
+            out.add(Trombone, low_oct, f_low, 0.15 * arc, Role::Melody);
             let cents = sweeten_cents(FrenchHorn, low_oct, harmony, false);
-            out.add_tuned(
-                FrenchHorn,
-                low_oct,
-                fit(low_oct, length),
-                0.12 * arc,
-                Role::Harmony,
-                cents,
-            );
+            out.add_tuned(FrenchHorn, low_oct, f_low, 0.12 * arc, Role::Harmony, cents);
             if tick == 0 {
                 let cel = pitch.min(86);
                 out.add(Celesta, cel, fit(cel, 2.0), 0.10 * arc, Role::Accent);
+                out.add(ConcertHarp, cel, fit(cel, 2.2), 0.14 * arc, Role::Accent);
             }
         }
         Movement::Standard => {
@@ -530,11 +523,12 @@ fn melody_layers(
                 );
             }
             if (stack_depth >= 1 || intensity >= 0.28) && tick.is_multiple_of(2) {
+                let v_gain = (0.08 + 0.09 * intensity) * arc;
                 out.add(
                     Violin,
                     pitch,
                     fit(pitch, length * 0.95),
-                    (0.08 + 0.09 * intensity) * arc,
+                    v_gain,
                     Role::Melody,
                 );
             }
@@ -543,11 +537,12 @@ fn melody_layers(
             if (stack_depth >= 2 || intensity >= 0.48) && (tick == 0 || tick == ticks / 2) =>
         {
             let cents = sweeten_cents(FrenchHorn, low_oct, harmony, false);
+            let h_gain = (0.09 + 0.06 * intensity) * arc;
             out.add_tuned(
                 FrenchHorn,
                 low_oct,
                 fit(low_oct, length * 1.05),
-                (0.09 + 0.06 * intensity) * arc,
+                h_gain,
                 Role::Harmony,
                 cents,
             );
@@ -558,10 +553,10 @@ fn melody_layers(
         }
         Movement::Draw if tick == 0 => {
             out.add(
-                Flute,
+                ConcertHarp,
                 pitch,
-                fit(pitch, length * 1.05),
-                0.11 * arc,
+                fit(pitch, length * 1.15),
+                0.15 * arc,
                 Role::Harmony,
             );
         }
@@ -586,7 +581,7 @@ fn melody_epic_layers(
     stack_depth: u8,
     intensity: f32,
 ) {
-    use Instrument::{Celesta, FrenchHorn, Lyre, Trombone, Violin};
+    use Instrument::{Celesta, ConcertHarp, FrenchHorn, Lyre, Trombone, Violin};
     let fit = |p: u8, len: f32| clamp_for_next_chord(p, len, tick, ticks, harmony, next_harmony);
     if movement == Movement::Endgame || (bar % 8 >= 4 && tick == 0) {
         let g = if movement == Movement::Endgame {
@@ -629,8 +624,17 @@ fn melody_epic_layers(
     if movement == Movement::Title && voice != Violin && bar % 4 >= 2 {
         out.add(Violin, pitch, length, 0.13 * arc, Role::Melody);
     }
+    if tick == 0 && bar.is_multiple_of(2) {
+        out.add(
+            ConcertHarp,
+            pitch,
+            fit(pitch, 2.0),
+            0.18 * arc,
+            Role::Accent,
+        );
+    }
     if tick == 0 && bar.is_multiple_of(4) {
-        out.add(Lyre, pitch, fit(pitch, 1.8), 0.24 * arc, Role::Accent);
+        out.add(Lyre, pitch, fit(pitch, 1.8), 0.22 * arc, Role::Accent);
     }
 }
 
@@ -980,12 +984,14 @@ fn drive(
     }
 }
 
-/// Three distinct public-domain-inspired outcome melodies on Bar 0:
-/// - Victory: Radiant D-major ascending fanfare (*Great Gate of Kiev* / Handel)
+/// Three distinct outcome melodies on Bar 0:
+/// - Victory: Radiant D-major transformation of the Baylee Signature Motif (`D4 -> A4 -> D5 -> F#5`)
 /// - Defeat: Somber D-minor descending elegy (Grieg *Åse's Death*)
-/// - Draw: Contemplative D-Dorian open-fifth D–A modal suspension (Satie *Gnossienne*)
+/// - Draw: Contemplative D-Dorian open-fifth D–A modal suspension on Concert Harp & French Horn
 fn cue(out: &mut Notes, theme: Theme, movement: Movement, tick: u8) {
-    use Instrument::{Celesta, Cello, Flute, FrenchHorn, Harp, Lyre, StringPad, Timpani, Trombone};
+    use Instrument::{
+        Celesta, Cello, ConcertHarp, FrenchHorn, Harp, Lyre, StringPad, Timpani, Trombone,
+    };
     let span = theme.ticks();
     let onsets = [0, 1, 2, 3];
     let Some(index) = onsets.iter().position(|&onset| onset == tick) else {
@@ -994,7 +1000,7 @@ fn cue(out: &mut Notes, theme: Theme, movement: Movement, tick: u8) {
     let pitch = match movement {
         Movement::Victory => {
             (match theme {
-                Theme::Ember => [62, 69, 74, 86],
+                Theme::Ember => [62, 69, 74, 78],
                 Theme::Glass => [62, 66, 74, 81],
                 Theme::Thorn => [57, 66, 74, 86],
                 Theme::Tide => [62, 69, 78, 86],
@@ -1021,7 +1027,7 @@ fn cue(out: &mut Notes, theme: Theme, movement: Movement, tick: u8) {
     };
     let voice = match movement {
         Movement::Defeat => Cello,
-        Movement::Draw => Flute,
+        Movement::Draw => ConcertHarp,
         _ => Trombone,
     };
     out.add(
@@ -1034,13 +1040,14 @@ fn cue(out: &mut Notes, theme: Theme, movement: Movement, tick: u8) {
         length,
         match movement {
             Movement::Defeat => 0.29,
-            Movement::Draw => 0.26,
+            Movement::Draw => 0.27,
             _ => 0.31,
         },
         Role::Melody,
     );
-    out.add(Harp, pitch, 1.8, 0.24, Role::Accent);
-    out.add(Lyre, pitch, 1.7, 0.24, Role::Accent);
+    out.add(Harp, pitch, 1.8, 0.20, Role::Accent);
+    out.add(ConcertHarp, pitch, 2.1, 0.22, Role::Accent);
+    out.add(Lyre, pitch, 1.7, 0.18, Role::Accent);
     match movement {
         Movement::Victory => {
             out.add(FrenchHorn, pitch - 12, length * 1.1, 0.16, Role::Harmony);

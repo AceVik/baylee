@@ -5,12 +5,12 @@ use crate::music::{Scene, ScoreRequest};
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Movement {
-    /// Noble D-minor / D-Dorian public-domain Title suite at sign-in (`FrontDoor`).
+    /// Epic Baylee Signature Overture in D minor / D Dorian / D major at sign-in (`FrontDoor`).
     #[default]
     Title,
     /// Cozy Acoustic-Guitar-led public-domain Tavern suite for Lobby and Deckbuilder.
     Lobby,
-    /// Calm ("Ruhig") chamber guitar, harp, flute and strings at the table.
+    /// Calm ("Ruhig") chamber guitar, concert harp and strings at the table.
     Standard,
     /// Poised / tense rhythmic ostinato, spiccato strings and horn counterpoint.
     Combat,

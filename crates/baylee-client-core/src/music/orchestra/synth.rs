@@ -67,13 +67,15 @@ fn timbre(instrument: Instrument) -> Timbre {
             0.08,
         ),
         Flute => (
+            // Retained only for legacy enum completeness; voiced as a soft, warm
+            // plucked/bell-like low-partial tone without shrill odd-harmonic whistle.
             [
-                1.0, 0.08, 0.18, 0.03, 0.035, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                1.0, 0.24, 0.075, 0.025, 0.008, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             ],
-            0.024,
-            0.04,
-            1.9,
-            0.12,
+            0.032,
+            0.85,
+            3.4,
+            0.20,
         ),
         Guitar => (
             [
@@ -268,7 +270,6 @@ enum Source {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Articulation {
     Direct,
-    BreathVibrato,
     Ensemble,
     BowedEnsemble,
 }
@@ -326,7 +327,6 @@ impl Voice {
         let articulation = match instrument {
             Instrument::StringPad => Articulation::BowedEnsemble,
             Instrument::Pad | Instrument::FrenchHorn => Articulation::Ensemble,
-            Instrument::Flute => Articulation::BreathVibrato,
             _ => Articulation::Direct,
         };
         Self {
@@ -372,10 +372,7 @@ impl Voice {
     }
     fn step_tone(&mut self, tone: &'static Timbre) -> [f32; 2] {
         let t = self.age as f32 / RATE as f32;
-        let has_vibrato = matches!(
-            self.articulation,
-            Articulation::BreathVibrato | Articulation::BowedEnsemble
-        );
+        let has_vibrato = self.articulation == Articulation::BowedEnsemble;
         let has_chorus = matches!(
             self.articulation,
             Articulation::Ensemble | Articulation::BowedEnsemble

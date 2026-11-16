@@ -1,13 +1,17 @@
-//! Public-domain sheet-music suites for Login (`Movement::Title`) and Lobby /
-//! Deckbuilder (`Movement::Lobby`), unified in D minor / D Dorian / F major / D major:
+//! Sheet-music suites for Login (`Movement::Title`) and Lobby / Deckbuilder
+//! (`Movement::Lobby`), unified in D minor / D Dorian / F major / D major:
 //!
-//! ### Login Title Suite (`Movement::Title`) — Noble, mysterious & inviting:
-//! 1. George Frideric Handel (1685–1759), *Suite in D minor, HWV 437: IV. Sarabande* (1733)
-//! 2. Antonín Dvořák (1841–1904), *Symphony No. 9, Op. 95: II. Largo* (1893) paired with
-//!    Modest Mussorgsky (1839–1881), *Pictures at an Exhibition: Promenade* (1874), in F major / D minor
+//! ### Login Title Suite (`Movement::Title`) — Epic Baylee Signature Overture:
+//! 1. *Baylee Signature Overture* (16-bar dramatic arc anchored by the 8-note Baylee Signature
+//!    Leitmotif `D4 -> A4 -> D5 -> F5 -> D5 -> C5 -> E5 -> C5`: Concert Harp signature statement,
+//!    French Horn & Cello answer, full Strings/Horns/Timpani sweeping climax, and luminous D-major
+//!    revelation bridging seamlessly back to the Concert Harp opening).
+//! 2. *Heroic Sarabande Variation* (after George Frideric Handel, *Suite in D minor, HWV 437*, 1733,
+//!    woven with the Baylee Signature Motif on Concert Harp, French Horns, Cello and Strings).
 //!
 //! ### Lobby & Deckbuilder Tavern Suite (`Movement::Lobby`) — Cozy Acoustic Guitar ("Taverne, Gitarre, gemütlich"):
-//! 1. Gaspar Sanz (1640–1710), *Españoleta* (*Instrucción de música sobre la guitarra española*, 1674, D minor)
+//! 1. Gaspar Sanz (1640–1710), *Españoleta* (*Instrucción de música sobre la guitarra española*, 1674, D minor,
+//!    opening with a warm acoustic-guitar echo of the Baylee `D4 -> A4 -> D5` signature call)
 //! 2. Francisco Tárrega (1852–1909), *Lágrima* (1891, D major) & *Adelita* (c. 1901, D minor)
 //! 3. Fernando Sor (1778–1839), *Study Op. 35 No. 22* (1828, transposed to D minor / F major)
 //! 4. Johann Sebastian Bach (1685–1750), *Lute Suite BWV 996: Bourrée* (c. 1712) & *Prelude BWV 999* (c. 1720, D minor)
@@ -118,111 +122,140 @@ const fn sheet_sweeten_cents(bass: u8, tones: [u8; 3], pitch: u8) -> f32 {
     }
 }
 
-/// Login Piece I: Handel *Sarabande in D minor, HWV 437* (1733 — stately 3/4 sarabande, 16 bars).
-/// Voiced with parsimonious contrary/oblique inner motion retaining common tones across chords.
-const HANDEL_SARABANDE: [SheetBar; 16] = [
-    // d -> F -> Bb -> A
-    bar_same(38, [50, 57, 62], &[(0, 74, 4), (4, 77, 6), (10, 69, 2)]),
+/// The 8-note Baylee Signature Leitmotif (`D4 -> A4 -> D5 -> F5 -> D5 -> C5 -> E5 -> C5`),
+/// rising through a noble fifth and octave (`+7, +5`) to a poignant minor-tenth crest (`+3`),
+/// then stepping through `Bb(add9)` to a luminous lift over `C major` (`-3, -2, +4, -4`).
+#[cfg_attr(not(test), allow(dead_code))]
+pub(in crate::music) const BAYLEE_SIGNATURE_MOTIF: [u8; 8] = [62, 69, 74, 77, 74, 72, 76, 72];
+
+/// Login Piece I: *Baylee Signature Overture* (16 bars in 3/4, dramatic 4-stage symphonic arc):
+/// - Bars 1–4: Crystalline Concert Harp statement of the Baylee Signature Motif over deep `D2` pedal.
+/// - Bars 5–8: Noble French Horn & Cello answer in Drop-2 harmony with shimmering harp counter-arpeggios.
+/// - Bars 9–12: Full epic sweeping climax (`Bb -> C -> Dm/Bb -> Gm/A`) with soaring Strings, Horns & Timpani.
+/// - Bars 13–16: Triumphant `D major` signature revelation resolving luminously back to the Concert Harp loop.
+const BAYLEE_SIGNATURE_OVERTURE: [SheetBar; 16] = [
+    // Act I (Bars 1–4): Intimate Concert Harp Signature Statement
+    bar_same(
+        38,
+        [53, 57, 62],
+        &[(0, 62, 4), (4, 69, 2), (6, 74, 4), (10, 77, 2)],
+    ),
+    bar_split(
+        46,
+        [53, 58, 62],
+        40,
+        [52, 55, 60],
+        &[(0, 74, 4), (4, 72, 2), (6, 76, 4), (10, 72, 2)],
+    ),
+    bar_split(
+        41,
+        [53, 57, 60],
+        43,
+        [55, 59, 62],
+        &[(0, 69, 4), (4, 72, 2), (6, 74, 4), (10, 71, 2)],
+    ),
+    bar_same(45, [52, 57, 61], &[(0, 69, 8), (8, 64, 4)]),
+    // Act II (Bars 5–8): Noble French Horn & Cello Answer
+    bar_same(
+        38,
+        [53, 57, 62],
+        &[(0, 62, 4), (4, 69, 2), (6, 74, 4), (10, 77, 2)],
+    ),
+    bar_split(
+        46,
+        [53, 58, 62],
+        41,
+        [53, 57, 60],
+        &[(0, 79, 4), (4, 74, 2), (6, 81, 4), (10, 77, 2)],
+    ),
+    bar_split(
+        43,
+        [55, 58, 62],
+        45,
+        [52, 57, 61],
+        &[(0, 79, 4), (4, 74, 2), (6, 76, 4), (10, 73, 2)],
+    ),
+    bar_split_at(
+        8,
+        38,
+        [53, 57, 62],
+        40,
+        [52, 55, 60],
+        &[(0, 74, 6), (6, 69, 2), (8, 72, 2), (10, 76, 2)],
+    ),
+    // Act III (Bars 9–12): Full Epic Sweeping Orchestral Climax (Bb -> C -> Dm/Bb -> Gm/A)
+    bar_same(
+        46,
+        [53, 58, 62],
+        &[(0, 77, 4), (4, 74, 2), (6, 82, 4), (10, 77, 2)],
+    ),
+    bar_same(
+        36,
+        [55, 60, 64],
+        &[(0, 79, 4), (4, 76, 2), (6, 81, 4), (10, 79, 2)],
+    ),
+    bar_split(
+        38,
+        [53, 57, 62],
+        46,
+        [53, 58, 62],
+        &[(0, 81, 4), (4, 77, 2), (6, 74, 4), (10, 70, 2)],
+    ),
+    bar_split(
+        43,
+        [55, 58, 62],
+        45,
+        [52, 57, 61],
+        &[(0, 74, 4), (4, 79, 2), (6, 76, 4), (10, 73, 2)],
+    ),
+    // Act IV (Bars 13–16): Luminous D-Major Revelation & Seamless Bridge Back to Loop
+    bar_same(
+        38,
+        [54, 57, 62],
+        &[(0, 74, 4), (4, 69, 2), (6, 78, 4), (10, 74, 2)],
+    ),
+    bar_split(
+        43,
+        [55, 59, 62],
+        46,
+        [53, 58, 62],
+        &[(0, 79, 4), (4, 74, 2), (6, 74, 4), (10, 70, 2)],
+    ),
+    bar_same(45, [52, 57, 61], &[(0, 69, 6), (6, 73, 4), (10, 69, 2)]),
+    bar_same(38, [53, 57, 62], &[(0, 74, 8), (8, 69, 4)]),
+];
+
+/// Login Piece II: *Heroic Sarabande Variation* (Handel *HWV 437* harmonic architecture woven
+/// with the Baylee Signature Motif, voiced for Concert Harp, French Horns, Cello and Strings).
+const BAYLEE_HEROIC_SARABANDE: [SheetBar; 16] = [
+    // d -> F -> Bb -> A (opens with Baylee Signature Call)
+    bar_same(
+        38,
+        [53, 57, 62],
+        &[(0, 62, 4), (4, 69, 2), (6, 74, 4), (10, 77, 2)],
+    ),
     bar_same(41, [53, 57, 60], &[(0, 72, 4), (4, 81, 6), (10, 77, 2)]),
     bar_same(46, [53, 58, 62], &[(0, 74, 4), (4, 82, 6), (10, 77, 2)]),
     bar_same(45, [52, 57, 61], &[(0, 76, 4), (4, 73, 6), (10, 69, 2)]),
-    // d -> F -> C -> F
-    bar_same(38, [50, 57, 62], &[(0, 74, 4), (4, 69, 4), (8, 65, 4)]),
+    // d -> F -> C/E -> F (Horn & Cello answer)
+    bar_same(38, [53, 57, 62], &[(0, 74, 4), (4, 69, 4), (8, 65, 4)]),
     bar_same(41, [53, 57, 60], &[(0, 69, 4), (4, 72, 6), (10, 77, 2)]),
-    bar_same(36, [48, 55, 60], &[(0, 76, 4), (4, 79, 6), (10, 72, 2)]),
+    bar_same(40, [52, 55, 60], &[(0, 76, 4), (4, 79, 6), (10, 72, 2)]),
     bar_same(41, [53, 57, 60], &[(0, 77, 8), (8, 72, 4)]),
-    // d -> g -> C -> F
-    bar_same(38, [50, 57, 62], &[(0, 81, 4), (4, 77, 6), (10, 74, 2)]),
-    bar_same(43, [50, 55, 58], &[(0, 79, 4), (4, 74, 6), (10, 70, 2)]),
-    bar_same(36, [48, 55, 60], &[(0, 76, 4), (4, 72, 6), (10, 67, 2)]),
+    // d -> g -> C -> F (Epic climax)
+    bar_same(38, [53, 57, 62], &[(0, 81, 4), (4, 77, 6), (10, 74, 2)]),
+    bar_same(43, [55, 58, 62], &[(0, 79, 4), (4, 74, 6), (10, 70, 2)]),
+    bar_same(36, [55, 60, 64], &[(0, 76, 4), (4, 79, 6), (10, 72, 2)]),
     bar_same(41, [53, 57, 60], &[(0, 69, 4), (4, 77, 6), (10, 72, 2)]),
-    // Bb -> g -> A -> d
+    // Bb -> g -> A -> d (Graceful Concert Harp bridge)
     bar_same(46, [53, 58, 62], &[(0, 74, 4), (4, 70, 4), (8, 65, 4)]),
     bar_same(43, [55, 58, 62], &[(0, 67, 4), (4, 74, 6), (10, 70, 2)]),
     bar_same(45, [52, 57, 61], &[(0, 69, 4), (4, 73, 6), (10, 76, 2)]),
-    bar_same(38, [50, 57, 62], &[(0, 74, 12)]),
+    bar_same(38, [53, 57, 62], &[(0, 74, 8), (8, 69, 4)]),
 ];
 
-/// Login Piece II: Dvořák *Op. 95 II. Largo* (1893) & Mussorgsky *Promenade* (1874), F major -> D minor, 16 bars.
-const DVORAK_PROMENADE_TITLE: [SheetBar; 16] = [
-    // Dvořák Largo lyric call in F major -> D minor
-    bar_same(41, [53, 57, 60], &[(0, 69, 3), (3, 72, 3), (6, 72, 6)]),
-    bar_split(
-        41,
-        [53, 57, 60],
-        38,
-        [50, 57, 62],
-        &[(0, 69, 3), (3, 67, 3), (6, 65, 6)],
-    ),
-    bar_split_at(
-        4,
-        46,
-        [53, 58, 62],
-        41,
-        [53, 57, 60],
-        &[(0, 70, 4), (4, 69, 4), (8, 72, 4)],
-    ),
-    bar_same(36, [48, 55, 60], &[(0, 67, 12)]),
-    bar_same(41, [53, 57, 60], &[(0, 69, 3), (3, 72, 3), (6, 77, 6)]),
-    bar_split_at(
-        3,
-        45,
-        [52, 57, 60],
-        38,
-        [50, 57, 62],
-        &[(0, 76, 3), (3, 74, 3), (6, 69, 6)],
-    ),
-    bar_split(
-        46,
-        [53, 58, 62],
-        36,
-        [48, 55, 60],
-        &[(0, 70, 3), (3, 72, 3), (6, 69, 3), (9, 67, 3)],
-    ),
-    bar_same(41, [53, 57, 60], &[(0, 65, 12)]),
-    // Mussorgsky Promenade stately modal answer, pivoting home to D minor
-    bar_same(
-        41,
-        [53, 57, 60],
-        &[(0, 67, 3), (3, 65, 3), (6, 69, 3), (9, 72, 3)],
-    ),
-    bar_split(
-        46,
-        [53, 58, 62],
-        41,
-        [53, 57, 60],
-        &[(0, 77, 3), (3, 74, 3), (6, 72, 6)],
-    ),
-    bar_split_at(
-        8,
-        38,
-        [50, 57, 62],
-        36,
-        [48, 55, 60],
-        &[(0, 74, 4), (4, 69, 4), (8, 72, 4)],
-    ),
-    bar_same(43, [50, 55, 59], &[(0, 71, 6), (6, 67, 6)]),
-    bar_split_at(
-        8,
-        38,
-        [50, 57, 62],
-        41,
-        [53, 57, 60],
-        &[(0, 69, 4), (4, 74, 4), (8, 77, 4)],
-    ),
-    bar_split_at(
-        8,
-        46,
-        [53, 58, 62],
-        43,
-        [55, 58, 62],
-        &[(0, 74, 4), (4, 70, 4), (8, 67, 4)],
-    ),
-    bar_same(45, [52, 57, 61], &[(0, 69, 6), (6, 73, 6)]),
-    bar_same(38, [50, 57, 62], &[(0, 74, 12)]),
-];
-
-/// Lobby Piece I: Gaspar Sanz *Españoleta* (1674 — Spanish baroque guitar air in D minor, 16 bars).
+/// Lobby Piece I: Gaspar Sanz *Españoleta* (1674 — Spanish baroque guitar air in D minor, 16 bars,
+/// opening with a warm Tavern Guitar echo of the `D4 -> A4 -> D5` Baylee Signature Call).
 const SANZ_ESPANOLETA: [SheetBar; 16] = [
     bar_split_at(
         8,
@@ -230,7 +263,7 @@ const SANZ_ESPANOLETA: [SheetBar; 16] = [
         [50, 57, 62],
         45,
         [52, 57, 61],
-        &[(0, 69, 4), (4, 74, 4), (8, 73, 4)],
+        &[(0, 62, 3), (3, 69, 1), (4, 74, 4), (8, 73, 4)],
     ),
     bar_same(38, [50, 57, 62], &[(0, 74, 4), (4, 76, 4), (8, 77, 4)]),
     bar_split(
@@ -466,7 +499,7 @@ const BACH_BOURREE_BWV996: [SheetBar; 16] = [
     bar_same(38, [50, 57, 62], &[(0, 62, 12)]),
 ];
 
-const TITLE_PIECES: [[SheetBar; 16]; 2] = [HANDEL_SARABANDE, DVORAK_PROMENADE_TITLE];
+const TITLE_PIECES: [[SheetBar; 16]; 2] = [BAYLEE_SIGNATURE_OVERTURE, BAYLEE_HEROIC_SARABANDE];
 const LOBBY_PIECES: [[SheetBar; 16]; 4] = [
     SANZ_ESPANOLETA,
     TARREGA_LAGRIMA_ADELITA,
@@ -493,6 +526,8 @@ pub(in crate::music) fn mark_studio_pitches(used: &mut [bool], key: fn(Instrumen
             for &(_, pitch, _) in bar.melody {
                 used[key(Instrument::Harp, pitch)] = true;
                 used[key(Instrument::Violin, pitch)] = true;
+                used[key(Instrument::Cello, pitch - 12)] = true;
+                used[key(Instrument::Trombone, pitch - 12)] = true;
             }
         }
     }
@@ -622,8 +657,18 @@ fn collect_bar_notes(
         let seg_end = if first && has_split { bar.split } else { 12 };
         let rem = (f32::from(seg_end - sub) - 0.18).max(0.5);
         let s = base + f32::from(sub);
-        if is_title && [0, 4, 8].contains(&sub) {
-            active.push((s, s + rem.min(5.4), tones[(sub / 4) as usize]));
+        if is_title && sub.is_multiple_of(2) {
+            let arp = if (8..12).contains(&b_idx) && sub == 6 {
+                tones[0] + 12
+            } else {
+                [tones[0], tones[1], tones[2], tones[1], tones[0], tones[2]][(sub / 2) as usize]
+            };
+            active.push((s, s + rem.min(4.8), arp));
+            if b_idx == 0 && sub == 0 {
+                for t in tones {
+                    active.push((s, s + rem.min(5.4), t));
+                }
+            }
         } else if !is_title && sub.is_multiple_of(2) {
             let arp = match sub {
                 0 | 6 => tones[0],
@@ -650,10 +695,10 @@ fn collect_bar_notes(
 #[cfg(test)]
 pub(in crate::music) fn sheet_melodies() -> Vec<(&'static str, Vec<u8>)> {
     [
-        ("Handel Sarabande HWV 437", &HANDEL_SARABANDE),
+        ("Baylee Signature Overture", &BAYLEE_SIGNATURE_OVERTURE),
         (
-            "Dvorak Largo & Mussorgsky Promenade",
-            &DVORAK_PROMENADE_TITLE,
+            "Baylee Heroic Sarabande Variation",
+            &BAYLEE_HEROIC_SARABANDE,
         ),
         ("Gaspar Sanz Espanoleta", &SANZ_ESPANOLETA),
         ("Tarrega Lagrima & Adelita", &TARREGA_LAGRIMA_ADELITA),
@@ -796,6 +841,20 @@ impl Performance {
         (next_step - self.lobby_frame).clamp(1, LOBBY_STEP_FRAMES)
     }
 
+    /// Four-stage dramatic dynamic envelope for the 16-bar Login Overture:
+    /// Act I (`0..4`) intimate Concert Harp signature -> Act II (`4..8`) Horn & Cello answer ->
+    /// Act III (`8..12`) full epic sweeping climax -> Act IV (`12..16`) luminous bridge to loop.
+    fn title_arc(bar_in_piece: usize) -> f32 {
+        match bar_in_piece {
+            4..=7 => 0.98,
+            8..=11 => 1.18,
+            12 => 1.02,
+            13 => 0.86,
+            14 => 0.72,
+            _ => 0.56,
+        }
+    }
+
     fn schedule_title_step(
         orchestra: &mut Orchestra,
         samples: SampleSet,
@@ -805,6 +864,7 @@ impl Performance {
         piece_idx: usize,
         bar_in_piece: usize,
     ) {
+        let arc = Self::title_arc(bar_in_piece);
         let has_split =
             sheet.split < 12 && (sheet.bass1 != sheet.bass2 || sheet.tones1 != sheet.tones2);
         let first_half = sub < sheet.split;
@@ -822,64 +882,61 @@ impl Performance {
         let rem_steps = (f32::from(seg_end - sub) - 0.18).max(0.55);
 
         if sub == 0 || (has_split && sub == sheet.split) {
-            let hold = TITLE_STEP_SECONDS * rem_steps;
-            let b_gain = if sub == 0 { 0.135 } else { 0.125 };
-            if sub == 0 || sheet.bass2 != sheet.bass1 {
-                orchestra.note_with_samples(
-                    Instrument::Bass,
-                    bass,
-                    hold,
-                    b_gain,
-                    Touch::at(0.0).attack(0.065).release(0.36),
-                    samples,
-                );
-                orchestra.note_with_samples(
-                    Instrument::Cello,
-                    bass + 12,
-                    hold,
-                    b_gain,
-                    Touch::at(0.16).attack(0.060).release(0.34),
-                    samples,
-                );
-            }
-            if sub == 0 || sheet.tones2 != sheet.tones1 {
-                let pad_c = sheet_sweeten_cents(bass, tones, tones[1]);
-                orchestra.note_with_samples(
-                    Instrument::StringPad,
-                    tones[1],
-                    hold,
-                    0.075,
-                    Touch::at(-0.22).cents(pad_c),
-                    samples,
-                );
-                orchestra.note_with_samples(
-                    Instrument::Viola,
-                    tones[2],
-                    hold * 0.96,
-                    0.085,
-                    Touch::at(0.24).attack(0.075).release(0.34).late(0.030),
-                    samples,
-                );
-            }
+            Self::schedule_title_foundation(
+                orchestra,
+                samples,
+                sheet,
+                sub,
+                bass,
+                tones,
+                rem_steps,
+                bar_in_piece,
+                arc,
+            );
         }
-
-        // Noble Harp & Acoustic Guitar sarabande/promenade rolled chords
-        if [0, 4, 8].contains(&sub) {
-            let idx = (sub / 4) as usize;
+        if (8..12).contains(&bar_in_piece) && bar_in_piece == 11 && sub == 6 {
             orchestra.note_with_samples(
-                Instrument::Harp,
-                tones[idx],
-                TITLE_STEP_SECONDS * rem_steps.min(5.4),
-                if sub == 4 { 0.16 } else { 0.135 },
-                Touch::at(-0.36).attack(0.004).release(0.30),
+                Instrument::Timpani,
+                bass,
+                TITLE_STEP_SECONDS * 4.5,
+                0.115,
+                Touch::at(-0.12),
                 samples,
             );
-            if sub == 0 || sub == 4 {
+        }
+
+        // Cascading Sitka-spruce Concert Harp arpeggios across every bar
+        if sub.is_multiple_of(2) {
+            let slot = (sub / 2) as usize;
+            let arp_pitch = if (8..12).contains(&bar_in_piece) && sub == 6 {
+                tones[0] + 12
+            } else {
+                [tones[0], tones[1], tones[2], tones[1], tones[0], tones[2]][slot]
+            };
+            orchestra.note_with_samples(
+                Instrument::ConcertHarp,
+                arp_pitch,
+                TITLE_STEP_SECONDS * rem_steps.min(4.8),
+                (if sub.is_multiple_of(6) { 0.165 } else { 0.132 }) * arc,
+                Touch::at(-0.22).late(0.006),
+                samples,
+            );
+            if sub == 0 || sub == 6 {
+                orchestra.note_with_samples(
+                    Instrument::Harp,
+                    tones[if sub == 0 { 0 } else { 2 }],
+                    TITLE_STEP_SECONDS * rem_steps.min(5.2),
+                    0.115 * arc,
+                    Touch::at(-0.36).attack(0.004).release(0.30).late(0.012),
+                    samples,
+                );
+            }
+            if (4..12).contains(&bar_in_piece) && (sub == 0 || sub == 4) {
                 orchestra.note_with_samples(
                     Instrument::TavernGuitar,
-                    tones[idx],
-                    TITLE_STEP_SECONDS * rem_steps.min(4.8),
-                    0.125,
+                    tones[(sub / 4) as usize],
+                    TITLE_STEP_SECONDS * rem_steps.min(4.6),
+                    0.105 * arc,
                     Touch::at(-0.08).late(0.014),
                     samples,
                 );
@@ -894,7 +951,92 @@ impl Performance {
             rep,
             piece_idx,
             bar_in_piece,
+            arc,
         );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn schedule_title_foundation(
+        orchestra: &mut Orchestra,
+        samples: SampleSet,
+        sheet: SheetBar,
+        sub: u8,
+        bass: u8,
+        tones: [u8; 3],
+        rem_steps: f32,
+        bar_in_piece: usize,
+        arc: f32,
+    ) {
+        let hold = TITLE_STEP_SECONDS * rem_steps;
+        let b_gain = (if sub == 0 { 0.125 } else { 0.115 }) * arc;
+        if sub == 0 || sheet.bass2 != sheet.bass1 {
+            orchestra.note_with_samples(
+                Instrument::Bass,
+                bass,
+                hold,
+                b_gain,
+                Touch::at(0.0).attack(0.065).release(0.36),
+                samples,
+            );
+            orchestra.note_with_samples(
+                Instrument::Cello,
+                bass + 12,
+                hold,
+                b_gain * 0.96,
+                Touch::at(0.16).attack(0.060).release(0.34),
+                samples,
+            );
+            if (8..12).contains(&bar_in_piece) && sub == 0 {
+                orchestra.note_with_samples(
+                    Instrument::Timpani,
+                    bass,
+                    TITLE_STEP_SECONDS * 5.6,
+                    0.145,
+                    Touch::at(-0.12),
+                    samples,
+                );
+            } else if bar_in_piece == 0 && sub == 0 {
+                orchestra.note_with_samples(
+                    Instrument::Timpani,
+                    bass,
+                    TITLE_STEP_SECONDS * 5.4,
+                    0.052,
+                    Touch::at(-0.12),
+                    samples,
+                );
+                for (k, &t) in tones.iter().enumerate() {
+                    orchestra.note_with_samples(
+                        Instrument::ConcertHarp,
+                        t,
+                        TITLE_STEP_SECONDS * 5.2,
+                        0.082,
+                        Touch::at(-0.24).late(0.020 * k as f32),
+                        samples,
+                    );
+                }
+            }
+        }
+        if sub == 0 || sheet.tones2 != sheet.tones1 {
+            let pad_c = sheet_sweeten_cents(bass, tones, tones[1]);
+            orchestra.note_with_samples(
+                Instrument::StringPad,
+                tones[1],
+                hold,
+                0.068 * arc,
+                Touch::at(-0.22).cents(pad_c),
+                samples,
+            );
+            if (4..15).contains(&bar_in_piece) {
+                orchestra.note_with_samples(
+                    Instrument::Viola,
+                    tones[2],
+                    hold * 0.96,
+                    0.080 * arc,
+                    Touch::at(0.24).attack(0.075).release(0.34).late(0.030),
+                    samples,
+                );
+            }
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -907,80 +1049,204 @@ impl Performance {
         rep: usize,
         piece_idx: usize,
         bar_in_piece: usize,
+        arc: f32,
     ) {
-        let bass = if sub < sheet.split {
-            sheet.bass1
-        } else {
-            sheet.bass2
-        };
-        let tones = if sub < sheet.split {
-            sheet.tones1
-        } else {
-            sheet.tones2
-        };
+        let first = sub < sheet.split;
+        let bass = if first { sheet.bass1 } else { sheet.bass2 };
+        let tones = if first { sheet.tones1 } else { sheet.tones2 };
         for &(onset, pitch, dur_ticks) in sheet.melody {
             if onset != sub {
                 continue;
             }
             let max_dur = rem_steps * TITLE_STEP_SECONDS;
             let dur = (f32::from(dur_ticks) * TITLE_STEP_SECONDS).min(max_dur);
-            let horn_c = sheet_sweeten_cents(bass, tones, pitch - 12);
-            if piece_idx == 0 {
-                // Handel Sarabande: warm French Horn + Violin + Harp accent
+            let horn_low_c = sheet_sweeten_cents(bass, tones, pitch - 12);
+            let horn_hi_c = sheet_sweeten_cents(bass, tones, pitch);
+            let harp_lead = if bar_in_piece < 4 || bar_in_piece == 15 {
+                0.175
+            } else {
+                0.155 * arc
+            };
+            orchestra.note_with_samples(
+                Instrument::ConcertHarp,
+                pitch,
+                (dur * 1.15).min(max_dur),
+                harp_lead,
+                Touch::at(-0.20),
+                samples,
+            );
+            orchestra.note_with_samples(
+                Instrument::Harp,
+                pitch,
+                (dur * 1.10).min(max_dur),
+                0.105 * arc,
+                Touch::at(-0.32).attack(0.004).release(0.30).late(0.012),
+                samples,
+            );
+            if bar_in_piece < 4 {
+                // Act I: Crystalline Concert Harp leads; soft horn fifth halo adds mystery.
+                let halo = if rep == 1 || piece_idx == 1 {
+                    0.082
+                } else {
+                    0.052
+                };
+                orchestra.note_with_samples(
+                    Instrument::FrenchHorn,
+                    pitch - 12,
+                    dur.min(max_dur),
+                    halo,
+                    Touch::at(0.14).late(0.015).cents(horn_low_c),
+                    samples,
+                );
+            } else if bar_in_piece < 8 {
+                // Act II: Noble French Horns & Cello take up the Baylee Signature Motif.
                 orchestra.note_with_samples(
                     Instrument::FrenchHorn,
                     pitch - 12,
                     (dur * 1.02).min(max_dur),
-                    0.165,
-                    Touch::at(0.14).cents(horn_c),
+                    0.210,
+                    Touch::at(0.14).cents(horn_low_c),
                     samples,
                 );
                 orchestra.note_with_samples(
-                    Instrument::Violin,
-                    pitch,
-                    dur * 0.96,
-                    0.215,
-                    Touch::at(-0.22).attack(0.050).release(0.30),
-                    samples,
-                );
-            } else {
-                // Dvořák Largo & Mussorgsky Promenade: lyrical Flute + French Horn (+ Violin on B-part/repeat)
-                orchestra.note_with_samples(
-                    Instrument::Flute,
+                    Instrument::FrenchHorn,
                     pitch,
                     dur.min(max_dur),
-                    0.225,
-                    Touch::at(-0.12),
+                    0.115,
+                    Touch::at(0.10).late(0.010).cents(horn_hi_c),
                     samples,
                 );
                 orchestra.note_with_samples(
-                    Instrument::FrenchHorn,
+                    Instrument::Cello,
                     pitch - 12,
-                    (dur * 1.02).min(max_dur),
-                    0.155,
-                    Touch::at(0.16).late(0.010).cents(horn_c),
+                    dur * 0.96,
+                    0.175,
+                    Touch::at(0.18).attack(0.055).release(0.32),
                     samples,
                 );
-                if rep == 1 || bar_in_piece >= 8 {
+                if bar_in_piece >= 6 || rep == 1 {
                     orchestra.note_with_samples(
                         Instrument::Violin,
                         pitch,
-                        dur * 0.95,
-                        0.175,
+                        dur * 0.94,
+                        0.125,
                         Touch::at(-0.24).attack(0.055).release(0.30).late(0.008),
                         samples,
                     );
                 }
+            } else {
+                Self::schedule_title_climax_and_bridge(
+                    orchestra,
+                    samples,
+                    onset,
+                    pitch,
+                    dur,
+                    max_dur,
+                    horn_low_c,
+                    horn_hi_c,
+                    bar_in_piece,
+                    arc,
+                );
             }
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn schedule_title_climax_and_bridge(
+        orchestra: &mut Orchestra,
+        samples: SampleSet,
+        onset: u8,
+        pitch: u8,
+        dur: f32,
+        max_dur: f32,
+        horn_low_c: f32,
+        horn_hi_c: f32,
+        bar_in_piece: usize,
+        arc: f32,
+    ) {
+        if bar_in_piece < 12 {
+            // Act III: Full Epic Sweeping Climax — soaring Strings + Horns + Trombone + Celesta!
             orchestra.note_with_samples(
-                Instrument::Harp,
+                Instrument::Violin,
                 pitch,
-                (dur * 1.12).min(max_dur),
-                0.135,
-                Touch::at(-0.30).attack(0.004).release(0.30).late(0.012),
+                dur * 0.97,
+                0.220,
+                Touch::at(-0.24).attack(0.048).release(0.32),
                 samples,
             );
-            if onset == 0 && bar_in_piece.is_multiple_of(4) {
+            orchestra.note_with_samples(
+                Instrument::FrenchHorn,
+                pitch - 12,
+                (dur * 1.03).min(max_dur),
+                0.190,
+                Touch::at(0.14).cents(horn_low_c),
+                samples,
+            );
+            orchestra.note_with_samples(
+                Instrument::FrenchHorn,
+                pitch,
+                dur.min(max_dur),
+                0.105,
+                Touch::at(0.10).late(0.008).cents(horn_hi_c),
+                samples,
+            );
+            orchestra.note_with_samples(
+                Instrument::Cello,
+                pitch - 12,
+                dur * 0.96,
+                0.140,
+                Touch::at(0.18).attack(0.050).release(0.32),
+                samples,
+            );
+            if onset == 0 || onset == 6 {
+                orchestra.note_with_samples(
+                    Instrument::Trombone,
+                    pitch - 12,
+                    dur * 0.92,
+                    0.120,
+                    Touch::at(-0.08).attack(0.045).release(0.30),
+                    samples,
+                );
+                orchestra.note_with_samples(
+                    Instrument::Celesta,
+                    pitch.min(86),
+                    (TITLE_STEP_SECONDS * 4.8).min(max_dur),
+                    0.082,
+                    Touch::at(0.28).late(0.016),
+                    samples,
+                );
+            }
+        } else {
+            // Act IV: Triumphant D-major revelation settling smoothly into the Concert Harp loop.
+            orchestra.note_with_samples(
+                Instrument::FrenchHorn,
+                pitch - 12,
+                dur.min(max_dur),
+                0.145 * arc,
+                Touch::at(0.14).cents(horn_low_c),
+                samples,
+            );
+            if bar_in_piece <= 13 {
+                orchestra.note_with_samples(
+                    Instrument::Violin,
+                    pitch,
+                    dur * 0.95,
+                    0.155 * arc,
+                    Touch::at(-0.24).attack(0.055).release(0.30),
+                    samples,
+                );
+            }
+            if bar_in_piece <= 14 {
+                orchestra.note_with_samples(
+                    Instrument::Cello,
+                    pitch - 12,
+                    dur * 0.95,
+                    0.125 * arc,
+                    Touch::at(0.18).attack(0.055).release(0.32),
+                    samples,
+                );
+            }
+            if bar_in_piece == 12 && onset == 0 {
                 orchestra.note_with_samples(
                     Instrument::Celesta,
                     pitch.min(86),
@@ -1067,11 +1333,19 @@ impl Performance {
             );
             if sub == 0 || sub == 6 {
                 orchestra.note_with_samples(
+                    Instrument::ConcertHarp,
+                    tones[2],
+                    LOBBY_STEP_SECONDS * rem_steps.min(5.2),
+                    0.115,
+                    Touch::at(-0.22).late(0.012),
+                    samples,
+                );
+                orchestra.note_with_samples(
                     Instrument::Harp,
                     tones[2],
                     LOBBY_STEP_SECONDS * rem_steps.min(5.2),
-                    0.135,
-                    Touch::at(-0.36).attack(0.004).release(0.28).late(0.016),
+                    0.105,
+                    Touch::at(-0.36).attack(0.004).release(0.28).late(0.020),
                     samples,
                 );
             } else if sub == 4 && rep == 1 {
@@ -1096,7 +1370,7 @@ impl Performance {
         );
     }
 
-    // 3. Singing nylon/gut Acoustic Tavern Guitar melody (+ gentle Lute/Flute/Violin warmth)
+    // 3. Singing nylon/gut Acoustic Tavern Guitar melody (+ gentle Concert Harp/Lute/Violin warmth)
     fn schedule_lobby_melody(
         orchestra: &mut Orchestra,
         samples: SampleSet,
@@ -1133,18 +1407,18 @@ impl Performance {
                     Instrument::Harp,
                     pitch,
                     (dur * 1.15).min(max_dur),
-                    0.13,
+                    0.12,
                     Touch::at(-0.28).attack(0.004).release(0.28).late(0.015),
                     samples,
                 );
             }
             if rep == 1 && bar_in_piece >= 8 {
                 orchestra.note_with_samples(
-                    Instrument::Flute,
+                    Instrument::ConcertHarp,
                     pitch,
-                    dur * 0.94,
-                    0.115,
-                    Touch::at(0.16).late(0.010),
+                    (dur * 1.10).min(max_dur),
+                    0.145,
+                    Touch::at(-0.20).late(0.010),
                     samples,
                 );
             } else if rep == 1 {

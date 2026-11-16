@@ -1,5 +1,5 @@
 use super::*;
-const ALL: [Instrument; 27] = [
+const ALL: [Instrument; 28] = [
     Instrument::Violin,
     Instrument::Viola,
     Instrument::Cello,
@@ -9,6 +9,7 @@ const ALL: [Instrument; 27] = [
     Instrument::Zither,
     Instrument::Lyre,
     Instrument::TavernGuitar,
+    Instrument::ConcertHarp,
     Instrument::Piano,
     Instrument::Clav,
     Instrument::Flute,
@@ -310,6 +311,7 @@ fn microtonal_just_sweetening_offsets_pitch_accurately_without_drift() {
         (Instrument::StringPad, 65, 3.0),
         (Instrument::FrenchHorn, 69, 1.5),
         (Instrument::TavernGuitar, 66, -8.0),
+        (Instrument::ConcertHarp, 69, 1.8),
     ] {
         let mut orch = Orchestra::default();
         orch.note(inst, pitch, 1.2, 0.4, Touch::at(0.0).cents(target_cents));
@@ -327,4 +329,65 @@ fn microtonal_just_sweetening_offsets_pitch_accurately_without_drift() {
             "{inst:?} wanted {target_cents:+.2}c, got {measured:+.2}c"
         );
     }
+}
+
+#[test]
+fn the_concert_harp_holds_sub_sixth_cent_waveguide_tuning_and_velvet_rolloff() {
+    for pitch in 38..=81_u8 {
+        let f0 = 440.0 * 2.0_f64.powf((f64::from(pitch) - 69.0) / 12.0);
+        let mut string = plucked::HarpString::new();
+        string.pluck(pitch, 1.2, [0.8, 0.8], 0.0, 0.0, 11);
+        let raw_pcm: Vec<f32> = (0..RATE as usize * 3 / 4)
+            .map(|_| string.next().map_or(0.0, |(pair, _)| pair[0] + pair[1]))
+            .collect();
+        let raw_cents = measure_cents_dtft(&raw_pcm[2400..28800], f0);
+        assert!(
+            raw_cents.abs() < 0.15,
+            "HarpString {pitch}: {raw_cents:+.4}c >= 0.15c"
+        );
+
+        let mut harp = ConcertHarp::new();
+        harp.pluck(pitch, 1.2, [0.8, 0.8], 0.0, 0.0);
+        let mut body_pcm = Vec::with_capacity(RATE as usize * 3 / 4);
+        for _ in 0..RATE as usize * 3 / 4 {
+            let mut dry = [0.0; 2];
+            let mut feed = 0.0;
+            harp.frame(&mut dry, &mut feed);
+            assert!(dry[0].is_finite() && dry[1].is_finite() && feed.is_finite());
+            body_pcm.push(dry[0] + dry[1]);
+        }
+        let c_dtft = measure_cents_dtft(&body_pcm[2400..28800], f0);
+        let c_ac = measure_cents_autocorr(&body_pcm[2400..28800], f0);
+        assert!(
+            c_dtft.abs() < 1.0 && c_ac.abs() < 1.8,
+            "ConcertHarp {pitch}: dtft={c_dtft:+.3}c ac={c_ac:+.3}c"
+        );
+    }
+
+    // Velvet finger-pad excitation: partial 7 energy on high D5 (74) must stay < 2% of fundamental.
+    let f0 = 440.0 * 2.0_f64.powf((74.0 - 69.0) / 12.0);
+    let mut harp = ConcertHarp::new();
+    harp.pluck(74, 1.2, [0.8, 0.8], 0.0, 0.0);
+    let pcm: Vec<f32> = (0..RATE as usize / 2)
+        .map(|_| {
+            let mut dry = [0.0; 2];
+            let mut feed = 0.0;
+            harp.frame(&mut dry, &mut feed);
+            dry[0] + dry[1]
+        })
+        .collect();
+    let band_amp = |hz: f64| -> f64 {
+        let win = &pcm[2400..16800];
+        let (mut re, mut im) = (0.0_f64, 0.0_f64);
+        for (i, &s) in win.iter().enumerate() {
+            let ang = std::f64::consts::TAU * hz * i as f64 / f64::from(RATE);
+            re += f64::from(s) * ang.cos();
+            im += f64::from(s) * ang.sin();
+        }
+        re.hypot(im)
+    };
+    assert!(
+        band_amp(f0 * 7.0) < band_amp(f0) * 0.02,
+        "high partials shimmer gently without piercing whistle"
+    );
 }
