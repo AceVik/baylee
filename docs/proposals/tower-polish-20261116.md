@@ -30,27 +30,27 @@ not shipped or validated. No production deployment is authorized.
    - [x] Three stable randomized starter offers from at least 50 meaningful decks;
      commander art/preview, shared deck inspection, immediate click-to-start.
    - [x] At least 175 distinct item families with tier progression and actual effects.
-   - [ ] More offers, consistent item prices, automatic cross-bag/equipment fusion,
+   - [x] More offers, consistent item prices, automatic cross-bag/equipment fusion,
      right-click purchase-and-equip, freeze/refill and balanced income.
-   - [ ] Weighted five-card loot, choose three on victory or one on defeat (explicit
+   - [x] Weighted five-card loot, choose three on victory or one on defeat (explicit
      owner clarification); duplicates yield three gold. Retain printing and foil.
 3. **Shared shop composition**
-   - [ ] Compact title, restrained width, height-aware aligned equipment/shop frames.
-   - [ ] Integrated controls and counters, individual item shelf ledges, filled empty
+   - [x] Compact title, restrained width, height-aware aligned equipment/shop frames.
+   - [x] Integrated controls and counters, individual item shelf ledges, filled empty
      slots, paginated sortable bag, gold/duel stats and compact abandon affordance.
-   - [ ] Shared rarity slots/tooltips, stationary button effects, real drag ghost,
+   - [x] Shared rarity slots/tooltips, stationary button effects, real drag ghost,
      purchase/equip/fusion and income animations with reduced-motion alternatives.
-   - [ ] Original modular art and lobby tiles; no copied game assets.
+   - [x] Original modular art and lobby tiles; no copied game assets.
 4. **Deck and table integration**
    - [x] Reuse the real deckbuilder with a run-owned card pool and free basic lands.
-   - [ ] Chat initially closed everywhere. Gear tray icon and structured log-style
+   - [x] Chat initially closed everywhere. Gear tray icon and structured log-style
      panel, public opponent gear and private potions, item icons on stack/order/log.
-   - [ ] Visible priority over item triggers, respecting explicit pass preferences.
+   - [x] Visible priority over item triggers, respecting explicit pass preferences.
 5. **Rewards, endings and acceptance**
-   - [ ] Shop backdrop plus loot modal and earned-gold animation; standard preview,
+   - [x] Shop backdrop plus loot modal and earned-gold animation; standard preview,
      rarity frames, symmetric selection, clear x/y and confirmation when complete.
-   - [ ] Victory/defeat presentation, then Lobby and a genuinely fresh run.
-   - [ ] Native view/input acceptance at multiple sizes, measured refresh stability,
+   - [x] Victory/defeat presentation, then Lobby and a genuinely fresh run.
+   - [x] Native view/input acceptance at multiple sizes, measured refresh stability,
      targeted integration/adversarial tests, updated PR descriptions and review.
 
 ## Transport threat review
@@ -281,3 +281,75 @@ explicit limits. UI transport state is separate from render-state equality.
   Focused core tests (three cases), library-entry regression and strict clippy
   passed. `/tmp/baylee-tower-builder-final-native-20261116.log` records cleanup;
   all owned PIDs/ports were verified closed. No full gate claim is made here.
+
+## Table correction pass 19 and exact-edition language palette
+
+- The native showcase entered a real Tower duel with chat/drawer closed. Seven
+  upkeep item abilities stayed at the local player's Priority until Pass; the
+  stack used actual item portraits and rarity frames. The gear tray showed six
+  items, private potions with inset counts and six empty opponent slots. This
+  fixture had no opponent gear, so it is not native evidence for that case.
+- The ordering dialog exposed missing token-ability art: it asked only for a
+  printed card. The correction resolves explicit public token identities first,
+  like the stack, and preserves their shared item-detail hover.
+- A potion click exposed two joined defects: closing the inventory removed its
+  chooser geometry, and keyboard handling rejected a one-option chooser as stale.
+  The correction retains a visible item anchor and lets the existing one-option
+  sheet arm/confirm normally. Native revalidation follows; the pre-fix run does
+  not count as a successful potion activation.
+- The ordering capture wrote 6/10 samples (four drops); the stack, gear and
+  missing-chooser captures each wrote 10/10. All owned client/backend/PostgreSQL
+  processes and their listeners closed (`baylee-tower-table-polish-native-20261116.log`).
+- An explicit Rust maintenance fetch checked all 878 frozen printings. It found
+  557 German scans of exactly the same Oracle identity, set and collector number;
+  321 use the original English edition. Offline cached regeneration is byte-identical.
+  The client adapter changes only presentation, preserves finish, binds table
+  lookup to the current Tower game and only already-projected print identities.
+  No runtime metadata request or image asset is added. Reproduction and SHA-256
+  are in `assets/tower/print-languages.md`.
+
+- Pass 20 stopped because its QA driver assumed the human started the game. The
+  opponent started; the driver now passes only explicitly offered human priority
+  and waits for acknowledgement until the first local upkeep. No product workaround.
+  The failed fixture's exact PIDs and ports were verified closed.
+- Pass 21 passed real input through ordering, manual priority, the visible
+  one-option potion chooser, arming, confirmation and authoritative consumption
+  of exactly one charge with healing placed on the stack. It also opened the
+  item-aware log. Four 2-second, 5-fps recordings wrote 10/10 frames each, all
+  visually inspected; German exact-edition cards are visible in the hand.
+  Evidence: `/tmp/baylee-tower-localized-table-native-r2-20261116.log`.
+  Owned PIDs 80135/80150/80201 and ports 58225/58316 closed. The final log-opacity
+  refinement reduces competing stack text beneath the existing glass material;
+  the shared style and single compositing layer are retained.
+- Eight focused language/ordering/gear tests and three log identity/privacy
+  tests passed. Strict all-target client/core Clippy and the client
+  dev-control/dev-reload build checks passed. The metadata maintenance tool's
+  bounded identity/path tests and byte-identical offline regeneration passed.
+
+## Final native acceptance and author review
+
+- Pass 22 again saved and reopened a scoped sideboard refit, then opened its
+  fixed-print inspector. Both captures wrote 10/10 samples. The combined helper
+  stopped before its table stage because three legitimate close surfaces share
+  the same action; this is a selector ambiguity, not a product failure. The
+  editor's global favourite remains an ordinary personal preference; deck-specific
+  library tools remain hidden/blocked in the scoped session. Exact-edition English
+  fallback was visible and intentional. Evidence:
+  `/tmp/baylee-tower-final-native-20261116.log`; owned PIDs 85164/85213/87110
+  and ports 62201/62887 were verified closed.
+- Pass 23 independently completed the table workflow with the final log opacity:
+  visible ordering icons, explicit manual priority, visible potion chooser,
+  arm/confirm, one consumed charge, pending healing and the item-aware log.
+  All four 2-second/5-fps recordings wrote 10/10 samples, without drops. The final
+  log frame was inspected at 1280×720; German prints and English fallback coexist
+  without changing earned identity or finish. Evidence:
+  `/tmp/baylee-tower-final-table-native-20261116.log`; the log recording is
+  `baylee-recording-01a1e604-b0f6-7724-9072-f6e38d80b8fd`. Owned PIDs
+  94780/94811/94943 and ports 50084/50180 were verified closed; the backend's
+  owned-listener checks also passed. No test services remain.
+- The final palette change passed the existing log-contrast regression. The last
+  native build succeeded. Review boundaries and corrected findings are recorded
+  in `../history/tower-polish-review-20261116.md`; this is author review, not an
+  independent audit. PR 427 and companion PR 67 describe the current implementation
+  and keep the Central canonical WASM comparison explicitly open. Neither PR is
+  made ready or merged; the owner requested a subsequent Fable review.
