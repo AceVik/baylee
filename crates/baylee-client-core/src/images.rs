@@ -344,6 +344,11 @@ pub const SCRYFALL_BACKS_CDN: &str = "https://backs.scryfall.io";
 /// constants by `tests/play_caddy.rs`).
 pub const SCRYFALL_API: &str = "https://api.scryfall.com";
 
+/// Scryfall's own site: a link a player opens in their browser from the front
+/// door's colophon and the About sheet. Named here with the hosts, and never
+/// one of them: nothing is fetched from it, so no `connect-src` lists it.
+pub const SCRYFALL_SITE: &str = "https://scryfall.com";
+
 /// Scryfall's id for the printed Magic card back.
 ///
 /// The one their API hands back as `card_back_id` for every ordinary card.

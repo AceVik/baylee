@@ -12,7 +12,7 @@
 // Looks cards up, so this program holds the pool (`baylee-cards-pool`).
 use baylee_cards_pool as _;
 
-use baylee_client_core::images::{SCRYFALL_API, SCRYFALL_BACKS_CDN, SCRYFALL_CDN};
+use baylee_client_core::images::{SCRYFALL_API, SCRYFALL_BACKS_CDN, SCRYFALL_CDN, SCRYFALL_SITE};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
@@ -139,10 +139,17 @@ fn every_scryfall_host_the_client_fetches_from_is_a_constant() {
     // Reject an incomplete traversal; duplicates are checked by identity above,
     // rather than imposing an upper bound on legitimate new Rust modules.
     assert!(files >= 150, "walked {files} source files");
-    let constants: BTreeSet<String> = [SCRYFALL_CDN, SCRYFALL_BACKS_CDN, SCRYFALL_API]
-        .into_iter()
-        .map(host)
-        .collect();
+    // The three it fetches from, and the site it only links to: that one is
+    // a constant too, and stays out of the policy below.
+    let constants: BTreeSet<String> = [
+        SCRYFALL_CDN,
+        SCRYFALL_BACKS_CDN,
+        SCRYFALL_API,
+        SCRYFALL_SITE,
+    ]
+    .into_iter()
+    .map(host)
+    .collect();
     assert_eq!(
         found, constants,
         "a Scryfall host is spelled outside baylee_client_core::images; \

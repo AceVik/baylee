@@ -97,7 +97,7 @@ pub(crate) const FAN_CONTENT_POLICY_URL: &str =
     "https://company.wizards.com/en/legal/fancontentpolicy";
 
 /// Scryfall's home page (`NOTICE`, `docs/legal.md` §3).
-pub(crate) const SCRYFALL_URL: &str = "https://scryfall.com";
+pub(crate) const SCRYFALL_URL: &str = baylee_client_core::images::SCRYFALL_SITE;
 
 /// Closed set of verified external HTTPS reference links opened from the front
 /// door's colophon and the About sheet.
