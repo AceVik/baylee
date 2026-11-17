@@ -3,8 +3,9 @@
 //! # Keyed by card, not by printing
 //!
 //! Text is a property of the card and not of a printing
-//! (`docs/protocol.md` §"Card text"): the gateway picks one printing per card
-//! and language by `baylee_cardtext::pick`, and every face comes from it. A
+//! (`docs/protocol.md` §"Card text"): the gateway serves one printing per
+//! card and language, picked by `baylee_cardtext::pick`, with the card's other
+//! wordings in that language beside it (`candidates`). A
 //! printing id was therefore never the key, and it could not be one: a copy's
 //! abilities are printed on a card the copy is not, so a table keyed by the
 //! copy's printing had nothing to say about them. Keyed by card, a Spark
@@ -34,9 +35,10 @@
 //! # Under all of it, the English Oracle
 //!
 //! A sentence is never drawn from this table alone: [`sentence`] answers
-//! from the player's language where the served printing lines up with the
-//! compiled English Oracle (`baylee_cardtext::align`, placed once when the
-//! entry is filed), and from that Oracle where it does not. A card face
+//! from the player's language wherever a printing of the card in it — the
+//! served one, else a candidate — lines up with the compiled English Oracle
+//! at that line (`baylee_cardtext::localized_lines`, chosen once when the
+//! entry is filed), and from that Oracle where none does. A card face
 //! draws the same floor ([`CardTexts::face`]). What a row or a face says
 //! never depends on whether a request got through — the owner's rule,
 //! "Fallback ist immer englisch".
@@ -99,9 +101,14 @@ pub struct TextGateway(pub Option<SignedIn>);
 /// The document `lang`'s text is kept in, for the gateway in use. With none it
 /// is Scryfall's alone, and named so that a document from before gateways had
 /// shelves of their own is not read.
+///
+/// Scryfall's is `scryfall-2` since entries carry `candidates`: its door
+/// never asks again about a card that has text, so a document from before
+/// would have kept every card it holds on one printing's wording for good.
+/// A gateway is asked again every session, so its shelves keep their names.
 fn shelf_of(lang: &str, gateway: Option<&SignedIn>) -> String {
     let source = gateway.map_or_else(
-        || "scryfall".to_owned(),
+        || "scryfall-2".to_owned(),
         |gateway| baylee_client_core::cardquery::gateway_tag(&gateway.base),
     );
     format!("{lang}-{source}")
@@ -140,14 +147,56 @@ fn text_request(gateway: Option<&SignedIn>, lang: &str, ids: &[&str]) -> Option<
     Some(request)
 }
 
-/// One card's text as served, with each face's printed sentences already
-/// placed against the compiled Oracle.
+/// One card's text as served, with each face's sentences in the player's
+/// language already chosen line by line.
 struct Filed {
     entry: CardTextEntry,
-    /// Per face: the printed lines in the Oracle's positions, or `None` where
-    /// the face was not translated or does not line up — the Oracle is drawn
-    /// there. Placed once, when the entry is filed, so a frame never aligns.
-    aligned: Vec<Option<Aligned>>,
+    /// Per face, per Oracle line: the sentence in the player's language that
+    /// stands for it, from the served printing or one of its candidates
+    /// ([`baylee_cardtext::localized_lines`]), or `None` where no printing
+    /// yields one — the Oracle is drawn there. Chosen once, when the entry
+    /// is filed, so a frame never aligns.
+    lines: Vec<Vec<Option<String>>>,
+}
+
+/// Each face's sentences in the player's language, by Oracle line, from the
+/// served printing first and then its candidates (`docs/protocol.md`
+/// §"Card text"). Every printing is placed against the **compiled** Oracle,
+/// the text the line table was counted in.
+fn chosen_lines(card: CardIndex, entry: &CardTextEntry) -> Vec<Vec<Option<String>>> {
+    (0..entry.faces.len())
+        .map(|face| {
+            let Some(oracle) = baylee_cards::oracle::face(card, face) else {
+                return Vec::new();
+            };
+            let served = entry.faces[face]
+                .printed
+                .as_deref()
+                .map(|printed| (printed, entry.layout.as_str()));
+            let others = entry.candidates.iter().filter_map(|candidate| {
+                let printed = candidate.printed.get(face)?.as_deref()?;
+                Some((printed, candidate.layout.as_str()))
+            });
+            let placed: Vec<Aligned> = served
+                .into_iter()
+                .chain(others)
+                .filter_map(|(printed, layout)| baylee_cardtext::align(oracle, printed, layout))
+                .collect();
+            baylee_cardtext::localized_lines(oracle, &placed)
+        })
+        .collect()
+}
+
+/// Keeps the candidates within the wire's caps, whoever wrote them: a
+/// gateway is somebody else's server, and a cache file is on a disk.
+fn bounded(candidates: &mut Vec<baylee_cardtext::TextCandidate>) {
+    candidates.truncate(baylee_cardtext::MAX_CANDIDATES);
+    let mut bytes = 0;
+    candidates.retain(|candidate| {
+        let size: usize = candidate.printed.iter().flatten().map(String::len).sum();
+        bytes += size;
+        bytes <= baylee_cardtext::MAX_CANDIDATE_BYTES
+    });
 }
 
 /// Card text for this client, in the language it is set to.
@@ -262,25 +311,24 @@ impl CardTexts {
             else {
                 continue;
             };
+            bounded(&mut entry.candidates);
             for (index, face) in entry.faces.iter_mut().enumerate() {
                 if let Some(oracle) = baylee_cards::oracle::face(def.index, index) {
                     face.oracle_text =
                         baylee_cardtext::repair_printed_symbols(oracle, &face.oracle_text)
                             .into_owned();
-                    if let Some(printed) = &mut face.printed {
+                    let candidates = entry
+                        .candidates
+                        .iter_mut()
+                        .filter_map(|c| c.printed.get_mut(index)?.as_mut());
+                    for printed in face.printed.iter_mut().chain(candidates) {
                         *printed =
                             baylee_cardtext::repair_printed_symbols(oracle, printed).into_owned();
                     }
                 }
             }
-            let aligned = (0..entry.faces.len())
-                .map(|face| {
-                    let oracle = baylee_cards::oracle::face(def.index, face)?;
-                    let printed = entry.faces[face].printed.as_deref()?;
-                    baylee_cardtext::align(oracle, printed, &entry.layout)
-                })
-                .collect();
-            self.by_card.insert(def.index, Filed { entry, aligned });
+            let lines = chosen_lines(def.index, &entry);
+            self.by_card.insert(def.index, Filed { entry, lines });
             filed += 1;
         }
         if filed > 0 {
@@ -290,16 +338,14 @@ impl CardTexts {
     }
 
     /// The player's-language sentence standing for one line of a card, if
-    /// the served printing has one there.
+    /// any printing filed for it has one there.
     fn localized(&self, card: CardIndex, at: StackText) -> Option<&str> {
-        let aligned = self
-            .by_card
+        self.by_card
             .get(&card)?
-            .aligned
+            .lines
             .get(usize::from(at.face))?
-            .as_ref()?;
-        let oracle = baylee_cards::oracle::face(card, usize::from(at.face))?;
-        baylee_cardtext::localized(oracle, aligned, usize::from(at.line))
+            .get(usize::from(at.line))?
+            .as_deref()
     }
 
     /// Starts over in another language: this one's table from disk, nothing
@@ -382,9 +428,10 @@ impl CardTexts {
 
 /// The printed sentence at one line of a card's face, as blocks to draw.
 ///
-/// The player's own language where this seat holds the card's text and the
-/// served printing lines up with the English the index was counted in; the
-/// card's **English Oracle** sentence otherwise. The second half is the
+/// The player's own language where this seat holds the card's text and a
+/// printing of it in that language (the served one, or a candidate) yields
+/// this line against the English the index was counted in; the card's
+/// **English Oracle** sentence otherwise. The second half is the
 /// owner's rule for every row drawn from card text — "Fallback ist immer
 /// englisch" — and it is what takes a row's words off the network: the
 /// Oracle is compiled in (`baylee_cards::oracle`), so a client with no
@@ -429,7 +476,7 @@ pub fn sentence(
 /// German; nothing that draws branches on it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Said {
-    /// The player's language, from the served printing.
+    /// The player's language, from a printing in it.
     Localized,
     /// The compiled English Oracle.
     Oracle,
@@ -1278,6 +1325,14 @@ mod tests {
         assert_eq!(entry.scryfall_id, "fic");
         assert_eq!(entry.oracle_id, oracle_id);
         assert_eq!(entry.faces[0].printed.as_deref(), Some(FIC));
+        // The gateway's rule offers the other wording beside it, as the
+        // gateway would.
+        let offered: Vec<&str> = entry
+            .candidates
+            .iter()
+            .map(|c| c.scryfall_id.as_str())
+            .collect();
+        assert_eq!(offered, ["c15"]);
 
         let mut texts = CardTexts::default();
         assert_eq!(texts.absorb(vec![entry]), 1);
@@ -1539,7 +1594,9 @@ mod tests {
     }
 
     /// The other branch, by each of its three ways in: a translation that
-    /// does not pair, an empty table, and no table at all. Each of them drew
+    /// does not pair with no other printing offered beside it (with one, see
+    /// `a_line_the_served_printing_cannot_give_is_another_printing_s`), an
+    /// empty table, and no table at all. Each of them drew
     /// a blank row before the Oracle was compiled in.
     #[test]
     fn a_sentence_falls_to_the_english_oracle() {
@@ -1554,6 +1611,95 @@ mod tests {
             Some(ENGLISH)
         );
         assert_eq!(words(sentence(None, card, DRAW)).as_deref(), Some(ENGLISH));
+    }
+
+    /// Mind Stone served in the glued c15 wording, with other wordings
+    /// offered beside it.
+    fn glued_with(others: &[&str]) -> (CardIndex, CardTexts) {
+        let (card, oracle_id) = mind_stone_card();
+        let mut served = entry(oracle_id, "Gedankenstein");
+        served.faces[0].oracle_text = C15.to_string();
+        served.faces[0].printed = Some(C15.to_string());
+        served.candidates = others
+            .iter()
+            .enumerate()
+            .map(|(n, text)| baylee_cardtext::TextCandidate {
+                scryfall_id: format!("other-{n}"),
+                layout: "normal".to_string(),
+                printed: vec![Some((*text).to_string())],
+            })
+            .collect();
+        (card, CardTexts::filed(served))
+    }
+
+    /// The owner's bug: a card whose served German does not pair read
+    /// English though another German printing of it does. Now the line is
+    /// that printing's, and the face it covers is read whole from it.
+    #[test]
+    fn a_line_the_served_printing_cannot_give_is_another_printing_s() {
+        let (card, texts) = glued_with(&[FIC]);
+        assert_eq!(
+            said(Some(&texts), card, DRAW).map(|(b, s)| (words(Some(b)), s)),
+            Some((
+                Some("{1}, {T}, opfere dieses Artefakt: Ziehe eine Karte.".to_string()),
+                Said::Localized
+            ))
+        );
+        let first = StackText { line: 0, ..DRAW };
+        assert_eq!(
+            words(sentence(Some(&texts), card, first)).as_deref(),
+            Some("{T}: Erzeuge {C}.")
+        );
+        assert_eq!(
+            texts.face(card, 0).map(|f| f.oracle_text).as_deref(),
+            Some(C15),
+            "the face still shows the served printing"
+        );
+    }
+
+    /// A candidate whose line is refused gives way to the next, and English
+    /// comes only after every candidate failed. The refused one prints a
+    /// colourless cost where Mind Stone's is `{1}, {T}`.
+    #[test]
+    fn a_refused_line_falls_to_the_next_printing_and_then_to_english() {
+        const REFUSED: &str = "{T}: Erzeuge {C}.\n{G}: Ziehe eine Karte.";
+        let (card, texts) = glued_with(&[REFUSED, FIC]);
+        assert_eq!(
+            words(sentence(Some(&texts), card, DRAW)).as_deref(),
+            Some("{1}, {T}, opfere dieses Artefakt: Ziehe eine Karte.")
+        );
+        let (card, texts) = glued_with(&[REFUSED]);
+        assert_eq!(
+            said(Some(&texts), card, DRAW).map(|(_, s)| s),
+            Some(Said::Oracle)
+        );
+        assert_eq!(
+            said(Some(&texts), card, StackText { line: 0, ..DRAW }).map(|(_, s)| s),
+            Some(Said::Localized),
+            "the line the refused printing does yield is still German"
+        );
+    }
+
+    /// Whatever a gateway or a cache file sends, no more candidates are kept
+    /// than the wire allows, nor more of their text.
+    #[test]
+    fn the_candidates_kept_are_capped() {
+        let many: Vec<String> = (0..20)
+            .map(|n| format!("{{T}}: Erzeuge {{C}}. {n}"))
+            .collect();
+        let refs: Vec<&str> = many.iter().map(String::as_str).collect();
+        let (card, texts) = glued_with(&refs);
+        let kept = &texts.by_card[&card].entry.candidates;
+        assert_eq!(kept.len(), baylee_cardtext::MAX_CANDIDATES);
+        let long = "x".repeat(baylee_cardtext::MAX_CANDIDATE_BYTES);
+        let (card, texts) = glued_with(&[FIC, &long, FIC]);
+        let kept: Vec<&str> = texts.by_card[&card]
+            .entry
+            .candidates
+            .iter()
+            .map(|c| c.scryfall_id.as_str())
+            .collect();
+        assert_eq!(kept, ["other-0"]);
     }
 
     /// `said` names the branch that answered, which is what the dev harness
