@@ -30,7 +30,9 @@
 //! Until then Scryfall is asked instead ([`scryfall::search`]), one card at a
 //! time and under two a second, and its printings go through the
 //! gateway's own rule ([`baylee_cardtext::card_entry`]), so an offline game
-//! in German reads the German the gateway would have served.
+//! in German reads the German the gateway would have served. A card a
+//! gateway that answers left out of its answer is asked of Scryfall the same
+//! way, rather than staying asked and English for good.
 //!
 //! # Under all of it, the English Oracle
 //!
@@ -217,6 +219,9 @@ pub struct CardTexts {
     shelf: String,
     /// Cards asked about in [`Self::lang`], answered or not.
     asked: HashSet<CardIndex>,
+    /// Cards the gateway answered without (its catalog lacks them): the
+    /// Scryfall door asks about these even while the gateway is up.
+    left_out: HashSet<CardIndex>,
     /// The view last walked for cards to ask about, by its `seq`.
     walked: Option<u64>,
     /// The game the gateway's reachability was learned in.
@@ -225,12 +230,14 @@ pub struct CardTexts {
     down: bool,
     /// The one request out, if any, and the cards it names.
     waiting: Option<(Slot, Vec<CardIndex>)>,
-    /// The second door, asked while this one is [`Self::down`].
+    /// The second door, asked while this one is [`Self::down`] and about
+    /// what it left out ([`Self::left_out`]).
     scryfall: Door,
 }
 
 /// Scryfall, asked about one card at a time while the gateway does not
-/// answer — a game offline, a gateway that is not running.
+/// answer — a game offline, a gateway that is not running — and about the
+/// cards a gateway that does answer left out of its answer.
 ///
 /// One card a request, because Scryfall's search answers one query and the
 /// query is the card (`oracleid:… lang:…`); every printing of it in the
@@ -353,6 +360,7 @@ impl CardTexts {
     fn relang(&mut self, lang: &str) {
         self.by_card.clear();
         self.asked.clear();
+        self.left_out.clear();
         self.walked = None;
         self.down = false;
         self.waiting = None;
@@ -368,10 +376,22 @@ impl CardTexts {
     ///
     /// A failed request gives its cards back: they were never answered, and
     /// the next game — the one place a gateway gets asked again — asks
-    /// about them. A card the gateway answered without is left asked.
+    /// about them. A card the gateway answered without stays asked, and goes
+    /// to the Scryfall door ([`Self::left_out`]) unless it has text already.
     fn receive(&mut self, reply: Reply, cards: &[CardIndex]) -> bool {
         match reply {
-            Reply::Answered(entries) => self.absorb(entries) > 0,
+            Reply::Answered(entries) => {
+                let filed = self.absorb(entries) > 0;
+                let before = self.left_out.len();
+                let by_card = &self.by_card;
+                self.left_out
+                    .extend(cards.iter().filter(|card| !by_card.contains_key(*card)));
+                if self.left_out.len() != before {
+                    // The door walked this view before it had these to ask.
+                    self.scryfall.walked = None;
+                }
+                filed
+            }
             Reply::Failed => {
                 for card in cards {
                     self.asked.remove(card);
@@ -382,14 +402,15 @@ impl CardTexts {
         }
     }
 
-    /// The card the Scryfall door asks about next, if it may ask now: the
-    /// gateway is down, Scryfall is not, nothing is out, the pace allows,
-    /// and the view names a card with no text that has not been tried —
-    /// the lowest index, so the same view asks in the same order.
+    /// The card the Scryfall door asks about next, if it may ask now:
+    /// Scryfall is not down, nothing is out, the pace allows, and the view
+    /// names a card with no text that has not been tried and that the
+    /// gateway cannot answer — every card while it is down, else the ones it
+    /// left out — the lowest index, so the same view asks in the same order.
     fn next_for_scryfall(&self, view: &PlayerView, now: f64) -> Option<CardIndex> {
         let door = &self.scryfall;
         if self.lang == "en"
-            || !self.down
+            || (!self.down && self.left_out.is_empty())
             || door.down
             || door.waiting.is_some()
             || now < door.next_at
@@ -398,7 +419,11 @@ impl CardTexts {
             return None;
         }
         wanted(view)
-            .filter(|card| !self.by_card.contains_key(card) && !door.tried.contains(card))
+            .filter(|card| {
+                (self.down || self.left_out.contains(card))
+                    && !self.by_card.contains_key(card)
+                    && !door.tried.contains(card)
+            })
             .min()
     }
 
@@ -563,6 +588,10 @@ pub fn request(
         }
         ask_scryfall(&mut texts, view, time.elapsed_secs_f64());
         return;
+    }
+    if !texts.left_out.is_empty() {
+        // Cards the gateway's catalog lacks, beside the gateway's own.
+        ask_scryfall(&mut texts, view, time.elapsed_secs_f64());
     }
     if texts.lang == "en" || texts.waiting.is_some() || texts.walked == Some(view.seq) {
         return;
@@ -1233,9 +1262,15 @@ mod tests {
         assert!(texts.asked.contains(&other), "only the request's own cards");
 
         texts.asked.insert(card);
+        texts.scryfall.walked = Some(3);
         let answered = Reply::Answered(vec![entry(oracle_id, "Gedankenstein")]);
         assert!(texts.receive(answered, &[card, other]));
         assert!(texts.asked.contains(&card) && texts.asked.contains(&other));
+        // The card it left out goes to the Scryfall door, which walks the
+        // view again for it; the card it answered does not.
+        assert!(texts.left_out.contains(&other));
+        assert!(!texts.left_out.contains(&card));
+        assert_eq!(texts.scryfall.walked, None);
     }
 
     /// The search names the card and the language and nothing else, says
@@ -1343,9 +1378,6 @@ mod tests {
         assert!(scryfall::entry("de", "not json").is_none());
     }
 
-    /// The door opens only where the gateway is down and the language is not
-    /// English, asks one card at a time at its pace, skips cards that have
-    /// text or were tried, and closes when Scryfall does not answer.
     /// #270: text is asked of the gateway the player is signed in to, with
     /// that session, and of no gateway without one; the token never prints.
     #[test]
@@ -1421,8 +1453,12 @@ mod tests {
         }
     }
 
+    /// The door opens where the gateway is down, or for the cards it left
+    /// out, and only where the language is not English; it asks one card at
+    /// a time at its pace, skips cards that have text or were tried, and
+    /// closes when Scryfall does not answer.
     #[test]
-    fn the_scryfall_door_asks_only_while_the_gateway_is_down() {
+    fn the_scryfall_door_asks_while_the_gateway_is_down_or_left_a_card_out() {
         let (stone, oracle_id) = mind_stone_card();
         let view = ViewBuilder::new(2)
             .with_hand(vec![("Seven", 1, 7), ("Nine", 1, 9)])
@@ -1439,6 +1475,16 @@ mod tests {
             None,
             "the gateway is up"
         );
+        // Up, it is asked about only what the gateway left out.
+        texts.left_out.insert(CardIndex::new(9));
+        assert_eq!(texts.next_for_scryfall(&view, 0.0), Some(CardIndex::new(9)));
+        texts.left_out.insert(stone);
+        assert_eq!(
+            texts.next_for_scryfall(&view, 0.0),
+            Some(CardIndex::new(9)),
+            "a card with text is not asked about, left out or not"
+        );
+        texts.left_out.clear();
         texts.down = true;
         assert_eq!(texts.next_for_scryfall(&view, 0.0), Some(CardIndex::new(7)));
         texts.scryfall.tried.insert(CardIndex::new(7));
