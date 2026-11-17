@@ -41,7 +41,9 @@ pub(super) fn variant(record: &[u8]) -> Option<Variant> {
     }
     let variant = crate::engine::execution::standard_variant(header.preset.house_rules.loop_policy);
     if let Some(identity) = header.execution {
-        if !identity.valid() {
+        // The record's own artifact, not today's: its protocol revision is
+        // whatever was current when the game was played.
+        if !identity.well_formed() {
             return None;
         }
         if identity.variant == Variant::Tower {
@@ -80,5 +82,36 @@ mod tests {
             None
         );
         assert_eq!(variant(b"invalid gzip"), None);
+    }
+
+    fn header_with(identity: &Identity, policy: LoopPolicy) -> Vec<u8> {
+        let header = serde_json::json!({
+            "kind": "header",
+            "preset": {"house_rules": {"loop_policy": policy}},
+            "execution": identity,
+        });
+        compressed(format!("{header}\n").as_bytes())
+    }
+
+    /// A kept record names the artifact that played it. Its protocol
+    /// revision is the one of that day, so a record still replays after
+    /// the protocol moves on.
+    #[test]
+    fn a_record_of_a_past_protocol_revision_still_routes() {
+        let mut identity = Identity::native(Variant::Standard, "build", "revision", 1);
+        identity.protocol -= 1;
+        assert!(!identity.valid());
+        assert_eq!(
+            variant(&header_with(&identity, LoopPolicy::Off)),
+            Some(Variant::Standard)
+        );
+        // The identity must still agree with the preset it was recorded with,
+        assert_eq!(
+            variant(&header_with(&identity, LoopPolicy::RunOnceThenBreak)),
+            None
+        );
+        // and keep its shape.
+        identity.features.push('a');
+        assert_eq!(variant(&header_with(&identity, LoopPolicy::Off)), None);
     }
 }

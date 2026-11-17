@@ -99,8 +99,17 @@ impl Identity {
     /// Rejects malformed, oversized and incompatible metadata before it is advertised.
     #[must_use]
     pub fn valid(&self) -> bool {
+        self.protocol == crate::PROTOCOL_VERSION && self.well_formed()
+    }
+
+    /// The shape and bounds of [`Self::valid`] without the claim that this is
+    /// the executable speaking now. A kept record names the artifact that
+    /// played it, and that artifact's transport protocol is history: a reader
+    /// of records asks this, or every record stops replaying at the next
+    /// protocol revision.
+    #[must_use]
+    pub fn well_formed(&self) -> bool {
         self.schema == SCHEMA
-            && self.protocol == crate::PROTOCOL_VERSION
             && label(&self.build, 160)
             && self.features.len() == 64
             && self
@@ -199,5 +208,19 @@ mod tests {
         invalid = valid;
         invalid.cards = "x".repeat(97);
         assert!(!invalid.valid());
+    }
+
+    #[test]
+    fn a_past_protocol_revision_is_well_formed_but_not_current() {
+        let mut past = identity();
+        past.protocol -= 1;
+        assert!(past.well_formed());
+        assert!(!past.valid());
+        // Shape still binds a record's identity.
+        past.features.push('a');
+        assert!(!past.well_formed());
+        let mut other_schema = identity();
+        other_schema.schema += 1;
+        assert!(!other_schema.well_formed());
     }
 }
