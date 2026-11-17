@@ -70,10 +70,10 @@ pub struct CardTextEntry {
 
 /// At most this many [`TextCandidate`]s per card.
 ///
-/// German, the largest language of the catalog, prints few cards in more
-/// than six wordings (Mind Stone has four: the modern one, `opfere den
-/// Gedankenstein`, the `Manavorrat` era and Weatherlight's prose), and an
-/// older wording is only needed where every newer one fails.
+/// A chosen bound, not a measured one. In `fixtures/printings.json` Mind
+/// Stone has five German wordings and seven Japanese ones, and the served
+/// printing plus six candidates holds all seven; an older wording is only
+/// read where every newer one fails, so a cut falls on the oldest.
 pub const MAX_CANDIDATES: usize = 6;
 
 /// At most this many bytes of `printed` text over all [`TextCandidate`]s of
@@ -81,8 +81,8 @@ pub const MAX_CANDIDATES: usize = 6;
 ///
 /// `/catalog/text` faces the internet and reads up to 500 cards a request,
 /// so this bounds an answer's growth to 2 MB, and a gateway's in-memory
-/// language to the same per card. A long card's German is about a kilobyte,
-/// so four of its wordings still fit.
+/// language to 4 KiB per card. A chosen bound, not a measured one: a
+/// candidate that would pass it is passed over, never cut.
 pub const MAX_CANDIDATE_BYTES: usize = 4096;
 
 /// Another printing of a card in the asked language, offered line by line.
