@@ -2,9 +2,9 @@
 //! the tavern behind the lobby.
 //!
 //! Each is an AVIF image sequence of our own (`loops/world.avif`,
-//! `loops/tavern.avif`: 3840 × 2160, 120/1 frames a second, `2 × 4` tiles,
+//! `loops/tavern.avif`: 3840 × 2160, 60/1 frames a second, `2 × 4` tiles,
 //! low-delay 1-frame-per-sample; `art/baylee/README.md` has their provenance
-//! and the Topaz Video AI + `ffmpeg` commands that made them), shipped inside
+//! and the `PyTorch` + Topaz Video AI + `ffmpeg` commands that made them), shipped inside
 //! the binary and decoded by `baylee-avif` with ARM64 NEON on Apple Silicon.
 //!
 //! How a loop plays:
@@ -17,8 +17,8 @@
 //!   exact `1.0×` wall-clock tempo with zero drift over arbitrary hours.
 //! - **Lazy, duel-evictable lock-free SPSC lookahead.** One background worker
 //!   per loop decodes `256`-byte row-aligned 4K YUV420 planes directly into an
-//!   8-slot single-producer/single-consumer ring (`66.7` ms lookahead at
-//!   120 fps, two full 4-sample ticks at 30 fps idle; `0` per-frame heap
+//!   8-slot single-producer/single-consumer ring (`133.3` ms lookahead at
+//!   60 fps, four full 2-sample ticks at 30 fps idle; `0` per-frame heap
 //!   allocations after warm-up, no `Mutex`), parking whenever the ring is full
 //!   or the window is paused. Unseen loops hold `0` bytes of YUV plane memory
 //!   at startup and release all ring + `first` buffers back to `0` bytes in
@@ -67,8 +67,8 @@ const FADE_IN: f32 = 0.6;
 /// How long a loop nobody sees keeps its decoder before freeing it.
 const KEEP: Duration = Duration::from_secs(4);
 
-/// Lookahead slots in the lock-free SPSC ring (`66.7` ms at 120 fps; 2 full
-/// 4-sample render ticks at the 30 fps idle rate).
+/// Lookahead slots in the lock-free SPSC ring (`133.3` ms at 60 fps; 4 full
+/// 2-sample render ticks at the 30 fps idle rate).
 const RING_CAP: usize = 8;
 
 /// Tile- and postfilter-parallel worker threads (`2 × 4` 4K AV1 tiles on NEON).
@@ -971,22 +971,22 @@ fn copy(
 mod tests {
     use super::*;
 
-    /// The shipped files are 3840 × 2160 (16:9 4K), exact 120/1 fps (`1_620` &
-    /// `942` samples, zero ms truncation), 8-bit limited-range BT.709,
+    /// The shipped files are 3840 × 2160 (16:9 4K), exact 60/1 fps (`750` &
+    /// `891` samples, zero ms truncation), 8-bit limited-range BT.709,
     /// opaque, and repeat cleanly with 256-byte row-aligned plane strides and
     /// real-time ARM64 NEON decoding.
     #[test]
     fn the_shipped_loops_are_what_the_shader_converts() {
         for (name, bytes, expected_samples, expected_ns) in [
-            ("world", WORLD, 1_620usize, 13_500_000_000u64),
-            ("tavern", TAVERN, 942usize, 7_850_000_000u64),
+            ("world", WORLD, 750usize, 12_500_000_000u64),
+            ("tavern", TAVERN, 891usize, 14_850_000_000u64),
         ] {
             let sequence = Sequence::read(bytes, &Bounds::SHIPPED_LOOP)
                 .unwrap_or_else(|e| panic!("{name}: {e}"));
             let track = &sequence.colour;
             assert_eq!((track.width, track.height), (3840, 2160), "{name}");
             assert_eq!(track.samples.len(), expected_samples, "{name}");
-            assert_eq!(track.duration_ns(), expected_ns, "{name} exact 120/1 fps");
+            assert_eq!(track.duration_ns(), expected_ns, "{name} exact 60/1 fps");
             assert!(sequence.repeats, "{name} repeats");
             assert!(sequence.alpha.is_none(), "{name} is opaque");
 
@@ -1002,7 +1002,7 @@ mod tests {
             assert!(matches!(planes.matrix, Matrix::Bt709), "{name}");
             assert!(!planes.full_range, "{name}");
 
-            // Decode 60 consecutive 4K 120fps frames to verify 1-sample-to-1-frame
+            // Decode 60 consecutive 4K 60fps frames to verify 1-sample-to-1-frame
             // low-delay decoding with zero compound altref packets.
             let t0 = Instant::now();
             for expected_idx in 1..=60 {
@@ -1012,12 +1012,12 @@ mod tests {
                 assert_eq!(idx, expected_idx);
             }
             let ms_per_frame = t0.elapsed().as_secs_f64() * 1000.0 / 60.0;
-            eprintln!("{name}: decoded 60 4K@120 frames at {ms_per_frame:.2} ms/frame");
+            eprintln!("{name}: decoded 60 4K@60 frames at {ms_per_frame:.2} ms/frame");
         }
     }
 
     /// Constant `1.0×` playback tempo: stepping `t = 0.0..=15.0s` at 30 fps
-    /// (4 samples/tick), 60 fps (2 samples/tick), and 120 fps (1 sample/tick)
+    /// (2 samples/tick), 60 fps (1 sample/tick), and 120 fps (0.5 sample/tick)
     /// produces identical wall-clock timestamps and selects the exact same
     /// `(pass, sample_index)` at every shared instant.
     #[test]
@@ -1052,9 +1052,9 @@ mod tests {
             for (i, sample_60) in at_60.iter().enumerate() {
                 assert_eq!(*sample_60, at_120[i * 2], "{name} 60 vs 120 at step {i}");
             }
-            // At exactly t = 15.0s: 1_800 frames elapsed (`pass 1, sample 180`
-            // for 1_620-frame world; `pass 1, sample 858` for 942-frame tavern).
-            let expected_15s = if name == "world" { (1, 180) } else { (1, 858) };
+            // At exactly t = 15.0s: 900 frames elapsed at 60 fps (`pass 1, sample 150`
+            // for 750-frame world; `pass 1, sample 9` for 891-frame tavern).
+            let expected_15s = if name == "world" { (1, 150) } else { (1, 9) };
             assert_eq!(at_120.last().unwrap().1, expected_15s, "{name} 1.0x at 15s");
         }
     }
@@ -1095,27 +1095,31 @@ mod tests {
         let full_ring_bytes = lp.ring.allocated_bytes.load(Ordering::Acquire);
         assert!(full_ring_bytes >= (RING_CAP + 1) * one_plane_bytes);
 
-        // Verify 120 fps (1 sample), 60 fps (2 samples), and 30 fps (4 samples)
-        // consumer ticks select exact due slots (`0 -> 1 -> 3 -> 7`) and unpark
-        // the worker so the 8-slot ring refills without starving.
+        // Verify 120 fps (0.5 sample -> `None`, zero redundant upload while
+        // slot 0 stays on the GPU), 60 fps (slot 1), 30 fps (slot 3), and
+        // 15 fps (slot 7) consumer ticks select exact due slots and unpark the
+        // worker so the 8-slot ring refills without starving.
         lp.showing.store(true, Ordering::Release);
         for (i, &(playhead_ns, expected_slot)) in [
-            (0u64, 0u64),
-            (8_333_334, 1),  // +1/120s (120 fps): advances 1 sample
-            (25_000_001, 3), // +1/60s  (60 fps):  advances 2 samples
-            (58_333_334, 7), // +1/30s  (30 fps):  advances 4 samples
+            (0u64, Some(0u64)),
+            (8_333_334, None),     // +1/120s (120 fps): slot 0 still current on GPU
+            (16_666_667, Some(1)), // +1/120s (60 fps):  advances 1 sample
+            (50_000_001, Some(3)), // +1/30s  (30 fps):  advances 2 samples
+            (116_666_667, Some(7)), // +1/15s  (15 fps):  advances 4 samples
         ]
         .iter()
         .enumerate()
         {
             advance_playhead(&lp, true, i > 0, playhead_ns);
             let borrow = ConsumerBorrow::try_acquire(&lp.ring.consumer_state).expect("idle");
-            let chosen = select_due_slot(&lp, &borrow).expect("due slot available");
+            let chosen = select_due_slot(&lp, &borrow);
             assert_eq!(chosen, expected_slot, "at playhead {playhead_ns} ns");
-            lp.ring.read_pos.store(chosen + 1, Ordering::Release);
-            drop(borrow);
-            lp.worker.get().unwrap().unpark();
-            wait_for_write_pos(&lp, chosen + 1 + RING_CAP as u64);
+            if let Some(slot) = chosen {
+                lp.ring.read_pos.store(slot + 1, Ordering::Release);
+                drop(borrow);
+                lp.worker.get().unwrap().unpark();
+                wait_for_write_pos(&lp, slot + 1 + RING_CAP as u64);
+            }
         }
         assert_eq!(
             lp.ring.allocated_bytes.load(Ordering::Acquire),
@@ -1213,9 +1217,9 @@ mod tests {
         wait_for_write_pos(&lp, RING_CAP as u64);
         lp.showing.store(true, Ordering::Release);
 
-        // Advance past 1 full 13.50s revolution (`playhead = 13.60s` at `clock = 14.60s`).
-        advance_playhead(&lp, true, true, 14_600_000_000);
-        assert_eq!(lp.playhead_for(gen1), 13_600_000_000);
+        // Advance past 1 full 12.50s revolution (`playhead = 12.70s` at `clock = 13.70s`).
+        advance_playhead(&lp, true, true, 13_700_000_000);
+        assert_eq!(lp.playhead_for(gen1), 12_700_000_000);
         for expected_chosen in [7u64, 12u64] {
             let borrow = ConsumerBorrow::try_acquire(&lp.ring.consumer_state).expect("idle");
             let chosen = select_due_slot(&lp, &borrow).expect("due slot");
@@ -1226,20 +1230,20 @@ mod tests {
             wait_for_write_pos(&lp, chosen + 1 + RING_CAP as u64);
         }
 
-        // Go unseen for 2.5s (`< KEEP`, no eviction): `VistaClock` advances to 17.10s.
+        // Go unseen for 2.5s (`< KEEP`, no eviction): `VistaClock` advances to 16.20s.
         let was_visible = lp.active.swap(false, Ordering::AcqRel);
-        assert!(!advance_playhead(&lp, false, was_visible, 17_100_000_000));
+        assert!(!advance_playhead(&lp, false, was_visible, 16_200_000_000));
         assert_eq!(lp.generation.load(Ordering::Acquire), gen1);
 
-        // Re-enter at `clock = 17.10s`: playhead resumes at 13.60s, and the very
-        // next 120 fps tick (`+8_333_334 ns`) immediately selects slot 13 (`13_608_333_333 ns`).
+        // Re-enter at `clock = 16.20s`: playhead resumes at 12.70s, and the very
+        // next 60 fps tick (`+16_666_667 ns`) immediately selects slot 13 (`12_716_666_666 ns`).
         let was_visible = lp.active.swap(true, Ordering::AcqRel);
         assert!(!was_visible);
-        advance_playhead(&lp, true, was_visible, 17_100_000_000);
-        assert_eq!(lp.playhead_for(gen1), 13_600_000_000);
+        advance_playhead(&lp, true, was_visible, 16_200_000_000);
+        assert_eq!(lp.playhead_for(gen1), 12_700_000_000);
 
-        advance_playhead(&lp, true, true, 17_108_333_334);
-        assert_eq!(lp.playhead_for(gen1), 13_608_333_334);
+        advance_playhead(&lp, true, true, 16_216_666_667);
+        assert_eq!(lp.playhead_for(gen1), 12_716_666_667);
         {
             let borrow = ConsumerBorrow::try_acquire(&lp.ring.consumer_state).expect("idle");
             assert_eq!(select_due_slot(&lp, &borrow), Some(13));

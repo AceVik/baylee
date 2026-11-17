@@ -830,13 +830,13 @@ fn vertical_consonance_plomp_levelt_and_parsimonious_voice_leading_hold() {
 }
 
 #[test]
-fn lobby_tavern_guitar_locks_to_exact_fifteen_second_eight_bar_video_loop() {
-    // 96.000 BPM in 3/4: 1 sixteenth = 7,500 samples (0.15625s), 1 beat = 30,000 samples (0.625s = 75f @ 120fps),
-    // 1 bar = 90,000 samples (1.875s = 225f @ 120fps), 8 bars = 720,000 samples = 15.000000s exact!
-    assert_eq!(memorial::LOBBY_STEP_FRAMES * 12 * 8, 15 * RATE);
-    assert_eq!((memorial::LOBBY_STEP_FRAMES * 4 * 120) % RATE, 0);
-    assert_eq!(memorial::LOBBY_STEP_FRAMES * 4 * 120 / RATE, 75);
-    assert_eq!(memorial::LOBBY_STEP_FRAMES * 12 * 120 / RATE, 225);
+fn lobby_tavern_guitar_locks_to_exact_nine_bar_bard_video_loop() {
+    // 109.091 BPM in 3/4: 1 sixteenth = 6,600 samples (0.1375s), 1 beat = 26,400 samples (0.550s = 33f @ 60fps),
+    // 1 bar = 79,200 samples (1.650s = 99f @ 60fps), 9 bars (27 beats) = 712,800 samples = 14.850000s (891f @ 60fps) exact!
+    assert_eq!(memorial::LOBBY_STEP_FRAMES * 12 * 9, 891 * (RATE / 60));
+    assert_eq!((memorial::LOBBY_STEP_FRAMES * 4 * 60) % RATE, 0);
+    assert_eq!(memorial::LOBBY_STEP_FRAMES * 4 * 60 / RATE, 33);
+    assert_eq!(memorial::LOBBY_STEP_FRAMES * 12 * 60 / RATE, 99);
 }
 
 #[test]

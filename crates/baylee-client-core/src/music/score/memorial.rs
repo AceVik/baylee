@@ -33,11 +33,11 @@ const RECORD: usize = 20;
 const TITLE_STEP_FRAMES: u32 = 9_600;
 const TITLE_STEP_SECONDS: f32 = TITLE_STEP_FRAMES as f32 / RATE as f32;
 
-/// Sixteenth-note pulse for the cozy Lobby Acoustic Guitar suite: 7,500 frames at 48 kHz
-/// (`0.15625 s` sixteenth -> `0.625 s` quarter beat [`96.0 BPM` in `3/4`, `75f @ 120fps`] ->
-/// `1.875 s` bar [`225f @ 120fps`] -> `15.000 s` exact 8-bar period [`1,800f @ 120fps`,
-/// `900f @ 60fps`, `450f @ 30fps`], zero cumulative phase drift across infinite loops).
-pub(in crate::music) const LOBBY_STEP_FRAMES: u32 = 7_500;
+/// Sixteenth-note pulse for the cozy Lobby Acoustic Guitar suite: 6,600 frames at 48 kHz
+/// (`0.1375 s` sixteenth -> `0.550 s` quarter beat [`109.091 BPM` in `3/4`, `33f @ 60fps`] ->
+/// `1.650 s` bar [`99f @ 60fps`] -> `14.850 s` exact 9-bar / 27-beat period [`891f @ 60fps`],
+/// locked to the Tavern Bard's strumming tempo with zero cumulative phase drift across loops).
+pub(in crate::music) const LOBBY_STEP_FRAMES: u32 = 6_600;
 const LOBBY_STEP_SECONDS: f32 = LOBBY_STEP_FRAMES as f32 / RATE as f32;
 
 pub(super) const fn contains(movement: Movement) -> bool {
