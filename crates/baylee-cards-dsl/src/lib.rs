@@ -1036,6 +1036,9 @@ pub const PRINTED_KEYWORDS: &[(KeywordSet, &str)] = &[
     (KeywordSet::FLYING, "Flying"),
     (KeywordSet::FIRST_STRIKE, "First strike"),
     (KeywordSet::DOUBLE_STRIKE, "Double strike"),
+    // Before lifelink, as printed cards list them ("Flying, first strike,
+    // vigilance, lifelink").
+    (KeywordSet::VIGILANCE, "Vigilance"),
     (KeywordSet::DEATHTOUCH, "Deathtouch"),
     (KeywordSet::DEFENDER, "Defender"),
     (KeywordSet::FLASH, "Flash"),
@@ -1046,7 +1049,6 @@ pub const PRINTED_KEYWORDS: &[(KeywordSet, &str)] = &[
     (KeywordSet::MENACE, "Menace"),
     (KeywordSet::REACH, "Reach"),
     (KeywordSet::TRAMPLE, "Trample"),
-    (KeywordSet::VIGILANCE, "Vigilance"),
     (KeywordSet::SHROUD, "Shroud"),
     (KeywordSet::FEAR, "Fear"),
     (KeywordSet::INTIMIDATE, "Intimidate"),

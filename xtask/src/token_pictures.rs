@@ -109,13 +109,11 @@ pub(crate) fn printed_from_mtgjson(token: &Value, released: &str) -> Option<Prin
         name: text("name")?,
         layout: text("layout").unwrap_or_default(),
         type_line: text("type").unwrap_or_default(),
-        colors: token["colors"]
-            .as_array()
-            .map_or_default(|c| {
-                c.iter()
-                    .filter_map(|v| v.as_str().map(str::to_string))
-                    .collect()
-            }),
+        colors: token["colors"].as_array().map_or_default(|c| {
+            c.iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect()
+        }),
         power: text("power"),
         toughness: text("toughness"),
         loyalty: text("loyalty"),

@@ -1679,17 +1679,31 @@ fn a_registry_tokens_face_says_what_it_is_and_what_it_does() {
         &baylee_cards::generated_tokens::BAT_1_1_BLACK_FLYING,
         TypeSet::CREATURE,
     );
-    assert!(bat.type_line.starts_with("Token Creature"), "{}", bat.type_line);
+    assert!(
+        bat.type_line.starts_with("Token Creature"),
+        "{}",
+        bat.type_line
+    );
     assert_eq!(rules(&bat), ["Flying"]);
     assert!(!bat.text_pending);
 
     for (def, words) in [
-        (&baylee_cards::tokens::TREASURE, "Add one mana of any color."),
-        (&baylee_cards::tokens::CLUE, "{2}, Sacrifice this token: Draw a card."),
+        (
+            &baylee_cards::tokens::TREASURE,
+            "Add one mana of any color.",
+        ),
+        (
+            &baylee_cards::tokens::CLUE,
+            "{2}, Sacrifice this token: Draw a card.",
+        ),
         (&baylee_cards::tokens::BLOOD, "Discard a card"),
     ] {
         let face = shown(def, TypeSet::ARTIFACT);
-        assert!(face.type_line.starts_with("Token Artifact"), "{}", face.type_line);
+        assert!(
+            face.type_line.starts_with("Token Artifact"),
+            "{}",
+            face.type_line
+        );
         assert!(
             rules(&face).iter().any(|r| r.contains(words)),
             "{}: {:?}",

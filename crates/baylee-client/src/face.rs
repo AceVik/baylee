@@ -203,11 +203,7 @@ fn token_type_line(line: &str) -> String {
 /// card lists them, then each ability's sentence where the registry has one
 /// (`tokens::ability_text`, a Tower run's own words first), and for any it
 /// has none for, a quiet count instead of a claim that nothing is there.
-fn token_body(
-    token_id: u16,
-    token: &baylee_cards::dsl::TokenDef,
-    lang: Lang,
-) -> Vec<TextBlock> {
+fn token_body(token_id: u16, token: &baylee_cards::dsl::TokenDef, lang: Lang) -> Vec<TextBlock> {
     let mut body = token_keyword_lines(token.keywords)
         .into_iter()
         .map(TextBlock::Rules)

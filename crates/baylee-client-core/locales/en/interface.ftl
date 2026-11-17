@@ -4708,6 +4708,7 @@ NoRulesTextHere = Rules text unavailable
 
 # Under what a token's text face can say: how many of its abilities have
 # no sentence written down in this build (the rest is shown).
+# Arguments: count
 TokenAbilitiesUnwritten =
     { $count ->
         [one] { $count } more ability not written out here

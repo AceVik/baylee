@@ -665,12 +665,16 @@ static SENTENCES: &[(&TokenDef, &[&str])] = &[
     // Voice of Resurgence.
     (
         &ELEMENTAL_X_X_GREEN_WHITE,
-        &["This token's power and toughness are each equal to the number of creatures you control."],
+        &[
+            "This token's power and toughness are each equal to the number of creatures you control.",
+        ],
     ),
     // Thousand Moons Smithy.
     (
         &GNOME_SOLDIER_WHITE_DYNAMIC,
-        &["This token's power and toughness are each equal to the number of artifacts and/or creatures you control."],
+        &[
+            "This token's power and toughness are each equal to the number of artifacts and/or creatures you control.",
+        ],
     ),
     // Mage Siege's Wizard.
     (
@@ -685,7 +689,10 @@ static SENTENCES: &[(&TokenDef, &[&str])] = &[
         &["Whenever this creature deals damage to a player, that player gets a poison counter."],
     ),
     // Tetravus.
-    (&TETRAVITE_1_1_COLORLESS_ARTIFACT_FLYING, &["This token can't be enchanted."]),
+    (
+        &TETRAVITE_1_1_COLORLESS_ARTIFACT_FLYING,
+        &["This token can't be enchanted."],
+    ),
     // Master of the Hunt.
     (
         &WOLVES_OF_THE_HUNT_1_1_GREEN_WOLF,
@@ -694,7 +701,9 @@ static SENTENCES: &[(&TokenDef, &[&str])] = &[
     // The meld face's own text, as its definition quotes it.
     (
         &HANWEIR_THE_WRITHING_TOWNSHIP,
-        &["Whenever Hanweir, the Writhing Township attacks, create two 3/2 colorless Eldrazi Horror creature tokens that are tapped and attacking."],
+        &[
+            "Whenever Hanweir, the Writhing Township attacks, create two 3/2 colorless Eldrazi Horror creature tokens that are tapped and attacking.",
+        ],
     ),
     // Generated tokens, each quoted by the card that makes it.
     // Eldrazi Spawn: Awakening Zone and every Spawn maker.
@@ -760,7 +769,9 @@ static SENTENCES: &[(&TokenDef, &[&str])] = &[
     // The Wizard maker's quotation.
     (
         &crate::generated_tokens::WIZARD_1_1_BLUE,
-        &["{1}, Sacrifice this token: Counter target noncreature spell unless its controller pays {1}."],
+        &[
+            "{1}, Sacrifice this token: Counter target noncreature spell unless its controller pays {1}.",
+        ],
     ),
 ];
 
