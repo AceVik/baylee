@@ -569,35 +569,10 @@ fn offer_emphasis(run: &api::Run, goods: Goods) -> Emphasis {
 
 fn actions(commands: &mut Commands, top: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
     let lang = lang(kit);
-    let spawn_cta = |commands: &mut Commands,
-                     icon: char,
-                     title: &str,
-                     action: Action,
-                     enabled: bool,
-                     reason: Option<&str>| {
-        let allowed =
-            enabled && !ui.model.mutating() && !ui.model.uncertain() && ui.confirmation.is_none();
-        let btn = controls::button_compact(
-            commands,
-            kit,
-            Some(icon),
-            title,
-            Weight::Gold,
-            if allowed {
-                Live::Yes
-            } else {
-                Live::No(reason.unwrap_or_else(|| Phrase::EchoesUnavailable.text(lang)))
-            },
-            Press::Echoes(action),
-        );
-        commands
-            .entity(btn)
-            .insert(super::super::super::keys::stop(action, ui));
-        commands.entity(top).add_child(btn);
-    };
+    let cta = Cta { top, kit, ui };
     if run.phase == api::Phase::Shop {
         if ui.model.hosts().is_empty() {
-            spawn_cta(
+            cta.spawn(
                 commands,
                 words::GLYPH_DUEL,
                 Phrase::EchoesPlay.text(lang),
@@ -613,7 +588,7 @@ fn actions(commands: &mut Commands, top: Entity, kit: Kit, ui: &Ui, run: &api::R
             } else {
                 Phrase::EchoesPlayAt.fill(lang, &[&host.name])
             };
-            spawn_cta(
+            cta.spawn(
                 commands,
                 words::GLYPH_DUEL,
                 &title,
@@ -623,12 +598,81 @@ fn actions(commands: &mut Commands, top: Entity, kit: Kit, ui: &Ui, run: &api::R
             );
         }
     } else if matches!(run.phase, api::Phase::Reserved | api::Phase::Playing) {
-        spawn_cta(
+        cta.spawn(
             commands,
             glyph::ARROW_RIGHT,
             Phrase::TowerResume.text(lang),
             Action::Resume,
             true,
+            None,
+        );
+    } else if matches!(run.phase, api::Phase::Verifying | api::Phase::Quarantined) {
+        held(commands, &cta, run);
+    }
+}
+
+/// One gold call to action in the shelf's top row.
+struct Cta<'a, 'k> {
+    top: Entity,
+    kit: Kit<'k>,
+    ui: &'a Ui,
+}
+
+impl Cta<'_, '_> {
+    fn spawn(
+        &self,
+        commands: &mut Commands,
+        icon: char,
+        title: &str,
+        action: Action,
+        enabled: bool,
+        reason: Option<&str>,
+    ) {
+        let ui = self.ui;
+        let blocked = ui.model.mutating() || ui.model.uncertain() || ui.confirmation.is_some();
+        let btn = controls::button_compact(
+            commands,
+            self.kit,
+            Some(icon),
+            title,
+            Weight::Gold,
+            if enabled && !blocked {
+                Live::Yes
+            } else {
+                Live::No(reason.unwrap_or_else(|| Phrase::EchoesUnavailable.text(lang(self.kit))))
+            },
+            Press::Echoes(action),
+        );
+        commands
+            .entity(btn)
+            .insert(super::super::super::keys::stop(action, ui));
+        commands.entity(self.top).add_child(btn);
+    }
+}
+
+/// No shop while the duel is checked or held for recovery: say so, and offer
+/// the one thing the player may do about a held duel.
+fn held(commands: &mut Commands, cta: &Cta<'_, '_>, run: &api::Run) {
+    let lang = lang(cta.kit);
+    let quarantined = run.phase == api::Phase::Quarantined;
+    let text = if quarantined {
+        format!(
+            "{} {}",
+            words::phase(run.phase).text(lang),
+            Phrase::EchoesQuarantinedChoice.text(lang)
+        )
+    } else {
+        words::phase(run.phase).text(lang).to_owned()
+    };
+    let status = controls::label(commands, cta.kit, &text, cta.kit.m.text, tokens::MUTED);
+    commands.entity(cta.top).add_child(status);
+    if quarantined {
+        cta.spawn(
+            commands,
+            words::GLYPH_FLAG,
+            Phrase::TowerRetire.text(lang),
+            Action::Abandon,
+            can(cta.ui, &Command::Abandon {}),
             None,
         );
     }

@@ -3638,6 +3638,7 @@ EchoesStartSharing = Wähle ein Deck und beginne einen neuen Run. Deine geprüft
 EchoesShopReady = Bereite deine nächste Partie vor
 EchoesVerifying = Deine Partie wird geprüft. Gold und der nächste Händler erscheinen nach der Bestätigung.
 EchoesQuarantined = Diese Partie pausiert zur technischen Wiederherstellung. Es wurden weder Niederlage noch Einkommen vergeben.
+EchoesQuarantinedChoice = Du kannst auf die Wiederherstellung warten oder die Expedition aufgeben: Sie endet dann hier, ohne Ergebnis.
 EchoesInterrupted = Diese Expedition wurde nach einer technischen Unterbrechung beendet. Es wurde kein Spielergebnis erfunden.
 EchoesWon = Sieg
 EchoesLost = Niederlage

@@ -9,7 +9,9 @@ use baylee_client_core::echoes::draft::allowed;
 pub(super) fn act(ui: &mut Ui, action: Action) -> Option<Work> {
     let run = ui.model.run()?;
     if ui.model.uncertain()
-        || !matches!(run.phase, Phase::Shop | Phase::Reward)
+        || !(matches!(run.phase, Phase::Shop | Phase::Reward)
+            || (action == Action::Abandon
+                && matches!(run.phase, Phase::Reserved | Phase::Quarantined)))
         || ui.confirmation.is_some()
     {
         return None;

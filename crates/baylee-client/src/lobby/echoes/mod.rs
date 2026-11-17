@@ -345,7 +345,9 @@ impl Ui {
     #[cfg(any(not(target_arch = "wasm32"), test))]
     pub(super) fn command(&mut self, command: Command) -> Option<Work> {
         if let Some(run) = self.model.run()
-            && matches!(run.phase, api::Phase::Shop | api::Phase::Reward)
+            && (matches!(run.phase, api::Phase::Shop | api::Phase::Reward)
+                || (matches!(command, Command::Abandon {})
+                    && matches!(run.phase, api::Phase::Reserved | api::Phase::Quarantined)))
             && !self.model.uncertain()
         {
             if domain::v2::generation::is_run(run.shop.generator)

@@ -191,6 +191,13 @@ pub fn allowed(run: &Run, cohort: &Cohort, command: &Command) -> bool {
                     })
             });
     }
+    // A reserved duel never started, or one held for recovery, may be given up.
+    if matches!(command, Command::Abandon {}) {
+        return matches!(
+            run.phase,
+            Phase::Shop | Phase::Reserved | Phase::Quarantined
+        );
+    }
     if run.phase != Phase::Shop {
         return false;
     }

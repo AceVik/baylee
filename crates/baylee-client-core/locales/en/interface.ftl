@@ -10082,6 +10082,7 @@ EchoesStartSharing = Choose a deck to begin a fresh run. Your verified builds an
 EchoesShopReady = Prepare your next duel
 EchoesVerifying = Your duel is being verified. Gold and the next shop appear after confirmation.
 EchoesQuarantined = This duel is paused for technical recovery. No defeat or income has been assigned.
+EchoesQuarantinedChoice = You may wait for the recovery, or retire the expedition: it then ends here, without a result.
 EchoesInterrupted = This expedition was closed after a technical interruption. No duel outcome was invented.
 EchoesWon = Victory
 EchoesLost = Defeat

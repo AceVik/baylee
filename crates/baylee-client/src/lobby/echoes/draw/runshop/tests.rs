@@ -495,3 +495,48 @@ fn commander_editor_controls_move_owned_card_to_sideboard_and_save_all_zones_tog
         "confirmed deck remains unchanged until response"
     );
 }
+
+#[test]
+fn a_checked_or_held_duel_says_so_and_a_held_one_offers_its_way_out() {
+    let ui = opened();
+    for (phase, phrase, retire) in [
+        (api::Phase::Verifying, Phrase::EchoesVerifying, false),
+        (
+            api::Phase::Quarantined,
+            Phrase::EchoesQuarantinedChoice,
+            true,
+        ),
+    ] {
+        let mut run = ui.model.run().unwrap().clone();
+        run.phase = phase;
+        let mut world = World::new();
+        let fonts = crate::hud::UiFonts::default();
+        let kit = test_kit(&fonts, false);
+        let mut commands = world.commands();
+        let root = commands.spawn(Node::default()).id();
+        shelf::draw(
+            &mut commands,
+            root,
+            kit,
+            &ui,
+            &run,
+            ui.model.publication().unwrap(),
+        );
+        world.flush();
+        let said = phrase.text(Lang::En);
+        assert!(
+            world
+                .query::<&Text>()
+                .iter(&world)
+                .any(|text| text.0.contains(said)),
+            "{phase:?} explains itself"
+        );
+        // The shelf's own retire control (beside the equipment's flag).
+        let retires = world
+            .query::<&Press>()
+            .iter(&world)
+            .filter(|press| matches!(press, Press::Echoes(Action::Abandon)))
+            .count();
+        assert_eq!(retires, usize::from(retire), "{phase:?}");
+    }
+}

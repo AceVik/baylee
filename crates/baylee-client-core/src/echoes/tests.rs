@@ -115,6 +115,27 @@ fn opened() -> (State, Cohort, Run) {
 }
 
 #[test]
+fn a_reserved_or_held_duel_offers_only_retirement_and_a_live_one_nothing() {
+    use super::draft::allowed;
+    let (_, cohort, shop) = opened();
+    for (phase, retire) in [
+        (Phase::Reserved, true),
+        (Phase::Quarantined, true),
+        (Phase::Playing, false),
+        (Phase::Verifying, false),
+    ] {
+        let mut run = shop.clone();
+        run.phase = phase;
+        assert_eq!(
+            allowed(&run, &cohort, &Command::Abandon {}),
+            retire,
+            "{phase:?}"
+        );
+        assert!(!allowed(&run, &cohort, &Command::Refresh {}), "{phase:?}");
+    }
+}
+
+#[test]
 fn draft_deck_edits_never_spend_or_enter_with_an_unsaved_or_illegal_deck() {
     use super::draft::{Draft, allowed};
     let (_, cohort, mut run) = opened();
