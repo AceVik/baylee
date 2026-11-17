@@ -51,13 +51,18 @@ impl Flow {
                 .unwrap();
         }
         let account = Uuid::now_v7();
+        // A drafted generation starts only from one of the account's offers.
+        let offered = store
+            .starter_choices(account, cohort, [5; 32])
+            .await
+            .unwrap();
         let initial = store
             .start(
                 account,
                 Uuid::now_v7(),
                 Start {
                     cohort,
-                    starter: 0,
+                    starter: offered[0],
                     consent: CONSENT_REVISION,
                 },
                 [7; 32],
@@ -132,7 +137,9 @@ async fn retain(store: &Store, host: &Principal, claimed: &Claimed, corrupt: boo
 }
 
 fn publication() -> Publication {
-    let content = baylee_tower_content::standard().unwrap();
+    // The current executor plays the current (runic) generation, whose
+    // publication needs its full starter pool.
+    let content = baylee_tower_content::runic().unwrap();
     Publication {
         cohort: Cohort::new(baylee_engine_server::variant::identity(), &content.catalog).unwrap(),
         catalog: content.catalog,
