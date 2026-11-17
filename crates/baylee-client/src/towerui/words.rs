@@ -41,10 +41,7 @@ pub(crate) fn clean_title(raw: &str) -> &str {
         .into_iter()
         .flat_map(|lang| Rarity::ALL.map(|r| rarity(r, lang)));
     for label in legacy.into_iter().chain(localized) {
-        if let Some(prefix) = raw
-            .strip_suffix(label)
-            .and_then(|s| s.strip_suffix(" · "))
-        {
+        if let Some(prefix) = raw.strip_suffix(label).and_then(|s| s.strip_suffix(" · ")) {
             return prefix;
         }
     }

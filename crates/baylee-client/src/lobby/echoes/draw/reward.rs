@@ -413,15 +413,10 @@ fn selection_footer(commands: &mut Commands, kit: Kit, ui: &Ui, take: u8) -> Ent
 fn rarity_visuals(
     rarity: CardRarity,
     selected: bool,
+    lang: Lang,
 ) -> (&'static str, Color, LinearGradient, BoxShadow, bool) {
     let rarity_color = crate::lobby::decks::rarity_dot_color(rarity);
-    let rarity_name = match rarity {
-        CardRarity::Common => "Common",
-        CardRarity::Uncommon => "Uncommon",
-        CardRarity::Rare => "Rare",
-        CardRarity::Mythic => "Mythic Rare",
-        CardRarity::Special | CardRarity::Bonus => "Special",
-    };
+    let rarity_name = baylee_client_core::deckbuilder::rarity_label(rarity, lang);
     let ornate = matches!(rarity, CardRarity::Rare | CardRarity::Mythic) || selected;
     if selected {
         let rim = Color::srgb(1.0, 0.86, 0.40);
@@ -497,7 +492,8 @@ fn spawn_candidate_face(
     disabled: bool,
 ) -> (Entity, &'static str, Color) {
     let rarity_color = crate::lobby::decks::rarity_dot_color(rarity);
-    let (rarity_name, border_rest, gradient, shadow, ornate) = rarity_visuals(rarity, selected);
+    let (rarity_name, border_rest, gradient, shadow, ornate) =
+        rarity_visuals(rarity, selected, lang(kit));
     let face = commands
         .spawn((
             crate::shellkit::Role::Tile,
