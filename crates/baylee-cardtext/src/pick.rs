@@ -3,6 +3,7 @@
 use std::cmp::Ordering;
 
 use crate::align::{Aligned, align, untranslated};
+use crate::verify::{Verdict, verify};
 
 /// One printing of a card in the language being asked for.
 ///
@@ -42,10 +43,13 @@ pub struct Layer<'p> {
 ///
 /// 1. A printing that translated none of the faces ([`untranslated`]) is not
 ///    a candidate: English is never served as another language.
-/// 2. One whose every face is translated and lines up ([`align`]) comes
-///    before one that does not. Spawning Pool's newest German printing (10e)
-///    glues two lines together; its older one (ulg) lines up, and an older
-///    wording is still the card's own German where the newer one is a blank.
+/// 2. One whose every face is translated and lines up ([`align`]) and whose
+///    placed lines [`verify`] refuses none of comes first; then one whose
+///    every face lines up; then the rest. Spawning Pool's newest German
+///    printing (10e) glues two lines together; its older one (ulg) lines
+///    up, and an older wording is still the card's own German where the
+///    newer one is a blank. A newer printing whose activated line lost its
+///    cost (old prose) is passed over the same way for one that keeps it.
 /// 3. Then the newest.
 /// 4. Then the lowest collector number, which is the regular frame — a
 ///    borderless or showcase variant that drops its reminder line is
@@ -85,10 +89,27 @@ pub fn pick<'p>(lang: &str, oracle: &[&str], printings: &'p [Printing]) -> Optio
             });
             translated.then_some(Layer { printing, faces })
         })
-        .max_by(order)
+        .map(|layer| (verified(oracle, &layer), layer))
+        .max_by(|(va, a), (vb, b)| va.cmp(vb).then_with(|| order(a, b)))
+        .map(|(_, layer)| layer)
 }
 
-/// Rules 2–4 of [`pick`], as "greater is better".
+/// Rule 2's first half: every face lines up, and [`verify`] refuses none of
+/// the lines placed. A line set aside as reminder-only has nothing placed
+/// and is not counted, so a borderless frame that drops a reminder is not
+/// held below the regular one for it.
+fn verified(oracle: &[&str], layer: &Layer<'_>) -> bool {
+    layer.faces.len() == oracle.len()
+        && layer.faces.iter().zip(oracle).all(|(face, oracle)| {
+            face.as_ref().is_some_and(|aligned| {
+                aligned.lines.iter().enumerate().all(|(line, placed)| {
+                    placed.is_none() || verify(oracle, aligned, line) != Verdict::Refused
+                })
+            })
+        })
+}
+
+/// Rules 2–4 of [`pick`] after [`verified`], as "greater is better".
 fn order(a: &Layer<'_>, b: &Layer<'_>) -> Ordering {
     let complete = |l: &Layer<'_>| l.faces.iter().all(Option::is_some);
     let (pa, pb) = (a.printing, b.printing);
@@ -189,6 +210,36 @@ mod tests {
             [None],
             "a face that does not line up is drawn from the Oracle"
         );
+    }
+
+    /// Lining up is not enough where a line in place is not the ability: a
+    /// newer printing whose second line lost its cost is passed over for an
+    /// older one whose lines verify, and still beats one that does not line
+    /// up at all.
+    #[test]
+    fn a_printing_whose_lines_verify_beats_a_newer_one_that_only_lines_up() {
+        let ps = [
+            printing(
+                "prose",
+                "2016-01-01",
+                "1",
+                Some("{T}: Erzeuge {C}.\nOpfere den Stein und ziehe eine Karte."),
+            ),
+            printing(
+                "costed",
+                "2010-01-01",
+                "2",
+                Some("{T}: Erzeuge {C}.\n{1}, {T}, opfere: Ziehe."),
+            ),
+            printing(
+                "glued",
+                "2020-01-01",
+                "3",
+                Some("{T}: Erzeuge {C}.{1}, {T}, opfere: Ziehe."),
+            ),
+        ];
+        assert_eq!(picked(&ps), Some("costed"));
+        assert_eq!(picked(&[ps[0].clone(), ps[2].clone()]), Some("prose"));
     }
 
     #[test]
