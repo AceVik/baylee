@@ -1,4 +1,5 @@
-//! Shared run-item presentation for the shop, inventory and table drawer.
+//! Shared run-item presentation for the shop, inventory, table drawer, stack,
+//! and game log.
 use crate::{
     itemart::{Emphasis, Portrait},
     shellkit::{
@@ -7,15 +8,22 @@ use crate::{
         px_fixed, tokens,
     },
 };
-use baylee_client_core::echoes::domain::v2::{catalog::Rarity, shop::Goods};
-use bevy::prelude::*;
+use baylee_client_core::{
+    echoes::domain::v2::{catalog::Rarity, shop::Goods},
+    i18n::Lang,
+};
+use bevy::{
+    prelude::*,
+    ui::{BackgroundGradient, ColorStop, Gradient, LinearGradient},
+};
+
 mod layout;
 pub(crate) mod motion;
+pub(crate) mod prose;
 mod rules;
 mod runic;
 mod scenery;
-pub(crate) use layout::drag_ghost;
-pub(crate) use layout::{badge, coin, empty, frame};
+pub(crate) use layout::{badge, coin, drag_ghost, empty, frame, shelf_frost};
 pub(crate) mod words;
 pub(crate) use scenery::{Decor, install};
 #[cfg(test)]
@@ -26,8 +34,10 @@ pub(crate) struct Item<'a> {
     pub name: &'a str,
     pub description: &'a str,
     pub caption: Option<&'a str>,
+    pub hint: Option<&'a str>,
     pub size: f32,
     pub emphasis: Emphasis,
+    pub selected: bool,
 }
 
 pub(crate) fn color(goods: Goods) -> Color {
@@ -44,7 +54,23 @@ pub(crate) fn color(goods: Goods) -> Color {
     }
 }
 
-/// The icon is the object: no card-shaped body or permanent name/description block.
+/// Builds a HUD-compatible [`Kit`] when a table caller only holds `fonts` and
+/// `lang` (`UiScale` already scales table pixels).
+#[must_use]
+pub(crate) fn kit_for_hud(fonts: &crate::hud::UiFonts, lang: Lang) -> Kit<'_> {
+    Kit {
+        fonts,
+        m: crate::shellkit::ShellMetrics::of(
+            crate::shellkit::Viewport::desktop(1280.0, 720.0),
+            crate::shellkit::TextSize::default(),
+        ),
+        german: lang == Lang::De,
+    }
+}
+
+/// The icon is the object: optically centered square `Portrait` inside `face`,
+/// with any count badge anchored absolutely at bottom-right so it never shifts
+/// the centered portrait.
 pub(crate) fn button(
     commands: &mut Commands,
     kit: Kit,
@@ -52,20 +78,40 @@ pub(crate) fn button(
     live: Live<'_>,
     action: impl Bundle,
 ) -> Entity {
+    let accent = color(item.goods);
+    let rest_bg = if item.selected {
+        tokens::SELECTED
+    } else {
+        Color::srgba(0.032, 0.030, 0.036, 0.82)
+    };
+    let rest_border = if item.selected {
+        tokens::GOLD
+    } else {
+        accent.with_alpha(0.46)
+    };
     let face = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
                 width: kit.m.px(item.size),
                 height: kit.m.px(item.size),
+                padding: UiRect::all(kit.m.px(2.0)),
+                border: UiRect::all(px_fixed(if item.selected { 2.0 } else { 1.0 })),
                 border_radius: BorderRadius::all(kit.m.px(10.0)),
                 ..default()
             },
             Pickable::IGNORE,
             crate::shellkit::surfaces::elevation_control(),
-            BackgroundColor(tokens::CONTROL),
-            crate::ambience::Feel::tinting_to(tokens::CONTROL, tokens::HOVER),
+            BackgroundColor(rest_bg),
+            BorderColor::all(rest_border),
+            crate::ambience::Feel::tinting_to(rest_bg, tokens::HOVER),
+            crate::ambience::FeelBorder {
+                rest: rest_border,
+                hot: if item.selected { tokens::INK } else { accent },
+                press: tokens::GOLD,
+            },
             crate::ambience::FeelShadow,
         ))
         .id();
@@ -73,15 +119,15 @@ pub(crate) fn button(
         Portrait(item.goods),
         item.emphasis,
         Node {
-            width: kit.m.px(item.size),
-            height: kit.m.px(item.size),
+            width: percent(100),
+            height: percent(100),
             ..default()
         },
         ChildOf(face),
         Pickable::IGNORE,
     ));
     if let Some(caption) = item.caption {
-        badge(commands, face, kit, caption, color(item.goods));
+        badge(commands, face, kit, caption, accent);
     }
     let owner = controls::hit(commands, kit, face, action);
     let tip = detail(commands, kit, &item, live);
@@ -94,26 +140,13 @@ pub(crate) fn button(
     owner
 }
 
-/// A read-only table icon with exactly the shop's detail presentation.
-/// Table callers already apply their HUD scale; size is in that coordinate space.
-pub(crate) fn inspectable(
-    commands: &mut Commands,
-    goods: Goods,
-    fonts: &crate::hud::UiFonts,
-    lang: baylee_client_core::i18n::Lang,
-    size: f32,
-) -> Entity {
-    let kit = Kit {
-        fonts,
-        m: crate::shellkit::ShellMetrics::of(
-            crate::shellkit::Viewport::desktop(1280.0, 720.0),
-            crate::shellkit::TextSize::default(),
-        ),
-        german: lang == baylee_client_core::i18n::Lang::De,
-    };
+/// Spawns a standalone floating rich Item Detail Overlay (`FloatingTooltip`,
+/// `Visibility::Hidden`, `Display::None`) for `goods`, ready to pair with
+/// `(controls::Tooltip(tip), controls::FocusTooltip)` on any hoverable UI node.
+pub(crate) fn item_tooltip(commands: &mut Commands, kit: Kit, goods: Goods, lang: Lang) -> Entity {
     let name = words::name(goods, lang);
     let description = words::description(goods, lang);
-    let tip = detail(
+    detail(
         commands,
         kit,
         &Item {
@@ -121,11 +154,50 @@ pub(crate) fn inspectable(
             name: &name,
             description: &description,
             caption: None,
-            size,
+            hint: None,
+            size: 64.0,
             emphasis: Emphasis::None,
+            selected: false,
         },
         Live::Yes,
-    );
+    )
+}
+
+/// Spawns [`item_tooltip`] and attaches `(Tooltip(tip), FocusTooltip)` to
+/// `owner` (safely despawning `tip` if `owner` was despawned before flush).
+pub(crate) fn attach_item_tooltip(
+    commands: &mut Commands,
+    owner: Entity,
+    kit: Kit,
+    goods: Goods,
+    lang: Lang,
+) -> Entity {
+    let tip = item_tooltip(commands, kit, goods, lang);
+    commands.queue(move |world: &mut World| {
+        if let Ok(mut ent) = world.get_entity_mut(owner) {
+            ent.insert((
+                controls::Tooltip(tip),
+                controls::FocusTooltip,
+                bevy::picking::hover::PickingInteraction::default(),
+            ));
+        } else if let Ok(orphan) = world.get_entity_mut(tip) {
+            orphan.despawn();
+        }
+    });
+    tip
+}
+
+/// A read-only table icon with the exact same elevated Item Detail Overlay.
+/// Table callers already apply their HUD scale; `size` is in that coordinate space.
+pub(crate) fn inspectable(
+    commands: &mut Commands,
+    goods: Goods,
+    fonts: &crate::hud::UiFonts,
+    lang: Lang,
+    size: f32,
+) -> Entity {
+    let kit = kit_for_hud(fonts, lang);
+    let tip = item_tooltip(commands, kit, goods, lang);
     commands
         .spawn((
             Portrait(goods),
@@ -136,13 +208,29 @@ pub(crate) fn inspectable(
                 ..default()
             },
             controls::Tooltip(tip),
+            controls::FocusTooltip,
             bevy::picking::hover::PickingInteraction::default(),
             Pickable::default(),
         ))
         .id()
 }
 
+fn detail_elevation(accent: Color) -> BoxShadow {
+    let mut layers = crate::shellkit::surfaces::elevation_floating().0;
+    layers.push(ShadowStyle {
+        color: accent.with_alpha(0.20),
+        x_offset: px_fixed(0.0),
+        y_offset: px_fixed(2.0),
+        spread_radius: px_fixed(0.5),
+        blur_radius: px_fixed(20.0),
+    });
+    BoxShadow(layers)
+}
+
+#[allow(clippy::too_many_lines)] // Cohesive detail card: accent bar, header, subline pills, rich body.
 fn detail(commands: &mut Commands, kit: Kit, item: &Item<'_>, live: Live<'_>) -> Entity {
+    let lang = if kit.german { Lang::De } else { Lang::En };
+    let accent = color(item.goods);
     let tip = commands
         .spawn((
             controls::FloatingTooltip,
@@ -150,28 +238,58 @@ fn detail(commands: &mut Commands, kit: Kit, item: &Item<'_>, live: Live<'_>) ->
             Node {
                 display: Display::None,
                 position_type: PositionType::Absolute,
-                width: kit.m.px(420.0),
+                width: kit.m.px(424.0),
                 max_width: Val::Vw(90.0),
-                padding: UiRect::all(kit.m.px(16.0)),
+                padding: UiRect::new(
+                    kit.m.px(16.0),
+                    kit.m.px(16.0),
+                    kit.m.px(18.0),
+                    kit.m.px(16.0),
+                ),
                 flex_direction: FlexDirection::Column,
                 row_gap: kit.m.px(10.0),
                 border: UiRect::all(px_fixed(1.5)),
                 border_radius: BorderRadius::all(px_fixed(12.0)),
+                overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(color(item.goods)),
-            crate::shellkit::surfaces::popover_shadow(),
+            BackgroundColor(Color::srgba(0.024, 0.027, 0.036, 0.95)),
+            BackgroundGradient(vec![Gradient::Linear(LinearGradient {
+                angle: std::f32::consts::PI,
+                stops: vec![
+                    ColorStop::auto(Color::srgba(0.068, 0.076, 0.098, 0.34)),
+                    ColorStop::auto(Color::srgba(0.016, 0.018, 0.025, 0.18)),
+                ],
+                ..default()
+            })]),
+            BorderColor::all(accent.with_alpha(0.72)),
+            detail_elevation(accent),
             GlobalZIndex(tokens::z::TOOLTIP),
             Visibility::Hidden,
             Pickable::IGNORE,
         ))
         .id();
+
+    // Rarity-colored top accent bar across the obsidian-glass crown.
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            left: px_fixed(0.0),
+            right: px_fixed(0.0),
+            top: px_fixed(0.0),
+            height: px_fixed(3.0),
+            ..default()
+        },
+        BackgroundColor(accent.with_alpha(0.92)),
+        Pickable::IGNORE,
+        ChildOf(tip),
+    ));
+
     let header = commands
         .spawn((
             Node {
                 align_items: AlignItems::Center,
-                column_gap: kit.m.px(10.0),
+                column_gap: kit.m.px(12.0),
                 ..default()
             },
             Pickable::IGNORE,
@@ -180,27 +298,131 @@ fn detail(commands: &mut Commands, kit: Kit, item: &Item<'_>, live: Live<'_>) ->
         .id();
     commands.spawn((
         Portrait(item.goods),
+        item.emphasis,
         Node {
-            width: kit.m.px(76.0),
-            height: kit.m.px(76.0),
+            width: kit.m.px(72.0),
+            height: kit.m.px(72.0),
             flex_shrink: 0.0,
             ..default()
         },
         ChildOf(header),
         Pickable::IGNORE,
     ));
-    let name = crate::shellkit::surfaces::prose(commands, kit, item.name, false);
-    commands.entity(name).insert((
-        crate::hud::tf_bold(kit.fonts, kit.m.text),
-        TextColor(color(item.goods)),
+
+    let title_col = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: kit.m.px(4.0),
+                flex_grow: 1.0,
+                min_width: px_fixed(0.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+            ChildOf(header),
+        ))
+        .id();
+    let title_text = words::clean_title(item.name);
+    let name_node = crate::shellkit::surfaces::prose(commands, kit, title_text, false);
+    commands.entity(name_node).insert((
+        crate::hud::tf_bold(
+            kit.fonts,
+            crate::shellkit::surfaces::whole_pixels(kit.m.text * 1.05),
+        ),
+        TextColor(tokens::INK),
     ));
-    commands.entity(header).add_child(name);
-    for line in item.description.lines() {
-        let description =
-            crate::manaui::spawn_rich(commands, kit.fonts, line, kit.m.small, tokens::INK);
-        commands.entity(tip).add_child(description);
+    commands.entity(title_col).add_child(name_node);
+
+    let rarity_sub = words::rarity_subline(item.goods);
+    let limit_tag = words::activation_limit_tag(item.goods, lang);
+    if rarity_sub.is_some() || limit_tag.is_some() {
+        let meta_row = commands
+            .spawn((
+                Node {
+                    align_items: AlignItems::Center,
+                    flex_wrap: FlexWrap::Wrap,
+                    column_gap: kit.m.px(8.0),
+                    row_gap: kit.m.px(4.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+                ChildOf(title_col),
+            ))
+            .id();
+        if let Some(rarity_label) = rarity_sub {
+            let sub = crate::shellkit::surfaces::prose(commands, kit, rarity_label, true);
+            commands
+                .entity(sub)
+                .insert(TextColor(accent.with_alpha(0.92)));
+            commands.entity(meta_row).add_child(sub);
+        }
+        if let Some(tag_text) = limit_tag {
+            let pill = commands
+                .spawn((
+                    Node {
+                        padding: UiRect::axes(kit.m.px(7.0), kit.m.px(1.5)),
+                        border: UiRect::all(px_fixed(1.0)),
+                        border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgba(0.96, 0.72, 0.28, 0.14)),
+                    BorderColor::all(Color::srgba(0.96, 0.76, 0.36, 0.52)),
+                    Pickable::IGNORE,
+                    ChildOf(meta_row),
+                ))
+                .id();
+            let pill_label = controls::label(
+                commands,
+                kit,
+                &tag_text,
+                kit.m.small * 0.92,
+                Color::srgb(0.98, 0.82, 0.46),
+            );
+            commands
+                .entity(pill_label)
+                .insert(crate::hud::tf_bold(kit.fonts, kit.m.small * 0.92));
+            commands.entity(pill).add_child(pill_label);
+        }
     }
-    if let Live::No(reason) = live {
+
+    // Subtle hairline separating header identity from color-coded effect lines.
+    commands.spawn((
+        Node {
+            width: percent(100),
+            height: px_fixed(1.0),
+            ..default()
+        },
+        BackgroundColor(accent.with_alpha(0.22)),
+        Pickable::IGNORE,
+        ChildOf(tip),
+    ));
+
+    let body = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: kit.m.px(6.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+            ChildOf(tip),
+        ))
+        .id();
+    for line in item.description.lines().filter(|line| !line.is_empty()) {
+        let description = prose::spawn_line(commands, kit.fonts, line, kit.m.small);
+        commands.entity(body).add_child(description);
+    }
+
+    if let Some(hint) = item.hint
+        && !hint.is_empty()
+    {
+        let note = crate::shellkit::surfaces::prose(commands, kit, hint, true);
+        commands.entity(tip).add_child(note);
+    }
+    if let Live::No(reason) = live
+        && !reason.is_empty()
+    {
         let reason = crate::shellkit::surfaces::prose(commands, kit, reason, true);
         commands.entity(tip).add_child(reason);
     }

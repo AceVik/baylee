@@ -139,41 +139,87 @@ fn personal(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, board: &ap
 fn score(commands: &mut Commands, root: Entity, kit: Kit, entry: &Standing) {
     let lang = lang(kit);
     let band = row(commands, root, kit);
+    let rank_color = match entry.rank {
+        Some(1) => tokens::GOLD,
+        Some(2) => Color::srgb(0.82, 0.86, 0.92),
+        Some(3) => Color::srgb(0.84, 0.58, 0.36),
+        _ => tokens::MUTED,
+    };
     commands
         .entity(band)
+        .insert((
+            BackgroundColor(if entry.yours {
+                tokens::SELECTED
+            } else {
+                tokens::CONTROL.with_alpha(0.55)
+            }),
+            BorderColor::all(if entry.yours {
+                tokens::ACCENT.with_alpha(0.55)
+            } else if matches!(entry.rank, Some(1..=3)) {
+                rank_color.with_alpha(0.45)
+            } else {
+                tokens::BORDER
+            }),
+            surfaces::elevation_subcard(),
+        ))
         .entry::<Node>()
         .and_modify(move |mut n| {
-            n.padding = UiRect::all(kit.m.px(8.0));
-            n.min_height = kit.m.px(40.0);
-            n.column_gap = kit.m.px(16.0);
+            n.padding = UiRect::axes(kit.m.px(12.0), kit.m.px(8.0));
+            n.min_height = kit.m.px(44.0);
+            n.column_gap = kit.m.px(12.0);
+            n.border = UiRect::all(px_fixed(1.0));
+            n.border_radius = BorderRadius::all(kit.m.px(8.0));
         });
-    if entry.yours {
-        commands
-            .entity(band)
-            .insert(BackgroundColor(tokens::CONTROL));
-    }
-    label(
+    let rank_label = controls::label(
         commands,
-        band,
         kit,
         &entry.rank.map_or_else(|| "—".into(), |r| format!("#{r}")),
-        tokens::GOLD,
+        kit.m.text,
+        rank_color,
     );
-    let name = entry.name.as_ref().map_or_else(
-        || Phrase::EchoesRankingYou.text(lang).to_owned(),
-        |n| format!("{}#{:04x}", n.display, n.tag),
-    );
-    label(
+    commands
+        .entity(rank_label)
+        .insert(crate::hud::tf_bold(kit.fonts, kit.m.text))
+        .entry::<Node>()
+        .and_modify(move |mut n| n.min_width = kit.m.px(40.0));
+    commands.entity(band).add_child(rank_label);
+
+    let handle = entry
+        .name
+        .as_ref()
+        .map(|n| format!("{}#{:04x}", n.display, n.tag));
+    if let Some(ref handle_str) = handle {
+        let avatar =
+            crate::shellkit::avatar::disc(commands, kit.fonts, handle_str, kit.m.scale * 28.0);
+        commands.entity(band).add_child(avatar);
+        commands.entity(band).insert((
+            crate::shellkit::avatar::PersonLink {
+                handle: handle_str.clone(),
+                guest: false,
+                row: true,
+            },
+            Pickable::default(),
+            PickingInteraction::default(),
+        ));
+    }
+    let name_str = handle.unwrap_or_else(|| Phrase::EchoesRankingYou.text(lang).to_owned());
+    let name_label = controls::label(
         commands,
-        band,
         kit,
-        &name,
+        &name_str,
+        kit.m.text,
         if entry.yours {
             tokens::ACCENT
         } else {
             tokens::INK
         },
     );
+    if entry.yours {
+        commands
+            .entity(name_label)
+            .insert(crate::hud::tf_bold(kit.fonts, kit.m.text));
+    }
+    commands.entity(band).add_child(name_label);
     let spacer = crate::lobby::parts::grow(commands);
     commands.entity(band).add_child(spacer);
     label(

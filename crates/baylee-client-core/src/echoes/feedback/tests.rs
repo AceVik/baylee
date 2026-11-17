@@ -93,3 +93,18 @@ fn reconnect_and_run_switch_never_replay_spending_or_income() {
             .is_none()
     );
 }
+
+#[test]
+fn selling_a_card_emits_positive_wallet_delta_without_phantom_relic_sale() {
+    let mut trace = Trace::default();
+    let mut economy = Economy::for_run();
+    let id = Uuid::from_u128(9);
+    assert!(trace.observe(id, 0, &economy, &[]).is_none());
+    economy = economy.sold_card(3).unwrap();
+    let change = trace.observe(id, 1, &economy, &[]).unwrap();
+    assert_eq!(change.gold, 3);
+    assert_eq!(change.purchase, None);
+    assert_eq!(change.sold, None);
+    assert_eq!(change.fused, None);
+    assert!(change.flights.is_empty());
+}

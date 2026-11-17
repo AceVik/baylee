@@ -690,6 +690,7 @@ fn sheet_box_parts<C: Bundle>(
     let surface = commands
         .spawn((
             Role::Opaque,
+            Pickable::default(),
             Node {
                 width: if phone {
                     Val::Percent(100.0)
@@ -1019,6 +1020,7 @@ pub fn dialog(
     let surface = commands
         .spawn((
             Role::Opaque,
+            Pickable::default(),
             Node {
                 width: if phone { Val::Percent(100.0) } else { width },
                 max_width: Val::Percent(100.0),
@@ -1044,6 +1046,12 @@ pub fn dialog(
     surface
 }
 
+/// Marks a full-viewport modal scrim backdrop (`surfaces::sheet` /
+/// `surfaces::scrim`) so background tooltips and focus previews below its
+/// [`GlobalZIndex`] cannot bleed over an active modal dialog.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ModalScrim;
+
 /// Standardized modal scrim backdrop centering `surface` at `z_index` and
 /// attaching `action` for click-outside dismissal.
 pub fn scrim(
@@ -1056,6 +1064,8 @@ pub fn scrim(
     let phone = kit.m.frame == super::Frame::Phone;
     let backdrop = commands
         .spawn((
+            ModalScrim,
+            Pickable::default(),
             Node {
                 position_type: PositionType::Absolute,
                 left: px_fixed(0.0),
@@ -1081,6 +1091,8 @@ pub fn scrim(
 pub fn sheet(commands: &mut Commands, surface: Entity) -> Entity {
     let scrim = commands
         .spawn((
+            ModalScrim,
+            Pickable::default(),
             Node {
                 position_type: PositionType::Absolute,
                 left: px_fixed(0.0),
@@ -1170,6 +1182,7 @@ pub fn popover(commands: &mut Commands, kit: Kit, lines: &[&str]) -> Entity {
     let surface = commands
         .spawn((
             Role::Opaque,
+            Pickable::default(),
             Node {
                 flex_direction: FlexDirection::Column,
                 padding: UiRect::all(px_fixed(kit.m.pad)),
@@ -1230,6 +1243,7 @@ pub fn menu<'a, B: Bundle>(
     let surface = commands
         .spawn((
             Role::Opaque,
+            Pickable::default(),
             Node {
                 flex_direction: FlexDirection::Column,
                 min_width: kit.m.px(240.0),

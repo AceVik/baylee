@@ -120,6 +120,8 @@ pub(crate) fn install(app: &mut App) {
             (slide_the_drawer, clear_the_lane)
                 .chain()
                 .before(bevy::ui::UiSystems::Prepare)
+                .before(bevy::ui::UiSystems::Layout)
+                .before(bevy::ui::UiSystems::Stack)
                 .run_if(resource_exists::<UiFonts>),
         )
         .add_systems(
@@ -588,7 +590,11 @@ fn presses(
     mut ui: ResMut<ChatUi>,
     mut more: Local<Option<String>>,
     mut menu_at: Option<ResMut<DrawerMenuAt>>,
-    windows: Query<&Window>,
+    (windows, scale, zoom): (
+        Query<&Window>,
+        Option<Res<UiScale>>,
+        Option<Res<super::zoom::Zoom>>,
+    ),
 ) {
     let clicked: Vec<DrawerPress> = clicks.read();
     let ui = &mut *ui;
@@ -596,6 +602,13 @@ fn presses(
         more.clone_from(&ui.drawer_menu);
     }
     let pointer_pos = windows.iter().next().and_then(Window::cursor_position);
+    let zoom_factor = zoom.map_or(1.0, |z| z.0);
+    let logical_w = windows.iter().next().map_or(1280.0, |w| {
+        crate::hud::scale::desktop_space(w, scale.as_deref()).x
+    });
+    // On narrow viewports where Drawer (340px) + Chat (320px min) cannot fit
+    // side-by-side, opening a conversation steps the drawer aside cleanly.
+    let narrow_for_both = logical_w < (WIDTH + 344.0) * zoom_factor;
     for press in clicked {
         match press {
             DrawerPress::Toggle => ui.drawer = !ui.drawer,
@@ -623,6 +636,9 @@ fn presses(
                 host.act(Intent::Whisper { tag });
                 ui.typing = true;
                 ui.field = Field::Composer;
+                if narrow_for_both {
+                    ui.drawer = false;
+                }
                 *more = None;
                 ui.drawer_menu = None;
             }
@@ -685,6 +701,9 @@ fn presses(
                 ui.shown_group = Some(id.clone());
                 ui.typing = true;
                 ui.field = Field::Composer;
+                if narrow_for_both {
+                    ui.drawer = false;
+                }
                 *more = None;
                 ui.drawer_menu = None;
                 host.asks

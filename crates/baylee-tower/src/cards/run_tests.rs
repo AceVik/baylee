@@ -169,3 +169,64 @@ fn run_publications_require_at_least_five_distinct_valid_commanders() {
     starters[4].deck[0].copies = 38;
     assert!(catalog.validate_starters(&starters).is_err());
 }
+
+#[test]
+fn selling_unused_cards_protects_commander_library_sideboard_and_basics() {
+    use crate::cards::{CardRarity, Presentation};
+    use baylee_core::preset::Finish;
+
+    let (mut catalog, mut collection) = fixture();
+    for (i, rarity) in [
+        CardRarity::Common,
+        CardRarity::Common,
+        CardRarity::Common,
+        CardRarity::Common,
+        CardRarity::Common,
+        CardRarity::Mythic,
+        CardRarity::Common,
+        CardRarity::Uncommon,
+        CardRarity::Rare,
+        CardRarity::Mythic,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        catalog.cards[i].run.as_mut().unwrap().presentation = Some(Presentation {
+            printing: uuid::Uuid::from_u128(u128::try_from(i + 1).unwrap()),
+            finish: Finish::Normal,
+            rarity,
+        });
+    }
+    assert_eq!(catalog.card_sale_gold(CardIndex::new(4)), None);
+    assert_eq!(catalog.card_sale_gold(CardIndex::new(999)), None);
+    assert_eq!(catalog.card_sale_gold(CardIndex::new(6)), Some(1));
+    assert_eq!(catalog.card_sale_gold(CardIndex::new(7)), Some(2));
+    assert_eq!(catalog.card_sale_gold(CardIndex::new(8)), Some(3));
+    assert_eq!(catalog.card_sale_gold(CardIndex::new(9)), Some(4));
+
+    // Commander (5), main-library cards (6, 7), sideboard card (9) and basic (4) are all refused.
+    for protected in [4, 5, 6, 7, 8, 9] {
+        assert!(
+            collection
+                .sold(&catalog, CardIndex::new(protected))
+                .is_err()
+        );
+    }
+
+    // Loot an off-color Rare (8) into `owned` without adding it to library or sideboard.
+    collection = collection.bought(&catalog, CardIndex::new(8)).unwrap();
+    let (after_rare, gold) = collection.sold(&catalog, CardIndex::new(8)).unwrap();
+    assert_eq!(gold, 3);
+    assert_eq!(after_rare.copies(CardIndex::new(8)), 0);
+    assert!(after_rare.sold(&catalog, CardIndex::new(8)).is_err());
+
+    // Removing card 9 from sideboard frees it to be sold for Mythic value (4g).
+    let mut clear_side = after_rare.formation.clone().unwrap();
+    clear_side.sideboard.clear();
+    let freed = after_rare
+        .refitted(&catalog, after_rare.deck.clone(), clear_side)
+        .unwrap();
+    let (after_mythic, mythic_gold) = freed.sold(&catalog, CardIndex::new(9)).unwrap();
+    assert_eq!(mythic_gold, 4);
+    assert_eq!(after_mythic.copies(CardIndex::new(9)), 0);
+}

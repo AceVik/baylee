@@ -353,13 +353,14 @@ pub(super) fn ui(
     // Only what the header draws from the kit's side; compared, never read
     // off a change flag (a settings save is not a rebuild).
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let games_window = if state.lobby.games().len() > 24 {
-        (scrolled_to.get(List::Games).max(0.0)
-            / (super::play::discovery::row_stride(shell_m.frame) * shell_m.scale * 4.0))
-            as usize
-    } else {
-        0
-    };
+    let games_window =
+        if matches!(state.hub, Hub::Play | Hub::Tables) && state.lobby.games().len() > 24 {
+            (scrolled_to.get(List::Games).max(0.0)
+                / (super::play::discovery::row_stride(shell_m.frame) * shell_m.scale * 4.0))
+                as usize
+        } else {
+            0
+        };
     let kit_now = KitDrawn {
         frame: shell_m.frame,
         step,

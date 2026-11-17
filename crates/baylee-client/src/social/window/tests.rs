@@ -651,3 +651,88 @@ fn empty_composer_disables_send_with_hover_tooltip() {
         .any(|(p, _)| *p == ChatPress::Send);
     assert!(has_send_press, "non-empty composer offers clickable Send");
 }
+
+#[test]
+fn chat_pill_is_visible_and_table_chat_steps_aside_for_open_friends_drawer() {
+    use baylee_client_core::social::{ChatPrefs, Me};
+
+    let mut pill_app = app();
+    let fonts = UiFonts::default();
+    let pill = chat_pill(
+        &mut pill_app.world_mut().commands(),
+        &fonts,
+        Lang::En,
+        1,
+        false,
+    );
+    pill_app.world_mut().flush();
+    assert_eq!(
+        pill_app.world().get::<Node>(pill).unwrap().display,
+        Display::Flex,
+        "chat_pill must be laid out and clickable when chat is closed"
+    );
+    assert_ne!(
+        pill_app.world().get::<Visibility>(pill).copied(),
+        Some(Visibility::Hidden),
+        "chat_pill must not spawn hidden"
+    );
+
+    let (machine, _) = Social::start(
+        Me {
+            tag: "AB12".into(),
+            handle: "Alice#AB12".into(),
+            guest: false,
+            gateway: "https://example.test".into(),
+        },
+        None,
+        None,
+        ChatPrefs::default(),
+        1_000,
+        &mut crate::social::OsEntropy,
+    );
+    let mut table_app = app();
+    table_app
+        .insert_resource(UiFonts::default())
+        .init_resource::<Windows>()
+        .init_resource::<crate::social::zoom::Zoom>()
+        .init_resource::<LobbyChatSizing>()
+        .insert_resource(crate::social::drawer::DrawerSlide(0.0))
+        .insert_resource(State::new(DuelPhase::Playing))
+        .insert_resource(SocialHost {
+            machine: Some(machine),
+            ..default()
+        })
+        .add_systems(Update, sync_lobby_window);
+
+    // Closed at a table on Frame 0: spawns hidden, never flashing at (12, 0).
+    table_app.update();
+    let chat_root = table_app
+        .world_mut()
+        .query_filtered::<Entity, With<LobbyChat>>()
+        .single(table_app.world())
+        .expect("LobbyChat spawned");
+    assert_eq!(
+        *table_app.world().get::<Visibility>(chat_root).unwrap(),
+        Visibility::Hidden,
+        "closed table chat must spawn Visibility::Hidden on Frame 0"
+    );
+
+    // Open at a table alongside the Friends Drawer: shifts right edge past the drawer.
+    table_app.world_mut().resource_mut::<ChatUi>().open = true;
+    table_app.update();
+    let Val::Px(right_closed_drawer) = table_app.world().get::<Node>(chat_root).unwrap().right
+    else {
+        panic!("table chat right is in px");
+    };
+    table_app
+        .world_mut()
+        .insert_resource(crate::social::drawer::DrawerSlide(1.0));
+    table_app.update();
+    let Val::Px(right_open_drawer) = table_app.world().get::<Node>(chat_root).unwrap().right else {
+        panic!("table chat right is in px");
+    };
+    assert!(
+        right_open_drawer >= right_closed_drawer + 300.0,
+        "table chat ({right_open_drawer}) must step left of the open Friends Drawer ({right_closed_drawer})"
+    );
+}

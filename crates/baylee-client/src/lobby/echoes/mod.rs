@@ -1,13 +1,16 @@
 //! Gateway-hosted Tower expeditions; only the authority changes progression.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_client_core::echoes::{Read, State, Work, api, domain};
+#[cfg(any(not(target_arch = "wasm32"), test))]
+use baylee_client_core::echoes::Work;
+use baylee_client_core::echoes::{Read, State, api, domain};
 use domain::v2::{inventory::Slot, run::Command};
+#[cfg(any(not(target_arch = "wasm32"), test))]
 use std::collections::VecDeque;
 use uuid::Uuid;
 
 #[cfg(not(target_arch = "wasm32"))]
-pub(in crate::lobby) mod builder;
+pub(crate) mod builder;
 mod choices;
 mod collection;
 mod draw;
@@ -29,6 +32,8 @@ pub(crate) enum Page {
     Ranking,
 }
 
+// Drag-and-drop and right-click quick-equip gestures run in `gestures` on desktop.
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Action {
     Open,
@@ -64,14 +69,12 @@ pub(crate) enum Action {
     Mythic(u8),
     Abandon,
     Card(baylee_core::ids::CardIndex, bool),
+    #[cfg(test)]
     ZoneCard(
         baylee_core::ids::CardIndex,
         baylee_client_core::echoes::draft::DeckZone,
         bool,
     ),
-    Commander(baylee_core::ids::CardIndex),
-    DeckZone(baylee_client_core::echoes::draft::DeckZone),
-    DeckPage(usize),
     ClosePreview,
     InspectCard(baylee_core::ids::CardIndex),
     InspectStarter(Uuid, u8),
@@ -79,14 +82,20 @@ pub(crate) enum Action {
     Tiers(domain::v2::catalog::Family),
     SaveDeck,
     ResetDeck,
+    SellCard(baylee_core::ids::CardIndex),
+    ToggleSpareCards,
     Reward(baylee_core::ids::CardIndex),
     ClaimReward,
+    ToggleRewardGold,
+    ToggleRewardDeck,
     Freeze,
     Withdraw,
     Badge(baylee_client_core::echoes::awards_api::BadgeKind),
     Listing(bool),
 }
 
+// Constructed by `native` and `Ui::command`; browser Echoes is coming soon.
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub(super) enum Confirmation {
     Listing(u64),
     Withdrawal,
@@ -105,12 +114,7 @@ struct Bag {
 }
 
 #[derive(Default)]
-struct Deck {
-    zone: baylee_client_core::echoes::draft::DeckZone,
-    page: usize,
-}
-
-#[derive(Default)]
+#[allow(clippy::struct_excessive_bools)] // Independent panel expansion toggles across shop & reward views.
 pub(crate) struct Ui {
     #[cfg(not(target_arch = "wasm32"))]
     editor: Option<builder::Session>,
@@ -120,18 +124,23 @@ pub(crate) struct Ui {
     pub(super) confirmation: Option<Confirmation>,
     choices: choices::Draft,
     bag: Bag,
-    deck: Deck,
-    preview: Option<baylee_core::ids::CardIndex>,
+    spare_cards_open: bool,
+    reward_gold_open: bool,
+    reward_deck_open: bool,
+    pub(super) preview: Option<baylee_core::ids::CardIndex>,
     pub(super) starter_preview: Option<(Uuid, u8)>,
     tiers: Option<domain::v2::catalog::Family>,
     collection: collection::Collection,
     ranking: Option<(Uuid, api::ranking::Lane)>,
+    #[cfg(any(not(target_arch = "wasm32"), test))]
     reads: VecDeque<Read>,
     loaded: bool,
     withdrawn: bool,
     playing: Option<(Uuid, Uuid)>,
     /// An authenticated gateway seat may arrive before the first Central worker.
     returning: Option<Uuid>,
+    #[cfg(not(target_arch = "wasm32"))]
+    sounds: Vec<crate::sound::tower::TowerSound>,
     #[cfg(not(target_arch = "wasm32"))]
     session: Option<central::Handle>,
     #[cfg(not(target_arch = "wasm32"))]
@@ -193,11 +202,15 @@ pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
                     | Action::Page(_)
                     | Action::GoShop
                     | Action::Read(Read::Run(_) | Read::Ranking(..))
-                    | Action::Offer(_)
-                    | Action::InspectCard(_)
             )
         {
             cx.scrolled.set(List::Table, 0.0);
+            cx.scrolled.set(List::EchoesInspector, 0.0);
+        }
+        if matches!(
+            action,
+            Action::Offer(_) | Action::InspectCard(_) | Action::InspectStarter(..)
+        ) {
             cx.scrolled.set(List::EchoesInspector, 0.0);
         }
         if matches!(action, Action::Select(_))
@@ -224,6 +237,8 @@ impl Ui {
         }
     }
     /// Retry an unacknowledged refit even when later local edits are incomplete.
+    // `self.editor` is desktop-only; method form keeps callers uniform across targets.
+    #[cfg_attr(target_arch = "wasm32", allow(clippy::unused_self))]
     pub(crate) fn refit_uncertain(&self) -> bool {
         #[cfg(not(target_arch = "wasm32"))]
         return self.editor.is_some() && self.model.uncertain();
@@ -239,9 +254,42 @@ impl Ui {
                 .run()
                 .is_some_and(|run| run.phase == api::Phase::Reward)
     }
+
+    pub(in crate::lobby) fn inspecting(&self) -> bool {
+        if !self.opened || matches!(self.page, Page::Collection | Page::Ranking) {
+            return false;
+        }
+        let on_landing = self.model.run().is_none() || self.page == Page::Overview;
+        let starter_drawn = on_landing
+            && self.starter_preview.is_some_and(|(cohort, index)| {
+                self.model
+                    .cohorts()
+                    .iter()
+                    .find(|entry| entry.id == cohort)
+                    .is_some_and(|entry| usize::from(index) < entry.starters.len())
+            });
+        let deck_drawn = self.page == Page::Deck
+            && self.model.publication().is_some()
+            && self.model.run().is_some_and(|run| {
+                !matches!(
+                    run.phase,
+                    api::Phase::Reward
+                        | api::Phase::Conquered
+                        | api::Phase::Exhausted
+                        | api::Phase::Abandoned
+                        | api::Phase::Interrupted
+                ) && !domain::v2::generation::is_run(run.shop.generator)
+            });
+        starter_drawn || (self.preview.is_some() && (on_landing || deck_drawn))
+    }
+
     pub(super) fn close(&mut self) {
         self.opened = false;
+        self.preview = None;
         self.starter_preview = None;
+        self.spare_cards_open = false;
+        self.reward_gold_open = false;
+        self.reward_deck_open = false;
         self.returning = None;
         if self.model.run().is_some_and(|run| {
             matches!(
@@ -256,11 +304,15 @@ impl Ui {
         }
     }
 
+    #[cfg(any(not(target_arch = "wasm32"), test))]
     fn refresh(&mut self) {
         self.reads.clear();
         if self.page == Page::Ranking
             && let Some((cohort, lane)) = self.ranking
         {
+            if !self.loaded {
+                self.reads.push_back(Read::Cohorts(None));
+            }
             self.reads.push_back(Read::Ranking(cohort, lane));
             return;
         }
@@ -270,6 +322,7 @@ impl Ui {
         }
     }
 
+    #[cfg(any(not(target_arch = "wasm32"), test))]
     fn follow_run(&mut self) {
         let Some(run) = self.model.run() else {
             return;
@@ -278,14 +331,19 @@ impl Ui {
             self.reads.push_back(Read::Cohort(run.cohort));
         }
         match run.phase {
-            api::Phase::Shop => self.reads.push_back(Read::Hosts(None)),
-            api::Phase::Reserved | api::Phase::Playing => self.reads.push_back(Read::Locate),
+            api::Phase::Shop if self.model.hosts().is_empty() => {
+                self.reads.push_back(Read::Hosts(None));
+            }
+            api::Phase::Reserved | api::Phase::Playing if self.model.location().is_none() => {
+                self.reads.push_back(Read::Locate);
+            }
             _ => {}
         }
         self.choices.bind(run);
     }
 
-    fn command(&mut self, command: Command) -> Option<Work> {
+    #[cfg(any(not(target_arch = "wasm32"), test))]
+    pub(super) fn command(&mut self, command: Command) -> Option<Work> {
         if let Some(run) = self.model.run()
             && matches!(run.phase, api::Phase::Shop | api::Phase::Reward)
             && !self.model.uncertain()

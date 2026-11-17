@@ -200,3 +200,108 @@ fn client_refuses_forged_reward_cardinality_and_fifth_starter_is_reachable() {
         Some(Request::Start { starter: 4, .. })
     ));
 }
+
+#[test]
+fn reward_gold_and_sellable_card_helpers_match_domain_rules_and_acorn_bonuses() {
+    use domain::v2::{
+        catalog::{Definition, Family, Rarity},
+        inventory::Slot,
+    };
+
+    let (_, cohort, mut run) = fixture();
+    // Equip a Mythic Gilded Acorn and record +7 bonus_gold on the settled duel.
+    run.shop.generator = domain::v2::generation::RUNIC;
+    run.economy.gold = 60;
+    run.economy = run
+        .economy
+        .bought(
+            Definition {
+                family: Family::GildedAcorn,
+                rarity: Rarity::Rare,
+            },
+            Slot::Active(0),
+        )
+        .unwrap();
+    run.history[0].bonus_gold = 3;
+    // Card 5 is already owned (commander); cards 6 and 7 are not yet owned.
+    assert_eq!(
+        draft::reward_card_duplicate_gold(&run, CardIndex::new(5)),
+        Some(3)
+    );
+    assert_eq!(
+        draft::reward_card_duplicate_gold(&run, CardIndex::new(6)),
+        None
+    );
+
+    let selected = [CardIndex::new(5), CardIndex::new(6), CardIndex::new(5)];
+    let breakdown = draft::reward_gold(&run, &selected).unwrap();
+    assert_eq!(
+        breakdown,
+        draft::RewardGold {
+            base_duel: 12,
+            relic_bonus: 3,
+            equipped_acorns: 1,
+            settled_total: 15,
+            duplicate_rate: 3,
+            duplicate_count: 1,
+            duplicate_total: 3,
+            total_with_duplicates: 18,
+        }
+    );
+
+    // During Phase::Reward, no cards are sellable.
+    assert_eq!(
+        draft::sellable_card_gold(&run, &cohort, CardIndex::new(6)),
+        None
+    );
+
+    // In Phase::Shop, unused owned nonbasic cards are sellable; commander, library, sideboard and basics are not.
+    run.phase = Phase::Shop;
+    run.reward = None;
+    run.cards.owned.push(Stack {
+        card: CardIndex::new(6),
+        copies: 1,
+    });
+    run.cards.owned.push(Stack {
+        card: CardIndex::new(7),
+        copies: 1,
+    });
+    run.cards.formation.as_mut().unwrap().sideboard.push(Stack {
+        card: CardIndex::new(7),
+        copies: 1,
+    });
+    assert_eq!(
+        draft::sellable_card_gold(&run, &cohort, CardIndex::new(4)),
+        None
+    );
+    assert_eq!(
+        draft::sellable_card_gold(&run, &cohort, CardIndex::new(5)),
+        None
+    );
+    assert_eq!(
+        draft::sellable_card_gold(&run, &cohort, CardIndex::new(7)),
+        None
+    );
+    assert_eq!(
+        draft::sellable_card_gold(&run, &cohort, CardIndex::new(6)),
+        Some(1)
+    );
+    assert_eq!(
+        draft::sellable_cards(&run, &cohort),
+        vec![(CardIndex::new(6), 1)]
+    );
+    assert!(draft::allowed(
+        &run,
+        &cohort,
+        &Command::SellCard {
+            card: CardIndex::new(6),
+        }
+    ));
+    assert!(!draft::allowed(
+        &run,
+        &cohort,
+        &Command::SellCard {
+            card: CardIndex::new(5),
+        }
+    ));
+}

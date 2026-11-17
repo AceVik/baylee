@@ -265,26 +265,24 @@ impl GuitarString {
         self.allpass = exact_allpass_coeff(omega0, rest);
 
         // Wound bass strings sustain warmly with gentle damping; gut/nylon trebles sing clearly.
-        self.decay = 0.9990 - 0.0014 * reg;
-        self.damp = 0.052 + 0.068 * (1.0 - reg);
-        self.body_send = 0.42 - 0.16 * reg;
+        self.decay = 0.9989 - 0.0014 * reg;
+        self.damp = 0.088 + 0.062 * (1.0 - reg);
+        self.body_send = 0.34 - 0.14 * reg;
 
-        // Thumb plucks near the soundhole (~0.24L); right-hand fingers pluck sweeter (~0.16L).
+        // Thumb plucks near the soundhole (~0.28L); right-hand fingers pluck warm & round (~0.22L).
         let pick_pos = if pitch < 53 {
-            0.24
+            0.28
         } else if pitch < 64 {
-            0.19
+            0.24
         } else {
-            0.155
+            0.21
         };
         let apex = ((self.period as f32 * pick_pos).round() as usize).clamp(1, self.period - 1);
-        // Two-pole flesh/nail filter: soft warm thumb pad on bass, articulate finger release on treble.
-        let cutoff = 0.09 + 0.26 * reg;
+        // Three-pole flesh filter: warm rounded thumb/flesh release without nasal clavinet buzz.
+        let cutoff = 0.075 + 0.16 * reg;
         let mut state =
             seed.wrapping_mul(0x85EB_CA6B) ^ u32::from(pitch).wrapping_mul(0xC2B2_AE35) | 1;
-        let mut lp1 = 0.0_f32;
-        let mut lp2 = 0.0_f32;
-        let mut mean = 0.0_f32;
+        let (mut lp1, mut lp2, mut lp3, mut mean) = (0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32);
         for (i, slot) in self.line[..self.period].iter_mut().enumerate() {
             state ^= state << 13;
             state ^= state >> 17;
@@ -292,18 +290,20 @@ impl GuitarString {
             let noise = (state as f32 / u32::MAX as f32) * 2.0 - 1.0;
             lp1 += (noise - lp1) * cutoff;
             lp2 += (lp1 - lp2) * cutoff;
-            // Plucked string displacement triangle + smooth 1/n^1.8 soundhole harmonics.
+            lp3 += (lp2 - lp3) * cutoff;
+            // Smooth cubic finger-flesh displacement arch + gentle 1/n^2.2 nylon harmonics.
             let tri = if i < apex {
                 i as f32 / apex as f32
             } else {
                 (self.period - i) as f32 / (self.period - apex) as f32
             };
+            let arch = tri * tri * (3.0 - 2.0 * tri) - 0.5;
             let phase = std::f32::consts::TAU * i as f32 / self.period as f32;
-            let fundamental = phase.sin() * (0.34 - 0.07 * reg)
-                + (2.0 * phase).sin() * 0.10
-                + (3.0 * phase).sin() * 0.045;
-            let transient = lp2 * (0.19 + 0.14 * reg);
-            let sample = (tri - 0.5) * 0.40 + fundamental + transient;
+            let fundamental = phase.sin() * (0.38 - 0.05 * reg)
+                + (2.0 * phase).sin() * 0.085
+                + (3.0 * phase).sin() * 0.032;
+            let transient = lp3 * (0.11 + 0.08 * reg);
+            let sample = arch * 0.32 + fundamental + transient;
             *slot = sample;
             mean += sample;
         }
@@ -404,11 +404,13 @@ impl TavernGuitar {
     pub(super) fn new() -> Self {
         Self {
             strings: std::array::from_fn(|_| GuitarString::new()),
-            air_98: Resonator::new(98.0, 6.8),
-            top_205: Resonator::new(205.0, 7.5),
-            wood_395: Resonator::new(395.0, 5.8),
-            symp_d3: Resonator::new(146.832, 34.0),
-            symp_a3: Resonator::new(220.000, 34.0),
+            // Broad wooden body formants (low Q = 1.9..2.4) warm every key evenly
+            // without ringing pitched resonances against non-D chords.
+            air_98: Resonator::new(98.0, 2.2),
+            top_205: Resonator::new(205.0, 2.4),
+            wood_395: Resonator::new(395.0, 1.9),
+            symp_d3: Resonator::new(146.832, 3.0),
+            symp_a3: Resonator::new(220.000, 3.0),
             plucks: 0,
             tail_frames: 0,
         }
@@ -439,14 +441,14 @@ impl TavernGuitar {
 
     #[inline]
     fn step_body(&mut self, bridge: f32) -> [f32; 2] {
-        let air = self.air_98.step(bridge) * 0.30;
-        let top = self.top_205.step(bridge) * 0.26;
-        let wood = self.wood_395.step(bridge) * 0.20;
-        let symp_d = self.symp_d3.step(bridge) * 0.038;
-        let symp_a = self.symp_a3.step(bridge) * 0.032;
+        let air = self.air_98.step(bridge) * 0.24;
+        let top = self.top_205.step(bridge) * 0.20;
+        let wood = self.wood_395.step(bridge) * 0.14;
+        let low_mid = self.symp_d3.step(bridge) * 0.04;
+        let upper_mid = self.symp_a3.step(bridge) * 0.03;
         [
-            air + top * 1.06 + wood * 0.92 + symp_d,
-            air + top * 0.94 + wood * 1.08 + symp_a,
+            air + top * 1.04 + wood * 0.94 + low_mid,
+            air + top * 0.96 + wood * 1.06 + upper_mid,
         ]
     }
 
@@ -681,11 +683,12 @@ impl ConcertHarp {
     pub(super) fn new() -> Self {
         Self {
             strings: std::array::from_fn(|_| HarpString::new()),
-            spruce_110: Resonator::new(110.0, 5.4),
-            spruce_247: Resonator::new(246.942, 6.0),
-            spruce_523: Resonator::new(523.251, 4.8),
-            symp_d3: Resonator::new(146.832_38, 24.0),
-            symp_a3: Resonator::new(220.0, 24.0),
+            // Broad soundboard formants warm all keys evenly without pitched drones.
+            spruce_110: Resonator::new(110.0, 2.0),
+            spruce_247: Resonator::new(246.942, 2.2),
+            spruce_523: Resonator::new(523.251, 1.8),
+            symp_d3: Resonator::new(146.832_38, 2.8),
+            symp_a3: Resonator::new(220.0, 2.8),
             plucks: 0,
             tail_frames: 0,
         }

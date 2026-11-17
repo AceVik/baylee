@@ -6,6 +6,35 @@ use domain::v2::{run::Outcome, shop::Delivery};
 mod growth;
 mod life;
 
+/// Crossed swords (`fa-solid-900.ttf` U+F6DE): enter next Tower duel.
+pub(super) const GLYPH_DUEL: char = '\u{f6de}';
+/// Snowflake (`fa-solid-900.ttf` U+F2DC): freeze or unfreeze the shop shelf.
+pub(super) const GLYPH_SNOWFLAKE: char = '\u{f2dc}';
+/// Dice (`fa-solid-900.ttf` U+F522): reroll shop offers.
+pub(super) const GLYPH_DICE: char = '\u{f522}';
+/// Alphabetic sort (`fa-solid-900.ttf` U+F15D): sort inventory by name (A–Z).
+pub(super) const GLYPH_SORT_ALPHA: char = '\u{f15d}';
+/// Cubes (`fa-solid-900.ttf` U+F1B3): sort inventory by item family.
+pub(super) const GLYPH_CUBES: char = '\u{f1b3}';
+/// Open folder (`fa-solid-900.ttf` U+F07C): group inventory items.
+pub(super) const GLYPH_FOLDER: char = '\u{f07c}';
+/// Swap arrows (`fa-solid-900.ttf` U+F0EC): equip or store item.
+pub(super) const GLYPH_SWAP: char = '\u{f0ec}';
+/// Flag (`fa-solid-900.ttf` U+F024): retire / abandon expedition.
+pub(super) const GLYPH_FLAG: char = '\u{f024}';
+
+#[cfg(test)]
+pub(super) const TOWER_UI_GLYPHS: [char; 8] = [
+    GLYPH_DUEL,
+    GLYPH_SNOWFLAKE,
+    GLYPH_DICE,
+    GLYPH_SORT_ALPHA,
+    GLYPH_CUBES,
+    GLYPH_FOLDER,
+    GLYPH_SWAP,
+    GLYPH_FLAG,
+];
+
 pub(super) fn created(id: Uuid, lang: Lang) -> String {
     id.get_timestamp()
         .and_then(|at| i64::try_from(at.to_unix().0).ok())
@@ -251,6 +280,19 @@ fn command_text(
         Command::ChooseMythic { slot, .. } => {
             Phrase::EchoesConfirmMythic.fill(lang, &[&(*slot + 1).to_string()])
         }
+        Command::SellCard { card: id } => Phrase::EchoesConfirmSellCard.fill(
+            lang,
+            &[
+                &card(*id, lang),
+                &ui.model
+                    .publication()
+                    .and_then(|cohort| {
+                        baylee_client_core::echoes::draft::sellable_card_gold(run, cohort, *id)
+                    })
+                    .unwrap_or(0)
+                    .to_string(),
+            ],
+        ),
         Command::Abandon {} => Phrase::TowerRetireConfirm.text(lang).to_string(),
     }
 }
@@ -267,39 +309,54 @@ pub(super) fn destination(delivery: &Delivery, lang: Lang) -> String {
 }
 
 pub(super) const fn icon(action: Action) -> char {
+    use baylee_client_core::echoes::workshop::Order;
     match action {
         Action::Back | Action::Cancel => glyph::ARROW_LEFT,
-        Action::Refresh | Action::Retry | Action::Reroll | Action::ResetDeck => glyph::REFRESH,
-        Action::Card(_, true)
-        | Action::ZoneCard(_, _, true)
-        | Action::Ingredient(_)
-        | Action::Material(_)
-        | Action::Mythic(_) => glyph::PLUS,
-        Action::Card(_, false) | Action::ZoneCard(_, _, false) | Action::Sell | Action::Abandon => {
-            glyph::MINUS
+        Action::Refresh | Action::Retry | Action::ResetDeck => glyph::REFRESH,
+        Action::Reroll => GLYPH_DICE,
+        Action::Card(_, true) | Action::Ingredient(_) | Action::Material(_) | Action::Mythic(_) => {
+            glyph::PLUS
         }
-        Action::Commander(_) => glyph::CROWN,
+        #[cfg(test)]
+        Action::ZoneCard(_, _, true) => glyph::PLUS,
+        Action::Card(_, false) => glyph::MINUS,
+        #[cfg(test)]
+        Action::ZoneCard(_, _, false) => glyph::MINUS,
+        Action::Sell
+        | Action::SellCard(_)
+        | Action::ToggleSpareCards
+        | Action::ToggleRewardGold => glyph::COINS,
+        Action::Abandon => GLYPH_FLAG,
         Action::Badge(_)
         | Action::Page(Page::Collection | Page::Ranking)
         | Action::Read(Read::Ranking(..)) => glyph::TROPHY,
         Action::ClosePreview => glyph::CLOSE,
-        Action::Play(_) | Action::Resume => glyph::ARROW_RIGHT,
-        Action::Accept
-        | Action::Buy
-        | Action::SaveDeck
-        | Action::Fuse
-        | Action::Reward(_)
-        | Action::ClaimReward => glyph::CHECK,
+        Action::Play(_) => GLYPH_DUEL,
+        Action::Resume => glyph::ARROW_RIGHT,
+        Action::Accept | Action::Buy | Action::SaveDeck | Action::Fuse | Action::Reward(_) => {
+            glyph::CHECK
+        }
+        Action::ClaimReward | Action::Upgrade(..) => glyph::CROWN,
+        Action::QuickEquip(_) => GLYPH_SWAP,
+        Action::InventoryOrder(order) => match order {
+            Order::Newest => glyph::CLOCK,
+            Order::Name => GLYPH_SORT_ALPHA,
+            Order::Value => glyph::COINS,
+            Order::Family => GLYPH_CUBES,
+            Order::Rarity => glyph::DIAMOND,
+        },
+        Action::InventoryGroups(_) => GLYPH_FOLDER,
         Action::Read(Read::Runs(_) | Read::Run(_)) | Action::Tiers(_) => glyph::VIEW_ROWS,
         Action::Page(Page::Shop) | Action::GoShop => glyph::VIEW_GRID,
         Action::Page(Page::Equipment) | Action::Move | Action::Place(_) => glyph::GEAR,
-        Action::InspectStarter(..) | Action::Page(Page::Deck) | Action::DeckZone(_) => {
+        Action::InspectStarter(..) | Action::Page(Page::Deck) | Action::ToggleRewardDeck => {
             glyph::LIBRARY
         }
         Action::Listing(true) | Action::Offer(_) | Action::Select(_) | Action::InspectCard(_) => {
             glyph::EYE
         }
-        Action::Pin(_) | Action::Freeze => glyph::CLOCK,
+        Action::Pin(_) => glyph::CLOCK,
+        Action::Freeze => GLYPH_SNOWFLAKE,
         Action::Listing(false) | Action::Withdraw => glyph::EYE_SLASH,
         _ => glyph::COMPASS,
     }
@@ -307,17 +364,14 @@ pub(super) const fn icon(action: Action) -> char {
 
 pub(super) fn selected(action: Action, ui: &Ui) -> bool {
     match action {
-        Action::DeckZone(zone) => ui.deck.zone == zone,
-        Action::Commander(card) => ui
-            .choices
-            .formation
-            .as_ref()
-            .is_some_and(|f| f.commander == card),
         Action::Page(page) => page == ui.page,
         Action::Read(Read::Ranking(cohort, lane)) => ui.ranking == Some((cohort, lane)),
         Action::Badge(kind) => kind == ui.collection.selected,
         Action::InventoryOrder(order) => order == ui.bag.order,
         Action::InventoryGroups(_) => ui.bag.grouped,
+        Action::ToggleSpareCards => ui.spare_cards_open,
+        Action::ToggleRewardGold => ui.reward_gold_open,
+        Action::ToggleRewardDeck => ui.reward_deck_open,
         Action::Offer(id) => ui.choices.offer == Some(id),
         Action::Select(id) => ui.choices.item == Some(id),
         Action::InspectCard(id) => ui.preview == Some(id),

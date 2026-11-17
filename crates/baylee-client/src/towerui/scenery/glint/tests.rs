@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn cabinet_frames_share_one_finish_and_reduced_motion_never_uploads_at_idle() {
+fn cabinet_and_frost_share_cached_finishes_and_reduced_motion_never_uploads_at_idle() {
     let mut app = App::new();
     app.init_resource::<Cached>()
         .init_resource::<Assets<Finish>>()
@@ -9,14 +9,16 @@ fn cabinet_frames_share_one_finish_and_reduced_motion_never_uploads_at_idle() {
         .add_systems(Update, dress);
     for _ in 0..3 {
         let frame = app.world_mut().spawn((Node::default(), Decor::Frame)).id();
+        let frost = app.world_mut().spawn((Node::default(), FrostSurface)).id();
         app.update();
         let world = app.world_mut();
-        assert_eq!(world.resource::<Assets<Finish>>().len(), 1);
+        assert_eq!(world.resource::<Assets<Finish>>().len(), 2);
         assert_eq!(
             world.query::<&MaterialNode<Finish>>().iter(world).count(),
-            1
+            2
         );
         world.despawn(frame);
+        world.despawn(frost);
     }
     app.world_mut()
         .resource_mut::<crate::prefs::Prefs>()
@@ -24,6 +26,7 @@ fn cabinet_frames_share_one_finish_and_reduced_motion_never_uploads_at_idle() {
         .reduce_motion = true;
     app.update();
     app.world_mut().spawn((Node::default(), Decor::Frame));
+    app.world_mut().spawn((Node::default(), FrostSurface));
     app.update();
     assert!(
         app.world()

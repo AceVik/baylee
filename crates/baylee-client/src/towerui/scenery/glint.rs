@@ -1,10 +1,16 @@
-//! One cached GPU-clock finish for every modular cabinet, with no frame uploads.
+//! Shared GPU-clock finishes for modular wooden cabinets and frozen shop shelves,
+//! with bounded cached materials and zero idle frame uploads.
 use super::Decor;
 use bevy::{
     asset::embedded_asset, prelude::*, render::render_resource::AsBindGroup, shader::ShaderRef,
 };
 #[cfg(test)]
 mod tests;
+
+/// Marks a frozen-shelf frost overlay node so `dress` attaches the shared
+/// crystalline rime-frost `UiMaterial` before layout/extraction on Frame 0.
+#[derive(Component, Clone, Copy)]
+pub(crate) struct FrostSurface;
 
 #[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
 struct Finish {
@@ -19,7 +25,10 @@ impl UiMaterial for Finish {
 }
 
 #[derive(Resource, Default)]
-struct Cached(Option<Handle<Finish>>);
+struct Cached {
+    warm: Option<Handle<Finish>>,
+    frost: Option<Handle<Finish>>,
+}
 
 pub(super) fn install(app: &mut App) {
     if app.get_sub_app(bevy::render::RenderApp).is_none() {
@@ -28,12 +37,22 @@ pub(super) fn install(app: &mut App) {
     embedded_asset!(app, "glint.wesl");
     app.init_resource::<Cached>()
         .add_plugins(UiMaterialPlugin::<Finish>::default())
-        .add_systems(PostUpdate, dress);
+        .add_systems(
+            PostUpdate,
+            (dress, ApplyDeferred)
+                .chain()
+                .before(bevy::ui::UiSystems::Prepare)
+                .before(bevy::ui::UiSystems::Content)
+                .before(bevy::ui::UiSystems::Layout)
+                .before(bevy::ui::UiSystems::Stack)
+                .before(bevy::asset::AssetEventSystems),
+        );
 }
 
 fn dress(
     mut commands: Commands,
     frames: Query<(Entity, &Decor), Added<Decor>>,
+    frosts: Query<Entity, Added<FrostSurface>>,
     mut cache: ResMut<Cached>,
     mut assets: ResMut<Assets<Finish>>,
     prefs: Option<Res<crate::prefs::Prefs>>,
@@ -49,22 +68,28 @@ fn dress(
     } else {
         1.0
     };
-    if (prefs.as_ref().is_some_and(DetectChanges::is_changed)
-        || quality.as_ref().is_some_and(DetectChanges::is_changed))
-        && let Some(handle) = &cache.0
-        && assets
-            .get(handle)
-            .is_some_and(|finish| (finish.motion.x - energy).abs() > f32::EPSILON)
-        && let Some(mut finish) = assets.get_mut(handle)
+    if prefs.as_ref().is_some_and(DetectChanges::is_changed)
+        || quality.as_ref().is_some_and(DetectChanges::is_changed)
     {
-        finish.motion.x = energy;
+        for handle in [cache.warm.as_ref(), cache.frost.as_ref()]
+            .into_iter()
+            .flatten()
+        {
+            if assets
+                .get(handle)
+                .is_some_and(|finish| (finish.motion.x - energy).abs() > f32::EPSILON)
+                && let Some(mut finish) = assets.get_mut(handle)
+            {
+                finish.motion.x = energy;
+            }
+        }
     }
     for (entity, decor) in &frames {
         if !matches!(decor, Decor::Frame) {
             continue;
         }
         let handle = cache
-            .0
+            .warm
             .get_or_insert_with(|| {
                 assets.add(Finish {
                     motion: Vec4::new(energy, 0.0, 0.0, 0.0),
@@ -84,5 +109,16 @@ fn dress(
             ChildOf(entity),
             Pickable::IGNORE,
         ));
+    }
+    for entity in &frosts {
+        let handle = cache
+            .frost
+            .get_or_insert_with(|| {
+                assets.add(Finish {
+                    motion: Vec4::new(energy, 1.0, 0.0, 0.0),
+                })
+            })
+            .clone();
+        commands.entity(entity).try_insert(MaterialNode(handle));
     }
 }

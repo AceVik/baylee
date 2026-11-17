@@ -200,6 +200,23 @@ impl Economy {
             Ok(())
         })
     }
+
+    /// Credit authoritative proceeds from selling one unused nonbasic run card.
+    /// # Errors
+    /// Legacy layout, zero gold or a wallet unable to hold the full legitimate sale.
+    pub fn sold_card(&self, gold: u16) -> Result<Self, Refusal> {
+        self.changed(|next| {
+            if next.inventory.layout != Layout::Run || gold == 0 {
+                return Err(Refusal::Unavailable);
+            }
+            next.gold = next
+                .gold
+                .checked_add(gold)
+                .filter(|total| *total <= next.gold_limit())
+                .ok_or(Refusal::Capacity)?;
+            Ok(())
+        })
+    }
 }
 
 #[cfg(test)]

@@ -208,9 +208,10 @@ impl Inner {
                  background:transparent;color:transparent;caret-color:transparent;";
 
             let document = web_sys::window()?.document()?;
-            let input: web_sys::HtmlInputElement = match document.get_element_by_id(ID) {
-                Some(found) => found.dyn_into().ok()?,
-                None => {
+            let input: web_sys::HtmlInputElement =
+                if let Some(found) = document.get_element_by_id(ID) {
+                    found.dyn_into().ok()?
+                } else {
                     let made: web_sys::HtmlInputElement =
                         document.create_element("input").ok()?.dyn_into().ok()?;
                     made.set_id(ID);
@@ -224,8 +225,7 @@ impl Inner {
                     let _ = made.set_attribute("spellcheck", "false");
                     document.body()?.append_child(&made).ok()?;
                     made
-                }
-            };
+                };
             let submitted = std::rc::Rc::new(std::cell::Cell::new(false));
             let dismissed = std::rc::Rc::new(std::cell::Cell::new(false));
             let flag = std::rc::Rc::clone(&submitted);

@@ -181,9 +181,47 @@ pub(super) fn sheet(commands: &mut Commands, env: &Env, list: &ListEditor) -> En
             ),
         );
         super::pool::elevate_icon_button(commands, gear);
-        body.push(line(commands, kit, &[search, gear]));
+        let gear_n = deck.panel().map_or_else(
+            || crate::filterui::query_active_count(deck.buffer(BuildField::ListSearch).text()),
+            crate::filterui::active_count,
+        );
+        if let Some(badge) = crate::filterui::gear_badge(
+            commands,
+            kit.fonts,
+            gear_n,
+            crate::filterui::Register::LOBBY,
+        ) {
+            commands.entity(gear).add_child(badge);
+        }
+        let search_row = line(commands, kit, &[search, gear]);
+        let search_anchor = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(search_anchor).add_child(search_row);
         if let Some(built) = deck.panel() {
-            body.push(crate::filterui::build(
+            let catcher = commands
+                .spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: px_fixed(-2400.0),
+                        right: px_fixed(-2400.0),
+                        top: px_fixed(-2400.0),
+                        bottom: px_fixed(-2400.0),
+                        ..default()
+                    },
+                    BackgroundColor(Color::NONE),
+                    GlobalZIndex(tokens::z::SHEET + 1),
+                    Press::Build(BuildPress::CloseFilterPanel),
+                ))
+                .id();
+            let pop = crate::filterui::floating_popover(
                 commands,
                 kit.fonts,
                 built,
@@ -191,8 +229,15 @@ pub(super) fn sheet(commands: &mut Commands, env: &Env, list: &ListEditor) -> En
                 None,
                 lang,
                 crate::filterui::Register::LOBBY,
+                kit.m.control + kit.m.scaled(6.0),
+            );
+            commands.entity(pop).insert((
+                GlobalZIndex(tokens::z::SHEET + 2),
+                Press::Build(BuildPress::TransferNothing),
             ));
+            commands.entity(search_anchor).add_children(&[catcher, pop]);
         }
+        body.push(search_anchor);
         for &slot in list.results() {
             if let Some(card) = deck.card(slot) {
                 body.push(result_row(commands, env, slot, &card.name));

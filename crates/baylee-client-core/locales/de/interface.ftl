@@ -4019,3 +4019,52 @@ EchoesBadgeUnbroken = Makellos
 EchoesEarnVictories = Gewinne bestätigte Duelle in den Echos des Turms. Jeder Sieg zählt, auch wenn die Expedition später mit einer Niederlage endet.
 EchoesEarnAscents = Schließe Expeditionen mit acht Siegen ab. Jede eroberte Krone zählt einmal.
 EchoesEarnUnbroken = Erreiche acht Siege ohne Niederlage oder Unentschieden in derselben Expedition.
+
+## Deckbau-Filter & Verkauf ungenutzter Karten im Turm.
+BuildHideInDeckChip = Ohne Deck
+BuildHideInSideChip = Ohne Side
+BuildHideInDeck = Karten im Deck ausblenden
+BuildHideInSide = Karten im Sideboard ausblenden
+BuildHideInDeckTip = Bereits im Hauptdeck enthaltene Karten im Pool ausblenden
+BuildHideInSideTip = Bereits im Sideboard enthaltene Karten im Pool ausblenden
+FilterChipHideInDeck = nicht im Deck
+FilterChipHideInSide = nicht im Sideboard
+FilterResetAll = Filter zurücksetzen
+FilterSectionSort = Sortierung
+FilterSectionQuery = Erweiterte Suchabfrage
+EchoesSellCardBtn = Verkaufen +{ $gold }g
+EchoesSellCardTip = Ungenutzte Karte für { $gold } Gold verkaufen
+EchoesSellSaveFirstTip = Speichere zuerst deine Deck-Änderungen, um entfernte Karten zu verkaufen
+EchoesCardSold = { $card } für +{ $gold } Gold verkauft
+
+## Tower-Run-Oberfläche: Symbolsteuerung, übrige Karten & Beutefenster.
+EchoesRunSortNewestTip = Nach Neuesten sortieren
+EchoesRunSortNameTip = Nach Name sortieren (A–Z)
+EchoesRunSortValueTip = Nach Goldwert sortieren
+EchoesRunSortFamilyTip = Nach Gegenstandsfamilie sortieren
+EchoesRunSortRarityTip = Nach Seltenheit sortieren
+EchoesRunGroupsTip = Gegenstände gruppieren
+EchoesFreezeShelfTip = Regal einfrieren — unverkaufte Angebote für den nächsten Besuch behalten
+EchoesThawShelfTip = Regal eingefroren — Klicken zum Auftauen
+EchoesDeckButtonTip = Deck bearbeiten ({ $count } Karten)
+EchoesRetireTip = Aufgeben — diese Expedition vorzeitig beenden
+EchoesNotEnoughGold = Nicht genug Gold
+EchoesSpareCardsToggle = Übrige Karten ({ $count })
+EchoesSpareCardsTitle = Übrige Karten verkaufen
+EchoesSpareCardsLead = Nicht im aktiven Deck oder Sideboard verbaute Karten können hier direkt für Gold verkaufen werden.
+EchoesSpareCardsNoneTip = Keine ungenutzten Nichtstandardkarten außerhalb deines Decks
+EchoesConfirmSellCard = { $card } für { $price } Gold verkaufen? Ein ungenutztes Exemplar wird aus deiner Run-Sammlung entfernt.
+EchoesRewardClaimProgress = Beute nehmen ({ $selected } / { $required })
+EchoesRewardNeedMore = { $count ->
+    [one] Wähle noch 1 Karte aus, um fortzufahren
+   *[other] Wähle noch { $count } Karten aus, um fortzufahren
+    }
+EchoesRewardMaxSelected = Auswahl voll — klicke zuerst eine ausgewählte Karte zum Abwählen
+EchoesRewardEarnedGold = +{ $gold } Gold
+EchoesRewardGoldBreakdownTip = Gold-Aufschlüsselung anzeigen
+EchoesRewardSourceDuel = Duell-Abschluss
+EchoesRewardSourceRelics = Ausgerüstete Relikte
+EchoesRewardSourceDuplicates = Duplikat-Umwandlung (bei Annahme)
+EchoesRewardDuplicateShort = Besitz · +{ $gold }g
+EchoesRewardViewDeck = Deck ansehen ({ $count })
+EchoesRewardCurveLabel = Manakurve

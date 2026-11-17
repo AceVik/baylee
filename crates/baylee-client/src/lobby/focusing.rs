@@ -314,8 +314,23 @@ pub(super) fn initial_focus(
             .or_else(|| first("challenges", "play"))
             .or_else(|| first("challenges", "refresh")),
         Some("challenge-confirm") => first("challenge-confirm", "cancel"),
-        Some("echoes") => first("echoes", "back"),
+        Some("echoes") => {
+            let chosen = first("echoes", "play")
+                .or_else(|| first("echoes", "offers"))
+                .or_else(|| first("echoes", "starters"))
+                .or_else(|| first("echoes", "badges"))
+                .or_else(|| first("echoes", "ranking-lane"))
+                .or_else(|| first("echoes", "back"));
+            if chosen.is_none() && stops.iter().any(|(_, s)| s.table == "echoes") {
+                *was = report.table;
+            }
+            chosen
+        }
         Some("echoes-confirm") => first("echoes-confirm", "cancel"),
+        Some("echoes-inspect") => first("echoes-inspect", "close-preview"),
+        Some("echoes-reward") => {
+            first("echoes-reward", "rewards").or_else(|| first("echoes-reward", "claim-reward"))
+        }
         Some("room") => first("room", "seats"),
         Some("create-table") => first("create-table", "name"),
         Some("history") => first("history", "versions"),

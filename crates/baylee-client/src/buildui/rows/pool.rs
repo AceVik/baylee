@@ -19,6 +19,98 @@ pub(crate) fn fav_flags(
     (is_deck, is_global)
 }
 
+/// Compact `+Xg` sell pill for unused owned nonbasic cards in a Tower Run's
+/// scoped deck editor (`None` everywhere else).
+#[allow(clippy::too_many_lines)]
+fn sell_pill(commands: &mut Commands, kit: Kit, state: &LobbyState, slot: usize) -> Option<Entity> {
+    let status = crate::buildui::tower_sell_status(state, slot);
+    let (gold, live, tip) = match status {
+        crate::buildui::TowerSellStatus::Hidden => return None,
+        crate::buildui::TowerSellStatus::Sellable { gold, busy } => {
+            let tip = Phrase::EchoesSellCardTip.fill(state.lobby.lang(), &[&gold.to_string()]);
+            (gold, !busy, tip)
+        }
+        crate::buildui::TowerSellStatus::SaveRefitFirst { gold } => (
+            gold,
+            false,
+            Phrase::EchoesSellSaveFirstTip
+                .text(state.lobby.lang())
+                .to_string(),
+        ),
+    };
+    let m = kit.m;
+    let side = m.control.min(m.scaled(32.0)).max(m.scaled(26.0));
+    let bg = if live {
+        Color::srgba(0.24, 0.19, 0.07, 0.88)
+    } else {
+        tokens::CONTROL.with_alpha(0.55)
+    };
+    let rim = if live {
+        tokens::GOLD.with_alpha(0.75)
+    } else {
+        tokens::BORDER.with_alpha(0.45)
+    };
+    let ink = if live { tokens::GOLD } else { tokens::DISABLED };
+    let face = commands
+        .spawn((
+            Role::Button,
+            Node {
+                height: px_fixed(side),
+                padding: UiRect::axes(m.px(8.0), px_fixed(0.0)),
+                column_gap: m.px(4.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(bg),
+            BorderColor::all(rim),
+            crate::shellkit::surfaces::elevation_control(),
+            crate::ambience::Feel::new(bg),
+            crate::ambience::FeelBorder {
+                rest: rim,
+                hot: if live { tokens::GOLD } else { rim },
+                press: crate::ambience::lighter(rim, -0.12),
+            },
+            crate::ambience::FeelShadow,
+        ))
+        .id();
+    let coin = glyph(commands, kit, '\u{f51e}', m.small * 0.85, ink);
+    let text = cell(
+        commands,
+        kit,
+        &format!("+{gold}g"),
+        m.small * 0.92,
+        ink,
+        true,
+    );
+    commands.entity(face).add_children(&[coin, text]);
+    let hit = if live {
+        controls::hit(
+            commands,
+            kit,
+            face,
+            (
+                Press::Build(BuildPress::AskSellTowerCard(slot)),
+                crate::lobby::HoverHint(tip),
+            ),
+        )
+    } else {
+        controls::hit(
+            commands,
+            kit,
+            face,
+            (
+                Press::Build(BuildPress::TransferNothing),
+                crate::shellkit::controls::Disabled,
+                crate::lobby::HoverHint(tip),
+            ),
+        )
+    };
+    Some(hit)
+}
 /// Spawns a coloured rarity indicator dot (`Common` slate/silver, `Uncommon`
 /// silver-blue, `Rare` gold, `Mythic` orange-red) with a hover tooltip.
 pub(crate) fn rarity_dot(
@@ -211,6 +303,9 @@ pub(crate) fn pool_row_at(
         kids.push(cost);
     }
     kids.push(badge(commands, kit, slot, deck));
+    if let Some(sell) = sell_pill(commands, kit, state, slot) {
+        kids.push(sell);
+    }
     kids.push(icon_button(
         commands,
         kit,
@@ -374,6 +469,9 @@ pub(crate) fn pool_compact_row(
         kids.push(cost);
     }
     kids.push(badge(commands, kit, slot, deck));
+    if let Some(sell) = sell_pill(commands, kit, state, slot) {
+        kids.push(sell);
+    }
     kids.push(icon_button(
         commands,
         kit,
@@ -597,7 +695,12 @@ pub(crate) fn pool_grid_row(
                 focus::MenuOpener(BuildMenu::Pool(slot)),
             ),
         );
-        commands.entity(bottom).add_children(&[meta, add, more]);
+        let mut actions = vec![meta];
+        if let Some(sell) = sell_pill(commands, kit, state, slot) {
+            actions.push(sell);
+        }
+        actions.extend([add, more]);
+        commands.entity(bottom).add_children(&actions);
         commands.entity(tile).add_children(&[art_wrap, bottom]);
         commands.entity(row).add_child(tile);
     }

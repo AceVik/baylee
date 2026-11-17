@@ -160,7 +160,7 @@ fn a_typed_key_is_one_patch_and_no_rebuild() {
 fn each_size_class_has_its_shape() {
     let mut wide = builder_at(1920.0, 1080.0);
     let found = presses(&mut wide);
-    assert!(found.contains(&Press::Build(BuildPress::AddFromPool(0, false))));
+    assert!(found.contains(&Press::Build(BuildPress::AddFromPool(1, false))));
     assert!(found.contains(&Press::Build(BuildPress::SetTab(DeckTab::Stats))));
     assert!(
         found.contains(&Press::Build(BuildPress::OpenImport)),
@@ -182,7 +182,7 @@ fn each_size_class_has_its_shape() {
     let mut phone = builder_at(844.0, 390.0);
     let found = presses(&mut phone);
     assert!(
-        found.contains(&Press::Build(BuildPress::AddFromPool(0, false))),
+        found.contains(&Press::Build(BuildPress::AddFromPool(1, false))),
         "the pool"
     );
     assert!(
@@ -220,6 +220,13 @@ fn shift_on_a_pool_plus_adds_to_the_other_list() {
     let deck = app.world().resource::<LobbyState>().lobby.builder();
     assert_eq!(deck.count_of(1, Zone::Side), 1, "to the sideboard");
     assert_eq!(deck.count_of(1, Zone::Main), 0);
+    assert!(
+        !presses(&mut app).contains(&Press::Build(BuildPress::AddFromPool(1, false))),
+        "default hide_in_sideboard removes sideboarded card from pool"
+    );
+    // Toggle off zone-hiding switches to add copies across both zones from the pool.
+    press(&mut app, Press::Build(BuildPress::ToggleHideInSideboard));
+    press(&mut app, Press::Build(BuildPress::ToggleHideInDeck));
     // Without Shift, the list the deck side shows.
     press(&mut app, Press::Build(BuildPress::AddFromPool(1, false)));
     let deck = app.world().resource::<LobbyState>().lobby.builder();
@@ -237,6 +244,14 @@ fn shift_on_a_pool_plus_adds_to_the_other_list() {
 #[test]
 fn the_keyboard_walks_the_pool_and_adds() {
     let mut app = builder_at(1920.0, 1080.0);
+    press(&mut app, Press::Build(BuildPress::ToggleHideInDeck));
+    press(&mut app, Press::Build(BuildPress::ToggleHideInSideboard));
+    press(
+        &mut app,
+        Press::Build(BuildPress::FocusBuild(
+            baylee_client_core::deckbuilder::BuildField::Search,
+        )),
+    );
     assert_eq!(app.world().resource::<LobbyState>().build.nav, Nav::Field);
     key(&mut app, pressed(KeyCode::ArrowDown, Key::ArrowDown));
     assert_eq!(app.world().resource::<LobbyState>().build.nav, Nav::Pool(0));

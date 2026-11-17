@@ -8,6 +8,7 @@ use baylee_client_core::echoes::workshop;
 mod bag;
 mod equipment;
 mod shelf;
+mod spare;
 #[cfg(test)]
 mod tests;
 
@@ -33,8 +34,10 @@ pub(super) fn draw(
         .entity(equipment)
         .entry::<Node>()
         .and_modify(move |mut node| {
-            node.flex_basis = kit.m.px(260.0);
+            node.flex_basis = kit.m.px(276.0);
             node.flex_grow = 0.0;
+            node.padding = UiRect::all(kit.m.px(18.0));
+            node.row_gap = kit.m.px(10.0);
         });
     equipment::draw(commands, equipment, kit, ui, run);
     let market = towerui::frame(commands, workspace, kit);
@@ -44,9 +47,21 @@ pub(super) fn draw(
         .and_modify(move |mut node| {
             node.flex_basis = kit.m.px(600.0);
             node.flex_grow = 1.0;
+            node.padding = UiRect::all(kit.m.px(18.0));
+            node.row_gap = kit.m.px(10.0);
         });
     shelf::draw(commands, market, kit, ui, run, cohort);
+    spare::draw_panel(commands, root, kit, ui, run, cohort);
     bag::draw(commands, root, kit, ui, run);
+}
+
+fn sleek_empty(commands: &mut Commands, parent: Entity, kit: Kit, size: f32, icon: char) -> Entity {
+    let slot = towerui::empty(commands, parent, kit, size, icon);
+    commands.entity(slot).insert((
+        BackgroundColor(Color::srgba(0.018, 0.024, 0.034, 0.50)),
+        BorderColor::all(tokens::BORDER.with_alpha(0.44)),
+    ));
+    slot
 }
 
 fn stats(commands: &mut Commands, root: Entity, kit: Kit, run: &api::Run) {
@@ -142,22 +157,28 @@ fn object(
     ui: &Ui,
     goods: Goods,
     caption: Option<&str>,
+    hint: Option<&str>,
     size: f32,
     emphasis: Emphasis,
+    selected: bool,
     action: Action,
     available: bool,
+    unavailable_reason: Option<&str>,
 ) -> Entity {
     let description = match goods {
         Goods::Relic(definition) => words::run_effect(definition, lang(kit)),
         _ => words::effect(goods, lang(kit)),
     };
     let name = words::goods(goods, lang(kit));
-    let live =
-        if available && !ui.model.busy() && !ui.model.uncertain() && ui.confirmation.is_none() {
-            Live::Yes
-        } else {
-            Live::No(Phrase::EchoesUnavailable.text(lang(kit)))
-        };
+    let live = if available
+        && !ui.model.mutating()
+        && !ui.model.uncertain()
+        && ui.confirmation.is_none()
+    {
+        Live::Yes
+    } else {
+        Live::No(unavailable_reason.unwrap_or_else(|| Phrase::EchoesUnavailable.text(lang(kit))))
+    };
     let button = towerui::button(
         commands,
         kit,
@@ -166,8 +187,10 @@ fn object(
             name: &name,
             description: &description,
             caption,
+            hint,
             size,
             emphasis,
+            selected,
         },
         live,
         Press::Echoes(action),

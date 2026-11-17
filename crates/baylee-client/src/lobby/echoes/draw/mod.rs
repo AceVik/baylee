@@ -32,7 +32,9 @@ mod tests;
 mod tiers;
 mod widgets;
 mod words;
-use widgets::{can, confirmation, control, featured_portrait, portrait, tile};
+use widgets::{
+    IconTone, can, confirmation, control, featured_portrait, icon_control, portrait, tile,
+};
 
 fn panel(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
     let card = challenge_panel(commands, root, kit);
@@ -86,15 +88,8 @@ pub(in crate::lobby) fn draw(
     let ui = &state.echoes;
     let lang = state.lobby.lang();
     let body = body(commands, root, kit, metrics, scrolled);
-    let workspace = ui.page == Page::Shop && ui.model.run().is_some();
-    let hero = if workspace {
-        body
-    } else {
-        compact_panel(commands, body, kit)
-    };
-    if !workspace {
-        header(commands, hero, kit, ui);
-    }
+    let hero = compact_panel(commands, body, kit);
+    header(commands, hero, kit, ui);
     if !state.can_enter_tower() {
         label(
             commands,
@@ -105,28 +100,45 @@ pub(in crate::lobby) fn draw(
         );
         return;
     }
+    if ui.confirmation.is_some() {
+        confirmation(commands, root, kit, ui);
+    }
     if ui.page == Page::Collection {
         collection::draw(commands, body, kit, ui);
         return;
     }
     notices(commands, hero, kit, ui);
-    if ui.confirmation.is_some() {
-        confirmation(commands, body, kit, ui);
-    }
     if ui.page == Page::Ranking {
         ranking::draw(commands, body, kit, ui);
         return;
     }
     if ui.model.run().is_none() || ui.page == Page::Overview {
-        landing::draw(commands, body, kit, ui);
+        landing::draw(commands, body, root, kit, ui, scrolled);
     } else {
-        selected(commands, body, hero, kit, ui, scrolled);
+        selected(commands, body, root, hero, kit, ui, scrolled);
     }
 }
 
 fn header(commands: &mut Commands, hero: Entity, kit: Kit, ui: &Ui) {
     let lang = lang(kit);
     let top = row(commands, hero, kit);
+    let back = controls::button_compact(
+        commands,
+        kit,
+        Some(glyph::ARROW_LEFT),
+        Phrase::Back.text(lang),
+        Weight::Secondary,
+        if ui.confirmation.is_none() && !ui.model.mutating() {
+            Live::Yes
+        } else {
+            Live::No(Phrase::EchoesUnavailable.text(lang))
+        },
+        Press::Echoes(Action::Back),
+    );
+    commands
+        .entity(back)
+        .insert(super::keys::stop(Action::Back, ui));
+    commands.entity(top).add_child(back);
     presentation::title(
         commands,
         top,
@@ -143,32 +155,59 @@ fn header(commands: &mut Commands, hero: Entity, kit: Kit, ui: &Ui) {
     );
     let spacer = crate::lobby::parts::grow(commands);
     commands.entity(top).add_child(spacer);
-    let market = !matches!(ui.page, Page::Overview | Page::Collection | Page::Ranking)
-        && ui.model.run().is_some_and(|run| {
-            ui.page == Page::Shop || domain::v2::generation::is_run(run.shop.generator)
-        });
-    if !market && ui.page != Page::Collection {
+
+    let active_run = ui.model.run().is_some_and(|run| {
+        matches!(
+            run.phase,
+            api::Phase::Shop
+                | api::Phase::Reward
+                | api::Phase::Reserved
+                | api::Phase::Playing
+                | api::Phase::Verifying
+        )
+    });
+    if active_run {
         control(
             commands,
             top,
             kit,
             ui,
-            Phrase::EchoesCollection.text(lang),
-            Action::Page(Page::Collection),
+            Phrase::EchoesShop.text(lang),
+            Action::Page(Page::Shop),
             true,
         );
     }
-    if !market && ui.page != Page::Ranking {
-        control(
-            commands,
-            top,
-            kit,
-            ui,
-            Phrase::EchoesRanking.text(lang),
-            Action::Page(Page::Ranking),
-            !ui.model.cohorts().is_empty() || ui.model.run().is_some(),
-        );
-    }
+    control(
+        commands,
+        top,
+        kit,
+        ui,
+        if active_run || !ui.model.runs().is_empty() {
+            Phrase::EchoesRuns.text(lang)
+        } else {
+            Phrase::EchoesNewRun.text(lang)
+        },
+        Action::Page(Page::Overview),
+        true,
+    );
+    control(
+        commands,
+        top,
+        kit,
+        ui,
+        Phrase::EchoesCollection.text(lang),
+        Action::Page(Page::Collection),
+        true,
+    );
+    control(
+        commands,
+        top,
+        kit,
+        ui,
+        Phrase::EchoesRanking.text(lang),
+        Action::Page(Page::Ranking),
+        !ui.model.cohorts().is_empty() || ui.model.run().is_some(),
+    );
 }
 
 fn body(
@@ -195,8 +234,6 @@ fn body(
                 },
                 ..default()
             },
-            BackgroundColor(tokens::OPAQUE),
-            surfaces::elevation_panel(),
             Pickable::default(),
         ))
         .id();
@@ -216,7 +253,7 @@ fn body(
         .entry::<Node>()
         .and_modify(move |mut node| {
             node.width = percent(100);
-            node.max_width = kit.m.px(1440.0);
+            node.max_width = px_fixed(kit.m.body_max);
             node.margin = UiRect::horizontal(Val::Auto);
             node.flex_grow = 1.0;
         });
@@ -230,7 +267,7 @@ fn compact_panel(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
         .entity(panel)
         .entry::<Node>()
         .and_modify(move |mut node| {
-            node.padding = UiRect::all(kit.m.px(12.0));
+            node.padding = UiRect::axes(kit.m.px(16.0), kit.m.px(12.0));
             node.row_gap = kit.m.px(8.0);
         });
     panel
@@ -239,6 +276,7 @@ fn compact_panel(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
 fn selected(
     commands: &mut Commands,
     body: Entity,
+    modal_root: Entity,
     hero: Entity,
     kit: Kit,
     ui: &Ui,
@@ -250,7 +288,7 @@ fn selected(
             if let Some(cohort) = ui.model.publication() {
                 runshop::draw(commands, body, kit, ui, run, cohort);
             }
-            reward::draw(commands, body, kit, ui, run);
+            reward::draw(commands, modal_root, kit, ui, run, scrolled);
             return;
         }
         if matches!(
@@ -263,14 +301,22 @@ fn selected(
             completed::draw(commands, body, kit, ui, run);
             return;
         }
-        if domain::v2::generation::is_run(run.shop.generator)
-            && ui.page == Page::Shop
-            && let Some(cohort) = ui.model.publication()
-        {
-            runshop::draw(commands, body, kit, ui, run, cohort);
+        if domain::v2::generation::is_run(run.shop.generator) {
+            if let Some(cohort) = ui.model.publication() {
+                runshop::draw(commands, body, kit, ui, run, cohort);
+            } else {
+                let wait = compact_panel(commands, body, kit);
+                label(
+                    commands,
+                    wait,
+                    kit,
+                    Phrase::ChallengeLoading.text(lang),
+                    tokens::ACCENT,
+                );
+            }
             return;
         }
-        if ui.page != Page::Shop && !domain::v2::generation::is_run(run.shop.generator) {
+        if ui.page != Page::Shop {
             landing::progress(commands, hero, kit, ui, run);
         }
         let tabs = row(commands, body, kit);
@@ -279,9 +325,6 @@ fn selected(
             (Page::Equipment, Phrase::EchoesEquipment),
             (Page::Deck, Phrase::EchoesDeck),
         ] {
-            if page == Page::Equipment && domain::v2::generation::is_run(run.shop.generator) {
-                continue;
-            }
             control(
                 commands,
                 tabs,
@@ -300,7 +343,7 @@ fn selected(
                 Page::Overview | Page::Collection | Page::Ranking => {}
                 Page::Shop => shop::draw(commands, body, kit, ui, run, cohort, scrolled),
                 Page::Equipment => equipment::draw(commands, body, kit, ui, run, cohort),
-                Page::Deck => deck::draw(commands, body, kit, ui, run, cohort),
+                Page::Deck => deck::draw(commands, body, modal_root, kit, ui, run, cohort),
             }
         }
     }

@@ -24,7 +24,8 @@ pub(super) fn menu(commands: &mut Commands, holder: Entity, env: &Env) {
     let kit = env.kit;
     let lang = env.lang();
     let deck = env.deck();
-    let mut items: Vec<MenuItem<(Press, Stop)>> = Vec::new();
+    let sell_label: String;
+    let mut items: Vec<MenuItem<'_, (Press, Stop)>> = Vec::new();
     let item = |text: &'static str, press: BuildPress| MenuItem {
         text,
         keys: None,
@@ -111,6 +112,20 @@ pub(super) fn menu(commands: &mut Commands, holder: Entity, env: &Env) {
                         sheet_stop("item"),
                     ),
                 });
+                if let TowerSellStatus::Sellable { gold, busy: false } =
+                    super::tower_sell_status(env.state, slot)
+                {
+                    sell_label = Phrase::EchoesSellCardBtn.fill(lang, &[&gold.to_string()]);
+                    items.push(MenuItem {
+                        text: &sell_label,
+                        keys: None,
+                        destructive: true,
+                        action: (
+                            Press::Build(BuildPress::AskSellTowerCard(slot)),
+                            sheet_stop("item"),
+                        ),
+                    });
+                }
             }
         }
         BuildMenu::Deck(at) => {
@@ -208,6 +223,20 @@ pub(super) fn menu(commands: &mut Commands, holder: Entity, env: &Env) {
 /// (`cardwindow`).
 pub(super) fn sheet(commands: &mut Commands, holder: Entity, env: &Env) {
     let ui = env.ui();
+    if let Some(slot) = ui.confirm_sell
+        && let Some(surface) = sell_confirm(commands, env, slot)
+    {
+        commands
+            .entity(surface)
+            .insert(Press::Build(BuildPress::TransferNothing));
+        let scrim = surfaces::sheet(commands, surface);
+        commands.entity(scrim).insert((
+            GlobalZIndex(tokens::z::SHEET + 3),
+            Press::Build(BuildPress::CancelSellTowerCard),
+        ));
+        commands.entity(holder).add_child(scrim);
+        return;
+    }
     let surface = if env.state.confirm_leave {
         Some(leave(commands, env))
     } else if ui.rail && matches!(env.layout, Layout::Rail | Layout::PhoneSingle) {
@@ -225,6 +254,65 @@ pub(super) fn sheet(commands: &mut Commands, holder: Entity, env: &Env) {
         let scrim = surfaces::sheet(commands, surface);
         commands.entity(holder).add_child(scrim);
     }
+}
+
+/// Explicit confirmation dialog before selling an unused owned card in a Tower Run.
+fn sell_confirm(commands: &mut Commands, env: &Env, slot: usize) -> Option<Entity> {
+    let TowerSellStatus::Sellable { gold, busy } = super::tower_sell_status(env.state, slot) else {
+        return None;
+    };
+    let kit = env.kit;
+    let lang = env.lang();
+    let card = env.deck().card(slot)?;
+    let gold_str = gold.to_string();
+    let question = Phrase::EchoesConfirmSell.fill(lang, &[&card.name, &gold_str]);
+    let body = surfaces::prose(commands, kit, &question, false);
+    let cancel = controls::button(
+        commands,
+        kit,
+        Phrase::ShellClose.text(lang),
+        Weight::Secondary,
+        Live::Yes,
+        None,
+        (
+            Press::Build(BuildPress::CancelSellTowerCard),
+            sheet_stop("keep"),
+        ),
+    );
+    let confirm = controls::button(
+        commands,
+        kit,
+        &Phrase::EchoesSellCardBtn.fill(lang, &[&gold_str]),
+        Weight::Gold,
+        if busy {
+            Live::No(Phrase::BuildSaving.text(lang))
+        } else {
+            Live::Yes
+        },
+        None,
+        (
+            Press::Build(BuildPress::ConfirmSellTowerCard),
+            sheet_stop("discard"),
+        ),
+    );
+    for btn in [cancel, confirm] {
+        commands.entity(btn).entry::<Node>().and_modify(|mut n| {
+            n.flex_grow = 1.0;
+            n.flex_basis = px_fixed(0.0);
+        });
+    }
+    let title = Phrase::EchoesSellPrice.fill(lang, &[&gold_str]);
+    Some(surfaces::sheet_box_headed(
+        commands,
+        kit,
+        SheetWidth::Small,
+        surfaces::SheetHeader::new(&title)
+            .icon_colored('\u{f51e}', tokens::GOLD)
+            .close(Press::Build(BuildPress::CancelSellTowerCard)),
+        &[body],
+        &[cancel, confirm],
+        (),
+    ))
 }
 
 /// "Discard changes?": Keep editing (focused) and Discard, the builder's

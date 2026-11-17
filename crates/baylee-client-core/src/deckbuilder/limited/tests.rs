@@ -195,3 +195,74 @@ fn limited_check_refuses_off_color_and_unowned_cards_even_in_a_loaded_compositio
             .any(|problem| matches!(problem, Problem::TooManyCopies { limit: 0, .. }))
     );
 }
+
+#[test]
+fn limited_editor_hides_built_cards_by_default_and_syncs_sold_unused_cards() {
+    let builder = editor();
+    let mut pool = builder.pool().to_vec();
+    let wrath = baylee_cards::decks::by_name("Wrath of God").unwrap();
+    pool.insert(
+        2,
+        PoolCard {
+            index: wrath.get(),
+            name: "Wrath of God".into(),
+            english_name: "Wrath of God".into(),
+            coverage: Coverage::Implemented,
+            ..PoolCard::default()
+        },
+    );
+    let mut limits = builder.limited().unwrap().clone();
+    limits.stock.insert(
+        wrath.get(),
+        Holding {
+            copies: 1,
+            print: PrintChoice::default(),
+        },
+    );
+    let mut builder = DeckBuilder::new();
+    builder.set_pool(pool, false);
+    builder.load(
+        "run-sell",
+        "Tower",
+        &[
+            "1 General Tazri".into(),
+            "38 Plains".into(),
+            "1 Sol Ring".into(),
+        ],
+        &["1 Island".into()],
+        &["General Tazri".into()],
+    );
+    builder.limit_to(limits);
+
+    // By default, cards in main deck (General Tazri, Plains, Sol Ring) and
+    // sideboard (Island) are hidden; only the unused Wrath of God appears.
+    let shown_names: Vec<_> = builder
+        .results()
+        .iter()
+        .map(|&s| builder.card(s).unwrap().english_name.as_str())
+        .collect();
+    assert_eq!(shown_names, ["Wrath of God"]);
+
+    // Selling a card currently in the deck or sideboard or a basic land is refused.
+    let ring_idx = baylee_cards::decks::by_name("Sol Ring").unwrap().get();
+    let island_idx = baylee_cards::decks::by_name("Island").unwrap().get();
+    let plains_idx = baylee_cards::decks::by_name("Plains").unwrap().get();
+    assert!(!builder.sync_limited_card_copies(ring_idx, 0));
+    assert!(!builder.sync_limited_card_copies(island_idx, 0));
+    assert!(!builder.sync_limited_card_copies(plains_idx, 0));
+
+    // Selling the unused Wrath of God removes it cleanly and remaps slots
+    // after index 2 (`Sol Ring` and `Island`) without disturbing composition.
+    let wrath_slot = builder.slot_of("Wrath of God").unwrap();
+    let _ = builder.inspect(wrath_slot);
+    assert!(builder.sync_limited_card_copies(wrath.get(), 0));
+    assert!(
+        builder.inspecting().is_none(),
+        "open window on sold card closes"
+    );
+    assert!(builder.slot_of("Wrath of God").is_none());
+    assert!(builder.results().is_empty());
+    assert!(builder.saveable());
+    let (main, side, commanders) = builder.composition();
+    assert_eq!((main.len(), side.len(), commanders.len()), (39, 1, 1));
+}

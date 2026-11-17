@@ -554,6 +554,22 @@ pub(super) fn spawn_tray(
             ))
             .id();
         commands.entity(gear).add_child(cog);
+        let active_filters = browser.builder().map_or_else(
+            || crate::filterui::query_active_count(browser.filter()),
+            crate::filterui::active_count,
+        );
+        if let Some(badge) = crate::filterui::gear_badge(
+            commands,
+            fonts,
+            active_filters,
+            crate::filterui::Register::TRAY,
+        ) {
+            commands.entity(badge).entry::<Node>().and_modify(|mut n| {
+                n.top = px(-3.0);
+                n.right = px(-4.0);
+            });
+            commands.entity(gear).add_child(badge);
+        }
         commands.entity(filter_line).add_child(lens);
         commands.entity(filter_line).add_children(&filter_text);
         commands.entity(filter_line).add_children(&[help, gear]);
@@ -691,19 +707,46 @@ pub(super) fn spawn_tray(
     if let Some((_, controls)) = tools {
         commands.entity(head).add_child(controls);
     }
-    if let Some(panel) = browser.builder() {
-        let built = crate::filterui::build(
+    if let Some(panel_state) = browser.builder() {
+        let veil = commands
+            .spawn((
+                TrayGear,
+                UiButton,
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(-4000.0),
+                    right: px(-4000.0),
+                    top: px(-4000.0),
+                    bottom: px(-4000.0),
+                    ..default()
+                },
+                BackgroundColor(Color::NONE),
+                GlobalZIndex(crate::shellkit::tokens::z::POPOVER - 1),
+            ))
+            .id();
+        let top_px =
+            place.top + TRAY_HEAD_PAD * 2.0 + TRAY_TITLE_H + TRAY_HEAD_GAP + TRAY_CTRL_H + 6.0;
+        let built = crate::filterui::floating_popover(
             commands,
             fonts,
-            panel,
+            panel_state,
             names.surface(),
             // The zone dialog filters once. Its tabs pick a zone rather than
             // narrowing one, so there is no second truth to declare.
             None,
             lang,
             crate::filterui::Register::TRAY,
+            top_px,
         );
-        commands.entity(head).add_child(built);
+        commands
+            .entity(built)
+            .entry::<Node>()
+            .and_modify(move |mut node| {
+                node.left = px(place.left + TRAY_SIDE);
+                node.right = Val::Auto;
+                node.width = px((place.width - 2.0 * TRAY_SIDE).clamp(300.0, 460.0));
+            });
+        commands.entity(frame).add_children(&[veil, built]);
     } else if syntax_open {
         let sheet = spawn_syntax_help(commands, fonts, lang, names.surface());
         commands.entity(head).add_child(sheet);

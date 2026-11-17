@@ -88,6 +88,8 @@ pub(crate) const BUILDER_ORDER: TabOrder = TabOrder {
         "colours",
         "chips",
         "filters",
+        "hide-deck",
+        "hide-side",
         "playable",
         "pool-group",
         "sort-menu",
@@ -301,6 +303,53 @@ pub(crate) struct BuildUi {
     pub(crate) on_strip: bool,
     /// When opened via `Neues Deck`, keeps the deck name field focused initially.
     pub(crate) naming_new: bool,
+    /// Pool slot awaiting explicit Tower Run card-sale confirmation.
+    pub(crate) confirm_sell: Option<usize>,
+}
+
+/// Eligibility of a pool card for authoritative sale inside a Tower Run's
+/// scoped deck editor.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))] // Constructed by desktop `echoes::builder`.
+pub(crate) enum TowerSellStatus {
+    /// Not a Tower Run editor, or basic land, or built into the local working
+    /// deck/sideboard/commander.
+    Hidden,
+    /// Unused locally, but still built into the server's last saved deck:
+    /// saving the refit first unlocks selling it (`gold` shown muted with
+    /// `EchoesSellSaveFirstTip`).
+    SaveRefitFirst { gold: u16 },
+    /// Unused both locally and on the server: live sell action for `+gold`g,
+    /// unless `busy` (a run mutation is currently in flight).
+    Sellable { gold: u16, busy: bool },
+}
+
+/// Queries authoritative + local Tower card-sale eligibility for pool `slot`.
+#[must_use]
+pub(crate) fn tower_sell_status(state: &LobbyState, slot: usize) -> TowerSellStatus {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        crate::lobby::echoes::builder::sell_status(state, slot)
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = (state, slot);
+        TowerSellStatus::Hidden
+    }
+}
+
+/// Compact revision/busy signature of the Tower Run session for retained keys.
+#[must_use]
+pub(crate) fn tower_sell_signature(state: &LobbyState) -> (u64, bool, u32) {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        crate::lobby::echoes::builder::sell_signature(state)
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = state;
+        (0, false, 0)
+    }
 }
 
 impl BuildUi {
@@ -325,7 +374,7 @@ impl BuildUi {
     /// Whether a sheet or menu of the builder's stands over it.
     #[must_use]
     pub(crate) fn covered(&self) -> bool {
-        self.menu.is_some() || self.stats_sheet || self.check_sheet
+        self.menu.is_some() || self.stats_sheet || self.check_sheet || self.confirm_sell.is_some()
     }
 }
 
@@ -535,6 +584,7 @@ pub(crate) fn builder(
         ));
     }
     // Last, so every overlay stands over the whole builder.
+    holders.veil = Some(overlay_holder(commands, root));
     holders.menu = Some(overlay_holder(commands, root));
     holders.sheet = Some(overlay_holder(commands, root));
     holders.picker = Some(overlay_holder(commands, root));
@@ -921,6 +971,8 @@ pub(crate) fn chips_in_words(deck: &DeckBuilder, lang: Lang) -> Option<String> {
                 phrase.fill(lang, &[&cmc.to_string()])
             }
             Chip::PlayableOnly => Phrase::FilterChipPlayable.text(lang).to_string(),
+            Chip::HideInDeck => Phrase::FilterChipHideInDeck.text(lang).to_string(),
+            Chip::HideInSideboard => Phrase::FilterChipHideInSide.text(lang).to_string(),
         })
         .collect();
     (!parts.is_empty()).then(|| parts.join(", "))

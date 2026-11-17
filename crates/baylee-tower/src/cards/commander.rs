@@ -201,4 +201,44 @@ impl Collection {
         next.deck.sort_by_key(|stack| stack.card);
         Ok(next)
     }
+
+    /// Consume one unused owned nonbasic card and return its authoritative rarity value.
+    /// Cards in the active 39-card library, commander slot or 5-card sideboard are protected.
+    /// # Errors
+    /// Legacy catalog, basic/unknown card, unowned card or a card committed to a formation zone.
+    pub fn sold(&self, catalog: &Catalog, card: CardIndex) -> Result<(Self, u16), Refusal> {
+        self.validate(catalog)?;
+        let gold = catalog.card_sale_gold(card).ok_or(Refusal::Unavailable)?;
+        let formation = self.formation.as_ref().ok_or(Refusal::Invalid)?;
+        if formation.commander == card {
+            return Err(Refusal::Unavailable);
+        }
+        let owned = self.copies(card);
+        let in_deck = self
+            .deck
+            .iter()
+            .find(|row| row.card == card)
+            .map_or(0, |row| row.copies);
+        let in_sideboard = formation
+            .sideboard
+            .iter()
+            .find(|row| row.card == card)
+            .map_or(0, |row| row.copies);
+        if owned <= in_deck.saturating_add(in_sideboard) {
+            return Err(Refusal::Unavailable);
+        }
+        let mut next = self.clone();
+        let index = next
+            .owned
+            .iter()
+            .position(|row| row.card == card)
+            .ok_or(Refusal::Unavailable)?;
+        if next.owned[index].copies <= 1 {
+            next.owned.remove(index);
+        } else {
+            next.owned[index].copies -= 1;
+        }
+        next.validate(catalog)?;
+        Ok((next, gold))
+    }
 }

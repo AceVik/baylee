@@ -195,7 +195,11 @@ pub(super) fn read(
     }
     let buttons = FillButtons::of(progress.status);
     if state.settings_view.fill.buttons != buttons {
-        state.settings_view.fill.buttons = buttons;
+        if state.settings_open() {
+            state.settings_view.fill.buttons = buttons;
+        } else {
+            state.bypass_change_detection().settings_view.fill.buttons = buttons;
+        }
     }
 }
 

@@ -59,8 +59,12 @@ pub(crate) enum SharedPress {
     CancelDestructive,
     /// The sign-in from baylee.app: cancel it, at any stage (also `Esc` and
     /// a tap beside its panel).
+    // Constructed by `confirm::draw_pairing`; Central pairing is desktop-only.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     PairCancel,
     /// The sign-in from baylee.app: yes to the account its question names.
+    // Constructed by `confirm::draw_pairing`; Central pairing is desktop-only.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     PairSignIn,
     /// Nothing. Carried by the picker's own panel so a tap inside it is
     /// not also a tap on the shade behind it, which would close it.

@@ -63,6 +63,10 @@ pub enum Chip<'a> {
     Cmc(u32),
     /// The switch that hides what the engine cannot play as printed.
     PlayableOnly,
+    /// The switch that hides cards already in the main deck (`Zone::Main`).
+    HideInDeck,
+    /// The switch that hides cards already in the sideboard (`Zone::Side`).
+    HideInSideboard,
 }
 
 /// How many of the newest additions [`DeckBuilder::last_added`] keeps.
@@ -596,6 +600,10 @@ pub struct Picker {
     /// The deck list the window walks with ← →, when it was opened on a
     /// deck row; `None` walks the pool's results.
     list: Option<Zone>,
+    /// Where the card stood in `results` when opened from the pool, so ← →
+    /// still steps to the neighbouring pool card after `window_add` hides
+    /// this card from `results`.
+    pool_pos: Option<usize>,
     /// Existing row to restyle; absent when adding from the catalog.
     replacing: Option<Entry>,
     reference_id: String,
@@ -1024,6 +1032,16 @@ pub struct DeckBuilder {
     /// said it hid them. A flag whose `Default` *is* the intention cannot
     /// drift that way again.
     show_unplayable: bool,
+    /// Whether cards already in the main deck (`Zone::Main` / commander) are
+    /// shown in the pool. Stored **inverted** for the same reason as
+    /// [`Self::show_unplayable`]: [`Self::hide_in_deck`] defaults to `true`
+    /// everywhere (`Lobby::default()`, `DeckBuilder::new()`,
+    /// `DeckBuilder::forget_pool()`).
+    show_in_deck: bool,
+    /// Whether cards already in the sideboard (`Zone::Side`) are shown in the
+    /// pool. Stored **inverted** so [`Self::hide_in_sideboard`] defaults to
+    /// `true` everywhere.
+    show_in_sideboard: bool,
     /// The cards blocked on the gateway the pool came from, by registry
     /// index (`GET /cards/blocked`, `docs/protocol.md` §"Blocked cards"):
     /// marked, never hidden or refused here; the gateway refuses the deck.

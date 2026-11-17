@@ -58,95 +58,12 @@ pub struct Position {
     pub phrase_bar: u32,
 }
 
-/// Subtle, endless-loop tavern room murmur and hearth warmth for the Lobby and calm Table.
-struct TavernAmbience {
-    seed: u32,
-    env: f32,
-    left_lp1: f32,
-    left_lp2: f32,
-    right_lp1: f32,
-    right_lp2: f32,
-    hearth_lp: f32,
-    crackle_env: f32,
-    cadence_a: f32,
-    cadence_b: f32,
-    cadence_c: f32,
-}
-impl Default for TavernAmbience {
-    fn default() -> Self {
-        Self {
-            seed: 0x6D2B_79F5,
-            env: 0.0,
-            left_lp1: 0.0,
-            left_lp2: 0.0,
-            right_lp1: 0.0,
-            right_lp2: 0.0,
-            hearth_lp: 0.0,
-            crackle_env: 0.0,
-            cadence_a: 0.0,
-            cadence_b: 1.7,
-            cadence_c: 3.4,
-        }
-    }
-}
-impl TavernAmbience {
-    fn next_noise(&mut self) -> f32 {
-        let mut x = self.seed;
-        x ^= x << 13;
-        x ^= x >> 17;
-        x ^= x << 5;
-        self.seed = x;
-        ((x >> 9) as f32) * (1.0 / 4_194_304.0) - 1.0
-    }
-    fn step(&mut self, active: bool) -> [f32; 2] {
-        let target = if active { 1.0 } else { 0.0 };
-        self.env += (target - self.env) * 0.0004;
-        if self.env < 1e-5 {
-            return [0.0; 2];
-        }
-        let n_l = self.next_noise();
-        let n_r = self.next_noise();
-        // Slow syllable-rate modulation (2.4 Hz, 3.7 Hz, 0.43 Hz) for distant warm tavern murmur.
-        self.cadence_a = (self.cadence_a + std::f32::consts::TAU * 2.4 / RATE as f32)
-            .rem_euclid(std::f32::consts::TAU);
-        self.cadence_b = (self.cadence_b + std::f32::consts::TAU * 3.7 / RATE as f32)
-            .rem_euclid(std::f32::consts::TAU);
-        self.cadence_c = (self.cadence_c + std::f32::consts::TAU * 0.43 / RATE as f32)
-            .rem_euclid(std::f32::consts::TAU);
-        let mod_l = (0.55 + 0.30 * self.cadence_a.sin() + 0.15 * self.cadence_c.cos()).max(0.1);
-        let mod_r = (0.55 + 0.30 * self.cadence_b.cos() + 0.15 * self.cadence_c.sin()).max(0.1);
-        // Band-pass between ~220 Hz and ~680 Hz (warm wood-hall vowel murmur, no high hiss).
-        self.left_lp1 += (n_l * mod_l - self.left_lp1) * 0.078;
-        self.left_lp2 += (self.left_lp1 - self.left_lp2) * 0.024;
-        let murmur_l = self.left_lp1 - self.left_lp2;
-
-        self.right_lp1 += (n_r * mod_r - self.right_lp1) * 0.084;
-        self.right_lp2 += (self.right_lp1 - self.right_lp2) * 0.026;
-        let murmur_r = self.right_lp1 - self.right_lp2;
-
-        // Soft hearth warmth and occasional gentle ember pop on the left.
-        self.hearth_lp += (n_l - self.hearth_lp) * 0.014;
-        if (self.seed & 0x3FFF) == 0x1357 {
-            self.crackle_env = 0.35;
-        }
-        self.crackle_env *= 0.985;
-        let hearth = self.hearth_lp * 0.45 + self.left_lp1 * self.crackle_env;
-
-        let gain = 0.0070 * self.env;
-        [
-            (murmur_l * 0.75 + murmur_r * 0.25 + hearth * 0.45) * gain,
-            (murmur_r * 0.75 + murmur_l * 0.25 + hearth * 0.20) * gain,
-        ]
-    }
-}
-
 /// Endless stereo performance with bounded polyphony and no render-time allocation.
 /// Held notes and the stereo room survive scene changes, as does the sample clock.
 pub struct Tune {
     control: Arc<ScoreControl>,
     orchestra: Orchestra,
     memorial: memorial::Performance,
-    tavern_ambience: TavernAmbience,
     position: Position,
     tick: u8,
     until_tick: f64,
@@ -186,7 +103,6 @@ impl Tune {
             control,
             orchestra: Orchestra::default(),
             memorial: memorial::Performance::default(),
-            tavern_ambience: TavernAmbience::default(),
             position: Position {
                 theme: request.theme,
                 samples: request.samples,
@@ -224,38 +140,38 @@ impl Tune {
 
     fn schedule_opening_bridge(&mut self, initial: bool) {
         let samples = self.position.samples;
-        // Pure 3:2 open-fifth D3–A3 bridge hush connects Lobby to Table without starting the table theme.
+        // Pure recorded acoustic D3–A3 open-fifth hush connects Lobby to Table cleanly.
         self.orchestra.note_with_samples(
-            Instrument::StringPad,
+            Instrument::Cello,
             50,
             2.6,
-            if initial { 0.052 } else { 0.042 },
-            Touch::at(-0.22),
+            if initial { 0.068 } else { 0.052 },
+            Touch::at(0.16).attack(0.085).release(0.45),
             samples,
         );
         self.orchestra.note_with_samples(
-            Instrument::FrenchHorn,
+            Instrument::Viola,
             57,
             2.4,
-            if initial { 0.038 } else { 0.030 },
-            Touch::at(0.16).late(0.025).cents(1.8),
+            if initial { 0.052 } else { 0.040 },
+            Touch::at(-0.18).attack(0.095).release(0.45).late(0.024),
             samples,
         );
         if initial {
             self.orchestra.note_with_samples(
-                Instrument::ConcertHarp,
+                Instrument::Harp,
                 62,
-                2.3,
-                0.058,
-                Touch::at(-0.22),
+                2.4,
+                0.085,
+                Touch::at(-0.30).attack(0.005).release(0.45),
                 samples,
             );
             self.orchestra.note_with_samples(
                 Instrument::Harp,
-                74,
-                2.2,
-                0.062,
-                Touch::at(-0.32).attack(0.006).release(0.45).late(0.024),
+                69,
+                2.3,
+                0.072,
+                Touch::at(-0.24).attack(0.005).release(0.45).late(0.032),
                 samples,
             );
         }
@@ -415,18 +331,11 @@ impl Tune {
         self.until_tick -= 1.0;
     }
 
-    const fn ambience_active(&self) -> bool {
-        !self.opening_hush && matches!(self.position.movement, Movement::Lobby | Movement::Standard)
-    }
-
     /// Render one stereo frame, the scalar reference for the block renderer.
     pub fn frame(&mut self) -> [f32; 2] {
         self.transport();
         self.advance();
-        let active = self.ambience_active();
-        let amb = self.tavern_ambience.step(active);
-        let [l, r] = self.orchestra.frame();
-        [l + amb[0], r + amb[1]]
+        self.orchestra.frame()
     }
     /// Render a run of stereo frames, with exactly the scalar renderer's timing.
     pub fn render(&mut self, out: &mut [[f32; 2]]) {
@@ -440,12 +349,6 @@ impl Tune {
             }
             self.orchestra
                 .render(&mut out[done..done + run], &mut self.scratch[..]);
-            let active = self.ambience_active();
-            for frame in &mut out[done..done + run] {
-                let amb = self.tavern_ambience.step(active);
-                frame[0] += amb[0];
-                frame[1] += amb[1];
-            }
             done += run;
         }
     }

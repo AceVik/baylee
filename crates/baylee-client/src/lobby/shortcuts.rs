@@ -82,9 +82,10 @@ pub(crate) fn modal_by(state: &LobbyState, screen: Context) -> Vec<&'static str>
         ("confirmation", state.confirmation.is_some()),
         (
             "tower_starter_preview",
-            state.hub == Hub::Challenges
-                && state.echoes.opened
-                && state.echoes.starter_preview.is_some(),
+            screen == Context::Play
+                && state.hub == Hub::Challenges
+                && state.can_enter_tower()
+                && state.echoes.inspecting(),
         ),
         (
             "tower_reward",

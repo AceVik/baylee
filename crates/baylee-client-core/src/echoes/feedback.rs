@@ -46,6 +46,8 @@ pub struct Change {
     pub gold: i32,
     /// The purchased offer, if any.
     pub purchase: Option<u32>,
+    /// The sold relic instance, if any.
+    pub sold: Option<u32>,
     /// Upgraded instance and its finished appearance.
     pub fused: Option<(u32, Goods)>,
 }
@@ -193,6 +195,13 @@ fn changes(old: &Snapshot, economy: &Economy, offers: &[Offer]) -> Change {
             to: Anchor::Supplies,
             fusion: false,
         });
+    }
+    if result.gold > 0 && result.purchase.is_none() && result.fused.is_none() {
+        result.sold = removed
+            .values()
+            .flat_map(|items| items.iter())
+            .next()
+            .map(|item| item.id);
     }
     result
 }

@@ -347,6 +347,7 @@ pub(super) fn sync(
 }
 
 /// Builds the Scryfall URL for a [`rows::ChatCardLink`].
+#[cfg(not(target_arch = "wasm32"))]
 fn scryfall_url(link: &rows::ChatCardLink) -> Option<String> {
     if let Some(print) = link.print.as_ref()
         && !print.scryfall_id.trim().is_empty()
@@ -444,14 +445,15 @@ pub(super) fn scryfall_links(
         if click.button != bevy::picking::pointer::PointerButton::Primary || !modifier {
             continue;
         }
+        #[cfg(not(target_arch = "wasm32"))]
         if let Ok((_, link, _, _)) = spans.get(click.entity)
             && let Some(url) = scryfall_url(link)
+            && let Err(err) = webbrowser::open(&url)
         {
-            #[cfg(not(target_arch = "wasm32"))]
-            if let Err(err) = webbrowser::open(&url) {
-                warn!("could not open Scryfall {url}: {err}");
-            }
+            warn!("could not open Scryfall {url}: {err}");
         }
+        #[cfg(target_arch = "wasm32")]
+        let _ = &spans;
     }
 }
 

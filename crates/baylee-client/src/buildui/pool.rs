@@ -209,24 +209,18 @@ pub(super) fn toolbar(commands: &mut Commands, holder: Entity, env: &Env) {
         (Press::Build(BuildPress::ToggleFilterPanel), stop("gear")),
     );
     elevate_icon_button(commands, gear);
+    let gear_count = active_gear_filters(env);
+    if let Some(badge) = crate::filterui::gear_badge(
+        commands,
+        kit.fonts,
+        gear_count,
+        crate::filterui::Register::LOBBY,
+    ) {
+        commands.entity(gear).add_child(badge);
+    }
     first.push(gear);
     let top = line(commands, kit, &first);
     commands.entity(holder).add_child(top);
-
-    // The filter builder the gear opens: what the box holds, taken apart.
-    if let Some(built) = deck.pool_panel() {
-        let also = chips_in_words(deck, lang);
-        let rows = crate::filterui::build(
-            commands,
-            kit.fonts,
-            built,
-            deck.surface(),
-            also.as_deref(),
-            lang,
-            crate::filterui::Register::LOBBY,
-        );
-        commands.entity(holder).add_child(rows);
-    }
 
     // ---- the one chip row (not on a phone, where Filters · n holds it)
     if !compact(env) {
@@ -414,6 +408,32 @@ fn chip_row(commands: &mut Commands, env: &Env) -> Entity {
     kids.push(controls::chip(
         commands,
         kit,
+        Phrase::BuildHideInDeckChip.text(lang),
+        deck.hide_in_deck(),
+        None,
+        false,
+        (
+            Press::Build(BuildPress::ToggleHideInDeck),
+            stop("hide-deck"),
+            crate::lobby::HoverHint(Phrase::BuildHideInDeckTip.text(lang).to_string()),
+        ),
+    ));
+    kids.push(controls::chip(
+        commands,
+        kit,
+        Phrase::BuildHideInSideChip.text(lang),
+        deck.hide_in_sideboard(),
+        None,
+        false,
+        (
+            Press::Build(BuildPress::ToggleHideInSideboard),
+            stop("hide-side"),
+            crate::lobby::HoverHint(Phrase::BuildHideInSideTip.text(lang).to_string()),
+        ),
+    ));
+    kids.push(controls::chip(
+        commands,
+        kit,
         Phrase::PlayableOnly.text(lang),
         deck.playable_only(),
         None,
@@ -542,6 +562,25 @@ fn colour_toggles(commands: &mut Commands, env: &Env) -> Vec<Entity> {
         .collect()
 }
 
+/// Total active non-default filters surfaced on the Search Gear button badge.
+#[must_use]
+pub(crate) fn active_gear_filters(env: &Env) -> u32 {
+    let deck = env.deck();
+    let query_n = deck.pool_panel().map_or_else(
+        || crate::filterui::query_active_count(deck.text()),
+        crate::filterui::active_count,
+    );
+    query_n
+        + u32::from(!deck.colors().is_empty())
+        + u32::from(deck.kind().is_some())
+        + u32::from(deck.cmc().is_some())
+        + u32::from(deck.rarity().is_some())
+        + u32::from(!deck.hide_in_deck())
+        + u32::from(!deck.hide_in_sideboard())
+        + u32::from(env.ui().fav_deck)
+        + u32::from(env.ui().fav_global)
+}
+
 /// *Filters* with a caret and the count of rail filters in force; on a
 /// phone it opens the filters as a sheet.
 fn filters_button(commands: &mut Commands, env: &Env) -> Entity {
@@ -550,6 +589,8 @@ fn filters_button(commands: &mut Commands, env: &Env) -> Entity {
     let active = u32::from(deck.kind().is_some())
         + u32::from(deck.cmc().is_some())
         + u32::from(deck.rarity().is_some())
+        + u32::from(!deck.hide_in_deck())
+        + u32::from(!deck.hide_in_sideboard())
         + u32::from(env.ui().fav_deck)
         + u32::from(env.ui().fav_global);
     controls::chip(
@@ -758,39 +799,52 @@ pub(super) fn list(commands: &mut Commands, holder: Entity, env: &Env) {
     commands.entity(holder).add_child(foot);
 }
 
-/// The pool's overlays: the Filters rail over its left edge, the syntax
-/// popover under the search.
+/// Full-window click-outside catcher (`GlobalZIndex(POPOVER - 1)`) for the
+/// pool's floating popovers (Search Gear overlay, Filters rail, Syntax help).
+pub(super) fn veil(commands: &mut Commands, holder: Entity, env: &Env) {
+    let ui = env.ui();
+    let rail_open = ui.rail && !compact(env);
+    let gear_open = env.deck().pool_panel().is_some();
+    let dismiss = if gear_open {
+        Press::Build(BuildPress::CloseFilterPanel)
+    } else if rail_open {
+        Press::Build(BuildPress::ToggleRail)
+    } else if ui.syntax {
+        Press::Build(BuildPress::ToggleSyntax)
+    } else {
+        return;
+    };
+    let catcher = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: px_fixed(0.0),
+                right: px_fixed(0.0),
+                top: px_fixed(0.0),
+                bottom: px_fixed(0.0),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            GlobalZIndex(tokens::z::POPOVER - 1),
+            dismiss,
+        ))
+        .id();
+    commands.entity(holder).add_child(catcher);
+}
+
+/// The pool's overlays: the Filters rail over its left edge, the floating
+/// Search Filter Gear Overlay, and the syntax popover under the search.
 pub(super) fn over(commands: &mut Commands, holder: Entity, env: &Env) {
     let kit = env.kit;
     let m = kit.m;
     let ui = env.ui();
     let rail_open = ui.rail && !compact(env);
-    if rail_open || ui.syntax {
-        let dismiss = if rail_open {
-            Press::Build(BuildPress::ToggleRail)
-        } else {
-            Press::Build(BuildPress::ToggleSyntax)
-        };
-        let veil = commands
-            .spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: px_fixed(0.0),
-                    right: px_fixed(0.0),
-                    top: px_fixed(0.0),
-                    bottom: px_fixed(0.0),
-                    ..default()
-                },
-                GlobalZIndex(tokens::z::POPOVER - 1),
-                dismiss,
-            ))
-            .id();
-        commands.entity(holder).add_child(veil);
-    }
     if rail_open {
         let rail = commands
             .spawn((
                 Role::Opaque,
+                surfaces::SheetScroller,
+                ScrollPosition::default(),
                 Node {
                     position_type: PositionType::Absolute,
                     left: px_fixed(0.0),
@@ -819,7 +873,10 @@ pub(super) fn over(commands: &mut Commands, holder: Entity, env: &Env) {
         commands.entity(rail).add_children(&body);
         commands.entity(holder).add_child(rail);
     }
-    if ui.syntax {
+    if let Some(built) = env.deck().pool_panel() {
+        let pop = gear_overlay(commands, env, built);
+        commands.entity(holder).add_child(pop);
+    } else if ui.syntax {
         let pop = syntax(commands, env);
         commands.entity(pop).insert((
             Node {
@@ -838,6 +895,289 @@ pub(super) fn over(commands: &mut Commands, holder: Entity, env: &Env) {
         ));
         commands.entity(holder).add_child(pop);
     }
+}
+
+/// Marker on the inner scroll region of [`gear_overlay`] so [`super::retained`]
+/// preserves scroll offset across filter clicks while the overlay stays open.
+#[derive(Component)]
+pub(crate) struct GearScroll;
+
+/// Floating translucent dark-glass Search Filter Gear Overlay anchored directly
+/// below the search toolbar (`PositionType::Absolute` on Frame 0, viewport-clamped
+/// `Val::Vh(72.0)` with stationary header, scrollable body, and pinned footer so
+/// it never clips `900px`/`720px` windows or shifts the card pool underneath).
+#[allow(clippy::too_many_lines)] // structured sections read top to bottom
+fn gear_overlay(
+    commands: &mut Commands,
+    env: &Env,
+    built: &baylee_client_core::filterdialog::FilterPanel,
+) -> Entity {
+    let kit = env.kit;
+    let m = kit.m;
+    let lang = env.lang();
+    let deck = env.deck();
+    let look = crate::filterui::Register::LOBBY;
+    let active = active_gear_filters(env);
+
+    let pop = commands
+        .spawn((
+            Role::Opaque,
+            Node {
+                position_type: PositionType::Absolute,
+                top: px_fixed(m.pad + m.control + m.scaled(6.0)),
+                right: px_fixed(m.pad),
+                width: m.px(520.0),
+                max_width: Val::Percent(96.0),
+                max_height: Val::Vh(72.0),
+                flex_direction: FlexDirection::Column,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PANEL)),
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            look.glass_gradient(),
+            BorderColor::all(look.popover_border()),
+            surfaces::popover_shadow(),
+            GlobalZIndex(tokens::z::POPOVER),
+            Press::Build(BuildPress::TransferNothing),
+        ))
+        .id();
+
+    // Stationary Header: gold gear glyph + title + active badge + close `×`.
+    let gear_glyph = glyph(
+        commands,
+        kit,
+        crate::hud::glyph::GEAR,
+        m.small,
+        tokens::GOLD,
+    );
+    let title = words(
+        commands,
+        kit,
+        Phrase::FilterBuild.text(lang),
+        m.head,
+        tokens::INK,
+    );
+    let mut head_kids = vec![gear_glyph, title, spring(commands)];
+    if active > 0 {
+        let badge_box = commands
+            .spawn((
+                Node {
+                    padding: UiRect::axes(m.px(8.0), m.px(2.0)),
+                    border: UiRect::all(px_fixed(1.0)),
+                    border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                BackgroundColor(tokens::GOLD.with_alpha(0.16)),
+                BorderColor::all(tokens::GOLD.with_alpha(0.65)),
+                Pickable::IGNORE,
+            ))
+            .id();
+        let badge_txt = cell(
+            commands,
+            kit,
+            &active.to_string(),
+            m.small * 0.88,
+            tokens::GOLD,
+            true,
+        );
+        commands.entity(badge_box).add_child(badge_txt);
+        head_kids.push(badge_box);
+    }
+    let close = icon_button(
+        commands,
+        kit,
+        mark::CLOSE,
+        false,
+        Press::Build(BuildPress::CloseFilterPanel),
+    );
+    elevate_icon_button(commands, close);
+    head_kids.push(close);
+    let head = line(commands, kit, &head_kids);
+    let head_wrap = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_shrink: 0.0,
+                padding: UiRect::axes(px_fixed(m.pad), m.px(10.0)),
+                border: UiRect::bottom(px_fixed(1.0)),
+                ..default()
+            },
+            BorderColor::all(look.popover_border().with_alpha(0.32)),
+            Pickable::IGNORE,
+        ))
+        .add_child(head)
+        .id();
+
+    // Scrollable Body (`SheetScroller` + `Role::Scroll` + optional scrollbar).
+    let scroller = commands
+        .spawn((
+            GearScroll,
+            surfaces::SheetScroller,
+            Role::Scroll,
+            Pickable::default(),
+            Node {
+                flex_direction: FlexDirection::Column,
+                flex_shrink: 1.0,
+                min_height: px_fixed(0.0),
+                padding: UiRect::axes(px_fixed(m.pad), m.px(10.0)),
+                row_gap: m.px(8.0),
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+            ScrollPosition::default(),
+        ))
+        .id();
+
+    let wrap = |commands: &mut Commands, kids: &[Entity]| {
+        let row = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    flex_wrap: FlexWrap::Wrap,
+                    align_items: AlignItems::Center,
+                    column_gap: m.px(6.0),
+                    row_gap: m.px(6.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(row).add_children(kids);
+        row
+    };
+
+    // 1. Mana Colors
+    let c_cap = caption(commands, kit, Phrase::FilterKeyIdentity.text(lang));
+    let discs = colour_toggles(commands, env);
+    let c_row = wrap(commands, &discs);
+    commands.entity(scroller).add_children(&[c_cap, c_row]);
+
+    // 2. Card Types, Mana Value, Rarity, and Pool Visibility switches
+    let quick_sections = filters_body_sections(commands, env);
+    commands.entity(scroller).add_children(&quick_sections);
+
+    // 3. Sort Criterion & Direction
+    let s_cap = caption(commands, kit, Phrase::FilterSectionSort.text(lang));
+    let mut sort_items: Vec<Entity> = Sort::ALL
+        .into_iter()
+        .map(|s| {
+            controls::chip(
+                commands,
+                kit,
+                s.label().text(lang),
+                deck.sort() == s
+                    && deck.sort_dir() != baylee_client_core::deckbuilder::SortDir::Unset,
+                None,
+                false,
+                Press::Build(BuildPress::SelectSort(s)),
+            )
+        })
+        .collect();
+    let (dir_glyph, dir_tip, dir_lit) = match deck.sort_dir() {
+        baylee_client_core::deckbuilder::SortDir::Asc => {
+            ('\u{f160}', Phrase::BuildSortDirAscTip.text(lang), true)
+        }
+        baylee_client_core::deckbuilder::SortDir::Desc => {
+            ('\u{f161}', Phrase::BuildSortDirDescTip.text(lang), true)
+        }
+        baylee_client_core::deckbuilder::SortDir::Unset => {
+            ('\u{f0dc}', Phrase::BuildSortDirUnsetTip.text(lang), false)
+        }
+    };
+    let dir_btn = icon_button(
+        commands,
+        kit,
+        dir_glyph,
+        dir_lit,
+        (
+            Press::Build(BuildPress::CycleSort),
+            crate::lobby::HoverHint(dir_tip.to_string()),
+        ),
+    );
+    elevate_icon_button(commands, dir_btn);
+    sort_items.push(dir_btn);
+    let s_row = wrap(commands, &sort_items);
+    commands.entity(scroller).add_children(&[s_cap, s_row]);
+
+    // 4. Advanced Search Query Builder (`filterui`)
+    let q_divider = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: px_fixed(1.0),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            BackgroundColor(tokens::BORDER.with_alpha(0.45)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let q_cap = caption(commands, kit, Phrase::FilterSectionQuery.text(lang));
+    let also = chips_in_words(deck, lang);
+    let q_rows = crate::filterui::build_rows(
+        commands,
+        kit.fonts,
+        built,
+        deck.surface(),
+        also.as_deref(),
+        lang,
+        look,
+    );
+    commands
+        .entity(scroller)
+        .add_children(&[q_divider, q_cap, q_rows]);
+
+    let band = crate::lobby::scrollbars::band_when_needed(commands, scroller, compact(env));
+
+    // 5. Stationary Pinned Footer: symmetric Reset Filters + Done
+    let reset_btn = controls::button(
+        commands,
+        kit,
+        Phrase::FilterResetAll.text(lang),
+        Weight::Secondary,
+        Live::Yes,
+        None,
+        Press::Build(BuildPress::ClearFilters),
+    );
+    let done_btn = controls::button(
+        commands,
+        kit,
+        Phrase::FilterDone.text(lang),
+        Weight::Primary,
+        Live::Yes,
+        None,
+        Press::Build(BuildPress::CloseFilterPanel),
+    );
+    for btn in [reset_btn, done_btn] {
+        commands.entity(btn).entry::<Node>().and_modify(|mut n| {
+            n.flex_grow = 1.0;
+            n.flex_basis = px_fixed(0.0);
+        });
+    }
+    let foot = line(commands, kit, &[reset_btn, done_btn]);
+    let foot_wrap = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_shrink: 0.0,
+                padding: UiRect::axes(px_fixed(m.pad), m.px(10.0)),
+                border: UiRect::top(px_fixed(1.0)),
+                ..default()
+            },
+            BorderColor::all(look.popover_border().with_alpha(0.24)),
+            Pickable::IGNORE,
+        ))
+        .add_child(foot)
+        .id();
+
+    commands
+        .entity(pop)
+        .add_children(&[head_wrap, band, foot_wrap]);
+    pop
 }
 
 /// The rail's head: its name and its close.
@@ -865,8 +1205,10 @@ pub(crate) fn rail_head(commands: &mut Commands, env: &Env) -> Entity {
 /// The rail's sections: colour, card type, mana value, what to show, and
 /// Clear. The pool carries no rarity, set or keyword facts, so the rail
 /// offers none (principle 5; they are round 2, §15).
-#[allow(clippy::too_many_lines)] // filter sections: colour, type, mana value, playable/favourites, clear
-pub(crate) fn filters_body(commands: &mut Commands, env: &Env) -> Vec<Entity> {
+/// Shared filter sections (Card Types, Mana Value, Rarity, Show switches) used
+/// by both the Search Filter Gear Overlay and the Filters rail/sheet.
+#[allow(clippy::too_many_lines)]
+fn filters_body_sections(commands: &mut Commands, env: &Env) -> Vec<Entity> {
     let kit = env.kit;
     let lang = env.lang();
     let deck = env.deck();
@@ -887,11 +1229,6 @@ pub(crate) fn filters_body(commands: &mut Commands, env: &Env) -> Vec<Entity> {
         commands.entity(row).add_children(kids);
         row
     };
-    if compact(env) {
-        out.push(caption(commands, kit, Phrase::FilterKeyIdentity.text(lang)));
-        let discs = colour_toggles(commands, env);
-        out.push(wrap(commands, &discs));
-    }
     out.push(caption(commands, kit, Phrase::BuildRailType.text(lang)));
     let kinds: Vec<Entity> = KINDS
         .iter()
@@ -952,6 +1289,24 @@ pub(crate) fn filters_body(commands: &mut Commands, env: &Env) -> Vec<Entity> {
     .collect();
     out.push(wrap(commands, &rarities));
     out.push(caption(commands, kit, Phrase::BuildRailShow.text(lang)));
+    let hide_deck = controls::chip(
+        commands,
+        kit,
+        Phrase::BuildHideInDeck.text(lang),
+        deck.hide_in_deck(),
+        None,
+        false,
+        Press::Build(BuildPress::ToggleHideInDeck),
+    );
+    let hide_side = controls::chip(
+        commands,
+        kit,
+        Phrase::BuildHideInSide.text(lang),
+        deck.hide_in_sideboard(),
+        None,
+        false,
+        Press::Build(BuildPress::ToggleHideInSideboard),
+    );
     let playable = controls::chip(
         commands,
         kit,
@@ -981,12 +1336,40 @@ pub(crate) fn filters_body(commands: &mut Commands, env: &Env) -> Vec<Entity> {
         false,
         Press::Build(BuildPress::ToggleFilterFavGlobal),
     );
-    let shown: Vec<_> = [playable]
+    let shown: Vec<_> = [hide_deck, hide_side, playable]
         .into_iter()
         .chain(fav_deck)
         .chain([fav_global])
         .collect();
     out.push(wrap(commands, &shown));
+    out
+}
+
+/// The rail's sections: colour (on compact), shared sections, and Clear.
+pub(crate) fn filters_body(commands: &mut Commands, env: &Env) -> Vec<Entity> {
+    let kit = env.kit;
+    let lang = env.lang();
+    let deck = env.deck();
+    let mut out = Vec::new();
+    if compact(env) {
+        out.push(caption(commands, kit, Phrase::FilterKeyIdentity.text(lang)));
+        let discs = colour_toggles(commands, env);
+        let row = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    flex_wrap: FlexWrap::Wrap,
+                    column_gap: kit.m.px(6.0),
+                    row_gap: kit.m.px(6.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(row).add_children(&discs);
+        out.push(row);
+    }
+    out.extend(filters_body_sections(commands, env));
     if deck.filtered() || env.ui().fav_deck || env.ui().fav_global {
         let clear = link(
             commands,

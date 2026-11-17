@@ -68,6 +68,7 @@ fn drawer_omits_opponent_potions_even_if_an_invalid_view_contains_them() {
         &duel,
         Vec2::new(1280.0, 720.0),
         Lang::En,
+        0.0,
     );
     world.flush();
     let goods: Vec<_> = world
@@ -127,6 +128,7 @@ fn owned_item_opens_regular_ability_chooser_without_spending_and_rejects_stale_o
         &duel,
         Vec2::new(1280.0, 720.0),
         Lang::En,
+        0.0,
     );
     world.flush();
     let anchors: Vec<_> = world
@@ -138,6 +140,23 @@ fn owned_item_opens_regular_ability_chooser_without_spending_and_rejects_stale_o
         anchors,
         vec![mine],
         "closed drawer retains the chooser's source geometry"
+    );
+    let anchor_vis = world
+        .query_filtered::<&Visibility, With<super::super::sheet::AbilityAnchor>>()
+        .single(&world)
+        .unwrap();
+    assert_eq!(
+        *anchor_vis,
+        Visibility::Hidden,
+        "closed-drawer AbilityAnchor must stay hidden so it never overlaps AbilitySheet"
+    );
+    assert_eq!(
+        world
+            .query::<&crate::itemart::Portrait>()
+            .iter(&world)
+            .count(),
+        0,
+        "closed-drawer AbilityAnchor spawns no visible Portrait"
     );
     duel.ability_menu = None;
     duel.interaction = None;
@@ -254,5 +273,69 @@ fn drawer_sources_do_not_replace_commander_art_and_do_not_hide_retained_artifact
     assert!(
         crate::itemart::identity::run_source(&forged).is_none(),
         "printed objects cannot impersonate a run item"
+    );
+}
+
+#[test]
+fn drawer_wears_wooden_frame_omits_empty_opponent_slots_and_separates_rarity() {
+    let mut duel = fixture();
+    // Add a third seat with zero relics: it must not spawn an empty opponent section.
+    duel.view.as_mut().unwrap().command.push(Vec::new());
+    let mut world = World::new();
+    let fonts = UiFonts::default();
+    let kit = Kit {
+        fonts: &fonts,
+        german: true,
+        m: shellkit::ShellMetrics::of(
+            shellkit::Viewport::desktop(1280.0, 720.0),
+            shellkit::TextSize::M,
+        ),
+    };
+    draw::draw(
+        &mut world.commands(),
+        kit,
+        &duel,
+        Vec2::new(1280.0, 720.0),
+        Lang::De,
+        42.0,
+    );
+    world.flush();
+
+    let has_wood_frame = world
+        .query::<&towerui::Decor>()
+        .iter(&world)
+        .any(|d| matches!(d, towerui::Decor::Frame));
+    assert!(
+        has_wood_frame,
+        "drawer must wear the ornate wooden Decor::Frame"
+    );
+
+    let scroll_y = world
+        .query_filtered::<&ScrollPosition, With<Panel>>()
+        .single(&world)
+        .expect("scrollable Panel")
+        .0
+        .y;
+    assert!(
+        (scroll_y - 42.0).abs() < f32::EPSILON,
+        "drawer preserves scroll position across charge/state updates"
+    );
+
+    let texts: Vec<_> = world
+        .query::<&Text>()
+        .iter(&world)
+        .map(|t| t.0.as_str())
+        .collect();
+    assert!(
+        texts.contains(&"0/6"),
+        "local player's 6-slot relic capacity shown cleanly"
+    );
+    assert!(
+        texts.contains(&"×1"),
+        "opponent with 1 relic shows compact ×1 badge without 5 trailing empty slots"
+    );
+    assert!(
+        !texts.iter().any(|t| t.contains(" · ")),
+        "item tooltip titles never concatenate ' · Rarity': {texts:?}"
     );
 }

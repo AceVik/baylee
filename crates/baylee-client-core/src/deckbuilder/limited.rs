@@ -138,4 +138,77 @@ impl DeckBuilder {
     pub fn composition(&self) -> (Vec<CardIndex>, Vec<CardIndex>, Vec<CardIndex>) {
         self.cards()
     }
+
+    /// Updates an unused card's owned copy count in a limited collection after
+    /// an authoritative server sale, removing it from the pool when `remaining`
+    /// reaches zero while preserving all slot references across the working
+    /// deck, sideboard, commanders, and open card window.
+    pub fn sync_limited_card_copies(&mut self, card_index: u32, remaining: u16) -> bool {
+        if self.limited.is_none() {
+            return false;
+        }
+        let Some(&slot) = self.slots.get(&card_index) else {
+            return false;
+        };
+        if self.pool.get(slot).is_none_or(|c| c.basic_land) {
+            return false;
+        }
+        let in_use = self
+            .count_of(slot, Zone::Main)
+            .saturating_add(self.count_of(slot, Zone::Side));
+        if remaining < in_use || (remaining == 0 && self.is_commander(slot)) {
+            return false;
+        }
+        if remaining > 0 {
+            if let Some(limits) = &mut self.limited
+                && let Some(holding) = limits.stock.get_mut(&card_index)
+            {
+                holding.copies = remaining;
+            }
+            self.pool_revision = self.pool_revision.wrapping_add(1);
+            self.recheck();
+            return true;
+        }
+        if let Some(limits) = &mut self.limited {
+            limits.stock.remove(&card_index);
+        }
+        self.pool.remove(slot);
+        if slot < self.keys.len() {
+            self.keys.remove(slot);
+        }
+        self.slots = self
+            .pool
+            .iter()
+            .enumerate()
+            .map(|(at, card)| (card.index, at))
+            .collect();
+        let shift = |s: &mut usize| {
+            if *s > slot {
+                *s -= 1;
+            }
+        };
+        for entry in self.main.iter_mut().chain(&mut self.side) {
+            shift(&mut entry.slot);
+        }
+        for leader in &mut self.commanders {
+            shift(leader);
+        }
+        self.last_added.retain(|&s| s != slot);
+        for s in &mut self.last_added {
+            shift(s);
+        }
+        if let Some(picker) = &mut self.picker {
+            if picker.slot == slot {
+                self.picker = None;
+            } else {
+                shift(&mut picker.slot);
+                if let Some(replacing) = &mut picker.replacing {
+                    shift(&mut replacing.slot);
+                }
+            }
+        }
+        self.pool_revision = self.pool_revision.wrapping_add(1);
+        self.recheck();
+        true
+    }
 }

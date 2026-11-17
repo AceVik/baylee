@@ -1,17 +1,20 @@
 //! Native pointer gestures produce the same revision-bound commands as buttons.
-use super::{Action, LobbyState, Slot};
-use bevy::{
-    picking::{
-        events::{PointerClick, PointerDrag, PointerDragDrop, PointerDragEnd},
-        pointer::PointerButton,
-    },
-    prelude::*,
+use super::Slot;
+#[cfg(not(target_arch = "wasm32"))]
+use super::{Action, LobbyState};
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::picking::{
+    events::{PointerClick, PointerDrag, PointerDragDrop, PointerDragEnd},
+    pointer::PointerButton,
 };
+use bevy::prelude::*;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 struct Binding(uuid::Uuid, u64);
 
 #[derive(Component)]
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub(super) struct Sale {
     id: u32,
     binding: Binding,
@@ -32,6 +35,7 @@ impl Binding {
 }
 
 #[derive(Component)]
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub(super) struct Owned {
     id: u32,
     binding: Binding,
@@ -45,6 +49,7 @@ impl Owned {
     }
 }
 #[derive(Component)]
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub(super) struct Destination {
     slot: Slot,
     binding: Binding,
@@ -95,7 +100,8 @@ fn gestures(
     parents: Query<&ChildOf>,
     mut state: ResMut<LobbyState>,
 ) {
-    if !state.echoes.opened || state.echoes.model.busy() || state.echoes.confirmation.is_some() {
+    if !state.echoes.opened || state.echoes.model.mutating() || state.echoes.confirmation.is_some()
+    {
         clicks.clear();
         drops.clear();
         return;
@@ -159,7 +165,7 @@ fn drag_visual(
     ends: Option<MessageReader<PointerDragEnd>>,
     owned: Query<&Owned>,
     parents: Query<&ChildOf>,
-    mut nodes: Query<&mut Node>,
+    mut transforms: Query<&mut UiTransform>,
     scale: Option<Res<UiScale>>,
     state: Res<LobbyState>,
     mut ghost: Local<Option<(Entity, Binding, Entity)>>,
@@ -186,7 +192,7 @@ fn drag_visual(
     }
     if ended
         || !state.echoes.opened
-        || state.echoes.model.busy()
+        || state.echoes.model.mutating()
         || state.echoes.confirmation.is_some()
     {
         drags.clear();
@@ -222,9 +228,9 @@ fn drag_visual(
         let position = drag.pointer.position / scale.as_ref().map_or(1.0, |scale| scale.0);
         let side = 64.0;
         if let Some((entity, _, _)) = *ghost {
-            if let Ok(mut node) = nodes.get_mut(entity) {
-                node.left = px(position.x - side * 0.5);
-                node.top = px(position.y - side * 0.5);
+            if let Ok(mut transform) = transforms.get_mut(entity) {
+                transform.translation =
+                    Val2::new(px(position.x - side * 0.5), px(position.y - side * 0.5));
             }
         } else {
             let entity = crate::towerui::drag_ghost(

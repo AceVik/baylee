@@ -72,11 +72,46 @@ pub(super) fn rules(commands: &mut Commands, root: Entity, kit: Kit, id: CardInd
     }
 }
 
-pub(super) fn preview(commands: &mut Commands, root: Entity, kit: Kit, id: CardIndex) {
-    let card = panel(commands, root, kit);
+pub(super) fn preview(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, id: CardIndex) {
+    let lang = lang(kit);
+    let body = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Column,
+                row_gap: kit.m.px(10.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    rules(commands, body, kit, id);
+    let close = controls::button_compact(
+        commands,
+        kit,
+        Some(glyph::CLOSE),
+        Phrase::ShellClose.text(lang),
+        Weight::Secondary,
+        Live::Yes,
+        Press::Echoes(Action::ClosePreview),
+    );
     commands
-        .entity(card)
-        .insert(BorderColor::all(tokens::ACCENT));
-    heading(commands, card, kit, &words::card(id, lang(kit)));
-    rules(commands, card, kit, id);
+        .entity(close)
+        .insert(super::super::keys::stop(Action::ClosePreview, ui));
+    let surface = surfaces::sheet_box(
+        commands,
+        kit,
+        surfaces::SheetWidth::Small,
+        &words::card(id, lang),
+        &[body],
+        &[close],
+    );
+    commands
+        .entity(surface)
+        .insert(Press::Shared(crate::lobby::SharedPress::PickerNothing));
+    let scrim = surfaces::sheet(commands, surface);
+    commands
+        .entity(scrim)
+        .insert(Press::Echoes(Action::ClosePreview));
+    commands.entity(root).add_child(scrim);
 }

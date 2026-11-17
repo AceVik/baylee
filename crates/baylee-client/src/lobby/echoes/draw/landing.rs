@@ -4,22 +4,162 @@ mod progress;
 mod starter;
 pub(super) use progress::{market_progress, progress};
 
-pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
+pub(super) fn draw(
+    commands: &mut Commands,
+    body: Entity,
+    modal_root: Entity,
+    kit: Kit,
+    ui: &Ui,
+    scrolled: &Scrolled,
+) {
     if let Some(id) = ui.preview {
-        card::preview(commands, body, kit, id);
-        control(
-            commands,
-            body,
-            kit,
-            ui,
-            Phrase::ShellClose.text(lang(kit)),
-            Action::ClosePreview,
-            true,
-        );
+        card::preview(commands, modal_root, kit, ui, id);
     }
+    owned_runs(commands, body, kit, ui);
     enrollment(commands, body, kit, ui);
     enrollment_footer(commands, body, kit, ui);
-    starter::inspect(commands, body, kit, ui);
+    starter::inspect(commands, modal_root, kit, ui, scrolled);
+}
+
+fn owned_runs(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
+    if ui.model.runs().is_empty() {
+        return;
+    }
+    let lang = lang(kit);
+    let section = compact_panel(commands, body, kit);
+    heading(commands, section, kit, Phrase::EchoesRuns.text(lang));
+    let list = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Column,
+                row_gap: kit.m.px(8.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+            ChildOf(section),
+        ))
+        .id();
+    for entry in ui.model.runs().iter().take(6) {
+        owned_run_row(commands, list, kit, ui, entry);
+    }
+}
+
+fn owned_run_row(commands: &mut Commands, list: Entity, kit: Kit, ui: &Ui, entry: &api::Run) {
+    let lang = lang(kit);
+    let active = matches!(
+        entry.phase,
+        api::Phase::Shop
+            | api::Phase::Reward
+            | api::Phase::Reserved
+            | api::Phase::Playing
+            | api::Phase::Verifying
+    );
+    let wins = entry
+        .history
+        .iter()
+        .filter(|duel| duel.outcome == domain::v2::run::Outcome::Victory)
+        .count();
+    let defeats = entry.history.len().saturating_sub(wins);
+    let row_card = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                padding: UiRect::axes(kit.m.px(12.0), kit.m.px(10.0)),
+                column_gap: kit.m.px(12.0),
+                row_gap: kit.m.px(6.0),
+                align_items: AlignItems::Center,
+                flex_wrap: FlexWrap::Wrap,
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(kit.m.px(10.0)),
+                ..default()
+            },
+            BackgroundColor(if active {
+                tokens::SELECTED
+            } else {
+                tokens::CONTROL.with_alpha(0.65)
+            }),
+            BorderColor::all(if active {
+                tokens::GOLD.with_alpha(0.60)
+            } else {
+                tokens::BORDER
+            }),
+            surfaces::elevation_subcard(),
+            Pickable::IGNORE,
+            ChildOf(list),
+        ))
+        .id();
+    let commander_name = entry
+        .cards
+        .formation
+        .as_ref()
+        .map(|f| words::card(f.commander, lang));
+    let status = words::phase(entry.phase).text(lang);
+    let title_str = commander_name.map_or_else(
+        || status.to_owned(),
+        |commander| format!("{commander} · {status}"),
+    );
+    let title_label = controls::label(
+        commands,
+        kit,
+        &title_str,
+        kit.m.text,
+        if active { tokens::GOLD } else { tokens::INK },
+    );
+    commands
+        .entity(title_label)
+        .insert(crate::hud::tf_bold(kit.fonts, kit.m.text));
+    commands.entity(row_card).add_child(title_label);
+    let stats_text = format!(
+        "{} · {}",
+        Phrase::EchoesStage.fill(lang, &[&entry.shop.stage.to_string()]),
+        Phrase::EchoesRankingScore.fill(lang, &[&wins.to_string(), &defeats.to_string()])
+    );
+    label(commands, row_card, kit, &stats_text, tokens::MUTED);
+    let spacer = crate::lobby::parts::grow(commands);
+    commands.entity(row_card).add_child(spacer);
+    owned_run_open_button(commands, row_card, kit, ui, entry, active);
+}
+
+fn owned_run_open_button(
+    commands: &mut Commands,
+    row_card: Entity,
+    kit: Kit,
+    ui: &Ui,
+    entry: &api::Run,
+    active: bool,
+) {
+    let lang = lang(kit);
+    let cta = if active {
+        Phrase::EchoesReturnShop.text(lang)
+    } else {
+        Phrase::EchoesInspect.text(lang)
+    };
+    let open_btn = controls::button_compact(
+        commands,
+        kit,
+        Some(if active {
+            glyph::ARROW_RIGHT
+        } else {
+            glyph::EYE
+        }),
+        cta,
+        if active {
+            Weight::Gold
+        } else {
+            Weight::Secondary
+        },
+        if !ui.model.mutating() && ui.choices.deck_unchanged(ui.model.run()) {
+            Live::Yes
+        } else {
+            Live::No(Phrase::EchoesUnavailable.text(lang))
+        },
+        Press::Echoes(Action::Read(Read::Run(entry.id))),
+    );
+    commands
+        .entity(open_btn)
+        .insert(super::keys::stop(Action::Read(Read::Run(entry.id)), ui));
+    commands.entity(row_card).add_child(open_btn);
 }
 
 fn enrollment(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
@@ -35,9 +175,10 @@ fn enrollment(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
             .entity(card)
             .entry::<Node>()
             .and_modify(move |mut node| {
-                node.padding = UiRect::all(kit.m.px(12.0));
-                node.row_gap = kit.m.px(10.0);
+                node.padding = UiRect::all(kit.m.px(16.0));
+                node.row_gap = kit.m.px(12.0);
             });
+        heading(commands, card, kit, Phrase::EchoesNewRun.text(lang));
         if !run_format {
             label(
                 commands,
@@ -120,9 +261,10 @@ fn enrollment(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
 
 fn no_cohorts(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
     if ui.loaded && ui.model.cohorts().is_empty() {
+        let card = compact_panel(commands, body, kit);
         label(
             commands,
-            body,
+            card,
             kit,
             Phrase::EchoesNoEnrollment.text(lang(kit)),
             tokens::MUTED,
@@ -154,7 +296,7 @@ fn choices(commands: &mut Commands, card: Entity, kit: Kit, run_format: bool) ->
 
 fn enrollment_footer(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
     let lang = lang(kit);
-    let privacy = row(commands, body, kit);
+    let privacy = compact_panel(commands, body, kit);
     widgets::paragraph(
         commands,
         privacy,
@@ -162,18 +304,21 @@ fn enrollment_footer(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
         Phrase::EchoesStartSharing.text(lang),
         tokens::MUTED,
     );
+    let bottom = row(commands, privacy, kit);
     if ui.withdrawn {
         label(
             commands,
-            privacy,
+            bottom,
             kit,
             Phrase::EchoesWithdrawn.text(lang),
             tokens::ACCENT,
         );
     }
+    let spacer = crate::lobby::parts::grow(commands);
+    commands.entity(bottom).add_child(spacer);
     control(
         commands,
-        privacy,
+        bottom,
         kit,
         ui,
         Phrase::EchoesWithdraw.text(lang),

@@ -437,3 +437,195 @@ fn another_package_or_changed_deck_cannot_supply_rewards() {
             .is_err()
     );
 }
+
+fn runic_rarity_fixture() -> (Catalog, Run, Cohort, Build) {
+    use crate::cards::{CardRarity, Presentation};
+    use baylee_core::preset::Finish;
+
+    let (mut catalog, run, cohort, enemy) = fixture_for(generation::RUNIC);
+    let rarities = [
+        CardRarity::Common,
+        CardRarity::Uncommon,
+        CardRarity::Rare,
+        CardRarity::Mythic,
+    ];
+    for (idx, card) in catalog.cards.iter_mut().enumerate() {
+        card.run.as_mut().unwrap().presentation = Some(Presentation {
+            printing: uuid::Uuid::from_u128(u128::try_from(idx + 1).unwrap()),
+            finish: Finish::Normal,
+            rarity: rarities[idx % rarities.len()],
+        });
+    }
+    let cohort = Cohort::for_generation(cohort.executor, &catalog, generation::RUNIC).unwrap();
+    (catalog, run, cohort, enemy)
+}
+
+#[test]
+fn selling_unused_starter_cards_conserves_ledger_and_omits_empty_field() {
+    let (catalog, mut run, _, _) = runic_rarity_fixture();
+    run.validate(&catalog).unwrap();
+    assert!(
+        !serde_json::to_string(&run).unwrap().contains("sold_cards"),
+        "untouched runs omit sold_cards on the wire"
+    );
+
+    for blocked in [4, 5, 6, 7, 9] {
+        assert!(
+            run.command(
+                run.revision,
+                &Command::SellCard {
+                    card: CardIndex::new(blocked),
+                },
+                &catalog,
+                &SEED,
+            )
+            .is_err()
+        );
+    }
+
+    let mut formation = run.cards.formation.clone().unwrap();
+    formation.sideboard.clear();
+    run = run
+        .command(
+            run.revision,
+            &Command::Refit {
+                deck: vec![
+                    Stack {
+                        card: CardIndex::new(4),
+                        copies: 38,
+                    },
+                    Stack {
+                        card: CardIndex::new(7),
+                        copies: 1,
+                    },
+                ],
+                formation,
+            },
+            &catalog,
+            &SEED,
+        )
+        .unwrap();
+
+    let before_gold = run.economy.gold;
+    let expect_6 = catalog.card_sale_gold(CardIndex::new(6)).unwrap();
+    let expect_9 = catalog.card_sale_gold(CardIndex::new(9)).unwrap();
+    for id in [6, 9] {
+        run = run
+            .command(
+                run.revision,
+                &Command::SellCard {
+                    card: CardIndex::new(id),
+                },
+                &catalog,
+                &SEED,
+            )
+            .unwrap();
+    }
+    assert_eq!(run.economy.gold, before_gold + expect_6 + expect_9);
+    assert_eq!(run.sold_cards, vec![CardIndex::new(6), CardIndex::new(9)]);
+    run.validate(&catalog).unwrap();
+}
+
+#[test]
+fn selling_claimed_reward_cards_preserves_history_and_rejects_forgery() {
+    let (catalog, mut run, cohort, enemy) = runic_rarity_fixture();
+    let mut formation = run.cards.formation.clone().unwrap();
+    formation.sideboard.clear();
+    run = run
+        .command(
+            run.revision,
+            &Command::Refit {
+                deck: vec![
+                    Stack {
+                        card: CardIndex::new(4),
+                        copies: 38,
+                    },
+                    Stack {
+                        card: CardIndex::new(7),
+                        copies: 1,
+                    },
+                ],
+                formation,
+            },
+            &catalog,
+            &SEED,
+        )
+        .unwrap();
+    run = run
+        .command(
+            run.revision,
+            &Command::SellCard {
+                card: CardIndex::new(6),
+            },
+            &catalog,
+            &SEED,
+        )
+        .unwrap();
+
+    let (sealed, package, result) = verified(&run, &catalog, &cohort, &enemy, Outcome::Victory);
+    let pending = sealed
+        .settled_against(sealed.revision, result, &catalog, &SEED, &package)
+        .unwrap();
+    assert!(
+        pending
+            .command(
+                pending.revision,
+                &Command::SellCard {
+                    card: CardIndex::new(9),
+                },
+                &catalog,
+                &SEED,
+            )
+            .is_err(),
+        "SellCard is forbidden during Phase::Reward"
+    );
+    let chosen = pending.reward.as_ref().unwrap().cards[..3].to_vec();
+    run = pending
+        .command(
+            pending.revision,
+            &Command::Claim {
+                cards: chosen.clone(),
+            },
+            &catalog,
+            &SEED,
+        )
+        .unwrap();
+    run.validate(&catalog).unwrap();
+
+    if let Some(&reclaimed) = chosen
+        .iter()
+        .find(|&&c| c != CardIndex::new(5) && c != CardIndex::new(7))
+    {
+        let prior = run.economy.gold;
+        let val = catalog.card_sale_gold(reclaimed).unwrap();
+        run = run
+            .command(
+                run.revision,
+                &Command::SellCard { card: reclaimed },
+                &catalog,
+                &SEED,
+            )
+            .unwrap();
+        assert_eq!(run.economy.gold, prior + val);
+        run.validate(&catalog).unwrap();
+    }
+
+    let mut forged = run.clone();
+    forged.economy.gold += 1;
+    assert!(forged.validate(&catalog).is_err());
+
+    let mut unbacked_card = run.clone();
+    unbacked_card.sold_cards.push(CardIndex::new(7));
+    assert!(unbacked_card.validate(&catalog).is_err());
+
+    let mut basic_sale = run.clone();
+    basic_sale.sold_cards.push(CardIndex::new(4));
+    assert!(basic_sale.validate(&catalog).is_err());
+
+    let mut impossible_copies = run;
+    impossible_copies
+        .sold_cards
+        .extend([CardIndex::new(7), CardIndex::new(7)]);
+    impossible_copies.economy.gold += 2 * catalog.card_sale_gold(CardIndex::new(7)).unwrap();
+    assert!(impossible_copies.validate(&catalog).is_err());
+}

@@ -219,6 +219,9 @@ pub(super) fn says(
     let Some(item) = board.stack.iter().find(|item| item.id == id) else {
         return granted(view, statics, lang, faces.texts, id);
     };
+    if crate::hud::stack::stack_item_goods(item, view).is_some() {
+        return None;
+    }
     // The face is the slip when the player has asked for it. Not
     // `preview_face(..).is_some()`: that is also how a card with no art yet
     // is drawn, which is every card offline.

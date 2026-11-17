@@ -73,6 +73,7 @@ pub(crate) fn install(app: &mut App) {
 }
 
 /// The first time the chat opens on a device, the notice stands first.
+/// Opening the contacts drawer alone does not raise a blocking modal over it.
 fn first_run(host: Res<SocialHost>, mut ui: ResMut<ChatUi>) {
     let Some(machine) = host.machine() else {
         return;
@@ -80,7 +81,7 @@ fn first_run(host: Res<SocialHost>, mut ui: ResMut<ChatUi>) {
     if machine.encryption_note().seen || ui.sheet.is_some() {
         return;
     }
-    if (ui.open && ui.tab.is_chat()) || ui.drawer {
+    if ui.open && ui.tab.is_chat() {
         ui.sheet = Some(Sheet::Encryption(None));
     }
 }
@@ -88,12 +89,17 @@ fn first_run(host: Res<SocialHost>, mut ui: ResMut<ChatUi>) {
 #[allow(clippy::too_many_lines)] // one arm per control
 fn presses(
     mut clicks: Clicks<SheetPress>,
+    keys: Option<Res<ButtonInput<KeyCode>>>,
     mut host: ResMut<SocialHost>,
     mut ui: ResMut<ChatUi>,
     mut prefs: Option<ResMut<crate::prefs::Prefs>>,
     mut forget_armed: Local<bool>,
 ) {
-    let clicked: Vec<SheetPress> = clicks.read();
+    let mut clicked: Vec<SheetPress> = clicks.read();
+    if ui.sheet.is_some() && keys.is_some_and(|k| k.just_pressed(KeyCode::Escape)) {
+        clicked.push(SheetPress::Close);
+        ui.swallow = true;
+    }
     for press in clicked {
         let Some(machine) = host.machine() else {
             return;
@@ -104,7 +110,15 @@ fn presses(
             *forget_armed = false;
         }
         match press {
-            SheetPress::Close => ui.sheet = None,
+            SheetPress::Close => {
+                if matches!(ui.sheet, Some(Sheet::Encryption(None))) {
+                    host.act(Intent::NoticeSeen);
+                    if let Some(chat) = host.machine().map(|m| m.prefs().clone()) {
+                        super::window::save_prefs(&mut host, prefs.as_deref_mut(), chat);
+                    }
+                }
+                ui.sheet = None;
+            }
             SheetPress::GotIt => {
                 host.act(Intent::NoticeSeen);
                 if let Some(chat) = host.machine().map(|m| m.prefs().clone()) {
@@ -471,6 +485,8 @@ fn sync(
     let card = commands
         .spawn((
             crate::shellkit::Role::Opaque,
+            Pickable::default(),
+            ZIndex(1),
             Node {
                 width: zpx(560.0),
                 max_height: Val::Percent(88.0),
@@ -486,7 +502,23 @@ fn sync(
             super::rows::glass_shadow(),
         ))
         .id();
-    commands.entity(scrim).add_child(card);
+    let backdrop = commands
+        .spawn((
+            UiButton,
+            SheetPress::Close,
+            ZIndex(0),
+            Node {
+                position_type: PositionType::Absolute,
+                left: zpx(0.0),
+                right: zpx(0.0),
+                top: zpx(0.0),
+                bottom: zpx(0.0),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+        ))
+        .id();
+    commands.entity(scrim).add_children(&[card, backdrop]);
     let title = match sheet {
         Sheet::Encryption(_) | Sheet::Safety(_) => ChatPhrase::EncryptionTitle,
         Sheet::Privacy => ChatPhrase::PrivacyTitle,

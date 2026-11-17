@@ -72,6 +72,8 @@ fn the_builder_screen_builds_with_its_controls() {
         Press::Build(BuildPress::ToggleColor('G')),
         Press::Build(BuildPress::ToggleRail),
         Press::Build(BuildPress::ToggleSyntax),
+        Press::Build(BuildPress::ToggleHideInDeck),
+        Press::Build(BuildPress::ToggleHideInSideboard),
         Press::Build(BuildPress::TogglePlayable),
         Press::Build(BuildPress::CycleSort),
         Press::Build(BuildPress::ToggleHeaderMenu),
@@ -510,6 +512,7 @@ fn issue_188_adding_a_card_keeps_the_pool_and_its_scroll_position() {
         .entity_mut(pool_entity)
         .insert(ScrollPosition(Vec2::new(0.0, 90.0)));
 
+    // Default `hide_in_deck` hides the added card while preserving scroll offset.
     let card = press_target(&mut app, Press::Build(BuildPress::AddFromPool(0, false)));
     tap(&mut app, card);
     app.update();
@@ -524,10 +527,33 @@ fn issue_188_adding_a_card_keeps_the_pool_and_its_scroll_position() {
         (pool - 90.0).abs() < f32::EPSILON,
         "the new list opens where the old one was, not at the top: {pool}"
     );
+    assert!(
+        !presses(&mut app).contains(&Press::Build(BuildPress::AddFromPool(0, false))),
+        "added card is hidden from pool by default"
+    );
+
+    // With `hide_in_deck` toggled off, adding a second copy retains the exact
+    // pool entity without rebuilding `pool::list`.
+    press(&mut app, Press::Build(BuildPress::ToggleHideInDeck));
+    app.world_mut()
+        .resource_mut::<Scrolled>()
+        .set(List::Pool, 90.0);
+    let mut lists = app.world_mut().query::<(Entity, &Scrollable)>();
+    let retained_pool = lists
+        .iter(app.world())
+        .find(|(_, list)| list.0 == List::Pool)
+        .unwrap()
+        .0;
+    app.world_mut()
+        .entity_mut(retained_pool)
+        .insert(ScrollPosition(Vec2::new(0.0, 90.0)));
+    let card_again = press_target(&mut app, Press::Build(BuildPress::AddFromPool(0, false)));
+    tap(&mut app, card_again);
+    app.update();
 
     assert!(
-        app.world().get_entity(pool_entity).is_ok(),
-        "adding must retain the pool tree"
+        app.world().get_entity(retained_pool).is_ok(),
+        "adding additional copies while hide_in_deck is off must retain the pool tree"
     );
 
     // A different search *is* a different list, and starts at the top.
@@ -1617,4 +1643,148 @@ fn draw_seven_requests_reveal_even_when_it_draws_the_same_cards_again() {
             "each draw asks to reveal its result"
         );
     }
+}
+
+#[test]
+fn search_gear_opens_floating_glass_overlay_with_zero_pool_layout_shift_and_closes_cleanly() {
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .build_deck();
+    app.update();
+
+    let mut lists = app.world_mut().query::<(Entity, &Scrollable)>();
+    let pool_entity = lists
+        .iter(app.world())
+        .find(|(_, list)| list.0 == List::Pool)
+        .unwrap()
+        .0;
+
+    // Opening the Search Filter Gear Overlay leaves the pool list untouched
+    // (zero layout shift) and mounts a floating opaque glass popover at Z=POPOVER.
+    press(&mut app, Press::Build(BuildPress::ToggleFilterPanel));
+    assert!(
+        app.world().get_entity(pool_entity).is_ok(),
+        "opening the Search Gear Overlay must not rebuild or shift the pool list"
+    );
+    let found = presses(&mut app);
+    for wanted in [
+        Press::Build(BuildPress::SetKind(Some("Creature"))),
+        Press::Build(BuildPress::SetCmc(2)),
+        Press::Build(BuildPress::SetRarity(Some(
+            baylee_client_core::deckbuilder::Rarity::Rare,
+        ))),
+        Press::Build(BuildPress::SelectSort(
+            baylee_client_core::deckbuilder::Sort::Cost,
+        )),
+        Press::Build(BuildPress::ToggleHideInDeck),
+        Press::Build(BuildPress::ToggleHideInSideboard),
+        Press::Build(BuildPress::ClearFilters),
+        Press::Build(BuildPress::CloseFilterPanel),
+    ] {
+        assert!(
+            found.contains(&wanted),
+            "floating Gear Overlay missing control {wanted:?}"
+        );
+    }
+
+    let mut popovers = app.world_mut().query::<(
+        &crate::shellkit::Role,
+        &Node,
+        &GlobalZIndex,
+        &BoxShadow,
+        &BackgroundColor,
+    )>();
+    let has_floating_glass = popovers
+        .iter(app.world())
+        .any(|(role, node, z, shadow, bg)| {
+            *role == crate::shellkit::Role::Opaque
+                && node.position_type == PositionType::Absolute
+                && node.max_height == Val::Vh(72.0)
+                && *z == GlobalZIndex(crate::shellkit::tokens::z::POPOVER)
+                && *shadow == crate::shellkit::surfaces::popover_shadow()
+                && *bg == BackgroundColor(Color::NONE)
+        });
+    assert!(
+        has_floating_glass,
+        "Gear Overlay must float at GlobalZIndex(POPOVER), clamp height to Val::Vh(72.0), and use single-layer smoked glass"
+    );
+    let mut gear_scrollers = app.world_mut().query_filtered::<&ScrollPosition, (
+        With<crate::buildui::pool::GearScroll>,
+        With<crate::shellkit::surfaces::SheetScroller>,
+    )>();
+    assert_eq!(
+        gear_scrollers.iter(app.world()).count(),
+        1,
+        "Gear Overlay body must mount a SheetScroller so mouse wheel scrolls cleanly on 900px/720px windows"
+    );
+
+    // Clicking the click-outside veil (`CloseFilterPanel`) dismisses the overlay.
+    press(&mut app, Press::Build(BuildPress::CloseFilterPanel));
+    assert!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .builder()
+            .pool_panel()
+            .is_none()
+    );
+}
+
+#[test]
+fn default_hide_in_deck_and_sideboard_switches_toggle_pool_rows_with_one_click() {
+    use baylee_client_core::deckbuilder::Zone;
+
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .build_deck();
+    app.update();
+
+    press(&mut app, Press::Build(BuildPress::AddFromPool(0, false)));
+    assert!(
+        !presses(&mut app).contains(&Press::Build(BuildPress::AddFromPool(0, false))),
+        "card in main deck hidden by default"
+    );
+
+    press(
+        &mut app,
+        Press::Build(BuildPress::SetTab(crate::buildui::DeckTab::Side)),
+    );
+    press(&mut app, Press::Build(BuildPress::AddFromPool(1, false)));
+    assert!(
+        !presses(&mut app).contains(&Press::Build(BuildPress::AddFromPool(1, false))),
+        "card in sideboard hidden by default"
+    );
+
+    // One click on `Not in deck` reveals card 0 for adding additional copies.
+    press(&mut app, Press::Build(BuildPress::ToggleHideInDeck));
+    assert!(presses(&mut app).contains(&Press::Build(BuildPress::AddFromPool(0, false))));
+    assert!(!presses(&mut app).contains(&Press::Build(BuildPress::AddFromPool(1, false))));
+
+    // One click on `Not in side` reveals card 1 as well.
+    press(&mut app, Press::Build(BuildPress::ToggleHideInSideboard));
+    assert!(presses(&mut app).contains(&Press::Build(BuildPress::AddFromPool(1, false))));
+    assert_eq!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .builder()
+            .count_of(0, Zone::Main),
+        1
+    );
+    assert_eq!(
+        app.world()
+            .resource::<LobbyState>()
+            .lobby
+            .builder()
+            .count_of(1, Zone::Side),
+        1
+    );
 }

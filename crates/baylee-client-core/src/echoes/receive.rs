@@ -178,10 +178,13 @@ impl State {
     }
 
     fn install(&mut self, run: Run) {
-        if let Some(listed) = self.runs.iter_mut().find(|listed| listed.id == run.id)
-            && listed.revision <= run.revision
-        {
-            *listed = run.clone();
+        if let Some(listed) = self.runs.iter_mut().find(|listed| listed.id == run.id) {
+            if listed.revision <= run.revision {
+                *listed = run.clone();
+            }
+        } else {
+            self.runs.insert(0, run.clone());
+            self.runs.truncate(api::PAGE_SIZE);
         }
         if self.selected == Some(run.id)
             && self
@@ -190,7 +193,16 @@ impl State {
                 .is_none_or(|old| old.id != run.id || old.revision <= run.revision)
         {
             if self.run.as_ref() != Some(&run) {
-                self.clear_route();
+                let keep_hosts = self.run.as_ref().is_some_and(|old| {
+                    old.id == run.id
+                        && old.cohort == run.cohort
+                        && old.phase == Phase::Shop
+                        && run.phase == Phase::Shop
+                });
+                if !keep_hosts {
+                    self.hosts.clear();
+                }
+                self.location = None;
             }
             self.run = Some(run);
         }

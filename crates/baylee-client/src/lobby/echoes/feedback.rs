@@ -46,6 +46,7 @@ fn observe(
     prefs: Option<Res<crate::prefs::Prefs>>,
     places: Query<(&Place, Ref<ComputedNode>, Ref<UiGlobalTransform>)>,
     effects: Query<Entity, With<Transient>>,
+    mut sounds: Option<MessageWriter<crate::sound::tower::TowerSound>>,
     mut previous: Local<Retained>,
 ) {
     let Some(run) = state.echoes.model.run() else {
@@ -116,6 +117,11 @@ fn observe(
     let reduced = prefs
         .as_ref()
         .is_some_and(|prefs| prefs.all().reduce_motion);
+    if let Some(change) = &changes
+        && let Some(sounds) = sounds.as_mut()
+    {
+        emit_sound(change, run, sounds);
+    }
     if let Some(change) = changes.filter(|_| !reduced) {
         // Cancel old flights when a newer confirmed command arrives. Cosmetic
         // entities are bounded even under rapid buying/reordered socket replies.
@@ -166,6 +172,11 @@ fn render(
         let shelf = change.purchase.map_or(Anchor::Shelf, Anchor::Offer);
         let endpoints = if change.gold < 0 {
             (point(before, Anchor::Wallet), point(before, shelf))
+        } else if let Some(sold) = change.sold {
+            (
+                point(before, Anchor::Item(sold)),
+                point(after, Anchor::Wallet),
+            )
         } else {
             (point(after, Anchor::Shelf), point(after, Anchor::Wallet))
         };
@@ -175,5 +186,34 @@ fn render(
                 commands.entity(entity).insert(Transient);
             }
         }
+    }
+}
+
+fn emit_sound(
+    change: &feedback::Change,
+    run: &api::Run,
+    sounds: &mut MessageWriter<crate::sound::tower::TowerSound>,
+) {
+    use crate::sound::tower::TowerSound;
+    if change.fused.is_some() {
+        sounds.write(TowerSound::Fusion);
+    } else if change.purchase.is_some() {
+        sounds.write(TowerSound::Buy);
+    } else if change.sold.is_some() {
+        sounds.write(TowerSound::Sell);
+    } else if let Some(flight) = change.flights.first()
+        && let Anchor::Item(id) = flight.to
+    {
+        let equipped = run
+            .economy
+            .inventory
+            .relics
+            .iter()
+            .any(|r| r.id == id && matches!(r.slot, super::Slot::Active(_)));
+        sounds.write(if equipped {
+            TowerSound::Equip
+        } else {
+            TowerSound::Store
+        });
     }
 }

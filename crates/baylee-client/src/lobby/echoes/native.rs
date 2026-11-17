@@ -101,23 +101,49 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
     }
     let ui = &mut state.echoes;
     if action == Action::Open {
+        if !ui.opened {
+            ui.sounds.push(crate::sound::tower::TowerSound::Open);
+        }
         ui.opened = true;
         if !ui.model.busy() {
             ui.refresh();
         }
         return;
     }
-    if ui.model.busy()
+    if ui.model.mutating()
         || (ui.confirmation.is_some() && !matches!(action, Action::Accept | Action::Cancel))
-        || (ui.starter_preview.is_some() && action != Action::ClosePreview)
+        || ((ui.starter_preview.is_some() || ui.preview.is_some())
+            && action != Action::ClosePreview)
     {
         return;
     }
     if navigate(ui, action) {
+        ui.sounds.push(match action {
+            Action::Select(_)
+            | Action::Offer(_)
+            | Action::InspectCard(_)
+            | Action::InspectStarter(..) => crate::sound::tower::TowerSound::Select,
+            _ => crate::sound::tower::TowerSound::Tab,
+        });
         return;
     }
+    let work = choose_work(ui, action);
+    if let Some(work) = work {
+        submit(state, work);
+    } else if matches!(
+        action,
+        Action::Select(_) | Action::Offer(_) | Action::Reward(_) | Action::Material(_)
+    ) {
+        state
+            .echoes
+            .sounds
+            .push(crate::sound::tower::TowerSound::Select);
+    }
+}
+
+fn choose_work(ui: &mut Ui, action: Action) -> Option<Work> {
     let id = Uuid::now_v7();
-    let work = match action {
+    match action {
         Action::Refresh => {
             if ui.page == Page::Collection {
                 ui.collection.refresh();
@@ -163,13 +189,13 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
             None
         }
         _ => super::choices::act(ui, action),
-    };
-    if let Some(work) = work {
-        submit(state, work);
     }
 }
 
 fn accept(ui: &mut Ui, id: Uuid) -> Option<Work> {
+    if ui.model.busy() {
+        return None;
+    }
     match ui.confirmation.take() {
         Some(Confirmation::Listing(revision))
             if ui
@@ -209,23 +235,34 @@ fn navigate(ui: &mut Ui, action: Action) -> bool {
             if let Some(cohort) = cohort {
                 ui.ranking = Some((cohort, api::ranking::Lane::Echoes));
                 ui.page = Page::Ranking;
+                ui.preview = None;
+                ui.starter_preview = None;
                 ui.refresh();
             }
         }
-        Action::Page(page) => ui.page = page,
+        Action::Page(page) => {
+            ui.page = page;
+            ui.preview = None;
+            ui.starter_preview = None;
+        }
         Action::Badge(kind) => ui.collection.selected = kind,
-        Action::GoShop => ui.page = Page::Shop,
-        Action::InspectCard(card) => ui.preview = Some(card),
-        Action::InspectStarter(cohort, starter) => ui.starter_preview = Some((cohort, starter)),
+        Action::GoShop => {
+            ui.page = Page::Shop;
+            ui.preview = None;
+            ui.starter_preview = None;
+        }
+        Action::InspectCard(card) => {
+            ui.starter_preview = None;
+            ui.preview = Some(card);
+        }
+        Action::InspectStarter(cohort, starter) => {
+            ui.preview = None;
+            ui.starter_preview = Some((cohort, starter));
+        }
         Action::ClosePreview => {
             ui.preview = None;
             ui.starter_preview = None;
         }
-        Action::DeckZone(zone) => {
-            ui.deck.zone = zone;
-            ui.deck.page = 0;
-        }
-        Action::DeckPage(page) => ui.deck.page = page,
         Action::Tiers(family) => ui.tiers = (ui.tiers != Some(family)).then_some(family),
         Action::InventoryPage(page) => ui.bag.page = page,
         Action::InventoryOrder(order) => {
@@ -236,6 +273,9 @@ fn navigate(ui: &mut Ui, action: Action) -> bool {
             ui.bag.grouped = grouped;
             ui.bag.page = 0;
         }
+        Action::ToggleSpareCards => ui.spare_cards_open = !ui.spare_cards_open,
+        Action::ToggleRewardGold => ui.reward_gold_open = !ui.reward_gold_open,
+        Action::ToggleRewardDeck => ui.reward_deck_open = !ui.reward_deck_open,
         _ => return false,
     }
     true
@@ -247,16 +287,40 @@ fn read_page(ui: &mut Ui, id: Uuid, read: Read) -> Option<Work> {
     }
     ui.reads.clear();
     ui.confirmation = None;
+    if ui.model.busy() {
+        match read {
+            Read::Ranking(cohort, lane) if cohort.get_version_num() == 7 => {
+                ui.page = Page::Ranking;
+                ui.ranking = Some((cohort, lane));
+                ui.preview = None;
+                ui.starter_preview = None;
+            }
+            Read::Run(run)
+                if run.get_version_num() == 7
+                    && (!ui.model.uncertain() || ui.model.run().map(|r| r.id) == Some(run)) =>
+            {
+                ui.page = Page::Shop;
+                ui.preview = None;
+                ui.starter_preview = None;
+            }
+            _ => {}
+        }
+        ui.reads.push_front(read);
+        return None;
+    }
     let work = ui.model.read(id, read);
     if work.is_some()
         && let Read::Ranking(cohort, lane) = read
     {
         ui.page = Page::Ranking;
         ui.ranking = Some((cohort, lane));
+        ui.preview = None;
+        ui.starter_preview = None;
     }
     if work.is_some() && matches!(read, Read::Run(_)) {
         ui.page = Page::Shop;
         ui.preview = None;
+        ui.starter_preview = None;
     }
     work
 }
@@ -342,8 +406,17 @@ pub(super) fn tick(
     time: Res<Time>,
     mut state: ResMut<LobbyState>,
     mut scrolled: ResMut<super::Scrolled>,
+    mut sounds: Option<MessageWriter<crate::sound::tower::TowerSound>>,
     mut clock: Local<f64>,
 ) {
+    if !state.echoes.sounds.is_empty() {
+        let drained = std::mem::take(&mut state.bypass_change_detection().echoes.sounds);
+        if let Some(sounds) = sounds.as_mut() {
+            for cue in drained {
+                sounds.write(cue);
+            }
+        }
+    }
     let changed = match (state.central_handle(), &state.echoes.session) {
         (Some(a), Some(b)) => !a.same_session(b),
         (None, None) => false,
@@ -364,54 +437,17 @@ pub(super) fn tick(
         .lock()
         .ok()
         .and_then(|mut slot| slot.take());
-    if let Some(reply) = reply {
-        let previous = state.echoes.model.run().map(|run| (run.id, run.phase));
-        let withdrawn = matches!(reply.response, Some(api::Response::Withdrawn {}));
-        let enrolled = matches!(reply.work.request(), Some(api::Request::Start { .. }))
-            && matches!(reply.response, Some(api::Response::Run { .. }));
-        let follows = matches!(reply.response, Some(api::Response::Run { .. }));
-        let loaded = matches!(reply.response, Some(api::Response::Cohorts { .. }));
-        let listed = matches!(reply.response, Some(api::Response::Listing { .. }));
-        let resume = matches!(reply.response, Some(api::Response::Runs { .. }))
-            && state.echoes.model.run().is_none();
-        if state
-            .echoes
-            .model
-            .receive(&reply.work, reply.response, reply.failure)
-        {
-            if previous != state.echoes.model.run().map(|run| (run.id, run.phase)) {
-                scrolled.set(super::List::Table, 0.0);
-                scrolled.set(super::List::EchoesInspector, 0.0);
-                state.echoes.preview = None;
-            }
-            state.echoes.loaded |= loaded;
-            if resume {
-                resume_active(&mut state.echoes);
-            }
-            state.echoes.withdrawn |= withdrawn;
-            if enrolled {
-                state.echoes.withdrawn = false;
-                state.echoes.page = Page::Shop;
-                state.echoes.preview = None;
-            }
-            if let Some(run) = state.echoes.model.run().cloned() {
-                state.echoes.choices.bind(&run);
-            }
-            if follows {
-                state.echoes.follow_run();
-            }
-            if listed {
-                state.echoes.refresh();
-            }
-            if reply.failure.is_some() {
-                state.echoes.reads.clear();
-            }
-            *clock = time.elapsed_secs_f64();
-            if let Some(seat) = reply.seat {
-                enter(&mut state, seat);
-                return;
-            }
-        }
+    if let Some(reply) = reply
+        && apply_reply(
+            &mut state,
+            &mut scrolled,
+            sounds.as_mut(),
+            &mut clock,
+            time.elapsed_secs_f64(),
+            reply,
+        )
+    {
+        return;
     }
     if !state.echoes.model.busy() && super::builder::pending(&state) {
         super::builder::reconcile(&mut state, time.elapsed_secs_f64());
@@ -423,6 +459,9 @@ pub(super) fn tick(
         state.echoes.returning = None;
         state.hub = Hub::Challenges;
         ask(&mut state, Action::Read(Read::Run(run)));
+        if !state.echoes.loaded {
+            state.echoes.reads.push_back(Read::Cohorts(None));
+        }
         return;
     }
     if !showing {
@@ -446,7 +485,128 @@ pub(super) fn tick(
     }
 }
 
+fn apply_reply(
+    state: &mut LobbyState,
+    scrolled: &mut super::Scrolled,
+    mut sounds: Option<&mut MessageWriter<crate::sound::tower::TowerSound>>,
+    clock: &mut f64,
+    now: f64,
+    reply: Finished,
+) -> bool {
+    let previous = state.echoes.model.run().map(|run| (run.id, run.phase));
+    let was_frozen = state.echoes.model.run().map(|run| run.shop.frozen);
+    let command_kind = match reply.work.request() {
+        Some(api::Request::Command { command, .. }) => Some(command.clone()),
+        _ => None,
+    };
+    let withdrawn = matches!(reply.response, Some(api::Response::Withdrawn {}));
+    let enrolled = matches!(reply.work.request(), Some(api::Request::Start { .. }))
+        && matches!(reply.response, Some(api::Response::Run { .. }));
+    let follows = matches!(reply.response, Some(api::Response::Run { .. }));
+    let loaded = matches!(reply.response, Some(api::Response::Cohorts { .. }));
+    let listed = matches!(reply.response, Some(api::Response::Listing { .. }));
+    let resume = matches!(reply.response, Some(api::Response::Runs { .. }))
+        && state.echoes.model.run().is_none();
+    let failed = reply.failure.is_some();
+    if !state
+        .echoes
+        .model
+        .receive(&reply.work, reply.response, reply.failure)
+    {
+        return false;
+    }
+    let now_run = state.echoes.model.run().map(|run| (run.id, run.phase));
+    if previous != now_run {
+        scrolled.set(super::List::Table, 0.0);
+        scrolled.set(super::List::EchoesInspector, 0.0);
+        state.echoes.preview = None;
+        state.echoes.starter_preview = None;
+        state.echoes.spare_cards_open = false;
+        state.echoes.reward_gold_open = false;
+        state.echoes.reward_deck_open = false;
+        if matches!(now_run, Some((_, api::Phase::Reward)))
+            && let Some(sounds) = sounds.as_deref_mut()
+        {
+            sounds.write(crate::sound::tower::TowerSound::RewardReveal);
+        }
+    }
+    if let Some(sounds) = sounds.as_deref_mut() {
+        reply_sound(sounds, failed, enrolled, command_kind.as_ref(), was_frozen);
+    }
+    state.echoes.loaded |= loaded;
+    if resume {
+        resume_active(&mut state.echoes);
+    }
+    state.echoes.withdrawn |= withdrawn;
+    if enrolled {
+        state.echoes.withdrawn = false;
+        state.echoes.page = Page::Shop;
+        state.echoes.preview = None;
+        state.echoes.starter_preview = None;
+    }
+    if let Some(run) = state.echoes.model.run().cloned() {
+        state.echoes.choices.bind(&run);
+    }
+    if follows {
+        state.echoes.follow_run();
+    }
+    if listed {
+        state.echoes.refresh();
+    }
+    if failed {
+        state.echoes.reads.clear();
+    }
+    *clock = now;
+    if let Some(seat) = reply.seat {
+        if let Some(sounds) = sounds {
+            sounds.write(crate::sound::tower::TowerSound::StageEnter);
+        }
+        enter(state, seat);
+        return true;
+    }
+    false
+}
+
+fn reply_sound(
+    sounds: &mut MessageWriter<crate::sound::tower::TowerSound>,
+    failed: bool,
+    enrolled: bool,
+    command_kind: Option<&super::domain::v2::run::Command>,
+    was_frozen: Option<bool>,
+) {
+    use super::domain::v2::run::Command as Cmd;
+    use crate::sound::tower::TowerSound;
+    if failed {
+        sounds.write(TowerSound::Refused);
+    } else if enrolled {
+        sounds.write(TowerSound::DraftStart);
+    } else if let Some(cmd) = command_kind {
+        match cmd {
+            Cmd::Refresh {} => {
+                sounds.write(TowerSound::Reroll);
+            }
+            Cmd::Freeze { frozen } if was_frozen != Some(*frozen) => {
+                sounds.write(if *frozen {
+                    TowerSound::Freeze
+                } else {
+                    TowerSound::Thaw
+                });
+            }
+            Cmd::Claim { .. } => {
+                sounds.write(TowerSound::RewardClaim);
+            }
+            Cmd::SellCard { .. } => {
+                sounds.write(TowerSound::Sell);
+            }
+            _ => {}
+        }
+    }
+}
+
 fn resume_active(ui: &mut Ui) {
+    if matches!(ui.reads.front(), Some(Read::Run(_))) {
+        return;
+    }
     if let Some(run) = ui
         .model
         .runs()
@@ -464,7 +624,11 @@ fn resume_active(ui: &mut Ui) {
         .map(|run| run.id)
     {
         ui.reads.push_front(Read::Run(run));
-        ui.page = Page::Shop;
+        if !matches!(ui.page, Page::Collection | Page::Ranking) {
+            ui.page = Page::Shop;
+            ui.preview = None;
+            ui.starter_preview = None;
+        }
     }
 }
 
@@ -500,18 +664,19 @@ fn socket_updates(state: &mut ResMut<'_, LobbyState>, showing: bool) {
     }
 }
 
-fn refresh_due(ui: &Ui, _now: f64, _clock: f64) -> bool {
+fn refresh_due(ui: &Ui, now: f64, clock: f64) -> bool {
     ui.reads.is_empty()
         && ui.confirmation.is_none()
         && !ui.model.uncertain()
         && ui.choices.deck_unchanged(ui.model.run())
         && !ui.loaded
         && ui.model.failure().is_none()
+        && (clock == 0.0 || now - clock >= 5.0)
 }
 
 fn refresh_visible(ui: &mut Ui, now: f64, clock: &mut f64) {
     *clock = now;
-    if ui.page == Page::Ranking {
+    if !ui.loaded || ui.page == Page::Ranking {
         ui.refresh();
     } else if let Some(run) = ui.model.run() {
         let id = run.id;
@@ -570,9 +735,13 @@ pub(in crate::lobby) fn returned(mut state: ResMut<LobbyState>) {
     state.echoes.collection.refresh();
     state.echoes.page = Page::Shop;
     state.echoes.preview = None;
+    state.echoes.starter_preview = None;
     state.hub = Hub::Challenges;
     if ready(&state) && !state.echoes.model.busy() {
         state.echoes.returning = None;
         ask(&mut state, Action::Read(Read::Run(run)));
+        if !state.echoes.loaded {
+            state.echoes.reads.push_back(Read::Cohorts(None));
+        }
     }
 }

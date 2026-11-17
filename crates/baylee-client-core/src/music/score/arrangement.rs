@@ -226,27 +226,22 @@ pub(super) const fn clear_register(mut pitch: u8) -> u8 {
     pitch
 }
 
-/// Subtle drift-free Just-Intonation chord sweetening relative to the stationary 12-TET root:
-/// pure 3:2 fifths (`+1.8c`), softened 5:4 major thirds (`-6.5..-8.0c`), and warmed
-/// 6:5 minor thirds (`+6.5..+8.0c`) on sustained synth pads/horns.
+/// Subtle Just-Intonation sweetening exclusively for pure-electronic synth pads (`pure_synth`),
+/// keeping all acoustic/sampled ensembles strictly in 12-TET (`0.0` cents) with zero beating.
 pub(super) const fn sweeten_cents(
     instrument: Instrument,
     pitch: u8,
     Chord(root, third, fifth): Chord,
     pure_synth: bool,
 ) -> f32 {
-    if !matches!(
-        instrument,
-        Instrument::Pad | Instrument::StringPad | Instrument::FrenchHorn
-    ) {
+    if !pure_synth || !matches!(instrument, Instrument::Pad | Instrument::StringPad) {
         return 0.0;
     }
     let rel = (pitch + 120 - (root % 12)) % 12;
     if rel == fifth {
         1.8
     } else if rel == third {
-        let depth = if pure_synth { 8.0 } else { 6.5 };
-        if third == 4 { -depth } else { depth }
+        if third == 4 { -6.0 } else { 6.0 }
     } else {
         0.0
     }

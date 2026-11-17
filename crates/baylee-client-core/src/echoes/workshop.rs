@@ -16,29 +16,82 @@ pub enum Order {
     /// Most recently purchased or fused first.
     #[default]
     Newest,
+    /// Localized or canonical display name, highest rarity, then most recent.
+    Name,
+    /// Highest resale refund (then paid basis), highest rarity, family, then most recent.
+    Value,
     /// Family, highest rarity, then most recent.
     Family,
     /// Highest rarity, family, then most recent.
     Rarity,
 }
 
-/// Borrowed entries; the underlying run is never reordered or copied.
+impl Order {
+    /// Canonical toolbar order for inventory sorting controls.
+    pub const ALL: [Self; 5] = [
+        Self::Newest,
+        Self::Name,
+        Self::Value,
+        Self::Family,
+        Self::Rarity,
+    ];
+}
+
+/// Authoritative resale gold for an owned relic instance, derived from its conserved basis.
+#[must_use]
+pub fn relic_refund(item: &Relic) -> u16 {
+    (item.basis / 2).min(item.definition.rarity.sale_cap())
+}
+
+/// Borrowed entries sorted without a localized name callback (`Order::Name` falls back to family ID).
 #[must_use]
 pub fn inventory(inventory: &Inventory, order: Order) -> Vec<&Relic> {
+    inventory_by(inventory, order, |definition| (definition.id() - 1) / 4)
+}
+
+/// Borrowed entries sorted deterministically, using `name_of` when `order == Order::Name`.
+/// The underlying run inventory is never reordered or copied.
+#[must_use]
+pub fn inventory_by<K: Ord>(
+    inventory: &Inventory,
+    order: Order,
+    mut name_of: impl FnMut(Definition) -> K,
+) -> Vec<&Relic> {
     let mut rows: Vec<_> = inventory
         .relics
         .iter()
         .filter(|item| item.slot == Slot::Inventory)
         .collect();
+    if order == Order::Name {
+        let mut keyed: Vec<_> = rows
+            .into_iter()
+            .map(|item| {
+                let name = name_of(item.definition);
+                let tier = 4 - item.definition.rarity.tier();
+                let family = (item.definition.id() - 1) / 4;
+                (name, tier, family, std::cmp::Reverse(item.id), item)
+            })
+            .collect();
+        keyed.sort_unstable_by(|a, b| {
+            (a.0.cmp(&b.0)).then_with(|| (a.1, a.2, a.3).cmp(&(b.1, b.2, b.3)))
+        });
+        return keyed.into_iter().map(|entry| entry.4).collect();
+    }
     rows.sort_unstable_by_key(|item| {
         let family = (item.definition.id() - 1) / 4;
         let tier = u16::from(4 - item.definition.rarity.tier());
-        let (first, second) = match order {
-            Order::Newest => (0, 0),
-            Order::Family => (family, tier),
-            Order::Rarity => (tier, family),
+        let (first, second, third, fourth) = match order {
+            Order::Newest | Order::Name => (0, 0, 0, 0),
+            Order::Value => (
+                u16::MAX - relic_refund(item),
+                u16::MAX - item.basis,
+                tier,
+                family,
+            ),
+            Order::Family => (family, tier, 0, 0),
+            Order::Rarity => (tier, family, 0, 0),
         };
-        (first, second, std::cmp::Reverse(item.id))
+        (first, second, third, fourth, std::cmp::Reverse(item.id))
     });
     rows
 }

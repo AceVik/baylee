@@ -242,3 +242,72 @@ fn tower_context_cancelled_before_account_restore_stays_closed_and_idle() {
     assert!(state.echoes.returning.is_none());
     assert!(jobs.try_recv().is_err());
 }
+
+#[test]
+fn passive_reads_do_not_drop_tab_switches_or_queued_run_reads_and_previews_lock_cleanly() {
+    use bevy::ecs::system::RunSystemOnce;
+    let (handle, _jobs) = central::Handle::queued_for_test();
+    let mut state = signed_in(handle);
+    state.hub = Hub::Challenges;
+    state.echoes.opened = true;
+    let in_flight = state
+        .echoes
+        .model
+        .read(Uuid::now_v7(), Read::Cohorts(None))
+        .unwrap();
+    assert!(state.echoes.model.busy() && !state.echoes.model.mutating());
+
+    // Header tab navigation and queued run reads remain live during passive reads.
+    ask(&mut state, Action::Page(Page::Collection));
+    assert_eq!(state.echoes.page, Page::Collection);
+    let target_run = Uuid::now_v7();
+    ask(&mut state, Action::Read(Read::Run(target_run)));
+    assert_eq!(state.echoes.page, Page::Shop);
+    assert_eq!(state.echoes.reads.front(), Some(&Read::Run(target_run)));
+
+    // Modal card/starter previews block background actions until closed and clear on navigation.
+    ask(
+        &mut state,
+        Action::InspectCard(baylee_core::ids::CardIndex::new(0)),
+    );
+    assert!(state.echoes.preview.is_some());
+    assert_eq!(
+        super::super::keys::stop(Action::ClosePreview, &state.echoes),
+        crate::shellkit::focus::Stop::new(super::super::keys::INSPECT.name, "close-preview")
+    );
+    ask(&mut state, Action::Page(Page::Overview));
+    assert_eq!(
+        state.echoes.page,
+        Page::Shop,
+        "card preview sheet blocks background navigation"
+    );
+    ask(&mut state, Action::ClosePreview);
+    assert!(state.echoes.preview.is_none());
+
+    ask(&mut state, Action::Page(Page::Overview));
+    ask(&mut state, Action::InspectStarter(Uuid::now_v7(), 0));
+    assert!(state.echoes.starter_preview.is_some());
+    state.echoes.close();
+    assert!(state.echoes.starter_preview.is_none());
+
+    // Finishing the passive read dispatches the queued Read::Run on the next tick.
+    state.echoes.opened = true;
+    *state.echoes.worker.inbox.lock().unwrap() = Some(Finished {
+        work: in_flight,
+        response: Some(api::Response::Cohorts {
+            consent: 1,
+            cohorts: Vec::new(),
+        }),
+        failure: None,
+        seat: None,
+    });
+    let mut app = App::new();
+    app.insert_resource(state)
+        .insert_resource(Time::<()>::default())
+        .init_resource::<super::super::Scrolled>();
+    app.world_mut().run_system_once(tick).unwrap();
+    app.world_mut().run_system_once(tick).unwrap();
+    let state = app.world().resource::<LobbyState>();
+    assert!(state.echoes.reads.is_empty());
+    assert!(state.echoes.model.busy());
+}

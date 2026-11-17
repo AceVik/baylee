@@ -490,7 +490,38 @@ pub(in crate::hud) fn spawn_stack_card(
     widths: &crate::face::Widths<'_>,
 ) -> Entity {
     if let Some(goods) = crate::itemart::identity::run_art(art) {
-        return crate::towerui::inspectable(commands, goods, fonts, lang, width.min(height));
+        let side = width.min(height);
+        return match object {
+            Some(object) => {
+                let icon = commands
+                    .spawn((
+                        crate::itemart::Portrait(goods),
+                        Node {
+                            width: px(side),
+                            height: px(side),
+                            flex_shrink: 0.0,
+                            ..default()
+                        },
+                        Pickable::default(),
+                        HandCardVisual { object },
+                    ))
+                    .id();
+                crate::hud::tower::attach_item_tooltip(commands, icon, goods, fonts, lang);
+                icon
+            }
+            None => commands
+                .spawn((
+                    crate::itemart::Portrait(goods),
+                    Node {
+                        width: px(side),
+                        height: px(side),
+                        flex_shrink: 0.0,
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id(),
+        };
     }
     let slot = commands
         .spawn((

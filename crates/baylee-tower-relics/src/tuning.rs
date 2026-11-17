@@ -10,7 +10,8 @@ impl Recipe {
         if tier == 3 {
             match (self.sigil, self.vessel) {
                 (Sigil::Bloom, Vessel::Seed) => level.charges = 7,
-                (Sigil::Lore | Sigil::Echo, Vessel::Lens) => level.charges = 3,
+                (Sigil::Bloom, Vessel::Horn) => level.charges = 6,
+                (Sigil::Lore | Sigil::Echo | Sigil::Pulse, Vessel::Lens) => level.charges = 3,
                 _ => {}
             }
         }

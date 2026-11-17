@@ -199,16 +199,46 @@ pub(super) fn poll(
                         let _ = state.bypass_change_detection().lobby.apply(event);
                         continue;
                     }
-                    if let LobbyEvent::Games(listing) = &event
-                        && !state.lobby.busy()
-                        && state.lobby.awaiting().is_none()
-                        && listing.games == state.lobby.games()
-                        && listing.total == state.lobby.total()
-                        && listing.offset == state.lobby.offset()
-                        && (listing.stats.is_none()
-                            || listing.stats == state.lobby.stats().copied())
-                    {
-                        continue;
+                    if let LobbyEvent::Games(listing) = &event {
+                        let agents_same = listing.agents_available == state.lobby.games_can_start();
+                        if !state.lobby.busy()
+                            && !state.lobby.unreachable()
+                            && state.lobby.awaiting().is_none()
+                            && agents_same
+                            && listing.games == state.lobby.games()
+                            && listing.total == state.lobby.total()
+                            && listing.offset == state.lobby.offset()
+                            && (listing.stats.is_none()
+                                || listing.stats == state.lobby.stats().copied())
+                        {
+                            continue;
+                        }
+                        let shows_tables = matches!(state.lobby.screen(), Screen::Table)
+                            && !state.settings_open()
+                            && matches!(state.hub, Hub::Play | Hub::Tables);
+                        if !shows_tables
+                            && state.header_menu != Some(super::header::HeaderMenu::Gateway)
+                            && !state.lobby.busy()
+                            && !state.lobby.unreachable()
+                            && state.lobby.awaiting().is_none()
+                        {
+                            let was_screen = state.lobby.screen().clone();
+                            let was_strip = super::header::seated(&state);
+                            let was_waiting =
+                                baylee_client_core::lobby::strips::my_waiting_table(&state.lobby)
+                                    .cloned();
+                            let next = state.bypass_change_detection().lobby.apply(event);
+                            if next.is_some()
+                                || state.lobby.screen() != &was_screen
+                                || super::header::seated(&state) != was_strip
+                                || baylee_client_core::lobby::strips::my_waiting_table(&state.lobby)
+                                    != was_waiting.as_ref()
+                            {
+                                state.set_changed();
+                                dispatch(&mut state, &mailbox, next);
+                            }
+                            continue;
+                        }
                     }
 
                     // A sign-in that worked is the one moment this client knows
@@ -364,7 +394,11 @@ pub(super) fn poll(
                 }
                 Reply::Stats(stats) => {
                     if state.lobby.stats() != Some(&stats) {
-                        state.lobby.set_stats(stats);
+                        if state.header_menu == Some(super::header::HeaderMenu::Gateway) {
+                            state.lobby.set_stats(stats);
+                        } else {
+                            state.bypass_change_detection().lobby.set_stats(stats);
+                        }
                     }
                 }
                 Reply::Terms(reply) => {
@@ -377,6 +411,10 @@ pub(super) fn poll(
                     );
                 }
                 Reply::Gateway { url, probe } => {
+                    if state.adding.as_ref() != Some(&url) && state.probes.get(&url) == Some(&probe)
+                    {
+                        continue;
+                    }
                     if state.gateway_answered(url, probe)
                         && let Some(settings) = settings.as_mut()
                     {
@@ -1038,4 +1076,90 @@ pub(super) fn waiting(state: Res<LobbyState>, mut loading: ResMut<crate::loading
 /// the network.
 fn widens(oracle: &str) -> bool {
     !cfg!(test) && uuid::Uuid::parse_str(oracle).is_ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use baylee_client_core::lobby::gateway_info::Probe;
+    use baylee_client_core::lobby::strips::LobbyStats;
+    use baylee_client_core::lobby::{GameListing, GameSummary};
+
+    #[test]
+    fn background_stats_games_and_unchanged_gateway_probes_do_not_churn_echoes_state() {
+        let mut app = App::new();
+        let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+        state.gateway = "http://127.0.0.1:1".into();
+        state
+            .probes
+            .insert("http://127.0.0.1:1".into(), Probe::Asking);
+        let _ = state.lobby.apply(LobbyEvent::LoggedIn {
+            token: "tok".into(),
+            username: Some("Vik#0001".into()),
+        });
+        let _ = state.lobby.apply(LobbyEvent::Decks(Vec::new()));
+        let _ = state.lobby.apply(LobbyEvent::Seats(
+            baylee_client_core::lobby::resume::Listing::default(),
+        ));
+        let _ = state.lobby.apply(LobbyEvent::Games(GameListing::default()));
+        state.hub = Hub::Challenges;
+        state.echoes.opened = true;
+
+        app.init_resource::<Mailbox>()
+            .init_resource::<crate::prefs::Prefs>()
+            .add_message::<DuelCommand>()
+            .insert_resource(state)
+            .add_systems(Update, poll);
+
+        app.update();
+        let tick = app.world().read_change_tick();
+        {
+            let epoch = app.world().resource::<LobbyState>().gateway_epoch;
+            let mailbox = app.world().resource::<Mailbox>().clone();
+            let mut box_ = mailbox.0.lock().expect("mailbox");
+            box_.push(Reply::Remote(
+                epoch,
+                Box::new(Reply::Stats(LobbyStats {
+                    players_online: 7,
+                    tables_waiting: 2,
+                    games_running: 3,
+                })),
+            ));
+            box_.push(Reply::Remote(
+                epoch,
+                Box::new(Reply::Event(LobbyEvent::Games(GameListing {
+                    games: vec![GameSummary {
+                        id: "other-room".into(),
+                        name: "Someone else".into(),
+                        state: "waiting".into(),
+                        ..GameSummary::default()
+                    }],
+                    total: 1,
+                    offset: 0,
+                    limit: 20,
+                    stats: Some(LobbyStats {
+                        players_online: 8,
+                        tables_waiting: 2,
+                        games_running: 4,
+                    }),
+                    agents_available: true,
+                }))),
+            ));
+            box_.push(Reply::Gateway {
+                url: "http://127.0.0.1:1".into(),
+                probe: Probe::Asking,
+            });
+        }
+        app.update();
+        assert!(
+            !app.world()
+                .resource_ref::<LobbyState>()
+                .last_changed()
+                .is_newer_than(tick, app.world().read_change_tick()),
+            "background gateway stats/feed/probe must not mark LobbyState changed while in Echoes"
+        );
+        let state = app.world().resource::<LobbyState>();
+        assert_eq!(state.lobby.games().len(), 1);
+        assert_eq!(state.lobby.stats().map(|s| s.players_online), Some(8));
+    }
 }

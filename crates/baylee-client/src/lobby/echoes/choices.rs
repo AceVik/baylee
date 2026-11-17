@@ -1,8 +1,11 @@
 //! Translate explicit presses into revision-bound authority commands.
+#[cfg(any(not(target_arch = "wasm32"), test))]
 use super::{Action, Command, Ui, Work, api::Phase};
 pub(super) use baylee_client_core::echoes::draft::Draft;
+#[cfg(any(not(target_arch = "wasm32"), test))]
 use baylee_client_core::echoes::draft::allowed;
 
+#[cfg(any(not(target_arch = "wasm32"), test))]
 pub(super) fn act(ui: &mut Ui, action: Action) -> Option<Work> {
     let run = ui.model.run()?;
     if ui.model.uncertain()
@@ -25,6 +28,7 @@ pub(super) fn act(ui: &mut Ui, action: Action) -> Option<Work> {
     None
 }
 
+#[cfg(any(not(target_arch = "wasm32"), test))]
 fn selected(
     draft: &mut Draft,
     run: &super::api::Run,
@@ -48,12 +52,22 @@ fn selected(
             baylee_client_core::echoes::workshop::mythic(&run.economy.inventory, item, potion)
         }
         Action::Reward(card) => {
+            if let Some(reward) = &run.reward
+                && reward.take == 1
+                && draft.rewards.len() == 1
+                && !draft.rewards.contains(&card)
+                && reward.cards.contains(&card)
+                && let Some(&previous) = draft.rewards.first()
+            {
+                draft.reward(run, previous);
+            }
             draft.reward(run, card);
             None
         }
         Action::ClaimReward => Some(Command::Claim {
             cards: draft.rewards.clone(),
         }),
+        Action::SellCard(card) => Some(Command::SellCard { card }),
         Action::Freeze => Some(Command::Freeze {
             frozen: !run.shop.frozen,
         }),
@@ -120,6 +134,7 @@ fn selected(
     }
 }
 
+#[cfg(any(not(target_arch = "wasm32"), test))]
 fn purchase_equipped(run: &super::api::Run, offer: u32) -> Option<Command> {
     use super::domain::v2::{
         inventory::Slot,
@@ -154,6 +169,7 @@ fn purchase_equipped(run: &super::api::Run, offer: u32) -> Option<Command> {
     Some(Command::Buy { offer, delivery })
 }
 
+#[cfg(any(not(target_arch = "wasm32"), test))]
 fn edit_deck(
     draft: &mut Draft,
     run: &super::api::Run,
@@ -163,8 +179,8 @@ fn edit_deck(
     let Some(cohort) = cohort else { return false };
     match action {
         Action::Card(card, add) => draft.card(run, cohort, card, add),
+        #[cfg(test)]
         Action::ZoneCard(card, zone, add) => draft.card_in(run, cohort, card, zone, add),
-        Action::Commander(card) => draft.commander(run, cohort, card),
         _ => return false,
     }
     true

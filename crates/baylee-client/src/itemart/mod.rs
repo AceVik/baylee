@@ -1,4 +1,5 @@
 //! Original raster item portraits in rarity settings. Shared images, GPU-clock animation.
+mod bounds;
 pub(crate) mod faces;
 pub(crate) mod identity;
 mod world;
@@ -27,9 +28,19 @@ pub(crate) enum Emphasis {
     Uncommon,
     Rare,
     Mythic,
+    #[allow(dead_code)] // Consumed by runshop frozen-shelf rendering.
+    Frozen,
 }
 
 impl Emphasis {
+    /// Applies crystalline rime frost when the shelf is frozen, preserving
+    /// affinity emphasis otherwise.
+    #[allow(dead_code)] // Cross-module door for runshop shelf offers.
+    #[must_use]
+    pub(crate) const fn frozen_if(self, frozen: bool) -> Self {
+        if frozen { Self::Frozen } else { self }
+    }
+
     const fn index(self) -> usize {
         match self {
             Self::None => 0,
@@ -37,8 +48,10 @@ impl Emphasis {
             Self::Uncommon => 2,
             Self::Rare => 3,
             Self::Mythic => 4,
+            Self::Frozen => 5,
         }
     }
+
     const fn bits(self) -> u32 {
         match self {
             Self::None => 0,
@@ -46,6 +59,7 @@ impl Emphasis {
             Self::Uncommon => 16,
             Self::Rare => 32,
             Self::Mythic => 64,
+            Self::Frozen => 128,
         }
     }
 }
@@ -94,10 +108,12 @@ impl Portrait {
 struct Params {
     metal: Vec4,
     gem: Vec4,
-    // motif, rarity, animation energy, passing-state bits; no per-frame writes.
+    // motif, rarity, animation energy, passing-state / emphasis bits; no per-frame writes.
     shape: Vec4,
-    // UV offset and scale; sixteen distinct paintings share one decoded atlas.
+    // Optically centered square UV offset and scale; sixteen distinct paintings share one atlas.
     atlas: Vec4,
+    // Exclusive cell clip bounds [u0, v0, u1, v1] preventing neighbor bleed in 4x4 atlases.
+    clip: Vec4,
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
@@ -109,7 +125,6 @@ struct Material {
     portrait: Option<Handle<Image>>,
 }
 
-// Loaded on first use, once per family across all rarities and rebuilt panels.
 const PICTURES: [&str; 21] = [
     "tower/portraits/heartwood.png",
     "tower/portraits/satchel.png",
@@ -143,6 +158,11 @@ impl UiMaterial for Material {
 #[derive(Resource, Default)]
 struct Cache(BTreeMap<(usize, usize, usize), Handle<Material>>);
 
+/// Keeps all 31 portrait/atlas textures resident from startup so rebuilt or
+/// newly opened Tower surfaces render on Frame 0 with zero async pop-in.
+#[derive(Resource)]
+struct Preloaded(#[expect(dead_code)] Vec<Handle<Image>>);
+
 const ATLASES: [&str; 10] = [
     "tower/runic/chalice.png",
     "tower/runic/scepter.png",
@@ -173,6 +193,7 @@ fn linear(rgb: [f32; 3]) -> Vec4 {
 }
 
 fn params(kind: usize, tier: usize, energy: f32) -> Params {
+    let (atlas, clip) = bounds::WINDOWS[kind];
     Params {
         metal: linear(
             [
@@ -213,22 +234,8 @@ fn params(kind: usize, tier: usize, energy: f32) -> Params {
             }],
         ),
         shape: Vec4::new(kind as f32, tier as f32, energy, 0.0),
-        atlas: if kind < 22 {
-            Vec4::new(0.0, 0.0, 1.0, 1.0)
-        } else {
-            let sigil = (kind - 22) / 10;
-            // These two paintings include an outer transparent apron. Sample
-            // their measured grid rather than cutting a shield/standard in two.
-            let (origin, cell) = match (kind - 22) % 10 {
-                7 => (Vec2::new(100.0, 155.0), Vec2::new(260.0, 240.0)),
-                8 => (Vec2::new(100.0, 140.0), Vec2::new(260.0, 245.0)),
-                _ => (Vec2::ZERO, Vec2::splat(313.5)),
-            };
-            let origin =
-                (origin + Vec2::new((sigil % 4) as f32, (sigil / 4) as f32) * cell) / 1254.0;
-            let cell = cell / 1254.0;
-            Vec4::new(origin.x, origin.y, cell.x, cell.y)
-        },
+        atlas: Vec4::from_array(atlas),
+        clip: Vec4::from_array(clip),
     }
 }
 
@@ -292,12 +299,30 @@ pub(crate) fn install(app: &mut App) {
     {
         return;
     }
+    let preloaded = {
+        let server = app.world().resource::<AssetServer>();
+        PICTURES
+            .into_iter()
+            .chain(ATLASES)
+            .map(|path| server.load(path))
+            .collect()
+    };
     embedded_asset!(app, "ui.wesl");
     bevy::shader::load_shader_library!(app, "common.wesl");
     world::install(app);
-    app.init_resource::<Cache>()
+    app.insert_resource(Preloaded(preloaded))
+        .init_resource::<Cache>()
         .add_plugins(UiMaterialPlugin::<Material>::default())
-        .add_systems(PostUpdate, dress);
+        .add_systems(
+            PostUpdate,
+            (dress, ApplyDeferred)
+                .chain()
+                .before(bevy::ui::UiSystems::Prepare)
+                .before(bevy::ui::UiSystems::Content)
+                .before(bevy::ui::UiSystems::Layout)
+                .before(bevy::ui::UiSystems::Stack)
+                .before(bevy::asset::AssetEventSystems),
+        );
 }
 
 #[cfg(test)]

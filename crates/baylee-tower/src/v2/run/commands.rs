@@ -22,6 +22,11 @@ pub enum Command {
         /// Owned instance identity.
         item: u32,
     },
+    /// Sell one unused nonbasic card from the run's owned pool for its catalog rarity value.
+    SellCard {
+        /// Canonical card identity, never a client-supplied gold amount.
+        card: baylee_core::ids::CardIndex,
+    },
     /// Move/swap one relic, then validate all active resources together.
     Move {
         /// Owned instance identity.
@@ -103,6 +108,15 @@ impl Run {
                 next.cards = purchase.cards;
             }
             Command::Sell { item } => next.economy = self.economy.sold(*item)?,
+            Command::SellCard { card } => {
+                if !crate::v2::generation::is_run(self.shop.generator) {
+                    return Err(Refusal::Unavailable);
+                }
+                let (cards, gold) = self.cards.sold(catalog, *card)?;
+                next.cards = cards;
+                next.economy = self.economy.sold_card(gold)?;
+                next.sold_cards.push(*card);
+            }
             Command::Move { item, slot } => next.economy = self.economy.moved(*item, *slot)?,
             Command::Fuse { recipe } => next.economy = self.economy.fused(recipe)?,
             Command::Edit { deck } => next.cards = self.cards.edited(catalog, deck.clone())?,
@@ -126,7 +140,9 @@ impl Run {
             Command::Abandon {} => next.phase = Phase::Abandoned,
         }
         next.shop.mythic_choice = false;
-        next.ledger = self.ledger.traded(self.economy.gold, next.economy.gold)?;
+        if !matches!(command, Command::SellCard { .. }) {
+            next.ledger = self.ledger.traded(self.economy.gold, next.economy.gold)?;
+        }
         next.revised(catalog)
     }
 }

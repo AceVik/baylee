@@ -266,6 +266,7 @@ impl DeckBuilder {
         if report != self.report {
             self.report = report;
         }
+        self.refilter();
     }
 
     /// The deck as a check reads it: a leader sits among the main rows here

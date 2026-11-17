@@ -60,15 +60,25 @@ pub(crate) struct Followed {
 /// `Nav` moves the focus to its stop; Tab or a press that moved the focus
 /// moves `Nav`; a redraw that took the focused stop away gives the focus to
 /// the stop that replaced it.
+#[allow(clippy::too_many_lines)] // Unified Escape dismiss + Nav <-> InputFocus synchronization.
 pub(crate) fn follow(
     mut state: ResMut<LobbyState>,
     mut focus: ResMut<InputFocus>,
     mut visible: ResMut<InputFocusVisible>,
     stops: Query<(Entity, &Stop)>,
+    codes: Option<Res<ButtonInput<KeyCode>>>,
     mut seen: Local<Followed>,
 ) {
     if !matches!(state.lobby.screen(), Screen::Build) {
         *seen = Followed::default();
+        return;
+    }
+    if state.build.confirm_sell.is_some()
+        && codes
+            .as_deref()
+            .is_some_and(|c| c.just_pressed(KeyCode::Escape))
+    {
+        state.build.confirm_sell = None;
         return;
     }
     let find = |id: &str, table: &str, item: Option<u8>| {
@@ -79,9 +89,9 @@ pub(crate) fn follow(
             .next()
     };
     let field = state.lobby.builder().focus();
-    // "Discard changes?" opens with Keep editing focused (KEYBOARD §2.5), so
-    // Enter keeps editing.
-    if state.confirm_leave {
+    // "Discard changes?" and Tower card-sale confirmation open with the safe
+    // cancel/keep button focused (KEYBOARD §2.5).
+    if state.confirm_leave || state.build.confirm_sell.is_some() {
         let on_sheet = focus
             .get()
             .and_then(|e| stops.get(e).ok())

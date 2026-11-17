@@ -51,6 +51,7 @@ impl HeaderPress {
                     cx.state.shell_asks.push(ShellAsk::ChatPrivacy);
                 }
             }
+            HeaderPress::TowerBadges => open_tower_badges(cx),
             HeaderPress::SwitchGateway => {
                 cx.state.header_menu = None;
                 if cx.state.central_ready() {
@@ -74,25 +75,7 @@ impl HeaderPress {
                 cx.state.header_menu = None;
                 cx.state.shell_asks.push(ShellAsk::Quit);
             }
-            HeaderPress::Nav(n) => {
-                cx.state.header_menu = None;
-                cx.state.front_menu = false;
-                if cx.state.lobby.awaiting().is_some() && !cx.state.room_away {
-                    cx.state.room_away = true;
-                }
-                if cx.state.settings.is_open() {
-                    cx.state.settings = SettingsPane::Closed;
-                }
-                if cx.state.library_open() {
-                    cx.state.lobby.close_library();
-                }
-                let hub = match offered_nav(cx.state).get(usize::from(n)) {
-                    Some(NavTab::Decks) => Hub::Decks,
-                    Some(NavTab::Replays) => Hub::Replays,
-                    _ => Hub::Play,
-                };
-                HubPress::Tab(hub).handle(cx);
-            }
+            HeaderPress::Nav(n) => navigate_hub(n, cx),
             HeaderPress::Return => back_to_the_table(cx),
             HeaderPress::Leave => {
                 if let Some(Strip::Seated { index, .. }) = strips::strip(&cx.state.lobby) {
@@ -105,6 +88,51 @@ impl HeaderPress {
             }
         }
     }
+}
+
+fn open_tower_badges(cx: Cx<'_, '_, '_, '_, '_>) {
+    cx.state.header_menu = None;
+    cx.state.front_menu = false;
+    if cx.state.settings.is_open() {
+        cx.state.settings = SettingsPane::Closed;
+    }
+    if cx.state.library_open() {
+        cx.state.lobby.close_library();
+    }
+    echoes::press(
+        echoes::Action::Open,
+        Cx {
+            state: cx.state,
+            prefs: cx.prefs,
+            scrolled: cx.scrolled,
+            mailbox: cx.mailbox,
+            settings: cx.settings,
+        },
+    );
+    echoes::press(echoes::Action::Page(echoes::Page::Collection), cx);
+}
+
+fn navigate_hub(n: u8, cx: Cx<'_, '_, '_, '_, '_>) {
+    cx.state.header_menu = None;
+    cx.state.front_menu = false;
+    if cx.state.lobby.awaiting().is_some() && !cx.state.room_away {
+        cx.state.room_away = true;
+    }
+    if cx.state.settings.is_open() {
+        cx.state.settings = SettingsPane::Closed;
+    }
+    if cx.state.library_open() {
+        cx.state.lobby.close_library();
+    }
+    if cx.state.echoes.opened {
+        cx.state.echoes.close();
+    }
+    let hub = match offered_nav(cx.state).get(usize::from(n)) {
+        Some(NavTab::Decks) => Hub::Decks,
+        Some(NavTab::Replays) => Hub::Replays,
+        _ => Hub::Play,
+    };
+    HubPress::Tab(hub).handle(cx);
 }
 
 fn toggle(state: &mut LobbyState, menu: HeaderMenu) {

@@ -93,6 +93,96 @@ impl Register {
         soft: palette::MUTED,
         lit: palette::ACCENT,
     };
+
+    /// Single-layer smoked dark-glass gradient (`BackgroundColor(Color::NONE)`
+    /// underneath so alpha never double-composites).
+    pub(crate) fn glass_gradient(self) -> BackgroundGradient {
+        let (top, bottom) = if self.lit == palette::CANDLE {
+            (
+                Color::srgba(0.068, 0.055, 0.044, 0.94),
+                Color::srgba(0.040, 0.032, 0.025, 0.96),
+            )
+        } else {
+            (
+                Color::srgba(0.062, 0.102, 0.145, 0.94),
+                Color::srgba(0.033, 0.066, 0.098, 0.96),
+            )
+        };
+        BackgroundGradient::from(LinearGradient::to_bottom(vec![top.into(), bottom.into()]))
+    }
+
+    /// Gold-accented border rim for floating filter popovers.
+    pub(crate) const fn popover_border(self) -> Color {
+        if matches!(self.lit, Color::Srgba(c) if c.red > 0.7 && c.green > 0.5) {
+            Color::srgba(0.84, 0.68, 0.36, 0.58)
+        } else {
+            Color::srgba(0.80, 0.66, 0.36, 0.54)
+        }
+    }
+}
+
+/// Number of structured or opaque query conditions currently held in `panel`.
+#[must_use]
+pub(crate) fn active_count(panel: &FilterPanel) -> u32 {
+    u32::try_from(panel.parts().len()).unwrap_or(u32::MAX)
+}
+
+/// Number of query conditions parsed from raw search `text` (`0` when blank).
+#[must_use]
+pub(crate) fn query_active_count(text: &str) -> u32 {
+    if text.trim().is_empty() {
+        return 0;
+    }
+    let parsed = baylee_client_core::cardquery::parse(text);
+    if parsed.is_anything() {
+        0
+    } else {
+        active_count(&FilterPanel::open(&parsed)).max(1)
+    }
+}
+
+/// Optional top-right count badge (`Pickable::IGNORE`) for a search gear button
+/// when `count > 0`, anchored in CSS layout so it never flashes at `(0, 0)`.
+pub(crate) fn gear_badge(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    count: u32,
+    look: Register,
+) -> Option<Entity> {
+    if count == 0 {
+        return None;
+    }
+    let pill = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(-5.0),
+                right: px(-5.0),
+                min_width: px(16.0),
+                height: px(16.0),
+                padding: UiRect::horizontal(px(4.0)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(px(1.0)),
+                border_radius: BorderRadius::all(px(999.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.08, 0.07, 0.05, 0.96)),
+            BorderColor::all(look.popover_border().with_alpha(0.90)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let num = commands
+        .spawn((
+            Text::new(count.to_string()),
+            tf_bold(fonts, 9.0),
+            TextColor(Color::srgb(0.98, 0.86, 0.48)),
+            TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(pill).add_child(num);
+    Some(pill)
 }
 
 /// The chords a search field reads, once for a batch of keys because a key
@@ -194,22 +284,90 @@ pub(crate) fn build(
 ) -> Entity {
     let root = commands
         .spawn((
+            crate::shellkit::Role::Opaque,
             Node {
                 flex_direction: FlexDirection::Column,
-                row_gap: px(GAP + 1.0),
-                padding: UiRect::all(px(10)),
-                border: UiRect::all(px(1)),
-                border_radius: BorderRadius::all(px(8)),
+                row_gap: px(GAP + 2.0),
+                padding: UiRect::all(px(12.0)),
+                border: UiRect::all(px(1.0)),
+                border_radius: BorderRadius::all(px(crate::shellkit::tokens::RADIUS_PANEL)),
                 ..default()
             },
-            BackgroundColor(look.ground),
-            BorderColor::all(look.line),
-            crate::shellkit::surfaces::elevation_popover(),
-            Pickable::IGNORE,
+            BackgroundColor(Color::NONE),
+            look.glass_gradient(),
+            BorderColor::all(look.popover_border()),
+            crate::shellkit::surfaces::popover_shadow(),
+            Pickable::default(),
         ))
         .id();
 
-    let mut children = vec![heading(commands, fonts, lang, look)];
+    let head = heading(commands, fonts, active_count(panel), lang, look);
+    let rows = build_rows(commands, fonts, panel, surface, also, lang, look);
+    let footer = foot(commands, fonts, lang, look);
+    commands.entity(root).add_children(&[head, rows, footer]);
+    root
+}
+
+/// Draws the floating glass popover anchored directly below its search row at
+/// `top_px` (`PositionType::Absolute`, `right: 0`, `GlobalZIndex(POPOVER)`),
+/// causing zero layout shift of the card pool below and zero Frame-0 `(0, 0)`
+/// jump.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn floating_popover(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    panel: &FilterPanel,
+    surface: Surface<'_>,
+    also: Option<&str>,
+    lang: Lang,
+    look: Register,
+    top_px: f32,
+) -> Entity {
+    let pop = build(commands, fonts, panel, surface, also, lang, look);
+    commands
+        .entity(pop)
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            node.position_type = PositionType::Absolute;
+            node.top = px(top_px);
+            node.right = px(0.0);
+            node.min_width = px(320.0);
+            node.max_width = px(460.0);
+            node.max_height = Val::Vh(62.0);
+            node.overflow = Overflow::scroll_y();
+        });
+    commands.entity(pop).insert((
+        GlobalZIndex(crate::shellkit::tokens::z::POPOVER),
+        crate::shellkit::surfaces::SheetScroller,
+        ScrollPosition::default(),
+    ));
+    pop
+}
+
+/// Draws the condition rows, unanswerable/chip warnings, and `+ Add condition`
+/// controls without an outer popover frame or footer, for embedding inside the
+/// deckbuilder's unified Search Filter Gear Overlay.
+pub(crate) fn build_rows(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    panel: &FilterPanel,
+    surface: Surface<'_>,
+    also: Option<&str>,
+    lang: Lang,
+    look: Register,
+) -> Entity {
+    let body = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(GAP + 1.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let mut children = Vec::new();
     let typing = panel.typing();
     for (at, part) in panel.parts().iter().enumerate() {
         let caret = typing.filter(|t| t.row() == at);
@@ -270,35 +428,91 @@ pub(crate) fn build(
         ));
     }
     children.push(adder(commands, fonts, panel.adding(), surface, lang, look));
-    children.push(foot(commands, fonts, lang, look));
-    commands.entity(root).add_children(&children);
-    root
+    commands.entity(body).add_children(&children);
+    body
 }
 
-/// The line over the rows, which names what the panel is.
-fn heading(commands: &mut Commands, fonts: &UiFonts, lang: Lang, look: Register) -> Entity {
+/// The line over the rows: gear glyph, title, active count badge, and close `✕`.
+fn heading(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    count: u32,
+    lang: Lang,
+    look: Register,
+) -> Entity {
     let row = commands
         .spawn((
             Node {
                 width: percent(100),
-                padding: UiRect::bottom(px(4)),
-                border: UiRect::bottom(px(1)),
+                align_items: AlignItems::Center,
+                column_gap: px(6.0),
+                padding: UiRect::bottom(px(6.0)),
+                border: UiRect::bottom(px(1.0)),
                 ..default()
             },
-            BorderColor::all(look.line.with_alpha(0.55)),
+            BorderColor::all(look.popover_border().with_alpha(0.35)),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let gear_mark = commands
+        .spawn((
+            Text::new(glyph::GEAR.to_string()),
+            icon_tf(fonts, LABEL),
+            TextColor(Color::srgb(0.94, 0.78, 0.42)),
             Pickable::IGNORE,
         ))
         .id();
     let title = commands
         .spawn((
             Text::new(Phrase::FilterBuild.text(lang).to_string()),
-            tf_bold(fonts, LABEL),
-            TextColor(look.soft),
+            tf_bold(fonts, LABEL + 1.0),
+            TextColor(look.ink),
             TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(row).add_child(title);
+    let spacer = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let mut kids = vec![gear_mark, title, spacer];
+    if count > 0 {
+        let pill = commands
+            .spawn((
+                Node {
+                    padding: UiRect::axes(px(6.0), px(1.5)),
+                    border: UiRect::all(px(1.0)),
+                    border_radius: BorderRadius::all(px(999.0)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.92, 0.76, 0.38, 0.16)),
+                BorderColor::all(Color::srgba(0.92, 0.76, 0.38, 0.65)),
+                Pickable::IGNORE,
+            ))
+            .id();
+        let num = commands
+            .spawn((
+                Text::new(count.to_string()),
+                tf_bold(fonts, 9.5),
+                TextColor(Color::srgb(0.96, 0.84, 0.48)),
+                TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(pill).add_child(num);
+        kids.push(pill);
+    }
+    let close = icon(commands, fonts, glyph::CLOSE, Act::StopTyping, false, look);
+    commands.entity(close).insert(FilterDone);
+    kids.push(close);
+    commands.entity(row).add_children(&kids);
     row
 }
 
@@ -846,7 +1060,7 @@ fn foot(commands: &mut Commands, fonts: &UiFonts, lang: Lang, look: Register) ->
     let clear = word(
         commands,
         fonts,
-        Phrase::FilterClear.text(lang),
+        Phrase::FilterResetAll.text(lang),
         Act::Clear,
         false,
         look,
@@ -1135,5 +1349,72 @@ fn flag_name(flag: Flag, lang: Lang) -> &'static str {
         Flag::Basic => Phrase::FlagBasic.text(lang),
         Flag::Dfc => Phrase::FlagDfc.text(lang),
         Flag::Token => Phrase::IsToken.text(lang),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use baylee_client_core::cardquery::parse;
+
+    #[test]
+    fn active_and_query_counts_reflect_real_conditions() {
+        assert_eq!(query_active_count(""), 0);
+        assert_eq!(query_active_count("   "), 0);
+        assert_eq!(query_active_count("t:creature"), 1);
+        assert_eq!(query_active_count("t:creature mv<=3 c:rg"), 3);
+
+        let panel = FilterPanel::open(&parse("t:instant r:rare"));
+        assert_eq!(active_count(&panel), 2);
+    }
+
+    #[test]
+    fn floating_popover_uses_single_layer_glass_elevation_and_frame_zero_anchor() {
+        let mut world = World::new();
+        let fonts = UiFonts::default();
+        let panel = FilterPanel::open(&parse("t:creature mv:2"));
+        let pop = {
+            let mut commands = world.commands();
+            floating_popover(
+                &mut commands,
+                &fonts,
+                &panel,
+                Surface::POOL,
+                Some("playable only"),
+                Lang::En,
+                Register::LOBBY,
+                38.0,
+            )
+        };
+        world.flush();
+
+        assert_eq!(
+            world.get::<crate::shellkit::Role>(pop),
+            Some(&crate::shellkit::Role::Opaque)
+        );
+        assert_eq!(
+            world.get::<GlobalZIndex>(pop),
+            Some(&GlobalZIndex(crate::shellkit::tokens::z::POPOVER))
+        );
+        assert_eq!(
+            world.get::<BoxShadow>(pop),
+            Some(&crate::shellkit::surfaces::popover_shadow())
+        );
+        assert_eq!(
+            world.get::<BackgroundColor>(pop),
+            Some(&BackgroundColor(Color::NONE)),
+            "single-layer smoked glass must not double-composite over BackgroundColor"
+        );
+        assert!(world.get::<BackgroundGradient>(pop).is_some());
+        let node = world.get::<Node>(pop).expect("popover Node");
+        assert_eq!(node.position_type, PositionType::Absolute);
+        assert_eq!(node.top, Val::Px(38.0));
+        assert_eq!(node.right, Val::Px(0.0));
+        assert_eq!(node.max_height, Val::Vh(62.0));
+        assert!(
+            world
+                .get::<crate::shellkit::surfaces::SheetScroller>(pop)
+                .is_some()
+        );
     }
 }

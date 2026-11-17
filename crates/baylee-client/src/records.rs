@@ -249,6 +249,8 @@ pub(crate) fn recover_in(folder: &std::path::Path) {
 pub(crate) struct LiveRecord;
 
 #[cfg(target_arch = "wasm32")]
+// Matches the native `LiveRecord` method signatures.
+#[allow(clippy::unused_self)]
 impl LiveRecord {
     pub(crate) fn new(_name: &str) -> Self {
         Self

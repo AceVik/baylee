@@ -89,6 +89,7 @@ pub struct LobbyState {
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) central: Option<central::State>,
     /// The session's current bearer, for what outlives one: a replay.
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) bearer: crate::replay::Bearer,
     /// The renderer-free state machine.
     pub lobby: Lobby,
@@ -164,6 +165,7 @@ pub struct LobbyState {
     /// A gateway link that found nobody signed in opened Central's sign-in;
     /// back from it, the same link asks about this device's list instead
     /// (`links`).
+    #[cfg(not(target_arch = "wasm32"))]
     pub(super) link_asked_central: bool,
     /// The pairing links this client claimed lately (`central::pairing`):
     /// the same link again is dropped without a word.
@@ -475,6 +477,7 @@ impl LobbyState {
     /// builds, so the account's gateways load once signed in.
     #[must_use]
     pub fn new() -> Self {
+        #[cfg_attr(target_arch = "wasm32", allow(unused_mut))]
         let mut state = Self::from_settings(crate::settings::ClientSettings::load());
         #[cfg(not(target_arch = "wasm32"))]
         central::enable(&mut state);
@@ -556,6 +559,7 @@ impl LobbyState {
             gateway_selected: false,
             left_central: LeftCentral::No,
             gateway_epoch: 0,
+            #[cfg(not(target_arch = "wasm32"))]
             bearer: crate::replay::Bearer::default(),
             auth_probes: Arc::default(),
             probes: std::collections::HashMap::new(),
@@ -567,6 +571,7 @@ impl LobbyState {
             confirm_leave: false,
             confirm_restore: false,
             confirmation: None,
+            #[cfg(not(target_arch = "wasm32"))]
             link_asked_central: false,
             #[cfg(not(target_arch = "wasm32"))]
             claimed_pairings: central::pairing::Claimed::default(),
@@ -647,7 +652,11 @@ impl LobbyState {
         }
         &self.gateways
     }
+}
 
+// Central is desktop-only; method form keeps callers uniform across targets.
+#[cfg_attr(target_arch = "wasm32", allow(clippy::unused_self))]
+impl LobbyState {
     pub(crate) fn central_pending(&self) -> bool {
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -767,7 +776,9 @@ impl LobbyState {
             false
         }
     }
+}
 
+impl LobbyState {
     /// Whether a deck can be saved from here: a gateway with a session, or
     /// the device's own store.
     pub(crate) fn saves_decks(&self) -> bool {

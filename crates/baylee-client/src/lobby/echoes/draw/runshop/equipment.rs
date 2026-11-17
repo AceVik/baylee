@@ -2,6 +2,7 @@
 use super::*;
 
 pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
+    let lang = lang(kit);
     let top = row(commands, root, kit);
     help_heading(
         commands,
@@ -12,20 +13,28 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run
     );
     let space = crate::lobby::parts::grow(commands);
     commands.entity(top).add_child(space);
-    let deck = crate::lobby::parts::icon_button(
+
+    let deck_total: u16 = run
+        .cards
+        .deck
+        .iter()
+        .map(|entry| u16::from(entry.copies))
+        .sum::<u16>()
+        + u16::from(run.cards.formation.is_some());
+    icon_control(
         commands,
+        top,
         kit,
+        ui,
         glyph::LIBRARY,
-        Press::Echoes(Action::Page(Page::Deck)),
+        Some(&deck_total.to_string()),
+        IconTone::Active,
+        &Phrase::EchoesDeckButtonTip.fill(lang, &[&deck_total.to_string()]),
+        Action::Page(Page::Deck),
+        run.phase == api::Phase::Shop,
+        None,
     );
-    commands
-        .entity(deck)
-        .insert(super::super::super::keys::stop(
-            Action::Page(Page::Deck),
-            ui,
-        ));
-    controls::attach_tooltip(commands, deck, kit, Phrase::EchoesDeck.text(lang(kit)));
-    commands.entity(top).add_child(deck);
+
     let equipment = grid(commands, root, kit, 3);
     for slot in 0..6 {
         let target = Slot::Active(slot);
@@ -43,10 +52,13 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run
                 ui,
                 Goods::Relic(item.definition),
                 None,
-                60.0,
+                Some(Phrase::EchoesRunEquipmentHint.text(lang)),
+                62.0,
                 Emphasis::None,
+                ui.choices.item == Some(item.id),
                 Action::Select(item.id),
                 true,
+                None,
             );
             commands.entity(cell).insert((
                 super::super::super::gestures::Owned::new(run, item.id),
@@ -54,28 +66,37 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run
             ));
             cell
         } else {
-            towerui::empty(commands, equipment, kit, 60.0, glyph::SHIELD)
+            sleek_empty(commands, equipment, kit, 62.0, glyph::SHIELD)
         };
         commands
             .entity(cell)
             .insert(super::super::super::gestures::Destination::new(run, target));
     }
+
     supplies(commands, root, kit, ui, run);
+
     let space = crate::lobby::parts::grow(commands);
     commands.entity(root).add_child(space);
     let footer = row(commands, root, kit);
-    control(
+    let lead_space = crate::lobby::parts::grow(commands);
+    commands.entity(footer).add_child(lead_space);
+    icon_control(
         commands,
         footer,
         kit,
         ui,
-        Phrase::TowerRetire.text(lang(kit)),
+        words::GLYPH_FLAG,
+        None,
+        IconTone::Danger,
+        Phrase::EchoesRetireTip.text(lang),
         Action::Abandon,
         can(ui, &Command::Abandon {}),
+        None,
     );
 }
 
 fn supplies(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
+    let lang = lang(kit);
     help_heading(
         commands,
         root,
@@ -110,6 +131,7 @@ fn supplies(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api:
             ),
         ),
     ] {
+        let is_mythic = matches!(goods, Goods::Mythic);
         object(
             commands,
             potions,
@@ -117,10 +139,17 @@ fn supplies(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api:
             ui,
             goods,
             Some(&format!("×{count}")),
-            48.0,
+            None,
+            50.0,
             Emphasis::None,
+            is_mythic && count > 0 && ui.choices.material.is_some(),
             action,
-            matches!(goods, Goods::Mythic) && count > 0,
+            is_mythic && count > 0,
+            if is_mythic {
+                None
+            } else {
+                Some(Phrase::EchoesRunPotionsHint.text(lang))
+            },
         );
     }
 }

@@ -1490,6 +1490,7 @@ fn spawn_drawer_gear_button(
         .id()
 }
 
+#[allow(clippy::too_many_lines)]
 fn name_search(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -1523,6 +1524,16 @@ fn name_search(
         .id();
     let help = spawn_drawer_syntax_button(commands, fonts, lang, row_h, naming.syntax_open, phone);
     let gear = spawn_drawer_gear_button(commands, fonts, row_h, naming.panel.is_some());
+    if let Some(panel) = &naming.panel
+        && let Some(badge) = crate::filterui::gear_badge(
+            commands,
+            fonts,
+            crate::filterui::active_count(panel),
+            crate::filterui::Register::TRAY,
+        )
+    {
+        commands.entity(gear).add_child(badge);
+    }
     commands.entity(line).add_children(&[field, help, gear]);
     commands.entity(column).add_child(line);
     if let Some(fixed) = &naming.restriction {
@@ -1554,7 +1565,25 @@ fn name_search(
     }
     let surface = naming_surface(naming.facts.as_deref(), naming.lists.as_deref());
     if let Some(panel) = &naming.panel {
-        let built = crate::filterui::build(
+        let veil = commands
+            .spawn((
+                crate::ui_button::UiButton,
+                MenuButton {
+                    action: MenuAction::NameFilters,
+                },
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(-4000.0),
+                    right: px(-4000.0),
+                    top: px(-4000.0),
+                    bottom: px(-4000.0),
+                    ..default()
+                },
+                BackgroundColor(Color::NONE),
+                GlobalZIndex(crate::shellkit::tokens::z::POPOVER - 1),
+            ))
+            .id();
+        let built = crate::filterui::floating_popover(
             commands,
             fonts,
             panel,
@@ -1562,8 +1591,19 @@ fn name_search(
             None,
             lang,
             crate::filterui::Register::TRAY,
+            0.0,
         );
-        commands.entity(column).add_child(built);
+        // The ledge drawer sits directly above the hand zone near the bottom of
+        // the viewport, so anchor the floating popover upward above the search row.
+        commands
+            .entity(built)
+            .entry::<Node>()
+            .and_modify(move |mut node| {
+                node.top = Val::Auto;
+                node.bottom = px(row_h + 6.0);
+                node.right = px(0.0);
+            });
+        commands.entity(line).add_children(&[veil, built]);
     } else if naming.syntax_open {
         let built = spawn_drawer_syntax(commands, fonts, lang, surface, phone);
         commands.entity(column).add_child(built);

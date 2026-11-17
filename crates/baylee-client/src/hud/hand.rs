@@ -662,11 +662,22 @@ pub(super) fn preview_anchor(
     for item in &board.stack {
         for target in &item.targets {
             if target.object() == Some(h) {
+                if crate::itemart::identity::run_art(target.art).is_some()
+                    || view.object(h).is_some_and(|o| {
+                        crate::itemart::identity::run_source(o).is_some()
+                            || crate::itemart::identity::run_ability(o)
+                    })
+                {
+                    return None;
+                }
                 return Some((target.art, at));
             }
         }
     }
     if let Some(item) = board.stack.iter().find(|item| item.id == h) {
+        if crate::hud::stack::stack_item_goods(item, view).is_some() {
+            return None;
+        }
         return Some((item.art, at));
     }
     if let Some(cmd) = view
@@ -674,6 +685,9 @@ pub(super) fn preview_anchor(
         .get(view.seat.get() as usize)
         .and_then(|cmds| cmds.iter().find(|c| c.id == h))
     {
+        if crate::itemart::identity::run_source(cmd).is_some() {
+            return None;
+        }
         return Some((cmd.card.map(|c| ImageKey::of(c, ArtSize::Normal)), at));
     }
     // Everything the zone browser lists and no arm above reaches: a graveyard
@@ -689,6 +703,11 @@ pub(super) fn preview_anchor(
     // putting it earlier would take the hand's tail and the pile's own place
     // away from cards that have them.
     if let Some(object) = view.object(h) {
+        if crate::itemart::identity::run_source(object).is_some()
+            || crate::itemart::identity::run_ability(object)
+        {
+            return None;
+        }
         return Some((object.card.map(|c| ImageKey::of(c, ArtSize::Normal)), at));
     }
     None

@@ -71,6 +71,8 @@ pub(crate) enum HeaderPress {
     Friends,
     /// Settings → Privacy's Chat & privacy row: the chat's privacy sheet.
     ChatPrivacy,
+    /// The account menu: open permanent Tower badges / collection.
+    TowerBadges,
     /// The account menu: quit / close the client.
     Quit,
 }
@@ -225,7 +227,7 @@ pub(crate) fn handle(state: &LobbyState) -> Option<String> {
     if state.lobby.offline() {
         return None;
     }
-    state
+    let handle = state
         .lobby
         .me()
         .map(|me| me.handle.clone())
@@ -233,21 +235,16 @@ pub(crate) fn handle(state: &LobbyState) -> Option<String> {
         .or_else(|| {
             let kept = state.lobby.kept_guest().filter(|_| state.lobby.guest());
             kept.map(|g| g.handle.clone())
-        })
-        .or_else(|| {
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                state
-                    .central
-                    .as_ref()
-                    .and_then(|c| c.profile_handle.clone())
-                    .filter(|h| !h.is_empty())
-            }
-            #[cfg(target_arch = "wasm32")]
-            {
-                None
-            }
-        })
+        });
+    #[cfg(not(target_arch = "wasm32"))]
+    let handle = handle.or_else(|| {
+        state
+            .central
+            .as_ref()
+            .and_then(|c| c.profile_handle.clone())
+            .filter(|h| !h.is_empty())
+    });
+    handle
         .or_else(|| {
             let u = state.lobby.field(Field::Username).trim();
             (!u.is_empty()).then(|| u.to_string())
@@ -627,6 +624,18 @@ pub(crate) fn tools(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ve
         tools.insert(0, super::card_fill::mark(commands, kit));
     }
     if state.can_use_contacts() && state.chat_header == Some(true) {
+        let chat = chat_tool(
+            commands,
+            kit,
+            crate::hud::glyph::CHAT,
+            None,
+            crate::social::HeaderCount::Chat,
+            Press::Header(HeaderPress::Chat),
+        );
+        commands
+            .entity(chat)
+            .insert(hint::HoverHint(Phrase::ShellChat.text(lang).to_string()));
+        tools.push(chat);
         let friends = chat_tool(
             commands,
             kit,
@@ -1190,7 +1199,16 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
             pop
         }
         HeaderMenu::Account => {
-            let mut items = vec![
+            let mut items = Vec::new();
+            if state.can_enter_tower() {
+                items.push(MenuItem {
+                    text: Phrase::EchoesCollection.text(lang),
+                    keys: None,
+                    destructive: false,
+                    action: Press::Header(HeaderPress::TowerBadges),
+                });
+            }
+            items.extend([
                 MenuItem {
                     text: Phrase::ShellKeyOverlay.text(lang),
                     keys: Some("?"),
@@ -1209,7 +1227,7 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
                     destructive: false,
                     action: Press::Front(FrontPress::About(true)),
                 },
-            ];
+            ]);
             if state.central_ready() && !state.central_without_gateway() {
                 items.push(MenuItem {
                     text: Phrase::ShellSwitchGateway.text(lang),
@@ -1364,7 +1382,20 @@ pub(super) fn place_header_popovers(
         let max_left = (win_width - pop_width - margin).max(margin);
         let left = (anchor_x - pop_width * 0.5).clamp(margin, max_left);
         let top = anchor_bottom + 8.0;
-        if node.left != px_fixed(left) || node.right != Val::Auto || node.top != px_fixed(top) {
+        let nipple_left = (anchor_x - left - 7.0).clamp(16.0, (pop_width - 30.0).max(16.0));
+        let mut nip_changed = false;
+        if let Ok(mut nip) = nipples.get_mut(pop.nipple)
+            && (nip.left != px_fixed(nipple_left) || nip.right != Val::Auto)
+        {
+            nip.left = px_fixed(nipple_left);
+            nip.right = Val::Auto;
+            nip_changed = true;
+        }
+        if node.left != px_fixed(left)
+            || node.right != Val::Auto
+            || node.top != px_fixed(top)
+            || nip_changed
+        {
             node.left = px_fixed(left);
             node.right = Val::Auto;
             node.top = px_fixed(top);
@@ -1373,13 +1404,6 @@ pub(super) fn place_header_popovers(
         }
         if *shown != Visibility::Inherited {
             *shown = Visibility::Inherited;
-        }
-        let nipple_left = (anchor_x - left - 7.0).clamp(16.0, (pop_width - 30.0).max(16.0));
-        if let Ok(mut nip) = nipples.get_mut(pop.nipple)
-            && (nip.left != px_fixed(nipple_left) || nip.right != Val::Auto)
-        {
-            nip.left = px_fixed(nipple_left);
-            nip.right = Val::Auto;
         }
     }
 }
@@ -1620,6 +1644,7 @@ pub(super) fn keep_the_bearer(
         .bypass_change_detection()
         .lobby
         .bearer_due(time.delta_secs());
+    #[cfg(not(target_arch = "wasm32"))]
     state.bearer.set(state.lobby.token().unwrap_or_default());
     if due && let Some(token) = state.lobby.token() {
         http::renew_bearer(&state.gateway, token, state.gateway_epoch, &mailbox);
@@ -2042,10 +2067,26 @@ pub(super) fn carry_out(
                 if state.can_use_contacts()
                     && let (Some(ui), Some(host)) = (chat.as_deref_mut(), host.as_deref_mut())
                 {
-                    if matches!(ask, ShellAsk::Friends) && state.central_ready() && !host.active() {
-                        ui.drawer = !ui.drawer;
-                    } else {
+                    if host.active() {
                         crate::social::header_ask(host, ui, ask);
+                    } else if state.central_ready() {
+                        match ask {
+                            ShellAsk::Friends => ui.drawer = !ui.drawer,
+                            ShellAsk::Chat => {
+                                if ui.open && !ui.minimised {
+                                    ui.open = false;
+                                    ui.typing = false;
+                                } else {
+                                    ui.open = true;
+                                    ui.minimised = false;
+                                    ui.typing = true;
+                                    ui.field = crate::social::Field::Composer;
+                                }
+                            }
+                            _ => {}
+                        }
+                    } else {
+                        ui.vault_open = true;
                     }
                 }
             }

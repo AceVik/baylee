@@ -138,6 +138,8 @@ impl Access {
         self.ack.sent(upto);
     }
 
+    // `self.sync` is desktop-only; method form keeps callers uniform on wasm.
+    #[cfg_attr(target_arch = "wasm32", allow(clippy::unused_self))]
     pub(crate) fn sync_status(&self) -> Option<SyncStatus> {
         #[cfg(not(target_arch = "wasm32"))]
         return self.sync.as_ref().map(|sync| sync.status());

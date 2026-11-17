@@ -33,6 +33,8 @@ pub(crate) const ORDER: TabOrder = TabOrder {
         "move",
         "move-slot",
         "sell",
+        "spare-toggle",
+        "sell-card",
         "fuse",
         "card-preview",
         "close-preview",
@@ -68,7 +70,7 @@ pub(crate) const INSPECT: TabOrder = TabOrder {
 };
 pub(crate) const REWARD: TabOrder = TabOrder {
     name: "echoes-reward",
-    stops: &["rewards", "claim-reward"],
+    stops: &["reward-gold", "reward-deck", "rewards", "claim-reward"],
     modal: true,
 };
 
@@ -91,6 +93,26 @@ fn index(ui: &Ui, id: u32, offer: bool) -> usize {
         .unwrap_or(0)
 }
 
+fn reward_index(ui: &Ui, card: baylee_core::ids::CardIndex) -> usize {
+    ui.model
+        .run()
+        .and_then(|run| run.reward.as_ref())
+        .and_then(|reward| reward.cards.iter().position(|id| *id == card))
+        .unwrap_or(0)
+}
+
+fn sell_card_index(ui: &Ui, card: baylee_core::ids::CardIndex) -> usize {
+    ui.model
+        .run()
+        .zip(ui.model.publication())
+        .and_then(|(run, cohort)| {
+            baylee_client_core::echoes::draft::sellable_cards(run, cohort)
+                .into_iter()
+                .position(|(entry, _)| entry == card)
+        })
+        .unwrap_or(0)
+}
+
 pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
     if ui.rewarding() {
         match action {
@@ -98,10 +120,12 @@ pub(super) fn stop(action: Action, ui: &Ui) -> Stop {
                 return Stop::item(
                     REWARD.name,
                     "rewards",
-                    u8::try_from(card_index(ui, card)).unwrap_or(0),
+                    u8::try_from(reward_index(ui, card)).unwrap_or(0),
                 );
             }
             Action::ClaimReward => return Stop::new(REWARD.name, "claim-reward"),
+            Action::ToggleRewardGold => return Stop::new(REWARD.name, "reward-gold"),
+            Action::ToggleRewardDeck => return Stop::new(REWARD.name, "reward-deck"),
             _ => {}
         }
     }
@@ -150,11 +174,17 @@ fn stop_regular(action: Action, ui: &Ui) -> Stop {
             "inventory-order",
             match order {
                 baylee_client_core::echoes::workshop::Order::Newest => 0,
-                baylee_client_core::echoes::workshop::Order::Family => 1,
-                baylee_client_core::echoes::workshop::Order::Rarity => 2,
+                baylee_client_core::echoes::workshop::Order::Name => 1,
+                baylee_client_core::echoes::workshop::Order::Value => 2,
+                baylee_client_core::echoes::workshop::Order::Family => 3,
+                baylee_client_core::echoes::workshop::Order::Rarity => 4,
             },
         ),
         Action::InventoryGroups(_) => ("inventory-groups", 0),
+        Action::ToggleSpareCards => ("spare-toggle", 0),
+        Action::SellCard(card) => ("sell-card", sell_card_index(ui, card)),
+        Action::ToggleRewardGold => ("reward-gold", 0),
+        Action::ToggleRewardDeck => ("reward-deck", 0),
         Action::Pin(id) => ("pins", index(ui, id, true)),
         Action::Select(id) => ("items", index(ui, id, false)),
         Action::Ingredient(id) => ("ingredients", index(ui, id, false)),
@@ -168,19 +198,15 @@ fn stop_regular(action: Action, ui: &Ui) -> Stop {
             },
         ),
         Action::InspectStarter(_, index) => ("starter-preview", usize::from(index)),
-        Action::ClosePreview if ui.starter_preview.is_some() => {
+        Action::ClosePreview if ui.starter_preview.is_some() || ui.preview.is_some() => {
             return Stop::new(INSPECT.name, "close-preview");
         }
         Action::ClosePreview => ("close-preview", 0),
-        Action::DeckPage(page) => ("deck-page", page),
-        Action::DeckZone(zone) => (
-            "deck-zone",
-            usize::from(zone == baylee_client_core::echoes::draft::DeckZone::Sideboard),
-        ),
-        Action::Card(card, _)
-        | Action::ZoneCard(card, _, _)
-        | Action::Commander(card)
-        | Action::InspectCard(card) => (card_key(action), card_index(ui, card)),
+        Action::Card(card, _) | Action::InspectCard(card) => {
+            (card_key(action), card_index(ui, card))
+        }
+        #[cfg(test)]
+        Action::ZoneCard(card, _, _) => (card_key(action), card_index(ui, card)),
         Action::Buy => ("buy", 0),
         Action::Tiers(_) => ("tiers", 0),
         Action::Move => ("move", 0),
@@ -189,14 +215,7 @@ fn stop_regular(action: Action, ui: &Ui) -> Stop {
         Action::Reroll => ("reroll", 0),
         Action::Freeze => ("freeze", 0),
         Action::ClaimReward => ("claim-reward", 0),
-        Action::Reward(card) => (
-            "rewards",
-            ui.model
-                .run()
-                .and_then(|run| run.reward.as_ref())
-                .and_then(|reward| reward.cards.iter().position(|id| *id == card))
-                .unwrap_or(0),
-        ),
+        Action::Reward(card) => ("rewards", reward_index(ui, card)),
         Action::Abandon => ("abandon", 0),
         Action::Mythic(slot) => ("mythic", usize::from(slot)),
         Action::SaveDeck => ("save", 0),
@@ -243,9 +262,12 @@ fn starter_index(ui: &Ui, id: uuid::Uuid, starter: u8) -> usize {
 
 fn card_key(action: Action) -> &'static str {
     match action {
-        Action::Card(_, true) | Action::ZoneCard(_, _, true) => "add",
-        Action::Card(_, false) | Action::ZoneCard(_, _, false) => "remove",
-        Action::Commander(_) => "commander",
+        Action::Card(_, true) => "add",
+        #[cfg(test)]
+        Action::ZoneCard(_, _, true) => "add",
+        Action::Card(_, false) => "remove",
+        #[cfg(test)]
+        Action::ZoneCard(_, _, false) => "remove",
         _ => "card-preview",
     }
 }

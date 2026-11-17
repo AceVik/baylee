@@ -116,6 +116,8 @@ struct Desk {
     paste: Option<(Spot, bevy::clipboard::ClipboardRead)>,
 }
 
+// Desktop-only file and bridge state; method form keeps callers uniform on wasm.
+#[cfg_attr(target_arch = "wasm32", allow(clippy::unused_self))]
 impl SeatDesk {
     /// Opens the desk on the player's settings file, the first time the
     /// settings screen is up, and afterwards reads again whatever changed

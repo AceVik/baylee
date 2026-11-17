@@ -32,6 +32,7 @@ pub(crate) const CARD_ORDER: TabOrder = TabOrder {
         "main",
         "side",
         "commander",
+        "sell",
         "close",
         "add-other",
         "add",
@@ -80,6 +81,7 @@ pub(crate) struct WindowKey {
     back: bool,
     lang: Lang,
     set: String,
+    sell: crate::buildui::TowerSellStatus,
 }
 
 /// The window's key, or `None` while it is shut.
@@ -108,6 +110,7 @@ pub(crate) fn key(env: &Env) -> Option<WindowKey> {
         back: env.ui().window_back,
         lang: env.lang(),
         set: deck.buffer(BuildField::PickerSet).text().to_string(),
+        sell: crate::buildui::tower_sell_status(env.state, slot),
     })
 }
 
@@ -891,6 +894,7 @@ fn printing(commands: &mut Commands, env: &Env, picker: &Picker) -> Entity {
 }
 
 /// The footer: Set as commander, Close, Add to the other zone, the primary.
+#[allow(clippy::too_many_lines)] // Flat footer row across commander, sell, zone-move, and primary buttons.
 fn foot(
     commands: &mut Commands,
     env: &Env,
@@ -926,6 +930,38 @@ fn foot(
                 stop("commander"),
             ),
         ));
+    }
+    match crate::buildui::tower_sell_status(env.state, slot) {
+        crate::buildui::TowerSellStatus::Hidden => {}
+        crate::buildui::TowerSellStatus::Sellable { gold, busy } => {
+            out.push(controls::button(
+                commands,
+                kit,
+                &Phrase::EchoesSellCardBtn.fill(lang, &[&gold.to_string()]),
+                Weight::Gold,
+                if busy {
+                    Live::No(Phrase::BuildSaving.text(lang))
+                } else {
+                    Live::Yes
+                },
+                None,
+                (
+                    Press::Build(BuildPress::AskSellTowerCard(slot)),
+                    stop("sell"),
+                ),
+            ));
+        }
+        crate::buildui::TowerSellStatus::SaveRefitFirst { gold } => {
+            out.push(controls::button(
+                commands,
+                kit,
+                &Phrase::EchoesSellCardBtn.fill(lang, &[&gold.to_string()]),
+                Weight::Secondary,
+                Live::No(Phrase::EchoesSellSaveFirstTip.text(lang)),
+                None,
+                (Press::Build(BuildPress::TransferNothing), stop("sell")),
+            ));
+        }
     }
     out.push(controls::button(
         commands,

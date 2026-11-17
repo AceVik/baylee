@@ -393,7 +393,7 @@ pub(crate) fn attach_live_feel(
     }
 }
 
-fn tooltip_owner_visible(
+pub(crate) fn tooltip_owner_visible(
     mut current: Entity,
     parents: &Query<&ChildOf>,
     visibilities: &Query<&Visibility, Without<FloatingTooltip>>,
@@ -413,7 +413,7 @@ fn tooltip_owner_visible(
     }
 }
 
-fn hovered_has_ancestor(
+pub(super) fn hovered_has_ancestor(
     target: Entity,
     hovers: Option<&bevy::picking::hover::HoverMap>,
     parents: &Query<&ChildOf>,
@@ -435,6 +435,21 @@ fn hovered_has_ancestor(
     false
 }
 
+fn effective_global_z(
+    entity: Entity,
+    parents: &Query<&ChildOf>,
+    global_zs: &Query<&GlobalZIndex, Without<FloatingTooltip>>,
+) -> i32 {
+    let mut cur = Some(entity);
+    while let Some(e) = cur {
+        if let Ok(z) = global_zs.get(e) {
+            return z.0;
+        }
+        cur = parents.get(e).ok().map(ChildOf::parent);
+    }
+    0
+}
+
 /// Shows a floating root-level tooltip while the pointer rests on its owner
 /// (including [`Disabled`] controls via [`HoverMap`]) or while keyboard
 /// [`InputFocus`] rests on a [`Disabled`] owner.
@@ -452,6 +467,11 @@ pub(crate) fn show_tooltips(
     parents: Query<&ChildOf>,
     owner_vis: Query<&Visibility, Without<FloatingTooltip>>,
     owner_nodes: Query<&Node, Without<FloatingTooltip>>,
+    global_zs: Query<&GlobalZIndex, Without<FloatingTooltip>>,
+    modal_scrims: Query<
+        (Entity, &GlobalZIndex),
+        (With<super::surfaces::ModalScrim>, Without<FloatingTooltip>),
+    >,
     hovers: Option<Res<bevy::picking::hover::HoverMap>>,
     focus: Option<Res<bevy::input_focus::InputFocus>>,
     focus_visible: Option<Res<bevy::input_focus::InputFocusVisible>>,
@@ -465,12 +485,20 @@ pub(crate) fn show_tooltips(
     let canvas = windows.single().map_or(Vec2::new(1280.0, 800.0), |w| {
         crate::hud::scale::space(w, ui.as_deref())
     });
+    let modal_floor = modal_scrims
+        .iter()
+        .filter(|&(scrim, _)| tooltip_owner_visible(scrim, &parents, &owner_vis, &owner_nodes))
+        .map(|(_, z)| z.0)
+        .max();
     for (owner, tip, interaction, is_disabled, focus_tip, computed, transform) in &owners {
         let by_pick = interaction.is_some_and(|i| *i != PickingInteraction::None);
         let by_hover = !by_pick && hovered_has_ancestor(owner, hovers.as_deref(), &parents);
         let keyboard_tip = focus_tip && focus_visible.as_ref().is_none_or(|visible| visible.0);
         let by_focus = (is_disabled || keyboard_tip) && focused == Some(owner);
-        let active = (by_pick || by_hover || by_focus)
+        let above_modal = modal_floor
+            .is_none_or(|floor| effective_global_z(owner, &parents, &global_zs) >= floor);
+        let active = above_modal
+            && (by_pick || by_hover || by_focus)
             && tooltip_owner_visible(owner, &parents, &owner_vis, &owner_nodes);
         let Ok((mut shown, mut node, tip_size)) = tips.get_mut(tip.0) else {
             continue;
@@ -1609,6 +1637,12 @@ pub(super) fn install(app: &mut App) {
         )
         .add_systems(
             PostUpdate,
+            super::tooltip::place_detail_tooltips
+                .after(bevy::ui::UiSystems::Layout)
+                .before(bevy::ui::UiSystems::PostLayout),
+        )
+        .add_systems(
+            PostUpdate,
             crate::lobby::scrollbars::show_when_needed
                 .after(bevy::ui::UiSystems::Layout)
                 .run_if(not(resource_exists::<crate::lobby::Scrolled>)),
@@ -2469,5 +2503,114 @@ mod tests {
 
         app.world_mut().entity_mut(tall_root).despawn();
         app.update();
+    }
+
+    #[test]
+    #[allow(clippy::too_many_lines)] // End-to-end scrim suppression check across background and modal tooltips.
+    fn modal_scrim_blocks_background_tooltips_and_allows_modal_tooltips() {
+        use bevy::input_focus::{FocusCause, InputFocus, InputFocusVisible};
+        let (mut app, fonts) = crate::shellkit::header::tests::layout_app();
+        app.init_resource::<InputFocus>()
+            .insert_resource(InputFocusVisible(true));
+        let kit = Kit {
+            fonts: &fonts,
+            m: crate::shellkit::ShellMetrics::of(
+                crate::shellkit::Viewport::desktop(1280.0, 800.0),
+                crate::shellkit::TextSize::default(),
+            ),
+            german: false,
+        };
+
+        let bg_tip = app
+            .world_mut()
+            .spawn((
+                FloatingTooltip,
+                Visibility::Hidden,
+                Node {
+                    display: Display::None,
+                    ..default()
+                },
+            ))
+            .id();
+        let bg_owner = app
+            .world_mut()
+            .spawn((
+                Tooltip(bg_tip),
+                FocusTooltip,
+                Visibility::Visible,
+                Node {
+                    width: px_fixed(64.0),
+                    height: px_fixed(64.0),
+                    ..default()
+                },
+            ))
+            .id();
+
+        let modal_tip = app
+            .world_mut()
+            .spawn((
+                FloatingTooltip,
+                Visibility::Hidden,
+                Node {
+                    display: Display::None,
+                    ..default()
+                },
+            ))
+            .id();
+        let modal_owner = app
+            .world_mut()
+            .spawn((
+                Tooltip(modal_tip),
+                FocusTooltip,
+                Visibility::Visible,
+                Node {
+                    width: px_fixed(64.0),
+                    height: px_fixed(64.0),
+                    ..default()
+                },
+            ))
+            .id();
+        let surface = app
+            .world_mut()
+            .spawn((
+                Node {
+                    width: px_fixed(320.0),
+                    height: px_fixed(240.0),
+                    ..default()
+                },
+                Visibility::Visible,
+            ))
+            .add_child(modal_owner)
+            .id();
+        let scrim = super::super::surfaces::sheet(&mut app.world_mut().commands(), surface);
+        app.update();
+
+        assert!(
+            app.world().get::<Pickable>(scrim).is_some(),
+            "surfaces::sheet scrim must carry Pickable so ui_picking blocks background hover"
+        );
+        let _ = kit;
+
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(bg_owner, FocusCause::Navigated);
+        bevy::ecs::system::RunSystemOnce::run_system_once(app.world_mut(), show_tooltips)
+            .expect("show_tooltips with background focus under modal");
+        assert_eq!(
+            app.world().get::<Visibility>(bg_tip),
+            Some(&Visibility::Hidden),
+            "background FocusTooltip below ModalScrim must not bleed over modal sheet"
+        );
+
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(modal_owner, FocusCause::Navigated);
+        bevy::ecs::system::RunSystemOnce::run_system_once(app.world_mut(), show_tooltips)
+            .expect("show_tooltips with modal focus");
+        assert_eq!(
+            app.world().get::<Node>(modal_tip).map(|n| n.display),
+            Some(Display::Flex),
+            "tooltip owned inside the modal sheet remains active"
+        );
     }
 }

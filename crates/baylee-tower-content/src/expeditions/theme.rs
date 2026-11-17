@@ -16,11 +16,12 @@ use baylee_core::{
 };
 use std::collections::BTreeSet;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum Theme {
     Tokens,
     Life,
     Spells,
+    Spellcraft,
     Saprolings,
     Artifacts,
     Mana,
@@ -53,12 +54,12 @@ fn theme(name: &str) -> Theme {
         | "Kykar, Wind's Fury"
         | "Tura Kennerüd, Skyknight"
         | "Birgi, God of Storytelling" => Theme::Spells,
+        "Galazeth Prismari" => Theme::Spellcraft,
         "Slimefoot, the Stowaway" => Theme::Saprolings,
         "Pia and Kiran Nalaar"
         | "Padeem, Consul of Innovation"
         | "Glissa, the Traitor"
-        | "Emry, Lurker of the Loch"
-        | "Galazeth Prismari" => Theme::Artifacts,
+        | "Emry, Lurker of the Loch" => Theme::Artifacts,
         "Radha, Heir to Keld"
         | "Ashaya, Soul of the Wild"
         | "Titania, Protector of Argoth"
@@ -103,6 +104,11 @@ impl Theme {
                 .profile
                 .types
                 .intersects(TypeSet::INSTANT.union(TypeSet::SORCERY)),
+            Self::Spellcraft => entry.profile.types.intersects(
+                TypeSet::INSTANT
+                    .union(TypeSet::SORCERY)
+                    .union(TypeSet::ARTIFACT),
+            ),
             Self::Artifacts => entry.profile.types.contains(TypeSet::ARTIFACT),
             Self::Mana => role(MASK_RAMP),
             Self::Equipment => entry.profile.is_equipment_or_aura,
@@ -156,6 +162,36 @@ pub(super) fn core(
         )));
     }
     let mut selected = BTreeSet::new();
+    if theme == Theme::Spellcraft {
+        for (spells_half, targets) in [(true, [1, 2, 2, 3, 3, 4]), (false, [1, 2, 2, 3, 3, 4])] {
+            for target in targets {
+                let chosen = candidates
+                    .iter()
+                    .filter(|entry| {
+                        !selected.contains(&entry.card)
+                            && if spells_half {
+                                entry
+                                    .profile
+                                    .types
+                                    .intersects(TypeSet::INSTANT.union(TypeSet::SORCERY))
+                            } else {
+                                entry.profile.types.contains(TypeSet::ARTIFACT)
+                                    && !entry.profile.is_equipment_or_aura
+                            }
+                    })
+                    .min_by_key(|entry| {
+                        let mixed = seed
+                            .wrapping_add(u64::from(entry.card.get()))
+                            .wrapping_mul(0x9e37_79b9_7f4a_7c15);
+                        (entry.mana_value.abs_diff(target), mixed, entry.card)
+                    });
+                if let Some(entry) = chosen {
+                    selected.insert(entry.card);
+                }
+            }
+        }
+        return Ok(selected.into_iter().collect());
+    }
     for target in [1, 2, 2, 2, 3, 3, 3, 4, 4, 5] {
         let chosen = candidates
             .iter()

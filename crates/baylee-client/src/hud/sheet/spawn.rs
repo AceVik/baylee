@@ -5,7 +5,7 @@
 use super::*;
 
 /// One sheet, built.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 pub(super) fn spawn_sheet(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -34,6 +34,11 @@ pub(super) fn spawn_sheet(
     // does not take is the sheet's *shape* — no head, no footer, no floor
     // under its width, and a row of pips instead of a column of sentences.
     let bubble = crate::abilities::pouring(options);
+    let (_, _, item_goods) = sheet_heading(duel, object, faces, lang);
+    let sheet_border = item_goods.map_or(palette::DIALOG_LINE, |goods| {
+        crate::towerui::color(goods).with_alpha(0.52)
+    });
+    let sheet_radius = if bubble { 6.0 } else { 10.0 };
     let mut node = Node {
         position_type: PositionType::Absolute,
         // As wide as what is on it. An absolutely-positioned node
@@ -63,10 +68,15 @@ pub(super) fn spawn_sheet(
         padding: if bubble {
             UiRect::all(px(SHEET_PAD_Y - POUR_RING))
         } else {
-            UiRect::vertical(px(SHEET_PAD_Y))
+            UiRect::vertical(px(SHEET_PAD_Y + 2.0))
         },
         border: UiRect::all(px(1)),
-        border_radius: BorderRadius::all(px(6)),
+        border_radius: BorderRadius::all(px(sheet_radius)),
+        overflow: if bubble {
+            Overflow::DEFAULT
+        } else {
+            Overflow::clip()
+        },
         ..default()
     };
     if let Some(at) = standing.as_ref() {
@@ -114,7 +124,7 @@ pub(super) fn spawn_sheet(
             },
             node,
             BackgroundColor(palette::DIALOG),
-            BorderColor::all(palette::DIALOG_LINE),
+            BorderColor::all(sheet_border),
             // The house's own, which stands the sheet further off the table
             // than the shallower one written out here did: this is a piece of
             // paper lying *over* the board, not a panel in the same plane as
@@ -148,7 +158,24 @@ pub(super) fn spawn_sheet(
         return sheet;
     }
 
-    spawn_head(commands, fonts, faces, duel, object, dismissible, sheet);
+    let rim = commands
+        .spawn(crate::social::glass::layer(
+            crate::social::glass::Glass::Panel,
+            px(sheet_radius),
+        ))
+        .id();
+    commands.entity(sheet).add_child(rim);
+
+    spawn_head(
+        commands,
+        fonts,
+        faces,
+        lang,
+        duel,
+        object,
+        dismissible,
+        sheet,
+    );
 
     // ---- the header of pips ----------------------------------------------
     //
@@ -199,43 +226,112 @@ pub(super) fn spawn_sheet(
     sheet
 }
 
-/// The permanent's name, the way out, and the hairline under them.
-///
-/// There used to be a line of spaced capitals between the two saying what the
-/// list below was ("what it can do"). It was the one place in the interface
-/// with letter-spacing, and it is gone: a list of things a permanent can do,
-/// standing under that permanent's own name, does not need a label saying it
-/// is a list of things a permanent can do. The hairline does the separating
-/// the label was also doing, and it is what remains.
-fn spawn_head(
-    commands: &mut Commands,
-    fonts: &UiFonts,
-    faces: &crate::cardtext::CardTexts,
+/// Resolves the sheet's primary title, optional muted rarity subline, and
+/// optional Tower item identity so rarity is never concatenated into the title.
+pub(super) fn sheet_heading(
     duel: &Duel,
     object: ObjectId,
-    dismissible: bool,
-    sheet: Entity,
+    faces: &crate::cardtext::CardTexts,
+    lang: Lang,
+) -> (
+    String,
+    Option<String>,
+    Option<baylee_client_core::echoes::domain::v2::shop::Goods>,
 ) {
-    // Two lookups, because the sheet stands beside two kinds of card now and
-    // `PlayerView::object` answers for only one of them. A permanent goes
-    // through [`crate::face::name_of`], which knows that an ability on the
-    // stack borrows its source's name (CR 113.7a); a card in **hand** — which
-    // is what a cast chooser is about, and the one zone `object` does not look
-    // in — goes through [`crate::face::face_name`], which searches the hand
-    // first. Without the second the sheet drew its rows under a blank line.
-    let name = duel.view.as_ref().map_or_else(String::new, |view| {
+    use baylee_client_core::echoes::domain::v2::{catalog::Rarity, shop::Goods};
+
+    if let Some(goods) = duel
+        .view
+        .as_ref()
+        .and_then(|view| view.object(object))
+        .and_then(crate::itemart::identity::run_source)
+    {
+        let title = crate::towerui::words::name(goods, lang);
+        let subtitle = match goods {
+            Goods::Relic(def) => Some(crate::towerui::words::rarity(def.rarity).to_string()),
+            Goods::Mythic => Some(crate::towerui::words::rarity(Rarity::MythicRare).to_string()),
+            Goods::Potion(_) | Goods::Card(_) => None,
+        };
+        return (title, subtitle, Some(goods));
+    }
+
+    let raw = duel.view.as_ref().map_or_else(String::new, |view| {
         view.object(object)
             .map(|o| crate::face::name_of(o, view, faces))
             .or_else(|| crate::face::face_name(object, 0, view, Some(faces)))
             .unwrap_or_default()
     });
+    if let Some((title, tail)) = raw.rsplit_once(" \u{b7} ")
+        && matches!(tail, "Common" | "Uncommon" | "Rare" | "Mythic Rare")
+    {
+        return (title.to_string(), Some(tail.to_string()), None);
+    }
+    (raw, None, None)
+}
+
+/// The permanent's name (with optional Tower item portrait and separated
+/// rarity subline), the way out, and the hairline under them.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+fn spawn_head(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    faces: &crate::cardtext::CardTexts,
+    lang: Lang,
+    duel: &Duel,
+    object: ObjectId,
+    dismissible: bool,
+    sheet: Entity,
+) {
+    let (name, subtitle, item_goods) = sheet_heading(duel, object, faces, lang);
     let row = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
-                column_gap: px(6),
+                column_gap: px(10),
                 margin: UiRect::horizontal(px(SHEET_PAD_X)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    if let Some(goods) = item_goods {
+        let frame = commands
+            .spawn((
+                Node {
+                    width: px(38),
+                    height: px(38),
+                    flex_shrink: 0.0,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    border: UiRect::all(px(1)),
+                    border_radius: BorderRadius::all(px(8)),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.36)),
+                BorderColor::all(crate::towerui::color(goods).with_alpha(0.55)),
+                Pickable::IGNORE,
+                children![(
+                    crate::itemart::Portrait(goods),
+                    Node {
+                        width: px(32),
+                        height: px(32),
+                        flex_shrink: 0.0,
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                )],
+            ))
+            .id();
+        commands.entity(row).add_child(frame);
+    }
+    let title_col = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px(2),
+                flex_grow: 1.0,
+                min_width: px(0),
                 ..default()
             },
             Pickable::IGNORE,
@@ -244,50 +340,42 @@ fn spawn_head(
     let head = commands
         .spawn((
             Text::new(name),
-            // Bold and in the house colour. The name is the one thing on this
-            // sheet that is not an answer to anything — it says *whose* list
-            // this is — so giving it the accent costs the accent nothing,
-            // while leaving it in the body ink made the head read as a first
-            // row.
-            //
-            // Brass and not `palette::ACCENT`: the teal belongs to the panel
-            // register, and `docs/proposals/redesign-proposal.md` §1.3 is what splits
-            // the two. On parchment the accent *is* brass — it is what the
-            // armed keycap and the armed wash are already made of. At ink
-            // weight, though: `BRASS` itself is a light and measures 1.6:1 as
-            // letters here, which `the_parchment_writes_no_letters_in_brass`
-            // holds.
             tf_bold(fonts, 16.0),
             TextColor(palette::CANDLE),
             Node {
-                // It takes the slack, so the cross is against the right
-                // margin whatever the name is and however wide the sheet
-                // came out — and `min_width: 0` lets a long name wrap rather
-                // than push the cross off the paper.
-                flex_grow: 1.0,
+                width: percent(100),
                 min_width: px(0),
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(row).add_child(head);
+    commands.entity(title_col).add_child(head);
+    if let Some(rarity) = subtitle {
+        let sub = commands
+            .spawn((
+                Text::new(rarity),
+                tf(fonts, 11.5),
+                TextColor(palette::MUTED),
+                Node {
+                    width: percent(100),
+                    min_width: px(0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(title_col).add_child(sub);
+    }
+    commands.entity(row).add_child(title_col);
 
-    // A door only where there is somewhere to go. The cross takes the sheet
-    // back by clearing the menu that opened it, so on a sheet drawn for a
-    // question the **engine** asked there is nothing for it to clear and it
-    // would be a control that visibly does nothing — the same objection the
-    // pager answers where `Duel::ability_page` is not the counter in play.
-    // The name and the hairline stay: those say whose list this is, which is
-    // as true of a question that has to be answered as of one that can be put
-    // down.
     if dismissible {
         let shut = shut_button(commands, fonts);
         commands.entity(row).add_child(shut);
     }
 
     commands.entity(sheet).add_child(row);
-    let hair = rule(commands, 5.0);
+    let hair = rule(commands, 7.0);
     commands.entity(sheet).add_child(hair);
 }
 
@@ -600,23 +688,40 @@ fn spawn_cost_column(
     let purse = commands
         .spawn((
             Node {
-                width: px(width),
+                width: px(width + 14.0),
                 flex_shrink: 0.0,
+                align_items: AlignItems::Center,
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
     if let Some(cost) = cost {
+        let chip = commands
+            .spawn((
+                Node {
+                    padding: UiRect::axes(px(6), px(3)),
+                    border: UiRect::all(px(1)),
+                    border_radius: BorderRadius::all(px(5)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.30)),
+                BorderColor::all(palette::DIALOG_LINE.with_alpha(0.55)),
+                Pickable::IGNORE,
+            ))
+            .id();
         let pips = crate::manaui::spawn_rich_marks(
             commands,
             fonts,
             cost,
             ROW_PT,
             COST_MARK,
-            palette::MUTED,
+            palette::DIALOG_INK,
         );
-        commands.entity(purse).add_child(pips);
+        commands.entity(chip).add_child(pips);
+        commands.entity(purse).add_child(chip);
     }
     purse
 }
@@ -833,7 +938,11 @@ fn spawn_pour(
 }
 
 /// One row: what it costs, what the ability does, the key that arms it.
-#[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)]
+#[allow(
+    clippy::too_many_arguments,
+    clippy::fn_params_excessive_bools,
+    clippy::too_many_lines
+)] // Cohesive option pill: keycap, cost badge, prose, and armed/picked styling.
 pub(super) fn spawn_row(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -844,12 +953,18 @@ pub(super) fn spawn_row(
     picked: bool,
     costs: Option<f32>,
 ) -> Entity {
+    let pill_rest = Color::srgba(1.0, 1.0, 1.0, 0.032);
     let wash = if armed {
         ARMED_WASH
     } else if picked {
         PICKED_WASH
     } else {
-        Color::NONE
+        pill_rest
+    };
+    let pill_edge = if armed {
+        palette::CANDLE.with_alpha(0.45)
+    } else {
+        palette::DIALOG_LINE.with_alpha(0.42)
     };
     let row = commands
         .spawn((
@@ -857,19 +972,25 @@ pub(super) fn spawn_row(
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 column_gap: px(11),
+                margin: UiRect::new(px(8), px(8), px(2.5), px(2.5)),
                 // The bar is taken out of the row's own left padding, so the
                 // sentence starts where it always did — see [`PICK_BAR`] for
                 // why every row carries the border and not only this one.
-                border: UiRect::left(px(PICK_BAR)),
-                padding: UiRect::new(px(SHEET_PAD_X - PICK_BAR), px(SHEET_PAD_X), px(6), px(6)),
-                border_radius: BorderRadius::all(px(KEYCAP_R)),
+                border: UiRect::new(px(PICK_BAR), px(1), px(1), px(1)),
+                padding: UiRect::new(px(10.0 - PICK_BAR), px(10.0), px(7.5), px(7.5)),
+                border_radius: BorderRadius::all(px(7)),
                 ..default()
             },
             BackgroundColor(wash),
             // The cursor, in the one register `Feel` does not write — so an
             // armed row that the keyboard is also on says both at once, which
             // is the common case (press `2`, and the cursor is on 2).
-            BorderColor::all(if picked { PICK_MARK } else { Color::NONE }),
+            BorderColor {
+                left: if picked { PICK_MARK } else { pill_edge },
+                top: pill_edge,
+                right: pill_edge,
+                bottom: pill_edge,
+            },
             // Lit but not lifted. A row is a *sentence* with a wash behind it,
             // and a button's 2.5% grow-on-hover reflows that sentence every
             // time the pointer crosses it — which the owner read as the text

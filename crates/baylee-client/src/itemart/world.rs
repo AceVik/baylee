@@ -98,7 +98,15 @@ pub(super) fn install(app: &mut App) {
     embedded_asset!(app, "world.wesl");
     app.init_resource::<Cache>()
         .add_plugins(MaterialPlugin::<Material>::default())
-        .add_systems(PostUpdate, dress);
+        .add_systems(
+            PostUpdate,
+            (dress, ApplyDeferred)
+                .chain()
+                .before(bevy::camera::visibility::VisibilitySystems::CalculateBounds)
+                .before(bevy::camera::visibility::VisibilitySystems::CheckVisibility)
+                .before(bevy::transform::TransformSystems::Propagate)
+                .before(bevy::asset::AssetEventSystems),
+        );
 }
 
 #[cfg(test)]

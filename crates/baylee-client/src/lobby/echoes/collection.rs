@@ -9,6 +9,7 @@ pub(super) struct Collection {
     pub selected: BadgeKind,
     pub failed: bool,
     pub pending: bool,
+    #[cfg(not(target_arch = "wasm32"))]
     next_read: f64,
     #[cfg(not(target_arch = "wasm32"))]
     inbox: Arc<Mutex<Option<Result<Progress, baylee_client_core::echoes::Error>>>>,
@@ -21,6 +22,7 @@ impl Default for Collection {
             selected: BadgeKind::Victories,
             failed: false,
             pending: false,
+            #[cfg(not(target_arch = "wasm32"))]
             next_read: 0.0,
             #[cfg(not(target_arch = "wasm32"))]
             inbox: Arc::default(),
@@ -28,12 +30,12 @@ impl Default for Collection {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl Collection {
     pub fn refresh(&mut self) {
         self.next_read = 0.0;
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn receive(&mut self, reply: Result<Progress, baylee_client_core::echoes::Error>) {
         self.pending = false;
         match reply.and_then(|progress| progress.validate().map(|()| progress)) {

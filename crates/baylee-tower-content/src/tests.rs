@@ -276,3 +276,102 @@ fn forged_commander_facts_cannot_admit_an_unreviewed_catalog() {
     row.run.as_mut().unwrap().commander = false;
     assert!(validate_catalog(&forged).is_err());
 }
+
+#[test]
+fn all_fifty_runic_starters_have_balanced_curves_synergies_and_fetch_targets() {
+    use baylee_core::types::{SupertypeSet, TypeSet};
+    let content = runic().unwrap();
+    assert_eq!(content.starters.len(), 50);
+    for starter in &content.starters {
+        let formation = starter.formation.as_ref().unwrap();
+        let leader = baylee_cards::by_index(formation.commander).unwrap();
+        let mut lands = 0_u16;
+        let mut creatures = 0_u16;
+        let mut spells_is = 0_u16;
+        let mut artifacts = 0_u16;
+        let mut equipment_auras = 0_u16;
+        let mut legends = 0_u16;
+        let mut mv_sum = 0_u32;
+        let mut nonlands = 0_u32;
+        for row in &starter.deck {
+            let def = baylee_cards::by_index(row.card).unwrap();
+            let face = &def.faces[0];
+            let n = u16::from(row.copies);
+            if face.types.contains(TypeSet::LAND) {
+                lands += n;
+            } else {
+                nonlands += u32::from(n);
+                mv_sum += face.mana_cost.cmc() * u32::from(n);
+            }
+            if face.types.contains(TypeSet::CREATURE) {
+                creatures += n;
+            }
+            if face
+                .types
+                .intersects(TypeSet::INSTANT.union(TypeSet::SORCERY))
+            {
+                spells_is += n;
+            }
+            if face.types.contains(TypeSet::ARTIFACT) {
+                artifacts += n;
+            }
+            if face
+                .subtypes
+                .contains(&baylee_core::generated::subtypes::artifact::EQUIPMENT)
+                || face
+                    .subtypes
+                    .contains(&baylee_core::generated::subtypes::enchantment::AURA)
+            {
+                equipment_auras += n;
+            }
+            if face.supertypes.contains(SupertypeSet::LEGENDARY)
+                && !face.types.contains(TypeSet::LAND)
+            {
+                legends += n;
+            }
+        }
+        let avg_mv = f64::from(mv_sum) / f64::from(nonlands.max(1));
+        assert!(
+            (15..=18).contains(&lands),
+            "{} has {lands} lands",
+            leader.name()
+        );
+        assert!(
+            avg_mv <= 4.0,
+            "{} curve too high: {avg_mv:.2}",
+            leader.name()
+        );
+        for color in leader.color_identity.iter() {
+            let basic = baylee_cards::decks::basic_lands()[color as usize].unwrap();
+            let basic_copies: u8 = starter
+                .deck
+                .iter()
+                .filter(|r| r.card == basic)
+                .map(|r| r.copies)
+                .sum();
+            assert!(
+                basic_copies >= 2,
+                "{} has only {basic_copies} basic search targets for {color:?}",
+                leader.name()
+            );
+        }
+        match leader.name() {
+            "Galazeth Prismari" => {
+                assert!(
+                    spells_is >= 6 && artifacts >= 6,
+                    "Galazeth needs both spells ({spells_is}) and artifacts ({artifacts})"
+                );
+            }
+            "Sram, Senior Edificer" => {
+                assert!(
+                    equipment_auras >= 8 && creatures >= 10,
+                    "Sram needs equipment/auras ({equipment_auras}) and carriers ({creatures})"
+                );
+            }
+            "Arvad the Cursed" => {
+                assert!(legends >= 8, "Arvad needs legendary density ({legends})");
+            }
+            _ => {}
+        }
+    }
+}

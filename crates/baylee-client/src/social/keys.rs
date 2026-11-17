@@ -172,9 +172,10 @@ fn typing(
             paste_into(&mut host, ui, &text);
         }
     }
-    // Keys that arrived while the box did not have the caret, or on the
-    // frame it took it (the key that opened it), are not the box's.
-    if !ui.typing || !host.active() || ui.swallow {
+    // Keys that arrived while the box did not have the caret, on the frame
+    // it took it (the key that opened it), or while a modal sheet stands over
+    // the chat, are not the box's.
+    if !ui.typing || !host.active() || ui.swallow || ui.sheet.is_some() {
         typed.clear();
         return;
     }

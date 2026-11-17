@@ -72,6 +72,24 @@ impl Catalog {
     pub fn card(&self, card: CardIndex) -> Option<&Card> {
         self.cards.iter().find(|entry| entry.card == card)
     }
+
+    /// Authoritative proceeds for selling one unused nonbasic copy in a Commander run.
+    /// Basic lands, unknown cards and legacy non-Commander catalogs cannot be sold.
+    #[must_use]
+    pub fn card_sale_gold(&self, card: CardIndex) -> Option<u16> {
+        if !self.is_run() {
+            return None;
+        }
+        let entry = self.card(card)?;
+        if entry.basic_land {
+            return None;
+        }
+        let rarity_gold = entry
+            .run
+            .and_then(|rules| rules.presentation)
+            .map_or(1, |art| art.rarity.sale_gold());
+        Some(rarity_gold.min(u16::from(entry.price)))
+    }
 }
 
 /// A count of one canonical card, not a client-supplied script or text document.

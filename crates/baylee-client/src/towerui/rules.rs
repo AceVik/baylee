@@ -21,10 +21,12 @@ pub(super) fn ability(item: Definition, index: usize, lang: Lang) -> Option<Stri
         | Family::StormSpindle => 2,
         _ => 1,
     };
-    if index < base {
-        return Some(primary(item, index, lang));
-    }
-    Some(extra(item.family).get(index - base)?.text(lang).to_owned())
+    let raw = if index < base {
+        primary(item, index, lang)
+    } else {
+        extra(item.family).get(index - base)?.text(lang).to_owned()
+    };
+    Some(super::words::strip_command_zone(&raw))
 }
 
 fn extra(family: Family) -> [Phrase; 3] {
@@ -195,14 +197,10 @@ fn primary(item: Definition, index: usize, lang: Lang) -> String {
 }
 
 fn limited(mut text: String, item: Definition, lang: Lang, rare_unlimited: bool) -> String {
-    text.push(' ');
-    text.push_str(
-        if item.rarity == Rarity::MythicRare || (rare_unlimited && item.rarity == Rarity::Rare) {
-            Phrase::TowerRuleActivate.text(lang)
-        } else {
-            Phrase::TowerRuleOnce.text(lang)
-        },
-    );
+    if item.rarity != Rarity::MythicRare && !(rare_unlimited && item.rarity == Rarity::Rare) {
+        text.push(' ');
+        text.push_str(Phrase::TowerRuleOnce.text(lang));
+    }
     text
 }
 
@@ -210,10 +208,13 @@ fn limited(mut text: String, item: Definition, lang: Lang, rare_unlimited: bool)
 mod tests {
     use super::*;
 
-    // Numeric spelling and singular/plural are editorial. Every other word,
-    // cost, timing clause and limitation must match the executable description.
+    // Numeric spelling and singular/plural are editorial, and redundant
+    // command-zone boilerplate is intentionally omitted on Tower UI surfaces.
+    // Every other word, cost, timing clause and per-turn limit must match the
+    // executable description.
     fn canonical(text: &str) -> String {
-        text.to_lowercase()
+        super::super::words::strip_command_zone(text)
+            .to_lowercase()
             .replace(" a ", " 1 ")
             .replace("two", "2")
             .replace("three", "3")
@@ -223,7 +224,7 @@ mod tests {
     }
 
     #[test]
-    fn every_run_ability_has_matching_english_and_complete_german() {
+    fn every_run_ability_has_matching_english_complete_german_and_no_command_zone_boilerplate() {
         for family in Family::ALL {
             for rarity in Rarity::ALL {
                 let item = Definition { family, rarity };
@@ -238,10 +239,18 @@ mod tests {
                         canonical(native),
                         "{item:?} ability {index}"
                     );
+                    assert!(
+                        !english.to_lowercase().contains("command zone"),
+                        "{item:?} ability {index} retained command-zone boilerplate: {english}"
+                    );
                     let german = ability(item, index, Lang::De).unwrap();
                     assert!(
                         !german.is_empty() && german != english,
                         "{item:?} ability {index}"
+                    );
+                    assert!(
+                        !german.to_lowercase().contains("kommandozone"),
+                        "{item:?} ability {index} retained Kommandozone boilerplate: {german}"
                     );
                 }
                 assert!(ability(item, token.abilities.len(), Lang::De).is_none());

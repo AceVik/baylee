@@ -12,25 +12,34 @@ pub(super) fn retain_fetch_targets(
     identity: ColorSet,
 ) -> Result<(), super::Error> {
     let basics = baylee_cards::decks::basic_lands();
-    for color in identity.iter() {
-        let basic = basics[color as usize].ok_or(super::Error::Formation)?;
-        if main.contains(&basic) {
-            continue;
+    for minimum in [1_usize, 2] {
+        for color in identity.iter() {
+            let basic = basics[color as usize].ok_or(super::Error::Formation)?;
+            let have = main.iter().filter(|entry| **entry == basic).count();
+            if have >= minimum {
+                continue;
+            }
+            let min_donor = if minimum == 1 { 2 } else { 4 };
+            let donor = basics
+                .iter()
+                .flatten()
+                .copied()
+                .map(|card| (main.iter().filter(|entry| **entry == card).count(), card))
+                .filter(|(count, _)| *count >= min_donor)
+                .max()
+                .map(|(_, card)| card);
+            let Some(donor) = donor else {
+                if minimum == 1 {
+                    return Err(super::Error::Formation);
+                }
+                continue;
+            };
+            let slot = main
+                .iter_mut()
+                .find(|entry| **entry == donor)
+                .ok_or(super::Error::Formation)?;
+            *slot = basic;
         }
-        let donor = basics
-            .iter()
-            .flatten()
-            .copied()
-            .map(|card| (main.iter().filter(|entry| **entry == card).count(), card))
-            .filter(|(count, _)| *count > 1)
-            .max()
-            .map(|(_, card)| card)
-            .ok_or(super::Error::Formation)?;
-        let slot = main
-            .iter_mut()
-            .find(|entry| **entry == donor)
-            .ok_or(super::Error::Formation)?;
-        *slot = basic;
     }
     Ok(())
 }

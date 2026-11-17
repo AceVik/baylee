@@ -15,11 +15,15 @@ pub(super) fn draw(
     let choice = tile(commands, root, kit);
     commands
         .entity(choice)
+        .insert((
+            BorderColor::all(tokens::GOLD.with_alpha(0.38)),
+            BackgroundColor(tokens::CONTROL.with_alpha(0.86)),
+        ))
         .entry::<Node>()
         .and_modify(move |mut node| {
             node.min_width = px(0);
-            node.row_gap = kit.m.px(8.0);
-            node.padding = UiRect::all(kit.m.px(12.0));
+            node.row_gap = kit.m.px(10.0);
+            node.padding = UiRect::all(kit.m.px(16.0));
             node.align_items = AlignItems::Center;
         });
     let name = words::card(commander, lang);
@@ -35,31 +39,14 @@ pub(super) fn draw(
     let image = crate::lobby::thumbnails::spawn_sized(
         commands,
         &hover,
-        kit.m.px(112.0),
-        kit.m.px(156.0),
-        kit.m.px(8.0),
+        kit.m.px(124.0),
+        kit.m.px(173.0),
+        kit.m.px(9.0),
     );
+    commands
+        .entity(image)
+        .insert((surfaces::elevation_card(), hover, Pickable::default()));
     commands.entity(choice).add_child(image);
-    let action = Action::Starter(cohort, number);
-    commands.entity(choice).insert((
-        crate::shellkit::Role::Hit,
-        PickingInteraction::default(),
-        Pickable::default(),
-        Press::Echoes(action),
-        super::super::super::keys::stop(action, ui),
-        hover,
-        crate::ambience::Feel::tinting_to(tokens::CONTROL, tokens::HOVER),
-        crate::ambience::FeelBorder {
-            rest: tokens::GOLD.with_alpha(0.4),
-            hot: tokens::GOLD,
-            press: tokens::INK,
-        },
-        crate::ambience::FeelShadow,
-        crate::shellkit::sheen::Sheen,
-    ));
-    if ui.model.busy() || ui.model.uncertain() || !ui.choices.deck_unchanged(ui.model.run()) {
-        commands.entity(choice).insert(controls::Disabled);
-    }
     let title = controls::label(commands, kit, &name, kit.m.text, tokens::INK);
     commands
         .entity(title)
@@ -68,33 +55,96 @@ pub(super) fn draw(
             TextLayout::justify(Justify::Center),
         ))
         .entry::<Node>()
-        .and_modify(move |mut node| node.min_height = kit.m.px(48.0));
+        .and_modify(move |mut node| node.min_height = kit.m.px(44.0));
     commands.entity(choice).add_child(title);
-    if let Some(strategy) = strategy(&words::card(commander, Lang::En)) {
-        let band = row(commands, choice, kit);
-        commands
-            .entity(band)
-            .entry::<Node>()
-            .and_modify(|mut node| {
-                node.flex_direction = FlexDirection::Column;
-                node.align_items = AlignItems::Center;
-            });
-        label(commands, band, kit, strategy.text(lang), tokens::GOLD);
-    }
+
+    let plan =
+        strategy(&words::card(commander, Lang::En)).unwrap_or_else(|| fallback_strategy(commander));
+    let band = row(commands, choice, kit);
+    commands
+        .entity(band)
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            node.flex_direction = FlexDirection::Column;
+            node.align_items = AlignItems::Center;
+            node.min_height = kit.m.px(36.0);
+        });
+    let plan_label = controls::label(commands, kit, plan.text(lang), kit.m.small, tokens::GOLD);
+    commands
+        .entity(plan_label)
+        .insert(TextLayout::justify(Justify::Center));
+    commands.entity(band).add_child(plan_label);
+
     let spacer = crate::lobby::parts::grow(commands);
     commands.entity(choice).add_child(spacer);
-    let actions = row(commands, choice, kit);
-    let action = Action::InspectStarter(cohort, number);
-    let inspect =
-        crate::lobby::parts::icon_button(commands, kit, glyph::LIBRARY, Press::Echoes(action));
-    commands
-        .entity(inspect)
-        .insert(super::super::super::keys::stop(action, ui));
-    controls::attach_tooltip(commands, inspect, kit, Phrase::EchoesDeck.text(lang));
-    commands.entity(actions).add_child(inspect);
+    starter_actions(commands, choice, kit, ui, cohort, number);
 }
 
-pub(super) fn inspect(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
+fn starter_actions(
+    commands: &mut Commands,
+    choice: Entity,
+    kit: Kit,
+    ui: &Ui,
+    cohort: Uuid,
+    number: u8,
+) {
+    let lang = lang(kit);
+    let actions = row(commands, choice, kit);
+    commands
+        .entity(actions)
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.width = percent(100);
+            node.justify_content = JustifyContent::Center;
+        });
+    let inspect_action = Action::InspectStarter(cohort, number);
+    let inspect = controls::button_compact(
+        commands,
+        kit,
+        Some(glyph::LIBRARY),
+        Phrase::EchoesDeckCheck.text(lang),
+        Weight::Secondary,
+        if !ui.model.mutating() && ui.confirmation.is_none() {
+            Live::Yes
+        } else {
+            Live::No(Phrase::EchoesUnavailable.text(lang))
+        },
+        Press::Echoes(inspect_action),
+    );
+    commands
+        .entity(inspect)
+        .insert(super::super::super::keys::stop(inspect_action, ui));
+    commands.entity(actions).add_child(inspect);
+
+    let start_action = Action::Starter(cohort, number);
+    let can_start =
+        !ui.model.busy() && !ui.model.uncertain() && ui.choices.deck_unchanged(ui.model.run());
+    let choose = controls::button_compact(
+        commands,
+        kit,
+        Some(glyph::ARROW_RIGHT),
+        Phrase::EchoesRunChoose.text(lang),
+        Weight::Gold,
+        if can_start && ui.confirmation.is_none() {
+            Live::Yes
+        } else {
+            Live::No(Phrase::EchoesUnavailable.text(lang))
+        },
+        Press::Echoes(start_action),
+    );
+    commands
+        .entity(choose)
+        .insert(super::super::super::keys::stop(start_action, ui));
+    commands.entity(actions).add_child(choose);
+}
+
+pub(super) fn inspect(
+    commands: &mut Commands,
+    root: Entity,
+    kit: Kit,
+    ui: &Ui,
+    scrolled: &Scrolled,
+) {
     let Some((cohort, index)) = ui.starter_preview else {
         return;
     };
@@ -160,14 +210,21 @@ pub(super) fn inspect(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) 
     commands
         .entity(close)
         .insert(super::super::super::keys::stop(Action::ClosePreview, ui));
+    let title = starter.formation.as_ref().map_or_else(
+        || Phrase::EchoesDeck.text(lang(kit)).to_owned(),
+        |formation| words::card(formation.commander, lang(kit)),
+    );
     let surface = surfaces::sheet_box_listed(
         commands,
         kit,
         surfaces::SheetWidth::Large,
-        Phrase::EchoesDeck.text(lang(kit)),
+        &title,
         &body,
         &[close],
-        (Scrollable(List::EchoesInspector), ScrollPosition::default()),
+        (
+            Scrollable(List::EchoesInspector),
+            ScrollPosition(Vec2::new(0.0, scrolled.get(List::EchoesInspector))),
+        ),
     );
     commands
         .entity(surface)
@@ -177,6 +234,31 @@ pub(super) fn inspect(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) 
         .entity(scrim)
         .insert(Press::Echoes(Action::ClosePreview));
     commands.entity(root).add_child(scrim);
+}
+
+fn fallback_strategy(commander: baylee_core::ids::CardIndex) -> Phrase {
+    use baylee_core::color::Color as ManaColor;
+    let Some(def) = baylee_cards::by_index(commander) else {
+        return Phrase::EchoesPlanLegends;
+    };
+    let id = def.color_identity;
+    if id.contains(ManaColor::Blue) && id.contains(ManaColor::Red) {
+        Phrase::EchoesPlanStorm
+    } else if id.contains(ManaColor::Black) && id.contains(ManaColor::Green) {
+        Phrase::EchoesPlanGraveyard
+    } else if id.contains(ManaColor::White) && id.contains(ManaColor::Black) {
+        Phrase::EchoesPlanLife
+    } else if id.contains(ManaColor::Green) {
+        Phrase::EchoesPlanCombat
+    } else if id.contains(ManaColor::Blue) {
+        Phrase::EchoesPlanControl
+    } else if id.contains(ManaColor::Red) {
+        Phrase::EchoesPlanStorm
+    } else if id.contains(ManaColor::White) {
+        Phrase::EchoesPlanLegends
+    } else {
+        Phrase::EchoesPlanControl
+    }
 }
 
 fn strategy(name: &str) -> Option<Phrase> {

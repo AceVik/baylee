@@ -9426,7 +9426,7 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
         ],
         &[
             "Whenever a creature token you control enters, put 2 charge counters on this item.",
-            "{1}, Remove 3 charge counters from this item: Create 3 1/1 white Soldier creature tokens. Activate from the command zone.",
+            "{1}, Remove 6 charge counters from this item: Create 3 1/1 white Soldier creature tokens. Activate from the command zone.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control get +0/+1.",
             "At the beginning of your upkeep: Create 3 1/1 white Soldier creature tokens.",
@@ -10482,7 +10482,7 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
         ],
         &[
             "Whenever you gain life, put 2 charge counters on this item.",
-            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone.",
+            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you discard a card, you gain 1 life.",
             "At the beginning of your upkeep: Draw a card, then discard a card.",

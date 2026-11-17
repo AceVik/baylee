@@ -213,8 +213,20 @@ pub(crate) enum BuildPress {
     /// Take the commander mark off, leaving the card in the deck.
     ClearCommander,
     /// Open the filter-string builder on what the search box holds, or shut
-    /// it. The cogwheel inside the box.
+    /// it. The cogwheel beside the box.
     ToggleFilterPanel,
+    /// Close the floating filter-string / search gear overlay explicitly.
+    CloseFilterPanel,
+    /// Toggle hiding cards currently in the main deck (`Zone::Main`).
+    ToggleHideInDeck,
+    /// Toggle hiding cards currently in the sideboard (`Zone::Side`).
+    ToggleHideInSideboard,
+    /// Open confirmation to sell an unused owned card (`slot`) in a Tower Run.
+    AskSellTowerCard(usize),
+    /// Confirm selling the pending unused owned card in a Tower Run.
+    ConfirmSellTowerCard,
+    /// Cancel the pending Tower Run card-sale confirmation.
+    CancelSellTowerCard,
 }
 
 /// Leaves the builder for Decks, the question answered.
@@ -786,6 +798,7 @@ impl BuildPress {
                 state.build.syntax = !state.build.syntax;
                 if state.build.syntax {
                     state.build.rail = false;
+                    state.lobby.builder_mut().close_panel();
                 }
             }
             BuildPress::InsertSyntax(at) => {
@@ -951,7 +964,33 @@ impl BuildPress {
                 }
             }
             BuildPress::WindowFlip => state.build.window_back = !state.build.window_back,
-            BuildPress::ToggleFilterPanel => state.lobby.builder_mut().toggle_panel(),
+            BuildPress::ToggleFilterPanel => {
+                state.lobby.builder_mut().toggle_panel();
+                if state.lobby.builder().pool_panel().is_some() {
+                    state.build.syntax = false;
+                }
+            }
+            BuildPress::CloseFilterPanel => state.lobby.builder_mut().close_panel(),
+            BuildPress::ToggleHideInDeck => {
+                state.lobby.builder_mut().toggle_hide_in_deck();
+                scrolled.set(List::Pool, 0.0);
+            }
+            BuildPress::ToggleHideInSideboard => {
+                state.lobby.builder_mut().toggle_hide_in_sideboard();
+                scrolled.set(List::Pool, 0.0);
+            }
+            BuildPress::AskSellTowerCard(slot) => {
+                if matches!(
+                    crate::buildui::tower_sell_status(state, slot),
+                    crate::buildui::TowerSellStatus::Sellable { busy: false, .. }
+                ) {
+                    state.build.menu = None;
+                    state.build.confirm_sell = Some(slot);
+                }
+            }
+            BuildPress::ConfirmSellTowerCard | BuildPress::CancelSellTowerCard => {
+                state.build.confirm_sell = None;
+            }
         }
     }
 }

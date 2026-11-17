@@ -9,6 +9,9 @@ use domain::v2::run::Command;
 use uuid::Uuid;
 
 pub mod draft;
+pub use draft::{
+    RewardGold, reward_card_duplicate_gold, reward_gold, sellable_card_gold, sellable_cards,
+};
 pub mod feedback;
 mod receive;
 #[cfg(test)]
@@ -136,6 +139,18 @@ impl State {
     #[must_use]
     pub const fn busy(&self) -> bool {
         self.active.is_some()
+    }
+    /// Whether an in-flight worker operation is a state-changing mutation or seat launch
+    /// (as opposed to a passive read like `Hosts`, `Cohorts`, or `Runs`).
+    #[must_use]
+    pub fn mutating(&self) -> bool {
+        self.active.as_ref().is_some_and(|work| {
+            work.play.is_some()
+                || work
+                    .request
+                    .as_ref()
+                    .is_some_and(|req| mutation(req) || matches!(req, Request::WithdrawEchoes {}))
+        })
     }
     /// An ambiguous mutation must be retried/resolved before another mutation.
     #[must_use]

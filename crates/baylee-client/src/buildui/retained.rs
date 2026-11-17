@@ -34,6 +34,7 @@ pub(crate) struct Holders {
     pub(crate) deck_foot: Option<Entity>,
     pub(crate) rail: Option<Entity>,
     pub(crate) tabbar: Option<Entity>,
+    pub(crate) veil: Option<Entity>,
     pub(crate) menu: Option<Entity>,
     pub(crate) sheet: Option<Entity>,
     pub(crate) picker: Option<Entity>,
@@ -52,6 +53,7 @@ impl Default for Holders {
             deck_foot: None,
             rail: None,
             tabbar: None,
+            veil: None,
             menu: None,
             sheet: None,
             picker: None,
@@ -117,11 +119,14 @@ struct TitleKey {
 struct ToolbarKey {
     text: TextBuffer,
     typing: bool,
-    panel: Option<FilterPanel>,
+    panel_open: bool,
+    gear_active: u32,
     colors: Vec<char>,
     kind: Option<String>,
     cmc: Option<u32>,
     rarity: Option<Rarity>,
+    hide_in_deck: bool,
+    hide_in_sideboard: bool,
     playable: bool,
     fav_deck: bool,
     fav_global: bool,
@@ -157,22 +162,42 @@ struct ListKey {
     fav_global: bool,
     deck_favs: Vec<String>,
     global_favs: Vec<String>,
+    tower_sell: (u64, bool, u32),
+    dirty: bool,
 }
 
-/// The pool's overlays: the Filters rail and the syntax popover.
+/// Full-window click-outside catcher key for floating pool popovers.
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct VeilKey {
+    gear: bool,
+    rail: bool,
+    syntax: bool,
+}
+
+/// The pool's overlays: the Filters rail, the floating Search Filter Gear
+/// Overlay, and the syntax popover.
 #[derive(Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)] // independent facts the rail and popover show
 struct OverKey {
+    panel: Option<FilterPanel>,
     rail: bool,
     syntax: bool,
     kind: Option<String>,
     cmc: Option<u32>,
     rarity: Option<Rarity>,
+    hide_in_deck: bool,
+    hide_in_sideboard: bool,
     playable: bool,
     fav_deck: bool,
     fav_global: bool,
     colors: Vec<char>,
+    sort: Sort,
+    sort_dir: SortDir,
     filtered: bool,
+    facts: bool,
+    lists_known: bool,
+    main_nonempty: bool,
+    side_nonempty: bool,
 }
 
 /// The deck head's key: the commander slot, the tabs, the grouping.
@@ -261,6 +286,7 @@ struct MenuKey {
     history: bool,
     deck_favs: Vec<String>,
     global_favs: Vec<String>,
+    tower_sell: (u64, bool, u32),
 }
 
 /// The open sheet's key.
@@ -269,6 +295,7 @@ struct MenuKey {
 struct SheetKey {
     check: Option<CheckKey>,
     leaving: bool,
+    confirm_sell: Option<(usize, super::TowerSellStatus)>,
     inspecting: Option<usize>,
     held: Option<(u16, u16)>,
     stats: bool,
@@ -280,6 +307,8 @@ struct SheetKey {
     kind: Option<String>,
     cmc: Option<u32>,
     rarity: Option<Rarity>,
+    hide_in_deck: bool,
+    hide_in_sideboard: bool,
     playable: bool,
     fav_deck: bool,
     fav_global: bool,
@@ -304,6 +333,7 @@ struct Keys {
     title: Option<TitleKey>,
     toolbar: Option<ToolbarKey>,
     list: Option<ListKey>,
+    veil: Option<VeilKey>,
     over: Option<OverKey>,
     head: Option<HeadKey>,
     body: Option<BodyKey>,
@@ -395,15 +425,44 @@ impl Retained {
                 super::pool::list(c, at, env);
             },
         );
-        drawn += redraw(
-            commands,
-            h.pool_over,
-            &mut k.over,
-            over_key(env),
-            |c, at| {
-                super::pool::over(c, at, env);
-            },
-        );
+        let keep_gear_scroll = k.over.as_ref().is_some_and(|old| old.panel.is_some())
+            && env.deck().pool_panel().is_some();
+        let now_over = over_key(env);
+        if k.over.as_ref() != Some(&now_over) {
+            commands.queue(move |world: &mut World| {
+                let y = if keep_gear_scroll {
+                    world
+                        .query_filtered::<&ScrollPosition, With<super::pool::GearScroll>>()
+                        .iter(world)
+                        .next()
+                        .map_or(0.0, |pos| pos.0.y)
+                } else {
+                    0.0
+                };
+                world.insert_resource(GearScrollMemory(y));
+            });
+        }
+        let over_redrawn = redraw(commands, h.pool_over, &mut k.over, now_over, |c, at| {
+            super::pool::over(c, at, env);
+        });
+        if over_redrawn > 0 && keep_gear_scroll {
+            commands.queue(|world: &mut World| {
+                let y = world
+                    .get_resource::<GearScrollMemory>()
+                    .map_or(0.0, |mem| mem.0);
+                if y > 0.0 {
+                    let mut q = world
+                        .query_filtered::<&mut ScrollPosition, With<super::pool::GearScroll>>();
+                    for mut pos in q.iter_mut(world) {
+                        pos.0.y = y;
+                    }
+                }
+            });
+        }
+        drawn += over_redrawn;
+        drawn += redraw(commands, h.veil, &mut k.veil, veil_key(env), |c, at| {
+            super::pool::veil(c, at, env);
+        });
         drawn += redraw(
             commands,
             h.deck_head,
@@ -485,6 +544,9 @@ impl Retained {
     }
 }
 
+#[derive(Resource, Default, Clone, Copy)]
+struct GearScrollMemory(f32);
+
 /// Draws `draw` into `holder` when `now` differs from what it was drawn
 /// from; 1 when it did.
 fn redraw<K: PartialEq>(
@@ -551,11 +613,14 @@ fn toolbar_key(env: &Env) -> ToolbarKey {
     ToolbarKey {
         text: deck.buffer(BuildField::Search).clone(),
         typing: super::pool::search_has_caret(env),
-        panel: deck.pool_panel().cloned(),
+        panel_open: deck.pool_panel().is_some(),
+        gear_active: super::pool::active_gear_filters(env),
         colors: deck.colors().to_vec(),
         kind: deck.kind().map(str::to_owned),
         cmc: deck.cmc(),
         rarity: deck.rarity(),
+        hide_in_deck: deck.hide_in_deck(),
+        hide_in_sideboard: deck.hide_in_sideboard(),
         playable: deck.playable_only(),
         fav_deck: env.ui().fav_deck,
         fav_global: env.ui().fav_global,
@@ -594,22 +659,41 @@ fn list_key(env: &Env) -> ListKey {
         fav_global: env.ui().fav_global,
         deck_favs: env.prefs.deck_card_favourites_for(deck_key).to_vec(),
         global_favs: env.prefs.card_favourites.clone(),
+        tower_sell: super::tower_sell_signature(env.state),
+        dirty: env.state.lobby.scoped_builder() && deck.dirty(),
+    }
+}
+
+fn veil_key(env: &Env) -> VeilKey {
+    VeilKey {
+        gear: env.deck().pool_panel().is_some(),
+        rail: env.ui().rail && env.layout != Layout::Rail && env.layout != Layout::PhoneSingle,
+        syntax: env.ui().syntax,
     }
 }
 
 fn over_key(env: &Env) -> OverKey {
     let deck = env.deck();
     OverKey {
+        panel: deck.pool_panel().cloned(),
         rail: env.ui().rail && env.layout != Layout::Rail && env.layout != Layout::PhoneSingle,
         syntax: env.ui().syntax,
         kind: deck.kind().map(str::to_owned),
         cmc: deck.cmc(),
         rarity: deck.rarity(),
+        hide_in_deck: deck.hide_in_deck(),
+        hide_in_sideboard: deck.hide_in_sideboard(),
         playable: deck.playable_only(),
         fav_deck: env.ui().fav_deck,
         fav_global: env.ui().fav_global,
         colors: deck.colors().to_vec(),
+        sort: deck.sort(),
+        sort_dir: deck.sort_dir(),
         filtered: deck.filtered(),
+        facts: deck.pool_facts().is_some(),
+        lists_known: deck.surface().lists().is_some(),
+        main_nonempty: !deck.entries(Zone::Main).is_empty() || !deck.commanders().is_empty(),
+        side_nonempty: !deck.entries(Zone::Side).is_empty(),
     }
 }
 
@@ -732,6 +816,7 @@ fn menu_key(env: &Env) -> MenuKey {
         history: env.state.lobby.token().is_some() && deck.editing().is_some(),
         deck_favs: env.prefs.deck_card_favourites_for(deck_key).to_vec(),
         global_favs: env.prefs.card_favourites.clone(),
+        tower_sell: super::tower_sell_signature(env.state),
     }
 }
 
@@ -742,6 +827,9 @@ fn sheet_key(env: &Env) -> SheetKey {
     SheetKey {
         check: (ui.check_sheet || deck.list_editor().is_some()).then(|| check_key(env)),
         leaving: env.state.confirm_leave,
+        confirm_sell: ui
+            .confirm_sell
+            .map(|slot| (slot, super::tower_sell_status(env.state, slot))),
         inspecting: deck.inspecting(),
         held: deck.inspecting().map(|slot| {
             (
@@ -762,6 +850,8 @@ fn sheet_key(env: &Env) -> SheetKey {
         kind: deck.kind().map(str::to_owned),
         cmc: deck.cmc(),
         rarity: deck.rarity(),
+        hide_in_deck: deck.hide_in_deck(),
+        hide_in_sideboard: deck.hide_in_sideboard(),
         playable: deck.playable_only(),
         fav_deck: ui.fav_deck,
         fav_global: ui.fav_global,

@@ -154,6 +154,20 @@ impl DeckBuilder {
         !self.show_unplayable
     }
 
+    /// Whether cards already in the main deck (`Zone::Main` / commander) are
+    /// hidden from the pool. Defaults to `true`.
+    #[must_use]
+    pub const fn hide_in_deck(&self) -> bool {
+        !self.show_in_deck
+    }
+
+    /// Whether cards already in the sideboard (`Zone::Side`) are hidden from
+    /// the pool. Defaults to `true`.
+    #[must_use]
+    pub const fn hide_in_sideboard(&self) -> bool {
+        !self.show_in_sideboard
+    }
+
     /// The result order criterion.
     #[must_use]
     pub fn sort(&self) -> Sort {
@@ -538,6 +552,34 @@ impl DeckBuilder {
         self.refilter();
     }
 
+    /// Toggles hiding cards currently in the main deck (`Zone::Main` / commander).
+    pub fn toggle_hide_in_deck(&mut self) {
+        self.show_in_deck = !self.show_in_deck;
+        self.refilter();
+    }
+
+    /// Sets whether cards currently in the main deck are hidden from the pool.
+    pub fn set_hide_in_deck(&mut self, hide: bool) {
+        if self.hide_in_deck() != hide {
+            self.show_in_deck = !hide;
+            self.refilter();
+        }
+    }
+
+    /// Toggles hiding cards currently in the sideboard (`Zone::Side`).
+    pub fn toggle_hide_in_sideboard(&mut self) {
+        self.show_in_sideboard = !self.show_in_sideboard;
+        self.refilter();
+    }
+
+    /// Sets whether cards currently in the sideboard are hidden from the pool.
+    pub fn set_hide_in_sideboard(&mut self, hide: bool) {
+        if self.hide_in_sideboard() != hide {
+            self.show_in_sideboard = !hide;
+            self.refilter();
+        }
+    }
+
     /// Moves to the next result order.
     pub fn cycle_sort(&mut self) {
         self.sort = self.sort.next();
@@ -559,13 +601,17 @@ impl DeckBuilder {
         self.refilter();
     }
 
-    /// Clears every filter, including the text.
+    /// Clears every filter, including the text, and restores default pool
+    /// zone-hiding switches.
     pub fn clear_filters(&mut self) {
+        let _ = self.search.act(crate::filterdialog::Act::Clear);
         self.search.field.clear();
         self.colors.clear();
         self.kind = None;
         self.cmc = None;
         self.rarity = None;
+        self.show_in_deck = false;
+        self.show_in_sideboard = false;
         self.retext();
     }
 
@@ -704,10 +750,16 @@ impl DeckBuilder {
         if !self.show_unplayable {
             out.push(Chip::PlayableOnly);
         }
+        if self.hide_in_deck() && (!self.main.is_empty() || !self.commanders.is_empty()) {
+            out.push(Chip::HideInDeck);
+        }
+        if self.hide_in_sideboard() && !self.side.is_empty() {
+            out.push(Chip::HideInSideboard);
+        }
         out
     }
 
-    /// Whether anything is narrowing the results.
+    /// Whether anything is narrowing or overriding the default pool filters.
     #[must_use]
     pub fn filtered(&self) -> bool {
         !self.search.field.is_empty()
@@ -715,12 +767,36 @@ impl DeckBuilder {
             || self.kind.is_some()
             || self.cmc.is_some()
             || self.rarity.is_some()
+            || self.show_in_deck
+            || self.show_in_sideboard
     }
 
     /// Recomputes the result list.
     pub(super) fn refilter(&mut self) {
+        let hide_deck = self.hide_in_deck();
+        let hide_side = self.hide_in_sideboard();
+        let mut hidden = vec![false; self.pool.len()];
+        if hide_deck {
+            for entry in &self.main {
+                if let Some(flag) = hidden.get_mut(entry.slot) {
+                    *flag = true;
+                }
+            }
+            for &slot in &self.commanders {
+                if let Some(flag) = hidden.get_mut(slot) {
+                    *flag = true;
+                }
+            }
+        }
+        if hide_side {
+            for entry in &self.side {
+                if let Some(flag) = hidden.get_mut(entry.slot) {
+                    *flag = true;
+                }
+            }
+        }
         let mut hits: Vec<usize> = (0..self.pool.len())
-            .filter(|slot| self.matches(&self.pool[*slot]))
+            .filter(|&slot| !hidden[slot] && self.matches(&self.pool[slot]))
             .collect();
         let sort = self.sort;
         let dir = self.sort_dir;
@@ -850,9 +926,11 @@ impl DeckBuilder {
             ..Printing::default()
         };
         let index = card.index;
+        let pool_pos = self.results.iter().position(|&s| s == slot);
         self.focus_epoch = self.focus_epoch.wrapping_add(1);
         self.picker = Some(Picker {
             slot,
+            pool_pos,
             zone,
             card: index,
             reference_id: card.scryfall_id.clone(),
@@ -1538,22 +1616,53 @@ impl DeckBuilder {
         let Some(picker) = self.picker.as_ref() else {
             return (false, None);
         };
-        let (slot, door, list) = (picker.slot, picker.door, picker.list);
+        let (slot, door, list, pool_pos) = (picker.slot, picker.door, picker.list, picker.pool_pos);
         let slots: Vec<usize> = match list {
             Some(zone) => self.entries(zone).iter().map(|e| e.slot).collect(),
             None => self.results().to_vec(),
         };
+        if slots.is_empty() {
+            return (false, None);
+        }
         let here = list
             .zip(picker.replacing.as_ref())
             .and_then(|(zone, row)| self.entries(zone).iter().position(|e| e == row))
             .or_else(|| slots.iter().position(|s| *s == slot));
-        let Some(here) = here else {
-            return (false, None);
-        };
-        let Some(to) = here
-            .checked_add_signed(isize::try_from(by).unwrap_or(0))
-            .filter(|to| *to < slots.len())
-        else {
+        let to = if let Some(here) = here {
+            let Some(to) = here
+                .checked_add_signed(isize::try_from(by).unwrap_or(0))
+                .filter(|to| *to < slots.len())
+            else {
+                return (false, None);
+            };
+            to
+        } else if let (None, Some(pos)) = (list, pool_pos) {
+            // The inspected pool card was hidden from `results` after being
+            // added to the deck; step from the position it occupied.
+            match by.cmp(&0) {
+                std::cmp::Ordering::Greater => {
+                    let Ok(step) = usize::try_from(by - 1) else {
+                        return (false, None);
+                    };
+                    let candidate = pos.saturating_add(step);
+                    if candidate >= slots.len() {
+                        return (false, None);
+                    }
+                    candidate
+                }
+                std::cmp::Ordering::Less => {
+                    let Ok(back) = usize::try_from(-by) else {
+                        return (false, None);
+                    };
+                    let clamped = pos.min(slots.len());
+                    let Some(candidate) = clamped.checked_sub(back) else {
+                        return (false, None);
+                    };
+                    candidate
+                }
+                std::cmp::Ordering::Equal => return (false, None),
+            }
+        } else {
             return (false, None);
         };
         let request = match list {

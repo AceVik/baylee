@@ -519,3 +519,21 @@ fn a_retained_run_uses_its_frozen_catalog_after_enrollment_closes() {
         "the retained run can still use its shop"
     );
 }
+
+#[test]
+fn enrolling_inserts_the_new_run_into_the_owned_runs_list() {
+    let (mut state, cohort, initial) = opened();
+    let mut fresh = initial.clone();
+    fresh.id = Uuid::now_v7();
+    let enrolling = state.start(Uuid::now_v7(), cohort.id, 1, 1).unwrap();
+    assert!(state.receive(
+        &enrolling,
+        Some(Response::Run {
+            run: Box::new(fresh.clone()),
+        }),
+        None,
+    ));
+    assert_eq!(state.run(), Some(&fresh));
+    assert_eq!(state.runs().first().map(|r| r.id), Some(fresh.id));
+    assert!(state.runs().iter().any(|r| r.id == initial.id));
+}

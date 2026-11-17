@@ -251,7 +251,12 @@ impl Frame {
 /// Installs the window's systems.
 pub(crate) fn install(app: &mut App) {
     crate::ui_button::install(app);
-    app.add_systems(PostUpdate, restack.before(bevy::ui::UiSystems::Prepare));
+    app.add_systems(
+        PostUpdate,
+        restack
+            .before(bevy::ui::UiSystems::Prepare)
+            .before(bevy::ui::UiSystems::Stack),
+    );
     app.add_systems(
         PostUpdate,
         resize::cursor.after(crate::shellkit::pointer::follow_the_pointer),
@@ -865,7 +870,13 @@ fn sync_lobby_window(
     (windows_q, scale): (Query<&Window>, Option<Res<UiScale>>),
     mut windows: ResMut<Windows>,
     mut roots: Query<
-        (Entity, &mut Node, &mut Visibility, &mut Pop),
+        (
+            Entity,
+            &mut Node,
+            &mut Visibility,
+            &mut Pop,
+            &mut UiTransform,
+        ),
         (With<LobbyChat>, Without<logpanel::virtual_list::LogSpacer>),
     >,
     mut lists: Query<(&mut LogFollow, &mut ScrollPosition), With<LogList>>,
@@ -875,20 +886,27 @@ fn sync_lobby_window(
     ),
     mut spacers: Query<&mut Node, With<logpanel::virtual_list::LogSpacer>>,
     mut shape: Local<Option<LobbyShape>>,
-    (zoom, sizing): (Res<super::zoom::Zoom>, Res<LobbyChatSizing>),
+    (zoom, sizing, slide, prefs): (
+        Res<super::zoom::Zoom>,
+        Res<LobbyChatSizing>,
+        Option<Res<super::drawer::DrawerSlide>>,
+        Option<Res<crate::prefs::Prefs>>,
+    ),
 ) {
+    use crate::hud::motion;
     let _zoom = super::zoom::Scope::new(zoom.0);
     let at_table =
         phase.is_some_and(|p| matches!(*p.get(), DuelPhase::Playing | DuelPhase::Finished));
-    let shell = lobby.is_some_and(|l| {
-        !matches!(
-            l.lobby.screen(),
-            baylee_client_core::lobby::Screen::SignIn { .. }
-        )
+    let shell = lobby.as_ref().is_some_and(|l| {
+        (l.central_ready() && l.can_use_contacts())
+            || !matches!(
+                l.lobby.screen(),
+                baylee_client_core::lobby::Screen::SignIn { .. }
+            )
     });
     let ending = at_table && duel.as_ref().is_some_and(|d| d.ending().is_some());
     let Some(machine) = host.machine().filter(|_| (at_table || shell) && !ending) else {
-        for (_, _, mut seen, _) in &mut roots {
+        for (_, _, mut seen, _, _) in &mut roots {
             seen.set_if_neq(Visibility::Hidden);
         }
         return;
@@ -902,41 +920,19 @@ fn sync_lobby_window(
         .map_or(Vec2::new(1280.0, 720.0), |w| {
             crate::hud::scale::desktop_space(w, scale.as_deref())
         });
+    let drawer_room = slide.as_ref().map_or(0.0, |s| s.room(zoom.0));
+    let avail_window = if ui.open && drawer_room > 0.0 {
+        Vec2::new((window.x - drawer_room).max(320.0 * zoom.0), window.y)
+    } else {
+        window
+    };
     let size = lobby_panel_size(
         sizing
             .resized
             .or(settings.as_deref().and_then(|s| s.chat_window)),
-        window,
+        avail_window,
         zoom.0,
     );
-    let root = if let Some((root, ..)) = roots.iter().next() {
-        root
-    } else {
-        commands
-            .spawn((
-                LobbyChat,
-                ChatSurface,
-                RelativeCursorPosition::default(),
-                Node {
-                    position_type: PositionType::Absolute,
-                    bottom: zpx(0.0),
-                    left: zpx(12.0),
-                    width: zpx(size.width),
-                    flex_direction: FlexDirection::Column,
-                    border_radius: BorderRadius::all(zpx(6.0)),
-                    overflow: Overflow::clip(),
-                    ..default()
-                },
-                BackgroundColor(Color::NONE),
-                rows::window_ground(),
-                BorderColor::all(rows::GLASS_EDGE),
-                elevation(),
-                stacked(0),
-                Visibility::Visible,
-                Pop::default(),
-            ))
-            .id()
-    };
     let (unread, urgent) = machine.unread_where(&TabFilter::standard(ChatTab::All));
     // Only the pill shows the count: an open panel is not drawn again for
     // a line arriving (its list is), nor for the drawer moving it aside.
@@ -946,7 +942,113 @@ fn sync_lobby_window(
     } else {
         (false, false, urgent, unread, place_tag)
     };
-    if let Ok((_, mut node, mut seen, mut pop)) = roots.get_mut(root) {
+    let full = ui.open && !minimised;
+    let want_h = if full { zpx(size.height) } else { Val::Auto };
+    let want_w = if ui.open { zpx(size.width) } else { Val::Auto };
+    let (left, right, bottom, radius, border) = if at_table {
+        let table_node = logpanel::root_node();
+        let base_right = match table_node.right {
+            Val::Px(r) => r,
+            _ => 12.0,
+        };
+        let shifted_right = if drawer_room > 0.0 {
+            (base_right + drawer_room).min((window.x - size.width * zoom.0 - 8.0).max(base_right))
+        } else {
+            base_right
+        };
+        (
+            Val::Auto,
+            Val::Px(shifted_right),
+            table_node.bottom,
+            table_node.border_radius,
+            UiRect::all(zpx(1.0)),
+        )
+    } else {
+        let left = if ui.open {
+            zpx(12.0)
+        } else {
+            pill_left(&captions, window.y).unwrap_or(zpx(196.0))
+        };
+        (
+            left,
+            Val::Auto,
+            zpx(0.0),
+            BorderRadius::all(zpx(6.0)),
+            if ui.open {
+                UiRect::all(zpx(1.0))
+            } else {
+                UiRect::ZERO
+            },
+        )
+    };
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    let opening_transform = {
+        let s = if still { 1.0 } else { motion::opening(0.0) };
+        UiTransform {
+            scale: Vec2::splat(s),
+            translation: if at_table {
+                motion::from_bottom_right(s)
+            } else {
+                motion::from_bottom_left(s)
+            },
+            ..default()
+        }
+    };
+    // Screens with a top header (`Screen::Table`, `Screen::Build`, Central hub)
+    // already carry `HeaderPress::Chat` in the navbar; only the headerless
+    // waiting-room screen (`Screen::Seated`) shows the bottom-left pill so
+    // footer version pills and builder shortcut legends are never covered.
+    let show_closed_pill = !at_table
+        && lobby.as_ref().is_some_and(|l| {
+            matches!(
+                l.lobby.screen(),
+                baylee_client_core::lobby::Screen::Seated(_)
+            )
+        });
+    let root = if let Some((root, ..)) = roots.iter().next() {
+        root
+    } else {
+        let initial_vis = if ui.open || show_closed_pill {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+        let spawned = commands
+            .spawn((
+                LobbyChat,
+                ChatSurface,
+                RelativeCursorPosition::default(),
+                Node {
+                    position_type: PositionType::Absolute,
+                    bottom,
+                    left,
+                    right,
+                    width: want_w,
+                    height: want_h,
+                    flex_direction: FlexDirection::Column,
+                    border,
+                    border_radius: radius,
+                    overflow: Overflow::clip(),
+                    ..default()
+                },
+                opening_transform,
+                BackgroundColor(Color::NONE),
+                rows::window_ground(),
+                BorderColor::all(rows::GLASS_EDGE),
+                elevation(),
+                stacked(0),
+                initial_vis,
+                Pop::default(),
+            ))
+            .id();
+        if at_table && !ui.open {
+            *shape = Some(now);
+            windows.lobby = Drawn::default();
+            return;
+        }
+        spawned
+    };
+    if let Ok((_, mut node, mut seen, mut pop, mut transform)) = roots.get_mut(root) {
         // A panel that was closed shrinks away as it was drawn, and only
         // then becomes the pill (in the lobby) or hides (at the table).
         let was_open = shape.is_some_and(|s| s.0);
@@ -969,50 +1071,25 @@ fn sync_lobby_window(
             seen.set_if_neq(Visibility::Hidden);
             return;
         }
-        seen.set_if_neq(Visibility::Visible);
+        seen.set_if_neq(if ui.open || show_closed_pill {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        });
         let grew = !at_table && shape.is_some_and(|s| !s.0 && unread > s.3);
         if *shape != Some(now) && (was_open != ui.open || !same_place || grew || shape.is_none()) {
             *pop = Pop::OPENING;
+            *transform = opening_transform;
         } else if pop.closing && ui.open {
             // Opened again while it shrank: it grows back from there.
             *pop = Pop::OPENING;
         }
-        let full = ui.open && !minimised;
-        let want_h = if full { zpx(size.height) } else { Val::Auto };
         if node.height != want_h {
             node.height = want_h;
         }
-        let want_w = if ui.open { zpx(size.width) } else { Val::Auto };
         if node.width != want_w {
             node.width = want_w;
         }
-        let (left, right, bottom, radius, border) = if at_table {
-            let table_node = logpanel::root_node();
-            (
-                Val::Auto,
-                table_node.right,
-                table_node.bottom,
-                table_node.border_radius,
-                UiRect::all(zpx(1.0)),
-            )
-        } else {
-            let left = if ui.open {
-                zpx(12.0)
-            } else {
-                pill_left(&captions, window.y).unwrap_or(zpx(12.0))
-            };
-            (
-                left,
-                Val::Auto,
-                zpx(0.0),
-                BorderRadius::all(zpx(6.0)),
-                if ui.open {
-                    UiRect::all(zpx(1.0))
-                } else {
-                    UiRect::ZERO
-                },
-            )
-        };
         if node.left != left {
             node.left = left;
         }
@@ -1185,9 +1262,7 @@ fn chat_pill(
         .spawn((
             UiButton,
             ChatPress::Restore,
-            Visibility::Hidden,
             Node {
-                display: Display::None,
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 column_gap: zpx(8.0),

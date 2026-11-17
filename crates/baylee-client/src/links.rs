@@ -34,6 +34,10 @@ static INBOX: Mutex<VecDeque<String>> = Mutex::new(VecDeque::new());
 
 /// How many links wait to be read at most; more are dropped. A page firing
 /// links in a loop is slowed again by [`Pace`].
+#[cfg(any(
+    not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")),
+    test
+))]
 const INBOX_CAP: usize = 16;
 
 /// Which gateways a link may name: a `dev-control` build also takes a local
@@ -46,6 +50,10 @@ const ORIGINS: Origins = if cfg!(feature = "dev-control") {
 
 /// A link handed to this client, from whichever way it came. One the full
 /// inbox has no room for is wiped: it may be a pairing link's secret.
+#[cfg(any(
+    not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")),
+    test
+))]
 pub(crate) fn arrived(text: String) {
     let mut text = zeroize::Zeroizing::new(text);
     if let Ok(mut inbox) = INBOX.lock()

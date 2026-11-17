@@ -70,7 +70,7 @@ use bevy::ui::ScrollPosition;
 use bevy::ui_widgets::{ControlOrientation, Scrollbar, ScrollbarThumb};
 use std::collections::BTreeMap;
 
-mod items;
+pub(crate) mod items;
 pub(crate) mod virtual_list;
 
 /// How wide the panel is at least, where the window has the room.
@@ -767,7 +767,10 @@ pub(crate) fn spawn_turn(
     // sets a text in a row at its narrowest, a word to a line.
     let mut heading = commands.spawn((
         Text::new(words),
-        tf(fonts, inks.turn_pt),
+        TextFont {
+            font: bevy::text::FontSource::Handle(fonts.medium.clone()),
+            ..tf(fonts, inks.turn_pt)
+        },
         Node {
             flex_grow: 1.0,
             min_width: px(0),
@@ -777,6 +780,7 @@ pub(crate) fn spawn_turn(
     ));
     (inks.paint)(&mut heading, Paint::Ink(inks.soft));
     let heading = heading.id();
+    let dark_glass = inks.ink == PANEL_INKS.ink;
     let mut rule = commands.spawn((
         LogFoldToggle {
             turn: line.turn,
@@ -784,12 +788,19 @@ pub(crate) fn spawn_turn(
         },
         Node {
             margin: UiRect::top(px(LOG_TURN_GAP)),
-            padding: UiRect::top(px(3)),
+            padding: UiRect::new(px(6), px(6), px(4.5), px(4)),
             border: UiRect::top(px(1)),
+            border_radius: BorderRadius::bottom(px(4)),
+            column_gap: px(4),
             align_items: AlignItems::Center,
             flex_shrink: 0.0,
             ..default()
         },
+        BackgroundColor(if dark_glass {
+            Color::srgba(1.0, 1.0, 1.0, 0.032)
+        } else {
+            Color::NONE
+        }),
         Pickable {
             should_block_lower: false,
             is_hoverable: true,
@@ -850,28 +861,48 @@ pub(crate) fn spawn_phase(
     phase: Phase,
     inks: &LineInks,
 ) -> Entity {
+    let mut dot = commands.spawn((
+        Node {
+            width: px(4),
+            height: px(4),
+            border_radius: BorderRadius::all(px(2)),
+            flex_shrink: 0.0,
+            ..default()
+        },
+        Pickable::IGNORE,
+    ));
+    (inks.paint)(&mut dot, Paint::Fill(inks.soft.with_alpha(0.55)));
+    let dot = dot.id();
     let mut caption = commands.spawn((
         Text::new(phase_words(phase).text(lang).to_uppercase()),
         TextFont {
             font: bevy::text::FontSource::Handle(fonts.medium.clone()),
             ..tf(fonts, inks.turn_pt * PHASE_SCALE)
         },
-        Node {
-            margin: UiRect::new(px(PHASE_INDENT), px(0), px(PHASE_GAP), px(0)),
-            flex_shrink: 0.0,
-            ..default()
-        },
         Pickable::IGNORE,
     ));
     (inks.paint)(&mut caption, Paint::Ink(inks.soft));
-    caption.id()
+    let caption = caption.id();
+    commands
+        .spawn((
+            Node {
+                margin: UiRect::new(px(PHASE_INDENT), px(0), px(PHASE_GAP), px(1)),
+                column_gap: px(5),
+                align_items: AlignItems::Center,
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .add_children(&[dot, caption])
+        .id()
 }
 
 /// A phase heading's size, against a turn's.
 const PHASE_SCALE: f32 = 0.85;
 
 /// Above a phase's heading.
-const PHASE_GAP: f32 = 4.0;
+const PHASE_GAP: f32 = 5.5;
 
 /// How far a phase's heading stands in: past the time column, over the
 /// sentences it heads.
@@ -902,16 +933,8 @@ pub(crate) fn subject_ink(wording: &Wording, subject: Option<PlayerId>) -> Color
     })
 }
 
-/// The head: the title, and the cross that closes it.
+/// Minimal top control strip: right-aligned close button with no header title label.
 fn head(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
-    let title = commands
-        .spawn((
-            Text::new(Phrase::GameLogTitle.text(lang)),
-            tf(fonts, LABEL_PT),
-            TextColor(palette::DIALOG_INK),
-            Pickable::IGNORE,
-        ))
-        .id();
     let close = commands
         .spawn((
             UiButton,
@@ -948,19 +971,16 @@ fn head(commands: &mut Commands, fonts: &UiFonts, lang: Lang) -> Entity {
                 flex_shrink: 0.0,
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
-                justify_content: JustifyContent::SpaceBetween,
-                padding: UiRect::new(px(LOG_PAD), px(1), px(0), px(0)),
-                border: UiRect::bottom(px(1)),
+                justify_content: JustifyContent::FlexEnd,
+                padding: UiRect::new(px(6), px(4), px(2), px(0)),
                 border_radius: BorderRadius::top(px(STRIP_R)),
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            log_head_ground(),
-            BorderColor::all(palette::LOG_GLASS_RULE),
             ZIndex(1),
             Pickable::IGNORE,
         ))
-        .add_children(&[title, close])
+        .add_child(close)
         .id()
 }
 
@@ -1145,6 +1165,7 @@ pub(crate) const TEXT_OWN_HEIGHT: Overflow = Overflow::clip_y();
 /// ([`subject_ink`]), and the sentence, cut into its [`Piece`]s: players in
 /// bold, a card the seat was shown as a link, a card it was not shown a
 /// weight up, and "(×N)" after a line that happened more than once.
+#[allow(clippy::too_many_lines)]
 pub(crate) fn spawn_line(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -1153,10 +1174,14 @@ pub(crate) fn spawn_line(
     inks: &LineInks,
     swatch: Option<Color>,
 ) -> Entity {
+    let dark_glass = inks.ink == PANEL_INKS.ink;
     if line.header {
         let mut heading = commands.spawn((
             Text::new(line.text.clone()),
-            tf(fonts, inks.turn_pt),
+            TextFont {
+                font: bevy::text::FontSource::Handle(fonts.medium.clone()),
+                ..tf(fonts, inks.turn_pt)
+            },
             Pickable::IGNORE,
         ));
         (inks.paint)(&mut heading, Paint::Ink(inks.soft));
@@ -1164,28 +1189,45 @@ pub(crate) fn spawn_line(
         let mut rule = commands.spawn((
             Node {
                 margin: UiRect::top(px(LOG_TURN_GAP)),
-                padding: UiRect::top(px(3)),
+                padding: UiRect::new(px(6), px(6), px(4.5), px(4)),
                 border: UiRect::top(px(1)),
+                border_radius: BorderRadius::bottom(px(4)),
                 flex_shrink: 0.0,
                 ..default()
             },
+            BackgroundColor(if dark_glass {
+                Color::srgba(1.0, 1.0, 1.0, 0.032)
+            } else {
+                Color::NONE
+            }),
             Pickable::IGNORE,
         ));
         (inks.paint)(&mut rule, Paint::Rule(inks.rule));
         return rule.add_child(heading).id();
     }
-    let sentence = sentence(commands, fonts, lang, line, inks);
     let row = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Row,
                 column_gap: px(SWATCH_GAP),
+                padding: if dark_glass {
+                    UiRect::new(px(5), px(5), px(2.5), px(2.5))
+                } else {
+                    UiRect::ZERO
+                },
+                border_radius: BorderRadius::all(px(4)),
                 flex_shrink: 0.0,
                 ..default()
             },
+            BackgroundColor(if dark_glass {
+                Color::srgba(1.0, 1.0, 1.0, if line.follows { 0.010 } else { 0.022 })
+            } else {
+                Color::NONE
+            }),
             Pickable::IGNORE,
         ))
         .id();
+    let sentence = sentence(commands, fonts, lang, line, inks, row);
     // The time first, in a column as wide as any time is, so the sentences
     // start in one place down the list. A line the host never dated has
     // none, and neither then has any other line of that game.
@@ -1244,8 +1286,10 @@ fn sentence(
     lang: Lang,
     line: &LogLine,
     inks: &LineInks,
+    row: Entity,
 ) -> Entity {
     let pieces = pieces(line);
+    let dark_glass = inks.ink == PANEL_INKS.ink;
     // Hoverable only where there is something to hover, and never in the
     // way of what is under it: the list scrolls under the pointer whatever
     // line it is on.
@@ -1291,19 +1335,38 @@ fn sentence(
                 ..tf(fonts, inks.line_pt)
             },
         );
-        let mut span = commands.spawn((TextSpan::new(text), font));
         if let Piece::Link(link) = piece {
-            // Equipment is inspected through its icon beside this sentence;
-            // treating its name as a card link would invent a printed card.
-            if !items::is_item(link) {
-                span.insert(link);
+            if let Some(goods) = items::goods(link) {
+                let shown = format!("[{}]", crate::towerui::words::name(goods, lang));
+                let mut span = commands.spawn((
+                    TextSpan::new(shown),
+                    font,
+                    items::LogItemSpan { goods, row },
+                    Pickable {
+                        should_block_lower: false,
+                        is_hoverable: true,
+                    },
+                ));
+                let item_ink = if dark_glass {
+                    crate::towerui::color(goods)
+                } else {
+                    inks.link
+                };
+                (inks.paint)(&mut span, Paint::Ink(item_ink));
+                let span = span.id();
+                commands.entity(sentence).add_child(span);
+            } else {
+                let mut span = commands.spawn((TextSpan::new(text), font, link));
+                (inks.paint)(&mut span, Paint::Ink(inks.link));
+                let span = span.id();
+                commands.entity(sentence).add_child(span);
             }
-            (inks.paint)(&mut span, Paint::Ink(inks.link));
         } else {
+            let mut span = commands.spawn((TextSpan::new(text), font));
             (inks.paint)(&mut span, Paint::Ink(inks.ink));
+            let span = span.id();
+            commands.entity(sentence).add_child(span);
         }
-        let span = span.id();
-        commands.entity(sentence).add_child(span);
     }
     if let Some(times) = times(line, lang) {
         let mut span = commands.spawn((TextSpan::new(times), tf(fonts, inks.line_pt)));

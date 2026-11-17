@@ -1,22 +1,18 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-mod formation;
 
 pub(super) fn draw(
     commands: &mut Commands,
     root: Entity,
+    modal_root: Entity,
     kit: Kit,
     ui: &Ui,
     run: &api::Run,
     cohort: &api::Cohort,
 ) {
-    if ui.choices.formation.is_some() {
-        formation::draw(commands, root, kit, ui, run, cohort);
-        return;
-    }
     let lang = lang(kit);
     if let Some(id) = ui.preview {
-        card::preview(commands, root, kit, id);
+        card::preview(commands, modal_root, kit, ui, id);
     }
     let card = panel(commands, root, kit);
     let count: u16 = ui

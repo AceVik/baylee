@@ -198,3 +198,45 @@ impl Recipe {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn no_single_mythic_relic_self_loops_for_zero_mana_or_snowballs_surplus_charges() {
+        for index in 0..Recipe::COUNT {
+            let recipe = Recipe::from_index(index).unwrap();
+            for tier in 0..4 {
+                let level = recipe.level(tier).unwrap();
+                assert!((1..=7).contains(&level.charges));
+                if level.activations != 0 {
+                    continue;
+                }
+                // Count charges generated on `recipe.sigil` by one activation of `recipe.vessel`
+                // plus its own Rare/Mythic `bonus` trigger when `tier >= 2`.
+                let events: u16 = match (recipe.sigil, recipe.vessel) {
+                    (Sigil::Bloom, Vessel::Seed | Vessel::Horn) => level.amount,
+                    (Sigil::Pulse, Vessel::Chalice | Vessel::Tome | Vessel::Lens)
+                    | (Sigil::Lore, Vessel::Tome | Vessel::Lens)
+                    | (Sigil::Echo, Vessel::Lens) => 1,
+                    _ => 0,
+                };
+                let refunded = events * level.gathered;
+                if level.mana == 0 {
+                    assert!(
+                        refunded < level.charges,
+                        "{recipe:?} tier {tier} refunds {refunded} >= {} for 0 mana",
+                        level.charges
+                    );
+                } else {
+                    assert!(
+                        refunded <= level.charges,
+                        "{recipe:?} tier {tier} snowballs {refunded} > {} charges",
+                        level.charges
+                    );
+                }
+            }
+        }
+    }
+}

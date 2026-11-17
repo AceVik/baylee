@@ -26,6 +26,17 @@ impl CardRarity {
             Self::Mythic => 4,
         }
     }
+
+    /// Authoritative proceeds for selling one unused owned copy in a Commander run.
+    #[must_use]
+    pub const fn sale_gold(self) -> u16 {
+        match self {
+            Self::Common => 1,
+            Self::Uncommon => 2,
+            Self::Rare => 3,
+            Self::Mythic => 4,
+        }
+    }
 }
 
 /// Authority-published cosmetics; no URLs, scripts or player-selected identities.

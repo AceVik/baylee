@@ -88,7 +88,11 @@ impl Plugin for ShellKitPlugin {
             // laid out: a disc drawn this frame wears its picture on it.
             .add_systems(
                 PostUpdate,
-                avatar::wear_portraits.before(bevy::ui::UiSystems::Prepare),
+                avatar::wear_portraits
+                    .before(bevy::ui::UiSystems::Prepare)
+                    .before(bevy::ui::UiSystems::Content)
+                    .before(bevy::ui::UiSystems::Layout)
+                    .before(bevy::ui::UiSystems::Stack),
             );
         controls::install(app);
         header::install(app);

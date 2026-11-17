@@ -1302,3 +1302,148 @@ fn queued_texts(board: &baylee_client_core::BoardModel, view: &PlayerView) -> Ve
     all_text.extend(world.query::<&TextSpan>().iter(world).map(|s| s.0.clone()));
     all_text
 }
+
+#[test]
+#[allow(clippy::too_many_lines)] // End-to-end check across preview suppression, ECS row Tooltip, and German text.
+fn tower_item_ability_on_stack_uses_item_detail_overlay_and_never_card_preview() {
+    use baylee_client_core::echoes::domain::v2::{
+        catalog::{Definition, Family, Rarity},
+        shop::Goods,
+    };
+    use baylee_client_core::test_support::{ViewBuilder, token};
+
+    let def = Definition {
+        family: Family::SpringChalice,
+        rarity: Rarity::Rare,
+    };
+    let token_def = baylee_cards::tokens::tower::run::definition(def.id()).expect("chalice token");
+    let token_id = baylee_cards::tokens::token_id(token_def);
+
+    let mut source_relic = token(70, 0, "Spring Chalice · Rare", 0, 0);
+    source_relic.token = Some(token_id);
+    let source_id = source_relic.id;
+
+    let mut stack_ability = token(71, 0, "Spring Chalice · Rare", 0, 0);
+    stack_ability.token = None;
+    stack_ability.stack_item = Some(baylee_view::StackItem::Ability {
+        source: source_id,
+        ability: None,
+        text: None,
+        rules: None,
+        token: None,
+    });
+    let ability_id = stack_ability.id;
+
+    let view = ViewBuilder::new(2)
+        .with_command(0, vec![source_relic])
+        .with_stack(vec![stack_ability])
+        .build();
+    let board = baylee_client_core::BoardModel::from_view(
+        &view,
+        baylee_client_core::board::Openings::none(),
+        &[],
+        crate::cardart::registry(),
+    );
+    let mut duel = Duel::default();
+    duel.receive_view(view);
+    duel.hovered = Some(ability_id);
+    duel.hovered_at = Some(crate::HoverSpot::Point(Vec2::new(600.0, 300.0)));
+
+    assert_eq!(
+        crate::hud::hand::preview_anchor(
+            &board,
+            duel.view.as_ref().unwrap(),
+            duel.hovered,
+            crate::hud::hand_layout(0, 100.0, 800.0),
+            0.0,
+            duel.hovered_at,
+        ),
+        None,
+        "Tower item abilities on the stack must never open a Magic card preview frame"
+    );
+
+    bevy::tasks::IoTaskPool::get_or_init(Default::default);
+    let mut app = App::new();
+    app.add_plugins(AssetPlugin::default())
+        .init_asset::<Image>();
+    let mut textures = {
+        let mut images = app.world_mut().resource_mut::<Assets<Image>>();
+        CardTextures::new(&mut images, 1 << 20)
+    };
+    let assets = app.world().resource::<AssetServer>().clone();
+    let fonts = empty_test_fonts();
+    let statics = baylee_client_core::test_support::statics(2);
+    let settings = crate::settings::ClientSettings::default();
+    let mode = crate::face::FaceMode::default();
+    let texts = crate::cardtext::CardTexts::default();
+    let faces = FaceCtx {
+        mode: &mode,
+        settings: &settings,
+        texts: &texts,
+        view: duel.view.as_ref(),
+        widths: crate::face::Widths::of(None),
+    };
+    let room = PanelRoom {
+        top: TOP_CLEAR,
+        right: EDGE,
+        width: STACK_PANEL_W,
+        max_height: 600.0,
+        phone: false,
+    };
+    let row = spawn_stack_entry(
+        &mut app.world_mut().commands(),
+        Lang::De,
+        &board.stack[0],
+        true,
+        false,
+        None,
+        duel.view.as_ref().unwrap(),
+        &statics,
+        Some(PlayerId::new(0)),
+        &Picks {
+            hovered: None,
+            selected: &[],
+            selectable: &[],
+        },
+        &mut textures,
+        &assets,
+        &fonts,
+        &faces,
+        None,
+        (STACK_SENTENCE_LINES, room),
+    );
+    app.world_mut().flush();
+
+    assert!(
+        app.world()
+            .get::<crate::shellkit::controls::Tooltip>(row)
+            .is_some(),
+        "stack row carries the Tower Item Detail Overlay Tooltip"
+    );
+    assert!(
+        app.world()
+            .get::<crate::shellkit::controls::FocusTooltip>(row)
+            .is_some(),
+        "stack row uses side-anchored FocusTooltip placement"
+    );
+    let expected_name = crate::towerui::words::name(Goods::Relic(def), Lang::De);
+    let world = app.world_mut();
+    let mut rendered: Vec<String> = world
+        .query::<&Text>()
+        .iter(world)
+        .map(|t| t.0.clone())
+        .collect();
+    rendered.extend(world.query::<&TextSpan>().iter(world).map(|s| s.0.clone()));
+    assert!(
+        rendered.iter().any(|t| t == &expected_name),
+        "stack row localizes the item name cleanly: {rendered:?}"
+    );
+    assert!(
+        !rendered.iter().any(|t| t.contains("Spring Chalice")),
+        "stack subtitle must localize the Tower item source name instead of raw English: {rendered:?}"
+    );
+    assert!(
+        !rendered.iter().any(|t| t.contains(" · Rare")),
+        "stack row and tooltip separate rarity from name: {rendered:?}"
+    );
+}

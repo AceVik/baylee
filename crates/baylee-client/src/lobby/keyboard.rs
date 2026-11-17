@@ -152,6 +152,8 @@ pub(super) fn keyboard(
             state.echoes.confirmation = None;
         } else if state.echoes.starter_preview.is_some() {
             state.echoes.starter_preview = None;
+        } else if state.echoes.preview.is_some() {
+            state.echoes.preview = None;
         } else {
             state.echoes.close();
         }

@@ -311,8 +311,10 @@ pub fn gateway_url() -> String {
         }
         web_sys::window()
             .and_then(|w| w.location().origin().ok())
-            .map(|origin| trim_url(&origin))
-            .unwrap_or_else(|| "http://127.0.0.1:28766".to_string())
+            .map_or_else(
+                || "http://127.0.0.1:28766".to_string(),
+                |origin| trim_url(&origin),
+            )
     }
 }
 

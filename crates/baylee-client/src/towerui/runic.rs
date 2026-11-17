@@ -122,14 +122,14 @@ pub(super) fn ability(
             } else {
                 format!("{{{}}}, ", level.mana)
             };
-            let mut text = P::RunicActivate.fill(
+            let mut text = super::words::strip_command_zone(&P::RunicActivate.fill(
                 lang,
                 &[
                     &mana,
                     &level.charges.to_string(),
                     &reward(recipe.vessel, level.amount, lang),
                 ],
-            );
+            ));
             if level.activations != 0 {
                 text.push(' ');
                 text.push_str(&if level.activations == 1 {

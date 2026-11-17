@@ -28,6 +28,8 @@ pub(crate) enum Destructive {
     /// but asked the same way, with "Not now" as what `Esc` and a tap beside
     /// the panel do. Carried out by the press itself, which has the mailbox
     /// the address is asked through.
+    // Constructed by `lobby::links`; `baylee:` deep links are native-only.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     AddGateway(String),
 }
 

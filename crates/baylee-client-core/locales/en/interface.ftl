@@ -10338,3 +10338,63 @@ EchoesShelfFrozen = Shelf frozen
 EchoesConfirmRefresh = Spend { $price } gold to replace every unpinned offer? Your pins remain in place.
 # Arguments: number
 EchoesConfirmMythic = Replace utility offer { $number } with a Mythic Potion priced at 24 gold? An existing pin on that offer will be released. This does not buy the potion.
+
+## Deckbuilder filter overlay & Tower unused-card selling.
+BuildHideInDeckChip = Not in deck
+BuildHideInSideChip = Not in side
+BuildHideInDeck = Hide cards in deck
+BuildHideInSide = Hide cards in sideboard
+BuildHideInDeckTip = Hide cards already in your main deck
+BuildHideInSideTip = Hide cards already in your sideboard
+FilterChipHideInDeck = not in deck
+FilterChipHideInSide = not in sideboard
+FilterResetAll = Reset filters
+FilterSectionSort = Sort
+FilterSectionQuery = Advanced search query
+# Arguments: gold
+EchoesSellCardBtn = Sell +{ $gold }g
+# Arguments: gold
+EchoesSellCardTip = Sell unused card for { $gold } gold
+EchoesSellSaveFirstTip = Save deck changes first to sell removed cards
+# Arguments: card, gold
+EchoesCardSold = Sold { $card } for +{ $gold } gold
+
+## Tower Run v2 UI polish: icon controls, spare cards & spoils breakdown.
+EchoesRunSortNewestTip = Sort by newest
+EchoesRunSortNameTip = Sort by name (A–Z)
+EchoesRunSortValueTip = Sort by gold value
+EchoesRunSortFamilyTip = Sort by item family
+EchoesRunSortRarityTip = Sort by rarity
+EchoesRunGroupsTip = Group items
+EchoesFreezeShelfTip = Freeze shelf — keep unsold items for your next visit
+EchoesThawShelfTip = Shelf frozen — click to unfreeze
+# Arguments: count
+EchoesDeckButtonTip = Edit deck ({ $count } cards)
+EchoesRetireTip = Retire — abandon this expedition
+EchoesNotEnoughGold = Not enough gold
+# Arguments: count
+EchoesSpareCardsToggle = Spare cards ({ $count })
+EchoesSpareCardsTitle = Sell spare cards
+EchoesSpareCardsLead = Owned nonbasic cards outside your active deck and sideboard can be sold for gold.
+EchoesSpareCardsNoneTip = No unused nonbasic cards outside your deck
+# Arguments: card, price
+EchoesConfirmSellCard = Sell { $card } for { $price } gold? One unused copy is removed from your run collection.
+# Arguments: selected, required
+EchoesRewardClaimProgress = Claim spoils ({ $selected } / { $required })
+# Arguments: count
+EchoesRewardNeedMore = { $count ->
+    [one] Choose 1 more card to continue
+   *[other] Choose { $count } more cards to continue
+    }
+EchoesRewardMaxSelected = Selection full — click a selected card to deselect it first
+# Arguments: gold
+EchoesRewardEarnedGold = +{ $gold } gold
+EchoesRewardGoldBreakdownTip = Show gold breakdown
+EchoesRewardSourceDuel = Duel completion
+EchoesRewardSourceRelics = Equipped relics
+EchoesRewardSourceDuplicates = Duplicate conversion (on claim)
+# Arguments: gold
+EchoesRewardDuplicateShort = Owned · +{ $gold }g
+# Arguments: count
+EchoesRewardViewDeck = View deck ({ $count })
+EchoesRewardCurveLabel = Mana curve

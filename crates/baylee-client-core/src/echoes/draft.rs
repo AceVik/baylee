@@ -202,6 +202,7 @@ pub fn allowed(run: &Run, cohort: &Cohort, command: &Command) -> bool {
     match command {
         Command::Buy { offer, delivery } => run.shop.buy(*offer, delivery, stock).is_ok(),
         Command::Sell { item } => run.economy.sold(*item).is_ok(),
+        Command::SellCard { card } => sellable_card_gold(run, cohort, *card).is_some(),
         Command::Move { item, slot } => run.economy.moved(*item, *slot).is_ok(),
         Command::Fuse { recipe } => run.economy.fused(recipe).is_ok(),
         Command::Edit { deck } => run.cards.edited(&cohort.catalog, deck.clone()).is_ok(),
@@ -255,4 +256,107 @@ pub fn fused_rarity(rarity: Rarity) -> Option<Rarity> {
         Rarity::Rare => Some(Rarity::MythicRare),
         Rarity::MythicRare => None,
     }
+}
+
+/// Authoritative gold value for selling one unused copy of `card` from the confirmed `run`.
+/// Returns `None` outside `Phase::Shop`, on a mismatched cohort, for basic lands,
+/// or when every owned copy is committed to the commander, main deck or sideboard.
+#[must_use]
+pub fn sellable_card_gold(run: &Run, cohort: &Cohort, card: CardIndex) -> Option<u16> {
+    if run.cohort != cohort.id
+        || run.phase != Phase::Shop
+        || !domain::v2::generation::is_run(run.shop.generator)
+    {
+        return None;
+    }
+    let (_, gold) = run.cards.sold(&cohort.catalog, card).ok()?;
+    run.economy.sold_card(gold).ok()?;
+    Some(gold)
+}
+
+/// All currently sellable unused nonbasic cards in canonical `CardIndex` order with their gold values.
+#[must_use]
+pub fn sellable_cards(run: &Run, cohort: &Cohort) -> Vec<(CardIndex, u16)> {
+    run.cards
+        .owned
+        .iter()
+        .filter_map(|stack| {
+            sellable_card_gold(run, cohort, stack.card).map(|gold| (stack.card, gold))
+        })
+        .collect()
+}
+
+/// Authoritative post-duel gold breakdown for the latest settled duel.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RewardGold {
+    /// Fixed verified-duel completion income (`DUEL_INCOME`, 12g).
+    pub base_duel: u16,
+    /// Additional gold from equipped income relics frozen at reservation (e.g. Gilded Acorn).
+    pub relic_bonus: u16,
+    /// Number of `GildedAcorn` relics currently equipped in active slots.
+    pub equipped_acorns: u8,
+    /// Gold already credited to `run.economy.gold` upon duel settlement (`base_duel + relic_bonus`).
+    pub settled_total: u16,
+    /// Gold paid per duplicate card under this run's frozen generation (`3` in Runic, `1` legacy).
+    pub duplicate_rate: u16,
+    /// Number of selected (or already claimed) reward cards that convert into duplicate gold.
+    pub duplicate_count: u8,
+    /// Additional gold granted by claiming the selected/claimed duplicate cards.
+    pub duplicate_total: u16,
+    /// Total gold from this duel including duplicate conversions (`settled_total + duplicate_total`).
+    pub total_with_duplicates: u16,
+}
+
+/// Compute the latest settled duel's exact gold sources and duplicate-card proceeds.
+/// Pass `&ui.choices.rewards` while in `Phase::Reward` (or `&[]` for settled base + relic breakdown).
+#[must_use]
+pub fn reward_gold(run: &Run, selected_rewards: &[CardIndex]) -> Option<RewardGold> {
+    let duel = run.history.last()?;
+    let base_duel = domain::v2::DUEL_INCOME;
+    let relic_bonus = duel.bonus_gold;
+    let equipped_acorns = u8::try_from(
+        run.economy
+            .inventory
+            .active()
+            .into_iter()
+            .filter(|def| def.family == domain::v2::catalog::Family::GildedAcorn)
+            .count(),
+    )
+    .unwrap_or(u8::MAX);
+    let settled_total = base_duel.saturating_add(relic_bonus);
+    let duplicate_rate = domain::v2::run::duplicate_gold(run.shop.generator);
+    let duplicate_count = if run.phase == Phase::Reward
+        && let Some(reward) = &run.reward
+    {
+        let mut seen = Vec::with_capacity(selected_rewards.len());
+        for &card in selected_rewards {
+            if !seen.contains(&card) && reward.cards.contains(&card) && run.cards.copies(card) > 0 {
+                seen.push(card);
+            }
+        }
+        u8::try_from(seen.len()).unwrap_or(u8::MAX)
+    } else if let Some(claim) = &duel.claim {
+        claim.duplicates
+    } else {
+        0
+    };
+    let duplicate_total = u16::from(duplicate_count).saturating_mul(duplicate_rate);
+    let total_with_duplicates = settled_total.saturating_add(duplicate_total);
+    Some(RewardGold {
+        base_duel,
+        relic_bonus,
+        equipped_acorns,
+        settled_total,
+        duplicate_rate,
+        duplicate_count,
+        duplicate_total,
+        total_with_duplicates,
+    })
+}
+
+/// Duplicate-conversion gold if `card` is already owned in this run (`Some(3)` in Runic, else `None`).
+#[must_use]
+pub fn reward_card_duplicate_gold(run: &Run, card: CardIndex) -> Option<u16> {
+    (domain::v2::generation::is_run(run.shop.generator) && run.cards.copies(card) > 0)
+        .then(|| domain::v2::run::duplicate_gold(run.shop.generator))
 }

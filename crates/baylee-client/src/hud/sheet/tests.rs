@@ -221,3 +221,107 @@ fn a_mana_bubble_opens_over_the_card_like_any_other_sheet() {
         mid.y - CARD.y / 2.0
     );
 }
+
+#[test]
+fn tower_item_ability_sheet_separates_rarity_from_name_and_shows_portrait() {
+    use baylee_client_core::echoes::domain::v2::{
+        catalog::{Definition, Family, Rarity},
+        shop::Goods,
+    };
+    use baylee_client_core::test_support::{ViewBuilder, printed};
+
+    let def = Definition {
+        family: Family::SpringChalice,
+        rarity: Rarity::Rare,
+    };
+    let token_def = baylee_cards::tokens::tower::run::definition(def.id()).expect("chalice token");
+    let token_id = baylee_cards::tokens::token_id(token_def);
+
+    let mut relic = printed(42, 0, "Spring Chalice · Rare", 1);
+    relic.card = None;
+    relic.rules = None;
+    relic.status = baylee_view::ObjectStatus::TOKEN;
+    relic.token = Some(token_id);
+    let id = relic.id;
+
+    let view = ViewBuilder::new(2).with_command(0, vec![relic]).build();
+    let mut duel = Duel::default();
+    duel.receive_view(view);
+
+    let (title, subtitle, goods) =
+        spawn::sheet_heading(&duel, id, &crate::cardtext::CardTexts::default(), Lang::De);
+    assert_eq!(
+        title,
+        crate::towerui::words::name(Goods::Relic(def), Lang::De)
+    );
+    assert!(!title.contains('·'), "title must not contain '·': {title}");
+    assert!(!title.contains("Rare"));
+    assert_eq!(subtitle.as_deref(), Some("Rare"));
+    assert_eq!(goods, Some(Goods::Relic(def)));
+
+    let mut world = World::new();
+    let fonts = UiFonts::default();
+    let sheets = UiSheets {
+        parchment: Handle::default(),
+    };
+    let faces = crate::cardtext::CardTexts::default();
+    let rows = [SheetRow {
+        answer: 0,
+        cost: Some("{T}".to_string()),
+        blocks: Some(vec![TextBlock::Rules(
+            "Erhalte 2 Lebenspunkte.".to_string(),
+        )]),
+        line: None,
+    }];
+    let sheet = spawn::spawn_sheet(
+        &mut world.commands(),
+        &fonts,
+        &sheets,
+        &faces,
+        Lang::De,
+        &duel,
+        id,
+        Source::Ability,
+        &[],
+        &rows,
+        crate::abilities::Split { pips: 0, rows: 1 },
+        0,
+        0,
+        None,
+        true,
+        true,
+        None,
+    );
+    world.flush();
+    assert!(world.get_entity(sheet).is_ok());
+
+    let texts: Vec<(String, Color)> = world
+        .query::<(&Text, &TextColor)>()
+        .iter(&world)
+        .map(|(t, c)| (t.0.clone(), c.0))
+        .collect();
+    assert!(
+        texts
+            .iter()
+            .any(|(t, c)| t == &title && *c == palette::CANDLE),
+        "primary item name rendered as CANDLE headline: {texts:?}"
+    );
+    assert!(
+        texts
+            .iter()
+            .any(|(t, c)| t == "Rare" && *c == palette::MUTED),
+        "rarity rendered on a separate muted subtext line: {texts:?}"
+    );
+    assert!(
+        !texts.iter().any(|(t, _)| t.contains(" · Rare")),
+        "never render 'Name · Rare' as one string: {texts:?}"
+    );
+    assert_eq!(
+        world
+            .query::<&crate::itemart::Portrait>()
+            .iter(&world)
+            .count(),
+        1,
+        "header renders the item's Portrait"
+    );
+}

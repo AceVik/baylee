@@ -157,7 +157,15 @@ pub(crate) fn install(app: &mut App) {
     embedded_asset!(app, "shaders/insignia.wesl");
     app.init_resource::<Medals>()
         .add_plugins(UiMaterialPlugin::<Medal>::default())
-        .add_systems(PostUpdate, dress);
+        .add_systems(
+            PostUpdate,
+            dress
+                .before(bevy::ui::UiSystems::Prepare)
+                .before(bevy::ui::UiSystems::Content)
+                .before(bevy::ui::UiSystems::Layout)
+                .before(bevy::ui::UiSystems::Stack)
+                .before(bevy::asset::AssetEventSystems),
+        );
 }
 
 #[cfg(test)]
@@ -242,5 +250,79 @@ mod tests {
             }
         }
         assert_eq!(slots.len(), 66);
+    }
+
+    #[test]
+    fn post_update_attaches_medal_before_layout_stack_and_asset_events() {
+        #[derive(Resource, Default)]
+        struct Observed {
+            in_layout: bool,
+            in_stack: bool,
+        }
+
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default()))
+            .init_asset::<Medal>()
+            .init_resource::<Medals>()
+            .init_resource::<Observed>()
+            .configure_sets(
+                PostUpdate,
+                (
+                    bevy::ui::UiSystems::Prepare,
+                    bevy::ui::UiSystems::Content,
+                    bevy::ui::UiSystems::Layout,
+                    bevy::ui::UiSystems::PostLayout,
+                )
+                    .chain_weak(),
+            )
+            .add_systems(
+                PostUpdate,
+                dress
+                    .before(bevy::ui::UiSystems::Prepare)
+                    .before(bevy::ui::UiSystems::Content)
+                    .before(bevy::ui::UiSystems::Layout)
+                    .before(bevy::ui::UiSystems::Stack)
+                    .before(bevy::asset::AssetEventSystems),
+            )
+            .add_systems(
+                PostUpdate,
+                (|q: Query<&MaterialNode<Medal>>, mut obs: ResMut<Observed>| {
+                    obs.in_layout = !q.is_empty();
+                })
+                .in_set(bevy::ui::UiSystems::Layout),
+            )
+            .add_systems(
+                PostUpdate,
+                (|q: Query<&MaterialNode<Medal>>, mut obs: ResMut<Observed>| {
+                    obs.in_stack = !q.is_empty();
+                })
+                .in_set(bevy::ui::UiSystems::Stack),
+            );
+        let badge = app
+            .world_mut()
+            .spawn(Insignia {
+                kind: Motif::Echoes(baylee_client_core::echoes::awards_api::BadgeKind::Victories),
+                tier: Some(Tier::Gold),
+            })
+            .id();
+        app.update();
+        let obs = app.world().resource::<Observed>();
+        assert!(
+            obs.in_layout,
+            "MaterialNode must be present before UiSystems::Layout"
+        );
+        assert!(
+            obs.in_stack,
+            "MaterialNode must be present before UiSystems::Stack"
+        );
+        assert!(app.world().get::<MaterialNode<Medal>>(badge).is_some());
+        let events = app.world().resource::<Messages<AssetEvent<Medal>>>();
+        let mut reader = events.get_cursor();
+        assert!(
+            reader
+                .read(events)
+                .any(|e| matches!(e, AssetEvent::Added { .. })),
+            "AssetEvent::Added must flush in AssetEventSystems on Frame N"
+        );
     }
 }

@@ -103,7 +103,12 @@ pub(crate) fn install(app: &mut App) {
     }
     app.add_systems(
         PostUpdate,
-        dress_header_surfaces.before(bevy::ui::UiSystems::Layout),
+        dress_header_surfaces
+            .before(bevy::ui::UiSystems::Prepare)
+            .before(bevy::ui::UiSystems::Content)
+            .before(bevy::ui::UiSystems::Layout)
+            .before(bevy::ui::UiSystems::Stack)
+            .before(bevy::asset::AssetEventSystems),
     )
     .add_systems(PostUpdate, sharpen_brand.after(bevy::ui::UiSystems::Layout));
 }

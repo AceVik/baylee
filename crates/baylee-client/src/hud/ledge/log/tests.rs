@@ -1091,6 +1091,17 @@ fn smoked_log_glass_keeps_ink_and_quiet_ink_readable_over_bright_fire() {
         .iter(app.world())
         .any(|g| *g == crate::social::glass::Glass::Panel);
     assert!(has_rim, "LogPanel carries the static frosted cut-glass rim");
+    let texts: Vec<String> = app
+        .world_mut()
+        .query::<&Text>()
+        .iter(app.world())
+        .map(|t| t.0.clone())
+        .collect();
+    assert!(
+        !texts.contains(&Phrase::GameLogTitle.text(Lang::En).to_string())
+            && !texts.contains(&Phrase::GameLogTitle.text(Lang::De).to_string()),
+        "in-game log panel must not render a 'Game log' / 'Spielprotokoll' header label: {texts:?}"
+    );
 }
 
 #[test]

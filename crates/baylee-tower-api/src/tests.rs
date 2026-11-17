@@ -13,6 +13,7 @@ fn player_wire_refuses_injected_authority_and_unbounded_bodies() {
         r#"{"operation":"command","run":"00000000-0000-7000-8000-000000000000","request":"00000000-0000-7000-8000-000000000001","revision":0,"command":{"kind":"claim","cards":[1,2,3],"gold":999}}"#,
         r#"{"operation":"command","run":"00000000-0000-7000-8000-000000000000","request":"00000000-0000-7000-8000-000000000001","revision":0,"command":{"kind":"freeze","frozen":true,"seed":[7]}}"#,
         r#"{"operation":"command","run":"00000000-0000-7000-8000-000000000000","request":"00000000-0000-7000-8000-000000000001","revision":0,"command":{"kind":"refresh","gold":999}}"#,
+        r#"{"operation":"command","run":"00000000-0000-7000-8000-000000000000","request":"00000000-0000-7000-8000-000000000001","revision":0,"command":{"kind":"sell_card","card":6,"gold":999}}"#,
     ] {
         assert!(
             decode(input.as_bytes()).is_err(),
@@ -24,4 +25,12 @@ fn player_wire_refuses_injected_authority_and_unbounded_bodies() {
         decode(br#"{"operation":"withdraw_echoes"}"#).unwrap(),
         Request::WithdrawEchoes {}
     );
+    assert!(matches!(
+        decode(br#"{"operation":"command","run":"00000000-0000-7000-8000-000000000000","request":"00000000-0000-7000-8000-000000000001","revision":3,"command":{"kind":"sell_card","card":6}}"#).unwrap(),
+        Request::Command {
+            revision: 3,
+            command: Command::SellCard { card },
+            ..
+        } if card == baylee_tower::cards::CardIndex::new(6)
+    ));
 }

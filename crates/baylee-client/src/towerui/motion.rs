@@ -50,10 +50,14 @@ pub(crate) fn coin(
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                left: px(from.x - side * 0.5),
-                top: px(from.y - side * 0.5),
+                left: px(0.0),
+                top: px(0.0),
                 width: px(side),
                 height: px(side),
+                ..default()
+            },
+            UiTransform {
+                translation: Val2::new(px(from.x - side * 0.5), px(from.y - side * 0.5)),
                 ..default()
             },
             Text::new(crate::hud::glyph::COINS.to_string()),
@@ -107,18 +111,12 @@ fn animate(
     mut commands: Commands,
     clock: Res<Time>,
     prefs: Option<Res<crate::prefs::Prefs>>,
-    mut nodes: Query<(
-        Entity,
-        &mut Motion,
-        &mut Node,
-        &mut UiTransform,
-        &mut Visibility,
-    )>,
+    mut nodes: Query<(Entity, &mut Motion, &mut UiTransform, &mut Visibility)>,
 ) {
     let reduced = prefs
         .as_ref()
         .is_some_and(|prefs| prefs.all().reduce_motion);
-    for (entity, mut motion, mut node, mut transform, mut visibility) in &mut nodes {
+    for (entity, mut motion, mut transform, mut visibility) in &mut nodes {
         motion.age += clock.delta_secs();
         if reduced || motion.age >= motion.delay + motion.duration {
             commands.entity(entity).try_despawn();
@@ -127,14 +125,16 @@ fn animate(
         if motion.age < motion.delay {
             continue;
         }
-        *visibility = Visibility::Inherited;
+        visibility.set_if_neq(Visibility::Inherited);
         let progress = ((motion.age - motion.delay) / motion.duration).clamp(0.0, 1.0);
         let smooth = progress * progress * (3.0 - 2.0 * progress);
         let arc = (std::f32::consts::PI * progress).sin();
         let point = motion.from.lerp(motion.to, smooth)
             - Vec2::Y * arc * if motion.pulse { 0.0 } else { 32.0 };
-        node.left = px(point.x - motion.side * 0.5);
-        node.top = px(point.y - motion.side * 0.5);
+        transform.translation = Val2::new(
+            px(point.x - motion.side * 0.5),
+            px(point.y - motion.side * 0.5),
+        );
         transform.scale = Vec2::splat(if motion.pulse {
             1.0 + 0.22 * arc
         } else {

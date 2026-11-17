@@ -62,34 +62,42 @@ fn metrics(commands: &mut Commands, root: Entity, kit: Kit, run: &api::Run, comp
         .filter(|duel| duel.outcome == Outcome::Victory)
         .count();
     let defeats = run.history.len() - wins;
-    for (icon, caption, value) in [
-        (glyph::CROWN, Phrase::EchoesVictories, format!("{wins}/8")),
+    let remaining_lives = 5_usize.saturating_sub(defeats);
+    for (icon, caption, value, tint) in [
+        (
+            glyph::CROWN,
+            Phrase::EchoesVictories,
+            format!("{wins}/8"),
+            tokens::GOLD,
+        ),
         (
             glyph::HEART,
             Phrase::TowerLives,
-            (5_usize.saturating_sub(defeats)).to_string(),
+            remaining_lives.to_string(),
+            if remaining_lives <= 1 {
+                tokens::DANGER
+            } else {
+                Color::srgb(0.95, 0.48, 0.54)
+            },
         ),
         (
             glyph::COINS,
             Phrase::EchoesGold,
             run.economy.gold.to_string(),
+            tokens::GOLD,
         ),
         (
             glyph::COMPASS,
             Phrase::EchoesOrdinal,
             run.shop.stage.to_string(),
+            tokens::ACCENT,
         ),
     ] {
         if compact && caption == Phrase::EchoesGold {
             continue;
         }
         if compact {
-            let text = if caption == Phrase::EchoesGold {
-                format!("{value} {}", caption.text(lang))
-            } else {
-                value.clone()
-            };
-            let badge = crate::lobby::parts::badge_with(commands, kit, icon, &text, tokens::INK);
+            let badge = crate::lobby::parts::badge_with(commands, kit, icon, &value, tint);
             commands.entity(badge).insert(Pickable::default());
             controls::attach_tooltip(
                 commands,

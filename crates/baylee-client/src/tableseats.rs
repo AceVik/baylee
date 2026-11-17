@@ -273,6 +273,8 @@ impl TableSeats {
     }
 
     /// Reads the settings file again.
+    // Bridge settings files are desktop-only; method form keeps callers uniform on wasm.
+    #[cfg_attr(target_arch = "wasm32", allow(clippy::unused_self))]
     pub(crate) fn read_file(&mut self) {
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -479,6 +481,8 @@ impl TableSeats {
     }
 
     /// Keeps the chair's model and effort as its profile's, in the file.
+    // Bridge settings files are desktop-only; method form keeps callers uniform on wasm.
+    #[cfg_attr(target_arch = "wasm32", allow(clippy::unused_self))]
     fn save(&mut self, chair: u32) {
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -571,7 +575,8 @@ impl TableSeats {
     }
 
     /// Starts and stops what [`Seating::steps`] says.
-    #[cfg_attr(target_arch = "wasm32", allow(unused_variables))]
+    // Bridge processes are desktop-only; method form keeps callers uniform on wasm.
+    #[cfg_attr(target_arch = "wasm32", allow(unused_variables, clippy::unused_self))]
     fn run(&mut self, phase: Phase, open: &[u32], room: Option<&Room<'_>>) {
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -669,6 +674,8 @@ impl TableSeats {
     /// Takes the chair tickets that came back: a bridge starts on each one
     /// still waited for, or on a guest's door where the gateway took no
     /// ticket and takes guests; otherwise the chair says why it is empty.
+    // Bridge processes are desktop-only; method form keeps callers uniform on wasm.
+    #[cfg_attr(target_arch = "wasm32", allow(clippy::unused_self))]
     fn land_tickets(&mut self, room: &Room<'_>) {
         #[cfg(not(target_arch = "wasm32"))]
         {

@@ -283,6 +283,40 @@ pub(in crate::hud) fn stack_entry_height(_full: bool) -> Val {
     Val::Auto
 }
 
+/// Resolves the Tower Run [`Goods`](baylee_client_core::echoes::domain::v2::shop::Goods)
+/// behind a stack entry when its art or ability source is run equipment.
+pub(in crate::hud) fn stack_item_goods(
+    item: &baylee_client_core::board::StackItem,
+    view: &PlayerView,
+) -> Option<baylee_client_core::echoes::domain::v2::shop::Goods> {
+    crate::itemart::identity::run_art(item.copy_original.or(item.art))
+        .or_else(|| {
+            let baylee_client_core::board::StackKind::Ability { source, .. } = item.kind else {
+                return None;
+            };
+            view.object(source)
+                .and_then(crate::itemart::identity::run_source)
+        })
+        .or_else(|| {
+            let obj = view.object(item.id)?;
+            if let Some(goods) = crate::itemart::identity::run_source(obj) {
+                return Some(goods);
+            }
+            if let Some(goods) = obj.ability_sources.iter().find_map(|src| {
+                src.token
+                    .as_ref()
+                    .and_then(|tok| crate::itemart::identity::run_token(tok.token))
+            }) {
+                return Some(goods);
+            }
+            let Some(baylee_view::StackItem::Ability { source, .. }) = &obj.stack_item else {
+                return None;
+            };
+            view.object(*source)
+                .and_then(crate::itemart::identity::run_source)
+        })
+}
+
 /// One row of the stack panel: the object, what it is, and what it points at.
 ///
 /// `full` is the top of the stack — the sentence the panel is about. Every
@@ -350,6 +384,7 @@ pub(in crate::hud) fn spawn_stack_entry(
     } else {
         Color::NONE
     };
+    let item_goods = stack_item_goods(item, view);
     let row = commands
         .spawn((
             Node {
@@ -373,7 +408,6 @@ pub(in crate::hud) fn spawn_stack_entry(
             },
             BackgroundColor(fill),
             BorderColor::all(rail),
-            HandCardVisual { object: item.id },
             crate::hud::StackRowCard,
             Arriving::fill(key, fill.alpha()),
             ArrivingRow {
@@ -383,19 +417,58 @@ pub(in crate::hud) fn spawn_stack_entry(
             },
         ))
         .id();
+    if let Some(goods) = item_goods {
+        crate::hud::tower::attach_item_tooltip(commands, row, goods, fonts, lang);
+        commands.entity(row).insert(Pickable::default());
+        if picks.selectable.contains(&item.id) {
+            commands
+                .entity(row)
+                .insert(HandCardVisual { object: item.id });
+        }
+    } else {
+        commands
+            .entity(row)
+            .insert(HandCardVisual { object: item.id });
+    }
 
     let (width, height) = if full && !compact {
         (STACK_CARD_W, STACK_CARD_H)
     } else {
         (STACK_QUEUED_W, STACK_QUEUED_H)
     };
+    let resolved_art = item.copy_original.or(item.art).or_else(|| {
+        let goods = item_goods?;
+        match goods {
+            baylee_client_core::echoes::domain::v2::shop::Goods::Relic(def) => {
+                let token = baylee_cards::tokens::tower::run::definition(def.id())?;
+                Some(baylee_client_core::images::ImageKey::token(
+                    baylee_cards::tokens::token_id(token),
+                    baylee_client_core::images::ArtSize::Normal,
+                ))
+            }
+            baylee_client_core::echoes::domain::v2::shop::Goods::Potion(
+                baylee_client_core::echoes::domain::v2::catalog::Potion::Healing,
+            ) => Some(baylee_client_core::images::ImageKey::token(
+                baylee_cards::tokens::token_id(&baylee_cards::tokens::TOWER_HEALING_POTION),
+                baylee_client_core::images::ArtSize::Normal,
+            )),
+            baylee_client_core::echoes::domain::v2::shop::Goods::Potion(
+                baylee_client_core::echoes::domain::v2::catalog::Potion::Mana,
+            ) => Some(baylee_client_core::images::ImageKey::token(
+                baylee_cards::tokens::token_id(&baylee_cards::tokens::TOWER_MANA_POTION),
+                baylee_client_core::images::ArtSize::Normal,
+            )),
+            baylee_client_core::echoes::domain::v2::shop::Goods::Mythic
+            | baylee_client_core::echoes::domain::v2::shop::Goods::Card(_) => None,
+        }
+    });
     let art = spawn_stack_card(
         commands,
         lang,
         key,
         // The row speaks for the entry; see `spawn_stack_card`.
         None,
-        item.copy_original.or(item.art),
+        resolved_art,
         stack_face(item, view, faces, textures),
         width,
         height,
@@ -449,27 +522,31 @@ pub(in crate::hud) fn spawn_stack_entry(
         } else {
             0.0
         };
-    let title = view.object(item.id).map_or_else(
-        || item.name.clone(),
-        |o| {
-            if (item.copy_original.is_some() || item.face_down)
-                && let Some(card) = o.card
-            {
-                faces
-                    .texts
-                    .get(card.index, card.face)
-                    .map(|t| t.name)
-                    .or_else(|| {
-                        baylee_cards::by_index(card.index)
-                            .and_then(|d| d.faces.get(usize::from(card.face)))
-                            .map(|f| f.name.to_string())
-                    })
-                    .unwrap_or_else(|| crate::face::name_of(o, view, faces.texts))
-            } else {
-                crate::face::name_of(o, view, faces.texts)
-            }
-        },
-    );
+    let title = if let Some(goods) = item_goods {
+        crate::towerui::words::name(goods, lang)
+    } else {
+        view.object(item.id).map_or_else(
+            || item.name.clone(),
+            |o| {
+                if (item.copy_original.is_some() || item.face_down)
+                    && let Some(card) = o.card
+                {
+                    faces
+                        .texts
+                        .get(card.index, card.face)
+                        .map(|t| t.name)
+                        .or_else(|| {
+                            baylee_cards::by_index(card.index)
+                                .and_then(|d| d.faces.get(usize::from(card.face)))
+                                .map(|f| f.name.to_string())
+                        })
+                        .unwrap_or_else(|| crate::face::name_of(o, view, faces.texts))
+                } else {
+                    crate::face::name_of(o, view, faces.texts)
+                }
+            },
+        )
+    };
     let title = if title.is_empty() || title == "Face-down" {
         match lang {
             Lang::De => "Verdeckt".to_string(),
@@ -615,8 +692,11 @@ pub(in crate::hud) fn spawn_stack_entry(
                 Some(view.object(source).map_or_else(
                     || Phrase::StackAbilityBare.text(lang).to_string(),
                     |o| {
-                        Phrase::StackAbility
-                            .fill(lang, &[&crate::face::name_of(o, view, faces.texts)])
+                        let source_name = crate::itemart::identity::run_source(o).map_or_else(
+                            || crate::face::name_of(o, view, faces.texts),
+                            |goods| crate::towerui::words::name(goods, lang),
+                        );
+                        Phrase::StackAbility.fill(lang, &[&source_name])
                     },
                 ))
             }

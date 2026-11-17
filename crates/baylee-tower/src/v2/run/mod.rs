@@ -71,6 +71,9 @@ pub struct Run {
     /// Completed owner choices in duel order. Absent in legacy saved runs.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub claims: Vec<Claim>,
+    /// Unused nonbasic cards sold for catalog rarity gold, in sale order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sold_cards: Vec<baylee_core::ids::CardIndex>,
     /// Run-local wallet, relics and charges.
     pub economy: Economy,
     /// Owned card pool and selected legal deck.
@@ -123,6 +126,7 @@ impl Run {
             income: Vec::new(),
             reward: None,
             claims: Vec::new(),
+            sold_cards: Vec::new(),
             economy,
             cards: starter,
             shop,
@@ -196,13 +200,18 @@ impl Run {
             return Err(Refusal::Invalid);
         }
         self.validate_execution()?;
-        let mut reward_gold = self.validate_rewards(catalog)?;
+        let mut reward_gold = self
+            .validate_rewards(catalog)?
+            .checked_add(self.validate_sold_cards(catalog)?)
+            .ok_or(Refusal::Capacity)?;
         if super::generation::is_run(self.shop.generator) {
             if self.income.len() != self.history.len() {
                 return Err(Refusal::Invalid);
             }
             for (income, result) in self.income.iter().zip(&self.history) {
-                reward_gold += income.bonus(result.outcome)?;
+                reward_gold = reward_gold
+                    .checked_add(income.bonus(result.outcome)?)
+                    .ok_or(Refusal::Capacity)?;
             }
         } else if !self.income.is_empty() {
             return Err(Refusal::Invalid);

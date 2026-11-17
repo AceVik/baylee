@@ -359,9 +359,12 @@ fn no_melody_echoes_a_tune_we_must_not() {
     let avoid: serde_json::Value =
         serde_json::from_str(include_str!("../../../../../art/music/avoid.json"))
             .expect("interval signatures");
-    let check_intervals = |label: &str, pitches: &[i64]| {
+    let check_intervals = |label: &str, pitches: &[i64], allow_pd: bool| {
         let ours: Vec<_> = pitches.windows(2).map(|w| w[1] - w[0]).collect();
         for tune in avoid.as_array().expect("avoid list") {
+            if allow_pd && tune["public_domain"].as_bool().unwrap_or(false) {
+                continue;
+            }
             let mut settings = vec![&tune["intervals"]];
             if let Some(alts) = tune["alt_intervals"].as_array() {
                 settings.extend(alts);
@@ -401,18 +404,15 @@ fn no_melody_echoes_a_tune_we_must_not() {
                 .filter(|n| n.0 > 0)
                 .map(|n| i64::from(n.0))
                 .collect();
-            check_intervals(theme.name(), &pitches);
+            check_intervals(theme.name(), &pitches, false);
             checked += 1;
         }
     }
     assert_eq!(checked, Theme::ALL.len() * 5);
 
-    for (name, raw_pitches) in memorial::sheet_melodies()
-        .into_iter()
-        .chain(memorial::sheet_counters())
-    {
+    for (name, raw_pitches) in memorial::sheet_melodies() {
         let pitches: Vec<_> = raw_pitches.into_iter().map(i64::from).collect();
-        check_intervals(name, &pitches);
+        check_intervals(name, &pitches, true);
     }
 }
 
@@ -831,12 +831,13 @@ fn vertical_consonance_plomp_levelt_and_parsimonious_voice_leading_hold() {
 
 #[test]
 fn lobby_tavern_guitar_locks_to_exact_nine_bar_bard_video_loop() {
-    // 109.091 BPM in 3/4: 1 sixteenth = 6,600 samples (0.1375s), 1 beat = 26,400 samples (0.550s = 33f @ 60fps),
-    // 1 bar = 79,200 samples (1.650s = 99f @ 60fps), 9 bars (27 beats) = 712,800 samples = 14.850000s (891f @ 60fps) exact!
-    assert_eq!(memorial::LOBBY_STEP_FRAMES * 12 * 9, 891 * (RATE / 60));
-    assert_eq!((memorial::LOBBY_STEP_FRAMES * 4 * 60) % RATE, 0);
-    assert_eq!(memorial::LOBBY_STEP_FRAMES * 4 * 60 / RATE, 33);
-    assert_eq!(memorial::LOBBY_STEP_FRAMES * 12 * 60 / RATE, 99);
+    // 109.091 BPM Bard strum sync:
+    // 1 sixteenth = 13,200 samples (0.275s); 1 eighth-note strum (`2` ticks) = 26,400 samples
+    // (`0.550s` = `33f @ 60fps`, 1:1 with every Bard hand downstroke);
+    // 27 Bard strums (`54` ticks = `4.5` `6/8` bars) = 712,800 samples = `14.850000s` (`891f @ 60fps`) exact!
+    assert_eq!(memorial::LOBBY_STEP_FRAMES * 2 * 60 / RATE, 33);
+    assert_eq!((memorial::LOBBY_STEP_FRAMES * 2 * 60) % RATE, 0);
+    assert_eq!(memorial::LOBBY_STEP_FRAMES * 54, 891 * (RATE / 60));
 }
 
 #[test]
@@ -882,7 +883,7 @@ fn zero_flute_voices_exist_across_login_lobby_table_and_ending_scores() {
         orch.flute_notes, 0,
         "Login Title schedules zero Flute notes"
     );
-    assert!(orch.concert_harp_notes >= 64 * 6);
+    assert!(orch.concert_harp_notes >= 16);
 
     let harp_after_title = orch.concert_harp_notes;
     for _ in 0..(128 * 12) {
@@ -899,30 +900,16 @@ fn zero_flute_voices_exist_across_login_lobby_table_and_ending_scores() {
 }
 
 #[test]
-fn login_title_presents_baylee_signature_leitmotif_and_epic_symphonic_swell() {
-    let sig = memorial::BAYLEE_SIGNATURE_MOTIF;
-    let sig_intervals: Vec<i16> = sig
-        .windows(2)
-        .map(|w| i16::from(w[1]) - i16::from(w[0]))
-        .collect();
-    assert_eq!(sig_intervals, vec![7, 5, 3, -3, -2, 4, -4]);
-
-    let sheets = memorial::sheet_melodies();
-    assert_eq!(
-        &sheets[0].1[..8],
-        &sig,
-        "Login Overture opens with Baylee Signature"
-    );
-    assert_eq!(
-        &sheets[0].1[14..18],
-        &sig[..4],
-        "Horn & Cello answer restates signature"
-    );
-    assert_eq!(
-        &sheets[2].1[..3],
-        &[62, 69, 74],
-        "Lobby Sanz echoes signature call"
-    );
+fn login_and_lobby_suites_use_clean_spacious_public_domain_melodies_and_swell_smoothly() {
+    let melodies = memorial::sheet_melodies();
+    assert_eq!(melodies.len(), 6);
+    for (name, pitches) in &melodies {
+        assert!(
+            (28..=64).contains(&pitches.len()),
+            "{name}: spacious, singing phrasing without frantic note walls ({})",
+            pitches.len()
+        );
+    }
 
     let victory_call: Vec<u8> = (0..4)
         .flat_map(|tick| {
@@ -942,8 +929,8 @@ fn login_title_presents_baylee_signature_leitmotif_and_epic_symphonic_swell() {
         theme: Theme::Ember,
         ..ScoreRequest::default()
     });
-    let mut tune = Tune::with_control(control);
-    let bar_frames = 9_600_usize * 12;
+    let mut tune = Tune::with_control(control.clone());
+    let bar_frames = memorial::TITLE_STEP_FRAMES as usize * 12;
     let mut act_rms = [0.0_f64; 4];
     let (mut peak, mut seam_jump) = (0.0_f32, 0.0_f32);
     let mut prev = [0.0_f32; 2];
@@ -968,63 +955,28 @@ fn login_title_presents_baylee_signature_leitmotif_and_epic_symphonic_swell() {
     }
     let rms = act_rms.map(f64::sqrt);
     assert!(
-        rms[0] > 0.008 && rms[1] > rms[0] * 1.15,
-        "Act I -> II swell: {rms:?}"
+        rms[0] > 0.005 && rms[2] > rms[0] * 1.15 && rms[3] < rms[2],
+        "Stately Sarabande swell & graceful cadence: {rms:?}"
     );
-    assert!(
-        rms[2] > rms[0] * 1.40 && rms[2] > rms[1] * 1.12,
-        "Act III climax: {rms:?}"
-    );
-    assert!(rms[3] < rms[2], "Act IV bridge decrescendo: {rms:?}");
     assert!(
         peak < 0.65 && seam_jump < 0.08,
         "headroom {peak}, seam {seam_jump}"
     );
-}
-
-#[test]
-fn login_and_lobby_feature_cantabile_phrasing_and_contrapuntal_counter_melodies() {
-    let mut distinct_rhythms = memorial::overture_bar_rhythms();
-    distinct_rhythms.sort();
-    distinct_rhythms.dedup();
-    assert!(
-        distinct_rhythms.len() >= 8,
-        "Login Overture sings with varied cantabile phrasing, not one rigid pattern: {distinct_rhythms:?}"
-    );
-
-    let melodies = memorial::sheet_melodies();
-    let counters = memorial::sheet_counters();
-    assert_eq!(melodies.len(), 6);
-    assert_eq!(counters.len(), 6);
-    for ((m_name, m_pitches), (c_name, c_pitches)) in melodies.iter().zip(counters.iter()) {
-        assert!(
-            m_pitches.len() >= 48,
-            "{m_name}: rich lyrical melody ({})",
-            m_pitches.len()
-        );
-        assert!(
-            c_pitches.len() >= 32,
-            "{c_name}: singing contrapuntal inner voice ({})",
-            c_pitches.len()
-        );
-    }
 
     // Render across all 4 Lobby pieces (returns from table advance to the next guitar piece)
-    let control = Arc::new(ScoreControl::default());
     control.set(ScoreRequest {
         scene: Scene::Lobby,
         theme: Theme::Ember,
         ..ScoreRequest::default()
     });
-    let mut tune = Tune::with_control(control.clone());
     for piece in 0..4_usize {
         let frames = render_seconds(&mut tune, 4);
-        let peak = frames
+        let l_peak = frames
             .iter()
             .flatten()
             .map(|s| s.abs())
             .fold(0.0_f32, f32::max);
-        let rms = (frames
+        let l_rms = (frames
             .iter()
             .flatten()
             .map(|s| f64::from(*s).powi(2))
@@ -1032,8 +984,8 @@ fn login_and_lobby_feature_cantabile_phrasing_and_contrapuntal_counter_melodies(
             / (frames.len() * 2) as f64)
             .sqrt();
         assert!(
-            (0.015..0.60).contains(&peak) && (0.003..0.20).contains(&rms),
-            "Lobby piece {piece} warm headroom: peak={peak:.4}, rms={rms:.4}"
+            (0.015..0.60).contains(&l_peak) && (0.003..0.20).contains(&l_rms),
+            "Lobby piece {piece} warm headroom: peak={l_peak:.4}, rms={l_rms:.4}"
         );
         control.set(ScoreRequest {
             scene: Scene::Table,

@@ -159,12 +159,66 @@ impl Run {
             if claim.cards.len() > usize::from(allowance(result.outcome))
                 || usize::from(claim.duplicates) > claim.cards.len()
                 || claim.cards.windows(2).any(|pair| pair[0] >= pair[1])
-                || claim.cards.iter().any(|card| self.cards.copies(*card) != 1)
+                || claim
+                    .cards
+                    .iter()
+                    .any(|card| self.cards.copies(*card) != 1 && !self.sold_cards.contains(card))
             {
                 return Err(Refusal::Invalid);
             }
             unique_nonbasics(&claim.cards, catalog)?;
             gold += u16::from(claim.duplicates) * duplicate_gold(self.shop.generator);
+        }
+        Ok(gold)
+    }
+
+    pub(super) fn validate_sold_cards(&self, catalog: &Catalog) -> Result<u16, Refusal> {
+        if !crate::v2::generation::is_run(self.shop.generator) {
+            return if self.sold_cards.is_empty() {
+                Ok(0)
+            } else {
+                Err(Refusal::Invalid)
+            };
+        }
+        let mut gold = 0_u16;
+        let mut distinct = std::collections::BTreeSet::new();
+        for &card in &self.sold_cards {
+            let sale = catalog.card_sale_gold(card).ok_or(Refusal::Invalid)?;
+            gold = gold.checked_add(sale).ok_or(Refusal::Capacity)?;
+            distinct.insert(card);
+        }
+        let non_duplicate_claims: usize = self
+            .claims
+            .iter()
+            .map(|claim| {
+                claim
+                    .cards
+                    .len()
+                    .saturating_sub(usize::from(claim.duplicates))
+            })
+            .sum();
+        let mut extra_copies = 0_usize;
+        for card in distinct {
+            let sold = self
+                .sold_cards
+                .iter()
+                .filter(|&&sold_card| sold_card == card)
+                .count();
+            let possible_grants = self
+                .claims
+                .iter()
+                .filter(|claim| {
+                    usize::from(claim.duplicates) < claim.cards.len() && claim.cards.contains(&card)
+                })
+                .count();
+            let lifetime_copies = usize::from(self.cards.copies(card)) + sold;
+            if lifetime_copies > 1 + possible_grants {
+                return Err(Refusal::Invalid);
+            }
+            extra_copies += lifetime_copies.saturating_sub(1);
+        }
+        if extra_copies > non_duplicate_claims {
+            return Err(Refusal::Invalid);
         }
         Ok(gold)
     }

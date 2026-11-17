@@ -73,7 +73,8 @@ fn track(
     badge: Option<Badge>,
 ) {
     let lang = lang(kit);
-    let cell = cell(commands, root, kit, 240.0);
+    let active = ui.collection.selected == kind;
+    let cell = cell(commands, root, kit, 240.0, active);
     medal(commands, cell, kit, kind, badge.and_then(|b| b.tier), 96.0);
     control(
         commands,
@@ -84,12 +85,17 @@ fn track(
         Action::Badge(kind),
         true,
     );
+    let has_tier = badge.and_then(|b| b.tier).is_some();
     centred(
         commands,
         cell,
         kit,
         badge.map_or("—", |b| tier(b.tier).text(lang)),
-        tokens::GOLD,
+        if has_tier {
+            tokens::GOLD
+        } else {
+            tokens::MUTED
+        },
     );
     let count = badge.map_or_else(
         || "—".into(),
@@ -114,7 +120,17 @@ fn preview(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
     let kind = ui.collection.selected;
     let surface = compact_panel(commands, root, kit);
     let title = row(commands, surface, kit);
-    label(commands, title, kit, name(kind).text(lang), tokens::GOLD);
+    let title_label = controls::label(
+        commands,
+        kit,
+        name(kind).text(lang),
+        kit.m.text,
+        tokens::GOLD,
+    );
+    commands
+        .entity(title_label)
+        .insert(crate::hud::tf_bold(kit.fonts, kit.m.text));
+    commands.entity(title).add_child(title_label);
     label(
         commands,
         title,
@@ -129,22 +145,26 @@ fn preview(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
     };
     widgets::paragraph(commands, surface, kit, goal.text(lang), tokens::INK);
     let gallery = row(commands, surface, kit);
+    commands
+        .entity(gallery)
+        .entry::<Node>()
+        .and_modify(|mut n| n.align_items = AlignItems::Stretch);
     let count = ui.collection.progress.map(|p| match kind {
         BadgeKind::Victories => p.victories,
         BadgeKind::Ascents => p.clears,
         BadgeKind::Unbroken => p.flawless,
     });
     for (tier_value, target) in TIERS.into_iter().zip(kind.thresholds()) {
-        let cell = cell(commands, gallery, kit, 144.0);
+        let earned = count.is_some_and(|count| count >= target);
+        let cell = cell(commands, gallery, kit, 148.0, earned);
         medal(commands, cell, kit, kind, Some(tier_value), 88.0);
         centred(
             commands,
             cell,
             kit,
             tier(Some(tier_value)).text(lang),
-            tokens::INK,
+            if earned { tokens::INK } else { tokens::MUTED },
         );
-        let earned = count.is_some_and(|count| count >= target);
         let caption = if earned {
             Phrase::ChallengeTierEarned
         } else {
@@ -164,7 +184,7 @@ fn preview(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
     }
 }
 
-fn cell(commands: &mut Commands, root: Entity, kit: Kit, basis: f32) -> Entity {
+fn cell(commands: &mut Commands, root: Entity, kit: Kit, basis: f32, highlighted: bool) -> Entity {
     let cell = commands
         .spawn((
             Node {
@@ -173,10 +193,23 @@ fn cell(commands: &mut Commands, root: Entity, kit: Kit, basis: f32) -> Entity {
                 min_width: px(0),
                 align_items: AlignItems::Center,
                 flex_direction: FlexDirection::Column,
-                row_gap: kit.m.px(4.0),
-                padding: UiRect::all(kit.m.px(6.0)),
+                row_gap: kit.m.px(6.0),
+                padding: UiRect::all(kit.m.px(12.0)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(kit.m.px(10.0)),
                 ..default()
             },
+            BackgroundColor(if highlighted {
+                tokens::SELECTED
+            } else {
+                tokens::CONTROL.with_alpha(0.55)
+            }),
+            BorderColor::all(if highlighted {
+                tokens::GOLD.with_alpha(0.55)
+            } else {
+                tokens::BORDER
+            }),
+            surfaces::elevation_subcard(),
             Pickable::IGNORE,
         ))
         .id();
@@ -231,11 +264,13 @@ fn meter(commands: &mut Commands, root: Entity, kit: Kit, badge: Badge) {
     let track = commands
         .spawn((
             Node {
-                width: percent(85),
-                height: kit.m.px(3.0),
+                width: percent(88),
+                height: kit.m.px(6.0),
+                border_radius: BorderRadius::all(kit.m.px(4.0)),
+                overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(tokens::CONTROL),
+            BackgroundColor(tokens::OPAQUE.with_alpha(0.75)),
             Pickable::IGNORE,
         ))
         .id();
@@ -244,9 +279,14 @@ fn meter(commands: &mut Commands, root: Entity, kit: Kit, badge: Badge) {
             Node {
                 width: percent((share * 100.0) as f32),
                 height: percent(100),
+                border_radius: BorderRadius::all(kit.m.px(4.0)),
                 ..default()
             },
-            BackgroundColor(tokens::ACCENT),
+            BackgroundColor(if badge.next.is_none() {
+                tokens::GOLD
+            } else {
+                tokens::ACCENT
+            }),
             Pickable::IGNORE,
         ))
         .id();

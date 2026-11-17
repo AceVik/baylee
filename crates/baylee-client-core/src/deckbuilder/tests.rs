@@ -1461,6 +1461,16 @@ fn localized_names_and_types_do_not_change_saved_card_identity() {
     assert_eq!(b.card(0).unwrap().english_name, english);
     assert_eq!(b.card(0).unwrap().type_line, "Kreatur — Mensch, Zauberer");
     b.set_text("Deutscher");
+    assert!(
+        !b.results().contains(&0),
+        "default hide_in_deck and hide_in_sideboard hide cards already in both zones"
+    );
+    b.set_hide_in_deck(false);
+    assert!(
+        !b.results().contains(&0),
+        "still in sideboard while hide_in_sideboard is on"
+    );
+    b.set_hide_in_sideboard(false);
     assert!(b.results().contains(&0));
 }
 
@@ -2073,4 +2083,84 @@ fn the_table_is_asked_for_once_and_forgotten_with_the_pool() {
     b.forget_pool();
     assert!(b.pool_facts().is_none());
     assert!(b.ask_pool_facts(), "and again in the next one");
+}
+
+#[test]
+fn cards_in_deck_and_sideboard_are_hidden_by_default_and_shown_when_toggled_off() {
+    let lobby = crate::lobby::Lobby::default();
+    assert!(lobby.builder().hide_in_deck());
+    assert!(lobby.builder().hide_in_sideboard());
+
+    let mut b = builder();
+    assert!(b.hide_in_deck());
+    assert!(b.hide_in_sideboard());
+    assert!(!b.filtered(), "default switches do not mark filters dirty");
+    assert_eq!(
+        b.chips_in_force(),
+        vec![Chip::PlayableOnly],
+        "empty zones hide nothing yet"
+    );
+
+    let bolt = b.slot_of("Lightning Bolt").unwrap();
+    let wrath = b.slot_of("Wrath of God").unwrap();
+    assert!(b.add(bolt, Zone::Main));
+    assert!(!b.results().contains(&bolt), "main-deck card hidden");
+    assert!(b.chips_in_force().contains(&Chip::HideInDeck));
+    assert!(!b.chips_in_force().contains(&Chip::HideInSideboard));
+
+    assert!(b.add(wrath, Zone::Side));
+    assert!(!b.results().contains(&wrath), "sideboard card hidden");
+    assert!(b.chips_in_force().contains(&Chip::HideInSideboard));
+
+    // Toggling off `hide_in_deck` shows main-deck cards so 2nd–4th copies can
+    // be added directly from the pool in 60-card formats, while keeping
+    // sideboard cards hidden.
+    b.toggle_hide_in_deck();
+    assert!(!b.hide_in_deck());
+    assert!(b.filtered());
+    assert!(b.results().contains(&bolt));
+    assert!(!b.results().contains(&wrath));
+    assert!(b.add(bolt, Zone::Main));
+    assert!(b.add(bolt, Zone::Main));
+    assert!(b.add(bolt, Zone::Main));
+    assert_eq!(b.count_of(bolt, Zone::Main), 4);
+
+    // Toggling off `hide_in_sideboard` reveals sideboard cards as well.
+    b.toggle_hide_in_sideboard();
+    assert!(!b.hide_in_sideboard());
+    assert!(b.results().contains(&wrath));
+
+    // Resetting filters restores both switches to their default ON state.
+    b.clear_filters();
+    assert!(b.hide_in_deck());
+    assert!(b.hide_in_sideboard());
+    assert!(!b.filtered());
+    assert!(!b.results().contains(&bolt));
+    assert!(!b.results().contains(&wrath));
+
+    // Removing the last copy from a zone immediately returns it to the pool.
+    assert!(b.remove(wrath, Zone::Side));
+    assert!(b.results().contains(&wrath));
+}
+
+#[test]
+fn window_neighbour_steps_past_pool_card_hidden_after_window_add() {
+    let mut b = builder();
+    // Alphabetical order: Forest, Grizzly Bears, Lightning Bolt, Sol Ring, Wrath of God.
+    let bears = b.slot_of("Grizzly Bears").unwrap();
+    let bolt = b.slot_of("Lightning Bolt").unwrap();
+    let sol_ring = b.slot_of("Sol Ring").unwrap();
+    let _ = b.inspect(bolt);
+    assert!(b.window_add(Zone::Main));
+    assert!(!b.results().contains(&bolt));
+
+    let (moved_right, _) = b.window_neighbour(1);
+    assert!(moved_right);
+    assert_eq!(b.inspecting(), Some(sol_ring));
+
+    let _ = b.inspect(sol_ring);
+    assert!(b.window_add(Zone::Main));
+    let (moved_left, _) = b.window_neighbour(-1);
+    assert!(moved_left);
+    assert_eq!(b.inspecting(), Some(bears));
 }
