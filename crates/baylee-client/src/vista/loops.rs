@@ -4,7 +4,7 @@
 //! Each is an AVIF image sequence of our own (`loops/world.avif`,
 //! `loops/tavern.avif`: 3840 × 2160, 60/1 frames a second, `2 × 4` tiles,
 //! low-delay 1-frame-per-sample; `art/baylee/README.md` has their provenance
-//! and the `PyTorch` + Topaz Video AI + `ffmpeg` commands that made them), shipped inside
+//! and the Topaz Video AI + `ffmpeg` commands that made them), shipped inside
 //! the binary and decoded by `baylee-avif` with ARM64 NEON on Apple Silicon.
 //!
 //! How a loop plays:
@@ -971,15 +971,15 @@ fn copy(
 mod tests {
     use super::*;
 
-    /// The shipped files are 3840 × 2160 (16:9 4K), exact 60/1 fps (`750` &
-    /// `891` samples, zero ms truncation), 8-bit limited-range BT.709,
+    /// The shipped files are 3840 × 2160 (16:9 4K), exact 60/1 fps (`510` &
+    /// `750` samples, zero ms truncation), 8-bit limited-range BT.709,
     /// opaque, and repeat cleanly with 256-byte row-aligned plane strides and
     /// real-time ARM64 NEON decoding.
     #[test]
     fn the_shipped_loops_are_what_the_shader_converts() {
         for (name, bytes, expected_samples, expected_ns) in [
-            ("world", WORLD, 750usize, 12_500_000_000u64),
-            ("tavern", TAVERN, 891usize, 14_850_000_000u64),
+            ("world", WORLD, 510usize, 8_500_000_000u64),
+            ("tavern", TAVERN, 750usize, 12_500_000_000u64),
         ] {
             let sequence = Sequence::read(bytes, &Bounds::SHIPPED_LOOP)
                 .unwrap_or_else(|e| panic!("{name}: {e}"));
@@ -1052,9 +1052,9 @@ mod tests {
             for (i, sample_60) in at_60.iter().enumerate() {
                 assert_eq!(*sample_60, at_120[i * 2], "{name} 60 vs 120 at step {i}");
             }
-            // At exactly t = 15.0s: 900 frames elapsed at 60 fps (`pass 1, sample 150`
-            // for 750-frame world; `pass 1, sample 9` for 891-frame tavern).
-            let expected_15s = if name == "world" { (1, 150) } else { (1, 9) };
+            // At exactly t = 15.0s: 900 frames elapsed at 60 fps (`pass 1, sample 390`
+            // for the 510-frame world; `pass 1, sample 150` for the 750-frame tavern).
+            let expected_15s = if name == "world" { (1, 390) } else { (1, 150) };
             assert_eq!(at_120.last().unwrap().1, expected_15s, "{name} 1.0x at 15s");
         }
     }
@@ -1202,7 +1202,7 @@ mod tests {
 
     /// Going unseen for `< KEEP` (no eviction) and becoming `visible` again
     /// shifts `origin_clock_ns` so `playhead_ns` resumes at the exact frame on
-    /// screen (`> 13.6s`) without resetting to `0` or freezing `select_due_slot`,
+    /// screen (`> 9.6s`) without resetting to `0` or freezing `select_due_slot`,
     /// while a `generation` bump immediately masks stale `playhead_ns` to `0`.
     #[test]
     fn reentering_within_keep_resumes_immediately_without_freezing() {
@@ -1217,9 +1217,9 @@ mod tests {
         wait_for_write_pos(&lp, RING_CAP as u64);
         lp.showing.store(true, Ordering::Release);
 
-        // Advance past 1 full 12.50s revolution (`playhead = 12.70s` at `clock = 13.70s`).
-        advance_playhead(&lp, true, true, 13_700_000_000);
-        assert_eq!(lp.playhead_for(gen1), 12_700_000_000);
+        // Advance past 1 full 8.50s revolution (`playhead = 8.70s` at `clock = 9.70s`).
+        advance_playhead(&lp, true, true, 9_700_000_000);
+        assert_eq!(lp.playhead_for(gen1), 8_700_000_000);
         for expected_chosen in [7u64, 12u64] {
             let borrow = ConsumerBorrow::try_acquire(&lp.ring.consumer_state).expect("idle");
             let chosen = select_due_slot(&lp, &borrow).expect("due slot");
@@ -1230,20 +1230,20 @@ mod tests {
             wait_for_write_pos(&lp, chosen + 1 + RING_CAP as u64);
         }
 
-        // Go unseen for 2.5s (`< KEEP`, no eviction): `VistaClock` advances to 16.20s.
+        // Go unseen for 2.5s (`< KEEP`, no eviction): `VistaClock` advances to 12.20s.
         let was_visible = lp.active.swap(false, Ordering::AcqRel);
-        assert!(!advance_playhead(&lp, false, was_visible, 16_200_000_000));
+        assert!(!advance_playhead(&lp, false, was_visible, 12_200_000_000));
         assert_eq!(lp.generation.load(Ordering::Acquire), gen1);
 
-        // Re-enter at `clock = 16.20s`: playhead resumes at 12.70s, and the very
-        // next 60 fps tick (`+16_666_667 ns`) immediately selects slot 13 (`12_716_666_666 ns`).
+        // Re-enter at `clock = 12.20s`: playhead resumes at 8.70s, and the very
+        // next 60 fps tick (`+16_666_667 ns`) immediately selects slot 13 (`8_716_666_666 ns`).
         let was_visible = lp.active.swap(true, Ordering::AcqRel);
         assert!(!was_visible);
-        advance_playhead(&lp, true, was_visible, 16_200_000_000);
-        assert_eq!(lp.playhead_for(gen1), 12_700_000_000);
+        advance_playhead(&lp, true, was_visible, 12_200_000_000);
+        assert_eq!(lp.playhead_for(gen1), 8_700_000_000);
 
-        advance_playhead(&lp, true, true, 16_216_666_667);
-        assert_eq!(lp.playhead_for(gen1), 12_716_666_667);
+        advance_playhead(&lp, true, true, 12_216_666_667);
+        assert_eq!(lp.playhead_for(gen1), 8_716_666_667);
         {
             let borrow = ConsumerBorrow::try_acquire(&lp.ring.consumer_state).expect("idle");
             assert_eq!(select_due_slot(&lp, &borrow), Some(13));
