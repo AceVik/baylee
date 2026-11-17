@@ -6319,7 +6319,10 @@ over an older queue hint. Revocation and restoration preserve every committed
 byte, original allocation, frozen build and seed. Only a still-enabled compatible
 assigned host may resume automatically. Three such retries per reservation are
 allowed; further expiry or a disabled/incompatible host retains quarantine for
-explicit supervision, without a rules result or economic compensation.
+explicit supervision (the `supervise` admin operation), without a rules result
+or economic compensation. The owner may instead retire a quarantined run, or one
+whose reservation no host ever claimed, with the ordinary `abandon` command; it
+ends the run with no outcome. A playing or verifying duel refuses `abandon`.
 Cross-gateway reconnect discovery/reassignment remains separate work.
 
 `Envelope.tower_frame` is reserved for the authenticated gateway/engine plane.

@@ -121,6 +121,35 @@ fn run_house_shape_admits_six_slots_but_retained_builds_keep_their_limits() {
 }
 
 #[test]
+fn supervision_is_three_closed_transitions_on_one_run() {
+    let run = Uuid::now_v7();
+    let supervise = |recovery: serde_json::Value| {
+        input(
+            json!({ "action": "supervise", "supervisor": "33".repeat(32),
+            "run": run, "revision": 4, "recovery": recovery }),
+        )
+    };
+    for recovery in [
+        json!({ "kind": "quarantine" }),
+        json!({ "kind": "interrupt" }),
+        json!({ "kind": "resume", "host": null }),
+        json!({ "kind": "resume", "host": Uuid::now_v7() }),
+    ] {
+        assert!(parses(&supervise(recovery)));
+    }
+    for recovery in [
+        json!({ "kind": "resume", "host": Uuid::nil() }),
+        json!({ "kind": "settle", "outcome": "victory" }),
+        json!({ "kind": "quarantine", "gold": 99 }),
+    ] {
+        assert!(!parses(&supervise(recovery)));
+    }
+    let mut nil = supervise(json!({ "kind": "interrupt" }));
+    nil["operation"]["run"] = json!(Uuid::nil());
+    assert!(!parses(&nil));
+}
+
+#[test]
 fn modes_never_accept_credentials_or_extra_arguments() {
     use super::super::{Mode, mode};
     for (name, expected) in [

@@ -174,6 +174,148 @@ async fn house_commands(
     client.refused(publish).await;
 }
 
+/// A run whose duel is reserved on a host that never starts it.
+async fn stuck_run(
+    store: &baylee_tower_store::Store,
+) -> (
+    Uuid,
+    baylee_tower_store::Snapshot,
+    baylee_tower_store::Snapshot,
+) {
+    use baylee_tower::v2::package::Seeds;
+    use baylee_tower_store::{Entropy, Reserve, Role};
+    let publication = support::publication();
+    let cohort = store.publish(&publication).await.unwrap();
+    let principal = |role: Role, secret: u8| {
+        let store = store.clone();
+        async move {
+            store
+                .provision_operator("synthetic supervision actor", role, [secret; 32])
+                .await
+                .unwrap();
+            store.authenticate_operator([secret; 32]).await.unwrap()
+        }
+    };
+    let host = principal(Role::Host, 2).await;
+    let publisher = principal(Role::Publisher, 3).await;
+    let identities = [publication.cohort.executor.clone()];
+    store
+        .advertise(&host, &identities, &identities)
+        .await
+        .unwrap();
+    store
+        .publish_house(
+            &publisher,
+            cohort,
+            1,
+            1,
+            &Build {
+                formation: None,
+                deck: publication.starters[0].deck.clone(),
+                active: Vec::new(),
+                potions: [0; 2],
+            },
+        )
+        .await
+        .unwrap();
+    let account = Uuid::now_v7();
+    let run = store
+        .start(
+            account,
+            Uuid::now_v7(),
+            Start {
+                cohort,
+                starter: 0,
+                consent: CONSENT_REVISION,
+            },
+            [1; 32],
+        )
+        .await
+        .unwrap();
+    let reserved = store
+        .reserve(
+            account,
+            Uuid::now_v7(),
+            Reserve {
+                run: run.id,
+                revision: run.state.revision,
+                host: host.id(),
+            },
+            Entropy {
+                opponent: [4; 32],
+                game: Seeds {
+                    shuffle: 4,
+                    policy: 5,
+                },
+            },
+            4096,
+        )
+        .await
+        .unwrap();
+    (account, run, reserved)
+}
+
+#[tokio::test]
+async fn a_supervisor_credential_quarantines_and_retires_a_stuck_run_offline() {
+    use baylee_tower::v2::run::Phase;
+    let sandbox = support::Sandbox::open().await;
+    let store = sandbox.store.clone();
+    let client = Client::new(&sandbox.schema);
+    let observed = tokio::spawn(async move {
+        let (account, run, reserved) = stuck_run(&store).await;
+        let supervisor = Token::generate().unwrap();
+        client
+            .ok(
+                json!({"action": "provision", "name": "synthetic supervisor",
+                "role": "supervisor", "credential": supervisor.hex().as_str()}),
+            )
+            .await;
+        let supervise = |credential: &Token, revision: u64, recovery: Value| {
+            json!({"action": "supervise", "supervisor": credential.hex().as_str(),
+                "run": run.id, "revision": revision, "recovery": recovery})
+        };
+        let quarantine = json!({"kind": "quarantine"});
+        // Another role's credential, or a stale revision, changes nothing.
+        let wrong = Token::generate().unwrap();
+        client
+            .refused(supervise(
+                &wrong,
+                reserved.state.revision,
+                quarantine.clone(),
+            ))
+            .await;
+        client
+            .refused(supervise(
+                &supervisor,
+                reserved.state.revision + 1,
+                quarantine.clone(),
+            ))
+            .await;
+        let reply = client
+            .ok(supervise(&supervisor, reserved.state.revision, quarantine))
+            .await;
+        let held = store.get(account, run.id).await.unwrap();
+        assert_eq!(held.state.phase, Phase::Quarantined);
+        assert_eq!(
+            reply,
+            json!({"result": "supervised", "revision": held.state.revision})
+        );
+        client
+            .ok(supervise(
+                &supervisor,
+                held.state.revision,
+                json!({"kind": "interrupt"}),
+            ))
+            .await;
+        let retired = store.get(account, run.id).await.unwrap();
+        assert_eq!(retired.state.phase, Phase::Interrupted);
+        assert_eq!(retired.state.economy, run.state.economy);
+    })
+    .await;
+    sandbox.close().await;
+    observed.expect("offline supervision scenario completed");
+}
+
 #[tokio::test]
 async fn check_admin_is_offline_and_diagnostics_never_echo_input() {
     let client = Client {

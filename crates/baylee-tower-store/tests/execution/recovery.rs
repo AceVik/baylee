@@ -242,3 +242,91 @@ async fn an_expired_lease_needs_supervision_and_interruption_grants_no_result() 
     sandbox.close().await;
     observed.expect("expiry/technical interruption scenario completed");
 }
+
+#[tokio::test]
+async fn an_owner_gives_up_a_reserved_or_held_duel_and_may_start_again() {
+    use baylee_tower::v2::run::Command;
+    let sandbox = Sandbox::open().await;
+    let store = sandbox.store.clone();
+    let observed = tokio::spawn(async move {
+        let flow = Flow::prepare(&store).await;
+        let abandon = |run: Snapshot, account: Uuid| {
+            let store = store.clone();
+            async move {
+                store
+                    .command(
+                        account,
+                        Uuid::now_v7(),
+                        run.id,
+                        run.state.revision,
+                        &Command::Abandon {},
+                    )
+                    .await
+            }
+        };
+        // Reserved, and no gateway ever starts it.
+        let reserved = flow.reserve(&store).await;
+        let left = abandon(reserved, flow.account).await.unwrap();
+        assert_eq!(left.state.phase, Phase::Abandoned);
+        assert!(
+            store
+                .claim(&flow.host, flow.initial.id, Uuid::now_v7(), 120_000)
+                .await
+                .is_err(),
+            "no host starts a duel its owner gave up"
+        );
+        // The cohort's one active place is free again.
+        let again = store
+            .start(
+                flow.account,
+                Uuid::now_v7(),
+                super::Start {
+                    cohort: flow.initial.cohort,
+                    starter: 0,
+                    consent: super::CONSENT_REVISION,
+                },
+                [8; 32],
+            )
+            .await
+            .unwrap();
+        // Held for recovery, with no operator in sight.
+        let flow = flow.continued(again);
+        let verifier = operator(&store, Role::Verifier, 5).await;
+        super::terminal(&store, &flow).await;
+        let state = store.get(flow.account, flow.initial.id).await.unwrap();
+        let held = store
+            .supervise(
+                &flow.supervisor,
+                flow.initial.id,
+                state.state.revision,
+                Recovery::Quarantine,
+            )
+            .await
+            .unwrap();
+        let left = abandon(held, flow.account).await.unwrap();
+        assert_eq!(left.state.phase, Phase::Abandoned);
+        assert_eq!(left.state.economy, flow.initial.state.economy);
+        assert!(
+            store
+                .verification_candidates(&verifier, flow.initial.cohort, 32)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            store
+                .supervise(
+                    &flow.supervisor,
+                    flow.initial.id,
+                    left.state.revision,
+                    Recovery::Resume { host: None }
+                )
+                .await
+                .is_err(),
+            "a run its owner ended stays ended"
+        );
+    })
+    .await;
+    sandbox.close().await;
+    observed.expect("owner exit scenario completed");
+}

@@ -239,7 +239,11 @@ impl Run {
                 | Phase::Quarantined
                 | Phase::Interrupted
         );
-        if requires != self.execution.is_some() {
+        // A run abandoned between games holds no execution; one its owner gave
+        // up while reserved or held for recovery keeps the retained one.
+        if requires != self.execution.is_some()
+            && !(self.phase == Phase::Abandoned && self.execution.is_some())
+        {
             return Err(Refusal::Invalid);
         }
         if let Some(execution) = &self.execution {
@@ -256,7 +260,9 @@ impl Run {
                 Phase::Reserved => !execution.sealed && execution.lease_until == 0,
                 Phase::Playing => !execution.sealed && execution.lease_until != 0,
                 Phase::Verifying => execution.sealed,
-                Phase::Quarantined | Phase::Interrupted => execution.lease_until == 0,
+                Phase::Quarantined | Phase::Interrupted | Phase::Abandoned => {
+                    execution.lease_until == 0
+                }
                 _ => false,
             };
             if !valid {

@@ -306,6 +306,39 @@ fn actual_shop_commands_conserve_paid_basis_and_preserve_pins_between_duels() {
 }
 
 #[test]
+fn a_reserved_or_held_duel_is_its_owner_s_to_give_up_but_never_a_live_one() {
+    let (catalog, initial) = fixture();
+    let abandon = |run: &Run| run.command(run.revision, &Command::Abandon {}, &catalog, &SEED);
+    let reserved = initial
+        .reserved(initial.revision, [1; 32], 4096, &catalog)
+        .unwrap();
+    let live = recorded(&playing(&initial, &catalog), &catalog);
+    let held = live.quarantined(live.revision, &catalog).unwrap();
+    for run in [&reserved, &held] {
+        let left = abandon(run).unwrap();
+        assert_eq!(left.phase, Phase::Abandoned);
+        assert_eq!(left.economy, initial.economy, "no outcome, no income");
+        assert!(left.history.is_empty());
+        left.validate(&catalog).unwrap();
+        assert!(abandon(&left).is_err(), "abandoned is terminal");
+        assert!(left.recovered(left.revision, &catalog).is_err());
+        assert!(
+            left.worker(
+                left.revision,
+                300,
+                WorkerCommand::Claim { duration: 100 },
+                &catalog
+            )
+            .is_err(),
+            "no host can start a duel its owner gave up"
+        );
+    }
+    // A duel being played or verified cannot be escaped this way.
+    assert!(abandon(&live).is_err());
+    assert!(abandon(&sealed(&live, &catalog)).is_err());
+}
+
+#[test]
 fn quarantine_preserves_the_package_and_prefix_and_fences_old_verification() {
     let (catalog, initial) = fixture();
     let live = recorded(&playing(&initial, &catalog), &catalog);
@@ -318,7 +351,7 @@ fn quarantine_preserves_the_package_and_prefix_and_fences_old_verification() {
     );
     assert!(
         stopped
-            .command(stopped.revision, &Command::Abandon {}, &catalog, &SEED)
+            .command(stopped.revision, &Command::Refresh {}, &catalog, &SEED)
             .is_err()
     );
     let resumed = stopped.recovered(stopped.revision, &catalog).unwrap();

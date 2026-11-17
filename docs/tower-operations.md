@@ -129,9 +129,17 @@ a fixed diagnostic containing no input. A failed preflight never changes state.
 | `publish` | `publication` | `{"result":"published","cohort":<UUIDv7>}`. Accepts the typed `baylee_tower_store::Publication`: frozen cohort/executor identity, reviewed catalog/prices and 50–64 distinct Commander starters for generation five (5–8 for generation four, three for earlier generations). Exact canonical repeats return the same ID. Different content under the same contract refuses. |
 | `publish_house` | `publisher`, `cohort`, `stage`, `archetype`, `build` | `done`. Additionally requires a live dedicated Publisher credential. Stage is 1–12, archetype 1–8 (1–3 for retained cohorts). The typed `Build` contains `formation`, `deck`, `active`, `potions`; it must validate against that cohort's saved catalog and loadout bounds. Run equipment has six slots; retained builds keep three. An exact repeat succeeds; changing a published fallback refuses. |
 | `pause_enrollment` | `cohort` | `done`. Closes new enrollment, preserving existing runs, receipts and immutable content. Exact repeats succeed. Republishing the same content cannot reopen it. |
+| `supervise` | `supervisor`, `run`, `revision`, `recovery` | `{"result":"supervised","revision":<u64>}`. Additionally requires a live dedicated Supervisor credential and the run's current saved revision. `recovery` is `{"kind":"quarantine"}` (stop a reserved, playing or verifying duel and revoke its generations), `{"kind":"resume","host":<UUIDv7 or null>}` (a quarantined run returns to its exact retained package/prefix; an unsealed duel names an enabled compatible Host, a sealed record names none and returns to verification) or `{"kind":"interrupt"}` (retire a quarantined run without a rules result or compensation). A stale revision or wrong phase refuses without change; the reply's revision is the one to name next. |
 
 All IDs must be UUIDv7. There is no arbitrary SQL, script, state patch, currency
 grant, award injection, unrevocation, content rewrite or reopening operation.
+`supervise` applies only the three closed technical transitions above; it never
+assigns an outcome, a fresh opponent, gold or a rewound shop.
+
+No player waits on an operator: the owner may also retire (`abandon`) a run whose
+duel is reserved but never started or held in quarantine. That ends the run with
+no outcome or income; a duel being played or verified cannot be left this way
+(the queue recovers or quarantines it).
 
 The service's verification queue quarantines a job whose settlement is refused
 (for example a spent receipt quota) or whose bounded claims are all spent, and

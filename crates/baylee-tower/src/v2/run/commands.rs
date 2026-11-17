@@ -97,6 +97,17 @@ impl Run {
             return self.claimed(cards, catalog, seed);
         }
         if self.phase != Phase::Shop {
+            // A duel reserved but never started, or one held for technical
+            // recovery, is its owner's to give up: the run ends there with no
+            // outcome, so nobody waits on an operator or a gateway that is gone.
+            // A duel being played or verified cannot be left this way.
+            if matches!(command, Command::Abandon {})
+                && matches!(self.phase, Phase::Reserved | Phase::Quarantined)
+            {
+                let mut next = self.clone();
+                next.phase = Phase::Abandoned;
+                return next.revised(catalog);
+            }
             return Err(Refusal::Unavailable);
         }
         let mut next = self.clone();
