@@ -28,6 +28,7 @@ mod printings;
 mod reclaim;
 mod sets;
 mod tables;
+mod token_pictures;
 mod tower_relics;
 mod transcode;
 mod update_key;
@@ -165,6 +166,9 @@ fn main() -> anyhow::Result<()> {
             precons::import(&root, archive.as_deref(), refresh)
         }
         Cmd::DecksStatus { check } => precons::status(&root, check),
+        Cmd::TokenPictures { archive, write } => {
+            token_pictures::run(&root, archive.as_deref(), write)
+        }
         Cmd::PoolDump { out } => pool_dump(&out),
         Cmd::TranscodeReport {
             scripts,

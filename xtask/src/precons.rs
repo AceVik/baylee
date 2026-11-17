@@ -656,7 +656,7 @@ fn download(url: &str, path: &Path) -> anyhow::Result<()> {
 }
 
 /// Every `.json` in the archive, as `(file name, bytes)`, in name order.
-fn read_archive(path: &Path) -> anyhow::Result<BTreeMap<String, Vec<u8>>> {
+pub(crate) fn read_archive(path: &Path) -> anyhow::Result<BTreeMap<String, Vec<u8>>> {
     let file = fs::File::open(path).with_context(|| format!("opening {}", path.display()))?;
     let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(file));
     let mut out = BTreeMap::new();

@@ -178,6 +178,19 @@ pub(crate) enum Cmd {
         #[arg(long)]
         refresh: bool,
     },
+    /// Choose a printed token card for each generated token, exact matches
+    /// only, from the token printings in MTGJSON's deck archive; report every
+    /// token left without one and why (`xtask/src/token_pictures.rs`). Never
+    /// downloads.
+    TokenPictures {
+        /// A local `AllDeckFiles.tar.gz` to read instead of the cached one.
+        #[arg(long)]
+        archive: Option<PathBuf>,
+        /// Rewrite `crates/cards/src/tokens/printing_rows.rs`; without it
+        /// only report and say whether the table would change.
+        #[arg(long)]
+        write: bool,
+    },
     /// Hold every precon file against the pool: write
     /// `data/decks/precon/STATUS.tsv` and the gateway's embedded list of the
     /// playable ones, or with `--check` only compare (`docs/precons.md`).
