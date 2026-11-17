@@ -14,6 +14,26 @@ use hyper_util::{
 };
 use std::time::Duration;
 
+/// A refused host operation and whether the reply was a definite refusal (a 4xx
+/// status other than 429), after which the authority holds nothing for it. A
+/// garbled, mismatched or missing reply stays ambiguous.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Refused {
+    /// The closed category, as [`TowerHost::control`] returns it.
+    pub error: Error,
+    /// The authority answered with a refusal; an ambiguous retry holds nothing.
+    pub definite: bool,
+}
+
+impl Refused {
+    const fn ambiguous(error: Error) -> Self {
+        Self {
+            error,
+            definite: false,
+        }
+    }
+}
+
 /// A trusted operator-configured Tower destination. Never selected by a player,
 /// package, public gateway advertisement or HTTP redirect. Deliberately not printable.
 pub struct TowerHost {
@@ -53,9 +73,19 @@ impl TowerHost {
     /// # Errors
     /// Refused scope/assignment, stale state, capacity, malformed reply or unavailable transport.
     pub async fn control(&self, request: &Request) -> Result<Response, Error> {
-        let body = serde_json::to_vec(request).map_err(|_| Error::Rejected)?;
+        self.answered(request)
+            .await
+            .map_err(|refused| refused.error)
+    }
+
+    /// [`Self::control`], also telling whether the authority itself refused the
+    /// operation, so a caller can release what it held for an ambiguous retry.
+    /// # Errors
+    /// As [`Self::control`].
+    pub async fn answered(&self, request: &Request) -> Result<Response, Refused> {
+        let body = serde_json::to_vec(request).map_err(|_| Refused::ambiguous(Error::Rejected))?;
         if body.len() > api::MAX_REQUEST_BYTES {
-            return Err(Error::Rejected);
+            return Err(Refused::ambiguous(Error::Rejected));
         }
         let response = self
             .exchange(host::CONTROL_PATH, "application/json", body)
@@ -73,7 +103,7 @@ impl TowerHost {
             _ => false,
         };
         if !matching {
-            return Err(Error::Rejected);
+            return Err(Refused::ambiguous(Error::Rejected));
         }
         Ok(response)
     }
@@ -87,7 +117,8 @@ impl TowerHost {
         let body = batch.encode().map_err(|_| Error::Rejected)?;
         let Response::Acknowledged { acknowledgement } = self
             .exchange(host::RECORD_PATH, "application/octet-stream", body)
-            .await?
+            .await
+            .map_err(|refused| refused.error)?
         else {
             return Err(Error::Rejected);
         };
@@ -111,13 +142,32 @@ impl TowerHost {
         Ok(acknowledgement)
     }
 
-    async fn exchange(&self, path: &str, kind: &str, body: Vec<u8>) -> Result<Response, Error> {
+    async fn exchange(&self, path: &str, kind: &str, body: Vec<u8>) -> Result<Response, Refused> {
         tokio::time::timeout(Duration::from_secs(15), self.send(path, kind, body))
             .await
-            .unwrap_or(Err(Error::Unavailable))
+            .unwrap_or(Err(Refused::ambiguous(Error::Unavailable)))
     }
 
-    async fn send(&self, path: &str, kind: &str, body: Vec<u8>) -> Result<Response, Error> {
+    async fn send(&self, path: &str, kind: &str, body: Vec<u8>) -> Result<Response, Refused> {
+        let mut answer = None;
+        self.send_once(path, kind, body, &mut answer)
+            .await
+            .map_err(|error| Refused {
+                error,
+                // A 4xx status is the authority's (or its proxy's) own refusal:
+                // nothing was committed. Only 429 may yet clear by itself.
+                definite: answer
+                    .is_some_and(|status| (400..500).contains(&status) && status != 429),
+            })
+    }
+
+    async fn send_once(
+        &self,
+        path: &str,
+        kind: &str,
+        body: Vec<u8>,
+        answer: &mut Option<u16>,
+    ) -> Result<Response, Error> {
         let mut bearer = HeaderValue::from_str(self.credential.bearer().as_str())
             .map_err(|_| Error::Rejected)?;
         bearer.set_sensitive(true);
@@ -134,6 +184,7 @@ impl TowerHost {
             .map_err(|_| Error::Unavailable)?;
         let (parts, body) = response.into_parts();
         if let Some(error) = crate::http::status_error(parts.status.as_u16()) {
+            *answer = Some(parts.status.as_u16());
             return Err(error);
         }
         if parts.headers.get(CONTENT_TYPE).map(HeaderValue::as_bytes) != Some(b"application/json")

@@ -13,7 +13,7 @@ mod tower_host;
 #[cfg(feature = "client")]
 pub use tower::{TowerHttp, TowerSocket};
 #[cfg(feature = "tower-host")]
-pub use tower_host::TowerHost;
+pub use tower_host::{Refused as TowerRefused, TowerHost};
 pub mod chat;
 pub mod client_record;
 pub mod data;

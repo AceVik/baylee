@@ -143,3 +143,85 @@ async fn host_transport_refuses_partial_wrong_generation_and_unbounded_acknowled
     );
     drop(sink);
 }
+
+async fn claimed(status: u16, headers: &str, body: Vec<u8>) -> Result<Response, Refused> {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let client = TowerHost::new(
+        &format!("http://{address}"),
+        Token::generate().unwrap(),
+        true,
+    )
+    .unwrap();
+    let head = format!(
+        "HTTP/1.1 {status} Test\r\nContent-Length: {}\r\nConnection: close\r\n{headers}\r\n",
+        body.len()
+    );
+    let server = tokio::spawn(async move {
+        let (mut stream, _) = tokio::time::timeout(Duration::from_secs(5), listener.accept())
+            .await
+            .unwrap()
+            .unwrap();
+        let mut header = Vec::new();
+        while !header.ends_with(b"\r\n\r\n") && header.len() < 8192 {
+            header.push(stream.read_u8().await.unwrap());
+        }
+        let header = String::from_utf8(header).unwrap();
+        assert!(header.starts_with(&format!("POST {} HTTP/1.1", host::CONTROL_PATH)));
+        let size: usize = header
+            .lines()
+            .filter_map(|line| line.split_once(':'))
+            .find(|(name, _)| name.eq_ignore_ascii_case("content-length"))
+            .unwrap()
+            .1
+            .trim()
+            .parse()
+            .unwrap();
+        let mut input = vec![0; size];
+        stream.read_exact(&mut input).await.unwrap();
+        let _ = stream.write_all(head.as_bytes()).await;
+        let _ = stream.write_all(&body).await;
+    });
+    let result = client
+        .answered(&Request::Claim {
+            account: Uuid::now_v7(),
+            run: Uuid::now_v7(),
+            claim: Uuid::now_v7(),
+        })
+        .await;
+    server.await.unwrap();
+    result
+}
+
+#[tokio::test]
+async fn only_the_authority_s_own_refusal_of_a_claim_is_definite() {
+    // "Not your run": nothing was committed, so the gateway may free its slot.
+    assert_eq!(
+        claimed(404, "", Vec::new()).await.err(),
+        Some(Refused {
+            error: Error::Rejected,
+            definite: true
+        })
+    );
+    for status in [429, 503] {
+        assert!(
+            !claimed(status, "", Vec::new())
+                .await
+                .err()
+                .unwrap()
+                .definite
+        );
+    }
+    // A garbled 200 may follow a committed claim: it stays ambiguous.
+    let header = format!(
+        "Content-Type: application/json\r\nBaylee-Tower-Version: {}\r\n",
+        baylee_tower_api::VERSION
+    );
+    assert_eq!(
+        claimed(200, &header, b"{".to_vec()).await.err(),
+        Some(Refused {
+            error: Error::Rejected,
+            definite: false
+        })
+    );
+}

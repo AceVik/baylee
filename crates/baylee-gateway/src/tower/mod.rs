@@ -57,7 +57,7 @@ impl Tower {
             .begin(account, run, std::time::Instant::now())?;
         match self
             .client
-            .control(&Request::Claim {
+            .answered(&Request::Claim {
                 account,
                 run,
                 claim,
@@ -66,9 +66,9 @@ impl Tower {
         {
             Ok(Response::Claimed { game }) => Ok(*game),
             Ok(_) => Err(Error::Unavailable),
-            Err(error) => {
-                self.pending.lock().refused(account, run, error);
-                Err(error)
+            Err(refused) => {
+                self.pending.lock().refused(account, run, refused);
+                Err(refused.error)
             }
         }
     }

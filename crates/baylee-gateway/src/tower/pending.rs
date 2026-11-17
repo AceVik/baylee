@@ -1,5 +1,5 @@
 //! Bounded local retry identities. Only the global authority grants execution.
-use baylee_account::Error;
+use baylee_account::{Error, TowerRefused};
 use std::{
     collections::BTreeMap,
     time::{Duration, Instant},
@@ -57,13 +57,18 @@ impl Claims {
         self.entries.remove(&(account, run));
     }
 
-    pub fn refused(&mut self, account: Uuid, run: Uuid, error: Error) {
+    pub fn refused(&mut self, account: Uuid, run: Uuid, refused: TowerRefused) {
         // Rejected also represents an invalid/truncated reply after a successful
         // remote commit, so it is ambiguous, just like an unavailable transport.
-        if matches!(
-            error,
-            Error::Conflict | Error::TermsRequired | Error::UpdateRequired
-        ) {
+        // A definite refusal (the authority's 404 for a run that is not this
+        // account's, among others) holds nothing: keeping its slot would let a
+        // few accounts fill every slot of this gateway with foreign runs.
+        if refused.definite
+            || matches!(
+                refused.error,
+                Error::Conflict | Error::TermsRequired | Error::UpdateRequired
+            )
+        {
             self.remove(account, run);
         }
     }
@@ -72,6 +77,39 @@ impl Claims {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const fn answered(error: Error) -> TowerRefused {
+        TowerRefused {
+            error,
+            definite: true,
+        }
+    }
+
+    const fn unanswered(error: Error) -> TowerRefused {
+        TowerRefused {
+            error,
+            definite: false,
+        }
+    }
+
+    #[test]
+    fn foreign_runs_the_authority_refuses_never_fill_the_gateway() {
+        let mut pending = Claims::default();
+        let now = Instant::now();
+        // Sixteen accounts, two foreign runs each: the authority answers 404
+        // ("not yours", `Rejected`) to every claim, and each frees its slot.
+        for _ in 0..CAPACITY / PER_ACCOUNT {
+            let account = Uuid::now_v7();
+            for _ in 0..PER_ACCOUNT {
+                let run = Uuid::now_v7();
+                pending.begin(account, run, now).unwrap();
+                pending.refused(account, run, answered(Error::Rejected));
+            }
+        }
+        assert!(pending.entries.is_empty());
+        let owner = Uuid::now_v7();
+        assert!(pending.begin(owner, Uuid::now_v7(), now).is_ok());
+    }
 
     #[test]
     fn one_account_cannot_fill_the_gateway_and_retries_keep_the_same_claim() {
@@ -90,7 +128,7 @@ mod tests {
         let foreign = Uuid::now_v7();
         assert_ne!(pending.begin(foreign, run, now).unwrap(), claim);
         assert_eq!(pending.begin(account, run, now).unwrap(), claim);
-        pending.refused(foreign, run, Error::Conflict);
+        pending.refused(foreign, run, answered(Error::Conflict));
         assert_eq!(pending.begin(account, run, now).unwrap(), claim);
         pending.begin(Uuid::now_v7(), Uuid::now_v7(), now).unwrap();
         assert_eq!(pending.entries.len(), 3);
@@ -137,11 +175,11 @@ mod tests {
         let mut claim = pending.begin(account, run, now).unwrap();
         let other_claim = pending.begin(account, other, now).unwrap();
         for error in [Error::Unavailable, Error::Busy, Error::Rejected] {
-            pending.refused(account, run, error);
+            pending.refused(account, run, unanswered(error));
             assert_eq!(pending.begin(account, run, now).unwrap(), claim);
         }
         for error in [Error::Conflict, Error::TermsRequired, Error::UpdateRequired] {
-            pending.refused(account, run, error);
+            pending.refused(account, run, answered(error));
             let next = pending.begin(account, run, now).unwrap();
             assert_ne!(next, claim);
             claim = next;
