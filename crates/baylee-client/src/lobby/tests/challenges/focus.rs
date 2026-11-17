@@ -63,8 +63,8 @@ fn tower_keys_survive_the_retained_header_and_confirmation() {
             .stack
             .modal
     );
-    // The overview reads itself again by its clock and draws no Refresh any
-    // more (only a run's shop does), so the body's stop here is its pages.
+    // The overview draws no Refresh any more (only `draw/shop/options.rs`
+    // does), so the body's stop here is its pages.
     for _ in 0..12 {
         if front_keys::focused_id(&app) == Some("tabs") {
             break;
