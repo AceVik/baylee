@@ -146,6 +146,7 @@ The memorial photographs were supplied and authorized for this album by
 Baylee's owner. Generated memorial scenery and both Baylee logos use those
 references; see art/baylee/README.md for provenance.
 
+<<<<<<< HEAD
 The moving scenery behind the front door and the lobby
 (crates/baylee-client/src/vista/loops/, the stills in
 crates/baylee-client/assets/scenes/ and the masters in art/baylee/loops/) was
@@ -154,3 +155,18 @@ Baylee's owner, then closed into loops, interpolated and encoded by this
 project. It shows no Wizards of the Coast artwork. Such output may not be
 protectable by copyright; no exclusive right in it is claimed. See docs/legal.md
 §"New 4K vista loops" and art/baylee/README.md.
+||||||| parent of e725b960d (art(score): add the recorded soundtrack and its provenance)
+=======
+Recorded soundtrack (18 November 2026): the nine Ogg-Opus files in
+art/baylee/score/out/, the client's default music theme, are AI-generated
+instrumental music made on 17-18 November 2026 with the owner's own paid
+account on Artlist's AI toolkit (the model shown there as "Lyria 3 Pro"), from
+text prompts written for this project, with no reference audio and no
+third-party recording. They are not Artlist catalog music. Artlist's Terms of
+Use (AI output section, read 17 November 2026) claim no ownership of AI output
+and do not restrict commercial use; AI-generated music may not be protectable
+by copyright; the underlying model provider's own terms were not read. The
+outputs must not be used to train AI models. The untouched downloads are in
+art/baylee/score/source/; docs/legal.md section 5 is authoritative. They are
+decoded by opus-decoder (MIT OR Apache-2.0).
+>>>>>>> e725b960d (art(score): add the recorded soundtrack and its provenance)
