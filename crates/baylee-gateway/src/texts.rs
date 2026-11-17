@@ -361,6 +361,18 @@ mod tests {
             .expect("the ingest's stamp");
         let after = cache.get(catalog, "de").await.expect("reading");
         assert_eq!(printed(&after), Some(NEW));
+        let older: Vec<&[Option<String>]> = after
+            .entry(mind_stone().oracle_id)
+            .expect("a pool card")
+            .candidates
+            .iter()
+            .map(|c| c.printed.as_slice())
+            .collect();
+        assert_eq!(
+            older,
+            [[Some(OLD.to_owned())].as_slice()],
+            "the older wording is offered beside the newest"
+        );
         assert_eq!(reads(&cache), 2);
         sandbox.close().await;
     }

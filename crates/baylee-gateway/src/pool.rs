@@ -461,6 +461,7 @@ mod tests {
                 scryfall_id: "00000000-0000-0000-0000-000000000001".to_string(),
                 lang: "de".to_string(),
                 faces: vec![face],
+                candidates: Vec::new(),
             },
         )])
     }

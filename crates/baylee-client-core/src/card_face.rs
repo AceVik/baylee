@@ -955,6 +955,7 @@ mod tests {
                 oracle_text: "({T}: Add {G}.)".to_string(),
                 mana_cost: String::new(),
             }],
+            candidates: Vec::new(),
         };
         let text = CardText::of(&entry, 0).expect("face 0 exists");
         assert_eq!(text.name, "Forest");

@@ -614,6 +614,7 @@ fn asking_about(
             oracle_text: oracle.to_string(),
             mana_cost: String::new(),
         }],
+        candidates: Vec::new(),
     });
     (view, texts, id)
 }

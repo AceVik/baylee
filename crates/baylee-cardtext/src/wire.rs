@@ -52,6 +52,63 @@ pub struct CardTextEntry {
     /// @internal
     /// Faces in printed order.
     pub faces: Vec<FaceText>,
+    /// @description Further printings of the card in the same language, newest
+    /// first, each with a different text: where the served printing's line
+    /// cannot stand for an ability, a client reads that line from the first of
+    /// these that can. At most `MAX_CANDIDATES` of them and
+    /// `MAX_CANDIDATE_BYTES` of text per card; absent when there are none.
+    /// @internal
+    /// Further printings in [`Self::lang`], for the lines the served one does
+    /// not yield: newest first (the catalog's order), the served printing
+    /// and repeated texts left out, untranslated faces `None`, at most
+    /// [`MAX_CANDIDATES`] and [`MAX_CANDIDATE_BYTES`] of `printed` text.
+    /// Empty under `en`, and when no printing translated anything. Not
+    /// written when empty, so an entry without any is the JSON it always was.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub candidates: Vec<TextCandidate>,
+}
+
+/// At most this many [`TextCandidate`]s per card.
+///
+/// German, the largest language of the catalog, prints few cards in more
+/// than six wordings (Mind Stone has four: the modern one, `opfere den
+/// Gedankenstein`, the `Manavorrat` era and Weatherlight's prose), and an
+/// older wording is only needed where every newer one fails.
+pub const MAX_CANDIDATES: usize = 6;
+
+/// At most this many bytes of `printed` text over all [`TextCandidate`]s of
+/// one card.
+///
+/// `/catalog/text` faces the internet and reads up to 500 cards a request,
+/// so this bounds an answer's growth to 2 MB, and a gateway's in-memory
+/// language to the same per card. A long card's German is about a kilobyte,
+/// so four of its wordings still fit.
+pub const MAX_CANDIDATE_BYTES: usize = 4096;
+
+/// Another printing of a card in the asked language, offered line by line.
+///
+/// @description Another printing of the card in the asked language: its
+/// layout and each face's rules text exactly as printed (`null` where it is
+/// not a translation).
+/// @openapi
+#[derive(Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
+pub struct TextCandidate {
+    /// @description The printing's Scryfall id.
+    /// @internal
+    /// Scryfall's printing id.
+    pub scryfall_id: String,
+    /// @description The printing's Scryfall layout.
+    /// @internal
+    /// Scryfall's `layout`, which [`align`](crate::align) reads.
+    #[serde(default)]
+    pub layout: String,
+    /// @description Each face's rules text as this printing has it, in face
+    /// order; `null` on a face it left untranslated.
+    /// @internal
+    /// Each face's printed text, as [`FaceText::printed`] is for the served
+    /// printing: never English, `None` on a face it left untranslated.
+    #[serde(default)]
+    pub printed: Vec<Option<String>>,
 }
 
 /// Text for one face of a card, already resolved to a language.
@@ -129,7 +186,47 @@ mod tests {
                 mana_cost: "{2}".to_owned(),
                 printed: Some(TEXT.to_owned()),
             }],
+            candidates: Vec::new(),
         }
+    }
+
+    /// This type as a client from before `candidates` has it.
+    #[derive(Deserialize, PartialEq, Debug)]
+    struct Before {
+        scryfall_id: String,
+        #[serde(default)]
+        oracle_id: String,
+        lang: String,
+        #[serde(default)]
+        layout: String,
+        faces: Vec<FaceText>,
+    }
+
+    /// The field candidates added is pinned too, and an entry that has some
+    /// is still read by a client that predates them: serde ignores a field
+    /// it does not know, which is what an older client's copy of this type
+    /// is, here [`Before`].
+    #[test]
+    fn candidates_are_pinned_and_an_older_client_reads_past_them() {
+        let mut entry = mind_stone();
+        entry.candidates.push(TextCandidate {
+            scryfall_id: "c14".to_owned(),
+            layout: "normal".to_owned(),
+            printed: vec![Some("{T}: Erhöhe um {1}.".to_owned())],
+        });
+        let json = serde_json::to_string(&entry).unwrap();
+        assert!(
+            json.ends_with(r#""candidates":[{"scryfall_id":"c14","layout":"normal","printed":["{T}: Erhöhe um {1}."]}]}"#),
+            "{json}"
+        );
+        assert_eq!(serde_json::from_str::<CardTextEntry>(&json).unwrap(), entry);
+        let old: Before = serde_json::from_str(&json).unwrap();
+        assert_eq!(old.faces, mind_stone().faces);
+        assert_eq!(old.scryfall_id, entry.scryfall_id);
+        assert_eq!(
+            (old.oracle_id.len(), old.lang.as_str(), old.layout.as_str()),
+            (36, "de", "normal")
+        );
     }
 
     /// The field names are the contract between a gateway and every client

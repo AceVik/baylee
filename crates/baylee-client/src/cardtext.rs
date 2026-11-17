@@ -963,6 +963,7 @@ pub(crate) mod fixture {
                 mana_cost: def.faces[0].mana_cost.to_string(),
                 printed: printed.map(str::to_string),
             }],
+            candidates: Vec::new(),
         }
     }
 
@@ -1007,6 +1008,7 @@ mod tests {
                 oracle_text: String::new(),
                 mana_cost: "{2}".to_string(),
             }],
+            candidates: Vec::new(),
         }
     }
 

@@ -1451,6 +1451,7 @@ fn localized_names_and_types_do_not_change_saved_card_identity() {
             type_line: "Kreatur — Mensch, Zauberer".into(),
             ..Default::default()
         }],
+        candidates: Vec::new(),
     }];
     assert!(b.localize(&entries));
     let revision = b.pool_revision();

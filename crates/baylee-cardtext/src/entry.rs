@@ -3,7 +3,7 @@
 //! Moved here from the catalog so that a client asking Scryfall itself
 //! builds the entry the gateway would have served, from the same rule.
 
-use crate::wire::{CardTextEntry, FaceText};
+use crate::wire::{CardTextEntry, FaceText, TextCandidate};
 
 /// One printing of a card, with the fields its served text is made of.
 ///
@@ -99,14 +99,9 @@ pub fn card_entry(lang: &str, printings: &[TextPrinting]) -> Option<CardTextEntr
         .iter()
         .enumerate()
         .map(|(index, f)| {
-            let oracle_text = oracle
-                .get(index)
-                .copied()
-                .or(f.oracle_text.as_deref())
-                .unwrap_or_default();
-            let printed = picked
-                .and(f.printed_text.as_ref())
-                .filter(|printed| !crate::untranslated(oracle_text, Some(printed.as_str())));
+            let oracle_text = oracle_of(&oracle, index, f);
+            let printed = picked.and(translated(&oracle, index, f));
+            let printed = printed.as_ref();
             let own = |printed: &Option<String>| printed.as_ref().filter(|_| localized).cloned();
             FaceText {
                 name: own(&f.printed_name).unwrap_or_else(|| f.name.clone()),
@@ -120,13 +115,79 @@ pub fn card_entry(lang: &str, printings: &[TextPrinting]) -> Option<CardTextEntr
             }
         })
         .collect();
+    let candidates = picked.map_or_else(Vec::new, |served| further(&oracle, served, &local));
     Some(CardTextEntry {
         scryfall_id: served.scryfall_id.clone(),
         oracle_id: served.oracle_id.clone(),
         lang: served.lang.clone(),
         layout: served.layout.clone(),
         faces,
+        candidates,
     })
+}
+
+/// The Oracle text face `index` is placed against: the reference printing's,
+/// else the face's own.
+fn oracle_of<'a>(oracle: &[&'a str], index: usize, face: &'a TextFace) -> &'a str {
+    oracle
+        .get(index)
+        .copied()
+        .or(face.oracle_text.as_deref())
+        .unwrap_or_default()
+}
+
+/// The face's printed text where it is a translation ([`crate::untranslated`]).
+fn translated(oracle: &[&str], index: usize, face: &TextFace) -> Option<String> {
+    face.printed_text
+        .clone()
+        .filter(|printed| !crate::untranslated(oracle_of(oracle, index, face), Some(printed)))
+}
+
+/// The printings in the language other than `served`, as
+/// [`CardTextEntry::candidates`]: in `local`'s order, which is newest first;
+/// one that translated nothing, or whose text the served printing or an
+/// earlier candidate already carries, left out; cut at
+/// [`MAX_CANDIDATES`](crate::MAX_CANDIDATES) and, a whole printing at a time,
+/// at [`MAX_CANDIDATE_BYTES`](crate::MAX_CANDIDATE_BYTES).
+///
+/// A printing too long for what is left of the bytes is passed over rather
+/// than ending the list, so one wordy promo does not cost the card every
+/// older wording behind it.
+fn further(oracle: &[&str], served: &TextPrinting, local: &[&TextPrinting]) -> Vec<TextCandidate> {
+    let texts = |p: &TextPrinting| -> Vec<Option<String>> {
+        p.faces
+            .iter()
+            .enumerate()
+            .map(|(index, face)| translated(oracle, index, face))
+            .collect()
+    };
+    let mut seen = vec![texts(served)];
+    let mut bytes = 0;
+    let mut out = Vec::new();
+    for printing in local {
+        if out.len() == crate::MAX_CANDIDATES {
+            break;
+        }
+        if printing.scryfall_id == served.scryfall_id {
+            continue;
+        }
+        let printed = texts(printing);
+        if printed.iter().all(Option::is_none) || seen.contains(&printed) {
+            continue;
+        }
+        let size: usize = printed.iter().flatten().map(String::len).sum();
+        if bytes + size > crate::MAX_CANDIDATE_BYTES {
+            continue;
+        }
+        bytes += size;
+        seen.push(printed.clone());
+        out.push(TextCandidate {
+            scryfall_id: printing.scryfall_id.clone(),
+            layout: printing.layout.clone(),
+            printed,
+        });
+    }
+    out
 }
 
 /// Of printings none of which translated the rules text, the one that
@@ -206,7 +267,149 @@ mod tests {
         if entry.lang != lang {
             assert!(entry.faces.iter().all(|f| f.printed.is_none()));
         }
+        // Candidates only beside a translated served printing, in the asked
+        // language, within both caps, and none repeating another's text.
+        if lang == "en" || entry.faces.iter().all(|f| f.printed.is_none()) {
+            assert!(entry.candidates.is_empty(), "nothing to offer beside");
+        }
+        assert!(entry.candidates.len() <= crate::MAX_CANDIDATES);
+        let bytes: usize = entry
+            .candidates
+            .iter()
+            .flat_map(|c| c.printed.iter().flatten())
+            .map(String::len)
+            .sum();
+        assert!(bytes <= crate::MAX_CANDIDATE_BYTES);
+        let served_text: Vec<Option<String>> =
+            entry.faces.iter().map(|f| f.printed.clone()).collect();
+        for (n, candidate) in entry.candidates.iter().enumerate() {
+            assert_ne!(candidate.scryfall_id, entry.scryfall_id);
+            assert_ne!(candidate.printed, served_text);
+            assert!(candidate.printed.iter().any(Option::is_some));
+            assert!(
+                entry.candidates[..n]
+                    .iter()
+                    .all(|c| c.printed != candidate.printed)
+            );
+            let printing = printings
+                .iter()
+                .find(|p| p.scryfall_id == candidate.scryfall_id)
+                .expect("a candidate is one of the card's printings");
+            assert_eq!(printing.lang, lang, "a candidate is the asked language");
+        }
         entry
+    }
+
+    /// Mind Stone's German wordings, newest first, as `de` printings.
+    fn wordings(texts: &[(&str, &str)]) -> Vec<TextPrinting> {
+        texts
+            .iter()
+            .enumerate()
+            .map(|(n, (id, text))| {
+                printing(
+                    id,
+                    "de",
+                    &format!("20{:02}-01-01", 25 - n),
+                    vec![face("Mind Stone", Some("Gedankenstein"), Some(text))],
+                )
+            })
+            .collect()
+    }
+
+    /// Every other German wording is offered beside the served one, newest
+    /// first; a repeated wording and an untranslated printing are not.
+    #[test]
+    fn the_other_wordings_are_offered_newest_first_each_once() {
+        const C14: &str = "{T}: Erhöhe deinen Manavorrat um {1}.\n{1}, {T}, opfere den Gedankenstein: Ziehe eine Karte.";
+        const C15: &str = "{T}: Erhöhe deinen Manavorrat um {1}.{1}, {T}, opfere den Gedankenstein: Ziehe eine Karte.";
+        let mut printings = wordings(&[
+            ("c15", C15),
+            ("fic", GERMAN),
+            ("again", GERMAN),
+            ("english", ORACLE),
+            ("c14", C14),
+            ("10e", C14),
+        ]);
+        printings.push(printing(
+            "null",
+            "de",
+            "1990-01-01",
+            vec![face("Mind Stone", Some("Gedankenstein"), None)],
+        ));
+        let entry = served("de", &printings);
+        assert_eq!(
+            entry.scryfall_id, "fic",
+            "the newest that lines up is served"
+        );
+        let offered: Vec<&str> = entry
+            .candidates
+            .iter()
+            .map(|c| c.scryfall_id.as_str())
+            .collect();
+        assert_eq!(offered, ["c15", "c14"]);
+        assert_eq!(entry.candidates[1].printed, [Some(C14.to_owned())]);
+        assert_eq!(entry.candidates[1].layout, "normal");
+    }
+
+    /// Both caps, each by its own branch: the count ends the list, and a
+    /// printing too long for the bytes left is passed over for a shorter one
+    /// behind it.
+    #[test]
+    fn the_candidates_are_capped_by_count_and_by_bytes() {
+        let many: Vec<String> = (0..10)
+            .map(|n| format!("{{T}}: Erzeuge {{C}}. ({n})\n{{1}}, {{T}}, opfere: Ziehe."))
+            .collect();
+        let rows: Vec<(String, &str)> = many
+            .iter()
+            .enumerate()
+            .map(|(n, text)| (format!("p{n}"), text.as_str()))
+            .collect();
+        let rows: Vec<(&str, &str)> = rows.iter().map(|(id, t)| (id.as_str(), *t)).collect();
+        let entry = served("de", &wordings(&rows));
+        assert_eq!(entry.candidates.len(), crate::MAX_CANDIDATES);
+        assert_eq!(entry.candidates[0].scryfall_id, "p1");
+
+        let long = format!(
+            "{{T}}: Erzeuge {{C}}.\n{}",
+            "x".repeat(crate::MAX_CANDIDATE_BYTES)
+        );
+        let entry = served(
+            "de",
+            &wordings(&[("fic", GERMAN), ("long", &long), ("short", &many[0])]),
+        );
+        let offered: Vec<&str> = entry
+            .candidates
+            .iter()
+            .map(|c| c.scryfall_id.as_str())
+            .collect();
+        assert_eq!(offered, ["short"]);
+    }
+
+    /// Nothing is offered under English, nor where nothing was translated.
+    #[test]
+    fn nothing_is_offered_where_nothing_is_translated() {
+        let printings = [
+            printing(
+                "en1",
+                "en",
+                "2026-01-01",
+                vec![face("Mind Stone", None, Some("TAP: ADD C"))],
+            ),
+            printing(
+                "en2",
+                "en",
+                "2020-01-01",
+                vec![face("Mind Stone", None, Some("T: add C"))],
+            ),
+        ];
+        assert!(served("en", &printings).candidates.is_empty());
+        let null = [printing(
+            "null",
+            "de",
+            "2026-01-01",
+            vec![face("Mind Stone", Some("Gedankenstein"), None)],
+        )];
+        assert!(served("de", &null).candidates.is_empty());
     }
 
     #[test]

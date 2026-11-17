@@ -280,6 +280,7 @@ fn a_copy_offers_the_row_of_the_card_it_copied() {
             oracle_text: FOX_DE.to_string(),
             ..FaceText::default()
         }],
+        candidates: Vec::new(),
     });
     let cut = printed_words(Some(&texts), &view, id, row).expect("the Fox's row");
     assert_eq!(
@@ -466,6 +467,7 @@ fn a_granted_ability_is_the_sentence_of_the_card_that_granted_it() {
             oracle_text: LANTERN_DE.to_string(),
             ..FaceText::default()
         }],
+        candidates: Vec::new(),
     });
     let (blocks, said) = grant_words(&german, &view, id, &out[0]).expect("words");
     assert_eq!(said, crate::cardtext::Said::Localized);
@@ -594,6 +596,7 @@ fn a_prepared_cast_is_the_spell_it_casts() {
             oracle_text: TUTOR_DE.to_string(),
             ..FaceText::default()
         }],
+        candidates: Vec::new(),
     });
     let (blocks, said) = prepared_words(&german, &view, id, &out[0]).expect("words");
     assert_eq!(said, crate::cardtext::Said::Localized);

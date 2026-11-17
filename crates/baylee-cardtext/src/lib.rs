@@ -73,4 +73,4 @@ pub use poolfacts::{
 };
 pub use text::{repair_braces, repair_printed_symbols, sentence_count, sentences, symbols};
 pub use verify::{Verdict, localized, verify};
-pub use wire::{CardTextEntry, FaceText};
+pub use wire::{CardTextEntry, FaceText, MAX_CANDIDATE_BYTES, MAX_CANDIDATES, TextCandidate};

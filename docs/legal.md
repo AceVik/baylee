@@ -286,6 +286,19 @@ not a broader legal approval.
    back is the one card image a client would be tempted to bundle: it never
    changes and every game needs it.
 
+   **`/catalog/text` offers a card's other wordings, bounded** (17.11.2026,
+   for the owner's rule "the client's language first, English as the
+   fallback"). Beside the one printing it serves per card, an entry carries
+   `candidates`: the card's other printings in the asked language, their
+   printing id, layout and rules text only, newest first, a repeated wording
+   left out, at most 6 printings and 4 KiB of text per card (500 cards a
+   request, so an answer grows by 2 MB at most). Nothing else about those
+   printings is sent (no name, artist, date, set or image), and the route is
+   unchanged otherwise: a signed-in session only, no cache header that would
+   let a shared cache keep it, answered for our own client's rows and never
+   a mirror. A client without a gateway builds the same field from
+   Scryfall's own answer to it (`baylee_cardtext::card_entry`).
+
    **`GET /pool/facts` is the game's own table, not a feed** (4.11.2026; the
    rule read that day: "You may not simply repackage, republish, or proxy
    Scryfall data"). It serves the client's filters and, later, its deck
