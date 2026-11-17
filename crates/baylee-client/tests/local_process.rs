@@ -106,7 +106,10 @@ impl Drop for Owned {
 }
 
 fn settled(host: &mut ProcessHost) -> Vec<HostMessage> {
-    let until = Instant::now() + Duration::from_secs(15);
+    // A deadline and not a wait: the unoptimised worker starts in about
+    // thirteen seconds beside the rest of the suite, which fifteen did not
+    // always cover.
+    let until = Instant::now() + Duration::from_secs(60);
     let mut messages = Vec::new();
     loop {
         messages.extend(host.poll());
