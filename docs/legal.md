@@ -1679,3 +1679,39 @@ unofficial notices remain. Scryfall's image documentation
 (`https://scryfall.com/docs/api/images`) returned HTTP 403 again, so its wording
 was not newly verified and is not quoted here; the rules recorded in §3 stand.
 This records the change, not a broader legal approval.
+
+### New 4K vista loops · 18 November 2026
+
+At the owner's request (17.11.2026: the 16.11. loops were poor in image
+quality and did not close), both vista loops were made anew. The owner
+supplied the two paintings (`login_img.jpeg`, `lobby_img.jpeg`) and paid for
+the generations with the owner's own account on Artlist's AI toolkit; nothing here
+comes from Artlist's stock catalogue (footage, music or otherwise).
+
+- **Stills.** Both paintings were enlarged to 4K with an image model there
+  (shown as "Nano Banana Pro"). The gate got glowing runes and leaves on the
+  wind. The tavern's playing cards got frames and backs of their own design:
+  no Wizards card frame, card back, mana symbol or real card is shown, and
+  the cards carry no legible text.
+- **Clips.** Each still was animated natively at 3840 × 2160 by an
+  image-to-video model there (the world: shown as "Omni 1.2", start frame
+  only; the tavern: shown as "Kling 3.0", the still as start and end frame),
+  from prompts written for this project. The untouched downloads are kept as
+  `art/baylee/loops/world-source.mp4` and `tavern-source.mp4`.
+- **Loops.** Our own processing closes them (a cross-fade for the world, the
+  model's own return to its start pose for the tavern), interpolates them to
+  60 fps with Topaz Video AI (the owner's licensed copy) and encodes them with
+  `ffmpeg` and SVT-AV1; `art/baylee/README.md` records every command. No
+  frame is upscaled any more: 4K is the clips' native size.
+
+What was read, and what was not: Artlist's Terms of Use (the section on AI
+output, read 17.11.2026) claim no ownership of what a user generates and do
+not restrict its commercial use; they say such output may not be protectable
+by copyright, and that it must not be used to train AI models. The terms of
+the model providers behind the toolkit were **not** read. The clips are
+therefore recorded as AI-generated material of uncertain copyright status
+that the owner may use here, not as works we hold exclusive rights in; no
+licence of ours (AGPL-3.0-only for code) is claimed to make them exclusive.
+They show no Wizards artwork and no other game's art, add no Scryfall
+request, card image, symbol or font, and no Wizards video or music is used.
+This records the change; it is not a broader legal approval.

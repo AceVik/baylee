@@ -145,3 +145,12 @@ art/music/memorial/instruments.json and README.md.
 The memorial photographs were supplied and authorized for this album by
 Baylee's owner. Generated memorial scenery and both Baylee logos use those
 references; see art/baylee/README.md for provenance.
+
+The moving scenery behind the front door and the lobby
+(crates/baylee-client/src/vista/loops/, the stills in
+crates/baylee-client/assets/scenes/ and the masters in art/baylee/loops/) was
+generated with AI image and video models from two paintings supplied by
+Baylee's owner, then closed into loops, interpolated and encoded by this
+project. It shows no Wizards of the Coast artwork. Such output may not be
+protectable by copyright; no exclusive right in it is claimed. See docs/legal.md
+§"New 4K vista loops" and art/baylee/README.md.
