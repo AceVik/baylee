@@ -132,6 +132,22 @@ fn material_choice_uses_last_two_slots_and_refusals_do_not_spend() {
         let chosen = shop.chose_mythic(slot, false, &catalog).unwrap();
         assert_eq!(chosen.offers[usize::from(slot)].goods, Goods::Mythic);
         assert!(!chosen.mythic_choice);
+        // The chosen crafting offer is one a funded run can actually buy.
+        let rich = Economy {
+            gold: 99,
+            ..Economy::for_run()
+        };
+        let bought = chosen
+            .buy(
+                chosen.offers[usize::from(slot)].id,
+                &Delivery::Inventory,
+                Stock {
+                    economy: &rich,
+                    ..stock
+                },
+            )
+            .unwrap();
+        assert!(bought.shop.offers[usize::from(slot)].sold);
     }
     let poor = Economy {
         gold: 0,

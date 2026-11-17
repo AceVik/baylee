@@ -597,6 +597,9 @@ fn actions(commands: &mut Commands, top: Entity, kit: Kit, ui: &Ui, run: &api::R
                 (!deck_clean).then(|| Phrase::EchoesUnsaved.text(lang)),
             );
         }
+        if run.shop.mythic_choice {
+            mythic_choice(commands, &cta, run);
+        }
     } else if matches!(run.phase, api::Phase::Reserved | api::Phase::Playing) {
         cta.spawn(
             commands,
@@ -647,6 +650,34 @@ impl Cta<'_, '_> {
             .entity(btn)
             .insert(super::super::super::keys::stop(action, ui));
         commands.entity(self.top).add_child(btn);
+    }
+}
+
+/// Stage seven's one guaranteed crafting offer: it replaces one of the shelf's
+/// last two places, until the first other shop action closes it.
+fn mythic_choice(commands: &mut Commands, cta: &Cta<'_, '_>, run: &api::Run) {
+    let lang = lang(cta.kit);
+    let offer = controls::label(
+        commands,
+        cta.kit,
+        Phrase::EchoesMythicOffer.text(lang),
+        cta.kit.m.text,
+        tokens::GOLD,
+    );
+    commands.entity(cta.top).add_child(offer);
+    for slot in mythic_slots(domain::v2::shop::slots(run.shop.generator)) {
+        let command = Command::ChooseMythic {
+            slot,
+            replace_pinned: true,
+        };
+        cta.spawn(
+            commands,
+            words::icon(Action::Mythic(slot)),
+            &Phrase::EchoesReplaceOffer.fill(lang, &[&(u16::from(slot) + 1).to_string()]),
+            Action::Mythic(slot),
+            can(cta.ui, &command),
+            None,
+        );
     }
 }
 

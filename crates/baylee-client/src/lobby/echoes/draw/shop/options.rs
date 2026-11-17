@@ -63,7 +63,7 @@ pub(in crate::lobby::echoes::draw) fn options(
             Phrase::EchoesMythicOffer.text(lang),
             tokens::GOLD,
         );
-        for slot in [6, 7] {
+        for slot in mythic_slots(domain::v2::shop::slots(run.shop.generator)) {
             control(
                 commands,
                 footer,

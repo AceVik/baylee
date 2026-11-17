@@ -33,7 +33,8 @@ mod tiers;
 mod widgets;
 mod words;
 use widgets::{
-    IconTone, can, confirmation, control, featured_portrait, icon_control, portrait, tile,
+    IconTone, can, confirmation, control, featured_portrait, icon_control, mythic_slots, portrait,
+    tile,
 };
 
 fn panel(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {

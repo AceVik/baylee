@@ -497,6 +497,51 @@ fn commander_editor_controls_move_owned_card_to_sideboard_and_save_all_zones_tog
 }
 
 #[test]
+fn stage_seven_offers_its_crafting_choice_on_the_generation_s_last_two_places() {
+    use domain::v2::{generation, shop::slots};
+    assert_eq!(
+        mythic_slots(slots(generation::RUN)).collect::<Vec<_>>(),
+        [6, 7]
+    );
+    assert_eq!(
+        mythic_slots(slots(generation::RUNIC)).collect::<Vec<_>>(),
+        [10, 11]
+    );
+    let ui = opened();
+    let mut run = ui.model.run().unwrap().clone();
+    run.shop.stage = 7;
+    run.shop.mythic_choice = true;
+    let mut world = World::new();
+    let fonts = crate::hud::UiFonts::default();
+    let kit = test_kit(&fonts, false);
+    let mut commands = world.commands();
+    let root = commands.spawn(Node::default()).id();
+    draw(
+        &mut commands,
+        root,
+        kit,
+        &ui,
+        &run,
+        ui.model.publication().unwrap(),
+    );
+    world.flush();
+    let mut choices: Vec<u8> = world
+        .query::<&Press>()
+        .iter(&world)
+        .filter_map(|press| match press {
+            Press::Echoes(Action::Mythic(slot)) => Some(*slot),
+            _ => None,
+        })
+        .collect();
+    choices.sort_unstable();
+    assert_eq!(
+        choices,
+        [6, 7],
+        "the run shop answers the stage-seven choice"
+    );
+}
+
+#[test]
 fn a_checked_or_held_duel_says_so_and_a_held_one_offers_its_way_out() {
     let ui = opened();
     for (phase, phrase, retire) in [

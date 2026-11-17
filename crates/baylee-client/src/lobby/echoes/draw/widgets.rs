@@ -254,6 +254,12 @@ pub(super) fn control(
     commands.entity(root).add_child(button);
 }
 
+/// The shelf places stage seven's crafting offer may replace: the last two of
+/// however many the run's generation shows (six and seven, or ten and eleven).
+pub(super) fn mythic_slots(slots: usize) -> impl Iterator<Item = u8> {
+    (slots.saturating_sub(2)..slots).filter_map(|slot| u8::try_from(slot).ok())
+}
+
 pub(super) fn can(ui: &Ui, command: &Command) -> bool {
     !ui.model.uncertain()
         && (matches!(command, Command::Edit { .. } | Command::Refit { .. })
