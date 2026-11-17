@@ -159,6 +159,15 @@ struct Job {
     keep: Option<Kept>,
 }
 
+/// A job nobody waits for is told to stop, however its host went away: the
+/// worker thread and the projection child it owns read `cancel`, and without
+/// this a replay left while it loads kept both until the tape was made.
+impl Drop for Job {
+    fn drop(&mut self) {
+        self.cancel.store(true, Ordering::Relaxed);
+    }
+}
+
 /// A tape being shown.
 struct Shown {
     tape: Arc<Tape>,
@@ -700,4 +709,29 @@ fn ask(
             let _ = tx.send(Err(why));
         }
     });
+}
+
+#[cfg(test)]
+mod job_tests {
+    use super::*;
+
+    /// Leaving a replay while its tape is being made drops the host, and
+    /// with it the job: the worker and its projection child stop by this
+    /// flag alone.
+    #[test]
+    fn a_dropped_job_tells_its_worker_to_stop() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let (_tx, answer) = mpsc::channel();
+        let job = Job {
+            answer: Mutex::new(answer),
+            progress: Arc::new(AtomicU8::new(0)),
+            cancel: Arc::clone(&cancel),
+            perspective: Perspective::Public,
+            verify: Verify::default(),
+            keep: None,
+        };
+        assert!(!cancel.load(Ordering::Relaxed));
+        drop(job);
+        assert!(cancel.load(Ordering::Relaxed));
+    }
 }
