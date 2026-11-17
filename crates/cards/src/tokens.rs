@@ -30,6 +30,9 @@ use baylee_core::generated::subtypes::{artifact, creature};
 use baylee_core::mana::ManaColor;
 use baylee_core::types::TypeSet;
 
+#[path = "tokens/printings.rs"]
+pub mod printings;
+pub use printings::picture;
 #[path = "tokens/tower.rs"]
 pub mod tower;
 pub use tower::run::*;

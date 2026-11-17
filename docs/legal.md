@@ -800,8 +800,11 @@ not a broader legal approval.
     What is kept is the least the lists need: a count, the ledger's card
     name, the printing (set and collector number, language, foil) and, per
     file, the product's name, type, set code and release date. No price,
-    image, rules text, flavour text or any other MTGJSON field is kept, and
-    the 260 MB archive is a gitignored cache (`data/mtgjson-cache/`, the
+    image, rules text, flavour text or any other MTGJSON field is kept
+    (one widening, 17.11.2026: `xtask token-pictures` keeps, per generated
+    token it matched, the Scryfall id, set code and collector number of a
+    token printing the archive lists; §"Pictures for generated tokens"),
+    and the 260 MB archive is a gitignored cache (`data/mtgjson-cache/`, the
     same footing as clause 8). The card names are Wizards' material on
     clause 2a's footing, exactly as a card file's header is.
     `https://mtgjson.com/robots.txt` says `Disallow: /api/v5/*.json` to
@@ -1636,3 +1639,30 @@ already documented above. All 75 suite phrases and all 6 sign-in/tavern sheet
 arrangements pass the six-directed-interval check against `art/music/avoid.json`;
 no Wizards, Blizzard, film, or game soundtrack material is used. Neither change
 adds a Scryfall request, card image, symbol or font.
+
+### Pictures for generated tokens · 17 November 2026
+
+Tokens a reader wrote out of the card-script reference had no picture and were
+drawn as text faces. `cargo xtask token-pictures` now holds each of them against
+the token printings MTGJSON's deck archive lists (the gitignored
+`data/mtgjson-cache/AllDeckFiles.tar.gz` that `decks-import` already reads; the
+tool never downloads) and writes an exact match, and only an exact match, into
+`crates/cards/src/tokens/printing_rows.rs`: name, card types, supertypes,
+subtypes, colours, power, toughness and a rules box of nothing but the token's
+keywords. A token with abilities of its own, or with no printing that matches
+every characteristic, keeps its text face; it never borrows a picture of a
+different token, the rule the Serpent Generator Snake entry above set. The first
+run matched 60 of 223 generated tokens (MTGJSON build 5.3.0+20261113). The
+local card catalog was empty on this machine and keeps no colours, so it was not
+a source.
+
+Only the identifier, set code and collector number are kept, under MTGJSON's
+MIT licence, whose notice `NOTICE` carries and now names this file too. No image
+is committed: the client fetches the picture through its existing whole-image
+path from `cards.scryfall.io`, with the existing attribution and image-integrity
+rules. The [Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy)
+was re-read on 17 November: “Tell the Community it’s unofficial”. The existing
+unofficial notices remain. Scryfall's image documentation
+(`https://scryfall.com/docs/api/images`) returned HTTP 403 again, so its wording
+was not newly verified and is not quoted here; the rules recorded in §3 stand.
+This records the change, not a broader legal approval.

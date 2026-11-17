@@ -86,7 +86,9 @@ out.
 
 The preconstructed deck lists in data/decks/precon/ are taken from MTGJSON
 (https://mtgjson.com, https://mtgjson.com/license/), card lines only, and
-are used under its MIT License:
+so are the token printings in crates/cards/src/tokens/printing_rows.rs
+(Scryfall identifier, set code and collector number only). Both are used
+under its MIT License:
 
     Copyright © 2018 – Present, Zach Halpern
 

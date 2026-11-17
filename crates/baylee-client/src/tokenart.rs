@@ -8,16 +8,16 @@
 
 /// The printed token card a token id wears the picture of.
 ///
-/// `None` for a token nobody has chosen art for, and for anything that is not
-/// a registry token at all: a copy token has no entry here, because it is a
-/// copy of a *card* rather than of one of `baylee_cards::tokens::ALL`. Both
-/// fall back to the drawn face, which is correct — a request built out of an
-/// empty id is a guaranteed 404 every time the card is drawn.
+/// The token's own printing, or for a generated token the one
+/// `baylee_cards::tokens::printings` chose for it (`tokens::picture`, the one
+/// door). `None` for a token nobody has chosen art for, and for anything that
+/// is not a registry token at all: a copy token has no entry here, because it
+/// is a copy of a *card* rather than of one of `baylee_cards::tokens::ALL`.
+/// Both fall back to the drawn face, which is correct — a request built out
+/// of an empty id is a guaranteed 404 every time the card is drawn.
 #[must_use]
 pub fn of(id: u16) -> Option<&'static str> {
-    baylee_cards::tokens::by_token_id(id)
-        .map(|t| t.scryfall_id)
-        .filter(|s| !s.is_empty())
+    baylee_cards::tokens::picture(id)
 }
 
 /// Legacy name lookup for registry discovery. It is not sufficient to
@@ -81,25 +81,22 @@ mod tests {
     /// assertion about nothing.
     #[test]
     fn every_token_the_registry_defines_can_be_drawn() {
+        let chosen = baylee_cards::tokens::printings::of;
         let mut printed = 0usize;
         for (i, token) in baylee_cards::tokens::ALL.iter().enumerate() {
             let id = u16::try_from(i).expect("a token id fits in u16");
-            if token.scryfall_id.is_empty() {
-                assert_eq!(
-                    super::of(id),
-                    None,
-                    "{} has no printing chosen and must fall back to its face",
-                    token.name
-                );
-                continue;
-            }
-            printed += 1;
+            let expected = if token.scryfall_id.is_empty() {
+                chosen(id)
+            } else {
+                Some(token.scryfall_id)
+            };
             assert_eq!(
                 super::of(id),
-                Some(token.scryfall_id),
-                "{} is not reachable by its own id",
+                expected,
+                "{} must wear its own printing, the chosen one, or its face",
                 token.name
             );
+            printed += usize::from(expected.is_some());
         }
         assert!(
             printed >= 14,
