@@ -312,10 +312,84 @@ fn push_range<'a>(
     });
 }
 
-fn spawn_styled_text(commands: &mut Commands, fonts: &UiFonts, text: &str, size: f32) -> Entity {
+/// What a line marks beyond its tones: byte ranges of the line drawn bold in
+/// `accent` (the level ladder's changed numbers), and the share of its ink
+/// the rest of the line keeps (a quiet line, a level below the item's own).
+#[derive(Clone, Copy)]
+pub(crate) struct Marking<'a> {
+    pub marks: &'a [std::ops::Range<usize>],
+    pub accent: Color,
+    pub ink: f32,
+}
+
+impl Marking<'_> {
+    /// An ordinary line: nothing marked, every tone at full ink.
+    pub(crate) const PLAIN: Marking<'static> = Marking {
+        marks: &[],
+        accent: tokens::ACCENT,
+        ink: 1.0,
+    };
+
+    fn faded(self, color: Color) -> Color {
+        color.with_alpha(color.alpha() * self.ink)
+    }
+
+    fn touches(self, range: &std::ops::Range<usize>) -> bool {
+        self.marks
+            .iter()
+            .any(|mark| mark.start < range.end && mark.end > range.start)
+    }
+}
+
+/// `text`, which stands at byte `at` of its line, as `(words, colour, bold)`
+/// pieces: its tones, cut where `marking` marks.
+fn pieces<'a>(text: &'a str, at: usize, marking: Marking<'_>) -> Vec<(&'a str, Color, bool)> {
+    let mut out = Vec::new();
+    let mut start = at;
+    for span in stylize(text) {
+        let end = start + span.text.len();
+        let ink = marking.faded(span.tone.color());
+        let mut from = start;
+        for mark in marking
+            .marks
+            .iter()
+            .filter(|mark| mark.start < end && mark.end > start)
+        {
+            let (lo, hi) = (mark.start.max(from), mark.end.min(end));
+            if lo > from {
+                out.push((&span.text[from - start..lo - start], ink, span.bold));
+            }
+            if hi > lo {
+                out.push((&span.text[lo - start..hi - start], marking.accent, true));
+            }
+            from = hi.max(from);
+        }
+        if from < end {
+            out.push((&span.text[from - start..], ink, span.bold));
+        }
+        start = end;
+    }
+    out
+}
+
+fn spawn_styled_text(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    text: &str,
+    size: f32,
+    at: usize,
+    marking: Marking<'_>,
+) -> Entity {
     let px_size = whole_pixels(size);
-    let spans = stylize(text);
-    let Some((first, rest)) = spans.split_first() else {
+    let face = |bold: bool| {
+        if bold {
+            tf_bold(fonts, px_size)
+        } else {
+            tf(fonts, px_size)
+        }
+    };
+    let pieces = pieces(text, at, marking);
+    let Some((&(first, first_ink, first_bold), rest)) = pieces.split_first() else {
         return commands
             .spawn((
                 Text::default(),
@@ -327,29 +401,21 @@ fn spawn_styled_text(commands: &mut Commands, fonts: &UiFonts, text: &str, size:
     };
     let root = commands
         .spawn((
-            Text::new(first.text),
-            if first.bold {
-                tf_bold(fonts, px_size)
-            } else {
-                tf(fonts, px_size)
-            },
-            TextColor(first.tone.color()),
+            Text::new(first),
+            face(first_bold),
+            TextColor(first_ink),
             bevy::ui::LayoutConfig {
                 use_rounding: false,
             },
             Pickable::IGNORE,
         ))
         .id();
-    for span in rest {
+    for &(words, ink, bold) in rest {
         let child = commands
             .spawn((
-                TextSpan::new(span.text),
-                if span.bold {
-                    tf_bold(fonts, px_size)
-                } else {
-                    tf(fonts, px_size)
-                },
-                TextColor(span.tone.color()),
+                TextSpan::new(words),
+                face(bold),
+                TextColor(ink),
                 Pickable::IGNORE,
             ))
             .id();
@@ -367,10 +433,23 @@ pub(crate) fn spawn_line(
     line: &str,
     size: f32,
 ) -> Entity {
+    spawn_marked_line(commands, fonts, line, size, Marking::PLAIN)
+}
+
+/// [`spawn_line`] with `marking`'s ranges drawn bold in its accent; a marked
+/// pip is underlined in it, since a disc carries no bold.
+pub(crate) fn spawn_marked_line(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    line: &str,
+    size: f32,
+    marking: Marking<'_>,
+) -> Entity {
     let segments = manapip::segments(line);
     if !segments.iter().any(|seg| matches!(seg, Segment::Symbol(_))) {
-        return spawn_styled_text(commands, fonts, line, size);
+        return spawn_styled_text(commands, fonts, line, size, 0, marking);
     }
+    let spans = segment_spans(line, &segments);
     let gap = crate::manaui::air(size);
     let marks = size * 1.08;
     let row = commands
@@ -389,12 +468,20 @@ pub(crate) fn spawn_line(
     for (at, segment) in segments.iter().enumerate() {
         let child = match segment {
             Segment::Text(words) => {
-                let words = &words[taken.min(words.len())..];
+                let skip = taken.min(words.len());
+                let words = &words[skip..];
                 taken = 0;
                 if words.is_empty() {
                     continue;
                 }
-                spawn_styled_text(commands, fonts, words, size)
+                spawn_styled_text(
+                    commands,
+                    fonts,
+                    words,
+                    size,
+                    spans[at].start + skip,
+                    marking,
+                )
             }
             Segment::Symbol(pip) => {
                 let disc = match pip {
@@ -410,6 +497,11 @@ pub(crate) fn spawn_line(
                         .root
                     }
                     other => crate::manaui::spawn_pip(commands, fonts, *other, marks),
+                };
+                let disc = if marking.touches(&spans[at]) {
+                    underlined(commands, disc, marking.accent)
+                } else {
+                    disc
                 };
                 let glued = match segments.get(at + 1) {
                     Some(Segment::Text(next)) => manapip::clings(next),
@@ -429,7 +521,14 @@ pub(crate) fn spawn_line(
                             Pickable::IGNORE,
                         ))
                         .id();
-                    let punct = spawn_styled_text(commands, fonts, &next[..glued], size);
+                    let punct = spawn_styled_text(
+                        commands,
+                        fonts,
+                        &next[..glued],
+                        size,
+                        spans[at + 1].start,
+                        marking,
+                    );
                     commands.entity(pair).add_children(&[disc, punct]);
                     pair
                 } else {
@@ -440,4 +539,93 @@ pub(crate) fn spawn_line(
         commands.entity(row).add_child(child);
     }
     row
+}
+
+/// Where each of `line`'s segments stands in it: prose is a verbatim run of
+/// it, and a symbol is the `{…}` it was read from.
+fn segment_spans(line: &str, segments: &[Segment]) -> Vec<std::ops::Range<usize>> {
+    let mut cursor = 0;
+    segments
+        .iter()
+        .map(|segment| {
+            let start = cursor;
+            cursor = match segment {
+                Segment::Text(words) => cursor + words.len(),
+                Segment::Symbol(_) => line[cursor..]
+                    .find('}')
+                    .map_or(line.len(), |close| cursor + close + 1),
+            };
+            start..cursor
+        })
+        .collect()
+}
+
+/// A pip underlined in `accent`: a disc carries no bold.
+fn underlined(commands: &mut Commands, disc: Entity, accent: Color) -> Entity {
+    let underline = commands
+        .spawn((
+            Node {
+                padding: UiRect::bottom(px(1.0)),
+                border: UiRect::bottom(px(1.5)),
+                ..default()
+            },
+            BorderColor::all(accent),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(underline).add_child(disc);
+    underline
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A marked range is cut out of its tone, bold in the accent, and the
+    /// line's bytes survive whole; the rest keeps its tone at the given ink.
+    #[test]
+    fn a_marked_number_is_bold_in_the_accent_and_the_rest_keeps_its_tone() {
+        let line = "Remove 2 charge counters: deal 3 damage.";
+        let (two, at) = (line.find('2').unwrap(), line.find('3').unwrap());
+        let marks = [two..two + 1, at..at + 1];
+        let marking = Marking {
+            marks: &marks,
+            accent: tokens::ACCENT,
+            ink: 0.5,
+        };
+        let cut = pieces(line, 0, marking);
+        assert_eq!(cut.iter().map(|piece| piece.0).collect::<String>(), line);
+        let marked: Vec<_> = cut
+            .iter()
+            .filter(|piece| piece.1 == tokens::ACCENT)
+            .collect();
+        assert_eq!(
+            marked.iter().map(|piece| piece.0).collect::<Vec<_>>(),
+            ["2", "3"]
+        );
+        assert!(marked.iter().all(|piece| piece.2), "bold");
+        let damage = cut.iter().find(|piece| piece.0.contains("damage")).unwrap();
+        assert!((damage.1.alpha() - Tone::Damage.color().alpha() * 0.5).abs() < 1e-6);
+        // A line standing later in its sentence is cut where the line is.
+        let tail = &line[at - 5..];
+        let cut = pieces(tail, at - 5, marking);
+        assert!(
+            cut.iter()
+                .any(|piece| piece.0 == "3" && piece.1 == tokens::ACCENT)
+        );
+    }
+
+    #[test]
+    fn a_line_with_pips_finds_each_segment_where_it_was_read() {
+        let line = "{2}, Remove 2 charge counters: Add {C}{C}{C}.";
+        let segments = manapip::segments(line);
+        let spans = segment_spans(line, &segments);
+        assert_eq!(spans.last().unwrap().end, line.len());
+        for (segment, span) in segments.iter().zip(&spans) {
+            match segment {
+                Segment::Text(words) => assert_eq!(&line[span.clone()], words),
+                Segment::Symbol(_) => assert!(line[span.clone()].starts_with('{')),
+            }
+        }
+    }
 }

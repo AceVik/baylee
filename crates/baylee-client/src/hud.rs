@@ -1915,6 +1915,7 @@ pub(crate) mod motion;
 mod overlay;
 pub(crate) mod peeks;
 mod preview_keys;
+pub(crate) use preview_keys::shift_keycap;
 pub(crate) mod rail;
 pub(crate) mod revealed;
 pub(crate) mod scale;

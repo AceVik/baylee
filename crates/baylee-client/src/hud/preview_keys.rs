@@ -99,19 +99,7 @@ pub(super) fn spawn(
             Pickable::IGNORE,
         ))
         .id();
-    let key = if apple_keyboard() {
-        shift_key(commands)
-    } else {
-        keycap(
-            commands,
-            fonts,
-            "Shift",
-            Color::NONE,
-            palette::MUTED,
-            palette::MUTED.with_alpha(0.35),
-            10.0,
-        )
-    };
+    let key = shift_keycap(commands, fonts, 10.0);
     let words = commands
         .spawn((
             Text::new(turn.text(lang)),
@@ -128,6 +116,24 @@ pub(super) fn spawn(
     commands.entity(pill).add_children(&[key, words]);
     commands.entity(row).add_child(pill);
     row
+}
+
+/// The Shift key as this keyboard prints it, in muted ink: the arrow mark on
+/// an Apple keyboard, else a cap with the word, its legend `size` high.
+pub(crate) fn shift_keycap(commands: &mut Commands, fonts: &UiFonts, size: f32) -> Entity {
+    if apple_keyboard() {
+        shift_key(commands)
+    } else {
+        keycap(
+            commands,
+            fonts,
+            "Shift",
+            Color::NONE,
+            palette::MUTED,
+            palette::MUTED.with_alpha(0.35),
+            size,
+        )
+    }
 }
 
 /// The standard Shift mark drawn as lines: the text font lacks the glyph.

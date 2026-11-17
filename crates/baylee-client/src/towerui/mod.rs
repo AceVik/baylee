@@ -17,6 +17,7 @@ use bevy::{
     ui::{BackgroundGradient, ColorStop, Gradient, LinearGradient},
 };
 
+pub(crate) mod ladder;
 mod layout;
 pub(crate) mod motion;
 pub(crate) mod prose;
@@ -25,7 +26,14 @@ mod runic;
 mod scenery;
 pub(crate) use layout::{badge, coin, drag_ghost, empty, frame, shelf_frost};
 pub(crate) mod words;
-pub(crate) use scenery::{Decor, install};
+pub(crate) use scenery::Decor;
+
+/// The Tower interface's systems: its scenery, and the level ladder held
+/// Shift opens on an item's overlay.
+pub(crate) fn install(app: &mut App) {
+    scenery::install(app);
+    ladder::install(app);
+}
 #[cfg(test)]
 mod tests;
 
@@ -238,7 +246,7 @@ fn detail(commands: &mut Commands, kit: Kit, item: &Item<'_>, live: Live<'_>) ->
             Node {
                 display: Display::None,
                 position_type: PositionType::Absolute,
-                width: kit.m.px(424.0),
+                width: kit.m.px(ladder::REST_WIDTH),
                 max_width: Val::Vw(90.0),
                 padding: UiRect::new(
                     kit.m.px(16.0),
@@ -413,6 +421,11 @@ fn detail(commands: &mut Commands, kit: Kit, item: &Item<'_>, live: Live<'_>) ->
         let description = prose::spawn_line(commands, kit.fonts, line, kit.m.small);
         commands.entity(body).add_child(description);
     }
+    // Only a relic has levels to compare (held Shift, `ladder`).
+    let levels = match item.goods {
+        Goods::Relic(definition) => Some((definition, ladder::slot(commands, kit, tip))),
+        _ => None,
+    };
 
     if let Some(hint) = item.hint
         && !hint.is_empty()
@@ -425,6 +438,9 @@ fn detail(commands: &mut Commands, kit: Kit, item: &Item<'_>, live: Live<'_>) ->
     {
         let reason = crate::shellkit::surfaces::prose(commands, kit, reason, true);
         commands.entity(tip).add_child(reason);
+    }
+    if let Some((definition, slot)) = levels {
+        ladder::attach(commands, kit, tip, slot, definition);
     }
     tip
 }

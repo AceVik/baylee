@@ -1620,7 +1620,7 @@ pub fn search(
 }
 
 /// The controls' own systems.
-pub(super) fn install(app: &mut App) {
+pub(crate) fn install(app: &mut App) {
     use bevy::ecs::schedule::common_conditions::{not, resource_exists};
 
     if !app.is_plugin_added::<bevy::ui_widgets::ScrollbarPlugin>() {

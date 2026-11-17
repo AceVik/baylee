@@ -3949,6 +3949,13 @@ TowerRuleStoredAny = { $count ->
 TowerRuleAegis = Kreaturen unter deiner Kontrolle erhalten +0/+{ $toughness }.
 TowerRuleActivate = Aus der Kommandozone aktivierbar.
 TowerRuleOnce = Nur einmal pro Zug aus der Kommandozone aktivierbar.
+TowerLevelsHint = Stufen vergleichen
+TowerLevelCurrent = aktuell
+TowerLevelsKept =
+    { $count ->
+        [one] und eine Zeile wie zuvor
+       *[other] und { $count } Zeilen wie zuvor
+    }
 TowerRuleHealing = Verbrauche eine Ladung: Du erhältst 5 LeP. Aus der Kommandozone aktivierbar.
 TowerRuleMana = Verbrauche eine Ladung: Erzeuge ein Mana einer beliebigen Farbe. Aus der Kommandozone aktivierbar.
 EchoesRunFinished = Diese Expedition ist abgeschlossen. Deine Erfolge bleiben; der nächste Run beginnt mit einem neuen Deck, leerem Inventar und Startgold.

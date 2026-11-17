@@ -6605,6 +6605,53 @@ Opening an item's ordinary ability chooser keeps its visible portrait as the
 shared `AbilityAnchor`; a single offered ability remains keyboard-operable and
 uses the normal arm/confirm/current-legality path before spending anything.
 
+## The Tower item overlay, and its levels
+
+Every run item's detail hover is one overlay (`towerui::detail`), wherever the
+item is shown: the shop, the bag, the completed run, the table's equipment
+drawer, the stack, the trigger order and the log. Its head is the portrait, the
+name and the rarity in the interface's language (`words::rarity`, the deck
+builder's Rarity phrases), then the per-turn pill where there is a cap; under a
+hairline its effect lines. It is placed only by the measured path
+(`shellkit::tooltip::place_detail_tooltips`): hidden until its real size is
+known, never at a guessed box.
+
+A relic has four levels, its rarity tiers. Its overlay ends in one quiet line,
+the Shift key and "Compare levels" ("Stufen vergleichen"), in muted ink; a
+potion, the mythic ingredient and a card offer have no levels and wear none.
+While Shift is held (`towerui::ladder::compare_levels`) the overlay widens to
+two columns and shows the item's level ladder under its description, past a
+hairline: the four levels two by two (1 2 / 3 4), each headed by its rarity's
+pip and "Level N · rarity". The item's own level heads in the kit's accent with
+a "current" tag, and levels below it are drawn quieter. Level 1 says all its
+lines; every later level says what it changes and what it adds against the
+level before: a number that changed is bold in the accent (a changed cost's pip
+is underlined in it), a line the level before lacks stands behind a `+` in the
+accent, and the lines it keeps word for word are folded into one quiet "and N
+lines as before". The hint is put away while the key it names is held, and
+releasing Shift returns the overlay to rest.
+
+What changed is read from the levels' own sentences
+(`baylee_client_core::echoes::ladder::step`), never from a second copy of the
+balance numbers: lines pair by equal text, then by equal text with every digit
+run and `{…}` cost masked, then by the most alike leftover (so a plural or a
+once-per-turn tail dropped at the top level is a change, not a new line); the
+newer line's tokens outside the longest common run are the change. A test walks
+all 178 families in both languages and holds that every level changes or adds
+something and drops no line, since the ladder would not show a dropped one.
+
+The ladder is built the first time Shift is held over its overlay and then only
+shown or hidden. Either way the overlay changes size, so it is set hidden in
+that frame and the measured path places it again from the new geometry before
+it is drawn: no frame at the old anchor, none off screen. At rest, and while
+Shift stays held, the system writes nothing (`towerui::tests`). There is no
+animation, as the overlay has none, so reduced motion changes nothing here.
+Every item's open overlay fits a 1280 × 720 window at the default text step
+(a test measures all 178 in German); at larger text steps or smaller windows
+the tallest can run past the window's foot. While a ladder stands it claims
+Shift (`flip::ShiftClaimed`), so a card preview open at the same time does not
+also turn over; a run item's own hover opens no card preview.
+
 ## A choice you answer by picking, not by clicking the table
 
 Four of the engine's seventeen pending choices name something that is not on

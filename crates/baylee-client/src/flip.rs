@@ -159,6 +159,12 @@ pub enum Side {
     Back,
 }
 
+/// Another surface answers held Shift this frame (a Tower item's overlay
+/// comparing its levels, `towerui::ladder`): a preview then stays as it
+/// lies, so one key never turns a card and opens a ladder at once.
+#[derive(Resource, Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct ShiftClaimed(pub bool);
+
 /// Turns previews towards the state the shift key is asking for.
 pub struct FlipPlugin;
 
@@ -211,14 +217,16 @@ pub fn rest_transform(reading: Reading) -> UiTransform {
 
 /// Advances every flip and writes the two sides.
 #[allow(clippy::float_cmp)] // exact: a write is skipped only when nothing would change
-fn turn(
+pub(crate) fn turn(
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
     prefs: Option<Res<crate::prefs::Prefs>>,
+    claimed: Option<Res<ShiftClaimed>>,
     mut flips: Query<(&mut Flip, &mut UiTransform, &Children)>,
     mut sides: Query<(&Side, &mut Visibility, &mut UiTransform), Without<Flip>>,
 ) {
-    let wants_back = keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+    let wants_back = keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])
+        && !claimed.is_some_and(|claimed| claimed.0);
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
     let step = if still {
         1.0

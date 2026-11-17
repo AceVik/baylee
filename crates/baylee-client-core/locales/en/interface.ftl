@@ -3597,6 +3597,23 @@ TowerRuleStoredAny = Remove { $count } charge counters: Add one mana of any colo
 TowerRuleAegis = Creatures you control get +0/+{ $toughness }.
 TowerRuleActivate = Activate from the command zone.
 TowerRuleOnce = Activate only once each turn from the command zone.
+
+# The quiet line at the foot of a Tower item's overlay, beside a Shift key:
+# holding Shift shows the item at every level.
+TowerLevelsHint = Compare levels
+
+# The tag on the item's own level in that comparison.
+TowerLevelCurrent = current
+
+# Under a later level in that comparison, after what it changes and adds:
+# how many of the level before's lines it keeps unchanged.
+# Arguments: count
+TowerLevelsKept =
+    { $count ->
+        [one] and one line as before
+       *[other] and { $count } lines as before
+    }
+
 TowerRuleHealing = Remove a charge: You gain 5 life. Activate from the command zone.
 TowerRuleMana = Remove a charge: Add one mana of any color. Activate from the command zone.
 EchoesRunFinished = This expedition is complete. Your achievements remain; the next run starts with a fresh deck, empty inventory and starting gold.

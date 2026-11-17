@@ -71,6 +71,7 @@ Two consequences worth knowing before changing anything here:
 | Automation menu for selection | `M` | planned |
 | Tower equipment: open or close the item drawer. While open, Tab walks own equipment, opponent equipment, supplies and Close; arrows choose within each group. Enter opens an available item's normal ability chooser; Escape closes the drawer without answering the game underneath. | `⇧I` (rebindable), Tab, arrows, Enter, Escape | implemented |
 | Tower shop/overview/rankings: Tab walks the page's controls; arrows select within offer, item and leaderboard groups. Enter/Space activates the focused control. Confirmations begin on Cancel and contain Tab; Escape dismisses the confirmation first. | Tab, Shift+Tab, arrows, Enter, Space, Escape | implemented |
+| Tower item overlay (any run item's detail, hovered or focused, in the shop, the bag or at the table): hold `Shift` to compare a relic's four levels, what each changes and adds; release to return. Not a keymap action (a bare modifier, like the preview's turn); walking back with `Shift+Tab` shows each focused relic's ladder while Shift stays down. | `Shift` (held) | implemented |
 
 There are **no camera controls left**, and the rows above are the whole of the
 keyboard. The camera has one job — framing the table against the part of the
@@ -400,6 +401,11 @@ card with neither turns to the printed back), and **`Alt`/`Option`** (or
 picture is shown and the picture where the text is. The tooltip names `Shift` in a small pill
 under a card that has another face or half, and wears no key hint otherwise
 (owner, 12.11.2026); this paragraph is where `Alt` is written down.
+
+Over a Tower relic's detail overlay, held **`Shift`** shows the item's level
+ladder instead (`docs/client.md` §"The Tower item overlay, and its levels");
+the overlay's foot names the key. While a ladder stands it claims Shift, so a
+card preview open at the same time stays as it lies.
 
 A card in hand can be lit two ways. **Gold** is the engine offering it: the
 mana is floating and one click casts it. **Indigo** is the client offering to
