@@ -13,6 +13,7 @@ pub use draft::{
     RewardGold, reward_card_duplicate_gold, reward_gold, sellable_card_gold, sellable_cards,
 };
 pub mod feedback;
+pub mod ladder;
 mod receive;
 #[cfg(test)]
 mod tests;
