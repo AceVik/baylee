@@ -2153,7 +2153,22 @@ fn login_cards_mist_plates_and_confirm_modals_use_single_quad_cut_glass() {
     check_single_quad_glass(app.world(), gateway_card, 0.50, 0.68, "gateway FrontCard");
 
     press(&mut app, Press::Front(FrontPress::ForgetGateway(0)));
-    let confirm_modal = press_target(&mut app, Press::Shared(SharedPress::PickerNothing));
+    // The modal, not the first surface that swallows a press on its own
+    // ground: the front door's closed menus carry that press too, and are
+    // opaque. A confirmation is the one such surface standing in a scrim.
+    let confirm_modal = app
+        .world_mut()
+        .query::<(Entity, &Press, &ChildOf)>()
+        .iter(app.world())
+        .find(|(_, press, parent)| {
+            **press == Press::Shared(SharedPress::PickerNothing)
+                && app
+                    .world()
+                    .get::<crate::shellkit::surfaces::ModalScrim>(parent.parent())
+                    .is_some()
+        })
+        .map(|(entity, ..)| entity)
+        .expect("a confirmation in its scrim");
     check_single_quad_glass(app.world(), confirm_modal, 0.54, 0.70, "confirm modal");
 }
 

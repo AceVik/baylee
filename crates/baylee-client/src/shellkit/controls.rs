@@ -1792,9 +1792,10 @@ mod tests {
     }
 
     /// Every pressable control the kit draws answers the pointer on its face
-    /// though the pointer is over its hit area: it lightens and grows under a
-    /// hover, gives and darkens under a press, and gets there over frames,
-    /// not at once (owner, 09.10.2026: "no hover and click animations").
+    /// though the pointer is over its hit area: it lightens under a hover,
+    /// darkens under a press (a chip and a pill also give; a button stays in
+    /// its hit rectangle), and gets there over frames, not at once (owner,
+    /// 09.10.2026: "no hover and click animations").
     #[test]
     fn the_kit_s_controls_answer_the_pointer_over_frames() {
         type Maker = fn(&mut Commands, Kit) -> Entity;
@@ -1845,11 +1846,20 @@ mod tests {
             for _ in 0..40 {
                 app.update();
             }
-            if what == "nav" {
+            match what {
                 // Retained navigation keeps its face and hit area stationary.
-                assert!((scale(&app, face) - 1.0).abs() < 1e-6);
-            } else {
-                assert!(scale(&app, face) < 1.0, "{what} gives under a press");
+                "nav" => assert!((scale(&app, face) - 1.0).abs() < 1e-6),
+                // A button answers a press in light and shadow, inside its
+                // fixed hit rectangle (`attach_live_feel`): its face never
+                // moves under the pointer that is pressing it.
+                "primary" | "secondary" | "ghost" => {
+                    assert!(
+                        (scale(&app, face) - 1.0).abs() < 1e-6,
+                        "{what} stays in its hit rectangle under a press"
+                    );
+                    assert_ne!(ground(&app, face), lit, "{what} darkens under a press");
+                }
+                _ => assert!(scale(&app, face) < 1.0, "{what} gives under a press"),
             }
             point(&mut app, wrapper, PickingInteraction::None);
             for _ in 0..60 {
@@ -1900,9 +1910,12 @@ mod tests {
         assert_eq!(ground(&app, face), first_lit);
         point(&mut app, wrapper, PickingInteraction::Pressed);
         app.update();
-        let first_press = scale(&app, face);
+        // A button's press is a shade and no movement (`attach_live_feel`).
+        let first_press = ground(&app, face);
         app.update();
-        assert!(first_press < 1.0 && (scale(&app, face) - first_press).abs() < 1e-6);
+        assert_ne!(first_press, first_lit);
+        assert_eq!(ground(&app, face), first_press);
+        assert!((scale(&app, face) - 1.0).abs() < 1e-6);
     }
 
     fn knob_left_of(app: &App, track: Entity) -> f32 {
