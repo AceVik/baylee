@@ -454,7 +454,7 @@ fn reroll_button(commands: &mut Commands, footer: Entity, kit: Kit, ui: &Ui, run
     let lang = lang(kit);
     let has_price = run.shop.reroll_price().is_some();
     let available = can(ui, &Command::Refresh {})
-        && !ui.model.mutating()
+        && !ui.holding()
         && !ui.model.uncertain()
         && ui.confirmation.is_none();
     let (badge, tooltip, disabled_reason) = reroll_copy(run, lang);
@@ -632,7 +632,10 @@ impl Cta<'_, '_> {
         reason: Option<&str>,
     ) {
         let ui = self.ui;
-        let blocked = ui.model.mutating() || ui.model.uncertain() || ui.confirmation.is_some();
+        let blocked = ui.holding()
+            || (sends_at_once(action) && ui.model.busy())
+            || ui.model.uncertain()
+            || ui.confirmation.is_some();
         let btn = controls::button_compact(
             commands,
             self.kit,

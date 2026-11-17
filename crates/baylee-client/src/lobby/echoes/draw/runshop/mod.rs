@@ -170,11 +170,7 @@ fn object(
         _ => words::effect(goods, lang(kit)),
     };
     let name = words::goods(goods, lang(kit));
-    let live = if available
-        && !ui.model.mutating()
-        && !ui.model.uncertain()
-        && ui.confirmation.is_none()
-    {
+    let live = if available && !ui.holding() && !ui.model.uncertain() && ui.confirmation.is_none() {
         Live::Yes
     } else {
         Live::No(unavailable_reason.unwrap_or_else(|| Phrase::EchoesUnavailable.text(lang(kit))))

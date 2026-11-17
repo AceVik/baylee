@@ -100,8 +100,7 @@ fn gestures(
     parents: Query<&ChildOf>,
     mut state: ResMut<LobbyState>,
 ) {
-    if !state.echoes.opened || state.echoes.model.mutating() || state.echoes.confirmation.is_some()
-    {
+    if !state.echoes.opened || state.echoes.holding() || state.echoes.confirmation.is_some() {
         clicks.clear();
         drops.clear();
         return;
@@ -192,7 +191,7 @@ fn drag_visual(
     }
     if ended
         || !state.echoes.opened
-        || state.echoes.model.mutating()
+        || state.echoes.holding()
         || state.echoes.confirmation.is_some()
     {
         drags.clear();

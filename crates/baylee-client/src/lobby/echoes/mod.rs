@@ -122,6 +122,9 @@ pub(crate) struct Ui {
     pub(super) opened: bool,
     page: Page,
     pub(super) confirmation: Option<Confirmation>,
+    /// One shop press made while a read held the worker, for this run, sent once
+    /// the read ends. While it waits the shop draws its controls held.
+    queued: Option<(Uuid, Command)>,
     choices: choices::Draft,
     bag: Bag,
     spare_cards_open: bool,
@@ -291,6 +294,8 @@ impl Ui {
         self.reward_gold_open = false;
         self.reward_deck_open = false;
         self.returning = None;
+        // Leaving the Tower withdraws a press still waiting for its read.
+        self.queued = None;
         if self.model.run().is_some_and(|run| {
             matches!(
                 run.phase,
@@ -342,6 +347,26 @@ impl Ui {
         self.choices.bind(run);
     }
 
+    /// A mutation is out, or a press already waits for a read to end: further
+    /// state-changing controls are drawn (and answered) as unavailable.
+    pub(super) fn holding(&self) -> bool {
+        self.model.mutating() || self.queued.is_some()
+    }
+
+    /// Hand the press that waited for a read to the now idle worker.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(super) fn release(&mut self) -> Option<Work> {
+        if self.model.busy() {
+            return None;
+        }
+        let (run, command) = self.queued.take()?;
+        let current = self.model.run()?;
+        let cohort = self.model.publication()?;
+        (current.id == run && baylee_client_core::echoes::draft::allowed(current, cohort, &command))
+            .then(|| self.command(command))
+            .flatten()
+    }
+
     #[cfg(any(not(target_arch = "wasm32"), test))]
     pub(super) fn command(&mut self, command: Command) -> Option<Work> {
         if let Some(run) = self.model.run()
@@ -356,6 +381,12 @@ impl Ui {
                     Command::Abandon {} | Command::Sell { .. } | Command::Fuse { .. }
                 )
             {
+                // A passive read holds the one worker: keep the press and send
+                // it when the read is done, instead of dropping it silently.
+                if self.model.busy() {
+                    self.queued = Some((run.id, command));
+                    return None;
+                }
                 return self.model.choose(Uuid::now_v7(), command);
             }
             self.confirmation = Some(Confirmation::Choice {

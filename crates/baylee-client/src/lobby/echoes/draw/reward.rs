@@ -128,7 +128,7 @@ fn reward_toolbar(
         } else {
             Weight::Secondary
         },
-        if ui.model.mutating() {
+        if ui.holding() {
             Live::No(Phrase::EchoesUnavailable.text(lang))
         } else {
             Live::Yes
@@ -354,7 +354,7 @@ fn selection_footer(commands: &mut Commands, kit: Kit, ui: &Ui, take: u8) -> Ent
     let required = usize::from(take);
     let ready = selected_count == required;
     let allowed = ready
-        && !ui.model.mutating()
+        && !ui.holding()
         && can(
             ui,
             &Command::Claim {
@@ -550,7 +550,7 @@ fn candidate(
     let selected = ui.choices.rewards.contains(&id);
     let rarity = baylee_cards::sides::rarity(id).unwrap_or(CardRarity::Common);
     let full_selection = !selected && take > 1 && ui.choices.rewards.len() >= usize::from(take);
-    let disabled = ui.model.mutating() || ui.model.uncertain() || full_selection;
+    let disabled = ui.holding() || ui.model.uncertain() || full_selection;
     let (face, rarity_name, rarity_color) =
         spawn_candidate_face(commands, kit, rarity, selected, disabled);
 

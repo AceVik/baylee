@@ -311,3 +311,98 @@ fn passive_reads_do_not_drop_tab_switches_or_queued_run_reads_and_previews_lock_
     assert!(state.echoes.reads.is_empty());
     assert!(state.echoes.model.busy());
 }
+
+fn with_cohort(state: &mut LobbyState) -> Uuid {
+    let content = baylee_tower_content::standard().unwrap();
+    let mut identity = baylee_protocol::execution::Identity::native(
+        baylee_protocol::execution::Variant::Tower,
+        "test",
+        "test",
+        22,
+    );
+    identity.rules = "tower-5".into();
+    let cohort = api::Cohort {
+        id: Uuid::now_v7(),
+        contract: super::super::domain::v2::package::Cohort::for_generation(
+            identity,
+            &content.catalog,
+            super::super::domain::v2::generation::RUN,
+        )
+        .unwrap(),
+        catalog: content.catalog,
+        starters: content.starters,
+        offered: vec![0, 1, 2, 3, 4],
+    };
+    let id = cohort.id;
+    let model = &mut state.echoes.model;
+    let work = model.read(Uuid::now_v7(), Read::Cohorts(None)).unwrap();
+    model.receive(
+        &work,
+        Some(api::Response::Cohorts {
+            consent: 1,
+            cohorts: vec![cohort],
+        }),
+        None,
+    );
+    id
+}
+
+fn with_run(state: &mut LobbyState) -> api::Run {
+    with_cohort(state);
+    let cohort = state.echoes.model.cohorts()[0].clone();
+    let raw = super::super::domain::v2::run::Run::begin_for(
+        &cohort.catalog,
+        cohort.starters[0].clone(),
+        &[7; 32],
+        super::super::domain::v2::generation::RUN,
+    )
+    .unwrap();
+    let run = api::Run::project(Uuid::now_v7(), cohort.id, raw);
+    let model = &mut state.echoes.model;
+    let work = model.read(Uuid::now_v7(), Read::Run(run.id)).unwrap();
+    model.receive(
+        &work,
+        Some(api::Response::Run {
+            run: Box::new(run.clone()),
+        }),
+        None,
+    );
+    run
+}
+
+#[test]
+fn a_shop_press_during_a_read_waits_for_it_and_is_then_sent() {
+    use bevy::ecs::system::RunSystemOnce;
+    let (handle, jobs) = central::Handle::queued_for_test();
+    let mut state = signed_in(handle);
+    let run = with_run(&mut state);
+    let read = state
+        .echoes
+        .model
+        .read(Uuid::now_v7(), Read::Run(run.id))
+        .unwrap();
+    assert!(state.echoes.model.busy() && !state.echoes.model.mutating());
+    ask(&mut state, Action::Freeze);
+    assert!(
+        state.echoes.queued.is_some(),
+        "the press is kept, not dropped"
+    );
+    assert!(
+        state.echoes.holding(),
+        "and the shop shows its controls held"
+    );
+    assert!(state.echoes.model.receive(
+        &read,
+        Some(api::Response::Run { run: Box::new(run) }),
+        None,
+    ));
+    let mut app = App::new();
+    app.insert_resource(state)
+        .insert_resource(Time::<()>::default())
+        .init_resource::<super::super::Scrolled>();
+    app.world_mut().run_system_once(tick).unwrap();
+    let state = app.world().resource::<LobbyState>();
+    assert!(state.echoes.queued.is_none());
+    assert!(state.echoes.model.mutating(), "the waiting press went out");
+    assert!(jobs.try_recv().is_ok());
+}

@@ -149,7 +149,7 @@ fn owned_run_open_button(
         } else {
             Weight::Secondary
         },
-        if !ui.model.mutating() && ui.choices.deck_unchanged(ui.model.run()) {
+        if !ui.holding() && ui.choices.deck_unchanged(ui.model.run()) {
             Live::Yes
         } else {
             Live::No(Phrase::EchoesUnavailable.text(lang))

@@ -163,10 +163,10 @@ pub(super) fn icon_control(
     unavailable_reason: Option<&str>,
 ) -> Entity {
     let lang = lang(kit);
-    let busy_gate = if matches!(action, Action::Starter(..) | Action::Accept | Action::Retry) {
+    let busy_gate = if sends_at_once(action) {
         ui.model.busy()
     } else {
-        ui.model.mutating()
+        ui.holding()
     };
     let allowed = available
         && !busy_gate
@@ -204,10 +204,10 @@ pub(super) fn control(
     available: bool,
 ) {
     let lang = lang(kit);
-    let busy_gate = if matches!(action, Action::Starter(..) | Action::Accept | Action::Retry) {
+    let busy_gate = if sends_at_once(action) {
         ui.model.busy()
     } else {
-        ui.model.mutating()
+        ui.holding()
     };
     let allowed = available
         && !busy_gate
@@ -252,6 +252,21 @@ pub(super) fn control(
         crate::shellkit::focus::Current(words::selected(action, ui)),
     ));
     commands.entity(root).add_child(button);
+}
+
+/// A press that goes straight to the account worker rather than through the
+/// shop's queued commands: while any read holds the worker it is drawn held,
+/// because the worker would refuse it (and the press would be lost).
+pub(super) const fn sends_at_once(action: Action) -> bool {
+    matches!(
+        action,
+        Action::Starter(..)
+            | Action::Accept
+            | Action::Retry
+            | Action::Play(_)
+            | Action::Resume
+            | Action::Listing(_)
+    )
 }
 
 /// The shelf places stage seven's crafting offer may replace: the last two of
@@ -413,9 +428,10 @@ pub(super) fn tile(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
     tile
 }
 
-pub(super) fn confirmation(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
-    let lang = lang(kit);
-    let (text, valid, destructive) = match ui.confirmation.as_ref().expect("shown confirmation") {
+/// What a confirmation says, whether it may still be accepted, and whether it
+/// destroys something.
+fn confirming(ui: &Ui, lang: Lang) -> (String, bool, bool) {
+    match ui.confirmation.as_ref().expect("shown confirmation") {
         Confirmation::Listing(revision) => (
             Phrase::EchoesRankingConsent.text(lang).to_string(),
             !ui.model.uncertain()
@@ -445,7 +461,12 @@ pub(super) fn confirmation(commands: &mut Commands, root: Entity, kit: Kit, ui: 
                 Command::Abandon {} | Command::Sell { .. } | Command::SellCard { .. }
             ),
         ),
-    };
+    }
+}
+
+pub(super) fn confirmation(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
+    let lang = lang(kit);
+    let (text, valid, destructive) = confirming(ui, lang);
     let copy = commands
         .spawn((
             Node {

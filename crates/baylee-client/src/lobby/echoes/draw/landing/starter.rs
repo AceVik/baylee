@@ -104,7 +104,7 @@ fn starter_actions(
         Some(glyph::LIBRARY),
         Phrase::EchoesDeckCheck.text(lang),
         Weight::Secondary,
-        if !ui.model.mutating() && ui.confirmation.is_none() {
+        if !ui.holding() && ui.confirmation.is_none() {
             Live::Yes
         } else {
             Live::No(Phrase::EchoesUnavailable.text(lang))

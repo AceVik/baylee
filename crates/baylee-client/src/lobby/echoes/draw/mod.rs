@@ -34,7 +34,7 @@ mod widgets;
 mod words;
 use widgets::{
     IconTone, can, confirmation, control, featured_portrait, icon_control, mythic_slots, portrait,
-    tile,
+    sends_at_once, tile,
 };
 
 fn panel(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
@@ -129,7 +129,7 @@ fn header(commands: &mut Commands, hero: Entity, kit: Kit, ui: &Ui) {
         Some(glyph::ARROW_LEFT),
         Phrase::Back.text(lang),
         Weight::Secondary,
-        if ui.confirmation.is_none() && !ui.model.mutating() {
+        if ui.confirmation.is_none() && !ui.holding() {
             Live::Yes
         } else {
             Live::No(Phrase::EchoesUnavailable.text(lang))

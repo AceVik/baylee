@@ -110,7 +110,7 @@ pub(in crate::lobby) fn ask(state: &mut LobbyState, action: Action) {
         }
         return;
     }
-    if ui.model.mutating()
+    if ui.holding()
         || (ui.confirmation.is_some() && !matches!(action, Action::Accept | Action::Cancel))
         || ((ui.starter_preview.is_some() || ui.preview.is_some())
             && action != Action::ClosePreview)
@@ -453,6 +453,13 @@ pub(super) fn tick(
         super::builder::reconcile(&mut state, time.elapsed_secs_f64());
     }
     if !ready(&state) || state.echoes.model.busy() {
+        return;
+    }
+    // Decide with a shared reference first: a mutable borrow alone rebuilds the page.
+    if state.echoes.queued.is_some() {
+        if let Some(work) = state.echoes.release() {
+            submit(&mut state, work);
+        }
         return;
     }
     if let Some(run) = state.echoes.returning {
