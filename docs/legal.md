@@ -691,6 +691,42 @@ not a broader legal approval.
    tunes we must not echo, as directed intervals, and a test fails any score
    melody that shares six of them in a row. No game soundtrack, melody or
    recording from Wizards or Blizzard is used.
+
+   **The recorded soundtrack (18 November 2026).** Since this change the
+   client's default music theme ("Baylee soundtrack (recorded)",
+   `MusicTheme::Saga`) plays nine recordings instead of the synthesised
+   score: `title`, `lobby`, `combat`, `tower`, `victory`, `defeat`, `draw`,
+   `stinger_call` and `stinger_epic`, shipped as Ogg-Opus in
+   `art/baylee/score/out/` and embedded by `client-core::music::recorded`.
+   The synthesised score and its themes stay as they were, selectable in
+   Settings. The facts, and no stronger claim:
+   - The nine files are **AI-generated instrumental music**, made on 17–18
+     November 2026 with the owner's own paid account on Artlist's AI toolkit
+     (the model shown there as "Lyria 3 Pro"), from text prompts written for
+     this project. No reference audio and no third-party recording was given
+     to it.
+   - They are **not** Artlist catalog music. That catalogue's licence
+     excludes games without an enterprise licence, and it is not used.
+   - Artlist's Terms of Use (their AI output section, read 17 November 2026)
+     claim no ownership of AI output and do not restrict its commercial use.
+     AI-generated music may not be protectable by copyright. The underlying
+     model provider's own terms were not read. The outputs must not be used
+     to train AI models.
+   - The `originality` interval test (`art/music/avoid.json`) covers composed
+     note data only and **cannot** cover recordings; these files were not
+     checked against it.
+   - The untouched downloads are kept in `art/baylee/score/source/` (MP3).
+     What ships is cut and levelled from them with `ffmpeg`, by the commands
+     in `art/baylee/README.md`.
+   - The rule in `crates/baylee-client/CLAUDE.md` that the score plays never
+     a non-CC0 sample now has this one owner-requested exception (owner,
+     17.11.2026: new music for login, lobby, combat, result screens and the
+     Tower run, generated with the Artlist AI toolkit).
+   - The decoder is `opus-decoder` 0.1.1 (MIT OR Apache-2.0, pure Rust, no
+     FFI), the Ogg pages are read by our own code; neither ships audio of
+     its own.
+
+   This records the change; it is not a broader legal approval.
 6. **AGPL §13 — the network clause.** This is the one licence obligation the
    project's own architecture triggers, and it was written down nowhere.
    §13 says a user who interacts with a modified version of the program

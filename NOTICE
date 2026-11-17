@@ -145,3 +145,16 @@ art/music/memorial/instruments.json and README.md.
 The memorial photographs were supplied and authorized for this album by
 Baylee's owner. Generated memorial scenery and both Baylee logos use those
 references; see art/baylee/README.md for provenance.
+
+Recorded soundtrack (18 November 2026): the nine Ogg-Opus files in
+art/baylee/score/out/, the client's default music theme, are AI-generated
+instrumental music made on 17-18 November 2026 with the owner's own paid
+account on Artlist's AI toolkit (the model shown there as "Lyria 3 Pro"), from
+text prompts written for this project, with no reference audio and no
+third-party recording. They are not Artlist catalog music. Artlist's Terms of
+Use (AI output section, read 17 November 2026) claim no ownership of AI output
+and do not restrict commercial use; AI-generated music may not be protectable
+by copyright; the underlying model provider's own terms were not read. The
+outputs must not be used to train AI models. The untouched downloads are in
+art/baylee/score/source/; docs/legal.md section 5 is authoritative. They are
+decoded by opus-decoder (MIT OR Apache-2.0).
