@@ -55,8 +55,8 @@ pub struct CardTextEntry {
     /// @description Further printings of the card in the same language, newest
     /// first, each with a different text: where the served printing's line
     /// cannot stand for an ability, a client reads that line from the first of
-    /// these that can. At most `MAX_CANDIDATES` of them and
-    /// `MAX_CANDIDATE_BYTES` of text per card; absent when there are none.
+    /// these that can. At most 6 of them and 4096 bytes of their text per
+    /// card; absent when there are none.
     /// @internal
     /// Further printings in [`Self::lang`], for the lines the served one does
     /// not yield: newest first (the catalog's order), the served printing

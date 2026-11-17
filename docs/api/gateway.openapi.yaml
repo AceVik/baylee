@@ -6232,6 +6232,11 @@ components:
           items:
             $ref: "#/components/schemas/FaceText"
           description: The card's faces, in printed order.
+        candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/TextCandidate"
+          description: "Further printings of the card in the same language, newest first, each with a different text: where the served printing's line cannot stand for an ability, a client reads that line from the first of these that can. At most 6 of them and 4096 bytes of their text per card; absent when there are none."
       required:
       - scryfall_id
       - lang
@@ -10159,6 +10164,27 @@ components:
       - digest
       - markdown
       description: What `GET /terms` answers.
+    TextCandidate:
+      type: object
+      properties:
+        scryfall_id:
+          type: string
+          description: The printing's Scryfall id.
+        layout:
+          type: string
+          description: The printing's Scryfall layout.
+        printed:
+          type: array
+          items:
+            type:
+            - string
+            - "null"
+          description: >-
+            Each face's rules text as this printing has it, in face order; `null` on a face
+            it left untranslated.
+      required:
+      - scryfall_id
+      description: "Another printing of the card in the asked language: its layout and each face's rules text exactly as printed (`null` where it is not a translation)."
     TicketFor:
       type: object
       oneOf:

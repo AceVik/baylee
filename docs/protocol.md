@@ -553,17 +553,39 @@ names are pinned in that crate. It is the one type both ends link:
 ```
 
 **Text is a property of the card, not of a printing.** Asked by card, the
-gateway answers one entry per card it knows, and every face of it comes from
-one printing, so a modal double-faced card is never drawn from two. Which
-printing that is gets decided by `baylee_cardtext::pick` over all of the
-card's printings in `lang`, the same rule a client applies to what Scryfall
-tells it when there is no gateway:
+gateway answers one entry per card it knows. Its names, type lines and
+`faces` come from one printing, the *served* one, so a card face is never
+drawn from two. Which printing that is gets decided by
+`baylee_cardtext::pick` over all of the card's printings in `lang`, the same
+rule a client applies to what Scryfall tells it when there is no gateway:
 
 - a printing that is really translated (not `NULL`, not the Oracle's own
   words);
-- preferably one whose every face lines up with the Oracle;
+- preferably one whose every face lines up with the Oracle and none of whose
+  placed lines `baylee_cardtext::verify` refuses;
+- then one whose every face lines up;
 - then the newest;
 - then a tie-break that does not depend on row order.
+
+**The client's language first, from any printing; English last** (owner,
+17.11.2026). Beside the served printing, `candidates` carries the card's
+other printings in `lang`, newest first, each with a text no earlier one
+has (a printing that translated nothing is not one), at most
+`MAX_CANDIDATES` (6) of them and `MAX_CANDIDATE_BYTES` (4 KiB) of their
+text per card, cut a whole printing at a time. Each is
+`{"scryfall_id", "layout", "printed": [face, …]}`, `printed` as a face's is.
+It is absent when empty: under `en`, and where nothing was translated.
+
+A client draws a row (one Oracle line of one face) from **one printing
+where one suffices**: the first of the served printing and then the
+candidates in order whose every line of that face aligns and verifies.
+Only when no single printing yields every line of the face is each line
+taken from the first of them that yields that line. The English Oracle
+line is drawn only where none of them does. So a card printed in German
+reads German wherever any German printing of it pairs with the line, and a
+face that one printing covers is never read from two. The rule is
+`baylee_cardtext::localized_lines`; the hover face still shows the served
+printing's whole text.
 
 `printed` is that printing's text exactly as Scryfall has it, the input
 `baylee_cardtext::align` takes. **It is always the asked language and never
@@ -582,8 +604,9 @@ client has it compiled in (`baylee_cards::oracle`), and it is the text the
 line table was computed from. Aligning against a catalog's copy of it after
 an errata would move rows.
 
-A card the catalog lacks is not answered. The client falls back to Scryfall
-and to the compiled Oracle.
+A card the catalog lacks is not answered. The client asks Scryfall about
+that card (one card at a time, at the pace of its offline door), even while
+the gateway answers the rest, and draws the compiled Oracle until then.
 
 **By printing** is kept for clients that predate `oracle_ids`. Each id is
 answered with its card's entry under the id that was asked for, so an old
@@ -594,8 +617,9 @@ not answered either. The gateway used to fetch it from Scryfall and keep
 it, which made it a proxy for whoever asked; #270 took that out.
 
 `oracle_id`, `layout` and `printed` were added with `oracle_ids`, with serde
-defaults. A new client reads an old gateway's answer, and an old client,
-which refuses no unknown field, reads a new one. An old gateway refuses
+defaults, and `candidates` (17.11.2026) the same way. A new client reads an
+old gateway's answer, and an old client, which refuses no unknown field,
+reads a new one. An old gateway refuses
 `oracle_ids` alone with a 400 (it requires `ids`), and a new client takes
 that as no answer.
 

@@ -1798,9 +1798,12 @@ boundary.** The source is codegen, and what it emits is an *index* rather than
 the text: `crates/cards/src/generated_lines.rs` says, per card and per
 **face**, which printed sentence each ability came from, and
 `crates/cards/src/lines.rs` is the reader
-(`lines::ability_line(card, face, index)`). A client then splits the printed
-text of the printing and language its player chose and takes that sentence, so
-a loyalty ability draws as what it does instead of as `+1`.
+(`lines::ability_line(card, face, index)`). A client then takes that sentence
+from the card's text in its player's language, and a loyalty ability draws as
+what it does instead of as `+1`. The text is the card's and not a printing's:
+no player chooses a printing for it, and the line comes from whichever
+printing in that language yields it (below, and `docs/protocol.md` §"Card
+text").
 
 Three things about it are load-bearing. It is **generated**, because the
 answer is read out of the English oracle text against the compiled ability
@@ -1938,11 +1941,21 @@ changes.
 
 A face or a row never waits on that request. `CardTexts::face` falls to
 `cardtext::english` (the registry's name and cost, `pool::type_line`,
-`oracle::face`), and `cardtext::sentence` draws the served `printed` line
-where `baylee_cardtext::align` pairs it with the Oracle (placed once, when the
-entry is filed) and the Oracle's own line where it does not. An offline duel
-reads English on every card, and a translation that joins two lines costs
-that card its German and not its words — "Fallback ist immer englisch".
+`oracle::face`). `cardtext::sentence` draws **the player's language first,
+from any printing, and English last** (owner, 17.11.2026): the served
+printing and the entry's `candidates` (the card's other wordings in the
+language, newest first) are each placed against the compiled Oracle by
+`baylee_cardtext::align`, once, when the entry is filed, and
+`baylee_cardtext::localized_lines` keeps one sentence per line. A face one
+printing covers (every line aligns and `verify` keeps it) is read from that
+one, the served printing first; only a face no single printing covers takes
+each line from the first printing that yields it; and the Oracle's own line
+is drawn only where none does. So a German Mind Stone whose served wording
+glued its two lines still reads its other German printings' sentences
+before English. `CardTexts::face` (the hover's text face) still shows the
+served printing's whole text, so a row can read a wording the face beside it
+does not print. An offline duel reads English on every card until Scryfall
+answers — "Fallback ist immer englisch".
 
 The Scryfall door this replaced (`POST /cards/collection`, by printing id) is
 gone: a deck names English printings, so all it could fetch was the English
@@ -1954,8 +1967,12 @@ second at most, and a game is a guest there) before the next.
 `scryfall::printings` sorts the answer in the catalog's `ORDER BY` and
 `baylee_cardtext::card_entry` builds the entry, so it is the entry the gateway
 would have served. A 404 is an answer (no printing in the language); a failure
-closes this door until the next game as well. A gateway that answers from an
-English-only catalog is not second-guessed. The deck builder sends the same
+closes this door until the next game as well. A card a gateway answers
+*without* (its catalog lacks it) goes through this door too, at the same
+pace, while the gateway keeps answering the rest (`CardTexts::left_out`).
+A gateway that answers from an English-only catalog is not second-guessed.
+The door's cache document is named `…-scryfall-2` since its entries carry
+`candidates`, so a cache written before them is not read as final. The deck builder sends the same
 search (`scryfall::search`) and reads the answer through the same
 `scryfall::entry`, so the lobby, the game and the gateway pick a printing by
 one rule: where no printing in the language translates the rules text, the
