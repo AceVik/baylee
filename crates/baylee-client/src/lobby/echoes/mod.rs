@@ -98,6 +98,13 @@ pub(crate) enum Action {
 #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub(super) enum Confirmation {
     Listing(u64),
+    /// Enrolment shares the player's builds as echoes: the explanation of that
+    /// revision is shown and confirmed before the start request carries it.
+    Enrol {
+        cohort: Uuid,
+        starter: u8,
+        consent: u16,
+    },
     Withdrawal,
     Choice {
         run: Uuid,

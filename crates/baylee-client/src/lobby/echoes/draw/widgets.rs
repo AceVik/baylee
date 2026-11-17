@@ -428,6 +428,19 @@ pub(super) fn tile(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
     tile
 }
 
+/// The deck's number as the player saw it: its place among the account's
+/// offered starters (a drafted cohort offers three of a larger pool).
+fn shown_starter(ui: &Ui, cohort: Uuid, starter: u8) -> String {
+    ui.model
+        .cohorts()
+        .iter()
+        .find(|published| published.id == cohort)
+        .and_then(|published| published.offered.iter().position(|&s| s == starter))
+        .unwrap_or(usize::from(starter))
+        .saturating_add(1)
+        .to_string()
+}
+
 /// What a confirmation says, whether it may still be accepted, and whether it
 /// destroys something.
 fn confirming(ui: &Ui, lang: Lang) -> (String, bool, bool) {
@@ -445,6 +458,18 @@ fn confirming(ui: &Ui, lang: Lang) -> (String, bool, bool) {
             Phrase::EchoesWithdrawConfirm.text(lang).to_string(),
             !ui.model.uncertain(),
             true,
+        ),
+        Confirmation::Enrol {
+            cohort,
+            starter,
+            consent,
+        } => (
+            Phrase::EchoesConsent.fill(
+                lang,
+                &[&shown_starter(ui, *cohort, *starter), &consent.to_string()],
+            ),
+            !ui.model.uncertain() && *consent != 0 && *consent == ui.model.consent(),
+            false,
         ),
         Confirmation::Choice {
             run,

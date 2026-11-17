@@ -167,10 +167,13 @@ fn choose_work(ui: &mut Ui, action: Action) -> Option<Work> {
                     .iter()
                     .any(|c| c.id == cohort && usize::from(starter) < c.starters.len())
             {
-                ui.model.start(id, cohort, starter, ui.model.consent())
-            } else {
-                None
+                ui.confirmation = Some(Confirmation::Enrol {
+                    cohort,
+                    starter,
+                    consent: ui.model.consent(),
+                });
             }
+            None
         }
         Action::Accept => accept(ui, id),
         Action::Cancel => {
@@ -206,6 +209,12 @@ fn accept(ui: &mut Ui, id: Uuid) -> Option<Work> {
             ui.model.listing(id, true)
         }
         Some(Confirmation::Withdrawal) => ui.model.withdraw(id),
+        // The shown explanation must still be the one the authority asks for.
+        Some(Confirmation::Enrol {
+            cohort,
+            starter,
+            consent,
+        }) if consent == ui.model.consent() => ui.model.start(id, cohort, starter, consent),
         Some(Confirmation::Choice {
             run,
             revision,

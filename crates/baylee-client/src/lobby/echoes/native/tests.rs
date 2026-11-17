@@ -406,3 +406,36 @@ fn a_shop_press_during_a_read_waits_for_it_and_is_then_sent() {
     assert!(state.echoes.model.mutating(), "the waiting press went out");
     assert!(jobs.try_recv().is_ok());
 }
+
+#[test]
+fn enrolling_shows_the_echo_explanation_and_sends_consent_only_once_confirmed() {
+    let (handle, jobs) = central::Handle::queued_for_test();
+    let mut state = signed_in(handle);
+    let cohort = with_cohort(&mut state);
+    ask(&mut state, Action::Starter(cohort, 1));
+    assert!(
+        matches!(
+            state.echoes.confirmation,
+            Some(Confirmation::Enrol {
+                starter: 1,
+                consent: 1,
+                ..
+            })
+        ),
+        "the press asks before it enrols"
+    );
+    assert!(!state.echoes.model.busy());
+    assert!(!state.echoes.model.uncertain());
+    assert!(
+        jobs.try_recv().is_err(),
+        "nothing is sent on the first press"
+    );
+    ask(&mut state, Action::Cancel);
+    assert!(state.echoes.confirmation.is_none());
+    assert!(jobs.try_recv().is_err());
+    ask(&mut state, Action::Starter(cohort, 1));
+    ask(&mut state, Action::Accept);
+    assert!(state.echoes.confirmation.is_none());
+    assert!(state.echoes.model.uncertain(), "the start request is out");
+    assert!(jobs.try_recv().is_ok());
+}
