@@ -4706,6 +4706,14 @@ GrantedAbilities = Granted abilities
 # Rules text unavailable
 NoRulesTextHere = Rules text unavailable
 
+# Under what a token's text face can say: how many of its abilities have
+# no sentence written down in this build (the rest is shown).
+TokenAbilitiesUnwritten =
+    { $count ->
+        [one] { $count } more ability not written out here
+       *[other] { $count } more abilities not written out here
+    }
+
 # Startup and game preparation use the same original portal scene.
 ArrivalLogin = At the threshold
 

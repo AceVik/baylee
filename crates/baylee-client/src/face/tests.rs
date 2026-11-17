@@ -1658,6 +1658,73 @@ fn vanilla_and_verified_tokens_do_not_show_pending_rules_text() {
     );
 }
 
+/// A registry token's text face can be read on its own: it says it is a
+/// token, lists its keywords as a printed token does, gives Treasure, Clue
+/// and Blood their sentences, and never claims its rules are unavailable.
+#[test]
+fn a_registry_tokens_face_says_what_it_is_and_what_it_does() {
+    use baylee_client_core::test_support::token;
+    let texts = crate::cardtext::CardTexts::default();
+    let lang = texts.display_language();
+    let rules = |face: &CardFace| face.rules().map(str::to_string).collect::<Vec<_>>();
+    let shown = |def: &'static baylee_cards::dsl::TokenDef, types: TypeSet| {
+        let mut object = token(94, 0, def.name, 1, 1);
+        object.types = types;
+        object.status = baylee_view::ObjectStatus::TOKEN;
+        object.token = Some(baylee_cards::tokens::token_id(def));
+        of_object(&object, None, &texts)
+    };
+
+    let bat = shown(
+        &baylee_cards::generated_tokens::BAT_1_1_BLACK_FLYING,
+        TypeSet::CREATURE,
+    );
+    assert!(bat.type_line.starts_with("Token Creature"), "{}", bat.type_line);
+    assert_eq!(rules(&bat), ["Flying"]);
+    assert!(!bat.text_pending);
+
+    for (def, words) in [
+        (&baylee_cards::tokens::TREASURE, "Add one mana of any color."),
+        (&baylee_cards::tokens::CLUE, "{2}, Sacrifice this token: Draw a card."),
+        (&baylee_cards::tokens::BLOOD, "Discard a card"),
+    ] {
+        let face = shown(def, TypeSet::ARTIFACT);
+        assert!(face.type_line.starts_with("Token Artifact"), "{}", face.type_line);
+        assert!(
+            rules(&face).iter().any(|r| r.contains(words)),
+            "{}: {:?}",
+            def.name,
+            face.body
+        );
+        assert!(!face.text_pending, "{}", def.name);
+    }
+
+    // Two abilities, one sentence: said once.
+    let spirit = shown(
+        &baylee_cards::tokens::SPIRIT_1_1_COLORLESS_SPIRIT_COMBAT,
+        TypeSet::CREATURE,
+    );
+    assert_eq!(rules(&spirit).len(), 1, "{:?}", spirit.body);
+
+    // A token whose sentence is not written down shows what is known and
+    // counts the rest; it never says its rules are unavailable.
+    let brisela = shown(
+        &baylee_cards::tokens::BRISELA_VOICE_OF_NIGHTMARES,
+        TypeSet::CREATURE,
+    );
+    assert!(!brisela.text_pending);
+    assert_eq!(
+        rules(&brisela),
+        ["Flying, first strike, vigilance, lifelink"]
+    );
+    assert!(brisela.body.contains(&TextBlock::Reminder(
+        Phrase::TokenAbilitiesUnwritten.text_count(lang, 1)
+    )));
+
+    let mite = shown(&baylee_cards::tokens::PHYREXIAN_MITE_1_1, TypeSet::CREATURE);
+    assert_eq!(rules(&mite), ["This token can't block.", "Toxic 1"]);
+}
+
 #[test]
 fn tower_potion_emblem_has_rules_text_without_claiming_to_be_a_permanent_token() {
     let mut potion = baylee_client_core::test_support::token(93, 0, "Tower Healing Potion", 0, 0);
@@ -1671,4 +1738,5 @@ fn tower_potion_emblem_has_rules_text_without_claiming_to_be_a_permanent_token()
     let face = of_object(&potion, None, &crate::cardtext::CardTexts::default());
     assert!(!face.text_pending);
     assert!(face.body.iter().any(|b| b.text().contains("gain 5 life")));
+    assert!(!face.type_line.contains("Token"), "{}", face.type_line);
 }

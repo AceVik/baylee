@@ -1515,6 +1515,11 @@ OrLast = { $list } oder { $last }
 GrantedAbility = Verliehene Fähigkeit
 GrantedAbilities = Verliehene Fähigkeiten
 NoRulesTextHere = Regeltext nicht verfügbar
+TokenAbilitiesUnwritten =
+    { $count ->
+        [one] { $count } weitere Fähigkeit hier nicht ausgeschrieben
+       *[other] { $count } weitere Fähigkeiten hier nicht ausgeschrieben
+    }
 ArrivalLogin = An der Schwelle
 ArrivalTable = Ein Tisch. Eine neue Geschichte.
 ArrivalHeld = Die Reise wartet

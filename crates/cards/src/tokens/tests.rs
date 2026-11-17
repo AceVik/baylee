@@ -251,3 +251,53 @@ fn the_artifact_tokens_all_carry_their_printed_ability() {
         );
     }
 }
+
+/// A sentence row says each ability once, in order: a row one short leaves
+/// the last ability unsaid, and one long says a sentence no ability has.
+#[test]
+fn every_sentence_row_says_each_ability_once() {
+    for (token, sentences) in SENTENCES {
+        assert_eq!(
+            sentences.len(),
+            token.abilities.len(),
+            "{} has {} abilities and {} sentences",
+            token.name,
+            token.abilities.len(),
+            sentences.len()
+        );
+    }
+}
+
+/// The card tokens whose abilities a text face cannot say yet, by name. A
+/// token leaving this list is good news; one joining it is a token whose
+/// face shows a count where its rules should be — add its sentence from a
+/// source (`SENTENCES`) instead of widening this list. Tower items are
+/// excluded: their words are the run's own (`tower::ability_text`, and the
+/// client's `towerui::words` for a run's relics).
+#[test]
+fn only_the_known_card_tokens_have_an_unwritten_ability() {
+    let card_token_fallbacks = [
+        &SNAKE_1_1_ARTIFACT_POISON,
+        &JACE_PLANESWALKER_BLUE,
+        &TETRAVITE_1_1_COLORLESS_ARTIFACT_FLYING,
+        &WOLVES_OF_THE_HUNT_1_1_GREEN_WOLF,
+    ];
+    let tower = |t: &TokenDef| {
+        uses_documented_face_fallback(t)
+            && !card_token_fallbacks
+                .into_iter()
+                .any(|known| std::ptr::eq(t, known))
+    };
+    let mut unwritten: Vec<&str> = ALL
+        .iter()
+        .filter(|t| !tower(t))
+        .filter(|t| {
+            let id = token_id(t);
+            (0..t.abilities.len())
+                .any(|i| ability_text(id, u32::try_from(i).expect("few")).is_none())
+        })
+        .map(|t| t.name)
+        .collect();
+    unwritten.sort_unstable();
+    assert_eq!(unwritten, ["Brisela, Voice of Nightmares", "Jace"]);
+}

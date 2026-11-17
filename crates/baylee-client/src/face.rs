@@ -149,28 +149,25 @@ pub fn of_object(
     let card_face = card_of(object, view);
     let text = card_face.and_then(|(card, face)| texts.face(card, face));
     let mut face = CardFace::from_object(object, cost, printed.map(printed_types), text.as_ref());
+    let lang = texts.display_language();
     if text.is_none()
         && card_face.is_none()
         && (object.status.contains(baylee_view::ObjectStatus::TOKEN) || object.token.is_some())
     {
+        // A Tower potion is a registry object in the command zone and no
+        // permanent token (CR 111.1), so only a real token says "Token".
+        if object.status.contains(baylee_view::ObjectStatus::TOKEN) {
+            face.type_line = token_type_line(&face.type_line);
+        }
         if let Some(token_id) = object.token
             && let Some(token_def) = baylee_cards::tokens::by_token_id(token_id)
         {
-            for idx in 0..u32::try_from(token_def.abilities.len()).unwrap_or(0) {
-                if let Some(blocks) =
-                    crate::cardtext::token_sentence_in(token_id, idx, texts.display_language())
-                {
-                    face.body.extend(blocks);
-                }
-            }
-            if token_def.abilities.is_empty() || !face.body.is_empty() {
-                face.text_pending = false;
-            }
+            face.body = token_body(token_id, token_def, lang);
+            face.text_pending = false;
         } else if object.keywords == 0 && object.ability_sources.is_empty() {
             face.text_pending = false;
         }
     }
-    let lang = texts.display_language();
     for change in &object.word_changes {
         let kind = if change.basic_land_type {
             baylee_cards_dsl::TextWordKind::BasicLandType
@@ -188,6 +185,77 @@ pub fn of_object(
         }
     }
     face
+}
+
+/// A token's type line as a printed token card writes it: "Token Creature —
+/// Saproling" (CR 111.4 names the token; the card says so first).
+fn token_type_line(line: &str) -> String {
+    if line.starts_with("Token") {
+        line.to_string()
+    } else if line.is_empty() {
+        "Token".to_string()
+    } else {
+        format!("Token {line}")
+    }
+}
+
+/// What a registry token's rules box says: its keywords as a printed token
+/// card lists them, then each ability's sentence where the registry has one
+/// (`tokens::ability_text`, a Tower run's own words first), and for any it
+/// has none for, a quiet count instead of a claim that nothing is there.
+fn token_body(
+    token_id: u16,
+    token: &baylee_cards::dsl::TokenDef,
+    lang: Lang,
+) -> Vec<TextBlock> {
+    let mut body = token_keyword_lines(token.keywords)
+        .into_iter()
+        .map(TextBlock::Rules)
+        .collect::<Vec<_>>();
+    let mut unwritten = 0usize;
+    let mut said: Vec<Vec<TextBlock>> = Vec::new();
+    for idx in 0..u32::try_from(token.abilities.len()).unwrap_or(0) {
+        match crate::cardtext::token_sentence_in(token_id, idx, lang) {
+            // One sentence may cover two abilities (a Spirit that can
+            // neither block nor be blocked by non-Spirits): say it once.
+            Some(blocks) if said.last() != Some(&blocks) => said.push(blocks),
+            Some(_) => {}
+            None => unwritten += 1,
+        }
+    }
+    body.extend(said.into_iter().flatten());
+    if unwritten > 0 {
+        body.push(TextBlock::Reminder(
+            Phrase::TokenAbilitiesUnwritten.text_count(lang, unwritten),
+        ));
+    }
+    body
+}
+
+/// A token's keywords as its printed card lists them: the keywords on one
+/// line, joined by commas with the first capitalised ("Flying, first
+/// strike"), and each rule that has no keyword as its own sentence about
+/// "this token".
+fn token_keyword_lines(keywords: baylee_cards::dsl::KeywordSet) -> Vec<String> {
+    let mut words = Vec::new();
+    let mut sentences = Vec::new();
+    for word in keywords.printed_words() {
+        if word.ends_with('.') {
+            sentences.push(word.replacen("This creature", "This token", 1));
+        } else if words.is_empty() {
+            words.push(word.to_string());
+        } else {
+            let mut chars = word.chars();
+            let first = chars.next().map(|c| c.to_lowercase().collect::<String>());
+            words.push(first.unwrap_or_default() + chars.as_str());
+        }
+    }
+    let mut lines = Vec::new();
+    if !words.is_empty() {
+        lines.push(words.join(", "));
+    }
+    lines.extend(sentences);
+    lines
 }
 
 /// The three type bitsets a registry face was printed with.

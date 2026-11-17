@@ -599,45 +599,184 @@ pub fn by_token_id(id: u16) -> Option<&'static TokenDef> {
     ALL.get(id as usize).copied()
 }
 
+/// The printed sentence of each ability of the card tokens that have one, in
+/// the order of [`TokenDef::abilities`].
+///
+/// Sources, never memory: Food is Scryfall's ELD token 15
+/// (bf36408d-ed85-497f-8e68-d3a922c388a0, checked 2026-10-02); Powerstone,
+/// Vibranium and Junk the Scryfall records on their definitions (2026-10-11).
+/// Every other sentence is the one the compiled English Oracle
+/// (`generated_oracle.rs`) quotes for that token on the card that makes it —
+/// Treasure from Smothering Tithe's reminder ("They're artifacts with …"),
+/// Clue from investigate's, Blood from its makers', and so on (named beside
+/// each row) — or the doc comment's quotation of a meld face's own text.
+/// A token not in this table, or an index past its row, has no sentence:
+/// nothing here is invented.
+static SENTENCES: &[(&TokenDef, &[&str])] = &[
+    // Smothering Tithe and every Treasure maker's reminder.
+    (
+        &TREASURE,
+        &["{T}, Sacrifice this token: Add one mana of any color."],
+    ),
+    // Investigate's reminder (CR 701.16a).
+    (&CLUE, &["{2}, Sacrifice this token: Draw a card."]),
+    // Every Blood maker's reminder.
+    (
+        &BLOOD,
+        &["{1}, {T}, Discard a card, Sacrifice this token: Draw a card."],
+    ),
+    (&FOOD, &["{2}, {T}, Sacrifice this token: You gain 3 life."]),
+    (
+        &POWERSTONE,
+        &["{T}: Add {C}. This mana can't be spent to cast a nonartifact spell."],
+    ),
+    (
+        &VIBRANIUM,
+        &["{T}: Add {C}. This mana can't be spent to cast a nonartifact spell."],
+    ),
+    (
+        &MAP,
+        &[
+            "{1}, {T}, Sacrifice this artifact: Target creature you control explores. Activate only as a sorcery.",
+        ],
+    ),
+    (
+        &JUNK,
+        &[
+            "{T}, Sacrifice this artifact: Exile the top card of your library. You may play that card this turn. Activate only as a sorcery.",
+        ],
+    ),
+    (
+        &PILOT_1_1_COLORLESS,
+        &["This token saddles Mounts and crews Vehicles as though its power were 2 greater."],
+    ),
+    (
+        &SPIRIT_1_1_COLORLESS_SPIRIT_COMBAT,
+        &[
+            "This token can't block or be blocked by non-Spirit creatures.",
+            "This token can't block or be blocked by non-Spirit creatures.",
+        ],
+    ),
+    // Fable of the Mirror-Breaker, chapter I.
+    (
+        &GOBLIN_SHAMAN_2_2_RED,
+        &["Whenever this token attacks, create a Treasure token."],
+    ),
+    // Voice of Resurgence.
+    (
+        &ELEMENTAL_X_X_GREEN_WHITE,
+        &["This token's power and toughness are each equal to the number of creatures you control."],
+    ),
+    // Thousand Moons Smithy.
+    (
+        &GNOME_SOLDIER_WHITE_DYNAMIC,
+        &["This token's power and toughness are each equal to the number of artifacts and/or creatures you control."],
+    ),
+    // Mage Siege's Wizard.
+    (
+        &WIZARD_0_1_BLACK,
+        &["Whenever you cast a noncreature spell, this token deals 1 damage to each opponent."],
+    ),
+    // The Mite's maker: "toxic 1 and \"This token can't block.\"".
+    (&PHYREXIAN_MITE_1_1, &["Toxic 1"]),
+    // Serpent Generator.
+    (
+        &SNAKE_1_1_ARTIFACT_POISON,
+        &["Whenever this creature deals damage to a player, that player gets a poison counter."],
+    ),
+    // Tetravus.
+    (&TETRAVITE_1_1_COLORLESS_ARTIFACT_FLYING, &["This token can't be enchanted."]),
+    // Master of the Hunt.
+    (
+        &WOLVES_OF_THE_HUNT_1_1_GREEN_WOLF,
+        &["Bands with other creatures named Wolves of the Hunt."],
+    ),
+    // The meld face's own text, as its definition quotes it.
+    (
+        &HANWEIR_THE_WRITHING_TOWNSHIP,
+        &["Whenever Hanweir, the Writhing Township attacks, create two 3/2 colorless Eldrazi Horror creature tokens that are tapped and attacking."],
+    ),
+    // Generated tokens, each quoted by the card that makes it.
+    // Eldrazi Spawn: Awakening Zone and every Spawn maker.
+    (
+        &crate::generated_tokens::ELDRAZI_SPAWN_0_1,
+        &["Sacrifice this token: Add {C}."],
+    ),
+    // Eldrazi Scion: every Scion maker.
+    (
+        &crate::generated_tokens::ELDRAZI_SCION_1_1,
+        &["Sacrifice this token: Add {C}."],
+    ),
+    // Choco-Comet's Bird.
+    (
+        &crate::generated_tokens::BIRD_2_2_GREEN,
+        &["Whenever a land you control enters, this token gets +1/+0 until end of turn."],
+    ),
+    // Triskelavus.
+    (
+        &crate::generated_tokens::TRISKELAVITE_ARTIFACT_1_1_FLYING,
+        &["Sacrifice this token: This token deals 1 damage to any target."],
+    ),
+    // The card that names its token Festering Goblin.
+    (
+        &crate::generated_tokens::FESTERING_GOBLIN_1_1_BLACK,
+        &["When this token dies, target creature gets -1/-1 until end of turn."],
+    ),
+    // The card that names its token Goldmeadow Harrier.
+    (
+        &crate::generated_tokens::GOLDMEADOW_HARRIER_1_1_WHITE,
+        &["{W}, {T}: Tap target creature."],
+    ),
+    // The card that names its token Llanowar Elves.
+    (
+        &crate::generated_tokens::LLANOWAR_ELVES_1_1_GREEN,
+        &["{T}: Add {G}."],
+    ),
+    // Every Pest maker.
+    (
+        &crate::generated_tokens::PEST_1_1_BLACK_GREEN,
+        &["When this token dies, you gain 1 life."],
+    ),
+    // A Gold maker's reminder.
+    (
+        &crate::generated_tokens::GOLD,
+        &["Sacrifice this token: Add one mana of any color."],
+    ),
+    // Every Devil maker.
+    (
+        &crate::generated_tokens::DEVIL_1_1_RED,
+        &["When this token dies, it deals 1 damage to any target."],
+    ),
+    // The Defender whose death makes a firebreathing Dragon.
+    (
+        &crate::generated_tokens::DRAGON_2_2_RED_FLYING,
+        &["{R}: This token gets +1/+0 until end of turn."],
+    ),
+    // Falcon's Redwing.
+    (
+        &crate::generated_tokens::REDWING_LEGENDARY_1_1_BLUE_FLYING,
+        &["Whenever Redwing attacks, surveil 1."],
+    ),
+    // The Wizard maker's quotation.
+    (
+        &crate::generated_tokens::WIZARD_1_1_BLUE,
+        &["{1}, Sacrifice this token: Counter target noncreature spell unless its controller pays {1}."],
+    ),
+];
+
 /// Ability text for registry objects, indexed by the DSL list. Tower supplies
-/// use explicitly original rules; card tokens use verified printed sentences.
-/// Food: Scryfall ELD token 15, bf36408d-ed85-497f-8e68-d3a922c388a0,
-/// checked 2026-10-02. Powerstone, Vibranium and Junk: the Scryfall records
-/// on their definitions, checked 2026-10-11. Unknown pairs have no invented sentence.
+/// use explicitly original rules; card tokens the printed sentences in
+/// [`SENTENCES`]. Unknown pairs have no invented sentence.
 #[must_use]
 pub fn ability_text(id: u16, index: u32) -> Option<&'static str> {
     let token = by_token_id(id)?;
     if let Some(text) = tower::ability_text(token, index) {
         return Some(text);
     }
-    if index < 2 && std::ptr::eq(token, &raw const SPIRIT_1_1_COLORLESS_SPIRIT_COMBAT) {
-        return Some("This token can't block or be blocked by non-Spirit creatures.");
-    }
-    if index != 0 {
-        return None;
-    }
-    if std::ptr::eq(token, &raw const PILOT_1_1_COLORLESS) {
-        return Some(
-            "This token saddles Mounts and crews Vehicles as though its power were 2 greater.",
-        );
-    }
-    if std::ptr::eq(token, &raw const FOOD) {
-        Some("{2}, {T}, Sacrifice this token: You gain 3 life.")
-    } else if std::ptr::eq(token, &raw const POWERSTONE)
-        || std::ptr::eq(token, &raw const VIBRANIUM)
-    {
-        Some("{T}: Add {C}. This mana can't be spent to cast a nonartifact spell.")
-    } else if std::ptr::eq(token, &raw const MAP) {
-        Some(
-            "{1}, {T}, Sacrifice this artifact: Target creature you control explores. Activate only as a sorcery.",
-        )
-    } else if std::ptr::eq(token, &raw const JUNK) {
-        Some(
-            "{T}, Sacrifice this artifact: Exile the top card of your library. You may play that card this turn. Activate only as a sorcery.",
-        )
-    } else {
-        None
-    }
+    let (_, sentences) = SENTENCES
+        .iter()
+        .find(|(known, _)| std::ptr::eq(*known, token))?;
+    sentences.get(usize::try_from(index).ok()?).copied()
 }
 
 #[cfg(test)]
