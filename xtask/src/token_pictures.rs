@@ -68,7 +68,7 @@ pub(crate) struct Choice {
 /// What became of one generated token.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Outcome {
-    Matched(Choice),
+    Matched(Box<Choice>),
     Unmatched {
         token: u16,
         name: &'static str,
@@ -111,12 +111,11 @@ pub(crate) fn printed_from_mtgjson(token: &Value, released: &str) -> Option<Prin
         type_line: text("type").unwrap_or_default(),
         colors: token["colors"]
             .as_array()
-            .map(|c| {
+            .map_or_default(|c| {
                 c.iter()
                     .filter_map(|v| v.as_str().map(str::to_string))
                     .collect()
-            })
-            .unwrap_or_default(),
+            }),
         power: text("power"),
         toughness: text("toughness"),
         loyalty: text("loyalty"),
@@ -292,11 +291,11 @@ fn outcome(id: u16, token: &'static TokenDef, named: Option<&[&Printed]>) -> Out
             .then_with(|| a.scryfall_id.cmp(&b.scryfall_id))
     });
     match fits.first() {
-        Some(best) => Outcome::Matched(Choice {
+        Some(best) => Outcome::Matched(Box::new(Choice {
             token: id,
             name: token.name,
             printed: (*best).clone(),
-        }),
+        })),
         None => unmatched(format!(
             "{} printed {}, none matches: {}",
             named.len(),
@@ -368,7 +367,7 @@ pub(crate) fn run(root: &Path, archive: Option<&Path>, write: bool) -> anyhow::R
     let choices: Vec<&Choice> = outcomes
         .iter()
         .filter_map(|o| match o {
-            Outcome::Matched(c) => Some(c),
+            Outcome::Matched(c) => Some(&**c),
             Outcome::Unmatched { .. } => None,
         })
         .collect();
