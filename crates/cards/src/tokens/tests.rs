@@ -33,6 +33,10 @@ fn uses_documented_face_fallback(token: &TokenDef) -> bool {
     .into_iter()
     .chain(tower::LIFE_RELICS.into_iter().flatten())
     .chain(tower::GROWTH_RELICS.into_iter().flatten())
+    // A run's relics are original items with no printed token to borrow:
+    // the hand-written families and the runic catalog alike.
+    .chain(tower::run::RUN_RELICS.into_iter().flatten())
+    .chain(tower::run::RELICS.into_iter().flatten())
     .any(|fallback| std::ptr::eq(token, fallback))
 }
 
@@ -55,6 +59,14 @@ fn every_token_written_here_has_an_id_in_the_ledger() {
         .chain(include_str!("tower/banner.rs").lines())
         .chain(include_str!("tower/harvest.rs").lines())
         .chain(include_str!("tower/roots.rs").lines())
+        // The same files, in the same order, as the ledger's writer reads
+        // (`xtask/src/tables.rs`): a file named there and not here is a
+        // ledger row this test calls undeclared.
+        .chain(include_str!("tower/run/opening.rs").lines())
+        .chain(include_str!("tower/run/vitality.rs").lines())
+        .chain(include_str!("tower/run/growth.rs").lines())
+        .chain(include_str!("tower/run/arcane.rs").lines())
+        .chain(include_str!("tower/run/runic/generated.rs").lines())
         .filter_map(|line| {
             line.trim()
                 .strip_prefix("pub static ")?
