@@ -55,7 +55,7 @@ fn enabled_item_details_follow_keyboard_focus_remain_idle_and_leave_no_orphan() 
         .map(|t| t.0.clone())
         .collect();
     assert!(texts.iter().any(|t| t == "Gilded Acorn"));
-    assert!(texts.iter().any(|t| t == "Mythic Rare"));
+    assert!(texts.iter().any(|t| t == "Mythic"));
     assert!(!texts.iter().any(|t| t.contains("Gilded Acorn ·")));
 
     app.world_mut()

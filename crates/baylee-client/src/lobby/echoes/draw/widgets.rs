@@ -364,7 +364,7 @@ fn portrait_at(commands: &mut Commands, root: Entity, kit: Kit, goods: Goods, si
             commands,
             copy,
             kit,
-            words::rarity(definition.rarity),
+            words::rarity(definition.rarity, lang(kit)),
             tokens::MUTED,
         );
     }

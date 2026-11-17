@@ -70,7 +70,7 @@ fn price(
             commands,
             band,
             kit,
-            words::rarity(definition.rarity),
+            words::rarity(definition.rarity, lang(kit)),
             tokens::MUTED,
         );
     }

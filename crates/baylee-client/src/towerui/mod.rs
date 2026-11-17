@@ -333,7 +333,7 @@ fn detail(commands: &mut Commands, kit: Kit, item: &Item<'_>, live: Live<'_>) ->
     ));
     commands.entity(title_col).add_child(name_node);
 
-    let rarity_sub = words::rarity_subline(item.goods);
+    let rarity_sub = words::rarity_subline(item.goods, lang);
     let limit_tag = words::activation_limit_tag(item.goods, lang);
     if rarity_sub.is_some() || limit_tag.is_some() {
         let meta_row = commands

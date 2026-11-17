@@ -256,7 +256,7 @@ fn tower_item_ability_sheet_separates_rarity_from_name_and_shows_portrait() {
     );
     assert!(!title.contains('·'), "title must not contain '·': {title}");
     assert!(!title.contains("Rare"));
-    assert_eq!(subtitle.as_deref(), Some("Rare"));
+    assert_eq!(subtitle.as_deref(), Some("Selten"), "the rarity speaks German");
     assert_eq!(goods, Some(Goods::Relic(def)));
 
     let mut world = World::new();
@@ -309,7 +309,7 @@ fn tower_item_ability_sheet_separates_rarity_from_name_and_shows_portrait() {
     assert!(
         texts
             .iter()
-            .any(|(t, c)| t == "Rare" && *c == palette::MUTED),
+            .any(|(t, c)| t == "Selten" && *c == palette::MUTED),
         "rarity rendered on a separate muted subtext line: {texts:?}"
     );
     assert!(

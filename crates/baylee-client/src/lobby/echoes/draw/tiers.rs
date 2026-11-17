@@ -55,7 +55,7 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, sel
                 node.align_items = AlignItems::Center;
             });
         merchandise::image(commands, title, kit, Goods::Relic(definition), 40.0);
-        label(commands, title, kit, words::rarity(rarity), tokens::INK);
+        label(commands, title, kit, words::rarity(rarity, lang(kit)), tokens::INK);
         widgets::paragraph(
             commands,
             tier,

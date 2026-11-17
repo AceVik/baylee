@@ -119,7 +119,7 @@ fn group_header(
     match order {
         workshop::Order::Rarity => (
             u32::from(item.definition.rarity.tier()),
-            words::rarity(item.definition.rarity).to_owned(),
+            words::rarity(item.definition.rarity, lang).to_owned(),
             towerui::color(goods),
         ),
         workshop::Order::Value => {

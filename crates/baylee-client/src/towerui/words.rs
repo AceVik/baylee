@@ -35,9 +35,14 @@ pub(super) fn strip_command_zone(text: &str) -> String {
 /// strips any legacy `" · Common"` .. `" · Mythic Rare"` suffix if a caller
 /// passed a combined string, returning only the clean primary item title.
 pub(crate) fn clean_title(raw: &str) -> &str {
-    for r in Rarity::ALL {
+    // The legacy suffix was always English; a localized one is stripped too.
+    let legacy = ["Common", "Uncommon", "Rare", "Mythic Rare"];
+    let localized = [Lang::En, Lang::De]
+        .into_iter()
+        .flat_map(|lang| Rarity::ALL.map(|r| rarity(r, lang)));
+    for label in legacy.into_iter().chain(localized) {
         if let Some(prefix) = raw
-            .strip_suffix(rarity(r))
+            .strip_suffix(label)
             .and_then(|s| s.strip_suffix(" · "))
         {
             return prefix;
@@ -69,22 +74,24 @@ pub(crate) fn goods(goods: Goods, lang: Lang) -> String {
     name(goods, lang)
 }
 
-pub(crate) const fn rarity(rarity: Rarity) -> &'static str {
+/// A rarity's name in the interface's language (the deck builder's words).
+pub(crate) fn rarity(rarity: Rarity, lang: Lang) -> &'static str {
     match rarity {
-        Rarity::Common => "Common",
-        Rarity::Uncommon => "Uncommon",
-        Rarity::Rare => "Rare",
-        Rarity::MythicRare => "Mythic Rare",
+        Rarity::Common => Phrase::RarityCommon,
+        Rarity::Uncommon => Phrase::RarityUncommon,
+        Rarity::Rare => Phrase::RarityRare,
+        Rarity::MythicRare => Phrase::RarityMythic,
     }
+    .text(lang)
 }
 
 /// Secondary rarity subline for an item's detail header (`None` for ordinary
 /// single-use potions and card offers that carry no relic tier).
 #[must_use]
-pub(crate) const fn rarity_subline(goods: Goods) -> Option<&'static str> {
+pub(crate) fn rarity_subline(goods: Goods, lang: Lang) -> Option<&'static str> {
     match goods {
-        Goods::Relic(definition) => Some(rarity(definition.rarity)),
-        Goods::Mythic => Some(rarity(Rarity::MythicRare)),
+        Goods::Relic(definition) => Some(rarity(definition.rarity, lang)),
+        Goods::Mythic => Some(rarity(Rarity::MythicRare, lang)),
         Goods::Potion(_) | Goods::Card(_) => None,
     }
 }

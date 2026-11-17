@@ -247,11 +247,7 @@ pub(super) fn sheet_heading(
         .and_then(crate::itemart::identity::run_source)
     {
         let title = crate::towerui::words::name(goods, lang);
-        let subtitle = match goods {
-            Goods::Relic(def) => Some(crate::towerui::words::rarity(def.rarity).to_string()),
-            Goods::Mythic => Some(crate::towerui::words::rarity(Rarity::MythicRare).to_string()),
-            Goods::Potion(_) | Goods::Card(_) => None,
-        };
+        let subtitle = crate::towerui::words::rarity_subline(goods, lang).map(str::to_owned);
         return (title, subtitle, Some(goods));
     }
 
@@ -261,9 +257,17 @@ pub(super) fn sheet_heading(
             .or_else(|| crate::face::face_name(object, 0, view, Some(faces)))
             .unwrap_or_default()
     });
+    // A legacy name carries its rarity in English after a middle dot.
     if let Some((title, tail)) = raw.rsplit_once(" \u{b7} ")
-        && matches!(tail, "Common" | "Uncommon" | "Rare" | "Mythic Rare")
+        && let Some(rarity) = match tail {
+            "Common" => Some(Rarity::Common),
+            "Uncommon" => Some(Rarity::Uncommon),
+            "Rare" => Some(Rarity::Rare),
+            "Mythic Rare" => Some(Rarity::MythicRare),
+            _ => None,
+        }
     {
+        let tail = crate::towerui::words::rarity(rarity, lang);
         return (title.to_string(), Some(tail.to_string()), None);
     }
     (raw, None, None)
