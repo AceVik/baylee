@@ -55,6 +55,16 @@ impl Store {
             .get(usize::from(starter))
             .ok_or(Refusal::Invalid)?
             .clone();
+        // A run nobody touched until it expired can be neither read nor
+        // abandoned any more (every owner path filters on `expires_at`), so
+        // it must not hold the cohort's one active place: retire it here,
+        // under the owner lock, before asking whether a run is active.
+        tx.execute_raw(self.statement(
+            "UPDATE @tower.runs SET active=false WHERE account=$1 AND cohort=$2 AND active AND expires_at<=pg_catalog.clock_timestamp()",
+            vec![account.into(), cohort.into()],
+        ))
+        .await
+        .map_err(|_| Error::Unavailable)?;
         if tx
             .query_one_raw(self.statement(
                 "SELECT id FROM @tower.runs WHERE account=$1 AND cohort=$2 AND active",
