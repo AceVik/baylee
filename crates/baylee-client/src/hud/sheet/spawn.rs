@@ -238,7 +238,7 @@ pub(super) fn sheet_heading(
     Option<String>,
     Option<baylee_client_core::echoes::domain::v2::shop::Goods>,
 ) {
-    use baylee_client_core::echoes::domain::v2::{catalog::Rarity, shop::Goods};
+    use baylee_client_core::echoes::domain::v2::catalog::Rarity;
 
     if let Some(goods) = duel
         .view
