@@ -30,7 +30,7 @@ pub(super) fn prepare(
     .unwrap();
     let build = Build::freeze(&opponent, catalog).unwrap();
     for round in 0..rounds {
-        run = settle(run, catalog, &publication.cohort, &build, outcome);
+        run = settle(&run, catalog, &publication.cohort, &build, outcome);
         if round + 1 != rounds {
             let reward = run.reward.as_ref().unwrap();
             let chosen = reward
@@ -55,9 +55,9 @@ pub(super) fn prepare(
     run
 }
 
-fn settle(run: Run, catalog: &Catalog, cohort: &Cohort, build: &Build, outcome: Outcome) -> Run {
+fn settle(run: &Run, catalog: &Catalog, cohort: &Cohort, build: &Build, outcome: Outcome) -> Run {
     let reserved = Package::reserve(
-        &run,
+        run,
         run.revision,
         catalog,
         cohort,
