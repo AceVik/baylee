@@ -910,6 +910,15 @@ async fn gateway_record(
     }))
 }
 
+/// Whether `game`'s engine is one a flush must not be asked of: a Tower
+/// engine's control link carries its seat's frames and the close, and it
+/// ends the duel on anything else.
+fn flushes_nothing(game: &crate::lobby::LobbyGame) -> bool {
+    game.execution
+        .as_ref()
+        .is_some_and(|identity| identity.variant == baylee_protocol::execution::Variant::Tower)
+}
+
 /// Asks the engine of `game_id` for its record as it stands and waits, up to
 /// [`FLUSH_WAIT`], until what it sent is stored (#323), when `reporter`
 /// sits at that game (its account's chair, or the delegate's) and it goes
@@ -929,6 +938,11 @@ async fn flush_record(state: &Shared, game_id: &str, reporter: &Reporter<'_>) ->
             .games
             .get(game_id)
             .filter(|game| game.seats.iter().any(|chair| reporter.sat_in(chair)))
+            // A Tower engine keeps its record with the Tower's authority and
+            // takes seat frames and the close only: any other frame is a
+            // direction it refuses by ending the duel, so a report filed
+            // from a Tower table asks nothing.
+            .filter(|game| !flushes_nothing(game))
             .and_then(|game| game.engine.clone())
     };
     let Some(engine) = engine else {
@@ -995,6 +1009,24 @@ mod tests {
             hex(&hmac_sha256(&key, b"what do ya want for nothing?")),
             "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
         );
+    }
+
+    /// A Tower engine refuses every frame but its seat's and the close by
+    /// ending the duel, so a report from a Tower table must not ask it to
+    /// flush; every other table still is asked.
+    #[test]
+    fn a_tower_table_is_never_asked_to_flush() {
+        use baylee_protocol::execution::{Identity, Variant};
+        let mut game = crate::lobby::LobbyGame::blank("game".into(), 0);
+        assert!(!flushes_nothing(&game), "a table with no reserved artifact");
+        for (variant, spared) in [
+            (Variant::Standard, false),
+            (Variant::StandardLoops, false),
+            (Variant::Tower, true),
+        ] {
+            game.execution = Some(Identity::native(variant, "build", "revision", 1));
+            assert_eq!(flushes_nothing(&game), spared, "{variant:?}");
+        }
     }
 
     #[allow(clippy::needless_pass_by_value)] // the callers build the values in place
