@@ -132,6 +132,12 @@ a fixed diagnostic containing no input. A failed preflight never changes state.
 
 All IDs must be UUIDv7. There is no arbitrary SQL, script, state patch, currency
 grant, award injection, unrevocation, content rewrite or reopening operation.
+
+The service's verification queue quarantines a job whose settlement is refused
+(for example a spent receipt quota) or whose bounded claims are all spent, and
+waits out a passing store fault with a pause doubling from one second to one
+minute. Only a revoked worker credential, an executor mismatch or an
+incompatible schema stops the service.
 No output includes a database URL, credential or private house build. The binary
 returns only the closed results above. A lost response is resolved by retrying the
 exact command; never substitute a fresh credential merely because a reply was lost.

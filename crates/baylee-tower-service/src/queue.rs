@@ -1,7 +1,9 @@
 //! Durable ready-queue execution. Polling is authority transport, never game rules.
 use crate::{Artifact, Error, Verifier};
-use baylee_tower::v2::verification::Resources;
-use baylee_tower_store::{Principal, Role, Snapshot, Store, VerificationFailure};
+use baylee_tower::{Refusal, v2::verification::Resources};
+use baylee_tower_store::{
+    Error as StoreError, Principal, Role, Snapshot, Store, VerificationFailure,
+};
 use std::{future::Future, sync::Arc, time::Duration};
 use tokio::sync::Semaphore;
 use uuid::Uuid;
@@ -46,6 +48,8 @@ pub struct QueueSummary {
     pub recovered: u64,
     /// Expired executions retained for explicit supervision after automatic retries.
     pub execution_quarantined: u64,
+    /// Passing store faults the worker waited out instead of stopping.
+    pub faults: u64,
 }
 
 impl Queue {
@@ -92,7 +96,7 @@ impl Queue {
         let ready = tokio::select! {
             biased;
             () = &mut stop => return Err(Error::Cancelled),
-            ready = self.store.verification_candidates(&self.verifier, cohort, 1) => ready?,
+            ready = self.store.verification_candidates(&self.verifier, cohort, 1) => ready.map_err(discovery)?,
         };
         let Some(&reservation) = ready.first() else {
             return Ok(QueueResult::Idle);
@@ -104,9 +108,27 @@ impl Queue {
         };
         let job = match job {
             Ok(job) => job,
-            Err(baylee_tower_store::Error::Refused(
-                baylee_tower::Refusal::Unavailable | baylee_tower::Refusal::Stale,
-            )) => return Ok(QueueResult::Idle),
+            Err(
+                StoreError::NotFound | StoreError::Refused(Refusal::Unavailable | Refusal::Stale),
+            ) => return Ok(QueueResult::Idle),
+            // Every bounded claim was spent: it heads the queue until isolated.
+            Err(StoreError::Refused(Refusal::Capacity)) => {
+                return match self
+                    .store
+                    .quarantine_unclaimable(&self.supervisor, reservation)
+                    .await
+                {
+                    Ok(snapshot) => Ok(QueueResult::Quarantined {
+                        snapshot,
+                        reason: VerificationFailure::Budget,
+                    }),
+                    Err(
+                        StoreError::NotFound
+                        | StoreError::Refused(Refusal::Unavailable | Refusal::Stale),
+                    ) => Ok(QueueResult::Idle),
+                    Err(error) => Err(error.into()),
+                };
+            }
             Err(error) => return Err(error.into()),
         };
         // An operator misconfiguration cannot quarantine valid evidence just
@@ -121,11 +143,10 @@ impl Queue {
             .await
         {
             Ok(snapshot) => return Ok(QueueResult::Settled(snapshot)),
-            Err(Error::Record) => VerificationFailure::InvalidRecord,
-            Err(Error::Budget) => VerificationFailure::Budget,
-            Err(Error::Process) => VerificationFailure::Worker,
-            Err(Error::Contract) => VerificationFailure::Protocol,
-            Err(error) => return Err(error),
+            Err(error) => match failure(error)? {
+                Some(reason) => reason,
+                None => return Ok(QueueResult::Idle),
+            },
         };
         // Once work failed, finish the bounded recovery transaction even if
         // shutdown arrives now. A changed generation still prevents mutation.
@@ -137,8 +158,11 @@ impl Queue {
     }
 
     /// Automatically consume the durable queue; idle polling is bounded to once
-    /// per second. Shutdown awaits owned-process cleanup. Store/config errors stop
-    /// this worker visibly instead of hot-looping or synthesizing a game result.
+    /// per second. Shutdown awaits owned-process cleanup. Only a revoked worker
+    /// credential, an executor/configuration mismatch or an incompatible schema
+    /// stops this worker (and with it the service) visibly. One job's refusal is
+    /// quarantined, and a passing store fault waits a bounded, doubling pause:
+    /// neither stops verification for everyone else.
     /// # Errors
     /// Authority access/configuration failure; retained jobs remain recoverable.
     pub async fn serve(
@@ -148,7 +172,9 @@ impl Queue {
     ) -> Result<QueueSummary, Error> {
         tokio::pin!(stop);
         let mut summary = QueueSummary::default();
+        let mut failures = 0_u32;
         loop {
+            let mut faulted = false;
             match self.recover_one(cohort, &mut stop).await {
                 Ok(Expiration::Resumed) => summary.recovered = summary.recovered.saturating_add(1),
                 Ok(Expiration::Quarantined) => {
@@ -156,21 +182,88 @@ impl Queue {
                 }
                 Ok(Expiration::Idle) => {}
                 Err(Error::Cancelled) => return Ok(summary),
-                Err(error) => return Err(error),
+                Err(error) if fatal(error) => return Err(error),
+                Err(_) => faulted = true,
             }
-            match self.next(cohort, &mut stop).await {
-                Ok(QueueResult::Settled(_)) => summary.settled = summary.settled.saturating_add(1),
+            let idle = match self.next(cohort, &mut stop).await {
+                Ok(QueueResult::Settled(_)) => {
+                    summary.settled = summary.settled.saturating_add(1);
+                    false
+                }
                 Ok(QueueResult::Quarantined { .. }) => {
                     summary.quarantined = summary.quarantined.saturating_add(1);
+                    false
                 }
-                Ok(QueueResult::Idle) | Err(Error::Busy) => tokio::select! {
-                    biased;
-                    () = &mut stop => return Ok(summary),
-                    () = tokio::time::sleep(Duration::from_secs(1)) => {},
-                },
+                Ok(QueueResult::Idle) | Err(Error::Busy) => true,
                 Err(Error::Cancelled) => return Ok(summary),
-                Err(error) => return Err(error),
+                Err(error) if fatal(error) => return Err(error),
+                Err(_) => {
+                    faulted = true;
+                    true
+                }
+            };
+            let pause = if faulted {
+                summary.faults = summary.faults.saturating_add(1);
+                failures = failures.saturating_add(1);
+                backoff(failures)
+            } else {
+                failures = 0;
+                if !idle {
+                    continue;
+                }
+                Duration::from_secs(1)
+            };
+            tokio::select! {
+                biased;
+                () = &mut stop => return Ok(summary),
+                () = tokio::time::sleep(pause) => {},
             }
         }
     }
 }
+
+/// A discovery query that cannot find this worker's own role means the
+/// operator revoked its credential: configuration, not one player's job.
+fn discovery(error: StoreError) -> Error {
+    match error {
+        StoreError::NotFound => Error::Contract,
+        other => other.into(),
+    }
+}
+
+/// Failures that no amount of waiting repairs: they stop the service visibly.
+const fn fatal(error: Error) -> bool {
+    matches!(error, Error::Contract | Error::Store(StoreError::Schema))
+}
+
+/// One second after the first fault, doubling to at most one minute.
+fn backoff(failures: u32) -> Duration {
+    Duration::from_secs(1_u64 << failures.saturating_sub(1).min(6)).min(Duration::from_secs(60))
+}
+
+/// What a claimed job's failed adjudication leaves: a quarantine reason when
+/// this job's own evidence or settlement was refused, `None` when the claim
+/// was lost to a newer generation, or an error the queue retries later.
+fn failure(error: Error) -> Result<Option<VerificationFailure>, Error> {
+    Ok(Some(match error {
+        Error::Record => VerificationFailure::InvalidRecord,
+        Error::Budget | Error::Store(StoreError::Refused(Refusal::Capacity)) => {
+            VerificationFailure::Budget
+        }
+        Error::Process => VerificationFailure::Worker,
+        // The settlement itself was refused for this job: replaying it again
+        // would be refused again, so retain it for recovery instead.
+        Error::Contract
+        | Error::Store(
+            StoreError::Conflict
+            | StoreError::Refused(Refusal::Invalid | Refusal::Gold | Refusal::Unavailable),
+        ) => VerificationFailure::Protocol,
+        Error::Store(StoreError::NotFound | StoreError::Refused(Refusal::Stale)) => {
+            return Ok(None);
+        }
+        error @ (Error::Cancelled | Error::Busy | Error::Store(_)) => return Err(error),
+    }))
+}
+
+#[cfg(test)]
+mod tests;

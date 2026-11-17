@@ -115,6 +115,60 @@ async fn queue_quarantines_failed_evidence_without_awarding_or_harming_new_gener
     observed.expect("failed verification was fenced without a fabricated outcome");
 }
 
+#[tokio::test]
+async fn one_player_s_refused_settlement_neither_stops_nor_blocks_the_queue() {
+    let sandbox = Sandbox::open().await;
+    let observed = checked(async {
+        let store = &sandbox.store;
+        let refused = Flow::prepare(store, false).await;
+        let served = Flow::prepare(store, false).await;
+        let cohort = store.get(served.account, served.run).await.unwrap().cohort;
+        // The first player's receipt quota is spent: settling their valid duel is
+        // refused, and their job is the oldest, so it heads the ready queue.
+        sandbox
+            .db
+            .execute_unprepared(&format!(
+                "UPDATE \"{}\".players SET receipt_bytes={} WHERE account='{}'",
+                sandbox.schema,
+                baylee_tower_store::MAX_RECEIPT_BYTES,
+                refused.account
+            ))
+            .await
+            .unwrap();
+        let (queue, _) = queue(&sandbox, &served).await;
+        let (stop, stopped) = oneshot::channel();
+        let mut task = tokio::spawn(async move {
+            queue
+                .serve(cohort, async {
+                    let _ = stopped.await;
+                })
+                .await
+        });
+        let arrived = tokio::time::timeout(Duration::from_secs(60), async {
+            loop {
+                let first = store.get(refused.account, refused.run).await.unwrap();
+                let second = store.get(served.account, served.run).await.unwrap();
+                if second.state.phase == Phase::Reward {
+                    return (first, second);
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        });
+        let (first, _) = tokio::select! {
+            arrived = arrived => arrived.expect("the second player's duel settled"),
+            ended = &mut task => panic!("one refused job stopped the queue: {ended:?}"),
+        };
+        let _ = stop.send(());
+        let summary = task.await.unwrap().unwrap();
+        assert_eq!(first.state.phase, Phase::Quarantined);
+        assert_eq!(summary.settled, 1);
+        assert_eq!(summary.quarantined, 1);
+    })
+    .await;
+    sandbox.close().await;
+    observed.expect("a refused settlement was isolated");
+}
+
 fn checked(
     body: impl std::future::Future<Output = ()>,
 ) -> impl std::future::Future<Output = std::thread::Result<()>> {

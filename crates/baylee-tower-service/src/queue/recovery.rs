@@ -17,7 +17,7 @@ impl Queue {
         let candidates = tokio::select! {
             biased;
             () = stop => return Err(Error::Cancelled),
-            candidates = self.store.expired_executions(&self.supervisor, cohort, 1) => candidates?,
+            candidates = self.store.expired_executions(&self.supervisor, cohort, 1) => candidates.map_err(super::discovery)?,
         };
         let Some(&candidate) = candidates.first() else {
             return Ok(Expiration::Idle);
@@ -30,10 +30,11 @@ impl Queue {
             .await
         {
             Ok(snapshot) => snapshot,
-            Err(
-                baylee_tower_store::Error::NotFound
-                | baylee_tower_store::Error::Refused(baylee_tower::Refusal::Stale),
-            ) => return Ok(Expiration::Idle),
+            // A definite refusal concerns this one run, never the worker: the
+            // next poll tries again and verification goes on meanwhile.
+            Err(baylee_tower_store::Error::NotFound | baylee_tower_store::Error::Refused(_)) => {
+                return Ok(Expiration::Idle);
+            }
             Err(error) => return Err(error.into()),
         };
         match snapshot.state.phase {

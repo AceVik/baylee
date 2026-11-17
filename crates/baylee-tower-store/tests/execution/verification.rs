@@ -160,6 +160,78 @@ async fn expired_then_recovered(
 }
 
 #[tokio::test]
+async fn evidence_whose_claims_are_spent_is_quarantined_instead_of_heading_the_queue() {
+    let sandbox = Sandbox::open().await;
+    let store = sandbox.store.clone();
+    let db = sandbox.db.clone();
+    let schema = sandbox.schema.clone();
+    let observed = tokio::spawn(async move {
+        let flow = Flow::prepare(&store).await;
+        let verifier = operator(&store, Role::Verifier, 5).await;
+        let reservation = terminal(&store, &flow).await.lease.reservation;
+        let expire = format!("UPDATE \"{schema}\".verification_jobs SET lease_until=0");
+        for _ in 0..baylee_tower_store::MAX_EXECUTION_CLAIMS {
+            assert!(
+                store
+                    .quarantine_unclaimable(&flow.supervisor, reservation)
+                    .await
+                    .is_err(),
+                "a job with a claim left is not isolated"
+            );
+            store
+                .claim_verification(&verifier, reservation, Uuid::now_v7(), 120_000)
+                .await
+                .unwrap();
+            db.execute_unprepared(&expire).await.unwrap();
+        }
+        assert_eq!(
+            store
+                .claim_verification(&verifier, reservation, Uuid::now_v7(), 120_000)
+                .await
+                .map(|_| ()),
+            Err(Error::Refused(baylee_tower::Refusal::Capacity))
+        );
+        assert_eq!(
+            store
+                .verification_candidates(&verifier, flow.initial.cohort, 1)
+                .await
+                .unwrap(),
+            vec![reservation]
+        );
+        assert!(
+            store
+                .quarantine_unclaimable(&verifier, reservation)
+                .await
+                .is_err()
+        );
+        let quarantined = store
+            .quarantine_unclaimable(&flow.supervisor, reservation)
+            .await
+            .unwrap();
+        assert_eq!(quarantined.state.phase, Phase::Quarantined);
+        assert!(
+            store
+                .verification_candidates(&verifier, flow.initial.cohort, 1)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        let row = db
+            .query_one_raw(sea_orm::Statement::from_string(
+                sea_orm::DbBackend::Postgres,
+                format!("SELECT failure FROM \"{schema}\".verification_jobs"),
+            ))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(row.try_get::<String>("", "failure").unwrap(), "budget");
+    })
+    .await;
+    sandbox.close().await;
+    observed.expect("exhausted verification scenario completed");
+}
+
+#[tokio::test]
 async fn adjudication_income_eligibility_and_outbox_commit_once_or_not_at_all() {
     let sandbox = Sandbox::open().await;
     let store = sandbox.store.clone();
