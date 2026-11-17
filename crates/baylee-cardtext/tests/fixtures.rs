@@ -16,7 +16,8 @@
 //! so a change to the rule that moves one card names that card.
 
 use baylee_cardtext::{
-    Printing, Stage, Verdict, align, localized, pick, sentences, split_cost, untranslated, verify,
+    Aligned, Printing, Stage, Verdict, align, localized, localized_lines, pick, sentences,
+    split_cost, untranslated, verify,
 };
 use serde::Deserialize;
 
@@ -586,5 +587,74 @@ fn the_table_reaches_every_outcome() {
             .iter()
             .any(|p| !p.untranslated && p.stage.is_none()),
         "no printing is refused"
+    );
+}
+
+/// Every printing of a card in the language, aligned, the picked one first
+/// and the rest in the file's (the catalog's) order: what a client holds for
+/// a face once the served printing and its candidates are filed.
+fn offered(card: &Card, face: usize) -> Vec<Aligned> {
+    let oracle: Vec<&str> = card.oracle.iter().map(String::as_str).collect();
+    let printings: Vec<Printing> = card.printings.iter().map(Row::printing).collect();
+    let picked = pick(&card.lang, &oracle, &printings).map(|l| l.printing.scryfall_id.clone());
+    let mut rows: Vec<&Row> = card.printings.iter().collect();
+    rows.sort_by_key(|r| Some(&r.scryfall_id) != picked.as_ref());
+    rows.iter()
+        .filter_map(|r| {
+            let printed = r.printed.get(face)?.as_deref()?;
+            if untranslated(&card.oracle[face], Some(printed)) {
+                return None;
+            }
+            align(&card.oracle[face], printed, &r.layout)
+        })
+        .collect()
+}
+
+/// The owner's rule over real printings: a face reads the language from any
+/// printing of it, never less of it than the picked printing alone gave,
+/// and a face one printing covers is read whole from it.
+#[test]
+fn every_printing_in_the_language_is_offered_line_by_line() {
+    let cards = cards();
+    for card in &cards {
+        for face in 0..card.oracle.len() {
+            let oracle = &card.oracle[face];
+            let all = offered(card, face);
+            let lines = localized_lines(oracle, &all);
+            let alone = localized_lines(oracle, &all[..all.len().min(1)]);
+            let count = |l: &[Option<String>]| l.iter().flatten().count();
+            assert!(
+                count(&lines) >= count(&alone),
+                "{} ({}) face {face}: {lines:?} reads less than {alone:?}",
+                card.name,
+                card.lang
+            );
+            if let Some(whole) = all
+                .iter()
+                .find(|a| (0..lines.len()).all(|n| localized(oracle, a, n).is_some()))
+            {
+                assert_eq!(lines, localized_lines(oracle, std::slice::from_ref(whole)));
+            }
+        }
+    }
+
+    // Glued newest wordings: Mind Stone's c15 and Spawning Pool's 10e do
+    // not line up at all, and an older German printing speaks for them.
+    let stone = find(&cards, "Mind Stone", "de");
+    let c15_first: Vec<Aligned> = stone
+        .printings
+        .iter()
+        .filter_map(|r| align(&stone.oracle[0], r.printed[0].as_deref()?, &r.layout))
+        .collect();
+    assert_eq!(
+        localized_lines(&stone.oracle[0], &c15_first)[1].as_deref(),
+        Some("{1}, {T}, opfere dieses Artefakt: Ziehe eine Karte.")
+    );
+    let pool = find(&cards, "Spawning Pool", "de");
+    let lines = localized_lines(&pool.oracle[0], &offered(pool, 0));
+    assert!(lines.iter().all(Option::is_some), "{lines:?}");
+    assert_eq!(
+        lines[1].as_deref(),
+        Some("{T}: Erhöhe Deinen Manavorrat um ein schwarzes Mana.")
     );
 }

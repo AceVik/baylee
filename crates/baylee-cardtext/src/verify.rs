@@ -81,6 +81,33 @@ pub fn localized<'a>(oracle: &str, aligned: &'a Aligned, line: usize) -> Option<
     aligned.lines.get(at)?.as_deref()
 }
 
+/// One face's sentence in the player's language for each Oracle line, from
+/// several printings of it in that language: the owner's rule, "the
+/// client's language first, English as the fallback" (17.11.2026).
+///
+/// `printings` are the face as each printing has it, placed by
+/// [`align`](crate::align), in order of preference: the served printing,
+/// then the others newest first. A face is read from **one printing where
+/// one suffices**, the first whose every line [`localized`] keeps, so a
+/// face never mixes two wordings it does not have to. Only when none of
+/// them yields every line is each line taken from the first that yields
+/// it. A `None` is a line no printing yields, which the caller draws from
+/// the English Oracle.
+#[must_use]
+pub fn localized_lines(oracle: &str, printings: &[Aligned]) -> Vec<Option<String>> {
+    let count = sentences(oracle).count();
+    let said = |aligned: &Aligned, line| localized(oracle, aligned, line).map(str::to_owned);
+    if let Some(whole) = printings
+        .iter()
+        .find(|aligned| (0..count).all(|line| localized(oracle, aligned, line).is_some()))
+    {
+        return (0..count).map(|line| said(whole, line)).collect();
+    }
+    (0..count)
+        .map(|line| printings.iter().find_map(|aligned| said(aligned, line)))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -162,6 +189,60 @@ mod tests {
         let oracle = "Flying\nVigilance";
         let a = align(oracle, "Wachsamkeit\nFliegend", "normal").unwrap();
         assert_eq!(verify(oracle, &a, 0), Verdict::Positional);
+    }
+
+    const STONE: &str = "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.";
+
+    fn placed(printed: &str) -> Aligned {
+        align(STONE, printed, "normal").expect("two lines")
+    }
+
+    fn owned(lines: &[Option<&str>]) -> Vec<Option<String>> {
+        lines.iter().map(|l| l.map(str::to_owned)).collect()
+    }
+
+    /// A printing whose every line stands is read whole, even behind one
+    /// that yields some of the lines: the face does not mix two wordings.
+    #[test]
+    fn one_printing_that_covers_the_face_is_read_whole() {
+        let partial = placed("{T}: Erzeuge {C}.\n{G}: Ziehe.");
+        let whole = placed("{T}: Erhöhe um {1}.\n{1}, {T}, opfere: Ziehe.");
+        let newer = placed("{T}: Erzeuge {C}.\n{1}, {T}, opfere dies: Ziehe.");
+        assert_eq!(
+            localized_lines(STONE, &[partial.clone(), whole.clone(), newer.clone()]),
+            owned(&[
+                Some("{T}: Erhöhe um {1}."),
+                Some("{1}, {T}, opfere: Ziehe.")
+            ])
+        );
+        assert_eq!(
+            localized_lines(STONE, &[newer, whole]),
+            owned(&[
+                Some("{T}: Erzeuge {C}."),
+                Some("{1}, {T}, opfere dies: Ziehe.")
+            ]),
+            "and of two that cover it, the first"
+        );
+    }
+
+    /// With no printing covering the face, each line comes from the first
+    /// that yields it, a refused line falls to the next printing, and a line
+    /// none yields is left to the English Oracle.
+    #[test]
+    fn otherwise_each_line_comes_from_the_first_printing_that_yields_it() {
+        let first = placed("{T}: Erzeuge {C}.\n{G}: Ziehe.");
+        let second = placed("{G}: Erzeuge.\n{1}, {T}, opfere: Ziehe.");
+        assert_eq!(verify(STONE, &first, 1), Verdict::Refused);
+        assert_eq!(
+            localized_lines(STONE, &[first.clone(), second]),
+            owned(&[Some("{T}: Erzeuge {C}."), Some("{1}, {T}, opfere: Ziehe.")])
+        );
+        let also_refused = placed("{T}: Erhöhe um {1}.\n{B}: Ziehe.");
+        assert_eq!(
+            localized_lines(STONE, &[first, also_refused]),
+            owned(&[Some("{T}: Erzeuge {C}."), None])
+        );
+        assert_eq!(localized_lines(STONE, &[]), owned(&[None, None]));
     }
 
     #[test]

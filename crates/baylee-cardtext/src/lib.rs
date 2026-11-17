@@ -29,6 +29,11 @@
 //! 4. [`split_cost`] and [`licensed`] — where the printed cost ends, so the
 //!    cost column is the card's own words and never the client's.
 //!
+//! A client runs steps 2 and 3 over every printing the entry offers, the
+//! served one and its `candidates`, and [`localized_lines`] keeps one
+//! sentence per line: from one printing where one covers the face, else
+//! line by line from the first printing that yields it.
+//!
 //! Whatever falls out of the chain falls to the **English Oracle sentence**,
 //! which is the owner's rule for every row a client draws from card text:
 //! localized first, English second, and never a blank row or a wording the
@@ -72,5 +77,5 @@ pub use poolfacts::{
     CardFacts, CardLine, Legality, PoolFacts, PoolFactsBody, PoolSet, Printed, Rarity,
 };
 pub use text::{repair_braces, repair_printed_symbols, sentence_count, sentences, symbols};
-pub use verify::{Verdict, localized, verify};
+pub use verify::{Verdict, localized, localized_lines, verify};
 pub use wire::{CardTextEntry, FaceText, MAX_CANDIDATE_BYTES, MAX_CANDIDATES, TextCandidate};
