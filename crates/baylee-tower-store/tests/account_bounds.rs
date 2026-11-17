@@ -34,6 +34,8 @@ async fn existing_history_upgrades_and_quota_failures_leave_no_partial_mutation(
             DROP TABLE \"{schema}\".host_availability, \"{schema}\".host_locations;
             DROP TABLE \"{schema}\".house_builds, \"{schema}\".operators;
             DROP TABLE \"{schema}\".personal_bests;
+            DROP FUNCTION \"{schema}\".notify_change() CASCADE;
+            DROP FUNCTION \"{schema}\".notify_draft() CASCADE;
             ALTER TABLE \"{schema}\".players DROP COLUMN consent_revision,
             DROP COLUMN consent_at,DROP COLUMN receipt_bytes,DROP COLUMN run_count,DROP COLUMN record_bytes,DROP COLUMN record_chunks,DROP COLUMN echo_epoch,
             DROP COLUMN rank_revision,DROP COLUMN rank_listed,DROP COLUMN rank_name,DROP COLUMN rank_tag;

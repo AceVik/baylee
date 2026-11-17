@@ -84,7 +84,8 @@ fn public_ids_origins_and_house_bounds_are_checked_before_connecting() {
     house["operation"]["stage"] = json!(0);
     assert!(!parses(&house));
     house["operation"]["stage"] = json!(MAX_STAGES);
-    house["operation"]["archetype"] = json!(9);
+    // One past the widest cohort a publication may freeze (migration 016).
+    house["operation"]["archetype"] = json!(65);
     assert!(!parses(&house));
     house["operation"]["archetype"] = json!(3);
     house["operation"]["build"]["potions"] = json!([2, 1]);

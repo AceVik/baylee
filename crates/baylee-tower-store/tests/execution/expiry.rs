@@ -166,6 +166,8 @@ async fn migration_backfill(store: &Store, db: &sea_orm::DatabaseConnection, sch
         ALTER TABLE \"{schema}\".house_builds ADD CONSTRAINT house_builds_archetype_check
             CHECK(archetype BETWEEN 1 AND 3);
         DROP TABLE \"{schema}\".personal_bests;
+        DROP FUNCTION \"{schema}\".notify_change() CASCADE;
+        DROP FUNCTION \"{schema}\".notify_draft() CASCADE;
         ALTER TABLE \"{schema}\".players DROP COLUMN rank_revision, DROP COLUMN rank_listed,
             DROP COLUMN rank_name, DROP COLUMN rank_tag;"
     ))
