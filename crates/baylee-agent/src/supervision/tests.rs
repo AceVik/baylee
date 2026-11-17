@@ -43,7 +43,15 @@ async fn stalled_and_oversized_workers_are_reaped_but_idle_players_are_not_timed
             out,
             mode.into(),
             baylee_worker::Limits {
-                startup: Duration::from_millis(300),
+                // Only the stalled start is meant to run out of this budget.
+                // The others must get past it on a machine busy with the
+                // rest of the suite, where a process start can take longer
+                // than the 300 ms that are enough to show a stall.
+                startup: if mode == "start-stall" {
+                    Duration::from_millis(300)
+                } else {
+                    Duration::from_secs(3)
+                },
                 operation: Duration::from_millis(100),
                 resident_bytes: if mode == "memory" { 1 } else { u64::MAX },
             },
