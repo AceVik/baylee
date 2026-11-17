@@ -995,6 +995,126 @@ impl KeywordSet {
     pub const fn is_empty(self) -> bool {
         self.0 == 0
     }
+
+    /// The English words these keywords are printed with, in
+    /// [`PRINTED_KEYWORDS`] order: a keyword as a card's keyword line spells
+    /// it ("Flying", "First strike"), a rule with no keyword as the sentence
+    /// a token card prints ("This creature can't block.", ending in a full
+    /// stop). A bit with no printed form (Rangeling, Mayhem, …) says nothing.
+    pub fn printed_words(self) -> impl Iterator<Item = &'static str> {
+        PRINTED_KEYWORDS
+            .iter()
+            .filter(move |(k, _)| self.contains(*k))
+            .map(|(_, word)| *word)
+    }
+
+    /// The keyword a printed word names, ignoring case and a closing full
+    /// stop: the reverse of [`Self::printed_words`]. A token card's "This
+    /// token can't block." reads as the creature's sentence it is.
+    #[must_use]
+    pub fn from_printed(word: &str) -> Option<Self> {
+        let word = word.trim();
+        let bare = |w: &str| {
+            w.trim_end_matches('.')
+                .to_ascii_lowercase()
+                .replace("this token", "this creature")
+        };
+        let wanted = bare(word);
+        PRINTED_KEYWORDS
+            .iter()
+            .find(|(_, printed)| bare(printed) == wanted)
+            .map(|(k, _)| *k)
+    }
+}
+
+/// Every keyword bit that has a printed English form, and that form.
+///
+/// Entries ending in a full stop are sentences a printed card spells out
+/// (CR 509.1b's restrictions and evasion have no keyword); the rest are
+/// keywords, which a keyword line joins with commas.
+pub const PRINTED_KEYWORDS: &[(KeywordSet, &str)] = &[
+    (KeywordSet::FLYING, "Flying"),
+    (KeywordSet::FIRST_STRIKE, "First strike"),
+    (KeywordSet::DOUBLE_STRIKE, "Double strike"),
+    (KeywordSet::DEATHTOUCH, "Deathtouch"),
+    (KeywordSet::DEFENDER, "Defender"),
+    (KeywordSet::FLASH, "Flash"),
+    (KeywordSet::HASTE, "Haste"),
+    (KeywordSet::HEXPROOF, "Hexproof"),
+    (KeywordSet::INDESTRUCTIBLE, "Indestructible"),
+    (KeywordSet::LIFELINK, "Lifelink"),
+    (KeywordSet::MENACE, "Menace"),
+    (KeywordSet::REACH, "Reach"),
+    (KeywordSet::TRAMPLE, "Trample"),
+    (KeywordSet::VIGILANCE, "Vigilance"),
+    (KeywordSet::SHROUD, "Shroud"),
+    (KeywordSet::FEAR, "Fear"),
+    (KeywordSet::INTIMIDATE, "Intimidate"),
+    (KeywordSet::SHADOW, "Shadow"),
+    (KeywordSet::HORSEMANSHIP, "Horsemanship"),
+    (KeywordSet::INFECT, "Infect"),
+    (KeywordSet::WITHER, "Wither"),
+    (KeywordSet::PERSIST, "Persist"),
+    (KeywordSet::UNDYING, "Undying"),
+    (KeywordSet::PROWESS, "Prowess"),
+    (KeywordSet::SKULK, "Skulk"),
+    (KeywordSet::FLANKING, "Flanking"),
+    (KeywordSet::CHANGELING, "Changeling"),
+    (KeywordSet::REBOUND, "Rebound"),
+    (KeywordSet::PROTECTION_BLACK, "Protection from black"),
+    (KeywordSet::DAYBOUND, "Daybound"),
+    (KeywordSet::NIGHTBOUND, "Nightbound"),
+    (KeywordSet::SPLIT_SECOND, "Split second"),
+    (KeywordSet::ASCEND, "Ascend"),
+    (KeywordSet::PLAINSWALK, "Plainswalk"),
+    (KeywordSet::ISLANDWALK, "Islandwalk"),
+    (KeywordSet::SWAMPWALK, "Swampwalk"),
+    (KeywordSet::MOUNTAINWALK, "Mountainwalk"),
+    (KeywordSet::FORESTWALK, "Forestwalk"),
+    (KeywordSet::BANDING, "Banding"),
+    (KeywordSet::DEVOID, "Devoid"),
+    (KeywordSet::PHASING, "Phasing"),
+    (KeywordSet::STORM, "Storm"),
+    (KeywordSet::UNBLOCKABLE, "This creature can't be blocked."),
+    (KeywordSet::CANT_BLOCK, "This creature can't block."),
+    (KeywordSet::CANT_ATTACK, "This creature can't attack."),
+    (KeywordSet::UNCOUNTERABLE, "This spell can't be countered."),
+];
+
+#[cfg(test)]
+mod printed_keyword_tests {
+    use super::{KeywordSet, PRINTED_KEYWORDS};
+
+    /// Each printed form names one bit and reads back to it, whatever its
+    /// case: a word two keywords shared would make a token's text face and
+    /// the picture tool's comparison both say the wrong thing.
+    #[test]
+    fn every_printed_keyword_reads_back_to_its_own_bit() {
+        let mut seen = KeywordSet::EMPTY;
+        for (keyword, word) in PRINTED_KEYWORDS {
+            assert!(!seen.contains(*keyword), "{word} names a bit twice");
+            seen = seen.union(*keyword);
+            assert_eq!(KeywordSet::from_printed(word), Some(*keyword), "{word}");
+            assert_eq!(
+                KeywordSet::from_printed(&word.to_uppercase()),
+                Some(*keyword),
+                "{word} in capitals"
+            );
+            assert_eq!(keyword.printed_words().collect::<Vec<_>>(), [*word]);
+        }
+        assert_eq!(KeywordSet::from_printed("Rangeling"), None);
+        assert_eq!(
+            KeywordSet::from_printed("This token can't block."),
+            Some(KeywordSet::CANT_BLOCK)
+        );
+        assert_eq!(
+            KeywordSet::FLYING
+                .union(KeywordSet::VIGILANCE)
+                .printed_words()
+                .collect::<Vec<_>>(),
+            ["Flying", "Vigilance"]
+        );
+    }
 }
 
 /// Commander eligibility, derived from oracle data at codegen time.
