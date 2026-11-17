@@ -141,9 +141,15 @@ async fn run(
     let stderr = child.stderr.take().ok_or(Error::Process)?;
     let pid = child.id().ok_or(Error::Process)?;
     let limits = baylee_worker::Limits::default();
+    let mut written = Ok(());
     let exchange = async {
-        let (written, response, (), status) = tokio::try_join!(
-            async { Ok::<_, Error>(process::write(stdin, header, store, principal, lease).await) },
+        let ((), response, (), status) = tokio::try_join!(
+            async {
+                // Kept outside the join: a failed read must not hide why the
+                // child saw only part of the evidence.
+                written = process::write(stdin, header, store, principal, lease).await;
+                Ok(())
+            },
             process::read(stdout),
             process::progress(stderr, limits),
             async { child.wait().await.map_err(|_| Error::Process) },
@@ -153,7 +159,6 @@ async fn run(
         }
         match response {
             Response::Verified { settlement } if settlement.binding == lease.binding => {
-                written?;
                 Ok(settlement)
             }
             Response::Verified { .. } => Err(Error::Contract),
@@ -171,6 +176,71 @@ async fn run(
         error = process::memory(pid, limits.resident_bytes) => Err(error),
         result = tokio::time::timeout(Duration::from_secs(90), exchange) => result.unwrap_or(Err(Error::Budget)),
     };
+    let result = streamed(written, result);
     process::reap(&mut child, result.is_err()).await?;
     result
+}
+
+/// The verdict once the evidence stream's own result is known. A storage fault
+/// while streaming means the child judged truncated evidence, whatever it said:
+/// that is the store's (passing) failure, never a reason to quarantine a valid
+/// duel. A broken pipe is not: a child may refuse early and close its input,
+/// so it only spoils an otherwise verified result.
+fn streamed(
+    written: Result<(), Error>,
+    result: Result<Settlement, Error>,
+) -> Result<Settlement, Error> {
+    match (written, result) {
+        (Err(error @ Error::Store(_)), _) | (Err(error), Ok(_)) => Err(error),
+        (_, result) => result,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Error, Settlement, streamed};
+    use baylee_tower_store::Error as StoreError;
+
+    fn verified() -> Settlement {
+        Settlement {
+            binding: baylee_tower::v2::run::Binding {
+                package: [1; 32],
+                fence: 1,
+                prefix: baylee_tower::v2::execution::Prefix::default(),
+            },
+            outcome: baylee_tower::v2::run::Outcome::Victory,
+            turns: 9,
+            used: [0; 2],
+        }
+    }
+
+    #[test]
+    fn a_storage_fault_mid_stream_outranks_the_child_s_verdict() {
+        let lost = Err(Error::Store(StoreError::Unavailable));
+        // The child judged truncated evidence: invalid, a broken frame, an
+        // early exit or a timeout. None of them may quarantine the duel.
+        for verdict in [
+            Error::Record,
+            Error::Contract,
+            Error::Process,
+            Error::Budget,
+        ] {
+            assert_eq!(streamed(lost, Err(verdict)), lost.map(|()| verified()));
+        }
+        assert_eq!(streamed(lost, Ok(verified())), lost.map(|()| verified()));
+    }
+
+    #[test]
+    fn a_closed_pipe_only_spoils_a_verified_result() {
+        assert_eq!(
+            streamed(Err(Error::Process), Err(Error::Record)),
+            Err(Error::Record),
+            "a child may refuse early and close its input"
+        );
+        assert_eq!(
+            streamed(Err(Error::Process), Ok(verified())),
+            Err(Error::Process)
+        );
+        assert_eq!(streamed(Ok(()), Ok(verified())), Ok(verified()));
+    }
 }
