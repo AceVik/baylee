@@ -236,6 +236,19 @@ not by the order they were told, and nothing here is fixed yet.
     registry token, so it carries no token id and there is nothing to look
     up. That is entry 16 below, not this one.
 
+    *Reopened by the owner, 17.11.2026* ("many tokens have no matching image,
+    and in the Alt format they are also rendered too poorly"): the 223 tokens
+    a reader generated carried no picture at all, and their text face had no
+    keywords, said "Rules text unavailable" for Treasure, Clue and Blood, and
+    did not say it was a token. *Partly fixed:* 60 generated tokens now wear
+    an exactly matching printed token card (`docs/client.md` §"Where a
+    token's picture comes from"); the other 163 keep the text face, which now
+    reads "Token …", lists the keywords and gives every card token's
+    sentence but Brisela's and Jace's. Open: the 163 (102 have no printing of
+    that name in the deck archive, 13 have abilities of their own, the rest
+    differ in a characteristic; a full Scryfall token feed would find more),
+    and an original portrait for `TOWER_SEEDLING`.
+
     The gateway's mirror needed no change to serve them: `/art` is keyed on a
     well-formed id and the two shards derived from it, never on membership of
     a print table, so a token id it has never seen is fetched and cached like

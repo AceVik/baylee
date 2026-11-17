@@ -2516,6 +2516,26 @@ whose doc says it exists for exactly this). What it resolves through is
 carries the token's printed text, so a 4/4 Angel with flying may not wear the
 art of the 4/4 Angel with flying *and vigilance* that most sets print.
 
+**Where a token's picture comes from.** One door, `baylee_cards::tokens::picture`
+(which `tokenart::of` is): a token's own `TokenDef::scryfall_id`, else, for a
+token a reader generated (whose `generated_tokens.rs` row only codegen writes
+and which therefore never carries one), the row
+`baylee_cards::tokens::printings` holds for its ledger id. That table
+(`crates/cards/src/tokens/printing_rows.rs`) is written by
+`cargo xtask token-pictures --write`, never by hand: it holds every generated
+token against the token printings MTGJSON's deck archive lists and keeps
+only an exact match of name, card types, supertypes, subtypes, colours,
+power, toughness and a rules box of nothing but the token's keywords; of
+several such printings the newest product's. A token with abilities of its
+own is never matched (the registry has no words to compare), nor one whose
+every candidate differs; the tool lists each with its reason. The first run
+matched 60 of the 223 generated tokens; the rest keep their text face, which
+a wrong picture would be worse than. The local card catalog is not a source:
+it keeps no colours. The table's tests hold that every row still names a
+generated, ability-free token by its own name, that every id is a canonical
+UUID, and that no two tokens wear one printed card (`docs/legal.md`
+§"Pictures for generated tokens").
+
 Two consequences of putting the lookup on `TokenDef` rather than in the
 client. It is a `resolve` **parameter** and not a process-wide cell, because
 `baylee-client-core` does not link the card registry (the `manaplan` /
@@ -3135,6 +3155,25 @@ names and costs keep priority. A short original-item preview gets the larger
 table-style illustration band only if every rule still fits at the same font
 size. Passing states affect the table portrait, and reduced motion freezes both
 UI and table ornament without per-frame material uploads.
+
+A registry token's text face can be read on its own (`face::of_object`,
+`token_body`): its type line says "Token Creature — Saproling" as a printed
+token card does (only an object the view marks `TOKEN`: a Tower potion in the
+command zone is no permanent token and says nothing of the sort); its keywords
+stand as a printed token lists them ("Flying, first strike", from
+`KeywordSet::printed_words`, and a rule with no keyword as "This token can't
+block."); then each ability's sentence from `tokens::ability_text` (a Tower
+run's own words first), one sentence said once where it covers two abilities.
+Treasure, Clue, Blood, Food and the generated card tokens with abilities have
+their sentences there, each quoted from the card that makes the token. An
+ability no sentence is written for (Brisela's, the Empower Jace's) is counted
+in a quiet line (`Phrase::TokenAbilitiesUnwritten`); a registry token never
+shows "Rules text unavailable". P/T stays on its plate, as for every face.
+`TOWER_SEEDLING` still has no `itemart` portrait: a portrait is
+`itemart::Portrait(Goods)`, which `towerui` builds too, and a Seedling is no
+`Goods`; giving it one is a change in the Tower's own code. The portrait also
+keeps to the unused band rather than the text face's art box, because the
+band is what gives rules text its priority (`vacant_band`).
 
 - A dark border (`BORDER`, 0.040 card widths) inside the card, then a name
   bar, a pinline, an art box, a type bar and a text box, in a card's order.
