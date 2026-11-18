@@ -95,6 +95,23 @@ pub struct PayableMenu4 {
     stats: MenuStats4,
 }
 
+/// The planned cast of `card` as a search's macro candidate plays it
+/// (`search/macros.rs`): its first tap and the [`Script4`](super::Script4)
+/// that taps the rest and casts it, from the planner's plan for `card` among
+/// [`reachable`]'s; `None` where the planner has no taps for it. The
+/// afterstate capture (`convert4::afterstates`) replays a searched planned
+/// cast with it.
+#[must_use]
+pub fn planned_cast(
+    view: &PlayerView,
+    legal: &LegalActions,
+    card: ObjectId,
+) -> Option<(PlayerAction, super::Script4)> {
+    let planned = reachable(view, legal);
+    let (_, plan) = planned.iter().find(|(id, _)| *id == card)?;
+    super::Script4::begin(view, plan, PlayerAction::CastSpell { card })
+}
+
 /// The spells of `legal.payable` the planner has taps for, each with its plan.
 /// A plan with nothing to tap is no reach: the mana is floating, so what keeps
 /// the spell out of `castable` is not mana.

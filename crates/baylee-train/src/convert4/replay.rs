@@ -140,6 +140,12 @@ fn replay_feature_frames(
     if encoder_version == 9 && (shadow.is_some() || llm.is_some()) {
         return Err("Encoder9 shadow and LLM labels are not supported".into());
     }
+    // Afterstates fork the table (`onnx`'s simulation) and encode as encoder 10.
+    if roots.is_some_and(|roots| !roots.afterstates.is_empty())
+        && (cfg!(not(feature = "onnx")) || encoder_version != 10)
+    {
+        return Err("Search afterstates need the onnx feature and encoder 10".into());
+    }
     let mut lines = record
         .split(|&b| b == b'\n')
         .filter(|l| !l.is_empty())
@@ -544,12 +550,36 @@ fn replay_feature_frames(
                             let (menu, first_added) =
                                 (roots.menu)(&view, &pending, &cands, &encode);
                             let classes = crate::coarse_class::coarse_classes_of(&menu, &view);
+                            // Its afterstates, where asked for: forks of the
+                            // table as it stands, before the recorded answer.
+                            #[cfg(feature = "onnx")]
+                            let afterstates =
+                                roots
+                                    .afterstates
+                                    .get(&(seat_u8, input_n))
+                                    .map(|candidates| {
+                                        super::afterstates::capture(
+                                            &super::afterstates::RootContext {
+                                                session: &session,
+                                                seat,
+                                                view: &view,
+                                                pending: &pending,
+                                                knowledge: &knowledge[seat_u8 as usize],
+                                                teams: &teams,
+                                                game: game_id,
+                                                cursor: sc,
+                                            },
+                                            candidates,
+                                        )
+                                    });
                             Box::new(super::search_roots::SearchRoot4 {
                                 record_input_n: input_n,
                                 pending: pending.clone(),
                                 menu,
                                 first_added,
                                 classes,
+                                #[cfg(feature = "onnx")]
+                                afterstates,
                             })
                         });
                     emit(

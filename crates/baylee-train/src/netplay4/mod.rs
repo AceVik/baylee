@@ -58,7 +58,7 @@ mod memory_tests;
 pub use memory::MemoryReset4;
 mod menu;
 pub use identity::{ModelIdentity, inspect_model_identity};
-pub use menu::{MenuStats4, PayableMenu4};
+pub use menu::{MenuStats4, PayableMenu4, planned_cast};
 mod policy;
 mod shadow;
 use policy::sample_categorical;

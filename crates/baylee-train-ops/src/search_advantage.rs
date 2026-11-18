@@ -24,6 +24,14 @@ pub const MENUS_SPLIT: &str = "search-advantage-menus";
 /// The `meta.json` key that lists the twins' shards.
 pub const MENUS_SHARDS_KEY: &str = "search_advantage_menus_shards";
 
+/// The split that holds a searched root's afterstates (`search_afterstate_v1`,
+/// `convert4 --search-afterstates`): observation frames, one per searched
+/// candidate whose afterstate is valid.
+pub const AFTERSTATE_FRAMES_SPLIT: &str = "search-afterstate-frames";
+
+/// The `meta.json` key that lists the afterstate frames' shards.
+pub const AFTERSTATE_SHARDS_KEY: &str = "search_afterstates_shards";
+
 /// The block a twin frame ends in, after its BST4 payload.
 pub const TWIN_BLOCK_MAGIC: &[u8; 4] = b"BSA1";
 
