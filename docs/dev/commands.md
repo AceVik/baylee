@@ -139,6 +139,7 @@ dev-table --seats 4 --ai sharp [--play] [--teams 1,1,2] [--bridge house|scripted
 
 ```bash
 cargo dev stack up                            # local PostgreSQL 18 + feedback + gateway + agent + interactive client (monitor 2)
+cargo dev stack up --central ../baylee-central   # the same, with Central, its website, the Tower authority and Daily/Weekly tasks (see below)
 cargo dev stack status                        # check liveness of the local stack
 cargo dev stack client [--monitor 2]          # open an interactive client against the running local stack
 cargo dev stack down                          # stop the local stack and verify its ports closed
@@ -156,6 +157,56 @@ adb forward tcp:28773 tcp:28770           # Android dev-control
 cp .env.example .env                      # the client's BAYLEE_GATEWAY and DATABASE_URL
 ```
 
+- `cargo dev stack up` alone signs in guests only: no Central, no Tower, no
+  tasks, and "Register" in the client would open the live website.
+  `--central <checkout>` takes a sibling Baylee Central checkout and adds the
+  rest, all on numeric loopback:
+  - It builds the checkout's `central-service`, its site server and its
+    website (`cargo xtask site` for the loopback endpoint, so the site names no
+    production host) and copies them into the state directory: the website is
+    the checkout's, never a stale `target/site`, and a later build there does
+    not change a running stack. The website's front needs `node` on `PATH`.
+  - It makes a fresh Central database in the stack's own PostgreSQL (roles,
+    migrations, runtime grants, the Tower award issuer) and one synthetic
+    administrator, `dev_admin`. Its generated password is written to
+    `<state>/central-account.json` (`0600`); the path is printed, the password
+    never. Before the ready line the stack signs that account in against the
+    running service, the way the client does, and signs it out again: the keys
+    in the database and the service's meet only there, and a stack whose
+    account cannot sign in does not start. Registering further accounts on the
+    local website works too.
+  - It publishes a playable Tower cohort for the staged `baylee-engine-tower`
+    (every starter, the house's stand-in build at every stage) and runs
+    `baylee-tower-service` for it.
+  - The gateway runs `mixed` with open registration, bridged to that Central
+    and hosting for that Tower authority; the client gets
+    `BAYLEE_CENTRAL_DEV_ENDPOINT` and `BAYLEE_CENTRAL_WEB_ORIGIN`, so sign-in
+    and "Register" stay local.
+  - After the ready line it publishes tasks with the `challenge` publisher
+    built from the same commit: today's Daily and this week's Weekly first
+    (minutes), then `--stock-days` ahead (7 by default; 0 for none) and the
+    Weekly Tower expedition, whose certification takes long. `status` shows
+    each pass's last line; a failed pass is reported and the stack keeps
+    running.
+
+  Ports: Central 28790, its browser API 28791, the site server 28792, the
+  website 28794, Tower 28795, besides the gateway's 28766. They are fixed (the
+  website's crypto module is built for the endpoint), so a second Central on
+  the machine is refused before the build. `status` reports each part and the
+  checkout, commit and branch the website was built from (a sibling checkout
+  on an old branch serves an old website); `down` proves every listener
+  closed. Everything is new at every `up`: the database
+  and every secret live as long as the supervisor (two `0600` files in the
+  state directory, the gateway's bridge and the account, are removed at stop),
+  so an account registered on the website is gone after `down`. Only the
+  staged task proofs (`<state>/challenge-stock`) are kept, and they count only
+  for the commit they were certified on.
+
+  The database is provisioned by this workspace's `baylee-dev-provision`
+  (`crates/baylee-dev-provision`), which links Central's server crates at the
+  revision the workspace pins. The checkout must have that revision's
+  migrations and `ops/grants.sql`; another one is refused by name, before the
+  build or right after the migration.
 - `dev-control` is a loopback HTTP harness (input, `/state`, `/screenshot`; `/timescale /pause /step` drive `Time<Virtual>`, zero refused). Compile-time only; never ship it. `docs/client.md` §"Driving the client without its window".
 - `dev-reload` hot-reloads embedded WGSL; needs `BEVY_ASSET_ROOT` and `BAYLEE_DEV_CONTROL`. `docs/client.md` §"Editing a shader without stopping the game".
 - Android, iOS and browser/wasm clients are coming soon. The commands above are experimental scaffolding, not supported release targets; `docs/mobile.md` describes the mobile design. They run only when explicitly requested, outside the landing gates and CI.

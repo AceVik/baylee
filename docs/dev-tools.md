@@ -50,7 +50,14 @@ contact production or run a release.
 | `scripts/test-keyring-linux.sh`, `test-central-*.ps1` | `cargo dev keyring-linux`, `central db\|integration\|client` |
 
 `cargo dev` (crates/baylee-dev) is the developer tasks' binary: small, with no
-workspace dependency, so a gate compiles it in seconds. The cheap-model card
+workspace dependency, so a gate compiles it in seconds. What a local Central
+and Tower need of heavy crates (Central's server side at the pinned revision,
+the Tower store) is therefore a binary of its own, `baylee-dev-provision`
+(crates/baylee-dev-provision): `cargo dev stack up --central` builds it once
+and talks to it over stdin and stdout (`docs/dev/commands.md` §"Running"): it
+fills Central's and the Tower's databases, and then signs the stack's one
+account in with the client's own code. It is loopback development only and no
+shipped binary links it. The cheap-model card
 lanes (`scripts/llm/`, `tools/cardbatch/`, `baylee-tools llm` and `cardbatch`)
 were removed on 20.10.2026; cards are written by the batch's author model and
 reviewed by another (`docs/cards.md`). Python remains only in `tools/trainer`.

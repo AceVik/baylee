@@ -78,10 +78,12 @@ unofficial, non-commercial fan project.
   interactive client with `cargo dev stack up` (`docs/dev/commands.md`
   §"Running"; defaults to `--monitor 2` on the left 2K display and builds
   `baylee-client` without `dev-control` so input is never passive or
-  harnessed), and stop it with `cargo dev stack down`. When Baylee Central is
-  also requested locally, wire the sibling Central checkout on
-  `http://127.0.0.1:28790` (web `http://127.0.0.1:28794`) and enroll a test
-  account.
+  harnessed), and stop it with `cargo dev stack down`. When the owner asks for
+  the systems, all of them are meant: `cargo dev stack up --central
+  <Central checkout>` also builds and runs Central with its website
+  (`http://127.0.0.1:28794`, where the client's "Register" then goes), the
+  Tower authority with a playable cohort, one synthetic administrator, and
+  Daily and Weekly tasks.
 - **Leave code better than you found it.** Split a large file into a
   directory module (a move-only commit, then a change commit); card files
   are placed by codegen and never moved.
