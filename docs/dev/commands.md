@@ -204,8 +204,11 @@ cp .env.example .env                      # the client's BAYLEE_GATEWAY and DATA
   and every secret live as long as the supervisor (two `0600` files in the
   state directory, the gateway's bridge and the account, are removed at stop),
   so an account registered on the website is gone after `down`. Only the
-  staged task proofs (`<state>/challenge-stock`) are kept, and they count only
-  for the commit they were certified on.
+  staged task proofs are kept, in `<state>/challenge-stock/<build>`: a task
+  names the exact engine build it was certified on, so a start on the same
+  build republishes them at once, and a start on another build (every commit
+  is one) certifies anew and removes the other build's, which the publisher
+  would otherwise refuse the whole pass over.
 
   The database is provisioned by this workspace's `baylee-dev-provision`
   (`crates/baylee-dev-provision`), which links Central's server crates at the
