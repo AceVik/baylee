@@ -73,18 +73,21 @@ pub(super) struct Stock {
 }
 
 impl Stock {
-    /// Starts the first pass. `days` of zero publishes nothing.
+    /// Starts the first pass. `days` of zero publishes nothing. `build` is
+    /// the running build's own name (the gateway's `/info` version).
     pub(super) fn begin(
         bin_dir: &Path,
         logs_dir: &Path,
         state_dir: &Path,
         bridge_hex: &str,
         days: u8,
+        build: &str,
     ) -> Result<Self> {
+        let proofs = proofs_for(&state_dir.join("challenge-stock"), build);
         let mut stock = Self {
             bin_dir: bin_dir.to_path_buf(),
             logs_dir: logs_dir.to_path_buf(),
-            proofs: state_dir.join("challenge-stock"),
+            proofs,
             bridge_hex: bridge_hex.to_owned(),
             days,
             running: None,
@@ -157,6 +160,50 @@ impl Stock {
             );
         }
         Ok(())
+    }
+}
+
+/// The staging directory for one build, alone under `root`.
+///
+/// A staged task names the exact engine build it was certified on, and the
+/// publisher refuses a slot whose staged task names another: staging left by
+/// an earlier commit would fail every pass after it. So each build stages
+/// into a directory of its own name, and what other builds left is removed:
+/// it can only be published by the build that made it.
+pub(super) fn proofs_for(root: &Path, build: &str) -> PathBuf {
+    let name = build_name(build);
+    if let Ok(entries) = fs::read_dir(root) {
+        for entry in entries.flatten() {
+            if entry.file_name().to_str() == Some(name.as_str()) {
+                continue;
+            }
+            let path = entry.path();
+            let _ = if path.is_dir() {
+                fs::remove_dir_all(&path)
+            } else {
+                fs::remove_file(&path)
+            };
+        }
+    }
+    root.join(name)
+}
+
+/// A build's name as one path component: `0.2.0+build.7 (0123abcdef-dirty)`
+/// becomes `0.2.0+build.7_0123abcdef-dirty`.
+pub(super) fn build_name(build: &str) -> String {
+    let mut name = String::with_capacity(build.len());
+    for character in build.chars() {
+        if character.is_ascii_alphanumeric() || matches!(character, '.' | '+' | '-') {
+            name.push(character);
+        } else if !name.ends_with('_') {
+            name.push('_');
+        }
+    }
+    let name = name.trim_matches(['_', '.']).to_owned();
+    if name.is_empty() {
+        "unknown".to_owned()
+    } else {
+        name
     }
 }
 

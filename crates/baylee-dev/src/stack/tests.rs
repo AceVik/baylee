@@ -261,6 +261,69 @@ fn the_task_stock_publishes_today_first_and_then_the_days_ahead() {
     assert_ne!(Pass::Today.name(), Pass::Ahead.name());
 }
 
+/// A staged task is good for the build that certified it and makes every
+/// pass of another build fail, so each build stages on its own and removes
+/// what the others left (also the earlier layout's files beside them).
+#[test]
+fn each_build_stages_its_tasks_alone() {
+    use super::stock::{build_name, proofs_for};
+    assert_eq!(
+        build_name("0.2.0-beta.o1+build.6598 (83da0efc83)"),
+        "0.2.0-beta.o1+build.6598_83da0efc83"
+    );
+    assert_eq!(
+        build_name("0.2.0+build.7 (0123abcdef-dirty)"),
+        "0.2.0+build.7_0123abcdef-dirty"
+    );
+    // Never a path of more than one component, and never a dot directory.
+    assert_eq!(build_name("../../etc"), "etc");
+    assert_eq!(build_name(".."), "unknown");
+    assert_eq!(build_name(""), "unknown");
+
+    let root =
+        std::env::temp_dir().join(format!("baylee-proofs-{}", crate::secret::hex(8).unwrap()));
+    let result = std::panic::catch_unwind(|| {
+        // No staging yet: the directory is named, not made (the publisher makes it).
+        let first = proofs_for(&root, "1.0 (aaaa)");
+        assert_eq!(first, root.join("1.0_aaaa"));
+        std::fs::create_dir_all(first.join("evidence")).unwrap();
+        std::fs::write(first.join("daily-1.json"), "{}").unwrap();
+        std::fs::write(root.join("weekly-1.json"), "{}").unwrap();
+
+        // The same build again keeps what it staged; the stray file goes.
+        assert_eq!(proofs_for(&root, "1.0 (aaaa)"), first);
+        assert!(first.join("daily-1.json").exists());
+        assert!(first.join("evidence").is_dir());
+        assert!(!root.join("weekly-1.json").exists());
+
+        // Another build: its own directory, and the first one's is gone.
+        let second = proofs_for(&root, "1.0 (bbbb)");
+        assert_eq!(second, root.join("1.0_bbbb"));
+        assert!(!first.exists());
+    });
+    let _ = std::fs::remove_dir_all(&root);
+    result.unwrap();
+}
+
+#[test]
+fn the_gateways_info_names_the_build() {
+    assert_eq!(
+        super::version_in(
+            r#"{"name":"Baylee Local Dev","version":"0.2.0-beta.o1+build.6598 (83da0efc83)","protocol_version":49}"#
+        )
+        .as_deref(),
+        Some("0.2.0-beta.o1+build.6598 (83da0efc83)")
+    );
+    // As sent in chunks: the key is found all the same.
+    assert_eq!(
+        super::version_in("2a\r\n{\"version\":\"1.0 (aaaa)\"}\r\n0\r\n\r\n").as_deref(),
+        Some("1.0 (aaaa)")
+    );
+    assert_eq!(super::version_in(r#"{"version":""}"#), None);
+    assert_eq!(super::version_in(r#"{"versions":"1"}"#), None);
+    assert_eq!(super::version_in("not json"), None);
+}
+
 #[test]
 fn a_pass_reports_the_last_thing_it_said() {
     use super::stock::{Pass, last_line};

@@ -456,10 +456,23 @@ fn serve_until_stopped(
             state_dir,
             &link.bridge_hex,
             cfg.stock_days,
+            &services::probe_http_200(cfg.gateway_port, "/info")
+                .as_deref()
+                .and_then(version_in)
+                .context("the gateway's /info names no version")?,
         )?),
         None => None,
     };
     hold_until_stopped(state_dir, children, &mut client, &mut stock)
+}
+
+/// The build's own name in the gateway's `/info` body, the same string a
+/// certified task carries as its executor. Found by its key, not parsed: the
+/// probe returns the body as sent, which may be chunked.
+fn version_in(body: &str) -> Option<String> {
+    let rest = body.split_once("\"version\":\"")?.1;
+    let version = rest.split_once('"')?.0;
+    (!version.is_empty() && !version.contains('\\')).then(|| version.to_owned())
 }
 
 fn spawn_backend_services(
