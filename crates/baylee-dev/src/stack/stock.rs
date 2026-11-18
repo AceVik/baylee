@@ -89,6 +89,13 @@ impl Stock {
             days,
             running: None,
         };
+        // `status` reads each pass's last line: an earlier start's must not
+        // stand in for a pass this one has not reached.
+        for pass in [Pass::Today, Pass::Ahead] {
+            for stream in ["out", "err"] {
+                let _ = fs::remove_file(logs_dir.join(format!("{}.{stream}.log", pass.name())));
+            }
+        }
         if days > 0 {
             stock.spawn(Pass::Today)?;
         }

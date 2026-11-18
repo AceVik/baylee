@@ -243,6 +243,47 @@ pub(super) struct Linked {
     pub account_file: PathBuf,
     /// Which checkout the service and the website were built from.
     pub revision: String,
+    /// The synthetic administrator's password, for [`Linked::prove_play`].
+    password: String,
+}
+
+impl Linked {
+    /// With the gateway and its agent up: the synthetic administrator signs
+    /// in, is admitted at the gateway and asks it for its Tower capacity. The
+    /// gateway answers that only once the Tower authority accepted it as a
+    /// host, with the Tower engines its agents have free; a stack that says
+    /// ready without it has a Tower nobody can play. Returns how many
+    /// engines are free.
+    pub(super) fn prove_play(
+        &self,
+        bin_dir: &Path,
+        logs_dir: &Path,
+        gateway_origin: &str,
+    ) -> Result<u64> {
+        let reply = provision::ask(
+            bin_dir,
+            logs_dir,
+            "signin",
+            &json!({
+                "endpoint": origin(NATIVE_PORT),
+                "username": ACCOUNT,
+                "password": self.password,
+                "gateway": gateway_origin,
+            }),
+        )
+        .context("the synthetic administrator cannot reach the Tower through the gateway")?;
+        let tower = origin(super::tower::PORT);
+        ensure!(
+            reply["tower"]["origin"] == json!(tower),
+            "the gateway hosts for another Tower authority than {tower}"
+        );
+        let engines = reply["tower"]["engines"].as_u64().unwrap_or(0);
+        ensure!(
+            engines > 0,
+            "the gateway's agents offer no Tower engine the authority knows"
+        );
+        Ok(engines)
+    }
 }
 
 /// The files a running stack keeps its two on-disk secrets in.
@@ -427,6 +468,7 @@ fn keep_secrets(launch: &Launch<'_>, fresh: &Fresh) -> Result<Linked> {
         bridge_hex: hex(&bridge),
         account_file,
         revision: launch.checkout.revision(),
+        password: fresh.password.clone(),
     })
 }
 

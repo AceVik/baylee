@@ -389,6 +389,10 @@ fn serve_until_stopped(
     } else {
         (cfg.central_endpoint.clone(), cfg.central_web_origin.clone())
     };
+    // Before the client opens: what a player is about to do, done once.
+    let tower_engines = linked
+        .map(|link| link.prove_play(bin_dir, logs_dir, &gateway_origin))
+        .transpose()?;
     let mut client = if cfg.no_client {
         None
     } else {
@@ -433,6 +437,11 @@ fn serve_until_stopped(
             link.account_file.display()
         );
         println!("Central: built from {}", link.revision);
+        if let Some(engines) = tower_engines {
+            println!(
+                "Central: dev_admin signed in, was admitted at the gateway, and the gateway hosts the Tower with {engines} engine(s) free"
+            );
+        }
     }
     println!(
         "STACK_READY gateway={gateway_origin} monitor={}",
