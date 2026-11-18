@@ -311,6 +311,13 @@ impl GameWriter {
         self.push_with_block(step, &[])
     }
 
+    /// The BST4 payload `step` would be written as, without writing it: the
+    /// bytes the afterstate checks compare.
+    pub fn payload(&mut self, step: &Step4) -> anyhow::Result<Vec<u8>> {
+        self.pack_bst4(step)?;
+        Ok(self.bst4_buf.clone())
+    }
+
     /// [`Self::push`], the frame's payload followed by `block` (a
     /// search-advantage twin's BSA1).
     pub fn push_with_block(&mut self, step: &Step4, block: &[u8]) -> anyhow::Result<()> {
