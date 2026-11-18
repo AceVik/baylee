@@ -28,7 +28,7 @@ use baylee_cards::generated_tokens::GENERATED;
 #[cfg(test)]
 use baylee_cards::tokens::ALL;
 use baylee_cards::tokens::token_id;
-use baylee_core::color::{Color, ColorSet};
+use baylee_core::color::ColorSet;
 use baylee_core::generated::subtypes;
 use baylee_core::types::{SubtypeSet, SupertypeSet, TypeSet};
 use serde_json::Value;
@@ -76,12 +76,17 @@ pub(crate) enum Outcome {
     },
 }
 
-/// Every printed token card in an MTGJSON deck archive, one per Scryfall id.
-fn printed_in_archive(archive: &Path) -> anyhow::Result<Vec<Printed>> {
+/// Every printed token card in an MTGJSON deck archive, one per Scryfall id,
+/// and the archive's MTGJSON build, from the first file that names one.
+fn printed_in_archive(archive: &Path) -> anyhow::Result<(Vec<Printed>, String)> {
     let mut by_id: BTreeMap<String, Printed> = BTreeMap::new();
+    let mut build: Option<String> = None;
     for (file, bytes) in crate::precons::read_archive(archive)? {
         let json: Value =
             serde_json::from_slice(&bytes).with_context(|| format!("{file}: not JSON"))?;
+        if build.is_none() {
+            build = json["meta"]["version"].as_str().map(str::to_string);
+        }
         let released = json["data"]["releaseDate"].as_str().unwrap_or_default();
         let Some(tokens) = json["data"]["tokens"].as_array() else {
             continue;
@@ -98,7 +103,10 @@ fn printed_in_archive(archive: &Path) -> anyhow::Result<Vec<Printed>> {
             }
         }
     }
-    Ok(by_id.into_values().collect())
+    Ok((
+        by_id.into_values().collect(),
+        build.unwrap_or_else(|| "?".to_string()),
+    ))
 }
 
 /// One MTGJSON token record, if it carries a Scryfall id.
@@ -123,18 +131,6 @@ pub(crate) fn printed_from_mtgjson(token: &Value, released: &str) -> Option<Prin
         set: text("setCode").unwrap_or_default().to_ascii_lowercase(),
         number: text("number").unwrap_or_default(),
         released: released.to_string(),
-    })
-}
-
-/// A colour letter as the colour it names.
-fn color_of(letter: &str) -> Option<Color> {
-    Some(match letter {
-        "W" => Color::White,
-        "U" => Color::Blue,
-        "B" => Color::Black,
-        "R" => Color::Red,
-        "G" => Color::Green,
-        _ => return None,
     })
 }
 
@@ -185,7 +181,10 @@ pub(crate) fn compare(token: &TokenDef, printed: &Printed) -> Result<(), String>
     }
     let mut colors = Vec::new();
     for letter in &printed.colors {
-        colors.push(color_of(letter).ok_or_else(|| format!("colour `{letter}`"))?);
+        colors.push(
+            crate::check_card::color_of_letter(letter)
+                .ok_or_else(|| format!("colour `{letter}`"))?,
+        );
     }
     if ColorSet::from_slice(&colors) != token.colors {
         return Err(format!("colours {}", printed.colors.join("")));
@@ -333,18 +332,6 @@ pub(crate) fn render(choices: &[&Choice], source: &str) -> String {
     out
 }
 
-/// The archive's MTGJSON build, from the first file that names one.
-fn source_build(archive: &Path) -> anyhow::Result<String> {
-    for (_, bytes) in crate::precons::read_archive(archive)? {
-        if let Ok(json) = serde_json::from_slice::<Value>(&bytes)
-            && let Some(version) = json["meta"]["version"].as_str()
-        {
-            return Ok(version.to_string());
-        }
-    }
-    Ok("?".to_string())
-}
-
 /// `xtask token-pictures`: report, and with `write` rewrite the table.
 ///
 /// # Errors
@@ -360,7 +347,7 @@ pub(crate) fn run(root: &Path, archive: Option<&Path>, write: bool) -> anyhow::R
             path.display()
         );
     }
-    let printed = printed_in_archive(&path)?;
+    let (printed, build) = printed_in_archive(&path)?;
     let outcomes = choose(&printed);
     let choices: Vec<&Choice> = outcomes
         .iter()
@@ -392,7 +379,7 @@ pub(crate) fn run(root: &Path, archive: Option<&Path>, write: bool) -> anyhow::R
         outcomes.len(),
         outcomes.len() - choices.len()
     );
-    let content = render(&choices, &source_build(&path)?);
+    let content = render(&choices, &build);
     let mut changed = Vec::new();
     write_verbatim(!write, &root.join(ROWS_FILE), &content, &mut changed)?;
     if !write && !changed.is_empty() {
