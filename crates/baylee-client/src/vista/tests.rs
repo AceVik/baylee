@@ -304,6 +304,10 @@ fn the_pointer_does_not_move_the_front_doors_backdrop() {
     let right = Vec2::new(1.0, 1.0);
     assert_eq!(lean_written(Vista::Front, left), Vec2::ZERO);
     assert_eq!(lean_written(Vista::Front, right), Vec2::ZERO);
-    assert_eq!(lean_written(Vista::Interior, left), left, "the tavern leans");
+    assert_eq!(
+        lean_written(Vista::Interior, left),
+        left,
+        "the tavern leans"
+    );
     assert_eq!(lean_written(Vista::Interior, right), right);
 }
