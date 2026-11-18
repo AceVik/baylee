@@ -830,11 +830,12 @@ fn vertical_consonance_plomp_levelt_and_parsimonious_voice_leading_hold() {
 }
 
 #[test]
-fn lobby_tavern_guitar_locks_to_exact_nine_bar_bard_video_loop() {
-    // 109.091 BPM Bard strum sync:
-    // 1 sixteenth = 13,200 samples (0.275s); 1 eighth-note strum (`2` ticks) = 26,400 samples
-    // (`0.550s` = `33f @ 60fps`, 1:1 with every Bard hand downstroke);
-    // 27 Bard strums (`54` ticks = `4.5` `6/8` bars) = 712,800 samples = `14.850000s` (`891f @ 60fps`) exact!
+fn lobby_tavern_guitar_keeps_its_whole_frame_strum_pace() {
+    // 109.091 BPM: 1 sixteenth = 13,200 samples (0.275s); 1 eighth-note strum (`2` ticks) =
+    // 26,400 samples (`0.550s` = `33f @ 60fps`); 27 strums (`54` ticks = `4.5` `6/8` bars) =
+    // 712,800 samples = `14.85s` (`891f @ 60fps`). The pace was set for the 16.11.2026
+    // tavern loop of that length; the 18.11.2026 loop (750 frames) is not locked to it, so
+    // this now pins only that the suite's tempo stays what its arrangement was written for.
     assert_eq!(memorial::LOBBY_STEP_FRAMES * 2 * 60 / RATE, 33);
     assert_eq!((memorial::LOBBY_STEP_FRAMES * 2 * 60) % RATE, 0);
     assert_eq!(memorial::LOBBY_STEP_FRAMES * 54, 891 * (RATE / 60));

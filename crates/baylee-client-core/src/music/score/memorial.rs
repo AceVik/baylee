@@ -16,8 +16,10 @@
 //! 4. Gaspar Sanz (1640–1710), *Españoleta* (*Instrucción de música sobre la guitarra española*, 1674, D minor)
 //!
 //! Paced at `LOBBY_STEP_FRAMES = 13_200` (`0.275 s` sixteenth -> `0.550 s` eighth strum =
-//! `109.091 BPM`), locking every fingerpicked guitar strum 1:1 to the Tavern Bard's right
-//! hand (`27` strums = `54` ticks = `14.850000 s` = `891` frames @ `60 fps`, zero drift).
+//! `109.091 BPM`). That pace was chosen to lock every strum 1:1 to the bard's right hand
+//! in the 16.11.2026 tavern loop (`27` strums = `54` ticks = `14.85 s` = `891` frames @
+//! `60 fps`). The 18.11.2026 loop is another scene of `750` frames (`12.5 s`), so the
+//! pace is now only this suite's tempo and nothing on screen depends on it.
 use super::{Movement, arrangement::Instrument};
 #[cfg(test)]
 use crate::music::orchestra::chamber::Note;
@@ -39,7 +41,8 @@ const TITLE_STEP_SECONDS: f32 = TITLE_STEP_FRAMES as f32 / RATE as f32;
 /// Sixteenth-note pulse for the cozy Lobby Tavern suite: 13,200 frames at 48 kHz
 /// (`0.275 s` sixteenth -> `0.550 s` eighth-note strum [`109.091 BPM`, `33f @ 60fps`] ->
 /// `3.300 s` `6/8` bar [`198f @ 60fps`]; `54` sixteenth ticks [`27` Bard strums] =
-/// `712,800` samples = `14.850000 s` = `891f @ 60fps` exact, zero cumulative drift).
+/// `712,800` samples = `14.85 s`, the length of the 16.11.2026 tavern loop it was
+/// tuned to; the loop that replaced it on 18.11.2026 is not locked to this pulse).
 pub(in crate::music) const LOBBY_STEP_FRAMES: u32 = 13_200;
 const LOBBY_STEP_SECONDS: f32 = LOBBY_STEP_FRAMES as f32 / RATE as f32;
 
