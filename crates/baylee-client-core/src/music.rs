@@ -396,7 +396,11 @@ mod tests {
         );
         let fresh = serde_json::to_string(&MusicLevel::default()).expect("writes");
         let read: MusicLevel = serde_json::from_str(&fresh).expect("reads");
-        assert_eq!(read, MusicLevel::default(), "a fresh level reads back as it was");
+        assert_eq!(
+            read,
+            MusicLevel::default(),
+            "a fresh level reads back as it was"
+        );
         assert_eq!(MusicTheme::ALL[0], MusicTheme::Saga, "first in the list");
         assert!(
             (0..60).all(|turn| Theme::ALL.contains(&MusicTheme::Rotating.pick(turn))),
