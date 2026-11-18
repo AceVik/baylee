@@ -4783,18 +4783,20 @@ curled-up Baylee sleeps on a separate cloud with garden birds, pigeons and flowe
 Both wordmark and icon include her. Asset provenance, exact generation calls
 and photo mapping are in `art/baylee/README.md`.
 
-Each scene moves (`vista::loops`, updated 15.11.2026): the world and the
-tavern are AVIF image sequences of our own (3840 × 2160, 120 fps, 8.58 MiB and
-7.01 MiB, embedded in the binary), decoded by `baylee-avif` on parked NEON
+Each scene moves (`vista::loops`, updated 18.11.2026): the world and the
+tavern are AVIF image sequences of our own (3840 × 2160, 60 fps, 29.44 MiB and
+13.00 MiB, embedded in the binary), decoded by `baylee-avif` on parked NEON
 tile-parallel threads per loop into an 8-slot lock-free SPSC ring and uploaded
 via reusable staging buffers as three 8-bit planes into three `R8` textures that
 `vista.wesl` turns into colour. A loop plays by the scene's own clock, not by
 the renderer's frames, so it runs at its exact `1.0×` speed at 30, 60 or 120 fps
 and decodes nothing under `reduce_motion`, at ambient `Low`, or when the window
 is minimized or occluded. Menus run up to `MENU_ACTIVE_FPS` = 120 (capped to the
-monitor's refresh rate when known) for 120 s after input, then ease to
-`RestLimit` (30 fps default; visible windows never drop below 30 fps even when
-unfocused). A surface shows its matching 3840 × 2160 frame-0 still until the
+monitor's refresh rate when known) for `MENU_SMOOTH_SECS` = 3 s after input,
+then at `MENU_FILM_FPS` = 60, the loops' own rate (a faster menu drew each
+picture twice: a third of the GPU's time at the front door on a 120 Hz display,
+`docs/perf-client.md`), and after 120 s at 30 fps (visible windows never drop
+below 30 fps even when unfocused). A surface shows its matching 3840 × 2160 frame-0 still until the
 first frame is on the GPU, then the loop comes in over 0.6 s; an unseen loop
 parks at once and drops both its decoder and its 4K ring buffers (`0` bytes held
 during duels) after 4 s. Desktop only; a browser and a phone show the stills.

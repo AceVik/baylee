@@ -987,6 +987,12 @@ mod tests {
             assert_eq!((track.width, track.height), (3840, 2160), "{name}");
             assert_eq!(track.samples.len(), expected_samples, "{name}");
             assert_eq!(track.duration_ns(), expected_ns, "{name} exact 60/1 fps");
+            // A quiet menu draws at this rate and no faster (`Graphics::pace`).
+            assert_eq!(
+                expected_samples as u64 * 1_000_000_000 / expected_ns,
+                u64::from(baylee_client_core::graphics::MENU_FILM_FPS),
+                "{name} plays at the rate a quiet menu draws at"
+            );
             assert!(sequence.repeats, "{name} repeats");
             assert!(sequence.alpha.is_none(), "{name} is opaque");
 

@@ -341,11 +341,26 @@ impl DisplayMode {
 /// way back without seeing anything.
 pub const DISPLAY_REVERT_SECS: f32 = 15.0;
 
-/// Active frame-rate cap on menus (sign-in, lobby, deck builder, settings):
-/// matches the `120/1` fps 4K painted-world AVIF loops on `High` (`120` fps
-/// in 3D play) and `Ultra` (`Unlimited` in 3D play), capped to the monitor's
-/// refresh rate when lower.
+/// Frame-rate cap on a menu (sign-in, lobby, deck builder, settings) that is
+/// being used: on `High` and `Ultra` a pointer, a scroll and a hover move at
+/// the display's rate, capped to the monitor's refresh rate when lower. It
+/// holds for [`MENU_SMOOTH_SECS`] after the last input.
 pub const MENU_ACTIVE_FPS: u32 = 120;
+
+/// Frames a second the front door's and the lobby's loops play at (`60/1`,
+/// held to the shipped files by
+/// `vista::loops::tests::the_shipped_loops_are_what_the_shader_converts`). A
+/// menu nobody is touching draws no more often than its picture changes:
+/// above this rate every second frame was the same picture drawn again, a
+/// third of the GPU's time on a 120 Hz display (`docs/perf-client.md`, 18
+/// November 2026).
+pub const MENU_FILM_FPS: u32 = 60;
+
+/// Seconds after the last key, click, pointer move, wheel or touch for which
+/// a menu holds [`MENU_ACTIVE_FPS`]; then it draws at [`MENU_FILM_FPS`] until
+/// [`IDLE_AFTER_SECS`]. Long enough for a scroll to run out and a sheet to
+/// arrive, short enough that reading a screen is not drawn at twice its rate.
+pub const MENU_SMOOTH_SECS: f32 = 3.0;
 
 /// Seconds without any user or game action after which an active screen eases
 /// smoothly to [`MIN_VISIBLE_FPS`] (`30` fps). Any user action or game event
@@ -718,8 +733,10 @@ impl Graphics {
     /// - Active focused menu (sign-in, lobby, settings): runs at up to
     ///   [`MENU_ACTIVE_FPS`] (120 fps, capped to [`Self::frame_limit`] and to
     ///   the monitor's refresh rate when known via [`Self::pace_for_monitor`])
-    ///   for [`IDLE_AFTER_SECS`] (`120.0`s), eases smoothly to 30 fps, and
-    ///   returns immediately to the active menu rate on any user action.
+    ///   for [`MENU_SMOOTH_SECS`] after the last input, then at
+    ///   [`MENU_FILM_FPS`] (60 fps, the rate its loop plays at) until
+    ///   [`IDLE_AFTER_SECS`] (`120.0`s), then at 30 fps, and returns
+    ///   immediately to the active menu rate on any user action.
     /// - Active focused table: runs at [`Self::frame_limit`] (60 fps on
     ///   `Medium`, 120 fps on `High`, unlimited on `Ultra`) for
     ///   [`TABLE_SETTLE_SECS`] (`120.0`s), eases to [`Self::rest_limit`]
@@ -765,6 +782,9 @@ impl Graphics {
                 return (held(MIN_VISIBLE_FPS), true);
             }
             let menu_fps = focused.map_or(menu_cap, |cap| cap.min(menu_cap));
+            if showing.untouched_secs >= MENU_SMOOTH_SECS && menu_fps > MENU_FILM_FPS {
+                return (Pace::Fps(MENU_FILM_FPS), true);
+            }
             return (Pace::Fps(menu_fps), false);
         }
         let rest = self.rest_limit.fps().max(MIN_VISIBLE_FPS);
@@ -968,9 +988,9 @@ mod tests {
         assert_eq!(graphics.preset, Preset::High);
     }
 
-    /// Active focused menus and tables hold their full rate for `120.0`s, ease
-    /// smoothly to 30 fps (or the table's `RestLimit`), and return immediately
-    /// on any user or game action.
+    /// Active focused tables hold their full rate for `120.0`s and menus theirs
+    /// while used (then their film's), ease smoothly to 30 fps (or the table's
+    /// `RestLimit`), and return immediately on any user or game action.
     #[test]
     fn the_pace_follows_the_window() {
         let medium = Graphics::of(Preset::Medium);
@@ -1004,8 +1024,8 @@ mod tests {
         sixty.rest_limit = RestLimit::Fps60;
         assert_eq!(sixty.pace(table_untouched), (Pace::Fps(60), false));
         assert_eq!(sixty.pace(table_untouched), sixty.pace(AT_DESK));
-        // High (e.g. Apple M1 Max) and Ultra: menus run up to 120 -> 120s -> 30
-        // -> 120 (or monitor refresh rate when lower); tables run 120/Unlimited
+        // High (e.g. Apple M1 Max) and Ultra: menus run up to 120 -> 3s -> 60
+        // -> 120s -> 30 -> 120 (or monitor refresh rate when lower); tables run 120/Unlimited
         // -> 120s -> 30 -> 120/Unlimited.
         let high = Graphics::of(Preset::High);
         let ultra = Graphics::of(Preset::Ultra);
@@ -1023,12 +1043,13 @@ mod tests {
         };
         assert_eq!(high.pace(high_menu_active), (Pace::Fps(120), false));
         assert_eq!(ultra.pace(high_menu_active), (Pace::Fps(120), false));
+        // Left alone it draws at its film's rate, until it idles.
         assert_eq!(
             high.pace(Showing {
                 untouched_secs: 119.9,
                 ..high_menu_active
             }),
-            (Pace::Fps(120), false)
+            (Pace::Fps(MENU_FILM_FPS), true)
         );
         let low = Graphics::of(Preset::Low);
         assert_eq!(low.pace(table_untouched), (Pace::Fps(30), false));
@@ -1118,6 +1139,61 @@ mod tests {
             };
             assert_eq!(high.pace_for_monitor(hidden, mhz), (Pace::Paused, true));
         }
+    }
+
+    /// A menu left alone for [`MENU_SMOOTH_SECS`] draws at its film's rate
+    /// and wakes on the next input; one already at or below that rate (a
+    /// 60 Hz display, `Medium`, `Low`) keeps its cap and its pacing mode.
+    #[test]
+    fn a_quiet_menu_draws_no_faster_than_its_film() {
+        let high = Graphics::of(Preset::High);
+        let ultra = Graphics::of(Preset::Ultra);
+        let medium = Graphics::of(Preset::Medium);
+        let low = Graphics::of(Preset::Low);
+        let used = Showing {
+            menu: true,
+            untouched_secs: MENU_SMOOTH_SECS - 0.01,
+            ..AT_DESK
+        };
+        let quiet = Showing {
+            untouched_secs: MENU_SMOOTH_SECS,
+            ..used
+        };
+        let nearly_idle = Showing {
+            untouched_secs: IDLE_AFTER_SECS - 0.01,
+            ..used
+        };
+        for g in [high, ultra] {
+            for mhz in [None, Some(120_000), Some(144_000)] {
+                assert_eq!(g.pace_for_monitor(used, mhz), (Pace::Fps(120), false));
+                assert_eq!(
+                    g.pace_for_monitor(quiet, mhz),
+                    (Pace::Fps(MENU_FILM_FPS), true)
+                );
+                assert_eq!(
+                    g.pace_for_monitor(nearly_idle, mhz),
+                    (Pace::Fps(MENU_FILM_FPS), true)
+                );
+            }
+            // Between the film's rate and the active cap: still eased.
+            assert_eq!(
+                g.pace_for_monitor(quiet, Some(75_000)),
+                (Pace::Fps(MENU_FILM_FPS), true)
+            );
+            // Already at the film's rate: the cap stays a cap.
+            assert_eq!(
+                g.pace_for_monitor(quiet, Some(60_000)),
+                (Pace::Fps(60), false)
+            );
+        }
+        assert_eq!(medium.pace(quiet), (Pace::Fps(60), false));
+        assert_eq!(low.pace(quiet), (Pace::Fps(30), false));
+        // A table is not a menu: it holds its cap until it settles.
+        let table = Showing {
+            menu: false,
+            ..quiet
+        };
+        assert_eq!(high.pace(table), (Pace::Fps(120), false));
     }
 
     /// Every visible window (including unfocused) stays at `>= 30` fps, and

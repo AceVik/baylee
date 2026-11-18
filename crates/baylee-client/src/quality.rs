@@ -9,12 +9,14 @@
 //!
 //! # Pacing
 //!
-//! While active and focused, menus (sign-in, lobby, settings) run at up to
-//! 120 fps (`MENU_ACTIVE_FPS`, matching the `120/1` fps 4K painted-world AVIF
-//! loops on `High` and `Ultra`, 60 fps on `Medium`, and 30 fps on `Low`),
-//! capped to the monitor's refresh rate when known (e.g. 60 fps on a 60 Hz
-//! display, 120 fps on 120 Hz `ProMotion`), while 3D tables run at the preset's
-//! full rate (60 fps on `Medium`, 120 fps on `High`, unlimited on `Ultra`).
+//! While used and focused, menus (sign-in, lobby, settings) run at up to
+//! 120 fps (`MENU_ACTIVE_FPS` on `High` and `Ultra`, 60 fps on `Medium`, and
+//! 30 fps on `Low`), capped to the monitor's refresh rate when known (e.g.
+//! 60 fps on a 60 Hz display, 120 fps on 120 Hz `ProMotion`). `MENU_SMOOTH_SECS`
+//! after the last input a menu draws at `MENU_FILM_FPS`, the 60 fps its loop
+//! plays at, because faster only drew each picture twice. 3D tables run at the
+//! preset's full rate (60 fps on `Medium`, 120 fps on `High`, unlimited on
+//! `Ultra`).
 //! When `VSync` is active and the display's refresh rate is at or below the
 //! target cap (60 Hz at `Fps60`, 120 Hz `ProMotion` at `Fps120`),
 //! `UpdateMode::Continuous` hands pacing directly to hardware `VBlank`
@@ -879,17 +881,18 @@ mod tests {
 
     /// Menu pacing policy across `Medium` (60 fps) and `High` / `Ultra`
     /// (120 fps on unknown / 120 Hz+ displays, capped to monitor refresh rate
-    /// when lower): holds the active rate for a full 120.0 seconds, eases
+    /// when lower): holds the active rate while used, the film's 60 fps from
+    /// `MENU_SMOOTH_SECS` until a full 120.0 seconds have passed, eases
     /// smoothly to 30 fps at 120.0 seconds (never freezing ambient motion), and
     /// returns immediately to the active rate on the very next frame after any
     /// user input.
     #[test]
-    fn a_menu_holds_active_rate_for_two_minutes_eases_to_thirty_and_wakes_on_input() {
+    fn a_menu_holds_its_rate_then_its_films_then_thirty_and_wakes_on_input() {
         use baylee_client_core::graphics::{IDLE_AFTER_SECS, Preset};
-        for (preset, active_fps) in [
-            (Preset::Medium, 60.0f32),
-            (Preset::High, 120.0),
-            (Preset::Ultra, 120.0),
+        for (preset, active_fps, quiet_fps) in [
+            (Preset::Medium, 60.0f32, 60.0f32),
+            (Preset::High, 120.0, 60.0),
+            (Preset::Ultra, 120.0, 60.0),
         ] {
             let mut app = App::new();
             app.add_plugins(MinimalPlugins)
@@ -921,11 +924,11 @@ mod tests {
                 (focused_wait(&app) - 1.0 / active_fps).abs() < 1e-4,
                 "{preset:?} active menu"
             );
-            // +30s, +60s, +90s (< 120.0s): still active rate!
+            // +30s, +60s, +90s (< 120.0s): nobody touched it, so its film's rate.
             for step in 1..=3 {
                 app.update();
                 assert!(
-                    (focused_wait(&app) - 1.0 / active_fps).abs() < 1e-4,
+                    (focused_wait(&app) - 1.0 / quiet_fps).abs() < 1e-4,
                     "{preset:?} at {}s (< {IDLE_AFTER_SECS}s): {}",
                     step * 30,
                     focused_wait(&app)
