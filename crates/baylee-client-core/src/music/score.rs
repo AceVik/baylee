@@ -80,6 +80,25 @@ pub struct Tune {
     scratch: Box<[f32; BLOCK]>,
     ahead_read: usize,
     right: Option<f32>,
+    /// The recorded theme is playing: the orchestra rests (its notes
+    /// released) until a synthesised theme is asked for again.
+    resting: bool,
+    #[cfg(not(target_arch = "wasm32"))]
+    recorded: Recorded,
+    #[cfg(not(target_arch = "wasm32"))]
+    recorded_scratch: Box<[[f32; 2]; BLOCK]>,
+}
+
+/// Where a [`Tune`]'s recorded soundtrack comes from.
+#[cfg(not(target_arch = "wasm32"))]
+enum Recorded {
+    /// Rendered in place, on the caller's thread: offline renders and tests.
+    /// Built at the first recorded request.
+    Inline(Option<Box<super::recorded::Mixer>>),
+    /// Rendered by a worker thread into a ring (`Tune::streaming`).
+    Streamed(super::recorded::feed::Feed),
+    /// No worker could be started: the recordings stay silent.
+    Off,
 }
 impl Default for Tune {
     fn default() -> Self {
@@ -125,8 +144,65 @@ impl Tune {
             scratch: Box::new([0.0; BLOCK]),
             ahead_read: BLOCK,
             right: None,
+            resting: false,
+            #[cfg(not(target_arch = "wasm32"))]
+            recorded: Recorded::Inline(None),
+            #[cfg(not(target_arch = "wasm32"))]
+            recorded_scratch: Box::new([[0.0; 2]; BLOCK]),
         }
     }
+    /// The performance the audio device plays: as [`Self::with_control`],
+    /// with the recorded soundtrack decoded on a worker thread of its own
+    /// (the decoder allocates, so it never runs on the audio thread).
+    #[must_use]
+    pub fn streaming(control: Arc<ScoreControl>) -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let feed = super::recorded::feed::Feed::spawn(control.clone());
+            let mut tune = Self::with_control(control);
+            tune.recorded = feed.map_or(Recorded::Off, Recorded::Streamed);
+            tune
+        }
+        #[cfg(target_arch = "wasm32")]
+        Self::with_control(control)
+    }
+    /// Frames of recorded music the audio thread found missing because the
+    /// worker was late (0 when nothing streams).
+    #[must_use]
+    pub fn starved(&self) -> usize {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Recorded::Streamed(feed) = &self.recorded {
+            return feed.starved();
+        }
+        0
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    fn add_recorded(&mut self, out: &mut [[f32; 2]]) {
+        match &mut self.recorded {
+            Recorded::Streamed(feed) => feed.add(out),
+            Recorded::Inline(mixer) => {
+                let request = self.control.get();
+                if mixer.is_none() && request.recorded {
+                    *mixer = Some(Box::new(super::recorded::Mixer::new()));
+                }
+                let Some(mixer) = mixer else {
+                    return;
+                };
+                for chunk in out.chunks_mut(BLOCK) {
+                    let scratch = &mut self.recorded_scratch[..chunk.len()];
+                    mixer.render(request, scratch);
+                    for (frame, add) in chunk.iter_mut().zip(scratch.iter()) {
+                        frame[0] += add[0];
+                        frame[1] += add[1];
+                    }
+                }
+            }
+            Recorded::Off => {}
+        }
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[allow(clippy::unused_self)]
+    const fn add_recorded(&mut self, _: &mut [[f32; 2]]) {}
     /// The arrangement actually admitted by the conductor.
     #[must_use]
     pub const fn position(&self) -> Position {
@@ -182,8 +258,11 @@ impl Tune {
             .pending_result
             .take()
             .unwrap_or_else(|| self.control.get());
-        let protected =
-            self.position.movement.ending() && self.position.phrase_bar == 0 && self.tick < 4;
+        let was_resting = std::mem::take(&mut self.resting);
+        let protected = !was_resting
+            && self.position.movement.ending()
+            && self.position.phrase_bar == 0
+            && self.tick < 4;
 
         // Loading / arrival screen: release Lobby notes into a warm sustained hush; wait for Table.
         if request.scene == Scene::Opening && !protected {
@@ -210,7 +289,7 @@ impl Tune {
         let movement = Movement::wanted(request, self.position.movement);
         let urgent = movement.ending() && movement != self.position.movement;
         if !self.started || (!protected || urgent) {
-            let leaving_hush = self.opening_hush;
+            let leaving_hush = self.opening_hush || was_resting;
             self.opening_hush = false;
             let prev = self.position.movement;
             let same_theme = request.theme == self.position.theme;
@@ -253,10 +332,23 @@ impl Tune {
         // dismissal before the next pulse could erase the attention cue.
         let request = self.control.get();
         let wanted = Movement::wanted(request, self.position.movement);
-        if wanted.ending() && wanted != self.position.movement {
+        if !request.recorded && wanted.ending() && wanted != self.position.movement {
             self.pending_result = Some(request);
         }
         if self.until_tick > 0.0 {
+            return;
+        }
+        if request.recorded {
+            // The recordings play: the orchestra lets its notes ring out
+            // and waits, polling as the loading hush does.
+            if !self.resting {
+                self.orchestra.release_notes();
+                self.resting = true;
+                self.opening_hush = false;
+                self.pending_result = None;
+            }
+            self.started = true;
+            self.until_tick += f64::from(RATE) * 0.18;
             return;
         }
         if !self.opening_hush
@@ -320,6 +412,7 @@ impl Tune {
 
     fn advance(&mut self) {
         if !self.opening_hush
+            && !self.resting
             && memorial::contains(self.position.movement)
             && self.memorial.advance_for(self.position.movement)
         {
@@ -335,7 +428,9 @@ impl Tune {
     pub fn frame(&mut self) -> [f32; 2] {
         self.transport();
         self.advance();
-        self.orchestra.frame()
+        let mut frame = [self.orchestra.frame()];
+        self.add_recorded(&mut frame);
+        frame[0]
     }
     /// Render a run of stereo frames, with exactly the scalar renderer's timing.
     pub fn render(&mut self, out: &mut [[f32; 2]]) {
@@ -351,6 +446,7 @@ impl Tune {
                 .render(&mut out[done..done + run], &mut self.scratch[..]);
             done += run;
         }
+        self.add_recorded(out);
     }
 }
 impl Iterator for Tune {

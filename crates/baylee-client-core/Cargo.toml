@@ -82,6 +82,12 @@ name = "client"
 harness = false
 required-features = ["test-support"]
 
+# The recorded soundtrack's decoder (`music::recorded`): the nine Opus files
+# are embedded and decoded packet by packet on a worker thread. Native only:
+# the browser build has no thread for it and plays the synthesised score.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+opus-decoder.workspace = true
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { workspace = true, features = ["wasm_js"] }
 

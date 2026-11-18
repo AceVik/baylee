@@ -90,7 +90,7 @@ impl Movement {
         match request.scene {
             Scene::FrontDoor => Self::Title,
             // Opening holds a hushed harmonic bridge in Tune; table music never starts during loading.
-            Scene::Lobby | Scene::Build | Scene::Opening => Self::Lobby,
+            Scene::Lobby | Scene::Build | Scene::Tower | Scene::Opening => Self::Lobby,
             Scene::Victory => Self::Victory,
             Scene::Defeat => Self::Defeat,
             Scene::Draw => Self::Draw,

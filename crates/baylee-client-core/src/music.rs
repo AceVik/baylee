@@ -7,19 +7,31 @@
 //!
 //! Native 48-kHz physical-modelled Acoustic Tavern Guitar, Renaissance lyre, and hybrid orchestral synthesizer layers
 //! share one stereo room with CC0 acoustic recordings (`Studio48` or `Original441`), gliding seamlessly across beats.
+//!
+//! The default theme, [`MusicTheme::Saga`], plays the recorded soundtrack instead (`recorded`, native builds):
+//! nine embedded Ogg-Opus files mixed into the same [`Tune`], with leitmotif stingers chosen by [`direct`].
 
 #[allow(dead_code)] // Historical generated bank retains unused documented families.
 mod bank;
 mod direct;
 mod orchestra;
+#[cfg(not(target_arch = "wasm32"))]
+mod recorded;
 mod score;
-pub use direct::{Ending, Memory, Place, Scene, ScoreRequest, direct};
+pub use direct::{
+    Ending, Memory, Place, STINGER_COOLDOWN, STINGER_GRACE, Scene, ScoreRequest, Stinger, direct,
+};
 pub use score::{Movement, Position, ScoreControl, Theme, Tune};
 
 /// The complete suite chosen in Settings → Audio, remembered per device.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MusicTheme {
+    /// The recorded Baylee soundtrack: a title theme that returns as
+    /// stingers at a game's epic moments (`music::recorded`). Where it cannot
+    /// play (the browser build), it falls back to the rotating suites.
+    #[default]
+    Saga,
     /// Glutpfad, in four.
     #[serde(alias = "ballad")]
     Ember,
@@ -55,12 +67,12 @@ pub enum MusicTheme {
     /// Iron Pulse · Breakbeat.
     Iron,
     /// A different suite each game.
-    #[default]
     Rotating,
 }
 impl MusicTheme {
     /// Every choice, in settings order.
-    pub const ALL: [Self; 16] = [
+    pub const ALL: [Self; 17] = [
+        Self::Saga,
         Self::Ember,
         Self::Glass,
         Self::Thorn,
@@ -97,9 +109,17 @@ impl MusicTheme {
             Self::Mosaic => Theme::Mosaic,
             Self::Orbit => Theme::Orbit,
             Self::Iron => Theme::Iron,
-
-            Self::Rotating => Theme::ALL[(turn % 15) as usize],
+            // The recorded theme's synthesised fallback rotates as
+            // "Rotating" does; rotating never reaches the recording.
+            Self::Saga | Self::Rotating => Theme::ALL[(turn % 15) as usize],
         }
+    }
+
+    /// Whether this theme plays the recordings instead of the synthesised
+    /// score: the recorded theme, on a build that can decode them.
+    #[must_use]
+    pub const fn recorded(self) -> bool {
+        matches!(self, Self::Saga) && RECORDED
     }
 }
 
@@ -126,6 +146,11 @@ impl SampleSet {
         }
     }
 }
+
+/// Whether this build carries the recorded soundtrack: native builds. The
+/// browser build has no thread to decode it on and plays the synthesised
+/// score instead.
+pub const RECORDED: bool = cfg!(not(target_arch = "wasm32"));
 
 /// Continuous stereo output rate, independent of the selected sample bank.
 pub const RATE: u32 = 48_000;
@@ -279,8 +304,28 @@ mod tests {
             serde_json::from_str(r#"{"volume":0.3,"muted":false}"#).expect("reads");
         assert_eq!(
             older.theme(),
+            MusicTheme::Saga,
+            "a file from before the themes plays the recorded soundtrack"
+        );
+        let rotating: MusicLevel =
+            serde_json::from_str(r#"{"volume":0.3,"theme":"rotating"}"#).expect("reads");
+        assert_eq!(
+            rotating.theme(),
             MusicTheme::Rotating,
-            "a file from before the themes rotates through all five"
+            "a stored choice is kept: only a fresh device gets the recording"
+        );
+        assert_eq!(MusicTheme::ALL[0], MusicTheme::Saga, "first in the list");
+        assert!(
+            (0..60).all(|turn| Theme::ALL.contains(&MusicTheme::Rotating.pick(turn))),
+            "rotating walks the fifteen suites only"
+        );
+        assert_eq!(
+            MusicTheme::ALL
+                .iter()
+                .filter(|theme| theme.recorded())
+                .count(),
+            usize::from(RECORDED),
+            "only the recorded theme plays the recordings"
         );
     }
 

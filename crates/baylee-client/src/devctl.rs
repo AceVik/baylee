@@ -49,7 +49,9 @@
 //! POST /timescale {"speed":0.1}   (the whole picture, a tenth as fast)
 //! POST /pause    {"paused":false}   (absent or true stops the clock)
 //! POST /step     {"frames":6}   (replies once they have run)
-//! POST /music    {"theme":"star","movement":"combat"} (or {"auto":true})
+//! POST /music    {"theme":"star","movement":"combat"} (or {"auto":true}; the recording:
+//!                {"theme":"ember","movement":"combat","recorded":true,"stinger":"epic"},
+//!                {"theme":"ember","movement":"lobby","recorded":true,"tower":true})
 //! POST /perf     {"reset":true}   (frame time, entities, systems, allocations; `perf`)
 //! POST /hide     {"what":"felt","hidden":true}   (one material's entities away)
 //! POST /msaa     {"samples":1}   (every camera's multisampling)

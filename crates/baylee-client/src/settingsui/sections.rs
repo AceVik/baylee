@@ -52,8 +52,9 @@ fn arrangement_names(lang: Lang) -> Vec<String> {
 }
 
 /// Compact buttons and full selection hints, in `MusicTheme::ALL` order.
-fn music_theme_names(lang: Lang) -> [(&'static str, &'static str); 16] {
+fn music_theme_names(lang: Lang) -> [(&'static str, &'static str); 17] {
     [
+        (Phrase::MusicThemeSagaShort, Phrase::MusicThemeSaga),
         (Phrase::MusicThemeEmber, Phrase::MusicThemeEmber),
         (Phrase::MusicThemeGlass, Phrase::MusicThemeGlass),
         (Phrase::MusicThemeThorn, Phrase::MusicThemeThorn),
@@ -445,7 +446,8 @@ pub(crate) fn audio(out: &mut Out, view: &View) {
     out.row(Row::TableSounds, control);
 }
 
-/// Fifteen suites and the independent recorded sound bank.
+/// The recorded soundtrack, fifteen suites, rotation, and the independent
+/// recorded sound bank of the suites.
 fn music_selection(out: &mut Out, view: &View) {
     let lang = out.lang;
     let themes = baylee_client_core::music::MusicTheme::ALL;
@@ -760,8 +762,9 @@ mod tests {
     fn compact_music_choices_keep_genres_and_sample_rates_in_hints() {
         for lang in Lang::ALL {
             let music = music_theme_names(lang);
-            // The ten additional suites retain their genre in the displayed hint.
-            for &(short, full) in &music[5..15] {
+            // The ten additional suites (after the recorded theme and the
+            // first five) retain their genre in the displayed hint.
+            for &(short, full) in &music[6..16] {
                 assert!(
                     full.strip_prefix(short)
                         .is_some_and(|rest| rest.starts_with(" · "))

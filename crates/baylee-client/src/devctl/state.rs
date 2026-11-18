@@ -1150,7 +1150,8 @@ fn score_json(r: baylee_client_core::music::ScoreRequest) -> serde_json::Value {
     serde_json::json!({"scene":format!("{:?}", r.scene),"theme":r.theme,"samples":r.samples,"tension":r.tension,"combat":r.combat,
         "big_spell":r.big_spell,"low_life":r.low_life,"lethal":r.lethal,"own_turn":r.own_turn,
         "about_to_lose":r.about_to_lose,"hunts":r.hunts,"hunt_mine":r.hunt_mine,
-        "monarchs":r.monarchs,"spells":r.spells,"arrivals":r.arrivals})
+        "monarchs":r.monarchs,"spells":r.spells,"arrivals":r.arrivals,
+        "recorded":r.recorded,"stingers":r.stingers,"stinger_epic":r.stinger_epic})
 }
 
 fn loading_json(believed: &Believed) -> serde_json::Value {
