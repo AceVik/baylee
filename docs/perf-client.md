@@ -1279,3 +1279,56 @@ at rest compares first and has a test: the menu's arrival
 (`the_menu_arrives_from_its_corner_and_then_rests`), the toast lane over the
 update card (`the_toast_lane_stands_on_the_update_card_and_not_over_it`), the
 preview's rise (`hud::overlay::pop`).
+
+## The 4K loops and the menus' frame rate (18 November 2026)
+
+The owner asked for less GPU load after the loops became 3840 × 2160 at
+60 fps (`dcf83e9d0`). M1 Max, the built-in display at 120 Hz, window
+1708 × 1032 logical (3416 × 2064 pixels), `ci-release` with `dev-control` and
+`dev-reload`, preset `High` (MSAA 4×, effects `High`), a passive client, which
+counts as touched every frame. Five seconds of Metal System Trace per row,
+every GPU interval of the process summed (`cargo tools perf gpu-intervals`),
+frames from `/perf`, CPU from `ps -o cputime` over the 20 to 37 s a trace takes
+to attach and stop. Other sessions were idle: load average 9 to 15 on 10 cores.
+
+| Screen | Frames a second | GPU, all channels, ms/s | of it fragment | CPU |
+| --- | ---: | ---: | ---: | ---: |
+| Front door, as `High` drew it | 108 | 444 | 383 | 319 % |
+| Front door, frame limit 60 | 59.5 | 297 | 263 | 291 % |
+| Front door, backdrop hidden (`/hide vista`) | 113 | 399 | 370 | 64 % |
+| Lobby, frame limit 60 | 59.3 | — | 294 (depth 0) | 169 % |
+| Lobby, backdrop hidden | 59.9 | — | 287 (depth 0) | 33 % |
+| Duel after the mulligan, frame limit 60 | 59.9 | 280 | 257 (depth 0) | 50 % |
+| Duel, felt, mats and sky hidden | 59.5 | — | 123 (depth 0) | 48 % |
+
+What that says:
+
+- **The frame rate is the lever, and the menus drew twice what their picture
+  needed.** `MENU_ACTIVE_FPS` = 120 came with the 120 fps loops of 15.11.; the
+  loops are 60 fps, so on a 120 Hz display every second frame was the same
+  picture again. A menu now holds 120 for `MENU_SMOOTH_SECS` (3 s) after the
+  last input and then draws at `MENU_FILM_FPS` (60): a third less GPU time at
+  the front door (444 → 297 ms/s). The second row is the same binary capped
+  by its frame limit, which is what a quiet menu now does; the change itself
+  was not traced live, because only a passive client can be driven silently and
+  a passive client is never quiet.
+- **The loop is cheap on the GPU and dear on the CPU.** Hiding the backdrop
+  takes 13 ms/s of fragment time away at the front door and 7 in the lobby,
+  inside this method's noise; the upload shows as 15 to 32 ms/s of compute
+  intervals. What it costs is decoding: 2.5 cores for the world (28 Mbit/s of
+  AV1 at 4K60) and 1.4 for the tavern (8.7 Mbit/s), nearly all of it in
+  `rav1d`'s coefficient decoding and CDEF (`sample`). That is the price of the
+  picture the owner asked for; a lower bitrate or 30 fps would cut it and was
+  not done.
+- **No single drawing explains the menus' GPU time.** With every material of
+  ours hidden the lobby still read 217 ms/s of fragment time at 60 frames. The
+  suspicion was `bevy_ui`'s box shadows, which shade the whole panel under
+  three layers with four samples each; one sample instead of four
+  (`BoxShadowSamples(1)`) read 202 ms/s, inside the noise. So the shadows are
+  not it, and nothing was changed there. As on 12.11., the summed busy time
+  does not resolve one material on this GPU, which clocks itself to the work.
+- The duel's felt, mats and sky are half its fragment time (257 → 123), as
+  they were; nothing new there.
+
+Not measured: `High`'s 120 frames at the table (it is the preset's frame
+limit, a knob), a 60 Hz display (unchanged by this), a weaker GPU, energy.
