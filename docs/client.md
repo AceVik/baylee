@@ -4804,9 +4804,12 @@ Before, the client piped 3840 × 2160 RGBA from a player's own `ffmpeg`, which
 players do not have (`docs/perf-client.md` has both measurements).
 
 `vista.rs` retains two full-screen `UiMaterial` surfaces for front/interior.
-`shaders/vista.wesl` fits the world with cover coordinates and supplies subtle
-pointer parallax, slow cloud haze, warm sun rays and a dark mask following the
-form. The lobby uses the same world at slightly quieter exposure. The existing
+`shaders/vista.wesl` fits the world with cover coordinates and supplies slow
+cloud haze, warm sun rays and a dark mask following the
+form. The lobby uses the same world at slightly quieter exposure. The pointer
+never moves the login's backdrop (owner, 18.11.2026): `vista::paint` writes a
+zero lean (`view.xy`) for `Vista::Front`; the tavern (`Interior`) and the wait
+still lean with the low-passed `Gaze` by about a thousandth of the picture. The existing
 forms, legal footer, QR and authentication logic remain unchanged. Hub panels
 leave a 180-pixel strip of sky clear for Baylee and her caption, so their hit
 areas cannot cover the cloud at narrow widths or XL text size.

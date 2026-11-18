@@ -664,6 +664,13 @@ pub(crate) fn paint(
             continue;
         }
         let energy = if frozen { 0.0 } else { 1.0 };
+        // The front door's backdrop stands still under the pointer (owner,
+        // 18.11.2026); only the tavern's and the wait's lean with it.
+        let lean = if *kind == Vista::Front {
+            Vec2::ZERO
+        } else {
+            gaze.0
+        };
         let next_params = VistaParams {
             // The loop's own (`loops::light`): kept as it is found.
             moving: materials
@@ -671,7 +678,7 @@ pub(crate) fn paint(
                 .map_or(Vec4::ZERO, |material| material.params.moving),
             panel,
             home: home_anchor(aspect),
-            view: Vec4::new(gaze.0.x, gaze.0.y, aspect, energy),
+            view: Vec4::new(lean.x, lean.y, aspect, energy),
             hour: Vec4::new(next_hour, stage.haze, stage.glow, detail),
             gate_a: Vec4::new(
                 stage.before.opening,

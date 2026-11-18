@@ -252,3 +252,58 @@ fn baylees_home_anchor_is_the_same_across_scenes() {
     assert_ne!(scenes[0].panel.x, scenes[1].panel.x);
     assert_ne!(scenes[1].panel.x, scenes[2].panel.x);
 }
+
+/// The front door's backdrop does not follow the pointer; the tavern's does.
+/// `paint` runs twice per surface kind with the pointer's lean at two places
+/// and writes what the shader reads (`view.xy`).
+#[test]
+#[allow(clippy::float_cmp)] // a zeroed lean is exact
+fn the_pointer_does_not_move_the_front_doors_backdrop() {
+    let lean_written = |kind: Vista, at: Vec2| -> Vec2 {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+                std::time::Duration::from_millis(100),
+            ))
+            .insert_resource(Assets::<VistaMaterial>::default())
+            .insert_resource(FrontScene {
+                // The door is drawn while shown, the tavern while it is not.
+                shown: kind == Vista::Front,
+                ..FrontScene::default()
+            })
+            .insert_resource(Gaze(at))
+            .init_resource::<VistaClock>()
+            .add_systems(Update, paint);
+        let handle = app
+            .world_mut()
+            .resource_mut::<Assets<VistaMaterial>>()
+            .add(VistaMaterial::of(Handle::default()));
+        app.world_mut().spawn((
+            kind,
+            Settled::default(),
+            ComputedNode {
+                size: Vec2::new(1708.0, 1032.0),
+                ..ComputedNode::default()
+            },
+            MaterialNode(handle.clone()),
+            Visibility::Inherited,
+        ));
+        for _ in 0..8 {
+            app.update();
+        }
+        let params = app
+            .world()
+            .resource::<Assets<VistaMaterial>>()
+            .get(&handle)
+            .expect("painted")
+            .params;
+        assert!(params.view.w > 0.0, "the surface is drawn, not skipped");
+        params.view.truncate().truncate()
+    };
+    let left = Vec2::new(-1.0, -1.0);
+    let right = Vec2::new(1.0, 1.0);
+    assert_eq!(lean_written(Vista::Front, left), Vec2::ZERO);
+    assert_eq!(lean_written(Vista::Front, right), Vec2::ZERO);
+    assert_eq!(lean_written(Vista::Interior, left), left, "the tavern leans");
+    assert_eq!(lean_written(Vista::Interior, right), right);
+}
