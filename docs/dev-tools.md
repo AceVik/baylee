@@ -56,8 +56,9 @@ the Tower store) is therefore a binary of its own, `baylee-dev-provision`
 (crates/baylee-dev-provision): `cargo dev stack up --central` builds it once
 and talks to it over stdin and stdout (`docs/dev/commands.md` §"Running"): it
 fills Central's and the Tower's databases, and then signs the stack's one
-account in with the client's own code. It is loopback development only and no
-shipped binary links it. The cheap-model card
+account in with the client's own code, up to the gateway's answer about its
+Tower hosting. It is loopback development only and no shipped binary links
+it. The cheap-model card
 lanes (`scripts/llm/`, `tools/cardbatch/`, `baylee-tools llm` and `cardbatch`)
 were removed on 20.10.2026; cards are written by the batch's author model and
 reviewed by another (`docs/cards.md`). Python remains only in `tools/trainer`.

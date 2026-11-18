@@ -162,7 +162,7 @@ cp .env.example .env                      # the client's BAYLEE_GATEWAY and DATA
   `--central <checkout>` takes a sibling Baylee Central checkout and adds the
   rest, all on numeric loopback:
   - It builds the checkout's `central-service`, its site server and its
-    website (`cargo xtask site` for the loopback endpoint, so the site names no
+    website (`cargo xtask site` for the loopback endpoint, so the site calls no
     production host) and copies them into the state directory: the website is
     the checkout's, never a stale `target/site`, and a later build there does
     not change a running stack. The website's front needs `node` on `PATH`.
@@ -170,11 +170,16 @@ cp .env.example .env                      # the client's BAYLEE_GATEWAY and DATA
     migrations, runtime grants, the Tower award issuer) and one synthetic
     administrator, `dev_admin`. Its generated password is written to
     `<state>/central-account.json` (`0600`); the path is printed, the password
-    never. Before the ready line the stack signs that account in against the
-    running service, the way the client does, and signs it out again: the keys
-    in the database and the service's meet only there, and a stack whose
-    account cannot sign in does not start. Registering further accounts on the
-    local website works too.
+    never. The stack proves that account with the client's own code before it
+    says ready, twice: right after Central is up it signs in and out again
+    (the keys in the database and the service's meet only there), and with
+    the gateway and its agent up it signs in, accepts Central's and the
+    gateway's terms in force, is admitted at the gateway and asks it for its
+    Tower capacity (`GET /tower`), which the gateway answers only once the
+    Tower authority accepted it as a host and an agent has a Tower engine of
+    the published cohort free. A stack that fails either does not start, and
+    says which step. So `dev_admin` meets no terms sheet; an account
+    registered on the local website does, and that works too.
   - It publishes a playable Tower cohort for the staged `baylee-engine-tower`
     (every starter, the house's stand-in build at every stage) and runs
     `baylee-tower-service` for it.
