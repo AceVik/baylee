@@ -44,7 +44,7 @@ use std::path::Path;
 use anyhow::{Context as _, ensure};
 use baylee_engine::choice::PlayerAction;
 use baylee_train::convert4::Step4;
-use baylee_train::convert4::search_roots::{Roots4, SearchRoot4};
+use baylee_train::convert4::search_roots::{AfterCandidate4, Roots4, SearchRoot4};
 use baylee_train::features4::EncodedCandidates4;
 use baylee_train::search_labels::{HALVES_MARGIN, halves, macro_item, macro_items, paired};
 use baylee_train_ops::search_advantage::{
@@ -212,11 +212,31 @@ impl GameRoots {
         })
     }
 
-    /// The roots the replay is asked for.
-    pub(super) fn roots(&self) -> Roots4 {
+    /// The roots the replay is asked for; with `afterstates`, every root's
+    /// candidates too, for their afterstates (`--search-afterstates`).
+    pub(super) fn roots(&self, afterstates: bool) -> Roots4 {
         Roots4 {
             roots: self.events.keys().copied().collect::<BTreeSet<_>>(),
             menu: payable_menu,
+            afterstates: if afterstates {
+                self.events
+                    .iter()
+                    .map(|(key, event)| {
+                        let candidates = event
+                            .candidates
+                            .iter()
+                            .enumerate()
+                            .map(|(at, action)| AfterCandidate4 {
+                                action: action.clone(),
+                                script: event.scripts.get(at).cloned().flatten(),
+                            })
+                            .collect();
+                        (*key, candidates)
+                    })
+                    .collect()
+            } else {
+                BTreeMap::new()
+            },
         }
     }
 }
@@ -321,27 +341,48 @@ pub(super) struct GameLabels<'a> {
     twins: super::output::GameWriter,
     rows: Vec<Row>,
     counts: Counts,
+    /// `--search-afterstates`: the game's afterstates.
+    afterstates: Option<super::afterstates::GameAfterstates>,
 }
+
+/// A game's afterstate rows, counts and frame shard.
+pub(super) type GameAfter = (
+    Vec<super::afterstates::AfterRow>,
+    super::afterstates::AfterCounts,
+    String,
+);
+
+/// A finished game's label rows, counts, twin shard and afterstates.
+pub(super) type GameFinished = (Vec<Row>, Counts, Option<String>, Option<GameAfter>);
 
 impl<'a> GameLabels<'a> {
     /// Starts a game's labels; its twins go to the dataset `root`'s menus
-    /// split.
+    /// split, and with `afterstates` its afterstates to their own.
     ///
     /// # Errors
-    /// When the twins' stream cannot be opened.
+    /// When a stream cannot be opened.
     pub(super) fn new(
         roots: &'a GameRoots,
         root: &Path,
         game_id: u32,
         rule_roots: std::sync::Arc<BTreeMap<String, u32>>,
         record: &[u8],
+        afterstates: bool,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             roots,
             inputs: record_inputs(record)?,
-            twins: super::output::GameWriter::in_split(root, MENUS_SPLIT, game_id, rule_roots)?,
+            twins: super::output::GameWriter::in_split(
+                root,
+                MENUS_SPLIT,
+                game_id,
+                rule_roots.clone(),
+            )?,
             rows: Vec::new(),
             counts: roots.counts.clone(),
+            afterstates: afterstates
+                .then(|| super::afterstates::GameAfterstates::new(root, game_id, rule_roots))
+                .transpose()?,
         })
     }
 
@@ -397,6 +438,24 @@ impl<'a> GameLabels<'a> {
         self.twins
             .push_with_block(&twin, &twin_block(step.step_cursor))
             .map_err(|e| e.to_string())?;
+        if let Some(after) = &mut self.afterstates {
+            let Some(captured) = &root.afterstates else {
+                return Err(format!(
+                    "the replay captured no afterstates at input {}",
+                    root.record_input_n
+                ));
+            };
+            after.record(
+                step,
+                captured,
+                &super::afterstates::EventCandidates {
+                    candidates: &event.candidates,
+                    scripts: &event.scripts,
+                    worlds: &event.worlds,
+                    items: &items,
+                },
+            )?;
+        }
         let intent = self.intent(event, step.seat, root.record_input_n);
         #[allow(clippy::cast_possible_truncation, reason = "labels are f32")]
         let judged = [halves.judged_even as f32, halves.judged_odd as f32];
@@ -447,9 +506,13 @@ impl<'a> GameLabels<'a> {
     ///
     /// # Errors
     /// When the twins' stream cannot be published.
-    pub(super) fn finish(self) -> anyhow::Result<(Vec<Row>, Counts, Option<String>)> {
+    pub(super) fn finish(self) -> anyhow::Result<GameFinished> {
         let shard = self.twins.finish()?;
-        Ok((self.rows, self.counts, Some(shard)))
+        let after = self
+            .afterstates
+            .map(super::afterstates::GameAfterstates::finish)
+            .transpose()?;
+        Ok((self.rows, self.counts, Some(shard), after))
     }
 }
 
@@ -781,7 +844,7 @@ mod tests {
         assert_eq!(clean.events.len(), 1);
         assert_eq!(clean.counts.dropped["stopped"], 1);
         assert_eq!(clean.counts.dropped["not_priority"], 1);
-        assert!(clean.roots().asks(0, 5));
+        assert!(clean.roots(false).asks(0, 5));
         let fallen = GameRoots::from_game(&game(1)).unwrap();
         assert!(fallen.events.is_empty());
         assert_eq!(fallen.counts.dropped["game_fallback"], 3);
@@ -862,7 +925,7 @@ mod intent_tests {
         let game = json!({"fallback_answers": 0, "refused_answers": 0,
             "search_events": [both.clone()]});
         let roots = GameRoots::from_game(&game).unwrap();
-        assert!(roots.roots().asks(0, 5), "a 0852c2a4b event is a root");
+        assert!(roots.roots(false).asks(0, 5), "a 0852c2a4b event is a root");
         let parsed: Event = serde_json::from_value(both).unwrap();
         // The worlds name the spell: it stands, and the record's differs.
         assert_eq!(intent_of(&parsed, Some(30)), (29, "events"));

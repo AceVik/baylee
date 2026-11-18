@@ -9,12 +9,24 @@
 //! the planner's (`netplay4::menu::PayableMenu4`), which a conversion without
 //! a net does not build.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use baylee_engine::choice::Pending;
 use baylee_view::PlayerView;
 
+use baylee_engine::choice::PlayerAction;
+
 use crate::features4::EncodedCandidates4;
+
+/// A candidate a search tried at a root, as its event names it: the answer
+/// at the root and, for a planned cast, the cast its taps pay for.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AfterCandidate4 {
+    /// The answer at the root (a planned cast's first tap).
+    pub action: PlayerAction,
+    /// The cast a planned candidate's taps pay for; `None` for a single answer.
+    pub script: Option<PlayerAction>,
+}
 
 /// Builds a root's payable menu: `own` (the frame's menu) extended, with the
 /// index of the first added item; `encode` encodes another question as the
@@ -32,6 +44,10 @@ pub struct Roots4 {
     pub roots: BTreeSet<(u8, u64)>,
     /// How a root's payable menu is built.
     pub menu: PayableMenuFn4,
+    /// The roots whose afterstates are captured (`search_afterstate_v1`), by
+    /// seat and record input, with the candidates their search tried, in its
+    /// order; empty for none (`super::afterstates`).
+    pub afterstates: BTreeMap<(u8, u64), Vec<AfterCandidate4>>,
 }
 
 impl Roots4 {
@@ -57,4 +73,7 @@ pub struct SearchRoot4 {
     pub first_added: usize,
     /// Each item's coarse class, in menu order.
     pub classes: Vec<u8>,
+    /// The root's afterstates, where [`Roots4::afterstates`] asks for them.
+    #[cfg(feature = "onnx")]
+    pub afterstates: Option<super::afterstates::RootAfterstates4>,
 }

@@ -243,6 +243,8 @@ pub fn extract_game4_with_team_hands(
 }
 
 pub mod activator_boundary;
+#[cfg(feature = "onnx")]
+pub mod afterstates;
 pub mod distill_labels;
 mod idle_pass;
 pub mod llm_bc;

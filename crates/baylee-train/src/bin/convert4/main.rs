@@ -149,6 +149,13 @@ struct Args {
     /// `meta.json`.
     #[arg(long, requires = "search_advantage")]
     search_advantage_receipt: Option<PathBuf>,
+    /// With `--search-advantage`: each labelled root's afterstates
+    /// (`search_afterstate_v1`): the position each searched candidate leads
+    /// to, as the seat observes it, in the split `search-afterstate-frames` with the
+    /// sidecar `search-afterstates/` (`baylee_train::convert4::afterstates`).
+    /// Nothing else the conversion writes changes.
+    #[arg(long, requires = "search_advantage")]
+    search_afterstates: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -199,6 +206,7 @@ fn journal_worker(path: &Path, game: &GameRef, status: &str) -> anyhow::Result<(
     Ok(())
 }
 
+mod afterstates;
 mod boundary;
 mod bundle_distill;
 mod coarse_classes;
@@ -689,6 +697,13 @@ fn main() -> anyhow::Result<()> {
         search_advantage::Counts::default(),
         Vec::<String>::new(),
     )));
+    // Search afterstates, gathered from every worker.
+    let after_labels = Arc::new(Mutex::new((
+        Vec::<afterstates::AfterRow>::new(),
+        afterstates::AfterCounts::default(),
+        Vec::<String>::new(),
+    )));
+    let with_afterstates = args.search_afterstates;
     if args.search_advantage {
         meta["ppo_eligible"] = json!(false);
         meta["policy_provenance_version"] = Value::Null;
@@ -718,6 +733,7 @@ fn main() -> anyhow::Result<()> {
         let coarse_rows = coarse_rows.clone();
         let include_passive = args.include_passive_obs;
         let search_labels = search_labels.clone();
+        let after_labels = after_labels.clone();
         let live_bc = args.live_bc;
         let encoder_version = args.encoder_version;
         let search_weighting = search_targets
@@ -744,9 +760,9 @@ fn main() -> anyhow::Result<()> {
                 let mut game_coarse = Vec::new();
                 let mut search_cursor = search_weighting
                     .map(|weighting| weighting.cursor(gref.search_events.as_ref()));
-                let search_roots = gref.search_roots.as_ref().map(search_advantage::GameRoots::roots);
+                let search_roots = gref.search_roots.as_ref().map(|roots| roots.roots(with_afterstates));
                 let mut search_game = gref.search_roots.as_ref()
-                    .map(|roots| search_advantage::GameLabels::new(roots, &root, gref.game_id, rule_roots.clone(), &bytes))
+                    .map(|roots| search_advantage::GameLabels::new(roots, &root, gref.game_id, rule_roots.clone(), &bytes, with_afterstates))
                     .transpose()?;
                 let emit = |mut step: Step4| {
                     if let Some(game) = &mut search_game { game.apply(&mut step)?; }
@@ -811,11 +827,17 @@ fn main() -> anyhow::Result<()> {
                 let name = writer.finish()?;
                 publish_ready(&root, gref, &name, extracted.steps, &structure_sha256)?;
                 if let Some(game) = search_game {
-                    let (rows, counts, shard) = game.finish()?;
+                    let (rows, counts, shard, after) = game.finish()?;
                     let mut labels = search_labels.lock().expect("search label lock");
                     labels.0.extend(rows);
                     labels.1.add(&counts);
                     labels.2.extend(shard);
+                    if let Some((rows, counts, shard)) = after {
+                        let mut after = after_labels.lock().expect("afterstate lock");
+                        after.0.extend(rows);
+                        after.1.add(&counts);
+                        after.2.push(shard);
+                    }
                 }
                 let rows = if gref.validation { &val_rows } else { &train_rows };
                 rows.lock().expect("row lock").push((gref.game_id, name, extracted.steps));
@@ -947,6 +969,23 @@ fn main() -> anyhow::Result<()> {
             "policy_weight": "0 on every frame: the search's answers are no policy targets",
         });
         meta[baylee_train_ops::search_advantage::MENUS_SHARDS_KEY] = json!(shards);
+        if args.search_afterstates {
+            let (rows, counts, mut shards) =
+                std::mem::take(&mut *after_labels.lock().expect("afterstate lock"));
+            shards.sort();
+            let header = afterstates::write(
+                &args.out.join("search-afterstates"),
+                rows,
+                &counts,
+                &json!({"converter_build": baylee_build::short(),
+                    "search_advantage": "search-advantage/header.json"}),
+            )?;
+            meta["search_afterstates"] = json!({
+                "contract": header["contract"], "sidecar": "search-afterstates/header.json",
+                "frames": header["frames"], "counts": header["counts"],
+            });
+            meta[afterstates::AFTER_SHARDS_KEY] = json!(shards);
+        }
     }
     meta["elapsed_secs"] = json!(started.elapsed().as_secs_f64());
     fs::write(
