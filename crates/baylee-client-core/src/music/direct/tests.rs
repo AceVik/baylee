@@ -563,26 +563,73 @@ fn a_lethal_swing_fires_one_epic_stinger() {
     assert_eq!(fired, 0, "the swing itself is inside the cooldown");
 }
 
+fn charge() -> PlayerView {
+    let mut view = quiet();
+    view.seats[1].life = 4;
+    attack(&mut view, 1);
+    view
+}
+
+fn doomed() -> PlayerView {
+    let mut view = quiet();
+    view.seats[1].library_count = 2;
+    view
+}
+
 /// The cooldown holds a second peak back; after it, the next rising edge
-/// plays. An edge inside the cooldown is dropped, not kept for later.
+/// plays. An edge inside the cooldown is dropped, not kept for later, and
+/// an epic cause that has played does not play again in the same game.
 #[test]
 fn the_cooldown_holds() {
     if !crate::music::RECORDED {
         return;
     }
     let mut memory = Memory::default();
-    hold(&mut quiet(), &mut memory, MusicTheme::Saga, 30.0);
-    let (fired, _) = hold(&mut lethal_board(), &mut memory, MusicTheme::Saga, 2.0);
+    let saga = MusicTheme::Saga;
+    hold(&mut quiet(), &mut memory, saga, 30.0);
+    let (fired, _) = hold(&mut lethal_board(), &mut memory, saga, 2.0);
     assert_eq!(fired, 1);
-    hold(&mut quiet(), &mut memory, MusicTheme::Saga, 10.0);
-    let (fired, _) = hold(&mut lethal_board(), &mut memory, MusicTheme::Saga, 2.0);
+    hold(&mut quiet(), &mut memory, saga, 10.0);
+    let (fired, _) = hold(&mut charge(), &mut memory, saga, 2.0);
     assert_eq!(fired, 0, "12 s after the first");
-    let (fired, _) = hold(&mut lethal_board(), &mut memory, MusicTheme::Saga, 60.0);
-    assert_eq!(fired, 0, "a board that stays lethal is no new edge");
-    hold(&mut quiet(), &mut memory, MusicTheme::Saga, 1.0);
-    let (fired, _) = hold(&mut lethal_board(), &mut memory, MusicTheme::Saga, 2.0);
-    assert_eq!(fired, 1, "past the cooldown, the next edge plays");
+    let (fired, _) = hold(&mut charge(), &mut memory, saga, 60.0);
+    assert_eq!(fired, 0, "a peak that stays is no new edge");
+    hold(&mut quiet(), &mut memory, saga, 1.0);
+    let (fired, _) = hold(&mut lethal_board(), &mut memory, saga, 2.0);
+    assert_eq!(fired, 0, "lethal has had its stinger this game");
+    hold(&mut quiet(), &mut memory, saga, 1.0);
+    let (fired, last) = hold(&mut doomed(), &mut memory, saga, 2.0);
+    assert_eq!(fired, 1, "past the cooldown, a new epic cause plays");
+    assert!(last.stinger_epic);
+    hold(&mut quiet(), &mut memory, saga, 1.0);
+    let (fired, _) = hold(&mut charge(), &mut memory, saga, 2.0);
+    assert_eq!(fired, 0, "inside the new cooldown");
     const { assert!(STINGER_COOLDOWN >= 45.0) };
+}
+
+/// A stalled board that reads lethal on one player's turn and not on the
+/// other's, for ten minutes, plays the epic stinger once; the next game
+/// may play it again.
+#[test]
+fn a_standoff_plays_its_stinger_once() {
+    if !crate::music::RECORDED {
+        return;
+    }
+    let mut memory = Memory::default();
+    let saga = MusicTheme::Saga;
+    hold(&mut quiet(), &mut memory, saga, 30.0);
+    let mut view = lethal_board();
+    let mut fired = 0;
+    for turn in 0..20 {
+        view.active = PlayerId::new(turn % 2);
+        fired += hold(&mut view, &mut memory, saga, 30.0).0;
+    }
+    assert_eq!(fired, 1);
+    direct(Place::Lobby, None, None, saga, &mut memory, 0.5);
+    direct(Place::Opening, None, None, saga, &mut memory, 0.5);
+    hold(&mut quiet(), &mut memory, saga, 30.0);
+    let (fired, _) = hold(&mut lethal_board(), &mut memory, saga, 2.0);
+    assert_eq!(fired, 1, "a new game");
 }
 
 /// Nothing in a game's first twenty seconds, and the edge is not saved up.

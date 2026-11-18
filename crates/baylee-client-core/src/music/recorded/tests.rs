@@ -69,26 +69,96 @@ fn every_embedded_file_parses() {
 /// bytes never cause one.)
 #[test]
 fn every_file_decodes_whole_and_finite() {
+    let mut pcm = vec![0.0f32; ogg::MAX_FRAMES * 2];
     for (track, _, frames) in LENGTHS {
-        let mut voice = Voice::new();
-        voice.start(track, 0.001);
-        let mut count = 0usize;
+        // Packet by packet, straight through the decoder: every packet of
+        // every file.
+        let stream = track.stream();
+        let mut decoder = OpusDecoder::new(RATE, 2).expect("a decoder");
+        let mut decoded = 0usize;
         let mut peak = 0.0f32;
-        while let Some(frame) = voice.next() {
-            assert!(frame[0].is_finite() && frame[1].is_finite(), "{track:?}");
-            peak = peak.max(frame[0].abs()).max(frame[1].abs());
-            count += 1;
+        for index in 0..stream.packets() {
+            let packet = stream.packet(index).expect("indexed");
+            let count = decoder
+                .decode_float(packet, &mut pcm, false)
+                .expect("decodes");
+            assert_eq!(Some(count), ogg::duration(packet), "{track:?} {index}");
+            let samples = &pcm[..count * 2];
+            assert!(samples.iter().all(|s| s.is_finite()), "{track:?} {index}");
+            peak = samples.iter().fold(peak, |peak, s| peak.max(s.abs()));
+            decoded += count;
         }
-        assert_eq!(count, frames, "{track:?}");
-        assert_eq!(
-            voice.packet,
-            track.stream().packets(),
-            "{track:?}: every packet"
+        assert_eq!(decoded, stream.decoded, "{track:?}");
+        assert!(frames <= decoded - stream.pre_skip, "{track:?}");
+        assert!(
+            decoded - stream.pre_skip - frames < 960,
+            "{track:?}: only the last packet is trimmed"
         );
         // True peaks ≤ −2.4 dBFS were measured on the masters; decoded
         // sample peaks stay below full scale.
         assert!(peak > 0.05 && peak < 1.0, "{track:?}: peak {peak}");
     }
+    // A voice gives out exactly the playable length: pre-skip dropped at
+    // the head, the last packet trimmed at the final granule (the short
+    // files; the long ones run the same code for longer).
+    for track in [Track::Draw, Track::StingerCall, Track::StingerEpic] {
+        let mut voice = Voice::new();
+        voice.start(track, 0.001);
+        let count = std::iter::from_fn(|| voice.next()).count();
+        assert_eq!(count, track.stream().length, "{track:?}");
+        assert_eq!(voice.packet, track.stream().packets(), "{track:?}");
+    }
+}
+
+/// The decode matches `ffmpeg`'s own (libavcodec's Opus decoder) sample for
+/// sample at lag 0: a one-off check of the pre-skip and the trimming, run by
+/// hand with a dump made by
+/// `ffmpeg -i art/baylee/score/out/<file>.opus -f f32le -ac 2 -ar 48000 <dump>`:
+/// `BAYLEE_OPUS_DUMP=<dump> BAYLEE_OPUS_TRACK=title cargo nextest run -p
+/// baylee-client-core --run-ignored only decodes_as_ffmpeg_does --no-capture`.
+#[test]
+#[ignore = "needs an ffmpeg dump; run by hand"]
+fn decodes_as_ffmpeg_does() {
+    let (Ok(dump), Ok(name)) = (
+        std::env::var("BAYLEE_OPUS_DUMP"),
+        std::env::var("BAYLEE_OPUS_TRACK"),
+    ) else {
+        return;
+    };
+    let track = match name.as_str() {
+        "title" => Track::Title,
+        "stinger_call" => Track::StingerCall,
+        "stinger_epic" => Track::StingerEpic,
+        "draw" => Track::Draw,
+        _ => panic!("unknown track {name}"),
+    };
+    let bytes = std::fs::read(dump).expect("the dump");
+    let theirs: Vec<f32> = bytes
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|b| f32::from_le_bytes(*b))
+        .collect();
+    let mut voice = Voice::new();
+    voice.start(track, 0.001);
+    let ours: Vec<f32> = std::iter::from_fn(|| voice.next()).flatten().collect();
+    assert_eq!(ours.len(), theirs.len(), "same length");
+    let difference = |lag: usize| {
+        let pairs = ours.len() - lag * 2;
+        let (sum, power) = (0..pairs).fold((0.0f64, 0.0f64), |(sum, power), i| {
+            let d = f64::from(ours[i + lag * 2] - theirs[i]);
+            (sum + d * d, power + f64::from(theirs[i]).powi(2))
+        });
+        10.0 * (sum / power).log10()
+    };
+    let at_zero = difference(0);
+    println!(
+        "{name}: difference at lag 0 {at_zero:.1} dB, at lag 1 {:.1} dB, at lag 312 {:.1} dB",
+        difference(1),
+        difference(312)
+    );
+    assert!(at_zero < -60.0, "{at_zero} dB");
+    assert!(at_zero < difference(1) && at_zero < difference(312));
 }
 
 /// The title's first and last second carry music: finite and not silent.
@@ -376,6 +446,59 @@ fn the_recorded_path_is_as_loud_as_the_synth() {
         (lobby_error + table_error).abs() <= 0.5,
         "the gain splits the difference: {lobby_error:+.1} / {table_error:+.1} dB"
     );
+}
+
+/// With the recorded theme the orchestra rests: a tune asked for the
+/// recording from its start gives out exactly what the mixer does; one
+/// switched to it from the synth gives out the mixer plus nothing but the
+/// orchestra's dying room; and switched back, the synth plays its lobby
+/// again.
+#[test]
+fn the_orchestra_rests_while_the_recording_plays() {
+    use crate::music::{Movement, ScoreControl, Theme, Tune};
+    use std::sync::Arc;
+    let second = RATE as usize;
+    let control = Arc::new(ScoreControl::default());
+    control.set(request(Scene::Lobby));
+    let mut tune = Tune::with_control(control.clone());
+    let mut heard = vec![[0.0; 2]; 2 * second];
+    tune.render(&mut heard);
+    let mut mixer = Mixer::new();
+    let alone = render(&mut mixer, request(Scene::Lobby), 2.0);
+    assert_eq!(heard, alone, "nothing but the recording");
+
+    let synth = ScoreRequest {
+        theme: Theme::Thorn,
+        ..ScoreRequest {
+            recorded: false,
+            ..request(Scene::Lobby)
+        }
+    };
+    let control = Arc::new(ScoreControl::default());
+    control.set(synth);
+    let mut tune = Tune::with_control(control.clone());
+    let mut buf = vec![[0.0; 2]; 2 * second];
+    tune.render(&mut buf);
+    assert!(rms(&buf) > 1e-3, "the synth plays");
+    control.set(request(Scene::Lobby));
+    let mut heard = vec![[0.0; 2]; 8 * second];
+    tune.render(&mut heard);
+    let mut mixer = Mixer::new();
+    let alone = render(&mut mixer, request(Scene::Lobby), 8.0);
+    let rest: Vec<[f32; 2]> = heard
+        .iter()
+        .zip(&alone)
+        .map(|(a, b)| [a[0] - b[0], a[1] - b[1]])
+        .collect();
+    let tail = rms(&rest[7 * second..]);
+    assert!(
+        tail < rms(&alone[7 * second..]) * 0.01,
+        "the orchestra has gone quiet under the recording: {tail}"
+    );
+    control.set(synth);
+    tune.render(&mut buf);
+    assert_eq!(tune.position().movement, Movement::Lobby);
+    assert!(rms(&buf[second..]) > 1e-3, "the synth plays again");
 }
 
 /// A stinger over the ducked bed cannot reach full scale.

@@ -247,9 +247,10 @@ impl Ui {
     }
 
     /// A run is open on the Tower's screens (any page: switching tabs
-    /// inside a run keeps its music).
+    /// inside a run keeps its music), also while a newly chosen run loads,
+    /// so the music does not flap to the lobby's and back.
     pub(in crate::lobby) fn in_run(&self) -> bool {
-        self.opened && self.model.run().is_some()
+        self.opened && (self.model.run().is_some() || self.model.selected().is_some())
     }
 
     pub(super) fn rewarding(&self) -> bool {

@@ -253,7 +253,7 @@ pub enum Row {
     Master,
     /// The music.
     Music,
-    /// One of five suites, or a different one each game.
+    /// The recorded soundtrack, one of fifteen suites, or a different suite each game.
     MusicTheme,
     /// Sample bank shared by every suite.
     MusicSamples,

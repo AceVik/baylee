@@ -40,8 +40,11 @@ pub(crate) mod ogg;
 pub(super) const RECORDED_GAIN: f32 = 1.396;
 
 /// The recorded path's safety knee, as the orchestra's (`Orchestra::finish`):
-/// linear up to 0.85 (−1.4 dBFS), then bending towards full scale. Only a
-/// stinger landing on a loud passage of the bed reaches it.
+/// linear up to 0.85 (−1.4 dBFS), then bending towards full scale. The beds
+/// stay below it (their sample peaks are −5.2 dBFS and lower, −2.3 after the
+/// gain); the call stinger alone peaks at −2.5 dBFS, +0.4 after the gain, so
+/// its loudest moments bend here (364 of 432 000 frames in
+/// `a_stinger_over_the_bed_stays_below_full_scale`).
 fn knee(x: f32) -> f32 {
     let over = x.abs() - 0.85;
     if over <= 0.0 {
