@@ -6,6 +6,7 @@ mod catalog;
 mod checks;
 mod html;
 mod impressum;
+mod qr;
 mod serve;
 mod stamp;
 
@@ -57,6 +58,8 @@ enum Command {
         #[arg(long, default_value = "127.0.0.1")]
         bind: String,
     },
+    /// Write a plain `https://` address as a QR code in an SVG file.
+    Qr { address: String, out: PathBuf },
     /// Check committed catalog, accessibility, privacy and content stamps offline.
     Check,
 }
@@ -78,6 +81,7 @@ pub fn run(root: &Path, args: &[String]) -> Result<()> {
             println!("wrote Impressum blob ({size} bytes, 8 fields)");
             Ok(())
         }
+        Command::Qr { address, out } => qr::run(&address, &out),
         Command::Check => checks::run(root),
         Command::Serve { port, bind } => serve::run(root, port, &bind),
     }

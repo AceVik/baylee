@@ -132,6 +132,16 @@ cargo run --profile tools -p baylee-tools -- site stamp --check
 cargo run --profile tools -p baylee-tools -- site check
 ```
 
+```bash
+cargo run --profile tools -p baylee-tools -- site qr https://ko-fi.com/acevik /tmp/ko-fi.svg
+```
+
+`site qr` writes a plain `https://` address as a QR code in an SVG file (one
+path of dark runs inside the four-module quiet zone, the client's own encoder
+and error-correction level). Baylee Central's website carries its fixed codes
+as such files, because its pages compute no picture in the browser and its
+build takes no package for three codes.
+
 Impressum generation accepts private JSON and an output path outside every
 repository path; it never logs the fields or their values. Use fictional
 fixtures for tests. Do not commit personal data or generated private blobs.
