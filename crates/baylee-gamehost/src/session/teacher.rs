@@ -5,7 +5,7 @@
 //! ask, at each decision of a seat the trained net plays, what the house
 //! would answer there, and keep it beside the net's own answer; the net's
 //! answer is the one played. [`Session::teacher_answer`] gives that answer
-//! as a house chair with foresight gives its own (`session/foresight.rs`),
+//! as a house chair with foresight gives its own (`session/foresight/`),
 //! from the same view, with the same search and the same budget, but for
 //! an agent the caller holds ([`Teacher`]) at a chair the table does not
 //! play for it.
@@ -21,13 +21,12 @@
 //! costs is kept in the teacher's own [`ForesightStats`].
 
 use super::Session;
-use super::foresight::{Plan, Search, kind, world_seed};
+use super::foresight::{Plan, Search, Tried, kind, world_seed};
 use crate::ForesightStats;
 use baylee_ai::HeuristicAgent;
 use baylee_ai::intelligence::DeckIntel;
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
-use baylee_engine::engine::PublicPrior;
 use baylee_view::PlayerView;
 
 /// A house level kept by the caller to answer a seat it does not play
@@ -150,7 +149,7 @@ impl Session {
     /// is played, and its own searches' state and counts stay as they were.
     ///
     /// The answer is the one a house chair at the teacher's level with
-    /// foresight gives (`session/foresight.rs`), with the fairness of a
+    /// foresight gives (`session/foresight/`), with the fairness of a
     /// fair chair at a fair table whatever this table lets its own chairs
     /// do: the level's own answer from the seat's view and own deck, and
     /// at a priority decision with nothing begun, an attack or a block, the
@@ -172,7 +171,6 @@ impl Session {
         let agent = teacher.agent.clone();
         let heuristic =
             agent.act_with_own_deck(&view, &pending, &self.engine.decision_context(), deck);
-        let own = deck.cards.clone();
         // Nothing the teacher answers is played by it: its memory of the
         // answers it gave must not take the seat's for its own.
         agent.forget_given();
@@ -210,21 +208,20 @@ impl Session {
         teacher.then = None;
         teacher.stats.asked += 1;
         let started = std::time::Instant::now();
+        // The chair's bounds: its level's work under the table's and the
+        // host's (`Session::search_meter`), and the host's wall guard.
         let search = Search {
             player,
-            prior: Some(
-                baylee_ai::foresight::prior::public_prior(&view, &own)
-                    .into_iter()
-                    .fold(PublicPrior::new(), |prior, (seat, cards)| {
-                        prior.with_player(seat, cards)
-                    }),
-            ),
+            prior: Some(self.public_prior(&view)),
             decks: self.fork_decks(usize::from(player.get()), true),
             model: agent.simulated(0),
             budget,
             seeds: (0..u64::from(budget.worlds))
                 .map(|world| world_seed(agent.seed(), HeuristicAgent::position(&view), world))
                 .collect(),
+            work: std::sync::Arc::new(self.search_meter(budget)),
+            deadline: self.search_deadline(),
+            walled: std::cell::Cell::new(false),
             pending: &pending,
             probe: None,
         };
@@ -233,7 +230,7 @@ impl Session {
             return Some(plain(heuristic.clone(), TeacherHow::Refused));
         };
         let micros = u32::try_from(started.elapsed().as_micros()).unwrap_or(u32::MAX);
-        teacher.stats.micros.push(micros);
+        teacher.stats.slowest_micros = teacher.stats.slowest_micros.max(micros);
         let how = if replaced {
             if let Some(then) = plan.then {
                 teacher.planned = Some((plan.first.clone(), then));
@@ -263,17 +260,24 @@ impl Session {
         let plans = candidates.into_iter().map(Plan::of).collect();
         // A search counts what it spends into the table's stats; the
         // teacher's are swapped in for it, so the table's own stay its own.
-        std::mem::swap(&mut self.foresight_stats, &mut teacher.stats);
+        std::mem::swap(&mut self.foresight.stats, &mut teacher.stats);
         let searched = self.searched(search, &agent, view, plans);
-        std::mem::swap(&mut self.foresight_stats, &mut teacher.stats);
+        std::mem::swap(&mut self.foresight.stats, &mut teacher.stats);
         agent.forget_given();
-        let Ok((mut plans, chosen)) = searched else {
+        let Ok(Tried {
+            mut plans, chosen, ..
+        }) = searched
+        else {
             teacher.stats.refused += 1;
             return None;
         };
         let kind = kind(search.pending);
         teacher.stats.searched += 1;
         teacher.stats.by_kind[kind].0 += 1;
+        teacher.stats.most_work = teacher.stats.most_work.max(search.work.spent());
+        if search.walled.get() {
+            teacher.stats.walled += 1;
+        }
         if chosen != 0 {
             teacher.stats.replaced += 1;
             teacher.stats.by_kind[kind].1 += 1;

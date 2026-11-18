@@ -609,6 +609,7 @@ fn a_watching_model_labels_from_its_own_answers_and_changes_nothing() {
             None,
             None,
             None,
+            None,
         )
         .unwrap()
     };

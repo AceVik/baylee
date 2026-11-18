@@ -71,7 +71,7 @@ pub(in crate::session) struct Desk {
     /// ([`Session::set_foresight_host`]).
     host: HostForesight,
     /// What those searches have cost ([`Session::foresight_stats`]).
-    stats: ForesightStats,
+    pub(super) stats: ForesightStats,
     /// The cost of the search in progress, kept while its worlds are played.
     cost: SearchCost,
     /// The clock those costs are timed by: the host's wall guard's, or the
@@ -289,12 +289,12 @@ enum World {
 
 /// A finished search: the plans tried, what became of each in each world,
 /// and the one chosen.
-struct Tried {
-    plans: Vec<Plan>,
+pub(super) struct Tried {
+    pub(super) plans: Vec<Plan>,
     /// Read where the question is kept for study.
     #[cfg(any(test, feature = "simulation"))]
     outcomes: Vec<Vec<Outcome>>,
-    chosen: usize,
+    pub(super) chosen: usize,
 }
 
 /// One searched question kept for study ([`Session::set_foresight_questions`]):
@@ -346,12 +346,12 @@ pub(super) struct Search<'a> {
     /// ([`Session::set_foresight_probe`]).
     pub(super) probe: Option<u64>,
     /// What the forks' combat searches have visited between them.
-    work: std::sync::Arc<baylee_ai::WorkMeter>,
+    pub(super) work: std::sync::Arc<baylee_ai::WorkMeter>,
     /// The host's clock and the reading on it past which the search is given
     /// up ([`WallGuard`]).
-    deadline: Option<(fn() -> std::time::Duration, std::time::Duration)>,
+    pub(super) deadline: Option<(fn() -> std::time::Duration, std::time::Duration)>,
     /// Whether the deadline has passed.
-    walled: std::cell::Cell<bool>,
+    pub(super) walled: std::cell::Cell<bool>,
     /// The question, for the neighbours of a declaration.
     pub(super) pending: &'a Pending,
 }
@@ -598,11 +598,7 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
         };
         self.foresight.begun = true;
         let started = self.foresight.clock.now();
-        let deadline = self
-            .foresight
-            .host
-            .wall
-            .map(|guard| (guard.clock, (guard.clock)().saturating_add(guard.limit)));
+        let deadline = self.search_deadline();
         self.foresight.cost = SearchCost {
             kind: u8::try_from(kind(pending)).unwrap_or(u8::MAX),
             battlefield: u16::try_from(view.battlefield.len()).unwrap_or(u16::MAX),
@@ -722,6 +718,17 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
         if cfg!(any(test, feature = "simulation")) {
             self.foresight.stats.costs.push(cost);
         }
+    }
+
+    /// The host's clock and the reading on it past which a search begun now
+    /// is given up ([`WallGuard`]), or `None` where the host sets no guard.
+    pub(super) fn search_deadline(
+        &self,
+    ) -> Option<(fn() -> std::time::Duration, std::time::Duration)> {
+        self.foresight
+            .host
+            .wall
+            .map(|guard| (guard.clock, (guard.clock)().saturating_add(guard.limit)))
     }
 
     /// The meter of one search at this table under the level's `budget`:

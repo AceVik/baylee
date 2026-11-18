@@ -110,11 +110,6 @@ struct Args {
     /// every other conversion refuses.
     #[arg(long, conflicts_with_all = ["shadow_bc", "llm_bc", "live_bc", "game_weights", "search_targets"])]
     bundle_distill: bool,
-    /// With `--bundle-distill` (required there): the deck manifest whose train
-    /// split every deck a run can seat (its `run.json` decks) must be in; a
-    /// run with any other deck is refused.
-    #[arg(long, requires = "bundle_distill")]
-    train_manifest: Option<PathBuf>,
     /// With `--bundle-distill`: writes here, beside the frames, every labelled
     /// priority frame's candidate classes (`coarse_class_v1`,
     /// `coarse_classes.rs`).
@@ -250,13 +245,11 @@ fn main() -> anyhow::Result<()> {
             )
         })
         .transpose()?;
+    // Bundle distillation also checks every deck each run can seat (its
+    // run.json pool) against the same manifest, before any game is read.
     let mut distill_runs = if args.bundle_distill {
-        let manifest = args
-            .train_manifest
-            .as_deref()
-            .context("--bundle-distill needs --train-manifest: the manifest whose train split every seated deck is in")?;
         Some(bundle_distill::Runs::new(bundle_distill::TrainDecks::load(
-            manifest,
+            &args.train_manifest,
         )?))
     } else {
         None
