@@ -2017,6 +2017,7 @@ name = "baylee-dev-provision"
 version = "0.2.0-beta.o1"
 dependencies = [
  "anyhow",
+ "baylee-account",
  "baylee-cards-pool",
  "baylee-tower",
  "baylee-tower-content",

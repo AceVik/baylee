@@ -17,6 +17,7 @@ workspace = true
 # it over stdin and stdout.
 [dependencies]
 anyhow.workspace = true
+baylee-account = { workspace = true, features = ["client"] }
 baylee-cards-pool.workspace = true
 baylee-tower.workspace = true
 baylee-tower-content.workspace = true

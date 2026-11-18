@@ -1,8 +1,10 @@
 //! Provisions the local development stack's Central and Tower databases
 //! (`cargo dev stack up --central`, `docs/dev/commands.md` §"Running").
 //!
-//! `baylee-dev-provision central|tower` reads one JSON document on stdin and
-//! writes one on stdout. Every secret travels that way, in memory, between
+//! `baylee-dev-provision central|tower|signin` reads one JSON document on
+//! stdin and writes one on stdout. `central` and `tower` fill a database;
+//! `signin` then proves the account `central` made against the running
+//! service. Every secret travels that way, in memory, between
 //! this process and the stack's supervisor; nothing is logged, and an error
 //! names the step that failed and no value. Loopback development only: the
 //! Central connection is `central_postgres`'s development one (numeric
@@ -14,6 +16,7 @@
 use baylee_cards_pool as _;
 
 mod central;
+mod signin;
 mod tower;
 
 use anyhow::{Context as _, Result, bail};
@@ -55,7 +58,9 @@ fn run() -> Result<()> {
             let request = parse(&input)?;
             serde_json::to_vec(&runtime.block_on(tower::run(request))?)?
         }
-        _ => bail!("use `central` or `tower`, with the request on stdin"),
+        // The client's own sign-in blocks, so it runs outside the runtime.
+        "signin" => serde_json::to_vec(&signin::run(parse(&input)?)?)?,
+        _ => bail!("use `central`, `tower` or `signin`, with the request on stdin"),
     };
     let mut output = std::io::stdout().lock();
     output.write_all(&reply)?;

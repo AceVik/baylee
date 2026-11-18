@@ -1,4 +1,26 @@
-use super::{central, parse};
+use super::{central, parse, signin};
+
+/// The sign-in proof is for the stack's own Central: any other origin is
+/// refused before a byte leaves the machine, and the refusal repeats nothing
+/// of the request.
+#[test]
+fn the_sign_in_proof_goes_to_a_loopback_central_only() {
+    let secret = "correct-horse-battery-staple";
+    for endpoint in ["https://central.baylee.app", "http://example.org:28790", ""] {
+        let request = serde_json::json!({
+            "endpoint": endpoint,
+            "username": "dev_admin",
+            "password": secret,
+        });
+        let input = parse::<signin::Input>(&serde_json::to_vec(&request).unwrap()).unwrap();
+        let error = signin::run(input)
+            .err()
+            .expect("not a development origin")
+            .to_string();
+        assert!(error.contains("loopback"), "{error}");
+        assert!(!error.contains(secret), "{error}");
+    }
+}
 
 /// The first document is what the client reads back after its first sign-in:
 /// the stack's gateway and nothing borrowed from production.
