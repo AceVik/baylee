@@ -1298,7 +1298,7 @@ to attach and stop. Other sessions were idle: load average 9 to 15 on 10 cores.
 | Front door, backdrop hidden (`/hide vista`) | 113 | 399 | 370 | 64 % |
 | Lobby, frame limit 60 | 59.3 | — | 294 (depth 0) | 169 % |
 | Lobby, backdrop hidden | 59.9 | — | 287 (depth 0) | 33 % |
-| Duel after the mulligan, frame limit 60 | 59.9 | 280 | 257 (depth 0) | 50 % |
+| Duel after the mulligan, frame limit 60 | 59.9 | — | 257 (depth 0) | 50 % |
 | Duel, felt, mats and sky hidden | 59.5 | — | 123 (depth 0) | 48 % |
 
 What that says:
