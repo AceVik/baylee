@@ -831,9 +831,10 @@ impl LobbyState {
     }
 
     /// Whether a Tower run's own screens are on show outside a duel: its
-    /// overview, shop and reward and every other page while a run is open,
-    /// which the score gives the Tower's bed (`music::place`). The Tower's
-    /// landing before a run is chosen keeps the lobby's music.
+    /// overview, shop and reward and every other page while a run is
+    /// selected (the Tower selects one of the account's runs as their list
+    /// arrives), which the score gives the Tower's bed (`music::place`). A
+    /// Tower with no run yet keeps the lobby's music.
     #[must_use]
     pub(crate) fn in_tower_run(&self) -> bool {
         self.hub == Hub::Challenges && self.echoes.in_run()

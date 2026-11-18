@@ -121,6 +121,11 @@ impl State {
     pub fn runs(&self) -> &[Run] {
         &self.runs
     }
+    /// The run chosen, also while its contents are loading.
+    #[must_use]
+    pub const fn selected(&self) -> Option<Uuid> {
+        self.selected
+    }
     /// Selected owned run, absent while a different selection is loading.
     #[must_use]
     pub const fn run(&self) -> Option<&Run> {

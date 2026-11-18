@@ -315,6 +315,8 @@ pub struct Memory {
     since_stinger: Option<f32>,
     /// The peaks the last reading at the table showed.
     peaks: Peaks,
+    /// The epic causes that have played their stinger this game.
+    played: Peaks,
     /// Leitmotif stingers asked for, kept across games (mod 8).
     stingers: u8,
     stinger_epic: bool,
@@ -367,12 +369,15 @@ impl Peaks {
 }
 
 /// The stinger a change of peaks calls for: only a moment that has just
-/// begun (a rising edge), the epic one before the call.
-fn stinger(before: Peaks, now: Peaks) -> Option<Stinger> {
+/// begun (a rising edge), the epic one before the call. An epic cause plays
+/// once a game (`played`): the board's lethal reading follows the active
+/// player, so on a stalled board it falls and rises every turn, and the
+/// epic stinger is for the first time it reads so.
+fn stinger(before: Peaks, now: Peaks, played: Peaks) -> Option<Stinger> {
     let rose = |was: bool, is: bool| is && !was;
-    if rose(before.lethal, now.lethal)
-        || rose(before.doomed, now.doomed)
-        || rose(before.epic, now.epic)
+    if (rose(before.lethal, now.lethal) && !played.lethal)
+        || (rose(before.doomed, now.doomed) && !played.doomed)
+        || (rose(before.epic, now.epic) && !played.epic)
     {
         Some(Stinger::Epic)
     } else if rose(before.big, now.big) || rose(before.charge, now.charge) {
@@ -494,7 +499,7 @@ fn reading(view: &PlayerView) -> (f32, ScoreRequest) {
 fn listen_for_stingers(request: &ScoreRequest, theme: MusicTheme, memory: &mut Memory, dt: f32) {
     memory.table_time += dt;
     let now = Peaks::of(request);
-    let edge = stinger(memory.peaks, now);
+    let edge = stinger(memory.peaks, now, memory.played);
     memory.peaks = now;
     let rested = memory
         .since_stinger
@@ -505,6 +510,12 @@ fn listen_for_stingers(request: &ScoreRequest, theme: MusicTheme, memory: &mut M
         memory.stingers = memory.stingers.wrapping_add(1) & 7;
         memory.stinger_epic = kind == Stinger::Epic;
         memory.since_stinger = Some(0.0);
+        if kind == Stinger::Epic {
+            // Every epic cause standing now has had its moment.
+            memory.played.lethal |= now.lethal;
+            memory.played.doomed |= now.doomed;
+            memory.played.epic |= now.epic;
+        }
     }
 }
 
@@ -530,6 +541,7 @@ pub fn direct(
         // A new game's grace starts when its table is laid.
         memory.table_time = 0.0;
         memory.peaks = Peaks::default();
+        memory.played = Peaks::default();
     }
     memory.opening = place == Place::Opening;
     request.scene = match place {

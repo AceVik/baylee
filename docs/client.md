@@ -8540,7 +8540,8 @@ out fades it back up from where it stands in the music, without a restart.
 At a game's epic moments the title melody returns as one of two stingers cut
 from the title recording. `music::direct` decides it from the view alone: on
 the rising edge of a board that reads lethal, a player about to lose or the
-game's epicness at its top, the epic stinger; on a big spell at high tension
+game's epicness at its top, the epic stinger, each of those causes once a
+game (a stalled board reads lethal anew every turn); on a big spell at high tension
 or this seat's own attack on a player at low life, the call. Never in a game's
 first 20 seconds and at most once in 45; an edge inside either is dropped, so
 a quiet game hears none and one lethal swing exactly one. While a stinger
