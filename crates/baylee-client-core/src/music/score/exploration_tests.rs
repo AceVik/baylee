@@ -17,7 +17,9 @@ fn all_fifteen_choices_pack_persist_and_rotate_without_bank_collisions() {
             assert_eq!(decoded.turn_seat, 7);
             assert_eq!(decoded.spells, 15);
             let mut level = MusicLevel::default();
-            level.set_theme(MusicTheme::ALL[index]);
+            // `MusicTheme::ALL` opens with the recorded theme; the fifteen
+            // suites follow in `Theme::ALL` order.
+            level.set_theme(MusicTheme::ALL[index + 1]);
             level.set_samples(samples);
             let saved = serde_json::to_string(&level).unwrap();
             let read: MusicLevel = serde_json::from_str(&saved).unwrap();

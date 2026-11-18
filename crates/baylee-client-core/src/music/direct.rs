@@ -9,6 +9,13 @@
 //! thread reads atomically ([`super::ScoreControl`]). It encodes the scene,
 //! combat, danger flags, live stack depth (`view.stack.len()`), and continuous
 //! action intensity so the table score scales smoothly from Calm to Epic.
+//! With the recorded theme it also carries the leitmotif stingers: a counter
+//! that moves on the rising edge of a genuinely epic moment ([`Stinger`]),
+//! never in a game's first [`STINGER_GRACE`] seconds and at most once in
+//! [`STINGER_COOLDOWN`] seconds, with nothing but `dt` for a clock. The word
+//! is full: scene 0–3, tension 4–13, flags 14–20, counters 21–39, theme
+//! 40–43, bank 44, stack 45–47, blockers 48, intensity 49–58, recorded 59,
+//! stingers 60–62, the stinger's kind 63.
 #![allow(clippy::cast_precision_loss)] // small board counts and life totals
 use baylee_core::ids::PlayerId;
 use baylee_core::types::TypeSet;
@@ -25,6 +32,8 @@ pub enum Place {
     Lobby,
     /// Building a deck.
     Build,
+    /// A Tower run's screens outside a duel: its overview, shop and reward.
+    Tower,
     /// A table being prepared beneath its loading cover (hushed bridge; table music waits).
     Opening,
     /// A game on screen after the loading screen has cleared.
@@ -78,6 +87,9 @@ pub enum Scene {
     Draw = 6,
     /// The defeat: falling cue and noble D-minor elegy.
     Defeat = 7,
+    /// A Tower run outside a duel: its own recorded bed; the synthesised
+    /// themes play the lobby's music here.
+    Tower = 8,
 }
 
 impl Scene {
@@ -90,6 +102,7 @@ impl Scene {
             5 => Self::Victory,
             6 => Self::Draw,
             7 => Self::Defeat,
+            8 => Self::Tower,
             _ => Self::FrontDoor,
         }
     }
@@ -154,6 +167,14 @@ pub struct ScoreRequest {
     pub blockers: bool,
     /// Continuous action & stack intensity, 0 to 1 (kept to thousandths).
     pub action_intensity: f32,
+    /// The recorded soundtrack plays instead of the synthesised score
+    /// (`MusicTheme::Saga`, native builds).
+    pub recorded: bool,
+    /// Counts leitmotif stingers asked for (mod 8); the audio side plays
+    /// one on a change.
+    pub stingers: u8,
+    /// The latest stinger is the epic one (else the call).
+    pub stinger_epic: bool,
 }
 
 impl ScoreRequest {
@@ -216,6 +237,9 @@ impl ScoreRequest {
             | u64::from(self.stack_depth.min(7)) << 45
             | flag(self.blockers, 48)
             | intensity << 49
+            | flag(self.recorded, 59)
+            | u64::from(self.stingers & 7) << 60
+            | flag(self.stinger_epic, 63)
     }
 
     /// The request a word holds.
@@ -248,6 +272,9 @@ impl ScoreRequest {
             stack_depth: nibble(45) & 7,
             blockers: bit(48),
             action_intensity: (word >> 49 & 1023).min(1000) as f32 / 1000.0,
+            recorded: bit(59),
+            stingers: nibble(60) & 7,
+            stinger_epic: bit(63),
         }
     }
 }
@@ -282,6 +309,77 @@ pub struct Memory {
     opening: bool,
     /// Current suite in the rotation, independent of wrapping cue counters.
     rotation: u8,
+    /// Seconds this game has been on the table.
+    table_time: f32,
+    /// Seconds since the last stinger; `None` before the first.
+    since_stinger: Option<f32>,
+    /// The peaks the last reading at the table showed.
+    peaks: Peaks,
+    /// Leitmotif stingers asked for, kept across games (mod 8).
+    stingers: u8,
+    stinger_epic: bool,
+}
+
+/// No stinger in a game's first seconds: the table is still being laid.
+pub const STINGER_GRACE: f32 = 20.0;
+/// At least this many seconds between two stingers.
+pub const STINGER_COOLDOWN: f32 = 45.0;
+/// The epicness from which a game reads as epic.
+const EPIC: f32 = 0.95;
+/// The tension from which a big spell is a peak.
+const PEAK_TENSION: f32 = 0.5;
+
+/// Which of the title melody's two phrases a moment calls for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Stinger {
+    /// The first fanfare phrase: a lesser peak.
+    Call,
+    /// The crescendo into the final fanfare: the game is about to be decided.
+    Epic,
+}
+
+/// The moments a stinger answers, as one reading of the table shows them.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)] // edges by nature
+struct Peaks {
+    /// The board reads lethal.
+    lethal: bool,
+    /// A player is about to lose.
+    doomed: bool,
+    /// The game's epicness is at its top.
+    epic: bool,
+    /// A big spell on the stack at high tension.
+    big: bool,
+    /// This seat attacks a player who is low or dead on board.
+    charge: bool,
+}
+
+impl Peaks {
+    fn of(request: &ScoreRequest) -> Self {
+        Self {
+            lethal: request.lethal,
+            doomed: request.about_to_lose,
+            epic: request.epicness() >= EPIC,
+            big: request.big_spell && request.tension >= PEAK_TENSION,
+            charge: request.combat && request.own_turn && (request.lethal || request.low_life),
+        }
+    }
+}
+
+/// The stinger a change of peaks calls for: only a moment that has just
+/// begun (a rising edge), the epic one before the call.
+fn stinger(before: Peaks, now: Peaks) -> Option<Stinger> {
+    let rose = |was: bool, is: bool| is && !was;
+    if rose(before.lethal, now.lethal)
+        || rose(before.doomed, now.doomed)
+        || rose(before.epic, now.epic)
+    {
+        Some(Stinger::Epic)
+    } else if rose(before.big, now.big) || rose(before.charge, now.charge) {
+        Some(Stinger::Call)
+    } else {
+        None
+    }
 }
 
 impl Memory {
@@ -390,6 +488,26 @@ fn reading(view: &PlayerView) -> (f32, ScoreRequest) {
     (tension, request)
 }
 
+/// One reading at the table: its peaks' rising edges move the stinger
+/// counter on, with the recorded theme, past the game's grace and the last
+/// stinger's cooldown. An edge inside either is dropped, not kept.
+fn listen_for_stingers(request: &ScoreRequest, theme: MusicTheme, memory: &mut Memory, dt: f32) {
+    memory.table_time += dt;
+    let now = Peaks::of(request);
+    let edge = stinger(memory.peaks, now);
+    memory.peaks = now;
+    let rested = memory
+        .since_stinger
+        .is_none_or(|since| since >= STINGER_COOLDOWN);
+    if let Some(kind) =
+        edge.filter(|_| theme.recorded() && rested && memory.table_time >= STINGER_GRACE)
+    {
+        memory.stingers = memory.stingers.wrapping_add(1) & 7;
+        memory.stinger_epic = kind == Stinger::Epic;
+        memory.since_stinger = Some(0.0);
+    }
+}
+
 /// The score's request for this frame. `dt` is the frame's length in
 /// seconds; the activity and spell flurry decay over it.
 pub fn direct(
@@ -401,6 +519,7 @@ pub fn direct(
     dt: f32,
 ) -> ScoreRequest {
     let dt = dt.max(0.0);
+    memory.since_stinger = memory.since_stinger.map(|since| since + dt);
     memory.activity *= (-dt / 9.0).exp();
     memory.flurry *= (-dt / 4.5).exp();
     let mut request = ScoreRequest::default();
@@ -408,21 +527,28 @@ pub fn direct(
         memory.arrivals = memory.arrivals.wrapping_add(1);
         memory.rotation =
             u8::try_from((usize::from(memory.rotation) + 1) % Theme::ALL.len()).unwrap_or_default();
+        // A new game's grace starts when its table is laid.
+        memory.table_time = 0.0;
+        memory.peaks = Peaks::default();
     }
     memory.opening = place == Place::Opening;
     request.scene = match place {
         Place::FrontDoor => Scene::FrontDoor,
         Place::Lobby => Scene::Lobby,
         Place::Build => Scene::Build,
+        Place::Tower => Scene::Tower,
         Place::Opening => Scene::Opening,
         Place::Table | Place::Finished => Scene::Table,
     };
     if !matches!(place, Place::Table | Place::Finished | Place::Opening) {
         // A game left behind: the next one starts from nothing.
         let (arrivals, rotation) = (memory.arrivals, memory.rotation);
+        let (stingers, stinger_epic) = (memory.stingers, memory.stinger_epic);
         *memory = Memory {
             arrivals,
             rotation,
+            stingers,
+            stinger_epic,
             ..Memory::default()
         };
     }
@@ -472,6 +598,9 @@ pub fn direct(
             action_intensity: quantize_unit(reading.action_intensity + memory.flurry),
             ..reading
         };
+        if place == Place::Table {
+            listen_for_stingers(&request, theme, memory, dt);
+        }
     }
     if let Some(ending) = ending {
         request.scene = match ending {
@@ -486,6 +615,9 @@ pub fn direct(
     request.spells = memory.spells;
     request.arrivals = memory.arrivals;
     request.theme = theme.pick(memory.rotation);
+    request.recorded = theme.recorded();
+    request.stingers = memory.stingers;
+    request.stinger_epic = memory.stinger_epic;
     request
 }
 

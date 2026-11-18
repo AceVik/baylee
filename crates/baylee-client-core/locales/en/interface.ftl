@@ -8219,10 +8219,16 @@ HelpMaster = Every sound, the music included
 RowMusic = Music
 
 # Audio: the music's theme.
-RowMusicTheme = Music theme during games
+RowMusicTheme = Music theme
 
-# Audio: fifteen complete original suites and automatic rotation.
-HelpMusicTheme = Fifteen original suites for your games. Rotating chooses a different suite each game. Login and lobby share Baylee’s remembrance: Clair de lune and Gymnopédie No. 1, with grand piano, violin and cello.
+# Audio: the recorded soundtrack (default), fifteen synthesised suites and automatic rotation.
+HelpMusicTheme = The Baylee soundtrack is recorded music for sign-in, lobby, games, results and the Tower, and its title melody returns at a game’s great moments. The fifteen suites are synthesised for your games; Rotating chooses a different one each game.
+
+# Audio: the recorded soundtrack, the default theme; selection hint.
+MusicThemeSaga = Baylee soundtrack (recorded)
+
+# Compact theme button; the full name remains in the selection hint.
+MusicThemeSagaShort = Baylee soundtrack
 
 # Audio: suite one.
 MusicThemeEmber = Ember Path

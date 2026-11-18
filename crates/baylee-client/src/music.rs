@@ -2,7 +2,9 @@
 //! (`client-core::music::direct`, a pure function of the screen and the
 //! `PlayerView`) changes future notes; the audio player never restarts at a
 //! screen change. Only the user's own volume fades the master, and a
-//! priority cue ducks it for a moment.
+//! priority cue ducks it for a moment. The recorded soundtrack (the default
+//! theme) plays inside the same stream, decoded on a worker thread, so the
+//! volume, the mute, the pause and the duck reach it unchanged.
 use crate::ui_button::UiButton;
 use crate::{Duel, DuelPhase, lobby::LobbyState, settings::ClientSettings};
 use baylee_client_core::lobby::Screen;
@@ -51,7 +53,9 @@ impl Source for Stream {
 impl Decodable for LobbyTune {
     type Decoder = Stream;
     fn decoder(&self) -> Stream {
-        Stream(Tune::with_control(self.0.clone()))
+        // The recorded soundtrack decodes on a worker of its own; the audio
+        // thread only takes its frames (`Tune::streaming`).
+        Stream(Tune::streaming(self.0.clone()))
     }
 }
 #[derive(Resource)]
@@ -146,12 +150,15 @@ fn lobby_entered(lobby: Option<&LobbyState>) -> bool {
 /// the Tavern Bard background begins. Sitting down (`Screen::Seated`), preparing
 /// a table (`DuelPhase::Opening`), or waiting for the `arrival::Journey`
 /// loading cover to clear on `DuelPhase::Playing` all hold `Place::Opening`
-/// so table music begins only after the loading screen finishes.
+/// so table music begins only after the loading screen finishes. A Tower
+/// run's own screens (`LobbyState::in_tower_run`) are `Place::Tower`; a duel
+/// inside the run is a table like any other.
 fn place(
     phase: DuelPhase,
     screen: Option<&Screen>,
     entered_lobby: bool,
     journey_active: bool,
+    tower_run: bool,
 ) -> Place {
     match phase {
         DuelPhase::Opening => Place::Opening,
@@ -163,6 +170,7 @@ fn place(
             None | Some(Screen::SignIn { .. }) => Place::FrontDoor,
             Some(Screen::Build) => Place::Build,
             Some(Screen::Seated(_)) => Place::Opening,
+            Some(Screen::Table) if tower_run => Place::Tower,
             Some(Screen::Table | Screen::Replay(_)) => Place::Lobby,
         },
     }
@@ -181,6 +189,7 @@ fn direction(
     theme: music::MusicTheme,
     memory: &mut Memory,
     dt: f32,
+    tower_run: bool,
 ) -> ScoreRequest {
     let view = duel.and_then(|duel| duel.view.as_ref());
     let ending = duel.and_then(|duel| {
@@ -191,7 +200,7 @@ fn direction(
         ))
     });
     music::direct(
-        place(phase, screen, entered_lobby, journey_active),
+        place(phase, screen, entered_lobby, journey_active, tower_run),
         view,
         ending,
         theme,
@@ -237,6 +246,7 @@ fn perform(
         theme,
         memory,
         dt,
+        lobby.as_deref().is_some_and(LobbyState::in_tower_run),
     );
     request.samples = settings
         .as_ref()
@@ -544,7 +554,7 @@ mod tests {
                 .set_theme(theme);
             app.update();
             let heard = app.world().resource::<Heard>().0.theme;
-            if theme != music::MusicTheme::Rotating {
+            if !matches!(theme, music::MusicTheme::Rotating | music::MusicTheme::Saga) {
                 assert_eq!(heard, theme.pick(0), "{theme:?}");
             }
             assert_eq!(
@@ -576,45 +586,102 @@ mod tests {
     fn the_screens_and_phases_are_places() {
         let sign_in = Screen::SignIn { registering: false };
         assert_eq!(
-            place(DuelPhase::Closed, None, false, false),
+            place(DuelPhase::Closed, None, false, false, false),
             Place::FrontDoor
         );
         assert_eq!(
-            place(DuelPhase::Closed, None, false, true),
+            place(DuelPhase::Closed, None, false, true, false),
             Place::FrontDoor
         );
         assert_eq!(
-            place(DuelPhase::Closed, Some(&sign_in), false, false),
+            place(DuelPhase::Closed, Some(&sign_in), false, false, false),
             Place::FrontDoor,
             "before Central login or offline play, SignIn stays at FrontDoor"
         );
         assert_eq!(
-            place(DuelPhase::Closed, Some(&sign_in), true, false),
+            place(DuelPhase::Closed, Some(&sign_in), true, false, false),
             Place::Lobby,
             "immediately after Central login, Gateway Hub on SignIn plays Lobby music"
         );
         assert_eq!(
-            place(DuelPhase::Closed, Some(&Screen::Table), false, false),
+            place(DuelPhase::Closed, Some(&Screen::Table), false, false, false),
             Place::Lobby
         );
         assert_eq!(
-            place(DuelPhase::Closed, Some(&Screen::Build), false, false),
+            place(DuelPhase::Closed, Some(&Screen::Build), false, false, false),
             Place::Build
         );
         assert_eq!(
-            place(DuelPhase::Opening, Some(&Screen::Build), true, false),
+            place(DuelPhase::Opening, Some(&Screen::Build), true, false, false),
             Place::Opening
         );
         assert_eq!(
-            place(DuelPhase::Playing, None, true, true),
+            place(DuelPhase::Playing, None, true, true, false),
             Place::Opening,
             "table music stays hushed while arrival loading cover is still active"
         );
-        assert_eq!(place(DuelPhase::Playing, None, true, false), Place::Table);
         assert_eq!(
-            place(DuelPhase::Finished, None, true, false),
+            place(DuelPhase::Playing, None, true, false, false),
+            Place::Table
+        );
+        assert_eq!(
+            place(DuelPhase::Finished, None, true, false, false),
             Place::Finished
         );
+        // A Tower run's screens are the Tower; its duel is a table, its
+        // loading an opening, and the builder stays the builder.
+        assert_eq!(
+            place(DuelPhase::Closed, Some(&Screen::Table), true, false, true),
+            Place::Tower
+        );
+        assert_eq!(
+            place(DuelPhase::Playing, Some(&Screen::Table), true, false, true),
+            Place::Table
+        );
+        assert_eq!(
+            place(DuelPhase::Opening, Some(&Screen::Table), true, false, true),
+            Place::Opening
+        );
+        assert_eq!(
+            place(DuelPhase::Closed, Some(&Screen::Build), true, false, true),
+            Place::Build
+        );
+    }
+
+    /// The Tower's scene plays the Tower's bed with the recorded theme and,
+    /// with any synthesised theme, exactly what the lobby plays.
+    #[test]
+    fn the_tower_keeps_the_lobby_music_with_a_synth_theme() {
+        use baylee_client_core::music::{Movement, Scene};
+        let tower = |theme| {
+            direction(
+                DuelPhase::Closed,
+                Some(&Screen::Table),
+                true,
+                false,
+                None,
+                theme,
+                &mut Memory::default(),
+                0.05,
+                true,
+            )
+        };
+        let saga = tower(music::MusicTheme::Saga);
+        assert_eq!(saga.scene, Scene::Tower);
+        assert_eq!(saga.recorded, music::RECORDED);
+        for theme in music::MusicTheme::ALL {
+            if theme.recorded() {
+                continue;
+            }
+            let request = tower(theme);
+            assert!(!request.recorded);
+            let control = Arc::new(ScoreControl::default());
+            control.set(request);
+            let mut tune = Tune::with_control(control);
+            let mut buf = vec![[0.0_f32; 2]; music::RATE as usize / 4];
+            tune.render(&mut buf);
+            assert_eq!(tune.position().movement, Movement::Lobby, "{theme:?}");
+        }
     }
 
     #[test]
@@ -639,6 +706,7 @@ mod tests {
             music::MusicTheme::Ember,
             &mut memory,
             0.05,
+            false,
         );
         assert_eq!(req_login.scene, Scene::FrontDoor);
         control.set(req_login);
@@ -656,6 +724,7 @@ mod tests {
             music::MusicTheme::Ember,
             &mut memory,
             0.05,
+            false,
         );
         assert_eq!(req_post_login.scene, Scene::Lobby);
         control.set(req_post_login);
@@ -672,6 +741,7 @@ mod tests {
             music::MusicTheme::Ember,
             &mut memory,
             0.05,
+            false,
         );
         assert_eq!(req_gateway_chosen.scene, Scene::Lobby);
         control.set(req_gateway_chosen);
@@ -745,6 +815,7 @@ mod tests {
             music::MusicTheme::Ember,
             &mut memory,
             0.05,
+            false,
         );
         assert_eq!(req_lobby.scene, Scene::Lobby);
         control.set(req_lobby);
@@ -768,6 +839,7 @@ mod tests {
                 music::MusicTheme::Ember,
                 &mut memory,
                 0.05,
+                false,
             );
             assert_eq!(req.scene, Scene::Opening);
             control.set(req);
@@ -787,6 +859,7 @@ mod tests {
             music::MusicTheme::Ember,
             &mut memory,
             0.05,
+            false,
         );
         assert_eq!(req_table.scene, Scene::Table);
         control.set(req_table);
@@ -845,6 +918,7 @@ mod tests {
                 music::MusicTheme::Thorn,
                 &mut Memory::default(),
                 0.1,
+                false,
             );
             assert_eq!(request.scene, expected);
         }

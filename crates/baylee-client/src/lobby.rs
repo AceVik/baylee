@@ -830,6 +830,15 @@ impl LobbyState {
         self.lobby.can_enter_challenges(self.central_ready())
     }
 
+    /// Whether a Tower run's own screens are on show outside a duel: its
+    /// overview, shop and reward and every other page while a run is open,
+    /// which the score gives the Tower's bed (`music::place`). The Tower's
+    /// landing before a run is chosen keeps the lobby's music.
+    #[must_use]
+    pub(crate) fn in_tower_run(&self) -> bool {
+        self.hub == Hub::Challenges && self.echoes.in_run()
+    }
+
     /// Whether Tower Echoes expeditions can be entered.
     #[must_use]
     #[allow(dead_code)]

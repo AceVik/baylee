@@ -246,6 +246,12 @@ impl Ui {
         false
     }
 
+    /// A run is open on the Tower's screens (any page: switching tabs
+    /// inside a run keeps its music).
+    pub(in crate::lobby) fn in_run(&self) -> bool {
+        self.opened && self.model.run().is_some()
+    }
+
     pub(super) fn rewarding(&self) -> bool {
         self.opened
             && self.page == Page::Shop

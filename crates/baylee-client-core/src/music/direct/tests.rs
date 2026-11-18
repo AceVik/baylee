@@ -91,8 +91,67 @@ fn a_request_packs_into_one_word() {
         stack_depth: 5,
         blockers: true,
         action_intensity: 0.842,
+        recorded: true,
+        stingers: 6,
+        stinger_epic: true,
     };
     assert_eq!(ScoreRequest::unpack(request.pack()), request);
+    // The new fields and the ninth scene stand on their own bits: each one
+    // alone round-trips and leaves every other field at its default.
+    for alone in [
+        ScoreRequest {
+            scene: Scene::Tower,
+            ..ScoreRequest::default()
+        },
+        ScoreRequest {
+            recorded: true,
+            ..ScoreRequest::default()
+        },
+        ScoreRequest {
+            stingers: 7,
+            ..ScoreRequest::default()
+        },
+        ScoreRequest {
+            stinger_epic: true,
+            ..ScoreRequest::default()
+        },
+        ScoreRequest {
+            theme: Theme::Iron,
+            action_intensity: 1.0,
+            ..ScoreRequest::default()
+        },
+    ] {
+        assert_eq!(ScoreRequest::unpack(alone.pack()), alone, "{alone:?}");
+    }
+    // Every field at its widest still fits the word.
+    let full = ScoreRequest {
+        scene: Scene::Tower,
+        tension: 1.0,
+        hunts: 15,
+        monarchs: 15,
+        spells: 15,
+        arrivals: 15,
+        turn_seat: 7,
+        theme: Theme::Iron,
+        stack_depth: 7,
+        action_intensity: 1.0,
+        stingers: 7,
+        ..request
+    };
+    assert_eq!(ScoreRequest::unpack(full.pack()), full);
+    assert_eq!(
+        ScoreRequest {
+            stingers: 9,
+            ..ScoreRequest::default()
+        }
+        .pack(),
+        ScoreRequest {
+            stingers: 1,
+            ..ScoreRequest::default()
+        }
+        .pack(),
+        "the stinger counter wraps at eight"
+    );
     let nan = ScoreRequest {
         tension: f32::NAN,
         action_intensity: f32::NAN,
@@ -123,6 +182,7 @@ fn every_place_has_its_scene() {
         (Place::FrontDoor, Scene::FrontDoor),
         (Place::Lobby, Scene::Lobby),
         (Place::Build, Scene::Build),
+        (Place::Tower, Scene::Tower),
         (Place::Opening, Scene::Opening),
     ] {
         assert_eq!(
@@ -440,4 +500,136 @@ fn stack_depth_scales_intensity_from_calm_to_epic_and_settles_on_resolution() {
         "settled back to calm: {}",
         settled.epicness()
     );
+}
+
+/// Plays `seconds` of one view at the table in half-second frames, and
+/// returns how many stingers were asked for and the last request.
+fn hold(
+    view: &mut PlayerView,
+    memory: &mut Memory,
+    theme: MusicTheme,
+    seconds: f32,
+) -> (usize, ScoreRequest) {
+    view.seq += 1;
+    let mut fired = 0;
+    let mut before = memory.stingers;
+    let mut last = ScoreRequest::default();
+    let mut elapsed = 0.0;
+    while elapsed < seconds {
+        last = direct(Place::Table, Some(view), None, theme, memory, 0.5);
+        if last.stingers != before {
+            fired += 1;
+            before = last.stingers;
+        }
+        elapsed += 0.5;
+    }
+    (fired, last)
+}
+
+fn lethal_board() -> PlayerView {
+    let mut view = ViewBuilder::new(2)
+        .with_battlefield(0, vec![token(9, 0, "Giant", 12, 12)])
+        .build();
+    view.seats[1].life = 12;
+    view
+}
+
+/// A quiet game asks for no stinger however long it lasts.
+#[test]
+fn a_quiet_game_has_no_stinger() {
+    let mut memory = Memory::default();
+    let (fired, last) = hold(&mut quiet(), &mut memory, MusicTheme::Saga, 600.0);
+    assert_eq!(fired, 0);
+    assert_eq!(last.recorded, crate::music::RECORDED);
+}
+
+/// One lethal swing after the grace asks for exactly one stinger, the epic
+/// one, although the lethal board, the attack and the epicness each rise.
+#[test]
+fn a_lethal_swing_fires_one_epic_stinger() {
+    if !crate::music::RECORDED {
+        return;
+    }
+    let mut memory = Memory::default();
+    let (fired, _) = hold(&mut quiet(), &mut memory, MusicTheme::Saga, 30.0);
+    assert_eq!(fired, 0);
+    let mut view = lethal_board();
+    let (fired, last) = hold(&mut view, &mut memory, MusicTheme::Saga, 5.0);
+    assert_eq!(fired, 1, "the board reads lethal");
+    assert!(last.stinger_epic);
+    attack(&mut view, 1);
+    view.seats[1].life = 4;
+    let (fired, _) = hold(&mut view, &mut memory, MusicTheme::Saga, 10.0);
+    assert_eq!(fired, 0, "the swing itself is inside the cooldown");
+}
+
+/// The cooldown holds a second peak back; after it, the next rising edge
+/// plays. An edge inside the cooldown is dropped, not kept for later.
+#[test]
+fn the_cooldown_holds() {
+    if !crate::music::RECORDED {
+        return;
+    }
+    let mut memory = Memory::default();
+    hold(&mut quiet(), &mut memory, MusicTheme::Saga, 30.0);
+    let (fired, _) = hold(&mut lethal_board(), &mut memory, MusicTheme::Saga, 2.0);
+    assert_eq!(fired, 1);
+    hold(&mut quiet(), &mut memory, MusicTheme::Saga, 10.0);
+    let (fired, _) = hold(&mut lethal_board(), &mut memory, MusicTheme::Saga, 2.0);
+    assert_eq!(fired, 0, "12 s after the first");
+    let (fired, _) = hold(&mut lethal_board(), &mut memory, MusicTheme::Saga, 60.0);
+    assert_eq!(fired, 0, "a board that stays lethal is no new edge");
+    hold(&mut quiet(), &mut memory, MusicTheme::Saga, 1.0);
+    let (fired, _) = hold(&mut lethal_board(), &mut memory, MusicTheme::Saga, 2.0);
+    assert_eq!(fired, 1, "past the cooldown, the next edge plays");
+    const { assert!(STINGER_COOLDOWN >= 45.0) };
+}
+
+/// Nothing in a game's first twenty seconds, and the edge is not saved up.
+#[test]
+fn no_stinger_in_the_first_twenty_seconds() {
+    let mut memory = Memory::default();
+    direct(
+        Place::Opening,
+        None,
+        None,
+        MusicTheme::Saga,
+        &mut memory,
+        0.5,
+    );
+    let (fired, _) = hold(&mut quiet(), &mut memory, MusicTheme::Saga, 5.0);
+    assert_eq!(fired, 0);
+    let (fired, _) = hold(&mut lethal_board(), &mut memory, MusicTheme::Saga, 40.0);
+    assert_eq!(fired, 0, "lethal from second five: inside the grace");
+    const { assert!(STINGER_GRACE >= 20.0) };
+}
+
+/// A synthesised theme never asks for a stinger.
+#[test]
+fn a_synth_theme_has_no_stinger() {
+    let mut memory = Memory::default();
+    hold(&mut quiet(), &mut memory, MusicTheme::Thorn, 30.0);
+    let (fired, last) = hold(&mut lethal_board(), &mut memory, MusicTheme::Thorn, 5.0);
+    assert_eq!(fired, 0);
+    assert!(!last.recorded);
+}
+
+/// A lesser peak, this seat's own attack on a player at low life, asks for
+/// the call; the stinger counter survives a return to the lobby.
+#[test]
+fn a_decisive_attack_fires_the_call() {
+    if !crate::music::RECORDED {
+        return;
+    }
+    let mut memory = Memory::default();
+    let mut view = quiet();
+    view.seats[1].life = 4;
+    let (fired, _) = hold(&mut view, &mut memory, MusicTheme::Saga, 30.0);
+    assert_eq!(fired, 0, "low life alone is no peak");
+    attack(&mut view, 1);
+    let (fired, last) = hold(&mut view, &mut memory, MusicTheme::Saga, 3.0);
+    assert_eq!(fired, 1);
+    assert!(!last.stinger_epic, "the call, not the epic");
+    let lobby = direct(Place::Lobby, None, None, MusicTheme::Saga, &mut memory, 0.5);
+    assert_eq!(lobby.stingers, last.stingers, "kept, so nothing replays");
 }

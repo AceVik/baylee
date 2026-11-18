@@ -8521,6 +8521,42 @@ counted cues exist to do.
 
 ### One orchestra follows the player
 
+**The recorded soundtrack (18.11.2026) is the default theme.** Settings →
+Audio → Music theme opens with "Baylee soundtrack (recorded)" /
+"Baylee-Soundtrack (Aufnahme)" (`MusicTheme::Saga`), followed by the fifteen
+synthesised suites and Rotating; a stored choice is kept, so only a device
+without one starts on the recording. With it, every scene plays a recording
+(`client-core::music::recorded`; provenance in `docs/legal.md` §5): the sign-in
+screen the title theme, the lobby and the deck builder the lobby bed, a game
+on the table the combat bed, a Tower run's screens outside a duel (overview,
+shop, reward and every page while a run is open: `Place::Tower`) the Tower's
+bed, and the three results their endings, played once and then silent until
+the scene changes. The loading hush fades the bed out. Beds loop: the head
+starts under the tail (title 6 s, Tower 5 s, lobby and combat 4 s). At most two
+bed voices sound; a scene change cross-fades with equal power over 1.2 s, an
+ending comes in over 0.25 s, and coming back to a bed that is still fading
+out fades it back up from where it stands in the music, without a restart.
+
+At a game's epic moments the title melody returns as one of two stingers cut
+from the title recording. `music::direct` decides it from the view alone: on
+the rising edge of a board that reads lethal, a player about to lose or the
+game's epicness at its top, the epic stinger; on a big spell at high tension
+or this seat's own attack on a player at low life, the call. Never in a game's
+first 20 seconds and at most once in 45; an edge inside either is dropped, so
+a quiet game hears none and one lethal swing exactly one. While a stinger
+sounds the combat bed ducks by 7 dB (80 ms down, 1.2 s back); stingers play
+only at the table.
+
+The recordings play inside the same stream as the orchestra, so the music
+volume, mute, background silence, the paused sink and the priority cue's duck
+apply unchanged, and the orchestra rests while they play. The Opus decoder
+allocates, so a worker thread decodes into a fixed ring of about 170 ms that
+the audio thread only reads; that ring is also how late the recording answers
+a scene change. One gain (`RECORDED_GAIN`) matches its level to the synth's.
+The browser build carries no recordings and plays the rotating suites
+instead. With any synthesised theme everything below applies as before; a
+Tower run's screens then play what the lobby plays.
+
 The login, lobby and deckbuilder share an eight-and-a-half-minute piano
 remembrance dedicated to Baylee: Debussy's **Clair de lune** and Satie's
 **Gymnopédie No. 1**. The complete Mutopia editions are public domain; source
@@ -8557,7 +8593,8 @@ title/lobby arrangements remain authoring material but are no longer played ther
 Fifteen original suites (10 October 2026) are available. The first five remain
 unchanged, centred on **B♭ Dorian**
 (B♭ C D♭ E♭ F G A♭), are selected in **Settings → Audio → Music theme**.
-The sixteenth choice, Rotating, advances through all fifteen between games. Settings
+Rotating advances through all fifteen between games and never into the
+recording. Settings
 from the previous four-theme score migrate by serde aliases without losing
 volume or mute. English and German labels are supplied.
 
