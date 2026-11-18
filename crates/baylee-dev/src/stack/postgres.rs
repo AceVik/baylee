@@ -8,6 +8,7 @@
 use crate::fixture;
 use anyhow::{Context, Result, bail, ensure};
 use std::{
+    ffi::OsString,
     fs::{self, OpenOptions},
     io::Write as _,
     net::TcpListener,
@@ -193,16 +194,21 @@ impl LocalPostgres {
             self.port,
             socket_dir.display()
         );
-        let status = Command::new(&self.tools.pg_ctl)
+        let mut start = Command::new(&self.tools.pg_ctl);
+        start
             .arg("-D")
             .arg(&self.data_dir)
             .arg("-l")
             .arg(self.data_dir.join("postgres.log"))
             .args(["-o", &options, "start"])
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .context("starting pg_ctl")?;
+            .stderr(Stdio::null());
+        if !names_a_locale(std::env::var_os("LC_ALL"), std::env::var_os("LANG")) {
+            // The cluster is `--no-locale` already; this only keeps the
+            // postmaster from asking macOS for one.
+            start.env("LC_ALL", "C");
+        }
+        let status = start.status().context("starting pg_ctl")?;
         ensure!(status.success(), "pg_ctl failed to start local PostgreSQL");
         let ready = (0..40).any(|_| {
             let ok = Command::new(&self.tools.pg_isready)
@@ -286,6 +292,17 @@ fn init_cluster(initdb: &Path, data_dir: &Path, password: &str) -> Result<()> {
         );
     }
     Ok(())
+}
+
+/// Whether the environment names a locale for every category. Without one,
+/// macOS answers `setlocale(…, "")` from the user's preferences on a second
+/// thread, and the postmaster refuses to start ("became multithreaded during
+/// startup"): a shell started by a desktop app has neither variable.
+pub(super) fn names_a_locale(lc_all: Option<OsString>, lang: Option<OsString>) -> bool {
+    [lc_all, lang]
+        .into_iter()
+        .flatten()
+        .any(|value| !value.is_empty())
 }
 
 fn stop_existing_dir(pg_ctl: &Path, data_dir: &Path) {

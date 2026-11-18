@@ -57,6 +57,17 @@ fn parse_http_200_body_extracts_ok_payload_and_rejects_errors() {
 }
 
 #[test]
+fn an_unset_or_empty_locale_is_not_a_locale() {
+    use super::postgres::names_a_locale;
+    let some = |text: &str| Some(std::ffi::OsString::from(text));
+    assert!(!names_a_locale(None, None));
+    assert!(!names_a_locale(some(""), some("")));
+    assert!(names_a_locale(some("C"), None));
+    assert!(names_a_locale(None, some("de_DE.UTF-8")));
+    assert!(names_a_locale(some(""), some("en_US.UTF-8")));
+}
+
+#[test]
 fn a_second_supervisor_cannot_replace_data_or_take_ownership() {
     let root =
         std::env::temp_dir().join(format!("baylee-stack-{}", crate::secret::hex(12).unwrap()));
