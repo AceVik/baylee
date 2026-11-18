@@ -2013,6 +2013,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-dev-provision"
+version = "0.2.0-beta.o1"
+dependencies = [
+ "anyhow",
+ "baylee-cards-pool",
+ "baylee-tower",
+ "baylee-tower-content",
+ "baylee-tower-service",
+ "baylee-tower-store",
+ "central-api",
+ "central-crypto",
+ "central-identity",
+ "central-migration",
+ "central-postgres",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "baylee-driver"
 version = "0.2.0-beta.o1"
 dependencies = [

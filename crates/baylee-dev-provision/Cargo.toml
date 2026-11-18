@@ -1,0 +1,34 @@
+[package]
+name = "baylee-dev-provision"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Binary: provisions the local development stack's Central and Tower databases for `cargo dev stack up --central`; loopback development only, never shipped"
+publish = false
+
+[lints]
+workspace = true
+
+# `cargo dev` itself has to compile in seconds, so the heavy crates a local
+# Central and Tower need live here: Central's server side at the revision the
+# workspace pins (as the gateway's integration tests link it) and the Tower
+# store. `cargo dev stack up --central` builds this binary once and talks to
+# it over stdin and stdout.
+[dependencies]
+anyhow.workspace = true
+baylee-cards-pool.workspace = true
+baylee-tower.workspace = true
+baylee-tower-content.workspace = true
+baylee-tower-service.workspace = true
+baylee-tower-store.workspace = true
+central-api.workspace = true
+central-crypto = { workspace = true, features = ["jwt", "server"] }
+central-identity.workspace = true
+central-migration.workspace = true
+central-postgres.workspace = true
+sea-orm.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+uuid.workspace = true
