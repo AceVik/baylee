@@ -147,6 +147,18 @@ impl Default for Orchestra {
         }
     }
 }
+/// The safety knee every path to the output ends in: linear up to 0.85
+/// (−1.4 dBFS), then bending towards full scale.
+#[inline]
+pub(super) fn knee(x: f32) -> f32 {
+    let over = x.abs() - 0.85;
+    if over <= 0.0 {
+        x
+    } else {
+        x.signum() * (0.85 + 0.15 * over / (0.15 + over))
+    }
+}
+
 fn panned(gain: f32, pan: f32) -> [f32; 2] {
     [
         ((1.0 - pan) * 0.5).sqrt() * gain,
@@ -274,12 +286,7 @@ impl Orchestra {
             let x = (input - 0.25 * (input - self.tilt[i])) * 0.92;
             // Linear throughout the score's normal range; no always-on distortion.
             // The safety knee only catches pathological voice pileups above -1.4 dB.
-            let over = x.abs() - 0.85;
-            if over <= 0.0 {
-                x
-            } else {
-                x.signum() * (0.85 + 0.15 * over / (0.15 + over))
-            }
+            knee(x)
         })
     }
     pub(super) fn frame(&mut self) -> [f32; 2] {

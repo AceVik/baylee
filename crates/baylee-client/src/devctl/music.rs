@@ -1,6 +1,6 @@
 //! Audition every suite/movement through the real persistent audio player,
 //! and the recorded soundtrack's scenes and stingers.
-use baylee_client_core::music::{Movement, SampleSet, Scene, Theme};
+use baylee_client_core::music::{Movement, SampleSet, Scene, Stinger, Theme};
 use bevy::prelude::*;
 use std::sync::atomic::{AtomicU8, Ordering};
 
@@ -19,14 +19,7 @@ struct Preview {
     tower: bool,
     /// Fire a stinger over the table's bed: `"call"` or `"epic"`.
     #[serde(default)]
-    stinger: Option<StingerKind>,
-}
-
-#[derive(Clone, Copy, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "lowercase")]
-enum StingerKind {
-    Call,
-    Epic,
+    stinger: Option<Stinger>,
 }
 
 /// Each audition's stinger moves the counter on, so the audio side plays it.
@@ -50,7 +43,7 @@ pub(super) fn preview(body: &str, commands: &mut Commands) -> String {
             request.stingers = STINGERS.load(Ordering::Relaxed);
             if let Some(kind) = preview.stinger {
                 request.stingers = STINGERS.fetch_add(1, Ordering::Relaxed).wrapping_add(1) & 7;
-                request.stinger_epic = matches!(kind, StingerKind::Epic);
+                request.stinger_epic = kind == Stinger::Epic;
             }
             commands.insert_resource(crate::music::Audition(request));
             serde_json::json!({"ok":true,"theme":preview.theme,"movement":preview.movement,

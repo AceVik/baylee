@@ -39,18 +39,19 @@ pub(crate) mod ogg;
 /// bed, which would undo the files' own levelling.
 pub(super) const RECORDED_GAIN: f32 = 1.396;
 
-/// The recorded path's safety knee, as the orchestra's (`Orchestra::finish`):
-/// linear up to 0.85 (−1.4 dBFS), then bending towards full scale. The beds
-/// stay below it (their sample peaks are −5.2 dBFS and lower, −2.3 after the
-/// gain); the call stinger alone peaks at −2.5 dBFS, +0.4 after the gain, so
-/// its loudest moments bend here (364 of 432 000 frames in
-/// `a_stinger_over_the_bed_stays_below_full_scale`).
-fn knee(x: f32) -> f32 {
-    let over = x.abs() - 0.85;
-    if over <= 0.0 {
-        x
+// The recorded path ends in the orchestra's safety knee (`orchestra::knee`).
+// The beds stay below it (their sample peaks are −5.2 dBFS and lower, −2.3
+// after the gain); the call stinger alone peaks at −2.5 dBFS, +0.4 after the
+// gain, so its loudest moments bend there (364 of 432 000 frames in
+// `a_stinger_over_the_bed_stays_below_full_scale`).
+use super::orchestra::knee;
+
+/// Moves `level` towards `target` by at most `step`, never past it.
+fn slew(level: f32, target: f32, step: f32) -> f32 {
+    if level < target {
+        (level + step).min(target)
     } else {
-        x.signum() * (0.85 + 0.15 * over / (0.15 + over))
+        (level - step).max(target)
     }
 }
 
@@ -259,11 +260,7 @@ impl Voice {
             return;
         }
         for (i, frame) in out.iter_mut().enumerate() {
-            if self.level < self.target {
-                self.level = (self.level + self.step).min(self.target);
-            } else if self.level > self.target {
-                self.level = (self.level - self.step).max(self.target);
-            }
+            self.level = slew(self.level, self.target, self.step);
             let Some(sample) = self.next() else {
                 self.stop();
                 return;
@@ -352,11 +349,7 @@ impl Mixer {
             (1.0, (1.0 - DUCK_FLOOR) / (DUCK_BACK * RATE as f32))
         };
         for duck in &mut self.duck[..out.len()] {
-            if self.duck_level < target {
-                self.duck_level = (self.duck_level + step).min(target);
-            } else {
-                self.duck_level = (self.duck_level - step).max(target);
-            }
+            self.duck_level = slew(self.duck_level, target, step);
             *duck = self.duck_level;
         }
         let duck = &self.duck;

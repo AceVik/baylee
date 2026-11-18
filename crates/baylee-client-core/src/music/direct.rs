@@ -332,7 +332,8 @@ const EPIC: f32 = 0.95;
 const PEAK_TENSION: f32 = 0.5;
 
 /// Which of the title melody's two phrases a moment calls for.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Stinger {
     /// The first fanfare phrase: a lesser peak.
     Call,
