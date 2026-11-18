@@ -1751,3 +1751,48 @@ licence of ours (AGPL-3.0-only for code) is claimed to make them exclusive.
 They show no Wizards artwork and no other game's art, add no Scryfall
 request, card image, symbol or font, and no Wizards video or music is used.
 This records the change; it is not a broader legal approval.
+
+### Donations · 18 November 2026
+
+The owner set up three places where people can give money towards what the
+work costs him (servers, domains, the AI and development tools): GitHub
+Sponsors, Liberapay and Ko-fi, each under his developer name (AceVik), not
+under the project's. The repository names them in `.github/FUNDING.yml` and
+in both READMEs; the Central website and the client are to show them too.
+
+What was read: Wizards' Fan Content Policy at
+`company.wizards.com/en/legal/fancontentpolicy`, fetched 18.11.2026 (the
+page says it was last updated on 15 November 2017). Its first rule forbids
+making anybody pay, subscribe or register by e-mail to reach fan content,
+and in the same breath allows subsidising it with sponsorships, ad revenue
+and donations as long as that does not get in the way of the community's
+access. Its sponsorship rule asks that Wizards is not associated with a
+sponsor in any way. Its FAQ answers the question directly: recouping costs
+through “donations on sites like Patreon” is fine while the content stays
+free and the policy is followed.
+
+What follows for every place the donations are shown:
+
+- **Nothing is sold.** A donation buys no feature, no advantage in a game, no
+  earlier or exclusive access, no badge, no cosmetic and no name on a list:
+  there are no reward tiers, and no donor is named or thanked in the game,
+  on the website or in the repository. Clause 2 above (the service is and
+  stays completely free) is unchanged by this.
+- **Wizards stays out of it.** No sentence, picture or screen puts Wizards,
+  Magic or a card beside a request for money, and the fan content notice is
+  not part of a donation text. The request is for the developer's costs.
+- **It is a gift to a private person**, not a payment to a company and not a
+  charitable donation: where there is text, it says that donations are not
+  tax-deductible. Whether and how such gifts are taxed is the owner's
+  question for a tax adviser, not something this file decides.
+- **Other people's money data stays with the platforms.** Payment runs
+  through GitHub, Liberapay (Stripe, PayPal) and Ko-fi (Stripe, PayPal);
+  Baylee's programs take no payment and learn no donor's name. If a goal's
+  progress is shown, it is a sum the platforms publish or report, never a
+  list of who gave.
+
+The words “non-commercial” in the READMEs, `NOTICE` and this file keep
+their meaning: nothing is sold and nobody is charged. Donations that go
+towards costs do not change that, and the policy this project depends on
+says so itself. This records the change and the reading it rests on; it is
+not legal or tax advice.

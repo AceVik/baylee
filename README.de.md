@@ -53,6 +53,7 @@
 - [Aus dem Quellcode bauen](#aus-dem-quellcode-bauen)
 - [Wie alles zusammenhängt](#wie-alles-zusammenhängt)
 - [Mitmachen](#mitmachen)
+- [Meine Arbeit unterstützen](#meine-arbeit-unterstützen)
 - [Lizenz und Rechtliches](#lizenz-und-rechtliches)
 
 ## Was Baylee ist
@@ -972,6 +973,19 @@ paar Punkte:
   Pfaden.
 - Nichts, was eine Karte, ein Symbol, eine Schrift oder einen Ton zeigt, wird
   gemergt, ohne es gegen [docs/legal.md](docs/legal.md) zu prüfen.
+
+## Meine Arbeit unterstützen
+
+Baylee ist und bleibt kostenlos: keine Bezahlschranke, keine bezahlten
+Funktionen, keine Werbung. Ich baue es, und ein paar andere
+Open-Source-Werkzeuge, in meiner Freizeit. Wer bei den Kosten helfen möchte
+(Server, Domains und die KI- und Entwicklungswerkzeuge, mit denen ich baue),
+kann mich über [GitHub Sponsors](https://github.com/sponsors/AceVik),
+[Liberapay](https://liberapay.com/AceVik) oder
+[Ko-fi](https://ko-fi.com/acevik) unterstützen. Das ist ein Dankeschön und
+kauft im Spiel nichts: keine Vorteile, kein früherer Zugang, kein Name auf
+einer Liste. Spenden sind steuerlich nicht absetzbar. Spielen, Fehler melden
+und weitersagen hilft genauso.
 
 ## Lizenz und Rechtliches
 

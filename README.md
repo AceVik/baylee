@@ -52,6 +52,7 @@
 - [Building from source](#building-from-source)
 - [How it fits together](#how-it-fits-together)
 - [Contributing](#contributing)
+- [Supporting my work](#supporting-my-work)
 - [License and legal](#license-and-legal)
 
 ## What Baylee is
@@ -935,6 +936,19 @@ names the document for each area. A few points:
   seeded RNG, no hash-map iteration in hot paths.
 - Nothing that shows a card, symbol, font or sound is merged without checking
   it against [docs/legal.md](docs/legal.md).
+
+## Supporting my work
+
+Baylee is and stays free: no paywall, no paid features, no ads. I build it,
+and a few other open-source tools, in my spare time. If you'd like to help
+with the costs (servers, domains and the AI and development tools I build
+with), you can support me on
+[GitHub Sponsors](https://github.com/sponsors/AceVik),
+[Liberapay](https://liberapay.com/AceVik) or
+[Ko-fi](https://ko-fi.com/acevik). Support is a thank-you and buys nothing in
+the game: no perks, no early access, no advantage, and no name on a list.
+Donations are not tax-deductible. Playing, reporting bugs and telling your
+friends helps just as much.
 
 ## License and legal
 
