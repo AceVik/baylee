@@ -170,13 +170,64 @@ pub fn prepare() {
 /// file as `null`, and a `null` there refuses the whole file, gateways and
 /// guest sessions with it.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(default)]
+#[serde(from = "Stored", into = "Stored")]
 pub struct MusicLevel {
     volume: f32,
     muted: bool,
     /// The theme (absent from a file older than the themes: the default).
     theme: MusicTheme,
     samples: SampleSet,
+}
+
+/// A [`MusicLevel`] as the settings file holds it.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+struct Stored {
+    volume: f32,
+    muted: bool,
+    theme: MusicTheme,
+    samples: SampleSet,
+    /// Written as `true` by every client that has the recorded soundtrack.
+    /// A file from before it stored the old default, `rotating`, whether
+    /// anybody chose it or not, and a device that kept it would never hear
+    /// the soundtrack: without this mark `rotating` reads as today's
+    /// default. Any other stored theme was a choice and is kept.
+    #[serde(default)]
+    soundtrack: bool,
+}
+
+impl Default for Stored {
+    fn default() -> Self {
+        MusicLevel::default().into()
+    }
+}
+
+impl From<MusicLevel> for Stored {
+    fn from(level: MusicLevel) -> Self {
+        Self {
+            volume: level.volume,
+            muted: level.muted,
+            theme: level.theme,
+            samples: level.samples,
+            soundtrack: true,
+        }
+    }
+}
+
+impl From<Stored> for MusicLevel {
+    fn from(stored: Stored) -> Self {
+        let theme = if !stored.soundtrack && stored.theme == MusicTheme::Rotating {
+            MusicTheme::default()
+        } else {
+            stored.theme
+        };
+        Self {
+            volume: stored.volume,
+            muted: stored.muted,
+            theme,
+            samples: stored.samples,
+        }
+    }
 }
 
 impl Default for MusicLevel {
@@ -311,9 +362,41 @@ mod tests {
             serde_json::from_str(r#"{"volume":0.3,"theme":"rotating"}"#).expect("reads");
         assert_eq!(
             rotating.theme(),
-            MusicTheme::Rotating,
-            "a stored choice is kept: only a fresh device gets the recording"
+            MusicTheme::Saga,
+            "the old default was stored unasked: such a device gets the recording"
         );
+        let mut chosen = rotating;
+        chosen.set_theme(MusicTheme::Rotating);
+        let saved = serde_json::to_string(&chosen).expect("writes");
+        let read: MusicLevel = serde_json::from_str(&saved).expect("reads");
+        assert_eq!(
+            read.theme(),
+            MusicTheme::Rotating,
+            "rotating chosen in a client that has the recording is kept"
+        );
+        let mut louder = rotating;
+        louder.set_volume(0.8);
+        let saved = serde_json::to_string(&louder).expect("writes");
+        let read: MusicLevel = serde_json::from_str(&saved).expect("reads");
+        assert_eq!(
+            read.theme(),
+            MusicTheme::Saga,
+            "saving another setting does not turn the old default into a choice"
+        );
+        assert!(
+            saved.contains(r#""soundtrack":true"#),
+            "what this client writes is marked as its own"
+        );
+        let suite: MusicLevel =
+            serde_json::from_str(r#"{"volume":0.3,"theme":"thorn"}"#).expect("reads");
+        assert_eq!(
+            suite.theme(),
+            MusicTheme::Thorn,
+            "a suite stored by an older client was chosen and is kept"
+        );
+        let fresh = serde_json::to_string(&MusicLevel::default()).expect("writes");
+        let read: MusicLevel = serde_json::from_str(&fresh).expect("reads");
+        assert_eq!(read, MusicLevel::default(), "a fresh level reads back as it was");
         assert_eq!(MusicTheme::ALL[0], MusicTheme::Saga, "first in the list");
         assert!(
             (0..60).all(|turn| Theme::ALL.contains(&MusicTheme::Rotating.pick(turn))),

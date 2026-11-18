@@ -8524,8 +8524,11 @@ counted cues exist to do.
 **The recorded soundtrack (18.11.2026) is the default theme.** Settings →
 Audio → Music theme opens with "Baylee soundtrack (recorded)" /
 "Baylee-Soundtrack (Aufnahme)" (`MusicTheme::Saga`), followed by the fifteen
-synthesised suites and Rotating; a stored choice is kept, so only a device
-without one starts on the recording. With it, every scene plays a recording
+synthesised suites and Rotating. A suite stored by an older client was a
+choice and is kept; its stored `rotating` was only the old default, written
+whether anybody chose it or not, so it reads as the recording
+(`MusicLevel`'s stored form marks what a client with the soundtrack wrote,
+and Rotating chosen there stays Rotating). With it, every scene plays a recording
 (`client-core::music::recorded`; provenance in `docs/legal.md` §5): the sign-in
 screen the title theme, the lobby and the deck builder the lobby bed, a game
 on the table the combat bed, a Tower run's screens outside a duel (overview,
