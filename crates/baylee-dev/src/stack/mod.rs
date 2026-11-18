@@ -6,8 +6,12 @@
 //! instance without Docker.
 #![forbid(unsafe_code)]
 
+mod central;
 mod postgres;
+mod provision;
 mod services;
+mod stock;
+mod tower;
 
 #[cfg(test)]
 mod tests;
@@ -17,8 +21,8 @@ use anyhow::{Context, Result, bail, ensure};
 use clap::{Args, Subcommand};
 use postgres::{LocalPostgres, create_private_dir, free_loopback_port};
 use services::{
-    ManagedChild, StackState, build_and_stage, build_and_stage_client, probe_http_200, staged_exe,
-    wait_http_ready, wait_tcp,
+    ManagedChild, StackState, build_and_stage, build_and_stage_client, build_and_stage_full,
+    probe_http_200, staged_exe, wait_http_ready, wait_tcp,
 };
 use std::{
     fs,
@@ -26,6 +30,7 @@ use std::{
     process::Command,
     time::{Duration, Instant},
 };
+use stock::Stock;
 
 const DEFAULT_STATE_DIR: &str = "target/local-stack";
 const DEFAULT_GATEWAY_PORT: u16 = 28766;
@@ -63,6 +68,21 @@ enum Action {
         /// Optional `0600` gateway-Central bridge JSON file when bridging Central.
         #[arg(long)]
         central_bridge_file: Option<PathBuf>,
+        /// A Baylee Central checkout to build and run beside the stack: its
+        /// service and website (Register in the client opens the local
+        /// website), a fresh Central database with one synthetic
+        /// administrator, the Tower authority with a playable cohort, and
+        /// Daily and Weekly tasks. Instead of the three options above.
+        #[arg(
+            long,
+            value_name = "CHECKOUT",
+            conflicts_with_all = ["central_endpoint", "central_web_origin", "central_bridge_file"]
+        )]
+        central: Option<PathBuf>,
+        /// With `--central`: the days of Daily tasks to keep ahead, today
+        /// included; 0 publishes no tasks.
+        #[arg(long, default_value_t = 7, value_parser = clap::value_parser!(u8).range(0..=24))]
+        stock_days: u8,
         /// Directory holding `pgdata`, staged binaries, logs and `stack.json`.
         #[arg(long, default_value = DEFAULT_STATE_DIR)]
         state_dir: PathBuf,
@@ -106,8 +126,62 @@ struct UpConfig {
     central_endpoint: Option<String>,
     central_web_origin: Option<String>,
     central_bridge_file: Option<PathBuf>,
+    central: Option<PathBuf>,
+    stock_days: u8,
     state_dir: PathBuf,
 }
+
+/// How the gateway signs players in, and what it is told for it.
+pub(super) enum Auth<'a> {
+    /// No Central: guests only.
+    Guests,
+    /// A Central someone else runs, bridged through the caller's file.
+    Attached { endpoint: &'a str, bridge: &'a Path },
+    /// The stack's own Central and Tower authority.
+    Own {
+        bridge: &'a Path,
+        tower_host: &'a str,
+    },
+}
+
+impl Auth<'_> {
+    /// The gateway's environment for this mode.
+    pub(super) fn environment(&self) -> Vec<(&'static str, String)> {
+        let mixed = |endpoint: &str, bridge: &Path| {
+            vec![
+                ("BAYLEE_AUTH_MODE", "mixed".to_owned()),
+                ("BAYLEE_REGISTRATION", "open".to_owned()),
+                ("BAYLEE_CENTRAL_ENDPOINT", endpoint.to_owned()),
+                (
+                    "BAYLEE_CENTRAL_CONFIG_FILE",
+                    bridge.to_string_lossy().into_owned(),
+                ),
+            ]
+        };
+        match self {
+            Self::Guests => vec![("BAYLEE_AUTH_MODE", "guests".to_owned())],
+            Self::Attached { endpoint, bridge } => mixed(endpoint, bridge),
+            Self::Own { bridge, tower_host } => {
+                let mut environment = mixed(&central::origin(central::NATIVE_PORT), bridge);
+                environment.extend([
+                    ("BAYLEE_TOWER_ORIGIN", central::origin(tower::PORT)),
+                    ("BAYLEE_TOWER_HOST_TOKEN", (*tower_host).to_owned()),
+                    ("BAYLEE_TOWER_DEVELOPMENT", "1".to_owned()),
+                ]);
+                environment
+            }
+        }
+    }
+}
+
+/// The loopback listeners `--central` adds to the stack.
+pub(super) const OWN_CENTRAL_PORTS: [u16; 5] = [
+    central::NATIVE_PORT,
+    central::BROWSER_PORT,
+    central::SITE_PORT,
+    central::WEBSITE_PORT,
+    tower::PORT,
+];
 
 /// Dispatches `cargo dev stack` subcommands.
 pub(crate) fn run(options: Options) -> Result<i32> {
@@ -119,6 +193,8 @@ pub(crate) fn run(options: Options) -> Result<i32> {
             central_endpoint,
             central_web_origin,
             central_bridge_file,
+            central,
+            stock_days,
             state_dir,
         } => up(&UpConfig {
             monitor,
@@ -127,6 +203,8 @@ pub(crate) fn run(options: Options) -> Result<i32> {
             central_endpoint,
             central_web_origin,
             central_bridge_file,
+            central,
+            stock_days,
             state_dir,
         }),
         Action::Down { state_dir } => down(&state_dir),
@@ -153,6 +231,20 @@ fn up(cfg: &UpConfig) -> Result<i32> {
             "--central-web-origin must be http://127.0.0.1:<port>"
         );
     }
+    // Refused before the long build: a wrong checkout, or a Central or Tower
+    // someone else is already running on the fixed ports.
+    let checkout = cfg
+        .central
+        .as_deref()
+        .map(central::Checkout::open)
+        .transpose()?;
+    if checkout.is_some() {
+        for port in OWN_CENTRAL_PORTS {
+            fixture::refused(port).with_context(|| {
+                format!("127.0.0.1:{port} is taken: stop the other Central or Tower first")
+            })?;
+        }
+    }
     create_private_dir(&cfg.state_dir)?;
     let state_dir = fs::canonicalize(&cfg.state_dir)?;
     let _owner = lock_stack(&state_dir)?;
@@ -162,6 +254,14 @@ fn up(cfg: &UpConfig) -> Result<i32> {
     fs::create_dir_all(&logs_dir)?;
 
     build_and_stage(&bin_dir, !cfg.no_client)?;
+    let site = match &checkout {
+        Some(checkout) => {
+            build_and_stage_full(&bin_dir)?;
+            checkout.build(&format!("http://127.0.0.1:{}", cfg.gateway_port))?;
+            Some(checkout.stage(&bin_dir, &state_dir)?)
+        }
+        None => None,
+    };
     if state_dir.join(STOP_FILE).exists() {
         fs::remove_file(state_dir.join(STOP_FILE))?;
         println!("Local stack startup cancelled before opening any listeners.");
@@ -170,8 +270,16 @@ fn up(cfg: &UpConfig) -> Result<i32> {
     let pg = LocalPostgres::start(state_dir.join("pgdata"), None, true)?;
     pg.create_database("baylee")?;
     pg.create_database("baylee_feedback_dev")?;
+    if checkout.is_some() {
+        pg.create_database(tower::DATABASE)?;
+    }
 
-    let supervise_res = supervise(cfg, &state_dir, &bin_dir, &logs_dir, &pg);
+    let own = checkout.as_ref().zip(site.as_deref());
+    let supervise_res = supervise(cfg, &state_dir, &bin_dir, &logs_dir, &pg, own);
+    // The two secrets a running stack keeps on disk go with it.
+    for file in central::secret_files(&state_dir) {
+        let _ = fs::remove_file(file);
+    }
     let pg_res = pg.finish();
     if pg_res.is_ok() {
         let _ = fs::remove_file(state_dir.join(STATE_FILE));
@@ -189,20 +297,98 @@ fn supervise(
     bin_dir: &Path,
     logs_dir: &Path,
     pg: &LocalPostgres,
+    own: Option<(&central::Checkout, &Path)>,
 ) -> Result<()> {
     let admin_port = free_loopback_port()?;
     let feedback_port = free_loopback_port()?;
     let gateway_origin = format!("http://127.0.0.1:{}", cfg.gateway_port);
-    let mut children = spawn_backend_services(
+
+    // Central first: the Tower authority delivers awards to it, and the
+    // gateway asks it who a player is.
+    let mut children = Vec::new();
+    let own = match own {
+        Some((checkout, site)) => {
+            let credentials = tower::Credentials::generate()?;
+            let tower_origin = central::origin(tower::PORT);
+            let (started, link) = central::start(&central::Launch {
+                checkout,
+                pg,
+                bin_dir,
+                logs_dir,
+                state_dir,
+                site,
+                gateway_origin: &gateway_origin,
+                tower_origin: &tower_origin,
+                tower_issuer: &credentials.issuer,
+            })?;
+            children.extend(started);
+            children.push(tower::start(
+                pg,
+                bin_dir,
+                logs_dir,
+                &gateway_origin,
+                &credentials,
+            )?);
+            Some((link, credentials.host))
+        }
+        None => None,
+    };
+    children.extend(spawn_backend_services(
         cfg,
         bin_dir,
         logs_dir,
         pg,
-        admin_port,
-        feedback_port,
+        (admin_port, feedback_port),
         &gateway_origin,
-    )?;
+        &match (&own, &cfg.central_endpoint, &cfg.central_bridge_file) {
+            (Some((link, tower_host)), _, _) => Auth::Own {
+                bridge: &link.bridge_file,
+                tower_host,
+            },
+            (None, Some(endpoint), Some(bridge)) => Auth::Attached { endpoint, bridge },
+            _ => Auth::Guests,
+        },
+    )?);
+    let linked = own.as_ref().map(|(link, _)| link);
+    serve_until_stopped(
+        cfg,
+        (state_dir, bin_dir, logs_dir),
+        Ports {
+            postgres: pg.port(),
+            admin: admin_port,
+            feedback: feedback_port,
+        },
+        &mut children,
+        linked,
+    )
+}
 
+/// The three ports a stack picks for itself, besides the gateway's.
+#[derive(Clone, Copy)]
+struct Ports {
+    postgres: u16,
+    admin: u16,
+    feedback: u16,
+}
+
+/// With every service up: the client, the state file, the ready line, the
+/// task stock, and then the wait for `down`.
+fn serve_until_stopped(
+    cfg: &UpConfig,
+    (state_dir, bin_dir, logs_dir): (&Path, &Path, &Path),
+    ports: Ports,
+    children: &mut [ManagedChild],
+    linked: Option<&central::Linked>,
+) -> Result<()> {
+    let gateway_origin = format!("http://127.0.0.1:{}", cfg.gateway_port);
+    let (central_endpoint, central_web_origin) = if linked.is_some() {
+        (
+            Some(central::origin(central::NATIVE_PORT)),
+            Some(central::origin(central::WEBSITE_PORT)),
+        )
+    } else {
+        (cfg.central_endpoint.clone(), cfg.central_web_origin.clone())
+    };
     let mut client = if cfg.no_client {
         None
     } else {
@@ -210,20 +396,28 @@ fn supervise(
             bin_dir,
             logs_dir,
             &gateway_origin,
-            cfg.central_endpoint.as_deref(),
-            cfg.central_web_origin.as_deref(),
+            central_endpoint.as_deref(),
+            central_web_origin.as_deref(),
             cfg.monitor,
         )?)
     };
 
     let state = StackState {
         supervisor_pid: std::process::id(),
-        postgres_port: pg.port(),
+        postgres_port: ports.postgres,
         gateway_port: cfg.gateway_port,
-        admin_port,
-        feedback_port,
+        admin_port: ports.admin,
+        feedback_port: ports.feedback,
         gateway_origin: gateway_origin.clone(),
-        central_endpoint: cfg.central_endpoint.clone(),
+        central_endpoint,
+        central_web_origin: central_web_origin.clone(),
+        owned_ports: if linked.is_some() {
+            OWN_CENTRAL_PORTS.to_vec()
+        } else {
+            Vec::new()
+        },
+        account_file: linked.map(|link| link.account_file.clone()),
+        central_revision: linked.map(|link| link.revision.clone()),
         monitor: cfg.monitor,
         logs_dir: logs_dir.to_path_buf(),
         client_pid: client.as_ref().map(ManagedChild::id),
@@ -232,11 +426,31 @@ fn supervise(
         state_dir.join(STATE_FILE),
         serde_json::to_vec_pretty(&state)?,
     )?;
+    if let (Some(link), Some(website)) = (linked, &central_web_origin) {
+        println!(
+            "Central: website {website}, Tower {}; the synthetic administrator's sign-in is in {} (0600)",
+            central::origin(tower::PORT),
+            link.account_file.display()
+        );
+        println!("Central: built from {}", link.revision);
+    }
     println!(
         "STACK_READY gateway={gateway_origin} monitor={}",
         cfg.monitor
     );
-    hold_until_stopped(state_dir, &mut children, &mut client)
+    // After the ready line: certifying tasks takes minutes to hours and the
+    // game is playable without them.
+    let mut stock = match linked {
+        Some(link) => Some(Stock::begin(
+            bin_dir,
+            logs_dir,
+            state_dir,
+            &link.bridge_hex,
+            cfg.stock_days,
+        )?),
+        None => None,
+    };
+    hold_until_stopped(state_dir, children, &mut client, &mut stock)
 }
 
 fn spawn_backend_services(
@@ -244,9 +458,9 @@ fn spawn_backend_services(
     bin_dir: &Path,
     logs_dir: &Path,
     pg: &LocalPostgres,
-    admin_port: u16,
-    feedback_port: u16,
+    (admin_port, feedback_port): (u16, u16),
     gateway_origin: &str,
+    auth: &Auth<'_>,
 ) -> Result<Vec<ManagedChild>> {
     let agent_token = crate::secret::hex(32)?;
     let admin_token = crate::secret::hex(32)?;
@@ -291,15 +505,7 @@ fn spawn_backend_services(
             format!("http://127.0.0.1:{feedback_port}"),
         )
         .env("BAYLEE_FEEDBACK_TOKEN", &fb_gw_token);
-    if let (Some(ep), Some(bridge)) = (&cfg.central_endpoint, &cfg.central_bridge_file) {
-        gw_cmd
-            .env("BAYLEE_AUTH_MODE", "mixed")
-            .env("BAYLEE_REGISTRATION", "open")
-            .env("BAYLEE_CENTRAL_ENDPOINT", ep)
-            .env("BAYLEE_CENTRAL_CONFIG_FILE", bridge);
-    } else {
-        gw_cmd.env("BAYLEE_AUTH_MODE", "guests");
-    }
+    gw_cmd.envs(auth.environment());
     let mut gateway = ManagedChild::spawn("baylee-gateway", &mut gw_cmd, logs_dir)?;
     wait_http_ready(
         cfg.gateway_port,
@@ -308,6 +514,16 @@ fn spawn_backend_services(
         &mut gateway,
         Duration::from_secs(20),
     )?;
+    if matches!(auth, Auth::Own { .. }) {
+        // A gateway that could not read its bridge still answers `/health`.
+        wait_http_ready(
+            cfg.gateway_port,
+            "/auth/config",
+            "\"central\":true",
+            &mut gateway,
+            Duration::from_secs(10),
+        )?;
+    }
     children.push(gateway);
 
     let extra_bins = std::env::join_paths([
@@ -343,6 +559,7 @@ fn hold_until_stopped(
     state_dir: &Path,
     children: &mut [ManagedChild],
     client: &mut Option<ManagedChild>,
+    stock: &mut Option<Stock>,
 ) -> Result<()> {
     let stop_path = state_dir.join(STOP_FILE);
     while !stop_path.exists() {
@@ -350,6 +567,9 @@ fn hold_until_stopped(
             if let Some(status) = child.exited()? {
                 bail!("{} exited unexpectedly with {status}", child.name());
             }
+        }
+        if let Some(stock) = stock {
+            stock.poll()?;
         }
         if let Some(ui) = client
             && ui.exited()?.is_some()
@@ -416,12 +636,13 @@ fn down(state_dir: &Path) -> Result<i32> {
     );
     let _ = fs::remove_file(state_dir.join(STOP_FILE));
     if let Some(st) = recorded {
-        for port in [
+        let core = [
             st.gateway_port,
             st.admin_port,
             st.feedback_port,
             st.postgres_port,
-        ] {
+        ];
+        for port in core.into_iter().chain(st.owned_ports) {
             fixture::refused(port)
                 .with_context(|| format!("port 127.0.0.1:{port} is still listening"))?;
         }
@@ -463,7 +684,50 @@ fn status(state_dir: &Path) -> Result<i32> {
         st.monitor,
         st.logs_dir.display()
     );
-    Ok(i32::from(!gw_ok))
+    if st.owned_ports.is_empty() {
+        return Ok(i32::from(!gw_ok));
+    }
+    // The stack's own Central: each part by what it serves.
+    let answers = |port: u16, path: &str| services::http_status(port, path) == Some(200);
+    let parts = [
+        (
+            "central",
+            answers(central::NATIVE_PORT, central::LIVE),
+            central::NATIVE_PORT,
+        ),
+        (
+            "website",
+            answers(central::WEBSITE_PORT, "/en"),
+            central::WEBSITE_PORT,
+        ),
+        (
+            "tower",
+            probe_http_200(tower::PORT, "/health").is_some_and(|body| body.contains("ready")),
+            tower::PORT,
+        ),
+    ];
+    for (name, up, port) in parts {
+        println!(
+            "  {name}: {} ({})",
+            if up { "up" } else { "DOWN" },
+            central::origin(port)
+        );
+    }
+    for pass in [stock::Pass::Today, stock::Pass::Ahead] {
+        if let Some(line) = stock::last_line(&st.logs_dir, pass) {
+            println!("  {}: {line}", pass.name());
+        }
+    }
+    if let Some(account) = &st.account_file {
+        println!(
+            "  synthetic administrator's sign-in: {} (0600)",
+            account.display()
+        );
+    }
+    if let Some(revision) = &st.central_revision {
+        println!("  Central built from {revision}");
+    }
+    Ok(i32::from(!(gw_ok && parts.iter().all(|part| part.1))))
 }
 
 fn launch_extra_client(state_dir: &Path, monitor: i64) -> Result<i32> {
@@ -483,6 +747,9 @@ fn launch_extra_client(state_dir: &Path, monitor: i64) -> Result<i32> {
         .env_remove("BAYLEE_DEV_PASSIVE");
     if let Some(ep) = &st.central_endpoint {
         cmd.env("BAYLEE_CENTRAL_DEV_ENDPOINT", ep);
+    }
+    if let Some(web) = &st.central_web_origin {
+        cmd.env("BAYLEE_CENTRAL_WEB_ORIGIN", web);
     }
     let child = cmd.spawn().context("spawning interactive baylee-client")?;
     println!(

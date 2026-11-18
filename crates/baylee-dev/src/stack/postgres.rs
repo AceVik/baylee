@@ -141,7 +141,14 @@ impl LocalPostgres {
                     .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_'),
             "invalid database identifier: {database}"
         );
-        let sql = format!("CREATE DATABASE {database};");
+        self.sql("postgres", &format!("CREATE DATABASE {database};"))
+            .with_context(|| format!("creating database {database} failed"))
+    }
+
+    /// Runs `sql` in `database` as the cluster's superuser. The script goes
+    /// over stdin and psql's output is discarded, so a password in it reaches
+    /// no argument list and no log.
+    pub(super) fn sql(&self, database: &str, sql: &str) -> Result<()> {
         let mut child = Command::new(&self.tools.psql)
             .env("PGPASSWORD", &self.admin_password)
             .args([
@@ -156,7 +163,7 @@ impl LocalPostgres {
                 "-U",
                 "postgres",
                 "-d",
-                "postgres",
+                database,
             ])
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
@@ -169,10 +176,7 @@ impl LocalPostgres {
             .context("psql stdin")?
             .write_all(sql.as_bytes())?;
         drop(child.stdin.take());
-        ensure!(
-            child.wait()?.success(),
-            "creating database {database} failed"
-        );
+        ensure!(child.wait()?.success(), "psql refused the script");
         Ok(())
     }
 

@@ -333,17 +333,35 @@ pub fn integration(
 /// test databases, a runtime role, the legacy store's role, and a NOINHERIT
 /// member of the migrator the store must refuse.
 fn bootstrap(migrator: &str, runtime: &str, legacy: &str) -> String {
-    let mut sql = format!(
-        "CREATE ROLE central_migrator LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '{migrator}';\n\
-         CREATE ROLE central_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '{runtime}';\n\
-         CREATE ROLE central_legacy LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '{legacy}';\n\
-         CREATE ROLE central_inherited LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '{runtime}';\n\
+    let mut sql = roles(migrator, runtime, legacy);
+    let _ = write!(
+        sql,
+        "CREATE ROLE central_inherited LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '{runtime}';\n\
          GRANT central_migrator TO central_inherited;\n"
     );
-    for db in ["central_test", "central_native_test"] {
+    sql.push_str(&databases(&["central_test", "central_native_test"]));
+    sql
+}
+
+/// Central's three roles (Central's `docs/operations.md`): the migrator that
+/// owns the schema, the runtime role the service connects as, and the legacy
+/// store's. The passwords are generated hex, never caller-provided SQL.
+pub(crate) fn roles(migrator: &str, runtime: &str, legacy: &str) -> String {
+    format!(
+        "CREATE ROLE central_migrator LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '{migrator}';\n\
+         CREATE ROLE central_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '{runtime}';\n\
+         CREATE ROLE central_legacy LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '{legacy}';\n"
+    )
+}
+
+/// Empty databases the migrator owns, with the public rights Central's
+/// migrations expect to be gone. A psql script: it reconnects per database.
+pub(crate) fn databases(names: &[&str]) -> String {
+    let mut sql = String::new();
+    for db in names {
         let _ = writeln!(sql, "CREATE DATABASE {db} OWNER central_migrator;");
     }
-    for db in ["central_native_test", "central_test"] {
+    for db in names.iter().rev() {
         let _ = writeln!(
             sql,
             "\\connect {db}\nREVOKE CREATE, TEMP ON DATABASE {db} FROM PUBLIC;\nREVOKE CREATE ON SCHEMA public FROM PUBLIC;"
