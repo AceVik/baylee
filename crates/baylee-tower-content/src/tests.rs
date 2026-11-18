@@ -375,3 +375,23 @@ fn all_fifty_runic_starters_have_balanced_curves_synergies_and_fetch_targets() {
         }
     }
 }
+
+/// What the local stack and the held demo publish as the house's stand-ins is
+/// a build the store accepts, at every stage and for every starter.
+#[test]
+fn every_development_house_is_a_legal_build_of_its_starter() {
+    let content = runic().unwrap();
+    for stage in 1..=baylee_tower::v2::MAX_STAGES {
+        for starter in &content.starters {
+            let build = development_house(starter, stage);
+            build
+                .validate_for(&content.catalog, baylee_tower::v2::GENERATOR)
+                .unwrap();
+            assert_eq!(build.deck, starter.deck);
+            assert_eq!(build.formation, starter.formation);
+            assert_eq!(build.active.is_empty(), stage < 2, "stage {stage}");
+        }
+    }
+    let late = development_house(&content.starters[0], baylee_tower::v2::MAX_STAGES);
+    assert_eq!(late.active.len(), 3);
+}

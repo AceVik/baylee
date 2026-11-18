@@ -1,9 +1,6 @@
 //! Real Commander starters; the same reviewed content as an operator publication.
 use super::super::{Identity, Principal, Store, Uuid};
-use baylee_tower::v2::{
-    catalog::{Definition, Family, Rarity},
-    package::{Build, Cohort},
-};
+use baylee_tower::v2::package::Cohort;
 use baylee_tower_store::Publication;
 
 pub(in super::super) fn publication(identity: &Identity) -> Publication {
@@ -34,36 +31,7 @@ pub(in super::super) async fn publish_house(
     let demo = super::enabled();
     for stage in 1..=if demo { 12 } else { 1 } {
         for (index, starter) in publication.starters.iter().enumerate() {
-            let mut active = Vec::new();
-            let rarity = if stage >= 7 {
-                Rarity::Uncommon
-            } else {
-                Rarity::Common
-            };
-            if stage >= 2 {
-                active.push(Definition {
-                    family: Family::Heartwood,
-                    rarity,
-                });
-            }
-            if stage >= 4 {
-                active.push(Definition {
-                    family: Family::Grove,
-                    rarity,
-                });
-            }
-            if stage >= 10 {
-                active.push(Definition {
-                    family: Family::Compass,
-                    rarity: Rarity::Common,
-                });
-            }
-            let build = Build {
-                formation: starter.formation.clone(),
-                deck: starter.deck.clone(),
-                active,
-                potions: [0; 2],
-            };
+            let build = baylee_tower_content::development_house(starter, stage);
             store
                 .publish_house(
                     publisher,

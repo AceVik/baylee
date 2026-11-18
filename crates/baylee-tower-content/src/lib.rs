@@ -8,9 +8,11 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 mod expeditions;
+mod house;
 mod presentation;
 mod starters;
 pub use expeditions::expeditions;
+pub use house::development_house;
 pub use presentation::runic;
 
 #[cfg(test)]
