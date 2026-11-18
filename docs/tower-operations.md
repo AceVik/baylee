@@ -52,7 +52,11 @@ families retain 4/10/26. Three equal items automatically fuse across bag and
 equipment; a Rare plus the 24-gold material makes Mythic. Fusion carries actual
 paid basis and the first equipped slot. Individual Mythic feedback recipes cost
 more than their own generated charges; combinations across items remain allowed.
-These are initial balance hypotheses, not measured competitive parity.
+On 18.11.2026 the runic levels were strengthened in place before release (cheaper,
+stronger Common to Rare levels; Mythic costs unchanged; `baylee-tower-relics`
+`tuning.rs` is the one source). Within a per-turn cap, five Rare pairs now refill
+their own cost (Bloom Seed and Horn, Lore/Lifeblood/Echo Lens); the relics crate's
+tests pin that list. These are balance hypotheses, not measured competitive parity.
 
 After verified settlement, claim
 the pending cards before shopping or abandoning. Reconnecting preserves the

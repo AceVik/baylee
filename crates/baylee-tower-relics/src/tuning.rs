@@ -40,15 +40,20 @@ impl Vessel {
         if tier >= 4 {
             return None;
         }
+        // Rebalanced in place (owner, 18.11.2026: "a bit too weak"): cheaper and
+        // stronger low levels; Mythic's uncapped costs are unchanged. Costs need
+        // not fall from level to level (Scepter, Bulwark and Prism cost more at
+        // Rare than at Uncommon while gathering twice as fast).
         let (charges, mana, amount) = match self {
-            Self::Chalice => ([3, 3, 3, 3], [0; 4], [2, 3, 4, 6]),
-            Self::Scepter | Self::Bulwark => ([4, 4, 4, 4], [0; 4], [1, 2, 3, 4]),
-            Self::Prism => ([3, 3, 3, 3], [0; 4], [1, 2, 3, 4]),
-            Self::Seed | Self::Banner => ([5, 4, 4, 3], [0; 4], [1, 1, 2, 3]),
-            Self::Tome => ([6, 5, 4, 3], [2, 2, 1, 1], [1; 4]),
-            Self::Horn => ([6, 5, 4, 3], [1; 4], [1, 1, 2, 3]),
-            Self::Flask => ([4, 3, 2, 2], [0; 4], [1; 4]),
-            Self::Lens => ([4, 3, 3, 2], [0; 4], [1; 4]),
+            Self::Chalice => ([3, 3, 3, 3], [0; 4], [3, 4, 5, 6]),
+            Self::Scepter => ([3, 3, 4, 4], [0; 4], [1, 2, 3, 4]),
+            Self::Bulwark => ([3, 3, 4, 4], [0; 4], [2, 3, 4, 5]),
+            Self::Prism => ([2, 2, 3, 3], [0; 4], [1, 2, 3, 4]),
+            Self::Seed => ([4, 3, 3, 3], [0; 4], [1, 1, 2, 3]),
+            Self::Banner => ([4, 3, 3, 3], [0; 4], [1, 2, 2, 3]),
+            Self::Tome => ([5, 4, 4, 3], [1; 4], [1; 4]),
+            Self::Horn => ([5, 4, 4, 3], [1; 4], [1, 1, 2, 3]),
+            Self::Flask | Self::Lens => ([3, 2, 2, 2], [0; 4], [1; 4]),
         };
         Some(Level {
             gathered: [1, 1, 2, 2][tier],

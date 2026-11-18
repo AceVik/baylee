@@ -8331,16 +8331,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "At the beginning of your upkeep, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: You gain 5 life. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you draw a card, you gain 1 life.",
         ],
@@ -8355,11 +8355,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -8379,11 +8379,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -8403,16 +8403,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "At the beginning of your upkeep, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have vigilance.",
         ],
@@ -8427,11 +8427,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "{2}, Remove 6 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "{2}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -8451,11 +8451,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "{1}, Remove 6 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -8475,11 +8475,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -8499,40 +8499,40 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+1 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "At the beginning of your upkeep, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
         ],
         &[
             "At the beginning of your upkeep, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+5 until end of turn. Activate from the command zone.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
-            "At the beginning of your upkeep: Creatures you control get +0/+4 until end of turn.",
+            "At the beginning of your upkeep: Creatures you control get +0/+5 until end of turn.",
         ],
     ],
     [
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "At the beginning of your upkeep, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have haste.",
         ],
@@ -8547,16 +8547,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your upkeep, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "At the beginning of your upkeep, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you discard a card, you gain 1 life.",
         ],
@@ -8571,16 +8571,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "At the beginning of your end step, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: You gain 5 life. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you draw a card, you gain 1 life.",
         ],
@@ -8595,11 +8595,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -8619,11 +8619,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -8643,16 +8643,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "At the beginning of your end step, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have vigilance.",
         ],
@@ -8667,11 +8667,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "{2}, Remove 6 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "{2}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -8691,11 +8691,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "{1}, Remove 6 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -8715,11 +8715,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -8739,40 +8739,40 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+1 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "At the beginning of your end step, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
         ],
         &[
             "At the beginning of your end step, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+5 until end of turn. Activate from the command zone.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
-            "At the beginning of your upkeep: Creatures you control get +0/+4 until end of turn.",
+            "At the beginning of your upkeep: Creatures you control get +0/+5 until end of turn.",
         ],
     ],
     [
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "At the beginning of your end step, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have haste.",
         ],
@@ -8787,16 +8787,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "At the beginning of your end step, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "At the beginning of your end step, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you discard a card, you gain 1 life.",
         ],
@@ -8811,16 +8811,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a land you control enters, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: You gain 5 life. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you draw a card, you gain 1 life.",
         ],
@@ -8835,11 +8835,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -8859,11 +8859,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -8883,16 +8883,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a land you control enters, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have vigilance.",
         ],
@@ -8907,11 +8907,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "{2}, Remove 6 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "{2}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -8931,11 +8931,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "{1}, Remove 6 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -8955,11 +8955,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -8979,40 +8979,40 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+1 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a land you control enters, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
         ],
         &[
             "Whenever a land you control enters, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+5 until end of turn. Activate from the command zone.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
-            "At the beginning of your upkeep: Creatures you control get +0/+4 until end of turn.",
+            "At the beginning of your upkeep: Creatures you control get +0/+5 until end of turn.",
         ],
     ],
     [
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a land you control enters, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have haste.",
         ],
@@ -9027,16 +9027,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a land you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a land you control enters, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you discard a card, you gain 1 life.",
         ],
@@ -9051,16 +9051,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a nontoken creature you control enters, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: You gain 5 life. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you draw a card, you gain 1 life.",
         ],
@@ -9075,11 +9075,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9099,11 +9099,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9123,16 +9123,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a nontoken creature you control enters, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have vigilance.",
         ],
@@ -9147,11 +9147,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "{2}, Remove 6 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "{2}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9171,11 +9171,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "{1}, Remove 6 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9195,11 +9195,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9219,40 +9219,40 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+1 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a nontoken creature you control enters, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
         ],
         &[
             "Whenever a nontoken creature you control enters, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+5 until end of turn. Activate from the command zone.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
-            "At the beginning of your upkeep: Creatures you control get +0/+4 until end of turn.",
+            "At the beginning of your upkeep: Creatures you control get +0/+5 until end of turn.",
         ],
     ],
     [
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a nontoken creature you control enters, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have haste.",
         ],
@@ -9267,16 +9267,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a nontoken creature you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a nontoken creature you control enters, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you discard a card, you gain 1 life.",
         ],
@@ -9291,16 +9291,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature token you control enters, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: You gain 5 life. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you draw a card, you gain 1 life.",
         ],
@@ -9315,11 +9315,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9339,11 +9339,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9363,16 +9363,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature token you control enters, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have vigilance.",
         ],
@@ -9387,11 +9387,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "{2}, Remove 6 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "{2}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9411,11 +9411,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "{1}, Remove 6 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9435,11 +9435,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9459,40 +9459,40 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+1 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature token you control enters, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
         ],
         &[
             "Whenever a creature token you control enters, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+5 until end of turn. Activate from the command zone.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
-            "At the beginning of your upkeep: Creatures you control get +0/+4 until end of turn.",
+            "At the beginning of your upkeep: Creatures you control get +0/+5 until end of turn.",
         ],
     ],
     [
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature token you control enters, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have haste.",
         ],
@@ -9507,16 +9507,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature token you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature token you control enters, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you discard a card, you gain 1 life.",
         ],
@@ -9531,16 +9531,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature you control dies, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: You gain 5 life. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you draw a card, you gain 1 life.",
         ],
@@ -9555,11 +9555,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9579,11 +9579,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9603,16 +9603,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature you control dies, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have vigilance.",
         ],
@@ -9627,11 +9627,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "{2}, Remove 6 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "{2}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9651,11 +9651,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "{1}, Remove 6 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9675,11 +9675,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9699,40 +9699,40 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+1 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature you control dies, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
         ],
         &[
             "Whenever a creature you control dies, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+5 until end of turn. Activate from the command zone.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
-            "At the beginning of your upkeep: Creatures you control get +0/+4 until end of turn.",
+            "At the beginning of your upkeep: Creatures you control get +0/+5 until end of turn.",
         ],
     ],
     [
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature you control dies, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have haste.",
         ],
@@ -9747,16 +9747,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control dies, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature you control dies, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you discard a card, you gain 1 life.",
         ],
@@ -9771,16 +9771,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you cast a noncreature spell, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: You gain 5 life. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you draw a card, you gain 1 life.",
         ],
@@ -9795,11 +9795,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9819,11 +9819,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9843,16 +9843,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you cast a noncreature spell, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have vigilance.",
         ],
@@ -9867,11 +9867,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "{2}, Remove 6 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "{2}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9891,11 +9891,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "{1}, Remove 6 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9915,11 +9915,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -9939,40 +9939,40 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+1 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you cast a noncreature spell, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
         ],
         &[
             "Whenever you cast a noncreature spell, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+5 until end of turn. Activate from the command zone.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
-            "At the beginning of your upkeep: Creatures you control get +0/+4 until end of turn.",
+            "At the beginning of your upkeep: Creatures you control get +0/+5 until end of turn.",
         ],
     ],
     [
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you cast a noncreature spell, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have haste.",
         ],
@@ -9987,16 +9987,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast a noncreature spell, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you cast a noncreature spell, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you discard a card, you gain 1 life.",
         ],
@@ -10011,16 +10011,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: You gain 5 life. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you draw a card, you gain 1 life.",
         ],
@@ -10035,11 +10035,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10059,11 +10059,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10083,16 +10083,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have vigilance.",
         ],
@@ -10107,11 +10107,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "{2}, Remove 6 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "{2}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10131,11 +10131,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "{1}, Remove 6 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10155,11 +10155,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10179,40 +10179,40 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+1 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
         ],
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+5 until end of turn. Activate from the command zone.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
-            "At the beginning of your upkeep: Creatures you control get +0/+4 until end of turn.",
+            "At the beginning of your upkeep: Creatures you control get +0/+5 until end of turn.",
         ],
     ],
     [
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have haste.",
         ],
@@ -10227,16 +10227,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you draw a card except the first one in each of your draw steps, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you discard a card, you gain 1 life.",
         ],
@@ -10251,16 +10251,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you gain life, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: You gain 5 life. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you draw a card, you gain 1 life.",
         ],
@@ -10275,11 +10275,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10299,11 +10299,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10323,16 +10323,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you gain life, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have vigilance.",
         ],
@@ -10347,11 +10347,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "{2}, Remove 6 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "{2}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10371,11 +10371,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "{1}, Remove 6 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10395,11 +10395,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10419,40 +10419,40 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+1 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you gain life, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
         ],
         &[
             "Whenever you gain life, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+5 until end of turn. Activate from the command zone.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
-            "At the beginning of your upkeep: Creatures you control get +0/+4 until end of turn.",
+            "At the beginning of your upkeep: Creatures you control get +0/+5 until end of turn.",
         ],
     ],
     [
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you gain life, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have haste.",
         ],
@@ -10467,16 +10467,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you gain life, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you gain life, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you discard a card, you gain 1 life.",
         ],
@@ -10491,16 +10491,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever an artifact you control enters, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: You gain 5 life. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you draw a card, you gain 1 life.",
         ],
@@ -10515,11 +10515,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10539,11 +10539,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10563,16 +10563,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever an artifact you control enters, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have vigilance.",
         ],
@@ -10587,11 +10587,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "{2}, Remove 6 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "{2}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10611,11 +10611,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "{1}, Remove 6 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10635,11 +10635,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10659,40 +10659,40 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+1 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever an artifact you control enters, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
         ],
         &[
             "Whenever an artifact you control enters, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+5 until end of turn. Activate from the command zone.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
-            "At the beginning of your upkeep: Creatures you control get +0/+4 until end of turn.",
+            "At the beginning of your upkeep: Creatures you control get +0/+5 until end of turn.",
         ],
     ],
     [
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever an artifact you control enters, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have haste.",
         ],
@@ -10707,16 +10707,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever an artifact you control enters, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever an artifact you control enters, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you discard a card, you gain 1 life.",
         ],
@@ -10731,16 +10731,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you cast an enchantment spell, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: You gain 5 life. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you draw a card, you gain 1 life.",
         ],
@@ -10755,11 +10755,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10779,11 +10779,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10803,16 +10803,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you cast an enchantment spell, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have vigilance.",
         ],
@@ -10827,11 +10827,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "{2}, Remove 6 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "{2}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10851,11 +10851,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "{1}, Remove 6 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10875,11 +10875,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -10899,40 +10899,40 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+1 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you cast an enchantment spell, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
         ],
         &[
             "Whenever you cast an enchantment spell, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+5 until end of turn. Activate from the command zone.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
-            "At the beginning of your upkeep: Creatures you control get +0/+4 until end of turn.",
+            "At the beginning of your upkeep: Creatures you control get +0/+5 until end of turn.",
         ],
     ],
     [
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you cast an enchantment spell, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have haste.",
         ],
@@ -10947,16 +10947,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast an enchantment spell, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you cast an enchantment spell, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you discard a card, you gain 1 life.",
         ],
@@ -10971,16 +10971,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever one or more creatures you control attack, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: You gain 5 life. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you draw a card, you gain 1 life.",
         ],
@@ -10995,11 +10995,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11019,11 +11019,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11043,16 +11043,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever one or more creatures you control attack, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have vigilance.",
         ],
@@ -11067,11 +11067,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "{2}, Remove 6 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "{2}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11091,11 +11091,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "{1}, Remove 6 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11115,11 +11115,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11139,40 +11139,40 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+1 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever one or more creatures you control attack, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
         ],
         &[
             "Whenever one or more creatures you control attack, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+5 until end of turn. Activate from the command zone.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
-            "At the beginning of your upkeep: Creatures you control get +0/+4 until end of turn.",
+            "At the beginning of your upkeep: Creatures you control get +0/+5 until end of turn.",
         ],
     ],
     [
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever one or more creatures you control attack, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have haste.",
         ],
@@ -11187,16 +11187,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever one or more creatures you control attack, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever one or more creatures you control attack, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you discard a card, you gain 1 life.",
         ],
@@ -11211,16 +11211,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: You gain 5 life. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you draw a card, you gain 1 life.",
         ],
@@ -11235,11 +11235,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11259,11 +11259,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11283,16 +11283,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have vigilance.",
         ],
@@ -11307,11 +11307,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "{2}, Remove 6 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "{2}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11331,11 +11331,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "{1}, Remove 6 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11355,11 +11355,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11379,40 +11379,40 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+1 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
         ],
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+5 until end of turn. Activate from the command zone.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
-            "At the beginning of your upkeep: Creatures you control get +0/+4 until end of turn.",
+            "At the beginning of your upkeep: Creatures you control get +0/+5 until end of turn.",
         ],
     ],
     [
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have haste.",
         ],
@@ -11427,16 +11427,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature you control deals combat damage to an opponent, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you discard a card, you gain 1 life.",
         ],
@@ -11451,16 +11451,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you discard a card, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: You gain 5 life. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you draw a card, you gain 1 life.",
         ],
@@ -11475,11 +11475,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11499,11 +11499,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11523,16 +11523,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you discard a card, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have vigilance.",
         ],
@@ -11547,11 +11547,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "{2}, Remove 6 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "{2}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11571,11 +11571,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "{1}, Remove 6 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11595,11 +11595,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11619,40 +11619,40 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+1 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you discard a card, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
         ],
         &[
             "Whenever you discard a card, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+5 until end of turn. Activate from the command zone.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
-            "At the beginning of your upkeep: Creatures you control get +0/+4 until end of turn.",
+            "At the beginning of your upkeep: Creatures you control get +0/+5 until end of turn.",
         ],
     ],
     [
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you discard a card, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have haste.",
         ],
@@ -11667,16 +11667,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you discard a card, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you discard a card, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you discard a card, you gain 1 life.",
         ],
@@ -11691,16 +11691,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature an opponent controls dies, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: You gain 5 life. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you draw a card, you gain 1 life.",
         ],
@@ -11715,11 +11715,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11739,11 +11739,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11763,16 +11763,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature an opponent controls dies, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have vigilance.",
         ],
@@ -11787,11 +11787,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "{2}, Remove 6 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "{2}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11811,11 +11811,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "{1}, Remove 6 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11835,11 +11835,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11859,40 +11859,40 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+1 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature an opponent controls dies, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
         ],
         &[
             "Whenever a creature an opponent controls dies, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+5 until end of turn. Activate from the command zone.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
-            "At the beginning of your upkeep: Creatures you control get +0/+4 until end of turn.",
+            "At the beginning of your upkeep: Creatures you control get +0/+5 until end of turn.",
         ],
     ],
     [
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature an opponent controls dies, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have haste.",
         ],
@@ -11907,16 +11907,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever a creature an opponent controls dies, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever a creature an opponent controls dies, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you discard a card, you gain 1 life.",
         ],
@@ -11931,16 +11931,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 3 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: You gain 4 life. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: You gain 5 life. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you draw a card, you gain 1 life.",
         ],
@@ -11955,11 +11955,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 1 life. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Each opponent loses 2 life. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -11979,11 +11979,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 1. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Scry 2. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -12003,16 +12003,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Create 1 1/1 green Plant creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Create 2 1/1 green Plant creature tokens. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have vigilance.",
         ],
@@ -12027,11 +12027,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "{2}, Remove 6 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "{2}, Remove 5 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Draw a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -12051,11 +12051,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "{1}, Remove 6 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "{1}, Remove 5 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
+            "{1}, Remove 4 charge counters from this item: Create 1 1/1 white Soldier creature tokens. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -12075,11 +12075,11 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Add one mana of any color. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
@@ -12099,40 +12099,40 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+1 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+2 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+3 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
         ],
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +0/+4 until end of turn. Activate from the command zone.",
+            "Remove 4 charge counters from this item: Creatures you control get +0/+5 until end of turn. Activate from the command zone.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creatures you control have vigilance.",
-            "At the beginning of your upkeep: Creatures you control get +0/+4 until end of turn.",
+            "At the beginning of your upkeep: Creatures you control get +0/+5 until end of turn.",
         ],
     ],
     [
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "Remove 5 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +1/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 2 charge counters on this item.",
-            "Remove 4 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 3 charge counters from this item: Creatures you control get +2/+0 until end of turn. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Creature tokens you control have haste.",
         ],
@@ -12147,16 +12147,16 @@ pub const TEXTS: [[&[&str]; 4]; 160] = [
     [
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "Remove 4 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
         ],
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 1 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only once each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
         ],
         &[
             "Whenever you cast or copy an instant or sorcery spell, put 2 charge counters on this item.",
-            "Remove 3 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
+            "Remove 2 charge counters from this item: Draw a card, then discard a card. Activate from the command zone. Activate only 2 times each turn.",
             "At the beginning of your upkeep, put a charge counter on this item.",
             "Whenever you discard a card, you gain 1 life.",
         ],

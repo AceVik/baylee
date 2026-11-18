@@ -8,6 +8,8 @@ fn expert_recognizes_runic_activations_in_the_command_zone() {
     let mut game = prepared(&[def], &[], 17);
     main(&mut game, 7, player);
     let id = source(&game, player, def);
+    let stock = charges(&game, id);
+    let cost = Vessel::Scepter.level(0).unwrap().charges;
     let expert = baylee_ai::HeuristicAgent::new(v2::generation::CURRENT.expert());
     for _ in 0..8 {
         let view = baylee_gamehost::view::player_view(
@@ -31,7 +33,7 @@ fn expert_recognizes_runic_activations_in_the_command_zone() {
         if used {
             resolve(&mut game);
             assert_eq!(game.state().players[1].life, 19);
-            assert_eq!(charges(&game, id), 0);
+            assert_eq!(charges(&game, id), stock - cost);
             return;
         }
     }

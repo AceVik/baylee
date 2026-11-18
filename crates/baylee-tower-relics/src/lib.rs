@@ -203,6 +203,25 @@ impl Recipe {
 mod tests {
     use super::*;
 
+    /// Charges one activation of `recipe.vessel` puts back on the same item
+    /// through its own sigil, counting its own Rare/Mythic bonus trigger
+    /// only from the tier that has it.
+    fn refunded(recipe: Recipe, tier: usize, level: Level) -> u16 {
+        let bonus = tier >= 2;
+        let events: u16 = match (recipe.sigil, recipe.vessel) {
+            // Each created token enters as a creature token.
+            (Sigil::Bloom, Vessel::Seed | Vessel::Horn) => level.amount,
+            // Chalice gains life itself; Tome draws a card beyond the draw step.
+            (Sigil::Pulse, Vessel::Chalice)
+            | (Sigil::Lore, Vessel::Tome | Vessel::Lens)
+            | (Sigil::Echo, Vessel::Lens) => 1,
+            // Tome's draw and Lens's discard gain life only through their bonus.
+            (Sigil::Pulse, Vessel::Tome | Vessel::Lens) if bonus => 1,
+            _ => 0,
+        };
+        events * level.gathered
+    }
+
     #[test]
     fn no_single_mythic_relic_self_loops_for_zero_mana_or_snowballs_surplus_charges() {
         for index in 0..Recipe::COUNT {
@@ -213,16 +232,7 @@ mod tests {
                 if level.activations != 0 {
                     continue;
                 }
-                // Count charges generated on `recipe.sigil` by one activation of `recipe.vessel`
-                // plus its own Rare/Mythic `bonus` trigger when `tier >= 2`.
-                let events: u16 = match (recipe.sigil, recipe.vessel) {
-                    (Sigil::Bloom, Vessel::Seed | Vessel::Horn) => level.amount,
-                    (Sigil::Pulse, Vessel::Chalice | Vessel::Tome | Vessel::Lens)
-                    | (Sigil::Lore, Vessel::Tome | Vessel::Lens)
-                    | (Sigil::Echo, Vessel::Lens) => 1,
-                    _ => 0,
-                };
-                let refunded = events * level.gathered;
+                let refunded = refunded(recipe, tier, level);
                 if level.mana == 0 {
                     assert!(
                         refunded < level.charges,
@@ -238,5 +248,35 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// Within a per-turn cap a relic may pay for its own next activation; the
+    /// cap bounds it. This pins exactly which pairs do, so a retune that adds
+    /// one is a decision, not an accident.
+    #[test]
+    fn capped_relics_that_pay_for_themselves_are_exactly_these() {
+        let mut found = Vec::new();
+        for index in 0..Recipe::COUNT {
+            let recipe = Recipe::from_index(index).unwrap();
+            for tier in 0..3 {
+                let level = recipe.level(tier).unwrap();
+                assert_ne!(level.activations, 0, "tiers below Mythic are capped");
+                if refunded(recipe, tier, level) >= level.charges {
+                    found.push((recipe.sigil, recipe.vessel, tier, level.mana));
+                }
+            }
+        }
+        assert_eq!(
+            found,
+            [
+                // Rare: two Plants or two Soldiers refill a three/four-charge cost.
+                (Sigil::Bloom, Vessel::Seed, 2, 0),
+                (Sigil::Bloom, Vessel::Horn, 2, 1),
+                // Rare Lens: its draw, discard or (bonus) life gain gathers two.
+                (Sigil::Lore, Vessel::Lens, 2, 0),
+                (Sigil::Pulse, Vessel::Lens, 2, 0),
+                (Sigil::Echo, Vessel::Lens, 2, 0),
+            ]
+        );
     }
 }
