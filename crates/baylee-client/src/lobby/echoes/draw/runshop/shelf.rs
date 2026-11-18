@@ -16,7 +16,7 @@ pub(super) fn draw(
     run: &api::Run,
     cohort: &api::Cohort,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let top = row(commands, root, kit);
     landing::market_progress(commands, top, kit, ui);
     let info = commands
@@ -89,7 +89,7 @@ fn spawn_market_canvas(
     run: &api::Run,
     frozen: bool,
 ) -> Entity {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let gradient = market_gradient(frozen);
     let market = commands
         .spawn((
@@ -228,7 +228,7 @@ fn offer_tile(
     cohort: &api::Cohort,
     offer: &domain::v2::shop::Offer,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let stand = commands
         .spawn((
             Node {
@@ -400,7 +400,7 @@ fn footer(
     run: &api::Run,
     cohort: &api::Cohort,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let footer = row(commands, root, kit);
     let purse = commands
         .spawn((
@@ -451,7 +451,7 @@ fn reroll_copy(run: &api::Run, lang: Lang) -> (String, String, Option<&'static s
 }
 
 fn reroll_button(commands: &mut Commands, footer: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let has_price = run.shop.reroll_price().is_some();
     let available = can(ui, &Command::Refresh {})
         && !ui.holding()
@@ -568,7 +568,7 @@ fn offer_emphasis(run: &api::Run, goods: Goods) -> Emphasis {
 }
 
 fn actions(commands: &mut Commands, top: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let cta = Cta { top, kit, ui };
     if run.phase == api::Phase::Shop {
         if ui.model.hosts().is_empty() {
@@ -645,7 +645,7 @@ impl Cta<'_, '_> {
             if enabled && !blocked {
                 Live::Yes
             } else {
-                Live::No(reason.unwrap_or_else(|| Phrase::EchoesUnavailable.text(lang(self.kit))))
+                Live::No(reason.unwrap_or_else(|| Phrase::EchoesUnavailable.text(self.kit.lang())))
             },
             Press::Echoes(action),
         );
@@ -659,7 +659,7 @@ impl Cta<'_, '_> {
 /// Stage seven's one guaranteed crafting offer: it replaces one of the shelf's
 /// last two places, until the first other shop action closes it.
 fn mythic_choice(commands: &mut Commands, cta: &Cta<'_, '_>, run: &api::Run) {
-    let lang = lang(cta.kit);
+    let lang = cta.kit.lang();
     let offer = controls::label(
         commands,
         cta.kit,
@@ -687,7 +687,7 @@ fn mythic_choice(commands: &mut Commands, cta: &Cta<'_, '_>, run: &api::Run) {
 /// No shop while the duel is checked or held for recovery: say so, and offer
 /// the one thing the player may do about a held duel.
 fn held(commands: &mut Commands, cta: &Cta<'_, '_>, run: &api::Run) {
-    let lang = lang(cta.kit);
+    let lang = cta.kit.lang();
     let quarantined = run.phase == api::Phase::Quarantined;
     let text = if quarantined {
         format!(

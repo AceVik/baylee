@@ -2,7 +2,7 @@
 use super::*;
 
 pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let top = row(commands, root, kit);
     help_heading(
         commands,
@@ -96,7 +96,7 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run
 }
 
 fn supplies(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     help_heading(
         commands,
         root,

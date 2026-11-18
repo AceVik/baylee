@@ -10,7 +10,7 @@ pub(super) fn draw(
     run: &api::Run,
     cohort: &api::Cohort,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     if let Some(id) = ui.preview {
         card::preview(commands, modal_root, kit, ui, id);
     }
@@ -65,7 +65,7 @@ fn collection(
     cohort: &api::Cohort,
     count: u16,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     for entry in &cohort.catalog.cards {
         let owned = run.cards.copies(entry.card);
         if !entry.basic_land && owned == 0 {

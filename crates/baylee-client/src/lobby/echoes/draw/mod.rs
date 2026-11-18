@@ -121,7 +121,7 @@ pub(in crate::lobby) fn draw(
 }
 
 fn header(commands: &mut Commands, hero: Entity, kit: Kit, ui: &Ui) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let top = row(commands, hero, kit);
     let back = controls::button_compact(
         commands,
@@ -283,7 +283,7 @@ fn selected(
     ui: &Ui,
     scrolled: &Scrolled,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     if let Some(run) = ui.model.run() {
         if run.phase == api::Phase::Reward {
             if let Some(cohort) = ui.model.publication() {
@@ -350,12 +350,8 @@ fn selected(
     }
 }
 
-fn lang(kit: Kit) -> Lang {
-    if kit.german { Lang::De } else { Lang::En }
-}
-
 fn notices(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     if ui.model.busy() && !ui.loaded && ui.model.run().is_none() {
         label(
             commands,

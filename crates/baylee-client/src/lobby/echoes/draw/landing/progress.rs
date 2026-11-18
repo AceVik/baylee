@@ -23,7 +23,7 @@ pub(in crate::lobby::echoes::draw) fn progress(
     ui: &Ui,
     run: &api::Run,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let band = row(commands, root, kit);
     metrics(commands, band, kit, run, false);
     let history = if run.history.is_empty() {
@@ -55,7 +55,7 @@ pub(in crate::lobby::echoes::draw) fn progress(
 }
 
 fn metrics(commands: &mut Commands, root: Entity, kit: Kit, run: &api::Run, compact: bool) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let wins = run
         .history
         .iter()
@@ -113,7 +113,7 @@ fn metrics(commands: &mut Commands, root: Entity, kit: Kit, run: &api::Run, comp
 }
 
 fn play(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     match run.phase {
         api::Phase::Shop => {
             let band = row(commands, root, kit);

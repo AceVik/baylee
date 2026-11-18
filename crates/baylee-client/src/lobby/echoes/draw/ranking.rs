@@ -7,7 +7,7 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
     let Some((cohort, lane)) = ui.ranking else {
         return;
     };
-    let lang = lang(kit);
+    let lang = kit.lang();
     let intro = compact_panel(commands, root, kit);
     widgets::paragraph(
         commands,
@@ -84,7 +84,7 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
 }
 
 fn personal(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, board: &api::ranking::Board) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let personal = compact_panel(commands, root, kit);
     heading(
         commands,
@@ -137,7 +137,7 @@ fn personal(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, board: &ap
 }
 
 fn score(commands: &mut Commands, root: Entity, kit: Kit, entry: &Standing) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let band = row(commands, root, kit);
     let rank_color = match entry.rank {
         Some(1) => tokens::GOLD,

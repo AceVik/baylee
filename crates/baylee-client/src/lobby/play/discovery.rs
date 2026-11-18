@@ -126,7 +126,7 @@ pub(crate) struct ListLoading;
 pub(crate) struct LoadingDot(f32);
 
 pub(super) fn loading_notice(commands: &mut Commands, parent: Entity, kit: Kit, count: usize) {
-    let lang = if kit.german { Lang::De } else { Lang::En };
+    let lang = kit.lang();
     let row = parts::row(commands, kit, false);
     commands
         .entity(row)
@@ -175,7 +175,7 @@ pub(super) fn loading_notice(commands: &mut Commands, parent: Entity, kit: Kit, 
             .id();
         commands.entity(line).add_child(dot);
     }
-    let lang = if kit.german { Lang::De } else { Lang::En };
+    let lang = kit.lang();
     let text = parts::line(
         commands,
         kit,

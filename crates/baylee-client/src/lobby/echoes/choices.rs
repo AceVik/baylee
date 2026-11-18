@@ -1,6 +1,6 @@
 //! Translate explicit presses into revision-bound authority commands.
 #[cfg(any(not(target_arch = "wasm32"), test))]
-use super::{Action, Command, Ui, Work, api::Phase};
+use super::{Action, Command, Ui, Work};
 pub(super) use baylee_client_core::echoes::draft::Draft;
 #[cfg(any(not(target_arch = "wasm32"), test))]
 use baylee_client_core::echoes::draft::allowed;
@@ -9,9 +9,7 @@ use baylee_client_core::echoes::draft::allowed;
 pub(super) fn act(ui: &mut Ui, action: Action) -> Option<Work> {
     let run = ui.model.run()?;
     if ui.model.uncertain()
-        || !(matches!(run.phase, Phase::Shop | Phase::Reward)
-            || (action == Action::Abandon
-                && matches!(run.phase, Phase::Reserved | Phase::Quarantined)))
+        || !super::phase_takes(run.phase, action == Action::Abandon)
         || ui.confirmation.is_some()
     {
         return None;

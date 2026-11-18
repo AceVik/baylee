@@ -85,9 +85,9 @@ pub(super) fn surface(
         commands.entity(hit).insert(controls::Disabled);
     }
     let description = if available {
-        description(ui, action, lang(kit))
+        description(ui, action, kit.lang())
     } else {
-        Phrase::EchoesUnavailable.text(lang(kit)).to_owned()
+        Phrase::EchoesUnavailable.text(kit.lang()).to_owned()
     };
     controls::attach_tooltip(commands, hit, kit, &description);
     commands.entity(root).add_child(hit);

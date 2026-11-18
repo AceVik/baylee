@@ -11,7 +11,7 @@ pub(super) fn draw(
     number: u8,
     commander: baylee_core::ids::CardIndex,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let choice = tile(commands, root, kit);
     commands
         .entity(choice)
@@ -88,7 +88,7 @@ fn starter_actions(
     cohort: Uuid,
     number: u8,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let actions = row(commands, choice, kit);
     commands
         .entity(actions)
@@ -171,7 +171,7 @@ pub(super) fn inspect(
         baylee_core::deckrow::Row {
             count,
             name: words::card(id, Lang::En),
-            print: crate::towerprints::choice(&print, lang(kit)).into_owned(),
+            print: crate::towerprints::choice(&print, kit.lang()).into_owned(),
             note: None,
         }
         .to_string()
@@ -202,7 +202,7 @@ pub(super) fn inspect(
         commands,
         kit,
         Some(glyph::CLOSE),
-        Phrase::ShellClose.text(lang(kit)),
+        Phrase::ShellClose.text(kit.lang()),
         Weight::Secondary,
         Live::Yes,
         Press::Echoes(Action::ClosePreview),
@@ -211,8 +211,8 @@ pub(super) fn inspect(
         .entity(close)
         .insert(super::super::super::keys::stop(Action::ClosePreview, ui));
     let title = starter.formation.as_ref().map_or_else(
-        || Phrase::EchoesDeck.text(lang(kit)).to_owned(),
-        |formation| words::card(formation.commander, lang(kit)),
+        || Phrase::EchoesDeck.text(kit.lang()).to_owned(),
+        |formation| words::card(formation.commander, kit.lang()),
     );
     let surface = surfaces::sheet_box_listed(
         commands,

@@ -7,7 +7,7 @@ pub(super) fn draw(commands: &mut Commands, parent: Entity, kit: Kit, ui: &Ui, r
     if !ui.reward_deck_open {
         return;
     }
-    let lang = lang(kit);
+    let lang = kit.lang();
     let catalog = ui.model.publication().map(|cohort| &cohort.catalog);
     let panel_card = commands
         .spawn((

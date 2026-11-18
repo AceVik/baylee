@@ -235,9 +235,24 @@ fn detail_elevation(accent: Color) -> BoxShadow {
     BoxShadow(layers)
 }
 
+/// A 1 px line in the item's accent across `parent`: between a detail card's
+/// header and its effect lines, and over the level ladder.
+fn hairline(commands: &mut Commands, parent: Entity, accent: Color) {
+    commands.spawn((
+        Node {
+            width: percent(100),
+            height: px_fixed(1.0),
+            ..default()
+        },
+        BackgroundColor(accent.with_alpha(0.22)),
+        Pickable::IGNORE,
+        ChildOf(parent),
+    ));
+}
+
 #[allow(clippy::too_many_lines)] // Cohesive detail card: accent bar, header, subline pills, rich body.
 fn detail(commands: &mut Commands, kit: Kit, item: &Item<'_>, live: Live<'_>) -> Entity {
-    let lang = if kit.german { Lang::De } else { Lang::En };
+    let lang = kit.lang();
     let accent = color(item.goods);
     let tip = commands
         .spawn((
@@ -395,16 +410,7 @@ fn detail(commands: &mut Commands, kit: Kit, item: &Item<'_>, live: Live<'_>) ->
     }
 
     // Subtle hairline separating header identity from color-coded effect lines.
-    commands.spawn((
-        Node {
-            width: percent(100),
-            height: px_fixed(1.0),
-            ..default()
-        },
-        BackgroundColor(accent.with_alpha(0.22)),
-        Pickable::IGNORE,
-        ChildOf(tip),
-    ));
+    hairline(commands, tip, accent);
 
     let body = commands
         .spawn((

@@ -10,7 +10,7 @@ pub(super) fn toggle_button(
     run: &api::Run,
     cohort: &api::Cohort,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let sellable = baylee_client_core::echoes::draft::sellable_cards(run, cohort);
     let count = sellable.len();
     let badge = if count > 0 {
@@ -61,7 +61,7 @@ pub(super) fn draw_panel(
     if sellable.is_empty() {
         return;
     }
-    let lang = lang(kit);
+    let lang = kit.lang();
     let frame = towerui::frame(commands, root, kit);
     commands
         .entity(frame)
@@ -149,7 +149,7 @@ fn spare_card_row(
     gold: u16,
     deck_clean: bool,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let rarity = baylee_cards::sides::rarity(card_id)
         .unwrap_or(baylee_client_core::deckbuilder::Rarity::Common);
     let rarity_color = crate::lobby::decks::rarity_dot_color(rarity);

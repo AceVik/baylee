@@ -32,7 +32,7 @@ pub(super) fn rules(commands: &mut Commands, root: Entity, kit: Kit, id: CardInd
         commands,
         root,
         kit,
-        Phrase::EchoesCardRulesLanguage.text(lang(kit)),
+        Phrase::EchoesCardRulesLanguage.text(kit.lang()),
         tokens::MUTED,
     );
     for (index, face) in definition.faces.iter().enumerate() {
@@ -73,7 +73,7 @@ pub(super) fn rules(commands: &mut Commands, root: Entity, kit: Kit, id: CardInd
 }
 
 pub(super) fn preview(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, id: CardIndex) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let body = commands
         .spawn((
             Node {

@@ -25,7 +25,7 @@ fn owned_runs(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
     if ui.model.runs().is_empty() {
         return;
     }
-    let lang = lang(kit);
+    let lang = kit.lang();
     let section = compact_panel(commands, body, kit);
     heading(commands, section, kit, Phrase::EchoesRuns.text(lang));
     let list = commands
@@ -46,7 +46,7 @@ fn owned_runs(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
 }
 
 fn owned_run_row(commands: &mut Commands, list: Entity, kit: Kit, ui: &Ui, entry: &api::Run) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let active = matches!(
         entry.phase,
         api::Phase::Shop
@@ -129,7 +129,7 @@ fn owned_run_open_button(
     entry: &api::Run,
     active: bool,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let cta = if active {
         Phrase::EchoesReturnShop.text(lang)
     } else {
@@ -163,7 +163,7 @@ fn owned_run_open_button(
 }
 
 fn enrollment(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let band = row(commands, body, kit);
     for cohort in ui.model.cohorts().iter().take(1) {
         let run_format = cohort
@@ -266,7 +266,7 @@ fn no_cohorts(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
             commands,
             card,
             kit,
-            Phrase::EchoesNoEnrollment.text(lang(kit)),
+            Phrase::EchoesNoEnrollment.text(kit.lang()),
             tokens::MUTED,
         );
     }
@@ -295,7 +295,7 @@ fn choices(commands: &mut Commands, card: Entity, kit: Kit, run_format: bool) ->
 }
 
 fn enrollment_footer(commands: &mut Commands, body: Entity, kit: Kit, ui: &Ui) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let privacy = compact_panel(commands, body, kit);
     widgets::paragraph(
         commands,

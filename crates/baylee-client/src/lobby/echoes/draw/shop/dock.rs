@@ -37,7 +37,7 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run
             .id();
         commands.entity(groups).add_child(group);
         let title =
-            merchandise::caption(commands, group, kit, title.text(lang(kit)), tokens::MUTED);
+            merchandise::caption(commands, group, kit, title.text(kit.lang()), tokens::MUTED);
         commands
             .entity(title)
             .insert(TextLayout::justify(Justify::Left));
@@ -100,7 +100,7 @@ fn charges(commands: &mut Commands, root: Entity, kit: Kit, run: &api::Run) {
             commands,
             charges,
             kit,
-            &format!("{} × {count}", words::goods(goods, lang(kit))),
+            &format!("{} × {count}", words::goods(goods, kit.lang())),
             tokens::MUTED,
         );
     }

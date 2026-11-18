@@ -2,7 +2,7 @@
 use super::*;
 
 pub(super) fn inventory(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     if ui.choices.item.is_some() {
         detail(commands, root, kit, ui, run);
     } else {
@@ -77,7 +77,7 @@ pub(in crate::lobby::echoes::draw) fn detail(
     ui: &Ui,
     run: &api::Run,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let detail = panel(commands, root, kit);
     if let Some(relic) = run
         .economy

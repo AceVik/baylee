@@ -34,6 +34,18 @@ pub struct Kit<'a> {
     pub german: bool,
 }
 
+impl Kit<'_> {
+    /// The language the labels are in.
+    #[must_use]
+    pub const fn lang(self) -> baylee_client_core::i18n::Lang {
+        if self.german {
+            baylee_client_core::i18n::Lang::De
+        } else {
+            baylee_client_core::i18n::Lang::En
+        }
+    }
+}
+
 /// A button's weight (§2.4): the blue face for the one primary action, gold
 /// only for Return to your game.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

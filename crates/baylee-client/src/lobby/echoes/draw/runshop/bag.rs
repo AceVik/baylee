@@ -23,7 +23,7 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run
 }
 
 fn toolbar(commands: &mut Commands, bag: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let top = row(commands, bag, kit);
     commands
         .entity(top)
@@ -148,7 +148,7 @@ fn group_header(
 }
 
 fn contents(commands: &mut Commands, bag: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let order = if ui.bag.grouped && ui.bag.order == workshop::Order::Newest {
         workshop::Order::Family
     } else {
@@ -210,7 +210,7 @@ fn contents(commands: &mut Commands, bag: Entity, kit: Kit, ui: &Ui, run: &api::
 }
 
 fn paging_bar(commands: &mut Commands, bag: Entity, kit: Kit, ui: &Ui, page: usize, pages: usize) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let paging = row(commands, bag, kit);
     commands
         .entity(paging)
@@ -263,7 +263,7 @@ fn selected_actions(commands: &mut Commands, band: Entity, kit: Kit, ui: &Ui, ru
     else {
         return;
     };
-    let lang = lang(kit);
+    let lang = kit.lang();
     let chosen_name = words::name(Goods::Relic(item.definition), lang);
     let name_label = controls::label(
         commands,

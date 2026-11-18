@@ -11,7 +11,7 @@ pub(in crate::lobby::echoes::draw) fn slots(
         compact(commands, root, kit, ui);
         return;
     }
-    let lang = lang(kit);
+    let lang = kit.lang();
     for (active, count, title) in [
         (true, ACTIVE_SLOTS, Phrase::EchoesActiveSlots),
         (false, RESERVE_SLOTS, Phrase::EchoesReserveSlots),
@@ -68,7 +68,7 @@ fn compact(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
         (true, ACTIVE_SLOTS, Phrase::EchoesActiveSlots),
         (false, RESERVE_SLOTS, Phrase::EchoesReserveSlots),
     ] {
-        label(commands, root, kit, title.text(lang(kit)), tokens::MUTED);
+        label(commands, root, kit, title.text(kit.lang()), tokens::MUTED);
         let grid = merchandise::grid(commands, root, kit, 3);
         for index in 0..count {
             let slot = if active {
@@ -124,7 +124,7 @@ pub(in crate::lobby::echoes::draw) fn ingredients(
     ui: &Ui,
     run: &api::Run,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     if run.economy.inventory.relics.is_empty() && run.economy.inventory.materials.is_empty() {
         return;
     }

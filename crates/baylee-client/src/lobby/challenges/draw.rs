@@ -282,7 +282,7 @@ fn button(
     model: &State,
     weight: Weight,
 ) -> Entity {
-    let lang = if kit.german { Lang::De } else { Lang::En };
+    let lang = kit.lang();
     let live = if model.busy {
         Live::No(Phrase::ChallengeLoading.text(lang))
     } else if model.tower.uncertain()

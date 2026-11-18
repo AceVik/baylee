@@ -95,7 +95,7 @@ fn stats(commands: &mut Commands, root: Entity, kit: Kit, run: &api::Run) {
                 stats_value.free_mulligans.to_string(),
             ),
         ] {
-            presentation::metric(commands, stats, kit, icon, phrase.text(lang(kit)), &value);
+            presentation::metric(commands, stats, kit, icon, phrase.text(kit.lang()), &value);
         }
     }
 }
@@ -112,7 +112,7 @@ fn help_heading(commands: &mut Commands, root: Entity, kit: Kit, title: Phrase, 
     let title = controls::label(
         commands,
         kit,
-        title.text(lang(kit)),
+        title.text(kit.lang()),
         kit.m.text,
         tokens::INK,
     );
@@ -129,7 +129,7 @@ fn help_heading(commands: &mut Commands, root: Entity, kit: Kit, title: Phrase, 
             ChildOf(band),
         ))
         .id();
-    controls::attach_tooltip(commands, info, kit, help.text(lang(kit)));
+    controls::attach_tooltip(commands, info, kit, help.text(kit.lang()));
 }
 
 fn grid(commands: &mut Commands, parent: Entity, kit: Kit, columns: u16) -> Entity {
@@ -166,14 +166,14 @@ fn object(
     unavailable_reason: Option<&str>,
 ) -> Entity {
     let description = match goods {
-        Goods::Relic(definition) => words::run_effect(definition, lang(kit)),
-        _ => words::effect(goods, lang(kit)),
+        Goods::Relic(definition) => words::run_effect(definition, kit.lang()),
+        _ => words::effect(goods, kit.lang()),
     };
-    let name = words::goods(goods, lang(kit));
+    let name = words::goods(goods, kit.lang());
     let live = if available && !ui.holding() && !ui.model.uncertain() && ui.confirmation.is_none() {
         Live::Yes
     } else {
-        Live::No(unavailable_reason.unwrap_or_else(|| Phrase::EchoesUnavailable.text(lang(kit))))
+        Live::No(unavailable_reason.unwrap_or_else(|| Phrase::EchoesUnavailable.text(kit.lang())))
     };
     let button = towerui::button(
         commands,

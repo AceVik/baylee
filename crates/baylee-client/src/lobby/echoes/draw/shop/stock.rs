@@ -9,7 +9,7 @@ pub(super) fn draw(
     run: &api::Run,
     cohort: &api::Cohort,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let grid = merchandise::grid(commands, root, kit, 4);
     for offer in &run.shop.offers {
         let cell = commands
@@ -70,7 +70,7 @@ fn price(
             commands,
             band,
             kit,
-            words::rarity(definition.rarity, lang(kit)),
+            words::rarity(definition.rarity, kit.lang()),
             tokens::MUTED,
         );
     }
@@ -79,7 +79,7 @@ fn price(
             commands,
             kit,
             glyph::CHECK,
-            Phrase::EchoesSold.text(lang(kit)),
+            Phrase::EchoesSold.text(kit.lang()),
             tokens::MUTED,
         );
         commands.entity(band).add_child(badge);

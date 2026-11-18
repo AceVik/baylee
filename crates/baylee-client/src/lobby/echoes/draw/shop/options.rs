@@ -8,7 +8,7 @@ pub(in crate::lobby::echoes::draw) fn toolbar(
     ui: &Ui,
     run: &api::Run,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let footer = root;
     let spacer = crate::lobby::parts::grow(commands);
     commands.entity(footer).add_child(spacer);
@@ -42,7 +42,7 @@ pub(in crate::lobby::echoes::draw) fn options(
     ui: &Ui,
     run: &api::Run,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let footer = row(commands, root, kit);
     control(
         commands,

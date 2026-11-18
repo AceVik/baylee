@@ -32,11 +32,27 @@ pub(super) fn strip_command_zone(text: &str) -> String {
     out
 }
 
+/// The English rarity a legacy item name carried after a middle dot. Kept as
+/// a table of its own: today's English label for the last is "Mythic".
+const LEGACY_RARITY: [(&str, Rarity); 4] = [
+    ("Common", Rarity::Common),
+    ("Uncommon", Rarity::Uncommon),
+    ("Rare", Rarity::Rare),
+    ("Mythic Rare", Rarity::MythicRare),
+];
+
+/// The rarity a legacy name's English tail names, if it is one.
+pub(crate) fn legacy_rarity(tail: &str) -> Option<Rarity> {
+    LEGACY_RARITY
+        .iter()
+        .find_map(|&(name, rarity)| (name == tail).then_some(rarity))
+}
+
 /// strips any legacy `" · Common"` .. `" · Mythic Rare"` suffix if a caller
 /// passed a combined string, returning only the clean primary item title.
 pub(crate) fn clean_title(raw: &str) -> &str {
     // The legacy suffix was always English; a localized one is stripped too.
-    let legacy = ["Common", "Uncommon", "Rare", "Mythic Rare"];
+    let legacy = LEGACY_RARITY.map(|(name, _)| name);
     let localized = [Lang::En, Lang::De]
         .into_iter()
         .flat_map(|lang| Rarity::ALL.map(|r| rarity(r, lang)));

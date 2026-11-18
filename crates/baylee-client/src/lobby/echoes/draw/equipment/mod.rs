@@ -15,7 +15,7 @@ pub(super) fn draw(
 }
 
 pub(super) fn attributes(commands: &mut Commands, root: Entity, kit: Kit, run: &api::Run) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let stats = panel(commands, root, kit);
     heading(commands, stats, kit, Phrase::EchoesEquipment.text(lang));
     if let Ok(stats_value) = domain::v2::catalog::attributes(&run.economy.inventory.active()) {

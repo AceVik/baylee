@@ -14,7 +14,7 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, sel
         } else {
             Phrase::EchoesTiersShow
         }
-        .text(lang(kit)),
+        .text(kit.lang()),
         Action::Tiers(selected.family),
         true,
     );
@@ -25,7 +25,7 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, sel
         commands,
         root,
         kit,
-        Phrase::EchoesTiersLead.text(lang(kit)),
+        Phrase::EchoesTiersLead.text(kit.lang()),
         tokens::MUTED,
     );
     for rarity in Rarity::ALL {
@@ -59,14 +59,14 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, sel
             commands,
             title,
             kit,
-            words::rarity(rarity, lang(kit)),
+            words::rarity(rarity, kit.lang()),
             tokens::INK,
         );
         widgets::paragraph(
             commands,
             tier,
             kit,
-            &words::tier(definition, lang(kit)),
+            &words::tier(definition, kit.lang()),
             tokens::INK,
         );
     }

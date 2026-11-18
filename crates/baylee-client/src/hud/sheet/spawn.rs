@@ -238,8 +238,6 @@ pub(super) fn sheet_heading(
     Option<String>,
     Option<baylee_client_core::echoes::domain::v2::shop::Goods>,
 ) {
-    use baylee_client_core::echoes::domain::v2::catalog::Rarity;
-
     if let Some(goods) = duel
         .view
         .as_ref()
@@ -259,13 +257,7 @@ pub(super) fn sheet_heading(
     });
     // A legacy name carries its rarity in English after a middle dot.
     if let Some((title, tail)) = raw.rsplit_once(" \u{b7} ")
-        && let Some(rarity) = match tail {
-            "Common" => Some(Rarity::Common),
-            "Uncommon" => Some(Rarity::Uncommon),
-            "Rare" => Some(Rarity::Rare),
-            "Mythic Rare" => Some(Rarity::MythicRare),
-            _ => None,
-        }
+        && let Some(rarity) = crate::towerui::words::legacy_rarity(tail)
     {
         let tail = crate::towerui::words::rarity(rarity, lang);
         return (title.to_string(), Some(tail.to_string()), None);

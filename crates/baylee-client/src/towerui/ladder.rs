@@ -97,7 +97,7 @@ pub(super) fn attach(
     slot: Entity,
     definition: Definition,
 ) {
-    let lang = lang(kit.german);
+    let lang = kit.lang();
     let row = commands
         .spawn((
             LevelsHint,
@@ -130,10 +130,6 @@ pub(super) fn attach(
     });
 }
 
-const fn lang(german: bool) -> Lang {
-    if german { Lang::De } else { Lang::En }
-}
-
 /// Every level's effect lines, in order.
 fn lines(definition: Definition, lang: Lang) -> [Vec<String>; 4] {
     Rarity::ALL.map(|rarity| {
@@ -155,18 +151,9 @@ fn lines(definition: Definition, lang: Lang) -> [Vec<String>; 4] {
 /// The first level says all its lines; each later one says what it changes
 /// and adds, and how many lines it keeps as they were.
 fn build(commands: &mut Commands, kit: Kit, slot: Entity, current: Definition) {
-    let lang = lang(kit.german);
+    let lang = kit.lang();
     let accent = color(Goods::Relic(current));
-    commands.spawn((
-        Node {
-            width: percent(100),
-            height: px_fixed(1.0),
-            ..default()
-        },
-        BackgroundColor(accent.with_alpha(0.22)),
-        Pickable::IGNORE,
-        ChildOf(slot),
-    ));
+    super::hairline(commands, slot, accent);
     let gap = kit.m.px(tokens::SPACE[2]);
     let grid = commands
         .spawn((
@@ -310,7 +297,7 @@ fn head(
     ink: f32,
     gutter: Val,
 ) {
-    let lang = lang(kit.german);
+    let lang = kit.lang();
     let pip_ink = color(Goods::Relic(Definition { rarity, ..current }));
     let row = commands
         .spawn((

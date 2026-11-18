@@ -20,7 +20,7 @@ const TIERS: [Tier; 5] = [
 ];
 
 pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let section = compact_panel(commands, root, kit);
     widgets::paragraph(
         commands,
@@ -72,7 +72,7 @@ fn track(
     kind: BadgeKind,
     badge: Option<Badge>,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let active = ui.collection.selected == kind;
     let cell = cell(commands, root, kit, 240.0, active);
     medal(commands, cell, kit, kind, badge.and_then(|b| b.tier), 96.0);
@@ -116,7 +116,7 @@ fn track(
 }
 
 fn preview(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let kind = ui.collection.selected;
     let surface = compact_panel(commands, root, kit);
     let title = row(commands, surface, kit);

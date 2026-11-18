@@ -20,7 +20,7 @@ pub(super) fn draw(
     let Some(reward) = &run.reward else {
         return;
     };
-    let lang = lang(kit);
+    let lang = kit.lang();
     let body = commands
         .spawn((
             Node {
@@ -97,7 +97,7 @@ fn reward_toolbar(
     run: &api::Run,
     gold_info: Option<RewardGold>,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let bar = row(commands, body, kit);
     commands.entity(bar).entry::<Node>().and_modify(|mut node| {
         node.justify_content = JustifyContent::SpaceBetween;
@@ -143,7 +143,7 @@ fn reward_toolbar(
 }
 
 fn spawn_gold_toggle(commands: &mut Commands, bar: Entity, kit: Kit, ui: &Ui, gold: RewardGold) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let ground = if ui.reward_gold_open {
         Color::srgba(0.16, 0.12, 0.04, 0.94)
     } else {
@@ -278,7 +278,7 @@ fn gold_breakdown_card(
     reward: &api::Reward,
     gold: RewardGold,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let box_card = commands
         .spawn((
             Node {
@@ -349,7 +349,7 @@ fn gold_breakdown_card(
 }
 
 fn selection_footer(commands: &mut Commands, kit: Kit, ui: &Ui, take: u8) -> Entity {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let selected_count = ui.choices.rewards.len();
     let required = usize::from(take);
     let ready = selected_count == required;
@@ -493,7 +493,7 @@ fn spawn_candidate_face(
 ) -> (Entity, &'static str, Color) {
     let rarity_color = crate::lobby::decks::rarity_dot_color(rarity);
     let (rarity_name, border_rest, gradient, shadow, ornate) =
-        rarity_visuals(rarity, selected, lang(kit));
+        rarity_visuals(rarity, selected, kit.lang());
     let face = commands
         .spawn((
             crate::shellkit::Role::Tile,
@@ -546,7 +546,7 @@ fn candidate(
     take: u8,
     id: baylee_core::ids::CardIndex,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let selected = ui.choices.rewards.contains(&id);
     let rarity = baylee_cards::sides::rarity(id).unwrap_or(CardRarity::Common);
     let full_selection = !selected && take > 1 && ui.choices.rewards.len() >= usize::from(take);
@@ -665,7 +665,7 @@ fn spawn_duplicate_badge(
 /// Reserved fixed-height crest slot: hidden when unselected (no noisy "Wählen" pill,
 /// zero vertical layout shift), luminous golden crest when selected.
 fn selected_crest(commands: &mut Commands, face: Entity, kit: Kit, selected: bool) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let slot = commands
         .spawn((
             Node {

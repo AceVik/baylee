@@ -162,7 +162,7 @@ pub(super) fn icon_control(
     available: bool,
     unavailable_reason: Option<&str>,
 ) -> Entity {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let busy_gate = if sends_at_once(action) {
         ui.model.busy()
     } else {
@@ -203,7 +203,7 @@ pub(super) fn control(
     action: Action,
     available: bool,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let busy_gate = if sends_at_once(action) {
         ui.model.busy()
     } else {
@@ -299,7 +299,7 @@ pub(super) fn effect(commands: &mut Commands, root: Entity, kit: Kit, goods: Goo
         commands,
         root,
         kit,
-        &words::effect(goods, lang(kit)),
+        &words::effect(goods, kit.lang()),
         tokens::INK,
     );
 }
@@ -370,7 +370,7 @@ fn portrait_at(commands: &mut Commands, root: Entity, kit: Kit, goods: Goods, si
         commands,
         copy,
         kit,
-        &words::name(goods, lang(kit)),
+        &words::name(goods, kit.lang()),
         tokens::INK,
     );
     commands.entity(name).insert((
@@ -385,7 +385,7 @@ fn portrait_at(commands: &mut Commands, root: Entity, kit: Kit, goods: Goods, si
             commands,
             copy,
             kit,
-            words::rarity(definition.rarity, lang(kit)),
+            words::rarity(definition.rarity, kit.lang()),
             tokens::MUTED,
         );
     }
@@ -490,7 +490,7 @@ fn confirming(ui: &Ui, lang: Lang) -> (String, bool, bool) {
 }
 
 pub(super) fn confirmation(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let (text, valid, destructive) = confirming(ui, lang);
     let copy = commands
         .spawn((

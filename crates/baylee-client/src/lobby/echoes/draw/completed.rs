@@ -88,7 +88,7 @@ fn canvas(commands: &mut Commands, root: Entity, kit: Kit, victory: bool) -> Ent
 }
 
 pub(super) fn draw(commands: &mut Commands, root: Entity, kit: Kit, ui: &Ui, run: &api::Run) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     let victory = run.phase == api::Phase::Conquered;
     let copy = canvas(commands, root, kit, victory);
     let title = controls::label(

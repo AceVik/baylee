@@ -239,6 +239,15 @@ pub(super) fn press(action: Action, cx: super::press::Cx<'_, '_, '_, '_, '_>) {
     let _ = (action, cx);
 }
 
+/// Whether a run in `phase` takes a press at all: its shop and its reward
+/// do, and a reserved duel that never started, or one held for recovery,
+/// takes only its giving up.
+#[cfg(any(not(target_arch = "wasm32"), test))]
+fn phase_takes(phase: api::Phase, abandon: bool) -> bool {
+    matches!(phase, api::Phase::Shop | api::Phase::Reward)
+        || (abandon && matches!(phase, api::Phase::Reserved | api::Phase::Quarantined))
+}
+
 impl Ui {
     pub(crate) const fn game(&self) -> Option<Uuid> {
         match self.playing {
@@ -384,9 +393,7 @@ impl Ui {
     #[cfg(any(not(target_arch = "wasm32"), test))]
     pub(super) fn command(&mut self, command: Command) -> Option<Work> {
         if let Some(run) = self.model.run()
-            && (matches!(run.phase, api::Phase::Shop | api::Phase::Reward)
-                || (matches!(command, Command::Abandon {})
-                    && matches!(run.phase, api::Phase::Reserved | api::Phase::Quarantined)))
+            && phase_takes(run.phase, matches!(command, Command::Abandon {}))
             && !self.model.uncertain()
         {
             if domain::v2::generation::is_run(run.shop.generator)

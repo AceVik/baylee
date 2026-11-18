@@ -69,14 +69,14 @@ pub(super) fn draw(
             commands,
             hint,
             kit,
-            Phrase::EchoesShopRules.text(lang(kit)),
+            Phrase::EchoesShopRules.text(kit.lang()),
             tokens::MUTED,
         );
         label(
             commands,
             hint,
             kit,
-            Phrase::EchoesSelectEquipment.text(lang(kit)),
+            Phrase::EchoesSelectEquipment.text(kit.lang()),
             tokens::MUTED,
         );
     }

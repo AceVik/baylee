@@ -9,7 +9,7 @@ pub(super) fn detail(
     run: &api::Run,
     cohort: &api::Cohort,
 ) {
-    let lang = lang(kit);
+    let lang = kit.lang();
     if let Some(offer) = run
         .shop
         .offers
