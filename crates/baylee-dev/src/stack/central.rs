@@ -181,17 +181,22 @@ impl Checkout {
     fn migrations(&self) -> Result<Vec<String>> {
         let mut names = Vec::new();
         for entry in fs::read_dir(self.root.join(MIGRATIONS))? {
-            let path = entry?.path();
-            if let Some(stem) = path.file_stem().and_then(OsStr::to_str)
-                && path.extension() == Some(OsStr::new("rs"))
-                && is_migration(stem)
-            {
-                names.push(stem.to_owned());
+            if let Some(name) = migration_name(&entry?.path()) {
+                names.push(name.to_owned());
             }
         }
         names.sort();
+        names.dedup();
         Ok(names)
     }
+}
+
+/// The name a migration file is recorded under: its stem, for a Rust
+/// migration and, since Central's first-party runner (22205728), a `.sql` one.
+pub(super) fn migration_name(path: &Path) -> Option<&str> {
+    let stem = path.file_stem().and_then(OsStr::to_str)?;
+    let kind = path.extension().and_then(OsStr::to_str)?;
+    (matches!(kind, "rs" | "sql") && is_migration(stem)).then_some(stem)
 }
 
 /// `m20261019_000001_pending_accounts`, not `lib`.

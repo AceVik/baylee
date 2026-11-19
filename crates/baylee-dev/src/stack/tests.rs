@@ -181,6 +181,31 @@ fn a_checkouts_migrations_must_be_the_pinned_ones() {
     );
 }
 
+/// Central's migrations became `.sql` files with its own runner (22205728);
+/// a stack that counted only `.rs` ones refused every checkout at the pin.
+#[test]
+fn a_migration_is_a_rust_or_an_sql_file_named_by_its_date() {
+    use super::central::migration_name;
+    use std::path::Path;
+    for (file, name) in [
+        (
+            "m20261119_000033_presence.sql",
+            Some("m20261119_000033_presence"),
+        ),
+        (
+            "m20261019_000001_pending_accounts.rs",
+            Some("m20261019_000001_pending_accounts"),
+        ),
+        ("lib.rs", None),
+        ("mod.rs", None),
+        ("m20261119_000033_presence.md", None),
+        ("mnemonic.sql", None),
+        ("m20261119_000033_presence", None),
+    ] {
+        assert_eq!(migration_name(Path::new(file)), name, "{file}");
+    }
+}
+
 /// A cargo started in the Central checkout must find that checkout's
 /// toolchain and target directory, and keep the user's own settings.
 #[test]
