@@ -201,6 +201,19 @@ class FitAndDecide(unittest.TestCase):
         emb[:, 0] = base[:, 0] + rows.labels["A"] * 20
         return after_of(rows, d=d, emb=emb.astype(np.float16))
 
+    def test_a_missing_afterstates_nan_readout_never_reaches_the_head(self):
+        rows = rows_of(roots=40)
+        valid = np.ones(len(rows.cand), dtype=bool)
+        valid[1::5] = False
+        v = np.where(valid, .5, np.nan).astype(np.float32)
+        emb = np.where(valid[:, None], 1., np.nan).astype(np.float16) * np.ones((len(rows.cand), 12), np.float16)
+        after = after_of(rows, valid=valid, v=v, emb=emb)
+        self.assertTrue(np.isfinite(after.v).all() and np.isfinite(after.emb.astype(np.float32)).all())
+        with contextlib.redirect_stdout(io.StringIO()):
+            _, gaps, extra = S.fit_v0(after, epochs=2, batch=8, seed=1, log=lambda *_: None)
+        self.assertTrue(np.isfinite(gaps).all())
+        self.assertTrue(all(np.isfinite(h["select"]) for h in extra["history"]))
+
     def test_v0_learns_the_gap_and_its_fit_keeps_the_report_half_sealed(self):
         after = self.synthetic_after()
         with contextlib.redirect_stdout(io.StringIO()):
