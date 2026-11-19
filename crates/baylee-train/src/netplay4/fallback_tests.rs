@@ -128,14 +128,22 @@ fn optional_band_fallback_is_accepted_when_all_three_offered_members_are_not() {
             }
             Pending::ChooseCards {
                 ref options,
+                max,
                 prompt: ChoicePrompt::Band { .. },
                 ..
             } => {
                 assert_eq!(options.len(), 3);
+                // Benalish Hero bands with any number of creatures with
+                // banding and at most one without (CR 702.22c), and none of
+                // the three has banding: the question itself says "up to 1"
+                // since ca8cae7c2, so all three are refused by its bound as
+                // well as by the engine, where before only the engine
+                // refused them.
+                assert_eq!(max, 1);
                 let invalid = PlayerAction::ChooseObjects {
                     objects: options.clone(),
                 };
-                assert!(pending.answer_fault(&invalid).is_none());
+                assert!(pending.answer_fault(&invalid).is_some());
                 assert!(engine.apply(player, invalid).is_err());
                 let answer = fallback::unsupported_choice_answer(&pending, 1.0).unwrap();
                 assert_eq!(answer.provenance.source, SourceKind4::House);
