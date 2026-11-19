@@ -171,86 +171,6 @@ async fn the_schema_applies_and_reapplies() {
 }
 
 #[tokio::test]
-async fn the_legacy_export_takes_unmoved_password_accounts_and_no_secrets() {
-    use baylee_db::central;
-    let sandbox = Sandbox::open("central_legacy_export").await;
-    let (alice, bob, _) = central_seed(&sandbox.db).await;
-    let ban = |until: Option<i64>, id: Uuid| {
-        Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "UPDATE account SET banned_at = clock_timestamp(), ban_reason = 'synthetic',
-             banned_by = 'test', banned_until = to_timestamp($1::bigint) WHERE id = $2",
-            [until.into(), id.into()],
-        )
-    };
-    sandbox.db.execute_raw(ban(None, bob)).await.unwrap();
-    // A lapsed ban is no ban; a guest, a projection and a moved account are
-    // not legacy accounts.
-    let lapsed = an_account("central-c@example.invalid");
-    let Set(lapsed_id) = lapsed.id else {
-        unreachable!()
-    };
-    Account::insert(lapsed).exec(&sandbox.db).await.unwrap();
-    sandbox
-        .db
-        .execute_raw(ban(Some(1), lapsed_id))
-        .await
-        .unwrap();
-    let mut guest = an_account("central-guest@example.invalid");
-    guest.email = Set(None);
-    guest.password_hash = Set(None);
-    guest.guest = Set(true);
-    Account::insert(guest).exec(&sandbox.db).await.unwrap();
-    central::projection(&sandbox.db, *Uuid::now_v7().as_bytes(), true)
-        .await
-        .unwrap();
-    let moved = an_account("central-moved@example.invalid");
-    let Set(moved_id) = moved.id else {
-        unreachable!()
-    };
-    Account::insert(moved).exec(&sandbox.db).await.unwrap();
-    central::adopt(
-        &sandbox.db,
-        &moved_id.to_string(),
-        *Uuid::now_v7().as_bytes(),
-    )
-    .await
-    .unwrap();
-    let accounts = central::legacy_accounts(&sandbox.db).await.unwrap();
-    let mut expected = vec![alice.to_string(), bob.to_string(), lapsed_id.to_string()];
-    expected.sort();
-    assert_eq!(
-        accounts.iter().map(|a| a.id.clone()).collect::<Vec<_>>(),
-        expected,
-        "the unmoved password accounts, by id"
-    );
-    let of = |id: Uuid| accounts.iter().find(|a| a.id == id.to_string()).unwrap();
-    let text = of(alice).snapshot.as_deref().unwrap();
-    assert!(text.contains("ALICE_PRIVATE_DECK"));
-    assert!(!text.contains("BOB_PRIVATE_DECK"));
-    assert!(!text.contains("password_hash") && !text.contains("token_hash"));
-    let snapshot: serde_json::Value = serde_json::from_str(text).unwrap();
-    assert_eq!(snapshot["decks"][0]["history"].as_array().unwrap().len(), 1);
-    assert_eq!(of(alice).ban, None);
-    assert_eq!(of(bob).ban, Some(central::Ban { until: None }));
-    assert_eq!(of(lapsed_id).ban, None);
-    assert!(of(alice).password_hash.starts_with("$argon2id$"));
-    // A source larger than the first snapshot format is named, not cut.
-    ClientSettings::insert(client_settings::ActiveModel {
-        account_id: Set(alice),
-        doc: Set(serde_json::json!({"padding": "x".repeat(200_000)})),
-        updated_at: Set(OffsetDateTime::now_utc()),
-    })
-    .exec(&sandbox.db)
-    .await
-    .unwrap();
-    let accounts = central::legacy_accounts(&sandbox.db).await.unwrap();
-    let alice_now = accounts.iter().find(|a| a.id == alice.to_string()).unwrap();
-    assert!(alice_now.snapshot.is_none());
-    sandbox.close().await;
-}
-
-#[tokio::test]
 async fn a_moved_account_is_linked_at_its_first_admission_and_only_once() {
     use baylee_db::central;
     let sandbox = Sandbox::open("central_adopt").await;
@@ -329,6 +249,51 @@ async fn a_moved_account_is_linked_at_its_first_admission_and_only_once() {
             .is_some()
     );
     central_password_retired(&sandbox.db, alice_id, bob_id).await;
+    sandbox.close().await;
+}
+
+/// An account whose source is over the first snapshot format's bound
+/// (`docs/central-login.md` §"Legacy migration") is not linked: Central's
+/// legacy store never took such an account, so Central never names it, and
+/// a link made anyway would be to a source nobody holds.
+#[tokio::test]
+async fn an_account_over_the_snapshot_bound_is_not_linked() {
+    use baylee_db::central;
+    let sandbox = Sandbox::open("central_adopt_bound").await;
+    let large = an_account("central-large@example.invalid");
+    let Set(large_id) = large.id else {
+        unreachable!()
+    };
+    Account::insert(large).exec(&sandbox.db).await.unwrap();
+    let central_id = *Uuid::now_v7().as_bytes();
+    ClientSettings::insert(client_settings::ActiveModel {
+        account_id: Set(large_id),
+        doc: Set(serde_json::json!({"padding": "x".repeat(200_000)})),
+        updated_at: Set(OffsetDateTime::now_utc()),
+    })
+    .exec(&sandbox.db)
+    .await
+    .unwrap();
+    assert!(
+        central::adopt(&sandbox.db, &large_id.to_string(), central_id)
+            .await
+            .is_err()
+    );
+    assert!(
+        !central::linked(&sandbox.db, &large_id.to_string())
+            .await
+            .unwrap()
+    );
+    // Under the bound the same account is linked: the bound was the reason.
+    ClientSettings::delete_by_id(large_id)
+        .exec(&sandbox.db)
+        .await
+        .unwrap();
+    assert!(
+        central::adopt(&sandbox.db, &large_id.to_string(), central_id)
+            .await
+            .unwrap()
+    );
     sandbox.close().await;
 }
 

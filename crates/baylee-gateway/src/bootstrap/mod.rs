@@ -5,12 +5,12 @@ use super::{
     archive_replay, art, auth, authmode, banlists, blocks, catalog_search, catalog_text, central,
     chair, challenges, clock, connect_catalog, cors, cosmetics, create_game, deck_routes,
     departure, display_name, engine, game_cosmetics, game_ws, get, guest_cap, hand_over, health,
-    impressum_url, info, join_game, launch, leave_game, legacyexport, list_games, list_replays,
-    list_seats, listen, lobby_stats, lobby_ws, metrics, namebook, open_database, pool, poolfacts,
-    post, presence, put, record, recordexport, registration, rematch, replay_tape, replays, report,
-    room, routes, seathost, sessions, set_ready, set_seat, share_replay, social, source,
-    source_url, spawn_cleanup, spawn_session_sweep, spawn_ticket_sweep, start_room, switched_on,
-    take_seat, terms, texts, tower, trusted_proxies, validate_the_dev_board, watch_ws, whole_body,
+    impressum_url, info, join_game, launch, leave_game, list_games, list_replays, list_seats,
+    listen, lobby_stats, lobby_ws, metrics, namebook, open_database, pool, poolfacts, post,
+    presence, put, record, recordexport, registration, rematch, replay_tape, replays, report, room,
+    routes, seathost, sessions, set_ready, set_seat, share_replay, social, source, source_url,
+    spawn_cleanup, spawn_session_sweep, spawn_ticket_sweep, start_room, switched_on, take_seat,
+    terms, texts, tower, trusted_proxies, validate_the_dev_board, watch_ws, whole_body,
     write_port_file, ws_ticket, wsticket,
 };
 mod router;
@@ -43,10 +43,6 @@ pub(super) async fn run() {
         // The anonymised export of game records for training and balancing,
         // the operator's and the database's alone.
         launch::Command::Records(rest) => std::process::exit(recordexport::cli(rest).await),
-        // The cutover's export of the accounts Central signs in from then on
-        // (`docs/central-login.md` §"Cutover"): the operator's and the
-        // database's alone, and never logged.
-        launch::Command::Legacy(rest) => std::process::exit(legacyexport::cli(rest).await),
     }
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())

@@ -1,17 +1,17 @@
 //! The gateway's side of Baylee Central: its projections of Central's
-//! accounts and the legacy accounts' cutover (`legacy`). No password, session
-//! or private chat key is ever in an export.
+//! accounts, and the link of an account from before Central to the identity
+//! it moved to (`legacy`).
 #![forbid(unsafe_code)]
 
 use sea_orm::{
-    ConnectionTrait, DatabaseConnection, DbBackend, DbErr, IsolationLevel, Statement,
-    TransactionTrait, prelude::Uuid,
+    ConnectionTrait, DatabaseConnection, DbBackend, DbErr, Statement, TransactionTrait,
+    prelude::Uuid,
 };
 
 mod legacy;
 mod link;
 mod sessions;
-pub use legacy::{Ban, LegacyAccount, adopt, legacy_accounts};
+pub use legacy::adopt;
 pub use link::{StoredLink, clear_link, link, set_link};
 pub use sessions::{linked_account, projection, take_profile};
 
@@ -26,7 +26,7 @@ const EXPORT: &str = "SELECT jsonb_build_object(
 )::text AS snapshot FROM account WHERE id = $1 AND NOT guest";
 
 // Bound work and intermediate JSON allocation before constructing the combined snapshot.
-// The caller's repeatable-read transaction keeps this check and the export on one source state.
+// It runs in the caller's transaction, before the snapshot itself is built.
 const SIZE: &str = "SELECT sum(bytes)::bigint AS bytes, count(*)::bigint AS rows FROM (
     (SELECT octet_length(to_jsonb(d)::text) AS bytes FROM deck d WHERE d.account_id = $1 LIMIT 2049)
     UNION ALL

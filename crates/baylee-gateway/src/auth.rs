@@ -342,18 +342,6 @@ pub fn new_id() -> String {
     Uuid::now_v7().to_string()
 }
 
-/// A password hashed as this gateway hashed them (Argon2id under argon2's
-/// defaults, a PHC string): for the cutover export's tests, which must parse
-/// the gateway's own hashes.
-#[cfg(test)]
-pub fn hash_password(password: &str) -> String {
-    use argon2::{Argon2, PasswordHasher, password_hash::phc::PasswordHash};
-    let hash: PasswordHash = Argon2::default()
-        .hash_password(password.as_bytes())
-        .expect("argon2 hashing works");
-    hash.to_string()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

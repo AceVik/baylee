@@ -350,10 +350,13 @@ fn ui_fixture(runtime: &Runtime, endpoint: &Endpoint, host: &common::Gateway, ga
     std::fs::remove_file(path).unwrap();
 }
 
-/// The cutover for one gateway (`docs/central-login.md` §"Cutover"): the
-/// release's migration ends every password session, and the gateway's own
-/// `legacy export` goes into Central's legacy store, as the operator pipes it
-/// into `central-service --legacy-import-stdin`. Answers how many moved in.
+/// What the cutover left for one gateway (`docs/central-login.md`
+/// §"Cutover"): no password session, and every account from before it that
+/// has not moved yet in Central's legacy store. The gateway's export tool is
+/// gone with the cutover, so the fixture writes Central's rows itself, as the
+/// import took them: the account's id, name and tag here, the fixture's
+/// password hash, and its preferences and decks as the source snapshot.
+/// Answers how many accounts the store took.
 fn cutover(
     gateway: &common::Gateway,
     runtime: &Runtime,
@@ -365,49 +368,52 @@ fn cutover(
         "DELETE FROM session_token WHERE account_id IN
              (SELECT id FROM account WHERE NOT guest AND NOT central_only)",
     );
-    let exported = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-gateway"))
-        .args(["legacy", "export"])
-        .env("DATABASE_URL", gateway.database_url())
-        .stdin(std::process::Stdio::null())
-        .output()
-        .expect("the gateway's export runs");
-    assert!(
-        exported.status.success(),
-        "{}",
-        String::from_utf8_lossy(&exported.stderr)
-    );
-    let said = String::from_utf8_lossy(&exported.stderr);
-    assert!(said.starts_with("legacy export: "), "{said}");
-    let document: serde_json::Value = serde_json::from_slice(&exported.stdout).unwrap();
-    assert_eq!(document["format"], "baylee-legacy-accounts/1");
-    let bytes = |value: &serde_json::Value| -> Vec<u8> {
-        value
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|byte| u8::try_from(byte.as_u64().unwrap()).unwrap())
-            .collect()
-    };
+    // The snapshot has the shape the gateway takes the link's digest over
+    // (`baylee_db::central`): the preferences document, and each deck with
+    // its version history.
+    let accounts: serde_json::Value = serde_json::from_str(&gateway.text(
+        "SELECT COALESCE(jsonb_agg(jsonb_build_object(
+             'legacy_id', a.id::text, 'username', a.username_key,
+             'display_name', a.display_name, 'tag', a.tag,
+             'terms_version', a.terms_version,
+             'snapshot', jsonb_build_object(
+                 'preferences', COALESCE((SELECT doc FROM client_settings s
+                     WHERE s.account_id = a.id), '{}'::jsonb),
+                 'decks', COALESCE((SELECT jsonb_agg(to_jsonb(d) || jsonb_build_object('history',
+                     COALESCE((SELECT jsonb_agg(to_jsonb(v) ORDER BY v.version)
+                         FROM deck_version v WHERE v.deck_id = d.id), '[]'::jsonb)) ORDER BY d.id)
+                     FROM deck d WHERE d.account_id = a.id), '[]'::jsonb))::text)
+             ORDER BY a.id), '[]'::jsonb)::text
+         FROM account a
+         WHERE NOT a.guest AND NOT a.central_only AND a.username_key IS NOT NULL
+             AND NOT EXISTS (SELECT 1 FROM central_account_link c
+                 WHERE c.account_id = a.id AND c.central_id IS NOT NULL)",
+    ))
+    .unwrap();
+    let (salt, hash) = legacy_password();
     let text = |value: &serde_json::Value| value.as_str().map(str::to_owned);
-    let rows: Vec<LegacyRow> = document["accounts"]
+    let mut rows: Vec<LegacyRow> = accounts
         .as_array()
         .unwrap()
         .iter()
         .map(|row| LegacyRow {
             legacy_id: text(&row["legacy_id"]).unwrap(),
             username: text(&row["username"]).unwrap(),
-            display_name: text(&row["display_name"]),
+            // Central keeps a name only when it keeps the rule.
+            display_name: text(&row["display_name"])
+                .filter(|name| central_api::profile::valid_display_name(name)),
             tag: row["tag"].as_u64().map(|tag| u32::try_from(tag).unwrap()),
-            salt: bytes(&row["password"]["salt"]).try_into().unwrap(),
-            hash: bytes(&row["password"]["hash"]).try_into().unwrap(),
+            salt,
+            hash,
             terms_version: text(&row["terms_version"]),
-            must_change_password: row["must_change_password"].as_bool().unwrap(),
-            ban: row["ban"].as_object().map(|ban| ban["until"].as_i64()),
-            snapshot: bytes(&row["snapshot"]),
+            must_change_password: false,
+            ban: None,
+            snapshot: text(&row["snapshot"]).unwrap().into_bytes(),
         })
         .collect();
-    let count = document["count"].as_u64().unwrap();
-    let digest: [u8; 32] = bytes(&document["digest"]).try_into().unwrap();
+    rows.sort_by(|a, b| a.legacy_id.as_bytes().cmp(b.legacy_id.as_bytes()));
+    let count = rows.len() as u64;
+    let digest = central_postgres::legacy_digest(&rows);
     let imported = runtime
         .block_on(central_postgres::import_legacy(
             operator, rows, count, digest,
@@ -415,6 +421,24 @@ fn cutover(
         .unwrap();
     assert_eq!((imported.count, imported.digest), (count, digest));
     count
+}
+
+/// The salt and output of `common::LEGACY_HASH`, as Central's legacy store keeps a
+/// password: Argon2id under the parameters the official gateway hashed with.
+fn legacy_password() -> ([u8; 16], [u8; 32]) {
+    use base64::Engine as _;
+    let mut fields = common::LEGACY_HASH
+        .strip_prefix("$argon2id$v=19$m=19456,t=2,p=1$")
+        .expect("the pinned parameters")
+        .split('$');
+    let mut decode = || {
+        base64::engine::general_purpose::STANDARD_NO_PAD
+            .decode(fields.next().expect("a salt and an output"))
+            .expect("PHC base64")
+    };
+    let salt = decode().try_into().expect("a 16-byte salt");
+    let hash = decode().try_into().expect("a 32-byte output");
+    (salt, hash)
 }
 
 fn run(

@@ -35,12 +35,10 @@ const CLIENT_SETTINGS: &str = "client-settings.json";
 /// The fixture's password for its synthetic account.
 const FIXTURE_PASSWORD: &str = "synthetic legacy password";
 
-/// The schema tests `db` requires by name: the legacy accounts' move to
-/// Central. A suite that passes without them proves nothing about it.
-const SCHEMA_MUST_RUN: &[&str] = &[
-    "the_legacy_export_takes_unmoved_password_accounts_and_no_secrets",
-    "a_moved_account_is_linked_at_its_first_admission_and_only_once",
-];
+/// The schema tests `db` requires by name: the link of a legacy account that
+/// moved to Central. A suite that passes without it proves nothing about it.
+const SCHEMA_MUST_RUN: &[&str] =
+    &["a_moved_account_is_linked_at_its_first_admission_and_only_once"];
 
 /// The gateway e2e targets `db` may add after the schema suite.
 pub const GATEWAY_TESTS: &[&str] = &[

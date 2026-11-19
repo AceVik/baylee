@@ -27,7 +27,6 @@ pub(crate) const USAGE: &str = "\
 usage: baylee-gateway                       serve; every setting is an environment variable
        baylee-gateway records export --out <dir>
                                             export the anonymised game records
-       baylee-gateway legacy export         export the accounts for Central's cutover
        baylee-gateway help | --help | -h    this text
 
 It listens on 127.0.0.1:28766, this machine only, unless told otherwise:
@@ -47,8 +46,6 @@ pub(crate) enum Command<'a> {
     Invite,
     /// `records …`, with the arguments after the word.
     Records(&'a [String]),
-    /// `legacy …`, with the arguments after the word.
-    Legacy(&'a [String]),
 }
 
 /// Reads a command line, without the program's name.
@@ -67,7 +64,6 @@ pub(crate) fn command(args: &[String]) -> Result<Command<'_>, String> {
         "help" | "--help" | "-h" => Ok(Command::Help),
         "invite" => Ok(Command::Invite),
         "records" => Ok(Command::Records(rest)),
-        "legacy" => Ok(Command::Legacy(rest)),
         other => {
             let name = other.split_once('=').map_or(other, |(name, _)| name);
             Err(format!(
@@ -142,6 +138,9 @@ mod tests {
             let refused = command(&line(&[unknown])).expect_err(unknown);
             assert!(refused.contains(&format!("{unknown:?}")), "{refused}");
         }
+        // The cutover's `legacy export` is gone (`docs/central-login.md`
+        // §"Cutover"): asked for anyway, it is refused and serves nothing.
+        assert!(command(&line(&["legacy", "export"])).is_err());
         // A flag is named up to its `=`, and what follows is not repeated.
         let refused = command(&line(&["--admin-token=s3cret"])).unwrap_err();
         assert!(refused.contains("\"--admin-token\""), "{refused}");
@@ -155,8 +154,6 @@ mod tests {
     fn subcommands_keep_their_own_arguments() {
         let records = line(&["records", "export", "--out", "/tmp/r"]);
         assert_eq!(command(&records), Ok(Command::Records(&records[1..])));
-        let legacy = line(&["legacy", "export"]);
-        assert_eq!(command(&legacy), Ok(Command::Legacy(&legacy[1..])));
         assert_eq!(command(&line(&["invite", "list"])), Ok(Command::Invite));
     }
 

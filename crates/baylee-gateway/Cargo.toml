@@ -33,7 +33,6 @@ baylee-tower-api.workspace = true
 central-crypto = { workspace = true, features = ["jwt"] }
 zeroize.workspace = true
 anyhow.workspace = true
-argon2.workspace = true
 axum.workspace = true
 base64.workspace = true
 baylee-build.workspace = true

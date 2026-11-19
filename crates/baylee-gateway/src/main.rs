@@ -1,8 +1,9 @@
 //! baylee-gateway — accounts, decks, lobby, and hosted games.
 //!
-//! Security posture (see auth.rs): Argon2id password hashing, hashed
-//! bearer tokens with sliding expiry, auth rate limiting, generic
-//! credential errors, constant-time comparisons. TLS terminates at the
+//! Security posture (see auth.rs): no account password is taken or kept
+//! here (accounts sign in at Baylee Central), hashed bearer tokens with
+//! sliding expiry, rate limiting on the public doors, generic credential
+//! errors, constant-time comparisons. TLS terminates at the
 //! reverse proxy in front of this process (Caddy/nginx) — this service
 //! must never be exposed on a plaintext listener in production, and it
 //! listens on loopback unless `BAYLEE_BIND` names another address
@@ -31,7 +32,6 @@ mod departure;
 mod engine;
 mod handle;
 mod launch;
-mod legacyexport;
 mod llmaccess;
 mod lobby;
 mod metrics;
