@@ -37,10 +37,27 @@ pub(super) fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -
     if svars.get(raw).map(|def| def.trim()) == Some("PlayerCountPropertyYou$DamageThisTurn") {
         return Some("Amount::DamageDealtToYouThisTurn".to_string());
     }
-    // "For each time it was kicked" (CR 702.33d), which the reference writes
-    // under the same letter.
-    if svars.get(raw).map(|def| def.trim()) == Some("Count$TimesKicked") {
-        return Some("Amount::TimesKicked".to_string());
+    // "For each time it was kicked" (CR 702.33d), including fixed multiples
+    // (`/Twice`, `/Thrice`, `/Times.<n>`), which the reference writes under
+    // the same letter.
+    if let Some(def) = svars.get(raw).map(|def| def.trim()) {
+        if def == "Count$TimesKicked" {
+            return Some("Amount::TimesKicked".to_string());
+        }
+        if let Some(rest) = def.strip_prefix("Count$TimesKicked/") {
+            let factor: Option<u32> = match rest {
+                "Twice" => Some(2),
+                "Thrice" => Some(3),
+                _ => rest.strip_prefix("Times.").and_then(|n| n.parse().ok()),
+            };
+            if let Some(factor) = factor.filter(|&f| f > 0) {
+                return Some(if factor == 1 {
+                    "Amount::TimesKicked".to_string()
+                } else {
+                    format!("Amount::Times {{ base: &Amount::TimesKicked, factor: {factor} }}")
+                });
+            }
+        }
     }
     if let Some(kind) = svars
         .get(raw)

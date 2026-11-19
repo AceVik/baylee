@@ -197,6 +197,14 @@ fn render_card(
             (Some(body), 0) => body.multikicker.as_deref(),
             _ => None,
         };
+        let additional_costs = match (&land, i) {
+            (Some(body), 0) => body.additional_costs.as_slice(),
+            _ => &[],
+        };
+        let kicked_targets = match (&land, i) {
+            (Some(body), 0) => body.kicked_targets.as_deref(),
+            _ => None,
+        };
         face_defs.push_str(&render_face(
             &card.name,
             f,
@@ -212,6 +220,8 @@ fn render_card(
             entwine,
             buyback,
             multikicker,
+            additional_costs,
+            kicked_targets,
             i > 0,
             card.layout.as_deref(),
         )?);

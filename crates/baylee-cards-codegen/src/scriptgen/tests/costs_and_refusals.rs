@@ -356,27 +356,9 @@ fn a_cost_is_not_split_inside_its_own_brackets() {
         quirion.statics
     );
 
-    let svars = BTreeMap::new();
+    let script = CardScript::default();
     let cats = cats();
-    let mut tx = Tx {
-        svars: &svars,
-        oracle: "",
-        cats: &cats,
-        tokens: None,
-        has_x: false,
-        on_a_spell: false,
-        trigger_mode: None,
-        block_line: None,
-        block_half: None,
-        in_delayed: false,
-        cost_sacrifices_self: false,
-        cost_sacrifices_other: false,
-        trigger_is_self: false,
-        in_alternative_cost: false,
-        counter_on_source: false,
-        body: CardBody::default(),
-        unclaimed: std::cell::RefCell::new(None),
-    };
+    let mut tx = Tx::new(&script, &cats, None);
     let cost = tx
         .cost_expr("1 Sac<1/Creature.Other/another creature>")
         .expect("a bracketed sacrifice is one token");
