@@ -7,6 +7,10 @@ from value_calibration4.model_identity import source_model, source_identity
 
 FULL_PPO_CONTRACT_VERSION = 2
 BEHAVIOR_PROBABILITY_REFERENCE = 'recorded_executed_action'
+#: The reference each `--behavior-denominator` binds into the resume contract:
+#: a continuation never switches between π and the exploration mixture μ.
+BEHAVIOR_PROBABILITY_REFERENCES = {'executed_policy': BEHAVIOR_PROBABILITY_REFERENCE,
+                                   'behavior_mixture': 'recorded_behavior_mixture'}
 
 
 def validate_resume_probability(saved):
@@ -14,7 +18,7 @@ def validate_resume_probability(saved):
     contract = saved.get('full_ppo_contract')
     if (not isinstance(contract, dict)
             or contract.get('version') != FULL_PPO_CONTRACT_VERSION
-            or contract.get('behavior_probability_reference') != BEHAVIOR_PROBABILITY_REFERENCE):
+            or contract.get('behavior_probability_reference') not in BEHAVIOR_PROBABILITY_REFERENCES.values()):
         raise ValueError('Full PPO resume probability reference differs; use --init for weights-only initialization')
 
 

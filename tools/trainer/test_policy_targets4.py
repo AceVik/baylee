@@ -197,4 +197,106 @@ class Targets(unittest.TestCase):
                  pair_free_mask=torch.tensor([[[0,0],[0,0],[0,0],[1,0],[0,0]]]))
         self.assertEqual(actor_mask(b).tolist(),[[False,True,False,True,False]])
 
-if __name__=='__main__':unittest.main()
+
+
+class Explored(Dataset):
+    """The learner choice as an exploration record: the layer's answer was
+    played, so μ = (1 − ε)·π + ε with π = 1/3 and ε = 0.25."""
+    MIXTURE = np.float32(math.log(.75 / 3 + .25))
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.meta['behavior_mixture'] = {'version': 1, 'contract': 'rule_proposal_mixture_v1'}
+
+    def __getitem__(self, idx):
+        out = super().__getitem__(idx)
+        decision = out['is_decision'] & (out['source_kind'] == 0)
+        out['behavior_mixture_logprob'] = np.where(decision, self.MIXTURE,
+                                                   out['behavior_logprob']).astype(np.float32)
+        out['has_behavior_mixture'] = decision.copy()
+        return out
+
+
+class BehaviorDenominator(unittest.TestCase):
+    """`--behavior-denominator`: π stays the default and the replayed audit;
+    μ of exploration records is an explicit choice, never a silent one."""
+    def setUp(self):
+        torch.set_num_threads(1)
+
+    def test_default_stays_the_executed_action_probability(self):
+        d = Dataset()
+        report = prepare_policy_targets(Frozen(), d, 'cpu', board_chunk=0)
+        self.addCleanup(d._policy_targets_directory.cleanup)
+        self.assertEqual(report['behavior_denominator'], 'executed_policy')
+        self.assertNotIn('executed_policy_lp', d.ppo_cache)
+        self.assertEqual(float(d.ppo_cache['behavior_lp'][1, 0]), float(np.float32(-math.log(3))))
+
+    def test_exploration_records_name_their_denominator(self):
+        net = Frozen()
+        with self.assertRaisesRegex(ValueError, 'explicit behavior denominator'):
+            prepare_policy_targets(net, Explored(), 'cpu', board_chunk=0)
+        self.assertFalse(net.calls, 'refused before any forward pass')
+        with self.assertRaisesRegex(ValueError, 'Unknown behavior denominator'):
+            prepare_policy_targets(Frozen(), Explored(), 'cpu', board_chunk=0, denominator='mu')
+        with self.assertRaisesRegex(ValueError, 'recorded exploration mixtures'):
+            prepare_policy_targets(Frozen(), Dataset(), 'cpu', board_chunk=0,
+                                   denominator='behavior_mixture')
+
+    def test_mixture_denominator_replaces_only_the_denominator(self):
+        d = Explored()
+        report = prepare_policy_targets(Frozen(), d, 'cpu', board_chunk=0, denominator='behavior_mixture')
+        self.addCleanup(d._policy_targets_directory.cleanup)
+        self.assertEqual(report['behavior_denominator'], 'behavior_mixture')
+        self.assertEqual(report['explored_decisions'], 1)
+        self.assertEqual(report['decisions_checked'], 1, 'π is still replayed')
+        self.assertEqual(float(d.ppo_cache['behavior_lp'][1, 0]), float(Explored.MIXTURE))
+        self.assertEqual(float(d.ppo_cache['executed_policy_lp'][1, 0]), float(np.float32(-math.log(3))))
+        self.assertFalse(d.ppo_cache['behavior_lp'][0].any(), 'no denominator off the actor rows')
+        # The audit replays π whatever the denominator: a wrong π still fails.
+        with self.assertRaisesRegex(ValueError, 'probability mismatch'):
+            prepare_policy_targets(Frozen(), Explored(mismatch=True), 'cpu', board_chunk=0,
+                                   denominator='behavior_mixture')
+
+    def test_executed_policy_on_exploration_records_keeps_pi(self):
+        d = Explored()
+        prepare_policy_targets(Frozen(), d, 'cpu', board_chunk=0, denominator='executed_policy')
+        self.addCleanup(d._policy_targets_directory.cleanup)
+        self.assertEqual(float(d.ppo_cache['behavior_lp'][1, 0]), float(np.float32(-math.log(3))))
+
+    def test_a_frames_reserved_word_carries_ln_mu(self):
+        import struct
+        from dataset4 import MIXTURE_FLAG, frame_mixture
+        self.assertEqual(frame_mixture(0b111, 0, -1.25), (False, -1.25))
+        word = struct.unpack('<I', struct.pack('<f', -0.75))[0]
+        self.assertEqual(frame_mixture(0b111 | MIXTURE_FLAG | (2 << 8), word, -1.25), (True, -0.75))
+        with self.assertRaisesRegex(ValueError, 'without the mixture flag'):
+            frame_mixture(0b111, word, -1.25)
+
+    def test_a_frame_without_a_behaviour_probability_carries_no_ln_mu(self):
+        """A blocker answer the attackers' counts moved: no π, no ln μ, never a made-up one."""
+        import struct
+        from dataset4 import MIXTURE_FLAG, NO_PROBABILITY_FLAG, frame_mixture
+        flags = 0b011 | MIXTURE_FLAG | NO_PROBABILITY_FLAG | (2 << 8)
+        self.assertEqual(frame_mixture(flags, 0, 0.0), (False, 0.0))
+        word = struct.unpack('<I', struct.pack('<f', -0.75))[0]
+        with self.assertRaisesRegex(ValueError, 'carries one'):
+            frame_mixture(flags, word, 0.0)
+        with self.assertRaisesRegex(ValueError, 'carries one'):
+            frame_mixture(flags | 0b100, 0, -1.25)
+        with self.assertRaisesRegex(ValueError, 'without the mixture flag'):
+            frame_mixture(0b011 | NO_PROBABILITY_FLAG, 0, 0.0)
+
+    def test_a_continuation_never_switches_its_denominator(self):
+        from recurrent_ppo4.checkpoint import (BEHAVIOR_PROBABILITY_REFERENCES, FULL_PPO_CONTRACT_VERSION,
+                                               validate_resume_probability)
+        for reference in BEHAVIOR_PROBABILITY_REFERENCES.values():
+            validate_resume_probability({'full_ppo_contract': {
+                'version': FULL_PPO_CONTRACT_VERSION, 'behavior_probability_reference': reference}})
+        with self.assertRaisesRegex(ValueError, 'probability reference'):
+            validate_resume_probability({'full_ppo_contract': {
+                'version': FULL_PPO_CONTRACT_VERSION, 'behavior_probability_reference': 'mu'}})
+        self.assertEqual(BEHAVIOR_PROBABILITY_REFERENCES['executed_policy'], 'recorded_executed_action')
+
+
+if __name__ == '__main__':
+    unittest.main()
