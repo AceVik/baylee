@@ -2009,6 +2009,22 @@ lockstep with 32 games at once (batch 1,024: calls of 79 observation rows
 and 33 decision rows on average, at most 354). Every deal ended alike in 63
 or 64 of 64; FP16 batch noise moved a few rollouts.
 
+**A cheaper rollout net (parked, 19 November 2026).** `--rollout-net DIR`
+lets another net play every chair of the worlds (`RolloutNet4`): the net
+still decides at the root and gives the prior, and the rollout net watches
+every view at the table beside it, so its memory at a root is the game's.
+`--rollout-leaf` scores a rollout by the rollout net's own value
+(`student`), by the net's value of the seat's last frame seen once from its
+memory at the root (`jump`, one step of the net a rollout), or by the net
+watching every frame of the seat (`follow`, today's leaf). With the net as
+its own rollout net and `follow` the search is the plain one.
+`--rollout-compare` records, at each root of the net's own search, the same
+worlds searched under each leaf (`variants`), and `rollout_curve4` judges
+them by the net's worlds as the live-search curve does. Parked by the owner
+(19 November): the search plays the big net; a small rollout net would be a
+separate fork. The trainer's separate-reference imitation mode for such a
+net is kept outside the tree, in the campaign's `rolloutnet/` directory.
+
 **Limits.** The worlds are dealt from the real remaining decks of the
 evaluator's known lists — an upper bound on what a seat without deck
 knowledge could do. What the seat can see now is kept (a hand a static
