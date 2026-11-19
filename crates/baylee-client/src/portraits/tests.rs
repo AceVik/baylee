@@ -404,12 +404,16 @@ fn the_disk_keeps_bytes_by_key_within_bounds() {
 
 // --- Keys, the account, and the discs -----------------------------------
 
-/// The near tags are the account, its contacts and requests, and its groups'
-/// members; nobody blocked, nobody else.
+/// The near accounts are the account, its contacts and requests, and its
+/// groups' members, each under its handle; nobody blocked, nobody else.
 #[test]
 fn only_the_account_and_its_contacts_are_asked() {
-    assert_eq!(near_tags(Some(7), None), BTreeSet::from([7]));
-    assert!(near_tags(None, None).is_empty());
+    assert_eq!(
+        near_handles(Some("Me#0007"), None),
+        BTreeMap::from([(7, "Me#0007".to_owned())])
+    );
+    assert!(near_handles(None, None).is_empty());
+    assert!(near_handles(Some("no tag"), None).is_empty());
 }
 
 /// An app with the pictures' systems and a disc's dressing, at a clock the
@@ -439,8 +443,11 @@ fn drawn(app: &mut App, handle: &str) -> Entity {
     disc
 }
 
-/// The book says `tag` wears `key`, as an answer would.
-fn wears(work: &mut PictureWork, tag: u32, key: PictureKey, moving: bool) {
+/// The book says the account `handle` names wears `key`, as an answer
+/// would, and the account is near this one under that handle.
+fn wears(work: &mut PictureWork, handle: &str, key: PictureKey, moving: bool) {
+    let tag = tag_of(handle).expect("a handle with a tag");
+    work.handles.insert(tag, handle.to_owned());
     let near = BTreeSet::from([tag]);
     let ask = work.book.next(1, &near, &BTreeSet::new()).expect("an ask");
     work.book.answer(
@@ -481,9 +488,11 @@ fn a_moving_picture_plays_in_its_disc_and_writes_only_on_a_new_frame() {
     let tag = 0x00ff;
     let disc = drawn(&mut app, "Mia Wallace#00ff");
     let other = drawn(&mut app, "Alice#0001");
+    // A gateway's own account that holds the same tag under another name.
+    let stranger = drawn(&mut app, "Mallory#00ff");
     {
         let mut work = app.world_mut().resource_mut::<PictureWork>();
-        wears(&mut work, tag, key, true);
+        wears(&mut work, "Mia Wallace#00ff", key, true);
         work.account = Some(1);
     }
     app.update();
@@ -506,6 +515,11 @@ fn a_moving_picture_plays_in_its_disc_and_writes_only_on_a_new_frame() {
         other => panic!("the picture, not {other:?}"),
     };
     assert_eq!(face(&app, other), Some(AvatarFace::Letters));
+    assert_eq!(
+        face(&app, stranger),
+        Some(AvatarFace::Letters),
+        "the same tag under another name keeps its monogram"
+    );
     assert_eq!(pixels(&app, &image), still);
     let portrait = app
         .world()
@@ -619,7 +633,7 @@ fn a_lost_or_replaced_picture_leaves_and_a_sign_out_forgets_all() {
     let key = [1; 16];
     {
         let mut work = app.world_mut().resource_mut::<PictureWork>();
-        wears(&mut work, 0xff, key, false);
+        wears(&mut work, "Mia#00ff", key, false);
         work.account = Some(1);
     }
     deliver(

@@ -28,7 +28,12 @@ use bevy::prelude::*;
 use crate::hud::{UiFonts, tf_bold};
 
 /// The pictures this client holds, by account tag as a handle spells it
-/// (`af03`).
+/// (`af03`), each for the whole handle Baylee Central knows the account by.
+///
+/// A disc wears a picture only when its handle is that one, name and tag:
+/// a game gateway gives its own accounts tags of its own, which may equal a
+/// Central account's, and such a stranger keeps the monogram its handle
+/// already shares with that account.
 #[derive(Resource, Default)]
 pub struct Portraits {
     worn: HashMap<String, Portrait>,
@@ -37,6 +42,8 @@ pub struct Portraits {
 /// One account's picture.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Portrait {
+    /// The handle Central knows the account by (`Alice#af03`).
+    pub handle: String,
     /// The image every disc of the account draws.
     pub image: Handle<Image>,
     /// Whether the picture moves (its frames play in the same image).
@@ -51,11 +58,14 @@ impl Portraits {
         self.portrait(handle).map(|portrait| portrait.image.clone())
     }
 
-    /// The account a handle names, as it wears its picture.
+    /// The account a handle names, as it wears its picture: only for the
+    /// handle Central knows it by.
     #[must_use]
     pub fn portrait(&self, handle: &str) -> Option<&Portrait> {
         let (_, tag) = handle.rsplit_once('#')?;
-        self.worn.get(tag)
+        self.worn
+            .get(tag)
+            .filter(|portrait| portrait.handle == handle)
     }
 
     /// The account with this tag, as it wears its picture.
@@ -64,20 +74,21 @@ impl Portraits {
         self.worn.get(tag)
     }
 
-    /// Lays in the still picture of the account with this tag.
-    pub fn set(&mut self, tag: impl Into<String>, picture: Handle<Image>) {
-        self.wear(
-            tag,
-            Portrait {
-                image: picture,
-                moving: false,
-            },
-        );
+    /// Lays in the still picture of the account `handle` names.
+    pub fn set(&mut self, handle: &str, picture: Handle<Image>) {
+        self.wear(Portrait {
+            handle: handle.to_owned(),
+            image: picture,
+            moving: false,
+        });
     }
 
-    /// Lays in the picture of the account with this tag.
-    pub fn wear(&mut self, tag: impl Into<String>, portrait: Portrait) {
-        self.worn.insert(tag.into(), portrait);
+    /// Lays in the picture of the account its handle names; a handle
+    /// without a tag names none.
+    pub fn wear(&mut self, portrait: Portrait) {
+        if let Some((_, tag)) = portrait.handle.rsplit_once('#') {
+            self.worn.insert(tag.to_owned(), portrait);
+        }
     }
 
     /// Forgets the picture of the account with this tag: it shows its
@@ -400,7 +411,7 @@ mod tests {
         let mut app = app();
         app.world_mut()
             .resource_mut::<Portraits>()
-            .set("00ff", Handle::default());
+            .set("Mia Wallace#00ff", Handle::default());
         draw(&mut app, "Mia Wallace#00ff");
         let other = draw(&mut app, "Alice#0001");
         app.update();
@@ -413,7 +424,7 @@ mod tests {
 
         app.world_mut()
             .resource_mut::<Portraits>()
-            .set("0001", Handle::default());
+            .set("Alice#0001", Handle::default());
         app.update();
         assert_eq!(pictures(&mut app), 2, "a picture that arrives is laid in");
         assert!(texts(&mut app).is_empty());
@@ -453,7 +464,7 @@ mod tests {
         let mut app = app();
         app.world_mut()
             .resource_mut::<Portraits>()
-            .set("00ff", Handle::default());
+            .set("Mia#00ff", Handle::default());
         draw(&mut app, "Alice#0001");
         draw(&mut app, "Mia#00ff");
         app.update();
@@ -468,14 +479,20 @@ mod tests {
         }
     }
 
-    /// A picture is found by the tag a handle ends in, and only by that.
+    /// A picture is kept by the tag a handle ends in and worn only by the
+    /// whole handle Central knows: a gateway's own account that happens to
+    /// hold the same tag under another name keeps its monogram.
     #[test]
-    fn a_picture_is_kept_by_the_tag_a_handle_ends_in() {
+    fn a_picture_is_worn_only_by_the_handle_central_knows() {
         let mut portraits = Portraits::default();
         assert!(portraits.of("Alice#0001").is_none());
-        portraits.set("0001", Handle::default());
+        portraits.set("Alice#0001", Handle::default());
         assert!(portraits.of("Alice#0001").is_some());
-        assert!(portraits.of("Renamed#0001").is_some(), "a name may change");
+        assert!(portraits.by_tag("0001").is_some());
+        assert!(
+            portraits.of("Mallory#0001").is_none(),
+            "the same tag under another name is someone else"
+        );
         assert!(portraits.of("Alice#0002").is_none());
         assert!(portraits.of("Alice").is_none(), "no tag, no account");
         portraits.forget("0001");

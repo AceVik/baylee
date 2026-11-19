@@ -10679,7 +10679,8 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   where a pointer would press it (`controls[].press`).
 - **A person's disc.** Wherever a person is shown they wear one disc
   (`shellkit::avatar::disc`): their picture where the client holds one
-  (`avatar::Portraits`, keyed by the account's tag), else a monogram on a
+  (`avatar::Portraits`, kept by the account's tag and worn only by the
+  whole handle Baylee Central knows it by), else a monogram on a
   tinted ground. Letters and tint are Baylee Central's own rule
   (`client-core::avatar`: the first letter of the name, or of its first two
   words; one of six tints by Central's hash over the tag in decimal), so one
@@ -10705,7 +10706,11 @@ the chat window design). The renderer never builds a frame or an HTTP body.
     the request, as before its M6) is quiet for 30 minutes; no answer backs
     off from 30 s to 10 minutes. A game gateway's tags (a recent player, a
     ranking's row) are not asked: they need not be Central's, and a stranger
-    spends Central's lookup budget, which "find or add" shares. The answer is
+    spends Central's lookup budget, which "find or add" shares. A disc wears
+    a picture only under the whole handle Central knows the account by: a
+    gateway keeps its own accounts' tags, which may equal a Central
+    account's, and such a stranger keeps the monogram it already shares
+    with that account. The answer is
     the only authority: a tag it leaves out (no picture, a block either way,
     a removed picture) wears its monogram whatever the cache holds, and a
     sign-out or another account forgets every key and picture.
