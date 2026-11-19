@@ -223,6 +223,7 @@ pub(super) fn net_target(q: &Question<'_>) -> TeacherTarget4 {
         HeadKind4::PairPick => set_target(sample_pairs_constrained(
             &q.pair_logits[..cands.pairs.len()],
             cands,
+            q.pending,
             0.0,
             &mut rng,
         )),
@@ -301,7 +302,9 @@ pub(super) fn rules_target(q: &Question<'_>, rules: TacticRules4) -> (TeacherTar
                 q.pending,
             );
             tactics::rules::pairs(&mut rules, cands, &mut adjusted, q.view, q.pending);
-            set_target(sample_pairs_constrained(&adjusted, cands, 0.0, &mut rng))
+            set_target(sample_pairs_constrained(
+                &adjusted, cands, q.pending, 0.0, &mut rng,
+            ))
         }
         HeadKind4::ScalarValue => {
             scalar_target(cands, layer_scalar(q.view, q.pending, q.scalar_pred))

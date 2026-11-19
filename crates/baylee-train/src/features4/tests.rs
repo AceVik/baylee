@@ -371,7 +371,7 @@ mod tests {
         let mut pair_probs: BTreeMap<Vec<u8>, f64> = BTreeMap::new();
         for _ in 0..4096 {
             let (mask, free_mask, seq, lp) =
-                sample_pairs_constrained(&pair_logits, &pair_cands, tau, &mut rng);
+                sample_pairs_constrained(&pair_logits, &pair_cands, &pending_blk, tau, &mut rng);
             assert!(mask[0] + mask[1] <= 1);
             assert!(mask[2] + mask[3] <= 1);
             let target = TeacherTarget4 {
@@ -406,6 +406,62 @@ mod tests {
             (total_pair_prob - 1.0).abs() < 1e-5,
             "constrained pair distribution must sum to 1.0, got {total_pair_prob}"
         );
+    }
+
+    /// An attacker that states it is blocked by two or more (menace) is never
+    /// left with one blocker: a free creature that may block it joins, and
+    /// where none is free it is left unblocked. The engine refused the lone
+    /// blocker (`TooFewBlockers`), which the tactician's tests met on a table.
+    #[test]
+    fn the_pair_sampler_meets_the_counts_each_attacker_states() {
+        use crate::deckgen::Rng;
+        use baylee_engine::choice::AttackerBound;
+        let b0 = ObjectId::new(20, 0);
+        let b1 = ObjectId::new(21, 0);
+        let a0 = ObjectId::new(30, 0);
+        let a1 = ObjectId::new(31, 0);
+        let cands = EncodedCandidates4 {
+            head: HeadKind4::PairPick,
+            pending_kind: PendingKind4::DeclareBlockers,
+            min_choices: 0,
+            max_choices: 2,
+            candidates: Vec::new(),
+            pairs: vec![[0, 2], [0, 3], [1, 2], [1, 3]],
+            pair_objects: vec![(b0, a0), (b0, a1), (b1, a0), (b1, a1)],
+        };
+        let menace = |min_blockers| Pending::ChooseBlockers {
+            player: PlayerId::new(0),
+            attacker: PlayerId::new(1),
+            blockers: Vec::new(),
+            capacity: Vec::new(),
+            obeying: Vec::new(),
+            demands: Vec::new(),
+            bounds: vec![AttackerBound {
+                attacker: a0,
+                min_blockers,
+                max_blockers: u32::MAX,
+            }],
+        };
+        let sample = |logits: &[f32], pending: &Pending| {
+            sample_pairs_constrained(logits, &cands, pending, 0.0, &mut Rng::new(3)).0
+        };
+        // b0 on a0, b1 nowhere: b1 joins b0 on a0.
+        assert_eq!(sample(&[2.0, -1.0, -1.0, -3.0], &menace(2)), [1, 0, 1, 0]);
+        // b0 on a0, b1 on a1: no one is free, so a0 goes unblocked.
+        assert_eq!(sample(&[2.0, -1.0, -1.0, 3.0], &menace(2)), [0, 0, 0, 1]);
+        // Three needed of two creatures: a0 goes unblocked.
+        assert_eq!(sample(&[2.0, -1.0, 1.5, -3.0], &menace(3)), [0, 0, 0, 0]);
+        // No stated count: the sample stands.
+        let free = Pending::ChooseBlockers {
+            player: PlayerId::new(0),
+            attacker: PlayerId::new(1),
+            blockers: Vec::new(),
+            capacity: Vec::new(),
+            obeying: Vec::new(),
+            demands: Vec::new(),
+            bounds: Vec::new(),
+        };
+        assert_eq!(sample(&[2.0, -1.0, -1.0, -3.0], &free), [1, 0, 0, 0]);
     }
 
     #[test]

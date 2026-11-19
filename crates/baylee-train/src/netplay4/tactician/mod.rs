@@ -702,7 +702,9 @@ fn net_answer(window: Window4, step: &TacticianStep<'_>, logits: &[f32]) -> Vec<
         Window4::Attack => {
             sample_subset_constrained(logits, step.cands, step.pending, 0.0, &mut rng).0
         }
-        Window4::Block => sample_pairs_constrained(logits, step.cands, 0.0, &mut rng).0,
+        Window4::Block => {
+            sample_pairs_constrained(logits, step.cands, step.pending, 0.0, &mut rng).0
+        }
     }
 }
 
@@ -794,7 +796,7 @@ pub(in crate::netplay4) fn rules_answer_fired(
                 step.view,
                 step.pending,
             );
-            sample_pairs_constrained(&adjusted, step.cands, 0.0, &mut rng).0
+            sample_pairs_constrained(&adjusted, step.cands, step.pending, 0.0, &mut rng).0
         }
     };
     let fired = rules.fired_since(&before);
