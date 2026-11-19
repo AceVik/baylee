@@ -61,22 +61,22 @@ fn a_choice_outlives_a_restart_of_the_device() {
 fn ten_idle_minutes_read_away_until_the_next_input_and_a_choice_of_away_stays() {
     let (_gw, mut alice) = alice();
     let now = alice.now;
-    assert_eq!(alice.social.report(), (None, false));
+    assert_eq!(alice.social.report(), (None, false, None));
     let idle = alice.social.tick(now, AWAY_AFTER_MS);
     assert_eq!(told(&idle), [Status::Away]);
-    assert_eq!(alice.social.report(), (None, true));
+    assert_eq!(alice.social.report(), (None, true, None));
     // Idle a little longer says nothing again.
     assert!(told(&alice.social.tick(now, AWAY_AFTER_MS + 9_000)).is_empty());
     let back = alice.social.tick(now, 0);
     assert_eq!(told(&back), [Status::Online]);
-    assert_eq!(alice.social.report(), (None, false));
+    assert_eq!(alice.social.report(), (None, false, None));
     // Chosen away, idleness changes what Central hears and not the status.
     let chosen = alice
         .social
         .act(Intent::Choose(Choice::Afk), now, &mut alice.rng);
     assert_eq!(told(&chosen), [Status::Away]);
     assert!(told(&alice.social.tick(now, AWAY_AFTER_MS)).is_empty());
-    assert_eq!(alice.social.report(), (None, true));
+    assert_eq!(alice.social.report(), (None, true, None));
     assert!(told(&alice.social.tick(now, 0)).is_empty());
     assert_eq!(alice.social.status(), Status::Away);
     // The choice was never turned into "online" by an input.
@@ -86,11 +86,36 @@ fn ten_idle_minutes_read_away_until_the_next_input_and_a_choice_of_away_stays() 
 #[test]
 fn what_the_client_is_doing_is_reported_and_never_told_to_the_gateway() {
     let (_gw, mut alice) = alice();
-    alice.social.set_doing(Some(Activity::Table));
-    assert_eq!(alice.social.report(), (Some(Activity::Table), false));
-    alice.social.set_doing(Some(Activity::Playing));
-    assert_eq!(alice.social.report(), (Some(Activity::Playing), false));
+    alice.social.set_doing(Some(Activity::Table), None);
+    assert_eq!(alice.social.report(), (Some(Activity::Table), false, None));
+    alice.social.set_doing(Some(Activity::Playing), None);
+    assert_eq!(
+        alice.social.report(),
+        (Some(Activity::Playing), false, None)
+    );
     assert_eq!(alice.social.status(), Status::Online);
+}
+
+#[test]
+fn the_table_goes_with_an_activity_and_nowhere_but_the_report() {
+    let (_gw, mut alice) = alice();
+    let table = central_api::presence::Table {
+        origin: "https://gateway.example".into(),
+        game: "g-1".into(),
+        name: "Friday".into(),
+        seats: 4,
+        taken: 2,
+    };
+    alice
+        .social
+        .set_doing(Some(Activity::Table), Some(table.clone()));
+    assert_eq!(
+        alice.social.report(),
+        (Some(Activity::Table), false, Some(table.clone()))
+    );
+    // without an activity there is no table to name
+    alice.social.set_doing(None, Some(table));
+    assert_eq!(alice.social.report(), (None, false, None));
 }
 
 #[test]
@@ -198,4 +223,67 @@ fn a_state_file_from_before_the_status_keeps_what_its_one_status_said() {
         kept_choice(Some(Choice::Afk), true, Some(Status::Invisible)),
         (Choice::Afk, true)
     );
+}
+
+#[test]
+fn a_friend_s_table_here_with_a_chair_free_is_joined_through_the_lobby() {
+    use baylee_protocol::social::{Down, Friend, Person, Place, Presence, Shown, Snapshot};
+    let (_gw, mut alice) = alice();
+    let room = |game: Option<&str>, taken| Place::Room {
+        game: game.map(str::to_owned),
+        name: "Friday".into(),
+        seats: 4,
+        taken,
+        locked: false,
+    };
+    for (place, joined) in [
+        // a table at this client's gateway, a chair free
+        (room(Some("g-1"), 3), Some("g-1")),
+        // full
+        (room(Some("g-1"), 4), None),
+        // at another gateway: no game to join
+        (room(None, 1), None),
+        // a running game is watched, not joined
+        (
+            Place::Playing {
+                game: Some("g-1".into()),
+                name: "Friday".into(),
+                seats: 2,
+                running_secs: 0,
+            },
+            None,
+        ),
+    ] {
+        let snapshot = Snapshot {
+            friends: vec![Friend {
+                person: Person {
+                    tag: "b0b0".into(),
+                    handle: "Bob#b0b0".into(),
+                    guest: false,
+                },
+                since: 1,
+                presence: Presence {
+                    status: Shown::Online,
+                    place: Some(place.clone()),
+                },
+            }],
+            ..Snapshot::default()
+        };
+        let now = alice.now;
+        alice
+            .social
+            .on_frame(Down::Snapshot(snapshot), now, &mut alice.rng);
+        let effects = alice
+            .social
+            .act(Intent::Join { tag: "b0b0".into() }, now, &mut alice.rng);
+        let join = effects.iter().find_map(|effect| match effect {
+            Effect::JoinTable { game, invite } => Some((game.clone(), invite.clone())),
+            _ => None,
+        });
+        assert_eq!(
+            join,
+            joined.map(|game| (game.to_owned(), None)),
+            "{place:?}"
+        );
+    }
 }

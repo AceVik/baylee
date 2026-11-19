@@ -494,12 +494,32 @@ fn the_view_hands_through_the_other_sections() {
 
 mod central {
     //! A friend as Baylee Central shows it, beside what a game gateway knows.
-    use super::{Place, Shown, playing, presence, room};
-    use crate::social::{place_name, shown_by_central};
-    use central_api::presence::{Activity, Shown as Central};
+    use super::{Place, Presence, Shown, playing, presence, room};
+    use crate::social::place_name;
+    use crate::social::shown_by_central as shown_with;
+    use central_api::presence::{Activity, Shown as Central, Table};
 
     fn central(away: bool, activity: Option<Activity>) -> Central {
         Central { away, activity }
+    }
+
+    /// What Central shows of a friend that shares no table, beside what the
+    /// gateway says.
+    fn shown_by_central(central: Central, gateway: Option<&Presence>) -> Presence {
+        shown_with(central, None, Some(HERE), gateway)
+    }
+
+    const HERE: &str = "https://gateway.example";
+
+    /// A table a friend shares at `origin`.
+    fn shared(origin: &str) -> Table {
+        Table {
+            origin: origin.into(),
+            game: "01937d4e-7b1c-7000-8000-000000000001".into(),
+            name: "Friday \"draft\"".into(),
+            seats: 4,
+            taken: 3,
+        }
     }
 
     #[test]
@@ -519,6 +539,155 @@ mod central {
             shown_by_central(central(true, None), None),
             presence(Shown::Away, Some(Place::Lobby))
         );
+    }
+
+    #[test]
+    fn a_table_shared_here_is_named_and_can_be_joined_or_watched() {
+        let table = shared(HERE);
+        assert_eq!(
+            shown_with(
+                central(false, Some(Activity::Table)),
+                Some(&table),
+                Some(HERE),
+                None
+            ),
+            presence(
+                Shown::Online,
+                Some(Place::Room {
+                    game: Some(table.game.clone()),
+                    name: table.name.clone(),
+                    seats: 4,
+                    taken: 3,
+                    locked: false,
+                })
+            )
+        );
+        assert_eq!(
+            shown_with(
+                central(true, Some(Activity::Playing)),
+                Some(&table),
+                Some(HERE),
+                None
+            ),
+            presence(
+                Shown::Away,
+                Some(Place::Playing {
+                    game: Some(table.game.clone()),
+                    name: table.name.clone(),
+                    seats: 4,
+                    running_secs: 0,
+                })
+            )
+        );
+    }
+
+    #[test]
+    fn a_table_shared_at_another_gateway_is_a_name_and_nothing_to_join() {
+        for elsewhere in [
+            "https://other.example",
+            "https://gateway.example:8443",
+            "http://127.0.0.1:28766",
+        ] {
+            let table = shared(elsewhere);
+            for here in [Some(HERE), None] {
+                let place = shown_with(
+                    central(false, Some(Activity::Table)),
+                    Some(&table),
+                    here,
+                    None,
+                )
+                .place
+                .unwrap();
+                assert_eq!(place_name(&place), Some("Friday \"draft\""), "{elsewhere}");
+                assert!(
+                    matches!(
+                        place,
+                        Place::Room {
+                            game: None,
+                            seats: 4,
+                            taken: 3,
+                            ..
+                        }
+                    ),
+                    "{elsewhere}: {place:?}"
+                );
+            }
+        }
+        // a client signed in nowhere joins nothing, not even "here"'s
+        let place = shown_with(
+            central(false, Some(Activity::Playing)),
+            Some(&shared(HERE)),
+            None,
+            None,
+        )
+        .place;
+        assert!(matches!(place, Some(Place::Playing { game: None, .. })));
+    }
+
+    #[test]
+    fn a_shared_table_out_of_bounds_or_without_an_activity_is_not_used() {
+        let mut bad = shared(HERE);
+        bad.name = "\u{202E}evil\nline".into();
+        let place = shown_with(
+            central(false, Some(Activity::Table)),
+            Some(&bad),
+            Some(HERE),
+            None,
+        )
+        .place
+        .unwrap();
+        assert_eq!(place_name(&place), None);
+        assert!(matches!(
+            place,
+            Place::Room {
+                game: None,
+                seats: 0,
+                ..
+            }
+        ));
+        let mut full = shared(HERE);
+        full.taken = 5;
+        assert!(matches!(
+            shown_with(
+                central(false, Some(Activity::Table)),
+                Some(&full),
+                Some(HERE),
+                None
+            )
+            .place,
+            Some(Place::Room { game: None, .. })
+        ));
+        // shown online with no activity: the lobby, whatever table it named
+        assert_eq!(
+            shown_with(central(false, None), Some(&shared(HERE)), Some(HERE), None).place,
+            Some(Place::Lobby)
+        );
+    }
+
+    #[test]
+    fn the_gateway_s_own_place_stands_before_a_shared_table() {
+        let at_room = presence(Shown::Online, Some(room()));
+        assert_eq!(
+            shown_with(
+                central(false, Some(Activity::Table)),
+                Some(&shared(HERE)),
+                Some(HERE),
+                Some(&at_room)
+            )
+            .place,
+            Some(room())
+        );
+        // where the gateway disagrees with Central, the shared table speaks
+        assert!(matches!(
+            shown_with(
+                central(false, Some(Activity::Playing)),
+                Some(&shared(HERE)),
+                Some(HERE),
+                Some(&at_room)
+            )
+            .place,
+            Some(Place::Playing { game: Some(_), ref name, .. }) if name == "Friday \"draft\""
+        ));
     }
 
     #[test]

@@ -5,9 +5,12 @@
 //! A choice goes one at a time and the latest one wins; a refusal puts back
 //! what Central last kept. What the machine reports is said after every
 //! `ready` of the push socket, since Central forgets it with the socket, and
-//! then only when it changes, never more often than [`REPORT_EVERY_MS`].
-use super::{Error, SocialHost};
-use baylee_client_core::social::presence::{Activity, Choice};
+//! then only when it changes, never more often than [`REPORT_EVERY_MS`]. The
+//! table the player sits at goes with it only while the player shares it
+//! (the game gateway's `share_table`, once the gateway or the player has said
+//! it) and the socket's `ready` said Central takes one ([`shared`]).
+use super::{Bridge, Error, SocialHost};
+use baylee_client_core::social::presence::{Activity, Choice, Table};
 use std::sync::{Mutex, mpsc};
 
 /// The least time between two reports. Central takes thirty a minute from a
@@ -17,8 +20,19 @@ pub(super) const REPORT_EVERY_MS: u64 = 2_500;
 /// How long after a reading of the kept choice failed it is tried again.
 pub(super) const READ_AGAIN_MS: u64 = 60_000;
 
-/// What the client says it is doing: playing or at a table, and idle.
-type Report = (Option<Activity>, bool);
+/// What the client says it is doing: playing or at a table, idle, and the
+/// table it shares.
+type Report = (Option<Activity>, bool, Option<Table>);
+
+/// The table a report may carry: the machine's, only while the player shares
+/// its table and Central announced that it takes one. Before the game
+/// gateway or the player has said the setting, `share_table` is only the
+/// default (on), so nothing is shared yet: the side to err on.
+fn shared(bridge: &Bridge, table: Option<Table>) -> Option<Table> {
+    table.filter(|_| {
+        bridge.settings_heard && bridge.game.settings.share_table && bridge.handle.takes_tables()
+    })
+}
 
 /// The worker's answer to one request, once it has one.
 type Answer<T> = Mutex<mpsc::Receiver<Result<T, Error>>>;
@@ -109,6 +123,8 @@ pub(super) fn tick(host: &mut SocialHost, now: u64) {
     let Some(bridge) = host.central.as_mut() else {
         return;
     };
+    let (doing, idle, table) = report;
+    let report: Report = (doing, idle, shared(bridge, table));
     let status = &mut bridge.status;
     if status.asked.is_none()
         && let Some((choice, was)) = status.wanted
@@ -140,14 +156,14 @@ pub(super) fn tick(host: &mut SocialHost, now: u64) {
         status.said = None;
     }
     if bridge.handle.ws_live()
-        && status.said != Some(report)
+        && status.said.as_ref() != Some(&report)
         && now >= status.said_at.saturating_add(REPORT_EVERY_MS)
     {
-        let (doing, idle) = report;
+        let (doing, idle, table) = report.clone();
         // Nothing waits for the answer: Central answers alike whether it
         // heard the report or not, and the next change says it again.
         if bridge.handle.submit(move |account| {
-            let _ = account.report_presence(doing, idle);
+            let _ = account.report_presence(doing, idle, table);
         }) {
             status.said = Some(report);
             status.said_at = now;

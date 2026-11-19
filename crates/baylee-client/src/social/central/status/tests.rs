@@ -250,20 +250,20 @@ fn the_report_is_said_after_every_ready_and_then_only_when_it_changes() {
     host.machine
         .as_mut()
         .unwrap()
-        .set_doing(Some(Activity::Table));
+        .set_doing(Some(Activity::Table), None);
     tick(&mut host, T0 + 20 + REPORT_EVERY_MS);
     assert_eq!(handed(&jobs), 1);
     host.machine
         .as_mut()
         .unwrap()
-        .set_doing(Some(Activity::Playing));
+        .set_doing(Some(Activity::Playing), None);
     tick(&mut host, T0 + 30 + REPORT_EVERY_MS);
     assert_eq!(handed(&jobs), 0, "too soon after the last");
     tick(&mut host, T0 + 20 + 2 * REPORT_EVERY_MS);
     assert_eq!(handed(&jobs), 1);
     assert_eq!(
         status(&mut host).said,
-        Some((Some(Activity::Playing), false))
+        Some((Some(Activity::Playing), false, None))
     );
     // The socket dialled again: Central forgot, so the same is said again.
     handle.say_ready_for_test();
@@ -271,7 +271,149 @@ fn the_report_is_said_after_every_ready_and_then_only_when_it_changes() {
     assert_eq!(handed(&jobs), 1);
     // A socket that is down hears nothing.
     handle.set_ws_live_for_test(false);
-    host.machine.as_mut().unwrap().set_doing(None);
+    host.machine.as_mut().unwrap().set_doing(None, None);
     tick(&mut host, T0 + 20 + 4 * REPORT_EVERY_MS);
     assert_eq!(handed(&jobs), 0);
+}
+
+/// The player's own social settings, as the drawer sends them to the game
+/// gateway: the bridge takes them on the way.
+fn share(host: &mut SocialHost, share_table: bool) {
+    let settings = serde_json::to_value(baylee_protocol::social::SocialSettings {
+        share_table,
+        ..Default::default()
+    })
+    .unwrap();
+    // The gateway, not the account worker, carries them.
+    assert!(!super::super::request(
+        host,
+        &baylee_client_core::social::HttpTag::Settings,
+        baylee_client_core::social::Method::Put,
+        "/social/settings",
+        Some(&settings),
+    ));
+}
+
+#[test]
+fn a_table_goes_only_while_it_is_shared_and_central_said_it_takes_one() {
+    let (mut host, jobs) = host();
+    known(&mut host, Choice::Online);
+    let handle = host.central.as_ref().unwrap().handle.clone();
+    handle.set_ws_live_for_test(true);
+    handle.say_ready_for_test();
+    let table = Table {
+        origin: "https://gateway.invalid".into(),
+        game: "g-1".into(),
+        name: "Friday".into(),
+        seats: 4,
+        taken: 2,
+    };
+    host.machine
+        .as_mut()
+        .unwrap()
+        .set_doing(Some(Activity::Table), Some(table.clone()));
+    let said = |host: &mut SocialHost| status(host).said.clone().map(|said| said.2);
+    // A Central that did not announce tables, a setting nobody has said yet
+    // (the default shares): no table.
+    tick(&mut host, T0);
+    assert_eq!(handed(&jobs), 1);
+    assert_eq!(said(&mut host), Some(None));
+    let takes = crate::lobby::central::Seen {
+        takes_tables: true,
+        ..Default::default()
+    };
+    handle.set_seen_for_test(takes.clone());
+    tick(&mut host, T0 + REPORT_EVERY_MS);
+    assert_eq!(handed(&jobs), 0, "the default is not the player's word");
+    // The player shares it: the table goes.
+    share(&mut host, true);
+    tick(&mut host, T0 + 2 * REPORT_EVERY_MS);
+    assert_eq!(handed(&jobs), 1);
+    assert_eq!(said(&mut host), Some(Some(table.clone())));
+    // The player stops sharing: a report without it, at once.
+    share(&mut host, false);
+    tick(&mut host, T0 + 3 * REPORT_EVERY_MS);
+    assert_eq!(handed(&jobs), 1);
+    assert_eq!(said(&mut host), Some(None));
+    // Shared again, then the socket comes back from a Central without
+    // tables: a report without it.
+    share(&mut host, true);
+    tick(&mut host, T0 + 4 * REPORT_EVERY_MS);
+    assert_eq!(handed(&jobs), 1);
+    assert_eq!(said(&mut host), Some(Some(table.clone())));
+    handle.set_seen_for_test(crate::lobby::central::Seen::default());
+    handle.say_ready_for_test();
+    tick(&mut host, T0 + 5 * REPORT_EVERY_MS);
+    assert_eq!(handed(&jobs), 1);
+    assert_eq!(said(&mut host), Some(None));
+    // A table the machine no longer names (a password set, the player got
+    // up) goes from the report too.
+    handle.set_seen_for_test(takes);
+    tick(&mut host, T0 + 6 * REPORT_EVERY_MS);
+    assert_eq!(handed(&jobs), 1);
+    assert_eq!(said(&mut host), Some(Some(table)));
+    host.machine
+        .as_mut()
+        .unwrap()
+        .set_doing(Some(Activity::Table), None);
+    tick(&mut host, T0 + 7 * REPORT_EVERY_MS);
+    assert_eq!(handed(&jobs), 1);
+    assert_eq!(said(&mut host), Some(None));
+}
+
+#[test]
+fn a_game_gateway_s_snapshot_is_the_player_s_word_on_sharing() {
+    let (mut host, jobs) = host();
+    known(&mut host, Choice::Online);
+    let handle = host.central.as_ref().unwrap().handle.clone();
+    handle.set_ws_live_for_test(true);
+    handle.set_seen_for_test(crate::lobby::central::Seen {
+        takes_tables: true,
+        ..Default::default()
+    });
+    handle.say_ready_for_test();
+    let table = Table {
+        origin: "https://gateway.invalid".into(),
+        game: "g-1".into(),
+        name: String::new(),
+        seats: 2,
+        taken: 1,
+    };
+    host.machine
+        .as_mut()
+        .unwrap()
+        .set_doing(Some(Activity::Playing), Some(table.clone()));
+    // The gateway's snapshot, with sharing off: nothing.
+    let snapshot = |share_table: bool| {
+        serde_json::to_string(&baylee_protocol::social::Down::Snapshot(
+            baylee_protocol::social::Snapshot {
+                settings: baylee_protocol::social::SocialSettings {
+                    share_table,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        ))
+        .unwrap()
+    };
+    super::super::gateway_news(
+        &mut host,
+        &super::super::transport::LinkNews::Frame(snapshot(false)),
+    );
+    tick(&mut host, T0);
+    assert_eq!(
+        status(&mut host).said.clone().map(|said| said.2),
+        Some(None)
+    );
+    // With sharing on: the table.
+    super::super::gateway_news(
+        &mut host,
+        &super::super::transport::LinkNews::Frame(snapshot(true)),
+    );
+    tick(&mut host, T0 + REPORT_EVERY_MS);
+    assert_eq!(
+        status(&mut host).said.clone().map(|said| said.2),
+        Some(Some(table))
+    );
+    let _ = handed(&jobs);
 }

@@ -234,6 +234,25 @@ impl Social {
                     self.answer(ChatPhrase::ToastRefused, Vec::new(), now_ms);
                 }
             }
+            Intent::Join { tag } => {
+                // A game id is there only for a table at this client's own
+                // gateway (`contacts::shown_by_central`); the lobby's join,
+                // never a dial of its own, sits the player down.
+                let game = self
+                    .contacts
+                    .friend(&tag)
+                    .and_then(|f| match &f.presence.place {
+                        Some(baylee_protocol::social::Place::Room {
+                            game, seats, taken, ..
+                        }) if taken < seats => game.clone(),
+                        _ => None,
+                    });
+                if let Some(game) = game {
+                    out.push(Effect::JoinTable { game, invite: None });
+                } else {
+                    self.answer(ChatPhrase::ToastRefused, Vec::new(), now_ms);
+                }
+            }
             Intent::Choose(choice) => {
                 let was = self.choice;
                 self.keep_choice(choice);

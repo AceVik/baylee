@@ -238,9 +238,8 @@ mod tests {
     #[test]
     fn a_friendship_without_its_date_has_no_length() {
         let now = 20_000 * DAY_MS;
-        let says = |lang| {
-            card(Relation::Friend { since: None }, None, false).relation_words(lang, now)
-        };
+        let says =
+            |lang| card(Relation::Friend { since: None }, None, false).relation_words(lang, now);
         assert_eq!(says(Lang::En).as_deref(), Some("Friends"));
         assert_eq!(says(Lang::De).as_deref(), Some("Befreundet"));
     }

@@ -98,6 +98,7 @@ fn receive_frame(host: &mut SocialHost, frame: Down) {
         Down::Snapshot(snapshot) => {
             bridge.game = snapshot;
             bridge.game_welcomed = true;
+            bridge.settings_heard = true;
             Some(Down::Snapshot(bridge.snapshot()))
         }
         Down::Sent { req, .. } | Down::Refused { req: Some(req), .. }

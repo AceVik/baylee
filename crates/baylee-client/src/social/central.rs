@@ -41,6 +41,10 @@ pub(super) struct Bridge {
     game_registration: Option<serde_json::Value>,
     game_state: gateway::Registration,
     game_welcomed: bool,
+    /// Whether `game.settings` is the player's own: the game gateway's
+    /// snapshot said it, or the player set it since. Until then it is the
+    /// default, which shares the table, so no table is told to Central.
+    settings_heard: bool,
     ready: bool,
     wanted: bool,
     welcomed: bool,
@@ -81,6 +85,7 @@ impl Bridge {
             game_registration: None,
             game_state: gateway::Registration::Waiting(0),
             game_welcomed: false,
+            settings_heard: false,
             ready: false,
             wanted: true,
             welcomed: false,
@@ -129,11 +134,14 @@ impl Bridge {
         snapshot.settings = self.game.settings;
         // Once Baylee Central's push socket has said who is online, it alone
         // says who is shown: a friend who chose offline there is offline
-        // here whatever a game gateway says, and the gateway only adds where
-        // a friend Central shows is sitting. Until it has (no socket, or a
-        // Central without one), the gateway's word stands as it did before
-        // the status: a friend who chose offline tells its gateway so too.
+        // here whatever a game gateway says. Where a friend Central shows is
+        // sitting comes from the gateway, or from the table the friend shares
+        // through Central, joinable only at this client's own gateway. Until
+        // it has (no socket, or a Central without one), the gateway's word
+        // stands as it did before the status: a friend who chose offline
+        // tells its gateway so too.
         let seen = self.handle.seen();
+        let here = baylee_client_core::social::doing::origin_of(&self.session.gateway);
         for friend in &mut snapshot.friends {
             let peer = self
                 .game
@@ -149,7 +157,12 @@ impl Bridge {
             }
             let gateway = peer.map(|peer| &peer.presence);
             friend.presence = match seen.friends.get(&friend.person.tag) {
-                Some(shown) => baylee_client_core::social::shown_by_central(*shown, gateway),
+                Some(shown) => baylee_client_core::social::shown_by_central(
+                    *shown,
+                    seen.tables.get(&friend.person.tag),
+                    here.as_deref(),
+                    gateway,
+                ),
                 None if seen.told => wire::Presence::offline(),
                 None => gateway.cloned().unwrap_or_else(wire::Presence::offline),
             };
@@ -228,6 +241,7 @@ pub(super) fn rebind_session(host: &mut SocialHost, session: Session) {
         bridge.game_requests.clear();
         bridge.game_state = gateway::Registration::Waiting(0);
         bridge.game_welcomed = false;
+        bridge.settings_heard = false;
         (bridge.ready && bridge.welcomed).then(|| bridge.snapshot())
     } else {
         None
@@ -247,6 +261,17 @@ pub(super) fn request(
     let Some(bridge) = host.central.as_mut() else {
         return false;
     };
+    // The player's settings go to the game gateway as before; the merged
+    // snapshot takes them at once, so a later one does not put back what the
+    // gateway said before, and the table stops being shared the moment the
+    // player says so.
+    if matches!(tag, HttpTag::Settings)
+        && let Some(settings) =
+            body.and_then(|body| serde_json::from_value::<wire::SocialSettings>(body.clone()).ok())
+    {
+        bridge.game.settings = settings;
+        bridge.settings_heard = true;
+    }
     if !http::handles(tag) {
         return false;
     }

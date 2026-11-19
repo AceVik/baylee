@@ -45,6 +45,8 @@ pub(crate) enum DrawerPress {
     Cancel(String),
     Whisper(String),
     Watch(String),
+    /// Sit down at the table a friend waits at (`Intent::Join`).
+    Join(String),
     InviteToTable(String),
     More(String),
     Nickname(String),
@@ -658,6 +660,11 @@ fn presses(
             }
             DrawerPress::Watch(tag) => {
                 host.act(Intent::Watch { tag });
+                *more = None;
+                ui.drawer_menu = None;
+            }
+            DrawerPress::Join(tag) => {
+                host.act(Intent::Join { tag });
                 *more = None;
                 ui.drawer_menu = None;
             }
@@ -2273,6 +2280,7 @@ fn sync_context_menu(
             at.0.y.to_bits(),
             at_table,
             my_table,
+            machine.table().map(|table| table.game.as_str()),
             lang as u8,
             machine.choice() as u8,
             machine.quiet(),
@@ -2411,6 +2419,26 @@ fn sync_context_menu(
                 icon: glyph::EYE,
                 label: ChatPhrase::WatchButton.text(lang).to_string(),
                 press: DrawerPress::Watch(tag.clone()),
+                danger: false,
+            });
+        }
+        // A friend's waiting table at this client's own gateway with a chair
+        // free (only such a place carries its game), not the one this player
+        // already sits at: the lobby's own join.
+        if let Some(Place::Room {
+            game: Some(game),
+            seats,
+            taken,
+            ..
+        }) = &friend.presence.place
+            && taken < seats
+            && !at_table
+            && machine.table().is_none_or(|table| table.game != *game)
+        {
+            entries.push(MenuEntry::Action {
+                icon: glyph::ARROW_RIGHT,
+                label: ChatPhrase::JoinButton.text(lang).to_string(),
+                press: DrawerPress::Join(tag.clone()),
                 danger: false,
             });
         }

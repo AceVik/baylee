@@ -203,6 +203,10 @@ pub struct Social {
     idle: bool,
     /// What the client is doing, as Baylee Central is told it.
     doing: Option<Doing>,
+    /// The table it may name with that ([`super::doing::shared_table`]):
+    /// never one with a password; whether the player shares it at all is the
+    /// bridge's to check before Central hears of it.
+    shared: Option<central_api::presence::Table>,
     /// Baylee Central keeps the choice and has not said it yet: until it
     /// does, the game gateway is told `invisible`, since the choice kept on
     /// this device may be older than one made on another.
@@ -310,6 +314,7 @@ impl Social {
             quiet,
             idle: false,
             doing: None,
+            shared: None,
             unheard: false,
             activity: None,
             outbox: Vec::new(),
@@ -462,18 +467,27 @@ impl Social {
     }
 
     /// What the client is doing, for Baylee Central's friends: sitting in a
-    /// running game, at a table whose game has not begun, or neither.
-    pub fn set_doing(&mut self, doing: Option<Doing>) {
+    /// running game, at a table whose game has not begun, or neither; and
+    /// the table it may name with it ([`super::doing::shared_table`]), kept
+    /// only with an activity.
+    pub fn set_doing(
+        &mut self,
+        doing: Option<Doing>,
+        shared: Option<central_api::presence::Table>,
+    ) {
         self.doing = doing;
+        self.shared = shared.filter(|_| doing.is_some());
     }
 
     /// What Baylee Central is to be told of the client: what it is doing,
-    /// and whether it has been idle for [`AWAY_AFTER_MS`]. Central hears a
-    /// report only on an open push socket and forgets it with the socket,
-    /// so the client says it after each dial and whenever it changes.
+    /// whether it has been idle for [`AWAY_AFTER_MS`], and the table it may
+    /// name, which the bridge sends only while the player shares it and the
+    /// push socket said Central takes one. Central hears a report only on an
+    /// open push socket and forgets it with the socket, so the client says it
+    /// after each dial and whenever it changes.
     #[must_use]
-    pub fn report(&self) -> (Option<Doing>, bool) {
-        (self.doing, self.idle)
+    pub fn report(&self) -> (Option<Doing>, bool, Option<central_api::presence::Table>) {
+        (self.doing, self.idle, self.shared.clone())
     }
 
     /// Baylee Central keeps this account's choice: until it has said it

@@ -123,7 +123,21 @@ pub(crate) struct Seen {
     pub(crate) me: Option<presence::Choice>,
     /// Whether the socket has said `presence` since it opened.
     pub(crate) told: bool,
+    /// The tables friends share, by tag, as `table` frames said them and
+    /// within Central's bounds (`presence::Table::valid`): kept until a frame
+    /// clears one, a `presence` frame no longer lists the friend, or the
+    /// socket goes. Used only while the friend is shown playing or at a table.
+    pub(crate) tables: std::collections::BTreeMap<String, presence::Table>,
+    /// Whether this socket's `ready` said Central takes a table with a
+    /// report (`"tables":true`): an older Central refuses a report that
+    /// carries one, so none is sent to it.
+    pub(crate) takes_tables: bool,
 }
+
+/// The most friends' tables kept at once: as many friends as Central lets an
+/// account have (`central_api::social::MAX_CONTACTS`), so a Central that names
+/// tags it never lists cannot grow the map.
+const MAX_TABLES: usize = 300;
 
 #[derive(serde::Deserialize)]
 struct CentralWsPush {
@@ -136,6 +150,18 @@ struct CentralWsPush {
     /// The account's own choice; absent from a Central before the status.
     #[serde(default)]
     me: Option<String>,
+    /// `ready`'s announcement that Central takes a table with a report; any
+    /// value is read, and only `true` counts, so a later shape of it never
+    /// costs the `ready` frame.
+    #[serde(default)]
+    tables: Option<serde_json::Value>,
+    /// The friend a `table` frame is about.
+    #[serde(default)]
+    tag: Option<String>,
+    /// The table it shares, read leniently: one that does not decode, or is
+    /// absent, clears the friend's.
+    #[serde(default, deserialize_with = "presence::Table::lenient")]
+    table: Option<presence::Table>,
 }
 
 impl Handle {
@@ -185,6 +211,11 @@ impl Handle {
     }
     pub(crate) fn seen(&self) -> Seen {
         self.seen.lock().map_or_default(|seen| seen.clone())
+    }
+    /// Whether the push socket standing now said that Central takes a table
+    /// with a report ([`Seen::takes_tables`]).
+    pub(crate) fn takes_tables(&self) -> bool {
+        self.seen.lock().is_ok_and(|seen| seen.takes_tables)
     }
     #[cfg(test)]
     pub(crate) fn set_ws_live_for_test(&self, live: bool) {
@@ -423,6 +454,55 @@ fn forget_seen(seen: &Mutex<Seen>, presence_seq: &AtomicU64) {
     }
 }
 
+/// What a `ready`, `presence` or `table` frame changes of what the socket
+/// said (`docs/client.md` §"The contact status"); any other event changes
+/// nothing of it. `ready` says whether Central takes a table with a report; a
+/// `presence` frame replaces the friends shown and the choice, and forgets
+/// the tables of friends it no longer lists; a `table` frame sets or clears
+/// one friend's table, keeping one only within Central's bounds. A tag not
+/// yet held is taken only while fewer than [`MAX_TABLES`] are: the frame
+/// comes before the `presence` frame that lists the friend, so it cannot wait
+/// for that list.
+fn take_frame(held: &mut Seen, parsed: CentralWsPush) {
+    match parsed.event.as_str() {
+        "ready" => {
+            held.takes_tables =
+                parsed.tables.as_ref().and_then(serde_json::Value::as_bool) == Some(true);
+        }
+        "presence" => {
+            // A frame that says less (an older Central, a letter not known)
+            // shows its friends online.
+            let friends: std::collections::BTreeMap<String, presence::Shown> =
+                presence::Shown::read(&parsed.online, parsed.states.as_deref())
+                    .into_iter()
+                    .map(|(tag, shown)| (tag.to_owned(), shown))
+                    .collect();
+            held.tables.retain(|tag, _| friends.contains_key(tag));
+            held.friends = friends;
+            held.me = parsed.me.as_deref().and_then(presence::Choice::named);
+            held.told = true;
+        }
+        "table" => {
+            let Some(tag) = parsed
+                .tag
+                .filter(|tag| baylee_protocol::social::valid_tag(tag))
+            else {
+                return;
+            };
+            match parsed.table.filter(presence::Table::valid) {
+                Some(table) if held.tables.len() < MAX_TABLES || held.tables.contains_key(&tag) => {
+                    held.tables.insert(tag, table);
+                }
+                Some(_) => {}
+                None => {
+                    held.tables.remove(&tag);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
 fn drain_central_ws(
     rx: &crate::transport::WsReceiver,
     ws_live: &AtomicBool,
@@ -438,7 +518,13 @@ fn drain_central_ws(
         match event {
             ewebsock::WsEvent::Message(ewebsock::WsMessage::Text(text)) => {
                 if let Ok(parsed) = serde_json::from_str::<CentralWsPush>(&text) {
-                    match parsed.event.as_str() {
+                    let event = parsed.event.clone();
+                    if matches!(event.as_str(), "ready" | "presence" | "table")
+                        && let Ok(mut held) = seen.lock()
+                    {
+                        take_frame(&mut held, parsed);
+                    }
+                    match event.as_str() {
                         "ready" => {
                             ws_live.store(true, Ordering::Release);
                             chat_seq.fetch_add(1, Ordering::AcqRel);
@@ -452,23 +538,7 @@ fn drain_central_ws(
                             social_seq.fetch_add(1, Ordering::AcqRel);
                             chat_seq.fetch_add(1, Ordering::AcqRel);
                         }
-                        "presence" => {
-                            // A frame that says less (an older Central, a
-                            // letter not known) shows its friends online.
-                            let said = Seen {
-                                friends: presence::Shown::read(
-                                    &parsed.online,
-                                    parsed.states.as_deref(),
-                                )
-                                .into_iter()
-                                .map(|(tag, shown)| (tag.to_owned(), shown))
-                                .collect(),
-                                me: parsed.me.as_deref().and_then(presence::Choice::named),
-                                told: true,
-                            };
-                            if let Ok(mut held) = seen.lock() {
-                                *held = said;
-                            }
+                        "presence" | "table" => {
                             presence_seq.fetch_add(1, Ordering::AcqRel);
                         }
                         "revoked" => {
@@ -1758,5 +1828,116 @@ mod tests {
             jobs.try_recv().is_err(),
             "a second device wrote over the player's rail"
         );
+    }
+
+    /// One frame as the socket reader reads it.
+    fn frame(text: &str) -> CentralWsPush {
+        serde_json::from_str(text).expect("a frame the reader takes")
+    }
+
+    const TABLE: &str = r#"{"origin":"https://gateway.example","game":"01937d4e-7b1c-7000-8000-000000000001","name":"Friday \"draft\"","seats":4,"taken":2}"#;
+
+    fn table_frame(tag: &str, table: &str) -> CentralWsPush {
+        frame(&format!(
+            r#"{{"event":"table","tag":"{tag}","table":{table}}}"#
+        ))
+    }
+
+    #[test]
+    fn only_a_ready_that_says_tables_lets_a_table_be_sent() {
+        let mut seen = Seen::default();
+        // an older Central's ready, and every other shape of the field
+        for ready in [
+            r#"{"event":"ready"}"#,
+            r#"{"event":"ready","tables":false}"#,
+            r#"{"event":"ready","tables":"true"}"#,
+            r#"{"event":"ready","tables":1}"#,
+            r#"{"event":"ready","tables":{"v":2}}"#,
+        ] {
+            take_frame(&mut seen, frame(ready));
+            assert!(!seen.takes_tables, "{ready}");
+        }
+        take_frame(&mut seen, frame(r#"{"event":"ready","tables":true}"#));
+        assert!(seen.takes_tables);
+        // and the next socket's ready says it anew
+        take_frame(&mut seen, frame(r#"{"event":"ready"}"#));
+        assert!(!seen.takes_tables);
+    }
+
+    #[test]
+    fn a_friend_s_table_is_kept_from_before_its_presence_until_it_is_cleared_or_unlisted() {
+        let mut seen = Seen::default();
+        // the table comes first, then the frame that lists the friend
+        take_frame(&mut seen, table_frame("002a", TABLE));
+        take_frame(
+            &mut seen,
+            frame(r#"{"event":"presence","online":["002a","1000"],"states":"to","me":"online"}"#),
+        );
+        let held = seen.tables.get("002a").expect("kept");
+        assert_eq!((held.name.as_str(), held.taken), ("Friday \"draft\"", 2));
+        assert_eq!(
+            seen.friends.get("002a").and_then(|shown| shown.activity),
+            Some(presence::Activity::Table)
+        );
+        // a seat taken: the table alone changes
+        take_frame(
+            &mut seen,
+            table_frame("002a", &TABLE.replace("\"taken\":2", "\"taken\":3")),
+        );
+        assert_eq!(seen.tables.get("002a").map(|table| table.taken), Some(3));
+        // a clearing frame, a table out of bounds, one that does not decode
+        for clearing in [
+            frame(r#"{"event":"table","tag":"002a"}"#),
+            table_frame("002a", &TABLE.replace("https://", "http://")),
+            table_frame("002a", &TABLE.replace("Friday", "Fri\\nday")),
+            table_frame("002a", &TABLE.replace("\"seats\":4", "\"seats\":400")),
+            table_frame("002a", "null"),
+        ] {
+            take_frame(&mut seen, table_frame("002a", TABLE));
+            take_frame(&mut seen, clearing);
+            assert!(seen.tables.is_empty());
+        }
+        // a frame whose tag is no tag changes nothing
+        take_frame(&mut seen, table_frame("002a", TABLE));
+        for tag in ["", "2a", "002A", "0000002a", "../x"] {
+            take_frame(
+                &mut seen,
+                frame(&format!(r#"{{"event":"table","tag":"{tag}"}}"#)),
+            );
+            take_frame(&mut seen, table_frame(tag, TABLE));
+        }
+        assert_eq!(seen.tables.keys().collect::<Vec<_>>(), ["002a"]);
+        // a presence that no longer lists the friend forgets its table
+        take_frame(
+            &mut seen,
+            frame(r#"{"event":"presence","online":["1000"],"states":"o","me":"online"}"#),
+        );
+        assert!(seen.tables.is_empty());
+        // and a frame of no kind it knows changes nothing
+        take_frame(&mut seen, table_frame("1000", TABLE));
+        let before = seen.clone();
+        take_frame(&mut seen, frame(r#"{"event":"pictures","tag":"1000"}"#));
+        assert_eq!(seen, before);
+    }
+
+    #[test]
+    fn tags_central_never_lists_cannot_grow_the_tables_past_a_friend_list() {
+        let mut seen = Seen::default();
+        for index in 0..=MAX_TABLES {
+            take_frame(
+                &mut seen,
+                table_frame(&format!("{:x}", 0x1000 + index), TABLE),
+            );
+        }
+        assert_eq!(seen.tables.len(), MAX_TABLES);
+        // one held already is still changed, and one cleared makes room
+        take_frame(
+            &mut seen,
+            table_frame("1000", &TABLE.replace("\"taken\":2", "\"taken\":4")),
+        );
+        assert_eq!(seen.tables.get("1000").map(|table| table.taken), Some(4));
+        take_frame(&mut seen, frame(r#"{"event":"table","tag":"1000"}"#));
+        take_frame(&mut seen, table_frame("ffff", TABLE));
+        assert!(seen.tables.contains_key("ffff"));
     }
 }

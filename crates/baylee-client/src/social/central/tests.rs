@@ -177,6 +177,7 @@ fn central_friend_presence_updates_from_central_ws_without_any_gateway() {
         friends: [("002a".to_owned(), shown)].into(),
         me: None,
         told: true,
+        ..Default::default()
     };
     bridge
         .handle
@@ -255,8 +256,83 @@ fn a_friend_central_does_not_show_is_offline_whatever_a_game_gateway_says() {
             .into(),
             me: None,
             told: true,
+            ..Default::default()
         });
     assert_eq!(bridge.snapshot().friends[0].presence, at_table);
+}
+
+/// A friend's table shared through Central: named, with its seats, and the
+/// game to join only where it stands at this client's own gateway; a friend
+/// who shares none, or is no longer shown, has no table.
+#[test]
+fn a_table_shared_through_central_is_joinable_only_at_this_client_s_gateway() {
+    let mut host = host();
+    let bridge = host.central.as_mut().unwrap();
+    bridge.personal.friends.push(wire::Friend {
+        person: wire::Person {
+            tag: "002a".into(),
+            handle: "Argon#002a".into(),
+            guest: false,
+        },
+        since: 1,
+        presence: wire::Presence::offline(),
+    });
+    let table = |origin: &str| presence::Table {
+        origin: origin.into(),
+        game: "01937d4e-7b1c-7000-8000-000000000001".into(),
+        name: "Friday".into(),
+        seats: 4,
+        taken: 3,
+    };
+    let at = |activity, shared: Option<presence::Table>| crate::lobby::central::Seen {
+        friends: [(
+            "002a".to_owned(),
+            presence::Shown {
+                away: false,
+                activity: Some(activity),
+            },
+        )]
+        .into(),
+        told: true,
+        tables: shared.map_or_default(|table| [("002a".to_owned(), table)].into()),
+        ..Default::default()
+    };
+    // here: this client's session is at https://gateway.invalid
+    bridge.handle.set_seen_for_test(at(
+        presence::Activity::Table,
+        Some(table("https://gateway.invalid")),
+    ));
+    assert_eq!(
+        bridge.snapshot().friends[0].presence.place,
+        Some(wire::Place::Room {
+            game: Some("01937d4e-7b1c-7000-8000-000000000001".into()),
+            name: "Friday".into(),
+            seats: 4,
+            taken: 3,
+            locked: false,
+        })
+    );
+    // another gateway: the name and nothing to join or watch
+    for activity in [presence::Activity::Table, presence::Activity::Playing] {
+        bridge
+            .handle
+            .set_seen_for_test(at(activity, Some(table("https://other.example"))));
+        let place = bridge.snapshot().friends[0].presence.place.clone().unwrap();
+        assert_eq!(
+            baylee_client_core::social::place_name(&place),
+            Some("Friday")
+        );
+        assert!(matches!(
+            place,
+            wire::Place::Room { game: None, .. } | wire::Place::Playing { game: None, .. }
+        ));
+    }
+    // no table shared: a table with no name, as before
+    bridge
+        .handle
+        .set_seen_for_test(at(presence::Activity::Table, None));
+    let place = bridge.snapshot().friends[0].presence.place.clone().unwrap();
+    assert_eq!(baylee_client_core::social::place_name(&place), None);
 }
 
 #[test]

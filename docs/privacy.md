@@ -44,7 +44,16 @@ keeps message plaintext in memory and only encrypted peer trust in localStorage.
 Central also keeps the contact status an account chose (online, AFK or
 offline) until it is changed, and holds in memory, while a push socket is
 open, whether the client says it is playing, at a table or idle; that is
-never stored (Central's `docs/push-socket.md` §"Status").
+never stored (Central's `docs/push-socket.md` §"Status"). Since 19.11.2026 a
+table's name and gateway pass through Central too: while the player shares
+its table (the gateway's "show my table to friends", `share_table`, on by
+default) and the table has no password, the client tells Central, with that
+report, the gateway's address, the game id there, the table's name, its seats
+and how many are taken. Central holds it in memory with the report, passes it
+only to the friends that are shown the account (never while it chose
+offline, never across a block), and forgets it with the socket; it is never
+stored or logged (Central's `docs/push-socket.md` §"Tables"). A friend's
+client keeps it in memory while its own socket stands.
 The following gateway rows continue to describe legacy accounts and game chat;
 old gateway data is preserved during the transition. See
 [Central chat synchronization](central-chat-sync.md) for cutover limits.

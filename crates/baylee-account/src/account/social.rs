@@ -49,10 +49,12 @@ impl Account {
         self.session.presence_choice(&self.http)
     }
 
-    /// Say what the client is doing: playing, at a table or neither, and
-    /// whether it has been idle for ten minutes. Central hears it only while
-    /// this session's push socket is open, so it is said again after each
-    /// dial; nothing in it names a game, a table or a gateway.
+    /// Say what the client is doing: playing, at a table or neither, whether
+    /// it has been idle for ten minutes, and the table it sits at if the
+    /// player shares it. Central hears it only while this session's push
+    /// socket is open, so it is said again after each dial. Give a table only
+    /// after the socket's `ready` announced that Central takes one: an older
+    /// Central refuses the whole report for it.
     ///
     /// # Errors
     /// A rejected session and transport failures.
@@ -60,7 +62,9 @@ impl Account {
         &self,
         activity: Option<central_api::presence::Activity>,
         idle: bool,
+        table: Option<central_api::presence::Table>,
     ) -> Result<(), Error> {
-        self.session.report_presence(&self.http, activity, idle)
+        self.session
+            .report_presence(&self.http, activity, idle, table)
     }
 }

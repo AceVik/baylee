@@ -9,6 +9,7 @@ use baylee_protocol::social::{
     Friend, FriendEvent, GroupEvent, GroupInfo, GroupInvite, Person, Place, Presence, Shown,
     Snapshot, SocialSettings, TableInvite,
 };
+use central_api::presence::Table;
 
 /// A table invite and when it arrived, so its countdown can be drawn.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -291,36 +292,55 @@ fn name_order(a: &Person, b: &Person) -> Ordering {
 /// A friend Baylee Central shows, as the drawer draws it (`docs/client.md`
 /// §"The contact status").
 ///
-/// Central alone says whether a friend is shown and whether it is away; it
-/// names no table. `gateway` is what the game gateway says of the same
-/// friend, if it knows it: its place is taken where it does not contradict
-/// Central, which is how a table's name gets there. Where Central says the
-/// friend plays or sits at a table and the gateway names none, the place has
-/// no name ([`place_name`]).
+/// Central alone says whether a friend is shown and whether it is away.
+/// Where it says the friend plays or sits at a table, the place is, in this
+/// order:
+///
+/// - what the game gateway says of the same friend (`gateway`), if it names
+///   a place of that kind: it runs the table and knows it best;
+/// - the table the friend shares through Central (`shared`, already read
+///   from its `table` frame), with its name, seats and how many are taken,
+///   and the game to join or watch only when the table stands at `here`,
+///   the gateway this client is signed in to (both canonical origins,
+///   [`super::doing::origin_of`]); at another gateway it has the name and
+///   nothing to join, and nothing is ever dialled for it;
+/// - else a place with no name ([`place_name`]).
+///
+/// A shared table out of its bounds ([`Table::valid`]) is not used, and one
+/// with an activity that names none is ignored.
 #[must_use]
 pub fn shown_by_central(
     central: central_api::presence::Shown,
+    shared: Option<&Table>,
+    here: Option<&str>,
     gateway: Option<&Presence>,
 ) -> Presence {
     use central_api::presence::Activity;
     let known = gateway
         .filter(|presence| presence.status != Shown::Offline)
         .and_then(|presence| presence.place.as_ref());
+    let shared = shared.filter(|table| table.valid());
+    // The game, only at this client's own gateway: elsewhere a friend's
+    // table is a name, and nothing a press could reach.
+    let game = shared
+        .filter(|table| here == Some(table.origin.as_str()))
+        .map(|table| table.game.clone());
+    let name = shared.map_or_default(|table| table.name.clone());
     let place = match (central.activity, known) {
         (Some(Activity::Playing), Some(place @ Place::Playing { .. }))
         | (Some(Activity::Table), Some(place @ Place::Room { .. }))
         | (None, Some(place)) => place.clone(),
         (Some(Activity::Playing), _) => Place::Playing {
-            game: None,
-            name: String::new(),
-            seats: 0,
+            game,
+            name,
+            seats: shared.map_or(0, |table| table.seats),
             running_secs: 0,
         },
         (Some(Activity::Table), _) => Place::Room {
-            game: None,
-            name: String::new(),
-            seats: 0,
-            taken: 0,
+            game,
+            name,
+            seats: shared.map_or(0, |table| table.seats),
+            taken: shared.map_or(0, |table| table.taken),
             locked: false,
         },
         (None, None) => Place::Lobby,
@@ -337,7 +357,7 @@ pub fn shown_by_central(
 
 /// The name of the table a place is at; `None` where it has none to give:
 /// the lobby, the deck builder, a house game, and a game or a table that
-/// only Baylee Central told of ([`shown_by_central`]).
+/// Baylee Central told of without a shared table ([`shown_by_central`]).
 #[must_use]
 pub fn place_name(place: &Place) -> Option<&str> {
     match place {

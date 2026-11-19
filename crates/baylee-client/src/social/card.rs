@@ -440,14 +440,7 @@ fn stand(
     };
     let said = said(machine, subject, prefs.as_deref(), lang, now);
     if let Some((at, width)) = redrawn {
-        build(
-            &mut commands,
-            &fonts,
-            said,
-            (at, width),
-            hover.epoch,
-            1.0,
-        );
+        build(&mut commands, &fonts, said, (at, width), hover.epoch, 1.0);
         return;
     }
 
