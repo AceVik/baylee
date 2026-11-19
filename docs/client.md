@@ -10686,20 +10686,71 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   person has one colour in the client and on the website. A friend who is
   offline keeps theirs at half strength. `avatar::wear_portraits` gives a
   disc its face when it is spawned and again only when `Portraits` changes.
-  Nothing fills `Portraits` from the network yet: the native Central
-  listener refuses picture requests until its M6, so every disc shows its
-  monogram. A picture, once it comes, is outside input: `baylee-avif` reads
-  its container under `Bounds::PICTURE` in safe Rust, but its AV1 decoder
-  (rav1d 1.1.0) aborts the process on some damaged streams and is therefore
-  opened only on files the client ships, so the picture path stays shut
-  until that is solved (the crate's own docs). **Do not fill `Portraits`
-  from a gateway, from Central or from another player before one of two
-  things is true:** the AV1 decoder returns an error on a damaged stream
-  instead of aborting, or the decode runs in a process of its own whose
-  death costs one picture (the PM's review, 12.11.2026). A bound on size
-  or a check of the container does not stand in for either: the abort is
-  inside the stream. The header's account pill is the disc, the name, and
-  the tag quieter after it.
+  The header's account pill is the disc, the name, and the tag quieter
+  after it.
+- **Profile pictures** (owner, 19.11.2026; desktop only, `src/portraits.rs`,
+  decisions in `client-core::portrait`). A picture uploaded on Baylee
+  Central's website is drawn in every disc of its account, moving where it
+  moves; a disc without one keeps its monogram, and so does every failure,
+  without a word above `debug`.
+  - *Keys.* Central names a picture only by a random key, new at every
+    upload, in answer to `SocialRequest::Pictures` (at most 300 tags). The
+    client asks for the near tags only: the account itself, its contacts and
+    requests, and its groups' members, which cost Central no lookup. It asks
+    a new tag when it appears, everything again every 10 minutes and after a
+    push from Central's socket (contacts, chat, presence; at most every 2
+    minutes), one request at a time on the account worker and never through
+    the chat bridge, so a refusal or a silence touches no chat poll, backoff
+    or session. A refusal (a Central whose native listener does not answer
+    the request, as before its M6) is quiet for 30 minutes; no answer backs
+    off from 30 s to 10 minutes. A game gateway's tags (a recent player, a
+    ranking's row) are not asked: they need not be Central's, and a stranger
+    spends Central's lookup budget, which "find or add" shares. The answer is
+    the only authority: a tag it leaves out (no picture, a block either way,
+    a removed picture) wears its monogram whatever the cache holds, and a
+    sign-out or another account forgets every key and picture.
+  - *Bytes.* From the website's origin (`portraits::picture_origin`:
+    `https://baylee.app`, or the loopback website a development build is
+    pointed at), at Central's own path (`/api/v1/pictures/{key}.png`,
+    `.sequence.avif`), on a thread of its own (`portraits/fetch.rs`), one at
+    a time: no bearer, cookie or `Sec-Fetch-Site`, no redirect, no proxy,
+    `https` except numeric loopback, the type the file is, a still at most
+    400 KiB and a sequence at most 512 KiB (`Content-Length` and the body
+    both). Only an account with a disc drawn is fetched. The raw bytes are
+    kept in the cache directory by key (`pictures/`, 64 MiB, oldest first)
+    and read back through the same decode.
+  - *Decode.* A still is Central's PNG master, exactly 256 px square, read
+    by the `image` crate with limits. A moving picture's sequence is read by
+    the parent with `baylee-avif`'s safe `Sequence::read` under
+    `Bounds::PICTURE` (256 px, 100 frames, 512 KiB, 10 s), which also gives
+    the frames' durations, and decoded by this executable started again as
+    `--picture-frames` (`portraits/helper.rs`, the PM's decision of
+    19.11.2026 that the review of 12.11.2026 asked for): the file on stdin,
+    exactly 256 × 256 × 4 bytes of RGBA per frame on stdout, an empty
+    environment, killed and reaped at 10 s; a crash, a hang, a byte too many
+    or too few or a failed exit refuses the picture and its still stands.
+    Everything is kept at 128 px, alpha-weighted (`portrait::halve`); a clip
+    is decoded once per key and only while one of its discs is seen, and
+    the clips held are bound to 48 MiB, those seen longest ago let go first.
+  - *Drawing and pacing.* One `Image` per picture, laid into `Portraits`
+    for every tag that wears it. `portraits::play` writes that image's
+    pixels only when the frame shown changes, by the picture's own
+    durations (a frame under 20 ms plays 100 ms, as browsers play it), so a
+    playing picture writes no disc, no `Node` and not `Portraits`, and asks
+    for no frame: it rides the frames the pacer draws anyway (§"Frames and
+    graphics settings"; at least 30 a second while the window is seen).
+    Under `reduce_motion`, with none of its discs seen
+    (`InheritedVisibility`), and while the window is minimised or occluded,
+    the still stands.
+  - `/state.portraits` says the lookup (`asked`, `asking`, `quiet_until`,
+    `origin`) and every disc drawn: `handle`, `visible`, `picture` (its face
+    is the picture), `moving`, `frames` and `frame` (`null`: the still).
+    `/seed {"portraits":{"af03":"moving"}}` (dev-control) lays a picture in
+    without Central's lookup and keeps it: `"still"` and `"moving"` write
+    fixtures to the cache directory (the moving one is the client's test
+    sequence), a real key's 32 hex digits (`":moving"` after them for one
+    that moves) is fetched from the development Central's website; the rest
+    of the path is the shipped one.
 - **A person's card.** The pointer resting 0.32 s on a name (a chat line's
   `ChatName`, a friend's or a recent player's row, the account pill; any
   node carrying `shellkit::avatar::PersonLink`) opens that person's card

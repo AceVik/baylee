@@ -761,6 +761,15 @@ hashes, which stay in the file only.
   printing and nothing about the player, and shows no session. So Scryfall
   sees that device's IP address ask for every card's picture, which a client
   on a gateway's mirror did not show it before. Nothing here is kept about it.
+  A desktop client signed in to Baylee Central also keeps the profile
+  pictures it showed (`docs/client.md` §"Profile pictures"): the raw files as
+  Central served them, in the cache directory's `pictures/`, named by the
+  picture's random key and nothing else, at most 64 MiB, oldest first, with
+  default permissions. Which account wears which key is held in memory only
+  and forgotten at sign-out; a key Central no longer names for anyone the
+  client shows has its files removed. The pictures are fetched from
+  Central's website without a session or cookie, so Central sees the
+  device's address ask for those keys.
 - **Browser:** `localStorage` keys `baylee:client-settings` (a kept guest's
   token included), `baylee:gateway` and one per stored document
   (`baylee:preferences.json`, `baylee:offline-decks.json`,

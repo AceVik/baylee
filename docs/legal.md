@@ -1599,7 +1599,16 @@ other native targets) behind `crates/baylee-avif`. It is one of "the Rust crates
 under their own" licences that `NOTICE` and the client's About name; `deny.toml`
 allows BSD-2-Clause already. AV1 and AVIF are the Alliance for Open Media's
 royalty-free formats. Shipped scene loops use the streaming `Player` (`Bounds::SHIPPED_LOOP`),
-while untrusted avatars go only through the pure-Rust `Sequence::read` path (`Bounds::PICTURE`).
+while untrusted avatars go only through the pure-Rust `Sequence::read` path (`Bounds::PICTURE`)
+inside the client's process. Since 19.11.2026 (the PM's decision, for the owner's
+request that moving profile pictures move in the client too) their frames are
+decoded by `Player` in a child process of the client's own executable
+(`--picture-frames`, `crates/baylee-client/src/portraits/helper.rs`): the file
+read and bounded by the parent first, nothing but RGBA of the expected size
+taken back, the child killed and reaped at its deadline. A damaged or hostile
+stream costs one picture, never the client. The decoder, its licence and what
+it reads are unchanged; another player's picture is Central's re-encoding of
+an upload, shown as Central serves it (`docs/client.md` §"Profile pictures").
 Neither change adds a Scryfall request, a card image, a symbol or a font. This entry
 re-reads no policy page.
 

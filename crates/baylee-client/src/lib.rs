@@ -98,6 +98,9 @@ pub mod matmat;
 pub mod music;
 pub mod net;
 pub mod platemat;
+// Profile pictures from Baylee Central, where `baylee-avif` builds.
+#[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+pub mod portraits;
 pub mod prefs;
 pub mod quality;
 pub(crate) mod records;
