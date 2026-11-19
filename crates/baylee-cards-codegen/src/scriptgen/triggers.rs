@@ -310,6 +310,7 @@ impl Tx<'_> {
             }
             "LandPlayed" => self.land_played_trigger(p),
             "Drawn" => self.drawn_trigger(p, zones.is_some()),
+            "TurnFaceUp" => self.turn_face_up_trigger(p),
             other => self.deny(format!("trigger mode `{other}`")),
         }
     }
@@ -453,6 +454,24 @@ impl Tx<'_> {
             format!("&{}", self.body.filter_static("TRIGGER", &expr))
         };
         Some(format!("Trigger::Blocks({filter})"))
+    }
+
+    /// `T:Mode$ TurnFaceUp` — "when this permanent is turned face up"
+    /// (`Trigger::TurnedFaceUp`, CR 708.8). Only `ValidCard$ Card.Self` maps to
+    /// [`baylee_cards_dsl::Trigger::TurnedFaceUp`]; triggers watching other
+    /// permanents have no DSL variant and stay refused.
+    fn turn_face_up_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("a `TurnFaceUp` trigger with no `ValidCard$`".to_string());
+        };
+        if valid != "Card.Self" {
+            return self.deny(format!("`TurnFaceUp` on `{valid}`"));
+        }
+        match p.take("Secondary").as_deref() {
+            None | Some("True") => {}
+            Some(other) => return self.deny(format!("`Secondary$ {other}`")),
+        }
+        Some("Trigger::TurnedFaceUp".to_string())
     }
 
     /// One `K:` line, as whichever of the four things it is.
@@ -731,12 +750,14 @@ impl Tx<'_> {
         // (`TriggeredCardController`, `EnchantedController`, `Opponent`) and
         // no effect here can ask them, so they are refused by name rather
         // than quietly asked of the wrong player.
+        let trigger_is_self = trigger == "Trigger::ETB"
+            || trigger == "Trigger::TurnedFaceUp"
+            || trigger.contains("&Filter::This");
         let may = match p.take("OptionalDecider").as_deref() {
             None => prose_may,
             Some("You") => true,
             Some("TriggeredCardController")
-                if (trigger == "Trigger::ETB" || trigger.contains("&Filter::This"))
-                    && self.oracle.to_ascii_lowercase().contains("you may") =>
+                if trigger_is_self && self.oracle.to_ascii_lowercase().contains("you may") =>
             {
                 true
             }
@@ -763,7 +784,7 @@ impl Tx<'_> {
             None => (body, None),
         };
         let mut chain = Chain::default();
-        self.trigger_is_self = trigger == "Trigger::ETB" || trigger.contains("&Filter::This");
+        self.trigger_is_self = trigger_is_self;
         let chain_ok = self.chain(&body, &mut chain);
         self.trigger_is_self = false;
         chain_ok?;

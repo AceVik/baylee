@@ -1154,3 +1154,175 @@ fn madness_reads_its_complete_supported_cost() {
         assert!(refused(script), "{script}");
     }
 }
+
+/// Morph (CR 702.37) writes a fixed mana cost onto `FaceDef::morph`, including
+/// `{0}`, multi-colour costs and two-colour hybrid symbols, and a card whose
+/// only rules line is `K:Morph:<mana>` transcodes as a non-empty body.
+#[test]
+fn morph_reads_fixed_mana_costs_onto_the_face() {
+    let only_morph = read("Name:X\nManaCost:3 U\nTypes:Creature\nPT:2/2\nK:Morph:2 U");
+    assert_eq!(only_morph.morph.as_deref(), Some("Some(mana!(\"{2}{U}\"))"));
+    assert!(!only_morph.is_empty());
+    assert!(only_morph.notes.iter().any(|n| n == "morph"));
+
+    let zero = read("Name:X\nManaCost:3\nTypes:Artifact Creature\nPT:2/2\nK:Morph:0");
+    assert_eq!(zero.morph.as_deref(), Some("Some(mana!(\"{0}\"))"));
+
+    let hybrid = read("Name:X\nManaCost:2 G U\nTypes:Creature\nPT:3/3\nK:Morph:1 GU");
+    assert_eq!(hybrid.morph.as_deref(), Some("Some(mana!(\"{1}{G/U}\"))"));
+
+    let multi = read("Name:X\nManaCost:3 W B G\nTypes:Creature\nPT:4/4\nK:Morph:2 W B G");
+    assert_eq!(
+        multi.morph.as_deref(),
+        Some("Some(mana!(\"{2}{W}{B}{G}\"))")
+    );
+}
+
+/// Morph costs that are empty, carry extra fields, contain `X`, charge non-mana
+/// parts, repeat on one card, or sit beside an unread clause stay refused with
+/// an honest reason, as does `Megamorph` (CR 702.37b).
+#[test]
+fn morph_refuses_non_mana_x_extra_and_megamorph_with_honest_reasons() {
+    let reason = |script: &str| {
+        let parsed = parse(script);
+        assert!(transcode(&parsed, &cats(), None).is_none(), "{script}");
+        refusal_reason(&parsed, &cats(), None)
+    };
+
+    assert_eq!(
+        reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph"),
+        Some("an empty `Morph` cost".to_string())
+    );
+    assert_eq!(
+        reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:"),
+        Some("an empty `Morph` cost".to_string())
+    );
+    assert_eq!(
+        reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:1 U:Extra"),
+        Some("a `Morph` with extra fields `1 U:Extra`".to_string())
+    );
+    assert_eq!(
+        reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:X R\nSVar:X:Count$xPaid"),
+        Some("a `Morph` cost `X R` with `X`".to_string())
+    );
+    assert_eq!(
+        reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:PayLife<5>"),
+        Some("a non-mana `Morph` cost `PayLife<5>`".to_string())
+    );
+    assert_eq!(
+        reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:Reveal<1/Card.Blue/blue>"),
+        Some("a non-mana `Morph` cost `Reveal<1/Card.Blue/blue>`".to_string())
+    );
+    assert_eq!(
+        reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:Sac<1/Mountain>"),
+        Some("a non-mana `Morph` cost `Sac<1/Mountain>`".to_string())
+    );
+    assert_eq!(
+        reason("Name:X\nTypes:Creature\nPT:2/2\nK:Morph:1 U\nK:Morph:2 U"),
+        Some("a second `Morph` cost on one card".to_string())
+    );
+    assert_eq!(
+        reason("Name:X\nTypes:Creature\nPT:2/2\nK:Megamorph:2 G"),
+        Some("keyword `Megamorph`".to_string())
+    );
+    assert!(refused(
+        "Name:X\nTypes:Creature\nPT:2/2\nK:Morph:2 U\nA:AB$ UnknownEffect | Cost$ T"
+    ));
+}
+
+/// `T:Mode$ TurnFaceUp` on `Card.Self` emits `Trigger::TurnedFaceUp`, while
+/// triggers watching other permanents, non-battlefield zones, unclaimed keys or
+/// `R:Event$ TurnFaceUp` replacement effects stay refused.
+#[test]
+fn turn_face_up_trigger_reads_self_and_refuses_other_subjects_and_zones() {
+    let body = read(
+        "Name:X\nManaCost:2 G\nTypes:Creature\nPT:2/2\nK:Morph:1 G\n\
+         T:Mode$ TurnFaceUp | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1",
+    );
+    assert_eq!(body.morph.as_deref(), Some("Some(mana!(\"{1}{G}\"))"));
+    assert_eq!(
+        body.abilities,
+        ["triggered!(Trigger::TurnedFaceUp, &[Effect::draw(1)])"]
+    );
+
+    let paired = read_with_tokens(
+        "Name:X\nManaCost:2 R\nTypes:Creature\nPT:2/2\nK:Morph:2 R\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigTok\n\
+         T:Mode$ TurnFaceUp | ValidCard$ Card.Self | TriggerZones$ Battlefield | Secondary$ True | Execute$ TrigTok\n\
+         SVar:TrigTok:DB$ Token | TokenScript$ r_1_1_goblin | TokenOwner$ TriggeredCardController",
+    );
+    assert_eq!(paired.abilities.len(), 2);
+    assert!(paired.abilities[1].starts_with("triggered!(Trigger::TurnedFaceUp,"));
+
+    let reason = |script: &str| {
+        let parsed = parse(script);
+        assert!(transcode(&parsed, &cats(), None).is_none(), "{script}");
+        refusal_reason(&parsed, &cats(), None)
+    };
+
+    assert_eq!(
+        reason(
+            "Name:X\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ TurnFaceUp | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1"
+        ),
+        Some("a `TurnFaceUp` trigger with no `ValidCard$`".to_string())
+    );
+    assert_eq!(
+        reason(
+            "Name:X\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ TurnFaceUp | ValidCard$ Permanent | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1"
+        ),
+        Some("`TurnFaceUp` on `Permanent`".to_string())
+    );
+    assert_eq!(
+        reason(
+            "Name:X\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ TurnFaceUp | ValidCard$ Card.Self,Creature.Other+YouCtrl | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1"
+        ),
+        Some("`TurnFaceUp` on `Card.Self,Creature.Other+YouCtrl`".to_string())
+    );
+    assert_eq!(
+        reason(
+            "Name:X\nTypes:Enchantment\n\
+             T:Mode$ TurnFaceUp | ValidCard$ Card.AttachedBy | TriggerZones$ Battlefield | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1"
+        ),
+        Some("`TurnFaceUp` on `Card.AttachedBy`".to_string())
+    );
+    assert_eq!(
+        reason(
+            "Name:X\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ TurnFaceUp | ValidCard$ Card.Self | TriggerZones$ Graveyard | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1"
+        ),
+        Some("`TriggerZones$ Graveyard`".to_string())
+    );
+    assert_eq!(
+        reason(
+            "Name:X\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ TurnFaceUp | ValidCard$ Card.Self | Secondary$ False | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1"
+        ),
+        Some("`Secondary$ False`".to_string())
+    );
+    assert_eq!(
+        reason(
+            "Name:X\nTypes:Creature\nPT:2/2\nK:Morph:1 R\n\
+             T:Mode$ TurnFaceUp | ValidCard$ Card.Self | TriggerZones$ Battlefield | PlayerTurn$ True | Execute$ TrigDraw\n\
+             SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1"
+        ),
+        Some("unclaimed parameter `TurnFaceUp.PlayerTurn`".to_string())
+    );
+    assert_eq!(
+        reason(
+            "Name:X\nTypes:Creature\nPT:2/2\nK:Morph:2 G\n\
+             R:Event$ TurnFaceUp | ValidCard$ Card.Self | ActiveZones$ Battlefield | ReplaceWith$ Add\n\
+             SVar:Add:DB$ PutCounter | Defined$ Self | CounterNum$ 1 | CounterType$ P1P1"
+        ),
+        Some("replacement `R: Event$ TurnFaceUp`".to_string())
+    );
+}
