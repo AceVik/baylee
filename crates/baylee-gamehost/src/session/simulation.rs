@@ -27,6 +27,36 @@ use baylee_view::{HouseAnswer, PlayerView};
 use super::table::Table;
 use super::{RegistryLookup, SeatKind, Session};
 
+#[cfg(test)]
+thread_local! {
+    /// The finished-card pool this test thread's priors read instead of the
+    /// live registry's, while a pin that was recorded against it is played
+    /// (`tests/foresight.rs`, [`FrozenPrior`]). Thread-local because the
+    /// prior is built on the thread that pumps the session.
+    static FROZEN_PRIOR_POOL: std::cell::RefCell<Option<baylee_ai::foresight::prior::FinishedPool>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Holds this test thread's priors to a fixed pool of finished cards until
+/// dropped: a card batch then cannot move a pinned search.
+#[cfg(test)]
+pub(crate) struct FrozenPrior(());
+
+#[cfg(test)]
+impl FrozenPrior {
+    pub(crate) fn hold(pool: baylee_ai::foresight::prior::FinishedPool) -> Self {
+        FROZEN_PRIOR_POOL.with(|frozen| *frozen.borrow_mut() = Some(pool));
+        Self(())
+    }
+}
+
+#[cfg(test)]
+impl Drop for FrozenPrior {
+    fn drop(&mut self) {
+        FROZEN_PRIOR_POOL.with(|frozen| *frozen.borrow_mut() = None);
+    }
+}
+
 /// A disposable copy of a [`Session`]'s game for one seat's lookahead, made
 /// by [`Session::fork_for`].
 ///
@@ -206,7 +236,17 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
             .scouting_decks
             .get(usize::from(view.seat.get()))
             .map_or(&[][..], |deck| &deck.cards[..]);
-        baylee_ai::foresight::prior::public_prior(view, own)
+        #[cfg(test)]
+        let frozen = FROZEN_PRIOR_POOL.with(|frozen| {
+            frozen
+                .borrow()
+                .as_ref()
+                .map(|pool| baylee_ai::foresight::prior::public_prior_from(view, own, pool))
+        });
+        #[cfg(not(test))]
+        let frozen = None;
+        frozen
+            .unwrap_or_else(|| baylee_ai::foresight::prior::public_prior(view, own))
             .into_iter()
             .fold(PublicPrior::new(), |prior, (seat, cards)| {
                 prior.with_player(seat, cards)
