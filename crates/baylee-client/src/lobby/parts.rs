@@ -185,6 +185,47 @@ pub(super) fn glyph_line(
     row
 }
 
+/// A line of `size` led by a glyph in the icon face: a deck's commanders
+/// behind their crown, its record behind the cup. The interface's face has
+/// no such glyphs, so one written into the words is drawn as a gap (the
+/// tiles' subtitles stood indented by it, owner 19.11.2026).
+pub(super) fn marked_line(
+    commands: &mut Commands,
+    kit: Kit,
+    glyph: char,
+    text: &str,
+    size: f32,
+    ink: Color,
+) -> Entity {
+    let row = commands
+        .spawn((
+            Node {
+                column_gap: kit.m.px(5.0),
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let mark = commands
+        .spawn((
+            Text::new(glyph.to_string()),
+            icon_tf(kit.fonts, size * 0.8),
+            TextColor(ink),
+            Node {
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    // The words as `line` draws them, with a text node's own least width: a
+    // least width of nothing broke "General Tazri" after every word.
+    let words = line(commands, kit, text, size, ink);
+    commands.entity(row).add_children(&[mark, words]);
+    row
+}
+
 /// A section's caption: small capitals in muted ink ("YOUR NEXT GAME").
 pub(super) fn caption(commands: &mut Commands, kit: Kit, text: &str) -> Entity {
     commands
@@ -286,28 +327,47 @@ pub(super) fn art_with_credit(
     art: &DeckArt,
     width: f32,
 ) -> Entity {
+    // At least the picture's width, and wider under a longer name: pinned to
+    // the picture (10.11.2026) the credit broke into three lines under a
+    // 74-px thumbnail and ran out of its ground under a 58-px one.
     let column = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Column,
                 row_gap: kit.m.px(3.0),
-                width: kit.m.px(width),
+                min_width: kit.m.px(width),
                 flex_shrink: 0.0,
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
+    let picture = art_picture(commands, kit, art, width);
+    let ground = art_credit(commands, kit, lang, art);
+    commands.entity(column).add_children(&[picture, ground]);
+    column
+}
+
+/// The picture alone: Scryfall's `art_crop`, whole, `width` wide. Whoever
+/// draws it draws [`art_credit`] with it (a deck tile, whose credit is a
+/// line of the tile and not of the picture's column).
+pub(super) fn art_picture(commands: &mut Commands, kit: Kit, art: &DeckArt, width: f32) -> Entity {
     // 626 × 457: the crop's own aspect, so nothing is cut or stretched.
     let height = width * 457.0 / 626.0;
-    let picture =
-        super::thumbnails::art_band(commands, &art.url, kit.m.px(width), kit.m.px(height));
+    super::thumbnails::art_band(commands, &art.url, kit.m.px(width), kit.m.px(height))
+}
+
+/// The picture's credit, "Art · <artist>": one line on its own dark ground,
+/// as wide as its words and never wider than what holds it (a name longer
+/// than that is cut at the ground's edge, not broken into lines).
+pub(super) fn art_credit(commands: &mut Commands, kit: Kit, lang: Lang, art: &DeckArt) -> Entity {
     let credit = commands
         .spawn((
             Role::Credit,
             Text::new(Phrase::ArtCredit.fill(lang, &[&art.artist])),
             crate::hud::tf_italic(kit.fonts, kit.m.small),
             TextColor(tokens::MUTED),
+            TextLayout::no_wrap(),
             Pickable::IGNORE,
         ))
         .id();
@@ -321,6 +381,9 @@ pub(super) fn art_with_credit(
                 padding: UiRect::axes(px_fixed(5.0), px_fixed(1.0)),
                 border_radius: BorderRadius::all(px_fixed(4.0)),
                 max_width: percent(100),
+                min_width: px_fixed(0.0),
+                flex_shrink: 1.0,
+                overflow: Overflow::clip(),
                 ..default()
             },
             BackgroundColor(tokens::OPAQUE),
@@ -328,8 +391,7 @@ pub(super) fn art_with_credit(
         ))
         .id();
     commands.entity(ground).add_child(credit);
-    commands.entity(column).add_children(&[picture, ground]);
-    column
+    ground
 }
 
 /// The key hint line at the foot of a screen, retired (owner, 17.10.2026:

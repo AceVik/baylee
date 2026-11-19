@@ -5097,6 +5097,24 @@ over the tile's bands, within its padding (`room`), so art and words stay
 clear; ornament is mirrored about both axes, light moves slowly and nothing
 strobes, and `quality::ambient_still` stands it still with its ornament kept.
 
+**A tile's picture and its credit are two things** (19.11.2026). The credit
+("Art · <artist>", `parts::art_credit`) is one line on its own dark ground,
+never broken and never wider than what holds it: under the band's picture
+and words on a gallery tile, the third line beside the picture in a list
+row, a line of the card on a compact tile. So every tile's words start at
+the same place and no artist's name sets a row's height (pinned to the
+picture's width on 10.11., the credit stood in three lines under a list
+row's thumbnail and ran out of its ground on a compact tile). Play's
+pictures keep `parts::art_with_credit`, the credit under the picture in a
+column at least as wide as it. A glyph of the icon face is a node of its
+own (`parts::marked_line`: the crown before the commanders, the cup before
+a record): written into the words it is drawn as a gap. The grid's tracks
+are `minmax(304 × factor, 1fr)` and fill the shelf; on `Vast` they are
+fixed, the unused ones collapsed and the rest centred
+(`baylee-tools shell check centred`). The toolbar's search box asks for its
+least width and grows, and Sort, New deck and Import wrap as one group to
+the row's right end.
+
 **A card blocked on the gateway is marked, never hidden** (12.10.2026,
 `docs/protocol.md` §"Blocked cards"). Beside the pool the lobby asks `GET
 /cards/blocked` (`http::ask_aside`, never offline) into
