@@ -361,8 +361,8 @@ fn foretell_mode(
 
 /// Whether an alternative cost's condition holds, read off the view.
 ///
-/// All three are readable, which is why none of them takes a way off the list
-/// the way an unreadable cost part does.
+/// Anything the view cannot establish is refused, keeping an unverified way
+/// off the pre-tap list the way [`parts_payable`] refuses unreadable parts.
 fn condition_holds(view: &PlayerView, condition: AltCondition) -> bool {
     match condition {
         AltCondition::Always => true,
@@ -377,6 +377,37 @@ fn condition_holds(view: &PlayerView, condition: AltCondition) -> bool {
                     .any(|o| o.id == c.object && o.controller == seat.player)
             })
         }),
+        AltCondition::If(condition) => match condition {
+            baylee_cards_dsl::Condition::ControlCount(filter, min)
+                if !uses_self_identity(filter) =>
+            {
+                let payer = resource_player(view);
+                view.battlefield
+                    .iter()
+                    .filter(|object| {
+                        object.controller == payer
+                            && !object.status.is_phased_out()
+                            && crate::targeting::matches(view, object, filter) == Some(true)
+                    })
+                    .count()
+                    >= usize::from(*min)
+            }
+            // Conditions whose inputs the view does not carry (graveyard
+            // history, per-turn tallies, source counters) stay refused rather
+            // than guessed at.
+            _ => false,
+        },
+    }
+}
+
+/// `targeting::matches` evaluates `This` and `Another` against a spell in hand,
+/// whereas `Condition::ControlCount` binds each candidate permanent as `source`.
+fn uses_self_identity(filter: &Filter) -> bool {
+    match filter {
+        Filter::This | Filter::Another => true,
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(|part| uses_self_identity(part)),
+        Filter::Not(inner) | Filter::AttachedTo(inner) => uses_self_identity(inner),
+        _ => false,
     }
 }
 
@@ -998,5 +1029,55 @@ mod tests {
         assert_eq!(modes[1].cost, ManaCost::parse("{2}"));
         assert_eq!(modes[1].plan.taps(), 2);
         assert_eq!(modes[0].cost, ManaCost::parse("{3}{W}{W}"));
+    }
+
+    #[test]
+    fn snuff_out_requires_a_controlled_swamp_and_four_life_for_its_alternative_cost() {
+        let mut snuff = card_in_hand(1, "Snuff Out", &[Color::Black]);
+        snuff.types = TypeSet::INSTANT;
+        let with_target = |(mut view, legal): (PlayerView, LegalActions)| {
+            let mut theirs = token(50, 1, "Grizzly Bears", 2, 2);
+            theirs.card = Some(card_in_hand(50, "Grizzly Bears", &[Color::Green]).card);
+            theirs.colors = ColorSet::from_slice(&[Color::Green]);
+            theirs.types = TypeSet::CREATURE;
+            view.battlefield.push(theirs);
+            (view, legal)
+        };
+
+        let (view, legal) = with_target(lands_of(vec![snuff.clone()], 4, "Swamp", land::SWAMP));
+        let modes = reachable_modes(&view, &legal, snuff.id);
+        assert_eq!(
+            kinds(&modes),
+            [CastModeKind::Normal, CastModeKind::Alternative(0)],
+            "four Swamps and 20 life offer both the printed cost and the 4-life alternative"
+        );
+        assert_eq!(modes[0].plan.taps(), 4);
+        assert!(modes[1].plan.is_empty());
+
+        let (mut at_three_life, legal) =
+            with_target(lands_of(vec![snuff.clone()], 4, "Swamp", land::SWAMP));
+        at_three_life.seats[0].life = 3;
+        assert_eq!(
+            kinds(&reachable_modes(&at_three_life, &legal, snuff.id)),
+            [CastModeKind::Normal],
+            "three life cannot pay 4 life (CR 119.4)"
+        );
+
+        let (mut only_theirs, legal) = with_target(table(vec![snuff.clone()], 0));
+        let mut their_swamp = basic(200, "Swamp", land::SWAMP);
+        their_swamp.controller = PlayerId::new(1);
+        only_theirs.battlefield.push(their_swamp);
+        assert!(
+            reachable_modes(&only_theirs, &legal, snuff.id).is_empty(),
+            "an opponent's Swamp does not satisfy Condition::ControlCount"
+        );
+
+        let (mut phased_swamp, legal) =
+            with_target(lands_of(vec![snuff.clone()], 1, "Swamp", land::SWAMP));
+        phased_swamp.battlefield[0].status = baylee_view::ObjectStatus::PHASED_OUT;
+        assert!(
+            reachable_modes(&phased_swamp, &legal, snuff.id).is_empty(),
+            "a phased-out Swamp is ignored on the battlefield"
+        );
     }
 }

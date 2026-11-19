@@ -1083,9 +1083,13 @@ fn alternative_fits(alt: &AlternativeCost, line: &str) -> bool {
     let Some((_, rest)) = keyword_cost(&text) else {
         return false;
     };
-    matches!(alt.condition, AltCondition::Always)
-        && cost_fits(&alt.cost, &text)
-        && parts_fit(alt.cost.parts, &rest.to_lowercase())
+    match alt.condition {
+        AltCondition::Always => {}
+        AltCondition::NotYourTurn | AltCondition::CommanderControlled | AltCondition::If(_) => {
+            return false;
+        }
+    }
+    cost_fits(&alt.cost, &text) && parts_fit(alt.cost.parts, &rest.to_lowercase())
 }
 
 /// A keyword line that prints a cost, split into the keyword and the cost.
@@ -1110,13 +1114,15 @@ fn one_word(head: &str) -> bool {
 /// Does the sentence state the condition the alternative cost carries?
 fn condition_fits(condition: AltCondition, lower: &str) -> bool {
     match condition {
-        // An unconditional alternative states no condition, and both
+        // An unconditional alternative states no condition, and the
         // conditional ones print theirs as the clause the sentence opens
         // with — which is what separates Force of Will's "You may…" from
-        // Force of Negation's "If it's not your turn, you may…".
+        // Force of Negation's "If it's not your turn, you may…" and
+        // Snuff Out's "If you control a Swamp, you may…".
         AltCondition::Always => !lower.starts_with("if "),
         AltCondition::NotYourTurn => lower.contains("not your turn"),
         AltCondition::CommanderControlled => lower.contains("control a commander"),
+        AltCondition::If(_) => lower.starts_with("if ") && lower.contains("you may"),
     }
 }
 

@@ -321,6 +321,9 @@ pub enum AltCondition {
     NotYourTurn,
     /// Only while you control your commander (Fierce Guardianship).
     CommanderControlled,
+    /// Only while a stated condition holds for the caster ("If …, you may …",
+    /// CR 118.9, 601.2b).
+    If(&'static crate::Condition),
 }
 
 /// An alternative way to pay a spell's cost (CR 601.2b).
