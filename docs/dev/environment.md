@@ -9,8 +9,8 @@ refuses startup where this says so; the normative behaviour behind each is in
 the document it names.
 
 Except for the isolated Tower authority described below, servers take their settings from these variables and nothing from the
-command line but `--help`/`-h` (and the gateway's `records`, `legacy` and
-`help` subcommands; the engine server's `--attach`/`--game`/`--token`).
+command line but `--help`/`-h` (and the gateway's `records` and `help`
+subcommands; the engine server's `--attach`/`--game`/`--token`).
 `--help` prints the usage and exits 0; any other argument prints the reason
 and the usage and exits 2. Either way the process reads no setting, dials
 nothing and binds nothing (`baylee-gateway`, `baylee-agent`,

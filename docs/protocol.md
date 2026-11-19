@@ -3221,9 +3221,11 @@ says which: `auth_mode`, `central`, `guests_enabled` and
 `registration_enabled`, always `false`, kept for clients from before, which
 draw a sign-up form only where it is true. The
 accounts from before Central keep their game data here: Central signs them in
-from its legacy store, and the gateway links each one at its first admission,
-ending its password and its password sessions. An account's username and
-address stay as data; nothing mails it, and nothing signs in by them here.
+from its legacy store until 30.06.2027, and the gateway links each one at its
+first admission, ending its old sessions. The gateway keeps no password hash:
+the column is gone (`docs/central-login.md` §"Cutover"). An account's
+username and address stay as data; nothing mails it, and nothing signs in by
+them here.
 
 **A new key here is safe in one direction only.** A client's config struct
 deserializes the keys it names and ignores the rest, so a key it has never

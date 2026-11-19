@@ -263,8 +263,11 @@ account, only the accounts on the profile's list, or nobody.
 
 ## Accounts
 
-`crates/baylee-db/src/entity/account.rs`, written by `store::create_account`
-(`crates/baylee-gateway/src/store.rs`).
+`crates/baylee-db/src/entity/account.rs`. The gateway writes a guest
+(`store::create_guest`, `crates/baylee-gateway/src/store.rs`) and its
+projection of a Baylee Central account (`baylee_db::central::projection`);
+the accounts from before Central are rows it keeps
+(`docs/central-login.md` §"Legacy migration").
 
 - **Stored:**
   - `id`: a UUIDv7.
@@ -272,8 +275,12 @@ account, only the accounts on the profile's list, or nobody.
     "Private: never shown to another player".
   - `display_name` and `tag`, which others see as `Name#tag`. `tag` is an
     identity column, and the entity notes it is "also a registration counter".
-  - `password_hash`: an Argon2id PHC string from `argon2::Argon2::default()`
-    with a random salt (`auth::hash_password`).
+  - No password and no password hash. The column that held the Argon2id
+    hashes of the accounts from before Central was dropped on 19.11.2026
+    (migration `m20261119_000032_drop_account_password`). The hashes of the
+    accounts that have not moved yet are in Baylee Central's legacy store
+    until 30.06.2027 (`docs/central-login.md` §"Cutover"); backups of the
+    gateway's database from before that migration still hold them.
   - `email`: optional. Registration writes none since #269. Only accounts
     imported from the legacy file carry one.
   - `confirmed_at`, `created_at`, `lang` (the language a mail is sent in),
@@ -297,10 +304,13 @@ account, only the accounts on the profile's list, or nobody.
   - `GET /players/{handle}` answers `id`, `display_name`, `tag` and `handle`
     to any signed-in session, guests included.
   - The lobby shows handles, never ids.
-  - `GET /me` shows the owner everything but the hash.
+  - `GET /me` shows the owner its id, e-mail, username, display name, tag
+    and whether it is a guest.
 - **Kept:** until its player deletes it.
-- **Removed:** `DELETE /account` (`account::delete_account`), with the
-  password asked again (a guest's session is enough). In the client it is
+- **Removed:** `DELETE /account` (`account::delete_account`), on the
+  session alone: a guest's, or a Baylee Central account's, which Central
+  checked as the request came in. A password that a client from before the
+  cutover sends is ignored. In the client it is
   "Delete account" on the settings screen (#292). One statement,
   `baylee_db::accounts::delete`, deletes the row, and the foreign keys
   cascade to its decks and their history, sessions, confirmations, settings
@@ -315,8 +325,9 @@ account, only the accounts on the profile's list, or nobody.
 
 - **Stored:** an `account` row with `guest = true`, a display name ("Guest"
   unless one was given), a tag, `lang`, `created_at`, and one session. A
-  `CHECK` keeps a guest without username, e-mail or password
-  (`m20260925_000007`). A guest may keep decks and settings, and may not
+  `CHECK` keeps a guest without username or e-mail
+  (`account_guest_holds_no_credentials`, from `m20260925_000007`). A guest
+  may keep decks and settings, and may not
   upload images (`cosmetics::upload`).
 - **Kept:** `auth::GUEST_TOKEN_TTL`, 30 days, renewed at most once a day
   (`auth::Lifetime::GUEST`): 29 to 30 days after the guest's last request.
@@ -416,24 +427,24 @@ service's UI).
 ## What an admin may do to an account (beta.8)
 
 From the feedback service's admin pages, through the gateway's loopback
-console (`docs/protocol.md` §"Acting on an account"): reset a password,
-ban or lift a ban, delete an account, end a running game. The admins are
+console (`docs/protocol.md` §"Acting on an account"): ban or lift a ban,
+delete an account, end a running game. The admins are
 the operator's own, signed in at the feedback service; no player can do
 any of it to another.
 
 - **Finding the player:** the console's account search above, which
   existed already (owner, 09.10.2026). Nothing new lists people.
-- **A reset password** is made by the gateway, answered once to the admin
-  who asked, through the feedback service's memory to their browser, and
-  stored only as its Argon2id hash. Neither service logs or audits it; the
-  admin hands it to the player by a way of their own choosing. Until the
-  player chooses their own (`POST /auth/password`), the account holds
-  `must_change_password`.
+- **A password reset** is no longer possible: the route went with the
+  cutover, and the gateway keeps no password. An account an admin reset
+  before it and that never chose its own still holds
+  `must_change_password`; the gateway admits no session of it, and nothing
+  at the gateway clears the mark.
 - **A ban** keeps on the account row the admin's reason, its start and
   end, and the admin's name (`banned_by`), so the player can be told why
   and until when, and the admins can see it. The reason is shown to that
-  player only, after their password (or to the banned guest's own
-  session), and to the admins. It is overwritten by the next ban, cleared
+  player only, once Baylee Central has signed them in and the gateway
+  refuses the admission (or to the banned guest's own session), and to the
+  admins. It is overwritten by the next ban, cleared
   by an unban, and goes with the account. Neither audit holds it.
 - **A deletion** is the player's own deletion, done for them: everything
   under §"Accounts" goes the same way, in the same statement.
@@ -683,7 +694,8 @@ On first start against an empty database the gateway imports
 `gateway-store.json` (`STORE_PATH`) and renames it `<path>.imported`
 (`baylee_db::import::imported_name`); nothing deletes it. It holds the
 imported accounts' e-mails, display names, password hashes, token hashes,
-decks and settings as JSON.
+decks and settings as JSON. The import stores everything but the password
+hashes, which stay in the file only.
 
 ## The client
 

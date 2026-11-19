@@ -296,7 +296,7 @@ stored-credential compatibility checked before changing the suite.
 official gateway at the cutover (owner's decision of 30.10.2026, §"Cutover").*
 The official gateway has no password route since: Central signs in every
 account from before it that has not moved yet, from its legacy store, and
-moves it. At the cutover the operator copies every such account into that
+moves it. At the cutover the operator copied every such account into that
 store: its id here, its username, display name and tag, its Argon2id salt and
 output, the version of this gateway's terms it accepted, a forced password
 change and a ban in force, and its source snapshot. Nothing else: no address,
@@ -339,12 +339,15 @@ Central sign-in, as at sign-in; the next one resumes it.
 The gateway keeps the account: its id, game data, replays, statistics and
 friends. Central names the legacy account to the official gateway's bridge,
 with an admission, only once its move is closed; the first such admission
-fixes the link (`central_account_link`), makes the account Central-only,
-removes its password hash and ends its old sessions in one transaction, and
+fixes the link (`central_account_link`), makes the account Central-only and
+ends its old sessions in one transaction (`baylee_db::central::adopt`), and
 lobby and chat sockets are asked to reconnect. A link is immutable, and a
 Central identity is linked to one account; the same admission again changes
-nothing. A database constraint prevents any later code from restoring the
-password, and migrations refuse a rollback once credentials have been retired.
+nothing. An account whose source is over the snapshot bound below is not
+linked. The gateway holds no password hash: the column is gone (§"Cutover"),
+and the migrations do not step back past its drop while an account that is
+neither a guest nor Central's is left, since the older schema holds such an
+account to a password it no longer has.
 This cannot erase old backups, which still need the operator's documented
 retention policy. Original gameplay data and identifiers remain at the
 gateway; this integration does not relocate replay blobs or uploaded images.
@@ -361,55 +364,37 @@ confirmed backup, so a new installation can replay outstanding messages. See
 protocol, recovery checks and remaining limits.
 
 The first snapshot format is deliberately bounded: at most 192 KiB and 2,048
-source rows. The cutover's export refuses an account over it, and with it the
-whole export, so the operator decides about it; chunked large-object migration
-is still required before admitting such accounts. Never work around this by
-dropping history or truncating an export.
+source rows. The cutover's export refused an account over it, and with it the
+whole export, so that the operator decided about it; chunked large-object
+migration is still required before admitting such accounts. Never work around
+this by dropping history or truncating a snapshot.
 
 ### Cutover
 
-The move of the old accounts' sign-in to Central is one maintenance window,
-the operator's, in this order, so that no password can change at the gateway
-after its hash was copied:
+The cutover is done. The owner decided it on 30.10.2026: in one maintenance
+window the official gateway's password accounts were copied into Central's
+legacy store, and the gateway's password routes, its mailer and every
+password session ended with that release (`docs/protocol.md` §"Accounts are
+Baylee Central's (the cutover)"). On 19.11.2026 the rest left the gateway:
+the export tool (`baylee-gateway legacy export`) and the column
+`account.password_hash`, which migration
+`m20261119_000032_drop_account_password` drops. The procedure and the export
+document are kept as history in `docs/history/legacy-cutover-2026-11-19.md`.
 
-1. Stop the official gateway and deploy the release without its password
-   routes; let no player in yet.
-2. Export and import in one pipe, with the gateway's `DATABASE_URL`:
-   `baylee-gateway legacy export | central-service --legacy-import-stdin`
-   (Central's operator document first, baylee-central `docs/operations.md`
-   §"The legacy store"). The export opens the database without migrating it,
-   reads every account that is no guest, has a password hash and no link, in
-   one repeatable-read transaction, and writes the document to standard
-   output only, never to a terminal. One account that cannot move (no
-   username, a snapshot over the bound, a hash under other parameters)
-   refuses the whole export and is named by its id.
-3. Compare the two lines on standard error: the export's count (with how
-   many must choose a new password and how many are banned) and digest, and
-   the import's count and digest, recomputed from what Central stored. They
-   are equal, or the import committed nothing.
-4. Start Central with its legacy store, then the gateway, then publish the
-   client. A client from before still posts to the gateway's
-   `/auth/central/migrate`, which is gone: it must update, and the updater
-   needs no sign-in.
+What is left, until the end of 30.06.2027 (Europe/Berlin):
 
-The document is `baylee-legacy-accounts/1`: `{"format", "accounts": [{
-"legacy_id", "username" (its key), "display_name" (only one that keeps the
-rule, else `null`), "tag", "password": {"salt": 16 bytes, "hash": 32 bytes},
-"terms_version", "must_change_password", "ban": null | {"until": Unix seconds
-| null}, "snapshot": the source snapshot's bytes}], "count", "digest"}`, bytes
-as JSON arrays of numbers. Only hashes written as
-`$argon2id$v=19$m=19456,t=2,p=1$` with a 16-byte salt and a 32-byte output
-are taken: the parameters this gateway hashes with, and the only ones Central
-verifies. The digest is SHA-256 over the count as eight big-endian bytes, then
-each account in ascending `legacy_id` byte order as `f(legacy_id)
-f(username) o(display_name) o(tag in decimal) f(salt) f(hash)
-o(terms_version) byte(must_change_password) o(ban: "forever" or its until in
-decimal) f(snapshot)`, where `f(x)` is `x`'s length as four big-endian bytes
-followed by `x`, and `o(x)` is one zero byte for none or one byte `1`
-followed by `f(x)`. Central's import computes the same.
+- Central signs in every account from before it that has not moved yet,
+  from its legacy store, and moves it (§"Legacy migration"). The only copy
+  of such an account's password hash is in that store.
+- The gateway keeps the account's row and game data, takes no password and
+  holds none, and links the account to its Central identity at its first
+  admission. An account an admin had reset before the cutover
+  (`must_change_password`) or banned is refused at admission as before.
 
-The `password_hash` column stays until a later release's migration drops it,
-after the cutover.
+A gateway cannot export password accounts any more. One whose password
+accounts never went to Central's store must run the export from a build up to
+commit `5658da1f0` before it takes a build with migration 32, which destroys
+the hashes; the history note says how.
 
 ## Settings and synchronization
 
@@ -776,8 +761,8 @@ as a registered gateway does; only `BAYLEE_REGISTRATION=off` refuses it, as
 it refuses every account new at a gateway but an admin's (`docs/protocol.md`
 §"Who may come in new").
 A moved account keeps its display name and tag at Central: the cutover's
-export carries both, the name only when it keeps `auth::valid_display_name`
-(a name from before that rule, or from `gateway-store.json`, stays behind,
+export carried both, the name only when it kept `auth::valid_display_name`
+(a name from before that rule, or from `gateway-store.json`, stayed behind,
 and the account chooses one on the website), and the tag always; Central's
 reservation keeps them (baylee-central `docs/native-login.md` §"Legacy
 login"). At every Central sign-in here the gateway takes the name and tag the
@@ -832,9 +817,10 @@ It kills only its owned process tree/container and verifies cleanup,
 including with `--exercise-failure`. Client UI tests must follow the dev-control
 skill, use the extra left monitor, and close the exact owned client afterward.
 `cargo dev central integration` additionally runs a real gateway and
-Central against that isolated database: the cutover (the gateway's own
-`legacy export` into Central's legacy store, and the end of the password
-sessions), the legacy sign-in at Central, the link fixed at the first
+Central against that isolated database: the state the cutover left (the
+fixture writes its legacy accounts into Central's legacy store itself, since
+the gateway's export tool is gone, and ends their password sessions), the
+legacy sign-in at Central, the link fixed at the first
 admission, the move held for Central's terms, session renewal, game-seat
 revocation, fresh-device restore, preference reconciliation,
 registered-gateway admission and the official gateway's heartbeat in bridge
