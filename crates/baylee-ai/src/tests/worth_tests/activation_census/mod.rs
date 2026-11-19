@@ -496,7 +496,15 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Eight have an existing reader. Grist's token-with-conditional-counter
     // and graveyard-copy abilities, and Vivien's private exile/cast permission,
     // remain contextual rather than receiving an invented empty-board value.
-    assert_eq!((read, of), (3010, 3800), "activated/loyalty reader census");
+    // The Morph reader (19 Nov 2026) finishes 60 morph cards, eleven of them
+    // with an activation: Aphetto Alchemist, Boneknitter, Daru Healer,
+    // Disruptive Pitmage, Dwarven Blastminer, Goblin Taskmaster, Gravel
+    // Slinger, Snarling Undorak, Venomspout Brackus, Voidmage Prodigy and
+    // Whipcorder. Ten use effects the table already reads; Daru Healer's
+    // prevention of the next damage is contextual and stays unread. The 25
+    // training-deck pool cards add none (their five finished ones carry no
+    // activation, the other twenty are stubs).
+    assert_eq!((read, of), (3020, 3811), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [
