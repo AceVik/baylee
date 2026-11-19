@@ -387,82 +387,29 @@ fn assemble(rows: &[&DumpRow], buckets: &Buckets) -> anyhow::Result<Batch> {
     let b = rows.len();
     let mut inputs = Vec::with_capacity(first.tensors.len());
     for (ti, t) in first.tensors.iter().enumerate() {
-        let r = roles(&t.name);
-        let mut dims = vec![b];
-        for j in 1..t.dims.len() {
-            let role = r.get(j - 1).copied().unwrap_or(Axis::Fixed);
-            dims.push(if role == Axis::Fixed {
-                t.dims[j]
-            } else {
-                target[&role]
-            });
-        }
-        let per: usize = dims[1..].iter().product();
-        let sources = rows
-            .iter()
-            .map(|row| {
-                let s = &row.tensors[ti];
-                ensure!(s.name == t.name, "rows list their inputs in one order");
-                for (j, (&have, &want)) in s.dims.iter().zip(&dims).enumerate().skip(1) {
-                    let role = r.get(j - 1).copied().unwrap_or(Axis::Fixed);
-                    ensure!(
-                        if role == Axis::Fixed {
-                            have == want
-                        } else {
-                            have <= want
-                        },
-                        "{}: axis {j} is {have}, the call has {want}",
-                        t.name
-                    );
-                }
-                Ok(s)
-            })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+        let dims = call_dims(t, b, &target);
+        let sources = row_tensors(rows, ti, t, &dims)?;
         let value = match &t.data {
             TensorData::F32(_) => {
-                let mut out = vec![0.0_f32; b * per];
-                for (i, s) in sources.iter().enumerate() {
-                    let TensorData::F32(v) = &s.data else {
-                        bail!("{}: types", t.name)
-                    };
-                    pad_copy(
-                        v,
-                        &s.dims[1..],
-                        &mut out[i * per..(i + 1) * per],
-                        &dims[1..],
-                    );
-                }
-                Tensor::from_array((dims.clone(), out))?.into_dyn()
+                let out = stacked(&sources, &dims, 0.0_f32, &t.name, |d| match d {
+                    TensorData::F32(v) => Some(v),
+                    _ => None,
+                })?;
+                Tensor::from_array((dims, out))?.into_dyn()
             }
             TensorData::I64(_) => {
-                let mut out = vec![fill_i64(&t.name); b * per];
-                for (i, s) in sources.iter().enumerate() {
-                    let TensorData::I64(v) = &s.data else {
-                        bail!("{}: types", t.name)
-                    };
-                    pad_copy(
-                        v,
-                        &s.dims[1..],
-                        &mut out[i * per..(i + 1) * per],
-                        &dims[1..],
-                    );
-                }
-                Tensor::from_array((dims.clone(), out))?.into_dyn()
+                let out = stacked(&sources, &dims, fill_i64(&t.name), &t.name, |d| match d {
+                    TensorData::I64(v) => Some(v),
+                    _ => None,
+                })?;
+                Tensor::from_array((dims, out))?.into_dyn()
             }
             TensorData::Bool(_) => {
-                let mut out = vec![false; b * per];
-                for (i, s) in sources.iter().enumerate() {
-                    let TensorData::Bool(v) = &s.data else {
-                        bail!("{}: types", t.name)
-                    };
-                    pad_copy(
-                        v,
-                        &s.dims[1..],
-                        &mut out[i * per..(i + 1) * per],
-                        &dims[1..],
-                    );
-                }
-                Tensor::from_array((dims.clone(), out))?.into_dyn()
+                let out = stacked(&sources, &dims, false, &t.name, |d| match d {
+                    TensorData::Bool(v) => Some(v),
+                    _ => None,
+                })?;
+                Tensor::from_array((dims, out))?.into_dyn()
             }
         };
         inputs.push((t.name.clone(), value));
@@ -484,6 +431,75 @@ fn assemble(rows: &[&DumpRow], buckets: &Buckets) -> anyhow::Result<Batch> {
         real_tokens,
         padded_tokens,
     })
+}
+
+/// The call's dimensions for input `t`: `batch` rows, then each axis at the
+/// input's fixed extent or the call's target for its variable axis.
+fn call_dims(t: &DumpTensor, batch: usize, target: &HashMap<Axis, usize>) -> Vec<usize> {
+    let r = roles(&t.name);
+    std::iter::once(batch)
+        .chain(t.dims.iter().enumerate().skip(1).map(|(j, &own)| {
+            match r.get(j - 1).copied().unwrap_or(Axis::Fixed) {
+                Axis::Fixed => own,
+                role => target[&role],
+            }
+        }))
+        .collect()
+}
+
+/// Input `ti` of every row, checked to be `t`'s input with fixed axes equal
+/// to the call's and variable axes no longer than the call's.
+fn row_tensors<'a>(
+    rows: &[&'a DumpRow],
+    ti: usize,
+    t: &DumpTensor,
+    dims: &[usize],
+) -> anyhow::Result<Vec<&'a DumpTensor>> {
+    let r = roles(&t.name);
+    rows.iter()
+        .map(|row| {
+            let s = &row.tensors[ti];
+            ensure!(s.name == t.name, "rows list their inputs in one order");
+            for (j, (&have, &want)) in s.dims.iter().zip(dims).enumerate().skip(1) {
+                let role = r.get(j - 1).copied().unwrap_or(Axis::Fixed);
+                ensure!(
+                    if role == Axis::Fixed {
+                        have == want
+                    } else {
+                        have <= want
+                    },
+                    "{}: axis {j} is {have}, the call has {want}",
+                    t.name
+                );
+            }
+            Ok(s)
+        })
+        .collect()
+}
+
+/// The rows' values of one input stacked into a call of `dims`, each row
+/// padded with `fill`; `values` picks the input's elements of type `T`.
+fn stacked<T: Copy>(
+    sources: &[&DumpTensor],
+    dims: &[usize],
+    fill: T,
+    name: &str,
+    values: impl Fn(&TensorData) -> Option<&Vec<T>>,
+) -> anyhow::Result<Vec<T>> {
+    let per: usize = dims[1..].iter().product();
+    let mut out = vec![fill; sources.len() * per];
+    for (i, s) in sources.iter().enumerate() {
+        let Some(v) = values(&s.data) else {
+            bail!("{name}: types")
+        };
+        pad_copy(
+            v,
+            &s.dims[1..],
+            &mut out[i * per..(i + 1) * per],
+            &dims[1..],
+        );
+    }
+    Ok(out)
 }
 
 /// Runs one call; outputs per row at the row's own candidate and pair
@@ -803,6 +819,63 @@ struct SeatResult {
     shapes: usize,
 }
 
+/// One seat's calls: every `seats`-th batch of the rows, at most 48 of them,
+/// spread evenly over the rows (which matters when they are sorted by size).
+fn seat_batches<'a>(
+    rows: &'a [DumpRow],
+    seat: usize,
+    seats: usize,
+    batch: usize,
+    buckets: &Buckets,
+) -> anyhow::Result<Vec<(Batch, Vec<&'a DumpRow>)>> {
+    let calls = rows.len() / batch;
+    let mine: Vec<usize> = (seat..calls).step_by(seats).collect();
+    let step = mine.len().div_ceil(48).max(1);
+    let mut batches = Vec::new();
+    for &call in mine.iter().step_by(step) {
+        let chunk: Vec<&DumpRow> = rows[call * batch..(call + 1) * batch].iter().collect();
+        batches.push((assemble(&chunk, buckets)?, chunk));
+    }
+    ensure!(!batches.is_empty(), "too few rows for batch {batch}");
+    Ok(batches)
+}
+
+/// Runs `batches` round-robin on the clock for `seconds` (at least three
+/// calls) and counts what they did.
+fn seat_clock(
+    session: &mut Session,
+    batches: &[(Batch, Vec<&DumpRow>)],
+    seconds: f64,
+) -> anyhow::Result<SeatResult> {
+    let shapes = batches
+        .iter()
+        .map(|(b, _)| b.shape.clone())
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+    let start = Instant::now();
+    let mut out = SeatResult {
+        latencies_ms: Vec::new(),
+        rows: 0,
+        seconds: 0.0,
+        real_tokens: 0,
+        padded_tokens: 0,
+        shapes,
+    };
+    let mut i = 0;
+    while out.latencies_ms.len() < 3 || start.elapsed().as_secs_f64() < seconds {
+        let (b, r) = &batches[i % batches.len()];
+        let t = Instant::now();
+        run(session, b, r)?;
+        out.latencies_ms.push(t.elapsed().as_secs_f64() * 1e3);
+        out.rows += r.len();
+        out.real_tokens += b.real_tokens;
+        out.padded_tokens += b.padded_tokens;
+        i += 1;
+    }
+    out.seconds = start.elapsed().as_secs_f64();
+    Ok(out)
+}
+
 fn time_one(
     args: &Args,
     rows: &Arc<Vec<DumpRow>>,
@@ -822,24 +895,7 @@ fn time_one(
         let mut session = session(args, graph, seats)?;
         let (warmup, seconds) = (args.warmup, args.seconds);
         handles.push(std::thread::spawn(move || -> anyhow::Result<SeatResult> {
-            // This seat's calls: every `seats`-th batch of the shuffled rows.
-            // This seat's calls are every `seats`-th batch of the rows; at
-            // most 48 of them, spread evenly over the rows (which matters
-            // when they are sorted by size).
-            let calls = rows.len() / batch;
-            let mine: Vec<usize> = (seat..calls).step_by(seats).collect();
-            let step = mine.len().div_ceil(48).max(1);
-            let mut batches = Vec::new();
-            for &call in mine.iter().step_by(step) {
-                let chunk: Vec<&DumpRow> = rows[call * batch..(call + 1) * batch].iter().collect();
-                batches.push((assemble(&chunk, &buckets)?, chunk));
-            }
-            ensure!(!batches.is_empty(), "too few rows for batch {batch}");
-            let shapes = batches
-                .iter()
-                .map(|(b, _)| b.shape.clone())
-                .collect::<std::collections::BTreeSet<_>>()
-                .len();
+            let batches = seat_batches(&rows, seat, seats, batch, &buckets)?;
             // `--warmup 0` runs every call once first: a compiling provider
             // builds each shape before the clock starts.
             let warm = if warmup == 0 { batches.len() } else { warmup };
@@ -849,28 +905,7 @@ fn time_one(
             }
             barrier.wait();
             go.wait();
-            let start = Instant::now();
-            let mut out = SeatResult {
-                latencies_ms: Vec::new(),
-                rows: 0,
-                seconds: 0.0,
-                real_tokens: 0,
-                padded_tokens: 0,
-                shapes,
-            };
-            let mut i = 0;
-            while out.latencies_ms.len() < 3 || start.elapsed().as_secs_f64() < seconds {
-                let (b, r) = &batches[i % batches.len()];
-                let t = Instant::now();
-                run(&mut session, b, r)?;
-                out.latencies_ms.push(t.elapsed().as_secs_f64() * 1e3);
-                out.rows += r.len();
-                out.real_tokens += b.real_tokens;
-                out.padded_tokens += b.padded_tokens;
-                i += 1;
-            }
-            out.seconds = start.elapsed().as_secs_f64();
-            Ok(out)
+            seat_clock(&mut session, &batches, seconds)
         }));
     }
     let stop = Arc::new(Mutex::new(false));
