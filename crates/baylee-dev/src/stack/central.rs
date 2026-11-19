@@ -47,6 +47,10 @@ const PINNED_GRANTS: &str = "crates/baylee-gateway/tests/central/runtime-grants.
 const FRONT: &str = "crates/central-web/browser/e2e-real/front.ts";
 const FALLBACK: &str = "crates/central-web-server/tests/data";
 const MIGRATIONS: &str = "crates/central-migration/src";
+/// The package of Central's profile-picture worker (`docs/profile-pictures.md`
+/// in Central), and the executable `central-service` looks for beside itself.
+const PICTURE_CODEC: &str = "central-picture-codec";
+const PICTURE_WORKER: &str = "central-picture-worker";
 
 pub(super) fn origin(port: u16) -> String {
     format!("http://127.0.0.1:{port}")
@@ -95,20 +99,19 @@ impl Checkout {
         Ok(Self { root })
     }
 
-    /// Builds the service, the site server and the site, the latter for this
-    /// stack's loopback Central and gateway instead of the production hosts.
+    /// Builds the service, its picture worker, the site server and the site,
+    /// the latter for this stack's loopback Central and gateway instead of the
+    /// production hosts.
     pub(super) fn build(&self, gateway_origin: &str) -> Result<()> {
+        let mut packages = vec!["build", "--locked", "-p", "central-service"];
+        if self.has_picture_worker() {
+            packages.extend(["-p", PICTURE_CODEC]);
+        }
+        packages.extend(["-p", "central-web-server"]);
         ensure!(
-            self.cargo(&[
-                "build",
-                "--locked",
-                "-p",
-                "central-service",
-                "-p",
-                "central-web-server"
-            ])
-            .status()
-            .is_ok_and(|status| status.success()),
+            self.cargo(&packages)
+                .status()
+                .is_ok_and(|status| status.success()),
             "building Central in {} failed",
             self.root.display()
         );
@@ -146,6 +149,17 @@ impl Checkout {
         )
     }
 
+    /// Whether the checkout has the picture worker: Central before its
+    /// profile pictures (12.11.2026) has none, and its build refuses `-p` of
+    /// a package it lacks.
+    fn has_picture_worker(&self) -> bool {
+        self.root
+            .join("crates")
+            .join(PICTURE_CODEC)
+            .join("Cargo.toml")
+            .is_file()
+    }
+
     /// A cargo that resolves the checkout's own toolchain and target
     /// directory, not the ones `cargo dev` was started with.
     fn cargo(&self, args: &[&str]) -> Command {
@@ -159,7 +173,7 @@ impl Checkout {
         cargo
     }
 
-    /// Copies the two executables and the built site into the stack's state,
+    /// Copies the executables and the built site into the stack's state,
     /// so a later build in the checkout never changes a running stack.
     /// Returns the staged site.
     pub(super) fn stage(&self, bin_dir: &Path, state_dir: &Path) -> Result<PathBuf> {
@@ -167,6 +181,12 @@ impl Checkout {
         for name in ["central-service", "central-web"] {
             let file = format!("{name}{}", std::env::consts::EXE_SUFFIX);
             stage_file(&built.join(file), bin_dir, name)?;
+        }
+        // `central-service` runs the worker it finds beside itself; without
+        // it every picture upload is refused as unavailable.
+        if self.has_picture_worker() {
+            let file = format!("{PICTURE_WORKER}{}", std::env::consts::EXE_SUFFIX);
+            stage_file(&built.join(file), bin_dir, PICTURE_WORKER)?;
         }
         let site = state_dir.join("central-site");
         if site.exists() {
