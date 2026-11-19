@@ -85,12 +85,16 @@ fn plain_name(name: &str) -> String {
 }
 
 /// A gateway's address as its origin, spelled as a shared table names it and
-/// as a friend's client compares it with its own: scheme, host and port,
-/// lower case, without a path and without the scheme's default port. `None`
-/// for an address that has no such origin.
+/// as a friend's client compares it with its own: the address as it is
+/// spelled today (a former address of the live gateway is its current one,
+/// `gateway_list::moved`), then scheme, host and port, lower case, without a
+/// path and without the scheme's default port. `None` for an address that
+/// has no such origin.
 #[must_use]
 pub fn origin_of(gateway: &str) -> Option<String> {
-    let origin = url::Url::parse(gateway).ok()?.origin();
+    let origin = url::Url::parse(crate::lobby::gateway_list::moved(gateway))
+        .ok()?
+        .origin();
     origin.is_tuple().then(|| origin.ascii_serialization())
 }
 
