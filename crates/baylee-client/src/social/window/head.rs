@@ -95,7 +95,9 @@ pub(super) fn head_parts(
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     margin: UiRect::left(zpx(4.0)),
-                    border_radius: BorderRadius::all(zpx(4.0)),
+                    border_radius: BorderRadius::all(Val::Px(
+                        crate::shellkit::tokens::RADIUS_CONTROL,
+                    )),
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
@@ -274,15 +276,18 @@ pub(super) fn group_bar(
                     left: zpx(0.0),
                     min_width: zpx(220.0),
                     flex_direction: FlexDirection::Column,
-                    padding: UiRect::all(zpx(4.0)),
+                    // A menu of the kit's: its radius, ground and rim.
+                    padding: UiRect::all(zpx(6.0)),
                     border: UiRect::all(zpx(1.0)),
-                    border_radius: BorderRadius::all(zpx(6.0)),
+                    border_radius: BorderRadius::all(Val::Px(
+                        crate::shellkit::tokens::RADIUS_PANEL,
+                    )),
                     ..default()
                 },
-                BackgroundColor(Color::NONE),
-                rows::dialog_glass(),
-                BorderColor::all(rows::GLASS_EDGE),
-                rows::glass_shadow(),
+                BackgroundColor(crate::shellkit::tokens::OPAQUE),
+                crate::shellkit::surfaces::menu_ground(),
+                BorderColor::all(crate::shellkit::tokens::POPOVER_EDGE),
+                crate::shellkit::surfaces::elevation_popover(),
                 stacked(20),
             ))
             .id();
@@ -339,7 +344,7 @@ pub(crate) fn text_button(
             press,
             Node {
                 padding: UiRect::axes(zpx(8.0), zpx(3.0)),
-                border_radius: BorderRadius::all(zpx(4.0)),
+                border_radius: BorderRadius::all(Val::Px(crate::shellkit::tokens::RADIUS_CONTROL)),
                 ..default()
             },
             BackgroundColor(Color::NONE),

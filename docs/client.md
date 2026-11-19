@@ -10697,6 +10697,47 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   linear light at both ends (`window::tests`). The field a line is written
   in is opaque, so nothing behind the window reads through the words being
   typed.
+- **Framed as the shell's windows are** (owner, 19.11.2026: "Das Layout von
+  Kontakte, Chat und Profil passt nicht zum Layout der anderen Fenster und
+  Dialoge"). The chat's surfaces take their frame from `shellkit`, not from
+  numbers of their own:
+  - *Rim and rules.* `rows::GLASS_EDGE` is `tokens::SHEET_EDGE` (a sheet's
+    rim) and `rows::GLASS_RULE` is `tokens::BORDER` (the hairline under a
+    sheet's head and over its foot). A menu, a dropdown and a person's card
+    wear `tokens::POPOVER_EDGE`.
+  - *Radii.* `RADIUS_PANEL` (14) for the lobby window's upper corners (it is
+    docked on the window's foot, so the lower ones are square; at a table it
+    keeps the log strip's), for every menu and for the card; `RADIUS_CONTROL`
+    (8) for every button, field and menu row. A surface's clip is a
+    rectangle, so the band at its top rounds itself to the radius less the
+    border (the window's head, the card's tint band).
+  - *Elevation.* The kit's tiers: `elevation_floating` under the window,
+    `elevation_popover` under menus, dropdowns and the card (which adds the
+    person's tint as a breath of light), `sheet_shadow` under the chat's
+    sheets, `elevation_control` under the pills. The chat keeps no shadow of
+    its own but the drawer's, which falls to the left because the drawer
+    stands on the right edge.
+  - *Head and foot.* The drawer's head is `surfaces::dialog_header`: the
+    badge, "Friends" at the panel heading's size, the account's handle as
+    the second line, and `surfaces::sheet_close_button`. The window's tab row
+    and the drawer's head have no ground of their own, one rule under them;
+    the composer's band and the drawer's foot wear `surfaces::FOOT_WASH`.
+    Head, list and foot of the drawer share the kit's panel padding
+    (`ShellMetrics::pad`).
+  - *Buttons.* The drawer's actions (Accept, Decline, Status, Chat &
+    privacy, New group, OK, Cancel) are `controls::button_compact`, pressed
+    as the chat's controls are (`UiButton` and a `DrawerPress` on the kit's
+    hit wrapper); a row of them shares the width through
+    `surfaces::dialog_button_row`. Under a pointer the wrapper is let down
+    to its face, so a request's row keeps its height.
+  - *Grounds.* Menus stand on `surfaces::menu_ground`, the card on
+    `surfaces::popover_ground`, opaque as the kit's are. **The window and
+    the drawer keep their glass** (`rows::window_ground`): it is the one
+    deliberate difference, measured and held by a test.
+  - *Sizes.* `social::zoom::Shell` holds the kit's `ShellMetrics` for the
+    chat (the lobby's window and text step; at a table the default step on
+    1920 × 1080, since `UiScale` grows the chat there), and its factor is
+    the chat's zoom, so a kit control and a chat row grow together.
 
 ### The contact status
 

@@ -67,10 +67,12 @@ pub(crate) const LOBBY_INKS: Inks = Inks {
     pt: crate::hud::logpanel::LOG_LINE_PT,
 };
 
-/// Luminous cut-glass outer border shared across smoked-glass chat surfaces.
-pub(crate) const GLASS_EDGE: Color = Color::srgba(0.56, 0.78, 0.92, 0.42);
-/// Inner frosted bevel rule separating headers, sub-bars, and composers.
-pub(crate) const GLASS_RULE: Color = Color::srgba(0.52, 0.72, 0.86, 0.24);
+/// The rim of every chat surface: the kit's sheet edge, so the chat
+/// window and the contacts drawer are framed as the client's sheets are.
+pub(crate) const GLASS_EDGE: Color = crate::shellkit::tokens::SHEET_EDGE;
+/// The rule between a chat surface's bands, and round its fields: the kit's
+/// own hairline, the one under a sheet's head and over its foot.
+pub(crate) const GLASS_RULE: Color = crate::shellkit::tokens::BORDER;
 /// Smoked-glass fill for interactive pills (`chat_pill`, `FriendsDoor`) whose
 /// hover lift animates [`BackgroundColor`] directly without a second quad.
 pub(crate) const PILL_GLASS: Color = Color::srgba(0.036, 0.078, 0.112, 0.89);
@@ -99,7 +101,9 @@ pub(crate) fn window_glass() -> [Color; 2] {
 /// How opaque the chat window's ground is at its head and at its foot.
 pub(crate) const WINDOW_GLASS: (f32, f32) = (0.91, 0.88);
 
-/// Top-lit frosted sheen for chat window and drawer header bars.
+/// Top-lit frosted sheen for the head of the chat's own sheets and of the
+/// tower's panel. The chat window and the drawer have a sheet's head: no
+/// ground of its own, one rule under it.
 pub(crate) fn head_glass() -> BackgroundGradient {
     BackgroundGradient::from(LinearGradient::new(
         std::f32::consts::PI,
@@ -110,18 +114,7 @@ pub(crate) fn head_glass() -> BackgroundGradient {
     ))
 }
 
-/// Inverted frosted bevel for bottom composer and drawer action bars.
-pub(crate) fn foot_glass() -> BackgroundGradient {
-    BackgroundGradient::from(LinearGradient::new(
-        std::f32::consts::PI,
-        vec![
-            ColorStop::auto(Color::srgba(0.04, 0.08, 0.12, 0.28)),
-            ColorStop::auto(Color::srgba(0.08, 0.15, 0.21, 0.52)),
-        ],
-    ))
-}
-
-/// Denser smoked glass for floating chat dialogs, menus, and sheets.
+/// Denser smoked glass for the chat's own sheets and its filter dialog.
 pub(crate) fn dialog_glass() -> BackgroundGradient {
     BackgroundGradient::from(LinearGradient::new(
         std::f32::consts::PI,
@@ -130,60 +123,6 @@ pub(crate) fn dialog_glass() -> BackgroundGradient {
             ColorStop::auto(Color::srgba(0.026, 0.060, 0.090, 0.94)),
         ],
     ))
-}
-
-/// Three-layer depth shadow under floating smoked-glass chat surfaces.
-pub(crate) fn glass_shadow() -> BoxShadow {
-    BoxShadow(vec![
-        ShadowStyle {
-            color: Color::srgba(0.0, 0.0, 0.0, 0.46),
-            x_offset: zpx(0.0),
-            y_offset: zpx(4.0),
-            spread_radius: zpx(0.0),
-            blur_radius: zpx(10.0),
-        },
-        ShadowStyle {
-            color: Color::srgba(0.0, 0.0, 0.0, 0.68),
-            x_offset: zpx(0.0),
-            y_offset: zpx(18.0),
-            spread_radius: zpx(-2.0),
-            blur_radius: zpx(42.0),
-        },
-        ShadowStyle {
-            color: Color::srgba(0.0, 0.0, 0.0, 0.34),
-            x_offset: zpx(0.0),
-            y_offset: zpx(8.0),
-            spread_radius: zpx(1.0),
-            blur_radius: zpx(24.0),
-        },
-    ])
-}
-
-/// Crisp three-layer elevation shadow for compact smoked-glass context menus.
-pub(crate) fn popover_glass_shadow() -> BoxShadow {
-    BoxShadow(vec![
-        ShadowStyle {
-            color: Color::srgba(0.0, 0.0, 0.0, 0.44),
-            x_offset: zpx(0.0),
-            y_offset: zpx(3.0),
-            spread_radius: zpx(0.0),
-            blur_radius: zpx(8.0),
-        },
-        ShadowStyle {
-            color: Color::srgba(0.0, 0.0, 0.0, 0.68),
-            x_offset: zpx(0.0),
-            y_offset: zpx(14.0),
-            spread_radius: zpx(-1.0),
-            blur_radius: zpx(32.0),
-        },
-        ShadowStyle {
-            color: Color::srgba(0.0, 0.0, 0.0, 0.32),
-            x_offset: zpx(0.0),
-            y_offset: zpx(6.0),
-            spread_radius: zpx(1.0),
-            blur_radius: zpx(18.0),
-        },
-    ])
 }
 
 /// The ink a conversation's lines are drawn in (the channel's colour).

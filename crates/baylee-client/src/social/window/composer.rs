@@ -69,7 +69,7 @@ pub(super) fn composer_parts(
                 column_gap: zpx(4.0),
                 padding: UiRect::axes(zpx(7.0), zpx(2.0)),
                 height: zpx(22.0),
-                border_radius: BorderRadius::all(zpx(4.0)),
+                border_radius: BorderRadius::all(Val::Px(crate::shellkit::tokens::RADIUS_CONTROL)),
                 flex_shrink: 0.0,
                 ..default()
             },
@@ -126,7 +126,7 @@ pub(super) fn composer_parts(
                 column_gap: zpx(4.0),
                 padding: UiRect::axes(zpx(4.0), zpx(2.0)),
                 border: UiRect::all(zpx(1.0)),
-                border_radius: BorderRadius::all(zpx(6.0)),
+                border_radius: BorderRadius::all(Val::Px(crate::shellkit::tokens::RADIUS_CONTROL)),
                 overflow: Overflow::clip(),
                 ..default()
             },
@@ -319,7 +319,7 @@ pub(super) fn composer_parts(
             margin: UiRect::bottom(zpx(1.0)),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
-            border_radius: BorderRadius::all(zpx(4.0)),
+            border_radius: BorderRadius::all(Val::Px(crate::shellkit::tokens::RADIUS_CONTROL)),
             flex_shrink: 0.0,
             ..default()
         },
@@ -348,7 +348,7 @@ pub(super) fn composer_parts(
     let light = commands
         .spawn(crate::social::glass::layer(
             crate::social::glass::Glass::Field,
-            zpx(6.0),
+            Val::Px(crate::shellkit::tokens::RADIUS_CONTROL),
         ))
         .id();
     let mut inner = vec![chip, sep, field];
@@ -368,15 +368,18 @@ pub(super) fn composer_parts(
                     left: zpx(60.0),
                     width: zpx(320.0),
                     flex_direction: FlexDirection::Column,
-                    padding: UiRect::all(zpx(4.0)),
+                    // A menu of the kit's: its radius, ground and rim.
+                    padding: UiRect::all(zpx(6.0)),
                     border: UiRect::all(zpx(1.0)),
-                    border_radius: BorderRadius::all(zpx(6.0)),
+                    border_radius: BorderRadius::all(Val::Px(
+                        crate::shellkit::tokens::RADIUS_PANEL,
+                    )),
                     ..default()
                 },
-                BackgroundColor(Color::NONE),
-                rows::dialog_glass(),
-                BorderColor::all(rows::GLASS_EDGE),
-                rows::glass_shadow(),
+                BackgroundColor(crate::shellkit::tokens::OPAQUE),
+                crate::shellkit::surfaces::menu_ground(),
+                BorderColor::all(crate::shellkit::tokens::POPOVER_EDGE),
+                crate::shellkit::surfaces::elevation_popover(),
                 stacked(30),
             ))
             .id();
@@ -388,7 +391,9 @@ pub(super) fn composer_parts(
                     ChatPress::Suggestion(i),
                     Node {
                         padding: UiRect::axes(zpx(8.0), zpx(3.0)),
-                        border_radius: BorderRadius::all(zpx(3.0)),
+                        border_radius: BorderRadius::all(Val::Px(
+                            crate::shellkit::tokens::RADIUS_CONTROL,
+                        )),
                         ..default()
                     },
                     BackgroundColor(if lit { inks.lit } else { Color::NONE }),

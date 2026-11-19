@@ -20,7 +20,9 @@ use super::window::ChatSurface;
 use super::{ChatUi, Entry, Field, SocialHost, UiAsk};
 use crate::ambience::Feel;
 use crate::hud::{UiFonts, glyph, icon_tf, palette, tf, tf_bold, tf_italic};
-use crate::shellkit::tokens;
+use crate::shellkit::controls::{self, Live, Weight};
+use crate::shellkit::surfaces::{self, SheetHeader};
+use crate::shellkit::{px_fixed, tokens};
 
 /// The drawer's width.
 const WIDTH: f32 = 340.0;
@@ -894,7 +896,7 @@ fn sync_door(
                 },
                 BackgroundColor(ground),
                 BorderColor::all(super::rows::GLASS_EDGE),
-                super::rows::glass_shadow(),
+                crate::shellkit::surfaces::elevation_control(),
                 Feel::new(ground),
                 super::window::stacked(1),
             ))
@@ -1037,84 +1039,70 @@ fn small_button(
     label: &str,
     press: DrawerPress,
 ) -> Entity {
-    commands
-        .spawn((
-            UiButton,
-            press,
-            Node {
-                padding: UiRect::axes(zpx(7.0), zpx(2.0)),
-                border: UiRect::all(zpx(1.0)),
-                border_radius: BorderRadius::all(zpx(4.0)),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            BackgroundColor(Color::NONE),
-            BorderColor::all(tokens::BORDER),
-            Feel::tinting_to(Color::NONE, Color::srgba(1.0, 1.0, 1.0, 0.10)),
-            children![(
-                Text::new(label.to_string()),
-                tf(fonts, z(11.0)),
-                TextColor(tokens::INK),
-                Pickable::IGNORE,
-            )],
-        ))
-        .id()
+    kit_button(commands, fonts, label, Weight::Secondary, Some(press), None)
+}
+
+/// A drawer action on the shell kit's compact button, the face every strip
+/// and toolbar of the client wears, pressed as the chat's controls are
+/// (`UiButton` and its [`DrawerPress`]). Without a `press` it is drawn off
+/// and says `why` under the pointer.
+///
+/// Under a pointer the kit's hit wrapper is let down to its face: a
+/// request's row keeps its height, and the drawer has no finger to serve
+/// until the chat is drawn on a phone, where the wrapper stays.
+fn kit_button(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    label: &str,
+    weight: Weight,
+    press: Option<DrawerPress>,
+    why: Option<&str>,
+) -> Entity {
+    let kit = super::zoom::kit(fonts);
+    let button = match press {
+        Some(press) => controls::button_compact(
+            commands,
+            kit,
+            None,
+            label,
+            weight,
+            Live::Yes,
+            (UiButton, press),
+        ),
+        None => controls::button_compact(
+            commands,
+            kit,
+            None,
+            label,
+            weight,
+            Live::No(why.unwrap_or(label)),
+            (),
+        ),
+    };
+    if !kit.m.touch() {
+        commands
+            .entity(button)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.min_width = Val::Auto;
+                node.min_height = Val::Auto;
+            });
+    }
+    button
 }
 
 fn entry_button(
     commands: &mut Commands,
     fonts: &UiFonts,
     label: &str,
+    weight: Weight,
     press: DrawerPress,
     disabled_hint: Option<String>,
 ) -> Entity {
-    let enabled = disabled_hint.is_none();
-    let rest_bg = if enabled {
-        tokens::CONTROL
-    } else {
-        tokens::CONTROL.with_alpha(0.35)
-    };
-    let rest_border = if enabled {
-        super::rows::GLASS_RULE
-    } else {
-        tokens::BORDER.with_alpha(0.45)
-    };
-    let mut ent = commands.spawn((
-        Node {
-            flex_grow: 1.0,
-            flex_basis: zpx(0.0),
-            min_height: zpx(30.0),
-            padding: UiRect::axes(zpx(8.0), zpx(4.0)),
-            border: UiRect::all(zpx(1.0)),
-            border_radius: BorderRadius::all(zpx(4.0)),
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
-            ..default()
-        },
-        BackgroundColor(rest_bg),
-        BorderColor::all(rest_border),
-        children![(
-            Text::new(label.to_string()),
-            tf(fonts, z(11.5)),
-            TextColor(if enabled { tokens::INK } else { tokens::MUTED }),
-            Pickable::IGNORE,
-        )],
-    ));
-    if let Some(reason) = disabled_hint {
-        ent.insert((
-            crate::shellkit::surfaces::elevation_control_disabled(),
-            super::hint_bundle(reason),
-        ));
-    } else {
-        ent.insert((
-            UiButton,
-            press,
-            crate::shellkit::surfaces::elevation_control(),
-            Feel::tinting_to(tokens::CONTROL, Color::srgba(1.0, 1.0, 1.0, 0.10)),
-            crate::ambience::FeelShadow,
-        ));
+    match disabled_hint {
+        Some(reason) => kit_button(commands, fonts, label, weight, None, Some(&reason)),
+        None => kit_button(commands, fonts, label, weight, Some(press), None),
     }
-    ent.id()
 }
 
 fn icon_button(
@@ -1132,47 +1120,16 @@ fn icon_button(
                 height: zpx(24.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                border_radius: BorderRadius::all(zpx(5.0)),
+                border_radius: BorderRadius::all(Val::Px(tokens::RADIUS_CONTROL)),
                 flex_shrink: 0.0,
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            Feel::tinting_to(Color::NONE, Color::srgba(1.0, 1.0, 1.0, 0.12)),
+            Feel::tinting_to(Color::NONE, tokens::HOVER),
             children![(
                 Text::new(glyph.to_string()),
                 icon_tf(fonts, z(11.0)),
                 TextColor(tokens::MUTED),
-                Pickable::IGNORE,
-            )],
-        ))
-        .id()
-}
-
-/// Larger close button (`30×30`) for the drawer's top-right header.
-fn close_button(commands: &mut Commands, fonts: &UiFonts) -> Entity {
-    commands
-        .spawn((
-            UiButton,
-            DrawerPress::Close,
-            Node {
-                width: zpx(30.0),
-                height: zpx(30.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border: UiRect::all(zpx(1.0)),
-                border_radius: BorderRadius::all(zpx(6.0)),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.08, 0.14, 0.19, 0.90)),
-            BorderColor::all(tokens::BORDER),
-            crate::shellkit::surfaces::elevation_control(),
-            Feel::new(Color::srgba(0.08, 0.14, 0.19, 0.90)),
-            crate::ambience::FeelShadow,
-            children![(
-                Text::new(glyph::CLOSE.to_string()),
-                icon_tf(fonts, z(13.5)),
-                TextColor(tokens::INK),
                 Pickable::IGNORE,
             )],
         ))
@@ -1283,7 +1240,7 @@ pub(crate) fn text_box(
                 flex_grow: 1.0,
                 padding: UiRect::axes(zpx(8.0), zpx(5.0)),
                 border: UiRect::all(zpx(1.0)),
-                border_radius: BorderRadius::all(zpx(5.0)),
+                border_radius: BorderRadius::all(Val::Px(tokens::RADIUS_CONTROL)),
                 ..default()
             },
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.25)),
@@ -1335,7 +1292,7 @@ fn sync_drawer(
     roots: Query<(Entity, &mut Visibility), With<Drawer>>,
     scrolls: Query<&ScrollPosition, With<DrawerList>>,
     mut drawn: Local<Option<DrawerKey>>,
-    zoom: Res<super::zoom::Zoom>,
+    (zoom, shell): (Res<super::zoom::Zoom>, Res<super::zoom::Shell>),
 ) {
     let _zoom = super::zoom::Scope::new(zoom.0);
     let mut roots = roots;
@@ -1444,41 +1401,25 @@ fn sync_drawer(
     *drawn = Some(key);
     commands.entity(root).despawn_children();
     let me = machine.me();
-    // The head.
-    let head = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::SpaceBetween,
-                padding: UiRect::axes(zpx(14.0), zpx(10.0)),
-                border: UiRect::bottom(zpx(1.0)),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            BackgroundColor(Color::NONE),
-            super::rows::head_glass(),
-            BorderColor::all(super::rows::GLASS_RULE),
-            ZIndex(1),
-        ))
-        .id();
-    let title = commands
-        .spawn((
-            Text::new(format!(
-                "{} · {}",
-                ChatPhrase::FriendsTitle.text(lang),
-                me.handle
-            )),
-            tf_bold(&fonts, z(14.0)),
-            TextColor(tokens::INK),
-            Pickable::IGNORE,
-        ))
-        .id();
-    let close = close_button(&mut commands, &fonts);
+    let _kit = shell.scope(lang);
+    let kit = super::zoom::kit(&fonts);
+    // The gutter the head, the list and the foot share: the kit's panel
+    // padding, as in a sheet.
+    let gutter = px_fixed(kit.m.pad);
+    // The head: a sheet's own (`surfaces::dialog_header`), with the account
+    // the list belongs to as its second line and the kit's close button.
+    let head = surfaces::dialog_header(
+        &mut commands,
+        kit,
+        SheetHeader::new(ChatPhrase::FriendsTitle.text(lang))
+            .icon(glyph::FRIENDS)
+            .subtitle(&me.handle),
+    );
+    let close = surfaces::sheet_close_button(&mut commands, kit, (UiButton, DrawerPress::Close));
     commands.entity(close).insert(super::hint_bundle(
         baylee_client_core::i18n::Phrase::TransferClose.text(lang),
     ));
-    commands.entity(head).add_children(&[title, close]);
+    commands.entity(head).insert(ZIndex(1)).add_child(close);
     // The list.
     let list = commands
         .spawn((
@@ -1489,7 +1430,7 @@ fn sync_drawer(
                 flex_direction: FlexDirection::Column,
                 flex_grow: 1.0,
                 min_height: zpx(0.0),
-                padding: UiRect::axes(zpx(14.0), zpx(8.0)),
+                padding: UiRect::axes(gutter, zpx(8.0)),
                 overflow: Overflow::scroll_y(),
                 ..default()
             },
@@ -1533,6 +1474,7 @@ fn sync_drawer(
             &mut commands,
             &fonts,
             ChatPhrase::OkButton.text(lang),
+            Weight::Primary,
             DrawerPress::EntryOk,
             ok_disabled.then_some(words),
         );
@@ -1540,23 +1482,18 @@ fn sync_drawer(
             &mut commands,
             &fonts,
             ChatPhrase::CancelButton.text(lang),
+            Weight::Secondary,
             DrawerPress::EntryCancel,
             None,
         );
-        let btn_line = commands
-            .spawn((
-                Node {
-                    width: Val::Percent(100.0),
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Stretch,
-                    column_gap: zpx(8.0),
-                    padding: UiRect::new(zpx(0.0), zpx(0.0), zpx(2.0), zpx(4.0)),
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .add_children(&[ok, cancel])
-            .id();
+        // The two answers share the width, as a sheet's actions do.
+        let btn_line = surfaces::dialog_button_row(&mut commands, kit, &[ok, cancel]);
+        commands
+            .entity(btn_line)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.padding = UiRect::new(zpx(0.0), zpx(0.0), zpx(2.0), zpx(4.0));
+            });
         kids.extend([caption, field_line, btn_line]);
     }
     // Find or add.
@@ -2140,28 +2077,16 @@ fn sync_drawer(
             Node {
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
-                row_gap: zpx(6.0),
-                padding: UiRect::axes(zpx(14.0), zpx(10.0)),
+                row_gap: zpx(8.0),
+                padding: UiRect::axes(gutter, zpx(12.0)),
                 border: UiRect::top(zpx(1.0)),
                 flex_shrink: 0.0,
                 ..default()
             },
-            BackgroundColor(Color::NONE),
-            super::rows::foot_glass(),
+            // A sheet's foot: its wash and its rule.
+            BackgroundColor(surfaces::FOOT_WASH),
             BorderColor::all(super::rows::GLASS_RULE),
             ZIndex(1),
-        ))
-        .id();
-    let top_row = commands
-        .spawn((
-            Node {
-                width: Val::Percent(100.0),
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                column_gap: zpx(6.0),
-                ..default()
-            },
-            Pickable::IGNORE,
         ))
         .id();
     let status_btn = small_button(
@@ -2170,35 +2095,14 @@ fn sync_drawer(
         &ChatPhrase::StatusLabel.fill(lang, &[status.text(lang)]),
         DrawerPress::Status,
     );
-    commands
-        .entity(status_btn)
-        .entry::<Node>()
-        .and_modify(|mut n| {
-            n.flex_grow = 1.0;
-            n.flex_basis = zpx(0.0);
-            n.min_height = zpx(30.0);
-            n.align_items = AlignItems::Center;
-            n.justify_content = JustifyContent::Center;
-        });
     let privacy_btn = small_button(
         &mut commands,
         &fonts,
         ChatPhrase::PrivacyButton.text(lang),
         DrawerPress::Privacy,
     );
-    commands
-        .entity(privacy_btn)
-        .entry::<Node>()
-        .and_modify(|mut n| {
-            n.flex_grow = 1.0;
-            n.flex_basis = zpx(0.0);
-            n.min_height = zpx(30.0);
-            n.align_items = AlignItems::Center;
-            n.justify_content = JustifyContent::Center;
-        });
-    commands
-        .entity(top_row)
-        .add_children(&[status_btn, privacy_btn]);
+    // Each row's buttons share its width, as a sheet's actions do.
+    let top_row = surfaces::dialog_button_row(&mut commands, kit, &[status_btn, privacy_btn]);
     commands.entity(foot).add_child(top_row);
     if !me.guest {
         let new = small_button(
@@ -2207,13 +2111,8 @@ fn sync_drawer(
             ChatPhrase::NewGroupButton.text(lang),
             DrawerPress::NewGroup,
         );
-        commands.entity(new).entry::<Node>().and_modify(|mut n| {
-            n.width = Val::Percent(100.0);
-            n.min_height = zpx(30.0);
-            n.align_items = AlignItems::Center;
-            n.justify_content = JustifyContent::Center;
-        });
-        commands.entity(foot).add_child(new);
+        let row = surfaces::dialog_button_row(&mut commands, kit, &[new]);
+        commands.entity(foot).add_child(row);
     }
     let rim = commands
         .spawn(super::glass::layer(super::glass::Glass::Panel, zpx(0.0)))
@@ -2453,7 +2352,7 @@ fn sync_context_menu(
         crate::hud::scale::desktop_space(w, scale.as_deref())
     });
     let menu_w = 220.0 * zoom.0;
-    let est_h = (64.0 + entries.len() as f32 * 32.0) * zoom.0;
+    let est_h = (68.0 + entries.len() as f32 * 32.0) * zoom.0;
     let raw_pos = if at.0.length_squared() > 1.0 {
         at.0 / ui_scale
     } else {
@@ -2480,9 +2379,11 @@ fn sync_context_menu(
                 width: zpx(220.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: zpx(2.0),
-                padding: UiRect::all(zpx(6.0)),
+                // A menu of the kit's (`surfaces::menu`): its padding,
+                // radius, ground and rim.
+                padding: UiRect::all(zpx(8.0)),
                 border: UiRect::all(zpx(1.0)),
-                border_radius: BorderRadius::all(zpx(10.0)),
+                border_radius: BorderRadius::all(Val::Px(tokens::RADIUS_PANEL)),
                 overflow: Overflow::clip(),
                 ..default()
             },
@@ -2491,16 +2392,10 @@ fn sync_context_menu(
                 translation: Val2::px(0.0, -4.0),
                 ..default()
             },
-            BackgroundColor(Color::NONE),
-            BackgroundGradient::from(LinearGradient::new(
-                145.0_f32.to_radians(),
-                vec![
-                    ColorStop::auto(Color::srgba(0.10, 0.18, 0.25, 0.98)),
-                    ColorStop::auto(Color::srgba(0.035, 0.07, 0.10, 0.98)),
-                ],
-            )),
-            BorderColor::all(tokens::ACCENT.with_alpha(0.65)),
-            super::rows::popover_glass_shadow(),
+            BackgroundColor(tokens::OPAQUE),
+            surfaces::menu_ground(),
+            BorderColor::all(tokens::POPOVER_EDGE),
+            crate::shellkit::surfaces::elevation_popover(),
             crate::shellkit::sheen::Sheen,
             super::window::stacked(60),
         ))
@@ -2575,7 +2470,7 @@ fn sync_context_menu(
                             align_items: AlignItems::Center,
                             column_gap: zpx(9.0),
                             padding: UiRect::axes(zpx(8.0), zpx(5.0)),
-                            border_radius: BorderRadius::all(zpx(6.0)),
+                            border_radius: BorderRadius::all(Val::Px(tokens::RADIUS_CONTROL)),
                             ..default()
                         },
                         BackgroundColor(Color::NONE),
@@ -2584,7 +2479,7 @@ fn sync_context_menu(
                             if danger {
                                 palette::DANGER.with_alpha(0.14)
                             } else {
-                                Color::srgba(1.0, 1.0, 1.0, 0.10)
+                                tokens::SELECTED
                             },
                         ),
                         children![

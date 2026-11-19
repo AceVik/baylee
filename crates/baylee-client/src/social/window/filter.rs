@@ -65,7 +65,7 @@ pub(super) fn filter_dialog(
             BackgroundColor(Color::NONE),
             rows::dialog_glass(),
             BorderColor::all(rows::GLASS_EDGE),
-            rows::glass_shadow(),
+            crate::shellkit::surfaces::elevation_popover(),
             stacked(45),
         ))
         .id();
@@ -113,7 +113,9 @@ pub(super) fn filter_dialog(
                 ChatPress::Filter(kind),
                 Node {
                     padding: UiRect::axes(zpx(4.0), zpx(3.0)),
-                    border_radius: BorderRadius::all(zpx(4.0)),
+                    border_radius: BorderRadius::all(Val::Px(
+                        crate::shellkit::tokens::RADIUS_CONTROL,
+                    )),
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
