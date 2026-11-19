@@ -1,5 +1,8 @@
-//! `/seed {"friends":500,"lines":400,"stack":60}`: the large, repeatable data a
-//! fixed scenario stands on, without a gateway. Every field is optional.
+//! `/seed {"friends":500,"lines":400,"stack":60,"portraits":{"1000":"moving"}}`:
+//! the large, repeatable data a fixed scenario stands on, without a gateway.
+//! Every field is optional. `portraits` lays a profile picture into the discs
+//! of each tag (`"still"` or `"moving"`) through the shipped path, from the
+//! cache directory instead of Central (`portraits::seed`).
 //!
 //! The rows are made here and go in by the doors a host uses, so what draws
 //! them is the shipped code: frames into the social machine, a view into the
@@ -13,6 +16,15 @@ use baylee_client_core::social::{Body, Social};
 use baylee_core::ids::ObjectId;
 use baylee_protocol::social::{Down, Friend, Person, Presence, Sender, Shown, Snapshot};
 
+/// Where `portraits` go: the pictures' work (`crate::portraits`).
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+pub(super) type Pictures = crate::portraits::PictureWork;
+
+/// Phones draw no pictures yet: a resource no one inserts.
+#[cfg(any(target_os = "android", target_os = "ios"))]
+#[derive(bevy::prelude::Resource)]
+pub(super) struct Pictures;
+
 /// A fixed time, so two runs of a scenario draw the same rows.
 const SEEDED_AT_MS: u64 = 1_790_000_000_000;
 
@@ -23,10 +35,17 @@ struct Seed {
     friends: usize,
     lines: usize,
     stack: usize,
+    /// Pictures by tag: `"still"` or `"moving"`.
+    portraits: std::collections::BTreeMap<String, String>,
 }
 
 /// Answers one `/seed`.
-pub(super) fn answer(body: &str, host: Option<&mut SocialHost>, duel: Option<&mut Duel>) -> String {
+pub(super) fn answer(
+    body: &str,
+    host: Option<&mut SocialHost>,
+    duel: Option<&mut Duel>,
+    pictures: Option<&mut Pictures>,
+) -> String {
     let Ok(seed) = serde_json::from_str::<Seed>(body) else {
         return "{\"error\":\"not a seed\"}".to_string();
     };
@@ -45,7 +64,73 @@ pub(super) fn answer(body: &str, host: Option<&mut SocialHost>, duel: Option<&mu
     } else {
         0
     };
-    format!("{{\"ok\":true,\"frames\":{social},\"stack\":{stack}}}")
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    let portraits = if seed.portraits.is_empty() {
+        0
+    } else {
+        let Some(work) = pictures else {
+            return "{\"error\":\"no pictures\"}".to_string();
+        };
+        let wanted: Vec<(u32, crate::portraits::Seeded)> = seed
+            .portraits
+            .iter()
+            .filter_map(|(tag, kind)| {
+                Some((baylee_client_core::portrait::tag_of(tag)?, seeded(kind)?))
+            })
+            .collect();
+        match crate::portraits::seed(work, &wanted, &still(), MOVING) {
+            Ok(laid) => laid,
+            Err(why) => return format!("{{\"error\":\"{why}\"}}"),
+        }
+    };
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    let portraits = {
+        let _ = pictures;
+        0
+    };
+    format!("{{\"ok\":true,\"frames\":{social},\"stack\":{stack},\"portraits\":{portraits}}}")
+}
+
+/// What a seed's word for a picture asks: `"still"` or `"moving"` (a
+/// fixture), or a real key's 32 hex digits, `":moving"` after them for one
+/// that moves (fetched from the development Central's website).
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn seeded(kind: &str) -> Option<crate::portraits::Seeded> {
+    use crate::portraits::Seeded;
+    match kind {
+        "still" => Some(Seeded::Fixture { moving: false }),
+        "moving" => Some(Seeded::Fixture { moving: true }),
+        _ => {
+            let (hex, moving) = kind
+                .strip_suffix(":moving")
+                .map_or((kind, false), |hex| (hex, true));
+            let key = baylee_client_core::portrait::parse_key(hex)?;
+            Some(Seeded::Key { key, moving })
+        }
+    }
+}
+
+/// The moving picture a seed lays in: the client's test fixture (256 px,
+/// six frames of `testsrc2`, nobody's picture).
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+const MOVING: &[u8] = include_bytes!("../../tests/data/picture-moving.avif");
+
+/// The still a seed lays in: 256 px of rings in two of the felt's colours,
+/// made here, as a PNG like Central's master.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn still() -> Vec<u8> {
+    let image = image::RgbaImage::from_fn(256, 256, |x, y| {
+        let (dx, dy) = (i64::from(x) - 128, i64::from(y) - 96);
+        let ring = ((dx * dx + dy * dy).isqrt() / 18) % 2 == 0;
+        if ring {
+            image::Rgba([214, 168, 74, 255])
+        } else {
+            image::Rgba([28, 92, 104, 255])
+        }
+    });
+    let mut bytes = std::io::Cursor::new(Vec::new());
+    let _ = image.write_to(&mut bytes, image::ImageFormat::Png);
+    bytes.into_inner()
 }
 
 fn seed_the_machine(machine: &mut Social, seed: &Seed) -> usize {
@@ -175,7 +260,7 @@ mod tests {
         let seed = Seed {
             friends: 5,
             lines: 9,
-            stack: 0,
+            ..Seed::default()
         };
         assert_eq!(seed_the_machine(&mut machine, &seed), 11);
         let lobby = machine

@@ -56,6 +56,24 @@ pub(super) struct ChatBelief<'w, 's> {
     previews: Query<'w, 's, (), ChatPreviewFilter>,
 }
 
+/// The pictures' part of what the client believes.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[derive(bevy::ecs::system::SystemParam)]
+pub(super) struct PortraitBelief<'w, 's> {
+    work: Option<Res<'w, crate::portraits::PictureWork>>,
+    portraits: Option<Res<'w, crate::shellkit::avatar::Portraits>>,
+    discs: Query<
+        'w,
+        's,
+        (
+            &'static crate::shellkit::avatar::Avatar,
+            &'static InheritedVisibility,
+            Option<&'static Children>,
+        ),
+    >,
+    faces: Query<'w, 's, &'static crate::shellkit::avatar::AvatarFace>,
+}
+
 type ChatPreviewFilter = Or<(
     With<crate::lobby::preview::CardPreview>,
     With<crate::social::window::preview::ChatPreview>,
@@ -104,6 +122,10 @@ pub(super) struct Believed<'w, 's> {
     /// The chat (`/state.chat`): the machine and the window, and every chat
     /// control where a pointer would press it.
     chat: ChatBelief<'w, 's>,
+    /// Profile pictures (`/state.portraits`): the lookup, and every
+    /// person's disc with what it wears.
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    portraits: PortraitBelief<'w, 's>,
     /// The builder's virtual lists: rows found visible before they were
     /// mounted, and rows mounted (§17 WP4: "0 placeholders").
     lists: Option<Res<'w, crate::buildui::virtual_rows::ListProbe>>,
@@ -900,6 +922,36 @@ fn report_json(believed: &Believed) -> String {
     value.to_string()
 }
 
+/// Profile pictures (`crate::portraits`): the key lookup, and every
+/// person's disc drawn, with whether it wears a picture (`picture`: its face
+/// is the picture, not the letters), whether that moves, and which frame it
+/// shows (`frame`: `null` is the still).
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn portraits_json(believed: &Believed) -> String {
+    let PortraitBelief {
+        work,
+        portraits,
+        discs,
+        faces,
+    } = &believed.portraits;
+    let discs = discs.iter().map(|(avatar, visible, children)| {
+        let worn = children.into_iter().flatten().any(|child| {
+            matches!(
+                faces.get(*child),
+                Ok(crate::shellkit::avatar::AvatarFace::Picture(_))
+            )
+        });
+        (avatar, visible.get(), worn)
+    });
+    crate::portraits::state_json(work.as_deref(), portraits.as_deref(), discs).to_string()
+}
+
+/// Phones draw no pictures yet.
+#[cfg(any(target_os = "android", target_os = "ios"))]
+fn portraits_json(_: &Believed) -> String {
+    "null".to_string()
+}
+
 /// The chat (the chat window design §13): what the machine and the window
 /// hold, and every chat control where a pointer would press it (`press`
 /// is its Debug spelling: `Tab(Private)`, `Accept("af03")`, …).
@@ -1263,7 +1315,8 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"browser\":{browser},\"shelves\":{shelves},\
          \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"account\":{account},\"lobby_controls\":{lobby_controls},\"update_buttons\":{update_buttons},\"exits\":{exits},\"face_builds\":{face_builds},\
          \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"ui_nodes\":{ui_nodes},\"desk_controls\":{desk_controls},\"report\":{report},\"chat\":{chat},\
-         \"reveal\":{reveal},\"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips},\"plates\":{plates},\"replay\":{replay},\"control\":{control}}}",
+         \"reveal\":{reveal},\"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips},\"plates\":{plates},\"replay\":{replay},\"control\":{control},\"portraits\":{portraits}}}",
+        portraits = portraits_json(believed),
         replay = replay_json(duel),
         control = control_json(duel, settings.map_or(Lang::En, |s| Lang::of(&s.lang))),
         reveal = reveal_json(believed, duel),
