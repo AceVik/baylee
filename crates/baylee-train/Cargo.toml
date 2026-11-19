@@ -161,7 +161,7 @@ required-features = ["play"]
 
 [[bin]]
 name = "fork_advantage4"
-path = "src/bin/fork_advantage4.rs"
+path = "src/bin/fork_advantage4/main.rs"
 required-features = ["play"]
 
 [[bin]]
