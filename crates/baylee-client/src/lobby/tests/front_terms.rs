@@ -202,6 +202,35 @@ fn terms_offer_later_to_an_account_and_no_hidden_sign_out_action() {
     }
 }
 
+/// The owner's case (19.11.2026): the foot's three answers are as wide as
+/// their words, never equal shares of the row (which cut the longest label
+/// at its face), and Decline stands apart from the two ways on.
+#[test]
+fn the_foot_gives_each_answer_its_own_width_and_sets_decline_apart() {
+    let mut app = signed_in_stale(false, "# Terms\n\nPlay fair.");
+    let mut query = app
+        .world_mut()
+        .query::<(&crate::shellkit::focus::Stop, &Node, &ChildOf)>();
+    let found: Vec<(&'static str, Val, f32, Entity)> = query
+        .iter(app.world())
+        .filter(|(stop, ..)| stop.table == "terms")
+        .filter(|(stop, ..)| matches!(stop.id, "accept" | "decline" | "later"))
+        .map(|(stop, node, parent)| (stop.id, node.flex_basis, node.flex_grow, parent.parent()))
+        .collect();
+    assert_eq!(found.len(), 3, "{found:?}");
+    for (id, basis, grow, _) in &found {
+        assert_eq!(*basis, Val::Auto, "{id} is sized by a share, not its words");
+        assert!(*grow <= 0.0, "{id} grows into the row");
+    }
+    let holder = |id: &str| found.iter().find(|f| f.0 == id).expect("stop").3;
+    assert_eq!(
+        holder("accept"),
+        holder("later"),
+        "the ways on stand together"
+    );
+    assert_ne!(holder("accept"), holder("decline"), "Decline stands apart");
+}
+
 /// Accept waits for the end; End (with focus on the text) reaches it, and
 /// the gateway's answer closes the sheet and keeps the device's copy.
 #[test]

@@ -4962,7 +4962,15 @@ under 8 px) after its label. The settings search is a lobby field
 
 **The terms sheet** (WG-1; `client-core::terms`, `lobby/front/terms.rs`):
 modal over whatever the sign-in led to, its own `TabOrder` (text,
-Decline, Later, Accept). **Later** signs an account out with nothing
+Decline, Later, Accept). It is the kit's dialog (`surfaces::dialog`, the
+head band with its badge, title and version line, no close) with the text
+as a scroller of its own in the body, and a foot of its own
+(`front::terms::foot`): Decline stands apart on the left, Later and the
+primary together on the right, each as wide as its words, never the kit's
+equal shares, which cut a label of 38 characters at its face (owner,
+19.11.2026). Where the row is too short, the answers keep the upper line
+and Decline goes under them; a phone stacks all three at full width, the
+primary on top. **Later** signs an account out with nothing
 accepted (owner, 20.10.2026, replacing the 14.10 rule of no such button); a
 guest has none. On a gateway's terms with a session at Central it leaves that
 gateway alone, and says so ("Later (leave this gateway)"). A Baylee account's Decline deletes only its data on this
