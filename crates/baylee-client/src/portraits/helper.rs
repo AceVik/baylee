@@ -76,7 +76,7 @@ pub fn helper_if_asked() -> bool {
             &mut io::BufWriter::new(io::stdout().lock()),
         )
         .is_ok();
-    std::process::exit(if ok { 0 } else { 1 });
+    std::process::exit(i32::from(!ok));
 }
 
 /// The child's work: one sequence in, its frames out (module docs).

@@ -251,6 +251,10 @@ fn strangers_are_asked_apart_and_within_a_budget() {
         book.next(T0 + 1000, &near, &strangers).is_none(),
         "the hour's budget is spent"
     );
+    // An hour on: the near tags' refresh first, then strangers again.
+    let ask = book.next(T0 + HOUR_MS, &near, &strangers).unwrap();
+    assert_eq!(ask.lane, Lane::Near);
+    book.answer(T0 + HOUR_MS, &ask, Answer::Pictures(vec![]));
     let ask = book.next(T0 + HOUR_MS, &near, &strangers).unwrap();
     assert_eq!(ask.lane, Lane::Strangers);
     assert_eq!(
@@ -310,11 +314,10 @@ fn a_moving_picture_shows_each_frame_for_its_own_time() {
 
 #[test]
 fn only_a_seen_moving_picture_plays_and_never_against_reduce_motion() {
-    assert!(plays(true, false, true, true));
-    assert!(!plays(false, false, true, true), "a still");
-    assert!(!plays(true, true, true, true), "reduce motion");
-    assert!(!plays(true, false, false, true), "no disc is seen");
-    assert!(!plays(true, false, true, false), "the window is hidden");
+    assert!(plays(false, true, true));
+    assert!(!plays(true, true, true), "reduce motion");
+    assert!(!plays(false, false, true), "no disc is seen");
+    assert!(!plays(false, true, false), "the window is hidden");
 }
 
 /// Halving averages four pixels by their opacity: a transparent pixel adds

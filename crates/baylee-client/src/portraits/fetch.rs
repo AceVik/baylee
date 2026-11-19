@@ -110,8 +110,7 @@ impl Courier {
     pub(super) fn take(&self) -> Vec<Done> {
         self.receive
             .lock()
-            .map(|receive| receive.try_iter().collect())
-            .unwrap_or_default()
+            .map_or_else(|_| Vec::new(), |receive| receive.try_iter().collect())
     }
 }
 
