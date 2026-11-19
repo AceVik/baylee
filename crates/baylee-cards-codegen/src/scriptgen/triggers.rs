@@ -359,7 +359,10 @@ impl Tx<'_> {
         // graveyard, and `YouOwn` is "your" graveyard (CR 400.3). The card
         // itself leaving is a trigger from the graveyard, refused here.
         if origin == "Graveyard" && dest == "Any" {
-            if valid.split(['.', '+', ',']).any(|atom| atom.trim() == "Self") {
+            if valid
+                .split(['.', '+', ','])
+                .any(|atom| atom.trim() == "Self")
+            {
                 return self.deny("a card leaving the graveyard it triggers from".to_string());
             }
             let expr = self.filter_expr_in_zone(&valid, true)?;

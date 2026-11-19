@@ -534,14 +534,6 @@ pub enum Trigger {
     EnteredThisFrom(crate::ZoneRef),
     /// An object matching the filter leaves the battlefield.
     LeavesBattlefield(&'static Filter),
-    /// "Whenever a [filter] card leaves your graveyard" (Murktide Regent:
-    /// `Filter::And(&[Filter::INSTANT_OR_SORCERY, Filter::OwnedByYou])`),
-    /// once for each card, wherever it goes: cast from there, returned,
-    /// exiled to pay a cost. A card is always in its owner's graveyard
-    /// (CR 400.3), so "your" is ownership, said in the filter. Collected
-    /// from the battlefield like any other trigger, so a permanent spell
-    /// whose own cost exiles the cards (delve) does not see them leave.
-    LeavesGraveyard(&'static Filter),
     /// An object matching the filter dies (battlefield → graveyard).
     Dies(&'static Filter),
     /// A matching permanent died through an operation other than sacrifice.
@@ -908,6 +900,14 @@ pub enum Trigger {
     /// ([`PlayerRel::EventPlayer`](crate::effect::PlayerRel)). Last in the
     /// enum: a game record holds every variant's number.
     Cycles(crate::effect::PlayerRel),
+    /// "Whenever a [filter] card leaves your graveyard" (Murktide Regent:
+    /// `Filter::And(&[Filter::INSTANT_OR_SORCERY, Filter::OwnedByYou])`),
+    /// once for each card, wherever it goes: cast from there, returned,
+    /// exiled to pay a cost. A card is always in its owner's graveyard
+    /// (CR 400.3), so "your" is ownership, said in the filter. Collected
+    /// from the battlefield like any other trigger, so a permanent spell
+    /// whose own cost exiles the cards (delve) does not see them leave.
+    LeavesGraveyard(&'static Filter),
 }
 
 impl Trigger {
