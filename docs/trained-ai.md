@@ -1870,6 +1870,19 @@ rollouts at once on four cores; full 6×4 40.7 s and 11.7 s; records,
 choices and world scores identical to the one-core run. Lockstep groups of
 K4P2 held 5.4 steps on average (median 6, at most 8).
 
+On the GPU (19 November 2026, RTX 4070 Ti, r1 FP16, full 6×4 2-turn fair
+search with the bundle, holdout2 seed 1191961e15, the machine loaded by
+other jobs: load average 26–48, GPU busy 30–76 %): one game at a time,
+16 deals × 8 searched decisions, a searched decision took 3.71 s (p50 3.46,
+p95 6.75) with `--search-threads 16 --inference-batch 32` and 2.38 s (p50
+2.34, p95 3.69) with `--search-lockstep --inference-batch 64`, whose
+groups held 12.4 steps (at most 24). 64 deals with 16 games at once took
+1,078 s with the settings of the 19 November play (`--search-threads 16
+--inference-batch 272`), 876 s in lockstep (batch 512) and 595 s in
+lockstep with 32 games at once (batch 1,024: calls of 79 observation rows
+and 33 decision rows on average, at most 354). Every deal ended alike in 63
+or 64 of 64; FP16 batch noise moved a few rollouts.
+
 **A cheaper rollout net (parked, 19 November 2026).** `--rollout-net DIR`
 lets another net play every chair of the worlds (`RolloutNet4`): the net
 still decides at the root and gives the prior, and the rollout net watches
