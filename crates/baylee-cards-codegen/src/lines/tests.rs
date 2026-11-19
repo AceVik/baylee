@@ -1466,3 +1466,48 @@ fn an_ability_word_does_not_hide_the_trigger_after_it() {
         LineShape::Triggered
     );
 }
+
+#[test]
+fn conditional_alternative_costs_fit_ability_words_trailing_ifs_and_single_taps() {
+    static COND: baylee_cards_dsl::Condition = baylee_cards_dsl::Condition::AttackedWithAtLeast(1);
+    let raid_cost = baylee_cards_dsl::cost!("{1}{R}");
+    let raid_text = "Raid \u{2014} If you attacked this turn, you may pay {1}{R} \
+                     rather than pay this spell's mana cost.\nDraw a card.";
+    assert_eq!(
+        map_alternatives(&[alt(raid_cost, AltCondition::If(&COND))], raid_text),
+        vec![Some(0)]
+    );
+    assert_eq!(
+        map_alternatives(&[alt(raid_cost, AltCondition::Always)], raid_text),
+        vec![None]
+    );
+
+    let trailing_cost = baylee_cards_dsl::cost!("{B}");
+    let trailing_text = "You may pay {B} rather than pay this spell's mana cost \
+                         if there are seven or more cards in your graveyard.\nDraw a card.";
+    assert_eq!(
+        map_alternatives(
+            &[alt(trailing_cost, AltCondition::If(&COND))],
+            trailing_text
+        ),
+        vec![Some(0)]
+    );
+    assert_eq!(
+        map_alternatives(&[alt(trailing_cost, AltCondition::Always)], trailing_text),
+        vec![None]
+    );
+
+    let single_tap = baylee_cards_dsl::cost!(
+        "{U}",
+        TapN {
+            filter: &Filter::Any,
+            count: 1,
+        }
+    );
+    let single_tap_text = "You may pay {U} and tap an untapped artifact you control \
+                           rather than pay this spell's mana cost.\nDraw a card.";
+    assert_eq!(
+        map_alternatives(&[alt(single_tap, AltCondition::Always)], single_tap_text),
+        vec![Some(0)]
+    );
+}

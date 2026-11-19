@@ -38,6 +38,8 @@ pub struct CardBody {
     pub statics: String,
     /// `EnterModifier` expressions for the front face.
     pub enter_modifiers: Vec<String>,
+    /// `AlternativeCost` expressions for the front face.
+    pub alternative_costs: Vec<String>,
     /// `flashback` expression for the front face, when present.
     pub flashback: Option<String>,
     /// Bare `CostPart` expressions accompanying `flashback`, before the
@@ -71,6 +73,7 @@ impl CardBody {
     pub fn is_empty(&self) -> bool {
         self.abilities.is_empty()
             && self.enter_modifiers.is_empty()
+            && self.alternative_costs.is_empty()
             && self.flashback.is_none()
             && self.madness.is_none()
             && self.foretell.is_none()

@@ -1,6 +1,7 @@
 use super::*;
 
 mod affected_defined;
+mod alternative_costs;
 mod animation_rules;
 mod archon_kismet;
 mod blocks_and_conditions;
@@ -106,6 +107,7 @@ fn filter(valid: &str) -> String {
         cost_sacrifices_self: false,
         cost_sacrifices_other: false,
         trigger_is_self: false,
+        in_alternative_cost: false,
         counter_on_source: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),

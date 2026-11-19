@@ -290,7 +290,11 @@ fn abilities(text: &str, cats: &SubtypeCatalogs) -> Option<Vec<String>> {
     }
     script.keywords.clear();
     let body = crate::scriptgen::transcode(&script, cats, None)?;
-    if !body.statics.is_empty() || !body.enter_modifiers.is_empty() || !body.keywords.is_empty() {
+    if !body.statics.is_empty()
+        || !body.enter_modifiers.is_empty()
+        || !body.alternative_costs.is_empty()
+        || !body.keywords.is_empty()
+    {
         return None;
     }
     // The generated file opens the card DSL's prelude, which carries no
@@ -998,6 +1002,8 @@ mod tests {
             // Mitotic Ooze cannot read itself into existence.
             "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nT:Mode$ Attacks",
             "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nS:Mode$ Continuous",
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\n\
+             S:Mode$ AlternativeCost | ValidSA$ Spell.Self | EffectZone$ All | Cost$ 0",
             "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nSVar:X:Count$Valid",
             "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:2/2\n\
              A:AB$ Token | Cost$ T | TokenScript$ w_1_1_soldier | TokenOwner$ You",
