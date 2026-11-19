@@ -354,6 +354,18 @@ impl Tx<'_> {
         if origin == "Battlefield" && dest == "Graveyard" && valid == "Creature.DamagedBy" {
             return Some("Trigger::DiesAfterDamageByThis(&Filter::CREATURE)".to_string());
         }
+        // "Whenever a [valid] card leaves your graveyard" (Murktide Regent),
+        // for each card wherever it goes: the valid-string names a card in a
+        // graveyard, and `YouOwn` is "your" graveyard (CR 400.3). The card
+        // itself leaving is a trigger from the graveyard, refused here.
+        if origin == "Graveyard" && dest == "Any" {
+            if valid.split(['.', '+', ',']).any(|atom| atom.trim() == "Self") {
+                return self.deny("a card leaving the graveyard it triggers from".to_string());
+            }
+            let expr = self.filter_expr_in_zone(&valid, true)?;
+            let filter = self.body.filter_static("TRIGGER", &expr);
+            return Some(format!("Trigger::LeavesGraveyard(&{filter})"));
+        }
         let filter = if valid == "Card.Self" {
             "&Filter::This".to_string()
         } else {

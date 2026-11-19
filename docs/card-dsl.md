@@ -2723,6 +2723,22 @@ Triggers, reflexive events and amounts:
   ability's cost is not cycling. The reader writes it for `ValidCard$ Card`
   (`EachPlayer`) and `Card.YouCtrl` / `Card.YouOwn` (`You`) from the
   battlefield; "another card" stays refused.
+- **`Trigger::LeavesGraveyard(filter)`** is "Whenever a [filter] card leaves
+  your graveyard" (Murktide Regent), once per card, wherever it goes; "your"
+  is `Filter::OwnedByYou` in the filter (CR 400.3). Collected from the
+  battlefield, so a spell whose delve exiles the cards does not see them.
+  The reader writes it for `T:Mode$ ChangesZone | Origin$ Graveyard |
+  Destination$ Any` on a card valid-string; the batched "one or more cards
+  leave" (`ChangesZoneAll`) and the card itself leaving stay refused.
+- **Delve and "exiled with it".** The cards delve exiles to pay a spell's
+  cost are exiled with the permanent that spell becomes (CR 607.2q): the
+  cast marks them `Rider::ExiledWith` the spell as it is on the stack, so
+  `Amount::CountOf { filter, zone: ZoneSel::LinkedExile }` in an
+  `EnterModifier::WithCounters` counts them as it enters (Murktide Regent's
+  "a +1/+1 counter for each instant and sorcery card exiled with it"), and
+  a later object of the same card counts none (CR 400.7). The reader writes
+  `delve = true` for `K:Delve` and that count for an `etbCounter` over
+  `Count$ValidExile <valid>.ExiledWithSource`, only beside `K:Delve`.
 - **`Trigger::DealsCombatDamageToOpponent(filter)`** (Questing Beast)
   carries the player and the amount on the trigger. **`Amount::EventAmount`**
   is "that much".

@@ -118,13 +118,14 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             let life = i32::try_from(life).unwrap_or(i32::MAX);
             self.state.change_life(player, -life, Cause::Cost);
         }
+        let mut delved: SmallVec<[ObjectId; 8]> = SmallVec::new();
         for &card in &wizard.delve_exiles {
-            let _ = self.state.move_object(
+            delved.push(self.state.move_object(
                 card,
                 ZoneLocation::Exile(player),
                 ZonePosition::Top,
                 Cause::Cost,
-            )?;
+            )?);
         }
         for &creature in &wizard.convoke_taps {
             self.state.set_tapped(creature, true);
@@ -558,6 +559,27 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         self.state
             .move_object(card, ZoneLocation::Stack, ZonePosition::Top, Cause::Spell)?;
+        // The cards delve exiled to pay this spell's cost are exiled with it:
+        // a permanent's "cards exiled with [this object]" refers to exactly
+        // those cards of the spell that became it (CR 607.2q; Murktide
+        // Regent). Marked with the version the spell has on the stack, the
+        // object that resolves and enters, so a permanent that later leaves
+        // and returns is a new object with none (CR 400.7).
+        if !delved.is_empty()
+            && let Some(version) = self
+                .state
+                .object(card)
+                .map(crate::object::Rider::version_of)
+        {
+            for &exiled in &delved {
+                if let Some(object) = self.state.object_mut(exiled) {
+                    object.riders.push(crate::object::Rider::ExiledWith {
+                        host: card,
+                        version,
+                    });
+                }
+            }
+        }
         if let Some(turn) = foretold_turn {
             self.state
                 .object_mut(card)
