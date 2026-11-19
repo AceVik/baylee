@@ -47,9 +47,12 @@ def parse_args(default_architecture="v4"):
     ap.add_argument("--resume", default="", help="Resume an atomic last.pt checkpoint")
     ap.add_argument("--checkpoint-every", type=int, default=100)
     ap.add_argument("--validation-every", type=int, default=1000)
-    ap.add_argument("--checkpoint-selection", choices=("policy", "combined", "distill_n_ne_r"), default="policy",
+    ap.add_argument("--checkpoint-selection", choices=("policy", "combined", "distill_n_ne_r", "distill_advantage"),
+                    default="policy",
                     help="Supervised snapshot criterion; match evaluation is still required for promotion. "
-                         "distill_n_ne_r (with --distill-bundle): top-1 agreement with R where N != R at distilled kinds")
+                         "distill_n_ne_r (with --distill-bundle): top-1 agreement with R where N != R at distilled "
+                         "kinds; distill_advantage (with --distill-advantage): the mean of the top-1 being R where "
+                         "the probes put R ahead and N where they put N ahead")
     ap.add_argument("--validate-initial", action="store_true", help="Include the untouched initial policy in checkpoint selection")
     ap.add_argument("--activation-checkpointing", action="store_true")
     ap.add_argument("--offload-checkpoint-inputs", action="store_true", help="Offload CUDA checkpoint inputs to pinned CPU memory; requires activation checkpointing, preserves the full-unroll graph")

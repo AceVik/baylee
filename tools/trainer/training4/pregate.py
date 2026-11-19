@@ -13,6 +13,10 @@ A house-teacher run (`--distill-teacher house`) is judged by the house gate
 instead (`training4.house.house_gate`: `--gate-top1` agreement with H at N != H
 over every kind, the student's chain-start act rate at least `--gate-ratio`
 times H's); the pre-gate against r1 is printed beside it.
+
+An advantage run (`--distill-advantage pairwise`) is judged by the same pre-gate;
+its held-out probe metrics (`val_adv_*`) are printed beside it (`[advantage]`)
+and kept in the report.
 """
 from __future__ import annotations
 
@@ -40,6 +44,10 @@ def main(argv=None):
     passed, verdict = pregate(metrics, args.min_ratio)
     print("[pregate] " + json.dumps(verdict), flush=True)
     report = dict(model=str(path), pregate=verdict)
+    if "advantage" in (meta.get("bundle_distillation") or {}):
+        advantage = {key: value for key, value in metrics.items() if key.startswith("val_adv_")}
+        print("[advantage] " + json.dumps(advantage), flush=True)
+        report["advantage"] = advantage
     if "house" in (meta.get("bundle_distillation") or {}):
         from .house import house_gate
         passed, gate = house_gate(metrics, args.gate_top1, args.gate_ratio)

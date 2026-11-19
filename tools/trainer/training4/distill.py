@@ -20,6 +20,13 @@ times its weight (`ce_n_out_of_scope`); their KL is still reported.
 Outcome weighting does not apply: the label is R whatever the game's result.
 Value and auxiliary targets are not part of this loss.
 
+With `advantage` "pairwise" (`--distill-advantage pairwise`, `training4.distill_probe`)
+nothing is cross-entropy to R: at priority frames the dataset's probes measured
+(R and N played on in the same fair worlds), R's log-odds over N move from r1's
+by R's measured advantage (`bce_adv_pairwise`); every other priority frame keeps
+r1 by the KL (`kl_distilled_n_eq_r`, and `kl_adv_unprobed` where N != R without a
+usable probe), and every other kind keeps its KL as above.
+
 The reference r1 is a frozen copy of the --init weights. When nothing before the
 heads learns (stage A) it reads the student's own boards and memory, a second
 readout and no trunk. With frozen layers below L (stage B) it runs only its own
@@ -42,6 +49,7 @@ from contextlib import contextmanager
 import copy
 from dataclasses import dataclass
 import json
+import math
 
 import torch
 import torch.nn.functional as F
@@ -49,6 +57,7 @@ import torch.nn.functional as F
 import model4 as M
 from .coarse import CLASSES
 from .deferred import deferred_readouts
+from .distill_probe import MODES as ADVANTAGE_MODES, AdvantageCounter, pairwise, probed_rows
 from .execution import encode_boards, plan_batch, transfer_batch
 
 CONTRACT = "bundle_distillation_v1"
@@ -58,7 +67,10 @@ N_NE_R_FLAG = 128  # BST4 header flags bit 7
 TERMS = ("ce_r", "kl_distilled_n_eq_r", "kl_kind_out_of_scope", "kl_single", "kl_subset", "kl_pair", "sq_scalar",
          "ce_n_out_of_scope", "ce_coarse_r", "ce_fine_n",
          # The house teacher's terms (`training4.house`); a bundle run leaves them empty.
-         "ce_h_group", "ce_h_within", "ce_h_single", "bce_h_subset", "bce_h_pair", "sq_h_scalar", "sq_value_r1")
+         "ce_h_group", "ce_h_within", "ce_h_single", "bce_h_subset", "bce_h_pair", "sq_h_scalar", "sq_value_r1",
+         # The pairwise advantage loss (`training4.distill_probe`); every other mode leaves them empty.
+         "bce_adv_pairwise", "kl_adv_unprobed")
+ADV_PAIRWISE, ADV_UNPROBED = TERMS.index("bce_adv_pairwise"), TERMS.index("kl_adv_unprobed")
 KL_TERMS = slice(1, 7)
 KIND_SLOTS = 32   # pending kinds (`features4::PendingKind4`, 0..27) with room to spare
 # Training statistics: per term weighted sum, then weight; then per pending kind the
@@ -124,7 +136,16 @@ class Scope:
     `teacher` "house" (house_distillation_v1, R := H) replaces all of this with
     `training4.house.house_loss`: every labelled kind is taught, so kinds,
     subtypes, group weights, the out-of-scope mode and `coarse` do not apply;
-    `value_weight` adds the value readout's squared distance to r1 there."""
+    `value_weight` adds the value readout's squared distance to r1 there.
+
+    `advantage` "pairwise" (`training4.distill_probe`) replaces the cross-entropy
+    to R at priority: where the dataset's probe sidecar measured R beside N in at
+    least `advantage_min_worlds` worlds, R's log-odds over N move from r1's by
+    clamp(mean / `advantage_beta`, +-`advantage_clip`) (weight
+    `advantage_weight`); everywhere else the KL keeps r1. It needs priority alone
+    among the kinds, every subtype, no group weights, the out-of-scope KL, no
+    coarse mode and the bundle teacher. The other `advantage_*` fields also set
+    how validation reads the probes when the mode is off."""
     kinds: tuple = (0,)
     subtypes: tuple | None = None
     subtype_names: tuple = ()
@@ -135,10 +156,16 @@ class Scope:
     coarse: str | None = None
     teacher: str = "bundle"
     value_weight: float = 0.0
+    advantage: str | None = None
+    advantage_beta: float = 0.05
+    advantage_clip: float = 3.0
+    advantage_weight: float = 1.0
+    advantage_min_worlds: int = 2
 
     @classmethod
     def from_options(cls, kinds, kl_weight, subtypes, group_weights, datasets, out_of_scope="kl",
-                     out_of_scope_weight=1.0, coarse=None, teacher="bundle", value_weight=0.0):
+                     out_of_scope_weight=1.0, coarse=None, teacher="bundle", value_weight=0.0, advantage=None,
+                     advantage_beta=0.05, advantage_clip=3.0, advantage_weight=1.0, advantage_min_worlds=2):
         """Names resolved against vocabularies every dataset shares; unknown names fail."""
         if teacher not in CONTRACTS:
             raise ValueError(f"Unknown distillation teacher {teacher!r}")
@@ -147,6 +174,19 @@ class Scope:
                              "mode or coarse mode")
         if not value_weight >= 0 or (value_weight and teacher != "house"):
             raise ValueError("A value weight is nonnegative and belongs to the house teacher")
+        if advantage not in ADVANTAGE_MODES:
+            raise ValueError(f"Unknown advantage distillation {advantage!r}")
+        if not (math.isfinite(advantage_beta) and advantage_beta > 0 and math.isfinite(advantage_clip)
+                and advantage_clip > 0 and math.isfinite(advantage_weight) and advantage_weight >= 0
+                and int(advantage_min_worlds) == advantage_min_worlds >= 1):
+            raise ValueError("Advantage distillation needs a positive beta and clip, a nonnegative weight and at "
+                             "least one world")
+        if advantage and (teacher != "bundle" or subtypes or group_weights or out_of_scope != "kl" or coarse
+                          or tuple(kinds) != (PRIORITY,)):
+            raise ValueError("Advantage distillation teaches the bundle teacher's priority probes alone: priority "
+                             "the only kind, no subtypes, group weights, out-of-scope mode or coarse mode")
+        if advantage and not all(getattr(d, "probes", None) is not None for d in datasets):
+            raise ValueError("Advantage distillation needs every dataset's probe sidecar (bundle-distill/probe.*)")
         vocabularies = {(tuple(d.distill_subtypes), tuple(d.distill_groups)) for d in datasets}
         if len(vocabularies) != 1:
             raise ValueError("Training and validation distillation vocabularies differ")
@@ -170,7 +210,8 @@ class Scope:
         if coarse and (PRIORITY not in kinds or out_of_scope != "kl"):
             raise ValueError("Coarse distillation needs priority among the kinds and the out-of-scope KL")
         return cls(tuple(kinds), codes, subtype_names, weights, kl_weight, out_of_scope, float(out_of_scope_weight),
-                   coarse, teacher, float(value_weight))
+                   coarse, teacher, float(value_weight), advantage, float(advantage_beta), float(advantage_clip),
+                   float(advantage_weight), int(advantage_min_worlds))
 
     def groups(self, classes):
         """`classes` (COARSE indices) as this scope's coarse groups: act/pass or the class itself."""
@@ -359,6 +400,16 @@ def distill_loss(prepared, reference, batch, plans, scope, extra=None):
                         (9, taught & ~split & ~kept, -log_s.gather(1, n_idx.clamp(min=0)[:, None])[:, 0])]
                 routes = [(0, to_r, ce), (1, distilled & ~differs[:, t], kl),
                           (2, outside, kl), (3, genuine & ~in_kind[:, t], kl)] + coarse_routes
+                if scope.advantage:
+                    # No cross-entropy to R: the probed frames move R's log-odds over N by R's
+                    # measured advantage; every other priority frame keeps r1 by the KL.
+                    probed = distilled & probed_rows(get, t, scope)
+                    _, _, _, pair = pairwise(student, ref, mask, probed, get("probe_n_idx")[:, t],
+                                             get("single_idx")[:, t], get("probe_mean")[:, t], scope)
+                    routes = [(1, distilled & ~differs[:, t] & ~probed, kl),
+                              (ADV_UNPROBED, distilled & differs[:, t] & ~probed, kl),
+                              (ADV_PAIRWISE, probed, pair),
+                              (2, outside, kl), (3, genuine & ~in_kind[:, t], kl)]
                 if scope.out_of_scope == "ce-n":
                     # N: r1's own top-1, the answer the out-of-scope rows should keep.
                     n_top1 = torch.where(mask, ref, -1e9).argmax(-1)
@@ -388,7 +439,13 @@ def distill_loss(prepared, reference, batch, plans, scope, extra=None):
                 sums[6] = sums[6] + (error.square() * w).sum()
                 dens[6] = dens[6] + w.sum()
     means = sums / dens.clamp(min=1e-6)
-    if scope.out_of_scope == "ce-n":
+    if scope.advantage:
+        # Every priority frame without a usable probe keeps r1 as one pooled KL, N = R and
+        # unprobed N != R alike; the two are reported apart.
+        kept = (sums[1] + sums[ADV_UNPROBED]) / (dens[1] + dens[ADV_UNPROBED]).clamp(min=1e-6)
+        others = means[2:KL_TERMS.stop].sum()   # out of scope, other single choices, subsets, pairs, scalars
+        total = scope.advantage_weight * means[ADV_PAIRWISE] + scope.kl_weight * (kept + others)
+    elif scope.out_of_scope == "ce-n":
         # The out-of-scope KL stays a reported guard; the anchor to N trains there.
         trained_kl = means[1] + means[3:7].sum()
         total = means[0] + scope.kl_weight * trained_kl + scope.out_of_scope_weight * means[7]
@@ -418,6 +475,8 @@ def thinking_terms(frames, reference, batch, plans, scope, config):
     Returns (loss, stats): per step the in-scope N != R decisions answered as
     R `[S + 1]`, then their count.
     """
+    if scope.advantage:
+        raise ValueError("The thinking terms target R; advantage distillation has no R to target")
     device = next((f["logits"].device for f in frames or () if f is not None), None)
     if device is None:
         raise ValueError("No thinking trace: the deliberation block must collect during deferred readouts")
@@ -536,6 +595,11 @@ EPOCH_VALIDATION = ("val_distill_selection", "val_distill_distilled_n_ne_r", "va
                     "val_distill_chain_start_pass_margin", "val_distill_chain_start_pass_margin_r1",
                     *(f"val_distill_{name}" for name in TERMS),
                     "val_value_mse_to_r1",
+                    # The probes (`training4.distill_probe.AdvantageCounter`), where the dataset has them.
+                    "val_adv_selection", "val_adv_probed_rows", "val_adv_r_ahead_rows", "val_adv_r_ahead_top1_r",
+                    "val_adv_r_ahead_top1_r_r1", "val_adv_n_ahead_rows", "val_adv_n_ahead_top1_n",
+                    "val_adv_n_ahead_top1_n_r1", "val_adv_shift_corr", "val_adv_shift_mean_r_ahead",
+                    "val_adv_shift_mean_n_ahead",
                     # The house teacher's gate (`training4.house.HouseCounter`).
                     "val_house_gate_top1_n_ne_h", "val_house_other_top1_n_ne_h", "val_house_top1_n_ne_h",
                     "val_house_top1_n_ne_h_by_kind", "val_house_top1_n_eq_h",
@@ -973,6 +1037,11 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
     (r1's own top-1, the out-of-scope target), the share it answers neither N
     nor R, r1's agreement with R and where r1's top-1 disagrees with the
     recorded N != R flag (`answers`; `actions` collects how it left both).
+    Where the dataset has a probe sidecar (always under `scope.advantage`), the
+    student's and r1's answers where the probes put R or N ahead and the
+    student's shift against the probes' (`val_adv_*`,
+    `distill_probe.AdvantageCounter`); under `scope.advantage` they also give
+    `val_distill_selection`.
     """
     think_steps = None
     from .prefetch import prefetch_batches
@@ -983,6 +1052,7 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
     confusion = torch.zeros(2, len(COARSE), len(COARSE), dtype=torch.float64, device=device)
     directions = torch.zeros(4, dtype=torch.float64, device=device)
     chains = ChainCounter(scope) if PRIORITY in scope.kinds else None
+    probes =AdvantageCounter(scope) if PRIORITY in scope.kinds else None
     house = None
     if scope.teacher == "house":
         from .house import HouseCounter
@@ -1020,6 +1090,7 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
             confusion = confusion + coarse_confusion(prepared, batch, plans, scope)
             directions = directions + act_directions(prepared, ref, batch, plans)
             chains.observe(prepared, ref, batch, plans)
+            probes.observe(prepared, ref, batch, plans)   # where the dataset has a probe sidecar
         if house is not None:
             house.observe(prepared, ref, batch, plans)
         if observe is not None:   # a caller's own reading of the batch, in trajectory order per lane
@@ -1064,6 +1135,8 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
                        val_distill_act_r_pass_n_act_decisions=int(down),
                        val_distill_act_r_pass_n_act_student_pass=down_pass / down if down else None)
         metrics.update(chains.metrics())
+        if probes.seen or scope.advantage:
+            metrics.update(probes.metrics())
     if think_steps is not None:
         metrics["val_distill_think_n_ne_r"] = int(think_steps[-1])
         metrics["val_distill_think_top1_r_at_n_ne_r_by_step"] = (
@@ -1076,4 +1149,7 @@ def evaluate_distill(net, reference, loader, device, scope, board_chunk, scalar_
         metrics.update(house.metrics(metrics))
         metrics["val_distill_kinds"] = kind_means(stats.cpu())
         metrics["val_distill_selection"] = metrics["val_house_gate_top1_n_ne_h"]
+    if scope.advantage:
+        # Selects where the student answers whichever of R and N the probes put ahead.
+        metrics["val_distill_selection"] = metrics["val_adv_selection"]
     return metrics

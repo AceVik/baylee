@@ -448,10 +448,12 @@ class TrajectoryDataset4(Dataset):
         frame = self._encode_step(step_or_row)
         # Opt-in (`--distill-coarse`): a stored row's coarse answer classes, joined
         # by (game, seat, cursor) from the dataset's sidecar (training4.coarse).
-        coarse = getattr(self, "coarse", None)
-        if coarse is not None and not isinstance(step_or_row, dict):
+        # Likewise the probe sidecar's R and N worth (training4.distill_probe), where loaded.
+        sidecars = [s for s in (getattr(self, "coarse", None), getattr(self, "probes", None)) if s is not None]
+        if sidecars and not isinstance(step_or_row, dict):
             index = self.store.index[int(step_or_row)]
-            coarse.annotate(frame, int(index["game"]), int(index["seat"]), int(index["cursor"]))
+            for sidecar in sidecars:
+                sidecar.annotate(frame, int(index["game"]), int(index["seat"]), int(index["cursor"]))
         return frame
 
     def _encode_step(self, step_or_row: dict[str, Any] | int) -> dict[str, np.ndarray]:

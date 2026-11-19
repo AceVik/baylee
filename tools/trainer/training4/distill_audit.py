@@ -17,7 +17,11 @@ passes, and the whole-chain completion. Its last line is the pre-gate
 when it fails. The coarse classes come from the dataset's sidecar when it has
 one, else from the candidates' action columns. The reference shares the
 student's boards when every weight before the heads is equal; otherwise it
-encodes its own.
+encodes its own. Where the dataset's meta.json names a probe sidecar
+(`training4.distill_probe`), the report adds the student's and r1's answers
+where the probes put R or N ahead (`advantage`, the `val_adv_*` metrics); a
+student trained with `--distill-advantage` is audited under its own scope
+(priority, every subtype) and probe reading, as its checkpoint names them.
 
 On a house_distillation_v1 dataset (R := H, the house expert) it is the house
 teacher's offline probe: every kind is in scope, and the report adds per
@@ -103,7 +107,7 @@ def main(argv=None):
     torch.set_num_threads(args.threads)
     from value_calibration4.checkpoint import load_source
 
-    _, _, student = load_source(args.student)
+    _, saved, student = load_source(args.student)
     _, _, r1 = load_source(args.reference)
     configure(student, args)
     configure(r1, args)
@@ -114,10 +118,20 @@ def main(argv=None):
     if (data / "bundle-distill" / "coarse-classes.json").is_file():
         from .coarse import CoarseClasses
         dataset.coarse = CoarseClasses.load(data / "bundle-distill")
+    from .distill_probe import Probes, named
+    if named(dataset.meta) is not None:
+        dataset.probes = Probes.load(data / "bundle-distill", named(dataset.meta))
     total_trajectories = len(dataset.trajectories)
     dataset.trajectories = dataset.trajectories[::args.every]
+    # A student trained with --distill-advantage is audited under its own scope and probe reading.
+    advantage = (saved.get("bundle_distillation") or {}).get("advantage")
     if house:
         scope = D.Scope.from_options(tuple(range(D.KIND_SLOTS)), 1.0, (), {}, [dataset], teacher="house")
+    elif advantage:
+        scope = D.Scope.from_options((D.PRIORITY,), 1.0, (), {}, [dataset], advantage=advantage["mode"],
+                                     advantage_beta=advantage["beta"], advantage_clip=advantage["clip"],
+                                     advantage_weight=advantage["weight"],
+                                     advantage_min_worlds=advantage["min_worlds"])
     else:
         kinds = tuple(int(k) for k in args.kinds.split(","))
         subtypes = tuple(s for s in args.subtypes.split(",") if s)
@@ -152,7 +166,9 @@ def main(argv=None):
                           if key.startswith(("val_distill_chain", "val_distill_pregate", "val_distill_act_"))},
                   coarse_confusion=metrics.get("val_distill_coarse_confusion"),
                   coarse_confusion_n_ne_r=metrics.get("val_distill_coarse_confusion_n_ne_r"),
-                  terms={name: metrics.get(f"val_distill_{name}") for name in D.TERMS}, pregate=verdict)
+                  terms={name: metrics.get(f"val_distill_{name}") for name in D.TERMS}, pregate=verdict,
+                  probe_sidecar=hasattr(dataset, "probes"),
+                  advantage={key: value for key, value in metrics.items() if key.startswith("val_adv_")} or None)
     gate = None
     if house:
         from .house import house_gate
