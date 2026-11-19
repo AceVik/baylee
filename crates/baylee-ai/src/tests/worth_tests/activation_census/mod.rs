@@ -504,7 +504,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // prevention of the next damage is contextual and stays unread. The 25
     // training-deck pool cards add none (their five finished ones carry no
     // activation, the other twenty are stubs).
-    assert_eq!((read, of), (3020, 3811), "activated/loyalty reader census");
+    // The alternative-cost and Kicker readers finish 29 cards; one has an
+    // activation, Urborg Skeleton's "{B}: Regenerate this creature", which the
+    // regeneration reader reads.
+    assert_eq!((read, of), (3021, 3812), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [
