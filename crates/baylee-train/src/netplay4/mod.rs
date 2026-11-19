@@ -29,6 +29,7 @@ use crate::features4::{
 };
 use crate::features7::{encode_candidates7_grouped, encode_state7};
 mod batch;
+pub mod capture;
 #[cfg(test)]
 mod batch_tests;
 pub use batch::{BatchLimits4, BatchedNet4};
@@ -217,6 +218,9 @@ pub struct NetPlayer4 {
     /// `eval4 --distill-labels`: the whole net's distillation labels, kept per
     /// answer; `None` everywhere else, live play included.
     distill: Option<distill::Distill4>,
+    /// `hw_capture4`: every graph call written to a row dump; `None`
+    /// everywhere else.
+    capture: Option<capture::RowCapture4>,
 }
 
 fn ort_error(e: impl std::fmt::Display) -> anyhow::Error {
@@ -576,6 +580,7 @@ impl NetPlayer4 {
             thinking_use: ThinkingUse4::default(),
             last_depth: files.thinking_steps,
             distill: None,
+            capture: None,
         }
     }
 
@@ -873,6 +878,9 @@ impl NetPlayer4 {
             self.rule_roots.as_deref(),
         )?;
         self.rule_refs_left_out += row.rules_left_out;
+        if let Some(capture) = &mut self.capture {
+            capture.record(&row, cands, depth_graph(k_val), self.d_model)?;
+        }
         let sessions = match &mut self.backend {
             Backend::Shared(net) => return net.run(row),
             Backend::Owned(sessions) => sessions,

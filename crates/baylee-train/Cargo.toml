@@ -270,6 +270,11 @@ path = "src/bin/npu_mux4.rs"
 required-features = ["onnx"]
 
 [[bin]]
+name = "hw_capture4"
+path = "src/bin/hw_capture4.rs"
+required-features = ["onnx"]
+
+[[bin]]
 name = "boundary_scan4"
 path = "src/bin/boundary_scan4.rs"
 required-features = ["play"]

@@ -13,6 +13,7 @@ pub mod fp16;
 pub mod hardware;
 pub mod metrics;
 pub mod mux;
+pub mod rowdump;
 #[cfg(feature = "onnx")]
 pub mod ort_env;
 pub mod scheduler;

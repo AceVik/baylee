@@ -7,6 +7,7 @@
 //! pairs, candidate references `-1`, zero rule references). Rows never mix
 //! in the graph. One row alone is packed exactly as a step always was.
 
+use baylee_driver::rowdump::{DumpTensor, TensorData};
 use ort::session::Session;
 use ort::value::Tensor;
 
@@ -196,6 +197,52 @@ impl StepRow {
     /// Attention tokens this row costs at its own size.
     pub(super) const fn tokens(&self) -> usize {
         self.entities + self.candidates
+    }
+
+    /// This row's graph inputs as named tensors with a batch axis of one,
+    /// exactly as [`run_rows`] feeds a call of one row (`hw_capture4`).
+    ///
+    /// # Errors
+    /// When a tensor's elements disagree with its extents.
+    #[allow(
+        clippy::many_single_char_names,
+        reason = "e, m, c and p are the graph's own axis names, as in run_rows"
+    )]
+    pub(super) fn dump_tensors(&self, d_model: usize) -> anyhow::Result<Vec<DumpTensor>> {
+        let (e, m, c, p) = (self.entities, self.edges, self.candidates, self.pairs);
+        let f = |name: &str, dims: Vec<usize>, v: &[f32]| {
+            DumpTensor::new(name, dims, TensorData::F32(v.to_vec()))
+        };
+        let i = |name: &str, dims: Vec<usize>, v: &[i64]| {
+            DumpTensor::new(name, dims, TensorData::I64(v.to_vec()))
+        };
+        let b = |name: &str, dims: Vec<usize>, v: &[bool]| {
+            DumpTensor::new(name, dims, TensorData::Bool(v.to_vec()))
+        };
+        let mut out = vec![
+            f("entity_feat", vec![1, e, self.entity_width], &self.entity_feat)?,
+            f("entity_dsl", vec![1, e, CARD_DSL_WIDTH], &self.entity_dsl)?,
+            b("entity_mask", vec![1, e], &self.entity_mask)?,
+            f("seat_feat", vec![1, MAX_SEATS, SEAT_FEAT_WIDTH], &self.seat_feat)?,
+            f("global_feat", vec![1, self.global_width], &self.global_feat)?,
+            i("edge_index", vec![1, m, 2], &self.edge_index)?,
+            i("edge_type", vec![1, m], &self.edge_type)?,
+            b("edge_mask", vec![1, m], &self.edge_mask)?,
+            f("cand_feat", vec![1, c, CAND_FEAT_WIDTH], &self.cand_feat)?,
+            i("cand_entity_idx", vec![1, c], &self.cand_entity)?,
+            i("cand_seat_idx", vec![1, c], &self.cand_seat)?,
+            b("cand_mask", vec![1, c], &self.cand_mask)?,
+            i("pair_index", vec![1, p, 2], &self.pair_index)?,
+            b("pair_mask", vec![1, p], &self.pair_mask)?,
+            f("cand_dsl", vec![1, c, CARD_DSL_WIDTH], &self.cand_dsl)?,
+            f("h_in", vec![1, RECURRENT_SLOTS, d_model], &self.h_in)?,
+            i("thinking_steps", vec![1], &[i64::from(self.k_val)])?,
+        ];
+        if let Some((er, cr)) = self.rule_widths {
+            out.push(i("entity_rules", vec![1, e, er, 2], &self.entity_rules)?);
+            out.push(i("cand_rules", vec![1, c, cr, 2], &self.cand_rules)?);
+        }
+        Ok(out)
     }
 }
 
