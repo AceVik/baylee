@@ -85,6 +85,10 @@ class Creativity(unittest.TestCase):
         self.assertTrue((w[4:] == 0).all())
         gaps = after.gate(np.arange(8, dtype=np.float64) + 1.)
         self.assertEqual(gaps.tolist(), [1., 2., 0., 4., 0., 0., 0., 0.])
+        # The rule still counts a missing afterstate, at gap 0, with arm B's weight.
+        rule = after.rule_weights()
+        self.assertEqual((rule[0], rule[4]), (0., 0.))
+        self.assertTrue((rule[[1, 2, 3, 5, 6, 7]] > 0).all())
 
     def test_reproduction_counts_the_heads_plays_of_confirmed_discoveries(self):
         rows = rows_of(roots=2)
