@@ -97,10 +97,8 @@ fn kicked_etb_trigger_reads_entering_object_and_refuses_dual_and_static() {
     );
     assert_eq!(
         body.abilities,
-        [
-            "triggered!(Trigger::EntersBattlefield(&TRIGGER1), \
-             &[Effect::CreateToken { token: &generated_tokens::GOBLIN_1_1_RED }])"
-        ]
+        ["triggered!(Trigger::EntersBattlefield(&TRIGGER1), \
+             &[Effect::CreateToken { token: &generated_tokens::GOBLIN_1_1_RED }])"]
     );
 
     let dual = parse(
@@ -143,11 +141,9 @@ fn etb_self_and_spell_kicked_conditions_emit_if_kicked_and_merge() {
     );
     assert_eq!(
         etb.abilities,
-        [
-            "triggered!(Trigger::ETB, &[Effect::IfKicked { \
+        ["triggered!(Trigger::ETB, &[Effect::IfKicked { \
              then: &[Effect::destroy_all(&Filter::LAND)], \
-             otherwise: &[Effect::destroy_all(&Filter::YOUR_LAND)] }])"
-        ]
+             otherwise: &[Effect::destroy_all(&Filter::YOUR_LAND)] }])"]
     );
 
     let spell = read(
@@ -235,12 +231,10 @@ fn count_kicked_amounts_split_into_if_kicked_and_refuse_non_pump_zero() {
     );
     assert_eq!(
         burn.abilities,
-        [
-            "spell!(&[Effect::IfKicked { \
+        ["spell!(&[Effect::IfKicked { \
              then: &[Effect::DealDamage { amount: Amount::Fixed(4), target: TargetSpec::AnyTarget }], \
              otherwise: &[Effect::DealDamage { amount: Amount::Fixed(2), target: TargetSpec::AnyTarget }] }], \
-             targets = Some(TargetReq::one(TargetSpec::AnyTarget)))"
-        ]
+             targets = Some(TargetReq::one(TargetSpec::AnyTarget)))"]
     );
 
     let pump_with_kw = read(
@@ -251,11 +245,9 @@ fn count_kicked_amounts_split_into_if_kicked_and_refuse_non_pump_zero() {
     );
     assert_eq!(
         pump_with_kw.abilities,
-        [
-            "spell!(&[Effect::IfKicked { \
+        ["spell!(&[Effect::IfKicked { \
              then: &[Effect::PumpFilter { filter: &Filter::YOUR_CREATURE, controlled_by: None, power: Amount::Fixed(1), toughness: Amount::Fixed(1), keywords: KeywordSet::FIRST_STRIKE, duration: Duration::UntilEndOfTurn }], \
-             otherwise: &[Effect::PumpFilter { filter: &Filter::YOUR_CREATURE, controlled_by: None, power: Amount::Fixed(0), toughness: Amount::Fixed(0), keywords: KeywordSet::FIRST_STRIKE, duration: Duration::UntilEndOfTurn }] }])"
-        ]
+             otherwise: &[Effect::PumpFilter { filter: &Filter::YOUR_CREATURE, controlled_by: None, power: Amount::Fixed(0), toughness: Amount::Fixed(0), keywords: KeywordSet::FIRST_STRIKE, duration: Duration::UntilEndOfTurn }] }])"]
     );
 
     let neg_pump = read(
@@ -266,12 +258,10 @@ fn count_kicked_amounts_split_into_if_kicked_and_refuse_non_pump_zero() {
     );
     assert_eq!(
         neg_pump.abilities,
-        [
-            "spell!(&[Effect::IfKicked { \
+        ["spell!(&[Effect::IfKicked { \
              then: &[Effect::PumpTarget { power: Amount::NegXFixed(5), toughness: Amount::NegXFixed(5), keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }], \
              otherwise: &[Effect::PumpTarget { power: Amount::NegXFixed(2), toughness: Amount::NegXFixed(2), keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }] }], \
-             targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))"
-        ]
+             targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))"]
     );
 
     assert!(refused(
@@ -358,11 +348,9 @@ fn kicked_targets_replacement_count_change_and_kicked_only_target() {
     );
     assert_eq!(
         kicked_only.abilities,
-        [
-            "spell!(&[Effect::draw(3), \
+        ["spell!(&[Effect::draw(3), \
              Effect::DiscardForPlayers { who: PlayerRel::You, count: 2 }, \
-             Effect::IfKicked { then: &[Effect::DiscardForPlayers { who: PlayerRel::Chosen, count: 2 }], otherwise: &[] }])"
-        ]
+             Effect::IfKicked { then: &[Effect::DiscardForPlayers { who: PlayerRel::Chosen, count: 2 }], otherwise: &[] }])"]
     );
 }
 
@@ -439,10 +427,8 @@ fn kicked_etb_counters_require_single_kicker_and_count_kicked_svar() {
     );
     assert_eq!(
         three_before_kicker.enter_modifiers,
-        [
-            "EnterModifier::WithCounters { kind: CounterKind::P1P1, \
-             amount: Amount::Times { base: &Amount::TimesKicked, factor: 3 } }"
-        ]
+        ["EnterModifier::WithCounters { kind: CounterKind::P1P1, \
+             amount: Amount::Times { base: &Amount::TimesKicked, factor: 3 } }"]
     );
 
     // Same SVar name with a different definition must stay refused.
@@ -477,7 +463,9 @@ fn kicked_filters_spend_restriction_end_step_and_multikicker_multiples() {
     );
     assert_eq!(
         mana.abilities,
-        ["mana_ability!(&[Effect::mana(ManaColor::Green, 2).restricted(&Filter::Kicked, SpendRider::None)])"]
+        [
+            "mana_ability!(&[Effect::mana(ManaColor::Green, 2).restricted(&Filter::Kicked, SpendRider::None)])"
+        ]
     );
 
     let cast_trig = read(
@@ -486,9 +474,9 @@ fn kicked_filters_spend_restriction_end_step_and_multikicker_multiples() {
          SVar:Trig:DB$ Scry | ScryNum$ 2",
     );
     assert!(
-        cast_trig
-            .statics
-            .contains("static TRIGGER1: Filter = Filter::And(&[Filter::Kicked, Filter::ControlledByYou]);"),
+        cast_trig.statics.contains(
+            "static TRIGGER1: Filter = Filter::And(&[Filter::Kicked, Filter::ControlledByYou]);"
+        ),
         "{}",
         cast_trig.statics
     );
@@ -546,10 +534,8 @@ fn kicked_filters_spend_restriction_end_step_and_multikicker_multiples() {
     );
     assert_eq!(
         doubled.abilities,
-        [
-            "triggered!(Trigger::ETB, &[Effect::GainLife { \
-             amount: Amount::Times { base: &Amount::TimesKicked, factor: 2 } }])"
-        ]
+        ["triggered!(Trigger::ETB, &[Effect::GainLife { \
+             amount: Amount::Times { base: &Amount::TimesKicked, factor: 2 } }])"]
     );
 
     let tripled = read(
@@ -561,9 +547,7 @@ fn kicked_filters_spend_restriction_end_step_and_multikicker_multiples() {
     );
     assert_eq!(
         tripled.abilities,
-        [
-            "triggered!(Trigger::ETB, &[Effect::GainLife { \
-             amount: Amount::Times { base: &Amount::TimesKicked, factor: 3 } }])"
-        ]
+        ["triggered!(Trigger::ETB, &[Effect::GainLife { \
+             amount: Amount::Times { base: &Amount::TimesKicked, factor: 3 } }])"]
     );
 }

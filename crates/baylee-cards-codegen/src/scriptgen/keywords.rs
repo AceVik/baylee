@@ -469,7 +469,9 @@ impl Tx<'_> {
         if mana.is_empty() || !parts.is_empty() {
             return self.deny("a non-mana `Kicker` cost".to_string());
         }
-        self.body.additional_costs.push(format!("cost!(\"{mana}\")"));
+        self.body
+            .additional_costs
+            .push(format!("cost!(\"{mana}\")"));
         self.body.notes.push("kicker".to_string());
         Some(())
     }
