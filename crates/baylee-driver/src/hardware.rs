@@ -17,11 +17,14 @@ pub enum AcceleratorKind {
     Auto,
     /// Intel AI Boost NPU / Arc GPU via `OpenVINO` (Intel Core Ultra devices).
     OpenVino,
-    /// AMD Ryzen AI (XDNA) NPU via the `Vitis AI` provider, as in `acenb`'s
-    /// Ryzen 7 PRO 7840U (Phoenix). It runs INT8-quantized graphs, and
-    /// Phoenix needs the provider's legacy `X1` backend; neither the INT8
-    /// graph nor that backend choice is built yet, so a session asked for it
-    /// falls back to the CPU unless strict.
+    /// AMD Ryzen AI (XDNA) NPU via the `Vitis AI` provider. Ryzen AI's
+    /// provider runs Phoenix (XDNA 1, `acenb`'s Ryzen 7 PRO 7840U) only on
+    /// Windows, with INT8 graphs and the legacy `X1` backend; on Linux it
+    /// supports Strix (XDNA 2) onward, which also runs BF16. Phoenix's AIE-ML
+    /// tiles do INT8, INT16 and BF16 in hardware, reachable on Linux only
+    /// through hand-written `mlir-aie` kernels, not through this provider.
+    /// No INT8 graph or backend choice is built yet, so a session asked for
+    /// it falls back to the CPU unless strict.
     VitisAi,
     /// Apple Neural Engine (ANE) and Apple Silicon GPU via `CoreML` (macOS / iOS).
     CoreMl,
