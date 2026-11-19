@@ -405,7 +405,7 @@ fn condition_holds(view: &PlayerView, condition: AltCondition) -> bool {
 fn uses_self_identity(filter: &Filter) -> bool {
     match filter {
         Filter::This | Filter::Another => true,
-        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(|part| uses_self_identity(part)),
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(uses_self_identity),
         Filter::Not(inner) | Filter::AttachedTo(inner) => uses_self_identity(inner),
         _ => false,
     }
