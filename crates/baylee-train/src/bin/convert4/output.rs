@@ -464,6 +464,7 @@ mod tests {
                 subtype: None,
                 fired: vec![],
                 played: None,
+                probe: None,
             }),
         }
     }
