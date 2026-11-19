@@ -1838,7 +1838,50 @@ and the house are deterministic, and the net is on the owned CPU path; time
 is measured only for the report. `--inference-batch` is not bitwise
 reproducible, with or without search: a row's outputs in a batch differ from
 its outputs alone by under 1e-3, and which rows share a batch depends on
-timing, so a greedy rollout can turn another way.
+timing, so a greedy rollout can turn another way. `--inference-batch 1`
+is: every call holds one row, the single step's, whichever server runs it.
+
+**Servers and lockstep (19 November 2026).** Two ways to spend more cores or
+a bigger accelerator on one searched decision. `--inference-servers N` opens
+N sessions of each depth graph, each on its own thread, that answer the
+batched calls at once (`BatchedNet4::load_served`); with
+`--inference-batch 1` the search is the one-core search bit for bit
+(`served_calls_of_one_row_are_the_single_step_bit_for_bit`, and
+`phase_a4 search-parity` on the records of two runs). It is the CPU's way:
+there a call costs about as much per row whatever it holds (r1, Ryzen 3900X,
+one intra-op thread: observation rows 32 ms, decision rows 42 ms alone and
+33 ms in calls of 8 to 32; four intra-op threads at 24 rows 10 to 12 ms a
+row, against about 8 ms from four single-threaded servers;
+`batched_call_cost_on_the_cpu`). `--search-lockstep` starts every rollout
+of a decision at once and sends their model steps as one group whenever
+every rollout still playing waits on one (`netplay4::lockstep`), so a call
+holds as many rows as rollouts still play: the batches a GPU, an iGPU or an
+NPU pays for. Which rows share a group follows from the rollouts, never
+from timing; the summary's `inference_batch.lockstep_groups` gives the
+group sizes and `learner_by_depth` the rows per call of each graph. Where
+the time of a rollout goes, measured with `perf` (K4P2, one core): 98 % in
+ONNX Runtime, 89 % in its float GEMM kernel; the engine, the views and the
+encoders together under 2 %. About 70 % of the model's rows are
+observations (depth 0): every frame a seat sees moves its memory, and a
+decision row (depth 2) costs about as much. Smoke (2 holdout2 deals, 8
+searched decisions, fair 2-turn search with the bundle, Ryzen 3900X): K4P2
+19.4 s a searched decision on one core, 5.7 s with four servers and eight
+rollouts at once on four cores; full 6×4 40.7 s and 11.7 s; records,
+choices and world scores identical to the one-core run. Lockstep groups of
+K4P2 held 5.4 steps on average (median 6, at most 8).
+
+On the GPU (19 November 2026, RTX 4070 Ti, r1 FP16, full 6×4 2-turn fair
+search with the bundle, holdout2 seed 1191961e15, the machine loaded by
+other jobs: load average 26–48, GPU busy 30–76 %): one game at a time,
+16 deals × 8 searched decisions, a searched decision took 3.71 s (p50 3.46,
+p95 6.75) with `--search-threads 16 --inference-batch 32` and 2.38 s (p50
+2.34, p95 3.69) with `--search-lockstep --inference-batch 64`, whose
+groups held 12.4 steps (at most 24). 64 deals with 16 games at once took
+1,078 s with the settings of the 19 November play (`--search-threads 16
+--inference-batch 272`), 876 s in lockstep (batch 512) and 595 s in
+lockstep with 32 games at once (batch 1,024: calls of 79 observation rows
+and 33 decision rows on average, at most 354). Every deal ended alike in 63
+or 64 of 64; FP16 batch noise moved a few rollouts.
 
 **Limits.** The worlds are dealt from the real remaining decks of the
 evaluator's known lists — an upper bound on what a seat without deck
