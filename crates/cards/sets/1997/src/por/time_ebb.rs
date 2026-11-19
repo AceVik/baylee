@@ -10,7 +10,7 @@ card!(
     oracle_id = "30cc8f7b-3c28-40f5-8f8f-157e8212280b",
     scryfall_id = "c0161b6f-49a4-4dcd-87be-47ec2240eba6",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Time Ebb",
         mana_cost = mana!("{2}{U}"),

@@ -75,6 +75,7 @@ pub static PLAYABLE: &[Precon] = &[
     Precon { key: "RQS/zakk-s-first-deck", text: include_str!("../../../../data/decks/precon/RQS/zakk-s-first-deck.txt") },
     Precon { key: "RQS/zakk-s-second-deck", text: include_str!("../../../../data/decks/precon/RQS/zakk-s-second-deck.txt") },
     Precon { key: "S00/player-a-s-deck", text: include_str!("../../../../data/decks/precon/S00/player-a-s-deck.txt") },
+    Precon { key: "S00/player-b-s-deck", text: include_str!("../../../../data/decks/precon/S00/player-b-s-deck.txt") },
     Precon { key: "S99/preconstructed-deck-1", text: include_str!("../../../../data/decks/precon/S99/preconstructed-deck-1.txt") },
     Precon { key: "W17/amonkhet-welcome-deck-black", text: include_str!("../../../../data/decks/precon/W17/amonkhet-welcome-deck-black.txt") },
     Precon { key: "WC99/mark-le-pine-sped-red", text: include_str!("../../../../data/decks/precon/WC99/mark-le-pine-sped-red.txt") },
