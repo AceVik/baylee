@@ -8191,3 +8191,29 @@ beneath it. What the author missed, for the next brief:
 - Reclaim previews of the hand-written Impulse, Raven Familiar, Goblin
   Ringleader, Diabolic Vision and Call of the Wild reproduce their effects;
   they were not reclaimed here.
+
+## 2026-11-19 — reader-4: the cycling triggers, typecycling and dredge (Claude)
+
+- Three audit gaps in one batch, because they are one rule (CR 702.29) and
+  one keyword line: "when you cycle this card" (`Trigger::CycledThis`
+  existed, the reader never wrote it), "whenever a player cycles a card"
+  (new `Trigger::Cycles(PlayerRel)` on the cycled event the activation
+  already journals), typecycling (the search Ash Barrens writes by hand)
+  and dredge (`ReplacementRule::Dredge`, Golgari Thug's). Corpus read in
+  full 11,494 → 11,607; 26 pool stubs became Generated (Life from the Loam
+  among them, whose "up to three target lands" the reader already read).
+- Typecycling is a cycling ability (702.29f). `AbilityDef::is_cycling` read
+  only "discard: draw a card", so a landcycled card was not "cycled" and a
+  Lightning Rift beside it would not have fired. It now reads the
+  typecycling shape too (one mandatory search for the hand), which also
+  makes Ash Barrens' basic landcycling a cycling, as the rules say. When a
+  predicate is a shape-reading of a keyword, check every keyword variant
+  the rules fold into it before a reader starts writing that variant.
+- `synthetic::tap_every_land` presses the first untapped ability it is
+  offered, which is a card's hand ability when one is in hand: a test about
+  a hand ability taps its lands through `legal.mana_abilities` instead.
+- Still refused among the cycling cards: Astral Slide (an exile returned at
+  the next end step), Complicate (`Counter.Optional`), the five Decrees
+  (X tokens on a cycle trigger, `DestroyAll.RememberDestroyed`,
+  `PutCounterAll`, `ChangeZoneAll`, `Counter`), Withering Hex (plague
+  counters), and "whenever you cycle another card".
