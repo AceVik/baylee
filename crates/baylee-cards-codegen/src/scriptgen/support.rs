@@ -1,6 +1,6 @@
 //! What the reader supports, and why it refuses a script it does not.
 
-use super::{BTreeMap, CardBody, CardScript, Params, SubtypeCatalogs, TokenLookup, Tx, cost_parts};
+use super::{BTreeMap, CardScript, Params, SubtypeCatalogs, TokenLookup, Tx, cost_parts};
 
 /// Whether the script says nothing beyond what Scryfall supplies anyway: no
 /// keyword, no ability and no line kind the parser does not model.
@@ -36,24 +36,7 @@ pub fn refusal_reason(
     if script.keywords.iter().any(|word| word == "Mayhem") && !script.is_land {
         return Some("costless Mayhem without a land type line".to_string());
     }
-    let mut tx = Tx {
-        svars: &script.svars,
-        oracle: &script.oracle,
-        cats,
-        tokens,
-        has_x: false,
-        on_a_spell: false,
-        trigger_mode: None,
-        block_line: None,
-        block_half: None,
-        in_delayed: false,
-        cost_sacrifices_self: false,
-        cost_sacrifices_other: false,
-        trigger_is_self: false,
-        counter_on_source: false,
-        body: CardBody::default(),
-        unclaimed: std::cell::RefCell::new(None),
-    };
+    let mut tx = Tx::new(script, cats, tokens);
     for line in &script.keywords {
         if tx.keyword(line).is_none() {
             return tx.unclaimed.into_inner();

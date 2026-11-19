@@ -51,6 +51,7 @@ mod guardian52;
 mod horse_johan;
 mod imprison;
 mod keywords;
+mod kicker;
 mod mana;
 mod prevention;
 mod protection52;
@@ -82,6 +83,8 @@ pub use support::{SUPPORTED_APIS, apis_used, is_supported_api, is_vanilla, refus
 pub struct CardScript {
     /// Whether the type line explicitly names Land, for land-only permissions.
     pub is_land: bool,
+    /// Whether the `ManaCost:` line contains a variable `X`.
+    pub has_x_mana_cost: bool,
     /// `Oracle:` line, when present, for cross-checking target player vs. opponent.
     pub oracle: String,
     /// `K:` lines, verbatim.
@@ -98,7 +101,6 @@ pub struct CardScript {
 /// that are the corpus's own deckbuilding/AI hints and carry no rules.
 const IGNORED_PREFIXES: &[&str] = &[
     "Name",
-    "ManaCost",
     "PT",
     "Loyalty",
     "Defense",
@@ -126,6 +128,7 @@ pub fn parse(text: &str) -> CardScript {
         };
         match prefix {
             "Types" => out.is_land = rest.split_whitespace().any(|word| word == "Land"),
+            "ManaCost" => out.has_x_mana_cost = rest.split_whitespace().any(|word| word == "X"),
             "Oracle" => out.oracle = rest.to_string(),
             "K" => out.keywords.push(rest.to_string()),
             "A" | "T" | "S" | "R" => out
@@ -174,7 +177,7 @@ const PROSE_KEYS: &[&str] = &[
 ];
 
 /// An ordered `Key$ Value` list that records what has been read.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct Params {
     entries: Vec<(String, String)>,
 }
@@ -363,8 +366,30 @@ struct Tx<'a> {
     cost_sacrifices_self: bool,
     /// Whether the activated ability being read sacrifices another object in its cost.
     cost_sacrifices_other: bool,
+    /// Whether the script's `ManaCost:` line contains a variable `X`.
+    has_x_mana_cost: bool,
+    /// Whether the script declares exactly one single-cost `K:Kicker:` line
+    /// (no dual kicker and no `K:Multikicker:`), so `times_kicked` is strictly
+    /// 0 or 1.
+    has_single_kicker: bool,
     /// Whether the triggered ability being read triggers on `Card.Self`.
     trigger_is_self: bool,
+    /// Whether the triggered ability being read is `Trigger::ETB` (exact
+    /// `ValidCard$ Card.Self`), the only trigger whose stack object carries
+    /// `times_kicked` for `Effect::IfKicked`.
+    is_etb_self_trigger: bool,
+    /// Set by `changes_zone_trigger` when `ValidCard$` is `Card.Self+kicked`,
+    /// so `triggered()` still sets `trigger_is_self = true` even though the
+    /// filter was hoisted into a static.
+    trigger_self_etb_kicked: bool,
+    /// While splitting a line whose numeric parameter references a
+    /// `Count$Kicked.<A>.<B>` SVar into `Effect::IfKicked { then, otherwise }`,
+    /// holds `Some(true)` for the kicked arm and `Some(false)` for the
+    /// unkicked arm; `None` everywhere else.
+    kicked_branch: Option<bool>,
+    /// Set when `kicked_branch` actually resolves a `Count$Kicked.<A>.<B>`
+    /// parameter during line evaluation.
+    kicked_branch_used: std::cell::Cell<bool>,
     /// The `PutCounter` line being read names the source while a later line of
     /// its chain declares the target (Sphinx-Bone Wand).
     counter_on_source: bool,
@@ -374,6 +399,110 @@ struct Tx<'a> {
     /// second list of each rule's keys would rot the first time a
     /// rule learned a new one.
     unclaimed: std::cell::RefCell<Option<String>>,
+}
+
+impl<'a> Tx<'a> {
+    pub(super) fn new(
+        script: &'a CardScript,
+        cats: &'a SubtypeCatalogs,
+        tokens: Option<&'a TokenLookup>,
+    ) -> Self {
+        let mut single_kickers = 0usize;
+        let mut multi_or_dual = false;
+        for kw in &script.keywords {
+            if let Some(rest) = kw.strip_prefix("Kicker:") {
+                if rest.contains(':') {
+                    multi_or_dual = true;
+                } else {
+                    single_kickers += 1;
+                }
+            } else if kw.starts_with("Multikicker:") {
+                multi_or_dual = true;
+            }
+        }
+        Self {
+            svars: &script.svars,
+            oracle: &script.oracle,
+            cats,
+            tokens,
+            has_x: false,
+            on_a_spell: false,
+            trigger_mode: None,
+            block_line: None,
+            block_half: None,
+            in_delayed: false,
+            cost_sacrifices_self: false,
+            cost_sacrifices_other: false,
+            has_x_mana_cost: script.has_x_mana_cost,
+            has_single_kicker: !multi_or_dual && single_kickers == 1,
+            trigger_is_self: false,
+            is_etb_self_trigger: false,
+            trigger_self_etb_kicked: false,
+            kicked_branch: None,
+            kicked_branch_used: std::cell::Cell::new(false),
+            counter_on_source: false,
+            body: CardBody::default(),
+            unclaimed: std::cell::RefCell::new(None),
+        }
+    }
+
+    /// Whether `Effect::IfKicked` reads a live kicked flag from `res.on_stack`.
+    ///
+    /// The engine populates `times_kicked` on the stack object for spells
+    /// (`A:SP$`) and for `Trigger::ETB` (`ValidCard$ Card.Self`) only;
+    /// activated abilities, delayed triggers, and non-ETB triggers have
+    /// `times_kicked == 0` on their stack objects and must never emit
+    /// `Effect::IfKicked`.
+    pub(super) fn can_check_kicked(&self) -> bool {
+        !self.in_delayed && (self.on_a_spell || self.is_etb_self_trigger)
+    }
+
+    /// Parses `SVar:<name>:Count$Kicked.<when_kicked>.<when_unkicked>` when
+    /// both arms are plain non-negative whole numbers.
+    pub(super) fn kicked_pair(&self, raw: &str) -> Option<(u32, u32)> {
+        let def = self.svars.get(raw.trim())?.trim();
+        let rest = def.strip_prefix("Count$Kicked.")?;
+        let (kicked, unkicked) = rest.split_once('.')?;
+        if unkicked.contains('.') {
+            return None;
+        }
+        Some((kicked.parse().ok()?, unkicked.parse().ok()?))
+    }
+
+    /// [`amount`], resolving a `Count$Kicked.<A>.<B>` SVar when evaluating a
+    /// kicked/unkicked branch (refusing a 0 arm so non-pump effects never emit
+    /// vacuous zero-amount instructions).
+    pub(super) fn amount_num(&self, raw: &str) -> Option<String> {
+        if let Some(kicked) = self.kicked_branch {
+            let trimmed = raw.trim().trim_start_matches('+');
+            if let Some((a, b)) = self.kicked_pair(trimmed) {
+                let value = if kicked { a } else { b };
+                if value == 0 {
+                    return None;
+                }
+                self.kicked_branch_used.set(true);
+                return Some(format!("Amount::Fixed({value})"));
+            }
+        }
+        amount(raw, self.svars, self.has_x)
+    }
+
+    /// [`plain_number`], resolving a non-zero `Count$Kicked.<A>.<B>` SVar when
+    /// evaluating a kicked/unkicked branch.
+    pub(super) fn plain_num(&self, raw: &str) -> Option<i64> {
+        if let Some(kicked) = self.kicked_branch {
+            let trimmed = raw.trim().trim_start_matches('+');
+            if let Some((a, b)) = self.kicked_pair(trimmed) {
+                let value = if kicked { a } else { b };
+                if value == 0 {
+                    return None;
+                }
+                self.kicked_branch_used.set(true);
+                return Some(i64::from(value));
+            }
+        }
+        plain_number(raw, self.svars)
+    }
 }
 
 impl Tx<'_> {
@@ -515,24 +644,7 @@ pub fn transcode(
     if script.keywords.iter().any(|word| word == "Mayhem") && !script.is_land {
         return None;
     }
-    let mut tx = Tx {
-        svars: &script.svars,
-        oracle: &script.oracle,
-        cats,
-        tokens,
-        has_x: false,
-        on_a_spell: false,
-        trigger_mode: None,
-        block_line: None,
-        block_half: None,
-        in_delayed: false,
-        cost_sacrifices_self: false,
-        cost_sacrifices_other: false,
-        trigger_is_self: false,
-        counter_on_source: false,
-        body: CardBody::default(),
-        unclaimed: std::cell::RefCell::new(None),
-    };
+    let mut tx = Tx::new(script, cats, tokens);
     if song52::song_candidate(script) {
         tx.song_whole_card(script)?;
         tx.body

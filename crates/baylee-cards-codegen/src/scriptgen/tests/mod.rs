@@ -8,6 +8,7 @@ mod costs_and_refusals;
 mod divided_damage;
 mod effects;
 mod imprison;
+mod kicker;
 mod prevention_rules;
 mod reading;
 mod static_supertypes;
@@ -90,26 +91,9 @@ fn refused_with_tokens(text: &str) -> bool {
 }
 
 fn filter(valid: &str) -> String {
-    let svars = BTreeMap::new();
+    let script = CardScript::default();
     let cats = cats();
-    let tx = Tx {
-        svars: &svars,
-        oracle: "",
-        cats: &cats,
-        tokens: None,
-        has_x: false,
-        on_a_spell: false,
-        trigger_mode: None,
-        block_line: None,
-        block_half: None,
-        in_delayed: false,
-        cost_sacrifices_self: false,
-        cost_sacrifices_other: false,
-        trigger_is_self: false,
-        counter_on_source: false,
-        body: CardBody::default(),
-        unclaimed: std::cell::RefCell::new(None),
-    };
+    let tx = Tx::new(&script, &cats, None);
     tx.filter_expr(valid).expect("the valid-string is read")
 }
 

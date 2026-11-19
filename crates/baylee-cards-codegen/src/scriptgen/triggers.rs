@@ -36,6 +36,19 @@ impl Tx<'_> {
         if valid.split(['.', '+']).any(|atom| atom == "Self") {
             return self.deny("a `SpellCast` trigger on the card itself".to_string());
         }
+        // Guard against a script narrowing a player-wide kicker trigger
+        // ("Whenever a player kicks a spell") to `YouCtrl`.
+        if valid.split(['.', '+', ',']).any(|atom| atom == "YouCtrl")
+            && self
+                .oracle
+                .to_ascii_lowercase()
+                .contains("whenever a player kicks")
+        {
+            return self.deny(
+                "a `SpellCast` trigger restricting a player-wide kicker trigger to `YouCtrl`"
+                    .to_string(),
+            );
+        }
         // An absent `ValidActivatingPlayer$` is every player, which
         // is `Player`'s own meaning — 220 lines write nothing and
         // 39 write the word.
@@ -345,6 +358,9 @@ impl Tx<'_> {
             let expr = self.filter_expr(&valid)?;
             format!("&{}", self.body.filter_static("TRIGGER", &expr))
         };
+        if origin == "Any" && dest == "Battlefield" && valid == "Card.Self+kicked" {
+            self.trigger_self_etb_kicked = true;
+        }
         match (origin.as_str(), dest.as_str()) {
             // `Trigger::ETB` is the same bytes as the variant with
             // `&Filter::This` in it, and is what the DSL carries the
@@ -710,12 +726,16 @@ impl Tx<'_> {
             return self.imprison_clause(&mode, p);
         }
         let zone = Self::take_trigger_zone(&mode, &mut p);
+        self.trigger_self_etb_kicked = false;
         let (trigger, condition) = if mode == "Always" {
             (self.state_trigger(&mut p)?, String::new())
         } else {
             let trigger = self.trigger_expr(&mut p, &mode)?;
             (trigger, self.condition(&mut p)?)
         };
+        let trigger_self_etb_kicked = std::mem::take(&mut self.trigger_self_etb_kicked);
+        let trigger_is_self =
+            trigger == "Trigger::ETB" || trigger.contains("&Filter::This") || trigger_self_etb_kicked;
         let Some(execute) = p.take("Execute") else {
             return self.deny(format!("a `{mode}` trigger with no `Execute$`"));
         };
@@ -735,8 +755,7 @@ impl Tx<'_> {
             None => prose_may,
             Some("You") => true,
             Some("TriggeredCardController")
-                if (trigger == "Trigger::ETB" || trigger.contains("&Filter::This"))
-                    && self.oracle.to_ascii_lowercase().contains("you may") =>
+                if trigger_is_self && self.oracle.to_ascii_lowercase().contains("you may") =>
             {
                 true
             }
@@ -763,9 +782,11 @@ impl Tx<'_> {
             None => (body, None),
         };
         let mut chain = Chain::default();
-        self.trigger_is_self = trigger == "Trigger::ETB" || trigger.contains("&Filter::This");
+        self.trigger_is_self = trigger_is_self;
+        self.is_etb_self_trigger = trigger == "Trigger::ETB";
         let chain_ok = self.chain(&body, &mut chain);
         self.trigger_is_self = false;
+        self.is_etb_self_trigger = false;
         chain_ok?;
         if chain.effects.is_empty() {
             return self.deny("a trigger that reads as no effect at all".to_string());

@@ -1,7 +1,7 @@
 //! Reading mana, amounts and costs.
 
 use super::{
-    Params, Tx, amount, cost_parts, counter_kind, hybrid_pair, keyword_atom, mana_color_const,
+    Params, Tx, cost_parts, counter_kind, hybrid_pair, keyword_atom, mana_color_const,
     named_atom, object_cost, plain_number, stat_atom,
 };
 
@@ -228,7 +228,7 @@ impl Tx<'_> {
     /// hands `matches` the source object, so Baldur's Gate's "each **other**
     /// Gate you control" is `Filter::Another` and says what it means.
     pub(super) fn counted_amount(&mut self, raw: &str) -> Option<String> {
-        if let Some(n) = amount(raw, self.svars, self.has_x) {
+        if let Some(n) = self.amount_num(raw) {
             return Some(n);
         }
         let Some(def) = self.svars.get(raw.trim()).cloned() else {
@@ -383,7 +383,7 @@ impl Tx<'_> {
     /// Karma's "damage equal to the number of Swamps they control". A count
     /// is read as the ability resolves, like every other `Amount`.
     pub(super) fn amount_or_count(&mut self, raw: &str) -> Option<String> {
-        if let Some(n) = amount(raw, self.svars, self.has_x) {
+        if let Some(n) = self.amount_num(raw) {
             return Some(n);
         }
         let def = self.svars.get(raw.trim())?.clone();

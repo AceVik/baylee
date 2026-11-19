@@ -19,6 +19,10 @@ impl Tx<'_> {
             self.body.enter_modifiers.push(entry);
             return Some(());
         }
+        if let Some(entry) = self.kicked_etb_counter(line) {
+            self.body.enter_modifiers.push(entry);
+            return Some(());
+        }
         if let Some(rest) = line.strip_prefix("ETBReplacement:") {
             return self.etb_replacement(rest);
         }
@@ -60,6 +64,9 @@ impl Tx<'_> {
         }
         if let Some(rest) = line.strip_prefix("Buyback:") {
             return self.buyback(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Kicker:") {
+            return self.kicker(rest);
         }
         if let Some(rest) = line.strip_prefix("Multikicker:") {
             return self.multikicker(rest);
@@ -430,10 +437,85 @@ impl Tx<'_> {
         Some(())
     }
 
+    /// `K:Kicker:<mana>` (CR 702.33a) for a single mana-only kicker cost.
+    ///
+    /// Dual kickers (`A:B`), variable-X kicker costs, and non-mana kicker
+    /// costs are refused: `FaceDef::additional_costs` carries one optional
+    /// mana kicker paid during `WizardStage::Kicker`, after `XValue` and
+    /// without non-mana payability checks.
+    pub(super) fn kicker(&mut self, rest: &str) -> Option<()> {
+        if rest.contains(':') {
+            return self.deny("a dual `Kicker` cost".to_string());
+        }
+        if !self.body.additional_costs.is_empty() || self.body.multikicker.is_some() {
+            return self.deny("a second `Kicker` cost".to_string());
+        }
+        let tokens = super::cost_parts(rest);
+        if tokens.is_empty() {
+            return self.deny("an empty `Kicker` cost".to_string());
+        }
+        if tokens.iter().any(|t| t == "X" || t.starts_with("XMin")) {
+            return self.deny("a variable-X `Kicker` cost".to_string());
+        }
+        let all_mana = tokens.iter().all(|t| {
+            t.chars().all(|c| c.is_ascii_digit())
+                || matches!(t.as_str(), "W" | "U" | "B" | "R" | "G" | "C")
+                || super::hybrid_pair(t).is_some()
+        });
+        if !all_mana {
+            return self.deny("a non-mana `Kicker` cost".to_string());
+        }
+        let (mana, parts) = self.cost_pieces(rest)?;
+        if mana.is_empty() || !parts.is_empty() {
+            return self.deny("a non-mana `Kicker` cost".to_string());
+        }
+        self.body.additional_costs.push(format!("cost!(\"{mana}\")"));
+        self.body.notes.push("kicker".to_string());
+        Some(())
+    }
+
+    /// `K:etbCounter:<KIND>:<n>:CheckSVar$ <var>[:<desc>]` for a single-kicker
+    /// permanent whose `<var>` is `Count$Kicked.1.0` and whose `<n>` is a
+    /// positive whole number: "If this creature was kicked, it enters with N
+    /// <kind> counters on it."
+    ///
+    /// On a single-kicker spell `times_kicked` is strictly `0` or `1` (and `0`
+    /// when not cast off the stack), so `Amount::TimesKicked` (or `Times` by
+    /// `n`) places the exact counters as the permanent enters. Multi-kicker,
+    /// dual-kicker, non-kicker cards, variable `<n>`, and any other `SVar`
+    /// definition are refused.
+    pub(super) fn kicked_etb_counter(&self, line: &str) -> Option<String> {
+        if !self.has_single_kicker {
+            return None;
+        }
+        let mut fields = line.strip_prefix("etbCounter:")?.split(':');
+        let kind = super::counter_kind(fields.next()?.trim())?;
+        let n: u32 = fields.next()?.trim().parse().ok()?;
+        if n == 0 {
+            return None;
+        }
+        let cond = fields.next()?.trim();
+        let var = cond.strip_prefix("CheckSVar$")?.trim();
+        if self.svars.get(var).map(|s| s.trim()) != Some("Count$Kicked.1.0") {
+            return None;
+        }
+        let amount = if n == 1 {
+            "Amount::TimesKicked".to_string()
+        } else {
+            format!("Amount::Times {{ base: &Amount::TimesKicked, factor: {n} }}")
+        };
+        Some(format!(
+            "EnterModifier::WithCounters {{ kind: {kind}, amount: {amount} }}"
+        ))
+    }
+
     /// `K:Multikicker:<cost>` (CR 702.33c). Every printed one is mana.
     pub(super) fn multikicker(&mut self, rest: &str) -> Option<()> {
         if rest.contains(':') {
             return self.deny(format!("a `Multikicker` with extra fields `{rest}`"));
+        }
+        if !self.body.additional_costs.is_empty() || self.body.multikicker.is_some() {
+            return self.deny("a second `Kicker` cost".to_string());
         }
         let (mana, parts) = self.cost_pieces(rest)?;
         if mana.is_empty() || !parts.is_empty() {
