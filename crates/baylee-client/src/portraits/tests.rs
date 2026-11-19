@@ -485,7 +485,6 @@ fn pixels(app: &App, image: &Handle<Image>) -> Vec<u8> {
 fn a_moving_picture_plays_in_its_disc_and_writes_only_on_a_new_frame() {
     let mut app = app();
     let key = [0x42; 16];
-    let tag = 0x00ff;
     let disc = drawn(&mut app, "Mia Wallace#00ff");
     let other = drawn(&mut app, "Alice#0001");
     // A gateway's own account that holds the same tag under another name.
