@@ -392,6 +392,30 @@ fn condition_holds(view: &PlayerView, condition: AltCondition) -> bool {
                     .count()
                     >= usize::from(*min)
             }
+            // "If an opponent controls an Island" (the Masques Legates, Sivvi's
+            // Ruse): `eval::conditions` asks each opponent in turn whether
+            // that one controls `min`. Exact at a duel and refused above it,
+            // for the reason `targeting::matches` gives for
+            // `ControlledByOpponent`: the view does not know the teams.
+            baylee_cards_dsl::Condition::OpponentControlCount(filter, min)
+                if view.seats.len() == 2 && !uses_self_identity(filter) =>
+            {
+                let payer = resource_player(view);
+                view.battlefield
+                    .iter()
+                    .filter(|object| {
+                        object.controller != payer
+                            && !object.status.is_phased_out()
+                            && crate::targeting::matches(view, object, filter) == Some(true)
+                    })
+                    .count()
+                    >= usize::from(*min)
+            }
+            // "If an opponent controls a Swamp and you control a Plains": every
+            // clause, each read as above, so one unreadable clause refuses all.
+            baylee_cards_dsl::Condition::All(clauses) => clauses
+                .iter()
+                .all(|clause| condition_holds(view, AltCondition::If(clause))),
             // Conditions whose inputs the view does not carry (graveyard
             // history, per-turn tallies, source counters) stay refused rather
             // than guessed at.
@@ -1078,6 +1102,60 @@ mod tests {
         assert!(
             reachable_modes(&phased_swamp, &legal, snuff.id).is_empty(),
             "a phased-out Swamp is ignored on the battlefield"
+        );
+    }
+
+    /// Rushwood Legate: "If an opponent controls an Island and you control a
+    /// Forest, you may cast this spell without paying its mana cost" — both
+    /// clauses, each on its own side of the table.
+    #[test]
+    fn a_legate_is_free_only_while_an_opponent_has_the_island_and_you_the_forest() {
+        let legate = card_in_hand(1, "Rushwood Legate", &[Color::Green]);
+        let their_island = || {
+            let mut island = basic(200, "Island", land::ISLAND);
+            island.controller = PlayerId::new(1);
+            island.owner = PlayerId::new(1);
+            island
+        };
+
+        let (mut both, legal) = lands_of(vec![legate.clone()], 1, "Forest", land::FOREST);
+        both.battlefield.push(their_island());
+        let modes = reachable_modes(&both, &legal, legate.id);
+        assert_eq!(
+            kinds(&modes),
+            [CastModeKind::Alternative(0)],
+            "one Forest cannot pay {{2}}{{G}}, and the free way is open"
+        );
+        assert!(modes[0].plan.is_empty(), "nothing is tapped for it");
+
+        let (no_island, legal) = lands_of(vec![legate.clone()], 1, "Forest", land::FOREST);
+        assert!(
+            reachable_modes(&no_island, &legal, legate.id).is_empty(),
+            "no opponent controls an Island"
+        );
+
+        let (mut my_island, legal) = lands_of(vec![legate.clone()], 1, "Forest", land::FOREST);
+        my_island
+            .battlefield
+            .push(basic(200, "Island", land::ISLAND));
+        assert!(
+            reachable_modes(&my_island, &legal, legate.id).is_empty(),
+            "my own Island is not an opponent's"
+        );
+
+        let (mut no_forest, legal) = lands_of(vec![legate.clone()], 1, "Plains", land::PLAINS);
+        no_forest.battlefield.push(their_island());
+        assert!(
+            reachable_modes(&no_forest, &legal, legate.id).is_empty(),
+            "no Forest of mine"
+        );
+
+        let (mut three_forests, legal) = lands_of(vec![legate.clone()], 3, "Forest", land::FOREST);
+        three_forests.battlefield.push(their_island());
+        assert_eq!(
+            kinds(&reachable_modes(&three_forests, &legal, legate.id)),
+            [CastModeKind::Normal, CastModeKind::Alternative(0)],
+            "with three Forests the printed cost is a way as well"
         );
     }
 }
