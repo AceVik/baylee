@@ -727,7 +727,7 @@ fn play(
         if looked_at {
             picture.seen = now;
         }
-        let want = if plays(true, reduce, looked_at, shown) {
+        let want = if plays(reduce, looked_at, shown) {
             let since = *picture.since.get_or_insert(clock);
             let elapsed = ((clock - since).max(0.0) * 1000.0) as u64;
             Some(clip.timing.frame_at(elapsed))

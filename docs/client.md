@@ -10735,10 +10735,15 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   - *Drawing and pacing.* One `Image` per picture, laid into `Portraits`
     for every tag that wears it. `portraits::play` writes that image's
     pixels only when the frame shown changes, by the picture's own
-    durations (a frame under 20 ms plays 100 ms, as browsers play it), so a
-    playing picture writes no disc, no `Node` and not `Portraits`, and asks
-    for no frame: it rides the frames the pacer draws anyway (§"Frames and
-    graphics settings"; at least 30 a second while the window is seen).
+    durations (a frame under 20 ms plays 100 ms, as browsers play it; the
+    passes repeat for ever, as `baylee-avif` does not read the loop count
+    Central keeps), so a playing picture writes no disc, no `Node` and not
+    `Portraits`; only bevy's own `mark_images_as_changed_if_their_assets_changed`
+    marks each of its discs' `ImageNode` once per frame change (`/changed`,
+    19.11.2026: 11 in 120 frames with one disc playing, none with it
+    unseen). It asks for no frame: it rides the frames the pacer draws
+    anyway (§"Frames and graphics settings"; at least 30 a second while the
+    window is seen).
     Under `reduce_motion`, with none of its discs seen
     (`InheritedVisibility`), and while the window is minimised or occluded,
     the still stands.

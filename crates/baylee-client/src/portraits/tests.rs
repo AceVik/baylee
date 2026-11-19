@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use std::io::{Read as _, Write as _};
 use std::net::TcpListener;
 use std::process::Command;
@@ -58,6 +59,25 @@ fn the_decoder_writes_exactly_the_frames_and_nothing_else() {
     longer.push(0);
     assert!(helper::read_frames(&mut longer.as_slice(), 6).is_err());
     assert!(helper::read_frames(&mut &output[..output.len() - 1], 6).is_err());
+}
+
+/// A sequence as Central's encoder makes one with SVT-AV1 (Central's own
+/// fixture, `central-picture-codec/tests/fixtures/opaque-sequence.avif`):
+/// hidden frames inside its samples, and a last sample of three bytes that
+/// only shows a frame decoded before. One picture comes out per sample, by
+/// the durations the parent reads.
+const SVT: &[u8] = include_bytes!("../../tests/data/picture-svt-hidden.avif");
+
+#[test]
+fn hidden_frames_and_a_shown_existing_frame_give_one_picture_a_sample() {
+    assert_eq!(helper::durations(SVT), Some(vec![100, 300, 1500]));
+    let mut input = Vec::new();
+    baylee_worker::frame::write(&mut input, SVT, baylee_avif::Bounds::PICTURE.max_bytes).unwrap();
+    let mut output = Vec::new();
+    helper::serve(&mut input.as_slice(), &mut output).expect("decoded");
+    let frames = helper::read_frames(&mut output.as_slice(), 3).expect("three frames");
+    assert_eq!(frames.len(), 3);
+    assert!(Timing::new(&[100, 300, 1500]).is_some());
 }
 
 /// What the decoder is handed is held to the picture's bounds before the
@@ -247,7 +267,7 @@ fn server(answer: Vec<u8>) -> (String, std::thread::JoinHandle<String>) {
 fn answer(status: &str, headers: &[(&str, String)], body: &[u8]) -> Vec<u8> {
     let mut out = format!("HTTP/1.1 {status}\r\nConnection: close\r\n");
     for (name, value) in headers {
-        out.push_str(&format!("{name}: {value}\r\n"));
+        let _ = writeln!(out, "{name}: {value}\r");
     }
     out.push_str("\r\n");
     let mut out = out.into_bytes();
@@ -438,7 +458,7 @@ fn face(app: &App, disc: Entity) -> Option<AvatarFace> {
     let children = app.world().get::<Children>(disc)?;
     children
         .iter()
-        .find_map(|child| app.world().get::<AvatarFace>(*child).cloned())
+        .find_map(|child| app.world().get::<AvatarFace>(child).cloned())
 }
 
 fn pixels(app: &App, image: &Handle<Image>) -> Vec<u8> {
@@ -454,6 +474,7 @@ fn pixels(app: &App, image: &Handle<Image>) -> Vec<u8> {
 /// written while the frame shown stays the same; under reduced motion, or
 /// with its disc unseen, the still stands.
 #[test]
+#[allow(clippy::too_many_lines)] // one picture's life, still to moving to still
 fn a_moving_picture_plays_in_its_disc_and_writes_only_on_a_new_frame() {
     let mut app = app();
     let key = [0x42; 16];

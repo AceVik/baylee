@@ -482,12 +482,12 @@ impl Timing {
     }
 }
 
-/// Whether a picture plays: it moves, one of its discs can be seen, the
-/// window is shown, and the player has not asked for less motion. Otherwise
-/// its first frame stands.
+/// Whether a moving picture plays: one of its discs can be seen, the window
+/// is shown, and the player has not asked for less motion. Otherwise its
+/// first frame stands.
 #[must_use]
-pub const fn plays(moving: bool, reduce_motion: bool, seen: bool, window_shown: bool) -> bool {
-    moving && !reduce_motion && seen && window_shown
+pub const fn plays(reduce_motion: bool, seen: bool, window_shown: bool) -> bool {
+    !reduce_motion && seen && window_shown
 }
 
 /// `rgba` (`side` × `side`, straight alpha, 8 bits a channel) at half its
@@ -515,10 +515,9 @@ pub fn halve(rgba: &[u8], side: u32) -> Option<Vec<u8>> {
                 alpha += a;
             }
             let to = (y * half + x) * 4;
-            if alpha > 0 {
-                for (channel, total) in sum.iter().enumerate() {
-                    out[to + channel] = ((total + alpha / 2) / alpha) as u8;
-                }
+            // A pixel no one of the four shows has no colour.
+            for (channel, total) in sum.iter().enumerate() {
+                out[to + channel] = (total + alpha / 2).checked_div(alpha).unwrap_or(0) as u8;
             }
             out[to + 3] = ((alpha + 2) / 4) as u8;
         }

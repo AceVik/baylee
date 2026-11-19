@@ -4,7 +4,14 @@
 
 use std::process::Command;
 
-use baylee_client::portraits::helper::{self, DEADLINE, FLAG};
+use std::time::Duration;
+
+use baylee_client::portraits::helper::{self, FLAG};
+
+/// The client's own deadline is 10 s; a freshly built debug executable of a
+/// gigabyte can take longer than that to start the first time macOS sees it,
+/// which is not what these tests are about.
+const DEADLINE: Duration = Duration::from_secs(120);
 
 /// The fixture the unit tests use: 256 px, six frames of 100, 200, 300,
 /// 400, 500 and 100 ms (`libsvtav1` from ffmpeg's `testsrc2`).
@@ -23,6 +30,16 @@ fn the_client_decodes_a_moving_picture_in_a_child_of_its_own() {
     assert_eq!(frames.rgba.len(), 6);
     assert!(frames.rgba.iter().all(|frame| frame.len() == 128 * 128 * 4));
     assert_ne!(frames.rgba[0], frames.rgba[3], "the pattern moves");
+}
+
+/// Central's own SVT-made sequence: hidden frames, and a last sample that
+/// only shows an earlier frame again.
+#[test]
+fn the_client_decodes_central_s_svt_sequence() {
+    const SVT: &[u8] = include_bytes!("data/picture-svt-hidden.avif");
+    let frames = helper::decode(decoder(), SVT, DEADLINE).expect("the frames");
+    assert_eq!(frames.durations, vec![100, 300, 1500]);
+    assert_eq!(frames.rgba.len(), 3);
 }
 
 #[test]
