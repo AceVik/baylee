@@ -88,6 +88,8 @@ struct Args {
     save_optimized: Option<String>,
     /// Stack rows of like size (`--sort`) instead of shuffled ones.
     sort: bool,
+    /// Unix time (seconds) at which timing starts, after warm-up.
+    start_at: Option<f64>,
 }
 
 fn list(raw: &str) -> anyhow::Result<Vec<usize>> {
@@ -122,6 +124,7 @@ impl Args {
             configs: Vec::new(),
             save_optimized: None,
             sort: false,
+            start_at: None,
         };
         let mut it = std::env::args().skip(1);
         while let Some(flag) = it.next() {
@@ -167,6 +170,7 @@ impl Args {
                 "--parity-batch" => a.parity_batch = value.parse()?,
                 "--label" => a.label = value,
                 "--seed" => a.seed = value.parse()?,
+                "--start-at" => a.start_at = Some(value.parse()?),
                 "--profile" => a.profile = Some(value),
                 "--dims" => {
                     a.dims = pairs(&value)?
@@ -703,6 +707,28 @@ fn sensors_json(s: &Sensors) -> Value {
     })
 }
 
+/// Unix time now, in seconds.
+fn unix_now() -> f64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0.0, |d| d.as_secs_f64())
+}
+
+/// `--start-at`: with every seat warmed, the clock starts at an agreed
+/// instant, so processes on other devices measure the same window.
+/// Returns the instant it starts.
+fn wait_until(at: Option<f64>) -> f64 {
+    if let Some(at) = at {
+        let now = unix_now();
+        if at > now {
+            std::thread::sleep(Duration::from_secs_f64(at - now));
+        } else {
+            eprintln!("--start-at passed {:.1} s before the seats were ready", now - at);
+        }
+    }
+    unix_now()
+}
+
 /// One seat's share of a timing run.
 struct SeatResult {
     latencies_ms: Vec<f64>,
@@ -722,11 +748,13 @@ fn time_one(
     seats: usize,
 ) -> anyhow::Result<Value> {
     let barrier = Arc::new(Barrier::new(seats + 1));
+    let go = Arc::new(Barrier::new(seats + 1));
     let load = Instant::now();
     let mut handles = Vec::new();
     for seat in 0..seats {
         let rows = Arc::clone(rows);
         let barrier = Arc::clone(&barrier);
+        let go = Arc::clone(&go);
         let buckets = args.buckets.clone();
         let mut session = session(args, graph, seats)?;
         let (warmup, seconds) = (args.warmup, args.seconds);
@@ -757,6 +785,7 @@ fn time_one(
                 run(&mut session, b, r)?;
             }
             barrier.wait();
+            go.wait();
             let start = Instant::now();
             let mut out = SeatResult {
                 latencies_ms: Vec::new(),
@@ -785,6 +814,8 @@ fn time_one(
     let sensor_stop = Arc::clone(&stop);
     barrier.wait();
     let load_ms = load.elapsed().as_millis();
+    let window_start = wait_until(args.start_at);
+    go.wait();
     let sensors = std::thread::spawn(move || sample_sensors(&sensor_stop));
     let mut results = Vec::new();
     for h in handles {
@@ -816,6 +847,7 @@ fn time_one(
         "per_seat_rows_per_s": results.iter().map(|r| r.rows as f64 / r.seconds).collect::<Vec<_>>(),
         "tokens": {"real": real, "computed": padded, "padding_overhead": padded as f64 / real.max(1) as f64 - 1.0},
         "session_load_ms_incl_warmup": load_ms,
+        "window_unix_start": window_start,
         "sensors": sensors_json(&sensors),
     });
     println!("{report}");
@@ -1062,15 +1094,18 @@ fn main() -> anyhow::Result<()> {
 
 fn parity(args: &Args, rows: Vec<DumpRow>, graph: u8, header: &Value) -> anyhow::Result<()> {
     let rows = parity_rows(rows, graph, args.limit);
-    let reference = load_rows(std::slice::from_ref(
+    // A reference of every row serves any `--limit`: the run's rows are a
+    // prefix of it (each row's metadata is checked against it below).
+    let mut reference = load_rows(std::slice::from_ref(
         args.reference.as_ref().context("--ref names the reference")?,
     ))?;
     ensure!(
-        reference.len() == rows.len(),
+        reference.len() >= rows.len(),
         "the reference has {} rows, the run {}",
         reference.len(),
         rows.len()
     );
+    reference.truncate(rows.len());
     let mut sessions = BTreeMap::new();
     let mut by_kind: BTreeMap<String, KindStats> = BTreeMap::new();
     let mut all_decisions = KindStats::default();
