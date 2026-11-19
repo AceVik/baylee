@@ -382,13 +382,11 @@ impl GameSearch {
         // The stall guard: what the table took back from this position.
         let position = (self.config.stall_guard() && matches!(pending, Pending::Priority { .. }))
             .then(|| HeuristicAgent::position(view));
-        let taken_back = position
-            .map(|position| {
-                self.given
-                    .taken_back(view.seat, position, view.seq)
-                    .to_vec()
-            })
-            .unwrap_or_default();
+        let taken_back = position.map_or_default(|position| {
+            self.given
+                .taken_back(view.seat, position, view.seq)
+                .to_vec()
+        });
         let Some(searched) = net.search(
             table,
             view,
@@ -414,7 +412,7 @@ impl GameSearch {
                 self.tally.ms.push(started.elapsed().as_secs_f64() * 1000.0);
                 self.events
                     .push(event(table, view, &searched.answer, &report));
-                let own = report.actions.first().map(action_kind).unwrap_or_default();
+                let own = report.actions.first().map_or_default(action_kind);
                 if report.changed {
                     // The policy's own answer at another target.
                     let played = if report.actions.first() == Some(&searched.answer.action) {
