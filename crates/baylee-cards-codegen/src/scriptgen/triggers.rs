@@ -324,6 +324,7 @@ impl Tx<'_> {
             "LandPlayed" => self.land_played_trigger(p),
             "Drawn" => self.drawn_trigger(p, zones.is_some()),
             "TurnFaceUp" => self.turn_face_up_trigger(p),
+            "Cycled" => self.cycled_trigger(p, zones.is_some()),
             other => self.deny(format!("trigger mode `{other}`")),
         }
     }
@@ -488,6 +489,45 @@ impl Tx<'_> {
             Some(other) => return self.deny(format!("`Secondary$ {other}`")),
         }
         Some("Trigger::TurnedFaceUp".to_string())
+    }
+
+    /// `T:Mode$ Cycled`, in its two sentences (CR 702.29c–d):
+    ///
+    /// - `ValidCard$ Card.Self`, no trigger zone: "when you cycle this card",
+    ///   `Trigger::CycledThis`. The card is in a hand when it is cycled and
+    ///   wherever its discard put it when the ability triggers, never on the
+    ///   battlefield, so a line that names a trigger zone is a different
+    ///   sentence.
+    /// - From the battlefield, `ValidCard$ Card`: "whenever a player cycles
+    ///   a card", `Trigger::Cycles(EachPlayer)`; `Card.YouCtrl` and
+    ///   `Card.YouOwn`: "whenever you cycle a card", `Trigger::Cycles(You)`
+    ///   (a card is cycled from its owner's hand, by that player).
+    ///
+    /// "Another card" (`Card.Other+YouOwn`) and the `ValidPlayer$` spellings
+    /// stay refused by name. `Secondary$ True` only keeps the reference from
+    /// printing the trigger twice and changes no rule.
+    fn cycled_trigger(&mut self, p: &mut Params, zoned: bool) -> Option<String> {
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("a `Cycled` trigger with no `ValidCard$`".to_string());
+        };
+        match p.take("Secondary").as_deref() {
+            None | Some("True") => {}
+            Some(other) => return self.deny(format!("`Secondary$ {other}`")),
+        }
+        if p.has("ValidPlayer") {
+            return self.deny("a `Cycled` trigger with `ValidPlayer$`".to_string());
+        }
+        match (valid.as_str(), zoned) {
+            ("Card.Self", false) => Some("Trigger::CycledThis".to_string()),
+            ("Card", true) => Some("Trigger::Cycles(PlayerRel::EachPlayer)".to_string()),
+            ("Card.YouCtrl" | "Card.YouOwn", true) => {
+                Some("Trigger::Cycles(PlayerRel::You)".to_string())
+            }
+            _ => self.deny(format!(
+                "`Cycled` on `{valid}`{}",
+                if zoned { " from the battlefield" } else { "" }
+            )),
+        }
     }
 
     /// One `K:` line, as whichever of the four things it is.

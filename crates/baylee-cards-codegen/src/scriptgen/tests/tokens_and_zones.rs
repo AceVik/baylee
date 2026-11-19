@@ -127,13 +127,12 @@ fn anything_unread_refuses_the_whole_card() {
         "Name:X\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1 | UnlessCost$ 2"
     ));
     // A keyword that is data rather than a bit, and that no rule reads.
-    // This was `K:Cycling:2` until one rule read it, which is the whole
-    // point of the line: the example has to be a keyword nothing here
-    // understands *today*, and typecycling is the nearest one — a
-    // different sentence (CR 702.29e, a library search) that #51 will
-    // take and this assertion will then have to move again.
+    // This was `K:Cycling:2` until one rule read it, then
+    // `K:TypeCycling:Basic:2` until the typecycling rule read that: the
+    // example has to be a keyword nothing here understands *today*, and
+    // ninjutsu (CR 702.49) is one.
     assert!(refused(
-        "Name:X\nTypes:Creature Goblin\nPT:1/1\nK:TypeCycling:Basic:2"
+        "Name:X\nTypes:Creature Goblin\nPT:1/1\nK:Ninjutsu:1 U"
     ));
     // A line kind with rules in it that this module does not model.
     assert!(refused(

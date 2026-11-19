@@ -33,6 +33,12 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Cycling:") {
             return self.cycling(rest);
         }
+        if let Some(rest) = line.strip_prefix("TypeCycling:") {
+            return self.typecycling(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Dredge:") {
+            return self.dredge(rest);
+        }
         if let Some(rest) = line.strip_prefix("Enchant:") {
             return self.enchant(rest);
         }
@@ -347,7 +353,7 @@ impl Tx<'_> {
     /// today, so a fourth is a sentence nobody here has read — and cycling is
     /// exactly where a guess would be invisible, because the keyword supplies
     /// everything the card does not print. `K:TypeCycling` is a different
-    /// sentence with its own arm to come (101 lines, four fields).
+    /// sentence with its own arm, [`Self::typecycling`].
     pub(super) fn cycling(&mut self, rest: &str) -> Option<()> {
         if let Some((_, extra)) = rest.split_once(':') {
             return self.deny(format!("a `Cycling` with a fourth field `{extra}`"));
@@ -359,6 +365,63 @@ impl Tx<'_> {
             "activated!({cost}, &[Effect::draw(1)], zone = ActivationZone::Hand)"
         ));
         self.body.notes.push("cycling".to_string());
+        Some(())
+    }
+
+    /// `K:TypeCycling:<type>:<cost>[:<label>]` as the activated ability the
+    /// keyword is: "[Type]cycling [cost]" means "[Cost], Discard this card:
+    /// Search your library for a [type] card, reveal it, and put it into
+    /// your hand. Then shuffle." (CR 702.29e). The search reveals and
+    /// shuffles by itself, as Ash Barrens' hand-written basic landcycling
+    /// does, and `AbilityDef::is_cycling` reads this shape as cycling
+    /// (702.29f), so "when you cycle" triggers see it.
+    ///
+    /// The type is a valid-string read as a card in a library: `Basic` is
+    /// basic landcycling ("a basic land card"), `Plains` a Plains card,
+    /// `Wizard` a Wizard card, `Land.Artifact` an artifact land card. A
+    /// fifth field is the words the type is printed with (`artifact land`)
+    /// and says nothing the type does not.
+    pub(super) fn typecycling(&mut self, rest: &str) -> Option<()> {
+        let mut fields = rest.split(':');
+        let (Some(kind), Some(cost)) = (fields.next(), fields.next()) else {
+            return self.deny("a `TypeCycling` without a type and a cost".to_string());
+        };
+        fields.next();
+        if let Some(extra) = fields.next() {
+            return self.deny(format!("a `TypeCycling` with a fifth field `{extra}`"));
+        }
+        let valid = match kind.trim() {
+            "Basic" => "Land.Basic",
+            other => other,
+        };
+        let Some(filter) = self.filter_expr_in_zone(valid, true) else {
+            return self.deny(format!("a `TypeCycling` type `{kind}`"));
+        };
+        let name = self.body.filter_static("SEARCH", &filter);
+        let (mana, mut parts) = self.cost_pieces(cost)?;
+        parts.push("DiscardSelf".to_string());
+        let cost = crate::body::cost_literal(&mana, &parts);
+        self.body.abilities.push(format!(
+            "activated!({cost}, &[Effect::SearchLibrary {{ filter: &{name}, finds: &[Find::HAND], optional: false }}], zone = ActivationZone::Hand)"
+        ));
+        self.body.notes.push("typecycling".to_string());
+        Some(())
+    }
+
+    /// `K:Dredge:<N>`: "As long as you have at least N cards in your library,
+    /// if you would draw a card, you may instead mill N cards and return this
+    /// card from your graveyard to your hand" (CR 702.52a), the replacement
+    /// Golgari Thug's hand-written dredge 4 already is. The engine applies it
+    /// from the graveyard and asks it only of a library of N or more
+    /// (702.52b).
+    pub(super) fn dredge(&mut self, rest: &str) -> Option<()> {
+        let Some(n) = rest.trim().parse::<u8>().ok().filter(|&n| n > 0) else {
+            return self.deny(format!("a `Dredge` count `{rest}`"));
+        };
+        self.body.abilities.push(format!(
+            "AbilityDef::Replacement(ReplacementRule::Dredge({n}))"
+        ));
+        self.body.notes.push("dredge".to_string());
         Some(())
     }
 
