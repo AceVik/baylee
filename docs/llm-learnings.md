@@ -8091,3 +8091,63 @@ beneath it. What the author missed, for the next brief:
   Morph reader and the printed-may fix, 57f04e1bc and 03599e646; they mean the
   commits titled "feat(codegen): the reader reads Morph…" and "fix(codegen): a
   printed "you may have it …" trigger asks on resolution" on main.
+
+## 2026-11-19 — reader-gap audit: mechanics written by hand, never taught to the reader
+
+- Against the corpus pinned at 811ea082 (the revision `data/script-index.json`
+  was written from; `b6f135e649de` in generated-held-back.md is older), the
+  reader reads 11,128 of 34,129 scripts in full; 23,001 are refused under
+  2,549 first causes.
+- Many refusals name mechanics the DSL and engine already play, used by
+  hand-written `Implemented` cards from earlier batches (several by Kimi):
+  Delve (Treasure Cruise), Morph (Nantuko Vigilante), Kicker (Tear Asunder),
+  Dredge (Golgari Thug), Chapter (The Birth of Meletis), Storm (Brain Freeze),
+  Crew, Convoke, Partner, Escape, TypeCycling. The mechanic was added for one
+  card and the reader never learned to emit it, so every later card with it
+  stayed a stub (Morph alone blocks 89 pool stubs, Kicker 64).
+- Owner rule since 19 Nov: a mechanic added to the engine or DSL is taught to
+  the reader in the same piece of work, with codegen tests on a synthetic
+  script, so the next card comes out Generated.
+- Ranked by TRAIN decks completed and pool stubs freed, the reader order is:
+  conditional alternative costs, Morph, Kicker, look-at-top-N (`Dig`),
+  "when you cycle", TypeCycling, Dredge, Delve (with Murktide's pieces), then
+  Storm, granted triggers and coin flips. The data (per-cause counts, deck
+  unlocks, verdicts) is kept outside the repository with the training data.
+
+## 2026-11-19 — reader: conditional alternative costs (Carbon) and Kicker (Neon), Claude review
+
+- Two reader tasks ran on agy in worktrees of their own: the alternative-cost
+  static (Gemini 4 Carbon High, 58 min, one pass) and Kicker (Gemini 4 Neon
+  XHigh, 54 min, one pass). Both passes compiled, passed their codegen tests,
+  kept every refusal named (the reader's "no reason recorded" count stayed at
+  81 corpus / 14 pool scripts) and moved no finished card. Integrating them
+  conflicted only in the four hand-copied `Tx` literals, which the Kicker pass
+  replaced with `Tx::new`.
+- Alternative costs: corpus read in full 11,224 → 11,285; 3 pool stubs became
+  Generated (Rushwood Legate, Sivvi's Ruse, Submerge). The pass accepts exactly
+  the parts `cast_wizard::paid_as_an_alternative_cost` pays and refuses the
+  rest (a discard alternative cost — Foil's, Snag's — keeps its card a stub
+  until the engine pays it; the Masteries stay refused on their branch over
+  the paid cost). Reclaim previews of the 14
+  hand-written alternative-cost cards it now reads in full reproduce their
+  costs and conditions; Snuff Out differs only by a named filter static.
+  Three condition shapes it maps (threshold, life total, graveyard count) have
+  no alternative-cost script in the pinned corpus; they are tested on
+  synthetic scripts.
+- Kicker: corpus 11,285 → 11,405; 26 pool stubs (Invasion block) became
+  Generated, each read against its oracle text in review. Two shapes no
+  hand-written kicker card had played — a target that exists only when kicked
+  (Probe) and "when this enters, if it was kicked" as an enters trigger
+  filtered on `Filter::Kicked` (the Emissaries, Waterspout Elemental) — now
+  have engine tests on made-up cards (`kicker_shapes_tests`). A plain kicker is
+  asked as yes/no; a face with `kicked_targets` is offered as two cast modes.
+- The pass also fixed an old reader rule: `SVar:X:Targeted$CardManaCost` put a
+  "mana value X or less" bound on a graveyard target of any spell, so a non-X
+  spell (Sheoldred's Restoration) could target only mana value 0. It now
+  needs `{X}` in the mana cost; no pool card moved.
+- Tooling: a full `codegen` run against a Scryfall cache filled on another day
+  re-pins about 315 headers to newer default printings (and adds new subtype
+  names). Reader flips therefore go in with `codegen --complete-stub "<name>"`,
+  which keeps each card's pinned printing, followed by `codegen --tables`
+  twice; Scryfall's text changes go in with `xtask refresh-oracle`, which
+  keeps the printing too (Slagwurm Armor's reminder text, the same day).
