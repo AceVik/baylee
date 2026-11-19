@@ -9,6 +9,7 @@ mod aerial_predation;
 mod afflict;
 mod afterlife;
 mod archdruid_s_charm;
+mod archmage_s_charm;
 mod army_of_allah;
 mod battle_cry;
 mod battle_frenzy;
