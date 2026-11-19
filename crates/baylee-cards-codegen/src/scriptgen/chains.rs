@@ -2,8 +2,8 @@
 //! the "unless" a player may pay.
 
 use super::{
-    Chain, Params, Price, Tx, Unless, amount, asks_for_an_object, counter_kind, generic_mana,
-    is_supported_api, plain_number,
+    Chain, Params, Price, Tx, Unless, asks_for_an_object, counter_kind, generic_mana,
+    is_supported_api,
 };
 
 impl Tx<'_> {
@@ -20,12 +20,28 @@ impl Tx<'_> {
                     .peek("Origin")
                     .is_some_and(|zones| zones.split(',').any(|zone| zone == "Library"))
                     != (p.peek("Destination") == Some("Library"))));
-        let valid = p.take("ValidTgts");
-        let targets_here = valid.is_some();
-        if let Some(valid) = valid {
-            self.chain_target(&api, &mut p, &valid, chain)?;
-        }
-        let mut sub = p.take("SubAbility");
+        let mut local_kicked_target: Option<String> = None;
+        let (targets_here, mut sub) =
+            if let Some(child_sub) = self.try_kicked_target_replacement(&api, &mut p, chain) {
+                (true, child_sub)
+            } else if let Some(kicked_target) = self.try_kicked_only_target(&api, &mut p, chain) {
+                local_kicked_target = Some(kicked_target);
+                (true, p.take("SubAbility"))
+            } else {
+                let valid = p.take("ValidTgts");
+                let targets_here = valid.is_some();
+                if let Some(valid) = valid {
+                    if p.peek("Condition") == Some("Kicked") {
+                        return self.deny(if chain.target.is_some() {
+                            "a kicked-only second target".to_string()
+                        } else {
+                            "an unsupported kicked-only target".to_string()
+                        });
+                    }
+                    self.chain_target(&api, &mut p, &valid, chain)?;
+                }
+                (targets_here, p.take("SubAbility"))
+            };
         // The chosen-source shield is three lines in the reference and one
         // sentence on the card: its `SubAbility$` is part of the sentence,
         // not the next one, so this rule reads the rest of the chain itself.
@@ -64,7 +80,7 @@ impl Tx<'_> {
             &mut sub,
             chain.effects.is_empty(),
         )?;
-        let target = Self::effect_target(chain);
+        let target = local_kicked_target.or_else(|| Self::effect_target(chain));
         // "Put a charge counter on this artifact. If you do, it deals damage
         // to any target": the counter line comes first and names the source,
         // the target is declared by a later sub-ability and belongs to the
@@ -98,26 +114,41 @@ impl Tx<'_> {
             None => None,
         };
 
-        let Some(effects) = (if chain.second_target.is_some() {
-            self.pump_effect(&mut p, target.as_deref().expect("second target"), true)
-        } else {
-            self.effect_of(
+        let effects = if let Some(split) = self
+            .try_split_kicked_amount(
                 &api,
                 &mut p,
                 target.as_deref(),
                 targets_here,
                 targets_a_player,
+                chain,
             )
-        }) else {
-            // An API with no rule at all is a different report than a rule
-            // that met a value it cannot say — the first is a missing
-            // effect, the second is a missing case in one that exists.
-            if is_supported_api(&api) {
-                self.note(format!("unreadable value in `{api}`"));
+            .ok()?
+        {
+            split
+        } else {
+            let Some(effects) = (if chain.second_target.is_some() {
+                self.pump_effect(&mut p, target.as_deref().expect("second target"), true)
             } else {
-                self.note(format!("effect `{api}`"));
-            }
-            return None;
+                self.effect_of(
+                    &api,
+                    &mut p,
+                    target.as_deref(),
+                    targets_here,
+                    targets_a_player,
+                )
+            }) else {
+                // An API with no rule at all is a different report than a rule
+                // that met a value it cannot say — the first is a missing
+                // effect, the second is a missing case in one that exists.
+                if is_supported_api(&api) {
+                    self.note(format!("unreadable value in `{api}`"));
+                } else {
+                    self.note(format!("effect `{api}`"));
+                }
+                return None;
+            };
+            effects
         };
         let mut effects =
             self.wrap_line_condition(&api, &mut p, &mut sub, target.as_deref(), effects)?;
@@ -130,7 +161,7 @@ impl Tx<'_> {
             Some(unless) => vec![self.unless_wrap(unless, effects, &mut sub, chain)?],
             None => effects,
         };
-        chain.effects.extend(effects);
+        Self::push_effects_merging_kicked(&mut chain.effects, effects);
         self.chain_sub_ability(sub, chain)
     }
 
@@ -173,19 +204,21 @@ impl Tx<'_> {
     // `PlayerRel::Chosen`. Handing the *requirement* to the effect
     // instead is how a burn spell ends up dealing damage to nothing at
     // all: `DealDamage` looks for an object target and finds none.
-    fn effect_target(chain: &Chain) -> Option<String> {
-        match chain
-            .second_target
-            .as_ref()
-            .or(chain.target.as_ref())
-            .map(String::as_str)
-        {
-            Some("TargetSpec::AnyPlayer" | "TargetSpec::AnyOpponent") => {
-                Some("TargetSpec::Player(PlayerRel::Chosen)".to_string())
+    pub(super) fn effect_target_of(spec: &str) -> String {
+        match spec {
+            "TargetSpec::AnyPlayer" | "TargetSpec::AnyOpponent" => {
+                "TargetSpec::Player(PlayerRel::Chosen)".to_string()
             }
-            Some(other) => Some(other.to_string()),
-            None => None,
+            other => other.to_string(),
         }
+    }
+
+    fn effect_target(chain: &Chain) -> Option<String> {
+        chain
+            .second_target
+            .as_deref()
+            .or(chain.target.as_deref())
+            .map(Self::effect_target_of)
     }
 
     fn wrap_discarded_artifact_condition(
@@ -229,6 +262,9 @@ impl Tx<'_> {
         }
         if p.exhausted() {
             return Some(effects);
+        }
+        if let Some(wrapped) = self.wrap_kicked_condition(api, p, target, &effects).ok()? {
+            return Some(wrapped);
         }
         if !p.has("ConditionPresent") {
             if p.peek("Condition") == Some("Threshold") {
@@ -321,15 +357,13 @@ impl Tx<'_> {
         )])
     }
 
-    /// Register a fresh target declaration without merging independent instances.
-    #[allow(clippy::too_many_lines)]
-    fn chain_target(
+    pub(super) fn resolve_target_spec(
         &mut self,
         api: &str,
         p: &mut Params,
         valid: &str,
-        chain: &mut Chain,
-    ) -> Option<()> {
+        chain: &Chain,
+    ) -> Option<String> {
         // A card in a graveyard is a different kind of target from a
         // permanent (CR 115.1 names both, and they are chosen from
         // different zones), so the zone the line moves *from* decides
@@ -370,6 +404,19 @@ impl Tx<'_> {
         let Some(spec) = spec else {
             return self.deny(format!("target `{valid}`"));
         };
+        Some(spec)
+    }
+
+    /// Register a fresh target declaration without merging independent instances.
+    #[allow(clippy::too_many_lines)]
+    fn chain_target(
+        &mut self,
+        api: &str,
+        p: &mut Params,
+        valid: &str,
+        chain: &mut Chain,
+    ) -> Option<()> {
+        let spec = self.resolve_target_spec(api, p, valid, chain)?;
         if chain.target.is_some() {
             // A fresh ValidTgts declares another target instance even
             // when its restriction is identical. Never alias it to the
@@ -403,43 +450,45 @@ impl Tx<'_> {
                 p.take("TargetUnique");
                 chain.target_unique = true;
             }
-            if self.on_a_spell
-                && self.has_x
-                && api == "ChangeZone"
-                && p.peek("Origin") == Some("Battlefield")
-                && p.peek("Destination") == Some("Hand")
-                && let (Some(min), Some(max)) = (p.peek("TargetMin"), p.peek("TargetMax"))
-                && min == max
-                && self.svars.get(min.trim()).map(|s| s.trim()) == Some("Count$xPaid")
-            {
-                p.take("TargetMin");
-                p.take("TargetMax");
-                chain.target_is_x = true;
-            } else if ((self.on_a_spell
-                && ((api == "ChangeZone"
-                    && p.peek("Origin") == Some("Graveyard")
-                    && p.peek("Destination") == Some("Hand"))
-                    || api == "Tap"))
-                || api == "Pump")
-                && p.peek("TargetMin") == Some("0")
-                && let Some(max) = p
-                    .peek("TargetMax")
-                    .and_then(|s| s.trim().parse::<u8>().ok())
-                && max > 0
-            {
-                p.take("TargetMin");
-                p.take("TargetMax");
-                chain.target_up_to = Some(max);
-            } else if self.on_a_spell
-                && api == "DealDamage"
-                && let (Some(min), Some(max)) = (p.peek("TargetMin"), p.peek("TargetMax"))
-                && min == max
-                && let Ok(n) = min.trim().parse::<u8>()
-                && n > 1
-            {
-                p.take("TargetMin");
-                p.take("TargetMax");
-                chain.target_exact = Some(n);
+            if !self.try_kicked_target_count(api, p, valid, &spec)? {
+                if self.on_a_spell
+                    && self.has_x
+                    && api == "ChangeZone"
+                    && p.peek("Origin") == Some("Battlefield")
+                    && p.peek("Destination") == Some("Hand")
+                    && let (Some(min), Some(max)) = (p.peek("TargetMin"), p.peek("TargetMax"))
+                    && min == max
+                    && self.svars.get(min.trim()).map(|s| s.trim()) == Some("Count$xPaid")
+                {
+                    p.take("TargetMin");
+                    p.take("TargetMax");
+                    chain.target_is_x = true;
+                } else if ((self.on_a_spell
+                    && ((api == "ChangeZone"
+                        && p.peek("Origin") == Some("Graveyard")
+                        && p.peek("Destination") == Some("Hand"))
+                        || api == "Tap"))
+                    || api == "Pump")
+                    && p.peek("TargetMin") == Some("0")
+                    && let Some(max) = p
+                        .peek("TargetMax")
+                        .and_then(|s| s.trim().parse::<u8>().ok())
+                    && max > 0
+                {
+                    p.take("TargetMin");
+                    p.take("TargetMax");
+                    chain.target_up_to = Some(max);
+                } else if self.on_a_spell
+                    && api == "DealDamage"
+                    && let (Some(min), Some(max)) = (p.peek("TargetMin"), p.peek("TargetMax"))
+                    && min == max
+                    && let Ok(n) = min.trim().parse::<u8>()
+                    && n > 1
+                {
+                    p.take("TargetMin");
+                    p.take("TargetMax");
+                    chain.target_exact = Some(n);
+                }
             }
             chain.target = Some(spec);
         }
@@ -879,7 +928,7 @@ impl Tx<'_> {
                 let raw_n = p.take("NumCards").unwrap_or_else(|| "1".to_string());
                 let who =
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
-                if let Ok(n) = raw_n.parse::<u8>() {
+                if let Some(n) = self.plain_num(&raw_n).and_then(|n| u8::try_from(n).ok()) {
                     vec![format!(
                         "Effect::DiscardForPlayers {{ who: {who}, count: {n} }}"
                     )]
@@ -910,11 +959,7 @@ impl Tx<'_> {
                 if p.take("Mode").as_deref() != Some("Random") {
                     return None;
                 }
-                let n = amount(
-                    p.take("NumCards").as_deref().unwrap_or("1"),
-                    self.svars,
-                    self.has_x,
-                )?;
+                let n = self.amount_num(p.take("NumCards").as_deref().unwrap_or("1"))?;
                 let who =
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
                 vec![format!(
@@ -922,7 +967,7 @@ impl Tx<'_> {
                 )]
             }
             "Mill" => {
-                let n = amount(&p.take("NumCards")?, self.svars, self.has_x)?;
+                let n = self.amount_num(&p.take("NumCards")?)?;
                 let who =
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
                 vec![format!("Effect::Mill {{ amount: {n}, target: {who} }}")]
@@ -932,11 +977,7 @@ impl Tx<'_> {
                 let Some(kind) = counter_kind(&code) else {
                     return self.deny(format!("counter `{code}`"));
                 };
-                let n = amount(
-                    p.take("CounterNum").as_deref().unwrap_or("1"),
-                    self.svars,
-                    self.has_x,
-                )?;
+                let n = self.amount_num(p.take("CounterNum").as_deref().unwrap_or("1"))?;
                 // `AddCounter` puts them on the first target, or on the
                 // source when the ability has none. That is the API's own
                 // default and so is the right reading of a line with no
@@ -1003,7 +1044,7 @@ impl Tx<'_> {
                     }
                     0
                 } else {
-                    plain_number(p.take("CounterNum").as_deref().unwrap_or("1"), self.svars)?
+                    self.plain_num(p.take("CounterNum").as_deref().unwrap_or("1"))?
                         .try_into()
                         .ok()?
                 };
@@ -1023,7 +1064,7 @@ impl Tx<'_> {
                 }
             }
             "Scry" => {
-                let n = plain_number(p.take("ScryNum").as_deref().unwrap_or("1"), self.svars)?;
+                let n = self.plain_num(p.take("ScryNum").as_deref().unwrap_or("1"))?;
                 vec![format!("Effect::scry({n})")]
             }
             "Surveil" => {
@@ -1034,10 +1075,10 @@ impl Tx<'_> {
                 // write a plain number; the rest announce an `X`, and the
                 // constructor only fits the first kind.
                 let raw = p.take("Amount")?;
-                if let Some(n) = plain_number(&raw, self.svars) {
+                if let Some(n) = self.plain_num(&raw) {
                     vec![format!("Effect::surveil({n})")]
                 } else {
-                    let n = amount(&raw, self.svars, self.has_x)?;
+                    let n = self.amount_num(&raw)?;
                     vec![format!("Effect::Surveil {{ amount: {n} }}")]
                 }
             }
@@ -1183,7 +1224,7 @@ impl Tx<'_> {
                         .map(|alt| alt.trim().strip_suffix(".cmcEQX"))
                         .collect();
                     let filter = self.filter_expr(&stripped?.join(","))?;
-                    let value = amount("X", self.svars, self.has_x)?;
+                    let value = self.amount_num("X")?;
                     vec![format!(
                         "Effect::DestroyAllWithManaValue {{ filter: &{filter}, value: {value} }}"
                     )]
@@ -1210,7 +1251,7 @@ impl Tx<'_> {
                 {
                     "Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)".to_string()
                 } else {
-                    amount(&raw_amount, self.svars, self.has_x)?
+                    self.amount_num(&raw_amount)?
                 };
                 let to = match (p.take("Defined").as_deref(), target) {
                     (Some("Self"), None) if !self.on_a_spell => {

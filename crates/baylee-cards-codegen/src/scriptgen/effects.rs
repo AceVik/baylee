@@ -1,7 +1,7 @@
 //! Reading the effects that are more than one line: tokens, animation,
 //! pumps, zone changes and library searches.
 
-use super::{CLUE_TOKEN_SCRIPT, Params, Tx, keyword_const, plain_number, pump_amount};
+use super::{CLUE_TOKEN_SCRIPT, Params, Tx, keyword_const, pump_amount};
 
 impl Tx<'_> {
     /// `DB$ Sacrifice`: "sacrifice it".
@@ -362,6 +362,20 @@ impl Tx<'_> {
     /// write and each means it by a different count, so an entry naming `X`
     /// would rank thirty questions as one.
     pub(super) fn pump_side(&mut self, raw: &str) -> Option<String> {
+        if let Some(kicked) = self.kicked_branch {
+            let trimmed = raw.trim();
+            let neg = trimmed.starts_with('-');
+            let var = trimmed.trim_start_matches(['+', '-']);
+            if let Some((a, b)) = self.kicked_pair(var) {
+                let value = if kicked { a } else { b };
+                self.kicked_branch_used.set(true);
+                return Some(if neg && value > 0 {
+                    format!("Amount::NegXFixed({value})")
+                } else {
+                    format!("Amount::Fixed({value})")
+                });
+            }
+        }
         if let Some(a) = pump_amount(raw, self.svars, self.has_x) {
             return Some(a);
         }
@@ -1220,7 +1234,7 @@ impl Tx<'_> {
         // One permanent, because that is the only count the effect states.
         // A sentence returning two is a different rule and says so here
         // rather than writing a card that returns one of them.
-        let count = plain_number(p.take("ChangeNum").as_deref().unwrap_or("1"), self.svars)?;
+        let count = self.plain_num(p.take("ChangeNum").as_deref().unwrap_or("1"))?;
         if count != 1 {
             self.note(format!("`ChangeZone` returning {count} chosen permanents"));
             return None;
@@ -1261,7 +1275,7 @@ impl Tx<'_> {
                 return None;
             }
         };
-        let count = plain_number(p.take("ChangeNum").as_deref().unwrap_or("1"), self.svars)?;
+        let count = self.plain_num(p.take("ChangeNum").as_deref().unwrap_or("1"))?;
         if count != 1 {
             self.note(format!("`ChangeZone` putting {count} cards from hand"));
             return None;
@@ -1366,7 +1380,7 @@ impl Tx<'_> {
                 return None;
             }
         }
-        let count = plain_number(p.take("ChangeNum").as_deref().unwrap_or("1"), self.svars)?;
+        let count = self.plain_num(p.take("ChangeNum").as_deref().unwrap_or("1"))?;
         let count = usize::try_from(count).ok()?;
         if count == 0 || count > 4 {
             self.note(format!("`ChangeZone` finding {count} cards"));

@@ -59,6 +59,10 @@ pub struct CardBody {
     pub buyback: Option<String>,
     /// `multikicker` expression for the front face, when present.
     pub multikicker: Option<String>,
+    /// `additional_costs` (kicker) expressions for the front face.
+    pub additional_costs: Vec<String>,
+    /// `kicked_targets` expression for the front face, when present.
+    pub kicked_targets: Option<String>,
     /// `KeywordSet` constants to union.
     pub keywords: Vec<String>,
     /// Ability expressions for the card literal.
@@ -82,6 +86,8 @@ impl CardBody {
             && self.entwine.is_none()
             && self.buyback.is_none()
             && self.multikicker.is_none()
+            && self.additional_costs.is_empty()
+            && self.kicked_targets.is_none()
             && self.keywords.is_empty()
     }
 
