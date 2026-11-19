@@ -1,6 +1,6 @@
 use super::*;
 use baylee_core::preset::AIProfile;
-use baylee_engine::choice::{BlockOption, NumberPrompt};
+use baylee_engine::choice::{AttackerBound, BlockOption, NumberPrompt};
 
 fn view() -> PlayerView {
     let deck = crate::housedeck::HouseDeck::named("victory").unwrap();
@@ -35,7 +35,7 @@ fn select(
     cands: &EncodedCandidates4,
     logits: &[f32],
     scalar: f32,
-) -> (PlayerAction, f32, TeacherTarget4) {
+) -> (PlayerAction, Option<f32>, TeacherTarget4) {
     let mut rng = Rng::new(77);
     let (action, _, lp, target) = PolicySampler4 {
         tactician: None,
@@ -71,18 +71,23 @@ fn tactical_demonstrations_are_house_never_ppo_and_raw_greedy_scalar_are_not_sto
         HeadKind4::PairPick,
         HeadKind4::ScalarValue,
     ] {
-        let tactical = PolicyMode4::Tactical.provenance(0.8, 4, head, -2.0);
+        let tactical = PolicyMode4::Tactical.provenance(0.8, 4, head, Some(-2.0));
         assert_eq!(tactical.source, SourceKind4::House);
         assert!(!tactical.has_logprob);
         assert_eq!(tactical.behavior_logprob, 0.0);
-        let greedy = PolicyMode4::Raw.provenance(0.0, 4, head, -2.0);
+        let greedy = PolicyMode4::Raw.provenance(0.0, 4, head, Some(-2.0));
         assert_eq!(greedy.source, SourceKind4::Net);
         assert!(!greedy.has_logprob);
-        let stochastic = PolicyMode4::Raw.provenance(0.8, 4, head, -2.0);
+        let stochastic = PolicyMode4::Raw.provenance(0.8, 4, head, Some(-2.0));
         assert_eq!(stochastic.has_logprob, head != HeadKind4::ScalarValue);
         if stochastic.has_logprob {
             assert_eq!(stochastic.behavior_logprob, -2.0);
         }
+        // An answer that is no plain draw carries no probability at all.
+        let undrawn = PolicyMode4::Raw.provenance(0.8, 4, head, None);
+        assert_eq!(undrawn.source, SourceKind4::Net);
+        assert!(!undrawn.has_logprob);
+        assert_eq!(undrawn.behavior_logprob, 0.0);
     }
     for tau in [-1.0, 0.00001, 0.2, 0.35, f32::NAN, f32::INFINITY] {
         assert!(!valid_raw_temperature(tau));
@@ -106,12 +111,12 @@ fn raw_single_bypasses_mulligan_rules_and_matches_raw_categorical_probability() 
     let (tactical, _, _) = select(PolicyMode4::Tactical, &view, &pending, &cands, &logits, 0.2);
     assert_eq!(raw, PlayerAction::MulliganKeep);
     assert_eq!(tactical, PlayerAction::MulliganTake);
-    assert!(lp.abs() < 1e-6);
+    assert!(lp.is_some_and(|lp| lp.abs() < 1e-6));
     let logits = [0.4, -0.7];
     let (_, lp, target) = select(PolicyMode4::Raw, &view, &pending, &cands, &logits, 0.2);
     let chosen = usize::from(target.single_idx);
     let expected = logits[chosen] / 0.8 - ((logits[0] / 0.8).exp() + (logits[1] / 0.8).exp()).ln();
-    assert!((lp - expected).abs() < 1e-6);
+    assert!(lp.is_some_and(|lp| (lp - expected).abs() < 1e-6));
 }
 
 #[test]
@@ -138,7 +143,7 @@ fn raw_subset_and_pair_preserve_unmodified_sampler_masks_and_logprobs() {
         (target.multi_mask, target.free_mask, target.pick_sequence),
         (mask, free, seq)
     );
-    assert!((raw_lp - lp).abs() < 1e-6);
+    assert!(raw_lp.is_some_and(|raw_lp| (raw_lp - lp).abs() < 1e-6));
     let a = ObjectId::new(111, 0);
     let b = ObjectId::new(112, 0);
     let pair = Pending::ChooseBlockers {
@@ -170,7 +175,71 @@ fn raw_subset_and_pair_preserve_unmodified_sampler_masks_and_logprobs() {
         (target.multi_mask, target.free_mask, target.pick_sequence),
         (mask, free, seq)
     );
-    assert!((raw_lp - lp).abs() < 1e-6);
+    assert!(
+        raw_lp
+            .zip(lp)
+            .is_some_and(|(raw_lp, lp)| (raw_lp - lp).abs() < 1e-6)
+    );
+}
+
+/// A blocker draw a menace attacker's count changed (CR 702.111b) is no draw
+/// from the plain policy: its row carries no behaviour probability, so PPO
+/// reads no importance weight from it. The same answer drawn as it stands
+/// keeps its own.
+#[test]
+fn a_blocker_draw_the_attackers_count_changed_carries_no_behavior_probability() {
+    let view = view();
+    let (b0, b1) = (ObjectId::new(20, 0), ObjectId::new(21, 0));
+    let (a0, a1) = (ObjectId::new(30, 0), ObjectId::new(31, 0));
+    let pending = Pending::ChooseBlockers {
+        player: view.seat,
+        attacker: PlayerId::new(1),
+        blockers: vec![
+            BlockOption {
+                blocker: b0,
+                attackers: vec![a0, a1],
+            },
+            BlockOption {
+                blocker: b1,
+                attackers: vec![a0, a1],
+            },
+        ],
+        capacity: vec![],
+        obeying: vec![],
+        demands: vec![],
+        bounds: vec![AttackerBound {
+            attacker: a0,
+            min_blockers: 2,
+            max_blockers: u32::MAX,
+        }],
+    };
+    let cands = EncodedCandidates4 {
+        head: HeadKind4::PairPick,
+        pending_kind: crate::features4::PendingKind4::DeclareBlockers,
+        min_choices: 0,
+        max_choices: 2,
+        candidates: Vec::new(),
+        pairs: vec![[0, 2], [0, 3], [1, 2], [1, 3]],
+        pair_objects: vec![(b0, a0), (b0, a1), (b1, a0), (b1, a1)],
+    };
+    let answer = |logits: &[f32]| {
+        let (action, lp, _) = select(PolicyMode4::Raw, &view, &pending, &cands, logits, 0.2);
+        let provenance = PolicyMode4::Raw.provenance(0.8, 2, HeadKind4::PairPick, lp);
+        (action, provenance)
+    };
+    let both = PlayerAction::DeclareBlockers {
+        blockers: vec![(b0, a0), (b1, a0)],
+    };
+    // b0 drawn alone on a0: b1 joins it, and the answer has no probability.
+    let (action, corrected) = answer(&[20.0, -20.0, -20.0, -20.0]);
+    assert_eq!(action, both);
+    assert!(!corrected.has_logprob);
+    assert_eq!(corrected.behavior_logprob, 0.0);
+    // Both drawn on a0: the count is met and the draw keeps its probability.
+    let (action, drawn) = answer(&[20.0, -20.0, 20.0, -20.0]);
+    assert_eq!(action, both);
+    assert!(drawn.has_logprob);
+    assert!(drawn.behavior_logprob.abs() < 1e-6);
 }
 
 #[test]

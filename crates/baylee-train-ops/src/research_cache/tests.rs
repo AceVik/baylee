@@ -161,6 +161,33 @@ fn malformed_cursors_returns_labels_masks_and_scalar_probabilities_are_refused()
     }
 }
 
+/// A blocker draw the attackers' counts changed carries no behaviour
+/// probability (`sample_pairs_constrained`): such a pair frame is valid and
+/// no actor candidate. Any other neural choice without one is refused.
+#[test]
+fn only_a_pair_frame_may_lack_its_behavior_probability() {
+    let fixture = Fixture::new(false);
+    let source = source::Source::load(&fixture.converted, &fixture.expected).unwrap();
+    let history = &source.histories[0];
+    let roots = std::collections::BTreeMap::new();
+    let frame = |head: u8, logprob: f64| {
+        let mut row: Value = serde_json::from_slice(&fixture.raw[1]).unwrap();
+        row["features"]["head"] = json!(head);
+        row["features"]["pairs"] = json!([[-1, -1], [-1, -1]]);
+        row["features"]["provenance"]["has_logprob"] = json!(false);
+        row["features"]["provenance"]["behavior_logprob"] = json!(logprob);
+        row["actor_eligible"] = json!(false);
+        serde_json::to_vec(&row).unwrap()
+    };
+    assert!(rows::validate(&frame(2, 0.0), history, 7, 1, &roots).is_ok());
+    for (head, logprob) in [(1, 0.0), (2, -0.7)] {
+        assert!(
+            rows::validate(&frame(head, logprob), history, 7, 1, &roots).is_err(),
+            "head {head}, logprob {logprob}"
+        );
+    }
+}
+
 #[test]
 fn resealed_valid_payload_cannot_replace_original_behavior_probability() {
     use flate2::{Compression, write::ZlibEncoder};

@@ -397,6 +397,7 @@ mod tests {
                 "decode_action4 must never repair sampled pair mask"
             );
             assert_eq!(compute_pair_free_mask(&pair_cands, &mask, &seq), free_mask);
+            let lp = lp.expect("no attacker states a count, so every draw stands");
             pair_probs.insert(mask, f64::from(lp).exp());
         }
         // Valid assignments: 3 choices for b0 (none, a0, a1) * 3 choices for b1 (none, a0, a1) = 9
@@ -462,6 +463,20 @@ mod tests {
             bounds: Vec::new(),
         };
         assert_eq!(sample(&[2.0, -1.0, -1.0, -3.0], &free), [1, 0, 0, 0]);
+
+        // A draw the counts changed is not the draw its free bits describe:
+        // it has no log-probability. The same answer drawn as it stands keeps
+        // its own (tau 0.8, so every pair is a real draw).
+        let draw = |logits: &[f32]| {
+            let (mask, _, _, lp) =
+                sample_pairs_constrained(logits, &cands, &menace(2), 0.8, &mut Rng::new(3));
+            (mask, lp)
+        };
+        let (mask, lp) = draw(&[20.0, -20.0, -20.0, -20.0]);
+        assert_eq!((mask, lp), (vec![1, 0, 1, 0], None));
+        let (mask, lp) = draw(&[20.0, -20.0, 20.0, -20.0]);
+        assert_eq!(mask, [1, 0, 1, 0]);
+        assert!(lp.is_some_and(|lp| lp.abs() < 1e-6), "{lp:?}");
     }
 
     #[test]

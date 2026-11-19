@@ -46,22 +46,63 @@ pub(super) fn validate(
         (provenance.source == SourceKind4::Forced) == forced,
         "research source forcedness differs from reconstructed menu"
     );
-    let valid = match provenance.source {
+    ensure!(
+        valid_behavior(menu.head, provenance),
+        "invalid research behavior provenance: {provenance:?}"
+    );
+    Ok(())
+}
+
+/// The research behaviour contract for an answer at a question of `head`.
+fn valid_behavior(head: HeadKind4, provenance: &StepProvenance4) -> bool {
+    match provenance.source {
         SourceKind4::Forced => !provenance.has_logprob && provenance.behavior_logprob == 0.0,
         SourceKind4::Net => {
-            let scalar = menu.head == HeadKind4::ScalarValue;
-            provenance.has_logprob != scalar
-                && (!scalar || provenance.behavior_logprob == 0.0)
+            let scalar = head == HeadKind4::ScalarValue;
+            // A blocker draw the attackers' counts changed carries no
+            // probability (`sample_pairs_constrained`); every other choice
+            // carries its own.
+            let undrawn = head == HeadKind4::PairPick && !provenance.has_logprob;
+            (provenance.has_logprob != scalar || undrawn)
+                && (provenance.has_logprob || provenance.behavior_logprob == 0.0)
                 && provenance.behavior_logprob.is_finite()
                 && provenance.behavior_logprob <= 0.0
                 && provenance.thinking_steps == 2
                 && (provenance.temperature - 0.7).abs() < 1e-6
         }
         _ => false,
-    };
-    ensure!(
-        valid,
-        "invalid research behavior provenance: {provenance:?}"
-    );
-    Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Only a blocker draw the attackers' counts changed may come without a
+    /// behaviour probability, and then with a zero logprob.
+    #[test]
+    fn only_a_pair_answer_may_lack_its_behavior_probability() {
+        let net = |has_logprob, behavior_logprob| StepProvenance4 {
+            source: SourceKind4::Net,
+            temperature: 0.7,
+            thinking_steps: 2,
+            behavior_logprob,
+            has_logprob,
+        };
+        for head in [
+            HeadKind4::SingleChoice,
+            HeadKind4::SubsetPick,
+            HeadKind4::PairPick,
+        ] {
+            assert!(valid_behavior(head, &net(true, -0.7)), "{head:?}");
+            assert_eq!(
+                valid_behavior(head, &net(false, 0.0)),
+                head == HeadKind4::PairPick,
+                "{head:?}"
+            );
+            assert!(!valid_behavior(head, &net(false, -0.7)), "{head:?}");
+        }
+        assert!(valid_behavior(HeadKind4::ScalarValue, &net(false, 0.0)));
+        assert!(!valid_behavior(HeadKind4::ScalarValue, &net(true, -0.7)));
+    }
 }

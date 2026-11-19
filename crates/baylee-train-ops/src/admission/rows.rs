@@ -102,11 +102,15 @@ impl History {
         );
         let eligible = row.eligible()?;
         if role.role == "learner" && eligible {
+            // A blocker draw the attackers' counts changed carries no
+            // probability (`sample_pairs_constrained`): it stays in the
+            // history but is no actor decision.
+            let undrawn = row.head == 2 && !p.has_logprob && p.behavior_logprob == 0.0;
             ensure!(
-                p.has_logprob && p.behavior_logprob <= 1e-6,
+                (p.has_logprob && p.behavior_logprob <= 1e-6) || undrawn,
                 "missing or invalid sampled learner probability"
             );
-            self.decisions += 1;
+            self.decisions += u64::from(p.has_logprob);
         }
         Ok(())
     }

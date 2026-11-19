@@ -275,8 +275,11 @@ pub(super) fn validate(
         _ => anyhow::bail!("unknown research policy head"),
     };
     if net {
+        // A blocker draw the attackers' counts changed carries no LP
+        // (`sample_pairs_constrained`); every other neural choice keeps its own.
+        let undrawn = head == 2 && !has_lp && lp == 0.0;
         ensure!(
-            has_lp != (head == 3),
+            has_lp != (head == 3) || undrawn,
             "categorical/scalar LP presence changed"
         );
     }
