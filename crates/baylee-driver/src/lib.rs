@@ -15,9 +15,9 @@ pub mod fp16;
 pub mod hardware;
 pub mod metrics;
 pub mod mux;
-pub mod rowdump;
 #[cfg(feature = "onnx")]
 pub mod ort_env;
+pub mod rowdump;
 pub mod scheduler;
 pub mod snapshot;
 pub mod swap_store;

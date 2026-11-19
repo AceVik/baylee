@@ -191,10 +191,7 @@ impl Args {
                 "--start-at" => a.start_at = Some(value.parse()?),
                 "--plans" => a.plans = value,
                 "--cost" => {
-                    let v: Vec<f64> = value
-                        .split(',')
-                        .map(str::parse)
-                        .collect::<Result<_, _>>()?;
+                    let v: Vec<f64> = value.split(',').map(str::parse).collect::<Result<_, _>>()?;
                     ensure!(v.len() == 3, "--cost call_ms,row_ms,token_ms");
                     a.cost = (v[0], v[1], v[2]);
                 }
@@ -409,7 +406,11 @@ fn assemble(rows: &[&DumpRow], buckets: &Buckets) -> anyhow::Result<Batch> {
                 for (j, (&have, &want)) in s.dims.iter().zip(&dims).enumerate().skip(1) {
                     let role = r.get(j - 1).copied().unwrap_or(Axis::Fixed);
                     ensure!(
-                        if role == Axis::Fixed { have == want } else { have <= want },
+                        if role == Axis::Fixed {
+                            have == want
+                        } else {
+                            have <= want
+                        },
                         "{}: axis {j} is {have}, the call has {want}",
                         t.name
                     );
@@ -421,24 +422,45 @@ fn assemble(rows: &[&DumpRow], buckets: &Buckets) -> anyhow::Result<Batch> {
             TensorData::F32(_) => {
                 let mut out = vec![0.0_f32; b * per];
                 for (i, s) in sources.iter().enumerate() {
-                    let TensorData::F32(v) = &s.data else { bail!("{}: types", t.name) };
-                    pad_copy(v, &s.dims[1..], &mut out[i * per..(i + 1) * per], &dims[1..]);
+                    let TensorData::F32(v) = &s.data else {
+                        bail!("{}: types", t.name)
+                    };
+                    pad_copy(
+                        v,
+                        &s.dims[1..],
+                        &mut out[i * per..(i + 1) * per],
+                        &dims[1..],
+                    );
                 }
                 Tensor::from_array((dims.clone(), out))?.into_dyn()
             }
             TensorData::I64(_) => {
                 let mut out = vec![fill_i64(&t.name); b * per];
                 for (i, s) in sources.iter().enumerate() {
-                    let TensorData::I64(v) = &s.data else { bail!("{}: types", t.name) };
-                    pad_copy(v, &s.dims[1..], &mut out[i * per..(i + 1) * per], &dims[1..]);
+                    let TensorData::I64(v) = &s.data else {
+                        bail!("{}: types", t.name)
+                    };
+                    pad_copy(
+                        v,
+                        &s.dims[1..],
+                        &mut out[i * per..(i + 1) * per],
+                        &dims[1..],
+                    );
                 }
                 Tensor::from_array((dims.clone(), out))?.into_dyn()
             }
             TensorData::Bool(_) => {
                 let mut out = vec![false; b * per];
                 for (i, s) in sources.iter().enumerate() {
-                    let TensorData::Bool(v) = &s.data else { bail!("{}: types", t.name) };
-                    pad_copy(v, &s.dims[1..], &mut out[i * per..(i + 1) * per], &dims[1..]);
+                    let TensorData::Bool(v) = &s.data else {
+                        bail!("{}: types", t.name)
+                    };
+                    pad_copy(
+                        v,
+                        &s.dims[1..],
+                        &mut out[i * per..(i + 1) * per],
+                        &dims[1..],
+                    );
                 }
                 Tensor::from_array((dims.clone(), out))?.into_dyn()
             }
@@ -466,7 +488,11 @@ fn assemble(rows: &[&DumpRow], buckets: &Buckets) -> anyhow::Result<Batch> {
 
 /// Runs one call; outputs per row at the row's own candidate and pair
 /// counts (embeddings left out).
-fn run(session: &mut Session, batch: &Batch, rows: &[&DumpRow]) -> anyhow::Result<Vec<Vec<DumpTensor>>> {
+fn run(
+    session: &mut Session,
+    batch: &Batch,
+    rows: &[&DumpRow],
+) -> anyhow::Result<Vec<Vec<DumpTensor>>> {
     let inputs: Vec<(&str, SessionInputValue<'_>)> = batch
         .inputs
         .iter()
@@ -664,7 +690,11 @@ fn hwmon_dirs() -> Vec<(String, PathBuf)> {
 fn cpu_jiffies() -> Option<(u64, u64)> {
     let stat = std::fs::read_to_string("/proc/stat").ok()?;
     let line = stat.lines().next()?;
-    let v: Vec<u64> = line.split_whitespace().skip(1).filter_map(|x| x.parse().ok()).collect();
+    let v: Vec<u64> = line
+        .split_whitespace()
+        .skip(1)
+        .filter_map(|x| x.parse().ok())
+        .collect();
     let idle = v.get(3)? + v.get(4).copied().unwrap_or(0);
     Some((v.iter().sum(), idle))
 }
@@ -683,7 +713,10 @@ fn sample_sensors(stop: &Arc<Mutex<bool>>) -> Sensors {
     let mut last = cpu_jiffies();
     loop {
         std::thread::sleep(Duration::from_millis(500));
-        if *stop.lock().unwrap_or_else(std::sync::PoisonError::into_inner) {
+        if *stop
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+        {
             break;
         }
         s.samples += 1;
@@ -750,7 +783,10 @@ fn wait_until(at: Option<f64>) -> f64 {
         if at > now {
             std::thread::sleep(Duration::from_secs_f64(at - now));
         } else {
-            eprintln!("--start-at passed {:.1} s before the seats were ready", now - at);
+            eprintln!(
+                "--start-at passed {:.1} s before the seats were ready",
+                now - at
+            );
         }
     }
     unix_now()
@@ -848,11 +884,18 @@ fn time_one(
     for h in handles {
         results.push(h.join().map_err(|_| anyhow::anyhow!("a seat panicked"))??);
     }
-    *stop.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = true;
-    let sensors = sensors.join().map_err(|_| anyhow::anyhow!("sensors panicked"))?;
+    *stop
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = true;
+    let sensors = sensors
+        .join()
+        .map_err(|_| anyhow::anyhow!("sensors panicked"))?;
     let wall = results.iter().map(|r| r.seconds).fold(0.0, f64::max);
     let total_rows: usize = results.iter().map(|r| r.rows).sum();
-    let mut lat: Vec<f64> = results.iter().flat_map(|r| r.latencies_ms.iter().copied()).collect();
+    let mut lat: Vec<f64> = results
+        .iter()
+        .flat_map(|r| r.latencies_ms.iter().copied())
+        .collect();
     lat.sort_by(f64::total_cmp);
     let real: usize = results.iter().map(|r| r.real_tokens).sum();
     let padded: usize = results.iter().map(|r| r.padded_tokens).sum();
@@ -947,7 +990,11 @@ fn max_diff(a: &[f32], b: &[f32], mask: Option<&[bool]>) -> (f32, f64, usize) {
 
 fn compare(stats: &mut KindStats, input: &DumpRow, got: &[DumpTensor], want: &DumpRow) {
     stats.rows += 1;
-    let get = |name: &str| got.iter().find(|t| t.name == name).and_then(DumpTensor::f32s);
+    let get = |name: &str| {
+        got.iter()
+            .find(|t| t.name == name)
+            .and_then(DumpTensor::f32s)
+    };
     let want_t = |name: &str| want.tensor(name).and_then(DumpTensor::f32s);
     if let (Some(g), Some(w)) = (get("h_out"), want_t("h_out")) {
         stats.max_h_diff = stats.max_h_diff.max(max_diff(g, w, None).0);
@@ -1093,14 +1140,19 @@ fn main() -> anyhow::Result<()> {
         }
         Mode::Ref => {
             let rows = parity_rows(rows, graph, args.limit);
-            let out = args.out.as_ref().context("--out names the reference file")?;
+            let out = args
+                .out
+                .as_ref()
+                .context("--out names the reference file")?;
             let mut writer = RowWriter::new(BufWriter::new(File::create(out)?), &header)?;
             let mut sessions = BTreeMap::new();
             for r in &rows {
                 let g = r.meta.graph;
                 let s = match sessions.entry(g) {
                     std::collections::btree_map::Entry::Occupied(o) => o.into_mut(),
-                    std::collections::btree_map::Entry::Vacant(v) => v.insert(session(&args, g, 1)?),
+                    std::collections::btree_map::Entry::Vacant(v) => {
+                        v.insert(session(&args, g, 1)?)
+                    }
                 };
                 let batch = assemble(&[r], &Buckets::None)?;
                 let outs = run(s, &batch, &[r])?.pop().context("one row")?;
@@ -1110,7 +1162,11 @@ fn main() -> anyhow::Result<()> {
                 })?;
             }
             writer.finish()?;
-            eprintln!("{} reference rows in {:.1} s", rows.len(), started.elapsed().as_secs_f64());
+            eprintln!(
+                "{} reference rows in {:.1} s",
+                rows.len(),
+                started.elapsed().as_secs_f64()
+            );
         }
         Mode::Parity => parity(&args, rows, graph, &header)?,
         Mode::Stats => stats(&args, &rows, &header)?,
@@ -1131,7 +1187,9 @@ fn parity_pairs(
     // A reference of every row serves any `--limit`: the run's rows are a
     // prefix of it (each row's metadata is checked against it later).
     let mut reference = load_rows(std::slice::from_ref(
-        args.reference.as_ref().context("--ref names the reference")?,
+        args.reference
+            .as_ref()
+            .context("--ref names the reference")?,
     ))?;
     ensure!(
         reference.len() >= rows.len(),
@@ -1144,8 +1202,15 @@ fn parity_pairs(
     // observation run before it (its memory is the recorded one), so
     // decisions can fill calls of any batch size.
     if args.decisions_only {
-        ensure!(!args.chained, "--decisions-only leaves out the observations --chained needs");
-        Ok(rows.into_iter().zip(reference).filter(|(r, _)| r.meta.k > 0).unzip())
+        ensure!(
+            !args.chained,
+            "--decisions-only leaves out the observations --chained needs"
+        );
+        Ok(rows
+            .into_iter()
+            .zip(reference)
+            .filter(|(r, _)| r.meta.k > 0)
+            .unzip())
     } else {
         Ok((rows, reference))
     }
@@ -1220,12 +1285,21 @@ fn parity(args: &Args, rows: Vec<DumpRow>, graph: u8, header: &Value) -> anyhow:
             ensure!(want.meta == input.meta, "the reference is of other rows");
             if input.meta.k == 0 {
                 compare(&mut observations, input, out, want);
-                if let Some(h) = out.iter().find(|t| t.name == "h_out").and_then(DumpTensor::f32s) {
+                if let Some(h) = out
+                    .iter()
+                    .find(|t| t.name == "h_out")
+                    .and_then(DumpTensor::f32s)
+                {
                     memory.insert((input.meta.game, input.meta.seat), h.to_vec());
                 }
             } else {
                 compare(&mut all_decisions, input, out, want);
-                compare(by_kind.entry(input.meta.label.clone()).or_default(), input, out, want);
+                compare(
+                    by_kind.entry(input.meta.label.clone()).or_default(),
+                    input,
+                    out,
+                    want,
+                );
             }
         }
         i = end;
@@ -1334,9 +1408,14 @@ fn check_indices(rows: &[DumpRow], header: &Value) -> anyhow::Result<()> {
         let pair_mask = bools(row, "pair_mask");
         let entity_mask = bools(row, "entity_mask");
         // (input, values, per-entry live flag, valid low, valid high exclusive)
-        let width = |name: &str| row.tensor(name).map_or(1, |t| t.dims.iter().skip(2).product::<usize>().max(1));
+        let width = |name: &str| {
+            row.tensor(name)
+                .map_or(1, |t| t.dims.iter().skip(2).product::<usize>().max(1))
+        };
         let live_of = |mask: &[bool], per: usize, n: usize| -> Vec<bool> {
-            (0..n).map(|i| mask.get(i / per).copied().unwrap_or(false)).collect()
+            (0..n)
+                .map(|i| mask.get(i / per).copied().unwrap_or(false))
+                .collect()
         };
         let checks: Vec<IndexCheck> = vec![
             {
@@ -1377,12 +1456,21 @@ fn check_indices(rows: &[DumpRow], header: &Value) -> anyhow::Result<()> {
             {
                 // Rule references are (node, role) pairs; roles index an
                 // 8-row embedding, nodes the catalog table.
-                let v: Vec<i64> = ints(row, "entity_rules").into_iter().chain(ints(row, "cand_rules")).skip(1).step_by(2).collect();
+                let v: Vec<i64> = ints(row, "entity_rules")
+                    .into_iter()
+                    .chain(ints(row, "cand_rules"))
+                    .skip(1)
+                    .step_by(2)
+                    .collect();
                 let live = vec![true; v.len()];
                 ("rule_roles", v, live, 0, 8)
             },
             {
-                let v: Vec<i64> = ints(row, "entity_rules").into_iter().chain(ints(row, "cand_rules")).step_by(2).collect();
+                let v: Vec<i64> = ints(row, "entity_rules")
+                    .into_iter()
+                    .chain(ints(row, "cand_rules"))
+                    .step_by(2)
+                    .collect();
                 let live = vec![true; v.len()];
                 ("rule_nodes", v, live, 0, 164_959)
             },
@@ -1410,7 +1498,9 @@ fn check_indices(rows: &[DumpRow], header: &Value) -> anyhow::Result<()> {
             if bad {
                 r.rows_bad += 1;
                 if bad_examples.len() < 10 {
-                    bad_examples.push(json!({"input": name, "meta": format!("{:?}", row.meta), "entities": e}));
+                    bad_examples.push(
+                        json!({"input": name, "meta": format!("{:?}", row.meta), "entities": e}),
+                    );
                 }
             }
         }
@@ -1463,7 +1553,10 @@ fn plan_buckets(args: &Args, rows: &[DumpRow], header: &Value) -> anyhow::Result
                 let (e, m) = (own(r, Axis::Entities), own(r, Axis::Edges));
                 let c = if decisions { own(r, Axis::Cands) } else { 1 };
                 n += 1;
-                match buckets.iter().position(|&(be, bm, bc)| e <= be && m <= bm && c <= bc) {
+                match buckets
+                    .iter()
+                    .position(|&(be, bm, bc)| e <= be && m <= bm && c <= bc)
+                {
                     Some(i) => {
                         counts[i] += 1;
                         real += e + c;
@@ -1479,7 +1572,10 @@ fn plan_buckets(args: &Args, rows: &[DumpRow], header: &Value) -> anyhow::Result
                 .iter()
                 .map(|&b| {
                     let ms = call_ms / b as f64 + row_ms + token_ms * mean_tokens;
-                    (format!("b{b}"), json!({"ms_per_row": ms, "rows_per_s": 1000.0 / ms}))
+                    (
+                        format!("b{b}"),
+                        json!({"ms_per_row": ms, "rows_per_s": 1000.0 / ms}),
+                    )
                 })
                 .collect();
             kinds.insert(

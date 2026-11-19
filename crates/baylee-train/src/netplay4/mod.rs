@@ -29,9 +29,9 @@ use crate::features4::{
 };
 use crate::features7::{encode_candidates7_grouped, encode_state7};
 mod batch;
-pub mod capture;
 #[cfg(test)]
 mod batch_tests;
+pub mod capture;
 pub use batch::{BatchLimits4, BatchedNet4, LaneStats4, SizeSummary4};
 mod choices;
 mod critic;
