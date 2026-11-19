@@ -8,6 +8,7 @@ use super::{
 
 impl Tx<'_> {
     /// One effect and everything its `SubAbility$` chain adds.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn chain(&mut self, spec: &str, chain: &mut Chain) -> Option<()> {
         let Some((api, mut p)) = Params::parse(spec) else {
             return self.deny("an ability spec with no `$` in it".to_string());
@@ -254,6 +255,7 @@ impl Tx<'_> {
             && p.peek("ConditionCompare") == Some("EQ1")
     }
 
+    #[allow(clippy::too_many_lines)]
     fn wrap_line_condition(
         &mut self,
         api: &str,

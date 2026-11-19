@@ -3,6 +3,7 @@
 use super::{Bound, Params, Tx, keyword_const, keyword_enter_modifier, keyword_static};
 
 impl Tx<'_> {
+    #[allow(clippy::too_many_lines)]
     pub(super) fn keyword(&mut self, line: &str) -> Option<()> {
         if line == "Mayhem" {
             // `transcode` requires a land type line for this permission.

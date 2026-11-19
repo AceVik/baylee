@@ -46,6 +46,9 @@ impl Tx<'_> {
     /// `TargetMin$`, `TargetMax$`, `TgtZone$`, and `SubAbility$` on both lines,
     /// and having populated `chain.target` and `self.body.kicked_targets`).
     /// Returns `None` without modifying `p` when the shape does not apply.
+    /// The inner option is the second line's own `SubAbility$`, which the
+    /// chain continues with when there is one: two different absences.
+    #[allow(clippy::option_option)]
     pub(super) fn try_kicked_target_replacement(
         &mut self,
         api: &str,
@@ -264,7 +267,7 @@ impl Tx<'_> {
     }
 
     /// Evaluates a line whose numeric parameter references a
-    /// `Count$Kicked.<A>.<B>` SVar under both kicked (`Some(true)`) and
+    /// `Count$Kicked.<A>.<B>` `SVar` under both kicked (`Some(true)`) and
     /// unkicked (`Some(false)`) branches, wrapping the pair in
     /// `Effect::IfKicked { then, otherwise }`.
     ///
