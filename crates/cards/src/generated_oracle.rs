@@ -20074,7 +20074,7 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Slagwurm Armor
     &[
-        "Equipped creature gets +0/+6.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery. This card enters unattached and stays on the battlefield if the creature leaves.)",
+        "Equipped creature gets +0/+6.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
     ],
     // Slith Ascendant
     &["Flying\nWhenever this creature deals combat damage to a player, put a +1/+1 counter on it."],
