@@ -194,7 +194,7 @@ fn scalar_target(cands: &EncodedCandidates4, pred: f32) -> TeacherTarget4 {
 }
 
 /// A subset or pair target from a constrained sample.
-fn set_target((mask, free_mask, seq, _): (Vec<u8>, Vec<u8>, Vec<u16>, f32)) -> TeacherTarget4 {
+fn set_target<P>((mask, free_mask, seq, _): (Vec<u8>, Vec<u8>, Vec<u16>, P)) -> TeacherTarget4 {
     TeacherTarget4 {
         multi_mask: mask,
         free_mask,

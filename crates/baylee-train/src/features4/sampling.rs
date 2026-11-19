@@ -173,7 +173,13 @@ pub fn sample_subset_constrained(
 /// Samples a valid blocker assignment mask for `PairPick` (`ChooseBlockers`)
 /// while enforcing at-most-one-attacker-per-blocker and the counts each
 /// attacker states (`ChooseBlockers::bounds`, [`meet_attacker_bounds`]), and
-/// tracking exact conditional `free_mask` and `logprob` (`P0-3`).
+/// tracking the conditional `free_mask` and `logprob` of the per-pair draw
+/// (`P0-3`).
+///
+/// The log-probability is `None` where the counts changed the draw: the
+/// returned mask is then not the draw `free_mask` describes, and its exact
+/// probability would be a sum over every draw the counts turn into it, which
+/// is not computed. Such an answer carries no behaviour probability.
 ///
 /// # Panics
 /// If the internal blocker-count map loses an entry inserted in the same call.
@@ -183,10 +189,10 @@ pub fn sample_pairs_constrained(
     pending: &Pending,
     tau: f32,
     rng: &mut crate::deckgen::Rng,
-) -> (Vec<u8>, Vec<u8>, Vec<u16>, f32) {
+) -> (Vec<u8>, Vec<u8>, Vec<u16>, Option<f32>) {
     let (mut mask, free_mask, visit_seq, total_lp) = sample_pairs_free(logits, cands, tau, rng);
-    meet_attacker_bounds(&mut mask, logits, cands, pending);
-    (mask, free_mask, visit_seq, total_lp)
+    let changed = meet_attacker_bounds(&mut mask, logits, cands, pending);
+    (mask, free_mask, visit_seq, (!changed).then_some(total_lp))
 }
 
 /// An attacker blocked by fewer creatures than it states (menace: "can't be
@@ -194,16 +200,18 @@ pub fn sample_pairs_constrained(
 /// engine takes (`AnswerFault::TooFewBlockers`, `TooManyBlockers`). Where a
 /// sample leaves one so, the creatures still free that may block it join it,
 /// best logit first, up to its least count; where too few are free it is left
-/// unblocked, and blockers past its most go, worst logit first.
+/// unblocked, and blockers past its most go, worst logit first. Says whether
+/// it changed the sample.
 fn meet_attacker_bounds(
     mask: &mut [u8],
     logits: &[f32],
     cands: &EncodedCandidates4,
     pending: &Pending,
-) {
+) -> bool {
     let Pending::ChooseBlockers { bounds, .. } = pending else {
-        return;
+        return false;
     };
+    let drawn = mask.to_vec();
     let n = mask.len();
     let blocker_of = |i: usize| cands.pair_objects[i].0;
     let attacker_of = |i: usize| cands.pair_objects[i].1;
@@ -257,6 +265,7 @@ fn meet_attacker_bounds(
             }
         }
     }
+    mask[..] != drawn[..]
 }
 
 /// The per-pair sample, one attacker per blocker, before the attackers'
