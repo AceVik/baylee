@@ -10,13 +10,15 @@ use baylee_core::types::{SupertypeSet, TargetSide, TypeSet};
 use baylee_engine::target_side::effects_side;
 use baylee_view::{CardIdentity, PlayerView, PublicObject};
 
+use super::super::number::x_price;
+use super::super::sweep::{amount_of, sweep_toll, sweeps_by_x, swept, x_steps};
 use super::super::{
     abilities_of_battlefield_object, is_ally, is_hostile_object_effects, is_opponent,
     lookup_card_identity, lookup_spell_cost,
 };
 use super::read::{
     Hitter, actor, blockers_of, damage_through, hitters_of, is_creature, is_tapped, life,
-    opponents, toughness_left, worth,
+    opponents, toughness_left,
 };
 use super::{RuleGroup, TacticRules4};
 use crate::features4::{public_object_matches_basic_filter, untapped_mana_production};
@@ -164,49 +166,6 @@ fn part_is_void(view: &PlayerView, me: PlayerId, part: &Part) -> bool {
             || all_doomed(view, me, part))
 }
 
-/// What a mass effect sweeps, for the ones that hit both sides alike, and the
-/// damage it deals, if that is how it sweeps.
-fn swept(effect: &Effect, x: i32) -> Option<(&'static Filter, Option<i32>)> {
-    match effect {
-        Effect::DestroyAll { filter, .. }
-        | Effect::DestroyAllThenForEachDestroyed { filter, .. }
-        | Effect::ExileAll { filter, .. }
-        | Effect::SacrificeAll { filter }
-        | Effect::ReturnAllToHand {
-            filter,
-            opponents_only: false,
-        } => Some((*filter, None)),
-        Effect::DealDamageEach { amount, filter } => Some((*filter, damage_of(*amount, x))),
-        _ => None,
-    }
-}
-
-/// A damage amount this reading can count, with X at `x`.
-fn damage_of(amount: Amount, x: i32) -> Option<i32> {
-    match amount {
-        Amount::Fixed(damage) => i32::try_from(damage).ok(),
-        Amount::X => Some(x),
-        _ => None,
-    }
-}
-
-/// What the swept filter takes from each side, in worth: `(mine, theirs)`. A
-/// sweep of damage takes what that much damage kills.
-fn sweep_toll(view: &PlayerView, me: PlayerId, filter: &Filter, damage: Option<i32>) -> (i32, i32) {
-    let mut toll = (0, 0);
-    for object in &view.battlefield {
-        let survives = damage.is_some_and(|amount| toughness_left(object) > amount);
-        if !survives && public_object_matches_basic_filter(me, object, filter) {
-            if is_ally(me, object.controller) {
-                toll.0 += worth(object);
-            } else {
-                toll.1 += worth(object);
-            }
-        }
-    }
-    toll
-}
-
 /// Whether the swing the other side has now would kill `me` or an allied seat.
 fn facing_lethal(view: &PlayerView, me: PlayerId) -> bool {
     view.seats
@@ -223,12 +182,12 @@ fn facing_lethal(view: &PlayerView, me: PlayerId) -> bool {
 }
 
 /// A sweep that costs me more than it costs them, or hits nothing of theirs,
-/// unless it is what stands between me and dying.
+/// at every X up to `x` where X sizes it, unless it is what stands between me
+/// and dying.
 fn sweep_backfires(view: &PlayerView, me: PlayerId, part: &Part, x: i32) -> bool {
-    let Some((filter, damage)) = part.0.iter().find_map(|effect| swept(effect, x)) else {
+    let Some((filter, _)) = part.0.iter().find_map(|effect| swept(effect, x)) else {
         return false;
     };
-    let (mine, theirs) = sweep_toll(view, me, filter, damage);
     // Lands alone are a plan the toll cannot read: Armageddon wins from ahead on
     // the board at a cost in lands.
     let lands_only = view
@@ -236,7 +195,18 @@ fn sweep_backfires(view: &PlayerView, me: PlayerId, part: &Part, x: i32) -> bool
         .iter()
         .filter(|object| public_object_matches_basic_filter(me, object, filter))
         .all(|object| object.types.contains(TypeSet::LAND));
-    theirs == 0 || (mine > theirs && !lands_only && !facing_lethal(view, me))
+    let steps = if part.0.iter().any(sweeps_by_x) {
+        x_steps(view, me, part.0, 0, x)
+    } else {
+        vec![x]
+    };
+    steps.into_iter().all(|step| {
+        let Some((filter, take)) = part.0.iter().find_map(|effect| swept(effect, step)) else {
+            return false;
+        };
+        let (mine, theirs) = sweep_toll(view, me, filter, take);
+        theirs == 0 || (mine > theirs && !lands_only && !facing_lethal(view, me))
+    })
 }
 
 /// Burn with nothing of theirs to kill and no game to close: their life is more
@@ -252,7 +222,7 @@ fn burn_is_idle(view: &PlayerView, me: PlayerId, part: &Part, x: i32) -> bool {
     else {
         return false;
     };
-    let Some(damage) = damage_of(*amount, x) else {
+    let Some(damage) = amount_of(*amount, x) else {
         return false;
     };
     let reaches = view.battlefield.iter().any(|object| {
@@ -264,7 +234,8 @@ fn burn_is_idle(view: &PlayerView, me: PlayerId, part: &Part, x: i32) -> bool {
     !reaches && opponents(view, me).all(|player| life(view, player) > damage + 2 * swing)
 }
 
-/// What X can be for the spell `id`, on all the mana the seat can reach.
+/// What X can be for the spell `id`: on all the mana the seat can reach, and
+/// where X is paid in life, on all but its last point.
 fn reachable_x(view: &PlayerView, me: PlayerId, id: ObjectId) -> i32 {
     let pool = view
         .seat(me)
@@ -272,7 +243,18 @@ fn reachable_x(view: &PlayerView, me: PlayerId, id: ObjectId) -> i32 {
     let mana = pool.saturating_add(untapped_mana_production(view, me));
     let base = lookup_spell_cost(view, id)
         .map_or(0, |(cost, tax)| cost.with_x(0).cmc().saturating_add(tax));
-    i32::try_from(mana.saturating_sub(base)).unwrap_or(0)
+    let on_mana = i32::try_from(mana.saturating_sub(base)).unwrap_or(0);
+    match x_price(view, id) {
+        Some((price, _)) if price.life => {
+            let on_life = (life(view, me) - 1).max(0);
+            if price.mana {
+                on_mana.min(on_life)
+            } else {
+                on_life
+            }
+        }
+        _ => on_mana,
+    }
 }
 
 /// A lord printed without "you control" lifts their team too. Reads the swing

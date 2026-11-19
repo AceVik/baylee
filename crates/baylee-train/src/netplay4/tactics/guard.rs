@@ -248,6 +248,53 @@ pub(super) fn react(
     cast_or_tap(cands, logits, view, legal, &spells)
 }
 
+/// `Counter`: what a pass on the other seat's turn, with only their spells
+/// and abilities on the stack, is turned to by any counter the seat can cast
+/// at instant speed: also one the `React` reading does not see, behind a
+/// payment (Mana Leak, Daze), in a mode (Izzet Charm) or on a flash body
+/// ([`crate::reactivity::face_counters`]).
+pub(super) fn counter(
+    cands: &EncodedCandidates4,
+    logits: &[f32],
+    view: &PlayerView,
+    legal: &LegalActions,
+) -> Option<usize> {
+    let actor = view.decision_player.unwrap_or(view.seat);
+    if view.active == actor
+        || view.owed.is_some()
+        || view.stack.is_empty()
+        || !view
+            .stack
+            .iter()
+            .all(|item| super::is_opponent(actor, item.controller))
+    {
+        return None;
+    }
+    let counters_at_instant_speed = |id: ObjectId| {
+        lookup_card_identity(view, id).is_some_and(|identity| {
+            baylee_cards::by_index(identity.index).is_some_and(|def| {
+                let face = usize::from(identity.face);
+                let fast = def
+                    .faces
+                    .get(face)
+                    .is_some_and(|f| f.types.contains(TypeSet::INSTANT))
+                    || def
+                        .keywords_for_face(face)
+                        .contains(baylee_cards_dsl::KeywordSet::FLASH);
+                fast && crate::reactivity::face_counters(def, face)
+            })
+        })
+    };
+    let spells: Vec<ObjectId> = reading::reachable_spells(view, legal)
+        .into_iter()
+        .filter(|id| counters_at_instant_speed(*id) && is_spell_worth_casting_now_inner(view, *id))
+        .collect();
+    if spells.is_empty() {
+        return None;
+    }
+    cast_or_tap(cands, logits, view, legal, &spells)
+}
+
 /// `Probe`: counts the net's probability of passing in each window, in tenths,
 /// with no mana floating. Changes no answer.
 fn probe(

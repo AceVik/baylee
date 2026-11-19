@@ -396,6 +396,22 @@ fn a_second_legend_does_nothing() {
 
 #[test]
 fn a_sweep_of_damage_counts_what_that_much_kills() {
+    // Every X the mana reaches costs the seat more: X = 1 ends only its own
+    // Elves, X = 2 their Bears and both Elves.
+    let mine = [
+        "Forest",
+        "Mountain",
+        "Forest",
+        "Forest",
+        "Llanowar Elves",
+        "Llanowar Elves",
+    ];
+    let (_session, pending, view) = table(&["Savage Twister"], &mine, &["Grizzly Bears"]);
+    let cast = PlayerAction::CastSpell {
+        card: card_in_hand(&view, "Savage Twister"),
+    };
+    assert_eq!(groups("mass", &view, &pending, &cast), ["mass"]);
+    // X = 1 ends their Elves and spares the seat's Bears: X sizes the sweep.
     let mine = [
         "Forest",
         "Mountain",
@@ -408,7 +424,25 @@ fn a_sweep_of_damage_counts_what_that_much_kills() {
     let cast = PlayerAction::CastSpell {
         card: card_in_hand(&view, "Savage Twister"),
     };
+    assert!(groups("mass", &view, &pending, &cast).is_empty());
+}
+
+#[test]
+fn a_sweep_of_minus_x_paid_in_life_needs_something_of_theirs_to_end() {
+    let lands = ["Swamp", "Swamp", "Swamp"];
+    let mine = [&lands[..], &["Grizzly Bears"]].concat();
+    let (_session, pending, view) = table(&["Toxic Deluge"], &mine, &[]);
+    let cast = PlayerAction::CastSpell {
+        card: card_in_hand(&view, "Toxic Deluge"),
+    };
     assert_eq!(groups("mass", &view, &pending, &cast), ["mass"]);
+    // Their Bears end at X = 2, the seat's Giant lives: worth casting.
+    let mine = [&lands[..], &["Hill Giant"]].concat();
+    let (_session, pending, view) = table(&["Toxic Deluge"], &mine, &["Grizzly Bears"]);
+    let cast = PlayerAction::CastSpell {
+        card: card_in_hand(&view, "Toxic Deluge"),
+    };
+    assert!(groups("mass", &view, &pending, &cast).is_empty());
 }
 
 #[test]
@@ -494,5 +528,125 @@ fn the_fired_mask_bits_are_the_rule_table() {
     assert_eq!(
         TacticRules4::group_names(),
         crate::convert4::distill_labels::FIRED_GROUPS
+    );
+}
+
+/// With {U} floating, a creature to cast and nothing of theirs on the stack,
+/// the net passes and among the rest likes its Darting Merfolk's self-bounce
+/// best. The layer spends the mana on its best other answer, the bounce; with
+/// `defer` never on an ability that only takes back the seat's own permanent.
+#[test]
+fn a_pass_is_never_turned_into_a_self_bounce_for_nothing_under_defer() {
+    let (mut session, _, view) = table(
+        &["Merfolk of the Pearl Trident"],
+        &["Island", "Island", "Island", "Darting Merfolk"],
+        &["Plains"],
+    );
+    let island = view
+        .battlefield
+        .iter()
+        .find(|object| object.name == "Island")
+        .unwrap()
+        .id;
+    session
+        .act(ME, PlayerAction::ActivateManaAbility { source: island })
+        .unwrap();
+    let (pending, view) = session.view_for_with_context(ME).unwrap();
+    let state = crate::features7::encode_state7(&view, Some(&pending), None, &[]);
+    let cands = crate::features7::encode_candidates7_grouped(&state, &view, &pending);
+    let merfolk = view
+        .battlefield
+        .iter()
+        .find(|object| object.name == "Darting Merfolk")
+        .unwrap()
+        .id;
+    let index_of = |wanted: &dyn Fn(&PlayerAction) -> bool| {
+        cands
+            .candidates
+            .iter()
+            .position(|cand| cand.action.as_ref().is_some_and(wanted))
+    };
+    let pass = index_of(&|action| matches!(action, PlayerAction::PassPriority)).unwrap();
+    let bounce = index_of(&|action| {
+        matches!(action, PlayerAction::ActivateAbility { source, .. } if *source == merfolk)
+    })
+    .expect("the bounce is on the menu");
+    let mut logits = vec![0.0; cands.candidates.len()];
+    logits[pass] = 5.0;
+    logits[bounce] = 4.0;
+    let answer = |groups: &str| {
+        let mut rules = TacticRules4::parse(groups).unwrap();
+        let mut rng = crate::deckgen::Rng::new(5);
+        let (chosen, _) = super::single_choice(
+            &mut rules, &cands, &logits, &view, &pending, None, 0.0, &mut rng,
+        );
+        (
+            cands.candidates[chosen].action.clone().unwrap(),
+            rules.take_fired(),
+        )
+    };
+    let (plain, _) = answer("void");
+    assert!(
+        matches!(plain, PlayerAction::ActivateAbility { source, .. } if source == merfolk),
+        "{plain:?}"
+    );
+    let (deferred, fired) = answer("defer");
+    assert!(
+        !matches!(deferred, PlayerAction::ActivateAbility { .. }),
+        "{deferred:?}"
+    );
+    assert!(fired.contains(&("defer", 1)), "{fired:?}");
+}
+
+/// The net passes in its main phase with a creature to cast and likes the
+/// seat's Opposition best among the rest. A spell to cast is why the layer
+/// acts, so under `defer` it acts with that (or the mana for it), not with the
+/// Opposition the net passed over.
+#[test]
+fn a_pass_is_turned_only_into_the_plays_the_layer_acts_for_under_defer() {
+    let (_session, pending, view) = table(
+        &["Merfolk of the Pearl Trident"],
+        &["Island", "Island", "Opposition", "Grizzly Bears"],
+        &["Plains", "Grizzly Bears"],
+    );
+    let state = crate::features7::encode_state7(&view, Some(&pending), None, &[]);
+    let cands = crate::features7::encode_candidates7_grouped(&state, &view, &pending);
+    let opposition = view
+        .battlefield
+        .iter()
+        .find(|object| object.name == "Opposition")
+        .unwrap()
+        .id;
+    let index_of = |wanted: &dyn Fn(&PlayerAction) -> bool| {
+        cands
+            .candidates
+            .iter()
+            .position(|cand| cand.action.as_ref().is_some_and(wanted))
+    };
+    let pass = index_of(&|action| matches!(action, PlayerAction::PassPriority)).unwrap();
+    let tap = index_of(&|action| {
+        matches!(action, PlayerAction::ActivateAbility { source, .. } if *source == opposition)
+    })
+    .expect("Opposition is on the menu");
+    let mut logits = vec![0.0; cands.candidates.len()];
+    logits[pass] = 5.0;
+    logits[tap] = 4.0;
+    let answer = |groups: &str| {
+        let mut rules = TacticRules4::parse(groups).unwrap();
+        let mut rng = crate::deckgen::Rng::new(5);
+        let (chosen, _) = super::single_choice(
+            &mut rules, &cands, &logits, &view, &pending, None, 0.0, &mut rng,
+        );
+        cands.candidates[chosen].action.clone().unwrap()
+    };
+    let plain = answer("void");
+    assert!(
+        matches!(plain, PlayerAction::ActivateAbility { source, .. } if source == opposition),
+        "{plain:?}"
+    );
+    let deferred = answer("defer");
+    assert!(
+        !matches!(deferred, PlayerAction::ActivateAbility { source, .. } if source == opposition),
+        "{deferred:?}"
     );
 }
