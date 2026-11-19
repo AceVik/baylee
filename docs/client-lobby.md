@@ -94,8 +94,26 @@ the confirmation. All controls use the shell kit and English/German Fluent words
 Its registered Tab order reaches task/ranking composites with arrow keys and
 activates controls with Enter/Space. Confirmation traps Tab on Cancel/Confirm.
 
-Task details put play and consent beside independent rankings; scoring rules
-expand on request. Choosing a badge shows its five tiers, exact requirements
+Both pages stand on the shell kit's panels (`challenges/draw/layout.rs`: a
+section is `surfaces::panel`, a block inside it an inset on the control
+ground, a group has a small-capitals caption, body copy is body size, a number
+stands in a stat cell). The calendar reads, in order: the page's head with
+Refresh; an attempt left open on a task that is no current card; the Daily and
+the Weekly as two equal cards (landscape, kind, name, tactician goal, closing
+time, one primary, gold when an attempt of it is open); the two expeditions as
+two equal cards behind them (secondary, gold only for a run begun); the
+permanent badges; the archive as one list. A narrow window stacks each pair.
+State lines (first read, failure, pending result, no task) stand on mist
+plates, never bare on the painting, and a minute's re-read shows none.
+
+A task's page leads with Back. Its card reads as a player decides: landscape,
+kind and state, name, instructions, the goal with the opening and closing
+times, "Your progress" as three stat cells, then Play (or gold Resume) with
+Hint beside it and Abandon at the row's far end, the confirmation or a seen
+hint directly under them, consent beside its switch, and the supplied deck and
+the scoring rules folded at the foot. The rankings stand beside it (under it
+below the Wide frame) as one table: rank, player, turns, failures, active
+time, the player's own row tinted. The Tab order follows that reading order. Choosing a badge shows its five tiers, exact requirements
 and earned status. Five original procedural motifs gain bezels, laurels, gems
 and crowns through Bronze → Obsidian. Together with three retained Tower motifs
 and three current Echoes motifs, sixty-six shared material slots bound the
