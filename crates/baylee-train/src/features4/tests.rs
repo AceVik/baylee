@@ -413,14 +413,14 @@ mod tests {
             assert_eq!(compute_pair_free_mask(&pair_cands, &mask, &seq), free_mask);
             let lp = lp.expect("no attacker states a count, so every draw stands");
             assert_eq!(
-                pair_free_mask_of(&pair_cands, &mask).as_ref(),
+                pair_free_mask_of(&pair_cands, &pending_blk, &mask).as_ref(),
                 Some(&free_mask),
                 "the forced pair bits are the sampler's"
             );
             pair_probs.insert(mask, f64::from(lp).exp());
         }
         assert_eq!(
-            pair_free_mask_of(&pair_cands, &[1, 1, 0, 0]),
+            pair_free_mask_of(&pair_cands, &pending_blk, &[1, 1, 0, 0]),
             None,
             "one blocker on two attackers is never drawn"
         );
@@ -501,6 +501,78 @@ mod tests {
         let (mask, lp) = draw(&[20.0, -20.0, 20.0, -20.0]);
         assert_eq!(mask, [1, 0, 1, 0]);
         assert!(lp.is_some_and(|lp| lp.abs() < 1e-6), "{lp:?}");
+    }
+
+    /// The draw that stands as a blocker answer misses no stated count, and
+    /// whether the counts can move a draw at all is read from the question:
+    /// an attacker that needs two or more and that a creature may block, or
+    /// one that takes fewer than may block it.
+    #[test]
+    fn the_counts_say_which_blocker_answers_stand_and_whether_any_moves() {
+        use baylee_engine::choice::AttackerBound;
+        let b0 = ObjectId::new(20, 0);
+        let b1 = ObjectId::new(21, 0);
+        let a0 = ObjectId::new(30, 0);
+        let a1 = ObjectId::new(31, 0);
+        let cands = EncodedCandidates4 {
+            head: HeadKind4::PairPick,
+            pending_kind: PendingKind4::DeclareBlockers,
+            min_choices: 0,
+            max_choices: 2,
+            candidates: Vec::new(),
+            pairs: vec![[0, 2], [0, 3], [1, 2], [1, 3]],
+            pair_objects: vec![(b0, a0), (b0, a1), (b1, a0), (b1, a1)],
+        };
+        let block = |bounds: Vec<AttackerBound>| Pending::ChooseBlockers {
+            player: PlayerId::new(0),
+            attacker: PlayerId::new(1),
+            blockers: Vec::new(),
+            capacity: Vec::new(),
+            obeying: Vec::new(),
+            demands: Vec::new(),
+            bounds,
+        };
+        let bound = |attacker, min_blockers, max_blockers| AttackerBound {
+            attacker,
+            min_blockers,
+            max_blockers,
+        };
+        let menace = block(vec![bound(a0, 2, u32::MAX)]);
+        // A lone blocker on the menace attacker is moved, never drawn as it
+        // stands; both on it, or none, stand.
+        assert_eq!(pair_free_mask_of(&cands, &menace, &[1, 0, 0, 0]), None);
+        assert_eq!(pair_free_mask_of(&cands, &menace, &[0, 0, 1, 0]), None);
+        assert_eq!(
+            pair_free_mask_of(&cands, &menace, &[1, 0, 1, 0]),
+            Some(vec![1, 0, 1, 0])
+        );
+        assert_eq!(
+            pair_free_mask_of(&cands, &menace, &[0, 1, 0, 1]),
+            Some(vec![1, 1, 1, 1])
+        );
+        assert!(attacker_counts_may_move(&cands, &menace));
+        for (bounds, moves) in [
+            (Vec::new(), false),
+            (vec![bound(a1, 1, u32::MAX)], false),
+            (vec![bound(a1, 0, 2)], false),
+            (vec![bound(a1, 0, 1)], true),
+            (vec![bound(a0, 3, u32::MAX)], true),
+            // Nothing may block a creature that is not attacking here.
+            (vec![bound(ObjectId::new(32, 0), 2, u32::MAX)], false),
+        ] {
+            assert_eq!(
+                attacker_counts_may_move(&cands, &block(bounds.clone())),
+                moves,
+                "{bounds:?}"
+            );
+        }
+        let mulligan = Pending::Mulligan {
+            player: PlayerId::new(0),
+            taken: 0,
+            next_is_free: false,
+            can_take: true,
+        };
+        assert!(!attacker_counts_may_move(&cands, &mulligan));
     }
 
     #[test]

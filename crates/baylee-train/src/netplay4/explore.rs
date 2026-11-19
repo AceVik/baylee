@@ -22,7 +22,12 @@
 //! the point mass at the net's answer, and its step claims no probability.
 //! A blocker answer the attackers' stated counts moved carries no behaviour
 //! probability (`features4::sample_pairs_constrained`): where the net's own
-//! such answer is executed, π stays unknown, and so does μ.
+//! such answer is executed, π stays unknown, and so does μ. At a block whose
+//! counts can move a draw at all (`features4::attacker_counts_may_move`),
+//! the layer's answer may also be reached from other draws, so its π is more
+//! than its own draw's and μ(R) = (1 − ε)·π(R) + ε is not known either:
+//! where the layer's answer is executed there (played, or the net's own
+//! sample), the step carries neither. Every other step's π and μ are exact.
 //!
 //! The layer's answer is an action taken, never a label.
 
@@ -37,8 +42,8 @@ use super::policy::{bernoulli_logprob, categorical_logprob, decode_target};
 use super::{TacticRules4, valid_raw_temperature};
 use crate::deckgen::Rng;
 use crate::features4::{
-    EncodedCandidates4, HeadKind4, TeacherTarget4, denormalize_scalar_choice,
-    normalize_scalar_choice, pair_free_mask_of, subset_free_mask_of,
+    EncodedCandidates4, HeadKind4, TeacherTarget4, attacker_counts_may_move,
+    denormalize_scalar_choice, normalize_scalar_choice, pair_free_mask_of, subset_free_mask_of,
 };
 
 /// The learner's explorer: the groups it proposes with, ε, and its stream.
@@ -164,6 +169,15 @@ impl RuleExplorer4 {
             logprob = play(step, answer, target)?;
             self.played += 1;
         }
+        // The layer's answer executed at a block whose stated counts can move
+        // a draw: other draws may be moved into it, so neither π(R) nor
+        // μ(R) is its draw's alone, and the sum over them is not computed.
+        if step.cands.head == HeadKind4::PairPick
+            && exploration::rule_taken(rule, played)
+            && attacker_counts_may_move(step.cands, step.pending)
+        {
+            logprob = None;
+        }
         let behavior = match logprob {
             _ if step.cands.head == HeadKind4::ScalarValue => NetBehavior::PointMass,
             Some(logprob) => NetBehavior::Sampled(logprob),
@@ -246,7 +260,7 @@ fn rule_target(step: &ExploreStep<'_>, answer: &RuleAnswer) -> Option<TeacherTar
         RuleAnswer::Mask(mask) => {
             let free_mask = match cands.head {
                 HeadKind4::SubsetPick => subset_free_mask_of(cands, step.pending, mask)?,
-                HeadKind4::PairPick => pair_free_mask_of(cands, mask)?,
+                HeadKind4::PairPick => pair_free_mask_of(cands, step.pending, mask)?,
                 HeadKind4::SingleChoice | HeadKind4::ScalarValue => return None,
             };
             target.multi_mask.clone_from(mask);
