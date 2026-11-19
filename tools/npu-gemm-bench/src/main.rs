@@ -7,6 +7,7 @@
 //! npu-gemm-bench run --designs DIR --out results.json [--warmup 10] [--iters 100]
 //!     [--cpu-warmup 3] [--cpu-iters 50] [--cpu-threads 1,8] [--only TEXT]
 //!     [--skip-npu] [--skip-layers] [--skip-cpu] [--soak-secs 5]
+//! npu-gemm-bench soak-layers --m 2048 --seconds 60 --out X.json [--designs DIR] [--no-check]
 //! ```
 //!
 //! `build-designs` drives mlir-aie's IRON `whole_array.py` (bf16 in, f32 out,
@@ -14,7 +15,9 @@
 //! pinned wheels in a venv. `run` needs the NPU: per design it times
 //! sync-in + run + sync-out, checks the output against an f32 CPU GEMM and an
 //! f64 one, then times the f32 CPU GEMM at each thread count, and writes one
-//! JSON file plus a Markdown table on stdout.
+//! JSON file plus a Markdown table on stdout. `soak-layers` keeps the NPU
+//! busy with one encoder layer's four GEMMs at one M, back to back, for a
+//! fixed time, and records the layer rate and the package power meanwhile.
 
 mod cpu;
 mod data;
@@ -64,7 +67,8 @@ fn main() {
         }
         Some("build-designs") => build_designs(&args[1..]),
         Some("run") => run(&args[1..]),
-        _ => Err("usage: npu-gemm-bench list | build-designs ... | run ... (see the crate docs)".to_owned()),
+        Some("soak-layers") => soak_layers(&args[1..]),
+        _ => Err("usage: npu-gemm-bench list | build-designs ... | run ... | soak-layers ... (see the crate docs)".to_owned()),
     };
     if let Err(e) = result {
         eprintln!("error: {e}");
@@ -141,6 +145,112 @@ struct Results {
 
 fn read_trim(path: &str) -> String {
     std::fs::read_to_string(path).map(|s| s.trim().to_owned()).unwrap_or_default()
+}
+
+fn unix_now() -> f64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0.0, |d| d.as_secs_f64())
+}
+
+/// A sustained run of one layer's GEMMs.
+#[derive(Debug, Serialize)]
+struct LayerSoak {
+    host: String,
+    m: usize,
+    designs: Vec<String>,
+    seconds_requested: f64,
+    /// Wall-clock bounds of the timed window, seconds since the Unix epoch.
+    unix_start: f64,
+    unix_end: f64,
+    seconds: f64,
+    layers: usize,
+    layers_per_s: f64,
+    /// Logical FLOPs of all layers run, per second of the window.
+    gflops: f64,
+    /// Per layer: sync A in, run, sync C out for each of the four GEMMs.
+    layer: Summary,
+    /// The worst GEMM against the f64 reference before the window, unless
+    /// `--no-check`.
+    max_abs: Option<f64>,
+    max_rel: Option<f64>,
+    power_sensor: Option<String>,
+    power: Option<PowerStats>,
+    /// `[ms since the window opened, watts]`, every 20 ms.
+    ppt_samples: Vec<[f64; 2]>,
+}
+
+fn soak_layers(args: &[String]) -> Result<(), String> {
+    let dir = opt(args, "--designs").map_or_else(|| PathBuf::from("designs"), PathBuf::from);
+    let m: usize = opt_num(args, "--m", 2048)?;
+    let secs: f64 = opt_num(args, "--seconds", 60.0)?;
+    let out = required(args, "--out")?;
+    let check = !flag(args, "--no-check");
+    let group: Vec<(DesignSpec, PathBuf)> = designs::load_all(&dir)?
+        .into_iter()
+        .filter(|(s, _)| s.role == "gemm" && s.logical[0] == m)
+        .collect();
+    if group.len() != designs::LAYER_SHAPES.len() {
+        return Err(format!(
+            "M={m}: found {} of the {} layer designs in {}; M is one of {:?}",
+            group.len(),
+            designs::LAYER_SHAPES.len(),
+            dir.display(),
+            designs::M_VALUES
+        ));
+    }
+    let sensor = power::ppt_sensor();
+    let soak = npu::with_layer(&group, check, |layer_once, info| {
+        for _ in 0..5 {
+            layer_once(None)?;
+        }
+        eprintln!("soak-layers M={m} for {secs} s ...");
+        let unix_start = unix_now();
+        let sampler = sensor.clone().map(Sampler::start);
+        let start = Instant::now();
+        let mut times = Vec::new();
+        while start.elapsed().as_secs_f64() < secs {
+            let t = Instant::now();
+            layer_once(None)?;
+            times.push(t.elapsed());
+        }
+        let seconds = start.elapsed().as_secs_f64();
+        let (power, ppt_samples) = sampler.map_or((None, Vec::new()), Sampler::stop_series);
+        Ok(LayerSoak {
+            host: read_trim("/etc/hostname"),
+            m,
+            designs: group.iter().map(|(s, _)| s.name.clone()).collect(),
+            seconds_requested: secs,
+            unix_start,
+            unix_end: unix_now(),
+            seconds,
+            layers: times.len(),
+            layers_per_s: times.len() as f64 / seconds,
+            gflops: info.flop * times.len() as f64 / seconds / 1e9,
+            layer: Summary::of(&times),
+            max_abs: info.check.map(|c| c.0),
+            max_rel: info.check.map(|c| c.1),
+            power_sensor: sensor.as_ref().map(|p| p.display().to_string()),
+            power,
+            ppt_samples,
+        })
+    })?;
+    let json = serde_json::to_string_pretty(&soak).map_err(|e| e.to_string())?;
+    std::fs::write(&out, json).map_err(|e| format!("{}: {e}", out.display()))?;
+    println!(
+        "soak-layers M={} {:.1} s: {} layers, {:.1} layers/s, {:.0} GFLOP/s, layer p50 {:.3} ms p95 {:.3} ms, PPT {}",
+        soak.m,
+        soak.seconds,
+        soak.layers,
+        soak.layers_per_s,
+        soak.gflops,
+        soak.layer.p50_ms,
+        soak.layer.p95_ms,
+        soak.power
+            .map_or_else(|| "-".to_owned(), |p| format!("mean {:.1} W max {:.1} W ({} samples)", p.mean_w, p.max_w, p.samples))
+    );
+    eprintln!("wrote {}", out.display());
+    Ok(())
 }
 
 fn cpu_model() -> String {

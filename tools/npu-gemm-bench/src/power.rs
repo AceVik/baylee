@@ -41,7 +41,7 @@ pub struct PowerStats {
 /// Samples PPT every 20 ms on a thread until stopped.
 pub struct Sampler {
     stop: Arc<AtomicBool>,
-    handle: JoinHandle<Vec<f64>>,
+    handle: JoinHandle<Vec<[f64; 2]>>,
 }
 
 impl Sampler {
@@ -49,28 +49,35 @@ impl Sampler {
         let stop = Arc::new(AtomicBool::new(false));
         let flag = Arc::clone(&stop);
         let handle = std::thread::spawn(move || {
-            let mut watts = Vec::new();
+            let start = std::time::Instant::now();
+            let mut series = Vec::new();
             while !flag.load(Ordering::Relaxed) {
                 if let Some(w) = read_watts(&sensor) {
-                    watts.push(w);
+                    series.push([start.elapsed().as_secs_f64() * 1e3, w]);
                 }
                 std::thread::sleep(Duration::from_millis(20));
             }
-            watts
+            series
         });
         Self { stop, handle }
     }
 
     pub fn stop(self) -> Option<PowerStats> {
+        self.stop_series().0
+    }
+
+    /// The summary and every `[ms since start, watts]` sample.
+    pub fn stop_series(self) -> (Option<PowerStats>, Vec<[f64; 2]>) {
         self.stop.store(true, Ordering::Relaxed);
-        let watts = self.handle.join().ok()?;
-        if watts.is_empty() {
-            return None;
+        let series = self.handle.join().unwrap_or_default();
+        if series.is_empty() {
+            return (None, series);
         }
-        Some(PowerStats {
-            mean_w: watts.iter().sum::<f64>() / watts.len() as f64,
-            max_w: watts.iter().copied().fold(0.0, f64::max),
-            samples: watts.len(),
-        })
+        let stats = PowerStats {
+            mean_w: series.iter().map(|s| s[1]).sum::<f64>() / series.len() as f64,
+            max_w: series.iter().map(|s| s[1]).fold(0.0, f64::max),
+            samples: series.len(),
+        };
+        (Some(stats), series)
     }
 }
