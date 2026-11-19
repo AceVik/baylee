@@ -510,7 +510,12 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // The Dig reader finishes ten cards; three have an activation, each read:
     // Grave Defiler's regeneration, Tidal Courier's "gains flying until end
     // of turn" and Zoologist's reveal-and-sort.
-    assert_eq!((read, of), (3024, 3815), "activated/loyalty reader census");
+    // The cycling-trigger, typecycling and dredge readers finish 26 cards with
+    // 23 activations, each read: thirteen cycling abilities (the cycled-trigger
+    // cards), seven typecycling searches, Chartooth Cougar's firebreathing,
+    // Eternal Dragon's return from the graveyard and Twisted Abomination's
+    // regeneration.
+    assert_eq!((read, of), (3047, 3838), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [
