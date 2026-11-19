@@ -418,8 +418,12 @@ express at all yet.
 - `mana_cost = mana!("{2}{W/U}{W/P}")` — compile-time parsed (generic,
   color, hybrid, 2-or, Phyrexian, hybrid-Phyrexian, snow, X/Y/Z).
 - `FaceDef.alternative_costs: &[AlternativeCost { cost, condition }]` —
-  pitch/evoke/conditional-free (conditions: `Always`, `NotYourTurn`,
-  `CommanderControlled`). Its `parts` pay `PayLife` and `ExileFromHand`, and
+  pitch/evoke/conditional-free (`AltCondition`: `Always`, `NotYourTurn`,
+  `CommanderControlled`, `If(&'static Condition)`). `AltCondition::If` gates
+  the alternative cost on any stated `Condition` evaluated for the caster with
+  the spell card as its source (CR 118.9, 601.2b; e.g.
+  `AltCondition::If(&Condition::ControlCount(&Filter::HasSubtype(subtypes::land::SWAMP), 1))`
+  for "If you control a Swamp, you may …"). Its `parts` pay `PayLife` and `ExileFromHand`, and
   both are asked about before the card is offered: a pitch with nothing in
   hand to exile is not a cast the engine lists. Repeated `ExileFromHand` parts
   require distinct cards, both in the offer and in payment; the desktop planner

@@ -416,6 +416,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 AltCondition::Always => true,
                 AltCondition::NotYourTurn => self.state.turn.active != player,
                 AltCondition::CommanderControlled => self.has_commander_on_battlefield(player),
+                AltCondition::If(condition) => {
+                    crate::eval::condition_holds(&self.state, player, card, *condition)
+                }
             };
             let taxed = baylee_cards_dsl::Cost {
                 mana: if defer_mana {

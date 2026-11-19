@@ -12,7 +12,7 @@
 //! about it (CR 118.9, 601.2b).
 
 use super::*;
-use baylee_cards_dsl::{AltCondition, AlternativeCost, CostPart, CounterKind, Filter};
+use baylee_cards_dsl::{AltCondition, AlternativeCost, Condition, CostPart, CounterKind, Filter};
 
 const BARGAIN: u32 = 7180;
 const PITCH: u32 = 7181;
@@ -28,6 +28,8 @@ const RAY: u32 = 7190;
 const DOUBLE_PITCH: u32 = 7191;
 const RETURN: u32 = 7192;
 const DOUBLE_RETURN: u32 = 7193;
+const CONDITIONAL_BARGAIN: u32 = 7194;
+const MIRE: u32 = 7195;
 
 /// A spell ability that does nothing: what is under test is how the spell
 /// was paid for, and an effect would be one more thing to read around.
@@ -76,6 +78,15 @@ static RETURN_TWO_CREATURES: &[AlternativeCost] = &[instead(&[
     CostPart::ReturnToHand(&A_CREATURE),
     CostPart::ReturnToHand(&A_CREATURE),
 ])];
+static A_SWAMP: Filter = Filter::HasSubtype(baylee_core::generated::subtypes::land::SWAMP);
+static CONTROL_A_SWAMP: Condition = Condition::ControlCount(&A_SWAMP, 1);
+static PAY_FOUR_IF_SWAMP: &[AlternativeCost] = &[AlternativeCost {
+    cost: Cost {
+        mana: ManaCost::ZERO,
+        parts: &[CostPart::PayLife(4)],
+    },
+    condition: AltCondition::If(&CONTROL_A_SWAMP),
+}];
 
 /// An instant priced out of reach, castable only through `alts`.
 fn out_of_reach(
@@ -114,6 +125,20 @@ fn cards() -> Vec<&'static CardDef> {
         out_of_reach(DOUBLE_PITCH, "Double Pitch", PITCH_TWO),
         out_of_reach(RETURN, "Return", RETURN_A_CREATURE),
         out_of_reach(DOUBLE_RETURN, "Double Return", RETURN_TWO_CREATURES),
+        out_of_reach(
+            CONDITIONAL_BARGAIN,
+            "Conditional Bargain",
+            PAY_FOUR_IF_SWAMP,
+        ),
+        card(
+            MIRE,
+            FaceDef {
+                subtypes: &[baylee_core::generated::subtypes::land::SWAMP],
+                ..land_face("Mire")
+            },
+            KeywordSet::EMPTY,
+            &[],
+        ),
         card(
             FODDER,
             face("Fodder", "{5}{U}", TypeSet::INSTANT),
@@ -210,6 +235,104 @@ fn a_counter_alternative_is_not_payable_from_a_hand() {
 #[test]
 fn a_part_that_can_always_be_paid_leaves_the_alternative_open() {
     assert!(offered(&holding(7187, &[TALLY], 20), TALLY));
+}
+
+/// An alternative cost gated by `AltCondition::If` (CR 118.9, 601.2b) is
+/// offered and payable when its caster satisfies the condition, and is neither
+/// offered nor selectable when the caster controls no matching permanent —
+/// including when only an opponent controls one.
+#[test]
+fn a_conditional_alternative_cost_requires_the_caster_to_satisfy_the_condition() {
+    // (a) Caster controls a Swamp-subtype land and has no mana: offered and
+    // castable through the 4-life alternative cost.
+    let mut with_swamp = bench(
+        7198,
+        cards(),
+        [
+            Seat::with(&[MIRE]).holding(&[CONDITIONAL_BARGAIN]).at(20),
+            Seat::default(),
+        ],
+    );
+    to_main(&mut with_swamp, me());
+    assert!(
+        offered(&with_swamp, CONDITIONAL_BARGAIN),
+        "controlling a Swamp opens the alternative cost"
+    );
+    let spell = cast(&mut with_swamp, CONDITIONAL_BARGAIN);
+    assert!(on_the_stack(&with_swamp, spell).alt_cast);
+    assert_eq!(life(&with_swamp, me()), 16, "four life paid");
+    settle(&mut with_swamp, me());
+    assert_eq!(
+        objects(
+            &with_swamp,
+            ZoneLocation::Graveyard(me()),
+            CONDITIONAL_BARGAIN
+        ),
+        vec![spell],
+    );
+
+    // (b) Caster controls no Swamp (empty board, a tapped Forest, and when
+    // only the opponent controls a Swamp): not offered and `CastSpell` is
+    // refused.
+    for (seed, mine, theirs, label) in [
+        (7199, &[][..], &[][..], "no lands at all"),
+        (7200, &[forest()][..], &[][..], "only a Forest"),
+        (
+            7201,
+            &[forest()][..],
+            &[MIRE][..],
+            "only the opponent controls a Swamp",
+        ),
+    ] {
+        let mut without = bench(
+            seed,
+            cards(),
+            [
+                Seat::with(mine).holding(&[CONDITIONAL_BARGAIN]).at(20),
+                Seat::with(theirs),
+            ],
+        );
+        to_main(&mut without, me());
+        assert!(
+            !offered(&without, CONDITIONAL_BARGAIN),
+            "alternative cost must not be offered before tapping ({label})"
+        );
+        float_all(&mut without, me());
+        assert!(
+            !offered(&without, CONDITIONAL_BARGAIN),
+            "alternative cost must not be offered ({label})"
+        );
+        let card = the(&without, ZoneLocation::Hand(me()), CONDITIONAL_BARGAIN);
+        assert!(
+            without
+                .apply(me(), PlayerAction::CastSpell { card })
+                .is_err(),
+            "and `CastSpell` must refuse it ({label})"
+        );
+    }
+
+    // Even when `{5}{G}` is floating so the spell is castable normally, the
+    // wizard must not list the alternative mode unless the caster controls a
+    // Swamp.
+    let mut paid_without_swamp = bench(
+        7202,
+        cards(),
+        [
+            Seat::with(&[forest(), forest(), forest(), forest(), forest(), forest()])
+                .holding(&[CONDITIONAL_BARGAIN])
+                .at(20),
+            Seat::with(&[MIRE]),
+        ],
+    );
+    to_main(&mut paid_without_swamp, me());
+    float_all(&mut paid_without_swamp, me());
+    let spell = cast(&mut paid_without_swamp, CONDITIONAL_BARGAIN);
+    assert!(
+        !on_the_stack(&paid_without_swamp, spell).alt_cast,
+        "only the printed cost is legal, so the wizard commits it directly"
+    );
+    assert_eq!(life(&paid_without_swamp, me()), 20);
+    assert_eq!(paid_without_swamp.state().players[0].mana_pool.total(), 0);
 }
 
 // ----------------------------------------------- paying the alternative

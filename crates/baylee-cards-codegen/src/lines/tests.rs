@@ -1079,6 +1079,43 @@ fn a_condition_the_sentence_does_not_state_is_refused() {
     );
 }
 
+/// A board-conditional alternative cost (`AltCondition::If`) matches a sentence
+/// opening with "If …" and containing "you may", and refuses an unconditional
+/// sentence or a keyword line.
+#[test]
+fn a_board_conditional_alternative_cost_matches_only_an_if_you_may_sentence() {
+    static SWAMP: Filter = Filter::HasSubtype(baylee_core::generated::subtypes::land::SWAMP);
+    static CONTROL_SWAMP: baylee_cards_dsl::Condition =
+        baylee_cards_dsl::Condition::ControlCount(&SWAMP, 1);
+    let pay_four_life = baylee_cards_dsl::Cost {
+        mana: baylee_core::mana::ManaCost::ZERO,
+        parts: &[CostPart::PayLife(4)],
+    };
+    let conditional = alt(pay_four_life, AltCondition::If(&CONTROL_SWAMP));
+    let oracle = "If you control a Swamp, you may pay 4 life rather than pay \
+                  this spell's mana cost.\n\
+                  Destroy target nonblack creature. It can't be regenerated.";
+    assert_eq!(map_alternatives(&[conditional], oracle), vec![Some(0)]);
+    assert_eq!(
+        map_alternatives(&[alt(pay_four_life, AltCondition::Always)], oracle),
+        vec![None],
+        "an unconditional alternative cost must not claim an If-gated sentence"
+    );
+    let unconditional = "You may pay 4 life rather than pay this spell's mana cost.\n\
+                         Destroy target nonblack creature.";
+    assert_eq!(
+        map_alternatives(&[conditional], unconditional),
+        vec![None],
+        "a conditional alternative cost must not claim an unconditional sentence"
+    );
+    let keyword = "Evoke—Pay 4 life.";
+    assert_eq!(
+        map_alternatives(&[conditional], keyword),
+        vec![None],
+        "a keyword line never states an If condition"
+    );
+}
+
 /// A sentence that fits two alternative costs names neither of them.
 ///
 /// No card in the pool prints two, so this is the rule stated rather

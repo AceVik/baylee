@@ -1605,6 +1605,9 @@ pub(crate) fn can_cast_form_paying(
                     baylee_cards_dsl::AltCondition::CommanderControlled => {
                         controls_a_commander(state, player)
                     }
+                    baylee_cards_dsl::AltCondition::If(condition) => {
+                        crate::eval::condition_holds(state, player, card, *condition)
+                    }
                 };
                 condition_ok
                     && probe(&alt.cost.mana)
