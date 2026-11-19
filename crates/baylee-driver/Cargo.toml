@@ -56,3 +56,8 @@ rustix.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+
+[[bin]]
+name = "hw_bench"
+path = "src/bin/hw_bench.rs"
+required-features = ["onnx"]

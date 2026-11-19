@@ -29,6 +29,7 @@ use crate::features4::{
 };
 use crate::features7::{encode_candidates7_grouped, encode_state7};
 mod batch;
+pub mod capture;
 #[cfg(test)]
 mod batch_tests;
 pub use batch::{BatchLimits4, BatchedNet4, LaneStats4, SizeSummary4};
@@ -230,6 +231,9 @@ pub struct NetPlayer4 {
     memory_reset: MemoryReset4,
     /// The turn each seat last observed, for [`MemoryReset4::Turn`].
     memory_turns: BTreeMap<u8, u32>,
+    /// `hw_capture4`: every graph call written to a row dump; `None`
+    /// everywhere else.
+    capture: Option<capture::RowCapture4>,
 }
 
 fn ort_error(e: impl std::fmt::Display) -> anyhow::Error {
@@ -648,6 +652,7 @@ impl NetPlayer4 {
             distill: None,
             memory_reset: MemoryReset4::Off,
             memory_turns: BTreeMap::new(),
+            capture: None,
         }
     }
 
@@ -955,6 +960,9 @@ impl NetPlayer4 {
             self.rule_roots.as_deref(),
         )?;
         self.rule_refs_left_out += row.rules_left_out;
+        if let Some(capture) = &mut self.capture {
+            capture.record(&row, cands, depth_graph(k_val), self.d_model)?;
+        }
         let sessions = match &mut self.backend {
             Backend::Shared(net) => return net.run(row),
             Backend::Lockstep(seat) => return seat.run(row),
