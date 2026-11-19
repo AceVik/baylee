@@ -100,7 +100,7 @@ fn trace_line(
             .map(Vec::len)
             .sum::<usize>()
     });
-    let word = |value: Value| value.as_str().map(str::to_owned).unwrap_or_default();
+    let word = |value: Value| value.as_str().map_or_default(str::to_owned);
     let line = baylee_train_ops::divergence::TraceLine {
         i: deal,
         n,

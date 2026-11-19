@@ -682,8 +682,7 @@ fn main() -> anyhow::Result<()> {
                                     // report (inspect reads it like any other).
                                     record: slot
                                         .take()
-                                        .map(|mut s| s.take_record())
-                                        .unwrap_or_default(),
+                                        .map_or_default(|mut s| s.take_record()),
                                     learner_won: None,
                                     opponent: 0,
                                 }

@@ -61,16 +61,13 @@ pub(super) fn deals(summary: &Path, which: Which) -> anyhow::Result<Vec<Deal>> {
             deals.push(Deal {
                 number: deal["deal"].as_u64().context("a deal without its number")?,
                 seat: deal["focal_seat"].as_u64().unwrap_or(0),
-                decks: deal["decks"]
-                    .as_array()
-                    .map(|decks| {
-                        decks
-                            .iter()
-                            .filter_map(Value::as_str)
-                            .map(str::to_owned)
-                            .collect()
-                    })
-                    .unwrap_or_default(),
+                decks: deal["decks"].as_array().map_or_default(|decks| {
+                    decks
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_owned)
+                        .collect()
+                }),
             });
         }
     }
