@@ -47,6 +47,12 @@ pub const DANGER: Color = palette::DANGER;
 pub const PRIMARY: Color = Color::srgb(0.14, 0.24, 0.33);
 /// The primary face's rim.
 pub const PRIMARY_EDGE: Color = Color::srgb(0.40, 0.54, 0.62);
+/// The rim of a sheet and of every window that floats as one (the chat
+/// window, the contacts drawer): [`PRIMARY_EDGE`] at .38.
+pub const SHEET_EDGE: Color = Color::srgba(0.40, 0.54, 0.62, 0.38);
+/// The rim of a menu, a popover and a person's card: [`PRIMARY_EDGE`] at
+/// .55, a little brighter since they stand over a sheet as well as a page.
+pub const POPOVER_EDGE: Color = Color::srgba(0.40, 0.54, 0.62, 0.55);
 /// A secondary control's ground.
 pub const CONTROL: Color = palette::DOCK_GROUND;
 /// What a control with no ground of its own (a ghost button, a tab, an

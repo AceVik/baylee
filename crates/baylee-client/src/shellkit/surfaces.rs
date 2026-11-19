@@ -707,14 +707,11 @@ fn sheet_box_parts<C: Bundle>(
                 ..default()
             },
             BackgroundColor(tokens::OPAQUE),
-            BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                Color::srgb(0.075, 0.115, 0.165).into(),
-                tokens::OPAQUE.into(),
-            ])),
+            sheet_ground(),
             BorderColor::all(if phone {
                 tokens::BORDER
             } else {
-                tokens::PRIMARY_EDGE.with_alpha(0.38)
+                tokens::SHEET_EDGE
             }),
         ))
         .id();
@@ -770,7 +767,7 @@ fn sheet_box_parts<C: Bundle>(
                 border: UiRect::top(px_fixed(1.0)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.16)),
+            BackgroundColor(FOOT_WASH),
             BorderColor::all(tokens::BORDER),
             Pickable::IGNORE,
         ))
@@ -780,6 +777,41 @@ fn sheet_box_parts<C: Bundle>(
     commands.entity(surface).add_child(foot);
     surface
 }
+
+/// The ground every sheet and dialog stands on: the opaque panel, lit a
+/// little at its head. A surface that is a sheet in everything but its
+/// builder (the chat's own sheets) wears it too.
+#[must_use]
+pub fn sheet_ground() -> BackgroundGradient {
+    BackgroundGradient::from(LinearGradient::to_bottom(vec![
+        Color::srgb(0.075, 0.115, 0.165).into(),
+        tokens::OPAQUE.into(),
+    ]))
+}
+
+/// The ground of a popover, and of anything read the way one is (a person's
+/// card): brighter at its head than a sheet, since it is small and stands
+/// over one.
+#[must_use]
+pub fn popover_ground() -> BackgroundGradient {
+    BackgroundGradient::from(LinearGradient::to_bottom(vec![
+        Color::srgba(0.16, 0.25, 0.34, 0.98).into(),
+        Color::srgba(0.05, 0.08, 0.12, 0.98).into(),
+    ]))
+}
+
+/// The ground of a menu: the sheet's, a shade lighter at its head.
+#[must_use]
+pub fn menu_ground() -> BackgroundGradient {
+    BackgroundGradient::from(LinearGradient::to_bottom(vec![
+        Color::srgb(0.075, 0.12, 0.17).into(),
+        tokens::OPAQUE.into(),
+    ]))
+}
+
+/// The wash under a sheet's footer, and under any band of actions at a
+/// window's foot.
+pub const FOOT_WASH: Color = Color::srgba(0.0, 0.0, 0.0, 0.16);
 
 /// Tier-3 deep multi-layer elevation shadow (contact + key + ambient halo) for
 /// foreground cards, panels, and modal dialogs over the animated backdrop.
@@ -1034,10 +1066,7 @@ pub fn dialog(
                 ..default()
             },
             BackgroundColor(tokens::OPAQUE),
-            BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                Color::srgb(0.075, 0.115, 0.165).into(),
-                tokens::OPAQUE.into(),
-            ])),
+            sheet_ground(),
             BorderColor::all(border),
             action,
         ))
@@ -1199,11 +1228,8 @@ pub fn popover(commands: &mut Commands, kit: Kit, lines: &[&str]) -> Entity {
                 ..default()
             },
             BackgroundColor(tokens::OPAQUE.with_alpha(0.96)),
-            BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                Color::srgba(0.16, 0.25, 0.34, 0.98).into(),
-                Color::srgba(0.05, 0.08, 0.12, 0.98).into(),
-            ])),
-            BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.55)),
+            popover_ground(),
+            BorderColor::all(tokens::POPOVER_EDGE),
             popover_shadow(),
             GlobalZIndex(tokens::z::POPOVER),
         ))
@@ -1261,11 +1287,8 @@ pub fn menu<'a, B: Bundle>(
                 ..default()
             },
             BackgroundColor(tokens::OPAQUE),
-            BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                Color::srgb(0.075, 0.12, 0.17).into(),
-                tokens::OPAQUE.into(),
-            ])),
-            BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.55)),
+            menu_ground(),
+            BorderColor::all(tokens::POPOVER_EDGE),
             popover_shadow(),
             GlobalZIndex(tokens::z::POPOVER),
         ))
