@@ -1704,3 +1704,50 @@ costs `sharp` perhaps a point and `sharp` over `steady` its tier edge.
   generation 13, now mostly in an opponent's draw step); an engine fork
   that carries a pending check of a card no miracle could be would search
   those.
+
+## 9. Round six: generations 24 to 31 (built 12.11.2026 as 18 to 25)
+
+Built on 12.11.2026 on a base whose newest generation was 17, numbered 18 to
+25 there (`8a384147e`), and renumbered onto main as 24 to 31 in the same order
+on 19.11.2026, after main had taken 18 to 23 (`docs/house-ai.md` §"The frozen
+reference" lists them). **Every number in this section uses the old
+numbering:** "generation 25" is today's 31 without main's 18 to 23, and
+"generation 17" is 17 as it was. What they answer: Carbon and Astra read the
+generation-17 `expert`'s games on train decks (64 blundered casts in 31 of 60
+losses, skipped land drops, an Arrest aimed at its own creature;
+`docs/observed-faults.md` 84 and 85 for the engine's part).
+
+The aggregate of the old build (acenb, train split of the 11.11. manifest
+copy with 32 generated decks, 1,024 deals, round-robin, seed 60,000, both
+sides searching where their level does, each game once):
+
+| Pair (old numbering) | Share | Wilson 95 % | Turned for / against | p |
+| --- | ---: | --- | ---: | ---: |
+| expert 25 against expert 17 | 513 / 1,023 = 50.1 % | 47.1–53.2 | 41 / 39 | 0.91 |
+| sharp 25 against sharp 17 | 535 / 1,023 = 52.3 % | 49.2–55.3 | 53 / 29 | 0.011 |
+| steady 25 against steady 17 | 515 / 1,022 = 50.4 % | 47.3–53.4 | 45 / 41 | 0.75 |
+| expert 25 against expert 6 | 680 / 1,023 = 66.5 % | 63.5–69.3 | 178 / 10 | < 0.0001 |
+| sharp 25 against sharp 6 | 676 / 1,024 = 66.0 % | 63.1–68.9 | 174 / 10 | < 0.0001 |
+| steady 25 against steady 6 | 654 / 1,023 = 63.9 % | 60.9–66.8 | 151 / 8 | < 0.0001 |
+| casual 25 against casual 6 | 660 / 1,024 = 64.5 % | 61.5–67.3 | 160 / 12 | < 0.0001 |
+| novice 25 against novice 6 | 678 / 1,024 = 66.2 % | 63.3–69.0 | 185 / 19 | < 0.0001 |
+| expert 25 against `sharp-2026-11` | 688 / 1,024 = 67.2 % | 64.3–70.0 | 189 / 13 | < 0.0001 |
+| sharp 25 against `sharp-2026-11` | 685 / 1,023 = 67.0 % | 64.0–69.8 | 186 / 13 | < 0.0001 |
+| ladder: casual over novice | 54.4 % | 51.3–57.4 | 85 / 40 | 0.0001 |
+| ladder: steady over casual | 52.1 % | 49.0–55.1 | 53 / 32 | 0.030 |
+| ladder: sharp over steady | 52.5 % | 49.4–55.5 | 46 / 21 | 0.003 |
+| ladder: expert over sharp | 50.2 % | 47.1–53.3 | 32 / 30 | 0.90 |
+| ladder: seer over expert | 53.5 % | 50.4–56.5 | 73 / 37 | 0.0008 |
+
+Measured alone before it, at expert against generation 17 on the same
+split: the first version of 18 49.9 % (22 / 23); a final round of six more
+worlds 50.4 % (40 / 36) at +22 % CPU, not kept. CPU per searched answer of
+the generation-25 `expert` (thread time, acenb with both queues running):
+p50 148 ms, p95 571 ms, p99 807 ms, max 1.8 s against `sharp-2026-11`, 7.0 s
+of search a game.
+
+So in the mirror the eight steps did not show at `expert` and showed at
+`sharp` only by the sign test; they are fixes an outside opponent punishes,
+and the mirror was not expected to show more than a point or two. The
+question whether today's 31 beats main's 23 is measured afresh on the
+renumbered build (pre-registered, `~/baylee-data/v6/house/g24/`).

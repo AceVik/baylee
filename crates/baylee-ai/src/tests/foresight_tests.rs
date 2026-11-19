@@ -271,7 +271,10 @@ fn a_search_aims_at_the_side_its_level_aims_at() {
     let tried = agent()
         .foresight_targets(&v, &aim(vec![], vec![them]), &options, &[me, them], 2)
         .expect("one target was named");
-    assert_eq!(tried, vec![aim(vec![big], vec![]), aim(vec![named], vec![])]);
+    assert_eq!(
+        tried,
+        vec![aim(vec![big], vec![]), aim(vec![named], vec![])]
+    );
     // Two targets, or an answer that names none, leave the engine's list.
     assert!(
         agent()

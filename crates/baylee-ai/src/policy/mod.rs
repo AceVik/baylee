@@ -1274,8 +1274,7 @@ impl HeuristicAgent {
         let spells = baylee_cards::by_index(printed.index).map_or(&[][..], |def| {
             def.abilities_for_face(usize::from(printed.face))
         });
-        self.bad_removal_exchange(view, printed, f, spells)
-            || !self.instant_moment(view, printed)
+        self.bad_removal_exchange(view, printed, f, spells) || !self.instant_moment(view, printed)
     }
 
     /// Whether now is `card`'s moment ([`crate::timing`]): always for a
@@ -1557,6 +1556,23 @@ impl HeuristicAgent {
         })
     }
 
+    /// Whether a sweep sized by X gains nothing at any X this level reads
+    /// ([`crate::AIProfile::SIZED_SWEEPS`]): it is cast where some X gains
+    /// something. A rider beside the sweep (a token, a card) is worth
+    /// something this does not price, so such a sweep is held back only
+    /// where it loses.
+    fn sized_sweep_loses(
+        &self,
+        view: &PlayerView,
+        id: Option<ObjectId>,
+        effects: &[Effect],
+    ) -> bool {
+        self.profile.plays(crate::AIProfile::SIZED_SWEEPS)
+            && self
+                .best_sweep_x(view, id, effects, 1, SWEEP_X_READ)
+                .is_some_and(|(net, _)| net < i64::from(effects.iter().all(board_sweeper)))
+    }
+
     fn bad_removal_exchange(
         &self,
         view: &PlayerView,
@@ -1627,19 +1643,7 @@ impl HeuristicAgent {
                     {
                         return true;
                     }
-                    // A sweep sized by X is cast where some X gains
-                    // something ([`crate::AIProfile::SIZED_SWEEPS`]).
-                    // A rider beside the sweep (a token, a card) is worth
-                    // something this does not price, so such a sweep is
-                    // held back only where it loses.
-                    if f.mana_cost.has_variable()
-                        && self.profile.plays(crate::AIProfile::SIZED_SWEEPS)
-                        && self
-                            .best_sweep_x(view, id, effects, 1, SWEEP_X_READ)
-                            .is_some_and(|(net, _)| {
-                                net < i64::from(effects.iter().all(board_sweeper))
-                            })
-                    {
+                    if f.mana_cost.has_variable() && self.sized_sweep_loses(view, id, effects) {
                         return true;
                     }
                 }
@@ -1812,7 +1816,13 @@ impl HeuristicAgent {
                 }
                 if unknown { None } else { Some(true) }
             }
-            _ => self.filter_matches(filter, view, object, baylee_cards_dsl::ZoneRef::Battlefield, id),
+            _ => self.filter_matches(
+                filter,
+                view,
+                object,
+                baylee_cards_dsl::ZoneRef::Battlefield,
+                id,
+            ),
         }
     }
 
@@ -3952,15 +3962,16 @@ pub(crate) fn pays_tax_as(
         }
         return can_pay(view, &price);
     }
-    let refusal_costs_a_card = context
-        .effects
-        .iter()
-        .flat_map(payment_unpaid_effects)
-        .any(|effect| {
-            refusing_costs_a_card(effect)
-                || (profile.plays(crate::AIProfile::PAID_UPKEEPS)
-                    && refusing_costs_a_permanent(effect))
-        });
+    let refusal_costs_a_card =
+        context
+            .effects
+            .iter()
+            .flat_map(payment_unpaid_effects)
+            .any(|effect| {
+                refusing_costs_a_card(effect)
+                    || (profile.plays(crate::AIProfile::PAID_UPKEEPS)
+                        && refusing_costs_a_permanent(effect))
+            });
     if !refusal_costs_a_card {
         return false;
     }

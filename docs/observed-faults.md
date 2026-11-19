@@ -4220,10 +4220,10 @@ that spell, while `Assist::x_colors` enforces color-restricted `{X}` costs
 ## Found while reading the generation-17 house's games, 2026-11-12
 
 Carbon and Astra read the generation-17 `expert`'s games on train decks
-(12.11.2026, the round after `docs/proposals/house-ai-strength.md` §8). What
-they found in the house is answered by its generations 24 to 31, built as 18
-to 25 and renumbered when main had taken those (`docs/house-ai.md` §"The
-frozen reference"); two things are the engine's.
+(`docs/proposals/house-ai-strength.md` §9). What they found in the house is
+answered by its generations 24 to 31, built as 18 to 25 and renumbered when
+main had taken those (`docs/house-ai.md` §"The frozen reference"); two
+things are the engine's.
 
 ### 84. A spell's or an ability's discard is asked as a plain choice — KNOWN
 
