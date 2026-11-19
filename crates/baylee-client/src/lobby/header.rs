@@ -134,7 +134,7 @@ pub(crate) fn spawn_popover_nipple(commands: &mut Commands) -> Entity {
                 ..default()
             },
             BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.55)),
+            BorderColor::all(tokens::POPOVER_EDGE),
             UiTransform {
                 rotation: Rot2::radians(std::f32::consts::FRAC_PI_4),
                 ..default()
@@ -849,7 +849,7 @@ fn gateway_popover(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Ent
                 ..default()
             },
             BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.55)),
+            BorderColor::all(tokens::POPOVER_EDGE),
             surfaces::popover_shadow(),
             GlobalZIndex(tokens::z::POPOVER),
             Press::Shared(SharedPress::PickerNothing),
@@ -996,7 +996,7 @@ fn language_popover(commands: &mut Commands, state: &LobbyState, kit: Kit) -> En
                 ..default()
             },
             BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.55)),
+            BorderColor::all(tokens::POPOVER_EDGE),
             surfaces::popover_shadow(),
             GlobalZIndex(tokens::z::POPOVER),
             Press::Shared(SharedPress::PickerNothing),
@@ -1175,7 +1175,7 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
                         ..default()
                     },
                     BackgroundColor(tokens::OPAQUE),
-                    BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.55)),
+                    BorderColor::all(tokens::POPOVER_EDGE),
                     surfaces::popover_shadow(),
                     GlobalZIndex(tokens::z::POPOVER),
                     Press::Shared(SharedPress::PickerNothing),

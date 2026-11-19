@@ -1156,7 +1156,7 @@ pub(super) fn gear_menu(
                 ..default()
             },
             BackgroundColor(crate::shellkit::tokens::OPAQUE),
-            BorderColor::all(crate::shellkit::tokens::PRIMARY_EDGE.with_alpha(0.55)),
+            BorderColor::all(crate::shellkit::tokens::POPOVER_EDGE),
             crate::shellkit::surfaces::elevation_card(),
             UiTransform::default(),
             GlobalZIndex(600),
