@@ -73,9 +73,15 @@ pub enum RuleGroup {
     Burn,
     /// A pump held while a fight it would turn is on.
     Trick,
+    /// A counter held through their spell that the `React` reading does not
+    /// see: behind a payment, in a mode, on a flash body.
+    Counter,
+    /// A pass the layer turns into an activated ability the net passed over,
+    /// where only a spell, a land or a planeswalker is why it acts.
+    Defer,
 }
 
-const GROUPS: [(RuleGroup, &str); 20] = [
+const GROUPS: [(RuleGroup, &str); 22] = [
     (RuleGroup::Void, "void"),
     (RuleGroup::Side, "side"),
     (RuleGroup::Mass, "mass"),
@@ -96,6 +102,8 @@ const GROUPS: [(RuleGroup, &str); 20] = [
     (RuleGroup::Wall, "wall"),
     (RuleGroup::Burn, "burn"),
     (RuleGroup::Trick, "trick"),
+    (RuleGroup::Counter, "counter"),
+    (RuleGroup::Defer, "defer"),
 ];
 
 /// A spell or land (no index) or an ability taken off the menu, and by which group.
@@ -284,6 +292,12 @@ impl TacticRules4 {
             self.count(RuleGroup::React);
             return Some(better);
         }
+        if self.on(RuleGroup::Counter)
+            && let Some(better) = super::guard::counter(cands, logits, view, legal)
+        {
+            self.count(RuleGroup::Counter);
+            return Some(better);
+        }
         None
     }
 
@@ -399,9 +413,11 @@ fn decide_single(
     let (left, asked) = reviewed.as_ref().map_or((logits, pending), |review| {
         (&review.logits[..], &*review.pending)
     });
+    let narrow = rules.on(RuleGroup::Defer);
     // At temperature zero the plain answer costs nothing to know, and what a
     // group changed is what its count should say.
-    let plain = (reviewed.is_some() && temperature <= 1e-4).then(|| {
+    let zero = temperature <= 1e-4;
+    let plain = (reviewed.is_some() && zero).then(|| {
         select_single_choice(
             cands,
             logits,
@@ -410,11 +426,34 @@ fn decide_single(
             active_source,
             temperature,
             rng,
+            false,
         )
         .0
     });
-    let (mut chosen, logprob) =
-        select_single_choice(cands, left, view, asked, active_source, temperature, rng);
+    // The struck menu's answer as the layer turns a pass without `defer`.
+    let wide = (narrow && zero).then(|| {
+        select_single_choice(
+            cands,
+            left,
+            view,
+            asked,
+            active_source,
+            temperature,
+            rng,
+            false,
+        )
+        .0
+    });
+    let (mut chosen, logprob) = select_single_choice(
+        cands,
+        left,
+        view,
+        asked,
+        active_source,
+        temperature,
+        rng,
+        narrow,
+    );
     // The layer's last redirects read the logits it was given, not the menu.
     if !left[chosen].is_finite()
         && let Some(best) = (0..left.len())
@@ -424,9 +463,12 @@ fn decide_single(
         chosen = best;
     }
     if let Some(review) = &reviewed
-        && plain.is_some_and(|plain| plain != chosen)
+        && plain.is_some_and(|plain| plain != wide.unwrap_or(chosen))
     {
         rules.count(review.group);
+    }
+    if wide.is_some_and(|wide| wide != chosen) {
+        rules.count(RuleGroup::Defer);
     }
     if let Some(better) = rules
         .instead_of_pass(cands, left, view, asked, chosen)
@@ -473,6 +515,7 @@ pub(in crate::netplay4) fn single_choice(
                 active_source,
                 temperature,
                 rng,
+                false,
             )
         };
     }
@@ -484,6 +527,7 @@ pub(in crate::netplay4) fn single_choice(
         active_source,
         temperature,
         rng,
+        false,
     );
     for index in 0..GROUPS.len() {
         let (answer, _) = decide_single(
