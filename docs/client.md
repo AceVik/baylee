@@ -10913,8 +10913,15 @@ doing (Central's `docs/push-socket.md` §"Status"; types in
   seats and taken, and its game (to join or watch) only when its origin is
   the gateway this client is signed in to. At another gateway the row shows
   the name and nothing to press; nothing is ever dialled because a friend
-  named a gateway, and the name is drawn as plain text. The official
-  gateway's former address counts as another gateway (the safe side).
+  named a gateway, and the name is drawn as plain text. Both sides spell the
+  gateway's address as `gateway_list::moved` does before taking its origin,
+  so once the live gateway's former address is listed there (#402) friends at
+  its old and new address meet; an address that list does not know counts
+  as another gateway (the safe side).
+- **While a game runs** the lobby's feed rests (the seat has its own socket),
+  so the table a running game names is the listing's row from before the
+  seat was handed over; a game the listing never held (a page or a search
+  that did not show it) is reported as playing without a table.
 - **Join** (`DrawerPress::Join`, `Intent::Join`): the friend's menu offers it
   for a waiting table that carries its game (so at this client's gateway)
   with a chair free, outside a duel and not at the table the player already
