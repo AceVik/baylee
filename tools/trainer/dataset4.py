@@ -38,6 +38,14 @@ from trajectory_store4 import BST4_HDR, BST4_MAGIC, TrajectoryStore4
 from structure_data4 import StructureData
 import orjson
 
+#: BST4 flag of an explored decision: the header's reserved word holds ln μ
+#: of the rule-proposal behaviour mixture (`baylee_train_ops::exploration`).
+MIXTURE_FLAG = 1 << 3
+#: Beside ``MIXTURE_FLAG``: the executed action carries no behaviour
+#: probability (a blocker answer the attackers' counts moved), so neither π nor
+#: ln μ exists; the reserved word stays zero and the log-probability bit clear.
+NO_PROBABILITY_FLAG = 1 << 16
+
 SOURCE_KIND_MAP = {
     "Net": 0,
     "House": 1,
@@ -45,6 +53,26 @@ SOURCE_KIND_MAP = {
     "Search": 3,
     "External": 4,
 }
+
+
+def frame_mixture(flags: int, reserved: int, behavior_logprob: float) -> tuple[bool, float]:
+    """A BST4 frame's rule-proposal behaviour mixture (`baylee_train_ops::exploration::frame`).
+
+    An explored decision sets ``MIXTURE_FLAG`` and holds ln μ as f32 bits in
+    the header's reserved word; any other frame keeps the word zero, and its
+    behaviour is the net's own, μ = π. An explored decision without a
+    behaviour probability (``NO_PROBABILITY_FLAG``) carries no ln μ: it reads
+    as a frame without one, and having no π it is never an actor frame.
+    """
+    if not flags & MIXTURE_FLAG:
+        if reserved or flags & NO_PROBABILITY_FLAG:
+            raise ValueError("BST4 reserved word set without the mixture flag")
+        return False, behavior_logprob
+    if flags & NO_PROBABILITY_FLAG:
+        if reserved or flags & 4:
+            raise ValueError("BST4 frame without a behaviour probability carries one")
+        return False, behavior_logprob
+    return True, float(np.array(reserved, dtype=np.uint32).view(np.float32))
 
 
 def padded_stack(arrays: list[np.ndarray]) -> np.ndarray:
@@ -82,6 +110,8 @@ class TrajectoryDataset4(Dataset):
         super().__init__()
         self.data_dir = Path(data_dir).expanduser()
         self.meta = json.loads((self.data_dir / "meta.json").read_text())
+        # Exploration records (`eval4 --explore-rules`) add ln μ to every frame.
+        self.behavior_mixture = self.meta.get("behavior_mixture") is not None
         from encoder_contract import validate_encoder
         validate_encoder(encoder_version, global_feat_width=self.meta.get('global_feat_width',80))
         if self.meta.get("encoder_version") != encoder_version:
@@ -237,7 +267,7 @@ class TrajectoryDataset4(Dataset):
     def _encode_bst4(self, buf: bytes) -> dict[str, np.ndarray]:
         (
             _magic, _ver, _game_id, _seat, _step_cursor, _turn, flags, head,
-            _pending_kind, src_kind, _pad0, thinking_steps, raw_single_idx,
+            _pending_kind, src_kind, reserved, thinking_steps, raw_single_idx,
             loss_weight, scalar_norm, outcome, aux0, aux1, aux2, aux3,
             behavior_logprob, temp_val, n_ent_raw, ent_width, ent_rule_cols,
             seat_width, global_width, n_edg_raw, n_cand_raw, cand_width,
@@ -335,6 +365,7 @@ class TrajectoryDataset4(Dataset):
         is_decision = bool(flags & 1)
         is_terminal = bool(flags & 2)
         has_lp = bool(flags & 4)
+        has_mixture, mixture_logprob = frame_mixture(flags, reserved, behavior_logprob)
         if is_decision and head == 0 and not 0 <= raw_single_idx < n_cand:
             raise ValueError("Decision target is outside the represented candidate set")
         single_idx = min(max(raw_single_idx, 0), max(n_cand - 1, 0))
@@ -373,7 +404,7 @@ class TrajectoryDataset4(Dataset):
         if n_pair == 0:
             pair_mask[0] = True
 
-        return self._with_distillation({
+        return self._with_mixture(self._with_distillation({
             "entity_feat": ent_feat,
             "entity_dsl": ent_dsl,
             "entity_rules": entity_rules,
@@ -408,7 +439,20 @@ class TrajectoryDataset4(Dataset):
             "source_kind": np.array(src_kind, dtype=np.int64),
             "temperature": np.array(temp_val, dtype=np.float32),
             "thinking_steps": np.array(thinking_steps, dtype=np.int64),
-        }, flags, _pending_kind, -1, extension=buf[offset + n_fm:])
+        }, flags, _pending_kind, -1, extension=buf[offset + n_fm:]), has_mixture, mixture_logprob)
+
+    def _with_mixture(self, frame, has_mixture, mixture_logprob):
+        """Opt-in (a dataset of exploration records, ``meta['behavior_mixture']``,
+        `eval4 --explore-rules`): the frame's ln μ (π where it carries none) and
+        whether it carries one. Frames of every other dataset are unchanged; a
+        mixture in a dataset that declares none is refused."""
+        if not getattr(self, "behavior_mixture", False):
+            if has_mixture:
+                raise ValueError("A behaviour mixture in a dataset that declares none")
+            return frame
+        frame["behavior_mixture_logprob"] = np.array(mixture_logprob, dtype=np.float32)
+        frame["has_behavior_mixture"] = np.array(has_mixture, dtype=bool)
+        return frame
 
     def _with_distillation(self, frame, flags, pending_kind, net_single, extension=b"", subtype=None, fired=()):
         """Opt-in (`distillation`, set by --distill-bundle): pending kind, N != R
@@ -613,8 +657,14 @@ class TrajectoryDataset4(Dataset):
         src_kind = parse_source_kind(prov.get("source", "House"))
         has_lp = bool(prov.get("has_logprob", False))
         temp_val = float(prov.get("temperature", 0.0))
+        behavior_logprob = float(prov.get("behavior_logprob", 0.0))
+        # ln μ of an explored decision; `null` where it has no behaviour
+        # probability, which reads as a frame without one.
+        mixture_logprob = (st.get("behavior_mixture") or {}).get("mixture_logprob")
+        if mixture_logprob is None and st.get("behavior_mixture") is not None and has_lp:
+            raise ValueError("An explored decision without ln μ carries a behaviour probability")
 
-        return self._with_distillation({
+        return self._with_mixture(self._with_distillation({
             "entity_feat": ent_feat,
             "entity_dsl": ent_dsl,
             "entity_rules": entity_rules,
@@ -644,9 +694,7 @@ class TrajectoryDataset4(Dataset):
             "scalar_target": np.array(float(tgt["scalar_norm"]), dtype=np.float32),
             "outcome": np.array(float(st["outcome"]), dtype=np.float32),
             "aux_target": aux_vec,
-            "behavior_logprob": np.array(
-                float(prov.get("behavior_logprob", 0.0)), dtype=np.float32
-            ),
+            "behavior_logprob": np.array(behavior_logprob, dtype=np.float32),
             "has_logprob": np.array(has_lp, dtype=bool),
             "source_kind": np.array(src_kind, dtype=np.int64),
             "temperature": np.array(temp_val, dtype=np.float32),
@@ -655,7 +703,9 @@ class TrajectoryDataset4(Dataset):
             ),
         }, 128 if st.get("n_ne_r", False) else 0, st.get("pending_kind", 0),
             (st.get("net_answer") or {}).get("single_idx"),
-            subtype=st.get("distill_subtype"), fired=st.get("fired") or ())
+            subtype=st.get("distill_subtype"), fired=st.get("fired") or ()),
+            mixture_logprob is not None,
+            behavior_logprob if mixture_logprob is None else float(mixture_logprob))
 
     def __getitem__(self, idx: int) -> dict[str, np.ndarray]:
         if idx == -1:
@@ -677,6 +727,8 @@ class TrajectoryDataset4(Dataset):
             dummy["loss_weight"] = np.array(0.0, dtype=np.float32)
             dummy["is_terminal"] = np.array(False, dtype=bool)
             dummy["has_logprob"] = np.array(False, dtype=bool)
+            if "has_behavior_mixture" in dummy:
+                dummy["has_behavior_mixture"] = np.array(False, dtype=bool)
             dummy["cand_mask"][0] = True
             dummy["pair_mask"][0] = True
             encoded.extend([dummy] * pad_count)

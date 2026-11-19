@@ -138,16 +138,49 @@ def _learner_histories(dataset):
             stream.close()
 
 
+#: Which recorded probability is the PPO denominator: the net's probability
+#: of the executed action π (the default), or the behaviour mixture μ of
+#: rule-proposal exploration (`eval4 --explore-rules`), μ = π elsewhere.
+BEHAVIOR_DENOMINATORS = ('executed_policy', 'behavior_mixture')
+
+
+def behavior_denominator(meta, requested=None):
+    """The denominator a dataset is trained with; explicit for exploration records.
+
+    A dataset of exploration records (``meta['behavior_mixture']``) names its
+    denominator: neither choice is a silent default there. Without them the
+    default stays the recorded executed-action probability.
+    """
+    explored = meta.get('behavior_mixture') is not None
+    if requested is None:
+        if explored:
+            raise ValueError('Exploration records need an explicit behavior denominator: '
+                             'executed_policy or behavior_mixture')
+        return 'executed_policy'
+    if requested not in BEHAVIOR_DENOMINATORS:
+        raise ValueError(f'Unknown behavior denominator {requested!r}')
+    if requested == 'behavior_mixture' and not explored:
+        raise ValueError('The behavior_mixture denominator needs recorded exploration mixtures')
+    return requested
+
+
 @torch.no_grad()
-def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, tolerance=.001):
+def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, tolerance=.001,
+                           denominator=None):
     """Audit all genuine learner choices before exposing normalized advantages.
 
     Original segment IDs remain stable. Sparse disk arrays bound resident cache
     memory; their TemporaryDirectory is retained by the dataset for its lifetime.
     Teacher-only trajectories are removed from the in-memory sampler list only.
+
+    The audit always replays π. ``denominator='behavior_mixture'`` makes the
+    recorded ln μ the PPO denominator (``behavior_lp``) and keeps π beside it
+    as ``executed_policy_lp``; the default keeps π as before.
     """
     from trajectory_store4 import reject_shadow_policy_gradient
     reject_shadow_policy_gradient(dataset.meta)
+    denominator = behavior_denominator(dataset.meta, denominator)
+    mixture = denominator == 'behavior_mixture'
     if not np.isfinite(tolerance) or not 0 < tolerance <= .002:
         raise ValueError('Behavior audit tolerance must be finite and at most 0.002')
     if hasattr(dataset, 'ppo_cache'):
@@ -168,14 +201,18 @@ def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, to
     temporary = tempfile.TemporaryDirectory(prefix='baylee-policy-targets-')
     cache = {}
     n, u, width = len(dataset), dataset.unroll_len, net.cfg.d_model
-    for name, dtype, shape in [('advantages', np.float32, (n,u)), ('returns', np.float32,(n,u)),
-                               ('behavior_lp', np.float32, (n,u)),
-                               ('actor_mask',np.bool_,(n,u)), ('behavior_h',np.float32,(n,9,width))]:
+    arrays = [('advantages', np.float32, (n,u)), ('returns', np.float32,(n,u)),
+              ('behavior_lp', np.float32, (n,u)),
+              ('actor_mask',np.bool_,(n,u)), ('behavior_h',np.float32,(n,9,width))]
+    if mixture:
+        arrays.append(('executed_policy_lp', np.float32, (n,u)))
+    for name, dtype, shape in arrays:
         cache[name] = np.memmap(Path(temporary.name)/name, mode='w+', dtype=dtype, shape=shape)
     loader = DataLoader(dataset, batch_sampler=D.StatefulBatchSampler4(dataset,batch_size,shuffle=False),
                         collate_fn=D.collate_trajectories)
     h = None
-    checked = frames = 0
+    checked = frames = explored = 0
+    denominator_column = 'behavior_mixture_logprob' if mixture else 'behavior_logprob'
     max_error = 0.
     minimum_value, maximum_value = float('inf'),float('-inf')
     net.eval()
@@ -233,7 +270,11 @@ def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, to
                     cache['actor_mask'][idx] = keep[lane]
                     # Replay certifies the behavior policy; it must not replace
                     # the sampled policy's recorded PPO denominator/KL anchor.
-                    cache['behavior_lp'][idx] = np.where(keep[lane],host['behavior_logprob'][lane].numpy(),0)
+                    cache['behavior_lp'][idx] = np.where(keep[lane],host[denominator_column][lane].numpy(),0)
+                    if mixture:
+                        # π stays beside μ: the KL anchor of the sampled policy.
+                        cache['executed_policy_lp'][idx] = np.where(keep[lane],host['behavior_logprob'][lane].numpy(),0)
+                        explored += int((keep[lane] & host['has_behavior_mixture'][lane].numpy()).sum())
                     cache['returns'][idx] = np.where(valid[lane],truth[lane],0)
                     cache['advantages'][idx] = np.where(keep[lane],truth[lane]-value[lane],0)
             frames += int(valid.sum())
@@ -267,7 +308,9 @@ def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, to
                     precision='float32',returns='complete terminal side outcome; gamma=lambda=1',
                     advantage_mean_before_normalization=mean,advantage_std_before_normalization=std,
                     critic_value_min=minimum_value,critic_value_max=maximum_value,
-                    cache_storage='sparse disk-backed arrays indexed by original segment ID')
+                    cache_storage='sparse disk-backed arrays indexed by original segment ID',
+                    behavior_denominator=denominator,
+                    **({'explored_decisions': explored} if mixture else {}))
     except BaseException:
         dataset.trajectories=original
         cache.clear()

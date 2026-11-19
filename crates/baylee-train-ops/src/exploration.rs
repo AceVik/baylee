@@ -343,8 +343,12 @@ pub mod frame {
         | NO_PROBABILITY;
     /// The frame's own log-probability bit (`has_logprob`).
     const LOGPROB: u32 = 1 << 2;
-    /// The bits a frame had before: decision, terminal, log-probability.
-    pub const BASE_BITS: u32 = 0b111;
+    /// Bundle distillation's `N ≠ R` (`convert4 --bundle-distill`): the net's
+    /// own answer differs from the frame's label.
+    pub const DISTILL_DIFFERS: u32 = 1 << 7;
+    /// The bits a frame has without exploration: decision, terminal,
+    /// log-probability and bundle distillation's `N ≠ R`.
+    pub const BASE_BITS: u32 = 0b111 | DISTILL_DIFFERS;
     /// The reserved header word's byte offset.
     pub const WORD_OFFSET: usize = 40;
 
