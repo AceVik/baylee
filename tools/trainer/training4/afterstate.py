@@ -238,6 +238,11 @@ class AfterRows:
         nu = np.where(self.non_prior & self.confirmed, NOVELTY, 1.).astype(np.float32)
         return np.clip(A, -CLIP, CLIP).astype(np.float32), w, nu
 
+    def rule_weights(self):
+        """The rule's weights, arm B's: w = 1 / (SE^2 + tau^2) over every searched candidate other
+        than the own answer, an afterstate or not (a missing one counts at gap 0)."""
+        return V.item_labels(self.rows, TAU)[1].astype(np.float64)
+
     def gate(self, gaps):
         """The rule's gaps: 0 for a candidate without an afterstate or whose root's own has none."""
         return np.where(self.scored, gaps, 0.)
@@ -281,9 +286,9 @@ def reproduction(after, gaps, margin, chosen):
 
 
 def pairwise(after, gaps, chosen, weight=None, target=None):
-    """Arm B's pairwise loss of full-size gated `gaps` over the `chosen` roots (numpy)."""
-    A, w, _ = after.weights()
-    w = w if weight is None else weight
+    """Arm B's pairwise loss of full-size gated `gaps` over the `chosen` roots (numpy): every
+    searched candidate other than the own answer, a missing afterstate at gap 0."""
+    w = after.rule_weights() if weight is None else weight
     target = after.rows.labels["A"].astype(np.float64) if target is None else target
     in_root = chosen[after.rows.root_of()]
     w = np.where(in_root, w, 0.)
@@ -292,8 +297,7 @@ def pairwise(after, gaps, chosen, weight=None, target=None):
 
 def selection_report(after, gaps, select):
     """The selection half's report and margin, with the early falsifier's Pearson."""
-    _, w, _ = after.weights()
-    chooser = V.report(after.rows, gaps, w, select)
+    chooser = V.report(after.rows, gaps, after.rule_weights(), select)
     margin, gain = V.best_margin(chooser)
     return chooser, margin, gain
 
@@ -772,10 +776,19 @@ def decide(prereg_path, stage_dirs, after, out_path):
         fits[name] = (fit, after.gate(gaps))
     if not fits:
         raise ValueError("No stage produced its outputs")
-    gains = {name: fit["selection_gain_per_100_roots"] for name, (fit, _) in fits.items()}
+    # The selection half again, with the rule's weights (the gain and the margin do not read
+    # weights; the falsifier's Pearson does): the stage and its margin come from here.
+    select, final = V.held_out_halves(after.rows)
+    selection = {}
+    for name, (fit, gaps) in fits.items():
+        chooser, margin, gain = selection_report(after, gaps, select)
+        if margin != fit["margin"]:
+            raise ValueError(f"{name}: the selection half's margin is not the fit's")
+        selection[name] = dict(gain_per_100_roots=gain, margin=margin, pearson_pooled=chooser["pearson_pooled"],
+                               falsifier_triggered=chooser["pearson_pooled"] is None or chooser["pearson_pooled"] <= 0.25)
+    gains = {name: cell["gain_per_100_roots"] for name, cell in selection.items()}
     chosen = max(fits, key=lambda name: (gains[name], -list(fits).index(name)))
-    _, final = V.held_out_halves(after.rows)
-    _, w, _ = after.weights()
+    w = after.rule_weights()
     reports, verdicts, creative, post_hoc = {}, {}, {}, {}
     first4 = after.candidate < 4
     for name, (fit, gaps) in fits.items():
@@ -796,7 +809,7 @@ def decide(prereg_path, stage_dirs, after, out_path):
         for s in np.unique(after.rows.source)} for name, (fit, gaps) in fits.items()}
     raw = after.gate(np.where(after.scored, after.v - after.v[after.own][after.rows.root_of()], 0.))
     out = dict(contract=DECISION_CONTRACT, preregistration=str(prereg_path), preregistration_sha256=digest,
-               rule=prereg["rule"], selection_gain_per_100_roots=gains, chosen_stage=chosen,
+               rule=prereg["rule"], selection_gain_per_100_roots=gains, selection=selection, chosen_stage=chosen,
                verdict=verdicts[chosen],
                creativity=dict(chosen=creative[chosen], by_stage=creative,
                                discovery_rate_all_roots_per_100=discovery(after, np.ones(len(after.rows.state), bool))[1]),
