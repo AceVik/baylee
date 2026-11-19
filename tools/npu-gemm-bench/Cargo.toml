@@ -1,0 +1,45 @@
+# BF16 GEMM microbenchmark for the XDNA (npu1, Phoenix) NPU over XRT, with
+# an f32 CPU baseline. The host logic is Rust; `shim/xrt_shim.cpp` is the
+# smallest C++ layer over XRT's C++ API (`xrt::device`, `xrt::hw_context`,
+# `xrt::kernel`, `xrt::bo`, `xrt::run`) that a Rust program can call.
+#
+# A workspace of its own, outside the main one: it links XRT, which only the
+# NPU hosts carry, and it is a measurement tool, not part of the product.
+[package]
+name = "npu-gemm-bench"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "AGPL-3.0-only"
+publish = false
+
+[workspace]
+
+[dependencies]
+# f32/f64 GEMM for the CPU baseline and the reference. `x86-v4` adds the
+# AVX-512 kernels, picked at run time on CPUs that have them (Zen 4).
+gemm = { version = "=0.19.0", default-features = false, features = ["std", "rayon", "x86-v4"] }
+rayon = "1.12"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[build-dependencies]
+cc = "1.2"
+
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+module_name_repetitions = "allow"
+# GEMM code names its dimensions m, k, n and its matrices a, b, c.
+many_single_char_names = "allow"
+similar_names = "allow"
+must_use_candidate = "allow"
+
+[profile.release]
+debug = 1
