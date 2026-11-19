@@ -1533,6 +1533,49 @@ c42/shared up to 253beb52b with the house-teacher line, after its frames were
 shown to be byte for byte those of the collection's own convert4; the meta
 names the collection's build, the converter's and that check.
 
+**Probing the layer's answers** (`distill_probe_v1`, "learn from the
+wheels"). Imitating `R` everywhere taught the raw net the layer's holds
+without the follow-through that makes them pay (round 0). A probe measures
+instead, on the net's own play, what `R` is worth beside `N` where they
+differ: `eval4 --raw-policy --distill-labels GROUPS --search 2,P,H
+--search-fair --search-turns T --search-house-free --search-select measure
+--search-rival distill`. `--search-select measure` (`Selection4::Measure`)
+plays the policy's own answer with its own provenance and only reports the
+worlds, so the game and its record are the unsearched ones (the run's
+`search` metadata says `played`/`provenance`). `--search-rival distill`
+(`Rival4::Distill`) makes a root's one other candidate the layer's answer
+from the same decision's label (`SearchPlayer4::rival_answer`, its menu
+entry as the policy ranked it): roots are priority decisions in any phase
+(end steps and upkeeps included, where instants answer) where `R ≠ N`,
+nothing is owed and the two are not both mana abilities (counted as
+`no_rival` and `mana_only`; an `R` the ranking does not hold as
+`no_alternative`). The rollouts play on with the raw net, so `R` is credited
+only where it pays given the net's own follow-through. The labeller is
+taken out while the worlds play (no rollout labels a decision or replaces
+the root's label), and the probed decision's label keeps the worlds as its
+`probe` (`DistillProbe4`: `[N, R]` per world, how each rollout ended, both
+menu entries, rollouts and house answers). `eval4` admits `--distill-labels`
+beside `--search` only as this probe: fair worlds, two candidates, measure,
+no targets, combat roots, macros, stall guard, choice guard or tactics
+rules; `run.json`'s `distill.probe` names the contract.
+`convert4 --bundle-distill` admits a searched run only when its search is
+such a fair measurement, rejects a game whose probe does not belong to its
+label (a priority `N ≠ R` decision, `R`'s own menu entry, a finite score and
+an end per world), keeps each probe whole in the JSON steps line, and
+writes the probe sidecar `bundle-distill/probe.index.bin` + `probe.json`
+(`bin/convert4/probes.rs`): one 56-byte row per probed frame keyed by
+(game, seat, cursor) like the coarse classes, with `N`'s and `R`'s menu
+entries, the fired groups, `R`'s mean fork advantage over `N` and its
+standard error over the worlds, each half's mean, both mean scores and the
+rollouts that ended the game or stopped short; the header tallies the rows
+by subtype and group (`R` ahead: mean − se > 0; `N` ahead: mean + se < 0).
+`fork_advantage4 --distill --games …` reads the probes from the labels and
+reports, for all probes, the clean games, and by subtype, rule group
+(`none` for the layer's own reading), the kinds of `R` and `N` and how the
+rollouts ended: the mean advantage and the share `R` ahead less the share
+`N` ahead per 100 probes with standard errors by game, and how often the
+two halves of the worlds agree.
+
 **Imitation labels train the tactician and nothing else.** The record directory
 has its own `run.json` (`contract: tactician_imitation_v1`), and `--record-out`'s
 `run.json` names it too (`labels`, `tactician.record_contract`).
