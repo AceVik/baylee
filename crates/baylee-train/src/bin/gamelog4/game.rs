@@ -12,6 +12,7 @@ use baylee_gamehost::record::Line;
 use baylee_protocol::v1::Envelope;
 use baylee_seat::memory::TableMemory;
 use baylee_seat::reports::game_log;
+use baylee_train::convert4::distill_labels::{DistillLabel4, DistillStep4};
 use baylee_view::PlayerView;
 use flate2::read::GzDecoder;
 use prost::Message as _;
@@ -49,6 +50,10 @@ pub(super) struct Decision<'a> {
     /// Who answered for the seat: `Net`, `Search`, `House` or `Forced`, as
     /// the run's rollout sidecar says.
     pub source: &'a str,
+    /// In a run of `eval4 --distill-labels`: the net's own answer `N` and
+    /// the tactical layer's `R` at this decision, with the rule groups that
+    /// changed `R`.
+    pub label: Option<&'a DistillLabel4>,
 }
 
 /// A game of an eval4 `--record-out` directory.
@@ -58,6 +63,8 @@ pub(super) struct Game {
     /// The evaluated seat.
     pub seat: PlayerId,
     sources: Vec<String>,
+    /// One per rollout step, where the run kept distillation labels.
+    labels: Vec<Option<DistillLabel4>>,
     lines: Vec<Line>,
 }
 
@@ -94,11 +101,26 @@ impl Game {
             None if row["focal_seat"].is_null() => Vec::new(),
             None => bail!("the game has no rollout sidecar"),
         };
+        let labels = match row.get("distill_sidecar") {
+            Some(steps) => {
+                let steps: Vec<DistillStep4> =
+                    serde_json::from_value(steps.clone()).context("the game's distill sidecar")?;
+                anyhow::ensure!(
+                    steps.len() == sources.len(),
+                    "the distill sidecar has {} steps, the rollout sidecar {}",
+                    steps.len(),
+                    sources.len()
+                );
+                steps.into_iter().map(|step| step.label).collect()
+            }
+            None => Vec::new(),
+        };
         let lines = record(run, &row)?;
         Ok(Self {
             row,
             seat,
             sources,
+            labels,
             lines,
         })
     }
@@ -147,6 +169,7 @@ impl Game {
         let mut printed = 0;
         let mut turn = None;
         let mut sources = self.sources.iter();
+        let mut labels = self.labels.iter();
         for line in &self.lines[1..] {
             match line {
                 Line::Input {
@@ -181,6 +204,7 @@ impl Game {
                                 },
                                 String::as_str,
                             ),
+                            label: labels.next().and_then(Option::as_ref),
                         }))?;
                     } else {
                         visit(Event::Other { views: &views })?;

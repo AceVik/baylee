@@ -7,6 +7,7 @@ use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{LegalActions, Pending, PlayerAction};
 
 use crate::board;
+use crate::deciders;
 use crate::game::{Event, Game};
 use crate::names::{self, Names};
 
@@ -116,9 +117,10 @@ pub(super) fn show(run: &Path, game: u64, shown: &Shown) -> anyhow::Result<()> {
             {
                 let names = Names::of(decision.views);
                 println!(
-                    "  » {:<6} {}",
+                    "  » {:<6} {}{}",
                     decision.source,
-                    describe(decision.pending, decision.action, &names)
+                    describe(decision.pending, decision.action, &names),
+                    deciders::note(decision.label, &names)
                 );
             }
             Event::Log { turn, text } if shown.turn(turn) => println!("      {text}"),
