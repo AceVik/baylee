@@ -2785,3 +2785,21 @@ fn exile_sweeps_link_only_when_a_companion_reads_the_link() {
     assert!(body.abilities[0].contains("linked: true"));
     assert!(body.abilities[1].contains("Effect::ReturnLinkedToBattlefield"));
 }
+
+/// "Whenever this deals combat damage to a player, you may have it deal 2
+/// damage to target creature that player controls": the script marks no
+/// `OptionalDecider$`, the printed "you may have it" is the choice (CR 603.5),
+/// asked on resolution through `Effect::MayDo`. Without the may, `validate`
+/// refused two morph cards the Morph reader finished.
+#[test]
+fn a_printed_you_may_have_it_trigger_asks_on_resolution() {
+    let script = "Name:X\nTypes:Creature Goblin\nPT:2/1\nT:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True | Execute$ Hit | TriggerZones$ Battlefield | TriggerDescription$ Whenever CARDNAME deals combat damage to a player, you may have it deal 2 damage to target creature that player controls.\nSVar:Hit:DB$ DealDamage | ValidTgts$ Creature.ControlledBy TriggeredTarget | NumDmg$ 2";
+    let ability = &read(script).abilities[0];
+    assert!(ability.contains("Effect::MayDo"), "{ability}");
+    let plain = script.replace(", you may have it deal 2 damage", ", it deals 2 damage");
+    assert!(!read(&plain).abilities[0].contains("Effect::MayDo"));
+    // The executed line asking too (`OptionalDecider$ You`) is the same
+    // decision: one `MayDo`, never two.
+    let both = script.replace("NumDmg$ 2", "NumDmg$ 2 | OptionalDecider$ You");
+    assert_eq!(read(&both).abilities[0].matches("Effect::MayDo").count(), 1);
+}
