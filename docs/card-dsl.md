@@ -1800,6 +1800,19 @@ hand, one to the bottom, the rest exiled and playable.
 into your hand and the rest on the bottom", in any order (the player
 arranges them) or, with `random: true`, "in a random order" (nobody is
 asked).
+The reader (`scriptgen/dig.rs`) writes a reference `Dig` line as one of these
+library effects, reading its defaults as the reference does (one card, to the
+hand, the rest on the bottom in the player's order, seen only by the player
+digging): `LookAtTopPick` (no filter, rest on the bottom),
+`LookAtTopPickThenReorder` (rest back on top), `LookAtTopFind` (look, may take
+one matching card), `RevealTopAllMatching` (reveal, every matching card, rest
+on the bottom in any order), `RevealTopAndSort` (reveal one card, matching here
+and otherwise there), `RevealTopFind` (reveal, may take one matching card, rest
+to the graveyard or exile) and `ExileTop` (every card exiled). Only a dig in its
+controller's own library is read, except the exile. A pick whose rest goes to
+the graveyard or exile (Ancestral Memories, Browse), a revealed or optional
+pick without a filter, another chooser, and a dig that remembers or imprints
+what it moved stay refused, each by name.
 
 Two continuous player permissions describe Gwenom's attack trigger:
 `Modifier::LookAtLibraryTop` privately shows the effect controller their
