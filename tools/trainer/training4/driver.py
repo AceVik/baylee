@@ -99,6 +99,7 @@ def main(default_architecture="v4") -> None:
         # chains on them, and training reports the pass drift at its chain starts. With
         # coarse distillation off they change no loss term.
         from .coarse import CoarseClasses
+        from .distill_probe import Probes, named
         for dataset in (train_ds, val_ds):
             directory = getattr(dataset, "data_dir", None)
             sidecar = None if directory is None else Path(directory) / "bundle-distill"
@@ -107,6 +108,14 @@ def main(default_architecture="v4") -> None:
                 raise ValueError("--distill-coarse needs the dataset's bundle-distill/coarse-classes sidecar")
             if present:
                 dataset.coarse = CoarseClasses.load(sidecar)
+            # The probe sidecar, wherever meta.json names it: --distill-advantage trains on it,
+            # validation reads the student's answers where R or N is ahead. Fails closed.
+            probe = named(getattr(dataset, "meta", None))
+            if args.distill_advantage and (probe is None or sidecar is None):
+                raise ValueError("--distill-advantage needs datasets whose meta.json names their probe sidecar "
+                                 "(bundle_distillation.probe, bundle-distill/probe.*), training and validation")
+            if probe is not None and sidecar is not None:
+                dataset.probes = Probes.load(sidecar, probe)
 
     train_sampler = D4.StatefulBatchSampler4(
         train_ds, batch_size=args.batch_size, shuffle=True, seed=args.seed
@@ -308,7 +317,9 @@ def main(default_architecture="v4") -> None:
         scope = Scope.from_options(kinds, args.distill_kl_weight, args.distill_subtypes,
                                    args.distill_group_weights, (train_ds, val_ds),
                                    args.distill_out_of_scope, args.distill_out_of_scope_weight,
-                                   args.distill_coarse, args.distill_teacher, args.distill_value_weight)
+                                   args.distill_coarse, args.distill_teacher, args.distill_value_weight,
+                                   args.distill_advantage, args.distill_advantage_beta, args.distill_advantage_clip,
+                                   args.distill_advantage_weight, args.distill_advantage_min_worlds)
         identity["bundle_distillation"] = dict(contract=CONTRACTS[args.distill_teacher], kinds=list(kinds),
                                                subtypes=list(args.distill_subtypes) or None,
                                                group_weights=args.distill_group_weights or None,
@@ -326,6 +337,13 @@ def main(default_architecture="v4") -> None:
             identity["bundle_distillation"]["coarse"] = dict(mode=args.distill_coarse,
                                                              rule=train_ds.coarse.header.get("rule"),
                                                              rows=len(train_ds.coarse.index))
+        if args.distill_advantage:
+            # Named only when set, so every earlier run's identity stays as it was.
+            identity["bundle_distillation"]["advantage"] = dict(
+                mode=args.distill_advantage, beta=args.distill_advantage_beta, clip=args.distill_advantage_clip,
+                weight=args.distill_advantage_weight, min_worlds=args.distill_advantage_min_worlds,
+                contract=train_ds.probes.header.get("contract"), rows=len(train_ds.probes.index),
+                index_sha256=(train_ds.probes.header.get("index") or {}).get("sha256"))
         if args.think_loss is not None:
             # The per-step terms take this loss's targets; no consequence term.
             identity["thinking"]["targets"] = "bundle_distillation_scope_v1"

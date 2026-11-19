@@ -1,4 +1,5 @@
 """Opt-in learner throughput levers; every default leaves the step unchanged."""
+import math
 
 
 def add_learner_options(parser):
@@ -91,6 +92,20 @@ def add_learner_options(parser):
                              "N's candidate (ce_fine_n). The KL keeps N = R; target questions unchanged. act-exact "
                              "groups as act, but where R acts and N passes ce_coarse_r is CE to R's own candidate; "
                              "act-best, there, -log(p_best_act / (p_best_act + p_pass)). Off by default")
+    parser.add_argument("--distill-advantage", choices=("pairwise",), default=None,
+                        help="Teach R only where the dataset's probes (bundle-distill/probe.*, R and N played on in "
+                             "the same fair worlds) say it pays: at a probed priority frame, binary cross-entropy of "
+                             "sigmoid(s[R] - s[N]) against sigmoid(r1[R] - r1[N] + clamp(mean / beta, +-clip)) "
+                             "(bce_adv_pairwise); every other priority frame keeps r1 by the KL (kl_distilled_n_eq_r, "
+                             "kl_adv_unprobed), other kinds as ever. No cross-entropy to R anywhere. Needs "
+                             "--distill-kinds 0 and --checkpoint-selection distill_advantage (training4.distill_probe)")
+    parser.add_argument("--distill-advantage-beta", type=float, default=0.05,
+                        help="The win-probability advantage that shifts R's log-odds over N by 1")
+    parser.add_argument("--distill-advantage-clip", type=float, default=3.0,
+                        help="Cap on the log-odds shift |clamp(mean / beta)|")
+    parser.add_argument("--distill-advantage-weight", type=float, default=1.0, help="Weight of bce_adv_pairwise")
+    parser.add_argument("--distill-advantage-min-worlds", type=int, default=2,
+                        help="Probes with fewer worlds count as unprobed (KL to r1)")
     parser.add_argument("--pregate-chain-start", type=float, default=0., metavar="MIN_RATIO",
                         help="After saving, exit 3 when the selected checkpoint's validation shows the student "
                              "starting R's acting chains less than MIN_RATIO x r1's rate on the same rows, or passing "
@@ -178,6 +193,7 @@ def check_learner_options(args, parser):
                      "out-of-scope KL (not --distill-out-of-scope ce-n)")
     if args.train_pair_scalar_heads and not args.train_policy_head_only:
         parser.error("--train-pair-scalar-heads widens --train-policy-head-only")
+    check_advantage_options(args, parser)
     if args.distill_teacher == "house":
         if not args.distill_bundle:
             parser.error("--distill-teacher house needs --distill-bundle")
@@ -193,7 +209,40 @@ def check_learner_options(args, parser):
             parser.error("--distill-bundle needs kinds and a nonnegative KL weight and scalar tolerance")
         if args.decision_chunk <= 1 or args.reference_execution:
             parser.error("--distill-bundle requires the deferred path (--decision-chunk > 1)")
-        if args.checkpoint_selection != "distill_n_ne_r":
-            parser.error("--distill-bundle selects checkpoints with --checkpoint-selection distill_n_ne_r")
-    elif args.checkpoint_selection == "distill_n_ne_r":
-        parser.error("--checkpoint-selection distill_n_ne_r requires --distill-bundle")
+        selection = "distill_advantage" if args.distill_advantage else "distill_n_ne_r"
+        if args.checkpoint_selection != selection:
+            parser.error(f"--distill-bundle{' --distill-advantage' if args.distill_advantage else ''} selects "
+                         f"checkpoints with --checkpoint-selection {selection}")
+    elif args.checkpoint_selection in ("distill_n_ne_r", "distill_advantage"):
+        parser.error(f"--checkpoint-selection {args.checkpoint_selection} requires --distill-bundle")
+
+
+def check_advantage_options(args, parser):
+    """`--distill-advantage` (training4.distill_probe): the bundle teacher's priority probes, alone."""
+    tuned = (args.distill_advantage_beta != 0.05 or args.distill_advantage_clip != 3.0
+             or args.distill_advantage_weight != 1.0 or args.distill_advantage_min_worlds != 2)
+    if not args.distill_advantage:
+        if tuned:
+            parser.error("--distill-advantage-beta, -clip, -weight and -min-worlds tune --distill-advantage")
+        return
+    if not args.distill_bundle:
+        parser.error("--distill-advantage needs --distill-bundle")
+    refused = [flag for flag, set_ in (("--distill-teacher house", args.distill_teacher != "bundle"),
+                                       ("--distill-coarse", bool(args.distill_coarse)),
+                                       ("--distill-subtypes", bool(args.distill_subtypes)),
+                                       ("--distill-group-weights", bool(args.distill_group_weights)),
+                                       ("--distill-out-of-scope ce-n", args.distill_out_of_scope != "kl"),
+                                       ("--think-supervision", getattr(args, "think_supervision", False)))
+               if set_]
+    if refused:
+        parser.error(f"--distill-advantage teaches no R by cross-entropy and reads every priority subtype: "
+                     f"not with {', '.join(refused)}")
+    if args.distill_kinds != (0,):
+        parser.error("--distill-advantage teaches priority alone: --distill-kinds 0")
+    if not (math.isfinite(args.distill_advantage_beta) and args.distill_advantage_beta > 0
+            and math.isfinite(args.distill_advantage_clip) and args.distill_advantage_clip > 0):
+        parser.error("--distill-advantage-beta and --distill-advantage-clip must be positive and finite")
+    if not (math.isfinite(args.distill_advantage_weight) and args.distill_advantage_weight >= 0):
+        parser.error("--distill-advantage-weight must be nonnegative and finite")
+    if args.distill_advantage_min_worlds < 1:
+        parser.error("--distill-advantage-min-worlds must be at least 1")
