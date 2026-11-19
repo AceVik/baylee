@@ -430,10 +430,16 @@ const fn how_index(how: TeacherHow) -> usize {
 mod tests {
     use super::{TeacherCounts, TeacherSpec};
 
+    /// The teacher follows the named level: its metadata names the
+    /// generation `expert` plays today, which is how a dataset records the
+    /// teacher it was labelled by (the 11-Nov house-teacher probe says 7).
     #[test]
     fn only_a_fair_house_level_teaches() {
         let expert = TeacherSpec::parse("house:expert").unwrap();
-        assert_eq!(expert.metadata()["generation"], 7);
+        let plays = super::super::profile_spec::parse("expert")
+            .unwrap()
+            .generation;
+        assert_eq!(expert.metadata()["generation"], plays);
         assert_eq!(expert.metadata()["foresight"]["worlds"], 6);
         assert_eq!(expert.metadata()["fair"], true);
         assert!(TeacherSpec::parse("house:sharp-2026-11").is_ok());
