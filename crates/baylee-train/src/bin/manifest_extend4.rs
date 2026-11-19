@@ -17,7 +17,12 @@
 //!   any manifest given, or to one taken before it, is dropped. The one
 //!   exception is a precon whose adapted copy (`adapted/<key>`) is that deck
 //!   and sits in `train`: the original joins it there, as the precon importer
-//!   groups near decks into one split.
+//!   groups near decks into one split;
+//! - nothing comes near a protected evaluation pool (`--protect`): a deck at
+//!   or above `--similarity` to one of its decks, a precon whose source list
+//!   is a protected deck's `original_ref` or whose `adapted/<key>` copy is
+//!   protected, and a precon whose adapted copy sits outside `train` are all
+//!   dropped, whatever their similarity.
 //!
 //! Without `--write` it prints what it would add and writes nothing. With
 //! it, it writes a new directory (which must not exist): the deck files and
@@ -57,6 +62,11 @@ struct Args {
     /// Further manifests whose decks exist already (keys and similarity).
     #[arg(long)]
     existing: Vec<PathBuf>,
+    /// Evaluation pools no new deck may come near (repeatable): a new deck
+    /// at or above `--similarity` to one of their decks, or made from the
+    /// same source list (`original_ref`, `adapted/<key>`), is dropped.
+    #[arg(long)]
+    protect: Vec<PathBuf>,
     /// Near-complete MTGO lists to admit once complete (repeatable).
     #[arg(long)]
     near_complete: Vec<PathBuf>,
@@ -162,6 +172,45 @@ impl Similar {
                 self.splits[id].as_str(),
             )
         })
+    }
+}
+
+/// The decks of the evaluation pools: ids, source lists and lists.
+#[derive(Default)]
+struct Protected {
+    ids: BTreeSet<String>,
+    refs: BTreeSet<String>,
+    similar: Similar,
+    decks: usize,
+}
+
+impl Protected {
+    fn read(root: &Path, manifests: &[PathBuf]) -> Result<Self> {
+        let mut protected = Self::default();
+        for path in manifests {
+            let manifest = read_json(path)?;
+            for e in manifest["decks"]
+                .as_array()
+                .context("a manifest without decks")?
+            {
+                let id = e["id"].as_str().context("a deck without an id")?.to_owned();
+                if let Some(original) = e["original_ref"].as_str() {
+                    protected.refs.insert(original.to_owned());
+                }
+                let list = resolve_path(root, e["path"].as_str().unwrap_or_default());
+                let text = fs::read_to_string(&list)
+                    .with_context(|| format!("protected deck {id}: {}", list.display()))?;
+                let deck = HouseDeck::parse_any(&id, &text)?;
+                let mut m = BTreeMap::new();
+                for c in deck.deck.main.iter().chain(&deck.deck.commanders) {
+                    *m.entry(c.index.get()).or_default() += 1;
+                }
+                protected.similar.add(&id, "protected", &m);
+                protected.ids.insert(id);
+                protected.decks += 1;
+            }
+        }
+        Ok(protected)
     }
 }
 
@@ -365,6 +414,7 @@ fn main() -> Result<()> {
     let mut known: BTreeMap<String, String> = BTreeMap::new();
     let mut kept = Similar::default();
     let mut unreadable = Vec::new();
+    let protected = Protected::read(&root, &args.protect)?;
     let mut manifests = vec![base.clone()];
     for p in &args.existing {
         manifests.push(read_json(p)?);
@@ -408,6 +458,32 @@ fn main() -> Result<()> {
             continue;
         }
         let cards = c.multiset();
+        // The original of a deck kept out of training stays out with it: a
+        // protected deck's source, or a precon whose adapted copy is outside
+        // train, is never added, however far the two lists have drifted.
+        if let Some(key) = c.id.strip_prefix("precon/") {
+            let adapted = format!("adapted/{key}");
+            if protected
+                .refs
+                .contains(&format!("data/decks/precon/{key}.txt"))
+                || protected.ids.contains(&adapted)
+            {
+                *skipped.entry("original_of_protected".into()).or_default() += 1;
+                continue;
+            }
+            if let Some(split) = known.get(&adapted).filter(|s| *s != "train") {
+                *skipped.entry(format!("original_of_{split}")).or_default() += 1;
+                continue;
+            }
+        }
+        if protected
+            .similar
+            .nearest(&cards)
+            .is_some_and(|(share, _)| share >= args.similarity)
+        {
+            *skipped.entry("near_protected".into()).or_default() += 1;
+            continue;
+        }
         let held_count = cards
             .keys()
             .filter(|k| held.contains(&CardIndex::new(**k)))
@@ -502,6 +578,8 @@ fn main() -> Result<()> {
         "working_pool_hash": working.hash(),
         "working_cards": working.cards.len(),
         "existing_unreadable": unreadable,
+        "protected": args.protect,
+        "protected_decks": protected.decks,
         "added": added.len(),
         "added_by_split_source_format": by,
         "skipped": skipped,
@@ -541,6 +619,7 @@ fn main() -> Result<()> {
         "manifest": args.manifest,
         "decks": base["decks"].as_array().map_or(0, Vec::len),
         "working_pool_hash": base["working_pool_hash"],
+        "protected": args.protect,
     });
     recount(&mut copy);
     let out = args.out.join("manifest.json");
