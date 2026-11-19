@@ -203,6 +203,28 @@ JSON wire types in `central-api` and HTTP transport methods in
 `central-client`. The same exact-source and reverse-consumer checks remain in
 force.
 
+The contact status pin advances to
+`7c2a801c862e836cad0a292344bb62d5d5add301` on 19 November 2026, and this one
+is not byte-for-byte: it was read again. Each of the three SDK manifests
+changes one line, the `zeroize` pin from 1.9.1 to 1.9.2, and that line is the
+whole diff of the `central-crypto` tree; no source file, feature or other
+dependency of the crate changed, and Central renewed its source fingerprint
+for it to `90a16779381ae9646d5c460fd42db79c060e91b3fd40738f58a9359990aa865c`.
+`central-api` gains the status's own types (`presence.rs`), the funding and
+released-export wire types and further JSON wire types; `central-client`
+gains the three status requests (`presence.rs`). None of it is cryptography
+and none adds a dependency. Central's lockfile did change, for its dependency
+upgrade of 18 November 2026, but `crypto-bigint` 0.5.5, `elliptic-curve`
+0.13.8, `voprf` 0.5.0 and `opaque-ke` 4.0.1 stand in it as before, and its
+own advisory document says who reaches them. In Baylee's lockfile the pin
+moves `zeroize` to 1.9.2 and `ureq` to 3.5.2 and adds `central-funding` with
+`roxmltree` under `central-identity`, gives `central-http` the `sha1` 0.11.0
+and `base64` 0.22.1 already in the lock (the push socket's handshake) and
+lets `central-migration` depend on `sea-orm` instead of `sea-orm-migration`;
+these are crates the gateway and the local provisioning build and the client
+does not. No edge to the affected arithmetic is added. The same exact-source
+and reverse-consumer checks remain in force.
+
 The former Central revision
 `0a941953f8c0d5573e82e0979e7faf1fb9e40299` contains the `central-crypto`
 source tree reviewed independently by two models on 24.10.2026, with two
