@@ -173,6 +173,8 @@ pub mod kami_of_the_crescent_moon;
 pub mod keening_banshee;
 #[path = "rav/last_gasp.rs"]
 pub mod last_gasp;
+#[path = "rav/life_from_the_loam.rs"]
+pub mod life_from_the_loam;
 #[path = "bok/lifegift.rs"]
 pub mod lifegift;
 #[path = "rav/lightning_helix.rs"]

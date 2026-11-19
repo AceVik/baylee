@@ -217,6 +217,8 @@ pub mod might_sliver;
 pub mod mindlash_sliver;
 #[path = "dis/minister_of_impediments.rs"]
 pub mod minister_of_impediments;
+#[path = "csp/mishra_s_bauble.rs"]
+pub mod mishra_s_bauble;
 #[path = "dis/mistral_charger.rs"]
 pub mod mistral_charger;
 #[path = "tsp/mogg_war_marshal.rs"]
