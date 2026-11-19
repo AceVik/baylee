@@ -2,8 +2,12 @@
 use super::*;
 use crate::housedeck::HouseDeck;
 use baylee_core::ids::PrintRef;
-use baylee_core::preset::{AIProfile, DeckEntry, FormatId};
+use baylee_core::preset::{AIProfile, DeckEntry, FormatId, GamePreset};
 use baylee_gamehost::Session;
+
+#[cfg(feature = "onnx")]
+#[path = "snuff_out_net_tests.rs"]
+mod snuff_out_net;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -24,7 +28,7 @@ fn entry(name: &str) -> DeckEntry {
     }
 }
 
-fn game(hands: [&[&str]; 2], boards: [&[&str]; 2]) -> Session {
+fn game_preset(hands: [&[&str]; 2], boards: [&[&str]; 2]) -> GamePreset {
     let deck = HouseDeck::named("victory").unwrap();
     let mut preset = crate::selfplay::table_for(12, &[&deck, &deck], &[AIProfile::STEADY; 2], &[]);
     preset.format = FormatId::Freeform;
@@ -37,10 +41,18 @@ fn game(hands: [&[&str]; 2], boards: [&[&str]; 2]) -> Session {
         seat.starting_battlefield = boards[index].iter().map(|name| entry(name)).collect();
         seat.starting_life = Some(20);
     }
-    let mut session = Session::new(&preset).unwrap();
+    preset
+}
+
+fn driven_session(preset: &GamePreset) -> Session {
+    let mut session = Session::new(preset).unwrap();
     assert!(session.take_over(P0));
     assert!(session.take_over(P1));
     session
+}
+
+fn game(hands: [&[&str]; 2], boards: [&[&str]; 2]) -> Session {
+    driven_session(&game_preset(hands, boards))
 }
 
 /// Choose a legal encoded answer explicitly. No heuristic or engine-state read
