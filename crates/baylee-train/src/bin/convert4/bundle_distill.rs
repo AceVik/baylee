@@ -24,6 +24,13 @@
 //! candidates' cards and abilities, pairs) and the executed answer must be the
 //! record's, and a priority label must name its subtype. Any mismatch rejects
 //! the game.
+//!
+//! A run that probed the layer's answers (`eval4 --search-rival distill`,
+//! `distill_probe_v1`) keeps each probe with its label: the JSON steps line
+//! holds it whole, and the probe sidecar (`probes.rs`,
+//! `bundle-distill/probe.*`) a summary per probed frame. A probe must belong
+//! to its label (a priority decision with `N ≠ R`, its rival `R`'s menu
+//! entry, a score for both in every world), or the game is rejected.
 
 use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
@@ -32,8 +39,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, ensure};
 use baylee_train::convert4::distill_labels::{
-    DistillFrame4, DistillFrameLabel4, DistillLabel4, DistillStep4, DistillSubtype4, FIRED_GROUPS,
-    menu_signature,
+    DistillFrame4, DistillFrameLabel4, DistillLabel4, DistillProbe4, DistillStep4, DistillSubtype4,
+    FIRED_GROUPS, menu_signature,
 };
 use baylee_train::convert4::{NetAnswer4, Step4};
 use baylee_train::features4::{HeadKind4, SourceKind4, TeacherTarget4};
@@ -139,6 +146,8 @@ pub(super) struct Runs {
     /// teacher they name: one of each per dataset.
     contract: Option<&'static str>,
     teacher: Option<Value>,
+    /// Whether any run probed the layer's answers (`distill.probe`).
+    probed: bool,
 }
 
 impl Runs {
@@ -150,7 +159,14 @@ impl Runs {
             sources: Vec::new(),
             contract: None,
             teacher: None,
+            probed: false,
         }
+    }
+
+    /// Whether any admitted run probed the layer's answers: the dataset then
+    /// gets the probe sidecar (`probes.rs`), even if no decision was probed.
+    pub(super) const fn probed(&self) -> bool {
+        self.probed
     }
 
     /// Admits one run: it must declare a distillation contract, the same as
@@ -188,12 +204,27 @@ impl Runs {
                 .as_ref()
                 .map_or(Value::Null, |t| t["level"].clone())
         );
+        // A searched run's answers are the policy's own only when its search
+        // measured, with the layer for a rival, in fair worlds.
+        let search = &run_json["search"];
+        ensure!(
+            search.is_null()
+                || (search["selection"]["rule"] == "measure"
+                    && search["rival"] == "distill"
+                    && search["decks"]
+                        == "public_prior_from_the_seats_view_and_own_list_never_another_players_list"),
+            "{}: a searched run's labels are read only from a fair measuring search with the \
+             layer for a rival (eval4 --search-select measure --search-rival distill --search-fair)",
+            run_dir.display()
+        );
         let seated = self.decks.seated(run_dir, run_json)?;
         self.contract = Some(contract);
         self.teacher.clone_from(&teacher);
+        self.probed |= !run_json["distill"]["probe"].is_null();
         self.sources.push(
             json!({"run": run_dir, "label_rules": run_json["distill"]["label_rules"],
-            "teacher": teacher, "players": run_json["distill"]["players"], "decks": seated.len()}),
+            "teacher": teacher, "players": run_json["distill"]["players"], "decks": seated.len(),
+            "probe": run_json["distill"]["probe"], "search": run_json["search"]}),
         );
         self.seated.extend(seated);
         Ok(())
@@ -286,6 +317,10 @@ pub(super) struct Counts {
     pub n_ne_r_by_subtype: BTreeMap<String, u64>,
     /// `N ≠ R` frames by each rule group that fired there.
     pub n_ne_r_by_group: BTreeMap<String, u64>,
+    /// Frames whose `N` and `R` were probed in fair worlds.
+    pub probed: u64,
+    /// Probed frames by subtype.
+    pub probed_by_subtype: BTreeMap<String, u64>,
 }
 
 /// Adds `other`'s counts into `into`.
@@ -305,6 +340,8 @@ impl Counts {
         add_counts(&mut self.by_subtype, &other.by_subtype);
         add_counts(&mut self.n_ne_r_by_subtype, &other.n_ne_r_by_subtype);
         add_counts(&mut self.n_ne_r_by_group, &other.n_ne_r_by_group);
+        self.probed += other.probed;
+        add_counts(&mut self.probed_by_subtype, &other.probed_by_subtype);
     }
 
     /// Counts one labelled frame.
@@ -325,6 +362,12 @@ impl Counts {
             }
             for group in &frame.fired {
                 one(&mut self.n_ne_r_by_group, group);
+            }
+        }
+        if frame.probe.is_some() {
+            self.probed += 1;
+            if let Some(subtype) = frame.subtype {
+                one(&mut self.probed_by_subtype, subtype.name());
             }
         }
     }
@@ -454,6 +497,14 @@ impl<'a> Cursor<'a> {
         };
         let head = head_of(step.head).ok_or_else(|| format!("unknown head {}", step.head))?;
         let fired_mask = fired_mask(&label.fired)?;
+        if let Some(probe) = &label.probe {
+            probe_binds(label, probe).map_err(|why| {
+                format!(
+                    "distillation step {}: {why}",
+                    step.seat_input.unwrap_or_default()
+                )
+            })?;
+        }
         // The record's own answer, before `R` takes its place.
         let played = (head == HeadKind4::SingleChoice).then_some(step.target.single_idx);
         step.target = label.rules.clone();
@@ -469,6 +520,7 @@ impl<'a> Cursor<'a> {
             subtype: label.subtype,
             fired: label.fired.clone(),
             played,
+            probe: label.probe.clone(),
         };
         self.counts.count(&frame);
         step.distill = Some(DistillFrame4 {
@@ -478,6 +530,41 @@ impl<'a> Cursor<'a> {
         });
         Ok(())
     }
+}
+
+/// Whether a probe belongs to its label: a priority decision where `N`
+/// differs from `R`, its rival `R`'s own place in the menu, and a score and
+/// an end for both answers in every world.
+fn probe_binds(label: &DistillLabel4, probe: &DistillProbe4) -> Result<(), String> {
+    if label.kind != "priority" || !label.n_ne_r {
+        return Err(format!(
+            "a probe at a {} label with N {} R",
+            label.kind,
+            if label.n_ne_r { "!=" } else { "=" }
+        ));
+    }
+    if probe.rival_index != label.rules.single_idx {
+        return Err(format!(
+            "the probe's rival is menu entry {}, the label's R {}",
+            probe.rival_index, label.rules.single_idx
+        ));
+    }
+    if probe.worlds.is_empty() || probe.worlds.len() != probe.ends.len() {
+        return Err(format!(
+            "a probe of {} worlds and {} ends",
+            probe.worlds.len(),
+            probe.ends.len()
+        ));
+    }
+    if probe
+        .worlds
+        .iter()
+        .flatten()
+        .any(|score| !score.is_finite())
+    {
+        return Err("a probe with a score that is not a number".into());
+    }
+    Ok(())
 }
 
 /// The mask of the groups that fired: bit `i` for the `i`-th of
@@ -907,6 +994,94 @@ mod tests {
         assert_eq!(meta["decks"]["all_train"], true);
         assert_eq!(meta["decks"]["manifest"], "decks/manifest.v4.json");
         assert_eq!(meta["decks"]["manifest_sha256"].as_str().unwrap().len(), 64);
+    }
+
+    /// A searched run's labels are read only where the search played
+    /// nothing the net did not: a fair measurement with the layer for a
+    /// rival (eval4's metadata of it, `the_layer_is_a_rival_only_in_a_fair_
+    /// measurement_of_two`).
+    #[test]
+    fn a_searched_run_is_admitted_only_as_a_fair_probe_of_the_layer() {
+        let dir = std::path::Path::new("runs/r");
+        let fair = "public_prior_from_the_seats_view_and_own_list_never_another_players_list";
+        let searched = |rule: &str, rival: &str, decks: &str| {
+            let mut run = run(&["adapted/A/train-deck"]);
+            run["search"] = json!({"selection": {"rule": rule}, "rival": rival, "decks": decks});
+            run["distill"]["probe"] = json!({"contract": "distill_probe_v1"});
+            run
+        };
+        for refused in [
+            searched("paired", "distill", fair),
+            searched("measure", "ranking", fair),
+            searched("measure", "distill", "known_to_the_harness"),
+        ] {
+            let mut runs = Runs::new(manifest());
+            let error = runs.admit(dir, &refused).unwrap_err().to_string();
+            assert!(error.contains("fair measuring search"), "{error}");
+        }
+        let mut runs = Runs::new(manifest());
+        assert!(!runs.probed());
+        runs.admit(dir, &searched("measure", "distill", fair))
+            .unwrap();
+        assert!(runs.probed(), "the dataset gets the probe sidecar");
+        let meta = runs.metadata(&Counts::default());
+        assert_eq!(meta["sources"][0]["probe"]["contract"], "distill_probe_v1");
+        assert_eq!(meta["sources"][0]["search"]["rival"], "distill");
+    }
+
+    /// A probe binds to its label: a priority `N ≠ R` decision, `R`'s menu
+    /// entry, a finite score and an end per world.
+    #[test]
+    fn a_probe_that_does_not_belong_to_its_label_is_refused() {
+        let probe = |rival_index, worlds: Vec<[f32; 2]>| DistillProbe4 {
+            rival_index,
+            own_index: 1,
+            ends: worlds
+                .iter()
+                .map(|_| ["boundary".to_owned(), "boundary".to_owned()])
+                .collect(),
+            worlds,
+            rollouts: 2,
+            house_answers: 0,
+        };
+        let differs = label(2, 1, 1);
+        assert!(probe_binds(&differs, &probe(2, vec![[0.4, 0.5]])).is_ok());
+        assert!(
+            probe_binds(&differs, &probe(3, vec![[0.4, 0.5]])).is_err(),
+            "not R"
+        );
+        assert!(
+            probe_binds(&differs, &probe(2, vec![])).is_err(),
+            "no world"
+        );
+        assert!(
+            probe_binds(&differs, &probe(2, vec![[f32::NAN, 0.5]])).is_err(),
+            "not a number"
+        );
+        let mut short = probe(2, vec![[0.4, 0.5], [0.4, 0.6]]);
+        short.ends.pop();
+        assert!(probe_binds(&differs, &short).is_err(), "an end per world");
+        let same = label(1, 1, 1);
+        assert!(
+            probe_binds(&same, &probe(1, vec![[0.4, 0.5]])).is_err(),
+            "N = R"
+        );
+        let mut subset = label(2, 1, 1);
+        subset.kind = "subset".into();
+        assert!(probe_binds(&subset, &probe(2, vec![[0.4, 0.5]])).is_err());
+
+        // A bound probe rides with the frame into the JSON steps.
+        let mut probed = label(2, 1, 1);
+        probed.probe = Some(probe(2, vec![[0.4, 0.5]]));
+        let labels = game(vec![Some(probed)]);
+        let mut cursor = Cursor::new(&labels);
+        let mut step = frame(0, Some(0), 1);
+        cursor.apply(&mut step).unwrap();
+        assert_eq!(cursor.counts.probed, 1);
+        let kept = step.distill.as_ref().unwrap().label.as_ref().unwrap();
+        assert_eq!(kept.probe.as_ref().unwrap().worlds, [[0.4, 0.5]]);
+        let line = serde_json::to_value(kept).unwrap();
+        assert_eq!(line["probe"]["rival_index"], 2);
     }
 
     #[test]

@@ -69,7 +69,14 @@ mod producer_tests {
         assert_eq!(config.rival(), baylee_train::netplay4::search::Rival4::Distill);
         assert_eq!(config.selection(), Selection4::Measure);
         let metadata = config.metadata();
+        // What convert4 admits a searched distillation run by
+        // (`a_searched_run_is_admitted_only_as_a_fair_probe_of_the_layer`).
         assert_eq!(metadata["rival"], "distill");
+        assert_eq!(metadata["selection"]["rule"], "measure");
+        assert_eq!(
+            metadata["decks"],
+            "public_prior_from_the_seats_view_and_own_list_never_another_players_list"
+        );
         assert_eq!(metadata["provenance"], "the_policys_own");
 
         let without = |flag: &str, value: bool| -> Vec<&str> {

@@ -156,6 +156,11 @@ pub struct DistillFrameLabel4 {
     /// coarse-class sidecar carries it (`p_idx`).
     #[serde(skip)]
     pub played: Option<u16>,
+    /// `N` against `R` in the same fair worlds, where the run probed this
+    /// decision ([`DistillLabel4::probe`]); the probe sidecar carries its
+    /// summary (`bundle-distill/probe.*`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub probe: Option<DistillProbe4>,
 }
 
 /// What a labelled decision is, where the distillation scope reads it. At

@@ -218,6 +218,7 @@ mod llm;
 mod on_policy;
 mod output;
 mod policy_provenance;
+mod probes;
 mod research;
 mod search_advantage;
 mod search_distill;
@@ -737,6 +738,11 @@ fn main() -> anyhow::Result<()> {
     );
     let coarse_rows = Arc::new(Mutex::new(Vec::<coarse_classes::Row>::new()));
     let write_coarse = args.coarse_classes.is_some();
+    // Runs that probed the layer's answers give the dataset its probe sidecar.
+    let probe_rows = Arc::new(Mutex::new(Vec::<probes::Row>::new()));
+    let write_probes = distill_runs
+        .as_ref()
+        .is_some_and(bundle_distill::Runs::probed);
     if let Some(runs) = &distill_runs {
         meta["bundle_distillation"] = runs.metadata(&bundle_distill::Counts::default());
         meta["bundle_distillation_status"] = json!("in_progress");
@@ -794,6 +800,7 @@ fn main() -> anyhow::Result<()> {
         let replay_checks = replay_checks.clone();
         let distill_counts = distill_counts.clone();
         let coarse_rows = coarse_rows.clone();
+        let probe_rows = probe_rows.clone();
         let include_passive = args.include_passive_obs;
         let search_labels = search_labels.clone();
         let after_labels = after_labels.clone();
@@ -821,6 +828,7 @@ fn main() -> anyhow::Result<()> {
                 let mut distill_cursor = gref.distill.as_ref().map(bundle_distill::Cursor::new);
                 let mut distill_steps = gref.distill.as_ref().map(|_| bundle_distill::JsonSteps::new(&root, gref.game_id, distill_contract)).transpose()?;
                 let mut game_coarse = Vec::new();
+                let mut game_probes = Vec::new();
                 let mut search_cursor = search_weighting
                     .map(|weighting| weighting.cursor(gref.search_events.as_ref()));
                 let search_roots = gref.search_roots.as_ref().map(|roots| roots.roots(with_afterstates));
@@ -835,6 +843,7 @@ fn main() -> anyhow::Result<()> {
                     if let Some(cursor) = &mut distill_cursor { cursor.apply(&mut step)?; }
                     if let Some(steps) = &mut distill_steps { steps.push(&step)?; }
                     if write_coarse { game_coarse.extend(coarse_classes::Row::of(&step)); }
+                    if write_probes { game_probes.extend(probes::Row::of(&step)); }
                     if let Some(labels) = &mut frame_labels { labels.push(&step)?; }
                     if let Some(labels)=&mut llm_labels {labels.push(&step)?;}
                     writer.push(&step).map_err(|e|e.to_string())
@@ -886,6 +895,7 @@ fn main() -> anyhow::Result<()> {
                 }
                 if let Some(steps) = distill_steps { steps.finish()?; }
                 coarse_rows.lock().expect("coarse class lock").append(&mut game_coarse);
+                probe_rows.lock().expect("probe lock").append(&mut game_probes);
                 if let Some(labels) = frame_labels { labels.finish()?; }
                 if let Some(labels)=llm_labels {labels.finish()?;}
                 let name = writer.finish()?;
@@ -1001,6 +1011,16 @@ fn main() -> anyhow::Result<()> {
             let header = coarse_classes::write(dir, rows, &source)?;
             meta["coarse_classes"] =
                 json!({"dir": dir, "rows": header["rows"], "rule": header["rule"]});
+        }
+        if write_probes {
+            let rows = std::mem::take(&mut *probe_rows.lock().expect("probe lock"));
+            let dir = args.out.join("bundle-distill");
+            let source = json!({"runs": args.runs, "val_runs": args.val_runs, "dataset": args.out,
+                "steps_sha256": meta["bundle_distillation_steps_sha256"]});
+            let header = probes::write(&dir, rows, &source)?;
+            meta["bundle_distillation"]["probe"] = json!({"dir": dir, "rows": header["rows"],
+                "contract": header["contract"], "header": "probe.json",
+                "index_sha256": header["index"]["sha256"]});
         }
     }
     if args.search_advantage {
