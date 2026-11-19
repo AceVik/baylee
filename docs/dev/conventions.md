@@ -59,6 +59,33 @@ work adds `docs/cards.md`.
   and in all three it is transport, never rules. Do not
   introduce async into `baylee-engine`/`baylee-core`.
 - Git: commits after every working milestone; `rebase` over merge on feature
-  branches. Remote: `git@github.com:AceVik/baylee.git`.
+  branches. Remote: `git@github.com:AceVik/baylee.git`. How often a branch is
+  rebased, pushed and landed is in §"Keeping work on `main`" below.
 - LLM delegation learnings are recorded in `docs/llm-learnings.md` — update
   it after every card batch.
+
+## Keeping work on `main`
+
+Owner, 19.11.2026, for every agent and session. Much runs in parallel here,
+and work that was left uncommitted, unpushed or unlanded has been lost, or
+went so stale after a session's weekly quota ran out that landing it later
+broke `main`. So:
+
+- **Nothing stays only local.** After each finished piece, at least once a
+  day, and before a session ends or its quota runs low: commit, rebase onto
+  `origin/main` and push the branch. Half-done work and experiments are pushed
+  too, as branches whose names say what they are; a failed experiment that is
+  kept is pushed, not left on one machine.
+- **Finished pieces land soon and small.** A green piece goes onto `main`
+  through the gates (`docs/dev/commands.md`) instead of waiting for the rest
+  of its stack. A session that does not land itself hands its branch and full
+  commit hash to the one that does, as often as it has one.
+- **In the background, and cheaply.** This runs beside the actual work. A
+  conflict-free rebase, the gate run and the push may go to a cheaper model
+  or a subagent, because the gate takes long; one gate runs at a time. A
+  conflict in the engine, the protocol or the gateway is resolved by the
+  session that wrote the change, not by the helper.
+- **An old state is compared before it lands.** What lay for long is checked
+  against `main` first (`git cherry origin/main <branch>` shows the patches
+  `main` lacks), and what is still missing is named to the owner, who decides
+  what is taken. Nobody force-pushes over another lane's branch.

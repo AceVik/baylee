@@ -36,6 +36,14 @@ unofficial, non-commercial fan project.
   full gates. Wasm is an optional experimental check until browser support
   ships. A change lands after the local gates, not after CI
   (`docs/dev/commands.md`, `docs/releasing.md` §"CI").
+- **Work does not lie around (owner, 19.11.2026; all agents).** After each
+  finished piece, at least once a day, and before a session ends or its quota
+  runs low: commit, rebase onto `origin/main` and push the branch, half-done
+  work included. A finished piece lands on `main` soon and in small steps,
+  through the gate above. This runs in the background beside the actual work;
+  a cheaper model may do the rebase, the gate run and the push. Parallel work
+  left unpushed or unlanded has been lost and has broken `main` before
+  (`docs/dev/conventions.md` §"Keeping work on `main`").
 - **Development features are local-only.** CI runs no dev-feature matrix;
   `shipped-features` only verifies that test hooks cannot reach shipped builds.
 - **Determinism.** The engine and core use the seeded RNG only; no
