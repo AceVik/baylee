@@ -1,7 +1,9 @@
 //! View-only tactical guards and color-aware mana selection for [`super::NetPlayer4`].
 
 pub mod guard;
+pub(super) mod number;
 pub mod rules;
+mod sweep;
 
 use baylee_cards_dsl::{
     AbilityDef, ActivationTiming, Amount, Condition, CostPart, CounterKind, Effect, Filter,
@@ -21,6 +23,7 @@ use crate::features4::{
 };
 // One reading of a counterspell for the layer, `gamelog4 react` and the deck scan.
 use crate::reactivity::counters as is_counterspell_effects;
+use crate::reactivity::counters_anywhere;
 
 use std::cell::Cell;
 
@@ -78,8 +81,11 @@ pub(crate) fn is_opponent(actor: PlayerId, other: PlayerId) -> bool {
 /// Selects a single candidate index from `cands` (`HeadKind4::SingleChoice`),
 /// applying view-only mana-sink masking, main-phase land/proactive guards,
 /// target-intent friendly-fire protection, and color-aware mana source redirection.
+/// With `narrow` (the `defer` group) a pass is turned only to the plays that
+/// made the layer act.
 #[allow(
     clippy::too_many_lines,
+    clippy::too_many_arguments,
     reason = "Applies view-only priority, target-intent, and mana/land redirection guards"
 )]
 pub(super) fn select_single_choice(
@@ -90,6 +96,7 @@ pub(super) fn select_single_choice(
     active_source: Option<(ObjectId, Option<u32>)>,
     temperature: f32,
     rng: &mut Rng,
+    narrow: bool,
 ) -> (usize, f32) {
     let n = cands.candidates.len();
     if n == 0 {
@@ -458,25 +465,62 @@ pub(super) fn select_single_choice(
                 && matches!(view.phase, Phase::FirstMain | Phase::SecondMain))
                 || (view.active != actor && view.phase == Phase::Ending))
                 && has_proactive_draw_ability_play(view, legal);
-            let main_phase_proactive = view.owed.is_none()
-                && view.stack.is_empty()
+            let quiet = view.owed.is_none() && view.stack.is_empty();
+            let sink_window = p_pass < 0.90
+                && view.active == actor
+                && matches!(view.phase, Phase::FirstMain | Phase::SecondMain)
+                && (view.phase == Phase::SecondMain || view.hand.is_empty())
+                && has_sink;
+            let combat_window = p_pass < 0.90
+                && view.phase == Phase::Combat
+                && ((view.active == actor && view.step == Step::DeclareAttackers)
+                    || (view.active != actor && view.step == Step::DeclareBlockers))
+                && has_proactive_combat_ability_play(view, legal);
+            let main_phase_proactive = quiet
                 && (draw_ab_ready
                     || (view.active == actor
                         && matches!(view.phase, Phase::FirstMain | Phase::SecondMain)
                         && (play_land_first
                             || crack_fetch_first
                             || has_proactive_main_phase_play(view, legal)))
-                    || (p_pass < 0.90
-                        && ((view.active == actor
-                            && matches!(view.phase, Phase::FirstMain | Phase::SecondMain)
-                            && (view.phase == Phase::SecondMain || view.hand.is_empty())
-                            && has_sink)
-                            || (view.phase == Phase::Combat
-                                && ((view.active == actor
-                                    && view.step == Step::DeclareAttackers)
-                                    || (view.active != actor
-                                        && view.step == Step::DeclareBlockers))
-                                && has_proactive_combat_ability_play(view, legal)))));
+                    || sink_window
+                    || combat_window);
+            // `narrow` (the `defer` group): where the net did not want to act
+            // and only the proactive reading makes the layer act, it acts with
+            // the plays that reading is about: spells, lands and the mana for
+            // them, a planeswalker, and abilities only where a draw, a combat
+            // or a mana sink is why it acts (and then, for a sink, only those
+            // that spend mana). And whatever the reason, never an ability that
+            // only returns its own permanent to hand while nothing of theirs is
+            // on the stack: that undoes the seat's own play for nothing.
+            let net_passes = narrow && p_pass >= 0.50;
+            let wide = !net_passes || owed_unmet || floating_with_castable || floating_mid_tap;
+            let theirs_on_stack = view
+                .stack
+                .iter()
+                .any(|item| is_opponent(actor, item.controller));
+            let reason_play = |action: &PlayerAction| match action {
+                PlayerAction::ActivateAbility {
+                    source,
+                    ability_index,
+                } if net_passes
+                    && !theirs_on_stack
+                    && only_returns_itself(view, *source, *ability_index) =>
+                {
+                    false
+                }
+                _ if wide || draw_ab_ready || combat_window => true,
+                PlayerAction::ActivateAbility {
+                    source,
+                    ability_index,
+                } if !is_mana_ability_entry(view, *source, *ability_index)
+                    && !is_fetchland_ability_entry(view, *source, *ability_index) =>
+                {
+                    is_loyalty_ability(view, *source, *ability_index)
+                        || (sink_window && ability_costs_mana(view, *source, *ability_index))
+                }
+                _ => true,
+            };
 
             if p_pass < 0.50
                 || owed_unmet
@@ -540,6 +584,7 @@ pub(super) fn select_single_choice(
                                 .as_ref()
                                 .is_some_and(|a| !is_mana_action(view, a))
                     })
+                    .filter(|&i| cands.candidates[i].action.as_ref().is_none_or(reason_play))
                     .map(|i| (i, logits[i]))
                     .max_by(|a, b| a.1.total_cmp(&b.1))
                 {
@@ -719,6 +764,57 @@ fn should_play_land_first(view: &PlayerView, legal: &LegalActions) -> bool {
         return false;
     }
     legal.lands.iter().any(|&id| is_true_land_card(view, id)) || legal.payable.is_empty()
+}
+
+/// The ability at `index` of the permanent `source`, as printed.
+fn battlefield_ability(
+    view: &PlayerView,
+    source: ObjectId,
+    index: u32,
+) -> Option<&'static AbilityDef> {
+    abilities_of_battlefield_object(view.object(source)?)?.get(index as usize)
+}
+
+/// Whether that ability is a planeswalker's loyalty ability.
+fn is_loyalty_ability(view: &PlayerView, source: ObjectId, index: u32) -> bool {
+    matches!(
+        battlefield_ability(view, source, index),
+        Some(AbilityDef::Loyalty { .. })
+    )
+}
+
+/// Whether that ability does nothing but return its own permanent to its
+/// owner's hand (Darting Merfolk's): a way to save it, or nothing.
+fn only_returns_itself(view: &PlayerView, source: ObjectId, index: u32) -> bool {
+    match battlefield_ability(view, source, index) {
+        Some(
+            AbilityDef::Activated { effects, .. }
+            | AbilityDef::ActivatedConditional { effects, .. },
+        ) => {
+            !effects.is_empty()
+                && effects.iter().all(|effect| {
+                    matches!(
+                        effect,
+                        Effect::ReturnToHand {
+                            target: TargetSpec::ThisObject
+                        }
+                    )
+                })
+        }
+        _ => false,
+    }
+}
+
+/// Whether that ability costs mana: what a mana sink can spend on it.
+fn ability_costs_mana(view: &PlayerView, source: ObjectId, index: u32) -> bool {
+    match battlefield_ability(view, source, index) {
+        Some(
+            AbilityDef::Activated { cost, .. }
+            | AbilityDef::ActivatedConditional { cost, .. }
+            | AbilityDef::ModalActivated { cost, .. },
+        ) => cost.mana.cmc() > 0 || cost.mana.has_variable(),
+        _ => false,
+    }
 }
 
 fn is_fetchland_ability_entry(view: &PlayerView, source: ObjectId, ability_index: u32) -> bool {
@@ -2159,7 +2255,8 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
             {
                 continue;
             }
-            if is_counterspell_effects(effects)
+            // A counter behind a payment (Mana Leak) counters only theirs too.
+            if counters_anywhere(effects)
                 && (view.stack.iter().all(|s| is_ally(actor, s.controller))
                     || view
                         .top_of_stack()
@@ -2289,6 +2386,10 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
                         {
                             continue;
                         }
+                        if view.stack.is_empty() && is_past_combat(view) && ends_this_turn(effects)
+                        {
+                            continue;
+                        }
                     }
                     if is_hostile_object_effects(effects)
                         && !view.battlefield.iter().any(|o| {
@@ -2406,9 +2507,9 @@ pub(super) fn is_modal_mode_worth_casting(
     actor: PlayerId,
     mode: &baylee_cards_dsl::SpellMode,
 ) -> bool {
-    if is_counterspell_effects(mode.effects)
-        && view.stack.iter().all(|s| is_ally(actor, s.controller))
-    {
+    // A mode that counters, behind a payment or not (Izzet Charm's), has
+    // nothing to do with only the seat's own spells on the stack.
+    if counters_anywhere(mode.effects) && view.stack.iter().all(|s| is_ally(actor, s.controller)) {
         return false;
     }
     if let Some(ref req) = mode.targets
@@ -3653,13 +3754,18 @@ fn classify_ability_intent(view: &PlayerView, actor: PlayerId, ab: &AbilityDef) 
         AbilityDef::ModalSpell { modes, .. }
         | AbilityDef::ModalActivated { modes, .. }
         | AbilityDef::ModalTriggered { modes, .. } => {
-            for m in *modes {
-                let intent = classify_effects_intent(view, actor, m.effects);
-                if intent != TargetIntent::Neutral {
-                    return intent;
-                }
+            // The view does not say which mode the target is for: the layer
+            // takes a side only where every mode that targets takes the same
+            // one. Reverent Howl's pump wants the seat's own side; its draw
+            // two, lose two at 1 life must not be aimed there for it.
+            let mut intents = modes
+                .iter()
+                .filter(|m| m.targets.is_some())
+                .map(|m| classify_effects_intent(view, actor, m.effects));
+            match intents.next() {
+                Some(first) if intents.all(|intent| intent == first) => first,
+                _ => TargetIntent::Neutral,
             }
-            TargetIntent::Neutral
         }
         _ => TargetIntent::Neutral,
     }
@@ -3863,6 +3969,31 @@ fn is_pure_pump_effects(effects: &[Effect]) -> bool {
             _ => false,
         })
         && !is_hostile_object_effects(effects)
+}
+
+/// Whether every effect is a pump that ends with the turn (CR 514.2): nothing
+/// of it outlasts the turn it is cast in.
+fn ends_this_turn(effects: &[Effect]) -> bool {
+    !effects.is_empty()
+        && effects.iter().all(|e| {
+            matches!(
+                e,
+                Effect::PumpTarget {
+                    duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+                    ..
+                } | Effect::PumpTargetSlot {
+                    duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+                    ..
+                }
+            )
+        })
+}
+
+/// Whether this turn's combat is over: its end-of-combat step, the second
+/// main phase or the ending phase. Nothing fights again this turn.
+fn is_past_combat(view: &PlayerView) -> bool {
+    matches!(view.phase, Phase::SecondMain | Phase::Ending)
+        || (view.phase == Phase::Combat && view.step == Step::CombatEnd)
 }
 
 pub(super) fn is_hostile_object_effects(effects: &[Effect]) -> bool {
@@ -5433,6 +5564,9 @@ pub mod reading {
         })
     }
 }
+
+#[cfg(test)]
+mod worth_tests;
 
 #[cfg(test)]
 mod tests {
