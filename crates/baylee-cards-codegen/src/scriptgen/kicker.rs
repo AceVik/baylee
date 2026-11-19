@@ -142,8 +142,7 @@ impl Tx<'_> {
         let valid = p.peek("ValidTgts")?.to_string();
         match (p.peek("TargetMin"), p.peek("TargetMax")) {
             (None, None) => {}
-            (Some(min), Some(max))
-                if min == max && self.kicked_pair(min) == Some((1, 0)) => {}
+            (Some(min), Some(max)) if min == max && self.kicked_pair(min) == Some((1, 0)) => {}
             _ => return None,
         }
         p.take("ValidTgts");
@@ -452,10 +451,7 @@ impl Tx<'_> {
     /// Appends `new_effects` to `effects`, merging two adjacent complementary
     /// one-armed `Effect::IfKicked` nodes (`then`-only + `otherwise`-only, in
     /// either order) into a single `Effect::IfKicked { then, otherwise }`.
-    pub(super) fn push_effects_merging_kicked(
-        effects: &mut Vec<String>,
-        new_effects: Vec<String>,
-    ) {
+    pub(super) fn push_effects_merging_kicked(effects: &mut Vec<String>, new_effects: Vec<String>) {
         if let ([incoming], Some(prev)) = (new_effects.as_slice(), effects.last_mut()) {
             fn split_only(s: &str) -> Option<(bool, &str)> {
                 if let Some(inner) = s
