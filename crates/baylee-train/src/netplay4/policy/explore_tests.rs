@@ -432,7 +432,8 @@ fn menace_block(view: &PlayerView) -> (Pending, EncodedCandidates4) {
 /// probability (`sample_pairs_constrained`). Where the explorer executes
 /// that answer it stays without one: no π on the row and no μ in the record,
 /// never zero and never a number's point mass. A layer answer played in its
-/// place is drawn as it stands and records its own.
+/// place at this block, whose counts can move draws into it, has none
+/// either.
 #[test]
 fn a_blocker_draw_the_counts_moved_records_no_behaviour_probability() {
     let view = view();
@@ -466,17 +467,93 @@ fn a_blocker_draw_the_counts_moved_records_no_behaviour_probability() {
             &table,
         )
         .unwrap();
-        if record.played {
-            assert!(lp.is_some() && record.mixture_logprob.is_some());
-        } else {
+        assert_eq!((lp, record.mixture_logprob), (None, None), "{record:?}");
+        assert!(!provenance.has_logprob);
+        assert_eq!(provenance.behavior_logprob.to_bits(), 0);
+        if !record.played {
             executed_net += 1;
             assert_eq!(target.multi_mask, alone.multi_mask);
-            assert_eq!((lp, record.mixture_logprob), (None, None), "{record:?}");
-            assert!(!provenance.has_logprob);
-            assert_eq!(provenance.behavior_logprob.to_bits(), 0);
         }
     }
     assert!(executed_net > 0, "the net's own answer is executed");
+}
+
+/// At a block whose stated counts can move a draw, the layer's answer `R`
+/// may be reached from other draws too, so π(R) and μ(R) = (1 − ε)·π(R) + ε
+/// are not its draw's alone: wherever `R` is executed, played or sampled,
+/// the step carries neither. Every other answer that stands keeps its exact
+/// π and μ. Without a stated count the same block keeps them all.
+#[test]
+fn the_layers_answer_at_a_block_the_counts_can_move_has_no_probability() {
+    let view = view();
+    let (menace, cands) = menace_block(&view);
+    let Pending::ChooseBlockers {
+        player,
+        attacker,
+        blockers,
+        capacity,
+        obeying,
+        demands,
+        ..
+    } = menace.clone()
+    else {
+        unreachable!()
+    };
+    let free = Pending::ChooseBlockers {
+        player,
+        attacker,
+        blockers,
+        capacity,
+        obeying,
+        demands,
+        bounds: Vec::new(),
+    };
+    let table = proposers();
+    for (pending, counts) in [(&menace, true), (&free, false)] {
+        let (mut taken, mut kept) = (0, 0);
+        for (at, logits) in [[0.6_f32, -0.4, 0.5, -0.3], [0.1, 0.2, -0.1, 0.3]]
+            .iter()
+            .enumerate()
+        {
+            let mut explorer = explorer();
+            for seed in 0..200 {
+                explorer.reseed(seed);
+                let net_seed = seed + 1_000 * u64::try_from(at).unwrap();
+                let (_, lp, _) = decide(
+                    Some(&mut explorer),
+                    net_seed,
+                    &view,
+                    pending,
+                    &cands,
+                    logits,
+                    0.2,
+                );
+                let record = explorer.take_last().expect("an explored decision");
+                let provenance = PolicyMode4::Raw.provenance(TAU, 2, HeadKind4::PairPick, lp);
+                check_step(
+                    &record,
+                    EPSILON,
+                    provenance.has_logprob,
+                    provenance.behavior_logprob,
+                    &table,
+                )
+                .unwrap();
+                if record.rule_taken() {
+                    taken += 1;
+                    if counts {
+                        assert_eq!((lp, record.mixture_logprob), (None, None), "{record:?}");
+                    } else {
+                        assert!(lp.is_some() && record.mixture_logprob.is_some());
+                    }
+                } else if lp.is_some() {
+                    kept += 1;
+                    assert!(record.mixture_logprob.is_some(), "{record:?}");
+                }
+            }
+        }
+        assert!(taken > 0, "the layer's answer is executed");
+        assert!(kept > 0, "the net's answers that stand keep π and μ");
+    }
 }
 
 /// A game's coins are its seed's stream, one per explored decision.

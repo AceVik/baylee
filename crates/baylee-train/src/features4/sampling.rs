@@ -195,6 +195,55 @@ pub fn sample_pairs_constrained(
     (mask, free_mask, visit_seq, (!changed).then_some(total_lp))
 }
 
+/// Whether the counts the attackers state (`ChooseBlockers::bounds`) can move
+/// some per-pair draw at this question ([`meet_attacker_bounds`]): an
+/// attacker that needs two or more blockers and that a creature may block
+/// (a lone blocker on it is moved), or one that takes fewer blockers than
+/// the creatures that may block it. Where they can, an answer of
+/// [`sample_pairs_constrained`] may also be reached from other draws, so its
+/// probability is more than its own draw's; that sum is not computed.
+#[must_use]
+pub fn attacker_counts_may_move(cands: &EncodedCandidates4, pending: &Pending) -> bool {
+    let Pending::ChooseBlockers { bounds, .. } = pending else {
+        return false;
+    };
+    let n = cands.pairs.len().min(cands.pair_objects.len());
+    bounds.iter().any(|bound| {
+        let mut may_block: Vec<ObjectId> = Vec::new();
+        for i in 0..n {
+            let [b_idx, a_idx] = cands.pairs[i];
+            let (blocker, attacker) = cands.pair_objects[i];
+            if b_idx >= 0
+                && a_idx >= 0
+                && attacker == bound.attacker
+                && !may_block.contains(&blocker)
+            {
+                may_block.push(blocker);
+            }
+        }
+        let min = usize::try_from(bound.min_blockers).unwrap_or(usize::MAX);
+        let max = usize::try_from(bound.max_blockers).unwrap_or(usize::MAX);
+        (min > 1 && !may_block.is_empty()) || max < may_block.len()
+    })
+}
+
+/// Whether `mask` meets every count the attackers state: each attacker it
+/// blocks has at least its least and at most its most blockers, so
+/// [`meet_attacker_bounds`] leaves it as it stands.
+fn meets_attacker_bounds(mask: &[u8], cands: &EncodedCandidates4, pending: &Pending) -> bool {
+    let Pending::ChooseBlockers { bounds, .. } = pending else {
+        return true;
+    };
+    bounds.iter().all(|bound| {
+        let on = (0..mask.len())
+            .filter(|&i| mask[i] == 1 && cands.pair_objects[i].1 == bound.attacker)
+            .count();
+        let min = usize::try_from(bound.min_blockers).unwrap_or(usize::MAX);
+        let max = usize::try_from(bound.max_blockers).unwrap_or(usize::MAX);
+        on == 0 || (min..=max).contains(&on)
+    })
+}
+
 /// An attacker blocked by fewer creatures than it states (menace: "can't be
 /// blocked except by two or more", CR 702.111b) or by more is no answer the
 /// engine takes (`AnswerFault::TooFewBlockers`, `TooManyBlockers`). Where a
@@ -436,11 +485,22 @@ pub fn subset_free_mask_of(
 
 /// As [`subset_free_mask_of`], for [`sample_pairs_constrained`]: a pair
 /// whose blocker is already assigned, or that names an unencoded object, is
-/// never free and never taken.
+/// never free and never taken; and a mask that misses a count an attacker
+/// states is never drawn as it stands, since [`meet_attacker_bounds`] moves
+/// it. These are the bits of the draw that stands as `mask`; where the counts
+/// can move other draws into it ([`attacker_counts_may_move`]), its
+/// probability under the sampler is more than that draw's.
 #[must_use]
-pub fn pair_free_mask_of(cands: &EncodedCandidates4, mask: &[u8]) -> Option<Vec<u8>> {
+pub fn pair_free_mask_of(
+    cands: &EncodedCandidates4,
+    pending: &Pending,
+    mask: &[u8],
+) -> Option<Vec<u8>> {
     let n = mask.len();
-    if n > cands.pair_objects.len() || n > cands.pairs.len() || mask.iter().any(|&bit| bit > 1)
+    if n > cands.pair_objects.len()
+        || n > cands.pairs.len()
+        || mask.iter().any(|&bit| bit > 1)
+        || !meets_attacker_bounds(mask, cands, pending)
     {
         return None;
     }

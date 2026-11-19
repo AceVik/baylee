@@ -713,7 +713,13 @@ the step claims no probability. A blocker answer the attackers' stated counts
 moved carries no behaviour probability (`sample_pairs_constrained`): where it
 is executed, the step records no π (`has_logprob` false, logprob 0) and its
 `mixture_logprob` is `null`, never a zero or a number's point mass in its
-place. A layer answer outside the sampler's support
+place. At a block whose stated counts can move a draw at all
+(`features4::attacker_counts_may_move`: an attacker that needs two or more
+blockers, or takes fewer than may block it), the layer's answer R may also be
+reached from other draws, so neither π(R) nor μ(R) is its draw's alone (the
+sum is not computed): wherever R is executed there, played or as the net's own
+sample, the step records neither. Every other step's π and μ are exact. A layer
+answer outside the sampler's support
 is never played. `games.jsonl` gives each game's stream (seed, draws, played);
 `run.json` says `exploration` with records `exploration` and labels
 `outcomes_only`. Without the flags no byte of a record changes.
