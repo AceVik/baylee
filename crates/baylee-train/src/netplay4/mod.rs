@@ -492,8 +492,7 @@ impl NetPlayer4 {
     pub fn take_tactician_records(&mut self) -> Vec<tactician::TacticianRecord4> {
         self.tactician
             .as_mut()
-            .map(tactician::Tactician4::take_records)
-            .unwrap_or_default()
+            .map_or_default(tactician::Tactician4::take_records)
     }
 
     /// Sets `eval4 --distill-labels` or `--distill-teacher`: from the next

@@ -1346,16 +1346,11 @@ fn is_suicide_attack_into_blockers(
         .iter()
         .map(|b| i32::from(b.power.unwrap_or(0)).max(0))
         .sum();
-    if (is_protected_engine_or_catastrophic_ltb(view, att_obj) || is_small_spellcast_engine)
+    (is_protected_engine_or_catastrophic_ltb(view, att_obj) || is_small_spellcast_engine)
         && (sum_blocker_powers >= att_rem_tough
             || legal_blockers
                 .iter()
                 .any(|b| has_kw(b, KeywordSet::DEATHTOUCH) && b.power.unwrap_or(0) > 0))
-    {
-        return true;
-    }
-
-    false
 }
 
 fn dies_self_damage_amount(obj: &PublicObject) -> i32 {
@@ -2777,10 +2772,7 @@ fn should_pay_tax(
                 }
             )
         });
-        if is_cumulative && !view.hand.is_empty() && req_mana >= 3 {
-            return false;
-        }
-        true
+        !(is_cumulative && !view.hand.is_empty() && req_mana >= 3)
     };
 
     if let Ok(idx) = usize::try_from(aref.index)
