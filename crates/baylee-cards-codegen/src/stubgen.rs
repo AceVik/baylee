@@ -651,6 +651,8 @@ fn render_face(
     entwine: Option<&str>,
     buyback: Option<&str>,
     multikicker: Option<&str>,
+    additional_costs: &[String],
+    kicked_targets: Option<&str>,
     is_back: bool,
     layout: Option<&str>,
 ) -> Result<String, CodegenError> {
@@ -734,6 +736,15 @@ fn render_face(
     }
     if let Some(m) = multikicker {
         fields.push(format!("multikicker = {m}"));
+    }
+    if !additional_costs.is_empty() {
+        fields.push(format!(
+            "additional_costs = &[{}]",
+            additional_costs.join(", ")
+        ));
+    }
+    if let Some(kt) = kicked_targets {
+        fields.push(format!("kicked_targets = {kt}"));
     }
     // CR 712.2 vs. 712.4a: an MDFC's back is castable or playable from hand,
     // a nonmodal (transforming) one's back is not — in hand the card has

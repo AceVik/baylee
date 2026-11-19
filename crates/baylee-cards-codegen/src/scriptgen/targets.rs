@@ -322,6 +322,7 @@ impl Tx<'_> {
             }
             "Snow" => clauses.push("Filter::HasSupertype(SupertypeSet::SNOW)".to_string()),
             "Enchanted" => clauses.push("Filter::AttachedToBySource".to_string()),
+            "Kicked" => clauses.push("Filter::Kicked".to_string()),
             _ => {
                 let Some(path) = self.cats.const_path(base) else {
                     self.note(format!("filter base `{base}`"));
@@ -424,6 +425,8 @@ impl Tx<'_> {
                         "Filter::Or(&[Filter::IsColorless, Filter::Monocolored])".to_string()
                     }
                     "ChosenColor" => "Filter::OfSourceChosenColor".to_string(),
+                    "kicked" | "Kicked" => "Filter::Kicked".to_string(),
+                    "!kicked" => "Filter::Not(&Filter::Kicked)".to_string(),
                     "" => continue,
                     other if other.starts_with("counters_") => {
                         let Some((comparison, raw)) = other
@@ -606,7 +609,11 @@ impl Tx<'_> {
             }
             // Stir the Grave spells its "with mana value X or less" bound as
             // `SVar:X:Targeted$CardManaCost` instead of `+cmcLEX` on `ValidTgts$`.
+            // Require `{X}` in `ManaCost:` so non-X spells that compute life or
+            // damage from `Targeted$CardManaCost` (e.g. Sheoldred's Restoration)
+            // do not receive a bogus `Filter::CmcAtMostX` target restriction.
             if self.has_x
+                && self.has_x_mana_cost
                 && self.svars.get("X").map(String::as_str) == Some("Targeted$CardManaCost")
                 && !kept.iter().any(|a| a.starts_with("cmc"))
             {
