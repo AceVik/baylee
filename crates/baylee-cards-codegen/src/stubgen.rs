@@ -635,7 +635,7 @@ fn doc_lines(out: &mut String, prefix: &str, text: &str) {
 /// written out; the rest come from the struct-update tail. A stub therefore
 /// says exactly what is printed on the face and nothing else, and a new
 /// `FaceDef` field does not have to be back-filled into every card file.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 fn render_face(
     card_name: &str,
     f: &FaceData,

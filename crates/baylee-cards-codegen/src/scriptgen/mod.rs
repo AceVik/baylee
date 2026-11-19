@@ -388,7 +388,7 @@ struct Tx<'a> {
     /// filter was hoisted into a static.
     trigger_self_etb_kicked: bool,
     /// While splitting a line whose numeric parameter references a
-    /// `Count$Kicked.<A>.<B>` SVar into `Effect::IfKicked { then, otherwise }`,
+    /// `Count$Kicked.<A>.<B>` `SVar` into `Effect::IfKicked { then, otherwise }`,
     /// holds `Some(true)` for the kicked arm and `Some(false)` for the
     /// unkicked arm; `None` everywhere else.
     kicked_branch: Option<bool>,
@@ -475,7 +475,7 @@ impl<'a> Tx<'a> {
         Some((kicked.parse().ok()?, unkicked.parse().ok()?))
     }
 
-    /// [`amount`], resolving a `Count$Kicked.<A>.<B>` SVar when evaluating a
+    /// [`amount`], resolving a `Count$Kicked.<A>.<B>` `SVar` when evaluating a
     /// kicked/unkicked branch (refusing a 0 arm so non-pump effects never emit
     /// vacuous zero-amount instructions).
     pub(super) fn amount_num(&self, raw: &str) -> Option<String> {
@@ -493,7 +493,7 @@ impl<'a> Tx<'a> {
         amount(raw, self.svars, self.has_x)
     }
 
-    /// [`plain_number`], resolving a non-zero `Count$Kicked.<A>.<B>` SVar when
+    /// [`plain_number`], resolving a non-zero `Count$Kicked.<A>.<B>` `SVar` when
     /// evaluating a kicked/unkicked branch.
     pub(super) fn plain_num(&self, raw: &str) -> Option<i64> {
         if let Some(kicked) = self.kicked_branch {
