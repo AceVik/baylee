@@ -127,6 +127,17 @@ pub struct SearchConfig4 {
     macros: bool,
     house: HouseInWorlds4,
     taken_back: TakenBackAtRoots4,
+    stepping: Stepping4,
+}
+
+/// How a searched decision's rollouts step ([`SearchConfig4::with_lockstep`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+enum Stepping4 {
+    /// Each at its own pace, up to the threads budget at once.
+    Free,
+    /// All at once, their model steps sent as one group.
+    Lockstep,
 }
 
 /// What a root does with an answer the table took back from its position
@@ -216,6 +227,7 @@ impl SearchConfig4 {
             macros: false,
             house: HouseInWorlds4::Answers,
             taken_back: TakenBackAtRoots4::Compared,
+            stepping: Stepping4::Free,
         })
     }
 
@@ -443,6 +455,28 @@ impl SearchConfig4 {
         self.threads
     }
 
+    /// The same search with every rollout of a searched decision at once,
+    /// stepped in lockstep: their net steps go to the batched session as
+    /// one group whenever every rollout still playing waits on one
+    /// ([`SearchPlayer4::lockstep_rollout_players`]). The threads budget no
+    /// longer applies; a player that lends no lockstep players runs them as
+    /// without it.
+    #[must_use]
+    pub const fn with_lockstep(self, lockstep: bool) -> Self {
+        let stepping = if lockstep {
+            Stepping4::Lockstep
+        } else {
+            Stepping4::Free
+        };
+        Self { stepping, ..self }
+    }
+
+    /// Whether a searched decision's rollouts step in lockstep.
+    #[must_use]
+    pub const fn lockstep(&self) -> bool {
+        matches!(self.stepping, Stepping4::Lockstep)
+    }
+
     /// The same budgets, chosen among by `selection`.
     ///
     /// # Errors
@@ -508,6 +542,13 @@ impl SearchConfig4 {
             "parallel": "rollouts_at_once_on_twin_players_of_a_shared_batched_net_tallied_in_serial_order",
             "provenance": "search_without_behavior_logprob",
         });
+        if self.lockstep() {
+            // Only a lockstep search names it, so other runs' metadata stays.
+            metadata["lockstep"] = json!(
+                "every_rollout_of_a_decision_at_once_their_steps_sent_as_one_group_\
+                 whenever_every_rollout_still_playing_waits"
+            );
+        }
         if self.targets > 0 {
             metadata["targets"] = json!(self.targets);
             metadata["target_candidates"] = json!(
@@ -675,6 +716,18 @@ pub trait SearchPlayer4 {
         let _ = snapshot;
         None
     }
+    /// `count` rollout players ([`Self::rollout_player`]) that step in
+    /// lockstep: each one's model steps wait until every one still playing
+    /// waits, and then go as one group. Each must be dropped when its
+    /// rollout ends (or never starts), or the others wait for it. `None`
+    /// when the player lends none.
+    fn lockstep_rollout_players(&self, snapshot: &Self::Snapshot, count: usize) -> Option<Vec<Self>>
+    where
+        Self: Sized,
+    {
+        let _ = (snapshot, count);
+        None
+    }
 }
 
 impl SearchPlayer4 for NetPlayer4 {
@@ -733,6 +786,13 @@ impl SearchPlayer4 for NetPlayer4 {
     }
     fn rollout_player(&self, snapshot: &PlayerSnapshot4) -> Option<Self> {
         self.twin_on_shared_net(snapshot)
+    }
+    fn lockstep_rollout_players(
+        &self,
+        snapshot: &PlayerSnapshot4,
+        count: usize,
+    ) -> Option<Vec<Self>> {
+        self.lockstep_twins(snapshot, count)
     }
 }
 

@@ -389,6 +389,9 @@ fn main() -> anyhow::Result<()> {
     if args.inference_servers != 1 && args.inference_batch == 0 {
         bail!("--inference-servers serves the --inference-batch calls; give it a batch");
     }
+    if args.search_lockstep && args.inference_batch == 0 {
+        bail!("--search-lockstep sends its groups to the --inference-batch lanes; give it a batch");
+    }
     if !(2..=8).contains(&args.seats) {
         bail!("--seats must be between 2 and 8");
     }

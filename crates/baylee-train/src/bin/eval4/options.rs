@@ -494,6 +494,15 @@ struct Args {
     /// own, the best mean of the others is played.
     #[arg(long, requires = "search")]
     search_stall_guard: bool,
+    /// Every rollout of a searched decision at once (whatever
+    /// `--search-threads`), stepped in lockstep: their net steps wait until
+    /// every rollout still playing waits on one, and go to the
+    /// `--inference-batch` lanes as one group, so a call holds up to K × P
+    /// rows, the batches an accelerator needs. Needs `--inference-batch`;
+    /// the summary's `inference_batch.lockstep_groups` gives the group
+    /// sizes (`docs/trained-ai.md` §"Lookahead search").
+    #[arg(long, requires = "search")]
+    search_lockstep: bool,
 }
 
 /// `--search-select`: which [`Selection4`] a search uses.
@@ -537,7 +546,8 @@ fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
         .with_turns(args.search_turns)?
         .with_macros(args.search_macros)
         .with_house_free(args.search_house_free)
-        .with_stall_guard(args.search_stall_guard);
+        .with_stall_guard(args.search_stall_guard)
+        .with_lockstep(args.search_lockstep);
     // Only a net on shared batches lends rollout players; without them the
     // rollouts run one by one, and the run's metadata says so.
     if args.inference_batch > 0 {
