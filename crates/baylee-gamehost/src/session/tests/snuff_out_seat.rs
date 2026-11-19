@@ -7,7 +7,7 @@
 //! every question the cast asks; seat 1's Grizzly Bears is the only target.
 
 use super::*;
-use baylee_core::generated::index::{GRIZZLY_BEARS, LOTUS_PETAL, MOUNTAIN, SNUFF_OUT, SWAMP};
+use baylee_core::generated::index::{GRIZZLY_BEARS, MOUNTAIN, SNUFF_OUT, SWAMP, VAULT_OF_WHISPERS};
 use baylee_engine::choice::CastModeKind;
 
 const ME: PlayerId = PlayerId::new(0);
@@ -35,12 +35,13 @@ fn table(mine: &[CardIndex]) -> GamePreset {
 }
 
 fn on(session: &Session, zone: ZoneLocation, card: CardIndex) -> bool {
-    session
-        .state()
-        .zones
-        .list(zone)
-        .iter()
-        .any(|id| session.state().object(*id).and_then(|o| o.card).is_some_and(|c| c.index == card))
+    session.state().zones.list(zone).iter().any(|id| {
+        session
+            .state()
+            .object(*id)
+            .and_then(|o| o.card)
+            .is_some_and(|c| c.index == card)
+    })
 }
 
 /// Keeps both hands, passes to seat 0's first main phase, and casts Snuff
@@ -61,8 +62,23 @@ fn cast(preset: &GamePreset) -> Session {
             break;
         }
         let seat = session.awaiting_seat().expect("somebody is asked");
-        session.act(seat, PlayerAction::PassPriority).expect("a pass");
+        session
+            .act(seat, PlayerAction::PassPriority)
+            .expect("a pass");
         session.pump();
+    }
+    let Pending::Priority {
+        player: ME, legal, ..
+    } = session.pending()
+    else {
+        panic!("expected priority in the first main phase");
+    };
+    // The cast-mode offer reads the player's mana pool. Every permanent
+    // controlled by this seat is a land with a single mana ability.
+    for source in legal.mana_abilities.clone() {
+        session
+            .act(ME, PlayerAction::ActivateManaAbility { source })
+            .expect("tap the land for mana");
     }
     let card = session
         .state()
@@ -134,8 +150,7 @@ fn with_a_swamp_the_house_answers_the_offer_of_both_costs() {
     );
     let (offered, chosen) = house_finishes(&mut session);
     assert!(
-        offered.contains(&CastModeKind::Normal)
-            && offered.contains(&CastModeKind::Alternative(0)),
+        offered.contains(&CastModeKind::Normal) && offered.contains(&CastModeKind::Alternative(0)),
         "{offered:?}"
     );
     assert!(on(&session, ZoneLocation::Graveyard(THEM), GRIZZLY_BEARS));
@@ -162,17 +177,18 @@ fn with_only_a_swamp_the_house_pays_the_life() {
     assert_eq!(session.state().players[0].life, 16);
 }
 
-/// No Swamp, and {3}{B} from three Mountains and a Lotus Petal: the
+/// No Swamp, and {3}{B} from three Mountains and Vault of Whispers: the
 /// alternative is never offered, and the house pays the mana.
 #[test]
 fn without_a_swamp_the_alternative_is_never_offered() {
-    let mut session = cast(&table(&[MOUNTAIN, MOUNTAIN, MOUNTAIN, LOTUS_PETAL]));
+    let mut session = cast(&table(&[MOUNTAIN, MOUNTAIN, MOUNTAIN, VAULT_OF_WHISPERS]));
     let (offered, chosen) = house_finishes(&mut session);
     assert!(
-        !offered.contains(&CastModeKind::Alternative(0)) && chosen != Some(CastModeKind::Alternative(0)),
+        !offered.contains(&CastModeKind::Alternative(0))
+            && chosen != Some(CastModeKind::Alternative(0)),
         "{offered:?}"
     );
     assert!(on(&session, ZoneLocation::Graveyard(THEM), GRIZZLY_BEARS));
-    assert!(on(&session, ZoneLocation::Graveyard(ME), LOTUS_PETAL));
+    assert!(on(&session, ZoneLocation::Graveyard(ME), SNUFF_OUT));
     assert_eq!(session.state().players[0].life, 20);
 }
