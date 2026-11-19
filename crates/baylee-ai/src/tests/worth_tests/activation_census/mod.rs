@@ -507,7 +507,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // The alternative-cost and Kicker readers finish 29 cards; one has an
     // activation, Urborg Skeleton's "{B}: Regenerate this creature", which the
     // regeneration reader reads.
-    assert_eq!((read, of), (3021, 3812), "activated/loyalty reader census");
+    // The Dig reader finishes ten cards; three have an activation, each read:
+    // Grave Defiler's regeneration, Tidal Courier's "gains flying until end
+    // of turn" and Zoologist's reveal-and-sort.
+    assert_eq!((read, of), (3024, 3815), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [
