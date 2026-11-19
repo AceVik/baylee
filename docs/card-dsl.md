@@ -423,12 +423,24 @@ express at all yet.
   the alternative cost on any stated `Condition` evaluated for the caster with
   the spell card as its source (CR 118.9, 601.2b; e.g.
   `AltCondition::If(&Condition::ControlCount(&Filter::HasSubtype(subtypes::land::SWAMP), 1))`
-  for "If you control a Swamp, you may …"). Its `parts` pay `PayLife` and `ExileFromHand`, and
-  both are asked about before the card is offered: a pitch with nothing in
-  hand to exile is not a cast the engine lists. Repeated `ExileFromHand` parts
+  for "If you control a Swamp, you may …"). Its `parts` pay `PayLife`,
+  `ExileFromHand`, `Sacrifice`, `ReturnToHand` and `TapN`
+  (`cast_wizard::paid_as_an_alternative_cost`), and each is asked about
+  before the card is offered: a pitch with nothing in hand to exile is not a
+  cast the engine lists. Repeated `ExileFromHand` parts
   require distinct cards, both in the offer and in payment; the desktop planner
   uses the same collective availability check rather than counting one card twice.
+  The reader writes this field from the spell's own `S: Mode$ AlternativeCost`
+  when every part is one of those and the condition maps one to one (none,
+  "not your turn", a commander you control, or `If` over your turn, raid, a
+  count of permanents you or an opponent control, threshold, your life, cards
+  in your graveyard); any other part or condition stays refused.
 - `FaceDef.additional_costs: &[Cost]` — kicker (optional, yes/no at cast).
+  The reader writes `K:Kicker:<mana>` here; dual, X and non-mana kickers stay
+  refused. A face with a kicked-only target or a target the kicker replaces
+  carries it in `kicked_targets`; the kicked half is `Effect::IfKicked`,
+  read only on the spell itself and on a `Trigger::ETB`, the two places the
+  stack object carries the kicked count.
   Only its `mana` is read; `parts` is paid by nothing and is held empty.
 - `waterbend = true` — "you may waterbend {N}": the additional cost above is
   a waterbend cost, so once it is paid, artifacts and creatures may be tapped
