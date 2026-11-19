@@ -995,10 +995,12 @@ fn expert_at_generation_7_searches_as_pinned() {
     if record {
         let text = serde_json::to_string_pretty(&played).expect("the pin serializes");
         std::fs::write(&path, text + "\n").unwrap_or_else(|e| panic!("{path}: {e}"));
-        let list: String = finished
+        let list = finished
             .iter()
-            .map(|card| format!("{}\n", card.get()))
-            .collect();
+            .map(|card| card.get().to_string())
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n";
         std::fs::write(&pool_path, list).unwrap_or_else(|e| panic!("{pool_path}: {e}"));
         return;
     }

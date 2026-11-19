@@ -237,16 +237,17 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
             .get(usize::from(view.seat.get()))
             .map_or(&[][..], |deck| &deck.cards[..]);
         #[cfg(test)]
-        let frozen = FROZEN_PRIOR_POOL.with(|frozen| {
-            frozen
-                .borrow()
-                .as_ref()
-                .map(|pool| baylee_ai::foresight::prior::public_prior_from(view, own, pool))
-        });
+        let supposed = FROZEN_PRIOR_POOL
+            .with(|frozen| {
+                frozen
+                    .borrow()
+                    .as_ref()
+                    .map(|pool| baylee_ai::foresight::prior::public_prior_from(view, own, pool))
+            })
+            .unwrap_or_else(|| baylee_ai::foresight::prior::public_prior(view, own));
         #[cfg(not(test))]
-        let frozen = None;
-        frozen
-            .unwrap_or_else(|| baylee_ai::foresight::prior::public_prior(view, own))
+        let supposed = baylee_ai::foresight::prior::public_prior(view, own);
+        supposed
             .into_iter()
             .fold(PublicPrior::new(), |prior, (seat, cards)| {
                 prior.with_player(seat, cards)
