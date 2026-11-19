@@ -245,6 +245,11 @@ path = "src/bin/deck_catalog4.rs"
 required-features = ["play"]
 
 [[bin]]
+name = "manifest_extend4"
+path = "src/bin/manifest_extend4.rs"
+required-features = ["play"]
+
+[[bin]]
 name = "deck_reactivity4"
 path = "src/bin/deck_reactivity4.rs"
 required-features = ["play"]
