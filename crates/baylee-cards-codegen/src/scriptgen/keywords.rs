@@ -49,14 +49,14 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Foretell:") {
             return self.foretell(rest);
         }
+        if let Some(rest) = line
+            .strip_prefix("Morph:")
+            .or_else(|| (line == "Morph").then_some(""))
+        {
+            return self.morph(rest);
+        }
         if let Some(rest) = line.strip_prefix("Entwine:") {
-            if rest.contains(':') {
-                return self.deny(format!("an `Entwine` with extra fields `{rest}`"));
-            }
-            let cost = self.cost_expr(rest)?;
-            self.body.entwine = Some(format!("Some({cost})"));
-            self.body.notes.push("entwine".to_string());
-            return Some(());
+            return self.entwine(rest);
         }
         if let Some(rest) = line.strip_prefix("Buyback:") {
             return self.buyback(rest);
@@ -456,6 +456,57 @@ impl Tx<'_> {
         }
         self.body.foretell = Some(format!("Some(mana!(\"{mana}\"))"));
         self.body.notes.push("foretell".to_string());
+        Some(())
+    }
+
+    /// `K:Morph:<cost>` (CR 702.37): cast face down as a 2/2 creature for {3}
+    /// and turn face up any time you have priority for a fixed mana morph cost.
+    /// Non-mana and `X` morph costs stay refused because `FaceDef::morph` and
+    /// the face-up special action pay fixed mana only.
+    pub(super) fn morph(&mut self, rest: &str) -> Option<()> {
+        if rest.contains(':') {
+            return self.deny(format!("a `Morph` with extra fields `{rest}`"));
+        }
+        if self.body.morph.is_some() {
+            return self.deny("a second `Morph` cost on one card".to_string());
+        }
+        let tokens = super::cost_parts(rest);
+        if tokens.is_empty() {
+            return self.deny("an empty `Morph` cost".to_string());
+        }
+        let mut mana = String::new();
+        for token in &tokens {
+            let token = token.as_str();
+            if token == "X" {
+                return self.deny(format!("a `Morph` cost `{rest}` with `X`"));
+            }
+            if token.chars().all(|c| c.is_ascii_digit())
+                || matches!(token, "W" | "U" | "B" | "R" | "G" | "C")
+            {
+                mana.push('{');
+                mana.push_str(token);
+                mana.push('}');
+            } else if let Some(pair) = super::hybrid_pair(token) {
+                mana.push_str(&pair);
+            } else {
+                return self.deny(format!("a non-mana `Morph` cost `{rest}`"));
+            }
+        }
+        if baylee_core::mana::ManaCost::try_parse(&mana).is_err() {
+            return self.deny(format!("a `Morph` cost `{rest}` that is not valid mana"));
+        }
+        self.body.morph = Some(format!("Some(mana!(\"{mana}\"))"));
+        self.body.notes.push("morph".to_string());
+        Some(())
+    }
+
+    pub(super) fn entwine(&mut self, rest: &str) -> Option<()> {
+        if rest.contains(':') {
+            return self.deny(format!("an `Entwine` with extra fields `{rest}`"));
+        }
+        let cost = self.cost_expr(rest)?;
+        self.body.entwine = Some(format!("Some({cost})"));
+        self.body.notes.push("entwine".to_string());
         Some(())
     }
 

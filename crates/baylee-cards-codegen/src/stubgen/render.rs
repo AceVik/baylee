@@ -173,6 +173,10 @@ fn render_card(
             (Some(body), 0) => body.foretell.as_deref(),
             _ => None,
         };
+        let morph = match (&land, i) {
+            (Some(body), 0) => body.morph.as_deref(),
+            _ => None,
+        };
         let cost_reduction = match (&land, i) {
             (Some(body), 0) => body.cost_reduction.as_deref(),
             _ => None,
@@ -198,6 +202,7 @@ fn render_card(
             flashback_parts,
             madness,
             foretell,
+            morph,
             cost_reduction,
             entwine,
             buyback,
