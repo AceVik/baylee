@@ -1715,6 +1715,7 @@ pub(super) struct Toasts {
     next: u64,
     rung: u64,
     last_status: String,
+    last_modal_foot: Option<f32>,
     drawn: Vec<(ToastId, ToastKind, String)>,
     animated: Vec<ToastId>,
 }
@@ -1771,12 +1772,19 @@ pub(super) fn toast_lane(
     mut toasts: ResMut<Toasts>,
     fonts: Option<Res<UiFonts>>,
     (windows, ui, cards): (Query<&Window>, Option<Res<UiScale>>, UpdateCards),
+    modals: ModalStateQuery,
     input: Res<crate::shellkit::InputClass>,
     settings: Option<Res<crate::settings::ClientSettings>>,
     lanes: Query<Entity, With<ToastLane>>,
 ) {
     let toasts = &mut *toasts;
     let lang = state.lobby.lang();
+    let (modal_up, measured_foot) = modal_state(&modals);
+    toasts.last_modal_foot = if modal_up {
+        measured_foot.or(toasts.last_modal_foot)
+    } else {
+        None
+    };
     let on_shell = matches!(state.lobby.screen(), Screen::Table | Screen::Build)
         || (state.showing_gateway_hub() && state.lobby.tone() == Tone::Refusal);
     let current_status = if on_shell { state.lobby.status() } else { "" };
@@ -1801,18 +1809,26 @@ pub(super) fn toast_lane(
         toasts.rung = state.bell.rung();
     }
     let dt = time.delta_secs();
-    for (_, _, _, left) in &mut toasts.shown {
-        *left -= dt;
+    for (_, kind, _, left) in &mut toasts.shown {
+        // While a modal scrim holds the screen, non-refusal notices wait
+        // behind it without ageing so they neither cover the modal's Accept
+        // button nor expire unseen before the modal is answered.
+        if !modal_up || matches!(kind, ToastKind::Status(Tone::Refusal)) {
+            *left -= dt;
+        }
     }
     toasts.shown.retain(|(_, _, _, left)| *left > 0.0);
     while toasts.shown.len() > TOASTS_AT_ONCE {
         toasts.shown.remove(0);
     }
     // The Undo the Decks screen offers (S-10) stands first, with its action.
-    let undo = state.undo.map(|u| match u.kind {
-        super::decks::UndoKind::Delete => Phrase::ShellDeckDeleted.text(lang).to_string(),
-        super::decks::UndoKind::Restore => Phrase::HistoryRestored.text(lang).to_string(),
-    });
+    let undo = (!modal_up)
+        .then_some(state.undo)
+        .flatten()
+        .map(|u| match u.kind {
+            super::decks::UndoKind::Delete => Phrase::ShellDeckDeleted.text(lang).to_string(),
+            super::decks::UndoKind::Restore => Phrase::HistoryRestored.text(lang).to_string(),
+        });
     let now: Vec<(ToastId, ToastKind, String)> = undo
         .iter()
         .map(|t| (ToastId::Undo, ToastKind::Undo, t.clone()))
@@ -1820,6 +1836,7 @@ pub(super) fn toast_lane(
             toasts
                 .shown
                 .iter()
+                .filter(|(_, k, _, _)| !modal_up || matches!(k, ToastKind::Status(Tone::Refusal)))
                 .map(|(n, k, t, _)| (ToastId::Shown(*n), *k, t.clone())),
         )
         .collect();
@@ -1859,7 +1876,7 @@ pub(super) fn toast_lane(
     let (right, bottom) = if phone {
         (px_fixed(rest.edge), Val::Auto)
     } else {
-        rest.place(update_card_corner(&cards))
+        rest.place_above(update_card_corner(&cards), toasts.last_modal_foot)
     };
     let lane = commands
         .spawn((
@@ -1879,12 +1896,15 @@ pub(super) fn toast_lane(
                 row_gap: px_fixed(kit.m.gap),
                 ..default()
             },
+            Visibility::Inherited,
             GlobalZIndex(tokens::z::TOAST),
             Pickable::IGNORE,
         ))
         .id();
     if !phone {
-        commands.entity(lane).insert(rest);
+        commands
+            .entity(lane)
+            .insert((rest, crate::social::drawer::LaneBase { right, bottom }));
     }
     for (id, kind, text) in &now {
         let action = (*id == ToastId::Undo).then(|| {
@@ -1949,17 +1969,105 @@ pub(super) struct LaneRest {
 }
 
 impl LaneRest {
-    /// The lane's `right` and `bottom`. The update card holds the same
-    /// corner (`update::card`), and the lane, drawn later, lay over the
-    /// card's title and its buttons; with a card there (its right edge's
-    /// distance from the window's, and its top's from the bottom) the lane
-    /// stands on top of it, edge on edge, one gap above.
+    /// The lane's `right` and `bottom` clear of an update card alone.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(super) fn place(self, card: Option<(f32, f32)>) -> (Val, Val) {
-        match card {
-            Some((right, top)) => (px_fixed(right), px_fixed(top + self.gap)),
-            None => (px_fixed(self.edge), px_fixed(self.edge)),
-        }
+        self.place_above(card, None)
     }
+
+    /// The lane's `right` and `bottom`. The update card holds the same
+    /// corner (`update::card`), and a modal dialog's footer (`ModalFoot`,
+    /// such as the terms sheet's Accept button) spans the lower band: with
+    /// either standing, the lane rests one gap above its top edge.
+    pub(super) fn place_above(
+        self,
+        card: Option<(f32, f32)>,
+        modal_foot: Option<f32>,
+    ) -> (Val, Val) {
+        let (right, mut bottom) = match card {
+            Some((right, top)) => (right, top + self.gap),
+            None => (self.edge, self.edge),
+        };
+        if let Some(foot_top) = modal_foot {
+            bottom = bottom.max(foot_top + self.gap);
+        }
+        (px_fixed(right), px_fixed(bottom))
+    }
+}
+
+/// Active modal scrims and feet, disjoint from `ToastLane` and `UpdateToast`.
+type ModalStateQuery<'w, 's> = (
+    Query<'w, 's, (Entity, Option<&'static ComputedNode>), With<surfaces::ModalScrim>>,
+    Query<
+        'w,
+        's,
+        (Entity, &'static ComputedNode, &'static UiGlobalTransform),
+        With<surfaces::ModalFoot>,
+    >,
+    Query<'w, 's, &'static ChildOf>,
+    Query<'w, 's, &'static Visibility, Without<ToastLane>>,
+    Query<'w, 's, &'static Node, (Without<ToastLane>, Without<crate::update::UpdateToast>)>,
+);
+
+fn ancestor_visible(
+    mut cur: Entity,
+    parents: &Query<&ChildOf>,
+    vis: &Query<&Visibility, Without<ToastLane>>,
+    nodes: &Query<&Node, (Without<ToastLane>, Without<crate::update::UpdateToast>)>,
+) -> bool {
+    loop {
+        if matches!(vis.get(cur), Ok(Visibility::Hidden)) {
+            return false;
+        }
+        if nodes.get(cur).is_ok_and(|n| n.display == Display::None) {
+            return false;
+        }
+        let Ok(parent) = parents.get(cur) else {
+            return true;
+        };
+        cur = parent.parent();
+    }
+}
+
+/// Whether a visible [`surfaces::ModalScrim`] stands, and if its modal foot has
+/// been laid out, how far that foot's top edge stands above the viewport's
+/// bottom (in UI units).
+fn modal_state(
+    (scrims, feet, parents, vis, nodes): &ModalStateQuery<'_, '_>,
+) -> (bool, Option<f32>) {
+    let modal_up = scrims
+        .iter()
+        .any(|(scrim, _)| ancestor_visible(scrim, parents, vis, nodes));
+    if !modal_up {
+        return (false, None);
+    }
+    let mut foot_top: Option<f32> = None;
+    for (foot, foot_cn, foot_gt) in feet {
+        if foot_cn.size().y <= 0.0 || !ancestor_visible(foot, parents, vis, nodes) {
+            continue;
+        }
+        let mut cur = parents.get(foot).ok().map(ChildOf::parent);
+        let scrim_cn = loop {
+            let Some(e) = cur else {
+                break None;
+            };
+            if let Ok((_, Some(cn))) = scrims.get(e)
+                && ancestor_visible(e, parents, vis, nodes)
+            {
+                break Some(cn);
+            }
+            cur = parents.get(e).ok().map(ChildOf::parent);
+        };
+        let Some(scrim_cn) = scrim_cn.filter(|cn| cn.size().y > 0.0) else {
+            continue;
+        };
+        let inv = foot_cn.inverse_scale_factor();
+        let top_y = (foot_gt.translation.y - foot_cn.size().y * 0.5) * inv;
+        let viewport_h = scrim_cn.size().y * scrim_cn.inverse_scale_factor();
+        let above_bottom = (viewport_h - top_y).max(0.0);
+        foot_top = Some(foot_top.map_or(above_bottom, |prev| prev.max(above_bottom)));
+    }
+    (true, foot_top)
 }
 
 /// The update card as the lane reads it.
@@ -1979,27 +2087,63 @@ fn update_card_corner(cards: &UpdateCards<'_, '_>) -> Option<(f32, f32)> {
     })
 }
 
-/// The lanes that stand on the update card, told apart from the card, which
-/// is a `Node` as they are.
+/// The lanes that stand on the update card or above a modal's foot, told apart
+/// from the card, which is a `Node` as they are.
 type StandingLanes<'w, 's> = Query<
     'w,
     's,
-    (&'static LaneRest, &'static mut Node),
+    (
+        &'static LaneRest,
+        &'static mut Node,
+        &'static mut Visibility,
+        Option<&'static mut crate::social::drawer::LaneBase>,
+    ),
     (With<ToastLane>, Without<crate::update::UpdateToast>),
 >;
 
-/// Keeps a standing lane clear of the update card as the card comes, grows
-/// (a download's bar, an error's line) and goes. Compares before it writes.
-fn stand_over_the_update_card(cards: UpdateCards, mut lanes: StandingLanes) {
+/// Keeps a standing lane clear of the update card and any active modal footer
+/// as either comes, grows and goes. Compares before it writes.
+pub(super) fn stand_over_the_update_card(
+    cards: UpdateCards,
+    modals: ModalStateQuery,
+    mut toasts: ResMut<Toasts>,
+    mut lanes: StandingLanes,
+) {
+    let (modal_up, measured_foot) = modal_state(&modals);
+    let next_foot = if modal_up {
+        measured_foot.or(toasts.last_modal_foot)
+    } else {
+        None
+    };
+    if toasts.last_modal_foot != next_foot {
+        toasts.bypass_change_detection().last_modal_foot = next_foot;
+    }
     if lanes.is_empty() {
         return;
     }
     let card = update_card_corner(&cards);
-    for (rest, mut node) in &mut lanes {
-        let (right, bottom) = rest.place(card);
-        if node.right != right || node.bottom != bottom {
+    for (rest, mut node, mut vis, base) in &mut lanes {
+        let (right, bottom) = rest.place_above(card, next_foot);
+        let moved = match base {
+            Some(mut base) => {
+                if base.right != right || base.bottom != bottom {
+                    base.right = right;
+                    base.bottom = bottom;
+                    true
+                } else {
+                    false
+                }
+            }
+            None => node.right != right || node.bottom != bottom,
+        };
+        if moved {
             node.right = right;
             node.bottom = bottom;
+            if measured_foot.is_some() {
+                vis.set_if_neq(Visibility::Hidden);
+            }
+        } else if !modal_up || measured_foot.is_some() || next_foot.is_none() {
+            vis.set_if_neq(Visibility::Inherited);
         }
     }
 }
@@ -2025,6 +2169,7 @@ fn put_the_toasts_away(
     }
     toasts.shown.clear();
     toasts.drawn.clear();
+    toasts.last_modal_foot = None;
 }
 
 /// Carries out what header presses asked of systems they cannot reach: the
@@ -2115,7 +2260,7 @@ pub(super) fn install(app: &mut App) {
                 (
                     follow_the_account,
                     ring_the_bell,
-                    toast_lane,
+                    toast_lane.after(ring_the_bell).after(super::shell::ui),
                     stand_over_the_update_card.after(toast_lane),
                     animate_toasts.after(toast_lane),
                     super::front::faces::animate_status_banners,
@@ -2131,7 +2276,11 @@ pub(super) fn install(app: &mut App) {
         .add_systems(OnExit(DuelPhase::Closed), put_the_toasts_away)
         .add_systems(
             PostUpdate,
-            (discard_detached, place_header_popovers)
+            (
+                discard_detached,
+                place_header_popovers,
+                stand_over_the_update_card.before(bevy::ui::UiSystems::PostLayout),
+            )
                 .after(bevy::ui::UiSystems::Layout)
                 .run_if(in_state(DuelPhase::Closed)),
         );

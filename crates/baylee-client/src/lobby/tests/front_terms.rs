@@ -651,3 +651,522 @@ fn a_move_that_fails_after_central_terms_ends_the_central_sign_in() {
     let words = drawn(&mut app);
     assert!(words.contains(Phrase::CentralSignInFailed.text(Lang::En)));
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+fn terms_layout_app() -> (App, UiFonts) {
+    let (mut app, mut fonts) = crate::shellkit::header::tests::layout_app();
+    let mut store = app.world_mut().resource_mut::<Assets<Font>>();
+    let mut load = |file: &str| {
+        let path = format!("{}/assets/fonts/{file}", env!("CARGO_MANIFEST_DIR"));
+        store.add(Font::from_bytes(std::fs::read(path).expect(file)))
+    };
+    fonts.italic = load("AlegreyaSans-Italic.ttf");
+    fonts.medium_italic = load("AlegreyaSans-MediumItalic.ttf");
+    (app, fonts)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn rect_of(world: &World, entity: Entity) -> Rect {
+    let cn = world.get::<ComputedNode>(entity).expect("laid out");
+    let gt = world
+        .get::<UiGlobalTransform>(entity)
+        .expect("UI transform");
+    let inv = cn.inverse_scale_factor();
+    Rect::from_center_size(gt.translation * inv, cn.size() * inv)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn german_gateway_terms_state(central_bound: bool, read_to_end: bool) -> LobbyState {
+    let md = include_str!("../../../../../docs/gateway-legal/gateway-terms.de.md");
+    let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+    state.lobby.set_lang(Lang::De);
+    state.lobby.apply(LobbyEvent::LoggedIn {
+        token: "tok".into(),
+        username: Some("ada".into()),
+    });
+    if central_bound {
+        state.lobby.set_central_bound(true);
+        let (handle, _jobs) = super::super::central::Handle::queued_for_test();
+        super::super::central::enable(&mut state);
+        state.central.as_mut().expect("Central on").handle = Some(handle);
+    }
+    state.terms_subject = crate::lobby::front::terms::Subject::Gateway;
+    let _ = state.terms.ask(Lang::De);
+    state.terms.loaded(
+        TermsDoc {
+            version: "2026-10-21".into(),
+            digest: None,
+            updated: Some("2026-10-21".into()),
+            markdown: md.into(),
+            lang: Some("de".into()),
+        },
+        Lang::De,
+    );
+    if read_to_end {
+        state.terms.reached_end();
+    }
+    state
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn spawn_laid_out_sheet(
+    app: &mut App,
+    state: LobbyState,
+    kit: crate::shellkit::controls::Kit,
+    w: f32,
+    h: f32,
+) -> Entity {
+    let scrolled = Scrolled::default();
+    let root = {
+        let mut commands = app.world_mut().commands();
+        let root = commands
+            .spawn(Node {
+                width: Val::Px(w),
+                height: Val::Px(h),
+                ..default()
+            })
+            .id();
+        crate::lobby::front::terms::sheet(&mut commands, root, &state, kit, &scrolled);
+        root
+    };
+    app.insert_resource(state);
+    app.world_mut().flush();
+    app.update();
+    app.update();
+    root
+}
+
+/// The terms scroller's `content_size` ends at its last block (list items wrap
+/// at the row's width instead of reporting a one-word-per-line overflow ~857 px
+/// past the end), and "read to the end" enables Accept right at that real end.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn the_terms_scroller_ends_at_the_last_block_and_accepts_there() {
+    use crate::lobby::front::terms::{TermsProgress, TermsText, read_the_terms};
+    use crate::shellkit::{ShellMetrics, TextSize, Viewport};
+
+    let (mut app, fonts) = terms_layout_app();
+    app.insert_resource(LobbyState::new()).add_systems(
+        PostUpdate,
+        read_the_terms.after(bevy::ui::UiSystems::Layout),
+    );
+
+    for (w, h, step) in [
+        (1920.0, 1080.0, TextSize::M),
+        (2560.0, 1440.0, TextSize::M),
+        (1280.0, 800.0, TextSize::Xl),
+        (844.0, 390.0, TextSize::M),
+    ] {
+        let kit = crate::shellkit::controls::Kit {
+            fonts: &fonts,
+            m: ShellMetrics::of(Viewport::desktop(w, h), step),
+            german: true,
+        };
+        let state = german_gateway_terms_state(false, false);
+        let root = spawn_laid_out_sheet(&mut app, state, kit, w, h);
+
+        let (scroller, seen, content_h, expected_end) = {
+            let mut q = app.world_mut().query_filtered::<(
+                Entity,
+                &ComputedNode,
+                &UiGlobalTransform,
+                &Children,
+            ), With<TermsText>>();
+            let (scroller, cn, gt, kids) = q.single(app.world()).expect("terms scroller");
+            let inv = cn.inverse_scale_factor();
+            let scroller_top = (gt.translation.y - cn.size().y * 0.5) * inv;
+            let last = kids.last().copied().expect("last block");
+            let last_bottom_rel = rect_of(app.world(), last).max.y - scroller_top;
+            (
+                scroller,
+                cn.size().y * inv,
+                cn.content_size().y * inv,
+                last_bottom_rel + kit.m.scaled(18.0),
+            )
+        };
+        assert!(
+            (content_h - expected_end).abs() <= 4.0,
+            "{w}x{h} {step:?}: content_size.y={content_h:.1} extends past last block end={expected_end:.1}"
+        );
+        assert!(
+            !app.world().resource::<LobbyState>().terms.can_accept(),
+            "{w}x{h} {step:?}: unread at top"
+        );
+
+        app.world_mut()
+            .get_mut::<ScrollPosition>(scroller)
+            .expect("scroll pos")
+            .y = (expected_end - seen - 24.0).max(0.0);
+        app.update();
+        assert!(
+            !app.world().resource::<LobbyState>().terms.can_accept(),
+            "{w}x{h} {step:?}: accepted 24 px before the real end"
+        );
+
+        let real_end = (expected_end - seen).max(0.0);
+        app.world_mut()
+            .get_mut::<ScrollPosition>(scroller)
+            .expect("scroll pos")
+            .y = real_end;
+        app.update();
+        assert!(
+            app.world().resource::<LobbyState>().terms.can_accept(),
+            "{w}x{h} {step:?}: real end ({real_end:.1}) did not enable Accept"
+        );
+        let bar_w = app
+            .world_mut()
+            .query_filtered::<&Node, With<TermsProgress>>()
+            .single(app.world())
+            .expect("progress bar")
+            .width;
+        assert_eq!(bar_w, Val::Percent(100.0), "{w}x{h} {step:?}");
+
+        app.world_mut().entity_mut(root).despawn();
+        app.update();
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn assert_terms_answers_fit(
+    app: &mut App,
+    foot_rect: Rect,
+    tag: &str,
+) -> std::collections::HashMap<&'static str, Rect> {
+    use crate::shellkit::focus::Stop;
+
+    let mut stops = std::collections::HashMap::new();
+    let mut q = app.world_mut().query::<(Entity, &Stop, &Children)>();
+    for (entity, stop, kids) in q.iter(app.world()) {
+        if stop.table != "terms" || !matches!(stop.id, "decline" | "later" | "accept") {
+            continue;
+        }
+        let face = kids.first().copied().expect("button face");
+        let face_cn = app.world().get::<ComputedNode>(face).expect("face cn");
+        let inv = face_cn.inverse_scale_factor();
+        let face_inner_w = face_cn.content_box().size().x * inv;
+        let words = app
+            .world()
+            .get::<Children>(face)
+            .expect("face kids")
+            .first()
+            .copied()
+            .expect("words");
+        let text = &app.world().get::<Text>(words).expect("label").0;
+        if stop.id == "decline" {
+            assert_eq!(text, Phrase::TermsDeleteHere.text(Lang::De));
+        }
+        let words_w = app
+            .world()
+            .get::<ComputedNode>(words)
+            .expect("words cn")
+            .size()
+            .x
+            * inv;
+        let glyph_w = app
+            .world()
+            .get::<bevy::text::TextLayoutInfo>(words)
+            .expect("glyph layout")
+            .size
+            .x
+            * inv;
+        assert!(
+            words_w <= face_inner_w + 1.0 && glyph_w <= face_inner_w + 1.0,
+            "{tag} {}: label {text:?} ({glyph_w:.1}/{words_w:.1}) cut in {face_inner_w:.1}",
+            stop.id
+        );
+        let hit_rect = rect_of(app.world(), entity);
+        assert!(
+            hit_rect.min.x >= foot_rect.min.x - 1.0
+                && hit_rect.max.x <= foot_rect.max.x + 1.0
+                && hit_rect.min.y >= foot_rect.min.y - 1.0
+                && hit_rect.max.y <= foot_rect.max.y + 1.0,
+            "{tag} {}: {hit_rect:?} leaves foot {foot_rect:?}",
+            stop.id
+        );
+        stops.insert(stop.id, hit_rect);
+    }
+    stops
+}
+
+/// "Meine Daten auf diesem Gateway löschen" has room across desktop, narrow and
+/// phone viewports without clipping at its button face, footer or sheet.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn delete_my_data_on_this_gateway_has_room_without_clipping() {
+    use crate::shellkit::role::Role;
+    use crate::shellkit::surfaces::ModalFoot;
+    use crate::shellkit::{ShellMetrics, TextSize, Viewport};
+
+    let (mut app, fonts) = terms_layout_app();
+    for (w, h, step, one_row) in [
+        (1920.0, 1080.0, TextSize::M, true),
+        (2560.0, 1440.0, TextSize::M, true),
+        (1280.0, 800.0, TextSize::M, true),
+        (1180.0, 820.0, TextSize::M, true),
+        (960.0, 700.0, TextSize::M, false),
+        (900.0, 800.0, TextSize::M, false),
+        (1280.0, 800.0, TextSize::Xl, false),
+        (844.0, 390.0, TextSize::M, false),
+        (640.0, 360.0, TextSize::M, false),
+    ] {
+        let tag = format!("{w}x{h} {step:?}");
+        let kit = crate::shellkit::controls::Kit {
+            fonts: &fonts,
+            m: ShellMetrics::of(Viewport::desktop(w, h), step),
+            german: true,
+        };
+        let state = german_gateway_terms_state(true, true);
+        let root = spawn_laid_out_sheet(&mut app, state, kit, w, h);
+
+        let surface = app
+            .world_mut()
+            .query::<(Entity, &Role)>()
+            .iter(app.world())
+            .find_map(|(e, r)| (*r == Role::Opaque).then_some(e))
+            .expect("dialog surface");
+        let foot = app
+            .world_mut()
+            .query_filtered::<Entity, With<ModalFoot>>()
+            .single(app.world())
+            .expect("modal foot");
+        let surface_rect = rect_of(app.world(), surface);
+        let foot_rect = rect_of(app.world(), foot);
+        assert!(
+            surface_rect.min.x >= -0.5
+                && surface_rect.min.y >= -0.5
+                && surface_rect.max.x <= w + 0.5
+                && surface_rect.max.y <= h + 0.5,
+            "{tag}: surface {surface_rect:?} leaves viewport {w}x{h}"
+        );
+        assert!(
+            foot_rect.min.x >= surface_rect.min.x - 1.0
+                && foot_rect.max.x <= surface_rect.max.x + 1.0
+                && foot_rect.max.y <= surface_rect.max.y + 1.0,
+            "{tag}: foot {foot_rect:?} clipped by surface {surface_rect:?}"
+        );
+
+        let stops = assert_terms_answers_fit(&mut app, foot_rect, &tag);
+        assert_eq!(stops.len(), 3, "{tag}");
+        for (a, ra) in &stops {
+            for (b, rb) in &stops {
+                if a < b {
+                    let overlap = ra.intersect(*rb);
+                    assert!(
+                        overlap.width() <= 0.5 || overlap.height() <= 0.5,
+                        "{tag}: {a} {ra:?} overlaps {b} {rb:?}"
+                    );
+                }
+            }
+        }
+        if one_row {
+            let (decline, later, accept) = (stops["decline"], stops["later"], stops["accept"]);
+            assert!(
+                (decline.center().y - accept.center().y).abs() <= 1.0
+                    && (later.center().y - accept.center().y).abs() <= 1.0,
+                "{tag}: answers wrapped on a wide desktop ({stops:?})"
+            );
+            assert!(
+                decline.max.x <= later.min.x && later.max.x <= accept.min.x,
+                "{tag}: answers out of order ({stops:?})"
+            );
+        }
+
+        app.world_mut().entity_mut(root).despawn();
+        app.update();
+    }
+}
+
+/// While a `ModalScrim` stands over the lobby, non-refusal toasts (notices and
+/// bell rings) are held back without ageing, appearing for their full duration
+/// once the modal closes; refusal toasts still show immediately.
+#[test]
+fn modal_scrim_holds_non_refusal_toasts_without_ageing_and_shows_refusals() {
+    use std::time::Duration;
+
+    let mut app = signed_in_stale(false, "# Terms\n\nPlay fair.");
+    app.world_mut()
+        .resource_mut::<Time<Virtual>>()
+        .set_max_delta(Duration::from_secs(60));
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        Duration::from_secs(5),
+    ));
+
+    let lane_count = |app: &mut App| {
+        app.world_mut()
+            .query_filtered::<(), With<super::super::header::ToastLane>>()
+            .iter(app.world())
+            .count()
+    };
+
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.note_said("the house is warming up");
+        state
+            .bell
+            .ring(baylee_client_core::lobby::strips::BellItem::Joined(
+                "Lina#0031".into(),
+            ));
+    }
+    // 20 s > TOAST_SECS (15 s): neither notice nor bell toast covers the modal,
+    // and neither ages out behind it.
+    for _ in 0..4 {
+        app.update();
+        assert_eq!(lane_count(&mut app), 0, "non-refusal toast bled over modal");
+    }
+
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        Duration::from_millis(16),
+    ));
+
+    // A refusal while the modal stands DOES show.
+    post(
+        &mut app,
+        Reply::Terms(TermsReply::SendFailed("Gateway busy".into())),
+    );
+    assert_eq!(lane_count(&mut app), 1, "refusal toast must show on modal");
+    let words = drawn(&mut app);
+    assert!(words.contains("Gateway busy"), "{words}");
+    assert!(
+        !words.contains("Lina#0031 sat down at your table"),
+        "bell toast must stay held while modal stands: {words}"
+    );
+
+    // Clear the refusal and put a fresh notice behind the modal before closing,
+    // plus verify the bell toast from 20+ seconds ago still has its full life!
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .note_said("the house is warming up");
+    app.update();
+    assert_eq!(
+        lane_count(&mut app),
+        0,
+        "notice still held while modal stands"
+    );
+
+    press_key(&mut app, KeyCode::End, Key::End, &[]);
+    press_key(&mut app, KeyCode::Enter, Key::Enter, &[]);
+    post(&mut app, Reply::Terms(TermsReply::Accepted("v1".into())));
+    app.update();
+    assert!(!app.world().resource::<LobbyState>().terms.up());
+    assert_eq!(
+        lane_count(&mut app),
+        1,
+        "held toasts appear once modal closes"
+    );
+    let words = drawn(&mut app);
+    assert!(words.contains("The house is warming up"), "{words}");
+    assert!(
+        words.contains("Lina#0031 sat down at your table"),
+        "bell toast aged out while held behind modal: {words}"
+    );
+
+    // Once shown, they age normally and leave after 15 s.
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        Duration::from_secs(8),
+    ));
+    app.update();
+    app.update();
+    assert_eq!(lane_count(&mut app), 0, "toasts age out once unheld");
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn toast_layout_app(w: u16, h: u16) -> (App, UiFonts) {
+    use crate::lobby::header::{Toasts, stand_over_the_update_card, toast_lane};
+    use crate::shellkit::InputClass;
+    use bevy::camera::{ComputedCameraValues, RenderTargetInfo};
+
+    let (mut app, fonts) = terms_layout_app();
+    let (uw, uh) = (u32::from(w), u32::from(h));
+    app.insert_resource(fonts.clone())
+        .insert_resource(InputClass::Pointer)
+        .insert_resource(crate::settings::ClientSettings::default())
+        .init_resource::<Toasts>()
+        .add_systems(
+            Update,
+            (toast_lane, stand_over_the_update_card.after(toast_lane)),
+        )
+        .add_systems(
+            PostUpdate,
+            stand_over_the_update_card
+                .after(bevy::ui::UiSystems::Layout)
+                .before(bevy::ui::UiSystems::PostLayout),
+        );
+    app.world_mut().spawn((
+        Window {
+            resolution: bevy::window::WindowResolution::new(uw, uh).with_scale_factor_override(1.0),
+            ..default()
+        },
+        bevy::window::PrimaryWindow,
+    ));
+    app.world_mut().spawn((
+        Camera2d,
+        bevy::ui::IsDefaultUiCamera,
+        Camera {
+            computed: ComputedCameraValues {
+                target_info: Some(RenderTargetInfo {
+                    physical_size: UVec2::new(uw, uh),
+                    scale_factor: 1.0,
+                }),
+                ..default()
+            },
+            ..default()
+        },
+    ));
+    (app, fonts)
+}
+
+/// A refusal toast shown while the terms `ModalScrim` stands is placed above
+/// the modal's foot so it never covers the Accept button.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn refusal_toast_stands_above_the_terms_modal_foot() {
+    use crate::lobby::header::ToastLane;
+    use crate::shellkit::focus::Stop;
+    use crate::shellkit::surfaces::ModalFoot;
+    use crate::shellkit::{ShellMetrics, TextSize, Viewport};
+
+    for (w, h) in [(1280u16, 800u16), (1920u16, 1080u16)] {
+        let (mut app, fonts) = toast_layout_app(w, h);
+        let mut state = german_gateway_terms_state(false, true);
+        state.lobby.say("Gateway busy");
+
+        let (fw, fh) = (f32::from(w), f32::from(h));
+        let kit = crate::shellkit::controls::Kit {
+            fonts: &fonts,
+            m: ShellMetrics::of(Viewport::desktop(fw, fh), TextSize::M),
+            german: true,
+        };
+        let _ = spawn_laid_out_sheet(&mut app, state, kit, fw, fh);
+        app.update();
+
+        let lane = app
+            .world_mut()
+            .query_filtered::<Entity, With<ToastLane>>()
+            .single(app.world())
+            .expect("refusal toast lane");
+        let foot = app
+            .world_mut()
+            .query_filtered::<Entity, With<ModalFoot>>()
+            .single(app.world())
+            .expect("terms modal foot");
+        let accept = app
+            .world_mut()
+            .query::<(Entity, &Stop)>()
+            .iter(app.world())
+            .find_map(|(e, s)| (s.table == "terms" && s.id == "accept").then_some(e))
+            .expect("accept stop");
+
+        let lane_rect = rect_of(app.world(), lane);
+        let foot_rect = rect_of(app.world(), foot);
+        let accept_rect = rect_of(app.world(), accept);
+        assert!(
+            lane_rect.height() > 0.0 && lane_rect.max.y <= foot_rect.min.y - kit.m.gap + 1.0,
+            "{w}x{h}: refusal lane {lane_rect:?} is not above modal foot {foot_rect:?}"
+        );
+        assert!(
+            lane_rect.intersect(accept_rect).is_empty(),
+            "{w}x{h}: refusal lane {lane_rect:?} covers Accept {accept_rect:?}"
+        );
+    }
+}

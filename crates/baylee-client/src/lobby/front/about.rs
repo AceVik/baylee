@@ -532,6 +532,7 @@ fn spawn_third_party_entry(
 fn build_version_footer(commands: &mut Commands, kit: Kit) -> Entity {
     let band = commands
         .spawn((
+            surfaces::ModalFoot,
             Node {
                 width: Val::Percent(100.0),
                 padding: UiRect::axes(px_fixed(kit.m.pad), kit.m.px(10.0)),

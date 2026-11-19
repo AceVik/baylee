@@ -237,10 +237,10 @@ fn drawer_follows_the_room(
 }
 
 /// Where the shell's notice lane stood before the chat moved it.
-#[derive(Component, Clone, Copy, Debug)]
+#[derive(Component, Clone, Copy, PartialEq, Debug)]
 pub(crate) struct LaneBase {
-    right: Val,
-    bottom: Val,
+    pub(crate) right: Val,
+    pub(crate) bottom: Val,
 }
 
 /// Keeps the shell's notices ("Bob sat down at your table") in the content

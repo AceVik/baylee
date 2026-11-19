@@ -833,6 +833,7 @@ pub(crate) fn document(commands: &mut Commands, kit: Kit, blocks: &[Block]) -> V
                         ),
                         tf(kit.fonts, kit.m.text),
                         TextColor(tokens::MUTED),
+                        TextLayout::no_wrap(),
                         Node {
                             min_width: kit.m.px(18.0),
                             flex_shrink: 0.0,
@@ -842,14 +843,25 @@ pub(crate) fn document(commands: &mut Commands, kit: Kit, blocks: &[Block]) -> V
                     ))
                     .id();
                 let words = block_text(commands, kit.fonts, kit.m.text, spans, false);
-                commands.entity(words).insert(Node {
-                    flex_grow: 1.0,
-                    flex_shrink: 1.0,
-                    flex_basis: px_fixed(0.0),
-                    min_width: px_fixed(0.0),
-                    ..default()
-                });
-                commands.entity(row).add_children(&[mark, words]);
+                // `flex_basis: 0` + `min_width: 0` belong on a flex cell, never on
+                // the `Text` leaf itself: `bevy_ui`'s `MeasureArgs::resolve_width`
+                // turns `width: Auto` + `min_width: 0` into effective width `0`
+                // during `PerformLayout`, so the item's `scrollable_overflow_rect`
+                // reported a one-word-per-line height (~857 px past the last line).
+                let cell = commands
+                    .spawn((
+                        Node {
+                            flex_grow: 1.0,
+                            flex_shrink: 1.0,
+                            flex_basis: px_fixed(0.0),
+                            min_width: px_fixed(0.0),
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                    ))
+                    .add_child(words)
+                    .id();
+                commands.entity(row).add_children(&[mark, cell]);
                 row
             }
             Block::Rule => commands
@@ -882,33 +894,24 @@ fn at(id: &'static str) -> Stop {
 /// The kit's symmetric footer gives every button the same share of the row,
 /// and a label is one line, clipped at its face: with three answers on a
 /// 720 sheet "Delete my data on this gateway" lost its end in German and
-/// English both (owner, 19.11.2026). Where the row cannot hold all three,
-/// the answers keep the upper line and Decline goes under them, so the
-/// primary never moves down; a phone stacks them at full width, the primary
-/// on top.
+/// English both (owner, 19.11.2026). The dialog now gives all three answers
+/// room on one row on desktop, and where a narrower viewport cannot hold all
+/// three, `WrapReverse` keeps the primary on the upper line and puts Decline
+/// under the ways on.
 fn foot(commands: &mut Commands, kit: Kit, decline: Option<Entity>, answers: &[Entity]) -> Entity {
-    let phone = kit.m.frame == crate::shellkit::Frame::Phone;
     let gap = px_fixed(kit.m.gap);
-    let (direction, across) = if phone {
-        (FlexDirection::ColumnReverse, AlignItems::Stretch)
-    } else {
-        (FlexDirection::Row, AlignItems::Center)
-    };
     let band = commands
         .spawn((
+            surfaces::ModalFoot,
             Node {
                 width: Val::Percent(100.0),
                 padding: UiRect::all(px_fixed(kit.m.pad)),
                 column_gap: gap,
                 row_gap: gap,
-                flex_direction: direction,
-                flex_wrap: if phone {
-                    FlexWrap::NoWrap
-                } else {
-                    FlexWrap::WrapReverse
-                },
+                flex_direction: FlexDirection::Row,
+                flex_wrap: FlexWrap::WrapReverse,
                 justify_content: JustifyContent::SpaceBetween,
-                align_items: across,
+                align_items: AlignItems::Center,
                 flex_shrink: 0.0,
                 border: UiRect::top(px_fixed(1.0)),
                 ..default()
@@ -923,14 +926,10 @@ fn foot(commands: &mut Commands, kit: Kit, decline: Option<Entity>, answers: &[E
             Node {
                 column_gap: gap,
                 row_gap: gap,
-                flex_direction: direction,
-                flex_wrap: if phone {
-                    FlexWrap::NoWrap
-                } else {
-                    FlexWrap::Wrap
-                },
+                flex_direction: FlexDirection::Row,
+                flex_wrap: FlexWrap::WrapReverse,
                 justify_content: JustifyContent::FlexEnd,
-                align_items: across,
+                align_items: AlignItems::Center,
                 margin: UiRect::left(Val::Auto),
                 max_width: Val::Percent(100.0),
                 ..default()
@@ -983,10 +982,14 @@ pub(crate) fn sheet(
         }
         _ => String::new(),
     };
+    // Wide enough for German's "Meine Daten auf diesem Gateway löschen",
+    // "Später (dieses Gateway verlassen)" and "Annehmen & weiter [Enter]"
+    // to stand on one row without crowding or clipping; capped to the
+    // viewport on smaller windows.
     let surface = surfaces::dialog(
         commands,
         kit,
-        kit.m.px(720.0),
+        kit.m.px(1020.0),
         tokens::PRIMARY_EDGE.with_alpha(0.45),
         // A press on the sheet's own ground is no press behind it.
         Press::Shared(super::super::SharedPress::PickerNothing),
@@ -1224,13 +1227,15 @@ pub(crate) fn sheet(
         commands.entity(surface).add_child(foot);
     }
     let scrim = surfaces::sheet(commands, surface);
-    if phone {
-        commands
-            .entity(scrim)
-            .entry::<Node>()
-            .and_modify(|mut node| {
+    commands
+        .entity(scrim)
+        .entry::<Node>()
+        .and_modify(move |mut node| {
+            if phone {
                 node.align_items = AlignItems::Stretch;
-            });
-    }
+            } else {
+                node.padding = UiRect::all(px_fixed(kit.m.body));
+            }
+        });
     commands.entity(root).add_child(scrim);
 }
