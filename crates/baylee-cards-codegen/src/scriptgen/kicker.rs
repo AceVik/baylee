@@ -3,10 +3,44 @@
 use super::{Chain, Params, Tx};
 
 impl Tx<'_> {
+    /// Whether a line happens only if this spell was kicked, in any of the
+    /// reference's spellings: `Condition$ Kicked` (or a dual kicker's
+    /// `Kicked 1`), a `ConditionCheckSVar$` over `Count$Kicked…` or
+    /// `Count$TimesKicked…` compared other than `EQ0`, or
+    /// `ConditionDefined$ Self | ConditionPresent$ Card.kicked`.
+    ///
+    /// Only the kicked side: a line that happens only when the spell was not
+    /// kicked keeps its target, which the kicked half then reads as "that
+    /// permanent" (Rona's Vortex), and a condition on another object's being
+    /// kicked (Ertai's Trickery's "if it was kicked", on its target) is no
+    /// gate on this spell at all.
+    pub(super) fn line_is_gated_on_kicking(&self, p: &Params) -> bool {
+        if p.peek("Condition")
+            .is_some_and(|cond| cond == "Kicked" || cond.starts_with("Kicked "))
+        {
+            return true;
+        }
+        if let Some(var) = p.peek("ConditionCheckSVar")
+            && let Some(def) = self.svars.get(var.trim()).map(|s| s.trim())
+            && (def.starts_with("Count$Kicked") || def.starts_with("Count$TimesKicked"))
+        {
+            return !matches!(
+                p.peek("ConditionSVarCompare").map(str::trim),
+                Some("EQ0" | "LT1" | "LE0")
+            );
+        }
+        p.peek("ConditionDefined") == Some("Self")
+            && p.peek("ConditionPresent").is_some_and(|present| {
+                present
+                    .split(['.', '+'])
+                    .any(|atom| atom.trim() == "kicked")
+            })
+    }
+
     /// Two consecutive lines of the same API whose `TargetMin$`/`TargetMax$`
     /// flip between `Count$Kicked.0.1` and `Count$Kicked.1.0` and whose other
     /// non-prose parameters are identical: a spell whose kicker replaces its
-    /// target requirement (`FaceDef::kicked_targets`, CR 702.33a).
+    /// target requirement (`FaceDef::kicked_targets`, CR 702.33g).
     ///
     /// Returns `Some(child_sub)` when matched (having consumed `ValidTgts$`,
     /// `TargetMin$`, `TargetMax$`, `TgtZone$`, and `SubAbility$` on both lines,

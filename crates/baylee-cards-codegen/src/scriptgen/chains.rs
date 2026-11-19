@@ -31,11 +31,19 @@ impl Tx<'_> {
                 let valid = p.take("ValidTgts");
                 let targets_here = valid.is_some();
                 if let Some(valid) = valid {
-                    if p.peek("Condition") == Some("Kicked") {
+                    // CR 702.33g: a target of a part that happens only if the
+                    // spell was kicked is chosen only then. A target line
+                    // gated on kicking that no rule above turned into
+                    // `kicked_targets` would be demanded on every cast.
+                    if self.line_is_gated_on_kicking(&p) {
                         return self.deny(if chain.target.is_some() {
                             "a kicked-only second target".to_string()
-                        } else {
+                        } else if p.peek("Condition") == Some("Kicked") {
                             "an unsupported kicked-only target".to_string()
+                        } else {
+                            "a target behind a kicked condition read through \
+                             `ConditionCheckSVar$` or `ConditionPresent$`"
+                                .to_string()
                         });
                     }
                     self.chain_target(&api, &mut p, &valid, chain)?;

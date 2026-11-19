@@ -551,3 +551,60 @@ fn kicked_filters_spend_restriction_end_step_and_multikicker_multiples() {
              amount: Amount::Times { base: &Amount::TimesKicked, factor: 3 } }])"]
     );
 }
+
+/// CR 702.33g: a target of a part that happens only if the spell was kicked
+/// is chosen only then. Gated on kicking through `ConditionCheckSVar$` or
+/// `ConditionPresent$`, such a target line has no `kicked_targets` reading and
+/// would be demanded on every cast, so it is refused by name.
+#[test]
+fn a_target_gated_on_kicking_by_svar_or_presence_is_refused() {
+    for gate in [
+        "ConditionCheckSVar$ K | ConditionSVarCompare$ GE1\nSVar:K:Count$Kicked.1.0",
+        "ConditionCheckSVar$ K | ConditionSVarCompare$ GE1\nSVar:K:Count$TimesKicked",
+        "ConditionDefined$ Self | ConditionPresent$ Card.kicked",
+    ] {
+        let script = parse(&format!(
+            "Name:X\nManaCost:1 R\nTypes:Instant\nK:Kicker:1 R\n\
+             A:SP$ Draw | NumCards$ 1 | SubAbility$ DBDmg\n\
+             SVar:DBDmg:DB$ DealDamage | ValidTgts$ Creature | NumDmg$ 2 | {gate}"
+        ));
+        assert!(transcode(&script, &cats(), None).is_none(), "{gate}");
+        assert_eq!(
+            refusal_reason(&script, &cats(), None).as_deref(),
+            Some(
+                "a target behind a kicked condition read through \
+                 `ConditionCheckSVar$` or `ConditionPresent$`"
+            ),
+            "{gate}"
+        );
+    }
+    // No gate on this spell's kicking: a line that happens only unkicked keeps
+    // the target its kicked half reads as "that permanent" too, and "counter
+    // target spell if it was kicked" asks the target, not this spell.
+    let unkicked_only = parse(
+        "Name:X\nManaCost:U\nTypes:Instant\nK:Kicker:2 B\n\
+         A:SP$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Hand | \
+         SubAbility$ DBBottom | ConditionCheckSVar$ K | ConditionSVarCompare$ EQ0\n\
+         SVar:DBBottom:DB$ ChangeZone | Defined$ Targeted | Origin$ Battlefield | \
+         Destination$ Library | LibraryPosition$ -1 | Condition$ Kicked\n\
+         SVar:K:Count$TimesKicked",
+    );
+    assert_ne!(
+        refusal_reason(&unkicked_only, &cats(), None).as_deref(),
+        Some(
+            "a target behind a kicked condition read through \
+             `ConditionCheckSVar$` or `ConditionPresent$`"
+        )
+    );
+    let on_the_target = parse(
+        "Name:X\nManaCost:U\nTypes:Instant\n\
+         A:SP$ Counter | TargetType$ Spell | ValidTgts$ Card | \
+         ConditionDefined$ Targeted | ConditionPresent$ Spell.kicked",
+    );
+    let body = transcode(&on_the_target, &cats(), None).expect("read in full");
+    assert!(
+        body.abilities[0].contains("Effect::IfTargetMatches { filter: &Filter::Kicked"),
+        "{}",
+        body.abilities[0]
+    );
+}
