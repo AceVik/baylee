@@ -27,6 +27,15 @@ impl SocialHost {
                 body,
             } => self.request_http(&session, tag, method, &path, body.as_ref()),
             Effect::Up(up) => self.send_up(up),
+            // Only Baylee Central keeps a choice: a gateway account's is the
+            // status its gateway is told.
+            Effect::Choose { choice, was } => {
+                #[cfg(not(target_arch = "wasm32"))]
+                central::choose(self, choice, was);
+                #[cfg(target_arch = "wasm32")]
+                let _ = (choice, was);
+            }
+
             Effect::Dial => {
                 #[cfg(not(target_arch = "wasm32"))]
                 if let Some(bridge) = self.central.as_mut() {

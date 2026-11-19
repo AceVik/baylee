@@ -184,8 +184,10 @@ archiving. Already delivered group history may be read after leaving; it creates
 no membership or send permission. Native history and age bounds still apply.
 The browser/native crypto interoperability test uses both actual implementations.
 
-The gateway still owns game chat, public chat, presence, table invitations and
-moderation. It cannot overwrite Central contacts/groups or acknowledge a personal
+The gateway still owns game chat, public chat, table invitations and
+moderation, and its own presence: which table a friend sits at. Whether a
+friend is shown at all, and as away, playing or at a table, is Central's
+since 19.11.2026 (`docs/client.md` §"The contact status"). It cannot overwrite Central contacts/groups or acknowledge a personal
 send. Gateway registration retries independently, and outstanding game sends are
 bounded. Old gateway group deliveries addressed to the current identity can be
 archived read-only using gateway pins, with encrypted publication before ACK.

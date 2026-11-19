@@ -4,7 +4,7 @@
 //! string typed, which the machine resolves against friends, recent
 //! whisper partners and the table's roster.
 
-use baylee_protocol::social::Status;
+use central_api::presence::Choice;
 
 use super::words::ChatPhrase;
 
@@ -73,8 +73,10 @@ pub enum Command {
     Invite(String),
     /// `/watch name`.
     Watch(String),
-    /// `/online`, `/away`, `/dnd`, `/invisible`.
-    Status(Status),
+    /// `/online`, `/away`, `/offline`.
+    Choose(Choice),
+    /// `/dnd`: do not disturb on this device, on or off.
+    Quiet,
     /// `/clear`.
     Clear,
     /// `/mute` with no name.
@@ -189,15 +191,7 @@ pub const COMMANDS: &[CommandInfo] = &[
         help: ChatPhrase::HelpWatch,
     },
     CommandInfo {
-        names: &[
-            "online",
-            "away",
-            "afk",
-            "dnd",
-            "busy",
-            "invisible",
-            "offline",
-        ],
+        names: &["online", "away", "afk", "offline", "invisible", "dnd"],
         help: ChatPhrase::HelpStatus,
     },
     CommandInfo {
@@ -316,10 +310,10 @@ pub fn parse(line: &str) -> Result<Command, CommandFault> {
         "unignore" | "unmute" => needs_name(Command::Unignore)?,
         "invite" | "inv" => needs_name(Command::Invite)?,
         "watch" | "spectate" => needs_name(Command::Watch)?,
-        "online" => Command::Status(Status::Online),
-        "away" | "afk" => Command::Status(Status::Away),
-        "dnd" | "busy" => Command::Status(Status::Dnd),
-        "invisible" | "offline" => Command::Status(Status::Invisible),
+        "online" => Command::Choose(Choice::Online),
+        "away" | "afk" => Command::Choose(Choice::Afk),
+        "offline" | "invisible" => Command::Choose(Choice::Offline),
+        "dnd" => Command::Quiet,
         "friends" | "social" => Command::Friends,
         "who" => Command::Who,
         "leave" => Command::Leave,

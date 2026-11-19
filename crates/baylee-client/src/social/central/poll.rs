@@ -60,6 +60,7 @@ pub(in crate::social) fn tick(host: &mut SocialHost, now: u64) {
     }
     super::gateway::register(host, now);
     sync_ws_signals(host, now);
+    super::status::tick(host, now);
     let Some(bridge) = host.central.as_mut() else {
         return;
     };
@@ -107,9 +108,13 @@ fn sync_ws_signals(host: &mut SocialHost, now: u64) {
     let presence_seq = bridge.handle.presence_seq();
     if presence_seq != bridge.seen_presence_seq {
         bridge.seen_presence_seq = presence_seq;
+        let seen = bridge.handle.seen();
         if bridge.ready && bridge.welcomed {
             let snapshot = bridge.snapshot();
             apply(host, Down::Snapshot(snapshot));
+        }
+        if seen.told {
+            super::status::heard(host, seen.me);
         }
     }
     let Some(bridge) = host.central.as_mut() else {

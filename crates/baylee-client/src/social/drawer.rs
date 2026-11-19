@@ -10,8 +10,9 @@
 use super::zoom::{z, zpx};
 use crate::ui_button::{Clicks, UiButton};
 use baylee_client_core::i18n::Lang;
-use baylee_client_core::social::{ChatPhrase, ChatTab, Intent, Social};
-use baylee_protocol::social::{Place, Shown, Status};
+use baylee_client_core::social::presence::Choice;
+use baylee_client_core::social::{ChatPhrase, ChatTab, Intent, place_name};
+use baylee_protocol::social::{Place, Shown};
 use bevy::prelude::*;
 use bevy::ui::{RelativeCursorPosition, ScrollPosition};
 
@@ -62,12 +63,21 @@ pub(crate) enum DrawerPress {
     DeleteGroup(String),
     AnswerInvite(String, bool),
     NewGroup,
+    /// Opens the status menu ([`STATUS_MENU`]).
     Status,
+    /// A choice in the status menu.
+    Choose(Choice),
+    /// Do not disturb in the status menu, on or off.
+    Quiet(bool),
     Privacy,
     Entry,
     EntryOk,
     EntryCancel,
 }
+
+/// The key of the player's own status menu in `ChatUi::drawer_menu`, beside
+/// a friend's tag (hex) and a group's `grp:{id}`.
+const STATUS_MENU: &str = "status";
 
 /// The drawer's scrollbar track, shown only when `DrawerList` overflows.
 #[derive(Component)]
@@ -559,7 +569,11 @@ fn drawer_row_clicks(
         && mouse.is_some_and(|m| m.just_pressed(MouseButton::Left))
         && !menus.iter().any(RelativeCursorPosition::cursor_over)
         && !mores.iter().any(|(press, hovered)| {
-            hovered.get() && matches!(press, DrawerPress::More(_) | DrawerPress::GroupMore(_))
+            hovered.get()
+                && matches!(
+                    press,
+                    DrawerPress::More(_) | DrawerPress::GroupMore(_) | DrawerPress::Status
+                )
         })
     {
         ui.drawer_menu = None;
@@ -761,13 +775,26 @@ fn presses(
                 ui.typing = true;
             }
             DrawerPress::Status => {
-                let next = match host.machine().map(Social::status) {
-                    Some(Status::Online) => Status::Away,
-                    Some(Status::Away) => Status::Dnd,
-                    Some(Status::Dnd) => Status::Invisible,
-                    _ => Status::Online,
+                ui.row_menu = None;
+                *more = if more.as_deref() == Some(STATUS_MENU) {
+                    None
+                } else {
+                    Some(STATUS_MENU.to_owned())
                 };
-                host.act(Intent::SetStatus(next));
+                ui.drawer_menu.clone_from(&more);
+                if let (Some(at), Some(pos)) = (menu_at.as_deref_mut(), pointer_pos) {
+                    at.0 = pos;
+                }
+            }
+            DrawerPress::Choose(choice) => {
+                host.act(Intent::Choose(choice));
+                *more = None;
+                ui.drawer_menu = None;
+            }
+            DrawerPress::Quiet(quiet) => {
+                host.act(Intent::Quiet(quiet));
+                *more = None;
+                ui.drawer_menu = None;
             }
             DrawerPress::Privacy => ui.sheet = Some(super::sheet::Sheet::Privacy),
             DrawerPress::Entry => {
@@ -963,6 +990,15 @@ fn person_avatar(commands: &mut Commands, fonts: &UiFonts, name: &str, shown: Sh
         .id()
 }
 
+/// The words of the player's own choice.
+const fn choice_phrase(choice: Choice) -> ChatPhrase {
+    match choice {
+        Choice::Online => ChatPhrase::StatusOnline,
+        Choice::Afk => ChatPhrase::StatusAfk,
+        Choice::Offline => ChatPhrase::StatusOffline,
+    }
+}
+
 /// Where a friend is, in words.
 pub(crate) fn place_words(shown: Shown, place: Option<&Place>, lang: Lang) -> String {
     if shown == Shown::Offline {
@@ -975,8 +1011,16 @@ pub(crate) fn place_words(shown: Shown, place: Option<&Place>, lang: Lang) -> St
     };
     let place = match place {
         Some(Place::Lobby) | None => ChatPhrase::PlaceLobby.text(lang).to_string(),
-        Some(Place::Room { name, .. }) => ChatPhrase::PlaceRoom.fill(lang, &[name]),
-        Some(Place::Playing { name, .. }) => ChatPhrase::PlacePlaying.fill(lang, &[name]),
+        // Baylee Central says that a friend plays or sits at a table, never
+        // where: such a place has no name to print.
+        Some(place @ Place::Room { name, .. }) => match place_name(place) {
+            Some(_) => ChatPhrase::PlaceRoom.fill(lang, &[name]),
+            None => ChatPhrase::PlaceAtTable.text(lang).to_string(),
+        },
+        Some(place @ Place::Playing { name, .. }) => match place_name(place) {
+            Some(_) => ChatPhrase::PlacePlaying.fill(lang, &[name]),
+            None => ChatPhrase::PlaceInGame.text(lang).to_string(),
+        },
         Some(Place::Watching { name, .. }) => ChatPhrase::PlaceWatching.fill(lang, &[name]),
         Some(Place::Building) => ChatPhrase::PlaceBuilding.text(lang).to_string(),
         Some(Place::House) => ChatPhrase::PlaceHouse.text(lang).to_string(),
@@ -1323,7 +1367,7 @@ fn sync_drawer(
         .collect();
     let drawer_revision = super::window::key_of(&(
         format!("{:?}", machine.me()),
-        machine.status() as u8,
+        machine.choice() as u8,
         machine
             .table()
             .map(|t| (t.game.clone(), t.playing, t.watching)),
@@ -2090,12 +2134,7 @@ fn sync_drawer(
         .id();
     // The foot: symmetrical 2-row action bar (Status + Privacy 50/50 on top,
     // full-width New Group button below).
-    let status = match machine.status() {
-        Status::Online => ChatPhrase::StatusOnline,
-        Status::Away => ChatPhrase::StatusAway,
-        Status::Dnd => ChatPhrase::StatusDnd,
-        Status::Invisible => ChatPhrase::StatusInvisible,
-    };
+    let status = choice_phrase(machine.choice());
     let foot = commands
         .spawn((
             Node {
@@ -2235,6 +2274,8 @@ fn sync_context_menu(
             at_table,
             my_table,
             lang as u8,
+            machine.choice() as u8,
+            machine.quiet(),
             format!("{:?}", machine.contacts()),
         )),
     );
@@ -2249,7 +2290,43 @@ fn sync_context_menu(
     let header_sub: String;
     let header_col: Color;
     let mut entries: Vec<MenuEntry> = Vec::new();
-    if let Some(group_id) = target.strip_prefix("grp:") {
+    if target == STATUS_MENU {
+        // The player's own status: how friends are shown them (kept at
+        // Baylee Central, for every device), and this device's own quiet.
+        let chosen = machine.choice();
+        header_title = ChatPhrase::StatusLabel.fill(lang, &[choice_phrase(chosen).text(lang)]);
+        header_col = tokens::INK;
+        header_sub = if chosen == Choice::Offline {
+            ChatPhrase::OfflineHint.text(lang).to_string()
+        } else if machine.quiet() {
+            ChatPhrase::QuietHint.text(lang).to_string()
+        } else {
+            String::new()
+        };
+        for (choice, icon) in [
+            (Choice::Online, glyph::SUN),
+            (Choice::Afk, glyph::AWAY),
+            (Choice::Offline, glyph::EYE_SLASH),
+        ] {
+            entries.push(MenuEntry::Action {
+                icon: if choice == chosen { glyph::CHECK } else { icon },
+                label: choice_phrase(choice).text(lang).to_string(),
+                press: DrawerPress::Choose(choice),
+                danger: false,
+            });
+        }
+        entries.push(MenuEntry::Divider);
+        entries.push(MenuEntry::Action {
+            icon: if machine.quiet() {
+                glyph::CHECK
+            } else {
+                glyph::MOON
+            },
+            label: ChatPhrase::StatusDnd.text(lang).to_string(),
+            press: DrawerPress::Quiet(!machine.quiet()),
+            danger: false,
+        });
+    } else if let Some(group_id) = target.strip_prefix("grp:") {
         let Some(group) = machine.contacts().group(group_id) else {
             return;
         };

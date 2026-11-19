@@ -491,3 +491,83 @@ fn the_view_hands_through_the_other_sections() {
     assert_eq!(view.invites.len(), 1);
     assert!(view.online.is_empty() && view.offline.is_empty());
 }
+
+mod central {
+    //! A friend as Baylee Central shows it, beside what a game gateway knows.
+    use super::{Place, Shown, playing, presence, room};
+    use crate::social::{place_name, shown_by_central};
+    use central_api::presence::{Activity, Shown as Central};
+
+    fn central(away: bool, activity: Option<Activity>) -> Central {
+        Central { away, activity }
+    }
+
+    #[test]
+    fn central_alone_says_whether_a_friend_is_away() {
+        // The gateway's own status of the friend is never taken, do not
+        // disturb included.
+        let gateway = presence(Shown::Dnd, Some(Place::Lobby));
+        assert_eq!(
+            shown_by_central(central(false, None), Some(&gateway)).status,
+            Shown::Online
+        );
+        assert_eq!(
+            shown_by_central(central(true, None), Some(&gateway)).status,
+            Shown::Away
+        );
+        assert_eq!(
+            shown_by_central(central(true, None), None),
+            presence(Shown::Away, Some(Place::Lobby))
+        );
+    }
+
+    #[test]
+    fn a_game_or_a_table_central_tells_of_has_no_name() {
+        for (activity, section) in [(Activity::Playing, 0), (Activity::Table, 1)] {
+            let shown = shown_by_central(central(false, Some(activity)), None);
+            let place = shown.place.as_ref().unwrap();
+            assert_eq!(place_name(place), None, "{activity:?}");
+            assert_eq!(
+                match place {
+                    Place::Playing { game: None, .. } => 0,
+                    Place::Room { game: None, .. } => 1,
+                    _ => 2,
+                },
+                section,
+                "{activity:?}: nothing to watch or join by"
+            );
+        }
+        assert_eq!(place_name(&playing()), Some("T"));
+        assert_eq!(place_name(&room()), Some("R"));
+        assert_eq!(place_name(&Place::Lobby), None);
+    }
+
+    #[test]
+    fn the_gateway_names_the_table_only_where_it_agrees_with_central() {
+        let at_game = presence(Shown::Online, Some(playing()));
+        let at_room = presence(Shown::Online, Some(room()));
+        // Agreeing: the gateway's table, with its name.
+        assert_eq!(
+            shown_by_central(central(false, Some(Activity::Playing)), Some(&at_game)).place,
+            Some(playing())
+        );
+        assert_eq!(
+            shown_by_central(central(true, Some(Activity::Table)), Some(&at_room)).place,
+            Some(room())
+        );
+        // Central says a game, the gateway still a waiting room: a game, unnamed.
+        let shown = shown_by_central(central(false, Some(Activity::Playing)), Some(&at_room));
+        assert!(matches!(shown.place, Some(Place::Playing { ref name, .. }) if name.is_empty()));
+        // A client that reports nothing (an older one): what the gateway sees.
+        assert_eq!(
+            shown_by_central(central(false, None), Some(&at_game)).place,
+            Some(playing())
+        );
+        // A gateway that shows the friend offline knows no place.
+        let gone = presence(Shown::Offline, Some(playing()));
+        assert_eq!(
+            shown_by_central(central(false, None), Some(&gone)).place,
+            Some(Place::Lobby)
+        );
+    }
+}

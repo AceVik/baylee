@@ -1,6 +1,6 @@
 //! The slash commands, row by row of §12.2 (every alias), and what a line that is no command becomes.
 
-use baylee_protocol::social::Status;
+use central_api::presence::Choice;
 
 use crate::social::commands::{
     COMMANDS, Command, CommandFault, GroupRef, Target, help_for, names_starting, parse, split_name,
@@ -183,21 +183,24 @@ fn mute_and_unmute_without_a_name_mute_the_conversation() {
 
 #[test]
 fn status_aliases_set_the_status() {
-    let rows: [(&[&str], Status); 4] = [
-        (&["online"], Status::Online),
-        (&["away", "afk"], Status::Away),
-        (&["dnd", "busy"], Status::Dnd),
-        (&["invisible", "offline"], Status::Invisible),
+    let rows: [(&[&str], Choice); 3] = [
+        (&["online"], Choice::Online),
+        (&["away", "afk"], Choice::Afk),
+        (&["offline", "invisible"], Choice::Offline),
     ];
-    for (aliases, status) in rows {
+    for (aliases, choice) in rows {
         for alias in aliases {
             assert_eq!(
                 ok(&format!("/{alias}")),
-                Command::Status(status),
+                Command::Choose(choice),
                 "/{alias}"
             );
         }
     }
+    // Do not disturb is this device's own switch, no status friends see;
+    // "busy" is what a friend in a game is shown, so it is no command.
+    assert_eq!(ok("/dnd"), Command::Quiet);
+    assert!(parse("/busy").is_err());
 }
 
 #[test]
@@ -285,7 +288,7 @@ fn command_names_are_matched_without_regard_to_case() {
         }
     );
     assert_eq!(ok("/TABLE gg"), say(Target::Table, "gg"));
-    assert_eq!(ok("/Away"), Command::Status(Status::Away));
+    assert_eq!(ok("/Away"), Command::Choose(Choice::Afk));
     assert_eq!(ok("/FRIEND Bob"), Command::Friend(s("Bob")));
     assert_eq!(ok("/MUTE"), Command::Mute);
 }
@@ -557,15 +560,7 @@ fn help_for_finds_every_alias_of_every_row() {
         (&["invite", "inv"], ChatPhrase::HelpInvite),
         (&["watch", "spectate"], ChatPhrase::HelpWatch),
         (
-            &[
-                "online",
-                "away",
-                "afk",
-                "dnd",
-                "busy",
-                "invisible",
-                "offline",
-            ],
+            &["online", "away", "afk", "offline", "invisible", "dnd"],
             ChatPhrase::HelpStatus,
         ),
         (&["friends", "social"], ChatPhrase::HelpFriends),

@@ -1,5 +1,5 @@
 use super::*;
-use baylee_client_core::social::{ChatPrefs, Me, Social};
+use baylee_client_core::social::{ChatPrefs, Me, Social, presence};
 use baylee_seal::testkit::Seeded;
 
 mod retries;
@@ -173,11 +173,90 @@ fn central_friend_presence_updates_from_central_ws_without_any_gateway() {
         bridge.snapshot().friends[0].presence.status,
         wire::Shown::Offline
     );
-    bridge.handle.set_online_tags_for_test(["002a".to_owned()]);
+    let seen = |shown| crate::lobby::central::Seen {
+        friends: [("002a".to_owned(), shown)].into(),
+        me: None,
+        told: true,
+    };
+    bridge
+        .handle
+        .set_seen_for_test(seen(presence::Shown::ONLINE));
     assert_eq!(
-        bridge.snapshot().friends[0].presence.status,
-        wire::Shown::Online
+        bridge.snapshot().friends[0].presence,
+        wire::Presence {
+            status: wire::Shown::Online,
+            place: Some(wire::Place::Lobby),
+        }
     );
+    // Away at a table: Central names no table, so the place has no name.
+    bridge.handle.set_seen_for_test(seen(presence::Shown {
+        away: true,
+        activity: Some(presence::Activity::Table),
+    }));
+    let shown = bridge.snapshot().friends[0].presence.clone();
+    assert_eq!(shown.status, wire::Shown::Away);
+    assert!(matches!(shown.place, Some(wire::Place::Room { ref name, .. }) if name.is_empty()));
+}
+
+/// A friend who chose offline at Baylee Central is in no `presence` frame.
+/// A game gateway that still shows the same friend, with the table it sits
+/// at, is not believed: Central alone says who is shown.
+#[test]
+fn a_friend_central_does_not_show_is_offline_whatever_a_game_gateway_says() {
+    let mut host = host();
+    let bridge = host.central.as_mut().unwrap();
+    let person = wire::Person {
+        tag: "002a".into(),
+        handle: "Argon#002a".into(),
+        guest: false,
+    };
+    bridge.personal.friends.push(wire::Friend {
+        person: person.clone(),
+        since: 1,
+        presence: wire::Presence::offline(),
+    });
+    let at_table = wire::Presence {
+        status: wire::Shown::Online,
+        place: Some(wire::Place::Playing {
+            game: Some("g1".into()),
+            name: "Friday".into(),
+            seats: 2,
+            running_secs: 30,
+        }),
+    };
+    bridge.game.friends.push(wire::Friend {
+        person,
+        since: 1,
+        presence: at_table.clone(),
+    });
+    // Before Central's socket has said anything, the gateway's word stands.
+    assert_eq!(bridge.snapshot().friends[0].presence, at_table);
+    bridge
+        .handle
+        .set_seen_for_test(crate::lobby::central::Seen {
+            told: true,
+            ..Default::default()
+        });
+    assert_eq!(
+        bridge.snapshot().friends[0].presence,
+        wire::Presence::offline()
+    );
+    // Shown by Central and playing: the gateway's table and its name come back.
+    bridge
+        .handle
+        .set_seen_for_test(crate::lobby::central::Seen {
+            friends: [(
+                "002a".to_owned(),
+                presence::Shown {
+                    away: false,
+                    activity: Some(presence::Activity::Playing),
+                },
+            )]
+            .into(),
+            me: None,
+            told: true,
+        });
+    assert_eq!(bridge.snapshot().friends[0].presence, at_table);
 }
 
 #[test]

@@ -81,7 +81,7 @@ impl Social {
             self.refresh_candidates();
             let ctx = NotifyContext {
                 reading,
-                dnd: self.status == Status::Dnd,
+                dnd: self.quiet,
                 focused: self.focused,
                 question_up: false,
                 mention: mentions_me,
@@ -362,7 +362,7 @@ impl Social {
             self.refresh_candidates();
             let ctx = NotifyContext {
                 reading,
-                dnd: self.status == Status::Dnd,
+                dnd: self.quiet,
                 focused: self.focused,
                 question_up: false,
                 mention: mentions_me,
@@ -460,7 +460,7 @@ impl Social {
             about: Some(ToastAbout::TableInvite(id)),
             line: None,
         }));
-        if self.status != Status::Dnd {
+        if !self.quiet {
             out.push(Effect::Sound(ChatCue::FriendRequest));
         }
     }

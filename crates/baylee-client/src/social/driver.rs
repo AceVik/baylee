@@ -91,6 +91,7 @@ pub(super) fn drive(
     keys: Res<ButtonInput<KeyCode>>,
     mouse: Option<Res<ButtonInput<MouseButton>>>,
     windows: Query<&Window>,
+    phase: Option<Res<State<crate::DuelPhase>>>,
 ) {
     let host = &mut *host;
     let wanted = wanted_session(&lobby);
@@ -224,6 +225,13 @@ pub(super) fn drive(
         let focused = super::window::window_focused(&windows);
         if let Some(machine) = host.machine.as_mut() {
             machine.set_focus(focused);
+            machine.set_doing(baylee_client_core::social::doing::doing(
+                lobby.lobby.screen(),
+                phase
+                    .as_deref()
+                    .is_some_and(|phase| *phase.get() == crate::DuelPhase::Finished),
+                baylee_client_core::lobby::strips::my_waiting_table(&lobby.lobby).is_some(),
+            ));
             let effects = machine.tick(now, idle_ms);
             host.carry_out(effects);
         }

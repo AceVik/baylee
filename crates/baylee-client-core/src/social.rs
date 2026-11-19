@@ -20,6 +20,7 @@ pub mod compose;
 pub mod contacts;
 pub mod convs;
 pub mod disk;
+pub mod doing;
 pub mod history;
 pub mod keys;
 pub mod notify;
@@ -36,11 +37,14 @@ mod table;
 mod tests;
 
 pub use baylee_seal::Entropy;
+/// Baylee Central's status types: what a person chose, what the client is
+/// doing, and how a friend is shown (`docs/client.md` §"The contact status").
+pub use central_api::presence;
 pub use commands::{Command, CommandFault, GroupRef, Target};
 pub use compose::{
     ComposeContext, Composer, ComposerKey, ComposerOutcome, LinkedCard, Suggest, SuggestItem,
 };
-pub use contacts::{Contacts, FriendsView, HeldInvite};
+pub use contacts::{Contacts, FriendsView, HeldInvite, place_name, shown_by_central};
 pub use convs::{
     Body, BodyLink, BodyMention, BodyPrint, ChatLine, ConvId, ConvKind, Conversation, LineKey,
     LineKind, LineState,
@@ -57,7 +61,7 @@ pub use words::ChatPhrase;
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroizing;
 
-use baylee_protocol::social::{SocialSettings, Status, Up};
+use baylee_protocol::social::{SocialSettings, Up};
 
 /// The signed-in account the machine speaks for.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -254,6 +258,16 @@ pub enum Effect {
     },
     /// A frame for the social socket.
     Up(Up),
+    /// Keep the player's choice at Baylee Central, which tells every device
+    /// of the account. Refused, answer with [`Social::choice_refused`] and
+    /// `was`. Nothing to do for an account that is not Central's.
+    Choose {
+        /// The choice made.
+        choice: presence::Choice,
+        /// The choice before it.
+        was: presence::Choice,
+    },
+
     /// Open the social socket (a fresh ticket each dial).
     Dial,
     /// Close it.
@@ -492,8 +506,10 @@ pub enum Intent {
         /// Whom.
         tag: String,
     },
-    /// Set this player's status.
-    SetStatus(Status),
+    /// Choose how friends are shown this player: online, away or offline.
+    Choose(presence::Choice),
+    /// Do not disturb on this device, on or off.
+    Quiet(bool),
     /// Change the server-side settings.
     SetSettings(SocialSettings),
     /// Change this device's chat settings.

@@ -16,9 +16,11 @@ mod http;
 mod mapping;
 mod poll;
 mod retries;
+mod status;
 mod worker;
 pub(super) use gateway::{gateway_http, gateway_news};
 pub(super) use poll::tick;
+pub(super) use status::choose;
 
 struct Flight {
     job: Job,
@@ -53,6 +55,7 @@ pub(super) struct Bridge {
     seen_chat_seq: u64,
     seen_social_seq: u64,
     seen_presence_seq: u64,
+    status: status::Status,
 }
 impl Bridge {
     fn new(handle: Handle, session: Session, device: String) -> Self {
@@ -63,6 +66,7 @@ impl Bridge {
         let seen_chat_seq = handle.chat_seq();
         let seen_social_seq = handle.social_seq();
         let seen_presence_seq = handle.presence_seq();
+        let status = status::Status::new(handle.ready_seq());
         Self {
             handle,
             session,
@@ -89,6 +93,7 @@ impl Bridge {
             seen_chat_seq,
             seen_social_seq,
             seen_presence_seq,
+            status,
         }
     }
     pub(super) fn game_registered(&self) -> bool {
@@ -122,24 +127,25 @@ impl Bridge {
         snapshot.tables.clone_from(&self.game.tables);
         snapshot.invites.clone_from(&self.game.invites);
         snapshot.settings = self.game.settings;
-        let online_tags = self.handle.online_tags();
+        // Once Baylee Central's push socket has said who is online, it alone
+        // says who is shown: a friend who chose offline there is offline
+        // here whatever a game gateway says, and the gateway only adds where
+        // a friend Central shows is sitting. Until it has (no socket, or a
+        // Central without one), the gateway's word stands as it did before
+        // the status: a friend who chose offline tells its gateway so too.
+        let seen = self.handle.seen();
         for friend in &mut snapshot.friends {
-            if let Some(peer) = self
+            let gateway = self
                 .game
                 .friends
                 .iter()
                 .find(|peer| peer.person.tag == friend.person.tag)
-                && peer.presence.status != wire::Shown::Offline
-            {
-                friend.presence.clone_from(&peer.presence);
-            } else if online_tags.contains(&friend.person.tag) {
-                friend.presence = wire::Presence {
-                    status: wire::Shown::Online,
-                    place: Some(wire::Place::Lobby),
-                };
-            } else {
-                friend.presence = wire::Presence::offline();
-            }
+                .map(|peer| &peer.presence);
+            friend.presence = match seen.friends.get(&friend.person.tag) {
+                Some(shown) => baylee_client_core::social::shown_by_central(*shown, gateway),
+                None if seen.told => wire::Presence::offline(),
+                None => gateway.cloned().unwrap_or_else(wire::Presence::offline),
+            };
         }
         snapshot
     }
@@ -202,7 +208,10 @@ pub(super) fn attach(host: &mut SocialHost, handle: Option<Handle>) {
         return;
     };
     machine.use_account_transport();
+    // Central keeps the choice: until it says it, the gateway sees nobody.
+    let effects = machine.await_choice();
     host.central = Some(Bridge::new(handle, session, machine.device_id().into()));
+    host.carry_out(effects);
 }
 
 pub(super) fn rebind_session(host: &mut SocialHost, session: Session) {

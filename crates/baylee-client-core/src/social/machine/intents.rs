@@ -234,12 +234,21 @@ impl Social {
                     self.answer(ChatPhrase::ToastRefused, Vec::new(), now_ms);
                 }
             }
-            Intent::SetStatus(status) => {
-                self.status = status;
-                self.auto_away = false;
-                self.state.status = Some(status);
-                self.dirty = true;
+            Intent::Choose(choice) => {
+                let was = self.choice;
+                self.keep_choice(choice);
                 out.extend(self.presence_effects());
+                // Baylee Central keeps the choice, for every device; a
+                // gateway account without one keeps it on this device.
+                out.push(Effect::Choose { choice, was });
+            }
+            Intent::Quiet(quiet) => {
+                if self.quiet != quiet {
+                    self.quiet = quiet;
+                    self.state.quiet = quiet;
+                    self.dirty = true;
+                    self.bump();
+                }
             }
             Intent::SetSettings(settings) => {
                 if guest_refused(self) {
@@ -467,8 +476,21 @@ impl Social {
             Command::Watch(who) => {
                 self.on_name(&who, now_ms, rng, out, |tag| Intent::Watch { tag })
             }
-            Command::Status(status) => {
-                self.intent(Intent::SetStatus(status), now_ms, rng, out);
+            Command::Choose(choice) => {
+                self.intent(Intent::Choose(choice), now_ms, rng, out);
+                Ran::Done
+            }
+            Command::Quiet => {
+                self.intent(Intent::Quiet(!self.quiet), now_ms, rng, out);
+                self.answer(
+                    if self.quiet {
+                        ChatPhrase::QuietOn
+                    } else {
+                        ChatPhrase::QuietOff
+                    },
+                    Vec::new(),
+                    now_ms,
+                );
                 Ran::Done
             }
             Command::Clear => {

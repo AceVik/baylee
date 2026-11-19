@@ -263,7 +263,7 @@ fn the_window_moves_before_the_view_reaches_its_edge() {
 }
 
 fn app_with_machine() -> App {
-    use baylee_client_core::social::{ChatPrefs, Me};
+    use baylee_client_core::social::{ChatPrefs, Me, Social};
 
     let (machine, _) = Social::start(
         Me {
@@ -386,4 +386,91 @@ fn entry_prompt_distributes_buttons_symmetrically_and_disables_empty_ok_with_hin
             .iter(app.world())
             .any(|(p, b)| *p == DrawerPress::EntryOk && b)
     );
+}
+
+/// The status menu as drawn: every press it offers, and its heading's words.
+fn status_menu(app: &mut App) -> (Vec<DrawerPress>, Vec<String>) {
+    use bevy::ecs::system::RunSystemOnce;
+
+    app.world_mut().run_system_once(sync_context_menu).unwrap();
+    let presses = app
+        .world_mut()
+        .query::<&DrawerPress>()
+        .iter(app.world())
+        .filter(|press| matches!(press, DrawerPress::Choose(_) | DrawerPress::Quiet(_)))
+        .cloned()
+        .collect();
+    let words = app
+        .world_mut()
+        .query::<&Text>()
+        .iter(app.world())
+        .map(|text| text.0.clone())
+        .collect();
+    (presses, words)
+}
+
+fn press_of(app: &mut App, wanted: &DrawerPress) -> Entity {
+    app.world_mut()
+        .query::<(Entity, &DrawerPress)>()
+        .iter(app.world())
+        .find_map(|(entity, press)| (press == wanted).then_some(entity))
+        .expect("the control is drawn")
+}
+
+/// The status is chosen from a menu of three, and do not disturb is a switch
+/// beside them that is no fourth choice (`docs/client.md` §"The contact
+/// status").
+#[test]
+fn the_status_menu_offers_three_choices_and_a_switch_of_this_devices() {
+    use baylee_client_core::social::presence::Choice;
+
+    let mut app = app_with_machine();
+    app.init_resource::<DrawerMenuAt>();
+    app.world_mut().resource_mut::<ChatUi>().drawer = true;
+    let status = control(&mut app, DrawerPress::Status);
+    testing::click(&mut app, status);
+    assert_eq!(
+        app.world().resource::<ChatUi>().drawer_menu.as_deref(),
+        Some(STATUS_MENU)
+    );
+    let (presses, _) = status_menu(&mut app);
+    assert_eq!(
+        presses,
+        [
+            DrawerPress::Choose(Choice::Online),
+            DrawerPress::Choose(Choice::Afk),
+            DrawerPress::Choose(Choice::Offline),
+            DrawerPress::Quiet(true),
+        ]
+    );
+
+    let afk = press_of(&mut app, &DrawerPress::Choose(Choice::Afk));
+    testing::click(&mut app, afk);
+    let host = app.world().resource::<SocialHost>();
+    assert_eq!(host.machine().unwrap().choice(), Choice::Afk);
+    assert!(!host.machine().unwrap().quiet());
+    assert_eq!(app.world().resource::<ChatUi>().drawer_menu, None);
+
+    // The switch keeps the choice, and the menu then offers to turn it off.
+    app.world_mut().resource_mut::<ChatUi>().drawer_menu = Some(STATUS_MENU.to_owned());
+    status_menu(&mut app);
+    let quiet = press_of(&mut app, &DrawerPress::Quiet(true));
+    testing::click(&mut app, quiet);
+    let host = app.world().resource::<SocialHost>();
+    assert_eq!(host.machine().unwrap().choice(), Choice::Afk);
+    assert!(host.machine().unwrap().quiet());
+    app.world_mut().resource_mut::<ChatUi>().drawer_menu = Some(STATUS_MENU.to_owned());
+    let (presses, words) = status_menu(&mut app);
+    assert!(presses.contains(&DrawerPress::Quiet(false)));
+    assert!(!presses.contains(&DrawerPress::Quiet(true)));
+    let quiet_hint = ChatPhrase::QuietHint.text(Lang::En);
+    assert!(words.iter().any(|line| line == quiet_hint), "{words:?}");
+
+    // Offline says what it means in the heading, before the quiet.
+    let offline = press_of(&mut app, &DrawerPress::Choose(Choice::Offline));
+    testing::click(&mut app, offline);
+    app.world_mut().resource_mut::<ChatUi>().drawer_menu = Some(STATUS_MENU.to_owned());
+    let (_, words) = status_menu(&mut app);
+    let offline_hint = ChatPhrase::OfflineHint.text(Lang::En);
+    assert!(words.iter().any(|line| line == offline_hint), "{words:?}");
 }

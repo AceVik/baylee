@@ -11,6 +11,7 @@ use baylee_protocol::social::{
 };
 use baylee_seal::b64::url;
 use baylee_seal::{DeviceSecrets, Entropy, RestKind, at_rest_open, at_rest_seal};
+use central_api::presence::{Activity as Doing, Choice};
 
 use crate::bugreport::refs::{Candidates, CardRef, PlayerRef};
 
@@ -83,7 +84,16 @@ struct StoredState {
     /// Own device ids as last seen, for the new-device notice.
     own_devices: Vec<String>,
     game_own_devices: Vec<String>,
+    /// The status a client before the contact status kept (online, away,
+    /// do not disturb, invisible): read once, for a device whose `choice`
+    /// is not written yet, and left as it was found.
     status: Option<Status>,
+    /// How the player chose to be shown to friends.
+    #[serde(default)]
+    choice: Option<Choice>,
+    /// Do not disturb: no sounds and no passing toasts on this device.
+    #[serde(default)]
+    quiet: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -184,8 +194,19 @@ pub struct Social {
     contacts: Contacts,
     convs: Vec<Conversation>,
     link: Link,
-    status: Status,
-    auto_away: bool,
+    /// How the player chose to be shown to friends (`docs/client.md`
+    /// §"The contact status").
+    choice: Choice,
+    /// Do not disturb, on this device only: friends are shown nothing of it.
+    quiet: bool,
+    /// No input for [`AWAY_AFTER_MS`].
+    idle: bool,
+    /// What the client is doing, as Baylee Central is told it.
+    doing: Option<Doing>,
+    /// Baylee Central keeps the choice and has not said it yet: until it
+    /// does, the game gateway is told `invisible`, since the choice kept on
+    /// this device may be older than one made on another.
+    unheard: bool,
     activity: Option<baylee_protocol::social::Activity>,
     outbox: Vec<Pending>,
     next_req: u32,
@@ -274,7 +295,7 @@ impl Social {
                 device_id: device.device_id().to_string(),
                 ..StoredState::default()
             });
-        let status = state.status.unwrap_or(Status::Online);
+        let (choice, quiet) = kept_choice(state.choice, state.quiet, state.status);
         let mut social = Self {
             me,
             device,
@@ -285,8 +306,11 @@ impl Social {
             contacts: Contacts::default(),
             convs: Vec::new(),
             link: Link::Down,
-            status,
-            auto_away: false,
+            choice,
+            quiet,
+            idle: false,
+            doing: None,
+            unheard: false,
             activity: None,
             outbox: Vec::new(),
             next_req: 1,
@@ -435,6 +459,66 @@ impl Social {
         }
         self.activity = activity;
         self.presence_effects()
+    }
+
+    /// What the client is doing, for Baylee Central's friends: sitting in a
+    /// running game, at a table whose game has not begun, or neither.
+    pub fn set_doing(&mut self, doing: Option<Doing>) {
+        self.doing = doing;
+    }
+
+    /// What Baylee Central is to be told of the client: what it is doing,
+    /// and whether it has been idle for [`AWAY_AFTER_MS`]. Central hears a
+    /// report only on an open push socket and forgets it with the socket,
+    /// so the client says it after each dial and whenever it changes.
+    #[must_use]
+    pub fn report(&self) -> (Option<Doing>, bool) {
+        (self.doing, self.idle)
+    }
+
+    /// Baylee Central keeps this account's choice: until it has said it
+    /// ([`Self::heard_choice`]), the game gateway is told `invisible`.
+    pub fn await_choice(&mut self) -> Vec<Effect> {
+        if self.unheard {
+            return Vec::new();
+        }
+        self.unheard = true;
+        self.presence_effects()
+    }
+
+    /// Baylee Central said the account's choice (`None`: a Central from
+    /// before the status, which keeps none, so this device's stands).
+    pub fn heard_choice(&mut self, choice: Option<Choice>) -> Vec<Effect> {
+        let choice = choice.unwrap_or(self.choice);
+        if !self.unheard && choice == self.choice {
+            return Vec::new();
+        }
+        self.unheard = false;
+        self.keep_choice(choice);
+        self.presence_effects()
+    }
+
+    /// Baylee Central refused a choice: the one before it, `was`, stands.
+    pub fn choice_refused(&mut self, was: Choice, terms: bool) -> Vec<Effect> {
+        self.keep_choice(was);
+        let mut out = self.presence_effects();
+        out.push(toast(
+            if terms {
+                ChatPhrase::ToastStatusTerms
+            } else {
+                ChatPhrase::ToastStatusRefused
+            },
+            Vec::new(),
+        ));
+        out
+    }
+
+    fn keep_choice(&mut self, choice: Choice) {
+        if self.choice != choice || self.state.choice != Some(choice) {
+            self.choice = choice;
+            self.state.choice = Some(choice);
+            self.dirty = true;
+        }
     }
 
     /// Whether the window has the focus (notifications, §10.6).
@@ -771,7 +855,7 @@ impl Social {
                             about: Some(ToastAbout::FriendRequest(tag)),
                             line: None,
                         }));
-                        if self.status != Status::Dnd {
+                        if !self.quiet {
                             out.push(Effect::Sound(ChatCue::FriendRequest));
                         }
                     }
@@ -997,14 +1081,13 @@ impl Social {
     pub fn tick(&mut self, now_ms: u64, idle_ms: u64) -> Vec<Effect> {
         let mut out = Vec::new();
         self.last_now = self.last_now.max(now_ms);
-        if self.status == Status::Online && idle_ms >= AWAY_AFTER_MS {
-            self.status = Status::Away;
-            self.auto_away = true;
-            out.extend(self.presence_effects());
-        } else if self.auto_away && idle_ms < AWAY_AFTER_MS {
-            self.auto_away = false;
-            self.status = Status::Online;
-            out.extend(self.presence_effects());
+        let idle = idle_ms >= AWAY_AFTER_MS;
+        if idle != self.idle {
+            let before = self.status();
+            self.idle = idle;
+            if self.status() != before {
+                out.extend(self.presence_effects());
+            }
         }
         if self.retry_register_at.is_some_and(|at| at <= now_ms) {
             self.retry_register_at = None;
@@ -1361,10 +1444,32 @@ impl Social {
         }
     }
 
-    /// The player's status.
+    /// The status a game gateway is told: `invisible` for a choice of
+    /// offline and while Baylee Central has not said the choice, `away` for
+    /// a choice of away or ten idle minutes, else `online`. Never do not
+    /// disturb, which is this device's own ([`Self::quiet`]).
     #[must_use]
     pub fn status(&self) -> Status {
-        self.status
+        if self.unheard || self.choice == Choice::Offline {
+            Status::Invisible
+        } else if self.choice == Choice::Afk || self.idle {
+            Status::Away
+        } else {
+            Status::Online
+        }
+    }
+
+    /// How the player chose to be shown to friends.
+    #[must_use]
+    pub fn choice(&self) -> Choice {
+        self.choice
+    }
+
+    /// Do not disturb: this device plays no chat sound and raises no passing
+    /// toast. Friends are shown nothing of it.
+    #[must_use]
+    pub fn quiet(&self) -> bool {
+        self.quiet
     }
 
     /// The device's chat settings.
@@ -1504,7 +1609,7 @@ impl Social {
 
     fn presence_set(&self) -> PresenceSet {
         PresenceSet {
-            status: self.status,
+            status: self.status(),
             activity: self.activity,
         }
     }
@@ -1733,6 +1838,28 @@ fn http(tag: HttpTag, method: Method, path: String, body: Option<serde_json::Val
         method,
         path,
         body,
+    }
+}
+
+/// The choice and the quiet a device starts with: what it wrote, or, for a
+/// state file from before the contact status, what its one status said.
+/// Away and invisible were choices; do not disturb was online with this
+/// device kept quiet.
+pub(super) fn kept_choice(
+    choice: Option<Choice>,
+    quiet: bool,
+    before: Option<Status>,
+) -> (Choice, bool) {
+    match choice {
+        Some(choice) => (choice, quiet),
+        None => (
+            match before {
+                Some(Status::Away) => Choice::Afk,
+                Some(Status::Invisible) => Choice::Offline,
+                Some(Status::Online | Status::Dnd) | None => Choice::Online,
+            },
+            quiet || before == Some(Status::Dnd),
+        ),
     }
 }
 

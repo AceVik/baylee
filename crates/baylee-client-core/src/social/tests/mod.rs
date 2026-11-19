@@ -7,6 +7,7 @@ mod smoke;
 mod archive;
 mod flows;
 mod history_disk;
+mod status;
 
 // Pure units (another writer).
 mod commands;

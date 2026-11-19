@@ -371,11 +371,29 @@ StatusAway = Away
 # Status: do not disturb.
 StatusDnd = Do not disturb
 
-# Status: appear offline.
-StatusInvisible = Appear offline
+# The player's own choice: away.
+StatusAfk = AFK
 
-# The hint under Appear offline.
-InvisibleHint = Messages you send show that you're online
+# The player's own choice: offline.
+StatusOffline = Offline
+
+# The hint under the choice of offline.
+OfflineHint = Friends see you offline. A message you send still shows you are there.
+
+# The hint under do not disturb.
+QuietHint = No chat sounds or pop-ups on this device. Friends see nothing of it.
+
+# Baylee Central refused a status because its terms of use are not accepted.
+ToastStatusTerms = Accept Baylee Central's terms of use to change your status
+
+# Baylee Central did not take a status.
+ToastStatusRefused = Your status could not be changed; try again in a moment
+
+# The answer to /dnd, switched on.
+QuietOn = Do not disturb is on: no chat sounds or pop-ups on this device
+
+# The answer to /dnd, switched off.
+QuietOff = Do not disturb is off
 
 # Presence: offline.
 PlaceOffline = Offline
@@ -400,6 +418,12 @@ PlaceBuilding = Building a deck
 
 # Presence: playing the house AI.
 PlaceHouse = Playing the house AI
+
+# Presence: in a game, when no table is named.
+PlaceInGame = Playing
+
+# Presence: at a table whose game has not begun, when no table is named.
+PlaceAtTable = At a table
 
 # The All tab.
 TabAll = All
@@ -465,7 +489,7 @@ HelpInvite = /invite name — to your waiting room, or to watch your table (also
 HelpWatch = /watch name — watch a friend's game (also /spectate)
 
 # Status commands.
-HelpStatus = /online, /away (/afk), /dnd (/busy), /invisible (/offline) — your status
+HelpStatus = /online, /away (/afk), /offline — how friends see you; /dnd — do not disturb, on or off
 
 # /friends.
 HelpFriends = /friends — the friends list (also /social)

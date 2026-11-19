@@ -10596,7 +10596,8 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   land on the lobby control under it.
 - **Drawer, toasts, sheets.** The friends drawer (requests, table and group
   invites, friends by presence with Whisper/Watch/Invite and a `⋯` menu,
-  groups with their menu, recent players, blocked, status, Chat & privacy)
+  groups with their menu, recent players, blocked, the status menu of
+  §"The contact status", Chat & privacy)
   is open by default and docks at the right below the header, full height,
   with a scrollbar; it slides in and out (0.18 s) while the header's
   siblings give it their room (each lets go of a fixed width, `Squeezed`,
@@ -10696,6 +10697,68 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   linear light at both ends (`window::tests`). The field a line is written
   in is opaque, so nothing behind the window reads through the words being
   typed.
+
+### The contact status
+
+The owner's decision of 19.11.2026: a player chooses how friends see them,
+**Online**, **AFK** or **Offline**, and the client says on its own whether
+they are **playing** or **at a table**. Baylee Central keeps the choice, for
+every device and gateway of the account, and never stores what the account is
+doing (Central's `docs/push-socket.md` §"Status"; types in
+`central_api::presence`, re-exported as `client_core::social::presence`).
+
+- **The choice** is made in the drawer's status menu (`DrawerPress::Status`:
+  three rows with a check on the chosen one) or by `/online`, `/away` (`/afk`)
+  and `/offline` (`/invisible`). `Social` shows it at once and hands the
+  bridge `Effect::Choose { choice, was }`; `social/central/status.rs` sends
+  one request at a time on the account's worker, the latest choice winning.
+  Central's answer is the stored choice. A refusal puts back what Central last
+  kept and says so in a toast (`ToastStatusRefused`; `ToastStatusTerms` when
+  Central's terms changed under a running session: no chat session starts
+  while terms wait at a sign-in, so only then can the choice meet them, and
+  the toast does not open their sheet, which stands at the next sign-in).
+  The choice is also kept in the chat's state file, so the menu is right
+  before Central has answered.
+- **Until Central has said the choice** after a sign-in (`Social::await_choice`;
+  it comes as the push socket's `me`, or from `presence_choice`, asked again
+  a minute after a failure), the client tells its game gateway `invisible`:
+  an account that chose Offline on another device is never shown by a
+  gateway in between.
+- **Offline is offline everywhere.** Once its push socket has said who is
+  online, Central alone decides whether a friend
+  is shown and whether as away (`contacts::shown_by_central`); a game
+  gateway's presence only adds the table's name where it agrees with what
+  Central says the friend is doing, or Central says nothing. A friend Central
+  does not list is offline whatever a gateway says. Until the socket has
+  spoken (it is down, or a Central without one), the gateway's word stands as
+  before the status: a friend who chose Offline tells its gateway so too.
+  The gateway is told the
+  choice as its own `Status` (`Social::status`): Online → `online`, AFK or
+  ten idle minutes → `away`, Offline → `invisible`. An older Central whose
+  frames carry no `states` reads every listed friend as online; one that
+  rejects the reading of the choice while the session still stands
+  (`check_active`) keeps none, so what this device kept stands and the
+  account is uncovered (a choice sent there is refused). A rejection alone
+  is no answer: an ended session is rejected too.
+- **What the client reports** (`social::doing::doing`, said by
+  `Session::report_presence`): `Playing` from the moment a seat is handed
+  over, online or against the house AI, until the result stands; `Table`
+  while the player has a chair at a table that has not started; nothing while
+  watching, in a replay or in the deck builder. With it goes whether ten
+  minutes passed without input (`AWAY_AFTER_MS`). It is said after every
+  `ready` of the push socket, since Central forgets it with the socket, and
+  then only on a change, at most once in 2.5 s (Central takes 30 a minute).
+  It names no game, table or gateway.
+- **A friend's row** reads "Playing" or "At a table" where only Central knows
+  (`PlaceInGame`, `PlaceAtTable`; an unnamed place is `Place` with an empty
+  name, read through `contacts::place_name`), and the table's name where the
+  gateway may tell it (`share_table`, no password).
+- **Do not disturb is no status** (owner, 19.11.2026: a mute switch). It is
+  the menu's fourth row and `/dnd`, kept on this device (`Social::quiet`):
+  the chat's pop-ups and sounds rest, friends see nothing of it. `/busy` is
+  gone, and the client no longer tells a gateway `dnd`.
+- **Without a Central session** the three choices go to the gateway alone, as
+  its `online`, `away` and `invisible`.
 
 ## Embedding (the open-world plan)
 

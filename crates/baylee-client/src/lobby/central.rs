@@ -8,7 +8,9 @@ use super::{
     Field, LeftCentral, Lobby, LobbyEvent, LobbyState, Mailbox, Registration, Reply, http,
 };
 use baylee_account::{Account, Endpoint, Error};
-use baylee_client_core::{Phrase, i18n::Lang, lobby::gateway_list, prefs::Preferences};
+use baylee_client_core::{
+    Phrase, i18n::Lang, lobby::gateway_list, prefs::Preferences, social::presence,
+};
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, AtomicU64, Ordering},
@@ -101,8 +103,26 @@ pub(crate) struct Handle {
     social_seq: Arc<AtomicU64>,
     /// Incremented whenever Central pushes a `presence` event over `/v1/ws`.
     presence_seq: Arc<AtomicU64>,
-    /// Public 4-hex tags of the caller's accepted Central friends currently connected to `/v1/ws`.
-    online_tags: Arc<Mutex<std::collections::BTreeSet<String>>>,
+    /// Incremented whenever the push socket says `ready`: Central forgets
+    /// what a client reported with its socket, so the report goes again.
+    ready_seq: Arc<AtomicU64>,
+    /// What the push socket last said of presence.
+    seen: Arc<Mutex<Seen>>,
+}
+
+/// What Central's push socket last said of presence (`docs/client.md`
+/// §"The contact status").
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct Seen {
+    /// The caller's accepted Central friends that are shown, by public tag,
+    /// each with what Central says of it; a friend who chose offline is not
+    /// among them.
+    pub(crate) friends: std::collections::BTreeMap<String, presence::Shown>,
+    /// The account's own choice, as Central keeps it. `None` before the
+    /// socket's first `presence` frame, and from a Central that keeps none.
+    pub(crate) me: Option<presence::Choice>,
+    /// Whether the socket has said `presence` since it opened.
+    pub(crate) told: bool,
 }
 
 #[derive(serde::Deserialize)]
@@ -110,6 +130,12 @@ struct CentralWsPush {
     event: String,
     #[serde(default)]
     online: Vec<String>,
+    /// One letter per tag of `online`; absent from a Central before the status.
+    #[serde(default)]
+    states: Option<String>,
+    /// The account's own choice; absent from a Central before the status.
+    #[serde(default)]
+    me: Option<String>,
 }
 
 impl Handle {
@@ -123,7 +149,8 @@ impl Handle {
             chat_seq: Arc::new(AtomicU64::new(0)),
             social_seq: Arc::new(AtomicU64::new(0)),
             presence_seq: Arc::new(AtomicU64::new(0)),
-            online_tags: Arc::new(Mutex::new(std::collections::BTreeSet::new())),
+            ready_seq: Arc::new(AtomicU64::new(0)),
+            seen: Arc::new(Mutex::new(Seen::default())),
         }
     }
     #[cfg(test)]
@@ -153,8 +180,11 @@ impl Handle {
     pub(crate) fn presence_seq(&self) -> u64 {
         self.presence_seq.load(Ordering::Acquire)
     }
-    pub(crate) fn online_tags(&self) -> std::collections::BTreeSet<String> {
-        self.online_tags.lock().map_or_default(|set| set.clone())
+    pub(crate) fn ready_seq(&self) -> u64 {
+        self.ready_seq.load(Ordering::Acquire)
+    }
+    pub(crate) fn seen(&self) -> Seen {
+        self.seen.lock().map_or_default(|seen| seen.clone())
     }
     #[cfg(test)]
     pub(crate) fn set_ws_live_for_test(&self, live: bool) {
@@ -166,11 +196,15 @@ impl Handle {
         self.chat_seq.fetch_add(1, Ordering::AcqRel);
     }
     #[cfg(test)]
-    pub(crate) fn set_online_tags_for_test(&self, tags: impl IntoIterator<Item = String>) {
-        if let Ok(mut set) = self.online_tags.lock() {
-            *set = tags.into_iter().collect();
+    pub(crate) fn set_seen_for_test(&self, seen: Seen) {
+        if let Ok(mut held) = self.seen.lock() {
+            *held = seen;
         }
         self.presence_seq.fetch_add(1, Ordering::AcqRel);
+    }
+    #[cfg(test)]
+    pub(crate) fn say_ready_for_test(&self) {
+        self.ready_seq.fetch_add(1, Ordering::AcqRel);
     }
     /// A client restarting into an update stays signed in: signing out at Central
     /// ends the gateway's session too, and the next client takes that one up.
@@ -273,8 +307,10 @@ impl Handle {
         let worker_social_seq = social_seq.clone();
         let presence_seq = Arc::new(AtomicU64::new(0));
         let worker_presence_seq = presence_seq.clone();
-        let online_tags = Arc::new(Mutex::new(std::collections::BTreeSet::new()));
-        let worker_online_tags = online_tags.clone();
+        let ready_seq = Arc::new(AtomicU64::new(0));
+        let worker_ready_seq = ready_seq.clone();
+        let seen = Arc::new(Mutex::new(Seen::default()));
+        let worker_seen = seen.clone();
         std::thread::Builder::new()
             .name("central-account".into())
             .spawn(move || {
@@ -298,7 +334,8 @@ impl Handle {
                             &worker_chat_seq,
                             &worker_social_seq,
                             &worker_presence_seq,
-                            &worker_online_tags,
+                            &worker_ready_seq,
+                            &worker_seen,
                         );
                         if revoked {
                             worker_ws_live.store(false, Ordering::Release);
@@ -307,12 +344,7 @@ impl Handle {
                         }
                         if disconnected {
                             worker_ws_live.store(false, Ordering::Release);
-                            if let Ok(mut set) = worker_online_tags.lock()
-                                && !set.is_empty()
-                            {
-                                set.clear();
-                                worker_presence_seq.fetch_add(1, Ordering::AcqRel);
-                            }
+                            forget_seen(&worker_seen, &worker_presence_seq);
                             ws = None;
                             next_dial = redial.next_dial(std::time::Instant::now());
                         } else if worker_ws_live.load(Ordering::Acquire) {
@@ -357,7 +389,8 @@ impl Handle {
             chat_seq,
             social_seq,
             presence_seq,
-            online_tags,
+            ready_seq,
+            seen,
         })
     }
 
@@ -378,13 +411,26 @@ impl Handle {
     }
 }
 
+/// A push socket that went no longer speaks for Central: what it said of
+/// presence is forgotten, and until the next one has spoken a game gateway's
+/// word of a friend stands again (`docs/client.md` §"The contact status").
+fn forget_seen(seen: &Mutex<Seen>, presence_seq: &AtomicU64) {
+    if let Ok(mut seen) = seen.lock()
+        && *seen != Seen::default()
+    {
+        *seen = Seen::default();
+        presence_seq.fetch_add(1, Ordering::AcqRel);
+    }
+}
+
 fn drain_central_ws(
     rx: &crate::transport::WsReceiver,
     ws_live: &AtomicBool,
     chat_seq: &AtomicU64,
     social_seq: &AtomicU64,
     presence_seq: &AtomicU64,
-    online_tags: &Mutex<std::collections::BTreeSet<String>>,
+    ready_seq: &AtomicU64,
+    seen: &Mutex<Seen>,
 ) -> (bool, bool) {
     let mut disconnected = false;
     let mut revoked = false;
@@ -397,6 +443,7 @@ fn drain_central_ws(
                             ws_live.store(true, Ordering::Release);
                             chat_seq.fetch_add(1, Ordering::AcqRel);
                             social_seq.fetch_add(1, Ordering::AcqRel);
+                            ready_seq.fetch_add(1, Ordering::AcqRel);
                         }
                         "chat" => {
                             chat_seq.fetch_add(1, Ordering::AcqRel);
@@ -406,8 +453,21 @@ fn drain_central_ws(
                             chat_seq.fetch_add(1, Ordering::AcqRel);
                         }
                         "presence" => {
-                            if let Ok(mut set) = online_tags.lock() {
-                                *set = parsed.online.into_iter().collect();
+                            // A frame that says less (an older Central, a
+                            // letter not known) shows its friends online.
+                            let said = Seen {
+                                friends: presence::Shown::read(
+                                    &parsed.online,
+                                    parsed.states.as_deref(),
+                                )
+                                .into_iter()
+                                .map(|(tag, shown)| (tag.to_owned(), shown))
+                                .collect(),
+                                me: parsed.me.as_deref().and_then(presence::Choice::named),
+                                told: true,
+                            };
+                            if let Ok(mut held) = seen.lock() {
+                                *held = said;
                             }
                             presence_seq.fetch_add(1, Ordering::AcqRel);
                         }

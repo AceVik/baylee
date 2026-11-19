@@ -41,6 +41,10 @@ is 5000 sent messages per account and 5000 deliveries per device. Reaching a lim
 refuses new sends rather than deleting history. Automatic expiry is not enabled.
 The encrypted native archive remains in the account's encrypted objects. The browser
 keeps message plaintext in memory and only encrypted peer trust in localStorage.
+Central also keeps the contact status an account chose (online, AFK or
+offline) until it is changed, and holds in memory, while a push socket is
+open, whether the client says it is playing, at a table or idle; that is
+never stored (Central's `docs/push-socket.md` §"Status").
 The following gateway rows continue to describe legacy accounts and game chat;
 old gateway data is preserved during the transition. See
 [Central chat synchronization](central-chat-sync.md) for cutover limits.
