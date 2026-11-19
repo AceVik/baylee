@@ -2278,7 +2278,6 @@ fn colophon_renders_hover_underlined_hyperlinks_and_always_opens_on_click() {
     };
     use bevy::picking::hover::PickingInteraction;
 
-    let _ = take_opened_urls_for_test();
     let mut app = headless();
     sized(&mut app, 1920.0);
     app.update();
@@ -2358,7 +2357,7 @@ fn colophon_renders_hover_underlined_hyperlinks_and_always_opens_on_click() {
     );
 
     // Clicking front-door colophon links while Username holds focus opens them immediately.
-    let _ = take_opened_urls_for_test();
+    let _ = take_opened_urls_for_test(&app);
     press(
         &mut app,
         Press::Front(FrontPress::OpenExternal(ExternalLink::FanContentPolicy)),
@@ -2367,7 +2366,7 @@ fn colophon_renders_hover_underlined_hyperlinks_and_always_opens_on_click() {
         &mut app,
         Press::Front(FrontPress::OpenExternal(ExternalLink::Scryfall)),
     );
-    let opened_front = take_opened_urls_for_test();
+    let opened_front = take_opened_urls_for_test(&app);
     assert!(
         opened_front.contains(&FAN_CONTENT_POLICY_URL.to_string())
             && opened_front.contains(&SCRYFALL_URL.to_string()),
@@ -2407,7 +2406,6 @@ fn about_dialog_renders_structured_hyperlinks_and_always_opens_on_click() {
     use super::super::front::about::full_build_line;
     use super::super::source::{ExternalLink, take_opened_urls_for_test};
 
-    let _ = take_opened_urls_for_test();
     let mut app = headless();
     sized(&mut app, 1920.0);
     app.update();
@@ -2439,7 +2437,7 @@ fn about_dialog_renders_structured_hyperlinks_and_always_opens_on_click() {
             "About dialog missing hyperlink for {expected:?}"
         );
     }
-    let _ = take_opened_urls_for_test();
+    let _ = take_opened_urls_for_test(&app);
     press(
         &mut app,
         Press::Front(FrontPress::OpenExternal(ExternalLink::Bevy)),
@@ -2448,7 +2446,7 @@ fn about_dialog_renders_structured_hyperlinks_and_always_opens_on_click() {
         &mut app,
         Press::Front(FrontPress::OpenExternal(ExternalLink::AgplLicence)),
     );
-    let opened_about = take_opened_urls_for_test();
+    let opened_about = take_opened_urls_for_test(&app);
     assert!(
         opened_about.contains(&ExternalLink::Bevy.url().to_string())
             && opened_about.contains(&ExternalLink::AgplLicence.url().to_string()),

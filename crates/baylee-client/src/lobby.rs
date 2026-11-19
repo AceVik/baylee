@@ -278,6 +278,10 @@ pub struct LobbyState {
     pub(crate) invite_copied: bool,
     /// Text a press asked to put on the clipboard (`parts::write_clipboard`).
     pub(crate) clipboard_out: Option<String>,
+    /// Addresses [`source::open`] would have handed to the browser, kept per
+    /// app so parallel unit tests never steal each other's clicks.
+    #[cfg(test)]
+    pub(crate) opened_urls: Mutex<Vec<String>>,
 }
 
 /// The settings screen's own state (WP5): which section is shown, what the
@@ -621,6 +625,8 @@ impl LobbyState {
             teams_edit: false,
             invite_copied: false,
             clipboard_out: None,
+            #[cfg(test)]
+            opened_urls: Mutex::new(Vec::new()),
         }
     }
 }

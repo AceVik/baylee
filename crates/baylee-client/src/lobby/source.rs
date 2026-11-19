@@ -292,6 +292,11 @@ pub(super) fn code_image(url: &str) -> Option<(Image, u32)> {
 /// one the tile drew, and nothing else is ever opened.
 pub(super) fn open(press: super::front::FrontPress, state: &LobbyState) {
     if let Some(url) = address_of(press, state) {
+        #[cfg(test)]
+        if let Ok(mut urls) = state.opened_urls.lock() {
+            urls.push(url);
+        }
+        #[cfg(not(test))]
         browse(&url);
     }
 }
@@ -314,26 +319,20 @@ pub(crate) fn address_of(press: super::front::FrontPress, state: &LobbyState) ->
 }
 
 #[cfg(test)]
-static OPENED_URLS: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
-
-#[cfg(test)]
-pub(crate) fn take_opened_urls_for_test() -> Vec<String> {
-    OPENED_URLS.lock().map_or_else(
-        |e| std::mem::take(&mut *e.into_inner()),
-        |mut g| std::mem::take(&mut *g),
-    )
+pub(crate) fn take_opened_urls_for_test(app: &App) -> Vec<String> {
+    app.world()
+        .resource::<LobbyState>()
+        .opened_urls
+        .lock()
+        .map_or_else(
+            |e| std::mem::take(&mut *e.into_inner()),
+            |mut g| std::mem::take(&mut *g),
+        )
 }
 
-/// Hands `url` to the system's browser (or records it under `#[cfg(test)]` so
-/// unit tests can verify real end-to-end clicks without spawning browser tabs).
+/// Hands `url` to the system's browser.
+#[cfg(not(test))]
 fn browse(url: &str) {
-    #[cfg(test)]
-    {
-        if let Ok(mut urls) = OPENED_URLS.lock() {
-            urls.push(url.to_owned());
-        }
-    }
-    #[cfg(not(test))]
     if let Err(err) = webbrowser::open(url) {
         warn!("could not open {url}: {err}");
     }

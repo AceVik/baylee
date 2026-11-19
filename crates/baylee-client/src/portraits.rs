@@ -239,13 +239,16 @@ pub(crate) fn seed(
     Ok(pictures.len())
 }
 
-/// Installs the pictures' systems.
+/// Installs the pictures' systems. A headless app has no image assets (or
+/// clock), and there every disc keeps its monogram.
 pub(crate) fn install(app: &mut App) {
     app.init_resource::<PictureWork>().add_systems(
         Update,
         (ask_for_keys, lay_in, play)
             .chain()
-            .run_if(resource_exists::<Portraits>),
+            .run_if(resource_exists::<Portraits>)
+            .run_if(resource_exists::<Assets<Image>>)
+            .run_if(resource_exists::<Time<Real>>),
     );
 }
 
@@ -309,13 +312,16 @@ fn ask_for_keys(
     mut portraits: ResMut<Portraits>,
     mut images: ResMut<Assets<Image>>,
 ) {
+    let clock = time.elapsed_secs_f64();
+    if work.lookup.is_none() && clock < work.next_look {
+        return;
+    }
     let now = crate::social::now_ms();
     let work = &mut *work;
     let changes = take_answer(work, now);
     if !changes.is_empty() {
         apply(work, &changes, &mut portraits.reborrow(), &mut images);
     }
-    let clock = time.elapsed_secs_f64();
     if clock < work.next_look {
         return;
     }
@@ -544,15 +550,20 @@ fn lay_in(
     mut images: ResMut<Assets<Image>>,
     mut looked: Local<f64>,
 ) {
+    let clock = time.elapsed_secs_f64();
+    let done = work
+        .courier
+        .as_ref()
+        .map_or_else(Vec::new, fetch::Courier::take);
+    if done.is_empty() && work.forgets.is_empty() && (clock < *looked || work.account.is_none()) {
+        return;
+    }
     let now = crate::social::now_ms();
     let work = &mut *work;
-    if let Some(courier) = work.courier.as_ref() {
-        for done in courier.take() {
-            arrived(work, done, now, &mut portraits.reborrow(), &mut images);
-        }
+    for job in done {
+        arrived(work, job, now, &mut portraits.reborrow(), &mut images);
     }
     forget_files(work);
-    let clock = time.elapsed_secs_f64();
     if clock < *looked || work.account.is_none() {
         return;
     }
@@ -773,10 +784,10 @@ fn play(
     mut images: ResMut<Assets<Image>>,
     mut seen: Local<Vec<PictureKey>>,
 ) {
-    let work = &mut *work;
     if !work.pictures.values().any(|picture| picture.clip.is_some()) {
         return;
     }
+    let work = &mut *work;
     let reduce = reduced(prefs.as_deref());
     let shown = !watch.is_some_and(|watch| watch.hidden());
     seen.clear();

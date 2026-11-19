@@ -724,3 +724,39 @@ fn a_refused_lookup_is_not_asked_again() {
     assert_eq!(jobs.try_iter().count(), 0, "ten minutes, no second ask");
     assert!(app.world().resource::<Portraits>().is_empty());
 }
+
+/// A headless app (such as `lobby::tests::headless`) installs `Portraits`
+/// and `PictureWork` without `Assets<Image>`, and a bare test app may have
+/// no `Time<Real>` either: `install` skips the systems until all three
+/// exist, and once settled writes nothing between looks.
+#[test]
+fn install_waits_for_images_and_a_clock_in_a_headless_world() {
+    let mut app = App::new();
+    app.init_resource::<Portraits>();
+    install(&mut app);
+    app.update();
+    assert!(app.world().resource::<PictureWork>().next_look < LOOK_EVERY);
+
+    app.init_resource::<Time<Real>>();
+    app.update();
+    assert!(app.world().resource::<PictureWork>().next_look < LOOK_EVERY);
+
+    app.world_mut().remove_resource::<Time<Real>>();
+    app.init_resource::<Assets<Image>>();
+    app.update();
+    assert!(app.world().resource::<PictureWork>().next_look < LOOK_EVERY);
+
+    app.init_resource::<Time<Real>>();
+    app.update();
+    assert!(app.world().resource::<PictureWork>().next_look >= LOOK_EVERY);
+
+    let tick = app.world().read_change_tick();
+    app.update();
+    assert!(
+        !app.world()
+            .resource_ref::<PictureWork>()
+            .last_changed()
+            .is_newer_than(tick, app.world().read_change_tick()),
+        "between looks, an idle frame leaves PictureWork untouched"
+    );
+}
