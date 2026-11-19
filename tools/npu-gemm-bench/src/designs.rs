@@ -91,7 +91,8 @@ fn spec(role: &str, name: String, logical: [usize; 3], tile: [usize; 3]) -> Desi
 }
 
 /// Every design the benchmark runs: the tiny dispatch probe, then each layer
-/// shape at each M.
+/// shape at each M, then FFN up with bf16 instead of f32 output (the
+/// `variant` role), which halves the C traffic of the widest shape.
 pub fn design_set() -> Vec<DesignSpec> {
     let mut out = vec![spec("dispatch", "dispatch_64x64x64".to_owned(), [64, 64, 64], [16, 64, 16])];
     for (label, k, n) in LAYER_SHAPES {
@@ -99,7 +100,18 @@ pub fn design_set() -> Vec<DesignSpec> {
             out.push(spec("gemm", format!("{label}_{m}x{k}x{n}"), [m, k, n], tile_for(m)));
         }
     }
+    let (label, k, n) = LAYER_SHAPES[0];
+    for m in [512, 2048] {
+        let mut v = spec("variant", format!("{label}_bf16out_{m}x{k}x{n}"), [m, k, n], tile_for(m));
+        "bf16".clone_into(&mut v.dtype_out);
+        out.push(v);
+    }
     out
+}
+
+/// Bytes per element of a design's output.
+pub fn out_elem_bytes(spec: &DesignSpec) -> usize {
+    if spec.dtype_out == "bf16" { 2 } else { 4 }
 }
 
 /// Where the IRON toolchain lives on the build host.
@@ -262,6 +274,6 @@ mod tests {
                 assert_eq!(s.logical, s.padded, "{}", s.name);
             }
         }
-        assert_eq!(design_set().len(), 1 + LAYER_SHAPES.len() * M_VALUES.len());
+        assert_eq!(design_set().len(), 1 + LAYER_SHAPES.len() * M_VALUES.len() + 2);
     }
 }

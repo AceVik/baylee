@@ -64,6 +64,15 @@ fn crop(src: &[f32], (rows, cols): (usize, usize), pcols: usize) -> Vec<f32> {
     out
 }
 
+/// The first `n` outputs of a design, widened to f32.
+fn read_output(bo: &crate::xrt::Bo<'_>, spec: &DesignSpec, n: usize) -> Vec<f32> {
+    if spec.dtype_out == "bf16" {
+        bo.read_u16(n).into_iter().map(data::bf16_to_f32).collect()
+    } else {
+        bo.read_f32(n)
+    }
+}
+
 fn read_instructions(path: &Path) -> Result<Vec<u32>, String> {
     let bytes = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
     if bytes.len() % 4 != 0 {
@@ -99,10 +108,10 @@ pub fn bench(spec: &DesignSpec, dir: &Path, warmup: usize, iters: usize) -> Resu
     bo_instr.sync(Sync::ToDevice)?;
     let bo_a = npu.data_bo(pm * pk * 2, 3)?;
     let bo_b = npu.data_bo(pk * pn * 2, 4)?;
-    let bo_c = npu.data_bo(pm * pn * 4, 5)?;
+    let bo_c = npu.data_bo(pm * pn * crate::designs::out_elem_bytes(spec), 5)?;
     bo_a.write_u16(&a_pad);
     bo_b.write_u16(&b_pad);
-    // All-ones bytes are NaN as f32: a C the NPU did not write shows up.
+    // All-ones bytes are NaN as f32 and bf16: a C the NPU did not write shows up.
     bo_c.fill(0xFF);
     bo_c.sync(Sync::ToDevice)?;
     let run = npu.run(&bo_instr, instr.len() as u32, &bo_a, &bo_b, &bo_c)?;
@@ -112,7 +121,7 @@ pub fn bench(spec: &DesignSpec, dir: &Path, warmup: usize, iters: usize) -> Resu
     bo_b.sync(Sync::ToDevice)?;
     run.exec()?;
     bo_c.sync(Sync::FromDevice)?;
-    let got = crop(&bo_c.read_f32(pm * pn), (m, n), pn);
+    let got = crop(&read_output(&bo_c, spec, pm * pn), (m, n), pn);
 
     for _ in 0..warmup {
         bo_a.sync(Sync::ToDevice)?;
@@ -143,7 +152,7 @@ pub fn bench(spec: &DesignSpec, dir: &Path, warmup: usize, iters: usize) -> Resu
         t_e2e.push(t4 - t1);
     }
     // The output of the last timed call must still be right.
-    let last = crop(&bo_c.read_f32(pm * pn), (m, n), pn);
+    let last = crop(&read_output(&bo_c, spec, pm * pn), (m, n), pn);
     drop(run);
 
     let reference = cpu::reference_f64(&a.wide, &b.wide, (m, k, n));
