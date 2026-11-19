@@ -719,7 +719,7 @@ impl Tx<'_> {
         }
         let prose_may = p
             .peek("TriggerDescription")
-            .is_some_and(|d| d.to_ascii_lowercase().contains(", you may have target "));
+            .is_some_and(|d| d.to_ascii_lowercase().contains(", you may have "));
         p.drop_prose();
         self.trigger_mode = Some(mode.clone());
         if self.is_link_cleanup_trigger(&mode, &p) {
@@ -753,7 +753,11 @@ impl Tx<'_> {
         let trigger_is_self = trigger == "Trigger::ETB"
             || trigger == "Trigger::TurnedFaceUp"
             || trigger.contains("&Filter::This");
-        let may = match p.take("OptionalDecider").as_deref() {
+        let decider = p.take("OptionalDecider");
+        // Only a "may" read from the description alone can meet an executed
+        // line that asks by itself; an `OptionalDecider$` keeps its old wrap.
+        let may_from_prose = decider.is_none() && prose_may;
+        let may = match decider.as_deref() {
             None => prose_may,
             Some("You") => true,
             Some("TriggeredCardController")
@@ -815,6 +819,14 @@ impl Tx<'_> {
         // because the printed word covers a whole clause: Ondu Cleric's "you
         // may gain life equal to the number of Allies you control" is one
         // decision, not one per operation it expands into.
+        // A printed "you may have …" in the description and an
+        // `OptionalDecider$` on the executed line are one decision: a chain
+        // that already asks (`Effect::MayDo`) is not asked twice.
+        let asks_already = may_from_prose
+            && chain
+                .effects
+                .iter()
+                .all(|e| e.starts_with("Effect::MayDo {"));
         let effects = chain.effects.join(", ");
         let effects = match price {
             Some(Price::Generic(mana)) => format!(
@@ -827,7 +839,7 @@ impl Tx<'_> {
                  cost: mana!(\"{cost}\"), effects: &[{effects}] }}"
             ),
             Some(Price::Part(_)) => unreachable!("`optional_price` reads mana only"),
-            None if may => format!("Effect::MayDo {{ effects: &[{effects}] }}"),
+            None if may && !asks_already => format!("Effect::MayDo {{ effects: &[{effects}] }}"),
             None => effects,
         };
         let ability =
