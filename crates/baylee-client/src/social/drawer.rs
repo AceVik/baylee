@@ -1292,8 +1292,11 @@ fn sync_drawer(
     roots: Query<(Entity, &mut Visibility), With<Drawer>>,
     scrolls: Query<&ScrollPosition, With<DrawerList>>,
     mut drawn: Local<Option<DrawerKey>>,
-    (zoom, shell): (Res<super::zoom::Zoom>, Res<super::zoom::Shell>),
+    (zoom, shell): (Res<super::zoom::Zoom>, Option<Res<super::zoom::Shell>>),
 ) {
+    // A world without the chat's plugin has no kit sizes of its own: a
+    // table's, as before the first window is measured.
+    let shell = shell.map_or_else(super::zoom::Shell::at_table, |shell| *shell);
     let _zoom = super::zoom::Scope::new(zoom.0);
     let mut roots = roots;
     // Drawn while the chat is up, open or not: it slides in and out
