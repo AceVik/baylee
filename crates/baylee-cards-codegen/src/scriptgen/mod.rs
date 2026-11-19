@@ -38,6 +38,7 @@ use crate::tokengen::TokenLookup;
 use std::collections::BTreeMap;
 
 mod activated;
+mod alternative_cost;
 mod animation;
 mod archon_kismet;
 mod atoms;
@@ -365,6 +366,10 @@ struct Tx<'a> {
     cost_sacrifices_other: bool,
     /// Whether the triggered ability being read triggers on `Card.Self`.
     trigger_is_self: bool,
+    /// Whether the cost being read belongs to `S: Mode$ AlternativeCost`,
+    /// where `cast_wizard` pays `ExileFromHand`, `TapN` and multi-return
+    /// parts that an activated ability does not.
+    in_alternative_cost: bool,
     /// The `PutCounter` line being read names the source while a later line of
     /// its chain declares the target (Sphinx-Bone Wand).
     counter_on_source: bool,
@@ -529,6 +534,7 @@ pub fn transcode(
         cost_sacrifices_self: false,
         cost_sacrifices_other: false,
         trigger_is_self: false,
+        in_alternative_cost: false,
         counter_on_source: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),

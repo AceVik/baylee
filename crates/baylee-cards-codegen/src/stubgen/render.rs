@@ -161,6 +161,10 @@ fn render_card(
             (Some(body), 0) => body.enter_modifiers.as_slice(),
             _ => &[],
         };
+        let alternatives = match (&land, i) {
+            (Some(body), 0) => body.alternative_costs.as_slice(),
+            _ => &[],
+        };
         let (flashback, flashback_parts): (Option<&str>, &[String]) = match (&land, i) {
             (Some(body), 0) => (body.flashback.as_deref(), body.flashback_parts.as_slice()),
             _ => (None, &[]),
@@ -198,6 +202,7 @@ fn render_card(
             f,
             cats,
             enters,
+            alternatives,
             flashback,
             flashback_parts,
             madness,
