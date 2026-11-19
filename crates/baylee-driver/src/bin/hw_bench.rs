@@ -49,6 +49,8 @@ enum Mode {
     Parity,
     Stats,
     Io,
+    Check,
+    Plan,
 }
 
 /// Which rows a run takes.
@@ -92,6 +94,10 @@ struct Args {
     start_at: Option<f64>,
     /// Parity over decision rows only (`--decisions-only`).
     decisions_only: bool,
+    /// `--mode plan`: bucket sets to compare, `E,M,C;E,M,C|...`.
+    plans: String,
+    /// `--mode plan`: cost model, call ms, row ms, token ms.
+    cost: (f64, f64, f64),
 }
 
 fn list(raw: &str) -> anyhow::Result<Vec<usize>> {
@@ -101,6 +107,7 @@ fn list(raw: &str) -> anyhow::Result<Vec<usize>> {
 }
 
 impl Args {
+    #[allow(clippy::too_many_lines, reason = "one flat table of flags")]
     fn parse() -> anyhow::Result<Self> {
         let mut a = Self {
             mode: Mode::Time,
@@ -128,6 +135,8 @@ impl Args {
             sort: false,
             start_at: None,
             decisions_only: false,
+            plans: String::new(),
+            cost: (4.5, 0.32, 0.0174),
         };
         let mut it = std::env::args().skip(1);
         while let Some(flag) = it.next() {
@@ -152,6 +161,8 @@ impl Args {
                         "parity" => Mode::Parity,
                         "stats" => Mode::Stats,
                         "io" => Mode::Io,
+                        "check" => Mode::Check,
+                        "plan" => Mode::Plan,
                         other => bail!("unknown mode {other}"),
                     }
                 }
@@ -178,6 +189,15 @@ impl Args {
                 "--label" => a.label = value,
                 "--seed" => a.seed = value.parse()?,
                 "--start-at" => a.start_at = Some(value.parse()?),
+                "--plans" => a.plans = value,
+                "--cost" => {
+                    let v: Vec<f64> = value
+                        .split(',')
+                        .map(str::parse)
+                        .collect::<Result<_, _>>()?;
+                    ensure!(v.len() == 3, "--cost call_ms,row_ms,token_ms");
+                    a.cost = (v[0], v[1], v[2]);
+                }
                 "--profile" => a.profile = Some(value),
                 "--dims" => {
                     a.dims = pairs(&value)?
@@ -1095,6 +1115,8 @@ fn main() -> anyhow::Result<()> {
         Mode::Parity => parity(&args, rows, graph, &header)?,
         Mode::Stats => stats(&args, &rows, &header)?,
         Mode::Io => print_io(&args, graph)?,
+        Mode::Check => check_indices(&rows, &header)?,
+        Mode::Plan => plan_buckets(&args, &rows, &header)?,
     }
     Ok(())
 }
@@ -1267,6 +1289,215 @@ fn stats(args: &Args, rows: &[DumpRow], header: &Value) -> anyhow::Result<()> {
         );
     }
     let report = json!({"header": header, "stats": out});
+    println!("{}", serde_json::to_string_pretty(&report)?);
+    if let Some(path) = &args.out {
+        std::fs::write(path, serde_json::to_vec_pretty(&report)?)?;
+    }
+    Ok(())
+}
+
+/// Index ranges of every row's index inputs, against the row's own extents:
+/// a provider's gather or scatter may fault on what the CPU tolerates.
+/// Counts, per input, entries below or above the valid range, split by
+/// whether the entry is live (its mask set) or padding.
+/// One index input to check: name, values, whether each is live, the
+/// valid range (low inclusive, high exclusive).
+type IndexCheck = (&'static str, Vec<i64>, Vec<bool>, i64, i64);
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "one flat table of the graph's index inputs and their ranges"
+)]
+fn check_indices(rows: &[DumpRow], header: &Value) -> anyhow::Result<()> {
+    #[derive(Default)]
+    struct Range {
+        min: i64,
+        max: i64,
+        live_low: usize,
+        live_high: usize,
+        pad_low: usize,
+        pad_high: usize,
+        rows_bad: usize,
+    }
+    let ints = |row: &DumpRow, name: &str| -> Vec<i64> {
+        match row.tensor(name).map(|t| &t.data) {
+            Some(TensorData::I64(v)) => v.clone(),
+            _ => Vec::new(),
+        }
+    };
+    let mut ranges: BTreeMap<&str, Range> = BTreeMap::new();
+    let mut bad_examples: Vec<Value> = Vec::new();
+    for row in rows {
+        let e = own(row, Axis::Entities) as i64;
+        let edge_mask = bools(row, "edge_mask");
+        let cand_mask = bools(row, "cand_mask");
+        let pair_mask = bools(row, "pair_mask");
+        let entity_mask = bools(row, "entity_mask");
+        // (input, values, per-entry live flag, valid low, valid high exclusive)
+        let width = |name: &str| row.tensor(name).map_or(1, |t| t.dims.iter().skip(2).product::<usize>().max(1));
+        let live_of = |mask: &[bool], per: usize, n: usize| -> Vec<bool> {
+            (0..n).map(|i| mask.get(i / per).copied().unwrap_or(false)).collect()
+        };
+        let checks: Vec<IndexCheck> = vec![
+            {
+                let v = ints(row, "edge_index");
+                let live = live_of(&edge_mask, 2, v.len());
+                ("edge_index", v, live, 0, e + 9)
+            },
+            {
+                let v = ints(row, "cand_entity_idx");
+                let live = live_of(&cand_mask, 1, v.len());
+                ("cand_entity_idx", v, live, -1, e)
+            },
+            {
+                let v = ints(row, "cand_seat_idx");
+                let live = live_of(&cand_mask, 1, v.len());
+                ("cand_seat_idx", v, live, -1, 8)
+            },
+            {
+                let v = ints(row, "pair_index");
+                let live = live_of(&pair_mask, 2, v.len());
+                ("pair_index", v, live, 0, e)
+            },
+            {
+                let v = ints(row, "edge_type");
+                let live = live_of(&edge_mask, 1, v.len());
+                ("edge_type", v, live, 0, i64::MAX)
+            },
+            {
+                let v = ints(row, "entity_rules");
+                let live = live_of(&entity_mask, width("entity_rules"), v.len());
+                ("entity_rules", v, live, 0, i64::MAX)
+            },
+            {
+                let v = ints(row, "cand_rules");
+                let live = live_of(&cand_mask, width("cand_rules"), v.len());
+                ("cand_rules", v, live, 0, i64::MAX)
+            },
+            {
+                // Rule references are (node, role) pairs; roles index an
+                // 8-row embedding, nodes the catalog table.
+                let v: Vec<i64> = ints(row, "entity_rules").into_iter().chain(ints(row, "cand_rules")).skip(1).step_by(2).collect();
+                let live = vec![true; v.len()];
+                ("rule_roles", v, live, 0, 8)
+            },
+            {
+                let v: Vec<i64> = ints(row, "entity_rules").into_iter().chain(ints(row, "cand_rules")).step_by(2).collect();
+                let live = vec![true; v.len()];
+                ("rule_nodes", v, live, 0, 164_959)
+            },
+        ];
+        for (name, values, live, low, high) in checks {
+            let r = ranges.entry(name).or_insert_with(|| Range {
+                min: i64::MAX,
+                max: i64::MIN,
+                ..Range::default()
+            });
+            let mut bad = false;
+            for (&x, &l) in values.iter().zip(&live) {
+                r.min = r.min.min(x);
+                r.max = r.max.max(x);
+                let (lo, hi) = (x < low, x >= high);
+                match (l, lo, hi) {
+                    (true, true, _) => r.live_low += 1,
+                    (true, _, true) => r.live_high += 1,
+                    (false, true, _) => r.pad_low += 1,
+                    (false, _, true) => r.pad_high += 1,
+                    _ => {}
+                }
+                bad |= l && (lo || hi);
+            }
+            if bad {
+                r.rows_bad += 1;
+                if bad_examples.len() < 10 {
+                    bad_examples.push(json!({"input": name, "meta": format!("{:?}", row.meta), "entities": e}));
+                }
+            }
+        }
+    }
+    let report = json!({
+        "header": header,
+        "rows": rows.len(),
+        "ranges": ranges.iter().map(|(k, r)| (k.to_string(), json!({
+            "min": r.min, "max": r.max,
+            "live_below_range": r.live_low, "live_above_range": r.live_high,
+            "pad_below_range": r.pad_low, "pad_above_range": r.pad_high,
+            "rows_with_live_out_of_range": r.rows_bad,
+        }))).collect::<serde_json::Map<_, _>>(),
+        "examples": bad_examples,
+    });
+    println!("{}", serde_json::to_string_pretty(&report)?);
+    Ok(())
+}
+
+/// Shape-bucket plans against the rows' real extents (`--mode plan`):
+/// for each candidate set of buckets (`--plans "E,M,C;E,M,C|E,M,C"`), which
+/// share of decision and observation rows each bucket takes (the smallest
+/// that fits), the tokens a call computes against the tokens the rows
+/// have, and a modelled cost per row at each batch size: a fixed cost per
+/// call plus a cost per computed token (`--cost call_ms,row_ms,token_ms`,
+/// fitted to measured `MIGraphX` calls).
+#[allow(
+    clippy::many_single_char_names,
+    reason = "e, m and c are the graph's own axis names"
+)]
+fn plan_buckets(args: &Args, rows: &[DumpRow], header: &Value) -> anyhow::Result<()> {
+    let (call_ms, row_ms, token_ms) = args.cost;
+    let mut plans = Vec::new();
+    for plan in args.plans.split('|') {
+        let mut buckets: Vec<(usize, usize, usize)> = plan
+            .split(';')
+            .map(|b| {
+                let v = list(b)?;
+                ensure!(v.len() == 3, "a bucket is E,M,C");
+                Ok((v[0], v[1], v[2]))
+            })
+            .collect::<anyhow::Result<_>>()?;
+        buckets.sort_by_key(|&(e, m, c)| e + m + c);
+        let mut kinds = serde_json::Map::new();
+        for (kind, decisions) in [("decisions", true), ("observations", false)] {
+            let mut counts = vec![0_usize; buckets.len()];
+            let (mut real, mut computed, mut unfit) = (0_usize, 0_usize, 0_usize);
+            let mut n = 0_usize;
+            for r in rows.iter().filter(|r| (r.meta.k > 0) == decisions) {
+                let (e, m) = (own(r, Axis::Entities), own(r, Axis::Edges));
+                let c = if decisions { own(r, Axis::Cands) } else { 1 };
+                n += 1;
+                match buckets.iter().position(|&(be, bm, bc)| e <= be && m <= bm && c <= bc) {
+                    Some(i) => {
+                        counts[i] += 1;
+                        real += e + c;
+                        let (be, _, bc) = buckets[i];
+                        computed += be + if decisions { bc } else { 1 };
+                    }
+                    None => unfit += 1,
+                }
+            }
+            let fit = (n - unfit).max(1) as f64;
+            let mean_tokens = computed as f64 / fit;
+            let per_row: serde_json::Map<String, Value> = [1_usize, 4, 16, 64]
+                .iter()
+                .map(|&b| {
+                    let ms = call_ms / b as f64 + row_ms + token_ms * mean_tokens;
+                    (format!("b{b}"), json!({"ms_per_row": ms, "rows_per_s": 1000.0 / ms}))
+                })
+                .collect();
+            kinds.insert(
+                kind.to_owned(),
+                json!({
+                    "rows": n,
+                    "unfit": unfit,
+                    "share_per_bucket": counts.iter().map(|&c| c as f64 / n.max(1) as f64).collect::<Vec<_>>(),
+                    "mean_real_tokens": real as f64 / fit,
+                    "mean_computed_tokens": mean_tokens,
+                    "padding_overhead": computed as f64 / real.max(1) as f64 - 1.0,
+                    "model": per_row,
+                }),
+            );
+        }
+        plans.push(json!({"buckets": buckets, "kinds": kinds}));
+    }
+    let report = json!({"header": header, "cost": [call_ms, row_ms, token_ms], "plans": plans});
     println!("{}", serde_json::to_string_pretty(&report)?);
     if let Some(path) = &args.out {
         std::fs::write(path, serde_json::to_vec_pretty(&report)?)?;
