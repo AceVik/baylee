@@ -47,6 +47,8 @@ pub struct CardBody {
     pub madness: Option<String>,
     /// `foretell` expression for the front face, when present.
     pub foretell: Option<String>,
+    /// `morph` expression for the front face, when present.
+    pub morph: Option<String>,
     /// `cost_reduction` expression for the front face, when present.
     pub cost_reduction: Option<String>,
     /// `entwine` expression for the front face, when present.
@@ -72,6 +74,7 @@ impl CardBody {
             && self.flashback.is_none()
             && self.madness.is_none()
             && self.foretell.is_none()
+            && self.morph.is_none()
             && self.cost_reduction.is_none()
             && self.entwine.is_none()
             && self.buyback.is_none()

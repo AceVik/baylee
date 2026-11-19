@@ -247,7 +247,12 @@ pub fn apis_used(spec: &str, svars: &BTreeMap<String, String>) -> Vec<String> {
         }
         if !matches!(
             api.as_str(),
-            "ChangesZone" | "Phase" | "Attacks" | "Taps" | "AttackerBlockedByCreature"
+            "ChangesZone"
+                | "Phase"
+                | "Attacks"
+                | "Taps"
+                | "AttackerBlockedByCreature"
+                | "TurnFaceUp"
         ) {
             out.push(api);
         }

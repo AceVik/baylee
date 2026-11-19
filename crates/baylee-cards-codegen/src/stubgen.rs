@@ -645,6 +645,7 @@ fn render_face(
     flashback_parts: &[String],
     madness: Option<&str>,
     foretell: Option<&str>,
+    morph: Option<&str>,
     cost_reduction: Option<&str>,
     entwine: Option<&str>,
     buyback: Option<&str>,
@@ -711,6 +712,9 @@ fn render_face(
     }
     if let Some(ft) = foretell {
         fields.push(format!("foretell = {ft}"));
+    }
+    if let Some(morph) = morph {
+        fields.push(format!("morph = {morph}"));
     }
     if let Some(cr) = cost_reduction {
         fields.push(format!("cost_reduction = {cr}"));
@@ -1464,6 +1468,7 @@ mod tests {
             "partner =",
             "alternative_costs =",
             "castable_from_hand =",
+            "morph =",
         ] {
             assert!(
                 !text.contains(absent),
@@ -1804,5 +1809,41 @@ mod tests {
         )
         .unwrap();
         assert!(!stub.contains("coverage ="), "{stub}");
+    }
+
+    #[test]
+    fn a_morph_cost_renders_on_the_front_face() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("x.txt"),
+            "Name:X\nManaCost:2 U\nTypes:Creature\nPT:2/2\nK:Morph:1 U\n",
+        )
+        .expect("script");
+        let mut index = BTreeMap::new();
+        index.insert("X".to_string(), "x.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+
+        let mut card = bare_card("X", "Creature");
+        card.mana_cost = Some("{2}{U}".to_string());
+        card.power = Some("2".to_string());
+        card.toughness = Some("2".to_string());
+        let (_, rendered) = render_stub(
+            &card,
+            &row(9, "X"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .unwrap();
+        assert!(
+            rendered.contains("        morph = Some(mana!(\"{1}{U}\")),\n"),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains("coverage = Coverage::Generated"),
+            "{rendered}"
+        );
     }
 }
