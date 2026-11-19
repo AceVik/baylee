@@ -203,7 +203,11 @@ fn cast_delver(engine: &mut Engine<SyntheticLookup>, delved: &[ObjectId]) {
             )
             .expect("the delve answer is legal");
     } else {
-        assert!(delved.is_empty(), "no delve question: {:?}", engine.pending());
+        assert!(
+            delved.is_empty(),
+            "no delve question: {:?}",
+            engine.pending()
+        );
     }
     for _ in 0..12 {
         if engine.state().zones.list(ZoneLocation::Stack).is_empty()
@@ -282,6 +286,10 @@ fn each_instant_leaving_your_graveyard_triggers_once() {
     };
     let (mine, theirs) = (life(&engine, ME), life(&engine, THEM));
     cast_delver(&mut engine, &buried);
-    assert_eq!(life(&engine, ME) - mine, 2, "two instants left your graveyard");
+    assert_eq!(
+        life(&engine, ME) - mine,
+        2,
+        "two instants left your graveyard"
+    );
     assert_eq!(life(&engine, THEM) - theirs, 0, "none left theirs");
 }
