@@ -7,7 +7,7 @@ use anyhow::Context as _;
 use ort::environment::Environment;
 use ort::ep::ExecutionProviderDispatch;
 use ort::session::Session;
-use ort::session::builder::GraphOptimizationLevel;
+use ort::session::builder::{BuilderResult, GraphOptimizationLevel, SessionBuilder};
 
 use crate::hardware::{AcceleratorKind, HardwareConfig};
 
@@ -227,6 +227,21 @@ pub fn build_session(
     hw: &HardwareConfig,
     worker_slots: usize,
 ) -> anyhow::Result<Session> {
+    build_session_with(path, hw, worker_slots, Ok)
+}
+
+/// [`build_session`] with `adjust` applied to the builder after the
+/// execution providers and threads are set, before the model is committed:
+/// profiling or logging for a measurement (`hw_bench`).
+///
+/// # Errors
+/// As [`build_session`], or what `adjust` returns.
+pub fn build_session_with(
+    path: &Path,
+    hw: &HardwareConfig,
+    worker_slots: usize,
+    adjust: impl FnOnce(SessionBuilder) -> BuilderResult,
+) -> anyhow::Result<Session> {
     let accel = hw.effective_accelerator();
     let eps = build_execution_providers(hw, accel)?;
     let intra_threads = hw.recommended_intra_threads(worker_slots);
@@ -234,10 +249,12 @@ pub fn build_session(
     if !eps.is_empty() {
         builder = builder.with_execution_providers(eps).map_err(ort_error)?;
     }
-    builder
+    let builder = builder
         .with_optimization_level(GraphOptimizationLevel::Level3)
         .map_err(ort_error)?
         .with_intra_threads(intra_threads)
+        .map_err(ort_error)?;
+    adjust(builder)
         .map_err(ort_error)?
         .commit_from_file(path)
         .with_context(|| format!("loading {}", path.display()))

@@ -630,6 +630,7 @@ impl NetPlayer4 {
             memory_reset: _,
             memory_turns: _,
             explorer: _,
+            capture: _,
         } = self;
         PlayerSnapshot4 {
             teams: teams.clone(),

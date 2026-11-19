@@ -76,6 +76,7 @@ mod tests {
             last_depth: 2,
             distill: None,
             explorer: None,
+            capture: None,
             backend: crate::netplay4::Backend::Owned(BTreeMap::new()),
             model_dir: std::path::PathBuf::new(),
             rule_roots: None,
