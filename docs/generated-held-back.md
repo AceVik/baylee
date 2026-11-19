@@ -22,6 +22,7 @@ never a reason to edit a card by hand.
   - Wall of Vipers: "Destroy this creature and target creature it's blocking" loses "destroy this creature" (two +0/+0 pump links accepted, `scriptgen/effects.rs::pump_effect`; the `Destroy` link emits only the target).
   - Opalescence: `AddType$ Creature` with mana-value P/T is read as `Modifier::AnimateNoncreatureArtifact`, which also adds the artifact type (`scriptgen/statics.rs::pt_modifiers`; right only for artifacts). The card now uses `Modifier::CreatureWithManaValuePT`, which that rule could emit for a non-artifact filter.
   - Mercenary Informer: "target nontoken Mercenary" loses "nontoken" (the script's valid-string carries none; nothing holds the printed word against `Filter::IsToken`).
+- Sarkhan's Dragonfire (corpus gap, found in the review of the Dig reader, 19.11.2026): its card prints "the rest on the bottom of your library in a random order", and the reference script's dig line carries no random order, so the reader writes `LookAtTopFind { …, random: false }`, an order the player chooses. Leave it out until the script says so.
 
 ## Engine gaps
 
@@ -43,4 +44,4 @@ never a reason to edit a card by hand.
 
 - Pestbrood Sloth, Send in the Pest: a second `PEST_1_1_BLACK_GREEN` token (with an attack trigger) beside the pool's one.
 - Drudge Spell: a second `SKELETON_1_1_BLACK` token (`b_1_1_skeleton_regenerate`, with `{B}: Regenerate this creature`) beside the pool's plain `SKELETON_1_1_BLACK` (`b_1_1_skeleton`).
-- The 24 Alchemy rebalanced cards land on the paper card's file path: `A-Sepulcher Ghoul`, `A-Blood Artist`, `A-Canopy Tactician`, `A-Elderleaf Mentor`, `A-Skemfar Avenger`, `A-Rockslide Sorcerer`, `A-Umara Mystic`, `A-Dragonborn Looter`, `A-Eyes of the Beholder`, `A-Goggles of Night`, `A-Pseudodragon Familiar`, `A-Celebrity Fencer`, `A-Glittermonger`, `A-Jackhammer`, `A-Midnight Assassin`, `A-Most Wanted`, `A-Ominous Parcel`, `A-Riveteers Initiate`, `A-Social Climber`, `A-Speakeasy Server`, `A-Stimulus Package`, `A-Haywire Mite`, `A-The One Ring`, `A-Mightstone's Animation`.
+- The 26 Alchemy rebalanced cards land on the paper card's file path: `A-Sepulcher Ghoul`, `A-Blood Artist`, `A-Canopy Tactician`, `A-Elderleaf Mentor`, `A-Skemfar Avenger`, `A-Rockslide Sorcerer`, `A-Umara Mystic`, `A-Dragonborn Looter`, `A-Eyes of the Beholder`, `A-Goggles of Night`, `A-Pseudodragon Familiar`, `A-Celebrity Fencer`, `A-Glittermonger`, `A-Jackhammer`, `A-Midnight Assassin`, `A-Most Wanted`, `A-Ominous Parcel`, `A-Riveteers Initiate`, `A-Social Climber`, `A-Speakeasy Server`, `A-Stimulus Package`, `A-Haywire Mite`, `A-The One Ring`, `A-Mightstone's Animation`, `A-Harald, King of Skemfar`, `A-Warm Welcome` (the last two read in full since the Dig reader, 19.11.2026).
