@@ -641,6 +641,7 @@ fn render_face(
     f: &FaceData,
     cats: &SubtypeCatalogs,
     enter_modifiers: &[String],
+    alternative_costs: &[String],
     flashback: Option<&str>,
     flashback_parts: &[String],
     madness: Option<&str>,
@@ -693,6 +694,12 @@ fn render_face(
         fields.push(format!(
             "enter_modifiers = &[{}]",
             enter_modifiers.join(", ")
+        ));
+    }
+    if !alternative_costs.is_empty() {
+        fields.push(format!(
+            "alternative_costs = &[{}]",
+            alternative_costs.join(", ")
         ));
     }
     if let Some(fb) = flashback {

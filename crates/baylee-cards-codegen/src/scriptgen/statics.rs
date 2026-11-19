@@ -170,6 +170,7 @@ impl Tx<'_> {
             return self.protection_from_imprinted(p);
         }
         match mode.as_str() {
+            "AlternativeCost" => return self.alternative_cost(p),
             "RaiseCost" => return self.mana_life_tax(p),
             "ReduceCost" => return self.reduce_cost(p),
             "FlipCoinDoubler" => {
