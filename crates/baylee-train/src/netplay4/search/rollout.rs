@@ -196,9 +196,9 @@ fn rollout<P: SearchPlayer4>(
     let (mut steps, mut decisions) = (0_u64, 0_u64);
     let house = std::cell::Cell::new(0_u64);
     let from_house = |answer: &Answer4| answer.provenance.source == SourceKind4::House;
-    let value = |player: &P, steps, decisions, kind| -> anyhow::Result<Leaf> {
+    let value = |player: &mut P, steps, decisions, kind| -> anyhow::Result<Leaf> {
         let score = player
-            .observed_value(seat)
+            .leaf_value(seat)
             .context("the searching seat has no observed value")?;
         Ok(Leaf {
             score,
@@ -213,7 +213,7 @@ fn rollout<P: SearchPlayer4>(
     };
     // The leaf where the next answer would be the house's and the search
     // plays none: the position before it, scored by the value head.
-    let house_stop = |player: &P, steps, decisions| -> anyhow::Result<Leaf> {
+    let house_stop = |player: &mut P, steps, decisions| -> anyhow::Result<Leaf> {
         value(player, steps, decisions, LeafKind::Stopped).map(|leaf| Leaf {
             house_stop: true,
             ..leaf
@@ -247,7 +247,7 @@ fn rollout<P: SearchPlayer4>(
             });
         }
         if fork.state().has_left(seat) {
-            let base = player.observed_value(seat).unwrap_or(0.5);
+            let base = player.leaf_value(seat).unwrap_or(0.5);
             return Ok(Leaf {
                 score: (base - crate::features4::TEAM_WIN_ELIMINATED_PENALTY).clamp(0.0, 1.0),
                 steps,
@@ -282,7 +282,7 @@ fn rollout<P: SearchPlayer4>(
                 && fork.snapshot_hash() == h
         });
         if cast_cancelled || reversed_to_root {
-            let base = player.observed_value(seat).unwrap_or(0.5);
+            let base = player.leaf_value(seat).unwrap_or(0.5);
             return Ok(Leaf {
                 score: (base - 0.02).clamp(0.0, 1.0),
                 steps,
@@ -781,7 +781,15 @@ impl<S> Rounds<'_, S> {
         } else {
             config.threads().min(jobs.len())
         };
-        let parallel = threads > 1 && player.lends_rollout_players();
+        // A player whose rollouts another net plays runs them on its
+        // rollout players even one at a time.
+        let parallel =
+            (threads > 1 || !player.plays_its_own_rollouts()) && player.lends_rollout_players();
+        if !player.plays_its_own_rollouts() && !parallel {
+            return Err(Stop::Failed(anyhow::anyhow!(
+                "the rollouts are another net's, and the player lends no rollout player"
+            )));
+        }
         let mut tally = Tally::new(self.candidates, config.particles(), parallel);
         let start = Start {
             view: self.view,

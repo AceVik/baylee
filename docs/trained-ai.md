@@ -1838,7 +1838,53 @@ and the house are deterministic, and the net is on the owned CPU path; time
 is measured only for the report. `--inference-batch` is not bitwise
 reproducible, with or without search: a row's outputs in a batch differ from
 its outputs alone by under 1e-3, and which rows share a batch depends on
-timing, so a greedy rollout can turn another way.
+timing, so a greedy rollout can turn another way. `--inference-batch 1`
+is: every call holds one row, the single step's, whichever server runs it.
+
+**Servers and lockstep (19 November 2026).** Two ways to spend more cores or
+a bigger accelerator on one searched decision. `--inference-servers N` opens
+N sessions of each depth graph, each on its own thread, that answer the
+batched calls at once (`BatchedNet4::load_served`); with
+`--inference-batch 1` the search is the one-core search bit for bit
+(`served_calls_of_one_row_are_the_single_step_bit_for_bit`, and
+`phase_a4 search-parity` on the records of two runs). It is the CPU's way:
+there a call costs about as much per row whatever it holds (r1, Ryzen 3900X,
+one intra-op thread: observation rows 32 ms, decision rows 42 ms alone and
+33 ms in calls of 8 to 32; four intra-op threads at 24 rows 10 to 12 ms a
+row, against about 8 ms from four single-threaded servers;
+`batched_call_cost_on_the_cpu`). `--search-lockstep` starts every rollout
+of a decision at once and sends their model steps as one group whenever
+every rollout still playing waits on one (`netplay4::lockstep`), so a call
+holds as many rows as rollouts still play: the batches a GPU, an iGPU or an
+NPU pays for. Which rows share a group follows from the rollouts, never
+from timing; the summary's `inference_batch.lockstep_groups` gives the
+group sizes and `learner_by_depth` the rows per call of each graph. Where
+the time of a rollout goes, measured with `perf` (K4P2, one core): 98 % in
+ONNX Runtime, 89 % in its float GEMM kernel; the engine, the views and the
+encoders together under 2 %. About 70 % of the model's rows are
+observations (depth 0): every frame a seat sees moves its memory, and a
+decision row (depth 2) costs about as much. Smoke (2 holdout2 deals, 8
+searched decisions, fair 2-turn search with the bundle, Ryzen 3900X): K4P2
+19.4 s a searched decision on one core, 5.7 s with four servers and eight
+rollouts at once on four cores; full 6×4 40.7 s and 11.7 s; records,
+choices and world scores identical to the one-core run. Lockstep groups of
+K4P2 held 5.4 steps on average (median 6, at most 8).
+
+**A cheaper rollout net (parked, 19 November 2026).** `--rollout-net DIR`
+lets another net play every chair of the worlds (`RolloutNet4`): the net
+still decides at the root and gives the prior, and the rollout net watches
+every view at the table beside it, so its memory at a root is the game's.
+`--rollout-leaf` scores a rollout by the rollout net's own value
+(`student`), by the net's value of the seat's last frame seen once from its
+memory at the root (`jump`, one step of the net a rollout), or by the net
+watching every frame of the seat (`follow`, today's leaf). With the net as
+its own rollout net and `follow` the search is the plain one.
+`--rollout-compare` records, at each root of the net's own search, the same
+worlds searched under each leaf (`variants`), and `rollout_curve4` judges
+them by the net's worlds as the live-search curve does. Parked by the owner
+(19 November): the search plays the big net; a small rollout net would be a
+separate fork. The trainer's separate-reference imitation mode for such a
+net is kept outside the tree, in the campaign's `rolloutnet/` directory.
 
 **Limits.** The worlds are dealt from the real remaining decks of the
 evaluator's known lists — an upper bound on what a seat without deck
