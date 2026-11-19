@@ -360,11 +360,26 @@ fn entry_prompt_distributes_buttons_symmetrically_and_disables_empty_ok_with_hin
         assert_eq!(node.flex_basis, Val::Px(0.0));
     }
     assert!(app.world().get::<UiButton>(kids[0]).is_none());
-    assert!(app.world().get::<crate::hud::Hint>(kids[0]).is_some());
     assert!(
         app.world()
-            .get::<crate::lobby::HoverHint>(kids[0])
+            .get::<crate::shellkit::controls::Disabled>(kids[0])
             .is_some()
+    );
+    assert!(
+        app.world()
+            .get::<crate::shellkit::controls::Disabled>(cancel)
+            .is_none()
+    );
+    let tip = app
+        .world()
+        .get::<crate::shellkit::controls::Tooltip>(kids[0])
+        .expect("disabled OK button carries floating kit tooltip")
+        .0;
+    assert!(app.world().get::<ChildOf>(tip).is_none());
+    let tip_text = app.world().get::<Children>(tip).unwrap()[0];
+    assert_eq!(
+        app.world().get::<Text>(tip_text).unwrap().0,
+        ChatPhrase::GroupNameLabel.text(Lang::En)
     );
 
     app.world_mut().resource_mut::<ChatUi>().entry =
