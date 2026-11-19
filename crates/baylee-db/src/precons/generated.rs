@@ -10,6 +10,7 @@ use super::Precon;
 #[rustfmt::skip]
 pub static PLAYABLE: &[Precon] = &[
     Precon { key: "10E/black-deck-b", text: include_str!("../../../../data/decks/precon/10E/black-deck-b.txt") },
+    Precon { key: "10E/red-deck-b", text: include_str!("../../../../data/decks/precon/10E/red-deck-b.txt") },
     Precon { key: "5ED/deck-a", text: include_str!("../../../../data/decks/precon/5ED/deck-a.txt") },
     Precon { key: "5ED/deck-b", text: include_str!("../../../../data/decks/precon/5ED/deck-b.txt") },
     Precon { key: "7ED/armada", text: include_str!("../../../../data/decks/precon/7ED/armada.txt") },
@@ -73,6 +74,8 @@ pub static PLAYABLE: &[Precon] = &[
     Precon { key: "RQS/kazz-s-second-deck", text: include_str!("../../../../data/decks/precon/RQS/kazz-s-second-deck.txt") },
     Precon { key: "RQS/zakk-s-first-deck", text: include_str!("../../../../data/decks/precon/RQS/zakk-s-first-deck.txt") },
     Precon { key: "RQS/zakk-s-second-deck", text: include_str!("../../../../data/decks/precon/RQS/zakk-s-second-deck.txt") },
+    Precon { key: "S00/player-a-s-deck", text: include_str!("../../../../data/decks/precon/S00/player-a-s-deck.txt") },
+    Precon { key: "S99/preconstructed-deck-1", text: include_str!("../../../../data/decks/precon/S99/preconstructed-deck-1.txt") },
     Precon { key: "W17/amonkhet-welcome-deck-black", text: include_str!("../../../../data/decks/precon/W17/amonkhet-welcome-deck-black.txt") },
     Precon { key: "WC99/mark-le-pine-sped-red", text: include_str!("../../../../data/decks/precon/WC99/mark-le-pine-sped-red.txt") },
     Precon { key: "WC99/matt-linde-mono-green-stompy", text: include_str!("../../../../data/decks/precon/WC99/matt-linde-mono-green-stompy.txt") },
