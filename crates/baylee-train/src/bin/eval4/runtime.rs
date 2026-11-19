@@ -172,6 +172,11 @@ trait EvaluationPlayer {
     fn observed_value(&self, _seat: PlayerId) -> Option<f32> {
         None
     }
+    /// What the latest searched decision compared beside its own search
+    /// (`--rollout-compare`), for its event; `None` without.
+    fn take_search_variants(&mut self) -> Option<Value> {
+        None
+    }
     /// Answers with a lookahead over `table` (`--search`), never choosing an
     /// answer of `taken_back` (the stall guard's, `search_decision_avoiding`);
     /// `None` when this player cannot search.
@@ -504,6 +509,8 @@ impl EvaluationPlayer for LegacyPlayer {
 struct SharedNets {
     learner: Option<Arc<BatchedNet4>>,
     opponent: Option<Arc<BatchedNet4>>,
+    /// `--rollout-net`: the net that plays the search's rollouts.
+    rollout: Option<Arc<BatchedNet4>>,
 }
 
 impl SharedNets {
@@ -512,6 +519,7 @@ impl SharedNets {
         servers: usize,
         model: &std::path::Path,
         opponent: Option<(&std::path::Path, Option<&ModelIdentity>)>,
+        rollout: Option<&std::path::Path>,
         catalog: CatalogRead4,
     ) -> anyhow::Result<Self> {
         if rows == 0 {
@@ -532,9 +540,13 @@ impl SharedNets {
             )?),
             None => None,
         };
+        let rollout = rollout
+            .map(|path| BatchedNet4::load_served(path, limits, catalog, servers))
+            .transpose()?;
         Ok(Self {
             learner: Some(learner),
             opponent,
+            rollout,
         })
     }
 
@@ -563,6 +575,10 @@ impl SharedNets {
             "calls": calls, "rows": rows, "call_seconds": call_seconds,
             "learner_by_depth": learner.by_depth(),
             "lockstep_groups": learner.lockstep_groups(),
+            "rollout_net": self.rollout.as_ref().map(|net| json!({
+                "by_depth": net.by_depth(),
+                "lockstep_groups": net.lockstep_groups(),
+            })),
             "bitwise_reproducible": limits.max_rows == 1})
     }
 }

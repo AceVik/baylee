@@ -438,8 +438,11 @@ impl GameSearch {
             SearchOutcome4::Searched(report) => {
                 self.tally.taken_back += report.taken_back.len() as u64;
                 self.tally.ms.push(started.elapsed().as_secs_f64() * 1000.0);
-                self.events
-                    .push(event(table, view, &searched.answer, &report));
+                let mut recorded = event(table, view, &searched.answer, &report);
+                if let Some(variants) = net.take_search_variants() {
+                    recorded["variants"] = variants;
+                }
+                self.events.push(recorded);
                 let own = report.actions.first().map_or_default(action_kind);
                 if report.changed {
                     // The policy's own answer at another target.

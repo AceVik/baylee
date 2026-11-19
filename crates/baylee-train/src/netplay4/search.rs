@@ -679,6 +679,19 @@ pub trait SearchPlayer4 {
     fn observe(&mut self, view: &PlayerView) -> anyhow::Result<()>;
     /// The player's value for `seat`'s side from `seat`'s latest observation.
     fn observed_value(&self, seat: PlayerId) -> Option<f32>;
+    /// What a rollout's leaf scores for `seat`'s side: by default the
+    /// player's [`Self::observed_value`]; a player whose rollouts another
+    /// net plays may judge the leaf with its own net instead
+    /// ([`RolloutNet4`]).
+    fn leaf_value(&mut self, seat: PlayerId) -> Option<f32> {
+        self.observed_value(seat)
+    }
+    /// Whether the player plays its rollouts itself when they run one by
+    /// one; `false` for a player whose rollouts only its rollout players
+    /// ([`Self::rollout_player`]) play ([`RolloutNet4`]).
+    fn plays_its_own_rollouts(&self) -> bool {
+        true
+    }
     /// Decides as in play, up to noting the answer, with the ranking of
     /// the legal answers when the answer is the policy's own.
     fn decide(
@@ -1791,6 +1804,8 @@ pub fn follow_script<P: SearchPlayer4>(
 
 mod rollout;
 use rollout::{Played, Rounds, Stop};
+mod rolloutnet;
+pub use rolloutnet::{RolloutLeaf4, RolloutNet4, RolloutSnapshot4};
 mod combat;
 mod macros;
 /// The macro roots and their candidates, as the search student reads them

@@ -534,6 +534,26 @@ struct Args {
     /// sizes (`docs/trained-ai.md` §"Lookahead search").
     #[arg(long, requires = "search")]
     search_lockstep: bool,
+    /// Another, cheaper net plays the search's rollouts: every chair in
+    /// every world, from a memory of its own that watches the game beside
+    /// the net's (`netplay4::search::RolloutNet4`). The net still decides
+    /// at the root and gives the prior. Fair searches with
+    /// `--inference-batch` only; the rollout net's calls run in batches
+    /// of their own, as many servers as the net's.
+    #[arg(long, requires = "search_fair")]
+    rollout_net: Option<PathBuf>,
+    /// How a rollout of `--rollout-net` is scored where it ends:
+    /// `student` (the rollout net's own value), `jump` (the net's value of
+    /// the seat's last frame, seen once from its memory at the root) or
+    /// `follow` (the net watches every frame of the rollout, as when it
+    /// plays the rollouts itself).
+    #[arg(long, default_value = "jump", requires = "rollout_net")]
+    rollout_leaf: baylee_train::netplay4::search::RolloutLeaf4,
+    /// The net's own search answers; at each of its roots the same worlds
+    /// are also searched with `--rollout-net` under each of these leaves
+    /// (comma-separated), recorded in the search event as `variants`.
+    #[arg(long, value_delimiter = ',', requires = "rollout_net")]
+    rollout_compare: Vec<baylee_train::netplay4::search::RolloutLeaf4>,
 }
 
 /// `--search-select`: which [`Selection4`] a search uses.
@@ -822,6 +842,16 @@ fn search_metadata(
     // Calls of one row are the unbatched steps, whichever server runs them.
     metadata["bitwise_reproducible"] = json!(args.inference_batch <= 1);
     metadata["critic_semantics"] = json!(identity.and_then(|i| i.critic_semantics.as_ref()));
+    if let Some(rollout) = &args.rollout_net {
+        // Only a search whose rollouts another net plays names it.
+        metadata["rollout"] = json!("rollout_net_for_every_chair_other_seats_from_world_view_only");
+        metadata["rollout_net"] = json!({
+            "model": rollout,
+            "leaf": args.rollout_leaf.name(),
+            "compare": args.rollout_compare.iter().map(|leaf| leaf.name()).collect::<Vec<_>>(),
+            "memory": "the_rollout_net_watches_every_view_of_the_seat_at_the_table",
+        });
+    }
     Some(metadata)
 }
 

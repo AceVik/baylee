@@ -65,6 +65,7 @@ mod lookahead;
 mod precision;
 mod profile_spec;
 mod random_seat;
+mod rollout_seat;
 mod seat_players;
 mod select;
 mod shadow;
@@ -88,6 +89,10 @@ fn choose_exports(args: &mut Args) -> anyhow::Result<()> {
     {
         let chosen = precision::resolve(opponent, args.precision, args.collection_purpose, gpu)?;
         args.opponent_model = Some(chosen);
+    }
+    if let Some(rollout) = &args.rollout_net {
+        let chosen = precision::resolve(rollout, args.precision, args.collection_purpose, gpu)?;
+        args.rollout_net = Some(chosen);
     }
     Ok(())
 }
@@ -397,6 +402,11 @@ fn main() -> anyhow::Result<()> {
     }
     if args.legacy_v3 && args.inference_batch > 0 {
         bail!("--inference-batch needs a v4/v5 model");
+    }
+    if args.rollout_net.is_some()
+        && (args.inference_batch == 0 || args.legacy_v3 || args.random_policy)
+    {
+        bail!("--rollout-net plays the rollouts of a net on --inference-batch lanes");
     }
     if args.inference_servers != 1 && args.inference_batch == 0 {
         bail!("--inference-servers serves the --inference-batch calls; give it a batch");
@@ -817,6 +827,7 @@ fn main() -> anyhow::Result<()> {
             .as_deref()
             .filter(|_| !args.opponent_legacy_v3)
             .map(|path| (path, collection.opponent_identity.as_ref())),
+        args.rollout_net.as_deref(),
         catalog_read(&args),
     )?;
     let cpu_deadline_seat = if args.offline_deadline_seat {
@@ -902,6 +913,8 @@ fn main() -> anyhow::Result<()> {
         let explore = exploration
             .as_ref()
             .map(|(rules, contract)| (*rules, contract.epsilon));
+        let rollout_leaf = args.rollout_leaf;
+        let rollout_compare = args.rollout_compare.clone();
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
             let mut net:Box<dyn EvaluationPlayer> = if collection.uses_seat_pool() {
@@ -914,6 +927,8 @@ fn main() -> anyhow::Result<()> {
                 Box::new(random_seat::RandomPlayer::new())
             } else if let Some(cpu) = &cpu_deadline_seat {
                 load_player(&model_path, format, k_steps, temp, policy_mode, Some(cpu.model_identity()), Some(cpu))?
+            } else if let (Some(learner), Some(rollout)) = (&shared_nets.learner, &shared_nets.rollout) {
+                Box::new(rollout_seat::load(learner, rollout, k_steps, temp, policy_mode, expected_identity.as_ref(), rollout_leaf, rollout_compare.clone())?)
             } else {
                 load_player(&model_path,format,k_steps,temp,policy_mode,expected_identity.as_ref(),shared_nets.learner.as_ref())?
             };
