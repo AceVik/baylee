@@ -30,13 +30,13 @@ use baylee_core::ids::ObjectId;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::PlayerView;
 
-use super::policy::{layer_scalar, sample_categorical};
+use super::policy::{layer_number, net_number, sample_categorical};
 use super::{ChoiceGuard4, TacticRules4, TacticalParts, choices, tactics};
 use crate::deckgen::Rng;
 use crate::features4::{
     EncodedCandidates4, HeadKind4, PendingKind4, TeacherTarget4, decode_action4,
-    denormalize_scalar_choice, encode_teacher_action4, normalize_scalar_choice,
-    sample_pairs_constrained, sample_subset_constrained,
+    encode_teacher_action4, normalize_scalar_choice, sample_pairs_constrained,
+    sample_subset_constrained,
 };
 
 pub use crate::convert4::distill_labels::{
@@ -184,9 +184,8 @@ fn kind_of(head: HeadKind4, pending: &Pending) -> &'static str {
     }
 }
 
-/// A scalar target from a normalized prediction.
-fn scalar_target(cands: &EncodedCandidates4, pred: f32) -> TeacherTarget4 {
-    let chosen = denormalize_scalar_choice(pred, cands.min_choices, cands.max_choices);
+/// A scalar target from a chosen number.
+fn scalar_target(cands: &EncodedCandidates4, chosen: u32) -> TeacherTarget4 {
     TeacherTarget4 {
         scalar_norm: normalize_scalar_choice(chosen, cands.min_choices, cands.max_choices),
         ..TeacherTarget4::default()
@@ -226,7 +225,7 @@ pub(super) fn net_target(q: &Question<'_>) -> TeacherTarget4 {
             0.0,
             &mut rng,
         )),
-        HeadKind4::ScalarValue => scalar_target(cands, q.scalar_pred.clamp(0.0, 1.0)),
+        HeadKind4::ScalarValue => scalar_target(cands, net_number(cands, q.scalar_pred)),
     }
 }
 
@@ -304,7 +303,7 @@ pub(super) fn rules_target(q: &Question<'_>, rules: TacticRules4) -> (TeacherTar
             set_target(sample_pairs_constrained(&adjusted, cands, 0.0, &mut rng))
         }
         HeadKind4::ScalarValue => {
-            scalar_target(cands, layer_scalar(q.view, q.pending, q.scalar_pred))
+            scalar_target(cands, layer_number(cands, q.view, q.pending, q.scalar_pred))
         }
     };
     let fired = rules

@@ -2713,7 +2713,15 @@ mana is not checked). `gamelog4 patterns --run R --summary S` replays the
 selected games on several threads and counts what each spell or ability
 was aimed at, the net's own objects or itself against anything else, and
 the net's own second main phases passed with a castable card or a land in
-hand. A record is omniscient, so this is for studying the net, never for a
+hand. In a run with distillation labels (`eval4 --distill-labels GROUPS`,
+played with the same groups), `show` marks every answer the tactical layer
+changed with who changed it and what the net would have answered
+(`‹layer:scalar; net: ChooseNumber(14)›`), and `gamelog4 deciders --run R
+[--summary S] [--focus NAME]` counts, by the card each answer is about, who
+made it: `net` (its own greedy answer was played), `layer:<part>` (the part
+`--choice-guard tactical-<part>` switches), or `rule:<groups>`; without a
+summary it reads every game the run has played so far. A record is
+omniscient, so this is for studying the net, never for a
 seat. Measured on `s1r` (`dev1024`, 3 November 2026): 221 deals lost where
 the house won, 76 the other way round; the net aims removal at its own
 permanents about as often as at the opponent's (Swords to Plowshares 39
@@ -3027,7 +3035,7 @@ cards' rules, never from a card's name and never from anything the view does not
 | --- | --- |
 | `void` | strikes an option that changes nothing: a gate no target opens (Pyroblast with nothing blue), an amount of zero (Typhoon with no Island), a land animated while tapped or already a creature, a second copy of a legend, a kill on what the seat's own kill on the stack already names |
 | `side` | a target on the wrong side, as `TargetingContext::side` reads the effect |
-| `mass` | a sweep (damage and X included) that takes more of the seat's board than theirs, or nothing of theirs, unless the seat is dying to the swing |
+| `mass` | a sweep (damage, −X/−X, and X included) that takes more of the seat's board than theirs, or nothing of theirs, at every X it can pay (mana, or life but its last point; `tactics::sweep`), unless the seat is dying to the swing |
 | `gift` | a lord without "you control" that lifts their swing (Goblin King into a board of Goblins with a Mountain under them) |
 | `race` | keeps blockers home when the visible swing back kills within two turns and the seat cannot get there first |
 | `trip` | blocks an attacker that does something when it connects (Goblin Lackey) |
@@ -3041,6 +3049,16 @@ cards' rules, never from a card's name and never from anything the view does not
 | `curve` | a cheap spell does not strand the mana a dearer set would spend |
 | `burn` | burn waits for something to kill or a game to close |
 | `trick` | a pump goes off in the blocks when it turns a one-on-one fight |
+| `counter` | with only their spells and abilities on the stack in their turn, a pass turned to any counter the seat can cast at instant speed, read by `reactivity::face_counters`: also one behind a payment (Mana Leak, Daze), in a mode (Izzet Charm) or on a flash body, which `react`'s single effect list does not see |
+| `defer` | where the net passes and the layer acts only because a spell, a land or a planeswalker is there to play, it acts with those plays and the mana for them, never with an activated ability the net passed over; where a draw, a combat or a mana sink is the reason, abilities stay (for a sink, those that cost mana) |
+
+`counter` and `defer` are not in the bundle; they were added as arms of the layer-fix measurement (`v6t-campaign/layerfix`).
+
+The layer's own numbers (`--choice-guard tactical-scalar`, `tactics::number`) are prices where the question is X or a payment: an X
+paid in life is never the whole X and never leaves the seat inside the other side's visible swing; an X that sizes a sweep (−X/−X, X
+damage to each creature or player) is the least X that buys the best outcome on the board; any other life-paid X is the net's own
+number, capped at that safe life; mana spent to prevent damage stops at the damage it prevents. A mana X the layer does not read stays
+whole. Before 2026-11-19 every X and payment was answered with the most the menu allowed, so Toxic Deluge paid down to one life.
 
 They answer through the tactical layer, so their records are tactical records and stay out of training. `eval4 --tactics-shadow` plays as the
 layer plays and counts per deal what each group alone would have changed. A deal a group does not touch is the same game with it on, so

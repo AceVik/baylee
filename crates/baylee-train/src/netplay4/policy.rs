@@ -435,13 +435,11 @@ impl PolicySampler4<'_> {
                     lp
                 }
                 HeadKind4::ScalarValue => {
-                    let pred = if raw && !parts.scalar {
-                        scalar_pred.clamp(0.0, 1.0)
+                    let chosen_int = if raw && !parts.scalar {
+                        net_number(cands, scalar_pred)
                     } else {
-                        layer_scalar(view, pending, scalar_pred)
+                        layer_number(cands, view, pending, scalar_pred)
                     };
-                    let chosen_int =
-                        denormalize_scalar_choice(pred, cands.min_choices, cands.max_choices);
                     let norm =
                         normalize_scalar_choice(chosen_int, cands.min_choices, cands.max_choices);
                     target.scalar_norm = norm;
@@ -540,17 +538,51 @@ impl PolicySampler4<'_> {
     }
 }
 
-/// The tactical layer's normalized number for a scalar question: the whole
-/// X or payment, a kill's worth of divided damage, lethal combat damage to
-/// each blocker in turn; the net's own prediction elsewhere.
-pub(super) fn layer_scalar(view: &PlayerView, pending: &Pending, scalar_pred: f32) -> f32 {
+/// The net's own number for a scalar question, within the menu's bounds.
+pub(super) fn net_number(cands: &EncodedCandidates4, scalar_pred: f32) -> u32 {
+    denormalize_scalar_choice(
+        scalar_pred.clamp(0.0, 1.0),
+        cands.min_choices,
+        cands.max_choices,
+    )
+}
+
+/// The tactical layer's number for a scalar question, within the menu's
+/// bounds: an X sized by what it buys and never paid in life the seat cannot
+/// spare, else the whole X ([`tactics::number`]); mana that prevents all the
+/// damage it can, no more; a kill's worth of divided damage; lethal combat
+/// damage to each blocker in turn; the net's own number elsewhere.
+pub(super) fn layer_number(
+    cands: &EncodedCandidates4,
+    view: &PlayerView,
+    pending: &Pending,
+    scalar_pred: f32,
+) -> u32 {
+    let (min, max) = (cands.min_choices, cands.max_choices.max(cands.min_choices));
     match pending {
         Pending::ChooseNumber {
-            reason:
-                baylee_engine::choice::NumberPrompt::X
-                | baylee_engine::choice::NumberPrompt::ManaPayment { .. },
+            reason: baylee_engine::choice::NumberPrompt::X,
             ..
-        } => 1.0,
+        } => {
+            tactics::number::x_value(view, min, max, net_number(cands, scalar_pred)).unwrap_or(max)
+        }
+        Pending::ChooseNumber {
+            reason: baylee_engine::choice::NumberPrompt::ManaPayment { preventable_damage },
+            ..
+        } => tactics::number::prevention(*preventable_damage, min, max),
+        _ => denormalize_scalar_choice(
+            layer_scalar(view, pending, scalar_pred),
+            cands.min_choices,
+            cands.max_choices,
+        ),
+    }
+}
+
+/// The tactical layer's normalized number for a scalar question that is not
+/// a price ([`layer_number`]): a kill's worth of divided damage, lethal
+/// combat damage to each blocker in turn; the net's own prediction elsewhere.
+fn layer_scalar(view: &PlayerView, pending: &Pending, scalar_pred: f32) -> f32 {
+    match pending {
         Pending::ChooseNumber {
             min,
             max,
@@ -680,6 +712,8 @@ pub(super) fn sample_categorical(logits: &[f32], tau: f32, rng: &mut Rng) -> (us
     (chosen, lp)
 }
 
+#[cfg(test)]
+mod number_tests;
 #[cfg(test)]
 mod payment_tests;
 #[cfg(test)]

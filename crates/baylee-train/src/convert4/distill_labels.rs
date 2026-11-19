@@ -127,9 +127,10 @@ pub const TARGET_GROUPS: [&str; 2] = ["side", "aim"];
 /// distillation dataset's fired mask (`bundle_distillation.groups`): the
 /// table of `netplay4::tactics::rules`, which a test there holds equal, kept
 /// here so that a converter built without the net reads it too.
-pub const FIRED_GROUPS: [&str; 20] = [
+pub const FIRED_GROUPS: [&str; 22] = [
     "void", "side", "mass", "gift", "race", "trip", "aim", "spend", "react", "trade", "press",
-    "walker", "chump", "keep", "land", "ping", "curve", "wall", "burn", "trick",
+    "walker", "chump", "keep", "land", "ping", "curve", "wall", "burn", "trick", "counter",
+    "defer",
 ];
 
 impl DistillSubtype4 {

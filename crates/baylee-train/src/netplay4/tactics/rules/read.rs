@@ -100,7 +100,7 @@ pub(in crate::netplay4) fn worth(object: &PublicObject) -> i32 {
 /// A creature as a swing reads it: its own object, with a bonus a rule supposes.
 #[derive(Clone, Copy)]
 pub(in crate::netplay4) struct Hitter<'a> {
-    pub(super) object: &'a PublicObject,
+    pub(in crate::netplay4) object: &'a PublicObject,
     pub(super) power: i32,
     pub(super) keywords: u128,
 }
