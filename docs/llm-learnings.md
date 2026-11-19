@@ -8151,3 +8151,15 @@ beneath it. What the author missed, for the next brief:
   which keeps each card's pinned printing, followed by `codegen --tables`
   twice; Scryfall's text changes go in with `xtask refresh-oracle`, which
   keeps the printing too (Slagwurm Armor's reminder text, the same day).
+- The final review (baylee-81) found no card read wrong and three small reader
+  gaps, fixed before landing: a target behind a kicked condition spelled
+  through `ConditionCheckSVar$` or `ConditionPresent$` is refused (CR 702.33g:
+  it is chosen only if the spell was kicked), while an unkicked-only line
+  (Rona's Vortex) and a condition on the target's own kicker (Ertai's
+  Trickery) stay read; an alternative cost's label reads its condition in the
+  permission's own sentence only; the target-replacement reader cites
+  702.33g. The Legates' free cast needed the desktop client's pre-tap list to
+  read `Condition::All` and `OpponentControlCount`; the latter counts only at
+  a duel, because a view carries no teams. Above two seats the list leaves
+  the free cast off conservatively while the engine still offers it, and no
+  hidden information is read.
