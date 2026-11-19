@@ -186,7 +186,12 @@ class AfterRows:
     provenance."""
 
     def __init__(self, rows, joined, emb, v, v0, intent, meta):
-        self.rows, self.emb, self.v, self.v0, self.meta = rows, emb, v, v0, meta
+        valid = joined["valid"]
+        # A missing afterstate reads 0, never the capture's NaN: a NaN input poisons every
+        # gradient through the head even where the gate drops its gap.
+        self.v, self.v0 = (np.where(valid, x, 0.).astype(np.float32) for x in (v, v0))
+        self.emb = np.where(valid[:, None], emb, 0).astype(np.float16)
+        self.rows, self.meta = rows, meta
         for name in PER_CANDIDATE:
             setattr(self, name, joined[name])
         self.intent = intent
@@ -222,7 +227,11 @@ class AfterRows:
             metas.append(dict(meta, path=str(path), sha256=sha256(path)))
         cat = {name: np.concatenate(value) for name, value in fields.items()}
         joined = {name: cat[name] for name in PER_CANDIDATE}
-        out = cls(rows, joined, cat["emb"], cat["v"].astype(np.float32), cat["v0"].astype(np.float32),
+        valid = joined["valid"]
+        if not (np.isfinite(cat["v"][valid]).all() and np.isfinite(cat["v0"][valid]).all()
+                and np.isfinite(cat["emb"][valid].astype(np.float32)).all()):
+            raise ValueError("A valid afterstate has a non-finite readout")
+        out = cls(rows, joined, cat["emb"], cat["v"], cat["v0"],
                   cat["intent"], dict(sources=metas, judged_from=judged_from, model_sha256=next(iter(sources))))
         if int(out.valid[~rows.labels["searched"].astype(bool)].sum()):
             raise ValueError("An unsearched candidate has an afterstate")
@@ -309,6 +318,23 @@ def read_preregistration(path):
     return data, sha256(path)
 
 
+def strict_json(value):
+    """JSON that strict readers (train_ops) accept: a non-finite float is written as null."""
+    def clean(x):
+        if isinstance(x, dict):
+            return {k: clean(v) for k, v in x.items()}
+        if isinstance(x, (list, tuple)):
+            return [clean(v) for v in x]
+        if isinstance(x, (float, np.floating)):
+            return float(x) if np.isfinite(x) else None
+        if isinstance(x, np.integer):
+            return int(x)
+        if isinstance(x, np.bool_):
+            return bool(x)
+        return x
+    return json.dumps(clean(value), indent=1, allow_nan=False)
+
+
 def seal(out, gaps, result):
     """Writes a fit's selection-half result (`fit.json`) and its sealed gaps, which only
     `decide` reads."""
@@ -319,7 +345,7 @@ def seal(out, gaps, result):
     (sealed / "README").write_text("Gaps over every candidate, held-out included. Read only by "
                                    "`training4.afterstate decide`; nothing else reads the report half.\n")
     result = dict(result, gaps_sha256=sha256(sealed / "gaps.npy"))
-    (out / "fit.json").write_text(json.dumps(result, indent=1))
+    (out / "fit.json").write_text(strict_json(result))
     return result
 
 
@@ -370,6 +396,8 @@ def fit_v0(after, lr=1e-3, weight_decay=1e-2, epochs=40, batch=256, patience=6, 
             gaps = torch.where(scored, q - q[own][root_of], 0.)
             weight = torch.where(chosen[root_of], w * nu, 0.)
             loss = (weight * (gaps - target).square()).sum() / weight.sum().clamp(min=1e-12)
+            if not torch.isfinite(loss):
+                raise FloatingPointError(f"V0's loss is not finite at epoch {epoch}")
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             optimizer.step()
@@ -823,7 +851,7 @@ def decide(prereg_path, stage_dirs, after, out_path):
                         "order, own first), at each stage's own margin; requested by the coordinator after the seal",
                    first_four=post_hoc),
                reports=reports)
-    Path(out_path).write_text(json.dumps(out, indent=1))
+    Path(out_path).write_text(strict_json(out))
     print("[afterstate] decision " + json.dumps(dict(chosen_stage=chosen, verdict=out["verdict"],
                                                      creativity=out["creativity"]["chosen"])), flush=True)
     return out
@@ -928,7 +956,7 @@ def main(argv=None):
             # A smoke run: timing and the reproduction check only; no gaps, nothing sealed.
             out.mkdir(parents=True)
             smoke = dict(smoke_roots=args.smoke_roots, **{k: v for k, v in extra.items()})
-            (out / "smoke.json").write_text(json.dumps(smoke, indent=1))
+            (out / "smoke.json").write_text(strict_json(smoke))
             print("[afterstate] V1 smoke " + json.dumps(smoke), flush=True)
             return smoke
         result = stage_result("V1", after, gaps, dict(extra, modules=list(V1_MODULES)), args, digest)
