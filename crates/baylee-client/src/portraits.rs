@@ -32,7 +32,7 @@
 //! key and picture; only the raw bytes stay on disk, by key, within their
 //! bound (`docs/privacy.md`).
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::{Mutex, mpsc};
 
 use baylee_account::Error;
@@ -153,6 +153,11 @@ pub(crate) struct PictureWork {
     seen_social: u64,
     seen_presence: u64,
     next_look: f64,
+    /// The near accounts by tag, each with the handle Central knows it by:
+    /// only a disc of exactly that handle wears its picture.
+    handles: BTreeMap<u32, String>,
+    /// Keys no one wears any more, whose files the worker is still to remove.
+    forgets: Vec<PictureKey>,
     /// How many lookups were sent, for `/state`.
     asked: u32,
     /// The development harness laid the pictures in (`/seed`): no lookup
@@ -244,10 +249,14 @@ pub(crate) fn install(app: &mut App) {
     );
 }
 
-/// The near tags: the account itself, its contacts and requests, and its
-/// groups' members (Central charges no lookup for them).
-fn near_tags(me: Option<u32>, host: Option<&SocialHost>) -> BTreeSet<u32> {
-    let mut near: BTreeSet<u32> = me.into_iter().collect();
+/// The near accounts: the account itself (`me`, its handle), its contacts
+/// and requests, and its groups' members (Central charges no lookup for
+/// them), by tag, each with the handle Central knows it by.
+fn near_handles(me: Option<&str>, host: Option<&SocialHost>) -> BTreeMap<u32, String> {
+    let mut near: BTreeMap<u32, String> = me
+        .and_then(|me| Some((tag_of(me)?, me.to_owned())))
+        .into_iter()
+        .collect();
     if let Some(machine) = host.and_then(SocialHost::machine) {
         let contacts = machine.contacts();
         let people = contacts
@@ -262,7 +271,9 @@ fn near_tags(me: Option<u32>, host: Option<&SocialHost>) -> BTreeSet<u32> {
                     .iter()
                     .flat_map(|group| group.members.iter().map(|member| &member.person)),
             );
-        near.extend(people.filter_map(|person| tag_of(&person.tag)));
+        near.extend(
+            people.filter_map(|person| Some((tag_of(&person.tag)?, person.handle.clone()))),
+        );
     }
     near
 }
@@ -310,13 +321,56 @@ fn ask_for_keys(
     }
     work.next_look = clock + LOOK_EVERY;
     let handle = lobby.as_ref().and_then(|lobby| lobby.central_handle());
-    let me = lobby
+    let own = lobby
         .as_ref()
         .and_then(|lobby| lobby.central.as_ref())
-        .and_then(|central| central.profile_handle.as_deref())
-        .and_then(tag_of);
-    let near = near_tags(me, host.as_deref());
-    look(work, handle, me, &near, now, &mut portraits.reborrow());
+        .and_then(|central| central.profile_handle.as_deref());
+    let near = near_handles(own, host.as_deref());
+    known_as(work, near, &mut portraits.reborrow());
+    let tags: BTreeSet<u32> = work.handles.keys().copied().collect();
+    look(
+        work,
+        handle,
+        own.and_then(tag_of),
+        &tags,
+        now,
+        &mut portraits.reborrow(),
+    );
+}
+
+/// Takes the near accounts' handles as Central knows them now, and lays a
+/// renamed account's picture in under its new handle.
+fn known_as(
+    work: &mut PictureWork,
+    near: BTreeMap<u32, String>,
+    portraits: &mut Mut<'_, Portraits>,
+) {
+    if work.handles == near {
+        return;
+    }
+    for (tag, handle) in &near {
+        let renamed = portraits
+            .by_tag(&tag_text(*tag))
+            .filter(|portrait| portrait.handle != *handle)
+            .cloned();
+        if let Some(portrait) = renamed {
+            portraits.wear(Portrait {
+                handle: handle.clone(),
+                ..portrait
+            });
+        }
+    }
+    work.handles = near;
+}
+
+/// What the disc of `handle` wears: only an account near this one, under
+/// the handle Central knows it by.
+fn worn_by(work: &PictureWork, handle: &str) -> Option<baylee_client_core::portrait::Worn> {
+    let tag = tag_of(handle)?;
+    if work.handles.get(&tag)? != handle {
+        return None;
+    }
+    work.book.worn(tag)
 }
 
 /// Takes the key lookup's answer, if it came, into the book, and says
@@ -397,6 +451,7 @@ fn forget(work: &mut PictureWork, portraits: &mut Mut<'_, Portraits>) {
     work.lookup = None;
     work.account = None;
     work.origin = None;
+    work.handles.clear();
     work.pictures.clear();
     if !portraits.is_empty() {
         let tags: Vec<String> = portraits.all().map(|(tag, _)| tag.to_owned()).collect();
@@ -423,16 +478,14 @@ fn apply(
                     .pictures
                     .get(&worn.key)
                     .and_then(|picture| picture.image.clone());
-                match image {
-                    Some(image) => portraits.wear(
-                        tag,
-                        Portrait {
-                            image,
-                            moving: worn.moving,
-                        },
-                    ),
-                    None if portraits.by_tag(&tag).is_some() => portraits.forget(&tag),
-                    None => {}
+                match (image, work.handles.get(&change.tag)) {
+                    (Some(image), Some(handle)) => portraits.wear(Portrait {
+                        handle: handle.clone(),
+                        image,
+                        moving: worn.moving,
+                    }),
+                    _ if portraits.by_tag(&tag).is_some() => portraits.forget(&tag),
+                    _ => {}
                 }
             }
             None => {
@@ -450,9 +503,7 @@ fn apply(
             {
                 images.remove(&image);
             }
-            if let Some(courier) = work.courier.as_ref() {
-                courier.ask(fetch::Job::Forget { key: was.key });
-            }
+            work.forgets.push(was.key);
         }
     }
 }
@@ -500,6 +551,7 @@ fn lay_in(
             arrived(work, done, now, &mut portraits.reborrow(), &mut images);
         }
     }
+    forget_files(work);
     let clock = time.elapsed_secs_f64();
     if clock < *looked || work.account.is_none() {
         return;
@@ -511,7 +563,7 @@ fn lay_in(
     let motion = !reduced(prefs.as_deref()) && !watch.is_some_and(|watch| watch.hidden());
     let mut wanted: Vec<fetch::Job> = Vec::new();
     for (avatar, visible) in &discs {
-        let Some(worn) = tag_of(&avatar.handle).and_then(|tag| work.book.worn(tag)) else {
+        let Some(worn) = worn_by(work, &avatar.handle) else {
             continue;
         };
         let picture = work.pictures.entry(worn.key).or_default();
@@ -564,6 +616,26 @@ fn lay_in(
     }
 }
 
+/// Hands the worker the keys whose files are to go, as far as its queue
+/// takes them; the rest wait for the next look.
+fn forget_files(work: &mut PictureWork) {
+    if work.forgets.is_empty() {
+        return;
+    }
+    if work.courier.is_none() {
+        work.courier = fetch::Courier::start(fetch::cache_dir());
+    }
+    let Some(courier) = work.courier.as_ref() else {
+        return;
+    };
+    while let Some(key) = work.forgets.last().copied() {
+        if !courier.ask(fetch::Job::Forget { key }) {
+            break;
+        }
+        work.forgets.pop();
+    }
+}
+
 /// One finished job of the worker.
 fn arrived(
     work: &mut PictureWork,
@@ -592,13 +664,13 @@ fn arrived(
                 images.remove(&old);
             }
             for (tag, moving) in wearers {
-                portraits.wear(
-                    tag_text(tag),
-                    Portrait {
+                if let Some(handle) = work.handles.get(&tag) {
+                    portraits.wear(Portrait {
+                        handle: handle.clone(),
                         image: image.clone(),
                         moving,
-                    },
-                );
+                    });
+                }
             }
         }
         fetch::Done::Moving { key, frames } => {
@@ -710,7 +782,7 @@ fn play(
     seen.clear();
     for (avatar, visible) in &discs {
         if visible.get()
-            && let Some(worn) = tag_of(&avatar.handle).and_then(|tag| work.book.worn(tag))
+            && let Some(worn) = worn_by(work, &avatar.handle)
             && worn.moving
             && !seen.contains(&worn.key)
         {
@@ -761,9 +833,8 @@ pub(crate) fn state_json<'a>(
     let discs: Vec<serde_json::Value> = discs
         .map(|(avatar, visible, worn)| {
             let portrait = portraits.and_then(|portraits| portraits.portrait(&avatar.handle));
-            let picture = tag_of(&avatar.handle)
-                .and_then(|tag| work.book.worn(tag))
-                .and_then(|worn| work.pictures.get(&worn.key));
+            let picture =
+                worn_by(work, &avatar.handle).and_then(|worn| work.pictures.get(&worn.key));
             serde_json::json!({
                 "handle": avatar.handle,
                 "size": avatar.size,

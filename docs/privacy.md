@@ -766,8 +766,9 @@ hashes, which stay in the file only.
   Central served them, in the cache directory's `pictures/`, named by the
   picture's random key and nothing else, at most 64 MiB, oldest first, with
   default permissions. Which account wears which key is held in memory only
-  and forgotten at sign-out; a key Central no longer names for anyone the
-  client shows has its files removed. The pictures are fetched from
+  and forgotten at sign-out. While the client runs, a key Central no longer
+  names for anyone it shows has its files removed; one that went while it
+  was not running stays until the bound needs its room. The pictures are fetched from
   Central's website without a session or cookie, so Central sees the
   device's address ask for those keys.
 - **Browser:** `localStorage` keys `baylee:client-settings` (a kept guest's
