@@ -29,7 +29,7 @@ use crate::shellkit::controls::{self, Kit, Live, Weight};
 use crate::shellkit::focus::Stop;
 use crate::shellkit::metrics::px_fixed;
 use crate::shellkit::role::Role;
-use crate::shellkit::tokens;
+use crate::shellkit::{surfaces, tokens};
 
 /// Whose terms the sheet shows: the gateway's, or Baylee Central's own.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -876,7 +876,79 @@ fn at(id: &'static str) -> Stop {
     Stop::new(TERMS.name, id)
 }
 
-/// The terms sheet over `root`, while it is up.
+/// The sheet's foot: what is declined stands apart on the left, the two
+/// ways on stand together on the right, each as wide as its words.
+///
+/// The kit's symmetric footer gives every button the same share of the row,
+/// and a label is one line, clipped at its face: with three answers on a
+/// 720 sheet "Delete my data on this gateway" lost its end in German and
+/// English both (owner, 19.11.2026). Where the row cannot hold all three,
+/// the answers keep the upper line and Decline goes under them, so the
+/// primary never moves down; a phone stacks them at full width, the primary
+/// on top.
+fn foot(commands: &mut Commands, kit: Kit, decline: Option<Entity>, answers: &[Entity]) -> Entity {
+    let phone = kit.m.frame == crate::shellkit::Frame::Phone;
+    let gap = px_fixed(kit.m.gap);
+    let (direction, across) = if phone {
+        (FlexDirection::ColumnReverse, AlignItems::Stretch)
+    } else {
+        (FlexDirection::Row, AlignItems::Center)
+    };
+    let band = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                padding: UiRect::all(px_fixed(kit.m.pad)),
+                column_gap: gap,
+                row_gap: gap,
+                flex_direction: direction,
+                flex_wrap: if phone {
+                    FlexWrap::NoWrap
+                } else {
+                    FlexWrap::WrapReverse
+                },
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: across,
+                flex_shrink: 0.0,
+                border: UiRect::top(px_fixed(1.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.16)),
+            BorderColor::all(tokens::BORDER),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let group = commands
+        .spawn((
+            Node {
+                column_gap: gap,
+                row_gap: gap,
+                flex_direction: direction,
+                flex_wrap: if phone {
+                    FlexWrap::NoWrap
+                } else {
+                    FlexWrap::Wrap
+                },
+                justify_content: JustifyContent::FlexEnd,
+                align_items: across,
+                margin: UiRect::left(Val::Auto),
+                max_width: Val::Percent(100.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(group).add_children(answers);
+    if let Some(decline) = decline {
+        commands.entity(band).add_child(decline);
+    }
+    commands.entity(band).add_child(group);
+    band
+}
+
+/// The terms sheet over `root`, while it is up: the kit's dialog (head band
+/// with its badge, body, foot band), the text a scroller of its own in the
+/// body, so that "read to the end" measures the text and nothing else.
 #[allow(clippy::too_many_lines)] // one sheet, read top to bottom
 pub(crate) fn sheet(
     commands: &mut Commands,
@@ -892,7 +964,8 @@ pub(crate) fn sheet(
     let name = super::super::gateway::title_of(state, &state.gateway);
     let phone = kit.m.frame == crate::shellkit::Frame::Phone;
     let mut body: Vec<Entity> = Vec::new();
-    let mut footer: Vec<Entity> = Vec::new();
+    let mut decline: Option<Entity> = None;
+    let mut answers: Vec<Entity> = Vec::new();
     let central = state.terms_subject == Subject::Central;
     let caption_text = match state.terms.sheet() {
         Sheet::Reading(r) => {
@@ -910,79 +983,46 @@ pub(crate) fn sheet(
         }
         _ => String::new(),
     };
-    let surface = commands
-        .spawn((
-            Role::Opaque,
-            Node {
-                width: if phone {
-                    Val::Percent(100.0)
-                } else {
-                    kit.m.px(720.0)
-                },
-                max_width: Val::Percent(100.0),
-                max_height: Val::Percent(100.0),
-                flex_direction: FlexDirection::Column,
-                padding: UiRect::all(px_fixed(kit.m.pad)),
-                row_gap: px_fixed(kit.m.gap),
-                border: UiRect::all(px_fixed(1.0)),
-                border_radius: BorderRadius::all(px_fixed(if phone {
-                    0.0
-                } else {
-                    tokens::RADIUS_PANEL
-                })),
-                ..default()
-            },
-            BackgroundColor(tokens::OPAQUE),
-            BorderColor::all(tokens::BORDER),
-            crate::shellkit::surfaces::popover_shadow(),
-            // A press on the sheet's own ground is no press behind it.
-            Press::Shared(super::super::SharedPress::PickerNothing),
-        ))
-        .id();
-    let title = commands
-        .spawn((
-            Text::new(if central {
-                Phrase::CentralTermsTitle.text(lang).to_string()
-            } else {
-                Phrase::TermsTitle.fill(lang, &[&name])
-            }),
-            tf(kit.fonts, kit.m.h1),
-            TextColor(tokens::INK),
-            Pickable::IGNORE,
-        ))
-        .id();
-    body.push(title);
+    let surface = surfaces::dialog(
+        commands,
+        kit,
+        kit.m.px(720.0),
+        tokens::PRIMARY_EDGE.with_alpha(0.45),
+        // A press on the sheet's own ground is no press behind it.
+        Press::Shared(super::super::SharedPress::PickerNothing),
+    );
+    let title = if central {
+        Phrase::CentralTermsTitle.text(lang).to_string()
+    } else {
+        Phrase::TermsTitle.fill(lang, &[&name])
+    };
+    // No close in the head: the sheet is answered, never dismissed.
+    let mut header = surfaces::SheetHeader::new(&title).icon('\u{f70e}');
     if !caption_text.is_empty() {
-        let caption = commands
-            .spawn((
-                Text::new(caption_text),
-                tf(kit.fonts, kit.m.small),
-                TextColor(tokens::MUTED),
-                Pickable::IGNORE,
-            ))
-            .id();
-        body.push(caption);
+        header = header.subtitle(&caption_text);
     }
+    let head = surfaces::dialog_header(commands, kit, header);
     // The gateway operator's legal notice, where it names one, with the
     // host it opens in sight: who asks for these terms.
     if let Some((_, host)) = super::impressum_link(state).filter(|_| !central) {
-        body.push(super::door::link(
+        let link = super::door::link(
             commands,
             kit,
             &Phrase::ImpressumLink.fill(lang, &[&host]),
             super::door::Look::Underlined,
             (Press::Front(FrontPress::OpenImpressum), at("impressum")),
-        ));
+        );
+        // As wide as its words, at the text's left edge.
+        commands
+            .entity(link)
+            .entry::<Node>()
+            .and_modify(|mut node| node.align_self = AlignSelf::FlexStart);
+        body.push(link);
     }
     match state.terms.sheet() {
         Sheet::Closed => {}
         Sheet::Fetching => {
-            let words = crate::shellkit::surfaces::prose(
-                commands,
-                kit,
-                Phrase::TermsLoading.text(lang),
-                true,
-            );
+            let words = surfaces::prose(commands, kit, Phrase::TermsLoading.text(lang), true);
             body.push(words);
         }
         Sheet::Failed => {
@@ -1011,8 +1051,13 @@ pub(crate) fn sheet(
                         flex_direction: FlexDirection::Column,
                         flex_shrink: 1.0,
                         min_height: px_fixed(0.0),
-                        max_height: kit.m.px(if phone { 1000.0 } else { 420.0 }),
-                        padding: UiRect::all(kit.m.px(16.0)),
+                        max_height: kit.m.px(if phone { 1000.0 } else { 480.0 }),
+                        // A column of some 85 characters at the default
+                        // step: the sheet's width less this room.
+                        padding: UiRect::axes(
+                            kit.m.px(if phone { 14.0 } else { 24.0 }),
+                            kit.m.px(18.0),
+                        ),
                         row_gap: kit.m.px(10.0),
                         overflow: Overflow::scroll_y(),
                         border: UiRect::all(px_fixed(1.0)),
@@ -1053,12 +1098,15 @@ pub(crate) fn sheet(
             commands.entity(text).add_children(&blocks);
             let text_band = crate::lobby::scrollbars::band_when_needed(commands, text, phone);
             body.push(text_band);
+            // The hairline belongs to the text: it stands right under it,
+            // closer than the body's own gap.
             let track = commands
                 .spawn((
                     Node {
                         width: Val::Percent(100.0),
                         height: px_fixed(2.0),
                         flex_shrink: 0.0,
+                        margin: UiRect::top(px_fixed(6.0 - kit.m.gap)),
                         ..default()
                     },
                     BackgroundColor(tokens::BORDER),
@@ -1084,7 +1132,7 @@ pub(crate) fn sheet(
             } else {
                 Phrase::TermsStoredNote
             };
-            let note = crate::shellkit::surfaces::prose(commands, kit, stored.text(lang), true);
+            let note = surfaces::prose(commands, kit, stored.text(lang), true);
             body.push(note);
             let live = if state.terms.can_accept() {
                 Live::Yes
@@ -1109,7 +1157,7 @@ pub(crate) fn sheet(
                 } else {
                     Phrase::TermsDecline
                 };
-                footer.push(controls::button(
+                decline = Some(controls::button(
                     commands,
                     kit,
                     words.text(lang),
@@ -1127,7 +1175,7 @@ pub(crate) fn sheet(
                 } else {
                     Phrase::TermsLater
                 };
-                footer.push(controls::button(
+                answers.push(controls::button(
                     commands,
                     kit,
                     later.text(lang),
@@ -1146,13 +1194,36 @@ pub(crate) fn sheet(
                 Some("Enter"),
                 (Press::Front(FrontPress::TermsAccept), at("accept")),
             );
-            footer.push(accept);
+            // The one primary keeps a face worth its weight beside a long
+            // neighbour.
+            commands
+                .entity(accept)
+                .entry::<Node>()
+                .and_modify(move |mut node| node.min_width = kit.m.px(176.0));
+            answers.push(accept);
         }
     }
-    let foot = crate::shellkit::surfaces::dialog_button_row(commands, kit, &footer);
-    commands.entity(surface).add_children(&body);
-    commands.entity(surface).add_child(foot);
-    let scrim = crate::shellkit::surfaces::sheet(commands, surface);
+    let column = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                flex_grow: 1.0,
+                flex_shrink: 1.0,
+                min_height: px_fixed(0.0),
+                padding: UiRect::all(px_fixed(kit.m.pad)),
+                row_gap: px_fixed(kit.m.gap),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(column).add_children(&body);
+    commands.entity(surface).add_children(&[head, column]);
+    if decline.is_some() || !answers.is_empty() {
+        let foot = foot(commands, kit, decline, &answers);
+        commands.entity(surface).add_child(foot);
+    }
+    let scrim = surfaces::sheet(commands, surface);
     if phone {
         commands
             .entity(scrim)
