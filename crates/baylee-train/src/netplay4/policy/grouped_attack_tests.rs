@@ -103,7 +103,7 @@ fn sample(
         },
     )
     .expect("legal grouped attack must retain its raw policy decision");
-    assert_eq!(lp, 0.0);
+    assert_eq!(lp, Some(0.0));
     assert_eq!(
         action,
         PlayerAction::DeclareAttackers {

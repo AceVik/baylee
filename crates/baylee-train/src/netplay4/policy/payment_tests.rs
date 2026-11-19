@@ -195,7 +195,11 @@ fn grouped_mana_preserves_announced_tap_self_activation_in_both_modes() {
             let mut rng = Rng::new(77);
             let (index, expected_lp) = sample_categorical(&logits, 0.8, &mut rng);
             assert_eq!(index, group_index);
-            assert_eq!(lp, expected_lp, "member decode preserves group probability");
+            assert_eq!(
+                lp,
+                Some(expected_lp),
+                "member decode preserves group probability"
+            );
         }
         session
             .act(
