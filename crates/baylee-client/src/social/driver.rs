@@ -224,14 +224,20 @@ pub(super) fn drive(
             .unwrap_or(u64::MAX);
         let focused = super::window::window_focused(&windows);
         if let Some(machine) = host.machine.as_mut() {
+            use baylee_client_core::social::doing;
             machine.set_focus(focused);
-            machine.set_doing(baylee_client_core::social::doing::doing(
-                lobby.lobby.screen(),
-                phase
-                    .as_deref()
-                    .is_some_and(|phase| *phase.get() == crate::DuelPhase::Finished),
-                baylee_client_core::lobby::strips::my_waiting_table(&lobby.lobby).is_some(),
-            ));
+            let finished = phase
+                .as_deref()
+                .is_some_and(|phase| *phase.get() == crate::DuelPhase::Finished);
+            let screen = lobby.lobby.screen();
+            machine.set_doing(
+                doing::doing(
+                    screen,
+                    finished,
+                    baylee_client_core::lobby::strips::my_waiting_table(&lobby.lobby).is_some(),
+                ),
+                doing::shared_table(screen, finished, &lobby.lobby, &session.gateway),
+            );
             let effects = machine.tick(now, idle_ms);
             host.carry_out(effects);
         }

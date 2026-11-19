@@ -225,6 +225,20 @@ these are crates the gateway and the local provisioning build and the client
 does not. No edge to the affected arithmetic is added. The same exact-source
 and reverse-consumer checks remain in force.
 
+The shared-table pin advances to
+`5e14290b74afdebb7dc704cf37ded110044cc50a` on 19 November 2026 (Central #76: a friend's
+table through presence, `docs/client.md` §"The contact status"). The three
+SDK manifests, Central's root manifest and lockfile, its `ops/grants.sql` and
+the entire `central-crypto` tree are byte-for-byte unchanged from
+`7c2a801c862e836cad0a292344bb62d5d5add301`. `central-api` gains the shared
+table (`presence::Table` with its bounds, `table_frame`) and
+`ReportPresence`'s optional `table`; `central-client` gives
+`report_presence` the table as a fourth argument and adds `read_table`. None
+of it is cryptography and none adds a dependency; in Baylee's lockfile only
+the Central Git sources move (the eight pinned crates and `central-funding`,
+`central-mail` and `central-picture` under them), and no registry package.
+The same exact-source and reverse-consumer checks remain in force.
+
 The former Central revision
 `0a941953f8c0d5573e82e0979e7faf1fb9e40299` contains the `central-crypto`
 source tree reviewed independently by two models on 24.10.2026, with two

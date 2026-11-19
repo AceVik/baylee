@@ -10879,11 +10879,48 @@ doing (Central's `docs/push-socket.md` §"Status"; types in
   minutes passed without input (`AWAY_AFTER_MS`). It is said after every
   `ready` of the push socket, since Central forgets it with the socket, and
   then only on a change, at most once in 2.5 s (Central takes 30 a minute).
-  It names no game, table or gateway.
+- **The table goes with it** (owner, 19.11.2026: a friend sees which table a
+  friend sits at through Central; Central's `docs/push-socket.md`
+  §"Tables"). `social::doing::shared_table` names the game the player plays,
+  or the table it waits at, as the lobby lists it: the gateway's origin
+  (`doing::origin_of`: canonical, so a friend can compare it), the game id,
+  the name (invisible characters dropped, at most 64 characters), the seats
+  and how many are taken. It names none for a game against the house AI, a
+  game the listing does not hold (whether it has a password is then not
+  known), a table with a password, or one outside Central's bounds
+  (`presence::Table::valid`). The bridge sends it (`central/status.rs`,
+  `shared`) only while the game gateway's `share_table` is on, and only once
+  the gateway's snapshot or the player has said that setting: before, it is
+  the default, which shares, so nothing is sent (the side to err on). A
+  setting the player changes reaches the merged snapshot at once
+  (`central::request`), so a report without the table follows within 2.5 s
+  and a later snapshot cannot put back the gateway's earlier word. And only
+  after the socket's `ready` said `"tables":true`: Central's requests refuse
+  unknown fields, so an older Central would refuse the whole report, activity
+  and all; there the client sends none and friends read "At a table" as
+  before. A taken seat, a rename, a password set or the player getting up
+  changes the report and is said again.
 - **A friend's row** reads "Playing" or "At a table" where only Central knows
   (`PlaceInGame`, `PlaceAtTable`; an unnamed place is `Place` with an empty
   name, read through `contacts::place_name`), and the table's name where the
-  gateway may tell it (`share_table`, no password).
+  friend shares it. The push socket's `table` frames (`lobby/central.rs`,
+  `take_frame`) keep each friend's table in `Seen::tables`, only within
+  Central's bounds, forgotten when a frame clears it, a `presence` frame no
+  longer lists the friend or the socket goes, and at most 300 at once.
+  `contacts::shown_by_central` takes, in this order, the game gateway's own
+  place of the friend where it agrees with Central, then the shared table,
+  then a place without a name; the shared table gives the place its name,
+  seats and taken, and its game (to join or watch) only when its origin is
+  the gateway this client is signed in to. At another gateway the row shows
+  the name and nothing to press; nothing is ever dialled because a friend
+  named a gateway, and the name is drawn as plain text. The official
+  gateway's former address counts as another gateway (the safe side).
+- **Join** (`DrawerPress::Join`, `Intent::Join`): the friend's menu offers it
+  for a waiting table that carries its game (so at this client's gateway)
+  with a chair free, outside a duel and not at the table the player already
+  sits at; it goes through the lobby's own join (`Effect::JoinTable` with no
+  invite → `ChatJoins` → `Lobby::join`), as the listing's Join does. A
+  running game shared here offers Watch, as a gateway's own presence did.
 - **Do not disturb is no status** (owner, 19.11.2026: a mute switch). It is
   the menu's fourth row and `/dnd`, kept on this device (`Social::quiet`):
   the chat's pop-ups and sounds rest, friends see nothing of it. `/busy` is

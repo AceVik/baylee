@@ -506,6 +506,13 @@ pub enum Intent {
         /// Whom.
         tag: String,
     },
+    /// Sit down at the table a friend waits at, through the lobby's own
+    /// join: only a table at this client's gateway that has a chair free
+    /// (`docs/client.md` §"The contact status").
+    Join {
+        /// Whom.
+        tag: String,
+    },
     /// Choose how friends are shown this player: online, away or offline.
     Choose(presence::Choice),
     /// Do not disturb on this device, on or off.

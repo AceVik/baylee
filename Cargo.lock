@@ -4417,7 +4417,7 @@ dependencies = [
 [[package]]
 name = "central-api"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=7c2a801c862e836cad0a292344bb62d5d5add301#7c2a801c862e836cad0a292344bb62d5d5add301"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=5e14290b74afdebb7dc704cf37ded110044cc50a#5e14290b74afdebb7dc704cf37ded110044cc50a"
 dependencies = [
  "getrandom 0.4.3",
  "serde",
@@ -4430,7 +4430,7 @@ dependencies = [
 [[package]]
 name = "central-client"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=7c2a801c862e836cad0a292344bb62d5d5add301#7c2a801c862e836cad0a292344bb62d5d5add301"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=5e14290b74afdebb7dc704cf37ded110044cc50a#5e14290b74afdebb7dc704cf37ded110044cc50a"
 dependencies = [
  "central-api",
  "central-crypto",
@@ -4442,7 +4442,7 @@ dependencies = [
 [[package]]
 name = "central-crypto"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=7c2a801c862e836cad0a292344bb62d5d5add301#7c2a801c862e836cad0a292344bb62d5d5add301"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=5e14290b74afdebb7dc704cf37ded110044cc50a#5e14290b74afdebb7dc704cf37ded110044cc50a"
 dependencies = [
  "argon2",
  "base64ct",
@@ -4468,7 +4468,7 @@ dependencies = [
 [[package]]
 name = "central-funding"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=7c2a801c862e836cad0a292344bb62d5d5add301#7c2a801c862e836cad0a292344bb62d5d5add301"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=5e14290b74afdebb7dc704cf37ded110044cc50a#5e14290b74afdebb7dc704cf37ded110044cc50a"
 dependencies = [
  "central-api",
  "form_urlencoded",
@@ -4482,7 +4482,7 @@ dependencies = [
 [[package]]
 name = "central-http"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=7c2a801c862e836cad0a292344bb62d5d5add301#7c2a801c862e836cad0a292344bb62d5d5add301"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=5e14290b74afdebb7dc704cf37ded110044cc50a#5e14290b74afdebb7dc704cf37ded110044cc50a"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -4503,7 +4503,7 @@ dependencies = [
 [[package]]
 name = "central-identity"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=7c2a801c862e836cad0a292344bb62d5d5add301#7c2a801c862e836cad0a292344bb62d5d5add301"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=5e14290b74afdebb7dc704cf37ded110044cc50a#5e14290b74afdebb7dc704cf37ded110044cc50a"
 dependencies = [
  "central-api",
  "central-crypto",
@@ -4521,7 +4521,7 @@ dependencies = [
 [[package]]
 name = "central-mail"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=7c2a801c862e836cad0a292344bb62d5d5add301#7c2a801c862e836cad0a292344bb62d5d5add301"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=5e14290b74afdebb7dc704cf37ded110044cc50a#5e14290b74afdebb7dc704cf37ded110044cc50a"
 dependencies = [
  "central-api",
  "getrandom 0.4.3",
@@ -4534,7 +4534,7 @@ dependencies = [
 [[package]]
 name = "central-migration"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=7c2a801c862e836cad0a292344bb62d5d5add301#7c2a801c862e836cad0a292344bb62d5d5add301"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=5e14290b74afdebb7dc704cf37ded110044cc50a#5e14290b74afdebb7dc704cf37ded110044cc50a"
 dependencies = [
  "sea-orm",
 ]
@@ -4542,7 +4542,7 @@ dependencies = [
 [[package]]
 name = "central-picture"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=7c2a801c862e836cad0a292344bb62d5d5add301#7c2a801c862e836cad0a292344bb62d5d5add301"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=5e14290b74afdebb7dc704cf37ded110044cc50a#5e14290b74afdebb7dc704cf37ded110044cc50a"
 dependencies = [
  "sha2 0.11.1",
 ]
@@ -4550,12 +4550,12 @@ dependencies = [
 [[package]]
 name = "central-policy"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=7c2a801c862e836cad0a292344bb62d5d5add301#7c2a801c862e836cad0a292344bb62d5d5add301"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=5e14290b74afdebb7dc704cf37ded110044cc50a#5e14290b74afdebb7dc704cf37ded110044cc50a"
 
 [[package]]
 name = "central-postgres"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=7c2a801c862e836cad0a292344bb62d5d5add301#7c2a801c862e836cad0a292344bb62d5d5add301"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=5e14290b74afdebb7dc704cf37ded110044cc50a#5e14290b74afdebb7dc704cf37ded110044cc50a"
 dependencies = [
  "central-api",
  "central-crypto",
@@ -8181,7 +8181,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d8fae84b431384b68627d0f9b3b1245fcf9f46f6c0e3dc902e9dce64edd1967"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.45.0",
 ]
 
 [[package]]
@@ -8652,7 +8652,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03da047801ff44bb6a4d407d4860c05fd70bb81714e6b2f3812603d5b145b042"
 dependencies = [
  "heck 0.5.0",
- "itertools 0.14.0",
+ "itertools 0.13.0",
  "log",
  "multimap",
  "petgraph",
@@ -8671,7 +8671,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b570b25f7617e43d59005d0990ccb79e950a423952cea19671b7a876da390adf"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools 0.13.0",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
