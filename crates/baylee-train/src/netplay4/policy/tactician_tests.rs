@@ -32,6 +32,7 @@ fn play(
     let (action, _, _, target) = PolicySampler4 {
         tactician,
         distill: None,
+        explorer: None,
         mode: PolicyMode4::Raw,
         temperature: 0.0,
         rng: &mut rng,

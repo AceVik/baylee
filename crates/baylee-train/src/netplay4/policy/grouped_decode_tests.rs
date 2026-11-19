@@ -132,6 +132,7 @@ fn a_top_pass_gives_way_to_the_best_act_when_the_acts_outweigh_it() {
     let (action, _, _, target) = PolicySampler4 {
         tactician: None,
         distill: None,
+        explorer: None,
         mode: PolicyMode4::Raw,
         temperature: 0.0,
         rng: &mut rng,

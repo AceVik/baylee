@@ -39,6 +39,7 @@ fn answer(
     let (action, _, _, target) = PolicySampler4 {
         tactician: None,
         distill: Some(&mut distill),
+        explorer: None,
         mode: PolicyMode4::Raw,
         temperature: 0.0,
         rng: &mut rng,
@@ -187,6 +188,7 @@ fn taught(
     let (_, _, _, target) = PolicySampler4 {
         tactician: None,
         distill: Some(&mut distill),
+        explorer: None,
         mode: PolicyMode4::Raw,
         temperature: 0.0,
         rng: &mut rng,

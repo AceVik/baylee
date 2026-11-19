@@ -64,6 +64,7 @@ fn decide(
     let mut rng = Rng::new(seed);
     let (_, _, lp, target) = PolicySampler4 {
         tactician: None,
+        distill: None,
         explorer,
         mode: PolicyMode4::Raw,
         temperature: TAU,
@@ -528,7 +529,8 @@ fn a_played_answer_one_group_changed_names_the_group() {
     for (groups, block) in [("", 0), ("wall", 1), (RULE_GROUPS, 1)] {
         let mut rules = TacticRules4::parse(groups).unwrap();
         let adjusted = tactical_pair_logits(&mut rules, &cands, &logits, &view, &pending);
-        let (mask, ..) = sample_pairs_constrained(&adjusted, &cands, 0.0, &mut Rng::new(1));
+        let (mask, ..) =
+            sample_pairs_constrained(&adjusted, &cands, &pending, 0.0, &mut Rng::new(1));
         assert_eq!(mask, [block], "{groups:?}");
         let fired: Vec<_> = rules
             .take_fired()
