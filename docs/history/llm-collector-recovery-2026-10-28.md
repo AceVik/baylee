@@ -356,6 +356,57 @@ data caches. Do not silently change the interpretation of the currently
 running round's tensors. Separate fallback reason/visit diagnostics should
 also distinguish repeated-view guards from inference/decode failures.
 
+### Round 8 review and round 9 memory recovery
+
+Round 8 completed 8,046 optimizer updates using 346 frozen LLM games and
+80 live/arena games. Against round 6 final, LLM validation choice NLL improved
+from 1.2666 to 1.1446, while active-choice agreement fell from 47.35% to
+45.11%; teacher active-choice agreement fell from 59.61% to 54.49%.
+These mixed imitation metrics do not demonstrate a playing-strength gain.
+The small, repeatedly used LLM validation set is not a final holdout.
+
+A CPU-only, watched comparison now evaluates the deployed checkpoint,
+round 8 after the LLM stage and round 8 final on the same 64 development
+cases, with the verified round 6 results reused as an additional reference.
+The evaluator, provider libraries, deck manifest and models are pinned.
+All scheduled cases and fallback counts remain in the comparison. The LLM
+stage's ONNX export passed parity on 47 real frames across K=0/1/2/4/8
+(maximum absolute difference 1.43e-5). This is inference parity, not evidence
+of playing strength. There is no automatic model promotion.
+
+During this review, round 9 failed in compiled attention backward with CUDA
+out-of-memory. PyTorch had 10.37 GiB allocated, only 209 MiB reserved but
+unused, and the parent controller occupied another 680 MiB. The logged GPU
+peak is cumulative, so its rise does not by itself establish a memory leak.
+The complete failed logs, original controller and step-500 checkpoint were
+preserved in `continuous-v5-training-20261028/recovery-round9-oom-20261028/`.
+All 566 model, 951 optimizer and one recurrent-state tensors in that checkpoint
+were checked for finiteness; epoch 1 / next batch 500 and H=[8,9,640] agree.
+
+The sole controller was restarted after verifying the old service had exited,
+both ownership locks were free and no GPU compute process remained. It resumes
+step 500 with board/decision execution chunks reduced from 2/2 to 1/1. Batch 8,
+unroll 32, K=2, the frozen round-9 data, seed, sampler cursor, optimizer and
+whole-unroll loss remain unchanged. Twelve relevant CPU execution/loss tests
+passed; one CUDA-only optimizer test was deliberately skipped. CPU equivalence
+does not imply bitwise CUDA equivalence or prove capacity on every later board.
+The watcher was rebound to the new process identity without clearing delivered
+events. GPU progress beyond the previous failure region still needs checking.
+
+A further CPU check compared the production V5 relational-revision-2 functions
+for chunk 1/1 versus 2/2 on a synthetic B8/U32/K2 segment, with activation
+checkpointing and attached critic/auxiliary heads. Losses agreed; final H
+differed by at most 1.07e-6, relative parameter-gradient L2 difference was
+1.61e-7 and the post-AdamW state differed by at most 7.12e-7. The small FP32
+test covers passive observations, padding and all policy heads; it does not
+cover CUDA/BF16/Inductor or prove memory capacity. The resumed GPU process
+has made new optimizer updates with no allocator retries in the observed log.
+
+Before resuming, 30.61 GiB of old, regenerable Rust incremental build caches
+were removed while the Cargo target lock was held and no compiler/debug
+executable was running. Models, datasets, binaries, sources and experiment
+receipts were retained. Free disk increased to 65.93 GiB. The CPU comparison,
+Flash collection, Terra pilot and user gateway continued running.
 
 ## Isolated Encoder-8 payment-context implementation
 
