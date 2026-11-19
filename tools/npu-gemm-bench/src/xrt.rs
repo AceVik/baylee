@@ -234,6 +234,16 @@ impl Bo<'_> {
         out
     }
 
+    /// Reads the first `n` u16 values of the mapping.
+    pub fn read_u16(&self, n: usize) -> Vec<u16> {
+        assert!(n * 2 <= self.bytes, "BO holds {} bytes, asked to read {}", self.bytes, n * 2);
+        let mut out = vec![0_u16; n];
+        // SAFETY: `n * 2` bytes are mapped and `out` holds exactly that many
+        // bytes; the copy is bytewise, and every bit pattern is a valid u16.
+        unsafe { std::ptr::copy_nonoverlapping(self.map.as_ptr(), out.as_mut_ptr().cast::<u8>(), n * 2) }
+        out
+    }
+
     /// Syncs the BO's host and device views.
     pub fn sync(&self, dir: Sync) -> Result<(), String> {
         let mut err = ErrBuf::new();
