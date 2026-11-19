@@ -824,7 +824,7 @@ impl Tx<'_> {
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
                 vec![format!("Effect::LoseLife {{ amount: {n}, target: {who} }}")]
             }
-            "Dig" => self.dig_effect(p, target)?,
+            "Dig" => self.dig_effect(p, target, targets_here, targets_a_player)?,
             "Draw"
                 if matches!(
                     p.peek("Defined"),

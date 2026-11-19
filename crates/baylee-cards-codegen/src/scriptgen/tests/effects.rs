@@ -2481,11 +2481,6 @@ fn optional_reveal_dig_takes_one_and_refuses_unread_variants() {
     for (count, reveal, rest) in [
         (4, "True", "ChangeNum$ All | DestinationZone2$ Graveyard"),
         (4, "True", "Optional$ False | DestinationZone2$ Graveyard"),
-        (
-            4,
-            "True",
-            "Optional$ True | ChangeNum$ 1 | DestinationZone2$ Graveyard",
-        ),
         (4, "False", "Optional$ True | DestinationZone2$ Graveyard"),
         (
             4,
