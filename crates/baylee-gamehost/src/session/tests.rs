@@ -20,6 +20,7 @@ mod refusals;
 mod scouting;
 mod shared_hand;
 mod simulation;
+mod snuff_out_seat;
 mod static_policy;
 mod teacher;
 mod team_exercise;
