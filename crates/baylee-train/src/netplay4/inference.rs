@@ -17,6 +17,7 @@ use crate::features4::{
 };
 
 /// One step's model inputs at its own extents.
+#[cfg_attr(test, derive(Clone))]
 pub(super) struct StepRow {
     /// Rule references left out because the model's catalog does not
     /// know them.

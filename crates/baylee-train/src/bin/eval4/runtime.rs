@@ -458,6 +458,7 @@ struct SharedNets {
 impl SharedNets {
     fn open(
         rows: usize,
+        servers: usize,
         model: &std::path::Path,
         opponent: Option<(&std::path::Path, Option<&ModelIdentity>)>,
         catalog: CatalogRead4,
@@ -466,13 +467,18 @@ impl SharedNets {
             return Ok(Self::default());
         }
         let limits = BatchLimits4::for_rows(rows);
-        let learner = BatchedNet4::load(model, limits, catalog)?;
+        let learner = BatchedNet4::load_served(model, limits, catalog, servers)?;
         let opponent = match opponent {
             // An exact frozen self-play copy runs on the learner's graphs.
             Some((_, Some(identity))) if identity == learner.model_identity() => {
                 Some(learner.clone())
             }
-            Some((path, _)) => Some(BatchedNet4::load(path, limits, catalog.policy)?),
+            Some((path, _)) => Some(BatchedNet4::load_served(
+                path,
+                limits,
+                catalog.policy,
+                servers,
+            )?),
             None => None,
         };
         Ok(Self {
@@ -481,13 +487,16 @@ impl SharedNets {
         })
     }
 
-    /// Limits and calls so far, for the report; `null` without batching.
+    /// Limits and calls so far, and the seconds the calls took on every
+    /// server together, for the report; `null` without batching. Calls of one
+    /// row are the unbatched steps, bit for bit.
     fn report(&self) -> Value {
         let Some(learner) = &self.learner else {
             return Value::Null;
         };
         let limits = learner.limits();
         let (mut calls, mut rows) = learner.stats();
+        let mut call_seconds = learner.call_seconds();
         if let Some(opponent) = self
             .opponent
             .as_ref()
@@ -496,10 +505,13 @@ impl SharedNets {
             let (c, r) = opponent.stats();
             calls += c;
             rows += r;
+            call_seconds += opponent.call_seconds();
         }
         json!({"max_rows": limits.max_rows, "token_budget": limits.token_budget,
-            "calls": calls, "rows": rows,
-            "bitwise_reproducible": false})
+            "servers": learner.servers(),
+            "calls": calls, "rows": rows, "call_seconds": call_seconds,
+            "learner_by_depth": learner.by_depth(),
+            "bitwise_reproducible": limits.max_rows == 1})
     }
 }
 

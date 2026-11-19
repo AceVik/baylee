@@ -31,7 +31,7 @@ use crate::features7::{encode_candidates7_grouped, encode_state7};
 mod batch;
 #[cfg(test)]
 mod batch_tests;
-pub use batch::{BatchLimits4, BatchedNet4};
+pub use batch::{BatchLimits4, BatchedNet4, LaneStats4};
 mod choices;
 mod critic;
 pub use critic::CriticSemantics4;
@@ -224,6 +224,30 @@ fn ort_error(e: impl std::fmt::Display) -> anyhow::Error {
 }
 
 fn load_session(path: &Path) -> anyhow::Result<Session> {
+    load_session_threads(path, IntraOp4::SINGLE)
+}
+
+/// How one call of a session uses the CPU: its intra-op threads, and whether
+/// they spin between the graph's operators or sleep. One thread (the
+/// default) is the reference path every owned session takes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct IntraOp4 {
+    /// Threads one call runs its operators on.
+    threads: usize,
+    /// Whether idle threads spin (ONNX Runtime's default) instead of
+    /// sleeping until the next operator; only meaningful above one thread.
+    spinning: bool,
+}
+
+impl IntraOp4 {
+    /// One thread per call: the reference path.
+    const SINGLE: Self = Self {
+        threads: 1,
+        spinning: true,
+    };
+}
+
+fn load_session_threads(path: &Path, intra: IntraOp4) -> anyhow::Result<Session> {
     #[cfg(not(feature = "onnx-cuda"))]
     anyhow::ensure!(
         std::env::var("BAYLEE_EP").as_deref() != Ok("cuda"),
@@ -244,11 +268,17 @@ fn load_session(path: &Path) -> anyhow::Result<Session> {
     } else {
         builder
     };
-    builder
+    let builder = builder
         .with_optimization_level(GraphOptimizationLevel::Level3)
         .map_err(ort_error)?
-        .with_intra_threads(1)
-        .map_err(ort_error)?
+        .with_intra_threads(intra.threads.max(1))
+        .map_err(ort_error)?;
+    let mut builder = if intra.threads > 1 && !intra.spinning {
+        builder.with_intra_op_spinning(false).map_err(ort_error)?
+    } else {
+        builder
+    };
+    builder
         .commit_from_file(path)
         .with_context(|| format!("loading {}", path.display()))
 }

@@ -7,16 +7,31 @@ use super::*;
 use crate::features4::EncodedState4;
 use baylee_core::preset::AIProfile;
 
-/// The model a test runs, when the environment names one.
+/// The model a test runs, when the environment names one. Its card catalog
+/// may have drifted from this build's (`BAYLEE_TEST_CATALOG_DRIFT=1`), as
+/// an older export's has.
 fn model(var: &str) -> Option<NetPlayer4> {
     let dir = std::env::var(var).ok()?;
-    Some(NetPlayer4::load(Path::new(&dir)).unwrap())
+    Some(NetPlayer4::load_with(Path::new(&dir), catalog()).unwrap())
+}
+
+/// How a test model's card catalog binds to this build's.
+fn catalog() -> CatalogPolicy4 {
+    if std::env::var("BAYLEE_TEST_CATALOG_DRIFT").as_deref() == Ok("1") {
+        CatalogPolicy4::Drift
+    } else {
+        CatalogPolicy4::Exact
+    }
 }
 
 /// Every observation and decision row of the first `limit` steps of a 1v1
-/// game that `net`, an Encoder 7 model, plays for both seats.
+/// game that `net`, a model reading Encoder 7 states (7, 10 and later),
+/// plays for both seats.
 fn game_rows(net: &mut NetPlayer4, seed: u64, limit: usize) -> Vec<StepRow> {
-    assert_eq!(net.encoder_version, 7, "the rows are encoded as Encoder 7");
+    assert!(
+        net.encoder_version == 7 || net.encoder_version >= 10,
+        "the rows are encoded as Encoder 7"
+    );
     let victory = crate::housedeck::HouseDeck::named("victory").unwrap();
     let allytifact = crate::housedeck::HouseDeck::named("allytifact").unwrap();
     let preset =
@@ -141,6 +156,122 @@ fn batched_calls_answer_every_row_as_its_single_step() {
     }
     eprintln!("{} rows, worst batched difference {worst:.3e}", rows.len());
     assert!(worst < 1e-3, "batched rows differ by {worst}");
+}
+
+/// Several servers answering calls of one row, sent from several threads at
+/// once, give every row exactly its single step's outputs: what lets a
+/// search's rollouts run on several cores and stay the unbatched search.
+#[test]
+#[ignore = "needs BAYLEE_TEST_MODEL, an exported v4/v5 model directory"]
+fn served_calls_of_one_row_are_the_single_step_bit_for_bit() {
+    let Some(mut net) = model("BAYLEE_TEST_MODEL") else {
+        return;
+    };
+    let rows = game_rows(&mut net, 4711, 48);
+    assert!(rows.len() >= 32, "the game ended after {} rows", rows.len());
+    let alone: Vec<StepOutputs> = rows.iter().map(|row| single(&mut net, row)).collect();
+    let served =
+        BatchedNet4::load_served(&net.model_dir, BatchLimits4::for_rows(1), catalog(), 3).unwrap();
+    let outputs: Vec<StepOutputs> = std::thread::scope(|scope| {
+        let senders: Vec<_> = rows
+            .chunks(rows.len().div_ceil(6))
+            .map(|chunk| {
+                let served = &served;
+                scope.spawn(move || {
+                    chunk
+                        .iter()
+                        .map(|row| served.run(row.clone()).unwrap())
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        senders
+            .into_iter()
+            .flat_map(|sender| sender.join().unwrap())
+            .collect()
+    });
+    assert_eq!(outputs.len(), rows.len());
+    for (i, (out, reference)) in outputs.iter().zip(&alone).enumerate() {
+        assert_eq!(out.h_out, reference.h_out, "row {i}");
+        assert_eq!(out.cand_logits, reference.cand_logits, "row {i}");
+        assert_eq!(out.pair_logits, reference.pair_logits, "row {i}");
+        assert_eq!(out.value.to_bits(), reference.value.to_bits(), "row {i}");
+        assert_eq!(
+            out.scalar_pred.to_bits(),
+            reference.scalar_pred.to_bits(),
+            "row {i}"
+        );
+    }
+    let (calls, answered) = served.stats();
+    assert_eq!((calls, answered), (rows.len() as u64, rows.len() as u64));
+    assert!(served.call_seconds() > 0.0);
+}
+
+/// What a batched call costs on the CPU, per row, by rows per call, intra-op
+/// threads and spinning: the measurement behind `eval4 --search-lockstep`
+/// and `--inference-threads`. Prints a table; checks nothing but that every
+/// call answers. `BAYLEE_BENCH_THREADS` (default `1,4`) names the thread
+/// counts, `BAYLEE_BENCH_ROWS` (default 96) the rows each setting runs.
+#[test]
+#[ignore = "needs BAYLEE_TEST_MODEL; a timing, run in release"]
+#[allow(
+    clippy::cast_precision_loss,
+    reason = "a timing table of a few hundred rows"
+)]
+fn batched_call_cost_on_the_cpu() {
+    let Some(mut net) = model("BAYLEE_TEST_MODEL") else {
+        return;
+    };
+    let mut rows = Vec::new();
+    for seed in [4711, 4712, 4713] {
+        let game = game_rows(&mut net, seed, 600);
+        // The middle of a game, where rollouts play, not its first turns.
+        rows.extend(game.into_iter().skip(200));
+    }
+    let threads: Vec<usize> = std::env::var("BAYLEE_BENCH_THREADS")
+        .unwrap_or_else(|_| "1,4".into())
+        .split(',')
+        .map(|t| t.trim().parse().unwrap())
+        .collect();
+    let per_setting: usize = std::env::var("BAYLEE_BENCH_ROWS")
+        .ok()
+        .and_then(|n| n.parse().ok())
+        .unwrap_or(96);
+    for k in [0, net.thinking_steps] {
+        let same: Vec<&StepRow> = rows.iter().filter(|r| r.k_val == k).collect();
+        let n = per_setting.min(same.len());
+        let tokens = same[..n].iter().map(|r| r.tokens()).sum::<usize>() as f64 / n as f64;
+        eprintln!("k{k}: {n} rows, {tokens:.1} tokens a row on average");
+        let path = net
+            .model_dir
+            .join(format!("model.k{}.onnx", depth_graph(k)));
+        for &t in &threads {
+            for spinning in if t > 1 { vec![true, false] } else { vec![true] } {
+                let intra = IntraOp4 {
+                    threads: t,
+                    spinning,
+                };
+                let mut session = load_session_threads(&path, intra).unwrap();
+                for row in same.iter().take(4) {
+                    run_rows(&mut session, &[row], net.d_model).unwrap();
+                }
+                for b in [1, 2, 4, 8, 12, 16, 24, 32] {
+                    let start = std::time::Instant::now();
+                    for call in same[..n].chunks(b) {
+                        let answered = run_rows(&mut session, call, net.d_model).unwrap();
+                        assert_eq!(answered.len(), call.len());
+                    }
+                    let ms = start.elapsed().as_secs_f64() * 1e3;
+                    eprintln!(
+                        "k{k} threads {t} spinning {spinning} rows/call {b:>2}: \
+                         {:7.2} ms a row, {:8.2} ms a call",
+                        ms / n as f64,
+                        ms / n.div_ceil(b) as f64
+                    );
+                }
+            }
+        }
+    }
 }
 
 #[test]
