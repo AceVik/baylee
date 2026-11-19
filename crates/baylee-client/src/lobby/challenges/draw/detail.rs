@@ -355,6 +355,15 @@ fn rankings(commands: &mut Commands, scores: Entity, kit: Kit, lang: Lang, model
         crate::hud::glyph::TROPHY,
         Phrase::ChallengeBoards.text(lang),
     );
+    board_tabs(commands, scores, kit, lang, model);
+    standings(commands, scores, kit, lang, model);
+    let space = crate::lobby::parts::grow(commands);
+    commands.entity(scores).add_child(space);
+    pager(commands, scores, kit, lang, model);
+}
+
+/// The three rankings as equal tabs; the one shown is the primary.
+fn board_tabs(commands: &mut Commands, scores: Entity, kit: Kit, lang: Lang, model: &State) {
     let tabs = layout::split(commands, scores, kit, false);
     let mut tab_kit = kit;
     tab_kit.m.text = kit.m.small;
@@ -378,6 +387,10 @@ fn rankings(commands: &mut Commands, scores: Entity, kit: Kit, lang: Lang, model
         );
         layout::share(commands, tab, false, 1.0);
     }
+}
+
+/// The ranking as one table: the column names once, then a line per score.
+fn standings(commands: &mut Commands, scores: Entity, kit: Kit, lang: Lang, model: &State) {
     let table = Columns::of(kit);
     table.line(
         commands,
@@ -438,8 +451,10 @@ fn rankings(commands: &mut Commands, scores: Entity, kit: Kit, lang: Lang, model
             if score.own { Tone::Own } else { Tone::Other },
         );
     }
-    let space = crate::lobby::parts::grow(commands);
-    commands.entity(scores).add_child(space);
+}
+
+/// The ranking's pages: back on the left, on on the right.
+fn pager(commands: &mut Commands, scores: Entity, kit: Kit, lang: Lang, model: &State) {
     let previous = model.offset > 0;
     let next = model.standings.len() == api::PAGE_SIZE && model.offset < 3000;
     if previous || next {
