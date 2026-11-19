@@ -76,6 +76,12 @@ pub enum Selection4 {
         /// Weight of the prior.
         c: f64,
     },
+    /// Never another answer: the policy's own is played with its own
+    /// provenance, exactly as without a search, and the worlds are only
+    /// reported. A measurement, such as what the tactical layer's answer is
+    /// worth beside the net's ([`SearchConfig4::with_rival`]); the run's
+    /// records are the policy's own.
+    Measure,
 }
 
 /// The default: [`Selection4::Prior`] with `c = 1`. On s1 it left land drops
@@ -97,7 +103,7 @@ impl Selection4 {
     /// When one is not.
     pub fn validate(self) -> anyhow::Result<Self> {
         let parameters: &[f64] = match &self {
-            Self::Mean => &[],
+            Self::Mean | Self::Measure => &[],
             Self::Paired { margin, z } => &[*margin, *z],
             Self::Prior { c } => &[*c],
         };
@@ -128,6 +134,7 @@ pub struct SearchConfig4 {
     house: HouseInWorlds4,
     taken_back: TakenBackAtRoots4,
     stepping: Stepping4,
+    rival: Rival4,
 }
 
 /// How a searched decision's rollouts step ([`SearchConfig4::with_lockstep`]).
@@ -138,6 +145,20 @@ enum Stepping4 {
     Free,
     /// All at once, their model steps sent as one group.
     Lockstep,
+}
+
+/// What a root compares the policy's answer with
+/// ([`SearchConfig4::with_rival`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Rival4 {
+    /// The policy's next answers by raw logit, a declaration's variants or
+    /// the macro candidates: every search before rivals.
+    Ranking,
+    /// The tactical layer's answer `R` alone, read from the player's
+    /// distillation label of the same decision (`eval4 --distill-labels`):
+    /// what the layer's override is worth where it differs from the net.
+    Distill,
 }
 
 /// What a root does with an answer the table took back from its position
@@ -228,7 +249,27 @@ impl SearchConfig4 {
             house: HouseInWorlds4::Answers,
             taken_back: TakenBackAtRoots4::Compared,
             stepping: Stepping4::Free,
+            rival: Rival4::Ranking,
         })
+    }
+
+    /// The same search with `rival` as what each root compares the
+    /// policy's answer with. With [`Rival4::Distill`] a root is the
+    /// player's priority decision, in any phase, where the tactical layer's
+    /// answer `R` differs from the policy's `N` ([`SearchPlayer4::rival_answer`]),
+    /// nothing is owed and the two are not both mana abilities (another
+    /// source or order for the same mana); its candidates are `N` and `R`,
+    /// in that order. Neither targets, combat roots, macros nor the stall
+    /// guard apply to it; `eval4` refuses them together.
+    #[must_use]
+    pub const fn with_rival(self, rival: Rival4) -> Self {
+        Self { rival, ..self }
+    }
+
+    /// What a root compares the policy's answer with.
+    #[must_use]
+    pub const fn rival(&self) -> Rival4 {
+        self.rival
     }
 
     /// The same search in fair worlds: every card the seat cannot see is
@@ -592,6 +633,20 @@ impl SearchConfig4 {
             );
             metadata["prior"] = json!("one_for_the_policys_answer_zero_for_the_others");
         }
+        if self.rival == Rival4::Distill {
+            metadata["rival"] = json!(self.rival);
+            metadata["roots"] = json!(
+                "priority_in_any_phase_where_the_layers_answer_differs_from_the_policys_\
+                 nothing_owed_and_not_both_mana_abilities"
+            );
+            metadata["candidate_order"] =
+                json!("policy_answer_then_the_tactical_layers_answer_from_the_distillation_label");
+        }
+        if self.selection == Selection4::Measure {
+            metadata["played"] =
+                json!("the_policys_own_answer_with_its_own_provenance_worlds_reported_only");
+            metadata["provenance"] = json!("the_policys_own");
+        }
         if self.stall_guard() {
             metadata["stall_guard"] = json!(
                 "an_answer_the_table_took_back_from_a_position_is_dropped_there_\
@@ -741,6 +796,27 @@ pub trait SearchPlayer4 {
         let _ = (snapshot, count);
         None
     }
+    /// The tactical layer's answer to the decision [`Self::decide`] just
+    /// took, as its menu index and action, from the player's distillation
+    /// label ([`Rival4::Distill`]); `None` without labels or a label there.
+    fn rival_answer(&self) -> Option<(usize, PlayerAction)> {
+        None
+    }
+    /// Takes the player's distillation labels out while a search plays its
+    /// worlds, so that no rollout labels a decision or replaces the root's
+    /// label; [`Self::resume_labels`] puts them back.
+    fn suspend_labels(&mut self) -> Option<super::distill::Distill4> {
+        None
+    }
+    /// Puts back what [`Self::suspend_labels`] took.
+    fn resume_labels(&mut self, labels: Option<super::distill::Distill4>) {
+        let _ = labels;
+    }
+    /// Keeps a [`Rival4::Distill`] root's worlds with the label of the
+    /// decision just taken, as its `probe`.
+    fn keep_probe(&mut self, probe: super::distill::DistillProbe4) {
+        let _ = probe;
+    }
 }
 
 impl SearchPlayer4 for NetPlayer4 {
@@ -806,6 +882,22 @@ impl SearchPlayer4 for NetPlayer4 {
         count: usize,
     ) -> Option<Vec<Self>> {
         self.lockstep_twins(snapshot, count)
+    }
+    fn rival_answer(&self) -> Option<(usize, PlayerAction)> {
+        let label = self.distill_label()?;
+        let action = label.rules_action.clone()?;
+        Some((usize::from(label.rules.single_idx), action))
+    }
+    fn suspend_labels(&mut self) -> Option<super::distill::Distill4> {
+        self.take_distill()
+    }
+    fn resume_labels(&mut self, labels: Option<super::distill::Distill4>) {
+        if let Some(labels) = labels {
+            self.set_distill(labels);
+        }
+    }
+    fn keep_probe(&mut self, probe: super::distill::DistillProbe4) {
+        self.keep_distill_probe(probe);
     }
 }
 
@@ -890,6 +982,12 @@ pub enum SearchSkip4 {
     /// Nothing to compare once the answers the table took back from this
     /// position are set aside ([`SearchConfig4::with_stall_guard`]).
     TakenBack,
+    /// [`Rival4::Distill`]: no label at the decision, or the layer answers
+    /// as the policy does.
+    NoRival,
+    /// [`Rival4::Distill`]: the policy and the layer both take a mana
+    /// ability, the same mana by another source or order.
+    ManaOnly,
 }
 
 impl SearchSkip4 {
@@ -905,6 +1003,8 @@ impl SearchSkip4 {
             Self::MidChain => "mid_chain",
             Self::NoAlternative => "no_alternative",
             Self::TakenBack => "taken_back",
+            Self::NoRival => "no_rival",
+            Self::ManaOnly => "mana_only",
         }
     }
 }
@@ -1002,6 +1102,24 @@ pub enum LeafEnd4 {
     /// The root's cast or activation was taken back: the game came back to
     /// where it was.
     TakenBack,
+}
+
+impl LeafEnd4 {
+    /// Its name, as it is serialized.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Terminal => "terminal",
+            Self::Immediate => "immediate",
+            Self::Settled => "settled",
+            Self::Horizon => "horizon",
+            Self::TurnEnd => "turn_end",
+            Self::Boundary => "boundary",
+            Self::Stopped => "stopped",
+            Self::HouseStop => "house_stop",
+            Self::TakenBack => "taken_back",
+        }
+    }
 }
 
 /// How rollouts ended, by kind. All but `terminal` are scored by the value
@@ -1168,6 +1286,58 @@ fn root_skip(
     None
 }
 
+/// Why `pending` is not a root of a search whose rival is the tactical
+/// layer's answer ([`Rival4::Distill`]), `rival` that answer (its menu
+/// index and action) where the decision has a label: priority in any phase,
+/// the policy's own answer with its ranking, nothing owed, the layer's
+/// answer another legal one of the ranking, and not both mana abilities.
+fn rival_skip(
+    view: &PlayerView,
+    pending: &Pending,
+    decision: &RootDecision4,
+    rival: Option<&(usize, PlayerAction)>,
+) -> Option<SearchSkip4> {
+    if !matches!(pending, Pending::Priority { .. }) {
+        return Some(SearchSkip4::NotPriority);
+    }
+    let Some(ranking) = decision.ranking.as_deref() else {
+        return Some(SearchSkip4::NotPolicy);
+    };
+    if view.owed.is_some() {
+        return Some(SearchSkip4::NotPolicy);
+    }
+    let Some((index, _)) = rival else {
+        return Some(SearchSkip4::NoRival);
+    };
+    let own = rival_candidates(decision, *index).map(|[own, _]| own);
+    let Some(layer) = ranking.iter().find(|r| r.index == *index) else {
+        return Some(SearchSkip4::NoAlternative);
+    };
+    match own {
+        Some(own) if own.index == layer.index || own.action == layer.action => {
+            Some(SearchSkip4::NoRival)
+        }
+        Some(own) if is_mana_action(view, &own.action) && is_mana_action(view, &layer.action) => {
+            Some(SearchSkip4::ManaOnly)
+        }
+        Some(_) => None,
+        None => Some(SearchSkip4::NoAlternative),
+    }
+}
+
+/// A [`Rival4::Distill`] root's two candidates, as the policy ranked them:
+/// its own answer, then the layer's answer at menu index `rival`; `None`
+/// when the ranking holds either not.
+fn rival_candidates(decision: &RootDecision4, rival: usize) -> Option<[Ranked4; 2]> {
+    let ranking = decision.ranking.as_deref()?;
+    let own = ranking
+        .iter()
+        .find(|r| r.action == decision.answer.action)?
+        .clone();
+    let layer = ranking.iter().find(|r| r.index == rival)?.clone();
+    Some([own, layer])
+}
+
 /// Whether `action` is a mana ability: a basic land type's
 /// (`ActivateManaAbility`) or one a card prints (`ActivateAbility` on a
 /// mana ability, CR 605.1).
@@ -1289,8 +1459,11 @@ pub fn skip_reason(
     pending: &Pending,
     decision: &RootDecision4,
     config: SearchConfig4,
+    rival: Option<&(usize, PlayerAction)>,
 ) -> Option<SearchSkip4> {
-    if config.combat > 0 && combat::is_declaration(pending) {
+    if config.rival == Rival4::Distill {
+        rival_skip(view, pending, decision, rival)
+    } else if config.combat > 0 && combat::is_declaration(pending) {
         (decision.answer.provenance.source != SourceKind4::Net).then_some(SearchSkip4::NotPolicy)
     } else if config.combat_only {
         Some(SearchSkip4::Roots)
@@ -1404,10 +1577,108 @@ pub fn search_prepared<P: SearchPlayer4 + Send, T: ForkSource4>(
     taken_back: &[PlayerAction],
     decision: RootDecision4,
 ) -> anyhow::Result<SearchedAnswer4> {
+    let rival = if config.rival == Rival4::Distill {
+        player.rival_answer()
+    } else {
+        None
+    };
+    let pair = rival
+        .as_ref()
+        .and_then(|(index, _)| rival_candidates(&decision, *index));
+    // No rollout labels a decision or replaces this decision's label.
+    let labels = player.suspend_labels();
+    let searched = search_decided(
+        player,
+        table,
+        Asked {
+            view,
+            pending,
+            teams,
+        },
+        config,
+        search_seed,
+        taken_back,
+        decision,
+        rival.as_ref(),
+    );
+    player.resume_labels(labels);
+    if let Ok(searched) = &searched
+        && let SearchOutcome4::Searched(report) = &searched.outcome
+        && let Some(probe) = pair.as_ref().and_then(|pair| probe_of(pair, report))
+    {
+        player.keep_probe(probe);
+    }
+    searched
+}
+
+/// A [`Rival4::Distill`] root's worlds as its label keeps them: `N` against
+/// the layer's `R`, `pair` their places in the menu as the search ranked
+/// them. `None` for a report of other candidates.
+fn probe_of(pair: &[Ranked4; 2], report: &SearchReport4) -> Option<super::distill::DistillProbe4> {
+    if report.actions.len() != 2 || report.actions[0] != pair[0].action {
+        return None;
+    }
+    let ends = report
+        .ends
+        .iter()
+        .map(|row| match row.as_slice() {
+            [n, r] => Some([n.name().to_owned(), r.name().to_owned()]),
+            _ => None,
+        })
+        .collect::<Option<Vec<_>>>()?;
+    let worlds = report
+        .worlds
+        .iter()
+        .map(|row| match row.as_slice() {
+            [n, r] => Some([*n, *r]),
+            _ => None,
+        })
+        .collect::<Option<Vec<_>>>()?;
+    Some(super::distill::DistillProbe4 {
+        rival_index: u16::try_from(pair[1].index).ok()?,
+        own_index: u16::try_from(pair[0].index).ok()?,
+        worlds,
+        ends,
+        rollouts: report.rollouts,
+        house_answers: report.house_answers,
+    })
+}
+
+/// The question a search answers: the seat's view, the question and the
+/// teams at the table.
+#[derive(Clone, Copy)]
+struct Asked<'a> {
+    view: &'a PlayerView,
+    pending: &'a Pending,
+    teams: &'a [Option<u8>],
+}
+
+/// [`search_decision_avoiding`] once the policy has decided: `rival` is the
+/// layer's answer for a [`Rival4::Distill`] search.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "search_decision_avoiding's inputs, the decision and its rival"
+)]
+fn search_decided<P: SearchPlayer4 + Send, T: ForkSource4>(
+    player: &mut P,
+    table: &T,
+    asked: Asked<'_>,
+    config: SearchConfig4,
+    search_seed: u64,
+    taken_back: &[PlayerAction],
+    decision: RootDecision4,
+    rival: Option<&(usize, PlayerAction)>,
+) -> anyhow::Result<SearchedAnswer4> {
+    let Asked {
+        view,
+        pending,
+        teams,
+    } = asked;
     // A declaration of attackers or blockers (v4): searched when the
     // declaration is the policy's own, its others built from it.
-    let declaration = config.combat > 0 && combat::is_declaration(pending);
-    if let Some(reason) = skip_reason(view, pending, &decision, config) {
+    let declaration =
+        config.rival == Rival4::Ranking && config.combat > 0 && combat::is_declaration(pending);
+    if let Some(reason) = skip_reason(view, pending, &decision, config, rival) {
         return Ok(unsearched(
             player,
             view,
@@ -1422,12 +1693,14 @@ pub fn search_prepared<P: SearchPlayer4 + Send, T: ForkSource4>(
         teams,
         decision: &decision,
         snapshot: &root,
+        rival,
     }
     .candidates(player, table, config, search_seed);
+    let needs_two = declaration || config.macros || config.rival == Rival4::Distill;
     let candidates = match expanded {
         // A declaration the policy alone may make (or the table refuses), or
         // nothing the table takes beside the policy's answer at priority.
-        Ok(candidates) if (declaration || config.macros) && candidates.len() < 2 => {
+        Ok(candidates) if needs_two && candidates.len() < 2 => {
             let skip = SearchOutcome4::Skipped(if declaration {
                 SearchSkip4::CandidateRefused
             } else {
@@ -1500,13 +1773,17 @@ struct Root<'a, S> {
     teams: &'a [Option<u8>],
     decision: &'a RootDecision4,
     snapshot: &'a S,
+    /// The layer's answer, its menu index and action, for a
+    /// [`Rival4::Distill`] search.
+    rival: Option<&'a (usize, PlayerAction)>,
 }
 
 impl<S> Root<'_, S> {
-    /// The root's candidates, the policy's own first: at a declaration the
-    /// others built from it (v4), with macro candidates those read off the
-    /// offer (v5), otherwise the policy's ranking with each cast tried at
-    /// its targets (v2, v3). Those the first world refuses are dropped.
+    /// The root's candidates, the policy's own first: the policy's answer
+    /// and the layer's for a [`Rival4::Distill`] search, at a declaration
+    /// the others built from it (v4), with macro candidates those read off
+    /// the offer (v5), otherwise the policy's ranking with each cast tried
+    /// at its targets (v2, v3). Those the first world refuses are dropped.
     /// `player` ends in the root's state.
     fn candidates<P, T>(
         &self,
@@ -1520,7 +1797,13 @@ impl<S> Root<'_, S> {
         T: ForkSource4,
     {
         let first_world = world_seed(search_seed, table.decision_seq(), 0);
-        if config.combat > 0 && combat::is_declaration(self.pending) {
+        if config.rival == Rival4::Distill {
+            Ok(self
+                .rival
+                .and_then(|(index, _)| rival_candidates(self.decision, *index))
+                .map(|pair| pair.into_iter().map(Candidate4::plain).collect())
+                .unwrap_or_default())
+        } else if config.combat > 0 && combat::is_declaration(self.pending) {
             combat::playable(
                 table,
                 self.view.seat,
@@ -1635,6 +1918,17 @@ fn choose_and_answer<P: SearchPlayer4>(
     report.scores = choice.scores;
     report.worlds = worlds;
     report.changed = report.chosen != 0;
+    if selection == Selection4::Measure {
+        // A measurement plays the policy's answer as it gave it, provenance
+        // and all: the game and its record are the unsearched ones.
+        player.conclude(view, &decision, &decision.answer.action);
+        return SearchedAnswer4 {
+            answer: decision.answer,
+            outcome: SearchOutcome4::Searched(Box::new(report)),
+            follow: None,
+            script: None,
+        };
+    }
     let chosen = &candidates[report.chosen];
     let pick = &chosen.root;
     player.conclude(view, &decision, &pick.action);
@@ -1818,5 +2112,7 @@ mod targets;
 
 #[cfg(test)]
 mod foresight_tests;
+#[cfg(test)]
+mod rival_tests;
 #[cfg(test)]
 mod tests;

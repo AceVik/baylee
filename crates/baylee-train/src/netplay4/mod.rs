@@ -543,6 +543,21 @@ impl NetPlayer4 {
         self.distill.as_ref().and_then(distill::Distill4::label)
     }
 
+    /// Takes the labeller out, its last label and steps with it, while a
+    /// search plays its worlds on this player ([`Self::set_distill`] puts it
+    /// back): no rollout labels a decision or replaces the root's label.
+    pub(super) fn take_distill(&mut self) -> Option<distill::Distill4> {
+        self.distill.take()
+    }
+
+    /// Keeps a probe of the last decision's `N` against `R` with its label
+    /// ([`distill::Distill4::keep_probe`]).
+    pub(super) fn keep_distill_probe(&mut self, probe: distill::DistillProbe4) {
+        if let Some(distill) = &mut self.distill {
+            distill.keep_probe(probe);
+        }
+    }
+
     /// Records a step of this net's seat ([`distill::Distill4::step`]).
     pub fn distill_step(
         &mut self,

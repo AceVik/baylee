@@ -289,7 +289,7 @@ fn main() -> anyhow::Result<()> {
         && (!args.raw_policy
             || args.temperature != 0.0
             || args.legacy_v3
-            || args.search.is_some()
+            || (args.search.is_some() && !distill_probe(&args))
             || args.shadow_teacher.is_some()
             || args.random_policy
             || args.menu_payable
@@ -299,8 +299,9 @@ fn main() -> anyhow::Result<()> {
     {
         bail!(
             "--distill-labels labels the net's own answers: --raw-policy at temperature 0, against \
-             the house or a self-play copy, no search, shadow, random seat, payable menu or \
-             collection purpose"
+             the house or a self-play copy, no search (but a measuring one with the layer for a \
+             rival, --search-select measure --search-rival distill), shadow, random seat, \
+             payable menu or collection purpose"
         );
     }
     let distill_teacher = args
@@ -684,6 +685,16 @@ fn main() -> anyhow::Result<()> {
                 "sidecar": "games.jsonl distill_sidecar, one entry per rollout_sidecar step",
                 "players": {"choice_guard": args.choice_guard, "tactics_rules": args.tactics_rules},
             });
+            if distill_probe(&args) {
+                // A measuring search with the layer for a rival: N is played,
+                // R only in the worlds; the label keeps both scores.
+                run["distill"]["probe"] = json!({
+                    "contract": baylee_train::convert4::distill_labels::DISTILL_PROBE_CONTRACT,
+                    "where": "the label's probe, at priority decisions where R differs from N \
+                              (run.json search: rival distill, selection measure, fair worlds)",
+                    "advantage": "worlds[p][1] - worlds[p][0], R over N in the same world",
+                });
+            }
         }
         if let Some(teacher) = &distill_teacher {
             // The same reader, the house's answer in the layer's place.
