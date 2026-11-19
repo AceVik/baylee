@@ -22,6 +22,7 @@ mod fumarole;
 mod hellfire;
 mod hymn_of_rebirth;
 mod implode;
+mod lava_axe;
 mod lava_flow;
 mod makindi_stampede;
 mod mana_geyser;
