@@ -54,25 +54,58 @@ const COLORS: [(Color, &str); 5] = [
     (Color::Green, "Forest"),
 ];
 
+/// The registry's basic lands, and its nonland cards `finished` keeps.
+fn build(finished: impl Fn(&baylee_cards_dsl::CardDef) -> bool) -> Pool {
+    let mut basics = [None; 5];
+    let mut spells = Vec::new();
+    for def in baylee_cards::all() {
+        let Some(face) = def.faces.first() else {
+            continue;
+        };
+        if face.types.contains(TypeSet::LAND) {
+            if let Some(at) = COLORS.iter().position(|(_, name)| *name == def.name()) {
+                basics[at].get_or_insert(def.index);
+            }
+        } else if finished(def) {
+            spells.push((def.color_identity, def.index));
+        }
+    }
+    Pool { basics, spells }
+}
+
+/// The live registry's pool: every finished card, which is what play reads.
 fn pool() -> &'static Pool {
     static POOL: OnceLock<Pool> = OnceLock::new();
     POOL.get_or_init(|| {
-        let mut basics = [None; 5];
-        let mut spells = Vec::new();
-        for def in baylee_cards::all() {
-            let Some(face) = def.faces.first() else {
-                continue;
-            };
-            if face.types.contains(TypeSet::LAND) {
-                if let Some(at) = COLORS.iter().position(|(_, name)| *name == def.name()) {
-                    basics[at].get_or_insert(def.index);
-                }
-            } else if matches!(def.coverage, Coverage::Implemented | Coverage::Generated) {
-                spells.push((def.color_identity, def.index));
-            }
-        }
-        Pool { basics, spells }
+        build(|def| matches!(def.coverage, Coverage::Implemented | Coverage::Generated))
     })
+}
+
+/// A pool of finished cards fixed by a list rather than read off the live
+/// registry's coverage.
+///
+/// Play never uses it: [`public_prior`] reads the live pool, so every card
+/// batch that finishes cards shifts what a fair search supposes a little. A
+/// pin of that search's answers (`baylee-gamehost`'s generation-7 foresight
+/// pin) passes the list the pin was recorded against to
+/// [`public_prior_from`], and then guards the search's determinism rather
+/// than the size of the pool.
+pub struct FinishedPool(Pool);
+
+impl FinishedPool {
+    /// Only `cards` count as finished; basic lands are the registry's.
+    #[must_use]
+    pub fn frozen(cards: &[CardIndex]) -> Self {
+        let cards: std::collections::BTreeSet<CardIndex> = cards.iter().copied().collect();
+        Self(build(|def| cards.contains(&def.index)))
+    }
+
+    /// The finished nonland cards the live pool holds now, in registry
+    /// order: the list [`Self::frozen`] takes back.
+    #[must_use]
+    pub fn live_cards() -> Vec<CardIndex> {
+        pool().spells.iter().map(|(_, card)| *card).collect()
+    }
 }
 
 /// Whether `card`'s front face is a land.
@@ -113,14 +146,29 @@ fn shown(view: &PlayerView, player: PlayerId) -> BTreeMap<CardIndex, u64> {
 /// `own_deck` is empty.
 #[must_use]
 pub fn public_prior(view: &PlayerView, own_deck: &[CardIndex]) -> Vec<(PlayerId, Weighted)> {
+    prior_over(view, own_deck, pool())
+}
+
+/// [`public_prior`] over a fixed pool of finished cards instead of the live
+/// registry's ([`FinishedPool`]).
+#[must_use]
+pub fn public_prior_from(
+    view: &PlayerView,
+    own_deck: &[CardIndex],
+    pool: &FinishedPool,
+) -> Vec<(PlayerId, Weighted)> {
+    prior_over(view, own_deck, &pool.0)
+}
+
+fn prior_over(view: &PlayerView, own_deck: &[CardIndex], pool: &Pool) -> Vec<(PlayerId, Weighted)> {
     view.seats
         .iter()
         .filter(|seat| seat.player != view.seat)
-        .map(|seat| (seat.player, supposed(view, seat.player, own_deck)))
+        .map(|seat| (seat.player, supposed(view, seat.player, own_deck, pool)))
         .collect()
 }
 
-fn supposed(view: &PlayerView, player: PlayerId, own_deck: &[CardIndex]) -> Weighted {
+fn supposed(view: &PlayerView, player: PlayerId, own_deck: &[CardIndex], pool: &Pool) -> Weighted {
     let shown = shown(view, player);
     let spells: Vec<(CardIndex, u64)> = shown
         .iter()
@@ -135,7 +183,6 @@ fn supposed(view: &PlayerView, player: PlayerId, own_deck: &[CardIndex]) -> Weig
     if spells.is_empty() && lands.is_empty() {
         return like(own_deck);
     }
-    let pool = pool();
     // The colours the deck has shown it plays: its spells' identities, and
     // what its lands are for where no spell is shown yet.
     let identity = |cards: &[(CardIndex, u64)]| {
