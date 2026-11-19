@@ -35,6 +35,76 @@ mod producer_tests {
         );
     }
 
+    /// The layer's answer as a search's rival: only a fair measurement of
+    /// two candidates beside `--distill-labels`, on the raw net, and only
+    /// then may labels and a search run together.
+    #[test]
+    fn the_layer_is_a_rival_only_in_a_fair_measurement_of_two() {
+        let parse = |extra: &[&str]| {
+            let mut argv = vec!["eval4", "--model", "m", "--out", "o", "--record-out", "r"];
+            argv.extend_from_slice(extra);
+            Args::try_parse_from(argv).unwrap()
+        };
+        let probe = [
+            "--raw-policy",
+            "--temperature",
+            "0",
+            "--distill-labels",
+            "react",
+            "--search",
+            "2,6,96",
+            "--search-fair",
+            "--search-turns",
+            "2",
+            "--search-house-free",
+            "--search-select",
+            "measure",
+            "--search-rival",
+            "distill",
+        ];
+        let args = parse(&probe);
+        assert_eq!(rival_refusal(&args), None);
+        assert!(distill_probe(&args));
+        let config = search_config(&args).unwrap().unwrap();
+        assert_eq!(config.rival(), baylee_train::netplay4::search::Rival4::Distill);
+        assert_eq!(config.selection(), Selection4::Measure);
+        let metadata = config.metadata();
+        assert_eq!(metadata["rival"], "distill");
+        assert_eq!(metadata["provenance"], "the_policys_own");
+
+        let without = |flag: &str, value: bool| -> Vec<&str> {
+            let mut out = Vec::new();
+            let mut skip = false;
+            for (at, arg) in probe.iter().enumerate() {
+                if skip {
+                    skip = false;
+                    continue;
+                }
+                if *arg == flag {
+                    skip = value && at + 1 < probe.len();
+                    continue;
+                }
+                out.push(*arg);
+            }
+            out
+        };
+        assert!(rival_refusal(&parse(&without("--distill-labels", true))).is_some());
+        assert!(rival_refusal(&parse(&without("--search-fair", false))).is_some());
+        let paired = parse(&[without("--search-select", true), vec!["--search-select", "paired"]].concat());
+        assert!(rival_refusal(&paired).is_some());
+        assert!(!distill_probe(&paired), "labels never beside a search that plays");
+        let four = parse(&[without("--search", true), vec!["--search", "4,6,96"]].concat());
+        assert!(rival_refusal(&four).is_some());
+        let guarded = parse(&[&probe[..], &["--choice-guard", "tactical"]].concat());
+        assert!(rival_refusal(&guarded).is_some());
+        let macros = parse(&[&probe[..], &["--search-macros"]].concat());
+        assert!(rival_refusal(&macros).is_some());
+        // Without a rival the old rules stand: labels refuse every search.
+        let ranked = parse(&without("--search-rival", true));
+        assert_eq!(rival_refusal(&ranked), None);
+        assert!(!distill_probe(&ranked));
+    }
+
     #[test]
     fn a_catalog_other_than_this_builds_is_accepted_only_explicitly() {
         let parse = |extra: &[&str]| {

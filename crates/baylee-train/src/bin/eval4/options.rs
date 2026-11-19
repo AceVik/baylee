@@ -406,10 +406,21 @@ struct Args {
     /// confidence; `paired` keeps the policy's answer unless another's mean
     /// improvement over it, world by world, exceeds
     /// `max(--search-margin, --search-z · se)`; `mean` takes the best mean
-    /// (v1). Why `prior` is the default: `docs/trained-ai.md` §"Lookahead
-    /// search".
+    /// (v1); `measure` never plays another answer: the policy's own is
+    /// played with its own provenance and the worlds are only reported. Why
+    /// `prior` is the default: `docs/trained-ai.md` §"Lookahead search".
     #[arg(long, value_enum, default_value_t = SearchSelect::Prior)]
     search_select: SearchSelect,
+    /// What a root compares the policy's answer with: `ranking` (the
+    /// default) its next answers by raw logit; `distill` the tactical
+    /// layer's answer `R` of `--distill-labels`, alone, at every priority
+    /// decision (any phase) where it differs from the net's `N`, nothing is
+    /// owed and the two are not both mana abilities. With `distill` the
+    /// search measures (`--search-select measure`) in fair worlds
+    /// (`--search-fair`), with two candidates, and each such decision's
+    /// label keeps the worlds as its `probe` (`distill_probe_v1`).
+    #[arg(long, value_enum, default_value_t = SearchRival::Ranking, requires = "search")]
+    search_rival: SearchRival,
     /// `paired`: the smallest mean improvement that overrides the policy.
     #[arg(long, default_value_t = 0.05)]
     search_margin: f64,
@@ -493,6 +504,62 @@ enum SearchSelect {
     Mean,
     Paired,
     Prior,
+    Measure,
+}
+
+/// `--search-rival`: what a root compares the policy's answer with
+/// ([`baylee_train::netplay4::search::Rival4`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+enum SearchRival {
+    Ranking,
+    Distill,
+}
+
+/// Why `--search-rival distill` cannot run with `args`, if it cannot: the
+/// layer's answer comes from `--distill-labels` on the raw net's own play,
+/// and the probe is a measurement in fair worlds of exactly two candidates.
+fn rival_refusal(args: &Args) -> Option<&'static str> {
+    if args.search_rival != SearchRival::Distill {
+        return None;
+    }
+    let search = args.search?;
+    if args.distill_labels.is_none() {
+        return Some("--search-rival distill reads the layer's answer from --distill-labels");
+    }
+    if args.search_select != SearchSelect::Measure {
+        return Some("--search-rival distill measures: --search-select measure");
+    }
+    if !args.search_fair {
+        return Some("--search-rival distill plays fair worlds: --search-fair");
+    }
+    if search.candidates() != 2 {
+        return Some("--search-rival distill compares two answers: --search 2,P,H");
+    }
+    if args.search_targets > 0
+        || args.search_combat > 0
+        || args.search_macros
+        || args.search_stall_guard
+    {
+        return Some(
+            "--search-rival distill takes no targets, combat roots, macros or stall guard",
+        );
+    }
+    if args.choice_guard != "off" || !args.tactics_rules.is_empty() {
+        return Some(
+            "--search-rival distill probes the raw net's own answers: no --choice-guard or \
+             --tactics-rules",
+        );
+    }
+    None
+}
+
+/// Whether `--distill-labels` may run beside `--search`: only a measuring
+/// search whose rival is the layer's answer, which plays nothing the net did
+/// not and keeps its provenance.
+fn distill_probe(args: &Args) -> bool {
+    args.search.is_some()
+        && args.search_rival == SearchRival::Distill
+        && args.search_select == SearchSelect::Measure
 }
 
 /// The run's search, its budgets and selection together; `None` without
@@ -516,8 +583,17 @@ fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
         SearchSelect::Mean => Selection4::Mean,
         SearchSelect::Paired => paired,
         SearchSelect::Prior => prior,
+        SearchSelect::Measure => Selection4::Measure,
+    };
+    if let Some(refusal) = rival_refusal(args) {
+        anyhow::bail!(refusal);
+    }
+    let rival = match args.search_rival {
+        SearchRival::Ranking => baylee_train::netplay4::search::Rival4::Ranking,
+        SearchRival::Distill => baylee_train::netplay4::search::Rival4::Distill,
     };
     let config = config
+        .with_rival(rival)
         .with_selection(selection)?
         .with_threads(args.search_threads)?
         .with_targets(args.search_targets)?

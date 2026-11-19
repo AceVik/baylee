@@ -36,6 +36,18 @@ pub(super) struct Mock {
     /// Rollout answers past this many are given as the house's, as a net
     /// gives its fallbacks.
     pub(super) fallback_after: Option<u64>,
+    /// The tactical layer's answer at a root, for a rival search; `None`
+    /// (or an answer `None`) where the decision has no label.
+    pub(super) rival: Option<fn(&PlayerView, &Pending) -> Option<PlayerAction>>,
+    /// The layer's answer at the last decision decided, its menu index and
+    /// action, as a label holds it.
+    rival_at: Option<(usize, PlayerAction)>,
+    /// The stand-in's labeller: in place unless a search took it out.
+    pub(super) labels: Option<crate::netplay4::distill::Distill4>,
+    /// Rollout answers given while the labeller was in place.
+    pub(super) labelled_in_rollouts: u64,
+    /// The probes a search kept with the labels.
+    pub(super) probes: Vec<crate::netplay4::distill::DistillProbe4>,
 }
 
 impl Mock {
@@ -53,6 +65,11 @@ impl Mock {
             confidence: 0.0,
             lends: false,
             fallback_after: None,
+            rival: None,
+            rival_at: None,
+            labels: None,
+            labelled_in_rollouts: 0,
+            probes: Vec::new(),
         }
     }
 
@@ -129,6 +146,19 @@ impl SearchPlayer4 for Mock {
             }
             rank_single_choice(&cands, &logits, view, pending)
         });
+        // The layer's answer as a label holds it: its place in the menu.
+        // A grouped answer (one of two lands alike) is its group's: the
+        // first ranked answer of the same kind stands for it.
+        self.rival_at = self.rival.and_then(|rival| {
+            let layer = rival(view, pending)?;
+            let ranking = ranking.as_deref()?;
+            let ranked = ranking.iter().find(|r| r.action == layer).or_else(|| {
+                ranking
+                    .iter()
+                    .find(|r| std::mem::discriminant(&r.action) == std::mem::discriminant(&layer))
+            })?;
+            Some((ranked.index, ranked.action.clone()))
+        });
         RootDecision4 {
             answer: Answer4 {
                 action,
@@ -153,6 +183,7 @@ impl SearchPlayer4 for Mock {
     }
     fn answer(&mut self, view: &PlayerView, pending: &Pending, _teams: &[Option<u8>]) -> Answer4 {
         self.state.answers += 1;
+        self.labelled_in_rollouts += u64::from(self.labels.is_some());
         let action = HeuristicAgent::new(AIProfile::STEADY)
             .with_seed(self.state.sampling)
             .act(view, pending);
@@ -187,10 +218,34 @@ impl SearchPlayer4 for Mock {
         self.lends
     }
     fn rollout_player(&self, snapshot: &MockState) -> Option<Self> {
+        // A twin labels nothing, as a net's twin on a shared session.
         self.lends.then(|| Self {
             state: snapshot.clone(),
-            ..*self
+            own: self.own,
+            value: self.value,
+            confidence: self.confidence,
+            lends: self.lends,
+            fallback_after: self.fallback_after,
+            rival: self.rival,
+            rival_at: None,
+            labels: None,
+            labelled_in_rollouts: 0,
+            probes: Vec::new(),
         })
+    }
+    fn rival_answer(&self) -> Option<(usize, PlayerAction)> {
+        self.rival_at.clone()
+    }
+    fn suspend_labels(&mut self) -> Option<crate::netplay4::distill::Distill4> {
+        self.labels.take()
+    }
+    fn resume_labels(&mut self, labels: Option<crate::netplay4::distill::Distill4>) {
+        if labels.is_some() {
+            self.labels = labels;
+        }
+    }
+    fn keep_probe(&mut self, probe: crate::netplay4::distill::DistillProbe4) {
+        self.probes.push(probe);
     }
 }
 
@@ -209,7 +264,7 @@ pub(super) fn steady(view: &PlayerView, pending: &Pending) -> Option<PlayerActio
 }
 
 /// A flat critic.
-fn flat(_: &PlayerView) -> f32 {
+pub(super) fn flat(_: &PlayerView) -> f32 {
     0.5
 }
 
@@ -230,7 +285,7 @@ pub(super) fn creatures(view: &PlayerView) -> f32 {
 
 /// A critic that likes the seat's lands: the obvious answer to a land in
 /// hand is to play it.
-fn lands(view: &PlayerView) -> f32 {
+pub(super) fn lands(view: &PlayerView) -> f32 {
     counting(view, TypeSet::LAND)
 }
 
@@ -241,7 +296,7 @@ fn preset(seed: u64) -> baylee_core::preset::GamePreset {
 }
 
 /// [`preset`], seat 0 taken over, recorded.
-fn table(seed: u64) -> Session {
+pub(super) fn table(seed: u64) -> Session {
     seated(&preset(seed))
 }
 
@@ -256,7 +311,10 @@ fn seated(preset: &baylee_core::preset::GamePreset) -> Session {
 /// Drives the table, seat 0 by the steady house, until seat 0 holds
 /// priority in its own main phase with `want` true of the root and the
 /// table forkable. Returns the root's question and view.
-fn root(session: &mut Session, want: fn(&PlayerView, &Pending) -> bool) -> (Pending, PlayerView) {
+pub(super) fn root(
+    session: &mut Session,
+    want: fn(&PlayerView, &Pending) -> bool,
+) -> (Pending, PlayerView) {
     for _ in 0..5000 {
         assert!(!matches!(session.pending(), Pending::GameOver(_)));
         if session.needs_pump() {
@@ -279,7 +337,7 @@ fn root(session: &mut Session, want: fn(&PlayerView, &Pending) -> bool) -> (Pend
 }
 
 /// A land drop is among the legal answers, past the opening turns.
-fn land_playable(view: &PlayerView, pending: &Pending) -> bool {
+pub(super) fn land_playable(view: &PlayerView, pending: &Pending) -> bool {
     view.turn >= 3 && matches!(pending, Pending::Priority { legal, .. } if !legal.lands.is_empty())
 }
 
@@ -994,6 +1052,9 @@ fn a_searched_game_answers_legally_and_names_every_root_it_skips() {
                         panic!("no search here compares macro candidates")
                     }
                     SearchSkip4::TakenBack => panic!("no search here is told of a taking back"),
+                    SearchSkip4::NoRival | SearchSkip4::ManaOnly => {
+                        panic!("no search here has the layer for a rival")
+                    }
                 }
                 reason.key().to_owned()
             }

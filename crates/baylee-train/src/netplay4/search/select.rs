@@ -80,6 +80,8 @@ pub(super) fn choose(selection: Selection4, worlds: &[Vec<f32>], priors: &[f64])
                 .collect();
             (first_best(&scores), scores)
         }
+        // A measurement: the worlds are reported, the policy's answer kept.
+        Selection4::Measure => (0, diffs.clone()),
     };
     Choice {
         chosen,
@@ -94,6 +96,8 @@ pub(super) fn choose(selection: Selection4, worlds: &[Vec<f32>], priors: &[f64])
 /// (0) is not played: the one of the others with the best mean is,
 /// whatever the selection (which still gives the scores). The stall guard's
 /// choice where the table took the policy's answer back from this position.
+/// [`Selection4::Measure`] keeps the policy's answer even then: it plays
+/// nothing the policy did not.
 pub(super) fn choose_with(
     selection: Selection4,
     worlds: &[Vec<f32>],
@@ -101,7 +105,7 @@ pub(super) fn choose_with(
     own_eligible: bool,
 ) -> Choice {
     let mut choice = choose(selection, worlds, priors);
-    if !own_eligible && choice.means.len() > 1 {
+    if !own_eligible && selection != Selection4::Measure && choice.means.len() > 1 {
         choice.chosen = 1 + first_best(&choice.means[1..]);
     }
     choice
