@@ -1,0 +1,275 @@
+//! Unit tests for reading `Dig`: each shape the reader writes, on made-up
+//! scripts, and each shape it refuses with the reason it names.
+
+use super::*;
+
+fn ability(script: &str) -> String {
+    let body = read(script);
+    assert_eq!(body.abilities.len(), 1, "{:?}", body.abilities);
+    body.abilities[0].clone()
+}
+
+fn reason(script: &str) -> String {
+    let parsed = parse(script);
+    assert!(
+        transcode(&parsed, &cats(), None).is_none(),
+        "silently accepted: {script}"
+    );
+    refusal_reason(&parsed, &cats(), None).unwrap_or_default()
+}
+
+#[test]
+fn a_pick_into_the_hand_puts_the_rest_on_the_bottom() {
+    // Sleight of Hand: the reference's defaults are one card, to the hand,
+    // the rest on the bottom in the player's order.
+    assert_eq!(
+        ability(
+            "Name:Pick\nManaCost:U\nTypes:Sorcery\n\
+             A:SP$ Dig | DigNum$ 2 | NoReveal$ True"
+        ),
+        "spell!(&[Effect::LookAtTopPick { count: Amount::Fixed(2), pick: 1, random: false }])"
+    );
+    assert!(
+        ability(
+            "Name:Pick two\nManaCost:2 U\nTypes:Sorcery\n\
+             A:SP$ Dig | DigNum$ 7 | ChangeNum$ 2 | RestRandomOrder$ True"
+        )
+        .contains("Effect::LookAtTopPick { count: Amount::Fixed(7), pick: 2, random: true }")
+    );
+    // Worldly Counsel: the domain count, read as it resolves.
+    assert!(
+        ability(
+            "Name:Domain pick\nManaCost:1 U\nTypes:Instant\n\
+             A:SP$ Dig | DigNum$ X\nSVar:X:Count$Domain"
+        )
+        .contains("count: Amount::BasicLandTypesAmong(&Filter::YOUR_LAND), pick: 1")
+    );
+    assert!(
+        ability(
+            "Name:X pick\nManaCost:X U\nTypes:Instant\n\
+             A:SP$ Dig | DigNum$ X\nSVar:X:Count$xPaid"
+        )
+        .contains("count: Amount::X, pick: 1")
+    );
+    // Diabolic Vision: the rest back on top, in the player's order.
+    assert!(
+        ability(
+            "Name:Pick and reorder\nManaCost:U B\nTypes:Sorcery\n\
+             A:SP$ Dig | DigNum$ 5 | ChangeNum$ 1 | LibraryPosition2$ 0"
+        )
+        .contains("Effect::LookAtTopPickThenReorder { count: Amount::Fixed(5), pick: 1 }")
+    );
+    // An enters trigger looks at its controller's library too.
+    assert!(
+        ability(
+            "Name:Familiar\nManaCost:2 U\nTypes:Creature Wizard\nPT:1/2\n\
+             T:Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Any | Destination$ Battlefield | Execute$ TrigDig\n\
+             SVar:TrigDig:DB$ Dig | DigNum$ 3"
+        )
+        .contains("Effect::LookAtTopPick { count: Amount::Fixed(3), pick: 1, random: false }")
+    );
+}
+
+#[test]
+fn a_dig_after_a_targeted_line_still_digs_in_your_library() {
+    // Prophetic Bolt: the damage line's target belongs to the damage, and
+    // the dig after it is "look at the top four cards of your library".
+    let line = ability(
+        "Name:Bolt and pick\nManaCost:3 U R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 4 | SubAbility$ DBDig\n\
+         SVar:DBDig:DB$ Dig | DigNum$ 4",
+    );
+    assert!(
+        line.contains(
+            "Effect::DealDamage { amount: Amount::Fixed(4), target: TargetSpec::AnyTarget }, \
+             Effect::LookAtTopPick { count: Amount::Fixed(4), pick: 1, random: false }"
+        ),
+        "{line}"
+    );
+    assert!(line.contains("targets = Some(TargetReq::one(TargetSpec::AnyTarget))"));
+}
+
+#[test]
+fn a_look_may_take_one_matching_card() {
+    let line = ability(
+        "Name:Look for a creature\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ Dig | DigNum$ 4 | ChangeNum$ 1 | ChangeValid$ Creature | ForceRevealToController$ True | Optional$ True | RestRandomOrder$ True",
+    );
+    assert!(
+        line.contains(
+            "Effect::LookAtTopFind { found: Find::HAND, count: 4, filter: &Filter::CREATURE, random: true }"
+        ),
+        "{line}"
+    );
+    let line = ability(
+        "Name:Look for a land\nManaCost:2 G\nTypes:Sorcery\n\
+         A:SP$ Dig | DigNum$ 6 | ChangeValid$ Land | Optional$ True | DestinationZone$ Battlefield | Tapped$ True",
+    );
+    assert!(
+        line.contains(
+            "Effect::LookAtTopFind { found: Find::BATTLEFIELD_TAPPED, count: 6, filter: &Filter::LAND, random: false }"
+        ),
+        "{line}"
+    );
+}
+
+#[test]
+fn a_reveal_moves_every_matching_card() {
+    // Goblin Ringleader and the tribal enters triggers.
+    let body = read(
+        "Name:Ringleader\nManaCost:3 R\nTypes:Creature Goblin\nPT:2/2\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Any | Destination$ Battlefield | Execute$ TrigDig\n\
+         SVar:TrigDig:DB$ Dig | DigNum$ 4 | Reveal$ True | ChangeNum$ All | ChangeValid$ Goblin",
+    );
+    assert!(
+        body.abilities[0].contains("Effect::RevealTopAllMatching { count: 4, filter: &"),
+        "{:?}",
+        body.abilities
+    );
+    assert!(body.abilities[0].contains("found: Find::HAND"));
+    assert!(
+        body.statics.contains("subtypes::creature::GOBLIN"),
+        "{}",
+        body.statics
+    );
+}
+
+#[test]
+fn a_revealed_top_card_is_sorted_by_the_filter() {
+    // Zoologist and Call of the Wild: one card, here if it matches and
+    // there if it does not.
+    assert!(
+        ability(
+            "Name:Sort\nManaCost:3 G\nTypes:Creature Wizard\nPT:2/3\n\
+             A:AB$ Dig | Cost$ 3 G T | DigNum$ 1 | Reveal$ True | ChangeNum$ All | ChangeValid$ Creature | DestinationZone$ Battlefield | DestinationZone2$ Graveyard"
+        )
+        .contains(
+            "Effect::RevealTopAndSort { filter: &Filter::CREATURE, matched: SearchDest::Battlefield, otherwise: SearchDest::Graveyard }"
+        )
+    );
+}
+
+#[test]
+fn a_reveal_find_reads_one_card_whether_or_not_the_line_says_one() {
+    let unsaid = ability(
+        "Name:Find\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ Dig | DigNum$ 4 | Reveal$ True | ChangeValid$ Creature | DestinationZone2$ Graveyard | Optional$ True",
+    );
+    let said = ability(
+        "Name:Find\nManaCost:1 G\nTypes:Sorcery\n\
+         A:SP$ Dig | DigNum$ 4 | Reveal$ True | ChangeNum$ 1 | ChangeValid$ Creature | DestinationZone2$ Graveyard | Optional$ True",
+    );
+    assert_eq!(unsaid, said);
+    assert!(said.contains(
+        "Effect::RevealTopFind { found: Find::HAND, count: 4, filter: &Filter::CREATURE, otherwise: SearchDest::Graveyard }"
+    ));
+}
+
+#[test]
+fn every_card_exiled_is_the_top_of_a_library_exiled() {
+    assert!(
+        ability(
+            "Name:Exile yours\nManaCost:B\nTypes:Sorcery\n\
+             A:SP$ Dig | Defined$ You | DigNum$ 10 | ChangeNum$ All | DestinationZone$ Exile"
+        )
+        .contains("Effect::ExileTop { who: PlayerRel::You, count: Amount::Fixed(10) }")
+    );
+    // Raven Guild Master: the player the damage was dealt to.
+    assert!(
+        ability(
+            "Name:Exile theirs\nManaCost:1 U U\nTypes:Creature Wizard\nPT:1/1\n\
+             T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True | Execute$ TrigExile | TriggerZones$ Battlefield\n\
+             SVar:TrigExile:DB$ Dig | Defined$ TriggeredTarget | DigNum$ 10 | ChangeNum$ All | DestinationZone$ Exile"
+        )
+        .contains("Effect::ExileTop { who: PlayerRel::DamagedPlayer, count: Amount::Fixed(10) }")
+    );
+    let line = ability(
+        "Name:Exile target's\nManaCost:U\nTypes:Sorcery\n\
+         A:SP$ Dig | ValidTgts$ Player | DigNum$ 3 | ChangeNum$ All | DestinationZone$ Exile",
+    );
+    assert!(
+        line.contains("Effect::ExileTop { who: PlayerRel::Chosen, count: Amount::Fixed(3) }"),
+        "{line}"
+    );
+}
+
+#[test]
+fn every_other_dig_is_refused_by_name() {
+    let script =
+        |params: &str| format!("Name:Dig\nManaCost:U\nTypes:Sorcery\nA:SP$ Dig | {params}");
+    for (params, expected) in [
+        // Ancestral Memories, Browse: the rest leave the library.
+        (
+            "DigNum$ 7 | ChangeNum$ 2 | DestinationZone2$ Graveyard",
+            "a `Dig` pick whose rest goes to the graveyard or exile",
+        ),
+        (
+            "DigNum$ 5 | DestinationZone2$ Exile",
+            "a `Dig` pick whose rest goes to the graveyard or exile",
+        ),
+        ("DigNum$ 3 | Reveal$ True", "a revealed `Dig` pick"),
+        ("DigNum$ 3 | Optional$ True", "an optional `Dig` pick"),
+        (
+            "DigNum$ 3 | ValidTgts$ Player",
+            "a `Dig` of another player's library",
+        ),
+        (
+            "DigNum$ 5 | Defined$ Player | Reveal$ True | ChangeNum$ All | ChangeValid$ Land | DestinationZone$ Battlefield",
+            "a `Dig` of another player's library",
+        ),
+        (
+            "DigNum$ 4 | ChangeValid$ Creature | NoReveal$ True | Optional$ True",
+            "a `Dig` that moves a matching card unrevealed",
+        ),
+        (
+            "DigNum$ 4 | Reveal$ True | ChangeNum$ All | ChangeValid$ Creature | RestRandomOrder$ True",
+            "a `Dig` that reveals and moves every card matching to the hand, the rest on the bottom",
+        ),
+        (
+            "DigNum$ 4 | ChangeValid$ Creature",
+            "a `Dig` that looks and moves 1 matching to the hand, the rest on the bottom",
+        ),
+        (
+            "DigNum$ 3 | ChangeNum$ All | ChangeValid$ Land | DestinationZone$ Exile",
+            "a `Dig` that exiles some of the cards",
+        ),
+        (
+            "DigNum$ 3 | DestinationZone$ Exile",
+            "a `Dig` that exiles the cards it picks",
+        ),
+        (
+            "DigNum$ 2 | ChangeNum$ 1 | DestinationZone$ Graveyard",
+            "a `Dig` destination other than hand, battlefield or exile",
+        ),
+        (
+            "DigNum$ 4 | ChangeValid$ Creature | Optional$ True | Tapped$ True",
+            "a `Dig` destination other than hand, battlefield or exile",
+        ),
+        (
+            "DigNum$ 3 | DestinationZone$ Library | LibraryPosition$ 0 | DestinationZone2$ Exile",
+            "a `Dig` destination other than hand, battlefield or exile",
+        ),
+        (
+            "DigNum$ 4 | Reveal$ True | ForceRevealToController$ True | ChangeValid$ Creature | Optional$ True",
+            "a `Dig` revealed to its controller twice",
+        ),
+    ] {
+        let text = script(params);
+        assert!(
+            reason(&text).contains(expected),
+            "{params}: expected `{expected}`, got `{}`",
+            reason(&text)
+        );
+    }
+    // Refused without a reason of their own: a knob nothing reads.
+    for params in [
+        "DigNum$ 2 | ChangeNum$ Any",
+        "DigNum$ 2 | Optional$ False",
+        "DigNum$ 5 | Reveal$ True | ChangeNum$ 1 | ChangeValid$ Creature | DestinationZone$ Battlefield | DestinationZone2$ Graveyard | Choser$ Player.Opponent",
+        "DigNum$ 3 | Defined$ You | ChangeNum$ All | DestinationZone$ Exile | RememberChanged$ True",
+        "DigNum$ 3 | ChangeNum$ 1 | SkipReorder$ True | LibraryPosition2$ 0",
+        "DigNum$ X | Reveal$ True | ChangeValid$ Creature | DestinationZone2$ Graveyard | Optional$ True",
+    ] {
+        assert!(refused(&script(params)), "silently accepted: {params}");
+    }
+}
