@@ -81,6 +81,7 @@ mod syphon_soul;
 mod temporal_spring;
 mod thermokarst;
 mod threaten;
+mod time_ebb;
 mod timetwister;
 mod tinker;
 mod touch_of_death;
