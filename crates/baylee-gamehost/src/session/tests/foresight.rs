@@ -13,7 +13,10 @@
 
 use crate::Session;
 use crate::record::{Line, Source};
+use crate::session::simulation::FrozenPrior;
+use baylee_ai::foresight::prior::FinishedPool;
 use baylee_cards::decks::{LoadedDeck, by_name, house_deck, preset_for, probe_deck};
+use baylee_core::ids::CardIndex;
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::{AIProfile, GamePreset, SeatController};
 use baylee_engine::choice::{Pending, PlayerAction, timeout_answer};
@@ -882,6 +885,10 @@ fn probing_a_search_changes_no_answer() {
 /// Where the searched answers of `expert` at generation 7 are pinned.
 const SEARCH_PIN: &str = "tests/reference/foresight-generation-7.json";
 
+/// The finished cards (`CardIndex`, one per line) the generation-7 pin's
+/// priors read instead of the live pool.
+const SEARCH_PIN_POOL: &str = "tests/reference/foresight-generation-7-pool.txt";
+
 /// The turn the pinned games are played to: far enough for every kind of
 /// root, near enough for a test.
 const PIN_TURN: u32 = 6;
@@ -957,17 +964,42 @@ fn searched_table(first: &str, second: &str, seed: u64, profile: AIProfile) -> S
 /// this pins what a search adds. Recorded with
 /// `BAYLEE_FORESIGHT_PIN_RECORD=1 cargo nextest run -p baylee-gamehost --lib
 /// expert_at_generation_7_searches_as_pinned`, once, before generation 8.
+///
+/// A fair search supposes the hidden cards from the finished card pool
+/// (`baylee_ai::foresight::prior`), so every card batch moved this pin
+/// without a line of the search changing (reader-1, 19 Nov 2026: 65 more
+/// finished cards changed seat 1's land drop at answer 125 of the first
+/// table, from an identical state). The pin plays against the finished
+/// cards it was recorded with, [`SEARCH_PIN_POOL`], and so guards the
+/// search's determinism alone; recording writes that list beside it.
 #[test]
 fn expert_at_generation_7_searches_as_pinned() {
     let profile = AIProfile::EXPERT.at_generation(AIProfile::FORESIGHT);
+    let record = std::env::var_os("BAYLEE_FORESIGHT_PIN_RECORD").is_some();
+    let pool_path = format!("{}/{SEARCH_PIN_POOL}", env!("CARGO_MANIFEST_DIR"));
+    let finished: Vec<CardIndex> = if record {
+        FinishedPool::live_cards()
+    } else {
+        std::fs::read_to_string(&pool_path)
+            .unwrap_or_else(|e| panic!("{pool_path}: {e}"))
+            .lines()
+            .map(|line| CardIndex::new(line.trim().parse().expect("a card index per line")))
+            .collect()
+    };
+    let _frozen = FrozenPrior::hold(FinishedPool::frozen(&finished));
     let played: Vec<SearchPin> = PIN_TABLES
         .iter()
         .map(|&(first, second, seed)| searched_table(first, second, seed, profile))
         .collect();
     let path = format!("{}/{SEARCH_PIN}", env!("CARGO_MANIFEST_DIR"));
-    if std::env::var_os("BAYLEE_FORESIGHT_PIN_RECORD").is_some() {
+    if record {
         let text = serde_json::to_string_pretty(&played).expect("the pin serializes");
         std::fs::write(&path, text + "\n").unwrap_or_else(|e| panic!("{path}: {e}"));
+        let list: String = finished
+            .iter()
+            .map(|card| format!("{}\n", card.get()))
+            .collect();
+        std::fs::write(&pool_path, list).unwrap_or_else(|e| panic!("{pool_path}: {e}"));
         return;
     }
     let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{path}: {e}"));
