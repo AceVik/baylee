@@ -171,12 +171,97 @@ pub fn sample_subset_constrained(
 }
 
 /// Samples a valid blocker assignment mask for `PairPick` (`ChooseBlockers`)
-/// while enforcing at-most-one-attacker-per-blocker and tracking exact
-/// conditional `free_mask` and `logprob` (`P0-3`).
+/// while enforcing at-most-one-attacker-per-blocker and the counts each
+/// attacker states (`ChooseBlockers::bounds`, [`meet_attacker_bounds`]), and
+/// tracking exact conditional `free_mask` and `logprob` (`P0-3`).
 ///
 /// # Panics
 /// If the internal blocker-count map loses an entry inserted in the same call.
 pub fn sample_pairs_constrained(
+    logits: &[f32],
+    cands: &EncodedCandidates4,
+    pending: &Pending,
+    tau: f32,
+    rng: &mut crate::deckgen::Rng,
+) -> (Vec<u8>, Vec<u8>, Vec<u16>, f32) {
+    let (mut mask, free_mask, visit_seq, total_lp) = sample_pairs_free(logits, cands, tau, rng);
+    meet_attacker_bounds(&mut mask, logits, cands, pending);
+    (mask, free_mask, visit_seq, total_lp)
+}
+
+/// An attacker blocked by fewer creatures than it states (menace: "can't be
+/// blocked except by two or more", CR 702.111b) or by more is no answer the
+/// engine takes (`AnswerFault::TooFewBlockers`, `TooManyBlockers`). Where a
+/// sample leaves one so, the creatures still free that may block it join it,
+/// best logit first, up to its least count; where too few are free it is left
+/// unblocked, and blockers past its most go, worst logit first.
+fn meet_attacker_bounds(
+    mask: &mut [u8],
+    logits: &[f32],
+    cands: &EncodedCandidates4,
+    pending: &Pending,
+) {
+    let Pending::ChooseBlockers { bounds, .. } = pending else {
+        return;
+    };
+    let n = mask.len();
+    let blocker_of = |i: usize| cands.pair_objects[i].0;
+    let attacker_of = |i: usize| cands.pair_objects[i].1;
+    let by_logit = |picks: &mut Vec<usize>| {
+        picks.sort_by(|a, b| logits[*b].total_cmp(&logits[*a]).then(a.cmp(b)));
+    };
+    for bound in bounds {
+        let min = usize::try_from(bound.min_blockers).unwrap_or(usize::MAX);
+        let max = usize::try_from(bound.max_blockers).unwrap_or(usize::MAX);
+        let mut on: Vec<usize> = (0..n)
+            .filter(|&i| mask[i] == 1 && attacker_of(i) == bound.attacker)
+            .collect();
+        if on.is_empty() {
+            continue;
+        }
+        if on.len() < min {
+            let used: Vec<ObjectId> = (0..n).filter(|&i| mask[i] == 1).map(blocker_of).collect();
+            let mut free: Vec<usize> = (0..n)
+                .filter(|&i| {
+                    cands.pairs[i][0] >= 0
+                        && cands.pairs[i][1] >= 0
+                        && attacker_of(i) == bound.attacker
+                        && !used.contains(&blocker_of(i))
+                })
+                .collect();
+            by_logit(&mut free);
+            let mut joined: Vec<ObjectId> = Vec::new();
+            for i in free {
+                if on.len() >= min {
+                    break;
+                }
+                if !joined.contains(&blocker_of(i)) {
+                    joined.push(blocker_of(i));
+                    on.push(i);
+                }
+            }
+            if on.len() < min {
+                for &i in &on {
+                    mask[i] = 0;
+                }
+                continue;
+            }
+            for &i in &on {
+                mask[i] = 1;
+            }
+        }
+        if on.len() > max {
+            by_logit(&mut on);
+            for &i in &on[max..] {
+                mask[i] = 0;
+            }
+        }
+    }
+}
+
+/// The per-pair sample, one attacker per blocker, before the attackers'
+/// counts are met.
+fn sample_pairs_free(
     logits: &[f32],
     cands: &EncodedCandidates4,
     tau: f32,

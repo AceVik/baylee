@@ -402,8 +402,13 @@ impl PolicySampler4<'_> {
                         tactics::rules::pairs(self.rules, cands, &mut adjusted, view, pending);
                         adjusted
                     };
-                    let (mask, free_mask, seq, _) =
-                        sample_pairs_constrained(&adj_logits, cands, self.temperature, self.rng);
+                    let (mask, free_mask, seq, _) = sample_pairs_constrained(
+                        &adj_logits,
+                        cands,
+                        pending,
+                        self.temperature,
+                        self.rng,
+                    );
                     let lp = if self.temperature <= 1e-4 {
                         0.0
                     } else {

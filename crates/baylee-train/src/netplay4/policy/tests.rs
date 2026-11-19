@@ -156,7 +156,8 @@ fn raw_subset_and_pair_preserve_unmodified_sampler_masks_and_logprobs() {
     let pair_menu = menu(&view, &pair);
     let pair_logits = vec![0.4; pair_menu.pairs.len()];
     let mut rng = Rng::new(77);
-    let (mask, free, seq, lp) = sample_pairs_constrained(&pair_logits, &pair_menu, 0.8, &mut rng);
+    let (mask, free, seq, lp) =
+        sample_pairs_constrained(&pair_logits, &pair_menu, &pair, 0.8, &mut rng);
     let (_, raw_lp, target) = select(
         PolicyMode4::Raw,
         &view,
