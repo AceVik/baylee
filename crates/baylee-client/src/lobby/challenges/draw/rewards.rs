@@ -3,7 +3,7 @@
 use super::*;
 
 pub(super) fn badges(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang, model: &State) {
-    let collection = panel(commands, root, kit);
+    let collection = layout::section(commands, root, kit);
     presentation::title(
         commands,
         collection,
@@ -104,9 +104,12 @@ fn cell(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
                 flex_direction: FlexDirection::Column,
                 row_gap: kit.m.px(6.0),
                 padding: UiRect::all(kit.m.px(8.0)),
-                border_radius: BorderRadius::all(kit.m.px(10.0)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                 ..default()
             },
+            BackgroundColor(tokens::CONTROL.with_alpha(0.45)),
+            BorderColor::all(tokens::BORDER),
             Pickable::IGNORE,
         ))
         .id();
@@ -167,7 +170,7 @@ fn preview(
     model: &State,
     kind: api::BadgeKind,
 ) {
-    let section = panel(commands, root, kit);
+    let section = layout::inset(commands, root, kit);
     heading(commands, section, kit, name(kind).text(lang));
     let requirement = match kind {
         api::BadgeKind::Daily => Phrase::ChallengeEarnDaily,

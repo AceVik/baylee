@@ -9,30 +9,25 @@ mod map;
 mod ranking;
 mod upgrades;
 
-pub(super) fn entry(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, model: &State) {
-    let card = panel(commands, body, kit);
-    commands.entity(card).insert(BorderColor {
-        top: tokens::GOLD,
-        ..BorderColor::all(tokens::BORDER)
-    });
-    let copy = presentation::feature(
+pub(super) fn entry(
+    commands: &mut Commands,
+    body: Entity,
+    kit: Kit,
+    lang: Lang,
+    model: &State,
+) -> Entity {
+    let card = entry_card(
         commands,
-        card,
+        body,
         kit,
         crate::challenge_art::Scene::Tower,
         Phrase::TowerNav.text(lang),
-    );
-    label(
-        commands,
-        copy,
-        kit,
         Phrase::TowerLead.text(lang),
-        tokens::MUTED,
     );
     if let Some(run) = &model.tower.run {
         presentation::tower_score(
             commands,
-            copy,
+            card,
             kit,
             lang,
             (
@@ -42,6 +37,8 @@ pub(super) fn entry(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang,
             ),
         );
     }
+    let space = crate::lobby::parts::grow(commands);
+    commands.entity(card).add_child(space);
     control(
         commands,
         card,
@@ -50,8 +47,15 @@ pub(super) fn entry(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang,
         Phrase::TowerOpen,
         TowerAction::Open,
         model,
-        Weight::Gold,
+        // Gold is the way back into something begun; a tower not yet
+        // entered stands behind the day's and the week's own primaries.
+        if model.tower.run.is_some() {
+            Weight::Gold
+        } else {
+            Weight::Secondary
+        },
     );
+    card
 }
 
 pub(super) fn draw(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, model: &State) {

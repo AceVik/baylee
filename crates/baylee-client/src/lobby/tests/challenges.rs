@@ -246,6 +246,40 @@ fn challenge_pages_scroll_over_empty_space_and_keep_the_offset_on_refresh() {
     }
 }
 
+/// The task's page is organised, not a run of small lines: its groups are
+/// named, its long reads stay folded, and the rankings are one table whose
+/// columns are named once.
+#[test]
+fn a_task_page_names_its_groups_and_ranks_in_one_table() {
+    for lang in [Lang::En, Lang::De] {
+        let (mut app, _jobs) = screen(lang);
+        let said = labels(&mut app);
+        for caption in [
+            Phrase::ChallengeSectionProgress,
+            Phrase::ChallengePrivacy,
+            Phrase::ChallengeStatRank,
+            Phrase::ChallengeStatPlayer,
+            Phrase::ChallengeStatTurns,
+            Phrase::ChallengeStatFailures,
+            Phrase::ChallengeStatTime,
+        ] {
+            let caption = caption.text(lang).to_uppercase();
+            assert_eq!(
+                said.iter().filter(|line| **line == caption).count(),
+                1,
+                "{caption} names one group or column: {said:?}"
+            );
+        }
+        for shown in [Phrase::ChallengeConsent, Phrase::ChallengeNoScores] {
+            assert!(said.contains(&shown.text(lang).to_string()), "{said:?}");
+        }
+        for folded in [Phrase::ChallengeRules, Phrase::ChallengeBadgeRules] {
+            assert!(!said.contains(&folded.text(lang).to_string()), "{said:?}");
+        }
+        assert!(!said.contains(&"4 Lightning Bolt".to_string()), "{said:?}");
+    }
+}
+
 #[test]
 fn hint_confirmation_blocks_other_actions_and_cancel_never_reveals_a_hint() {
     let (mut app, _jobs) = screen(Lang::De);

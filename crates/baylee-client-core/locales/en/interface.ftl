@@ -10061,6 +10061,12 @@ ChallengeNotEarned = Not earned yet
 # Global challenge interface.
 ChallengePendingResult = Your last result is being checked. Refresh to see the confirmed score and badge progress.
 
+# The Daily and Weekly pages' section captions and the ranking table's head.
+ChallengeSectionProgress = Your progress
+ChallengeArchiveTitle = Archive
+ChallengeStatPlayer = Player
+ChallengePrivacy = Public ranking
+
 # Tower Echoes: authority-owned expeditions played at gateways.
 EchoesTitle = Tower Echoes
 TowerRunTitle = Tower run

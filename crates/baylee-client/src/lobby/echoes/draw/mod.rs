@@ -43,28 +43,28 @@ fn panel(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
     card
 }
 
-pub(in crate::lobby) fn entry(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang) {
-    let card = panel(commands, root, kit);
-    let copy = presentation::feature(
+pub(in crate::lobby) fn entry(
+    commands: &mut Commands,
+    root: Entity,
+    kit: Kit,
+    lang: Lang,
+) -> Entity {
+    let card = crate::lobby::challenges::draw::entry_card(
         commands,
-        card,
+        root,
         kit,
         crate::challenge_art::Scene::Tower,
         Phrase::EchoesTitle.text(lang),
-    );
-    label(
-        commands,
-        copy,
-        kit,
         Phrase::EchoesLead.text(lang),
-        tokens::MUTED,
     );
+    let space = crate::lobby::parts::grow(commands);
+    commands.entity(card).add_child(space);
     let button = controls::button_with_icon(
         commands,
         kit,
         glyph::COMPASS,
         Phrase::EchoesOpen.text(lang),
-        Weight::Gold,
+        Weight::Secondary,
         Live::Yes,
         None,
         Press::Echoes(Action::Open),
@@ -76,6 +76,7 @@ pub(in crate::lobby) fn entry(commands: &mut Commands, root: Entity, kit: Kit, l
             "echoes",
         ));
     commands.entity(card).add_child(button);
+    card
 }
 
 pub(in crate::lobby) fn draw(
