@@ -100,6 +100,7 @@ pub mod music;
 pub mod paystage;
 pub mod peekchips;
 pub mod phasepace;
+pub mod portrait;
 pub mod prefs;
 pub mod prose;
 pub mod quiet;
