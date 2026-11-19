@@ -226,14 +226,18 @@ mod exploration_tests {
             assert!(on_policy(extra).is_err(), "{why}");
         }
         for epsilon in ["0", "1", "1.5", "NaN"] {
-            let args = on_policy(&["--explore-rules", "mass", "--explore-epsilon", epsilon]).unwrap();
+            let args =
+                on_policy(&["--explore-rules", "mass", "--explore-epsilon", epsilon]).unwrap();
             assert!(setup(&args).is_err(), "ε {epsilon}");
         }
         let args = on_policy(&["--explore-rules", "nope", "--explore-epsilon", "0.2"]).unwrap();
         assert!(setup(&args).is_err(), "an unknown group");
         let mut args = on_policy(&["--explore-rules", "mass", "--explore-epsilon", "0.2"]).unwrap();
         args.collection_purpose = collector::Purpose::Evaluation;
-        assert!(setup(&args).is_err(), "an evaluation plays what it measures");
+        assert!(
+            setup(&args).is_err(),
+            "an evaluation plays what it measures"
+        );
         let args = on_policy(&[
             "--explore-rules",
             "mass",
@@ -243,6 +247,12 @@ mod exploration_tests {
             "mass",
         ])
         .unwrap();
-        assert!(exploration_setup(&args, &collector::Contract::new(&args, Some(&identity())).unwrap()).is_err());
+        assert!(
+            exploration_setup(
+                &args,
+                &collector::Contract::new(&args, Some(&identity())).unwrap()
+            )
+            .is_err()
+        );
     }
 }

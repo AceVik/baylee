@@ -52,9 +52,7 @@ pub fn sample_subset_constrained(
                     0.0
                 };
                 let l_noisy = logits[i] + noise;
-                let entry = greedy_best
-                    .entry(id)
-                    .or_insert((i, f32::NEG_INFINITY, 0.0));
+                let entry = greedy_best.entry(id).or_insert((i, f32::NEG_INFINITY, 0.0));
                 if l_noisy > entry.1 {
                     entry.0 = i;
                     entry.1 = l_noisy;
@@ -77,8 +75,7 @@ pub fn sample_subset_constrained(
             let take = can_take
                 && (!can_skip
                     || if tau <= 0.35 {
-                        let &(best_i, best_l, p_sum) =
-                            greedy_best.get(&id).expect("counted above");
+                        let &(best_i, best_l, p_sum) = greedy_best.get(&id).expect("counted above");
                         i == best_i
                             && (required.contains(&id)
                                 || best_l > 0.0
@@ -346,8 +343,7 @@ pub fn subset_free_mask_of(
 #[must_use]
 pub fn pair_free_mask_of(cands: &EncodedCandidates4, mask: &[u8]) -> Option<Vec<u8>> {
     let n = mask.len();
-    if n > cands.pair_objects.len() || n > cands.pairs.len() || mask.iter().any(|&bit| bit > 1)
-    {
+    if n > cands.pair_objects.len() || n > cands.pairs.len() || mask.iter().any(|&bit| bit > 1) {
         return None;
     }
     let mut free_mask = vec![0_u8; n];
