@@ -3524,7 +3524,21 @@ pub(super) fn write_clipboard(
 /// Counts the Undo down, and sends what it was holding back when it runs
 /// out or the player leaves the Decks screen (S-10). The countdown itself
 /// marks nothing changed: a rebuild a frame would be a flicker a second.
-pub(super) fn undo_clock(time: Res<Time>, mut state: ResMut<LobbyState>, mailbox: Res<Mailbox>) {
+pub(super) fn undo_clock(
+    time: Res<Time>,
+    mut state: ResMut<LobbyState>,
+    mailbox: Res<Mailbox>,
+    scrims: Query<
+        Entity,
+        (
+            With<crate::shellkit::surfaces::ModalScrim>,
+            Without<crate::shellkit::controls::FloatingTooltip>,
+        ),
+    >,
+    parents: Query<&ChildOf>,
+    vis: Query<&Visibility, Without<crate::shellkit::controls::FloatingTooltip>>,
+    nodes: Query<&Node, Without<crate::shellkit::controls::FloatingTooltip>>,
+) {
     // A restore that landed offers its Undo.
     if state.undo.is_none() && state.lobby.library().restored.is_some() {
         state.undo = Some(Undo {
@@ -3535,6 +3549,11 @@ pub(super) fn undo_clock(time: Res<Time>, mut state: ResMut<LobbyState>, mailbox
     let Some(undo) = state.undo else {
         return;
     };
+    if scrims.iter().any(|scrim| {
+        crate::shellkit::controls::tooltip_owner_visible(scrim, &parents, &vis, &nodes)
+    }) {
+        return;
+    }
     let on_decks = !state.settings_open()
         && matches!(state.lobby.screen(), Screen::Table)
         && state.lobby.awaiting().is_none()

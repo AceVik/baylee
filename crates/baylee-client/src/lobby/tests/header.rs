@@ -785,6 +785,20 @@ fn the_toast_lane_stands_on_the_update_card_and_not_over_it() {
         rest.place(Some((336.0, 216.0))),
         (Val::Px(336.0), Val::Px(224.0))
     );
+    // A modal foot 180 above the bottom raises the lane above it, and clears
+    // whichever of the card or the foot stands higher.
+    assert_eq!(
+        rest.place_above(None, Some(180.0)),
+        (Val::Px(16.0), Val::Px(188.0))
+    );
+    assert_eq!(
+        rest.place_above(Some((16.0, 136.0)), Some(180.0)),
+        (Val::Px(16.0), Val::Px(188.0))
+    );
+    assert_eq!(
+        rest.place_above(Some((336.0, 216.0)), Some(180.0)),
+        (Val::Px(336.0), Val::Px(224.0))
+    );
 }
 
 /// The toast lanes standing.

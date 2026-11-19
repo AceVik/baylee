@@ -4742,7 +4742,10 @@ in the bottom-right corner, under the header on a Phone
 (`header::toast_lane`), in a lane of its own outside the lobby's tree. The
 update card holds the same corner, so the lane stands on top of it, right
 edge on right edge and one gap above, and follows it as it comes, grows and
-goes (`header::LaneRest::place`, `stand_over_the_update_card`). Each toast's cross takes that toast away, named by
+goes (`header::LaneRest::place_above`, `stand_over_the_update_card`); while a
+modal scrim stands (`ModalScrim`), non-refusal notices wait behind it without
+ageing and refusal toasts stand one gap above the modal's foot (`ModalFoot`),
+clear of its buttons. Each toast's cross takes that toast away, named by
 the number it came with (`header::ToastId`), never by its place in the lane.
 The lane is put away when a table opens (`put_the_toasts_away`), and what it
 said does not come back after the game: it ages and answers its cross only
@@ -4968,9 +4971,9 @@ as a scroller of its own in the body, and a foot of its own
 (`front::terms::foot`): Decline stands apart on the left, Later and the
 primary together on the right, each as wide as its words, never the kit's
 equal shares, which cut a label of 38 characters at its face (owner,
-19.11.2026). Where the row is too short, the answers keep the upper line
-and Decline goes under them; a phone stacks all three at full width, the
-primary on top. **Later** signs an account out with nothing
+19.11.2026). The dialog is wide enough for all three German answers to stand
+on one row on desktop; where a narrower viewport is too short, `WrapReverse`
+keeps the primary on the upper line and puts Decline under the ways on. **Later** signs an account out with nothing
 accepted (owner, 20.10.2026, replacing the 14.10 rule of no such button); a
 guest has none. On a gateway's terms with a session at Central it leaves that
 gateway alone, and says so ("Later (leave this gateway)"). A Baylee account's Decline deletes only its data on this

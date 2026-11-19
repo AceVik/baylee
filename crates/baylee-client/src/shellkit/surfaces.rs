@@ -586,6 +586,7 @@ pub struct SheetScroller;
 pub fn dialog_button_row(commands: &mut Commands, kit: Kit, entities: &[Entity]) -> Entity {
     let row = commands
         .spawn((
+            ModalFoot,
             Node {
                 width: Val::Percent(100.0),
                 column_gap: px_fixed(kit.m.gap),
@@ -752,6 +753,7 @@ fn sheet_box_parts<C: Bundle>(
     };
     let foot = commands
         .spawn((
+            ModalFoot,
             footer_marker,
             Node {
                 width: Val::Percent(100.0),
@@ -1051,6 +1053,11 @@ pub fn dialog(
 /// [`GlobalZIndex`] cannot bleed over an active modal dialog.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ModalScrim;
+
+/// Marks the bottom footer or action row of a modal dialog so floating refusal
+/// toasts (`lobby::header::toast_lane`) stand above the modal's buttons.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ModalFoot;
 
 /// Standardized modal scrim backdrop centering `surface` at `z_index` and
 /// attaching `action` for click-outside dismissal.

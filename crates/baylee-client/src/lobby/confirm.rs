@@ -662,6 +662,7 @@ fn dialog_body(commands: &mut Commands, fonts: &UiFonts, metrics: Metrics, text:
 fn dialog_actions(commands: &mut Commands, buttons: &[Entity]) -> Entity {
     let row = commands
         .spawn((
+            crate::shellkit::surfaces::ModalFoot,
             Node {
                 width: percent(100),
                 flex_direction: FlexDirection::Row,
