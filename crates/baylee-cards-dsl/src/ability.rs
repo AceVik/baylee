@@ -1568,6 +1568,22 @@ mod tests {
             amount: Amount::Fixed(3),
             target: TargetSpec::Object(&crate::Filter::CREATURE),
         }];
+        // Typecycling (CR 702.29e–f) and two neighbours that are not.
+        const LANDCYCLE: &[Effect] = &[Effect::SearchLibrary {
+            filter: &crate::Filter::BASIC_LAND,
+            finds: &[crate::Find::HAND],
+            optional: false,
+        }];
+        const ONTO_BATTLEFIELD: &[Effect] = &[Effect::SearchLibrary {
+            filter: &crate::Filter::BASIC_LAND,
+            finds: &[crate::Find::BATTLEFIELD_TAPPED],
+            optional: false,
+        }];
+        const TWO: &[Effect] = &[Effect::SearchLibrary {
+            filter: &crate::Filter::BASIC_LAND,
+            finds: &[crate::Find::HAND, crate::Find::HAND],
+            optional: false,
+        }];
         let ability = |cost, effects, zone| AbilityDef::Activated {
             cost,
             effects,
@@ -1587,21 +1603,6 @@ mod tests {
         assert!(!activated(false).is_cycling());
 
         // Typecycling (CR 702.29e–f): one mandatory search for the hand.
-        const LANDCYCLE: &[Effect] = &[Effect::SearchLibrary {
-            filter: &crate::Filter::BASIC_LAND,
-            finds: &[crate::Find::HAND],
-            optional: false,
-        }];
-        const ONTO_BATTLEFIELD: &[Effect] = &[Effect::SearchLibrary {
-            filter: &crate::Filter::BASIC_LAND,
-            finds: &[crate::Find::BATTLEFIELD_TAPPED],
-            optional: false,
-        }];
-        const TWO: &[Effect] = &[Effect::SearchLibrary {
-            filter: &crate::Filter::BASIC_LAND,
-            finds: &[crate::Find::HAND, crate::Find::HAND],
-            optional: false,
-        }];
         assert!(ability(DISCARD, LANDCYCLE, ActivationZone::Hand).is_cycling());
         assert!(!ability(DISCARD, ONTO_BATTLEFIELD, ActivationZone::Hand).is_cycling());
         assert!(!ability(DISCARD, TWO, ActivationZone::Hand).is_cycling());
