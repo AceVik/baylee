@@ -239,6 +239,21 @@ the Central Git sources move (the eight pinned crates and `central-funding`,
 `central-mail` and `central-picture` under them), and no registry package.
 The same exact-source and reverse-consumer checks remain in force.
 
+The profile-pictures pin advances to
+`7e6c6a65a3aefa3d37645a0e31fc92058b29259e` on 19 November 2026 (native
+`SocialRequest::Pictures` keys, M6, and the SVT-AV1 animated-picture encoder
+fallback). The three SDK manifests, Central's root manifest and lockfile, its
+`ops/grants.sql`, `central-api` and the entire `central-crypto` tree are
+byte-for-byte unchanged from `5e14290b74afdebb7dc704cf37ded110044cc50a`.
+`central-identity` permits `SocialRequest::Pictures` on the native listener
+while still refusing picture reports, `central-picture-codec` falls back to
+`libsvtav1` for opaque animations where ffmpeg lacks `libaom-av1`, and
+`central-client` updates its picture doc comments. None of it is cryptography
+and none adds a dependency; in Baylee's lockfile only the Central Git sources
+move (the eight pinned crates and `central-funding`, `central-mail` and
+`central-picture` under them), and no registry package. The same exact-source
+and reverse-consumer checks remain in force.
+
 The former Central revision
 `0a941953f8c0d5573e82e0979e7faf1fb9e40299` contains the `central-crypto`
 source tree reviewed independently by two models on 24.10.2026, with two
