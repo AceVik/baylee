@@ -147,6 +147,17 @@ fn build_execution_providers(
                 "Accelerator 'migraphx' requested, but baylee-driver was built without --features migraphx"
             );
         }
+        AcceleratorKind::VitisAi => {
+            #[cfg(feature = "vitis")]
+            {
+                eps.push(dispatch_policy(ort::ep::Vitis::default().build(), strict));
+            }
+            #[cfg(not(feature = "vitis"))]
+            anyhow::ensure!(
+                !strict,
+                "Accelerator 'vitis' requested, but baylee-driver was built without --features vitis"
+            );
+        }
         AcceleratorKind::Qnn => {
             #[cfg(feature = "qnn")]
             {

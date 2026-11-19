@@ -15,8 +15,14 @@ pub enum AcceleratorKind {
     /// compiled and available on the host (NPU -> GPU -> SIMD CPU).
     #[default]
     Auto,
-    /// Intel AI Boost NPU / Arc GPU via `OpenVINO` (`acenb` Meteor Lake / Lunar Lake).
+    /// Intel AI Boost NPU / Arc GPU via `OpenVINO` (Intel Core Ultra devices).
     OpenVino,
+    /// AMD Ryzen AI (XDNA) NPU via the `Vitis AI` provider, as in `acenb`'s
+    /// Ryzen 7 PRO 7840U (Phoenix). It runs INT8-quantized graphs, and
+    /// Phoenix needs the provider's legacy `X1` backend; neither the INT8
+    /// graph nor that backend choice is built yet, so a session asked for it
+    /// falls back to the CPU unless strict.
+    VitisAi,
     /// Apple Neural Engine (ANE) and Apple Silicon GPU via `CoreML` (macOS / iOS).
     CoreMl,
     /// Windows DirectX 12 GPU and NPU via `DirectML` (AMD, Intel Arc, NVIDIA, Snapdragon X).
@@ -25,9 +31,11 @@ pub enum AcceleratorKind {
     TensorRt,
     /// NVIDIA CUDA execution provider (`bigace` RTX 4070 Ti and player `GeForce` GPUs).
     Cuda,
-    /// AMD `ROCm` execution provider.
+    /// AMD `ROCm` execution provider (Radeon GPUs).
     Rocm,
-    /// AMD `MIGraphX` execution provider.
+    /// AMD `MIGraphX` execution provider (Radeon GPUs, among them integrated
+    /// RDNA 3 such as `acenb`'s Radeon 780M, which `ROCm` does not officially
+    /// support).
     MiGraphX,
     /// Qualcomm AI Engine Direct (Hexagon NPU).
     Qnn,
@@ -50,6 +58,7 @@ impl AcceleratorKind {
         match self {
             Self::Auto => "auto",
             Self::OpenVino => "openvino",
+            Self::VitisAi => "vitis",
             Self::CoreMl => "coreml",
             Self::DirectMl => "directml",
             Self::TensorRt => "tensorrt",
@@ -85,7 +94,8 @@ impl AcceleratorKind {
             | Self::Qnn
             | Self::NnApi
             | Self::WebGpu => true,
-            Self::Auto | Self::OneDnn | Self::Xnnpack | Self::Cpu => false,
+            // XDNA quantizes from the `FP32` graph; it has no `FP16` path.
+            Self::Auto | Self::VitisAi | Self::OneDnn | Self::Xnnpack | Self::Cpu => false,
         }
     }
 
@@ -96,67 +106,32 @@ impl AcceleratorKind {
         if self != Self::Auto {
             return self;
         }
-        #[cfg(feature = "openvino")]
-        {
-            return Self::OpenVino;
-        }
-        #[cfg(all(not(feature = "openvino"), feature = "coreml", target_os = "macos"))]
-        {
-            return Self::CoreMl;
-        }
-        #[cfg(all(
-            not(feature = "openvino"),
-            not(all(feature = "coreml", target_os = "macos")),
-            feature = "directml",
-            target_os = "windows"
-        ))]
-        {
-            return Self::DirectMl;
-        }
-        #[cfg(all(
-            not(feature = "openvino"),
-            not(all(feature = "coreml", target_os = "macos")),
-            not(all(feature = "directml", target_os = "windows")),
-            feature = "tensorrt"
-        ))]
-        {
-            return Self::TensorRt;
-        }
-        #[cfg(all(
-            not(feature = "openvino"),
-            not(all(feature = "coreml", target_os = "macos")),
-            not(all(feature = "directml", target_os = "windows")),
-            not(feature = "tensorrt"),
-            feature = "cuda"
-        ))]
-        {
-            return Self::Cuda;
-        }
-        #[cfg(all(
-            not(feature = "openvino"),
-            not(all(feature = "coreml", target_os = "macos")),
-            not(all(feature = "directml", target_os = "windows")),
-            not(feature = "tensorrt"),
-            not(feature = "cuda"),
-            feature = "rocm"
-        ))]
-        {
-            return Self::Rocm;
-        }
-        #[cfg(all(
-            not(feature = "openvino"),
-            not(all(feature = "coreml", target_os = "macos")),
-            not(all(feature = "directml", target_os = "windows")),
-            not(feature = "tensorrt"),
-            not(feature = "cuda"),
-            not(feature = "rocm"),
-            feature = "webgpu"
-        ))]
-        {
-            return Self::WebGpu;
-        }
-        #[allow(unreachable_code)]
-        Self::Cpu
+        Self::compiled_in_priority()
+            .into_iter()
+            .find_map(|(compiled, kind)| compiled.then_some(kind))
+            .unwrap_or(Self::Cpu)
+    }
+
+    /// The backends [`AcceleratorKind::Auto`] may pick, NPU first, then GPU,
+    /// each with whether this build carries it; the CPU is the last resort.
+    fn compiled_in_priority() -> [(bool, Self); 9] {
+        [
+            (cfg!(feature = "openvino"), Self::OpenVino),
+            (cfg!(feature = "vitis"), Self::VitisAi),
+            (
+                cfg!(all(feature = "coreml", target_os = "macos")),
+                Self::CoreMl,
+            ),
+            (
+                cfg!(all(feature = "directml", target_os = "windows")),
+                Self::DirectMl,
+            ),
+            (cfg!(feature = "tensorrt"), Self::TensorRt),
+            (cfg!(feature = "cuda"), Self::Cuda),
+            (cfg!(feature = "rocm"), Self::Rocm),
+            (cfg!(feature = "migraphx"), Self::MiGraphX),
+            (cfg!(feature = "webgpu"), Self::WebGpu),
+        ]
     }
 }
 
@@ -166,7 +141,15 @@ impl FromStr for AcceleratorKind {
     fn from_str(raw: &str) -> Result<Self, Self::Err> {
         match raw.trim().to_ascii_lowercase().as_str() {
             "auto" | "" => Ok(Self::Auto),
-            "npu" | "openvino" | "intel_npu" | "intel-npu" => Ok(Self::OpenVino),
+            "openvino" | "intel_npu" | "intel-npu" => Ok(Self::OpenVino),
+            "vitis" | "vitisai" | "vitis_ai" | "amd_npu" | "amd-npu" | "xdna" | "ryzen_ai"
+            | "ryzen-ai" => Ok(Self::VitisAi),
+            // Every vendor's NPU has its own provider; a bare `npu` would
+            // pick one by guess.
+            "npu" => bail!(
+                "'npu' names no single provider: use 'intel_npu' (OpenVINO), \
+                 'amd_npu' (Vitis AI), 'ane' (CoreML) or 'qnn' (Snapdragon)"
+            ),
             "coreml" | "ane" | "metal" | "apple" => Ok(Self::CoreMl),
             "directml" | "dml" | "dx12" => Ok(Self::DirectMl),
             "tensorrt" | "trt" => Ok(Self::TensorRt),
@@ -289,9 +272,25 @@ mod tests {
     #[test]
     fn parses_all_accelerator_aliases_and_precision_preferences() {
         assert_eq!(
-            AcceleratorKind::from_str("npu").unwrap(),
+            AcceleratorKind::from_str("intel_npu").unwrap(),
             AcceleratorKind::OpenVino
         );
+        for amd in ["amd_npu", "xdna", "vitis", "ryzen-ai"] {
+            assert_eq!(
+                AcceleratorKind::from_str(amd).unwrap(),
+                AcceleratorKind::VitisAi
+            );
+        }
+        let bare = AcceleratorKind::from_str("npu").unwrap_err().to_string();
+        assert!(
+            bare.contains("amd_npu") && bare.contains("intel_npu"),
+            "{bare}"
+        );
+        assert_eq!(
+            AcceleratorKind::from_str(AcceleratorKind::VitisAi.as_str()).unwrap(),
+            AcceleratorKind::VitisAi
+        );
+        assert!(!AcceleratorKind::VitisAi.prefers_fp16_graph());
         assert_eq!(
             AcceleratorKind::from_str("coreml").unwrap(),
             AcceleratorKind::CoreMl
@@ -313,5 +312,20 @@ mod tests {
         assert!(AcceleratorKind::DirectMl.prefers_fp16_graph());
         assert!(AcceleratorKind::Cuda.prefers_fp16_graph());
         assert!(!AcceleratorKind::Cpu.prefers_fp16_graph());
+    }
+
+    #[test]
+    fn auto_picks_the_first_compiled_backend_or_the_cpu() {
+        let first = AcceleratorKind::compiled_in_priority()
+            .into_iter()
+            .find_map(|(compiled, kind)| compiled.then_some(kind));
+        assert_eq!(
+            AcceleratorKind::Auto.resolve_auto(),
+            first.unwrap_or(AcceleratorKind::Cpu)
+        );
+        assert_eq!(
+            AcceleratorKind::MiGraphX.resolve_auto(),
+            AcceleratorKind::MiGraphX
+        );
     }
 }

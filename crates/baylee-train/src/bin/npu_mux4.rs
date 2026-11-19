@@ -71,7 +71,8 @@ struct Cli {
     #[arg(long)]
     thinking_steps: Option<u8>,
 
-    /// Target hardware execution provider (`auto`, `openvino`, `coreml`, `directml`, `cuda`, `cpu`).
+    /// Target hardware execution provider (`auto`, `openvino`, `vitis`, `coreml`, `directml`,
+    /// `cuda`, `rocm`, `migraphx`, `webgpu`, `cpu`; a bare `npu` is refused as ambiguous).
     #[arg(long, default_value = "auto")]
     accelerator: AcceleratorKind,
 

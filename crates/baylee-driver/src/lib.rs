@@ -1,10 +1,12 @@
 //! `baylee-driver` — Multi-hardware Baylee AI runtime driver & tiered NPU/GPU/CPU session multiplexer.
 //!
-//! Designed to be compiled both into the dedicated NPU server (`acenb`) and directly
-//! into player client binaries across Windows (`DirectML`, `CUDA`, `OpenVINO`),
-//! macOS/iOS (`CoreML` Apple Neural Engine / M-series GPU), Linux (`OpenVINO`,
-//! `ROCm`, `CUDA`, `OneDNN`), Android (`QNN`, `NNAPI`), and Web (`WebGPU`),
-//! without pulling in any training-only dependencies (`baylee-train`).
+//! Designed to be compiled both into the seat host `acenb` (AMD Ryzen 7 PRO
+//! 7840U: Radeon 780M iGPU, XDNA NPU) and directly into player client binaries
+//! across Windows (`DirectML`, `CUDA`, `OpenVINO`, `Vitis AI`), macOS/iOS
+//! (`CoreML` Apple Neural Engine / M-series GPU), Linux (`OpenVINO`, `Vitis AI`,
+//! `ROCm`, `MIGraphX`, `CUDA`, `OneDNN`), Android (`QNN`, `NNAPI`), and Web
+//! (`WebGPU`), without pulling in any training-only dependencies
+//! (`baylee-train`).
 
 #![warn(missing_docs)]
 
