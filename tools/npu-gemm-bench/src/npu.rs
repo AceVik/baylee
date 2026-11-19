@@ -250,12 +250,63 @@ struct Slot<'a> {
     c: crate::xrt::Bo<'a>,
 }
 
+/// What setting up a layer found out before the body ran.
+pub struct LayerInfo {
+    /// FLOPs of one layer (the logical shapes).
+    pub flop: f64,
+    /// The worst GEMM against the f64 reference, when checked.
+    pub check: Option<(f64, f64)>,
+}
+
+/// Runs one layer; with `Some(times)`, pushes each GEMM's run time onto
+/// `times[gemm]`.
+pub type LayerFn<'f> = dyn Fn(Option<&mut [Vec<Duration>]>) -> Result<(), String> + 'f;
+
 /// Runs the GEMMs of `designs` (same M, same tile, so the same PDI) as one
 /// layer in the context of the first one's xclbin, checking each output.
 pub fn bench_layer(designs: &[(DesignSpec, std::path::PathBuf)], warmup: usize, iters: usize) -> Result<LayerResult, String> {
+    with_layer(designs, true, |layer_once, info| {
+        for _ in 0..warmup {
+            layer_once(None)?;
+        }
+        let mut run_times = vec![Vec::with_capacity(iters); designs.len()];
+        let mut layer_times = Vec::with_capacity(iters);
+        for _ in 0..iters {
+            let t = Instant::now();
+            layer_once(Some(&mut run_times))?;
+            layer_times.push(t.elapsed());
+        }
+        let layer = Summary::of(&layer_times);
+        let (max_abs, max_rel) = info.check.unwrap_or_default();
+        let first = &designs[0].0;
+        Ok(LayerResult {
+            m: first.logical[0],
+            tile: first.tile,
+            xclbin_of: first.name.clone(),
+            designs: designs.iter().map(|(s, _)| s.name.clone()).collect(),
+            gflops_p50: info.flop / (layer.p50_ms * 1e6),
+            layer,
+            run_p50_ms: run_times.iter().map(|t| Summary::of(t).p50_ms).collect(),
+            max_abs,
+            max_rel,
+        })
+    })
+}
+
+/// Sets the layer's GEMMs up in one hardware context, runs and checks one
+/// layer when `check` is set (the f64 references cost a few seconds of every
+/// core), then hands `body` the function that runs one layer.
+pub fn with_layer<R>(
+    designs: &[(DesignSpec, std::path::PathBuf)],
+    check: bool,
+    body: impl FnOnce(&LayerFn<'_>, &LayerInfo) -> Result<R, String>,
+) -> Result<R, String> {
     let (first, first_dir) = designs.first().ok_or("no designs for the layer")?;
-    if designs.iter().any(|(s, _)| s.tile != first.tile || s.padded[0] != first.padded[0]) {
-        return Err("a layer needs one M and one tile".to_owned());
+    if designs
+        .iter()
+        .any(|(s, _)| s.tile != first.tile || s.padded[0] != first.padded[0] || s.dtype_out != "f32")
+    {
+        return Err("a layer needs one M, one tile and f32 output".to_owned());
     }
     let npu = Npu::open(&first_dir.join("final.xclbin"), "MLIR_AIE")?;
     let mut slots = Vec::new();
@@ -280,7 +331,9 @@ pub fn bench_layer(designs: &[(DesignSpec, std::path::PathBuf)], warmup: usize, 
         slot.b.sync(Sync::ToDevice)?;
         slot.c.fill(0xFF);
         slot.c.sync(Sync::ToDevice)?;
-        refs.push(cpu::reference_f64(&a.wide, &b.wide, (m, k, n)));
+        if check {
+            refs.push(cpu::reference_f64(&a.wide, &b.wide, (m, k, n)));
+        }
         flop += 2.0 * (m * k * n) as f64;
         slots.push(slot);
     }
@@ -302,39 +355,22 @@ pub fn bench_layer(designs: &[(DesignSpec, std::path::PathBuf)], warmup: usize, 
         Ok(())
     };
     layer_once(None)?;
-    let (mut max_abs, mut max_rel) = (0.0_f64, 0.0_f64);
-    for ((spec, _), (slot, reference)) in designs.iter().zip(slots.iter().zip(&refs)) {
-        let [m, _, n] = spec.logical;
-        let got = crop(&slot.c.read_f32(spec.padded[0] * spec.padded[2]), (m, n), spec.padded[2]);
-        let e = data::compare(&got, reference);
-        if e.non_finite > 0 || e.max_rel > 1e-3 {
-            return Err(format!("{} in a shared context: wrong output ({e:?})", spec.name));
+    let mut checked = None;
+    if check {
+        let (mut max_abs, mut max_rel) = (0.0_f64, 0.0_f64);
+        for ((spec, _), (slot, reference)) in designs.iter().zip(slots.iter().zip(&refs)) {
+            let [m, _, n] = spec.logical;
+            let got = crop(&slot.c.read_f32(spec.padded[0] * spec.padded[2]), (m, n), spec.padded[2]);
+            let e = data::compare(&got, reference);
+            if e.non_finite > 0 || e.max_rel > 1e-3 {
+                return Err(format!("{} in a shared context: wrong output ({e:?})", spec.name));
+            }
+            max_abs = max_abs.max(e.max_abs);
+            max_rel = max_rel.max(e.max_rel);
         }
-        max_abs = max_abs.max(e.max_abs);
-        max_rel = max_rel.max(e.max_rel);
+        checked = Some((max_abs, max_rel));
     }
-    for _ in 0..warmup {
-        layer_once(None)?;
-    }
-    let mut run_times = vec![Vec::with_capacity(iters); slots.len()];
-    let mut layer_times = Vec::with_capacity(iters);
-    for _ in 0..iters {
-        let t = Instant::now();
-        layer_once(Some(&mut run_times))?;
-        layer_times.push(t.elapsed());
-    }
-    let layer = Summary::of(&layer_times);
-    Ok(LayerResult {
-        m: first.logical[0],
-        tile: first.tile,
-        xclbin_of: first.name.clone(),
-        designs: designs.iter().map(|(s, _)| s.name.clone()).collect(),
-        gflops_p50: flop / (layer.p50_ms * 1e6),
-        layer,
-        run_p50_ms: run_times.iter().map(|t| Summary::of(t).p50_ms).collect(),
-        max_abs,
-        max_rel,
-    })
+    body(&layer_once, &LayerInfo { flop, check: checked })
 }
 
 #[cfg(test)]
