@@ -105,6 +105,31 @@ fn rejects_broken_history_and_off_policy_actions() {
     }
 }
 
+/// A blocker draw the attackers' counts changed carries no probability
+/// (`sample_pairs_constrained`): it is admitted but counts as no actor
+/// decision. Only the pair head may lack one, and only with a zero logprob.
+#[test]
+fn a_blocker_draw_without_probability_is_admitted_but_not_counted() {
+    let undrawn = |rows: &mut Vec<Value>, head: u8, logprob: f64| {
+        rows[0]["head"] = json!(head);
+        rows[0]["cand_feat"] = json!([[], []]);
+        rows[0]["pairs"] = json!([[], []]);
+        rows[0]["target"] = json!({"multi_mask":[1,0],"free_mask":[1,0]});
+        rows[0]["provenance"]["has_logprob"] = json!(false);
+        rows[0]["provenance"]["behavior_logprob"] = json!(logprob);
+    };
+    let (temp, checkpoint, manifest) = setup(|rows, _| undrawn(rows, 2, 0.0));
+    let report = admit(temp.path(), &checkpoint, &manifest).unwrap();
+    assert_eq!(report["decisions"], 1);
+    for (head, logprob) in [(1, 0.0), (2, -0.7)] {
+        let (temp, checkpoint, manifest) = setup(|rows, _| undrawn(rows, head, logprob));
+        assert!(
+            admit(temp.path(), &checkpoint, &manifest).is_err(),
+            "head {head}, logprob {logprob}"
+        );
+    }
+}
+
 #[test]
 fn rejects_unbound_roles_and_invalid_games() {
     for variant in 0..5 {

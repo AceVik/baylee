@@ -22,18 +22,24 @@ impl PolicyMode4 {
         }
     }
 
+    /// `logprob` is the answer's log-probability under the sampler, `None`
+    /// where the answer is no plain draw from it (a blocker draw the
+    /// attackers' counts changed, [`sample_pairs_constrained`]); such an
+    /// answer carries no behaviour probability.
     pub(super) fn provenance(
         self,
         temperature: f32,
         thinking_steps: u8,
         head: HeadKind4,
-        logprob: f32,
+        logprob: Option<f32>,
     ) -> StepProvenance4 {
         let neural = self == Self::Raw;
-        let has_logprob = neural
-            && temperature > 0.35
-            && valid_raw_temperature(temperature)
-            && head != HeadKind4::ScalarValue;
+        let behavior_logprob = logprob.filter(|_| {
+            neural
+                && temperature > 0.35
+                && valid_raw_temperature(temperature)
+                && head != HeadKind4::ScalarValue
+        });
         StepProvenance4 {
             source: if neural {
                 SourceKind4::Net
@@ -42,15 +48,16 @@ impl PolicyMode4 {
             },
             temperature,
             thinking_steps,
-            behavior_logprob: if has_logprob { logprob } else { 0.0 },
-            has_logprob,
+            behavior_logprob: behavior_logprob.unwrap_or(0.0),
+            has_logprob: behavior_logprob.is_some(),
         }
     }
 }
 
-/// A sampled answer: the action, its value, its behavior log-probability and
-/// its target.
-pub(super) type Sampled4 = (PlayerAction, f32, f32, TeacherTarget4);
+/// A sampled answer: the action, its value, its behavior log-probability
+/// (`None` where the answer is no plain draw from the sampler) and its
+/// target.
+pub(super) type Sampled4 = (PlayerAction, f32, Option<f32>, TeacherTarget4);
 
 /// Version 2 is stochastic for every policy head only above this boundary.
 #[must_use]
@@ -233,7 +240,7 @@ impl PolicySampler4<'_> {
         view: &PlayerView,
         pending: &Pending,
         outputs: PolicyOutputs4<'_>,
-    ) -> anyhow::Result<(PlayerAction, f32, f32, TeacherTarget4)> {
+    ) -> anyhow::Result<Sampled4> {
         anyhow::ensure!(
             self.mode != PolicyMode4::Raw
                 || self.guard.free_temperature
@@ -289,9 +296,9 @@ impl PolicySampler4<'_> {
         let raw = self.mode == PolicyMode4::Raw;
         let parts = self.guard.tactical;
         let at_priority = matches!(pending, Pending::Priority { .. });
-        let logprob: f32 = if let Some(played) = tactician {
+        let logprob: Option<f32> = if let Some(played) = tactician {
             target = played;
-            0.0
+            None
         } else {
             match cands.head {
                 HeadKind4::SingleChoice => {
@@ -328,7 +335,7 @@ impl PolicySampler4<'_> {
                         chosen_idx,
                     );
                     target.single_idx = chosen_idx as u16;
-                    lp
+                    Some(lp)
                 }
                 HeadKind4::SubsetPick => {
                     let n = cands.candidates.len();
@@ -389,7 +396,7 @@ impl PolicySampler4<'_> {
                     target.multi_mask = mask;
                     target.free_mask = free_mask;
                     target.pick_sequence = seq;
-                    lp
+                    Some(lp)
                 }
                 HeadKind4::PairPick => {
                     let n = cands.pairs.len();
@@ -402,7 +409,7 @@ impl PolicySampler4<'_> {
                         tactics::rules::pairs(self.rules, cands, &mut adjusted, view, pending);
                         adjusted
                     };
-                    let (mask, free_mask, seq, _) = sample_pairs_constrained(
+                    let (mask, free_mask, seq, drawn) = sample_pairs_constrained(
                         &adj_logits,
                         cands,
                         pending,
@@ -437,7 +444,9 @@ impl PolicySampler4<'_> {
                     target.multi_mask = mask;
                     target.free_mask = free_mask;
                     target.pick_sequence = seq;
-                    lp
+                    // Where the attackers' counts changed the draw, `free_mask`
+                    // describes the draw, not this answer: no probability.
+                    drawn.map(|_| lp)
                 }
                 HeadKind4::ScalarValue => {
                     let pred = if raw && !parts.scalar {
@@ -451,7 +460,7 @@ impl PolicySampler4<'_> {
                         normalize_scalar_choice(chosen_int, cands.min_choices, cands.max_choices);
                     target.scalar_norm = norm;
                     // Deterministic regression head: supervised training only.
-                    0.0
+                    None
                 }
             }
         };
