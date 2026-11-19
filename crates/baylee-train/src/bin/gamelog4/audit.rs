@@ -133,6 +133,7 @@ fn game(run: &Path, deal: u64, seed: u64) -> anyhow::Result<BTreeMap<String, Win
             pending,
             action,
             source,
+            ..
         }) = event
         else {
             return Ok(());

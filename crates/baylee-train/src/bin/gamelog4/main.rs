@@ -3,13 +3,16 @@
 //! of the evaluated seat marked by who made it (the net, its search, a
 //! house fallback). `deals` lists the deals the net lost where the house,
 //! playing the same seat of the same deal, won; `patterns` counts recurring
-//! mistakes over them.
+//! mistakes over them. In a run with distillation labels (`eval4
+//! --distill-labels`), `show` marks the answers the tactical layer changed
+//! and `deciders` counts them.
 //!
 //! ```text
 //! gamelog4 deals --summary eval-s1r.json
 //! gamelog4 show --run eval-s1r-records --game 17
 //! gamelog4 patterns --run eval-s1r-records --summary eval-s1r.json
 //! gamelog4 react --run eval-a-records --summary eval-a.json --out react.json
+//! gamelog4 deciders --run distill-records --focus "Toxic Deluge"
 //! ```
 //!
 //! A record is omniscient, so both hands are shown: this is for studying
@@ -25,6 +28,7 @@ use clap::{Parser, Subcommand};
 mod audit;
 mod board;
 mod counters;
+mod deciders;
 mod game;
 mod losses;
 mod names;
@@ -171,6 +175,28 @@ enum Command {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// Who made each answer of a run with distillation labels (`eval4
+    /// --distill-labels`): the net, a part of the tactical layer or a rule
+    /// group, counted by the card the answer is about (`deciders.rs`).
+    Deciders {
+        /// The run's record directory.
+        #[arg(long)]
+        run: PathBuf,
+        /// eval4's summary of the same run; without it, every game the
+        /// run has played so far.
+        #[arg(long)]
+        summary: Option<PathBuf>,
+        /// Which deals.
+        #[arg(long, value_enum, default_value_t = losses::Which::All)]
+        which: losses::Which,
+        /// Games replayed at once.
+        #[arg(long, default_value_t = 8)]
+        threads: usize,
+        /// List each answer about this card (a spell cast, an ability's
+        /// source, or a question such as `ChooseNumber/X`); repeatable.
+        #[arg(long)]
+        focus: Vec<String>,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -227,5 +253,12 @@ fn main() -> anyhow::Result<()> {
             let runs: Vec<_> = run.into_iter().zip(summary).collect();
             react::count(&runs, pilot_deck.as_deref(), cheap, threads, out.as_deref())
         }
+        Command::Deciders {
+            run,
+            summary,
+            which,
+            threads,
+            focus,
+        } => deciders::count(&run, summary.as_deref(), which, threads, &focus),
     }
 }
