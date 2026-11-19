@@ -161,11 +161,14 @@ cp .env.example .env                      # the client's BAYLEE_GATEWAY and DATA
   tasks, and "Register" in the client would open the live website.
   `--central <checkout>` takes a sibling Baylee Central checkout and adds the
   rest, all on numeric loopback:
-  - It builds the checkout's `central-service`, its site server and its
-    website (`cargo xtask site` for the loopback endpoint, so the site calls no
-    production host) and copies them into the state directory: the website is
-    the checkout's, never a stale `target/site`, and a later build there does
-    not change a running stack. The website's front needs `node` on `PATH`.
+  - It builds the checkout's `central-service` with its profile-picture worker
+    (`central-picture-worker`, staged beside it; without it every picture
+    upload is refused; a moving picture also needs an ffmpeg with an AV1
+    encoder), its site server and its website (`cargo xtask site` for the
+    loopback endpoint, so the site calls no production host) and copies them
+    into the state directory: the website is the checkout's, never a stale
+    `target/site`, and a later build there does not change a running stack.
+    The website's front needs `node` on `PATH`.
   - It makes a fresh Central database in the stack's own PostgreSQL (roles,
     migrations, runtime grants, the Tower award issuer) and one synthetic
     administrator, `dev_admin`. Its generated password is written to
