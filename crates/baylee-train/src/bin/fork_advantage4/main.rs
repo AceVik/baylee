@@ -28,6 +28,9 @@
 //! The scores are leaf values and results of the search's own worlds, with
 //! the searching player in every chair: this measures the teacher, and says
 //! nothing about any opponent.
+//!
+//! `--distill` judges the tactical layer's answers instead, from the probes
+//! a measuring search kept with the distillation labels (`distill.rs`).
 
 #![allow(clippy::missing_docs_in_private_items)]
 
@@ -38,6 +41,8 @@ use std::path::PathBuf;
 use anyhow::Context as _;
 use baylee_train::search_labels::{HALVES_MARGIN, Halves, advantage, choose, halves};
 use clap::Parser;
+
+mod distill;
 
 #[derive(Parser)]
 #[command(about = "Judges a search's choices in worlds they were not made in")]
@@ -52,6 +57,12 @@ struct Args {
     /// Where the report goes, as JSON; it is printed either way.
     #[arg(long)]
     out: Option<PathBuf>,
+    /// Judges the tactical layer's answers `R` against the net's `N` from
+    /// the probes the distillation labels keep (`eval4 --search-rival
+    /// distill`): by subtype, rule group, the answers' kinds and how the
+    /// rollouts ended, with standard errors by game.
+    #[arg(long)]
+    distill: bool,
 }
 
 #[derive(serde::Deserialize)]
@@ -291,6 +302,15 @@ impl Judged {
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+    if args.distill {
+        let report = distill::report(&args)?;
+        let text = serde_json::to_string_pretty(&report)?;
+        if let Some(out) = &args.out {
+            std::fs::write(out, &text).with_context(|| format!("{}", out.display()))?;
+        }
+        println!("{text}");
+        return Ok(());
+    }
     let mut all = Judged::default();
     // The same over the games with no house answer in the net's seat and no
     // refused answer: a game the house helped play is no clean teacher.
