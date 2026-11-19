@@ -1096,6 +1096,9 @@ pub(crate) mod settings_press;
 mod shell;
 pub(crate) mod shortcuts;
 mod source;
+/// Profile pictures come from the website's origin (`portraits`).
+#[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+pub(crate) use source::{CENTRAL_WEBSITE_URL, central_website_url};
 mod systems;
 pub(crate) mod table_settings;
 pub(crate) mod thumbnails;

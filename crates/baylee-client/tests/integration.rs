@@ -17,3 +17,5 @@ mod local_projection;
 #[path = "mana/main.rs"]
 mod mana;
 mod network_host;
+#[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+mod picture_frames;

@@ -9,16 +9,16 @@
 //!
 //! # Where a picture comes from
 //!
-//! [`Portraits`] holds the pictures this client has, by account tag. Nothing
-//! fills it from the network yet: Central's native listener does not answer
-//! picture requests before its M6, so a client cannot learn which picture an
-//! account wears. The seam is here so that what is drawn does not change
-//! when it can: a picture laid in [`Portraits`] is drawn in every disc of
-//! that account ([`wear_portraits`]), and a disc without one keeps its
-//! monogram. A picture is outside input
-//! (another player chose it); whatever fills this resource decodes it
-//! bounded (`baylee_avif::Bounds::PICTURE`, 256 pixels square) before it
-//! gets here.
+//! [`Portraits`] holds the pictures this client has, by account tag. The
+//! desktop client fills it from Baylee Central (`crate::portraits`): the
+//! keys of the account's own picture, its contacts' and its groups'
+//! members', each picture fetched, decoded bounded (256 pixels square,
+//! Central's bounds) and kept at half that, off the render thread. A
+//! picture laid in [`Portraits`] is drawn in every disc of that account
+//! ([`wear_portraits`]), and a disc without one keeps its monogram. A
+//! picture that moves keeps one image, whose pixels `crate::portraits`
+//! changes when the frame shown changes, so a playing picture writes no
+//! disc, no node and nothing here.
 
 use std::collections::HashMap;
 
@@ -31,7 +31,16 @@ use crate::hud::{UiFonts, tf_bold};
 /// (`af03`).
 #[derive(Resource, Default)]
 pub struct Portraits {
-    stills: HashMap<String, Handle<Image>>,
+    worn: HashMap<String, Portrait>,
+}
+
+/// One account's picture.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Portrait {
+    /// The image every disc of the account draws.
+    pub image: Handle<Image>,
+    /// Whether the picture moves (its frames play in the same image).
+    pub moving: bool,
 }
 
 impl Portraits {
@@ -39,19 +48,61 @@ impl Portraits {
     /// client has one.
     #[must_use]
     pub fn of(&self, handle: &str) -> Option<Handle<Image>> {
+        self.portrait(handle).map(|portrait| portrait.image.clone())
+    }
+
+    /// The account a handle names, as it wears its picture.
+    #[must_use]
+    pub fn portrait(&self, handle: &str) -> Option<&Portrait> {
         let (_, tag) = handle.rsplit_once('#')?;
-        self.stills.get(tag).cloned()
+        self.worn.get(tag)
+    }
+
+    /// The account with this tag, as it wears its picture.
+    #[must_use]
+    pub fn by_tag(&self, tag: &str) -> Option<&Portrait> {
+        self.worn.get(tag)
+    }
+
+    /// Lays in the still picture of the account with this tag.
+    pub fn set(&mut self, tag: impl Into<String>, picture: Handle<Image>) {
+        self.wear(
+            tag,
+            Portrait {
+                image: picture,
+                moving: false,
+            },
+        );
     }
 
     /// Lays in the picture of the account with this tag.
-    pub fn set(&mut self, tag: impl Into<String>, picture: Handle<Image>) {
-        self.stills.insert(tag.into(), picture);
+    pub fn wear(&mut self, tag: impl Into<String>, portrait: Portrait) {
+        self.worn.insert(tag.into(), portrait);
     }
 
     /// Forgets the picture of the account with this tag: it shows its
     /// monogram again.
     pub fn forget(&mut self, tag: &str) {
-        self.stills.remove(tag);
+        self.worn.remove(tag);
+    }
+
+    /// Every account's picture, by tag.
+    pub fn all(&self) -> impl Iterator<Item = (&str, &Portrait)> {
+        self.worn
+            .iter()
+            .map(|(tag, portrait)| (tag.as_str(), portrait))
+    }
+
+    /// How many accounts wear a picture.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.worn.len()
+    }
+
+    /// Whether no account wears a picture.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.worn.is_empty()
     }
 }
 

@@ -724,6 +724,8 @@ pub(crate) fn install(app: &mut App) {
     sheet::install(app);
     #[cfg(not(target_arch = "wasm32"))]
     vault_ui::install(app);
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+    crate::portraits::install(app);
 }
 
 /// Attaches a hover tooltip that renders in both the lobby (`HoverHint`) and

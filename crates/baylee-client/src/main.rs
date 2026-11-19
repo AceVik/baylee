@@ -23,6 +23,11 @@ fn main() {
     // else, so it returns before the client opens anything.
     #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
     {
+        // A moving profile picture is decoded by this executable started
+        // again as a child (`portraits::helper`); it opens nothing else.
+        if baylee_client::portraits::helper_if_asked() {
+            return;
+        }
         if baylee_client::host::process::helper_if_asked() {
             return;
         }

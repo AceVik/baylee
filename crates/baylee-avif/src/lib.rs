@@ -22,9 +22,14 @@
 //! aborted `rav1d` 1.1.0 on damaged bitstreams
 //! (`tests/real_file.rs::a_damaged_frame_is_an_error_and_never_a_panic`), and
 //! enables ARM64 NEON assembly on `aarch64`. As defense in depth, [`Player`]
-//! remains strictly reserved for trusted assets shipped with the client
-//! ([`Bounds::SHIPPED_LOOP`]), while untrusted profile avatars from the network
-//! ([`Bounds::PICTURE`]) touch only 100% safe [`Sequence::read`].
+//! is opened in the client's own process only on assets shipped with the
+//! client ([`Bounds::SHIPPED_LOOP`]). Untrusted profile pictures from the
+//! network ([`Bounds::PICTURE`]) touch only the 100% safe [`Sequence::read`]
+//! there; their frames are decoded by [`Player`] in a child process of their
+//! own (`baylee-client`'s `portraits::helper`, the PM's decision of
+//! 19.11.2026), whose crash, hang or wrong output costs one picture and never
+//! the client, and which hands back nothing but RGBA of the size the parent's
+//! own reading expects.
 //!
 //! The crate draws nothing and does no I/O: callers hand in bytes and take
 //! planes or RGBA out.

@@ -79,6 +79,14 @@ pub struct Watch {
     game: Option<TableMotion>,
 }
 
+impl Watch {
+    /// Whether the window is minimised or completely occluded.
+    #[must_use]
+    pub fn hidden(&self) -> bool {
+        self.hidden
+    }
+}
+
 /// A phone: never `Continuous` (iOS stops asking for frames, see
 /// `standalone::run`), and its own starting preset.
 const MOBILE: bool = cfg!(any(target_os = "android", target_os = "ios"));
