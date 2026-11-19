@@ -295,6 +295,7 @@ NoticeUnread =
     }
 NoticeFriendRequest = Freundschaftsanfrage von { $player }
 CardYou = Das bist du
+CardFriend = Befreundet
 CardFriendToday = Seit heute befreundet
 CardFriendDays =
     { $count ->
