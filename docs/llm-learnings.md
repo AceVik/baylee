@@ -8060,3 +8060,33 @@ beneath it. What the author missed, for the next brief:
   the reader with codegen tests. `AltCondition::If` is not yet emitted by the
   reader (the corpus's alternative-cost static is still refused); that reader
   work follows with Foil, which needs the same static.
+
+## 2026-11-19 — reader-1: 25 training-deck pool cards and the Morph reader (Carbon author, Claude reviews)
+
+- 25 cards that real training decks need joined the pool through the
+  documented two-phase codegen against the pinned corpus: 5 read in full
+  (Generated), 20 stubs whose first refusal names the reader gap (Delve, Dig,
+  TypeCycling, Dredge, …).
+- The Morph reader (Gemini 4 Carbon High): `K:Morph:<mana>` becomes the face's
+  `morph`, a self `TurnFaceUp` trigger `Trigger::TurnedFaceUp`; 60 morph stubs
+  became Generated. The three hand-written morph cards reproduce through
+  reclaim previews. Non-mana and X morph costs, Megamorph and face-up
+  replacements stay refused.
+- Skirk Commando, Snapping Thragg and Spark Mage print "you may have it …"
+  with no `OptionalDecider$`; `validate` caught them coming out mandatory. The
+  printed "may" is now read only where it opens the effect clause, so a "may"
+  after a mandatory clause never makes the whole chain optional (review,
+  with a test).
+- The gate on Linux found two pins that move with the pool rather than with
+  code: the activation census (a batch states its rows: the Morph cards add
+  eleven activations, ten read) and the generation-7 foresight pin. The fair
+  search's hidden-card prior reads every finished card of the pool, so 65
+  newly finished cards changed one land drop from an identical game state.
+  The pin now plays against the finished-card list it was recorded with.
+- A Scryfall cache filled on another day re-pins about 315 headers in a full
+  codegen run; reader flips go in through `codegen --complete-stub`, and
+  Scryfall's text changes through `xtask refresh-oracle`, both of which keep
+  the pinned printing.
+- 63766aecf ("60 morph cards…") names the pre-rebase SHAs of the Morph reader
+  and the printed-may fix, 57f04e1bc and 03599e646; after the rebase they are
+  636af930d and 3511f4f96.
