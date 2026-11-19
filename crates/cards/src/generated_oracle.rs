@@ -6784,7 +6784,8 @@ pub static ORACLE: &[&[&str]] = &[
     // Knight Errant
     &[""],
     &[],
-    &[],
+    // Lava Axe
+    &["Lava Axe deals 5 damage to target player or planeswalker."],
     // Lava Flow
     &["Destroy target creature or land."],
     // Lizard Warrior
@@ -6830,7 +6831,8 @@ pub static ORACLE: &[&[&str]] = &[
     &["Flying\nWhen this creature enters, draw a card, then discard a card."],
     &[],
     &[],
-    &[],
+    // Phantom Warrior
+    &["This creature can't be blocked."],
     &[],
     // Plant Elemental
     &["When this creature enters, sacrifice it unless you sacrifice a Forest."],
@@ -6907,7 +6909,8 @@ pub static ORACLE: &[&[&str]] = &[
     &["When this creature enters, sacrifice it unless you discard a land card."],
     &[],
     &[],
-    &[],
+    // Time Ebb
+    &["Put target creature on top of its owner's library."],
     &[],
     // Touch of Brilliance
     &["Draw two cards."],
@@ -9304,7 +9307,8 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Goblin Piker
     &[""],
-    &[],
+    // Goblin Raider
+    &["This creature can't block."],
     &[],
     &[],
     // Golden Bear
@@ -9367,7 +9371,10 @@ pub static ORACLE: &[&[&str]] = &[
     // Screeching Drake
     &["Flying\nWhen this creature enters, draw a card, then discard a card."],
     &[],
-    &[],
+    // Sleight of Hand
+    &[
+        "Look at the top two cards of your library. Put one of them into your hand and the other on the bottom of your library.",
+    ],
     &[],
     // Steam Frigate
     &["This creature can't attack unless defending player controls an Island."],
@@ -20513,7 +20520,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Beacon of Destruction
+    &[
+        "Beacon of Destruction deals 5 damage to any target. Shuffle Beacon of Destruction into its owner's library.",
+    ],
     &[],
     &[],
     &[],
@@ -21971,7 +21981,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["Target creature gets -3/-3 until end of turn."],
     &[],
     &[],
-    &[],
+    // Life from the Loam
+    &[
+        "Return up to three target land cards from your graveyard to your hand.\nDredge 3 (If you would draw a card, you may mill three cards instead. If you do, return this card from your graveyard to your hand.)",
+    ],
     &[],
     // Lightning Helix
     &["Lightning Helix deals 3 damage to any target and you gain 3 life."],
@@ -22759,7 +22772,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Mishra's Bauble
+    &[
+        "{T}, Sacrifice this artifact: Look at the top card of target player's library. Draw a card at the beginning of the next turn's upkeep.",
+    ],
     // Mouth of Ronom
     &[
         "{T}: Add {C}.\n{4}{S}, {T}, Sacrifice this land: It deals 4 damage to target creature. ({S} can be paid with one mana from a snow source.)",
@@ -25837,7 +25853,10 @@ pub static ORACLE: &[&[&str]] = &[
         "When this artifact enters, draw a card.\n{5}, {T}, Sacrifice this artifact: Add {W}{U}{B}{R}{G}.",
     ],
     &[],
-    &[],
+    // Knight of the Reliquary
+    &[
+        "This creature gets +1/+1 for each land card in your graveyard.\n{T}, Sacrifice a Forest or Plains: Search your library for a land card, put it onto the battlefield, then shuffle.",
+    ],
     // Knotvine Mystic
     &["{1}, {T}: Add {R}{G}{W}."],
     // Kranioceros
@@ -27969,7 +27988,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Neurok Replica
     &["{1}{U}, Sacrifice this creature: Return target creature to its owner's hand."],
-    &[],
+    // Nihil Spellbomb
+    &[
+        "{T}, Sacrifice this artifact: Exile target player's graveyard.\nWhen this artifact is put into a graveyard from the battlefield, you may pay {B}. If you do, draw a card.",
+    ],
     // Nim Deathmantle
     &[
         "Equipped creature gets +2/+2, has intimidate, and is a black Zombie. (A creature with intimidate can't be blocked except by artifact creatures and/or creatures that share a color with it.)\nWhenever a nontoken creature is put into your graveyard from the battlefield, you may pay {4}. If you do, return that card to the battlefield and attach this Equipment to it.\nEquip {4}",
@@ -32720,7 +32742,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Stubborn Denial
+    &[
+        "Counter target noncreature spell unless its controller pays {1}.\nFerocious — If you control a creature with power 4 or greater, counter that spell instead.",
+    ],
     // Sultai Ascendancy
     &[
         "At the beginning of your upkeep, surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)",
@@ -39761,7 +39786,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Archmage's Charm
+    &[
+        "Choose one —\n• Counter target spell.\n• Target player draws two cards.\n• Gain control of target nonland permanent with mana value 1 or less.",
+    ],
     // Arcum's Astrolabe
     &[
         "({S} can be paid with one mana from a snow source.)\nWhen this artifact enters, draw a card.\n{1}, {T}: Add one mana of any color.",
@@ -40173,7 +40201,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Elvish Reclaimer
+    &[
+        "This creature gets +2/+2 as long as there are three or more land cards in your graveyard.\n{2}, {T}, Sacrifice a land: Search your library for a land card, put it onto the battlefield tapped, then shuffle.",
+    ],
     &[],
     // Empyrean Eagle
     &["Flying\nOther creatures you control with flying get +1/+1."],
@@ -40551,7 +40582,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Drown in the Loch
+    &[
+        "Choose one —\n• Counter target spell with mana value less than or equal to the number of cards in its controller's graveyard.\n• Destroy target creature with mana value less than or equal to the number of cards in its controller's graveyard.",
+    ],
     // Dwarven Mine
     &[
         "({T}: Add {R}.)\nThis land enters tapped unless you control three or more other Mountains.\nWhen this land enters untapped, create a 1/1 red Dwarf creature token.",
@@ -41214,7 +41248,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Soul-Guide Lantern
+    &[
+        "When this artifact enters, exile target card from a graveyard.\n{T}, Sacrifice this artifact: Exile each opponent's graveyard.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
+    ],
     // Soulreaper of Mogis
     &["{2}{B}, Sacrifice a creature: Draw a card."],
     // Sphinx Mindbreaker
@@ -43768,7 +43805,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     &[],
     &[],
-    &[],
+    // Dress Down
+    &[
+        "Flash\nWhen this enchantment enters, draw a card.\nCreatures lose all abilities.\nAt the beginning of the end step, sacrifice this enchantment.",
+    ],
     // Endurance
     &[
         "Flash\nReach\nWhen this creature enters, up to one target player puts all the cards from their graveyard on the bottom of their library in a random order.\nEvoke—Exile a green card from your hand.",
@@ -43803,7 +43843,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Murktide Regent
+    &[
+        "Delve (Each card you exile from your graveyard while casting this spell pays for {1}.)\nFlying\nThis creature enters with a +1/+1 counter on it for each instant and sorcery card exiled with it.\nWhenever an instant or sorcery card leaves your graveyard, put a +1/+1 counter on this creature.",
+    ],
     &[],
     // Nettlecyst
     &[
@@ -44132,7 +44175,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Unholy Heat
+    &[
+        "Unholy Heat deals 2 damage to target creature or planeswalker.\nDelirium — Unholy Heat deals 6 damage instead if there are four or more card types among cards in your graveyard.",
+    ],
     &[],
     &[],
     &[],
@@ -49517,7 +49563,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Flame of Anor
+    &[
+        "Choose one. If you control a Wizard as you cast this spell, you may choose two instead.\n• Target player draws two cards.\n• Destroy target artifact.\n• Flame of Anor deals 5 damage to target creature.",
+    ],
     &[],
     &[],
     &[],
@@ -49633,7 +49682,10 @@ pub static ORACLE: &[&[&str]] = &[
     // Lothlórien Lookout
     &["Whenever this creature attacks, scry 1."],
     &[],
-    &[],
+    // Lórien Revealed
+    &[
+        "Draw three cards.\nIslandcycling {1} ({1}, Discard this card: Search your library for an Island card, reveal it, put it into your hand, then shuffle.)",
+    ],
     // Many Partings
     &[
         "Search your library for a basic land card, reveal it, put it into your hand, then shuffle. Create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")",
@@ -49723,7 +49775,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{T}: Add two mana in any combination of {U}, {B}, and/or {R}.\n{3}, {T}: Draw two cards, then discard a card.",
     ],
-    &[],
+    // Reprieve
+    &["Return target spell to its owner's hand.\nDraw a card."],
     // Revive the Shire
     &[
         "Return target permanent card from your graveyard to your hand. Create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")",
@@ -50679,7 +50732,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Bitter Triumph
+    &[
+        "As an additional cost to cast this spell, discard a card or pay 3 life.\nDestroy target creature or planeswalker.",
+    ],
     &[],
     &[],
     &[],
@@ -52309,7 +52365,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Shoot the Sheriff
+    &[
+        "Destroy target non-outlaw creature. (Assassins, Mercenaries, Pirates, Rogues, and Warlocks are outlaws. Everyone else is fair game.)",
+    ],
     &[],
     // Simulacrum Synthesizer
     &[
@@ -52608,7 +52667,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Galvanic Discharge
+    &[
+        "Choose target creature or planeswalker. You get {E}{E}{E} (three energy counters), then you may pay any amount of {E}. Galvanic Discharge deals that much damage to that permanent.",
+    ],
     &[],
     &[],
     &[],
@@ -55081,7 +55143,10 @@ pub static ORACLE: &[&[&str]] = &[
         "Flying, deathtouch, lifelink\nRenew — {2}{B}, Exile this card from your graveyard: Put a flying counter, a deathtouch counter, and a lifelink counter on target creature. Activate only as a sorcery.",
     ],
     &[],
-    &[],
+    // Rakshasa's Bargain
+    &[
+        "Look at the top four cards of your library. Put two of them into your hand and the rest into your graveyard.",
+    ],
     &[],
     &[],
     // Rebellious Strike

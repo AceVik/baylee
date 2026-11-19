@@ -259,6 +259,8 @@ pub mod kazandu_blademaster;
 pub mod kazandu_refuge;
 #[path = "m10/kelinore_bat.rs"]
 pub mod kelinore_bat;
+#[path = "con_/knight_of_the_reliquary.rs"]
+pub mod knight_of_the_reliquary;
 #[path = "con_/knotvine_mystic.rs"]
 pub mod knotvine_mystic;
 #[path = "arb/knotvine_paladin.rs"]
