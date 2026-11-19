@@ -36,6 +36,10 @@ pub(in crate::lobby) fn draw(
                 width: percent(100),
                 max_width: px_fixed(kit.m.body_max),
                 align_self: AlignSelf::Center,
+                // Centred in the scroll band's row too, where `align_self`
+                // is the vertical axis: the page stands under the header's
+                // middle as the Tower's does, not against the left edge.
+                margin: UiRect::horizontal(Val::Auto),
                 flex_direction: FlexDirection::Column,
                 flex_grow: 1.0,
                 min_height: px(0),
