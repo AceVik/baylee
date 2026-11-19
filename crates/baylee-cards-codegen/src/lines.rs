@@ -1113,16 +1113,21 @@ fn one_word(head: &str) -> bool {
 
 /// Does the sentence state the condition the alternative cost carries?
 fn condition_fits(condition: AltCondition, lower: &str) -> bool {
+    let clause = lower
+        .split_once(" \u{2014} ")
+        .map_or(lower, |(_, rest)| rest);
+    let has_if = clause.starts_with("if ") || clause.contains(" if ");
     match condition {
-        // An unconditional alternative states no condition, and the
-        // conditional ones print theirs as the clause the sentence opens
-        // with — which is what separates Force of Will's "You may…" from
-        // Force of Negation's "If it's not your turn, you may…" and
-        // Snuff Out's "If you control a Swamp, you may…".
-        AltCondition::Always => !lower.starts_with("if "),
+        // An unconditional alternative states no condition, and a conditional
+        // one states an `if` clause — at the opening (possibly after an
+        // ability word) or trailing the permission — which separates
+        // Force of Will's "You may…" from Force of Negation's
+        // "If it's not your turn, you may…" and Snuff Out's
+        // "If you control a Swamp, you may…".
+        AltCondition::Always => !has_if,
         AltCondition::NotYourTurn => lower.contains("not your turn"),
         AltCondition::CommanderControlled => lower.contains("control a commander"),
-        AltCondition::If(_) => lower.starts_with("if ") && lower.contains("you may"),
+        AltCondition::If(_) => has_if && lower.contains("you may"),
     }
 }
 
@@ -1164,6 +1169,7 @@ fn part_named(part: &CostPart, lower: &str) -> Option<bool> {
             };
             lower.contains(&format!("tap {count}"))
                 || word.is_some_and(|word| lower.contains(&format!("tap {word}")))
+                || (*count == 1 && (lower.contains("tap a ") || lower.contains("tap an ")))
         }
         CostPart::ExileFromHand(_) => lower.contains("exile") && lower.contains("from your hand"),
         CostPart::Discard(_) => lower.contains("discard"),

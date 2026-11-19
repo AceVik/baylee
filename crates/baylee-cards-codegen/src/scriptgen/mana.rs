@@ -585,6 +585,9 @@ impl Tx<'_> {
         body: &str,
         token: &str,
     ) -> Option<Vec<String>> {
+        if kind == "ExileFromHand" && !self.in_alternative_cost {
+            return self.deny("cost `ExileFromHand`".to_string());
+        }
         let mut fields = body.splitn(3, '/');
         let (Some(n), Some(spec)) = (fields.next(), fields.next()) else {
             return self.deny(format!("cost `{token}`"));
@@ -594,10 +597,23 @@ impl Tx<'_> {
             && self.has_x
             && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
             && !self.oracle.to_ascii_lowercase().contains("x is ");
-        let multi_parts = matches!(kind, "Sac" | "Discard" | "ExileFromGrave")
+        let tap_n = if self.in_alternative_cost && kind == "tapXType" && spec != "CARDNAME" {
+            let Some(count) = n
+                .parse::<u32>()
+                .ok()
+                .filter(|count| (1..=10).contains(count))
+            else {
+                return self.deny(format!("a cost naming `{n}` objects"));
+            };
+            Some(count)
+        } else {
+            None
+        };
+        let multi_parts = (matches!(kind, "Sac" | "Discard" | "ExileFromGrave")
+            || (self.in_alternative_cost && matches!(kind, "Return" | "ExileFromHand")))
             && matches!(n, "2" | "3")
             && spec != "CARDNAME";
-        if n != "1" && !sac_x && !multi_parts {
+        if n != "1" && !sac_x && tap_n.is_none() && !multi_parts {
             return self.deny(format!("a cost naming `{n}` objects"));
         }
         let part_count = if multi_parts {
@@ -609,6 +625,7 @@ impl Tx<'_> {
             "Sac" => ("Sacrifice", true),
             "Discard" => ("Discard", false),
             "tapXType" => ("TapOther", true),
+            "ExileFromHand" => ("ExileFromHand", false),
             "ExileFromGrave" => ("ExileFromGraveyard", false),
             "Exile" => ("ExilePermanent", true),
             _ => ("ReturnToHand", true),
@@ -625,31 +642,61 @@ impl Tx<'_> {
         if variant == "Discard" && spec == "Random" {
             return Some(vec!["DiscardRandom".to_string(); part_count]);
         }
-        let spec = if controlled {
-            // Appended per alternative, because a valid-string's commas are
-            // `Or` and a clause glued to the end would narrow only the last
-            // branch.
-            spec.split([',', ';'])
-                .map(|alt| {
-                    if alt.contains("YouCtrl") {
-                        alt.to_string()
-                    } else if alt.contains('.') {
-                        format!("{alt}+YouCtrl")
-                    } else {
-                        format!("{alt}.YouCtrl")
-                    }
-                })
-                .collect::<Vec<_>>()
-                .join(",")
+        let spec = normalize_object_cost_spec(spec, variant, controlled);
+        let expr = if variant == "ExileFromHand" {
+            self.filter_expr_in_zone(&spec, true)?
         } else {
-            spec.replace(';', ",")
+            self.filter_expr(&spec)?
         };
-        let expr = self.filter_expr(&spec)?;
         let name = self.body.filter_static("COST", &expr);
         Some(if sac_x {
             vec![format!("SacrificeX(&{name})")]
+        } else if let Some(count) = tap_n {
+            vec![format!("TapN {{ filter: &{name}, count: {count} }}")]
         } else {
             vec![format!("{variant}(&{name})"); part_count]
         })
+    }
+}
+
+fn normalize_object_cost_spec(spec: &str, variant: &str, controlled: bool) -> String {
+    if controlled {
+        // Appended per alternative, because a valid-string's commas are
+        // `Or` and a clause glued to the end would narrow only the last
+        // branch.
+        spec.split([',', ';'])
+            .map(|alt| {
+                if alt.contains("YouCtrl") {
+                    alt.to_string()
+                } else if alt.contains('.') {
+                    format!("{alt}+YouCtrl")
+                } else {
+                    format!("{alt}.YouCtrl")
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    } else if variant == "ExileFromHand" {
+        // `casting::pitchable` already excludes the spell being cast from
+        // the hand candidates, so a pitch script's `Other` is redundant.
+        spec.split([',', ';'])
+            .map(|alt| {
+                let mut parts = alt.split('.');
+                let base = parts.next().unwrap_or_default().trim();
+                let rest: Vec<&str> = parts
+                    .flat_map(|s| s.split('+'))
+                    .map(str::trim)
+                    .filter(|a| !a.is_empty() && !matches!(*a, "Other" | "StrictlyOther"))
+                    .collect();
+                if rest.is_empty() {
+                    base.to_string()
+                } else {
+                    format!("{base}.{}", rest.join("+"))
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    } else {
+        spec.replace(';', ",")
     }
 }
