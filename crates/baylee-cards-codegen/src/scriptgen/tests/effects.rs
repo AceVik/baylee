@@ -2803,3 +2803,21 @@ fn a_printed_you_may_have_it_trigger_asks_on_resolution() {
     let both = script.replace("NumDmg$ 2", "NumDmg$ 2 | OptionalDecider$ You");
     assert_eq!(read(&both).abilities[0].matches("Effect::MayDo").count(), 1);
 }
+
+/// The printed "you may have …" is read as the choice only where it opens
+/// the effect. After a mandatory clause ("…, draw a card, then you may have
+/// it …") it would wrap the mandatory half in the same `Effect::MayDo`, so it
+/// is not read there (the card is then held to its printed may elsewhere).
+#[test]
+fn a_you_may_have_after_a_mandatory_clause_does_not_make_the_chain_optional() {
+    let opening = "Name:X\nTypes:Creature Goblin\nPT:2/1\nT:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True | Execute$ Hit | TriggerZones$ Battlefield | TriggerDescription$ Whenever CARDNAME deals combat damage to a player, you may have it deal 2 damage to target creature that player controls.\nSVar:Hit:DB$ DealDamage | ValidTgts$ Creature.ControlledBy TriggeredTarget | NumDmg$ 2";
+    assert!(read(opening).abilities[0].contains("Effect::MayDo"));
+    let after_a_clause = opening.replace(
+        ", you may have it deal 2 damage",
+        ", draw a card, then you may have it deal 2 damage",
+    );
+    assert!(
+        !read(&after_a_clause).abilities[0].contains("Effect::MayDo"),
+        "a may after a mandatory clause is not the whole chain's choice"
+    );
+}
