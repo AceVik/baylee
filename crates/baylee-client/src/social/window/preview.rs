@@ -303,7 +303,7 @@ pub(super) fn sync(
                 border_radius: BorderRadius::all(zpx(12.0)),
                 ..default()
             },
-            rows::glass_shadow(),
+            crate::shellkit::surfaces::elevation_popover(),
             stacked(55),
             Pickable::IGNORE,
         ))

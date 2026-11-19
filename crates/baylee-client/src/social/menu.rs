@@ -472,22 +472,18 @@ fn sync(
                 min_width: zpx(190.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: zpx(2.0),
-                padding: UiRect::all(zpx(6.0)),
+                // A menu of the kit's (`surfaces::menu`): its padding,
+                // radius, ground and rim.
+                padding: UiRect::all(zpx(8.0)),
                 border: UiRect::all(zpx(1.0)),
-                border_radius: BorderRadius::all(zpx(10.0)),
+                border_radius: BorderRadius::all(Val::Px(crate::shellkit::tokens::RADIUS_PANEL)),
                 overflow: Overflow::clip(),
                 ..default()
             },
-            BackgroundColor(Color::NONE),
-            BackgroundGradient::from(LinearGradient::new(
-                145.0_f32.to_radians(),
-                vec![
-                    ColorStop::auto(Color::srgba(0.10, 0.18, 0.25, 0.98)),
-                    ColorStop::auto(Color::srgba(0.035, 0.07, 0.10, 0.98)),
-                ],
-            )),
-            BorderColor::all(inks.accent.with_alpha(0.65)),
-            super::rows::popover_glass_shadow(),
+            BackgroundColor(crate::shellkit::tokens::OPAQUE),
+            crate::shellkit::surfaces::menu_ground(),
+            BorderColor::all(crate::shellkit::tokens::POPOVER_EDGE),
+            crate::shellkit::surfaces::elevation_popover(),
             crate::shellkit::sheen::Sheen,
             super::window::stacked(60),
         ))
@@ -529,11 +525,11 @@ fn spawn_row_menu_item(
                 align_items: AlignItems::Center,
                 column_gap: zpx(9.0),
                 padding: UiRect::axes(zpx(8.0), zpx(5.0)),
-                border_radius: BorderRadius::all(zpx(6.0)),
+                border_radius: BorderRadius::all(Val::Px(crate::shellkit::tokens::RADIUS_CONTROL)),
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            Feel::new(Color::NONE),
+            Feel::tinting_to(Color::NONE, crate::shellkit::tokens::SELECTED),
             children![
                 (
                     Node {

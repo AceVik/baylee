@@ -69,9 +69,10 @@ pub(crate) fn stacked(offset: i32) -> (GlobalZIndex, Stack) {
     (GlobalZIndex(G_PANEL + offset), Stack(offset))
 }
 
-/// The quiet elevation shared by the lobby window and the table's panel.
+/// The elevation of the lobby window and the table's panel: the kit's own
+/// for a window that floats over the page without a scrim.
 fn elevation() -> BoxShadow {
-    rows::glass_shadow()
+    crate::shellkit::surfaces::elevation_floating()
 }
 
 /// Where a surface `offset` over [`G_PANEL`] at the table stands in the
@@ -245,6 +246,16 @@ impl Frame {
     fn row_h(self) -> f32 {
         let _ = self;
         LOBBY_ROW_H
+    }
+
+    /// The radius of the window's upper corners: the kit's panel radius in
+    /// the lobby, where it is a window among the shell's; at a table the
+    /// log strip's it grows out of.
+    pub(crate) const fn radius(self) -> f32 {
+        match self {
+            Self::Lobby => crate::shellkit::tokens::RADIUS_PANEL,
+            Self::Table => 6.0,
+        }
     }
 }
 
@@ -973,7 +984,8 @@ fn sync_lobby_window(
             left,
             Val::Auto,
             zpx(0.0),
-            BorderRadius::all(zpx(6.0)),
+            // Docked on the window's foot: only the upper corners are round.
+            BorderRadius::top(Val::Px(Frame::Lobby.radius())),
             if ui.open {
                 UiRect::all(zpx(1.0))
             } else {
@@ -1275,7 +1287,7 @@ fn chat_pill(
             },
             BackgroundColor(ground),
             BorderColor::all(border),
-            rows::glass_shadow(),
+            crate::shellkit::surfaces::elevation_control(),
             Feel::new(ground),
             super::hint_bundle(tip),
             children![
@@ -1361,19 +1373,15 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
                     zpx(0.0),
                 ),
                 border: UiRect::bottom(zpx(1.0)),
-                border_radius: BorderRadius::top(zpx(6.0)),
+                // The window's clip is a rectangle: the head rounds its own
+                // top to the window's inner corner (its radius less the
+                // border).
+                border_radius: BorderRadius::top(Val::Px(frame.radius() - 1.0)),
                 ..default()
             },
+            // A head band as a sheet's is: no ground of its own, one rule.
             BackgroundColor(Color::NONE),
-            rows::head_glass(),
             BorderColor::all(rows::GLASS_RULE),
-            BoxShadow::new(
-                Color::srgba(0.0, 0.0, 0.0, 0.22),
-                zpx(0.0),
-                zpx(3.0),
-                zpx(0.0),
-                zpx(6.0),
-            ),
         ))
         .id();
     let sub = commands
@@ -1392,15 +1400,7 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
                 ..default()
             },
             BackgroundColor(Color::NONE),
-            rows::head_glass(),
             BorderColor::all(rows::GLASS_RULE),
-            BoxShadow::new(
-                Color::srgba(0.0, 0.0, 0.0, 0.22),
-                zpx(0.0),
-                zpx(3.0),
-                zpx(0.0),
-                zpx(6.0),
-            ),
         ))
         .id();
     // The encryption's quiet line under the tabs (owner, 13.10.): a press
@@ -1559,20 +1559,16 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
                 border: UiRect::top(zpx(1.0)),
                 ..default()
             },
-            BackgroundColor(Color::NONE),
-            rows::foot_glass(),
+            // The foot of a sheet: its wash and its rule.
+            BackgroundColor(crate::shellkit::surfaces::FOOT_WASH),
             BorderColor::all(rows::GLASS_RULE),
-            BoxShadow::new(
-                Color::srgba(0.0, 0.0, 0.0, 0.24),
-                zpx(0.0),
-                zpx(-3.0),
-                zpx(0.0),
-                zpx(6.0),
-            ),
         ))
         .id();
     let light = commands
-        .spawn(super::glass::layer(super::glass::Glass::Window, zpx(6.0)))
+        .spawn(super::glass::layer(
+            super::glass::Glass::Window,
+            Val::Px(frame.radius()),
+        ))
         .id();
     Skeleton {
         head,

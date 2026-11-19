@@ -530,7 +530,7 @@ fn draw(
             BackgroundColor(Color::NONE),
             super::rows::dialog_glass(),
             BorderColor::all(super::rows::GLASS_EDGE),
-            super::rows::glass_shadow(),
+            crate::shellkit::surfaces::sheet_shadow(),
         ))
         .id();
     commands.entity(root).add_child(card);

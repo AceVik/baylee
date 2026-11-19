@@ -32,7 +32,7 @@ use super::rows::ChatName;
 use super::zoom::{z, zpx};
 use crate::hud::{UiFonts, motion, tf, tf_bold};
 use crate::shellkit::avatar::{self, PersonLink};
-use crate::shellkit::tokens;
+use crate::shellkit::{surfaces, tokens};
 
 /// How long the pointer rests on a name before its card opens.
 const DWELL: f32 = 0.32;
@@ -58,11 +58,16 @@ const RISE: f32 = 24.0;
 /// The most characters of a name the card draws.
 const NAME_CHARS: usize = 28;
 
-/// The card's ground, top-left to bottom-right: the row menu's own.
-const GROUND_LIT: Color = Color::srgba(0.10, 0.18, 0.25, 0.98);
-const GROUND_DEEP: Color = Color::srgba(0.035, 0.07, 0.10, 0.98);
-/// What the disc is set in: the ground where the disc stands.
-const GROUND_MID: Color = Color::srgb(0.075, 0.135, 0.19);
+/// The card's corner radius: a popover's, the kit's panel radius.
+const RADIUS: f32 = tokens::RADIUS_PANEL;
+
+/// The room between the card's edge and what it says: the kit's fourth
+/// spacing step, as in a popover.
+const PAD: f32 = tokens::SPACE[3];
+
+/// What the disc is set in: the card's ground (`surfaces::popover_ground`)
+/// where the disc stands, a third of the way down it.
+const GROUND_MID: Color = Color::srgb(0.12, 0.19, 0.26);
 
 /// Who a card is about, and how it hangs.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -538,6 +543,20 @@ pub(crate) fn presence_ink(shown: Shown) -> Color {
     }
 }
 
+/// The card's shadow: a popover's own, and over it the person's tint as a
+/// breath of light round the card.
+fn lit(hue: Color) -> BoxShadow {
+    let mut shadow = surfaces::elevation_popover();
+    shadow.0.push(ShadowStyle {
+        color: hue.with_alpha(0.16),
+        x_offset: Val::Px(0.0),
+        y_offset: Val::Px(0.0),
+        spread_radius: zpx(1.0),
+        blur_radius: zpx(16.0),
+    });
+    shadow
+}
+
 /// Draws the card.
 #[allow(clippy::too_many_lines)] // one panel, top to bottom
 fn build(
@@ -567,41 +586,17 @@ fn build(
                 width: Val::Px(width),
                 flex_direction: FlexDirection::Column,
                 border: UiRect::all(zpx(1.0)),
-                border_radius: BorderRadius::all(zpx(12.0)),
+                border_radius: BorderRadius::all(Val::Px(RADIUS)),
                 overflow: Overflow::clip(),
                 ..default()
             },
             held(motion::opening(opening), at.corner),
-            BackgroundColor(GROUND_DEEP),
-            BackgroundGradient::from(LinearGradient::new(
-                145.0_f32.to_radians(),
-                vec![ColorStop::auto(GROUND_LIT), ColorStop::auto(GROUND_DEEP)],
-            )),
-            BorderColor::all(hue.with_alpha(0.36)),
-            BoxShadow(vec![
-                ShadowStyle {
-                    color: Color::srgba(0.0, 0.0, 0.0, 0.46),
-                    x_offset: Val::Px(0.0),
-                    y_offset: zpx(4.0),
-                    spread_radius: Val::Px(0.0),
-                    blur_radius: zpx(10.0),
-                },
-                ShadowStyle {
-                    color: Color::srgba(0.0, 0.0, 0.0, 0.72),
-                    x_offset: Val::Px(0.0),
-                    y_offset: zpx(16.0),
-                    spread_radius: zpx(-1.0),
-                    blur_radius: zpx(36.0),
-                },
-                // The person's own tint, as a breath of light round the card.
-                ShadowStyle {
-                    color: hue.with_alpha(0.16),
-                    x_offset: Val::Px(0.0),
-                    y_offset: Val::Px(0.0),
-                    spread_radius: zpx(1.0),
-                    blur_radius: zpx(16.0),
-                },
-            ]),
+            // A popover of the kit's: its ground, its rim and its shadow.
+            // What is the person's own is the band, the disc and the light.
+            BackgroundColor(tokens::OPAQUE.with_alpha(0.96)),
+            surfaces::popover_ground(),
+            BorderColor::all(tokens::POPOVER_EDGE),
+            lit(hue),
             // Over every chat surface wherever it is stacked (`window::Stack`),
             // over a row's menu (60), under the vault's sheet (70).
             GlobalZIndex(super::window::G_PANEL + 65),
@@ -617,8 +612,9 @@ fn build(
                 flex_shrink: 0.0,
                 // The card's clip is a rectangle, not its rounded outline:
                 // the band rounds its own top to the card's inner corner
-                // (12 less the 1 of border), or it pokes out square there.
-                border_radius: BorderRadius::top(zpx(11.0)),
+                // (its radius less the border), or it pokes out square
+                // there.
+                border_radius: BorderRadius::top(Val::Px(RADIUS - z(1.0))),
                 ..default()
             },
             BackgroundGradient::from(LinearGradient::new(
@@ -756,8 +752,10 @@ fn build(
             column_gap: zpx(10.0),
             margin: UiRect::top(zpx(-RISE)),
             padding: UiRect {
-                left: zpx(13.0),
-                right: zpx(14.0),
+                // The disc's setting is three wider than the disc, so the
+                // disc itself stands on the gutter.
+                left: zpx(PAD - 3.0),
+                right: zpx(PAD),
                 top: Val::Px(0.0),
                 bottom: zpx(12.0),
             },
@@ -773,12 +771,13 @@ fn build(
                 Node {
                     flex_direction: FlexDirection::Column,
                     row_gap: zpx(5.0),
-                    margin: UiRect::horizontal(zpx(14.0)),
+                    margin: UiRect::horizontal(zpx(PAD)),
                     padding: UiRect::axes(Val::Px(0.0), zpx(10.0)),
                     border: UiRect::top(zpx(1.0)),
                     ..default()
                 },
-                BorderColor::all(tokens::BORDER.with_alpha(0.32)),
+                // The kit's hairline, the one under a sheet's head.
+                BorderColor::all(tokens::BORDER),
             ))
             .id();
         for fact in facts {
@@ -978,6 +977,23 @@ mod tests {
         assert!(disc_scale(0.0).abs() < 1e-6);
         assert!(disc_scale(0.3).abs() < 1e-6);
         assert!((disc_scale(1.0) - 1.0).abs() < 1e-5);
+    }
+
+    /// The card is a popover of the kit's: it falls the shadow a popover
+    /// falls, and the person's tint is one layer of light over it, never in
+    /// its place.
+    #[test]
+    fn the_card_falls_a_popovers_shadow_under_the_persons_light() {
+        let hue = Color::srgb(0.8, 0.4, 0.2);
+        let kit = surfaces::elevation_popover().0;
+        let card = lit(hue).0;
+        assert_eq!(card.len(), kit.len() + 1);
+        assert_eq!(card[..kit.len()], kit[..]);
+        let light = card.last().expect("the tint's layer");
+        assert_eq!(light.color, hue.with_alpha(0.16));
+        assert_eq!(light.y_offset, Val::Px(0.0), "light, not a second shadow");
+        // The band at the card's top rounds itself inside the card's border.
+        const { assert!(RADIUS > 1.0 && PAD >= 12.0) };
     }
 
     /// A name is one line and bounded, whatever it holds.

@@ -704,6 +704,7 @@ pub(crate) fn install(app: &mut App) {
     app.init_resource::<SocialHost>()
         .init_resource::<ChatUi>()
         .init_resource::<zoom::Zoom>()
+        .init_resource::<zoom::Shell>()
         .add_systems(Update, follow_the_zoom)
         .add_systems(
             Update,
@@ -747,7 +748,7 @@ pub(crate) fn hint_bundle(words: impl Into<String>) -> impl Bundle {
 #[allow(clippy::type_complexity)] // the surfaces drawn at the zoom
 fn follow_the_zoom(
     mut commands: Commands,
-    mut zoom: ResMut<zoom::Zoom>,
+    (mut zoom, mut shell): (ResMut<zoom::Zoom>, ResMut<zoom::Shell>),
     (windows, ui): (
         Query<&Window, With<bevy::window::PrimaryWindow>>,
         Option<Res<UiScale>>,
@@ -769,21 +770,28 @@ fn follow_the_zoom(
 ) {
     let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
     let now = if at_table {
-        1.0
+        zoom::Shell::at_table()
     } else {
         let step = settings.as_ref().map_or_default(|s| s.text_size);
-        windows.single().map_or(1.0, |w| {
-            crate::shellkit::metrics::screen_scale(
-                crate::shellkit::Viewport::desktop(
-                    crate::hud::scale::desktop_space(w, ui.as_deref()).x,
-                    crate::hud::scale::desktop_space(w, ui.as_deref()).y,
-                ),
-                step,
-            ) * step.factor()
-        })
+        windows.single().map_or_else(
+            |_| zoom::Shell::at_table(),
+            |w| {
+                let space = crate::hud::scale::desktop_space(w, ui.as_deref());
+                zoom::Shell(crate::shellkit::ShellMetrics::of(
+                    crate::shellkit::Viewport::desktop(space.x, space.y),
+                    step,
+                ))
+            },
+        )
     };
-    if (zoom.0 - now).abs() > f32::EPSILON {
-        zoom.0 = now;
+    // The kit's factor is the zoom: the window's big-screen step times the
+    // text step in the lobby, 1 at a table.
+    if *shell != now {
+        let factor = now.0.factor;
+        *shell = now;
+        if (zoom.0 - factor).abs() > f32::EPSILON {
+            zoom.0 = factor;
+        }
         for root in &roots {
             commands.entity(root).try_despawn();
         }
