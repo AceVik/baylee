@@ -386,6 +386,62 @@ pub(super) fn draw(
     }
 }
 
+/// The crown before a deck's commanders, in the icon face.
+const CROWN: char = '\u{f521}';
+/// The cup before a deck's record, in the icon face.
+const CUP: char = '\u{f091}';
+
+/// A tile's subtitle: the commanders behind their crown, or the signature
+/// card's name alone.
+fn subtitle_line(
+    commands: &mut Commands,
+    kit: Kit,
+    look: &TileLook,
+    most: usize,
+    size: f32,
+) -> Option<Entity> {
+    let sub = shortened(look.subtitle.as_deref()?, most);
+    let ink = tokens::INK.with_alpha(0.82);
+    Some(if look.crowned {
+        parts::marked_line(commands, kit, CROWN, &sub, size, ink)
+    } else {
+        parts::line(commands, kit, &sub, size, ink)
+    })
+}
+
+/// A tile's record: "3 W / 5 G (60 %)" behind the cup, or "no games yet".
+fn stats_label(
+    commands: &mut Commands,
+    kit: Kit,
+    look: &TileLook,
+    most: usize,
+    size: f32,
+) -> Option<Entity> {
+    let (cup, text, ink) = look.stats_line.as_ref()?;
+    let text = shortened(text, most);
+    Some(if *cup {
+        parts::marked_line(commands, kit, CUP, &text, size, *ink)
+    } else {
+        parts::line(commands, kit, &text, size, *ink)
+    })
+}
+
+/// The tile's picture, with the deck's hover preview nowhere on it, and its
+/// credit as a line of its own: `(picture, credit)`.
+fn tile_art(
+    commands: &mut Commands,
+    kit: Kit,
+    lang: Lang,
+    look: &TileLook,
+    width: f32,
+) -> Option<(Entity, Entity)> {
+    let art = look.art.as_ref()?;
+    Some((
+        parts::art_picture(commands, kit, art, width),
+        parts::art_credit(commands, kit, lang, art),
+    ))
+}
+
 /// A deck tile's minimum width at the default step, before the big-screen scale.
 pub(super) const TILE_WIDTH: f32 = 304.0;
 
@@ -414,8 +470,19 @@ fn grid(commands: &mut Commands, kit: Kit, view: DecksView) -> Entity {
         DecksView::Compact => 236.0,
         DecksView::Gallery | DecksView::List => TILE_WIDTH,
     };
+    let vast = kit.m.frame == ShellFrame::Vast;
     let columns = if kit.m.frame == ShellFrame::Phone {
         vec![RepeatedGridTrack::flex(2, 1.0)]
+    } else if vast {
+        // Fixed tracks, as many as fit, the unused ones collapsed and the
+        // rest centred: on a 2560 window a short shelf stands in the middle
+        // of its panel, not in its top-left corner (the 4K pass, beta.7;
+        // `baylee-tools shell check centred`). The `1fr` tracks below took
+        // this with them on 05.11.2026.
+        vec![RepeatedGridTrack::px(
+            GridTrackRepetition::AutoFit,
+            kit.m.scaled(track_width),
+        )]
     } else {
         vec![RepeatedGridTrack::minmax(
             GridTrackRepetition::AutoFill,
@@ -429,6 +496,11 @@ fn grid(commands: &mut Commands, kit: Kit, view: DecksView) -> Entity {
                 display: Display::Grid,
                 width: percent(100),
                 grid_template_columns: columns,
+                justify_content: if vast {
+                    JustifyContent::Center
+                } else {
+                    JustifyContent::Default
+                },
                 column_gap: px_fixed(kit.m.gap),
                 row_gap: px_fixed(kit.m.gap),
                 align_items: AlignItems::Stretch,
@@ -524,8 +596,14 @@ fn toolbar(
     } else {
         let hunt = commands
             .spawn((
+                // A wrapping row breaks before it shrinks anything, so the
+                // box asks for its least useful width and grows into what
+                // the row has left: at 1280 its full 280 put Import alone
+                // on a second line.
                 Node {
-                    width: kit.m.px(if phone { 240.0 } else { 280.0 }),
+                    flex_basis: kit.m.px(if phone { 240.0 } else { 190.0 }),
+                    flex_grow: 1.0,
+                    max_width: kit.m.px(if phone { 240.0 } else { 280.0 }),
                     flex_shrink: 1.0,
                     min_width: px(120),
                     ..default()
@@ -598,7 +676,6 @@ fn toolbar(
         };
         orders::stop(commands, sort, &orders::DECKS, "sort");
         sort_anchor = Some(sort);
-        commands.entity(bar).add_child(sort);
         let new = controls::button_with_icon(
             commands,
             kit,
@@ -621,7 +698,29 @@ fn toolbar(
         );
         orders::stop(commands, new, &orders::DECKS, "new");
         orders::stop(commands, import, &orders::DECKS, "import");
-        commands.entity(bar).add_children(&[new, import]);
+        // Sort, New deck and Import go to the next line together where the
+        // row is too short for them, and stand at its right end there:
+        // never one of them alone under the tabs.
+        let deeds = commands
+            .spawn((
+                Node {
+                    align_items: AlignItems::Center,
+                    column_gap: px_fixed(kit.m.gap),
+                    margin: UiRect::left(Val::Auto),
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        if phone {
+            // A phone's one row keeps wrapping them one by one.
+            commands.entity(deeds).despawn();
+            commands.entity(bar).add_children(&[sort, new, import]);
+        } else {
+            commands.entity(deeds).add_children(&[sort, new, import]);
+            commands.entity(bar).add_child(deeds);
+        }
     }
     (sort_anchor, format_anchor)
 }
@@ -1184,19 +1283,17 @@ fn mine(
             } else {
                 String::new()
             };
-            let text = format!(
-                "\u{f091} {}",
-                Phrase::DecksStatsLine.fill(
-                    lang,
-                    &[
-                        &stats.wins.to_string(),
-                        &stats.games_played.to_string(),
-                        &rate.to_string(),
-                        &streak,
-                    ],
-                )
+            let text = Phrase::DecksStatsLine.fill(
+                lang,
+                &[
+                    &stats.wins.to_string(),
+                    &stats.games_played.to_string(),
+                    &rate.to_string(),
+                    &streak,
+                ],
             );
             Some((
+                true,
                 text,
                 if rank_tier >= 4 {
                     tokens::GOLD
@@ -1206,6 +1303,7 @@ fn mine(
             ))
         } else {
             Some((
+                false,
                 Phrase::DecksNoGamesYet.text(lang).to_string(),
                 tokens::MUTED,
             ))
@@ -1213,11 +1311,12 @@ fn mine(
         let subtitle = if deck.commanders.is_empty() {
             deck.signature.as_ref().map(|sig| sig.name.clone())
         } else {
-            Some(format!("\u{f521} {}", deck.commanders.join(" & ")))
+            Some(deck.commanders.join(" & "))
         };
         let look = TileLook {
             name: &deck.name,
             subtitle,
+            crowned: !deck.commanders.is_empty(),
             identity: &deck.identity,
             art: deck.art(),
             meta: shelf::meta_line(lang, deck, now),
@@ -1605,11 +1704,12 @@ fn house(
         let subtitle = if deck.commanders.is_empty() {
             deck.signature.as_ref().map(|sig| sig.name.clone())
         } else {
-            Some(format!("\u{f521} {}", deck.commanders.join(" & ")))
+            Some(deck.commanders.join(" & "))
         };
         let look = TileLook {
             name: &deck.name,
             subtitle,
+            crowned: !deck.commanders.is_empty(),
             identity: &deck.identity,
             art: deck.art(),
             meta: Phrase::DeckMeta.fill(lang, &[&copies, &deck.sideboard.to_string()]),
@@ -1658,6 +1758,8 @@ fn house(
 pub(super) struct TileLook<'a> {
     pub(super) name: &'a str,
     pub(super) subtitle: Option<String>,
+    /// The subtitle names the deck's commanders: the crown leads it.
+    pub(super) crowned: bool,
     pub(super) identity: &'a str,
     pub(super) art: Option<shelf::DeckArt>,
     pub(super) meta: String,
@@ -1669,8 +1771,9 @@ pub(super) struct TileLook<'a> {
     pub(super) rank_tier: u8,
     /// Optional `(badge_text, color, tooltip)` for the deck's achievement rank.
     pub(super) rank_badge: Option<(String, Color, String)>,
-    /// Optional `(stats_text, color)` summarizing Central play/win statistics.
-    pub(super) stats_line: Option<(String, Color)>,
+    /// Optional `(cup, stats_text, color)` summarizing Central play/win
+    /// statistics; the cup leads a record, not "no games yet".
+    pub(super) stats_line: Option<(bool, String, Color)>,
 }
 
 /// Spawns an interactive favourite star button when `star_action` is present,
@@ -1884,11 +1987,14 @@ fn tile_gallery(
     let pad = kit.m.scaled(if phone { 8.0 } else { 12.0 });
     decorate_tile_card(commands, card, look, open, pad - 3.0);
 
+    // The band: the picture beside the words, and the picture's credit as a
+    // line under both, so every tile's words start at the same place and no
+    // artist's name decides how tall the band is.
     let band = commands
         .spawn((
             Node {
-                column_gap: kit.m.px(12.0),
-                align_items: AlignItems::FlexStart,
+                flex_direction: FlexDirection::Column,
+                row_gap: kit.m.px(5.0),
                 padding: UiRect::all(px_fixed(pad)),
                 border: UiRect::bottom(px_fixed(1.0)),
                 border_radius: BorderRadius::top(px_fixed(tokens::RADIUS_PANEL - 1.0)),
@@ -1899,9 +2005,20 @@ fn tile_gallery(
             Pickable::IGNORE,
         ))
         .id();
-    if let Some(art) = &look.art {
-        let picture = parts::art_with_credit(commands, kit, lang, art, 90.0);
-        commands.entity(band).add_child(picture);
+    let lead = commands
+        .spawn((
+            Node {
+                column_gap: kit.m.px(12.0),
+                align_items: AlignItems::FlexStart,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(band).add_child(lead);
+    if let Some((picture, credit)) = tile_art(commands, kit, lang, look, 90.0) {
+        commands.entity(lead).add_child(picture);
+        commands.entity(band).add_child(credit);
     }
     let words = commands
         .spawn((
@@ -1963,22 +2080,14 @@ fn tile_gallery(
     commands.entity(title_row).add_child(tools);
     commands.entity(words).add_child(title_row);
 
-    if let Some(sub) = &look.subtitle {
-        let sub_text = commands
-            .spawn((
-                Text::new(shortened(sub, 44)),
-                crate::hud::tf(kit.fonts, kit.m.small * 0.96),
-                TextColor(tokens::INK.with_alpha(0.82)),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(words).add_child(sub_text);
+    if let Some(sub) = subtitle_line(commands, kit, look, 44, kit.m.small * 0.96) {
+        commands.entity(words).add_child(sub);
     }
     if !phone && !look.identity.is_empty() {
         let discs = parts::identity_discs(commands, kit, look.identity);
         commands.entity(words).add_child(discs);
     }
-    commands.entity(band).add_child(words);
+    commands.entity(lead).add_child(words);
 
     let inside = commands
         .spawn((
@@ -2022,8 +2131,7 @@ fn tile_gallery(
         .id();
     let meta = parts::line(commands, kit, &look.meta, kit.m.small, tokens::MUTED);
     commands.entity(meta_row).add_child(meta);
-    if let Some((stats_text, stats_ink)) = &look.stats_line {
-        let stat_lbl = parts::line(commands, kit, stats_text, kit.m.small * 0.94, *stats_ink);
+    if let Some(stat_lbl) = stats_label(commands, kit, look, 64, kit.m.small * 0.94) {
         commands.entity(meta_row).add_child(stat_lbl);
     }
     commands.entity(inside).add_child(meta_row);
@@ -2122,8 +2230,10 @@ fn tile_list(
             Pickable::IGNORE,
         ))
         .id();
-    if let Some(art) = &look.art {
-        let picture = parts::art_with_credit(commands, kit, lang, art, 74.0);
+    // The row is as tall as its picture: the credit is the last of the three
+    // lines beside it, not a box under a 74-px thumbnail.
+    let art = tile_art(commands, kit, lang, look, 84.0);
+    if let Some((picture, _)) = art {
         commands.entity(lead).add_child(picture);
     }
     let info = commands
@@ -2178,7 +2288,7 @@ fn tile_list(
         sub_parts.push(shortened(sub, 48));
     }
     sub_parts.push(look.meta.clone());
-    if let Some((stats_text, _)) = &look.stats_line {
+    if let Some((_, stats_text, _)) = &look.stats_line {
         sub_parts.push(stats_text.clone());
     }
     if let Some(blurb) = look.blurb {
@@ -2192,6 +2302,9 @@ fn tile_list(
         tokens::MUTED,
     );
     commands.entity(info).add_child(meta);
+    if let Some((_, credit)) = art {
+        commands.entity(info).add_child(credit);
+    }
     commands.entity(lead).add_child(info);
     commands.entity(card).add_child(lead);
 
@@ -2263,8 +2376,8 @@ fn tile_compact(
             Pickable::IGNORE,
         ))
         .id();
-    if let Some(art) = &look.art {
-        let picture = parts::art_with_credit(commands, kit, lang, art, 58.0);
+    let art = tile_art(commands, kit, lang, look, 58.0);
+    if let Some((picture, _)) = art {
         commands.entity(head).add_child(picture);
     }
     let words = commands
@@ -2301,14 +2414,7 @@ fn tile_compact(
         tokens::MUTED,
     );
     commands.entity(words).add_child(meta);
-    if let Some((stats_text, stats_ink)) = &look.stats_line {
-        let stat_lbl = parts::line(
-            commands,
-            kit,
-            &shortened(stats_text, 28),
-            kit.m.small * 0.90,
-            *stats_ink,
-        );
+    if let Some(stat_lbl) = stats_label(commands, kit, look, 28, kit.m.small * 0.90) {
         commands.entity(words).add_child(stat_lbl);
     }
     commands.entity(head).add_child(words);
@@ -2330,6 +2436,11 @@ fn tile_compact(
     commands.entity(tools).add_child(more);
     commands.entity(head).add_child(tools);
     commands.entity(card).add_child(head);
+    // The credit is a line of the card, under the picture and the words: a
+    // 58-px thumbnail holds no artist's name.
+    if let Some((_, credit)) = art {
+        commands.entity(card).add_child(credit);
+    }
 
     let badges = parts::row(commands, kit, true);
     for (said, ink) in &look.badges {
@@ -2807,10 +2918,11 @@ fn preview_sheet(
         ))
         .id();
     if !deck.commanders.is_empty() {
-        let cmd_lbl = parts::line(
+        let cmd_lbl = parts::marked_line(
             commands,
             kit,
-            &format!("\u{f521} {}", deck.commanders.join(" & ")),
+            CROWN,
+            &deck.commanders.join(" & "),
             kit.m.text,
             tokens::GOLD,
         );
