@@ -18,6 +18,11 @@ def selection_score(metrics, selection):
         # better. Not the loss: an earlier arm lowered NLL while this fell.
         agreement = metrics["val_distill_selection"]
         return float("inf") if agreement is None else -agreement
+    if selection == "distill_advantage":
+        # The mean over the probes' sides of the student's top-1 being the answer ahead:
+        # R where R leads, N where N leads (`distill_probe.AdvantageCounter`); higher is better.
+        agreement = metrics.get("val_adv_selection")
+        return float("inf") if agreement is None else -agreement
     raise ValueError(f"Unknown checkpoint selection: {selection}")
 
 
