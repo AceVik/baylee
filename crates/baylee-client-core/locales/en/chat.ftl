@@ -903,6 +903,9 @@ NoticeFriendRequest = Friend request from { $player }
 # The card that opens over a person's name: the account's own.
 CardYou = This is you
 
+# The same card: a friend whose date the account was not told.
+CardFriend = Friends
+
 # The same card: a friend since today.
 CardFriendToday = Friends since today
 

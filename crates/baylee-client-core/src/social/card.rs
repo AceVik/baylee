@@ -20,10 +20,12 @@ const DAY_MS: u64 = 86_400_000;
 pub enum Relation {
     /// The card is about this account.
     Me,
-    /// A friend, since this time (Unix milliseconds).
+    /// A friend, since this time (Unix milliseconds) where it is known:
+    /// Baylee Central's contacts carry no date, and a friendship it alone
+    /// keeps is told with none (a `since` of 0 on the wire).
     Friend {
         /// Since when.
-        since: u64,
+        since: Option<u64>,
     },
     /// They asked to be friends; the answer is this account's.
     AskedYou,
@@ -84,7 +86,7 @@ impl Social {
             Relation::Me
         } else if let Some(friend) = friend {
             Relation::Friend {
-                since: friend.since,
+                since: (friend.since > 0).then_some(friend.since),
             }
         } else if among(friends.blocked) {
             Relation::Blocked
@@ -127,7 +129,10 @@ impl PersonCard {
     pub fn relation_words(&self, lang: Lang, now: u64) -> Option<String> {
         match self.relation {
             Relation::Me => Some(ChatPhrase::CardYou.text(lang).to_owned()),
-            Relation::Friend { since } => Some(friend_for(lang, now.saturating_sub(since))),
+            Relation::Friend { since: Some(since) } => {
+                Some(friend_for(lang, now.saturating_sub(since)))
+            }
+            Relation::Friend { since: None } => Some(ChatPhrase::CardFriend.text(lang).to_owned()),
             Relation::AskedYou => Some(ChatPhrase::CardAskedYou.text(lang).to_owned()),
             Relation::Asked => Some(ChatPhrase::CardAsked.text(lang).to_owned()),
             Relation::Blocked => Some(ChatPhrase::CardBlocked.text(lang).to_owned()),
@@ -198,7 +203,7 @@ mod tests {
     fn a_friendship_is_said_in_its_largest_whole_unit() {
         let now = 1_000 * DAY_MS;
         let since = |days: u64| Relation::Friend {
-            since: now - days * DAY_MS,
+            since: Some(now - days * DAY_MS),
         };
         let says = |days: u64, lang: Lang| {
             card(since(days), None, false)
@@ -216,7 +221,7 @@ mod tests {
         // A clock set back does not make a friendship negative.
         let ahead = card(
             Relation::Friend {
-                since: now + DAY_MS,
+                since: Some(now + DAY_MS),
             },
             None,
             false,
@@ -225,6 +230,19 @@ mod tests {
             ahead.relation_words(Lang::En, now).as_deref(),
             Some("Friends since today")
         );
+    }
+
+    /// A friendship told without its date (Baylee Central's contacts carry
+    /// none) is said without a length: never "for 56 years", which is how
+    /// a date of 0 reads.
+    #[test]
+    fn a_friendship_without_its_date_has_no_length() {
+        let now = 20_000 * DAY_MS;
+        let says = |lang| {
+            card(Relation::Friend { since: None }, None, false).relation_words(lang, now)
+        };
+        assert_eq!(says(Lang::En).as_deref(), Some("Friends"));
+        assert_eq!(says(Lang::De).as_deref(), Some("Befreundet"));
     }
 
     /// A stranger has no line of their own unless they are a guest, and the

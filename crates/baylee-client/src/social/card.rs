@@ -163,6 +163,10 @@ pub(crate) struct PersonPanel {
     /// The corner that stays still while it grows: −1 is left or top, +1 is
     /// right or bottom.
     corner: Vec2,
+    /// Where it stands and how wide: a card drawn anew stands there again.
+    at: (Standing, f32),
+    /// What it was drawn saying.
+    said: Said,
 }
 
 /// The disc's setting, which comes up a beat after its card.
@@ -380,8 +384,23 @@ fn stand(
     }
     let still = prefs.as_ref().is_some_and(|p| p.all().reduce_motion);
     let dt = time.delta_secs().min(0.05);
+    let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
+    let now = super::now_ms();
+    let machine = host.machine();
     let (mut stands, mut handed) = (false, false);
+    // A standing card whose words went stale (a friend went offline, or
+    // came to a table) is drawn anew where it stands, without opening again.
+    let mut redrawn: Option<(Standing, f32)> = None;
     for (entity, mut panel, mut transform) in &mut panels {
+        if !panel.leaving
+            && panel.epoch == hover.epoch
+            && let (Some((subject, _)), Some(machine)) = (&hover.shown, machine)
+            && said(machine, subject, prefs.as_deref(), lang, now) != panel.said
+        {
+            redrawn = Some(panel.at);
+            commands.entity(entity).try_despawn();
+            continue;
+        }
         if !panel.leaving && panel.epoch != hover.epoch {
             if hover.shown.is_some() || still {
                 // Handed on: the next card stands where this one stood.
@@ -416,17 +435,79 @@ fn stand(
     let (Some((subject, source)), false) = (&hover.shown, stands) else {
         return;
     };
-    let Some(machine) = host.machine() else {
+    let Some(machine) = machine else {
         return;
     };
-    let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
-    let now = super::now_ms();
+    let said = said(machine, subject, prefs.as_deref(), lang, now);
+    if let Some((at, width)) = redrawn {
+        build(
+            &mut commands,
+            &fonts,
+            said,
+            (at, width),
+            hover.epoch,
+            1.0,
+        );
+        return;
+    }
+
+    let canvas = windows.iter().next().map_or(Vec2::new(1280.0, 800.0), |w| {
+        crate::hud::scale::space(w, ui.as_deref())
+    });
+    let ui_scale = ui.as_deref().map_or(1.0, |scale| scale.0);
+    let anchor = source
+        .and_then(|source| nodes.get(source).ok())
+        .filter(|(node, _)| node.size().x > 0.0 && node.size().y > 0.0)
+        .map_or(Anchor::Point(hover.at / ui_scale), |(node, place)| {
+            let inv = node.inverse_scale_factor() / ui_scale;
+            Anchor::Box {
+                centre: place.translation * inv,
+                size: node.size() * inv,
+                row: subject.row,
+            }
+        });
+    #[allow(clippy::cast_precision_loss)] // a handful of lines
+    let height = z(104.0)
+        + if said.presence.is_some() {
+            z(20.0)
+        } else {
+            0.0
+        }
+        + if said.facts.is_empty() {
+            0.0
+        } else {
+            z(18.0) + z(22.0) * said.facts.len() as f32
+        };
+    let width = z(WIDTH).min(canvas.x - 2.0 * EDGE).max(120.0);
+    let at = standing(canvas, Vec2::new(width, height), anchor);
+    let t = if handed || still { 1.0 } else { 0.0 };
+    build(&mut commands, &fonts, said, (at, width), hover.epoch, t);
+}
+
+/// What a card says: the person, where a friend is, and the lines of fact.
+/// A standing card keeps what it was drawn with and is drawn anew when this
+/// changes.
+#[derive(Clone, PartialEq, Debug)]
+struct Said {
+    card: PersonCard,
+    presence: Option<(Shown, String)>,
+    facts: Vec<String>,
+}
+
+/// What the card about `subject` says at `now`.
+fn said(
+    machine: &baylee_client_core::social::Social,
+    subject: &Subject,
+    prefs: Option<&crate::prefs::Prefs>,
+    lang: Lang,
+    now: u64,
+) -> Said {
     let card = machine.person_card(&subject.handle, subject.guest);
     let mut facts: Vec<String> = Vec::new();
     facts.extend(card.relation_words(lang, now));
     facts.extend(card.played_words(lang, now));
     if card.relation == Relation::Me
-        && let Some(prefs) = prefs.as_ref()
+        && let Some(prefs) = prefs
     {
         let (games, wins) =
             prefs
@@ -447,47 +528,11 @@ fn stand(
             super::drawer::place_words(presence.status, presence.place.as_ref(), lang),
         )
     });
-
-    let canvas = windows.iter().next().map_or(Vec2::new(1280.0, 800.0), |w| {
-        crate::hud::scale::space(w, ui.as_deref())
-    });
-    let ui_scale = ui.as_deref().map_or(1.0, |scale| scale.0);
-    let anchor = source
-        .and_then(|source| nodes.get(source).ok())
-        .filter(|(node, _)| node.size().x > 0.0 && node.size().y > 0.0)
-        .map_or(Anchor::Point(hover.at / ui_scale), |(node, place)| {
-            let inv = node.inverse_scale_factor() / ui_scale;
-            Anchor::Box {
-                centre: place.translation * inv,
-                size: node.size() * inv,
-                row: subject.row,
-            }
-        });
-    #[allow(clippy::cast_precision_loss)] // a handful of lines
-    let height = z(104.0)
-        + if presence.is_some() { z(20.0) } else { 0.0 }
-        + if facts.is_empty() {
-            0.0
-        } else {
-            z(18.0) + z(22.0) * facts.len() as f32
-        };
-    let width = z(WIDTH).min(canvas.x - 2.0 * EDGE).max(120.0);
-    let at = standing(canvas, Vec2::new(width, height), anchor);
-    let t = if handed || still { 1.0 } else { 0.0 };
-    build(
-        &mut commands,
-        &fonts,
-        &card,
+    Said {
+        card,
         presence,
-        &facts,
-        (at, width),
-        PersonPanel {
-            epoch: hover.epoch,
-            t,
-            leaving: false,
-            corner: at.corner,
-        },
-    );
+        facts,
+    }
 }
 
 /// A presence's dot.
@@ -505,17 +550,20 @@ pub(crate) fn presence_ink(shown: Shown) -> Color {
 fn build(
     commands: &mut Commands,
     fonts: &UiFonts,
-    card: &PersonCard,
-    presence: Option<(Shown, String)>,
-    facts: &[String],
+    said: Said,
     (at, width): (Standing, f32),
-    life: PersonPanel,
+    epoch: u64,
+    opening: f32,
 ) -> Entity {
+    let Said {
+        card,
+        presence,
+        facts,
+    } = &said;
     let tint = baylee_client_core::avatar::monogram(&card.handle).tint;
     let (_, tint_ink, _) = avatar::palette(tint);
     let [r, g, b] = tint.rim();
     let hue = Color::srgb(r, g, b);
-    let opening = life.t;
     let panel = commands
         .spawn((
             Node {
@@ -530,8 +578,7 @@ fn build(
                 overflow: Overflow::clip(),
                 ..default()
             },
-            held(motion::opening(opening), life.corner),
-            life,
+            held(motion::opening(opening), at.corner),
             BackgroundColor(GROUND_DEEP),
             BackgroundGradient::from(LinearGradient::new(
                 145.0_f32.to_radians(),
@@ -575,6 +622,10 @@ fn build(
                 width: Val::Percent(100.0),
                 height: zpx(40.0),
                 flex_shrink: 0.0,
+                // The card's clip is a rectangle, not its rounded outline:
+                // the band rounds its own top to the card's inner corner
+                // (12 less the 1 of border), or it pokes out square there.
+                border_radius: BorderRadius::top(zpx(11.0)),
                 ..default()
             },
             BackgroundGradient::from(LinearGradient::new(
@@ -634,7 +685,7 @@ fn build(
                     border_radius: BorderRadius::MAX,
                     ..default()
                 },
-                BackgroundColor(presence_ink(shown)),
+                BackgroundColor(presence_ink(*shown)),
                 BorderColor::all(GROUND_MID),
                 ZIndex(1),
             ))
@@ -690,7 +741,7 @@ fn build(
             .id();
         commands.entity(words).add_child(handle);
     }
-    if let Some((shown, place)) = &presence {
+    if let Some((shown, place)) = presence {
         let place = commands
             .spawn((
                 Text::new(bounded(place)),
@@ -773,6 +824,14 @@ fn build(
     commands
         .entity(panel)
         .insert_recursive::<Children>(Pickable::IGNORE);
+    commands.entity(panel).insert(PersonPanel {
+        epoch,
+        t: opening,
+        leaving: false,
+        corner: at.corner,
+        at: (at, width),
+        said,
+    });
     panel
 }
 

@@ -135,12 +135,19 @@ impl Bridge {
         // the status: a friend who chose offline tells its gateway so too.
         let seen = self.handle.seen();
         for friend in &mut snapshot.friends {
-            let gateway = self
+            let peer = self
                 .game
                 .friends
                 .iter()
-                .find(|peer| peer.person.tag == friend.person.tag)
-                .map(|peer| &peer.presence);
+                .find(|peer| peer.person.tag == friend.person.tag);
+            // Central's contacts carry no date; a gateway that keeps the
+            // same friendship knows since when.
+            if friend.since == 0
+                && let Some(peer) = peer
+            {
+                friend.since = peer.since;
+            }
+            let gateway = peer.map(|peer| &peer.presence);
             friend.presence = match seen.friends.get(&friend.person.tag) {
                 Some(shown) => baylee_client_core::social::shown_by_central(*shown, gateway),
                 None if seen.told => wire::Presence::offline(),

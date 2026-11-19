@@ -917,6 +917,12 @@ pub(crate) fn state_json(host: &SocialHost, ui: &ChatUi) -> serde_json::Value {
         "active": true,
         "online": machine.online(),
         "me": machine.me().handle,
+        // The contact status: what the player chose (Online, Afk, Offline),
+        // what a game gateway is told of it, and do not disturb, which is
+        // this device's own.
+        "choice": format!("{:?}", machine.choice()),
+        "status": format!("{:?}", machine.status()),
+        "quiet": machine.quiet(),
         "device": machine.device_id(),
         "key_home": format!("{:?}", machine.encryption_note().home),
         "open": ui.open,
