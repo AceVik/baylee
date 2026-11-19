@@ -149,6 +149,7 @@ fn seed_the_scenario(
     host: Option<ResMut<crate::social::SocialHost>>,
     duel: Option<ResMut<Duel>>,
     images: Res<Assets<Image>>,
+    mut pictures: Option<ResMut<seed::Pictures>>,
 ) {
     if control.seed_jobs.is_empty() {
         return;
@@ -158,7 +159,12 @@ fn seed_the_scenario(
         let answer = if job.path == "/images" {
             images::answer(&images)
         } else {
-            seed::answer(&job.body, host.as_deref_mut(), duel.as_deref_mut())
+            seed::answer(
+                &job.body,
+                host.as_deref_mut(),
+                duel.as_deref_mut(),
+                pictures.as_deref_mut(),
+            )
         };
         let _ = job.reply.send(answer);
     }
