@@ -38,6 +38,81 @@ pub struct DistillLabel4 {
     /// `side` or `aim` changed `R` ([`DistillSubtype4::of_single`]).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub subtype: Option<DistillSubtype4>,
+    /// What `R` is worth beside `N` at this decision, where a measuring
+    /// search had the layer for a rival (`eval4 --search-rival distill`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub probe: Option<DistillProbe4>,
+}
+
+/// The contract of a probe ([`DistillProbe4`]).
+pub const DISTILL_PROBE_CONTRACT: &str = "distill_probe_v1";
+
+/// A decision's `N` and `R` played on in the same fair worlds by the net
+/// (`eval4 --search 2,P,H --search-fair --search-rival distill
+/// --search-select measure`): `N` was played at the table, `R` only in the
+/// worlds. The fork advantage of `R` in world `p` is
+/// `worlds[p][1] - worlds[p][0]`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DistillProbe4 {
+    /// `R`'s place in the menu the label's targets index, as the search
+    /// ranked it (the label's `rules.single_idx`).
+    pub rival_index: u16,
+    /// `N`'s place in the same menu.
+    pub own_index: u16,
+    /// Each complete round's scores, `[N, R]`: the terminal side utility,
+    /// else the value head on the seat's last observation of the rollout.
+    pub worlds: Vec<[f32; 2]>,
+    /// How each of those rollouts ended (`netplay4::search::LeafEnd4` by
+    /// name: `terminal`, `boundary`, `house_stop`, ...), `[N, R]`.
+    pub ends: Vec<[String; 2]>,
+    /// Rollouts run, those of an incomplete round included.
+    pub rollouts: u64,
+    /// House answers played in the rollouts (none under `--search-house-free`).
+    pub house_answers: u64,
+}
+
+impl DistillProbe4 {
+    /// `R`'s mean fork advantage over `N` and its standard error over the
+    /// worlds (`None` with fewer than two); `None` without a world.
+    #[must_use]
+    pub fn advantage(&self) -> Option<(f64, Option<f64>)> {
+        if self.worlds.is_empty() {
+            return None;
+        }
+        let diffs: Vec<f64> = self
+            .worlds
+            .iter()
+            .map(|[n, r]| f64::from(*r) - f64::from(*n))
+            .collect();
+        let count = f64::from(u32::try_from(diffs.len()).unwrap_or(u32::MAX));
+        let mean = diffs.iter().sum::<f64>() / count;
+        let se = (diffs.len() >= 2).then(|| {
+            let variance = diffs.iter().map(|d| (d - mean).powi(2)).sum::<f64>() / (count - 1.0);
+            (variance / count).sqrt()
+        });
+        Some((mean, se))
+    }
+
+    /// `R`'s mean fork advantage over `N` in each half of the worlds, the
+    /// even rounds and the odd ones (`None` for an empty half): a lead that
+    /// holds in both halves is not one world's luck.
+    #[must_use]
+    pub fn halves(&self) -> [Option<f64>; 2] {
+        let half = |parity: usize| {
+            let diffs: Vec<f64> = self
+                .worlds
+                .iter()
+                .enumerate()
+                .filter(|(p, _)| p % 2 == parity)
+                .map(|(_, [n, r])| f64::from(*r) - f64::from(*n))
+                .collect();
+            (!diffs.is_empty()).then(|| {
+                diffs.iter().sum::<f64>()
+                    / f64::from(u32::try_from(diffs.len()).unwrap_or(u32::MAX))
+            })
+        };
+        [half(0), half(1)]
+    }
 }
 
 /// What a recorded seat's decision frame of a distillation dataset carries
@@ -379,6 +454,7 @@ mod tests {
             fired: groups(fired),
             n_ne_r: true,
             subtype,
+            probe: None,
         };
         let s = |subtype| Some(subtype);
         for (fits, l) in [

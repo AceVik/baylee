@@ -639,6 +639,7 @@ mod tests {
             fired: vec!["spend".into()],
             n_ne_r: rules != net,
             subtype: Some(DistillSubtype4::Spend),
+            probe: None,
         }
     }
 

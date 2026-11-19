@@ -42,7 +42,7 @@ use crate::features4::{
 };
 
 pub use crate::convert4::distill_labels::{
-    DistillLabel4, DistillStep4, DistillSubtype4, menu_of, menu_signature,
+    DistillLabel4, DistillProbe4, DistillStep4, DistillSubtype4, menu_of, menu_signature,
 };
 pub use baylee_train_ops::tactician_labels::{DISTILL_CONTRACT, HOUSE_DISTILL_CONTRACT};
 
@@ -140,6 +140,15 @@ impl Distill4 {
     #[must_use]
     pub const fn label(&self) -> Option<&DistillLabel4> {
         self.last.as_ref()
+    }
+
+    /// Keeps a probe of the last decision's `N` against `R` with its label
+    /// (`eval4 --search-rival distill`); a decision without a label keeps
+    /// none.
+    pub fn keep_probe(&mut self, probe: DistillProbe4) {
+        if let Some(label) = &mut self.last {
+            label.probe = Some(probe);
+        }
     }
 
     /// Records a step of this net's seat: the last decision's labels when the
@@ -383,5 +392,6 @@ fn assemble(
         fired,
         n_ne_r,
         subtype,
+        probe: None,
     }
 }
