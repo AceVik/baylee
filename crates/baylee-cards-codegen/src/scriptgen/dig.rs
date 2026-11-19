@@ -74,16 +74,16 @@ impl Tx<'_> {
                     .filter(|&n| n > 0)?,
             ),
         };
-        let optional = flag(p.take("Optional"))?;
-        let reveal = flag(p.take("Reveal"))?;
+        let optional = flag(p.take("Optional").as_deref())?;
+        let reveal = flag(p.take("Reveal").as_deref())?;
         // Keeps the reference from revealing a card a filter picked; with
         // no filter, nothing picked is revealed anyway.
-        let no_reveal = flag(p.take("NoReveal"))?;
-        let random = flag(p.take("RestRandomOrder"))?;
+        let no_reveal = flag(p.take("NoReveal").as_deref())?;
+        let random = flag(p.take("RestRandomOrder").as_deref())?;
         // The reference's way of making sure the activating player sees the
         // cards, which the player looking at their own library does here.
-        let force_reveal = flag(p.take("ForceRevealToController"))?;
-        let tapped = flag(p.take("Tapped"))?;
+        let force_reveal = flag(p.take("ForceRevealToController").as_deref())?;
+        let tapped = flag(p.take("Tapped").as_deref())?;
         let first = match p.take("DestinationZone").as_deref() {
             None | Some("Hand") if !tapped => First::Hand,
             Some("Battlefield") => First::Battlefield { tapped },
@@ -258,8 +258,8 @@ impl Tx<'_> {
 /// A `Key$ True` flag: absent is `false`, `True` is `true`, and any other
 /// value is refused (the reference tests these keys by presence, so a
 /// written `False` would mean `true` to it).
-fn flag(value: Option<String>) -> Option<bool> {
-    match value.as_deref() {
+fn flag(value: Option<&str>) -> Option<bool> {
+    match value {
         None => Some(false),
         Some("True") => Some(true),
         Some(_) => None,
