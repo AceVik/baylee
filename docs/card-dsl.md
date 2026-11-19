@@ -2711,8 +2711,16 @@ Triggers, reflexive events and amounts:
 
 - **`Trigger::CycledThis`** is "When you cycle this card" (CR 702.29c).
   What counts as cycling is `AbilityDef::is_cycling`: from the hand, the
-  cost discards the card, and the effect draws one card. Typecycling is not
-  read.
+  cost discards the card, and the effect draws one card or, for typecycling
+  (CR 702.29e–f), is one mandatory library search for the hand. The reader
+  writes it for `T:Mode$ Cycled | ValidCard$ Card.Self`.
+- **`Trigger::Cycles(rel)`** is "Whenever [a player / you] cycles a card"
+  (Lightning Rift, `EachPlayer`; "you", `You`), off the battlefield like any
+  other trigger, on the same cycled event (CR 702.29c–d: once per card). The
+  player who cycled is `PlayerRel::EventPlayer`. A discard to pay another
+  ability's cost is not cycling. The reader writes it for `ValidCard$ Card`
+  (`EachPlayer`) and `Card.YouCtrl` / `Card.YouOwn` (`You`) from the
+  battlefield; "another card" stays refused.
 - **`Trigger::DealsCombatDamageToOpponent(filter)`** (Questing Beast)
   carries the player and the amount on the trigger. **`Amount::EventAmount`**
   is "that much".

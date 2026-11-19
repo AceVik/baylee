@@ -891,6 +891,15 @@ pub enum Trigger {
     /// a graveyard before entering from the stack. The provenance belongs to
     /// the entering object; another object's graveyard cast does not count.
     EntersBattlefieldFromGraveyardOrCast(&'static Filter),
+    /// "Whenever [a player / you / an opponent] cycles a card" (Lightning
+    /// Rift: `EachPlayer`). A card is cycled when it is discarded to pay the
+    /// activation cost of a cycling ability (CR 702.29c), the same event
+    /// [`Self::CycledThis`] reads, and it triggers once for that card
+    /// (CR 702.29d). Collected from the battlefield like any other trigger;
+    /// the player who cycled is the event's player
+    /// ([`PlayerRel::EventPlayer`](crate::effect::PlayerRel)). Last in the
+    /// enum: a game record holds every variant's number.
+    Cycles(crate::effect::PlayerRel),
 }
 
 impl Trigger {
@@ -1187,9 +1196,14 @@ impl AbilityDef {
     /// read: an ability activated from the hand whose cost discards the card
     /// itself and whose effect is to draw one card. A card that discards
     /// itself for anything else — Trumpeting Carnosaur's damage, Boseiju's
-    /// channel — is not cycled. Typecycling (702.29e), which searches
-    /// instead, is not read here; no card in the pool that cares about being
-    /// cycled prints it.
+    /// channel — is not cycled.
+    ///
+    /// Typecycling is a cycling ability too (CR 702.29f), and its shape is
+    /// read the same way (702.29e): "[Cost], Discard this card: Search your
+    /// library for a [type] card, reveal it, and put it into your hand",
+    /// one mandatory search finding one card for the hand (Ash Barrens'
+    /// basic landcycling). A search that puts the card anywhere else, or
+    /// finds more than one, is not typecycling.
     #[must_use]
     pub fn is_cycling(&self) -> bool {
         match self {
@@ -1206,7 +1220,15 @@ impl AbilityDef {
                 ..
             } => {
                 cost.parts.contains(&crate::cost::CostPart::DiscardSelf)
-                    && *effects == [crate::effect::Effect::draw(1)]
+                    && (*effects == [crate::effect::Effect::draw(1)]
+                        || matches!(
+                            effects,
+                            [crate::effect::Effect::SearchLibrary {
+                                finds,
+                                optional: false,
+                                ..
+                            }] if *finds == [crate::Find::HAND]
+                        ))
             }
             _ => false,
         }
@@ -1563,6 +1585,27 @@ mod tests {
         assert!(!ability(DISCARD, DRAW, ActivationZone::Battlefield).is_cycling());
         assert!(!ability(crate::cost::Cost::FREE, DRAW, ActivationZone::Hand).is_cycling());
         assert!(!activated(false).is_cycling());
+
+        // Typecycling (CR 702.29e–f): one mandatory search for the hand.
+        const LANDCYCLE: &[Effect] = &[Effect::SearchLibrary {
+            filter: &crate::Filter::BASIC_LAND,
+            finds: &[crate::Find::HAND],
+            optional: false,
+        }];
+        const ONTO_BATTLEFIELD: &[Effect] = &[Effect::SearchLibrary {
+            filter: &crate::Filter::BASIC_LAND,
+            finds: &[crate::Find::BATTLEFIELD_TAPPED],
+            optional: false,
+        }];
+        const TWO: &[Effect] = &[Effect::SearchLibrary {
+            filter: &crate::Filter::BASIC_LAND,
+            finds: &[crate::Find::HAND, crate::Find::HAND],
+            optional: false,
+        }];
+        assert!(ability(DISCARD, LANDCYCLE, ActivationZone::Hand).is_cycling());
+        assert!(!ability(DISCARD, ONTO_BATTLEFIELD, ActivationZone::Hand).is_cycling());
+        assert!(!ability(DISCARD, TWO, ActivationZone::Hand).is_cycling());
+        assert!(!ability(DISCARD, LANDCYCLE, ActivationZone::Battlefield).is_cycling());
     }
 
     /// CR 605.1 makes a mana ability the exception, and the flag is the

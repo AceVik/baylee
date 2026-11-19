@@ -844,7 +844,8 @@ fn matches(
             *player == you && *object != source
         }
         (Trigger::Draws(rel), GameEvent::CardsDrawn { player, .. })
-        | (Trigger::PlaysLand(rel), GameEvent::LandPlayed { player, .. }) => match rel {
+        | (Trigger::PlaysLand(rel), GameEvent::LandPlayed { player, .. })
+        | (Trigger::Cycles(rel), GameEvent::Cycled { player, .. }) => match rel {
             PlayerRel::You => *player == you,
             PlayerRel::Opponent | PlayerRel::EachOpponent => state.is_opponent(*player, you),
             _ => true,

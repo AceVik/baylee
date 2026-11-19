@@ -2266,6 +2266,8 @@ mod cost_flow_tests;
 #[cfg(test)]
 mod counted_pt_tests;
 #[cfg(test)]
+mod cycles_trigger_tests;
+#[cfg(test)]
 mod cycling_tests;
 #[cfg(test)]
 mod damage_history_tests;
