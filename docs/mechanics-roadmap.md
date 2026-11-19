@@ -23,6 +23,29 @@ Size classes: **S** (< 100 engine LOC), **M** (100–400), **L** (> 400).
 
 ---
 
+## Stub-unlock ranking (2026-11-19)
+
+Measured against the stub pool (`cargo run -p xtask -- validate` + `cargo run -p xtask -- transcode-report --stubs --causes 0 --samples 0`), ordered by estimated immediate stub unlocks (cards with no secondary unimplemented clause behind the mechanic) and family count. Representative cards are ordered by first printing (`SETS` release date).
+
+| Rank | Mechanic | CR rule(s) | Shape | Stubs citing / immediate unlocks | Representative cards (release order) |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Creature-type choice on resolution and as-enters (`Choose a creature type` / `becomes the creature type of your choice`) | CR 205.3m, CR 205.1b, CR 608.2d, CR 614.12a | replacement (as-enters), resolution choice + continuous effect | 38 stubs (31 resolution, 7 as-enters; ~22 immediate unlocks) | *Extinction* (TMP), *Belbe's Portal* (NEM), *Shared Triumph* (ONS) |
+| 2 | Cycling triggers (`When you cycle this card` and `Whenever a player cycles a card`) | CR 702.29a, CR 702.29c, CR 702.29d, CR 702.29f | trigger (departed hand-cycle look-back & battlefield observer) | 25 stubs (20 immediate unlocks) | *Astral Slide* (ONS), *Lightning Rift* (ONS), *Gempalm Avenger* (LGN) |
+| 3 | Dual kicker (`Kicker [cost 1] and/or [cost 2]`) | CR 702.33a, CR 702.33b, CR 702.33d, CR 702.33e, CR 702.33f | static / optional additional spell costs + linked ETB triggers & replacements | 11 stubs (11 immediate unlocks) | *Sunscape Battlemage* (PLS), *Degavolver* (APC), *Illuminate* (APC) |
+| 4 | Storm (including multi-instance trigger rule) | CR 702.40a, CR 702.40b | keyword (cast trigger on stack) | 11 stubs (10 immediate unlocks) | *Astral Steel* (SCG), *Tendrils of Agony* (SCG), *Wing Shards* (SCG) |
+| 5 | Amplify (`Amplify N`) | CR 702.38a, CR 702.38b, CR 614.12 | keyword (static generating an as-enters reveal-and-counter replacement) | 8 stubs (7 immediate unlocks) | *Aven Warhawk* (LGN), *Daru Stinger* (LGN), *Kilnmouth Dragon* (LGN) |
+| 6 | Provoke (`Provoke`) | CR 702.39a, CR 702.39b, CR 509.1c | keyword (attack trigger untapping target defender creature + combat block requirement) | 8 stubs (7 immediate unlocks) | *Deftblade Elite* (LGN), *Goblin Grappler* (LGN), *Hunter Sliver* (LGN) |
+| 7 | Typecycling (`[Type]cycling [cost]`) | CR 702.29e, CR 702.29f | keyword (activated ability in hand; counts as cycling) | 7 stubs (6–7 immediate unlocks) | *Chartooth Cougar* (SCG), *Eternal Dragon* (SCG), *Lórien Revealed* (LTR) |
+| 8 | Non-mana & variable-X kicker (`Kicker—[cost]`, `Kicker {X}`) | CR 702.33a, CR 118.8, CR 601.2b, CR 601.2f | static / optional additional spell cost | 13 stubs (10 non-mana, 3 X; 6–7 immediate unlocks) | *Arctic Merfolk* (PLS), *Phyrexian Scuta* (PLS), *Dwarven Landslide* (APC) |
+| 9 | Split spell cards (`A // B` in hand/stack/zones) | CR 709.1, CR 709.2, CR 709.3, CR 709.4 | card layout / static characteristics & cast-half choice | 9 stubs (7–8 immediate unlocks) | *Assault // Battery* (INV), *Wax // Wane* (INV), *Life // Death* (APC) |
+| 10 | Source-color & chosen-source persistent damage prevention (Circles & Runes of Protection, Wards) | CR 615.1, CR 615.7 | activated ability creating prevention shield | 26 stubs (~18 immediate unlocks) | *Circle of Protection: Red* (LEA), *Rune of Protection: White* (USG), *Story Circle* (MMQ) |
+| 11 | Mandatory non-mana spell additional costs (`As an additional cost to cast this spell, discard/sacrifice/exile...`) | CR 118.8, CR 118.8a, CR 118.8d, CR 601.2b, CR 601.2f | cost | 16 stubs (~12 immediate unlocks) | *Mask of the Mimic* (STH), *Diabolic Intent* (PLS), *Skulltap* (SCG) |
+| 12 | Coin-flip effects (`Flip a coin` / win-or-lose flip) | CR 705.1, CR 705.2 | resolution effect / replacement / trigger | 8 stubs (~6 immediate unlocks) | *Chaotic Strike* (INV), *Planar Chaos* (JUD), *Squee's Revenge* (APC) |
+| 13 | Static spell & ability cost reductions (`costs {N} less to cast/activate`) | CR 118.7, CR 118.7a, CR 601.2f | static | 8 stubs (5–6 immediate unlocks) | *Fluctuator* (USG), *Urza's Filter* (INV), *Dream Chisel* (ONS) |
+| 14 | Phasing (`Phasing` & phase-in/out triggers) | CR 702.26a–g, CR 502.1 | keyword (static modifying untap step) + trigger | 5 stubs (4 immediate unlocks) | *Shimmering Efreet* (VIS), *Teferi's Imp* (MIR), *Teferi's Veil* (WTH) |
+
+---
+
 ## A. Already supported (M0–M3) — do not reschedule
 
 Keywords: flying, first/double strike, deathtouch, lifelink, vigilance,
