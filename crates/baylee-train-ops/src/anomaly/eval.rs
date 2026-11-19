@@ -126,12 +126,10 @@ pub fn job_of(result: &Path) -> Option<Job> {
             let argv: Vec<String> = job["command"]
                 .as_array()
                 .or_else(|| job["argv"].as_array())
-                .map(|args| {
-                    args.iter()
-                        .filter_map(|a| a.as_str().map(str::to_owned))
-                        .collect()
-                })
-                .unwrap_or_default();
+                .into_iter()
+                .flatten()
+                .filter_map(|a| a.as_str().map(str::to_owned))
+                .collect();
             let writes = flag(&argv, "--out")
                 .and_then(|out| Path::new(out).canonicalize().ok())
                 .is_some_and(|out| out == result);

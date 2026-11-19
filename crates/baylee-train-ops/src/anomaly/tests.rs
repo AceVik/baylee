@@ -134,12 +134,15 @@ fn fallbacks_above_the_threshold_are_worth_a_look() {
 #[test]
 fn the_job_beside_a_result_is_found_by_its_out() {
     let dir = tempfile::tempdir().unwrap();
-    let result = dir.path().join("eval-y.json");
+    // The job is found by its canonical `--out`, so the paths it answers
+    // with are canonical too; macOS keeps its temporary files behind a link.
+    let root = dir.path().canonicalize().unwrap();
+    let result = root.join("eval-y.json");
     fs::write(&result, "{}").unwrap();
-    let job_dir = dir.path().join("execution-q1/jobs/y");
+    let job_dir = root.join("execution-q1/jobs/y");
     fs::create_dir_all(&job_dir).unwrap();
     fs::write(job_dir.join("stderr.log"), "").unwrap();
-    let records = dir.path().join("records-y");
+    let records = root.join("records-y");
     fs::write(
         job_dir.join("job.json"),
         serde_json::to_vec(&json!({"argv": [

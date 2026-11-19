@@ -62,12 +62,10 @@ pub fn menu_margin(menu: &Value) -> Option<(f64, &'static str, u8, usize)> {
     let logits = |key: &str| -> Vec<f64> {
         menu[key]
             .as_array()
-            .map(|rows| {
-                rows.iter()
-                    .filter_map(|row| row["logit"].as_f64())
-                    .collect()
-            })
-            .unwrap_or_default()
+            .into_iter()
+            .flatten()
+            .filter_map(|row| row["logit"].as_f64())
+            .collect()
     };
     match head {
         0 => {
