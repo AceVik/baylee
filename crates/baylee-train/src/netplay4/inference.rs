@@ -221,10 +221,18 @@ impl StepRow {
             DumpTensor::new(name, dims, TensorData::Bool(v.to_vec()))
         };
         let mut out = vec![
-            f("entity_feat", vec![1, e, self.entity_width], &self.entity_feat)?,
+            f(
+                "entity_feat",
+                vec![1, e, self.entity_width],
+                &self.entity_feat,
+            )?,
             f("entity_dsl", vec![1, e, CARD_DSL_WIDTH], &self.entity_dsl)?,
             b("entity_mask", vec![1, e], &self.entity_mask)?,
-            f("seat_feat", vec![1, MAX_SEATS, SEAT_FEAT_WIDTH], &self.seat_feat)?,
+            f(
+                "seat_feat",
+                vec![1, MAX_SEATS, SEAT_FEAT_WIDTH],
+                &self.seat_feat,
+            )?,
             f("global_feat", vec![1, self.global_width], &self.global_feat)?,
             i("edge_index", vec![1, m, 2], &self.edge_index)?,
             i("edge_type", vec![1, m], &self.edge_type)?,
