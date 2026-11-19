@@ -44,6 +44,7 @@ mod archon_kismet;
 mod atoms;
 mod chains;
 mod constants;
+mod dig;
 mod divided_damage;
 mod effects;
 mod final_portals;
