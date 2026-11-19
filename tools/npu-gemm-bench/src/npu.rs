@@ -211,6 +211,123 @@ pub fn soak(spec: &DesignSpec, dir: &Path, secs: f64) -> Result<(usize, Duration
     Ok((calls, start.elapsed()))
 }
 
+/// The four GEMMs of one encoder layer at one M, run back to back in one
+/// hardware context.
+#[derive(Debug, Serialize)]
+pub struct LayerResult {
+    pub m: usize,
+    pub tile: [usize; 3],
+    /// The xclbin every GEMM ran on; the others' instruction streams were
+    /// loaded into its context.
+    pub xclbin_of: String,
+    pub designs: Vec<String>,
+    /// One layer: per GEMM, sync A in, run, sync C out. B (the weights) is
+    /// synced once up front, as an offload would keep it resident.
+    pub layer: Summary,
+    /// p50 of each GEMM's run (start + wait) inside the layer.
+    pub run_p50_ms: Vec<f64>,
+    pub gflops_p50: f64,
+    /// The worst of the four GEMMs against the f64 reference.
+    pub max_abs: f64,
+    pub max_rel: f64,
+}
+
+/// The device-side state of one GEMM inside a shared context.
+struct Slot<'a> {
+    instr: crate::xrt::Bo<'a>,
+    ninstr: u32,
+    a: crate::xrt::Bo<'a>,
+    b: crate::xrt::Bo<'a>,
+    c: crate::xrt::Bo<'a>,
+}
+
+/// Runs the GEMMs of `designs` (same M, same tile, so the same PDI) as one
+/// layer in the context of the first one's xclbin, checking each output.
+pub fn bench_layer(designs: &[(DesignSpec, std::path::PathBuf)], warmup: usize, iters: usize) -> Result<LayerResult, String> {
+    let (first, first_dir) = designs.first().ok_or("no designs for the layer")?;
+    if designs.iter().any(|(s, _)| s.tile != first.tile || s.padded[0] != first.padded[0]) {
+        return Err("a layer needs one M and one tile".to_owned());
+    }
+    let npu = Npu::open(&first_dir.join("final.xclbin"), "MLIR_AIE")?;
+    let mut slots = Vec::new();
+    let mut refs = Vec::new();
+    let mut flop = 0.0;
+    for (spec, dir) in designs {
+        let [m, k, n] = spec.logical;
+        let [pm, pk, pn] = spec.padded;
+        let (a, b) = inputs(m, k, n);
+        let instr = read_instructions(&dir.join("insts.bin"))?;
+        let slot = Slot {
+            instr: npu.instr_bo(instr.len() * 4)?,
+            ninstr: instr.len() as u32,
+            a: npu.data_bo(pm * pk * 2, 3)?,
+            b: npu.data_bo(pk * pn * 2, 4)?,
+            c: npu.data_bo(pm * pn * 4, 5)?,
+        };
+        slot.instr.write_u32(&instr);
+        slot.instr.sync(Sync::ToDevice)?;
+        slot.a.write_u16(&pad(&a.bits, (m, k), (pm, pk)));
+        slot.b.write_u16(&pad(&b.bits, (k, n), (pk, pn)));
+        slot.b.sync(Sync::ToDevice)?;
+        slot.c.fill(0xFF);
+        slot.c.sync(Sync::ToDevice)?;
+        refs.push(cpu::reference_f64(&a.wide, &b.wide, (m, k, n)));
+        flop += 2.0 * (m * k * n) as f64;
+        slots.push(slot);
+    }
+    let runs = slots
+        .iter()
+        .map(|s| npu.run(&s.instr, s.ninstr, &s.a, &s.b, &s.c))
+        .collect::<Result<Vec<_>, _>>()?;
+    let layer_once = |run_times: Option<&mut [Vec<Duration>]>| -> Result<(), String> {
+        let mut run_times = run_times;
+        for (i, (slot, run)) in slots.iter().zip(&runs).enumerate() {
+            slot.a.sync(Sync::ToDevice)?;
+            let t = Instant::now();
+            run.exec()?;
+            if let Some(rt) = run_times.as_deref_mut() {
+                rt[i].push(t.elapsed());
+            }
+            slot.c.sync(Sync::FromDevice)?;
+        }
+        Ok(())
+    };
+    layer_once(None)?;
+    let (mut max_abs, mut max_rel) = (0.0_f64, 0.0_f64);
+    for ((spec, _), (slot, reference)) in designs.iter().zip(slots.iter().zip(&refs)) {
+        let [m, _, n] = spec.logical;
+        let got = crop(&slot.c.read_f32(spec.padded[0] * spec.padded[2]), (m, n), spec.padded[2]);
+        let e = data::compare(&got, reference);
+        if e.non_finite > 0 || e.max_rel > 1e-3 {
+            return Err(format!("{} in a shared context: wrong output ({e:?})", spec.name));
+        }
+        max_abs = max_abs.max(e.max_abs);
+        max_rel = max_rel.max(e.max_rel);
+    }
+    for _ in 0..warmup {
+        layer_once(None)?;
+    }
+    let mut run_times = vec![Vec::with_capacity(iters); slots.len()];
+    let mut layer_times = Vec::with_capacity(iters);
+    for _ in 0..iters {
+        let t = Instant::now();
+        layer_once(Some(&mut run_times))?;
+        layer_times.push(t.elapsed());
+    }
+    let layer = Summary::of(&layer_times);
+    Ok(LayerResult {
+        m: first.logical[0],
+        tile: first.tile,
+        xclbin_of: first.name.clone(),
+        designs: designs.iter().map(|(s, _)| s.name.clone()).collect(),
+        gflops_p50: flop / (layer.p50_ms * 1e6),
+        layer,
+        run_p50_ms: run_times.iter().map(|t| Summary::of(t).p50_ms).collect(),
+        max_abs,
+        max_rel,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
