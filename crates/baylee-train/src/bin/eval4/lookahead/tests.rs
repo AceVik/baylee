@@ -658,6 +658,26 @@ fn search_is_refused_where_it_cannot_run() {
 }
 
 #[test]
+fn served_calls_of_one_row_keep_a_search_reproducible() {
+    let reproducible = |extra: &[&str]| {
+        let mut argv = vec!["eval4", "--model", "m", "--out", "o", "--search", "4,2,3"];
+        argv.extend_from_slice(extra);
+        let args = Args::try_parse_from(argv).unwrap();
+        search_metadata(&args, search_config(&args).unwrap(), None).unwrap()["bitwise_reproducible"]
+            .clone()
+    };
+    assert_eq!(
+        reproducible(&["--inference-batch", "1", "--inference-servers", "4"]),
+        true,
+        "calls of one row are the unbatched steps, whichever server runs them"
+    );
+    assert_eq!(
+        reproducible(&["--inference-batch", "4", "--inference-servers", "4"]),
+        false
+    );
+}
+
+#[test]
 fn the_stall_guard_is_asked_for_and_named() {
     let guarded = |extra: &[&str]| {
         let mut argv = vec!["eval4", "--model", "m", "--out", "o"];

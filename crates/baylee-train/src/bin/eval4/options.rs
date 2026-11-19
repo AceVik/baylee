@@ -382,6 +382,14 @@ struct Args {
     /// reproducible.
     #[arg(long, default_value_t = 0)]
     inference_batch: usize,
+    /// Sessions of each graph that answer the `--inference-batch` calls at
+    /// once, each on its own thread (`1` = one copy of each graph). The CPU's
+    /// way to run a search's rollouts on several cores: there a call of many
+    /// rows costs about as much per row as one row, so cores, not batches,
+    /// make steps cheaper (`docs/trained-ai.md` §"Lookahead search"). With
+    /// `--inference-batch 1` every step is the unbatched one, bit for bit.
+    #[arg(long, default_value_t = 1)]
+    inference_servers: usize,
     /// First deal seed (shuffle/opening hand RNG).
     #[arg(long, default_value_t = 10_000)]
     first_seed: u64,
@@ -427,7 +435,8 @@ struct Args {
     /// and a twin of the net whose steps join the `--inference-batch`
     /// batches; without `--inference-batch` they run one by one. A batch
     /// then holds up to `--threads × (this + 1)` rows. Batched searches are
-    /// not bitwise reproducible.
+    /// not bitwise reproducible, unless every call holds one row
+    /// (`--inference-batch 1`, the CPU's way with `--inference-servers`).
     #[arg(long, default_value_t = SearchConfig4::DEFAULT_THREADS)]
     search_threads: usize,
     /// Tries a candidate that casts a spell or activates an ability at each
@@ -641,7 +650,8 @@ fn search_metadata(
     // A row's outputs in a batch differ from its outputs alone, and which
     // rows share a batch depends on timing: a batched search is not
     // reproducible bit for bit (`docs/trained-ai.md` §"Lookahead search").
-    metadata["bitwise_reproducible"] = json!(args.inference_batch == 0);
+    // Calls of one row are the unbatched steps, whichever server runs them.
+    metadata["bitwise_reproducible"] = json!(args.inference_batch <= 1);
     metadata["critic_semantics"] = json!(identity.and_then(|i| i.critic_semantics.as_ref()));
     Some(metadata)
 }

@@ -9,6 +9,7 @@
 use anyhow::{Context, Result, bail, ensure};
 use baylee_train_ops::evaluation::arms::{compare_arm, compare_builds, compare_exports, pool_arms};
 use baylee_train_ops::evaluation::decks::{DeckFilter, by_deck, markdown as decks_markdown};
+use baylee_train_ops::evaluation::search_parity::search_parity;
 use baylee_train_ops::evaluation::value_report::{read_positions, report, value_gap};
 use baylee_train_ops::evaluation::{atomic_json, read_json, sample};
 use clap::{Parser, Subcommand};
@@ -196,6 +197,16 @@ enum Command {
         fit: Vec<PathBuf>,
         #[arg(long, default_value_t = 2_000)]
         resamples: usize,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Whether two `eval4 --search` runs of the same deals searched alike:
+    /// the same records and searched decisions, and the largest gap between
+    /// their worlds' scores (`evaluation::search_parity`).
+    SearchParity {
+        /// The two runs' `--record-out` directories.
+        #[arg(long, num_args = 2)]
+        records: Vec<PathBuf>,
         #[arg(long)]
         out: PathBuf,
     },
@@ -1105,6 +1116,11 @@ fn main() -> Result<()> {
             let on_test = read_positions(&test[0], &test[1])?;
             let on_fit = read_positions(&fit[0], &fit[1])?;
             atomic_json(&out, &report(&on_test, &on_fit, resamples))?;
+        }
+        Command::SearchParity { records, out } => {
+            let parity = search_parity(&records[0], &records[1])?;
+            println!("{}", serde_json::to_string_pretty(&parity)?);
+            atomic_json(&out, &parity)?;
         }
     }
     Ok(())

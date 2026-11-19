@@ -386,6 +386,9 @@ fn main() -> anyhow::Result<()> {
     if args.legacy_v3 && args.inference_batch > 0 {
         bail!("--inference-batch needs a v4/v5 model");
     }
+    if args.inference_servers != 1 && args.inference_batch == 0 {
+        bail!("--inference-servers serves the --inference-batch calls; give it a batch");
+    }
     if !(2..=8).contains(&args.seats) {
         bail!("--seats must be between 2 and 8");
     }
@@ -619,6 +622,9 @@ fn main() -> anyhow::Result<()> {
             // Only batched runs name it, so unbatched records stay as they were.
             run["inference_batch_rows"] = json!(args.inference_batch);
         }
+        if args.inference_servers > 1 {
+            run["inference_servers"] = json!(args.inference_servers);
+        }
         if args.deck_schedule != DeckSchedule::Fixed {
             // Only another seating names it, so the records of every run before stay as they were.
             run["deck_schedule"] = json!(args.deck_schedule.name());
@@ -759,6 +765,7 @@ fn main() -> anyhow::Result<()> {
     let attempts = attempts::prepare(&args, &decks_arc)?;
     let shared_nets = SharedNets::open(
         args.inference_batch,
+        args.inference_servers,
         &args.model,
         collection
             .opponent_path
