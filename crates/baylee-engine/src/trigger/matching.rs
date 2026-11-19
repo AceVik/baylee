@@ -437,6 +437,21 @@ fn matches(
                 ..
             },
         ) => departed_matches(filter, state, *object, you, context),
+        // "Whenever a [filter] card leaves your graveyard", once per card. The
+        // card is read as it is now, which off the battlefield are the printed
+        // characteristics it had in the graveyard; one that became a permanent
+        // is read as that permanent, which differs from the look-back of
+        // CR 603.10a only under an effect that changes it on the battlefield.
+        (
+            Trigger::LeavesGraveyard(filter),
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Graveyard,
+                ..
+            },
+        ) => state.object_or_departed(*object).is_some_and(|card| {
+            card.is_card() && eval::matches_with_context(filter, state, card, you, context)
+        }),
         (
             Trigger::DiesNotSacrificed(filter),
             GameEvent::ZoneChanged {

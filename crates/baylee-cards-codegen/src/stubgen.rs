@@ -647,6 +647,7 @@ fn render_face(
     madness: Option<&str>,
     foretell: Option<&str>,
     morph: Option<&str>,
+    delve: bool,
     cost_reduction: Option<&str>,
     entwine: Option<&str>,
     buyback: Option<&str>,
@@ -724,6 +725,9 @@ fn render_face(
     }
     if let Some(morph) = morph {
         fields.push(format!("morph = {morph}"));
+    }
+    if delve {
+        fields.push("delve = true".to_string());
     }
     if let Some(cr) = cost_reduction {
         fields.push(format!("cost_reduction = {cr}"));

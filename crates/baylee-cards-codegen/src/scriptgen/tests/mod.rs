@@ -7,6 +7,7 @@ mod archon_kismet;
 mod blocks_and_conditions;
 mod costs_and_refusals;
 mod cycling;
+mod delve;
 mod dig;
 mod divided_damage;
 mod dredge;

@@ -24,6 +24,17 @@ impl Tx<'_> {
             self.body.enter_modifiers.push(entry);
             return Some(());
         }
+        if let Some(entry) = self.delve_exiled_etb_counter(line) {
+            self.body.enter_modifiers.push(entry);
+            return Some(());
+        }
+        if line == "Delve" {
+            // CR 702.66a: the cards exiled pay the generic part of the total
+            // cost; the casting wizard asks for them (`FaceDef::delve`).
+            self.body.delve = true;
+            self.body.notes.push("delve".to_string());
+            return Some(());
+        }
         if let Some(rest) = line.strip_prefix("ETBReplacement:") {
             return self.etb_replacement(rest);
         }
@@ -572,6 +583,43 @@ impl Tx<'_> {
         };
         Some(format!(
             "EnterModifier::WithCounters {{ kind: {kind}, amount: {amount} }}"
+        ))
+    }
+
+    /// `K:etbCounter:<KIND>:<var>[:no Condition[:<desc>]]` whose `<var>` is
+    /// `Count$ValidExile <valid>.ExiledWithSource[,…]`: "enters with a
+    /// counter on it for each [valid] card exiled with it" (Murktide Regent),
+    /// `Amount::CountOf` over `ZoneSel::LinkedExile`. Read only on a card
+    /// with delve, whose cast marks the cards it exiled as exiled with the
+    /// permanent the spell becomes (CR 607.2q); no other path the reference
+    /// uses for these lines marks them, so without delve it is refused.
+    pub(super) fn delve_exiled_etb_counter(&mut self, line: &str) -> Option<String> {
+        let mut fields = line.strip_prefix("etbCounter:")?.split(':');
+        let kind = super::counter_kind(fields.next()?.trim())?;
+        let var = fields.next()?.trim();
+        if let Some(condition) = fields.next()
+            && !condition.trim().eq_ignore_ascii_case("no condition")
+        {
+            return None;
+        }
+        let valid = self
+            .svars
+            .get(var)?
+            .trim()
+            .strip_prefix("Count$ValidExile ")?
+            .split(',')
+            .map(|alt| alt.trim().strip_suffix(".ExiledWithSource"))
+            .collect::<Option<Vec<_>>>()?
+            .join(",");
+        if !self.has_delve {
+            return self.deny(
+                "a count of cards exiled with a permanent whose spell has no delve".to_string(),
+            );
+        }
+        let expr = self.filter_expr_in_zone(&valid, true)?;
+        let filter = self.body.filter_static("EXILED", &expr);
+        Some(format!(
+            "EnterModifier::WithCounters {{ kind: {kind}, amount: Amount::CountOf {{ filter: &{filter}, zone: ZoneSel::LinkedExile }} }}"
         ))
     }
 

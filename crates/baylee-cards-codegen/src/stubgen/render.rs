@@ -181,6 +181,7 @@ fn render_card(
             (Some(body), 0) => body.morph.as_deref(),
             _ => None,
         };
+        let delve = matches!(&land, Some(body) if i == 0 && body.delve);
         let cost_reduction = match (&land, i) {
             (Some(body), 0) => body.cost_reduction.as_deref(),
             _ => None,
@@ -216,6 +217,7 @@ fn render_card(
             madness,
             foretell,
             morph,
+            delve,
             cost_reduction,
             entwine,
             buyback,

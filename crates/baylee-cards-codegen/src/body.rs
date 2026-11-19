@@ -51,6 +51,8 @@ pub struct CardBody {
     pub foretell: Option<String>,
     /// `morph` expression for the front face, when present.
     pub morph: Option<String>,
+    /// Delve on the front face (CR 702.66a, `K:Delve`).
+    pub delve: bool,
     /// `cost_reduction` expression for the front face, when present.
     pub cost_reduction: Option<String>,
     /// `entwine` expression for the front face, when present.
@@ -82,6 +84,7 @@ impl CardBody {
             && self.madness.is_none()
             && self.foretell.is_none()
             && self.morph.is_none()
+            && !self.delve
             && self.cost_reduction.is_none()
             && self.entwine.is_none()
             && self.buyback.is_none()
