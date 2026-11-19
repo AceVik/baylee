@@ -1,0 +1,21 @@
+//! Unholy Heat — {R} — Instant
+//! Oracle: Unholy Heat deals 2 damage to target creature or planeswalker.
+//! Oracle: Delirium — Unholy Heat deals 6 damage instead if there are four or more card types among cards in your graveyard.
+//! Set: OTC #182 — Outlaws of Thunder Junction Commander | Scryfall ID: 4e879386-b1f8-4f2a-9820-6e1291746f88 | Oracle ID: b23cba46-6ed2-442d-bc39-7c4933f6b083
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+use baylee_cards_dsl::prelude::*;
+
+card!(
+    index = index::UNHOLY_HEAT,
+    oracle_id = "b23cba46-6ed2-442d-bc39-7c4933f6b083",
+    scryfall_id = "4e879386-b1f8-4f2a-9820-6e1291746f88",
+    color_identity = ColorSet::from_slice(&[Color::Red]),
+    faces = &[face!(
+        name = "Unholy Heat",
+        mana_cost = mana!("{R}"),
+        types = TypeSet::INSTANT,
+    ),],
+);
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

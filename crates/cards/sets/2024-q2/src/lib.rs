@@ -91,6 +91,8 @@ pub mod fomori_vault;
 pub mod foreboding_landscape;
 #[path = "otj/forlorn_flats.rs"]
 pub mod forlorn_flats;
+#[path = "mh3/galvanic_discharge.rs"]
+pub mod galvanic_discharge;
 #[path = "mh3/glaring_fleshraker.rs"]
 pub mod glaring_fleshraker;
 #[path = "mh3/glasswing_grace.rs"]
@@ -187,6 +189,8 @@ pub mod shattered_landscape;
 pub mod sheltering_landscape;
 #[path = "mh3/shifting_woodland.rs"]
 pub mod shifting_woodland;
+#[path = "otj/shoot_the_sheriff.rs"]
+pub mod shoot_the_sheriff;
 #[path = "big/simulacrum_synthesizer.rs"]
 pub mod simulacrum_synthesizer;
 #[path = "mh3/sink_into_stupor.rs"]

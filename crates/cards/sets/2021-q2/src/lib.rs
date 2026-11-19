@@ -55,6 +55,8 @@ pub mod dauthi_voidwalker;
 pub mod double_major;
 #[path = "mh2/dragon_s_rage_channeler.rs"]
 pub mod dragon_s_rage_channeler;
+#[path = "pmh2/dress_down.rs"]
+pub mod dress_down;
 #[path = "mh2/drossforge_bridge.rs"]
 pub mod drossforge_bridge;
 #[path = "stx/elemental_summoning.rs"]
@@ -135,6 +137,8 @@ pub mod mistvault_bridge;
 pub mod moldering_karok;
 #[path = "mh2/monoskelion.rs"]
 pub mod monoskelion;
+#[path = "pmh2/murktide_regent.rs"]
+pub mod murktide_regent;
 #[path = "mh2/myr_scrapling.rs"]
 pub mod myr_scrapling;
 #[path = "pstx/necroblossom_snarl.rs"]
@@ -261,6 +265,8 @@ pub mod thraben_watcher;
 pub mod tireless_provisioner;
 #[path = "stx/twinscroll_shaman.rs"]
 pub mod twinscroll_shaman;
+#[path = "mh2/unholy_heat.rs"]
+pub mod unholy_heat;
 #[path = "pmh2/urza_s_saga.rs"]
 pub mod urza_s_saga;
 #[path = "pstx/vanishing_verse.rs"]

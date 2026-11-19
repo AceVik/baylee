@@ -169,6 +169,8 @@ pub mod overkill;
 pub mod qarsi_revenant;
 #[path = "fin/rabanastre_royal_city.rs"]
 pub mod rabanastre_royal_city;
+#[path = "tdm/rakshasa_s_bargain.rs"]
+pub mod rakshasa_s_bargain;
 #[path = "tdm/rebellious_strike.rs"]
 pub mod rebellious_strike;
 #[path = "fin/ring_of_the_lucii.rs"]

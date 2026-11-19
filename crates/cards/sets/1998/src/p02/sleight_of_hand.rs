@@ -1,0 +1,20 @@
+//! Sleight of Hand — {U} — Sorcery
+//! Oracle: Look at the top two cards of your library. Put one of them into your hand and the other on the bottom of your library.
+//! Set: WOE #67 — Wilds of Eldraine | Scryfall ID: 80dea5c0-ada3-488a-9f2b-f895b92c762f | Oracle ID: 05a039ad-1689-4d13-b393-6c1219583b5d
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+use baylee_cards_dsl::prelude::*;
+
+card!(
+    index = index::SLEIGHT_OF_HAND,
+    oracle_id = "05a039ad-1689-4d13-b393-6c1219583b5d",
+    scryfall_id = "80dea5c0-ada3-488a-9f2b-f895b92c762f",
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    faces = &[face!(
+        name = "Sleight of Hand",
+        mana_cost = mana!("{U}"),
+        types = TypeSet::SORCERY,
+    ),],
+);
+
+// TODO(card): implement abilities, see docs/card-dsl.md.
