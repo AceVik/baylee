@@ -773,7 +773,13 @@ successful non-forced answers as House demonstrations
 (`tactical_house_demonstrations_v1`), without neural behavior probabilities.
 Raw mode records stochastic neural probabilities only at finite temperature
 above 0.35 and for supported nonscalar heads; temperature zero is greedy and
-has no PPO behavior probability. Forced and fallback answers remain distinct.
+has no PPO behavior probability. A blocker draw that the attackers' stated
+counts changed (menace: a lone blocker joined or withdrawn,
+`sample_pairs_constrained`) records none either: its free bits describe the
+draw, not the answer, and its exact probability would be a sum over every draw
+the counts turn into it. Admission, the research cache and the research
+collection accept such a pair row without one and count it as no actor
+decision. Forced and fallback answers remain distinct.
 Evaluation/collection records must preserve the mode and executable/model
 identity. Historical tactical improvements and mislabeled tactical PPO samples
 do not establish raw-policy learning or valid on-policy PPO data.
