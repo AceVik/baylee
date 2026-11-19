@@ -1,6 +1,15 @@
-//! Task, consent, hints and paginated independent scoreboards.
+//! One task: what it asks, where the player stands, the way in, and the rankings.
+//!
+//! The task's own card reads top to bottom as a player decides: the task,
+//! their progress, the one primary action with its two lesser ones, then
+//! consent and the long explanations. The rankings stand beside it as a table.
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::hud::tf_bold;
+use baylee_client_core::challenges::presentation as formatting;
+
+/// The height of the task's landscape, at the default text step.
+const BANNER: f32 = 156.0;
 
 pub(super) fn draw(
     commands: &mut Commands,
@@ -10,64 +19,71 @@ pub(super) fn draw(
     model: &State,
     task: &api::Challenge,
 ) {
-    let columns = row(commands, root, kit);
-    let wide = matches!(
-        kit.m.frame,
-        crate::shellkit::Frame::Wide | crate::shellkit::Frame::Vast
-    );
-    commands
-        .entity(columns)
-        .entry::<Node>()
-        .and_modify(move |mut n| {
-            n.align_items = AlignItems::Start;
-            n.flex_wrap = FlexWrap::NoWrap;
-            n.flex_direction = if wide {
-                FlexDirection::Row
-            } else {
-                FlexDirection::Column
-            };
-        });
-    let card = panel(commands, columns, kit);
-    commands
-        .entity(card)
-        .entry::<Node>()
-        .and_modify(move |mut n| {
-            n.width = if wide { percent(54) } else { percent(100) };
-            n.flex_shrink = 1.0;
-            n.min_width = px_fixed(0.0);
-        });
-    let ranking = commands
-        .spawn((
-            Node {
-                flex_grow: 1.0,
-                min_width: px_fixed(0.0),
-                width: if wide { percent(46) } else { percent(100) },
-                flex_direction: FlexDirection::Column,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(columns).add_child(ranking);
-    presentation::feature(
+    let stacked = !layout::wide(kit);
+    let columns = layout::split(commands, root, kit, stacked);
+    let card = layout::section(commands, columns, kit);
+    layout::share(commands, card, stacked, 1.2);
+    let board = layout::section(commands, columns, kit);
+    layout::share(commands, board, stacked, 1.0);
+    brief(commands, card, kit, lang, model, task);
+    progress(commands, card, kit, lang, model);
+    launch(commands, card, kit, lang, model, task);
+    answers(commands, card, kit, lang, model);
+    privacy(commands, card, kit, lang, model);
+    more(commands, card, kit, lang, model, task);
+    rankings(commands, board, kit, lang, model);
+}
+
+/// The task itself: its landscape, kind and state, its name, what to do.
+fn brief(
+    commands: &mut Commands,
+    card: Entity,
+    kit: Kit,
+    lang: Lang,
+    model: &State,
+    task: &api::Challenge,
+) {
+    let period = task.description.period;
+    layout::banner(
         commands,
         card,
         kit,
-        presentation::scene(task.description.period.kind),
-        words(&task.description.title, lang),
+        presentation::scene(period.kind),
+        if layout::tight(kit) {
+            BANNER * 0.6
+        } else {
+            BANNER
+        },
     );
-    status(commands, card, kit, lang, model, task);
-    label(
+    let top = row(commands, card, kit);
+    layout::kind_badge(commands, top, kit, lang, period.kind);
+    let (state, ink) = if task.withdrawn {
+        (Phrase::ChallengeWithdrawn, tokens::DANGER)
+    } else if model.now < period.ends_at {
+        (Phrase::ChallengeLive, tokens::MUTED)
+    } else {
+        (Phrase::ChallengeArchive, tokens::MUTED)
+    };
+    label(commands, top, kit, state.text(lang), ink);
+    layout::title(
+        commands,
+        card,
+        kit,
+        words(&task.description.title, lang),
+        kit.m.h1,
+    );
+    layout::prose(
         commands,
         card,
         kit,
         words(&task.description.instructions, lang),
         tokens::INK,
     );
-    label(
+    let goal = layout::inset(commands, card, kit);
+    let target = crate::lobby::parts::glyph_line(
         commands,
-        card,
         kit,
+        crate::hud::glyph::BULLSEYE,
         &Phrase::ChallengeTarget.fill(
             lang,
             &[
@@ -77,93 +93,59 @@ pub(super) fn draw(
         ),
         tokens::ACCENT,
     );
-    progress(commands, card, kit, lang, model);
-    launch(commands, card, kit, lang, model, task);
-    preferences(commands, card, kit, lang, model);
-    rules(commands, card, kit, lang, model);
-    rankings(commands, ranking, kit, lang, model);
+    commands.entity(goal).add_child(target);
+    presentation::calendar(commands, goal, kit, lang, period);
 }
 
 fn progress(commands: &mut Commands, card: Entity, kit: Kit, lang: Lang, model: &State) {
-    if let Some(progress) = &model.personal {
-        let best = progress
-            .best_turn
-            .map_or_else(|| "—".into(), |turn| turn.to_string());
-        let band = row(commands, card, kit);
-        for (icon, caption, value) in [
-            (
-                crate::hud::glyph::SEND,
-                Phrase::ChallengeStatStarts,
-                progress.starts.to_string(),
-            ),
-            (
-                crate::hud::glyph::SHIELD,
-                Phrase::ChallengeStatFailures,
-                progress.failures.to_string(),
-            ),
-            (
-                crate::hud::glyph::HOURGLASS,
-                Phrase::ChallengeStatBest,
-                best,
-            ),
-        ] {
-            presentation::metric(commands, band, kit, icon, caption.text(lang), &value);
-        }
-        if let Some(at) = progress.completed_at {
-            let message = format!(
-                "{} · {} UTC",
-                Phrase::ChallengeCompleted.text(lang),
-                baylee_client_core::challenges::presentation::date(at, lang)
-            );
-            let completed = crate::lobby::parts::glyph_line(
-                commands,
-                kit,
-                crate::hud::glyph::CHECK,
-                &message,
-                tokens::ACCENT,
-            );
-            commands.entity(card).add_child(completed);
-        }
-        if progress.hint_level > 0 {
-            label(
-                commands,
-                card,
-                kit,
-                Phrase::ChallengeAssisted.text(lang),
-                tokens::MUTED,
-            );
-        }
-    }
-}
-
-fn rules(commands: &mut Commands, card: Entity, kit: Kit, lang: Lang, model: &State) {
-    button(
+    let Some(progress) = &model.personal else {
+        return;
+    };
+    layout::caption(
         commands,
         card,
         kit,
-        Phrase::ChallengeRulesToggle.text(lang),
-        Action::Rules,
-        model,
-        Weight::Ghost,
+        Phrase::ChallengeSectionProgress.text(lang),
     );
-    if model.show_rules {
-        label(
+    let best = progress
+        .best_turn
+        .map_or_else(|| "—".into(), |turn| turn.to_string());
+    let band = layout::split(commands, card, kit, false);
+    for (caption, value) in [
+        (Phrase::ChallengeStatStarts, progress.starts.to_string()),
+        (Phrase::ChallengeStatFailures, progress.failures.to_string()),
+        (Phrase::ChallengeStatBest, best),
+    ] {
+        layout::stat(commands, band, kit, &value, caption.text(lang));
+    }
+    if let Some(at) = progress.completed_at {
+        let message = format!(
+            "{} · {} UTC",
+            Phrase::ChallengeCompleted.text(lang),
+            formatting::date(at, lang)
+        );
+        let completed = crate::lobby::parts::glyph_line(
             commands,
-            card,
             kit,
-            Phrase::ChallengeRules.text(lang),
+            crate::hud::glyph::CHECK,
+            &message,
+            tokens::ACCENT,
+        );
+        commands.entity(card).add_child(completed);
+    }
+    if progress.hint_level > 0 {
+        let assisted = crate::lobby::parts::glyph_line(
+            commands,
+            kit,
+            crate::hud::glyph::INFO,
+            Phrase::ChallengeAssisted.text(lang),
             tokens::MUTED,
         );
-        label(
-            commands,
-            card,
-            kit,
-            Phrase::ChallengeBadgeRules.text(lang),
-            tokens::MUTED,
-        );
+        commands.entity(card).add_child(assisted);
     }
 }
 
+/// The one primary action, the hint beside it, and abandoning at the far end.
 fn launch(
     commands: &mut Commands,
     card: Entity,
@@ -172,100 +154,66 @@ fn launch(
     model: &State,
     task: &api::Challenge,
 ) {
-    let actions = row(commands, card, kit);
-    if !task.withdrawn && model.personal.is_some() {
-        let resume = model.attempt().is_some();
-        button(
-            commands,
-            actions,
-            kit,
-            if resume {
-                Phrase::ChallengeResume
-            } else {
-                Phrase::ChallengePlay
-            }
-            .text(lang),
-            Action::Play,
-            model,
-            if resume {
-                Weight::Gold
-            } else {
-                Weight::Primary
-            },
-        );
-        button(
-            commands,
-            actions,
-            kit,
-            Phrase::ChallengeHint.text(lang),
-            Action::Hint,
-            model,
-            Weight::Secondary,
-        );
-        if resume {
-            button(
-                commands,
-                actions,
-                kit,
-                Phrase::ChallengeAbandon.text(lang),
-                Action::Abandon,
-                model,
-                Weight::Ghost,
-            );
-        }
+    if task.withdrawn || model.personal.is_none() {
+        return;
     }
+    let actions = row(commands, card, kit);
+    let resume = model.attempt().is_some();
     button(
         commands,
         actions,
         kit,
-        Phrase::ChallengeDeck.text(lang),
-        Action::Deck,
+        if resume {
+            Phrase::ChallengeResume
+        } else {
+            Phrase::ChallengePlay
+        }
+        .text(lang),
+        Action::Play,
         model,
-        Weight::Ghost,
+        if resume {
+            Weight::Gold
+        } else {
+            Weight::Primary
+        },
     );
-    if model.show_deck {
-        label(commands, card, kit, &task.description.deck, tokens::INK);
+    button(
+        commands,
+        actions,
+        kit,
+        Phrase::ChallengeHint.text(lang),
+        Action::Hint,
+        model,
+        Weight::Secondary,
+    );
+    if resume {
+        let spacer = crate::lobby::parts::grow(commands);
+        commands.entity(actions).add_child(spacer);
+        button(
+            commands,
+            actions,
+            kit,
+            Phrase::ChallengeAbandon.text(lang),
+            Action::Abandon,
+            model,
+            Weight::Ghost,
+        );
     }
 }
 
-fn preferences(commands: &mut Commands, card: Entity, kit: Kit, lang: Lang, model: &State) {
-    if model.personal.is_some() {
-        button(
-            commands,
-            card,
-            kit,
-            if model.listed {
-                Phrase::ChallengeListed
-            } else {
-                Phrase::ChallengePrivate
-            }
-            .text(lang),
-            Action::Visibility,
-            model,
-            Weight::Secondary,
-        );
-        label(
-            commands,
-            card,
-            kit,
-            Phrase::ChallengeConsent.text(lang),
-            tokens::MUTED,
-        );
-    }
+/// What an action just asked or revealed: the confirmation, a seen hint.
+fn answers(commands: &mut Commands, card: Entity, kit: Kit, lang: Lang, model: &State) {
     if let Some(confirmation) = model.confirmation {
-        let confirmation_card = panel(commands, card, kit);
+        let ask = layout::inset(commands, card, kit);
+        commands
+            .entity(ask)
+            .insert(BorderColor::all(tokens::DANGER.with_alpha(0.6)));
         let phrase = match confirmation {
             Confirmation::Hint(_) => Phrase::ChallengeHintConfirm,
             Confirmation::Abandon(_) => Phrase::ChallengeAbandonConfirm,
         };
-        label(
-            commands,
-            confirmation_card,
-            kit,
-            phrase.text(lang),
-            tokens::INK,
-        );
-        let choices = row(commands, confirmation_card, kit);
+        layout::prose(commands, ask, kit, phrase.text(lang), tokens::INK);
+        let choices = row(commands, ask, kit);
         button(
             commands,
             choices,
@@ -286,20 +234,128 @@ fn preferences(commands: &mut Commands, card: Entity, kit: Kit, lang: Lang, mode
         );
     }
     if let Some(hint) = &model.hint {
-        label(commands, card, kit, words(hint, lang), tokens::ACCENT);
+        let seen = layout::inset(commands, card, kit);
+        commands
+            .entity(seen)
+            .insert(BorderColor::all(tokens::ACCENT.with_alpha(0.6)));
+        layout::prose(commands, seen, kit, words(hint, lang), tokens::INK);
     }
 }
 
-fn rankings(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang, model: &State) {
-    let scores = panel(commands, root, kit);
+/// Consent stays beside its control: what listing means, and the switch.
+fn privacy(commands: &mut Commands, card: Entity, kit: Kit, lang: Lang, model: &State) {
+    if model.personal.is_none() {
+        return;
+    }
+    layout::rule(commands, card);
+    layout::caption(commands, card, kit, Phrase::ChallengePrivacy.text(lang));
+    let stacked = layout::tight(kit);
+    let line = layout::split(commands, card, kit, stacked);
+    commands.entity(line).entry::<Node>().and_modify(|mut n| {
+        n.align_items = AlignItems::Center;
+    });
+    let consent = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                flex_shrink: 1.0,
+                flex_basis: px_fixed(0.0),
+                min_width: px_fixed(0.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(line).add_child(consent);
+    if stacked {
+        commands
+            .entity(consent)
+            .entry::<Node>()
+            .and_modify(|mut n| {
+                n.width = percent(100);
+                n.flex_basis = Val::Auto;
+            });
+    }
+    layout::prose(
+        commands,
+        consent,
+        kit,
+        Phrase::ChallengeConsent.text(lang),
+        tokens::MUTED,
+    );
+    button(
+        commands,
+        line,
+        kit,
+        if model.listed {
+            Phrase::ChallengeListed
+        } else {
+            Phrase::ChallengePrivate
+        }
+        .text(lang),
+        Action::Visibility,
+        model,
+        Weight::Secondary,
+    );
+}
+
+/// The long reads, folded: the supplied deck and how a task is scored.
+fn more(
+    commands: &mut Commands,
+    card: Entity,
+    kit: Kit,
+    lang: Lang,
+    model: &State,
+    task: &api::Challenge,
+) {
+    layout::rule(commands, card);
+    let folds = row(commands, card, kit);
+    button(
+        commands,
+        folds,
+        kit,
+        Phrase::ChallengeDeck.text(lang),
+        Action::Deck,
+        model,
+        Weight::Ghost,
+    );
+    button(
+        commands,
+        folds,
+        kit,
+        Phrase::ChallengeRulesToggle.text(lang),
+        Action::Rules,
+        model,
+        Weight::Ghost,
+    );
+    if model.show_deck {
+        let list = layout::inset(commands, card, kit);
+        layout::caption(commands, list, kit, Phrase::ChallengeDeck.text(lang));
+        layout::prose(commands, list, kit, &task.description.deck, tokens::INK);
+    }
+    if model.show_rules {
+        let rules = layout::inset(commands, card, kit);
+        layout::caption(
+            commands,
+            rules,
+            kit,
+            Phrase::ChallengeRulesToggle.text(lang),
+        );
+        for phrase in [Phrase::ChallengeRules, Phrase::ChallengeBadgeRules] {
+            layout::prose(commands, rules, kit, phrase.text(lang), tokens::MUTED);
+        }
+    }
+}
+
+fn rankings(commands: &mut Commands, scores: Entity, kit: Kit, lang: Lang, model: &State) {
     presentation::title(
         commands,
         scores,
         kit,
-        crate::hud::glyph::CROWN,
+        crate::hud::glyph::TROPHY,
         Phrase::ChallengeBoards.text(lang),
     );
-    let tabs = row(commands, scores, kit);
+    let tabs = layout::split(commands, scores, kit, false);
     let mut tab_kit = kit;
     tab_kit.m.text = kit.m.small;
     for (board, phrase) in [
@@ -320,47 +376,44 @@ fn rankings(commands: &mut Commands, root: Entity, kit: Kit, lang: Lang, model: 
                 Weight::Secondary
             },
         );
-        commands.entity(tab).entry::<Node>().and_modify(|mut n| {
-            n.flex_grow = 1.0;
-            n.flex_basis = px_fixed(0.0);
-        });
+        layout::share(commands, tab, false, 1.0);
     }
+    let table = Columns::of(kit);
+    table.line(
+        commands,
+        scores,
+        kit,
+        [
+            Phrase::ChallengeStatRank.text(lang),
+            Phrase::ChallengeStatPlayer.text(lang),
+            Phrase::ChallengeStatTurns.text(lang),
+            Phrase::ChallengeStatFailures.text(lang),
+            Phrase::ChallengeStatTime.text(lang),
+        ],
+        Tone::Head,
+    );
     if model.standings.is_empty() && !model.busy {
+        let empty = commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    justify_content: JustifyContent::Center,
+                    padding: UiRect::vertical(kit.m.space(4)),
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
         label(
             commands,
-            scores,
+            empty,
             kit,
             Phrase::ChallengeNoScores.text(lang),
             tokens::MUTED,
         );
+        commands.entity(scores).add_child(empty);
     }
-    entries(commands, scores, kit, lang, model);
-    let pager = row(commands, scores, kit);
-    if model.offset > 0 {
-        button(
-            commands,
-            pager,
-            kit,
-            Phrase::ChallengePrevious.text(lang),
-            Action::Page(false),
-            model,
-            Weight::Secondary,
-        );
-    }
-    if model.standings.len() == api::PAGE_SIZE && model.offset < 3000 {
-        button(
-            commands,
-            pager,
-            kit,
-            Phrase::ChallengeNext.text(lang),
-            Action::Page(true),
-            model,
-            Weight::Secondary,
-        );
-    }
-}
-
-fn entries(commands: &mut Commands, scores: Entity, kit: Kit, lang: Lang, model: &State) {
     for score in &model.standings {
         let name = score.tag.map_or_else(
             || score.name.clone(),
@@ -371,62 +424,151 @@ fn entries(commands: &mut Commands, scores: Entity, kit: Kit, lang: Lang, model:
         } else {
             name
         };
-        let entry = panel(commands, scores, kit);
-        commands.entity(entry).insert((
-            BackgroundColor(if score.own {
-                tokens::ACCENT.with_alpha(0.08)
-            } else {
-                tokens::CONTROL.with_alpha(0.45)
-            }),
-            BorderColor::all(if score.own {
-                tokens::ACCENT.with_alpha(0.45)
-            } else {
-                tokens::BORDER
-            }),
-        ));
-        commands
-            .entity(entry)
-            .entry::<Node>()
-            .and_modify(move |mut n| n.padding = UiRect::all(kit.m.px(10.0)));
-        let name_row = row(commands, entry, kit);
-        presentation::metric(
+        table.line(
             commands,
-            name_row,
+            scores,
             kit,
-            crate::hud::glyph::CROWN,
-            Phrase::ChallengeStatRank.text(lang),
-            &score.rank.to_string(),
+            [
+                &score.rank.to_string(),
+                &name,
+                &score.turn.to_string(),
+                &score.failures.to_string(),
+                &formatting::elapsed(score.milliseconds),
+            ],
+            if score.own { Tone::Own } else { Tone::Other },
         );
-        label(
-            commands,
-            name_row,
-            kit,
-            &name,
-            if score.own {
-                tokens::ACCENT
-            } else {
-                tokens::INK
-            },
-        );
-        let stats = row(commands, entry, kit);
-        for (icon, caption, value) in [
-            (
-                crate::hud::glyph::HOURGLASS,
-                Phrase::ChallengeStatTurns,
-                score.turn.to_string(),
-            ),
-            (
-                crate::hud::glyph::SHIELD,
-                Phrase::ChallengeStatFailures,
-                score.failures.to_string(),
-            ),
-            (
-                crate::hud::glyph::CLOCK,
-                Phrase::ChallengeStatTime,
-                baylee_client_core::challenges::presentation::elapsed(score.milliseconds),
-            ),
-        ] {
-            presentation::metric(commands, stats, kit, icon, caption.text(lang), &value);
+    }
+    let space = crate::lobby::parts::grow(commands);
+    commands.entity(scores).add_child(space);
+    let previous = model.offset > 0;
+    let next = model.standings.len() == api::PAGE_SIZE && model.offset < 3000;
+    if previous || next {
+        let pager = row(commands, scores, kit);
+        if previous {
+            button(
+                commands,
+                pager,
+                kit,
+                Phrase::ChallengePrevious.text(lang),
+                Action::Page(false),
+                model,
+                Weight::Secondary,
+            );
         }
+        let spacer = crate::lobby::parts::grow(commands);
+        commands.entity(pager).add_child(spacer);
+        if next {
+            button(
+                commands,
+                pager,
+                kit,
+                Phrase::ChallengeNext.text(lang),
+                Action::Page(true),
+                model,
+                Weight::Secondary,
+            );
+        }
+    }
+}
+
+/// Which line of the ranking table is drawn.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Tone {
+    /// The column names.
+    Head,
+    /// Another player's score.
+    Other,
+    /// The player's own score.
+    Own,
+}
+
+/// The ranking table's columns: rank, player, turns, failures, time. The
+/// player's name takes the room the four fixed columns leave.
+#[derive(Clone, Copy)]
+struct Columns([f32; 5]);
+
+impl Columns {
+    fn of(kit: Kit) -> Self {
+        Self(if layout::tight(kit) {
+            [36.0, 0.0, 44.0, 76.0, 76.0]
+        } else {
+            [52.0, 0.0, 64.0, 104.0, 104.0]
+        })
+    }
+
+    fn line(self, commands: &mut Commands, root: Entity, kit: Kit, cells: [&str; 5], tone: Tone) {
+        let line = commands
+            .spawn((
+                Node {
+                    width: percent(100),
+                    min_width: px_fixed(0.0),
+                    min_height: if tone == Tone::Head {
+                        Val::Auto
+                    } else {
+                        px_fixed(kit.m.control)
+                    },
+                    flex_shrink: 0.0,
+                    align_items: AlignItems::Center,
+                    column_gap: kit.m.space(1),
+                    padding: UiRect::axes(kit.m.space(2), kit.m.space(0)),
+                    border: UiRect::bottom(px_fixed(1.0)),
+                    border_radius: if tone == Tone::Own {
+                        BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL))
+                    } else {
+                        BorderRadius::ZERO
+                    },
+                    ..default()
+                },
+                BorderColor::all(tokens::BORDER),
+                BackgroundColor(if tone == Tone::Own {
+                    tokens::ACCENT.with_alpha(0.12)
+                } else {
+                    Color::NONE
+                }),
+                Pickable::IGNORE,
+            ))
+            .id();
+        for (index, (text, width)) in cells.into_iter().zip(self.0).enumerate() {
+            let name = index == 1;
+            let font = match tone {
+                Tone::Head => tf_bold(kit.fonts, kit.m.small),
+                Tone::Own if name => tf_bold(kit.fonts, kit.m.text),
+                Tone::Other | Tone::Own => tf(kit.fonts, kit.m.text),
+            };
+            let ink = match tone {
+                Tone::Head => tokens::MUTED,
+                Tone::Own if name => tokens::ACCENT,
+                Tone::Other | Tone::Own => tokens::INK,
+            };
+            let text = if tone == Tone::Head {
+                text.to_uppercase()
+            } else {
+                text.to_string()
+            };
+            let cell = commands
+                .spawn((
+                    Text::new(text),
+                    font,
+                    TextColor(ink),
+                    TextLayout::no_wrap().with_justify(if index < 2 {
+                        Justify::Left
+                    } else {
+                        Justify::Right
+                    }),
+                    Node {
+                        width: if name { Val::Auto } else { kit.m.px(width) },
+                        flex_grow: if name { 1.0 } else { 0.0 },
+                        flex_shrink: if name { 1.0 } else { 0.0 },
+                        flex_basis: if name { px_fixed(0.0) } else { Val::Auto },
+                        min_width: px_fixed(0.0),
+                        overflow: Overflow::clip(),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(line).add_child(cell);
+        }
+        commands.entity(root).add_child(line);
     }
 }

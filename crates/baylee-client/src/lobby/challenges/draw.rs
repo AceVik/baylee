@@ -9,6 +9,7 @@ use baylee_client_core::challenges::{Confirmation, api};
 
 mod catalogue;
 mod detail;
+mod layout;
 pub(in crate::lobby) mod presentation;
 mod rewards;
 mod tower;
@@ -57,49 +58,15 @@ pub(in crate::lobby) fn draw(
         ));
     }
     attach_body(commands, root, body, metrics.frame);
-    let masthead = panel(commands, body, kit);
-    let head = row(commands, masthead, kit);
-    presentation::title(
-        commands,
-        head,
-        kit,
-        crate::hud::glyph::CROWN,
-        if model.tower.opened {
-            Phrase::TowerNav
-        } else {
-            Phrase::ChallengeNav
-        }
-        .text(lang),
-    );
-    let spacer = crate::lobby::parts::grow(commands);
-    commands.entity(head).add_child(spacer);
-    if model.selected.is_some() || model.tower.opened {
-        button(
-            commands,
-            head,
-            kit,
-            Phrase::Back.text(lang),
-            Action::Back,
-            model,
-            Weight::Secondary,
-        );
-    }
-    button(
-        commands,
-        head,
-        kit,
-        Phrase::Refresh.text(lang),
-        Action::Refresh,
-        model,
-        Weight::Ghost,
-    );
+    masthead(commands, body, kit, lang, model);
     if !state.can_enter_challenges() {
-        label(
+        layout::notice(
             commands,
             body,
             kit,
+            crate::hud::glyph::LOCK,
             Phrase::ChallengeSignIn.text(lang),
-            tokens::MUTED,
+            tokens::INK,
         );
         return;
     }
@@ -115,34 +82,122 @@ pub(in crate::lobby) fn draw(
     }
 }
 
-fn notices(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, state: &LobbyState) {
-    let model = &state.challenges.model;
-    if model.busy {
-        label(
+/// The page's head: where the player is, the way back, and a re-read.
+///
+/// The way back leads, as a breadcrumb does; the title names the page and,
+/// on the calendar, one sentence says what the page is for.
+fn masthead(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, model: &State) {
+    let head = layout::section(commands, body, kit);
+    let line = row(commands, head, kit);
+    commands.entity(line).entry::<Node>().and_modify(|mut n| {
+        n.flex_wrap = FlexWrap::NoWrap;
+    });
+    let inner = model.selected.is_some() || model.tower.opened;
+    if inner {
+        button(
             commands,
-            body,
+            line,
             kit,
-            Phrase::ChallengeLoading.text(lang),
+            Phrase::Back.text(lang),
+            Action::Back,
+            model,
+            Weight::Secondary,
+        );
+    }
+    let words = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                flex_grow: 1.0,
+                flex_shrink: 1.0,
+                min_width: px_fixed(0.0),
+                row_gap: kit.m.px(2.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(line).add_child(words);
+    let name = commands
+        .spawn((
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: kit.m.space(1),
+                min_width: px_fixed(0.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(words).add_child(name);
+    let mark = commands
+        .spawn((
+            Text::new(crate::hud::glyph::CROWN.to_string()),
+            crate::hud::icon_tf(kit.fonts, kit.m.text),
+            TextColor(tokens::GOLD),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(name).add_child(mark);
+    layout::title(
+        commands,
+        name,
+        kit,
+        if model.tower.opened {
+            Phrase::TowerNav
+        } else {
+            Phrase::ChallengeNav
+        }
+        .text(lang),
+        kit.m.h1,
+    );
+    if !inner && !layout::tight(kit) {
+        layout::prose(
+            commands,
+            words,
+            kit,
+            Phrase::ChallengeHomeLead.text(lang),
             tokens::MUTED,
         );
     }
-    if model.failed {
-        label(
-            commands,
-            body,
-            kit,
-            Phrase::ChallengeFailed.text(lang),
+    button(
+        commands,
+        line,
+        kit,
+        Phrase::Refresh.text(lang),
+        Action::Refresh,
+        model,
+        Weight::Ghost,
+    );
+}
+
+fn notices(commands: &mut Commands, body: Entity, kit: Kit, lang: Lang, state: &LobbyState) {
+    let model = &state.challenges.model;
+    for (shown, icon, phrase, ink) in [
+        (
+            // A minute's re-read of a page that stands says nothing: a plate
+            // coming and going would move everything under it.
+            model.busy && !model.loaded,
+            crate::hud::glyph::HOURGLASS,
+            Phrase::ChallengeLoading,
+            tokens::INK,
+        ),
+        (
+            model.failed,
+            crate::hud::glyph::INFO,
+            Phrase::ChallengeFailed,
             tokens::DANGER,
-        );
-    }
-    if state.challenges.pending_result {
-        label(
-            commands,
-            body,
-            kit,
-            Phrase::ChallengePendingResult.text(lang),
+        ),
+        (
+            state.challenges.pending_result,
+            crate::hud::glyph::CLOCK,
+            Phrase::ChallengePendingResult,
             tokens::ACCENT,
-        );
+        ),
+    ] {
+        if shown {
+            layout::notice(commands, body, kit, icon, phrase.text(lang), ink);
+        }
     }
 }
 
@@ -173,35 +228,6 @@ fn words(words: &api::Words, lang: Lang) -> &str {
     } else {
         &words.en
     }
-}
-
-fn status(
-    commands: &mut Commands,
-    root: Entity,
-    kit: Kit,
-    lang: Lang,
-    model: &State,
-    task: &api::Challenge,
-) {
-    let phrase = if task.withdrawn {
-        Phrase::ChallengeWithdrawn
-    } else if model.now < task.description.period.ends_at {
-        Phrase::ChallengeLive
-    } else {
-        Phrase::ChallengeArchive
-    };
-    label(
-        commands,
-        root,
-        kit,
-        phrase.text(lang),
-        if task.withdrawn {
-            tokens::DANGER
-        } else {
-            tokens::MUTED
-        },
-    );
-    presentation::calendar(commands, root, kit, lang, task.description.period);
 }
 
 pub(in crate::lobby) fn panel(commands: &mut Commands, root: Entity, kit: Kit) -> Entity {
@@ -334,4 +360,27 @@ fn button(
     ));
     commands.entity(root).add_child(button);
     button
+}
+
+/// An expedition's card on the calendar, shaped as a current task's: the
+/// landscape, the name, one sentence. Its owner adds what it offers under it.
+pub(in crate::lobby) fn entry_card(
+    commands: &mut Commands,
+    root: Entity,
+    kit: Kit,
+    art: crate::challenge_art::Scene,
+    title: &str,
+    lead: &str,
+) -> Entity {
+    let card = layout::section(commands, root, kit);
+    layout::banner(
+        commands,
+        card,
+        kit,
+        art,
+        if layout::tight(kit) { 64.0 } else { 92.0 },
+    );
+    layout::title(commands, card, kit, title, kit.m.head);
+    layout::prose(commands, card, kit, lead, tokens::MUTED);
+    card
 }

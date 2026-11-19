@@ -3616,6 +3616,12 @@ ChallengeNotEarned = Noch nicht erreicht
 # Global challenge interface.
 ChallengePendingResult = Dein letztes Ergebnis wird geprüft. Aktualisiere die Ansicht, um die bestätigte Wertung und deinen Abzeichenfortschritt zu sehen.
 
+# The Daily and Weekly pages' section captions and the ranking table's head.
+ChallengeSectionProgress = Dein Fortschritt
+ChallengeArchiveTitle = Archiv
+ChallengeStatPlayer = Spieler
+ChallengePrivacy = Öffentliche Rangliste
+
 EchoesTitle = Echos des Turms
 TowerRunTitle = Tower-Run
 TowerRunEntry = Dein Deck. Deine Schätze. Dein Weg zur Krone.
