@@ -105,6 +105,7 @@ fn layer_x(pending: &Pending, view: &PlayerView, scalar: f32) -> u32 {
     let (action, ..) = PolicySampler4 {
         tactician: None,
         distill: None,
+        explorer: None,
         mode: PolicyMode4::Raw,
         temperature: 0.0,
         rng: &mut rng,

@@ -24,6 +24,7 @@ fn favoured(
     let (action, _, _, target) = PolicySampler4 {
         tactician: None,
         distill: None,
+        explorer: None,
         mode,
         temperature: 0.0,
         rng: &mut rng,
