@@ -6,7 +6,7 @@
 //! npu-gemm-bench build-designs --venv V --mlir-aie-src S [--xrt-root R] --out DIR [--jobs N]
 //! npu-gemm-bench run --designs DIR --out results.json [--warmup 10] [--iters 100]
 //!     [--cpu-warmup 3] [--cpu-iters 50] [--cpu-threads 1,8] [--only TEXT]
-//!     [--skip-npu] [--skip-cpu] [--soak-secs 5]
+//!     [--skip-npu] [--skip-layers] [--skip-cpu] [--soak-secs 5]
 //! ```
 //!
 //! `build-designs` drives mlir-aie's IRON `whole_array.py` (bf16 in, f32 out,
@@ -30,7 +30,7 @@ use std::time::Instant;
 use serde::Serialize;
 
 use crate::designs::{DesignSpec, Toolchain};
-use crate::npu::NpuResult;
+use crate::npu::{LayerResult, NpuResult};
 use crate::power::{PowerStats, Sampler};
 use crate::stats::{Summary, gflops};
 
@@ -134,6 +134,7 @@ struct Meta {
 struct Results {
     meta: Meta,
     npu: Vec<NpuResult>,
+    layers: Vec<LayerResult>,
     cpu: Vec<CpuResult>,
     soak: Option<Soak>,
 }
@@ -192,6 +193,11 @@ fn run(args: &[String]) -> Result<(), String> {
         npu_results.push(r);
     }
 
+    let mut layers = Vec::new();
+    if !flag(args, "--skip-layers") {
+        layers = layer_benches(&specs, warmup, iters)?;
+    }
+
     let mut cpu_results = Vec::new();
     if !flag(args, "--skip-cpu") {
         for &threads in &cpu_threads {
@@ -240,6 +246,7 @@ fn run(args: &[String]) -> Result<(), String> {
             ],
         },
         npu: npu_results,
+        layers,
         cpu: cpu_results,
         soak,
     };
@@ -248,6 +255,26 @@ fn run(args: &[String]) -> Result<(), String> {
     print_table(&results);
     eprintln!("wrote {}", out.display());
     Ok(())
+}
+
+/// One layer per M: its four GEMMs back to back in one hardware context.
+fn layer_benches(specs: &[(DesignSpec, Option<PathBuf>)], warmup: usize, iters: usize) -> Result<Vec<LayerResult>, String> {
+    let mut out = Vec::new();
+    for m in designs::M_VALUES {
+        let group: Vec<(DesignSpec, PathBuf)> = specs
+            .iter()
+            .filter(|(s, _)| s.role == "gemm" && s.logical[0] == m)
+            .filter_map(|(s, d)| d.clone().map(|d| (s.clone(), d)))
+            .collect();
+        if group.len() < 2 {
+            continue;
+        }
+        eprintln!("layer M={m} ({} GEMMs in one context) ...", group.len());
+        let r = npu::bench_layer(&group, warmup, iters)?;
+        eprintln!("     layer p50 {:.3} ms p95 {:.3} ms, {:.1} GFLOP/s", r.layer.p50_ms, r.layer.p95_ms, r.gflops_p50);
+        out.push(r);
+    }
+    Ok(out)
 }
 
 fn cpu_bench(spec: &DesignSpec, threads: usize, warmup: usize, iters: usize, sensor: Option<&PathBuf>) -> CpuResult {
@@ -371,8 +398,38 @@ fn print_table(r: &Results) {
             println!("cpu {} x{}: p50 {:.3} ms, {:.1} GFLOP/s", c.name, c.threads, c.time.p50_ms, c.gflops_p50);
         }
     }
+    if !r.layers.is_empty() {
+        println!("\n| layer M | GEMMs | NPU layer p50 ms | p95 ms | NPU GFLOP/s | CPU 1t sum p50 ms | CPU 8t sum p50 ms | max rel err |");
+        println!("|---|---|---|---|---|---|---|---|");
+        for l in &r.layers {
+            let cpu_sum = |threads: usize| {
+                let times: Vec<f64> = l
+                    .designs
+                    .iter()
+                    .filter_map(|d| r.cpu.iter().find(|c| &c.name == d && c.threads == threads))
+                    .map(|c| c.time.p50_ms)
+                    .collect();
+                if times.len() == l.designs.len() {
+                    format!("{:.3}", times.iter().sum::<f64>())
+                } else {
+                    "-".to_owned()
+                }
+            };
+            println!(
+                "| {} | {} | {:.3} | {:.3} | {:.1} | {} | {} | {:.2e} |",
+                l.m,
+                l.designs.len(),
+                l.layer.p50_ms,
+                l.layer.p95_ms,
+                l.gflops_p50,
+                cpu_sum(1),
+                cpu_sum(8),
+                l.max_rel
+            );
+        }
+    }
     if let Some(s) = &r.soak {
-        let w = |p: &Option<PowerStats>| p.map_or_else(|| "-".to_owned(), |p| format!("{:.1} W", p.mean_w));
+        let w =|p: &Option<PowerStats>| p.map_or_else(|| "-".to_owned(), |p| format!("{:.1} W", p.mean_w));
         println!(
             "\nsoak {}: idle {}; NPU {:.0} GFLOP/s at {}; CPU x{} {:.0} GFLOP/s at {}",
             s.design,
