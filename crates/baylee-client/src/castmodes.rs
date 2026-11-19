@@ -35,15 +35,16 @@
 //! - the mana part, through [`baylee_client_core::manaplan`] as everywhere
 //!   else — which is also where `{X}`, `{S}` and restricted mana are refused;
 //! - [`CostPart::PayLife`], against the seat's own life total;
-//! - [`CostPart::ExileFromHand`] with a colour filter, against the hand — the
-//!   pitch on Force of Will, Force of Negation, Misdirection and Solitude;
+//! - [`CostPart::ExileFromHand`] and [`CostPart::Discard`], against distinct
+//!   cards in hand other than the spell itself whose filters the view can read
+//!   (any card, colour, card type, or a land subtype);
 //! - [`CostPart::Sacrifice`], [`CostPart::ReturnToHand`] and [`CostPart::TapN`],
 //!   against distinct permanents the seat controls whose projected filters are
 //!   publicly known.
 //!
-//! Anything else — another pitch-filter shape, a discard, a tap of one
-//! separately chosen permanent — takes the way off the list rather than being
-//! guessed at.
+//! Anything else — an unreadable hand-card filter, a random discard, a tap of
+//! one separately chosen permanent — takes the way off the list rather than
+//! being guessed at.
 //!
 //! # And what it does not reach
 //!
@@ -420,7 +421,7 @@ fn uses_self_identity(filter: &Filter) -> bool {
 /// version names them — a twelfth [`CostPart`] has to be looked at here too,
 /// rather than quietly falling into a wildcard and being declared payable.
 fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool {
-    if !pitch_cards_payable(view, card, parts) || !permanents_payable(view, parts) {
+    if !hand_cards_payable(view, card, parts) || !permanents_payable(view, parts) {
         return false;
     }
     parts.iter().all(|part| match part {
@@ -429,20 +430,15 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
             .is_some_and(|seat| seat.life >= i32::from(*n)),
         // Collective availability, including distinct cards and permanents
         // for repeated parts, was established by the two matchers above.
-        CostPart::ExileFromHand(Filter::HasColor(_))
-        | CostPart::Sacrifice(_)
-        | CostPart::ReturnToHand(_)
-        | CostPart::TapN { .. } => true,
-        // A pitch of another filter shape has no reader here, and the
-        // remaining parts have no alternative cost in this pool. Keep
+        CostPart::ExileFromHand(filter) | CostPart::Discard(filter) => hand_filter_readable(filter),
+        CostPart::Sacrifice(_) | CostPart::ReturnToHand(_) | CostPart::TapN { .. } => true,
+        // Remaining parts have no alternative cost in this pool. Keep
         // refusing them until a real card gives their view reader a test.
-        CostPart::ExileFromHand(_)
-        | CostPart::TapSelf
+        CostPart::TapSelf
         | CostPart::UntapSelf
         | CostPart::ExertSelf
         | CostPart::SacrificeSelf
         | CostPart::ExilePermanent(_)
-        | CostPart::Discard(_)
         | CostPart::DiscardRandom
         | CostPart::DiscardHand
         | CostPart::DiscardLastDrawnThisTurn
@@ -539,48 +535,117 @@ fn assign_permanent(
     false
 }
 
-/// Match every pitch part to a different object in the decision actor's hand.
-/// Augmenting paths avoid both reusing one card and a greedy assignment that
-/// hides a valid pairing when different parts ask for different colours.
-fn pitch_cards_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool {
+/// Whether `filter` can be answered for a card in hand from [`PlayerView`].
+fn hand_filter_readable(filter: &Filter) -> bool {
+    match filter {
+        Filter::Any
+        | Filter::Another
+        | Filter::This
+        | Filter::HasColor(_)
+        | Filter::IsColorless
+        | Filter::HasType(_)
+        | Filter::LacksType(_) => true,
+        // Land subtypes are printed face facts and are never altered in hand by
+        // cross-zone creature-type grants (Maskwood Nexus & co.).
+        Filter::HasSubtype(subtype) => {
+            baylee_core::generated::subtypes::kind(*subtype)
+                == Some(baylee_core::types::SubtypeKind::Land)
+        }
+        Filter::And(parts) | Filter::Or(parts) => {
+            parts.iter().all(|part| hand_filter_readable(part))
+        }
+        Filter::Not(inner) => hand_filter_readable(inner),
+        _ => false,
+    }
+}
+
+/// Evaluates a readable hand-card filter against `candidate` (a card other than
+/// the spell being cast).
+fn hand_card_matches(candidate: &baylee_view::HandObject, filter: &Filter) -> Option<bool> {
+    Some(match filter {
+        Filter::Any | Filter::Another => true,
+        Filter::This => false,
+        Filter::HasColor(colors) => candidate.colors.intersects(*colors),
+        Filter::IsColorless => candidate.colors.is_colorless(),
+        Filter::HasType(types) => candidate.types.intersects(*types),
+        Filter::LacksType(types) => !candidate.types.intersects(*types),
+        Filter::HasSubtype(subtype)
+            if baylee_core::generated::subtypes::kind(*subtype)
+                == Some(baylee_core::types::SubtypeKind::Land) =>
+        {
+            let face = baylee_cards::by_index(candidate.card.index).and_then(|def| {
+                def.faces
+                    .get(usize::from(candidate.card.face))
+                    .or_else(|| def.faces.first())
+            })?;
+            candidate.types.contains(baylee_core::types::TypeSet::LAND)
+                && face.subtypes.contains(subtype)
+        }
+        Filter::And(parts) => {
+            for part in *parts {
+                if !hand_card_matches(candidate, part)? {
+                    return Some(false);
+                }
+            }
+            true
+        }
+        Filter::Or(parts) => {
+            let mut any = false;
+            for part in *parts {
+                any |= hand_card_matches(candidate, part)?;
+            }
+            any
+        }
+        Filter::Not(inner) => !hand_card_matches(candidate, inner)?,
+        _ => return None,
+    })
+}
+
+/// Match every `ExileFromHand` and `Discard` part to a distinct object in the
+/// decision actor's hand other than `card`. Augmenting paths avoid both reusing
+/// one card and a greedy assignment that hides a valid pairing when different
+/// parts ask for overlapping filters (e.g. "an Island card and another card").
+fn hand_cards_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool {
     let filters = parts
         .iter()
         .filter_map(|part| match part {
-            CostPart::ExileFromHand(Filter::HasColor(colors)) => Some(colors),
+            CostPart::ExileFromHand(filter) | CostPart::Discard(filter) => Some(*filter),
             _ => None,
         })
         .collect::<Vec<_>>();
     if filters.is_empty() {
         return true;
     }
+    if !filters.iter().all(|filter| hand_filter_readable(filter)) {
+        return false;
+    }
     let candidates = baylee_client_core::decision::hand(view)
         .iter()
         .filter(|candidate| candidate.id != card)
-        .map(|candidate| candidate.colors)
         .collect::<Vec<_>>();
     let mut matches = vec![None; candidates.len()];
     (0..filters.len()).all(|part| {
         let mut seen = vec![false; candidates.len()];
-        assign_pitch(part, &filters, &candidates, &mut matches, &mut seen)
+        assign_hand_card(part, &filters, &candidates, &mut matches, &mut seen)
     })
 }
 
 /// Find a card for one part, moving an earlier assignment along an augmenting
 /// path when necessary. `seen` bounds the search to each candidate once.
-fn assign_pitch(
+fn assign_hand_card(
     part: usize,
-    filters: &[&baylee_core::color::ColorSet],
-    candidates: &[baylee_core::color::ColorSet],
+    filters: &[&Filter],
+    candidates: &[&baylee_view::HandObject],
     matches: &mut [Option<usize>],
     seen: &mut [bool],
 ) -> bool {
-    for (index, colors) in candidates.iter().enumerate() {
-        if seen[index] || !colors.intersects(*filters[part]) {
+    for (index, candidate) in candidates.iter().enumerate() {
+        if seen[index] || hand_card_matches(candidate, filters[part]) != Some(true) {
             continue;
         }
         seen[index] = true;
         if matches[index]
-            .is_none_or(|previous| assign_pitch(previous, filters, candidates, matches, seen))
+            .is_none_or(|previous| assign_hand_card(previous, filters, candidates, matches, seen))
         {
             matches[index] = Some(part);
             return true;
@@ -919,8 +984,8 @@ mod tests {
                         | CostPart::Sacrifice(_)
                         | CostPart::ReturnToHand(_)
                         | CostPart::TapN { .. } => true,
-                        CostPart::ExileFromHand(filter) => {
-                            matches!(filter, Filter::HasColor(_))
+                        CostPart::ExileFromHand(filter) | CostPart::Discard(filter) => {
+                            hand_filter_readable(filter)
                         }
                         _ => false,
                     });
@@ -1079,5 +1144,47 @@ mod tests {
             reachable_modes(&phased_swamp, &legal, snuff.id).is_empty(),
             "a phased-out Swamp is ignored on the battlefield"
         );
+    }
+
+    #[test]
+    fn foil_requires_an_island_card_and_another_distinct_card() {
+        let mut foil = card_in_hand(1, "Foil", &[Color::Blue]);
+        foil.types = TypeSet::INSTANT;
+        let mut island = card_in_hand(2, "Island", &[]);
+        island.types = TypeSet::LAND;
+        let mut volcanic = card_in_hand(3, "Volcanic Island", &[]);
+        volcanic.types = TypeSet::LAND;
+        let mut sanctuary = card_in_hand(4, "Island Sanctuary", &[Color::White]);
+        sanctuary.types = TypeSet::ENCHANTMENT;
+        let bears = card_in_hand(5, "Grizzly Bears", &[Color::Green]);
+        let lions = card_in_hand(6, "Savannah Lions", &[Color::White]);
+
+        for (fodder, expected, label) in [
+            (vec![island.clone()], false, "only one other card"),
+            (vec![bears.clone(), lions], false, "two non-Island cards"),
+            (
+                vec![sanctuary.clone(), bears.clone()],
+                false,
+                "Island Sanctuary is not an Island card",
+            ),
+            (vec![island.clone(), bears.clone()], true, "Island + Bears"),
+            (vec![volcanic, bears], true, "Volcanic Island + Bears"),
+            (
+                vec![island, sanctuary],
+                true,
+                "Island + Island Sanctuary as the second card",
+            ),
+        ] {
+            let mut hand = vec![foil.clone()];
+            hand.extend(fodder);
+            let (view, legal) = blue_table(hand, 0);
+            assert_eq!(
+                reachable_modes(&view, &legal, foil.id)
+                    .iter()
+                    .any(|mode| mode.kind == CastModeKind::Alternative(0)),
+                expected,
+                "{label}"
+            );
+        }
     }
 }

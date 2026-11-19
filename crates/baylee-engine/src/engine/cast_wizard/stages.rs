@@ -429,7 +429,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             wizard.card,
                             parts,
                             &chosen,
+                        ) && casting::additional_payment_capacity_with_pitch(
+                            &self.state,
+                            wizard.player,
+                            wizard.card,
+                            self.wizard_face(&wizard),
+                            wizard.cost_choice(),
+                            &chosen,
+                            &wizard.cost_objects,
                         )
+                        .is_some()
                     });
                     if options.is_empty() {
                         self.cast_wizard = None;
@@ -649,16 +658,21 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     wizard.card,
                     part,
                 );
-                options.retain(|id| *id != wizard.card && !wizard.cost_objects.contains(id));
+                options.retain(|id| {
+                    *id != wizard.card
+                        && !wizard.pitch.contains(id)
+                        && !wizard.cost_objects.contains(id)
+                });
                 options.retain(|candidate| {
                     let mut chosen = wizard.cost_objects.to_vec();
                     chosen.push(*candidate);
-                    casting::additional_payment_capacity_for(
+                    casting::additional_payment_capacity_with_pitch(
                         &self.state,
                         wizard.player,
                         wizard.card,
                         face,
                         wizard.cost_choice(),
+                        &wizard.pitch,
                         &chosen,
                     )
                     .is_some()

@@ -423,11 +423,16 @@ express at all yet.
   the alternative cost on any stated `Condition` evaluated for the caster with
   the spell card as its source (CR 118.9, 601.2b; e.g.
   `AltCondition::If(&Condition::ControlCount(&Filter::HasSubtype(subtypes::land::SWAMP), 1))`
-  for "If you control a Swamp, you may …"). Its `parts` pay `PayLife` and `ExileFromHand`, and
-  both are asked about before the card is offered: a pitch with nothing in
-  hand to exile is not a cast the engine lists. Repeated `ExileFromHand` parts
-  require distinct cards, both in the offer and in payment; the desktop planner
-  uses the same collective availability check rather than counting one card twice.
+  for "If you control a Swamp, you may …"). Its `parts` pay `PayLife`,
+  `ExileFromHand`, `Discard`, `Sacrifice`, `ReturnToHand`, and `TapN`, and all
+  of them are checked before the card is offered: an alternative cost whose
+  hand-card or permanent parts cannot be paid is not a cast the engine lists.
+  Multiple `ExileFromHand` and `Discard` parts (such as `cost!(Discard(&Filter::HasSubtype(subtypes::land::ISLAND)), Discard(&Filter::Any))`
+  for "discard an Island card and another card") require distinct cards in hand
+  other than the spell itself, matched collectively in both the offer and
+  stepwise payment (asked in printed order via `ChoicePrompt::CostDiscard`
+  before the spell becomes cast); the desktop planner uses the same collective
+  availability check rather than counting one card twice.
 - `FaceDef.additional_costs: &[Cost]` — kicker (optional, yes/no at cast).
   Only its `mana` is read; `parts` is paid by nothing and is held empty.
 - `waterbend = true` — "you may waterbend {N}": the additional cost above is

@@ -145,8 +145,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             )?;
         }
         // Non-mana parts of the chosen alternative or flashback cost.
+        let mut graveyard_batch = crate::graveyard_order::PaymentBatch::new(&self.state);
         for part in super::wizard_alternative_parts(face, wizard.alternative_cost.or(wizard.option))
         {
+            graveyard_batch.before_part(&mut self.state, part);
             if !paid_as_an_alternative_cost(part) {
                 continue;
             }
@@ -154,7 +156,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 CostPart::PayLife(n) => {
                     self.state.change_life(player, -i32::from(*n), Cause::Cost);
                 }
-                CostPart::Sacrifice(_) | CostPart::ReturnToHand(_) => {
+                CostPart::Sacrifice(_) | CostPart::ReturnToHand(_) | CostPart::Discard(_) => {
                     let chosen = cost_objects
                         .next()
                         .copied()
@@ -162,7 +164,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             "an object cost the cast never asked about",
                         ))?;
                     // Only a sacrifice feeds sentences about the sacrificed
-                    // permanent; returning one is a different payment.
+                    // permanent; returning or discarding is a different payment.
                     if matches!(part, CostPart::Sacrifice(_)) {
                         sacrificed_object = self.state.object(chosen).map(|o| (chosen, o.version));
                         sacrificed_lki = self
@@ -192,7 +194,6 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::ExertSelf
                 | CostPart::SacrificeSelf
                 | CostPart::ExilePermanent(_)
-                | CostPart::Discard(_)
                 | CostPart::DiscardRandom
                 | CostPart::DiscardHand
                 | CostPart::DiscardLastDrawnThisTurn
@@ -220,6 +221,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::PayLifeX => {}
             }
         }
+        graveyard_batch.finish_pending(&mut self.state);
         // Mandatory additional cost parts (e.g. Toxic Deluge's pay X life).
         if wizard.option == Some(CastModeKind::BeamMeUp) {
             let returned = wizard.returned.ok_or(EngineError::IllegalAction(
@@ -243,7 +245,6 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 cards: vec![beheld],
             });
         }
-        let mut graveyard_batch = crate::graveyard_order::PaymentBatch::new(&self.state);
         for part in super::wizard_mandatory_parts(face, wizard.cost_choice()) {
             graveyard_batch.before_part(&mut self.state, part);
             if !paid_as_a_mandatory_additional_cost(part) {

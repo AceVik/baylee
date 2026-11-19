@@ -62,6 +62,28 @@ pub(crate) fn additional_card_enters_graveyard(
         && crate::replacement::graveyard_destination(state, card, destination).0 == destination
 }
 
+/// Whether every hand-card part (`ExileFromHand` and `Discard`) of `parts` can
+/// be paid with a distinct card in `player`'s hand other than `card` (CR 601.2a).
+pub(crate) fn alternative_hand_costs_payable(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    parts: &[CostPart],
+) -> bool {
+    let menus: Vec<Vec<_>> = parts
+        .iter()
+        .filter_map(|part| match part {
+            CostPart::ExileFromHand(filter) | CostPart::Discard(filter) => Some(*filter),
+            _ => None,
+        })
+        .map(|filter| super::pitchable(state, player, card, filter))
+        .collect();
+    let mut candidates: Vec<_> = menus.iter().flatten().copied().collect();
+    candidates.sort_unstable();
+    candidates.dedup();
+    preferred_assignment(&menus, candidates).is_some()
+}
+
 /// Whether every exile-from-hand part can be paid with a distinct card.
 /// `chosen` holds the answers to the leading parts, in cost order.
 pub(crate) fn pitch_costs_payable(
@@ -112,6 +134,18 @@ pub(crate) fn additional_payment_capacity_for(
     choice: impl Into<CostChoice>,
     chosen: &[ObjectId],
 ) -> Option<usize> {
+    additional_payment_capacity_with_pitch(state, player, card, face, choice, &[], chosen)
+}
+
+pub(crate) fn additional_payment_capacity_with_pitch(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face: &'static FaceDef,
+    choice: impl Into<CostChoice>,
+    pitch_chosen: &[ObjectId],
+    chosen: &[ObjectId],
+) -> Option<usize> {
     let choice = choice.into();
     let life = crate::engine::cast_wizard::fixed_life_cost(face, choice);
     if !state.can_pay_life(player, life) {
@@ -119,16 +153,31 @@ pub(crate) fn additional_payment_capacity_for(
     }
     let parts =
         crate::engine::cast_wizard::additional_card_costs_for(state, player, card, face, choice);
-    let menus: Vec<Vec<_>> = parts
+    let mut menus: Vec<Vec<_>> = parts
         .iter()
         .skip(chosen.len())
         .map(|part| {
             crate::engine::cost_wizard::options(state, player, card, part)
                 .into_iter()
-                .filter(|id| *id != card && !chosen.contains(id))
+                .filter(|id| *id != card && !pitch_chosen.contains(id) && !chosen.contains(id))
                 .collect()
         })
         .collect();
+    let card_menu_count = menus.len();
+    menus.extend(
+        crate::engine::cast_wizard::wizard_cost_parts(face, choice)
+            .filter_map(|part| match part {
+                CostPart::ExileFromHand(filter) => Some(*filter),
+                _ => None,
+            })
+            .skip(pitch_chosen.len())
+            .map(|filter| {
+                super::pitchable(state, player, card, filter)
+                    .into_iter()
+                    .filter(|id| !pitch_chosen.contains(id) && !chosen.contains(id))
+                    .collect()
+            }),
+    );
     let mut cards: Vec<_> = menus.iter().flatten().copied().collect();
     cards.sort_unstable();
     cards.dedup();
@@ -140,7 +189,12 @@ pub(crate) fn additional_payment_capacity_for(
         .collect();
     candidates.sort_by_key(|(_, enters_graveyard)| !enters_graveyard);
     let assignments = preferred_assignment(&menus, candidates.iter().map(|(id, _)| *id))?;
-    let mut paid: Vec<_> = chosen.iter().copied().chain(assignments).collect();
+    let (card_assignments, pitch_assignments) = assignments.split_at(card_menu_count);
+    let mut paid: Vec<_> = chosen
+        .iter()
+        .copied()
+        .chain(card_assignments.iter().copied())
+        .collect();
     // A card discarded at random comes out of what the chosen answers leave,
     // and the card being cast is on the stack by then (CR 601.2a).
     let random = crate::engine::cast_wizard::wizard_cost_parts(face, choice)
@@ -151,7 +205,12 @@ pub(crate) fn additional_payment_capacity_for(
             .zones
             .list(ZoneLocation::Hand(player))
             .iter()
-            .filter(|id| **id != card && !paid.contains(id))
+            .filter(|id| {
+                **id != card
+                    && !paid.contains(id)
+                    && !pitch_chosen.contains(id)
+                    && !pitch_assignments.contains(id)
+            })
             .count();
         if left < random {
             return None;
@@ -166,7 +225,9 @@ pub(crate) fn additional_payment_capacity_for(
                 .list(ZoneLocation::Hand(player))
                 .iter()
                 .copied()
-                .filter(|id| *id != card),
+                .filter(|id| {
+                    *id != card && !pitch_chosen.contains(id) && !pitch_assignments.contains(id)
+                }),
         );
     }
     paid.sort_unstable();

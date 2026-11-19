@@ -30,6 +30,9 @@ const RETURN: u32 = 7192;
 const DOUBLE_RETURN: u32 = 7193;
 const CONDITIONAL_BARGAIN: u32 = 7194;
 const MIRE: u32 = 7195;
+const DISCARD_ALT: u32 = 7196;
+const REVERSE_DISCARD_ALT: u32 = 7197;
+const PITCH_AND_DISCARD_ALT: u32 = 7198;
 
 /// A spell ability that does nothing: what is under test is how the spell
 /// was paid for, and an effect would be one more thing to read around.
@@ -87,6 +90,18 @@ static PAY_FOUR_IF_SWAMP: &[AlternativeCost] = &[AlternativeCost {
     },
     condition: AltCondition::If(&CONTROL_A_SWAMP),
 }];
+static DISCARD_SWAMP_AND_OTHER: &[AlternativeCost] = &[instead(&[
+    CostPart::Discard(&A_SWAMP),
+    CostPart::Discard(&Filter::Any),
+])];
+static DISCARD_OTHER_AND_SWAMP: &[AlternativeCost] = &[instead(&[
+    CostPart::Discard(&Filter::Any),
+    CostPart::Discard(&A_SWAMP),
+])];
+static PITCH_INSTANT_AND_DISCARD_OTHER: &[AlternativeCost] = &[instead(&[
+    CostPart::ExileFromHand(&AN_INSTANT),
+    CostPart::Discard(&Filter::Any),
+])];
 
 /// An instant priced out of reach, castable only through `alts`.
 fn out_of_reach(
@@ -129,6 +144,17 @@ fn cards() -> Vec<&'static CardDef> {
             CONDITIONAL_BARGAIN,
             "Conditional Bargain",
             PAY_FOUR_IF_SWAMP,
+        ),
+        out_of_reach(DISCARD_ALT, "Discard Alt", DISCARD_SWAMP_AND_OTHER),
+        out_of_reach(
+            REVERSE_DISCARD_ALT,
+            "Reverse Discard Alt",
+            DISCARD_OTHER_AND_SWAMP,
+        ),
+        out_of_reach(
+            PITCH_AND_DISCARD_ALT,
+            "Pitch And Discard Alt",
+            PITCH_INSTANT_AND_DISCARD_OTHER,
         ),
         card(
             MIRE,
@@ -588,6 +614,257 @@ fn a_double_return_alternative_requires_and_returns_two_distinct_creatures() {
     assert!(on_the_stack(&engine, spell).alt_cast);
     assert_eq!(objects(&engine, ZoneLocation::Hand(me()), OX), oxen);
     assert!(objects(&engine, ZoneLocation::Battlefield, OX).is_empty());
+}
+
+/// Discarding cards as an alternative cost (CR 118.9, 601.2b, 601.2h, 701.9a):
+/// - requires distinct cards in hand excluding the spell itself (CR 601.2a);
+/// - asks the caster in printed order (`ChoicePrompt::CostDiscard`) before the
+///   spell becomes cast;
+/// - discards both chosen cards into their owner's graveyard under `Cause::Cost`.
+#[test]
+fn a_discard_alternative_requires_and_discards_distinct_matching_hand_cards() {
+    // Missing cards or missing the filtered card: neither offered nor castable.
+    for (seed, hand, label) in [
+        (7210, &[DISCARD_ALT][..], "the spell alone"),
+        (
+            7211,
+            &[DISCARD_ALT, MIRE][..],
+            "one Swamp card short of a second card",
+        ),
+        (
+            7212,
+            &[DISCARD_ALT, FODDER, HYMN][..],
+            "two other cards, neither a Swamp card",
+        ),
+    ] {
+        let mut short = holding(seed, hand, 20);
+        assert!(
+            !offered(&short, DISCARD_ALT),
+            "alternative must not be offered ({label})"
+        );
+        let card = the(&short, ZoneLocation::Hand(me()), DISCARD_ALT);
+        assert!(
+            short.apply(me(), PlayerAction::CastSpell { card }).is_err(),
+            "`CastSpell` must refuse ({label})"
+        );
+    }
+
+    // Swamp card + another card: offered, asked in printed order, and discarded.
+    let mut engine = holding(7213, &[DISCARD_ALT, MIRE, FODDER], 20);
+    let mire = the(&engine, ZoneLocation::Hand(me()), MIRE);
+    let fodder = the(&engine, ZoneLocation::Hand(me()), FODDER);
+    assert!(offered(&engine, DISCARD_ALT));
+    let spell = cast(&mut engine, DISCARD_ALT);
+
+    // First question: the Swamp-subtype discard.
+    let Pending::ChooseCards {
+        player,
+        options,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected first discard choice, got {:?}", engine.pending());
+    };
+    assert_eq!(
+        (player, min, max, prompt),
+        (me(), 1, 1, crate::choice::ChoicePrompt::CostDiscard)
+    );
+    assert_eq!(
+        options,
+        vec![mire],
+        "only the Swamp card satisfies the first discard"
+    );
+    assert!(
+        engine
+            .apply(
+                me(),
+                PlayerAction::ChooseObjects {
+                    objects: vec![fodder],
+                },
+            )
+            .is_err(),
+        "a non-Swamp card is refused for the first discard"
+    );
+    engine
+        .apply(
+            me(),
+            PlayerAction::ChooseObjects {
+                objects: vec![mire],
+            },
+        )
+        .unwrap();
+
+    // Second question: "another card" — neither the spell nor the already-chosen Swamp.
+    let Pending::ChooseCards {
+        options,
+        min,
+        max,
+        prompt,
+        ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected second discard choice, got {:?}", engine.pending());
+    };
+    assert_eq!(
+        (min, max, prompt),
+        (1, 1, crate::choice::ChoicePrompt::CostDiscard)
+    );
+    assert_eq!(options, vec![fodder]);
+    for illegal in [mire, spell] {
+        assert!(
+            engine
+                .apply(
+                    me(),
+                    PlayerAction::ChooseObjects {
+                        objects: vec![illegal],
+                    },
+                )
+                .is_err(),
+            "neither the already-chosen card nor the spell itself can pay the second discard"
+        );
+    }
+    engine
+        .apply(
+            me(),
+            PlayerAction::ChooseObjects {
+                objects: vec![fodder],
+            },
+        )
+        .unwrap();
+
+    assert!(on_the_stack(&engine, spell).alt_cast);
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(me()))
+            .is_empty(),
+        "both discarded cards and the cast spell have left the hand"
+    );
+    assert_eq!(
+        objects(&engine, ZoneLocation::Graveyard(me()), MIRE),
+        vec![mire]
+    );
+    assert_eq!(
+        objects(&engine, ZoneLocation::Graveyard(me()), FODDER),
+        vec![fodder]
+    );
+    for discarded in [mire, fodder] {
+        assert!(
+            engine
+                .state()
+                .journal
+                .entries()
+                .iter()
+                .any(|entry| matches!(
+                    entry.event,
+                    crate::event::GameEvent::Discarded { object, player, .. }
+                        if object == discarded && player == me()
+                )),
+            "payment records a real discard event (CR 701.9a)"
+        );
+    }
+}
+
+/// Augmenting-path lookahead across hand-card alternative costs:
+/// - when a broad `Discard(Any)` precedes a narrow `Discard(Swamp)` and only one
+///   Swamp card is in hand beside a non-Swamp card, the first prompt withholds the
+///   sole Swamp card so the second discard remains payable;
+/// - an `ExileFromHand` part and a `Discard` part share the same hand-card pool
+///   and cannot both be paid with one card.
+#[test]
+fn hand_card_alternative_costs_match_distinct_cards_without_greedy_dead_ends() {
+    let mut engine = holding(7214, &[REVERSE_DISCARD_ALT, MIRE, FODDER], 20);
+    let mire = the(&engine, ZoneLocation::Hand(me()), MIRE);
+    let fodder = the(&engine, ZoneLocation::Hand(me()), FODDER);
+    assert!(offered(&engine, REVERSE_DISCARD_ALT));
+    let spell = cast(&mut engine, REVERSE_DISCARD_ALT);
+
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("expected first discard choice, got {:?}", engine.pending());
+    };
+    assert_eq!(
+        options,
+        vec![fodder],
+        "spending the sole Swamp on `Any` would leave nothing for the second discard"
+    );
+    engine
+        .apply(
+            me(),
+            PlayerAction::ChooseObjects {
+                objects: vec![fodder],
+            },
+        )
+        .unwrap();
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!("expected second discard choice, got {:?}", engine.pending());
+    };
+    assert_eq!(options, vec![mire]);
+    engine
+        .apply(
+            me(),
+            PlayerAction::ChooseObjects {
+                objects: vec![mire],
+            },
+        )
+        .unwrap();
+    assert!(on_the_stack(&engine, spell).alt_cast);
+
+    // One instant card cannot pay both `ExileFromHand(Instant)` and `Discard(Any)`.
+    let mut one_card = holding(7215, &[PITCH_AND_DISCARD_ALT, FODDER], 20);
+    assert!(!offered(&one_card, PITCH_AND_DISCARD_ALT));
+    let card = the(&one_card, ZoneLocation::Hand(me()), PITCH_AND_DISCARD_ALT);
+    assert!(
+        one_card
+            .apply(me(), PlayerAction::CastSpell { card })
+            .is_err()
+    );
+
+    // Adding a second card makes both parts payable on distinct cards.
+    let mut two_cards = holding(7216, &[PITCH_AND_DISCARD_ALT, FODDER, HYMN], 20);
+    let fodder = the(&two_cards, ZoneLocation::Hand(me()), FODDER);
+    let hymn = the(&two_cards, ZoneLocation::Hand(me()), HYMN);
+    assert!(offered(&two_cards, PITCH_AND_DISCARD_ALT));
+    let spell = cast(&mut two_cards, PITCH_AND_DISCARD_ALT);
+    two_cards
+        .apply(
+            me(),
+            PlayerAction::ChooseObjects {
+                objects: vec![fodder],
+            },
+        )
+        .unwrap();
+    let Pending::ChooseCards { options, .. } = two_cards.pending().clone() else {
+        panic!(
+            "expected discard choice after pitch, got {:?}",
+            two_cards.pending()
+        );
+    };
+    assert_eq!(
+        options,
+        vec![hymn],
+        "the card chosen to exile is not offered again for the discard"
+    );
+    two_cards
+        .apply(
+            me(),
+            PlayerAction::ChooseObjects {
+                objects: vec![hymn],
+            },
+        )
+        .unwrap();
+    assert!(on_the_stack(&two_cards, spell).alt_cast);
+    assert_eq!(
+        objects(&two_cards, ZoneLocation::Exile(me()), FODDER),
+        vec![fodder]
+    );
+    assert_eq!(
+        objects(&two_cards, ZoneLocation::Graveyard(me()), HYMN),
+        vec![hymn]
+    );
 }
 
 // --------------------------------------------- paying the additional cost

@@ -436,6 +436,7 @@ pub(crate) const fn paid_as_an_alternative_cost(part: &CostPart) -> bool {
         part,
         CostPart::PayLife(_)
             | CostPart::ExileFromHand(_)
+            | CostPart::Discard(_)
             | CostPart::Sacrifice(_)
             | CostPart::ReturnToHand(_)
             | CostPart::TapN { .. }

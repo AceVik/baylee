@@ -26,8 +26,8 @@ mod lands;
 mod library_top;
 pub(crate) use additional::{
     additional_card_enters_graveyard, additional_payment_capacity, additional_payment_capacity_for,
-    additional_spell_costs, distinct_answers_exist, extend_sacrifices_per_mana_symbol,
-    pitch_costs_payable,
+    additional_payment_capacity_with_pitch, additional_spell_costs, alternative_hand_costs_payable,
+    distinct_answers_exist, extend_sacrifices_per_mana_symbol, pitch_costs_payable,
 };
 mod payment;
 mod permissions;
@@ -1840,7 +1840,7 @@ fn alternative_parts_payable(
     parts: &[baylee_cards_dsl::CostPart],
 ) -> bool {
     use baylee_cards_dsl::CostPart;
-    if !pitch_costs_payable(state, player, card, parts, &[]) {
+    if !alternative_hand_costs_payable(state, player, card, parts) {
         return false;
     }
     parts.iter().all(|part| match part {
