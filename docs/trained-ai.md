@@ -1446,6 +1446,26 @@ reports, for all probes, the clean games, and by subtype, rule group
 rollouts ended: the mean advantage and the share `R` ahead less the share
 `N` ahead per 100 probes with standard errors by game, and how often the
 two halves of the worlds agree.
+The trainer learns from the probes with `--distill-bundle --distill-kinds 0
+--distill-advantage pairwise --checkpoint-selection distill_advantage`
+(`training4/distill_probe.py`; `--distill-advantage-beta` 0.05,
+`-clip` 3, `-weight` 1, `-min-worlds` 2). At a probed frame the loss is a
+pairwise logistic on `R` against `N`, `z_s = s[R] − s[N]`, toward
+`q = σ(z_r1 + clamp(mean / β, ±clip))` (`bce_adv_pairwise`): a mean above
+zero moves the student toward `R`, one below toward its own `N`, and a mean
+of zero with the student at r1 moves nothing. There is no cross-entropy to
+`R` anywhere else: unprobed `N ≠ R` frames keep only the KL to r1
+(`kl_adv_unprobed`), pooled with the `N = R` frames, and every other kind
+keeps its KL. The sidecar is joined by (game, seat, cursor) and checked
+against the frame (`R` its target, `N`, subtype, fired groups, the `N ≠ R`
+flag) and against `meta.json` (rows, contract, SHA-256). Validation reports
+where `R` is ahead (mean − se > 0) the student's and r1's top-1 agreement
+with `R` (`val_adv_r_ahead_top1_r`, `_r1`), where `N` is ahead their
+agreement with `N` (`val_adv_n_ahead_top1_n`, `_r1`), the correlation of
+the student's shift with the clipped advantage (`val_adv_shift_corr`), and
+selects on the mean of the two agreements (`val_adv_selection`); the
+chain-start pre-gate and `training4.pregate` run as before, with an
+`[advantage]` line.
 
 **Imitation labels train the tactician and nothing else.** The record directory
 has its own `run.json` (`contract: tactician_imitation_v1`), and `--record-out`'s
