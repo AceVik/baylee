@@ -8035,3 +8035,28 @@ beneath it. What the author missed, for the next brief:
   batch. Its negative-control result and restored played regression were read.
 - No further defect found in this correction scope. This review does not certify
   production activation, balance, UI acceptance or full gates.
+
+## 2026-11-19 — training-deck cards, batch 1 part 1 (Carbon author, Claude review)
+
+- Cards chosen by how many unseen TRAIN decks they complete (greedy cover over
+  the precons and the MTGO near-complete lists, against main's working pool);
+  owner permission of 19 Nov: release order (§E8) does not apply to them.
+- `AltCondition::If(&Condition)` replaces a per-card condition list for
+  alternative costs: the offer and the wizard both ask `eval::condition_holds`.
+  The desktop client's pre-tap list can judge only `ControlCount` from the
+  view and refuses the rest, the same rule as for unreadable cost parts.
+- Gemini 4 Carbon (High) wrote the piece, its rule test (red when the variant
+  is read as `true`) and Snuff Out. Its first pass left a test that did not
+  compile (`{3}{B}` in an `assert!` format string): it had not run the card
+  tests. The second round added the integration cases the first lacked:
+  countered after paying 4 life (no refund, CR 701.6b), a nonbasic Swamp, a
+  target turned black or bounced in response (608.2b), indestructible.
+- `cargo tools hooks require-card-tests` reads a Claude Code hook event on
+  stdin; run by hand it waits forever. Pipe `{"cwd": "<worktree>"}` into it.
+- Mutation hook per card (`BAYLEE_MUTATE=<index>:<ability>`) is a cheap,
+  objective check that a card's tests actually depend on its abilities;
+  ask for it in every task.
+- Reader rule (owner, 19 Nov): a mechanic added to the DSL is also taught to
+  the reader with codegen tests. `AltCondition::If` is not yet emitted by the
+  reader (the corpus's alternative-cost static is still refused); that reader
+  work follows with Foil, which needs the same static.
