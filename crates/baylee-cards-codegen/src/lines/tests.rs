@@ -1511,3 +1511,21 @@ fn conditional_alternative_costs_fit_ability_words_trailing_ifs_and_single_taps(
         vec![Some(0)]
     );
 }
+
+#[test]
+fn a_later_if_sentence_on_the_line_is_not_the_alternative_costs_condition() {
+    static COND: baylee_cards_dsl::Condition = baylee_cards_dsl::Condition::AttackedWithAtLeast(1);
+    let cost = baylee_cards_dsl::cost!("{1}{B}");
+    let text = "You may pay {1}{B} rather than pay this spell's mana cost. \
+                Draw a card if you control a Swamp.\nDraw a card.";
+    assert_eq!(
+        map_alternatives(&[alt(cost, AltCondition::Always)], text),
+        vec![Some(0)],
+        "the permission's own sentence states no condition"
+    );
+    assert_eq!(
+        map_alternatives(&[alt(cost, AltCondition::If(&COND))], text),
+        vec![None],
+        "nor does the next sentence lend it one"
+    );
+}

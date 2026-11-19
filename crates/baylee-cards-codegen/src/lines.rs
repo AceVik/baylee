@@ -1116,7 +1116,17 @@ fn condition_fits(condition: AltCondition, lower: &str) -> bool {
     let clause = lower
         .split_once(" \u{2014} ")
         .map_or(lower, |(_, rest)| rest);
-    let has_if = clause.starts_with("if ") || clause.contains(" if ");
+    // The condition is read in the permission's own sentence only: a later
+    // sentence of the same line ("If the {1}{B} cost was paid, …") is a
+    // different rule and says nothing about when the cost may be paid.
+    let permission = clause
+        .split(". ")
+        .find(|sentence| {
+            sentence.contains("rather than pay")
+                || sentence.contains("without paying its mana cost")
+        })
+        .unwrap_or(clause);
+    let has_if = permission.starts_with("if ") || permission.contains(" if ");
     match condition {
         // An unconditional alternative states no condition, and a conditional
         // one states an `if` clause — at the opening (possibly after an
