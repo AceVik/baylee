@@ -14530,7 +14530,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Lava Axe
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Lava Flow
     &[FaceLines {
         sentences: 1,
@@ -14642,7 +14649,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    &[],
+    // Phantom Warrior
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Plant Elemental
     &[FaceLines {
@@ -14785,7 +14799,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    &[],
+    // Time Ebb
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Touch of Brilliance
     &[FaceLines {
@@ -19755,7 +19776,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    &[],
+    // Goblin Raider
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -73878,7 +73906,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Archmage's Charm
+    &[FaceLines {
+        sentences: 4,
+        stackable: 0,
+        lines: &[None],
+        modes: &[Some(1), Some(2), Some(3)],
+        alternatives: &[],
+    }],
     // Arcum's Astrolabe
     &[FaceLines {
         sentences: 3,
