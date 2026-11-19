@@ -51,6 +51,8 @@ pub mod etched_familiar;
 pub mod faerie_mastermind;
 #[path = "mom/failed_conversion.rs"]
 pub mod failed_conversion;
+#[path = "ltr/flame_of_anor.rs"]
+pub mod flame_of_anor;
 #[path = "mom/furtive_analyst.rs"]
 pub mod furtive_analyst;
 #[path = "ltr/galadhrim_guide.rs"]
@@ -93,6 +95,8 @@ pub mod legolas_greenleaf;
 pub mod legolas_s_quick_reflexes;
 #[path = "moc/locthwain_lancer.rs"]
 pub mod locthwain_lancer;
+#[path = "ltr/lorien_revealed.rs"]
+pub mod lorien_revealed;
 #[path = "ltc/lossarnach_captain.rs"]
 pub mod lossarnach_captain;
 #[path = "ltr/lothlorien_lookout.rs"]
@@ -133,6 +137,8 @@ pub mod protector_of_gondor;
 pub mod ral_s_reinforcements;
 #[path = "ltc/relic_of_sauron.rs"]
 pub mod relic_of_sauron;
+#[path = "ltr/reprieve.rs"]
+pub mod reprieve;
 #[path = "ltr/revive_the_shire.rs"]
 pub mod revive_the_shire;
 #[path = "ltr/rising_of_the_day.rs"]

@@ -673,6 +673,8 @@ pub mod kookus;
 pub mod krakilin;
 #[path = "vis/kyscu_drake.rs"]
 pub mod kyscu_drake;
+#[path = "por/lava_axe.rs"]
+pub mod lava_axe;
 #[path = "por/lava_flow.rs"]
 pub mod lava_flow;
 #[path = "wth/lava_hounds.rs"]
@@ -897,6 +899,8 @@ pub mod pegasus_refuge;
 pub mod pendrell_mists;
 #[path = "tmp/perish.rs"]
 pub mod perish;
+#[path = "por/phantom_warrior.rs"]
+pub mod phantom_warrior;
 #[path = "wth/phantom_wings.rs"]
 pub mod phantom_wings;
 #[path = "wth/phyrexian_furnace.rs"]
@@ -1289,6 +1293,8 @@ pub mod thunderbolt;
 pub mod thundering_wurm;
 #[path = "vis/time_and_tide.rs"]
 pub mod time_and_tide;
+#[path = "por/time_ebb.rs"]
+pub mod time_ebb;
 #[path = "tmp/time_warp.rs"]
 pub mod time_warp;
 #[path = "wth/timid_drake.rs"]

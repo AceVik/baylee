@@ -45,6 +45,8 @@ pub mod auriok_champion;
 pub mod auriok_salvagers;
 #[path = "chk/azami_lady_of_scrolls.rs"]
 pub mod azami_lady_of_scrolls;
+#[path = "5dn/beacon_of_destruction.rs"]
+pub mod beacon_of_destruction;
 #[path = "chk/ben_ben_akki_hermit.rs"]
 pub mod ben_ben_akki_hermit;
 #[path = "dst/blinkmoth_nexus.rs"]

@@ -443,6 +443,8 @@ pub mod goblin_offensive;
 pub mod goblin_patrol;
 #[path = "p02/goblin_piker.rs"]
 pub mod goblin_piker;
+#[path = "p02/goblin_raider.rs"]
+pub mod goblin_raider;
 #[path = "usg/goblin_spelunkers.rs"]
 pub mod goblin_spelunkers;
 #[path = "usg/goblin_war_buggy.rs"]
@@ -989,6 +991,8 @@ pub mod skyshroud_war_beast;
 pub mod slaughter;
 #[path = "usg/sleeper_agent.rs"]
 pub mod sleeper_agent;
+#[path = "p02/sleight_of_hand.rs"]
+pub mod sleight_of_hand;
 #[path = "usg/slippery_karst.rs"]
 pub mod slippery_karst;
 #[path = "sth/sliver_queen.rs"]
