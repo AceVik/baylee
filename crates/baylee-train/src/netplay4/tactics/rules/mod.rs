@@ -529,7 +529,7 @@ pub(in crate::netplay4) fn single_choice(
         rng,
         false,
     );
-    for index in 0..GROUPS.len() {
+    for (index, fired) in rules.fired.iter_mut().enumerate() {
         let (answer, _) = decide_single(
             &mut TacticRules4::only(index),
             cands,
@@ -540,7 +540,7 @@ pub(in crate::netplay4) fn single_choice(
             temperature,
             rng,
         );
-        rules.fired[index] += u64::from(answer != plain.0);
+        *fired += u64::from(answer != plain.0);
     }
     plain
 }
