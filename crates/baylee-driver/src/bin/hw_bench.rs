@@ -90,6 +90,8 @@ struct Args {
     sort: bool,
     /// Unix time (seconds) at which timing starts, after warm-up.
     start_at: Option<f64>,
+    /// Parity over decision rows only (`--decisions-only`).
+    decisions_only: bool,
 }
 
 fn list(raw: &str) -> anyhow::Result<Vec<usize>> {
@@ -125,6 +127,7 @@ impl Args {
             save_optimized: None,
             sort: false,
             start_at: None,
+            decisions_only: false,
         };
         let mut it = std::env::args().skip(1);
         while let Some(flag) = it.next() {
@@ -134,6 +137,10 @@ impl Args {
             }
             if flag == "--sort" {
                 a.sort = true;
+                continue;
+            }
+            if flag == "--decisions-only" {
+                a.decisions_only = true;
                 continue;
             }
             let value = it.next().with_context(|| format!("{flag} takes a value"))?;
@@ -1092,10 +1099,15 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn parity(args: &Args, rows: Vec<DumpRow>, graph: u8, header: &Value) -> anyhow::Result<()> {
+/// A parity run's rows and the reference rows beside them.
+fn parity_pairs(
+    args: &Args,
+    rows: Vec<DumpRow>,
+    graph: u8,
+) -> anyhow::Result<(Vec<DumpRow>, Vec<DumpRow>)> {
     let rows = parity_rows(rows, graph, args.limit);
     // A reference of every row serves any `--limit`: the run's rows are a
-    // prefix of it (each row's metadata is checked against it below).
+    // prefix of it (each row's metadata is checked against it later).
     let mut reference = load_rows(std::slice::from_ref(
         args.reference.as_ref().context("--ref names the reference")?,
     ))?;
@@ -1106,13 +1118,33 @@ fn parity(args: &Args, rows: Vec<DumpRow>, graph: u8, header: &Value) -> anyhow:
         rows.len()
     );
     reference.truncate(rows.len());
+    // `--decisions-only`: without `--chained` a decision needs no
+    // observation run before it (its memory is the recorded one), so
+    // decisions can fill calls of any batch size.
+    if args.decisions_only {
+        ensure!(!args.chained, "--decisions-only leaves out the observations --chained needs");
+        Ok(rows.into_iter().zip(reference).filter(|(r, _)| r.meta.k > 0).unzip())
+    } else {
+        Ok((rows, reference))
+    }
+}
+
+fn parity(args: &Args, rows: Vec<DumpRow>, graph: u8, header: &Value) -> anyhow::Result<()> {
+    let (rows, reference) = parity_pairs(args, rows, graph)?;
     let mut sessions = BTreeMap::new();
     let mut by_kind: BTreeMap<String, KindStats> = BTreeMap::new();
     let mut all_decisions = KindStats::default();
     let mut observations = KindStats::default();
     // `--chained`: each seat's memory from this provider's own observations.
     let mut memory: HashMap<(u32, u8), Vec<f32>> = HashMap::new();
-    let pb = args.parity_batch.max(1);
+    // A fixed batch (`--dims B=n`) takes calls of exactly n rows; a short
+    // call is filled with copies of its last row, whose answers are dropped.
+    let fixed_b = args
+        .dims
+        .iter()
+        .find(|(name, _)| name == "B")
+        .and_then(|&(_, b)| usize::try_from(b).ok());
+    let pb = fixed_b.unwrap_or(args.parity_batch).max(1);
     let mut i = 0;
     // With `--dims`, rows larger than the fixed extents are left out.
     let fixed = fixed_extents(&args.dims);
@@ -1147,6 +1179,12 @@ fn parity(args: &Args, rows: Vec<DumpRow>, graph: u8, header: &Value) -> anyhow:
             }
             owned.push(r);
         }
+        let real = owned.len();
+        if let Some(b) = fixed_b {
+            while owned.len() < b {
+                owned.push(owned[real - 1].clone());
+            }
+        }
         let call: Vec<&DumpRow> = owned.iter().collect();
         let s = match sessions.entry(g) {
             std::collections::btree_map::Entry::Occupied(o) => o.into_mut(),
@@ -1154,7 +1192,7 @@ fn parity(args: &Args, rows: Vec<DumpRow>, graph: u8, header: &Value) -> anyhow:
         };
         let batch = assemble(&call, &args.buckets)?;
         let outs = run(s, &batch, &call)?;
-        for (j, out) in outs.iter().enumerate() {
+        for (j, out) in outs.iter().enumerate().take(real) {
             let input = call[j];
             let want = &reference[i + j];
             ensure!(want.meta == input.meta, "the reference is of other rows");
@@ -1174,6 +1212,7 @@ fn parity(args: &Args, rows: Vec<DumpRow>, graph: u8, header: &Value) -> anyhow:
         "header": header,
         "chained": args.chained,
         "parity_batch": pb,
+        "decisions_only": args.decisions_only,
         "skipped_rows": skipped,
         "decisions": stats_json(&all_decisions),
         "observations": stats_json(&observations),
