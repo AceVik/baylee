@@ -717,9 +717,17 @@ impl Tx<'_> {
         {
             return self.cast_self_protection_trigger(&mode, p);
         }
-        let prose_may = p
-            .peek("TriggerDescription")
-            .is_some_and(|d| d.to_ascii_lowercase().contains(", you may have "));
+        // The printed "you may have …" is the choice only where it opens the
+        // effect, right after the trigger's own clause: the whole chain is
+        // then the optional part (CR 603.5). After a mandatory clause ("draw a
+        // card, then you may have …") it would make the mandatory half
+        // optional too, so it is not read there; `validate` holds such a card
+        // to its printed may.
+        let prose_may = p.peek("TriggerDescription").is_some_and(|d| {
+            d.to_ascii_lowercase()
+                .split_once(", ")
+                .is_some_and(|(_, effect)| effect.starts_with("you may have "))
+        });
         p.drop_prose();
         self.trigger_mode = Some(mode.clone());
         if self.is_link_cleanup_trigger(&mode, &p) {
