@@ -592,6 +592,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::EventSubject(source)
         | Rider::EventAbility(source)
         | Rider::CreatedBy(source)
+        | Rider::DelvedCard(source)
         | Rider::ReanimatedCreature {
             creature: source, ..
         }

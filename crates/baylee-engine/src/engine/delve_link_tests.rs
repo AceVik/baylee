@@ -176,8 +176,8 @@ fn delver_in(engine: &Engine<SyntheticLookup>, zone: ZoneLocation) -> Option<Obj
 }
 
 /// Seat 0 taps every Island, casts the delver from hand exiling `delved`
-/// with delve, and both players pass until the stack is empty.
-fn cast_delver(engine: &mut Engine<SyntheticLookup>, delved: &[ObjectId]) {
+/// with delve, and leaves it on the stack.
+fn announce_delver(engine: &mut Engine<SyntheticLookup>, delved: &[ObjectId]) {
     for _ in 0..12 {
         let Pending::Priority { legal, .. } = engine.pending().clone() else {
             panic!("priority expected, got {:?}", engine.pending());
@@ -209,6 +209,9 @@ fn cast_delver(engine: &mut Engine<SyntheticLookup>, delved: &[ObjectId]) {
             engine.pending()
         );
     }
+}
+
+fn resolve_stack(engine: &mut Engine<SyntheticLookup>) {
     for _ in 0..12 {
         if engine.state().zones.list(ZoneLocation::Stack).is_empty()
             && matches!(engine.pending(), Pending::Priority { .. })
@@ -221,6 +224,11 @@ fn cast_delver(engine: &mut Engine<SyntheticLookup>, delved: &[ObjectId]) {
         engine.apply(player, PlayerAction::PassPriority).unwrap();
     }
     panic!("the stack did not empty");
+}
+
+fn cast_delver(engine: &mut Engine<SyntheticLookup>, delved: &[ObjectId]) {
+    announce_delver(engine, delved);
+    resolve_stack(engine);
 }
 
 fn counters(engine: &Engine<SyntheticLookup>) -> u16 {
@@ -242,6 +250,42 @@ fn delved_instants_are_exiled_with_the_spell_that_delved_them() {
     let (mut engine, buried) = board(1, &[], &[]);
     cast_delver(&mut engine, &buried);
     assert_eq!(counters(&engine), 2);
+}
+
+#[test]
+fn an_instant_that_leaves_exile_before_resolution_loses_its_link() {
+    let (mut engine, buried) = board(1, &[], &[]);
+    announce_delver(&mut engine, &buried);
+    let state = engine.dev_state_mut(ME).expect("dev commands");
+    let instant = *state
+        .zones
+        .list(ZoneLocation::Exile(ME))
+        .iter()
+        .find(|id| {
+            state
+                .object(**id)
+                .and_then(|o| o.card)
+                .is_some_and(|c| c.index.get() == INSTANT)
+        })
+        .expect("an exiled instant");
+    let instant = state
+        .move_object(
+            instant,
+            ZoneLocation::Hand(ME),
+            ZonePosition::Top,
+            Cause::DevCommand,
+        )
+        .unwrap();
+    state
+        .move_object(
+            instant,
+            ZoneLocation::Exile(ME),
+            ZonePosition::Top,
+            Cause::DevCommand,
+        )
+        .unwrap();
+    resolve_stack(&mut engine);
+    assert_eq!(counters(&engine), 1);
 }
 
 /// Paid in full, nothing is exiled with it.

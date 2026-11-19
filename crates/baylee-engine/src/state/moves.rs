@@ -7,6 +7,38 @@ use crate::object::Status;
 mod sacrifice;
 
 impl GameState {
+    /// Transfer this casting's delve links to the permanent it actually becomes.
+    /// A card that left exile and came back in response has a different version.
+    fn finish_delve_links(&mut self, host: ObjectId, to: Zone) {
+        use crate::object::Rider;
+        let Some(spell) = self.object_mut(host) else {
+            return;
+        };
+        let mut exiles = smallvec::SmallVec::<[_; 4]>::new();
+        spell.riders.retain(|rider| {
+            if let Rider::DelvedCard(card) = rider {
+                if to == Zone::Battlefield {
+                    exiles.push(*card);
+                }
+                false
+            } else {
+                true
+            }
+        });
+        let version = Rider::version_of(spell);
+        for exile in exiles {
+            if let Some(card) = self
+                .object_mut(exile.object)
+                .filter(|o| o.version == exile.version && o.zone == Zone::Exile)
+            {
+                let link = Rider::ExiledWith { host, version };
+                if !card.riders.contains(&link) {
+                    card.riders.push(link);
+                }
+            }
+        }
+    }
+
     /// Returns every exiled card whose link `ends` says has ended to the
     /// battlefield, under its owner's control, and forgets the link.
     ///
@@ -885,6 +917,9 @@ impl GameState {
                     && matches!(from_zone, Zone::Stack | Zone::Battlefield))
         {
             self.rest_as_card(id, def);
+        }
+        if from_zone == Zone::Stack {
+            self.finish_delve_links(id, to.zone());
         }
         // CR 400.7a, the exception to the new object above: what a spell or
         // ability did to a permanent spell, it goes on doing to the

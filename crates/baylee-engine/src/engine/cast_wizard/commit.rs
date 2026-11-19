@@ -562,9 +562,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // The cards delve exiled to pay this spell's cost are exiled with it:
         // a permanent's "cards exiled with [this object]" refers to exactly
         // those cards of the spell that became it (CR 607.2q; Murktide
-        // Regent). Marked with the version the spell has on the stack, the
-        // object that resolves and enters, so a permanent that later leaves
-        // and returns is a new object with none (CR 400.7).
+        // Regent). Keep the exact exiles on the spell so their links can
+        // follow it when it resolves, including replacement effects on entry.
         if !delved.is_empty()
             && let Some(version) = self
                 .state
@@ -572,11 +571,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .map(crate::object::Rider::version_of)
         {
             for &exiled in &delved {
-                if let Some(object) = self.state.object_mut(exiled) {
+                if let Some(object) = self
+                    .state
+                    .object_mut(exiled)
+                    .filter(|o| o.zone == crate::zone::Zone::Exile)
+                {
                     object.riders.push(crate::object::Rider::ExiledWith {
                         host: card,
                         version,
                     });
+                    let exile = baylee_core::ids::DamageSourceRef {
+                        object: exiled,
+                        version: object.version,
+                    };
+                    self.state
+                        .object_mut(card)
+                        .expect("the spell on the stack")
+                        .riders
+                        .push(crate::object::Rider::DelvedCard(exile));
                 }
             }
         }

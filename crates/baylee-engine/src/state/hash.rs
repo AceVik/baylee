@@ -1307,6 +1307,11 @@ fn hash_rider_situation(
                 h.u32(position(reference.object));
                 hash_damage_source(h, state, reference.object, reference.version);
             }
+            crate::object::Rider::DelvedCard(reference) => {
+                h.u8(95);
+                h.u32(position(reference.object));
+                hash_damage_source(h, state, reference.object, reference.version);
+            }
             crate::object::Rider::EventManaValue(value) => {
                 h.u8(76);
                 value.hash(h);
@@ -2096,6 +2101,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::Buyback => h.u8(92),
             Rider::GrantedSource(reference) => {
                 h.u8(94);
+                reference.hash(h);
+            }
+            Rider::DelvedCard(reference) => {
+                h.u8(95);
                 reference.hash(h);
             }
             Rider::ExiledWith { host, version } => {

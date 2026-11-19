@@ -1103,6 +1103,8 @@ pub enum Rider {
     /// this activated ability, for costs and damage that name the grantor.
     /// Appended to preserve the derived replay identity of existing riders.
     GrantedSource(baylee_core::ids::DamageSourceRef),
+    /// Card exiled to pay for this spell, until the spell leaves the stack (CR 607.2q).
+    DelvedCard(baylee_core::ids::DamageSourceRef),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1166,6 +1168,7 @@ impl Rider {
             // About the stack or the battlefield, not exile.
             Self::DelayedReturnObject(_)
             | Self::GrantedSource(_)
+            | Self::DelvedCard(_)
             | Self::PhasedOutUntilHostLeaves { .. }
             | Self::CreatedBy(_)
             | Self::RevealedInHandCantPlayUntilTurn
