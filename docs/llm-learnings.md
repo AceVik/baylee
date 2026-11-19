@@ -8163,3 +8163,31 @@ beneath it. What the author missed, for the next brief:
   a duel, because a view carries no teams. Above two seats the list leaves
   the free cast off conservatively while the engine still offers it, and no
   hidden information is read.
+
+## 2026-11-19 — reader-3: Dig, the look-at-the-top-N line (Claude)
+
+- `Dig` was read in two shapes; it now reads every knob with the
+  reference's defaults and writes one existing library effect per sentence
+  (`scriptgen/dig.rs`): corpus read in full 11,405 → 11,494, "effect `Dig`"
+  as first cause 494 → 51, pool stubs read in full 6 → 16. Ten pool stubs
+  became Generated (Prophetic Bolt, Sleight of Hand, Worldly Counsel, the
+  five Apocalypse tribal "reveal four" creatures, Zoologist,
+  Raven Guild Master); a full discovery codegen changed no card body beyond
+  the known printing re-pins.
+- The old arm refused a dig whenever the *chain* had a target. The chain's
+  target is the one an earlier line declared (Prophetic Bolt's damage);
+  whether the dig is in another player's library is the dig line's own
+  `ValidTgts$`/`Defined$`. Gate a sub-line on `targets_here`, not on
+  `target.is_some()`.
+- Every refusal now names its shape ("a `Dig` pick whose rest goes to the
+  graveyard or exile", "a `Dig` that reveals and moves every card matching
+  to the hand, the rest into the graveyard", …), so the ranking shows the
+  tail. Its head: `Dig.RememberChanged` (122, the impulse-draw exiles with a
+  play permission), `DigUntil` (82), a destination other than hand,
+  battlefield or exile (34), and a pick whose rest leaves the library (32:
+  Ancestral Memories, Rakshasa's Bargain, Browse, Eye of Yawgmoth). The last
+  needs a rest destination on `LookAtTopPick` (the engine's
+  `dig::RestDestination::Move` already exists) and an engine test.
+- Reclaim previews of the hand-written Impulse, Raven Familiar, Goblin
+  Ringleader, Diabolic Vision and Call of the Wild reproduce their effects;
+  they were not reclaimed here.
