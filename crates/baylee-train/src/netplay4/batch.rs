@@ -101,11 +101,66 @@ struct Lane {
     counters: Counters,
 }
 
-/// Calls run, rows answered and nanoseconds spent in calls, by every server
-/// of a lane together.
-type Counters = Arc<[AtomicU64; 3]>;
+/// Calls run, rows answered, nanoseconds spent in calls and how many rows
+/// each call held, by every server of a lane together.
+#[derive(Default)]
+struct LaneCounters {
+    calls: AtomicU64,
+    rows: AtomicU64,
+    nanos: AtomicU64,
+    rows_per_call: Mutex<Sizes>,
+}
 
-/// What one depth graph's lane did: calls, rows and seconds in calls.
+type Counters = Arc<LaneCounters>;
+
+/// How often each size occurred: rows a call held, or steps a lockstep
+/// group sent at once.
+type Sizes = BTreeMap<usize, u64>;
+
+/// A distribution of sizes, summed up.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize)]
+pub struct SizeSummary4 {
+    /// How many there were.
+    pub count: u64,
+    /// Their mean.
+    pub mean: f64,
+    /// Their median (the lower one of an even count).
+    pub p50: usize,
+    /// The largest.
+    pub max: usize,
+}
+
+impl SizeSummary4 {
+    #[allow(
+        clippy::cast_precision_loss,
+        reason = "counts of calls, far below 2^53"
+    )]
+    fn of(sizes: &Sizes) -> Self {
+        let count: u64 = sizes.values().sum();
+        if count == 0 {
+            return Self::default();
+        }
+        let total: u64 = sizes.iter().map(|(size, n)| *size as u64 * n).sum();
+        let half = count.div_ceil(2);
+        let mut seen = 0;
+        let p50 = sizes
+            .iter()
+            .find(|(_, n)| {
+                seen += **n;
+                seen >= half
+            })
+            .map_or(0, |(size, _)| *size);
+        Self {
+            count,
+            mean: total as f64 / count as f64,
+            p50,
+            max: sizes.keys().next_back().copied().unwrap_or(0),
+        }
+    }
+}
+
+/// What one depth graph's lane did: calls, rows, seconds in calls and rows
+/// a call.
 #[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize)]
 pub struct LaneStats4 {
     /// Calls run.
@@ -114,16 +169,24 @@ pub struct LaneStats4 {
     pub rows: u64,
     /// Seconds spent in calls, every server's added up.
     pub call_seconds: f64,
+    /// Rows a call held.
+    pub rows_per_call: SizeSummary4,
 }
 
 impl LaneStats4 {
-    fn of(counters: &[AtomicU64; 3]) -> Self {
+    fn of(counters: &LaneCounters) -> Self {
         Self {
-            calls: counters[0].load(Ordering::Relaxed),
-            rows: counters[1].load(Ordering::Relaxed),
+            calls: counters.calls.load(Ordering::Relaxed),
+            rows: counters.rows.load(Ordering::Relaxed),
             // Nanoseconds, exact in an f64 for 104 days of calls.
             #[allow(clippy::cast_precision_loss, reason = "nanoseconds below 2^53")]
-            call_seconds: counters[2].load(Ordering::Relaxed) as f64 * 1e-9,
+            call_seconds: counters.nanos.load(Ordering::Relaxed) as f64 * 1e-9,
+            rows_per_call: SizeSummary4::of(
+                &counters
+                    .rows_per_call
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner),
+            ),
         }
     }
 }
@@ -136,6 +199,8 @@ pub struct BatchedNet4 {
     /// Sessions per lane, each on its own thread.
     servers: usize,
     lanes: Mutex<BTreeMap<u8, Lane>>,
+    /// Steps each lockstep group sent at once ([`Self::run_group`]).
+    groups: Mutex<Sizes>,
 }
 
 impl BatchedNet4 {
@@ -181,6 +246,7 @@ impl BatchedNet4 {
             hardware: None,
             servers,
             lanes: Mutex::new(BTreeMap::new()),
+            groups: Mutex::default(),
         };
         net.start_lane(&mut net.lanes(), depth, session)?;
         Ok(Arc::new(net))
@@ -211,6 +277,7 @@ impl BatchedNet4 {
             hardware: Some((hardware.clone(), worker_slots)),
             servers: 1,
             lanes: Mutex::new(BTreeMap::new()),
+            groups: Mutex::default(),
         };
         net.start_lane(&mut net.lanes(), depth, session)?;
         Ok(Arc::new(net))
@@ -348,7 +415,58 @@ impl BatchedNet4 {
             .recv()
             .map_err(|_| anyhow!("the batched net stopped"))?
     }
+
+    /// Queues a lockstep group's steps at once, each answered on its own
+    /// reply: every lane gets its rows in one go and in the group's order,
+    /// so a lane's only server takes them into one call (as far as the
+    /// limits allow) and no server starts on part of them. A step whose lane
+    /// cannot start, or whose net has stopped, is answered with the error.
+    pub(super) fn run_group(&self, steps: Vec<GroupStep4>) {
+        *self
+            .groups
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .entry(steps.len())
+            .or_default() += 1;
+        let mut by_depth: BTreeMap<u8, Vec<Job>> = BTreeMap::new();
+        for (row, reply) in steps {
+            by_depth
+                .entry(super::depth_graph(row.k_val))
+                .or_default()
+                .push(Job { row, reply });
+        }
+        for (depth, jobs) in by_depth {
+            let queue = match self.queue_for(depth) {
+                Ok(queue) => queue,
+                Err(error) => {
+                    for job in jobs {
+                        let _ = job.reply.send(Err(anyhow!("{error:#}")));
+                    }
+                    continue;
+                }
+            };
+            let (lock, ready) = &*queue;
+            let mut q = lock.lock().unwrap_or_else(PoisonError::into_inner);
+            if q.closed {
+                for job in jobs {
+                    let _ = job.reply.send(Err(anyhow!("the batched net stopped")));
+                }
+                continue;
+            }
+            q.jobs.extend(jobs);
+            ready.notify_all();
+        }
+    }
+
+    /// How many steps the lockstep groups sent at once so far.
+    #[must_use]
+    pub fn lockstep_groups(&self) -> SizeSummary4 {
+        SizeSummary4::of(&self.groups.lock().unwrap_or_else(PoisonError::into_inner))
+    }
 }
+
+/// One step of a lockstep group and where its outputs go.
+pub(super) type GroupStep4 = (StepRow, SyncSender<anyhow::Result<StepOutputs>>);
 
 /// Closes `queue` and waits for the `threads` serving it.
 fn stop(queue: &SharedQueue, threads: Vec<JoinHandle<()>>) {
@@ -386,7 +504,7 @@ fn serve(
     queue: &(Mutex<Queue>, Condvar),
     limits: BatchLimits4,
     d_model: usize,
-    counters: &[AtomicU64; 3],
+    counters: &LaneCounters,
     calls_at_once: bool,
 ) {
     let (lock, ready) = queue;
@@ -417,12 +535,20 @@ fn serve(
         };
         for call in calls(&jobs, limits) {
             let rows: Vec<&StepRow> = call.iter().map(|job| &job.row).collect();
-            counters[0].fetch_add(1, Ordering::Relaxed);
-            counters[1].fetch_add(rows.len() as u64, Ordering::Relaxed);
+            counters.calls.fetch_add(1, Ordering::Relaxed);
+            counters
+                .rows
+                .fetch_add(rows.len() as u64, Ordering::Relaxed);
+            *counters
+                .rows_per_call
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .entry(rows.len())
+                .or_default() += 1;
             let started = Instant::now();
             let outputs = run_rows(&mut session, &rows, d_model);
             let spent = u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX);
-            counters[2].fetch_add(spent, Ordering::Relaxed);
+            counters.nanos.fetch_add(spent, Ordering::Relaxed);
             match outputs {
                 Ok(outputs) => {
                     for (job, out) in call.iter().zip(outputs) {

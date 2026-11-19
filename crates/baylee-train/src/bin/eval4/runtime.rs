@@ -511,6 +511,7 @@ impl SharedNets {
             "servers": learner.servers(),
             "calls": calls, "rows": rows, "call_seconds": call_seconds,
             "learner_by_depth": learner.by_depth(),
+            "lockstep_groups": learner.lockstep_groups(),
             "bitwise_reproducible": limits.max_rows == 1})
     }
 }

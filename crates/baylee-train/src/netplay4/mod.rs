@@ -31,7 +31,7 @@ use crate::features7::{encode_candidates7_grouped, encode_state7};
 mod batch;
 #[cfg(test)]
 mod batch_tests;
-pub use batch::{BatchLimits4, BatchedNet4, LaneStats4};
+pub use batch::{BatchLimits4, BatchedNet4, LaneStats4, SizeSummary4};
 mod choices;
 mod critic;
 pub use critic::CriticSemantics4;
@@ -48,6 +48,7 @@ mod identity;
 mod inference;
 use inference::StepRow;
 mod live_init;
+mod lockstep;
 mod menu;
 pub use identity::{ModelIdentity, inspect_model_identity};
 pub use menu::{MenuStats4, PayableMenu4};
@@ -146,6 +147,9 @@ enum Backend {
     Owned(BTreeMap<u8, Session>),
     /// A process-wide server that batches the steps of many players.
     Shared(Arc<BatchedNet4>),
+    /// A seat in a lockstep group of rollouts on such a server
+    /// ([`lockstep`]).
+    Lockstep(lockstep::LockstepSeat4),
 }
 
 /// A Playernet v4 (`BayleeKI`) agent driving one or more seats via ONNX Runtime.
@@ -905,6 +909,7 @@ impl NetPlayer4 {
         self.rule_refs_left_out += row.rules_left_out;
         let sessions = match &mut self.backend {
             Backend::Shared(net) => return net.run(row),
+            Backend::Lockstep(seat) => return seat.run(row),
             Backend::Owned(sessions) => sessions,
         };
         let depth = depth_graph(k_val);

@@ -774,7 +774,13 @@ impl<S> Rounds<'_, S> {
                     .map(move |candidate| Job { seed, candidate })
             })
             .collect();
-        let threads = config.threads().min(jobs.len());
+        // In lockstep every rollout runs at once, whatever the threads budget.
+        let lockstep = config.lockstep() && player.lends_rollout_players();
+        let threads = if lockstep {
+            jobs.len()
+        } else {
+            config.threads().min(jobs.len())
+        };
         let parallel = threads > 1 && player.lends_rollout_players();
         let mut tally = Tally::new(self.candidates, config.particles(), parallel);
         let start = Start {
@@ -789,7 +795,10 @@ impl<S> Rounds<'_, S> {
             neural_opponent: config.neural_opponent(),
         };
         if parallel {
-            self.play_at_once(player, table, start, &jobs, threads, &mut tally)?;
+            let lent = lockstep
+                .then(|| player.lockstep_rollout_players(self.root, jobs.len()))
+                .flatten();
+            self.play_at_once(player, table, start, &jobs, threads, lent, &mut tally)?;
         } else {
             self.play_in_turn(player, table, start, &jobs, &mut tally)?;
         }
@@ -841,6 +850,13 @@ impl<S> Rounds<'_, S> {
     /// refused candidate, a failed rollout or a world the table will not
     /// fork ends these rounds at the same job as it ends the serial ones:
     /// no job past it is started, and none that already ran is counted.
+    /// With `lent` (lockstep players, one per job in the jobs' order) job
+    /// `i` runs on the `i`th; those of jobs that never start are dropped
+    /// as soon as that is known, so the others do not wait for them.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the rounds' inputs and the lockstep players lent for them"
+    )]
     fn play_at_once<P, T>(
         &self,
         player: &P,
@@ -848,6 +864,7 @@ impl<S> Rounds<'_, S> {
         start: Start<'_>,
         jobs: &[Job<'_>],
         threads: usize,
+        lent: Option<Vec<P>>,
         tally: &mut Tally,
     ) -> Result<(), Stop>
     where
@@ -861,6 +878,7 @@ impl<S> Rounds<'_, S> {
             let (mut started, mut running, mut counted) = (0, 0, 0);
             // Why no job from `started` on can run, once one cannot.
             let mut cut: Option<Stop> = None;
+            let mut lent = lent.map(Vec::into_iter);
             loop {
                 while cut.is_none() && running < threads && started < jobs.len() {
                     let job = jobs[started];
@@ -871,7 +889,11 @@ impl<S> Rounds<'_, S> {
                             break;
                         }
                     };
-                    let Some(mut twin) = player.rollout_player(self.root) else {
+                    let twin = match lent.as_mut() {
+                        Some(lent) => lent.next(),
+                        None => player.rollout_player(self.root),
+                    };
+                    let Some(mut twin) = twin else {
                         cut = Some(Stop::Failed(anyhow::anyhow!(
                             "the player lent no rollout player"
                         )));
@@ -890,6 +912,11 @@ impl<S> Rounds<'_, S> {
                     });
                     started += 1;
                     running += 1;
+                }
+                if cut.is_some() {
+                    // Lockstep players of jobs that never start leave their
+                    // group now: the running ones would wait for them.
+                    drop(lent.take());
                 }
                 if running == 0 {
                     break;

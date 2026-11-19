@@ -12,6 +12,7 @@ use baylee_driver::fp16::{
     unpack_f16_slice_to_f32, unpack_u16_le_bytes_into,
 };
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use zeroize::Zeroize as _;
 
 const MAX_SEEN_HASHES_WIRE: usize = 16_384;
@@ -837,24 +838,57 @@ impl NetPlayer4 {
     /// second player could not share.
     #[must_use]
     pub fn twin_on_shared_net(&self, snapshot: &PlayerSnapshot4) -> Option<Self> {
-        let Backend::Shared(net) = &self.backend else {
-            return None;
+        let net = self.shared_net()?;
+        Some(self.twin_on(Backend::Shared(Arc::clone(net)), snapshot))
+    }
+
+    /// `count` twins ([`Self::twin_on_shared_net`]) whose steps go to the
+    /// batched session in lockstep ([`super::lockstep`]): each waits until
+    /// every twin still playing waits, and then all of them run as one
+    /// group. `None` for a player with sessions of its own.
+    #[must_use]
+    pub fn lockstep_twins(&self, snapshot: &PlayerSnapshot4, count: usize) -> Option<Vec<Self>> {
+        let net = self.shared_net()?;
+        Some(
+            super::lockstep::LockstepSeat4::group(net, count)
+                .into_iter()
+                .map(|seat| self.twin_on(Backend::Lockstep(seat), snapshot))
+                .collect(),
+        )
+    }
+
+    /// A player on `backend`, configured as this one and in `snapshot`'s state.
+    fn twin_on(&self, backend: Backend, snapshot: &PlayerSnapshot4) -> Self {
+        let net = match &backend {
+            Backend::Shared(net) => net,
+            Backend::Lockstep(seat) => seat.net(),
+            Backend::Owned(_) => unreachable!("a twin runs on a batched session"),
         };
         let mut twin = Self::shared(net);
+        twin.backend = backend;
         twin.temperature = self.temperature;
         twin.policy_mode = self.policy_mode;
         twin.thinking_steps = self.thinking_steps;
         twin.adaptive = self.adaptive;
         twin.grouped_decode = self.grouped_decode;
         twin.restore(snapshot);
-        Some(twin)
+        twin
+    }
+
+    /// The batched session this player's steps run on, if any.
+    fn shared_net(&self) -> Option<&Arc<super::BatchedNet4>> {
+        match &self.backend {
+            Backend::Shared(net) => Some(net),
+            Backend::Lockstep(seat) => Some(seat.net()),
+            Backend::Owned(_) => None,
+        }
     }
 
     /// Whether this player's steps run on a batched session that a twin
     /// can share ([`Self::twin_on_shared_net`]).
     #[must_use]
     pub const fn is_on_shared_net(&self) -> bool {
-        matches!(self.backend, Backend::Shared(_))
+        matches!(self.backend, Backend::Shared(_) | Backend::Lockstep(_))
     }
 
     /// Restarts only the sampling stream from `seed`, keeping the game:

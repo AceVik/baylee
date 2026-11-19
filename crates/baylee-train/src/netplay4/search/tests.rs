@@ -1,6 +1,9 @@
 //! The search on real tables with a stand-in for the net: the plumbing,
 //! not playing strength. No model is loaded.
 use std::collections::BTreeMap;
+use std::sync::mpsc::SyncSender;
+
+use crate::netplay4::lockstep::{Lockstep, Member};
 
 use super::*;
 use crate::features4::{CoverageMatrix4, HeadKind4, PendingKind4};
@@ -36,6 +39,9 @@ pub(super) struct Mock {
     /// Rollout answers past this many are given as the house's, as a net
     /// gives its fallbacks.
     pub(super) fallback_after: Option<u64>,
+    /// A lockstep rollout player's seat in its group: every observation
+    /// and answer steps through it, as a net's model steps do.
+    step: Option<Member<u64, u64>>,
 }
 
 impl Mock {
@@ -53,6 +59,28 @@ impl Mock {
             confidence: 0.0,
             lends: false,
             fallback_after: None,
+            step: None,
+        }
+    }
+
+    /// A copy of this stand-in in `state`, stepping through `step`.
+    fn copy(&self, state: MockState, step: Option<Member<u64, u64>>) -> Self {
+        Self {
+            state,
+            own: self.own,
+            value: self.value,
+            confidence: self.confidence,
+            lends: self.lends,
+            fallback_after: self.fallback_after,
+            step,
+        }
+    }
+
+    /// Steps through the lockstep group, if any, as a model step would.
+    fn lockstep_step(&self) {
+        if let Some(member) = &self.step {
+            let n = self.state.observations + self.state.answers;
+            assert_eq!(member.step(n), Some(n + 1), "the group answers every step");
         }
     }
 
@@ -90,6 +118,7 @@ impl SearchPlayer4 for Mock {
         ViewContext4::Choice
     }
     fn observe(&mut self, view: &PlayerView) -> anyhow::Result<()> {
+        self.lockstep_step();
         self.state.observations += 1;
         self.state
             .observed
@@ -152,6 +181,7 @@ impl SearchPlayer4 for Mock {
         }
     }
     fn answer(&mut self, view: &PlayerView, pending: &Pending, _teams: &[Option<u8>]) -> Answer4 {
+        self.lockstep_step();
         self.state.answers += 1;
         let action = HeuristicAgent::new(AIProfile::STEADY)
             .with_seed(self.state.sampling)
@@ -187,10 +217,24 @@ impl SearchPlayer4 for Mock {
         self.lends
     }
     fn rollout_player(&self, snapshot: &MockState) -> Option<Self> {
-        self.lends.then(|| Self {
-            state: snapshot.clone(),
-            ..*self
-        })
+        self.lends.then(|| self.copy(snapshot.clone(), None))
+    }
+    fn lockstep_rollout_players(&self, snapshot: &MockState, count: usize) -> Option<Vec<Self>> {
+        if !self.lends {
+            return None;
+        }
+        let group = Lockstep::new(count, |steps: Vec<(u64, SyncSender<u64>)>| {
+            for (n, reply) in steps {
+                let _ = reply.send(n + 1);
+            }
+        });
+        Some(
+            group
+                .members(count)
+                .into_iter()
+                .map(|member| self.copy(snapshot.clone(), Some(member)))
+                .collect(),
+        )
     }
 }
 
@@ -911,6 +955,74 @@ fn parallel_rounds_are_the_serial_rounds() {
     for threads in [2, 5, 16] {
         assert_eq!(run(true, threads, forks), serial, "{threads} threads");
     }
+}
+
+/// Every rollout of a decision at once, in lockstep: each stand-in step
+/// waits until every rollout still playing waits on one. The report, answer
+/// and player are the serial ones, and a table that stops forking part way
+/// ends the rounds the same way, without a rollout left waiting for players
+/// whose jobs never started.
+#[test]
+fn lockstep_rounds_are_the_serial_rounds() {
+    let mut session = table(25);
+    let (pending, view) = root(&mut session, land_playable);
+    let run = |lends: bool, lockstep: bool, forks: usize| {
+        let mut player = Mock::new(steady, lands);
+        if lends {
+            player = player.lending();
+        }
+        player.observe(&view).unwrap();
+        let table = ForksThenRefuses {
+            session: &session,
+            forks: std::cell::Cell::new(forks),
+        };
+        let result = search_decision(
+            &mut player,
+            &table,
+            &view,
+            &pending,
+            &[],
+            config(4, 3, 6)
+                .with_threads(2)
+                .unwrap()
+                .with_lockstep(lockstep),
+            SEED,
+        )
+        .unwrap();
+        (result.answer.action, result.outcome, player.state)
+    };
+    let (action, outcome, state) = run(false, false, usize::MAX);
+    let SearchOutcome4::Searched(report) = outcome else {
+        panic!("searched: {outcome:?}");
+    };
+    let (lockstep_action, lockstep_outcome, lockstep_state) = run(true, true, usize::MAX);
+    let SearchOutcome4::Searched(mut lockstep) = lockstep_outcome else {
+        panic!("searched: {lockstep_outcome:?}");
+    };
+    assert!(lockstep.parallel);
+    lockstep.parallel = false;
+    assert_eq!(lockstep, report);
+    assert_eq!(lockstep_action, action);
+    assert_eq!(
+        lockstep_state, state,
+        "the player ends where answering would"
+    );
+    assert_eq!(
+        run(true, true, usize::MAX).1,
+        run(true, false, usize::MAX).1,
+        "lockstep is the threads' search, whatever their budget"
+    );
+    for forks in [1, report.candidates + 1, 2 * report.candidates - 1] {
+        assert_eq!(
+            run(true, true, forks),
+            run(false, false, forks),
+            "{forks} forks"
+        );
+    }
+    let mut metadata = config(4, 3, 6).with_lockstep(true).metadata();
+    assert!(metadata["lockstep"].is_string());
+    metadata = config(4, 3, 6).metadata();
+    assert!(metadata.get("lockstep").is_none());
 }
 
 #[test]
