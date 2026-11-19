@@ -106,8 +106,8 @@ async function startGateway(url: string, sql: postgres.Sql): Promise<{ child: Ch
 
   for (const n of [0, 1]) {
     await sql.unsafe(
-      `INSERT INTO "${schema}".account (id, username, username_key, display_name, password_hash, created_at, lang, guest)
-       VALUES (uuidv7(), 'player${n}', 'player${n}', 'player${n}', '$retired$', clock_timestamp(), 'en', false)`,
+      `INSERT INTO "${schema}".account (id, username, username_key, display_name, created_at, lang, guest)
+       VALUES (uuidv7(), 'player${n}', 'player${n}', 'player${n}', clock_timestamp(), 'en', false)`,
     );
   }
   return { child, schema };

@@ -16,7 +16,7 @@ use sha2::{Digest as _, Sha256};
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::{TcpListener, TcpStream};
 
-use super::{OwnDatabase, Sits, b64};
+use super::{OwnDatabase, Sits};
 use crate::admin_cleanup::{AdminCleanup, PROBE_PROFILE};
 use crate::table::{SlotAccount, account_init_retry_safe};
 
@@ -259,7 +259,7 @@ async fn a_teacher_is_what_registration_made() {
         .db
         .query_one_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
-            "SELECT username, username_key, display_name, email, lang, guest, central_only, tag, password_hash,
+            "SELECT username, username_key, display_name, email, lang, guest, central_only, tag,
                     created_at = date_trunc('second', created_at) AS whole
              FROM account WHERE id = $1",
             [teacher.account.into()],
@@ -287,11 +287,6 @@ async fn a_teacher_is_what_registration_made() {
     assert!(!row.try_get::<bool>("", "central_only").unwrap());
     assert!(row.try_get::<i32>("", "tag").unwrap() > 0);
     assert!(row.try_get::<bool>("", "whole").unwrap());
-    // A hash for which no password exists, in the column's shape.
-    let hash = text("password_hash").unwrap();
-    let parts: Vec<&str> = hash.split('$').collect();
-    assert_eq!(&parts[..4], ["", "argon2id", "v=19", "m=19456,t=2,p=1"]);
-    assert_eq!((parts[4].len(), parts[5].len()), (22, 43));
     // Its session is the bearer's digest, an account session's twelve hours.
     let session = own
         .db
@@ -414,16 +409,4 @@ async fn the_slot_deletes_its_teacher_through_the_gateway_with_no_password() {
             .all(|(_, _, _, body)| !body.contains("password"))
     );
     own.close().await;
-}
-
-#[test]
-fn the_hash_is_written_as_phc_writes_base64() {
-    assert_eq!(b64(b""), "");
-    assert_eq!(b64(b"f"), "Zg");
-    assert_eq!(b64(b"fo"), "Zm8");
-    assert_eq!(b64(b"foo"), "Zm9v");
-    assert_eq!(b64(b"foobar"), "Zm9vYmFy");
-    assert_eq!(b64(&[0xff, 0xfe, 0xfd]), "//79");
-    assert_eq!(b64(&[0_u8; 16]).len(), 22);
-    assert_eq!(b64(&[0_u8; 32]).len(), 43);
 }

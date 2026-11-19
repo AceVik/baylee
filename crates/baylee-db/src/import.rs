@@ -6,6 +6,12 @@
 //! by the caller — never deleted, because the safest thing to do with the only
 //! copy of somebody's account is to keep it.
 //!
+//! The file's password hashes are read and not stored: the gateway keeps
+//! none since the accounts' sign-in went to Baylee Central
+//! (`docs/central-login.md` §"Cutover"). An account imported now has its
+//! decks, settings and sessions, and no password anywhere; the hash stays in
+//! the file that is moved aside.
+//!
 //! # Why the old shape is declared here and not imported
 //!
 //! The legacy structs below are a *frozen* copy of what the file format was,
@@ -103,7 +109,9 @@ pub struct LegacyAccount {
     pub email: String,
     /// Display name.
     pub display_name: String,
-    /// Argon2id PHC hash.
+    /// Argon2id PHC hash. Part of the frozen format, so a file still reads;
+    /// not stored, since the gateway keeps no password hash
+    /// (`docs/central-login.md` §"Cutover").
     pub password_hash: String,
     /// Unix seconds.
     pub created_at: u64,
@@ -266,7 +274,6 @@ pub fn plan(legacy: &Legacy, now: OffsetDateTime) -> Plan {
                 // number in whatever order the file hands them over — the
                 // old store had nothing to carry in.
                 tag: NotSet,
-                password_hash: Set(Some(a.password_hash.clone())),
                 created_at: Set(at(a.created_at)),
                 confirmed_at: Set(a.confirmed_at.map(at)),
                 lang: Set(a.lang.clone()),

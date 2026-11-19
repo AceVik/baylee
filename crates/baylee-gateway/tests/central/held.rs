@@ -92,7 +92,7 @@ fn held(served: &Served, terms: &TermsDocument, runtime: &Runtime, operator: &Da
     let admitted = account.admit(origin).unwrap();
     assert_eq!(
         served.gateway.scalar(&format!(
-            "SELECT count(*) FROM account WHERE id = '{source_id}'::uuid AND central_only AND password_hash IS NULL"
+            "SELECT count(*) FROM account WHERE id = '{source_id}'::uuid AND central_only"
         )),
         1,
         "the gateway account is linked at its first admission"

@@ -17,9 +17,8 @@
 //! The account is what registration made before the cutover: an `llmt…`
 //! username by the protocol's rule, a display name that says what plays its
 //! chair ([`Sits`]), no address, English, and the tag the database hands
-//! out, so the official export sees and anonymises it as it did. Its password hash is
-//! random bytes in the hash's shape: there is no password, and no route
-//! that would take one.
+//! out, so the official export sees and anonymises it as it did. It has no
+//! password: the gateway keeps none, and no route would take one.
 use std::io::Read as _;
 
 use anyhow::{Context as _, anyhow, ensure};
@@ -120,7 +119,6 @@ impl OwnDatabase {
             username_key: Set(Some(name.key)),
             display_name: Set(sits.display_name(slot_id)),
             tag: NotSet,
-            password_hash: Set(Some(inert_hash()?)),
             created_at: Set(now),
             confirmed_at: Set(None),
             lang: Set("en".into()),
@@ -190,35 +188,6 @@ fn urandom(bytes: &mut [u8]) -> anyhow::Result<()> {
     std::fs::File::open("/dev/urandom")
         .and_then(|mut random| random.read_exact(bytes))
         .context("Reading /dev/urandom")
-}
-
-/// An Argon2id PHC string over a random salt and output, the parameters the
-/// gateway hashed with: the shape the column holds, for which no password
-/// exists.
-fn inert_hash() -> anyhow::Result<String> {
-    let mut bytes = [0_u8; 48];
-    urandom(&mut bytes)?;
-    Ok(format!(
-        "$argon2id$v=19$m=19456,t=2,p=1${}${}",
-        b64(&bytes[..16]),
-        b64(&bytes[16..])
-    ))
-}
-
-/// Standard base64 without padding, as PHC strings write it.
-fn b64(bytes: &[u8]) -> String {
-    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
-    for chunk in bytes.chunks(3) {
-        let n = chunk
-            .iter()
-            .enumerate()
-            .fold(0_usize, |n, (i, b)| n | usize::from(*b) << (16 - 8 * i));
-        for i in 0..=chunk.len() {
-            out.push(char::from(ALPHABET[(n >> (18 - 6 * i)) & 63]));
-        }
-    }
-    out
 }
 
 #[cfg(test)]

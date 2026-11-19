@@ -2,8 +2,10 @@
 
 use sea_orm::entity::prelude::*;
 
-/// One account. The username is the login; the display name is what other
-/// players see.
+/// One account. The display name is what other players see. No password is
+/// kept here: an account signs in at Baylee Central, or is a guest, and the
+/// username is the name an account from before Central signs in with there
+/// (`docs/central-login.md` §"Legacy migration").
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "account")]
 pub struct Model {
@@ -36,9 +38,6 @@ pub struct Model {
     /// is a leak the design accepts: the same one a `BattleTag` has, and the
     /// price of a tag you can type at somebody rather than a second UUID.
     pub tag: i32,
-    /// Argon2id PHC hash. Never a password. `None` for a guest, and only
-    /// for one.
-    pub password_hash: Option<String>,
     /// When the account was created.
     pub created_at: TimeDateTimeWithTimeZone,
     /// When the address was confirmed, if it ever was.
@@ -52,9 +51,9 @@ pub struct Model {
     pub confirmed_at: Option<TimeDateTimeWithTimeZone>,
     /// The language the account registered in, for the mail it is sent.
     pub lang: String,
-    /// Handed out by `POST /auth/guest` (#269): no username, no address, no
-    /// password, and gone once its last session is. The database holds a
-    /// guest to exactly that.
+    /// Handed out by `POST /auth/guest` (#269): no username and no address,
+    /// and gone once its last session is. The database holds a guest to
+    /// exactly that.
     pub guest: bool,
     /// The version of the gateway's terms of use it last accepted (WG-1),
     /// as `GET /terms` names it; `None` for never.

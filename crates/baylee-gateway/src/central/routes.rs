@@ -207,8 +207,7 @@ async fn sign_in(state: &Shared, token: &str, purpose: Purpose) -> Result<Json<V
         // moved from, and nothing else. Central names the legacy account only
         // once its move is closed (baylee-central `docs/native-login.md`
         // §"Legacy login"); the first admission fixes the link here, ends the
-        // account's password and its password sessions, and asks its sockets
-        // to sign in again.
+        // account's old sessions, and asks its sockets to sign in again.
         (true, Some(legacy)) => {
             match baylee_db::central::adopt(&state.db, &legacy, central).await {
                 Ok(true) => {

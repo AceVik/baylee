@@ -622,16 +622,16 @@ async fn the_console_sets_policies_lists_accounts_and_audits_by_id() {
     // (g) Lists. Accounts the lookup tests use are put into the table, as
     // registering a dozen would run into the sign-up allowance.
     rig.gw.sql(
-        "INSERT INTO account (id, display_name, username, username_key, lang, created_at, password_hash) \
+        "INSERT INTO account (id, display_name, username, username_key, lang, created_at) \
          SELECT uuidv7(), 'Pfx' || lpad(n::text, 2, '0'), 'pfx' || lpad(n::text, 2, '0'), \
-                'pfx' || lpad(n::text, 2, '0'), 'en', now(), 'not a hash' \
+                'pfx' || lpad(n::text, 2, '0'), 'en', now() \
          FROM generate_series(1, 12) n",
     );
     rig.gw.sql(
-        "INSERT INTO account (id, display_name, username, username_key, lang, created_at, password_hash) \
-         VALUES (uuidv7(), 'Mirabel', 'quux77', 'quux77', 'en', now(), 'not a hash'), \
-                (uuidv7(), 'Abxcd', 'abxcd', 'abxcd', 'en', now(), 'not a hash'), \
-                (uuidv7(), 'Abunder', 'ab_cd', 'ab_cd', 'en', now(), 'not a hash')",
+        "INSERT INTO account (id, display_name, username, username_key, lang, created_at) \
+         VALUES (uuidv7(), 'Mirabel', 'quux77', 'quux77', 'en', now()), \
+                (uuidv7(), 'Abxcd', 'abxcd', 'abxcd', 'en', now()), \
+                (uuidv7(), 'Abunder', 'ab_cd', 'ab_cd', 'en', now())",
     );
     let carla = login(rig.port, "carla", "Carla");
     let carla_id = rig.account_id(&carla);

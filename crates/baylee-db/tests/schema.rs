@@ -132,9 +132,6 @@ fn named(email: &str, display_name: &str) -> account::ActiveModel {
         // way to collide with a later registration, because an explicit
         // value does not move the sequence.
         tag: NotSet,
-        password_hash: Set(Some(
-            "$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA".to_owned(),
-        )),
         created_at: Set(OffsetDateTime::now_utc()),
         confirmed_at: Set(None),
         lang: Set("de".to_owned()),
@@ -147,6 +144,41 @@ fn named(email: &str, display_name: &str) -> account::ActiveModel {
         ban_reason: Set(None),
         banned_by: Set(None),
     }
+}
+
+/// The migration that drops `account.password_hash`. A database that holds
+/// a local account (neither a guest nor Central's) does not step back past
+/// it, so a test that steps an older migration back over such accounts
+/// starts from the schema before this one.
+const PASSWORD_DROP: &str = "m20261119_000032_drop_account_password";
+
+/// How many migrations come before the one called `name`: the schema a test
+/// of that migration starts from.
+fn before(name: &str) -> u32 {
+    let at = Migrator::migrations()
+        .iter()
+        .position(|migration| migration.name() == name)
+        .unwrap_or_else(|| panic!("{name} is registered"));
+    u32::try_from(at).expect("a handful")
+}
+
+/// One account as a schema from before [`PASSWORD_DROP`] holds it: with a
+/// password hash, which those schemas require of an account that is no
+/// guest. The entity no longer has the column, so a test that starts from
+/// an older schema writes its accounts with this.
+async fn an_old_account(db: &DatabaseConnection, email: &str) -> Uuid {
+    let id = Uuid::now_v7();
+    let name = email.split('@').next().unwrap_or(email);
+    db.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "INSERT INTO account (id, email, display_name, password_hash, created_at, lang)
+         VALUES ($1, $2, $3, '$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA',
+                 clock_timestamp(), 'de')",
+        [id.into(), email.into(), name.into()],
+    ))
+    .await
+    .expect("an account as the older schema held it");
+    id
 }
 
 /// The migration is SQL the server takes, and running it twice is not an
@@ -225,7 +257,6 @@ async fn a_moved_account_is_linked_at_its_first_admission_and_only_once() {
     );
     let mut guest = an_account("central-guest@example.invalid");
     guest.email = Set(None);
-    guest.password_hash = Set(None);
     guest.guest = Set(true);
     let Set(guest_id) = guest.id else {
         unreachable!()
@@ -248,7 +279,7 @@ async fn a_moved_account_is_linked_at_its_first_admission_and_only_once() {
             .unwrap()
             .is_some()
     );
-    central_password_retired(&sandbox.db, alice_id, bob_id).await;
+    central_password_retired(&sandbox.db, alice_id).await;
     sandbox.close().await;
 }
 
@@ -442,7 +473,7 @@ async fn central_gateway_projection_is_immutable() {
         .await
         .unwrap()
         .unwrap();
-    assert!(row.username.is_none() && row.email.is_none() && row.password_hash.is_none());
+    assert!(row.username.is_none() && row.email.is_none());
     assert!(sandbox.db.execute_raw(Statement::from_sql_and_values(DbBackend::Postgres,
         "UPDATE central_account_link SET central_id = '00000000-0000-0000-0000-000000000000' WHERE account_id = $1",
         [Uuid::parse_str(&account).unwrap().into()])).await.is_err(), "SQL NULL from uuid_extract_version must not pass the CHECK");
@@ -451,16 +482,13 @@ async fn central_gateway_projection_is_immutable() {
 
 #[tokio::test]
 async fn central_password_retirement_upgrades_existing_links_without_touching_legacy_accounts() {
-    let before = u32::try_from(
-        Migrator::migrations()
-            .iter()
-            .position(|migration| migration.name() == "m20261019_000021_retire_legacy_passwords")
-            .expect("password retirement migration registered"),
-    )
-    .expect("a handful");
-    let sandbox = Sandbox::open_at("central_retire_existing", Some(before)).await;
+    let retire = before("m20261019_000021_retire_legacy_passwords");
+    let sandbox = Sandbox::open_at("central_retire_existing", Some(retire)).await;
     let db = &sandbox.db;
-    let (alice, bob, deck) = central_seed(db).await;
+    // Two accounts as that schema held them, each with a password hash.
+    let alice = an_old_account(db, "central-a@example.invalid").await;
+    let bob = an_old_account(db, "central-b@example.invalid").await;
+    let deck = central_game_data(db, alice, bob).await;
     db.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "INSERT INTO central_account_link (account_id, central_id, snapshot_digest, linked_at)
@@ -469,49 +497,23 @@ async fn central_password_retirement_upgrades_existing_links_without_touching_le
     ))
     .await
     .unwrap();
-    assert!(
-        Account::find_by_id(alice)
-            .one(db)
-            .await
-            .unwrap()
-            .unwrap()
-            .password_hash
-            .is_some()
-    );
-    Migrator::up(db, None).await.unwrap();
-    central_password_retired(db, alice, bob).await;
+    let holds_a_hash =
+        |id: Uuid| format!("SELECT 1 FROM account WHERE id = '{id}' AND password_hash IS NOT NULL");
+    assert_eq!(count(db, &holds_a_hash(alice)).await, 1);
+    // Up to the schema before the column's drop: the retirement is judged
+    // while there is still a hash to look at.
+    Migrator::up(db, Some(before(PASSWORD_DROP) - retire))
+        .await
+        .unwrap();
     assert_eq!(
-        Deck::find_by_id(deck)
-            .one(db)
-            .await
-            .unwrap()
-            .unwrap()
-            .account_id,
-        Some(alice)
+        count(db, &holds_a_hash(alice)).await,
+        0,
+        "a linked account's password was retired"
     );
-    Migrator::up(db, None).await.unwrap();
-    central_password_retired(db, alice, bob).await;
-    sandbox.close().await;
-}
-
-async fn central_password_retired(db: &DatabaseConnection, alice: Uuid, bob: Uuid) {
-    assert!(
-        Account::find_by_id(alice)
-            .one(db)
-            .await
-            .unwrap()
-            .unwrap()
-            .password_hash
-            .is_none()
-    );
-    assert!(
-        Account::find_by_id(bob)
-            .one(db)
-            .await
-            .unwrap()
-            .unwrap()
-            .password_hash
-            .is_some()
+    assert_eq!(
+        count(db, &holds_a_hash(bob)).await,
+        1,
+        "an unmoved account kept its own"
     );
     assert!(
         db.execute_raw(Statement::from_sql_and_values(
@@ -523,6 +525,58 @@ async fn central_password_retired(db: &DatabaseConnection, alice: Uuid, bob: Uui
         .is_err(),
         "an old gateway reset must not restore password authentication"
     );
+    // Then the column's drop and whatever follows it.
+    Migrator::up(db, None).await.unwrap();
+    central_password_retired(db, alice).await;
+    assert_eq!(
+        Deck::find_by_id(deck)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+            .account_id,
+        Some(alice)
+    );
+    Migrator::up(db, None).await.unwrap();
+    central_password_retired(db, alice).await;
+    sandbox.close().await;
+}
+
+/// What holds at the head schema once `alice` is linked: no account holds a
+/// password, she is Central's, and the schema steps back as far as the
+/// retirement and no further. Leaves the schema there, without its local
+/// accounts.
+async fn central_password_retired(db: &DatabaseConnection, alice: Uuid) {
+    assert!(
+        !account_has(db, "password_hash").await,
+        "no account holds a password"
+    );
+    assert_eq!(
+        count(
+            db,
+            &format!("SELECT 1 FROM account WHERE id = '{alice}' AND central_only")
+        )
+        .await,
+        1
+    );
+    // The column's drop does not step back over a local account: the older
+    // schema holds one to a password, and it has none to give back.
+    if count(
+        db,
+        "SELECT 1 FROM account WHERE NOT guest AND NOT central_only",
+    )
+    .await
+        > 0
+    {
+        assert!(
+            Migrator::down(db, Some(1)).await.is_err(),
+            "stepped back over an account without a password"
+        );
+        assert!(!account_has(db, "password_hash").await);
+        db.execute_unprepared("DELETE FROM account WHERE NOT guest AND NOT central_only")
+            .await
+            .unwrap();
+    }
     // Every later migration rolls back; the one that bound the migration
     // credentials, and with it the retirement, does not.
     let bound = Migrator::migrations()
@@ -546,6 +600,8 @@ async fn central_password_retired(db: &DatabaseConnection, alice: Uuid, bob: Uui
     );
 }
 
+/// Two accounts with game data ([`central_game_data`]): Alice, Bob and
+/// Alice's deck.
 async fn central_seed(db: &DatabaseConnection) -> (Uuid, Uuid, Uuid) {
     let alice = an_account("central-a@example.invalid");
     let Set(alice_id) = alice.id else {
@@ -555,6 +611,13 @@ async fn central_seed(db: &DatabaseConnection) -> (Uuid, Uuid, Uuid) {
     let bob = an_account("central-b@example.invalid");
     let Set(bob_id) = bob.id else { unreachable!() };
     Account::insert(bob).exec(db).await.unwrap();
+    let deck_id = central_game_data(db, alice_id, bob_id).await;
+    (alice_id, bob_id, deck_id)
+}
+
+/// A deck each for two accounts, a version of Alice's, and a session of
+/// hers; answers her deck.
+async fn central_game_data(db: &DatabaseConnection, alice_id: Uuid, bob_id: Uuid) -> Uuid {
     let deck = a_deck(Some(alice_id), "ALICE_PRIVATE_DECK");
     let deck_id = Deck::insert(deck).exec(db).await.unwrap().last_insert_id;
     Deck::insert(a_deck(Some(bob_id), "BOB_PRIVATE_DECK"))
@@ -573,7 +636,7 @@ async fn central_seed(db: &DatabaseConnection) -> (Uuid, Uuid, Uuid) {
     .exec(db)
     .await
     .unwrap();
-    (alice_id, bob_id, deck_id)
+    deck_id
 }
 
 /// Whether `schema` holds a table called `table`, asked with both names
@@ -1061,8 +1124,8 @@ async fn a_tag_is_the_databases_to_hand_out() {
     let clash = sandbox
         .db
         .execute_unprepared(
-            "INSERT INTO account (id, email, display_name, tag, password_hash, created_at, lang) \
-             VALUES (gen_random_uuid(), 'third@example.com', 'Third', 2, 'x', now(), 'de')",
+            "INSERT INTO account (id, email, display_name, tag, created_at, lang) \
+             VALUES (gen_random_uuid(), 'third@example.com', 'Third', 2, now(), 'de')",
         )
         .await;
     assert!(clash.is_err(), "two accounts were given tag 2");
@@ -1284,22 +1347,8 @@ async fn a_picture_on_a_deck_belongs_to_the_decks_player() {
     // The schema before the migration that records owners.
     let sandbox = Sandbox::open_at("upload_owners", Some(7)).await;
     let (sleeve, mat, published) = ("aa".repeat(32), "bb".repeat(32), "cc".repeat(32));
-    let mut players = Vec::new();
-    for email in ["painter@example.com", "copier@example.com"] {
-        let mut account = an_account(email);
-        // Columns from later migrations than this schema has.
-        account.terms_version = NotSet;
-        account.terms_accepted_at = NotSet;
-        account.must_change_password = NotSet;
-        account.banned_at = NotSet;
-        account.banned_until = NotSet;
-        account.ban_reason = NotSet;
-        account.banned_by = NotSet;
-        let Set(id) = account.id else { unreachable!() };
-        Account::insert(account).exec(&sandbox.db).await.unwrap();
-        players.push(id);
-    }
-    let (painter, copier) = (players[0], players[1]);
+    let painter = an_old_account(&sandbox.db, "painter@example.com").await;
+    let copier = an_old_account(&sandbox.db, "copier@example.com").await;
     let decks = [
         (Some(painter), Some(&sleeve), Some(&mat)),
         (Some(painter), Some(&sleeve), None),
@@ -1494,7 +1543,10 @@ async fn every_account_that_signed_in_with_an_address_is_given_a_name_from_it() 
             .await
             .expect("an account as the old schema held it");
     }
-    Migrator::up(&sandbox.db, None)
+    // Up to the schema before the password column's drop: a database with
+    // accounts steps back from there, and not from past it.
+    let drop_at = before(PASSWORD_DROP);
+    Migrator::up(&sandbox.db, Some(drop_at - 5))
         .await
         .expect("the migration names them");
 
@@ -1527,7 +1579,19 @@ async fn every_account_that_signed_in_with_an_address_is_given_a_name_from_it() 
         assert_eq!(&rule.key, key);
     }
 
-    // Unique whatever the case.
+    // Back past it and forward again, this time to the newest schema: the
+    // names come back the same. Counted from the list, so the migrations
+    // after it are stepped back too.
+    Migrator::down(&sandbox.db, Some(drop_at - 5))
+        .await
+        .expect("the migration steps back");
+    Migrator::up(&sandbox.db, None)
+        .await
+        .expect("and forward again");
+    assert_eq!(names(sandbox.db.clone()).await, named);
+
+    // Unique whatever the case. An address of its own, so the name is the
+    // only thing the two accounts share.
     let mut again = an_account("carol@example.com");
     again.username = Set(Some("ALICE".into()));
     again.username_key = Set(Some("alice".into()));
@@ -1535,17 +1599,13 @@ async fn every_account_that_signed_in_with_an_address_is_given_a_name_from_it() 
         Account::insert(again).exec(&sandbox.db).await.is_err(),
         "a second account signed in as alice"
     );
-
-    // Back past it and forward again: the names come back the same. Counted
-    // from the list, so the migrations after it are stepped back too.
-    let past_it = u32::try_from(Migrator::migrations().len() - 5).expect("a handful");
-    Migrator::down(&sandbox.db, Some(past_it))
+    let mut other = an_account("carol@example.com");
+    other.username = Set(Some("Carol".into()));
+    other.username_key = Set(Some("carol".into()));
+    Account::insert(other)
+        .exec(&sandbox.db)
         .await
-        .expect("the migration steps back");
-    Migrator::up(&sandbox.db, None)
-        .await
-        .expect("and forward again");
-    assert_eq!(names(sandbox.db.clone()).await, named);
+        .expect("the same account under a name nobody has");
 
     // And an account needs no address: two without one are no clash.
     for name in ["Dora", "Emil"] {
@@ -1567,7 +1627,6 @@ async fn every_account_that_signed_in_with_an_address_is_given_a_name_from_it() 
 fn a_guest() -> account::ActiveModel {
     let mut guest = named("unused@example.com", "Guest");
     guest.email = Set(None);
-    guest.password_hash = Set(None);
     guest.guest = Set(true);
     guest
 }
@@ -1581,9 +1640,10 @@ fn a_session(account: Uuid, expires: OffsetDateTime) -> session_token::ActiveMod
     }
 }
 
-/// Who holds what, in both directions (#269): a guest holds nothing to sign
-/// in with, and an account that is not a guest holds a password and a name
-/// or, until #280, an address.
+/// Who holds what, in both directions (#269): a guest holds nothing to be
+/// signed in by, and an account that is neither a guest nor Central's holds
+/// a name or, until #280, an address. Neither holds a password: the column
+/// is gone.
 #[tokio::test]
 async fn a_guest_holds_nothing_to_sign_in_with_and_an_account_holds_something() {
     let sandbox = Sandbox::open("guest_check").await;
@@ -1594,37 +1654,25 @@ async fn a_guest_holds_nothing_to_sign_in_with_and_an_account_holds_something() 
         .await
         .expect("a guest with nothing to sign in with");
 
-    let mut with_password = a_guest();
-    with_password.password_hash = Set(Some("hash".into()));
     let mut with_name = a_guest();
     with_name.username = Set(Some("Casper".into()));
     with_name.username_key = Set(Some("casper".into()));
     let mut with_address = a_guest();
     with_address.email = Set(Some("casper@example.com".into()));
-    for (what, row) in [
-        ("a password", with_password),
-        ("a username", with_name),
-        ("an address", with_address),
-    ] {
+    for (what, row) in [("a username", with_name), ("an address", with_address)] {
         assert!(
             Account::insert(row).exec(db).await.is_err(),
             "a guest was written holding {what}"
         );
     }
 
-    let mut no_password = an_account("nopass@example.com");
-    no_password.password_hash = Set(None);
     let mut nothing_to_name = an_account("nobody@example.com");
     nothing_to_name.email = Set(None);
-    for (what, row) in [
-        ("no password", no_password),
-        ("neither a username nor an address", nothing_to_name),
-    ] {
-        assert!(
-            Account::insert(row).exec(db).await.is_err(),
-            "an account was written with {what}"
-        );
-    }
+    assert!(
+        Account::insert(nothing_to_name).exec(db).await.is_err(),
+        "an account was written with neither a username nor an address"
+    );
+    assert!(!account_has(db, "password_hash").await);
 
     let mut by_name = an_account("unused@example.com");
     by_name.email = Set(None);
@@ -1747,7 +1795,9 @@ async fn a_guest_goes_with_its_last_session_and_takes_its_decks() {
 
 /// The migration that makes guests takes a database of accounts as it finds
 /// them, and steps back only over a database without a guest: an account
-/// without a password cannot be given one back.
+/// without a password cannot be given one back. Judged in the schema before
+/// the password column's drop, the newest one that still holds an account's
+/// password and so can step back with the account in it.
 #[tokio::test]
 async fn guests_come_in_over_accounts_and_step_back_only_without_one() {
     let sandbox = Sandbox::open_at("guest_migration", Some(6)).await;
@@ -1759,7 +1809,8 @@ async fn guests_come_in_over_accounts_and_step_back_only_without_one() {
     )
     .await
     .expect("an account as the sixth migration left it");
-    Migrator::up(db, None).await.expect("guests come in");
+    let back = before(PASSWORD_DROP) - 6;
+    Migrator::up(db, Some(back)).await.expect("guests come in");
     let old = Account::find().one(db).await.unwrap().expect("the account");
     assert!(!old.guest, "an account from before is not a guest");
 
@@ -1768,7 +1819,6 @@ async fn guests_come_in_over_accounts_and_step_back_only_without_one() {
         .await
         .unwrap()
         .id;
-    let back = u32::try_from(Migrator::migrations().len() - 6).expect("a handful");
     assert!(
         Migrator::down(db, Some(back)).await.is_err(),
         "stepped back over a guest"
@@ -2341,6 +2391,200 @@ async fn the_closed_betas_keys_leave_the_database_and_the_accounts_stay() {
     Migrator::up(db, None).await.unwrap();
     assert!(!in_this_schema(db, "invite").await);
     assert!(!account_has(db, "invite_id").await);
+
+    sandbox.close().await;
+}
+
+// ------------------------------------------------- the password column
+
+/// The checks on `account` in this sandbox's own schema, each as its name
+/// and its definition, by name.
+async fn account_checks(db: &DatabaseConnection) -> Vec<String> {
+    db.query_all_raw(Statement::from_string(
+        DbBackend::Postgres,
+        "SELECT conname || ': ' || pg_get_constraintdef(oid) AS spelled \
+         FROM pg_constraint \
+         WHERE contype = 'c' \
+           AND conrelid = format('%I.account', current_schema())::regclass \
+         ORDER BY conname",
+    ))
+    .await
+    .expect("asking for the checks")
+    .into_iter()
+    .map(|row| row.try_get::<String>("", "spelled").expect("a check"))
+    .collect()
+}
+
+/// Whether the database refuses `statement` for `account`, and names
+/// `check` as the reason. The name matters: a statement refused by a
+/// different rule would say nothing about this one.
+async fn refused_by(db: &DatabaseConnection, statement: &str, account: Uuid, check: &str) -> bool {
+    match db
+        .execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            statement,
+            [account.into()],
+        ))
+        .await
+    {
+        Ok(_) => false,
+        Err(refusal) => refusal.to_string().contains(&format!("\"{check}\"")),
+    }
+}
+
+/// The accounts' password hashes go (19.11.2026): migration 32 drops the
+/// column and nothing else. Every account stays with what it owns, and the
+/// three checks that named the column keep what they still have to say: a
+/// local account has a name or an address, a guest has neither, and a
+/// Central account is no guest. `PostgreSQL` drops a check together with a
+/// column it names, so each one is looked for afterwards.
+///
+/// Stepping back refuses while a local account is left, since the older
+/// schema holds it to a password it no longer has; without one the column
+/// comes back empty and the checks as they were.
+#[tokio::test]
+#[allow(clippy::too_many_lines)] // one migration, forward and back, read top to bottom
+async fn the_password_column_goes_and_its_checks_keep_what_is_left_to_say() {
+    let sandbox = Sandbox::open_at("drop_password", Some(before(PASSWORD_DROP))).await;
+    let db = &sandbox.db;
+    // An account from before Central with a deck, a Central account, and a
+    // guest, as the schema before the drop holds them.
+    let local = an_old_account(db, "local@example.invalid").await;
+    let deck = Deck::insert(a_deck(Some(local), "KEPT"))
+        .exec(db)
+        .await
+        .unwrap()
+        .last_insert_id;
+    let central = baylee_db::central::projection(db, *Uuid::now_v7().as_bytes(), true)
+        .await
+        .unwrap();
+    let central = Uuid::parse_str(&central).unwrap();
+    let guest = Account::insert(a_guest())
+        .exec_with_returning(db)
+        .await
+        .unwrap()
+        .id;
+    assert!(account_has(db, "password_hash").await);
+    let checks_before = account_checks(db).await;
+    let named = |checks: &[String], name: &str| {
+        checks
+            .iter()
+            .any(|check| check.starts_with(&format!("{name}: ")))
+    };
+    assert!(named(&checks_before, "account_central_holds_no_password"));
+
+    // Exactly the migration under test.
+    Migrator::up(db, Some(1)).await.unwrap();
+    assert!(!account_has(db, "password_hash").await, "the hashes go");
+    assert_eq!(Account::find().count(db).await.unwrap(), 3);
+    let kept = Account::find_by_id(local)
+        .one(db)
+        .await
+        .unwrap()
+        .expect("the account stays");
+    assert_eq!(kept.email.as_deref(), Some("local@example.invalid"));
+    assert_eq!(
+        Deck::find_by_id(deck)
+            .one(db)
+            .await
+            .unwrap()
+            .expect("with its deck")
+            .account_id,
+        Some(local)
+    );
+
+    // The three checks are there, none of them names a password, and no
+    // other check went with the column.
+    let checks = account_checks(db).await;
+    let about_passwords = [
+        "account_can_sign_in",
+        "account_guest_holds_no_credentials",
+        "account_central_holds_no_password",
+        "account_central_is_no_guest",
+    ];
+    for name in [
+        "account_can_sign_in",
+        "account_guest_holds_no_credentials",
+        "account_central_is_no_guest",
+    ] {
+        assert!(named(&checks, name), "{name} is gone: {checks:?}");
+    }
+    assert!(!named(&checks, "account_central_holds_no_password"));
+    assert!(
+        !checks.iter().any(|check| check.contains("password")),
+        "{checks:?}"
+    );
+    let others = |checks: &[String]| {
+        checks
+            .iter()
+            .filter(|check| {
+                !about_passwords
+                    .iter()
+                    .any(|name| check.starts_with(&format!("{name}: ")))
+            })
+            .cloned()
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(others(&checks), others(&checks_before));
+
+    // Each one still refuses its row, and says that it was the one.
+    for (statement, account, check) in [
+        (
+            "UPDATE account SET email = NULL WHERE id = $1",
+            local,
+            "account_can_sign_in",
+        ),
+        (
+            "UPDATE account SET email = 'ghost@example.invalid' WHERE id = $1",
+            guest,
+            "account_guest_holds_no_credentials",
+        ),
+        (
+            "UPDATE account SET username = 'Ghost', username_key = 'ghost' WHERE id = $1",
+            guest,
+            "account_guest_holds_no_credentials",
+        ),
+        (
+            "UPDATE account SET guest = true WHERE id = $1",
+            central,
+            "account_central_is_no_guest",
+        ),
+        (
+            "UPDATE account SET central_only = true WHERE id = $1",
+            guest,
+            "account_central_is_no_guest",
+        ),
+    ] {
+        assert!(
+            refused_by(db, statement, account, check).await,
+            "{check} let through: {statement}"
+        );
+    }
+
+    // Back one step refuses while the local account is there, and changes
+    // nothing.
+    assert!(
+        Migrator::down(db, Some(1)).await.is_err(),
+        "stepped back over an account without a password"
+    );
+    assert!(!account_has(db, "password_hash").await);
+    assert_eq!(account_checks(db).await, checks);
+
+    // Without it the column comes back, empty, and the checks as migrations
+    // 7, 21 and 22 left them; forward again drops it.
+    Account::delete_by_id(local).exec(db).await.unwrap();
+    Migrator::down(db, Some(1)).await.unwrap();
+    assert!(account_has(db, "password_hash").await);
+    assert_eq!(account_checks(db).await, checks_before);
+    assert_eq!(
+        count(db, "SELECT 1 FROM account WHERE password_hash IS NOT NULL").await,
+        0,
+        "no hash is made again"
+    );
+    Migrator::up(db, None).await.unwrap();
+    assert!(!account_has(db, "password_hash").await);
+    assert_eq!(account_checks(db).await, checks);
+    assert_eq!(Account::find().count(db).await.unwrap(), 2);
 
     sandbox.close().await;
 }
@@ -3533,9 +3777,7 @@ async fn the_cutoff_is_written_once_by_the_migration_that_adds_it() {
     .expect("a handful");
     let sandbox = Sandbox::open_at("replay_cutoff_once", Some(before)).await;
     let db = &sandbox.db;
-    let alice = an_account("a@example.com");
-    let a = alice.id.clone().unwrap();
-    Account::insert(alice).exec(db).await.expect("an account");
+    let a = an_old_account(db, "a@example.com").await;
     records::open(db, "old", &[Seat::played_by(a), Seat::default()])
         .await
         .unwrap();

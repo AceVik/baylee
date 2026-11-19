@@ -167,7 +167,10 @@ fn check_access(
         2,
         "Central identities never link by matching login names"
     );
-    assert_eq!(gateway.scalar("SELECT count(*) FROM account WHERE central_only AND username IS NULL AND password_hash IS NULL"), 1);
+    assert_eq!(
+        gateway.scalar("SELECT count(*) FROM account WHERE central_only AND username IS NULL"),
+        1
+    );
     assert_eq!(
         common::http(gateway.port, "GET", "/me", Some(&player), "").0,
         200

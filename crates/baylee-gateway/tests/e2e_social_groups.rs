@@ -660,8 +660,8 @@ async fn a_group_holds_fifty_members_and_invitees_and_an_account_is_in_twenty_gr
     // as registering and befriending forty-eight would run into the sign-up
     // allowance and prove the same count.
     gw.sql(
-        "INSERT INTO account (id, display_name, username, username_key, lang, created_at, password_hash) \
-         SELECT uuidv7(), 'm' || n, 'm' || n, 'm' || n, 'en', now(), 'not a hash' FROM generate_series(1, 48) n",
+        "INSERT INTO account (id, display_name, username, username_key, lang, created_at) \
+         SELECT uuidv7(), 'm' || n, 'm' || n, 'm' || n, 'en', now() FROM generate_series(1, 48) n",
     );
     let group = make_group(port, &ann, "Crowd");
     gw.sql(&format!(

@@ -510,20 +510,16 @@ pub fn json_field<'a>(body: &'a str, field: &str) -> &'a str {
     &rest[..end]
 }
 
-/// The official gateway's own Argon2id hash of `synthetic legacy password`,
-/// the hash a fixture account keeps, as an account from before the cutover
-/// does (`docs/central-login.md` §"Cutover").
-pub const LEGACY_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$wittOwBy6Zxq/y0DGjZasA$fBlUSay3ZkJb5bDps9DdGXWgriHX9cjNYnp4ZXs80go";
-
 /// An account that signs in with `username` and is seen as `name`, and a
 /// session for it: the bearer token.
 ///
 /// Nobody registers or signs in with a password at a gateway any more
 /// (`docs/central-login.md` §"Cutover"), so the fixture writes the account
-/// and its session as the database holds them: an account from before the
-/// cutover with a session, which every route below the sign-in treats as it
-/// treats any session. Names are the test's own, letters, digits and
-/// `_-.` only.
+/// and its session as the database holds them: a local account (neither a
+/// guest nor Central's, as an account from before the cutover is) with a
+/// session, which every route below the sign-in treats as it treats any
+/// session. The gateway keeps no password for it. Names are the test's own,
+/// letters, digits and `_-.` only.
 pub fn login(port: u16, username: &str, name: &str) -> String {
     let plain = |text: &str| {
         text.bytes()
@@ -562,9 +558,9 @@ pub fn login(port: u16, username: &str, name: &str) -> String {
     sql_in(
         &schema,
         &format!(
-            "INSERT INTO account (id, username, username_key, display_name, password_hash,
-                 created_at, lang, guest)
-             VALUES ('{id}', '{username}', '{key}', '{name}', '{LEGACY_HASH}',
+            "INSERT INTO account (id, username, username_key, display_name, created_at, lang,
+                 guest)
+             VALUES ('{id}', '{username}', '{key}', '{name}',
                  date_trunc('second', clock_timestamp()), 'en', false);
              INSERT INTO session_token (token_hash, account_id, expires_at)
              VALUES (decode('{digest}', 'hex'), '{id}', clock_timestamp() + interval '12 hours');"

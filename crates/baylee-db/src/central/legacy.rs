@@ -12,10 +12,9 @@ use sha2::{Digest, Sha256};
 
 /// Fix the link of a legacy account to the Central identity its move closed
 /// under, at its first admission here: Central names the legacy account to
-/// the bridge only once the move is closed. The account's password and its
-/// password sessions end with it, as at the cutover the gateway itself ran
-/// before. The same link again changes nothing; answers whether it was made
-/// now.
+/// the bridge only once the move is closed. The account becomes Central's
+/// and its old sessions end with the link. The same link again changes
+/// nothing; answers whether it was made now.
 ///
 /// # Errors
 /// Refuses a guest, an unknown account, a link to another identity, an
@@ -103,7 +102,7 @@ pub async fn adopt(
     transaction
         .execute_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
-            "UPDATE account SET central_only = true, password_hash = NULL WHERE id = $1",
+            "UPDATE account SET central_only = true WHERE id = $1",
             [account.into()],
         ))
         .await?;

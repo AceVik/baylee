@@ -426,7 +426,6 @@ pub async fn create_guest(
         username_key: Set(None),
         display_name: Set(new.display_name),
         tag: NotSet,
-        password_hash: Set(None),
         created_at: Set(at(new.created_at)),
         confirmed_at: Set(None),
         lang: Set(new.lang),

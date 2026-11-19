@@ -189,9 +189,14 @@ fn database(role: &str, password: &str) -> DevConfig {
 /// for statement, the legacy store's role included.
 const GRANTS: &str = include_str!("central/runtime-grants.sql");
 
-/// The password every fixture account keeps: the official gateway's own
-/// hash of it is `common::LEGACY_HASH`.
+/// The password every fixture account has at Central: [`LEGACY_HASH`] is
+/// the official gateway's own hash of it.
 const PASSWORD: &str = "synthetic legacy password";
+
+/// The official gateway's own Argon2id hash of [`PASSWORD`], as the cutover
+/// copied an account's into Central's legacy store. The gateway itself keeps
+/// no hash any more (`docs/central-login.md` §"Cutover").
+const LEGACY_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$wittOwBy6Zxq/y0DGjZasA$fBlUSay3ZkJb5bDps9DdGXWgriHX9cjNYnp4ZXs80go";
 
 /// `/auth/config` says whether the gateway takes Central sign-ins: a native
 /// client signs in through Central only where it does, and with the
@@ -423,11 +428,11 @@ fn cutover(
     count
 }
 
-/// The salt and output of `common::LEGACY_HASH`, as Central's legacy store keeps a
+/// The salt and output of [`LEGACY_HASH`], as Central's legacy store keeps a
 /// password: Argon2id under the parameters the official gateway hashed with.
 fn legacy_password() -> ([u8; 16], [u8; 32]) {
     use base64::Engine as _;
-    let mut fields = common::LEGACY_HASH
+    let mut fields = LEGACY_HASH
         .strip_prefix("$argon2id$v=19$m=19456,t=2,p=1$")
         .expect("the pinned parameters")
         .split('$');
@@ -510,8 +515,8 @@ fn run(
         "the closed move's row is gone from the legacy store"
     );
     let expected = AccountData::read(&account.data().write().unwrap()).unwrap();
-    // The gateway links the account at its first admission, keeps its game
-    // data, name and tag, and retires the password.
+    // The gateway links the account at its first admission and keeps its
+    // game data, name and tag.
     assert_eq!(
         gateway.scalar("SELECT count(*) FROM central_account_link WHERE central_id IS NOT NULL"),
         0
@@ -520,7 +525,7 @@ fn run(
     assert_eq!(
         gateway.scalar(&format!(
             "SELECT count(*) FROM account a JOIN central_account_link c ON c.account_id = a.id
-             WHERE a.id = '{id}'::uuid AND a.central_only AND a.password_hash IS NULL
+             WHERE a.id = '{id}'::uuid AND a.central_only
                  AND c.central_id IS NOT NULL AND a.tag = {tag} AND a.display_name = 'Synthetic'"
         )),
         1

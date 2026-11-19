@@ -96,9 +96,6 @@ fn named(email: &str, display_name: &str) -> account::ActiveModel {
         display_name: Set(display_name.to_owned()),
         // The database hands this out.
         tag: NotSet,
-        password_hash: Set(Some(
-            "$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA".to_owned(),
-        )),
         created_at: Set(OffsetDateTime::now_utc()),
         confirmed_at: Set(None),
         lang: Set("de".to_owned()),
