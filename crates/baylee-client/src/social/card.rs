@@ -172,6 +172,16 @@ pub(crate) struct PersonPanel {
     at: (Standing, f32),
     /// What it was drawn saying.
     said: Said,
+    /// The social state's revision and the minute its words were last
+    /// asked at ([`seen`]).
+    seen: (u64, u64),
+}
+
+/// When a standing card's words may have changed: the social state's
+/// revision (a presence, a friendship, a nickname) and the minute (a day
+/// passing turns "today" into "1 day ago").
+fn seen(machine: &baylee_client_core::social::Social, now: u64) -> (u64, u64) {
+    (machine.revision(), now / 60_000)
 }
 
 /// The disc's setting, which comes up a beat after its card.
@@ -395,16 +405,21 @@ fn stand(
     let (mut stands, mut handed) = (false, false);
     // A standing card whose words went stale (a friend went offline, or
     // came to a table) is drawn anew where it stands, without opening again.
+    // Its words are asked again only when the social state or the minute
+    // moved on, not every frame.
     let mut redrawn: Option<(Standing, f32)> = None;
     for (entity, mut panel, mut transform) in &mut panels {
         if !panel.leaving
             && panel.epoch == hover.epoch
             && let (Some((subject, _)), Some(machine)) = (&hover.shown, machine)
-            && said(machine, subject, prefs.as_deref(), lang, now) != panel.said
+            && panel.seen != seen(machine, now)
         {
-            redrawn = Some(panel.at);
-            commands.entity(entity).try_despawn();
-            continue;
+            if said(machine, subject, prefs.as_deref(), lang, now) != panel.said {
+                redrawn = Some(panel.at);
+                commands.entity(entity).try_despawn();
+                continue;
+            }
+            panel.seen = seen(machine, now);
         }
         if !panel.leaving && panel.epoch != hover.epoch {
             if hover.shown.is_some() || still {
@@ -445,7 +460,14 @@ fn stand(
     };
     let said = said(machine, subject, prefs.as_deref(), lang, now);
     if let Some((at, width)) = redrawn {
-        build(&mut commands, &fonts, said, (at, width), hover.epoch, 1.0);
+        build(
+            &mut commands,
+            &fonts,
+            said,
+            (at, width),
+            (hover.epoch, seen(machine, now)),
+            1.0,
+        );
         return;
     }
 
@@ -479,7 +501,14 @@ fn stand(
     let width = z(WIDTH).min(canvas.x - 2.0 * EDGE).max(120.0);
     let at = standing(canvas, Vec2::new(width, height), anchor);
     let t = if handed || still { 1.0 } else { 0.0 };
-    build(&mut commands, &fonts, said, (at, width), hover.epoch, t);
+    build(
+        &mut commands,
+        &fonts,
+        said,
+        (at, width),
+        (hover.epoch, seen(machine, now)),
+        t,
+    );
 }
 
 /// What a card says: the person, where a friend is, and the lines of fact.
@@ -564,7 +593,7 @@ fn build(
     fonts: &UiFonts,
     said: Said,
     (at, width): (Standing, f32),
-    epoch: u64,
+    (epoch, seen): (u64, (u64, u64)),
     opening: f32,
 ) -> Entity {
     let Said {
@@ -846,6 +875,7 @@ fn build(
         corner: at.corner,
         at: (at, width),
         said,
+        seen,
     });
     panel
 }
@@ -1027,5 +1057,95 @@ mod tests {
         let long = bounded(&"x".repeat(200));
         assert_eq!(long.chars().count(), NAME_CHARS);
         assert!(long.ends_with('…'));
+    }
+
+    /// A standing card whose friend goes offline says so where it stands,
+    /// drawn anew without opening again (the live test of 19.11.2026 saw
+    /// "In the lobby" beside a row that said Offline); while nothing
+    /// changes it is left alone.
+    #[test]
+    fn a_standing_card_is_drawn_anew_where_it_stands_when_its_words_change() {
+        use baylee_client_core::social::{ChatPrefs, Me, Social};
+        use baylee_protocol::social::{Down, Friend, Person, Place, Presence, Snapshot};
+
+        use crate::social::OsEntropy;
+
+        let bob = |status| {
+            Down::Snapshot(Snapshot {
+                friends: vec![Friend {
+                    person: Person {
+                        handle: "Bob#0012".into(),
+                        tag: "0012".into(),
+                        guest: false,
+                    },
+                    since: 0,
+                    presence: Presence {
+                        status,
+                        place: Some(Place::Lobby),
+                    },
+                }],
+                ..Snapshot::default()
+            })
+        };
+        let me = Me {
+            tag: "af03".into(),
+            handle: "Alice#af03".into(),
+            guest: false,
+            gateway: "http://127.0.0.1:1".into(),
+        };
+        let (mut social, _) =
+            Social::start(me, None, None, ChatPrefs::default(), 1_000, &mut OsEntropy);
+        let _ = social.on_frame(bob(Shown::Online), 1_000, &mut OsEntropy);
+        let mut app = App::new();
+        app.init_resource::<Time>()
+            .insert_resource(UiFonts::default())
+            .insert_resource(SocialHost {
+                machine: Some(social),
+                ..SocialHost::default()
+            })
+            .insert_resource(PersonHover {
+                shown: Some((subject("Bob#0012"), None)),
+                epoch: 1,
+                ..PersonHover::default()
+            })
+            .add_systems(Update, stand);
+        let panels = |app: &mut App| {
+            let mut query = app.world_mut().query::<(Entity, &PersonPanel)>();
+            query
+                .iter(app.world())
+                .map(|(entity, panel)| {
+                    (
+                        entity,
+                        panel.t,
+                        panel.at,
+                        panel.said.presence.as_ref().map(|(shown, _)| *shown),
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        app.update();
+        let first = panels(&mut app);
+        assert_eq!(first.len(), 1);
+        assert_eq!(first[0].3, Some(Shown::Online));
+
+        let _ = app
+            .world_mut()
+            .resource_mut::<SocialHost>()
+            .machine
+            .as_mut()
+            .expect("a machine")
+            .on_frame(bob(Shown::Offline), 2_000, &mut OsEntropy);
+        app.update();
+        let second = panels(&mut app);
+        assert_eq!(second.len(), 1, "one card, not two");
+        assert_ne!(second[0].0, first[0].0, "drawn anew");
+        assert_eq!(second[0].3, Some(Shown::Offline));
+        assert!((second[0].1 - 1.0).abs() < f32::EPSILON, "not opened again");
+        assert_eq!(second[0].2, first[0].2, "where it stood");
+
+        app.update();
+        let third = panels(&mut app);
+        assert_eq!(third.len(), 1);
+        assert_eq!(third[0].0, second[0].0, "left alone while nothing changes");
     }
 }
