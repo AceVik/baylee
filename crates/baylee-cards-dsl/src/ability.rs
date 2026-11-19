@@ -1202,33 +1202,38 @@ impl AbilityDef {
     /// read the same way (702.29e): "[Cost], Discard this card: Search your
     /// library for a [type] card, reveal it, and put it into your hand",
     /// one mandatory search finding one card for the hand (Ash Barrens'
-    /// basic landcycling). A search that puts the card anywhere else, or
-    /// finds more than one, is not typecycling.
+    /// basic landcycling), activated whenever its controller has priority.
+    /// A search that puts the card anywhere else, finds more than one, or is
+    /// activated only as a sorcery is not typecycling: transmute (CR 702.53a,
+    /// Tolaria West) is that last shape.
     #[must_use]
     pub fn is_cycling(&self) -> bool {
         match self {
             Self::Activated {
                 cost,
                 effects,
+                timing,
                 zone: ActivationZone::Hand,
                 ..
             }
             | Self::ActivatedConditional {
                 cost,
                 effects,
+                timing,
                 zone: ActivationZone::Hand,
                 ..
             } => {
                 cost.parts.contains(&crate::cost::CostPart::DiscardSelf)
                     && (*effects == [crate::effect::Effect::draw(1)]
-                        || matches!(
-                            effects,
-                            [crate::effect::Effect::SearchLibrary {
-                                finds,
-                                optional: false,
-                                ..
-                            }] if *finds == [crate::Find::HAND]
-                        ))
+                        || (*timing == ActivationTiming::InstantSpeed
+                            && matches!(
+                                effects,
+                                [crate::effect::Effect::SearchLibrary {
+                                    finds,
+                                    optional: false,
+                                    ..
+                                }] if *finds == [crate::Find::HAND]
+                            )))
             }
             _ => false,
         }
@@ -1607,6 +1612,20 @@ mod tests {
         assert!(!ability(DISCARD, ONTO_BATTLEFIELD, ActivationZone::Hand).is_cycling());
         assert!(!ability(DISCARD, TWO, ActivationZone::Hand).is_cycling());
         assert!(!ability(DISCARD, LANDCYCLE, ActivationZone::Battlefield).is_cycling());
+        // Transmute (CR 702.53a, Tolaria West): the same search, as a sorcery.
+        let transmute = AbilityDef::Activated {
+            cost: DISCARD,
+            effects: LANDCYCLE,
+            targets: None,
+            second_targets: None,
+            timing: ActivationTiming::SorcerySpeed,
+            mana_ability: false,
+            zone: ActivationZone::Hand,
+            limit: ActivationLimit::Unlimited,
+            x_value: crate::ActivationX::Any,
+            cost_reduction: None,
+        };
+        assert!(!transmute.is_cycling());
     }
 
     /// CR 605.1 makes a mana ability the exception, and the flag is the

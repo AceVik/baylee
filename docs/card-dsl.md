@@ -2712,7 +2712,9 @@ Triggers, reflexive events and amounts:
 - **`Trigger::CycledThis`** is "When you cycle this card" (CR 702.29c).
   What counts as cycling is `AbilityDef::is_cycling`: from the hand, the
   cost discards the card, and the effect draws one card or, for typecycling
-  (CR 702.29e–f), is one mandatory library search for the hand. The reader
+  (CR 702.29e–f), is one mandatory library search for the hand, activated
+  whenever its controller has priority (transmute, a sorcery-speed search,
+  is not cycling). The reader
   writes it for `T:Mode$ Cycled | ValidCard$ Card.Self`.
 - **`Trigger::Cycles(rel)`** is "Whenever [a player / you] cycles a card"
   (Lightning Rift, `EachPlayer`; "you", `You`), off the battlefield like any
