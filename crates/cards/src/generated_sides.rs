@@ -265,7 +265,7 @@ pub static DOUBLE_FACED: [CardIndex; 119] = [
 ];
 
 /// Cards whose reference printing is uncommon.
-pub static UNCOMMON: [CardIndex; 3711] = [
+pub static UNCOMMON: [CardIndex; 3710] = [
     CardIndex::new(0),
     CardIndex::new(2),
     CardIndex::new(3),
@@ -1282,7 +1282,6 @@ pub static UNCOMMON: [CardIndex; 3711] = [
     CardIndex::new(3201),
     CardIndex::new(3210),
     CardIndex::new(3212),
-    CardIndex::new(3214),
     CardIndex::new(3220),
     CardIndex::new(3223),
     CardIndex::new(3224),
@@ -1300,7 +1299,6 @@ pub static UNCOMMON: [CardIndex; 3711] = [
     CardIndex::new(3259),
     CardIndex::new(3268),
     CardIndex::new(3269),
-    CardIndex::new(3273),
     CardIndex::new(3274),
     CardIndex::new(3275),
     CardIndex::new(3279),
@@ -1340,6 +1338,7 @@ pub static UNCOMMON: [CardIndex; 3711] = [
     CardIndex::new(3389),
     CardIndex::new(3390),
     CardIndex::new(3392),
+    CardIndex::new(3396),
     CardIndex::new(3397),
     CardIndex::new(3400),
     CardIndex::new(3402),
@@ -3980,7 +3979,7 @@ pub static UNCOMMON: [CardIndex; 3711] = [
 ];
 
 /// Cards whose reference printing is rare.
-pub static RARE: [CardIndex; 3036] = [
+pub static RARE: [CardIndex; 3039] = [
     CardIndex::new(5),
     CardIndex::new(7),
     CardIndex::new(8),
@@ -4898,6 +4897,7 @@ pub static RARE: [CardIndex; 3036] = [
     CardIndex::new(3264),
     CardIndex::new(3267),
     CardIndex::new(3271),
+    CardIndex::new(3273),
     CardIndex::new(3276),
     CardIndex::new(3277),
     CardIndex::new(3278),
@@ -4918,12 +4918,15 @@ pub static RARE: [CardIndex; 3036] = [
     CardIndex::new(3328),
     CardIndex::new(3333),
     CardIndex::new(3342),
+    CardIndex::new(3344),
     CardIndex::new(3348),
     CardIndex::new(3349),
     CardIndex::new(3352),
     CardIndex::new(3353),
+    CardIndex::new(3355),
     CardIndex::new(3361),
     CardIndex::new(3363),
+    CardIndex::new(3365),
     CardIndex::new(3366),
     CardIndex::new(3368),
     CardIndex::new(3371),
@@ -4934,7 +4937,6 @@ pub static RARE: [CardIndex; 3036] = [
     CardIndex::new(3381),
     CardIndex::new(3384),
     CardIndex::new(3393),
-    CardIndex::new(3396),
     CardIndex::new(3398),
     CardIndex::new(3401),
     CardIndex::new(3405),
@@ -7020,7 +7022,7 @@ pub static RARE: [CardIndex; 3036] = [
 ];
 
 /// Cards whose reference printing is mythic rare.
-pub static MYTHIC: [CardIndex; 290] = [
+pub static MYTHIC: [CardIndex; 287] = [
     CardIndex::new(6),
     CardIndex::new(10),
     CardIndex::new(14),
@@ -7065,9 +7067,6 @@ pub static MYTHIC: [CardIndex; 290] = [
     CardIndex::new(3143),
     CardIndex::new(3282),
     CardIndex::new(3304),
-    CardIndex::new(3344),
-    CardIndex::new(3355),
-    CardIndex::new(3365),
     CardIndex::new(3387),
     CardIndex::new(3431),
     CardIndex::new(3494),

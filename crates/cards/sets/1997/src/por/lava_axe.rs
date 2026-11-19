@@ -10,7 +10,7 @@ card!(
     oracle_id = "387b6b07-a283-412d-94c3-f7f1dc76e858",
     scryfall_id = "c3dab325-8f4f-4288-9f3f-960e52b4335b",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Lava Axe",
         mana_cost = mana!("{4}{R}"),
