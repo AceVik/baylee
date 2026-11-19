@@ -916,7 +916,7 @@ mod tests {
         assert_eq!(meta["subtypes"][2], "instant_their_turn");
         assert_eq!(meta["subtypes"].as_array().unwrap().len(), 10);
         assert_eq!(meta["subtypes"][9], "target");
-        assert_eq!(meta["groups"].as_array().unwrap().len(), 20);
+        assert_eq!(meta["groups"].as_array().unwrap().len(), 22);
         assert_eq!(meta["groups"][7], "spend");
     }
 
