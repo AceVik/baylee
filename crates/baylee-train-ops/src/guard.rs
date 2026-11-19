@@ -98,13 +98,14 @@ mod tests;
 /// Capture a bounded control command without leaking descendants on timeout.
 pub(crate) fn capture(program: &Path, arguments: &[&str], timeout: Duration) -> Result<String> {
     let mut output = tempfile::tempfile()?;
-    let child = Command::new(program)
-        .args(arguments)
-        .stdin(Stdio::null())
-        .stdout(output.try_clone()?)
-        .stderr(Stdio::null())
-        .process_group(0)
-        .spawn()?;
+    let child = files::spawn(
+        Command::new(program)
+            .args(arguments)
+            .stdin(Stdio::null())
+            .stdout(output.try_clone()?)
+            .stderr(Stdio::null())
+            .process_group(0),
+    )?;
     let pid = Pid::from_raw(i32::try_from(child.id())?).context("invalid child PID")?;
     let mut group = OwnedGroup {
         child,
@@ -189,19 +190,25 @@ struct Prepared {
     state: serde_json::Value,
 }
 
+fn git(cwd: &Path, arguments: &[&str]) -> Result<std::process::Output> {
+    Ok(files::spawn(
+        Command::new("git")
+            .args(arguments)
+            .current_dir(cwd)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped()),
+    )?
+    .wait_with_output()?)
+}
+
 fn source_identity(cwd: &Path) -> Result<(String, Vec<u8>)> {
-    let revision = Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .current_dir(cwd)
-        .output()?;
+    let revision = git(cwd, &["rev-parse", "HEAD"])?;
     ensure!(
         revision.status.success(),
         "job cwd must have a source identity"
     );
-    let diff = Command::new("git")
-        .args(["diff", "--binary", "HEAD"])
-        .current_dir(cwd)
-        .output()?;
+    let diff = git(cwd, &["diff", "--binary", "HEAD"])?;
     ensure!(diff.status.success(), "cannot snapshot tracked sources");
     Ok((
         String::from_utf8(revision.stdout)?.trim().to_owned(),
@@ -227,14 +234,15 @@ fn runtime_environment() -> BTreeMap<&'static str, String> {
 }
 
 fn spawn(job: &Job, exe: &Path) -> Result<OwnedGroup> {
-    let child = Command::new(exe)
-        .args(&job.command[1..])
-        .current_dir(&job.cwd)
-        .stdin(Stdio::null())
-        .stdout(File::create(job.directory.join("stdout.log"))?)
-        .stderr(File::create(job.directory.join("stderr.log"))?)
-        .process_group(0)
-        .spawn()?;
+    let child = files::spawn(
+        Command::new(exe)
+            .args(&job.command[1..])
+            .current_dir(&job.cwd)
+            .stdin(Stdio::null())
+            .stdout(File::create(job.directory.join("stdout.log"))?)
+            .stderr(File::create(job.directory.join("stderr.log"))?)
+            .process_group(0),
+    )?;
     let pid = Pid::from_raw(i32::try_from(child.id())?).context("invalid child PID")?;
     Ok(OwnedGroup {
         child,

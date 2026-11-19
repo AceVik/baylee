@@ -57,7 +57,7 @@ fn spawn(manifest: &Manifest, stage: &Stage, token: &str) -> Result<Owned> {
     if stage.agent_token {
         command.env("BAYLEE_AGENT_TOKEN", token);
     }
-    Owned::new(command.spawn()?)
+    Owned::new(files::spawn(&mut command)?)
 }
 fn publish(manifest: &Manifest, children: &[(String, Owned)], phase: &str) -> Result<()> {
     let identities: BTreeMap<_, _> = children

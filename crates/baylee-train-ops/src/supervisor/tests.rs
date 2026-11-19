@@ -59,12 +59,11 @@ fn check_refuses_literal_secrets_and_changed_pins() -> Result<()> {
 fn real_owned_child_stops_and_preserves_other_processes() -> Result<()> {
     let root = tempfile::tempdir()?;
     let path = manifest(root.path(), vec!["/usr/bin/sleep".into(), "60".into()])?;
-    let mut unrelated = owned::Owned::new(
+    let mut unrelated = owned::Owned::new(files::spawn(
         std::process::Command::new("/usr/bin/sleep")
             .arg("60")
-            .process_group(0)
-            .spawn()?,
-    )?;
+            .process_group(0),
+    )?)?;
     let stop = AtomicBool::new(false);
     std::thread::scope(|scope| -> Result<()> {
         let handle = scope.spawn(|| run(&path, &stop));
@@ -134,12 +133,11 @@ fn child_failure_cleans_group_and_never_restarts() -> Result<()> {
 }
 #[test]
 fn exited_leader_remains_pinned_until_forked_child_group_is_empty() -> Result<()> {
-    let mut owned = owned::Owned::new(
+    let mut owned = owned::Owned::new(files::spawn(
         std::process::Command::new("/bin/sh")
             .args(["-c", "sleep 60 & exit 0"])
-            .process_group(0)
-            .spawn()?,
-    )?;
+            .process_group(0),
+    )?)?;
     let pid = owned.child.id();
     let deadline = Instant::now() + Duration::from_secs(3);
     while !owned.exited()? {

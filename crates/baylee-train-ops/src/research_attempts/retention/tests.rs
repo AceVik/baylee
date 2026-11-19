@@ -157,11 +157,22 @@ fn real_deadline_accounting_allows_next_independent_pipeline_command() {
     )
     .unwrap();
     if let Err(error) = crate::pipeline::run(&manifest, &AtomicBool::new(false)) {
+        let stage = |table: &Table, name: &str| {
+            format!(
+                "{name} inner guard={:?}; child stderr={:?}; wrapper stderr={:?}",
+                fs::read_to_string(table.job.directory.join("job.json")),
+                fs::read_to_string(table.job.directory.join("stderr.log")),
+                fs::read_to_string(
+                    pipeline
+                        .path()
+                        .join(format!("execution/jobs/{name}/stderr.log"))
+                )
+            )
+        };
         panic!(
-            "{error:#}; second inner guard={:?}; child stderr={:?}; wrapper stderr={:?}",
-            fs::read_to_string(second.job.directory.join("job.json")),
-            fs::read_to_string(second.job.directory.join("stderr.log")),
-            fs::read_to_string(pipeline.path().join("execution/jobs/second/stderr.log"))
+            "{error:#}; {}; {}",
+            stage(&first, "first"),
+            stage(&second, "second")
         );
     }
     let receipt = files::read_json(&first.root.path().join("collection-accounting.json")).unwrap();

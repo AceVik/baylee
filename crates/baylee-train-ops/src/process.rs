@@ -131,7 +131,8 @@ mod tests {
 
     #[test]
     fn exited_native_task_smaps_esrch_is_not_a_memory_accounting_failure() {
-        let mut child = NativeChild(Command::new("/usr/bin/sleep").arg("10").spawn().unwrap());
+        let mut child =
+            NativeChild(crate::files::spawn(Command::new("/usr/bin/sleep").arg("10")).unwrap());
         let mut smaps = fs::File::open(format!("/proc/{}/smaps_rollup", child.0.id())).unwrap();
         child.0.kill().unwrap();
         child.0.wait().unwrap();

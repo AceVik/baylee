@@ -50,7 +50,9 @@ impl Drop for ExportChild {
 }
 fn export(command: &mut Command, stop: &AtomicBool, budget: Duration) -> Result<()> {
     ensure!(!stop.load(Ordering::Relaxed), "maintenance stopped");
-    let mut child = ExportChild(command.stdin(Stdio::null()).stdout(Stdio::null()).spawn()?);
+    let mut child = ExportChild(crate::files::spawn(
+        command.stdin(Stdio::null()).stdout(Stdio::null()),
+    )?);
     let started = Instant::now();
     loop {
         if let Some(status) = child.0.try_wait()? {

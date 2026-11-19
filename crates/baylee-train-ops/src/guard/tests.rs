@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn lost_wait_ownership_never_signals_a_recycled_process_group() {
-    let mut child = Command::new("true").process_group(0).spawn().unwrap();
+    let mut child = files::spawn(Command::new("true").process_group(0)).unwrap();
     let pid = Pid::from_raw(i32::try_from(child.id()).unwrap()).unwrap();
     child.wait().unwrap();
     let mut group = OwnedGroup {

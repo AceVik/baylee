@@ -315,7 +315,7 @@ pub fn verify_finalized(root: &Path) -> Result<Value> {
         let path = root.join(name);
         regular(&path)?;
         let file = File::open(path)?;
-        file.try_lock().context("research evidence still owned")?;
+        files::try_lock(&file).context("research evidence still owned")?;
         Ok(file)
     };
     let _finalizer = lock("attempts.finalize.lock")?;
