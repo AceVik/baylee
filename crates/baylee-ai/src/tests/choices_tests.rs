@@ -996,9 +996,8 @@ fn a_forced_discard_gives_up_the_land_past_the_sixth() {
         prompt: ChoicePrompt::Generic,
         total: None,
     };
-    let given = |profile: AIProfile| {
-        HeuristicAgent::new(profile).act_with_context(&v, &pending, &context)
-    };
+    let given =
+        |profile: AIProfile| HeuristicAgent::new(profile).act_with_context(&v, &pending, &context);
     assert_eq!(
         given(AIProfile::EXPERT),
         PlayerAction::ChooseObjects {

@@ -53,6 +53,12 @@ struct Args {
     /// The level measured; the first run's `--baseline` when not given.
     #[arg(long)]
     level: Option<String>,
+    /// Also reports a 95 % percentile interval of the share from this many
+    /// resamples of the seeds, each seed with all of its games: the paired
+    /// games of a seed are not independent, so the seed is the unit. Seeded,
+    /// so the same runs give the same interval; 0 for none.
+    #[arg(long, default_value_t = 0)]
+    bootstrap: u32,
     /// Where to write the numbers as JSON, besides the text.
     #[arg(long)]
     out: Option<PathBuf>,
@@ -175,6 +181,64 @@ fn wilson(k: u64, n: u64) -> (f64, f64) {
     let spread = z * (p * (1.0 - p) / n + z * z / (4.0 * n * n)).sqrt();
     let scale = 1.0 + z * z / n;
     ((centre - spread) / scale, (centre + spread) / scale)
+}
+
+/// The 95 % percentile interval of the share of decided games won, from
+/// `resamples` draws of the seeds with replacement, each seed with every
+/// game it holds: a seed's games share its decks and draws, so they are
+/// resampled together. A seed with no decided game adds nothing to a draw.
+/// The draws come from a fixed `SplitMix64` stream, so the interval is a
+/// function of the games alone.
+fn bootstrap(games: &BTreeMap<Key, Game>, resamples: u32) -> Option<(f64, f64)> {
+    let mut by_seed: BTreeMap<u64, (u64, u64)> = BTreeMap::new();
+    for ((seed, _), game) in games {
+        let (won, decided) = by_seed.entry(*seed).or_default();
+        match game.result {
+            Result::Won => {
+                *won += 1;
+                *decided += 1;
+            }
+            Result::Lost => *decided += 1,
+            Result::Open => {}
+        }
+    }
+    let seeds: Vec<(u64, u64)> = by_seed.into_values().collect();
+    if resamples == 0 || seeds.is_empty() {
+        return None;
+    }
+    let mut state = 0x9e37_79b9_7f4a_7c15_u64;
+    let mut next = || {
+        state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        z ^ (z >> 31)
+    };
+    let n = seeds.len() as u64;
+    let mut shares: Vec<f64> = (0..resamples)
+        .map(|_| {
+            let (mut won, mut decided) = (0, 0);
+            for _ in 0..n {
+                let index = usize::try_from(next() % n).unwrap_or(0);
+                let (w, d) = seeds[index];
+                won += w;
+                decided += d;
+            }
+            rate(won, decided)
+        })
+        .collect();
+    shares.sort_unstable_by(f64::total_cmp);
+    let at = |q: f64| {
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            clippy::cast_precision_loss,
+            reason = "an index into at most u32::MAX draws"
+        )]
+        let index = ((shares.len() - 1) as f64 * q).round() as usize;
+        shares[index]
+    };
+    Some((at(0.025), at(0.975)))
 }
 
 fn read(path: &PathBuf) -> anyhow::Result<Value> {
@@ -446,6 +510,15 @@ fn main() -> anyhow::Result<()> {
     println!(
         "sign test over the seeds the level turned: {turned_for} for, {turned_against} against, two-sided p = {p:.4}"
     );
+    let by_seed = bootstrap(&games, args.bootstrap);
+    if let Some((low, high)) = by_seed {
+        println!(
+            "bootstrap by seed ({} resamples): 95 % {:.1}-{:.1}",
+            args.bootstrap,
+            100.0 * low,
+            100.0 * high
+        );
+    }
     print_decks(&level, &per_deck, decks_of_ten, &broken);
     let changed = if args.before.is_empty() {
         None
@@ -471,6 +544,10 @@ fn main() -> anyhow::Result<()> {
             "games": all.json(),
             "seeds_by_sides_won": sides,
             "sign_test": {"for": turned_for, "against": turned_against, "p": p},
+            "bootstrap_by_seed": by_seed.map(|(low, high)| json!({
+                "resamples": args.bootstrap,
+                "percentile95": [low, high],
+            })),
             "against_before": changed,
             "per_deck_rule": {"decks_with_ten_seeds": decks_of_ten, "turned_against": broken},
             "per_deck": per_deck.iter().map(|(deck, d)| (deck.clone(), json!({
@@ -565,5 +642,44 @@ mod tests {
         ]);
         assert_eq!(changed(&now, &then), (2, 1, 4));
         assert_eq!(changed(&then, &now), (1, 2, 4));
+    }
+
+    /// The bootstrap resamples seeds, not games: a level that wins one game
+    /// of every seed has no spread at all, an even mix of seeds won twice
+    /// and lost twice brackets a half, and the same games give the same
+    /// interval.
+    #[test]
+    fn the_bootstrap_resamples_whole_seeds() {
+        let game = |result| Game {
+            decks: Vec::new(),
+            result,
+        };
+        let split: BTreeMap<Key, Game> = (0..200)
+            .flat_map(|seed| {
+                [
+                    ((seed, vec![0]), game(Result::Won)),
+                    ((seed, vec![1]), game(Result::Lost)),
+                ]
+            })
+            .collect();
+        assert_eq!(bootstrap(&split, 1000), Some((0.5, 0.5)));
+        let turned: BTreeMap<Key, Game> = (0..200)
+            .flat_map(|seed| {
+                let result = if seed % 2 == 0 {
+                    Result::Won
+                } else {
+                    Result::Lost
+                };
+                [
+                    ((seed, vec![0]), game(result)),
+                    ((seed, vec![1]), game(result)),
+                    ((seed + 1000, vec![0]), game(Result::Open)),
+                ]
+            })
+            .collect();
+        let (low, high) = bootstrap(&turned, 2000).expect("seeds were decided");
+        assert!(low < 0.5 && high > 0.5 && high - low < 0.2, "{low} {high}");
+        assert_eq!(bootstrap(&turned, 2000), Some((low, high)));
+        assert_eq!(bootstrap(&turned, 0), None);
     }
 }
