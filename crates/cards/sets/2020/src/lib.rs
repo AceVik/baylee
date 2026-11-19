@@ -487,6 +487,8 @@ pub mod skyway_sniper;
 pub mod sneaking_guide;
 #[path = "znr/song_mad_treachery.rs"]
 pub mod song_mad_treachery;
+#[path = "thb/soul_guide_lantern.rs"]
+pub mod soul_guide_lantern;
 #[path = "thb/soulreaper_of_mogis.rs"]
 pub mod soulreaper_of_mogis;
 #[path = "znr/spare_supplies.rs"]

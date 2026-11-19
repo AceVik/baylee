@@ -387,6 +387,8 @@ pub mod squelching_leeches;
 pub mod stormcaller_of_keranos;
 #[path = "bng/stratus_walk.rs"]
 pub mod stratus_walk;
+#[path = "ktk/stubborn_denial.rs"]
+pub mod stubborn_denial;
 #[path = "ktk/sultai_ascendancy.rs"]
 pub mod sultai_ascendancy;
 #[path = "ktk/sultai_banner.rs"]

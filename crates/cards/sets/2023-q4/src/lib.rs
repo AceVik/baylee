@@ -21,6 +21,8 @@ pub mod ancestors_aid;
 pub mod ancestral_reminiscence;
 #[path = "lci/attentive_sunscribe.rs"]
 pub mod attentive_sunscribe;
+#[path = "lci/bitter_triumph.rs"]
+pub mod bitter_triumph;
 #[path = "lci/braided_net.rs"]
 pub mod braided_net;
 #[path = "lci/brass_s_tunnel_grinder.rs"]

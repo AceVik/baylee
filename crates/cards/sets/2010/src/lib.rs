@@ -345,6 +345,8 @@ pub mod neurok_replica;
 pub mod nighthaze;
 #[path = "m11/nightwing_shade.rs"]
 pub mod nightwing_shade;
+#[path = "som/nihil_spellbomb.rs"]
+pub mod nihil_spellbomb;
 #[path = "som/nim_deathmantle.rs"]
 pub mod nim_deathmantle;
 #[path = "roe/nirkana_revenant.rs"]

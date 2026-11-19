@@ -23,6 +23,8 @@ pub mod alela_artful_provocateur;
 pub mod angel_of_grace;
 #[path = "eld/arcane_signet.rs"]
 pub mod arcane_signet;
+#[path = "mh1/archmage_s_charm.rs"]
+pub mod archmage_s_charm;
 #[path = "mh1/arcum_s_astrolabe.rs"]
 pub mod arcum_s_astrolabe;
 #[path = "war/arlinn_s_wolf.rs"]
@@ -161,6 +163,8 @@ pub mod devout_decree;
 pub mod divine_arrow;
 #[path = "rna/dovin_s_automaton.rs"]
 pub mod dovin_s_automaton;
+#[path = "eld/drown_in_the_loch.rs"]
+pub mod drown_in_the_loch;
 #[path = "war/duskmantle_operative.rs"]
 pub mod duskmantle_operative;
 #[path = "eld/dwarven_mine.rs"]
@@ -169,6 +173,8 @@ pub mod dwarven_mine;
 pub mod elite_arrester;
 #[path = "war/elite_guardmage.rs"]
 pub mod elite_guardmage;
+#[path = "m20/elvish_reclaimer.rs"]
+pub mod elvish_reclaimer;
 #[path = "war/emergence_zone.rs"]
 pub mod emergence_zone;
 #[path = "c19/empowered_autogenerator.rs"]
