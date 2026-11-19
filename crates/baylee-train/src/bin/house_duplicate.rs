@@ -453,13 +453,7 @@ fn print_decks(level: &str, per_deck: &BTreeMap<String, Deck>, decks: usize, bro
     }
 }
 
-fn main() -> anyhow::Result<()> {
-    let args = Args::parse();
-    let runs: Vec<Value> = args.runs.iter().map(read).collect::<anyhow::Result<_>>()?;
-    let level = match &args.level {
-        Some(level) => level.clone(),
-        None => runs[0]["baseline"].as_str().unwrap_or("?").to_owned(),
-    };
+fn check_matching_runs(runs: &[Value]) -> anyhow::Result<()> {
     for key in [
         "seats",
         "teams",
@@ -472,6 +466,17 @@ fn main() -> anyhow::Result<()> {
             "the runs differ in {key}"
         );
     }
+    Ok(())
+}
+
+fn main() -> anyhow::Result<()> {
+    let args = Args::parse();
+    let runs: Vec<Value> = args.runs.iter().map(read).collect::<anyhow::Result<_>>()?;
+    let level = match &args.level {
+        Some(level) => level.clone(),
+        None => runs[0]["baseline"].as_str().unwrap_or("?").to_owned(),
+    };
+    check_matching_runs(&runs)?;
     let seats = usize::try_from(runs[0]["seats"].as_u64().unwrap_or(2)).unwrap_or(2);
     let teams: Vec<u64> = runs[0]["teams"]
         .as_array()
