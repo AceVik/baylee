@@ -3281,6 +3281,11 @@ Every game keeps `seat4 --journal`: this seat's views, questions, answers and th
 `--later-reference` and `--later-arm` add a second round on the same deck pairs. A game is clean when the house gave at most 5 % of the answers it and
 the model gave between them, and the seat closed with a summary: `agy` can die in mid-game, and the result the table then records says nothing.
 
+For a long series on one private loopback gateway, `ladder4 --sessions-stdin --tables 1` accepts one newline-terminated JSON object on standard input.
+Its fields `net_session` and `llm_session` carry distinct, normally issued sessions. Keep these in the coordinator's memory and pipe them directly
+to the ladder. Each simultaneous table needs its own pair. The net host verifies the NET account. The opponent takes chair 1 under its disclosed
+LLM account (HOUSE for a local house opponent) and uses the bridge's existing chair handoff. In this mode the ladder attempts each slot once.
+
 A house arm (`--arm PROFILE:house=LEVEL:GAMES`, a fair level a player can choose) plays the language model against the house in the room's own
 AI chair, played inside the game's engine as at any hosted table, with no `seat4`: the model's guest account (`LLM-l<game>`, one sign-in a game)
 opens the room with the model's deck, sets the ladder's rules, makes chair 1 the house at LEVEL with the other deck, and hands chair 0 to the bridge

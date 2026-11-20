@@ -29,6 +29,9 @@ use clap::Parser;
 struct Args {
     #[arg(long, default_value = "http://127.0.0.1:28766")]
     gateway: String,
+    /// Reuse a disclosed NET account on the private loopback gateway. Its session is read from stdin.
+    #[arg(long)]
+    session_stdin: bool,
     /// An exported checkpoint directory; the running trainer never writes here.
     #[arg(long)]
     model: PathBuf,
@@ -155,11 +158,28 @@ async fn main() -> anyhow::Result<()> {
         selected = initial;
     }
     let mut first_brain = Some((load_brain(&args, &selected.model)?, selected));
-    let session = lobby
-        .guest(&GuestSignIn {
-            display_name: name.clone(),
-        })
-        .await?;
+    let (session, name) = if args.session_stdin {
+        use baylee_train_ops::session_input;
+        session_input::require_loopback(&args.gateway)?;
+        let token: String = session_input::read_line(std::io::stdin().lock())?;
+        session_input::validate_token(&token)?;
+        let session = Session::from_token(token);
+        let name = lobby.session_name(&session).await?;
+        ensure!(
+            name.starts_with(Disclosure::Net.prefix()),
+            "the session must belong to a disclosed NET seat"
+        );
+        (session, name)
+    } else {
+        (
+            lobby
+                .guest(&GuestSignIn {
+                    display_name: name.clone(),
+                })
+                .await?,
+            name,
+        )
+    };
     let mut presence = presence::Presence::start(lobby.connect_lobby(&session).await?);
     let result = Box::pin(run(
         &args,
