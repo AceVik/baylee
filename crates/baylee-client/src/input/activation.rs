@@ -442,6 +442,7 @@ pub(super) fn cast_menu_for(duel: &Duel, object: ObjectId) -> Option<crate::Cast
                     | baylee_engine::choice::CastModeKind::Prototype
                     | baylee_engine::choice::CastModeKind::Disguise
                     | baylee_engine::choice::CastModeKind::Dash
+                    | baylee_engine::choice::CastModeKind::Blitz
                     | baylee_engine::choice::CastModeKind::Mutate
                     | baylee_engine::choice::CastModeKind::Bestow
                     // An Adventure or a back face alone in reach: the row

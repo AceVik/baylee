@@ -51,6 +51,7 @@ pub(crate) fn wizard_alternative_parts(
         Some(CastModeKind::Flashback) => face.flashback_parts,
         Some(CastModeKind::Madness) => face.madness.expect("madness").parts,
         Some(CastModeKind::Bestow) => face.bestow.expect("bestow").parts,
+        Some(CastModeKind::Blitz) => face.blitz.expect("blitz").parts,
         _ => &[],
     }
 }

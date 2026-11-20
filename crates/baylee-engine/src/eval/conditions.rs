@@ -545,6 +545,47 @@ pub fn condition_holds_with_context(
             .object(source)
             .is_some_and(|o| o.riders.contains(&crate::object::Rider::Escaped)),
         Condition::KickedWith(index) => state.object(source).is_some_and(|o| o.kicked_with(index)),
+        Condition::BlitzCostPaid => state.object(source).is_some_and(|o| {
+            o.zone == crate::zone::Zone::Battlefield
+                && o.riders.contains(&crate::object::Rider::Blitzed)
+        }),
+        Condition::AltCostPaid => state.object(source).is_some_and(|o| o.alt_cast),
+        Condition::OpponentLostLifeThisTurn => state.players.iter().any(|p| {
+            !state.has_left(p.id)
+                && state.is_opponent(p.id, you)
+                && state.per_turn.life_lost[usize::from(p.id.get())]
+        }),
+        Condition::Surge => {
+            let side = state.side_of(you);
+            state.players.iter().any(|p| {
+                !state.has_left(p.id)
+                    && state.side_of(p.id) == side
+                    && state.per_turn.spells_cast_by(p.id) > 0
+            })
+        }
+        Condition::Prowl => {
+            let Some(spell_obj) = state.object(source) else {
+                return false;
+            };
+            let front = crate::casting::split_front(state, spell_obj);
+            let spell_obj = front.as_ref().unwrap_or(spell_obj);
+            let creature_types = spell_obj
+                .characteristics()
+                .subtypes
+                .intersection(baylee_core::types::SubtypeSet::ALL_CREATURE);
+            !creature_types.is_empty()
+                && state.per_turn.damage_log.iter().any(|entry| {
+                    entry.combat
+                        && entry.amount > 0
+                        && matches!(entry.to, crate::event::DamageTarget::Player(_))
+                        && entry.snapshot.controller == you
+                        && entry
+                            .snapshot
+                            .characteristics()
+                            .subtypes
+                            .intersects(creature_types)
+                })
+        }
         Condition::AttachedMatches(filter) => attached_for_ability(state, source, None, None)
             .is_some_and(|o| matches_with_context(filter, state, o, you, context)),
         Condition::SourceMatches(filter) => state
@@ -711,6 +752,9 @@ pub(crate) fn intervening_if_for_incarnation(
         Some(Condition::KickedWith(index)) => state
             .damage_source(source, version)
             .is_some_and(|object| object.kicked_with(index)),
+        Some(Condition::AltCostPaid) => state
+            .damage_source(source, version)
+            .is_some_and(|object| object.alt_cast),
         Some(Condition::SourceCameUnderYourControlSinceYourLastUpkeep) => {
             super::upkeep_history::came_under_your_control(state, you, source, version)
         }

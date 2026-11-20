@@ -1431,6 +1431,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.state
                     .delay_for_resolved_permanent(spell, controller, &DASH_RETURN);
             }
+            let blitzed = self
+                .state
+                .object(spell)
+                .is_some_and(|obj| obj.riders.contains(&crate::object::Rider::Blitzed));
+            if blitzed && let Some(obj) = self.state.object(spell) {
+                let controller = obj.controller;
+                self.state
+                    .delay_for_resolved_permanent(spell, controller, &super::BLITZ_SACRIFICE);
+            }
+            let suspend_haste_caster = self.state.object(spell).and_then(|obj| {
+                obj.riders
+                    .iter()
+                    .find_map(|r| match r {
+                        crate::object::Rider::SuspendHaste(caster) => Some(*caster),
+                        _ => None,
+                    })
+                    .filter(|&caster| obj.controller == caster)
+            });
             self.a_copy_becomes_a_token(spell);
             if let Some(obj) = self.state.object_mut(spell) {
                 obj.kind = ObjectKind::Permanent;
@@ -1443,6 +1461,60 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 ZonePosition::Top,
                 Cause::Spell,
             );
+            if let Some(object) = self.state.object_mut(spell) {
+                object
+                    .riders
+                    .retain(|rider| !matches!(rider, crate::object::Rider::SuspendHaste(_)));
+            }
+            if let Some(caster) = suspend_haste_caster
+                && self.state.object(spell).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield && o.controller == caster
+                })
+            {
+                let ts = self.state.next_timestamp();
+                let filter = crate::effects::EffectFilter::object(&self.state, spell);
+                self.state
+                    .effects
+                    .register(crate::effects::ContinuousEffect {
+                        id: baylee_core::ids::EffectId::new(0),
+                        source: Some(spell),
+                        controller: caster,
+                        layer: baylee_cards_dsl::Layer::Ability,
+                        filter,
+                        modifier: baylee_cards_dsl::Modifier::AddKeyword(
+                            baylee_cards_dsl::KeywordSet::HASTE,
+                        ),
+                        timestamp: ts,
+                        duration: baylee_cards_dsl::Duration::WhileYouControlSource,
+                        origin: crate::effects::EffectOrigin::Resolution,
+                    });
+                self.state.invalidate_projections();
+            }
+            if blitzed
+                && let Some(controller) = self
+                    .state
+                    .object(spell)
+                    .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                    .map(|o| o.controller)
+            {
+                let filter = crate::effects::EffectFilter::object(&self.state, spell);
+                self.state
+                    .effects
+                    .register(crate::effects::ContinuousEffect {
+                        id: baylee_core::ids::EffectId::new(0),
+                        source: Some(spell),
+                        controller,
+                        layer: baylee_cards_dsl::Layer::Ability,
+                        filter,
+                        modifier: baylee_cards_dsl::Modifier::AddKeyword(
+                            baylee_cards_dsl::KeywordSet::HASTE,
+                        ),
+                        timestamp: 0,
+                        duration: baylee_cards_dsl::Duration::Indefinitely,
+                        origin: crate::effects::EffectOrigin::Resolution,
+                    });
+                self.state.invalidate_projections();
+            }
             if finality {
                 crate::entry::put_entry_counters(
                     &mut self.state,

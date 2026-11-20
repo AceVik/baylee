@@ -532,6 +532,34 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 });
             }
         }
+        // Blitz (CR 702.152a): its cost (mana + non-mana parts) "rather than its mana cost".
+        if let Some(blitz) = face.blitz {
+            let taxed = baylee_cards_dsl::Cost {
+                mana: if defer_mana {
+                    ManaCost::ZERO
+                } else {
+                    price(blitz.mana)
+                },
+                ..blitz
+            };
+            if self.can_afford(player, card, &taxed, casting::SpendFor::Spell(card))
+                && casting::additional_payment_capacity_for(
+                    &self.state,
+                    player,
+                    card,
+                    face,
+                    Some(CastModeKind::Blitz),
+                    &[],
+                )
+                .is_some()
+            {
+                options.push(CastModeDesc {
+                    index: (options.len()) as u32,
+                    kind: CastModeKind::Blitz,
+                    cost: price(blitz.mana),
+                });
+            }
+        }
         if let Some(mutate) = face.mutate
             && casting::kicked_targets_reachable(
                 &self.state,
@@ -753,6 +781,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         && casting::mana_cost_mode(def, face_index, option.kind)
                         && casting::flashback_granted(&self.state, card))
             });
+        }
+        if foretell_cost.is_some()
+            && !commanded
+            && casting::play_permission(&self.state, player, card).is_none()
+        {
+            options.retain(|o| matches!(o.kind, CastModeKind::Foretell));
         }
         if commanded
             && self.state.turn.active == player

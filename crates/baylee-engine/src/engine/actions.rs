@@ -901,13 +901,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             (Pending::Priority { player: p, .. }, PlayerAction::Suspend { card })
                 if *p == player =>
             {
+                if !casting::can_begin_suspend(&self.state, &self.lookup, player, card) {
+                    return Err(EngineError::IllegalAction("cannot suspend this card now"));
+                }
                 let (counters, cost) = self
                     .state
                     .object(card)
                     .and_then(|o| o.card)
                     .and_then(|c| self.lookup.card(c.index))
                     .and_then(|def| {
-                        def.abilities.iter().find_map(|a| match a {
+                        def.abilities_for_face(0).iter().find_map(|a| match a {
                             AbilityDef::Suspend { counters, cost } => Some((*counters, *cost)),
                             _ => None,
                         })

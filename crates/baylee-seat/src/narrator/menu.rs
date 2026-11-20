@@ -1804,6 +1804,7 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
             format!("Cast it with beam me up for {cost}, returning a creature you control")
         }
         CastModeKind::Dash => format!("Cast it with dash for {cost}"),
+        CastModeKind::Blitz => format!("Cast it with blitz for {cost}"),
         CastModeKind::Dungeon(dungeon) => format!("Enter {}", dungeon.name()),
         CastModeKind::DungeonRoom { dungeon, room } => {
             format!("Enter {}", dungeon.rooms()[usize::from(room)])

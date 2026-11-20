@@ -298,7 +298,9 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 96 adds `CastModeKind::Bestow` (CR 702.103) and
 /// `CastModeKind::JumpStart` (CR 702.133a), engine cast-mode variants a reader
 /// of 95 cannot decode.
-pub const VIEW_VERSION: u32 = 96;
+/// Version 97 adds `CastModeKind::Blitz` (CR 702.152a), an engine cast-mode
+/// variant a reader of 96 cannot decode.
+pub const VIEW_VERSION: u32 = 97;
 
 // ------------------------------------------------------------------- targets
 

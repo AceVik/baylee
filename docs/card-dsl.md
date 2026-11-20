@@ -434,7 +434,14 @@ express at all yet.
   when every part is one of those and the condition maps one to one (none,
   "not your turn", a commander you control, or `If` over your turn, raid, a
   count of permanents you or an opponent control, threshold, your life, cards
-  in your graveyard); any other part or condition stays refused.
+  in your graveyard); any other part or condition stays refused. Named keyword
+  constructors `AlternativeCost::spectacle(cost)` (CR 702.137a,
+  `Condition::OpponentLostLifeThisTurn`), `AlternativeCost::surge(cost)`
+  (CR 702.117a, `Condition::Surge`), and `AlternativeCost::prowl(cost)`
+  (CR 702.76a, `Condition::Prowl`) build the corresponding conditional
+  alternative costs, and `Condition::AltCostPaid` checks on the spell or the
+  permanent it became whether an `AlternativeCost` was paid (CR 601.2b,
+  CR 400.7d).
 - `FaceDef.additional_costs: &[Cost]` — kicker (optional, yes/no at cast,
   CR 702.33a–b). One element is a single kicker (`YesNoPrompt::Kicker`);
   multiple elements are dual/multi-cost kickers (`Kicker [A] and/or [B]`,
@@ -2872,6 +2879,11 @@ Filters, conditions, modifiers and durations:
   blinked or bounced one is a new object, CR 400.7). No card writes the
   haste or the return. `Condition::DashCostPaid` is what that trigger asks;
   no card prints it.
+- **`FaceDef.blitz: Option<Cost>`** is "Blitz [cost]" (CR 702.152a), including
+  both mana and non-mana cost parts (e.g. `PayLife`). Cast as
+  `CastModeKind::Blitz`, the permanent the spell becomes has haste, gains
+  "When this permanent dies, draw a card", and is sacrificed at the beginning
+  of the next end step if it is still that permanent (`Condition::BlitzCostPaid`).
 - **`FaceDef.escape: Option<Escape>`** is "Escape—[mana], Exile [N] other
   cards from your graveyard" (CR 702.138a): `Escape { cost, exile }`, the
   shape every printed escape cost has. From its owner's graveyard the cast

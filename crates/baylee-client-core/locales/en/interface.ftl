@@ -3768,6 +3768,9 @@ DifferentManaValues = Choose targets with different mana values
 # Dash (CR 702.109a), the keyword as the German printing names it
 CastDash = Dash
 
+# Blitz (CR 702.152a), the keyword as the German printing names it
+CastBlitz = Blitz
+
 # Mutate (CR 702.140a), the keyword as the German printing names it
 CastMutate = Mutate
 

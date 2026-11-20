@@ -533,6 +533,21 @@ impl HeuristicAgent {
         }) {
             return free;
         }
+        // Conditional turn-state discounts (spectacle, surge, prowl) with no
+        // non-mana drawback beat or tie `Normal` while unlocking cast bonuses.
+        let normal_cmc = options
+            .iter()
+            .find(|o| matches!(o.kind, CastModeKind::Normal))
+            .map(|o| o.cost.cmc());
+        if let Some(bonus_alt) = options.iter().position(|option| match option.kind {
+            CastModeKind::Alternative(i) => {
+                Self::is_upside_turn_alt(view, object, i)
+                    && normal_cmc.is_none_or(|cmc| option.cost.cmc() <= cmc)
+            }
+            _ => false,
+        }) {
+            return bonus_alt;
+        }
         if let Some(normal) = options
             .iter()
             .position(|option| matches!(option.kind, CastModeKind::Normal))
@@ -617,6 +632,29 @@ impl HeuristicAgent {
             .and_then(crate::policy::face)
             .and_then(|face| face.alternative_costs.get(index))
             .is_some_and(|alt| alt.cost.parts.is_empty())
+    }
+
+    /// Whether alternative cost `index` is a pure-upside mana-only conditional
+    /// cost (spectacle, surge, prowl) with no non-mana sacrifice/discard/life.
+    fn is_upside_turn_alt(view: &PlayerView, object: ObjectId, index: usize) -> bool {
+        view.hand
+            .iter()
+            .find(|c| c.id == object)
+            .map(|c| c.card)
+            .or_else(|| view.object(object).and_then(|o| o.card))
+            .and_then(crate::policy::face)
+            .and_then(|face| face.alternative_costs.get(index))
+            .is_some_and(|alt| {
+                alt.cost.parts.is_empty()
+                    && matches!(
+                        alt.condition,
+                        baylee_cards_dsl::AltCondition::If(
+                            baylee_cards_dsl::Condition::OpponentLostLifeThisTurn
+                                | baylee_cards_dsl::Condition::Surge
+                                | baylee_cards_dsl::Condition::Prowl
+                        )
+                    )
+            })
     }
 
     /// The printed modes the question is about, or `None` when they cannot be

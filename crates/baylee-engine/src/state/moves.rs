@@ -790,6 +790,8 @@ impl GameState {
                         crate::object::Rider::EntryP1P1(_)
                             | crate::object::Rider::EntryFinality
                             | crate::object::Rider::Dashed
+                            | crate::object::Rider::Blitzed
+                            | crate::object::Rider::SuspendHaste(_)
                             | crate::object::Rider::Mutating
                             | crate::object::Rider::Bestowed
                             | crate::object::Rider::Escaped

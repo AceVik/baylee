@@ -126,6 +126,10 @@ pub enum CastModeKind {
     /// Cast from the owner's graveyard using jump-start (CR 702.133a): pays the
     /// face's mana cost plus discarding a card, and exiles when leaving the stack.
     JumpStart,
+    /// Cast for the face's blitz cost (CR 702.152a): the permanent it becomes
+    /// has haste, draws a card when it dies, and is sacrificed at the beginning
+    /// of the next end step.
+    Blitz,
 }
 
 /// One way a resolved instant or sorcery can leave the stack in place of the

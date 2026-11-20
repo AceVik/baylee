@@ -314,6 +314,12 @@ fn no_card_costs_a_colour_its_identity_leaves_out() {
             if let Some(bestow) = face.bestow {
                 add(&bestow.mana);
             }
+            if let Some(dash) = face.dash {
+                add(&dash);
+            }
+            if let Some(blitz) = face.blitz {
+                add(&blitz.mana);
+            }
         }
         for ability in def
             .faces

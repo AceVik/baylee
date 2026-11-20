@@ -487,6 +487,35 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             return;
         }
         let scan_from = self.trigger_scan_seq;
+        for entry in &self.state.journal.entries()[scan_from as usize..] {
+            if let crate::event::GameEvent::CounterChanged {
+                object,
+                version,
+                kind: baylee_cards_dsl::CounterKind::Time,
+                old,
+                new: 0,
+                ..
+            } = entry.event
+                && old > 0
+                && let Some(owner) = self
+                    .state
+                    .object(object)
+                    .filter(|o| {
+                        o.zone == crate::zone::Zone::Exile
+                            && o.version == version
+                            && o.riders.contains(&crate::object::Rider::Suspend)
+                    })
+                    .map(|o| o.owner)
+            {
+                self.delayed_queue.push_back((
+                    owner,
+                    crate::state::DelayedAction::CastFromExileWithoutPaying {
+                        card: object,
+                        version,
+                    },
+                ));
+            }
+        }
         let found = trigger::collect(&self.state, &self.lookup, scan_from);
         crate::trigger::bird_entry::consume(&mut self.state, scan_from);
         self.trigger_scan_seq = self.state.journal.last_seq();

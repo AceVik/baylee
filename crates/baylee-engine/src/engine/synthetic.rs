@@ -72,6 +72,7 @@ pub fn land_face(name: &'static str) -> FaceDef {
         disturb: false,
         adventure: false,
         dash: None,
+        blitz: None,
         mutate: None,
         morph: None,
         megamorph: None,

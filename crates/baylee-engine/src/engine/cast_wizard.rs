@@ -198,6 +198,9 @@ pub struct CastWizard {
     pub options: Vec<CastModeDesc>,
     /// Whether this cast is free (rebound, suspend finish).
     pub free: bool,
+    /// Whether this free cast was started by Suspend's last-time-counter
+    /// trigger (CR 702.62a), granting creature spells haste until lost control.
+    pub from_suspend: bool,
     /// This nested cast uses the costless, nameless 2/2 face.
     pub masked: bool,
     /// This cast revealed a privately visible exiled card on announcement.
@@ -271,6 +274,7 @@ impl CastWizard {
             stage,
             options,
             free: false,
+            from_suspend: false,
             masked: false,
             revealed_exile: false,
             by_effect: None,
@@ -687,6 +691,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             )
             || !casting::spell_condition_allows(&self.state, player, card, def, 0)
             || casting::face_is_forbidden(&self.state, player, object, def, 0)
+            || casting::additional_payment_capacity_for(
+                &self.state,
+                player,
+                card,
+                &def.faces[0],
+                Some(CastModeKind::Miracle),
+                &[],
+            )
+            .is_none()
         {
             return None;
         }
@@ -745,6 +758,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         player: PlayerId,
         card: ObjectId,
     ) -> Result<(), EngineError> {
+        self.start_exile_free_cast(player, card, false)
+    }
+
+    /// Starts a free cast from exile, marking whether it comes from Suspend's
+    /// last-time-counter trigger (`from_suspend`, CR 702.62a).
+    pub(crate) fn start_exile_free_cast(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+        from_suspend: bool,
+    ) -> Result<(), EngineError> {
         let Some(def) = self
             .state
             .object(card)
@@ -780,7 +804,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if options.is_empty() {
             return Err(EngineError::IllegalAction("cannot pay spell cost increase"));
         }
-        self.start_free_cast_options(player, card, options, false, None)
+        self.start_free_cast_options_ex(player, card, options, false, None, from_suspend)
     }
 
     fn start_free_cast_options(
@@ -790,6 +814,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         options: Vec<CastModeDesc>,
         by_effect: bool,
         forced_face: Option<u8>,
+    ) -> Result<(), EngineError> {
+        self.start_free_cast_options_ex(player, card, options, by_effect, forced_face, false)
+    }
+
+    fn start_free_cast_options_ex(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+        options: Vec<CastModeDesc>,
+        by_effect: bool,
+        forced_face: Option<u8>,
+        from_suspend: bool,
     ) -> Result<(), EngineError> {
         let (option, stage) = match options.as_slice() {
             [] => return Err(EngineError::IllegalAction("no legal free play")),
@@ -802,6 +838,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             option,
             forced_face,
             free: true,
+            from_suspend,
             by_effect: by_effect.then_some(EffectCast::Plain),
             ..CastWizard::new(card, player, stage, options)
         };

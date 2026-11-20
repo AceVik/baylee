@@ -580,6 +580,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             if wizard.option == Some(CastModeKind::Dash) {
                 obj.riders.push(crate::object::Rider::Dashed);
             }
+            obj.riders.retain(|r| *r != crate::object::Rider::Blitzed);
+            if wizard.option == Some(CastModeKind::Blitz) {
+                obj.riders.push(crate::object::Rider::Blitzed);
+            }
+            obj.riders
+                .retain(|r| !matches!(r, crate::object::Rider::SuspendHaste(_)));
             obj.riders.retain(|r| *r != crate::object::Rider::Mutating);
             if wizard.option == Some(CastModeKind::Mutate) {
                 obj.riders.push(crate::object::Rider::Mutating);
@@ -694,6 +700,37 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
         }
         if matches!(wizard.option, Some(CastModeKind::Bestow)) {
+            self.state.invalidate_projections();
+        }
+        if wizard.from_suspend
+            && self.state.object(card).is_some_and(|o| {
+                o.characteristics()
+                    .types
+                    .contains(baylee_core::types::TypeSet::CREATURE)
+            })
+        {
+            if let Some(obj) = self.state.object_mut(card) {
+                obj.riders.push(crate::object::Rider::SuspendHaste(player));
+            }
+            let ts = self.state.next_timestamp();
+            let filter = crate::effects::EffectFilter::object(&self.state, card);
+            self.state
+                .effects
+                .register(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(card),
+                    controller: player,
+                    layer: baylee_cards_dsl::Layer::Ability,
+                    filter,
+                    modifier: baylee_cards_dsl::Modifier::AddKeyword(
+                        baylee_cards_dsl::KeywordSet::HASTE,
+                    ),
+                    timestamp: ts,
+                    duration: baylee_cards_dsl::Duration::WhileSourceInZone(
+                        baylee_cards_dsl::ZoneRef::Stack,
+                    ),
+                    origin: crate::effects::EffectOrigin::Resolution,
+                });
             self.state.invalidate_projections();
         }
         self.apply_spend_riders(player, wizard.card, &spent_riders);

@@ -507,6 +507,27 @@ pub enum Condition {
     /// was kicked with `face.additional_costs[index]` (CR 702.33f, CR 400.7d).
     /// Appended to preserve replay identities.
     KickedWith(u8),
+    /// "If this spell's blitz cost was paid" (CR 702.152a), asked of the
+    /// source on the battlefield as the permanent a spell cast for its blitz
+    /// cost became, and not having left it since. Appended to preserve replay
+    /// identities.
+    BlitzCostPaid,
+    /// The source spell (or the permanent that spell became on resolving from
+    /// the stack) was cast for an `AlternativeCost` (`CastModeKind::Alternative`,
+    /// e.g. spectacle, surge, prowl, evoke; CR 601.2b, CR 400.7d). Appended to
+    /// preserve replay identities.
+    AltCostPaid,
+    /// An opponent lost life this turn (Spectacle, CR 702.137a; Bloodthirst).
+    /// Appended to preserve replay identities.
+    OpponentLostLifeThisTurn,
+    /// You or one of your teammates has cast another spell this turn (Surge,
+    /// CR 702.117a). Appended to preserve replay identities.
+    Surge,
+    /// A player was dealt combat damage this turn by a source that, at the
+    /// time it dealt that damage, was under your control and had any of this
+    /// spell's creature types (Prowl, CR 702.76a). Appended to preserve replay
+    /// identities.
+    Prowl,
 }
 
 /// Trigger conditions for triggered abilities.

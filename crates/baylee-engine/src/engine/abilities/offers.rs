@@ -867,7 +867,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         // could ever suspend a card that prints no mana cost
                         // (Carbon block 3, Ancestral Vision).
                         AbilityDef::Suspend { cost, .. }
-                            if from == ActivationZone::Hand && sorcery_timing =>
+                            if from == ActivationZone::Hand
+                                && casting::can_begin_suspend(
+                                    &self.state,
+                                    &self.lookup,
+                                    player,
+                                    card,
+                                ) =>
                         {
                             if self.can_pay_mana(
                                 player,

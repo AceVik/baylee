@@ -62,6 +62,7 @@ pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
     s[74] = f32::from(u8::from(
         face.miracle.is_some()
             || face.dash.is_some()
+            || face.blitz.is_some()
             || face.mutate.is_some()
             || face.bestow.is_some(),
     ));

@@ -384,7 +384,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .state
                 .object(card)
                 .map_or(0, |o| o.counters.get(baylee_cards_dsl::CounterKind::Time));
-            if remaining <= 1 {
+            if remaining == 1 {
                 // Last counter removed: cast it without paying (CR 702.62a).
                 if let Some(obj) = self.state.object_mut(card) {
                     obj.counters.set(baylee_cards_dsl::CounterKind::Time, 0);
@@ -396,7 +396,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         version: self.state.object(card).map_or(0, |o| o.version),
                     },
                 ));
-            } else {
+            } else if remaining > 1 {
                 crate::replacement::remove_counters(
                     &mut self.state,
                     card,

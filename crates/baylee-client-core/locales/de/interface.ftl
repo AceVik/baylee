@@ -1244,6 +1244,7 @@ CastForetell = Vorhersage
 CastBeamMeUp = Beam mich hoch
 DifferentManaValues = Wähle Ziele mit unterschiedlichen Manabeträgen
 CastDash = Sturmangriff
+CastBlitz = Blitzangriff
 CastMutate = Mutation
 CastBestow = Göttergabe
 CastJumpStart = Starthilfe

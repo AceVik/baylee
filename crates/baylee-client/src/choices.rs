@@ -1214,6 +1214,7 @@ fn walk_the_names(
 /// found, and the effect-less mode a player declines "choose up to one"
 /// with, which a card prints nowhere. A trigger's mode costs nothing, so
 /// without the number those rows would be blank and identical.
+#[allow(clippy::too_many_lines)] // exhaustive flat match over every CastModeKind variant
 fn cast_label(
     kind: baylee_engine::choice::CastModeKind,
     lang: Lang,
@@ -1285,6 +1286,7 @@ fn cast_label(
         K::Foretell => Phrase::CastForetell.text(lang).to_string(),
         K::BeamMeUp => Phrase::CastBeamMeUp.text(lang).to_string(),
         K::Dash => Phrase::CastDash.text(lang).to_string(),
+        K::Blitz => Phrase::CastBlitz.text(lang).to_string(),
         K::Mutate => Phrase::CastMutate.text(lang).to_string(),
         K::Bestow => Phrase::CastBestow.text(lang).to_string(),
         K::JumpStart => Phrase::CastJumpStart.text(lang).to_string(),

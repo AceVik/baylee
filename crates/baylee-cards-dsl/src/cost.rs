@@ -335,6 +335,39 @@ pub struct AlternativeCost {
     pub condition: AltCondition,
 }
 
+impl AlternativeCost {
+    /// Spectacle [cost] (CR 702.137a): pay `cost` rather than its mana cost if
+    /// an opponent lost life this turn.
+    #[must_use]
+    pub const fn spectacle(cost: Cost) -> Self {
+        Self {
+            cost,
+            condition: AltCondition::If(&crate::Condition::OpponentLostLifeThisTurn),
+        }
+    }
+
+    /// Surge [cost] (CR 702.117a): pay `cost` rather than its mana cost if you
+    /// or one of your teammates has cast another spell this turn.
+    #[must_use]
+    pub const fn surge(cost: Cost) -> Self {
+        Self {
+            cost,
+            condition: AltCondition::If(&crate::Condition::Surge),
+        }
+    }
+
+    /// Prowl [cost] (CR 702.76a): pay `cost` rather than its mana cost if a
+    /// player was dealt combat damage this turn by a source you controlled at
+    /// that time that shared a creature type with this spell.
+    #[must_use]
+    pub const fn prowl(cost: Cost) -> Self {
+        Self {
+            cost,
+            condition: AltCondition::If(&crate::Condition::Prowl),
+        }
+    }
+}
+
 /// A complete cost: a mana part plus non-mana parts.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Cost {

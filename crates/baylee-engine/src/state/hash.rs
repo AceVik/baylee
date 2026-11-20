@@ -1524,6 +1524,11 @@ fn hash_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u8(102);
             player.hash(h);
         }
+        crate::object::Rider::SuspendHaste(player) => {
+            h.u8(103);
+            player.hash(h);
+        }
+        crate::object::Rider::Blitzed => h.u8(104),
         crate::object::Rider::BattleProtector(player) => {
             h.u8(79);
             player.hash(h);
@@ -2202,6 +2207,11 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 h.u8(102);
                 h.u8(p.get());
             }
+            Rider::SuspendHaste(p) => {
+                h.u8(103);
+                h.u8(p.get());
+            }
+            Rider::Blitzed => h.u8(104),
             Rider::ExiledWith { host, version } => {
                 h.u8(13);
                 host.hash(h);

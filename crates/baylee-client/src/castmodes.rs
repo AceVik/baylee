@@ -198,6 +198,11 @@ pub fn reachable_modes(
     if let Some(dash) = face.dash {
         offer(CastModeKind::Dash, dash);
     }
+    if let Some(blitz) = face.blitz
+        && parts_payable(view, card, blitz.parts)
+    {
+        offer(CastModeKind::Blitz, blitz.mana);
+    }
     if let Some(mutate) = face.mutate
         && crate::targeting::requirement_possible(view, baylee_engine::casting::MUTATE_TARGET_REQ)
     {
@@ -211,13 +216,29 @@ pub fn reachable_modes(
         }
     }
     for (i, alt) in face.alternative_costs.iter().enumerate() {
-        if condition_holds(view, alt.condition) && parts_payable(view, card, alt.cost.parts) {
+        if alternative_mode_open(view, legal, card, i, alt)
+            && parts_payable(view, card, alt.cost.parts)
+        {
             offer(CastModeKind::Alternative(i), alt.cost.mana);
         }
     }
     out.extend(face_modes(view, legal, card, &pool, life));
     out.extend(foretell_mode(view, legal, face, &pool));
     out
+}
+
+fn alternative_mode_open(
+    view: &PlayerView,
+    legal: &LegalActions,
+    card: ObjectId,
+    index: usize,
+    alt: &baylee_cards_dsl::AlternativeCost,
+) -> bool {
+    condition_holds(view, alt.condition)
+        || legal
+            .cast_ways
+            .iter()
+            .any(|(c, w)| *c == card && w.kind == CastModeKind::Alternative(index))
 }
 
 fn offer_modal_override_modes(

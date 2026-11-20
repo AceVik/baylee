@@ -1233,11 +1233,9 @@ fn collect_for_objects(
         // text back on the way out (CR 400.7), so `abilities` would answer
         // with the printed card — which is how a Phyrexian Metamorph that had
         // copied Solemn Simulacrum died without drawing anybody a card.
-        let looked_back = if all_kinds {
+        let departed_obj = if all_kinds {
             None
         } else {
-            // Read the departing incarnation before a raw copied list: a
-            // back face resets in its new zone, and lost abilities stay lost.
             state
                 .ltb_versions
                 .iter()
@@ -1248,6 +1246,13 @@ fn collect_for_objects(
                         version: *version,
                     })
                 })
+        };
+        let looked_back = if all_kinds {
+            None
+        } else {
+            // Read the departing incarnation before a raw copied list: a
+            // back face resets in its new zone, and lost abilities stay lost.
+            departed_obj
                 .map(|departed| departed.ability_list(lookup))
                 .or_else(|| {
                     state
@@ -1261,6 +1266,77 @@ fn collect_for_objects(
         // token on the battlefield used to be invisible to triggers —
         // including its own.
         let list = looked_back.unwrap_or_else(|| obj.ability_list(lookup));
+        // Blitz (CR 702.152a): "As long as this permanent's blitz cost was
+        // paid, it has … 'When this permanent dies, draw a card.'"
+        if !all_kinds
+            && !phased_out_only
+            && let Some(departed) = departed_obj
+            && departed.riders.contains(&crate::object::Rider::Blitzed)
+            && departed.characteristics().abilities_lost.is_none()
+            && !departed.characteristics().rules_text_lost
+        {
+            static BLITZ_DIES_DRAW: [baylee_cards_dsl::Effect; 1] =
+                [baylee_cards_dsl::Effect::DrawCards {
+                    amount: baylee_cards_dsl::Amount::Fixed(1),
+                }];
+            let blitz_trigger = Trigger::Dies(&baylee_cards_dsl::Filter::This);
+            let blitz_context = RuleContext {
+                source: permanent,
+                text: TextChangeMap::IDENTITY,
+                resolved_name: None,
+                resolved_subtype: None,
+                reference: None,
+            };
+            for entry in events {
+                let hit = departure_hit(&blitz_trigger, entry, permanent).unwrap_or_else(|| {
+                    hits_with_context(
+                        &blitz_trigger,
+                        &entry.event,
+                        events,
+                        state,
+                        blitz_context,
+                        departed.controller,
+                    )
+                });
+                if hit > 0 {
+                    let times =
+                        trigger_count(state, &blitz_trigger, permanent, departed.controller) * hit;
+                    for _ in 0..times {
+                        triggers.push(PendingTrigger {
+                            text: TextChangeMap::IDENTITY,
+                            source_version: Some(departed.version),
+                            related_objects: None,
+                            grantor: None,
+                            event_subject: None,
+                            event_ability: None,
+                            event_object_identity: None,
+                            counter_source_version: None,
+                            event_mana: None,
+                            event_mana_value: None,
+                            event_departure: entry
+                                .departure
+                                .as_ref()
+                                .map(|d| (d.controller, d.toughness)),
+                            event_amount: None,
+                            event_player: None,
+                            source: permanent,
+                            ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                            controller: departed.controller,
+                            timestamp: departed.timestamp,
+                            event_object: Some(permanent),
+                            implicit_target: None,
+                            abilities: None,
+                            synthetic_effects: Some(&BLITZ_DIES_DRAW),
+                            once_per_turn: false,
+                            synthetic_target: None,
+                            chosen_mode: None,
+                            synthetic_condition: None,
+                            in_chosen_order: false,
+                        });
+                    }
+                }
+            }
+        }
         // Ward {N} (engine-level keyword trigger, CR 702.21): an
         // opponent's spell or ability targets this permanent.
         for ability in &list.abilities {

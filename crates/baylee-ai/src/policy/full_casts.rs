@@ -112,7 +112,29 @@ fn ways(view: &PlayerView, legal: &LegalActions) -> Vec<Way> {
                 price: None,
             });
             for (_, way) in legal.cast_ways.iter().filter(|(card, w)| {
-                *card == id && matches!(w.kind, CastModeKind::Disguise | CastModeKind::Bestow)
+                if *card != id {
+                    return false;
+                }
+                match w.kind {
+                    CastModeKind::Disguise
+                    | CastModeKind::Bestow
+                    | CastModeKind::Dash
+                    | CastModeKind::Blitz => true,
+                    CastModeKind::Alternative(i) => face(front)
+                        .and_then(|f| f.alternative_costs.get(i))
+                        .is_some_and(|alt| {
+                            alt.cost.parts.is_empty()
+                                && matches!(
+                                    alt.condition,
+                                    baylee_cards_dsl::AltCondition::If(
+                                        baylee_cards_dsl::Condition::OpponentLostLifeThisTurn
+                                            | baylee_cards_dsl::Condition::Surge
+                                            | baylee_cards_dsl::Condition::Prowl
+                                    )
+                                )
+                        }),
+                    _ => false,
+                }
             }) {
                 out.push(Way {
                     id,

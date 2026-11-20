@@ -574,6 +574,11 @@ pub struct FaceDef {
     /// returns to its owner's hand at the beginning of the next end step.
     /// Mana only, as every printed dash cost is.
     pub dash: Option<ManaCost>,
+    /// Blitz (CR 702.152a): the card may be cast for this cost rather than
+    /// its mana cost; if it was, the permanent it becomes has haste,
+    /// "When this permanent dies, draw a card", and is sacrificed at the
+    /// beginning of the next end step.
+    pub blitz: Option<crate::cost::Cost>,
     /// Escape (CR 702.138a): the card may be cast from its owner's
     /// graveyard for this cost rather than its mana cost. A spell cast so,
     /// and the permanent it becomes, "escaped" (CR 702.138b), which
@@ -678,6 +683,7 @@ impl FaceDef {
         disturb: false,
         adventure: false,
         dash: None,
+        blitz: None,
         escape: None,
         freerunning: None,
         behold_or_pay: None,

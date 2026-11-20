@@ -263,7 +263,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     return false;
                 };
                 let owner = object.owner;
-                let _ = self.start_free_cast(owner, card);
+                let from_suspend = object.riders.contains(&crate::object::Rider::Suspend);
+                let _ = self.start_exile_free_cast(owner, card, from_suspend);
                 self.awaiting_answer
             }
             crate::state::DelayedAction::CastFreeOrBottom { card, version } => {

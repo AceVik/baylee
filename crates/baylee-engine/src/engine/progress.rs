@@ -1275,6 +1275,16 @@ static DASH_RETURN: [Effect; 1] = [Effect::IfCondition {
     otherwise: &[],
 }];
 
+/// Blitz's delayed triggered ability (CR 702.152a): "sacrifice the permanent
+/// this spell becomes at the beginning of the next end step".
+static BLITZ_SACRIFICE: [Effect; 1] = [Effect::IfCondition {
+    condition: baylee_cards_dsl::Condition::BlitzCostPaid,
+    then: &[Effect::SacrificeObject {
+        target: TargetSpec::EventObject,
+    }],
+    otherwise: &[],
+}];
+
 /// The engine's own steps, named for the card test crates (`test-support`) and
 /// their kit: the steps stay the engine's, these only call them.
 #[cfg(any(test, feature = "test-support"))]

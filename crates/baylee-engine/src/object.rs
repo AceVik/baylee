@@ -1119,6 +1119,12 @@ pub enum Rider {
     Bestowed,
     /// Encore token requirement (CR 702.141a): attacks this opponent this turn if able.
     MustAttackPlayerThisTurn(PlayerId),
+    /// Creature spell cast via suspend (CR 702.62a): gains haste until this
+    /// caster loses control of the spell or the permanent it becomes.
+    SuspendHaste(PlayerId),
+    /// Cast for its blitz cost (CR 702.152a): the permanent it becomes has
+    /// haste, draws a card when it dies, and is sacrificed at the next end step.
+    Blitzed,
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1240,6 +1246,8 @@ impl Rider {
             | Self::EventAmount(_)
             | Self::Bestowed
             | Self::MustAttackPlayerThisTurn(_)
+            | Self::SuspendHaste(_)
+            | Self::Blitzed
             | Self::EventPlayer(_)
             | Self::SyntheticCondition(_) => false,
         }

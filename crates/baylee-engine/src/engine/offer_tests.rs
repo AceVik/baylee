@@ -953,6 +953,7 @@ fn unpaid_cost_parts(face: &baylee_cards_dsl::FaceDef) -> Vec<String> {
         .chain(face.flashback_parts)
         .chain(face.madness.iter().flat_map(|cost| cost.parts))
         .chain(face.bestow.iter().flat_map(|cost| cost.parts))
+        .chain(face.blitz.iter().flat_map(|cost| cost.parts))
     {
         if !crate::engine::cast_wizard::paid_as_an_alternative_cost(part) {
             offenders.push(format!(

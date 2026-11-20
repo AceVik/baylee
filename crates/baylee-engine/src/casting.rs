@@ -386,14 +386,15 @@ pub fn has_priced_ways(def: &baylee_cards_dsl::CardDef) -> bool {
     face.entwine.is_some()
         || face.kicked_targets.is_some()
         || face.dash.is_some()
+        || face.blitz.is_some()
         || face.mutate.is_some()
         || face.bestow.is_some()
         || face.has_face_down_cast()
         || face.prototype.is_some()
-        || face
-            .alternative_costs
-            .iter()
-            .any(|alt| alt.cost.mana != ManaCost::ZERO)
+        || face.alternative_costs.iter().any(|alt| {
+            alt.cost.mana != ManaCost::ZERO
+                || matches!(alt.condition, baylee_cards_dsl::AltCondition::If(_))
+        })
         || castable_back_faces(def, false).next().is_some()
         || def.abilities_for_face(0).iter().any(|ability| {
             matches!(
@@ -1792,13 +1793,28 @@ pub(crate) fn can_cast_form_paying(
         let any_face = a_back_face_castable();
         // Dash (CR 702.109a), the offer's `CastModeKind::Dash`.
         let any_dash = !flashback_only && face.dash.is_some_and(|dash| probe(&dash));
+        // Blitz (CR 702.152a), the offer's `CastModeKind::Blitz`.
+        let any_blitz = !flashback_only
+            && face.blitz.is_some_and(|blitz| {
+                probe(&blitz.mana.with_x(0))
+                    && alternative_parts_payable(state, player, card, blitz.parts)
+                    && additional_payment_capacity_for(
+                        state,
+                        player,
+                        card,
+                        face,
+                        Some(crate::choice::CastModeKind::Blitz),
+                        &[],
+                    )
+                    .is_some()
+            });
         // Mutate (CR 702.140a), the offer's `CastModeKind::Mutate`.
         let any_mutate = !flashback_only
             && face.mutate.is_some_and(|mutate| {
                 kicked_targets_reachable(state, def, player, card, MUTATE_TARGET_REQ)
                     && probe(&mutate)
             });
-        if !any_alt && !any_mode && !any_face && !any_dash && !any_mutate {
+        if !any_alt && !any_mode && !any_face && !any_dash && !any_blitz && !any_mutate {
             // Which of the two refused matters to whoever reads it. A mode
             // that was affordable and had nothing to point at is not a
             // player one land short, and telling them it is sends them
@@ -1826,6 +1842,35 @@ pub(crate) fn can_cast_form_paying(
         }
     }
     Ok(())
+}
+
+/// Whether `player` could begin to cast `card` by putting it onto the stack
+/// from their hand right now, taking cast prohibitions and timing into account
+/// (CR 702.62a, CR 702.62c).
+#[must_use]
+pub(crate) fn can_begin_suspend(
+    state: &GameState,
+    lookup: &impl crate::state::CardLookup,
+    player: PlayerId,
+    card: ObjectId,
+) -> bool {
+    let Some(obj) = state.object(card) else {
+        return false;
+    };
+    if obj.zone != Zone::Hand || obj.zone_owner != Some(player) {
+        return false;
+    }
+    if split_second_on_stack(state) || !may_begin_casting(state, player) {
+        return false;
+    }
+    let projected = split_front(state, obj);
+    let obj = projected.as_ref().unwrap_or(obj);
+    let c = obj.characteristics();
+    let printed = obj.card.and_then(|c| lookup.card(c.index));
+    !c.types.contains(TypeSet::LAND)
+        && !cast_is_forbidden(state, player, obj)
+        && timing_allows(state, player, c.types, c.keywords)
+        && printed.is_none_or(|def| spell_condition_allows(state, player, card, def, 0))
 }
 /// Does `player` control one of their own commanders right now?
 ///

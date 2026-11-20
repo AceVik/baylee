@@ -16,6 +16,7 @@
 //! never the rule that is set.
 
 mod alone_attack;
+mod alternate_casting_wave3;
 mod amplify;
 mod assignment_restrictions;
 mod attacking_tokens;
