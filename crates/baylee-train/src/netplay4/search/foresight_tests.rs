@@ -350,6 +350,82 @@ fn game_end_measurement_never_scores_a_settled_priority_or_turn_boundary() {
     }
 }
 
+#[test]
+fn payable_pair_measures_two_distinct_casts_with_their_payments_and_keeps_the_real_move() {
+    let mut preset = deal(31, &opponent("Grizzly Bears"));
+    let seat = &mut preset.seats[0];
+    let entry = |name: &str| {
+        *seat
+            .deck
+            .iter()
+            .find(|e| Some(e.card) == by_name(name))
+            .expect("test deck has card")
+    };
+    seat.starting_hand = Some(
+        [
+            "Mountain",
+            "Mountain",
+            "Mountain",
+            "Goblin Piker",
+            "Lightning Bolt",
+            "Goblin Piker",
+            "Lightning Bolt",
+        ]
+        .map(entry)
+        .to_vec(),
+    );
+    let conserve = |_: &PlayerView, pending: &Pending| match pending {
+        Pending::Priority { legal, .. } => Some(
+            legal
+                .lands
+                .first()
+                .map_or(PlayerAction::PassPriority, |card| PlayerAction::PlayLand {
+                    card: *card,
+                }),
+        ),
+        _ => None,
+    };
+    let config = config(3, 2, 10_000)
+        .with_fair(true)
+        .with_game_end(true)
+        .with_payable_pair(true)
+        .with_house_free(true)
+        .with_selection(Selection4::Measure)
+        .unwrap();
+    let played = play(&preset, Mock::new(conserve, creatures), config);
+    assert!(
+        !played.reports.is_empty(),
+        "there must be two affordable, different spells"
+    );
+    let mut saw_natural = false;
+    for report in played.reports {
+        assert_eq!(report.chosen, 0);
+        assert!(!report.changed);
+        assert_eq!(report.house_answers, 0);
+        assert_eq!(report.candidates, 3);
+        assert_ne!(report.scripts[1], report.scripts[2]);
+        let plans = report.planned_actions.expect("complete planned payment");
+        assert!(plans[0].is_none());
+        for i in [1, 2] {
+            let plan = plans[i].as_ref().expect("cast script");
+            assert_eq!(plan.first(), Some(&report.actions[i]));
+            assert_eq!(plan.last(), report.scripts[i].as_ref());
+            assert!(matches!(plan.last(), Some(PlayerAction::CastSpell { .. })));
+        }
+        assert_eq!(report.worlds.len(), 2);
+        assert_eq!(report.ends.len(), 2);
+        assert!(report.worlds.iter().all(|world| world.len() == 3));
+        saw_natural |= report
+            .ends
+            .iter()
+            .any(|world| world[1] == LeafEnd4::Terminal && world[2] == LeafEnd4::Terminal);
+    }
+    assert!(
+        saw_natural,
+        "both paid casts must reach genuine game end in at least one paired world"
+    );
+}
+
 /// A player whose later rollout answers are the house's, as a net's
 /// fallbacks are: by default they are played and counted, and a house-free
 /// search stops each rollout before the first of them, so no house answer is

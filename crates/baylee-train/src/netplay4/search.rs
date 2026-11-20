@@ -132,6 +132,7 @@ pub struct SearchConfig4 {
     turns: usize,
     until_game_over: bool,
     macros: bool,
+    payable_pair: bool,
     house: HouseInWorlds4,
     taken_back: TakenBackAtRoots4,
     stepping: Stepping4,
@@ -248,6 +249,7 @@ impl SearchConfig4 {
             turns: 0,
             until_game_over: false,
             macros: false,
+            payable_pair: false,
             house: HouseInWorlds4::Answers,
             taken_back: TakenBackAtRoots4::Compared,
             stepping: Stepping4::Free,
@@ -336,6 +338,17 @@ impl SearchConfig4 {
     #[must_use]
     pub const fn macros(&self) -> bool {
         self.macros
+    }
+
+    /// Restricts the macro measurement to the policy anchor and the first
+    /// two public, affordable plans for distinct known spell identities.
+    #[must_use]
+    pub const fn with_payable_pair(self, enabled: bool) -> Self {
+        Self {
+            payable_pair: enabled,
+            macros: self.macros || enabled,
+            ..self
+        }
     }
 
     /// The same search with no house answer in a world: where a rollout's
@@ -658,6 +671,9 @@ impl SearchConfig4 {
             );
             metadata["candidate_order"] =
                 json!("policy_answer_then_the_tactical_layers_answer_from_the_distillation_label");
+        }
+        if self.payable_pair {
+            metadata["payable_pair"] = json!("policy_anchor_then_two_distinct_payable_spells");
         }
         if self.selection == Selection4::Measure {
             metadata["played"] =
@@ -1040,6 +1056,10 @@ pub struct SearchReport4 {
     /// What each candidate's taps pay for, when it is a planned cast or
     /// activation ([`SearchConfig4::with_macros`]); `None` for a single answer.
     pub scripts: Vec<Option<PlayerAction>>,
+    /// At a payable-pair measurement, each script's taps, conditional
+    /// colour selections and cast in execution order.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub planned_actions: Option<Vec<Option<Vec<PlayerAction>>>>,
     /// Complete rounds: worlds in which every candidate was rolled out.
     pub rounds: usize,
     /// The chosen candidate's place in candidate order (`0`: the policy's).
@@ -1827,6 +1847,16 @@ impl<S> Root<'_, S> {
                 self.pending,
                 &self.decision.answer.action,
                 config.combat,
+                first_world,
+            )
+            .map_err(Stop::Refused)
+        } else if config.payable_pair {
+            macros::payable_pair(
+                table,
+                player.view_context(),
+                self.view,
+                self.pending,
+                self.decision,
                 first_world,
             )
             .map_err(Stop::Refused)

@@ -527,6 +527,10 @@ struct Args {
     /// Earliest public turn number on which a measurement can sample a root.
     #[arg(long, default_value_t = 0, requires = "search")]
     search_min_turn: u32,
+    /// Measure the raw policy and two distinct currently payable spells,
+    /// including the complete mana plans, in paired fair worlds.
+    #[arg(long, requires = "search_macros")]
+    search_payable_pair: bool,
     /// Macro candidates at priority: the policy's answer, a pass, each spell
     /// the planner can pay for (its taps and the cast as one candidate),
     /// each ability and each land, read off the engine's offer, K in all.
@@ -665,8 +669,28 @@ fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
     if let Some(refusal) = rival_refusal(args) {
         anyhow::bail!(refusal);
     }
+    if args.search_payable_pair {
+        anyhow::ensure!(
+            args.search_fair
+                && args.search_house_free
+                && args.search_select == SearchSelect::Measure
+                && args.search_rival == SearchRival::Ranking
+                && args.search_macros
+                && config.candidates() == 3
+                && args.raw_policy
+                && args.tactics_rules.is_empty()
+                && args.choice_guard == "off"
+                && args.search_targets == 0
+                && args.search_combat == 0
+                && !args.search_stall_guard
+                && args.distill_labels.is_none(),
+            "payable pairs require three candidates, fair house-free measurement of the raw net, and ordinary macro roots"
+        );
+    }
     anyhow::ensure!(
-        !(args.search_until_game_over || args.search_min_turn > 0) || distill_probe(args),
+        !(args.search_until_game_over || args.search_min_turn > 0)
+            || distill_probe(args)
+            || args.search_payable_pair,
         "terminal or turn-filtered measurements require a fair, measuring distillation rival"
     );
     let rival = match args.search_rival {
@@ -684,6 +708,7 @@ fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
         .with_fair(args.search_fair)
         .with_turns(args.search_turns)?
         .with_game_end(args.search_until_game_over)
+        .with_payable_pair(args.search_payable_pair)
         .with_macros(args.search_macros)
         .with_house_free(args.search_house_free)
         .with_stall_guard(args.search_stall_guard)

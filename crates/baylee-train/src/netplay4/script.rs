@@ -120,6 +120,27 @@ impl Script4 {
         &self.then
     }
 
+    /// The complete public plan at the root, including both conditional
+    /// colour answers of a tap when requested, and the final spell.
+    pub(super) fn planned_actions(&self, first: &PlayerAction) -> Vec<PlayerAction> {
+        let mut actions = Vec::new();
+        let mut push_tap = |action, color: Option<ManaColor>, second: Option<ManaColor>| {
+            actions.push(action);
+            actions.extend(
+                color
+                    .into_iter()
+                    .chain(second)
+                    .map(PlayerAction::ChooseColor),
+            );
+        };
+        push_tap(first.clone(), self.color, self.second);
+        for step in &self.steps {
+            push_tap(tap(step), step.color, step.second);
+        }
+        actions.push(self.then.clone());
+        actions
+    }
+
     /// The script's answer to its seat's question `pending` (`view` is the
     /// seat's view of it). Any question but a colour a tap asks for and the
     /// seat's priority stays the player's.
