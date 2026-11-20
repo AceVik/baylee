@@ -2207,3 +2207,234 @@ fn prevention_per_source_and_chosen_color_or_source_shields() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn wave4_redirect_counters_flashback_tap_reduce_cost_and_computed_pt() {
+    let custom_cats = SubtypeCatalogs {
+        creature: vec!["Goblin".into(), "Human".into()],
+        ..SubtypeCatalogs::default()
+    };
+    let read_cat = |script: &str| {
+        let p = parse(script);
+        transcode(&p, &custom_cats, None).unwrap_or_else(|| {
+            panic!(
+                "expected transcode for:\n{script}\nreason: {:?}",
+                refusal_reason(&p, &custom_cats, None)
+            )
+        })
+    };
+
+    // 1. Damage redirection to self (`RedirectDamageToYou`) & counter absorption (`CountersPreventDamage`).
+    let archangel = read(
+        "Name:Synthetic Guardian\nManaCost:4 W W\nTypes:Creature Angel\nPT:5/8\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ You | \
+         ReplaceWith$ DmgSelf | DamageTarget$ Self\n\
+         SVar:DmgSelf:DB$ ReplaceEffect | VarName$ Affected | VarValue$ Self | VarType$ Card",
+    );
+    assert_eq!(
+        archangel.abilities,
+        ["static_ability!(Filter::This, Modifier::RedirectDamageToYou(&Filter::Any))"]
+    );
+
+    let bodyguard = read(
+        "Name:Synthetic Guard\nManaCost:3 W W\nTypes:Creature Soldier\nPT:2/5\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Creature.unblocked | \
+         ValidTarget$ You | ReplaceWith$ DmgSelf | IsPresent$ Card.Self+untapped | DamageTarget$ Self\n\
+         SVar:DmgSelf:DB$ ReplaceEffect | VarName$ Affected | VarValue$ Self | VarType$ Card",
+    );
+    assert!(
+        bodyguard.abilities[0].contains(
+            "Modifier::RedirectDamageToYou(&SOURCE2), condition = Some(Condition::SourceMatches(&CHECK1))"
+        ),
+        "{:?}",
+        bodyguard.abilities
+    );
+    assert!(
+        bodyguard.statics.contains("Filter::Unblocked"),
+        "{}",
+        bodyguard.statics
+    );
+
+    let hydra = read(
+        "Name:Synthetic Counter Hydra\nManaCost:X R R\nTypes:Creature Hydra\nPT:0/0\n\
+         K:etbCounter:P1P1:X\n\
+         R:Event$ DamageDone | ValidTarget$ Card.Self | ActiveZones$ Battlefield | \
+         ReplaceWith$ RepDmg | PreventionEffect$ True | AlwaysReplace$ True\n\
+         SVar:RepDmg:DB$ ReplaceDamage | Amount$ Z | SubAbility$ RemCtrs\n\
+         SVar:RemCtrs:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ NumDmg\n\
+         SVar:NumDmg:ReplaceCount$DamageAmount\n\
+         SVar:X:Count$xPaid\n\
+         SVar:Y:Count$CardCounters.P1P1\n\
+         SVar:Z:SVar$NumDmg/LimitMax.Y",
+    );
+    assert_eq!(
+        hydra.abilities,
+        ["static_ability!(Filter::This, Modifier::CountersPreventDamage(CounterKind::P1P1))"]
+    );
+
+    // 2. Combat-only redirect, multi-recipient redirect, and all-or-nothing counter shield stay refused.
+    for bad in [
+        "Name:Bad\nTypes:Creature\nPT:2/5\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Creature.unblocked | \
+         ValidTarget$ You | IsCombat$ True | ReplaceWith$ DmgSelf | DamageTarget$ Self\n\
+         SVar:DmgSelf:DB$ ReplaceEffect | VarName$ Affected | VarValue$ Self | VarType$ Card",
+        "Name:Bad\nTypes:Creature\nPT:2/5\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | \
+         ValidTarget$ You,Permanent.Other+YouCtrl | ReplaceWith$ DmgSelf | DamageTarget$ Self\n\
+         SVar:DmgSelf:DB$ ReplaceEffect | VarName$ Affected | VarValue$ Self | VarType$ Card",
+        "Name:Bad\nTypes:Creature\nPT:0/0\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Card.Self | \
+         ReplaceWith$ Rem | PreventionEffect$ True | AlwaysReplace$ True\n\
+         SVar:Rem:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+
+    // 3. `Effect | ReplacementEffects$` untargeted prevention wired through `regeneration.rs`
+    // and `TapN` non-mana Flashback (`Prismatic Strands` shape).
+    let strands = read(
+        "Name:Synthetic Shield Strands\nManaCost:2 W\nTypes:Instant\n\
+         K:Flashback:tapXType<1/Creature.White/white creature>\n\
+         A:SP$ ChooseColor | Defined$ You | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | ReplacementEffects$ RPrevent\n\
+         SVar:RPrevent:Event$ DamageDone | Prevent$ True | ActiveZones$ Command | ValidSource$ Card.ChosenColor",
+    );
+    assert_eq!(strands.flashback.as_deref(), Some("Some(ManaCost::ZERO)"));
+    assert_eq!(
+        strands.flashback_parts,
+        ["TapN { filter: &COST1, count: 1 }"]
+    );
+
+    let solace = read(
+        "Name:Synthetic Solace Card\nManaCost:3 W\nTypes:Enchantment\n\
+         K:ETBReplacement:Other:ChooseCT\n\
+         SVar:ChooseCT:DB$ ChooseType | Defined$ You | Type$ Creature\n\
+         A:AB$ Effect | Cost$ 1 W | ReplacementEffects$ RPrevent\n\
+         SVar:RPrevent:Event$ DamageDone | ValidSource$ Card.ChosenType+inZoneBattlefield | \
+         ValidTarget$ You | ReplaceWith$ ExileEffect | PreventionEffect$ True\n\
+         SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile",
+    );
+    assert!(
+        solace.abilities[0].contains("Effect::PreventNextFromMatchingSources"),
+        "{:?}",
+        solace.abilities
+    );
+
+    // 4. `S: Mode$ ReduceCost`: omitted `ValidCard$`, `PlayerTurn$ You`, combined `IsPresent$` + inline `CheckSVar$`,
+    // and `PresentZone$ Hand` / `Graveyard` with `YouOwn`.
+    let calendar = read(
+        "Name:Synthetic Calendar\nManaCost:5\nTypes:Artifact\n\
+         S:Mode$ ReduceCost | Type$ Spell | Activator$ You | Amount$ 1",
+    );
+    assert_eq!(
+        calendar.abilities,
+        ["static_ability!(Filter::ControlledByYou, Modifier::SpellsCostLess(1))"]
+    );
+
+    let drake = read(
+        "Name:Synthetic Offturn Drake\nManaCost:2 U\nTypes:Creature Drake\nPT:2/3\n\
+         S:Mode$ ReduceCost | Type$ Spell | Activator$ You | Amount$ 1 | Condition$ NotPlayerTurn",
+    );
+    assert_eq!(
+        drake.abilities,
+        [
+            "static_ability!(Filter::ControlledByYou, Modifier::SpellsCostLess(1), condition = Some(Condition::Not(&Condition::YourTurn)))"
+        ]
+    );
+
+    let modulation = read(
+        "Name:Synthetic Turn Reduction\nManaCost:1 U\nTypes:Instant\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 1 | \
+         PlayerTurn$ You | EffectZone$ All\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        modulation.abilities[0],
+        "static_ability!(Filter::This, Modifier::SpellsCostLess(1), zone = ZoneRef::Stack, condition = Some(Condition::YourTurn))"
+    );
+
+    let pair_reduce = read_cat(
+        "Name:Synthetic Pair Draw\nManaCost:2 U\nTypes:Sorcery\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | \
+         IsPresent$ Creature.Human+YouCtrl | CheckSVar$ Count$Valid Creature.nonHuman+YouCtrl\n\
+         A:SP$ Draw | NumCards$ 2",
+    );
+    assert_eq!(
+        pair_reduce.abilities[0],
+        "static_ability!(Filter::This, Modifier::SpellsCostLess(2), zone = ZoneRef::Stack, condition = Some(Condition::All(&[Condition::ControlCount(&CHECK1, 1), Condition::ControlCount(&CHECK2, 1)])))"
+    );
+
+    let no_lands_hand = read(
+        "Name:Synthetic Hand Check\nManaCost:2 G G\nTypes:Creature Snake\nPT:2/3\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 2 | EffectZone$ All | \
+         IsPresent$ Land.YouOwn | PresentZone$ Hand | PresentCompare$ EQ0",
+    );
+    assert_eq!(
+        no_lands_hand.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::SpellsCostLess(2), zone = ZoneRef::Stack, condition = Some(Condition::Not(&Condition::AmountAtLeast(Amount::CountOf { filter: &Filter::LAND, zone: ZoneSel::HandYou }, 1))))"
+        ]
+    );
+
+    let grave_reduce = read(
+        "Name:Synthetic Grave Check\nManaCost:8 U U\nTypes:Creature Octopus\nPT:8/8\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | Amount$ 8 | EffectZone$ All | \
+         IsPresent$ Instant.YouOwn,Sorcery.YouOwn | PresentZone$ Graveyard | PresentCompare$ GE8",
+    );
+    assert_eq!(
+        grave_reduce.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::SpellsCostLess(8), zone = ZoneRef::Stack, condition = Some(Condition::AmountAtLeast(Amount::CountOf { filter: &Filter::INSTANT_OR_SORCERY, zone: ZoneSel::GraveyardOf(PlayerRel::You) }, 8)))"
+        ]
+    );
+
+    // 5. Computed P/T: `DistinctColorsAmong`, graveyard `YouOwn` fallthrough, `/Twice`.
+    let color_flail = read(
+        "Name:Synthetic Color Bearer\nManaCost:1 G W\nTypes:Creature Treefolk\nPT:0/0\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ X | AddToughness$ X\n\
+         SVar:X:Count$Valid Permanent.YouCtrl$Colors",
+    );
+    assert_eq!(
+        color_flail.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::ModifyPTByCount(PtCount::DistinctColorsAmong(&Filter::ControlledByYou)))"
+        ]
+    );
+
+    let cda_colors = read(
+        "Name:Synthetic Color Star\nManaCost:2 G\nTypes:Creature Elemental\nPT:*/*\n\
+         S:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X\n\
+         SVar:X:Count$Valid Permanent.YouCtrl$Colors",
+    );
+    assert_eq!(
+        cda_colors.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::CharacteristicPT { count: PtCount::DistinctColorsAmong(&Filter::ControlledByYou), toughness_plus: 0 })"
+        ]
+    );
+
+    let grave_pt = read(
+        "Name:Synthetic Grave Body\nManaCost:B B G G\nTypes:Creature Zombie\nPT:2/2\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ X | AddToughness$ X\n\
+         SVar:X:Count$ValidGraveyard Creature.YouOwn",
+    );
+    assert_eq!(
+        grave_pt.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::ModifyPTByAmount { power: Amount::CountOf { filter: &Filter::CREATURE, zone: ZoneSel::GraveyardOf(PlayerRel::You) }, toughness: Amount::CountOf { filter: &Filter::CREATURE, zone: ZoneSel::GraveyardOf(PlayerRel::You) } })"
+        ]
+    );
+
+    let twice_goblin = read_cat(
+        "Name:Synthetic Twice Brute\nManaCost:3 R\nTypes:Creature Goblin\nPT:2/4\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ X\n\
+         SVar:X:Count$Valid Goblin.Other+YouCtrl/Twice",
+    );
+    assert_eq!(
+        twice_goblin.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::ModifyPTPerCount { filter: &COUNTED1, p: 2, t: 0 })"
+        ]
+    );
+}

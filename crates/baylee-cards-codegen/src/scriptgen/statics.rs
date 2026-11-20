@@ -1,7 +1,8 @@
 //! Reading static abilities and the modifiers they apply.
 
 use super::{
-    Chain, Params, Tx, animation::supertype_const, card_type_const, counter_kind, keyword_const,
+    Bound, Chain, Params, Tx, animation::supertype_const, card_type_const, count_bound,
+    counter_kind, keyword_const,
 };
 
 impl Tx<'_> {
@@ -668,6 +669,18 @@ impl Tx<'_> {
         let Some(valid) = count.strip_prefix("Count$Valid ") else {
             return self.deny(format!("count `{count}`"));
         };
+        if let Some(color_valid) = valid.strip_suffix("$Colors")
+            && !color_valid.contains('/')
+            && !color_valid.contains('$')
+        {
+            let yours = color_valid.split(['.', '+']).any(|atom| atom == "YouCtrl");
+            if !yours && (color_valid.contains("Ctrl") || color_valid.contains("Own")) {
+                return self.deny(format!("count `{count}`"));
+            }
+            let filter = self.filter_expr(color_valid)?;
+            let name = self.body.filter_static("COUNTED", &filter);
+            return Some(format!("PtCount::DistinctColorsAmong(&{name})"));
+        }
         if valid.contains('/') || valid.contains('$') {
             return self.deny(format!("count `{count}`"));
         }
@@ -988,121 +1001,97 @@ impl Tx<'_> {
         let add_p = p.take("AddPower");
         let add_t = p.take("AddToughness");
         if add_p.is_some() || add_t.is_some() {
+            let mut emitted_pt = false;
             if let (Some(var_p), Some(var_t)) = (add_p.as_deref(), add_t.as_deref())
                 && var_p == var_t
                 && var_p.trim().parse::<i16>().is_err()
                 && let Some(count) = self.svars.get(var_p.trim()).cloned()
-                && let Some(counter) = count.trim().strip_prefix("Count$CardCounters.")
             {
-                let Some(kind) = super::counter_kind(counter) else {
-                    self.note(format!("counter `{counter}`"));
-                    return None;
-                };
-                out.push(Self::static_expr(
-                    filter,
-                    &format!("Modifier::ModifyPTByCount(PtCount::CountersOnThis({kind}))"),
-                ));
-            } else if let (Some(var_p), Some(var_t)) = (add_p.as_deref(), add_t.as_deref())
-                && var_p == var_t
-                && var_p.trim().parse::<i16>().is_err()
-                && let Some(count) = self.svars.get(var_p.trim()).cloned()
-                && let Some(valid) = count.strip_prefix("Count$ValidGraveyard ")
-            {
-                if valid.contains("Ctrl") || valid.contains("Own") || valid.contains('/') {
-                    self.note("static ability with a computed P/T".to_string());
-                    return None;
-                }
-                let Some(counted_filter) = self.filter_expr(valid) else {
-                    self.note("static ability with a computed P/T".to_string());
-                    return None;
-                };
-                let name = self.body.filter_static("COUNTED", &counted_filter);
-                out.push(Self::static_expr(
-                    filter,
-                    &format!("Modifier::ModifyPTByCount(PtCount::InAllGraveyards(&{name}))"),
-                ));
-            } else if let (Some(var_p), Some(var_t)) = (add_p.as_deref(), add_t.as_deref())
-                && var_p == var_t
-                && var_p.trim().parse::<i16>().is_err()
-                && let Some(count) = self.svars.get(var_p.trim()).cloned()
-                && count.trim() == "Count$ValidHand Card.YouOwn"
-            {
-                out.push(Self::static_expr(
-                    filter,
-                    "Modifier::ModifyPTByAmount { power: Amount::HandSize(PlayerRel::You), \
-                     toughness: Amount::HandSize(PlayerRel::You) }",
-                ));
-            } else if let (Some(var_p), Some(var_t)) = (add_p.as_deref(), add_t.as_deref())
-                && var_p == var_t
-                && var_p.trim().parse::<i16>().is_err()
-                && let Some(count) = self.svars.get(var_p.trim()).cloned()
-                && let Some(raw_valid) = count.strip_prefix("Count$Valid ")
-            {
-                let (valid, times) = match raw_valid.split_once("/Times.") {
-                    None => (raw_valid, 1_u8),
-                    Some((v, n)) => {
-                        let Ok(n) = n.trim().parse::<u8>() else {
-                            self.note("static ability with a computed P/T".to_string());
-                            return None;
-                        };
-                        if !(1..=4).contains(&n) {
-                            self.note("static ability with a computed P/T".to_string());
-                            return None;
-                        }
-                        (v, n)
-                    }
-                };
-                if valid.contains('/') {
-                    self.note("static ability with a computed P/T".to_string());
-                    return None;
-                }
-                let yours = valid.split(['.', '+']).any(|atom| atom == "YouCtrl");
-                let opp = valid.split(['.', '+']).any(|atom| atom == "OppCtrl");
-                if !yours && !opp && (valid.contains("Ctrl") || valid.contains("Own")) {
-                    self.note("static ability with a computed P/T".to_string());
-                    return None;
-                }
-                let Some(counted_filter) = self.filter_expr(valid) else {
-                    self.note("static ability with a computed P/T".to_string());
-                    return None;
-                };
-                let name = self.body.filter_static("COUNTED", &counted_filter);
-                let kind = if yours { "YouControl" } else { "OnBattlefield" };
-                for _ in 0..times {
+                let trimmed = count.trim();
+                if let Some(counter) = trimmed.strip_prefix("Count$CardCounters.") {
+                    let Some(kind) = super::counter_kind(counter) else {
+                        self.note(format!("counter `{counter}`"));
+                        return None;
+                    };
                     out.push(Self::static_expr(
                         filter,
-                        &format!("Modifier::ModifyPTByCount(PtCount::{kind}(&{name}))"),
+                        &format!("Modifier::ModifyPTByCount(PtCount::CountersOnThis({kind}))"),
                     ));
-                }
-            } else if let Some((var, power_half)) = match (add_p.as_deref(), add_t.as_deref()) {
-                (Some(vp), None | Some("0" | "+0")) if vp.trim().parse::<i16>().is_err() => {
-                    Some((vp.trim(), true))
-                }
-                (None | Some("0" | "+0"), Some(vt)) if vt.trim().parse::<i16>().is_err() => {
-                    Some((vt.trim(), false))
-                }
-                _ => None,
-            } && let Some(count) = self.svars.get(var).cloned()
-                && let Some(raw_valid) = count.strip_prefix("Count$Valid ")
-            {
-                let (valid, times) = match raw_valid.split_once("/Times.") {
-                    None => (raw_valid, 1_i16),
-                    Some((v, n)) => {
-                        let Ok(n) = n.trim().parse::<i16>() else {
-                            self.note("static ability with a computed P/T".to_string());
-                            return None;
-                        };
-                        if !(1..=4).contains(&n) {
-                            self.note("static ability with a computed P/T".to_string());
-                            return None;
+                    emitted_pt = true;
+                } else if let Some(valid) = trimmed.strip_prefix("Count$ValidGraveyard ")
+                    && !valid.contains("Ctrl")
+                    && !valid.contains("Own")
+                    && !valid.contains('/')
+                    && let Some(counted_filter) = self.filter_expr(valid)
+                {
+                    let name = self.body.filter_static("COUNTED", &counted_filter);
+                    out.push(Self::static_expr(
+                        filter,
+                        &format!("Modifier::ModifyPTByCount(PtCount::InAllGraveyards(&{name}))"),
+                    ));
+                    emitted_pt = true;
+                } else if trimmed == "Count$ValidHand Card.YouOwn" {
+                    out.push(Self::static_expr(
+                        filter,
+                        "Modifier::ModifyPTByAmount { power: Amount::HandSize(PlayerRel::You), \
+                         toughness: Amount::HandSize(PlayerRel::You) }",
+                    ));
+                    emitted_pt = true;
+                } else if let Some(color_valid) = trimmed
+                    .strip_prefix("Count$Valid ")
+                    .and_then(|v| v.strip_suffix("$Colors"))
+                    && !color_valid.contains('/')
+                    && !color_valid.contains('$')
+                    && (color_valid.split(['.', '+']).any(|a| a == "YouCtrl")
+                        || (!color_valid.contains("Ctrl") && !color_valid.contains("Own")))
+                    && let Some(counted_filter) = self.filter_expr(color_valid)
+                {
+                    let name = self.body.filter_static("COUNTED", &counted_filter);
+                    out.push(Self::static_expr(
+                        filter,
+                        &format!(
+                            "Modifier::ModifyPTByCount(PtCount::DistinctColorsAmong(&{name}))"
+                        ),
+                    ));
+                    emitted_pt = true;
+                } else if let Some(raw_valid) = trimmed.strip_prefix("Count$Valid ")
+                    && let Some((valid, times)) = parse_pt_multiplier(raw_valid)
+                    && !valid.contains('/')
+                    && !valid.contains('$')
+                {
+                    let yours = valid.split(['.', '+']).any(|atom| atom == "YouCtrl");
+                    let opp = valid.split(['.', '+']).any(|atom| atom == "OppCtrl");
+                    if (yours || opp || (!valid.contains("Ctrl") && !valid.contains("Own")))
+                        && let Some(counted_filter) = self.filter_expr(valid)
+                    {
+                        let name = self.body.filter_static("COUNTED", &counted_filter);
+                        let kind = if yours { "YouControl" } else { "OnBattlefield" };
+                        for _ in 0..times {
+                            out.push(Self::static_expr(
+                                filter,
+                                &format!("Modifier::ModifyPTByCount(PtCount::{kind}(&{name}))"),
+                            ));
                         }
-                        (v, n)
+                        emitted_pt = true;
                     }
-                };
-                if valid.contains('/') {
-                    self.note("static ability with a computed P/T".to_string());
-                    return None;
                 }
+            }
+            if !emitted_pt
+                && let Some((var, power_half)) = match (add_p.as_deref(), add_t.as_deref()) {
+                    (Some(vp), None | Some("0" | "+0")) if vp.trim().parse::<i16>().is_err() => {
+                        Some((vp.trim(), true))
+                    }
+                    (None | Some("0" | "+0"), Some(vt)) if vt.trim().parse::<i16>().is_err() => {
+                        Some((vt.trim(), false))
+                    }
+                    _ => None,
+                }
+                && let Some(count) = self.svars.get(var).cloned()
+                && let Some(raw_valid) = count.trim().strip_prefix("Count$Valid ")
+                && let Some((valid, times)) = parse_pt_multiplier(raw_valid)
+                && !valid.contains('/')
+                && !valid.contains('$')
+            {
                 let alternatives = valid.split(',').collect::<Vec<_>>();
                 let scoped = alternatives
                     .iter()
@@ -1114,64 +1103,73 @@ impl Tx<'_> {
                     return None;
                 }
                 let attached = valid.split(['.', '+']).any(|atom| atom == "Attached");
-                if (!yours && !attached)
-                    || (attached && (valid.contains("Ctrl") || valid.contains("Own")))
+                let allow_other = !valid
+                    .split(',')
+                    .flat_map(|alt| alt.split(['.', '+']))
+                    .any(|atom| matches!(atom.trim(), "Other" | "StrictlyOther"))
+                    || filter == "Filter::This";
+                if (yours || attached)
+                    && allow_other
+                    && (!attached || (!valid.contains("Ctrl") && !valid.contains("Own")))
+                    && let Some(counted_filter) = {
+                        let valid_without_you = alternatives
+                            .iter()
+                            .map(|alt| {
+                                alt.split(['.', '+'])
+                                    .filter(|atom| atom.trim() != "YouCtrl")
+                                    .collect::<Vec<_>>()
+                                    .join(".")
+                            })
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        self.filter_expr(&valid_without_you)
+                    }
                 {
+                    let counted_filter = if yours {
+                        format!("Filter::And(&[{counted_filter}, Filter::ControlledByYou])")
+                    } else {
+                        counted_filter
+                    };
+                    let name = self.body.filter_static("COUNTED", &counted_filter);
+                    let (p, t) = if power_half { (times, 0) } else { (0, times) };
+                    out.push(Self::static_expr(
+                        filter,
+                        &format!(
+                            "Modifier::ModifyPTPerCount {{ filter: &{name}, p: {p}, t: {t} }}"
+                        ),
+                    ));
+                    emitted_pt = true;
+                }
+            }
+            if !emitted_pt {
+                if let (Some(power), Some(tough)) = (
+                    add_p
+                        .as_deref()
+                        .map_or(Some(0), |v| v.trim().parse::<i16>().ok()),
+                    add_t
+                        .as_deref()
+                        .map_or(Some(0), |v| v.trim().parse::<i16>().ok()),
+                ) {
+                    // An anthem that names only one half still moves the other by
+                    // zero, which is what the printed "+1/+0" says.
+                    out.push(Self::static_expr(
+                        filter,
+                        &format!("Modifier::ModifyPT({power}, {tough})"),
+                    ));
+                } else if let (Some(power), Some(toughness)) = (
+                    self.static_pt_amount(add_p.as_deref()),
+                    self.static_pt_amount(add_t.as_deref()),
+                ) {
+                    out.push(Self::static_expr(
+                        filter,
+                        &format!(
+                            "Modifier::ModifyPTByAmount {{ power: {power}, toughness: {toughness} }}"
+                        ),
+                    ));
+                } else {
                     self.note("static ability with a computed P/T".to_string());
                     return None;
                 }
-                let valid_without_you = alternatives
-                    .iter()
-                    .map(|alt| {
-                        alt.split(['.', '+'])
-                            .filter(|atom| atom.trim() != "YouCtrl")
-                            .collect::<Vec<_>>()
-                            .join(".")
-                    })
-                    .collect::<Vec<_>>()
-                    .join(",");
-                let Some(counted_filter) = self.filter_expr(&valid_without_you) else {
-                    self.note("static ability with a computed P/T".to_string());
-                    return None;
-                };
-                let counted_filter = if yours {
-                    format!("Filter::And(&[{counted_filter}, Filter::ControlledByYou])")
-                } else {
-                    counted_filter
-                };
-                let name = self.body.filter_static("COUNTED", &counted_filter);
-                let (p, t) = if power_half { (times, 0) } else { (0, times) };
-                out.push(Self::static_expr(
-                    filter,
-                    &format!("Modifier::ModifyPTPerCount {{ filter: &{name}, p: {p}, t: {t} }}"),
-                ));
-            } else if let (Some(power), Some(tough)) = (
-                add_p
-                    .as_deref()
-                    .map_or(Some(0), |v| v.trim().parse::<i16>().ok()),
-                add_t
-                    .as_deref()
-                    .map_or(Some(0), |v| v.trim().parse::<i16>().ok()),
-            ) {
-                // An anthem that names only one half still moves the other by
-                // zero, which is what the printed "+1/+0" says.
-                out.push(Self::static_expr(
-                    filter,
-                    &format!("Modifier::ModifyPT({power}, {tough})"),
-                ));
-            } else if let (Some(power), Some(toughness)) = (
-                self.static_pt_amount(add_p.as_deref()),
-                self.static_pt_amount(add_t.as_deref()),
-            ) {
-                out.push(Self::static_expr(
-                    filter,
-                    &format!(
-                        "Modifier::ModifyPTByAmount {{ power: {power}, toughness: {toughness} }}"
-                    ),
-                ));
-            } else {
-                self.note("static ability with a computed P/T".to_string());
-                return None;
             }
         }
         let set_p = p.take("SetPower");
@@ -1602,8 +1600,16 @@ impl Tx<'_> {
             Some("All" | "Stack") => true,
             Some(_) => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
         };
-        let Some(mut valid_card) = p.take("ValidCard") else {
-            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        let mut valid_card = match p.take("ValidCard") {
+            Some(vc) => vc,
+            None if spell_type.as_deref() == Some("Spell")
+                && valid_spell.is_none()
+                && !is_self_zone
+                && !p.has("ValidTarget") =>
+            {
+                "Card".to_string()
+            }
+            None => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
         };
         if is_self_zone {
             if valid_card != "Card.Self" {
@@ -1743,24 +1749,182 @@ impl Tx<'_> {
     }
 
     fn reduce_cost_condition(&mut self, p: &mut Params) -> Option<String> {
+        let mut clauses = Vec::new();
         if let Some(pt) = p.take("PlayerTurn") {
-            if pt != "True" || p.has("Condition") || p.has("IsPresent") || p.has("CheckSVar") {
+            if !matches!(pt.as_str(), "True" | "You") {
                 return self.deny("static ability `S: Mode$ ReduceCost`".into());
             }
-            return Some(", condition = Some(Condition::YourTurn)".to_string());
+            clauses.push("Condition::YourTurn".to_string());
         }
-        let cond = self.condition(p)?;
-        if let Some(var) = p.take("CheckSVar") {
-            if !cond.is_empty() {
+        if let Some(cond_raw) = p.take("Condition") {
+            let Some(cond) = Self::named_condition(&cond_raw) else {
                 return self.deny("static ability `S: Mode$ ReduceCost`".into());
-            }
+            };
+            clauses.push(cond.to_string());
+        }
+        if p.peek("LifeTotal") == Some("You") {
+            p.take("LifeTotal");
+            let life_amount = p.take("LifeAmount").unwrap_or_else(|| "GE1".to_string());
+            clauses.push(match count_bound(&life_amount) {
+                Some(Bound::AtLeast(n)) => {
+                    format!("Condition::AmountAtLeast(Amount::LifeTotal(PlayerRel::You), {n})")
+                }
+                Some(Bound::AtMost(n)) => format!("Condition::LifeAtMost({n})"),
+                _ => return self.deny(format!("`LifeAmount$ {life_amount}`")),
+            });
+        }
+        if let Some(valid) = p.take("IsPresent") {
+            let clause = if matches!(p.peek("PresentZone"), Some("Hand" | "Graveyard"))
+                && matches!(p.peek("PresentPlayer"), None | Some("You"))
+                && !matches!(valid.as_str(), "Card.StrictlySelf" | "Card.Self")
+            {
+                self.reduce_cost_zone_present(p, &valid)?
+            } else {
+                self.present_clause(p, &valid)?
+            };
+            clauses.push(clause);
+        }
+        if let Some(var) = p.take("CheckSVar") {
             let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
-            let Some(clause) = self.svar_condition(&var, &cmp) else {
+            let clause = if let Some(c) = self.svar_condition(&var, &cmp) {
+                c
+            } else if let Some(c) = self.inline_valid_count_condition(var.trim(), &cmp) {
+                c
+            } else {
                 return self.deny("unclaimed parameter `ReduceCost.CheckSVar`".to_string());
             };
-            return Some(format!(", condition = Some({clause})"));
+            clauses.push(clause);
         }
-        Some(cond)
+        Some(match clauses.as_slice() {
+            [] => String::new(),
+            [one] => format!(", condition = Some({one})"),
+            many => format!(", condition = Some(Condition::All(&[{}]))", many.join(", ")),
+        })
+    }
+
+    fn reduce_cost_zone_present(&mut self, p: &mut Params, valid: &str) -> Option<String> {
+        if p.take("NoResolvingCheck").is_some() {
+            return self.deny("`NoResolvingCheck$`, a clause checked once".to_string());
+        }
+        if p.take("IsPresent2").is_some() {
+            return self.deny("a second `IsPresent2$` clause".to_string());
+        }
+        if let Some(defined) = p.take("PresentDefined") {
+            return self.deny(format!("`PresentDefined$ {defined}`"));
+        }
+        let zone = p.take("PresentZone")?;
+        let who = p.take("PresentPlayer");
+        let explicit_you = valid.split(',').all(|alt| {
+            alt.split(['.', '+'])
+                .any(|atom| matches!(atom.trim(), "YouCtrl" | "YouOwn"))
+        });
+        let bad_atom = valid.split(',').any(|alt| {
+            alt.split(['.', '+']).any(|a| {
+                let a = a.trim();
+                matches!(
+                    a,
+                    "Self"
+                        | "Other"
+                        | "StrictlyOther"
+                        | "EnchantedBy"
+                        | "EquippedBy"
+                        | "AttachedBy"
+                        | "Attached"
+                ) || ((a.contains("Ctrl") || a.contains("Own"))
+                    && !matches!(a, "YouCtrl" | "YouOwn"))
+            })
+        });
+        if bad_atom || (who.is_none() && !explicit_you) {
+            return self.deny(format!("`IsPresent$ {valid}` in {zone}"));
+        }
+        let compare = p
+            .take("PresentCompare")
+            .unwrap_or_else(|| "GE1".to_string());
+        let Some(bound) = count_bound(&compare) else {
+            return self.deny(format!("`PresentCompare$ {compare}`"));
+        };
+        let stripped = valid
+            .split(',')
+            .map(|alt| {
+                let mut parts = alt.split('.');
+                let base = parts.next().unwrap_or_default().trim();
+                let rest: Vec<&str> = parts
+                    .flat_map(|s| s.split('+'))
+                    .map(str::trim)
+                    .filter(|a| !a.is_empty() && !matches!(*a, "YouCtrl" | "YouOwn"))
+                    .collect();
+                if rest.is_empty() {
+                    base.to_string()
+                } else {
+                    format!("{base}.{}", rest.join("+"))
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let expr = self.filter_expr_in_zone(&stripped, true)?;
+        let name = self.body.filter_static("CHECK", &expr);
+        let zone_sel = if zone == "Hand" {
+            "ZoneSel::HandYou"
+        } else {
+            "ZoneSel::GraveyardOf(PlayerRel::You)"
+        };
+        let count = format!("Amount::CountOf {{ filter: &{name}, zone: {zone_sel} }}");
+        Some(match bound {
+            Bound::AtLeast(n) if n >= 1 => format!("Condition::AmountAtLeast({count}, {n})"),
+            Bound::AtMost(n) => {
+                let threshold = u32::from(n).saturating_add(1);
+                format!("Condition::Not(&Condition::AmountAtLeast({count}, {threshold}))")
+            }
+            Bound::AtLeast(_) => return self.deny(format!("`PresentCompare$ {compare}`")),
+        })
+    }
+
+    fn inline_valid_count_condition(&mut self, def: &str, cmp: &str) -> Option<String> {
+        let valid = def.strip_prefix("Count$Valid ")?;
+        if valid.is_empty() || valid.contains('/') || valid.contains('$') {
+            return None;
+        }
+        let bound = count_bound(cmp)?;
+        let relative = valid.split(',').any(|alt| {
+            alt.split(['.', '+']).any(|a| {
+                matches!(
+                    a.trim(),
+                    "Self"
+                        | "Other"
+                        | "StrictlyOther"
+                        | "EnchantedBy"
+                        | "EquippedBy"
+                        | "AttachedBy"
+                        | "Attached"
+                )
+            })
+        });
+        if relative {
+            return None;
+        }
+        let yours = valid
+            .split(',')
+            .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"));
+        let opps = valid
+            .split(',')
+            .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "OppCtrl"))
+            && matches!(bound, Bound::AtMost(0));
+        let nobodys = !valid
+            .split(',')
+            .flat_map(|alt| alt.split(['.', '+']))
+            .any(|atom| atom.contains("Ctrl") || atom.contains("Own"));
+        if !yours && !opps && !nobodys {
+            return None;
+        }
+        let expr = self.filter_expr(valid)?;
+        let name = self.body.filter_static("CHECK", &expr);
+        let (variant, n) = match (yours, bound) {
+            (true, Bound::AtLeast(n)) => ("ControlCount", n),
+            (true, Bound::AtMost(n)) => ("ControlCountAtMost", n),
+            (false, Bound::AtLeast(n)) => ("BattlefieldCount", n),
+            (false, Bound::AtMost(n)) => ("BattlefieldCountAtMost", n),
+        };
+        Some(format!("Condition::{variant}(&{name}, {n})"))
     }
 
     /// One `AbilityDef::Static` expression.
@@ -1771,4 +1935,19 @@ impl Tx<'_> {
     pub(super) fn static_expr(filter: &str, modifier: &str) -> String {
         format!("static_ability!({filter}, {modifier})")
     }
+}
+
+fn parse_pt_multiplier(raw: &str) -> Option<(&str, i16)> {
+    if let Some(v) = raw.strip_suffix("/Twice") {
+        return Some((v, 2));
+    }
+    if let Some((v, n)) = raw.split_once("/Times.") {
+        return n
+            .trim()
+            .parse::<i16>()
+            .ok()
+            .filter(|&n| (1..=4).contains(&n))
+            .map(|n| (v, n));
+    }
+    Some((raw, 1))
 }

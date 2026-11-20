@@ -16,7 +16,14 @@ impl Tx<'_> {
         if !matches!(p.take("ActiveZones").as_deref(), None | Some("Battlefield")) {
             return self.deny("a persistent spell prevention with another zone or result".into());
         }
+        if p.peek("DamageTarget") == Some("Self") && p.peek("ReplaceWith").is_some() {
+            return self.redirect_damage_to_you(p);
+        }
         if p.peek("ReplaceWith").is_some() {
+            if p.peek("AlwaysReplace") == Some("True") && p.peek("ValidTarget") == Some("Card.Self")
+            {
+                return self.counters_prevent_damage_rule(p);
+            }
             return self.per_source_damage_prevention(p);
         }
         if p.take("Prevent").as_deref() != Some("True") {
@@ -185,6 +192,141 @@ impl Tx<'_> {
         self.static_count_expr(&def)
     }
 
+    /// Persistent `R: Event$ DamageDone | ValidTarget$ You | DamageTarget$ Self`
+    /// with `DB$ ReplaceEffect | VarName$ Affected | VarValue$ Self | VarType$ Card`
+    /// -> `Modifier::RedirectDamageToYou(&sources)` (`Empyrial Archangel`,
+    /// `Veteran Bodyguard`, `Martyrs of Korlis`).
+    fn redirect_damage_to_you(&mut self, mut p: Params) -> Option<()> {
+        if p.take("ValidTarget").as_deref() != Some("You")
+            || p.take("DamageTarget").as_deref() != Some("Self")
+            || p.has("IsCombat")
+            || p.has("Prevent")
+            || p.has("PreventionEffect")
+            || p.has("AlwaysReplace")
+            || p.has("Optional")
+        {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let cond = self.prevention_condition(&mut p)?;
+        let valid_source = p.take("ValidSource");
+        let Some(replace_name) = p.take("ReplaceWith") else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `DamageDone.{key}`"));
+        }
+        let Some((api, mut rep)) = self
+            .svars
+            .get(replace_name.trim())
+            .and_then(|b| Params::parse(b))
+        else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        rep.drop_prose();
+        if api != "ReplaceEffect"
+            || rep.take("VarName").as_deref() != Some("Affected")
+            || rep.take("VarValue").as_deref() != Some("Self")
+            || rep.take("VarType").as_deref() != Some("Card")
+            || !rep.exhausted()
+        {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let source_expr = match valid_source.as_deref() {
+            None => "Filter::Any".to_string(),
+            Some(vs) => self.prevention_source_filter(vs)?,
+        };
+        let src_ref = self.body.filter_static("SOURCE", &source_expr);
+        self.body.abilities.push(format!(
+            "static_ability!(Filter::This, Modifier::RedirectDamageToYou(&{src_ref}){cond})"
+        ));
+        Some(())
+    }
+
+    /// Persistent `R: Event$ DamageDone | ValidTarget$ Card.Self |
+    /// AlwaysReplace$ True | PreventionEffect$ True` whose replacement prevents
+    /// up to `CardCounters.<KIND>` damage while removing that many `<KIND>`
+    /// counters (`Rock Hydra` -> `Modifier::CountersPreventDamage`).
+    fn counters_prevent_damage_rule(&mut self, mut p: Params) -> Option<()> {
+        if p.take("AlwaysReplace").as_deref() != Some("True")
+            || p.take("PreventionEffect").as_deref() != Some("True")
+            || p.take("ValidTarget").as_deref() != Some("Card.Self")
+            || p.has("IsCombat")
+            || p.has("ValidSource")
+            || p.has("Condition")
+            || p.has("IsPresent")
+            || p.has("CheckSVar")
+            || p.has("PlayerTurn")
+            || p.has("Optional")
+        {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let Some(replace_name) = p.take("ReplaceWith") else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `DamageDone.{key}`"));
+        }
+        let Some((rep_api, mut rep)) = self
+            .svars
+            .get(replace_name.trim())
+            .and_then(|b| Params::parse(b))
+        else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        rep.drop_prose();
+        let Some(amt_var) = rep.take("Amount") else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        let Some(sub_name) = rep.take("SubAbility") else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        if rep_api != "ReplaceDamage" || !rep.exhausted() {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let Some((rem_api, mut rem)) = self
+            .svars
+            .get(sub_name.trim())
+            .and_then(|b| Params::parse(b))
+        else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        rem.drop_prose();
+        if rem_api != "RemoveCounter" || rem.take("Defined").as_deref() != Some("Self") {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let Some(kind_raw) = rem.take("CounterType") else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        let Some(num_var) = rem.take("CounterNum") else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        let Some(kind) = super::counter_kind(kind_raw.trim()) else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        if !rem.exhausted() {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        let Some(amt_def) = self.svars.get(amt_var.trim()).map(|s| s.trim()) else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        let Some((lhs, rhs)) = amt_def.split_once("/LimitMax.") else {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        };
+        let lhs_var = lhs.trim().strip_prefix("SVar$").map(str::trim);
+        let lhs_ok = lhs_var == Some(num_var.trim())
+            && self.svars.get(num_var.trim()).map(|s| s.trim())
+                == Some("ReplaceCount$DamageAmount");
+        let expected_cap = format!("Count$CardCounters.{}", kind_raw.trim());
+        let rhs_ok = self.svars.get(rhs.trim()).map(|s| s.trim()) == Some(expected_cap.as_str());
+        if !lhs_ok || !rhs_ok {
+            return self.deny("a persistent spell prevention with another zone or result".into());
+        }
+        self.body.abilities.push(format!(
+            "static_ability!(Filter::This, Modifier::CountersPreventDamage({kind}))"
+        ));
+        Some(())
+    }
+
     fn prevention_condition(&mut self, p: &mut Params) -> Option<String> {
         if let Some(pt) = p.take("PlayerTurn") {
             if pt != "True" || p.has("Condition") || p.has("IsPresent") || p.has("CheckSVar") {
@@ -344,9 +486,6 @@ impl Tx<'_> {
     /// without `ChooseSource` / `ChooseColor` (e.g., Circle of Solace:
     /// `Effect::PreventNextFromMatchingSources` /
     /// `Effect::PreventAllDamageFromMatchingThisTurn`).
-    ///
-    /// Staged for follow-up wiring in `regeneration.rs` / `chains.rs`.
-    #[allow(dead_code)]
     pub(super) fn prevention_effect_shield(
         &mut self,
         mut p: Params,

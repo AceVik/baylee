@@ -126,7 +126,22 @@ impl Tx<'_> {
                 {
                     return self.add_counter_turn_effect(p);
                 }
-                return self.prevent_combat_damage_from_effect(p);
+                let saved_params = p.clone();
+                let saved_unclaimed = self.unclaimed.borrow().clone();
+                if let Some(fx) = self.prevent_combat_damage_from_effect(p) {
+                    return Some(fx);
+                }
+                *p = saved_params;
+                *self.unclaimed.borrow_mut() = saved_unclaimed;
+                if let Some(fx) =
+                    self.prevention_effect_shield(p.clone(), &mut super::Chain::default())
+                {
+                    while let Some(key) = p.first_key().map(str::to_string) {
+                        p.take(&key);
+                    }
+                    return Some(fx);
+                }
+                return None;
             }
             return self.replace_target_white_mana(p, target);
         }

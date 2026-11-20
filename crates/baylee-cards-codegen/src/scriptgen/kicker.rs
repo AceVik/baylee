@@ -787,9 +787,7 @@ impl Tx<'_> {
     /// `PayLife`, `ExileFromHand`, `ExileFromGrave`, `ExileFromTop`, `tapXType`,
     /// `PayEnergy`), and mixed mana + non-mana kicker costs.
     ///
-    /// Returns `(cost_literal, uses_x)`. Staged for follow-up wiring in
-    /// `keywords.rs`.
-    #[allow(dead_code)]
+    /// Returns `(cost_literal, uses_x)`.
     pub(super) fn parse_kicker_cost_expr(&mut self, raw: &str) -> Option<(String, bool)> {
         let mut mana = String::new();
         let mut parts = Vec::new();
@@ -808,7 +806,7 @@ impl Tx<'_> {
             } else if let Some(pair) = super::hybrid_pair(token) {
                 mana.push_str(&pair);
             } else if token.starts_with("XMin") {
-                return self.deny(format!("a constrained-X `Kicker` cost `{raw}`"));
+                return self.deny("a variable-X `Kicker` cost".to_string());
             } else {
                 parts.extend(self.parse_spell_cost_token(token)?);
             }
@@ -822,9 +820,6 @@ impl Tx<'_> {
     /// Lowers `K:Kicker:<c1>[:<c2>]` (variable-`{X}`, non-mana, or mixed kicker)
     /// into `FaceDef::additional_costs`, preserving Oracle-order dual-kicker
     /// alignment.
-    ///
-    /// Staged for follow-up wiring in `keywords.rs`.
-    #[allow(dead_code)]
     pub(super) fn lower_kicker_line(&mut self, rest: &str) -> Option<()> {
         if !self.body.additional_costs.is_empty() || self.body.multikicker.is_some() {
             return self.deny("a second `Kicker` cost".to_string());
@@ -859,7 +854,7 @@ impl Tx<'_> {
                 self.body.notes.push("kicker".to_string());
                 Some(())
             }
-            _ => self.deny(format!("a `Kicker` with extra fields `{rest}`")),
+            _ => self.deny("a `Kicker` with more than two costs".to_string()),
         }
     }
 
@@ -1047,21 +1042,48 @@ impl Tx<'_> {
     }
 
     fn align_dual_kicker_exprs(&self, expr0: &str, expr1: &str) -> Option<([String; 2], [u8; 2])> {
-        let kicker_line = self
+        let oracle_pair = self
             .oracle
-            .lines()
-            .find(|line| line.starts_with("Kicker ") || line.starts_with("Kicker—"))?;
-        let needle0 = kicker_order_needle(expr0)?;
-        let needle1 = kicker_order_needle(expr1)?;
-        let p0 = kicker_line.find(&needle0)?;
-        let p1 = kicker_line.find(&needle1)?;
-        if p0 == p1 {
-            return None;
-        }
-        if p0 < p1 {
-            Some(([expr0.to_string(), expr1.to_string()], [0, 1]))
-        } else {
-            Some(([expr1.to_string(), expr0.to_string()], [1, 0]))
+            .split("\\n")
+            .flat_map(|chunk| chunk.lines())
+            .find_map(|line| {
+                let trimmed = line.trim();
+                let body = trimmed
+                    .strip_prefix("Kicker ")
+                    .or_else(|| trimmed.strip_prefix("Kicker\u{2014}"))?;
+                let without_reminder = body.split('(').next()?.trim();
+                let (a, b) = without_reminder.split_once(" and/or ")?;
+                Some((a.trim().to_string(), b.trim().to_string()))
+            });
+        let Some((a, b)) = oracle_pair else {
+            return Some(([expr0.to_string(), expr1.to_string()], [0, 1]));
+        };
+        let needle0 = kicker_order_needle(expr0);
+        let needle1 = kicker_order_needle(expr1);
+        match (needle0, needle1) {
+            (Some(n0), Some(n1)) if !expr0.contains(", ") && !expr1.contains(", ") => {
+                if a == n0 && b == n1 {
+                    Some(([expr0.to_string(), expr1.to_string()], [0, 1]))
+                } else if a == n1 && b == n0 {
+                    Some(([expr1.to_string(), expr0.to_string()], [1, 0]))
+                } else {
+                    self.deny(
+                        "a dual `Kicker` cost that disagrees with its Oracle text".to_string(),
+                    )
+                }
+            }
+            (Some(n0), Some(n1)) => {
+                if a.contains(&n0) && b.contains(&n1) && !(b.contains(&n0) && a.contains(&n1)) {
+                    Some(([expr0.to_string(), expr1.to_string()], [0, 1]))
+                } else if a.contains(&n1) && b.contains(&n0) {
+                    Some(([expr1.to_string(), expr0.to_string()], [1, 0]))
+                } else {
+                    self.deny(
+                        "a dual `Kicker` cost that disagrees with its Oracle text".to_string(),
+                    )
+                }
+            }
+            _ => Some(([expr0.to_string(), expr1.to_string()], [0, 1])),
         }
     }
 }

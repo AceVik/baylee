@@ -24,39 +24,44 @@ fn single_mana_kicker_reads_onto_face_and_conditional_subability() {
 }
 
 #[test]
-fn kicker_refuses_triple_non_mana_variable_x_empty_and_duplicate_costs() {
+fn kicker_supports_non_mana_and_variable_x_while_refusing_invalid_forms() {
+    let dual_nonmana =
+        read("Name:X\nTypes:Instant\nK:Kicker:W:PayLife<3>\nA:SP$ Draw | NumCards$ 1");
+    assert_eq!(
+        dual_nonmana.additional_costs,
+        ["cost!(\"{W}\")", "cost!(PayLife(3))"]
+    );
+
+    let sac_land = read("Name:X\nTypes:Instant\nK:Kicker:Sac<1/Land>\nA:SP$ Draw | NumCards$ 1");
+    assert_eq!(
+        sac_land.additional_costs,
+        ["cost!(Sacrifice(&Filter::YOUR_LAND))"]
+    );
+
+    let pay_life = read("Name:X\nTypes:Instant\nK:Kicker:PayLife<3>\nA:SP$ Draw | NumCards$ 1");
+    assert_eq!(pay_life.additional_costs, ["cost!(PayLife(3))"]);
+
+    let mixed = read("Name:X\nTypes:Instant\nK:Kicker:2 R Sac<1/Land>\nA:SP$ Draw | NumCards$ 1");
+    assert_eq!(
+        mixed.additional_costs,
+        ["cost!(\"{2}{R}\", Sacrifice(&Filter::YOUR_LAND))"]
+    );
+
+    let var_x = read("Name:X\nTypes:Creature\nK:Kicker:X\nSVar:X:Count$xPaid");
+    assert_eq!(var_x.additional_costs, ["cost!(\"{X}\")"]);
+
     for (script, expected) in [
         (
             "Name:X\nTypes:Instant\nK:Kicker:W:U:B\nA:SP$ Draw | NumCards$ 1",
             "a `Kicker` with more than two costs",
         ),
         (
-            "Name:X\nTypes:Instant\nK:Kicker:W:PayLife<3>\nA:SP$ Draw | NumCards$ 1",
-            "a non-mana `Kicker` cost",
-        ),
-        (
             "Name:X\nTypes:Instant\nK:Kicker:1 G:2 U\nA:SP$ Draw | NumCards$ 1\nOracle:Kicker {W} and/or {B}",
             "a dual `Kicker` cost that disagrees with its Oracle text",
         ),
         (
-            "Name:X\nTypes:Instant\nK:Kicker:Sac<1/Land>\nA:SP$ Draw | NumCards$ 1",
-            "a non-mana `Kicker` cost",
-        ),
-        (
-            "Name:X\nTypes:Instant\nK:Kicker:PayLife<3>\nA:SP$ Draw | NumCards$ 1",
-            "a non-mana `Kicker` cost",
-        ),
-        (
-            "Name:X\nTypes:Instant\nK:Kicker:2 R Sac<1/Land>\nA:SP$ Draw | NumCards$ 1",
-            "a non-mana `Kicker` cost",
-        ),
-        (
             "Name:X\nTypes:Instant\nK:Kicker:Forage\nA:SP$ Draw | NumCards$ 1",
-            "a non-mana `Kicker` cost",
-        ),
-        (
-            "Name:X\nTypes:Creature\nK:Kicker:X\nSVar:X:Count$xPaid",
-            "a variable-X `Kicker` cost",
+            "cost `Forage`",
         ),
         (
             "Name:X\nTypes:Creature\nK:Kicker:XMin1 X\nSVar:X:Count$xPaid",
