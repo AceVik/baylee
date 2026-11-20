@@ -13121,3 +13121,125 @@ Sage's Dousing
 Shard Volley
 Spitebellows
 Stonybrook Banneret
+Stream of Unconsciousness
+Walker of the Grove
+Aphotic Wisps
+Apothecary Initiate
+Armored Ascension
+Ashenmoor Gouger
+Biting Tether
+Blowfly Infestation
+Crimson Wisps
+Cultbrand Cinder
+Deep-Slumber Titan
+Deepchannel Mentor
+Din of the Fireherd
+Dramatic Entrance
+Farhaven Elf
+Gnarled Effigy
+Goldenglow Moth
+Gravelgill Axeshark
+Greater Auramancy
+Grim Poppet
+Heap Doll
+Hollowsage
+Howl of the Night Pack
+Inkfathom Infiltrator
+Inkfathom Witch
+Intimidator Initiate
+Kinscaer Harpoonist
+Knacksaw Clique
+Knollspine Invocation
+Lurebound Scarecrow
+Mistmeadow Witch
+Murderous Redcap
+Nurturer Initiate
+Oracle of Nectars
+Poison the Well
+Puncture Bolt
+Raking Canopy
+Rattleblaze Scarecrow
+Scar
+Scuzzback Marauders
+Smash to Smithereens
+Smolder Initiate
+Spell Syphon
+Splitting Headache
+Steel of the Godhead
+Tattermunge Witch
+Thoughtweft Gambit
+Viridescent Wisps
+Wicker Warcrawler
+Wingrattle Scarecrow
+Woodfall Primus
+Aerie Ouphes
+Antler Skulkin
+Balefire Liege
+Ballynock Trapper
+Beckon Apparition
+Belligerent Hatchling
+Cinder Pyromancer
+Cold-Eyed Selkie
+Crag Puca
+Creakwood Ghoul
+Crumbling Ashes
+Divinity of Pride
+Dominus of Fealty
+Duergar Mine-Captain
+Glen Elendra Archmage
+Grazing Kelpie
+Gwyllion Hedge-Mage
+Hag Hedge-Mage
+Idle Thoughts
+Inside Out
+Inundate
+Kithkin Spellduster
+Lingering Tormentor
+Loyal Gyrfalcon
+Merrow Levitator
+Mindwrack Liege
+Nettle Sentinel
+Noggle Hedge-Mage
+Recumbent Bliss
+Regal Force
+Restless Apparition
+Scarecrone
+Soul Snuffers
+Spitemare
+Sturdy Hatchling
+Thunderblust
+Tilling Treefolk
+Trapjaw Kelpie
+Unwilling Recruit
+Voracious Hatchling
+Wake Thrasher
+Akrasan Squire
+Angelic Benediction
+Archdemon of Unx
+Banewasp Affliction
+Bant Charm
+Battlegrace Angel
+Blood Cultist
+Bloodpyre Elemental
+Bone Splinters
+Branching Bolt
+Carrion Thrash
+Court Archers
+Cradle of Vitality
+Dawnray Archer
+Etherium Sculptor
+Excommunicate
+Exuberant Firestoker
+Feral Hydra
+Fleshbag Marauder
+Grixis Battlemage
+Grixis Charm
+Guardians of Akrasa
+Gustrider Exuberant
+Hissing Iguanar
+Jhessian Infiltrator
+Jund Charm
+Kresh the Bloodbraided
+Master of Etherium
+Mayael the Anima
+Memory Erosion

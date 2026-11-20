@@ -3067,6 +3067,29 @@ pub static KNIGHT_2_2_WHITE_FIRST_STRIKE: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 5/5 black red Elemental.
+pub static ELEMENTAL_5_5_BLACK_RED: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Black, Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    power: Some(5),
+    toughness: Some(5),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white black Spirit with flying.
+pub static SPIRIT_1_1_WHITE_BLACK_FLYING: TokenDef = TokenDef {
+    name: "Spirit",
+    colors: ColorSet::from_slice(&[Color::White, Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SPIRIT],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -4093,6 +4116,8 @@ pub static ALL: &[&TokenDef] = &[
     &GOBLIN_2_1_RED_HASTE,
     &WEIRD_3_3_BLUE_DEFENDER_FLYING,
     &KNIGHT_2_2_WHITE_FIRST_STRIKE,
+    &ELEMENTAL_5_5_BLACK_RED,
+    &SPIRIT_1_1_WHITE_BLACK_FLYING,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -4333,4 +4358,6 @@ pub static GENERATED: &[&TokenDef] = &[
     &GOBLIN_2_1_RED_HASTE,
     &WEIRD_3_3_BLUE_DEFENDER_FLYING,
     &KNIGHT_2_2_WHITE_FIRST_STRIKE,
+    &ELEMENTAL_5_5_BLACK_RED,
+    &SPIRIT_1_1_WHITE_BLACK_FLYING,
 ];

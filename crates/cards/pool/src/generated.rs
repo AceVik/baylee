@@ -616,6 +616,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2015::broodhunter_wurm::CARD,
     ),
     (
+        "02d69413-e040-46b1-8f58-69bde666329d",
+        &baylee_cards_2008::walker_of_the_grove::CARD,
+    ),
+    (
         "02d6b7f6-1fe0-4a93-8385-69ab160ab732",
         &baylee_cards_2017::midnight_entourage::CARD,
     ),
@@ -664,6 +668,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_1998::raze::CARD,
     ),
     (
+        "0300d8a1-ff4e-4e05-a097-4822f80c47e1",
+        &baylee_cards_2008::smolder_initiate::CARD,
+    ),
+    (
         "0308b9f2-11da-41d0-8d18-18e8c0c600ab",
         &baylee_cards_1997::matopi_golem::CARD,
     ),
@@ -678,6 +686,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "031cd561-d9b1-4a0e-bc38-bc09e80563c3",
         &baylee_cards_1995::mountain_goat::CARD,
+    ),
+    (
+        "031ddf1e-afcf-4b09-8859-4df0f0ab5dcf",
+        &baylee_cards_2008::blood_cultist::CARD,
     ),
     (
         "03220765-8a9d-4d4a-88d5-98df975ce13c",
@@ -710,6 +722,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "03332772-18b0-446a-a7e2-a4bdf38c4f0c",
         &baylee_cards_2009::kazandu_refuge::CARD,
+    ),
+    (
+        "034264da-a404-4037-b215-b095bba77490",
+        &baylee_cards_2008::wingrattle_scarecrow::CARD,
     ),
     (
         "0342b085-be20-475a-bc38-59b9cb6012e8",
@@ -748,6 +764,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2000::loafing_giant::CARD,
     ),
     (
+        "0390a3dc-386c-402f-a89c-b94867bfb0a2",
+        &baylee_cards_2008::inundate::CARD,
+    ),
+    (
         "039115f2-6322-4674-bc64-f21883ed375a",
         &baylee_cards_1996::polymorph::CARD,
     ),
@@ -758,6 +778,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "039e2e39-8f7f-43f2-8448-de35ef7b8dc1",
         &baylee_cards_1999::disappear::CARD,
+    ),
+    (
+        "03a0f7ac-de8a-43cf-be15-07d31e9d6188",
+        &baylee_cards_2008::unwilling_recruit::CARD,
     ),
     (
         "03a3f54e-9289-4d99-beab-bfa0988a050e",
@@ -1460,6 +1484,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2017::ravenous_intruder::CARD,
     ),
     (
+        "06af8e20-6f60-400d-9120-c99311232dde",
+        &baylee_cards_2008::knacksaw_clique::CARD,
+    ),
+    (
         "06b60766-a1fb-4ed0-93f6-8423008f75b4",
         &baylee_cards_2019::prying_eyes::CARD,
     ),
@@ -1832,6 +1860,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2002::brightstone_ritual::CARD,
     ),
     (
+        "08e95b6c-9f4c-42d9-ad64-2d905d781d49",
+        &baylee_cards_2008::sturdy_hatchling::CARD,
+    ),
+    (
         "08ee7879-3c9d-43c6-a44e-f81180f938fd",
         &baylee_cards_1999::panacea::CARD,
     ),
@@ -2194,6 +2226,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "0ac723bf-ce86-4028-a693-0ef498e4c82d",
         &baylee_cards_1999::thran_lens::CARD,
+    ),
+    (
+        "0acadb47-17b2-47d8-9aad-5436931bc38c",
+        &baylee_cards_2008::wicker_warcrawler::CARD,
     ),
     (
         "0acb070b-6e81-4e0e-925d-14da9b931355",
@@ -2600,6 +2636,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2014::flurry_of_horns::CARD,
     ),
     (
+        "0c936582-d4c0-4da8-bc7e-49da5a433939",
+        &baylee_cards_2008::bone_splinters::CARD,
+    ),
+    (
         "0c93c418-e10b-4a6d-bddb-3b786bb6a928",
         &baylee_cards_1996::phyrexian_war_beast::CARD,
     ),
@@ -2750,6 +2790,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "0d6e9468-adb2-4feb-87cf-9113db8717b1",
         &baylee_cards_1995::musician::CARD,
+    ),
+    (
+        "0d6fccd5-ec14-4da6-972e-b2f5502818a4",
+        &baylee_cards_2008::trapjaw_kelpie::CARD,
     ),
     (
         "0d71b157-09a0-4fd4-beb9-103117a784ad",
@@ -3386,6 +3430,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "10736ea3-6253-44c3-8a1e-3b9a7f38f3cf",
         &baylee_cards_1999::misshapen_fiend::CARD,
+    ),
+    (
+        "10762505-ebaa-47de-9f3e-08d48f2ac240",
+        &baylee_cards_2008::beckon_apparition::CARD,
     ),
     (
         "107d5f67-1395-444f-b612-c5cc770df956",
@@ -4120,6 +4168,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2000::bola_warrior::CARD,
     ),
     (
+        "13f63b98-40b0-499b-bb5d-640b95a6ea1c",
+        &baylee_cards_2008::branching_bolt::CARD,
+    ),
+    (
         "13f69c70-dc93-4983-b649-d91b22633eb9",
         &baylee_cards_1996::jolt::CARD,
     ),
@@ -4542,6 +4594,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "16052b52-ade1-406f-a06b-ce7ea607fb63",
         &baylee_cards_2006::stomping_ground::CARD,
+    ),
+    (
+        "16069935-4aeb-481f-98f2-46387775540f",
+        &baylee_cards_2008::noggle_hedge_mage::CARD,
     ),
     (
         "160c8e94-ccf9-4058-b7fd-04529456f0fa",
@@ -4992,6 +5048,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2025_q4::meteor_sword::CARD,
     ),
     (
+        "181e6b3e-c33e-49e7-acb8-67473289a856",
+        &baylee_cards_2008::master_of_etherium::CARD,
+    ),
+    (
         "18202185-f9d4-446a-b34e-fae9800240f9",
         &baylee_cards_2005::gnarled_mass::CARD,
     ),
@@ -5150,6 +5210,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "19047c4b-0106-455d-ab71-68cabfae7404",
         &baylee_cards_2014::agent_of_acquisitions::CARD,
+    ),
+    (
+        "19055292-1a79-413e-8056-7d4aec9839ed",
+        &baylee_cards_2008::dawnray_archer::CARD,
     ),
     (
         "19066c43-eccd-461b-9695-c3fad95dc1da",
@@ -6240,6 +6304,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2000::rathi_assassin::CARD,
     ),
     (
+        "1ea20ecb-1919-4be7-b0bb-d79d2dec98fd",
+        &baylee_cards_2008::biting_tether::CARD,
+    ),
+    (
         "1ead750f-14a6-4f25-9eb8-9472c2fdac35",
         &baylee_cards_2002::crowd_favorites::CARD,
     ),
@@ -6676,6 +6744,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_1998::goblin_lackey::CARD,
     ),
     (
+        "2141b48d-5a04-40dd-a76b-457ac06b56c2",
+        &baylee_cards_2008::gravelgill_axeshark::CARD,
+    ),
+    (
         "2145329d-49df-4f4a-b7d7-3cc2f64639d3",
         &baylee_cards_2006::volcanic_awakening::CARD,
     ),
@@ -6910,6 +6982,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "227ed0b7-7a9a-41f1-a190-1d1b85a44720",
         &baylee_cards_1995::soldevi_simulacrum::CARD,
+    ),
+    (
+        "227f95ba-65b1-4399-8b12-39f8b1327d62",
+        &baylee_cards_2008::intimidator_initiate::CARD,
     ),
     (
         "227fb13b-0a07-4937-9048-7cf02efbc8e3",
@@ -7924,6 +8000,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2008::indomitable_ancients::CARD,
     ),
     (
+        "276b1bd8-8918-4226-bab3-100cf5aa3c24",
+        &baylee_cards_2008::lingering_tormentor::CARD,
+    ),
+    (
         "276cece9-f9f2-46e6-ae76-daddaa2fb9ab",
         &baylee_cards_2000::kor_haven::CARD,
     ),
@@ -8628,6 +8708,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2015::drowner_of_hope::CARD,
     ),
     (
+        "2b43c7de-8c21-4137-b6b8-45965e4bb558",
+        &baylee_cards_2008::inkfathom_infiltrator::CARD,
+    ),
+    (
         "2b483041-4dea-468a-9857-50dae2e8a57d",
         &baylee_cards_1994::scarwood_hag::CARD,
     ),
@@ -8690,6 +8774,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "2b8afa9f-4236-4c02-a8d5-3c145caecfd6",
         &baylee_cards_2006::rift_bolt::CARD,
+    ),
+    (
+        "2b8ef83b-1a1d-4299-ab69-e9e296bb224d",
+        &baylee_cards_2008::akrasan_squire::CARD,
     ),
     (
         "2b934761-5720-477b-94b7-d1d91dc581a6",
@@ -8898,6 +8986,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "2c90b7fa-d5bf-4c46-92d5-3014ea1bec50",
         &baylee_cards_2000::kavu_runner::CARD,
+    ),
+    (
+        "2c91c236-34d7-4454-a55a-784db7f68bde",
+        &baylee_cards_2008::divinity_of_pride::CARD,
     ),
     (
         "2c964157-d414-4d4e-822b-12ce61e882ff",
@@ -9178,6 +9270,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "2e35bcef-505a-4559-a1fe-f42f4543197f",
         &baylee_cards_1999::rushwood_herbalist::CARD,
+    ),
+    (
+        "2e4030eb-c74f-4f81-8d35-8f1d080b15cf",
+        &baylee_cards_2008::crumbling_ashes::CARD,
     ),
     (
         "2e413d18-2c55-49be-9e49-54d170c978a2",
@@ -9468,6 +9564,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2002::exalted_angel::CARD,
     ),
     (
+        "2f70f1bb-29fa-4abb-afc2-653acd0a08b9",
+        &baylee_cards_2008::woodfall_primus::CARD,
+    ),
+    (
         "2f72f111-450a-4da2-81fd-cbc4f9c1ef9d",
         &baylee_cards_2014::necromancer_s_assistant::CARD,
     ),
@@ -9644,6 +9744,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_1998::carpet_of_flowers::CARD,
     ),
     (
+        "3003e19e-ae60-4e10-b688-d0cac2a63cb2",
+        &baylee_cards_2008::viridescent_wisps::CARD,
+    ),
+    (
         "30062dd0-c049-4872-8011-8b4810a3fa26",
         &baylee_cards_2002::envelop::CARD,
     ),
@@ -9702,6 +9806,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "30536d1f-8b1a-474f-a508-d3426480a532",
         &baylee_cards_2017::call_to_the_feast::CARD,
+    ),
+    (
+        "30572dd1-c982-4872-9f35-a91ed8b238f7",
+        &baylee_cards_2008::antler_skulkin::CARD,
     ),
     (
         "306549ad-84c7-4983-840b-9663799e9f40",
@@ -9812,6 +9920,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2003::vexing_beetle::CARD,
     ),
     (
+        "30d961f7-aae2-4e5a-8f83-9dc17c7dee47",
+        &baylee_cards_2008::thunderblust::CARD,
+    ),
+    (
         "30d9e200-b944-43ff-89b8-a550a788ae03",
         &baylee_cards_1997::breath_of_life::CARD,
     ),
@@ -9874,6 +9986,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "312ce96b-6abe-4f72-a205-9b27c885a5fe",
         &baylee_cards_2010::bramblesnap::CARD,
+    ),
+    (
+        "313130ab-13db-4d0a-b3f3-b60e060b303c",
+        &baylee_cards_2008::rattleblaze_scarecrow::CARD,
     ),
     (
         "31324235-8a2b-4ce4-b0d4-6d947489b930",
@@ -10086,6 +10202,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "324824cb-f938-401c-b9b5-d8908b431ef0",
         &baylee_cards_1999::snuff_out::CARD,
+    ),
+    (
+        "324889d6-c857-41ed-bb60-408809fc9964",
+        &baylee_cards_2008::bant_charm::CARD,
     ),
     (
         "32599d7c-243b-447b-9d5d-e8e29830ac61",
@@ -10936,6 +11056,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2001::mossfire_egg::CARD,
     ),
     (
+        "364e8bd6-52e5-4397-8d2a-10c4706e5a45",
+        &baylee_cards_2008::hag_hedge_mage::CARD,
+    ),
+    (
         "36508a8a-d1a4-400e-bfda-09436bc4d5d4",
         &baylee_cards_2024_q2::lonely_arroyo::CARD,
     ),
@@ -11428,6 +11552,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2002::glory::CARD,
     ),
     (
+        "3859873f-2a0f-463b-8ed9-7f2ab5ed393a",
+        &baylee_cards_2008::blowfly_infestation::CARD,
+    ),
+    (
         "385c1208-bfea-44e2-b236-4f38bc90db9f",
         &baylee_cards_2011::gladecover_scout::CARD,
     ),
@@ -11438,6 +11566,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "3875aef0-3102-4fbf-be90-e4139f7a2348",
         &baylee_cards_2018::wayward_swordtooth::CARD,
+    ),
+    (
+        "387ae7be-1cb5-4ae8-bb63-edf4941945a9",
+        &baylee_cards_2008::grixis_charm::CARD,
     ),
     (
         "387b6b07-a283-412d-94c3-f7f1dc76e858",
@@ -11522,6 +11654,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "38d9401e-2840-455d-8478-8c976588d4ab",
         &baylee_cards_2000::off_balance::CARD,
+    ),
+    (
+        "38e274e2-bd04-48de-a1df-44f0ee987ba8",
+        &baylee_cards_2008::mistmeadow_witch::CARD,
     ),
     (
         "38e9ad30-4bbf-4b58-8bb2-47520ce351a3",
@@ -11896,6 +12032,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2001::decaying_soil::CARD,
     ),
     (
+        "3a5937de-5957-47a9-9bd4-0dc7f8b833ef",
+        &baylee_cards_2008::splitting_headache::CARD,
+    ),
+    (
         "3a59c882-8bb8-49ba-862f-125020dd5bec",
         &baylee_cards_2006::empty_the_warrens::CARD,
     ),
@@ -12006,6 +12146,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "3ac01298-e45b-4ea0-8379-2074279716a4",
         &baylee_cards_2018::citywide_bust::CARD,
+    ),
+    (
+        "3ac276ca-91d5-4c7d-a355-e56c67ac3ba9",
+        &baylee_cards_2008::duergar_mine_captain::CARD,
     ),
     (
         "3ad5af12-1741-427d-92c4-6a730cd4faa2",
@@ -13092,6 +13236,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2000::flowering_field::CARD,
     ),
     (
+        "40216d09-ae4d-4a41-b3f6-1a8035093045",
+        &baylee_cards_2008::battlegrace_angel::CARD,
+    ),
+    (
         "4021b6b4-9b87-4dd5-a5df-79540bedbe87",
         &baylee_cards_2000::squirrel_wrangler::CARD,
     ),
@@ -13444,6 +13592,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2020::honey_mammoth::CARD,
     ),
     (
+        "41e250e6-8e38-4cbc-ae66-98800a5feba8",
+        &baylee_cards_2008::archdemon_of_unx::CARD,
+    ),
+    (
         "41ed9b02-5926-4af0-bcee-7f41bbb3fdd6",
         &baylee_cards_2015::sandblast::CARD,
     ),
@@ -13518,6 +13670,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "423659f1-1b48-4a2b-a1dc-f39fd62c6b6a",
         &baylee_cards_2001::mogg_jailer::CARD,
+    ),
+    (
+        "423a1fc2-f623-4b5f-9a3e-7f63b2f3cf5d",
+        &baylee_cards_2008::scuzzback_marauders::CARD,
     ),
     (
         "423bebcc-8fa0-49c4-aa22-728bf51a535b",
@@ -13866,6 +14022,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "43d7fcf3-acc2-4e9b-a466-c73b1b6c58af",
         &baylee_cards_2013::omenspeaker::CARD,
+    ),
+    (
+        "43e0dbaf-3c81-47e2-b0c2-364f7ac7295f",
+        &baylee_cards_2008::grim_poppet::CARD,
     ),
     (
         "43e6fc44-8b23-4bff-91da-936019efe84b",
@@ -14660,6 +14820,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_1999::flanking_troops::CARD,
     ),
     (
+        "47bfee3e-34b4-4b89-aaf8-f74e0c3d3c62",
+        &baylee_cards_2008::cinder_pyromancer::CARD,
+    ),
+    (
         "47c12d2f-b458-4848-9a01-0fc37ef3d942",
         &baylee_cards_1995::blue_scarab::CARD,
     ),
@@ -15364,6 +15528,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2026_q2::los_diablos_missile_base::CARD,
     ),
     (
+        "4b1bf05e-753e-4350-a913-894cf3cecc0c",
+        &baylee_cards_2008::fleshbag_marauder::CARD,
+    ),
+    (
         "4b1f68a2-b606-4c64-bd44-a9714808316d",
         &baylee_cards_2022_q3::tangled_islet::CARD,
     ),
@@ -15708,6 +15876,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2005::mark_of_the_oni::CARD,
     ),
     (
+        "4ce2357f-93e6-40ca-beca-8f4e15adc464",
+        &baylee_cards_2008::farhaven_elf::CARD,
+    ),
+    (
         "4ce6c946-7a93-4a8d-a2c9-086cbd036e3c",
         &baylee_cards_2009::regenerate::CARD,
     ),
@@ -15948,6 +16120,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2001::nut_collector::CARD,
     ),
     (
+        "4e1efd99-8bfc-4650-a430-a754578facbd",
+        &baylee_cards_2008::hollowsage::CARD,
+    ),
+    (
         "4e1f4211-5865-492d-b850-0d36ac12e857",
         &baylee_cards_2019::enforcer_griffin::CARD,
     ),
@@ -16038,6 +16214,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "4ea19457-97ef-4ac8-b67c-41be1109ca73",
         &baylee_cards_2001::falling_timber::CARD,
+    ),
+    (
+        "4eafe158-abff-43e9-aeae-596430c5ce21",
+        &baylee_cards_2008::scar::CARD,
     ),
     (
         "4eb24ae3-da1a-4565-934f-e25f56036d71",
@@ -17030,6 +17210,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "53ae0359-aa3c-464b-bdbd-139ae17ebd76",
         &baylee_cards_1995::trailblazer::CARD,
+    ),
+    (
+        "53b121df-3040-4ad0-a25d-587a299b4f8b",
+        &baylee_cards_2008::deepchannel_mentor::CARD,
     ),
     (
         "53b86704-4f16-498e-8c2c-e661cb85eb9c",
@@ -18728,6 +18912,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2014::swordwise_centaur::CARD,
     ),
     (
+        "5c367b7d-3cb4-45db-b836-dad953efce15",
+        &baylee_cards_2008::nettle_sentinel::CARD,
+    ),
+    (
         "5c4cb33d-2a79-4934-839f-d34e9ca284f8",
         &baylee_cards_1998::raiding_nightstalker::CARD,
     ),
@@ -19272,6 +19460,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_1997::fruition::CARD,
     ),
     (
+        "5f3f68b5-8c6a-4181-bb8a-9c73967d198a",
+        &baylee_cards_2008::glen_elendra_archmage::CARD,
+    ),
+    (
         "5f4138e9-5471-467f-a15e-89e9e7929f0c",
         &baylee_cards_2002::elvish_pioneer::CARD,
     ),
@@ -19362,6 +19554,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "5fa1b2f0-3ba4-49db-9cb5-b6130e4c255e",
         &baylee_cards_2018::legion_lieutenant::CARD,
+    ),
+    (
+        "5fa3cc1a-09ee-4152-8c50-ea719510fc20",
+        &baylee_cards_2008::gnarled_effigy::CARD,
     ),
     (
         "5fa4607a-6731-4599-80f3-19d6097b4b28",
@@ -19626,6 +19822,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "60b36821-0fad-423c-98c4-f64d991719f3",
         &baylee_cards_2009::graypelt_refuge::CARD,
+    ),
+    (
+        "60b6e96a-63e6-4520-b2dd-b20b7dfbcd57",
+        &baylee_cards_2008::inkfathom_witch::CARD,
     ),
     (
         "60ba93eb-39e6-4af2-9c66-cd38f72daff2",
@@ -19968,6 +20168,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_1998::portcullis::CARD,
     ),
     (
+        "623d9db1-a3af-4a1c-9643-975de364e073",
+        &baylee_cards_2008::inside_out::CARD,
+    ),
+    (
         "623f3efb-5431-42d4-98aa-9caac40e4e83",
         &baylee_cards_1999::fleeting_image::CARD,
     ),
@@ -20170,6 +20374,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "6343aa78-2df6-41f3-9366-4933f9e6a93e",
         &baylee_cards_2000::stand::CARD,
+    ),
+    (
+        "6343cf6f-b1e3-49ce-8933-8fe6c9dc83f3",
+        &baylee_cards_2008::kresh_the_bloodbraided::CARD,
     ),
     (
         "634bd800-8caa-47ae-8b70-2c66baf9a355",
@@ -20454,6 +20662,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "647ca69e-cc01-4b2b-b376-bee2a98331e8",
         &baylee_cards_1999::phyrexian_reclamation::CARD,
+    ),
+    (
+        "6480ab32-3a29-4449-8ff7-c8e43c320ed3",
+        &baylee_cards_2008::din_of_the_fireherd::CARD,
     ),
     (
         "648bd03d-247e-4d6f-87a9-12a67688cbf5",
@@ -21900,6 +22112,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_1998::mishra_s_helix::CARD,
     ),
     (
+        "6b19377c-f178-49cb-95f8-fd3451acc7cf",
+        &baylee_cards_2008::angelic_benediction::CARD,
+    ),
+    (
         "6b1d178f-9713-4dcf-920b-ddf2c94cc427",
         &baylee_cards_2003::brood_sliver::CARD,
     ),
@@ -22114,6 +22330,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "6c270e6a-12a7-4323-87ba-6d770986fb48",
         &baylee_cards_1995::foxfire::CARD,
+    ),
+    (
+        "6c2cf22e-5dbb-4fa9-8ece-17069e6f1d7f",
+        &baylee_cards_2008::excommunicate::CARD,
     ),
     (
         "6c31f06d-bf02-48a7-9c17-be2a226b8eae",
@@ -22672,6 +22892,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2000::parallax_dementia::CARD,
     ),
     (
+        "6ec8dc98-adc7-4fc3-94e5-31037235ceab",
+        &baylee_cards_2008::jhessian_infiltrator::CARD,
+    ),
+    (
         "6ec9f9a9-9e66-4d81-ae22-dc0de596acd5",
         &baylee_cards_2004::iron_barb_hellion::CARD,
     ),
@@ -23102,6 +23326,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "70c32155-dc07-45cb-bceb-e19d3ebc915d",
         &baylee_cards_1998::hidden_stag::CARD,
+    ),
+    (
+        "70cdd24a-8dc5-47b5-8729-9ebf486f4821",
+        &baylee_cards_2008::aerie_ouphes::CARD,
     ),
     (
         "70d1caee-1c35-4fa3-bbc3-a7dcc226be90",
@@ -24260,6 +24488,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2018::knight_of_new_benalia::CARD,
     ),
     (
+        "75f381a6-49f9-4caf-a96a-91c75640b9b0",
+        &baylee_cards_2008::raking_canopy::CARD,
+    ),
+    (
         "7601378d-42cb-4351-8316-8f78a3b49a85",
         &baylee_cards_1994::elven_lyre::CARD,
     ),
@@ -24730,6 +24962,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "77fa18fa-5dba-4e4c-9b24-9bfa9b68779f",
         &baylee_cards_2000::despoil::CARD,
+    ),
+    (
+        "78064301-f81e-4737-9cfe-b1e8757d0dd6",
+        &baylee_cards_2008::nurturer_initiate::CARD,
     ),
     (
         "7807122e-917f-4a79-876e-d1c10f7a38ed",
@@ -25476,6 +25712,14 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2002::nosy_goblin::CARD,
     ),
     (
+        "7bd2ac13-d598-4cf1-a483-2a6878aed93b",
+        &baylee_cards_2008::jund_charm::CARD,
+    ),
+    (
+        "7bd4e504-541e-4b2c-9f1d-3c67957aef2e",
+        &baylee_cards_2008::belligerent_hatchling::CARD,
+    ),
+    (
         "7bdfe368-353c-4f8d-851f-05b7ea9f905d",
         &baylee_cards_1995::jokulhaups::CARD,
     ),
@@ -25564,6 +25808,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_1994::nebuchadnezzar::CARD,
     ),
     (
+        "7c4fc524-4734-4fb8-a5ca-ac2617242c3f",
+        &baylee_cards_2008::hissing_iguanar::CARD,
+    ),
+    (
         "7c5183be-cddf-48fb-a4b5-dc5f6faf26de",
         &baylee_cards_2025_q3::cloudsculpt_technician::CARD,
     ),
@@ -25578,6 +25826,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "7c6143f3-ad2c-4d7f-9041-aa59f01d8fb7",
         &baylee_cards_2012::haunted_fengraf::CARD,
+    ),
+    (
+        "7c683855-f32e-42f9-8681-c3335d5eaf79",
+        &baylee_cards_2008::bloodpyre_elemental::CARD,
     ),
     (
         "7c69cb2b-14f1-4215-aba8-c107493c3036",
@@ -25832,6 +26084,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2018::zetalpa_primal_dawn::CARD,
     ),
     (
+        "7da64f81-64d0-4019-a208-9ee8b6782d85",
+        &baylee_cards_2008::stream_of_unconsciousness::CARD,
+    ),
+    (
         "7db99e21-0faf-408d-a770-189726179c66",
         &baylee_cards_2016::curio_vendor::CARD,
     ),
@@ -26036,6 +26292,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2008::stonybrook_schoolmaster::CARD,
     ),
     (
+        "7ef8df9f-3fab-44fd-b5a9-f57e54dbc38e",
+        &baylee_cards_2008::guardians_of_akrasa::CARD,
+    ),
+    (
         "7efd5d62-6da2-428a-98e3-5b842f668656",
         &baylee_cards_1997::mogg_fanatic::CARD,
     ),
@@ -26094,6 +26354,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "7f52993c-a20a-48fe-b463-2a33873b489a",
         &baylee_cards_2011::gnathosaur::CARD,
+    ),
+    (
+        "7f546d54-584d-4bec-8fbb-1ea2f8ab277e",
+        &baylee_cards_2008::mayael_the_anima::CARD,
     ),
     (
         "7f591bfb-a241-4980-9cb3-fb5af3355f6b",
@@ -26876,6 +27140,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2014::mystic_monastery::CARD,
     ),
     (
+        "8353f834-678a-4fa1-857a-8bfdfb8d6378",
+        &baylee_cards_2008::lurebound_scarecrow::CARD,
+    ),
+    (
         "8354b70e-43fc-4581-bb53-b913335bf460",
         &baylee_cards_2017::seraph_of_the_suns::CARD,
     ),
@@ -27628,6 +27896,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_1999::saprazzan_heir::CARD,
     ),
     (
+        "868b758c-e21c-4079-a1fc-4c89af106f4b",
+        &baylee_cards_2008::howl_of_the_night_pack::CARD,
+    ),
+    (
         "868e6e68-4367-4073-a864-235d5961ae56",
         &baylee_cards_2021_q1::darkbore_pathway::CARD,
     ),
@@ -28280,6 +28552,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2011::ambush_viper::CARD,
     ),
     (
+        "89599a64-19fc-47ad-a116-3ce0a10fa546",
+        &baylee_cards_2008::carrion_thrash::CARD,
+    ),
+    (
         "895a0e00-20a9-44f8-9215-66edcdf016b7",
         &baylee_cards_2004::eiganjo_castle::CARD,
     ),
@@ -28306,6 +28582,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "8981d1d1-e102-4a3d-96ad-3904c83d1611",
         &baylee_cards_1997::shocker::CARD,
+    ),
+    (
+        "89838d28-6026-417d-9ec3-0081911291fb",
+        &baylee_cards_2008::grixis_battlemage::CARD,
     ),
     (
         "898763f8-a333-43f5-9f66-52e2adbe5758",
@@ -28378,6 +28658,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "89fb21dc-4cf2-4c9a-b0ae-cc6e10277fb6",
         &baylee_cards_2025_q2::fire_rim_form::CARD,
+    ),
+    (
+        "8a011d0d-da29-4287-b50c-12746abfa38c",
+        &baylee_cards_2008::tilling_treefolk::CARD,
     ),
     (
         "8a04fd45-6526-4c73-8b38-5e40a2380451",
@@ -29176,6 +29460,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_1995::prophecy::CARD,
     ),
     (
+        "8dcfa697-5350-43b9-896f-c5eefcc3893a",
+        &baylee_cards_2008::goldenglow_moth::CARD,
+    ),
+    (
         "8dd2e73a-d1b4-4d26-857f-9eb8e384c8ff",
         &baylee_cards_2025_q4::iroh_s_demonstration::CARD,
     ),
@@ -29398,6 +29686,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "8ee2371c-e2c3-412e-b9e9-1ec511c9d537",
         &baylee_cards_2022_q1::moonfolk_puzzlemaker::CARD,
+    ),
+    (
+        "8ee98d6a-6a7e-411d-818c-816d84cfb7cd",
+        &baylee_cards_2008::kinscaer_harpoonist::CARD,
     ),
     (
         "8ef3dd68-f6a1-43b9-8837-40b326019b1b",
@@ -29756,6 +30048,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_1994::relic_barrier::CARD,
     ),
     (
+        "90d2e092-6eb8-4d13-bdad-19e7325a8b36",
+        &baylee_cards_2008::steel_of_the_godhead::CARD,
+    ),
+    (
         "90d375fa-0487-4990-9a98-260f9ee28d2a",
         &baylee_cards_2022_q3::llanowar_stalker::CARD,
     ),
@@ -29922,6 +30218,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "916bd025-c44f-49c9-8d76-4b7b2f9a8ba3",
         &baylee_cards_2004::night_of_souls_betrayal::CARD,
+    ),
+    (
+        "916db499-7f0a-45f7-8abe-94818a53e494",
+        &baylee_cards_2008::armored_ascension::CARD,
     ),
     (
         "917652c7-ac12-4cd7-ab2d-f2260a620d02",
@@ -30712,6 +31012,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_1999::levitation::CARD,
     ),
     (
+        "94c47804-bb64-4a91-85c5-9241c39685aa",
+        &baylee_cards_2008::creakwood_ghoul::CARD,
+    ),
+    (
         "94c98a3b-9c3e-497f-b954-8f2248ca01ac",
         &baylee_cards_2021_q4::unhallowed_phalanx::CARD,
     ),
@@ -30810,6 +31114,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "95625072-c457-4224-b509-5feaa35e9ca6",
         &baylee_cards_2000::slimy_kavu::CARD,
+    ),
+    (
+        "956250da-532a-4457-8696-73915be56943",
+        &baylee_cards_2008::cradle_of_vitality::CARD,
     ),
     (
         "95630a83-3699-4340-b3e5-17e81db1b82f",
@@ -30926,6 +31234,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "96230edf-568a-47dd-b877-9d92aa58fac8",
         &baylee_cards_1993::nevinyrral_s_disk::CARD,
+    ),
+    (
+        "96232342-3ec7-4740-a114-969537b8f2fc",
+        &baylee_cards_2008::ballynock_trapper::CARD,
     ),
     (
         "9625773b-1976-49b3-88d2-93a4befb595c",
@@ -31078,6 +31390,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "96b611e9-38cc-4326-bb38-73084e99e6f5",
         &baylee_cards_2001::frightcrawler::CARD,
+    ),
+    (
+        "96b87445-6362-4a17-91b2-cbf203fd03fd",
+        &baylee_cards_2008::etherium_sculptor::CARD,
     ),
     (
         "96bcabee-e84e-409f-8439-80f5308d73e9",
@@ -33364,6 +33680,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_1996::iron_tusk_elephant::CARD,
     ),
     (
+        "a2a40a19-8704-42fe-b9a6-5ae37c110303",
+        &baylee_cards_2008::idle_thoughts::CARD,
+    ),
+    (
         "a2b29ae0-feaf-4662-9aee-8c6179f91853",
         &baylee_cards_2004::orbweaver_kumo::CARD,
     ),
@@ -33390,6 +33710,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "a2dabd52-0b75-42d7-a07d-0df7b38646e2",
         &baylee_cards_1997::volunteer_reserves::CARD,
+    ),
+    (
+        "a2db1035-008e-4de3-b5e5-2a0de83082b2",
+        &baylee_cards_2008::grazing_kelpie::CARD,
     ),
     (
         "a2dd89a1-9b3e-4bd1-9b48-36516d63726a",
@@ -33486,6 +33810,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "a3541870-3dc9-4571-be98-c0a2b6c468fb",
         &baylee_cards_1994::dwarven_weaponsmith::CARD,
+    ),
+    (
+        "a358fe8f-6ec2-4b42-8851-ef65308ccb1d",
+        &baylee_cards_2008::gustrider_exuberant::CARD,
     ),
     (
         "a35c2e20-eb90-4132-b65f-be1fcb569819",
@@ -33636,6 +33964,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_1994::giant_badger::CARD,
     ),
     (
+        "a4154dac-3f6d-4f8f-a769-9f5b8acecda7",
+        &baylee_cards_2008::merrow_levitator::CARD,
+    ),
+    (
         "a41b610e-125d-4921-81f9-6391f9214d12",
         &baylee_cards_2008::mosstodon::CARD,
     ),
@@ -33680,8 +34012,16 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2018::ferocious_zheng::CARD,
     ),
     (
+        "a45fd5cc-0085-4d4f-872b-b9251e8706cf",
+        &baylee_cards_2008::knollspine_invocation::CARD,
+    ),
+    (
         "a4689767-46c3-42ab-af27-5877e226bc05",
         &baylee_cards_1998::disciple_of_law::CARD,
+    ),
+    (
+        "a47ae84f-dcbc-4a60-9266-c1a02f92e7f8",
+        &baylee_cards_2008::poison_the_well::CARD,
     ),
     (
         "a47d9ea3-95fe-4774-8e72-30e7f56756f4",
@@ -33698,6 +34038,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "a48f259a-99a0-49c7-a11b-6e796f8a12f4",
         &baylee_cards_2015::contradict::CARD,
+    ),
+    (
+        "a498bc70-36e7-4454-bc44-906893df38b8",
+        &baylee_cards_2008::murderous_redcap::CARD,
     ),
     (
         "a49a9418-72d1-4ab1-89d9-a1f65ae23d35",
@@ -34266,6 +34610,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "a74494ef-aa35-4830-9b4c-47bff5270efc",
         &baylee_cards_2018::memorial_to_unity::CARD,
+    ),
+    (
+        "a74d80ec-9f42-418d-ab98-897acc23c319",
+        &baylee_cards_2008::apothecary_initiate::CARD,
     ),
     (
         "a751c07b-fc21-4854-96e7-f71abf4e86c9",
@@ -34956,6 +35304,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2003::silver_knight::CARD,
     ),
     (
+        "aa7f0f15-bcbb-4af5-ad31-ff215dd81e71",
+        &baylee_cards_2008::heap_doll::CARD,
+    ),
+    (
         "aa86bce1-9cde-44d8-9455-24502221f31d",
         &baylee_cards_2026_q2::the_whizzer_classic_speedster::CARD,
     ),
@@ -35006,6 +35358,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "aadd10d0-6dd0-4bdc-8d93-ff08e29a5863",
         &baylee_cards_2020::drannith_magistrate::CARD,
+    ),
+    (
+        "aaea9b83-3db5-4cdb-8e45-5c00a102c3ba",
+        &baylee_cards_2008::recumbent_bliss::CARD,
     ),
     (
         "aaf171bd-a4bb-4ce4-836a-da193c94f42e",
@@ -36372,6 +36728,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_1998::worn_powerstone::CARD,
     ),
     (
+        "b1696989-7f00-41ec-82a4-fd10aed7a7f9",
+        &baylee_cards_2008::tattermunge_witch::CARD,
+    ),
+    (
         "b16b10ec-a6a3-4bda-a561-9b7bb8eee194",
         &baylee_cards_2000::laccolith_whelp::CARD,
     ),
@@ -37096,6 +37456,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2001::spectral_lynx::CARD,
     ),
     (
+        "b51d2c70-204b-4321-a589-f00a3e49fab4",
+        &baylee_cards_2008::crag_puca::CARD,
+    ),
+    (
         "b51e0ae3-126b-4b7e-9dd1-818a5b8e512a",
         &baylee_cards_2025_q2::dwarven_castle_guard::CARD,
     ),
@@ -37290,6 +37654,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "b5d5cfc0-17e0-42d1-b5bd-9f27b11191f9",
         &baylee_cards_1998::jagged_lightning::CARD,
+    ),
+    (
+        "b5d5dd1f-2d31-4849-8cb9-08354dd48d31",
+        &baylee_cards_2008::feral_hydra::CARD,
     ),
     (
         "b5dbb212-0399-475b-a831-921f7c76cdc4",
@@ -37782,6 +38150,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "b8944199-9d33-4126-b529-b52e9f0116ff",
         &baylee_cards_2000::parallax_inhibitor::CARD,
+    ),
+    (
+        "b89b285d-62d3-4013-b881-23f0f236337d",
+        &baylee_cards_2008::gwyllion_hedge_mage::CARD,
     ),
     (
         "b8a65e49-2379-42bf-823e-c208c2550aeb",
@@ -39664,6 +40036,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2025_q1::spin_out::CARD,
     ),
     (
+        "c1cb870a-8c1f-435c-b678-e456c4d2d627",
+        &baylee_cards_2008::banewasp_affliction::CARD,
+    ),
+    (
         "c1cbbda0-e02b-4b9c-8669-ea87ca629520",
         &baylee_cards_2021_q2::dress_down::CARD,
     ),
@@ -39790,6 +40166,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "c247382f-821e-4f3c-9d34-450794ce74c3",
         &baylee_cards_2004::kami_of_fire_s_roar::CARD,
+    ),
+    (
+        "c24b3135-5f23-461c-9e57-de747ca8978a",
+        &baylee_cards_2008::mindwrack_liege::CARD,
     ),
     (
         "c2508190-5aca-4511-adc8-2072cd228119",
@@ -41220,6 +41600,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2016::succumb_to_temptation::CARD,
     ),
     (
+        "c8e53740-c633-42f8-9e02-3434d6dc0b30",
+        &baylee_cards_2008::puncture_bolt::CARD,
+    ),
+    (
         "c8e96a51-24c9-4955-8bf0-6ef448fa8011",
         &baylee_cards_1996::chaos_harlequin::CARD,
     ),
@@ -41804,6 +42188,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2014::utter_end::CARD,
     ),
     (
+        "cbb030aa-ba4f-4d9e-920d-001a40982f5e",
+        &baylee_cards_2008::cultbrand_cinder::CARD,
+    ),
+    (
         "cbb39e5c-e31a-44e9-be0c-2003c8bce599",
         &baylee_cards_2022_q1::lucky_offering::CARD,
     ),
@@ -41882,6 +42270,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "cc1ba59c-bb70-4da9-bbd0-a466075f9053",
         &baylee_cards_1994::clay_statue::CARD,
+    ),
+    (
+        "cc1cb63e-5811-44ab-af50-37a96f79fc78",
+        &baylee_cards_2008::court_archers::CARD,
     ),
     (
         "cc22c210-efd0-494c-8560-448b038b3c5f",
@@ -42248,6 +42640,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2012::pursuit_of_flight::CARD,
     ),
     (
+        "cdd227fc-0809-45d6-bed0-e85c0c0b6c94",
+        &baylee_cards_2008::soul_snuffers::CARD,
+    ),
+    (
         "cdd8d7cf-28f2-4a4d-a373-40d48bff615b",
         &baylee_cards_1999::last_ditch_effort::CARD,
     ),
@@ -42590,6 +42986,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "cf459f47-e565-4bbb-89e4-ed54da8adae1",
         &baylee_cards_2023_q2::zhalfirin_shapecraft::CARD,
+    ),
+    (
+        "cf4d8b19-fd11-4200-9871-896772019f4c",
+        &baylee_cards_2008::spitemare::CARD,
     ),
     (
         "cf58682f-c305-4803-b54b-37f0841788e9",
@@ -44668,6 +45068,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_1997::heat_wave::CARD,
     ),
     (
+        "d8f2c12c-d463-42dc-95f1-2daf68f99873",
+        &baylee_cards_2008::deep_slumber_titan::CARD,
+    ),
+    (
         "d8f5279f-c58e-4560-9c68-77d226a3c86c",
         &baylee_cards_1994::order_of_leitbur::CARD,
     ),
@@ -45184,6 +45588,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2017::sheltered_thicket::CARD,
     ),
     (
+        "db951ec2-d751-479d-af1f-885d3cf50027",
+        &baylee_cards_2008::aphotic_wisps::CARD,
+    ),
+    (
         "db982577-1c75-4bc9-ab15-1888ea0be16d",
         &baylee_cards_2002::endemic_plague::CARD,
     ),
@@ -45592,6 +46000,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2012::maalfeld_twins::CARD,
     ),
     (
+        "dda8bf18-9396-45e6-829c-8691f49f7290",
+        &baylee_cards_2008::dramatic_entrance::CARD,
+    ),
+    (
         "ddb021df-ae4a-4ac1-8353-d0b375761714",
         &baylee_cards_1993::white_knight::CARD,
     ),
@@ -45646,6 +46058,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "dded2874-e80f-401a-b700-52c54dd6da60",
         &baylee_cards_1996::ivory_charm::CARD,
+    ),
+    (
+        "ddf8d3d2-b0f9-43bc-9c9e-cb08fdedcc72",
+        &baylee_cards_2008::thoughtweft_gambit::CARD,
     ),
     (
         "ddfc7dac-f921-4529-935c-6c588890c522",
@@ -45750,6 +46166,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "de85c961-622d-4d70-8cd7-f722c1ac5ed1",
         &baylee_cards_2001::sphere_of_reason::CARD,
+    ),
+    (
+        "de8beb92-234b-4684-9185-c7077c8a5133",
+        &baylee_cards_2008::kithkin_spellduster::CARD,
     ),
     (
         "de8ccd32-f537-4a11-8dc4-e48836a0b139",
@@ -46106,6 +46526,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "e055bc6d-d395-4f85-8e15-3bce65b7fcca",
         &baylee_cards_2023_q3::redcap_thief::CARD,
+    ),
+    (
+        "e0583f29-c344-4b56-b0dc-bef1089a95c7",
+        &baylee_cards_2008::smash_to_smithereens::CARD,
     ),
     (
         "e0587218-206e-41ed-af3c-f06b7a668e90",
@@ -46510,6 +46934,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "e241c8c3-359d-4e20-97a6-a873c50f1ef9",
         &baylee_cards_2010::lagac_lizard::CARD,
+    ),
+    (
+        "e264ffe3-0252-49d6-b990-dbb3654325a5",
+        &baylee_cards_2008::regal_force::CARD,
     ),
     (
         "e26bf6a9-b31c-4bc0-b55b-c01f2f69be6b",
@@ -47320,6 +47748,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2007::tar_pitcher::CARD,
     ),
     (
+        "e699d140-eb13-4f15-aecb-85c76e8b1b14",
+        &baylee_cards_2008::crimson_wisps::CARD,
+    ),
+    (
         "e69a6fee-c4c0-4b31-8899-6e0935a6cded",
         &baylee_cards_2013::furious_resistance::CARD,
     ),
@@ -47398,6 +47830,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "e6e7b5ba-ea10-4f53-8afc-045aa1906c6b",
         &baylee_cards_2021_q4::syphon_essence::CARD,
+    ),
+    (
+        "e6e888ea-9935-4df2-a344-c54637e55f43",
+        &baylee_cards_2008::greater_auramancy::CARD,
     ),
     (
         "e6ea475e-61ba-487b-b7e9-683845a90b73",
@@ -48288,6 +48724,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2007::gilt_leaf_seer::CARD,
     ),
     (
+        "eab5eb29-bed6-456b-8929-5b9b820aa5a3",
+        &baylee_cards_2008::voracious_hatchling::CARD,
+    ),
+    (
         "eab70fff-6a9f-4f9f-89a2-b6910c199e46",
         &baylee_cards_2017::hashep_oasis::CARD,
     ),
@@ -48338,6 +48778,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "eae87919-6322-4bd2-ae9c-b1ce25d686da",
         &baylee_cards_1994::chains_of_mephistopheles::CARD,
+    ),
+    (
+        "eaedc09f-43b8-42db-a645-0ac3baf1de12",
+        &baylee_cards_2008::ashenmoor_gouger::CARD,
     ),
     (
         "eaf98e03-729b-4145-b2af-c910c415c15d",
@@ -49050,6 +49494,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "ee337677-d898-40a5-9453-405d07ec12b1",
         &baylee_cards_2003::goblin_firebug::CARD,
+    ),
+    (
+        "ee35ed62-d5a2-4e65-a7eb-fcdcb3665532",
+        &baylee_cards_2008::balefire_liege::CARD,
     ),
     (
         "ee38377f-8d3a-402e-a5d7-a01cfe3a5322",
@@ -50040,6 +50488,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_1995::arnjlot_s_ascent::CARD,
     ),
     (
+        "f2d1e991-e13a-43c7-85aa-d53dd14822e6",
+        &baylee_cards_2008::wake_thrasher::CARD,
+    ),
+    (
         "f2e081be-87ef-457a-a5cb-2c2ff10cbcf5",
         &baylee_cards_2005::ivy_dancer::CARD,
     ),
@@ -50088,6 +50540,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2000::urborg_emissary::CARD,
     ),
     (
+        "f30e9371-2c12-496a-80e1-40c3408defed",
+        &baylee_cards_2008::spell_syphon::CARD,
+    ),
+    (
         "f30f17f0-bd2d-4f10-9739-111917acc100",
         &baylee_cards_2011::glissa_s_scorn::CARD,
     ),
@@ -50122,6 +50578,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "f32d19d6-8ac1-4744-b2c2-5c9d4cd0da70",
         &baylee_cards_1993::bottle_of_suleiman::CARD,
+    ),
+    (
+        "f33cd975-ab70-4209-a6d8-e0d727772bf2",
+        &baylee_cards_2008::cold_eyed_selkie::CARD,
     ),
     (
         "f33ce38a-34ec-4b65-a0fc-160484a02007",
@@ -50372,6 +50832,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2000::breaking_wave::CARD,
     ),
     (
+        "f45716dc-c613-4b14-865d-419395fb02f6",
+        &baylee_cards_2008::scarecrone::CARD,
+    ),
+    (
         "f45a2a66-04cc-4622-9c70-f2dfc1391bb1",
         &baylee_cards_2009::madrush_cyclops::CARD,
     ),
@@ -50426,6 +50890,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "f48dae33-ebf9-41ee-a61e-7573a2733db2",
         &baylee_cards_2002::cephalid_vandal::CARD,
+    ),
+    (
+        "f4a96881-586d-44ad-b427-5cdf8988f9a1",
+        &baylee_cards_2008::memory_erosion::CARD,
     ),
     (
         "f4aa8391-34d5-4ad2-a981-9aa08f8229db",
@@ -50636,6 +51104,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2004::nine_ringed_bo::CARD,
     ),
     (
+        "f5e18b27-c5cc-4f5e-b767-4b1b43e00fd0",
+        &baylee_cards_2008::dominus_of_fealty::CARD,
+    ),
+    (
         "f5e3c26c-c28c-455f-a682-2597e4b92d10",
         &baylee_cards_1998::arcane_laboratory::CARD,
     ),
@@ -50794,6 +51266,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "f68b90af-9502-4d99-aadf-2bfcea8a655a",
         &baylee_cards_1999::wishmonger::CARD,
+    ),
+    (
+        "f693cf76-0919-4b89-92de-e619be006abb",
+        &baylee_cards_2008::loyal_gyrfalcon::CARD,
     ),
     (
         "f6a6da20-52c8-4921-9884-29d3a3051b0d",
@@ -51080,6 +51556,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &baylee_cards_2022_q2::ziatora_s_proving_ground::CARD,
     ),
     (
+        "f7ea8725-db0e-4ce5-ac77-7dfc2a4e9286",
+        &baylee_cards_2008::oracle_of_nectars::CARD,
+    ),
+    (
         "f7ed3cd6-d138-4c12-93bb-91629492a5fa",
         &baylee_cards_2026_q2::experimental_armor::CARD,
     ),
@@ -51254,6 +51734,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "f8beeb0a-750f-4afa-a244-10011342bbeb",
         &baylee_cards_2002::wretched_anurid::CARD,
+    ),
+    (
+        "f8c0c555-c750-4842-8924-d634206bbb81",
+        &baylee_cards_2008::exuberant_firestoker::CARD,
     ),
     (
         "f8c2d9c5-6fe6-4698-9972-83cdd625d94b",
@@ -51942,6 +52426,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "fbd295ee-545a-4eab-b000-c0b228dd412d",
         &baylee_cards_2002::cabal_torturer::CARD,
+    ),
+    (
+        "fbd6dda7-ccee-4640-805d-78a9d60f45ef",
+        &baylee_cards_2008::restless_apparition::CARD,
     ),
     (
         "fbd71691-d0fd-4842-913b-fe6096d509a3",
@@ -62252,7 +62740,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     None,
     Some(&baylee_cards_2008::stonybrook_banneret::CARD),
     Some(&baylee_cards_2008::stonybrook_schoolmaster::CARD),
-    None,
+    Some(&baylee_cards_2008::stream_of_unconsciousness::CARD),
     None,
     None,
     None,
@@ -62265,7 +62753,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     None,
     None,
     Some(&baylee_cards_2008::violet_pall::CARD),
-    None,
+    Some(&baylee_cards_2008::walker_of_the_grove::CARD),
     None,
     Some(&baylee_cards_2008::war_spike_changeling::CARD),
     None,
@@ -62278,11 +62766,11 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     None,
     None,
     None,
+    Some(&baylee_cards_2008::aphotic_wisps::CARD),
+    Some(&baylee_cards_2008::apothecary_initiate::CARD),
+    Some(&baylee_cards_2008::armored_ascension::CARD),
     None,
-    None,
-    None,
-    None,
-    None,
+    Some(&baylee_cards_2008::ashenmoor_gouger::CARD),
     None,
     None,
     None,
@@ -62290,13 +62778,13 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&baylee_cards_2008::barrenton_cragtreads::CARD),
     Some(&baylee_cards_2008::barrenton_medic::CARD),
     None,
-    None,
+    Some(&baylee_cards_2008::biting_tether::CARD),
     None,
     None,
     Some(&baylee_cards_2008::blistering_dieflyn::CARD),
     Some(&baylee_cards_2008::bloodmark_mentor::CARD),
     Some(&baylee_cards_2008::bloodshed_fever::CARD),
-    None,
+    Some(&baylee_cards_2008::blowfly_infestation::CARD),
     Some(&baylee_cards_2008::boartusk_liege::CARD),
     Some(&baylee_cards_2008::boggart_arsonists::CARD),
     None,
@@ -62314,20 +62802,20 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     None,
     None,
     None,
-    None,
+    Some(&baylee_cards_2008::crimson_wisps::CARD),
     Some(&baylee_cards_2008::crowd_of_cinders::CARD),
-    None,
+    Some(&baylee_cards_2008::cultbrand_cinder::CARD),
     Some(&baylee_cards_2008::curse_of_chains::CARD),
     Some(&baylee_cards_2008::cursecatcher::CARD),
     None,
-    None,
-    None,
+    Some(&baylee_cards_2008::deep_slumber_titan::CARD),
+    Some(&baylee_cards_2008::deepchannel_mentor::CARD),
     None,
     Some(&baylee_cards_2008::devoted_druid::CARD),
-    None,
+    Some(&baylee_cards_2008::din_of_the_fireherd::CARD),
     Some(&baylee_cards_2008::dire_undercurrents::CARD),
     None,
-    None,
+    Some(&baylee_cards_2008::dramatic_entrance::CARD),
     None,
     Some(&baylee_cards_2008::drove_of_elves::CARD),
     Some(&baylee_cards_2008::drowner_initiate::CARD),
@@ -62341,7 +62829,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     None,
     None,
     Some(&baylee_cards_2008::faerie_swarm::CARD),
-    None,
+    Some(&baylee_cards_2008::farhaven_elf::CARD),
     None,
     Some(&baylee_cards_2008::fire_lit_thicket::CARD),
     None,
@@ -62362,48 +62850,48 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     None,
     Some(&baylee_cards_2008::gloomwidow::CARD),
     None,
-    None,
+    Some(&baylee_cards_2008::gnarled_effigy::CARD),
     Some(&baylee_cards_2008::godhead_of_awe::CARD),
-    None,
-    None,
+    Some(&baylee_cards_2008::goldenglow_moth::CARD),
+    Some(&baylee_cards_2008::gravelgill_axeshark::CARD),
     Some(&baylee_cards_2008::gravelgill_duo::CARD),
+    Some(&baylee_cards_2008::greater_auramancy::CARD),
     None,
-    None,
-    None,
+    Some(&baylee_cards_2008::grim_poppet::CARD),
     Some(&baylee_cards_2008::guttural_response::CARD),
+    Some(&baylee_cards_2008::heap_doll::CARD),
     None,
     None,
     None,
-    None,
-    None,
+    Some(&baylee_cards_2008::hollowsage::CARD),
     Some(&baylee_cards_2008::horde_of_boggarts::CARD),
-    None,
+    Some(&baylee_cards_2008::howl_of_the_night_pack::CARD),
     Some(&baylee_cards_2008::hungry_spriggan::CARD),
     None,
     None,
     None,
     None,
+    Some(&baylee_cards_2008::inkfathom_infiltrator::CARD),
+    Some(&baylee_cards_2008::inkfathom_witch::CARD),
+    None,
+    Some(&baylee_cards_2008::intimidator_initiate::CARD),
     None,
     None,
     None,
-    None,
-    None,
-    None,
-    None,
-    None,
+    Some(&baylee_cards_2008::kinscaer_harpoonist::CARD),
     Some(&baylee_cards_2008::kitchen_finks::CARD),
     Some(&baylee_cards_2008::kithkin_rabble::CARD),
     Some(&baylee_cards_2008::kithkin_shielddare::CARD),
+    Some(&baylee_cards_2008::knacksaw_clique::CARD),
     None,
-    None,
-    None,
+    Some(&baylee_cards_2008::knollspine_invocation::CARD),
     None,
     None,
     Some(&baylee_cards_2008::leechridden_swamp::CARD),
     Some(&baylee_cards_2008::loamdragger_giant::CARD),
     Some(&baylee_cards_2008::loch_korrigan::CARD),
     None,
-    None,
+    Some(&baylee_cards_2008::lurebound_scarecrow::CARD),
     Some(&baylee_cards_2008::madblind_mountain::CARD),
     None,
     Some(&baylee_cards_2008::manaforge_cinder::CARD),
@@ -62418,21 +62906,21 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     None,
     None,
     None,
-    None,
+    Some(&baylee_cards_2008::mistmeadow_witch::CARD),
     Some(&baylee_cards_2008::mistveil_plains::CARD),
     Some(&baylee_cards_2008::moonring_island::CARD),
     Some(&baylee_cards_2008::morselhoarder::CARD),
     None,
     None,
     Some(&baylee_cards_2008::mudbrawler_raiders::CARD),
-    None,
+    Some(&baylee_cards_2008::murderous_redcap::CARD),
     Some(&baylee_cards_2008::mystic_gate::CARD),
     None,
-    None,
+    Some(&baylee_cards_2008::nurturer_initiate::CARD),
     Some(&baylee_cards_2008::old_ghastbark::CARD),
     None,
     None,
-    None,
+    Some(&baylee_cards_2008::oracle_of_nectars::CARD),
     Some(&baylee_cards_2008::order_of_whiteclay::CARD),
     Some(&baylee_cards_2008::oversoul_of_dusk::CARD),
     None,
@@ -62441,7 +62929,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&baylee_cards_2008::pili_pala::CARD),
     None,
     Some(&baylee_cards_2008::plumeveil::CARD),
-    None,
+    Some(&baylee_cards_2008::poison_the_well::CARD),
     Some(&baylee_cards_2008::polluted_bonds::CARD),
     None,
     Some(&baylee_cards_2008::presence_of_gond::CARD),
@@ -62449,14 +62937,14 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     None,
     None,
     None,
-    None,
+    Some(&baylee_cards_2008::puncture_bolt::CARD),
     None,
     None,
     None,
     Some(&baylee_cards_2008::pyre_charger::CARD),
     Some(&baylee_cards_2008::rage_reflection::CARD),
-    None,
-    None,
+    Some(&baylee_cards_2008::raking_canopy::CARD),
+    Some(&baylee_cards_2008::rattleblaze_scarecrow::CARD),
     Some(&baylee_cards_2008::raven_s_run_dragoon::CARD),
     Some(&baylee_cards_2008::reaper_king::CARD),
     Some(&baylee_cards_2008::reknit::CARD),
@@ -62479,11 +62967,11 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&baylee_cards_2008::safewright_quest::CARD),
     Some(&baylee_cards_2008::sapseep_forest::CARD),
     None,
+    Some(&baylee_cards_2008::scar::CARD),
     None,
     None,
     None,
-    None,
-    None,
+    Some(&baylee_cards_2008::scuzzback_marauders::CARD),
     None,
     None,
     Some(&baylee_cards_2008::shield_of_the_oversoul::CARD),
@@ -62491,18 +62979,18 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&baylee_cards_2008::silkbind_faerie::CARD),
     Some(&baylee_cards_2008::sinking_feeling::CARD),
     None,
-    None,
-    None,
+    Some(&baylee_cards_2008::smash_to_smithereens::CARD),
+    Some(&baylee_cards_2008::smolder_initiate::CARD),
     Some(&baylee_cards_2008::somnomancer::CARD),
     Some(&baylee_cards_2008::sootstoke_kindler::CARD),
     Some(&baylee_cards_2008::sootwalkers::CARD),
     None,
     Some(&baylee_cards_2008::spectral_procession::CARD),
-    None,
+    Some(&baylee_cards_2008::spell_syphon::CARD),
     Some(&baylee_cards_2008::spiteflame_witch::CARD),
     None,
-    None,
-    None,
+    Some(&baylee_cards_2008::splitting_headache::CARD),
+    Some(&baylee_cards_2008::steel_of_the_godhead::CARD),
     None,
     Some(&baylee_cards_2008::sunken_ruins::CARD),
     None,
@@ -62510,12 +62998,12 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     None,
     Some(&baylee_cards_2008::tattermunge_duo::CARD),
     Some(&baylee_cards_2008::tattermunge_maniac::CARD),
-    None,
+    Some(&baylee_cards_2008::tattermunge_witch::CARD),
     Some(&baylee_cards_2008::thistledown_duo::CARD),
     Some(&baylee_cards_2008::thistledown_liege::CARD),
     None,
     None,
-    None,
+    Some(&baylee_cards_2008::thoughtweft_gambit::CARD),
     Some(&baylee_cards_2008::toil_to_renown::CARD),
     Some(&baylee_cards_2008::torpor_dust::CARD),
     None,
@@ -62528,40 +63016,40 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&baylee_cards_2008::umbral_mantle::CARD),
     None,
     None,
-    None,
+    Some(&baylee_cards_2008::viridescent_wisps::CARD),
     Some(&baylee_cards_2008::wanderbrine_rootcutters::CARD),
     Some(&baylee_cards_2008::wasp_lancer::CARD),
     Some(&baylee_cards_2008::watchwing_scarecrow::CARD),
     None,
     Some(&baylee_cards_2008::whimwader::CARD),
-    None,
+    Some(&baylee_cards_2008::wicker_warcrawler::CARD),
     None,
     None,
     Some(&baylee_cards_2008::wilt_leaf_cavaliers::CARD),
     None,
     Some(&baylee_cards_2008::windbrisk_raptor::CARD),
-    None,
+    Some(&baylee_cards_2008::wingrattle_scarecrow::CARD),
     None,
     None,
     Some(&baylee_cards_2008::wooded_bastion::CARD),
-    None,
+    Some(&baylee_cards_2008::woodfall_primus::CARD),
     None,
     None,
     None,
     Some(&baylee_cards_2008::zealous_guardian::CARD),
     None,
+    Some(&baylee_cards_2008::aerie_ouphes::CARD),
     None,
-    None,
-    None,
+    Some(&baylee_cards_2008::antler_skulkin::CARD),
     Some(&baylee_cards_2008::archon_of_justice::CARD),
     None,
-    None,
-    None,
+    Some(&baylee_cards_2008::balefire_liege::CARD),
+    Some(&baylee_cards_2008::ballynock_trapper::CARD),
     None,
     Some(&baylee_cards_2008::battlegate_mimic::CARD),
     None,
-    None,
-    None,
+    Some(&baylee_cards_2008::beckon_apparition::CARD),
+    Some(&baylee_cards_2008::belligerent_hatchling::CARD),
     Some(&baylee_cards_2008::bloodied_ghost::CARD),
     Some(&baylee_cards_2008::bloom_tender::CARD),
     Some(&baylee_cards_2008::cache_raiders::CARD),
@@ -62572,19 +63060,19 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     None,
     None,
     None,
-    None,
+    Some(&baylee_cards_2008::cinder_pyromancer::CARD),
     Some(&baylee_cards_2008::clout_of_the_dominus::CARD),
+    Some(&baylee_cards_2008::cold_eyed_selkie::CARD),
     None,
-    None,
-    None,
-    None,
+    Some(&baylee_cards_2008::crag_puca::CARD),
+    Some(&baylee_cards_2008::creakwood_ghoul::CARD),
     Some(&baylee_cards_2008::creakwood_liege::CARD),
-    None,
+    Some(&baylee_cards_2008::crumbling_ashes::CARD),
     None,
     Some(&baylee_cards_2008::deity_of_scars::CARD),
     None,
-    None,
-    None,
+    Some(&baylee_cards_2008::divinity_of_pride::CARD),
+    Some(&baylee_cards_2008::dominus_of_fealty::CARD),
     None,
     Some(&baylee_cards_2008::double_cleave::CARD),
     Some(&baylee_cards_2008::drain_the_well::CARD),
@@ -62593,7 +63081,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&baylee_cards_2008::duergar_assailant::CARD),
     None,
     Some(&baylee_cards_2008::duergar_hedge_mage::CARD),
-    None,
+    Some(&baylee_cards_2008::duergar_mine_captain::CARD),
     Some(&baylee_cards_2008::duskdale_wurm::CARD),
     Some(&baylee_cards_2008::edge_of_the_divinity::CARD),
     None,
@@ -62612,11 +63100,11 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&baylee_cards_2008::gift_of_the_deity::CARD),
     None,
     None,
+    Some(&baylee_cards_2008::glen_elendra_archmage::CARD),
+    Some(&baylee_cards_2008::grazing_kelpie::CARD),
     None,
-    None,
-    None,
-    None,
-    None,
+    Some(&baylee_cards_2008::gwyllion_hedge_mage::CARD),
+    Some(&baylee_cards_2008::hag_hedge_mage::CARD),
     None,
     None,
     None,
@@ -62627,37 +63115,37 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&baylee_cards_2008::hobgoblin_dragoon::CARD),
     Some(&baylee_cards_2008::hoof_skulkin::CARD),
     None,
-    None,
+    Some(&baylee_cards_2008::idle_thoughts::CARD),
     None,
     Some(&baylee_cards_2008::indigo_faerie::CARD),
-    None,
-    None,
+    Some(&baylee_cards_2008::inside_out::CARD),
+    Some(&baylee_cards_2008::inundate::CARD),
     None,
     Some(&baylee_cards_2008::jawbone_skulkin::CARD),
-    None,
+    Some(&baylee_cards_2008::kithkin_spellduster::CARD),
     None,
     Some(&baylee_cards_2008::leering_emblem::CARD),
     None,
-    None,
-    None,
+    Some(&baylee_cards_2008::lingering_tormentor::CARD),
+    Some(&baylee_cards_2008::loyal_gyrfalcon::CARD),
     Some(&baylee_cards_2008::marshdrinker_giant::CARD),
     None,
+    Some(&baylee_cards_2008::merrow_levitator::CARD),
+    Some(&baylee_cards_2008::mindwrack_liege::CARD),
     None,
     None,
     None,
     None,
     None,
     None,
-    None,
-    None,
-    None,
+    Some(&baylee_cards_2008::nettle_sentinel::CARD),
     None,
     Some(&baylee_cards_2008::nightsky_mimic::CARD),
     Some(&baylee_cards_2008::nip_gwyllion::CARD),
     Some(&baylee_cards_2008::nobilis_of_war::CARD),
     Some(&baylee_cards_2008::noggle_bandit::CARD),
     Some(&baylee_cards_2008::noggle_bridgebreaker::CARD),
-    None,
+    Some(&baylee_cards_2008::noggle_hedge_mage::CARD),
     Some(&baylee_cards_2008::noggle_ransacker::CARD),
     None,
     Some(&baylee_cards_2008::nucklavee::CARD),
@@ -62671,18 +63159,18 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     None,
     None,
     None,
+    Some(&baylee_cards_2008::recumbent_bliss::CARD),
+    Some(&baylee_cards_2008::regal_force::CARD),
     None,
     None,
-    None,
-    None,
-    None,
+    Some(&baylee_cards_2008::restless_apparition::CARD),
     None,
     Some(&baylee_cards_2008::riverfall_mimic::CARD),
     Some(&baylee_cards_2008::rugged_prairie::CARD),
     None,
     None,
     None,
-    None,
+    Some(&baylee_cards_2008::scarecrone::CARD),
     Some(&baylee_cards_2008::scourge_of_the_nobilis::CARD),
     Some(&baylee_cards_2008::selkie_hedge_mage::CARD),
     Some(&baylee_cards_2008::shell_skulkin::CARD),
@@ -62693,9 +63181,9 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     None,
     Some(&baylee_cards_2008::soot_imp::CARD),
     None,
+    Some(&baylee_cards_2008::soul_snuffers::CARD),
     None,
-    None,
-    None,
+    Some(&baylee_cards_2008::spitemare::CARD),
     None,
     Some(&baylee_cards_2008::springjack_pasture::CARD),
     None,
@@ -62703,24 +63191,24 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     None,
     Some(&baylee_cards_2008::stillmoon_cavalier::CARD),
     Some(&baylee_cards_2008::stream_hopper::CARD),
-    None,
+    Some(&baylee_cards_2008::sturdy_hatchling::CARD),
     Some(&baylee_cards_2008::suture_spirit::CARD),
     None,
     None,
     None,
     None,
     Some(&baylee_cards_2008::talonrend::CARD),
-    None,
-    None,
-    None,
+    Some(&baylee_cards_2008::thunderblust::CARD),
+    Some(&baylee_cards_2008::tilling_treefolk::CARD),
+    Some(&baylee_cards_2008::trapjaw_kelpie::CARD),
     Some(&baylee_cards_2008::twilight_mire::CARD),
     None,
     None,
     Some(&baylee_cards_2008::unmake::CARD),
     None,
-    None,
-    None,
-    None,
+    Some(&baylee_cards_2008::unwilling_recruit::CARD),
+    Some(&baylee_cards_2008::voracious_hatchling::CARD),
+    Some(&baylee_cards_2008::wake_thrasher::CARD),
     None,
     None,
     Some(&baylee_cards_2008::wickerbough_elder::CARD),
@@ -62732,32 +63220,32 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&baylee_cards_2008::ad_nauseam::CARD),
     Some(&baylee_cards_2008::agony_warp::CARD),
     None,
-    None,
+    Some(&baylee_cards_2008::akrasan_squire::CARD),
     Some(&baylee_cards_2008::algae_gharial::CARD),
     Some(&baylee_cards_2008::angel_s_herald::CARD),
-    None,
+    Some(&baylee_cards_2008::angelic_benediction::CARD),
     Some(&baylee_cards_2008::angelsong::CARD),
     Some(&baylee_cards_2008::arcane_sanctum::CARD),
-    None,
-    None,
+    Some(&baylee_cards_2008::archdemon_of_unx::CARD),
+    Some(&baylee_cards_2008::banewasp_affliction::CARD),
     Some(&baylee_cards_2008::bant_battlemage::CARD),
-    None,
+    Some(&baylee_cards_2008::bant_charm::CARD),
     Some(&baylee_cards_2008::bant_panorama::CARD),
-    None,
+    Some(&baylee_cards_2008::battlegrace_angel::CARD),
     Some(&baylee_cards_2008::behemoth_s_herald::CARD),
     None,
     Some(&baylee_cards_2008::blister_beetle::CARD),
-    None,
-    None,
+    Some(&baylee_cards_2008::blood_cultist::CARD),
+    Some(&baylee_cards_2008::bloodpyre_elemental::CARD),
     Some(&baylee_cards_2008::bloodthorn_taunter::CARD),
-    None,
-    None,
+    Some(&baylee_cards_2008::bone_splinters::CARD),
+    Some(&baylee_cards_2008::branching_bolt::CARD),
     None,
     Some(&baylee_cards_2008::broodmate_dragon::CARD),
     Some(&baylee_cards_2008::bull_cerodon::CARD),
     None,
     Some(&baylee_cards_2008::call_to_heel::CARD),
-    None,
+    Some(&baylee_cards_2008::carrion_thrash::CARD),
     Some(&baylee_cards_2008::cathartic_adept::CARD),
     Some(&baylee_cards_2008::cavern_thoctar::CARD),
     None,
@@ -62765,15 +63253,15 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&baylee_cards_2008::coma_veil::CARD),
     None,
     Some(&baylee_cards_2008::courier_s_capsule::CARD),
+    Some(&baylee_cards_2008::court_archers::CARD),
     None,
-    None,
-    None,
+    Some(&baylee_cards_2008::cradle_of_vitality::CARD),
     Some(&baylee_cards_2008::crucible_of_fire::CARD),
     None,
     Some(&baylee_cards_2008::crumbling_necropolis::CARD),
     Some(&baylee_cards_2008::cunning_lethemancer::CARD),
     Some(&baylee_cards_2008::cylian_elf::CARD),
-    None,
+    Some(&baylee_cards_2008::dawnray_archer::CARD),
     Some(&baylee_cards_2008::death_baron::CARD),
     Some(&baylee_cards_2008::deathgreeter::CARD),
     Some(&baylee_cards_2008::deft_duelist::CARD),
@@ -62792,17 +63280,17 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&baylee_cards_2008::esper_charm::CARD),
     Some(&baylee_cards_2008::esper_panorama::CARD),
     Some(&baylee_cards_2008::etherium_astrolabe::CARD),
+    Some(&baylee_cards_2008::etherium_sculptor::CARD),
     None,
-    None,
-    None,
+    Some(&baylee_cards_2008::excommunicate::CARD),
     Some(&baylee_cards_2008::executioner_s_capsule::CARD),
+    Some(&baylee_cards_2008::exuberant_firestoker::CARD),
     None,
-    None,
-    None,
+    Some(&baylee_cards_2008::feral_hydra::CARD),
     Some(&baylee_cards_2008::filigree_sages::CARD),
     None,
     None,
-    None,
+    Some(&baylee_cards_2008::fleshbag_marauder::CARD),
     None,
     None,
     Some(&baylee_cards_2008::glaze_fiend::CARD),
@@ -62810,21 +63298,21 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&baylee_cards_2008::goblin_deathraiders::CARD),
     Some(&baylee_cards_2008::godsire::CARD),
     None,
-    None,
-    None,
+    Some(&baylee_cards_2008::grixis_battlemage::CARD),
+    Some(&baylee_cards_2008::grixis_charm::CARD),
     Some(&baylee_cards_2008::grixis_panorama::CARD),
+    Some(&baylee_cards_2008::guardians_of_akrasa::CARD),
+    Some(&baylee_cards_2008::gustrider_exuberant::CARD),
     None,
     None,
-    None,
-    None,
-    None,
+    Some(&baylee_cards_2008::hissing_iguanar::CARD),
     None,
     Some(&baylee_cards_2008::incurable_ogre::CARD),
     None,
-    None,
+    Some(&baylee_cards_2008::jhessian_infiltrator::CARD),
     Some(&baylee_cards_2008::jhessian_lookout::CARD),
     Some(&baylee_cards_2008::jund_battlemage::CARD),
-    None,
+    Some(&baylee_cards_2008::jund_charm::CARD),
     Some(&baylee_cards_2008::jund_panorama::CARD),
     Some(&baylee_cards_2008::jungle_shrine::CARD),
     Some(&baylee_cards_2008::jungle_weaver::CARD),
@@ -62836,16 +63324,16 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&baylee_cards_2008::knight_of_the_skyward_eye::CARD),
     Some(&baylee_cards_2008::knight_of_the_white_orchid::CARD),
     Some(&baylee_cards_2008::knight_captain_of_eos::CARD),
-    None,
+    Some(&baylee_cards_2008::kresh_the_bloodbraided::CARD),
     None,
     Some(&baylee_cards_2008::lightning_talons::CARD),
     None,
     Some(&baylee_cards_2008::magma_spray::CARD),
     None,
     Some(&baylee_cards_2008::marble_chalice::CARD),
-    None,
-    None,
-    None,
+    Some(&baylee_cards_2008::master_of_etherium::CARD),
+    Some(&baylee_cards_2008::mayael_the_anima::CARD),
+    Some(&baylee_cards_2008::memory_erosion::CARD),
     Some(&baylee_cards_2008::metallurgeon::CARD),
     None,
     None,
@@ -87107,7 +87595,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
 ];
 
 /// FNV-1a hash over the registry content.
-pub const POOL_HASH: u64 = 0x891bdfe6c05702c4;
+pub const POOL_HASH: u64 = 0x6c8e10c5ea3d7bca;
 
 pub fn by_oracle_id(oracle_id: &str) -> Option<&'static CardDef> {
     ALL.binary_search_by(|(id, _)| (*id).cmp(oracle_id))
