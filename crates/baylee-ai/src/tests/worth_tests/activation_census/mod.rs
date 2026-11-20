@@ -533,7 +533,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Twigwalker): 8 read by the table and 4 remaining contextual.
     // Batch wave 1 (120 generated cards) adds 19 non-mana activations: 14 read
     // by the table and 5 remaining contextual.
-    assert_eq!((read, of), (3072, 3891), "activated/loyalty reader census");
+    // Completing 22 newly readable pool stubs adds 4 activated abilities across
+    // Spiritmonger (2) and Soul-Guide Lantern (2): 2 read and 2 contextual.
+    assert_eq!((read, of), (3074, 3895), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

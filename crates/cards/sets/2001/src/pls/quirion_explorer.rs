@@ -24,5 +24,9 @@ card!(
         power = Some(1),
         toughness = Some(1),
     ),],
-    abilities = &[mana_ability!(&[Effect::mana_land_color(false)]),],
+    abilities = &[mana_ability!(&[Effect::mana_from_lands(
+        &Filter::ControlledByOpponent,
+        false,
+        false
+    )]),],
 );
