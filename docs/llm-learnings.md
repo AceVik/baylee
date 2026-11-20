@@ -6,6 +6,14 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-21 — Beat 6 (Part 1): Codegen Wave 11a (`2d057b189`) & Wave 11c (`dec339acf`)
+
+- **Codegen Wave 11a (`Reviewed: f4ad85a93`, merged as `2d057b189`, `Reviewed-by: gemini-4-argon-high (#340), pass`):**
+  - Added `CardBody::{disturb, escape, squad, offspring, fuse}` (`crates/baylee-cards-codegen/src/body.rs`), lowered `K:Squad:<cost>`, `K:Offspring:<cost>`, `K:Fuse`, `K:Disturb:<mana>`, `K:Escape:<mana> ExileFromGrave<N/Card.Other>`, `K:Enchant:{Player,Opponent,Player.Opponent,Player.OppCtrl,Player.You,You}`, and extended `activated.rs` combat windows (`Upkeep->Declare Attackers`/`Blockers`), graveyard `.YouOwn`/`Above`/`AtMost`, and `PresentCompare$ EQ1`.
+- **Codegen Wave 11c (`Reviewed: ef4ea3f54`, merged as `dec339acf`, `Reviewed-by: gemini-4-argon-high (#337), pass`):**
+  - Fixed Pass E4b/E5 Oracle scope mismatches on `!card_zone && !has_controller` (`Baloth Packhunter`, `Charmed Stray`, `Norn's Choirmaster`); lowered `EnchantedPlayer` / `EnchantedPlayerCtrl` Curse filters, relations, statics, cost taxes, and replacements; wired `Filter::{Historic, AnyCountersAtLeast(n)}`, `Condition::AmountCompare` `NotEqual`, `Modifier::MatchingSpellCastLimitPerTurn`, `Modifier::AbilitiesCostMore(n)`, `StrictlySelf`, `Count$YourTurns`, and `Wave 11b` `ChangesZoneAll`/`Sacrificed` `PlayerRel` & `Amount` hooks.
+  - Combined verification: `fmt --check` PASS, `baylee-cards-codegen` **`654/654`**, `xtask` **`149/149`**, `clippy --all-targets -- -D warnings` `0` warnings; `xtask transcode-report`: **`18,559 / 34,482` (`53%`, `+127`)** full corpus scripts, **`753 / 864`** tokens (`0` collisions), **`23 / 969`** pool stubs.
+
 ## 2026-11-20 — Beat 5: Engine Wave 5b (`cece6d440`), Pass E5 (`50b1377c6`–`5dcba1293`), & Non-Deck Vanguard Exclusion (`0d1e3d5b2`)
 
 - **Engine Wave 5b — Keyword Enforcement, Heroic, Enlist & Bolster (`Reviewed: 2c945f78d`, merged as `cece6d440`, `Reviewed-by: gemini-4-argon-high (#333), pass`):**
