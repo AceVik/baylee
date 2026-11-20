@@ -17,6 +17,11 @@ Main deck:
   1× Arcane Denial {1}{U} · Instant
     Counter target spell. Its controller may draw up to two cards at the beginning of the next turn's upkeep.
     You draw a card at the beginning of the next turn's upkeep.
+  1× Avenger of Zendikar {5}{G}{G} · Creature — Elemental · 5/5
+    When this creature enters, create a 0/1 green Plant creature token for each land you control.
+    Landfall — Whenever a land you control enters, you may put a +1/+1 counter on each Plant creature you control.
+  1× Beast Within {2}{G} · Instant
+    Destroy target permanent. Its controller creates a 3/3 green Beast creature token.
   1× Blighted Woodland · Land
     {T}: Add {C}.
     {3}{G}, {T}, Sacrifice this land: Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.
@@ -36,11 +41,17 @@ Main deck:
     When this creature enters, you may return target card from your graveyard to your hand.
   1× Evolving Wilds · Land
     {T}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.
+  1× Explore {1}{G} · Sorcery
+    You may play an additional land this turn.
+    Draw a card.
   1× Fact or Fiction {3}{U} · Instant
     Reveal the top five cards of your library. An opponent separates those cards into two piles. Put one pile into your hand and the other into your graveyard.
   8× Forest · Basic Land — Forest
   1× Harmonize {2}{G}{G} · Sorcery
     Draw three cards.
+  1× Into the Roil {1}{U} · Instant
+    Kicker {1}{U} (You may pay an additional {1}{U} as you cast this spell.)
+    Return target nonland permanent to its owner's hand. If this spell was kicked, draw a card.
   1× Ior Ruin Expedition {1}{U} · Enchantment
     Landfall — Whenever a land you control enters, you may put a quest counter on this enchantment.
     Remove three quest counters from this enchantment and sacrifice it: Draw two cards.
@@ -49,6 +60,9 @@ Main deck:
     This land enters tapped.
     When this land enters, sacrifice it unless you return an untapped Forest you control to its owner's hand.
     {T}: Add {C}{G}.
+  1× Khalni Heart Expedition {1}{G} · Enchantment
+    Landfall — Whenever a land you control enters, you may put a quest counter on this enchantment.
+    Remove three quest counters from this enchantment and sacrifice it: Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.
   1× Kodama's Reach {2}{G} · Sorcery — Arcane
     Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.
   1× Meloku the Clouded Mirror {4}{U} · Legendary Creature — Moonfolk Wizard · 2/4
@@ -88,6 +102,11 @@ Main deck:
     Suspend 2—{G} (Rather than cast this card from your hand, you may pay {G} and exile it with two time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)
   1× Seer's Sundial {4} · Artifact
     Landfall — Whenever a land you control enters, you may pay {2}. If you do, draw a card.
+  1× Simic Charm {U}{G} · Instant
+    Choose one —
+    • Target creature gets +3/+3 until end of turn.
+    • Permanents you control gain hexproof until end of turn.
+    • Return target creature to its owner's hand.
   1× Simic Growth Chamber · Land
     This land enters tapped.
     When this land enters, return a land you control to its owner's hand.
@@ -121,6 +140,8 @@ Main deck:
     This land enters tapped with two charge counters on it.
     {T}: Add {G}.
     {T}, Remove a charge counter from this land: Add one mana of any color.
+  1× Whelming Wave {2}{U}{U} · Sorcery
+    Return all creatures to their owners' hands except for Krakens, Leviathans, Octopuses, and Serpents.
   1× Wickerbough Elder {3}{G} · Creature — Treefolk Shaman · 4/4
     This creature enters with a -1/-1 counter on it.
     {G}, Remove a -1/-1 counter from this creature: Destroy target artifact or enchantment.
@@ -138,6 +159,9 @@ Main deck:
     {T}: Add one mana of any color. Spend this mana only to cast a creature spell.
   1× Arcane Signet {2} · Artifact
     {T}: Add one mana of any color in your commander's color identity.
+  1× Blasphemous Act {8}{R} · Sorcery
+    This spell costs {1} less to cast for each creature on the battlefield.
+    Blasphemous Act deals 13 damage to each creature.
   1× Chromatic Lantern {3} · Artifact
     Lands you control have "{T}: Add one mana of any color."
     {T}: Add one mana of any color.
@@ -220,22 +244,3 @@ Main deck:
   1× Sandsteppe Citadel · Land
     This land enters tapped.
     {T}: Add {W}, {B}, or {G}.
-  1× Savage Lands · Land
-    This land enters tapped.
-    {T}: Add {B}, {R}, or {G}.
-  1× Seaside Citadel · Land
-    This land enters tapped.
-    {T}: Add {G}, {W}, or {U}.
-  1× Secluded Courtyard · Land
-    As this land enters, choose a creature type.
-    {T}: Add {C}.
-    {T}: Add one mana of any color. Spend this mana only to cast a creature spell of the chosen type or activate an ability of a creature source of the chosen type.
-  1× Shriekmaw {4}{B} · Creature — Elemental · 3/2
-    Fear
-    When this creature enters, destroy target nonartifact, nonblack creature.
-    Evoke {1}{B} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)
-  1× Smokebraider {1}{R} · Creature — Elemental Shaman · 1/1
-    {T}: Add two mana in any combination of colors. Spend this mana only to cast Elemental spells or activate abilities of Elementals.
-  1× Sodden Verdure · Land — Forest Island
-    This land enters tapped unless you control two or more basic lands.
-  2× Swamp · Basic Land — Swamp

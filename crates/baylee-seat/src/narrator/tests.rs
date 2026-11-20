@@ -512,18 +512,20 @@ fn the_prefix_is_byte_stable_and_told_as_the_style_says() {
 /// A Commander deck's prefix (estimated tokens): its full text was 4,685
 /// with every reminder and 4,508 with the reminder text of unparametrised
 /// keywords and basic lands stripped on 2026-10-06 (then 4,791 and 4,563, and
-/// now 4,915 reference ceiling as `Search for Tomorrow`, `Distant Melody`,
-/// `Ingot Chewer`, and `Shriekmaw` from Reap the Tides / Dance of the Elements
-/// entered the pool), held at 97 per cent of the first; its names alone are
-/// held at 800. The stripping is the conservative rule (`docs/llm-protocol.md`
-/// §"The deck"): a keyword's reminder after a cost or a number stays.
+/// now 4,915 reference ceiling (and now 5,060 as `Avenger of Zendikar`,
+/// `Beast Within`, `Explore`, `Khalni Heart Expedition`, `Search for Tomorrow`,
+/// `Distant Melody`, `Ingot Chewer`, and `Shriekmaw` from Reap the Tides /
+/// Dance of the Elements entered the pool), held at 97 per cent of the first;
+/// its names alone are held at 800. The stripping is the conservative rule
+/// (`docs/llm-protocol.md` §"The deck"): a keyword's reminder after a cost or
+/// a number stays.
 #[test]
 fn a_commander_deck_s_prefix_holds_its_budget() {
     let context = precon();
     let full = estimate_tokens(&prefix(&context, DeckText::Full));
     let names = estimate_tokens(&prefix(&context, DeckText::Names));
     assert!(
-        full * 100 <= 4_915 * 97,
+        full * 100 <= 5_060 * 97,
         "the full prefix costs about {full}"
     );
     assert!(names <= 800, "the names prefix costs about {names}");
