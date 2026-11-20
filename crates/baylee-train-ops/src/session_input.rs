@@ -1,5 +1,5 @@
 //! Bounded input for sessions issued by a private evaluation gateway.
-use std::io::{BufRead, Read as _};
+use std::io::BufRead;
 use std::net::SocketAddr;
 
 use anyhow::{Result, ensure};
