@@ -1121,7 +1121,7 @@ pub fn search_seed(policy_seed: u64) -> u64 {
 }
 
 /// The policy seed of world `particle` at the decision `decision_seq`.
-fn world_seed(search_seed: u64, decision_seq: u64, particle: usize) -> u64 {
+pub fn world_seed(search_seed: u64, decision_seq: u64, particle: usize) -> u64 {
     derive(search_seed, WORLD, decision_seq, particle as u64)
 }
 
@@ -1271,7 +1271,7 @@ fn unsearched<P: SearchPlayer4>(
 
 /// Why `pending` is not a root of `config`'s search, by the kind of root it
 /// would be: a declaration, or priority with ranked or macro candidates.
-fn skip_reason(
+pub fn skip_reason(
     view: &PlayerView,
     pending: &Pending,
     decision: &RootDecision4,
@@ -1358,6 +1358,39 @@ pub fn search_decision_avoiding<P: SearchPlayer4 + Send, T: ForkSource4>(
     taken_back: &[PlayerAction],
 ) -> anyhow::Result<SearchedAnswer4> {
     let decision = player.decide(view, pending, teams);
+    search_prepared(
+        player,
+        table,
+        view,
+        pending,
+        teams,
+        config,
+        search_seed,
+        taken_back,
+        decision,
+    )
+}
+
+/// Runs the search for a policy decision already computed on the same view.
+/// The player must be in its state immediately after taking that decision.
+///
+/// # Errors
+/// When the player fails to observe in a rollout.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "The inputs of search_decision_avoiding and its policy decision"
+)]
+pub fn search_prepared<P: SearchPlayer4 + Send, T: ForkSource4>(
+    player: &mut P,
+    table: &T,
+    view: &PlayerView,
+    pending: &Pending,
+    teams: &[Option<u8>],
+    config: SearchConfig4,
+    search_seed: u64,
+    taken_back: &[PlayerAction],
+    decision: RootDecision4,
+) -> anyhow::Result<SearchedAnswer4> {
     // A declaration of attackers or blockers (v4): searched when the
     // declaration is the policy's own, its others built from it.
     let declaration = config.combat > 0 && combat::is_declaration(pending);

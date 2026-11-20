@@ -1,6 +1,9 @@
 // Keep game setup, seeds, opponents and fallback handling identical when
 // comparing an archived v3 player with the current v4 implementation.
 trait EvaluationPlayer {
+    fn deadline_player(&mut self) -> Option<&mut NetPlayer4> {
+        None
+    }
     fn configure_seats(&mut self, _focal: usize, _teams: &[Option<u8>]) -> anyhow::Result<()> {
         Ok(())
     }
@@ -225,6 +228,9 @@ trait EvaluationPlayer {
 }
 
 impl EvaluationPlayer for NetPlayer4 {
+    fn deadline_player(&mut self) -> Option<&mut NetPlayer4> {
+        Some(self)
+    }
     fn fallback_diagnostic(&self) -> Option<&baylee_train::netplay4::FallbackDiagnostic4> {
         self.last_fallback()
     }

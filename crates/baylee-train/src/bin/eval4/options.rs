@@ -434,6 +434,11 @@ struct Args {
     /// default; evaluation against the house only. Budgets are counts.
     #[arg(long)]
     search: Option<SearchConfig4>,
+    /// Offline technique experiment. The seat always uses the model's FP32
+    /// CPU export. With fair macro search, its separate rollout backend
+    /// gets five seconds from the original question.
+    #[arg(long)]
+    offline_deadline_seat: bool,
     /// How a search chooses: `prior` (the default) adds
     /// `--search-prior-c · prior / (1 + worlds)` to each mean, so the
     /// policy's answer stays unless the worlds outweigh the policy's
@@ -641,6 +646,48 @@ fn search_refusal(
         Some(CriticSemantics4::FailureTerminalResearchUtilityV1 { .. })
     ) {
         return Some("--search scores leaves with an MTG outcome critic, not a research utility");
+    }
+    None
+}
+
+fn deadline_refusal(args: &Args) -> Option<&'static str> {
+    if !args.offline_deadline_seat {
+        return None;
+    }
+    if args.threads != 1
+        || args.seats != 2
+        || args.deck_split != "train"
+        || args.holdout_tier != "train_active"
+        || args.decks_manifest.is_none()
+        || args.generated != 0
+        || !args.no_baseline
+        || !args.numbers_only
+        || args.record_out.is_none()
+        || args.legacy_v3
+        || args.random_policy
+        || args.opponent_model.is_some()
+        || args.shadow_teacher.is_some()
+        || args.seer_peeks
+        || args.collection_purpose != collector::Purpose::Evaluation
+        || args.temperature != 0.0
+    {
+        return Some(
+            "offline deadline needs one recorded, numbers-only, greedy 1v1 TRAIN table worker against the house",
+        );
+    }
+    if args.search.is_some()
+        && (!args.search_fair
+            || !args.search_macros
+            || !args.search_neural_opponent
+            || !args.search_lockstep
+            || args.search_targets != 0
+            || args.search_stall_guard
+            || args.inference_batch == 0
+            || args.inference_servers != 1)
+    {
+        return Some(
+            "offline deadline needs a separate batched backend with fair lockstep macro search and no target or stall extensions",
+        );
     }
     None
 }

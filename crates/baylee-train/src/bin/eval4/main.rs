@@ -55,6 +55,7 @@ use serde_json::{Value, json};
 include!("options.rs");
 mod attempts;
 mod collector;
+mod deadline;
 mod diagnostics;
 mod failure_terminal;
 mod foresight;
@@ -181,6 +182,9 @@ fn main() -> anyhow::Result<()> {
     }
     let collection = collector::Contract::new(&args, model_identity.as_ref())?;
     if let Some(refusal) = search_refusal(&args, &collection, model_identity.as_ref()) {
+        bail!(refusal);
+    }
+    if let Some(refusal) = deadline_refusal(&args) {
         bail!(refusal);
     }
     if let Some(refusal) = house_as_seat_refusal(&args, &collection) {
@@ -815,11 +819,23 @@ fn main() -> anyhow::Result<()> {
             .map(|path| (path, collection.opponent_identity.as_ref())),
         catalog_read(&args),
     )?;
+    let cpu_deadline_seat = if args.offline_deadline_seat {
+        Some(deadline::open_cpu_backend(
+            &given_model,
+            catalog_read(&args),
+            model_identity
+                .as_ref()
+                .context("deadline rollout identity")?,
+        )?)
+    } else {
+        None
+    };
 
     let started = Instant::now();
     let mut handles = Vec::new();
     for worker_id in 0..threads {
         let shared_nets = shared_nets.clone();
+        let cpu_deadline_seat = cpu_deadline_seat.clone();
         let decks_arc = decks_arc.clone();
         let teams_u8_arc = teams_u8_arc.clone();
         let teams_arc = teams_arc.clone();
@@ -896,6 +912,8 @@ fn main() -> anyhow::Result<()> {
                 Box::new(seats)
             } else if random_policy {
                 Box::new(random_seat::RandomPlayer::new())
+            } else if let Some(cpu) = &cpu_deadline_seat {
+                load_player(&model_path, format, k_steps, temp, policy_mode, Some(cpu.model_identity()), Some(cpu))?
             } else {
                 load_player(&model_path,format,k_steps,temp,policy_mode,expected_identity.as_ref(),shared_nets.learner.as_ref())?
             };
@@ -1033,6 +1051,11 @@ fn main() -> anyhow::Result<()> {
                 let unencodable_before = net.distill_unencodable();
                 let mut game_search =
                     search_config.map(|config| lookahead::GameSearch::new(config, search_max));
+                if cpu_deadline_seat.is_some() && let Some(search) = game_search.as_mut() {
+                    search.deadline = Some(deadline::Probe::new(
+                        shared_nets.learner.as_ref().context("deadline rollout backend")?.clone()
+                    ));
+                }
                 let (
                     net_u,
                     net_capped,
@@ -1065,11 +1088,15 @@ fn main() -> anyhow::Result<()> {
                         Some(collection.learner_identity.as_ref().context("research learner")?.encoder_version)
                     } else {None},
                     game_search.as_mut(),
-                    DecisionLogs { value: value_log.as_deref(), trace: decision_trace.as_deref() },
+                    DecisionLogs { value: value_log.as_deref(), trace: decision_trace.as_deref(), offline_deadline: cpu_deadline_seat.is_some() },
                     game_teacher.as_mut(),
                 )?;
                 // The learner's mixture stream this game: its seed and draws.
                 let game_exploration = net.exploration_game();
+
+                if let Some(probe) = game_search.as_mut().and_then(|search| search.deadline.as_mut()) {
+                    probe.finish(&rec_bytes)?;
+                }
 
                 // `--distill-labels`: one entry per rollout step of the net's seats.
                 let distill_steps = net.take_distill_steps();
@@ -1245,7 +1272,7 @@ fn main() -> anyhow::Result<()> {
                 st.deals_completed += 1;
                 // The game this row is one seat of (`evaluation::games`).
                 let game = games::game_key(table_idx as u64, &games::side(focal_seat, &teams_arc));
-                st.deal_details.push(json!({"deal": d, "table": table_idx,
+                let mut detail = json!({"deal": d, "table": table_idx,
                     "choice_guard_fired": guard_fired,
                     "tactic_rules_fired": rules_fired,
                     "menu": menu_stats,
@@ -1260,7 +1287,11 @@ fn main() -> anyhow::Result<()> {
                     "refused": ref_cnt, "stalls": st_cnt, "house_fallbacks": fb,
                     "fallback_events": fallback_events,
                     "search": game_search.as_ref().map(|search| search.tally.report()),
-                    "decks": table_decks.iter().map(|deck| &deck.key).collect::<Vec<_>>()}));
+                    "decks": table_decks.iter().map(|deck| &deck.key).collect::<Vec<_>>()});
+                if let Some(probe) = game_search.as_ref().and_then(|search| search.deadline.as_ref()) {
+                    detail["offline_deadline"] = probe.report();
+                }
+                st.deal_details.push(detail);
                 if let Some(search) = &game_search {
                     st.search.add(&search.tally);
                 }
@@ -1510,6 +1541,17 @@ fn main() -> anyhow::Result<()> {
     summary["evaluator_dirty"] = json!(baylee_build::DIRTY);
     summary["latency_scope"] = json!("decision inference only; observation updates are excluded");
     summary["inference_batch"] = shared_nets.report();
+    if let Some(cpu) = &cpu_deadline_seat {
+        summary["latency_scope"] = json!(
+            "every native seat question from offer to engine application, including passive observation"
+        );
+        summary["offline_deadline_seat"] = json!({
+            "fp32_cpu_model": cpu.model_identity(),
+            "use_search": search_config.is_some(),
+            "cpu_intra_threads": 1,
+            "latency_scope": "from exposure of the native pending question, including passive observation",
+        });
+    }
     if args.deck_schedule != DeckSchedule::Fixed {
         // Only another seating names it, so every summary before reads as it did.
         summary["deck_schedule"] = json!(args.deck_schedule.name());
@@ -1522,6 +1564,11 @@ fn main() -> anyhow::Result<()> {
         summary["search"] = json!({"config": search, "counts": st.search.report(),
             "latency_scope": "searched_ms is the wall time of each searched decision, \
                 forks and rollouts included; latency_ms leaves searched decisions out"});
+    }
+    if args.offline_deadline_seat && search.is_some() {
+        summary["search"]["latency_scope"] = json!(
+            "searched_ms measures the selected search's wall time; latency_ms includes all applied seat answers"
+        );
     }
     if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {
         // The evaluation aggregate has an MTG denominator and cannot summarize
