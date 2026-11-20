@@ -124,23 +124,40 @@ pub fn parse(text: &str) -> Result<Vec<Entry>, LedgerError> {
             doc = rest.to_string();
             continue;
         }
-        if let Some(rest) = line.strip_prefix("pub static ")
-            && let Some(name) = rest.strip_suffix(": TokenDef = TokenDef {")
-        {
-            let mut literal = "TokenDef {\n".to_string();
-            loop {
-                let body = lines
-                    .next()
-                    .ok_or_else(|| LedgerError::Unreadable(format!("`{name}` is unterminated")))?;
-                if body.trim() == "};" {
-                    literal.push('}');
-                    break;
+        if let Some(rest) = line.strip_prefix("pub static ") {
+            let name = if let Some(name) = rest.strip_suffix(": TokenDef = TokenDef {") {
+                Some(name.to_string())
+            } else if let Some(name) = rest.strip_suffix(':')
+                && lines
+                    .peek()
+                    .is_some_and(|next| next.trim() == "TokenDef = TokenDef {")
+            {
+                lines.next();
+                Some(name.to_string())
+            } else if let Some(name) = rest.strip_suffix(": TokenDef =")
+                && lines.peek().is_some_and(|next| next.trim() == "TokenDef {")
+            {
+                lines.next();
+                Some(name.to_string())
+            } else {
+                None
+            };
+            if let Some(name) = name {
+                let mut literal = "TokenDef {\n".to_string();
+                loop {
+                    let body = lines.next().ok_or_else(|| {
+                        LedgerError::Unreadable(format!("`{name}` is unterminated"))
+                    })?;
+                    if body.trim() == "};" {
+                        literal.push('}');
+                        break;
+                    }
+                    literal.push_str(body);
+                    literal.push('\n');
                 }
-                literal.push_str(body);
-                literal.push('\n');
+                defs.push((name, std::mem::take(&mut doc), literal));
+                continue;
             }
-            defs.push((name.to_string(), std::mem::take(&mut doc), literal));
-            continue;
         }
         // `GENERATED` is rendered from the rows and never read back — it is a
         // view over `ALL`, and reading it would be reading the same fact twice.
@@ -690,8 +707,16 @@ mod tests {
                 modules: vec!["creature".into()],
             },
         }];
-        let mite_again = [generated("PHYREXIAN_MITE_ARTIFACT_1_1_TOXIC_1_A789D9A47", inline)];
-        assert_eq!(assign(mite_existing, &[], &mite_again).expect("trailing comma matches").len(), 1);
+        let mite_again = [generated(
+            "PHYREXIAN_MITE_ARTIFACT_1_1_TOXIC_1_A789D9A47",
+            inline,
+        )];
+        assert_eq!(
+            assign(mite_existing, &[], &mite_again)
+                .expect("trailing comma matches")
+                .len(),
+            1
+        );
     }
 
     /// A hand-written token that has been deleted takes its id with it, and
@@ -728,5 +753,14 @@ mod tests {
             parse("// nothing"),
             Err(LedgerError::Unreadable(_))
         ));
+
+        let wrapped_def = "/// 1/1 wolf.\n\
+                           pub static VERY_LONG_TOKEN_CONSTANT_NAME_THAT_RUSTFMT_WRAPS:\n    \
+                           TokenDef = TokenDef {\n\
+                           };\n\
+                           pub static ALL: &[&TokenDef] = &[\n    \
+                               &VERY_LONG_TOKEN_CONSTANT_NAME_THAT_RUSTFMT_WRAPS,\n\
+                           ];\n";
+        assert_eq!(parse(wrapped_def).expect("wrapped pub static").len(), 1);
     }
 }
