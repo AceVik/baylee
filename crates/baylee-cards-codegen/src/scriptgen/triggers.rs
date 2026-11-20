@@ -498,6 +498,10 @@ impl Tx<'_> {
         let Some(valid) = p.take("ValidCard") else {
             return self.deny("a `Cycled` trigger with no `ValidCard$`".to_string());
         };
+        match p.take("Secondary").as_deref() {
+            None | Some("True") => {}
+            Some(other) => return self.deny(format!("`Secondary$ {other}`")),
+        }
         let explicit_player = p.take("ValidPlayer");
         if valid == "Card.Self" {
             if zoned {

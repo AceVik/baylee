@@ -36488,7 +36488,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Chartooth Cougar
+    &[FaceLines {
+        sentences: 2,
+        stackable: 2,
+        lines: &[Some(1), Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Claws of Wirewood
     &[FaceLines {
@@ -36610,7 +36617,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Eternal Dragon
+    &[FaceLines {
+        sentences: 3,
+        stackable: 2,
+        lines: &[Some(2), Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],
@@ -36736,7 +36750,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Noble Templar
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // One with Nature
     &[FaceLines {
         sentences: 2,
@@ -36805,7 +36826,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Shoreline Ranger
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Siege-Gang Commander
     &[FaceLines {
         sentences: 2,
@@ -36880,7 +36908,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Twisted Abomination
+    &[FaceLines {
+        sentences: 2,
+        stackable: 2,
+        lines: &[Some(1), Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Unburden
     &[FaceLines {
         sentences: 2,
@@ -36924,7 +36959,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Wirewood Guardian
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Wirewood Symbiote
     &[FaceLines {
         sentences: 1,
@@ -41985,7 +42027,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    &[],
+    // Life from the Loam
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None, None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Lightning Helix
     &[FaceLines {
@@ -90404,7 +90453,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Lórien Revealed
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(1), None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Many Partings
     &[FaceLines {
         sentences: 1,

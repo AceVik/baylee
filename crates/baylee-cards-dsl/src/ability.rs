@@ -1220,7 +1220,7 @@ impl AbilityDef {
                     && (*effects == [crate::effect::Effect::draw(1)]
                         || matches!(
                             *effects,
-                            [crate::effect::Effect::SearchLibrary { finds, .. }]
+                            [crate::effect::Effect::SearchLibrary { finds, optional: false, .. }]
                                 if *finds == [crate::effect::Find::HAND]
                         ))
             }
@@ -1602,6 +1602,16 @@ mod tests {
             finds: &[Find::BATTLEFIELD],
             optional: false,
         }];
+        const SEARCH_TWO: &[Effect] = &[Effect::SearchLibrary {
+            filter: &crate::Filter::BASIC_LAND,
+            finds: &[Find::HAND, Find::HAND],
+            optional: false,
+        }];
+        const OPTIONAL_SEARCH: &[Effect] = &[Effect::SearchLibrary {
+            filter: &crate::Filter::BASIC_LAND,
+            finds: &[Find::HAND],
+            optional: true,
+        }];
         let hand_ability = |effects, timing| AbilityDef::Activated {
             cost: DISCARD,
             effects,
@@ -1617,6 +1627,8 @@ mod tests {
         assert!(hand_ability(SEARCH_HAND, ActivationTiming::InstantSpeed).is_cycling());
         assert!(!hand_ability(SEARCH_HAND, ActivationTiming::SorcerySpeed).is_cycling());
         assert!(!hand_ability(SEARCH_BATTLEFIELD, ActivationTiming::InstantSpeed).is_cycling());
+        assert!(!hand_ability(SEARCH_TWO, ActivationTiming::InstantSpeed).is_cycling());
+        assert!(!hand_ability(OPTIONAL_SEARCH, ActivationTiming::InstantSpeed).is_cycling());
     }
 
     /// CR 605.1 makes a mana ability the exception, and the flag is the

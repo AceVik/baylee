@@ -193,107 +193,109 @@ fn every_card_exiled_is_the_top_of_a_library_exiled() {
     );
 }
 
+const REFUSED_DIG_SHAPES: &[(&str, &str)] = &[
+    // Ancestral Memories, Browse: the rest leave the library.
+    (
+        "DigNum$ 7 | ChangeNum$ 2 | DestinationZone2$ Graveyard",
+        "a `Dig` pick whose rest goes to the graveyard or exile",
+    ),
+    (
+        "DigNum$ 5 | DestinationZone2$ Exile",
+        "a `Dig` pick whose rest goes to the graveyard or exile",
+    ),
+    ("DigNum$ 3 | Reveal$ True", "a revealed `Dig` pick"),
+    ("DigNum$ 3 | Optional$ True", "an optional `Dig` pick"),
+    (
+        "DigNum$ 3 | ValidTgts$ Player",
+        "a `Dig` of a targeted player's library",
+    ),
+    (
+        "DigNum$ 5 | Defined$ Player | Reveal$ True | ChangeNum$ All | ChangeValid$ Land | DestinationZone$ Battlefield",
+        "a `Dig` of every player's library",
+    ),
+    (
+        "DigNum$ 4 | ChangeValid$ Creature | NoReveal$ True | Optional$ True",
+        "a `Dig` that moves a matching card unrevealed",
+    ),
+    (
+        "DigNum$ 4 | Reveal$ True | ChangeNum$ All | ChangeValid$ Creature | RestRandomOrder$ True",
+        "a `Dig` that reveals and moves every card matching to the hand, the rest on the bottom",
+    ),
+    (
+        "DigNum$ 4 | ChangeValid$ Creature",
+        "a `Dig` that looks and moves 1 matching to the hand, the rest on the bottom",
+    ),
+    (
+        "DigNum$ 3 | ChangeNum$ All | ChangeValid$ Land | DestinationZone$ Exile",
+        "a `Dig` that exiles some of the cards",
+    ),
+    (
+        "DigNum$ 3 | DestinationZone$ Exile",
+        "a `Dig` that exiles the cards it picks",
+    ),
+    (
+        "DigNum$ 2 | ChangeNum$ 1 | DestinationZone$ Graveyard",
+        "a `Dig` destination `Graveyard`",
+    ),
+    (
+        "DigNum$ 4 | ChangeValid$ Creature | Optional$ True | Tapped$ True",
+        "`Tapped$` on a `Dig` to the hand or exile",
+    ),
+    (
+        "DigNum$ 3 | DestinationZone$ Library | LibraryPosition$ 0 | DestinationZone2$ Exile",
+        "a `Dig` destination `Library`",
+    ),
+    (
+        "DigNum$ 4 | Reveal$ True | ForceRevealToController$ True | ChangeValid$ Creature | Optional$ True",
+        "a `Dig` revealed to its controller twice",
+    ),
+    (
+        "DigNum$ 2 | ChangeNum$ Any",
+        "a `Dig` moving `ChangeNum$ Any` cards",
+    ),
+    (
+        "DigNum$ 2 | ChangeNum$ X",
+        "a `Dig` moving `ChangeNum$ X` cards",
+    ),
+    (
+        "DigNum$ 2 | ChangeNum$ 0",
+        "a `Dig` moving `ChangeNum$ 0` cards",
+    ),
+    (
+        "DigNum$ 2 | Optional$ False",
+        "`Optional$ False` on a `Dig`",
+    ),
+    ("DigNum$ 2 | Reveal$ False", "`Reveal$ False` on a `Dig`"),
+    ("ChangeNum$ 1", "a `Dig` with no `DigNum$`"),
+    (
+        "DigNum$ X | Reveal$ True | ChangeValid$ Creature | DestinationZone2$ Graveyard | Optional$ True",
+        "a `Dig` of `DigNum$ X` cards into an effect that counts a number",
+    ),
+    // "Put the rest back on top in a random order" has no effect here.
+    (
+        "DigNum$ 3 | LibraryPosition2$ 0 | RestRandomOrder$ True",
+        "a `Dig` whose rest goes back on top in a random order",
+    ),
+    (
+        "DigNum$ 4 | ChangeValid$ Creature | Optional$ True | LibraryPosition2$ 0 | RestRandomOrder$ True",
+        "a `Dig` that looks and moves up to 1 matching to the hand, the rest on top in a random order",
+    ),
+    (
+        "DigNum$ 3 | DestinationZone2$ Hand",
+        "a `Dig` remainder put into `Hand` at position `-1`",
+    ),
+    // An exile on a line whose target is an object names no library.
+    (
+        "DigNum$ 3 | ValidTgts$ Creature | ChangeNum$ All | DestinationZone$ Exile",
+        "a `Dig` exile on a line that targets an object",
+    ),
+];
+
 #[test]
 fn every_other_dig_is_refused_by_name() {
     let script =
         |params: &str| format!("Name:Dig\nManaCost:U\nTypes:Sorcery\nA:SP$ Dig | {params}");
-    for (params, expected) in [
-        // Ancestral Memories, Browse: the rest leave the library.
-        (
-            "DigNum$ 7 | ChangeNum$ 2 | DestinationZone2$ Graveyard",
-            "a `Dig` pick whose rest goes to the graveyard or exile",
-        ),
-        (
-            "DigNum$ 5 | DestinationZone2$ Exile",
-            "a `Dig` pick whose rest goes to the graveyard or exile",
-        ),
-        ("DigNum$ 3 | Reveal$ True", "a revealed `Dig` pick"),
-        ("DigNum$ 3 | Optional$ True", "an optional `Dig` pick"),
-        (
-            "DigNum$ 3 | ValidTgts$ Player",
-            "a `Dig` of a targeted player's library",
-        ),
-        (
-            "DigNum$ 5 | Defined$ Player | Reveal$ True | ChangeNum$ All | ChangeValid$ Land | DestinationZone$ Battlefield",
-            "a `Dig` of every player's library",
-        ),
-        (
-            "DigNum$ 4 | ChangeValid$ Creature | NoReveal$ True | Optional$ True",
-            "a `Dig` that moves a matching card unrevealed",
-        ),
-        (
-            "DigNum$ 4 | Reveal$ True | ChangeNum$ All | ChangeValid$ Creature | RestRandomOrder$ True",
-            "a `Dig` that reveals and moves every card matching to the hand, the rest on the bottom",
-        ),
-        (
-            "DigNum$ 4 | ChangeValid$ Creature",
-            "a `Dig` that looks and moves 1 matching to the hand, the rest on the bottom",
-        ),
-        (
-            "DigNum$ 3 | ChangeNum$ All | ChangeValid$ Land | DestinationZone$ Exile",
-            "a `Dig` that exiles some of the cards",
-        ),
-        (
-            "DigNum$ 3 | DestinationZone$ Exile",
-            "a `Dig` that exiles the cards it picks",
-        ),
-        (
-            "DigNum$ 2 | ChangeNum$ 1 | DestinationZone$ Graveyard",
-            "a `Dig` destination `Graveyard`",
-        ),
-        (
-            "DigNum$ 4 | ChangeValid$ Creature | Optional$ True | Tapped$ True",
-            "`Tapped$` on a `Dig` to the hand or exile",
-        ),
-        (
-            "DigNum$ 3 | DestinationZone$ Library | LibraryPosition$ 0 | DestinationZone2$ Exile",
-            "a `Dig` destination `Library`",
-        ),
-        (
-            "DigNum$ 4 | Reveal$ True | ForceRevealToController$ True | ChangeValid$ Creature | Optional$ True",
-            "a `Dig` revealed to its controller twice",
-        ),
-        (
-            "DigNum$ 2 | ChangeNum$ Any",
-            "a `Dig` moving `ChangeNum$ Any` cards",
-        ),
-        (
-            "DigNum$ 2 | ChangeNum$ X",
-            "a `Dig` moving `ChangeNum$ X` cards",
-        ),
-        (
-            "DigNum$ 2 | ChangeNum$ 0",
-            "a `Dig` moving `ChangeNum$ 0` cards",
-        ),
-        (
-            "DigNum$ 2 | Optional$ False",
-            "`Optional$ False` on a `Dig`",
-        ),
-        ("DigNum$ 2 | Reveal$ False", "`Reveal$ False` on a `Dig`"),
-        ("ChangeNum$ 1", "a `Dig` with no `DigNum$`"),
-        (
-            "DigNum$ X | Reveal$ True | ChangeValid$ Creature | DestinationZone2$ Graveyard | Optional$ True",
-            "a `Dig` of `DigNum$ X` cards into an effect that counts a number",
-        ),
-        // "Put the rest back on top in a random order" has no effect here.
-        (
-            "DigNum$ 3 | LibraryPosition2$ 0 | RestRandomOrder$ True",
-            "a `Dig` whose rest goes back on top in a random order",
-        ),
-        (
-            "DigNum$ 4 | ChangeValid$ Creature | Optional$ True | LibraryPosition2$ 0 | RestRandomOrder$ True",
-            "a `Dig` that looks and moves up to 1 matching to the hand, the rest on top in a random order",
-        ),
-        (
-            "DigNum$ 3 | DestinationZone2$ Hand",
-            "a `Dig` remainder put into `Hand` at position `-1`",
-        ),
-        // An exile on a line whose target is an object names no library.
-        (
-            "DigNum$ 3 | ValidTgts$ Creature | ChangeNum$ All | DestinationZone$ Exile",
-            "a `Dig` exile on a line that targets an object",
-        ),
-    ] {
+    for &(params, expected) in REFUSED_DIG_SHAPES {
         let text = script(params);
         assert!(
             reason(&text).contains(expected),

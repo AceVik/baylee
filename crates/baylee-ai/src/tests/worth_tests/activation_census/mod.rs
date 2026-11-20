@@ -521,7 +521,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Dirge of Dread, Krosan Tusker, Primal Boost, Renewed Faith, Slice and
     // Dice, Solar Blast, Sunfire Balm, and Gempalm Avenger/Polluter/Sorcerer/
     // Strider).
-    assert_eq!((read, of), (3040, 3847), "activated/loyalty reader census");
+    // The seven additional typecycling cards add seven searches and three
+    // other readable activations (Chartooth Cougar, Eternal Dragon and Twisted Abomination).
+    assert_eq!((read, of), (3050, 3857), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [
