@@ -9275,14 +9275,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    // Spoils of Evil
-    &[FaceLines {
-        sentences: 1,
-        stackable: 0,
-        lines: &[None],
-        modes: &[],
-        alternatives: &[],
-    }],
+    &[],
     &[],
     // Staff of the Ages
     &[FaceLines {
