@@ -203,6 +203,7 @@ fn event(table: &Session, view: &PlayerView, answer: &Answer4, report: &SearchRe
 /// searched decision compared.
 pub(super) struct GameSearch {
     config: SearchConfig4,
+    pub deadline: Option<super::deadline::Probe>,
     /// Searched decisions a game may have (`0`: no limit).
     max_searched: u64,
     seed: u64,
@@ -231,6 +232,7 @@ impl GameSearch {
     pub fn new(config: SearchConfig4, max_searched: u64) -> Self {
         Self {
             config,
+            deadline: None,
             max_searched,
             seed: 0,
             follow: None,
@@ -349,6 +351,10 @@ impl GameSearch {
     ///
     /// # Errors
     /// When the player cannot search, or fails in a rollout.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "The real table question and its original offer time"
+    )]
     pub fn answer(
         &mut self,
         net: &mut dyn EvaluationPlayer,
@@ -356,6 +362,7 @@ impl GameSearch {
         view: &PlayerView,
         pending: &Pending,
         teams: &[Option<u8>],
+        offered: Instant,
     ) -> anyhow::Result<Option<Answer4>> {
         let scripted = self.script(net, view, pending, teams)?;
         if scripted.is_some() {
@@ -373,7 +380,11 @@ impl GameSearch {
         if followed.is_some() {
             return Ok(followed);
         }
-        if self.max_searched > 0 && self.tally.searched >= self.max_searched {
+        let used = self
+            .deadline
+            .as_ref()
+            .map_or(self.tally.searched, |probe| probe.dispatched);
+        if self.max_searched > 0 && used >= self.max_searched {
             self.tally.decisions += 1;
             bump(&mut self.tally.skipped, "budget".into());
             return Ok(None);
@@ -387,15 +398,32 @@ impl GameSearch {
                 .taken_back(view.seat, position, view.seq)
                 .to_vec()
         });
-        let Some(searched) = net.search(
-            table,
-            view,
-            pending,
-            teams,
-            self.config,
-            self.seed,
-            &taken_back,
-        ) else {
+        let searched = if let Some(probe) = self.deadline.as_mut() {
+            let player = net.deadline_player().ok_or_else(|| {
+                anyhow::anyhow!("offline deadline needs a single native neural seat")
+            })?;
+            Some(probe.search(
+                player,
+                table,
+                view,
+                pending,
+                teams,
+                self.config,
+                self.seed,
+                offered,
+            ))
+        } else {
+            net.search(
+                table,
+                view,
+                pending,
+                teams,
+                self.config,
+                self.seed,
+                &taken_back,
+            )
+        };
+        let Some(searched) = searched else {
             return Ok(None);
         };
         self.tally.decisions += 1;

@@ -846,6 +846,13 @@ impl NetPlayer4 {
         Some(self.twin_on(Backend::Shared(Arc::clone(net)), snapshot))
     }
 
+    /// A disposable rollout player on a different, compatible export of the
+    /// same checkpoint. The caller binds the two export identities.
+    #[must_use]
+    pub fn twin_on_batched_net(&self, net: &Arc<super::BatchedNet4>) -> Self {
+        self.twin_on(Backend::Shared(Arc::clone(net)), &self.snapshot())
+    }
+
     /// `count` twins ([`Self::twin_on_shared_net`]) whose steps go to the
     /// batched session in lockstep ([`super::lockstep`]): each waits until
     /// every twin still playing waits, and then all of them run as one

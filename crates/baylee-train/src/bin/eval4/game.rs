@@ -79,6 +79,7 @@ fn value_line(
 struct DecisionLogs<'a> {
     value: Option<&'a Mutex<BufWriter<File>>>,
     trace: Option<&'a Mutex<BufWriter<File>>>,
+    offline_deadline: bool,
 }
 
 /// One line of `--decision-trace` ([`baylee_train_ops::divergence::TraceLine`]):
@@ -325,6 +326,7 @@ fn play_one_table(
             ));
         }
 
+        let offered = Instant::now();
         // Passively observe the table for all neural seats after opponent progression (P0-4)
         let payment_ctx = net
             .as_deref()
@@ -467,7 +469,7 @@ fn play_one_table(
                 }
                 let t0 = Instant::now();
                 let searched = match search.as_deref_mut() {
-                    Some(search) => search.answer(n, &session, &view, &pending, teams)?,
+                    Some(search) => search.answer(n, &session, &view, &pending, teams, offered)?,
                     None => None,
                 };
                 let answer = match searched {
@@ -549,7 +551,9 @@ fn play_one_table(
                     writeln!(log.lock().expect("decision trace lock"), "{line}")?;
                 }
                 if ans.provenance.source == SourceKind4::Net {
-                    latencies.push(dt_ms);
+                    if !logs.offline_deadline {
+                        latencies.push(dt_ms);
+                    }
                     net_answers += 1;
                 } else if ans.provenance.source == SourceKind4::House {
                     fallbacks += 1;
@@ -611,6 +615,19 @@ fn play_one_table(
                         shadow.hear(routed);
                     }
                 });
+                if logs.offline_deadline {
+                    latencies.push(offered.elapsed().as_secs_f64() * 1_000.0);
+                }
+                if let Some(probe) = search
+                    .as_deref_mut()
+                    .and_then(|search| search.deadline.as_mut())
+                {
+                    probe.applied(sequence, result.is_ok());
+                    anyhow::ensure!(
+                        result.is_ok(),
+                        "offline deadline answer refused at question {sequence}"
+                    );
+                }
                 if let Some(diagnostic) = recovery {
                     fallback_events.push(json!({"decision_seq":sequence,"record_byte_offset":record_offset,"seat":pid.get(),
                         "diagnostic":diagnostic,"action":attempted_action,"accepted":result.is_ok()}));
