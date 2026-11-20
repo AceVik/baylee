@@ -361,6 +361,7 @@ const OFFERS_A_CHOICE: &[&str] = &[
     "CopyEventSpellOrAbility",
     "CopyThisSpell",
     "CopySpell",
+    "ChooseOne",
     "BottomCardFromHand",
     "OptionalBasicLandSearchFor",
     "MayBehold",
