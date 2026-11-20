@@ -147,6 +147,24 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Foretell:") {
             return self.foretell(rest);
         }
+        if let Some(rest) = line.strip_prefix("Miracle:") {
+            return self.miracle(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Dash:") {
+            return self.dash(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Blitz:") {
+            return self.blitz(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Spectacle:") {
+            return self.keyword_alternative_cost("Spectacle", "spectacle", rest, false);
+        }
+        if let Some(rest) = line.strip_prefix("Surge:") {
+            return self.keyword_alternative_cost("Surge", "surge", rest, true);
+        }
+        if let Some(rest) = line.strip_prefix("Prowl:") {
+            return self.keyword_alternative_cost("Prowl", "prowl", rest, false);
+        }
         if line == "Jump-start" {
             return self.jump_start();
         }
@@ -608,14 +626,9 @@ impl Tx<'_> {
         let parsed = self.cost_pieces(rest.trim());
         self.in_alternative_cost = prev_alt;
         let (mana, parts) = parsed?;
-        let all_supported = parts.iter().all(|part| {
-            part.starts_with("PayLife(")
-                || part.starts_with("ExileFromHand(")
-                || part.starts_with("Sacrifice(")
-                || part.starts_with("ReturnToHand(")
-                || part.starts_with("TapN {")
-        });
-        if !all_supported || (mana.is_empty() && parts.is_empty()) {
+        if !parts.iter().all(|part| is_paid_alternative_cost_part(part))
+            || (mana.is_empty() && parts.is_empty())
+        {
             return self.deny(format!("evoke `{rest}`"));
         }
         let cost = crate::body::cost_literal(&mana, &parts);
@@ -1067,6 +1080,115 @@ impl Tx<'_> {
         Some(())
     }
 
+    fn is_land_card_type(&self) -> bool {
+        self.type_line.split_whitespace().any(|word| word == "Land")
+    }
+
+    fn parse_alt_cost_pieces(
+        &mut self,
+        keyword: &str,
+        rest: &str,
+        allow_x: bool,
+        mana_only: bool,
+    ) -> Option<(String, Vec<String>)> {
+        if rest.contains(':') {
+            return self.deny(format!("a `{keyword}` with extra fields `{rest}`"));
+        }
+        if super::cost_parts(rest).is_empty() {
+            return self.deny(format!("an empty `{keyword}` cost"));
+        }
+        let prev_x = std::mem::replace(&mut self.has_x, allow_x);
+        let prev_alt = std::mem::replace(&mut self.in_alternative_cost, true);
+        let pieces = self.cost_pieces(rest);
+        self.has_x = prev_x;
+        self.in_alternative_cost = prev_alt;
+        let (mana, parts) = pieces?;
+        if mana_only && (mana.is_empty() || !parts.is_empty()) {
+            return self.deny(format!("a non-mana `{keyword}` cost `{rest}`"));
+        }
+        if (mana.is_empty() && parts.is_empty())
+            || !parts.iter().all(|part| is_paid_alternative_cost_part(part))
+        {
+            return self.deny(format!("a `{keyword}` cost `{rest}` the cast cannot pay"));
+        }
+        if !mana.is_empty() && baylee_core::mana::ManaCost::try_parse(&mana).is_err() {
+            return self.deny(format!(
+                "a `{keyword}` cost `{rest}` that is not valid mana"
+            ));
+        }
+        Some((mana, parts))
+    }
+
+    /// `K:Miracle:<cost>` (`CR 702.94a`): mana-only alternative cast cost when
+    /// revealed as the first card drawn this turn (with optional `{X}`).
+    pub(super) fn miracle(&mut self, rest: &str) -> Option<()> {
+        if self.body.miracle.is_some() {
+            return self.deny("a second `Miracle` cost on one card".to_string());
+        }
+        if self.type_line.is_empty() || self.is_land_card_type() {
+            return self.deny("`Miracle` on a land or untyped card".to_string());
+        }
+        let (mana, _) = self.parse_alt_cost_pieces("Miracle", rest, true, true)?;
+        self.body.miracle = Some(format!("Some(mana!(\"{mana}\"))"));
+        self.body.notes.push("miracle".to_string());
+        Some(())
+    }
+
+    /// `K:Dash:<cost>` (`CR 702.109a`): mana-only alternative cast cost for
+    /// permanent cards (gaining haste and end-step return in the engine).
+    pub(super) fn dash(&mut self, rest: &str) -> Option<()> {
+        if self.body.dash.is_some() {
+            return self.deny("a second `Dash` cost on one card".to_string());
+        }
+        if self.type_line.is_empty() || self.is_land_card_type() || self.is_spell_card_type() {
+            return self.deny("`Dash` on a non-permanent card".to_string());
+        }
+        let (mana, _) = self.parse_alt_cost_pieces("Dash", rest, false, true)?;
+        self.body.dash = Some(format!("Some(mana!(\"{mana}\"))"));
+        self.body.notes.push("dash".to_string());
+        Some(())
+    }
+
+    /// `K:Blitz:<cost>` (`CR 702.152a`): alternative cast cost for permanent
+    /// cards (`mana` + `paid_as_an_alternative_cost` parts).
+    pub(super) fn blitz(&mut self, rest: &str) -> Option<()> {
+        if self.body.blitz.is_some() {
+            return self.deny("a second `Blitz` cost on one card".to_string());
+        }
+        if self.type_line.is_empty() || self.is_land_card_type() || self.is_spell_card_type() {
+            return self.deny("`Blitz` on a non-permanent card".to_string());
+        }
+        let (mana, parts) = self.parse_alt_cost_pieces("Blitz", rest, false, false)?;
+        let cost = crate::body::cost_literal(&mana, &parts);
+        self.body.blitz = Some(format!("Some({cost})"));
+        self.body.notes.push("blitz".to_string());
+        Some(())
+    }
+
+    /// `K:Spectacle:<cost>` (`CR 702.137a`), `K:Surge:<cost>` (`CR 702.117a`),
+    /// and `K:Prowl:<cost>` (`CR 702.76a`) via `AlternativeCost::<ctor>(cost)`.
+    fn keyword_alternative_cost(
+        &mut self,
+        keyword: &str,
+        ctor: &str,
+        rest: &str,
+        allow_x: bool,
+    ) -> Option<()> {
+        if self.has_evoke || !self.body.alternative_costs.is_empty() {
+            return self.deny(format!("a conflicting `{keyword}` alternative cost"));
+        }
+        if self.type_line.is_empty() || self.is_land_card_type() {
+            return self.deny(format!("`{keyword}` on a land or untyped card"));
+        }
+        let (mana, parts) = self.parse_alt_cost_pieces(keyword, rest, allow_x, false)?;
+        let cost = crate::body::cost_literal(&mana, &parts);
+        self.body
+            .alternative_costs
+            .push(format!("AlternativeCost::{ctor}({cost})"));
+        self.body.notes.push(ctor.to_string());
+        Some(())
+    }
+
     fn is_spell_card_type(&self) -> bool {
         self.type_line
             .split_whitespace()
@@ -1205,13 +1327,7 @@ impl Tx<'_> {
         self.in_alternative_cost = prev_alt;
         let (mana, parts) = pieces?;
         if (mana.is_empty() && parts.is_empty())
-            || !parts.iter().all(|part| {
-                part.starts_with("PayLife(")
-                    || part.starts_with("ExileFromHand(")
-                    || part.starts_with("Sacrifice(")
-                    || part.starts_with("ReturnToHand(")
-                    || part.starts_with("TapN {")
-            })
+            || !parts.iter().all(|part| is_paid_alternative_cost_part(part))
         {
             return self.deny(format!("a `Bestow` cost `{rest}` the cast cannot pay"));
         }
@@ -1744,6 +1860,14 @@ impl Tx<'_> {
         ));
         None
     }
+}
+
+fn is_paid_alternative_cost_part(part: &str) -> bool {
+    part.starts_with("PayLife(")
+        || part.starts_with("ExileFromHand(")
+        || part.starts_with("Sacrifice(")
+        || part.starts_with("ReturnToHand(")
+        || part.starts_with("TapN {")
 }
 
 fn is_graveyard_activation_part(part: &str) -> bool {

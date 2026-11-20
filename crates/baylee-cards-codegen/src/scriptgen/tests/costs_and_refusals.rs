@@ -2717,3 +2717,99 @@ fn wave6_phasing_lock_roll_dice_vanishing_and_etb_counters() {
          K:etbCounter:P1P1:X\nSVar:X:Count$CardPower"
     ));
 }
+
+#[test]
+fn wave6b_miracle_dash_blitz_spectacle_surge_prowl_and_conditions() {
+    let miracle_mana = read(
+        "Name:BeaconBolt\nManaCost:2 W\nTypes:Instant\n\
+         K:Miracle:W\nA:SP$ GainLife | LifeAmount$ 3",
+    );
+    assert_eq!(
+        miracle_mana.miracle.as_deref(),
+        Some("Some(mana!(\"{W}\"))")
+    );
+
+    let miracle_x = read(
+        "Name:SkyCall\nManaCost:X W W\nTypes:Sorcery\n\
+         K:Miracle:X W\nSVar:X:Count$xPaid\nA:SP$ GainLife | LifeAmount$ X",
+    );
+    assert_eq!(
+        miracle_x.miracle.as_deref(),
+        Some("Some(mana!(\"{X}{W}\"))")
+    );
+
+    let dash = read("Name:RedRunner\nManaCost:2 R\nTypes:Creature\nPT:2/1\nK:Dash:1 R");
+    assert_eq!(dash.dash.as_deref(), Some("Some(mana!(\"{1}{R}\"))"));
+
+    let blitz_mana = read("Name:AshCharger\nManaCost:2 R\nTypes:Creature\nPT:3/1\nK:Blitz:1 R");
+    assert_eq!(blitz_mana.blitz.as_deref(), Some("Some(cost!(\"{1}{R}\"))"));
+
+    let blitz_life = read(
+        "Name:BloodBruiser\nManaCost:1 B\nTypes:Creature\nPT:3/2\n\
+         K:Blitz:2 B B PayLife<2>",
+    );
+    assert_eq!(
+        blitz_life.blitz.as_deref(),
+        Some("Some(cost!(\"{2}{B}{B}\", PayLife(2)))")
+    );
+
+    let spectacle = read(
+        "Name:TorchSpark\nManaCost:2 R\nTypes:Sorcery\n\
+         K:Spectacle:R\nA:SP$ LoseLife | ValidTgts$ Opponent | LifeAmount$ 3",
+    );
+    assert_eq!(
+        spectacle.alternative_costs,
+        ["AlternativeCost::spectacle(cost!(\"{R}\"))"]
+    );
+
+    let surge_x = read(
+        "Name:TideSurge\nManaCost:X X R\nTypes:Instant\n\
+         K:Surge:X R\nSVar:X:Count$xPaid\nA:SP$ LoseLife | ValidTgts$ Opponent | LifeAmount$ X",
+    );
+    assert_eq!(
+        surge_x.alternative_costs,
+        ["AlternativeCost::surge(cost!(\"{X}{R}\"))"]
+    );
+
+    let prowl = read(
+        "Name:NightProwler\nManaCost:3 U\nTypes:Creature Rogue\nPT:2/2\n\
+         K:Prowl:1 U",
+    );
+    assert_eq!(
+        prowl.alternative_costs,
+        ["AlternativeCost::prowl(cost!(\"{1}{U}\"))"]
+    );
+
+    let conds = read(
+        "Name:BloodSeer\nManaCost:1 B\nTypes:Creature\nPT:2/1\n\
+         A:AB$ Draw | Cost$ T | ConditionCheckSVar$ OppLost | ConditionSVarCompare$ GE1 | NumCards$ 1\n\
+         S:Mode$ Continuous | Affected$ Card.Self | AddPower$ 1 | CheckSVar$ AltPaid | SVarCompare$ GE1\n\
+         SVar:OppLost:PlayerCountRegisteredOpponents$HasPropertyLostLifeThisTurn\n\
+         SVar:AltPaid:Count$AltCost.1.0",
+    );
+    let abilities = conds.abilities.join("\n");
+    assert!(
+        abilities.contains("condition: Condition::OpponentLostLifeThisTurn")
+            && abilities.contains("condition = Some(Condition::AltCostPaid)"),
+        "{abilities}"
+    );
+}
+
+#[test]
+fn wave6b_alternate_keyword_refusals() {
+    for bad in [
+        "Name:LandMiracle\nTypes:Land\nK:Miracle:1 W",
+        "Name:BadMiracleX\nManaCost:2 W\nTypes:Sorcery\nK:Miracle:X W\nA:SP$ GainLife | LifeAmount$ 2",
+        "Name:DupMiracle\nManaCost:2 W\nTypes:Instant\nK:Miracle:W\nK:Miracle:1 W\nA:SP$ GainLife | LifeAmount$ 2",
+        "Name:SpellDash\nManaCost:1 R\nTypes:Instant\nK:Dash:R\nA:SP$ GainLife | LifeAmount$ 1",
+        "Name:DashX\nManaCost:2 R\nTypes:Creature\nPT:1/1\nK:Dash:X R\nSVar:X:Count$xPaid",
+        "Name:SpellBlitz\nManaCost:1 B\nTypes:Sorcery\nK:Blitz:B\nA:SP$ GainLife | LifeAmount$ 1",
+        "Name:BlitzDiscard\nManaCost:2 R\nTypes:Creature\nPT:2/2\nK:Blitz:1 R Discard<1/Card>",
+        "Name:BlitzExtra\nManaCost:2 R\nTypes:Creature\nPT:2/2\nK:Blitz:1 R:Extra",
+        "Name:LandSurge\nTypes:Land\nK:Surge:1 U",
+        "Name:TwoAlts\nManaCost:2 U\nTypes:Instant\nK:Surge:U\nK:Prowl:1 U\nA:SP$ Draw | NumCards$ 1",
+        "Name:ProwlDiscard\nManaCost:2 B\nTypes:Instant\nK:Prowl:B Discard<1/Card>\nA:SP$ Draw | NumCards$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

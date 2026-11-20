@@ -934,6 +934,20 @@ impl Tx<'_> {
                 _ => None,
             };
         }
+        if raw == "Count$AltCost.1.0" {
+            return match cmp {
+                "GE1" | "EQ1" => Some("Condition::AltCostPaid".to_string()),
+                "EQ0" => Some("Condition::Not(&Condition::AltCostPaid)".to_string()),
+                _ => None,
+            };
+        }
+        if raw == "PlayerCountRegisteredOpponents$HasPropertyLostLifeThisTurn" {
+            return match cmp {
+                "GE1" | "EQ1" => Some("Condition::OpponentLostLifeThisTurn".to_string()),
+                "EQ0" => Some("Condition::Not(&Condition::OpponentLostLifeThisTurn)".to_string()),
+                _ => None,
+            };
+        }
         if raw == "Count$LastTurnCast_Card" {
             return match bound {
                 Some(Bound::AtMost(0)) => Some("Condition::NoSpellsCastLastTurn".to_string()),

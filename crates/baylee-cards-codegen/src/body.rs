@@ -62,6 +62,12 @@ pub struct CardBody {
     pub madness: Option<String>,
     /// `foretell` expression for the front face, when present.
     pub foretell: Option<String>,
+    /// `miracle` expression for the front face, when present.
+    pub miracle: Option<String>,
+    /// `dash` expression for the front face, when present.
+    pub dash: Option<String>,
+    /// `blitz` expression for the front face, when present.
+    pub blitz: Option<String>,
     /// `morph` expression for the front face, when present.
     pub morph: Option<String>,
     /// `megamorph` expression for the front face, when present.
@@ -118,6 +124,9 @@ impl CardBody {
             && self.flashback.is_none()
             && self.madness.is_none()
             && self.foretell.is_none()
+            && self.miracle.is_none()
+            && self.dash.is_none()
+            && self.blitz.is_none()
             && self.morph.is_none()
             && self.megamorph.is_none()
             && self.morph_parts.is_empty()

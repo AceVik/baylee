@@ -728,6 +728,15 @@ fn render_face(
         if let Some(ft) = body.foretell.as_deref() {
             fields.push(format!("foretell = {ft}"));
         }
+        if let Some(miracle) = body.miracle.as_deref() {
+            fields.push(format!("miracle = {miracle}"));
+        }
+        if let Some(dash) = body.dash.as_deref() {
+            fields.push(format!("dash = {dash}"));
+        }
+        if let Some(blitz) = body.blitz.as_deref() {
+            fields.push(format!("blitz = {blitz}"));
+        }
         if let Some(morph) = body.morph.as_deref() {
             fields.push(format!("morph = {morph}"));
         }
@@ -2324,6 +2333,78 @@ mod tests {
         assert!(
             rendered_jump.contains("jump_start = true"),
             "{rendered_jump}"
+        );
+    }
+
+    #[test]
+    fn wave6b_miracle_dash_and_blitz_render_on_face() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("miracle_x.txt"),
+            "Name:DawnBolt\nManaCost:X R\nTypes:Sorcery\n\
+             K:Miracle:X W\nSVar:X:Count$xPaid\nA:SP$ GainLife | LifeAmount$ X\n",
+        )
+        .expect("miracle script");
+        std::fs::write(
+            dir.path().join("dash_creature.txt"),
+            "Name:SwiftScout\nManaCost:2 R\nTypes:Creature\nPT:2/1\nK:Dash:1 R\n",
+        )
+        .expect("dash script");
+        std::fs::write(
+            dir.path().join("blitz_creature.txt"),
+            "Name:AshBrawler\nManaCost:3 B\nTypes:Creature\nPT:3/2\nK:Blitz:1 B PayLife<2>\n",
+        )
+        .expect("blitz script");
+
+        let mut index = BTreeMap::new();
+        index.insert("DawnBolt".to_string(), "miracle_x.txt".to_string());
+        index.insert("SwiftScout".to_string(), "dash_creature.txt".to_string());
+        index.insert("AshBrawler".to_string(), "blitz_creature.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+
+        let (_, rendered_miracle) = render_stub(
+            &bare_card("DawnBolt", "Sorcery"),
+            &row(26, "DAWN_BOLT"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("miracle should render");
+        assert!(
+            rendered_miracle.contains("miracle = Some(mana!(\"{X}{W}\"))"),
+            "{rendered_miracle}"
+        );
+
+        let (_, rendered_dash) = render_stub(
+            &bare_card("SwiftScout", "Creature"),
+            &row(27, "SWIFT_SCOUT"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("dash should render");
+        assert!(
+            rendered_dash.contains("dash = Some(mana!(\"{1}{R}\"))"),
+            "{rendered_dash}"
+        );
+
+        let (_, rendered_blitz) = render_stub(
+            &bare_card("AshBrawler", "Creature"),
+            &row(28, "ASH_BRAWLER"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("blitz should render");
+        assert!(
+            rendered_blitz.contains("blitz = Some(cost!(\"{1}{B}\", PayLife(2)))"),
+            "{rendered_blitz}"
         );
     }
 }
