@@ -170,6 +170,12 @@ fn for_each_object(event: &mut GameEvent, f: &mut impl FnMut(&mut ObjectId)) {
         | GameEvent::AttackerBlocked { object }
         | GameEvent::CreatureMutated { object }
         | GameEvent::PermanentExerted { object, .. } => f(object),
+        GameEvent::CreatureEnlisted {
+            attacker, enlisted, ..
+        } => {
+            f(attacker);
+            f(enlisted);
+        }
         GameEvent::GameStarted { .. }
         | GameEvent::CoinFlipped { .. }
         | GameEvent::Shuffled { .. }

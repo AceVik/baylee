@@ -653,6 +653,13 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
             facts.makes.add(Stuff::COUNTERS);
             facts.makes.add(Stuff::POWER);
         }
+        Effect::Bolster(amount) => {
+            facts.reads.add(counted(amount));
+            facts.reads.add(Stuff::BOARD);
+            facts.deeds.add(Deeds::PUMPS);
+            facts.makes.add(Stuff::COUNTERS);
+            facts.makes.add(Stuff::POWER);
+        }
         Effect::Proliferate => {
             facts.reads.add(Stuff::COUNTERS);
             facts.makes.add(Stuff::COUNTERS);

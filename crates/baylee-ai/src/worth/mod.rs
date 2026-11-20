@@ -2082,6 +2082,13 @@ impl HeuristicAgent {
                 0
             }
             Effect::Amass { amount, .. } => 150 + count(*amount)? * 110,
+            Effect::Bolster(amount) => {
+                if view.battlefield_of(me).any(creature) {
+                    count(*amount)?.max(0) * 100
+                } else {
+                    0
+                }
+            }
             Effect::SearchLibrary { .. }
             | Effect::SearchLibraryUpTo { .. }
             | Effect::WishToHand { .. }

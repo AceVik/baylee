@@ -271,7 +271,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         Effect::AddCounter { amount, .. }
         | Effect::AddCounterSource { amount, .. }
         | Effect::AddCounterFilter { amount, .. }
-        | Effect::AddCounterCreatedTokens { amount, .. } => {
+        | Effect::AddCounterCreatedTokens { amount, .. }
+        | Effect::Bolster(amount) => {
             ch.counters_add += amount_scalar(amount).max(1.0);
         }
         Effect::Proliferate

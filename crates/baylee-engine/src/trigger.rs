@@ -947,6 +947,9 @@ fn collect_for_objects(
     let batch_has_attacks = events
         .iter()
         .any(|entry| matches!(entry.event, GameEvent::BecameAttacker { .. }));
+    let batch_has_enlists = events
+        .iter()
+        .any(|entry| matches!(entry.event, GameEvent::CreatureEnlisted { .. }));
     for permanent in objects {
         // The look-back applies only to sources that left or phased out during
         // this event batch. A card already in a graveyard has no battlefield
@@ -1121,6 +1124,14 @@ fn collect_for_objects(
                 &moves,
                 batch_has_attacks,
                 batch_has_zone_changes,
+                triggers,
+            );
+            combat_keywords::collect_enlist(
+                state,
+                obj,
+                events,
+                &moves,
+                batch_has_enlists,
                 triggers,
             );
         }

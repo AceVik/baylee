@@ -3897,6 +3897,7 @@ pub(super) fn exec_immediate(
             wave4_combat::exert_source(state, res);
             None
         }
+        Effect::Bolster(amount) => wave4_combat::start_bolster(state, res, amount),
     }
 }
 

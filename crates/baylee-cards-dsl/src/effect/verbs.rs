@@ -1323,7 +1323,8 @@ impl Effect {
             | Effect::ExertSource
             | Effect::ManifestTop { .. }
             | Effect::ManifestDread
-            | Effect::TurnFaceUp { .. } => (NONE, NONE),
+            | Effect::TurnFaceUp { .. }
+            | Effect::Bolster(_) => (NONE, NONE),
         }
     }
 

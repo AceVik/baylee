@@ -89,20 +89,43 @@ pub(crate) struct Exchange {
 pub(crate) fn exchange(attacker: Fighter, blocker: Fighter) -> Exchange {
     let a_kills = attacker.kills(blocker);
     let b_kills = blocker.kills(attacker);
+    let shrinks = KeywordSet::WITHER.union(KeywordSet::INFECT);
     match (attacker.strikes_first(), blocker.strikes_first()) {
         // Same step: both connect, whatever happens to either.
         (true, true) | (false, false) => Exchange {
             attacker_dies: b_kills,
             blocker_dies: a_kills,
         },
-        (true, false) => Exchange {
-            attacker_dies: b_kills && !a_kills,
-            blocker_dies: a_kills,
-        },
-        (false, true) => Exchange {
-            attacker_dies: b_kills,
-            blocker_dies: a_kills && !b_kills,
-        },
+        (true, false) => {
+            let b_after = if !a_kills && attacker.has(shrinks) && attacker.power > 0 {
+                Fighter {
+                    power: blocker.power - attacker.power,
+                    toughness: blocker.toughness - attacker.power,
+                    ..blocker
+                }
+            } else {
+                blocker
+            };
+            Exchange {
+                attacker_dies: !a_kills && b_after.kills(attacker),
+                blocker_dies: a_kills,
+            }
+        }
+        (false, true) => {
+            let a_after = if !b_kills && blocker.has(shrinks) && blocker.power > 0 {
+                Fighter {
+                    power: attacker.power - blocker.power,
+                    toughness: attacker.toughness - blocker.power,
+                    ..attacker
+                }
+            } else {
+                attacker
+            };
+            Exchange {
+                attacker_dies: b_kills,
+                blocker_dies: !b_kills && a_after.kills(blocker),
+            }
+        }
     }
 }
 
@@ -683,6 +706,12 @@ pub(crate) fn could_block(attacker: Fighter, blocker: Fighter) -> bool {
         && !blocker.has(KeywordSet::FLYING)
         && !blocker.has(KeywordSet::REACH)
     {
+        return false;
+    }
+    if attacker.has(KeywordSet::HORSEMANSHIP) && !blocker.has(KeywordSet::HORSEMANSHIP) {
+        return false;
+    }
+    if attacker.has(KeywordSet::SKULK) && blocker.power > attacker.power {
         return false;
     }
     true

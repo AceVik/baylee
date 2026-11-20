@@ -28,6 +28,15 @@ const COMBAT_ATTACK_KEYWORDS: KeywordSet = KeywordSet::BATTLE_CRY
 
 static MYRIAD_EFFECTS: &[Effect] = &[Effect::Myriad];
 
+static ENLIST_EFFECTS: &[Effect] = &[Effect::PumpFilter {
+    filter: &Filter::This,
+    controlled_by: None,
+    power: Amount::EventPower,
+    toughness: Amount::Fixed(0),
+    keywords: KeywordSet::EMPTY,
+    duration: Duration::UntilEndOfTurn,
+}];
+
 static OTHER_ATTACKING_CREATURES: Filter =
     Filter::And(&[Filter::Another, Filter::ATTACKING_CREATURE]);
 
@@ -186,6 +195,73 @@ pub(super) fn collect(
 
         if kws.contains(KeywordSet::MYRIAD) {
             collect_myriad(state, source, *defending, entry.seq, multiplier, triggers);
+        }
+    }
+}
+
+/// CR 702.154a–d: Enlist's linked triggered ability — "When you do, this
+/// creature gets +X/+0 until end of turn, where X is the tapped creature's
+/// power." Fires once per paid enlist cost (`GameEvent::CreatureEnlisted`),
+/// independent of how many instances of enlist the attacker has (CR 702.154d).
+pub(super) fn collect_enlist(
+    state: &GameState,
+    obj: &GameObject,
+    events: &[JournalEntry],
+    moves: &[ObjectMove],
+    batch_has_enlists: bool,
+    triggers: &mut Vec<PendingTrigger>,
+) {
+    if !batch_has_enlists {
+        return;
+    }
+    let permanent = obj.id;
+    for entry in events {
+        let GameEvent::CreatureEnlisted {
+            attacker,
+            enlisted,
+            player,
+        } = &entry.event
+        else {
+            continue;
+        };
+        if *attacker != permanent {
+            continue;
+        }
+        let source = source_at_event_with_moves(state, obj, moves, entry.seq, false);
+        let n = times_triggered(state, TriggerEventKind::Any, permanent);
+        if n == 0 {
+            continue;
+        }
+        let enlisted_identity = state.event_object_identity(*enlisted, entry.seq);
+        for _ in 0..n {
+            triggers.push(PendingTrigger {
+                text: TextChangeMap::IDENTITY,
+                source_version: Some(source.version),
+                related_objects: None,
+                grantor: None,
+                event_subject: None,
+                event_ability: None,
+                event_object_identity: enlisted_identity,
+                counter_source_version: None,
+                event_mana: None,
+                event_mana_value: None,
+                event_departure: None,
+                event_amount: None,
+                event_player: Some(*player),
+                source: source.id,
+                ability_index: AbilityRef::SYNTHETIC,
+                controller: source.controller,
+                timestamp: source.timestamp,
+                event_object: Some(*enlisted),
+                implicit_target: None,
+                abilities: None,
+                synthetic_effects: Some(ENLIST_EFFECTS),
+                once_per_turn: false,
+                synthetic_target: None,
+                synthetic_condition: None,
+                chosen_mode: None,
+                in_chosen_order: false,
+            });
         }
     }
 }

@@ -4953,6 +4953,11 @@ pub enum Effect {
         /// Which face-down permanent(s) to turn face up.
         target: TargetSpec,
     },
+    /// Bolster N (CR 701.39a): choose a creature you control with the least
+    /// toughness or tied for least toughness among creatures you control
+    /// (untargeted, ignoring marked damage per CR 120.6) and put N +1/+1
+    /// counters on that creature. Appended to preserve replay identities.
+    Bolster(Amount),
 }
 
 #[cfg(test)]

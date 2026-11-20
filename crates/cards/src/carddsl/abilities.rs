@@ -358,7 +358,8 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::AttackWithAtLeastMatching { .. }
         | Trigger::AttacksAndIsntBlocked(_)
         | Trigger::AttacksAlone(_)
-        | Trigger::Exerted(_) => {
+        | Trigger::Exerted(_)
+        | Trigger::Enlisted(_) => {
             dst[3] = 1.0;
         }
         Trigger::Blocks(_)
@@ -395,7 +396,8 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::CastThisWithMana(_)
         | Trigger::NthSpellCast { .. }
         | Trigger::InstantCastAfterFirst { .. }
-        | Trigger::FirstNoncreatureSpellCast(_) => {
+        | Trigger::FirstNoncreatureSpellCast(_)
+        | Trigger::SpellCastTargeting { .. } => {
             dst[6] = 1.0;
         }
         Trigger::StepBegin { .. } | Trigger::StepBeginChosenOpponent { .. } => {

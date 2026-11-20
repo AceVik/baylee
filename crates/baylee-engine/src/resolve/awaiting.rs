@@ -1302,6 +1302,11 @@ pub enum AwaitingOp {
     },
     /// Per-opponent optional copy & planeswalker choice for `Effect::Myriad`.
     Myriad(Box<super::wave4_combat::MyriadPlan>),
+    /// Tie-breaker creature selection for `Effect::Bolster` (CR 701.39a).
+    Bolster {
+        /// Number of +1/+1 counters to place on the chosen creature.
+        count: u16,
+    },
 }
 
 /// Work to resume after an optional life payment.
@@ -1639,6 +1644,7 @@ impl AwaitingOp {
             Self::ManifestDread { looked } => {
                 crate::state::structural_fingerprint(&(114_u8, looked))
             }
+            Self::Bolster { count } => crate::state::structural_fingerprint(&(116_u8, count)),
             _ => 0,
         }
     }

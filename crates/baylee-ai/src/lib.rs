@@ -570,6 +570,20 @@ impl HeuristicAgent {
                         objects: Vec::new(),
                     };
                 }
+                // Enlist (CR 702.154a): tap the highest-power helper creature
+                // when it adds positive power or triggers an enlist payoff.
+                if prompt == ChoicePrompt::CostTap
+                    && min == 0
+                    && max == 1
+                    && view.step == baylee_view::Step::DeclareAttackers
+                    && view
+                        .battlefield_of(view.seat)
+                        .any(|o| (o.keywords & baylee_cards_dsl::KeywordSet::ENLIST.bits()) != 0)
+                {
+                    return PlayerAction::ChooseObjects {
+                        objects: enlist_choice(view, &options),
+                    };
+                }
                 if let ChoicePrompt::TappedForCounters { kind } = prompt {
                     return PlayerAction::ChooseObjects {
                         objects: options
@@ -1686,6 +1700,35 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::Arrange { player, .. }
         | Pending::YesNo { player, .. } => Some(*player),
         Pending::GameOver(_) => None,
+    }
+}
+
+fn enlist_choice(view: &PlayerView, options: &[ObjectId]) -> Vec<ObjectId> {
+    let has_payoff = view.battlefield_of(view.seat).any(|o| {
+        activate::printed_list(o).iter().any(|ab| {
+            matches!(
+                ab,
+                baylee_cards_dsl::AbilityDef::Triggered {
+                    trigger: baylee_cards_dsl::Trigger::Enlisted(_),
+                    ..
+                } | baylee_cards_dsl::AbilityDef::ModalTriggered {
+                    trigger: baylee_cards_dsl::Trigger::Enlisted(_),
+                    ..
+                }
+            )
+        })
+    });
+    let best = options
+        .iter()
+        .copied()
+        .filter_map(|id| {
+            let o = view.object(id)?;
+            Some((id, o.power.unwrap_or(0), o.mana_value))
+        })
+        .max_by_key(|&(_, power, mv)| (power, std::cmp::Reverse(mv)));
+    match best {
+        Some((id, power, _)) if power > 0 || has_payoff => vec![id],
+        _ => Vec::new(),
     }
 }
 

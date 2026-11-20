@@ -231,6 +231,9 @@ pub(super) fn resume_inner(
                 super::weakest::destroy(state, card, no_regen);
             }
         }
+        AwaitingOp::Bolster { count } => {
+            super::wave4_combat::resume_bolster(state, res, count, chosen);
+        }
         AwaitingOp::Behold { then } => {
             if let Some(&card) = chosen.first() {
                 if state

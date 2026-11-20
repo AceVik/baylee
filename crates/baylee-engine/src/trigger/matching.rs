@@ -1370,6 +1370,95 @@ fn matches(
         (Trigger::Exerted(filter), GameEvent::PermanentExerted { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
+        (
+            Trigger::SpellCastTargeting {
+                who,
+                spell,
+                target,
+                targets_you,
+                only,
+            },
+            GameEvent::SpellCast {
+                object: spell_id,
+                player: caster,
+                ..
+            },
+        ) => spell_cast_targeting_matches(
+            state,
+            *spell_id,
+            *caster,
+            *who,
+            spell,
+            *target,
+            *targets_you,
+            *only,
+            you,
+            context,
+        ),
+        (Trigger::Enlisted(filter), GameEvent::CreatureEnlisted { attacker, .. }) => state
+            .object(*attacker)
+            .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
         _ => false,
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn spell_cast_targeting_matches(
+    state: &GameState,
+    spell_id: ObjectId,
+    caster: PlayerId,
+    who: PlayerRel,
+    spell: &baylee_cards_dsl::Filter,
+    target: Option<&baylee_cards_dsl::Filter>,
+    targets_you: bool,
+    only: bool,
+    you: PlayerId,
+    context: RuleContext,
+) -> bool {
+    let caster_matches = match who {
+        PlayerRel::Opponent | PlayerRel::EachOpponent => state.is_opponent(caster, you),
+        _ => eval::players(who, state, you).is_some_and(|seats| seats.contains(&caster)),
+    };
+    if !caster_matches {
+        return false;
+    }
+    let Some(spell_obj) = state.object(spell_id) else {
+        return false;
+    };
+    if !eval::matches_with_context(spell, state, spell_obj, you, context) {
+        return false;
+    }
+    let mut obj_targets: smallvec::SmallVec<[ObjectId; 4]> = spell_obj
+        .targets
+        .iter()
+        .chain(spell_obj.second_targets())
+        .copied()
+        .filter(|&t| state.targets_current_object(spell_id, t))
+        .collect();
+    obj_targets.sort_unstable();
+    obj_targets.dedup();
+
+    let mut player_targets: smallvec::SmallVec<[PlayerId; 4]> = spell_obj
+        .target_players
+        .iter()
+        .chain(spell_obj.second_target_players().iter())
+        .collect();
+    if (spell_obj.target_req.is_some() || spell_obj.second_target_req().is_some())
+        && let Some(p) = spell_obj.chosen_player
+    {
+        player_targets.push(p);
+    }
+    player_targets.sort_unstable();
+    player_targets.dedup();
+
+    let any_obj = target.is_some_and(|tf| {
+        obj_targets.iter().any(|&t| {
+            state.object(t).is_some_and(|o| {
+                o.zone == Zone::Battlefield
+                    && eval::matches_with_context(tf, state, o, you, context)
+            })
+        })
+    });
+    let any_player = targets_you && player_targets.contains(&you);
+    (any_obj || any_player) && (!only || obj_targets.len() + player_targets.len() == 1)
 }

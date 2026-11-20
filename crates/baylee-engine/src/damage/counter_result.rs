@@ -24,7 +24,12 @@ impl DamageWork {
                 continue;
             };
             if part.view.amount == 0
-                || !part.keywords.contains(KeywordSet::INFECT)
+                // CR 120.3d / CR 702.80a / CR 702.90b: damage dealt to a
+                // creature by a source with wither and/or infect places that
+                // many -1/-1 counters on it (once even when it has both).
+                || !part
+                    .keywords
+                    .contains(KeywordSet::INFECT.union(KeywordSet::WITHER))
                 || !state.object(target).is_some_and(|object| {
                     object.characteristics().types.contains(TypeSet::CREATURE)
                 })

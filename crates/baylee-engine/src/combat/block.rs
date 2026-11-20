@@ -202,6 +202,17 @@ pub fn can_block(
     if kw(a, K::FLYING) && !kw(b, K::FLYING) && !kw(b, K::REACH) {
         return false;
     }
+    // Horsemanship (CR 702.31b): can't be blocked except by creatures with
+    // horsemanship.
+    if kw(a, K::HORSEMANSHIP) && !kw(b, K::HORSEMANSHIP) {
+        return false;
+    }
+    // Skulk (CR 702.118b): can't be blocked by creatures with greater power.
+    if kw(a, K::SKULK)
+        && b.characteristics().power.unwrap_or(0) > a.characteristics().power.unwrap_or(0)
+    {
+        return false;
+    }
     // Raging River's piles (a restriction, CR 509.1b): only a creature with
     // flying or one in the pile chosen for this attacker.
     if !state

@@ -534,7 +534,8 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         | T::SpellCastOrCopied(_)
         | T::InstantCastAfterFirst { .. }
         | T::NthSpellCast { .. }
-        | T::FirstNoncreatureSpellCast(_) => &["cast"],
+        | T::FirstNoncreatureSpellCast(_)
+        | T::SpellCastTargeting { .. } => &["cast"],
         T::BecomesTarget | T::EnchantedBecomesTarget | T::TargetedByOpponent { .. } => {
             &["becomes the target"]
         }
@@ -635,6 +636,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::ChangesZoneAll { .. } => &["one or more", "enter", "leave", "die", "put into"],
         T::Sacrificed { .. } => &["sacrifice"],
         T::PlayerAttacked(_) => &["is attacked", "attack"],
+        T::Enlisted(_) => &["enlist"],
     }
 }
 
@@ -700,6 +702,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::FirstNoncreatureSpellCast(rel)
         | Trigger::PlayerDealtDamage(rel)
         | Trigger::Cycled { by: rel, .. }
+        | Trigger::SpellCastTargeting { who: rel, .. }
         | Trigger::StepBegin { whose: rel, .. } => match rel {
             PlayerRel::You => !lower.contains("opponent"),
             PlayerRel::Opponent | PlayerRel::EachOpponent => lower.contains("opponent"),
@@ -736,7 +739,8 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::SpellCast(filter)
         | Trigger::SpellCastUsingSourceMana(filter)
         | Trigger::SpellCastOrCopied(filter)
-        | Trigger::Exerted(filter) => {
+        | Trigger::Exerted(filter)
+        | Trigger::Enlisted(filter) => {
             // "This" narrowed by a condition is still this object: Bogardan
             // Phoenix's two dies triggers are `This` and with and without a
             // death counter, and both are "when this creature dies".

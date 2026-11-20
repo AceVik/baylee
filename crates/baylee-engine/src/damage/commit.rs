@@ -131,7 +131,12 @@ impl Part {
         }
         if types.contains(TypeSet::CREATURE) {
             if let Some(obj) = state.object_mut(target) {
-                if !self.keywords.contains(KeywordSet::INFECT) {
+                // CR 120.3e / CR 702.80a: neither infect nor wither marks
+                // damage on a creature; -1/-1 counters are placed instead.
+                if !self
+                    .keywords
+                    .contains(KeywordSet::INFECT.union(KeywordSet::WITHER))
+                {
                     obj.damage = obj.damage.saturating_add(counters);
                 }
                 // Infect counter amounts were replaced before any damage result

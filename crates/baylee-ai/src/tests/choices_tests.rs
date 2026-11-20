@@ -1019,3 +1019,70 @@ fn a_forced_discard_gives_up_the_land_past_the_sixth() {
         }
     );
 }
+
+#[test]
+fn ai_evaluates_wither_horsemanship_skulk_and_enlist_helper_choice() {
+    use crate::combat::{Fighter, could_block, exchange};
+    use baylee_cards_dsl::KeywordSet;
+
+    let fighter = |power: i32, toughness: i32, kw: KeywordSet| Fighter {
+        power,
+        toughness,
+        keywords: kw.bits(),
+        worth: 2,
+    };
+    let horse = fighter(2, 2, KeywordSet::HORSEMANSHIP);
+    let flier = fighter(2, 2, KeywordSet::FLYING.union(KeywordSet::REACH));
+    assert!(!could_block(horse, flier));
+    assert!(could_block(horse, horse));
+
+    let skulker = fighter(2, 2, KeywordSet::SKULK);
+    assert!(could_block(skulker, fighter(2, 2, KeywordSet::EMPTY)));
+    assert!(!could_block(skulker, fighter(3, 3, KeywordSet::EMPTY)));
+
+    // 2/2 First Strike + Wither shrinks 3/3 to 1/1 before normal combat damage!
+    let fs_wither = fighter(2, 2, KeywordSet::FIRST_STRIKE.union(KeywordSet::WITHER));
+    let brute = fighter(3, 3, KeywordSet::EMPTY);
+    let ex = exchange(fs_wither, brute);
+    assert!(!ex.attacker_dies && !ex.blocker_dies);
+
+    // Enlist CostTap in DeclareAttackers picks highest-power helper and skips 0-power walls.
+    let me = PlayerId::new(0);
+    let mut enlister = permanent(obj(9), me, 2);
+    enlister.keywords = KeywordSet::ENLIST.bits();
+    let mut v = view(
+        0,
+        &[20, 20],
+        vec![
+            enlister,
+            permanent(obj(1), me, 0),
+            permanent(obj(2), me, 4),
+            permanent(obj(3), me, 2),
+        ],
+    );
+    v.phase = baylee_view::Phase::Combat;
+    v.step = baylee_view::Step::DeclareAttackers;
+    let ask = |options: Vec<ObjectId>| {
+        HeuristicAgent::new(AIProfile::EXPERT).act(
+            &v,
+            &Pending::ChooseCards {
+                player: me,
+                options,
+                min: 0,
+                max: 1,
+                prompt: ChoicePrompt::CostTap,
+                total: None,
+            },
+        )
+    };
+    assert_eq!(
+        ask(vec![obj(1), obj(2), obj(3)]),
+        PlayerAction::ChooseObjects {
+            objects: vec![obj(2)]
+        }
+    );
+    assert_eq!(
+        ask(vec![obj(1)]),
+        PlayerAction::ChooseObjects { objects: vec![] }
+    );
+}

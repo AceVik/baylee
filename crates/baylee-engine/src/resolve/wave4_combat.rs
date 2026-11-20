@@ -485,3 +485,86 @@ fn join_myriad_combat(
         state.board_state_changed();
     }
 }
+
+/// Starts `Effect::Bolster(amount)` (CR 701.39a): finds the creature(s)
+/// controlled by `res.controller` with the least toughness (unreduced by marked
+/// damage per CR 120.6, untargeted so shroud/hexproof never interfere), places
+/// `count` +1/+1 counters immediately if unique, or asks `Pending::ChooseCards`
+/// on a tie.
+pub(super) fn start_bolster(
+    state: &mut GameState,
+    res: &mut Resolution,
+    amount: baylee_cards_dsl::Amount,
+) -> Option<Pending> {
+    let count =
+        u16::try_from(super::amount2(&amount, state, res.controller, res)).unwrap_or(u16::MAX);
+    if count == 0 {
+        return None;
+    }
+    let mut least: Option<i16> = None;
+    let mut options: Vec<ObjectId> = Vec::new();
+    for id in state.battlefield_seen() {
+        let Some(object) = state.object(id) else {
+            continue;
+        };
+        if object.controller != res.controller
+            || !object.characteristics().types.contains(TypeSet::CREATURE)
+        {
+            continue;
+        }
+        let toughness = object.characteristics().toughness.unwrap_or(0);
+        if least.is_none_or(|min| toughness < min) {
+            least = Some(toughness);
+            options.clear();
+        }
+        if least == Some(toughness) {
+            options.push(id);
+        }
+    }
+    match options.as_slice() {
+        [] => None,
+        [only] => {
+            crate::replacement::put_counters_by(
+                state,
+                res.controller,
+                *only,
+                baylee_cards_dsl::CounterKind::P1P1,
+                count,
+            );
+            None
+        }
+        _ => {
+            res.awaiting = Some(AwaitingOp::Bolster { count });
+            Some(Pending::ChooseCards {
+                player: res.controller,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+                total: None,
+            })
+        }
+    }
+}
+
+/// Resumes `Effect::Bolster` once a tied least-toughness creature is chosen.
+pub(super) fn resume_bolster(
+    state: &mut GameState,
+    res: &Resolution,
+    count: u16,
+    chosen: &[ObjectId],
+) {
+    if let Some(&card) = chosen.first()
+        && state
+            .object(card)
+            .is_some_and(|o| o.zone == Zone::Battlefield && !o.status.contains(Status::PHASED_OUT))
+    {
+        crate::replacement::put_counters_by(
+            state,
+            res.controller,
+            card,
+            baylee_cards_dsl::CounterKind::P1P1,
+            count,
+        );
+    }
+}

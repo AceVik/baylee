@@ -5666,3 +5666,28 @@ Each triggers once per keyword instance (`layers::keyword_instances`):
   - `Trigger::Sacrificed { who, filter }` fires on `GameEvent::Sacrificed` whenever a permanent is sacrificed via cost, effect, or Saga completion SBA (`CR 701.21a`, `CR 715.4`, `CR 603.10a`; distinct from destruction, lethal damage, zero toughness, and the legend rule), looking back to pre-sacrifice characteristics and binding `EventPlayer` (sacrificer) + `EventObject`.
   - Player-attached Auras & Curses (`CR 303.4a–j`, `CR 704.5m`, `CR 702.16c`): `Effect::AttachSelf { target: TargetSpec::AnyPlayer | TargetSpec::AnyOpponent | TargetSpec::Player(...) }` attaches an Aura to a player (both via resolving Aura spell and untargeted battlefield entry), with `PlayerRel::EnchantedPlayer`, `Filter::ControlledByEnchantedPlayer`, and `Trigger::PlayerAttacked(PlayerRel)` (`CR 508.3b`) resolving across triggers, effects, and static abilities.
   - `Filter::Historic` (`CR 700.6`), `Filter::HasCounters(Option<CounterKind>)`, `Filter::AnyCountersAtLeast(u16)`, `Condition::ObjectMatches { what, filter }`, `Condition::AmountCompare { left, op, right }` (`AmountCmp`), resolution-bound `PlayerRel` seats on `Effect::CreateContinuousEffect` (`Orim's Chant` / `Render Silent` / `Xantid Swarm`), and `Modifier::MatchingSpellCastLimitPerTurn { who, filter, limit }` (`Deafening Silence` / `Ethersworn Canonist` / `Curse of Exhaustion`).
+
+**Wither, horsemanship, skulk, spell-cast targeting, enlist, and bolster.**
+- `KeywordSet::WITHER` (`CR 702.80a–d`, `CR 120.3d`) deals damage to creatures in
+  the form of `-1/-1` counters (including via source LKI, placing counters once
+  when combined with `KeywordSet::INFECT`), while dealing ordinary damage to
+  players, planeswalkers, and battles.
+- `KeywordSet::HORSEMANSHIP` (`CR 702.31b`) restricts blocking so an attacker
+  with horsemanship can't be blocked except by creatures with horsemanship.
+- `KeywordSet::SKULK` (`CR 702.118a–c`) restricts blocking so an attacker with
+  skulk can't be blocked by creatures with greater power.
+- `Trigger::SpellCastTargeting { who, spell, target, targets_you, only }`
+  (`Trigger::HEROIC` for `who: You, spell: &Filter::Any, target: Some(&Filter::This)`)
+  fires once per cast spell (`CR 207.2c`, `CR 601.2h`, `CR 603.2c`) when at
+  least one current target matches (or when the spell has only that single
+  distinct target in total for `only: true`), never on abilities or spell copies.
+- `KeywordSet::ENLIST` (`CR 702.154a–d`) offers an optional tap cost per enlist
+  instance during `declare_attackers` (`CR 508.1g`) over untapped non-attacking
+  creatures you control that aren't summoning sick, emits
+  `GameEvent::CreatureEnlisted` (`Trigger::Enlisted(&Filter)` /
+  `Trigger::ENLISTED_THIS`), and pumps the attacker `+X/+0` until end of turn
+  using `Amount::EventPower`.
+- `Effect::Bolster(Amount)` (`CR 701.39a`) chooses a creature you control with
+  the least toughness among creatures you control (untargeted, unreduced by
+  marked damage per `CR 120.6`, auto-selecting when unique and prompting on a
+  tie) and puts N `+1/+1` counters on it.

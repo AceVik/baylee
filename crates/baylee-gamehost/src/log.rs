@@ -707,6 +707,7 @@ impl GameLog {
             | GameEvent::AttackerBlocked { .. }
             | GameEvent::CreatureMutated { .. }
             | GameEvent::PermanentExerted { .. }
+            | GameEvent::CreatureEnlisted { .. }
             | GameEvent::AttackerUnblocked { .. }
             // The table as the preset laid it out is not something that
             // happened in the game.

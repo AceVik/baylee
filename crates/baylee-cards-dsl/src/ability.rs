@@ -1100,6 +1100,31 @@ pub enum Trigger {
     /// `EventAmount` to the number of creatures declared attacking that player.
     /// Appended to preserve replay identities.
     PlayerAttacked(crate::effect::PlayerRel),
+    /// A player matching `who` casts a spell matching `spell` that targets at
+    /// least one permanent matching `target` and/or `you` (`targets_you`),
+    /// firing at most once per cast (CR 207.2c heroic, CR 601.2h, CR 603.2c).
+    /// When `only` is `true`, the spell must have exactly one distinct target in
+    /// total across object and player targets (Zada, Hedron Grinder; Beamsplitter
+    /// Mage). Sets `EventObject` to the cast spell and `EventPlayer` to the
+    /// caster. Appended to preserve replay identities.
+    SpellCastTargeting {
+        /// Which casting players count.
+        who: crate::effect::PlayerRel,
+        /// Filter the cast spell must match (`&Filter::Any` for any spell).
+        spell: &'static Filter,
+        /// Optional filter a targeted permanent on the battlefield must match
+        /// (`Some(&Filter::This)` for heroic, CR 109.2).
+        target: Option<&'static Filter>,
+        /// Whether targeting the ability's controller satisfies the trigger.
+        targets_you: bool,
+        /// Whether the spell must have only that single distinct target in total.
+        only: bool,
+    },
+    /// An attacking creature matching the filter enlists a creature by paying an
+    /// enlist tap cost as it attacks (CR 702.154a–d). Sets `EventObject` to the
+    /// enlisted creature and `EventPlayer` to the attacking player. Appended to
+    /// preserve replay identities.
+    Enlisted(&'static Filter),
 }
 
 impl Trigger {
@@ -1122,6 +1147,19 @@ impl Trigger {
 
     /// "Whenever you exert this permanent…" (CR 701.43a).
     pub const EXERTED_THIS: Self = Self::Exerted(&Filter::This);
+
+    /// Heroic — "Whenever you cast a spell that targets this creature…"
+    /// (CR 207.2c, CR 601.2h, CR 603.2c).
+    pub const HEROIC: Self = Self::SpellCastTargeting {
+        who: crate::effect::PlayerRel::You,
+        spell: &Filter::Any,
+        target: Some(&Filter::This),
+        targets_you: false,
+        only: false,
+    };
+
+    /// "Whenever this creature enlists a creature…" (CR 702.154c).
+    pub const ENLISTED_THIS: Self = Self::Enlisted(&Filter::This);
 }
 
 /// An ability definition on a [`crate::CardDef`].

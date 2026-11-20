@@ -612,6 +612,16 @@ pub enum GameEvent {
         /// Whether exerted to pay a cost or by an effect.
         cause: Cause,
     },
+    /// An attacking creature enlisted another creature by tapping it as an
+    /// optional attack cost (CR 702.154a–d).
+    CreatureEnlisted {
+        /// The attacking creature whose enlist cost was paid.
+        attacker: ObjectId,
+        /// The creature tapped to pay that enlist cost.
+        enlisted: ObjectId,
+        /// The attacking player who paid the enlist cost.
+        player: PlayerId,
+    },
 }
 
 /// Where in a library a card was put.

@@ -162,6 +162,11 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("training", K::TRAINING), // trigger::combat_keywords::collect (CR 702.149a)
         ("myriad", K::MYRIAD),   // trigger::combat_keywords::collect (CR 702.116a)
         ("extort", K::EXTORT),   // trigger::collect (CR 702.101a)
+        ("wither", K::WITHER),   // damage::counter_result + damage::commit (CR 702.80a)
+        ("horsemanship", K::HORSEMANSHIP), // combat::can_block (CR 702.31b)
+        ("skulk", K::SKULK),     // combat::can_block (CR 702.118b)
+        ("read ahead", K::READ_AHEAD), // entry::sagas + trigger::sagas (CR 702.155a)
+        ("enlist", K::ENLIST), // Engine::declare_attackers + combat_keywords::collect_enlist (CR 702.154a)
     ]
 };
 
