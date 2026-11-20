@@ -3336,6 +3336,145 @@ pub static WOLVES_OF_THE_HUNT_1_1_GREEN_BANDS_WITH_OTHER_CREATURE_NAMEDWOLVES_OF
     ..TokenDef::DEFAULT
 };
 
+/// 1/1 black Thrull.
+pub static THRULL_1_1_BLACK: TokenDef = TokenDef {
+    name: "Thrull",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::THRULL],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 blue Cloud Sprite with flying.
+pub static CLOUD_SPRITE_1_1_BLUE_FLYING_A92C7E842: TokenDef = TokenDef {
+    name: "Cloud Sprite",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::FAERIE],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    abilities: &[static_ability!(
+        Filter::And(&[
+            Filter::CREATURE,
+            Filter::Not(&Filter::HasKeyword(KeywordSet::FLYING))
+        ]),
+        Modifier::CantBeBlockedBy(&Filter::And(&[Filter::CREATURE, Filter::This]))
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 green Wolf.
+pub static WOLF_1_1_GREEN_ABBBD5EBC: TokenDef = TokenDef {
+    name: "Wolf",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WOLF],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[static_ability!(
+        Filter::This,
+        Modifier::ModifyPTByCount(PtCount::InAllGraveyards(&Filter::Named("Sound the Call")))
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 green Centaur with protection from black.
+pub static CENTAUR_3_3_GREEN_PROTECTION_FROM_BLACK: TokenDef = TokenDef {
+    name: "Centaur",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::CENTAUR],
+    power: Some(3),
+    toughness: Some(3),
+    abilities: &[static_ability!(
+        Filter::This,
+        Modifier::ProtectionFrom(&Filter::HasColor(ColorSet::from_slice(&[Color::Black])))
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 red Elemental with haste.
+pub static ELEMENTAL_1_1_RED_HASTE: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::HASTE,
+    ..TokenDef::DEFAULT
+};
+
+/// 3/1 red Spark Elemental with haste and trample.
+pub static SPARK_ELEMENTAL_3_1_RED_HASTE_TRAMPLE_A730DA31D: TokenDef = TokenDef {
+    name: "Spark Elemental",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    power: Some(3),
+    toughness: Some(1),
+    keywords: KeywordSet::HASTE.union(KeywordSet::TRAMPLE),
+    abilities: &[triggered!(
+        Trigger::StepBegin {
+            step: StepKind::End,
+            whose: PlayerRel::EachPlayer
+        },
+        &[Effect::SacrificeFilter {
+            who: PlayerRel::You,
+            filter: &Filter::This
+        }]
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 0/1 blue artifact Homunculus.
+pub static HOMUNCULUS_ARTIFACT_0_1_BLUE: TokenDef = TokenDef {
+    name: "Homunculus",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::HOMUNCULUS],
+    power: Some(0),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 blue black Zombie Wizard.
+pub static ZOMBIE_WIZARD_1_1_BLUE_BLACK: TokenDef = TokenDef {
+    name: "Zombie Wizard",
+    colors: ColorSet::from_slice(&[Color::Blue, Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ZOMBIE, creature::WIZARD],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white Bird Soldier with flying.
+pub static BIRD_SOLDIER_1_1_WHITE_FLYING: TokenDef = TokenDef {
+    name: "Bird Soldier",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::BIRD, creature::SOLDIER],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 colorless artifact Wirefly with flying.
+pub static WIREFLY_ARTIFACT_2_2_FLYING: TokenDef = TokenDef {
+    name: "Wirefly",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::INSECT],
+    power: Some(2),
+    toughness: Some(2),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -4377,6 +4516,16 @@ pub static ALL: &[&TokenDef] = &[
     &VIBRANIUM_INDESTRUCTIBLE_AD775736C,
     &GOBLIN_SHAMAN_2_2_RED_AD6888B34,
     &WOLVES_OF_THE_HUNT_1_1_GREEN_BANDS_WITH_OTHER_CREATURE_NAMEDWOLVES_OF_THE_HUNT,
+    &THRULL_1_1_BLACK,
+    &CLOUD_SPRITE_1_1_BLUE_FLYING_A92C7E842,
+    &WOLF_1_1_GREEN_ABBBD5EBC,
+    &CENTAUR_3_3_GREEN_PROTECTION_FROM_BLACK,
+    &ELEMENTAL_1_1_RED_HASTE,
+    &SPARK_ELEMENTAL_3_1_RED_HASTE_TRAMPLE_A730DA31D,
+    &HOMUNCULUS_ARTIFACT_0_1_BLUE,
+    &ZOMBIE_WIZARD_1_1_BLUE_BLACK,
+    &BIRD_SOLDIER_1_1_WHITE_FLYING,
+    &WIREFLY_ARTIFACT_2_2_FLYING,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -4632,4 +4781,14 @@ pub static GENERATED: &[&TokenDef] = &[
     &VIBRANIUM_INDESTRUCTIBLE_AD775736C,
     &GOBLIN_SHAMAN_2_2_RED_AD6888B34,
     &WOLVES_OF_THE_HUNT_1_1_GREEN_BANDS_WITH_OTHER_CREATURE_NAMEDWOLVES_OF_THE_HUNT,
+    &THRULL_1_1_BLACK,
+    &CLOUD_SPRITE_1_1_BLUE_FLYING_A92C7E842,
+    &WOLF_1_1_GREEN_ABBBD5EBC,
+    &CENTAUR_3_3_GREEN_PROTECTION_FROM_BLACK,
+    &ELEMENTAL_1_1_RED_HASTE,
+    &SPARK_ELEMENTAL_3_1_RED_HASTE_TRAMPLE_A730DA31D,
+    &HOMUNCULUS_ARTIFACT_0_1_BLUE,
+    &ZOMBIE_WIZARD_1_1_BLUE_BLACK,
+    &BIRD_SOLDIER_1_1_WHITE_FLYING,
+    &WIREFLY_ARTIFACT_2_2_FLYING,
 ];

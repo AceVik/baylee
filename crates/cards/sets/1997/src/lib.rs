@@ -345,6 +345,8 @@ pub mod downdraft;
 pub mod dracoplasm;
 #[path = "vis/dragon_mask.rs"]
 pub mod dragon_mask;
+#[path = "por/dread_charge.rs"]
+pub mod dread_charge;
 #[path = "tmp/dread_of_night.rs"]
 pub mod dread_of_night;
 #[path = "por/dread_reaper.rs"]
@@ -395,6 +397,8 @@ pub mod emerald_medallion;
 pub mod emmessi_tome;
 #[path = "wth/empyrial_armor.rs"]
 pub mod empyrial_armor;
+#[path = "por/endless_cockroaches.rs"]
+pub mod endless_cockroaches;
 #[path = "tmp/endless_scream.rs"]
 pub mod endless_scream;
 #[path = "tmp/energizer.rs"]
@@ -1371,6 +1375,8 @@ pub mod uktabi_orangutan;
 pub mod undiscovered_paradise;
 #[path = "vis/undo.rs"]
 pub mod undo;
+#[path = "por/undying_beast.rs"]
+pub mod undying_beast;
 #[path = "tmp/unstable_shapeshifter.rs"]
 pub mod unstable_shapeshifter;
 #[path = "wth/urborg_justice.rs"]

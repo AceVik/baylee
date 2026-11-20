@@ -53,6 +53,8 @@ pub mod auriok_glaivemaster;
 pub mod auriok_salvagers;
 #[path = "chk/azami_lady_of_scrolls.rs"]
 pub mod azami_lady_of_scrolls;
+#[path = "chk/azusa_lost_but_seeking.rs"]
+pub mod azusa_lost_but_seeking;
 #[path = "dst/barbed_lightning.rs"]
 pub mod barbed_lightning;
 #[path = "5dn/battered_golem.rs"]
@@ -71,6 +73,8 @@ pub mod blinkmoth_infusion;
 pub mod blinkmoth_nexus;
 #[path = "chk/blood_rites.rs"]
 pub mod blood_rites;
+#[path = "chk/blood_speaker.rs"]
+pub mod blood_speaker;
 #[path = "chk/boseiju_who_shelters_all.rs"]
 pub mod boseiju_who_shelters_all;
 #[path = "5dn/bringer_of_the_blue_dawn.rs"]
@@ -93,6 +97,8 @@ pub mod channel_the_suns;
 pub mod chimeric_egg;
 #[path = "chk/cleanfall.rs"]
 pub mod cleanfall;
+#[path = "5dn/clock_of_omens.rs"]
+pub mod clock_of_omens;
 #[path = "chk/cloudcrest_lake.rs"]
 pub mod cloudcrest_lake;
 #[path = "chk/commune_with_nature.rs"]
@@ -101,6 +107,8 @@ pub mod commune_with_nature;
 pub mod composite_golem;
 #[path = "5dn/condescend.rs"]
 pub mod condescend;
+#[path = "5dn/conjurer_s_bauble.rs"]
+pub mod conjurer_s_bauble;
 #[path = "dst/coretapper.rs"]
 pub mod coretapper;
 #[path = "chk/counsel_of_the_soratami.rs"]
@@ -111,6 +119,8 @@ pub mod cranial_plating;
 pub mod crazed_goblin;
 #[path = "5dn/crucible_of_worlds.rs"]
 pub mod crucible_of_worlds;
+#[path = "chk/crushing_pain.rs"]
+pub mod crushing_pain;
 #[path = "chk/dance_of_shadows.rs"]
 pub mod dance_of_shadows;
 #[path = "dst/darksteel_brute.rs"]
@@ -161,6 +171,8 @@ pub mod ensouled_scimitar;
 pub mod essence_drain;
 #[path = "5dn/eternal_witness.rs"]
 pub mod eternal_witness;
+#[path = "chk/ethereal_haze.rs"]
+pub mod ethereal_haze;
 #[path = "chk/eye_of_nowhere.rs"]
 pub mod eye_of_nowhere;
 #[path = "5dn/eyes_of_the_watcher.rs"]
@@ -191,8 +203,12 @@ pub mod gemstone_array;
 pub mod genesis_chamber;
 #[path = "dst/geth_s_grimoire.rs"]
 pub mod geth_s_grimoire;
+#[path = "dst/goblin_archaeologist.rs"]
+pub mod goblin_archaeologist;
 #[path = "5dn/goblin_cannon.rs"]
 pub mod goblin_cannon;
+#[path = "chk/graceful_adept.rs"]
+pub mod graceful_adept;
 #[path = "5dn/granulate.rs"]
 pub mod granulate;
 #[path = "dst/greater_harvester.rs"]
@@ -213,10 +229,14 @@ pub mod hair_strung_koto;
 pub mod hall_of_the_bandit_lord;
 #[path = "chk/hana_kami.rs"]
 pub mod hana_kami;
+#[path = "5dn/healer_s_headdress.rs"]
+pub mod healer_s_headdress;
 #[path = "chk/hearth_kami.rs"]
 pub mod hearth_kami;
 #[path = "chk/hisoka_s_defiance.rs"]
 pub mod hisoka_s_defiance;
+#[path = "chk/hisoka_s_guard.rs"]
+pub mod hisoka_s_guard;
 #[path = "chk/hold_the_line.rs"]
 pub mod hold_the_line;
 #[path = "chk/honden_of_cleansing_fire.rs"]
@@ -301,6 +321,8 @@ pub mod kodama_of_the_north_tree;
 pub mod kodama_of_the_south_tree;
 #[path = "chk/kodama_s_reach.rs"]
 pub mod kodama_s_reach;
+#[path = "chk/kokusho_the_evening_star.rs"]
+pub mod kokusho_the_evening_star;
 #[path = "dst/kraken_s_eye.rs"]
 pub mod kraken_s_eye;
 #[path = "5dn/krark_clan_engineers.rs"]
@@ -317,6 +339,8 @@ pub mod kuro_pitlord;
 pub mod lantern_kami;
 #[path = "chk/lantern_lit_graveyard.rs"]
 pub mod lantern_lit_graveyard;
+#[path = "5dn/lantern_of_insight.rs"]
+pub mod lantern_of_insight;
 #[path = "dst/last_word.rs"]
 pub mod last_word;
 #[path = "chk/lava_spike.rs"]
@@ -325,6 +349,8 @@ pub mod lava_spike;
 pub mod leonin_battlemage;
 #[path = "5dn/leonin_squire.rs"]
 pub mod leonin_squire;
+#[path = "dst/lich_s_tomb.rs"]
+pub mod lich_s_tomb;
 #[path = "chk/long_forgotten_gohei.rs"]
 pub mod long_forgotten_gohei;
 #[path = "5dn/lose_hope.rs"]
@@ -511,8 +537,12 @@ pub mod shield_of_kaldra;
 pub mod shinka_the_bloodsoaked_keep;
 #[path = "chk/shizo_death_s_storehouse.rs"]
 pub mod shizo_death_s_storehouse;
+#[path = "5dn/silent_arbiter.rs"]
+pub mod silent_arbiter;
 #[path = "chk/sire_of_the_storm.rs"]
 pub mod sire_of_the_storm;
+#[path = "5dn/skullcage.rs"]
+pub mod skullcage;
 #[path = "dst/skullclamp.rs"]
 pub mod skullclamp;
 #[path = "5dn/skyhunter_prowler.rs"]
@@ -539,6 +569,8 @@ pub mod sosuke_son_of_seshiro;
 pub mod soul_of_magma;
 #[path = "dst/soulscour.rs"]
 pub mod soulscour;
+#[path = "5dn/spark_elemental.rs"]
+pub mod spark_elemental;
 #[path = "5dn/sparring_collar.rs"]
 pub mod sparring_collar;
 #[path = "dst/spawning_pit.rs"]
@@ -567,6 +599,8 @@ pub mod strength_of_cedars;
 pub mod summoning_station;
 #[path = "chk/swallowing_plague.rs"]
 pub mod swallowing_plague;
+#[path = "pmrd/sword_of_kaldra.rs"]
+pub mod sword_of_kaldra;
 #[path = "5dn/sylvok_explorer.rs"]
 pub mod sylvok_explorer;
 #[path = "5dn/tangle_asp.rs"]
@@ -597,6 +631,8 @@ pub mod thermal_navigator;
 pub mod thought_courier;
 #[path = "chk/thoughtbind.rs"]
 pub mod thoughtbind;
+#[path = "dst/thunderstaff.rs"]
+pub mod thunderstaff;
 #[path = "chk/time_of_need.rs"]
 pub mod time_of_need;
 #[path = "chk/tranquil_garden.rs"]
@@ -613,6 +649,8 @@ pub mod untaidake_the_cloud_keeper;
 pub mod ur_golem_s_eye;
 #[path = "5dn/vanquish.rs"]
 pub mod vanquish;
+#[path = "dst/vedalken_engineer.rs"]
+pub mod vedalken_engineer;
 #[path = "5dn/vedalken_mastermind.rs"]
 pub mod vedalken_mastermind;
 #[path = "5dn/vedalken_orrery.rs"]
@@ -649,6 +687,8 @@ pub mod waterveil_cavern;
 pub mod wayfarer_s_bauble;
 #[path = "dst/whispersilk_cloak.rs"]
 pub mod whispersilk_cloak;
+#[path = "dst/wirefly_hive.rs"]
+pub mod wirefly_hive;
 #[path = "dst/wurm_s_tooth.rs"]
 pub mod wurm_s_tooth;
 #[path = "chk/zo_zu_the_punisher.rs"]

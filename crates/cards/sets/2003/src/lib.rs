@@ -333,6 +333,8 @@ pub mod farsight_mask;
 pub mod fatal_mutation;
 #[path = "mrd/fatespinner.rs"]
 pub mod fatespinner;
+#[path = "plgn/feral_throwback.rs"]
+pub mod feral_throwback;
 #[path = "scg/fierce_empath.rs"]
 pub mod fierce_empath;
 #[path = "mrd/fiery_gambit.rs"]
@@ -745,6 +747,8 @@ pub mod reaping_the_graves;
 pub mod recuperate;
 #[path = "mrd/regress.rs"]
 pub mod regress;
+#[path = "mrd/relic_bane.rs"]
+pub mod relic_bane;
 #[path = "scg/reward_the_faithful.rs"]
 pub mod reward_the_faithful;
 #[path = "lgn/ridgetop_raptor.rs"]
@@ -851,10 +855,14 @@ pub mod solemn_simulacrum;
 pub mod somber_hoverguard;
 #[path = "lgn/sootfeather_flock.rs"]
 pub mod sootfeather_flock;
+#[path = "pscg/soul_collector.rs"]
+pub mod soul_collector;
 #[path = "scg/spark_spray.rs"]
 pub mod spark_spray;
 #[path = "lgn/spectral_sliver.rs"]
 pub mod spectral_sliver;
+#[path = "mrd/sphere_of_purity.rs"]
+pub mod sphere_of_purity;
 #[path = "mrd/spikeshot_goblin.rs"]
 pub mod spikeshot_goblin;
 #[path = "scg/sprouting_vines.rs"]

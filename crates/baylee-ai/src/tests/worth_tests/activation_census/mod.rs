@@ -555,7 +555,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Ertai's Familiar, Gangrenous Goliath, Gravespawn Sovereign, Keeper of the
     // Nine Gales, Slate of Ancestry, Spatial Binding, Spurred Wolverine,
     // Symbiotic Deployment, and Voice of the Woods): 14 read and 2 contextual.
-    assert_eq!((read, of), (3240, 4122), "activated/loyalty reader census");
+    // Batch wave 4 (319 generated cards, pre-ZEN) adds 108 non-mana
+    // activations: 84 read by the table and 24 remaining contextual.
+    assert_eq!((read, of), (3324, 4230), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

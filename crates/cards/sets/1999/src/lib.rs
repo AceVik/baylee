@@ -183,6 +183,8 @@ pub mod cessation;
 pub mod chambered_nautilus;
 #[path = "mmq/chameleon_spirit.rs"]
 pub mod chameleon_spirit;
+#[path = "s99/champion_lancer.rs"]
+pub mod champion_lancer;
 #[path = "mmq/charisma.rs"]
 pub mod charisma;
 #[path = "mmq/charm_peddler.rs"]
@@ -921,6 +923,8 @@ pub mod revered_elder;
 pub mod reverent_mantra;
 #[path = "mmq/revive.rs"]
 pub mod revive;
+#[path = "ptk/riding_red_hare.rs"]
+pub mod riding_red_hare;
 #[path = "mmq/righteous_indignation.rs"]
 pub mod righteous_indignation;
 #[path = "ulg/ring_of_gix.rs"]
@@ -1369,12 +1373,16 @@ pub mod yawgmoth_s_bargain;
 pub mod yellow_scarves_troops;
 #[path = "ptk/young_wei_recruits.rs"]
 pub mod young_wei_recruits;
+#[path = "ptk/yuan_shao_s_infantry.rs"]
+pub mod yuan_shao_s_infantry;
 #[path = "ptk/zhang_liao_hero_of_hefei.rs"]
 pub mod zhang_liao_hero_of_hefei;
 #[path = "ptk/zhou_yu_chief_commander.rs"]
 pub mod zhou_yu_chief_commander;
 #[path = "ptk/zodiac_dog.rs"]
 pub mod zodiac_dog;
+#[path = "ptk/zodiac_dragon.rs"]
+pub mod zodiac_dragon;
 #[path = "ptk/zodiac_goat.rs"]
 pub mod zodiac_goat;
 #[path = "ptk/zodiac_horse.rs"]
