@@ -8335,3 +8335,24 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   blocked-attacker triggers to `Filter::BlockingReference`, and added
   `"ChooseOne"` to `OFFERS_A_CHOICE`, bringing `transcode-report` to
   `16,171 / 34,482` (`46%`) scripts and `733 / 864` (`0` collisions) tokens.
+
+## 2026-11-20 — Wave 3 Alternate Casting, Token Ledger Fixes & Wave 6/6b Scriptgen (Gemini Swarm)
+
+- **`tokenledger` round-trip traps (`PHYREXIAN_MITE_...` & `WOLVES_OF_THE_HUNT_...`)**:
+  `rustfmt` wraps multi-element `TokenDef::abilities` slices across lines with
+  trailing commas (`,]` / `,)` / `,}`), and wraps very long `pub static <NAME>:`
+  declarations onto a second line (`TokenDef = TokenDef {`). Both broke
+  subsequent `xtask codegen` runs with false collision or orphan errors until
+  `tokenledger::same_definition` stripped pre-delimiter commas outside string
+  literals and `tokenledger::parse` joined 2-line wrapped `pub static` headers.
+- **`Effect::MayDo` vs `Effect::MayDoFor` on optional spell copies (`Chain of Acid` / `Chain of Smog`)**:
+  optional `CopySpellAbility` whose `Controller$` is not `PlayerRel::You`
+  must emit `Effect::MayDoFor { player: <controller>, ... }` rather than
+  `Effect::MayDo` (which prompts only the spell's controller).
+- **Wave 3 Alternate Casting & Wave 6/6b Codegen Reach (`c43425dfb`, `30b8130d9`)**:
+  landed Creature `Suspend` Haste (`Rider::SuspendHaste`), `Blitz`, `Dash`,
+  `Miracle`, `Spectacle`, `Surge`, and `Prowl` (`VIEW_VERSION = 97`,
+  `PROTOCOL_VERSION = 53`), blessed `baylee-seat` Reap/Dance precon goldens,
+  and raised `transcode-report` to **`17,047 / 34,482` (`49%`)** scripts and
+  **`747 / 864` (`0` collisions)** tokens while clearing `44` pool stubs
+  (`1,078 -> 1,034` stubs remaining).
