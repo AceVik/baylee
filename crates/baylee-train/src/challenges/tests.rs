@@ -74,9 +74,25 @@ fn unfinished_games_never_become_a_certificate() {
     );
 }
 
+/// Generate a certified Weekly candidate from a bounded seed window, matching
+/// the CLI's candidate search (`challenge generate --candidates`). Weekly deck
+/// generation samples the full working-card pool, so any single pinned seed can
+/// shift between admitted and rejected when newly implemented cards enter it.
+fn certified_weekly() -> Certified {
+    let generator = Generator::from_source(&crate::working::repo_root()).unwrap();
+    let mut last_error = None;
+    for seed in 64..80 {
+        match generator.generate(Kind::Weekly, seed, Limits::default()) {
+            Ok(certified) => return certified,
+            Err(error) => last_error = Some((seed, error)),
+        }
+    }
+    panic!("no Weekly candidate certified in seeds 64..80; last error: {last_error:?}");
+}
+
 #[test]
 fn weekly_uses_generated_decks_and_has_verified_combat_and_damage_finishes() {
-    let result = generate(Kind::Weekly, 63, Limits::default()).unwrap();
+    let result = certified_weekly();
     assert!(result.proofs.len() >= 3);
     assert!(result.proofs.iter().all(|proof| proof.turn >= 9));
     assert!(!result.deck.contains("Mana Crypt"));
@@ -114,7 +130,7 @@ fn automatic_stock_recovers_an_ambiguous_publish_then_rolls_over_once() {
     use std::cell::RefCell;
 
     let daily = generate(Kind::Daily, 41, Limits::default()).unwrap();
-    let weekly = generate(Kind::Weekly, 63, Limits::default()).unwrap();
+    let weekly = certified_weekly();
     let monday = 1_794_182_400;
     let tasks = RefCell::new(Vec::<Challenge>::new());
     let prepared = RefCell::new(Vec::new());

@@ -510,7 +510,18 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // The Dig reader finishes ten cards; three have an activation, each read:
     // Grave Defiler's regeneration, Tidal Courier's "gains flying until end
     // of turn" and Zoologist's reveal-and-sort.
-    assert_eq!((read, of), (3024, 3815), "activated/loyalty reader census");
+    // The creature-type choice batch (31 cards) adds 18 non-mana activations:
+    // two read (Doom Cannon's damage and Mistform Stalker's +2/+2 flying pump)
+    // and 16 contextual unread (13 creature-type-changing activations across
+    // Imagecrafter, Mistform Dreamer/Mask/Mutant/Seaswift/Shrieker/Skyreaver/
+    // Stalker/Wakecaster(2)/Wall and Unnatural Selection, plus Belbe's Portal,
+    // Bloodline Shaman, Riptide Chronologist and Riptide Shapeshifter).
+    // The cycling-trigger batch (20 cards) adds 14 cycling activations, all
+    // read via `Effect::draw(1)` (Choking Tethers, Complicate, Death Pulse,
+    // Dirge of Dread, Krosan Tusker, Primal Boost, Renewed Faith, Slice and
+    // Dice, Solar Blast, Sunfire Balm, and Gempalm Avenger/Polluter/Sorcerer/
+    // Strider).
+    assert_eq!((read, of), (3040, 3847), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [

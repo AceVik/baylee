@@ -419,7 +419,7 @@ impl TextChanges {
 
 /// Rules source identity and text are distinct: a stack ability still refers
 /// to its old source, while its words stopped changing when it was created.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RuleContext {
     /// What "this object" identifies.
     pub source: ObjectId,
@@ -440,6 +440,28 @@ pub struct RuleContext {
     /// chosen, the first target. `None` everywhere else, where those filters
     /// match nothing.
     pub reference: Option<ObjectId>,
+}
+
+impl std::hash::Hash for RuleContext {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        let Self {
+            source,
+            text,
+            resolved_name,
+            resolved_subtype,
+            reference,
+        } = self;
+        source.hash(state);
+        text.hash(state);
+        resolved_name.hash(state);
+        reference.hash(state);
+        // Write nothing while unset so games that never use resolution-time
+        // creature-type choices keep their exact replay hashes
+        // (`docs/engine-internals.md` §"The replay contract").
+        if let Some(subtype) = resolved_subtype {
+            subtype.hash(state);
+        }
+    }
 }
 
 /// Where a derived effect obtains its semantic text, independently of its

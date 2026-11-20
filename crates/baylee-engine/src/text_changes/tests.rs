@@ -154,3 +154,47 @@ fn spell_entry_carries_changes_but_a_different_incarnation_does_not() {
         Color::Green
     );
 }
+
+#[test]
+fn rule_context_hash_writes_nothing_for_unset_resolved_subtype() {
+    use std::hash::Hash;
+
+    let source = ObjectId::new(9, 0);
+    let reference = Some(ObjectId::new(12, 1));
+    let base = RuleContext {
+        source,
+        text: TextChangeMap::IDENTITY,
+        resolved_name: None,
+        resolved_subtype: None,
+        reference,
+    };
+    let mut manual = crate::hasher::Hasher::new();
+    source.hash(&mut manual);
+    TextChangeMap::IDENTITY.hash(&mut manual);
+    Option::<baylee_core::ids::NameRef>::None.hash(&mut manual);
+    reference.hash(&mut manual);
+
+    let mut actual = crate::hasher::Hasher::new();
+    base.hash(&mut actual);
+    assert_eq!(
+        actual.finish(),
+        manual.finish(),
+        "unset resolved_subtype writes nothing into existing replay hashes"
+    );
+
+    let elf = RuleContext {
+        resolved_subtype: Some(baylee_core::generated::subtypes::creature::ELF),
+        ..base
+    };
+    let goblin = RuleContext {
+        resolved_subtype: Some(baylee_core::generated::subtypes::creature::GOBLIN),
+        ..base
+    };
+    let digest = |ctx: RuleContext| {
+        let mut h = crate::hasher::Hasher::new();
+        ctx.hash(&mut h);
+        h.finish()
+    };
+    assert_ne!(digest(elf), digest(base));
+    assert_ne!(digest(elf), digest(goblin));
+}
