@@ -773,6 +773,8 @@ pub mod root_sliver;
 pub mod rule_of_law;
 #[path = "scg/rush_of_knowledge.rs"]
 pub mod rush_of_knowledge;
+#[path = "mrd/rust_elemental.rs"]
+pub mod rust_elemental;
 #[path = "mrd/rustmouth_ogre.rs"]
 pub mod rustmouth_ogre;
 #[path = "mrd/rustspore_ram.rs"]

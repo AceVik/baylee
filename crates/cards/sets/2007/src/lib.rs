@@ -297,6 +297,8 @@ pub mod horizon_canopy;
 pub mod hornet_harasser;
 #[path = "lrw/howltooth_hollow.rs"]
 pub mod howltooth_hollow;
+#[path = "lrw/hunter_of_eyeblights.rs"]
+pub mod hunter_of_eyeblights;
 #[path = "lrw/hurly_burly.rs"]
 pub mod hurly_burly;
 #[path = "fut/ichor_slick.rs"]

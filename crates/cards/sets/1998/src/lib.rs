@@ -693,6 +693,8 @@ pub mod mulch;
 pub mod nausea;
 #[path = "exo/necrologia.rs"]
 pub mod necrologia;
+#[path = "p02/nightstalker_engine.rs"]
+pub mod nightstalker_engine;
 #[path = "usg/no_rest_for_the_wicked.rs"]
 pub mod no_rest_for_the_wicked;
 #[path = "usg/noetic_scales.rs"]

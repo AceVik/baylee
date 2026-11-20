@@ -149,6 +149,8 @@ pub mod devour_in_shadow;
 pub mod distress;
 #[path = "dst/dragon_s_claw.rs"]
 pub mod dragon_s_claw;
+#[path = "dst/drooling_ogre.rs"]
+pub mod drooling_ogre;
 #[path = "5dn/dross_crocodile.rs"]
 pub mod dross_crocodile;
 #[path = "dst/dross_golem.rs"]
@@ -473,6 +475,8 @@ pub mod quicksilver_behemoth;
 pub mod quiet_purity;
 #[path = "5dn/qumulox.rs"]
 pub mod qumulox;
+#[path = "chk/ragged_veins.rs"]
+pub mod ragged_veins;
 #[path = "5dn/rain_of_rust.rs"]
 pub mod rain_of_rust;
 #[path = "5dn/raksha_golden_cub.rs"]
@@ -593,6 +597,8 @@ pub mod stasis_cocoon;
 pub mod steelshaper_apprentice;
 #[path = "5dn/steelshaper_s_gift.rs"]
 pub mod steelshaper_s_gift;
+#[path = "dst/stir_the_pride.rs"]
+pub mod stir_the_pride;
 #[path = "chk/strength_of_cedars.rs"]
 pub mod strength_of_cedars;
 #[path = "5dn/summoning_station.rs"]

@@ -3491,6 +3491,251 @@ pub static ELEPHANT_X_X_GREEN_A43AFFAD0: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 2/2 black enchantment Zombie.
+pub static ZOMBIE_ENCHANTMENT_2_2_BLACK: TokenDef = TokenDef {
+    name: "Zombie",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::ENCHANTMENT.union(TypeSet::CREATURE),
+    subtypes: &[creature::ZOMBIE],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 black Vampire with flying.
+pub static VAMPIRE_2_2_BLACK_FLYING: TokenDef = TokenDef {
+    name: "Vampire",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::VAMPIRE],
+    power: Some(2),
+    toughness: Some(2),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 5/5 black Demon with flying.
+pub static DEMON_5_5_BLACK_FLYING: TokenDef = TokenDef {
+    name: "Demon",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::DEMON],
+    power: Some(5),
+    toughness: Some(5),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 green Phyrexian Insect with infect.
+pub static PHYREXIAN_INSECT_1_1_GREEN_INFECT: TokenDef = TokenDef {
+    name: "Phyrexian Insect",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::PHYREXIAN, creature::INSECT],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::INFECT,
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 green Boar.
+pub static BOAR_3_3_GREEN: TokenDef = TokenDef {
+    name: "Boar",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::BOAR],
+    power: Some(3),
+    toughness: Some(3),
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 green enchantment Centaur.
+pub static CENTAUR_ENCHANTMENT_3_3_GREEN: TokenDef = TokenDef {
+    name: "Centaur",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::ENCHANTMENT.union(TypeSet::CREATURE),
+    subtypes: &[creature::CENTAUR],
+    power: Some(3),
+    toughness: Some(3),
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 green Frog Lizard.
+pub static FROG_LIZARD_3_3_GREEN: TokenDef = TokenDef {
+    name: "Frog Lizard",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::FROG, creature::LIZARD],
+    power: Some(3),
+    toughness: Some(3),
+    ..TokenDef::DEFAULT
+};
+
+/// */* green Treefolk Warrior.
+pub static TREEFOLK_WARRIOR_X_X_GREEN_AB976E947: TokenDef = TokenDef {
+    name: "Treefolk Warrior",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::TREEFOLK, creature::WARRIOR],
+    abilities: &[static_ability!(
+        Filter::This,
+        Modifier::CharacteristicPT {
+            count: PtCount::YouControl(&Filter::And(&[
+                Filter::HasSubtype(land::FOREST),
+                Filter::ControlledByYou
+            ])),
+            toughness_plus: 0
+        }
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// colorless Land Mine.
+pub static LAND_MINE_A9765C567: TokenDef = TokenDef {
+    name: "Land Mine",
+    types: TypeSet::ARTIFACT,
+    abilities: &[activated!(
+        cost!("{R}", SacrificeSelf),
+        &[Effect::DealDamage {
+            amount: Amount::Fixed(2),
+            target: TargetSpec::Object(&Filter::And(&[
+                Filter::CREATURE,
+                Filter::Attacking,
+                Filter::Not(&Filter::HasKeyword(KeywordSet::FLYING))
+            ]))
+        }],
+        target = Some(TargetSpec::Object(&Filter::And(&[
+            Filter::CREATURE,
+            Filter::Attacking,
+            Filter::Not(&Filter::HasKeyword(KeywordSet::FLYING))
+        ])))
+    )],
+    ..TokenDef::DEFAULT
+};
+
+/// 3/1 red enchantment Elemental with haste.
+pub static ELEMENTAL_ENCHANTMENT_3_1_RED_HASTE: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::ENCHANTMENT.union(TypeSet::CREATURE),
+    subtypes: &[creature::ELEMENTAL],
+    power: Some(3),
+    toughness: Some(1),
+    keywords: KeywordSet::HASTE,
+    ..TokenDef::DEFAULT
+};
+
+/// 7/1 red Elemental with haste and trample.
+pub static ELEMENTAL_7_1_RED_HASTE_TRAMPLE: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    power: Some(7),
+    toughness: Some(1),
+    keywords: KeywordSet::HASTE.union(KeywordSet::TRAMPLE),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white red Soldier with haste.
+pub static SOLDIER_1_1_WHITE_RED_HASTE: TokenDef = TokenDef {
+    name: "Soldier",
+    colors: ColorSet::from_slice(&[Color::White, Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SOLDIER],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::HASTE,
+    ..TokenDef::DEFAULT
+};
+
+/// 5/5 colorless legendary artifact Tuktuk the Returned.
+pub static TUKTUK_THE_RETURNED_LEGENDARY_ARTIFACT_5_5: TokenDef = TokenDef {
+    name: "Tuktuk the Returned",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    supertypes: SupertypeSet::LEGENDARY,
+    subtypes: &[creature::GOBLIN, creature::GOLEM],
+    power: Some(5),
+    toughness: Some(5),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 blue Homunculus.
+pub static HOMUNCULUS_2_2_BLUE: TokenDef = TokenDef {
+    name: "Homunculus",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::HOMUNCULUS],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white enchantment Soldier.
+pub static SOLDIER_ENCHANTMENT_1_1_WHITE: TokenDef = TokenDef {
+    name: "Soldier",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::ENCHANTMENT.union(TypeSet::CREATURE),
+    subtypes: &[creature::SOLDIER],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white Kor Soldier.
+pub static KOR_SOLDIER_1_1_WHITE: TokenDef = TokenDef {
+    name: "Kor Soldier",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::KOR, creature::SOLDIER],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 white Cat.
+pub static CAT_2_2_WHITE: TokenDef = TokenDef {
+    name: "Cat",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::CAT],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 white Bird with flying.
+pub static BIRD_3_3_WHITE_FLYING: TokenDef = TokenDef {
+    name: "Bird",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::BIRD],
+    power: Some(3),
+    toughness: Some(3),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 white black Cleric.
+pub static CLERIC_1_1_WHITE_BLACK_ABC71E4FA: TokenDef = TokenDef {
+    name: "Cleric",
+    colors: ColorSet::from_slice(&[Color::White, Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::CLERIC],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[activated!(
+        cost!("{3}{W}{B}{B}", TapSelf, SacrificeSelf),
+        &[Effect::ChooseFromYourGraveyard {
+            filter: &Filter::Named("Deathpact Angel"),
+            destination: SearchDest::Battlefield,
+            tapped: false,
+            optional: false
+        }]
+    )],
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -4543,6 +4788,25 @@ pub static ALL: &[&TokenDef] = &[
     &BIRD_SOLDIER_1_1_WHITE_FLYING,
     &WIREFLY_ARTIFACT_2_2_FLYING,
     &ELEPHANT_X_X_GREEN_A43AFFAD0,
+    &ZOMBIE_ENCHANTMENT_2_2_BLACK,
+    &VAMPIRE_2_2_BLACK_FLYING,
+    &DEMON_5_5_BLACK_FLYING,
+    &PHYREXIAN_INSECT_1_1_GREEN_INFECT,
+    &BOAR_3_3_GREEN,
+    &CENTAUR_ENCHANTMENT_3_3_GREEN,
+    &FROG_LIZARD_3_3_GREEN,
+    &TREEFOLK_WARRIOR_X_X_GREEN_AB976E947,
+    &LAND_MINE_A9765C567,
+    &ELEMENTAL_ENCHANTMENT_3_1_RED_HASTE,
+    &ELEMENTAL_7_1_RED_HASTE_TRAMPLE,
+    &SOLDIER_1_1_WHITE_RED_HASTE,
+    &TUKTUK_THE_RETURNED_LEGENDARY_ARTIFACT_5_5,
+    &HOMUNCULUS_2_2_BLUE,
+    &SOLDIER_ENCHANTMENT_1_1_WHITE,
+    &KOR_SOLDIER_1_1_WHITE,
+    &CAT_2_2_WHITE,
+    &BIRD_3_3_WHITE_FLYING,
+    &CLERIC_1_1_WHITE_BLACK_ABC71E4FA,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -4809,4 +5073,23 @@ pub static GENERATED: &[&TokenDef] = &[
     &BIRD_SOLDIER_1_1_WHITE_FLYING,
     &WIREFLY_ARTIFACT_2_2_FLYING,
     &ELEPHANT_X_X_GREEN_A43AFFAD0,
+    &ZOMBIE_ENCHANTMENT_2_2_BLACK,
+    &VAMPIRE_2_2_BLACK_FLYING,
+    &DEMON_5_5_BLACK_FLYING,
+    &PHYREXIAN_INSECT_1_1_GREEN_INFECT,
+    &BOAR_3_3_GREEN,
+    &CENTAUR_ENCHANTMENT_3_3_GREEN,
+    &FROG_LIZARD_3_3_GREEN,
+    &TREEFOLK_WARRIOR_X_X_GREEN_AB976E947,
+    &LAND_MINE_A9765C567,
+    &ELEMENTAL_ENCHANTMENT_3_1_RED_HASTE,
+    &ELEMENTAL_7_1_RED_HASTE_TRAMPLE,
+    &SOLDIER_1_1_WHITE_RED_HASTE,
+    &TUKTUK_THE_RETURNED_LEGENDARY_ARTIFACT_5_5,
+    &HOMUNCULUS_2_2_BLUE,
+    &SOLDIER_ENCHANTMENT_1_1_WHITE,
+    &KOR_SOLDIER_1_1_WHITE,
+    &CAT_2_2_WHITE,
+    &BIRD_3_3_WHITE_FLYING,
+    &CLERIC_1_1_WHITE_BLACK_ABC71E4FA,
 ];

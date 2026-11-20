@@ -649,6 +649,8 @@ pub mod panic;
 pub mod pentagram_of_the_ages;
 #[path = "ice/pestilence_rats.rs"]
 pub mod pestilence_rats;
+#[path = "pmei/phantasmal_dragon.rs"]
+pub mod phantasmal_dragon;
 #[path = "ice/phantasmal_mount.rs"]
 pub mod phantasmal_mount;
 #[path = "pmei/phyrexian_rager.rs"]

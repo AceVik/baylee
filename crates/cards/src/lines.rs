@@ -832,6 +832,9 @@ mod tests {
     /// One card, no generator round.
     /// Ojer Axonil adds Temple of Power's activated transform ability once
     /// its noncombat damage condition can be tracked.
+    /// Batch wave 5 (1,000 cards) completes Bloodline Keeper, Cloistered Youth,
+    /// Screeching Bat, Ravenous Demon, and Chalice of Life, adding their
+    /// back-face stackable abilities.
     #[test]
     fn the_back_of_a_card_is_a_rarity() {
         let named: Vec<&str> = crate::generated::BY_INDEX
@@ -847,6 +850,11 @@ mod tests {
         assert_eq!(
             named,
             [
+                "Bloodline Keeper",
+                "Cloistered Youth",
+                "Screeching Bat",
+                "Ravenous Demon",
+                "Chalice of Life",
                 "Huntmaster of the Fells",
                 "Archangel Avacyn",
                 "Arguel's Blood Fast",

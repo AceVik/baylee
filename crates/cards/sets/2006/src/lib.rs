@@ -379,6 +379,8 @@ pub mod izzet_guildmage;
 pub mod izzet_signet;
 #[path = "tsp/kaervek_the_merciless.rs"]
 pub mod kaervek_the_merciless;
+#[path = "csp/karplusan_strider.rs"]
+pub mod karplusan_strider;
 #[path = "tsp/keldon_halberdier.rs"]
 pub mod keldon_halberdier;
 #[path = "tsp/kher_keep.rs"]
@@ -401,6 +403,8 @@ pub mod krovikan_scoundrel;
 pub mod leafdrake_roost;
 #[path = "gpt/leap_of_flame.rs"]
 pub mod leap_of_flame;
+#[path = "tsp/liege_of_the_pit.rs"]
+pub mod liege_of_the_pit;
 #[path = "csp/lightning_serpent.rs"]
 pub mod lightning_serpent;
 #[path = "gpt/lionheart_maverick.rs"]
@@ -437,6 +441,8 @@ pub mod mizzium_transreliquat;
 pub mod mogg_war_marshal;
 #[path = "tsp/molten_slagheap.rs"]
 pub mod molten_slagheap;
+#[path = "tsp/momentary_blink.rs"]
+pub mod momentary_blink;
 #[path = "tsp/moonlace.rs"]
 pub mod moonlace;
 #[path = "gpt/mortify.rs"]
@@ -585,6 +591,8 @@ pub mod sage_of_epityr;
 pub mod saltcrusted_steppe;
 #[path = "dis/sandstorm_eidolon.rs"]
 pub mod sandstorm_eidolon;
+#[path = "tsp/sangrophage.rs"]
+pub mod sangrophage;
 #[path = "tsp/scarwood_treefolk.rs"]
 pub mod scarwood_treefolk;
 #[path = "gpt/scorched_rusalka.rs"]
@@ -607,6 +615,8 @@ pub mod shadow_lance;
 pub mod shadow_sliver;
 #[path = "gpt/shattering_spree.rs"]
 pub mod shattering_spree;
+#[path = "dis/shielding_plax.rs"]
+pub mod shielding_plax;
 #[path = "tsp/sidewinder_sliver.rs"]
 pub mod sidewinder_sliver;
 #[path = "gpt/siege_of_towers.rs"]
@@ -749,6 +759,8 @@ pub mod to_arms;
 pub mod tolarian_sentinel;
 #[path = "gpt/torch_drake.rs"]
 pub mod torch_drake;
+#[path = "dci/tormented_soul.rs"]
+pub mod tormented_soul;
 #[path = "gpt/train_of_thought.rs"]
 pub mod train_of_thought;
 #[path = "tsp/traitor_s_clutch.rs"]

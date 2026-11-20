@@ -59,6 +59,8 @@ pub mod ballynock_trapper;
 pub mod ballyrush_banneret;
 #[path = "ala/banewasp_affliction.rs"]
 pub mod banewasp_affliction;
+#[path = "eve/banishing_knack.rs"]
+pub mod banishing_knack;
 #[path = "ala/bant_battlemage.rs"]
 pub mod bant_battlemage;
 #[path = "ala/bant_charm.rs"]
@@ -143,6 +145,8 @@ pub mod cavern_thoctar;
 pub mod cemetery_puca;
 #[path = "mor/cenn_s_tactician.rs"]
 pub mod cenn_s_tactician;
+#[path = "shm/cerulean_wisps.rs"]
+pub mod cerulean_wisps;
 #[path = "mor/chameleon_colossus.rs"]
 pub mod chameleon_colossus;
 #[path = "mor/changeling_sentinel.rs"]
@@ -323,6 +327,8 @@ pub mod feral_hydra;
 pub mod festercreep;
 #[path = "eve/fetid_heath.rs"]
 pub mod fetid_heath;
+#[path = "eve/figure_of_destiny.rs"]
+pub mod figure_of_destiny;
 #[path = "ala/filigree_sages.rs"]
 pub mod filigree_sages;
 #[path = "mor/final_sting_faerie.rs"]
@@ -347,6 +353,8 @@ pub mod foxfire_oak;
 pub mod frogtosser_banneret;
 #[path = "shm/fulminator_mage.rs"]
 pub mod fulminator_mage;
+#[path = "shm/furystoke_giant.rs"]
+pub mod furystoke_giant;
 #[path = "mor/game_trail_changeling.rs"]
 pub mod game_trail_changeling;
 #[path = "eve/gift_of_the_deity.rs"]
@@ -607,6 +615,8 @@ pub mod nevermaker;
 pub mod nightsky_mimic;
 #[path = "eve/nip_gwyllion.rs"]
 pub mod nip_gwyllion;
+#[path = "shm/niveous_wisps.rs"]
+pub mod niveous_wisps;
 #[path = "eve/nobilis_of_war.rs"]
 pub mod nobilis_of_war;
 #[path = "eve/noggle_bandit.rs"]
@@ -705,6 +715,8 @@ pub mod ranger_of_eos;
 pub mod rattleblaze_scarecrow;
 #[path = "shm/raven_s_run_dragoon.rs"]
 pub mod raven_s_run_dragoon;
+#[path = "eve/razorfin_abolisher.rs"]
+pub mod razorfin_abolisher;
 #[path = "mor/reach_of_branches.rs"]
 pub mod reach_of_branches;
 #[path = "shm/reaper_king.rs"]
@@ -757,6 +769,8 @@ pub mod roughshod_mentor;
 pub mod rugged_prairie;
 #[path = "shm/rune_cervin_rider.rs"]
 pub mod rune_cervin_rider;
+#[path = "shm/runed_halo.rs"]
+pub mod runed_halo;
 #[path = "shm/runes_of_the_deus.rs"]
 pub mod runes_of_the_deus;
 #[path = "mor/rustic_clachan.rs"]
@@ -803,6 +817,8 @@ pub mod scuzzback_marauders;
 pub mod seaside_citadel;
 #[path = "ala/sedraxis_specter.rs"]
 pub mod sedraxis_specter;
+#[path = "shm/seedcradle_witch.rs"]
+pub mod seedcradle_witch;
 #[path = "mor/seething_pathblazer.rs"]
 pub mod seething_pathblazer;
 #[path = "eve/selkie_hedge_mage.rs"]
@@ -963,6 +979,8 @@ pub mod trapjaw_kelpie;
 pub mod trip_noose;
 #[path = "eve/twilight_mire.rs"]
 pub mod twilight_mire;
+#[path = "shm/tyrannize.rs"]
+pub mod tyrannize;
 #[path = "shm/umbral_mantle.rs"]
 pub mod umbral_mantle;
 #[path = "ala/undead_leotau.rs"]

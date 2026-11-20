@@ -45,6 +45,8 @@ pub mod blazing_archon;
 pub mod blessing_of_leeches;
 #[path = "rav/blockbuster.rs"]
 pub mod blockbuster;
+#[path = "sok/blood_clock.rs"]
+pub mod blood_clock;
 #[path = "rav/boros_garrison.rs"]
 pub mod boros_garrison;
 #[path = "rav/boros_guildmage.rs"]
@@ -165,6 +167,8 @@ pub mod firemane_angel;
 pub mod first_volley;
 #[path = "rav/fists_of_ironwood.rs"]
 pub mod fists_of_ironwood;
+#[path = "rav/flame_fusillade.rs"]
+pub mod flame_fusillade;
 #[path = "rav/flame_kin_zealot.rs"]
 pub mod flame_kin_zealot;
 #[path = "psal/flight_of_fancy.rs"]
