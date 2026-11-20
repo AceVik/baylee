@@ -115,6 +115,15 @@ pub fn refusal_reason(
     if let Some(why) = refusal_reason_face(back, cats, tokens, true) {
         return Some(why);
     }
+    if let Some(mut front_body) = super::transcode_face(script, cats, tokens, String::new(), true) {
+        let statics = std::mem::take(&mut front_body.statics);
+        if let Some(mut back_body) = super::transcode_face(back, cats, tokens, statics, true)
+            && let Some(why) =
+                super::finalize_two_face_bodies(mode, script, back, &front_body, &mut back_body)
+        {
+            return Some(why);
+        }
+    }
     if super::is_vanilla_face(script) && super::is_vanilla_face(back) {
         return Some("a script that reads as an empty card".to_string());
     }

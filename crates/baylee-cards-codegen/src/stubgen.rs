@@ -654,10 +654,14 @@ fn render_face(
         format!("&[{}]", subtype_paths.join(", "))
     };
     let mut fields = vec![format!("name = {:?}", f.name)];
+    let disturb_back = is_back
+        .then(|| body.and_then(|b| b.disturb.as_deref()))
+        .flatten();
+    let face_mana = disturb_back.unwrap_or(&f.mana_cost);
     push_field(
         &mut fields,
         "mana_cost",
-        &mana_expr(card_name, &f.mana_cost)?,
+        &mana_expr(card_name, face_mana)?,
         "ManaCost::ZERO",
     );
     fields.push(format!("types = {types}"));
@@ -761,6 +765,18 @@ fn render_face(
         }
         if body.aftermath {
             fields.push("aftermath = true".to_string());
+        }
+        if is_back && body.disturb.is_some() {
+            fields.push("disturb = true".to_string());
+        }
+        if let Some(esc) = body.escape.as_deref() {
+            fields.push(format!("escape = {esc}"));
+        }
+        if let Some(sq) = body.squad.as_deref() {
+            fields.push(format!("squad = {sq}"));
+        }
+        if let Some(off) = body.offspring.as_deref() {
+            fields.push(format!("offspring = {off}"));
         }
         if let Some(cr) = body.cost_reduction.as_deref() {
             fields.push(format!("cost_reduction = {cr}"));
@@ -915,6 +931,9 @@ fn render_card_literal(
         if land.back.is_none() && !land.keywords.is_empty() {
             fields.push(format!("keywords = {}", join_union_owned(&land.keywords)));
         }
+        if land.fuse {
+            fields.push("fuse = true".to_string());
+        }
         fields.push(read_coverage(tested).to_string());
     }
 
@@ -1050,6 +1069,12 @@ fn transcode_faces(
         }
         if body.back.as_deref().is_some_and(|b| b.aftermath)
             && script.alternate_mode.as_deref() != Some("Split")
+        {
+            return None;
+        }
+        if body.disturb.is_some()
+            && (script.alternate_mode.as_deref() != Some("DoubleFaced")
+                || !faces[1].mana_cost.trim().is_empty())
         {
             return None;
         }
@@ -2511,6 +2536,202 @@ mod tests {
         assert!(
             !rendered.contains("castable_from_hand = false"),
             "{rendered}"
+        );
+    }
+
+    #[test]
+    fn wave11a_squad_offspring_and_escape_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("squad_guy.txt"),
+            "Name:SquadGuy\nManaCost:2 W\nTypes:Creature Soldier\nPT:2/2\nK:Squad:1 W\nK:Offspring:2\n",
+        )
+        .expect("squad script");
+        std::fs::write(
+            dir.path().join("escape_guy.txt"),
+            "Name:EscapeGuy\nManaCost:1 G\nTypes:Creature Hound\nPT:2/2\n\
+             K:Escape:2 G ExileFromGrave<3/Card.Other/other cards>\n",
+        )
+        .expect("escape script");
+
+        let mut index = BTreeMap::new();
+        index.insert("SquadGuy".to_string(), "squad_guy.txt".to_string());
+        index.insert("EscapeGuy".to_string(), "escape_guy.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let cats = SubtypeCatalogs::default();
+
+        let (_, squad_out) = render_stub(
+            &bare_card("SquadGuy", "Creature"),
+            &row(30, "SQUAD_GUY"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("squad renders");
+        assert!(
+            squad_out.contains("squad = Some(cost!(\"{1}{W}\"))"),
+            "{squad_out}"
+        );
+        assert!(
+            squad_out.contains("offspring = Some(cost!(\"{2}\"))"),
+            "{squad_out}"
+        );
+
+        let (_, escape_out) = render_stub(
+            &bare_card("EscapeGuy", "Creature"),
+            &row(31, "ESCAPE_GUY"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("escape renders");
+        assert!(
+            escape_out.contains("escape = Some(Escape { cost: mana!(\"{2}{G}\"), exile: 3 })"),
+            "{escape_out}"
+        );
+    }
+
+    #[test]
+    fn wave11a_fuse_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("fuse_split.txt"),
+            "Name:Spark\nManaCost:R\nTypes:Instant\n\
+             A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 2\n\
+             K:Fuse\nAlternateMode:Split\nALTERNATE\n\
+             Name:Glow\nManaCost:1 W\nTypes:Sorcery\nA:SP$ GainLife | LifeAmount$ 3\n",
+        )
+        .expect("fuse script");
+
+        let mut index = BTreeMap::new();
+        index.insert("Spark".to_string(), "fuse_split.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let cats = SubtypeCatalogs::default();
+
+        let split_card = ScryfallCard {
+            name: "Spark // Glow".to_string(),
+            layout: Some("split".to_string()),
+            card_faces: Some(vec![
+                ScryfallFace {
+                    watermark: None,
+                    name: "Spark".to_string(),
+                    mana_cost: Some("{R}".to_string()),
+                    type_line: Some("Instant".to_string()),
+                    oracle_text: Some("Deal 2 damage.\nFuse".to_string()),
+                    power: None,
+                    toughness: None,
+                    loyalty: None,
+                    defense: None,
+                    colors: None,
+                    image_uris: None,
+                },
+                ScryfallFace {
+                    watermark: None,
+                    name: "Glow".to_string(),
+                    mana_cost: Some("{1}{W}".to_string()),
+                    type_line: Some("Sorcery".to_string()),
+                    oracle_text: Some("Gain 3 life.\nFuse".to_string()),
+                    power: None,
+                    toughness: None,
+                    loyalty: None,
+                    defense: None,
+                    colors: None,
+                    image_uris: None,
+                },
+            ]),
+            ..bare_card("Spark // Glow", "Instant // Sorcery")
+        };
+        let (_, fuse_out) = render_stub(
+            &split_card,
+            &row(32, "SPARK_GLOW"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("fuse renders");
+        assert!(fuse_out.contains("fuse = true,"), "{fuse_out}");
+    }
+
+    #[test]
+    fn wave11a_disturb_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("disturb_dude.txt"),
+            "Name:MortalScout\nManaCost:1 U\nTypes:Creature Human\nPT:1/1\n\
+             K:Disturb:2 U\nAlternateMode:DoubleFaced\nALTERNATE\n\
+             Name:SpiritScout\nColors:blue\nTypes:Creature Spirit\nPT:2/2\nK:Flying\n\
+             R:Event$ Moved | ValidCard$ Card.Self | Destination$ Graveyard | ReplaceWith$ ExileSelf\n\
+             SVar:ExileSelf:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Exile | Defined$ ReplacedCard\n",
+        )
+        .expect("disturb script");
+
+        let mut index = BTreeMap::new();
+        index.insert("MortalScout".to_string(), "disturb_dude.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let cats = SubtypeCatalogs::default();
+
+        let disturb_card = ScryfallCard {
+            name: "MortalScout // SpiritScout".to_string(),
+            layout: Some("transform".to_string()),
+            card_faces: Some(vec![
+                ScryfallFace {
+                    watermark: None,
+                    name: "MortalScout".to_string(),
+                    mana_cost: Some("{1}{U}".to_string()),
+                    type_line: Some("Creature".to_string()),
+                    oracle_text: Some("Disturb {2}{U}".to_string()),
+                    power: Some("1".to_string()),
+                    toughness: Some("1".to_string()),
+                    loyalty: None,
+                    defense: None,
+                    colors: None,
+                    image_uris: None,
+                },
+                ScryfallFace {
+                    watermark: None,
+                    name: "SpiritScout".to_string(),
+                    mana_cost: None,
+                    type_line: Some("Creature".to_string()),
+                    oracle_text: Some("Flying\nExile if put into graveyard.".to_string()),
+                    power: Some("2".to_string()),
+                    toughness: Some("2".to_string()),
+                    loyalty: None,
+                    defense: None,
+                    colors: Some(vec!["U".to_string()]),
+                    image_uris: None,
+                },
+            ]),
+            ..bare_card("MortalScout // SpiritScout", "Creature // Creature")
+        };
+        let (_, disturb_out) = render_stub(
+            &disturb_card,
+            &row(33, "MORTAL_SCOUT"),
+            &IndexLedger::default(),
+            &cats,
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("disturb renders");
+        assert!(disturb_out.contains("disturb = true,"), "{disturb_out}");
+        assert_eq!(
+            disturb_out.matches("disturb = true,").count(),
+            1,
+            "{disturb_out}"
+        );
+        assert!(
+            disturb_out.contains("mana_cost = mana!(\"{2}{U}\")"),
+            "{disturb_out}"
+        );
+        assert!(
+            disturb_out.contains("castable_from_hand = false,"),
+            "{disturb_out}"
         );
     }
 }

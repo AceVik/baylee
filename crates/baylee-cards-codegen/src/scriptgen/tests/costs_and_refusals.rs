@@ -3351,3 +3351,190 @@ fn activation_phases_turns_and_named_conditions() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn wave11a_squad_offspring_and_escape() {
+    let mana_squad =
+        read("Name:SquadInfantry\nManaCost:2 W\nTypes:Creature Soldier\nPT:2/2\nK:Squad:1 W");
+    assert_eq!(mana_squad.squad.as_deref(), Some("Some(cost!(\"{1}{W}\"))"));
+
+    let ench_squad = read("Name:SquadBanner\nManaCost:2 W\nTypes:Enchantment\nK:Squad:2");
+    assert_eq!(ench_squad.squad.as_deref(), Some("Some(cost!(\"{2}\"))"));
+
+    let discard_squad = read(
+        "Name:SquadRaider\nManaCost:2 R\nTypes:Creature Warrior\nPT:2/1\nK:Squad:1 Discard<1/Card>",
+    );
+    assert_eq!(
+        discard_squad.squad.as_deref(),
+        Some("Some(cost!(\"{1}\", Discard(&Filter::Any)))")
+    );
+
+    let offspring = read(
+        "Name:OffspringMage\nManaCost:1 R\nTypes:Creature Wizard\nPT:1/2\nK:Offspring:1 R PayLife<2>",
+    );
+    assert_eq!(
+        offspring.offspring.as_deref(),
+        Some("Some(cost!(\"{1}{R}\", PayLife(2)))")
+    );
+
+    let esc_creature = read(
+        "Name:EscapeStalker\nManaCost:1 B\nTypes:Creature Shade\nPT:2/2\n\
+         K:Escape:2 B ExileFromGrave<3/Card.Other/other cards>",
+    );
+    assert_eq!(
+        esc_creature.escape.as_deref(),
+        Some("Some(Escape { cost: mana!(\"{2}{B}\"), exile: 3 })")
+    );
+
+    let esc_spell = read(
+        "Name:EscapeBolt\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 2\n\
+         K:Escape:2 R ExileFromGrave<2/Card.Other>",
+    );
+    assert_eq!(
+        esc_spell.escape.as_deref(),
+        Some("Some(Escape { cost: mana!(\"{2}{R}\"), exile: 2 })")
+    );
+
+    for bad in [
+        "Name:BadSquadSpell\nManaCost:1 U\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\nK:Squad:2",
+        "Name:BadOffspringLand\nManaCost:no cost\nTypes:Land\nK:Offspring:2",
+        "Name:BadDupSquad\nManaCost:1 W\nTypes:Creature\nPT:1/1\nK:Squad:1\nK:Squad:2",
+        "Name:BadDupOffspring\nManaCost:1 W\nTypes:Creature\nPT:1/1\nK:Offspring:1\nK:Offspring:2",
+        "Name:BadSquadX\nManaCost:1 U\nTypes:Creature\nPT:1/1\nK:Squad:X U\nSVar:X:Count$xPaid",
+        "Name:BadSquadExile4\nManaCost:1 B\nTypes:Creature\nPT:1/1\nK:Squad:ExileFromGrave<4/Card>",
+        "Name:BadEscapeX\nManaCost:1 G\nTypes:Creature\nPT:2/2\nK:Escape:X G ExileFromGrave<3/Card.Other>\nSVar:X:Count$xPaid",
+        "Name:BadEscapeExileLand\nManaCost:2 R\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\nK:Escape:2 R Exile<1/Land>",
+        "Name:BadEscapeFilter\nManaCost:1 W\nTypes:Creature\nPT:1/1\nK:Escape:2 W ExileFromGrave<2/Card.Other+Instant>",
+        "Name:BadEscapeLand\nManaCost:no cost\nTypes:Land\nK:Escape:2 ExileFromGrave<2/Card.Other>",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave11a_fuse_and_disturb() {
+    let fuse = read(
+        "Name:Zap\nManaCost:R\nTypes:Instant\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 2\n\
+         K:Fuse\nAlternateMode:Split\nALTERNATE\n\
+         Name:Recall\nManaCost:1 U\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1",
+    );
+    assert!(fuse.fuse);
+    assert!(!fuse.back.as_ref().expect("split back").fuse);
+
+    let disturb = read(
+        "Name:GraveWatcher\nManaCost:1 U\nTypes:Creature Human\nPT:1/1\n\
+         K:Disturb:2 U\nAlternateMode:DoubleFaced\nALTERNATE\n\
+         Name:SpectralWatcher\nColors:blue\nTypes:Creature Spirit\nPT:2/2\nK:Flying\n\
+         R:Event$ Moved | ValidCard$ Card.Self | Destination$ Graveyard | ReplaceWith$ ExileSelf\n\
+         SVar:ExileSelf:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Exile | Defined$ ReplacedCard",
+    );
+    assert_eq!(disturb.disturb.as_deref(), Some("{2}{U}"));
+    assert_eq!(
+        disturb.back.as_ref().expect("dfc back").disturb.as_deref(),
+        Some("{2}{U}")
+    );
+
+    for bad in [
+        "Name:SoloFuse\nManaCost:R\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\nK:Fuse",
+        "Name:ModalFuse\nManaCost:R\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\nK:Fuse\nAlternateMode:Modal\nALTERNATE\nName:Back\nManaCost:U\nTypes:Instant\nA:SP$ Draw | NumCards$ 1",
+        "Name:AftermathFuse\nManaCost:R\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\nK:Fuse\nAlternateMode:Split\nALTERNATE\nName:Back\nManaCost:U\nTypes:Sorcery\nK:Aftermath\nA:SP$ Draw | NumCards$ 1",
+        "Name:CreatureFuse\nManaCost:R\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\nK:Fuse\nAlternateMode:Split\nALTERNATE\nName:Back\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2",
+        "Name:SoloDisturb\nManaCost:1 U\nTypes:Creature\nPT:1/1\nK:Disturb:2 U",
+        "Name:NoExileDisturb\nManaCost:1 U\nTypes:Creature\nPT:1/1\nK:Disturb:2 U\nAlternateMode:DoubleFaced\nALTERNATE\nName:Back\nColors:blue\nTypes:Creature Spirit\nPT:2/2\nK:Flying",
+        "Name:NonManaDisturb\nManaCost:1 U\nTypes:Creature\nPT:1/1\nK:Disturb:1 U PayLife<2>\nAlternateMode:DoubleFaced\nALTERNATE\nName:Back\nColors:blue\nTypes:Creature Spirit\nPT:2/2\nR:Event$ Moved | ValidCard$ Card.Self | Destination$ Graveyard | ReplaceWith$ ExileSelf\nSVar:ExileSelf:DB$ ChangeZone | Hidden$ True | Origin$ All | Destination$ Exile | Defined$ ReplacedCard",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave11a_graveyard_presents_eq1_and_combat_windows() {
+    let descend = read(
+        "Name:DescendSpy\nManaCost:1 B\nTypes:Creature\nPT:2/1\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | IsPresent$ Permanent.YouOwn | PresentZone$ Graveyard | PresentCompare$ GE4",
+    );
+    assert!(
+        descend.statics.contains("TypeSet::ARTIFACT.union(TypeSet::BATTLE)")
+            && descend.abilities[0].contains(
+                "AmountAtLeast(Amount::CountOf { filter: &CHECK1, zone: ZoneSel::GraveyardOf(PlayerRel::You) }, 4)"
+            ),
+        "{}\n{:?}",
+        descend.statics,
+        descend.abilities
+    );
+
+    let above = read(
+        "Name:GraveClimber\nManaCost:1 B\nTypes:Creature\nPT:2/1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Graveyard | IsPresent$ Creature.YouOwn+Above | PresentZone$ Graveyard | PresentCompare$ GE3 | Execute$ Ret\n\
+         SVar:Ret:DB$ ChangeZone | Defined$ Self | Origin$ Graveyard | Destination$ Hand",
+    );
+    assert!(
+        above.abilities[0].contains("Condition::GraveyardCardsAbove(&Filter::CREATURE, 3)"),
+        "{:?}",
+        above.abilities
+    );
+
+    let empty_gy = read(
+        "Name:EmptyVault\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | IsPresent$ Card.YouOwn | PresentZone$ Graveyard | PresentCompare$ EQ0",
+    );
+    assert!(
+        empty_gy.abilities[0].contains("Condition::Not(&Condition::AmountAtLeast(Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::GraveyardOf(PlayerRel::You) }, 1))"),
+        "{:?}",
+        empty_gy.abilities
+    );
+
+    let lone = read(
+        "Name:LoneTitan\nManaCost:3 B\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | IsPresent$ Creature.YouCtrl | PresentCompare$ EQ1 | Execute$ Gain\n\
+         SVar:Gain:DB$ GainLife | LifeAmount$ 2",
+    );
+    assert!(
+        lone.abilities[0].contains("Condition::All(&[Condition::ControlCount(&Filter::YOUR_CREATURE, 1), Condition::ControlCountAtMost(&Filter::YOUR_CREATURE, 1)])"),
+        "{:?}",
+        lone.abilities
+    );
+
+    let solo_artifact = read(
+        "Name:SingleRelic\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | IsPresent$ Artifact | PresentCompare$ EQ1",
+    );
+    assert!(
+        solo_artifact.abilities[0].contains("Condition::All(&[Condition::BattlefieldCount(&Filter::ARTIFACT, 1), Condition::BattlefieldCountAtMost(&Filter::ARTIFACT, 1)])"),
+        "{:?}",
+        solo_artifact.abilities
+    );
+
+    let exact_one_self_ctr = read(
+        "Name:ChargeGate\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | IsPresent$ Card.Self+counters_GE2_CHARGE | PresentCompare$ EQ1",
+    );
+    assert!(
+        exact_one_self_ctr.abilities[0]
+            .contains("Condition::CountersOnSelf(CounterKind::Charge, 2)"),
+        "{:?}",
+        exact_one_self_ctr.abilities
+    );
+
+    let combat_windows = read(
+        "Name:CombatSentry\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ T | NumCards$ 1 | ActivationPhases$ Upkeep->Declare Attackers | ActivationFirstCombat$ True\n\
+         A:AB$ GainLife | Cost$ T | LifeAmount$ 1 | ActivationPhases$ Upkeep->Declare Blockers | ActivationFirstCombat$ True",
+    );
+    assert!(
+        combat_windows.abilities[0].contains("Condition::BeforeStep(StepKind::DeclareBlockers)")
+            && combat_windows.abilities[1]
+                .contains("Condition::BeforeStep(StepKind::CombatDamage)"),
+        "{:?}",
+        combat_windows.abilities
+    );
+
+    for bad in [
+        "Name:DirectlyAbove\nManaCost:B\nTypes:Creature\nPT:1/1\nA:AB$ Draw | Cost$ T | NumCards$ 1 | IsPresent$ Creature.YouOwn+DirectlyAbove | PresentZone$ Graveyard",
+        "Name:NoYouOwnGy\nManaCost:B\nTypes:Creature\nPT:1/1\nA:AB$ Draw | Cost$ T | NumCards$ 1 | IsPresent$ Creature | PresentZone$ Graveyard",
+        "Name:MixedAbove\nManaCost:B\nTypes:Creature\nPT:1/1\nA:AB$ Draw | Cost$ T | NumCards$ 1 | IsPresent$ Creature.YouOwn+Above,Artifact.YouOwn | PresentZone$ Graveyard",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

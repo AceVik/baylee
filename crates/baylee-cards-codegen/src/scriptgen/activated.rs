@@ -72,6 +72,16 @@ impl Tx<'_> {
                 claimed.push("ActivationFirstCombat$");
                 "Condition::BeforeStep(StepKind::DeclareAttackers)"
             }
+            "Upkeep->Declare Attackers" if probe.peek("ActivationFirstCombat") == Some("True") => {
+                probe.take("ActivationFirstCombat");
+                claimed.push("ActivationFirstCombat$");
+                "Condition::BeforeStep(StepKind::DeclareBlockers)"
+            }
+            "Upkeep->Declare Blockers" if probe.peek("ActivationFirstCombat") == Some("True") => {
+                probe.take("ActivationFirstCombat");
+                claimed.push("ActivationFirstCombat$");
+                "Condition::BeforeStep(StepKind::CombatDamage)"
+            }
             "Upkeep->Main1" if probe.peek("ActivationFirstCombat") == Some("True") => {
                 probe.take("ActivationFirstCombat");
                 claimed.push("ActivationFirstCombat$");
@@ -1571,7 +1581,8 @@ impl Tx<'_> {
         if p.peek("PresentZone") == Some("Graveyard")
             && (p.peek("PresentPlayer") == Some("You")
                 || (p.peek("PresentPlayer").is_none()
-                    && matches!(valid, "Card.StrictlySelf" | "Card.Self")))
+                    && (matches!(valid, "Card.StrictlySelf" | "Card.Self")
+                        || has_you_own_every_alt(valid))))
         {
             return self.graveyard_present_clause(p, valid);
         }
@@ -1590,7 +1601,7 @@ impl Tx<'_> {
         {
             return Some(clause);
         }
-        if compare == "GE1"
+        if matches!(compare.as_str(), "GE1" | "EQ1")
             && matches!(p.peek("PresentDefined"), None | Some("Self"))
             && let Some(raw) = valid.strip_prefix("Card.Self+counters_GE")
         {
@@ -1610,65 +1621,71 @@ impl Tx<'_> {
         };
         // Both readings need a number before the filter is worth building,
         // so that a refusal names the clause rather than an atom inside it.
-        let count = if about_source {
-            if compare != "GE1" {
-                return self.deny(format!("a clause about this card compared `{compare}`"));
-            }
+        if !about_source {
+            return self.battlefield_count_present_clause(valid, &compare);
+        }
+        if !matches!(compare.as_str(), "GE1" | "EQ1") {
+            return self.deny(format!("a clause about this card compared `{compare}`"));
+        }
+        let expr = self.filter_expr(valid)?;
+        let zoned = on_the_battlefield(&expr);
+        let name = self.body.filter_static("CHECK", &zoned);
+        Some(format!("Condition::SourceMatches(&{name})"))
+    }
+
+    fn battlefield_count_present_clause(&mut self, valid: &str, compare: &str) -> Option<String> {
+        let exact_one = compare == "EQ1";
+        let bound = if exact_one {
             None
         } else {
-            let Some(bound) = count_bound(&compare) else {
+            let Some(bound) = count_bound(compare) else {
                 return self.deny(format!("`PresentCompare$ {compare}`"));
             };
-            // Whose permanents: yours (`YouCtrl` in every alternative), or
-            // everybody's when no alternative names a controller or an
-            // owner at all ("if no creatures are on the battlefield").
-            let atoms = || valid.split(',').flat_map(|alt| alt.split(['.', '+']));
-            let yours = valid
-                .split(',')
-                .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"));
-            let opponents = valid
-                .split(',')
-                .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "OppCtrl"))
-                && matches!(bound, Bound::AtMost(0));
-            let nobodys = !atoms().any(|atom| atom.contains("Ctrl") || atom.contains("Own"));
-            if !yours && !nobodys && !opponents {
-                return self.deny(format!("`IsPresent$ {valid}`, a count of somebody else's"));
-            }
-            // And a count says nothing about the card that states it.
-            // `eval::condition_holds` walks a battlefield handing each
-            // candidate its *own* id as the object a filter's `This` and
-            // `Another` compare against, so "another creature you control"
-            // would count nothing at all — 28 corpus lines write one, and
-            // a trigger that can never fire is exactly the wrong card the
-            // honest-stub rule exists to refuse.
-            // The attachment atoms are relative too: `AttachedToBySource`
-            // asks what *this* card is attached to.
-            if valid.split(',').any(|alt| {
-                alt.split(['.', '+']).any(|a| {
-                    matches!(
-                        a.trim(),
-                        "Self" | "Other" | "EnchantedBy" | "EquippedBy" | "AttachedBy" | "Attached"
-                    )
-                })
-            }) {
-                return self.deny(format!(
-                    "`IsPresent$ {valid}`, a count relative to this card"
-                ));
-            }
-            Some((yours, bound))
+            Some(bound)
         };
+        // Whose permanents: yours (`YouCtrl` in every alternative), or
+        // everybody's when no alternative names a controller or an
+        // owner at all ("if no creatures are on the battlefield").
+        let atoms = || valid.split(',').flat_map(|alt| alt.split(['.', '+']));
+        let yours = valid
+            .split(',')
+            .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"));
+        let opponents = valid
+            .split(',')
+            .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "OppCtrl"))
+            && matches!(bound, Some(Bound::AtMost(0)));
+        let nobodys = !atoms().any(|atom| atom.contains("Ctrl") || atom.contains("Own"));
+        if !yours && !nobodys && !opponents {
+            return self.deny(format!("`IsPresent$ {valid}`, a count of somebody else's"));
+        }
+        // And a count says nothing about the card that states it.
+        // `eval::condition_holds` walks a battlefield handing each
+        // candidate its *own* id as the object a filter's `This` and
+        // `Another` compare against, so "another creature you control"
+        // would count nothing at all — 28 corpus lines write one, and
+        // a trigger that can never fire is exactly the wrong card the
+        // honest-stub rule exists to refuse.
+        // The attachment atoms are relative too: `AttachedToBySource`
+        // asks what *this* card is attached to.
+        if valid.split(',').any(|alt| {
+            alt.split(['.', '+']).any(|a| {
+                matches!(
+                    a.trim(),
+                    "Self" | "Other" | "EnchantedBy" | "EquippedBy" | "AttachedBy" | "Attached"
+                )
+            })
+        }) {
+            return self.deny(format!(
+                "`IsPresent$ {valid}`, a count relative to this card"
+            ));
+        }
         let expr = self.filter_expr(valid)?;
-        let clause = match count {
-            None => {
-                let zoned = on_the_battlefield(&expr);
-                let name = self.body.filter_static("CHECK", &zoned);
-                format!("Condition::SourceMatches(&{name})")
-            }
-            // `ControlCount` counts one player's battlefield and nothing
-            // else, and `BattlefieldCount` all of it, so the zone and the
-            // player are both already in the sentence each is.
-            Some((yours, bound)) => {
-                let name = self.body.filter_static("CHECK", &expr);
+        let name = self.body.filter_static("CHECK", &expr);
+        // `ControlCount` counts one player's battlefield and nothing
+        // else, and `BattlefieldCount` all of it, so the zone and the
+        // player are both already in the sentence each is.
+        Some(match bound {
+            Some(bound) => {
                 let (variant, n) = match (yours, bound) {
                     (true, Bound::AtLeast(n)) => ("ControlCount", n),
                     (true, Bound::AtMost(n)) => ("ControlCountAtMost", n),
@@ -1677,8 +1694,13 @@ impl Tx<'_> {
                 };
                 format!("Condition::{variant}(&{name}, {n})")
             }
-        };
-        Some(clause)
+            None if yours => format!(
+                "Condition::All(&[Condition::ControlCount(&{name}, 1), Condition::ControlCountAtMost(&{name}, 1)])"
+            ),
+            None => format!(
+                "Condition::All(&[Condition::BattlefieldCount(&{name}, 1), Condition::BattlefieldCountAtMost(&{name}, 1)])"
+            ),
+        })
     }
 
     fn commander_present_clause(valid: &str, compare: &str, has_defined: bool) -> Option<String> {
@@ -1702,26 +1724,49 @@ impl Tx<'_> {
 
     fn graveyard_present_clause(&mut self, p: &mut Params, valid: &str) -> Option<String> {
         p.take("PresentZone");
-        p.take("PresentPlayer");
+        let has_you = p.take("PresentPlayer").as_deref() == Some("You");
         let compare = p
             .take("PresentCompare")
             .unwrap_or_else(|| "GE1".to_string());
         if matches!(valid, "Card.StrictlySelf" | "Card.Self") {
-            if compare != "GE1" {
+            if !matches!(compare.as_str(), "GE1" | "EQ1") {
                 return self.deny(format!("a graveyard self clause compared `{compare}`"));
             }
             return Some(
                 "Condition::SourceMatches(&Filter::InZone(ZoneRef::Graveyard))".to_string(),
             );
         }
-        let Some(Bound::AtLeast(n)) = count_bound(&compare) else {
-            return self.deny(format!("`PresentCompare$ {compare}`"));
+        let Some((stripped, above)) = strip_graveyard_filter(valid, !has_you) else {
+            return self.deny(format!("`IsPresent$ {valid}` in graveyard"));
         };
-        let expr = self.filter_expr_in_zone(valid, true)?;
+        let expr = self.filter_expr_in_zone(&stripped, true)?;
         let name = self.body.filter_static("CHECK", &expr);
-        Some(format!(
-            "Condition::AmountAtLeast(Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardOf(PlayerRel::You) }}, {n})"
-        ))
+        if above {
+            let Some(Bound::AtLeast(n)) = count_bound(&compare) else {
+                return self.deny(format!("`PresentCompare$ {compare}` with `Above`"));
+            };
+            return Some(format!("Condition::GraveyardCardsAbove(&{name}, {n})"));
+        }
+        let amt = format!(
+            "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardOf(PlayerRel::You) }}"
+        );
+        if compare == "EQ1" {
+            return Some(format!(
+                "Condition::All(&[Condition::AmountAtLeast({amt}, 1), Condition::Not(&Condition::AmountAtLeast({amt}, 2))])"
+            ));
+        }
+        match count_bound(&compare) {
+            Some(Bound::AtLeast(n)) => Some(format!("Condition::AmountAtLeast({amt}, {n})")),
+            Some(Bound::AtMost(n)) => {
+                let Some(threshold) = u8::try_from(n).ok().and_then(|v| v.checked_add(1)) else {
+                    return self.deny(format!("`PresentCompare$ {compare}`"));
+                };
+                Some(format!(
+                    "Condition::Not(&Condition::AmountAtLeast({amt}, {threshold}))"
+                ))
+            }
+            None => self.deny(format!("`PresentCompare$ {compare}`")),
+        }
     }
 
     /// The executed line of a "you may pay {N}. If you do, …" trigger with
@@ -1836,4 +1881,49 @@ impl Tx<'_> {
         }
         result.map(|price| (rest, price))
     }
+}
+
+fn has_you_own_every_alt(valid: &str) -> bool {
+    valid
+        .split(',')
+        .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouOwn"))
+}
+
+fn strip_graveyard_filter(valid: &str, require_you_own: bool) -> Option<(String, bool)> {
+    let mut cleaned_alts = Vec::new();
+    let mut saw_above: Option<bool> = None;
+    for alt in valid.split(',') {
+        let mut parts = alt
+            .split('.')
+            .flat_map(|s| s.split('+'))
+            .map(str::trim)
+            .filter(|a| !a.is_empty());
+        let base = parts.next()?;
+        let mut has_you = false;
+        let mut alt_above = false;
+        let mut kept = Vec::new();
+        for atom in parts {
+            match atom {
+                "DirectlyAbove" => return None,
+                "Above" => alt_above = true,
+                "YouOwn" => has_you = true,
+                other if other.contains("Ctrl") || other.contains("Own") => return None,
+                other => kept.push(other),
+            }
+        }
+        if require_you_own && !has_you {
+            return None;
+        }
+        match saw_above {
+            Some(prev) if prev != alt_above => return None,
+            None => saw_above = Some(alt_above),
+            Some(_) => {}
+        }
+        if kept.is_empty() {
+            cleaned_alts.push(base.to_string());
+        } else {
+            cleaned_alts.push(format!("{base}.{}", kept.join("+")));
+        }
+    }
+    Some((cleaned_alts.join(","), saw_above.unwrap_or(false)))
 }

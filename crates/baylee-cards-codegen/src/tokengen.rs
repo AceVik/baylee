@@ -789,6 +789,11 @@ fn abilities(
         || body.bestow.is_some()
         || body.jump_start
         || body.aftermath
+        || body.disturb.is_some()
+        || body.escape.is_some()
+        || body.squad.is_some()
+        || body.offspring.is_some()
+        || body.fuse
         || body.cost_reduction.is_some()
         || body.entwine.is_some()
         || body.buyback.is_some()
@@ -2128,6 +2133,42 @@ mod tests {
                 .is_none(),
                 "duplicate {dup} token must stay refused"
             );
+        }
+    }
+
+    #[test]
+    fn wave11a_enchant_player_aura_token_and_keyword_guards() {
+        let mut c = cats();
+        c.enchantment.push("Curse".to_string());
+        c.normalize();
+
+        let curse = read(
+            "Name:Hex Token\nColors:black\nTypes:Enchantment Aura Curse\n\
+             K:Enchant:Player\n\
+             T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ Drain\n\
+             SVar:Drain:DB$ LoseLife | Defined$ Opponent | LifeAmount$ 1\n\
+             Oracle:Enchant player\\nAt the beginning of your upkeep, each opponent loses 1 life.",
+            &c,
+        )
+        .expect("player aura token");
+        assert!(
+            curse
+                .literal
+                .contains("Effect::AttachSelf { target: TargetSpec::AnyPlayer }")
+                && curse
+                    .literal
+                    .contains("TargetReq::one(TargetSpec::AnyPlayer)")
+                && curse.literal.contains("Effect::LoseLife {"),
+            "{}",
+            curse.literal
+        );
+
+        for unsupported in [
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nK:Squad:1 W",
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nK:Offspring:2",
+            "Name:Soldier Token\nColors:green\nTypes:Creature Soldier\nPT:2/2\nK:Escape:2 G ExileFromGrave<3/Card.Other>",
+        ] {
+            assert!(read(unsupported, &c).is_none(), "{unsupported}");
         }
     }
 }

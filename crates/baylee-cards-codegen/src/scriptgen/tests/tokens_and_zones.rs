@@ -823,13 +823,35 @@ fn an_aura_is_the_spell_that_attaches_it() {
     let named = read("Name:X\nTypes:Enchantment Aura\nK:Enchant:Creature.tapped:tapped creature");
     assert_eq!(named.statics.matches("static ").count(), 1);
     assert_eq!(named.abilities[0].matches("&ENCHANT1").count(), 2);
-    // An Aura on a player has nothing for `AttachSelf` to attach to.
-    let parsed = parse("Name:X\nTypes:Enchantment Aura\nK:Enchant:Player");
-    assert!(transcode(&parsed, &cats(), None).is_none());
-    assert_eq!(
-        refusal_reason(&parsed, &cats(), None).as_deref(),
-        Some("an `Enchant Player`, which attaches to no object")
-    );
+    // Auras enchanting players lower to player TargetSpecs (`Player`,
+    // `Opponent`, `Player.You`), while qualified player filters refuse cleanly.
+    for (spec, expected) in [
+        ("Player:player", "TargetSpec::AnyPlayer"),
+        ("Opponent", "TargetSpec::AnyOpponent"),
+        ("Player.Opponent:an opponent", "TargetSpec::AnyOpponent"),
+        ("Player.OppCtrl", "TargetSpec::AnyOpponent"),
+        ("Player.You:you", "TargetSpec::Player(PlayerRel::You)"),
+        ("You", "TargetSpec::Player(PlayerRel::You)"),
+    ] {
+        let aura = read(&format!("Name:X\nTypes:Enchantment Aura\nK:Enchant:{spec}"));
+        assert!(aura.statics.is_empty(), "{spec}: {}", aura.statics);
+        assert_eq!(
+            aura.abilities,
+            [format!(
+                "spell!(&[Effect::AttachSelf {{ target: {expected} }}], targets = Some(TargetReq::one({expected})))"
+            )],
+            "{spec}"
+        );
+    }
+    for bad in ["Player.Active", "Player,Creature"] {
+        let parsed = parse(&format!("Name:X\nTypes:Enchantment Aura\nK:Enchant:{bad}"));
+        assert!(transcode(&parsed, &cats(), None).is_none(), "{bad}");
+        assert_eq!(
+            refusal_reason(&parsed, &cats(), None).as_deref(),
+            Some(format!("an `Enchant {bad}` player qualifier").as_str()),
+            "{bad}"
+        );
+    }
 }
 
 /// "Enchanted creature" and "equipped creature" are one question, and

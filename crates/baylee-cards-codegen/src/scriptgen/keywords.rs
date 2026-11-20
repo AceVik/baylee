@@ -186,6 +186,30 @@ impl Tx<'_> {
         if line == "Aftermath" {
             return self.aftermath();
         }
+        if line == "Fuse" {
+            return self.fuse();
+        }
+        if let Some(rest) = line.strip_prefix("Disturb:") {
+            return self.disturb(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Escape:") {
+            return self.escape(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Squad:") {
+            let expr =
+                self.optional_permanent_cost_keyword("Squad", rest, self.body.squad.is_some())?;
+            self.body.squad = Some(expr);
+            return Some(());
+        }
+        if let Some(rest) = line.strip_prefix("Offspring:") {
+            let expr = self.optional_permanent_cost_keyword(
+                "Offspring",
+                rest,
+                self.body.offspring.is_some(),
+            )?;
+            self.body.offspring = Some(expr);
+            return Some(());
+        }
         if let Some(rest) = line.strip_prefix("Unearth:") {
             return self.unearth(rest);
         }
@@ -1328,12 +1352,13 @@ impl Tx<'_> {
         self.type_line.split_whitespace().any(|word| word == "Land")
     }
 
-    fn parse_alt_cost_pieces(
+    fn parse_cost_pieces_with(
         &mut self,
         keyword: &str,
         rest: &str,
         allow_x: bool,
         mana_only: bool,
+        part_ok: fn(&str) -> bool,
     ) -> Option<(String, Vec<String>)> {
         if rest.contains(':') {
             return self.deny(format!("a `{keyword}` with extra fields `{rest}`"));
@@ -1350,9 +1375,10 @@ impl Tx<'_> {
         if mana_only && (mana.is_empty() || !parts.is_empty()) {
             return self.deny(format!("a non-mana `{keyword}` cost `{rest}`"));
         }
-        if (mana.is_empty() && parts.is_empty())
-            || !parts.iter().all(|part| is_paid_alternative_cost_part(part))
-        {
+        if !allow_x && mana.contains('X') {
+            return self.deny(format!("variable `X` in `{keyword}` cost `{rest}`"));
+        }
+        if (mana.is_empty() && parts.is_empty()) || !parts.iter().all(|part| part_ok(part)) {
             return self.deny(format!("a `{keyword}` cost `{rest}` the cast cannot pay"));
         }
         if !mana.is_empty() && baylee_core::mana::ManaCost::try_parse(&mana).is_err() {
@@ -1361,6 +1387,41 @@ impl Tx<'_> {
             ));
         }
         Some((mana, parts))
+    }
+
+    fn parse_alt_cost_pieces(
+        &mut self,
+        keyword: &str,
+        rest: &str,
+        allow_x: bool,
+        mana_only: bool,
+    ) -> Option<(String, Vec<String>)> {
+        self.parse_cost_pieces_with(
+            keyword,
+            rest,
+            allow_x,
+            mana_only,
+            is_paid_alternative_cost_part,
+        )
+    }
+
+    pub(super) fn optional_permanent_cost_keyword(
+        &mut self,
+        kw: &str,
+        rest: &str,
+        already_set: bool,
+    ) -> Option<String> {
+        if self.type_line.is_empty() || self.is_land_card_type() || self.is_spell_card_type() {
+            return self.deny(format!("`{kw}` on a non-permanent card"));
+        }
+        if already_set {
+            return self.deny(format!("a second `{kw}` on one card"));
+        }
+        let (mana, parts) =
+            self.parse_cost_pieces_with(kw, rest, false, false, is_paid_additional_cost_part)?;
+        let cost = crate::body::cost_literal(&mana, &parts);
+        self.body.notes.push(kw.to_ascii_lowercase());
+        Some(format!("Some({cost})"))
     }
 
     /// `K:Miracle:<cost>` (`CR 702.94a`): mana-only alternative cast cost when
@@ -1460,6 +1521,87 @@ impl Tx<'_> {
         }
         self.body.aftermath = true;
         self.body.notes.push("aftermath".to_string());
+        Some(())
+    }
+
+    pub(super) fn fuse(&mut self) -> Option<()> {
+        if !self.is_split_front {
+            return self.deny("`Fuse` outside the front half of a `Split` card".to_string());
+        }
+        if !super::is_pure_spell_face(self.type_line) {
+            return self.deny("`Fuse` on a non-instant/non-sorcery face".to_string());
+        }
+        if self.body.fuse {
+            return self.deny("a second `Fuse` on one card".to_string());
+        }
+        self.body.fuse = true;
+        self.body.notes.push("fuse".to_string());
+        Some(())
+    }
+
+    pub(super) fn disturb(&mut self, rest: &str) -> Option<()> {
+        if !self.is_double_faced_front {
+            return self
+                .deny("`Disturb` outside the front face of a `DoubleFaced` card".to_string());
+        }
+        if self.type_line.is_empty() || self.is_land_card_type() || self.is_spell_card_type() {
+            return self.deny("`Disturb` on a non-permanent front face".to_string());
+        }
+        if self.body.disturb.is_some() {
+            return self.deny("a second `Disturb` on one card".to_string());
+        }
+        let (mana, _) = self.parse_alt_cost_pieces("Disturb", rest, false, true)?;
+        self.body.disturb = Some(mana);
+        self.body.notes.push("disturb".to_string());
+        Some(())
+    }
+
+    pub(super) fn escape(&mut self, rest: &str) -> Option<()> {
+        if self.type_line.is_empty() || self.is_land_card_type() {
+            return self.deny("`Escape` on a land or untyped card".to_string());
+        }
+        if self.body.escape.is_some() {
+            return self.deny("a second `Escape` on one card".to_string());
+        }
+        if rest.contains(':') {
+            return self.deny(format!("an `Escape` with extra fields `{rest}`"));
+        }
+        let mut mana_tokens = Vec::new();
+        let mut exile_count: Option<u8> = None;
+        for token in super::cost_parts(rest) {
+            if let Some(inner) = token
+                .strip_prefix("ExileFromGrave<")
+                .and_then(|s| s.strip_suffix('>'))
+            {
+                let mut fields = inner.splitn(3, '/');
+                let (Some(count_str), Some(filter_str)) = (fields.next(), fields.next()) else {
+                    return self.deny(format!("malformed `Escape` exile cost `{token}`"));
+                };
+                if filter_str != "Card.Other" {
+                    return self.deny(format!("`Escape` exile filter `{filter_str}`"));
+                }
+                let Ok(n) = count_str.parse::<u8>() else {
+                    return self.deny(format!(
+                        "variable or invalid `Escape` exile count `{count_str}`"
+                    ));
+                };
+                if n == 0 || exile_count.is_some() {
+                    return self.deny(format!("invalid `Escape` exile count `{rest}`"));
+                }
+                exile_count = Some(n);
+            } else {
+                mana_tokens.push(token);
+            }
+        }
+        let Some(exile) = exile_count else {
+            return self.deny(format!("`Escape` without `ExileFromGrave` `{rest}`"));
+        };
+        let mana_raw = mana_tokens.join(" ");
+        let (mana, _) = self.parse_alt_cost_pieces("Escape", &mana_raw, false, true)?;
+        self.body.escape = Some(format!(
+            "Some(Escape {{ cost: mana!(\"{mana}\"), exile: {exile} }})"
+        ));
+        self.body.notes.push("escape".to_string());
         Some(())
     }
 
@@ -1770,14 +1912,28 @@ impl Tx<'_> {
     /// this side takes the printed wording from Scryfall, so it is prose.
     pub(super) fn enchant(&mut self, rest: &str) -> Option<()> {
         let valid = rest.split(':').next().unwrap_or(rest).trim();
-        if matches!(valid, "Player" | "Opponent") {
-            return self.deny(format!("an `Enchant {valid}`, which attaches to no object"));
-        }
-        let expr = self.filter_expr(valid)?;
-        let name = self.body.filter_static("ENCHANT", &expr);
+        let target_spec = match valid {
+            "Player" => "TargetSpec::AnyPlayer".to_string(),
+            "Opponent" | "Player.Opponent" | "Player.OppCtrl" => {
+                "TargetSpec::AnyOpponent".to_string()
+            }
+            "Player.You" | "You" => "TargetSpec::Player(PlayerRel::You)".to_string(),
+            _ if valid.split(',').any(|alt| {
+                let head = alt.split(['.', '+']).next().unwrap_or(alt).trim();
+                matches!(head, "Player" | "Opponent" | "You")
+            }) =>
+            {
+                return self.deny(format!("an `Enchant {valid}` player qualifier"));
+            }
+            _ => {
+                let expr = self.filter_expr(valid)?;
+                let name = self.body.filter_static("ENCHANT", &expr);
+                format!("TargetSpec::Object(&{name})")
+            }
+        };
         self.body.abilities.push(format!(
-            "spell!(&[Effect::AttachSelf {{ target: TargetSpec::Object(&{name}) }}], \
-             targets = Some(TargetReq::one(TargetSpec::Object(&{name}))))"
+            "spell!(&[Effect::AttachSelf {{ target: {target_spec} }}], \
+             targets = Some(TargetReq::one({target_spec})))"
         ));
         Some(())
     }
@@ -2240,6 +2396,12 @@ fn is_paid_alternative_cost_part(part: &str) -> bool {
         || part.starts_with("ExileFromHand(")
         || part.starts_with("Sacrifice(")
         || part.starts_with("ReturnToHand(")
+        || part.starts_with("TapN {")
+}
+
+fn is_paid_additional_cost_part(part: &str) -> bool {
+    is_graveyard_activation_part(part)
+        || part.starts_with("ExileFromHand(")
         || part.starts_with("TapN {")
 }
 

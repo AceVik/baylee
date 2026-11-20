@@ -87,6 +87,17 @@ pub struct CardBody {
     pub jump_start: bool,
     /// `aftermath = true` on the face, when present.
     pub aftermath: bool,
+    /// `disturb` mana expression (e.g. `"{1}{U}"`) on a Disturb card's faces,
+    /// emitted on the back face as `disturb = true` with `mana_cost`.
+    pub disturb: Option<String>,
+    /// `escape = Some(Escape { ... })` expression on the face, when present.
+    pub escape: Option<String>,
+    /// `squad = cost!(...)` expression on the face, when present.
+    pub squad: Option<String>,
+    /// `offspring = cost!(...)` expression on the face, when present.
+    pub offspring: Option<String>,
+    /// Whether `CardDef::fuse` should be emitted (`true`) on this split card.
+    pub fuse: bool,
     /// `cost_reduction` expression for the front face, when present.
     pub cost_reduction: Option<String>,
     /// `entwine` expression for the front face, when present.
@@ -148,6 +159,11 @@ impl CardBody {
             && self.entwine.is_none()
             && self.buyback.is_none()
             && self.multikicker.is_none()
+            && self.disturb.is_none()
+            && self.escape.is_none()
+            && self.squad.is_none()
+            && self.offspring.is_none()
+            && !self.fuse
             && self.additional_costs.is_empty()
             && self.kicked_targets.is_none()
             && self.keywords.is_empty()

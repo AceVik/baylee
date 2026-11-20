@@ -483,6 +483,11 @@ struct Tx<'a> {
     /// Whether the activated cost being read is activated from the hand
     /// (`ActivationZone$ Hand`), allowing self-discard and self-exile costs.
     pub(super) in_hand_activation: bool,
+    /// Whether this face is the front half of a `Split` card (`AlternateMode$ Split`).
+    is_split_front: bool,
+    /// Whether this face is the front face of a `DoubleFaced` transform card
+    /// (`AlternateMode$ DoubleFaced`).
+    is_double_faced_front: bool,
     /// `PT:` line on this face, for single-sided characteristic-defining P/T.
     pt: Option<&'a str>,
     body: CardBody,
@@ -554,6 +559,8 @@ impl<'a> Tx<'a> {
             in_chosen_creature_type: false,
             in_graveyard_activation: false,
             in_hand_activation: false,
+            is_split_front: script.alternate_mode.as_deref() == Some("Split"),
+            is_double_faced_front: script.alternate_mode.as_deref() == Some("DoubleFaced"),
             pt: script.pt.as_deref(),
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
@@ -795,6 +802,67 @@ fn transcode_face(
     Some(tx.body)
 }
 
+/// Whether a face's `Types:` line names only instant/sorcery card types (plus
+/// optional supertypes), matching `CardDef::is_split_spell_card`.
+pub(super) fn is_pure_spell_face(type_line: &str) -> bool {
+    use baylee_core::types::{SupertypeSet, TypeSet};
+
+    let mut has_spell = false;
+    for word in type_line.split_whitespace() {
+        if let Some(t) = TypeSet::from_word(word) {
+            if !matches!(t, TypeSet::INSTANT | TypeSet::SORCERY) {
+                return false;
+            }
+            has_spell = true;
+        } else if SupertypeSet::from_word(word).is_none() {
+            return false;
+        }
+    }
+    has_spell
+}
+
+/// Validates cross-face invariants (`Fuse`, `Disturb`) after both halves of a
+/// two-faced card have been transcoded, returning an honest refusal reason if
+/// invalid and applying any cross-face propagation (e.g. `disturb` mana).
+pub(super) fn finalize_two_face_bodies(
+    mode: &str,
+    script: &CardScript,
+    back_script: &CardScript,
+    front: &CardBody,
+    back: &mut CardBody,
+) -> Option<String> {
+    if front.fuse {
+        if mode != "Split" || front.aftermath || back.aftermath || back.fuse {
+            return Some(
+                "`Fuse` combined with non-split or incompatible aftermath halves".to_string(),
+            );
+        }
+        if !is_pure_spell_face(&script.type_line) || !is_pure_spell_face(&back_script.type_line) {
+            return Some("`Fuse` on a split card with non-instant/non-sorcery half".to_string());
+        }
+    }
+    if let Some(disturb) = front.disturb.clone() {
+        let back_has_exile = back
+            .abilities
+            .iter()
+            .any(|a| a.contains("ReplacementRule::ExileSelfInsteadOfGraveyard"));
+        let back_is_permanent = !back_script.type_line.is_empty()
+            && !back_script
+                .type_line
+                .split_whitespace()
+                .any(|w| matches!(w, "Land" | "Instant" | "Sorcery"));
+        if mode != "DoubleFaced" || back.disturb.is_some() || !back_has_exile || !back_is_permanent
+        {
+            return Some(
+                "`Disturb` whose back face is not a non-land permanent with exile replacement"
+                    .to_string(),
+            );
+        }
+        back.disturb = Some(disturb);
+    }
+    None
+}
+
 /// Reads a whole card script, or refuses it.
 ///
 /// # Errors
@@ -831,6 +899,9 @@ pub fn transcode(
     let statics = std::mem::take(&mut front.statics);
     let mut back = transcode_face(back_script, cats, tokens, statics, true)?;
     front.statics = std::mem::take(&mut back.statics);
+    if finalize_two_face_bodies(mode, script, back_script, &front, &mut back).is_some() {
+        return None;
+    }
     if !front.has_own_rules() && !back.has_own_rules() {
         return None;
     }
