@@ -23,6 +23,7 @@ never a reason to edit a card by hand.
   - Opalescence: `AddType$ Creature` with mana-value P/T is read as `Modifier::AnimateNoncreatureArtifact`, which also adds the artifact type (`scriptgen/statics.rs::pt_modifiers`; right only for artifacts). The card now uses `Modifier::CreatureWithManaValuePT`, which that rule could emit for a non-artifact filter.
   - Mercenary Informer: "target nontoken Mercenary" loses "nontoken" (the script's valid-string carries none; nothing holds the printed word against `Filter::IsToken`).
 - Sarkhan's Dragonfire (corpus gap, found in the review of the Dig reader, 19.11.2026): its card prints "the rest on the bottom of your library in a random order", and the reference script's dig line carries no random order, so the reader writes `LookAtTopFind { …, random: false }`, an order the player chooses. Leave it out until the script says so.
+- Diviner's Wand: its dual-grant sentence (`Equipped creature has "..." and "{4}: Draw a card."`) leaves both `GrantActivated` and `GrantTriggeredDefinition` without printed lines in `generated_lines.rs` (`lines::tests::every_grant_is_found_on_its_own_face`).
 
 ## Engine gaps
 
