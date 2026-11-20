@@ -31,7 +31,9 @@ fn enforced_keywords_and_parameterized_keywords_lower_cleanly() {
     let ward = read("Name:W\nTypes:Creature\nPT:2/2\nK:Ward:2");
     assert_eq!(ward.abilities, ["AbilityDef::Ward { mana: 2 }"]);
     assert!(refused("Name:W\nTypes:Creature\nPT:2/2\nK:Ward:11"));
-    assert!(refused("Name:W\nTypes:Creature\nPT:2/2\nK:Ward:PayLife<3>"));
+    assert!(refused(
+        "Name:W\nTypes:Creature\nPT:2/2\nK:Ward:Waterbend<4>"
+    ));
 
     let crew = read("Name:V\nTypes:Artifact Vehicle\nPT:4/4\nK:Crew:3");
     assert_eq!(crew.abilities, ["crew!(3)"]);
@@ -46,7 +48,7 @@ fn enforced_keywords_and_parameterized_keywords_lower_cleanly() {
     let partner = read("Name:P\nTypes:Legendary Creature\nPT:2/2\nK:Partner");
     assert!(partner.has_partner);
     assert!(refused(
-        "Name:P\nTypes:Legendary Creature\nPT:2/2\nK:Partner with:Other"
+        "Name:P\nTypes:Legendary Creature\nPT:2/2\nK:Partner:Character select"
     ));
 
     let engines = read("Name:E\nTypes:Artifact\nK:Start your engines!");

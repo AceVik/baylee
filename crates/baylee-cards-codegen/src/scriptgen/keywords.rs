@@ -65,7 +65,10 @@ impl Tx<'_> {
             return self.chapter(rest);
         }
         if let Some(rest) = line.strip_prefix("Ward:") {
-            return self.ward(rest);
+            return match self.try_extra_ward(rest) {
+                super::saga_ward_convoke::ExtraOutcome::Handled(res) => res,
+                super::saga_ward_convoke::ExtraOutcome::Pass => self.ward(rest),
+            };
         }
         if let Some(rest) = line.strip_prefix("Crew:") {
             return self.crew(rest);
@@ -89,6 +92,9 @@ impl Tx<'_> {
         if let Some(entry) = self.kicked_etb_counter(line) {
             self.body.enter_modifiers.push(entry);
             return Some(());
+        }
+        if let super::saga_ward_convoke::ExtraOutcome::Handled(res) = self.try_extra_keyword(line) {
+            return res;
         }
         if let Some(rest) = line.strip_prefix("ETBReplacement:") {
             return self.etb_replacement(rest);
@@ -1077,8 +1083,14 @@ impl Tx<'_> {
             'A' => self.activated_or_spell(spec),
             'T' => self.triggered(spec),
             'S' if self.is_ai_only_static(spec) => Some(()),
-            'S' => self.static_ability(spec),
-            'R' => self.replacement(spec),
+            'S' => match self.try_extra_static(spec) {
+                super::saga_ward_convoke::ExtraOutcome::Handled(res) => res,
+                super::saga_ward_convoke::ExtraOutcome::Pass => self.static_ability(spec),
+            },
+            'R' => match self.try_extra_replacement(spec) {
+                super::saga_ward_convoke::ExtraOutcome::Handled(res) => res,
+                super::saga_ward_convoke::ExtraOutcome::Pass => self.replacement(spec),
+            },
             other => self.deny(format!("rules line kind `{other}:`")),
         }
     }

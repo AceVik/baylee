@@ -17,6 +17,7 @@ mod kicker;
 mod prevention_rules;
 mod reader_unlocks;
 mod reading;
+mod saga_ward_convoke;
 mod static_supertypes;
 mod tokens_and_zones;
 

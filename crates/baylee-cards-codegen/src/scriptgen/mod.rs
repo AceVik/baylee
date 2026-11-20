@@ -60,6 +60,7 @@ mod prevention;
 mod protection52;
 mod regeneration;
 mod riftstone_portal;
+mod saga_ward_convoke;
 mod song52;
 mod statics;
 mod support;
@@ -89,6 +90,9 @@ pub struct CardScript {
     /// Whether the type line explicitly names Room (CR 709.5 split rooms use
     /// card-level concatenated door abilities and `UnlockDoor`).
     pub is_room: bool,
+    /// Verbatim `Types:` header, used for card-type keyword guards (e.g.
+    /// `Suspend` haste/timing restrictions and permanent-only keywords).
+    pub type_line: String,
     /// Whether the `ManaCost:` line contains a variable `X`.
     pub has_x_mana_cost: bool,
     /// `Oracle:` line, when present, for cross-checking target player vs. opponent.
@@ -162,6 +166,7 @@ fn parse_face(lines: &[&str]) -> CardScript {
             "Types" => {
                 out.is_land = rest.split_whitespace().any(|word| word == "Land");
                 out.is_room = rest.split_whitespace().any(|word| word == "Room");
+                out.type_line = rest.to_string();
             }
             "ManaCost" => out.has_x_mana_cost = rest.split_whitespace().any(|word| word == "X"),
             "Oracle" => out.oracle = rest.to_string(),
@@ -371,6 +376,7 @@ struct BlockHalf {
 struct Tx<'a> {
     svars: &'a BTreeMap<String, String>,
     oracle: &'a str,
+    type_line: &'a str,
     cats: &'a SubtypeCatalogs,
     /// The reference's token scripts, when a checkout is at hand. `None` is
     /// a run with no token corpus and not a gap in the DSL, which is why the
@@ -412,6 +418,8 @@ struct Tx<'a> {
     cost_sacrifices_other: bool,
     /// Whether the script's `ManaCost:` line contains a variable `X`.
     has_x_mana_cost: bool,
+    /// Whether the script carries `K:Flash`, for timing-sensitive keyword guards.
+    has_flash: bool,
     /// Whether the script declares exactly one single-cost `K:Kicker:` line
     /// (no dual kicker and no `K:Multikicker:`), so `times_kicked` is strictly
     /// 0 or 1.
@@ -498,6 +506,7 @@ impl<'a> Tx<'a> {
         Self {
             svars: &script.svars,
             oracle: &script.oracle,
+            type_line: &script.type_line,
             cats,
             tokens,
             has_x: false,
@@ -509,6 +518,7 @@ impl<'a> Tx<'a> {
             cost_sacrifices_self: false,
             cost_sacrifices_other: false,
             has_x_mana_cost: script.has_x_mana_cost,
+            has_flash: script.keywords.iter().any(|k| k.trim() == "Flash"),
             has_single_kicker: !multi_or_dual && single_kickers == 1,
             dual_kicker_remap: None,
             trigger_is_self: false,
