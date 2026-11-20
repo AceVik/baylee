@@ -282,6 +282,10 @@ impl Tx<'_> {
         if def.trim() == "Sacrificed$CardManaCost" && self.cost_sacrifices_other {
             return Some("Amount::SacrificedManaValue".to_string());
         }
+        if let Some(kind) = def.trim().strip_prefix("Count$CardCounters.") {
+            return super::counter_kind(kind)
+                .map(|kind| format!("Amount::CountersOnSource({kind})"));
+        }
         if def.trim() == "Count$ValidGraveyard Card.YouOwn" {
             return Some(
                 "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::GraveyardOf(PlayerRel::You) }"

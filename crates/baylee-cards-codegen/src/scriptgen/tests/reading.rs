@@ -1954,3 +1954,77 @@ fn silkenfist_skyshroud_claim_stronghold_biologist_discipline_viseling_and_wande
         gustcloak.abilities
     );
 }
+
+#[test]
+fn amplify_keyword_multiple_instances_and_ghastly_remains_graveyard_upkeep_lower_cleanly() {
+    let simple =
+        read("Name:Glowering Rogon\nManaCost:5 G\nTypes:Creature Beast\nPT:4/4\nK:Amplify:1");
+    assert_eq!(simple.enter_modifiers, ["EnterModifier::Amplify(1)"]);
+    assert!(simple.abilities.is_empty());
+
+    let duplicate = read(
+        "Name:Double Amplify\nManaCost:3 G\nTypes:Creature Beast\nPT:2/2\n\
+         K:Amplify:1\nK:Amplify:3",
+    );
+    assert_eq!(
+        duplicate.enter_modifiers,
+        ["EnterModifier::Amplify(1)", "EnterModifier::Amplify(3)"]
+    );
+
+    assert!(refused(
+        "Name:Bad Zero\nManaCost:1 G\nTypes:Creature Beast\nPT:1/1\nK:Amplify:0"
+    ));
+    assert!(refused(
+        "Name:Bad Extra\nManaCost:1 G\nTypes:Creature Beast\nPT:1/1\nK:Amplify:1:Extra"
+    ));
+
+    let brawler = read(
+        "Name:Embalmed Brawler\nManaCost:2 B\nTypes:Creature Zombie\nPT:2/2\nK:Amplify:1\n\
+         T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigLoseLife\n\
+         T:Mode$ Blocks | ValidCard$ Card.Self | Execute$ TrigLoseLife | Secondary$ True\n\
+         SVar:TrigLoseLife:DB$ LoseLife | Defined$ You | LifeAmount$ X\n\
+         SVar:X:Count$CardCounters.P1P1",
+    );
+    assert_eq!(brawler.enter_modifiers, ["EnterModifier::Amplify(1)"]);
+    assert_eq!(
+        brawler.abilities,
+        [
+            "triggered!(Trigger::Attacks(&Filter::This), &[Effect::LoseLife { amount: Amount::CountersOnSource(CounterKind::P1P1), target: PlayerRel::You }])",
+            "triggered!(Trigger::Blocks(&Filter::This), &[Effect::LoseLife { amount: Amount::CountersOnSource(CounterKind::P1P1), target: PlayerRel::You }])",
+        ]
+    );
+
+    let remains = read(
+        "Name:Ghastly Remains\nManaCost:B B B\nTypes:Creature Zombie\nPT:0/0\nK:Amplify:1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | IsPresent$ Card.StrictlySelf | \
+         PresentZone$ Graveyard | PresentPlayer$ You | TriggerZones$ Graveyard | \
+         OptionalDecider$ You | Execute$ TrigReturn\n\
+         SVar:TrigReturn:AB$ ChangeZone | Cost$ B B B | Defined$ Self | Origin$ Graveyard | Destination$ Hand",
+    );
+    assert_eq!(remains.enter_modifiers, ["EnterModifier::Amplify(1)"]);
+    assert_eq!(
+        remains.abilities,
+        [
+            "triggered!(Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::You }, \
+             &[Effect::PlayerMayPayManaThen { player: PlayerRel::You, cost: mana!(\"{B}{B}{B}\"), \
+             effects: &[Effect::bounce(TargetSpec::ThisObject)] }], \
+             zone = TriggerZone::Graveyard, \
+             condition = Some(Condition::SourceMatches(&Filter::InZone(ZoneRef::Graveyard))))"
+        ]
+    );
+
+    let crawler = read(
+        "Name:Canopy Crawler\nManaCost:3 G\nTypes:Creature Beast\nPT:2/2\nK:Amplify:1\n\
+         A:AB$ Pump | Cost$ T | ValidTgts$ Creature | NumAtt$ +X | NumDef$ +X\n\
+         SVar:X:Count$CardCounters.P1P1",
+    );
+    assert_eq!(crawler.enter_modifiers, ["EnterModifier::Amplify(1)"]);
+    assert_eq!(
+        crawler.abilities,
+        ["activated!(Cost::TAP, &[Effect::PumpTarget { \
+             power: Amount::CountersOnSource(CounterKind::P1P1), \
+             toughness: Amount::CountersOnSource(CounterKind::P1P1), \
+             keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }], \
+             target = Some(TargetSpec::Object(&Filter::CREATURE)))"]
+    );
+}

@@ -51,6 +51,9 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Fading:") {
             return self.fading(rest);
         }
+        if let Some(rest) = line.strip_prefix("Amplify:") {
+            return self.amplify(rest);
+        }
         if let Some(rest) = line.strip_prefix("Flashback:") {
             return self.flashback(rest);
         }
@@ -314,6 +317,29 @@ impl Tx<'_> {
              otherwise: &[Effect::SacrificeSelf] }])"
                 .to_string(),
         );
+        Some(())
+    }
+
+    /// `K:Amplify:<n>` (CR 702.38a, CR 702.38b): as this object enters, reveal
+    /// any number of cards from your hand that share a creature type with it;
+    /// it enters with `n` +1/+1 counters on it for each card revealed. Each
+    /// keyword line emits its own `EnterModifier::Amplify(n)` so multiple
+    /// instances work separately.
+    pub(super) fn amplify(&mut self, rest: &str) -> Option<()> {
+        let mut fields = rest.split(':');
+        let raw = fields.next()?.trim();
+        if fields.next().is_some() {
+            return self.deny(format!("amplify `{rest}`"));
+        }
+        let Ok(n) = raw.parse::<u8>() else {
+            return self.deny(format!("amplify `{raw}`"));
+        };
+        if n == 0 {
+            return self.deny("amplify `0`".to_string());
+        }
+        self.body
+            .enter_modifiers
+            .push(format!("EnterModifier::Amplify({n})"));
         Some(())
     }
 

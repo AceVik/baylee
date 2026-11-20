@@ -673,6 +673,14 @@ impl Tx<'_> {
         let compare = p
             .take("PresentCompare")
             .unwrap_or_else(|| "GE1".to_string());
+        if matches!(valid, "Card.StrictlySelf" | "Card.Self") {
+            if compare != "GE1" {
+                return self.deny(format!("a graveyard self clause compared `{compare}`"));
+            }
+            return Some(
+                "Condition::SourceMatches(&Filter::InZone(ZoneRef::Graveyard))".to_string(),
+            );
+        }
         let Some(Bound::AtLeast(n)) = count_bound(&compare) else {
             return self.deny(format!("`PresentCompare$ {compare}`"));
         };
