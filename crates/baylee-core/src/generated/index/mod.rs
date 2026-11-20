@@ -3,7 +3,7 @@
 
 //! Every card's `CardIndex`, under the constant the ledger froze for it.
 //!
-//! 33694 cards across 382 sets, each filed under the set it first
+//! 34240 cards across 388 sets, each filed under the set it first
 //! appeared in. The modules are private and globbed back out here, so a
 //! caller writes `index::LIGHTNING_BOLT` and never learns which set that
 //! was — which is the point, because the set is a fact about the ledger
@@ -163,6 +163,8 @@ mod set_mat;
 mod set_mb2;
 mod set_mbc;
 mod set_mbs;
+mod set_mdc;
+mod set_mdd;
 mod set_med;
 mod set_mgb;
 mod set_mh1;
@@ -183,6 +185,8 @@ mod set_mrd;
 mod set_msc;
 mod set_msh;
 mod set_mul;
+mod set_nac;
+mod set_nau;
 mod set_ncc;
 mod set_nec;
 mod set_nem;
@@ -334,6 +338,7 @@ mod set_rtr;
 mod set_s99;
 mod set_scg;
 mod set_shm;
+mod set_slc;
 mod set_sld;
 mod set_snc;
 mod set_soc;
@@ -385,6 +390,7 @@ mod set_ydmu;
 mod set_ydsk;
 mod set_yecl;
 mod set_yeoe;
+mod set_yfra;
 mod set_ylci;
 mod set_ymid;
 mod set_ymkm;
@@ -546,6 +552,8 @@ pub use set_mat::*;
 pub use set_mb2::*;
 pub use set_mbc::*;
 pub use set_mbs::*;
+pub use set_mdc::*;
+pub use set_mdd::*;
 pub use set_med::*;
 pub use set_mgb::*;
 pub use set_mh1::*;
@@ -566,6 +574,8 @@ pub use set_mrd::*;
 pub use set_msc::*;
 pub use set_msh::*;
 pub use set_mul::*;
+pub use set_nac::*;
+pub use set_nau::*;
 pub use set_ncc::*;
 pub use set_nec::*;
 pub use set_nem::*;
@@ -717,6 +727,7 @@ pub use set_rtr::*;
 pub use set_s99::*;
 pub use set_scg::*;
 pub use set_shm::*;
+pub use set_slc::*;
 pub use set_sld::*;
 pub use set_snc::*;
 pub use set_soc::*;
@@ -768,6 +779,7 @@ pub use set_ydmu::*;
 pub use set_ydsk::*;
 pub use set_yecl::*;
 pub use set_yeoe::*;
+pub use set_yfra::*;
 pub use set_ylci::*;
 pub use set_ymid::*;
 pub use set_ymkm::*;
@@ -935,6 +947,8 @@ mod door {
         assert_eq!(super::A_GIRL_AND_HER_DOGS.get(), 28546, "mb2");
         assert_eq!(super::ARZAKON.get(), 33527, "mbc");
         assert_eq!(super::ACCORDER_PALADIN.get(), 11496, "mbs");
+        assert_eq!(super::GARGANTOS_THE_ENDBRINGER.get(), 34232, "mdc");
+        assert_eq!(super::HELA_S_ARCANUM.get(), 34233, "mdd");
         assert_eq!(super::DOMRI_CHAOS_BRINGER.get(), 18429, "med");
         assert_eq!(super::BULL_ELEPHANT.get(), 1909, "mgb");
         assert_eq!(super::ABOMINABLE_TREEFOLK.get(), 18862, "mh1");
@@ -955,6 +969,8 @@ mod door {
         assert_eq!(super::A_I_M_BOT.get(), 32506, "msc");
         assert_eq!(super::A_I_M_LABS.get(), 32507, "msh");
         assert_eq!(super::A_RADHA_COALITION_WARLORD.get(), 25429, "mul");
+        assert_eq!(super::THE_IGNOBLE_SERPENT.get(), 34223, "nac");
+        assert_eq!(super::ABYSSAL_LOTUS.get(), 34225, "nau");
         assert_eq!(super::AERIAL_EXTORTIONIST.get(), 23104, "ncc");
         assert_eq!(super::ACCESS_DENIED.get(), 22720, "nec");
         assert_eq!(super::ACCUMULATED_KNOWLEDGE.get(), 4204, "nem");
@@ -1106,6 +1122,7 @@ mod door {
         assert_eq!(super::ANGEL_OF_LIGHT.get(), 3867, "s99");
         assert_eq!(super::ACCELERATED_MUTATION.get(), 6239, "scg");
         assert_eq!(super::ADVICE_FROM_THE_FAE.get(), 9412, "shm");
+        assert_eq!(super::BETA_RAY_BILL.get(), 33857, "slc");
         assert_eq!(super::ENKIRA_HOSTILE_SCAVENGER.get(), 20614, "sld");
         assert_eq!(super::A_LITTLE_CHAT.get(), 23103, "snc");
         assert_eq!(super::ABSTRACT_PERFORMANCE.get(), 32160, "soc");
@@ -1157,6 +1174,7 @@ mod door {
         assert_eq!(super::ANGUISHED_RECOLLECTION.get(), 29335, "ydsk");
         assert_eq!(super::ADAPTIVE_ARMORER.get(), 31868, "yecl");
         assert_eq!(super::AMBASSADOR_OF_EVENDO.get(), 30897, "yeoe");
+        assert_eq!(super::ASYMMETRY_SAGE.get(), 33825, "yfra");
         assert_eq!(super::BRAZEN_BOARDING.get(), 27157, "ylci");
         assert_eq!(super::ABSORB_ENERGY.get(), 22647, "ymid");
         assert_eq!(super::CACKLING_OBSERVER.get(), 27585, "ymkm");
