@@ -18,7 +18,7 @@
 //!
 //! [`SearchConfig4::with_macros`]: super::SearchConfig4::with_macros
 
-use baylee_core::ids::ObjectId;
+use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_engine::choice::LegalActions;
 use baylee_engine::engine::ForkRefusal;
 use baylee_view::{CardIdentity, Phase};
