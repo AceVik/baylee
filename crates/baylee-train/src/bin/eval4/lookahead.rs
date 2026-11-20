@@ -172,7 +172,7 @@ impl SearchTally {
 /// their means, paired improvements and standard errors, priors, selection
 /// scores, the choice and what the stall guard set aside.
 fn event(table: &Session, view: &PlayerView, answer: &Answer4, report: &SearchReport4) -> Value {
-    json!({
+    let mut event = json!({
         "decision_seq": table.decision_seq(),
         "record_byte_offset": table.record_pending(),
         "seat": view.seat.get(),
@@ -196,7 +196,11 @@ fn event(table: &Session, view: &PlayerView, answer: &Answer4, report: &SearchRe
         "ends": report.ends,
         "own_intents": report.own_intents,
         "taken_back": report.taken_back,
-    })
+    });
+    if let Some(plans) = &report.planned_actions {
+        event["planned_actions"] = json!(plans);
+    }
+    event
 }
 
 /// One game's search: its budgets, its seed, its counts and what each

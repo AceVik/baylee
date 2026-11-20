@@ -660,7 +660,12 @@ struct Tally {
 }
 
 impl Tally {
-    fn new(candidates: &[Candidate4], particles: usize, parallel: bool) -> Self {
+    fn new(
+        candidates: &[Candidate4],
+        particles: usize,
+        parallel: bool,
+        record_plans: bool,
+    ) -> Self {
         Self {
             candidates: candidates.len(),
             report: SearchReport4 {
@@ -674,6 +679,17 @@ impl Tally {
                     .iter()
                     .map(|c| c.script.as_ref().map(|s| s.then().clone()))
                     .collect(),
+                planned_actions: record_plans.then(|| {
+                    candidates
+                        .iter()
+                        .map(|candidate| {
+                            candidate
+                                .script
+                                .as_ref()
+                                .map(|s| s.planned_actions(&candidate.root.action))
+                        })
+                        .collect()
+                }),
                 rounds: 0,
                 chosen: 0,
                 changed: false,
@@ -793,7 +809,12 @@ impl<S> Rounds<'_, S> {
                 "the rollouts are another net's, and the player lends no rollout player"
             )));
         }
-        let mut tally = Tally::new(self.candidates, config.particles(), parallel);
+        let mut tally = Tally::new(
+            self.candidates,
+            config.particles(),
+            parallel,
+            config.payable_pair,
+        );
         let start = Start {
             view: self.view,
             teams: self.teams,

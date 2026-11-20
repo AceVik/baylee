@@ -207,12 +207,67 @@ pub(super) fn playable<T: ForkSource4>(
     limit: usize,
     seed: u64,
 ) -> Result<Vec<Candidate4>, ForkRefusal> {
-    let seat = view.seat;
+    check_candidates(
+        table,
+        context,
+        view.seat,
+        candidates(view, pending, decision, limit),
+        seed,
+    )
+}
+
+/// Choose both spell identities before probing any world. A refused plan
+/// makes the root ineligible and does not promote a third spell.
+pub(super) fn payable_pair<T: ForkSource4>(
+    table: &T,
+    context: ViewContext4,
+    view: &PlayerView,
+    pending: &Pending,
+    decision: &RootDecision4,
+    seed: u64,
+) -> Result<Vec<Candidate4>, ForkRefusal> {
+    let mut available = candidates(view, pending, decision, usize::MAX).into_iter();
+    let Some(anchor) = available.next() else {
+        return Ok(Vec::new());
+    };
+    let mut chosen = vec![anchor];
+    let mut identities = Vec::new();
+    for candidate in available {
+        let Some(PlayerAction::CastSpell { card }) = candidate.script.as_ref().map(Script4::then)
+        else {
+            continue;
+        };
+        let Some(identity) = lookup_card_identity(view, *card) else {
+            continue;
+        };
+        if !identities.contains(&identity) {
+            identities.push(identity);
+            chosen.push(candidate);
+        }
+        if chosen.len() == 3 {
+            break;
+        }
+    }
+    if chosen.len() != 3 {
+        return Ok(Vec::new());
+    }
+    let checked = check_candidates(table, context, view.seat, chosen, seed)?;
+    Ok(if checked.len() == 3 {
+        checked
+    } else {
+        Vec::new()
+    })
+}
+
+fn check_candidates<T: ForkSource4>(
+    table: &T,
+    context: ViewContext4,
+    seat: PlayerId,
+    candidates: Vec<Candidate4>,
+    seed: u64,
+) -> Result<Vec<Candidate4>, ForkRefusal> {
     let mut out = Vec::new();
-    for (at, candidate) in candidates(view, pending, decision, limit)
-        .into_iter()
-        .enumerate()
-    {
+    for (at, candidate) in candidates.into_iter().enumerate() {
         // The policy's own answer is the table's to refuse, as in play.
         if at > 0 {
             let mut probe = world(table, seat, seed)?;
