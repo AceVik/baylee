@@ -406,6 +406,7 @@ pub(super) fn exec_immediate(
         | Effect::ReturnAllOwnedToHand { .. }
         | Effect::DestroyAllWithManaValue { .. }
         | Effect::DestroyAll { .. }
+        | Effect::DestroyAllOf { .. }
         | Effect::ExileAll { .. }
         | Effect::ChooseYoursThen { .. }
         | Effect::DestroyOthersNamedLike { .. }
@@ -425,6 +426,7 @@ pub(super) fn exec_immediate(
         | Effect::PutSourceFromHandOntoBattlefield
         | Effect::ShuffleTargetsIntoOwnersLibraries
         | Effect::ShuffleGraveyardIntoLibrary
+        | Effect::ShuffleGraveyardMatchingIntoLibrary { .. }
         | Effect::PhaseOut { .. }
         | Effect::PhaseOutUntilSourceLeaves { .. }
         | Effect::PhaseOutFilter(_)
@@ -644,7 +646,12 @@ pub(super) fn exec_immediate(
         } => {
             if let Some(player) = players_of(player, state, you, res).first().copied() {
                 search::reveal_until_matching(
-                    state, player, res.source, filter, matched, otherwise,
+                    state,
+                    player,
+                    res.rule_context(),
+                    filter,
+                    matched,
+                    otherwise,
                 );
             }
             None
@@ -970,6 +977,14 @@ pub(super) fn exec_immediate(
         } => Some(landwalk::choose(
             state, res, target, basic_only, lands, duration,
         )),
+        Effect::BecomeChosenCreatureType {
+            filter,
+            additive,
+            duration,
+        } => {
+            super::creature_type::become_chosen(state, res, filter, additive, duration);
+            None
+        }
         Effect::AtNextUpkeep { effects } => {
             state.delayed.push(crate::state::DelayedTrigger {
                 controller: you,
@@ -2272,7 +2287,7 @@ pub(super) fn exec_immediate(
             })
         }
         Effect::RevealUntil { filter, found } => {
-            reveal_until(state, you, res.source, filter, found);
+            reveal_until(state, you, res.rule_context(), filter, found);
             None
         }
         // "You may cast that card": the first target, still where it was
@@ -3345,6 +3360,7 @@ pub(super) fn exec_immediate(
         | Effect::ChooseOne { .. }
         | Effect::MayBehold { .. }
         | Effect::ChooseCardName { .. }
+        | Effect::ChooseCreatureType { .. }
         | Effect::GuessChosenNameInHand { .. }
         | Effect::RevealHandForGuess
         | Effect::DrawIfGuessWrong

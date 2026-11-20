@@ -121,6 +121,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::SetLandTypeToChosen
         | Modifier::SetLandTypeToSecondChosen
         | Modifier::AddChosenBasicLandType
+        | Modifier::AddChosenSubtype
         | Modifier::BecomeType { .. }
         | Modifier::AddColor(_)
         | Modifier::SetColor(_)
@@ -1217,6 +1218,7 @@ pub(crate) fn matches_filter(
                 source: fx.source.unwrap_or(obj.id),
                 text: state.effect_text(fx),
                 resolved_name: None,
+                resolved_subtype: None,
                 reference: None,
             },
         ),
@@ -1231,6 +1233,7 @@ pub(crate) fn matches_filter(
                         source: fx.source.unwrap_or(obj.id),
                         text: state.effect_text(fx),
                         resolved_name: None,
+                        resolved_subtype: None,
                         reference: None,
                     },
                 )
@@ -1244,6 +1247,7 @@ pub(crate) fn matches_filter(
                 source: fx.source.unwrap_or(obj.id),
                 text: state.effect_text(fx),
                 resolved_name: None,
+                resolved_subtype: None,
                 reference: still_the_object(state, *id, *version),
             },
         ),
@@ -1644,6 +1648,7 @@ mod tests {
             Modifier::SetLandTypeToChosen,
             Modifier::SetLandTypeToSecondChosen,
             Modifier::AddChosenBasicLandType,
+            Modifier::AddChosenSubtype,
             Modifier::BecomeType {
                 types: TypeSet::CREATURE,
                 subtype: SubtypeId::new(1),
@@ -1972,7 +1977,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            200,
+            201,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2074,7 +2079,8 @@ mod tests {
         // LookAtLibraryTop, PlayFromLibraryTopForManaValueLife, WardDoesntTrigger,
         // and CanBeTargetedAsThoughNoHexproof
         // are three more rules-only modifiers.
-        assert_eq!((locking, all.len() - locking), (55, 145));
+        // AddChosenSubtype is Layer 4 (characteristics, +1 locking -> 56).
+        assert_eq!((locking, all.len() - locking), (56, 145));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

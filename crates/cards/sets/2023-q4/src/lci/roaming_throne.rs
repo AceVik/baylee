@@ -33,6 +33,7 @@ card!(
     coverage = Coverage::Implemented,
     abilities = &[
         AbilityDef::Ward { mana: 2 },
+        static_ability!(Filter::This, Modifier::AddChosenSubtype),
         AbilityDef::Replacement(ReplacementRule::TriggerMultiplier {
             source_filter: &OTHER_CHOSEN_TYPE_CREATURE_YOU_CONTROL,
             event: TriggerEventKind::Any,

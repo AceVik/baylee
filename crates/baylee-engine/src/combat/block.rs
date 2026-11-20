@@ -132,6 +132,7 @@ fn landwalk_prevents_blocking(state: &GameState, a: &GameObject, defending: Play
                                         source: fx.source.unwrap_or(attacker),
                                         text: state.effect_text(fx),
                                         resolved_name: None,
+                                        resolved_subtype: None,
                                         reference: None,
                                     },
                                 )

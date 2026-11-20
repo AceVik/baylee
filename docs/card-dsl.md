@@ -5181,3 +5181,39 @@ These are rules modifiers, not layer effects with a locked object set. Spell
 costs are evaluated against the projected stack object and activation costs
 against the projected source. Both use the ordinary `CostSacrifice` choice and
 the complete announced price survives payment windows and continuations.
+
+### Creature-type choices (as-enters and on resolution)
+
+`Modifier::AddChosenSubtype` (Layer 4, locks its set) adds the source
+permanent's entry-chosen creature type (`EnterModifier::ChooseSubtype`,
+CR 205.1b, CR 614.12a) in addition to its other types, rather than mutating
+copiable base characteristics (CR 707.2). Permanents with
+`EnterModifier::ChooseSubtype` alone (such as Brass Herald) remember the chosen
+type for `Filter::MatchesChosenTypeOfSource` without gaining the subtype
+themselves; permanents that also become that type (such as Roaming Throne)
+carry `static_ability!(Filter::This, Modifier::AddChosenSubtype)`.
+`EnterModifier::ChooseSubtype` offers `ALL_CREATURE_TYPES` (CR 205.3m).
+
+`Effect::ChooseCreatureType { exclude }` asks the resolving controller to
+choose a creature type during spell or ability resolution via
+`Pending::ChooseSubtype` (CR 205.3m, CR 608.2d), optionally excluding one
+subtype (such as `Wall`). The choice is stored on the resolution's
+`SubjectContext`, exposed through `RuleContext::resolved_subtype` (taking
+precedence over `source.chosen_subtype` and surviving source departure under
+CR 113.7a), and is unaffected by text-changing effects (CR 612.1, CR 612.3).
+`Effect::BecomeChosenCreatureType { filter, additive, duration }` registers a
+Layer 4 `Modifier::ReplaceCreatureTypes` (or `Modifier::AddSubtype` when
+`additive` is true) continuous effect for that chosen subtype, locking its
+affected set at resolution (CR 611.2c) and handling `Filter::This` (target or
+untargeted source), `Filter::AttachedToBySource` (including last-known
+attachment), and broader creature filters.
+
+`Effect::DestroyAllOf { who, filter, no_regen }` destroys all battlefield
+permanents matching `filter` controlled by `who`, evaluated under the
+resolution's full rule context (Tsabo's Decree).
+`Effect::ShuffleGraveyardMatchingIntoLibrary { who, filter }` shuffles all
+matching cards from `who`'s graveyard into their library, honoring CR 903.9b
+commander replacements and always shuffling `who`'s library (Elvish Soultiller).
+`Condition::ControlMoreThanEachOtherPlayer(&Filter)` holds when the controller
+controls strictly more matching permanents than every other still-in-game
+player (Peer Pressure).

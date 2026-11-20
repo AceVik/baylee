@@ -60,6 +60,7 @@ pub(super) fn exec_choice(
                 excluded_types,
             })
         }
+        Effect::ChooseCreatureType { exclude } => Some(super::creature_type::choose(res, exclude)),
         Effect::GuessChosenNameInHand { who, guesser } => {
             let hand_owner = players_of(who, state, you, res).first().copied()?;
             let guesser = players_of(guesser, state, you, res).first().copied()?;

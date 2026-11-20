@@ -523,7 +523,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let options = match modifier {
             EnterModifier::ChooseBasicLandType => vec![PLAINS, ISLAND, SWAMP, MOUNTAIN, FOREST],
             EnterModifier::ChooseSubtypeFrom(types) => types.to_vec(),
-            _ => (0..=349).map(baylee_core::ids::SubtypeId::new).collect(),
+            // CR 205.3m: every valid creature subtype, never non-creature subtypes.
+            _ => baylee_core::generated::subtypes::ALL_CREATURE_TYPES
+                .iter()
+                .collect(),
         };
         self.pending_plan = Some(PlanKind::ChooseSubtype { object: id });
         self.pending = Pending::ChooseSubtype {

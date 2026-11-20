@@ -500,6 +500,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         Effect::ShuffleLibrary { .. }
         | Effect::ShuffleIntoLibrary { .. }
         | Effect::ShuffleGraveyardIntoLibrary
+        | Effect::ShuffleGraveyardMatchingIntoLibrary { .. }
         | Effect::ShuffleTargetsIntoOwnersLibraries => facts.deeds.add(Deeds::SHUFFLES),
         Effect::Mill { amount, target } => {
             facts.reads.add(counted(amount));
@@ -516,6 +517,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         Effect::ChooseOne { .. }
         | Effect::ChooseNumber { .. }
         | Effect::ChooseCardName { .. }
+        | Effect::ChooseCreatureType { .. }
         | Effect::ChooseColors { .. }
         | Effect::DiscardCount { .. }
         | Effect::DiscardMatching { .. }
@@ -548,6 +550,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         // What is taken away.
         Effect::Destroy { .. }
         | Effect::DestroyAll { .. }
+        | Effect::DestroyAllOf { .. }
         | Effect::DestroyAllExceptChosen { .. }
         | Effect::DestroyAllWithManaValue { .. }
         | Effect::DestroyRandom { .. }

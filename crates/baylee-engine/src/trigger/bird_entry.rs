@@ -32,6 +32,7 @@ fn matching_event<'a>(
                         source,
                         text,
                         resolved_name: None,
+                        resolved_subtype: None,
                         reference: None,
                     },
                 )

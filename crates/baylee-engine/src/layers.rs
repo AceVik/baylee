@@ -510,6 +510,7 @@ fn applies(
                 source: fx.source.unwrap_or(obj.id),
                 text: state.effect_text(fx),
                 resolved_name: None,
+                resolved_subtype: None,
                 reference: None,
             },
         ),
@@ -525,6 +526,7 @@ fn applies(
                         source: fx.source.unwrap_or(obj.id),
                         text: state.effect_text(fx),
                         resolved_name: None,
+                        resolved_subtype: None,
                         reference: None,
                     },
                 )
@@ -539,6 +541,7 @@ fn applies(
                 source: fx.source.unwrap_or(obj.id),
                 text: state.effect_text(fx),
                 resolved_name: None,
+                resolved_subtype: None,
                 reference: crate::effects::still_the_object(state, *id, *version),
             },
         ),
@@ -810,6 +813,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
                     | Modifier::SetLandTypeToChosen
                     | Modifier::SetLandTypeToSecondChosen
                     | Modifier::AddChosenBasicLandType
+                    | Modifier::AddChosenSubtype
                     | Modifier::BecomeType { .. }
                     | Modifier::AddTypeIfCountersAtLeast { .. }
                     | Modifier::CopyLastExiledCreaturePTAndSubtypes
@@ -1014,6 +1018,7 @@ fn apply(
         source: fx.source.unwrap_or(obj.id),
         text: state.effect_text(fx),
         resolved_name: None,
+        resolved_subtype: None,
         reference: None,
     };
     match &context.text.modifier(fx.modifier) {
@@ -1205,7 +1210,7 @@ fn apply(
                 set_land_type(c, subtype);
             }
         }
-        Modifier::AddChosenBasicLandType => {
+        Modifier::AddChosenBasicLandType | Modifier::AddChosenSubtype => {
             if let Some(subtype) = fx.source.and_then(|id| state.object(id))
                 .and_then(|source| source.chosen_subtype)
             {

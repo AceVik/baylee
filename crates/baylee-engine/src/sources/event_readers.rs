@@ -86,6 +86,8 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::SacrificeChosenByOpponent { player, .. }
         | Effect::ExileLibraryAndShuffleHand { player, .. }
         | Effect::ExileGraveyard { player, .. }
+        | Effect::DestroyAllOf { who: player, .. }
+        | Effect::ShuffleGraveyardMatchingIntoLibrary { who: player, .. }
         | Effect::BottomCardFromHand { player, .. }
         | Effect::PlayerMayPayCostThen { player, .. }
         | Effect::PlayerMayPayCostOr { player, .. }

@@ -238,6 +238,7 @@ impl
                 source,
                 text: crate::text_changes::TextChangeMap::IDENTITY,
                 resolved_name: None,
+                resolved_subtype: None,
                 reference: None,
             },
             source_version: None,

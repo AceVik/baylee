@@ -1644,6 +1644,7 @@ fn mana_loop_identity_tracks_producers_without_tracking_allocation_history() {
                 source,
                 text: TextChangeMap::IDENTITY,
                 resolved_name: None,
+                resolved_subtype: None,
                 reference: None,
             },
             None,

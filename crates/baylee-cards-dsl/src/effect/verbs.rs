@@ -856,6 +856,10 @@ impl Effect {
             | Effect::ChooseColors { .. }
             | Effect::ChooseSourceLandwalk { .. }
             | Effect::ChooseLandwalk { .. }
+            | Effect::ChooseCreatureType { .. }
+            | Effect::BecomeChosenCreatureType { .. }
+            | Effect::DestroyAllOf { .. }
+            | Effect::ShuffleGraveyardMatchingIntoLibrary { .. }
             | Effect::SetSourcePTFromTarget { .. }
             | Effect::SetSourceToughness { .. }
             | Effect::AddCounterSource { .. }

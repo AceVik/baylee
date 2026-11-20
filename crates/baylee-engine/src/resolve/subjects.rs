@@ -35,6 +35,7 @@ pub struct SubjectContext {
     pub(super) found: Vec<DamageSourceRef>,
     pub(super) guess: Option<GuessOutcome>,
     pub(super) named: Option<(crate::object::PrintedFace, baylee_core::ids::NameRef)>,
+    pub(super) chosen_subtype: Option<baylee_core::ids::SubtypeId>,
     pub(super) sacrificed: Option<crate::object::SacrificedLki>,
     circled_colors: baylee_core::color::ColorSet,
     acquisition: Option<u64>,
@@ -72,6 +73,7 @@ impl SubjectContext {
             found: Vec::new(),
             guess: None,
             named: None,
+            chosen_subtype: None,
             sacrificed: paid.sacrificed_lki,
             circled_colors: baylee_core::color::ColorSet::EMPTY,
             acquisition: None,
@@ -221,6 +223,13 @@ impl SubjectContext {
             h = h
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(count));
+        }
+        // Only once a creature type was chosen during this resolution, keeping
+        // existing replay hashes unchanged for all other resolutions.
+        if let Some(subtype) = self.chosen_subtype {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(91_u8, subtype)));
         }
         // Checkpoints exist only during synchronous resume calls. Every
         // public resume wrapper flushes before returning a held resolution.

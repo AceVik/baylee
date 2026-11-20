@@ -46,6 +46,9 @@ mod coin_stakes_tests;
 mod combat_watches;
 mod counter_removal;
 mod counters;
+mod creature_type;
+#[cfg(test)]
+mod creature_type_tests;
 mod delayed_returns;
 mod destruction_receipts;
 mod draw_debts;
@@ -695,6 +698,7 @@ impl Resolution {
             source: self.source,
             text: self.text,
             resolved_name: self.subject.named.map(|(_, name)| name),
+            resolved_subtype: self.subject.chosen_subtype,
             // A relational filter's object: the first target, else the
             // triggering event's object (Glyph of Doom's delayed trigger
             // remembers its Wall as that).
@@ -1597,6 +1601,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::ChooseOne { .. }
         | Effect::MayBehold { .. }
         | Effect::ChooseCardName { .. }
+        | Effect::ChooseCreatureType { .. }
         | Effect::GuessChosenNameInHand { .. }
         | Effect::RevealHandForGuess
         | Effect::DrawIfGuessWrong

@@ -277,6 +277,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 source,
                 text: granted.text,
                 resolved_name: None,
+            resolved_subtype: None,
                 reference: None,
             };
         }
@@ -292,6 +293,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             source,
             text,
             resolved_name: None,
+            resolved_subtype: None,
             reference: None,
         }
     }
@@ -357,6 +359,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     player,
                     crate::text_changes::RuleContext {
                         resolved_name: None,
+            resolved_subtype: None,
 
                         reference: Some(reference),
                         ..context

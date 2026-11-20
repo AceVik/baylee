@@ -385,6 +385,24 @@ pub fn condition_holds_with_context(
                     && count >= yours.saturating_add(minimum)
             })
         }
+        Condition::ControlMoreThanEachOtherPlayer(filter) => {
+            let mut counts = vec![0usize; state.players.len()];
+            for id in state.battlefield_seen() {
+                if let Some(object) = state.object(id)
+                    && matches_with_context(filter, state, object, you, context)
+                    && let Some(count) = counts.get_mut(usize::from(object.controller.get()))
+                {
+                    *count += 1;
+                }
+            }
+            let yours = counts.get(usize::from(you.get())).copied().unwrap_or(0);
+            counts.iter().enumerate().all(|(seat, &count)| {
+                u8::try_from(seat).is_ok_and(|seat| {
+                    let player = PlayerId::new(seat);
+                    player == you || state.has_left(player) || yours > count
+                })
+            })
+        }
         Condition::GraveyardTypesAmongAtLeast { types, minimum } => {
             (graveyard_card_types(state, you).bits() & types.bits()).count_ones()
                 >= u32::from(minimum)

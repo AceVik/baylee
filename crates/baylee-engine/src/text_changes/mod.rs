@@ -429,6 +429,11 @@ pub struct RuleContext {
     /// choices while evaluating `Filter::NamedBySource` (CR 608.2d), including
     /// when the source has left the battlefield (CR 113.7a).
     pub resolved_name: Option<baylee_core::ids::NameRef>,
+    /// A creature type chosen during this resolution (`Effect::ChooseCreatureType`,
+    /// CR 608.2d). Overrides persistent `source.chosen_subtype` while evaluating
+    /// `Filter::MatchesChosenTypeOfSource`, including after the source leaves
+    /// the battlefield (CR 113.7a).
+    pub resolved_subtype: Option<baylee_core::ids::SubtypeId>,
     /// The object a relational filter is relative to (`Filter::Reference`
     /// and its family): a resolving spell's or ability's first target, else
     /// the object its triggering event was about; while a second target is

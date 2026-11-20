@@ -499,6 +499,10 @@ pub enum Condition {
     /// The ability's source was blocked earlier this turn, as that exact
     /// battlefield incarnation (CR 400.7, CR 603.4).
     SourceWasBlockedThisTurn,
+    /// You control strictly more matching permanents than each other
+    /// still-in-game player (Peer Pressure). Appended to preserve replay
+    /// identities.
+    ControlMoreThanEachOtherPlayer(&'static Filter),
 }
 
 /// Trigger conditions for triggered abilities.

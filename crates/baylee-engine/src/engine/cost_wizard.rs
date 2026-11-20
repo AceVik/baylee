@@ -760,6 +760,7 @@ mod tests {
             source,
             text: state.text_changes.get(identity),
             resolved_name: None,
+            resolved_subtype: None,
             reference: None,
         };
         state.text_changes.replace(

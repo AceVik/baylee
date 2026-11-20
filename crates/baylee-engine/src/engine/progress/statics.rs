@@ -201,6 +201,7 @@ impl crate::state::GameState {
                     source: id,
                     text: origin.resolve(&self.text_changes),
                     resolved_name: None,
+                    resolved_subtype: None,
                     reference: None,
                 };
                 let registered = self

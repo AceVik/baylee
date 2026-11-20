@@ -36,6 +36,7 @@ pub(super) fn protected_from_object(
                         source: fx.source.unwrap_or(source),
                         text: state.effect_text(fx),
                         resolved_name: None,
+                        resolved_subtype: None,
                         reference: None,
                     },
                 )
@@ -63,6 +64,7 @@ pub(crate) fn protection_from_exiled_types(
         source: host,
         text: state.effect_text(fx),
         resolved_name: None,
+        resolved_subtype: None,
         reference: None,
     };
     super::linked_exile_cards(
@@ -125,6 +127,7 @@ pub(super) fn untargetable_by_source_object(
                     source: fx.source.unwrap_or(source),
                     text: state.effect_text(fx),
                     resolved_name: None,
+                    resolved_subtype: None,
                     reference: None,
                 },
             )

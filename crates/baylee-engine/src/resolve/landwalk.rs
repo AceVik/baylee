@@ -50,16 +50,20 @@ pub(super) fn choose(
     }
 }
 
-/// Resume a land type choice. The engine validates the offered answer.
+/// Resume a resolution-time subtype choice (landwalk or creature type).
+/// The engine validates the offered answer.
 ///
 /// # Panics
-/// If the suspended resolution is not a landwalk choice.
+/// If the suspended resolution is neither a landwalk nor a creature-type choice.
 #[must_use]
 pub fn resume_with_subtype(
     state: &mut GameState,
     res: &mut Resolution,
     subtype: SubtypeId,
 ) -> Flow {
+    if matches!(res.awaiting, Some(AwaitingOp::ChooseCreatureType { .. })) {
+        return super::creature_type::resume(state, res, subtype);
+    }
     subjects::begin_resume(state, res);
     let Some(AwaitingOp::LandwalkChoice {
         targets,

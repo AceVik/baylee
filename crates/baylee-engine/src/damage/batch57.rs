@@ -144,6 +144,7 @@ impl DamageWork {
                         source: effect.source.unwrap_or(source.id),
                         text: state.effect_text(effect),
                         resolved_name: None,
+                        resolved_subtype: None,
                         reference: None,
                     },
                 )

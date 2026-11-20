@@ -209,6 +209,12 @@ pub enum AwaitingOp {
         /// The granted keyword's lifetime.
         duration: baylee_cards_dsl::Duration,
     },
+    /// A resolution-time creature-type choice (`Effect::ChooseCreatureType`,
+    /// CR 205.3m, CR 608.2d).
+    ChooseCreatureType {
+        /// One forbidden creature subtype (such as `Wall`), if any.
+        exclude: Option<baylee_core::ids::SubtypeId>,
+    },
     /// Optional selection of this permanent for fabricate's counters.
     Fabricate {
         /// Exact source before the choice.
@@ -1491,6 +1497,9 @@ impl AwaitingOp {
             } if !chosen.is_empty() => {
                 crate::state::structural_fingerprint(&(90_u8, asked, filter, remaining, chosen))
                     .max(1)
+            }
+            Self::ChooseCreatureType { exclude } => {
+                crate::state::structural_fingerprint(&(92_u8, exclude))
             }
             _ => 0,
         }

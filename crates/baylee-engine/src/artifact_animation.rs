@@ -110,6 +110,7 @@ fn printed_effects(state: &GameState, source: ObjectId) -> Vec<(ContinuousEffect
                 source,
                 text: origin.resolve(&state.text_changes),
                 resolved_name: None,
+                resolved_subtype: None,
                 reference: None,
             };
             if ability.condition.is_some_and(|condition| {

@@ -4289,6 +4289,51 @@ pub enum Effect {
         /// Types the exiled card may be cast as while it remains exiled.
         cast_types: TypeSet,
     },
+    /// "Choose a creature type" during spell or ability resolution
+    /// (CR 205.3m, CR 608.2d). Remembered for the rest of this resolution for
+    /// [`Filter::MatchesChosenTypeOfSource`] and [`Effect::BecomeChosenCreatureType`],
+    /// and never altered by text-changing effects (CR 612.1, CR 612.3).
+    /// Appended to preserve replay identities.
+    ChooseCreatureType {
+        /// One creature subtype forbidden by the text (for example `Wall`).
+        exclude: Option<baylee_core::ids::SubtypeId>,
+    },
+    /// Affected permanent(s) become or gain the creature type chosen earlier in
+    /// this resolution by [`Effect::ChooseCreatureType`] (CR 205.1b, CR 611.2c,
+    /// Layer 4). `Filter::This` follows the targeted permanent (or the source
+    /// when untargeted); `Filter::AttachedToBySource` follows the enchanted or
+    /// equipped host (including last-known attachment); broader filters lock
+    /// their affected set at resolution. Appended to preserve replay identities.
+    BecomeChosenCreatureType {
+        /// Which permanent(s) change creature type.
+        filter: &'static Filter,
+        /// `false` replaces existing creature types; `true` adds the chosen
+        /// type in addition to existing types.
+        additive: bool,
+        /// How long the type-changing effect lasts.
+        duration: super::Duration,
+    },
+    /// "Destroy all [filter] [who] controls" (Tsabo's Decree), evaluated under
+    /// the resolution's rule context (including any resolution-chosen subtype).
+    /// Appended to preserve replay identities.
+    DestroyAllOf {
+        /// Player(s) whose matching permanents are destroyed.
+        who: PlayerRel,
+        /// Which permanents controlled by `who` are destroyed.
+        filter: &'static Filter,
+        /// Whether destroyed permanents can't be regenerated.
+        no_regen: bool,
+    },
+    /// "Shuffle all [filter] cards from [who]'s graveyard into their library"
+    /// (Elvish Soultiller). Always shuffles `who`'s library even if zero cards
+    /// match, honoring commander replacement (CR 903.9b) before the shuffle.
+    /// Appended to preserve replay identities.
+    ShuffleGraveyardMatchingIntoLibrary {
+        /// Player whose graveyard is swept and whose library is shuffled.
+        who: PlayerRel,
+        /// Which graveyard cards are shuffled in.
+        filter: &'static Filter,
+    },
 }
 
 #[cfg(test)]

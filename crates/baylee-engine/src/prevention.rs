@@ -158,6 +158,7 @@ impl ChosenSource {
                     source: self.this,
                     text: self.text,
                     resolved_name: None,
+                    resolved_subtype: None,
                     reference: None,
                 },
             )

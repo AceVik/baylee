@@ -65,6 +65,7 @@ pub fn live_context(state: &GameState, source: ObjectId) -> RuleContext {
             source,
             text: TextChangeMap::IDENTITY,
             resolved_name: None,
+            resolved_subtype: None,
             reference: None,
         };
     }
@@ -79,6 +80,7 @@ pub fn live_context(state: &GameState, source: ObjectId) -> RuleContext {
                 })
             }),
         resolved_name: None,
+        resolved_subtype: None,
         reference: None,
     }
 }
@@ -552,9 +554,9 @@ pub fn matches_projected_with_context(
         }),
         Filter::SpellTargetingAffected => state.spell_targets_affected(obj, this),
         Filter::CountersAtLeast(kind, n) => obj.counters.get(*kind) >= *n,
-        Filter::MatchesChosenTypeOfSource => state
-            .object(this)
-            .and_then(|src| src.chosen_subtype)
+        Filter::MatchesChosenTypeOfSource => context
+            .resolved_subtype
+            .or_else(|| state.object(this).and_then(|src| src.chosen_subtype))
             .is_some_and(|s| chars.subtypes.contains(s)),
         Filter::OfSourceChosenCardType => state
             .object(this)

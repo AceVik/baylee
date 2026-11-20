@@ -1104,6 +1104,10 @@ pub enum Modifier {
     /// as though it did not have hexproof. Does not remove the keyword or
     /// bypass shroud, protection, or player hexproof.
     CanBeTargetedAsThoughNoHexproof,
+    /// Add the source's chosen creature type in addition to its other types
+    /// (CR 205.1b, Layer 4 — e.g. Roaming Throne). Nothing while no type was
+    /// chosen. Appended to preserve replay identities.
+    AddChosenSubtype,
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -1247,6 +1251,7 @@ impl Modifier {
             | Self::SetLandTypeToChosen
             | Self::SetLandTypeToSecondChosen
             | Self::AddChosenBasicLandType
+            | Self::AddChosenSubtype
             | Self::BecomeType { .. }
             | Self::AddTypeIfCountersAtLeast { .. }
             | Self::CopyLastExiledCreaturePTAndSubtypes => Layer::Type,
@@ -1770,6 +1775,7 @@ mod tests {
             (Modifier::SetLandTypeToChosen, Layer::Type),
             (Modifier::SetLandTypeToSecondChosen, Layer::Type),
             (Modifier::AddChosenBasicLandType, Layer::Type),
+            (Modifier::AddChosenSubtype, Layer::Type),
             (
                 Modifier::BecomeType {
                     types: TypeSet::CREATURE,

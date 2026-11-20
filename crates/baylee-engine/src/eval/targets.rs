@@ -558,6 +558,7 @@ fn stack_target_options_impl(
         source: this,
         text: live_context(state, obj.id).text,
         resolved_name: None,
+        resolved_subtype: None,
         reference: reference
             .map(|reference| reference.object)
             .or(obj.event_object),

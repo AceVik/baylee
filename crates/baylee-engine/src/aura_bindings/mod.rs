@@ -52,6 +52,7 @@ pub(crate) fn printed_restriction(
                 source: aura.id,
                 text: state.ability_text(aura.id, u32::try_from(index).ok()?),
                 resolved_name: None,
+                resolved_subtype: None,
                 reference: None,
             };
             effects.iter().find_map(|effect| match effect {

@@ -169,6 +169,7 @@ pub fn target_player_options_from(
                                 source: effect.source.unwrap_or(context.source),
                                 text: state.effect_text(effect),
                                 resolved_name: context.resolved_name,
+                                resolved_subtype: context.resolved_subtype,
                                 reference: context.reference,
                             },
                         )

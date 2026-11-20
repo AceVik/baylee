@@ -57,6 +57,7 @@ pub(crate) fn destroy_event_and_offer(
         source: res.source,
         text: res.text,
         resolved_name: None,
+        resolved_subtype: None,
         reference: None,
     };
     let options: Vec<_> = state

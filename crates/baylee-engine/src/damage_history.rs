@@ -323,6 +323,7 @@ pub(crate) fn collect(
                     source: source.id,
                     text: list.base_text(index),
                     resolved_name: None,
+                    resolved_subtype: None,
                     reference: None,
                 };
                 if *zone != TriggerZone::Battlefield
@@ -358,6 +359,7 @@ pub(crate) fn collect(
                     source: source.id,
                     text: grant.text,
                     resolved_name: None,
+                    resolved_subtype: None,
                     reference: None,
                 };
                 if matches_death(&trigger, state, death, source, context) {

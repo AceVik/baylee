@@ -151,6 +151,7 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::GraveyardToLibraryBottom { .. }
         | Effect::ShuffleTargetsIntoOwnersLibraries
         | Effect::ShuffleGraveyardIntoLibrary
+        | Effect::ShuffleGraveyardMatchingIntoLibrary { .. }
         | Effect::ShuffleIntoLibrary { .. }
         | Effect::Surveil { .. }
         | Effect::ExileLibraryAndShuffleHand { .. }

@@ -1561,6 +1561,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::ManaChoice { .. }
         | AwaitingOp::ProtectionColor { .. }
         | AwaitingOp::LandwalkChoice { .. }
+        | AwaitingOp::ChooseCreatureType { .. }
         | AwaitingOp::Colors { .. }
         | AwaitingOp::MoveCounter { .. }
         | AwaitingOp::Counters { .. }

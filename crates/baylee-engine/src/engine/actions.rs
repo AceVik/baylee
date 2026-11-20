@@ -1156,6 +1156,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                         source,
                                         text: trigger.text,
                                         resolved_name: None,
+                                        resolved_subtype: None,
                                         reference: None,
                                     },
                                 );
@@ -1308,6 +1309,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                         source: trigger.source,
                                         text: trigger.text,
                                         resolved_name: None,
+                                        resolved_subtype: None,
                                         reference: None,
                                     },
                                     self.trigger_wall_only(&trigger),
@@ -1395,7 +1397,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     && self.resolution.as_ref().is_some_and(|res| {
                         matches!(
                             res.awaiting,
-                            Some(resolve::AwaitingOp::LandwalkChoice { .. })
+                            Some(
+                                resolve::AwaitingOp::LandwalkChoice { .. }
+                                    | resolve::AwaitingOp::ChooseCreatureType { .. }
+                            )
                         )
                     }) =>
             {
@@ -1425,16 +1430,6 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 };
                 if let Some(obj) = self.state.object_mut(object) {
                     obj.chosen_subtype = Some(subtype);
-                    // "This creature is the chosen type in addition to its
-                    // other types" (Roaming Throne) — creatures gain the
-                    // chosen subtype in their base characteristics.
-                    if obj
-                        .characteristics()
-                        .types
-                        .contains(baylee_core::types::TypeSet::CREATURE)
-                    {
-                        obj.base_mut().subtypes.insert(subtype);
-                    }
                 }
                 // The choice is an input to the *layer system*, not only to
                 // this object: `Filter::MatchesChosenTypeOfSource` reads it,

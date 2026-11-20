@@ -810,6 +810,7 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("TargetsPermanentYouControl")
         || built.contains("TappedUnlessRevealOrControl(")
         || built.contains("ControlCount(")
+        || built.contains("ControlMoreThanEachOtherPlayer(")
         // This condition sums the controller's creatures' signed power.
         || built.contains("ControlledCreaturePowerAtLeast(")
         || built.contains("YouControl(")

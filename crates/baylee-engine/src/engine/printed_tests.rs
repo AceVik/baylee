@@ -131,7 +131,8 @@ fn touched(ability: &StaticAbility) -> &'static [Field] {
         | Modifier::AllCreatureTypes
         | Modifier::ReplaceCreatureTypes(_)
         | Modifier::AllBasicLandTypes
-        | Modifier::AddChosenBasicLandType => &[Field::Subtypes],
+        | Modifier::AddChosenBasicLandType
+        | Modifier::AddChosenSubtype => &[Field::Subtypes],
         // CR 305.7: the land types, and the keywords its text gave it.
         Modifier::SetLandType(_)
         | Modifier::SetLandTypeToChosen
@@ -170,12 +171,6 @@ fn touched(ability: &StaticAbility) -> &'static [Field] {
 /// a card whose anthem pumps only *other* creatures still has its own power
 /// and toughness skipped. Narrowing that would mean evaluating a filter
 /// against a board, which is the thing the sweep exists to check.
-///
-/// `EnterModifier::ChooseSubtype` shields subtypes for the same reason from
-/// the other direction — Roaming Throne is "the chosen type in addition to
-/// its other types", so the permanent on the table legitimately carries a
-/// subtype its face does not print, and which one depends on the answer
-/// [`settle`] gave.
 fn shielded(def: &CardDef) -> Vec<Field> {
     let mut out = Vec::new();
     for ability in def.abilities_for_face(0) {
@@ -186,13 +181,6 @@ fn shielded(def: &CardDef) -> Vec<Field> {
                 }
             }
         }
-    }
-    if def.faces[0]
-        .enter_modifiers
-        .contains(&EnterModifier::ChooseSubtype)
-        && !out.contains(&Field::Subtypes)
-    {
-        out.push(Field::Subtypes);
     }
     // "Enters with seven +1/+0 counters" (Clockwork Beast): the placed
     // permanent meets its enter modifiers on the first pass (`settle`), and

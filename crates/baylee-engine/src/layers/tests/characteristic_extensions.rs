@@ -109,6 +109,7 @@ fn graveyard_count_counts_cards_in_both_graveyards_and_the_subject_itself() {
                 source: subject,
                 text: crate::text_changes::TextChangeMap::IDENTITY,
                 resolved_name: None,
+                resolved_subtype: None,
                 reference: None
             },
             &mut read_board

@@ -171,6 +171,7 @@ fn read(state: &GameState, land: &GameObject) -> Production {
                 source: land.id,
                 text: list.abilities.base_text(index).then(changed),
                 resolved_name: None,
+                resolved_subtype: None,
                 reference: None,
             };
             read_ability(
@@ -188,6 +189,7 @@ fn read(state: &GameState, land: &GameObject) -> Production {
             source: land.id,
             text: grant.text,
             resolved_name: None,
+            resolved_subtype: None,
             reference: None,
         };
         read_ability(

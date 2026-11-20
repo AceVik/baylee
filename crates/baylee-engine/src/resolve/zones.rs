@@ -365,6 +365,24 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             sba::destroy_all(state, &all, no_regen);
             None
         }
+        Effect::DestroyAllOf {
+            who,
+            filter,
+            no_regen,
+        } => {
+            let players = players_of(who, state, you, res);
+            let all: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        players.contains(&o.controller)
+                            && sweep_filter::matches(filter, state, o, res)
+                    })
+                })
+                .collect();
+            sba::destroy_all(state, &all, no_regen);
+            None
+        }
         // Farewell's four sweeps. Nothing is targeted, and a phased-out
         // permanent is treated as though it doesn't exist (CR 702.26b),
         // which `battlefield_seen` is.
@@ -643,6 +661,31 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 let _ = state.move_object(card, to, ZonePosition::Top, Cause::Effect);
             }
             state.shuffle_library(you);
+            None
+        }
+        Effect::ShuffleGraveyardMatchingIntoLibrary { who, filter } => {
+            let context = res.rule_context();
+            let players = players_of(who, state, you, res);
+            let mut moves: Vec<(ObjectId, ZoneLocation)> = Vec::new();
+            for &player in &players {
+                for &card in state.zones.list(ZoneLocation::Graveyard(player)) {
+                    if state.object(card).is_some_and(|obj| {
+                        eval::matches_with_context(filter, state, obj, you, context)
+                    }) {
+                        moves.push((card, ZoneLocation::Library(player)));
+                    }
+                }
+            }
+            // CR 903.9b: ask commander replacements before shuffling.
+            if let Some(pending) = ask_commander_replace(state, res, &moves) {
+                return Some(pending);
+            }
+            for (card, to) in moves {
+                let _ = state.move_object(card, to, ZonePosition::Top, Cause::Effect);
+            }
+            for player in players {
+                state.shuffle_library(player);
+            }
             None
         }
         Effect::PhaseOutFilter(filter) => {

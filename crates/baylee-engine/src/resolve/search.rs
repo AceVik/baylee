@@ -372,11 +372,11 @@ pub(super) fn put_found(state: &mut GameState, player: PlayerId, card: ObjectId,
 pub(super) fn reveal_until(
     state: &mut GameState,
     you: PlayerId,
-    source: ObjectId,
+    context: crate::text_changes::RuleContext,
     filter: &'static baylee_cards_dsl::Filter,
     found: SearchDest,
 ) -> Option<ObjectId> {
-    let (revealed, hit) = reveal_until_first(state, you, source, filter);
+    let (revealed, hit) = reveal_until_first(state, you, context, filter);
     if let Some(card) = hit {
         put_found(state, you, card, found);
     }
@@ -390,7 +390,7 @@ pub(super) fn reveal_until(
 fn reveal_until_first(
     state: &mut GameState,
     you: PlayerId,
-    source: ObjectId,
+    context: crate::text_changes::RuleContext,
     filter: &'static baylee_cards_dsl::Filter,
 ) -> (Vec<ObjectId>, Option<ObjectId>) {
     let mut revealed = Vec::new();
@@ -399,7 +399,7 @@ fn reveal_until_first(
         revealed.push(card);
         if state
             .object(card)
-            .is_some_and(|o| eval::matches(filter, state, o, you, source))
+            .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
         {
             hit = Some(card);
             break;
@@ -419,23 +419,24 @@ fn reveal_until_first(
 pub(super) fn reveal_until_matching(
     state: &mut GameState,
     you: PlayerId,
-    source: ObjectId,
+    context: crate::text_changes::RuleContext,
     filter: &'static baylee_cards_dsl::Filter,
     matched: SearchDest,
     otherwise: SearchDest,
 ) {
-    let (revealed, hit) = reveal_until_first(state, you, source, filter);
+    let (revealed, hit) = reveal_until_first(state, you, context, filter);
     for card in revealed {
-        put_found(
-            state,
-            you,
-            card,
-            if Some(card) == hit {
-                matched
-            } else {
-                otherwise
-            },
-        );
+        let dest = if Some(card) == hit {
+            matched
+        } else {
+            otherwise
+        };
+        // Revealing cards from a library leaves them in that library unless
+        // moved elsewhere (CR 701.20a); skip redundant library-to-library moves.
+        if dest == SearchDest::TopOfLibrary {
+            continue;
+        }
+        put_found(state, you, card, dest);
     }
 }
 

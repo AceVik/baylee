@@ -107,6 +107,7 @@ impl GameState {
                         source: action.offer.source.object,
                         text: crate::text_changes::TextChangeMap::IDENTITY,
                         resolved_name: None,
+                        resolved_subtype: None,
                         reference: None,
                     },
                     Some(action.offer.source.version),

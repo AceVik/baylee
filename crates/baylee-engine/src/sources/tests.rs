@@ -417,6 +417,7 @@ fn a_chosen_source_criterion_freezes_words_but_rechecks_the_damage_sources_color
         source: circle,
         text: state.text_changes.get(circle_identity),
         resolved_name: None,
+        resolved_subtype: None,
         reference: None,
     };
     assert_eq!(

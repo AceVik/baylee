@@ -602,6 +602,7 @@ pub(super) fn attack_watch_triggers(
                     source: base.source,
                     text: base.text,
                     resolved_name: None,
+                    resolved_subtype: None,
                     reference: None,
                 };
                 for entry in events.iter().filter(|entry| entry.seq > after) {
