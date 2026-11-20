@@ -37,6 +37,7 @@ Main deck:
   1× Reclamation Sage
   1× Reliquary Tower
   1× Retreat to Kazandu
+  1× Search for Tomorrow
   1× Seer's Sundial
   1× Simic Growth Chamber
   1× Simic Guildgate
@@ -57,6 +58,7 @@ Main deck:
   1× Arcane Signet
   1× Chromatic Lantern
   1× Crib Swap
+  1× Distant Melody
   1× Endurance
   1× Exotic Orchard
   1× Faeburrow Elder
@@ -66,6 +68,7 @@ Main deck:
   1× Frontier Bivouac
   1× Fury
   1× Garruk's Uprising
+  1× Ingot Chewer
   1× Jungle Shrine
   1× Maelstrom Wanderer
   2× Mountain
@@ -84,10 +87,7 @@ Main deck:
   1× Savage Lands
   1× Seaside Citadel
   1× Secluded Courtyard
+  1× Shriekmaw
   1× Sodden Verdure
   2× Swamp
   1× Thriving Bluff
-  1× Thriving Grove
-  1× Thriving Heath
-  1× Thriving Isle
-  1× Thriving Moor

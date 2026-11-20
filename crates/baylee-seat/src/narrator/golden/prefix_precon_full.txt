@@ -83,6 +83,9 @@ Main deck:
     Landfall — Whenever a land you control enters, choose one —
     • Put a +1/+1 counter on target creature.
     • You gain 2 life.
+  1× Search for Tomorrow {2}{G} · Sorcery
+    Search your library for a basic land card, put it onto the battlefield, then shuffle.
+    Suspend 2—{G} (Rather than cast this card from your hand, you may pay {G} and exile it with two time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)
   1× Seer's Sundial {4} · Artifact
     Landfall — Whenever a land you control enters, you may pay {2}. If you do, draw a card.
   1× Simic Growth Chamber · Land
@@ -141,6 +144,8 @@ Main deck:
   1× Crib Swap {2}{W} · Kindred Instant — Shapeshifter
     Changeling
     Exile target creature. Its controller creates a 1/1 colorless Shapeshifter creature token with changeling.
+  1× Distant Melody {3}{U} · Sorcery
+    Choose a creature type. Draw a card for each permanent you control of that type.
   1× Endurance {1}{G}{G} · Creature — Elemental Incarnation · 3/4
     Flash
     Reach
@@ -172,6 +177,9 @@ Main deck:
     When this enchantment enters, if you control a creature with power 4 or greater, draw a card.
     Creatures you control have trample.
     Whenever a creature you control with power 4 or greater enters, draw a card.
+  1× Ingot Chewer {4}{R} · Creature — Elemental · 3/3
+    When this creature enters, destroy target artifact.
+    Evoke {R} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)
   1× Jungle Shrine · Land
     This land enters tapped.
     {T}: Add {R}, {G}, or {W}.
@@ -222,21 +230,13 @@ Main deck:
     As this land enters, choose a creature type.
     {T}: Add {C}.
     {T}: Add one mana of any color. Spend this mana only to cast a creature spell of the chosen type or activate an ability of a creature source of the chosen type.
+  1× Shriekmaw {4}{B} · Creature — Elemental · 3/2
+    Fear
+    When this creature enters, destroy target nonartifact, nonblack creature.
+    Evoke {1}{B} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)
   1× Sodden Verdure · Land — Forest Island
     This land enters tapped unless you control two or more basic lands.
   2× Swamp · Basic Land — Swamp
   1× Thriving Bluff · Land
     This land enters tapped. As it enters, choose a color other than red.
     {T}: Add {R} or one mana of the chosen color.
-  1× Thriving Grove · Land
-    This land enters tapped. As it enters, choose a color other than green.
-    {T}: Add {G} or one mana of the chosen color.
-  1× Thriving Heath · Land
-    This land enters tapped. As it enters, choose a color other than white.
-    {T}: Add {W} or one mana of the chosen color.
-  1× Thriving Isle · Land
-    This land enters tapped. As it enters, choose a color other than blue.
-    {T}: Add {U} or one mana of the chosen color.
-  1× Thriving Moor · Land
-    This land enters tapped. As it enters, choose a color other than black.
-    {T}: Add {B} or one mana of the chosen color.
