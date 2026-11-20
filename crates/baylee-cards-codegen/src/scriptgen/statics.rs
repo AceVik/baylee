@@ -5,6 +5,15 @@ use super::{
     keyword_const,
 };
 
+pub(super) enum GrantedActivated {
+    Modifier(String),
+    SelfTarget {
+        cost: String,
+        effects: String,
+        target: String,
+    },
+}
+
 impl Tx<'_> {
     pub(super) fn is_ai_only_static(&self, spec: &str) -> bool {
         let Some((mode, mut p)) = Params::parse(spec) else {
@@ -1564,45 +1573,64 @@ impl Tx<'_> {
         self_granted: &mut bool,
     ) -> Option<()> {
         for name in raw.split(" & ").map(str::trim).filter(|s| !s.is_empty()) {
-            let Some(line) = self.svars.get(name).cloned() else {
-                return self.deny(format!("`AddAbility$ {name}` naming no `SVar`"));
-            };
-            if !line.trim_start().starts_with("AB$") {
-                return self.deny("a granted ability that is not an activated one".to_string());
+            match self.build_grant_activated_modifier(
+                name,
+                "AddAbility$",
+                filter == "Filter::This",
+            )? {
+                GrantedActivated::Modifier(modifier) => {
+                    out.push(Self::static_expr(filter, &modifier));
+                }
+                GrantedActivated::SelfTarget {
+                    cost,
+                    effects,
+                    target,
+                } => {
+                    self.body.abilities.push(format!(
+                        "activated!({cost}, {effects}, target = Some({target}){condition})"
+                    ));
+                    *self_granted = true;
+                }
             }
-            let parsed = self.parse_activated_spec(&line, false, false)?;
-            if parsed.graveyard_zone {
-                return self.deny("a granted ability activated from `Graveyard`".to_string());
-            }
-            if parsed.extras.is_empty() {
-                out.push(Self::static_expr(
-                    filter,
-                    &format!(
-                        "Modifier::GrantActivated {{ cost: {}, effects: {}, mana_ability: {} }}",
-                        parsed.cost, parsed.effects, parsed.mana_ability
-                    ),
-                ));
-                continue;
-            }
-            if filter == "Filter::This"
-                && let Some(target) = &parsed.simple_target
-            {
-                self.body.abilities.push(format!(
-                    "activated!({}, {}, target = Some({target}){condition})",
-                    parsed.cost, parsed.effects
-                ));
-                *self_granted = true;
-                continue;
-            }
-            let def_name = self
-                .body
-                .ability_static("GRANTED_ACTIVATED_", &parsed.ability_expr);
-            out.push(Self::static_expr(
-                filter,
-                &format!("Modifier::GrantActivatedDefinition(&{def_name})"),
-            ));
         }
         Some(())
+    }
+
+    pub(super) fn build_grant_activated_modifier(
+        &mut self,
+        name: &str,
+        source_key: &str,
+        for_static_this: bool,
+    ) -> Option<GrantedActivated> {
+        let Some(line) = self.svars.get(name).cloned() else {
+            return self.deny(format!("`{source_key} {name}` naming no `SVar`"));
+        };
+        if !line.trim_start().starts_with("AB$") {
+            return self.deny("a granted ability that is not an activated one".to_string());
+        }
+        let parsed = self.parse_activated_spec(&line, false, false)?;
+        if parsed.graveyard_zone {
+            return self.deny("a granted ability activated from `Graveyard`".to_string());
+        }
+        if parsed.extras.is_empty() {
+            return Some(GrantedActivated::Modifier(format!(
+                "Modifier::GrantActivated {{ cost: {}, effects: {}, mana_ability: {} }}",
+                parsed.cost, parsed.effects, parsed.mana_ability
+            )));
+        }
+        if for_static_this && let Some(target) = parsed.simple_target {
+            return Some(GrantedActivated::SelfTarget {
+                cost: parsed.cost,
+                effects: parsed.effects,
+                target,
+            });
+        }
+        let def_name = self
+            .body
+            .ability_static("GRANTED_ACTIVATED_", &parsed.ability_expr);
+        Some(GrantedActivated::Modifier(format!(
+            "Modifier::GrantActivatedDefinition(&{def_name})"
+        )))
     }
 
     fn grant_triggered_list(
@@ -1612,46 +1640,52 @@ impl Tx<'_> {
         out: &mut Vec<String>,
     ) -> Option<()> {
         for name in raw.split(" & ").map(str::trim).filter(|s| !s.is_empty()) {
-            let Some(line) = self.svars.get(name).cloned() else {
-                return self.deny(format!("`AddTrigger$ {name}` naming no `SVar`"));
-            };
-            if !line.trim_start().starts_with("Mode$") {
-                return self.deny("a granted trigger without `Mode$`".to_string());
-            }
-            let prev_abilities_len = self.body.abilities.len();
-            let prev_statics_len = self.body.statics.len();
-            let prev_trigger_mode = self.trigger_mode.take();
-            let prev_block_line = self.block_line.take();
-            let ok = self.triggered(&line);
-            self.trigger_mode = prev_trigger_mode;
-            if ok.is_none()
-                || self.block_line.is_some()
-                || self.body.abilities.len() != prev_abilities_len + 1
-            {
-                self.body.abilities.truncate(prev_abilities_len);
-                self.body.statics.truncate(prev_statics_len);
-                self.block_line = prev_block_line;
-                if ok.is_some() {
-                    return self.deny("a granted trigger that is not a single ability".to_string());
-                }
-                return None;
-            }
-            self.block_line = prev_block_line;
-            let ability_expr = self.body.abilities.pop()?;
-            if (!ability_expr.starts_with("triggered!(")
-                && !ability_expr.starts_with("modal_triggered!("))
-                || ability_expr.contains("zone = TriggerZone::")
-            {
-                self.body.statics.truncate(prev_statics_len);
-                return self.deny("a granted trigger outside the battlefield".to_string());
-            }
-            let def_name = self.body.ability_static("GRANTED_TRIGGER_", &ability_expr);
-            out.push(Self::static_expr(
-                filter,
-                &format!("Modifier::GrantTriggeredDefinition(&{def_name})"),
-            ));
+            let modifier = self.build_grant_triggered_modifier(name, "AddTrigger$")?;
+            out.push(Self::static_expr(filter, &modifier));
         }
         Some(())
+    }
+
+    pub(super) fn build_grant_triggered_modifier(
+        &mut self,
+        name: &str,
+        source_key: &str,
+    ) -> Option<String> {
+        let Some(line) = self.svars.get(name).cloned() else {
+            return self.deny(format!("`{source_key} {name}` naming no `SVar`"));
+        };
+        if !line.trim_start().starts_with("Mode$") {
+            return self.deny("a granted trigger without `Mode$`".to_string());
+        }
+        let prev_abilities_len = self.body.abilities.len();
+        let prev_statics_len = self.body.statics.len();
+        let prev_trigger_mode = self.trigger_mode.take();
+        let prev_block_line = self.block_line.take();
+        let ok = self.triggered(&line);
+        self.trigger_mode = prev_trigger_mode;
+        if ok.is_none()
+            || self.block_line.is_some()
+            || self.body.abilities.len() != prev_abilities_len + 1
+        {
+            self.body.abilities.truncate(prev_abilities_len);
+            self.body.statics.truncate(prev_statics_len);
+            self.block_line = prev_block_line;
+            if ok.is_some() {
+                return self.deny("a granted trigger that is not a single ability".to_string());
+            }
+            return None;
+        }
+        self.block_line = prev_block_line;
+        let ability_expr = self.body.abilities.pop()?;
+        if (!ability_expr.starts_with("triggered!(")
+            && !ability_expr.starts_with("modal_triggered!("))
+            || ability_expr.contains("zone = TriggerZone::")
+        {
+            self.body.statics.truncate(prev_statics_len);
+            return self.deny("a granted trigger outside the battlefield".to_string());
+        }
+        let def_name = self.body.ability_static("GRANTED_TRIGGER_", &ability_expr);
+        Some(format!("Modifier::GrantTriggeredDefinition(&{def_name})"))
     }
 
     fn cant_phase_out(&mut self, mut p: Params) -> Option<()> {

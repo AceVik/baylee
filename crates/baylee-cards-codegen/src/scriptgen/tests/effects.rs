@@ -3126,3 +3126,60 @@ fn wave5_self_blink_exile_counters_token_followups_and_search() {
          SVar:X:Count$ValidLibrary Goblin.YouOwn\n";
     assert!(read(squad).abilities[0].contains("Find::HAND.any_number()"));
 }
+
+#[test]
+fn wave7_non_source_and_implicit_animate() {
+    let implicit = read(
+        "Name:AscendKnight\nManaCost:W\nTypes:Creature Human\nPT:1/1\n\
+         A:AB$ Animate | Cost$ 1 W | Power$ 4 | Toughness$ 4 | Types$ Creature,Goblin | \
+         Keywords$ Flying | Duration$ Permanent",
+    );
+    let a = implicit.abilities.join("");
+    assert!(
+        a.contains(
+            "Effect::continuous(&Filter::This, Modifier::SetPT(4, 4), Duration::Indefinitely)"
+        ),
+        "{a}"
+    );
+
+    let aura = read(
+        "Name:WarHarness\nManaCost:1 R\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         T:Mode$ Attacks | ValidCard$ Card.AttachedBy | Execute$ Anim\n\
+         SVar:Anim:DB$ Animate | Defined$ Enchanted | Power$ 5 | Toughness$ 5 | Triggers$ Tr\n\
+         SVar:Tr:Mode$ Attacks | ValidCard$ Card.Self | Execute$ Ping\n\
+         SVar:Ping:DB$ GainLife | LifeAmount$ 1",
+    );
+    let a = aura.abilities.join("");
+    assert!(
+        a.contains("Effect::continuous(&Filter::AttachedToBySource, Modifier::GrantTriggeredDefinition(&GRANTED_TRIGGER_1), Duration::UntilEndOfTurn)"),
+        "{a}"
+    );
+
+    let parent = read(
+        "Name:SculptRelic\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Draw | ValidTgts$ Artifact | NumCards$ 1 | SubAbility$ Anim\n\
+         SVar:Anim:DB$ Animate | Defined$ ParentTarget | Power$ 4 | Toughness$ 4 | \
+         Types$ Creature | Abilities$ TapPing\n\
+         SVar:TapPing:AB$ DealDamage | Cost$ T | ValidTgts$ Any | NumDmg$ 1",
+    );
+    let a = parent.abilities.join("");
+    assert!(
+        a.contains("Effect::continuous(&Filter::This, Modifier::GrantActivatedDefinition(&GRANTED_ACTIVATED_1), Duration::UntilEndOfTurn)"),
+        "{a}"
+    );
+
+    let trig = read(
+        "Name:AwakenGuide\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Land.YouCtrl | Execute$ Anim\n\
+         SVar:Anim:DB$ Animate | Defined$ TriggeredCardLKICopy | Power$ 3 | Toughness$ 3 | Types$ Creature",
+    );
+    assert!(
+        trig.abilities[0].contains("Effect::continuous(&Filter::Reference, Modifier::SetPT(3, 3), Duration::UntilEndOfTurn)"),
+        "{:?}",
+        trig.abilities
+    );
+
+    assert!(refused(
+        "Name:BadPlayerAnim\nManaCost:U\nTypes:Instant\nA:SP$ Animate | ValidTgts$ Player | Types$ Creature"
+    ));
+}

@@ -102,6 +102,8 @@ pub struct CardBody {
     pub back: Option<Box<Self>>,
     /// Whether `back` is an Adventure face (CR 716, `FaceDef::adventure`).
     pub back_is_adventure: bool,
+    /// Whether `back` is a Prepare inset face (CR 723.3, `AbilityDef::Prepared`).
+    pub back_is_prepare: bool,
     /// Whether the script declares bare `K:Partner` (emitted on `CardDef::partner`).
     pub has_partner: bool,
     /// Short human notes for the `// IMPLEMENTED — …` line.

@@ -93,16 +93,25 @@ impl Tx<'_> {
             self.body.enter_modifiers.push(entry);
             return Some(());
         }
+        let prev_unclaimed = line
+            .starts_with("etbCounter:")
+            .then(|| self.unclaimed.clone());
         if let super::saga_ward_convoke::ExtraOutcome::Handled(res) = self.try_extra_keyword(line) {
             if res.is_some() {
                 return res;
             }
             if let Some(rest) = line.strip_prefix("etbCounter:") {
+                if let Some(prev) = prev_unclaimed {
+                    self.unclaimed = prev;
+                }
                 return self.etb_counter_wave6(rest);
             }
             return None;
         }
         if let Some(rest) = line.strip_prefix("ETBReplacement:") {
+            if self.try_etb_prepared(rest) {
+                return Some(());
+            }
             return self.etb_replacement(rest);
         }
         if let Some(rest) = line.strip_prefix("Equip:") {
@@ -951,20 +960,41 @@ impl Tx<'_> {
         self.lower_kicker_line(rest)
     }
 
-    /// `K:etbCounter:<KIND>:<n>:CheckSVar$ <var>[:<desc>]` for a single-kicker
-    /// permanent whose `<var>` is `Count$Kicked.1.0` and whose `<n>` is a
-    /// positive whole number: "If this creature was kicked, it enters with N
-    /// <kind> counters on it."
-    ///
-    /// On a single-kicker spell `times_kicked` is strictly `0` or `1` (and `0`
-    /// when not cast off the stack), so `Amount::TimesKicked` (or `Times` by
-    /// `n`) places the exact counters as the permanent enters. Multi-kicker,
-    /// dual-kicker, non-kicker cards, variable `<n>`, and any other `SVar`
-    /// definition are refused.
-    pub(super) fn kicked_etb_counter(&self, line: &str) -> Option<String> {
-        if !self.has_single_kicker {
-            return None;
+    fn try_etb_prepared(&mut self, rest: &str) -> bool {
+        let mut fields = rest.split(':').map(str::trim);
+        let (Some("Other"), Some(svar), None) = (fields.next(), fields.next(), fields.next())
+        else {
+            return false;
+        };
+        let Some(body) = self.svars.get(svar) else {
+            return false;
+        };
+        let Some((api, mut p)) = Params::parse(body) else {
+            return false;
+        };
+        if api != "AlterAttribute" {
+            return false;
         }
+        p.drop_prose();
+        let defined_ok = matches!(p.take("Defined").as_deref(), None | Some("Self"));
+        let attr_ok = p.take("Attributes").as_deref() == Some("Prepared");
+        if !(defined_ok && attr_ok && p.exhausted()) {
+            return false;
+        }
+        self.body
+            .enter_modifiers
+            .push("EnterModifier::Prepared".to_string());
+        self.body.notes.push("prepared".to_string());
+        true
+    }
+
+    /// `K:etbCounter:<KIND>:<n>:CheckSVar$ <var>[:<desc>]` for a kicked
+    /// permanent:
+    /// - Single-kicker (`Count$Kicked.1.0` | `Count$TimesKicked`): lowers to
+    ///   `EnterModifier::WithCounters` scaled by `Amount::TimesKicked`.
+    /// - Dual-kicker (`P1P1`, positive `u8`, `Count$Kicked.1.0`): lowers to
+    ///   `EnterModifier::IfKicked { index: None, counters: n, modifiers: &[] }`.
+    pub(super) fn kicked_etb_counter(&self, line: &str) -> Option<String> {
         let mut fields = line.strip_prefix("etbCounter:")?.split(':');
         let kind = super::counter_kind(fields.next()?.trim())?;
         let n: u32 = fields.next()?.trim().parse().ok()?;
@@ -974,23 +1004,36 @@ impl Tx<'_> {
         let cond = fields.next()?.trim();
         let var = cond.strip_prefix("CheckSVar$")?.trim();
         let def = self.svars.get(var).map(|s| s.trim());
-        if !matches!(def, Some("Count$Kicked.1.0" | "Count$TimesKicked")) {
-            return None;
+        if self.has_single_kicker {
+            if !matches!(def, Some("Count$Kicked.1.0" | "Count$TimesKicked")) {
+                return None;
+            }
+            let amount = if n == 1 {
+                "Amount::TimesKicked".to_string()
+            } else {
+                format!("Amount::Times {{ base: &Amount::TimesKicked, factor: {n} }}")
+            };
+            return Some(format!(
+                "EnterModifier::WithCounters {{ kind: {kind}, amount: {amount} }}"
+            ));
         }
-        let amount = if n == 1 {
-            "Amount::TimesKicked".to_string()
-        } else {
-            format!("Amount::Times {{ base: &Amount::TimesKicked, factor: {n} }}")
-        };
-        Some(format!(
-            "EnterModifier::WithCounters {{ kind: {kind}, amount: {amount} }}"
-        ))
+        if self.dual_kicker_remap.is_some()
+            && def == Some("Count$Kicked.1.0")
+            && kind == "CounterKind::P1P1"
+        {
+            let counters = u8::try_from(n).ok()?;
+            return Some(format!(
+                "EnterModifier::IfKicked {{ index: None, counters: {counters}, modifiers: &[] }}"
+            ));
+        }
+        None
     }
 
-    /// Additional Wave-6 `K:etbCounter:` shapes not handled by `saga_ward_convoke`:
+    /// Additional Wave-6/Wave-7 `K:etbCounter:` shapes not handled by `saga_ward_convoke`:
     /// empty 3rd condition field (`::desc`), `Count$TotalManaSpent` /
-    /// `Count$TimesKicked`, and static board/turn/life/domain/distinct-color
-    /// `Amount`s via `static_count_expr`.
+    /// `Count$TimesKicked` / `Count$xPaid`, `LastState*` zone counts, arithmetic
+    /// suffixes (`Twice`, `Times.`, `Plus.`, `Minus.`, `Half*`, `Div.`), and
+    /// static board/turn/life/domain/distinct-color `Amount`s via `static_count_expr`.
     fn etb_counter_wave6(&mut self, rest: &str) -> Option<()> {
         let mut fields = rest.split(':');
         let (Some(kind_raw), Some(amount_raw)) = (fields.next(), fields.next()) else {
@@ -1024,10 +1067,19 @@ impl Tx<'_> {
             return (n > 0).then(|| format!("Amount::Fixed({n})"));
         }
         let def = self.svars.get(raw)?.trim().to_string();
-        if matches!(
-            def.as_str(),
-            "Count$CastTotalManaSpent" | "Count$TotalManaSpent"
-        ) {
+        self.etb_wave6_expr(&def, 0)
+    }
+
+    fn etb_wave6_expr(&mut self, def: &str, depth: u8) -> Option<String> {
+        if depth >= 4 {
+            return None;
+        }
+        let def = def.trim();
+        if let Some(var) = def.strip_prefix("SVar$") {
+            let inner = self.svars.get(var.trim())?.clone();
+            return self.etb_wave6_expr(&inner, depth + 1);
+        }
+        if matches!(def, "Count$CastTotalManaSpent" | "Count$TotalManaSpent") {
             return Some("Amount::ManaSpentToCast".to_string());
         }
         if def == "Count$TimesKicked" {
@@ -1036,10 +1088,58 @@ impl Tx<'_> {
         if def == "Count$xPaid" && self.has_x_mana_cost {
             return Some("Amount::X".to_string());
         }
+        if let Some((lhs, rhs)) = def.split_once('/') {
+            let rhs = rhs.trim();
+            if rhs == "Twice" {
+                let base = self.etb_wave6_expr(lhs, depth + 1)?;
+                return Some(if base == "Amount::X" {
+                    "Amount::DoubleX".to_string()
+                } else {
+                    format!("Amount::Times {{ base: &{base}, factor: 2 }}")
+                });
+            }
+            let op = if let Some(n) = rhs.strip_prefix("Times.") {
+                n.trim()
+                    .parse::<u32>()
+                    .ok()
+                    .filter(|&v| v >= 1)
+                    .map(|v| (0u8, v))
+            } else if let Some(n) = rhs.strip_prefix("Plus.") {
+                n.trim().parse::<u32>().ok().map(|v| (1u8, v))
+            } else if let Some(n) = rhs.strip_prefix("Minus.") {
+                n.trim().parse::<u32>().ok().map(|v| (2u8, v))
+            } else if rhs == "HalfDown" {
+                Some((3u8, 0))
+            } else if rhs == "HalfUp" {
+                Some((4u8, 0))
+            } else if let Some(n) = rhs.strip_prefix("Div.") {
+                n.trim()
+                    .parse::<u32>()
+                    .ok()
+                    .filter(|&v| v >= 2)
+                    .map(|v| (5u8, v))
+            } else {
+                None
+            };
+            if let Some((kind, arg)) = op {
+                let base = self.etb_wave6_expr(lhs, depth + 1)?;
+                return Some(match kind {
+                    0 => format!("Amount::Times {{ base: &{base}, factor: {arg} }}"),
+                    1 => format!("Amount::Plus {{ base: &{base}, offset: {arg} }}"),
+                    2 => format!("Amount::SaturatingSub {{ base: &{base}, subtract: {arg} }}"),
+                    3 => format!("Amount::Half {{ base: &{base}, round_up: false }}"),
+                    4 => format!("Amount::Half {{ base: &{base}, round_up: true }}"),
+                    5 => format!("Amount::divided(&{base}, {arg}, false)"),
+                    _ => unreachable!(),
+                });
+            }
+        }
         let normalized = if let Some(spec) = def.strip_prefix("Count$LastStateBattlefield ") {
             format!("Count$Valid {spec}")
+        } else if let Some(spec) = def.strip_prefix("Count$LastStateGraveyard ") {
+            format!("Count$ValidGraveyard {spec}")
         } else {
-            def
+            def.to_string()
         };
         let expr = self.static_count_expr(&normalized)?;
         if expr.contains("SourcePower") || expr.contains("CountersOnSource") {

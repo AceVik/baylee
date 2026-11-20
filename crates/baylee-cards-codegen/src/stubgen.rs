@@ -774,10 +774,11 @@ fn render_face(
         if let Some(kt) = body.kicked_targets.as_deref() {
             fields.push(format!("kicked_targets = {kt}"));
         }
+        let prepare_front = !is_back && body.back_is_prepare;
         if emit_face_rules && !body.keywords.is_empty() {
             fields.push(format!("keywords = {}", join_union_owned(&body.keywords)));
         }
-        if emit_face_rules && !body.abilities.is_empty() {
+        if emit_face_rules && !prepare_front && !body.abilities.is_empty() {
             let mut list = String::from("abilities = &[\n");
             for ability in &body.abilities {
                 list.push_str(&format!("            {ability},\n"));
@@ -914,10 +915,15 @@ fn render_card_literal(
     }
     out.push_str(&format!("    faces = &[\n{face_defs}    ],\n"));
     if let Some(land) = land
-        && land.back.is_none()
-        && !land.abilities.is_empty()
+        && (land.back.is_none() || land.back_is_prepare)
+        && (!land.abilities.is_empty() || land.back_is_prepare)
     {
         out.push_str("    abilities = &[\n");
+        if land.back_is_prepare {
+            out.push_str(&format!(
+                "        AbilityDef::Prepared {{ card: index::{constant}, face: 1 }},\n"
+            ));
+        }
         for ability in &land.abilities {
             out.push_str(&format!("        {ability},\n"));
         }
@@ -1044,6 +1050,7 @@ fn transcode_faces(
                 | (Some("Adventure"), Some("adventure"))
                 | (Some("Modal"), Some("modal_dfc"))
                 | (Some("DoubleFaced"), Some("transform"))
+                | (Some("Prepare"), Some("prepare"))
         );
         if !layout_ok {
             return None;
@@ -2405,6 +2412,96 @@ mod tests {
         assert!(
             rendered_blitz.contains("blitz = Some(cost!(\"{1}{B}\", PayLife(2)))"),
             "{rendered_blitz}"
+        );
+    }
+
+    #[test]
+    fn wave7_prepare_and_copy_face_from_render() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(
+            dir.path().join("arcane_spark.txt"),
+            "Name:Arcane Spark\nManaCost:U\nTypes:Instant\nA:SP$ Draw | NumCards$ 2\n",
+        )
+        .expect("spark script");
+        std::fs::write(
+            dir.path().join("dawn_scholar.txt"),
+            "Name:Dawn Scholar\nManaCost:2 U\nTypes:Creature Human Wizard\nPT:2/3\n\
+             K:Flying\n\
+             K:ETBReplacement:Other:DBPrepare\n\
+             SVar:DBPrepare:DB$ AlterAttribute | Attributes$ Prepared\n\
+             T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ Gain\n\
+             SVar:Gain:DB$ GainLife | LifeAmount$ 1\n\
+             AlternateMode:Prepare\n\
+             ALTERNATE\n\
+             Name:Arcane Spark\n\
+             CopyFaceFrom:Arcane Spark\n",
+        )
+        .expect("prepare script");
+        let mut index = BTreeMap::new();
+        index.insert("Arcane Spark".to_string(), "arcane_spark.txt".to_string());
+        index.insert("Dawn Scholar".to_string(), "dawn_scholar.txt".to_string());
+        let scripts = crate::scriptgen::ScriptLookup::new(dir.path().to_path_buf(), index);
+        let prep_card = ScryfallCard {
+            name: "Dawn Scholar // Arcane Spark".to_string(),
+            layout: Some("prepare".to_string()),
+            card_faces: Some(vec![
+                ScryfallFace {
+                    watermark: None,
+                    name: "Dawn Scholar".to_string(),
+                    mana_cost: Some("{2}{U}".to_string()),
+                    type_line: Some("Creature".to_string()),
+                    oracle_text: Some("Flying\nThis creature enters prepared.".to_string()),
+                    power: Some("2".to_string()),
+                    toughness: Some("3".to_string()),
+                    loyalty: None,
+                    defense: None,
+                    colors: None,
+                    image_uris: None,
+                },
+                ScryfallFace {
+                    watermark: None,
+                    name: "Arcane Spark".to_string(),
+                    mana_cost: Some("{U}".to_string()),
+                    type_line: Some("Instant".to_string()),
+                    oracle_text: Some("Draw two cards.".to_string()),
+                    power: None,
+                    toughness: None,
+                    loyalty: None,
+                    defense: None,
+                    colors: None,
+                    image_uris: None,
+                },
+            ]),
+            ..bare_card("Dawn Scholar // Arcane Spark", "Creature // Instant")
+        };
+        let (_, rendered) = render_stub(
+            &prep_card,
+            &row(29, "DAWN_SCHOLAR"),
+            &IndexLedger::default(),
+            &SubtypeCatalogs::default(),
+            Some(&scripts),
+            None,
+            &|_| false,
+        )
+        .expect("prepare card should render");
+        assert!(
+            rendered.contains("coverage = Coverage::Generated"),
+            "{rendered}"
+        );
+        assert!(rendered.contains("EnterModifier::Prepared"), "{rendered}");
+        assert!(
+            rendered.contains("AbilityDef::Prepared { card: index::DAWN_SCHOLAR, face: 1 }"),
+            "{rendered}"
+        );
+        assert!(rendered.contains("Effect::gain_life(1)"), "{rendered}");
+        assert!(rendered.contains("Effect::draw(2)"), "{rendered}");
+        assert!(
+            !rendered.contains("            triggered!("),
+            "front abilities belong on CardDef, not faces[0]: {rendered}"
+        );
+        assert!(
+            !rendered.contains("castable_from_hand = false"),
+            "{rendered}"
         );
     }
 }

@@ -2813,3 +2813,120 @@ fn wave6b_alternate_keyword_refusals() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn wave7_prepare_and_copy_face_from_transcode() {
+    let direct = read(
+        "Name:FrontMage\nManaCost:2 W\nTypes:Creature Human\nPT:2/2\n\
+         K:ETBReplacement:Other:DBPrepare\n\
+         SVar:DBPrepare:DB$ AlterAttribute | Attributes$ Prepared\n\
+         AlternateMode:Prepare\n\
+         ALTERNATE\n\
+         Name:BackBolt\nManaCost:R\nTypes:Instant\n\
+         A:SP$ LoseLife | ValidTgts$ Opponent | LifeAmount$ 2",
+    );
+    assert!(direct.back_is_prepare);
+    assert_eq!(direct.enter_modifiers, ["EnterModifier::Prepared"]);
+    assert!(direct.back.is_some());
+
+    for bad in [
+        "Name:FrontMage\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         K:ETBReplacement:Other:DBPrepare\n\
+         SVar:DBPrepare:DB$ AlterAttribute | Attributes$ Prepared\n\
+         AlternateMode:Prepare\nALTERNATE\nName:Missing\nCopyFaceFrom:Missing",
+        "Name:BadPrep\nManaCost:W\nTypes:Creature\nPT:1/1\n\
+         K:ETBReplacement:Other:DBPrep\n\
+         SVar:DBPrep:DB$ AlterAttribute | Attributes$ Monstrous",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn wave7_etb_counter_extensions() {
+    let spent_body = read(
+        "Name:ManaHydra\nManaCost:X G\nTypes:Creature\nPT:0/0\n\
+         K:etbCounter:P1P1:X:no condition\nSVar:X:Count$TotalManaSpent\nK:Haste",
+    );
+    assert_eq!(
+        spent_body.enter_modifiers,
+        [
+            "EnterModifier::WithCounters { kind: CounterKind::P1P1, amount: Amount::ManaSpentToCast }"
+        ]
+    );
+    let broken_after = parse(
+        "Name:ManaHydra\nManaCost:X G\nTypes:Creature\nPT:0/0\n\
+         K:etbCounter:P1P1:X:no condition\nSVar:X:Count$TotalManaSpent\nK:WeirdFutureMech",
+    );
+    let reason = refusal_reason(&broken_after, &cats(), None).expect("later rule must refuse");
+    assert_ne!(reason, "keyword `etbCounter`", "{reason}");
+
+    let dual = read(
+        "Name:DualBeast\nManaCost:3 G\nTypes:Creature\nPT:2/2\n\
+         K:Kicker:1 W:2 B\nK:etbCounter:P1P1:2:CheckSVar$ Kicked\n\
+         SVar:Kicked:Count$Kicked.1.0",
+    );
+    assert_eq!(
+        dual.enter_modifiers,
+        ["EnterModifier::IfKicked { index: None, counters: 2, modifiers: &[] }"]
+    );
+
+    let double_x = read(
+        "Name:TwinHydra\nManaCost:X G\nTypes:Creature\nPT:0/0\n\
+         K:etbCounter:P1P1:Y:no condition\nSVar:Y:SVar$X/Twice\nSVar:X:Count$xPaid",
+    );
+    assert_eq!(
+        double_x.enter_modifiers,
+        ["EnterModifier::WithCounters { kind: CounterKind::P1P1, amount: Amount::DoubleX }"]
+    );
+
+    let x_plus = read(
+        "Name:PlusHydra\nManaCost:X R\nTypes:Creature\nPT:0/0\n\
+         K:etbCounter:P1P1:Y:no condition\nSVar:Y:Count$xPaid/Plus.1",
+    );
+    assert_eq!(
+        x_plus.enter_modifiers,
+        [
+            "EnterModifier::WithCounters { kind: CounterKind::P1P1, amount: Amount::Plus { base: &Amount::X, offset: 1 } }"
+        ]
+    );
+
+    let opp_lost = read(
+        "Name:BloodSlime\nManaCost:2 B\nTypes:Creature\nPT:0/0\n\
+         K:etbCounter:P1P1:X:no condition\nSVar:X:Count$LifeOppsLostThisTurn",
+    );
+    assert_eq!(
+        opp_lost.enter_modifiers,
+        [
+            "EnterModifier::WithCounters { kind: CounterKind::P1P1, amount: Amount::OpponentsLifeLostThisTurn }"
+        ]
+    );
+
+    let died = read(
+        "Name:CarrionBeast\nManaCost:3 B\nTypes:Creature\nPT:0/0\n\
+         K:etbCounter:P1P1:X:no condition\nSVar:X:Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature",
+    );
+    assert_eq!(
+        died.enter_modifiers,
+        [
+            "EnterModifier::WithCounters { kind: CounterKind::P1P1, amount: Amount::CreaturesDiedThisTurn }"
+        ]
+    );
+
+    let grave = read(
+        "Name:CryptWurm\nManaCost:4 B\nTypes:Creature\nPT:0/0\n\
+         K:etbCounter:P1P1:X:no condition\nSVar:X:Count$LastStateGraveyard Creature.YouOwn",
+    );
+    assert!(
+        grave.enter_modifiers[0].contains("ZoneSel::GraveyardOf(PlayerRel::You)"),
+        "{:?}",
+        grave.enter_modifiers
+    );
+
+    for bad in [
+        "Name:Cond\nManaCost:2 G\nTypes:Creature\nPT:1/1\nK:etbCounter:P1P1:1:CheckSVar$ L\nSVar:L:Count$Valid Land",
+        "Name:DualLoyalty\nManaCost:3 G\nTypes:Planeswalker\nLoyalty:2\nK:Kicker:W:U\nK:etbCounter:LOYALTY:1:CheckSVar$ K\nSVar:K:Count$Kicked.1.0",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

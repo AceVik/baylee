@@ -102,6 +102,10 @@ pub struct CardScript {
     /// `AlternateMode:<mode>` header on multi-face scripts (`Split`,
     /// `Adventure`, `Modal`, `DoubleFaced`, …).
     pub alternate_mode: Option<String>,
+    /// Verbatim `Name:` header on this face, used when resolving `CopyFaceFrom:`.
+    pub script_name: String,
+    /// `CopyFaceFrom:<card>` on a Prepare alternate face referencing a standalone script.
+    pub copy_face_from: Option<String>,
     /// Second face parsed after an `ALTERNATE` separator line.
     pub alternate: Option<Box<Self>>,
     /// `K:` lines, verbatim.
@@ -117,7 +121,6 @@ pub struct CardScript {
 /// Line prefixes whose content this project takes from Scryfall instead, or
 /// that are the corpus's own deckbuilding/AI hints and carry no rules.
 const IGNORED_PREFIXES: &[&str] = &[
-    "Name",
     "Loyalty",
     "Defense",
     "Colors",
@@ -164,6 +167,14 @@ fn parse_face(lines: &[&str]) -> CardScript {
             continue;
         };
         match prefix {
+            "Name" => out.script_name = rest.trim().to_string(),
+            "CopyFaceFrom" => {
+                if out.copy_face_from.is_none() {
+                    out.copy_face_from = Some(rest.trim().to_string());
+                } else {
+                    out.unknown_lines.push(line.to_string());
+                }
+            }
             "Types" => {
                 out.is_land = rest.split_whitespace().any(|word| word == "Land");
                 out.is_room = rest.split_whitespace().any(|word| word == "Room");
@@ -793,12 +804,16 @@ pub fn transcode(
         return Some(body);
     }
     let mode = script.alternate_mode.as_deref()?;
-    if !matches!(mode, "Split" | "Adventure" | "Modal" | "DoubleFaced") {
+    if !matches!(
+        mode,
+        "Split" | "Adventure" | "Modal" | "DoubleFaced" | "Prepare"
+    ) {
         return None;
     }
     let back_script = script.alternate.as_deref()?;
     if script.is_room
         || back_script.is_room
+        || back_script.copy_face_from.is_some()
         || back_script.alternate_mode.is_some()
         || back_script.alternate.is_some()
     {
@@ -812,6 +827,7 @@ pub fn transcode(
         return None;
     }
     front.back_is_adventure = mode == "Adventure";
+    front.back_is_prepare = mode == "Prepare";
     front.back = Some(Box::new(back));
     front.notes.push("transcoded from the card's rules".into());
     Some(front)
@@ -839,16 +855,53 @@ impl ScriptLookup {
         Self { root, index }
     }
 
-    /// The script for a card, by its Scryfall name.
-    #[must_use]
-    pub fn script(&self, name: &str) -> Option<CardScript> {
-        // Multi-face Scryfall names ("A // B") are one reference script, filed
-        // under the front face.
-        let key = self.index.get(name).or_else(|| {
-            let front = name.split(" // ").next()?;
-            self.index.get(front)
-        })?;
+    fn raw_script(&self, name: &str) -> Option<CardScript> {
+        let key = self
+            .index
+            .get(name)
+            .or_else(|| {
+                let front = name.split(" // ").next()?;
+                self.index.get(front)
+            })
+            .or_else(|| {
+                self.index
+                    .iter()
+                    .find(|(k, _)| k.split(" // ").any(|half| half == name))
+                    .map(|(_, path)| path)
+            })?;
         let text = std::fs::read_to_string(self.root.join(key)).ok()?;
         Some(parse(&text))
+    }
+
+    /// The script for a card, by its Scryfall name, resolving single-hop
+    /// `CopyFaceFrom:<card>` links on `Prepare` alternate faces.
+    #[must_use]
+    pub fn script(&self, name: &str) -> Option<CardScript> {
+        let mut out = self.raw_script(name)?;
+        if out.alternate_mode.as_deref() == Some("Prepare")
+            && let Some(alt) = out.alternate.as_mut()
+            && let Some(source_name) = alt.copy_face_from.clone()
+        {
+            let mut copied = self.raw_script(&source_name)?;
+            let mut resolved = if copied.script_name.eq_ignore_ascii_case(&source_name) {
+                copied.alternate = None;
+                copied.alternate_mode = None;
+                copied
+            } else if let Some(alt_face) = copied.alternate.take()
+                && alt_face.script_name.eq_ignore_ascii_case(&source_name)
+            {
+                *alt_face
+            } else {
+                return None;
+            };
+            if resolved.copy_face_from.is_some() {
+                return None;
+            }
+            resolved.alternate = None;
+            resolved.alternate_mode = None;
+            resolved.copy_face_from = None;
+            **alt = resolved;
+        }
+        Some(out)
     }
 }
