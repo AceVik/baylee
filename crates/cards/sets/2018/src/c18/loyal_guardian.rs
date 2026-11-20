@@ -7,12 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static CHECK1: Filter = Filter::And(&[
-    Filter::IsCommander,
-    Filter::OwnedByYou,
-    Filter::ControlledByYou,
-]);
-
 card!(
     index = index::LOYAL_GUARDIAN,
     oracle_id = "de1cfa83-2049-48ab-b093-2f120a3ef4f2",
@@ -38,6 +32,6 @@ card!(
             kind: CounterKind::P1P1,
             amount: Amount::Fixed(1)
         }],
-        condition = Some(Condition::ControlCount(&CHECK1, 1))
+        condition = Some(Condition::ControlYourCommander)
     ),],
 );

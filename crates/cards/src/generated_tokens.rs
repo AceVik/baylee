@@ -4109,6 +4109,17 @@ pub static AVATAR_4_4_WHITE_FLYING: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 0/0 black Orc Army.
+pub static ORC_ARMY_0_0_BLACK: TokenDef = TokenDef {
+    name: "Orc Army",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ORC, creature::ARMY],
+    power: Some(0),
+    toughness: Some(0),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -5208,6 +5219,7 @@ pub static ALL: &[&TokenDef] = &[
     &DRAGON_EGG_0_2_RED_DEFENDER_A7327D884,
     &OX_2_4_WHITE,
     &AVATAR_4_4_WHITE_FLYING,
+    &ORC_ARMY_0_0_BLACK,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -5521,4 +5533,5 @@ pub static GENERATED: &[&TokenDef] = &[
     &DRAGON_EGG_0_2_RED_DEFENDER_A7327D884,
     &OX_2_4_WHITE,
     &AVATAR_4_4_WHITE_FLYING,
+    &ORC_ARMY_0_0_BLACK,
 ];

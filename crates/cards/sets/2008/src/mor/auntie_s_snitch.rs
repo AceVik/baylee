@@ -42,9 +42,7 @@ card!(
                 effects: &[Effect::bounce(TargetSpec::ThisObject)]
             }],
             zone = TriggerZone::Graveyard,
-            condition = Some(Condition::SourceMatches(&Filter::InZone(
-                ZoneRef::Graveyard
-            )))
+            condition = Some(Condition::SourceInZone(ZoneRef::Graveyard))
         ),
     ],
 );

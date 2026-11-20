@@ -7,13 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static CHECK1: Filter = Filter::And(&[
-    Filter::IsCommander,
-    Filter::OwnedByYou,
-    Filter::ControlledByYou,
-]);
-
-static PUMP_ALL2: Filter =
+static PUMP_ALL1: Filter =
     Filter::And(&[Filter::CREATURE, Filter::Another, Filter::ControlledByYou]);
 
 card!(
@@ -43,7 +37,7 @@ card!(
                 Duration::UntilEndOfTurn
             ),
             Effect::PumpFilter {
-                filter: &PUMP_ALL2,
+                filter: &PUMP_ALL1,
                 controlled_by: None,
                 power: Amount::Fixed(0),
                 toughness: Amount::Fixed(0),
@@ -51,6 +45,6 @@ card!(
                 duration: Duration::UntilEndOfTurn
             }
         ],
-        condition = Some(Condition::ControlCount(&CHECK1, 1))
+        condition = Some(Condition::ControlYourCommander)
     ),],
 );

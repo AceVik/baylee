@@ -45,9 +45,7 @@ card!(
                 effects: &[Effect::gain_life(1)]
             }],
             zone = TriggerZone::Graveyard,
-            condition = Some(Condition::SourceMatches(&Filter::InZone(
-                ZoneRef::Graveyard
-            )))
+            condition = Some(Condition::SourceInZone(ZoneRef::Graveyard))
         ),
         activated!(
             cost!("{6}{R}{R}{W}{W}"),

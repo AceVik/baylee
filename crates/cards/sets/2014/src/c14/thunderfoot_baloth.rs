@@ -7,12 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static CHECK1: Filter = Filter::And(&[
-    Filter::IsCommander,
-    Filter::OwnedByYou,
-    Filter::ControlledByYou,
-]);
-
 card!(
     index = index::THUNDERFOOT_BALOTH,
     oracle_id = "f55334d9-1ec2-4667-bf28-5a0384d6f053",
@@ -32,17 +26,17 @@ card!(
         static_ability!(
             Filter::This,
             Modifier::ModifyPT(2, 2),
-            condition = Some(Condition::ControlCount(&CHECK1, 1))
+            condition = Some(Condition::ControlYourCommander)
         ),
         static_ability!(
             Filter::And(&[Filter::CREATURE, Filter::ControlledByYou, Filter::Another]),
             Modifier::ModifyPT(2, 2),
-            condition = Some(Condition::ControlCount(&CHECK1, 1))
+            condition = Some(Condition::ControlYourCommander)
         ),
         static_ability!(
             Filter::And(&[Filter::CREATURE, Filter::ControlledByYou, Filter::Another]),
             Modifier::AddKeyword(KeywordSet::TRAMPLE),
-            condition = Some(Condition::ControlCount(&CHECK1, 1))
+            condition = Some(Condition::ControlYourCommander)
         ),
     ],
 );

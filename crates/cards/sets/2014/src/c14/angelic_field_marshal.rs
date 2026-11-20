@@ -7,12 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static CHECK1: Filter = Filter::And(&[
-    Filter::IsCommander,
-    Filter::OwnedByYou,
-    Filter::ControlledByYou,
-]);
-
 card!(
     index = index::ANGELIC_FIELD_MARSHAL,
     oracle_id = "502575f4-7c56-44bc-a77f-ae28d66c8e1f",
@@ -32,12 +26,12 @@ card!(
         static_ability!(
             Filter::YOUR_CREATURE,
             Modifier::AddKeyword(KeywordSet::VIGILANCE),
-            condition = Some(Condition::ControlCount(&CHECK1, 1))
+            condition = Some(Condition::ControlYourCommander)
         ),
         static_ability!(
             Filter::This,
             Modifier::ModifyPT(2, 2),
-            condition = Some(Condition::ControlCount(&CHECK1, 1))
+            condition = Some(Condition::ControlYourCommander)
         ),
     ],
 );

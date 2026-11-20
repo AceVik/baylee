@@ -37,8 +37,6 @@ card!(
             &Filter::CREATURE,
             PlayerRel::You
         ))),
-        condition = Some(Condition::SourceMatches(&Filter::InZone(
-            ZoneRef::Graveyard
-        )))
+        condition = Some(Condition::SourceInZone(ZoneRef::Graveyard))
     ),],
 );
