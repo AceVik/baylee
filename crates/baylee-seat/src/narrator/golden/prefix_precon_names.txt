@@ -24,6 +24,7 @@ Main deck:
   1× Explore
   1× Fact or Fiction
   8× Forest
+  1× Growth Spiral
   1× Harmonize
   1× Into the Roil
   1× Ior Ruin Expedition
@@ -44,16 +45,19 @@ Main deck:
   1× Retreat to Kazandu
   1× Search for Tomorrow
   1× Seer's Sundial
+  1× Sharktocrab
   1× Simic Charm
   1× Simic Growth Chamber
   1× Simic Guildgate
   1× Simic Signet
   1× Simic Sky Swallower
+  1× Slinn Voda, the Rising Deep
   1× Sol Ring
   1× Sporemound
   1× Swiftfoot Boots
   1× Terramorphic Expanse
   1× Thornwood Falls
+  1× Verdant Sun's Avatar
   1× Vivid Creek
   1× Vivid Grove
   1× Whelming Wave
@@ -88,7 +92,3 @@ Main deck:
   1× Path to Exile
   2× Plains
   1× Primal Beyond
-  1× Raging Ravine
-  1× Rain-Slicked Copse
-  1× Risen Reef
-  1× Sandsteppe Citadel
