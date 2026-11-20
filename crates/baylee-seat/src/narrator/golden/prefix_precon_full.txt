@@ -234,9 +234,8 @@ Main deck:
     Fear
     When this creature enters, destroy target nonartifact, nonblack creature.
     Evoke {1}{B} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)
+  1× Smokebraider {1}{R} · Creature — Elemental Shaman · 1/1
+    {T}: Add two mana in any combination of colors. Spend this mana only to cast Elemental spells or activate abilities of Elementals.
   1× Sodden Verdure · Land — Forest Island
     This land enters tapped unless you control two or more basic lands.
   2× Swamp · Basic Land — Swamp
-  1× Thriving Bluff · Land
-    This land enters tapped. As it enters, choose a color other than red.
-    {T}: Add {R} or one mana of the chosen color.

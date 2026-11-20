@@ -88,6 +88,6 @@ Main deck:
   1× Seaside Citadel
   1× Secluded Courtyard
   1× Shriekmaw
+  1× Smokebraider
   1× Sodden Verdure
   2× Swamp
-  1× Thriving Bluff
