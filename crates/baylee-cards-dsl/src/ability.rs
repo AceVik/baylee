@@ -503,6 +503,10 @@ pub enum Condition {
     /// still-in-game player (Peer Pressure). Appended to preserve replay
     /// identities.
     ControlMoreThanEachOtherPlayer(&'static Filter),
+    /// The source spell (or the permanent that spell became as it resolved)
+    /// was kicked with `face.additional_costs[index]` (CR 702.33f, CR 400.7d).
+    /// Appended to preserve replay identities.
+    KickedWith(u8),
 }
 
 /// Trigger conditions for triggered abilities.

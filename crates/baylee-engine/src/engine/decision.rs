@@ -425,8 +425,28 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             cost: wizard
                 .options
                 .iter()
-                .find(|o| Some(o.kind) == wizard.option)
-                .map(|o| o.cost),
+                .find(|o| Some(o.kind) == wizard.announced.or(wizard.option))
+                .map(|o| {
+                    let mut cost = o.cost;
+                    if wizard.kicked_mask != 0
+                        && wizard.option != Some(CastModeKind::Kicked)
+                        && !matches!(
+                            wizard.announced,
+                            Some(
+                                CastModeKind::EscapeGranted { kicked: true, .. }
+                                    | CastModeKind::LibraryTopLife { kicked: true, .. }
+                            )
+                        )
+                        && let Some(f) = def.faces.get(face)
+                    {
+                        for (idx, add) in f.additional_costs.iter().enumerate() {
+                            if idx < 8 && (wizard.kicked_mask & (1_u8 << idx)) != 0 {
+                                cost = cost.combine(&add.mana);
+                            }
+                        }
+                    }
+                    cost
+                }),
             life_x: def
                 .faces
                 .get(face)

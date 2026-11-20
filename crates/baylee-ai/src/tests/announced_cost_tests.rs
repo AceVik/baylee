@@ -267,3 +267,54 @@ fn multikicker_is_kicked_as_far_as_the_pool_reaches() {
         "nothing floating kicks nothing"
     );
 }
+
+/// Dual kicker (CR 702.33a–b): each `YesNoPrompt::KickerOption` checks the
+/// marginal affordability against `context.cost` (which already carries base +
+/// earlier chosen kickers) without double-counting prior kickers.
+#[test]
+fn kicker_option_checks_marginal_affordability_without_double_counting() {
+    let kicker0 = Pending::YesNo {
+        player: ME,
+        prompt: YesNoPrompt::KickerOption {
+            index: 0,
+            cost: "{1}{G}".parse().unwrap(),
+            parts: BuybackParts::default(),
+        },
+        source: None,
+    };
+    let kicker1 = Pending::YesNo {
+        player: ME,
+        prompt: YesNoPrompt::KickerOption {
+            index: 1,
+            cost: "{2}{U}".parse().unwrap(),
+            parts: BuybackParts::default(),
+        },
+        source: None,
+    };
+    // Base {2}{W} + kicker 0 {1}{G} = {3}{W}{G}; kicker 1 adds {2}{U} -> {5}{W}{G}{U}.
+    let mut v = view(0, &[20, 20], vec![]);
+    v.seats[0].mana_pool.white = 1;
+    v.seats[0].mana_pool.green = 1;
+    v.seats[0].mana_pool.blue = 1;
+    v.seats[0].mana_pool.colorless = 5;
+    // Asking kicker 0 with base {2}{W}: pool covers {3}{W}{G}.
+    assert_eq!(
+        answer(&v, &kicker0, "{2}{W}"),
+        PlayerAction::YesNo(true),
+        "kicker 0 is payable on top of base cost"
+    );
+    // Asking kicker 1 after kicker 0 was chosen: engine context.cost is {3}{W}{G}.
+    // Pool {5}{W}{G}{U} covers {3}{W}{G} + {2}{U} = {5}{W}{G}{U}.
+    assert_eq!(
+        answer(&v, &kicker1, "{3}{W}{G}"),
+        PlayerAction::YesNo(true),
+        "kicker 1 is payable on top of base + already-chosen kicker 0"
+    );
+    // One colorless short ({4}{W}{G}{U}) declines kicker 1 instead of reversing the cast.
+    v.seats[0].mana_pool.colorless = 4;
+    assert_eq!(
+        answer(&v, &kicker1, "{3}{W}{G}"),
+        PlayerAction::YesNo(false),
+        "one mana short declines kicker 1"
+    );
+}

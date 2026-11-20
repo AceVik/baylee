@@ -224,6 +224,27 @@ fn optional_costs_say_what_they_cost_in_both_languages() {
         "Rückkauf: 2 Karten abwerfen? Der Zauberspruch kehrt beim Verrechnen auf deine Hand \
          zurück."
     );
+    let kicker_opt = interaction(Pending::YesNo {
+        player: me(),
+        prompt: YesNoPrompt::KickerOption {
+            index: 0,
+            cost: baylee_core::mana::ManaCost::parse("{1}{G}"),
+            parts: none,
+        },
+        source: None,
+    });
+    assert_eq!(
+        kicker_opt
+            .prompt()
+            .headline(Lang::En, Turn::Mine, None, false),
+        "Pay kicker cost {1}{G}?"
+    );
+    assert_eq!(
+        kicker_opt
+            .prompt()
+            .headline(Lang::De, Turn::Mine, None, false),
+        "Bonuskosten {1}{G} zahlen?"
+    );
 }
 
 #[test]

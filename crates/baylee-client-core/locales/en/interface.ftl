@@ -3659,6 +3659,10 @@ EchoesRunShelfHint = Three identical items combine automatically. Freeze the she
 # Arguments: price
 BuybackAsk = Buyback: { $price }? The spell comes back to your hand as it resolves.
 
+# Pay one specific kicker cost of a spell with more than one kicker cost.
+# Arguments: price
+KickerOptionAsk = Pay kicker cost { $price }?
+
 # Part of a buyback price: life.
 # Arguments: amount
 BuybackPriceLife = pay { $amount } life

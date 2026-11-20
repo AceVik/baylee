@@ -81,7 +81,9 @@ pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
             | EnterModifier::TappedUnlessReveal(_)
             | EnterModifier::TappedUnlessRevealOrControl(_) => s[81] = 1.0,
             EnterModifier::TappedOrPayLife(_) => s[82] = 1.0,
-            EnterModifier::WithCounters { .. } | EnterModifier::ChooseCounterPerEntryCount(_) => {
+            EnterModifier::WithCounters { .. }
+            | EnterModifier::ChooseCounterPerEntryCount(_)
+            | EnterModifier::IfKicked { .. } => {
                 s[83] = 1.0;
             }
             EnterModifier::ChooseColor | EnterModifier::ChooseColorExcept(_) => s[84] = 1.0,

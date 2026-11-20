@@ -37,6 +37,9 @@ pub enum Way {
     Mode(CastModeKind),
     /// With its kicker, which is asked after the cast begins.
     Kicker,
+    /// With a specific subset of a multi-kicker face's `additional_costs`
+    /// (bit `i` = `additional_costs[i]`).
+    KickerMask(u8),
     /// With its buyback cost's mana paid, which is asked after the cast
     /// begins. A buyback with no mana in it has no price of its own: the
     /// plain cast is asked it.
@@ -143,20 +146,7 @@ pub(super) fn ways(
             plan,
             ..reach.clone()
         };
-        let mana_only = face
-            .additional_costs
-            .iter()
-            .all(|cost| cost.parts.is_empty() && cost.mana != ManaCost::ZERO);
-        if !face.additional_costs.is_empty() && face.kicked_targets.is_none() && mana_only {
-            let kicked = face
-                .additional_costs
-                .iter()
-                .fold(reach.plan.cost, |cost, extra| cost.combine(&extra.mana));
-            out.extend(
-                pay(reach.object, reach.card, kicked, CastModeKind::Normal)
-                    .map(|plan| with(Way::Kicker, plan)),
-            );
-        }
+        kicker_ways(reach, face, pay, &mut out);
         if let Some(buyback) = face.buyback {
             let mana = buyback.mana.with_less_generic(legal.buyback_less);
             if mana != ManaCost::ZERO {
@@ -185,6 +175,57 @@ pub(super) fn ways(
         }
     }
     out
+}
+
+/// Optional kicker raises on top of an ordinary cast: single kicker or any
+/// payable non-empty subset of dual/multi kicker options.
+fn kicker_ways(
+    reach: &Reach,
+    face: &baylee_cards::dsl::FaceDef,
+    pay: &dyn Fn(ObjectId, CardIdentity, ManaCost, CastModeKind) -> Option<Plan>,
+    out: &mut Vec<Reach>,
+) {
+    if face.kicked_targets.is_some() {
+        return;
+    }
+    let with = |way: Way, plan: Plan| Reach {
+        way: Some(way),
+        plan,
+        ..reach.clone()
+    };
+    if face.additional_costs.len() == 1 {
+        let extra = face.additional_costs[0];
+        if extra.parts.is_empty() && extra.mana != ManaCost::ZERO {
+            let kicked = reach.plan.cost.combine(&extra.mana);
+            out.extend(
+                pay(reach.object, reach.card, kicked, CastModeKind::Normal)
+                    .map(|plan| with(Way::Kicker, plan)),
+            );
+        }
+        return;
+    }
+    if face.additional_costs.len() > 1 {
+        let count = face.additional_costs.len().min(4);
+        for mask in 1_u8..(1_u8 << count) {
+            let valid = (0..count).all(|idx| {
+                (mask & (1_u8 << idx)) == 0
+                    || (face.additional_costs[idx].parts.is_empty()
+                        && face.additional_costs[idx].mana != ManaCost::ZERO)
+            });
+            if !valid {
+                continue;
+            }
+            let kicked = (0..count)
+                .filter(|idx| (mask & (1_u8 << idx)) != 0)
+                .fold(reach.plan.cost, |cost, idx| {
+                    cost.combine(&face.additional_costs[idx].mana)
+                });
+            out.extend(
+                pay(reach.object, reach.card, kicked, CastModeKind::Normal)
+                    .map(|plan| with(Way::KickerMask(mask), plan)),
+            );
+        }
+    }
 }
 
 /// The prices of a cost paid any number of times on top of `base`: once, and

@@ -1103,6 +1103,12 @@ pub enum Rider {
     /// this activated ability, for costs and damage that name the grantor.
     /// Appended to preserve the derived replay identity of existing riders.
     GrantedSource(baylee_core::ids::DamageSourceRef),
+    /// Bitmask of which `FaceDef::additional_costs[i]` kicker costs were paid
+    /// for this spell (bit `i`), carried onto the permanent it becomes
+    /// (CR 702.33f, CR 400.7d). Stored only when a face has more than one
+    /// kicker cost and at least one was paid, keeping single-kicker objects
+    /// unchanged. Appended to preserve derived replay identities.
+    KickedMask(u8),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1216,6 +1222,7 @@ impl Rider {
             | Self::MergedInto(_)
             | Self::MergedToken(_)
             | Self::Escaped
+            | Self::KickedMask(_)
             | Self::Masked
             // "That player" of a triggered ability on the stack, which is
             // never in exile.
@@ -1714,6 +1721,26 @@ impl GameObject {
     /// A positive existing count remains positive; clearing the decision resets it.
     pub fn set_kicked(&mut self, kicked: bool) {
         self.times_kicked = if kicked { self.times_kicked.max(1) } else { 0 };
+    }
+
+    /// Bitmask of specific kicker costs paid on a multi-kicker face, if stored.
+    #[must_use]
+    pub fn kicked_mask(&self) -> Option<u8> {
+        self.riders.iter().find_map(|rider| match rider {
+            Rider::KickedMask(mask) => Some(*mask),
+            _ => None,
+        })
+    }
+
+    /// Whether `face.additional_costs[index]` was paid as a kicker cost for
+    /// this spell or the spell that became this permanent (CR 702.33f, CR 400.7d).
+    #[must_use]
+    pub fn kicked_with(&self, index: u8) -> bool {
+        if let Some(mask) = self.kicked_mask() {
+            index < 8 && (mask & (1_u8 << index)) != 0
+        } else {
+            index == 0 && self.kicked()
+        }
     }
 
     /// Opponent chosen as this permanent entered, if any.

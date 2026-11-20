@@ -189,6 +189,7 @@ fn play_the_kicker(
         if let Pending::YesNo {
             prompt:
                 baylee_engine::choice::YesNoPrompt::Kicker
+                | baylee_engine::choice::YesNoPrompt::KickerOption { .. }
                 | baylee_engine::choice::YesNoPrompt::Buyback { .. },
             ..
         } = pending

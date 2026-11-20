@@ -462,6 +462,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             obj.set_second_players(wizard.second_target_players);
             obj.x_value = wizard.x;
             obj.times_kicked = wizard.times_kicked();
+            obj.riders
+                .retain(|r| !matches!(r, crate::object::Rider::KickedMask(_)));
+            if face.additional_costs.len() > 1 && wizard.kicked_mask != 0 {
+                obj.riders
+                    .push(crate::object::Rider::KickedMask(wizard.kicked_mask));
+            }
             obj.replicated = wizard.replicated;
             obj.alt_cast = matches!(wizard.option, Some(CastModeKind::Alternative(_)))
                 || matches!(wizard.announced, Some(CastModeKind::LibraryTopLife { .. }));

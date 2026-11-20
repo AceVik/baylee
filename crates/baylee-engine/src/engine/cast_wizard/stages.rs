@@ -332,8 +332,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
             WizardStage::Kicker => {
                 let face = self.wizard_face(&wizard);
-                if face.additional_costs.is_empty()
-                    || wizard.kicked
+                let skip = face.additional_costs.is_empty()
+                    || wizard.option == Some(CastModeKind::Disguise)
+                    || wizard.masked
                     || matches!(
                         wizard.announced,
                         Some(
@@ -341,9 +342,53 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                 | CastModeKind::LibraryTopLife { .. }
                         )
                     )
-                    || (face.kicked_targets.is_some() && !wizard.free)
+                    || (face.kicked_targets.is_some() && !wizard.free);
+                if skip
+                    || (face.additional_costs.len() == 1 && wizard.kicked)
+                    || wizard.option == Some(CastModeKind::Kicked)
                 {
                     let mut wizard = wizard;
+                    wizard.stage = WizardStage::Buyback;
+                    self.cast_wizard = Some(wizard);
+                    return self.advance_cast_wizard();
+                }
+                let source = self.state.object(wizard.card).and_then(|o| {
+                    o.card.map(|c| {
+                        baylee_core::ids::AbilityRef::new(
+                            c.index,
+                            baylee_core::ids::AbilityRef::ADDITIONAL_COST,
+                        )
+                    })
+                });
+                if face.additional_costs.len() > 1 {
+                    let count = face.additional_costs.len().min(8);
+                    let mut idx = usize::from(wizard.kicker_cursor);
+                    while idx < count {
+                        let mut probe = wizard.clone();
+                        probe.kicked = true;
+                        probe.kicked_mask |= 1_u8 << idx;
+                        if self.announced_cost_payable(&probe) {
+                            let extra = &face.additional_costs[idx];
+                            let cursor = u8::try_from(idx).expect("kicker index fits u8");
+                            let mut wizard = wizard;
+                            wizard.kicker_cursor = cursor;
+                            self.cast_wizard = Some(wizard.clone());
+                            self.pending = Pending::YesNo {
+                                player: wizard.player,
+                                prompt: YesNoPrompt::KickerOption {
+                                    index: cursor,
+                                    cost: extra.mana,
+                                    parts: crate::choice::BuybackParts::of(extra.parts),
+                                },
+                                source,
+                            };
+                            self.awaiting_answer = true;
+                            return Ok(());
+                        }
+                        idx += 1;
+                    }
+                    let mut wizard = wizard;
+                    wizard.kicker_cursor = u8::try_from(count).unwrap_or(u8::MAX);
                     wizard.stage = WizardStage::Buyback;
                     self.cast_wizard = Some(wizard);
                     return self.advance_cast_wizard();
@@ -351,14 +396,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 self.pending = Pending::YesNo {
                     player: wizard.player,
                     prompt: YesNoPrompt::Kicker,
-                    source: self.state.object(wizard.card).and_then(|o| {
-                        o.card.map(|c| {
-                            baylee_core::ids::AbilityRef::new(
-                                c.index,
-                                baylee_core::ids::AbilityRef::ADDITIONAL_COST,
-                            )
-                        })
-                    }),
+                    source,
                 };
                 self.awaiting_answer = true;
                 Ok(())

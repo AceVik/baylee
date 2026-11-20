@@ -869,6 +869,23 @@ pub enum EnterModifier {
     /// records the paid amount as the permanent's chosen number for
     /// `PtCount::ChosenNumber`.
     PayLifeUpTo(Amount),
+    /// "If this creature was kicked [with its [cost] kicker], it enters with
+    /// [N] +1/+1 counters on it and with [abilities]" (CR 614.1c, CR 611.2e,
+    /// CR 702.33e, CR 702.33f — the Volver cycle).
+    ///
+    /// When `index` is `None`, applies whenever the spell was kicked at all;
+    /// when `Some(i)`, applies when `face.additional_costs[i]` was paid.
+    /// Counters go through counter replacements (CR 614.16); `modifiers`
+    /// register indefinite Layer 6 continuous effects on this incarnation
+    /// (not copiable per CR 707.2, dropped on zone change per CR 400.7).
+    IfKicked {
+        /// Index into `FaceDef::additional_costs`, or `None` for any kick.
+        index: Option<u8>,
+        /// Number of +1/+1 counters placed as this permanent enters.
+        counters: u8,
+        /// Continuous-effect modifiers granted indefinitely to this incarnation.
+        modifiers: &'static [Modifier],
+    },
 }
 
 /// Simple keyword abilities as a bitset.

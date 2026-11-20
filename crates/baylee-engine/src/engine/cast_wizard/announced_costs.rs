@@ -74,7 +74,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// Whether the total of `paying`, an announcement this cast could make,
     /// can be paid: every part of it there is something to pay with, and its
     /// mana either floating or still to be made.
-    fn announced_cost_payable(&self, paying: &CastWizard) -> bool {
+    pub(super) fn announced_cost_payable(&self, paying: &CastWizard) -> bool {
         let face = self.wizard_face(paying);
         self.state
             .can_pay_life(paying.player, paying.total_life_cost(face))
@@ -129,9 +129,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
 
 impl CastWizard {
     /// How many times this spell was kicked (CR 702.33d): a multikicker's
-    /// count, or 1 for a kicker taken.
+    /// count, the number of dual/multi kicker costs paid, or 1 for a single
+    /// kicker taken.
     pub(super) fn times_kicked(&self) -> u8 {
-        self.multikicked.max(u8::from(self.kicked))
+        let mask_count = u8::try_from(self.kicked_mask.count_ones()).unwrap_or(u8::MAX);
+        self.multikicked.max(mask_count).max(u8::from(self.kicked))
     }
 
     /// The non-mana costs this cast has announced.
@@ -141,6 +143,7 @@ impl CastWizard {
             alternative_cost: self.alternative_cost,
             buyback: self.buyback.is_some(),
             kicked: self.kicked,
+            kicked_mask: self.kicked_mask,
         }
     }
 }

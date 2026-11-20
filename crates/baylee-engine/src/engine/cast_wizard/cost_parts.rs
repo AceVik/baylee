@@ -17,8 +17,13 @@ pub(crate) fn wizard_mandatory_parts(
         .chain(
             face.additional_costs
                 .iter()
-                .filter(move |_| choice.kicked)
-                .flat_map(|cost| cost.parts),
+                .enumerate()
+                .filter(move |(idx, _)| {
+                    choice.kicked
+                        && (choice.kicked_mask == 0
+                            || (*idx < 8 && (choice.kicked_mask & (1_u8 << *idx)) != 0))
+                })
+                .flat_map(|(_, cost)| cost.parts),
         )
 }
 
@@ -59,6 +64,8 @@ pub(crate) struct CostChoice {
     pub buyback: bool,
     /// Kicker can accompany a face or mode without replacing that choice.
     pub kicked: bool,
+    /// Bitmask of accepted multi-kicker entries; zero means all when `kicked`.
+    pub kicked_mask: u8,
 }
 
 impl From<Option<CastModeKind>> for CostChoice {
@@ -75,6 +82,7 @@ impl From<Option<CastModeKind>> for CostChoice {
                         | CastModeKind::EscapeGranted { kicked: true, .. }
                 )
             ),
+            kicked_mask: 0,
         }
     }
 }

@@ -148,6 +148,11 @@ pub struct CastWizard {
     pub x: u32,
     /// Whether the kicker was taken.
     pub kicked: bool,
+    /// Bitmask of accepted `face.additional_costs[i]` entries on multi-kicker
+    /// faces (CR 702.33b, CR 702.33f); zero on single-kicker or unkicked casts.
+    pub kicked_mask: u8,
+    /// Next `face.additional_costs` index to evaluate in `WizardStage::Kicker`.
+    pub kicker_cursor: u8,
     /// How many times the multikicker cost is paid. Above zero the spell is
     /// kicked (CR 702.33d), so `kicked` is true beside it.
     pub multikicked: u8,
@@ -243,6 +248,8 @@ impl CastWizard {
             chosen_player: None,
             x: 0,
             kicked: false,
+            kicked_mask: 0,
+            kicker_cursor: 0,
             multikicked: 0,
             buyback: None,
             replicated: 0,
@@ -340,6 +347,11 @@ impl CastWizard {
                     self.buyback,
                 )));
         }
+        if self.kicked_mask != 0 {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(u64::from(self.kicked_mask));
+        }
         // A separate alternative cost changes the meaning of modal answers.
         // Keep the legacy fingerprint byte-for-byte when no such route exists.
         if self.alternative_cost.is_some() {
@@ -369,24 +381,18 @@ impl CastWizard {
             .wrapping_add(crate::state::structural_fingerprint(
                 &self.second_target_players,
             ));
-        for targets in [
-            self.targets.as_slice(),
-            self.second_targets.as_slice(),
-            self.pitch.as_slice(),
-            self.delve_exiles.as_slice(),
-            self.escape_exiles.as_slice(),
-            self.convoke_taps.as_slice(),
-            self.cost_objects.as_slice(),
-        ] {
-            hash = hash.wrapping_mul(31).wrapping_add(targets.len() as u64);
-            for target in targets {
-                hash = hash
-                    .wrapping_mul(31)
-                    .wrapping_add(u64::from(target.slot()))
-                    .wrapping_mul(31)
-                    .wrapping_add(u64::from(target.generation()));
-            }
-        }
+        hash = Self::hash_object_slices(
+            hash,
+            &[
+                self.targets.as_slice(),
+                self.second_targets.as_slice(),
+                self.pitch.as_slice(),
+                self.delve_exiles.as_slice(),
+                self.escape_exiles.as_slice(),
+                self.convoke_taps.as_slice(),
+                self.cost_objects.as_slice(),
+            ],
+        );
         hash = hash
             .wrapping_mul(31)
             .wrapping_add(self.division.len() as u64);
@@ -411,6 +417,20 @@ impl CastWizard {
             .wrapping_add(seats)
             .wrapping_mul(31)
             .wrapping_add(phyrexian)
+    }
+
+    fn hash_object_slices(mut hash: u64, slices: &[&[ObjectId]]) -> u64 {
+        for targets in slices {
+            hash = hash.wrapping_mul(31).wrapping_add(targets.len() as u64);
+            for target in *targets {
+                hash = hash
+                    .wrapping_mul(31)
+                    .wrapping_add(u64::from(target.slot()))
+                    .wrapping_mul(31)
+                    .wrapping_add(u64::from(target.generation()));
+            }
+        }
+        hash
     }
 }
 
@@ -1836,8 +1856,10 @@ fn wizard_total_before_reduction(
             )
         )
     {
-        for add in face.additional_costs {
-            total = total.combine(&add.mana);
+        for (idx, add) in face.additional_costs.iter().enumerate() {
+            if wizard.kicked_mask == 0 || (idx < 8 && (wizard.kicked_mask & (1_u8 << idx)) != 0) {
+                total = total.combine(&add.mana);
+            }
         }
     }
     if let Some(multikicker) = face.multikicker {

@@ -435,13 +435,17 @@ express at all yet.
   "not your turn", a commander you control, or `If` over your turn, raid, a
   count of permanents you or an opponent control, threshold, your life, cards
   in your graveyard); any other part or condition stays refused.
-- `FaceDef.additional_costs: &[Cost]` — kicker (optional, yes/no at cast).
-  The reader writes `K:Kicker:<mana>` here; dual, X and non-mana kickers stay
-  refused. A face with a kicked-only target or a target the kicker replaces
-  carries it in `kicked_targets`; the kicked half is `Effect::IfKicked`,
-  read only on the spell itself and on a `Trigger::ETB`, the two places the
-  stack object carries the kicked count.
-  Only its `mana` is read; `parts` is paid by nothing and is held empty.
+- `FaceDef.additional_costs: &[Cost]` — kicker (optional, yes/no at cast,
+  CR 702.33a–b). One element is a single kicker (`YesNoPrompt::Kicker`);
+  multiple elements are dual/multi-cost kickers (`Kicker [A] and/or [B]`,
+  CR 702.33b), offered one at a time via `YesNoPrompt::KickerOption` in
+  printed Oracle order. Kicking both increments `times_kicked` to 2
+  (CR 702.33d). A face with a kicked-only target or a target the kicker
+  replaces carries it in `kicked_targets`; the kicked half is `Effect::IfKicked`
+  (any kick) or `Condition::KickedWith(index)` (a specific cost
+  `additional_costs[index]`, CR 702.33f), both read on the spell itself and on
+  the permanent that spell became as it resolved (CR 400.7d), including its
+  `Trigger::ETB` intervening `if` clauses (CR 603.4) and `EnterModifier::IfKicked`.
 - `waterbend = true` — "you may waterbend {N}": the additional cost above is
   a waterbend cost, so once it is paid, artifacts and creatures may be tapped
   for its generic mana and nothing else (CR 701.67b). It is not
@@ -1179,8 +1183,24 @@ and face it names, and read back by `Modifier::ChosenNameCantActivate`),
 remembered answer, restricted to printed faces with none of the excluded
 types; `TypeSet::LAND` expresses "nonland card name"),
 `Prepared` (Emeritus of Woe),
-`TappedUnlessReveal(filter)` and
-`WithCounters { kind, amount }`.
+`TappedUnlessReveal(filter)`,
+`WithCounters { kind, amount }`, and
+`IfKicked { index, counters, modifiers }`.
+
+`IfKicked { index, counters, modifiers }` is the Volver-cycle replacement
+effect (CR 614.1c, CR 611.2e, CR 702.33e, CR 702.33f): when entering from the
+stack having been kicked (`index: None`) or kicked with
+`additional_costs[i]` (`index: Some(i)`), it places `counters` +1/+1 counters
+through the counter replacement pipeline (so doublers apply per CR 614.16) and
+registers indefinite Layer 6 continuous effects for `modifiers` targeting that
+exact permanent incarnation (not copiable per CR 707.2, and dropped on any zone
+change per CR 400.7).
+
+`Condition::KickedWith(index)` checks whether the source spell, or the
+permanent it became on resolving from the stack (CR 400.7d, CR 702.33f), was
+kicked with `additional_costs[index]`. Used in both intervening-`if` clauses
+(CR 603.4, the Battlemage cycle) and resolving `Effect::IfCondition` branches
+(Illuminate).
 
 `TappedUnlessReveal(filter)` is the reveal lands — "as this land enters, you
 may reveal a Faerie card from your **hand**; if you don't, it enters

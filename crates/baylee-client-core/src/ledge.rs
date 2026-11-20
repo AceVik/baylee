@@ -371,6 +371,11 @@ mod tests {
                 bounds: Vec::new(),
             },
             yes_no(YesNoPrompt::Kicker),
+            yes_no(YesNoPrompt::KickerOption {
+                index: 0,
+                cost: baylee_core::mana::ManaCost::parse("{1}{G}"),
+                parts: baylee_engine::choice::BuybackParts::default(),
+            }),
             yes_no(YesNoPrompt::MayDo),
             yes_no(YesNoPrompt::CommanderZone { card: creature }),
             Pending::DiscardChoice {
@@ -409,7 +414,7 @@ mod tests {
             buttons += 1;
         }
         assert_eq!(
-            buttons, 7,
+            buttons, 8,
             "the questions above with an answer that does nothing"
         );
     }
