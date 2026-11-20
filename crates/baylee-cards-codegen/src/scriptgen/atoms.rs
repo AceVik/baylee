@@ -384,10 +384,20 @@ fn collect_token_stems(script: &CardScript, out: &mut Vec<String>) {
         // of these lines also *prints* it, and `SpellDescription$
         // Investigate. (Create a Clue token…)` is on 21 of the corpus's
         // 112.
-        if Params::parse(body).is_some_and(|(api, _)| api == "Investigate")
-            && !out.iter().any(|stem| stem == CLUE_TOKEN_SCRIPT)
-        {
-            out.push(CLUE_TOKEN_SCRIPT.to_string());
+        if let Some((api, mut p)) = Params::parse(body) {
+            if api == "Investigate" && !out.iter().any(|stem| stem == CLUE_TOKEN_SCRIPT) {
+                out.push(CLUE_TOKEN_SCRIPT.to_string());
+            } else if api == "Amass"
+                && let Some(raw_type) = p.take("Type")
+            {
+                let sub = raw_type.trim().to_ascii_lowercase();
+                if !sub.is_empty() && sub.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+                    let stem = format!("b_0_0_{sub}_army");
+                    if !out.contains(&stem) {
+                        out.push(stem);
+                    }
+                }
+            }
         }
     }
     if let Some(back) = script.alternate.as_deref() {

@@ -1066,3 +1066,39 @@ fn a_card_that_only_investigates_still_names_the_clue() {
         .is_empty()
     );
 }
+
+#[test]
+fn a_card_that_only_amasses_still_names_its_army_token() {
+    assert_eq!(
+        token_stems(&parse(
+            "Name:X\nManaCost:1 B\nTypes:Sorcery\n\
+             A:SP$ Amass | Type$ Zombie | Num$ 2"
+        )),
+        ["b_0_0_zombie_army"]
+    );
+    assert_eq!(
+        token_stems(&parse(
+            "Name:X\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+             T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | \
+             Execute$ Trig | TriggerDescription$ x\n\
+             SVar:Trig:DB$ Amass | Type$ Orc | Num$ 1"
+        )),
+        ["b_0_0_orc_army"]
+    );
+    assert_eq!(
+        token_stems(&parse(
+            "Name:X\nManaCost:2 B\nTypes:Sorcery\n\
+             A:SP$ Amass | Type$ Zombie | Num$ 1 | SubAbility$ More\n\
+             SVar:More:DB$ Amass | Type$ Zombie | Num$ 2"
+        )),
+        ["b_0_0_zombie_army"]
+    );
+    assert!(
+        token_stems(&parse(
+            "Name:X\nTypes:Land\n\
+             A:AB$ Mana | Cost$ T | Produced$ B | \
+             SpellDescription$ Add {B}. Amass Zombies 2."
+        ))
+        .is_empty()
+    );
+}
