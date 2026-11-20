@@ -477,6 +477,12 @@ struct Tx<'a> {
     /// Whether the chain being read follows `ChooseType | Type$ Creature`,
     /// enabling `ChosenType` filter atoms for resolution-chosen creature types.
     in_chosen_creature_type: bool,
+    /// Whether the activated cost being read is activated from the graveyard
+    /// (`ActivationZone$ Graveyard`), allowing `ExileFromGrave<1/CARDNAME>`.
+    pub(super) in_graveyard_activation: bool,
+    /// Whether the activated cost being read is activated from the hand
+    /// (`ActivationZone$ Hand`), allowing self-discard and self-exile costs.
+    pub(super) in_hand_activation: bool,
     /// `PT:` line on this face, for single-sided characteristic-defining P/T.
     pt: Option<&'a str>,
     body: CardBody,
@@ -546,6 +552,8 @@ impl<'a> Tx<'a> {
             kicked_branch_used: std::cell::Cell::new(false),
             counter_on_source: false,
             in_chosen_creature_type: false,
+            in_graveyard_activation: false,
+            in_hand_activation: false,
             pt: script.pt.as_deref(),
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),

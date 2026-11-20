@@ -3252,3 +3252,109 @@ fn wave8a_goad_static_command_and_continuous_check_svar() {
         "Name:BareSelfCant\nManaCost:1 R\nTypes:Creature\nPT:3/3\nS:Mode$ CantAttack | ValidCard$ Card.Self"
     ));
 }
+
+#[test]
+fn bargain_and_your_turn_conditions() {
+    let bargained = read(
+        "Name:BargainWisp\nManaCost:1 U\nTypes:Creature\nPT:2/1\nK:Bargain\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1 | ConditionCheckSVar$ BargainedCheck | ConditionSVarCompare$ GE1\n\
+         SVar:BargainedCheck:Count$Bargained.1.0",
+    );
+    assert!(bargained.bargain);
+    assert!(
+        bargained.abilities[0].contains("Condition::Bargained"),
+        "{:?}",
+        bargained.abilities
+    );
+
+    let not_bargained = read(
+        "Name:AntiBargainWisp\nManaCost:1 U\nTypes:Creature\nPT:2/1\nK:Bargain\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1 | ConditionCheckSVar$ BargainedCheck | ConditionSVarCompare$ EQ0\n\
+         SVar:BargainedCheck:Count$Bargained.1.0",
+    );
+    assert!(
+        not_bargained.abilities[0].contains("Condition::Not(&Condition::Bargained)"),
+        "{:?}",
+        not_bargained.abilities
+    );
+
+    let turn_watcher = read(
+        "Name:TurnWatcher\nManaCost:1 W\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ Continuous | Affected$ Card.Self | AddPower$ 2 | CheckSVar$ IsMyTurn | SVarCompare$ GE1\n\
+         S:Mode$ Continuous | Affected$ Card.Self | AddToughness$ 2 | CheckSVar$ IsMyTurn | SVarCompare$ EQ0\n\
+         SVar:IsMyTurn:PlayerCountPropertyYou$HasPropertyActive",
+    );
+    assert!(
+        turn_watcher.abilities[0].contains("Condition::YourTurn")
+            && turn_watcher.abilities[1].contains("Condition::Not(&Condition::YourTurn)"),
+        "{:?}",
+        turn_watcher.abilities
+    );
+
+    for bad in [
+        "Name:BadNoBargainKeyword\nManaCost:1 U\nTypes:Creature\nPT:2/1\nT:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw\nSVar:TrigDraw:DB$ Draw | NumCards$ 1 | ConditionCheckSVar$ BargainedCheck | ConditionSVarCompare$ GE1\nSVar:BargainedCheck:Count$Bargained.1.0",
+        "Name:BadDupBargain\nManaCost:1 U\nTypes:Creature\nPT:2/1\nK:Bargain\nK:Bargain",
+        "Name:BadExtraBargain\nManaCost:1 U\nTypes:Creature\nPT:2/1\nK:Bargain:Extra",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn emerge_and_prototype_keywords() {
+    let simple_emerge = read("Name:EmergeBeast\nManaCost:7\nTypes:Creature\nPT:5/5\nK:Emerge:5 U");
+    assert_eq!(
+        simple_emerge.emerge.as_deref(),
+        Some("Some(Emerge::creature(mana!(\"{5}{U}\")))")
+    );
+    assert!(simple_emerge.has_own_rules());
+
+    let filtered_emerge =
+        read("Name:ArtifactEmerger\nManaCost:7\nTypes:Creature\nPT:5/5\nK:Emerge:5 U:Artifact");
+    assert!(
+        filtered_emerge
+            .emerge
+            .as_deref()
+            .is_some_and(|e| e.starts_with("Some(Emerge::from(mana!(\"{5}{U}\")")
+                && e.contains("Filter::ARTIFACT")),
+        "{:?}",
+        filtered_emerge.emerge
+    );
+
+    let composite_emerge = read(
+        "Name:CompositeEmerger\nManaCost:7\nTypes:Creature\nPT:5/5\nK:Emerge:4 G:Artifact.Green",
+    );
+    assert!(
+        composite_emerge
+            .emerge
+            .as_deref()
+            .is_some_and(|e| e.starts_with("Some(Emerge::from(mana!(\"{4}{G}\")")),
+        "{:?}",
+        composite_emerge.emerge
+    );
+
+    let proto = read(
+        "Name:ProtoConstruct\nManaCost:7\nTypes:Artifact Creature\nPT:6/6\nK:Prototype:1 B:3:3",
+    );
+    assert_eq!(
+        proto.prototype.as_deref(),
+        Some("Some(Prototype::new(mana!(\"{1}{B}\"), 3, 3))")
+    );
+    assert!(proto.has_own_rules());
+
+    for bad in [
+        "Name:BadDupEmerge\nManaCost:7\nTypes:Creature\nPT:5/5\nK:Emerge:5 U\nK:Emerge:6 U",
+        "Name:BadEmptyEmerge\nManaCost:7\nTypes:Creature\nPT:5/5\nK:Emerge:",
+        "Name:BadEmergeMana\nManaCost:7\nTypes:Creature\nPT:5/5\nK:Emerge:NotMana",
+        "Name:BadEmergeEmptyFilter\nManaCost:7\nTypes:Creature\nPT:5/5\nK:Emerge:5 U:",
+        "Name:BadEmergeExtra\nManaCost:7\nTypes:Creature\nPT:5/5\nK:Emerge:5 U:Artifact:Extra",
+        "Name:BadDupProto\nManaCost:7\nTypes:Artifact Creature\nPT:6/6\nK:Prototype:1 B:2:2\nK:Prototype:2 B:3:3",
+        "Name:BadArityProto\nManaCost:7\nTypes:Artifact Creature\nPT:6/6\nK:Prototype:1 B:3",
+        "Name:BadPtProto\nManaCost:7\nTypes:Artifact Creature\nPT:6/6\nK:Prototype:1 B:X:3",
+        "Name:BadManaProto\nManaCost:7\nTypes:Artifact Creature\nPT:6/6\nK:Prototype:NotMana:3:3",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

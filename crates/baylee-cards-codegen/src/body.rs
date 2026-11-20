@@ -77,6 +77,12 @@ pub struct CardBody {
     pub morph_parts: Vec<String>,
     /// `bestow` expression for the front face, when present.
     pub bestow: Option<String>,
+    /// `prototype` expression for the face, when present.
+    pub prototype: Option<String>,
+    /// `bargain = true` on the face, when present.
+    pub bargain: bool,
+    /// `emerge` expression for the face, when present.
+    pub emerge: Option<String>,
     /// `jump_start = true` on the face, when present.
     pub jump_start: bool,
     /// `aftermath = true` on the face, when present.
@@ -133,6 +139,9 @@ impl CardBody {
             && self.megamorph.is_none()
             && self.morph_parts.is_empty()
             && self.bestow.is_none()
+            && self.prototype.is_none()
+            && !self.bargain
+            && self.emerge.is_none()
             && !self.jump_start
             && !self.aftermath
             && self.cost_reduction.is_none()

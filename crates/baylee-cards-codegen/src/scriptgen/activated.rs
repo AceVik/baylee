@@ -33,11 +33,13 @@ struct ExtractedAbilitySpec {
     cost: Option<String>,
     alternate_cost: Option<String>,
     limit: Option<String>,
+    activation_zone: Option<String>,
     non_battlefield_zone: bool,
     zone_suffix: &'static str,
     any_player: bool,
     sorcery_speed: bool,
     condition: String,
+    cost_reduction: Option<String>,
     chain: Chain,
 }
 
@@ -290,6 +292,19 @@ impl Tx<'_> {
         if !is_activated && let Some(zone) = activation_zone.as_deref() {
             return self.deny(format!("a spell in `ActivationZone$ {zone}`"));
         }
+        let reduce_cost = probe.take("ReduceCost");
+        if !is_activated && reduce_cost.is_some() {
+            return self.deny("`ReduceCost$` on a spell".to_string());
+        }
+        if is_activated && reduce_cost.is_some() && probe.has("ReduceAmount") {
+            return self.deny("a `ReduceCost$` with `ReduceAmount$`".to_string());
+        }
+        let cost_reduction = match (is_activated, reduce_cost.as_deref()) {
+            (true, Some(raw)) => {
+                Some(self.activation_cost_reduction(raw, activation_zone.as_deref())?)
+            }
+            _ => None,
+        };
         let any_player = is_activated && activator.as_deref() == Some("Player");
         let (non_battlefield_zone, zone_suffix) = if is_activated {
             self.activation_zone_expr(activation_zone.as_deref(), any_player, false)?
@@ -317,6 +332,9 @@ impl Tx<'_> {
             .split(" | ")
             .filter(|part| !part.starts_with("Cost$") && !part.starts_with("ActivationLimit$"))
             .filter(|part| alternate_cost.is_none() || !part.starts_with("AlternateCost$"))
+            .filter(|part| {
+                !is_activated || reduce_cost.is_none() || !part.starts_with("ReduceCost$")
+            })
             .filter(|part| !(any_player && part.starts_with("Activator$")))
             .filter(|part| !(zone_handled && part.starts_with("ActivationZone$")))
             .filter(|part| !(sorcery_speed && part.starts_with("SorcerySpeed$")))
@@ -343,11 +361,13 @@ impl Tx<'_> {
             cost,
             alternate_cost,
             limit,
+            activation_zone,
             non_battlefield_zone,
             zone_suffix,
             any_player,
             sorcery_speed,
             condition,
+            cost_reduction,
             chain,
         })
     }
@@ -364,6 +384,7 @@ impl Tx<'_> {
                 Some((false, ", zone = ActivationZone::BattlefieldAnyPlayer"))
             }
             (Some("Graveyard"), false) => Some((true, ", zone = ActivationZone::Graveyard")),
+            (Some("Hand"), false) => Some((true, ", zone = ActivationZone::Hand")),
             (Some("Command"), false) => Some((true, ", zone = ActivationZone::Command")),
             (Some("Battlefield,Command" | "Command,Battlefield"), false) => {
                 Some((true, ", zone = ActivationZone::BattlefieldOrCommand"))
@@ -384,7 +405,7 @@ impl Tx<'_> {
         let Some(cost) = spec.cost.as_deref() else {
             return self.deny("an activated ability with no `Cost$`".to_string());
         };
-        let cost = self.cost_expr(cost)?;
+        let cost = self.parse_activated_cost(cost, spec.activation_zone.as_deref())?;
         let effects = format!("&[{}]", spec.chain.effects.join(", "));
         let second_targets = Self::second_target_req_expr(&spec.chain)
             .map_or_default(|req| format!(", second_targets = Some({req})"));
@@ -420,11 +441,13 @@ impl Tx<'_> {
         });
         let limit_str = self.activation_limit(spec.limit.as_deref())?;
         let condition = &spec.condition;
-        let extras = format!("{timing}{zone}{target}{second_targets}{limit_str}{condition}");
+        let cost_reduction = spec.cost_reduction.as_deref().unwrap_or("");
+        let extras =
+            format!("{timing}{zone}{target}{second_targets}{limit_str}{condition}{cost_reduction}");
         let ability_expr = Self::format_activated_macro(mana_ability, &cost, &effects, &extras);
         let alternate_ability_expr = match spec.alternate_cost.as_deref() {
             Some(alt) => {
-                let alt_cost = self.cost_expr(alt)?;
+                let alt_cost = self.parse_activated_cost(alt, spec.activation_zone.as_deref())?;
                 Some(Self::format_activated_macro(
                     mana_ability,
                     &alt_cost,
@@ -440,6 +463,7 @@ impl Tx<'_> {
             && !spec.sorcery_speed
             && limit_str.is_empty()
             && condition.is_empty()
+            && spec.cost_reduction.is_none()
             && spec.chain.second_target.is_none()
             && spec.chain.target_up_to.is_none()
             && spec.chain.target_exact.is_none()
@@ -798,6 +822,14 @@ impl Tx<'_> {
         let limit = p.take("ActivationLimit");
         let activator = p.take("Activator");
         let activation_zone = p.take("ActivationZone");
+        let reduce_cost = p.take("ReduceCost");
+        if reduce_cost.is_some() && p.has("ReduceAmount") {
+            return self.deny("a `ReduceCost$` with `ReduceAmount$`".to_string());
+        }
+        let cost_reduction = match reduce_cost.as_deref() {
+            Some(raw) => Some(self.activation_cost_reduction(raw, activation_zone.as_deref())?),
+            None => None,
+        };
         let sorcery_speed = match p.take("SorcerySpeed").as_deref() {
             None => false,
             Some("True") => true,
@@ -815,7 +847,7 @@ impl Tx<'_> {
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `Charm.{key}`"));
         }
-        let cost = self.cost_expr(&cost_raw)?;
+        let cost = self.parse_activated_cost(&cost_raw, activation_zone.as_deref())?;
         self.cost_sacrifices_self = cost_raw.split_whitespace().any(|t| t == "Sac<1/CARDNAME>");
         self.cost_sacrifices_other = cost_raw
             .split_whitespace()
@@ -836,12 +868,122 @@ impl Tx<'_> {
             ""
         };
         let limit = self.activation_limit(limit.as_deref())?;
+        let reduction_suffix = cost_reduction.as_deref().unwrap_or("");
         let modes: Vec<String> = parsed.into_iter().map(|(m, _, _, _)| m).collect();
         self.body.abilities.push(format!(
-            "modal_activated!({cost}, &[{}]{timing}{zone}{limit}{condition})",
+            "modal_activated!({cost}, &[{}]{timing}{zone}{limit}{condition}{reduction_suffix})",
             modes.join(", ")
         ));
         Some(())
+    }
+
+    fn self_zone_cost_part(token: &str, in_graveyard: bool, in_hand: bool) -> Option<&'static str> {
+        let (kind, body) = super::object_cost(token)?;
+        let mut fields = body.splitn(3, '/');
+        let (Some("1"), Some(spec)) = (fields.next(), fields.next()) else {
+            return None;
+        };
+        match kind {
+            "ExileFromGrave" if in_graveyard && spec == "CARDNAME" => Some("ExileSelf"),
+            "Discard" if in_hand && matches!(spec, "CARDNAME" | "NICKNAME") => Some("DiscardSelf"),
+            "ExileFromHand" if in_hand && matches!(spec, "CARDNAME" | "NICKNAME") => {
+                Some("ExileSelf")
+            }
+            _ => None,
+        }
+    }
+
+    fn parse_activated_cost(&mut self, raw: &str, activation_zone: Option<&str>) -> Option<String> {
+        let in_graveyard = activation_zone == Some("Graveyard");
+        let in_hand = activation_zone == Some("Hand");
+        let prev_grave = std::mem::replace(&mut self.in_graveyard_activation, in_graveyard);
+        let prev_hand = std::mem::replace(&mut self.in_hand_activation, in_hand);
+        let res = self.parse_activated_cost_inner(raw, in_graveyard, in_hand);
+        self.in_graveyard_activation = prev_grave;
+        self.in_hand_activation = prev_hand;
+        res
+    }
+
+    fn parse_activated_cost_inner(
+        &mut self,
+        raw: &str,
+        in_graveyard: bool,
+        in_hand: bool,
+    ) -> Option<String> {
+        if !in_graveyard && !in_hand {
+            return self.cost_expr(raw);
+        }
+        let mut mana = String::new();
+        let mut parts = Vec::new();
+        let mut chunk = Vec::new();
+        for token in cost_parts(raw) {
+            if let Some(self_part) = Self::self_zone_cost_part(&token, in_graveyard, in_hand) {
+                if !chunk.is_empty() {
+                    let (m, p) = self.cost_pieces(&chunk.join(" "))?;
+                    mana.push_str(&m);
+                    parts.extend(p);
+                    chunk.clear();
+                }
+                parts.push(self_part.to_string());
+            } else {
+                chunk.push(token);
+            }
+        }
+        if !chunk.is_empty() {
+            let (m, p) = self.cost_pieces(&chunk.join(" "))?;
+            mana.push_str(&m);
+            parts.extend(p);
+        }
+        Some(crate::body::cost_literal(&mana, &parts))
+    }
+
+    fn activation_cost_reduction(
+        &mut self,
+        raw: &str,
+        activation_zone: Option<&str>,
+    ) -> Option<String> {
+        let raw = raw.trim();
+        let def = if raw.starts_with("Count$") || raw.starts_with("PlayerCount") {
+            raw.to_string()
+        } else if let Some(resolved) = self.svars.get(raw).cloned() {
+            resolved.trim().to_string()
+        } else {
+            return self.deny(format!("`ReduceCost$ {raw}` naming no `SVar`"));
+        };
+        if def == "PlayerCountPropertyYou$HasPropertyActive" {
+            return Some(
+                ", cost_reduction = Some(CostReduction::If { condition: Condition::YourTurn, amount: 1 })"
+                    .to_string(),
+            );
+        }
+        if let Some(compare) = def.strip_prefix("Count$Compare ") {
+            if let Some((lhs_part, else_str)) = compare.rsplit_once('.')
+                && else_str.trim() == "0"
+                && let Some((cond_spec, then_str)) = lhs_part.rsplit_once('.')
+                && let Ok(amount) = then_str.trim().parse::<u32>()
+                && amount > 0
+                && let Some((var, cmp)) = cond_spec.trim().rsplit_once(' ')
+                && let Some(cond) = self.svar_condition_clause(var.trim(), cmp.trim())
+                && !cond.contains("Condition::XAtLeast")
+            {
+                return Some(format!(
+                    ", cost_reduction = Some(CostReduction::If {{ condition: {cond}, amount: {amount} }})"
+                ));
+            }
+            return self.deny(format!("unsupported `ReduceCost$ {raw}`"));
+        }
+        let Some(amt) = self.static_count_expr(&def) else {
+            return self.deny(format!("unsupported `ReduceCost$ {raw}`"));
+        };
+        if amt.starts_with("Amount::Fixed(")
+            || (amt.contains("SourcePower")
+                && !matches!(activation_zone, None | Some("Battlefield")))
+        {
+            return self.deny(format!("unsupported `ReduceCost$ {raw}`"));
+        }
+        Some(format!(
+            ", cost_reduction = Some(CostReduction::PerCount {{ amount: {amt}, each: 1 }})"
+        ))
     }
 
     /// Named ability-word / game-state conditions shared by `S:`, `T:`, `A:`,
@@ -1004,6 +1146,20 @@ impl Tx<'_> {
             return match cmp {
                 "GE1" | "EQ1" => Some("Condition::AltCostPaid".to_string()),
                 "EQ0" => Some("Condition::Not(&Condition::AltCostPaid)".to_string()),
+                _ => None,
+            };
+        }
+        if raw == "Count$Bargained.1.0" && self.body.bargain {
+            return match cmp {
+                "GE1" | "EQ1" | "GT0" => Some("Condition::Bargained".to_string()),
+                "EQ0" | "NE1" | "LT1" => Some("Condition::Not(&Condition::Bargained)".to_string()),
+                _ => None,
+            };
+        }
+        if raw == "PlayerCountPropertyYou$HasPropertyActive" {
+            return match cmp {
+                "GE1" | "EQ1" | "GT0" => Some("Condition::YourTurn".to_string()),
+                "EQ0" | "NE1" | "LT1" => Some("Condition::Not(&Condition::YourTurn)".to_string()),
                 _ => None,
             };
         }

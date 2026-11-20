@@ -3025,3 +3025,184 @@ fn wave8a_combat_keywords_and_command_zone_activations_and_reductions() {
         assert!(refused(bad), "must refuse: {bad}");
     }
 }
+
+#[test]
+fn exile_self_from_graveyard_and_refusals() {
+    let tomb = read(
+        "Name:TombExiler\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ 1 B ExileFromGrave<1/CARDNAME> | NumCards$ 1 | ActivationZone$ Graveyard",
+    );
+    assert!(
+        tomb.abilities[0].contains("zone = ActivationZone::Graveyard")
+            && tomb.abilities[0].contains("ExileSelf"),
+        "{:?}",
+        tomb.abilities
+    );
+
+    let ordered = read(
+        "Name:TombPayExiler\nManaCost:3 B\nTypes:Creature\nPT:3/3\n\
+         A:AB$ GainLife | Cost$ 1 ExileFromGrave<1/CARDNAME/this card> PayLife<2> | LifeAmount$ 3 | ActivationZone$ Graveyard",
+    );
+    let ab = &ordered.abilities[0];
+    let mana_pos = ab.find("\"{1}\"").expect(ab);
+    let exile_pos = ab.find("ExileSelf").expect(ab);
+    let life_pos = ab.find("PayLife(2)").expect(ab);
+    assert!(mana_pos < exile_pos && exile_pos < life_pos, "{ab}");
+
+    let modal = read(
+        "Name:GraveModalExiler\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Charm | Cost$ 1 ExileFromGrave<1/CARDNAME> | Choices$ M1,M2 | ActivationZone$ Graveyard\n\
+         SVar:M1:DB$ Draw | NumCards$ 1\n\
+         SVar:M2:DB$ GainLife | LifeAmount$ 2",
+    );
+    assert!(
+        modal.abilities[0].contains("modal_activated!")
+            && modal.abilities[0].contains("zone = ActivationZone::Graveyard")
+            && modal.abilities[0].contains("ExileSelf"),
+        "{:?}",
+        modal.abilities
+    );
+
+    for bad in [
+        "Name:BadDoubleSelfGrave\nManaCost:B\nTypes:Creature\nPT:1/1\nA:AB$ Draw | Cost$ ExileFromGrave<2/CARDNAME> | NumCards$ 1 | ActivationZone$ Graveyard",
+        "Name:BadFieldExileSelf\nManaCost:B\nTypes:Creature\nPT:1/1\nA:AB$ Draw | Cost$ ExileFromGrave<1/CARDNAME> | NumCards$ 1",
+        "Name:BadHandExileSelf\nManaCost:B\nTypes:Creature\nPT:1/1\nA:AB$ Draw | Cost$ ExileFromGrave<1/CARDNAME> | NumCards$ 1 | ActivationZone$ Hand",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn hand_activation_and_cost_reductions() {
+    let channeler = read(
+        "Name:HandDiscarder\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ 1 G Discard<1/CARDNAME> | NumCards$ 1 | ActivationZone$ Hand",
+    );
+    assert!(
+        channeler.abilities[0].contains("zone = ActivationZone::Hand")
+            && channeler.abilities[0].contains("DiscardSelf"),
+        "{:?}",
+        channeler.abilities
+    );
+
+    let nick_channeler = read(
+        "Name:NickHandDiscarder\nManaCost:1 B\nTypes:Creature\nPT:2/1\n\
+         A:AB$ GainLife | Cost$ Discard<1/NICKNAME/this card> PayLife<2> | LifeAmount$ 3 | ActivationZone$ Hand",
+    );
+    let nick_ab = &nick_channeler.abilities[0];
+    let discard_pos = nick_ab.find("DiscardSelf").expect(nick_ab);
+    let pay_life_pos = nick_ab.find("PayLife(2)").expect(nick_ab);
+    assert!(
+        nick_ab.contains("zone = ActivationZone::Hand") && discard_pos < pay_life_pos,
+        "{nick_ab}"
+    );
+
+    let hand_exiler = read(
+        "Name:HandExiler\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Draw | Cost$ 1 U ExileFromHand<1/CARDNAME> | NumCards$ 1 | ActivationZone$ Hand",
+    );
+    assert!(
+        hand_exiler.abilities[0].contains("zone = ActivationZone::Hand")
+            && hand_exiler.abilities[0].contains("ExileSelf"),
+        "{:?}",
+        hand_exiler.abilities
+    );
+
+    let channel_reduce = read(
+        "Name:ChannelReducer\nTypes:Legendary Land\n\
+         A:AB$ Draw | Cost$ 2 G Discard<1/CARDNAME> | ReduceCost$ X | NumCards$ 1 | ActivationZone$ Hand\n\
+         SVar:X:Count$Valid Artifact.YouCtrl",
+    );
+    assert!(
+        channel_reduce.abilities[0].contains("zone = ActivationZone::Hand")
+            && channel_reduce.abilities[0].contains("DiscardSelf")
+            && channel_reduce.abilities[0].contains("CostReduction::PerCount"),
+        "{:?}",
+        channel_reduce.abilities
+    );
+
+    let modal_reduce = read(
+        "Name:ModalHandReducer\nManaCost:2 R\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Charm | Cost$ 3 Discard<1/CARDNAME> | ReduceCost$ Count$Valid Creature.YouCtrl | Choices$ M1,M2 | ActivationZone$ Hand\n\
+         SVar:M1:DB$ Draw | NumCards$ 1\n\
+         SVar:M2:DB$ GainLife | LifeAmount$ 2",
+    );
+    assert!(
+        modal_reduce.abilities[0].contains("modal_activated!")
+            && modal_reduce.abilities[0].contains("zone = ActivationZone::Hand")
+            && modal_reduce.abilities[0].contains("CostReduction::PerCount"),
+        "{:?}",
+        modal_reduce.abilities
+    );
+
+    let cond_reduce = read(
+        "Name:TurnReducer\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         A:AB$ GainLife | Cost$ 3 | ReduceCost$ X | LifeAmount$ 2\n\
+         SVar:X:Count$Compare Y GE1.2.0\n\
+         SVar:Y:PlayerCountPropertyYou$HasPropertyActive",
+    );
+    assert!(
+        cond_reduce.abilities[0]
+            .contains("CostReduction::If { condition: Condition::YourTurn, amount: 2 }"),
+        "{:?}",
+        cond_reduce.abilities
+    );
+
+    let direct_turn_reduce = read(
+        "Name:DirectTurnReducer\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         A:AB$ GainLife | Cost$ 3 | ReduceCost$ PlayerCountPropertyYou$HasPropertyActive | LifeAmount$ 2",
+    );
+    assert!(
+        direct_turn_reduce.abilities[0]
+            .contains("CostReduction::If { condition: Condition::YourTurn, amount: 1 }"),
+        "{:?}",
+        direct_turn_reduce.abilities
+    );
+
+    for bad in [
+        "Name:BadFieldSelfDiscard\nManaCost:1 G\nTypes:Creature\nPT:2/2\nA:AB$ Draw | Cost$ Discard<1/CARDNAME> | NumCards$ 1",
+        "Name:BadHandMana\nManaCost:1 G\nTypes:Creature\nPT:2/2\nA:AB$ Mana | Cost$ Discard<1/CARDNAME> | Produced$ G | ActivationZone$ Hand",
+        "Name:BadHandPlayer\nManaCost:1 G\nTypes:Creature\nPT:2/2\nA:AB$ Draw | Cost$ Discard<1/CARDNAME> | NumCards$ 1 | Activator$ Player | ActivationZone$ Hand",
+        "Name:BadHandReveal\nManaCost:1 U\nTypes:Creature\nPT:2/2\nA:AB$ Draw | Cost$ 1 U Reveal<1/CARDNAME> | NumCards$ 1 | ActivationZone$ Hand",
+        "Name:BadDoubleHandDiscard\nManaCost:1 G\nTypes:Creature\nPT:2/2\nA:AB$ Draw | Cost$ Discard<2/CARDNAME> | NumCards$ 1 | ActivationZone$ Hand",
+        "Name:BadDoubleHandExile\nManaCost:1 U\nTypes:Creature\nPT:2/2\nA:AB$ Draw | Cost$ ExileFromHand<2/CARDNAME> | NumCards$ 1 | ActivationZone$ Hand",
+        "Name:BadSpellReduce\nManaCost:2 U\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1 | ReduceCost$ 1",
+        "Name:BadReduceAmt\nManaCost:2 W\nTypes:Creature\nPT:2/2\nA:AB$ GainLife | Cost$ 3 | ReduceAmount$ 1 | LifeAmount$ 2",
+        "Name:BadMissingReduceSvar\nManaCost:2 W\nTypes:Creature\nPT:2/2\nA:AB$ GainLife | Cost$ 3 | ReduceCost$ Missing | LifeAmount$ 2",
+        "Name:BadCardPowerHand\nManaCost:2 W\nTypes:Creature\nPT:2/2\nA:AB$ GainLife | Cost$ 3 Discard<1/CARDNAME> | ReduceCost$ X | LifeAmount$ 2 | ActivationZone$ Hand\nSVar:X:Count$CardPower",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+fn etb_counter_x_kicker_and_inline_count() {
+    let kicked_x = read(
+        "Name:XKickerBehemoth\nManaCost:2 G\nTypes:Creature\nPT:2/2\n\
+         K:Kicker:X\nK:etbCounter:P1P1:X:CheckSVar$ WasKicked\n\
+         SVar:X:Count$xPaid\nSVar:WasKicked:Count$Kicked.1.0",
+    );
+    assert_eq!(
+        kicked_x.enter_modifiers,
+        ["EnterModifier::WithCounters { kind: CounterKind::P1P1, amount: Amount::X }"]
+    );
+
+    let inline_count = read(
+        "Name:InlineCounterScout\nManaCost:2 G\nTypes:Creature\nPT:1/1\n\
+         K:etbCounter:P1P1:Count$Valid Creature.YouCtrl:no condition",
+    );
+    assert!(
+        inline_count.enter_modifiers.len() == 1
+            && inline_count.enter_modifiers[0].contains("WithCounters")
+            && inline_count.enter_modifiers[0].contains("CounterKind::P1P1")
+            && inline_count.enter_modifiers[0].contains("YOUR_CREATURE"),
+        "{:?}",
+        inline_count.enter_modifiers
+    );
+
+    assert!(refused(
+        "Name:BadXKickerOnXCost\nManaCost:X G\nTypes:Creature\nPT:0/0\n\
+         K:Kicker:X\nK:etbCounter:P1P1:X:CheckSVar$ WasKicked\n\
+         SVar:X:Count$xPaid\nSVar:WasKicked:Count$Kicked.1.0"
+    ));
+}

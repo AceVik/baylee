@@ -747,6 +747,15 @@ fn render_face(
         if let Some(bestow) = body.bestow.as_deref() {
             fields.push(format!("bestow = {bestow}"));
         }
+        if let Some(proto) = body.prototype.as_deref() {
+            fields.push(format!("prototype = {proto}"));
+        }
+        if body.bargain {
+            fields.push("bargain = true".to_string());
+        }
+        if let Some(emerge) = body.emerge.as_deref() {
+            fields.push(format!("emerge = {emerge}"));
+        }
         if body.jump_start {
             fields.push("jump_start = true".to_string());
         }

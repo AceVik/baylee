@@ -195,6 +195,18 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Bestow:") {
             return self.bestow(rest);
         }
+        if line == "Bargain" {
+            return self.bargain();
+        }
+        if line.starts_with("Bargain:") {
+            return self.deny(format!("keyword `{line}`"));
+        }
+        if let Some(rest) = line.strip_prefix("Emerge:") {
+            return self.emerge(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Prototype:") {
+            return self.prototype(rest);
+        }
         if let Some(rest) = line
             .strip_prefix("Megamorph:")
             .or_else(|| (line == "Megamorph").then_some(""))
@@ -1012,30 +1024,39 @@ impl Tx<'_> {
                 "EnterModifier::WithCounters {{ kind: {kind}, amount: {amount} }}"
             ));
         }
-        let n: u32 = amount_raw.parse().ok()?;
-        if n == 0 {
+        if let Some(n) = amount_raw.parse::<u32>().ok().filter(|&n| n > 0) {
+            if self.has_single_kicker {
+                if !matches!(def, Some("Count$Kicked.1.0" | "Count$TimesKicked")) {
+                    return None;
+                }
+                let amount = if n == 1 {
+                    "Amount::TimesKicked".to_string()
+                } else {
+                    format!("Amount::Times {{ base: &Amount::TimesKicked, factor: {n} }}")
+                };
+                return Some(format!(
+                    "EnterModifier::WithCounters {{ kind: {kind}, amount: {amount} }}"
+                ));
+            }
+            if self.dual_kicker_remap.is_some()
+                && def == Some("Count$Kicked.1.0")
+                && kind == "CounterKind::P1P1"
+            {
+                let counters = u8::try_from(n).ok()?;
+                return Some(format!(
+                    "EnterModifier::IfKicked {{ index: None, counters: {counters}, modifiers: &[] }}"
+                ));
+            }
             return None;
         }
-        if self.has_single_kicker {
-            if !matches!(def, Some("Count$Kicked.1.0" | "Count$TimesKicked")) {
-                return None;
-            }
-            let amount = if n == 1 {
-                "Amount::TimesKicked".to_string()
-            } else {
-                format!("Amount::Times {{ base: &Amount::TimesKicked, factor: {n} }}")
-            };
-            return Some(format!(
-                "EnterModifier::WithCounters {{ kind: {kind}, amount: {amount} }}"
-            ));
-        }
-        if self.dual_kicker_remap.is_some()
+        if self.has_single_kicker
+            && !self.has_x_mana_cost
             && def == Some("Count$Kicked.1.0")
-            && kind == "CounterKind::P1P1"
+            && self.body.additional_costs.iter().any(|c| c.contains("{X}"))
+            && self.svars.get(amount_raw).map(|s| s.trim()) == Some("Count$xPaid")
         {
-            let counters = u8::try_from(n).ok()?;
             return Some(format!(
-                "EnterModifier::IfKicked {{ index: None, counters: {counters}, modifiers: &[] }}"
+                "EnterModifier::WithCounters {{ kind: {kind}, amount: Amount::X }}"
             ));
         }
         None
@@ -1078,7 +1099,11 @@ impl Tx<'_> {
         if let Ok(n) = raw.parse::<u32>() {
             return (n > 0).then(|| format!("Amount::Fixed({n})"));
         }
-        let def = self.svars.get(raw)?.trim().to_string();
+        let def = if raw.starts_with("Count$") {
+            raw.trim().to_string()
+        } else {
+            self.svars.get(raw)?.trim().to_string()
+        };
         self.etb_wave6_expr(&def, 0)
     }
 
@@ -1538,6 +1563,79 @@ impl Tx<'_> {
             "Some(CostReduction::PerCount {{ amount: Amount::CountOf {{ filter: &{filter}, zone: ZoneSel::Battlefield }}, each: 1 }})"
         ));
         self.body.notes.push("affinity".to_string());
+        Some(())
+    }
+
+    /// `K:Bargain` (CR 702.166a).
+    pub(super) fn bargain(&mut self) -> Option<()> {
+        if self.body.bargain {
+            return self.deny("a second `Bargain` keyword on one card".to_string());
+        }
+        self.body.bargain = true;
+        self.body.notes.push("bargain".to_string());
+        Some(())
+    }
+
+    /// `K:Emerge:<cost>[:<valid>]` (CR 702.119a–b).
+    pub(super) fn emerge(&mut self, rest: &str) -> Option<()> {
+        if self.body.emerge.is_some() {
+            return self.deny("a second `Emerge` cost on one card".to_string());
+        }
+        let mut fields = rest.split(':');
+        let cost_raw = fields.next()?;
+        let valid_raw = fields.next();
+        if fields.next().is_some() {
+            return self.deny(format!("an `Emerge` with extra fields `{rest}`"));
+        }
+        let Some(mana) = super::printed_mana(cost_raw) else {
+            return self.deny(format!("non-mana `Emerge` cost `{cost_raw}`"));
+        };
+        if baylee_core::mana::ManaCost::try_parse(&mana).is_err() {
+            return self.deny(format!("invalid `Emerge` mana `{cost_raw}`"));
+        }
+        let expr = if let Some(valid) = valid_raw {
+            let trimmed = valid.trim();
+            if trimmed.is_empty() {
+                return self.deny(format!("an empty `Emerge` filter `{rest}`"));
+            }
+            let filter_expr = self.filter_expr(trimmed)?;
+            let filter_ref = self.body.filter_static("EMERGE", &filter_expr);
+            format!("Some(Emerge::from(mana!(\"{mana}\"), &{filter_ref}))")
+        } else {
+            format!("Some(Emerge::creature(mana!(\"{mana}\")))")
+        };
+        self.body.emerge = Some(expr);
+        self.body.notes.push("emerge".to_string());
+        Some(())
+    }
+
+    /// `K:Prototype:<cost>:<power>:<toughness>` (CR 702.160, CR 719.3).
+    pub(super) fn prototype(&mut self, rest: &str) -> Option<()> {
+        if self.body.prototype.is_some() {
+            return self.deny("a second `Prototype` on one card".to_string());
+        }
+        let mut fields = rest.split(':');
+        let (Some(cost_raw), Some(power_raw), Some(toughness_raw), None) =
+            (fields.next(), fields.next(), fields.next(), fields.next())
+        else {
+            return self.deny(format!("prototype `{rest}`"));
+        };
+        let Some(mana) = super::printed_mana(cost_raw) else {
+            return self.deny(format!("non-mana prototype cost `{cost_raw}`"));
+        };
+        if baylee_core::mana::ManaCost::try_parse(&mana).is_err() {
+            return self.deny(format!("invalid prototype mana `{cost_raw}`"));
+        }
+        let Ok(power) = power_raw.trim().parse::<i16>() else {
+            return self.deny(format!("prototype `{rest}`"));
+        };
+        let Ok(toughness) = toughness_raw.trim().parse::<i16>() else {
+            return self.deny(format!("prototype `{rest}`"));
+        };
+        self.body.prototype = Some(format!(
+            "Some(Prototype::new(mana!(\"{mana}\"), {power}, {toughness}))"
+        ));
+        self.body.notes.push("prototype".to_string());
         Some(())
     }
 
