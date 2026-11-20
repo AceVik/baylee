@@ -1587,3 +1587,623 @@ fn optional_unless_counter_and_end_step_blink_and_wizard_pump() {
         sorcerer.statics
     );
 }
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn reduce_cost_lowers_colored_dynamic_cycling_facedown_shared_and_self_stack() {
+    // 1. Colored-only reduction (`IgnoreGeneric$ True`) and spillover reduction.
+    let colored_only = read(
+        "Name:Synthetic Cleric Reducer\nManaCost:W B\nTypes:Creature Wizard\nPT:2/2\n\
+         S:Mode$ ReduceCost | ValidCard$ Wizard | Type$ Spell | Activator$ You | \
+         Amount$ 1 | Color$ W B | IgnoreGeneric$ True",
+    );
+    assert_eq!(
+        colored_only.abilities,
+        [
+            "static_ability!(Filter::And(&[Filter::HasSubtype(subtypes::creature::WIZARD), Filter::ControlledByYou]), Modifier::SpellsCostLessMana { cost: mana!(\"{W}{B}\"), colored_only: true })"
+        ]
+    );
+
+    let spillover_self = read(
+        "Name:Synthetic Storm Entity\nManaCost:3 U U\nTypes:Creature Elemental\nPT:3/3\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | EffectZone$ All | Type$ Spell | \
+         Amount$ 1 | Color$ 2 U | CheckSVar$ X\n\
+         SVar:X:Count$ThisTurnCast_Instant.YouCtrl,Sorcery.YouCtrl",
+    );
+    assert_eq!(
+        spillover_self.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::SpellsCostLessMana { cost: mana!(\"{2}{U}\"), colored_only: false }, zone = ZoneRef::Stack, condition = Some(Condition::CastInstantOrSorceryThisTurn))"
+        ]
+    );
+
+    // 2. Cycling cost reduction (`Fluctuator`).
+    let cycler = read(
+        "Name:Synthetic Cycling Engine\nManaCost:2\nTypes:Artifact\n\
+         S:Mode$ ReduceCost | ValidCard$ Card | ValidSpell$ Activated.Cycling | Activator$ You | Amount$ 2",
+    );
+    assert_eq!(
+        cycler.abilities,
+        ["static_ability!(Filter::ControlledByYou, Modifier::CyclingCostsLess(2))"]
+    );
+
+    // 3. Face-down creature spell reduction (`Dream Chisel` & `ValidCard$ ...faceDown`).
+    let face_down = read(
+        "Name:Synthetic Face-Down Chisel\nManaCost:2\nTypes:Artifact\n\
+         S:Mode$ ReduceCost | ValidCard$ Creature | ValidSpell$ Spell.isCastFaceDown | \
+         Activator$ You | Amount$ 1",
+    );
+    assert_eq!(
+        face_down.abilities,
+        [
+            "static_ability!(Filter::And(&[Filter::CREATURE, Filter::FaceDown, Filter::ControlledByYou]), Modifier::SpellsCostLess(1))"
+        ]
+    );
+    let mask_maker = read(
+        "Name:Synthetic Mask Reducer\nManaCost:1 R\nTypes:Creature Goblin\nPT:1/1\n\
+         S:Mode$ ReduceCost | ValidCard$ Creature.faceDown | Type$ Spell | Activator$ You | Amount$ 2",
+    );
+    assert_eq!(
+        mask_maker.abilities,
+        [
+            "static_ability!(Filter::And(&[Filter::CREATURE, Filter::FaceDown, Filter::ControlledByYou]), Modifier::SpellsCostLess(2))"
+        ]
+    );
+
+    // 4. Shared creature type (`Mistform Warchief`) and chosen creature type (`Urza's Incubator` / `Morophon`).
+    let shared_type = read(
+        "Name:Synthetic Type-Shifter\nManaCost:2 U\nTypes:Creature Wizard\nPT:1/3\n\
+         S:Mode$ ReduceCost | ValidCard$ Creature.sharesCreatureTypeWith | Type$ Spell | \
+         Activator$ You | Amount$ 1",
+    );
+    assert_eq!(
+        shared_type.abilities,
+        [
+            "static_ability!(Filter::And(&[Filter::CREATURE, Filter::SharesCreatureTypeWith(&Filter::This), Filter::ControlledByYou]), Modifier::SpellsCostLess(1))"
+        ]
+    );
+
+    let incubator = read(
+        "Name:Synthetic Kindred Incubator\nManaCost:3\nTypes:Artifact\n\
+         K:ETBReplacement:Other:ChooseCT\n\
+         SVar:ChooseCT:DB$ ChooseType | Defined$ You | Type$ Creature\n\
+         S:Mode$ ReduceCost | ValidCard$ Creature.ChosenType | Type$ Spell | Amount$ 2",
+    );
+    assert_eq!(incubator.enter_modifiers, ["EnterModifier::ChooseSubtype"]);
+    assert_eq!(
+        incubator.abilities,
+        [
+            "static_ability!(Filter::And(&[Filter::CREATURE, Filter::MatchesChosenTypeOfSource]), Modifier::SpellsCostLess(2))"
+        ]
+    );
+
+    let wubrg_chosen = read(
+        "Name:Synthetic Omni-Shapeshifter\nManaCost:7\nTypes:Creature Shapeshifter\nPT:6/6\n\
+         K:ETBReplacement:Other:ChooseCT\n\
+         SVar:ChooseCT:DB$ ChooseType | Defined$ You | Type$ Creature\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.ChosenType | Type$ Spell | Activator$ You | \
+         Amount$ 1 | Color$ W U B R G | IgnoreGeneric$ True",
+    );
+    assert_eq!(
+        wubrg_chosen.abilities,
+        [
+            "static_ability!(Filter::And(&[Filter::MatchesChosenTypeOfSource, Filter::ControlledByYou]), Modifier::SpellsCostLessMana { cost: mana!(\"{W}{U}{B}{R}{G}\"), colored_only: true })"
+        ]
+    );
+
+    // 5. Dynamic `ZoneRef::Stack` self-cost statics and conditional reductions.
+    let domain_self = read(
+        "Name:Synthetic Domain Binding\nManaCost:5 W\nTypes:Enchantment\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | EffectZone$ All | Amount$ X\n\
+         SVar:X:Count$Domain",
+    );
+    assert_eq!(
+        domain_self.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::SpellsCostLessByAmount(Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)), zone = ZoneRef::Stack)"
+        ]
+    );
+
+    let opp_count_self = read(
+        "Name:Synthetic Opponents Protector\nManaCost:10 G\nTypes:Creature Giant\nPT:10/10\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | EffectZone$ Stack | Amount$ X\n\
+         SVar:X:Count$Valid Creature.OppCtrl",
+    );
+    assert_eq!(
+        opp_count_self.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::SpellsCostLessByAmount(Amount::CountOf { filter: &Filter::OPPONENT_CREATURE, zone: ZoneSel::Battlefield }), zone = ZoneRef::Stack)"
+        ]
+    );
+
+    let wizard_bolt = read(
+        "Name:Synthetic Wizard Bolt\nManaCost:2 R\nTypes:Instant\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | EffectZone$ All | \
+         Amount$ 2 | IsPresent$ Wizard.YouCtrl\n\
+         A:SP$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        wizard_bolt.abilities[0],
+        "static_ability!(Filter::This, Modifier::SpellsCostLess(2), zone = ZoneRef::Stack, condition = Some(Condition::ControlCount(&CHECK1, 1)))"
+    );
+
+    let low_life = read(
+        "Name:Synthetic Desperate Avatar\nManaCost:6 W W\nTypes:Creature Angel\nPT:4/9\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | EffectZone$ All | \
+         Amount$ 6 | CheckSVar$ NeedHope | SVarCompare$ LE3\n\
+         SVar:NeedHope:Count$YourLifeTotal",
+    );
+    assert_eq!(
+        low_life.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::SpellsCostLess(6), zone = ZoneRef::Stack, condition = Some(Condition::LifeAtMost(3)))"
+        ]
+    );
+
+    let second_spell = read(
+        "Name:Synthetic Focus\nManaCost:4 U\nTypes:Instant\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | EffectZone$ All | \
+         Amount$ 2 | CheckSVar$ X\n\
+         SVar:X:Count$ThisTurnCast_Card.YouCtrl\n\
+         A:SP$ Draw | NumCards$ 2",
+    );
+    assert_eq!(
+        second_spell.abilities[0],
+        "static_ability!(Filter::This, Modifier::SpellsCostLess(2), zone = ZoneRef::Stack, condition = Some(Condition::Not(&Condition::YouCastNoSpellThisTurn)))"
+    );
+
+    // 6. Refusals: chosen card-type mismatch (`Type$ Card`), dynamic colored reduction,
+    // `EffectZone$ All` on other spells, `ValidTarget$`, `OnlyFirstSpell$`, `MinMana$`,
+    // `Relative$`, `EffectZone$ Command`, `Amount$ 0`, and `SVarCompare$ EQ1`.
+    for bad in [
+        "Name:Bad\nTypes:Artifact\n\
+         K:ETBReplacement:Other:ChooseCT\nSVar:ChooseCT:DB$ ChooseType | Defined$ You | Type$ Card\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.ChosenType | Type$ Spell | Activator$ You | Amount$ 1",
+        "Name:Bad\nTypes:Creature\nPT:8/8\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | EffectZone$ All | Color$ G | Amount$ X\n\
+         SVar:X:Count$Valid Creature.Green+YouCtrl",
+        "Name:Bad\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ ReduceCost | ValidCard$ Creature | Type$ Spell | EffectZone$ All | Amount$ 1",
+        "Name:Bad\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | EffectZone$ All | Amount$ 3 | ValidTarget$ Creature.tapped",
+        "Name:Bad\nTypes:Creature\nPT:3/3\n\
+         S:Mode$ ReduceCost | ValidCard$ Creature.faceDown | Type$ Spell | OnlyFirstSpell$ True | Activator$ You | Amount$ 3",
+        "Name:Bad\nTypes:Artifact\n\
+         S:Mode$ ReduceCost | ValidCard$ Card | ValidSpell$ Activated.Cycling | Activator$ You | Amount$ X\n\
+         SVar:X:Count$Valid Artifact.YouCtrl",
+        "Name:Bad\nTypes:Artifact\n\
+         S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | EffectZone$ Command | Activator$ You | Amount$ 1",
+        "Name:Bad\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ ReduceCost | ValidCard$ Creature.YouCtrl | Type$ Ability | Amount$ 2 | MinMana$ 1",
+        "Name:Bad\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Activator$ You | Amount$ 1 | CheckSVar$ X | SVarCompare$ EQ1\n\
+         SVar:X:Count$ThisTurnCast_Card.YouCtrl",
+        "Name:Bad\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.Self | Type$ Spell | EffectZone$ All | Amount$ 0",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn kicker_variable_x_and_non_mana_spell_cost_helpers() {
+    let custom_cats = SubtypeCatalogs {
+        creature: vec!["Goblin".into(), "Vampire".into()],
+        land: vec!["Forest".into()],
+        ..SubtypeCatalogs::default()
+    };
+
+    // Variable-{X} kicker lines on `Tx::lower_kicker_line`.
+    let parsed_x = parse("Name:Ancient\nManaCost:1 G\nOracle:Kicker {X}\nTypes:Creature\nPT:2/2");
+    let mut tx = Tx::new(&parsed_x, &custom_cats, None);
+    assert!(tx.lower_kicker_line("X").is_some());
+    assert!(tx.has_x);
+    assert_eq!(tx.body.additional_costs, ["cost!(\"{X}\")"]);
+
+    let parsed_x2 =
+        parse("Name:Keeper\nManaCost:2 W U\nOracle:Kicker {X}{2}\nTypes:Creature\nPT:2/2");
+    let mut tx = Tx::new(&parsed_x2, &custom_cats, None);
+    assert!(tx.lower_kicker_line("X 2").is_some());
+    assert!(tx.has_x);
+    assert_eq!(tx.body.additional_costs, ["cost!(\"{X}{2}\")"]);
+
+    // Non-mana and mixed kickers.
+    for (oracle, raw_kicker, want) in [
+        (
+            "Kicker—Return a creature you control to its owner's hand.",
+            "Return<1/Creature>",
+            "cost!(ReturnToHand(&Filter::YOUR_CREATURE))",
+        ),
+        (
+            "Kicker—{2}{B}, Discard a creature card.",
+            "2 B Discard<1/Creature>",
+            "cost!(\"{2}{B}\", Discard(&Filter::CREATURE))",
+        ),
+        (
+            "Kicker—Sacrifice two lands.",
+            "Sac<2/Land>",
+            "cost!(Sacrifice(&Filter::YOUR_LAND), Sacrifice(&Filter::YOUR_LAND))",
+        ),
+        ("Kicker—Pay 3 life.", "PayLife<3>", "cost!(PayLife(3))"),
+        (
+            "Kicker—Tap an untapped Vampire you control.",
+            "tapXType<1/Vampire>",
+            "cost!(TapN { filter: &COST1, count: 1 })",
+        ),
+        (
+            "Kicker—Sacrifice an artifact or creature.",
+            "Sac<1/Creature;Artifact/artifact or creature>",
+            "cost!(Sacrifice(&COST1))",
+        ),
+    ] {
+        let p = parse(&format!(
+            "Name:K\nManaCost:1 B\nOracle:{oracle}\nTypes:Instant"
+        ));
+        let mut tx = Tx::new(&p, &custom_cats, None);
+        assert!(tx.lower_kicker_line(raw_kicker).is_some(), "{raw_kicker}");
+        assert!(!tx.has_x);
+        assert_eq!(tx.body.additional_costs, [want], "{raw_kicker}");
+    }
+
+    // Refused kicker forms (`XMin1`, empty, unsupported token, `{X}` kicker beside `{X}` mana cost).
+    for (mana, bad) in [
+        ("1 U", "XMin1 X"),
+        ("1 U", ""),
+        ("1 G", "Forage"),
+        ("X U", "X"),
+    ] {
+        let p = parse(&format!(
+            "Name:BadK\nManaCost:{mana}\nTypes:Creature\nPT:1/1"
+        ));
+        let mut tx = Tx::new(&p, &custom_cats, None);
+        assert!(
+            tx.lower_kicker_line(bad).is_none(),
+            "must refuse {mana} / {bad}"
+        );
+    }
+
+    // Mandatory additional spell `CostPart` lowering.
+    let spell_script = parse("Name:Costs\nManaCost:1 B\nTypes:Sorcery\nSVar:X:Count$xPaid");
+    let mut tx = Tx::new(&spell_script, &custom_cats, None);
+    tx.has_x = true;
+    for (raw, want) in [
+        (
+            "1 B Sac<All/Creature>",
+            vec!["CostPart::SacrificeAll(&Filter::YOUR_CREATURE)"],
+        ),
+        (
+            "1 Sac<X/Creature>",
+            vec!["CostPart::SacrificeX(&Filter::YOUR_CREATURE)"],
+        ),
+        ("G tapXType<X/Goblin>", vec!["CostPart::TapX(&COST1)"]),
+        (
+            "tapXType<2/Goblin>",
+            vec!["CostPart::TapN { filter: &COST1, count: 2 }"],
+        ),
+        (
+            "ExileFromTop<2/Card>",
+            vec!["CostPart::ExileTopOfLibrary(2)"],
+        ),
+        (
+            "ExileFromHand<1/Creature>",
+            vec!["CostPart::ExileFromHand(&Filter::CREATURE)"],
+        ),
+        (
+            "ExileFromGrave<1/Creature>",
+            vec!["CostPart::ExileFromGraveyard(&Filter::CREATURE)"],
+        ),
+        ("Discard<1/Random>", vec!["CostPart::DiscardRandom"]),
+        ("DiscardHand", vec!["CostPart::DiscardHand"]),
+        ("PayLife<X>", vec!["CostPart::PayLifeX"]),
+        ("PayEnergy<3>", vec!["CostPart::PayEnergy(3)"]),
+        ("PayEnergy<X>", vec!["CostPart::PayEnergyX"]),
+        (
+            "G Return<1/Land>",
+            vec!["CostPart::ReturnToHand(&Filter::YOUR_LAND)"],
+        ),
+    ] {
+        let got = tx
+            .parse_spell_cost_parts(raw)
+            .unwrap_or_else(|| panic!("failed to parse {raw}"));
+        assert_eq!(got, want, "{raw}");
+    }
+
+    // Without announced X, `X` object/life/energy costs must refuse.
+    let mut no_x = Tx::new(&spell_script, &custom_cats, None);
+    for bad in [
+        "PayLife<X>",
+        "PayEnergy<X>",
+        "Sac<X/Creature>",
+        "Sac<1/CARDNAME>",
+        "Forage",
+    ] {
+        assert!(
+            no_x.parse_spell_cost_parts(bad).is_none(),
+            "must refuse {bad}"
+        );
+    }
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn prevention_per_source_and_chosen_color_or_source_shields() {
+    // 1. Urza's Armor & Spheres (`ValidTarget$ You` only -> Filter::Not(&Filter::Any)).
+    let armor = read(
+        "Name:Synthetic Armor\nManaCost:6\nTypes:Artifact\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ You | \
+         ReplaceWith$ DBReplace | PreventionEffect$ True\n\
+         SVar:DBReplace:DB$ ReplaceDamage | Amount$ 1",
+    );
+    assert_eq!(
+        armor.abilities,
+        [
+            "static_ability!(Filter::Not(&Filter::Any), Modifier::PreventDamagePerSource { sources: &Filter::Any, include_you: true, combat_only: false, amount: Amount::Fixed(1) })"
+        ]
+    );
+
+    let sphere = read(
+        "Name:Synthetic Red Sphere\nManaCost:3 W\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Card.RedSource | \
+         ValidTarget$ You | ReplaceWith$ DBReplace | PreventionEffect$ True\n\
+         SVar:DBReplace:DB$ ReplaceDamage | Amount$ 2",
+    );
+    assert_eq!(
+        sphere.abilities,
+        [
+            "static_ability!(Filter::Not(&Filter::Any), Modifier::PreventDamagePerSource { sources: &SOURCE1, include_you: true, combat_only: false, amount: Amount::Fixed(2) })"
+        ]
+    );
+    assert!(sphere.statics.contains("Color::Red"), "{}", sphere.statics);
+
+    let artifact_sphere = read(
+        "Name:Synthetic Artifact Sphere\nManaCost:3 W\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Artifact.inZoneBattlefield | \
+         ValidTarget$ You | ReplaceWith$ DBReplace | PreventionEffect$ True\n\
+         SVar:DBReplace:DB$ ReplaceDamage | Amount$ 1",
+    );
+    assert!(
+        artifact_sphere
+            .statics
+            .contains("static SOURCE1: Filter = Filter::And(&[Filter::InZone(ZoneRef::Battlefield), Filter::ARTIFACT]);"),
+        "{}",
+        artifact_sphere.statics
+    );
+
+    // 2. Cover of Winter (`You,Creature.YouCtrl` + `Count$CardCounters.AGE`).
+    let cover = read(
+        "Name:Synthetic Winter Cover\nManaCost:2 W\nTypes:Snow Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ You,Creature.YouCtrl | \
+         ValidSource$ Creature | IsCombat$ True | ReplaceWith$ DBReplace | PreventionEffect$ True\n\
+         SVar:DBReplace:DB$ ReplaceDamage | Amount$ X\n\
+         SVar:X:Count$CardCounters.AGE",
+    );
+    assert_eq!(
+        cover.abilities,
+        [
+            "static_ability!(Filter::YOUR_CREATURE, Modifier::PreventDamagePerSource { sources: &Filter::CREATURE, include_you: true, combat_only: true, amount: Amount::CountersOnSource(counters::AGE) })"
+        ]
+    );
+
+    // 3. Daunting Defender / Shield (`PreventDamageToAffectedPerSource`).
+    let defender = read(
+        "Name:Synthetic Defender\nManaCost:4 W\nTypes:Creature Wizard\nPT:3/3\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Wizard.YouCtrl | \
+         ReplaceWith$ DBReplace | PreventionEffect$ True\n\
+         SVar:DBReplace:DB$ ReplaceDamage | Amount$ 1",
+    );
+    assert_eq!(
+        defender.abilities,
+        [
+            "static_ability!(Filter::And(&[Filter::HasSubtype(subtypes::creature::WIZARD), Filter::ControlledByYou]), Modifier::PreventDamageToAffectedPerSource { sources: &Filter::Any, combat_only: false, amount: Amount::Fixed(1) })"
+        ]
+    );
+
+    // 4. Infinite persistent shields (`Glacial Chasm`, `Bubble Matrix`, `Dolmen Gate`).
+    let personal_shield = read(
+        "Name:Synthetic Sanctuary\nManaCost:2 W\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | ValidTarget$ You | PlayerTurn$ True",
+    );
+    assert_eq!(
+        personal_shield.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::PreventDamageToYouFrom(&Filter::Any), condition = Some(Condition::YourTurn))"
+        ]
+    );
+
+    let bubble = read(
+        "Name:Synthetic Bubble\nManaCost:4\nTypes:Artifact\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | ValidTarget$ Creature",
+    );
+    assert_eq!(
+        bubble.abilities,
+        ["static_ability!(Filter::CREATURE, Modifier::PreventDamageFrom(&Filter::Any))"]
+    );
+
+    let combat_attackers = read(
+        "Name:Synthetic Dolmen\nManaCost:2\nTypes:Artifact\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | \
+         ValidTarget$ Creature.attacking+YouCtrl | IsCombat$ True",
+    );
+    assert_eq!(
+        combat_attackers.abilities,
+        [
+            "static_ability!(Filter::And(&[Filter::CREATURE, Filter::Attacking, Filter::ControlledByYou]), Modifier::PreventCombatDamageFrom(&Filter::Any))"
+        ]
+    );
+
+    // 5. Chosen-color `ChooseSource` (Story Circle) & repeatable `ChooseSource` shields.
+    let story = read(
+        "Name:Synthetic Story\nManaCost:1 W W\nTypes:Enchantment\n\
+         K:ETBReplacement:Other:ChooseColor\n\
+         SVar:ChooseColor:DB$ ChooseColor | Defined$ You\n\
+         A:AB$ ChooseSource | Cost$ W | Choices$ Card.ChosenColorSource | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | ReplacementEffects$ RPrevent | SubAbility$ DBCleanup | \
+         ConditionDefined$ ChosenCard | ConditionPresent$ Card | ConditionCompare$ GE1\n\
+         SVar:RPrevent:Event$ DamageDone | ValidSource$ Card.ChosenCard+ChosenColorSource | \
+         ValidTarget$ You | ReplaceWith$ ExileEffect | PreventionEffect$ True\n\
+         SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearChosenCard$ True",
+    );
+    assert_eq!(story.enter_modifiers, ["EnterModifier::ChooseColor"]);
+    assert!(
+        story.abilities[0].contains(
+            "Effect::PreventNextFromChosenSource { sources: &Filter::OfSourceChosenColor, combat_only: false, all_but: 0, gain_life: false }"
+        ),
+        "{:?}",
+        story.abilities
+    );
+
+    let surveillance = read(
+        "Name:Synthetic Surveillance\nManaCost:3 W\nTypes:Enchantment\n\
+         A:AB$ ChooseSource | Cost$ Sac<1/CARDNAME> | Choices$ Card,Emblem | RememberChosen$ True | \
+         ChoiceTitle$ Choose a source | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | ReplacementEffects$ RPrevent | RememberObjects$ Remembered | \
+         ConditionDefined$ Remembered | ConditionPresent$ Card,Emblem | ConditionCompare$ GE1 | \
+         SubAbility$ DBCleanup\n\
+         SVar:RPrevent:Event$ DamageDone | ActiveZones$ Command | \
+         ValidSource$ Card.IsRemembered,Emblem.IsRemembered | ValidTarget$ You | Prevent$ True\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True | ClearChosenCard$ True",
+    );
+    assert!(
+        surveillance.abilities[0].contains(
+            "Effect::PreventFromChosenSource { target: Some(TargetSpec::Player(PlayerRel::You)), sources: &Filter::Any, next_only: false, combat_only: false, all_but: 0, gain_life: false }"
+        ),
+        "{:?}",
+        surveillance.abilities
+    );
+
+    let forge_tender = read(
+        "Name:Synthetic Tender\nManaCost:W\nTypes:Creature Wizard\nPT:1/1\n\
+         A:AB$ ChooseSource | Cost$ Sac<1/CARDNAME> | Choices$ Card.RedSource | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | ReplacementEffects$ RPrevent | SubAbility$ DBCleanup | \
+         ConditionDefined$ ChosenCard | ConditionPresent$ Card | ConditionCompare$ GE1\n\
+         SVar:RPrevent:Event$ DamageDone | ValidSource$ Card.ChosenCardStrict+RedSource | Prevent$ True\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearChosenCard$ True",
+    );
+    assert!(
+        forge_tender.abilities[0].contains(
+            "Effect::PreventFromChosenSource { target: None, sources: &SOURCE1, next_only: false, combat_only: false, all_but: 0, gain_life: false }"
+        ),
+        "{:?}",
+        forge_tender.abilities
+    );
+
+    // 6. `ChooseColor` -> `Effect` turn-long color shield (`Prismatic Strands` / `Avacyn`).
+    let strands = read(
+        "Name:Synthetic Strands\nManaCost:2 W\nTypes:Instant\n\
+         A:SP$ ChooseColor | Defined$ You | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | ReplacementEffects$ RPrevent\n\
+         SVar:RPrevent:Event$ DamageDone | Prevent$ True | ActiveZones$ Command | ValidSource$ Card.ChosenColor",
+    );
+    assert_eq!(
+        strands.abilities,
+        [
+            "spell!(&[Effect::ChooseColor, Effect::PreventAllDamageFromMatchingThisTurn { target: None, sources: &Filter::OfSourceChosenColor, combat_only: false }])"
+        ]
+    );
+
+    let guardian = read(
+        "Name:Synthetic Guardian\nManaCost:3 W W\nTypes:Creature Angel\nPT:4/4\n\
+         A:AB$ ChooseColor | Cost$ 1 W | Defined$ You | SubAbility$ DBEffect\n\
+         SVar:DBEffect:DB$ Effect | Name$ Guard | ValidTgts$ Creature.Other | \
+         ReplacementEffects$ RPrevent | RememberObjects$ Targeted | ForgetOnMoved$ Battlefield\n\
+         SVar:RPrevent:Event$ DamageDone | Prevent$ True | ActiveZones$ Command | \
+         ValidTarget$ Card.IsRemembered | ValidSource$ Card.ChosenColor",
+    );
+    assert_eq!(
+        guardian.abilities,
+        [
+            "activated!(cost!(\"{1}{W}\"), &[Effect::ChooseColor, Effect::PreventAllDamageFromMatchingThisTurn { target: Some(TargetSpec::Object(&Filter::ANOTHER_CREATURE)), sources: &Filter::OfSourceChosenColor, combat_only: false }], target = Some(TargetSpec::Object(&Filter::ANOTHER_CREATURE)))"
+        ]
+    );
+
+    // 7. Staged `Circle of Solace` & targeted `ChooseSource` helpers in `prevention.rs`.
+    let solace_script = parse(
+        "Name:Synthetic Solace\nManaCost:3 W\nTypes:Enchantment\n\
+         K:ETBReplacement:Other:ChooseCT\n\
+         SVar:ChooseCT:DB$ ChooseType | Defined$ You | Type$ Creature\n\
+         SVar:RPrevent:Event$ DamageDone | ValidSource$ Card.ChosenType+inZoneBattlefield | \
+         ValidTarget$ You | ReplaceWith$ ExileEffect | PreventionEffect$ True\n\
+         SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile",
+    );
+    let base_cats = cats();
+    let mut solace_tx = Tx::new(&solace_script, &base_cats, None);
+    solace_tx
+        .body
+        .enter_modifiers
+        .push("EnterModifier::ChooseSubtype".to_string());
+    let (_, effect_params) = Params::parse("DB$ Effect | ReplacementEffects$ RPrevent").unwrap();
+    let mut solace_chain = Chain::default();
+    let solace_fx = solace_tx
+        .prevention_effect_shield(effect_params, &mut solace_chain)
+        .expect("solace helper");
+    assert_eq!(
+        solace_fx,
+        [
+            "Effect::PreventNextFromMatchingSources { target: Some(TargetSpec::Player(PlayerRel::You)), sources: &SOURCE1, combat_only: false }"
+        ]
+    );
+    assert!(
+        solace_tx
+            .body
+            .statics
+            .contains("static SOURCE1: Filter = Filter::And(&[Filter::InZone(ZoneRef::Battlefield), Filter::MatchesChosenTypeOfSource]);"),
+        "{}",
+        solace_tx.body.statics
+    );
+
+    let peddler_script = parse(
+        "Name:Synthetic Peddler\nManaCost:1 W\nTypes:Creature\nPT:1/1\n\
+         SVar:DBEffect:DB$ Effect | ValidTgts$ Creature | ReplacementEffects$ RPrevent | \
+         ImprintCards$ Targeted | SubAbility$ DBCleanup | ConditionDefined$ ChosenCard | \
+         ConditionPresent$ Card,Emblem\n\
+         SVar:RPrevent:Event$ DamageDone | ValidSource$ Card.ChosenCardStrict,Emblem.ChosenCard | \
+         ValidTarget$ Card.IsImprinted | ReplaceWith$ ExileEffect | PreventionEffect$ True\n\
+         SVar:ExileEffect:DB$ ChangeZone | Defined$ Self | Origin$ Command | Destination$ Exile\n\
+         SVar:DBCleanup:DB$ Cleanup | ClearChosenCard$ True",
+    );
+    let mut peddler_tx = Tx::new(&peddler_script, &base_cats, None);
+    let (_, cs_params) = Params::parse("DB$ ChooseSource | Choices$ Card,Emblem").unwrap();
+    let mut peddler_chain = Chain::default();
+    let peddler_fx = peddler_tx
+        .prevent_from_chosen_source_chained(cs_params, Some("DBEffect"), &mut peddler_chain)
+        .expect("peddler helper");
+    assert_eq!(
+        peddler_fx,
+        [
+            "Effect::PreventFromChosenSource { target: Some(TargetSpec::Object(&Filter::CREATURE)), sources: &Filter::Any, next_only: true, combat_only: false, all_but: 0, gain_life: false }"
+        ]
+    );
+    assert_eq!(
+        peddler_chain.target.as_deref(),
+        Some("TargetSpec::Object(&Filter::CREATURE)")
+    );
+
+    // 8. Refusals: opponent-covering finite shield, noncombat `Prevent$ True`, `You` with combat-only
+    // `Prevent$ True`, `You,Permanent.YouCtrl` with `Prevent$ True`, and `ChosenColor` without `ChooseColor`.
+    for bad in [
+        "Name:Bad\nTypes:Creature\nPT:1/2\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidSource$ Spell | \
+         ValidTarget$ Permanent,Player | ReplaceWith$ DBReplace | PreventionEffect$ True\n\
+         SVar:DBReplace:DB$ ReplaceDamage | Amount$ 1",
+        "Name:Bad\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | \
+         ValidTarget$ Creature.YouCtrl | IsCombat$ False",
+        "Name:Bad\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | \
+         ValidTarget$ You | IsCombat$ True",
+        "Name:Bad\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | \
+         ValidTarget$ You,Permanent.YouCtrl",
+        "Name:Bad\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | \
+         ValidSource$ Card.ChosenColor | ValidTarget$ You",
+        "Name:Bad\nTypes:Enchantment\n\
+         R:Event$ DamageDone | ActiveZones$ Command | ValidTarget$ You | \
+         ReplaceWith$ DBReplace | PreventionEffect$ True\n\
+         SVar:DBReplace:DB$ ReplaceDamage | Amount$ 1",
+    ] {
+        assert!(refused(bad), "must refuse: {bad}");
+    }
+}

@@ -172,7 +172,7 @@ impl Tx<'_> {
         match mode.as_str() {
             "AlternativeCost" => return self.alternative_cost(p),
             "RaiseCost" => return self.mana_life_tax(p),
-            "ReduceCost" => return self.reduce_cost(p),
+            "ReduceCost" => return self.mode_reduce_cost(p),
             "FlipCoinDoubler" => {
                 p.drop_prose();
                 if p.take("ValidPlayer").as_deref() != Some("You") || !p.exhausted() {
@@ -1558,6 +1558,209 @@ impl Tx<'_> {
             ));
         }
         Some(())
+    }
+
+    /// `S: Mode$ ReduceCost`: battlefield and self-stack (`ZoneRef::Stack`)
+    /// spell cost reductions (fixed generic, dynamic `Amount`, fixed mana
+    /// `Color$` / `IgnoreGeneric$`, face-down, shared creature type), plus
+    /// `CyclingCostsLess` (`ValidSpell$ Activated.Cycling`).
+    fn mode_reduce_cost(&mut self, mut p: Params) -> Option<()> {
+        // Keep `final_portals::reduce_cost` handling plain battlefield fixed
+        // generic spell reductions unchanged.
+        if !p.has("Condition")
+            && !p.has("IsPresent")
+            && !p.has("CheckSVar")
+            && !p.has("PlayerTurn")
+            && !p.has("Color")
+            && !p.has("IgnoreGeneric")
+            && !p.has("ValidSpell")
+            && matches!(p.peek("EffectZone"), None | Some("Battlefield"))
+            && p.peek("Type") == Some("Spell")
+            && matches!(p.peek("Activator"), None | Some("You" | "Opponent"))
+            && p.peek("Amount").is_some_and(|a| a.parse::<u8>().is_ok())
+            && p.peek("ValidCard").is_some_and(|vc| {
+                !vc.contains("sharesCreatureTypeWith") && !vc.contains("faceDown")
+            })
+        {
+            return self.reduce_cost(p);
+        }
+
+        p.drop_prose();
+        if p.peek("ValidSpell") == Some("Activated.Cycling") {
+            return self.reduce_cost_cycling(p);
+        }
+
+        let spell_type = p.take("Type");
+        let valid_spell = p.take("ValidSpell");
+        let face_down = match (spell_type.as_deref(), valid_spell.as_deref()) {
+            (Some("Spell"), None) => false,
+            (Some("Spell") | None, Some("Spell.isCastFaceDown")) => true,
+            _ => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
+        };
+        let is_self_zone = match p.take("EffectZone").as_deref() {
+            None | Some("Battlefield") => false,
+            Some("All" | "Stack") => true,
+            Some(_) => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
+        };
+        let Some(mut valid_card) = p.take("ValidCard") else {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        };
+        if is_self_zone {
+            if valid_card != "Card.Self" {
+                return self.deny("static ability `S: Mode$ ReduceCost`".into());
+            }
+            if !matches!(p.take("Activator").as_deref(), None | Some("You")) {
+                return self.deny("static ability `S: Mode$ ReduceCost`".into());
+            }
+            if face_down {
+                valid_card = "Card.Self+faceDown".to_string();
+            }
+        } else {
+            if valid_card == "Card.Self" {
+                return self.deny("static ability `S: Mode$ ReduceCost`".into());
+            }
+            if face_down {
+                valid_card = Self::append_reduce_atom(&valid_card, "faceDown");
+            }
+            let Some(with_act) =
+                Self::apply_reduce_activator(&valid_card, p.take("Activator").as_deref())
+            else {
+                return self.deny("static ability `S: Mode$ ReduceCost`".into());
+            };
+            valid_card = with_act;
+        }
+        let cond = self.reduce_cost_condition(&mut p)?;
+        let modifier = self.reduce_cost_modifier(&mut p)?;
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `ReduceCost.{key}`"));
+        }
+        let filter = self.filter_expr(&valid_card)?;
+        if is_self_zone {
+            self.body.abilities.push(format!(
+                "static_ability!({filter}, {modifier}, zone = ZoneRef::Stack{cond})"
+            ));
+        } else {
+            self.body
+                .abilities
+                .push(format!("static_ability!({filter}, {modifier}{cond})"));
+        }
+        Some(())
+    }
+
+    fn reduce_cost_modifier(&mut self, p: &mut Params) -> Option<String> {
+        if let Some(color_raw) = p.take("Color") {
+            if p.take("Amount").as_deref() != Some("1") {
+                return self.deny("static ability `S: Mode$ ReduceCost`".into());
+            }
+            let colored_only = match p.take("IgnoreGeneric").as_deref() {
+                None | Some("False") => false,
+                Some("True") => true,
+                Some(_) => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
+            };
+            let Some(mana) = super::printed_mana(&color_raw) else {
+                return self.deny("static ability `S: Mode$ ReduceCost`".into());
+            };
+            return Some(format!(
+                "Modifier::SpellsCostLessMana {{ cost: mana!(\"{mana}\"), colored_only: {colored_only} }}"
+            ));
+        }
+        let Some(amt_raw) = p.take("Amount") else {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        };
+        if let Ok(n) = amt_raw.parse::<u32>() {
+            if n == 0 {
+                return self.deny("static ability `S: Mode$ ReduceCost`".into());
+            }
+            return Some(format!("Modifier::SpellsCostLess({n})"));
+        }
+        let amt_def = if amt_raw.starts_with("Count$") {
+            amt_raw
+        } else {
+            let Some(def) = self.svars.get(amt_raw.trim()).cloned() else {
+                return self.deny("static ability `S: Mode$ ReduceCost`".into());
+            };
+            def
+        };
+        let amt_expr = self.static_count_expr(&amt_def)?;
+        Some(format!("Modifier::SpellsCostLessByAmount({amt_expr})"))
+    }
+
+    fn reduce_cost_cycling(&mut self, mut p: Params) -> Option<()> {
+        p.take("ValidSpell");
+        if !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
+            || !matches!(p.take("Type").as_deref(), None | Some("Ability"))
+        {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        }
+        let Some(valid_card) = p.take("ValidCard") else {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        };
+        let Some(valid_card) =
+            Self::apply_reduce_activator(&valid_card, p.take("Activator").as_deref())
+        else {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        };
+        let cond = self.reduce_cost_condition(&mut p)?;
+        let Some(amount) = p
+            .take("Amount")
+            .and_then(|a| a.parse::<u32>().ok())
+            .filter(|&n| n > 0)
+        else {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        };
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `ReduceCost.{key}`"));
+        }
+        let filter = self.filter_expr(&valid_card)?;
+        self.body.abilities.push(format!(
+            "static_ability!({filter}, Modifier::CyclingCostsLess({amount}){cond})"
+        ));
+        Some(())
+    }
+
+    fn append_reduce_atom(valid: &str, atom: &str) -> String {
+        valid
+            .split(',')
+            .map(|alt| {
+                let alt = alt.trim();
+                if alt.contains('.') {
+                    format!("{alt}+{atom}")
+                } else {
+                    format!("{alt}.{atom}")
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn apply_reduce_activator(valid: &str, activator: Option<&str>) -> Option<String> {
+        match activator {
+            None => Some(valid.to_string()),
+            Some("You") => Some(Self::append_reduce_atom(valid, "YouCtrl")),
+            Some("Opponent") => Some(Self::append_reduce_atom(valid, "OppCtrl")),
+            Some(_) => None,
+        }
+    }
+
+    fn reduce_cost_condition(&mut self, p: &mut Params) -> Option<String> {
+        if let Some(pt) = p.take("PlayerTurn") {
+            if pt != "True" || p.has("Condition") || p.has("IsPresent") || p.has("CheckSVar") {
+                return self.deny("static ability `S: Mode$ ReduceCost`".into());
+            }
+            return Some(", condition = Some(Condition::YourTurn)".to_string());
+        }
+        let cond = self.condition(p)?;
+        if let Some(var) = p.take("CheckSVar") {
+            if !cond.is_empty() {
+                return self.deny("static ability `S: Mode$ ReduceCost`".into());
+            }
+            let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
+            let Some(clause) = self.svar_condition(&var, &cmp) else {
+                return self.deny("unclaimed parameter `ReduceCost.CheckSVar`".to_string());
+            };
+            return Some(format!(", condition = Some({clause})"));
+        }
+        Some(cond)
     }
 
     /// One `AbilityDef::Static` expression.
