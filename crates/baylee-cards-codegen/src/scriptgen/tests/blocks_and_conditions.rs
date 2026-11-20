@@ -1063,35 +1063,37 @@ fn the_rest_of_the_condition_family_refuses_by_name() {
     }
 }
 
-/// A trigger that fires from somewhere other than the battlefield is
-/// refused, rather than quietly relocated to it.
-///
-/// `AbilityDef::Triggered` carries no zone and the engine collects
-/// triggers off the battlefield, so a `TriggerZones$ Command` read as
-/// an ordinary trigger is an ability that can never fire on a card
-/// claiming `Coverage::Implemented` — worse than the stub it replaced.
-/// The same line without the key is read as it always was, which is the
-/// half that says the refusal is about the zone and not about the
-/// trigger.
+/// A trigger that fires from an unsupported zone (such as `Hand`) is
+/// refused, rather than quietly relocated to the battlefield, while
+/// supported non-battlefield zones (`Command`, `Battlefield,Command`)
+/// emit their explicit `TriggerZone` variant.
 #[test]
 fn a_trigger_that_fires_from_another_zone_is_refused_rather_than_relocated() {
     let elsewhere = "Name:X\nTypes:Creature\nPT:1/1\n\
-         T:Mode$ ChangesZone | TriggerZones$ Command | Origin$ Battlefield | \
+         T:Mode$ ChangesZone | TriggerZones$ Hand | Origin$ Battlefield | \
          Destination$ Graveyard | ValidCard$ Creature.YouCtrl | Execute$ TrigDraw\n\
          SVar:TrigDraw:DB$ Draw | NumCards$ 1\n";
     let parsed = parse(elsewhere);
     assert!(transcode(&parsed, &cats(), None).is_none());
     assert_eq!(
         refusal_reason(&parsed, &cats(), None).as_deref(),
-        Some("`TriggerZones$ Command`")
+        Some("`TriggerZones$ Hand`")
     );
 
-    let here = parse(&elsewhere.replace("TriggerZones$ Command", "TriggerZones$ Battlefield"));
+    let here = parse(&elsewhere.replace("TriggerZones$ Hand", "TriggerZones$ Battlefield"));
     assert!(
         transcode(&here, &cats(), None).is_some(),
         "the same trigger on the battlefield: {:?}",
         refusal_reason(&here, &cats(), None)
     );
+
+    let command = parse(&elsewhere.replace("TriggerZones$ Hand", "TriggerZones$ Command"));
+    let cmd_body = transcode(&command, &cats(), None).expect("command trigger");
+    assert!(cmd_body.abilities[0].contains("zone = TriggerZone::Command"));
+
+    let both = parse(&elsewhere.replace("TriggerZones$ Hand", "TriggerZones$ Battlefield,Command"));
+    let both_body = transcode(&both, &cats(), None).expect("battlefield-or-command trigger");
+    assert!(both_body.abilities[0].contains("zone = TriggerZone::BattlefieldOrCommand"));
 }
 
 /// `Defined$ Self` on a line that also targets is the **source**, and

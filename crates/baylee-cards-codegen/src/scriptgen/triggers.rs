@@ -1410,7 +1410,21 @@ impl Tx<'_> {
             (self.state_trigger(&mut p)?, String::new())
         } else {
             let trigger = self.trigger_expr_in_zone(&mut p, &mode, !zone.is_empty())?;
-            (trigger, self.condition(&mut p)?)
+            let wave8_cond = Self::wave8_trigger_present_condition(&mut p);
+            let mut cond = self.condition(&mut p)?;
+            if let Some(clause) = wave8_cond {
+                cond = if cond.is_empty() {
+                    format!(", condition = Some({clause})")
+                } else if let Some(inner) = cond
+                    .strip_prefix(", condition = Some(")
+                    .and_then(|s| s.strip_suffix(')'))
+                {
+                    format!(", condition = Some(Condition::All(&[{inner}, {clause}]))")
+                } else {
+                    return self.deny("`IsPresent$` beside another clause".to_string());
+                };
+            }
+            (trigger, cond)
         };
         if phase_descended {
             condition = if condition.is_empty() {
@@ -2545,20 +2559,76 @@ impl Tx<'_> {
         Some(inner.effects.join(", "))
     }
 
+    pub(super) fn is_your_commander_present(valid: &str) -> bool {
+        let Some((noun, rest)) = valid.split_once('.') else {
+            return false;
+        };
+        if !matches!(noun.trim(), "Card" | "Permanent") || rest.contains(',') {
+            return false;
+        }
+        let atoms: Vec<&str> = rest.split('+').map(str::trim).collect();
+        atoms.len() == 3
+            && atoms.contains(&"IsCommander")
+            && atoms.contains(&"YouOwn")
+            && atoms.contains(&"YouCtrl")
+    }
+
+    fn wave8_trigger_present_condition(p: &mut Params) -> Option<String> {
+        if p.has("IsPresent2") || p.has("PresentPlayer") {
+            return None;
+        }
+        let valid = p.peek("IsPresent")?;
+        if valid == "Card.StrictlySelf"
+            && matches!(p.peek("PresentCompare"), None | Some("GE1" | "EQ1"))
+        {
+            let zone_ref = match p.peek("PresentZone")? {
+                "Command" => "ZoneRef::Command",
+                "Battlefield" => "ZoneRef::Battlefield",
+                "Graveyard" => "ZoneRef::Graveyard",
+                "Exile" => "ZoneRef::Exile",
+                "Battlefield,Command" | "Command,Battlefield" => "ZoneRef::BattlefieldOrCommand",
+                _ => return None,
+            };
+            p.take("IsPresent");
+            p.take("PresentZone");
+            p.take("PresentCompare");
+            return Some(format!("Condition::SourceInZone({zone_ref})"));
+        }
+        if Self::is_your_commander_present(valid)
+            && matches!(p.peek("PresentZone"), None | Some("Battlefield"))
+        {
+            let cond = match p.peek("PresentCompare") {
+                None | Some("GE1") => "Condition::ControlYourCommander",
+                Some("EQ0") => "Condition::Not(&Condition::ControlYourCommander)",
+                _ => return None,
+            };
+            p.take("IsPresent");
+            p.take("PresentZone");
+            p.take("PresentCompare");
+            return Some(cond.to_string());
+        }
+        None
+    }
+
     fn take_trigger_zone(mode: &str, p: &mut Params) -> &'static str {
         let zone = match p.peek("TriggerZones") {
             Some("Graveyard") => ", zone = TriggerZone::Graveyard",
             Some("Exile") => ", zone = TriggerZone::Exile",
+            Some("Command") => ", zone = TriggerZone::Command",
+            Some("Battlefield,Command" | "Command,Battlefield") => {
+                ", zone = TriggerZone::BattlefieldOrCommand"
+            }
             _ => return "",
         };
+        let non_self = p
+            .peek("ValidCard")
+            .is_some_and(|v| !v.split([',', '.', '+']).any(|a| a.trim() == "Self"));
         let allowed = match mode {
             "Phase" | "SpellCast" | "DamageDone" | "DamageDoneOnce" | "DamageDealtOnce"
             | "Drawn" | "LandPlayed" | "Attacks" | "AttackersDeclared" | "LifeGained"
             | "LifeLost" | "Discarded" | "Cycled" | "CounterAddedOnce" | "FlippedCoin"
-            | "RolledDie" => true,
-            "ChangesZone" => p
-                .peek("ValidCard")
-                .is_some_and(|v| !v.split([',', '.', '+']).any(|a| a.trim() == "Self")),
+            | "RolledDie" | "SearchedLibrary" => true,
+            "ChangesZone" | "TapsForMana" | "Taps" | "Untaps" => non_self,
             _ => false,
         };
         if allowed {

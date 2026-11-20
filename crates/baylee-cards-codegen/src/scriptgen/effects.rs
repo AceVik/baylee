@@ -2432,6 +2432,37 @@ impl Tx<'_> {
             {
                 return Some(vec!["Effect::ReturnLinkedToBattlefield".to_string()]);
             }
+            Some("Enchanted" | "Equipped")
+                if !self.on_a_spell
+                    && !self.cost_sacrifices_self
+                    && target == "TargetSpec::AnyPlayer"
+                    && origin == "Battlefield" =>
+            {
+                return match destination.as_str() {
+                    "Exile" => Some(vec![
+                        "Effect::ExileAll { filter: &Filter::AttachedToBySource, linked: false }"
+                            .to_string(),
+                    ]),
+                    "Hand" => Some(vec![
+                        "Effect::ReturnAllToHand { filter: &Filter::AttachedToBySource, opponents_only: false }"
+                            .to_string(),
+                    ]),
+                    _ => self.deny(format!("`ChangeZone` of `Defined$ Enchanted` to `{destination}`")),
+                };
+            }
+            Some("Enchanted & Self" | "Self & Enchanted")
+                if !self.on_a_spell
+                    && !self.cost_sacrifices_self
+                    && target == "TargetSpec::AnyPlayer"
+                    && origin == "Battlefield"
+                    && destination == "Hand" =>
+            {
+                return Some(vec![
+                    "Effect::ReturnAllToHand { filter: &Filter::AttachedToBySource, opponents_only: false }"
+                        .to_string(),
+                    "Effect::bounce(TargetSpec::ThisObject)".to_string(),
+                ]);
+            }
             Some(def) if target == "TargetSpec::AnyPlayer" && self.is_event_object_defined(def) => {
                 return self.change_zone_event_object(p, def, &origin, &destination);
             }
@@ -3008,7 +3039,12 @@ impl Tx<'_> {
             ("Hand", false) => "Find::HAND",
             ("Exile", false) => "Find::EXILE",
             ("Graveyard", false) => "Find::GRAVEYARD",
-            ("Library", false) if !any_number => "Find::TOP_OF_LIBRARY",
+            ("Library", false)
+                if !any_number
+                    && matches!(p.take("LibraryPosition").as_deref(), None | Some("0")) =>
+            {
+                "Find::TOP_OF_LIBRARY"
+            }
             _ => {
                 self.note(format!("`ChangeZone` searching into {destination}"));
                 return None;
@@ -4889,4 +4925,2275 @@ impl Tx<'_> {
         }
         None
     }
+
+    // -------------------------------------------------------------------------
+    // Wave 8b: Goad, resolution-chosen color chains, RepeatEach, ChooseCard,
+    // PeekAndReveal / RevealTop, and RevealFromHand.
+    // -------------------------------------------------------------------------
+
+    /// `AB$/SP$/DB$ Goad` -> `Effect::Goad { target }` or `Effect::GoadAll { filter, controlled_by }`.
+    ///
+    /// Strictly models CR 701.15 ("until your next turn"): `Duration$`,
+    /// `RememberGoaded$`, and `NoLonger$` stay unclaimed and refused.
+    pub(super) fn goad_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        let defined = p.take("Defined");
+        match defined.as_deref() {
+            None | Some("Targeted" | "ParentTarget") => {
+                let tgt = target.filter(|t| {
+                    t.starts_with("TargetSpec::Object(")
+                        || t.starts_with("TargetSpec::ObjectOfEventPlayer(")
+                })?;
+                Some(vec![format!("Effect::Goad {{ target: {tgt} }}")])
+            }
+            Some("Self") if target.is_none() && !self.on_a_spell => Some(vec![
+                "Effect::Goad { target: TargetSpec::ThisObject }".to_string(),
+            ]),
+            Some(def) if target.is_none() && self.is_event_object_defined(def) => Some(vec![
+                "Effect::Goad { target: TargetSpec::EventObject }".to_string(),
+            ]),
+            Some(valid) if valid.starts_with("Valid ") => {
+                let rest = valid.trim_start_matches("Valid ").trim();
+                self.goad_all_effect(rest, target, targets_a_player)
+            }
+            _ => None,
+        }
+    }
+
+    fn goad_all_effect(
+        &mut self,
+        rest: &str,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        if let Some(base) = rest
+            .strip_suffix(".ControlledBy TargetedPlayer")
+            .or_else(|| rest.strip_suffix("+ControlledBy TargetedPlayer"))
+        {
+            if !targets_a_player {
+                return None;
+            }
+            let expr = self.filter_expr(base.trim())?;
+            let filter = self.body.filter_static("GOAD", &expr);
+            return Some(vec![format!(
+                "Effect::GoadAll {{ filter: &{filter}, controlled_by: Some(PlayerRel::Chosen) }}"
+            )]);
+        }
+        if target.is_some() {
+            return None;
+        }
+        if let Some((base, ctrl_raw)) = rest
+            .rsplit_once(".ControlledBy ")
+            .or_else(|| rest.rsplit_once("+ControlledBy "))
+        {
+            let ctrl_key = ctrl_raw
+                .trim()
+                .strip_prefix("Player.")
+                .unwrap_or(ctrl_raw.trim());
+            let who = self.player_rel(Some(ctrl_key))?;
+            let expr = self.filter_expr(base.trim())?;
+            let filter = self.body.filter_static("GOAD", &expr);
+            return Some(vec![format!(
+                "Effect::GoadAll {{ filter: &{filter}, controlled_by: Some({who}) }}"
+            )]);
+        }
+        let expr = self.filter_expr(rest)?;
+        let filter = self.body.filter_static("GOAD", &expr);
+        Some(vec![format!(
+            "Effect::GoadAll {{ filter: &{filter}, controlled_by: None }}"
+        )])
+    }
+
+    /// Resolution-time `ChooseColor` chains: delegates `Animate`, `Effect`,
+    /// and malformed headers to [`Self::choose_color_animate`] verbatim, and
+    /// lowers `ProtectionAll`, `Protection`, and resolution-chosen-color
+    /// sweeps (`DestroyAll`, `ChangeZoneAll`, `Discard`, `DealDamage`, …).
+    pub(super) fn choose_color_chain(
+        &mut self,
+        mut p: Params,
+        sub: Option<&str>,
+        chain: &mut super::Chain,
+    ) -> Option<()> {
+        let sub_body = sub.and_then(|name| self.svars.get(name).cloned());
+        let sub_api = sub_body
+            .as_deref()
+            .and_then(Params::parse)
+            .map(|(api, _)| api);
+        let delegate_legacy = sub.is_none()
+            || p.peek("Defined") != Some("You")
+            || !p.entries.iter().all(|(k, _)| k == "Defined")
+            || matches!(sub_api.as_deref(), None | Some("Animate" | "Effect"));
+        if delegate_legacy {
+            let effects = self.choose_color_animate(p, sub, chain)?;
+            chain.effects.extend(effects);
+            return Some(());
+        }
+        p.take("Defined");
+        let sub_body = sub_body?;
+        let (api, mut sp) = Params::parse(&sub_body)?;
+        if api == "ProtectionAll" {
+            return self.choose_color_protection_all(&mut sp, chain);
+        }
+        if api == "Protection" {
+            return self.choose_color_protection(&mut sp, chain);
+        }
+        let sweep_ok = matches!(
+            api.as_str(),
+            "DestroyAll"
+                | "ChangeZoneAll"
+                | "Discard"
+                | "DealDamage"
+                | "DamageAll"
+                | "PumpAll"
+                | "TapAll"
+                | "UntapAll"
+                | "LoseLife"
+                | "GainLife"
+                | "RepeatEach"
+                | "SacrificeAll"
+                | "PutCounterAll"
+                | "RemoveCounterAll"
+                | "Destroy"
+                | "Tap"
+                | "Untap"
+                | "ChangeZone"
+                | "ChooseCard"
+                | "PeekAndReveal"
+                | "Reveal"
+        );
+        if !sweep_ok {
+            return self.deny(format!("`ChooseColor` followed by `{api}`"));
+        }
+        chain.effects.push("Effect::ChooseColor".to_string());
+        self.chain(&sub_body, chain)
+    }
+
+    fn choose_color_protection_all(
+        &mut self,
+        sp: &mut Params,
+        chain: &mut super::Chain,
+    ) -> Option<()> {
+        sp.drop_prose();
+        if sp.take("Gains").as_deref() != Some("ChosenColor") {
+            return self.deny("`ProtectionAll` not granting `ChosenColor`".to_string());
+        }
+        if let Some(dur) = sp.take("Duration") {
+            return self.deny(format!("`ProtectionAll` lasting `{dur}`"));
+        }
+        let Some(valid) = sp.take("ValidCards") else {
+            return self.deny("`ProtectionAll` with no `ValidCards$`".to_string());
+        };
+        let next_sub = sp.take("SubAbility");
+        if let Some(key) = sp.first_key() {
+            return self.deny(format!("unclaimed parameter `ProtectionAll.{key}`"));
+        }
+        let expr = self.filter_expr(&valid)?;
+        let filter = self.body.filter_static("PROT", &expr);
+        chain.effects.push("Effect::ChooseColor".to_string());
+        chain.effects.push(format!(
+            "Effect::GrantProtectionFromChosenColorUntilEot {{ filter: &{filter} }}"
+        ));
+        self.chain_sub_ability(next_sub, chain)
+    }
+
+    fn choose_color_protection(&mut self, sp: &mut Params, chain: &mut super::Chain) -> Option<()> {
+        sp.drop_prose();
+        if sp.take("Gains").as_deref() != Some("ChosenColor") {
+            return self.deny("`ChooseColor` `Protection` not granting `ChosenColor`".to_string());
+        }
+        if let Some(dur) = sp.take("Duration") {
+            return self.deny(format!("`ChooseColor` `Protection` lasting `{dur}`"));
+        }
+        let next_sub = sp.take("SubAbility");
+        sp.claim_label("ValidTgtsDesc", "ValidTgts");
+        let valid_tgts = sp.take("ValidTgts");
+        let defined = sp.take("Defined");
+        let filter = if let Some(valid) = valid_tgts {
+            if !matches!(defined.as_deref(), None | Some("Targeted")) {
+                return self.deny(
+                    "`ChooseColor` `Protection` with both `ValidTgts$` and `Defined$`".to_string(),
+                );
+            }
+            self.chain_target("Protection", sp, &valid, chain)?;
+            "Filter::This"
+        } else {
+            match defined.as_deref() {
+                None | Some("Self") if !self.on_a_spell => "Filter::This",
+                Some("Enchanted" | "Equipped") => "Filter::AttachedToBySource",
+                Some(other) => {
+                    return self.deny(format!("`ChooseColor` `Protection` on `Defined$ {other}`"));
+                }
+                None => return self.deny("`ChooseColor` `Protection` with no subject".to_string()),
+            }
+        };
+        if let Some(key) = sp.first_key() {
+            return self.deny(format!("unclaimed parameter `Protection.{key}`"));
+        }
+        chain.effects.push("Effect::ChooseColor".to_string());
+        chain.effects.push(format!(
+            "Effect::GrantProtectionFromChosenColorUntilEot {{ filter: &{filter} }}"
+        ));
+        self.chain_sub_ability(next_sub, chain)
+    }
+
+    // -------------------------------------------------------------------------
+    // Shared Wave 8b helpers for scoped sub-chains and per-player counts.
+    // -------------------------------------------------------------------------
+
+    fn is_single_seat_rel(rel: &str) -> bool {
+        matches!(
+            rel,
+            "PlayerRel::You"
+                | "PlayerRel::Chosen"
+                | "PlayerRel::EventPlayer"
+                | "PlayerRel::ControllerOfTarget"
+                | "PlayerRel::ControllerOfEvent"
+                | "PlayerRel::OwnerOfEvent"
+                | "PlayerRel::ActivePlayer"
+                | "PlayerRel::DefendingPlayer"
+                | "PlayerRel::DamagedPlayer"
+                | "PlayerRel::ControllerOfAttached"
+        )
+    }
+
+    fn is_wave8_cleanup_svar(&self, name: &str, allow_chosen_card: bool) -> bool {
+        let Some(body) = self.svars.get(name.trim()) else {
+            return false;
+        };
+        let Some((api, mut p)) = Params::parse(body) else {
+            return false;
+        };
+        p.drop_prose();
+        if api != "Cleanup" {
+            return false;
+        }
+        let mut any = false;
+        if let Some(v) = p.take("ClearRemembered") {
+            if v != "True" {
+                return false;
+            }
+            any = true;
+        }
+        if allow_chosen_card && let Some(v) = p.take("ClearChosenCard") {
+            if v != "True" {
+                return false;
+            }
+            any = true;
+        }
+        if let Some(v) = p.take("ClearChosenColor") {
+            if v != "True" {
+                return false;
+            }
+            any = true;
+        }
+        any && p.exhausted()
+    }
+
+    fn reconstruct_spec(api: &str, p: &Params) -> String {
+        let mut out = format!("DB$ {api}");
+        for (k, v) in &p.entries {
+            out.push_str(" | ");
+            out.push_str(k);
+            out.push_str("$ ");
+            out.push_str(v);
+        }
+        out
+    }
+
+    fn wrap_amount_suffix(base: String, suffix: &str) -> Option<String> {
+        if suffix.is_empty() {
+            return Some(base);
+        }
+        if suffix == "HalfUp" {
+            return Some(format!("Amount::Half {{ base: &{base}, round_up: true }}"));
+        }
+        if suffix == "HalfDown" {
+            return Some(format!("Amount::Half {{ base: &{base}, round_up: false }}"));
+        }
+        if let Some(k) = suffix
+            .strip_prefix("Times.")
+            .and_then(|s| s.parse::<u32>().ok())
+        {
+            return Some(format!("Amount::Times {{ base: &{base}, factor: {k} }}"));
+        }
+        if let Some(k) = suffix
+            .strip_prefix("Plus.")
+            .and_then(|s| s.parse::<u32>().ok())
+        {
+            return Some(format!("Amount::Plus {{ base: &{base}, offset: {k} }}"));
+        }
+        if let Some(k) = suffix
+            .strip_prefix("Minus.")
+            .and_then(|s| s.parse::<u32>().ok())
+        {
+            return Some(format!(
+                "Amount::SaturatingSub {{ base: &{base}, subtract: {k} }}"
+            ));
+        }
+        None
+    }
+
+    fn strip_remembered_ctrl_or_own(valid: &str, suffix_a: &str, suffix_b: &str) -> Option<String> {
+        let mut parts = Vec::new();
+        for alt in valid.split(',') {
+            let trimmed = alt.trim();
+            let stripped = trimmed
+                .strip_suffix(&format!(".{suffix_a}"))
+                .or_else(|| trimmed.strip_suffix(&format!("+{suffix_a}")))
+                .or_else(|| trimmed.strip_suffix(&format!(".{suffix_b}")))
+                .or_else(|| trimmed.strip_suffix(&format!("+{suffix_b}")))?;
+            if stripped.contains("Remembered") {
+                return None;
+            }
+            parts.push(stripped.trim());
+        }
+        if parts.is_empty() {
+            return None;
+        }
+        Some(parts.join(","))
+    }
+
+    /// Resolves per-player `SVar` counts referencing the active `RepeatEach`
+    /// loop player (`RememberedPlayerCtrl`, `RememberedPlayerOwn`,
+    /// `PlayerCountRemembered$…`) against `who` (`EventPlayer` or `Recipient`).
+    fn scoped_player_amount(&mut self, raw: &str, who: &str) -> Option<String> {
+        let def = self.svars.get(raw.trim())?.trim().to_string();
+        let (head, suffix) = def
+            .split_once('/')
+            .map_or((def.as_str(), ""), |(h, s)| (h, s));
+        let base = if let Some(valid) = head.strip_prefix("Count$Valid ") {
+            let clean = Self::strip_remembered_ctrl_or_own(
+                valid.trim(),
+                "RememberedPlayerCtrl",
+                "RememberedPlayerCtrl",
+            )?;
+            let expr = self.filter_expr(&clean)?;
+            let filter = self.body.filter_static("COUNT", &expr);
+            format!("Amount::ControlledCount {{ who: {who}, filter: &{filter} }}")
+        } else if let Some(valid) = head.strip_prefix("PlayerCountRemembered$Valid ") {
+            let clean = Self::strip_remembered_ctrl_or_own(valid.trim(), "YouCtrl", "YouCtrl")?;
+            let expr = self.filter_expr(&clean)?;
+            let filter = self.body.filter_static("COUNT", &expr);
+            format!("Amount::ControlledCount {{ who: {who}, filter: &{filter} }}")
+        } else if matches!(
+            head,
+            "Count$ValidHand Card.RememberedPlayerOwn"
+                | "Count$ValidHand Card.RememberedPlayerCtrl"
+                | "PlayerCountRemembered$CardsInHand"
+        ) {
+            format!("Amount::HandSize({who})")
+        } else if matches!(
+            head,
+            "Count$ValidLibrary Card.RememberedPlayerOwn"
+                | "Count$ValidLibrary Card.RememberedPlayerCtrl"
+                | "PlayerCountRemembered$CardsInLibrary"
+        ) {
+            format!("Amount::LibrarySize({who})")
+        } else if head == "PlayerCountRemembered$LifeTotal" {
+            format!("Amount::LifeTotal({who})")
+        } else {
+            return None;
+        };
+        Self::wrap_amount_suffix(base, suffix)
+    }
+
+    /// `AB$/SP$/DB$ RepeatEach` -> preserves legacy special cases, then lowers
+    /// `DamageMap$ True` simultaneous sweeps and general `Effect::RepeatEach`.
+    pub(super) fn repeat_each_chain(
+        &mut self,
+        p: Params,
+        sub: Option<&str>,
+        chain: &mut super::Chain,
+    ) -> Option<()> {
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let saved_statics_len = self.body.statics.len();
+        if let Some(effects) = self.repeat_each_effect(p.clone(), sub, chain) {
+            chain.effects.extend(effects);
+            return Some(());
+        }
+        *self.unclaimed.borrow_mut() = saved_unclaimed;
+        self.body.statics.truncate(saved_statics_len);
+        self.wave8_repeat_each(p, sub, chain)
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn wave8_repeat_each(
+        &mut self,
+        mut p: Params,
+        sub: Option<&str>,
+        chain: &mut super::Chain,
+    ) -> Option<()> {
+        let outer_cond = self.take_wave8_line_condition(&mut p).ok()?;
+        if let Some(effects) = self.try_repeat_damage_map(&mut p, outer_cond.as_deref()) {
+            chain.effects.extend(effects);
+            return self.chain_sub_ability(sub.map(str::to_string), chain);
+        }
+        let repeat_players = p.take("RepeatPlayers");
+        let repeat_cards = p.take("RepeatCards");
+        let repeat_present = p.take("RepeatPresent");
+        let Some(repeat_sub) = p.take("RepeatSubAbility") else {
+            return self.deny("`RepeatEach` with no `RepeatSubAbility$`".to_string());
+        };
+        let (domain, scope) = match (repeat_players, repeat_cards, repeat_present) {
+            (Some(rp), None, None) => {
+                let d = match rp.as_str() {
+                    "Player" => "RepeatDomain::EachPlayer",
+                    "Opponent" | "Player.Opponent" => "RepeatDomain::EachOpponent",
+                    other => {
+                        return self.deny(format!("`RepeatEach` with `RepeatPlayers$ {other}`"));
+                    }
+                };
+                (d.to_string(), Wave8Scope::RepeatPlayer)
+            }
+            (None, Some(rc), None) => {
+                if let Some(z) = p.take("Zone")
+                    && z != "Battlefield"
+                {
+                    return self.deny(format!("`RepeatEach` `RepeatCards$` in `Zone$ {z}`"));
+                }
+                if rc.contains("IsRemembered")
+                    || rc.contains("IsImprinted")
+                    || rc.contains("Remembered")
+                {
+                    return self.deny(format!("`RepeatEach` over remembered `{rc}`"));
+                }
+                let expr = self.filter_expr(&rc)?;
+                let filter = self.body.filter_static("REPEAT", &expr);
+                (
+                    format!("RepeatDomain::EachMatchingPermanent(&{filter})"),
+                    Wave8Scope::RepeatPermanent,
+                )
+            }
+            (None, None, Some(rp)) => {
+                if let Some(z) = p.take("PresentZone")
+                    && z != "Battlefield"
+                {
+                    return self.deny(format!(
+                        "`RepeatEach` `RepeatPresent$` in `PresentZone$ {z}`"
+                    ));
+                }
+                if rp.contains("IsRemembered")
+                    || rp.contains("IsImprinted")
+                    || rp.contains("sharesNameWith")
+                    || rp.contains("Remembered")
+                {
+                    return self.deny(format!("`RepeatEach` `RepeatPresent$ {rp}`"));
+                }
+                let expr = self.filter_expr(&rp)?;
+                let filter = self.body.filter_static("REPEAT", &expr);
+                (
+                    format!(
+                        "RepeatDomain::Times(Amount::CountOf {{ filter: &{filter}, zone: ZoneSel::Battlefield }})"
+                    ),
+                    Wave8Scope::Times,
+                )
+            }
+            _ => {
+                return self.deny("`RepeatEach` with unsupported repeat domain".to_string());
+            }
+        };
+        let change_zone_table = match p.take("ChangeZoneTable").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => {
+                return self.deny(format!("`RepeatEach` with `ChangeZoneTable$ {other}`"));
+            }
+        };
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `RepeatEach.{key}`"));
+        }
+        let body_effects = self.compile_wave8_scoped_chain(&repeat_sub, scope, None, false)?;
+        if change_zone_table
+            && !body_effects
+                .iter()
+                .all(|e| e.starts_with("Effect::CreateToken"))
+        {
+            return self.deny("`RepeatEach` with `ChangeZoneTable$ True`".to_string());
+        }
+        if (chain.target.is_some() || chain.second_target.is_some())
+            && body_effects.iter().any(|e| e.contains("Filter::Reference"))
+        {
+            return self
+                .deny("`RepeatEach` `Filter::Reference` beside an outer target".to_string());
+        }
+        let repeat_expr = format!(
+            "Effect::RepeatEach {{ domain: {domain}, effects: &[{}] }}",
+            body_effects.join(", ")
+        );
+        chain.effects.push(match outer_cond {
+            Some(c) => format!(
+                "Effect::IfCondition {{ condition: {c}, then: &[{repeat_expr}], otherwise: &[] }}"
+            ),
+            None => repeat_expr,
+        });
+        self.chain_sub_ability(sub.map(str::to_string), chain)
+    }
+
+    /// Simultaneous `RepeatEach | RepeatPlayers$ Player/Opponent | DamageMap$ True`
+    /// where `RepeatSubAbility$` is a pure per-player `DealDamage`.
+    fn try_repeat_damage_map(
+        &mut self,
+        p: &mut Params,
+        outer_cond: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if p.peek("DamageMap") != Some("True") {
+            return None;
+        }
+        let who = match p.peek("RepeatPlayers") {
+            Some("Player") => "PlayerRel::EachPlayer",
+            Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+            _ => return None,
+        };
+        let sub_name = p.peek("RepeatSubAbility")?.to_string();
+        let body = self.svars.get(sub_name.trim())?.clone();
+        let (api, mut sp) = Params::parse(&body)?;
+        sp.drop_prose();
+        if api != "DealDamage"
+            || !matches!(
+                sp.take("Defined").as_deref(),
+                Some("Remembered" | "Player.IsRemembered" | "RememberedPlayer")
+            )
+        {
+            return None;
+        }
+        let dmg_raw = sp.take("NumDmg")?;
+        if let Some(sub_clean) = sp.take("SubAbility")
+            && !self.is_wave8_cleanup_svar(&sub_clean, false)
+        {
+            return None;
+        }
+        if !sp.exhausted() {
+            return None;
+        }
+        let amount = self.scoped_player_amount(&dmg_raw, "PlayerRel::Recipient")?;
+        let mut probe = p.clone();
+        probe.take("DamageMap");
+        probe.take("RepeatPlayers");
+        probe.take("RepeatSubAbility");
+        if !probe.exhausted() {
+            return None;
+        }
+        p.take("DamageMap");
+        p.take("RepeatPlayers");
+        p.take("RepeatSubAbility");
+        let eff =
+            format!("Effect::DealDamage {{ amount: {amount}, target: TargetSpec::Player({who}) }}");
+        Some(vec![match outer_cond {
+            Some(c) => {
+                format!("Effect::IfCondition {{ condition: {c}, then: &[{eff}], otherwise: &[] }}")
+            }
+            None => eff,
+        }])
+    }
+
+    fn take_wave8_line_condition(&mut self, p: &mut Params) -> Result<Option<String>, ()> {
+        if let Some(raw) = p.peek("Condition")
+            && let Some(cond) =
+                Self::named_condition(raw).or_else(|| Self::wave7_named_condition(raw))
+        {
+            p.take("Condition");
+            p.take("ConditionDescription");
+            return Ok(Some(cond.to_string()));
+        }
+        if let Some(var) = p.peek("ConditionCheckSVar").map(str::to_string) {
+            let cmp = p
+                .peek("ConditionSVarCompare")
+                .map_or_else(|| "GE1".to_string(), str::to_string);
+            let Some(cond) = self
+                .svar_condition(&var, &cmp)
+                .or_else(|| self.extra_svar_condition_clause(&var, &cmp))
+                .or_else(|| self.wave7_svar_condition(&var, &cmp))
+            else {
+                return Err(());
+            };
+            p.take("ConditionCheckSVar");
+            p.take("ConditionSVarCompare");
+            p.take("ConditionDescription");
+            return Ok(Some(cond));
+        }
+        Ok(None)
+    }
+
+    /// Compiles a non-targeting sub-ability chain inside `RepeatEach`,
+    /// `ChooseCard.then`, `PeekAndReveal.if_picked`, or `RevealFromHand.if_revealed`.
+    fn compile_wave8_scoped_chain(
+        &mut self,
+        start_svar: &str,
+        scope: Wave8Scope,
+        strip_remembered_filter: Option<&str>,
+        allow_chosen_card_cleanup: bool,
+    ) -> Option<Vec<String>> {
+        let mut out = Vec::new();
+        let mut cursor = Some(start_svar.trim().to_string());
+        let mut steps = 0usize;
+        while let Some(name) = cursor.take() {
+            steps += 1;
+            if steps > 16 {
+                return self.deny("a cyclic scoped `SubAbility$` chain".to_string());
+            }
+            if self.is_wave8_cleanup_svar(&name, allow_chosen_card_cleanup) {
+                break;
+            }
+            let Some(body) = self.svars.get(&name).cloned() else {
+                return self.deny(format!("`SubAbility$ {name}` names no SVar"));
+            };
+            let (mut effects, next) = self.compile_wave8_scoped_step(
+                &body,
+                scope,
+                strip_remembered_filter,
+                allow_chosen_card_cleanup,
+            )?;
+            out.append(&mut effects);
+            cursor = next;
+        }
+        if out.is_empty() {
+            return self.deny("an empty scoped sub-ability chain".to_string());
+        }
+        Some(out)
+    }
+
+    fn strip_matching_remembered_guard(
+        sp: &mut Params,
+        expected_defined: &str,
+        expected_filter: Option<&str>,
+    ) -> bool {
+        if sp.peek("ConditionDefined") != Some(expected_defined) {
+            return false;
+        }
+        if !matches!(sp.peek("ConditionCompare"), None | Some("GE1" | "EQ1")) {
+            return false;
+        }
+        let Some(present) = sp.peek("ConditionPresent") else {
+            return false;
+        };
+        let matches_filter = present == "Card" || expected_filter == Some(present);
+        if !matches_filter {
+            return false;
+        }
+        sp.take("ConditionDefined");
+        sp.take("ConditionPresent");
+        sp.take("ConditionCompare");
+        sp.take("ConditionDescription");
+        true
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn compile_wave8_scoped_step(
+        &mut self,
+        body: &str,
+        scope: Wave8Scope,
+        strip_remembered_filter: Option<&str>,
+        allow_chosen_card_cleanup: bool,
+    ) -> Option<(Vec<String>, Option<String>)> {
+        let (api, mut sp) = Params::parse(body)?;
+        sp.drop_prose();
+        if sp.has("ValidTgts") {
+            return self.deny(format!("scoped `{api}` with `ValidTgts$`"));
+        }
+        let next_sub = sp.take("SubAbility");
+        if scope == Wave8Scope::ChosenObject {
+            Self::strip_matching_remembered_guard(&mut sp, "ChosenCard", None);
+        } else if scope == Wave8Scope::RevealedObject {
+            Self::strip_matching_remembered_guard(&mut sp, "Remembered", strip_remembered_filter);
+        }
+        if scope == Wave8Scope::RepeatPlayer {
+            if let Some(res) = self.try_repeat_player_special(&api, &mut sp, next_sub.as_deref()) {
+                return Some(res);
+            }
+            if sp.entries.iter().any(|(_, v)| v.contains("Triggered")) {
+                return self.deny(format!("`RepeatEach` `{api}` referencing outer trigger"));
+            }
+            for (k, v) in &mut sp.entries {
+                if matches!(k.as_str(), "Defined" | "UnlessPayer")
+                    && matches!(
+                        v.as_str(),
+                        "Remembered" | "Player.IsRemembered" | "RememberedPlayer"
+                    )
+                {
+                    *v = "TriggeredPlayer".to_string();
+                }
+            }
+            let spec = Self::reconstruct_spec(&api, &sp);
+            let mut inner = super::Chain::default();
+            let saved_mode = self.trigger_mode.replace("LifeGained".into());
+            let ok = self.chain(&spec, &mut inner);
+            self.trigger_mode = saved_mode;
+            ok?;
+            if inner.target.is_some() || inner.second_target.is_some() {
+                return self.deny(format!("scoped `{api}` declaring a target"));
+            }
+            return Some((inner.effects, next_sub));
+        }
+        if matches!(
+            scope,
+            Wave8Scope::RepeatPermanent | Wave8Scope::ChosenObject | Wave8Scope::RevealedObject
+        ) {
+            if sp
+                .entries
+                .iter()
+                .any(|(_, v)| v.contains("DelayTriggerRemembered") || v.contains("Triggered"))
+            {
+                return self.deny(format!("scoped `{api}` referencing outer event object"));
+            }
+            let mut uses_event_obj = false;
+            let mut uses_event_player = false;
+            for (k, v) in &mut sp.entries {
+                if k == "Defined" {
+                    let is_obj = match scope {
+                        Wave8Scope::ChosenObject => v == "ChosenCard",
+                        Wave8Scope::RepeatPermanent | Wave8Scope::RevealedObject => {
+                            matches!(v.as_str(), "Remembered" | "RememberedLKI")
+                        }
+                        _ => false,
+                    };
+                    let is_ctrl = match scope {
+                        Wave8Scope::ChosenObject => v == "ChosenCardController",
+                        Wave8Scope::RepeatPermanent => v == "RememberedController",
+                        _ => false,
+                    };
+                    if is_obj {
+                        *v = "DelayTriggerRemembered".to_string();
+                        uses_event_obj = true;
+                    } else if is_ctrl {
+                        *v = "TriggeredPlayer".to_string();
+                        uses_event_player = true;
+                    }
+                } else if k == "UnlessPayer"
+                    && ((scope == Wave8Scope::RepeatPermanent && v == "RememberedController")
+                        || (scope == Wave8Scope::ChosenObject && v == "ChosenCardController"))
+                {
+                    *v = "TriggeredPlayer".to_string();
+                    uses_event_player = true;
+                }
+            }
+            let spec = Self::reconstruct_spec(&api, &sp);
+            let mut inner = super::Chain::default();
+            let saved_delayed = std::mem::replace(&mut self.in_delayed, uses_event_obj);
+            let saved_mode = if uses_event_player {
+                self.trigger_mode.replace("LifeGained".into())
+            } else {
+                self.trigger_mode.clone()
+            };
+            let ok = self.chain(&spec, &mut inner);
+            self.in_delayed = saved_delayed;
+            self.trigger_mode = saved_mode;
+            ok?;
+            if inner.target.is_some() || inner.second_target.is_some() {
+                return self.deny(format!("scoped `{api}` declaring a target"));
+            }
+            let _ = allow_chosen_card_cleanup;
+            return Some((inner.effects, next_sub));
+        }
+        let spec = Self::reconstruct_spec(&api, &sp);
+        let mut inner = super::Chain::default();
+        self.chain(&spec, &mut inner)?;
+        if inner.target.is_some() || inner.second_target.is_some() {
+            return self.deny(format!("scoped `{api}` declaring a target"));
+        }
+        Some((inner.effects, next_sub))
+    }
+
+    /// Per-player `RepeatEach` body steps that use `RememberedPlayerCtrl` /
+    /// `PlayerCountRemembered$` counts, `TokenOwner$ Player.IsRemembered`, or
+    /// the wheel (`ChangeZoneAll Hand->Library Shuffle` + `Draw Remembered$Amount`).
+    #[allow(clippy::too_many_lines)]
+    fn try_repeat_player_special(
+        &mut self,
+        api: &str,
+        sp: &mut Params,
+        next_sub: Option<&str>,
+    ) -> Option<(Vec<String>, Option<String>)> {
+        let is_rem_player = |v: Option<&str>| {
+            matches!(
+                v,
+                Some("Remembered" | "Player.IsRemembered" | "RememberedPlayer")
+            )
+        };
+        if api == "Token" && is_rem_player(sp.peek("TokenOwner")) {
+            let mut probe = sp.clone();
+            probe.take("TokenOwner");
+            let stem = probe.take("TokenScript")?;
+            let raw_amt = probe.take("TokenAmount");
+            if !probe.exhausted() {
+                return None;
+            }
+            let tokens = self.tokens?;
+            let body = tokens.body(&stem, self.cats)?;
+            let token = format!("&generated_tokens::{}", body.constant);
+            let amount = match raw_amt.as_deref() {
+                None => "Amount::Fixed(1)".to_string(),
+                Some(raw) => self
+                    .scoped_player_amount(raw, "PlayerRel::EventPlayer")
+                    .or_else(|| self.amount_or_count_ext(raw))?,
+            };
+            return Some((
+                vec![format!(
+                    "Effect::CreateTokensFor {{ player: PlayerRel::EventPlayer, token: {token}, amount: {amount} }}"
+                )],
+                next_sub.map(str::to_string),
+            ));
+        }
+        // Wheel inside `RepeatEach`: shuffle hand into library, then draw that many cards.
+        if api == "ChangeZoneAll"
+            && is_rem_player(sp.peek("Defined"))
+            && sp.peek("Origin") == Some("Hand")
+            && sp.peek("Destination") == Some("Library")
+            && sp.peek("Shuffle") == Some("True")
+            && sp.peek("RememberChanged") == Some("True")
+            && let Some(draw_name) = next_sub
+            && let Some(draw_body) = self.svars.get(draw_name.trim()).cloned()
+            && let Some((draw_api, mut dp)) = Params::parse(&draw_body)
+        {
+            dp.drop_prose();
+            let mut probe = sp.clone();
+            probe.take("Defined");
+            probe.take("Origin");
+            probe.take("Destination");
+            probe.take("Shuffle");
+            probe.take("RememberChanged");
+            probe.take("LibraryPosition");
+            let after_draw = dp.take("SubAbility");
+            let draw_var = dp.take("NumCards");
+            let draw_def = dp.take("Defined");
+            if probe.exhausted()
+                && draw_api == "Draw"
+                && is_rem_player(draw_def.as_deref())
+                && dp.exhausted()
+                && draw_var
+                    .as_deref()
+                    .and_then(|v| self.svars.get(v.trim()))
+                    .map(|s| s.trim())
+                    == Some("Remembered$Amount")
+            {
+                return Some((
+                    vec![
+                        "Effect::ShuffleIntoLibrary { who: PlayerRel::EventPlayer, hand: true, graveyard: false }"
+                            .to_string(),
+                        "Effect::DrawCardsFor { amount: Amount::ThisWayBy { what: ThisWay::PutIntoLibraryFromHand, who: PlayerRel::EventPlayer }, who: PlayerRel::EventPlayer }"
+                            .to_string(),
+                    ],
+                    after_draw,
+                ));
+            }
+        }
+        if !is_rem_player(sp.peek("Defined")) {
+            return None;
+        }
+        let mut probe = sp.clone();
+        probe.take("Defined");
+        let effect = match api {
+            "LoseLife" => {
+                let raw = probe.take("LifeAmount")?;
+                if !probe.exhausted() {
+                    return None;
+                }
+                let amt = self.scoped_player_amount(&raw, "PlayerRel::EventPlayer")?;
+                format!("Effect::LoseLife {{ amount: {amt}, target: PlayerRel::EventPlayer }}")
+            }
+            "GainLife" => {
+                let raw = probe.take("LifeAmount")?;
+                if !probe.exhausted() {
+                    return None;
+                }
+                let amt = self.scoped_player_amount(&raw, "PlayerRel::EventPlayer")?;
+                format!("Effect::GainLifeFor {{ amount: {amt}, target: PlayerRel::EventPlayer }}")
+            }
+            "DealDamage" => {
+                let raw = probe.take("NumDmg")?;
+                if !probe.exhausted() {
+                    return None;
+                }
+                let amt = self.scoped_player_amount(&raw, "PlayerRel::EventPlayer")?;
+                format!(
+                    "Effect::DealDamage {{ amount: {amt}, target: TargetSpec::Player(PlayerRel::EventPlayer) }}"
+                )
+            }
+            "Draw" => {
+                let raw = probe.take("NumCards")?;
+                if !probe.exhausted() {
+                    return None;
+                }
+                let amt = self.scoped_player_amount(&raw, "PlayerRel::EventPlayer")?;
+                format!("Effect::DrawCardsFor {{ amount: {amt}, who: PlayerRel::EventPlayer }}")
+            }
+            "Mill" => {
+                let raw = probe.take("NumCards")?;
+                if !probe.exhausted() {
+                    return None;
+                }
+                let amt = self.scoped_player_amount(&raw, "PlayerRel::EventPlayer")?;
+                format!("Effect::Mill {{ amount: {amt}, target: PlayerRel::EventPlayer }}")
+            }
+            "Discard" => {
+                let mode = probe.take("Mode")?;
+                let raw = probe.take("NumCards")?;
+                if !probe.exhausted() {
+                    return None;
+                }
+                let amt = self.scoped_player_amount(&raw, "PlayerRel::EventPlayer")?;
+                match mode.as_str() {
+                    "TgtChoose" => format!(
+                        "Effect::DiscardAmountForPlayers {{ who: PlayerRel::EventPlayer, amount: {amt} }}"
+                    ),
+                    "Random" => format!(
+                        "Effect::DiscardRandom {{ who: PlayerRel::EventPlayer, count: {amt} }}"
+                    ),
+                    _ => return None,
+                }
+            }
+            _ => return None,
+        };
+        Some((vec![effect], next_sub.map(str::to_string)))
+    }
+
+    // -------------------------------------------------------------------------
+    // `ChooseCard` -> `Effect::ChooseCard` (Battlefield & Graveyard only)
+    // -------------------------------------------------------------------------
+
+    #[allow(clippy::too_many_lines)]
+    pub(super) fn choose_card_chain(
+        &mut self,
+        mut p: Params,
+        sub: Option<&str>,
+        target: Option<&str>,
+        targets_a_player: bool,
+        chain: &mut super::Chain,
+    ) -> Option<()> {
+        p.take("ChoiceTitle");
+        p.take("ChoiceDesc");
+        let outer_cond = self.take_wave8_line_condition(&mut p).ok()?;
+        let chooser =
+            self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+        let repeat_domain = match chooser {
+            "PlayerRel::EachPlayer" => Some("RepeatDomain::EachPlayer"),
+            "PlayerRel::EachOpponent" => Some("RepeatDomain::EachOpponent"),
+            _ if Self::is_single_seat_rel(chooser) => None,
+            _ => return self.deny(format!("`ChooseCard` for multi-seat `{chooser}`")),
+        };
+        let eff_chooser = if repeat_domain.is_some() {
+            "PlayerRel::EventPlayer"
+        } else {
+            chooser
+        };
+        let controlled_by_chooser = match p.peek("ControlledByPlayer") {
+            Some("Chooser") if chooser == "PlayerRel::You" => {
+                p.take("ControlledByPlayer");
+                true
+            }
+            _ => false,
+        };
+        let Some(choices_raw) = p.take("Choices") else {
+            return self.deny("`ChooseCard` with no `Choices$`".to_string());
+        };
+        if choices_raw.contains("IsRemembered")
+            || choices_raw.contains("Remembered")
+            || choices_raw.contains("Targeted") && !choices_raw.contains("TargetedPlayerOwn")
+        {
+            return self.deny(format!("`ChooseCard` with `Choices$ {choices_raw}`"));
+        }
+        let choices_effective = if controlled_by_chooser {
+            choices_raw
+                .split(',')
+                .map(|alt| {
+                    let trimmed = alt.trim();
+                    if trimmed.contains('.') {
+                        format!("{trimmed}+YouCtrl")
+                    } else {
+                        format!("{trimmed}.YouCtrl")
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(",")
+        } else {
+            choices_raw
+        };
+        let (zone, zone_owner, filter_name) = match p.take("ChoiceZone").as_deref() {
+            None | Some("Battlefield") => {
+                let expr = self.filter_expr(&choices_effective)?;
+                let name = self.body.filter_static("CHOOSE", &expr);
+                ("ChooseZone::Battlefield".to_string(), None, name)
+            }
+            Some("Graveyard") if !controlled_by_chooser => {
+                let (owner_rel, stripped) =
+                    self.extract_choose_graveyard_owner(&choices_effective, targets_a_player)?;
+                let expr = self.filter_expr_in_zone(&stripped, true)?;
+                let name = self.body.filter_static("CHOOSE", &expr);
+                (
+                    format!("ChooseZone::Graveyard({owner_rel})"),
+                    Some(owner_rel),
+                    name,
+                )
+            }
+            Some(other) => {
+                return self.deny(format!("`ChooseCard` in `ChoiceZone$ {other}`"));
+            }
+        };
+        let mandatory = match p.take("Mandatory").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => {
+                return self.deny(format!("`ChooseCard` with `Mandatory$ {other}`"));
+            }
+        };
+        let raw_amount = p.take("Amount");
+        let max_expr = match raw_amount.as_deref() {
+            None => "Amount::Fixed(1)".to_string(),
+            Some(raw) => self.amount_or_count_ext(raw)?,
+        };
+        let min: u8 = if let Some(raw_min) = p.take("MinAmount") {
+            raw_min.trim().parse::<u8>().ok()?
+        } else if mandatory {
+            match raw_amount.as_deref() {
+                None => 1,
+                Some(raw) => raw.trim().parse::<u8>().unwrap_or(u8::MAX),
+            }
+        } else {
+            0
+        };
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `ChooseCard.{key}`"));
+        }
+        let Some(sub_name) = sub else {
+            return self.deny("`ChooseCard` with no `SubAbility$`".to_string());
+        };
+        let (movement, then_effects, trailing_sub) =
+            self.choose_card_followup(sub_name, zone_owner)?;
+        if (chain.target.is_some() || chain.second_target.is_some())
+            && then_effects.iter().any(|e| e.contains("Filter::Reference"))
+        {
+            return self
+                .deny("`ChooseCard` `Filter::Reference` beside an outer target".to_string());
+        }
+        let then_joined = then_effects.join(", ");
+        let inner_choose = format!(
+            "Effect::ChooseCard {{ chooser: {eff_chooser}, zone: {zone}, filter: &{filter_name}, \
+             min: {min}, max: {max_expr}, movement: {movement}, then: &[{then_joined}] }}"
+        );
+        let choose_expr = match repeat_domain {
+            Some(domain) => {
+                format!("Effect::RepeatEach {{ domain: {domain}, effects: &[{inner_choose}] }}")
+            }
+            None => inner_choose,
+        };
+        chain.effects.push(match outer_cond {
+            Some(c) => format!(
+                "Effect::IfCondition {{ condition: {c}, then: &[{choose_expr}], otherwise: &[] }}"
+            ),
+            None => choose_expr,
+        });
+        self.chain_sub_ability(trailing_sub, chain)
+    }
+
+    fn extract_choose_graveyard_owner(
+        &mut self,
+        raw: &str,
+        targets_a_player: bool,
+    ) -> Option<(&'static str, String)> {
+        let mut owner: Option<&'static str> = None;
+        let mut stripped_alts = Vec::new();
+        for alt in raw.split(',') {
+            let trimmed = alt.trim();
+            let (alt_owner, clean) = if let Some(rest) = trimmed
+                .strip_suffix(".YouOwn")
+                .or_else(|| trimmed.strip_suffix("+YouOwn"))
+            {
+                ("PlayerRel::You", rest)
+            } else if let Some(rest) = trimmed
+                .strip_suffix(".OppOwn")
+                .or_else(|| trimmed.strip_suffix("+OppOwn"))
+            {
+                ("PlayerRel::EachOpponent", rest)
+            } else if let Some(rest) = trimmed
+                .strip_suffix(".TargetedPlayerOwn")
+                .or_else(|| trimmed.strip_suffix("+TargetedPlayerOwn"))
+            {
+                if !targets_a_player {
+                    return self.deny("`TargetedPlayerOwn` without player target".to_string());
+                }
+                ("PlayerRel::Chosen", rest)
+            } else if trimmed.contains("Own") || trimmed.contains("Ctrl") {
+                return self.deny(format!("`ChooseCard` graveyard owner in `{trimmed}`"));
+            } else {
+                ("PlayerRel::EachPlayer", trimmed)
+            };
+            if let Some(prev) = owner
+                && prev != alt_owner
+            {
+                return self.deny("`ChooseCard` mixing graveyard owners".to_string());
+            }
+            owner = Some(alt_owner);
+            stripped_alts.push(clean.trim());
+        }
+        Some((owner?, stripped_alts.join(",")))
+    }
+
+    fn choose_card_followup(
+        &mut self,
+        sub_name: &str,
+        zone_owner: Option<&'static str>,
+    ) -> Option<(String, Vec<String>, Option<String>)> {
+        let Some(body) = self.svars.get(sub_name.trim()).cloned() else {
+            return self.deny(format!("`SubAbility$ {sub_name}` names no SVar"));
+        };
+        let (api, mut sp) = Params::parse(&body)?;
+        sp.drop_prose();
+        let expected_origin = if zone_owner.is_some() {
+            "Graveyard"
+        } else {
+            "Battlefield"
+        };
+        if api == "ChangeZone"
+            && sp.peek("Defined") == Some("ChosenCard")
+            && sp.peek("Origin") == Some(expected_origin)
+        {
+            sp.take("Defined");
+            sp.take("Origin");
+            let after = sp.take("SubAbility");
+            let tapped = match sp.take("Tapped").as_deref() {
+                None | Some("False") => false,
+                Some("True") => true,
+                Some(other) => return self.deny(format!("`ChangeZone` with `Tapped$ {other}`")),
+            };
+            let gain = match sp.take("GainControl").as_deref() {
+                None | Some("False") => false,
+                Some("True") => true,
+                Some(other) => {
+                    return self.deny(format!("`ChangeZone` with `GainControl$ {other}`"));
+                }
+            };
+            let movement = match sp.take("Destination").as_deref() {
+                Some("Hand") if !tapped && !gain => "ChooseMove::Hand".to_string(),
+                Some("Graveyard") if !tapped && !gain => "ChooseMove::Graveyard".to_string(),
+                Some("Exile") if !tapped && !gain => "ChooseMove::Exile".to_string(),
+                Some("Battlefield") => {
+                    // `ChooseMove::Battlefield` puts the card onto the
+                    // battlefield under `you`'s control; require `GainControl`
+                    // whenever the chosen card could belong to another player.
+                    if zone_owner != Some("PlayerRel::You") && !gain {
+                        return self.deny(
+                            "`ChooseCard` battlefield move without `GainControl$ True`".to_string(),
+                        );
+                    }
+                    format!("ChooseMove::Battlefield {{ tapped: {tapped} }}")
+                }
+                Some("Library") if !tapped && !gain => {
+                    match sp.take("LibraryPosition").as_deref() {
+                        Some("0") => "ChooseMove::TopOfLibrary".to_string(),
+                        Some("-1") => "ChooseMove::BottomOfLibrary".to_string(),
+                        other => {
+                            return self.deny(format!(
+                                "`ChooseCard` `LibraryPosition$ {}`",
+                                other.unwrap_or("none")
+                            ));
+                        }
+                    }
+                }
+                other => {
+                    return self.deny(format!(
+                        "`ChooseCard` move to `{}`",
+                        other.unwrap_or("none")
+                    ));
+                }
+            };
+            if let Some(key) = sp.first_key() {
+                return self.deny(format!("unclaimed parameter `ChangeZone.{key}`"));
+            }
+            let trailing = match after {
+                Some(ref name) if self.is_wave8_cleanup_svar(name, true) => None,
+                other => other,
+            };
+            return Some((movement, Vec::new(), trailing));
+        }
+        let then_effects =
+            self.compile_wave8_scoped_chain(sub_name, Wave8Scope::ChosenObject, None, true)?;
+        Some(("ChooseMove::None".to_string(), then_effects, None))
+    }
+
+    // -------------------------------------------------------------------------
+    // `PeekAndReveal` -> `Effect::PeekAndReveal` / `Effect::RevealTop`
+    // -------------------------------------------------------------------------
+
+    #[allow(clippy::too_many_lines)]
+    pub(super) fn peek_and_reveal_chain(
+        &mut self,
+        mut p: Params,
+        sub: Option<&str>,
+        target: Option<&str>,
+        targets_a_player: bool,
+        chain: &mut super::Chain,
+    ) -> Option<()> {
+        let outer_cond = self.take_wave8_line_condition(&mut p).ok()?;
+        let library =
+            self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+        let count = match p.take("PeekAmount") {
+            None => "Amount::Fixed(1)".to_string(),
+            Some(raw) => self.amount_or_count_ext(&raw)?,
+        };
+        let take_bool = |p: &mut Params, key: &str| -> Result<bool, String> {
+            match p.take(key).as_deref() {
+                None | Some("False") => Ok(false),
+                Some("True") => Ok(true),
+                Some(other) => Err(format!("`PeekAndReveal` with `{key}$ {other}`")),
+            }
+        };
+        let no_peek = take_bool(&mut p, "NoPeek").map_err(|e| self.note(e)).ok()?;
+        let no_reveal = take_bool(&mut p, "NoReveal")
+            .map_err(|e| self.note(e))
+            .ok()?;
+        let reveal_optional = take_bool(&mut p, "RevealOptional")
+            .map_err(|e| self.note(e))
+            .ok()?;
+        let remember_revealed = take_bool(&mut p, "RememberRevealed")
+            .map_err(|e| self.note(e))
+            .ok()?;
+        let remember_peeked = take_bool(&mut p, "RememberPeeked")
+            .map_err(|e| self.note(e))
+            .ok()?;
+        let reveal_valid = p.take("RevealValid");
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `PeekAndReveal.{key}`"));
+        }
+        if !Self::is_single_seat_rel(library) {
+            if no_reveal || reveal_optional || remember_peeked || reveal_valid.is_some() {
+                return self.deny(format!("`PeekAndReveal` for multi-seat `{library}`"));
+            }
+            return self.peek_multi_seat_reveal(
+                library,
+                &count,
+                remember_revealed,
+                outer_cond.as_deref(),
+                sub,
+                chain,
+            );
+        }
+        let (effect, trailing_sub) = if no_reveal
+            && !no_peek
+            && !remember_revealed
+            && !remember_peeked
+            && reveal_valid.is_none()
+            && !reveal_optional
+        {
+            // Pure private look (e.g. "Look at the top N cards of your library").
+            (
+                format!(
+                    "Effect::PeekAndReveal {{ library: {library}, count: {count}, \
+                     reveal_all: false, reveal_chosen: false, filter: &Filter::Any, \
+                     min_pick: 0, max_pick: 0, picked: PeekPickDest::StayOnTop, \
+                     rest: PeekRestDest::StayInOrder, if_picked: &[] }}"
+                ),
+                sub.map(str::to_string),
+            )
+        } else if count == "Amount::Fixed(1)"
+            && !no_peek
+            && !no_reveal
+            && reveal_optional
+            && remember_revealed
+        {
+            // Kinship & optional top-1 reveal (`RevealValid$ <F> | RevealOptional$ True`).
+            let sub_name = sub
+                .ok_or_else(|| {
+                    self.note("`PeekAndReveal` `RevealOptional` with no `SubAbility$`".to_string());
+                })
+                .ok()?;
+            let eff = self.peek_optional_top_one(library, reveal_valid.as_deref(), sub_name)?;
+            (eff, None)
+        } else if no_peek
+            && !no_reveal
+            && !reveal_optional
+            && reveal_valid.is_none()
+            && !remember_peeked
+        {
+            // Public reveal of top N cards (`Effect::RevealTop` or pick/rest `PeekAndReveal`).
+            self.peek_public_reveal_top(library, &count, remember_revealed, sub)?
+        } else if no_reveal && !no_peek && remember_peeked && reveal_valid.is_none() {
+            // Private multi-card peek -> ChangeZone pick + rest placement.
+            let sub_name = sub
+                .ok_or_else(|| {
+                    self.note("`PeekAndReveal` `RememberPeeked` with no `SubAbility$`".to_string());
+                })
+                .ok()?;
+            let eff = self.peek_multi_pick_rest(library, &count, false, sub_name)?;
+            (eff, None)
+        } else {
+            return self.deny("unsupported `PeekAndReveal` combination".to_string());
+        };
+        if (chain.target.is_some() || chain.second_target.is_some())
+            && effect.contains("Filter::Reference")
+        {
+            return self
+                .deny("`PeekAndReveal` `Filter::Reference` beside an outer target".to_string());
+        }
+        chain.effects.push(match outer_cond {
+            Some(c) => format!(
+                "Effect::IfCondition {{ condition: {c}, then: &[{effect}], otherwise: &[] }}"
+            ),
+            None => effect,
+        });
+        self.chain_sub_ability(trailing_sub, chain)
+    }
+
+    /// Multi-seat `PeekAndReveal` (`Defined$ Player / Opponent`): lowers
+    /// APNAP top-of-library reveal via `Effect::RepeatEach { ..., RevealTop }`
+    /// and handles Parley chains counting `Remembered$Valid <F>` via
+    /// `Amount::ThisWayBy { what: ThisWay::Revealed(&F), who }`.
+    fn peek_multi_seat_reveal(
+        &mut self,
+        library: &str,
+        count: &str,
+        remember_revealed: bool,
+        outer_cond: Option<&str>,
+        sub: Option<&str>,
+        chain: &mut super::Chain,
+    ) -> Option<()> {
+        let domain = match library {
+            "PlayerRel::EachPlayer" => "RepeatDomain::EachPlayer",
+            "PlayerRel::EachOpponent" => "RepeatDomain::EachOpponent",
+            _ => return self.deny(format!("`PeekAndReveal` for multi-seat `{library}`")),
+        };
+        let reveal_loop = format!(
+            "Effect::RepeatEach {{ domain: {domain}, effects: &[Effect::RevealTop {{ \
+             player: PlayerRel::EventPlayer, count: {count}, filter: &Filter::Any, \
+             if_matches: &[], otherwise: &[] }}] }}"
+        );
+        if !remember_revealed {
+            chain.effects.push(match outer_cond {
+                Some(c) => format!(
+                    "Effect::IfCondition {{ condition: {c}, then: &[{reveal_loop}], otherwise: &[] }}"
+                ),
+                None => reveal_loop,
+            });
+            return self.chain_sub_ability(sub.map(str::to_string), chain);
+        }
+        let Some(sub_name) = sub else {
+            return self.deny(format!("`PeekAndReveal` for multi-seat `{library}`"));
+        };
+        let (parley_effs, trailing) = self.try_parley_followup(sub_name, library)?;
+        let mut all = vec![reveal_loop];
+        all.extend(parley_effs);
+        if let Some(c) = outer_cond {
+            chain.effects.push(format!(
+                "Effect::IfCondition {{ condition: {c}, then: &[{}], otherwise: &[] }}",
+                all.join(", ")
+            ));
+        } else {
+            chain.effects.extend(all);
+        }
+        self.chain_sub_ability(trailing, chain)
+    }
+
+    fn parley_valid_amount(&mut self, raw: &str, who: &str) -> Option<String> {
+        let def = self.svars.get(raw.trim())?.trim().to_string();
+        let (head, suffix) = def
+            .split_once('/')
+            .map_or((def.as_str(), ""), |(h, s)| (h, s));
+        let valid = head.strip_prefix("Remembered$Valid ")?.trim();
+        let filter_ref = if valid == "Card" {
+            "&Filter::Any".to_string()
+        } else {
+            let expr = self.filter_expr_in_zone(valid, true)?;
+            format!("&{}", self.body.filter_static("PARLEY", &expr))
+        };
+        let base =
+            format!("Amount::ThisWayBy {{ what: ThisWay::Revealed({filter_ref}), who: {who} }}");
+        Self::wrap_amount_suffix(base, suffix)
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn try_parley_followup(
+        &mut self,
+        start_svar: &str,
+        reveal_who: &str,
+    ) -> Option<(Vec<String>, Option<String>)> {
+        let mut out = Vec::new();
+        let mut cursor = Some(start_svar.trim().to_string());
+        let mut used_remembered = false;
+        let mut steps = 0usize;
+        while let Some(name) = cursor.take() {
+            steps += 1;
+            if steps > 6 {
+                return None;
+            }
+            if self.is_wave8_cleanup_svar(&name, false) {
+                break;
+            }
+            let body = self.svars.get(&name)?.clone();
+            let (api, mut sp) = Params::parse(&body)?;
+            sp.drop_prose();
+            if sp.has("ValidTgts") {
+                return None;
+            }
+            let next = sp.take("SubAbility");
+            if api == "Draw"
+                && sp.peek("Defined") == Some("Player")
+                && matches!(sp.peek("NumCards"), None | Some("1"))
+                && !used_remembered
+            {
+                sp.take("Defined");
+                sp.take("NumCards");
+                if !sp.exhausted() {
+                    return None;
+                }
+                out.push(
+                    "Effect::DrawCardsFor { amount: Amount::Fixed(1), who: PlayerRel::EachPlayer }"
+                        .to_string(),
+                );
+                cursor = next;
+                continue;
+            }
+            let eff = match api.as_str() {
+                "PutCounter" => {
+                    if !matches!(sp.take("Defined").as_deref(), None | Some("Self"))
+                        || self.on_a_spell
+                    {
+                        return None;
+                    }
+                    let code = sp.take("CounterType")?;
+                    let kind = super::counter_kind(&code)?;
+                    let amt = self.parley_valid_amount(&sp.take("CounterNum")?, reveal_who)?;
+                    if !sp.exhausted() {
+                        return None;
+                    }
+                    format!(
+                        "Effect::AddCounterAmount {{ target: TargetSpec::ThisObject, kind: {kind}, amount: {amt} }}"
+                    )
+                }
+                "GainLife" => {
+                    let who = self.player_rel(sp.take("Defined").as_deref())?;
+                    let amt = self.parley_valid_amount(&sp.take("LifeAmount")?, reveal_who)?;
+                    if !sp.exhausted() {
+                        return None;
+                    }
+                    if who == "PlayerRel::You" {
+                        format!("Effect::GainLife {{ amount: {amt} }}")
+                    } else {
+                        format!("Effect::GainLifeFor {{ amount: {amt}, target: {who} }}")
+                    }
+                }
+                "LoseLife" => {
+                    let who = self.player_rel(sp.take("Defined").as_deref())?;
+                    let amt = self.parley_valid_amount(&sp.take("LifeAmount")?, reveal_who)?;
+                    if !sp.exhausted() {
+                        return None;
+                    }
+                    format!("Effect::LoseLife {{ amount: {amt}, target: {who} }}")
+                }
+                "DealDamage" => {
+                    let who = self.player_rel(sp.take("Defined").as_deref())?;
+                    let amt = self.parley_valid_amount(&sp.take("NumDmg")?, reveal_who)?;
+                    if !sp.exhausted() {
+                        return None;
+                    }
+                    format!(
+                        "Effect::DealDamage {{ amount: {amt}, target: TargetSpec::Player({who}) }}"
+                    )
+                }
+                "Token" => {
+                    let who = self.player_rel(sp.take("TokenOwner").as_deref())?;
+                    let stem = sp.take("TokenScript")?;
+                    let amt = self.parley_valid_amount(&sp.take("TokenAmount")?, reveal_who)?;
+                    if !sp.exhausted() {
+                        return None;
+                    }
+                    let body = self.tokens?.body(&stem, self.cats)?;
+                    let token = format!("&generated_tokens::{}", body.constant);
+                    if who == "PlayerRel::You" {
+                        format!("Effect::CreateTokenN {{ token: {token}, amount: {amt} }}")
+                    } else {
+                        format!(
+                            "Effect::CreateTokensFor {{ player: {who}, token: {token}, amount: {amt} }}"
+                        )
+                    }
+                }
+                _ => return None,
+            };
+            used_remembered = true;
+            out.push(eff);
+            cursor = next;
+        }
+        if !used_remembered {
+            return None;
+        }
+        Some((out, None))
+    }
+
+    fn peek_optional_top_one(
+        &mut self,
+        library: &str,
+        reveal_valid: Option<&str>,
+        sub_name: &str,
+    ) -> Option<String> {
+        let filter_ref = match reveal_valid {
+            None | Some("Card") => "&Filter::Any".to_string(),
+            Some(raw) => {
+                let expr = self.filter_expr_in_zone(raw, true)?;
+                format!("&{}", self.body.filter_static("PEEK", &expr))
+            }
+        };
+        let Some(body) = self.svars.get(sub_name.trim()).cloned() else {
+            return self.deny(format!("`SubAbility$ {sub_name}` names no SVar"));
+        };
+        if let Some((picked, rest)) = self.try_peek_top_one_move(&body, library, reveal_valid) {
+            return Some(format!(
+                "Effect::PeekAndReveal {{ library: {library}, count: Amount::Fixed(1), \
+                 reveal_all: false, reveal_chosen: true, filter: {filter_ref}, \
+                 min_pick: 0, max_pick: 1, picked: {picked}, rest: {rest}, if_picked: &[] }}"
+            ));
+        }
+        // Otherwise require every non-cleanup step to be guarded by `ConditionDefined$ Remembered`.
+        let mut cursor = Some(sub_name.trim().to_string());
+        let mut if_picked = Vec::new();
+        let mut steps = 0usize;
+        while let Some(name) = cursor.take() {
+            steps += 1;
+            if steps > 12 {
+                return self.deny("a cyclic `PeekAndReveal` chain".to_string());
+            }
+            if self.is_wave8_cleanup_svar(&name, false) {
+                break;
+            }
+            let Some(step_body) = self.svars.get(&name).cloned() else {
+                return self.deny(format!("`SubAbility$ {name}` names no SVar"));
+            };
+            let (_, sp_check) = Params::parse(&step_body)?;
+            if sp_check.peek("ConditionDefined") != Some("Remembered") {
+                return self.deny(
+                    "`PeekAndReveal` `RevealOptional` follow-up without `ConditionDefined$ Remembered`"
+                        .to_string(),
+                );
+            }
+            let (mut effs, next) = self.compile_wave8_scoped_step(
+                &step_body,
+                Wave8Scope::RevealedObject,
+                reveal_valid,
+                false,
+            )?;
+            if_picked.append(&mut effs);
+            cursor = next;
+        }
+        if if_picked.is_empty() {
+            return None;
+        }
+        Some(format!(
+            "Effect::PeekAndReveal {{ library: {library}, count: Amount::Fixed(1), \
+             reveal_all: false, reveal_chosen: true, filter: {filter_ref}, \
+             min_pick: 0, max_pick: 1, picked: PeekPickDest::StayOnTop, \
+             rest: PeekRestDest::StayInOrder, if_picked: &[{}] }}",
+            if_picked.join(", ")
+        ))
+    }
+
+    fn try_peek_top_one_move(
+        &mut self,
+        body: &str,
+        library: &str,
+        reveal_valid: Option<&str>,
+    ) -> Option<(String, String)> {
+        let (api, mut sp) = Params::parse(body)?;
+        sp.drop_prose();
+        let def = sp.take("Defined");
+        if api != "ChangeZone"
+            || !matches!(def.as_deref(), Some("TopOfLibrary" | "Remembered"))
+            || sp.take("Origin").as_deref() != Some("Library")
+        {
+            return None;
+        }
+        let guarded = Self::strip_matching_remembered_guard(&mut sp, "Remembered", reveal_valid);
+        if !guarded && def.as_deref() != Some("Remembered") {
+            return None;
+        }
+        let next = sp.take("SubAbility");
+        let picked = Self::parse_peek_pick_dest(&mut sp, library)?;
+        if !sp.exhausted() {
+            return None;
+        }
+        let rest = match next {
+            None => "PeekRestDest::StayInOrder".to_string(),
+            Some(ref name) if self.is_wave8_cleanup_svar(name, false) => {
+                "PeekRestDest::StayInOrder".to_string()
+            }
+            Some(else_name) => {
+                let else_body = self.svars.get(else_name.trim())?.clone();
+                let (e_api, mut ep) = Params::parse(&else_body)?;
+                ep.drop_prose();
+                if e_api != "ChangeZone"
+                    || !matches!(
+                        ep.take("Defined").as_deref(),
+                        Some("TopOfLibrary" | "Remembered")
+                    )
+                    || ep.take("Origin").as_deref() != Some("Library")
+                    || ep.take("ConditionDefined").as_deref() != Some("Remembered")
+                    || ep.take("ConditionCompare").as_deref() != Some("EQ0")
+                {
+                    return None;
+                }
+                let present = ep.take("ConditionPresent")?;
+                if present != "Card" && reveal_valid != Some(present.as_str()) {
+                    return None;
+                }
+                ep.take("ConditionDescription");
+                let after = ep.take("SubAbility");
+                if let Some(ref clean) = after
+                    && !self.is_wave8_cleanup_svar(clean, false)
+                {
+                    return None;
+                }
+                let rest_dest = Self::parse_peek_rest_dest(&mut ep)?;
+                if !ep.exhausted() {
+                    return None;
+                }
+                rest_dest
+            }
+        };
+        Some((picked, rest))
+    }
+
+    fn parse_peek_pick_dest(sp: &mut Params, library: &str) -> Option<String> {
+        let tapped = match sp.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let gain = match sp.take("GainControl").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        match sp.take("Destination").as_deref() {
+            Some("Hand") if !tapped && !gain => Some("PeekPickDest::Hand".to_string()),
+            Some("Graveyard") if !tapped && !gain => Some("PeekPickDest::Graveyard".to_string()),
+            Some("Exile") if !tapped && !gain => Some("PeekPickDest::Exile".to_string()),
+            Some("Battlefield") => {
+                if library != "PlayerRel::You" && !gain {
+                    return None;
+                }
+                Some(format!("PeekPickDest::Battlefield {{ tapped: {tapped} }}"))
+            }
+            Some("Library")
+                if !tapped && !gain && sp.take("LibraryPosition").as_deref() == Some("0") =>
+            {
+                Some("PeekPickDest::TopOfLibrary".to_string())
+            }
+            _ => None,
+        }
+    }
+
+    fn parse_peek_rest_dest(ep: &mut Params) -> Option<String> {
+        match ep.take("Destination").as_deref() {
+            Some("Graveyard") => Some("PeekRestDest::Graveyard".to_string()),
+            Some("Exile") => Some("PeekRestDest::Exile".to_string()),
+            Some("Library") => match ep.take("LibraryPosition").as_deref() {
+                Some("-1") => {
+                    let random = match ep.take("RandomOrder").as_deref() {
+                        None | Some("False") => false,
+                        Some("True") => true,
+                        Some(_) => return None,
+                    };
+                    Some(format!(
+                        "PeekRestDest::BottomOfLibrary {{ random: {random} }}"
+                    ))
+                }
+                Some("0") => Some("PeekRestDest::TopAnyOrder".to_string()),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn peek_public_reveal_top(
+        &mut self,
+        library: &str,
+        count: &str,
+        remember_revealed: bool,
+        sub: Option<&str>,
+    ) -> Option<(String, Option<String>)> {
+        if !remember_revealed {
+            return Some((
+                format!(
+                    "Effect::RevealTop {{ player: {library}, count: {count}, \
+                     filter: &Filter::Any, if_matches: &[], otherwise: &[] }}"
+                ),
+                sub.map(str::to_string),
+            ));
+        }
+        let Some(sub_name) = sub else {
+            return self
+                .deny("`PeekAndReveal` `RememberRevealed` with no `SubAbility$`".to_string());
+        };
+        // First try multi-card pick + rest (e.g. reveal top N, pick up to K, rest to bottom/GY).
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let saved_statics = self.body.statics.len();
+        if let Some(eff) = self.peek_multi_pick_rest(library, count, true, sub_name) {
+            return Some((eff, None));
+        }
+        *self.unclaimed.borrow_mut() = saved_unclaimed;
+        self.body.statics.truncate(saved_statics);
+
+        // Next try conditional `RevealTop` branches (`ConditionDefined$ Remembered`).
+        let mut cursor = Some(sub_name.trim().to_string());
+        let mut filter_raw: Option<String> = None;
+        let mut if_matches = Vec::new();
+        let mut otherwise = Vec::new();
+        let mut steps = 0usize;
+        while let Some(name) = cursor.take() {
+            steps += 1;
+            if steps > 12 {
+                return self.deny("a cyclic `RevealTop` chain".to_string());
+            }
+            if self.is_wave8_cleanup_svar(&name, false) {
+                break;
+            }
+            let Some(body) = self.svars.get(&name).cloned() else {
+                return self.deny(format!("`SubAbility$ {name}` names no SVar"));
+            };
+            let (api, mut sp) = Params::parse(&body)?;
+            sp.drop_prose();
+            if sp.peek("ConditionDefined") != Some("Remembered") {
+                if count == "Amount::Fixed(1)" && filter_raw.is_none() && steps == 1 {
+                    let next = sp.take("SubAbility");
+                    if api == "ChangeZone"
+                        && sp.take("Defined").as_deref() == Some("Remembered")
+                        && sp.take("Origin").as_deref() == Some("Library")
+                        && let Some(picked) = Self::parse_peek_pick_dest(&mut sp, library)
+                        && sp.exhausted()
+                        && next
+                            .as_deref()
+                            .is_none_or(|n| self.is_wave8_cleanup_svar(n, false))
+                    {
+                        return Some((
+                            format!(
+                                "Effect::PeekAndReveal {{ library: {library}, count: Amount::Fixed(1), \
+                                 reveal_all: true, reveal_chosen: false, filter: &Filter::Any, \
+                                 min_pick: 1, max_pick: 1, picked: {picked}, \
+                                 rest: PeekRestDest::StayInOrder, if_picked: &[] }}"
+                            ),
+                            None,
+                        ));
+                    }
+                }
+                return self.deny("`PeekAndReveal` `NoPeek` follow-up shape".to_string());
+            }
+            let Some(present) = sp.peek("ConditionPresent").map(str::to_string) else {
+                return self.deny("`RevealTop` branch with no `ConditionPresent$`".to_string());
+            };
+            let cmp = sp.peek("ConditionCompare").map(str::to_string);
+            let is_then = match cmp.as_deref() {
+                None | Some("GE1") => true,
+                Some("EQ1") if count == "Amount::Fixed(1)" => true,
+                Some("EQ0") => false,
+                Some(other) => {
+                    return self.deny(format!("`RevealTop` `ConditionCompare$ {other}`"));
+                }
+            };
+            let target_branch = match (&filter_raw, is_then) {
+                (None, true) => {
+                    filter_raw = Some(present.clone());
+                    true
+                }
+                (Some(prev), true) if prev == &present => true,
+                (Some(prev), false) if prev == &present => false,
+                (Some(prev), true)
+                    if count == "Amount::Fixed(1)"
+                        && matches!(
+                            (prev.as_str(), present.as_str()),
+                            ("Card.Land" | "Land", "Card.nonLand")
+                                | ("Card.nonLand", "Card.Land" | "Land")
+                        ) =>
+                {
+                    false
+                }
+                _ => return self.deny("`RevealTop` branches with differing filters".to_string()),
+            };
+            sp.take("ConditionDefined");
+            sp.take("ConditionPresent");
+            sp.take("ConditionCompare");
+            sp.take("ConditionDescription");
+            let next_sub = sp.take("SubAbility");
+            let stripped_spec = Self::reconstruct_spec(&api, &sp);
+            let (mut effs, _) = self.compile_wave8_scoped_step(
+                &stripped_spec,
+                Wave8Scope::RevealedObject,
+                None,
+                false,
+            )?;
+            if target_branch {
+                if_matches.append(&mut effs);
+            } else {
+                otherwise.append(&mut effs);
+            }
+            cursor = next_sub;
+        }
+        let raw = filter_raw?;
+        let filter_ref = if raw == "Card" {
+            "&Filter::Any".to_string()
+        } else {
+            let expr = self.filter_expr_in_zone(&raw, true)?;
+            format!("&{}", self.body.filter_static("REVEAL_TOP", &expr))
+        };
+        Some((
+            format!(
+                "Effect::RevealTop {{ player: {library}, count: {count}, filter: {filter_ref}, \
+                 if_matches: &[{}], otherwise: &[{}] }}",
+                if_matches.join(", "),
+                otherwise.join(", ")
+            ),
+            None,
+        ))
+    }
+
+    fn peek_multi_pick_rest(
+        &mut self,
+        library: &str,
+        count: &str,
+        reveal_all: bool,
+        sub_name: &str,
+    ) -> Option<String> {
+        let body = self.svars.get(sub_name.trim())?.clone();
+        let (api, mut sp) = Params::parse(&body)?;
+        sp.drop_prose();
+        if api != "ChangeZone"
+            || sp.take("Origin").as_deref() != Some("Library")
+            || sp.take("ForgetChanged").as_deref() != Some("True")
+        {
+            return None;
+        }
+        sp.take("SelectPrompt");
+        if let Some(shuf) = sp.take("Shuffle")
+            && shuf != "False"
+        {
+            return None;
+        }
+        let change_type = sp.take("ChangeType")?;
+        let stripped = Self::strip_remembered_filter_atom(&change_type)?;
+        let filter_ref = if stripped == "Card" {
+            "&Filter::Any".to_string()
+        } else {
+            let expr = self.filter_expr_in_zone(&stripped, true)?;
+            format!("&{}", self.body.filter_static("PEEK", &expr))
+        };
+        let max_pick: u8 = sp
+            .take("ChangeNum")
+            .as_deref()
+            .unwrap_or("1")
+            .trim()
+            .parse::<u8>()
+            .ok()?;
+        let mandatory = match sp.take("Mandatory").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let optional = match sp.take("Optional").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let min_pick = if mandatory && !optional { max_pick } else { 0 };
+        let picked = Self::parse_peek_pick_dest(&mut sp, library)?;
+        let rest_sub = sp.take("SubAbility");
+        if !sp.exhausted() {
+            return None;
+        }
+        let rest = match rest_sub {
+            None => "PeekRestDest::StayInOrder".to_string(),
+            Some(ref clean) if self.is_wave8_cleanup_svar(clean, false) => {
+                "PeekRestDest::StayInOrder".to_string()
+            }
+            Some(rest_name) => {
+                let rbody = self.svars.get(rest_name.trim())?.clone();
+                let (rapi, mut rp) = Params::parse(&rbody)?;
+                rp.drop_prose();
+                if rapi != "ChangeZoneAll"
+                    || rp.take("Origin").as_deref() != Some("Library")
+                    || !matches!(rp.take("ChangeType").as_deref(), Some("Card.IsRemembered"))
+                {
+                    return None;
+                }
+                if let Some(shuf) = rp.take("Shuffle")
+                    && shuf != "False"
+                {
+                    return None;
+                }
+                let after = rp.take("SubAbility");
+                if let Some(ref clean) = after
+                    && !self.is_wave8_cleanup_svar(clean, false)
+                {
+                    return None;
+                }
+                let dest = Self::parse_peek_rest_dest(&mut rp)?;
+                if !rp.exhausted() {
+                    return None;
+                }
+                dest
+            }
+        };
+        let reveal_chosen = !reveal_all && filter_ref != "&Filter::Any";
+        Some(format!(
+            "Effect::PeekAndReveal {{ library: {library}, count: {count}, \
+             reveal_all: {reveal_all}, reveal_chosen: {reveal_chosen}, filter: {filter_ref}, \
+             min_pick: {min_pick}, max_pick: {max_pick}, picked: {picked}, rest: {rest}, \
+             if_picked: &[] }}"
+        ))
+    }
+
+    fn strip_remembered_filter_atom(raw: &str) -> Option<String> {
+        let mut alts = Vec::new();
+        for alt in raw.split(',') {
+            let trimmed = alt.trim();
+            let (noun, attrs) = trimmed.split_once('.')?;
+            let mut kept = Vec::new();
+            let mut found = false;
+            for atom in attrs.split('+').map(str::trim) {
+                if atom == "IsRemembered" {
+                    found = true;
+                } else if !atom.is_empty() {
+                    kept.push(atom);
+                }
+            }
+            if !found {
+                return None;
+            }
+            if kept.is_empty() {
+                alts.push(noun.trim().to_string());
+            } else {
+                alts.push(format!("{}.{}", noun.trim(), kept.join("+")));
+            }
+        }
+        Some(alts.join(","))
+    }
+
+    // -------------------------------------------------------------------------
+    // `Reveal` (hand) -> `Effect::RevealFromHand`
+    // -------------------------------------------------------------------------
+
+    #[allow(clippy::too_many_lines)]
+    pub(super) fn reveal_from_hand_chain(
+        &mut self,
+        mut p: Params,
+        sub: Option<&str>,
+        target: Option<&str>,
+        targets_a_player: bool,
+        chain: &mut super::Chain,
+    ) -> Option<()> {
+        let outer_cond = self.take_wave8_line_condition(&mut p).ok()?;
+        let who = self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+        let any_number = match p.take("AnyNumber").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`Reveal` with `AnyNumber$ {other}`")),
+        };
+        let optional = match p.take("Optional").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`Reveal` with `Optional$ {other}`")),
+        };
+        let remember = match p.take("RememberRevealed").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`Reveal` with `RememberRevealed$ {other}`")),
+        };
+        let raw_num = p.take("NumCards");
+        if any_number && raw_num.is_some() {
+            return self.deny("`Reveal` with both `AnyNumber$` and `NumCards$`".to_string());
+        }
+        let raw_valid = p.take("RevealValid");
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `Reveal.{key}`"));
+        }
+        let filter_ref = match raw_valid.as_deref() {
+            None | Some("Card") => "&Filter::Any".to_string(),
+            Some(raw) => {
+                let cleaned = if who == "PlayerRel::You" {
+                    Self::strip_your_hand_owner(raw)
+                } else {
+                    raw.to_string()
+                };
+                let expr = self.filter_expr_in_zone(&cleaned, true)?;
+                format!("&{}", self.body.filter_static("REVEAL", &expr))
+            }
+        };
+        let (min, max_expr) = if any_number {
+            (0u8, "Amount::Fixed(255)".to_string())
+        } else {
+            let max = match raw_num.as_deref() {
+                None => "Amount::Fixed(1)".to_string(),
+                Some(r) => self.amount_or_count_ext(r)?,
+            };
+            let min = if optional {
+                0
+            } else {
+                match raw_num.as_deref() {
+                    None => 1,
+                    Some(r) => r.trim().parse::<u8>().unwrap_or(u8::MAX),
+                }
+            };
+            (min, max)
+        };
+        // Engine enforces `min = 0` on filtered hidden hands (CR 701.20a): refuse
+        // scripts that require a mandatory filtered reveal.
+        if min > 0 && filter_ref != "&Filter::Any" {
+            return self.deny("mandatory filtered `Reveal` from a hidden hand".to_string());
+        }
+        if !remember {
+            let reveal_eff = format!(
+                "Effect::RevealFromHand {{ who: {who}, filter: {filter_ref}, \
+                 min: {min}, max: {max_expr}, if_revealed: &[] }}"
+            );
+            chain.effects.push(match outer_cond {
+                Some(c) => format!(
+                    "Effect::IfCondition {{ condition: {c}, then: &[{reveal_eff}], otherwise: &[] }}"
+                ),
+                None => reveal_eff,
+            });
+            return self.chain_sub_ability(sub.map(str::to_string), chain);
+        }
+        let Some(sub_name) = sub else {
+            return self.deny("`Reveal` `RememberRevealed` with no `SubAbility$`".to_string());
+        };
+        // Try counted `AnyNumber` follow-up (`Remembered$Amount` -> `ThisWay::Revealed`).
+        if any_number
+            && who == "PlayerRel::You"
+            && let Some((followup_effs, trailing)) =
+                self.try_reveal_counted_followup(sub_name, chain)
+        {
+            let reveal_eff = format!(
+                "Effect::RevealFromHand {{ who: {who}, filter: {filter_ref}, \
+                 min: {min}, max: {max_expr}, if_revealed: &[] }}"
+            );
+            if let Some(c) = outer_cond {
+                let mut all = vec![reveal_eff];
+                all.extend(followup_effs);
+                chain.effects.push(format!(
+                    "Effect::IfCondition {{ condition: {c}, then: &[{}], otherwise: &[] }}",
+                    all.join(", ")
+                ));
+            } else {
+                chain.effects.push(reveal_eff);
+                chain.effects.extend(followup_effs);
+            }
+            return self.chain_sub_ability(trailing, chain);
+        }
+        // Otherwise require every non-cleanup follow-up step to check `ConditionDefined$ Remembered`.
+        let mut cursor = Some(sub_name.trim().to_string());
+        let mut if_revealed = Vec::new();
+        let mut steps = 0usize;
+        while let Some(name) = cursor.take() {
+            steps += 1;
+            if steps > 12 {
+                return self.deny("a cyclic `Reveal` chain".to_string());
+            }
+            if self.is_wave8_cleanup_svar(&name, false) {
+                break;
+            }
+            let Some(step_body) = self.svars.get(&name).cloned() else {
+                return self.deny(format!("`SubAbility$ {name}` names no SVar"));
+            };
+            let (_, sp_check) = Params::parse(&step_body)?;
+            if sp_check.peek("ConditionDefined") != Some("Remembered") {
+                return self.deny(
+                    "`Reveal` `RememberRevealed` follow-up without `ConditionDefined$ Remembered`"
+                        .to_string(),
+                );
+            }
+            let (mut effs, next) = self.compile_wave8_scoped_step(
+                &step_body,
+                Wave8Scope::RevealedObject,
+                raw_valid.as_deref(),
+                false,
+            )?;
+            if_revealed.append(&mut effs);
+            cursor = next;
+        }
+        if if_revealed.is_empty() {
+            return None;
+        }
+        if (chain.target.is_some() || chain.second_target.is_some())
+            && if_revealed.iter().any(|e| e.contains("Filter::Reference"))
+        {
+            return self.deny("`Reveal` `Filter::Reference` beside an outer target".to_string());
+        }
+        let reveal_eff = format!(
+            "Effect::RevealFromHand {{ who: {who}, filter: {filter_ref}, \
+             min: {min}, max: {max_expr}, if_revealed: &[{}] }}",
+            if_revealed.join(", ")
+        );
+        chain.effects.push(match outer_cond {
+            Some(c) => format!(
+                "Effect::IfCondition {{ condition: {c}, then: &[{reveal_eff}], otherwise: &[] }}"
+            ),
+            None => reveal_eff,
+        });
+        Some(())
+    }
+
+    fn strip_your_hand_owner(raw: &str) -> String {
+        raw.split(',')
+            .map(|alt| {
+                let trimmed = alt.trim();
+                trimmed
+                    .strip_suffix("+YouOwn")
+                    .or_else(|| trimmed.strip_suffix(".YouOwn"))
+                    .or_else(|| trimmed.strip_suffix("+YouCtrl"))
+                    .or_else(|| trimmed.strip_suffix(".YouCtrl"))
+                    .unwrap_or(trimmed)
+                    .trim()
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn revealed_count_amount(&self, raw: &str) -> Option<(String, bool)> {
+        let trimmed = raw.trim();
+        let neg = trimmed.starts_with('-');
+        let key = trimmed.trim_start_matches(['+', '-']);
+        let def = self.svars.get(key)?.trim();
+        let (head, suffix) = def.split_once('/').map_or((def, ""), |(h, s)| (h, s));
+        if head != "Remembered$Amount" {
+            return None;
+        }
+        let base = "Amount::ThisWay(ThisWay::Revealed(&Filter::Any))".to_string();
+        let mag = Self::wrap_amount_suffix(base, suffix)?;
+        Some((mag, neg))
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn try_reveal_counted_followup(
+        &mut self,
+        sub_name: &str,
+        chain: &mut super::Chain,
+    ) -> Option<(Vec<String>, Option<String>)> {
+        let body = self.svars.get(sub_name.trim())?.clone();
+        let (api, mut sp) = Params::parse(&body)?;
+        sp.drop_prose();
+        let next = sp.take("SubAbility");
+        let trailing = match next {
+            Some(ref clean) if self.is_wave8_cleanup_svar(clean, false) => None,
+            other => other,
+        };
+        let saved_target = chain.target.clone();
+        sp.claim_label("ValidTgtsDesc", "ValidTgts");
+        let targets_here = if let Some(valid) = sp.take("ValidTgts") {
+            if self.chain_target(&api, &mut sp, &valid, chain).is_none() {
+                chain.target = saved_target;
+                return None;
+            }
+            true
+        } else {
+            false
+        };
+        let target = Self::effect_target(chain);
+        let targets_a_player =
+            targets_here && target.as_deref() == Some("TargetSpec::Player(PlayerRel::Chosen)");
+        let eff = match api.as_str() {
+            "GainLife" => {
+                let raw = sp.take("LifeAmount")?;
+                let (amt, neg) = self.revealed_count_amount(&raw)?;
+                let who = self.player_of_line(
+                    sp.take("Defined").as_deref(),
+                    target.as_deref(),
+                    targets_a_player,
+                )?;
+                if neg || !sp.exhausted() {
+                    chain.target = saved_target;
+                    return None;
+                }
+                if who == "PlayerRel::You" {
+                    format!("Effect::GainLife {{ amount: {amt} }}")
+                } else {
+                    format!("Effect::GainLifeFor {{ amount: {amt}, target: {who} }}")
+                }
+            }
+            "LoseLife" => {
+                let raw = sp.take("LifeAmount")?;
+                let (amt, neg) = self.revealed_count_amount(&raw)?;
+                let who = self.player_of_line(
+                    sp.take("Defined").as_deref(),
+                    target.as_deref(),
+                    targets_a_player,
+                )?;
+                if neg || !sp.exhausted() {
+                    chain.target = saved_target;
+                    return None;
+                }
+                format!("Effect::LoseLife {{ amount: {amt}, target: {who} }}")
+            }
+            "DealDamage" => {
+                let raw = sp.take("NumDmg")?;
+                let (amt, neg) = self.revealed_count_amount(&raw)?;
+                if neg || sp.take("Defined").is_some() || !sp.exhausted() {
+                    chain.target = saved_target;
+                    return None;
+                }
+                let tgt = target.as_deref()?;
+                format!("Effect::DealDamage {{ amount: {amt}, target: {tgt} }}")
+            }
+            "Pump" => {
+                let att_raw = sp.take("NumAtt");
+                let def_raw = sp.take("NumDef");
+                let duration = match sp.take("Duration").as_deref() {
+                    None => "Duration::UntilEndOfTurn",
+                    Some("Permanent") => "Duration::Indefinitely",
+                    Some(_) => {
+                        chain.target = saved_target;
+                        return None;
+                    }
+                };
+                let defined = sp.take("Defined");
+                let subject_ok = match (defined.as_deref(), target.as_deref()) {
+                    (None | Some("Targeted"), Some(t)) if t.starts_with("TargetSpec::Object(") => {
+                        true
+                    }
+                    (None | Some("Self"), None) if !self.on_a_spell => true,
+                    _ => false,
+                };
+                if !subject_ok || !sp.exhausted() {
+                    chain.target = saved_target;
+                    return None;
+                }
+                let mut side = |raw: Option<&str>| -> Option<String> {
+                    match raw {
+                        None => Some("Amount::Fixed(0)".to_string()),
+                        Some(r) => {
+                            if let Some((mag, neg)) = self.revealed_count_amount(r) {
+                                Some(if neg {
+                                    format!("Amount::Negated(&{mag})")
+                                } else {
+                                    mag
+                                })
+                            } else {
+                                self.amount_or_count_ext(r)
+                            }
+                        }
+                    }
+                };
+                let att = side(att_raw.as_deref())?;
+                let def = side(def_raw.as_deref())?;
+                if att == "Amount::Fixed(0)" && def == "Amount::Fixed(0)" {
+                    chain.target = saved_target;
+                    return None;
+                }
+                format!(
+                    "Effect::PumpAmount {{ filter: &Filter::This, power: {att}, toughness: {def}, duration: {duration} }}"
+                )
+            }
+            _ => {
+                chain.target = saved_target;
+                return None;
+            }
+        };
+        Some((vec![eff], trailing))
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Wave8Scope {
+    RepeatPlayer,
+    RepeatPermanent,
+    ChosenObject,
+    RevealedObject,
+    Times,
 }

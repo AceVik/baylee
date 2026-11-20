@@ -19,12 +19,14 @@ impl Tx<'_> {
                 .is_some_and(|d| d.trim_start().starts_with("Whenever "));
         p.drop_prose();
         chain.could_add_mana |= api == "Mana";
-        chain.moves_library |= matches!(api.as_str(), "Draw" | "Mill" | "Surveil" | "DigUntil")
-            || (matches!(api.as_str(), "ChangeZone" | "ChangeZoneAll")
-                && (p
-                    .peek("Origin")
-                    .is_some_and(|zones| zones.split(',').any(|zone| zone == "Library"))
-                    != (p.peek("Destination") == Some("Library"))));
+        chain.moves_library |= matches!(
+            api.as_str(),
+            "Draw" | "Mill" | "Surveil" | "DigUntil" | "PeekAndReveal"
+        ) || (matches!(api.as_str(), "ChangeZone" | "ChangeZoneAll")
+            && (p
+                .peek("Origin")
+                .is_some_and(|zones| zones.split(',').any(|zone| zone == "Library"))
+                != (p.peek("Destination") == Some("Library"))));
         let had_second_target = chain.second_target.is_some();
         if api == "Effect"
             && chain.target.is_none()
@@ -118,9 +120,7 @@ impl Tx<'_> {
             return Some(());
         }
         if api == "ChooseColor" {
-            let effects = self.choose_color_animate(p, sub.as_deref(), chain)?;
-            chain.effects.extend(effects);
-            return Some(());
+            return self.choose_color_chain(p, sub.as_deref(), chain);
         }
         if api == "ChooseType" {
             return self.choose_type_chain(p, sub.as_deref(), chain);
@@ -147,9 +147,42 @@ impl Tx<'_> {
             return self.chain_sub_ability(sub, chain);
         }
         if api == "RepeatEach" {
-            let effects = self.repeat_each_effect(p, sub.as_deref(), chain)?;
-            chain.effects.extend(effects);
-            return Some(());
+            return self.repeat_each_chain(p, sub.as_deref(), chain);
+        }
+        if matches!(api.as_str(), "ChooseCard" | "PeekAndReveal" | "Reveal") {
+            let target = local_kicked_target.or_else(|| {
+                if had_second_target {
+                    None
+                } else {
+                    Self::effect_target(chain)
+                }
+            });
+            let targets_a_player =
+                targets_here && target.as_deref() == Some("TargetSpec::Player(PlayerRel::Chosen)");
+            return match api.as_str() {
+                "ChooseCard" => self.choose_card_chain(
+                    p,
+                    sub.as_deref(),
+                    target.as_deref(),
+                    targets_a_player,
+                    chain,
+                ),
+                "PeekAndReveal" => self.peek_and_reveal_chain(
+                    p,
+                    sub.as_deref(),
+                    target.as_deref(),
+                    targets_a_player,
+                    chain,
+                ),
+                "Reveal" => self.reveal_from_hand_chain(
+                    p,
+                    sub.as_deref(),
+                    target.as_deref(),
+                    targets_a_player,
+                    chain,
+                ),
+                _ => unreachable!(),
+            };
         }
         // The remembered objects are the damage recipients, not this line's
         // original targets. Read their entire lifetime and consumer together;
@@ -545,7 +578,7 @@ impl Tx<'_> {
         }
     }
 
-    fn effect_target(chain: &Chain) -> Option<String> {
+    pub(super) fn effect_target(chain: &Chain) -> Option<String> {
         chain
             .second_target
             .as_deref()
@@ -704,7 +737,23 @@ impl Tx<'_> {
             p.entries.push(("PresentCompare".to_string(), cmp));
         }
         let valid = p.take("ConditionPresent").expect("checked above");
-        let cond = self.present_clause(p, &valid)?;
+        let cond = if !p.has("ConditionDefined")
+            && !p.has("PresentPlayer")
+            && matches!(p.peek("PresentZone"), None | Some("Battlefield"))
+            && Self::is_your_commander_present(&valid)
+        {
+            let cmp = p.take("PresentCompare");
+            p.take("PresentZone");
+            match cmp.as_deref() {
+                None | Some("GE1") => "Condition::ControlYourCommander".to_string(),
+                Some("EQ0") => "Condition::Not(&Condition::ControlYourCommander)".to_string(),
+                Some(other) => {
+                    return self.deny(format!("commander presence compared `{other}`"));
+                }
+            }
+        } else {
+            self.present_clause(p, &valid)?
+        };
         if !p.exhausted() {
             if let Some(key) = p.first_key() {
                 self.note(format!("unclaimed parameter `{api}.{key}`"));
@@ -800,7 +849,7 @@ impl Tx<'_> {
 
     /// Register a fresh target declaration without merging independent instances.
     #[allow(clippy::too_many_lines)]
-    fn chain_target(
+    pub(super) fn chain_target(
         &mut self,
         api: &str,
         p: &mut Params,
@@ -912,6 +961,7 @@ impl Tx<'_> {
                         | "PutCounter"
                         | "CopyPermanent"
                         | "Phases"
+                        | "Goad"
                 ) || (api == "ChangeZone"
                     && (matches!(
                         (p.peek("Origin"), p.peek("Destination")),
@@ -1927,7 +1977,13 @@ impl Tx<'_> {
                 )]
             }
             "Cleanup" => {
-                if p.take("ClearRemembered").as_deref() != Some("True") || !p.exhausted() {
+                let rem = p.take("ClearRemembered");
+                let col = p.take("ClearChosenColor");
+                if !(rem.as_deref() == Some("True") || col.as_deref() == Some("True"))
+                    || rem.as_deref().is_some_and(|v| v != "True")
+                    || col.as_deref().is_some_and(|v| v != "True")
+                    || !p.exhausted()
+                {
                     return None;
                 }
                 vec![]
@@ -2518,6 +2574,50 @@ impl Tx<'_> {
                 }
                 vec!["Effect::TakeExtraTurn".to_string()]
             }
+            "ProtectionAll" => {
+                if target.is_some() || targets_a_player || p.has("Defined") || p.has("ValidPlayers")
+                {
+                    return None;
+                }
+                let valid = p.take("ValidCards")?;
+                let expr = self.filter_expr(&valid)?;
+                let filter = self.body.filter_static("PROT", &expr);
+                let duration = match p.take("Duration").as_deref() {
+                    None => "Duration::UntilEndOfTurn",
+                    Some("Permanent") => "Duration::Indefinitely",
+                    Some(_) => return None,
+                };
+                match p.take("Gains").as_deref() {
+                    Some("Choice") => {
+                        if duration != "Duration::UntilEndOfTurn"
+                            || p.take("Choices").as_deref() != Some("AnyColor")
+                        {
+                            return None;
+                        }
+                        vec![
+                            "Effect::ChooseColor".to_string(),
+                            format!(
+                                "Effect::GrantProtectionFromChosenColorUntilEot {{ filter: &{filter} }}"
+                            ),
+                        ]
+                    }
+                    Some(gains) => {
+                        let mut out = Vec::new();
+                        for part in gains.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                            let from =
+                                self.protection_filter(&format!("Protection from {part}"))?;
+                            out.push(format!(
+                                "Effect::continuous(&{filter}, Modifier::ProtectionFrom(&{from}), {duration})"
+                            ));
+                        }
+                        if out.is_empty() {
+                            return None;
+                        }
+                        out
+                    }
+                    None => return None,
+                }
+            }
             "Protection" => {
                 match (p.take("Defined").as_deref(), target) {
                     (None | Some("Targeted"), Some(_)) => {}
@@ -2593,6 +2693,7 @@ impl Tx<'_> {
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
                 vec![format!("Effect::Poison {{ who: {who}, amount: {n} }}")]
             }
+            "Goad" => self.goad_effect(p, target, targets_a_player)?,
             "WinsGame" => {
                 if target.is_some() || p.take("Defined").as_deref() != Some("You") {
                     return None;
@@ -2849,6 +2950,7 @@ impl Tx<'_> {
 
     /// Wave-7 `CheckSVar$` / `ConditionCheckSVar$` conditions for Wave 6b
     /// alternative-cost & opponent-life-loss clauses.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn wave7_svar_condition(&self, var: &str, cmp: &str) -> Option<String> {
         let raw = self.svars.get(var.trim())?.trim();
         let cmp = cmp.trim();
@@ -2895,6 +2997,68 @@ impl Tx<'_> {
                 }
                 _ => None,
             },
+            "Count$Morbid.1.0" | "Count$Morbid" => match cmp {
+                "GE1" | "EQ1" => Some("Condition::CreaturesDiedThisTurnAtLeast(1)".to_string()),
+                "EQ0" | "LT1" => {
+                    Some("Condition::Not(&Condition::CreaturesDiedThisTurnAtLeast(1))".to_string())
+                }
+                _ => None,
+            },
+            "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature" => {
+                if matches!(cmp, "EQ0" | "LT1") {
+                    Some("Condition::Not(&Condition::CreaturesDiedThisTurnAtLeast(1))".to_string())
+                } else if let Some(n) = cmp
+                    .strip_prefix("GE")
+                    .and_then(|s| s.parse::<u32>().ok())
+                    .filter(|&n| n >= 1)
+                {
+                    Some(format!("Condition::CreaturesDiedThisTurnAtLeast({n})"))
+                } else if let Some(n) = cmp.strip_prefix("GT").and_then(|s| s.parse::<u32>().ok()) {
+                    let min = n.checked_add(1)?;
+                    Some(format!("Condition::CreaturesDiedThisTurnAtLeast({min})"))
+                } else {
+                    None
+                }
+            }
+            "Count$ThisTurnCast_Card.YouCtrl" => match cmp {
+                "EQ0" | "LT1" => Some("Condition::YouCastNoSpellThisTurn".to_string()),
+                "GE1" | "GT0" => {
+                    Some("Condition::Not(&Condition::YouCastNoSpellThisTurn)".to_string())
+                }
+                _ => None,
+            },
+            "Count$ThisTurnCast_Instant.YouCtrl,Sorcery.YouCtrl"
+            | "Count$ThisTurnCast_Sorcery.YouCtrl,Instant.YouCtrl" => match cmp {
+                "GE1" | "GT0" => Some("Condition::CastInstantOrSorceryThisTurn".to_string()),
+                "EQ0" | "LT1" => {
+                    Some("Condition::Not(&Condition::CastInstantOrSorceryThisTurn)".to_string())
+                }
+                _ => None,
+            },
+            "Count$ThisTurnCast_Creature.YouCtrl" => match cmp {
+                "GE1" | "GT0" => Some("Condition::CastCreatureThisTurn".to_string()),
+                "EQ0" | "LT1" => {
+                    Some("Condition::Not(&Condition::CastCreatureThisTurn)".to_string())
+                }
+                _ => None,
+            },
+            "Count$ThisTurnEntered_Battlefield_Creature.YouCtrl" => {
+                if matches!(cmp, "EQ0" | "LT1") {
+                    Some(
+                        "Condition::Not(&Condition::AmountAtLeast(Amount::CreaturesEnteredUnderYourControlThisTurn, 1))"
+                            .to_string(),
+                    )
+                } else {
+                    cmp.strip_prefix("GE")
+                        .and_then(|s| s.parse::<u32>().ok())
+                        .filter(|&n| n >= 1)
+                        .map(|n| {
+                            format!(
+                                "Condition::AmountAtLeast(Amount::CreaturesEnteredUnderYourControlThisTurn, {n})"
+                            )
+                        })
+                }
+            }
             _ => None,
         }
     }

@@ -2213,3 +2213,472 @@ fn wave7_change_zone_dig_tap_untap_and_gain_control_rules() {
         populate.statics
     );
 }
+
+#[test]
+fn wave8b_command_zone_triggers_and_commander_conditions() {
+    let eminence = read(
+        "Name:EminenceCmdr\nTypes:Legendary Creature\nPT:3/3\n\
+         T:Mode$ AttackersDeclared | ValidAttackers$ Creature.YouCtrl | TriggerZones$ Command | \
+         PresentZone$ Command | IsPresent$ Card.StrictlySelf | Execute$ Draw1\n\
+         SVar:Draw1:DB$ Draw | NumCards$ 1",
+    );
+    assert!(
+        eminence.abilities[0].contains("zone = TriggerZone::Command")
+            && eminence.abilities[0].contains("Condition::SourceInZone(ZoneRef::Command)"),
+        "{}",
+        eminence.abilities[0]
+    );
+
+    let both_zones = read(
+        "Name:DualZoneCmdr\nTypes:Legendary Creature\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command,Battlefield | Execute$ Gain1\n\
+         SVar:Gain1:DB$ GainLife | LifeAmount$ 1",
+    );
+    assert!(
+        both_zones.abilities[0].contains("zone = TriggerZone::BattlefieldOrCommand"),
+        "{}",
+        both_zones.abilities[0]
+    );
+
+    let lieutenant = read(
+        "Name:CmdrGuard\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | TriggerZones$ Battlefield | \
+         IsPresent$ Card.IsCommander+YouOwn+YouCtrl | Execute$ Gain2\n\
+         SVar:Gain2:DB$ GainLife | LifeAmount$ 2",
+    );
+    assert!(
+        lieutenant.abilities[0].contains("Condition::ControlYourCommander"),
+        "{}",
+        lieutenant.abilities[0]
+    );
+
+    let cond_spell = read(
+        "Name:CmdrCheckSpell\nManaCost:1 W\nTypes:Instant\n\
+         A:SP$ GainLife | LifeAmount$ 3 | ConditionPresent$ Card.IsCommander+YouOwn+YouCtrl",
+    );
+    assert!(
+        cond_spell.abilities[0].contains("Condition::ControlYourCommander"),
+        "{}",
+        cond_spell.abilities[0]
+    );
+
+    assert!(refused(
+        "Name:BadZone\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Hand | Execute$ G\n\
+         SVar:G:DB$ GainLife | LifeAmount$ 1"
+    ));
+    assert!(refused(
+        "Name:SelfCmdEtb\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | TriggerZones$ Command | Execute$ G\n\
+         SVar:G:DB$ GainLife | LifeAmount$ 1"
+    ));
+    assert!(refused(
+        "Name:BadPresentZone\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Command | \
+         PresentZone$ Library | IsPresent$ Card.StrictlySelf | Execute$ G\n\
+         SVar:G:DB$ GainLife | LifeAmount$ 1"
+    ));
+}
+
+#[test]
+fn wave8b_goad_and_goad_all() {
+    let single = read(
+        "Name:GoadOne\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ Goad | ValidTgts$ Creature",
+    );
+    assert!(
+        single.abilities[0]
+            .contains("Effect::Goad { target: TargetSpec::Object(&Filter::CREATURE) }"),
+        "{}",
+        single.abilities[0]
+    );
+
+    let multi = read(
+        "Name:GoadTwo\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ Goad | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ 2",
+    );
+    assert!(
+        multi.abilities[0].contains("TargetReq::up_to(TargetSpec::Object(&Filter::CREATURE), 2)")
+            && multi.abilities[0].contains("Effect::Goad {"),
+        "{}",
+        multi.abilities[0]
+    );
+
+    let goad_opp = read(
+        "Name:GoadAllOpp\nManaCost:3 R\nTypes:Sorcery\n\
+         A:SP$ Goad | Defined$ Valid Creature.OppCtrl",
+    );
+    assert!(
+        goad_opp.abilities[0].contains("Effect::GoadAll {")
+            && goad_opp.abilities[0].contains("controlled_by: None"),
+        "{}",
+        goad_opp.abilities[0]
+    );
+
+    let goad_player = read(
+        "Name:GoadSeat\nManaCost:3 R\nTypes:Sorcery\n\
+         A:SP$ Goad | ValidTgts$ Player | Defined$ Valid Creature.ControlledBy TargetedPlayer",
+    );
+    assert!(
+        goad_player.abilities[0].contains("Effect::GoadAll {")
+            && goad_player.abilities[0].contains("controlled_by: Some(PlayerRel::Chosen)"),
+        "{}",
+        goad_player.abilities[0]
+    );
+
+    assert!(refused(
+        "Name:PermGoad\nManaCost:2 R\nTypes:Instant\n\
+         A:SP$ Goad | ValidTgts$ Creature | Duration$ Permanent"
+    ));
+    assert!(refused(
+        "Name:RemGoad\nManaCost:2 R\nTypes:Instant\n\
+         A:SP$ Goad | ValidTgts$ Creature | RememberGoaded$ True"
+    ));
+}
+
+#[test]
+fn wave8b_chosen_color_protection_and_sweeps() {
+    let prot_all = read(
+        "Name:ColorShieldAll\nManaCost:W\nTypes:Instant\n\
+         A:SP$ ChooseColor | Defined$ You | SubAbility$ Prot\n\
+         SVar:Prot:DB$ ProtectionAll | ValidCards$ Creature.White+YouCtrl | Gains$ ChosenColor",
+    );
+    assert!(
+        prot_all.abilities[0].contains("Effect::ChooseColor")
+            && prot_all.abilities[0].contains("Effect::GrantProtectionFromChosenColorUntilEot {"),
+        "{}",
+        prot_all.abilities[0]
+    );
+
+    let standalone_choice = read(
+        "Name:GraveShield\nTypes:Creature\nPT:3/3\n\
+         A:AB$ ProtectionAll | Cost$ 2 W | ActivationZone$ Graveyard | ValidCards$ Creature.YouCtrl | Gains$ Choice | Choices$ AnyColor",
+    );
+    assert!(
+        standalone_choice.abilities[0].contains("Effect::ChooseColor")
+            && standalone_choice.abilities[0]
+                .contains("Effect::GrantProtectionFromChosenColorUntilEot {")
+            && standalone_choice.abilities[0].contains("ActivationZone::Graveyard"),
+        "{}",
+        standalone_choice.abilities[0]
+    );
+
+    let bounce_color = read(
+        "Name:ColorBounce\nManaCost:3 U\nTypes:Sorcery\n\
+         A:SP$ ChooseColor | Defined$ You | SubAbility$ Sweep\n\
+         SVar:Sweep:DB$ ChangeZoneAll | ChangeType$ Permanent.ChosenColor | Origin$ Battlefield | Destination$ Hand",
+    );
+    assert!(
+        bounce_color.abilities[0].contains("Effect::ChooseColor")
+            && bounce_color.abilities[0].contains("Effect::ReturnAllToHand {"),
+        "{}",
+        bounce_color.abilities[0]
+    );
+
+    let discard_color = read(
+        "Name:ColorDiscard\nManaCost:2 B B\nTypes:Sorcery\n\
+         A:SP$ ChooseColor | Defined$ You | SubAbility$ Disc\n\
+         SVar:Disc:DB$ Discard | ValidTgts$ Player | Mode$ RevealDiscardAll | DiscardValid$ Card.ChosenColor",
+    );
+    assert!(
+        discard_color.abilities[0].contains("Effect::ChooseColor")
+            && discard_color.abilities[0].contains("Effect::RevealHand {")
+            && discard_color.abilities[0].contains("Effect::DiscardMatching {"),
+        "{}",
+        discard_color.abilities[0]
+    );
+
+    assert!(refused(
+        "Name:BadColorOr\nManaCost:W\nTypes:Instant\n\
+         A:SP$ ChooseColor | Defined$ You | OrColors$ True | SubAbility$ Prot\n\
+         SVar:Prot:DB$ ProtectionAll | ValidCards$ Creature.YouCtrl | Gains$ ChosenColor"
+    ));
+    assert!(refused(
+        "Name:BadProtDur\nManaCost:W\nTypes:Instant\n\
+         A:SP$ ProtectionAll | ValidCards$ Creature.YouCtrl | Gains$ Choice | Choices$ AnyColor | Duration$ Permanent"
+    ));
+}
+
+#[test]
+fn wave8b_repeat_each_domains_and_refusals() {
+    let each_discard = read(
+        "Name:EachDisc\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatPlayers$ Player | RepeatSubAbility$ Disc\n\
+         SVar:Disc:DB$ Discard | Defined$ Player.IsRemembered | NumCards$ 1 | Mode$ TgtChoose",
+    );
+    assert!(
+        each_discard.abilities[0].contains("Effect::RepeatEach { domain: RepeatDomain::EachPlayer")
+            && each_discard.abilities[0]
+                .contains("Effect::DiscardForPlayers { who: PlayerRel::EventPlayer, count: 1 }"),
+        "{}",
+        each_discard.abilities[0]
+    );
+
+    let half_life = read(
+        "Name:OppHalf\nManaCost:4 B\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatPlayers$ Opponent | RepeatSubAbility$ Loss\n\
+         SVar:Loss:DB$ LoseLife | Defined$ Player.IsRemembered | LifeAmount$ Half\n\
+         SVar:Half:PlayerCountRemembered$LifeTotal/HalfUp",
+    );
+    assert!(
+        half_life.abilities[0].contains("RepeatDomain::EachOpponent")
+            && half_life.abilities[0].contains(
+                "Amount::Half { base: &Amount::LifeTotal(PlayerRel::EventPlayer), round_up: true }"
+            ),
+        "{}",
+        half_life.abilities[0]
+    );
+
+    let damage_map = read(
+        "Name:NonbasicBurn\nManaCost:1 R\nTypes:Instant\n\
+         A:SP$ RepeatEach | RepeatPlayers$ Player | RepeatSubAbility$ Burn | DamageMap$ True\n\
+         SVar:Burn:DB$ DealDamage | Defined$ Remembered | NumDmg$ X\n\
+         SVar:X:Count$Valid Land.nonBasic+RememberedPlayerCtrl/Times.2",
+    );
+    assert!(
+        damage_map.abilities[0].contains("Effect::DealDamage {")
+            && damage_map.abilities[0].contains("Amount::Times {")
+            && damage_map.abilities[0].contains("PlayerRel::Recipient"),
+        "{}",
+        damage_map.abilities[0]
+    );
+
+    let wheel = read(
+        "Name:EachWheel\nManaCost:R\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatPlayers$ Player | RepeatSubAbility$ Shuf\n\
+         SVar:Shuf:DB$ ChangeZoneAll | Defined$ Player.IsRemembered | Origin$ Hand | Destination$ Library | LibraryPosition$ -1 | RememberChanged$ True | Shuffle$ True | SubAbility$ DrawX\n\
+         SVar:DrawX:DB$ Draw | Defined$ Player.IsRemembered | NumCards$ X | SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount",
+    );
+    assert!(
+        wheel.abilities[0].contains("Effect::RepeatEach { domain: RepeatDomain::EachPlayer")
+            && wheel.abilities[0]
+                .contains("Effect::ShuffleIntoLibrary { who: PlayerRel::EventPlayer")
+            && wheel.abilities[0].contains("ThisWay::PutIntoLibraryFromHand"),
+        "{}",
+        wheel.abilities[0]
+    );
+
+    let perm_loop = read(
+        "Name:CounterEach\nManaCost:3 G\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatCards$ Creature.YouCtrl | Zone$ Battlefield | RepeatSubAbility$ Put\n\
+         SVar:Put:DB$ PutCounter | Defined$ Remembered | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert!(
+        perm_loop.abilities[0]
+            .contains("RepeatDomain::EachMatchingPermanent(&Filter::YOUR_CREATURE)")
+            && perm_loop.abilities[0].contains("Filter::Reference"),
+        "{}",
+        perm_loop.abilities[0]
+    );
+
+    assert!(refused(
+        "Name:BadZoneRepeat\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatCards$ Creature | Zone$ Exile | RepeatSubAbility$ G\n\
+         SVar:G:DB$ GainLife | LifeAmount$ 1"
+    ));
+    assert!(refused(
+        "Name:BadTgtRepeat\nManaCost:2 R\nTypes:Sorcery\n\
+         A:SP$ RepeatEach | RepeatPlayers$ Player | RepeatSubAbility$ D\n\
+         SVar:D:DB$ DealDamage | ValidTgts$ Any | NumDmg$ 1"
+    ));
+}
+
+#[test]
+fn wave8b_choose_card_battlefield_and_graveyard() {
+    let bf_then = read(
+        "Name:PickPing\nTypes:Creature\nPT:3/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Pick\n\
+         SVar:Pick:DB$ ChooseCard | Choices$ Creature.YouCtrl+Other | ChoiceZone$ Battlefield | SubAbility$ Dmg\n\
+         SVar:Dmg:DB$ DealDamage | Defined$ ChosenCard | NumDmg$ 2 | SubAbility$ Draw1\n\
+         SVar:Draw1:DB$ Draw | ConditionDefined$ ChosenCard | ConditionPresent$ Card | SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearChosenCard$ True",
+    );
+    assert!(
+        bf_then.abilities[0].contains("Effect::ChooseCard {")
+            && bf_then.abilities[0].contains("zone: ChooseZone::Battlefield")
+            && bf_then.abilities[0].contains("min: 0, max: Amount::Fixed(1)")
+            && bf_then.abilities[0].contains("movement: ChooseMove::None")
+            && bf_then.abilities[0].contains("TargetSpec::EventObject"),
+        "{}",
+        bf_then.abilities[0]
+    );
+
+    let gy_reanimate = read(
+        "Name:OppGyPick\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ ChooseCard | ValidTgts$ Opponent | Choices$ Creature.TargetedPlayerOwn | ChoiceZone$ Graveyard | Amount$ 1 | Mandatory$ True | SubAbility$ Move\n\
+         SVar:Move:DB$ ChangeZone | Defined$ ChosenCard | Origin$ Graveyard | Destination$ Battlefield | GainControl$ True",
+    );
+    assert!(
+        gy_reanimate.abilities[0].contains("chooser: PlayerRel::Chosen")
+            && gy_reanimate.abilities[0].contains("zone: ChooseZone::Graveyard(PlayerRel::Chosen)")
+            && gy_reanimate.abilities[0].contains("min: 1, max: Amount::Fixed(1)")
+            && gy_reanimate.abilities[0]
+                .contains("movement: ChooseMove::Battlefield { tapped: false }"),
+        "{}",
+        gy_reanimate.abilities[0]
+    );
+
+    assert!(refused(
+        "Name:BadHandPick\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ ChooseCard | ChoiceZone$ Hand | Choices$ Card.YouOwn | Mandatory$ True | SubAbility$ Move\n\
+         SVar:Move:DB$ ChangeZone | Defined$ ChosenCard | Origin$ Hand | Destination$ Graveyard"
+    ));
+    assert!(refused(
+        "Name:BadRandPick\nManaCost:1 R\nTypes:Sorcery\n\
+         A:SP$ ChooseCard | ChoiceZone$ Battlefield | Choices$ Creature | AtRandom$ True | SubAbility$ Kill\n\
+         SVar:Kill:DB$ Destroy | Defined$ ChosenCard"
+    ));
+    assert!(refused(
+        "Name:BadOppRean\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ ChooseCard | ValidTgts$ Opponent | Choices$ Creature.TargetedPlayerOwn | ChoiceZone$ Graveyard | Mandatory$ True | SubAbility$ Move\n\
+         SVar:Move:DB$ ChangeZone | Defined$ ChosenCard | Origin$ Graveyard | Destination$ Battlefield"
+    ));
+}
+
+#[test]
+fn wave8b_peek_reveal_and_change_zone_sweeps() {
+    let pure_peek = read(
+        "Name:PeekTop\nTypes:Artifact\n\
+         A:AB$ PeekAndReveal | Cost$ 1 | NoReveal$ True",
+    );
+    assert!(
+        pure_peek.abilities[0].contains("Effect::PeekAndReveal {")
+            && pure_peek.abilities[0].contains("reveal_all: false, reveal_chosen: false")
+            && pure_peek.abilities[0].contains("max_pick: 0"),
+        "{}",
+        pure_peek.abilities[0]
+    );
+
+    let kinship = read(
+        "Name:KinshipUnit\nTypes:Creature Elf\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ Kin\n\
+         SVar:Kin:DB$ PeekAndReveal | PeekAmount$ 1 | RevealValid$ Card.sharesCreatureTypeWith | RevealOptional$ True | RememberRevealed$ True | SubAbility$ Gain\n\
+         SVar:Gain:DB$ GainLife | LifeAmount$ 3 | ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ EQ1 | SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        kinship.abilities[0].contains("Effect::PeekAndReveal {")
+            && kinship.abilities[0].contains("reveal_chosen: true")
+            && kinship.abilities[0].contains("if_picked: &[Effect::gain_life(3)]"),
+        "{}",
+        kinship.abilities[0]
+    );
+
+    let hand_or_bottom = read(
+        "Name:TopPickOrBottom\nTypes:Creature\nPT:3/3\n\
+         A:AB$ PeekAndReveal | Cost$ 3 G | PeekAmount$ 1 | RevealValid$ Creature | RevealOptional$ True | RememberRevealed$ True | SubAbility$ ToHand\n\
+         SVar:ToHand:DB$ ChangeZone | Defined$ TopOfLibrary | Origin$ Library | Destination$ Hand | ConditionDefined$ Remembered | ConditionPresent$ Creature | ConditionCompare$ EQ1 | SubAbility$ ToBot\n\
+         SVar:ToBot:DB$ ChangeZone | Defined$ TopOfLibrary | Origin$ Library | Destination$ Library | LibraryPosition$ -1 | ConditionDefined$ Remembered | ConditionPresent$ Creature | ConditionCompare$ EQ0 | SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        hand_or_bottom.abilities[0].contains("picked: PeekPickDest::Hand")
+            && hand_or_bottom.abilities[0]
+                .contains("rest: PeekRestDest::BottomOfLibrary { random: false }"),
+        "{}",
+        hand_or_bottom.abilities[0]
+    );
+
+    let reveal_top = read(
+        "Name:TopCheck\nTypes:Creature\nPT:1/2\n\
+         A:AB$ PeekAndReveal | Cost$ 2 | NoPeek$ True | RememberRevealed$ True | SubAbility$ Unt\n\
+         SVar:Unt:DB$ Untap | Defined$ Self | ConditionDefined$ Remembered | ConditionPresent$ Card.Land | SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert!(
+        reveal_top.abilities[0].contains("Effect::RevealTop {")
+            && reveal_top.abilities[0].contains("if_matches: &[Effect::UntapSelf]"),
+        "{}",
+        reveal_top.abilities[0]
+    );
+
+    let parley = read(
+        "Name:ParleyUnit\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ Par\n\
+         SVar:Par:DB$ PeekAndReveal | Defined$ Player | RememberRevealed$ True | SubAbility$ DrawAll\n\
+         SVar:DrawAll:DB$ Draw | Defined$ Player | SubAbility$ Counter\n\
+         SVar:Counter:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ X | SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Valid Card.nonLand",
+    );
+    assert!(
+        parley.abilities[0].contains("Effect::RepeatEach { domain: RepeatDomain::EachPlayer")
+            && parley.abilities[0].contains("Effect::RevealTop {")
+            && parley.abilities[0].contains("ThisWay::Revealed("),
+        "{}",
+        parley.abilities[0]
+    );
+
+    let reveal_counted = read(
+        "Name:HandCountLife\nManaCost:W\nTypes:Instant\n\
+         A:SP$ Reveal | Defined$ You | RevealValid$ Card.White | AnyNumber$ True | RememberRevealed$ True | SubAbility$ Life\n\
+         SVar:Life:DB$ GainLife | LifeAmount$ X | SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Remembered$Amount/Times.2",
+    );
+    assert!(
+        reveal_counted.abilities[0].contains("Effect::RevealFromHand {")
+            && reveal_counted.abilities[0].contains(
+                "Amount::Times { base: &Amount::ThisWay(ThisWay::Revealed(&Filter::Any)), factor: 2 }"
+            ),
+        "{}",
+        reveal_counted.abilities[0]
+    );
+    assert!(refused(
+        "Name:RandHandRev\nManaCost:U\nTypes:Instant\n\
+         A:SP$ Reveal | Defined$ You | Random$ True"
+    ));
+    assert!(refused(
+        "Name:MandFilteredRev\nManaCost:U\nTypes:Instant\n\
+         A:SP$ Reveal | Defined$ You | RevealValid$ Card.Blue"
+    ));
+}
+
+#[test]
+fn wave8b_change_zone_and_phase_check_svar_sweeps() {
+    let top_tutor = read(
+        "Name:TopTutor\nManaCost:G\nTypes:Instant\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Library | LibraryPosition$ 0 | ChangeType$ Creature | ChangeNum$ 1",
+    );
+    assert!(
+        top_tutor.abilities[0].contains("Find::TOP_OF_LIBRARY"),
+        "{}",
+        top_tutor.abilities[0]
+    );
+
+    let exile_enchanted = read(
+        "Name:ExileHost\nManaCost:1 W\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         A:AB$ ChangeZone | Cost$ 2 W | Defined$ Enchanted | Origin$ Battlefield | Destination$ Exile",
+    );
+    assert!(
+        exile_enchanted
+            .abilities
+            .iter()
+            .any(|a| a.contains("Effect::ExileAll { filter: &Filter::AttachedToBySource")),
+        "{:?}",
+        exile_enchanted.abilities
+    );
+
+    let phase_svar = read(
+        "Name:MorbidPhase\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ End of Turn | TriggerZones$ Battlefield | CheckSVar$ X | SVarCompare$ GE1 | Execute$ D\n\
+         SVar:D:DB$ Draw | NumCards$ 1\n\
+         SVar:X:Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature",
+    );
+    assert!(
+        phase_svar.abilities[0].contains("Condition::CreaturesDiedThisTurnAtLeast(1)"),
+        "{}",
+        phase_svar.abilities[0]
+    );
+
+    assert!(refused(
+        "Name:SacAuraExile\nManaCost:1 W\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         A:AB$ ChangeZone | Cost$ 2 W Sac<1/CARDNAME> | Defined$ Enchanted | Origin$ Battlefield | Destination$ Exile"
+    ));
+    assert!(refused(
+        "Name:BotTutor\nManaCost:G\nTypes:Instant\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Library | LibraryPosition$ -1 | ChangeType$ Creature"
+    ));
+}
