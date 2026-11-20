@@ -358,6 +358,8 @@ const OFFERS_A_CHOICE: &[&str] = &[
     "CopyOnEnter",
     "CopyTargetSpell",
     "CopyTargetAbility",
+    "CopyEventSpellOrAbility",
+    "CopyThisSpell",
     "CopySpell",
     "BottomCardFromHand",
     "OptionalBasicLandSearchFor",
