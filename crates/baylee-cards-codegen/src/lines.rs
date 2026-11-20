@@ -240,6 +240,7 @@ fn reminder_spells_out_an_ability(printed: &str) -> bool {
 pub fn ability_shape(ability: &baylee_cards_dsl::AbilityDef) -> LineShape {
     use baylee_cards_dsl::AbilityDef as A;
     match ability {
+        _ if ability.is_saga_chapter() => LineShape::Chapter,
         A::Loyalty { .. } => LineShape::Loyalty,
         A::ModalActivated { .. } => {
             if ability.is_mana_ability() {
@@ -281,7 +282,6 @@ pub fn ability_shape(ability: &baylee_cards_dsl::AbilityDef) -> LineShape {
                 LineShape::Activated
             }
         }
-        A::SagaChapter { .. } => LineShape::Chapter,
         _ if granted_cost(ability).is_some() => LineShape::Grant,
         _ => LineShape::Other,
     }
@@ -620,6 +620,9 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
             "when there are no",
             "when you have no",
         ],
+        // Saga chapters match via `ability.saga_chapters()` / `chapter_head`
+        // before `Trigger::trigger_words` is consulted.
+        T::Chapter(_) => &[],
     }
 }
 
@@ -765,8 +768,9 @@ pub fn content_fits(ability: &baylee_cards_dsl::AbilityDef, line: &str) -> bool 
         A::Activated { cost, .. }
         | A::ActivatedConditional { cost, .. }
         | A::ModalActivated { cost, .. } => cost_fits(cost, line),
-        A::SagaChapter { chapter, .. } => {
-            chapter_head(line).is_some_and(|chapters| chapters.contains(chapter))
+        _ if ability.is_saga_chapter() => {
+            let wanted = ability.saga_chapters();
+            chapter_head(line).is_some_and(|chapters| wanted.iter().any(|c| chapters.contains(c)))
         }
         A::Triggered { trigger, .. } => {
             let lower = without_reminder(line).to_lowercase();
