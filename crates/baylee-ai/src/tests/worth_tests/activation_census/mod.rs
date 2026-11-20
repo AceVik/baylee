@@ -547,7 +547,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Completing 18 newly readable pool stubs adds 3 activated abilities across
     // Battlefield Medic, Circle of Solace, and Knight of the Reliquary: 1 read
     // and 2 remaining contextual.
-    assert_eq!((read, of), (3223, 4102), "activated/loyalty reader census");
+    // Completing 18 Wave 5 pool stubs adds 4 activated abilities on Pemmin's
+    // Aura: 3 read by the table and 1 remaining contextual.
+    assert_eq!((read, of), (3226, 4106), "activated/loyalty reader census");
 
     // Pin the new readable rows to their cards rather than only to the census.
     for (name, label) in [
