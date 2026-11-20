@@ -6,6 +6,17 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-11-20 — Beat 5: Engine Wave 5b (`cece6d440`), Pass E5 (`50b1377c6`–`5dcba1293`), & Non-Deck Vanguard Exclusion (`0d1e3d5b2`)
+
+- **Engine Wave 5b — Keyword Enforcement, Heroic, Enlist & Bolster (`Reviewed: 2c945f78d`, merged as `cece6d440`, `Reviewed-by: gemini-4-argon-high (#333), pass`):**
+  - Enforced `KeywordSet::WITHER` (`CR 702.80`), `KeywordSet::HORSEMANSHIP` (`CR 702.31b`), `KeywordSet::SKULK` (`CR 702.118`), and `KeywordSet::READ_AHEAD` (`CR 702.155a`) in `keyword_tests::ENFORCED`.
+  - Landed `Trigger::SpellCastTargeting { caster, filter }` / `Trigger::HEROIC` (`CR 207.2c`), `KeywordSet::ENLIST` (`bit 61`) + `Trigger::Enlisted` (`CR 702.154`), and `Effect::Bolster(Amount)` (`AwaitingOp::Bolster` tag `116`, `CR 701.39a`) across `baylee-engine`, `baylee-ai`, `baylee-seat`, `baylee-train`, `baylee-client-core`, `baylee-client`, and `baylee-cards-codegen`.
+  - Extracted `step_begin_words(StepKind)` in `crates/baylee-cards-codegen/src/lines.rs` (`0d1e3d5b2`) to keep `trigger_words` under `clippy::too_many_lines`.
+- **Pass E5 (`+996` generated cards) & Non-Deck Vanguard Exclusion (`50b1377c6` + `5dcba1293` [`PASS` `#334`]; `0d1e3d5b2`):**
+  - Landed Pass E5 (`2021-q2..2023-q2`, holding back *Dune Mover*, *Norn's Choirmaster*, *Geistflame Reservoir*, and *Invasion of Vryn* pending Wave 11b/11c reader fixes).
+  - Caught via `engine::offer_tests::a_face_with_no_mana_cost_has_another_way_out_of_the_hand` that Pass E4b (`6d8713a4b`) had admitted 45 `pvan`/`pmoa` `TypeSet::VANGUARD` cards (`castable_from_hand: true`, no mana cost). Removed all 45 non-deck Vanguard cards (`crates/cards/sets/{1997/src/pvan,2003/src/pmoa}`, `data/card-pool.txt`), reconciled `activation_census` (`(4154, 5326)`), and added `xtask/src/batch.rs::is_non_deck_card_type` so `xtask reach-list`/`batch` skip `Vanguard`, `Plane`, `Scheme`, `Conspiracy`, `Phenomenon`, non-Planeswalker `Dungeon`, `Attraction`, and `Stickers` scripts up front (`docs/mechanics-roadmap.md` §C4/§E1).
+  - Blessed `baylee-seat` precon goldens for *Foundation Breaker* (`5,114` estimated tokens; budget ceiling `5,260 -> 5,300`), leaving `xtask validate` at **`17,824` conforming cards** (**`16,854` finished**: `11,015` `Implemented` + `5,576` `Generated` = **`16,591` playable**, `+ 263` `Partial`, `970` stubs), `fmt --check`, `codegen --tables --check`, `offer_tests` `58/58`, `footprint` `2/2`, `hostile_actions` `15/15`, `gamehost` `9/9 + 38/38`, `cards` `170/170`, `card-tests-verification` `58/58`, `ai` `430/430`, `seat` `138/138`, `train` `84/84`, `codegen lines::` `65/65`, `xtask` `149/149`, and `clippy --all-targets -- -D warnings` `0` warnings.
+
 ## 2026-11-20 — Beat 4: Codegen Wave 10a–10c (`c8b315fd9`, `cc2c50edb`, `5c9deac78`), Wave 9 Stubs (`e29437c24`), & Pass E4b (`6d8713a4b`)
 
 - **Codegen Wave 10a–10c (`Reviewed: ce38954fd 8df62d4de 5d6efb43d`, `Reviewed-by: gemini-4-argon-high (#314, #319, #324), pass`):**
