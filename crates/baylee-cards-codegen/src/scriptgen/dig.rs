@@ -16,7 +16,7 @@
 //! | reveal, may take one matching, rest to a zone | `RevealTopFind` (Malevolent Rumble) |
 //! | exile them all | `ExileTop` (Demonic Consultation) |
 //!
-//! The reference's defaults are read as its `DigEffect` reads them: one
+//! The reference's defaults are read as the reference reads them: one
 //! card moved, to the hand, the rest on the bottom of the library in an
 //! order the player chooses, the cards seen only by the player digging.
 
@@ -64,34 +64,39 @@ impl Tx<'_> {
     ) -> Option<Vec<String>> {
         let defined = p.take("Defined");
         let your_library = !targets_here && matches!(defined.as_deref(), None | Some("You"));
-        let count_raw = p.take("DigNum")?;
+        let Some(count_raw) = p.take("DigNum") else {
+            return self.deny("a `Dig` with no `DigNum$`".to_string());
+        };
         let take = match p.take("ChangeNum").as_deref() {
             None => Take::Exactly(1),
             Some("All") => Take::All,
-            Some(n) => Take::Exactly(
-                self.plain_num(n)
-                    .and_then(|n| u8::try_from(n).ok())
-                    .filter(|&n| n > 0)?,
-            ),
+            Some(n) => match self
+                .plain_num(n)
+                .and_then(|n| u8::try_from(n).ok())
+                .filter(|&n| n > 0)
+            {
+                Some(n) => Take::Exactly(n),
+                None => return self.deny(format!("a `Dig` moving `ChangeNum$ {n}` cards")),
+            },
         };
-        let optional = flag(p.take("Optional").as_deref())?;
-        let reveal = flag(p.take("Reveal").as_deref())?;
+        let optional = self.dig_flag(p, "Optional")?;
+        let reveal = self.dig_flag(p, "Reveal")?;
         // Keeps the reference from revealing a card a filter picked; with
         // no filter, nothing picked is revealed anyway.
-        let no_reveal = flag(p.take("NoReveal").as_deref())?;
-        let random = flag(p.take("RestRandomOrder").as_deref())?;
+        let no_reveal = self.dig_flag(p, "NoReveal")?;
+        let random = self.dig_flag(p, "RestRandomOrder")?;
         // The reference's way of making sure the activating player sees the
         // cards, which the player looking at their own library does here.
-        let force_reveal = flag(p.take("ForceRevealToController").as_deref())?;
-        let tapped = flag(p.take("Tapped").as_deref())?;
-        let first = match p.take("DestinationZone").as_deref() {
-            None | Some("Hand") if !tapped => First::Hand,
-            Some("Battlefield") => First::Battlefield { tapped },
-            Some("Exile") if !tapped => First::Exile,
-            _ => {
-                return self
-                    .deny("a `Dig` destination other than hand, battlefield or exile".to_string());
+        let force_reveal = self.dig_flag(p, "ForceRevealToController")?;
+        let tapped = self.dig_flag(p, "Tapped")?;
+        let first = match (p.take("DestinationZone").as_deref(), tapped) {
+            (None | Some("Hand"), false) => First::Hand,
+            (Some("Battlefield"), tapped) => First::Battlefield { tapped },
+            (Some("Exile"), false) => First::Exile,
+            (None | Some("Hand" | "Exile"), true) => {
+                return self.deny("`Tapped$` on a `Dig` to the hand or exile".to_string());
             }
+            (Some(zone), _) => return self.deny(format!("a `Dig` destination `{zone}`")),
         };
         let rest_zone = p.take("DestinationZone2");
         let rest_position = p.take("LibraryPosition2");
@@ -101,7 +106,13 @@ impl Tx<'_> {
             (None | Some("Library"), Some("0")) => Rest::Top,
             (Some("Graveyard"), None) => Rest::Move("SearchDest::Graveyard"),
             (Some("Exile"), None) => Rest::Move("SearchDest::Exile"),
-            _ => return self.deny("a `Dig` remainder put elsewhere".to_string()),
+            (zone, position) => {
+                return self.deny(format!(
+                    "a `Dig` remainder put into `{}` at position `{}`",
+                    zone.unwrap_or("Library"),
+                    position.unwrap_or("-1")
+                ));
+            }
         };
         let valid = p.take("ChangeValid");
 
@@ -119,6 +130,12 @@ impl Tx<'_> {
             {
                 return self.deny("a `Dig` that exiles some of the cards".to_string());
             }
+            // A library is a player's: a line that targets an object names
+            // no library, and reading its absent `Defined$` as "you" would
+            // exile the wrong one.
+            if targets_here && !targets_a_player {
+                return self.deny("a `Dig` exile on a line that targets an object".to_string());
+            }
             let who = self.player_of_line(defined.as_deref(), target, targets_a_player)?;
             let count = self.dig_count(&count_raw)?;
             return Some(vec![format!(
@@ -126,7 +143,14 @@ impl Tx<'_> {
             )]);
         }
         if !your_library {
-            return self.deny("a `Dig` of another player's library".to_string());
+            return self.deny(match (targets_here, defined.as_deref()) {
+                (true, _) => "a `Dig` of a targeted player's library".to_string(),
+                (false, Some("Player")) => "a `Dig` of every player's library".to_string(),
+                (false, other) => format!(
+                    "a `Dig` of the library of `Defined$ {}`",
+                    other.unwrap_or_default()
+                ),
+            });
         }
         if first == First::Exile {
             return self.deny("a `Dig` that exiles the cards it picks".to_string());
@@ -150,6 +174,9 @@ impl Tx<'_> {
                         "Effect::LookAtTopPickThenReorder {{ count: {count}, pick: {pick} }}"
                     )])
                 }
+                (_, _, _, _, Rest::Top) if random => {
+                    self.deny("a `Dig` whose rest goes back on top in a random order".to_string())
+                }
                 (_, _, _, _, Rest::Move(_)) => {
                     self.deny("a `Dig` pick whose rest goes to the graveyard or exile".to_string())
                 }
@@ -167,6 +194,14 @@ impl Tx<'_> {
         let filter = self.filter_expr_in_zone(&valid, true)?;
         let name = self.body.filter_static("DIG", &filter);
         let fixed_count = count_raw.parse::<u8>().ok().filter(|&n| n > 0);
+        let fixed = |this: &Self| -> Option<u8> {
+            if fixed_count.is_none() {
+                this.note(format!(
+                    "a `Dig` of `DigNum$ {count_raw}` cards into an effect that counts a number"
+                ));
+            }
+            fixed_count
+        };
         let find = match first {
             First::Battlefield { tapped: false } => "Find::BATTLEFIELD",
             First::Battlefield { tapped: true } => "Find::BATTLEFIELD_TAPPED",
@@ -194,7 +229,7 @@ impl Tx<'_> {
             // cards revealed this way into your hand and the rest on the
             // bottom of your library in any order."
             (Take::All, true, false, Rest::Bottom) if !random => {
-                let count = fixed_count?;
+                let count = fixed(self)?;
                 Some(vec![format!(
                     "Effect::RevealTopAllMatching {{ count: {count}, filter: &{name}, found: {find} }}"
                 )])
@@ -205,7 +240,7 @@ impl Tx<'_> {
             (Take::Exactly(1), true, true, Rest::Move(otherwise))
                 if !random && first == First::Hand =>
             {
-                let count = fixed_count?;
+                let count = fixed(self)?;
                 Some(vec![format!(
                     "Effect::RevealTopFind {{ found: {find}, count: {count}, filter: &{name}, otherwise: {otherwise} }}"
                 )])
@@ -214,13 +249,13 @@ impl Tx<'_> {
             // creature card from among them and put it into your hand. Put
             // the rest on the bottom of your library in a random order."
             (Take::Exactly(1), false, true, Rest::Bottom) => {
-                let count = fixed_count?;
+                let count = fixed(self)?;
                 Some(vec![format!(
                     "Effect::LookAtTopFind {{ found: {find}, count: {count}, filter: &{name}, random: {random} }}"
                 )])
             }
             _ => self.deny(format!(
-                "a `Dig` that {} and moves {} matching to {}, the rest {}",
+                "a `Dig` that {} and moves {} matching to {}, the rest {}{}",
                 if reveal { "reveals" } else { "looks" },
                 match (take, optional) {
                     (Take::All, _) => "every card".to_string(),
@@ -238,6 +273,7 @@ impl Tx<'_> {
                     Rest::Move("SearchDest::Graveyard") => "into the graveyard",
                     Rest::Move(_) => "into exile",
                 },
+                if random { " in a random order" } else { "" },
             )),
         }
     }
@@ -253,15 +289,15 @@ impl Tx<'_> {
         let n = self.amount_or_count(raw)?;
         (n != "Amount::Fixed(0)").then_some(n)
     }
-}
 
-/// A `Key$ True` flag: absent is `false`, `True` is `true`, and any other
-/// value is refused (the reference tests these keys by presence, so a
-/// written `False` would mean `true` to it).
-fn flag(value: Option<&str>) -> Option<bool> {
-    match value {
-        None => Some(false),
-        Some("True") => Some(true),
-        Some(_) => None,
+    /// A `Key$ True` flag: absent is `false`, `True` is `true`, and any other
+    /// value is refused by name (the reference tests these keys by presence,
+    /// so a written `False` would mean `true` to it).
+    fn dig_flag(&self, p: &mut Params, key: &str) -> Option<bool> {
+        match p.take(key).as_deref() {
+            None => Some(false),
+            Some("True") => Some(true),
+            Some(other) => self.deny(format!("`{key}$ {other}` on a `Dig`")),
+        }
     }
 }

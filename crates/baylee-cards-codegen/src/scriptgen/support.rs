@@ -79,6 +79,7 @@ pub(super) const CLUE_TOKEN_SCRIPT: &str = "c_a_clue_draw";
 /// still needs cannot drift from what the transcoder actually reads.
 pub const SUPPORTED_APIS: &[&str] = &[
     "DealDamage",
+    "Dig",
     "GainLife",
     "LoseLife",
     "Draw",

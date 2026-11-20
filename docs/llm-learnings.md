@@ -8199,3 +8199,11 @@ beneath it. What the author missed, for the next brief:
 - Reclaim previews of the hand-written Impulse, Raven Familiar, Goblin
   Ringleader, Diabolic Vision and Call of the Wild reproduce their effects;
   they were not reclaimed here.
+- Review (baylee-81, Claude Opus 5.5): no card read wrong. Fixed after it:
+  `Dig` was missing from `SUPPORTED_APIS`, so a value the reader could not
+  read reported "effect `Dig`"; three refusals named the wrong shape (a
+  tapped destination, a random order back on top, every player's library);
+  an exile of a line that targets an object fell back to "you"; three test
+  fixtures were corpus lines verbatim. Sarkhan's Dragonfire is a corpus gap
+  (its script lacks the printed random order) and is held back. A test
+  fixture is written, never copied, even when it is one line.
