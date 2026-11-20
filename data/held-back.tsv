@@ -40,6 +40,7 @@ ac136d46-32b7-4222-a840-b8be011c1872	Zethi, Arcane Blademaster	engine-gap: Amoun
 b2402ac0-8ab8-413c-bac4-9f4ba2163c58	Behold the Beyond	engine-gap: quantity-only search (CR 701.23d) may not settle for fewer
 b44d3fe8-b1e2-4abb-ab82-7a516a1db1e5	Keldon Warcaller	engine-gap: lore counters require AI guard regression first (#166)
 0f12aec9-5898-4261-bebd-1b545e0aea68	Mind Unbound	engine-gap: lore counters require AI guard regression first (#166)
+9fceca3c-fc10-4e46-a727-122aafcef349	Cruel Sadist	engine-gap: RemoveCounterSelfX + target announces X before target (CR 601.2b/c)
 
 # Fixture gaps
 29ae5540-5fdf-48be-86ba-b4db0fe19f6c	Vapor Snare	fixture-gap: Aura upkeep bounce; fixture plays creatures only

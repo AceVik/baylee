@@ -33,6 +33,7 @@ never a reason to edit a card by hand.
 - Kolaghan's Command, Silumgar's Command: target in more than two modes.
 - Behold the Beyond: a quantity-only search (CR 701.23d) that may not settle for fewer.
 - Keldon Warcaller, Mind Unbound: lore counters; the AI guard wants a regression first (#166).
+- Cruel Sadist: `RemoveCounterSelfX` paired with a target asks for X before showing legal targets (CR 601.2b/c; flagged by `lints::tests::costs::no_cost_announces_a_number_on_an_ability_that_also_targets`).
 
 ## Fixture gaps (the card may be right; the pool-wide test cannot place it)
 
