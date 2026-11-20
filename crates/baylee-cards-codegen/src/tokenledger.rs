@@ -318,8 +318,37 @@ pub fn assign(
 /// `name:"EldraziSpawn"` on both sides alike, so two definitions agree
 /// exactly when they agreed before. Nothing here may be shown to anybody.
 fn same_definition(a: &str, b: &str) -> bool {
-    let bare = |s: &str| -> String { s.chars().filter(|c| !c.is_whitespace()).collect() };
-    bare(a) == bare(b)
+    let normalize = |s: &str| -> String {
+        let bare: String = s.chars().filter(|c| !c.is_whitespace()).collect();
+        let mut out = String::with_capacity(bare.len());
+        let mut in_str = false;
+        let mut escaped = false;
+        let mut chars = bare.chars().peekable();
+        while let Some(c) = chars.next() {
+            if in_str {
+                out.push(c);
+                if escaped {
+                    escaped = false;
+                } else if c == '\\' {
+                    escaped = true;
+                } else if c == '"' {
+                    in_str = false;
+                }
+                continue;
+            }
+            if c == '"' {
+                in_str = true;
+                out.push(c);
+            } else if c == ',' && matches!(chars.peek(), Some(']' | ')' | '}')) {
+                // rustfmt inserts trailing commas when wrapping multi-line arrays/structs.
+                continue;
+            } else {
+                out.push(c);
+            }
+        }
+        out
+    };
+    normalize(a) == normalize(b)
 }
 
 /// Renders the ledger as `crates/cards/src/generated_tokens.rs`.
@@ -649,6 +678,22 @@ mod tests {
         let again = [generated("ELDRAZI_SPAWN_0_1", built)];
         let out = assign(existing, &[], &again).expect("one token, two spellings");
         assert_eq!(out.len(), 1);
+
+        let wrapped = "TokenDef {\n    name: \"Phyrexian Mite\",\n    abilities: &[\n        \
+                       AbilityDef::Toxic { poison: 1 },\n        \
+                       static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::CANT_BLOCK)),\n    ],\n}";
+        let inline = "TokenDef {\n    name: \"Phyrexian Mite\",\n    abilities: &[AbilityDef::Toxic { poison: 1 }, \
+                      static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::CANT_BLOCK))],\n}";
+        let mite_existing = vec![Entry {
+            constant: "PHYREXIAN_MITE_ARTIFACT_1_1_TOXIC_1_A789D9A47".into(),
+            body: Body::Generated {
+                doc: "1/1 colorless artifact Phyrexian Mite.".into(),
+                literal: wrapped.into(),
+                modules: vec!["creature".into()],
+            },
+        }];
+        let mite_again = [generated("PHYREXIAN_MITE_ARTIFACT_1_1_TOXIC_1_A789D9A47", inline)];
+        assert_eq!(assign(mite_existing, &[], &mite_again).expect("trailing comma matches").len(), 1);
     }
 
     /// A hand-written token that has been deleted takes its id with it, and
