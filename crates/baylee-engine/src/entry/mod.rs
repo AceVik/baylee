@@ -8,6 +8,7 @@ mod counters;
 mod departure;
 mod equilibrium;
 mod forms;
+mod sagas;
 mod tapping;
 #[cfg(feature = "test-support")]
 pub use choices::{advance, answer, next_question};
@@ -84,6 +85,7 @@ struct Attempt {
     sacrifices: Option<u32>,
     chosen_number: Option<u8>,
     battle_protector: Option<PlayerId>,
+    saga_chapter: Option<u8>,
     counters: Vec<(Option<PlayerId>, CounterKind, u16)>,
     counter_plans: Vec<crate::replacement::counter_order::CounterPlacementPlan>,
     counters_prepared: bool,
@@ -160,6 +162,8 @@ enum Question {
     Amplify {
         factor: u8,
     },
+    /// Read-ahead starting chapter choice (CR 702.155b, CR 715.3b).
+    ReadAhead,
 }
 
 impl Hash for Entries {
@@ -325,7 +329,9 @@ pub(crate) fn defer(
     let copy = copy_clause(state, id);
     let external = equilibrium::exists(state);
     let aura = auras::needs_choice(state, id);
-    let counter_entry = counters::needs_entry(state, id) || battles::needs_entry(state, id);
+    let counter_entry = counters::needs_entry(state, id)
+        || battles::needs_entry(state, id)
+        || sagas::needs_entry(state, id);
     state.entries.counter_transaction |= counter_entry;
     if !aura
         && !external
@@ -373,6 +379,7 @@ pub(crate) fn defer(
         sacrifices: None,
         chosen_number: None,
         battle_protector: None,
+        saga_chapter: None,
         counters: Vec::new(),
         counter_plans: Vec::new(),
         counters_prepared: false,

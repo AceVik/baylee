@@ -906,6 +906,11 @@ pub enum Trigger {
         /// Filter on the cycled card.
         filter: &'static Filter,
     },
+    /// One or more chapter numbers of a Saga (CR 715.2, CR 715.2c): triggers
+    /// when the number of lore counters on this Saga moves from below a listed
+    /// chapter number to at or above it (or equals it on the Saga's entry turn
+    /// while this Saga has read ahead, CR 702.155a).
+    Chapter(&'static [u8]),
 }
 
 impl Trigger {
@@ -1309,6 +1314,48 @@ impl AbilityDef {
                 ..
             } if crate::mana_rule::could_add_mana(effects)
         )
+    }
+
+    /// The Saga chapter numbers (1-based) this ability represents, if it is a
+    /// chapter ability on the battlefield (CR 715.2, CR 715.2c).
+    #[must_use]
+    pub const fn saga_chapters(&self) -> &[u8] {
+        match self {
+            Self::SagaChapter { chapter, .. } => core::slice::from_ref(chapter),
+            Self::Triggered {
+                trigger: Trigger::Chapter(chapters),
+                zone: TriggerZone::Battlefield,
+                ..
+            }
+            | Self::ModalTriggered {
+                trigger: Trigger::Chapter(chapters),
+                zone: TriggerZone::Battlefield,
+                ..
+            } => chapters,
+            _ => &[],
+        }
+    }
+
+    /// Whether this ability is a Saga chapter ability (CR 715.2).
+    #[must_use]
+    pub const fn is_saga_chapter(&self) -> bool {
+        !self.saga_chapters().is_empty()
+    }
+
+    /// The greatest chapter number named by this ability, or `0` if it is not
+    /// a Saga chapter ability (CR 715.2d).
+    #[must_use]
+    pub const fn max_saga_chapter(&self) -> u8 {
+        let chapters = self.saga_chapters();
+        let mut max = 0;
+        let mut i = 0;
+        while i < chapters.len() {
+            if chapters[i] > max {
+                max = chapters[i];
+            }
+            i += 1;
+        }
+        max
     }
 }
 

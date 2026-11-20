@@ -171,6 +171,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 crate::state::DelayedAction::Trigger { .. }
                     | crate::state::DelayedAction::PrintedTrigger { .. }
                     | crate::state::DelayedAction::TriggerAbout { .. }
+                    | crate::state::DelayedAction::GeneralTrigger(_)
                     | crate::state::DelayedAction::LinkedCounterCleanup { .. }
                     | crate::state::DelayedAction::ReturnExiledGroup { .. }
                     | crate::state::DelayedAction::DrawStepLifeLoss { .. }
@@ -447,6 +448,52 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 false
             }
+            crate::state::DelayedAction::GeneralTrigger(spec) => {
+                let rem = spec.remembered.unwrap_or_default();
+                let identity = rem.identity.map(|(ver, old_power)| {
+                    let live_power = rem.object.and_then(|obj| {
+                        self.state
+                            .object(obj)
+                            .filter(|o| o.version == ver)
+                            .and_then(|o| o.characteristics().power)
+                    });
+                    (ver, live_power.unwrap_or(old_power))
+                });
+                let event_ref = rem
+                    .object
+                    .zip(identity.map(|(v, _)| v))
+                    .map(|(object, version)| baylee_core::ids::DamageSourceRef { object, version });
+                if !crate::eval::intervening_if_for_incarnation(
+                    &self.state,
+                    spec.condition.copied(),
+                    controller,
+                    spec.source,
+                    Some(spec.source_version),
+                    None,
+                    event_ref,
+                ) {
+                    return false;
+                }
+                self.queue_delayed_trigger(
+                    controller,
+                    spec.source,
+                    spec.effects,
+                    rem.object,
+                    Some(spec.source_version),
+                    spec.text,
+                );
+                if let Some(trigger) = self.trigger_queue.back_mut() {
+                    trigger.synthetic_target = spec.targets;
+                    trigger.synthetic_condition = spec.condition;
+                    trigger.event_object_identity = identity;
+                    trigger.event_departure = rem.departure;
+                    trigger.event_mana_value = rem.mana_value;
+                    trigger.event_player = rem.player;
+                    trigger.event_amount = rem.amount;
+                    trigger.event_subject = rem.subject;
+                }
+                false
+            }
         }
     }
 
@@ -486,6 +533,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 synthetic_effects: Some(effects),
                 once_per_turn: false,
                 synthetic_target: None,
+                synthetic_condition: None,
                 chosen_mode: None,
                 in_chosen_order: false,
             });

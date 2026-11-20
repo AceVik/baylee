@@ -54,6 +54,8 @@ fn immediate_branches(effect: &Effect) -> (&'static [Effect], &'static [Effect])
         Effect::GrantTriggeredIfAbsent { .. }
         | Effect::CreateDelayedObserver { .. }
         | Effect::Reflexive { .. }
+        | Effect::ReflexiveTrigger { .. }
+        | Effect::RegisterDelayedTrigger { .. }
         | Effect::ScheduleLinkedCounterCleanup { .. }
         | Effect::AtNextEndStep { .. }
         | Effect::AtNextTurnsUpkeep { .. }

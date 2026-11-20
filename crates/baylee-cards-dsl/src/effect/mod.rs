@@ -59,6 +59,135 @@ pub enum CombatWatchEvent {
     AttacksAndIsntBlocked,
 }
 
+/// Which object(s) from the current resolution a reflexive or delayed trigger
+/// captures as its event binding (`TargetSpec::EventObject`, LKI power/toughness,
+/// mana value, controller) when created (CR 603.7c, CR 603.12).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum TriggerRemember {
+    /// No remembered object from the creating resolution (an event-based delayed
+    /// trigger may still bind the future event's own object when it fires).
+    None,
+    /// The source incarnation of the resolving spell or ability.
+    Source,
+    /// The first surviving chosen target of the resolving spell or ability.
+    FirstTarget,
+    /// Register or queue one trigger separately for each surviving chosen target.
+    EachTarget,
+    /// The resolving ability's own `EventObject`.
+    EventObject,
+    /// The resolving ability's `EventSubject`.
+    EventSubject,
+    /// Register or queue one trigger separately for each token created earlier
+    /// in this resolution (`ThisWayEntry::CreatedToken`).
+    EachCreatedToken,
+    /// The object(s) sacrificed earlier in this resolution (by cost or effect),
+    /// preserving departure LKI power/toughness/controller.
+    SacrificedObject,
+    /// Register or queue one trigger separately for each card exiled earlier in
+    /// this resolution (`ThisWayEntry::Exiled`).
+    EachExiledThisWay,
+}
+
+/// What gates an on-resolution reflexive stack trigger (CR 603.12).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ReflexiveWhen {
+    /// Fires unconditionally as this instruction resolves ("When …" / immediate
+    /// reflexive trigger inside a resolved branch, CR 603.12).
+    Always,
+    /// Fires when the resolution caused a [`ReflexiveEvent`].
+    Event(ReflexiveEvent),
+    /// Fires when the resolution recorded at least one matching [`ThisWay`]
+    /// action ("when one or more … this way" with `once: true`, or "whenever a
+    /// … this way" per occurrence with `once: false`, CR 603.12a).
+    ThisWay(ThisWay),
+    /// Fires when the resolution tapped at least one permanent matching the
+    /// filter (`ThisWayEntry::Tapped`).
+    Tapped(&'static Filter),
+}
+
+/// Which step of a turn a delayed triggered ability (`Effect::RegisterDelayedTrigger`)
+/// waits for (CR 603.7).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DelayedStep {
+    /// Beginning of the upkeep step (CR 503.1).
+    Upkeep,
+    /// Beginning of the draw step (CR 504.2).
+    Draw,
+    /// Beginning of the next main phase (precombat or postcombat, CR 505.1).
+    MainPhase,
+    /// Beginning of combat step (CR 507.1).
+    CombatBegin,
+    /// Beginning of the end of combat step (CR 511.1).
+    CombatEnd,
+    /// Beginning of the end step (CR 513.1).
+    EndStep,
+    /// Beginning of the cleanup step (CR 514.3a).
+    Cleanup,
+}
+
+/// Lifetime and firing multiplicity of an event-driven delayed triggered ability
+/// (CR 603.7b–c).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DelayedDuration {
+    /// Fires at most once, whenever the event next occurs (no turn limit, CR 603.7b).
+    OneShot,
+    /// Fires at most once during the current turn, expiring at cleanup (CR 603.7b).
+    OneShotThisTurn,
+    /// Fires each time the event occurs during the current turn, expiring at cleanup (CR 603.7c).
+    ThisTurn,
+    /// Fires each time the event occurs during the current combat phase, expiring at end of combat.
+    ThisCombat,
+    /// Fires each time the event occurs until the controller's next turn begins.
+    UntilYourNextTurn,
+    /// Fires each time the event occurs for the rest of the game (or until a watched
+    /// battlefield incarnation leaves, CR 400.7).
+    Indefinitely,
+}
+
+/// When a delayed triggered ability registered by [`Effect::RegisterDelayedTrigger`]
+/// triggers (CR 603.7).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DelayedTriggerWhen {
+    /// At the beginning of a named step (CR 603.7a).
+    AtStep {
+        /// Which step begins.
+        step: DelayedStep,
+        /// Whose turn the step must belong to (`None` = the next such step of
+        /// any turn; `Some(PlayerRel::You)` = your next such step; etc.).
+        whose: Option<PlayerRel>,
+        /// If `true`, expires at cleanup if the step was not reached this turn
+        /// ("at end of combat this turn", CR 603.7b).
+        this_turn_only: bool,
+        /// If `true`, triggers every time that step begins rather than only once.
+        recurring: bool,
+    },
+    /// When/whenever a [`crate::Trigger`] event occurs (CR 603.7a–c).
+    ///
+    /// When `watch` names an object (e.g. `FirstTarget`, `Source`,
+    /// `EachCreatedToken`), `Filter::This` inside `trigger` refers to that exact
+    /// watched incarnation, and if that incarnation leaves the battlefield
+    /// without satisfying `trigger`, a battlefield watch expires per CR 400.7.
+    OnTrigger {
+        /// Trigger event matched against future game events.
+        trigger: &'static crate::Trigger,
+        /// Optional watched object(s); registers one delayed watch per resolved
+        /// object when `EachTarget` / `EachCreatedToken` / `EachExiledThisWay`.
+        watch: TriggerRemember,
+        /// Whether it fires once or repeatedly, and when it expires.
+        duration: DelayedDuration,
+    },
+    /// One-shot state/control observation on a watched permanent (e.g. leaves
+    /// battlefield or untaps, or controller loses control).
+    OnObservation {
+        /// Watched permanent(s).
+        watch: TriggerRemember,
+        /// Observation condition.
+        observation: DelayedObservation,
+        /// Expire at cleanup if unobserved this turn.
+        this_turn_only: bool,
+    },
+}
+
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
@@ -4406,6 +4535,50 @@ pub enum Effect {
         sources: &'static Filter,
         /// Restrict to combat damage (`true`) or any damage (`false`).
         combat_only: bool,
+    },
+    /// Put one or more reflexive triggered abilities onto the stack when the
+    /// resolving spell or ability finishes resolving (CR 603.12, CR 603.12a,
+    /// CR 603.4). Appended to preserve replay identities.
+    ReflexiveTrigger {
+        /// What action earlier in this resolution gates the trigger (`Always`
+        /// for unconditional "When …" reflexive triggers inside a branch).
+        when: ReflexiveWhen,
+        /// When `true`, fires at most once even if multiple objects matched
+        /// ("when one or more …"); when `false`, fires once per matched
+        /// occurrence ("whenever a … this way", CR 603.12a).
+        once: bool,
+        /// Optional intervening-`if` clause checked both when queuing and when
+        /// resolving (CR 603.4).
+        condition: Option<&'static crate::Condition>,
+        /// Target requirement chosen as the reflexive trigger goes onto the
+        /// stack (CR 603.12, CR 603.3d).
+        targets: Option<TargetReq>,
+        /// Which object(s) from this resolution become the reflexive trigger's
+        /// remembered `EventObject` / LKI binding (`TriggerRemember::None` uses
+        /// the matched `when` object when one exists).
+        remember: TriggerRemember,
+        /// Instructions of the reflexive triggered ability.
+        effects: &'static [Effect],
+    },
+    /// Register one or more delayed triggered abilities during resolution
+    /// (CR 603.7a–h, CR 603.4). Appended to preserve replay identities.
+    RegisterDelayedTrigger {
+        /// Step, event, or observation that triggers the delayed ability, plus
+        /// its duration and multiplicity.
+        when: DelayedTriggerWhen,
+        /// Optional intervening-`if` clause checked both when the delayed
+        /// ability triggers and when it resolves (CR 603.4).
+        condition: Option<&'static crate::Condition>,
+        /// Target requirement chosen when the delayed ability goes onto the
+        /// stack (CR 603.7d, CR 603.3d).
+        targets: Option<TargetReq>,
+        /// Remembered object(s) from the creating resolution bound onto the
+        /// delayed trigger (`TargetSpec::EventObject` / LKI); for `OnTrigger`
+        /// with `TriggerRemember::None`, the future triggering event's own
+        /// object/player/amount are bound instead.
+        remember: TriggerRemember,
+        /// Instructions executed when the delayed triggered ability resolves.
+        effects: &'static [Effect],
     },
 }
 

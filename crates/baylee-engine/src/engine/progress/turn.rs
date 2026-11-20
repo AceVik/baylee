@@ -141,6 +141,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 && matches!(
                     d.when,
                     crate::state::DelayedWhen::CreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn { .. }
+                        | crate::state::DelayedWhen::OnEvent {
+                            duration: baylee_cards_dsl::DelayedDuration::UntilYourNextTurn,
+                            ..
+                        }
                 ))
         });
         self.state.play_permissions.retain_mut(|permission| {
@@ -426,6 +430,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 i += 1;
             }
         }
+        self.queue_at_step(baylee_cards_dsl::DelayedStep::Upkeep);
     }
 
     /// The name a synthetic ability on the stack goes by: its source's, or,
@@ -531,6 +536,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 i += 1;
             }
         }
+        self.queue_at_step(baylee_cards_dsl::DelayedStep::MainPhase);
     }
 
     /// Whether `id` is a Saga.
@@ -546,7 +552,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         self.state.object(id).is_some_and(|o| {
             o.abilities(&self.lookup)
                 .iter()
-                .any(|a| matches!(a, baylee_cards_dsl::AbilityDef::SagaChapter { .. }))
+                .any(baylee_cards_dsl::AbilityDef::is_saga_chapter)
         })
     }
 
@@ -583,9 +589,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         })
                         && o.printed_abilities(&self.lookup)
                             .get(loc.index as usize)
-                            .is_some_and(|a| {
-                                matches!(a, baylee_cards_dsl::AbilityDef::SagaChapter { .. })
-                            })
+                            .is_some_and(baylee_cards_dsl::AbilityDef::is_saga_chapter)
                 })
             })
     }
@@ -601,11 +605,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             || self.trigger_queue.iter().any(|trigger| {
                 trigger.source == source
                     && trigger.source_version == Some(version)
-                    && matches!(
-                        self.trigger_abilities(trigger)
-                            .get(trigger.ability_index as usize),
-                        Some(baylee_cards_dsl::AbilityDef::SagaChapter { .. })
-                    )
+                    && self
+                        .trigger_abilities(trigger)
+                        .get(trigger.ability_index as usize)
+                        .is_some_and(baylee_cards_dsl::AbilityDef::is_saga_chapter)
             })
     }
 
@@ -674,10 +677,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 let max = o
                     .abilities(&self.lookup)
                     .iter()
-                    .filter_map(|a| match a {
-                        baylee_cards_dsl::AbilityDef::SagaChapter { chapter, .. } => Some(*chapter),
-                        _ => None,
-                    })
+                    .map(baylee_cards_dsl::AbilityDef::max_saga_chapter)
                     .max()
                     .unwrap_or(0);
                 max > 0 && o.counters.get(baylee_cards_dsl::CounterKind::Lore) >= u16::from(max)
@@ -734,6 +734,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(crate) fn queue_end_step_delayed(&mut self) {
         self.queue_delayed_at(crate::state::DelayedWhen::NextEndStep);
         self.queue_delayed_at(crate::state::DelayedWhen::NextYourEndStep);
+        self.queue_at_step(baylee_cards_dsl::DelayedStep::EndStep);
     }
 
     /// Queues the delayed triggers that wait for "end of combat": they
@@ -742,6 +743,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(crate) fn queue_end_of_combat_delayed(&mut self) {
         self.queue_delayed_at(crate::state::DelayedWhen::EndOfCombat);
         self.queue_delayed_at(crate::state::DelayedWhen::EndOfCombatThisTurn);
+        self.queue_at_step(baylee_cards_dsl::DelayedStep::CombatEnd);
     }
 
     /// End advance-payment windows before the turn-based draw or its replacement.
@@ -778,6 +780,39 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .push_back((trigger.controller, trigger.action));
             } else {
                 i += 1;
+            }
+        }
+    }
+
+    /// Queue every [`DelayedWhen::AtStep`] matching `step` and the active turn's player.
+    pub(super) fn queue_at_step(&mut self, step: baylee_cards_dsl::DelayedStep) {
+        let active = self.state.turn.active;
+        let mut i = 0;
+        while i < self.state.delayed.len() {
+            let matches_step = match self.state.delayed[i].when {
+                crate::state::DelayedWhen::AtStep {
+                    step: s,
+                    players,
+                    recurring,
+                    ..
+                } if s == step && players.is_none_or(|set| set.contains(active)) => Some(recurring),
+                _ => None,
+            };
+            match matches_step {
+                Some(true) => {
+                    let trigger = self.state.delayed[i].clone();
+                    i += 1;
+                    self.delayed_queue
+                        .push_back((trigger.controller, trigger.action));
+                }
+                Some(false) => {
+                    let trigger = self.state.delayed.remove(i);
+                    self.delayed_queue
+                        .push_back((trigger.controller, trigger.action));
+                }
+                None => {
+                    i += 1;
+                }
             }
         }
     }

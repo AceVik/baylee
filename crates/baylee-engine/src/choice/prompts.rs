@@ -522,6 +522,12 @@ pub enum NumberPrompt {
         /// The cost paid each time.
         cost: baylee_core::mana::ManaCost,
     },
+    /// Starting chapter number (`1..=final_chapter`) chosen as a Saga with read
+    /// ahead enters the battlefield (CR 702.155b, CR 715.3b).
+    ReadAhead {
+        /// The entering Saga object.
+        saga: ObjectId,
+    },
 }
 
 /// Why a [`Pending::ChooseTargets`] is presented (UI hint).

@@ -1848,6 +1848,10 @@ impl Builder<'_, '_> {
                 "How many times do you pay its multikicker? Each time costs {cost} more, and \
                  zero is not kicked at all. Fewer than the mana you floated is a legal answer"
             ),
+            NumberPrompt::ReadAhead { saga } => format!(
+                "Choose the starting chapter for {} (read ahead)",
+                table.named(*saga)
+            ),
             NumberPrompt::CombatDamage { .. } => combat_division_words(table, reason),
             NumberPrompt::DivideDamage {
                 target,

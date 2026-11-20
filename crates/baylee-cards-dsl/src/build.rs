@@ -435,6 +435,25 @@ impl StaticParts {
     }
 }
 
+const SINGLE_CHAPTERS: [&[u8]; 16] = [
+    &[0],
+    &[1],
+    &[2],
+    &[3],
+    &[4],
+    &[5],
+    &[6],
+    &[7],
+    &[8],
+    &[9],
+    &[10],
+    &[11],
+    &[12],
+    &[13],
+    &[14],
+    &[15],
+];
+
 /// The parts of an [`AbilityDef::SagaChapter`], with rules defaults.
 #[derive(Clone, Copy, Debug)]
 pub struct SagaChapterParts {
@@ -444,6 +463,10 @@ pub struct SagaChapterParts {
     pub effects: &'static [Effect],
     /// What it targets, if anything.
     pub targets: Option<TargetReq>,
+    /// A second instance of the word "target", if the chapter prints one.
+    pub second_targets: Option<TargetReq>,
+    /// An intervening-`if` clause on the chapter trigger, if printed (CR 603.4).
+    pub condition: Option<Condition>,
 }
 
 impl SagaChapterParts {
@@ -455,16 +478,39 @@ impl SagaChapterParts {
             chapter,
             effects,
             targets: None,
+            second_targets: None,
+            condition: None,
         }
     }
 
-    /// Turns the parts into the ability.
+    /// Turns the parts into the ability, preserving [`AbilityDef::SagaChapter`]
+    /// for plain single-chapter abilities and producing [`Trigger::Chapter`]
+    /// when `second_targets` or `condition` is specified.
+    ///
+    /// # Panics
+    ///
+    /// When `second_targets` or `condition` is set on a chapter number `>= 16`.
     #[must_use]
     pub const fn build(self) -> AbilityDef {
-        AbilityDef::SagaChapter {
-            chapter: self.chapter,
-            effects: self.effects,
-            targets: self.targets,
+        if self.second_targets.is_none() && self.condition.is_none() {
+            AbilityDef::SagaChapter {
+                chapter: self.chapter,
+                effects: self.effects,
+                targets: self.targets,
+            }
+        } else {
+            let idx = self.chapter as usize;
+            assert!(idx < SINGLE_CHAPTERS.len(), "saga chapter out of range");
+            AbilityDef::Triggered {
+                trigger: Trigger::Chapter(SINGLE_CHAPTERS[idx]),
+                zone: TriggerZone::Battlefield,
+                effects: self.effects,
+                targets: self.targets,
+                second_targets: self.second_targets,
+                once_per_turn: false,
+                condition: self.condition,
+                resolves_if_targets_illegal: false,
+            }
         }
     }
 }
@@ -926,6 +972,24 @@ macro_rules! chapter {
     };
 }
 
+/// Multiple chapter symbols sharing one Saga ability (CR 715.2c):
+/// `chapters!(&[1, 2], effects)`.
+///
+/// ```ignore
+/// chapters!(&[1, 2], &[Effect::scry(1)])
+/// chapters!(&[2, 3], EFFECTS, targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))
+/// ```
+#[macro_export]
+macro_rules! chapters {
+    ($chapters:expr, $effects:expr $(, $field:ident = $value:expr)* $(,)?) => {
+        $crate::TriggeredParts {
+            $($field: $value,)*
+            ..$crate::TriggeredParts::new($crate::Trigger::Chapter($chapters), $effects)
+        }
+        .build()
+    };
+}
+
 /// Equip (CR 702.6): `equip!("{2}")`.
 ///
 /// Every part of an equip ability except the cost comes from the keyword's
@@ -1031,10 +1095,11 @@ pub mod prelude {
     pub use crate::counters;
     pub use crate::effect::{
         Amount, ColorSubject, CombatWatchEvent, CounterKind, DamageRedirectTo, DamageTo,
-        DelayedObservation, DivisionAmount, Effect, ExilePlay, ExileUntil, Find, LookRest,
-        ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
-        PlayWindow, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetChooser, TargetReq,
-        TargetSlot, TargetSpec, ThisWay, TokenDef, ZoneSel,
+        DelayedDuration, DelayedObservation, DelayedStep, DelayedTriggerWhen, DivisionAmount,
+        Effect, ExilePlay, ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction,
+        ManaSource, ManaUse, ManaValueBound, ManaValueCmp, PlayWindow, PlayerRel, ReflexiveEvent,
+        ReflexiveWhen, SearchDest, SpendRider, TargetChooser, TargetReq, TargetSlot, TargetSpec,
+        ThisWay, TokenDef, TriggerRemember, ZoneSel,
     };
     pub use crate::filter::{Filter, OriginalExpansion, ZoneRef};
     pub use crate::static_ability::{
@@ -1047,7 +1112,7 @@ pub mod prelude {
     };
     pub use crate::{SpecialActionCost, SpecialActionEffect, SpecialActionTiming, TextWordKind};
     pub use crate::{
-        activated, card, chapter, cost, crew, equip, f, face, loyalty, mana_ability,
+        activated, card, chapter, chapters, cost, crew, equip, f, face, loyalty, mana_ability,
         modal_activated, modal_triggered, mode, saddle, spell, static_ability, triggered,
     };
     pub use baylee_core::color::{Color, ColorSet};

@@ -599,6 +599,101 @@ impl HeuristicAgent {
         )
     }
 
+    /// Starting chapter choice for a Saga with read ahead (CR 702.155b):
+    /// scores each candidate `c in min..=max` as chapter `c` now plus a
+    /// discounted sum of chapters `(c + 1)..=max` on future turns, falling
+    /// back to `min` when any chapter cannot be priced.
+    pub(crate) fn read_ahead_chapter(
+        &self,
+        view: &PlayerView,
+        saga: ObjectId,
+        min: u32,
+        max: u32,
+    ) -> u32 {
+        if min >= max {
+            return min;
+        }
+        let origin = Origin::of(view, saga);
+        let card_idx = origin
+            .object
+            .and_then(|o| o.rules.map(|r| r.card).or_else(|| o.card.map(|c| c.index)))
+            .or_else(|| {
+                view.hand
+                    .iter()
+                    .find(|c| c.id == saga)
+                    .map(|c| c.card.index)
+            });
+        let Some(def) = card_idx.and_then(baylee_cards::by_index) else {
+            return min;
+        };
+        let face = origin
+            .object
+            .and_then(|o| o.rules.map(|r| usize::from(r.face)))
+            .unwrap_or(0);
+        let abilities = def.abilities_for_face(face);
+        let chapter_worth = |ch_num: u8| -> Option<i64> {
+            let mut sum = 0i64;
+            for ability in abilities {
+                if !ability.saga_chapters().contains(&ch_num) {
+                    continue;
+                }
+                let val = match ability {
+                    AbilityDef::SagaChapter {
+                        effects, targets, ..
+                    }
+                    | AbilityDef::Triggered {
+                        effects,
+                        targets,
+                        second_targets: None,
+                        ..
+                    } => match targets {
+                        None => self.effects_worth(view, origin, effects, Aim::Source, 0)?,
+                        Some(req) => {
+                            let candidates = self.aims(view, origin, &req.spec)?;
+                            if candidates.len() < usize::from(req.min) {
+                                0
+                            } else {
+                                let mut best = (req.min == 0).then_some(0i64);
+                                for aim in candidates {
+                                    let w = self.effects_worth(view, origin, effects, aim, 0)?;
+                                    best = Some(best.map_or(w, |b| b.max(w)));
+                                }
+                                best.unwrap_or(0)
+                            }
+                        }
+                    },
+                    _ => return None,
+                };
+                sum = sum.saturating_add(val);
+            }
+            Some(sum)
+        };
+        let mut per_chapter = Vec::with_capacity((max - min + 1) as usize);
+        for c in min..=max {
+            let Ok(ch) = u8::try_from(c) else {
+                return min;
+            };
+            let Some(val) = chapter_worth(ch) else {
+                return min;
+            };
+            per_chapter.push((c, val));
+        }
+        let mut best_chapter = min;
+        let mut best_score = i64::MIN;
+        for (idx, &(c, now)) in per_chapter.iter().enumerate() {
+            let future: i64 = per_chapter[idx + 1..]
+                .iter()
+                .map(|&(_, v)| v)
+                .fold(0i64, i64::saturating_add);
+            let score = now.saturating_add(future.saturating_mul(3) / 4);
+            if score > best_score {
+                best_score = score;
+                best_chapter = c;
+            }
+        }
+        best_chapter
+    }
+
     fn effects_worth_in(
         &self,
         view: &PlayerView,
@@ -1523,6 +1618,41 @@ impl HeuristicAgent {
                 | Effect::WhenTargetLeavesBattlefieldThisTurn { .. }
                 | Effect::WhenSourceLeavesBattlefieldThisTurn { .. }
                 | Effect::CreateDelayedObserver { .. }
+                | Effect::ReflexiveTrigger {
+                    targets: Some(_),
+                    ..
+                }
+                | Effect::ReflexiveTrigger {
+                    remember: baylee_cards_dsl::TriggerRemember::Source
+                        | baylee_cards_dsl::TriggerRemember::FirstTarget
+                        | baylee_cards_dsl::TriggerRemember::EachTarget
+                        | baylee_cards_dsl::TriggerRemember::EventObject
+                        | baylee_cards_dsl::TriggerRemember::EventSubject
+                        | baylee_cards_dsl::TriggerRemember::EachCreatedToken
+                        | baylee_cards_dsl::TriggerRemember::SacrificedObject
+                        | baylee_cards_dsl::TriggerRemember::EachExiledThisWay,
+                    ..
+                }
+                | Effect::RegisterDelayedTrigger {
+                    targets: Some(_),
+                    ..
+                }
+                | Effect::RegisterDelayedTrigger {
+                    remember: baylee_cards_dsl::TriggerRemember::Source
+                        | baylee_cards_dsl::TriggerRemember::FirstTarget
+                        | baylee_cards_dsl::TriggerRemember::EachTarget
+                        | baylee_cards_dsl::TriggerRemember::EventObject
+                        | baylee_cards_dsl::TriggerRemember::EventSubject
+                        | baylee_cards_dsl::TriggerRemember::EachCreatedToken
+                        | baylee_cards_dsl::TriggerRemember::SacrificedObject
+                        | baylee_cards_dsl::TriggerRemember::EachExiledThisWay,
+                    ..
+                }
+                | Effect::RegisterDelayedTrigger {
+                    when: baylee_cards_dsl::DelayedTriggerWhen::OnTrigger { .. }
+                        | baylee_cards_dsl::DelayedTriggerWhen::OnObservation { .. },
+                    ..
+                }
                 | Effect::DestroyAllThenForEachDestroyed { .. }
                 | Effect::ForEachCreatureDamagedBySourceThatDiedThisTurn { .. }
                 | Effect::ForEachTarget { .. }

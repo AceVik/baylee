@@ -97,7 +97,8 @@
 // Effect::branches; the composite mana/life payment has paid and unpaid arms.
 // AtNextEndStepForCreatedTokens adds one walker-tested delayed-effect body.
 // PlayerMayPayLifeThen adds one walker-tested successful-payment body.
-const NESTING_FIELDS: usize = 89;
+// ReflexiveTrigger and RegisterDelayedTrigger add one walker-tested body each.
+const NESTING_FIELDS: usize = 91;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -160,7 +161,9 @@ const NESTING_FIELDS: usize = 89;
 /// sixty-ninth carriers. `AtNextEndStepForCreatedTokens` is the eightieth.
 /// `PlayerMayPayLifeThen` is the eighty-first; its successful-payment effects
 /// are walked by `life_payment_outcomes_are_visited`.
-const CARRYING_VARIANTS: usize = 81;
+/// `ReflexiveTrigger` and `RegisterDelayedTrigger` are the eighty-second and
+/// eighty-third (`reflexive_and_registered_delayed_trigger_bodies_are_visited`).
+const CARRYING_VARIANTS: usize = 83;
 
 /// The floor under the reader itself.
 ///

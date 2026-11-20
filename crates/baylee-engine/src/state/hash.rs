@@ -1523,6 +1523,10 @@ fn hash_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             h.u8(79);
             player.hash(h);
         }
+        crate::object::Rider::SyntheticCondition(condition) => {
+            h.u8(96);
+            condition.hash(h);
+        }
         _ => {}
     }
 }
@@ -2258,6 +2262,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::MergedComponent(comp) => {
                 h.u8(86);
                 comp.hash(h);
+            }
+            Rider::SyntheticCondition(condition) => {
+                h.u8(96);
+                condition.hash(h);
             }
         }
     }

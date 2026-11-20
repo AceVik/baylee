@@ -183,13 +183,21 @@ pub fn encode_ability_def(ab: &AbilityDef) -> [f32; ABILITY_DSL_WIDTH] {
             targets,
             ..
         } => {
-            out[2] = 1.0;
+            if matches!(trigger, Trigger::Chapter(_)) {
+                out[7] = 1.0;
+            } else {
+                out[2] = 1.0;
+            }
             encode_trigger_into(trigger, &mut out[22..32]);
             targ = targets.as_ref();
             walk_effects(effects, &mut ch);
         }
         AbilityDef::ModalTriggered { trigger, modes, .. } => {
-            out[2] = 1.0;
+            if matches!(trigger, Trigger::Chapter(_)) {
+                out[7] = 1.0;
+            } else {
+                out[2] = 1.0;
+            }
             encode_trigger_into(trigger, &mut out[22..32]);
             for mode in *modes {
                 if targ.is_none() {
@@ -382,6 +390,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         Trigger::CountersPlaced { .. }
         | Trigger::CountersReach { .. }
         | Trigger::LastCounterRemoved { .. }
+        | Trigger::Chapter(_)
         | Trigger::Discarded { .. }
         | Trigger::DiscardedThisByOpponent
         | Trigger::CycledThis

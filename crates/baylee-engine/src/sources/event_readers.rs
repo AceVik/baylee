@@ -193,6 +193,18 @@ fn reads_event(effect: &Effect) -> bool {
         Effect::MustBlockIfAble {
             blocker, attacker, ..
         } => reads_target(*blocker) || reads_target(*attacker),
+        Effect::ReflexiveTrigger {
+            targets, remember, ..
+        }
+        | Effect::RegisterDelayedTrigger {
+            targets, remember, ..
+        } => {
+            matches!(
+                remember,
+                baylee_cards_dsl::TriggerRemember::EventObject
+                    | baylee_cards_dsl::TriggerRemember::EventSubject
+            ) || targets.is_some_and(|req| reads_target(req.spec))
+        }
         Effect::SetPTFilter {
             power, toughness, ..
         }

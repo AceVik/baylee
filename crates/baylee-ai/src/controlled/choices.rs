@@ -427,6 +427,8 @@ impl HeuristicAgent {
             }
             // Every kick makes their spell better, so they get none.
             NumberPrompt::Multikicker { .. } => Some(min),
+            // Skipping earlier chapters denies them every chapter before the final one.
+            NumberPrompt::ReadAhead { .. } => Some(max),
             _ => None,
         }
     }

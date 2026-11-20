@@ -678,9 +678,9 @@ impl HeuristicAgent {
         match kind {
             CounterKind::Lore => {
                 let last = abilities
-                    .filter_map(|a| match a {
-                        AbilityDef::SagaChapter { chapter, .. } => Some(u16::from(*chapter)),
-                        _ => None,
+                    .filter_map(|a| {
+                        let m = a.max_saga_chapter();
+                        (m > 0).then(|| u16::from(m))
                     })
                     .max();
                 match last {

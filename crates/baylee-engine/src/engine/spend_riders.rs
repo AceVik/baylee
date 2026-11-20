@@ -111,6 +111,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             synthetic_target: None,
             once_per_turn: false,
             chosen_mode: None,
+            synthetic_condition: None,
             in_chosen_order: false,
         });
     }
@@ -172,6 +173,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             synthetic_target: None,
             once_per_turn: false,
             chosen_mode: None,
+            synthetic_condition: None,
             in_chosen_order: false,
         });
     }

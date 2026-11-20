@@ -228,6 +228,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .riders
                     .push(crate::object::Rider::EventPlayer(player));
             }
+            if let Some(condition) = trigger.synthetic_condition {
+                object
+                    .riders
+                    .push(crate::object::Rider::SyntheticCondition(condition));
+            }
             object.target_req = bound;
         }
     }
@@ -398,6 +403,66 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         false
     }
 
+    fn prune_spent_delayed_watches(state: &mut crate::state::GameState, scan_from: usize) {
+        let entries = &state.journal.entries()[scan_from..];
+        let on_event_consumed: smallvec::SmallVec<[bool; 4]> = if state
+            .delayed
+            .iter()
+            .any(|d| matches!(d.when, crate::state::DelayedWhen::OnEvent { .. }))
+        {
+            state
+                .delayed
+                .iter()
+                .map(|d| trigger::on_event_watch_consumed(state, entries, d))
+                .collect()
+        } else {
+            smallvec::SmallVec::new()
+        };
+        let arena = &state.arena;
+        let mut watch_idx = 0usize;
+        state.delayed.retain(|d| {
+            let consumed = on_event_consumed.get(watch_idx).copied().unwrap_or(false);
+            watch_idx += 1;
+            if consumed {
+                return false;
+            }
+            match d.when {
+                crate::state::DelayedWhen::Observed { watch, .. }
+                | crate::state::DelayedWhen::ObservedGeneral { watch, .. } => {
+                    arena.get(watch.object).is_some_and(|o| {
+                        o.zone == crate::zone::Zone::Battlefield && o.version == watch.version
+                    }) && !d.when.observation_fired(entries, d.controller)
+                }
+                crate::state::DelayedWhen::DiesOrIsExiled { card, version, .. }
+                | crate::state::DelayedWhen::DiesThisTurn { card, version, .. }
+                | crate::state::DelayedWhen::DealtDamageThisTurn { card, version, .. }
+                | crate::state::DelayedWhen::LeavesBattlefield { card, version, .. }
+                | crate::state::DelayedWhen::LeavesBattlefieldThisTurn { card, version, .. }
+                | crate::state::DelayedWhen::AttacksAndIsntBlockedThisTurn {
+                    card, version, ..
+                } => arena.get(card).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield && o.version == version
+                }),
+                crate::state::DelayedWhen::LeavesBattlefieldOrUntaps {
+                    card,
+                    version,
+                    after,
+                } => {
+                    arena.get(card).is_some_and(|o| {
+                        o.zone == crate::zone::Zone::Battlefield && o.version == version
+                    }) && !entries.iter().any(|entry| {
+                        entry.seq > after
+                            && matches!(
+                                entry.event,
+                                GameEvent::ObjectUntapped { object, .. } if object == card
+                            )
+                    })
+                }
+                _ => true,
+            }
+        });
+    }
+
     /// Remember event-time abilities before a state-based action removes them.
     pub(super) fn queue_new_triggers(&mut self) {
         if self.loop_control.is_breaking() {
@@ -443,38 +508,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // the scan just fired it or the object left some other way: the
         // object it watched no longer exists (CR 400.7, 603.7b). Here and
         // not in the scan, which reads the state and writes nothing.
-        let arena = &self.state.arena;
-        let entries = &self.state.journal.entries()[scan_from as usize..];
-        self.state.delayed.retain(|d| match d.when {
-            crate::state::DelayedWhen::Observed { watch, .. } => {
-                arena.get(watch.object).is_some_and(|o| {
-                    o.zone == crate::zone::Zone::Battlefield && o.version == watch.version
-                }) && !d.when.observation_fired(entries, d.controller)
-            }
-            crate::state::DelayedWhen::DiesOrIsExiled { card, version, .. }
-            | crate::state::DelayedWhen::DiesThisTurn { card, version, .. }
-            | crate::state::DelayedWhen::DealtDamageThisTurn { card, version, .. }
-            | crate::state::DelayedWhen::LeavesBattlefield { card, version, .. }
-            | crate::state::DelayedWhen::LeavesBattlefieldThisTurn { card, version, .. }
-            | crate::state::DelayedWhen::AttacksAndIsntBlockedThisTurn { card, version, .. } => {
-                arena.get(card).is_some_and(|o| {
-                    o.zone == crate::zone::Zone::Battlefield && o.version == version
-                })
-            }
-            crate::state::DelayedWhen::LeavesBattlefieldOrUntaps {
-                card,
-                version,
-                after,
-            } => {
-                arena.get(card).is_some_and(|o| {
-                    o.zone == crate::zone::Zone::Battlefield && o.version == version
-                }) && !entries.iter().any(|entry| {
-                    entry.seq > after
-                        && matches!(entry.event, GameEvent::ObjectUntapped { object, .. } if object == card)
-                })
-            }
-            _ => true,
-        });
+        Self::prune_spent_delayed_watches(&mut self.state, scan_from as usize);
         self.trigger_queue.extend(found);
         // State triggers (CR 603.8) read the state, not the journal, so they
         // are looked for on every pass, and an ability that is still waiting
@@ -1016,23 +1050,33 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let Some(loc) = obj.ability else {
             return false;
         };
-        if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
+        let condition = if loc.index == baylee_core::ids::AbilityRef::SYNTHETIC {
+            obj.riders
+                .iter()
+                .find_map(|rider| match rider {
+                    crate::object::Rider::SyntheticCondition(cond) => Some(**cond),
+                    _ => None,
+                })
+                .filter(|c| !matches!(c, baylee_cards_dsl::Condition::Station(_)))
+        } else {
+            let abilities = obj.own_abilities.as_ref().map_or_else(
+                || {
+                    self.state
+                        .object(loc.source)
+                        .map_or(crate::copiable_abilities::AbilityDefs::EMPTY, |o| {
+                            o.printed_abilities(&self.lookup)
+                        })
+                },
+                crate::copiable_abilities::AbilityDefs::from,
+            );
+            abilities
+                .get(loc.index as usize)
+                .and_then(crate::trigger::intervening_clause)
+                .filter(|c| !matches!(c, baylee_cards_dsl::Condition::Station(_)))
+        };
+        if condition.is_none() {
             return false;
         }
-        let abilities = obj.own_abilities.as_ref().map_or_else(
-            || {
-                self.state
-                    .object(loc.source)
-                    .map_or(crate::copiable_abilities::AbilityDefs::EMPTY, |o| {
-                        o.printed_abilities(&self.lookup)
-                    })
-            },
-            crate::copiable_abilities::AbilityDefs::from,
-        );
-        let condition = abilities
-            .get(loc.index as usize)
-            .and_then(crate::trigger::intervening_clause)
-            .filter(|c| !matches!(c, baylee_cards_dsl::Condition::Station(_)));
         let version = obj
             .riders
             .iter()

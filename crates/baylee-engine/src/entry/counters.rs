@@ -90,13 +90,6 @@ fn prepare(state: &mut GameState, entry: &mut Attempt) {
         0
     };
     collect_modifier_counters(state, entry, &prospective, from_stack, x);
-    if prospective
-        .abilities(state.bases.as_ref())
-        .iter()
-        .any(|ability| matches!(ability, AbilityDef::SagaChapter { .. }))
-    {
-        entry.counters.push((None, CounterKind::Lore, 1));
-    }
     if let Some(values) = crate::layers::copiable_values(state, entry.object)
         && values
             .types
@@ -125,6 +118,14 @@ fn prepare(state: &mut GameState, entry: &mut Attempt) {
         .store(projection.characteristics, &prospective.base);
     prospective.controller = projection.controller;
     entry.controller = projection.controller;
+    if prospective
+        .abilities(state.bases.as_ref())
+        .iter()
+        .any(AbilityDef::is_saga_chapter)
+    {
+        let lore = u16::from(entry.saga_chapter.unwrap_or(1));
+        entry.counters.push((None, CounterKind::Lore, lore));
+    }
     if let Some(defense) = crate::battle::intrinsic_defense(&prospective) {
         entry.counters.push((None, CounterKind::Defense, defense));
     }

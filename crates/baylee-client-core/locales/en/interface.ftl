@@ -3498,6 +3498,14 @@ ChooseCounters = How many { $counter }? ({ $min }–{ $max })
 # Arguments: counter, target, min, max
 ChooseCountersNamed = How many { $counter } on { $target }? ({ $min }–{ $max })
 
+# Starting chapter chosen as a Saga with read ahead enters (CR 702.155b).
+# Arguments: min, max
+ChooseReadAheadChapter = Read ahead: choose starting chapter ({ $min }–{ $max })
+
+# Starting chapter with the Saga named.
+# Arguments: target, min, max
+ChooseReadAheadChapterNamed = Read ahead for { $target }: choose starting chapter ({ $min }–{ $max })
+
 # Choose a number ($min–$max)
 # Arguments: min, max
 ChooseNumberIn = Choose a number ({ $min }–{ $max })

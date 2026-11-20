@@ -93,6 +93,7 @@ pub(super) fn collect_emblems(
                                 once_per_turn: firing.once_per_turn,
                                 synthetic_target: None,
                                 chosen_mode: None,
+                                synthetic_condition: None,
                                 in_chosen_order: false,
                             });
                         }

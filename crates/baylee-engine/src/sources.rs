@@ -940,7 +940,12 @@ impl GameState {
             }
         }
         for delayed in &self.delayed {
-            if let DelayedWhen::Observed { watch, .. } = delayed.when {
+            if let DelayedWhen::Observed { watch, .. }
+            | DelayedWhen::ObservedGeneral { watch, .. }
+            | DelayedWhen::OnEvent {
+                watch: Some(watch), ..
+            } = delayed.when
+            {
                 out.insert(watch);
             }
             if let DelayedWhen::DiesOrIsExiled { card, version, .. }
@@ -1078,6 +1083,24 @@ fn is_prevention(modifier: &Modifier) -> bool {
     )
 }
 
+fn general_trigger_references(
+    spec: &crate::state::DelayedTriggerSpec,
+    out: &mut BTreeSet<DamageSourceRef>,
+) {
+    out.insert(DamageSourceRef {
+        object: spec.source,
+        version: spec.source_version,
+    });
+    if let Some(rem) = spec.remembered {
+        if let (Some(object), Some((version, _))) = (rem.object, rem.identity) {
+            out.insert(DamageSourceRef { object, version });
+        }
+        if let Some(subject) = rem.subject {
+            out.insert(subject);
+        }
+    }
+}
+
 /// Every incarnation a delayed action names; also what a forked simulation
 /// checks for hidden cards (`GameState::audit_fork`).
 pub(crate) fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<DamageSourceRef>) {
@@ -1121,6 +1144,7 @@ pub(crate) fn delayed_references(action: &DelayedAction, out: &mut BTreeSet<Dama
             });
             out.insert(DamageSourceRef { object, version });
         }
+        DelayedAction::GeneralTrigger(ref spec) => general_trigger_references(spec, out),
         DelayedAction::LinkedCounterCleanup {
             source: object,
             version,

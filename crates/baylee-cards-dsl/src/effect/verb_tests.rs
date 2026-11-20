@@ -894,3 +894,38 @@ fn ltb_and_sacrifice_then_bodies_are_visited() {
     assert_eq!(inner_seen, 10);
     assert_eq!(seen, 20);
 }
+
+#[test]
+fn reflexive_and_registered_delayed_trigger_bodies_are_visited() {
+    static EFFECTS: &[Effect] = &[
+        Effect::ReflexiveTrigger {
+            when: crate::ReflexiveWhen::Always,
+            once: true,
+            condition: None,
+            targets: None,
+            remember: crate::TriggerRemember::None,
+            effects: &[Effect::SacrificeSelf],
+        },
+        Effect::RegisterDelayedTrigger {
+            when: crate::DelayedTriggerWhen::AtStep {
+                step: crate::DelayedStep::EndStep,
+                whose: None,
+                this_turn_only: false,
+                recurring: false,
+            },
+            condition: None,
+            targets: None,
+            remember: crate::TriggerRemember::None,
+            effects: &[Effect::SacrificeSelf],
+        },
+    ];
+    let mut seen = 0;
+    let mut inner_seen = 0;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        if matches!(effect, Effect::SacrificeSelf) {
+            inner_seen += 1;
+        }
+    });
+    assert_eq!(inner_seen, 2);
+    assert_eq!(seen, 4);
+}

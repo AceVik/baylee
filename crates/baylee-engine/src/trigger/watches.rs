@@ -14,6 +14,7 @@ use baylee_core::ids::{ObjectId, PlayerId};
 
 mod observers;
 mod recurring;
+pub(crate) use recurring::on_event_watch_consumed;
 
 /// Storm and replicate retain the announced count in one instruction.
 static CAST_COPIES: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::CopyThisSpell {
@@ -99,6 +100,7 @@ pub fn state_triggers(
                 once_per_turn: firing.once_per_turn,
                 synthetic_target: None,
                 chosen_mode: None,
+                synthetic_condition: None,
                 in_chosen_order: false,
             });
         }
@@ -187,6 +189,7 @@ pub(super) fn cast_copy_triggers(
                 once_per_turn: false,
                 synthetic_target: None,
                 chosen_mode: None,
+                synthetic_condition: None,
                 in_chosen_order: false,
             });
         }
@@ -235,12 +238,18 @@ pub(super) fn watch_triggers(
     static TAWNOSS_RETURN: &[baylee_cards_dsl::Effect] =
         &[baylee_cards_dsl::Effect::ReturnTawnossCoffinExile];
     for watch in &state.delayed {
-        if let crate::state::DelayedWhen::Observed { .. } = watch.when {
+        if let crate::state::DelayedWhen::Observed { .. }
+        | crate::state::DelayedWhen::ObservedGeneral { .. } = watch.when
+        {
             if watch.when.observation_fired(events, watch.controller)
                 && let Some(trigger) = observers::trigger(state, watch)
             {
                 triggers.push(trigger);
             }
+            continue;
+        }
+        if let crate::state::DelayedWhen::OnEvent { .. } = watch.when {
+            recurring::collect_general(state, events, watch, triggers);
             continue;
         }
         if let (
@@ -290,6 +299,7 @@ pub(super) fn watch_triggers(
                     once_per_turn: false,
                     synthetic_target: None,
                     chosen_mode: None,
+                    synthetic_condition: None,
                     in_chosen_order: false,
                 });
             }
@@ -405,6 +415,7 @@ pub(super) fn watch_triggers(
             once_per_turn: false,
             synthetic_target: None,
             chosen_mode: None,
+            synthetic_condition: None,
             in_chosen_order: false,
         });
     }
@@ -454,6 +465,7 @@ fn synthetic_watch_trigger(
         once_per_turn: false,
         synthetic_target: None,
         chosen_mode: None,
+        synthetic_condition: None,
         in_chosen_order: false,
     })
 }
@@ -864,6 +876,7 @@ pub(super) fn monarch_triggers(
         once_per_turn: false,
         synthetic_target: None,
         chosen_mode: None,
+        synthetic_condition: None,
         in_chosen_order: false,
     };
     for entry in events {

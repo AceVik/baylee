@@ -8,7 +8,11 @@ use baylee_core::ids::PlayerId;
 
 impl DelayedWhen {
     pub(crate) fn observation_fired(self, events: &[JournalEntry], controller: PlayerId) -> bool {
-        let Self::Observed { watch, when, after } = self else {
+        let (Self::Observed { watch, when, after }
+        | Self::ObservedGeneral {
+            watch, when, after, ..
+        }) = self
+        else {
             return false;
         };
         for entry in events.iter().filter(|entry| entry.seq > after) {

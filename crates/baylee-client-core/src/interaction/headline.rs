@@ -619,6 +619,10 @@ fn number_line(
         NumberPrompt::Multikicker { cost } => {
             Phrase::MultikickerHowOften.fill(lang, &[&cost.to_string(), &min, &max])
         }
+        NumberPrompt::ReadAhead { saga } => name(saga).map_or_else(
+            || Phrase::ChooseReadAheadChapter.fill(lang, &[&min, &max]),
+            |target| Phrase::ChooseReadAheadChapterNamed.fill(lang, &[&target, &min, &max]),
+        ),
         NumberPrompt::CombatDamage {
             index,
             of,

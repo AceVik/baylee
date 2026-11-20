@@ -118,6 +118,18 @@ pub(super) fn exec_immediate(
             super::control_observers::register(state, res, watch, when, about, effects);
             None
         }
+        Effect::RegisterDelayedTrigger {
+            when,
+            condition,
+            targets,
+            remember,
+            effects,
+        } => {
+            super::delayed_general::register(
+                state, res, when, condition, targets, remember, effects,
+            );
+            None
+        }
         Effect::TapAndPayEnergyForCounters { who, filter, kind } => {
             super::tap_energy::start(state, res, who, filter, kind)
         }
@@ -2054,6 +2066,19 @@ pub(super) fn exec_immediate(
             target,
         } => {
             reflexive::arm(state, res, when, effects, target);
+            None
+        }
+        Effect::ReflexiveTrigger {
+            when,
+            once,
+            condition,
+            targets,
+            remember,
+            effects,
+        } => {
+            reflexive::arm_general(
+                state, res, when, once, condition, targets, remember, effects,
+            );
             None
         }
         Effect::BecomeSaddled => {

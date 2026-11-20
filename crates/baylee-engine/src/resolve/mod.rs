@@ -49,6 +49,7 @@ mod counters;
 mod creature_type;
 #[cfg(test)]
 mod creature_type_tests;
+mod delayed_general;
 mod delayed_returns;
 mod destruction_receipts;
 mod draw_debts;

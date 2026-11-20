@@ -109,6 +109,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     // that this card is the step's first.
                     self.state.turn.step = Step::Draw;
                     self.queue_draw_debts();
+                    self.queue_at_step(baylee_cards_dsl::DelayedStep::Draw);
                     // Nobody draws for an active player who has left
                     // (CR 800.4j).
                     if !self.active_has_left() {
@@ -178,6 +179,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         watch.when,
                         crate::state::DelayedWhen::TriggeredThisTurn {
                             this_combat_only: true,
+                            ..
+                        } | crate::state::DelayedWhen::OnEvent {
+                            duration: baylee_cards_dsl::DelayedDuration::ThisCombat,
                             ..
                         }
                     )
@@ -272,6 +276,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     && fx.controller == active
             });
         }
+        if next_step == Step::CombatBegin {
+            self.queue_at_step(baylee_cards_dsl::DelayedStep::CombatBegin);
+        }
         // "At end of combat" triggers as the end of combat step begins
         // (CR 511.2), and two arms above enter it: after combat damage, and
         // straight from the declare attackers step when nothing attacked.
@@ -311,6 +318,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// (`Engine::apply`) performs the discard and then 514.2 itself.
     pub(crate) fn cleanup_step(&mut self) -> bool {
         self.queue_delayed_at(crate::state::DelayedWhen::NextCleanup);
+        self.queue_at_step(baylee_cards_dsl::DelayedStep::Cleanup);
         let active = self.state.turn.active;
         let hand_size = self.state.zones.list(ZoneLocation::Hand(active)).len();
         if let Some(max_hand) = self.state.maximum_hand_size(active)

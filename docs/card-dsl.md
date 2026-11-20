@@ -866,6 +866,7 @@ spell!(EFFECTS, targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATU
 loyalty!(-3, EFFECTS, targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))
 static_ability!(Filter::YOUR_CREATURE, Modifier::ModifyPT(1, 1))  // an anthem
 chapter!(1, EFFECTS)                                  // one chapter of a saga
+chapters!(&[1, 2], EFFECTS)                           // shared multi-chapter saga ability
 equip!("{2}")                                         // Equip {2}
 crew!(2)                                              // Crew 2
 modal_triggered!(TRIGGER, &[mode!(SCRY), mode!(LIFE)])  // "choose one" ETB
@@ -5344,3 +5345,54 @@ is `true` or at cleanup otherwise).
   (Layer 3 rules, `locks_its_set == false`) prevents `amount` damage per
   `(matching source, affected permanent)` pair per damage event (Daunting
   Defender).
+
+### Generalized reflexive and delayed triggers, Sagas, and read ahead
+
+**Sagas and read ahead (`CR 715`, `CR 702.155`).**
+`chapter!(n, effects)` produces `AbilityDef::SagaChapter` for a plain single
+chapter (or `AbilityDef::Triggered` with `Trigger::Chapter(&[n])` when
+`second_targets` or `condition` is given). Multi-chapter Saga abilities
+(`CR 715.2c`) use `chapters!(&[1, 2], effects)` (and modal multi-chapter
+abilities use `modal_triggered!(Trigger::Chapter(&[1, 2]), modes)`).
+`KeywordSet::READ_AHEAD` (`CR 702.155`, `CR 715.3b`) asks the controller to
+choose `1..=final_chapter` via `NumberPrompt::ReadAhead` as the Saga enters the
+battlefield, enters with that many lore counters (subject to counter
+replacements), and suppresses chapter triggers on the entry turn unless the
+Saga has **exact** lore count `== chapter` (`CR 702.155a`); on subsequent turns
+crossing multiple chapters triggers each crossed chapter symbol normally
+(`CR 715.2b–c`).
+
+**On-resolution reflexive triggers (`CR 603.12`, `CR 603.4`).**
+`Effect::ReflexiveTrigger { when, once, condition, targets, remember, effects }`
+queues one or more separate stack triggers as the creating spell or ability
+resolves:
+- `when`: `ReflexiveWhen::Always` (immediate reflexive trigger inside an
+  executed branch), `ReflexiveWhen::Event(ReflexiveEvent)`,
+  `ReflexiveWhen::ThisWay(ThisWay)`, or `ReflexiveWhen::Tapped(&Filter)`.
+- `once`: `true` for "when one or more …" (at most one trigger), `false` for
+  "whenever a … this way" (one trigger per matched occurrence, `CR 603.12a`).
+- `condition`: optional `&'static Condition` intervening-`if` checked both when
+  queuing and when resolving (`CR 603.4`).
+- `targets`: full `Option<TargetReq>` chosen when the reflexive ability is
+  placed onto the stack (`CR 603.12`, `CR 603.3d`).
+- `remember`: `TriggerRemember` (`None`, `Source`, `FirstTarget`, `EachTarget`,
+  `EventObject`, `EventSubject`, `EachCreatedToken`, `SacrificedObject`,
+  `EachExiledThisWay`), binding `TargetSpec::EventObject` and LKI power /
+  toughness / mana value / controller onto the reflexive stack object.
+
+**Generalized delayed triggers (`CR 603.7`, `CR 603.4`).**
+`Effect::RegisterDelayedTrigger { when, condition, targets, remember, effects }`
+registers one or more delayed triggered abilities during resolution:
+- `DelayedTriggerWhen::AtStep { step, whose, this_turn_only, recurring }` over
+  `DelayedStep::{Upkeep, Draw, MainPhase, CombatBegin, CombatEnd, EndStep, Cleanup}`,
+  filtered to `whose: Option<PlayerRel>` (`None` for the next such step of any
+  turn).
+- `DelayedTriggerWhen::OnTrigger { trigger, watch, duration }` over any
+  `&'static Trigger`, optional watched object(s) (`watch: TriggerRemember`,
+  expiring if a watched battlefield incarnation leaves without satisfying
+  `trigger`, `CR 603.7b` / `CR 400.7`), and `DelayedDuration::{OneShot,
+  OneShotThisTurn, ThisTurn, ThisCombat, UntilYourNextTurn, Indefinitely}`.
+- `DelayedTriggerWhen::OnObservation { watch, observation, this_turn_only }`
+  over `DelayedObservation`.
+- `condition`, `targets`, and `remember` behave identically to
+  `ReflexiveTrigger` (`CR 603.4`, `CR 603.7c–d`).

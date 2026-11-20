@@ -891,6 +891,9 @@ impl HeuristicAgent {
                 baylee_engine::choice::NumberPrompt::CombatDamage {
                     source, recipient, ..
                 } => self.combat_share(view, source, recipient, min, max),
+                baylee_engine::choice::NumberPrompt::ReadAhead { saga } => {
+                    self.read_ahead_chapter(view, saga, min, max)
+                }
             }),
             Pending::ChoosePlayer { options, .. } => {
                 PlayerAction::ChoosePlayer(self.player_target(view, &options, context))

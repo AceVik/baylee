@@ -20,12 +20,16 @@
 //! unchanged by that, where a field would have to be carried through every
 //! `Resolution` literal in the crate.
 
-use baylee_cards_dsl::{Effect, ReflexiveEvent, TargetSpec};
-use baylee_core::ids::AbilityRef;
+use baylee_cards_dsl::{
+    Condition, Effect, ReflexiveEvent, ReflexiveWhen, TargetReq, TargetSpec, ThisWay,
+    TriggerRemember,
+};
+use baylee_core::ids::{AbilityRef, DamageSourceRef};
+use smallvec::{SmallVec, smallvec};
 
 use super::Resolution;
 use crate::event::{Cause, GameEvent};
-use crate::state::GameState;
+use crate::state::{GameState, RememberedContext};
 use crate::trigger::PendingTrigger;
 use crate::zone::Zone;
 
@@ -86,8 +90,342 @@ pub(super) fn arm(
             }),
             once_per_turn: false,
             chosen_mode: None,
+            synthetic_condition: None,
             in_chosen_order: false,
         });
+    }
+}
+
+/// Generalized on-resolution reflexive trigger (`Effect::ReflexiveTrigger`,
+/// CR 603.12, CR 603.12a, CR 603.4).
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // Direct unpack of Effect::ReflexiveTrigger fields across its four trigger-gating modes.
+pub(super) fn arm_general(
+    state: &mut GameState,
+    res: &Resolution,
+    when: ReflexiveWhen,
+    once: bool,
+    condition: Option<&'static Condition>,
+    targets: Option<TargetReq>,
+    remember: TriggerRemember,
+    effects: &'static [Effect],
+) {
+    if state
+        .object(res.on_stack)
+        .is_none_or(|o| o.zone != Zone::Stack)
+    {
+        return;
+    }
+
+    let mut matched: SmallVec<[Option<RememberedContext>; 2]> = SmallVec::new();
+    match when {
+        ReflexiveWhen::Always => {
+            matched.push(None);
+        }
+        ReflexiveWhen::Event(ev) => {
+            for entry in super::this_way::entries(state, res) {
+                if happened(state, ev, res, entry) {
+                    let ctx = match entry.event {
+                        GameEvent::ZoneChanged { object, .. } => match entry.departure.as_deref() {
+                            Some(dep) => Some(super::delayed_general::context_from_departure(
+                                state, object, dep,
+                            )),
+                            None => Some(super::delayed_general::context_from_object(
+                                state, object, None,
+                            )),
+                        },
+                        _ => None,
+                    };
+                    matched.push(ctx);
+                }
+            }
+        }
+        ReflexiveWhen::ThisWay(tw) => {
+            let total = super::this_way::count(state, res, tw, None);
+            if total == 0 {
+                return;
+            }
+            if once {
+                let mut first = first_this_way_object(state, res, tw);
+                if let Some(ref mut ctx) = first {
+                    ctx.amount = Some(total);
+                } else {
+                    first = Some(RememberedContext {
+                        amount: Some(total),
+                        ..RememberedContext::default()
+                    });
+                }
+                matched.push(first);
+            } else {
+                let objects = all_this_way_objects(state, res, tw);
+                if objects.is_empty() {
+                    for _ in 0..total {
+                        matched.push(Some(RememberedContext {
+                            amount: Some(1),
+                            ..RememberedContext::default()
+                        }));
+                    }
+                } else {
+                    for ctx in objects {
+                        matched.push(Some(ctx));
+                    }
+                }
+            }
+        }
+        ReflexiveWhen::Tapped(filter) => {
+            let rule_ctx = res.rule_context();
+            for entry in super::this_way::entries(state, res) {
+                if let GameEvent::ObjectTapped {
+                    object,
+                    cause: Cause::Effect,
+                } = entry.event
+                    && state.object_or_departed(object).is_some_and(|card| {
+                        crate::eval::matches_with_context(
+                            filter,
+                            state,
+                            card,
+                            res.controller,
+                            rule_ctx,
+                        )
+                    })
+                {
+                    matched.push(Some(super::delayed_general::context_from_object(
+                        state, object, None,
+                    )));
+                }
+            }
+        }
+    }
+
+    if matched.is_empty() {
+        return;
+    }
+    if once && matched.len() > 1 {
+        matched.truncate(1);
+    }
+
+    let final_contexts: SmallVec<[RememberedContext; 2]> = if remember == TriggerRemember::None {
+        matched.into_iter().map(Option::unwrap_or_default).collect()
+    } else {
+        let explicit = super::delayed_general::resolve_remembered(state, res, remember);
+        if explicit.is_empty()
+            && matches!(
+                remember,
+                TriggerRemember::EachTarget
+                    | TriggerRemember::EachCreatedToken
+                    | TriggerRemember::EachExiledThisWay
+                    | TriggerRemember::SacrificedObject
+            )
+        {
+            return;
+        }
+        let rem_items: SmallVec<[RememberedContext; 2]> = if explicit.is_empty() {
+            smallvec![RememberedContext::default()]
+        } else {
+            explicit
+        };
+        if once {
+            rem_items.into_iter().take(1).collect()
+        } else {
+            let mut combined = SmallVec::new();
+            for _ in 0..matched.len() {
+                combined.extend(rem_items.iter().copied());
+            }
+            combined
+        }
+    };
+
+    let source_version = super::subjects::source(state, res).map(|s| s.version);
+    let attachment_lki = super::source_attachment_lki(state, res.on_stack);
+    let timestamp = state.object(res.source).map_or(0, |o| o.timestamp);
+
+    for rem in final_contexts {
+        let event_ref = rem
+            .object
+            .zip(rem.identity.map(|(v, _)| v))
+            .map(|(object, version)| DamageSourceRef { object, version });
+        if !crate::eval::intervening_if_for_incarnation(
+            state,
+            condition.copied(),
+            res.controller,
+            res.source,
+            source_version,
+            attachment_lki,
+            event_ref,
+        ) {
+            continue;
+        }
+        state.reflexive.push(PendingTrigger {
+            text: res.text,
+            source_version,
+            related_objects: None,
+            grantor: None,
+            event_subject: rem.subject,
+            event_ability: None,
+            event_object_identity: rem.identity,
+            counter_source_version: None,
+            event_mana: None,
+            event_mana_value: rem.mana_value,
+            event_departure: rem.departure,
+            event_amount: rem.amount,
+            event_player: rem.player,
+            source: res.source,
+            ability_index: AbilityRef::SYNTHETIC,
+            abilities: None,
+            controller: res.controller,
+            timestamp,
+            event_object: rem.object,
+            implicit_target: None,
+            synthetic_effects: Some(effects),
+            synthetic_target: targets,
+            synthetic_condition: condition,
+            once_per_turn: false,
+            chosen_mode: None,
+            in_chosen_order: false,
+        });
+    }
+}
+
+fn first_this_way_object(
+    state: &GameState,
+    res: &Resolution,
+    tw: ThisWay,
+) -> Option<RememberedContext> {
+    all_this_way_objects(state, res, tw).into_iter().next()
+}
+
+fn all_this_way_objects(
+    state: &GameState,
+    res: &Resolution,
+    tw: ThisWay,
+) -> SmallVec<[RememberedContext; 2]> {
+    let mut out = SmallVec::new();
+    let rule_ctx = res.rule_context();
+    for entry in super::this_way::entries(state, res) {
+        if let GameEvent::Revealed { cards, .. } = &entry.event
+            && let ThisWay::Revealed(filter) = tw
+        {
+            for &id in cards {
+                if state.object(id).is_some_and(|c| {
+                    crate::eval::matches_with_context(filter, state, c, res.controller, rule_ctx)
+                }) {
+                    out.push(super::delayed_general::context_from_object(state, id, None));
+                }
+            }
+            continue;
+        }
+        if let Some(ctx) = this_way_entry_context(state, res, rule_ctx, entry, tw) {
+            out.push(ctx);
+        }
+    }
+    out
+}
+
+fn this_way_entry_context(
+    state: &GameState,
+    res: &Resolution,
+    rule_ctx: crate::text_changes::RuleContext,
+    entry: &crate::event::JournalEntry,
+    tw: ThisWay,
+) -> Option<RememberedContext> {
+    match (&entry.event, tw) {
+        (
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Battlefield,
+                to: Zone::Graveyard,
+                ..
+            },
+            ThisWay::Died(filter),
+        )
+        | (
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Battlefield,
+                to: Zone::Exile,
+                ..
+            },
+            ThisWay::ExiledFromBattlefield(filter),
+        )
+        | (
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Battlefield,
+                to: Zone::Hand,
+                ..
+            },
+            ThisWay::ReturnedToHand(filter),
+        ) => state.object(*object).and_then(|card| {
+            let chars = state
+                .last_known_characteristics(*object)
+                .unwrap_or_else(|| card.characteristics());
+            crate::eval::matches_projected_with_context(
+                filter,
+                state,
+                card,
+                chars,
+                res.controller,
+                rule_ctx,
+            )
+            .then(|| match entry.departure.as_deref() {
+                Some(dep) => super::delayed_general::context_from_departure(state, *object, dep),
+                None => super::delayed_general::context_from_object(state, *object, None),
+            })
+        }),
+        (
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Battlefield,
+                cause: Cause::Destroy,
+                ..
+            },
+            ThisWay::Destroyed(filter),
+        ) => entry.departure.as_deref().and_then(|dep| {
+            let card = state.damage_source(*object, Some(dep.version))?;
+            crate::eval::matches_projected_with_context(
+                filter,
+                state,
+                card,
+                card.characteristics(),
+                res.controller,
+                rule_ctx,
+            )
+            .then(|| super::delayed_general::context_from_departure(state, *object, dep))
+        }),
+        (GameEvent::Discarded { object, .. }, ThisWay::Discarded)
+        | (
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Hand,
+                to: Zone::Library,
+                ..
+            },
+            ThisWay::PutIntoLibraryFromHand,
+        ) => Some(super::delayed_general::context_from_object(
+            state, *object, None,
+        )),
+        (GameEvent::Discarded { object, .. }, ThisWay::DiscardedMatching(filter))
+        | (
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Library,
+                to: Zone::Exile,
+                ..
+            },
+            ThisWay::ExiledFromLibrary(filter),
+        )
+        | (
+            GameEvent::ZoneChanged {
+                object,
+                from: Zone::Library,
+                to: Zone::Graveyard,
+                ..
+            },
+            ThisWay::Milled(filter),
+        ) => state.object(*object).and_then(|card| {
+            crate::eval::matches_with_context(filter, state, card, res.controller, rule_ctx)
+                .then(|| super::delayed_general::context_from_object(state, *object, None))
+        }),
+        _ => None,
     }
 }
 

@@ -57,6 +57,8 @@ pub const fn acts_elsewhere(effect: &Effect) -> bool {
     matches!(
         effect,
         Effect::CreateDelayedObserver { .. }
+            | Effect::ReflexiveTrigger { .. }
+            | Effect::RegisterDelayedTrigger { .. }
             | Effect::DestroyAllThenForEachDestroyed { .. }
             | Effect::ForEachCreatureDamagedBySourceThatDiedThisTurn { .. }
             | Effect::ForEachTarget { .. }

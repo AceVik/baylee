@@ -80,6 +80,7 @@ pub(super) fn collect(
                 synthetic_effects: Some(PROVOKE_EFFECTS),
                 once_per_turn: false,
                 synthetic_target: Some(TargetReq::one(TargetSpec::Object(&DEFENDING_CREATURE))),
+                synthetic_condition: None,
                 chosen_mode: None,
                 in_chosen_order: false,
             });

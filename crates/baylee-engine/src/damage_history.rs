@@ -424,6 +424,7 @@ fn pending(death: &DamageDeath, source: &GameObject) -> PendingTrigger {
         synthetic_target: None,
         once_per_turn: false,
         chosen_mode: None,
+        synthetic_condition: None,
         in_chosen_order: false,
     }
 }

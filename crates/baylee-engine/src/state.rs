@@ -52,7 +52,10 @@ pub(crate) use hash::{
     structural_fingerprint,
 };
 
-pub use delayed::{DelayedAction, DelayedTrigger, DelayedWhen, PlayerTurnControl};
+pub use delayed::{
+    DelayedAction, DelayedTrigger, DelayedTriggerSpec, DelayedWhen, PlayerTurnControl,
+    RememberedContext,
+};
 pub use per_turn::{
     AbilityResolved, BlockRecord, DamageLogEntry, GraveyardPlay, MustBlockRequirement, PerTurn,
     PlayLifetime, PlayPermission, PreviousTurn,

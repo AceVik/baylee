@@ -274,6 +274,11 @@ fn finish_or_suspend(state: &mut GameState, mut entry: Attempt) -> Option<Pendin
         return Some(ask(state, entry, question, pending));
     }
     state.entries.counter_transaction |= entry.battle_protector.is_some();
+    if let Some((question, pending)) = super::sagas::question(state, &mut entry) {
+        state.entries.counter_transaction = true;
+        return Some(ask(state, entry, question, pending));
+    }
+    state.entries.counter_transaction |= entry.saga_chapter.is_some();
     if let Some(pending) = super::counters::question(state, &mut entry) {
         return Some(ask(state, entry, Question::Counters, pending));
     }
@@ -320,6 +325,9 @@ pub fn answer(state: &mut GameState, action: &PlayerAction) {
     match (question, action) {
         (Question::BattleProtector, PlayerAction::ChoosePlayer(player)) => {
             entry.battle_protector = Some(*player);
+        }
+        (Question::ReadAhead, PlayerAction::ChooseNumber(chapter)) => {
+            entry.saga_chapter = Some(u8::try_from(*chapter).expect("bounded saga chapter"));
         }
         (Question::Counters, PlayerAction::YesNo(apply)) => {
             entry.counter_plans[entry.next_counter].answer(*apply);

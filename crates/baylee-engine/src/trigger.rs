@@ -40,6 +40,7 @@ use events::{
 };
 pub(crate) use matching::times_triggered;
 use matching::{departure_hit, hits_with_context, times_triggered_with_source, trigger_count};
+pub(crate) use watches::on_event_watch_consumed;
 pub use watches::state_triggers;
 use watches::{
     attack_watch_triggers, cast_copy_triggers, damage_watch_triggers, monarch_triggers,
@@ -140,6 +141,9 @@ pub struct PendingTrigger {
     /// It is written onto the stack object as its `target_req`, which is
     /// what CR 608.2b re-checks at resolution.
     pub synthetic_target: Option<baylee_cards_dsl::TargetReq>,
+    /// Optional intervening-`if` clause on a synthetic trigger (reflexive or
+    /// delayed triggers, CR 603.4, CR 603.7, CR 603.12).
+    pub synthetic_condition: Option<&'static baylee_cards_dsl::Condition>,
     /// Fires at most once each turn (marked by the engine after stacking).
     pub once_per_turn: bool,
     /// The mode a modal trigger's controller picked, once they have.
@@ -478,6 +482,7 @@ fn graveyard_triggers(
                         synthetic_target: None,
                         once_per_turn: firing.once_per_turn,
                         chosen_mode: None,
+                        synthetic_condition: None,
                         in_chosen_order: false,
                     });
                 }
@@ -712,6 +717,7 @@ fn cast_this_spell_triggers(
                 once_per_turn: firing.once_per_turn,
                 synthetic_target: None,
                 chosen_mode: None,
+                synthetic_condition: None,
                 in_chosen_order: false,
                 event_amount: None,
                 event_player: None,
@@ -839,6 +845,7 @@ fn collect_for_objects(
                             once_per_turn: false,
                             synthetic_target: None,
                             chosen_mode: None,
+                            synthetic_condition: None,
                             in_chosen_order: false,
                         });
                     }
@@ -963,6 +970,7 @@ fn collect_for_objects(
                             synthetic_target: target,
                             once_per_turn: false,
                             chosen_mode: None,
+                            synthetic_condition: None,
                             in_chosen_order: false,
                         });
                     }
@@ -1065,6 +1073,7 @@ fn collect_for_objects(
                             once_per_turn: false,
                             synthetic_target: None,
                             chosen_mode: None,
+                            synthetic_condition: None,
                             in_chosen_order: false,
                         });
                     }
@@ -1230,6 +1239,7 @@ fn collect_for_objects(
                             once_per_turn: firing.once_per_turn,
                             synthetic_target: None,
                             chosen_mode: None,
+                            synthetic_condition: None,
                             in_chosen_order: false,
                         });
                     }

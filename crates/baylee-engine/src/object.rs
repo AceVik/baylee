@@ -1109,6 +1109,9 @@ pub enum Rider {
     /// kicker cost and at least one was paid, keeping single-kicker objects
     /// unchanged. Appended to preserve derived replay identities.
     KickedMask(u8),
+    /// Intervening-`if` condition carried on a synthetic triggered ability on
+    /// the stack (reflexive or delayed triggers, CR 603.4, CR 603.7, CR 603.12).
+    SyntheticCondition(&'static baylee_cards_dsl::Condition),
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1228,7 +1231,8 @@ impl Rider {
             // never in exile.
             | Self::EventDeparture(..)
             | Self::EventAmount(_)
-            | Self::EventPlayer(_) => false,
+            | Self::EventPlayer(_)
+            | Self::SyntheticCondition(_) => false,
         }
     }
 }

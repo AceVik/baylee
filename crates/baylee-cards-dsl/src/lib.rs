@@ -46,10 +46,11 @@ pub use build::{
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
     Amount, ColorSubject, CombatWatchEvent, CounterKind, DamageRedirectTo, DamageTo,
-    DelayedObservation, DivisionAmount, Effect, ExilePlay, ExileUntil, Find, LookRest,
-    ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
-    PlayWindow, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetChooser, TargetReq,
-    TargetSlot, TargetSpec, ThisWay, TokenDef, ZoneSel,
+    DelayedDuration, DelayedObservation, DelayedStep, DelayedTriggerWhen, DivisionAmount, Effect,
+    ExilePlay, ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse,
+    ManaValueBound, ManaValueCmp, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, SearchDest,
+    SpendRider, TargetChooser, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef,
+    TriggerRemember, ZoneSel,
 };
 pub use filter::{Filter, OriginalExpansion, ZoneRef};
 pub use manaread::{
@@ -985,6 +986,7 @@ keywords! {
     MAYHEM = 51, "Costless permission to play this land after discarding it this turn.";
     FREERUNNING = 50, "Has freerunning; its cost remains on `FaceDef` (CR 702.173a).";
     PROVOKE = 52, "Provoke (CR 702.39).";
+    READ_AHEAD = 53, "Read ahead (CR 702.155).";
 }
 
 impl KeywordSet {
@@ -1104,6 +1106,7 @@ pub const PRINTED_KEYWORDS: &[(KeywordSet, &str)] = &[
     (KeywordSet::PHASING, "Phasing"),
     (KeywordSet::STORM, "Storm"),
     (KeywordSet::PROVOKE, "Provoke"),
+    (KeywordSet::READ_AHEAD, "Read ahead"),
     (KeywordSet::UNBLOCKABLE, "This creature can't be blocked."),
     (KeywordSet::CANT_BLOCK, "This creature can't block."),
     (KeywordSet::CANT_ATTACK, "This creature can't attack."),

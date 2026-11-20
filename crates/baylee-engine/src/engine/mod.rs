@@ -1540,6 +1540,11 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
             if trigger.in_chosen_order {
                 extra = extra.wrapping_mul(31).wrapping_add(1);
             }
+            if let Some(condition) = trigger.synthetic_condition {
+                extra = extra
+                    .wrapping_mul(31)
+                    .wrapping_add(crate::state::structural_fingerprint(condition));
+            }
         }
         extra = extra
             .wrapping_mul(31)

@@ -658,6 +658,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::NotedCounter(..)
         | Rider::ActivationManaNote { .. }
         | Rider::Mutating
-        | Rider::MergedToken(_) => None,
+        | Rider::MergedToken(_)
+        | Rider::SyntheticCondition(_) => None,
     }
 }

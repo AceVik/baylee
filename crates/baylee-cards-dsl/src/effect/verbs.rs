@@ -659,6 +659,8 @@ impl Effect {
                 effects,
                 target: _,
             }
+            | Effect::ReflexiveTrigger { effects, .. }
+            | Effect::RegisterDelayedTrigger { effects, .. }
             // What the payment buys: the list runs on a yes.
             | Effect::PlayerMayPayThen {
                 player: _,
