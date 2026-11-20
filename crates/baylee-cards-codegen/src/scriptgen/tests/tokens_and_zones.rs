@@ -95,10 +95,16 @@ fn an_additional_cost_on_a_spell_is_read_or_refused_and_never_dropped() {
          A:SP$ LoseLife | Cost$ B B B Sac<All/Permanent> Discard<0/Hand> | \
          ValidTgts$ Player | LifeAmount$ 5"
     ));
-    // Random discard is a buyback-only part, never a mandatory additional cost.
+    // Random discard is a paid mandatory additional cost on spells.
+    let rand = read(
+        "Name:X\nTypes:Instant\n\
+         A:SP$ Draw | Cost$ R Discard<1/Random> | NumCards$ 2",
+    );
+    assert_eq!(rand.mandatory_additional_costs, ["CostPart::DiscardRandom"]);
+    // An unsupported cost token on a spell still stays refused rather than dropped.
     assert!(refused(
         "Name:X\nTypes:Instant\n\
-         A:SP$ Draw | Cost$ R Discard<1/Random> | NumCards$ 2"
+         A:SP$ Draw | Cost$ R SubCounter<1/P1P1> | NumCards$ 2"
     ));
     // The mana half alone is not an additional cost: it is the card's
     // own mana cost, which the face already carries.

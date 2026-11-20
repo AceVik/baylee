@@ -2,7 +2,8 @@
 //! permanent enters.
 
 use super::{
-    BlockHalf, BlockRole, Chain, Params, Price, Tx, card_type_const, color_word, counter_kind,
+    BlockHalf, BlockRole, Chain, Params, Tx, activated::OptionalTriggerPrice, card_type_const,
+    color_word, counter_kind,
 };
 
 impl Tx<'_> {
@@ -1273,16 +1274,17 @@ impl Tx<'_> {
         // card, then you may have …") it would make the mandatory half
         // optional too, so it is not read there; `validate` holds such a card
         // to its printed may.
-        let prose_you_may = p.peek("TriggerDescription").is_some_and(|d| {
+        let prose_effect = p.peek("TriggerDescription").and_then(|d| {
             d.to_ascii_lowercase()
                 .split_once(", ")
-                .is_some_and(|(_, effect)| effect.starts_with("you may "))
+                .map(|(_, effect)| effect.to_string())
         });
-        let prose_may = p.peek("TriggerDescription").is_some_and(|d| {
-            d.to_ascii_lowercase()
-                .split_once(", ")
-                .is_some_and(|(_, effect)| effect.starts_with("you may have "))
-        });
+        let prose_you_may = prose_effect
+            .as_deref()
+            .is_some_and(|effect| effect.starts_with("you may "));
+        let prose_may = prose_effect
+            .as_deref()
+            .is_some_and(|effect| effect.starts_with("you may have "));
         p.drop_prose();
         self.trigger_mode = Some(mode.clone());
         if self.is_link_cleanup_trigger(&mode, &p) {
@@ -1300,7 +1302,7 @@ impl Tx<'_> {
             let trigger = self.trigger_expr_in_zone(&mut p, &mode, !zone.is_empty())?;
             (trigger, self.condition(&mut p)?)
         };
-        if condition.is_empty() && p.peek("CheckSVar").is_some() {
+        if p.peek("CheckSVar").is_some() {
             let var = p.peek("CheckSVar").map(str::to_string).unwrap();
             let cmp = p
                 .peek("SVarCompare")
@@ -1308,7 +1310,16 @@ impl Tx<'_> {
             if let Some(clause) = self.svar_condition(&var, &cmp) {
                 p.take("CheckSVar");
                 p.take("SVarCompare");
-                condition = format!(", condition = Some({clause})");
+                condition = if condition.is_empty() {
+                    format!(", condition = Some({clause})")
+                } else if let Some(inner) = condition
+                    .strip_prefix(", condition = Some(")
+                    .and_then(|s| s.strip_suffix(')'))
+                {
+                    format!(", condition = Some(Condition::All(&[{inner}, {clause}]))")
+                } else {
+                    return self.deny("`CheckSVar$` beside another clause".to_string());
+                };
             }
         }
         if p.peek("PlayerTurn") == Some("True") {
@@ -1364,19 +1375,31 @@ impl Tx<'_> {
             || trigger == "Trigger::DiscardedThisByOpponent"
             || trigger.contains("&Filter::This")
             || trigger_self_etb_kicked;
+        let optional_flag = match p.take("Optional").as_deref() {
+            None => None,
+            Some("Yes" | "True") => Some(true),
+            Some("No" | "False") => Some(false),
+            Some(other) => return self.deny(format!("trigger `Optional$ {other}`")),
+        };
         let decider = p.take("OptionalDecider");
-        // Only a "may" read from the description alone can meet an executed
-        // line that asks by itself; an `OptionalDecider$` keeps its old wrap.
-        let may_from_prose = decider.is_none() && prose_may;
-        let may = match decider.as_deref() {
-            None => prose_may,
-            Some("You") => true,
-            Some("TriggeredCardController")
+        // Only a "may" read from the description alone (or `Optional$ Yes`)
+        // can meet an executed line that asks by itself; an `OptionalDecider$`
+        // keeps its old wrap.
+        let may_from_prose = decider.is_none() && optional_flag.is_none() && prose_may;
+        let mut may = match (decider.as_deref(), optional_flag) {
+            (None, Some(false)) => false,
+            (None, None) => prose_may,
+            (None, Some(true)) | (Some("You"), None | Some(true)) => true,
+            (Some("You"), Some(false)) => {
+                return self
+                    .deny("conflicting `OptionalDecider$ You` and `Optional$ No`".to_string());
+            }
+            (Some("TriggeredCardController"), None | Some(true))
                 if trigger_is_self && self.oracle.to_ascii_lowercase().contains("you may") =>
             {
                 true
             }
-            Some(other) => return self.deny(format!("a `may` decided by `{other}`")),
+            (Some(other), _) => return self.deny(format!("a `may` decided by `{other}`")),
         };
         if !p.exhausted() {
             if let Some(key) = p.first_key() {
@@ -1394,7 +1417,7 @@ impl Tx<'_> {
         // the `MayDo` rather than sitting inside it, which would ask twice.
         // Generic mana only: a coloured price or a non-mana cost is another
         // payment the effect cannot take, and stays unclaimed.
-        let (body, price) = match Self::optional_price(&body) {
+        let (body, price) = match self.optional_trigger_price(&body) {
             Some((stripped, price)) => (stripped, Some(price)),
             None => (body, None),
         };
@@ -1434,25 +1457,81 @@ impl Tx<'_> {
         let mut chain = Chain::default();
         self.trigger_is_self = trigger_is_self;
         self.is_etb_self_trigger = trigger == "Trigger::ETB";
+        self.cost_sacrifices_self = matches!(
+            &price,
+            Some(OptionalTriggerPrice::CostPart(p)) if p == "Sacrifice(&Filter::This)"
+        );
+        self.cost_sacrifices_other = matches!(
+            &price,
+            Some(OptionalTriggerPrice::CostPart(p))
+                if p.starts_with("Sacrifice(") && p != "Sacrifice(&Filter::This)"
+        );
         let chain_ok = self.chain(&body, &mut chain);
         self.trigger_is_self = false;
         self.is_etb_self_trigger = false;
+        self.cost_sacrifices_self = false;
+        self.cost_sacrifices_other = false;
         chain_ok?;
         if chain.effects.is_empty() {
             return self.deny("a trigger that reads as no effect at all".to_string());
         }
-        if mode == "Cycled"
-            && prose_you_may
-            && !may
-            && price.is_none()
-            && !chain.effects.iter().any(|e| {
-                e.contains("MayDo") || e.contains("PlayerMayPay") || e.contains("optional: true")
-            })
-        {
-            return self.deny(
-                "a `Cycled` trigger saying \"you may\" without `OptionalDecider$` or an optional effect"
-                    .to_string(),
-            );
+        let chain_asks = chain.target_up_to.is_some()
+            || chain.effects.iter().any(|e| {
+                [
+                    "MayDo",
+                    "PlayerMayPay",
+                    "optional: true",
+                    "Scry",
+                    "SearchLibrary",
+                    "OptionalBasicLandSearchFor",
+                    "LookAtTop",
+                    "RevealTopFind",
+                    "RevealTopOnePerType",
+                    "ExileTopToPlay",
+                    "ExileTopMayCast",
+                    "DiscardUpToThenDraw",
+                    "MillMayTakeOne",
+                    "ChooseExiledToPlay",
+                    "MayExileFromYourGraveyardThen",
+                    "MayPayEnergyOr",
+                    "MayChooseNotToUntap",
+                    "CopyTarget",
+                    "CopySpell",
+                    "BottomCardFromHand",
+                    "PutFromHandOnTop",
+                    "ReorderTopLibrary",
+                    "MayPlayLinkedExile",
+                ]
+                .iter()
+                .any(|needle| e.contains(needle))
+            });
+        if prose_you_may && !may && price.is_none() && !chain_asks {
+            if mode == "Cycled" {
+                return self.deny(
+                    "a `Cycled` trigger saying \"you may\" without `OptionalDecider$` or an optional effect"
+                        .to_string(),
+                );
+            }
+            let simple_prose_you_may = optional_flag.is_none()
+                && chain.effects.len() == 1
+                && prose_effect.as_deref().is_some_and(|e| {
+                    !e.contains(". ")
+                        && !e.contains("if you do")
+                        && !e.contains("if you don't")
+                        && !e.contains("when you do")
+                        && !e.contains("otherwise")
+                        && !e.contains(", then ")
+                        && !e.contains("pay ")
+                        && !e.contains("unless ")
+                        && !e.contains("instead")
+                });
+            if simple_prose_you_may {
+                may = true;
+            } else {
+                return self.deny(format!(
+                    "a `{mode}` trigger saying \"you may\" without `OptionalDecider$` or an optional effect"
+                ));
+            }
         }
         let targets =
             Self::target_req_expr(&chain).map_or_default(|req| format!(", targets = Some({req})"));
@@ -1468,29 +1547,39 @@ impl Tx<'_> {
         // because the printed word covers a whole clause: Ondu Cleric's "you
         // may gain life equal to the number of Allies you control" is one
         // decision, not one per operation it expands into.
-        // A printed "you may have …" in the description and an
-        // `OptionalDecider$` on the executed line are one decision: a chain
-        // that already asks (`Effect::MayDo`) is not asked twice. Likewise a
-        // bare `TapOrUntap` already wraps its toggle in `MayDo`.
-        let asks_already = (may_from_prose
-            && chain
-                .effects
-                .iter()
-                .all(|e| e.starts_with("Effect::MayDo {")))
+        // A printed "you may have …" in the description (or `Optional$ Yes`)
+        // and an optional inner effect are one decision: a chain that already
+        // asks (`Effect::MayDo` / `PlayerMayPay*`) is not asked twice. Likewise
+        // a bare `TapOrUntap` already wraps its toggle in `MayDo`.
+        let asks_already = ((may_from_prose || optional_flag == Some(true))
+            && chain.effects.iter().all(|e| {
+                e.starts_with("Effect::MayDo {") || e.starts_with("Effect::PlayerMayPay")
+            }))
             || (chain.effects.len() == 1
                 && chain.effects[0] == "Effect::MayDo { effects: &[Effect::ToggleTapTarget] }");
+        let one_effect = match chain.effects.as_slice() {
+            [only] => only.clone(),
+            many => format!("Effect::Sequence(&[{}])", many.join(", ")),
+        };
         let effects = chain.effects.join(", ");
         let effects = match price {
-            Some(Price::Generic(mana)) => format!(
+            Some(OptionalTriggerPrice::Generic(mana)) => format!(
                 "Effect::PlayerMayPayThen {{ player: PlayerRel::You, \
                  mana: {mana}, effects: &[{effects}] }}"
             ),
             // Farmstead's "you may pay {W}{W}. If you do, you gain 1 life".
-            Some(Price::Printed(cost)) => format!(
+            Some(OptionalTriggerPrice::Printed(cost)) => format!(
                 "Effect::PlayerMayPayManaThen {{ player: PlayerRel::You, \
                  cost: mana!(\"{cost}\"), effects: &[{effects}] }}"
             ),
-            Some(Price::Part(_)) => unreachable!("`optional_price` reads mana only"),
+            Some(OptionalTriggerPrice::Life(life)) => format!(
+                "Effect::PlayerMayPayLifeThen {{ player: PlayerRel::You, \
+                 life: {life}, effects: &[{effects}] }}"
+            ),
+            Some(OptionalTriggerPrice::CostPart(part)) => format!(
+                "Effect::PlayerMayPayCostThen {{ player: PlayerRel::You, \
+                 cost: &CostPart::{part}, effect: &{one_effect} }}"
+            ),
             None if may && !asks_already => format!("Effect::MayDo {{ effects: &[{effects}] }}"),
             None => effects,
         };

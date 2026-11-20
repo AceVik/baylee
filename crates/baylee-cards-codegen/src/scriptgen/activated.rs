@@ -1,9 +1,17 @@
 //! Reading activated abilities, spells, charms and their conditions.
 
 use super::{
-    Bound, Chain, Params, Price, Tx, cost_parts, count_bound, counter_kind, hybrid_pair,
-    on_the_battlefield, printed_mana,
+    Bound, Chain, Params, Price, Tx, asks_for_an_object, cost_parts, count_bound, counter_kind,
+    hybrid_pair, on_the_battlefield, printed_mana,
 };
+
+/// Optional payment parsed off a trigger-executed `AB$ ... | Cost$ ...` line.
+pub(super) enum OptionalTriggerPrice {
+    Generic(String),
+    Printed(String),
+    Life(String),
+    CostPart(String),
+}
 
 /// `(mode_expr, first_target_spec, has_second_target, could_add_mana)`.
 pub(super) type CharmMode = (String, Option<String>, bool, bool);
@@ -61,31 +69,47 @@ impl Tx<'_> {
             claimed.push("Activation$");
         }
         if let Some(name) = probe.take("CheckSVar") {
-            if !is_activated || !clauses.is_empty() {
+            if !is_activated {
                 return self
                     .deny("an entry-history activation clause beside another clause".to_string());
             }
-            let Some(raw) = self.svars.get(&name) else {
+            let Some(raw) = self.svars.get(&name).cloned() else {
                 return self.deny(format!("activation check `{name}` without an SVar"));
             };
-            let Some(alternatives) = raw.strip_prefix("Count$ThisTurnEntered_Battlefield_") else {
+            let cmp = probe.peek("SVarCompare").map(str::to_string);
+            if let Some(alternatives) = raw.strip_prefix("Count$ThisTurnEntered_Battlefield_")
+                && cmp.is_none()
+            {
+                if !clauses.is_empty() {
+                    return self.deny(
+                        "an entry-history activation clause beside another clause".to_string(),
+                    );
+                }
+                let mut subtypes = Vec::new();
+                for alternative in alternatives.split(',') {
+                    let Some(subtype) = alternative.strip_suffix(".YouCtrl") else {
+                        return self.deny(format!("entry-history alternative `{alternative}`"));
+                    };
+                    let Some(path) = self.cats.const_path(subtype) else {
+                        return self.deny(format!("entry-history subtype `{subtype}`"));
+                    };
+                    subtypes.push(path);
+                }
+                clauses.push(format!(
+                    "Condition::EnteredSubtypeUnderYourControlThisTurn(&[{}])",
+                    subtypes.join(", ")
+                ));
+                claimed.push("CheckSVar$");
+            } else if let Some(clause) = self.svar_condition(&name, cmp.as_deref().unwrap_or("GE1"))
+            {
+                clauses.push(clause);
+                claimed.push("CheckSVar$");
+                if probe.take("SVarCompare").is_some() {
+                    claimed.push("SVarCompare$");
+                }
+            } else {
                 return self.deny(format!("activation check `{name}`"));
-            };
-            let mut subtypes = Vec::new();
-            for alternative in alternatives.split(',') {
-                let Some(subtype) = alternative.strip_suffix(".YouCtrl") else {
-                    return self.deny(format!("entry-history alternative `{alternative}`"));
-                };
-                let Some(path) = self.cats.const_path(subtype) else {
-                    return self.deny(format!("entry-history subtype `{subtype}`"));
-                };
-                subtypes.push(path);
             }
-            clauses.push(format!(
-                "Condition::EnteredSubtypeUnderYourControlThisTurn(&[{}])",
-                subtypes.join(", ")
-            ));
-            claimed.push("CheckSVar$");
         }
         *condition = match clauses.as_slice() {
             [] => String::new(),
@@ -468,13 +492,23 @@ impl Tx<'_> {
         }
         let all_supported = parts.iter().all(|part| {
             part == "PayLifeX"
+                || part == "PayEnergyX"
+                || part == "DiscardRandom"
                 || part == "DiscardHand"
                 || part == "DiscardLastDrawnThisTurn"
                 || part.starts_with("PayLife(")
+                || part.starts_with("PayEnergy(")
                 || part.starts_with("Sacrifice(")
+                || part.starts_with("SacrificeX(")
+                || part.starts_with("SacrificeAll(")
+                || part.starts_with("ReturnToHand(")
                 || part.starts_with("ExilePermanent(")
+                || part.starts_with("ExileFromHand(")
                 || part.starts_with("ExileFromGraveyard(")
+                || part.starts_with("ExileTopOfLibrary(")
                 || part.starts_with("Discard(")
+                || part.starts_with("TapOther(")
+                || part.starts_with("TapX(")
                 || part.starts_with("TapN {")
         });
         if !all_supported {
@@ -1205,5 +1239,74 @@ impl Tx<'_> {
             .filter(|part| !part.starts_with("Cost$"))
             .collect();
         Some((rest.join(" | "), price))
+    }
+
+    /// Extends [`Self::optional_price`] for trigger-executed `AB$` lines whose
+    /// optional cost is paying life or a single object-selection `CostPart`
+    /// (`Discard<1/...>`, `Sac<1/...>`, `ExileFromGrave<1/...>`, etc.).
+    pub(super) fn optional_trigger_price(
+        &mut self,
+        body: &str,
+    ) -> Option<(String, OptionalTriggerPrice)> {
+        if let Some((stripped, price)) = Self::optional_price(body) {
+            return Some((
+                stripped,
+                match price {
+                    Price::Generic(m) => OptionalTriggerPrice::Generic(m),
+                    Price::Printed(c) => OptionalTriggerPrice::Printed(c),
+                    Price::Part(p) => OptionalTriggerPrice::CostPart(p),
+                },
+            ));
+        }
+        if !body.trim_start().starts_with("AB$") {
+            return None;
+        }
+        let parts: Vec<&str> = body.split(" | ").collect();
+        let cost = parts
+            .iter()
+            .find_map(|part| part.strip_prefix("Cost$"))?
+            .trim();
+        let rest = parts
+            .into_iter()
+            .filter(|part| !part.starts_with("Cost$"))
+            .collect::<Vec<_>>()
+            .join(" | ");
+        if cost == "Sac<1/CARDNAME>"
+            || (cost.starts_with("Sac<1/CARDNAME/") && cost.find('>') == Some(cost.len() - 1))
+        {
+            return Some((
+                rest,
+                OptionalTriggerPrice::CostPart("Sacrifice(&Filter::This)".to_string()),
+            ));
+        }
+        let saved_unclaimed = self.unclaimed.borrow().clone();
+        let parsed = self.cost_pieces(cost);
+        let Some((mana, cost_parts)) = parsed else {
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            return None;
+        };
+        if !mana.is_empty() {
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+            return None;
+        }
+        let result = match cost_parts.as_slice() {
+            [one] => {
+                if let Some(n) = one
+                    .strip_prefix("PayLife(")
+                    .and_then(|s| s.strip_suffix(')'))
+                {
+                    Some(OptionalTriggerPrice::Life(format!("Amount::Fixed({n})")))
+                } else if asks_for_an_object(one) {
+                    Some(OptionalTriggerPrice::CostPart(one.clone()))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+        if result.is_none() {
+            *self.unclaimed.borrow_mut() = saved_unclaimed;
+        }
+        result.map(|price| (rest, price))
     }
 }

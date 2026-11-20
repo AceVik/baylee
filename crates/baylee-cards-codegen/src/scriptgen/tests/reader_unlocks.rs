@@ -813,3 +813,279 @@ fn wave5_triggers_zones_and_svar_conditions() {
         branch.abilities[0]
     );
 }
+
+#[test]
+fn wave3_trigger_optional_flag_and_prose_you_may() {
+    // Explicit `Optional$ Yes` on `ChangesZone` wraps the trigger body in `Effect::MayDo`.
+    let opt_yes = read(
+        "Name:OptYes\nManaCost:2 G\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield \
+         | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield \
+         | Optional$ Yes | Execute$ TrigBuf | TriggerDescription$ Whenever a creature enters, you may put two counters on it.\n\
+         SVar:TrigBuf:DB$ PutCounter | Defined$ TriggeredCardLKICopy | CounterType$ P1P1 | CounterNum$ 2",
+    );
+    assert!(
+        opt_yes.abilities[0].contains("Effect::MayDo { effects: &[Effect::AddCounterFilter"),
+        "{}",
+        opt_yes.abilities[0]
+    );
+
+    // Explicit `Optional$ No` does not wrap; non-boolean `Optional$` is honestly refused.
+    let opt_no = read(
+        "Name:OptNo\nManaCost:2 G\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield \
+         | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield \
+         | Optional$ No | Execute$ TrigBuf | TriggerDescription$ Whenever a creature enters, put a counter on it.\n\
+         SVar:TrigBuf:DB$ PutCounter | Defined$ TriggeredCardLKICopy | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert!(
+        !opt_no.abilities[0].contains("MayDo"),
+        "{}",
+        opt_no.abilities[0]
+    );
+    assert!(refused(
+        "Name:OptBad\nManaCost:1 G\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield \
+         | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield \
+         | Optional$ Opponent | Execute$ TrigBuf\n\
+         SVar:TrigBuf:DB$ GainLife | LifeAmount$ 1"
+    ));
+
+    // Single-clause prose ", you may ..." without `OptionalDecider$` wraps in `MayDo`.
+    let prose_single = read(
+        "Name:ProseSingle\nManaCost:2 G\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield \
+         | ValidCard$ Creature.powerGE5+YouCtrl | TriggerZones$ Battlefield \
+         | Execute$ TrigBuf | TriggerDescription$ Whenever a large creature enters, you may put two +1/+1 counters on it.\n\
+         SVar:TrigBuf:DB$ PutCounter | Defined$ TriggeredCardLKICopy | CounterType$ P1P1 | CounterNum$ 2",
+    );
+    assert!(
+        prose_single.abilities[0].contains("Effect::MayDo { effects: &[Effect::AddCounterFilter"),
+        "{}",
+        prose_single.abilities[0]
+    );
+
+    // Multi-clause / conditional prose ", you may ... If you do, ..." without `OptionalDecider$` refuses.
+    assert!(refused(
+        "Name:ProseMulti\nManaCost:2 U\nTypes:Enchantment\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield \
+         | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield \
+         | Execute$ TrigDraw | TriggerDescription$ Whenever a creature enters, you may discard a card. If you do, draw a card.\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1"
+    ));
+}
+
+#[test]
+fn wave3_effect_api_statics_and_dont_untap() {
+    let unblockable = read(
+        "Name:ShadowStep\nManaCost:1 U\nTypes:Instant\n\
+         A:SP$ Effect | ValidTgts$ Creature | RememberObjects$ Targeted | StaticAbilities$ NoBlock\n\
+         SVar:NoBlock:Mode$ CantBlockBy | ValidAttacker$ Card.IsRemembered | ValidBlocker$ Creature.powerGE3",
+    );
+    assert!(
+        unblockable.abilities[0]
+            .contains("Effect::ModifyTargets { modifier: Modifier::CantBeBlockedBy(")
+            && unblockable.abilities[0].contains("Duration::UntilEndOfTurn"),
+        "{}",
+        unblockable.abilities[0]
+    );
+
+    let goad_like = read(
+        "Name:ForcedFight\nManaCost:1 R\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Effect | Cost$ R T | ValidTgts$ Creature | RememberObjects$ Targeted \
+         | ForgetOnMoved$ Battlefield | StaticAbilities$ MustAtk\n\
+         SVar:MustAtk:Mode$ MustAttack | ValidCreature$ Card.IsRemembered",
+    );
+    assert!(
+        goad_like.abilities[0]
+            .contains("Effect::ModifyTargets { modifier: Modifier::AttacksEachCombat"),
+        "{}",
+        goad_like.abilities[0]
+    );
+
+    let no_regen = read(
+        "Name:Scythe\nManaCost:1 B\nTypes:Instant\n\
+         A:SP$ Effect | ValidTgts$ Creature | RememberObjects$ Targeted | StaticAbilities$ NR\n\
+         SVar:NR:Mode$ CantRegenerate | ValidCard$ Card.IsRemembered",
+    );
+    assert!(
+        no_regen.abilities[0].contains("Modifier::CantBeRegenerated"),
+        "{}",
+        no_regen.abilities[0]
+    );
+
+    let no_max = read(
+        "Name:OpenMind\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ Effect | Duration$ UntilYourNextTurn | StaticAbilities$ Hand\n\
+         SVar:Hand:Mode$ Continuous | Affected$ You | NoHandSize$ True",
+    );
+    assert!(
+        no_max.abilities[0].contains(
+            "Effect::continuous(&Filter::Any, Modifier::NoMaxHandSize, Duration::UntilYourNextTurn)"
+        ),
+        "{}",
+        no_max.abilities[0]
+    );
+
+    let lock = read(
+        "Name:FrostPin\nManaCost:2 U\nTypes:Creature\nPT:1/3\n\
+         A:AB$ Effect | Cost$ T | ValidTgts$ Creature | RememberObjects$ Targeted \
+         | Duration$ UntilUntaps | ReplacementEffects$ DontUntap\n\
+         SVar:DontUntap:Event$ Untap | ValidCard$ Card.IsRemembered | ValidStepTurnToController$ You | Layer$ CantHappen",
+    );
+    assert!(
+        lock.abilities[0].contains("Modifier::DoesNotUntap")
+            && lock.abilities[0]
+                .contains("Duration::WhileSourceTapped { control: false, power_limited: false }"),
+        "{}",
+        lock.abilities[0]
+    );
+
+    let freeze_self = read(
+        "Name:Overexert\nManaCost:2 R\nTypes:Creature\nPT:3/3\n\
+         A:AB$ Effect | Cost$ T | RememberObjects$ Self | Duration$ UntilTheEndOfYourNextUntap \
+         | ReplacementEffects$ DontUntap\n\
+         SVar:DontUntap:Event$ Untap | ValidCard$ Card.IsRemembered | ValidStepTurnToController$ Player.Activator | Layer$ CantHappen",
+    );
+    assert!(
+        freeze_self.abilities[0].contains("Effect::ModifySource { modifier: Modifier::DoesNotUntap, duration: Duration::UntilYourNextUntapStep }"),
+        "{}",
+        freeze_self.abilities[0]
+    );
+}
+
+#[test]
+fn wave3_must_block_exile_until_and_trigger_prices() {
+    let lure = read(
+        "Name:LureBeast\nManaCost:3 G\nTypes:Creature\nPT:4/4\n\
+         A:AB$ MustBlock | Cost$ 1 G | ValidTgts$ Creature | Duration$ UntilEndOfCombat",
+    );
+    assert!(
+        lure.abilities[0].contains("Effect::MustBlockSourceIfAbleThisCombat"),
+        "{}",
+        lure.abilities[0]
+    );
+
+    let banisher = read(
+        "Name:CageSpirit\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigExile\n\
+         SVar:TrigExile:DB$ ChangeZone | ValidTgts$ Creature.OppCtrl | Origin$ Battlefield | Destination$ Exile | Duration$ UntilHostLeavesPlay",
+    );
+    assert!(
+        banisher.abilities[0].contains("Effect::exile_until(")
+            && banisher.abilities[0].contains("ExileUntil::SourceLeavesBattlefield"),
+        "{}",
+        banisher.abilities[0]
+    );
+    // Multi-target `UntilHostLeavesPlay` stays refused (`ExileLinked` stores one target).
+    assert!(refused(
+        "Name:BadCage\nManaCost:4 W\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigExile\n\
+         SVar:TrigExile:DB$ ChangeZone | ValidTgts$ Creature.OppCtrl | TargetMin$ 2 | TargetMax$ 2 \
+         | Origin$ Battlefield | Destination$ Exile | Duration$ UntilHostLeavesPlay"
+    ));
+
+    // Trigger-executed `AB$` with single object cost or `Sac<1/CARDNAME>` lowers to `PlayerMayPayCostThen`.
+    let sac_trig = read(
+        "Name:AltarSprite\nManaCost:1 B\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield \
+         | OptionalDecider$ You | Execute$ TrigSac\n\
+         SVar:TrigSac:AB$ Draw | Cost$ Sac<1/CARDNAME/this creature> | NumCards$ 2",
+    );
+    assert!(
+        sac_trig.abilities[0].contains("Effect::PlayerMayPayCostThen")
+            && sac_trig.abilities[0].contains("CostPart::Sacrifice(&Filter::This)"),
+        "{}",
+        sac_trig.abilities[0]
+    );
+    // Trailing mana after `Sac<1/CARDNAME/...>` must NOT be silently dropped.
+    assert!(refused(
+        "Name:BadSacTrig\nManaCost:1 B\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield \
+         | OptionalDecider$ You | Execute$ TrigSac\n\
+         SVar:TrigSac:AB$ Draw | Cost$ Sac<1/CARDNAME/this creature> 2 | NumCards$ 2"
+    ));
+
+    // Switched `UnlessCost$` with `PayLife` and `UnlessResolveSubs$ WhenPaid`.
+    let life_unless = read(
+        "Name:BloodChoice\nManaCost:1 B\nTypes:Sorcery\n\
+         A:SP$ Draw | NumCards$ 1 | UnlessCost$ PayLife<2> | UnlessPayer$ You | UnlessSwitched$ True \
+         | UnlessResolveSubs$ WhenPaid | SubAbility$ DBGain\n\
+         SVar:DBGain:DB$ GainLife | LifeAmount$ 1",
+    );
+    assert!(
+        life_unless.abilities[0].contains("Effect::PlayerMayPayLifeThen"),
+        "{}",
+        life_unless.abilities[0]
+    );
+}
+
+#[test]
+fn wave3_mana_amounts_costs_and_activation_svar_checks() {
+    let minus_amt = read(
+        "Name:HandDiff\nManaCost:2 U\nTypes:Sorcery\n\
+         A:SP$ Draw | NumCards$ X\n\
+         SVar:X:Number$7/Minus.Y\n\
+         SVar:Y:Count$CardsInYourHand",
+    );
+    assert!(
+        minus_amt.abilities[0].contains(
+            "Amount::ConstantMinus { constant: 7, subtract: &Amount::HandSize(PlayerRel::You) }"
+        ),
+        "{}",
+        minus_amt.abilities[0]
+    );
+
+    let colors_amt = read(
+        "Name:PrismGain\nManaCost:1 W\nTypes:Sorcery\n\
+         A:SP$ GainLife | LifeAmount$ X\n\
+         SVar:X:Count$Valid Creature.YouCtrl$Colors",
+    );
+    assert!(
+        colors_amt.abilities[0].contains("Amount::DistinctColorsAmong("),
+        "{}",
+        colors_amt.abilities[0]
+    );
+
+    let energy_act = read(
+        "Name:SparkCell\nManaCost:2\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ PayEnergy<2> T | NumCards$ 1 | CheckSVar$ X | SVarCompare$ GE2\n\
+         SVar:X:Count$YourEnergyCounters",
+    );
+    assert!(
+        energy_act.abilities[0].contains("PayEnergy(2)")
+            && energy_act.abilities[0].contains("Amount::CountersOnYou(CounterKind::Energy)"),
+        "{}",
+        energy_act.abilities[0]
+    );
+
+    let top_exile_spell = read(
+        "Name:DeckBurn\nManaCost:R\nTypes:Instant\n\
+         A:SP$ DealDamage | Cost$ R ExileFromTop<2/Card> | ValidTgts$ Any | NumDmg$ 3",
+    );
+    assert_eq!(
+        top_exile_spell.mandatory_additional_costs,
+        ["CostPart::ExileTopOfLibrary(2)"]
+    );
+
+    let draw_both = read(
+        "Name:SharedPage\nManaCost:1 U\nTypes:Sorcery\n\
+         A:SP$ Draw | ValidTgts$ Player | Defined$ TargetedAndYou | NumCards$ 1",
+    );
+    assert!(
+        draw_both.abilities[0].contains("Effect::draw(1)")
+            && draw_both.abilities[0].contains(
+                "Effect::DrawCardsFor { amount: Amount::Fixed(1), who: PlayerRel::Chosen }"
+            ),
+        "{}",
+        draw_both.abilities[0]
+    );
+
+    let dmg_enchanted = read(
+        "Name:BurnAura\nManaCost:1 R\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigHit\n\
+         SVar:TrigHit:DB$ DealDamage | Defined$ Enchanted | NumDmg$ 1",
+    );
+    let joined = dmg_enchanted.abilities.join("\n");
+    assert!(joined.contains("Effect::DealDamageToAttached"), "{joined}");
+}

@@ -615,13 +615,12 @@ fn a_may_on_a_trigger_wraps_the_whole_clause() {
             "a `may` decided by `TriggeredCardController`",
         ),
         (
-            // Ruin Processor's shape: "you may put a card an opponent
-            // owns from exile into that player's graveyard. If you
-            // do, you gain 5 life."
+            // Mixed mana + sacrifice on a trigger-executed `AB$` cannot be
+            // carried by a single `PlayerMayPay*Then` effect and stays refused.
             "T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield \
              | ValidCard$ Card.Self | OptionalDecider$ You | Execute$ TrigGain \
              | TriggerDescription$ x.\n\
-             SVar:TrigGain:AB$ GainLife | Cost$ Sac<1/Creature.YouCtrl/a creature> \
+             SVar:TrigGain:AB$ GainLife | Cost$ 1 Sac<1/Creature.YouCtrl/a creature> \
              | LifeAmount$ 5",
             "unclaimed parameter `GainLife.Cost`",
         ),
@@ -682,11 +681,27 @@ fn a_may_with_a_generic_price_is_a_payment_that_buys_the_clause() {
         "{text}"
     );
 
-    let script = parse(
+    let life_text = read(
         "Name:X\nManaCost:1\nTypes:Artifact\n\
          T:Mode$ SpellCast | ValidCard$ Card.Blue | TriggerZones$ Battlefield \
          | OptionalDecider$ You | Execute$ TrigGainLife | TriggerDescription$ x.\n\
          SVar:TrigGainLife:AB$ GainLife | Cost$ PayLife<1> | Defined$ You | LifeAmount$ 1",
+    )
+    .abilities
+    .join("\n");
+    assert!(
+        life_text.contains(
+            "Effect::PlayerMayPayLifeThen { player: PlayerRel::You, life: Amount::Fixed(1), \
+             effects: &[Effect::gain_life(1)] }"
+        ),
+        "{life_text}"
+    );
+
+    let script = parse(
+        "Name:X\nManaCost:1\nTypes:Artifact\n\
+         T:Mode$ SpellCast | ValidCard$ Card.Blue | TriggerZones$ Battlefield \
+         | OptionalDecider$ You | Execute$ TrigGainLife | TriggerDescription$ x.\n\
+         SVar:TrigGainLife:AB$ GainLife | Cost$ 1 PayLife<1> | Defined$ You | LifeAmount$ 1",
     );
     assert_eq!(
         refusal_reason(&script, &cats(), None).as_deref(),

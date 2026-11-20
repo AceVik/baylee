@@ -271,12 +271,16 @@ impl Tx<'_> {
                     None
                 }
             } else {
-                self.effect_of(
+                let single_target = chain.target_exact.is_none()
+                    && !chain.target_is_x
+                    && chain.target_up_to.is_none_or(|n| n == 1);
+                self.effect_of_inner(
                     &api,
                     &mut p,
                     target.as_deref(),
                     targets_here,
                     targets_a_player,
+                    single_target,
                 )
             }) else {
                 // An API with no rule at all is a different report than a rule
@@ -672,7 +676,12 @@ impl Tx<'_> {
                                 (Some("Battlefield" | "Graveyard"), Some("Hand" | "Exile"))
                                     | (Some("Graveyard"), Some("Battlefield"))
                             ));
-                if self.on_a_spell
+                if p.peek("TargetMin") == Some("1")
+                    && matches!(p.peek("TargetMax"), None | Some("1"))
+                {
+                    p.take("TargetMin");
+                    p.take("TargetMax");
+                } else if self.on_a_spell
                     && self.has_x
                     && multi_target_ok
                     && let (Some(min), Some(max)) = (p.peek("TargetMin"), p.peek("TargetMax"))
@@ -682,7 +691,13 @@ impl Tx<'_> {
                     p.take("TargetMin");
                     p.take("TargetMax");
                     chain.target_is_x = true;
-                } else if matches!(api, "Fight" | "Attach")
+                } else if (matches!(api, "Fight" | "Attach" | "MustBlock" | "Effect")
+                    || (api == "DealDamage" && !p.has("DividedAsYouChoose"))
+                    || (api == "ChangeZone"
+                        && matches!(
+                            (p.peek("Origin"), p.peek("Destination")),
+                            (Some("Battlefield" | "Graveyard"), Some("Library"))
+                        )))
                     && p.peek("TargetMin") == Some("0")
                     && p.peek("TargetMax") == Some("1")
                 {
@@ -748,6 +763,7 @@ impl Tx<'_> {
         let resolve_subs = match p.take("UnlessResolveSubs").as_deref() {
             None => false,
             Some("WhenNotPaid") if has_sub && !switched => true,
+            Some("WhenPaid") if has_sub && switched => true,
             Some(subs) => return self.deny(format!("`UnlessResolveSubs$ {subs}`")),
         };
         let payer = p.take("UnlessPayer");
@@ -790,6 +806,9 @@ impl Tx<'_> {
             {
                 self.player_rel(Some("TriggeredDefendingPlayer"))?
             }
+            Some("TriggeredPlayer") if self.trigger_mode.as_deref() == Some("Phase") => {
+                "PlayerRel::ActivePlayer"
+            }
             other => {
                 return self.deny(format!(
                     "an unless-cost paid by `{}`",
@@ -797,13 +816,17 @@ impl Tx<'_> {
                 ));
             }
         };
-        let price = self.unless_price(cost.trim())?;
+        let price = self.unless_price_switched(cost.trim(), switched)?;
         Some(Unless {
             payer,
             price,
             switched,
             resolve_subs,
         })
+    }
+
+    pub(super) fn unless_price(&mut self, raw: &str) -> Option<Price> {
+        self.unless_price_switched(raw, false)
     }
 
     /// An `UnlessCost$` value as a [`Price`].
@@ -814,12 +837,9 @@ impl Tx<'_> {
     /// colour in it is printed exactly (`PlayerMayPayManaOr`), where it used
     /// to be refused — a `{U}` charged as `{1}` is a card anyone could keep
     /// with a Mountain. One part the player pays by naming an object is
-    /// `PlayerMayPayCostOr`. A part that needs no answer (`PayLife<2>`) is
-    /// refused even though `CostPart` can hold it: that effect asks by
-    /// putting up the list of what may pay, and an empty list is how a
-    /// player declines — so a price nobody names an object for would
-    /// decline itself every time.
-    pub(super) fn unless_price(&mut self, raw: &str) -> Option<Price> {
+    /// `PlayerMayPayCostOr` (or `PlayerMayPayCostThen` when switched); a
+    /// switched `PayLife<N>` is `PlayerMayPayLifeThen`.
+    fn unless_price_switched(&mut self, raw: &str, switched: bool) -> Option<Price> {
         // "Unless its controller pays {X}" (Power Sink): the X announced
         // for the source, and only where the card says that is what X is.
         if matches!(raw, "X" | "Y" | "Z") {
@@ -828,6 +848,12 @@ impl Tx<'_> {
             };
             return Some(Price::Generic(x));
         }
+        if switched
+            && (raw == "Sac<1/CARDNAME>"
+                || (raw.starts_with("Sac<1/CARDNAME/") && raw.find('>') == Some(raw.len() - 1)))
+        {
+            return Some(Price::Part("Sacrifice(&Filter::This)".to_string()));
+        }
         let (mana, parts) = self.cost_pieces(raw)?;
         match (mana.as_str(), parts.as_slice()) {
             (m, []) if !m.is_empty() => Some(match generic_mana(m) {
@@ -835,6 +861,9 @@ impl Tx<'_> {
                 None => Price::Printed(m.to_string()),
             }),
             ("", [one]) if asks_for_an_object(one) => Some(Price::Part(one.clone())),
+            ("", [one]) if switched && one.starts_with("PayLife(") && one.ends_with(')') => {
+                Some(Price::Part(one.clone()))
+            }
             _ => self.deny(format!("an unless-cost of `{raw}`")),
         }
     }
@@ -898,10 +927,21 @@ impl Tx<'_> {
                 "Effect::PlayerMayPayCostOr {{ player: {payer}, cost: &CostPart::{part}, \
                  effect: &{one} }}"
             ),
-            // "You may <sacrifice a creature>. If you do, …" is a price no
-            // effect here takes on the paying answer.
             (Price::Part(part), true) => {
-                return self.deny(format!("a switched unless-cost of `{part}`"));
+                if let Some(n) = part
+                    .strip_prefix("PayLife(")
+                    .and_then(|s| s.strip_suffix(')'))
+                {
+                    format!(
+                        "Effect::PlayerMayPayLifeThen {{ player: {payer}, life: Amount::Fixed({n}), \
+                         effects: &[{list}] }}"
+                    )
+                } else {
+                    format!(
+                        "Effect::PlayerMayPayCostThen {{ player: {payer}, cost: &CostPart::{part}, \
+                         effect: &{one} }}"
+                    )
+                }
             }
         })
     }
@@ -913,7 +953,6 @@ impl Tx<'_> {
     /// `NoRegen$ True` from generating a card that does the wrong thing.
     // One arm per reference API, and the reasons a reading is what it is
     // live beside the arm that makes it.
-    #[allow(clippy::too_many_lines)]
     pub(super) fn effect_of(
         &mut self,
         api: &str,
@@ -921,6 +960,19 @@ impl Tx<'_> {
         target: Option<&str>,
         targets_here: bool,
         targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        self.effect_of_inner(api, p, target, targets_here, targets_a_player, false)
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn effect_of_inner(
+        &mut self,
+        api: &str,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+        targets_a_player: bool,
+        single_target: bool,
     ) -> Option<Vec<String>> {
         // What the effects below aim at when they take a target. `target` is
         // `None` when the chain declared none at all, which is a different
@@ -981,11 +1033,26 @@ impl Tx<'_> {
                     }
                     p.take("Defined");
                 }
+                if damage_source.is_none()
+                    && turn_start_hand.is_none()
+                    && !self.on_a_spell
+                    && matches!(p.peek("Defined"), Some("Enchanted" | "Equipped"))
+                {
+                    p.take("Defined");
+                    let n = self.amount_or_count(&num_dmg)?;
+                    let dmg = format!("Effect::DealDamageToAttached {{ amount: {n} }}");
+                    return Some(if may {
+                        vec![format!("Effect::MayDo {{ effects: &[{dmg}] }}")]
+                    } else {
+                        vec![dmg]
+                    });
+                }
                 let to = if turn_start_hand.is_some() {
                     "TargetSpec::Player(PlayerRel::You)".to_string()
                 } else {
                     match p.take("Defined").as_deref() {
                         None => aimed.to_string(),
+                        Some("Self") if !self.on_a_spell => "TargetSpec::ThisObject".to_string(),
                         Some("Targeted" | "ParentTarget") if !targets_here && target.is_some() => {
                             aimed.to_string()
                         }
@@ -998,6 +1065,12 @@ impl Tx<'_> {
                         }
                         Some("TriggeredCardLKICopy" | "TriggeredCard")
                             if self.trigger_mode.as_deref() == Some("ChangesZone")
+                                && target.is_none() =>
+                        {
+                            "TargetSpec::EventObject".to_string()
+                        }
+                        Some("TriggeredTargetLKICopy" | "TriggeredTarget")
+                            if self.trigger_mode.as_deref() == Some("DamageDone")
                                 && target.is_none() =>
                         {
                             "TargetSpec::EventObject".to_string()
@@ -1127,6 +1200,26 @@ impl Tx<'_> {
                     Some("You") => true,
                     Some(_) => return None,
                 };
+                if p.peek("Defined") == Some("TargetedAndYou") && targets_a_player {
+                    p.take("Defined");
+                    let you_draw = if let Some(fixed) = n
+                        .strip_prefix("Amount::Fixed(")
+                        .and_then(|r| r.strip_suffix(')'))
+                    {
+                        format!("Effect::draw({fixed})")
+                    } else {
+                        format!("Effect::DrawCards {{ amount: {n} }}")
+                    };
+                    let other_draw =
+                        format!("Effect::DrawCardsFor {{ amount: {n}, who: PlayerRel::Chosen }}");
+                    return Some(if may {
+                        vec![format!(
+                            "Effect::MayDo {{ effects: &[{you_draw}, {other_draw}] }}"
+                        )]
+                    } else {
+                        vec![you_draw, other_draw]
+                    });
+                }
                 let draw = match (
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?,
                     n.strip_prefix("Amount::Fixed(")
@@ -1134,10 +1227,9 @@ impl Tx<'_> {
                 ) {
                     ("PlayerRel::You", Some(fixed)) => format!("Effect::draw({fixed})"),
                     ("PlayerRel::You", None) => format!("Effect::DrawCards {{ amount: {n} }}"),
-                    (who, _) if !may => {
+                    (who, _) => {
                         format!("Effect::DrawCardsFor {{ amount: {n}, who: {who} }}")
                     }
-                    _ => return None,
                 };
                 if may {
                     vec![format!("Effect::MayDo {{ effects: &[{draw}] }}")]
@@ -1309,7 +1401,27 @@ impl Tx<'_> {
                         )]);
                     }
                     Some("TriggeredAttackerLKICopy" | "TriggeredAttacker")
-                        if self.trigger_mode.as_deref() == Some("Attacks") && target.is_none() =>
+                        if matches!(
+                            self.trigger_mode.as_deref(),
+                            Some("Attacks" | "AttackerUnblocked")
+                        ) && target.is_none() =>
+                    {
+                        return Some(vec![format!(
+                            "Effect::AddCounterFilter {{ filter: &Filter::Reference, \
+                             kind: {kind}, amount: {n} }}"
+                        )]);
+                    }
+                    Some("TriggeredBlockerLKICopy" | "TriggeredBlocker")
+                        if self.trigger_mode.as_deref() == Some("Blocks") && target.is_none() =>
+                    {
+                        return Some(vec![format!(
+                            "Effect::AddCounterFilter {{ filter: &Filter::Reference, \
+                             kind: {kind}, amount: {n} }}"
+                        )]);
+                    }
+                    Some("TriggeredTargetLKICopy" | "TriggeredTarget")
+                        if self.trigger_mode.as_deref() == Some("DamageDone")
+                            && target.is_none() =>
                     {
                         return Some(vec![format!(
                             "Effect::AddCounterFilter {{ filter: &Filter::Reference, \
@@ -1741,14 +1853,51 @@ impl Tx<'_> {
             "Phases" => self.phase_your_permanents(p)?,
             "Pump" => self.pump_effect(p, aimed, false)?,
             "PumpAll" => self.pump_all_effect(p, target, targets_here, targets_a_player)?,
-            "Effect" => self.static_effect(p, target)?,
+            "Effect" => {
+                let snapshot = p.clone();
+                let saved_unclaimed = self.unclaimed.borrow().clone();
+                if let Some(effects) = self.static_effect(p, target) {
+                    effects
+                } else {
+                    *p = snapshot;
+                    *self.unclaimed.borrow_mut() = saved_unclaimed;
+                    self.wave3_effect_api(p, target)?
+                }
+            }
+            "MustBlock" => {
+                if !targets_here || !target.is_some_and(|t| t.starts_with("TargetSpec::Object(")) {
+                    return None;
+                }
+                let this_combat_only = match p.take("Duration").as_deref() {
+                    None | Some("UntilEndOfTurn") => false,
+                    Some("UntilEndOfCombat") => true,
+                    Some(_) => return None,
+                };
+                let attacker = match p.take("DefinedAttacker").as_deref() {
+                    None if !self.on_a_spell => "TargetSpec::ThisObject",
+                    Some("TriggeredAttacker" | "TriggeredAttackerLKICopy")
+                        if self.trigger_mode.as_deref() == Some("Attacks") =>
+                    {
+                        "TargetSpec::EventObject"
+                    }
+                    _ => return None,
+                };
+                if attacker == "TargetSpec::ThisObject" && this_combat_only {
+                    vec!["Effect::MustBlockSourceIfAbleThisCombat".to_string()]
+                } else {
+                    vec![format!(
+                        "Effect::MustBlockIfAble {{ blocker: {aimed}, attacker: {attacker}, \
+                         this_combat_only: {this_combat_only} }}"
+                    )]
+                }
+            }
             "GainControl" => self.gain_control_effect(p, target, targets_here, targets_a_player)?,
             "Shuffle" => {
                 let who =
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
                 vec![format!("Effect::ShuffleLibrary {{ who: {who} }}")]
             }
-            "ChangeZone" => self.change_zone(p, target, targets_here)?,
+            "ChangeZone" => self.change_zone(p, target, targets_here, single_target)?,
             "ChangeZoneAll" => self.shuffle_into_library(p, target, targets_a_player)?,
             // "Look at the top three cards of target player's library and
             // put them back in any order. You may have that player shuffle"

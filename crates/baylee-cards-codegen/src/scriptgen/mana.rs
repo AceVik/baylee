@@ -275,6 +275,50 @@ impl Tx<'_> {
         if depth < 2
             && let Some((lhs, rhs)) = def.rsplit_once('/')
         {
+            let lhs = lhs.trim();
+            if let Some(sub_var) = rhs.strip_prefix("Minus.")
+                && let Some(const_n) = lhs
+                    .strip_prefix("Number$")
+                    .and_then(|s| s.trim().parse::<u32>().ok())
+                && let Some(inner) = self.svars.get(sub_var.trim()).cloned()
+            {
+                let sub = self.count_expr_depth(&inner, depth + 1, static_only)?;
+                return Some(format!(
+                    "Amount::ConstantMinus {{ constant: {const_n}, subtract: &{sub} }}"
+                ));
+            }
+            if let Some(rhs_var) = rhs.strip_prefix("Plus.")
+                && rhs_var.trim().parse::<u32>().is_err()
+                && let Some(inner_rhs) = self.svars.get(rhs_var.trim()).cloned()
+            {
+                let left = if let Some(var) = lhs.strip_prefix("SVar$") {
+                    let inner = self.svars.get(var.trim())?.clone();
+                    self.count_expr_depth(&inner, depth + 1, static_only)?
+                } else if !static_only && lhs == "Count$xPaid" && self.has_x {
+                    "Amount::X".to_string()
+                } else {
+                    self.count_expr_depth(lhs, depth + 1, static_only)?
+                };
+                let right = self.count_expr_depth(&inner_rhs, depth + 1, static_only)?;
+                return Some(format!("Amount::Sum {{ left: &{left}, right: &{right} }}"));
+            }
+            if let Some(rhs_var) = rhs.strip_prefix("Minus.")
+                && rhs_var.trim().parse::<u32>().is_err()
+                && let Some(inner_rhs) = self.svars.get(rhs_var.trim()).cloned()
+            {
+                let left = if let Some(var) = lhs.strip_prefix("SVar$") {
+                    let inner = self.svars.get(var.trim())?.clone();
+                    self.count_expr_depth(&inner, depth + 1, static_only)?
+                } else if !static_only && lhs == "Count$xPaid" && self.has_x {
+                    "Amount::X".to_string()
+                } else {
+                    self.count_expr_depth(lhs, depth + 1, static_only)?
+                };
+                let right = self.count_expr_depth(&inner_rhs, depth + 1, static_only)?;
+                return Some(format!(
+                    "Amount::Difference {{ left: &{left}, right: &{right} }}"
+                ));
+            }
             let op = if let Some(n) = rhs.strip_prefix("Times.") {
                 n.trim()
                     .parse::<u32>()
@@ -293,7 +337,6 @@ impl Tx<'_> {
                 None
             };
             if let Some((kind, arg)) = op {
-                let lhs = lhs.trim();
                 let base = if let Some(var) = lhs.strip_prefix("SVar$") {
                     let inner = self.svars.get(var.trim())?.clone();
                     self.count_expr_depth(&inner, depth + 1, static_only)?
@@ -380,12 +423,46 @@ impl Tx<'_> {
             if def == "Sacrificed$CardManaCost" && self.cost_sacrifices_other {
                 return Some("Amount::SacrificedManaValue".to_string());
             }
+            if def == "Count$TotalManaSpent" && (self.on_a_spell || self.is_etb_self_trigger) {
+                return Some("Amount::ManaSpentToCast".to_string());
+            }
+            if def == "TargetedPlayer$CardsInHand" {
+                return Some("Amount::HandSize(PlayerRel::Chosen)".to_string());
+            }
+            if def == "TriggeredPlayer$CardsInHand" && self.trigger_mode.as_deref() == Some("Phase")
+            {
+                return Some("Amount::HandSize(PlayerRel::ActivePlayer)".to_string());
+            }
+            if def == "TargetedPlayer$LifeTotal" {
+                return Some("Amount::LifeTotal(PlayerRel::Chosen)".to_string());
+            }
+            if def == "TriggeredPlayer$LifeTotal" && self.trigger_mode.as_deref() == Some("Phase") {
+                return Some("Amount::LifeTotal(PlayerRel::ActivePlayer)".to_string());
+            }
         }
         if matches!(def, "Count$CardsInYourHand" | "Count$ValidHand Card.YouOwn") {
             return Some("Amount::HandSize(PlayerRel::You)".to_string());
         }
+        if matches!(
+            def,
+            "Count$CardsInYourLibrary" | "Count$ValidLibrary Card.YouOwn"
+        ) {
+            return Some("Amount::LibrarySize(PlayerRel::You)".to_string());
+        }
+        if def == "Count$StartingLifeTotal" {
+            return Some("Amount::StartingLifeTotal(PlayerRel::You)".to_string());
+        }
         if def == "Count$LifeYouGainedThisTurn" {
             return Some("Amount::LifeGainedThisTurn(PlayerRel::You)".to_string());
+        }
+        if def == "Count$LifeOppsLostThisTurn" {
+            return Some("Amount::OpponentsLifeLostThisTurn".to_string());
+        }
+        if def == "Count$YourPoisonCounters" {
+            return Some("Amount::CountersOnYou(CounterKind::Poison)".to_string());
+        }
+        if def == "Count$YourEnergyCounters" {
+            return Some("Amount::CountersOnYou(CounterKind::Energy)".to_string());
         }
         if def == "Count$YourLifeTotal" {
             return Some("Amount::LifeTotal(PlayerRel::You)".to_string());
@@ -444,6 +521,14 @@ impl Tx<'_> {
             ));
         }
         let valid = def.strip_prefix("Count$Valid ")?;
+        if let Some(color_valid) = valid.strip_suffix("$Colors")
+            && !color_valid.contains('/')
+            && !color_valid.contains('$')
+        {
+            let expr = self.filter_expr(color_valid)?;
+            let name = self.body.filter_static("COUNT", &expr);
+            return Some(format!("Amount::DistinctColorsAmong(&{name})"));
+        }
         let expr = self.filter_expr(valid)?;
         let name = self.body.filter_static("COUNT", &expr);
         Some(format!(
@@ -694,6 +779,8 @@ impl Tx<'_> {
                 .and_then(|t| t.parse::<u16>().ok())
             {
                 parts.push(format!("PayLife({n})"));
+            } else if token.starts_with("PayEnergy<") || token.starts_with("ExileFromTop<") {
+                parts.push(self.energy_or_exile_top_cost(token)?);
             } else if token.chars().all(|c| c.is_ascii_digit())
                 || matches!(token, "W" | "U" | "B" | "R" | "G" | "C")
                 || (token == "X"
@@ -725,6 +812,45 @@ impl Tx<'_> {
             }
         }
         Some((mana, parts))
+    }
+
+    fn energy_or_exile_top_cost(&self, token: &str) -> Option<String> {
+        if let Some(energy) = token
+            .strip_prefix("PayEnergy<")
+            .and_then(|t| t.strip_suffix('>'))
+        {
+            if energy == "X"
+                && self.has_x
+                && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
+                && !self.oracle.to_ascii_lowercase().contains("x is ")
+            {
+                return Some("PayEnergyX".to_string());
+            }
+            if let Ok(n) = energy.parse::<u32>()
+                && n > 0
+            {
+                return Some(format!("PayEnergy({n})"));
+            }
+            return self.deny(format!("cost `{token}`"));
+        }
+        if let Some(body) = token
+            .strip_prefix("ExileFromTop<")
+            .and_then(|t| t.strip_suffix('>'))
+        {
+            let mut fields = body.splitn(3, '/');
+            let Some(n) = fields
+                .next()
+                .and_then(|s| s.parse::<u16>().ok())
+                .filter(|&n| n > 0)
+            else {
+                return self.deny(format!("cost `{token}`"));
+            };
+            if fields.next() != Some("Card") {
+                return self.deny(format!("cost `{token}`"));
+            }
+            return Some(format!("ExileTopOfLibrary({n})"));
+        }
+        self.deny(format!("cost `{token}`"))
     }
 
     /// One cost part the player pays by naming an object.
@@ -769,23 +895,30 @@ impl Tx<'_> {
             && self.has_x
             && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
             && !self.oracle.to_ascii_lowercase().contains("x is ");
-        let tap_n = if self.in_alternative_cost && kind == "tapXType" && spec != "CARDNAME" {
-            let Some(count) = n
-                .parse::<u32>()
-                .ok()
-                .filter(|count| (1..=10).contains(count))
-            else {
-                return self.deny(format!("a cost naming `{n}` objects"));
+        let tap_x = kind == "tapXType"
+            && n == "X"
+            && spec != "CARDNAME"
+            && self.has_x
+            && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
+            && !self.oracle.to_ascii_lowercase().contains("x is ");
+        let tap_n =
+            if self.in_alternative_cost && kind == "tapXType" && spec != "CARDNAME" && !tap_x {
+                let Some(count) = n
+                    .parse::<u32>()
+                    .ok()
+                    .filter(|count| (1..=10).contains(count))
+                else {
+                    return self.deny(format!("a cost naming `{n}` objects"));
+                };
+                Some(count)
+            } else {
+                None
             };
-            Some(count)
-        } else {
-            None
-        };
         let multi_parts = (matches!(kind, "Sac" | "Discard" | "ExileFromGrave")
             || (self.in_alternative_cost && matches!(kind, "Return" | "ExileFromHand")))
             && matches!(n, "2" | "3")
             && spec != "CARDNAME";
-        if n != "1" && !sac_x && tap_n.is_none() && !multi_parts {
+        if n != "1" && !sac_x && !tap_x && tap_n.is_none() && !multi_parts {
             return self.deny(format!("a cost naming `{n}` objects"));
         }
         let part_count = if multi_parts {
@@ -823,6 +956,8 @@ impl Tx<'_> {
         let name = self.body.filter_static("COST", &expr);
         Some(if sac_x {
             vec![format!("SacrificeX(&{name})")]
+        } else if tap_x {
+            vec![format!("TapX(&{name})")]
         } else if let Some(count) = tap_n {
             vec![format!("TapN {{ filter: &{name}, count: {count} }}")]
         } else {

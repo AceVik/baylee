@@ -197,6 +197,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Fight",
     "Poison",
     "Attach",
+    "MustBlock",
 ];
 
 /// A cost token that names an object, split into its kind and its body.
@@ -235,7 +236,9 @@ pub(super) fn asks_for_an_object(part: &str) -> bool {
         "Sacrifice(",
         "Discard(",
         "TapOther(",
+        "TapN {",
         "ReturnToHand(",
+        "ExileFromHand(",
         "ExileFromGraveyard(",
         "ExilePermanent(",
     ]

@@ -3,6 +3,14 @@
 
 use super::{CLUE_TOKEN_SCRIPT, Params, Tx, keyword_const, pump_amount};
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EffectSubject {
+    Unbound,
+    Targets,
+    Source,
+    Event,
+}
+
 impl Tx<'_> {
     /// `DB$ Sacrifice`: "sacrifice it".
     ///
@@ -1104,6 +1112,352 @@ impl Tx<'_> {
         })
     }
 
+    /// Wave-3 extensions for `SP$/AB$/DB$ Effect` (called from `chains.rs`
+    /// only after `static_effect` returns `None`).
+    pub(super) fn wave3_effect_api(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if p.peek("ReplacementEffects").is_some() {
+            return self.dont_untap_replacement_effect(p, target);
+        }
+        if p.peek("Triggers").is_some() || p.peek("Abilities").is_some() {
+            return None;
+        }
+        let duration = match p.take("Duration").as_deref() {
+            None | Some("UntilEndOfTurn") => "Duration::UntilEndOfTurn",
+            Some("UntilEndOfCombat") => "Duration::UntilEndOfCombat",
+            Some("UntilYourNextTurn") => "Duration::UntilYourNextTurn",
+            Some("AsLongAsControl") if !self.on_a_spell => "Duration::WhileYouControlSource",
+            Some("UntilUntaps") if !self.on_a_spell => {
+                "Duration::WhileSourceTapped { control: false, power_limited: false }"
+            }
+            _ => return None,
+        };
+        let ends = p.take("ExileOnMoved").or_else(|| p.take("ForgetOnMoved"));
+        if !matches!(ends.as_deref(), None | Some("Battlefield")) {
+            return None;
+        }
+        p.take("IsCurse");
+        let subject = self.effect_remember_subject(p, target)?;
+        let statics = p.take("StaticAbilities")?;
+        let body = self.svars.get(statics.trim())?.clone();
+        let (mode, mut st) = Params::parse(&body)?;
+        st.drop_prose();
+        match mode.as_str() {
+            "CantBlockBy" => self.effect_cant_block_by(&mut st, subject, duration),
+            "MustAttack" => {
+                let valid = st.take("ValidCreature")?;
+                if !st.exhausted() {
+                    return None;
+                }
+                self.emit_effect_modifiers(
+                    subject,
+                    &valid,
+                    &["Modifier::AttacksEachCombat".to_string()],
+                    duration,
+                )
+            }
+            "CantBlock" => {
+                let valid = st.take("ValidCard")?;
+                if !st.exhausted() {
+                    return None;
+                }
+                self.emit_effect_modifiers(
+                    subject,
+                    &valid,
+                    &["Modifier::AddKeyword(KeywordSet::CANT_BLOCK)".to_string()],
+                    duration,
+                )
+            }
+            "CantAttack" => {
+                let valid = st.take("ValidCard")?;
+                if !st.exhausted() {
+                    return None;
+                }
+                self.emit_effect_modifiers(
+                    subject,
+                    &valid,
+                    &["Modifier::CantAttack".to_string()],
+                    duration,
+                )
+            }
+            "AssignNoCombatDamage" => {
+                let valid = st.take("ValidCard")?;
+                if !st.exhausted() {
+                    return None;
+                }
+                self.emit_effect_modifiers(
+                    subject,
+                    &valid,
+                    &["Modifier::AssignsNoCombatDamage".to_string()],
+                    duration,
+                )
+            }
+            "CantRegenerate" => {
+                let valid = st.take("ValidCard")?;
+                if !st.exhausted() {
+                    return None;
+                }
+                self.emit_effect_modifiers(
+                    subject,
+                    &valid,
+                    &["Modifier::CantBeRegenerated".to_string()],
+                    duration,
+                )
+            }
+            "Continuous" => self.effect_continuous_static(&mut st, subject, duration),
+            _ => None,
+        }
+    }
+
+    /// `DB$ Effect | ReplacementEffects$ DontUntap` lowering to
+    /// `Modifier::DoesNotUntap` with exact untap-step or source-linked duration.
+    fn dont_untap_replacement_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if p.peek("StaticAbilities").is_some() || p.peek("Triggers").is_some() {
+            return None;
+        }
+        let ends = p.take("ExileOnMoved").or_else(|| p.take("ForgetOnMoved"));
+        if !matches!(ends.as_deref(), None | Some("Battlefield")) {
+            return None;
+        }
+        p.take("IsCurse");
+        let dur_raw = p.take("Duration")?;
+        let subject = self.effect_remember_subject(p, target)?;
+        let name = p.take("ReplacementEffects")?;
+        let body = self.svars.get(name.trim())?.clone();
+        let (event, mut r) = Params::parse(&body)?;
+        r.drop_prose();
+        if event != "Untap" || r.take("Layer").as_deref() != Some("CantHappen") {
+            return None;
+        }
+        let step_turn = r.take("ValidStepTurnToController")?;
+        let valid = r.take("ValidCard")?;
+        if !r.exhausted() {
+            return None;
+        }
+        let duration = match (dur_raw.as_str(), step_turn.as_str()) {
+            ("UntilTheEndOfYourNextUntap", "Player.Activator") => {
+                "Duration::UntilYourNextUntapStep"
+            }
+            ("AsLongAsControl", "You") if !self.on_a_spell && subject == EffectSubject::Targets => {
+                "Duration::WhileYouControlSource"
+            }
+            ("UntilUntaps", "You") if !self.on_a_spell && subject == EffectSubject::Targets => {
+                "Duration::WhileSourceTapped { control: false, power_limited: false }"
+            }
+            _ => return None,
+        };
+        self.emit_effect_modifiers(
+            subject,
+            &valid,
+            &["Modifier::DoesNotUntap".to_string()],
+            duration,
+        )
+    }
+
+    fn effect_remember_subject(
+        &self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<EffectSubject> {
+        let obj_target = target.is_some_and(|t| t.starts_with("TargetSpec::Object("));
+        Some(match p.take("RememberObjects").as_deref() {
+            None => EffectSubject::Unbound,
+            Some("Targeted" | "ParentTarget") if obj_target => EffectSubject::Targets,
+            Some("Self") if !self.on_a_spell => EffectSubject::Source,
+            Some("TriggeredCard" | "TriggeredCardLKICopy")
+                if self.trigger_mode.as_deref() == Some("ChangesZone") =>
+            {
+                EffectSubject::Event
+            }
+            Some("TriggeredAttacker" | "TriggeredAttackerLKICopy")
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("Attacks" | "AttackerUnblocked")
+                ) =>
+            {
+                EffectSubject::Event
+            }
+            Some("TriggeredBlocker" | "TriggeredBlockerLKICopy")
+                if self.trigger_mode.as_deref() == Some("Blocks") =>
+            {
+                EffectSubject::Event
+            }
+            Some(_) => return None,
+        })
+    }
+
+    fn emit_effect_modifiers(
+        &mut self,
+        subject: EffectSubject,
+        valid: &str,
+        modifiers: &[String],
+        duration: &str,
+    ) -> Option<Vec<String>> {
+        if modifiers.is_empty() {
+            return None;
+        }
+        let target_kind = match (subject, valid) {
+            (EffectSubject::Targets, "Card.IsRemembered" | "Creature.IsRemembered") => 0u8,
+            (EffectSubject::Source, "Card.IsRemembered" | "Creature.IsRemembered") => 1u8,
+            (EffectSubject::Event, "Card.IsRemembered" | "Creature.IsRemembered") => 2u8,
+            (
+                EffectSubject::Unbound,
+                "Card.Self" | "Creature.Self" | "Card.EffectSource" | "Creature.EffectSource",
+            ) if !self.on_a_spell => 1u8,
+            (EffectSubject::Unbound, other)
+                if !other.contains("IsRemembered")
+                    && !other.contains("EffectSource")
+                    && !other.contains("RememberedPlayer") =>
+            {
+                let expr = self.filter_expr(other)?;
+                let name = self.body.filter_static("EFFECT", &expr);
+                return Some(
+                    modifiers
+                        .iter()
+                        .map(|m| format!("Effect::continuous(&{name}, {m}, {duration})"))
+                        .collect(),
+                );
+            }
+            _ => return None,
+        };
+        let ctor = match target_kind {
+            0 => "ModifyTargets",
+            1 => "ModifySource",
+            _ => "ModifyEvent",
+        };
+        Some(
+            modifiers
+                .iter()
+                .map(|m| format!("Effect::{ctor} {{ modifier: {m}, duration: {duration} }}"))
+                .collect(),
+        )
+    }
+
+    fn effect_cant_block_by(
+        &mut self,
+        st: &mut Params,
+        subject: EffectSubject,
+        duration: &str,
+    ) -> Option<Vec<String>> {
+        let attacker = st.take("ValidAttacker")?;
+        let modifier = match st.take("ValidBlocker") {
+            None => "Modifier::AddKeyword(KeywordSet::UNBLOCKABLE)".to_string(),
+            Some(blocker)
+                if !blocker.contains("IsRemembered") && !blocker.contains("EffectSource") =>
+            {
+                let expr = self.filter_expr(&blocker)?;
+                let name = self.body.filter_static("BLOCKER", &expr);
+                format!("Modifier::CantBeBlockedBy(&{name})")
+            }
+            Some(_) => return None,
+        };
+        if !st.exhausted() {
+            return None;
+        }
+        self.emit_effect_modifiers(subject, &attacker, &[modifier], duration)
+    }
+
+    fn effect_continuous_static(
+        &mut self,
+        st: &mut Params,
+        subject: EffectSubject,
+        duration: &str,
+    ) -> Option<Vec<String>> {
+        if !matches!(
+            st.take("AffectedZone").as_deref(),
+            None | Some("Battlefield")
+        ) {
+            return None;
+        }
+        let affected = st.take("Affected")?;
+        if affected == "You" && subject == EffectSubject::Unbound {
+            let modifier = if st.take("NoHandSize").as_deref() == Some("True") {
+                "Modifier::NoMaxHandSize"
+            } else if st.take("AddKeyword").as_deref() == Some("Hexproof") {
+                "Modifier::PlayerHexproof { who: PlayerRel::You }"
+            } else {
+                return None;
+            };
+            if !st.exhausted() {
+                return None;
+            }
+            return Some(vec![format!(
+                "Effect::continuous(&Filter::Any, {modifier}, {duration})"
+            )]);
+        }
+        let mut mods = Vec::new();
+        let add_p = st.take("AddPower");
+        let add_t = st.take("AddToughness");
+        if add_p.is_some() || add_t.is_some() {
+            let p: i16 = add_p
+                .as_deref()
+                .map_or(Some(0), |s| s.trim().parse().ok())?;
+            let t: i16 = add_t
+                .as_deref()
+                .map_or(Some(0), |s| s.trim().parse().ok())?;
+            mods.push(format!("Modifier::ModifyPT({p}, {t})"));
+        }
+        let set_p = st.take("SetPower");
+        let set_t = st.take("SetToughness");
+        if set_p.is_some() || set_t.is_some() {
+            match (
+                set_p.as_deref().map(|s| s.trim().parse::<i16>().ok()),
+                set_t.as_deref().map(|s| s.trim().parse::<i16>().ok()),
+            ) {
+                (Some(Some(p)), Some(Some(t))) => mods.push(format!("Modifier::SetPT({p}, {t})")),
+                (Some(Some(p)), None) => mods.push(format!("Modifier::SetPower({p})")),
+                (None, Some(Some(t))) => mods.push(format!("Modifier::SetToughness({t})")),
+                _ => return None,
+            }
+        }
+        if let Some(raw_kw) = st.take("AddKeyword") {
+            let bits: Option<Vec<&str>> =
+                raw_kw.split('&').map(|k| keyword_const(k.trim())).collect();
+            let bits = bits?;
+            if bits.is_empty() {
+                return None;
+            }
+            let kw = bits.join(".union(") + &")".repeat(bits.len().saturating_sub(1));
+            mods.push(format!("Modifier::AddKeyword({kw})"));
+        }
+        if let Some(hidden) = st.take("AddHiddenKeyword") {
+            let m = match hidden.trim() {
+                "CARDNAME can't block." => "Modifier::AddKeyword(KeywordSet::CANT_BLOCK)",
+                "CARDNAME can't attack." => "Modifier::CantAttack",
+                "CARDNAME can't attack or block." => {
+                    "Modifier::AddKeyword(KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK))"
+                }
+                "CARDNAME attacks each combat if able." => "Modifier::AttacksEachCombat",
+                "All creatures able to block CARDNAME do so." => "Modifier::MustBeBlockedByAllAble",
+                "CARDNAME can block any number of creatures." => "Modifier::CanBlockAnyNumber",
+                _ => return None,
+            };
+            mods.push(m.to_string());
+        }
+        match st.take("RemoveAllAbilities").as_deref() {
+            None => {}
+            Some("True") => mods.push("Modifier::LoseAllAbilities".to_string()),
+            Some(_) => return None,
+        }
+        if let Some(types) = st.take("AddType") {
+            for word in types.split('&').map(str::trim) {
+                let tc = super::card_type_const(word)?;
+                mods.push(format!("Modifier::AddType({tc})"));
+            }
+        }
+        if !st.exhausted() {
+            return None;
+        }
+        self.emit_effect_modifiers(subject, &affected, &mods, duration)
+    }
+
     /// A target opponent guesses whether the chosen name is in your hand.
     /// Read both reveal branches as one decision, then an optional reveal and
     /// a draw only when the answer was wrong. Other generic choices refuse.
@@ -1700,6 +2054,7 @@ impl Tx<'_> {
         p: &mut Params,
         target: Option<&str>,
         targets_here: bool,
+        single_target: bool,
     ) -> Option<Vec<String>> {
         let origin = p.take("Origin")?;
         let destination = p.take("Destination")?;
@@ -1795,9 +2150,10 @@ impl Tx<'_> {
                     Some("True") => "Some(1)",
                     Some(_) => return None,
                 };
+                let counters = self.take_with_counters(p)?;
                 vec![format!(
                     "Effect::ReturnSourceFromGraveyard {{ face: {face}, tapped: {tapped}, \
-                     owner_control: false, counters: None }}"
+                     owner_control: false, counters: {counters} }}"
                 )]
             }
             ("Battlefield", "Hand", false) => vec![format!("Effect::bounce({target})")],
@@ -1829,6 +2185,19 @@ impl Tx<'_> {
             }
             ("Battlefield", "Exile", false) => {
                 p.take("IsCurse");
+                if p.peek("Duration") == Some("UntilHostLeavesPlay") {
+                    if self.on_a_spell
+                        || !single_target
+                        || !target.starts_with("TargetSpec::Object(")
+                        || p.peek("ThisDefinedAndTgts").is_some()
+                    {
+                        return None;
+                    }
+                    p.take("Duration");
+                    return Some(vec![format!(
+                        "Effect::exile_until({target}, ExileUntil::SourceLeavesBattlefield)"
+                    )]);
+                }
                 let verb = if self.svars.values().any(|s| {
                     s.contains("Defined$ ExiledWith") || s.contains("Card.ExiledWithSource")
                 }) {
@@ -1909,21 +2278,7 @@ impl Tx<'_> {
                         return self.deny(format!("`ChangeZone` with `Tapped$ {other}`"));
                     }
                 };
-                let counters = if let Some(code) = p.take("WithCountersType") {
-                    let Some(kind) = super::counter_kind(&code) else {
-                        return self.deny(format!("counter `{code}`"));
-                    };
-                    let n: u16 = self
-                        .plain_num(p.take("WithCountersAmount").as_deref().unwrap_or("1"))?
-                        .try_into()
-                        .ok()?;
-                    if n == 0 {
-                        return None;
-                    }
-                    format!("Some(({kind}, {n}))")
-                } else {
-                    "None".to_string()
-                };
+                let counters = self.take_with_counters(p)?;
                 if tapped {
                     vec![format!(
                         "Effect::GraveyardToBattlefieldModified {{ target: {target}, \
@@ -1941,6 +2296,24 @@ impl Tx<'_> {
         })
     }
 
+    fn take_with_counters(&self, p: &mut Params) -> Option<String> {
+        if let Some(code) = p.take("WithCountersType") {
+            let Some(kind) = super::counter_kind(&code) else {
+                return self.deny(format!("counter `{code}`"));
+            };
+            let n: u16 = self
+                .plain_num(p.take("WithCountersAmount").as_deref().unwrap_or("1"))?
+                .try_into()
+                .ok()?;
+            if n == 0 {
+                return None;
+            }
+            Some(format!("Some(({kind}, {n}))"))
+        } else {
+            Some("None".to_string())
+        }
+    }
+
     fn defaults_to_self_zone_change(
         &self,
         p: &Params,
@@ -1951,10 +2324,15 @@ impl Tx<'_> {
     ) -> bool {
         !targets_here
             && !p.has("Hidden")
+            && !p.has("DefinedPlayer")
             && (target != "TargetSpec::AnyPlayer"
+                || (self.on_a_spell
+                    && origin == "Stack"
+                    && destination == "Exile"
+                    && !p.has("ChangeType"))
                 || (!self.on_a_spell
                     && ((origin == "Battlefield"
-                        && (destination == "Hand"
+                        && (matches!(destination, "Hand" | "Exile")
                             || (destination == "Library"
                                 && p.peek("LibraryPosition") == Some("0"))))
                         || (origin == "Graveyard"
@@ -2037,6 +2415,11 @@ impl Tx<'_> {
     /// "you may put a [matching] card from your hand onto the battlefield"
     /// (Firebrand Ranger, Skyshroud Ranger).
     pub(super) fn put_from_hand_onto_battlefield(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        if let Some(hidden) = p.take("Hidden")
+            && hidden != "True"
+        {
+            return self.deny(format!("`ChangeZone` found `Hidden$ {hidden}`"));
+        }
         let tapped = match p.take("Tapped").as_deref() {
             None | Some("False") => false,
             Some("True") => true,
