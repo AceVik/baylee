@@ -8,9 +8,9 @@ opportunity cost; the ordinary effect valuation still decides whether to use it.
 Finite healing potions keep their reservation cost. This reads typed abilities,
 not item names, hidden decks or an authority-side strategy. Pure voluntary token
 activations stop at the same 32-token strategic target as optional token payments.
-Mandatory effects and human choices remain unrestricted. Policies 19–22 and the
-ordinary named profiles retain their previous behavior. Native tests cover a
-real charged activation, an ample board and a still-legal manual continuation.
+Mandatory effects and human choices remain unrestricted. Policies 19–22
+retain their previous behavior. Native tests cover a real charged activation,
+an ample board and a still-legal manual continuation.
 
 Global Tower packages freeze Expert's tactical search, mulligan skill, threat
 handling and seeded noise, with `foresight = 0`. The additional host-load-adaptive
@@ -22,8 +22,10 @@ still requires measured full-duel balance comparisons before release.
 The original Tower contract freezes policy 19. The life workshop uses policy
 20 to fund fixed mana-and-life activations from the engine's unpaid-offer list.
 The house reserves mana for interaction and prices the life using its ordinary
-safety margin. It rechecks the offer and that margin after each tap. Ordinary
-named profiles continue to use policy 19.
+safety margin. It rechecks the offer and that margin after each tap. The ordinary
+named profiles played policy 19 until generation 24 (`SOUND_ROOTS`); from
+there they play every generation, policies 20 to 23 included (§"The frozen
+reference").
 
 The token workshop uses policy 21. At 32 own, unphased creature tokens, the
 house declines an optional payment whose only reward is more own creature
@@ -1780,6 +1782,57 @@ asks `profile.plays(...)`. The generations so far:
     and apply copy exceptions, including Grist's 1/1 bodies. Vivien's −2 and
     Grist's +1 and −6 therefore use the ordinary ability valuation instead of
     its unread-text fallback. Old generations keep their prior choices.
+19. `CHOSEN_AND_LINKED_FILTERS`: a source's public chosen card type, chosen
+    colour and linked exile are read; the original Tower contract
+    (`AIProfile::TOWER_EXPERT`) is frozen here.
+20. `PAY_LIFE_ACTIVATION_MANA`: the Tower life workshop's policy
+    (§"Original Tower supplies").
+21. `OPTIONAL_TOKEN_SATURATION`: the Tower token workshop's policy.
+22. `RUN_EQUIPMENT_MANA`: the Tower run equipment's policy.
+23. `RENEWABLE_RUN_CHARGES`: the runic catalog's policy. Each of 20 to 23
+    is a Tower contract's frozen generation. The named levels skipped them
+    while `AIProfile::GENERATION` was 19; generations are cumulative, so
+    from 24 they play them too.
+24. `SOUND_ROOTS`: a search tries only what its level's own reading could
+    mean (`HeuristicAgent::foresight_candidates`). A cast that reading calls
+    wasted is no candidate (`wasted_cast`: every target on the wrong side, a
+    removal with nothing to take, a sweep or a mode that gains nothing, an
+    instant outside its moment), nor an ability it reads as worth nothing
+    or less, nor a bounce land with no land to return; and passing is no
+    candidate while a land worth playing waits in hand (the leaf weighs a
+    card in hand and no land, so a search found reasons to skip a land
+    drop). A spell or an ability is tried, beside the level's own target, at
+    the others on the same side of the table, the most valuable first
+    (`foresight_targets`); before it, at the first four the engine listed.
+25. `SIZED_SWEEPS`: a sweep sized by X is paid at the X that gains its side
+    the most, the smallest such, and not cast where no X gains anything
+    (`best_sweep_x`); a rider beside the sweep and a bound of "mana value X
+    or less" are read.
+26. `LAND_COLOURS`: a land searched for is the one whose colour the hand
+    waits for (`land_colour_need`).
+27. `HAND_DISCARDS`: a discard gives up the card the seat misses least
+    (`discard_least`): a land past the sixth on the table and in hand, then
+    the spell furthest out of reach. A spell's or an ability's discard,
+    which the engine asks as a plain choice, was answered with the oldest
+    cards in hand.
+28. `PAID_UPKEEPS`: a price whose refusal has the seat sacrifice another
+    permanent of its own is paid (Demonic Hordes).
+29. `FIRST_STRIKE_TRICKS`: a trick on a lone blocker is read through the
+    whole exchange, first strike included.
+30. `SIDE_READS`: a target is chosen by side for effects the shared reader
+    (`baylee_engine::target_side`, which the trained AI's encoder also
+    reads and which therefore stays as it is) has no sign for: a
+    regeneration shield, a body set to a size, a permanent made a creature,
+    a discard, and a spell's second target by what the spell does to that
+    target alone (`sides.rs`: `sided_meaning`, `side_of`).
+31. `WHOLE_BURN`: damage divided as its caster chooses that finishes no
+    creature goes whole to an opponent, or whole to the best creature.
+
+Generations 24 to 31 were built on 12.11.2026 as 18 to 25, on a base whose
+newest generation was 17 (`CARD_SKILL`), and renumbered in the same order
+when main had taken 18 to 23. Every number measured before the renumbering
+names the old numbering: "generation 25 against generation 17" there is
+today's 31 (without 18 to 23) against 17.
 
 Only a change
 that has to move the reference, such as an engine or card fix that changes

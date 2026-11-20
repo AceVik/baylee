@@ -959,3 +959,63 @@ fn a_graveyard_choice_values_the_card_for_its_recipient() {
         "choosing a card for an opponent gives them the least valuable one"
     );
 }
+
+/// From [`AIProfile::HAND_DISCARDS`] a discard an effect asks as a plain
+/// choice gives up the card the seat misses least: with six lands on the
+/// table, the land in hand before the spell. The generation before gave the
+/// first card of the offer, whatever it was.
+#[test]
+fn a_forced_discard_gives_up_the_land_past_the_sixth() {
+    use baylee_engine::choice::ChoicePrompt;
+    let me = PlayerId::new(0);
+    let lands = (10..16)
+        .map(|slot| carded(permanent(obj(slot), me, 0), "Mountain", TypeSet::LAND))
+        .collect();
+    let mut v = view(0, &[20, 20], lands);
+    v.hand = vec![hand_card(1, "Lightning Bolt"), hand_card(2, "Mountain")];
+    let effects: &[baylee_cards_dsl::Effect] = baylee_cards::by_index(
+        baylee_cards::decks::by_name("Broadside Barrage").expect("the card is in the pool"),
+    )
+    .expect("the card is in the pool")
+    .abilities_for_face(0)
+    .iter()
+    .find_map(|ability| match ability {
+        baylee_cards_dsl::AbilityDef::Spell { effects, .. } => Some(*effects),
+        _ => None,
+    })
+    .expect("an instant prints a spell");
+    let context = baylee_engine::engine::DecisionContext {
+        effects,
+        ..Default::default()
+    };
+    let pending = Pending::ChooseCards {
+        player: me,
+        options: vec![obj(1), obj(2)],
+        min: 1,
+        max: 1,
+        prompt: ChoicePrompt::Generic,
+        total: None,
+    };
+    let given =
+        |profile: AIProfile| HeuristicAgent::new(profile).act_with_context(&v, &pending, &context);
+    assert_eq!(
+        given(AIProfile::EXPERT),
+        PlayerAction::ChooseObjects {
+            objects: vec![obj(2)]
+        }
+    );
+    assert_eq!(
+        given(AIProfile::EXPERT.at_generation(AIProfile::LAND_COLOURS)),
+        PlayerAction::ChooseObjects {
+            objects: vec![obj(1)]
+        }
+    );
+    // With two lands on the table the land is kept and the spell goes.
+    v.battlefield.truncate(2);
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &pending, &context),
+        PlayerAction::ChooseObjects {
+            objects: vec![obj(1)]
+        }
+    );
+}

@@ -302,7 +302,16 @@ impl HeuristicAgent {
                         && attacker.power > 0
                         && (attacker.power >= f.toughness || attacker.has(KeywordSet::DEATHTOUCH))
                 };
-                let saved = dies(blockers[i]) && !dies(boosted[i]);
+                // A lone blocker meets the attacker as `exchange` has it,
+                // first strike included: one that strikes first with the
+                // trick and kills is never dealt the damage
+                // ([`AIProfile::FIRST_STRIKE_TRICKS`]).
+                let saved =
+                    if blockers.len() == 1 && self.profile.plays(AIProfile::FIRST_STRIKE_TRICKS) {
+                        before.1[0] && !after.1[0]
+                    } else {
+                        dies(blockers[i]) && !dies(boosted[i])
+                    };
                 let killed = !before.0 && after.0;
                 let gain = if saved { material(blocker) } else { 0 }
                     + if killed { material(clash.attacker) } else { 0 };

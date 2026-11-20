@@ -4216,3 +4216,34 @@ that spell, while `Assist::x_colors` enforces color-restricted `{X}` costs
 (`Consume Spirit`, `Cryptic Trilobite`, `Endless One` style restrictions) and
 `Narrator::chosen_way` includes raised costs (`Buyback`, `Kicker`,
 `Multikicked`, `Replicated`).
+
+## Found while reading the generation-17 house's games, 2026-11-12
+
+Carbon and Astra read the generation-17 `expert`'s games on train decks
+(`docs/proposals/house-ai-strength.md` §9). What they found in the house is
+answered by its generations 24 to 31, built as 18 to 25 and renumbered when
+main had taken those (`docs/house-ai.md` §"The frozen reference"); two
+things are the engine's.
+
+### 84. A spell's or an ability's discard is asked as a plain choice — KNOWN
+
+`resolve/discard.rs` (`next_in_chain`) asks the player who discards with
+`ChoicePrompt::Generic`, where the cleanup's discard is `Pending::Discard`
+and a rummage is `ChoicePrompt::Discard`. A seat cannot tell the question
+from any other "choose so many of these". The house answered it
+with the first cards of its hand, the oldest (Broadside Barrage's loot took
+the second Barrage and kept the eighth Mountain); from generation 27
+(`HAND_DISCARDS`, 21 when this was written) it reads the effect that asks
+(`policy::forced_discard`). The prompt itself is the engine's to change, at
+a boundary: it moves what a record's question says.
+
+### 85. A fork is refused wherever something public names a hidden card — KNOWN
+
+`simulation/redeal.rs` refuses the fork (`ReferencedHiddenCard("an
+object")`) while any public object refers to a card the deal would retire:
+795 of the 15,979 questions the generation-17 `expert` and `sharp` would
+have searched in 192 train games (5 %), against 23 for the pending miracle
+check. Those questions get the level's own answer. A reference that no rule
+reads once its card has changed zones (CR 400.7) could be dropped in the
+fork instead; that moves which positions the generation-7 search pin
+searches, so it needs a fork that knows its searcher's generation.

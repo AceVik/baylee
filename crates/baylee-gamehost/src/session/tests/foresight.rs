@@ -666,11 +666,13 @@ fn a_bounded_search_is_deterministic() {
 /// stops searches the level alone would have finished.
 #[test]
 fn a_host_share_of_the_bound_is_a_deterministic_bound() {
+    // The search before `SOUND_ROOTS`: from there this table's searches try
+    // fewer answers, and none of them reaches a quarter of the bound.
     let preset = deal(
         12,
         &goblins_and_bolts(),
         &opponent("Llanowar Elves", 30),
-        AIProfile::EXPERT,
+        AIProfile::EXPERT.at_generation(AIProfile::RENEWABLE_RUN_CHARGES),
     );
     let tightened = |session: &mut Session| {
         session.set_foresight_host(crate::HostForesight {

@@ -17,7 +17,7 @@ impl HeuristicAgent {
         if !self.profile.plays(AIProfile::OPTIONAL_TOKEN_SATURATION)
             || !pure_token_reward(context.effects)
         {
-            return policy::pays_tax(view, price, context);
+            return policy::pays_tax_as(view, price, context, self.profile);
         }
         !enough_tokens(view)
             && policy::can_pay_token_price(

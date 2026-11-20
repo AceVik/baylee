@@ -228,3 +228,62 @@ fn the_prior_is_built_from_what_the_seat_sees() {
     );
     assert_eq!(again, shown);
 }
+
+/// From [`AIProfile::SOUND_ROOTS`] a search tries a spell beside the level's
+/// own target at the others on the same side of the table, the most
+/// valuable first, and never at the level's own a second time.
+#[test]
+fn a_search_aims_at_the_side_its_level_aims_at() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let (mine, small, big, named) = (obj(1), obj(2), obj(3), obj(4));
+    let v = view(
+        0,
+        &[20, 20],
+        vec![
+            permanent(mine, me, 4),
+            permanent(small, them, 1),
+            permanent(big, them, 5),
+            permanent(named, them, 3),
+        ],
+    );
+    let aim = |objects: Vec<ObjectId>, players: Vec<PlayerId>| PlayerAction::ChooseTargets {
+        objects,
+        players,
+    };
+    let options = [mine, small, big, named];
+    let tried = agent()
+        .foresight_targets(&v, &aim(vec![named], vec![]), &options, &[me, them], 3)
+        .expect("one target was named");
+    assert_eq!(
+        tried,
+        vec![
+            aim(vec![big], vec![]),
+            aim(vec![small], vec![]),
+            aim(vec![], vec![them]),
+        ]
+    );
+    // Its own side for a spell it aims at its own.
+    let tried = agent()
+        .foresight_targets(&v, &aim(vec![mine], vec![]), &options, &[me, them], 3)
+        .expect("one target was named");
+    assert_eq!(tried, vec![aim(vec![], vec![me])]);
+    // The budget cuts the list.
+    let tried = agent()
+        .foresight_targets(&v, &aim(vec![], vec![them]), &options, &[me, them], 2)
+        .expect("one target was named");
+    assert_eq!(
+        tried,
+        vec![aim(vec![big], vec![]), aim(vec![named], vec![])]
+    );
+    // Two targets, or an answer that names none, leave the engine's list.
+    assert!(
+        agent()
+            .foresight_targets(&v, &aim(vec![big, small], vec![]), &options, &[], 3)
+            .is_none()
+    );
+    assert!(
+        agent()
+            .foresight_targets(&v, &PlayerAction::PassPriority, &options, &[], 3)
+            .is_none()
+    );
+}

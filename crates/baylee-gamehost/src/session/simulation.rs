@@ -20,6 +20,7 @@ use std::sync::Arc;
 
 use baylee_ai::intelligence::DeckIntel;
 use baylee_core::ids::{ObjectId, PlayerId, SeatSet};
+use baylee_core::preset::AIProfile;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_engine::engine::{DeckKnowledge, Engine, ForkRefusal, PublicPrior};
 use baylee_view::{HouseAnswer, PlayerView};
@@ -372,6 +373,31 @@ impl<D: baylee_engine::engine::LoopDetection, R: crate::session::SessionRegistry
         seat: PlayerId,
     ) -> Option<(Pending, PlayerView)> {
         self.table().view_for_with_announcement_context(seat)
+    }
+
+    /// What `agent` answers the question `seat` stands before, from the
+    /// view a house chair there is shown and the engine's account of the
+    /// spell or ability asked about, as `Table::house_answer` asks it (the
+    /// live mana offer from [`AIProfile::RUN_EQUIPMENT_MANA`]); `None` where
+    /// `seat` is asked nothing.
+    pub(super) fn model_answer(
+        &self,
+        seat: PlayerId,
+        agent: &baylee_ai::HeuristicAgent,
+    ) -> Option<PlayerAction> {
+        let table = self.table();
+        let pending = table.engine.pending_for(seat)?;
+        let view = table.house_view(seat, pending);
+        let optional_mana_offer = agent
+            .profile()
+            .plays(AIProfile::RUN_EQUIPMENT_MANA)
+            .then(|| table.engine.optional_mana_offer_for(seat))
+            .flatten();
+        let context = baylee_engine::engine::DecisionContext {
+            optional_mana_offer: optional_mana_offer.as_ref(),
+            ..table.engine.decision_context()
+        };
+        Some(agent.act_with_context(&view, pending, &context))
     }
 
     /// As [`Session::observe_view`].
