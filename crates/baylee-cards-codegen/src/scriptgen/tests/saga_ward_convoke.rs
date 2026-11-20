@@ -1290,3 +1290,635 @@ fn continuous_extra_check_svar_conditions_and_cast_with_flash_svar() {
         ]
     );
 }
+
+#[test]
+fn annihilator_bands_with_other_and_etb_name_card() {
+    let crusher = read(
+        "Name:VoidColossus\nTypes:Creature\nPT:8/8\n\
+         K:Annihilator:2\nK:Annihilator:1",
+    );
+    assert_eq!(
+        crusher.abilities,
+        [
+            "triggered!(Trigger::Attacks(&Filter::This), &[Effect::SacrificeAmountForPlayers { \
+             who: PlayerRel::DefendingPlayer, filter: &Filter::Any, amount: Amount::Fixed(2) }])",
+            "triggered!(Trigger::Attacks(&Filter::This), &[Effect::SacrificeAmountForPlayers { \
+             who: PlayerRel::DefendingPlayer, filter: &Filter::Any, amount: Amount::Fixed(1) }])",
+        ]
+    );
+    assert!(refused(
+        "Name:ZeroAnnih\nTypes:Creature\nPT:2/2\nK:Annihilator:0"
+    ));
+    assert!(refused("Name:SpellAnnih\nTypes:Sorcery\nK:Annihilator:1"));
+
+    let bands_kw = read(
+        "Name:GoblinCaptain\nTypes:Creature Goblin\nPT:2/2\n\
+         K:Bands with other:Creature.Goblin:Goblins",
+    );
+    assert_eq!(
+        bands_kw.abilities,
+        ["static_ability!(Filter::This, Modifier::BandsWithOther(&BANDS1))"]
+    );
+    assert!(bands_kw.statics.contains("subtypes::creature::GOBLIN"));
+
+    let bands_static = read(
+        "Name:GoblinKeep\nTypes:Land\n\
+         S:Mode$ Continuous | Affected$ Creature.Goblin+YouCtrl | \
+         AddKeyword$ Bands with other:Creature.Goblin:Goblins",
+    );
+    assert!(
+        bands_static
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::BandsWithOther(&BANDS1)"))
+    );
+
+    let name_any = read(
+        "Name:NeedleRelic\nTypes:Artifact\n\
+         K:ETBReplacement:Other:ChooseName\n\
+         SVar:ChooseName:DB$ NameCard | Defined$ You",
+    );
+    assert_eq!(name_any.enter_modifiers, ["EnterModifier::ChooseCardName"]);
+
+    let name_nonland = read(
+        "Name:MageSeer\nTypes:Creature\nPT:2/2\n\
+         K:ETBReplacement:Other:ChooseName\n\
+         SVar:ChooseName:DB$ NameCard | Defined$ You | ValidCards$ Card.nonLand",
+    );
+    assert_eq!(
+        name_nonland.enter_modifiers,
+        ["EnterModifier::ChooseCardNameExcept(TypeSet::LAND)"]
+    );
+
+    assert!(refused(
+        "Name:RandomNamer\nTypes:Artifact\n\
+         K:ETBReplacement:Other:ChooseName\n\
+         SVar:ChooseName:DB$ NameCard | Defined$ You | AtRandom$ True"
+    ));
+    assert!(refused(
+        "Name:LandOnlyNamer\nTypes:Artifact\n\
+         K:ETBReplacement:Other:ChooseName\n\
+         SVar:ChooseName:DB$ NameCard | Defined$ You | ValidCards$ Land"
+    ));
+}
+
+#[test]
+fn library_graveyard_and_hand_zone_continuous_statics() {
+    let lib = read(
+        "Name:OracleCitadel\nTypes:Artifact\n\
+         S:Mode$ Continuous | AffectedZone$ Library | Affected$ Card.TopLibrary+YouCtrl | MayLookAt$ You\n\
+         S:Mode$ Continuous | AffectedZone$ Library | Affected$ Card.TopLibrary+YouOwn | MayLookAt$ Player\n\
+         S:Mode$ Continuous | AffectedZone$ Library | Affected$ Card.TopLibrary | MayLookAt$ Player\n\
+         S:Mode$ Continuous | AffectedZone$ Library | Affected$ Land.TopLibrary+YouCtrl | MayPlay$ True\n\
+         S:Mode$ Continuous | AffectedZone$ Library | Affected$ Card.TopLibrary+YouCtrl | \
+         MayPlay$ True | MayPlayAltManaCost$ PayLife<ConvertedManaCost>",
+    );
+    assert_eq!(
+        lib.abilities,
+        [
+            "static_ability!(Filter::Any, Modifier::LookAtLibraryTop)",
+            "static_ability!(Filter::Any, Modifier::RevealLibraryTop)",
+            "static_ability!(Filter::Any, Modifier::RevealAllLibraryTops)",
+            "static_ability!(Filter::Any, Modifier::PlayLandsFromLibraryTop)",
+            "static_ability!(Filter::Any, Modifier::PlayFromLibraryTopForManaValueLife)",
+        ]
+    );
+
+    let gy_lands = read(
+        "Name:WorldCrucible\nTypes:Artifact\n\
+         S:Mode$ Continuous | AffectedZone$ Graveyard | Affected$ Land.YouOwn | MayPlay$ True",
+    );
+    assert_eq!(
+        gy_lands.abilities,
+        ["static_ability!(Filter::Any, Modifier::PlayLandsFromGraveyard)"]
+    );
+
+    let gy_all = read(
+        "Name:WillRelic\nTypes:Artifact\n\
+         S:Mode$ Continuous | AffectedZone$ Graveyard | Affected$ Card.YouOwn | MayPlay$ True",
+    );
+    assert_eq!(
+        gy_all.abilities,
+        [
+            "static_ability!(Filter::Any, Modifier::PlayLandsFromGraveyard)",
+            "static_ability!(Filter::Any, Modifier::CastSpellsFromGraveyard)",
+        ]
+    );
+
+    let gy_perm = read(
+        "Name:PermRecaster\nTypes:Enchantment\n\
+         S:Mode$ Continuous | AffectedZone$ Graveyard | Affected$ Permanent.nonLand+YouOwn | MayPlay$ True",
+    );
+    assert_eq!(
+        gy_perm.abilities,
+        ["static_ability!(Filter::Any, Modifier::CastPermanentSpellsFromGraveyard)"]
+    );
+
+    let gy_once = read(
+        "Name:SpellMage\nTypes:Creature\nPT:3/4\n\
+         S:Mode$ Continuous | AffectedZone$ Graveyard | Affected$ Instant.YouCtrl,Sorcery.YouCtrl | \
+         MayPlay$ True | MayPlayLimit$ 1 | ReplaceGraveyard$ Exile | Condition$ PlayerTurn",
+    );
+    assert_eq!(
+        gy_once.abilities,
+        ["static_ability!(Filter::Any, Modifier::GraveyardInstantSorceryOnce)"]
+    );
+
+    let reveal_hand = read(
+        "Name:OpenHand\nTypes:Enchantment\n\
+         S:Mode$ Continuous | AffectedZone$ Hand | Affected$ Card.YouOwn | MayLookAt$ Player",
+    );
+    assert_eq!(
+        reveal_hand.abilities,
+        ["static_ability!(Filter::Any, Modifier::RevealYourHand)"]
+    );
+
+    // Subtype-filtered graveyard land permission stays refused.
+    assert!(refused(
+        "Name:ForestCrucible\nTypes:Artifact\n\
+         S:Mode$ Continuous | AffectedZone$ Graveyard | Affected$ Forest.YouOwn | MayPlay$ True"
+    ));
+}
+
+#[test]
+fn wave5_characteristic_continuous_and_lose_abilities() {
+    let frogify = read(
+        "Name:GoblinHex\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         S:Mode$ Continuous | Affected$ Creature.EnchantedBy | SetPower$ 1 | SetToughness$ 1 | \
+         RemoveAllAbilities$ True | RemoveCardTypes$ True | RemoveCreatureTypes$ True | \
+         AddType$ Creature & Goblin",
+    );
+    assert!(frogify.abilities.iter().any(|a| a.contains(
+        "Modifier::BecomeType { types: TypeSet::CREATURE, subtype: subtypes::creature::GOBLIN }"
+    )));
+    assert!(
+        frogify
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::SetPT(1, 1)"))
+    );
+    assert!(
+        frogify
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::LoseAllAbilities"))
+    );
+
+    let replace_types = read(
+        "Name:MaskConspiracy\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | RemoveCreatureTypes$ True | AddType$ Goblin\n\
+         S:Mode$ Continuous | Affected$ Creature.OppCtrl | AddAllCreatureTypes$ True\n\
+         S:Mode$ Continuous | Affected$ Land | AddType$ AllBasicLandType\n\
+         S:Mode$ Continuous | Affected$ Permanent | SetColor$ Colorless",
+    );
+    assert!(
+        replace_types
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::ReplaceCreatureTypes(subtypes::creature::GOBLIN)"))
+    );
+    assert!(
+        replace_types
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::AllCreatureTypes"))
+    );
+    assert!(
+        replace_types
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::AllBasicLandTypes"))
+    );
+    assert!(
+        replace_types
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::SetColor(ColorSet::EMPTY)"))
+    );
+
+    // Same-line RemoveAllAbilities + AddKeyword stays refused (timestamp wipe guard).
+    assert!(refused(
+        "Name:WipeAndGrant\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature | RemoveAllAbilities$ True | AddKeyword$ Flying"
+    ));
+    // Mixed card types with BecomeType stay refused (would clear artifact subtypes).
+    assert!(refused(
+        "Name:MixedBecome\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         S:Mode$ Continuous | Affected$ Creature.EnchantedBy | RemoveCardTypes$ True | \
+         RemoveCreatureTypes$ True | AddType$ Artifact & Creature & Goblin"
+    ));
+}
+
+#[test]
+fn wave5_combat_draw_hexproof_ward_legend_and_mana_convert_statics() {
+    let statics = read(
+        "Name:RuleEngine\nTypes:Enchantment\n\
+         S:Mode$ MinMaxBlocker | ValidCard$ Creature.YouCtrl | Min$ 2\n\
+         S:Mode$ IgnoreLegendRule | ValidCard$ Permanent.YouCtrl\n\
+         S:Mode$ AttackRestrict | MaxAttackers$ 1\n\
+         S:Mode$ BlockRestrict | MaxBlockers$ 1\n\
+         S:Mode$ CantDraw | ValidPlayer$ Opponent | DrawLimit$ 1\n\
+         S:Mode$ CantDraw | ValidPlayer$ You\n\
+         S:Mode$ IgnoreHexproof | ValidEntity$ Creature.OppCtrl\n\
+         S:Mode$ DisableTriggers | ValidTrigger$ Triggered.Ward\n\
+         S:Mode$ ManaConvert | ManaConversion$ AnyType->AnyColor\n\
+         S:Mode$ ManaConvert | ValidPlayer$ You | ManaConversion$ Red->Green\n\
+         S:Mode$ ManaConvert | ValidPlayer$ You | ValidCard$ Creature.YouCtrl+inZoneBattlefield | \
+         ValidSA$ Activated | ManaConversion$ AnyType->AnyColor",
+    );
+    assert_eq!(
+        statics.abilities,
+        [
+            "static_ability!(Filter::YOUR_CREATURE, Modifier::MinimumBlockers(2))",
+            "static_ability!(Filter::Any, Modifier::LegendRuleOff)",
+            "static_ability!(Filter::Any, Modifier::MaxAttackersPerCombat(1))",
+            "static_ability!(Filter::Any, Modifier::MaxBlockersPerCombat(1))",
+            "static_ability!(Filter::Any, Modifier::DrawLimitPerTurn { who: PlayerRel::EachOpponent, limit: 1 })",
+            "static_ability!(Filter::Any, Modifier::DrawLimitPerTurn { who: PlayerRel::You, limit: 0 })",
+            "static_ability!(Filter::OPPONENT_CREATURE, Modifier::CanBeTargetedAsThoughNoHexproof)",
+            "static_ability!(Filter::Any, Modifier::WardDoesntTrigger)",
+            "static_ability!(Filter::Any, Modifier::ManaIsAnyColor)",
+            "static_ability!(Filter::Any, Modifier::SpendManaAs { from: ManaColor::Red, to: ManaColor::Green })",
+            "static_ability!(Filter::Any, Modifier::CreatureAbilityManaAnyColor)",
+        ]
+    );
+
+    // Refusals: per-attacker Max$, global IgnoreLegendRule, per-defender AttackRestrict.
+    assert!(refused(
+        "Name:SoloBlocker\nTypes:Creature\nPT:3/3\n\
+         S:Mode$ MinMaxBlocker | ValidCard$ Card.Self | Max$ 1"
+    ));
+    assert!(refused(
+        "Name:GlobalMirror\nTypes:Artifact\n\
+         S:Mode$ IgnoreLegendRule | ValidCard$ Permanent"
+    ));
+    assert!(refused(
+        "Name:PersonalCrawlspace\nTypes:Artifact\n\
+         S:Mode$ AttackRestrict | MaxAttackers$ 2 | ValidDefender$ You"
+    ));
+}
+
+#[test]
+fn wave5_cant_be_activated_cant_be_cast_and_self_cast_conditions() {
+    let locks = read(
+        "Name:GrandLock\nTypes:Artifact\n\
+         S:Mode$ CantBeActivated | ValidCard$ Card.NamedCard | ValidSA$ Activated.!ManaAbility\n\
+         S:Mode$ CantBeActivated | AffectedZone$ Battlefield | ValidCard$ Artifact.OppCtrl | ValidSA$ Activated\n\
+         S:Mode$ CantBeActivated | AffectedZone$ Battlefield | ValidCard$ Artifact,Creature | ValidSA$ Activated.!ManaAbility\n\
+         S:Mode$ CantBeActivated | AffectedZone$ Battlefield | Activator$ Player | ValidCard$ Creature | ValidSA$ Activated\n\
+         S:Mode$ CantBeCast | ValidCard$ Card | Caster$ Opponent | OnlySorcerySpeed$ True\n\
+         S:Mode$ CantBeCast | ValidCard$ Card.NamedCard | Caster$ Player\n\
+         S:Mode$ CantBeCast | ValidCard$ Card.NamedCard+nonLand | Caster$ Opponent\n\
+         S:Mode$ CantBeCast | Origin$ Graveyard,Library\n\
+         S:Mode$ CantBeCast | ValidCard$ Instant | Phases$ BeginCombat->EndCombat\n\
+         S:Mode$ CantBeCast | ValidCard$ Creature | Caster$ Player.EnchantedController",
+    );
+    assert!(
+        locks.abilities.contains(
+            &"static_ability!(Filter::Any, Modifier::ChosenNameCantActivate)".to_string()
+        )
+    );
+    assert!(
+        locks
+            .abilities
+            .contains(&"static_ability!(Filter::Any, Modifier::CantActivateArtifacts)".to_string())
+    );
+    assert!(
+        locks
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::CantActivateNonMana"))
+    );
+    assert!(
+        locks
+            .abilities
+            .contains(&"static_ability!(Filter::CREATURE, Modifier::CantActivate)".to_string())
+    );
+    assert!(
+        locks.abilities.contains(
+            &"static_ability!(Filter::Any, Modifier::OpponentsCastAsSorcery)".to_string()
+        )
+    );
+    assert!(locks.abilities.contains(
+        &"static_ability!(Filter::Any, Modifier::PlayersCantCast { who: PlayerRel::EachPlayer, filter: &Filter::NamedBySource })".to_string()
+    ));
+    assert!(
+        locks.abilities.contains(
+            &"static_ability!(Filter::Any, Modifier::OpponentsCantCast(&Filter::NamedBySource))"
+                .to_string()
+        )
+    );
+    assert!(locks.abilities.iter().any(|a| {
+        a.contains("Modifier::PlayersCantCast { who: PlayerRel::EachPlayer")
+            && a.contains("CANT_CAST")
+    }));
+    assert!(locks.abilities.iter().any(|a| {
+        a.contains("Modifier::PlayersCantCast")
+            && a.contains("condition = Some(Condition::DuringCombat)")
+    }));
+    assert!(
+        locks
+            .abilities
+            .iter()
+            .any(|a| { a.contains("who: PlayerRel::ControllerOfAttached") })
+    );
+    assert!(locks.statics.contains("Filter::InZone(ZoneRef::Graveyard)"));
+    assert!(locks.statics.contains("Filter::InZone(ZoneRef::Library)"));
+}
+
+#[test]
+fn wave5_self_cast_conditions_and_activation_lock_refusals() {
+    let avenger = read(
+        "Name:PatientAngel\nTypes:Creature\nPT:3/3\n\
+         S:Mode$ CantBeCast | ValidCard$ Card.Self | Caster$ Player.Active | \
+         EffectZone$ All | CheckSVar$ Count$YourTurns | SVarCompare$ LE3",
+    );
+    assert_eq!(
+        avenger.abilities,
+        ["spell!(&[], condition = Some(Condition::Not(&Condition::DuringYourFirstTurns(3))))"]
+    );
+
+    let morbid_cast = read(
+        "Name:GraveWalker\nTypes:Creature\nPT:5/3\n\
+         S:Mode$ CantBeCast | ValidCard$ Card.Self | EffectZone$ All | \
+         CheckSVar$ Died | SVarCompare$ EQ0\n\
+         SVar:Died:Count$Morbid.1.0",
+    );
+    assert_eq!(
+        morbid_cast.abilities,
+        ["spell!(&[], condition = Some(Condition::CreaturesDiedThisTurnAtLeast(1)))"]
+    );
+
+    // Refusals: Activator$ Opponent on Artifact, AffectedZone$ on NamedCard,
+    // all-zone Card without AffectedZone$ Battlefield, self-cast on Instant.
+    assert!(refused(
+        "Name:WrongKarn\nTypes:Artifact\n\
+         S:Mode$ CantBeActivated | ValidCard$ Artifact | Activator$ Opponent"
+    ));
+    assert!(refused(
+        "Name:BfOnlyNeedle\nTypes:Artifact\n\
+         S:Mode$ CantBeActivated | AffectedZone$ Battlefield | ValidCard$ Card.NamedCard | \
+         ValidSA$ Activated.!ManaAbility"
+    ));
+    assert!(refused(
+        "Name:AllZoneLock\nTypes:Enchantment\n\
+         S:Mode$ CantBeActivated | ValidCard$ Card | Phases$ BeginCombat->EndCombat | \
+         ValidSA$ Activated.!ManaAbility"
+    ));
+    assert!(refused(
+        "Name:InstantFirstTurns\nTypes:Instant\n\
+         S:Mode$ CantBeCast | ValidCard$ Card.Self | Caster$ Player.Active | \
+         EffectZone$ All | CheckSVar$ Count$YourTurns | SVarCompare$ LE3\n\
+         A:SP$ Draw | NumCards$ 1"
+    ));
+}
+
+#[test]
+fn wave5_combat_unless_conditional_attack_and_compound_svar_conditions() {
+    let taxes = read(
+        "Name:FortressWall\nTypes:Enchantment\n\
+         S:Mode$ CantAttackUnless | ValidCard$ Creature | Target$ You,Planeswalker.YouCtrl | Cost$ 2\n\
+         S:Mode$ CantAttackUnless | ValidCard$ Creature | Target$ You,Planeswalker.YouCtrl | Cost$ PayLife<2>\n\
+         S:Mode$ CantAttackUnless | ValidCard$ Creature | Cost$ 3\n\
+         S:Mode$ CantBlockUnless | ValidCard$ Creature | Cost$ 2\n\
+         S:Mode$ CantBlockUnless | ValidCard$ Creature | Attacker$ Creature.YouCtrl | Cost$ 1",
+    );
+    assert_eq!(
+        taxes.abilities,
+        [
+            "static_ability!(Filter::CREATURE, Modifier::AttackTaxMana { mana: 2 })",
+            "static_ability!(Filter::CREATURE, Modifier::AttackTaxLife { life: 2 })",
+            "static_ability!(Filter::CREATURE, Modifier::CantAttackUnlessPayMana(3))",
+            "static_ability!(Filter::CREATURE, Modifier::CantBlockUnlessPayMana(2))",
+            "static_ability!(Filter::CREATURE, Modifier::CantBlockMatchingUnlessPayMana { attacker: &Filter::YOUR_CREATURE, mana: 1 })",
+        ]
+    );
+
+    // Refusal: Target$ You alone does not cover planeswalkers you control.
+    assert!(refused(
+        "Name:PlayerOnlyPrison\nTypes:Enchantment\n\
+         S:Mode$ CantAttackUnless | ValidCard$ Creature | Target$ You | Cost$ 2"
+    ));
+
+    let sea_beast = read(
+        "Name:DeepLeviathan\nTypes:Creature\nPT:10/10\n\
+         S:Mode$ CantAttackUnless | ValidCard$ Card.Self | Cost$ Sac<2/Island/Islands>",
+    );
+    assert_eq!(
+        sea_beast.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::CantAttackUnlessYouSacrifice { count: 2, filter: &ATTACK_SAC1 })"
+        ]
+    );
+    assert!(sea_beast.statics.contains("subtypes::land::ISLAND"));
+
+    let cond_self = read(
+        "Name:SleepingBrute\nTypes:Creature\nPT:5/5\n\
+         S:Mode$ CantAttack | ValidCard$ Card.Self | CheckSVar$ X | SVarCompare$ EQ0\n\
+         SVar:X:Count$ThisTurnCast_Instant.YouCtrl,Sorcery.YouCtrl",
+    );
+    assert_eq!(
+        cond_self.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::CANT_ATTACK), \
+             condition = Some(Condition::Not(&Condition::CastInstantOrSorceryThisTurn)))"
+        ]
+    );
+
+    let compound = read(
+        "Name:DualCheck\nTypes:Creature\nPT:3/3\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Flying | \
+         CheckSVar$ A | SVarCompare$ GE4 | CheckSecondSVar$ B | SecondSVarCompare$ LE20\n\
+         SVar:A:Count$TotalPower Creature.YouCtrl\n\
+         SVar:B:PlayerCount$LowestCardsInLibrary",
+    );
+    assert_eq!(
+        compound.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::FLYING), \
+             condition = Some(Condition::All(&[Condition::ControlledCreaturePowerAtLeast(4), Condition::AnyLibraryAtMost(20)])))"
+        ]
+    );
+
+    let lock_three = read(
+        "Name:ArrestAura\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         S:Mode$ CantAttack,CantBlock,CantBeActivated | ValidCard$ Creature.EnchantedBy | \
+         ValidSA$ Activated.!ManaAbility",
+    );
+    assert!(
+        lock_three
+            .abilities
+            .iter()
+            .any(|a| { a.contains("KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)") })
+    );
+    assert!(
+        lock_three
+            .abilities
+            .iter()
+            .any(|a| { a.contains("Modifier::CantActivateNonMana") })
+    );
+
+    let block_svar = read(
+        "Name:ShadowStalker\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ CantBlockBy | ValidAttacker$ Card.Self | ValidBlocker$ Creature | \
+         CheckSVar$ H | SVarCompare$ LE1\n\
+         SVar:H:Count$CardsInYourHand",
+    );
+    assert!(
+        block_svar
+            .abilities
+            .iter()
+            .any(|a| { a.contains("Condition::HandSizeAtMost(1)") })
+    );
+}
+
+#[test]
+fn wave5_draw_turn_life_and_discard_replacements() {
+    let skip_draw = read(
+        "Name:DrawSkipper\nTypes:Enchantment\n\
+         R:Event$ BeginPhase | ActiveZones$ Battlefield | Phase$ Draw | ValidPlayer$ You | Skip$ True\n\
+         R:Event$ GainLife | ActiveZones$ Battlefield | ValidPlayer$ Player | Prevent$ True",
+    );
+    assert_eq!(
+        skip_draw.abilities,
+        [
+            "static_ability!(Filter::Any, Modifier::SkipDrawStep { who: PlayerRel::You })",
+            "static_ability!(Filter::Any, Modifier::LifeGainNoLifeInstead { who: PlayerRel::EachPlayer })",
+        ]
+    );
+
+    let fasting = read(
+        "Name:AsceticFast\nTypes:Enchantment\n\
+         R:Event$ BeginPhase | ActiveZones$ Battlefield | Phase$ Draw | ValidPlayer$ You | \
+         Optional$ True | ReplaceWith$ GainTwo\n\
+         SVar:GainTwo:DB$ GainLife | Defined$ You | LifeAmount$ 2",
+    );
+    assert_eq!(
+        fasting.abilities,
+        ["AbilityDef::Replacement(ReplacementRule::MaySkipDrawStepGainLife(2))"]
+    );
+
+    let vault = read(
+        "Name:ClockVault\nTypes:Artifact\n\
+         R:Event$ BeginTurn | ActiveZones$ Battlefield | ValidPlayer$ You | \
+         IsPresent$ Card.Self+tapped | Optional$ True | ReplaceWith$ UntapSelf\n\
+         SVar:UntapSelf:DB$ Untap | Defined$ Self",
+    );
+    assert_eq!(
+        vault.abilities,
+        ["AbilityDef::Replacement(ReplacementRule::SkipTurnToUntapSelf)"]
+    );
+
+    let chains = read(
+        "Name:MephChains\nTypes:Enchantment\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ Player | \
+         NotFirstCardInDrawStep$ True | ReplaceWith$ DiscardFirst\n\
+         SVar:DiscardFirst:DB$ Discard | Defined$ ReplacedPlayer | Mandatory$ True | \
+         NumCards$ 1 | Mode$ TgtChoose | RememberDiscarded$ True | SubAbility$ DrawIf\n\
+         SVar:DrawIf:DB$ Draw | Defined$ ReplacedPlayer | ConditionDefined$ Remembered | \
+         ConditionPresent$ Card | ConditionCompare$ GE1 | SubAbility$ MillElse\n\
+         SVar:MillElse:DB$ Mill | Defined$ ReplacedPlayer | NumCards$ 1 | \
+         ConditionDefined$ Remembered | ConditionPresent$ Card | ConditionCompare$ EQ0 | \
+         SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert_eq!(
+        chains.abilities,
+        ["AbilityDef::Replacement(ReplacementRule::DiscardInsteadOfLaterDraws)"]
+    );
+
+    let sanctuary = read(
+        "Name:QuietIsle\nTypes:Enchantment\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | ActivePhases$ Draw | \
+         PlayerTurn$ True | Optional$ True | ReplaceWith$ Shield\n\
+         SVar:Shield:DB$ Effect | Duration$ UntilYourNextTurn | StaticAbilities$ NoAtk\n\
+         SVar:NoAtk:Mode$ CantAttack | ValidCard$ Creature.withoutFlying+!hasKeywordLandwalk:Island | Target$ You",
+    );
+    assert_eq!(
+        sanctuary.abilities,
+        ["AbilityDef::Replacement(ReplacementRule::MaySkipDrawStepDraw)"]
+    );
+
+    let renewal = read(
+        "Name:CycleRenewal\nTypes:Enchantment\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ You | ReplaceWith$ Peek\n\
+         SVar:Peek:DB$ PeekAndReveal | NoPeek$ True | RememberRevealed$ True | SubAbility$ Bin\n\
+         SVar:Bin:DB$ ChangeZone | Defined$ Remembered | ConditionDefined$ Remembered | \
+         ConditionPresent$ Creature | Origin$ Library | Destination$ Graveyard | SubAbility$ DrawRest\n\
+         SVar:DrawRest:DB$ Draw | ConditionDefined$ Remembered | ConditionPresent$ Creature | \
+         ConditionCompare$ EQ0 | SubAbility$ Clean\n\
+         SVar:Clean:DB$ Cleanup | ClearRemembered$ True",
+    );
+    assert_eq!(
+        renewal.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::RevealDrawPutMatchingInGraveyard(&Filter::CREATURE))"
+        ]
+    );
+
+    let weirding = read(
+        "Name:MindWeirding\nTypes:Enchantment\n\
+         R:Event$ Draw | ActiveZones$ Battlefield | ValidPlayer$ Player | ReplaceWith$ Peek\n\
+         SVar:Peek:DB$ PeekAndReveal | Defined$ ReplacedPlayer | NoPeek$ True | SubAbility$ PayBin\n\
+         SVar:PayBin:DB$ Dig | Defined$ ReplacedPlayer | DestinationZone$ Graveyard | \
+         DigNum$ 1 | ChangeNum$ All | UnlessCost$ PayLife<2> | UnlessPayer$ NonReplacedPlayer | \
+         UnlessSwitched$ True | UnlessResolveSubs$ WhenNotPaid | SubAbility$ DrawOne\n\
+         SVar:DrawOne:DB$ Draw | Defined$ ReplacedPlayer | NumCards$ 1",
+    );
+    assert_eq!(
+        weirding.abilities,
+        ["AbilityDef::Replacement(ReplacementRule::RevealDrawOthersMayPayLife(2))"]
+    );
+}
+
+#[test]
+fn wave5_discard_and_phoenix_moved_replacements() {
+    let leng = read(
+        "Name:LibraryRelic\nTypes:Artifact\n\
+         R:Event$ Moved | ActiveZones$ Battlefield | ValidCard$ Card.YouCtrl | \
+         Discard$ True | EffectOnly$ True | Optional$ True | ReplaceWith$ ToTop\n\
+         SVar:ToTop:DB$ ChangeZone | Defined$ ReplacedCard | Origin$ All | \
+         Destination$ Library | NoShuffle$ True",
+    );
+    assert_eq!(
+        leng.abilities,
+        ["AbilityDef::Replacement(ReplacementRule::MayDiscardToLibraryTop)"]
+    );
+
+    let phoenix = read(
+        "Name:AshBird\nTypes:Creature\nPT:3/2\n\
+         R:Event$ Moved | ActiveZones$ Battlefield | Origin$ Battlefield | Destination$ Graveyard | \
+         ValidCard$ Card.Self | ReplaceWith$ ToHand\n\
+         SVar:ToHand:DB$ ChangeZone | Origin$ Battlefield | Destination$ Hand | \
+         Defined$ ReplacedCard | SubAbility$ LockEff\n\
+         SVar:LockEff:DB$ Effect | Triggers$ CleanupTrig | RememberObjects$ ReplacedCard | \
+         Duration$ UntilYourNextTurn | StaticAbilities$ NoCast,ShowIt\n\
+         SVar:NoCast:Mode$ CantBeCast | ValidCard$ Card.IsRemembered | Caster$ You\n\
+         SVar:ShowIt:Mode$ Continuous | AffectedZone$ Hand | Affected$ Card.IsRemembered | MayLookAt$ Player\n\
+         SVar:CleanupTrig:Mode$ ChangesZone | Origin$ Hand | Destination$ Any | \
+         ValidCard$ Card.IsRemembered | Execute$ ExileEff | TriggerZones$ Command | \
+         TriggerController$ TriggeredCardController | Static$ True\n\
+         SVar:ExileEff:DB$ ChangeZone | Origin$ Command | Destination$ Exile | Defined$ Self",
+    );
+    assert_eq!(
+        phoenix.abilities,
+        [
+            "AbilityDef::Replacement(ReplacementRule::ReturnSelfToHandRevealedCantPlayUntilOwnersNextTurn)"
+        ]
+    );
+
+    // Refusal: mismatched cleanup trigger on Phoenix-shaped Moved replacement.
+    assert!(refused(
+        "Name:BadPhoenix\nTypes:Creature\nPT:3/2\n\
+         R:Event$ Moved | ActiveZones$ Battlefield | Origin$ Battlefield | Destination$ Graveyard | \
+         ValidCard$ Card.Self | ReplaceWith$ ToHand\n\
+         SVar:ToHand:DB$ ChangeZone | Origin$ Battlefield | Destination$ Hand | \
+         Defined$ ReplacedCard | SubAbility$ LockEff\n\
+         SVar:LockEff:DB$ Effect | Triggers$ OtherTrig | RememberObjects$ ReplacedCard | \
+         Duration$ UntilYourNextTurn | StaticAbilities$ NoCast,ShowIt\n\
+         SVar:NoCast:Mode$ CantBeCast | ValidCard$ Card.IsRemembered | Caster$ You\n\
+         SVar:ShowIt:Mode$ Continuous | AffectedZone$ Hand | Affected$ Card.IsRemembered | MayLookAt$ Player\n\
+         SVar:OtherTrig:Mode$ Phase | Phase$ Upkeep | Execute$ DrawOne\n\
+         SVar:DrawOne:DB$ Draw | NumCards$ 1"
+    ));
+}

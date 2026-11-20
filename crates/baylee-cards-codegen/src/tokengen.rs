@@ -182,6 +182,7 @@ fn parse_token_lines(text: &str) -> Option<RawToken> {
                             }
                             keywords.push("KeywordSet::PROVOKE");
                         }
+                        "CARDNAME can't attack." => keywords.push("KeywordSet::CANT_ATTACK"),
                         "CARDNAME can't block." => keywords.push("KeywordSet::CANT_BLOCK"),
                         "CARDNAME can't attack or block." => {
                             keywords.push("KeywordSet::CANT_ATTACK");
@@ -303,18 +304,19 @@ pub fn read(text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
     if !token_shape_ok(&raw, &types) {
         return None;
     }
-    let (power, toughness, star_pt) = match (raw.pt.as_deref(), types.is_creature) {
-        (Some("*/*"), true) => (None, None, true),
-        (Some(pt), true) => {
+    let is_vehicle = !types.is_creature && types.subtypes.iter().any(|s| s == "artifact::VEHICLE");
+    let (power, toughness, star_pt) = match (raw.pt.as_deref(), types.is_creature, is_vehicle) {
+        (Some("*/*"), true, false) => (None, None, true),
+        (Some(pt), true, false) | (Some(pt), false, true) => {
             let (p, t) = pt.split_once('/')?;
             let p = p.trim().parse::<i16>().ok()?;
             let t = t.trim().parse::<i16>().ok()?;
             (Some(p), Some(t), false)
         }
-        (None, false) => (None, None, false),
-        // A creature with no size, or a size on something that is not a
-        // creature: the two halves of the script disagree, and deciding
-        // which of them is right is not this reader's business.
+        (None, false, false) => (None, None, false),
+        // A creature or Vehicle with no size, a Vehicle with `*/*` and no CDA,
+        // or a size on something that is neither a creature nor a Vehicle:
+        // refuse rather than guessing.
         _ => return None,
     };
     let colors = match raw.colors.as_deref() {
@@ -597,6 +599,13 @@ fn ability_keyword_slug(kw: &str) -> Option<String> {
         let valid = rest.split(':').next()?;
         return Some(format!("ENCHANT_{}", sanitize_tag(valid)?));
     }
+    if let Some(rest) = kw.strip_prefix("Bands with other:") {
+        let valid = rest.split(':').next()?;
+        return Some(format!("BANDS_WITH_OTHER_{}", sanitize_tag(valid)?));
+    }
+    if let Some(rest) = kw.strip_prefix("Annihilator:") {
+        return Some(format!("ANNIHILATOR_{}", sanitize_tag(rest)?));
+    }
     match kw {
         "Exalted" => Some("EXALTED".to_string()),
         "Prevent all damage that would be dealt to CARDNAME." => Some("PREVENT_DAMAGE".to_string()),
@@ -617,6 +626,8 @@ fn is_token_ability_keyword(kw: &str) -> bool {
         || kw.starts_with("Rampage:")
         || kw.starts_with("Cumulative upkeep:")
         || kw.starts_with("Enchant:")
+        || kw.starts_with("Bands with other:")
+        || kw.starts_with("Annihilator:")
         || matches!(
             kw,
             "Exalted"
@@ -1778,5 +1789,69 @@ mod tests {
             )
             .is_none()
         );
+    }
+
+    #[test]
+    fn wave5_vehicle_annihilator_bands_and_cant_attack_tokens() {
+        let mut c = cats();
+        c.artifact.push("Vehicle".to_string());
+        c.creature.push("Eldrazi".to_string());
+        c.creature.push("Wolf".to_string());
+
+        let vehicle = read(
+            "Name:Skiff Token\nTypes:Artifact Vehicle\nPT:3/2\nK:Flying\nK:Crew:1",
+            &c,
+        )
+        .expect("vehicle token with fixed P/T and crew");
+        assert_eq!(vehicle.constant, "SKIFF_3_2_CREW_1_FLYING");
+        assert!(vehicle.literal.contains("power: Some(3),"));
+        assert!(vehicle.literal.contains("toughness: Some(2),"));
+        assert!(vehicle.literal.contains("crew!(1)"));
+
+        // Vehicle with `*/*` or missing P/T, and non-Vehicle artifact with P/T, stay refused.
+        assert!(
+            read(
+                "Name:Star Skiff\nTypes:Artifact Vehicle\nPT:*/*\nK:Crew:2",
+                &c
+            )
+            .is_none()
+        );
+        assert!(read("Name:Boxless Skiff\nTypes:Artifact Vehicle\nK:Crew:2", &c).is_none());
+        assert!(read("Name:Sized Rock\nTypes:Artifact\nPT:2/2", &c).is_none());
+
+        let eldrazi = read(
+            "Name:Titan Token\nTypes:Creature Eldrazi\nPT:7/7\nK:Annihilator:1",
+            &c,
+        )
+        .expect("annihilator creature token");
+        assert_eq!(eldrazi.constant, "TITAN_7_7_ANNIHILATOR_1");
+        assert!(
+            eldrazi
+                .literal
+                .contains("Effect::SacrificeAmountForPlayers")
+        );
+        assert!(eldrazi.literal.contains("PlayerRel::DefendingPlayer"));
+
+        let bands = read(
+            "Name:Pack Token\nColors:green\nTypes:Creature Wolf\nPT:1/1\n\
+             K:Bands with other:Creature.Wolf:Wolves",
+            &c,
+        )
+        .expect("bands-with-other token");
+        assert_eq!(
+            bands.constant,
+            "PACK_1_1_GREEN_BANDS_WITH_OTHER_CREATURE_WOLF"
+        );
+        assert!(bands.literal.contains("Modifier::BandsWithOther"));
+        assert!(bands.literal.contains("creature::WOLF"));
+
+        let pacific = read(
+            "Name:Sentry Token\nColors:white\nTypes:Creature Soldier\nPT:0/4\n\
+             K:CARDNAME can't attack.",
+            &c,
+        )
+        .expect("cant-attack token");
+        assert_eq!(pacific.constant, "SENTRY_0_4_WHITE_CANT_ATTACK");
+        assert!(pacific.literal.contains("KeywordSet::CANT_ATTACK"));
     }
 }
