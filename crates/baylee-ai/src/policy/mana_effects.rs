@@ -315,6 +315,94 @@ pub(crate) fn spell_mana_increase(
     colored.with_more_generic(rest)
 }
 
+fn spell_mana_reduction(
+    view: &PlayerView,
+    id: ObjectId,
+    mut card: CardIdentity,
+    legal: &LegalActions,
+    mode: baylee_engine::choice::CastModeKind,
+    increased: ManaCost,
+) -> ManaCost {
+    let total = legal.spell_reduction(id, mode);
+    if total == 0 {
+        return increased;
+    }
+    if let baylee_engine::choice::CastModeKind::Face(index) = mode {
+        let Ok(index) = u8::try_from(index) else {
+            return increased.with_less_generic(total);
+        };
+        card.face = index;
+    }
+    let mut colored_only_red = ManaCost::ZERO;
+    let mut mana_red = ManaCost::ZERO;
+    if mode != baylee_engine::choice::CastModeKind::Disguise
+        && let Some(f) = face(card)
+    {
+        let mut obj = card_as_object(view, Some(id), card, f);
+        if mode == baylee_engine::choice::CastModeKind::Prototype
+            && let Some(prototype) = f.prototype
+        {
+            obj.colors = prototype.cost.colors();
+            obj.mana_value = prototype.cost.cmc();
+            obj.power = Some(prototype.power);
+            obj.toughness = Some(prototype.toughness);
+        }
+        let agent = HeuristicAgent::new(crate::AIProfile::default());
+        for perm in &view.battlefield {
+            for ability in active_abilities(perm) {
+                let AbilityDef::Static(baylee_cards_dsl::StaticAbility {
+                    filter,
+                    modifier:
+                        baylee_cards_dsl::Modifier::SpellsCostLessMana {
+                            cost: less,
+                            colored_only,
+                        },
+                    ..
+                }) = ability
+                else {
+                    continue;
+                };
+                if agent.filter_matches(
+                    filter,
+                    view,
+                    &obj,
+                    baylee_cards_dsl::ZoneRef::Stack,
+                    Some(perm.id),
+                ) == Some(true)
+                {
+                    if *colored_only {
+                        colored_only_red = colored_only_red.combine(less);
+                    } else {
+                        mana_red = mana_red.combine(less);
+                    }
+                }
+            }
+        }
+    }
+    apply_colored_spell_reductions(increased, total, &colored_only_red, &mana_red)
+}
+
+pub(crate) fn apply_colored_spell_reductions(
+    increased: ManaCost,
+    total: u32,
+    colored_only_red: &ManaCost,
+    mana_red: &ManaCost,
+) -> ManaCost {
+    let after_colored_only = increased.with_less_mana(colored_only_red, true);
+    let colored_only_saved = increased.cmc().saturating_sub(after_colored_only.cmc());
+    if colored_only_saved > total {
+        return increased.with_less_generic(total);
+    }
+    let remaining_budget = total - colored_only_saved;
+    if mana_red.cmc() <= remaining_budget {
+        let after_mana = after_colored_only.with_less_mana(mana_red, false);
+        let rest = remaining_budget.saturating_sub(mana_red.cmc());
+        after_mana.with_less_generic(rest)
+    } else {
+        after_colored_only.with_less_generic(remaining_budget)
+    }
+}
+
 /// `cost` less what the graveyard pays for a delve spell (CR 702.66a): a card
 /// each from the caster's graveyard, the card being cast aside, off the generic
 /// part only. The subtraction `casting::can_cast` makes: a planner without it
@@ -333,15 +421,15 @@ pub(crate) fn less_delve(view: &PlayerView, id: ObjectId, cost: ManaCost) -> Man
 /// caller left it — with the engine's published increases added (coloured
 /// ones kept as pips, [`spell_mana_increase`]) and then its published
 /// reductions taken off: CR 601.2f determines the total cost increases first,
-/// reductions after, and a generic reduction touches the generic part only
-/// and stops at `{0}` (CR 118.7a).
+/// reductions after, colored reductions via [`spell_mana_reduction`] (CR
+/// 118.7b–d), and generic reductions stopping at `{0}` (CR 118.7a).
 ///
 /// The one place a planner applies `LegalActions`' price adjustments. Every
 /// planner used to add the increases itself and none subtracted anything, so
 /// under Goblin Warchief a Goblin two Mountains pay for was not offered and
 /// the one offered tapped three (NEW-03, 3.11.2026). `card` is `None` where
 /// the caller cannot name the card, which loses only the colour of a
-/// coloured increase.
+/// coloured increase or reduction.
 pub(crate) fn spell_price(
     view: &PlayerView,
     id: ObjectId,
@@ -354,6 +442,9 @@ pub(crate) fn spell_price(
         || ManaCost::from_symbol_generic(legal.spell_increase(id, mode)),
         |card| spell_mana_increase(view, id, card, legal, mode),
     );
-    cost.combine(&increase)
-        .with_less_generic(legal.spell_reduction(id, mode))
+    let increased = cost.combine(&increase);
+    card.map_or_else(
+        || increased.with_less_generic(legal.spell_reduction(id, mode)),
+        |card| spell_mana_reduction(view, id, card, legal, mode, increased),
+    )
 }

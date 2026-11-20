@@ -347,6 +347,7 @@ fn reads_source(filter: &Filter) -> bool {
         | Filter::ToughnessAtLeast(_)
         | Filter::PowerAtLeast(_)
         | Filter::PowerAtMost(_)
+        | Filter::FaceDown
         | Filter::InZone(_) => false,
         _ => true,
     }

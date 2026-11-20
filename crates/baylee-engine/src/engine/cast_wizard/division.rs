@@ -61,6 +61,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 wizard.division.push(left);
             }
         }
+        self.refresh_target_cost_adjustments(&mut wizard);
         wizard.stage = WizardStage::PitchChoice;
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()

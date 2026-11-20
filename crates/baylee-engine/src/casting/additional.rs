@@ -112,13 +112,47 @@ pub(crate) fn additional_payment_capacity_for(
     choice: impl Into<CostChoice>,
     chosen: &[ObjectId],
 ) -> Option<usize> {
+    additional_payment_capacity_for_x(state, player, card, face, choice, 0, chosen)
+}
+
+pub(crate) fn additional_payment_capacity_for_x(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face: &'static FaceDef,
+    choice: impl Into<CostChoice>,
+    x: u32,
+    chosen: &[ObjectId],
+) -> Option<usize> {
     let choice = choice.into();
     let life = crate::engine::cast_wizard::fixed_life_cost(face, choice);
     if !state.can_pay_life(player, life) {
         return None;
     }
-    let parts =
-        crate::engine::cast_wizard::additional_card_costs_for(state, player, card, face, choice);
+    let energy = crate::engine::cast_wizard::fixed_energy_cost(face, choice);
+    if u32::from(state.players[usize::from(player.get())].energy) < energy {
+        return None;
+    }
+    let top_exile: usize = crate::engine::cast_wizard::wizard_cost_parts(face, choice)
+        .filter_map(|part| match part {
+            CostPart::ExileTopOfLibrary(n) => Some(usize::from(*n)),
+            _ => None,
+        })
+        .sum();
+    if top_exile > 0 && state.zones.list(ZoneLocation::Library(player)).len() < top_exile {
+        return None;
+    }
+    if crate::engine::cast_wizard::wizard_mandatory_parts(face, choice)
+        .any(|part| matches!(part, CostPart::DiscardLastDrawnThisTurn))
+        && !state
+            .last_drawn_in_hand(player)
+            .is_some_and(|drawn| drawn != card && !chosen.contains(&drawn))
+    {
+        return None;
+    }
+    let parts = crate::engine::cast_wizard::additional_card_costs_for_x(
+        state, player, card, face, choice, x,
+    );
     let menus: Vec<Vec<_>> = parts
         .iter()
         .skip(chosen.len())

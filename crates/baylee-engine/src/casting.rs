@@ -26,8 +26,8 @@ mod lands;
 mod library_top;
 pub(crate) use additional::{
     additional_card_enters_graveyard, additional_payment_capacity, additional_payment_capacity_for,
-    additional_spell_costs, distinct_answers_exist, extend_sacrifices_per_mana_symbol,
-    pitch_costs_payable,
+    additional_payment_capacity_for_x, additional_spell_costs, distinct_answers_exist,
+    extend_sacrifices_per_mana_symbol, pitch_costs_payable,
 };
 mod payment;
 mod permissions;
@@ -53,17 +53,18 @@ pub(crate) use payment::*;
 #[cfg(feature = "test-support")]
 pub use payment::{SpellForm, SpendFor, pay_mana_for, spendable_units};
 pub(crate) use permissions::*;
+pub(crate) use pricing::card_has_self_spell_cost_statics;
 #[cfg(feature = "test-support")]
 pub use pricing::{
     SpellAdjustment, activation_increase, component_affordable, face_adjustment,
     normal_spell_affordable, north_star_effect, north_star_face_allowed, projected_spell,
-    spell_adjustment, spell_mana_spending,
+    spell_adjustment, spell_adjustment_with_def, spell_mana_spending,
 };
 #[cfg(not(feature = "test-support"))]
 pub(crate) use pricing::{
     SpellAdjustment, activation_increase, component_affordable, face_adjustment,
     normal_spell_affordable, north_star_effect, north_star_face_allowed, projected_spell,
-    spell_adjustment, spell_mana_spending,
+    spell_adjustment, spell_adjustment_with_def, spell_mana_spending,
 };
 pub use pricing::{
     ability_mana_spending, commander_tax, convoke_sources, delve_sources, has_improvise,
@@ -1218,7 +1219,8 @@ pub(crate) fn can_cast_form_paying(
     // cast this player can make (CR 601.2h). The reader is the one the cast
     // wizard's `Sacrifice` stage builds its question from, so the offer and
     // the question cannot disagree — Force of Will's pitch is the precedent.
-    if let Some(def) = obj.card.and_then(|card| lookup.card(card.index))
+    if !matches!(form, Some(SpellForm::Disguise))
+        && let Some(def) = obj.card.and_then(|card| lookup.card(card.index))
         && additional_payment_capacity(state, player, card, &def.faces[0], &[]).is_none()
     {
         return Err(CastError::NoWayToCast);
@@ -1238,16 +1240,23 @@ pub(crate) fn can_cast_form_paying(
     // of casting the card — printed cost, alternative cost and mode alike
     // (CR 601.2f) — which is why it is folded into each probe below rather
     // than into the first one.
-    let adjustment = spell_adjustment(state, player, obj);
+    let adjustment = spell_adjustment_with_def(state, player, obj, printed);
     let tax = adjustment.increase;
     if let Some(form) = form {
+        let form_printed = if matches!(form, SpellForm::Disguise) {
+            0
+        } else {
+            printed.map_or(0, |def| {
+                printed_reduction(state, &def.faces[0], player, card)
+            })
+        };
         return if affordable(
             state,
             player,
             pool,
-            &adjustment.price(form.cost().with_x(0), 0),
+            &adjustment.price(form.cost().with_x(0), form_printed),
             SpendFor::SpellAs(card, form),
-            adjustment.allowance(state, SpendFor::SpellAs(card, form), 0),
+            adjustment.allowance(state, SpendFor::SpellAs(card, form), form_printed),
         ) || matches!(form, SpellForm::Prototype(_))
             && north_star_face_allowed(state, player, card, 0)
             && normal_spell_affordable(
@@ -1255,9 +1264,9 @@ pub(crate) fn can_cast_form_paying(
                 player,
                 SpendFor::SpellAs(card, form),
                 pool,
-                &adjustment.price(form.cost(), 0),
+                &adjustment.price(form.cost(), form_printed),
                 &form.cost(),
-                adjustment.allowance(state, SpendFor::SpellAs(card, form), 0),
+                adjustment.allowance(state, SpendFor::SpellAs(card, form), form_printed),
             ) {
             Ok(())
         } else {
@@ -1284,7 +1293,9 @@ pub(crate) fn can_cast_form_paying(
     let priced = |cost: &ManaCost| {
         let cost = cost
             .combine(&adjustment.mana_increase)
-            .with_more_generic(tax);
+            .with_more_generic(tax)
+            .with_less_mana(&adjustment.colored_only_reduction, true)
+            .with_less_mana(&adjustment.mana_reduction, false);
         printed_face.map_or_else(
             || cost.with_less_generic(reduction),
             |face| keyword_priced(state, face, player, &cost, reduction),
@@ -1377,7 +1388,9 @@ pub(crate) fn can_cast_form_paying(
                 .mana_cost
                 .with_x(0)
                 .combine(&adjustment.mana_increase)
-                .with_more_generic(tax),
+                .with_more_generic(tax)
+                .with_less_mana(&adjustment.colored_only_reduction, true)
+                .with_less_mana(&adjustment.mana_reduction, false),
             reduction,
         );
         affordable(
@@ -1469,6 +1482,15 @@ pub(crate) fn can_cast_form_paying(
         && !def.faces[0].additional_costs.is_empty()
     {
         let face = &def.faces[0];
+        let kicked_parts_ok = additional_payment_capacity_for(
+            state,
+            player,
+            card,
+            face,
+            Some(crate::choice::CastModeKind::Kicked),
+            &[],
+        )
+        .is_some();
         let restricted = planning_pool(state, player, SpendFor::KickedSpell(card, 0, form), 0);
         let kicked_pool = restricted
             .as_ref()
@@ -1481,8 +1503,11 @@ pub(crate) fn can_cast_form_paying(
             .with_x(0)
             .combine(&adjustment.mana_increase)
             .with_more_generic(tax)
+            .with_less_mana(&adjustment.colored_only_reduction, true)
+            .with_less_mana(&adjustment.mana_reduction, false)
             .with_less_generic(reduction);
-        if reachable
+        if kicked_parts_ok
+            && reachable
             && (affordable(
                 state,
                 player,
@@ -1507,10 +1532,21 @@ pub(crate) fn can_cast_form_paying(
     if let Some(def) = printed
         && let Some(req) = def.faces[0].kicked_targets
     {
+        let face = &def.faces[0];
+        let kicked_parts_ok = additional_payment_capacity_for(
+            state,
+            player,
+            card,
+            face,
+            Some(crate::choice::CastModeKind::Kicked),
+            &[],
+        )
+        .is_some();
         let ordinary_targets = ordinary_targets_reachable(state, def, player, card);
-        let kicked_targets = kicked_targets_reachable(state, def, player, card, req);
+        let kicked_targets =
+            kicked_parts_ok && kicked_targets_reachable(state, def, player, card, req);
         let ordinary = ordinary_targets && probe_normal(&c.mana_cost.with_x(0));
-        let kicked = kicked_targets && probe_normal(&kicked_mana_cost(&def.faces[0]).with_x(0));
+        let kicked = kicked_targets && probe_normal(&kicked_mana_cost(face).with_x(0));
         // Short of mana with something to point at is what `payable` lists:
         // answered as no way to cast, Tear Asunder over an artifact could
         // never be cast by tapping for it.

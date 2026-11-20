@@ -374,10 +374,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         modifiers,
                     } => {
                         if from_zone == Zone::Stack
-                            && self
-                                .state
-                                .object(id)
-                                .is_some_and(|o| index.is_none_or(|i| o.kicked_with(i)))
+                            && self.state.object(id).is_some_and(|o| {
+                                index.map_or_else(|| o.kicked(), |i| o.kicked_with(i))
+                            })
                         {
                             if !orientation_applied && *counters > 0 {
                                 crate::replacement::put_counters(

@@ -633,7 +633,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     wizard.stage = cast_wizard::WizardStage::Targets;
                 } else {
                     wizard.x = n;
-                    wizard.stage = cast_wizard::WizardStage::Kicker;
+                    wizard.stage = if wizard.stage == cast_wizard::WizardStage::KickerX {
+                        cast_wizard::WizardStage::Buyback
+                    } else {
+                        cast_wizard::WizardStage::Kicker
+                    };
                     // X is announced before targets are chosen (CR 601.2b,
                     // 601.2c), and a target filter that reads it
                     // (`Filter::CmcExactlyX`) reads it off the card: so the
@@ -1940,7 +1944,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         wizard.kicker_cursor = idx.saturating_add(1);
                     } else {
                         wizard.kicked = answer;
-                        wizard.stage = cast_wizard::WizardStage::Buyback;
+                        wizard.stage = if self.wizard_needs_kicker_x(&wizard) {
+                            cast_wizard::WizardStage::KickerX
+                        } else {
+                            cast_wizard::WizardStage::Buyback
+                        };
                     }
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();

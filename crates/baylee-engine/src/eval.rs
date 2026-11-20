@@ -234,10 +234,13 @@ pub fn matches_projected_with_context(
             stack_filters::activated_source_matches(filter, state, obj, you, context)
         }
         Filter::TargetsPermanentYouControl => {
+            let pre_stack_projection = state
+                .object(obj.id)
+                .is_some_and(|live| live.zone != Zone::Stack);
             obj.targets.iter().chain(obj.second_targets()).any(|id| {
                 state.object(*id).is_some_and(|target| {
                     target.zone == Zone::Battlefield && target.controller == you
-                }) && state.targets_current_object(obj.id, *id)
+                }) && (pre_stack_projection || state.targets_current_object(obj.id, *id))
             })
         }
         Filter::WithSingleTarget => {
@@ -585,6 +588,22 @@ pub fn matches_projected_with_context(
                                 && matches_with_context(inner, state, other, you, context)
                         })
                 })
+        }
+        Filter::FaceDown => obj.status.contains(crate::object::Status::FACE_DOWN),
+        Filter::SharesCreatureTypeWith(inner) => {
+            if matches!(inner, Filter::This) {
+                state
+                    .object(this)
+                    .is_some_and(|src| target_pair::shares(chars, src.characteristics()))
+            } else {
+                state.battlefield_seen().any(|id| {
+                    id != obj.id
+                        && state.object(id).is_some_and(|other| {
+                            target_pair::shares(chars, other.characteristics())
+                                && matches_with_context(inner, state, other, you, context)
+                        })
+                })
+            }
         }
         // The live attachment first, then what `this` was wearing the moment
         // `obj` left the battlefield (CR 603.10a). The fallback is what lets

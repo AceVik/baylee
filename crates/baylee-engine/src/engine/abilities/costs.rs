@@ -71,6 +71,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .any(|effect| matches!(effect, baylee_cards_dsl::Effect::AttachSelf { .. })),
                 _ => false,
             });
+        let cycling = self
+            .activation_definition(source, ability_index)
+            .is_some_and(|ability| ability.is_cycling());
         let granted = self.granted_definition(source, ability_index);
         let mut damage_from_grantor = false;
         if let Some(grant) = granted {
@@ -90,41 +93,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // Apply reductions with a local floor first, so they do not limit
         // an independent unrestricted reduction applied afterwards. External
         // non-mana costs also apply when the printed activation has no generic mana.
-        if self.state.effects.may_change_or_forbid_abilities()
-            && let Some(object) = self.state.object(source)
-        {
-            for effect in self.state.effects.iter() {
-                match effect.modifier {
-                    baylee_cards_dsl::Modifier::AbilitiesCostLess { amount, minimum }
-                        if full.generic_total() > 0
-                            && crate::effects::applies_to(&self.state, effect, object) =>
-                    {
-                        // A minimum limits this reduction, never increases a free cost.
-                        let reduction = amount.min(mana.cmc().saturating_sub(minimum));
-                        mana = mana.with_less_generic(reduction);
-                    }
-                    baylee_cards_dsl::Modifier::EquipCostsLess(amount)
-                        if full.generic_total() > 0
-                            && crate::effects::applies_to(&self.state, effect, object)
-                            && object.characteristics().subtypes.contains(
-                                baylee_core::generated::subtypes::artifact::EQUIPMENT,
-                            )
-                            && equip =>
-                    {
-                        mana = mana.with_less_generic(amount);
-                    }
-                    baylee_cards_dsl::Modifier::AbilitiesCostSacrificePerManaSymbol {
-                        color,
-                        sacrifice,
-                    } if crate::effects::applies_to(&self.state, effect, object) => {
-                        casting::extend_sacrifices_per_mana_symbol(
-                            &mut parts, &base_mana, color, sacrifice,
-                        );
-                    }
-                    _ => {}
-                }
-            }
-        }
+        self.apply_activation_effect_adjustments(
+            player, source, &base_mana, &full, equip, cycling, &mut mana, &mut parts,
+        );
         mana = mana.with_less_generic(off);
         let imposed = parts.len() - cost.parts.len();
         ActivationPrice {
@@ -138,6 +109,66 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     full.generic_total() - mana.generic_total(),
                 ),
             grantor,
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn apply_activation_effect_adjustments(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        base_mana: &baylee_core::mana::ManaCost,
+        full: &baylee_core::mana::ManaCost,
+        equip: bool,
+        cycling: bool,
+        mana: &mut baylee_core::mana::ManaCost,
+        parts: &mut SmallVec<[CostPart; 4]>,
+    ) {
+        if !self.state.effects.may_change_or_forbid_abilities() {
+            return;
+        }
+        let Some(object) = self.state.object(source) else {
+            return;
+        };
+        for effect in self.state.effects.iter() {
+            match effect.modifier {
+                baylee_cards_dsl::Modifier::AbilitiesCostLess { amount, minimum }
+                    if full.generic_total() > 0
+                        && crate::effects::applies_to(&self.state, effect, object) =>
+                {
+                    // A minimum limits this reduction, never increases a free cost.
+                    let reduction = amount.min(mana.cmc().saturating_sub(minimum));
+                    *mana = mana.with_less_generic(reduction);
+                }
+                baylee_cards_dsl::Modifier::EquipCostsLess(amount)
+                    if full.generic_total() > 0
+                        && crate::effects::applies_to(&self.state, effect, object)
+                        && object
+                            .characteristics()
+                            .subtypes
+                            .contains(baylee_core::generated::subtypes::artifact::EQUIPMENT)
+                        && equip =>
+                {
+                    *mana = mana.with_less_generic(amount);
+                }
+                baylee_cards_dsl::Modifier::CyclingCostsLess(amount)
+                    if cycling && full.generic_total() > 0 =>
+                {
+                    let mut cycling_card = object.clone();
+                    cycling_card.controller = player;
+                    cycling_card.base_controller = player;
+                    if crate::effects::matches_filter(&self.state, effect, &cycling_card) {
+                        *mana = mana.with_less_generic(amount);
+                    }
+                }
+                baylee_cards_dsl::Modifier::AbilitiesCostSacrificePerManaSymbol {
+                    color,
+                    sacrifice,
+                } if crate::effects::applies_to(&self.state, effect, object) => {
+                    casting::extend_sacrifices_per_mana_symbol(parts, base_mana, color, sacrifice);
+                }
+                _ => {}
+            }
         }
     }
 

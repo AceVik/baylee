@@ -26,6 +26,7 @@ mod chosen_count_entry;
 mod color_source;
 mod combat_memory;
 mod control;
+mod cost_reductions_and_kicker;
 mod costs;
 mod counter_payment;
 mod counter_removal;

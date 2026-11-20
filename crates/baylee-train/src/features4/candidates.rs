@@ -1065,6 +1065,7 @@ pub fn public_object_matches_basic_filter(
         baylee_cards_dsl::Filter::OwnedByYou => obj.owner == actor,
         baylee_cards_dsl::Filter::Tapped => obj.status.contains(ObjectStatus::TAPPED),
         baylee_cards_dsl::Filter::Untapped => !obj.status.contains(ObjectStatus::TAPPED),
+        baylee_cards_dsl::Filter::FaceDown => obj.status.contains(ObjectStatus::FACE_DOWN),
         baylee_cards_dsl::Filter::HasAnyCounter => !obj.counters.is_empty(),
         _ => true,
     }

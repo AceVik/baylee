@@ -7,24 +7,28 @@ pub(crate) fn wizard_mandatory_parts(
     choice: impl Into<CostChoice>,
 ) -> impl Iterator<Item = &CostPart> {
     let choice = choice.into();
+    let disguised = choice.option == Some(CastModeKind::Disguise);
+    let mandatory = if disguised {
+        &[][..]
+    } else {
+        face.mandatory_additional_costs
+    };
     let entwine_parts = match (choice.option, face.entwine) {
-        (Some(CastModeKind::Modes(_)), Some(entwine)) => entwine.parts,
+        (Some(CastModeKind::Modes(_)), Some(entwine)) if !disguised => entwine.parts,
         _ => &[],
     };
-    face.mandatory_additional_costs
-        .iter()
-        .chain(entwine_parts.iter())
-        .chain(
-            face.additional_costs
-                .iter()
-                .enumerate()
-                .filter(move |(idx, _)| {
-                    choice.kicked
-                        && (choice.kicked_mask == 0
-                            || (*idx < 8 && (choice.kicked_mask & (1_u8 << *idx)) != 0))
-                })
-                .flat_map(|(_, cost)| cost.parts),
-        )
+    mandatory.iter().chain(entwine_parts.iter()).chain(
+        face.additional_costs
+            .iter()
+            .enumerate()
+            .filter(move |(idx, _)| {
+                !disguised
+                    && choice.kicked
+                    && (choice.kicked_mask == 0
+                        || (*idx < 8 && (choice.kicked_mask & (1_u8 << *idx)) != 0))
+            })
+            .flat_map(|(_, cost)| cost.parts),
+    )
 }
 
 /// The non-mana parts of the alternative cost chosen for this cast.
@@ -112,6 +116,27 @@ pub(crate) fn fixed_life_cost(
     })
 }
 
+/// Fixed energy owed by every selected non-mana cost, before payment begins.
+pub(crate) fn fixed_energy_cost(
+    face: &'static baylee_cards_dsl::FaceDef,
+    choice: impl Into<CostChoice>,
+) -> u32 {
+    wizard_cost_parts(face, choice).fold(0_u32, |sum, part| match part {
+        CostPart::PayEnergy(n) => sum.saturating_add(u32::from(*n)),
+        _ => sum,
+    })
+}
+
+/// Whether a mandatory additional cost part scales with X.
+pub(crate) fn mandatory_scales_with_x(face: &baylee_cards_dsl::FaceDef) -> bool {
+    face.mandatory_additional_costs.iter().any(|part| {
+        matches!(
+            part,
+            CostPart::PayLifeX | CostPart::PayEnergyX | CostPart::SacrificeX(_) | CostPart::TapX(_)
+        )
+    })
+}
+
 impl super::CastWizard {
     /// Life already committed before an X or another optional cost is chosen.
     pub(super) fn reserved_life(&self, face: &'static baylee_cards_dsl::FaceDef) -> i32 {
@@ -138,30 +163,54 @@ impl super::CastWizard {
 }
 
 /// The object questions of a spell's cost, in payment order. `TapN` expands
-/// into N questions so offer, choice and payment share one answer per object.
-/// Externally imposed parts follow the card's printed and selected alternative parts.
-pub(crate) fn additional_card_costs_for(
+/// into N questions (and `SacrificeX` / `TapX` into X questions) so offer,
+/// choice and payment share one answer per object. Externally imposed parts
+/// follow the card's printed and selected alternative parts.
+pub(crate) fn additional_card_costs_for_x(
     state: &crate::state::GameState,
     player: PlayerId,
     card: ObjectId,
     face: &'static baylee_cards_dsl::FaceDef,
     choice: impl Into<CostChoice>,
+    x: u32,
 ) -> SmallVec<[CostPart; 4]> {
-    let mut parts: SmallVec<[CostPart; 4]> = wizard_cost_parts(face, choice)
+    let choice = choice.into();
+    let alt_iter = wizard_alternative_parts(face, choice.alternative_cost.or(choice.option))
+        .iter()
         .filter(|p| {
             matches!(
                 p,
                 CostPart::Sacrifice(_)
+                    | CostPart::ReturnToHand(_)
+                    | CostPart::TapOther(_)
+                    | CostPart::TapN { .. }
+            )
+        });
+    let add_iter = wizard_mandatory_parts(face, choice)
+        .chain(wizard_buyback_parts(face, choice.buyback))
+        .filter(|p| {
+            matches!(
+                p,
+                CostPart::Sacrifice(_)
+                    | CostPart::SacrificeX(_)
                     | CostPart::ExilePermanent(_)
+                    | CostPart::ExileFromHand(_)
                     | CostPart::ExileFromGraveyard(_)
                     | CostPart::Discard(_)
                     | CostPart::ReturnToHand(_)
+                    | CostPart::TapOther(_)
+                    | CostPart::TapX(_)
                     | CostPart::TapN { .. }
             )
-        })
+        });
+    let mut parts: SmallVec<[CostPart; 4]> = alt_iter
+        .chain(add_iter)
         .flat_map(|part| {
             let count = match part {
                 CostPart::TapN { count, .. } => usize::try_from(*count).unwrap_or(usize::MAX),
+                CostPart::SacrificeX(_) | CostPart::TapX(_) => {
+                    usize::try_from(x).unwrap_or(usize::MAX)
+                }
                 _ => 1,
             };
             std::iter::repeat_n(*part, count)

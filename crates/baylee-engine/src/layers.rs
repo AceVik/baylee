@@ -788,6 +788,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         Filter::AttachedTo(_)
         | Filter::BlockedThisTurnBy(_)
         | Filter::SharesAColorWith(_)
+        | Filter::SharesCreatureTypeWith(_)
         | Filter::SharesColorWithExiledWithSource => true,
         Filter::OfSourceChosenColor => matches!(
             modifier,
@@ -912,6 +913,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::Equipped
         | Filter::CmcEqualsCountersOnSource(_)
         | Filter::CmcEqualsYourUnspentMana
+        | Filter::FaceDown
         | Filter::BlockingSource
         | Filter::SpellTargetingAffected
         | Filter::BlockedBySource
@@ -1233,8 +1235,11 @@ fn apply(
         }
         // Handled by SBAs/legality checks, not by characteristics.
         Modifier::SpellsCostLess(_)
+        | Modifier::SpellsCostLessMana { .. }
+        | Modifier::SpellsCostLessByAmount(_)
         | Modifier::SpellsCostLessPerCounter(_)
         | Modifier::BuybackCostsLess(_)
+        | Modifier::CyclingCostsLess(_)
         | Modifier::LoseAllBandsWithOther
         | Modifier::BandsWithOther(_)
         | Modifier::SpellsCostMore(_)

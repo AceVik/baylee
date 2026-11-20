@@ -428,7 +428,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 .find(|o| Some(o.kind) == wizard.announced.or(wizard.option))
                 .map(|o| {
                     let mut cost = o.cost;
-                    if wizard.kicked_mask != 0
+                    if wizard.kicked
                         && wizard.option != Some(CastModeKind::Kicked)
                         && !matches!(
                             wizard.announced,
@@ -440,7 +440,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         && let Some(f) = def.faces.get(face)
                     {
                         for (idx, add) in f.additional_costs.iter().enumerate() {
-                            if idx < 8 && (wizard.kicked_mask & (1_u8 << idx)) != 0 {
+                            if wizard.kicked_mask == 0
+                                || (idx < 8 && (wizard.kicked_mask & (1_u8 << idx)) != 0)
+                            {
                                 cost = cost.combine(&add.mana);
                             }
                         }

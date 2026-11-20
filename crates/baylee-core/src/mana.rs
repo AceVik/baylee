@@ -546,6 +546,102 @@ impl ManaCost {
         out
     }
 
+    /// Reduces `self` by `reduction` according to CR 118.7a–g.
+    ///
+    /// When `colored_only` is `true` ("This effect reduces only the amount of
+    /// colored mana you pay"), unspent colored or colorless symbols in
+    /// `reduction` do not spill over into the generic component; when `false`,
+    /// excess colored or colorless reduction reduces generic mana (CR 118.7b–d).
+    #[must_use]
+    pub fn with_less_mana(&self, reduction: &ManaCost, colored_only: bool) -> Self {
+        self.with_less_mana_remainder(reduction, colored_only).0
+    }
+
+    /// Reduces `self` by `reduction` (CR 118.7a–g), returning `(reduced_cost,
+    /// unspent_reduction)` so callers pricing a base cost before optional
+    /// additional costs can apply any remaining reduction to later additions
+    /// without double-counting symbols already subtracted.
+    #[must_use]
+    pub fn with_less_mana_remainder(
+        &self,
+        reduction: &ManaCost,
+        colored_only: bool,
+    ) -> (Self, Self) {
+        if *reduction == Self::ZERO {
+            return (*self, Self::ZERO);
+        }
+        let (mut color_red, mut colorless_red, mut generic_red) = reduction_budget(reduction);
+        let mut exact_after = Self::ZERO;
+        let mut hybrids: Vec<(ManaSymbol, ColorSet)> = Vec::new();
+        let mut generic_left = 0_u32;
+
+        for (symbol, count) in self.runs() {
+            let have = u32::from(count);
+            let color_idx = match symbol {
+                ManaSymbol::White => Some(Color::White as usize),
+                ManaSymbol::Blue => Some(Color::Blue as usize),
+                ManaSymbol::Black => Some(Color::Black as usize),
+                ManaSymbol::Red => Some(Color::Red as usize),
+                ManaSymbol::Green => Some(Color::Green as usize),
+                ManaSymbol::Phyrexian(color) => Some(color as usize),
+                _ => None,
+            };
+            if let Some(idx) = color_idx {
+                let used = have.min(color_red[idx]);
+                color_red[idx] -= used;
+                exact_after.add(symbol, have - used);
+                continue;
+            }
+            match symbol {
+                ManaSymbol::Generic(amount) => {
+                    generic_left = generic_left.saturating_add(amount.saturating_mul(have));
+                }
+                ManaSymbol::Colorless => {
+                    let used = have.min(colorless_red);
+                    colorless_red -= used;
+                    exact_after.add(symbol, have - used);
+                }
+                ManaSymbol::Hybrid(pair) | ManaSymbol::HybridPhyrexian(pair) => {
+                    hybrids.extend(core::iter::repeat_n(
+                        (symbol, ColorSet::of_pair(pair)),
+                        usize::from(count),
+                    ));
+                }
+                ManaSymbol::TwoOrColor(color) => {
+                    hybrids.extend(core::iter::repeat_n(
+                        (symbol, ColorSet::of(color)),
+                        usize::from(count),
+                    ));
+                }
+                other => exact_after.add(other, have),
+            }
+        }
+
+        subtract_hybrid_reduction(&mut exact_after, &hybrids, &mut color_red);
+
+        let used_generic = generic_red.min(generic_left);
+        generic_left -= used_generic;
+        generic_red -= used_generic;
+
+        if !colored_only {
+            for red in &mut color_red {
+                let used = (*red).min(generic_left);
+                generic_left -= used;
+                *red -= used;
+            }
+            let used = colorless_red.min(generic_left);
+            generic_left -= used;
+            colorless_red -= used;
+        }
+        if generic_left > 0 {
+            exact_after.add(ManaSymbol::Generic(generic_left), 1);
+        }
+        (
+            exact_after,
+            pack_leftover_reduction(&color_red, colorless_red, generic_red),
+        )
+    }
+
     /// The cost with the coloured symbols removed that `taps` pay for
     /// convoke, and how many taps paid one: each tapped creature pays one
     /// coloured mana of one of its colours (CR 702.51a), so a tap of colours
@@ -683,6 +779,96 @@ impl ManaCost {
         }
         out
     }
+}
+
+fn reduction_budget(reduction: &ManaCost) -> ([u32; 5], u32, u32) {
+    let mut color_red = [0_u32; 5];
+    let mut colorless_red = 0_u32;
+    let mut generic_red = 0_u32;
+    for (symbol, count) in reduction.runs() {
+        let n = u32::from(count);
+        match symbol {
+            ManaSymbol::Generic(amount) => {
+                generic_red = generic_red.saturating_add(amount.saturating_mul(n));
+            }
+            ManaSymbol::Snow => {
+                generic_red = generic_red.saturating_add(n);
+            }
+            ManaSymbol::White | ManaSymbol::Phyrexian(Color::White) => {
+                color_red[Color::White as usize] =
+                    color_red[Color::White as usize].saturating_add(n);
+            }
+            ManaSymbol::Blue | ManaSymbol::Phyrexian(Color::Blue) => {
+                color_red[Color::Blue as usize] = color_red[Color::Blue as usize].saturating_add(n);
+            }
+            ManaSymbol::Black | ManaSymbol::Phyrexian(Color::Black) => {
+                color_red[Color::Black as usize] =
+                    color_red[Color::Black as usize].saturating_add(n);
+            }
+            ManaSymbol::Red | ManaSymbol::Phyrexian(Color::Red) => {
+                color_red[Color::Red as usize] = color_red[Color::Red as usize].saturating_add(n);
+            }
+            ManaSymbol::Green | ManaSymbol::Phyrexian(Color::Green) => {
+                color_red[Color::Green as usize] =
+                    color_red[Color::Green as usize].saturating_add(n);
+            }
+            ManaSymbol::Colorless => {
+                colorless_red = colorless_red.saturating_add(n);
+            }
+            _ => {}
+        }
+    }
+    (color_red, colorless_red, generic_red)
+}
+
+fn subtract_hybrid_reduction(
+    out: &mut ManaCost,
+    hybrids: &[(ManaSymbol, ColorSet)],
+    color_red: &mut [u32; 5],
+) {
+    if hybrids.is_empty() || !color_red.iter().any(|&n| n > 0) {
+        for (symbol, _) in hybrids {
+            out.add(*symbol, 1);
+        }
+        return;
+    }
+    let cap = u32::try_from(hybrids.len()).unwrap_or(u32::MAX);
+    let mut units: Vec<ColorSet> = Vec::new();
+    let mut unit_color: Vec<usize> = Vec::new();
+    for (idx, &color) in Color::ALL.iter().enumerate() {
+        for _ in 0..color_red[idx].min(cap) {
+            units.push(ColorSet::of(color));
+            unit_color.push(idx);
+        }
+    }
+    let mut owner: Vec<Option<usize>> = vec![None; hybrids.len()];
+    for u in 0..units.len() {
+        let mut seen = vec![false; hybrids.len()];
+        if convoke_augment(u, &units, hybrids, &mut owner, &mut seen) {
+            color_red[unit_color[u]] -= 1;
+        }
+    }
+    for (h, (symbol, _)) in hybrids.iter().enumerate() {
+        if owner[h].is_none() {
+            out.add(*symbol, 1);
+        }
+    }
+}
+
+fn pack_leftover_reduction(color_red: &[u32; 5], colorless_red: u32, generic_red: u32) -> ManaCost {
+    let mut leftover = ManaCost::ZERO;
+    if generic_red > 0 {
+        leftover.add(ManaSymbol::Generic(generic_red), 1);
+    }
+    for (idx, &color) in Color::ALL.iter().enumerate() {
+        if color_red[idx] > 0 {
+            leftover.add(ManaSymbol::of_color(color), color_red[idx]);
+        }
+    }
+    if colorless_red > 0 {
+        leftover.add(ManaSymbol::Colorless, colorless_red);
+    }
+    leftover
 }
 
 const fn parse_color_byte(b: u8) -> Option<Color> {
@@ -2244,5 +2430,29 @@ mod tests {
         pool.add(ManaColor::Green, 1);
         assert_eq!(pool.colors_available(), ColorSet::of(Color::Green));
         assert_eq!(pool.available(ManaColor::Green), 1, "the plain one only");
+    }
+
+    #[test]
+    fn with_less_mana_handles_colored_only_and_spillover_into_generic() {
+        let wb = ManaCost::parse("{W}{B}");
+        assert_eq!(
+            ManaCost::parse("{1}{W}{B}").with_less_mana(&wb, true),
+            ManaCost::parse("{1}")
+        );
+        assert_eq!(
+            ManaCost::parse("{2}{W}").with_less_mana_remainder(&wb, true),
+            (ManaCost::parse("{2}"), ManaCost::parse("{B}")),
+            "colored-only leaves generic untouched and returns unspent {{B}}"
+        );
+        assert_eq!(
+            ManaCost::parse("{2}{W}").with_less_mana_remainder(&wb, false),
+            (ManaCost::parse("{1}"), ManaCost::ZERO),
+            "CR 118.7b-c: excess colored reduction reduces generic mana"
+        );
+        assert_eq!(
+            ManaCost::parse("{W/B}").with_less_mana(&wb, true),
+            ManaCost::ZERO,
+            "hybrid symbol matches either component color"
+        );
     }
 }

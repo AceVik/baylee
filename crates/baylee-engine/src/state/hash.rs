@@ -2440,6 +2440,11 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::CmcEqualsYourUnspentMana => h.u8(148),
         F::SharesColorWithExiledWithSource => h.u8(150),
         F::OfSourceChosenCardType => h.u8(151),
+        F::FaceDown => h.u8(152),
+        F::SharesCreatureTypeWith(inner) => {
+            h.u8(153);
+            filter_hash(h, inner);
+        }
     }
 }
 

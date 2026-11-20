@@ -402,6 +402,14 @@ pub enum Filter {
     /// (Glissa Sunseeker: "if its mana value is equal to the amount of mana in
     /// your mana pool").
     CmcEqualsYourUnspentMana,
+    /// Is face down (CR 708.2): a face-down creature spell on the stack or a
+    /// face-down permanent on the battlefield (Dream Chisel, Ixidor).
+    FaceDown,
+    /// Shares at least one creature type with an object matching the inner
+    /// filter (`&Filter::This` for Mistform Warchief's "creature spells you
+    /// cast that share a creature type with this creature", or a battlefield
+    /// filter for Coat of Arms).
+    SharesCreatureTypeWith(&'static Filter),
 }
 
 /// Zone references for filters (engine zones, DSL view).

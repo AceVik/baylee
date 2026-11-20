@@ -5256,3 +5256,34 @@ commander replacements and always shuffling `who`'s library (Elvish Soultiller).
 `Condition::ControlMoreThanEachOtherPlayer(&Filter)` holds when the controller
 controls strictly more matching permanents than every other still-in-game
 player (Peer Pressure).
+
+### Static cost reductions, cycling reductions, and non-mana / variable-X kicker
+
+- `Modifier::SpellsCostLessMana { cost, colored_only }` reduces the total cost
+  of matching spells by `cost` after cost increases are applied (CR 601.2f,
+  CR 118.7b–d). Set `colored_only: true` when the card specifies "This effect
+  reduces only the amount of colored mana you pay" (Edgewalker, Morophon); set
+  `colored_only: false` when unspent colored or colorless reduction spills over
+  into generic mana (CR 118.7b–c).
+- `Modifier::SpellsCostLessByAmount(amount)` reduces the generic mana component
+  of matching spells by `amount` (CR 118.7a), evaluated in the effect's rule
+  context. Self-cost static abilities declared with `zone = ZoneRef::Stack` or
+  `ZoneRef::NotBattlefield` are also evaluated while pricing a card in hand,
+  graveyard, exile, or command zone.
+- `Modifier::CyclingCostsLess(n)` reduces generic mana in cycling and
+  typecycling activation costs of matching cards (with `Filter::ControlledByYou`
+  matching the player activating the cycling ability) by `n`, down to `{0}`
+  (CR 702.29a, CR 118.7a — Fluctuator).
+- `Filter::FaceDown` matches face-down spells on the stack and face-down
+  permanents on the battlefield (CR 708.2 — Dream Chisel).
+- `Filter::SharesCreatureTypeWith(&filter)` matches objects that share at least
+  one creature subtype with `&Filter::This` (Mistform Warchief) or with a
+  battlefield permanent matching `filter` (Coat of Arms).
+- `FaceDef::additional_costs` supports variable-`{X}` kicker costs
+  (`cost!("{X}")`, `cost!("{X}{2}")` — Verdeloth the Ancient, Kangee, Aerie
+  Keeper; CR 702.33a) and non-mana kicker `CostPart`s (`Sacrifice`,
+  `ReturnToHand`, `Discard`, `DiscardRandom`, `PayLife`, `ExileFromHand`,
+  `ExileFromGraveyard`, `TapOther`, `TapN`), skipping unpayable kickers during
+  announcement. `FaceDef::mandatory_additional_costs` supports the same
+  non-mana parts plus `SacrificeAll`, `SacrificeX`, `TapX`, `PayEnergy`,
+  `PayEnergyX`, and `ExileTopOfLibrary` (CR 118.8, CR 601.2b/f/h).

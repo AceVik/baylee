@@ -6,6 +6,8 @@ use super::*;
 pub(crate) struct FrozenReduction {
     pub total: u32,
     pub remainder: u32,
+    pub colored_only_remainder: ManaCost,
+    pub mana_remainder: ManaCost,
     pub allowance: casting::SourceAllowance,
 }
 
@@ -51,10 +53,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         };
         let total = adjustment.reduction.saturating_add(printed);
         let raw = raw_option_cost(def, face, wizard);
-        let fixed = raw.generic_total().saturating_add(adjustment.increase);
+        let raw_with_inc = raw
+            .combine(&adjustment.mana_increase)
+            .with_more_generic(adjustment.increase);
+        let (after_co, colored_only_remainder) =
+            raw_with_inc.with_less_mana_remainder(&adjustment.colored_only_reduction, true);
+        let (after_mana, mana_remainder) =
+            after_co.with_less_mana_remainder(&adjustment.mana_reduction, false);
+        let fixed = after_mana.generic_total();
         FrozenReduction {
             total,
             remainder: total.saturating_sub(fixed),
+            colored_only_remainder,
+            mana_remainder,
             allowance: casting::base_allowance(&self.state, spend_for(wizard, face)).adjusted(
                 adjustment.eligible_increase,
                 adjustment
@@ -62,6 +73,58 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .saturating_sub(adjustment.eligible_increase),
                 total,
             ),
+        }
+    }
+
+    /// Recomputes target-dependent cost modifiers (CR 601.2c -> 601.2f, such as
+    /// `Filter::SpellTargetingAffected` on Kaervek's Torch or
+    /// `Filter::TargetsPermanentYouControl`) once targets have been chosen.
+    pub(super) fn refresh_target_cost_adjustments(&self, wizard: &mut CastWizard) {
+        if !self.state.effects.may_change_spell_costs() {
+            return;
+        }
+        let Some(object) = self.state.object(wizard.card) else {
+            return;
+        };
+        let Some(def) = object.card.and_then(|c| self.lookup.card(c.index)) else {
+            return;
+        };
+        let face_idx = wizard.face_index();
+        let face = self.wizard_face(wizard);
+        let form = match spend_for(wizard, face) {
+            casting::SpendFor::SpellAs(_, form) => Some(form),
+            casting::SpendFor::KickedSpell(_, _, form) => form,
+            _ => None,
+        };
+        let without =
+            casting::face_adjustment(&self.state, wizard.player, wizard.card, def, face_idx, form);
+        let mut targeted = object.clone();
+        targeted.base = std::sync::Arc::new(crate::object::Characteristics::from_face(
+            def,
+            face_idx,
+            object.base.name,
+        ));
+        targeted.cache.clear();
+        targeted.face_index = u8::try_from(face_idx).unwrap_or(0);
+        if let Some(form) = form {
+            targeted = form.project(&targeted);
+        }
+        targeted.targets.clone_from(&wizard.targets);
+        targeted.target_players = wizard.target_players;
+        targeted.set_second(wizard.second_targets.clone(), None);
+        targeted.set_second_players(wizard.second_target_players);
+        let with_targets =
+            casting::spell_adjustment_with_def(&self.state, wizard.player, &targeted, Some(def));
+        wizard.target_increase = with_targets
+            .mana_increase
+            .with_less_mana(&without.mana_increase, true)
+            .with_more_generic(with_targets.increase.saturating_sub(without.increase));
+        let extra_red = with_targets.reduction.saturating_sub(without.reduction);
+        if extra_red > 0
+            && let Some(frozen) = wizard.reduction.as_mut()
+        {
+            frozen.total = frozen.total.saturating_add(extra_red);
+            frozen.remainder = frozen.remainder.saturating_add(extra_red);
         }
     }
 }

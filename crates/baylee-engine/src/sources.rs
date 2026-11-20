@@ -695,17 +695,18 @@ impl GameState {
         if spell.kind != crate::object::ObjectKind::Spell {
             return false;
         }
-        let Some(affected) = self.source_identity(affected) else {
+        let Some(affected_ref) = self.source_identity(affected) else {
             return false;
         };
-        self.source_memory
-            .stack
-            .get(&identity(spell))
-            .is_some_and(|refs| {
-                refs.iter().any(|(slot, target)| {
-                    matches!(slot, Slot::Target(_) | Slot::Second(_)) && *target == affected
-                })
-            })
+        if let Some(refs) = self.source_memory.stack.get(&identity(spell)) {
+            return refs.iter().any(|(slot, target)| {
+                matches!(slot, Slot::Target(_) | Slot::Second(_)) && *target == affected_ref
+            });
+        }
+        // Projected spell during cast_wizard before stack reference binding (CR 601.2c/f).
+        self.object(spell.id)
+            .is_some_and(|live| live.zone != crate::zone::Zone::Stack)
+            && (spell.targets.contains(&affected) || spell.second_targets().contains(&affected))
     }
 
     pub(crate) fn targets_current_object(&self, holder: ObjectId, target: ObjectId) -> bool {

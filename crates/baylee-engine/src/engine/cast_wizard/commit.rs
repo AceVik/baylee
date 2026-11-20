@@ -257,6 +257,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 CostPart::PayLife(n) => {
                     self.state.change_life(player, -i32::from(*n), Cause::Cost);
                 }
+                CostPart::PayEnergy(n) => {
+                    if !self.state.pay_energy(player, u32::from(*n)) {
+                        return Err(EngineError::IllegalAction("not enough energy"));
+                    }
+                }
+                CostPart::PayEnergyX => {
+                    if !self.state.pay_energy(player, wizard.x) {
+                        return Err(EngineError::IllegalAction("not enough energy"));
+                    }
+                }
                 CostPart::Sacrifice(_)
                 | CostPart::ExilePermanent(_)
                 | CostPart::ExileFromGraveyard(_) => {
@@ -267,19 +277,64 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             "an object cost the cast never asked about",
                         ))?;
                     // Read LKI before the cost moves the permanent (CR 608.2h).
-                    sacrificed_object = self.state.object(chosen).map(|o| (chosen, o.version));
-                    sacrificed_lki = self
-                        .state
-                        .object(chosen)
-                        .map(crate::object::SacrificedLki::of);
+                    if matches!(part, CostPart::Sacrifice(_)) {
+                        sacrificed_object = self.state.object(chosen).map(|o| (chosen, o.version));
+                        sacrificed_lki = self
+                            .state
+                            .object(chosen)
+                            .map(crate::object::SacrificedLki::of);
+                    }
                     super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
                 }
-                CostPart::Discard(_) => {
+                CostPart::ReturnToHand(_)
+                | CostPart::TapOther(_)
+                | CostPart::ExileFromHand(_)
+                | CostPart::Discard(_) => {
                     let chosen = cost_objects
                         .next()
                         .copied()
-                        .ok_or(EngineError::IllegalAction("unanswered discard cost"))?;
+                        .ok_or(EngineError::IllegalAction(
+                            "an object cost the cast never asked about",
+                        ))?;
                     super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                }
+                CostPart::SacrificeX(_) => {
+                    for _ in 0..wizard.x {
+                        let chosen =
+                            cost_objects
+                                .next()
+                                .copied()
+                                .ok_or(EngineError::IllegalAction(
+                                    "an object cost the cast never asked about",
+                                ))?;
+                        sacrificed_object = self.state.object(chosen).map(|o| (chosen, o.version));
+                        sacrificed_lki = self
+                            .state
+                            .object(chosen)
+                            .map(crate::object::SacrificedLki::of);
+                        super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                    }
+                }
+                CostPart::SacrificeAll(_) => {
+                    let targets =
+                        super::super::cost_wizard::options(&self.state, player, wizard.card, part);
+                    for chosen in targets {
+                        if chosen != wizard.card {
+                            super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                        }
+                    }
+                }
+                CostPart::TapX(_) => {
+                    for _ in 0..wizard.x {
+                        let chosen =
+                            cost_objects
+                                .next()
+                                .copied()
+                                .ok_or(EngineError::IllegalAction(
+                                    "the cast did not choose every tap",
+                                ))?;
+                        super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                    }
                 }
                 CostPart::TapN { count, .. } => {
                     for _ in 0..*count {
@@ -291,6 +346,29 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                                     "the cast did not choose every tap",
                                 ))?;
                         super::super::cost_wizard::pay(&mut self.state, player, part, chosen)?;
+                    }
+                }
+                CostPart::ExileTopOfLibrary(n) => {
+                    let count = usize::from(*n);
+                    if self.state.zones.list(ZoneLocation::Library(player)).len() < count {
+                        return Err(EngineError::IllegalAction(
+                            "not enough cards in library to exile",
+                        ));
+                    }
+                    for _ in 0..count {
+                        let top = *self
+                            .state
+                            .zones
+                            .list(ZoneLocation::Library(player))
+                            .last()
+                            .expect("library count checked");
+                        let owner = self.state.object(top).map_or(player, |o| o.owner);
+                        self.state.move_object(
+                            top,
+                            ZoneLocation::Exile(owner),
+                            ZonePosition::Top,
+                            Cause::Cost,
+                        )?;
                     }
                 }
                 CostPart::DiscardLastDrawnThisTurn => {
@@ -309,22 +387,16 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         }
                     }
                 }
-                // Unsupported variants stay named to prevent silent free costs.
-                CostPart::TapSelf
+                // Random discard is paid in the CR 601.2h random step below.
+                // Unsupported activation-only variants stay named to prevent silent free costs.
+                CostPart::DiscardRandom
+                | CostPart::TapSelf
                 | CostPart::UntapSelf
                 | CostPart::ExertSelf
                 | CostPart::SacrificeSelf
-                | CostPart::DiscardRandom
-                | CostPart::PayEnergy(_)
-                | CostPart::PayEnergyX
-                | CostPart::TapOther(_)
-                | CostPart::TapX(_)
-                | CostPart::SacrificeX(_)
-                | CostPart::SacrificeAll(_)
                 | CostPart::PayCommanderColors
                 | CostPart::Crew(_)
                 | CostPart::Saddle(_)
-                | CostPart::ReturnToHand(_)
                 | CostPart::DiscardSelf
                 | CostPart::ExileSelf
                 | CostPart::ReturnSelfToHand
@@ -334,9 +406,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 | CostPart::PutCounterOnOther { .. }
                 | CostPart::ExileFromSingleGraveyard { .. }
                 | CostPart::PayAttachedManaCost
-                | CostPart::ExileTopOfLibrary(_)
-                | CostPart::SacrificeGrantor
-                | CostPart::ExileFromHand(_) => {}
+                | CostPart::SacrificeGrantor => {}
             }
         }
         // Buyback's parts name no object any "sacrificed creature" of the
@@ -394,8 +464,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // CR 601.2h: costs with a random element are paid after the others,
         // out of the hand the others left. The card being cast is on the
         // stack by now in all but this object's bookkeeping (CR 601.2a).
-        for _ in buyback
-            .iter()
+        for _ in super::wizard_cost_parts(face, wizard.cost_choice())
             .filter(|part| matches!(part, CostPart::DiscardRandom))
         {
             let hand: Vec<_> = self

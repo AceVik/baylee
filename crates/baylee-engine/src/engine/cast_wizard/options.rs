@@ -315,6 +315,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }
         if !face.additional_costs.is_empty()
             && (face.kicked_targets.is_some() || !afford_normal(&face.mana_cost.with_x(0)))
+            && casting::additional_payment_capacity_for(
+                &self.state,
+                player,
+                card,
+                face,
+                Some(CastModeKind::Kicked),
+                &[],
+            )
+            .is_some()
         {
             let cost = casting::kicked_mana_cost(face);
             let restricted = casting::planning_pool(

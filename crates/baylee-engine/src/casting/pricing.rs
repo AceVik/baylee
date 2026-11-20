@@ -354,7 +354,7 @@ pub fn commander_tax(state: &GameState, player: PlayerId, card: ObjectId) -> u32
         .map_or(0, |c| c.casts.saturating_mul(2))
 }
 
-/// Generic adjustments combine before clamping: increases first (CR 601.2f).
+/// Generic and colored adjustments combine before clamping: increases first (CR 601.2f).
 #[derive(Clone, Copy, Debug, Default)]
 #[doc(hidden)]
 pub struct SpellAdjustment {
@@ -362,6 +362,8 @@ pub struct SpellAdjustment {
     pub eligible_increase: u32,
     pub reduction: u32,
     pub mana_increase: ManaCost,
+    pub mana_reduction: ManaCost,
+    pub colored_only_reduction: ManaCost,
     /// What comes off this spell's buyback cost alone (`Modifier::BuybackCostsLess`).
     pub buyback_reduction: u32,
 }
@@ -382,23 +384,45 @@ impl SpellAdjustment {
     pub(crate) fn price(self, raw: ManaCost, printed_reduction: u32) -> ManaCost {
         raw.combine(&self.mana_increase)
             .with_more_generic(self.increase)
+            .with_less_mana(&self.colored_only_reduction, true)
+            .with_less_mana(&self.mana_reduction, false)
             .with_less_generic(self.reduction.saturating_add(printed_reduction))
     }
 }
 
-fn has_spell_adjustments(state: &GameState) -> bool {
-    state.effects.may_change_spell_costs()
-        && state.effects.iter().any(|fx| {
+const fn is_spell_cost_modifier(modifier: baylee_cards_dsl::Modifier) -> bool {
+    matches!(
+        modifier,
+        baylee_cards_dsl::Modifier::SpellsCostMore(_)
+            | baylee_cards_dsl::Modifier::SpellsCostMorePerControlled(_)
+            | baylee_cards_dsl::Modifier::SpellsCostMoreMana(_)
+            | baylee_cards_dsl::Modifier::SpellsCostLess(_)
+            | baylee_cards_dsl::Modifier::SpellsCostLessMana { .. }
+            | baylee_cards_dsl::Modifier::SpellsCostLessByAmount(_)
+            | baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(_)
+            | baylee_cards_dsl::Modifier::BuybackCostsLess(_)
+    )
+}
+
+#[must_use]
+pub(crate) fn card_has_self_spell_cost_statics(def: &baylee_cards_dsl::CardDef) -> bool {
+    (0..def.faces.len()).any(|face| {
+        def.abilities_for_face(face).iter().any(|ability| {
             matches!(
-                fx.modifier,
-                baylee_cards_dsl::Modifier::SpellsCostMore(_)
-                    | baylee_cards_dsl::Modifier::SpellsCostMorePerControlled(_)
-                    | baylee_cards_dsl::Modifier::SpellsCostMoreMana(_)
-                    | baylee_cards_dsl::Modifier::SpellsCostLess(_)
-                    | baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(_)
-                    | baylee_cards_dsl::Modifier::BuybackCostsLess(_)
+                ability,
+                baylee_cards_dsl::AbilityDef::Static(sa)
+                    if Zone::Stack.matches_ref(sa.source_zone) && is_spell_cost_modifier(sa.modifier)
             )
         })
+    })
+}
+
+fn has_spell_adjustments(state: &GameState) -> bool {
+    state.effects.may_change_spell_costs()
+        && state
+            .effects
+            .iter()
+            .any(|fx| is_spell_cost_modifier(fx.modifier))
 }
 
 /// Match the projected stack characteristics, including alternative faces.
@@ -410,6 +434,7 @@ pub fn projected_spell(
 ) -> crate::object::GameObject {
     let mut spell = object.clone();
     spell.zone = Zone::Stack;
+    spell.kind = crate::object::ObjectKind::Spell;
     spell.controller = player;
     spell.base_controller = player;
     spell.cache.clear();
@@ -418,11 +443,85 @@ pub fn projected_spell(
     spell
 }
 
+fn apply_spell_cost_modifier(
+    state: &GameState,
+    player: PlayerId,
+    spell: &crate::object::GameObject,
+    controller: PlayerId,
+    source: Option<ObjectId>,
+    modifier: baylee_cards_dsl::Modifier,
+    adjustment: &mut SpellAdjustment,
+) {
+    match modifier {
+        baylee_cards_dsl::Modifier::SpellsCostMore(amount) => {
+            adjustment.increase = adjustment.increase.saturating_add(amount);
+            if super::effect_is_un(state, source) {
+                adjustment.eligible_increase = adjustment.eligible_increase.saturating_add(amount);
+            }
+        }
+        baylee_cards_dsl::Modifier::SpellsCostMorePerControlled(filter) => {
+            let context = crate::eval::live_context(state, source.unwrap_or(spell.id));
+            let count = state
+                .battlefield_seen()
+                .filter(|&id| {
+                    state.object(id).is_some_and(|permanent| {
+                        permanent.controller == player
+                            && crate::eval::matches_with_context(
+                                filter, state, permanent, player, context,
+                            )
+                    })
+                })
+                .count();
+            let count = u32::try_from(count).unwrap_or(u32::MAX);
+            adjustment.increase = adjustment.increase.saturating_add(count);
+        }
+        baylee_cards_dsl::Modifier::SpellsCostMoreMana(extra) => {
+            adjustment.mana_increase = adjustment.mana_increase.combine(&extra);
+        }
+        baylee_cards_dsl::Modifier::SpellsCostLess(amount) => {
+            adjustment.reduction = adjustment.reduction.saturating_add(amount);
+        }
+        baylee_cards_dsl::Modifier::SpellsCostLessMana { cost, colored_only } => {
+            if colored_only {
+                adjustment.colored_only_reduction =
+                    adjustment.colored_only_reduction.combine(&cost);
+            } else {
+                adjustment.mana_reduction = adjustment.mana_reduction.combine(&cost);
+            }
+        }
+        baylee_cards_dsl::Modifier::SpellsCostLessByAmount(amount) => {
+            let value =
+                crate::eval::amount(&amount, state, controller, source.unwrap_or(spell.id), None);
+            adjustment.reduction = adjustment.reduction.saturating_add(value);
+        }
+        baylee_cards_dsl::Modifier::BuybackCostsLess(amount) => {
+            adjustment.buyback_reduction = adjustment.buyback_reduction.saturating_add(amount);
+        }
+        baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(kind) => {
+            let counters = source
+                .and_then(|source| state.object(source))
+                .map_or(0, |source| u32::from(source.counters.get(kind)));
+            adjustment.reduction = adjustment.reduction.saturating_add(counters);
+        }
+        _ => {}
+    }
+}
+
 #[doc(hidden)]
 pub fn spell_adjustment(
     state: &GameState,
     player: PlayerId,
     object: &crate::object::GameObject,
+) -> SpellAdjustment {
+    spell_adjustment_with_def(state, player, object, None)
+}
+
+#[doc(hidden)]
+pub fn spell_adjustment_with_def(
+    state: &GameState,
+    player: PlayerId,
+    object: &crate::object::GameObject,
+    def: Option<&baylee_cards_dsl::CardDef>,
 ) -> SpellAdjustment {
     let mut adjustment = SpellAdjustment {
         increase: commander_tax(state, player, object.id),
@@ -434,66 +533,71 @@ pub fn spell_adjustment(
             .copied()
             .unwrap_or(0),
         mana_increase: ManaCost::ZERO,
+        mana_reduction: ManaCost::ZERO,
+        colored_only_reduction: ManaCost::ZERO,
         buyback_reduction: 0,
     };
-    if !has_spell_adjustments(state) {
+    let self_statics = def.is_some_and(card_has_self_spell_cost_statics)
+        && !object.status.contains(crate::object::Status::FACE_DOWN);
+    if !has_spell_adjustments(state) && !self_statics {
         return adjustment;
     }
     let spell = projected_spell(state, player, object);
     for effect in state.effects.iter() {
-        match effect.modifier {
-            baylee_cards_dsl::Modifier::SpellsCostMore(amount) => {
-                if crate::effects::applies_to(state, effect, &spell) {
-                    adjustment.increase = adjustment.increase.saturating_add(amount);
-                    if super::effect_is_un(state, effect.source) {
-                        adjustment.eligible_increase =
-                            adjustment.eligible_increase.saturating_add(amount);
-                    }
-                }
+        if is_spell_cost_modifier(effect.modifier)
+            && crate::effects::applies_to(state, effect, &spell)
+        {
+            apply_spell_cost_modifier(
+                state,
+                player,
+                &spell,
+                effect.controller,
+                effect.source,
+                effect.modifier,
+                &mut adjustment,
+            );
+        }
+    }
+    if self_statics
+        && spell.characteristics().abilities_lost.is_none()
+        && !spell.characteristics().rules_text_lost
+        && let Some(def) = def
+    {
+        let face = usize::from(spell.face_index).min(def.faces.len().saturating_sub(1));
+        for ability in def.abilities_for_face(face) {
+            let baylee_cards_dsl::AbilityDef::Static(sa) = ability else {
+                continue;
+            };
+            if !Zone::Stack.matches_ref(sa.source_zone) || !is_spell_cost_modifier(sa.modifier) {
+                continue;
             }
-            baylee_cards_dsl::Modifier::SpellsCostMorePerControlled(filter)
-                if crate::effects::applies_to(state, effect, &spell) =>
-            {
-                let context = crate::eval::live_context(state, effect.source.unwrap_or(object.id));
-                let count = state
-                    .battlefield_seen()
-                    .filter(|&id| {
-                        state.object(id).is_some_and(|permanent| {
-                            permanent.controller == player
-                                && crate::eval::matches_with_context(
-                                    filter, state, permanent, player, context,
-                                )
-                        })
-                    })
-                    .count();
-                let count = u32::try_from(count).unwrap_or(u32::MAX);
-                adjustment.increase = adjustment.increase.saturating_add(count);
+            // Avoid double-counting if this object is already in a zone whose
+            // static registration put the same modifier into `state.effects`.
+            let already_registered = state.effects.iter().any(|fx| {
+                fx.source == Some(spell.id)
+                    && fx.origin == crate::effects::EffectOrigin::Static
+                    && fx.modifier == sa.modifier
+            });
+            if already_registered {
+                continue;
             }
-            baylee_cards_dsl::Modifier::SpellsCostMoreMana(extra)
-                if crate::effects::applies_to(state, effect, &spell) =>
-            {
-                adjustment.mana_increase = adjustment.mana_increase.combine(&extra);
+            let context = crate::eval::live_context(state, spell.id);
+            if sa.condition.is_some_and(|cond| {
+                !crate::eval::condition_holds_with_context(state, player, context, cond)
+            }) {
+                continue;
             }
-            baylee_cards_dsl::Modifier::SpellsCostLess(amount)
-                if crate::effects::applies_to(state, effect, &spell) =>
-            {
-                adjustment.reduction = adjustment.reduction.saturating_add(amount);
+            if crate::eval::matches_with_context(&sa.filter, state, &spell, player, context) {
+                apply_spell_cost_modifier(
+                    state,
+                    player,
+                    &spell,
+                    player,
+                    Some(spell.id),
+                    sa.modifier,
+                    &mut adjustment,
+                );
             }
-            baylee_cards_dsl::Modifier::BuybackCostsLess(amount)
-                if crate::effects::applies_to(state, effect, &spell) =>
-            {
-                adjustment.buyback_reduction = adjustment.buyback_reduction.saturating_add(amount);
-            }
-            baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(kind)
-                if crate::effects::applies_to(state, effect, &spell) =>
-            {
-                let counters = effect
-                    .source
-                    .and_then(|source| state.object(source))
-                    .map_or(0, |source| u32::from(source.counters.get(kind)));
-                adjustment.reduction = adjustment.reduction.saturating_add(counters);
-            }
-            _ => {}
         }
     }
     adjustment
@@ -508,7 +612,9 @@ pub fn face_adjustment(
     face: usize,
     form: Option<SpellForm>,
 ) -> SpellAdjustment {
-    if !has_spell_adjustments(state) {
+    let self_statics =
+        !matches!(form, Some(SpellForm::Disguise)) && card_has_self_spell_cost_statics(def);
+    if !has_spell_adjustments(state) && !self_statics {
         return SpellAdjustment {
             increase: commander_tax(state, player, card),
             eligible_increase: 0,
@@ -519,6 +625,8 @@ pub fn face_adjustment(
                 .copied()
                 .unwrap_or(0),
             mana_increase: ManaCost::ZERO,
+            mana_reduction: ManaCost::ZERO,
+            colored_only_reduction: ManaCost::ZERO,
             buyback_reduction: 0,
         };
     }
@@ -536,7 +644,7 @@ pub fn face_adjustment(
     if let Some(form) = form {
         spell = form.project(&spell);
     }
-    spell_adjustment(state, player, &spell)
+    spell_adjustment_with_def(state, player, &spell, Some(def))
 }
 
 /// The public view still reports positive taxes separately from printed costs.
@@ -685,6 +793,8 @@ mod tests {
                         increase,
                         eligible_increase: 0,
                         mana_increase: ManaCost::ZERO,
+                        mana_reduction: ManaCost::ZERO,
+                        colored_only_reduction: ManaCost::ZERO,
                         buyback_reduction: 0,
                         reduction,
                     }

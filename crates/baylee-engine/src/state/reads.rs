@@ -34,7 +34,9 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::BlockingReference
         | Filter::BlockedByReference
         | Filter::Unblocked
+        | Filter::FaceDown
         | Filter::SharesAColorWith(_)
+        | Filter::SharesCreatureTypeWith(_)
         | Filter::SharesColorWithExiledWithSource => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_board_state),
         Filter::Not(f) | Filter::ControllerControls(f) => filter_reads_board_state(f),
@@ -62,6 +64,7 @@ pub(crate) fn filter_reads_reference(filter: &baylee_cards_dsl::Filter) -> bool 
         | Filter::BlockedThisTurnBy(f)
         | Filter::LowestManaValueOnBattlefield(f)
         | Filter::SharesAColorWith(f)
+        | Filter::SharesCreatureTypeWith(f)
         | Filter::ControllerControls(f) => filter_reads_reference(f),
         _ => false,
     }

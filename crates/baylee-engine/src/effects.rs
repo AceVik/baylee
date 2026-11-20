@@ -176,8 +176,11 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::DoubleCountersPlacedByYou
         | Modifier::NextDestructionClearsDamage
         | Modifier::SpellsCostLess(_)
+        | Modifier::SpellsCostLessMana { .. }
+        | Modifier::SpellsCostLessByAmount(_)
         | Modifier::SpellsCostLessPerCounter(_)
         | Modifier::BuybackCostsLess(_)
+        | Modifier::CyclingCostsLess(_)
         | Modifier::SpellsCostMore(_)
         | Modifier::SpellsCostMorePerControlled(_)
         | Modifier::SpellsCostSacrificePerManaSymbol { .. }
@@ -665,6 +668,8 @@ impl EffectTable {
                     | Modifier::SpellsCostMorePerControlled(_)
                     | Modifier::SpellsCostMoreMana(_)
                     | Modifier::SpellsCostLess(_)
+                    | Modifier::SpellsCostLessMana { .. }
+                    | Modifier::SpellsCostLessByAmount(_)
                     | Modifier::SpellsCostLessPerCounter(_)
                     | Modifier::BuybackCostsLess(_)
                     | Modifier::SpellsCostSacrificePerManaSymbol { .. }
@@ -678,6 +683,7 @@ impl EffectTable {
                     | Modifier::AbilitiesCostSacrificePerManaSymbol { .. }
                     | Modifier::AbilitiesCostLess { .. }
                     | Modifier::EquipCostsLess(_)
+                    | Modifier::CyclingCostsLess(_)
                     | Modifier::CantActivate
                     | Modifier::CantActivateNonMana
                     | Modifier::CantActivateArtifacts
@@ -1939,6 +1945,12 @@ mod tests {
             Modifier::PlayFromLibraryTopForManaValueLife,
             Modifier::WardDoesntTrigger,
             Modifier::CanBeTargetedAsThoughNoHexproof,
+            Modifier::SpellsCostLessMana {
+                cost: baylee_core::mana::ManaCost::ZERO,
+                colored_only: true,
+            },
+            Modifier::SpellsCostLessByAmount(baylee_cards_dsl::Amount::Fixed(1)),
+            Modifier::CyclingCostsLess(2),
         ]
     }
 
@@ -1977,7 +1989,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            201,
+            204,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2080,7 +2092,9 @@ mod tests {
         // and CanBeTargetedAsThoughNoHexproof
         // are three more rules-only modifiers.
         // AddChosenSubtype is Layer 4 (characteristics, +1 locking -> 56).
-        assert_eq!((locking, all.len() - locking), (56, 145));
+        // SpellsCostLessMana, SpellsCostLessByAmount, and CyclingCostsLess modify
+        // casting/activation costs only (+3 rules -> 148).
+        assert_eq!((locking, all.len() - locking), (56, 148));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

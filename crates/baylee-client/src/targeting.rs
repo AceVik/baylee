@@ -583,6 +583,7 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::OfSourceChosenColor
         | Filter::OfSourceChosenCardType
         | Filter::SharesAColorWith(_)
+        | Filter::SharesCreatureTypeWith(_)
         | Filter::Equipped
         | Filter::CmcEqualsCountersOnSource(_)
         | Filter::NotControlledByReferenceController
@@ -590,6 +591,7 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::SameNameAsLinkedExile
         | Filter::SharesColorWithExiledWithSource
         | Filter::CmcEqualsYourUnspentMana => return None,
+        Filter::FaceDown => object.status.contains(baylee_view::ObjectStatus::FACE_DOWN),
     })
 }
 

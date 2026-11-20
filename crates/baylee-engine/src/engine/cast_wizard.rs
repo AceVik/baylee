@@ -30,8 +30,9 @@ mod pricing;
 mod stages;
 mod transformed;
 pub(crate) use cost_parts::{
-    CostChoice, additional_card_costs_for, fixed_life_cost, wizard_alternative_parts,
-    wizard_buyback_parts, wizard_cost_parts, wizard_mandatory_parts,
+    CostChoice, additional_card_costs_for_x, fixed_energy_cost, fixed_life_cost,
+    mandatory_scales_with_x, wizard_alternative_parts, wizard_buyback_parts, wizard_cost_parts,
+    wizard_mandatory_parts,
 };
 pub(crate) use madness::madness_options;
 use pricing::FrozenReduction;
@@ -71,6 +72,8 @@ pub(crate) enum WizardStage {
     ChoosePlayer,
     /// Kicker yes/no.
     Kicker,
+    /// Choosing X for a variable kicker cost (`Kicker {X}`, CR 702.33a).
+    KickerX,
     /// Buyback yes/no (CR 702.27a). Skipped when the face prints none or
     /// nothing could pay it.
     Buyback,
@@ -129,6 +132,8 @@ pub struct CastWizard {
     pub permissions: Vec<casting::GraveyardPermission>,
     /// Reductions frozen after selecting a casting form, before mana payments.
     pub reduction: Option<FrozenReduction>,
+    /// Target-dependent cost increases determined once targets are chosen (CR 601.2f).
+    pub target_increase: ManaCost,
     /// Exact announced identities, preserved across all later cost payments.
     pub target_references: crate::sources::TargetReferences,
     /// Shares in canonical target order (objects, then players).
@@ -239,6 +244,7 @@ impl CastWizard {
             permission: None,
             permissions: Vec::new(),
             reduction: None,
+            target_increase: ManaCost::ZERO,
             target_references: crate::sources::TargetReferences::default(),
             division: Vec::new(),
             targets: SmallVec::new(),
@@ -468,12 +474,22 @@ pub(crate) const fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool
         part,
         CostPart::PayLifeX
             | CostPart::PayLife(_)
+            | CostPart::PayEnergy(_)
+            | CostPart::PayEnergyX
             | CostPart::Sacrifice(_)
+            | CostPart::SacrificeX(_)
+            | CostPart::SacrificeAll(_)
+            | CostPart::ReturnToHand(_)
             | CostPart::ExilePermanent(_)
+            | CostPart::ExileFromHand(_)
             | CostPart::ExileFromGraveyard(_)
+            | CostPart::ExileTopOfLibrary(_)
             | CostPart::Discard(_)
+            | CostPart::DiscardRandom
             | CostPart::DiscardHand
             | CostPart::DiscardLastDrawnThisTurn
+            | CostPart::TapOther(_)
+            | CostPart::TapX(_)
             | CostPart::TapN { .. }
     )
 }
@@ -1805,8 +1821,14 @@ fn phyrexian_life(wizard: &CastWizard) -> i32 {
 /// taken is part of what delve may pay for, and X likewise (`with_x` turns
 /// the variable into generic mana before this is read).
 fn wizard_total_cost(face: &baylee_cards_dsl::FaceDef, wizard: &CastWizard) -> ManaCost {
-    wizard_total_before_reduction(face, wizard)
-        .with_less_generic(wizard.reduction.map_or(0, |reduction| reduction.remainder))
+    let before = wizard_total_before_reduction(face, wizard);
+    let Some(reduction) = wizard.reduction else {
+        return before;
+    };
+    before
+        .with_less_mana(&reduction.colored_only_remainder, true)
+        .with_less_mana(&reduction.mana_remainder, false)
+        .with_less_generic(reduction.remainder)
 }
 
 /// What the pool pays for the cast at its payment: the total less what
@@ -1830,7 +1852,7 @@ fn wizard_total_before_reduction(
     face: &baylee_cards_dsl::FaceDef,
     wizard: &CastWizard,
 ) -> ManaCost {
-    let mut total = wizard_cost(wizard);
+    let mut total = wizard_cost(wizard).combine(&wizard.target_increase);
     let players = wizard.target_players.len()
         + usize::from(
             wizard
@@ -1858,7 +1880,7 @@ fn wizard_total_before_reduction(
     {
         for (idx, add) in face.additional_costs.iter().enumerate() {
             if wizard.kicked_mask == 0 || (idx < 8 && (wizard.kicked_mask & (1_u8 << idx)) != 0) {
-                total = total.combine(&add.mana);
+                total = total.combine(&add.mana.with_x(wizard.x));
             }
         }
     }

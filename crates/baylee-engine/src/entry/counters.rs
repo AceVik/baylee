@@ -68,7 +68,7 @@ fn collect_modifier_counters(
                 index, counters, ..
             } if from_stack
                 && *counters > 0
-                && index.is_none_or(|i| prospective.kicked_with(i)) =>
+                && index.map_or_else(|| prospective.kicked(), |i| prospective.kicked_with(i)) =>
             {
                 entry
                     .counters

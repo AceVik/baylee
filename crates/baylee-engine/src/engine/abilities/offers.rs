@@ -108,6 +108,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     matches!(
                         fx.modifier,
                         baylee_cards_dsl::Modifier::SpellsCostLess(_)
+                            | baylee_cards_dsl::Modifier::SpellsCostLessMana { .. }
+                            | baylee_cards_dsl::Modifier::SpellsCostLessByAmount(_)
                             | baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(_)
                     )
                 }));
@@ -122,34 +124,22 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 continue;
             };
             let printed = def.faces.iter().any(|f| f.cost_reduction.is_some());
-            if !increases && !reductions && !printed {
+            let self_statics = casting::card_has_self_spell_cost_statics(def);
+            if !increases && !reductions && !printed && !self_statics {
                 continue;
             }
             let commander = casting::commander_tax(&self.state, player, card);
-            // One adjustment per way of casting, read for both lists. The
-            // printed reduction rides with the face it is printed on, and the
-            // disguise form has none: `cast_wizard::options` prices a face
-            // down spell at `{3}` with no reduction of the card's own.
+            let board_adjusts = increases || reductions || self_statics;
             let adjust = |face: usize, form: Option<casting::SpellForm>| {
-                let adjustment = if increases || reductions {
-                    casting::face_adjustment(&self.state, player, card, def, face, form)
-                } else {
-                    casting::SpellAdjustment {
-                        reduction: next,
-                        ..casting::SpellAdjustment::default()
-                    }
-                };
-                let own = if matches!(form, Some(casting::SpellForm::Disguise)) {
-                    0
-                } else {
-                    casting::printed_reduction(&self.state, &def.faces[face], player, card)
-                };
-                (
-                    adjustment
-                        .increase
-                        .saturating_add(adjustment.mana_increase.cmc())
-                        .saturating_sub(commander),
-                    adjustment.reduction.saturating_add(own),
+                self.face_cast_adjustment(
+                    player,
+                    card,
+                    def,
+                    face,
+                    form,
+                    commander,
+                    board_adjusts,
+                    next,
                 )
             };
             let normal = adjust(0, None);
@@ -189,6 +179,62 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
         }
         out
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn face_cast_adjustment(
+        &self,
+        player: PlayerId,
+        card: ObjectId,
+        def: &baylee_cards_dsl::CardDef,
+        face: usize,
+        form: Option<casting::SpellForm>,
+        commander: u32,
+        board_adjusts: bool,
+        next: u32,
+    ) -> (u32, u32) {
+        // One adjustment per way of casting, read for both lists. The
+        // printed reduction rides with the face it is printed on, and the
+        // disguise form has none: `cast_wizard::options` prices a face
+        // down spell at `{3}` with no reduction of the card's own.
+        let adjustment = if board_adjusts {
+            casting::face_adjustment(&self.state, player, card, def, face, form)
+        } else {
+            casting::SpellAdjustment {
+                reduction: next,
+                ..casting::SpellAdjustment::default()
+            }
+        };
+        let own = if matches!(form, Some(casting::SpellForm::Disguise)) {
+            0
+        } else {
+            casting::printed_reduction(&self.state, &def.faces[face], player, card)
+        };
+        let raw_cost = form.map_or(def.faces[face].mana_cost, |f| match f {
+            casting::SpellForm::Prototype(p) => p.cost,
+            casting::SpellForm::Disguise => const { baylee_core::mana::ManaCost::parse("{3}") },
+            casting::SpellForm::Foretell(c) => c,
+        });
+        let with_inc = raw_cost
+            .with_x(0)
+            .combine(&adjustment.mana_increase)
+            .with_more_generic(adjustment.increase);
+        let colored_only_saved = with_inc.cmc().saturating_sub(
+            with_inc
+                .with_less_mana(&adjustment.colored_only_reduction, true)
+                .cmc(),
+        );
+        (
+            adjustment
+                .increase
+                .saturating_add(adjustment.mana_increase.cmc())
+                .saturating_sub(commander),
+            adjustment
+                .reduction
+                .saturating_add(own)
+                .saturating_add(adjustment.mana_reduction.cmc())
+                .saturating_add(colored_only_saved),
+        )
     }
 
     /// `LegalActions::buyback_less`: every printed reduction applies to every

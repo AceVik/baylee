@@ -294,6 +294,7 @@ impl SpellForm {
                 base.produced_colors = baylee_core::color::ColorSet::EMPTY;
                 base.produced_colorless = false;
                 base.produced_chosen = false;
+                object.status.insert(crate::object::Status::FACE_DOWN);
             }
             Self::Foretell(_) => unreachable!("handled before the characteristic projection"),
         }

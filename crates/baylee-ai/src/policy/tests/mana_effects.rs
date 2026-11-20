@@ -172,3 +172,31 @@ fn phased_out_permanents_do_not_satisfy_or_block_casting_conditions() {
     view.battlefield[0].status = ObjectStatus::PHASED_OUT;
     assert!(spell_can_be_cast_now(&view, &legal, spell, tidal));
 }
+
+#[test]
+fn apply_colored_spell_reductions_matches_colored_only_and_generic_combinations() {
+    use crate::policy::mana_effects::apply_colored_spell_reductions;
+
+    let wb = ManaCost::parse("{W}{B}");
+    assert_eq!(
+        apply_colored_spell_reductions(ManaCost::parse("{1}{W}{B}"), 2, &wb, &ManaCost::ZERO),
+        ManaCost::parse("{1}"),
+        "Edgewalker reduces {{1}}{{W}}{{B}} to {{1}}"
+    );
+    assert_eq!(
+        apply_colored_spell_reductions(ManaCost::parse("{2}{W}"), 1, &wb, &ManaCost::ZERO),
+        ManaCost::parse("{2}"),
+        "Edgewalker on {{2}}{{W}} saves {{W}} and leaves {{2}} generic"
+    );
+    assert_eq!(
+        apply_colored_spell_reductions(ManaCost::parse("{2}{W}"), 2, &wb, &ManaCost::ZERO),
+        ManaCost::parse("{1}"),
+        "Edgewalker ({{W}}) + Medallion ({{1}}) reduces {{2}}{{W}} to {{1}}"
+    );
+    let gg = ManaCost::parse("{G}{G}");
+    assert_eq!(
+        apply_colored_spell_reductions(ManaCost::parse("{2}{G}"), 2, &ManaCost::ZERO, &gg),
+        ManaCost::parse("{1}"),
+        "non-colored-only {{G}}{{G}} reduces {{G}} and 1 generic (CR 118.7c)"
+    );
+}

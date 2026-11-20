@@ -1108,6 +1108,24 @@ pub enum Modifier {
     /// (CR 205.1b, Layer 4 — e.g. Roaming Throne). Nothing while no type was
     /// chosen. Appended to preserve replay identities.
     AddChosenSubtype,
+    /// Matching spells cost `cost` less mana to cast (CR 118.7b–d). When
+    /// `colored_only` is `true`, unspent colored reduction does not reduce
+    /// generic mana ("This effect reduces only the amount of colored mana you
+    /// pay", Edgewalker, Morophon); when `false`, excess colored or colorless
+    /// reduction reduces generic mana (CR 118.7b–c).
+    SpellsCostLessMana {
+        /// Mana symbols subtracted from the spell's total cost.
+        cost: baylee_core::mana::ManaCost,
+        /// Whether unspent colored reduction stops instead of reducing generic mana.
+        colored_only: bool,
+    },
+    /// Matching spells cost less generic mana to cast equal to the evaluated
+    /// amount (CR 601.2f, CR 118.7a).
+    SpellsCostLessByAmount(crate::Amount),
+    /// Cycling abilities of matching cards (or activated by matching
+    /// controller) cost this much less generic mana to activate, down to `{0}`
+    /// (CR 702.29a, CR 118.7a — Fluctuator).
+    CyclingCostsLess(u32),
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -1297,8 +1315,11 @@ impl Modifier {
             Self::SwitchPT => Layer::PtSwitch,
             // No layer: rules-modifying effects.
             Self::SpellsCostLess(_)
+            | Self::SpellsCostLessMana { .. }
+            | Self::SpellsCostLessByAmount(_)
             | Self::SpellsCostLessPerCounter(_)
             | Self::BuybackCostsLess(_)
+            | Self::CyclingCostsLess(_)
             | Self::BandsWithOther(_)
             | Self::GraveyardInstantSorceryOnce
             | Self::GraveyardVampireOnce
@@ -1914,7 +1935,13 @@ mod tests {
             Modifier::NextDrawWish,
             Modifier::NextDrawFromTop { count: 3 },
             Modifier::SpellsCostLess(3),
+            Modifier::SpellsCostLessMana {
+                cost: baylee_core::mana::ManaCost::ZERO,
+                colored_only: true,
+            },
+            Modifier::SpellsCostLessByAmount(crate::Amount::Fixed(1)),
             Modifier::BuybackCostsLess(2),
+            Modifier::CyclingCostsLess(2),
             Modifier::SpellsCostMore(3),
             Modifier::SpellsCostMorePerControlled(&Filter::ARTIFACT),
             Modifier::SpellsCostSacrificePerManaSymbol {

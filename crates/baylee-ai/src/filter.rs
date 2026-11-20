@@ -286,6 +286,16 @@ impl HeuristicAgent {
             Filter::HasColor(c) => Some(object.colors.intersects(*c)),
             Filter::IsColorless => Some(object.colors.is_colorless()),
             Filter::Monocolored => Some(object.colors.len() == 1),
+            Filter::FaceDown => Some(object.status.contains(baylee_view::ObjectStatus::FACE_DOWN)),
+            Filter::SharesCreatureTypeWith(Filter::This) => this.and_then(|id| {
+                let src = view.object(id)?;
+                Some(
+                    object
+                        .subtypes
+                        .intersection(src.subtypes)
+                        .intersects(baylee_core::types::SubtypeSet::ALL_CREATURE),
+                )
+            }),
             // CR 201.2 reads the name an object has now, which is what the
             // view already projects: a clone answers with what it copied,
             // and a face-down permanent has no name to answer with
@@ -448,6 +458,7 @@ impl HeuristicAgent {
         // A colour compared across the board is a gap like the reference
         // family.
         | Filter::SharesAColorWith(_)
+        | Filter::SharesCreatureTypeWith(_)
         | Filter::Equipped
         | Filter::CmcEqualsCountersOnSource(_)
         | Filter::NotControlledByReferenceController

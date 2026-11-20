@@ -170,27 +170,13 @@ pub fn reachable_modes(
     // 702.96a): each mode is a way with its own price, so the choice comes
     // before the floating like any alternative cost. A mode whose targets
     // this board provably lacks is left off, as the kicker is above.
-    if let Some(baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose }) = def
-        .abilities_for_face(face_index)
-        .iter()
-        .find(|a| matches!(a, baylee_cards_dsl::AbilityDef::ModalSpell { .. }))
-        && *choose == baylee_cards_dsl::ModeCount::ONE
-        && modes.iter().any(|m| m.cost_override.is_some())
-    {
-        for (i, mode) in modes.iter().enumerate() {
-            if mode
-                .targets
-                .is_none_or(|req| crate::targeting::requirement_possible(view, req))
-            {
-                offer(
-                    CastModeKind::Mode(i),
-                    mode.cost_override.unwrap_or(face.mana_cost),
-                );
-            }
-        }
-    }
+    offer_modal_override_modes(view, def, face_index, face, &mut offer);
     if let Some(req) = face.kicked_targets
         && crate::targeting::requirement_possible(view, req)
+        && face
+            .additional_costs
+            .iter()
+            .all(|c| parts_payable(view, card, c.parts))
     {
         offer(
             CastModeKind::Kicked,
@@ -226,6 +212,34 @@ pub fn reachable_modes(
     out.extend(face_modes(view, legal, card, &pool, life));
     out.extend(foretell_mode(view, legal, face, &pool));
     out
+}
+
+fn offer_modal_override_modes(
+    view: &PlayerView,
+    def: &baylee_cards_dsl::CardDef,
+    face_index: usize,
+    face: &baylee_cards_dsl::FaceDef,
+    offer: &mut impl FnMut(CastModeKind, ManaCost),
+) {
+    if let Some(baylee_cards_dsl::AbilityDef::ModalSpell { modes, choose }) = def
+        .abilities_for_face(face_index)
+        .iter()
+        .find(|a| matches!(a, baylee_cards_dsl::AbilityDef::ModalSpell { .. }))
+        && *choose == baylee_cards_dsl::ModeCount::ONE
+        && modes.iter().any(|m| m.cost_override.is_some())
+    {
+        for (i, mode) in modes.iter().enumerate() {
+            if mode
+                .targets
+                .is_none_or(|req| crate::targeting::requirement_possible(view, req))
+            {
+                offer(
+                    CastModeKind::Mode(i),
+                    mode.cost_override.unwrap_or(face.mana_cost),
+                );
+            }
+        }
+    }
 }
 
 /// Price only the casting permission named for this visible library top.
