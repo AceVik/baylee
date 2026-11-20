@@ -33,7 +33,7 @@ card!(
         &[
             Effect::continuous(
                 &Filter::This,
-                Modifier::AddSubtype(subtypes::creature::ANGEL),
+                Modifier::ReplaceCreatureTypes(subtypes::creature::ANGEL),
                 Duration::UntilEndOfTurn
             ),
             Effect::continuous(

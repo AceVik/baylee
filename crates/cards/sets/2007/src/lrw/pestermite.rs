@@ -26,9 +26,7 @@ card!(
     abilities = &[triggered!(
         Trigger::ETB,
         &[Effect::MayDo {
-            effects: &[Effect::MayDo {
-                effects: &[Effect::ToggleTapTarget]
-            }]
+            effects: &[Effect::ToggleTapTarget]
         }],
         targets = Some(TargetReq::one(TargetSpec::Object(&Filter::Any)))
     ),],

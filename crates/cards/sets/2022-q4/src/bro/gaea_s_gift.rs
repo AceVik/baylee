@@ -25,9 +25,10 @@ card!(
             Effect::PumpTarget {
                 power: Amount::Fixed(0),
                 toughness: Amount::Fixed(0),
-                keywords: KeywordSet::HEXPROOF.union(
-                    KeywordSet::INDESTRUCTIBLE.union(KeywordSet::TRAMPLE.union(KeywordSet::REACH))
-                ),
+                keywords: KeywordSet::HEXPROOF
+                    .union(KeywordSet::INDESTRUCTIBLE)
+                    .union(KeywordSet::TRAMPLE)
+                    .union(KeywordSet::REACH),
                 duration: Duration::UntilEndOfTurn
             }
         ],

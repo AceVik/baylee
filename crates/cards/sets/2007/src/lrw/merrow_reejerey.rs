@@ -39,9 +39,7 @@ card!(
         triggered!(
             Trigger::SpellCast(&TRIGGER1),
             &[Effect::MayDo {
-                effects: &[Effect::MayDo {
-                    effects: &[Effect::ToggleTapTarget]
-                }]
+                effects: &[Effect::ToggleTapTarget]
             }],
             targets = Some(TargetReq::one(TargetSpec::Object(&Filter::Any)))
         ),

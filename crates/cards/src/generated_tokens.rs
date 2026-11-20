@@ -2923,6 +2923,26 @@ pub static ANGEL_4_4_WHITE_FLYING_VIGILANCE: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 1/1 colorless artifact Snake.
+pub static SNAKE_ARTIFACT_1_1: TokenDef = TokenDef {
+    name: "Snake",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::SNAKE],
+    power: Some(1),
+    toughness: Some(1),
+    abilities: &[triggered!(
+        Trigger::DealsDamageToPlayer {
+            source: &Filter::This,
+            player: PlayerRel::EachPlayer
+        },
+        &[Effect::Poison {
+            who: PlayerRel::DamagedPlayer,
+            amount: Amount::Fixed(1)
+        }]
+    )],
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -3937,6 +3957,7 @@ pub static ALL: &[&TokenDef] = &[
     &tokens::TOWER_RUNIC_STAR_LENS_UNCOMMON,
     &tokens::TOWER_RUNIC_STAR_LENS_RARE,
     &tokens::TOWER_RUNIC_STAR_LENS_MYTHIC,
+    &SNAKE_ARTIFACT_1_1,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -4165,4 +4186,5 @@ pub static GENERATED: &[&TokenDef] = &[
     &ELEMENTAL_7_7_GREEN_TRAMPLE,
     &WALL_ARTIFACT_0_4_DEFENDER,
     &ANGEL_4_4_WHITE_FLYING_VIGILANCE,
+    &SNAKE_ARTIFACT_1_1,
 ];
