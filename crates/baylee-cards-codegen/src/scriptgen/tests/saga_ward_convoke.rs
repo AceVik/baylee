@@ -1082,3 +1082,211 @@ fn regeneration_turn_effects_defender_flash_life_damage_combat_and_counters() {
          SVar:FlashOne:Mode$ CastWithFlash | ValidCard$ Sorcery | ValidSA$ Spell | Caster$ You"
     ));
 }
+
+#[test]
+fn station_keyword_and_threshold_statics_abilities_and_triggers() {
+    let craft = read(
+        "Name:OrbitalCarrier\nManaCost:4 U\nTypes:Artifact\nPT:5/5\n\
+         K:Station\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | Affected$ Card.counters_GE8_CHARGE | \
+         AddType$ Creature | AddKeyword$ Flying & Trample | AddStaticAbility$ Buff | \
+         AddAbility$ TapMana | AddTrigger$ AtkDraw | AddSVar$ DrawOne\n\
+         SVar:Buff:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | AddToughness$ 1\n\
+         SVar:TapMana:AB$ Mana | Cost$ T | Produced$ U\n\
+         SVar:AtkDraw:Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ DrawOne\n\
+         SVar:DrawOne:DB$ Draw | NumCards$ 1",
+    );
+    assert_eq!(
+        craft.abilities[0],
+        "activated!(cost!(TapOther(&Filter::ANOTHER_CREATURE_YOU_CONTROL)), \
+         &[Effect::AddCounter { kind: CounterKind::Charge, amount: Amount::TappedPower }], \
+         timing = ActivationTiming::SorcerySpeed)"
+    );
+    assert!(craft.abilities.iter().any(|a| a
+        == "static_ability!(Filter::This, Modifier::AddTypeIfCountersAtLeast { \
+            kind: CounterKind::Charge, at_least: 8, types: TypeSet::CREATURE })"));
+    assert!(craft.abilities.iter().any(|a| a
+        == "static_ability!(Filter::This, Modifier::AddKeywordIfCountersAtLeast { \
+            kind: CounterKind::Charge, at_least: 8, \
+            keywords: KeywordSet::FLYING.union(KeywordSet::TRAMPLE) })"));
+    assert!(
+        craft.abilities.iter().any(
+            |a| a.contains("Modifier::ModifyPT(1, 1), condition = Some(Condition::Station(8))")
+        )
+    );
+    assert!(craft.abilities.iter().any(|a| a
+        == "mana_ability!(Cost::TAP, &[Effect::mana(ManaColor::Blue, 1)], \
+            condition = Some(Condition::Station(8)))"));
+    assert!(craft.abilities.iter().any(|a| a.starts_with("triggered!(")
+        && a.ends_with(", condition = Some(Condition::Station(8)))")));
+
+    assert!(refused(
+        "Name:StationSpell\nManaCost:1 U\nTypes:Sorcery\nK:Station\nA:SP$ Draw | NumCards$ 1"
+    ));
+}
+
+#[test]
+fn level_up_keyword_and_level_bands_including_protection_and_granted_statics() {
+    let leveler = read(
+        "Name:BandAdept\nManaCost:1 W\nTypes:Creature\nPT:1/1\n\
+         K:Level up:2\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | SetPower$ 3 | SetToughness$ 3 | \
+         AddKeyword$ Flying & Protection from red | \
+         IsPresent$ Card.Self+counters_GE1_LEVEL+counters_LE3_LEVEL | PresentCompare$ EQ1\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | SetPower$ 5 | SetToughness$ 5 | \
+         AddStaticAbility$ Anthem | IsPresent$ Card.Self+counters_GE4_LEVEL | PresentCompare$ EQ1\n\
+         SVar:Anthem:Mode$ Continuous | Affected$ Creature.YouCtrl+Other | \
+         AddPower$ 1 | AddToughness$ 1 | IsPresent$ Card.Self+counters_GE4_LEVEL | PresentCompare$ EQ1",
+    );
+    assert_eq!(
+        leveler.abilities[0],
+        r#"activated!(cost!("{2}"), &[Effect::AddCounter { kind: CounterKind::Level, amount: Amount::Fixed(1) }], timing = ActivationTiming::SorcerySpeed)"#
+    );
+    assert!(leveler.abilities.iter().any(|a| a
+        == "static_ability!(Filter::This, Modifier::SetPT(3, 3), \
+            condition = Some(Condition::CountersOnSelfBetween(CounterKind::Level, 1, 3)))"));
+    assert!(
+        leveler
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::ProtectionFrom(")
+                && a.contains("Condition::CountersOnSelfBetween(CounterKind::Level, 1, 3)"))
+    );
+    assert!(leveler.abilities.iter().any(|a| a
+        == "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::FLYING), \
+            condition = Some(Condition::CountersOnSelfBetween(CounterKind::Level, 1, 3)))"));
+    // Duplicate inner condition on Anthem is not double-wrapped into Condition::All.
+    assert!(
+        leveler
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::ModifyPT(1, 1)")
+                && a.ends_with(
+                    ", condition = Some(Condition::CountersOnSelf(CounterKind::Level, 4)))"
+                )
+                && !a.contains("Condition::All"))
+    );
+
+    let lt_band = read(
+        "Name:OpenBand\nManaCost:U\nTypes:Creature\nPT:1/2\n\
+         K:Level up:1 U\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | SetPower$ 2 | SetToughness$ 4 | \
+         IsPresent$ Card.Self+counters_GE2_LEVEL+counters_LT5_LEVEL",
+    );
+    assert!(lt_band.abilities.iter().any(|a| a
+        == "static_ability!(Filter::This, Modifier::SetPT(2, 4), \
+            condition = Some(Condition::CountersOnSelfBetween(CounterKind::Level, 2, 4)))"));
+}
+
+#[test]
+fn cant_attach_and_tap_power_value_statics() {
+    let no_aura = read(
+        "Name:UnenchantableConstruct\nTypes:Artifact Creature\nPT:2/2\n\
+         S:Mode$ CantAttach | ValidCard$ Card.Aura | Target$ Card.Self",
+    );
+    assert_eq!(
+        no_aura.abilities,
+        ["static_ability!(Filter::This, Modifier::CantBeEnchanted)"]
+    );
+
+    let solo_aura = read(
+        "Name:ExclusiveWard\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         S:Mode$ CantAttach | ValidCard$ Aura.Other | Target$ Creature.EnchantedBy",
+    );
+    assert!(
+        solo_aura
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::CantBeEnchantedExceptSource"))
+    );
+
+    let no_new_aura = read(
+        "Name:RelicGuard\nTypes:Creature\nPT:2/4\n\
+         S:Mode$ CantAttach | ValidCardToTarget$ Aura.!Attached | \
+         Target$ Artifact.nonCreature+YouCtrl | IsPresent$ Card.Self+untapped",
+    );
+    assert!(
+        no_new_aura
+            .abilities
+            .iter()
+            .any(|a| a.contains("Modifier::CantBecomeEnchanted") && a.contains("condition = Some("))
+    );
+
+    let pilot = read(
+        "Name:AcePilot\nTypes:Creature\nPT:1/1\n\
+         S:Mode$ TapPowerValue | ValidSA$ Activated.Saddle+Mount,Activated.Crew+Vehicle | \
+         ValidCard$ Card.Self | Value$ 2",
+    );
+    assert_eq!(
+        pilot.abilities,
+        ["static_ability!(Filter::This, Modifier::CrewSaddlePowerBonus(2))"]
+    );
+
+    // Crew-only and toughness-based TapPowerValue stay refused.
+    assert!(refused(
+        "Name:CrewOnly\nTypes:Creature\nPT:1/1\n\
+         S:Mode$ TapPowerValue | ValidSA$ Activated.Crew+Vehicle | ValidCard$ Card.Self | Value$ 2"
+    ));
+    assert!(refused(
+        "Name:ToughCrew\nTypes:Creature\nPT:0/6\n\
+         S:Mode$ TapPowerValue | ValidSA$ Activated.Crew+Vehicle,Activated.Saddle+Mount | \
+         ValidCard$ Card.Self | Value$ Toughness"
+    ));
+}
+
+#[test]
+fn continuous_extra_check_svar_conditions_and_cast_with_flash_svar() {
+    let corrupted = read(
+        "Name:CorruptedKnight\nTypes:Creature\nPT:3/3\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Double Strike | \
+         CheckSVar$ X | SVarCompare$ GE3\n\
+         SVar:X:PlayerCountOpponents$HighestCounters.Poison",
+    );
+    assert_eq!(
+        corrupted.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::DOUBLE_STRIKE), \
+             condition = Some(Condition::OpponentPoisonAtLeast(3)))"
+        ]
+    );
+
+    let empty_hands = read(
+        "Name:EmptyMind\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ 2 | AddToughness$ 2 | \
+         CheckSVar$ H | SVarCompare$ EQ0\n\
+         SVar:H:Count$ValidHand Card.All",
+    );
+    assert_eq!(
+        empty_hands.abilities,
+        ["static_ability!(Filter::This, Modifier::ModifyPT(2, 2), \
+             condition = Some(Condition::EveryHandEmpty))"]
+    );
+
+    let life_below = read(
+        "Name:Underdog\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddKeyword$ Lifelink | \
+         CheckSVar$ L | SVarCompare$ LTS\n\
+         SVar:L:Count$YourLifeTotal\nSVar:S:Count$StartingLife",
+    );
+    assert_eq!(
+        life_below.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::LIFELINK), \
+             condition = Some(Condition::LifeBelowStarting))"
+        ]
+    );
+
+    let flash_cond = read(
+        "Name:PoisonFlash\nTypes:Enchantment\n\
+         S:Mode$ CastWithFlash | ValidCard$ Card | ValidSA$ Spell | Caster$ You | \
+         CheckSVar$ P | SVarCompare$ GE3\n\
+         SVar:P:PlayerCountOpponents$HighestCounters.Poison",
+    );
+    assert_eq!(
+        flash_cond.abilities,
+        [
+            "static_ability!(Filter::Any, Modifier::SpellsHaveFlash(None), \
+             condition = Some(Condition::OpponentPoisonAtLeast(3)))"
+        ]
+    );
+}

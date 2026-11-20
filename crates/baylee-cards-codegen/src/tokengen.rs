@@ -139,6 +139,8 @@ struct RawToken {
     defense: Option<u16>,
     keywords: Vec<&'static str>,
     ability_keywords: Vec<String>,
+    text_all_colors: bool,
+    has_rule_lines: bool,
 }
 
 fn parse_token_lines(text: &str) -> Option<RawToken> {
@@ -146,6 +148,8 @@ fn parse_token_lines(text: &str) -> Option<RawToken> {
     let mut defense = None;
     let mut keywords: Vec<&'static str> = Vec::new();
     let mut ability_keywords: Vec<String> = Vec::new();
+    let mut text_all_colors = false;
+    let mut has_rule_lines = false;
     for line in text.lines() {
         let line = line.trim_end();
         if line.is_empty() || line.starts_with('#') {
@@ -158,6 +162,12 @@ fn parse_token_lines(text: &str) -> Option<RawToken> {
             "Types" => types = Some(rest.trim().to_string()),
             "PT" => pt = Some(rest.trim().to_string()),
             "Defense" => defense = Some(rest.trim().parse::<u16>().ok()?),
+            "Text" => match rest.trim() {
+                "This creature is all colors." | "CARDNAME is all colors." => {
+                    text_all_colors = true;
+                }
+                _ => return None,
+            },
             "K" => {
                 if let Some(bit) = crate::scriptgen::keyword_const_of(rest) {
                     keywords.push(bit);
@@ -184,6 +194,7 @@ fn parse_token_lines(text: &str) -> Option<RawToken> {
                     }
                 }
             }
+            "A" | "T" | "S" | "R" => has_rule_lines = true,
             _ if IGNORED.contains(&head) || TRANSCODED.contains(&head) => {}
             _ => return None,
         }
@@ -207,6 +218,8 @@ fn parse_token_lines(text: &str) -> Option<RawToken> {
         defense,
         keywords,
         ability_keywords,
+        text_all_colors,
+        has_rule_lines,
     })
 }
 
@@ -251,6 +264,27 @@ fn render_token_literal(
     literal
 }
 
+fn token_shape_ok(raw: &RawToken, types: &TypeLine) -> bool {
+    if types.set.contains("TypeSet::BATTLE") != raw.defense.is_some() {
+        return false;
+    }
+    let is_equipment =
+        !types.is_creature && types.subtypes.iter().any(|s| s == "artifact::EQUIPMENT");
+    if !is_equipment && raw.ability_keywords.iter().any(|k| k.starts_with("Equip:")) {
+        return false;
+    }
+    // CR 303.7 Role uniqueness SBA is not yet enforced in the engine; keep
+    // Role Aura tokens refused while allowing plain Aura tokens.
+    let is_non_role_aura = !types.is_creature
+        && types.subtypes.iter().any(|s| s == "enchantment::AURA")
+        && !types.subtypes.iter().any(|s| s == "enchantment::ROLE");
+    is_non_role_aura
+        || !raw
+            .ability_keywords
+            .iter()
+            .any(|k| k.starts_with("Enchant:"))
+}
+
 /// Reads a token script, or refuses it.
 ///
 /// `None` is an honest refusal, and a token whose ability this cannot write
@@ -266,12 +300,7 @@ fn render_token_literal(
 pub fn read(text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
     let raw = parse_token_lines(text)?;
     let mut types = type_line(&raw.types, cats)?;
-    if types.set.contains("TypeSet::BATTLE") != raw.defense.is_some() {
-        return None;
-    }
-    let is_equipment =
-        !types.is_creature && types.subtypes.iter().any(|s| s == "artifact::EQUIPMENT");
-    if !is_equipment && raw.ability_keywords.iter().any(|k| k.starts_with("Equip:")) {
+    if !token_shape_ok(&raw, &types) {
         return None;
     }
     let (power, toughness, star_pt) = match (raw.pt.as_deref(), types.is_creature) {
@@ -292,7 +321,16 @@ pub fn read(text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
         Some(raw_colors) => Some(color_line(raw_colors)?),
         None => None,
     };
-    let abilities = abilities(text, &raw.ability_keywords, cats, &mut types.modules)?;
+    if raw.text_all_colors && colors.as_ref().is_none_or(|c| c.words.len() != 5) {
+        return None;
+    }
+    let abilities = abilities(
+        text,
+        &raw.ability_keywords,
+        raw.text_all_colors,
+        cats,
+        &mut types.modules,
+    )?;
     if star_pt
         && !abilities
             .iter()
@@ -318,16 +356,23 @@ pub fn read(text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
         keyword_tags.push(ability_keyword_slug(kw)?);
     }
     keyword_tags.sort_unstable();
+    let mut constant = constant_name(
+        &raw.name,
+        &types.qualifiers,
+        power,
+        toughness,
+        star_pt,
+        colors.as_ref(),
+        &keyword_tags,
+    );
+    if raw.has_rule_lines && !abilities.is_empty() {
+        let hash = fnv1a_32_bare(&abilities.join(","));
+        if !is_legacy_unsuffixed_ability_token(&constant, hash) {
+            let _ = write!(constant, "_A{hash:08X}");
+        }
+    }
     Some(TokenBody {
-        constant: constant_name(
-            &raw.name,
-            &types.qualifiers,
-            power,
-            toughness,
-            star_pt,
-            colors.as_ref(),
-            &keyword_tags,
-        ),
+        constant,
         doc: doc_line(
             &raw.name,
             &types.qualifiers,
@@ -340,6 +385,158 @@ pub fn read(text: &str, cats: &SubtypeCatalogs) -> Option<TokenBody> {
         literal,
         modules: types.modules,
     })
+}
+
+/// Deterministic 32-bit FNV-1a hash ignoring ASCII whitespace, matching
+/// [`crate::tokenledger`]'s whitespace-insensitive definition equivalence.
+const fn fnv1a_32_bare(s: &str) -> u32 {
+    let bytes = s.as_bytes();
+    let mut h: u32 = 0x811c_9dc5;
+    let mut i = 0;
+    while i < bytes.len() {
+        let b = bytes[i];
+        if !matches!(b, b' ' | b'\n' | b'\r' | b'\t') {
+            h ^= b as u32;
+            h = h.wrapping_mul(0x0100_0193);
+        }
+        i += 1;
+    }
+    h
+}
+
+/// Rules-bearing token constants that were already frozen in `tokens.rs` or
+/// `generated_tokens.rs` before content-addressed ability suffixes existed.
+///
+/// Keyed by `(constant, abilities_hash)` so ONLY the exact legacy definition
+/// retains the unsuffixed constant name while any different rules-bearing
+/// variant on the same base body receives its own `_A<HEX>` constant.
+const LEGACY_UNSUFFIXED_ABILITY_TOKENS: &[(&str, u32)] = &[
+    // Predefined hand-written artifact tokens in `baylee_cards::tokens`.
+    (
+        "TREASURE",
+        fnv1a_32_bare(
+            "mana_ability!(cost!(TapSelf, SacrificeSelf), &[Effect::mana_of_any_color()])",
+        ),
+    ),
+    (
+        "FOOD",
+        fnv1a_32_bare(
+            "activated!(cost!(\"{2}\", TapSelf, SacrificeSelf), &[Effect::gain_life(3)])",
+        ),
+    ),
+    (
+        "CLUE",
+        fnv1a_32_bare("activated!(cost!(\"{2}\", SacrificeSelf), &[Effect::draw(1)])"),
+    ),
+    (
+        "BLOOD",
+        fnv1a_32_bare(
+            "activated!(cost!(\"{1}\", TapSelf, Discard(&Filter::Any), SacrificeSelf), &[Effect::draw(1)])",
+        ),
+    ),
+    // Previously assigned generated ability-bearing tokens in `generated_tokens.rs`.
+    (
+        "GOLD",
+        fnv1a_32_bare("mana_ability!(cost!(SacrificeSelf), &[Effect::mana_of_any_color()])"),
+    ),
+    (
+        "ELDRAZI_SPAWN_0_1",
+        fnv1a_32_bare(
+            "mana_ability!(cost!(SacrificeSelf), &[Effect::mana(ManaColor::Colorless, 1)])",
+        ),
+    ),
+    (
+        "ELDRAZI_SCION_1_1",
+        fnv1a_32_bare(
+            "mana_ability!(cost!(SacrificeSelf), &[Effect::mana(ManaColor::Colorless, 1)])",
+        ),
+    ),
+    (
+        "BIRD_2_2_GREEN",
+        fnv1a_32_bare(
+            "triggered!(Trigger::EntersBattlefield(&Filter::YOUR_LAND), &[Effect::PumpFilter { \
+             filter: &Filter::This, controlled_by: None, power: Amount::Fixed(1), \
+             toughness: Amount::Fixed(0), keywords: KeywordSet::EMPTY, \
+             duration: Duration::UntilEndOfTurn }])",
+        ),
+    ),
+    (
+        "TRISKELAVITE_ARTIFACT_1_1_FLYING",
+        fnv1a_32_bare(
+            "activated!(cost!(SacrificeSelf), &[Effect::DealDamage { amount: Amount::Fixed(1), \
+             target: TargetSpec::AnyTarget }], target = Some(TargetSpec::AnyTarget))",
+        ),
+    ),
+    (
+        "FESTERING_GOBLIN_1_1_BLACK",
+        fnv1a_32_bare(
+            "triggered!(Trigger::Dies(&Filter::This), &[Effect::PumpTarget { \
+             power: Amount::NegXFixed(1), toughness: Amount::NegXFixed(1), \
+             keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }], \
+             targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))",
+        ),
+    ),
+    (
+        "GOLDMEADOW_HARRIER_1_1_WHITE",
+        fnv1a_32_bare(
+            "activated!(cost!(\"{W}\", TapSelf), &[Effect::TapTarget], \
+             target = Some(TargetSpec::Object(&Filter::CREATURE)))",
+        ),
+    ),
+    (
+        "LLANOWAR_ELVES_1_1_GREEN",
+        fnv1a_32_bare("mana_ability!(&[Effect::mana(ManaColor::Green, 1)])"),
+    ),
+    (
+        "PEST_1_1_BLACK_GREEN",
+        fnv1a_32_bare(
+            "triggered!(Trigger::Dies(&Filter::This), &[Effect::GainLifeFor { \
+             amount: Amount::Fixed(1), who: PlayerRel::ControllerOfEvent }])",
+        ),
+    ),
+    (
+        "DEVIL_1_1_RED",
+        fnv1a_32_bare(
+            "triggered!(Trigger::Dies(&Filter::This), &[Effect::DealDamage { \
+             amount: Amount::Fixed(1), target: TargetSpec::AnyTarget }], \
+             targets = Some(TargetReq::one(TargetSpec::AnyTarget)))",
+        ),
+    ),
+    (
+        "DRAGON_2_2_RED_FLYING",
+        fnv1a_32_bare(
+            "activated!(cost!(\"{R}\"), &[Effect::PumpFilter { filter: &Filter::This, \
+             controlled_by: None, power: Amount::Fixed(1), toughness: Amount::Fixed(0), \
+             keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }])",
+        ),
+    ),
+    (
+        "REDWING_LEGENDARY_1_1_BLUE_FLYING",
+        fnv1a_32_bare("triggered!(Trigger::Attacks(&Filter::This), &[Effect::surveil(1)])"),
+    ),
+    (
+        "WIZARD_1_1_BLUE",
+        fnv1a_32_bare(
+            "activated!(cost!(\"{1}\", SacrificeSelf), &[Effect::PlayerMayPayOr { \
+             player: PlayerRel::ControllerOfTarget, mana: Amount::Fixed(1), \
+             effect: &Effect::CounterTargetSpell }], \
+             target = Some(TargetSpec::Spell(&Filter::NONCREATURE)))",
+        ),
+    ),
+    (
+        "SNAKE_ARTIFACT_1_1",
+        fnv1a_32_bare(
+            "triggered!(Trigger::DealsDamageToPlayer { source: &Filter::This, \
+             player: PlayerRel::EachPlayer }, &[Effect::Poison { \
+             who: PlayerRel::DamagedPlayer, amount: Amount::Fixed(1) }])",
+        ),
+    ),
+];
+
+fn is_legacy_unsuffixed_ability_token(constant: &str, hash: u32) -> bool {
+    LEGACY_UNSUFFIXED_ABILITY_TOKENS
+        .iter()
+        .any(|&(name, expected)| name == constant && expected == hash)
 }
 
 fn sanitize_tag(raw: &str) -> Option<String> {
@@ -392,6 +589,14 @@ fn ability_keyword_slug(kw: &str) -> Option<String> {
     if let Some(rest) = kw.strip_prefix("Rampage:") {
         return Some(format!("RAMPAGE_{}", sanitize_tag(rest)?));
     }
+    if let Some(rest) = kw.strip_prefix("Cumulative upkeep:") {
+        let cost = rest.split(':').next()?;
+        return Some(format!("CUMULATIVE_UPKEEP_{}", sanitize_tag(cost)?));
+    }
+    if let Some(rest) = kw.strip_prefix("Enchant:") {
+        let valid = rest.split(':').next()?;
+        return Some(format!("ENCHANT_{}", sanitize_tag(valid)?));
+    }
     match kw {
         "Exalted" => Some("EXALTED".to_string()),
         "Prevent all damage that would be dealt to CARDNAME." => Some("PREVENT_DAMAGE".to_string()),
@@ -410,6 +615,8 @@ fn is_token_ability_keyword(kw: &str) -> bool {
         || kw.starts_with("Protection:")
         || kw.starts_with("Landwalk:")
         || kw.starts_with("Rampage:")
+        || kw.starts_with("Cumulative upkeep:")
+        || kw.starts_with("Enchant:")
         || matches!(
             kw,
             "Exalted"
@@ -432,10 +639,22 @@ fn is_token_ability_keyword(kw: &str) -> bool {
 fn abilities(
     text: &str,
     ability_keywords: &[String],
+    strip_all_colors_text: bool,
     cats: &SubtypeCatalogs,
     modules: &mut Vec<String>,
 ) -> Option<Vec<String>> {
-    let mut script = crate::scriptgen::parse(text);
+    let cleaned;
+    let source = if strip_all_colors_text {
+        cleaned = text
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("Text:"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        cleaned.as_str()
+    } else {
+        text
+    };
+    let mut script = crate::scriptgen::parse(source);
     if script.rules.is_empty() && script.svars.is_empty() && ability_keywords.is_empty() {
         return Some(Vec::new());
     }
@@ -614,6 +833,13 @@ const WUBRG: [&str; 5] = ["White", "Blue", "Black", "Red", "Green"];
 fn color_line(raw: &str) -> Option<Colors> {
     let mut found = [false; 5];
     for word in raw.split(',').map(str::trim).filter(|w| !w.is_empty()) {
+        if word.eq_ignore_ascii_case("all") {
+            if raw.contains(',') {
+                return None;
+            }
+            found = [true; 5];
+            continue;
+        }
         // "colorless" is the absence of colours and not a sixth one, so it
         // adds nothing — and a script naming it beside a real colour is one
         // this reader has misunderstood rather than one it can average out.
@@ -1042,8 +1268,14 @@ mod tests {
 
     fn cats() -> SubtypeCatalogs {
         let mut cats = SubtypeCatalogs {
-            creature: vec!["Soldier".into(), "Bird".into(), "Shapeshifter".into()],
+            creature: vec![
+                "Soldier".into(),
+                "Bird".into(),
+                "Shapeshifter".into(),
+                "Pest".into(),
+            ],
             artifact: vec!["Treasure".into(), "Equipment".into()],
+            enchantment: vec!["Aura".into(), "Role".into()],
             ..SubtypeCatalogs::default()
         };
         cats.normalize();
@@ -1249,22 +1481,12 @@ mod tests {
         );
     }
 
-    /// An ability is not part of the constant's name, and that is a hole
-    /// this reader may not fill on its own.
-    ///
-    /// The reference prints `b_1_1_skeleton` beside `b_1_1_skeleton_regenerate`
-    /// and `g_2_2_ooze` beside `g_2_2_ooze_mitotic` — 18 of its 832 naming
-    /// groups hold more than one behaviour — so two different definitions
-    /// come out under one name. In an append-only table that is two tokens
-    /// at one id, and one of them on the table wearing the other's picture.
-    ///
-    /// Naming a token after its abilities as well is *a* way out and is not
-    /// taken here on a guess: what the ledger does instead is refuse the
-    /// collision by name ([`crate::tokenledger::LedgerError::Collision`]),
-    /// so the day this pool reaches for both halves of such a pair it stops
-    /// the run and hands a person the example.
+    /// Two tokens that share every printed characteristic but differ in their
+    /// rules-line abilities receive distinct content-addressed constants so the
+    /// ledger never assigns two definitions to one id, while two identical
+    /// rules-bearing scripts resolve to the same constant.
     #[test]
-    fn two_tokens_that_differ_only_in_their_ability_share_a_name() {
+    fn two_tokens_that_differ_only_in_their_ability_get_distinct_names() {
         let plain = read(
             "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1",
             &cats(),
@@ -1276,8 +1498,26 @@ mod tests {
             &cats(),
         )
         .expect("read");
-        assert_eq!(plain.constant, drawing.constant, "one name");
-        assert_ne!(plain.literal, drawing.literal, "two definitions");
+        let drawing_again = read(
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\n\
+             A:AB$ Draw | Cost$ T | NumCards$ 1",
+            &cats(),
+        )
+        .expect("read");
+        let lifegain = read(
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\n\
+             A:AB$ GainLife | Cost$ T | LifeAmount$ 1",
+            &cats(),
+        )
+        .expect("read");
+        assert_eq!(plain.constant, "SOLDIER_1_1_WHITE");
+        assert_ne!(plain.constant, drawing.constant, "distinct from vanilla");
+        assert_eq!(drawing.constant, drawing_again.constant, "deterministic");
+        assert_ne!(
+            drawing.constant, lifegain.constant,
+            "distinct abilities get distinct constants"
+        );
+        assert!(drawing.constant.starts_with("SOLDIER_1_1_WHITE_A"));
     }
 
     /// One unread line and the token is refused. Each of these is a real
@@ -1357,7 +1597,11 @@ mod tests {
             &cats(),
         )
         .expect("equipment token with equip keyword");
-        assert_eq!(equip_token.constant, "BLADE_EQUIP_2");
+        assert!(
+            equip_token.constant.starts_with("BLADE_EQUIP_2_A"),
+            "constant: {}",
+            equip_token.constant
+        );
         assert!(equip_token.literal.contains("equip!(cost!(\"{2}\"))"));
 
         let pro_token = read(
@@ -1433,7 +1677,11 @@ mod tests {
             &cats(),
         )
         .expect("star P/T token with CDA");
-        assert_eq!(body.constant, "AVATAR_X_X_WHITE");
+        assert!(
+            body.constant.starts_with("AVATAR_X_X_WHITE_A"),
+            "constant: {}",
+            body.constant
+        );
         assert_eq!(body.doc, "*/* white Avatar.");
         assert!(!body.literal.contains("power:"));
         assert!(!body.literal.contains("toughness:"));
@@ -1441,6 +1689,94 @@ mod tests {
             body.literal.contains("Modifier::CharacteristicPT"),
             "literal: {}",
             body.literal
+        );
+    }
+
+    #[test]
+    fn legacy_ability_tokens_keep_unsuffixed_names_while_variants_disambiguate() {
+        let treasure = read(
+            "Name:Treasure Token\nTypes:Artifact Treasure\n\
+             A:AB$ Mana | Cost$ T Sac<1/CARDNAME/this token> | Produced$ Any | Amount$ 1",
+            &cats(),
+        )
+        .expect("canonical treasure");
+        assert_eq!(treasure.constant, "TREASURE");
+
+        let dies_pest = read(
+            "Name:Pest Token\nColors:black,green\nTypes:Creature Pest\nPT:1/1\n\
+             T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | \
+             ValidCard$ Card.Self | Execute$ TrigGain\n\
+             SVar:TrigGain:DB$ GainLife | Defined$ TriggeredCardController | LifeAmount$ 1",
+            &cats(),
+        )
+        .expect("legacy dies pest");
+        assert_eq!(dies_pest.constant, "PEST_1_1_BLACK_GREEN");
+
+        let attack_pest = read(
+            "Name:Pest Token\nColors:black,green\nTypes:Creature Pest\nPT:1/1\n\
+             T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigGain\n\
+             SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ 1",
+            &cats(),
+        )
+        .expect("attack pest variant");
+        assert!(
+            attack_pest.constant.starts_with("PEST_1_1_BLACK_GREEN_A"),
+            "constant: {}",
+            attack_pest.constant
+        );
+        assert_ne!(dies_pest.constant, attack_pest.constant);
+    }
+
+    #[test]
+    fn all_colors_cumulative_upkeep_and_non_role_aura_tokens() {
+        let five_color = read(
+            "Name:Citizen Token\nColors:all\nTypes:Creature Soldier\nPT:2/2\n\
+             Text:This creature is all colors.",
+            &cats(),
+        )
+        .expect("all-colors token");
+        assert_eq!(
+            five_color.constant,
+            "CITIZEN_2_2_WHITE_BLUE_BLACK_RED_GREEN"
+        );
+        assert!(
+            five_color
+                .literal
+                .contains("Color::White, Color::Blue, Color::Black, Color::Red, Color::Green")
+        );
+
+        let upkeep_tok = read(
+            "Name:Splinter Token\nColors:green\nTypes:Creature Soldier\nPT:1/1\n\
+             K:Flying\nK:Cumulative upkeep:G",
+            &cats(),
+        )
+        .expect("cumulative upkeep token");
+        assert_eq!(
+            upkeep_tok.constant,
+            "SPLINTER_1_1_GREEN_CUMULATIVE_UPKEEP_G_FLYING"
+        );
+
+        let aura_tok = read(
+            "Name:Aura Token\nColors:green\nTypes:Enchantment Aura\n\
+             K:Enchant:Land\n\
+             S:Mode$ Continuous | Affected$ Card.EnchantedBy | AddAbility$ TapAny\n\
+             SVar:TapAny:AB$ Mana | Cost$ T | Produced$ Any",
+            &cats(),
+        )
+        .expect("non-role aura token");
+        assert!(
+            aura_tok.constant.starts_with("AURA_GREEN_ENCHANT_LAND_A"),
+            "constant: {}",
+            aura_tok.constant
+        );
+
+        // Role Aura tokens stay refused while CR 303.7 is unmodeled.
+        assert!(
+            read(
+                "Name:Role Token\nTypes:Enchantment Aura Role\nK:Enchant:Creature",
+                &cats()
+            )
+            .is_none()
         );
     }
 }

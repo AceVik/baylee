@@ -62,7 +62,11 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("etbCounter:") {
             return ExtraOutcome::Handled(self.etb_counter_extra(rest));
         }
+        if let Some(rest) = line.strip_prefix("Level up:") {
+            return ExtraOutcome::Handled(self.level_up(rest));
+        }
         match line.trim() {
+            "Station" => return ExtraOutcome::Handled(self.station_keyword()),
             // Deckbuilding-only commander/partner rules (CR 702.124g–i, CR 903.3)
             // are already emitted onto `CardDef::partner` / `CardDef::commander`
             // by `stubgen` from Scryfall oracle text.
@@ -725,6 +729,11 @@ impl Tx<'_> {
                 "LifeTotalCantChange",
             )),
             "CantSearchLibrary" => ExtraOutcome::Handled(self.cant_search_library(p)),
+            "CantAttach" if !p.has("ValidCardToTarget") => {
+                ExtraOutcome::Handled(self.cant_attach_static(p))
+            }
+            "TapPowerValue" => ExtraOutcome::Handled(self.tap_power_value_static(p)),
+            "Continuous" => self.try_extra_continuous(spec, p),
             _ => ExtraOutcome::Pass,
         }
     }
@@ -782,7 +791,19 @@ impl Tx<'_> {
         let Some(valid_card) = p.take("ValidCard") else {
             return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
         };
-        let condition = self.condition(&mut p)?;
+        let mut condition = self.condition(&mut p)?;
+        if condition.is_empty()
+            && let Some(var) = p.take("CheckSVar")
+        {
+            let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
+            let Some(clause) = self
+                .svar_condition(&var, &cmp)
+                .or_else(|| self.extra_svar_condition(&var, &cmp))
+            else {
+                return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
+            };
+            condition = format!(", condition = Some({clause})");
+        }
         if !p.exhausted() {
             return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
         }
@@ -995,6 +1016,432 @@ impl Tx<'_> {
         }
         self.body.abilities.push(expr);
         Some(())
+    }
+
+    /// `K:Station` (CR 702.184a): sorcery-speed tap another untapped creature
+    /// you control to put charge counters equal to its power on this permanent.
+    fn station_keyword(&mut self) -> Option<()> {
+        if !self.is_permanent_card() {
+            return self.deny("keyword `Station` on a non-permanent".to_string());
+        }
+        self.body.abilities.push(
+            "activated!(cost!(TapOther(&Filter::ANOTHER_CREATURE_YOU_CONTROL)), \
+             &[Effect::AddCounter { kind: CounterKind::Charge, \
+             amount: Amount::TappedPower }], timing = ActivationTiming::SorcerySpeed)"
+                .to_string(),
+        );
+        Some(())
+    }
+
+    /// `K:Level up:<cost>` (CR 702.87a): sorcery-speed activated ability that
+    /// puts a level counter on this permanent.
+    fn level_up(&mut self, rest: &str) -> Option<()> {
+        if !self.is_permanent_card() || rest.contains(':') {
+            return self.deny("keyword `Level`".to_string());
+        }
+        let Some(mana) = super::printed_mana(rest.trim()) else {
+            return self.deny("keyword `Level`".to_string());
+        };
+        self.body.abilities.push(format!(
+            "activated!(cost!({mana:?}), &[Effect::AddCounter {{ kind: CounterKind::Level, \
+             amount: Amount::Fixed(1) }}], timing = ActivationTiming::SorcerySpeed)"
+        ));
+        Some(())
+    }
+
+    fn cant_attach_static(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if let Some(sec) = p.take("Secondary")
+            && sec != "True"
+        {
+            return self.deny("static ability `S: Mode$ CantAttach`".to_string());
+        }
+        let Some(target_raw) = p.take("Target") else {
+            return self.deny("static ability `S: Mode$ CantAttach`".to_string());
+        };
+        let modifier = match p.take("ValidCard").as_deref() {
+            Some("Card.Aura" | "Aura") => "Modifier::CantBeEnchanted",
+            Some("Aura.Other") if target_raw.contains("EnchantedBy") => {
+                "Modifier::CantBeEnchantedExceptSource"
+            }
+            _ => return self.deny("static ability `S: Mode$ CantAttach`".to_string()),
+        };
+        let condition = self.condition(&mut p)?;
+        if !p.exhausted() {
+            return self.deny("static ability `S: Mode$ CantAttach`".to_string());
+        }
+        let filter = self.filter_expr(&target_raw)?;
+        let mut expr = Self::static_expr(&filter, modifier);
+        if !condition.is_empty()
+            && let Some(open) = expr.strip_suffix(')')
+        {
+            expr = format!("{open}{condition})");
+        }
+        self.body.abilities.push(expr);
+        Some(())
+    }
+
+    fn tap_power_value_static(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if let Some(sec) = p.take("Secondary")
+            && sec != "True"
+        {
+            return self.deny("static ability `S: Mode$ TapPowerValue`".to_string());
+        }
+        let Some(valid_sa) = p.take("ValidSA") else {
+            return self.deny("static ability `S: Mode$ TapPowerValue`".to_string());
+        };
+        let parts: Vec<&str> = valid_sa.split(',').map(str::trim).collect();
+        let is_crew_and_saddle = parts.len() == 2
+            && parts.contains(&"Activated.Crew+Vehicle")
+            && parts.contains(&"Activated.Saddle+Mount");
+        if !is_crew_and_saddle {
+            return self.deny("static ability `S: Mode$ TapPowerValue`".to_string());
+        }
+        let Some(valid_card) = p.take("ValidCard") else {
+            return self.deny("static ability `S: Mode$ TapPowerValue`".to_string());
+        };
+        let Some(val_raw) = p.take("Value") else {
+            return self.deny("static ability `S: Mode$ TapPowerValue`".to_string());
+        };
+        let Ok(bonus) = val_raw.trim().parse::<i16>() else {
+            return self.deny("static ability `S: Mode$ TapPowerValue`".to_string());
+        };
+        let condition = self.condition(&mut p)?;
+        if !p.exhausted() {
+            return self.deny("static ability `S: Mode$ TapPowerValue`".to_string());
+        }
+        let filter = self.filter_expr(&valid_card)?;
+        let mut expr =
+            Self::static_expr(&filter, &format!("Modifier::CrewSaddlePowerBonus({bonus})"));
+        if !condition.is_empty()
+            && let Some(open) = expr.strip_suffix(')')
+        {
+            expr = format!("{open}{condition})");
+        }
+        self.body.abilities.push(expr);
+        Some(())
+    }
+
+    /// Extended `S: Mode$ Continuous` handlers for Station thresholds, Leveler
+    /// bands, and extra `CheckSVar$` conditions not yet in `activated::svar_condition`.
+    fn try_extra_continuous(&mut self, spec: &str, p: Params) -> ExtraOutcome {
+        if p.peek("AffectedDefined") == Some("Self") {
+            if let Some(min) = p.peek("Affected").and_then(parse_station_threshold) {
+                return ExtraOutcome::Handled(self.station_threshold_continuous(p, min));
+            }
+            if let Some(cond) = p.peek("IsPresent").and_then(parse_level_band) {
+                return ExtraOutcome::Handled(self.level_band_continuous(p, &cond));
+            }
+        }
+        if p.has("CheckSVar")
+            && !p.has("IsPresent")
+            && !p.has("Condition")
+            && !p.has("PlayerTurn")
+            && let Some(var) = p.peek("CheckSVar")
+        {
+            let cmp = p.peek("SVarCompare").unwrap_or("GE1");
+            if let Some(cond) = self.extra_svar_condition(var, cmp) {
+                return ExtraOutcome::Handled(self.continuous_with_extra_condition(spec, &cond));
+            }
+        }
+        ExtraOutcome::Pass
+    }
+
+    fn station_threshold_continuous(&mut self, mut p: Params, min: u8) -> Option<()> {
+        p.drop_prose();
+        p.take("AffectedDefined");
+        p.take("Affected");
+        let cond = format!("Condition::Station({min})");
+        self.threshold_continuous_body(p, Some(min), None, &cond)
+    }
+
+    fn level_band_continuous(&mut self, mut p: Params, cond: &str) -> Option<()> {
+        p.drop_prose();
+        p.take("AffectedDefined");
+        let raw_present = p.take("IsPresent");
+        if !matches!(
+            p.take("PresentCompare").as_deref(),
+            None | Some("EQ1" | "GE1")
+        ) {
+            return self.deny("leveler band static with unsupported `PresentCompare$`".to_string());
+        }
+        self.threshold_continuous_body(p, None, raw_present.as_deref(), cond)
+    }
+
+    fn threshold_continuous_body(
+        &mut self,
+        mut p: Params,
+        station_min: Option<u8>,
+        level_present: Option<&str>,
+        cond: &str,
+    ) -> Option<()> {
+        if !matches!(p.take("Secondary").as_deref(), None | Some("True")) {
+            return self.deny("threshold static with unexpected `Secondary$`".to_string());
+        }
+        if let Some(svars) = p.take("AddSVar") {
+            for name in svars
+                .split([',', '&'])
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                if !self.svars.contains_key(name) {
+                    return self.deny(format!("threshold static naming missing `SVar:{name}`"));
+                }
+            }
+        }
+        let before = self.body.abilities.len();
+        let res = self.lower_threshold_clauses(&mut p, station_min, level_present, cond);
+        if res.is_none() || !p.exhausted() || self.body.abilities.len() == before {
+            self.body.abilities.truncate(before);
+            if let Some(key) = p.first_key() {
+                self.note(format!("unclaimed parameter `Continuous.{key}`"));
+            }
+            return None;
+        }
+        Some(())
+    }
+
+    fn lower_threshold_clauses(
+        &mut self,
+        p: &mut Params,
+        station_min: Option<u8>,
+        level_present: Option<&str>,
+        cond: &str,
+    ) -> Option<()> {
+        if let Some(types_raw) = p.take("AddType") {
+            let types = join_card_types(&types_raw)?;
+            if let Some(at_least) = station_min {
+                self.body.abilities.push(Self::static_expr(
+                    "Filter::This",
+                    &format!(
+                        "Modifier::AddTypeIfCountersAtLeast {{ kind: CounterKind::Charge, \
+                         at_least: {at_least}, types: {types} }}"
+                    ),
+                ));
+            } else {
+                self.body.abilities.push(format!(
+                    "static_ability!(Filter::This, Modifier::AddType({types}), \
+                     condition = Some({cond}))"
+                ));
+            }
+        }
+        if p.has("SetPower") || p.has("SetToughness") {
+            let pow: i16 = p.take("SetPower")?.trim().parse().ok()?;
+            let tou: i16 = p.take("SetToughness")?.trim().parse().ok()?;
+            self.body.abilities.push(format!(
+                "static_ability!(Filter::This, Modifier::SetPT({pow}, {tou}), \
+                 condition = Some({cond}))"
+            ));
+        }
+        if p.has("AddPower") || p.has("AddToughness") {
+            let pow: i16 = p
+                .take("AddPower")
+                .map_or(Ok(0), |s| s.trim().trim_start_matches('+').parse())
+                .ok()?;
+            let tou: i16 = p
+                .take("AddToughness")
+                .map_or(Ok(0), |s| s.trim().trim_start_matches('+').parse())
+                .ok()?;
+            self.body.abilities.push(format!(
+                "static_ability!(Filter::This, Modifier::ModifyPT({pow}, {tou}), \
+                 condition = Some({cond}))"
+            ));
+        }
+        if let Some(kws) = p.take("AddKeyword") {
+            self.lower_threshold_keywords(&kws, station_min, cond)?;
+        }
+        if let Some(statics) = p.take("AddStaticAbility") {
+            self.lower_threshold_granted(
+                &statics,
+                'S',
+                level_present,
+                cond,
+                station_min.is_some(),
+            )?;
+        }
+        if let Some(abilities) = p.take("AddAbility") {
+            self.lower_threshold_granted(
+                &abilities,
+                'A',
+                level_present,
+                cond,
+                station_min.is_some(),
+            )?;
+        }
+        if let Some(triggers) = p.take("AddTrigger") {
+            self.lower_threshold_granted(
+                &triggers,
+                'T',
+                level_present,
+                cond,
+                station_min.is_some(),
+            )?;
+        }
+        Some(())
+    }
+
+    fn lower_threshold_keywords(
+        &mut self,
+        raw: &str,
+        station_min: Option<u8>,
+        cond: &str,
+    ) -> Option<()> {
+        let mut bits: Vec<&'static str> = Vec::new();
+        for kw in raw.split('&').map(str::trim).filter(|s| !s.is_empty()) {
+            if let Some(bit) = super::keyword_const_of(kw) {
+                if !bits.contains(&bit) {
+                    bits.push(bit);
+                }
+            } else if kw == "Provoke" {
+                if !bits.contains(&"KeywordSet::PROVOKE") {
+                    bits.push("KeywordSet::PROVOKE");
+                }
+            } else {
+                let from = self.protection_filter(kw)?;
+                self.body.abilities.push(format!(
+                    "static_ability!(Filter::This, Modifier::ProtectionFrom(&{from}), \
+                     condition = Some({cond}))"
+                ));
+            }
+        }
+        if !bits.is_empty() {
+            let joined = bits.iter().skip(1).fold(bits[0].to_string(), |mut acc, b| {
+                acc.push_str(".union(");
+                acc.push_str(b);
+                acc.push(')');
+                acc
+            });
+            if let Some(at_least) = station_min {
+                self.body.abilities.push(Self::static_expr(
+                    "Filter::This",
+                    &format!(
+                        "Modifier::AddKeywordIfCountersAtLeast {{ kind: CounterKind::Charge, \
+                         at_least: {at_least}, keywords: {joined} }}"
+                    ),
+                ));
+            } else {
+                self.body.abilities.push(format!(
+                    "static_ability!(Filter::This, Modifier::AddKeyword({joined}), \
+                     condition = Some({cond}))"
+                ));
+            }
+        }
+        Some(())
+    }
+
+    fn lower_threshold_granted(
+        &mut self,
+        names: &str,
+        kind: char,
+        level_present: Option<&str>,
+        cond: &str,
+        is_station: bool,
+    ) -> Option<()> {
+        for name in names
+            .split([',', '&'])
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            let mut body = self.svars.get(name)?.clone();
+            if kind == 'S'
+                && let Some(expected) = level_present
+            {
+                body = strip_matching_level_present(&body, expected);
+            }
+            let start = self.body.abilities.len();
+            self.rule(kind, &body)?;
+            if self.body.abilities.len() == start {
+                return None;
+            }
+            for item in &mut self.body.abilities[start..] {
+                let updated = attach_condition_to_ability(item, cond, is_station)?;
+                *item = updated;
+            }
+        }
+        Some(())
+    }
+
+    fn continuous_with_extra_condition(&mut self, spec: &str, cond: &str) -> Option<()> {
+        let stripped: Vec<&str> = spec
+            .split(" | ")
+            .filter(|part| {
+                let key = part.split_once('$').map_or("", |(k, _)| k.trim());
+                !matches!(key, "CheckSVar" | "SVarCompare")
+            })
+            .collect();
+        let clean_spec = stripped.join(" | ");
+        let start = self.body.abilities.len();
+        if self.static_ability(&clean_spec).is_none() || self.body.abilities.len() == start {
+            self.body.abilities.truncate(start);
+            return None;
+        }
+        for item in &mut self.body.abilities[start..] {
+            if !item.starts_with("static_ability!(") {
+                self.body.abilities.truncate(start);
+                return None;
+            }
+            let Some(updated) = attach_condition_to_ability(item, cond, false) else {
+                self.body.abilities.truncate(start);
+                return None;
+            };
+            *item = updated;
+        }
+        Some(())
+    }
+
+    /// Additional `CheckSVar$` + `SVarCompare$` conditions mapped 1:1 to existing
+    /// `baylee-cards-dsl::Condition` variants not yet handled by `activated::svar_condition`.
+    fn extra_svar_condition(&self, var: &str, cmp: &str) -> Option<String> {
+        let raw = self.svars.get(var.trim())?.trim();
+        let cmp = cmp.trim();
+        if raw == "PlayerCountOpponents$HighestCounters.Poison" {
+            let n = parse_at_least_u16(cmp)?;
+            return Some(format!("Condition::OpponentPoisonAtLeast({n})"));
+        }
+        if matches!(raw, "Count$ValidHand Card.All" | "Count$ValidHand Card") && cmp == "EQ0" {
+            return Some("Condition::EveryHandEmpty".to_string());
+        }
+        if raw == "Count$YourLifeTotal"
+            && let Some(rhs) = cmp.strip_prefix("LT")
+            && self.svars.get(rhs.trim()).map(|s| s.trim()) == Some("Count$StartingLife")
+        {
+            return Some("Condition::LifeBelowStarting".to_string());
+        }
+        if raw == "Count$TypeInYourYard" {
+            let n = u8::try_from(parse_at_least_u16(cmp)?).ok()?;
+            return Some(format!("Condition::GraveyardTypesAtLeast({n})"));
+        }
+        if matches!(
+            raw,
+            "Count$ValidGraveyard Card.OppOwn" | "PlayerCountOpponents$HighestCardsInGraveyard"
+        ) {
+            let n = u8::try_from(parse_at_least_u16(cmp)?).ok()?;
+            return Some(format!("Condition::OpponentGraveyardCountAtLeast({n})"));
+        }
+        if raw == "PlayerCount$LowestCardsInHand" {
+            let n = u8::try_from(parse_at_most_u16(cmp)?).ok()?;
+            return Some(format!("Condition::APlayerHandSizeAtMost({n})"));
+        }
+        if raw == "Count$LandsPlayed" {
+            let n = u8::try_from(parse_at_least_u16(cmp)?).ok()?;
+            return Some(format!("Condition::LandsPlayedThisTurnAtLeast({n})"));
+        }
+        if raw == "Count$OpponentsLifeLostThisTurn" {
+            let n = u32::from(parse_at_least_u16(cmp)?);
+            return Some(format!(
+                "Condition::AmountAtLeast(Amount::OpponentsLifeLostThisTurn, {n})"
+            ));
+        }
+        if raw == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Permanent.YouOwn+!token"
+            && cmp == "GE1"
+        {
+            return Some("Condition::DescendedThisTurn".to_string());
+        }
+        if raw == "Count$CardCounters.ALL/Mod.2" && cmp == "EQ0" {
+            return Some("Condition::EvenCountersOnSelf".to_string());
+        }
+        None
     }
 
     /// Additional `R:` replacement handlers (`CreateToken`, `AddCounter`,
@@ -1620,4 +2067,163 @@ fn apply_etb_amount_suffix(base: String, suffix: &str) -> Option<String> {
             None
         }
     }
+}
+
+fn parse_station_threshold(raw: &str) -> Option<u8> {
+    let rest = raw.trim().strip_prefix("Card.counters_GE")?;
+    let n: u8 = rest.strip_suffix("_CHARGE")?.parse().ok()?;
+    (n >= 1).then_some(n)
+}
+
+fn parse_level_band(raw: &str) -> Option<String> {
+    let rest = raw.trim().strip_prefix("Card.Self+counters_GE")?;
+    let (lo_str, tail) = rest.split_once("_LEVEL")?;
+    let lo: u8 = lo_str.parse().ok()?;
+    if lo == 0 {
+        return None;
+    }
+    if tail.is_empty() {
+        return Some(format!(
+            "Condition::CountersOnSelf(CounterKind::Level, {lo})"
+        ));
+    }
+    if let Some(hi_str) = tail
+        .strip_prefix("+counters_LE")
+        .and_then(|s| s.strip_suffix("_LEVEL"))
+    {
+        let hi: u8 = hi_str.parse().ok()?;
+        return (hi >= lo)
+            .then(|| format!("Condition::CountersOnSelfBetween(CounterKind::Level, {lo}, {hi})"));
+    }
+    if let Some(hi_str) = tail
+        .strip_prefix("+counters_LT")
+        .and_then(|s| s.strip_suffix("_LEVEL"))
+    {
+        let hi: u8 = hi_str.parse().ok()?;
+        let max = hi.checked_sub(1)?;
+        return (max >= lo)
+            .then(|| format!("Condition::CountersOnSelfBetween(CounterKind::Level, {lo}, {max})"));
+    }
+    None
+}
+
+fn join_card_types(raw: &str) -> Option<String> {
+    let mut types = Vec::new();
+    for word in raw
+        .split([',', '&'])
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        let ty = card_type_const(word)?;
+        if !types.contains(&ty) {
+            types.push(ty);
+        }
+    }
+    if types.is_empty() {
+        return None;
+    }
+    Some(
+        types
+            .iter()
+            .skip(1)
+            .fold(types[0].to_string(), |mut acc, t| {
+                acc.push_str(".union(");
+                acc.push_str(t);
+                acc.push(')');
+                acc
+            }),
+    )
+}
+
+fn attach_condition_to_ability(expr: &str, cond: &str, is_station: bool) -> Option<String> {
+    let is_supported_macro = expr.starts_with("static_ability!(")
+        || expr.starts_with("activated!(")
+        || expr.starts_with("mana_ability!(")
+        || expr.starts_with("triggered!(")
+        || expr.starts_with("modal_triggered!(");
+    if !is_supported_macro {
+        return None;
+    }
+    let normalized = if let Some(rest) = expr.strip_prefix("mana_ability!(&[") {
+        format!("mana_ability!(Cost::TAP, &[{rest}")
+    } else {
+        expr.to_string()
+    };
+    let open = normalized.strip_suffix(')')?;
+    if let Some((head, existing_tail)) = open.rsplit_once(", condition = Some(") {
+        if head.contains("condition =") {
+            return None;
+        }
+        let existing = existing_tail.strip_suffix(')')?;
+        if existing == cond {
+            return Some(normalized);
+        }
+        // `progress/triggers.rs` checks top-level `Condition::Station(_)` for
+        // CR 722.2a; do not bury `Station` inside `Condition::All` on a trigger.
+        if is_station
+            && (normalized.starts_with("triggered!(")
+                || normalized.starts_with("modal_triggered!("))
+        {
+            return None;
+        }
+        return Some(format!(
+            "{head}, condition = Some(Condition::All(&[{existing}, {cond}])))"
+        ));
+    }
+    if open.contains("condition =") {
+        return None;
+    }
+    Some(format!("{open}, condition = Some({cond}))"))
+}
+
+fn parse_at_least_u16(cmp: &str) -> Option<u16> {
+    if let Some(n) = cmp.strip_prefix("GE") {
+        let v: u16 = n.parse().ok()?;
+        return (v >= 1).then_some(v);
+    }
+    if let Some(n) = cmp.strip_prefix("GT") {
+        let v: u16 = n.parse().ok()?;
+        return v.checked_add(1);
+    }
+    None
+}
+
+fn parse_at_most_u16(cmp: &str) -> Option<u16> {
+    if let Some(n) = cmp.strip_prefix("LE") {
+        return n.parse().ok();
+    }
+    if let Some(n) = cmp.strip_prefix("LT") {
+        let v: u16 = n.parse().ok()?;
+        return v.checked_sub(1);
+    }
+    if cmp == "EQ0" {
+        return Some(0);
+    }
+    None
+}
+
+fn strip_matching_level_present(spec: &str, expected_present: &str) -> String {
+    let has_match = spec.split(" | ").any(|part| {
+        part.split_once('$')
+            .is_some_and(|(k, v)| k.trim() == "IsPresent" && v.trim() == expected_present)
+    });
+    if !has_match {
+        return spec.to_string();
+    }
+    let bad_cmp = spec.split(" | ").any(|part| {
+        part.split_once('$').is_some_and(|(k, v)| {
+            k.trim() == "PresentCompare" && !matches!(v.trim(), "EQ1" | "GE1")
+        })
+    });
+    if bad_cmp {
+        return spec.to_string();
+    }
+    spec.split(" | ")
+        .filter(|part| {
+            !part
+                .split_once('$')
+                .is_some_and(|(k, _)| matches!(k.trim(), "IsPresent" | "PresentCompare"))
+        })
+        .collect::<Vec<_>>()
+        .join(" | ")
 }

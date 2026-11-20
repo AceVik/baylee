@@ -254,7 +254,7 @@ fn a_card_may_make_a_token_that_carries_an_ability() {
     );
     assert!(
         body.abilities[0]
-            .contains("Effect::CreateToken { token: &generated_tokens::GOBLIN_1_1_RED }"),
+            .contains("Effect::CreateToken { token: &generated_tokens::GOBLIN_1_1_RED_A852C8CC6 }"),
         "{}",
         body.abilities[0]
     );
