@@ -1491,10 +1491,6 @@ fn creature_count_combat_restrictions_refuse_every_nearby_idiom() {
             "S:Mode$ CantAttack | ValidCard$ Creature.YouCtrl",
             1,
         ),
-        CREATURE_COUNT_COMBAT.replace(
-            "S:Mode$ CantBlock | ValidCard$ Card.Self",
-            "S:Mode$ CantBlock | ValidCard$ Creature.YouCtrl",
-        ),
         CREATURE_COUNT_COMBAT.replace("Creature.YouCtrl", "Creature.OppCtrl"),
         CREATURE_COUNT_COMBAT.replace("Creature.ActivePlayerCtrl", "Creature.YouCtrl"),
         swapped,
@@ -1515,6 +1511,16 @@ fn creature_count_combat_restrictions_refuse_every_nearby_idiom() {
             "a nearby idiom was silently accepted:\n{text}"
         );
     }
+    let filtered_block = read(&CREATURE_COUNT_COMBAT.replace(
+        "S:Mode$ CantBlock | ValidCard$ Card.Self",
+        "S:Mode$ CantBlock | ValidCard$ Creature.YouCtrl",
+    ));
+    assert!(
+        filtered_block.abilities[1].contains("Condition::Not(&Condition::YourTurn)")
+            && filtered_block.abilities[1].contains("Amount::Difference"),
+        "expected both YourTurn negation and Amount::Difference on filtered CantBlock: {:?}",
+        filtered_block.abilities
+    );
 }
 
 #[test]
