@@ -2716,6 +2716,7 @@ fn card_as_object(
         linked_exile: Vec::new(),
         unlocked_doors: None,
         suspended: false,
+        plotted: false,
         token: None,
         colors,
         mana_value: f.mana_cost.cmc(),
@@ -3930,6 +3931,21 @@ pub(crate) fn offsprings(
         .unwrap_or(baylee_core::mana::ManaCost::ZERO)
         .with_x(context.x);
     manaplan::plan_frozen(&spell.combine(&cost), &seat.mana_pool, &[]).is_some()
+}
+
+/// Answer `YesNoPrompt::Casualty` (`CR 702.153a`): accept when the caster
+/// controls an expendable creature (a token or cheap creature) whose projected
+/// power meets `min_power`.
+pub(crate) fn casualties(view: &PlayerView, min_power: u8) -> bool {
+    let player = resource_player(view);
+    let needed = i16::from(min_power);
+    view.battlefield_of(player).any(|obj| {
+        obj.types.contains(TypeSet::CREATURE)
+            && obj.power.unwrap_or(0) >= needed
+            && (obj.status.contains(baylee_view::ObjectStatus::TOKEN)
+                || obj.token.is_some()
+                || obj.mana_value <= 2)
+    })
 }
 
 /// Whether casting `face` at the X `cost` pays for puts a creature onto

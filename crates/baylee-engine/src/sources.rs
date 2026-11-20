@@ -744,22 +744,28 @@ impl GameState {
             self.source_memory.event_readers.insert(to);
         }
 
-        let (was_bargained, was_prototyped, squad_paid, offspring_paid, was_fused) = self
-            .source_object(original)
-            .filter(|object| object.kind == crate::object::ObjectKind::Spell)
-            .map_or((false, false, None, false, false), |object| {
-                (
-                    object.riders.contains(&crate::object::Rider::Bargained),
-                    object.prototyped,
-                    object.riders.iter().find_map(|r| match r {
-                        crate::object::Rider::SquadPaid(n) => Some(*n),
-                        _ => None,
-                    }),
-                    object.riders.contains(&crate::object::Rider::OffspringPaid),
-                    object.riders.contains(&crate::object::Rider::Fused),
-                )
-            });
-        if (was_bargained || was_prototyped || squad_paid.is_some() || offspring_paid || was_fused)
+        let (was_bargained, was_prototyped, squad_paid, offspring_paid, casualty_paid, was_fused) =
+            self.source_object(original)
+                .filter(|object| object.kind == crate::object::ObjectKind::Spell)
+                .map_or((false, false, None, false, false, false), |object| {
+                    (
+                        object.riders.contains(&crate::object::Rider::Bargained),
+                        object.prototyped,
+                        object.riders.iter().find_map(|r| match r {
+                            crate::object::Rider::SquadPaid(n) => Some(*n),
+                            _ => None,
+                        }),
+                        object.riders.contains(&crate::object::Rider::OffspringPaid),
+                        object.riders.contains(&crate::object::Rider::CasualtyPaid),
+                        object.riders.contains(&crate::object::Rider::Fused),
+                    )
+                });
+        if (was_bargained
+            || was_prototyped
+            || squad_paid.is_some()
+            || offspring_paid
+            || casualty_paid
+            || was_fused)
             && let Some(copied) = self.object_mut(copy)
         {
             if was_bargained && !copied.riders.contains(&crate::object::Rider::Bargained) {
@@ -775,6 +781,9 @@ impl GameState {
             }
             if offspring_paid && !copied.riders.contains(&crate::object::Rider::OffspringPaid) {
                 copied.riders.push(crate::object::Rider::OffspringPaid);
+            }
+            if casualty_paid && !copied.riders.contains(&crate::object::Rider::CasualtyPaid) {
+                copied.riders.push(crate::object::Rider::CasualtyPaid);
             }
             if was_fused && !copied.riders.contains(&crate::object::Rider::Fused) {
                 copied.riders.push(crate::object::Rider::Fused);

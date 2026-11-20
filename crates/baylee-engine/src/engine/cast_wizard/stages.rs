@@ -186,7 +186,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // A spell cast without paying its mana cost has exactly one
                 // legal X, which is 0 (CR 107.3b), so a free cast is not
                 // asked for it; a non-mana payment that scales with X still is.
-                let needs_x = (cost.has_variable() && !wizard.free) || scales_mandatory;
+                let waives_mana_cost = wizard.free || wizard.option == Some(CastModeKind::Plot);
+                let needs_x = (cost.has_variable() && !waives_mana_cost) || scales_mandatory;
                 if needs_x {
                     // The mana for X may still be made during the cast (CR
                     // 601.2g): a cast whose mana comes after its choices, and
@@ -199,7 +200,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     // Life payments still cannot exceed payable life.
                     let more_mana = !wizard.makes_mana_after_choices()
                         && self.can_make_mana_for_cast(wizard.player);
-                    let mut max = if cost.has_variable() && !wizard.free && !more_mana {
+                    let mut max = if cost.has_variable() && !waives_mana_cost && !more_mana {
                         self.x_resource_bound(&wizard)
                     } else {
                         u32::MAX
@@ -265,7 +266,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         && !more_mana
                         && ((face.x_mana_color.is_some() || face.x_mana_colors.is_some())
                             || (cost.has_variable()
-                                && !wizard.free
+                                && !waives_mana_cost
                                 && self.pool_alone_pays_x(&wizard)))
                     {
                         let mut probe = wizard.clone();
@@ -603,6 +604,17 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
             WizardStage::Offspring => {
                 let Some(question) = self.ask_offspring(&wizard) else {
+                    let mut wizard = wizard;
+                    wizard.stage = WizardStage::Casualty;
+                    self.cast_wizard = Some(wizard);
+                    return WizardStep::Continue;
+                };
+                self.pending = question;
+                self.awaiting_answer = true;
+                WizardStep::Yield(Ok(()))
+            }
+            WizardStage::Casualty => {
+                let Some(question) = self.ask_casualty(&wizard) else {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Multikicker;
                     self.cast_wizard = Some(wizard);

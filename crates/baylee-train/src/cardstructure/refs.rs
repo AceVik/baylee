@@ -133,7 +133,7 @@ pub fn candidate_refs(c: &Candidate4, state: &EncodedState4) -> Vec<RuleRef> {
                     out.push(r);
                 }
             }
-        } else if c.ability_idx >= i64::from(u32::MAX - 11) {
+        } else if c.ability_idx >= i64::from(baylee_engine::choice::PLOT_CARD) {
             push(&mut out, 7, format!("q/{}", c.ability_idx));
         } else if let Some(source) = state.entity_rule_refs[e]
             .iter()

@@ -450,6 +450,7 @@ pub(super) fn cast_menu_for(duel: &Duel, object: ObjectId) -> Option<crate::Cast
                     // names which spell the click casts.
                     | baylee_engine::choice::CastModeKind::Face(_)
                     | baylee_engine::choice::CastModeKind::Fused
+                    | baylee_engine::choice::CastModeKind::Plot
                     // Even one library-life route must be remembered: its
                     // face, modes and kicker are the answer to the engine's
                     // later question, not an ordinary cast from the hand.

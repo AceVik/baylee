@@ -876,6 +876,9 @@ fn zone_line(
                     words::count(usize::from(time), "time counter")
                 ));
             }
+            if object.plotted {
+                notes.push("plotted".to_string());
+            }
             if object.commander {
                 notes.push(format!("{} commander", table.whose(object.owner)));
             }

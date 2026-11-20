@@ -86,6 +86,9 @@ pub(crate) enum WizardStage {
     /// Offspring yes/no (`CR 702.175a`). Skipped when the face prints none or
     /// nothing could pay it.
     Offspring,
+    /// Casualty yes/no (`CR 702.153a`). Skipped when the face prints none or
+    /// no creature controlled by the caster with power `>= N` can pay it.
+    Casualty,
     /// How many times to pay the multikicker cost (CR 702.33c). Skipped when
     /// the face prints none or nothing could pay it once.
     Multikicker,
@@ -181,6 +184,8 @@ pub struct CastWizard {
     pub bargained: bool,
     /// Whether the spell's offspring additional cost was announced (`CR 702.175a`).
     pub offspring: bool,
+    /// Whether the spell's casualty additional cost was announced (`CR 702.153a`).
+    pub casualty: bool,
     /// How many times the spell's squad additional cost was announced (`CR 702.157a`).
     pub squad: u8,
     /// The permanent chosen to sacrifice for `Emerge` (`CR 702.119c`).
@@ -283,6 +288,7 @@ impl CastWizard {
             buyback: None,
             bargained: false,
             offspring: false,
+            casualty: false,
             squad: 0,
             emerge_sacrifice: None,
             replicated: 0,
@@ -396,6 +402,9 @@ impl CastWizard {
                     self.offspring,
                     self.squad,
                 )));
+        }
+        if self.casualty {
+            hash = hash.wrapping_mul(31).wrapping_add(162);
         }
         // A separate alternative cost changes the meaning of modal answers.
         // Keep the legacy fingerprint byte-for-byte when no such route exists.
@@ -1766,7 +1775,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         let restricted_colors = face
             .x_mana_colors
             .or_else(|| face.x_mana_color.map(baylee_core::color::ColorSet::of))
-            .filter(|_| !wizard.free);
+            .filter(|_| !wizard.free && wizard.option != Some(CastModeKind::Plot));
         if restricted_colors.is_none() && face.extra_target_cost == 0 {
             return (total, None);
         }
@@ -2007,7 +2016,7 @@ fn targeted_mode(abilities: &'static [AbilityDef], set: u8, nth: usize) -> Optio
 /// cost it chose is still paid (CR 118.9d, 601.2f): a kicker, a buyback, and
 /// the replicate cost however many times it was announced.
 const fn pays_mana(wizard: &CastWizard) -> bool {
-    !wizard.free
+    (!wizard.free && !matches!(wizard.option, Some(CastModeKind::Plot)))
         || wizard.kicked
         || wizard.buyback.is_some()
         || wizard.replicated > 0
@@ -2029,6 +2038,7 @@ pub(super) fn spend_for(
             Some(CastModeKind::Prototype) => face.prototype.map(casting::SpellForm::Prototype),
             Some(CastModeKind::Disguise) => Some(casting::SpellForm::Disguise),
             Some(CastModeKind::Bestow) => face.bestow.map(casting::SpellForm::Bestow),
+            Some(CastModeKind::Plot) => Some(casting::SpellForm::Plot),
             _ if wizard.masked => Some(casting::SpellForm::Disguise),
             _ => None,
         };
@@ -2054,6 +2064,9 @@ pub(super) fn spend_for(
             wizard.card,
             casting::SpellForm::Foretell(face.foretell.expect("foretell option")),
         ),
+        Some(CastModeKind::Plot) => {
+            casting::SpendFor::SpellAs(wizard.card, casting::SpellForm::Plot)
+        }
         _ if wizard.face_index() != 0 => {
             casting::SpendFor::SpellOnFace(wizard.card, wizard.face_index())
         }

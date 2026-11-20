@@ -305,7 +305,12 @@ pub(super) fn cast_copy_triggers(
             usize::try_from(storm_instances).unwrap_or(usize::MAX),
         )
         .chain((spell.replicated > 0).then_some(u32::from(spell.replicated)))
-        {
+        .chain(
+            spell
+                .riders
+                .contains(&crate::object::Rider::CasualtyPaid)
+                .then_some(1_u32),
+        ) {
             collected.push(PendingTrigger {
                 text: TextChangeMap::IDENTITY,
                 source_version: Some(spell.version),

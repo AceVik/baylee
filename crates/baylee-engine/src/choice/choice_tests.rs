@@ -92,6 +92,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
             }),
             no.clone(),
         ),
+        (yes_no(YesNoPrompt::Casualty { min_power: 2 }), no.clone()),
         (
             yes_no(YesNoPrompt::KickerOption {
                 index: 0,
@@ -433,7 +434,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
 }
 
 /// How many kinds [`kind_of`] tells apart.
-const KINDS: usize = 58;
+const KINDS: usize = 59;
 
 /// Which kind of question this is, numbered without gaps. No wildcard
 /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -500,6 +501,7 @@ fn kind_of(pending: &Pending) -> usize {
                 YesNoPrompt::KickerOption { .. } => 38,
                 YesNoPrompt::Bargain => 39,
                 YesNoPrompt::Offspring { .. } => 40,
+                YesNoPrompt::Casualty { .. } => 41,
             }
         }
         Pending::ChoosePile { .. } => 17 + 17,
@@ -578,7 +580,7 @@ fn the_unlock_slots_sit_below_turning_face_up_and_decode_to_their_halves() {
     let others = [0, 1, 7, 8, 255, 65_535, MAX_GRANTED_IDS - 1]
         .into_iter()
         .map(granted_ability)
-        .chain([PREPARED_CAST, TURN_FACE_UP, TURN_FACE_UP - UNLOCK_SLOTS - 1])
+        .chain([PREPARED_CAST, TURN_FACE_UP, PLOT_CARD, PLOT_CARD - 1])
         .chain([0, 1, 2, 7, 100, 65_535]);
     for index in others {
         assert_eq!(
@@ -589,6 +591,7 @@ fn the_unlock_slots_sit_below_turning_face_up_and_decode_to_their_halves() {
     }
     assert!(is_special_action(TURN_FACE_UP));
     assert!(is_special_action(unlock_door(1)));
+    assert!(is_special_action(PLOT_CARD));
     assert!(!is_special_action(PREPARED_CAST));
     assert!(!is_special_action(granted_ability(0)));
 }
@@ -719,6 +722,7 @@ fn expected_automatable(prompt: YesNoPrompt) -> bool {
         | YesNoPrompt::Kicker
         | YesNoPrompt::Bargain
         | YesNoPrompt::Offspring { .. }
+        | YesNoPrompt::Casualty { .. }
         | YesNoPrompt::KickerOption { .. }
         | YesNoPrompt::Buyback { .. }
         | YesNoPrompt::ManaAnyType
@@ -789,6 +793,7 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
             cost: baylee_core::mana::ManaCost::parse("{2}"),
             parts: crate::choice::BuybackParts::default(),
         },
+        YesNoPrompt::Casualty { min_power: 2 },
         YesNoPrompt::KickerOption {
             index: 1,
             cost: baylee_core::mana::ManaCost::parse("{2}{U}"),

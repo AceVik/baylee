@@ -621,6 +621,11 @@ pub const TURN_FACE_UP: u32 = PREPARED_CAST - 1;
 /// How many unlock slots there are: one per half of a Room.
 pub const UNLOCK_SLOTS: u32 = 2;
 
+/// The index plotting a card from hand (CR 702.170a, CR 116.2k) is offered
+/// under: a special action carried by the card's action menu, like turning a
+/// permanent face up or unlocking a door.
+pub const PLOT_CARD: u32 = TURN_FACE_UP - UNLOCK_SLOTS - 1;
+
 /// The index unlocking `half` of a Room (0 the left, 1 the right) is
 /// offered under: CR 709.5e's special action (CR 116.2m), carried by the
 /// permanent's action menu as turning one face up is.
@@ -652,7 +657,7 @@ pub const fn door_to_unlock(index: u32) -> Option<u8> {
 /// CR 702.61a).
 #[must_use]
 pub const fn is_special_action(index: u32) -> bool {
-    index == TURN_FACE_UP || door_to_unlock(index).is_some()
+    index == TURN_FACE_UP || door_to_unlock(index).is_some() || index == PLOT_CARD
 }
 
 // The indices in this module are **not** `AbilityRef` indices, and that is
@@ -857,6 +862,7 @@ impl Spend {
             | CastModeKind::Disguise
             | CastModeKind::Bestow
             | CastModeKind::Foretell
+            | CastModeKind::Plot
             | CastModeKind::LibraryTopLife { .. } => Self::Cast(card, kind),
             _ => Self::Cast(card, CastModeKind::Normal),
         }

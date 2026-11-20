@@ -66,6 +66,7 @@ pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
             || face.emerge.is_some()
             || face.mutate.is_some()
             || face.bestow.is_some()
+            || face.plot.is_some()
             || def.fuse,
     ));
     s[75] = f32::from(u8::from(
@@ -75,7 +76,8 @@ pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
             || face.waterbend
             || face.bargain
             || face.squad.is_some()
-            || face.offspring.is_some(),
+            || face.offspring.is_some()
+            || face.casualty.is_some(),
     ));
     s[76] = f32::from(u8::from(face.cost_reduction.is_some()));
     s[77] = unit(face.additional_costs.len() as f32, 3.0);

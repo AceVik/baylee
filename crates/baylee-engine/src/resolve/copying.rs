@@ -156,6 +156,27 @@ fn copy_division(
 /// kicker and the player targets were left behind: a copied Fireball was
 /// cast for X = 0 and a copied Lightning Bolt aimed at a player had no
 /// target at all.
+fn copied_spell_riders(riders: &[crate::object::Rider]) -> Vec<crate::object::Rider> {
+    use crate::object::Rider as R;
+    riders
+        .iter()
+        .copied()
+        .filter(|rider| {
+            matches!(
+                rider,
+                R::KickedMask(_)
+                    | R::Buyback
+                    | R::Bargained
+                    | R::SquadPaid(_)
+                    | R::OffspringPaid
+                    | R::CasualtyPaid
+                    | R::Fused
+                    | R::PrepareSpellFace(_)
+            )
+        })
+        .collect()
+}
+
 pub(super) fn copy_spell(
     state: &mut GameState,
     original: baylee_core::ids::DamageSourceRef,
@@ -174,15 +195,7 @@ pub(super) fn copy_spell(
     let chosen_player = from.chosen_player;
     let x_value = from.x_value;
     let times_kicked = from.times_kicked;
-    let kicked_mask = from.kicked_mask();
-    let bought_back = from.riders.contains(&crate::object::Rider::Buyback);
-    let bargained = from.riders.contains(&crate::object::Rider::Bargained);
-    let squad_paid = from.riders.iter().find_map(|r| match r {
-        crate::object::Rider::SquadPaid(n) => Some(*n),
-        _ => None,
-    });
-    let offspring_paid = from.riders.contains(&crate::object::Rider::OffspringPaid);
-    let fused = from.riders.contains(&crate::object::Rider::Fused);
+    let copied_riders = copied_spell_riders(&from.riders);
     let replicated = from.replicated;
     let mode_index = from.mode_index;
     let modes = from.modes;
@@ -201,13 +214,6 @@ pub(super) fn copy_spell(
         tokens::apply_copy_mod_with_names(&mut base, m, text, Some(&mut state.names));
     }
     let ts = state.next_timestamp();
-    let prepare_spell = state.source_object(original).and_then(|object| {
-        object
-            .riders
-            .iter()
-            .find(|rider| matches!(rider, crate::object::Rider::PrepareSpellFace(_)))
-            .copied()
-    });
     let id = state.arena.insert_with(|oid| {
         let mut obj = GameObject::new_bare(oid, you, ObjectKind::Spell, base);
         obj.timestamp = ts;
@@ -228,24 +234,6 @@ pub(super) fn copy_spell(
         obj.chosen_player = chosen_player;
         obj.x_value = x_value;
         obj.times_kicked = times_kicked;
-        if let Some(mask) = kicked_mask {
-            obj.riders.push(crate::object::Rider::KickedMask(mask));
-        }
-        if bought_back {
-            obj.riders.push(crate::object::Rider::Buyback);
-        }
-        if bargained {
-            obj.riders.push(crate::object::Rider::Bargained);
-        }
-        if let Some(n) = squad_paid {
-            obj.riders.push(crate::object::Rider::SquadPaid(n));
-        }
-        if offspring_paid {
-            obj.riders.push(crate::object::Rider::OffspringPaid);
-        }
-        if fused {
-            obj.riders.push(crate::object::Rider::Fused);
-        }
         obj.replicated = replicated;
         obj.mode_index = mode_index;
         obj.modes = modes;
@@ -257,9 +245,7 @@ pub(super) fn copy_spell(
         // the marker necessary — without it the copy resolved into a
         // graveyard and stayed there as a second, real card.
         obj.riders.push(crate::object::Rider::SpellCopy);
-        if let Some(rider) = prepare_spell {
-            obj.riders.push(rider);
-        }
+        obj.riders.extend(copied_riders);
     }
     state.put_new_spell_on_stack(id);
     state.copy_source_references(original, id);

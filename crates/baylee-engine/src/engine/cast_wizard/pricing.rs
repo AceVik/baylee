@@ -227,7 +227,7 @@ fn raw_option_cost(
         Some(CastModeKind::Bestow) => face.bestow.expect("bestow").mana,
         Some(CastModeKind::JumpStart) => face.mana_cost,
         Some(CastModeKind::Escape) => face.escape.expect("escape").cost,
-        Some(CastModeKind::PlayLandFace(_)) => ManaCost::ZERO,
+        Some(CastModeKind::Plot | CastModeKind::PlayLandFace(_)) => ManaCost::ZERO,
         Some(
             CastModeKind::Dungeon(_)
             | CastModeKind::DungeonRoom { .. }

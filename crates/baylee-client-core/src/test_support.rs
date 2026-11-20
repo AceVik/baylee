@@ -90,6 +90,7 @@ pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) 
         linked_exile: Vec::new(),
         unlocked_doors: None,
         suspended: false,
+        plotted: false,
         token: None,
         colors: ColorSet::default(),
         keywords: 0,

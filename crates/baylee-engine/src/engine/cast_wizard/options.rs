@@ -302,6 +302,27 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 cost: price(cost),
             });
         }
+        let plot_ok = casting::plot_permission(&self.state, player, card);
+        if !modal_only
+            && plot_ok
+            && casting::can_cast_form_paying(
+                &self.state,
+                &self.lookup,
+                player,
+                card,
+                Some(casting::SpellForm::Plot),
+                paying,
+            )
+            .is_ok()
+            && afford(&ManaCost::ZERO)
+            && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, 0)
+        {
+            options.push(CastModeDesc {
+                index: options.len() as u32,
+                kind: CastModeKind::Plot,
+                cost: price(ManaCost::ZERO),
+            });
+        }
         // Normal cost (X probed with 0; the real check happens at payment).
         // Guarded by the same CR 202.1b question `can_cast` asks, and for the
         // reason every probe in this function is paired with one there: an
@@ -309,7 +330,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // player can pick and be refused for. Foretell alone grants only its
         // alternative cost; a separate play permission can also grant Normal.
         if !modal_only
-            && (foretell_cost.is_none()
+            && ((foretell_cost.is_none() && !plot_ok)
                 || casting::play_permission(&self.state, player, card).is_some())
             && !face.types.contains(baylee_core::types::TypeSet::LAND)
             && (commanded
@@ -848,6 +869,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                         || casting::timing_allows(&self.state, player, face.types, face.keywords))
                     && casting::spell_condition_allows(&self.state, player, card, def, 0)
             }
+            CastModeKind::Plot => {
+                casting::sorcery_window(&self.state, player)
+                    && !face.types.contains(baylee_core::types::TypeSet::LAND)
+                    && casting::permitted_spell_types(&self.state, player, card, face.types, 0)
+                    && casting::spell_condition_allows(&self.state, player, card, def, 0)
+                    && !casting::cast_is_forbidden(&self.state, player, front_spell)
+            }
             CastModeKind::Face(i) | CastModeKind::EscapeGranted { face: i, .. } => {
                 (commanded || casting::face_timing_allows(&self.state, player, card, def, i))
                     && casting::spell_condition_allows(&self.state, player, card, def, i)
@@ -893,6 +921,13 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             && casting::play_permission(&self.state, player, card).is_none()
         {
             options.retain(|o| matches!(o.kind, CastModeKind::Foretell));
+        }
+        if plot_ok
+            && !commanded
+            && foretell_cost.is_none()
+            && casting::play_permission(&self.state, player, card).is_none()
+        {
+            options.retain(|o| matches!(o.kind, CastModeKind::Plot));
         }
         if commanded
             && self.state.turn.active == player

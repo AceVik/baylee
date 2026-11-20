@@ -150,6 +150,7 @@ fn reads_event(effect: &Effect) -> bool {
         }
         | Effect::ExileWithPermission { target, .. }
         | Effect::TurnFaceUp { target }
+        | Effect::Plot { target }
         | Effect::SacrificeObject { target, .. } => reads_target(*target),
         Effect::LookAtTopPick { count, .. }
         | Effect::SearchLibraryUpTo { count, .. }
@@ -210,10 +211,10 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::LoseUnspentMana { who, .. }
         | Effect::ExileTopToPlay { who, .. }
         | Effect::ExileTopMayCast { who, .. } => reads_player(*who),
-        Effect::ExileTopWithPermission { who, count, .. } | Effect::ManifestTop { who, count } => {
-            reads_player(*who) || reads_amount(*count)
-        }
-        Effect::DiscardRandom { who, count, .. } => reads_player(*who) || reads_amount(*count),
+        Effect::ExileTopWithPermission { who, count, .. }
+        | Effect::ManifestTop { who, count }
+        | Effect::PlotTop { who, count }
+        | Effect::DiscardRandom { who, count, .. } => reads_player(*who) || reads_amount(*count),
         Effect::Reflexive { target, .. }
         | Effect::CreateTokenCopyOf { target, .. }
         | Effect::PhaseOut { target, .. }

@@ -524,6 +524,7 @@ fn step_begin_words(step: StepKind) -> &'static [&'static str] {
 /// the real one unclaimed. Reveillark is what showed it: its two triggers
 /// are "leaves" and evoke, nothing says "enters", and it was the only one
 /// of the three evoke cards the old reading could not quietly mismatch.
+#[allow(clippy::too_many_lines)] // Exhaustive one-arm-per-Trigger-variant word table.
 pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static str] {
     use baylee_cards_dsl::Trigger as T;
     match trigger {
@@ -641,6 +642,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::Sacrificed { .. } => &["sacrifice"],
         T::PlayerAttacked(_) => &["is attacked", "attack"],
         T::Enlisted(_) => &["enlist"],
+        T::Plotted { .. } => &["plot"],
     }
 }
 
@@ -707,6 +709,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::PlayerDealtDamage(rel)
         | Trigger::Cycled { by: rel, .. }
         | Trigger::SpellCastTargeting { who: rel, .. }
+        | Trigger::Plotted { who: rel, .. }
         | Trigger::StepBegin { whose: rel, .. } => match rel {
             PlayerRel::You => !lower.contains("opponent"),
             PlayerRel::Opponent | PlayerRel::EachOpponent => lower.contains("opponent"),

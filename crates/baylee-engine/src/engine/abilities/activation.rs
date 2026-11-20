@@ -130,6 +130,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         if let Some(half) = crate::choice::door_to_unlock(ability_index) {
             return self.unlock_door(player, source, half);
         }
+        if ability_index == crate::choice::PLOT_CARD {
+            return self.plot_card(player, source);
+        }
         if ability_index == crate::choice::PREPARED_CAST {
             return self.start_prepared_cast(player, source);
         }

@@ -1150,6 +1150,12 @@ pub enum Rider {
     /// Face-down permanent manifested onto the battlefield (CR 701.40a–g):
     /// has no Ward and may be turned face up for its front creature mana cost.
     Manifested,
+    /// Turn number on which this exiled incarnation became plotted (CR 702.170a,
+    /// CR 702.170d): castable without paying its mana cost only on a later turn.
+    PlottedOnTurn(u32),
+    /// Casualty additional cost was paid when casting this spell (CR 702.153a):
+    /// triggers the cast trigger copying this spell once.
+    CasualtyPaid,
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1208,6 +1214,7 @@ impl Rider {
             | Self::Rebound
             | Self::Foretold { .. }
             | Self::Plotted
+            | Self::PlottedOnTurn(_)
             | Self::NotedCounter(_, _)
             | Self::ActivationManaNote { .. } => true,
             // About the stack or the battlefield, not exile.
@@ -1280,6 +1287,7 @@ impl Rider {
             | Self::OffspringPaid
             | Self::Fused
             | Self::Manifested
+            | Self::CasualtyPaid
             | Self::EventPlayer(_)
             | Self::NinjutsuDefender(_, _)
             | Self::SyntheticCondition(_) => false,

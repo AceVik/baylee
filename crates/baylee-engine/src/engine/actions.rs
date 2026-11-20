@@ -1996,6 +1996,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.offspring = answer;
+                    wizard.stage = cast_wizard::WizardStage::Casualty;
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
+                // Wizard path: casualty yes/no (`CR 702.153a`).
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Casualty)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.casualty = answer;
                     wizard.stage = cast_wizard::WizardStage::Multikicker;
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();

@@ -451,7 +451,10 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // `YesNoPrompt::Offspring`, and `ChoicePrompt::ManifestDread` are imported
     // engine variants a reader of 98 cannot decode (protocol 55 on binary
     // frames).
-    const RECORDED: (u32, u64) = (99, 5_197_534_328_483_882_664);
+    // 100: `CastModeKind::Plot` and `YesNoPrompt::Casualty` are imported
+    // engine variants a reader of 99 cannot decode, alongside additive
+    // `PublicObject::plotted` (protocol 56 on binary frames).
+    const RECORDED: (u32, u64) = (100, 11_305_914_789_443_822_192);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

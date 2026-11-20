@@ -225,6 +225,8 @@ pub enum SpellForm {
     Bestow(baylee_cards_dsl::Cost),
     /// A foretold card is announced face up with its printed characteristics.
     Foretell(ManaCost),
+    /// A plotted card is cast from exile without paying its mana cost (`CR 702.170d`).
+    Plot,
 }
 
 /// The spell characteristics a player may use to assess a face-down exiled
@@ -262,7 +264,7 @@ fn face_up_projection(object: &crate::object::GameObject) -> crate::object::Game
 impl SpellForm {
     #[doc(hidden)]
     pub fn project(self, object: &crate::object::GameObject) -> crate::object::GameObject {
-        if matches!(self, Self::Foretell(_)) {
+        if matches!(self, Self::Foretell(_) | Self::Plot) {
             return face_up_projection(object);
         }
         let mut object = object.clone();
@@ -312,7 +314,9 @@ impl SpellForm {
                 base.power = None;
                 base.toughness = None;
             }
-            Self::Foretell(_) => unreachable!("handled before the characteristic projection"),
+            Self::Foretell(_) | Self::Plot => {
+                unreachable!("handled before the characteristic projection")
+            }
         }
         object
     }
@@ -323,6 +327,7 @@ impl SpellForm {
             Self::Disguise => const { ManaCost::parse("{3}") },
             Self::Bestow(cost) => cost.mana,
             Self::Foretell(cost) => cost,
+            Self::Plot => ManaCost::ZERO,
         }
     }
 }

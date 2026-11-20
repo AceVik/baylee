@@ -1125,6 +1125,16 @@ pub enum Trigger {
     /// enlisted creature and `EventPlayer` to the attacking player. Appended to
     /// preserve replay identities.
     Enlisted(&'static Filter),
+    /// A card becomes plotted by a player matching `who` (`"Whenever [you / a
+    /// player] plot(s) a card"` or `"Whenever a card becomes plotted"`,
+    /// CR 702.170a–e), binding `EventPlayer` to that player and `EventObject`
+    /// to the plotted card in exile. Appended to preserve replay identities.
+    Plotted {
+        /// Which player(s) plotting the card trigger this ability.
+        who: crate::effect::PlayerRel,
+        /// Filter matched against the exiled plotted card.
+        filter: &'static Filter,
+    },
 }
 
 impl Trigger {

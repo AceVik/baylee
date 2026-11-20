@@ -1324,7 +1324,10 @@ impl Effect {
             | Effect::ManifestTop { .. }
             | Effect::ManifestDread
             | Effect::TurnFaceUp { .. }
-            | Effect::Bolster(_) => (NONE, NONE),
+            | Effect::Bolster(_)
+            | Effect::Plot { .. }
+            | Effect::PlotTop { .. }
+            | Effect::Backup { .. } => (NONE, NONE),
         }
     }
 

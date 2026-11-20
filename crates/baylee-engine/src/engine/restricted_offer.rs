@@ -201,8 +201,15 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
             }
         }
-        for &(source, ..) in &legal.unpaid_abilities {
-            add(Spend::Activate(source), SpendFor::Ability(source));
+        for &(source, index, _) in &legal.unpaid_abilities {
+            let what = if crate::choice::is_special_action(index) {
+                self.state
+                    .source_identity(source)
+                    .map_or(SpendFor::Other, SpendFor::OtherFrom)
+            } else {
+                SpendFor::Ability(source)
+            };
+            add(Spend::Activate(source), what);
         }
         if let Some(what) = self.window_spend(player) {
             add(Spend::Owed, what);
@@ -245,6 +252,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 card,
                 SpellForm::Foretell(face()?.foretell?),
             )),
+            Spend::Cast(_, CastModeKind::Plot) => Some(SpendFor::SpellAs(card, SpellForm::Plot)),
             // Playing a land face is no cast (CR 305.1), and costs nothing.
             _ if matches!(kind, CastModeKind::PlayLandFace(_)) => None,
             _ => Some(SpendFor::Spell(card)),

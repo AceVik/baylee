@@ -147,6 +147,9 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::ManifestTop { .. }
         | Effect::ManifestDread
         | Effect::TurnFaceUp { .. }
+        | Effect::Plot { .. }
+        | Effect::PlotTop { .. }
+        | Effect::Backup { .. }
         | Effect::LookAtTopExileFaceDown { .. }
         | Effect::RevealTopOnePerType { .. }
         | Effect::RevealTopIf { .. }

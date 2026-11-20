@@ -137,6 +137,9 @@ pub enum CastModeKind {
     /// pays the combined mana cost of both halves, carries combined
     /// characteristics on the stack, and resolves left then right.
     Fused,
+    /// Cast a plotted card from exile as a sorcery without paying its mana cost
+    /// on a turn after the turn in which it became plotted (CR 702.170d).
+    Plot,
 }
 
 /// One way a resolved instant or sorcery can leave the stack in place of the
@@ -904,6 +907,13 @@ pub enum YesNoPrompt {
         /// Non-mana parts of the offspring cost, if any.
         parts: BuybackParts,
     },
+    /// Pay this spell's casualty cost by sacrificing a creature with projected
+    /// power `min_power` or greater (CR 702.153a)? When cast with casualty
+    /// paid, copy the spell on the stack (`may_choose_new_targets = true`).
+    Casualty {
+        /// Minimum projected power of the sacrificed creature.
+        min_power: u8,
+    },
 }
 
 impl YesNoPrompt {
@@ -958,6 +968,7 @@ impl YesNoPrompt {
             | Self::Kicker
             | Self::Bargain
             | Self::Offspring { .. }
+            | Self::Casualty { .. }
             | Self::KickerOption { .. }
             | Self::Buyback { .. }
             | Self::ManaAnyType

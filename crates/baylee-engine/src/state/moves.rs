@@ -806,6 +806,7 @@ impl GameState {
                             | crate::object::Rider::Bargained
                             | crate::object::Rider::SquadPaid(_)
                             | crate::object::Rider::OffspringPaid
+                            | crate::object::Rider::CasualtyPaid
                             | crate::object::Rider::Fused
                             | crate::object::Rider::SuspendHaste(_)
                             | crate::object::Rider::Mutating
@@ -824,7 +825,9 @@ impl GameState {
                 // that. Every other move makes a new object (CR 400.7): the
                 // cast puts "was foretold" back on the spell itself after its
                 // move, and a spell exiled from the stack is not foretold.
-                crate::object::Rider::Foretold { .. } => {
+                crate::object::Rider::Foretold { .. }
+                | crate::object::Rider::Plotted
+                | crate::object::Rider::PlottedOnTurn(_) => {
                     from_zone == Zone::Exile && to.zone() == Zone::Exile
                 }
                 _ => true,

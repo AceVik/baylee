@@ -38,6 +38,7 @@ pub(crate) fn obj(id: u32, controller: u8) -> PublicObject {
         linked_exile: Vec::new(),
         unlocked_doors: None,
         suspended: false,
+        plotted: false,
         token: None,
         colors: ColorSet::default(),
         keywords: 0,

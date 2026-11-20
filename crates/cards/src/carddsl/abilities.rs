@@ -423,6 +423,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::Sacrificed { .. }
         | Trigger::ChangesZoneAll { .. }
         | Trigger::PlayerAttacked(_)
+        | Trigger::Plotted { .. }
         | Trigger::CycledThis
         | Trigger::Cycled { .. } => {
             dst[9] = 1.0;

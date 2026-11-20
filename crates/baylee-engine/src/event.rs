@@ -622,6 +622,13 @@ pub enum GameEvent {
         /// The attacking player who paid the enlist cost.
         player: PlayerId,
     },
+    /// A card became plotted in exile (CR 702.170a, CR 702.170c).
+    CardPlotted {
+        /// The plotted card, now face up in exile.
+        object: ObjectId,
+        /// The player who plotted it.
+        player: PlayerId,
+    },
 }
 
 /// Where in a library a card was put.

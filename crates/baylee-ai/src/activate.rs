@@ -100,6 +100,13 @@ fn best(
                 let worth = agent.turn_face_up_worth(view, source)?;
                 return (worth > THRESHOLD.max(minimum)).then_some((worth, (source, index)));
             }
+            if index == baylee_engine::choice::PLOT_CARD {
+                if legal.castable_once_paid(source) {
+                    return None;
+                }
+                let worth = 120_i64;
+                return (worth > THRESHOLD.max(minimum)).then_some((worth, (source, index)));
+            }
             if on_the_stack(view, source, index) {
                 return None;
             }

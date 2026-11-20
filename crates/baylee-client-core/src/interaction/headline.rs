@@ -852,6 +852,9 @@ fn yes_no_line(
         YesNoPrompt::Offspring { cost, parts } => {
             Phrase::OffspringAsk.fill(lang, &[&buyback_price(lang, cost, parts)])
         }
+        YesNoPrompt::Casualty { min_power } => {
+            Phrase::CasualtyAsk.fill(lang, &[&min_power.to_string()])
+        }
         YesNoPrompt::KickerOption { cost, parts, .. } => {
             Phrase::KickerOptionAsk.fill(lang, &[&buyback_price(lang, cost, parts)])
         }

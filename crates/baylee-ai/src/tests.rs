@@ -121,6 +121,7 @@ fn permanent(id: ObjectId, controller: PlayerId, power: i16) -> PublicObject {
         linked_exile: Vec::new(),
         unlocked_doors: None,
         suspended: false,
+        plotted: false,
         token: None,
         colors: ColorSet::EMPTY,
         mana_value: 1,

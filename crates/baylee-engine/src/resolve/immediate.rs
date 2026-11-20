@@ -3121,6 +3121,134 @@ pub(super) fn exec_immediate(
             }
             None
         }
+        Effect::Plot { target } => {
+            for target_id in zones::moving_objects(state, res, target) {
+                state.plot_card_into_exile(you, target_id);
+            }
+            None
+        }
+        Effect::PlotTop { who, count } => {
+            let counts: Vec<(PlayerId, u32)> = players_of(who, state, you, res)
+                .into_iter()
+                .map(|player| {
+                    let n = super::amount_for_player(&count, state, you, res, player);
+                    (player, n)
+                })
+                .collect();
+            for (player, n) in counts {
+                for _ in 0..n {
+                    let Some(&top) = state.zones.list(ZoneLocation::Library(player)).last() else {
+                        break;
+                    };
+                    if !state.plot_card_into_exile(player, top) {
+                        break;
+                    }
+                }
+            }
+            None
+        }
+        Effect::Backup {
+            count,
+            keywords,
+            grant_abilities,
+        } => {
+            let targets = res.targets.clone();
+            for target_id in targets {
+                if !state
+                    .object(target_id)
+                    .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+                {
+                    continue;
+                }
+                if count > 0 {
+                    crate::replacement::put_counters_by(
+                        state,
+                        you,
+                        target_id,
+                        baylee_cards_dsl::CounterKind::P1P1,
+                        u16::from(count),
+                    );
+                }
+                let Some(target_version) = state
+                    .object(target_id)
+                    .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                    .map(|o| o.version)
+                else {
+                    continue;
+                };
+                let same_source = subjects::source(state, res)
+                    .map_or(target_id == res.source, |src| {
+                        src.object == target_id && src.version == target_version
+                    });
+                if same_source {
+                    continue;
+                }
+                let filter = crate::effects::EffectFilter::ObjectIs(target_id, target_version);
+                let mut granted_any = false;
+                if !keywords.is_empty() {
+                    let timestamp = state.next_timestamp();
+                    state.effects.register(crate::effects::ContinuousEffect {
+                        id: baylee_core::ids::EffectId::new(0),
+                        source: Some(res.source),
+                        controller: you,
+                        origin: crate::effects::EffectOrigin::Resolution,
+                        layer: baylee_cards_dsl::Layer::Ability,
+                        timestamp,
+                        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+                        filter,
+                        modifier: baylee_cards_dsl::Modifier::AddKeyword(keywords),
+                    });
+                    granted_any = true;
+                }
+                for ability in grant_abilities {
+                    let (layer, modifier) = match ability {
+                        baylee_cards_dsl::AbilityDef::Activated { .. }
+                        | baylee_cards_dsl::AbilityDef::ActivatedConditional { .. }
+                        | baylee_cards_dsl::AbilityDef::Loyalty { .. }
+                        | baylee_cards_dsl::AbilityDef::ModalActivated { .. } => (
+                            baylee_cards_dsl::Layer::Ability,
+                            baylee_cards_dsl::Modifier::GrantActivatedDefinition(ability),
+                        ),
+                        baylee_cards_dsl::AbilityDef::Triggered { .. }
+                        | baylee_cards_dsl::AbilityDef::ModalTriggered { .. } => (
+                            baylee_cards_dsl::Layer::Ability,
+                            baylee_cards_dsl::Modifier::GrantTriggeredDefinition(ability),
+                        ),
+                        baylee_cards_dsl::AbilityDef::Static(s) => {
+                            if s.filter == baylee_cards_dsl::Filter::This {
+                                (s.modifier.layer(), s.modifier)
+                            } else {
+                                (
+                                    baylee_cards_dsl::Layer::Ability,
+                                    baylee_cards_dsl::Modifier::GrantStatic {
+                                        filter: &s.filter,
+                                        modifier: &s.modifier,
+                                    },
+                                )
+                            }
+                        }
+                        _ => continue,
+                    };
+                    let timestamp = state.next_timestamp();
+                    state.effects.register(crate::effects::ContinuousEffect {
+                        id: baylee_core::ids::EffectId::new(0),
+                        source: Some(res.source),
+                        controller: you,
+                        origin: crate::effects::EffectOrigin::Resolution,
+                        layer,
+                        timestamp,
+                        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+                        filter,
+                        modifier,
+                    });
+                    granted_any = true;
+                }
+                if granted_any {
+                    state.invalidate_projections();
+                }
+            }
+            None
+        }
         Effect::TapAll { filter } => {
             let you = res.controller;
             let all: Vec<ObjectId> = state

@@ -3697,6 +3697,10 @@ BargainAsk = Bargain: sacrifice an artifact, enchantment, or token?
 # Arguments: price
 OffspringAsk = Offspring: { $price }? Create a 1/1 token copy when it enters.
 
+# Casualty question (CR 702.153a).
+# Arguments: power
+CasualtyAsk = Casualty { $power }: sacrifice a creature with power { $power } or greater to copy this spell?
+
 # Part of a buyback price: life.
 # Arguments: amount
 BuybackPriceLife = pay { $amount } life
@@ -3776,6 +3780,9 @@ CastFlashback = Flashback
 
 # Foretell, both the special action and the later alternative cast
 CastForetell = Foretell
+
+# Plot alternative cast from exile (CR 702.170d)
+CastPlot = Plot
 
 # Beam me up's casting option.
 CastBeamMeUp = Beam me up
@@ -4254,6 +4261,9 @@ CastMorph = Morph — 2/2 face down
 
 # Face-up special action.
 TurnFaceUp = Turn face up
+
+# Plot special action from hand (CR 702.170a).
+PlotCard = Plot
 
 # Unlock $door: a Room's special action, naming the door it opens.
 # Arguments: door

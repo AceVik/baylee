@@ -1287,7 +1287,8 @@ fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, f
         | CastModeKind::Foretell
         | CastModeKind::Madness
         | CastModeKind::Bestow
-        | CastModeKind::Emerge => 28,
+        | CastModeKind::Emerge
+        | CastModeKind::Plot => 28,
         CastModeKind::Mode(_) => 29,
         CastModeKind::Modes(_) | CastModeKind::Fused => 30,
         CastModeKind::Face(_) => 31,

@@ -107,7 +107,8 @@ pub fn mode_kind(kind: &CastModeKind) -> i16 {
         | CastModeKind::Foretell
         | CastModeKind::Madness
         | CastModeKind::Bestow
-        | CastModeKind::Emerge => 2,
+        | CastModeKind::Emerge
+        | CastModeKind::Plot => 2,
         CastModeKind::Mode(_) => 3,
         CastModeKind::Face(_) => 4,
         CastModeKind::PlayLandFace(_) => 5,

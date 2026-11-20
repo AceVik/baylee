@@ -377,6 +377,7 @@ fn every_field_the_key_is_made_of_keeps_two_objects_apart() {
             o.subtypes.insert(baylee_core::ids::SubtypeId::new(1));
         }),
         ("suspended", |o| o.suspended = true),
+        ("plotted", |o| o.plotted = true),
         ("chosen_subtype", |o| {
             o.chosen_subtype = Some(baylee_core::generated::subtypes::creature::ALLY);
         }),

@@ -483,6 +483,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::ExileTopToPlay { .. }
         | Effect::ExileTopMayCast { .. }
         | Effect::ExileTopWithPermission { .. }
+        | Effect::PlotTop { .. }
         | Effect::RevealTop { .. }
         | Effect::NextDrawLooksAtTop { .. } => facts.deeds.add(Deeds::LOOKS),
         Effect::Surveil { .. } => {
@@ -576,6 +577,7 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::DealDamageDivided { .. }
         | Effect::ExileLinked { .. }
         | Effect::ExileWithPermission { .. }
+        | Effect::Plot { .. }
         | Effect::TapTarget
         | Effect::TapEventObject
         | Effect::CounterTargetSpell
@@ -648,7 +650,8 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         }
         Effect::AddCounterFilter { .. }
         | Effect::AddCounterCreatedTokens { .. }
-        | Effect::AddCountersUpTo { .. } => {
+        | Effect::AddCountersUpTo { .. }
+        | Effect::Backup { .. } => {
             facts.deeds.add(Deeds::PUMPS);
             facts.makes.add(Stuff::COUNTERS);
             facts.makes.add(Stuff::POWER);

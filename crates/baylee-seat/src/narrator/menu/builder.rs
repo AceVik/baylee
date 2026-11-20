@@ -1092,7 +1092,9 @@ impl Builder<'_, '_> {
     }
 
     pub(super) fn ability_label(&self, source: ObjectId, index: u32) -> String {
-        use baylee_engine::choice::{PREPARED_CAST, TURN_FACE_UP, door_to_unlock, granted_slot};
+        use baylee_engine::choice::{
+            PLOT_CARD, PREPARED_CAST, TURN_FACE_UP, door_to_unlock, granted_slot,
+        };
         let table = self.table;
         let named = table.named(source);
         if let Some(slot) = granted_slot(index) {
@@ -1121,6 +1123,9 @@ impl Builder<'_, '_> {
         }
         if index == TURN_FACE_UP {
             return format!("Turn {named} face up");
+        }
+        if index == PLOT_CARD {
+            return format!("Plot {named} from your hand");
         }
         if let Some(half) = door_to_unlock(index) {
             let side = if half == 0 { "left" } else { "right" };
@@ -1643,6 +1648,7 @@ impl Builder<'_, '_> {
             YesNoPrompt::Kicker
                 | YesNoPrompt::Bargain
                 | YesNoPrompt::Offspring { .. }
+                | YesNoPrompt::Casualty { .. }
                 | YesNoPrompt::KickerOption { .. }
                 | YesNoPrompt::Buyback { .. }
         );

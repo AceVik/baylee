@@ -210,7 +210,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         Effect::Exile { .. }
         | Effect::ExileLinked { .. }
         | Effect::ExileTargetsWithSource
-        | Effect::ExileTargetsCreateTokens { .. } => {
+        | Effect::ExileTargetsCreateTokens { .. }
+        | Effect::Plot { .. } => {
             ch.exile_single += 1.0;
         }
         Effect::ExileAll { .. }
@@ -274,6 +275,12 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::AddCounterCreatedTokens { amount, .. }
         | Effect::Bolster(amount) => {
             ch.counters_add += amount_scalar(amount).max(1.0);
+        }
+        Effect::Backup { count, .. } => {
+            ch.counters_add += f32::from(*count).max(1.0);
+        }
+        Effect::PlotTop { count, .. } => {
+            ch.draw += amount_scalar(count).max(1.0);
         }
         Effect::Proliferate
         | Effect::AddCountersUpTo { .. }

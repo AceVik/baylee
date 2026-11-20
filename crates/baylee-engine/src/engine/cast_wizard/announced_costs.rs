@@ -177,6 +177,34 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         })
     }
 
+    /// The casualty question (`CR 702.153a`), or `None` when the face prints
+    /// none or no controlled creature with projected power `>= min_power` can
+    /// pay it alongside the cast's other costs.
+    pub(super) fn ask_casualty(&mut self, wizard: &CastWizard) -> Option<Pending> {
+        let min_power = self.wizard_face(wizard).casualty?;
+        if wizard.option == Some(CastModeKind::Disguise) || wizard.masked {
+            return None;
+        }
+        let mut paying = wizard.clone();
+        paying.casualty = true;
+        if !self.announced_cost_payable(&paying) {
+            return None;
+        }
+        let source = self.state.object(wizard.card).and_then(|object| {
+            object.card.map(|card| {
+                baylee_core::ids::AbilityRef::new(
+                    card.index,
+                    baylee_core::ids::AbilityRef::ADDITIONAL_COST,
+                )
+            })
+        });
+        Some(Pending::YesNo {
+            player: wizard.player,
+            prompt: YesNoPrompt::Casualty { min_power },
+            source,
+        })
+    }
+
     /// The squad question (`CR 702.157a`), or `None` when the face prints none
     /// or not even one squad payment can be made.
     pub(super) fn ask_squad(&mut self, wizard: &CastWizard) -> Option<Pending> {
@@ -284,6 +312,7 @@ impl CastWizard {
             buyback: self.buyback.is_some(),
             bargained: self.bargained,
             offspring: self.offspring,
+            casualty: self.casualty,
             squad: self.squad,
             kicked: self.kicked,
             kicked_mask: self.kicked_mask,

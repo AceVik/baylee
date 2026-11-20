@@ -119,6 +119,7 @@ pub(crate) fn float_for(
     }
     if main {
         float_graveyard_activations(view, legal, agent, room, &mut best);
+        float_hand_plot_activations(view, legal, room, &mut best);
     }
     let (_, source, mana, taps_self) = best?;
     // From generation 10 through the shared planner, which keeps a second
@@ -252,6 +253,48 @@ fn float_graveyard_activations(
             {
                 *best = Some((worth, object.id, price, false));
             }
+        }
+    }
+}
+
+fn float_hand_plot_activations(
+    view: &PlayerView,
+    legal: &LegalActions,
+    room: u64,
+    best: &mut Option<(i64, ObjectId, ManaCost, bool)>,
+) {
+    if view.phase != Phase::SecondMain {
+        return;
+    }
+    for card in &view.hand {
+        if legal.castable_once_paid(card.id)
+            || legal
+                .abilities
+                .contains(&(card.id, baylee_engine::choice::PLOT_CARD))
+        {
+            continue;
+        }
+        let is_instant = baylee_cards::by_index(card.card.index)
+            .and_then(|def| def.faces.get(usize::from(card.card.face)))
+            .is_some_and(|face| face.types.contains(TypeSet::INSTANT));
+        if is_instant {
+            continue;
+        }
+        let Some(price) = legal.unpaid_abilities.iter().find_map(|&(id, ab, mana)| {
+            (id == card.id && ab == baylee_engine::choice::PLOT_CARD).then_some(mana)
+        }) else {
+            continue;
+        };
+        if u64::from(price.cmc()) > room {
+            continue;
+        }
+        let worth = 120_i64;
+        if worth > THRESHOLD
+            && best.is_none_or(|(w, id, _, _)| {
+                (worth, std::cmp::Reverse(card.id)) > (w, std::cmp::Reverse(id))
+            })
+        {
+            *best = Some((worth, card.id, price, false));
         }
     }
 }

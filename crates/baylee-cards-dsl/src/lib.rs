@@ -668,6 +668,14 @@ pub struct FaceDef {
     /// Offspring (CR 702.175a–b): optional additional cost; when this permanent
     /// enters, create a 1/1 token copy of it if paid.
     pub offspring: Option<crate::cost::Cost>,
+    /// Plot (CR 702.170a–f): sorcery-speed special action from hand paying this
+    /// cost to exile the card face up as plotted; on any later turn its owner
+    /// may cast it from exile as a sorcery without paying its mana cost.
+    pub plot: Option<ManaCost>,
+    /// Casualty N (CR 702.153a–b): optional additional cost sacrificing a
+    /// creature with power N or greater; when cast with casualty paid, copy
+    /// this spell on the stack (`may_choose_new_targets = true`).
+    pub casualty: Option<u8>,
 }
 
 impl FaceDef {
@@ -759,6 +767,8 @@ impl FaceDef {
         emerge: None,
         squad: None,
         offspring: None,
+        plot: None,
+        casualty: None,
     };
 }
 
@@ -766,6 +776,36 @@ impl Default for FaceDef {
     fn default() -> Self {
         Self::DEFAULT
     }
+}
+
+const CASUALTY_CLAUSES: [[Filter; 2]; 256] = {
+    let mut out = [[Filter::CREATURE, Filter::PowerAtLeast(0)]; 256];
+    let mut i = 0_usize;
+    while i < 256 {
+        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+        {
+            out[i] = [Filter::CREATURE, Filter::PowerAtLeast(i as i16)];
+        }
+        i += 1;
+    }
+    out
+};
+
+const CASUALTY_FILTERS: [Filter; 256] = {
+    let mut out = [Filter::CREATURE; 256];
+    let mut i = 0_usize;
+    while i < 256 {
+        out[i] = Filter::And(&CASUALTY_CLAUSES[i]);
+        i += 1;
+    }
+    out
+};
+
+/// Creature with projected power `min_power` or greater, used by
+/// [`FaceDef::casualty`] (`CR 702.153a`).
+#[must_use]
+pub const fn casualty_creature_filter(min_power: u8) -> &'static Filter {
+    &CASUALTY_FILTERS[min_power as usize]
 }
 
 /// As-it-enters-the-battlefield modifiers (CR 614.1c/d).

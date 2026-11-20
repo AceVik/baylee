@@ -11,7 +11,22 @@ static BARGAIN_FODDER: baylee_cards_dsl::Filter = baylee_cards_dsl::Filter::Or(&
 
 static BARGAIN_PARTS: [CostPart; 1] = [CostPart::Sacrifice(&BARGAIN_FODDER)];
 
-/// Mandatory additional parts, entwine, bargain, and the chosen kicker's non-mana parts.
+const CASUALTY_PARTS: [[CostPart; 1]; 256] = {
+    let mut out = [[CostPart::Sacrifice(&baylee_cards_dsl::Filter::CREATURE)]; 256];
+    let mut i = 0_usize;
+    while i < 256 {
+        #[allow(clippy::cast_possible_truncation)]
+        {
+            out[i] = [CostPart::Sacrifice(
+                baylee_cards_dsl::casualty_creature_filter(i as u8),
+            )];
+        }
+        i += 1;
+    }
+    out
+};
+
+/// Mandatory additional parts, entwine, bargain, casualty, and the chosen kicker's non-mana parts.
 pub(crate) fn wizard_mandatory_parts(
     face: &baylee_cards_dsl::FaceDef,
     choice: impl Into<CostChoice>,
@@ -41,6 +56,12 @@ pub(crate) fn wizard_mandatory_parts(
         Some(cost) if !disguised && choice.offspring => cost.parts,
         _ => &[],
     };
+    let casualty_parts: &[CostPart] = match face.casualty {
+        Some(min_power) if !disguised && choice.casualty => {
+            &CASUALTY_PARTS[usize::from(min_power)][..]
+        }
+        _ => &[],
+    };
     let squad_parts: &[CostPart] = match face.squad {
         Some(cost) if !disguised && choice.squad > 0 => cost.parts,
         _ => &[],
@@ -51,6 +72,7 @@ pub(crate) fn wizard_mandatory_parts(
         .chain(entwine_parts.iter())
         .chain(bargain_parts.iter())
         .chain(offspring_parts.iter())
+        .chain(casualty_parts.iter())
         .chain(std::iter::repeat_n(squad_parts, usize::from(choice.squad)).flatten())
         .chain(
             face.additional_costs
@@ -108,6 +130,8 @@ pub(crate) struct CostChoice {
     pub bargained: bool,
     /// Whether the offspring additional cost is paid (`CR 702.175a`).
     pub offspring: bool,
+    /// Whether the casualty additional cost is paid (`CR 702.153a`).
+    pub casualty: bool,
     /// How many times the squad additional cost is paid (`CR 702.157a`).
     pub squad: u8,
     /// Kicker can accompany a face or mode without replacing that choice.
@@ -127,6 +151,7 @@ impl From<Option<CastModeKind>> for CostChoice {
             buyback: false,
             bargained: false,
             offspring: false,
+            casualty: false,
             squad: 0,
             kicked: matches!(
                 option,

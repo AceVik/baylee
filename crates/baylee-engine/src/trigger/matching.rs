@@ -1398,6 +1398,13 @@ fn matches(
         (Trigger::Enlisted(filter), GameEvent::CreatureEnlisted { attacker, .. }) => state
             .object(*attacker)
             .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
+        (Trigger::Plotted { who, filter }, GameEvent::CardPlotted { object, player }) => {
+            eval::players_for_source(*who, state, you, Some(source))
+                .is_some_and(|seats| seats.contains(player))
+                && state
+                    .object_or_departed(*object)
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+        }
         _ => false,
     }
 }

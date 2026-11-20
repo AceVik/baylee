@@ -623,6 +623,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             if wizard.offspring {
                 obj.riders.push(crate::object::Rider::OffspringPaid);
             }
+            obj.riders
+                .retain(|r| *r != crate::object::Rider::CasualtyPaid);
+            if wizard.casualty {
+                obj.riders.push(crate::object::Rider::CasualtyPaid);
+            }
             obj.riders.retain(|r| *r != crate::object::Rider::Fused);
             if wizard.option == Some(CastModeKind::Fused) {
                 obj.riders.push(crate::object::Rider::Fused);

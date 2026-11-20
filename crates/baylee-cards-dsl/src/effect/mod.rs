@@ -4958,6 +4958,36 @@ pub enum Effect {
     /// (untargeted, ignoring marked damage per CR 120.6) and put N +1/+1
     /// counters on that creature. Appended to preserve replay identities.
     Bolster(Amount),
+    /// Exile the card(s) named by `target` face up (if not already in exile)
+    /// and make each a plotted card on the current turn (CR 702.170c–d).
+    /// Appended to preserve replay identities.
+    Plot {
+        /// Which object(s) become plotted in exile.
+        target: TargetSpec,
+    },
+    /// Exile the top `count` card(s) of each `who` player's library face up
+    /// and make each a plotted card on the current turn (CR 702.170c–d).
+    /// Appended to preserve replay identities.
+    PlotTop {
+        /// Which player(s) exile and plot from the top of their library.
+        who: PlayerRel,
+        /// Number of top library cards to exile and plot.
+        count: Amount,
+    },
+    /// Backup N (CR 702.165a–d): put `count` +1/+1 counters on the targeted
+    /// creature; if that is another creature (`target != source`), it also
+    /// gains `keywords` and `grant_abilities` until end of turn in layer 6.
+    /// Appended to preserve replay identities.
+    Backup {
+        /// Number of +1/+1 counters placed on the targeted creature.
+        count: u8,
+        /// Printed keywords below Backup granted to another targeted creature
+        /// until end of turn.
+        keywords: crate::KeywordSet,
+        /// Printed abilities below Backup granted to another targeted creature
+        /// until end of turn (`CR 702.165a`, `CR 702.165c–d`).
+        grant_abilities: &'static [crate::AbilityDef],
+    },
 }
 
 #[cfg(test)]

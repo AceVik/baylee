@@ -342,6 +342,7 @@ fn linked_exile_of(
     }
 }
 
+#[allow(clippy::too_many_lines)] // Single flat PublicObject projection literal.
 pub(super) fn public_object(
     board: &ViewBoard<'_>,
     id: ObjectId,
@@ -414,6 +415,9 @@ pub(super) fn public_object(
             && obj.zone == Zone::Exile
             && obj.riders.contains(&baylee_engine::object::Rider::Suspend)
             && obj.counters.get(baylee_cards_dsl::CounterKind::Time) > 0,
+        plotted: known
+            && obj.zone == Zone::Exile
+            && obj.riders.contains(&baylee_engine::object::Rider::Plotted),
         // The engine holds the definition; the client needs the number, and
         // this crate is the one that can see both.
         token: state

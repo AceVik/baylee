@@ -305,7 +305,9 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 99 adds `CastModeKind::Fused` (CR 702.102), `NumberPrompt::Squad`
 /// (CR 702.157), `YesNoPrompt::Offspring` (CR 702.175), and
 /// `ChoicePrompt::ManifestDread` (CR 701.62).
-pub const VIEW_VERSION: u32 = 99;
+/// Version 100 adds `CastModeKind::Plot` and [`PublicObject::plotted`]
+/// (CR 702.170) alongside `YesNoPrompt::Casualty` (CR 702.153).
+pub const VIEW_VERSION: u32 = 100;
 
 // ------------------------------------------------------------------- targets
 

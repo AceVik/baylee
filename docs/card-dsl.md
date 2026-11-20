@@ -569,6 +569,25 @@ express at all yet.
   (`Rider::OffspringPaid`); when the permanent enters the battlefield, a
   synthetic ETB triggered ability creates a `1/1` token copy of it
   (`CopyMod::SetPT(1, 1)`).
+- `FaceDef.plot: Option<ManaCost>` — "Plot [cost]" (CR 702.170a–f, CR 116.2k).
+  Offers `PLOT_CARD` as a sorcery-speed special action from hand paying `cost`
+  to exile the card face up (`Rider::Plotted`, `Rider::PlottedOnTurn(turn)`,
+  emitting `GameEvent::CardPlotted` for `Trigger::Plotted { who, filter }`); on
+  any later turn its owner may cast it from exile as a sorcery via
+  `CastModeKind::Plot` without paying its mana cost (`X = 0` per CR 107.3b).
+  `Effect::Plot { target }` and `Effect::PlotTop { who, count }` exile card(s)
+  face up as plotted directly via resolving effects (CR 702.170c).
+- `FaceDef.casualty: Option<u8>` — "Casualty N" (CR 702.153a–b). Offers an
+  optional additional cost (`YesNoPrompt::Casualty { min_power: N }`) sacrificing
+  a creature you control with projected power `N` or greater
+  (`casualty_creature_filter(N)`, `Rider::CasualtyPaid`); when cast with
+  casualty paid, a cast trigger copies the spell on the stack and lets its
+  controller choose new targets for the copy (CR 707.10c).
+- `Effect::Backup { count, keywords, grant_abilities }` — "Backup N"
+  (CR 702.165a–d) on an ETB triggered ability targeting any creature: puts
+  `count` `+1/+1` counters on the targeted creature and, if that creature is
+  not the Backup source itself, grants `keywords` and `grant_abilities` until
+  end of turn in layer 6 (`Duration::UntilEndOfTurn`).
 - `CardDef.fuse: bool` — "Fuse" (CR 702.102a–d) on two-face split instant/sorcery
   cards (`CardDef::is_split_spell_card`). When cast from a player's hand, offers
   `CastModeKind::Fused` paying the combined mana cost of both halves

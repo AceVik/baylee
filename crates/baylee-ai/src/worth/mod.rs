@@ -2145,6 +2145,37 @@ impl HeuristicAgent {
                     120
                 }
             }),
+            Effect::Plot { .. } => {
+                subject.map_or(120, |o| if self.hostile(o.owner, me) { 150 } else { 180 })
+            }
+            Effect::PlotTop { who, count: cards } => {
+                let n = count(*cards)?.max(0);
+                if self
+                    .players(view, *who, aim)?
+                    .iter()
+                    .any(|p| !self.hostile(*p, me))
+                {
+                    n.saturating_mul(200)
+                } else {
+                    -n.saturating_mul(200)
+                }
+            }
+            Effect::Backup {
+                count: counters,
+                keywords,
+                grant_abilities,
+            } => {
+                let base = i64::from(*counters).saturating_mul(120)
+                    + i64::from(!keywords.is_empty()) * 80
+                    + i64::try_from(grant_abilities.len()).unwrap_or(0) * 60;
+                subject.map_or(base, |o| {
+                    if self.hostile(o.controller, me) {
+                        -base
+                    } else {
+                        base
+                    }
+                })
+            }
             Effect::TakeExtraTurn => 10_000,
             Effect::ExileLibraryAndShuffleHand { player } => {
                 if self

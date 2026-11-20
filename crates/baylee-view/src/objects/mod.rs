@@ -364,6 +364,9 @@ pub struct PublicObject {
     /// Whether this face-up exiled card is suspended. Its time counters are public.
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub suspended: bool,
+    /// Whether this face-up exiled card is plotted (`CR 702.170`).
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub plotted: bool,
     /// Which token this is, for permanents with no card behind them.
     ///
     /// The index into `baylee_cards::tokens::ALL`. A token has no printing
@@ -726,6 +729,7 @@ impl PublicObject {
             linked_exile: self.linked_exile.clone(),
             unlocked_doors: self.unlocked_doors,
             suspended: self.suspended,
+            plotted: self.plotted,
             colors: self.colors,
             keywords: self.keywords,
             power: self.power,
@@ -787,6 +791,7 @@ pub struct ObjectSummaryKey {
     /// one has a door left to unlock.
     unlocked_doors: Option<[bool; 2]>,
     suspended: bool,
+    plotted: bool,
     colors: ColorSet,
     keywords: u128,
     power: Option<i16>,
@@ -832,6 +837,7 @@ impl core::hash::Hash for ObjectSummaryKey {
         self.linked_exile.hash(state);
         self.unlocked_doors.hash(state);
         self.suspended.hash(state);
+        self.plotted.hash(state);
         self.power.hash(state);
         self.toughness.hash(state);
         self.damage.hash(state);

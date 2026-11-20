@@ -931,6 +931,15 @@ pub fn flashback_granted(state: &GameState, card: ObjectId) -> bool {
     })
 }
 
+/// Strict main-phase empty-stack window for `player` (`CR 116.2k`,
+/// `CR 702.170a`, `CR 702.170d`): active player, main phase, and an empty stack.
+#[must_use]
+pub(crate) fn sorcery_window(state: &GameState, player: PlayerId) -> bool {
+    matches!(state.turn.phase, Phase::FirstMain | Phase::SecondMain)
+        && state.turn.active == player
+        && state.zones.stack_is_empty()
+}
+
 /// Whether this exact exiled incarnation was foretold by `player` on an
 /// earlier turn. The printed card supplies the alternative cost separately.
 pub(crate) fn foretell_permission(state: &GameState, player: PlayerId, card: ObjectId) -> bool {
@@ -940,6 +949,26 @@ pub(crate) fn foretell_permission(state: &GameState, player: PlayerId, card: Obj
             && object.riders.iter().any(|rider| {
                 matches!(rider, crate::object::Rider::Foretold { turn } if *turn < state.turn.number)
             })
+    })
+}
+
+/// Whether this exact face-up exiled card is plotted and `player` is its owner
+/// on a turn strictly after the turn it became plotted (`CR 702.170d`).
+#[must_use]
+pub(crate) fn plot_permission(state: &GameState, player: PlayerId, card: ObjectId) -> bool {
+    state.object(card).is_some_and(|object| {
+        object.zone == Zone::Exile
+            && object.owner == player
+            && !object.status.contains(crate::object::Status::FACE_DOWN)
+            && object.riders.contains(&crate::object::Rider::Plotted)
+            && object
+                .riders
+                .iter()
+                .find_map(|rider| match rider {
+                    crate::object::Rider::PlottedOnTurn(turn) => Some(*turn),
+                    _ => None,
+                })
+                .is_none_or(|turn| turn < state.turn.number)
     })
 }
 
@@ -1142,6 +1171,10 @@ pub(crate) fn can_cast_form_paying(
     if matches!(form, Some(SpellForm::Foretell(_))) && !foretell_ok {
         return Err(CastError::NotInHand);
     }
+    let plot_ok = plot_permission(state, player, card);
+    if matches!(form, Some(SpellForm::Plot)) && !plot_ok {
+        return Err(CastError::NotInHand);
+    }
     // Adventure (CR 716): a card on an adventure may be cast from exile.
     let on_adventure = adventure_only_permission(state, player, card);
     let adventure_ok = !in_hand && adventure_permission(state, player, card);
@@ -1174,10 +1207,13 @@ pub(crate) fn can_cast_form_paying(
     };
     // Generic legality probes do not preselect a mode. With no other exile
     // permission, the only such mode is the later-turn foretell cost.
-    let form = form.or_else(|| {
-        (foretell_ok && permission.is_none())
-            .then(|| SpellForm::Foretell(foretell_cost.expect("foretell permission has a cost")))
-    });
+    let form = form
+        .or_else(|| {
+            (foretell_ok && permission.is_none()).then(|| {
+                SpellForm::Foretell(foretell_cost.expect("foretell permission has a cost"))
+            })
+        })
+        .or_else(|| (plot_ok && permission.is_none() && !foretell_ok).then_some(SpellForm::Plot));
     let granted_escape =
         in_own_graveyard && !granted_escape_options(state, lookup, player, card, paying).is_empty();
     // Wrenn's emblem and Muldrotha: a permanent card cast from its owner's
@@ -1230,6 +1266,7 @@ pub(crate) fn can_cast_form_paying(
         && !takeover_ok
         && !commander_ok
         && !foretell_ok
+        && !plot_ok
         && permission.is_none()
     {
         return Err(CastError::NotInHand);
@@ -1285,7 +1322,11 @@ pub(crate) fn can_cast_form_paying(
         && !c.types.contains(TypeSet::LAND)
         && graveyard_face_open(state, player, card, 0)
         && permitted_spell_types(state, player, card, c.types, 0)
-        && timing_allows(state, player, c.types, c.keywords)
+        && if matches!(form, Some(SpellForm::Plot)) {
+            sorcery_window(state, player)
+        } else {
+            timing_allows(state, player, c.types, c.keywords)
+        }
         && printed.is_none_or(|def| spell_condition_allows(state, player, card, def, 0));
     let face_open = |def: &baylee_cards_dsl::CardDef, i: usize| {
         face_timing_allows(state, player, card, def, i)

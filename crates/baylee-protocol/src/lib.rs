@@ -69,7 +69,9 @@ pub mod tape;
 /// Version 55 carries `CastModeKind::Fused` (CR 702.102), `NumberPrompt::Squad`
 /// (CR 702.157), `YesNoPrompt::Offspring` (CR 702.175), and
 /// `ChoicePrompt::ManifestDread` (CR 701.62).
-pub const PROTOCOL_VERSION: u32 = 55;
+/// Version 56 carries `CastModeKind::Plot` and `PublicObject::plotted`
+/// (CR 702.170) alongside `YesNoPrompt::Casualty` (CR 702.153).
+pub const PROTOCOL_VERSION: u32 = 56;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -389,7 +391,9 @@ mod tests {
         // 54: `CastModeKind::Emerge`, `YesNoPrompt::Bargain`, and `LegalActions::spell_spending`.
         // 55: `CastModeKind::Fused`, `NumberPrompt::Squad`, `YesNoPrompt::Offspring`, and
         // `ChoicePrompt::ManifestDread` on positional binary frames.
-        assert_eq!(PROTOCOL_VERSION, 55);
+        // 56: `CastModeKind::Plot`, `PublicObject::plotted`, and `YesNoPrompt::Casualty`
+        // on positional binary frames.
+        assert_eq!(PROTOCOL_VERSION, 56);
     }
 
     #[test]

@@ -87,6 +87,8 @@ pub fn land_face(name: &'static str) -> FaceDef {
         emerge: None,
         squad: None,
         offspring: None,
+        plot: None,
+        casualty: None,
     }
 }
 

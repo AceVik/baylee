@@ -130,6 +130,7 @@ pub(super) fn event_player_of(event: &GameEvent) -> Option<PlayerId> {
         | GameEvent::DiceRolled { player, .. }
         | GameEvent::PermanentExerted { player, .. }
         | GameEvent::CreatureEnlisted { player, .. }
+        | GameEvent::CardPlotted { player, .. }
         | GameEvent::DamageDealt {
             target: crate::event::DamageTarget::Player(player),
             ..
@@ -308,6 +309,7 @@ pub(super) fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         | GameEvent::CreatureEnlisted {
             enlisted: object, ..
         }
+        | GameEvent::CardPlotted { object, .. }
         | GameEvent::AttackerUnblocked { object }
         // The permanent that changed tap state: "that land's controller"
         // of Psychic Venom and "that permanent's controller" of Mesmeric Orb.

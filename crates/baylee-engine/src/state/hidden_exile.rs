@@ -94,6 +94,47 @@ impl GameState {
         });
     }
 
+    /// Exile `card` face up (if not already in exile) and mark it as plotted by
+    /// `player` on the current turn (`CR 702.170a`, `CR 702.170c`).
+    ///
+    /// Per `CR 702.170c`, only cards can become plotted: tokens or copies of
+    /// spells/abilities exiled this way cease to exist without becoming plotted.
+    pub(crate) fn plot_card_into_exile(&mut self, player: PlayerId, card: ObjectId) -> bool {
+        let Some((owner, zone)) = self.object(card).map(|o| (o.owner, o.zone)) else {
+            return false;
+        };
+        if zone != Zone::Exile {
+            let _ = self.move_object(
+                card,
+                ZoneLocation::Exile(owner),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            );
+        }
+        let _ = self.reveal_exiled_card(card);
+        let turn = self.turn.number;
+        let Some(object) = self.object_mut(card) else {
+            return false;
+        };
+        if object.zone != Zone::Exile
+            || !object.is_card()
+            || object.riders.contains(&Rider::SpellCopy)
+            || object.riders.contains(&Rider::AbilityCopy)
+        {
+            return false;
+        }
+        object
+            .riders
+            .retain(|r| !matches!(r, Rider::Plotted | Rider::PlottedOnTurn(_)));
+        object.riders.push(Rider::Plotted);
+        object.riders.push(Rider::PlottedOnTurn(turn));
+        self.journal.record(crate::event::GameEvent::CardPlotted {
+            object: card,
+            player,
+        });
+        true
+    }
+
     /// Called when control actually changes, and when a hideaway host phases in.
     /// Only exile is visited; ordinary projection passes do not scan for rights.
     pub(crate) fn learn_hideaway_cards(&mut self, host: ObjectId) {

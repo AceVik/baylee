@@ -83,8 +83,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     /// planners add themselves. Both lists are empty on a board without
     /// either, which is the usual board: the walk over `cost_candidates` asks
     /// nothing more of a card than whether its faces print a reduction.
-    pub(super) fn spell_adjustments(&self, player: PlayerId) -> SpellAdjustments {
-        use crate::choice::CastModeKind;
+    fn board_spell_cost_flags(&self, player: PlayerId) -> (bool, bool, u32) {
         let effects = self.state.effects.may_change_spell_costs();
         let increases = effects
             && self.state.effects.iter().any(|fx| {
@@ -113,6 +112,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                             | baylee_cards_dsl::Modifier::SpellsCostLessPerCounter(_)
                     )
                 }));
+        (increases, reductions, next)
+    }
+
+    pub(super) fn spell_adjustments(&self, player: PlayerId) -> SpellAdjustments {
+        use crate::choice::CastModeKind;
+        let (increases, reductions, next) = self.board_spell_cost_flags(player);
         let mut out = SpellAdjustments::default();
         for card in self.cost_candidates(player) {
             let Some(def) = self
@@ -183,6 +188,12 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     adjust(0, Some(casting::SpellForm::Bestow(bestow))),
                 );
             }
+            if casting::plot_permission(&self.state, player, card) {
+                publish(
+                    CastModeKind::Plot,
+                    adjust(0, Some(casting::SpellForm::Plot)),
+                );
+            }
         }
         out
     }
@@ -221,6 +232,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             casting::SpellForm::Disguise => const { baylee_core::mana::ManaCost::parse("{3}") },
             casting::SpellForm::Bestow(c) => c.mana,
             casting::SpellForm::Foretell(c) => c,
+            casting::SpellForm::Plot => baylee_core::mana::ManaCost::ZERO,
         });
         let with_inc = raw_cost
             .with_x(0)
@@ -360,6 +372,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         }) {
             let permitted = casting::adventure_permission(&self.state, player, card)
                 || casting::foretell_permission(&self.state, player, card)
+                || casting::plot_permission(&self.state, player, card)
                 || self.state.object(card).is_some_and(|o| {
                     o.riders
                         .contains(&crate::object::Rider::PlayableFromExileFor(player))
@@ -926,6 +939,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         // `unpaid_suspend` too: a hint only while there is mana to make it
         // with (CR 605.3a).
         self.offer_foretell(player, &mut legal);
+        self.offer_plot(player, &mut legal);
         if !legal.unpaid_suspend.is_empty() && !self.offers_mana(&legal) {
             legal.unpaid_suspend.clear();
         }
@@ -959,7 +973,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .unpaid_abilities
             .iter()
             .filter(|(source, index, mana)| {
-                mana.has_variable() && {
+                !crate::choice::is_special_action(*index) && mana.has_variable() && {
                     let least = self.activation_x_minimum(player, *source, *index);
                     self.reaches_activation_mana(
                         player,

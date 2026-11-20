@@ -463,6 +463,7 @@ impl HeuristicAgent {
             | YesNoPrompt::KickerOption { .. }
             | YesNoPrompt::Bargain
             | YesNoPrompt::Offspring { .. }
+            | YesNoPrompt::Casualty { .. }
             | YesNoPrompt::Buyback { .. }
             | YesNoPrompt::EnterTappedForCounters { .. }
             | YesNoPrompt::SacrificeToEnter { .. }

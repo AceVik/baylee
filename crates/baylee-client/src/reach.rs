@@ -382,6 +382,25 @@ fn pile_way_reachable(
             return false;
         }
         card
+    } else if matches!(way.kind, CastModeKind::Plot) {
+        let me = baylee_client_core::decision::resource_player(view);
+        if view.active != me
+            || !matches!(
+                view.phase,
+                baylee_view::Phase::FirstMain | baylee_view::Phase::SecondMain
+            )
+            || !view.stack.is_empty()
+            || !baylee_client_core::timing::allows(
+                view,
+                baylee_core::types::TypeSet::SORCERY,
+                false,
+            )
+            || targeting::provably_targetless_from(view, card, Some(o.id))
+            || (check_cast_now && !baylee_ai::spell_can_be_cast_now(view, legal, o.id, card))
+        {
+            return false;
+        }
+        card
     } else {
         let face = match way.kind {
             CastModeKind::Face(at)

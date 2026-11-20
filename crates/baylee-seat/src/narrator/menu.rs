@@ -1183,6 +1183,13 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
                 "cast it without offspring".into(),
             )
         }
+        YesNoPrompt::Casualty { min_power } => (
+            format!(
+                "Casualty {min_power} — sacrifice a creature with power {min_power} or greater as an additional cost to copy this spell?"
+            ),
+            format!("pay casualty {min_power} (sacrifice a creature with power >= {min_power})"),
+            "cast it without casualty".into(),
+        ),
         YesNoPrompt::KickerOption { index, cost, parts } => {
             kicker_option_words(*index, cost, *parts)
         }
@@ -1818,6 +1825,7 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
             )
         }
         CastModeKind::Foretell => format!("Cast it with foretell for {cost}"),
+        CastModeKind::Plot => format!("Cast this plotted card from exile for {cost}"),
         CastModeKind::Flashback => {
             if option.cost == ManaCost::ZERO {
                 format!("Cast it with {}", board::flashback_note(card, option.cost))

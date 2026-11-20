@@ -255,6 +255,7 @@ fn test_public_object(
         linked_exile: Vec::new(),
         unlocked_doors: None,
         suspended: false,
+        plotted: false,
         token: None,
         colors: face.mana_cost.colors().union(face.color_indicator),
         mana_value: face.mana_cost.cmc(),

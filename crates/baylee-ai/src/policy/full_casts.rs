@@ -122,7 +122,8 @@ fn ways(view: &PlayerView, legal: &LegalActions) -> Vec<Way> {
                     | CastModeKind::Dash
                     | CastModeKind::Blitz
                     | CastModeKind::Emerge
-                    | CastModeKind::Fused => true,
+                    | CastModeKind::Fused
+                    | CastModeKind::Plot => true,
                     CastModeKind::Alternative(i) => face(front)
                         .and_then(|f| f.alternative_costs.get(i))
                         .is_some_and(|alt| {

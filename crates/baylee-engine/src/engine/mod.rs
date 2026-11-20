@@ -2196,6 +2196,7 @@ mod payment_window;
 mod player_control;
 #[cfg(test)]
 mod player_control_tests;
+mod plot;
 #[cfg(feature = "test-support")]
 pub mod progress;
 #[cfg(not(feature = "test-support"))]

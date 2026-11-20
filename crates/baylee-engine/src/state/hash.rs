@@ -972,6 +972,9 @@ fn hash_source_references(h: &mut Hasher, state: &GameState, position: &dyn Fn(O
                 h.u8(95);
                 h.u8(mask);
             }
+            if source.riders.contains(&crate::object::Rider::CasualtyPaid) {
+                h.u8(162);
+            }
             source.replicated.hash(h);
             source.mode_index.hash(h);
             source.modes.hash(h);
@@ -1558,6 +1561,12 @@ fn hash_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
         crate::object::Rider::OffspringPaid => h.u8(132),
         crate::object::Rider::Fused => h.u8(133),
         crate::object::Rider::Manifested => h.u8(134),
+        crate::object::Rider::Plotted => h.u8(5),
+        crate::object::Rider::PlottedOnTurn(turn) => {
+            h.u8(161);
+            turn.hash(h);
+        }
+        crate::object::Rider::CasualtyPaid => h.u8(162),
         crate::object::Rider::BattleProtector(player) => {
             h.u8(79);
             player.hash(h);
@@ -2206,6 +2215,11 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 turn.hash(h);
             }
             Rider::Plotted => h.u8(5),
+            Rider::PlottedOnTurn(turn) => {
+                h.u8(161);
+                turn.hash(h);
+            }
+            Rider::CasualtyPaid => h.u8(162),
             Rider::Suspend => h.u8(6),
             Rider::Flashback => h.u8(7),
             Rider::Uncounterable => h.u8(8),
