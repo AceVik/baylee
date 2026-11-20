@@ -791,7 +791,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::SharesAColorWith(_)
         | Filter::SharesCreatureTypeWith(_)
         | Filter::SharesColorWithExiledWithSource => true,
-        Filter::OfSourceChosenColor => matches!(
+        Filter::OfSourceChosenColor | Filter::ChosenColor => matches!(
             modifier,
             Modifier::AddColor(_) | Modifier::SetColor(_) | Modifier::BecomeCopyOf(_)
         ),

@@ -138,6 +138,8 @@ struct Evaluation<'a> {
     x: u32,
     created_tokens: i64,
     die_range: Option<(i64, i64)>,
+    event_player: Option<PlayerId>,
+    event_object: Option<ObjectId>,
 }
 
 impl<'a> Origin<'a> {
@@ -649,6 +651,8 @@ impl HeuristicAgent {
                 x,
                 created_tokens: 0,
                 die_range: None,
+                event_player: None,
+                event_object: None,
             },
         )
     }
@@ -1716,6 +1720,63 @@ impl HeuristicAgent {
         ) {
             return None;
         }
+        if let Effect::RepeatEach { domain, effects } = effect {
+            return self.repeat_each_worth(view, *domain, effects, evaluation);
+        }
+        if let Effect::ChooseCard {
+            chooser,
+            zone,
+            filter,
+            min,
+            max,
+            movement,
+            then,
+        } = effect
+        {
+            return self.choose_card_worth(
+                view, *chooser, *zone, filter, *min, *max, *movement, then, evaluation,
+            );
+        }
+        if let Effect::PeekAndReveal {
+            count,
+            max_pick,
+            picked,
+            if_picked,
+            ..
+        } = effect
+        {
+            let n = self.count(view, origin, *count, aim, x)?.max(0);
+            if n == 0 {
+                return Some(0);
+            }
+            let base = match (*max_pick, picked) {
+                (0, _) => {
+                    if self.profile.card_skill() >= 2 {
+                        n * 20
+                    } else {
+                        0
+                    }
+                }
+                (
+                    k,
+                    baylee_cards_dsl::PeekPickDest::Hand
+                    | baylee_cards_dsl::PeekPickDest::Battlefield { .. },
+                ) => i64::from(k.min(3)).min(n) * 350,
+                (
+                    _,
+                    baylee_cards_dsl::PeekPickDest::StayOnTop
+                    | baylee_cards_dsl::PeekPickDest::TopOfLibrary,
+                ) => 120,
+                _ => 150,
+            };
+            let bonus = if if_picked.is_empty() {
+                0
+            } else {
+                let mut sub = *evaluation;
+                self.effects_worth_in(view, if_picked, &mut sub)?.max(0) / 2
+            };
+            return Some(base.saturating_add(bonus));
+        }
         let (then, otherwise) = effect.branches();
         if !then.is_empty() || !otherwise.is_empty() {
             let (mut yes, mut no) = (*evaluation, *evaluation);
@@ -1779,6 +1840,13 @@ impl HeuristicAgent {
                         i64::midpoint(then, otherwise)
                     }
                 }
+                Effect::RevealFromHand { min, .. } => {
+                    if *min == 0 {
+                        then.max(0) / 2
+                    } else {
+                        then
+                    }
+                }
                 // A condition, or somebody else's choice: either may happen.
                 _ => i64::midpoint(then, otherwise),
             });
@@ -1788,8 +1856,23 @@ impl HeuristicAgent {
         // nothing at all for an "up to one" left empty.
         let subject = match aim {
             Aim::Object(id) => view.object(id),
-            Aim::Source => origin.object,
-            Aim::Nothing | Aim::Player(_) => None,
+            Aim::Source => evaluation
+                .event_object
+                .and_then(|id| view.object(id))
+                .or(origin.object),
+            Aim::Nothing | Aim::Player(_) => evaluation.event_object.and_then(|id| view.object(id)),
+        };
+        let eff_aim = match (aim, evaluation.event_player) {
+            (Aim::Source | Aim::Nothing, Some(p)) => Aim::Player(p),
+            _ => aim,
+        };
+        let players_for = |rel: PlayerRel| -> Option<Vec<PlayerId>> {
+            if matches!(rel, PlayerRel::EventPlayer | PlayerRel::DamagedPlayer)
+                && let Some(p) = evaluation.event_player
+            {
+                return Some(vec![p]);
+            }
+            self.players(view, rel, eff_aim)
         };
         let count = |amount: Amount| self.count(view, origin, amount, aim, x);
         let on_board = |filter: &Filter| -> Option<Vec<&PublicObject>> {
@@ -1811,7 +1894,7 @@ impl HeuristicAgent {
             }
             Effect::DrawCardsFor { amount, who } => {
                 let n = count(*amount)?;
-                self.players(view, *who, aim)?
+                players_for(*who)?
                     .into_iter()
                     .map(|p| self.draw_worth(view, p, n))
                     .sum()
@@ -1823,7 +1906,7 @@ impl HeuristicAgent {
             Effect::GainLife { amount } => count(*amount)? * life_price(view, me),
             Effect::GainLifeFor { amount, who } => {
                 let n = count(*amount)?;
-                self.players(view, *who, aim)?
+                players_for(*who)?
                     .into_iter()
                     .map(|p| {
                         let gain = n * life_price(view, p);
@@ -1833,7 +1916,7 @@ impl HeuristicAgent {
             }
             Effect::LoseLife { amount, target } => {
                 let n = count(*amount)?;
-                self.players(view, *target, aim)?
+                players_for(*target)?
                     .into_iter()
                     .map(|p| {
                         let loss = hurt(view, p, n);
@@ -2308,7 +2391,19 @@ impl HeuristicAgent {
             // mana ability. Exiling a hand card with its own continuing cast
             // permission moves that card without changing its material value.
             // The surrounding effects carry the activation's worth in both cases.
+            Effect::GrantProtectionFromChosenColorUntilEot { filter } => {
+                let objects: Vec<&PublicObject> = if matches!(filter, Filter::This) {
+                    subject.into_iter().collect()
+                } else {
+                    on_board(filter)?
+                };
+                objects
+                    .into_iter()
+                    .map(|o| self.prevent(view, o, false))
+                    .sum()
+            }
             Effect::AddMana { .. }
+            | Effect::ChooseColor
             | Effect::NoteActivationMana
             | Effect::ExileChosenFromHandWithSourceAndCast(_) => 0,
             _ => return None,
@@ -2758,6 +2853,187 @@ impl HeuristicAgent {
             }
         }
         Some(baylee_engine::choice::PlayerAction::ChooseTargets { objects, players })
+    }
+
+    fn repeat_each_worth(
+        &self,
+        view: &PlayerView,
+        domain: baylee_cards_dsl::RepeatDomain,
+        effects: &[Effect],
+        evaluation: &mut Evaluation<'_>,
+    ) -> Option<i64> {
+        use baylee_cards_dsl::RepeatDomain;
+        let Evaluation { origin, aim, x, .. } = *evaluation;
+        match domain {
+            RepeatDomain::EachPlayer | RepeatDomain::EachOpponent => {
+                let rel = if matches!(domain, RepeatDomain::EachPlayer) {
+                    PlayerRel::EachPlayer
+                } else {
+                    PlayerRel::EachOpponent
+                };
+                let mut total = 0_i64;
+                for p in self.seats(rel, view)? {
+                    let mut iter_eval = *evaluation;
+                    iter_eval.event_player = Some(p);
+                    total = total.saturating_add(self.effects_worth_in(
+                        view,
+                        effects,
+                        &mut iter_eval,
+                    )?);
+                    evaluation.created_tokens = iter_eval.created_tokens;
+                }
+                Some(total)
+            }
+            RepeatDomain::EachMatchingPermanent(filter) => {
+                let mut total = 0_i64;
+                for o in &view.battlefield {
+                    if !self.filter_matches(
+                        filter,
+                        view,
+                        o,
+                        ZoneRef::Battlefield,
+                        Some(origin.id),
+                    )? {
+                        continue;
+                    }
+                    let mut iter_eval = *evaluation;
+                    iter_eval.event_object = Some(o.id);
+                    iter_eval.event_player = Some(o.controller);
+                    total = total.saturating_add(self.effects_worth_in(
+                        view,
+                        effects,
+                        &mut iter_eval,
+                    )?);
+                    evaluation.created_tokens = iter_eval.created_tokens;
+                }
+                Some(total)
+            }
+            RepeatDomain::Times(amount) => {
+                let n = self.count(view, origin, amount, aim, x)?.clamp(0, 64);
+                if n == 0 {
+                    return Some(0);
+                }
+                let base_tokens = evaluation.created_tokens;
+                let mut iter_eval = *evaluation;
+                let per = self.effects_worth_in(view, effects, &mut iter_eval)?;
+                let delta_tokens = iter_eval.created_tokens.saturating_sub(base_tokens);
+                evaluation.created_tokens =
+                    base_tokens.saturating_add(delta_tokens.saturating_mul(n));
+                Some(n.saturating_mul(per))
+            }
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn choose_card_worth(
+        &self,
+        view: &PlayerView,
+        chooser: PlayerRel,
+        zone: baylee_cards_dsl::ChooseZone,
+        filter: &Filter,
+        min: u8,
+        max: Amount,
+        movement: baylee_cards_dsl::ChooseMove,
+        then: &[Effect],
+        evaluation: &mut Evaluation<'_>,
+    ) -> Option<i64> {
+        use baylee_cards_dsl::{ChooseMove, ChooseZone};
+        if !matches!(chooser, PlayerRel::You) {
+            return None;
+        }
+        let Evaluation { origin, aim, x, .. } = *evaluation;
+        let max_n = usize::try_from(self.count(view, origin, max, aim, x)?.max(0)).unwrap_or(0);
+        if max_n == 0 {
+            return Some(0);
+        }
+        let me = view.seat;
+        let mut candidates: Vec<&PublicObject> = Vec::new();
+        match zone {
+            ChooseZone::Battlefield => {
+                for o in &view.battlefield {
+                    if self.filter_matches(
+                        filter,
+                        view,
+                        o,
+                        ZoneRef::Battlefield,
+                        Some(origin.id),
+                    )? {
+                        candidates.push(o);
+                    }
+                }
+            }
+            ChooseZone::Graveyard(owner_rel) => {
+                for p in self.players(view, owner_rel, aim)? {
+                    if let Some(gy) = view.graveyards.get(usize::from(p.get())) {
+                        for o in gy {
+                            if self.filter_matches(
+                                filter,
+                                view,
+                                o,
+                                ZoneRef::Graveyard,
+                                Some(origin.id),
+                            )? {
+                                candidates.push(o);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if candidates.is_empty() {
+            return Some(0);
+        }
+        let mut scores: Vec<i64> = Vec::with_capacity(candidates.len());
+        for cand in candidates {
+            let move_val = match movement {
+                ChooseMove::None | ChooseMove::BottomOfLibrary => 0,
+                ChooseMove::Hand => {
+                    if self.hostile(cand.owner, me) {
+                        -350
+                    } else {
+                        350
+                    }
+                }
+                ChooseMove::Battlefield { .. } => {
+                    Self::permanent_worth(view, cand) + self.etb_worth(view, cand)
+                }
+                ChooseMove::TopOfLibrary => {
+                    if self.hostile(cand.owner, me) {
+                        -150
+                    } else {
+                        200
+                    }
+                }
+                ChooseMove::Graveyard | ChooseMove::Exile => {
+                    if matches!(zone, ChooseZone::Battlefield) {
+                        self.removal(view, cand)
+                    } else if self.hostile(cand.owner, me) {
+                        30
+                    } else {
+                        -30
+                    }
+                }
+            };
+            let then_val = if then.is_empty() {
+                0
+            } else {
+                let mut iter_eval = *evaluation;
+                iter_eval.event_object = Some(cand.id);
+                iter_eval.event_player = Some(cand.controller);
+                self.effects_worth_in(view, then, &mut iter_eval)?
+            };
+            scores.push(move_val.saturating_add(then_val));
+        }
+        scores.sort_unstable_by_key(|&v| std::cmp::Reverse(v));
+        let take_max = max_n.min(scores.len());
+        let take_min = usize::from(min).min(take_max);
+        let mut total = 0_i64;
+        for (i, &val) in scores.iter().take(take_max).enumerate() {
+            if i < take_min || val > 0 {
+                total = total.saturating_add(val);
+            }
+        }
+        Some(total)
     }
 }
 

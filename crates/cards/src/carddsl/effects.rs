@@ -100,6 +100,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::LookAtTopExileFaceDown { .. }
         | Effect::LookAtTopMayTake { .. }
         | Effect::LookAtTopKeepBottomPlay { .. }
+        | Effect::PeekAndReveal { .. }
+        | Effect::RevealTop { .. }
         | Effect::RevealTopOnePerType { .. }
         | Effect::RevealTopAllMatching { .. }
         | Effect::Cascade

@@ -311,7 +311,7 @@ impl HeuristicAgent {
                 .plays(crate::AIProfile::CHOSEN_AND_LINKED_FILTERS)
                 .then(|| of_chosen_card_type(view, object, this))
                 .flatten(),
-            Filter::OfSourceChosenColor => self
+            Filter::OfSourceChosenColor | Filter::ChosenColor => self
                 .profile
                 .plays(crate::AIProfile::CHOSEN_AND_LINKED_FILTERS)
                 .then(|| of_chosen_color(view, object, this))

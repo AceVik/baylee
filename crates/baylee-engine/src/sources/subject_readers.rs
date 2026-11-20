@@ -65,6 +65,7 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::DealDamageEvenly { target, .. } => matches!(target, TargetSpec::ThisObject),
             Effect::CreateContinuousEffect { filter, .. }
             | Effect::BecomeChosenCreatureType { filter, .. }
+            | Effect::GrantProtectionFromChosenColorUntilEot { filter }
             | Effect::PumpFilter { filter, .. }
             | Effect::PumpFilterPerKeyword { filter, .. }
             | Effect::SetPTFilter { filter, .. } => {

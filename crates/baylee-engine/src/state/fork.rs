@@ -102,6 +102,7 @@ impl GameState {
             ltb_combat: _,
             ceased: _,
             reflexive,
+            resolution_chosen_color: _,
             discovered,
             divided: _,
             synthetic_copies: _,

@@ -77,6 +77,8 @@ impl GameState {
             // Empty whenever a question is out, by a rule the build
             // enforces; the field says which.
             reflexive: _,
+            // Transient scope bound only inside `resolve::run`; `None` at rest.
+            resolution_chosen_color: _,
             discovered,
             divided,
             synthetic_copies,
@@ -2547,6 +2549,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u8(153);
             filter_hash(h, inner);
         }
+        F::ChosenColor => h.u8(154),
     }
 }
 

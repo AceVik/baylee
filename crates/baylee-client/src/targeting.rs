@@ -581,6 +581,7 @@ pub(crate) fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter)
         | Filter::ControllerControls(_)
         | Filter::TappedToPayForSourceThisTurn
         | Filter::OfSourceChosenColor
+        | Filter::ChosenColor
         | Filter::OfSourceChosenCardType
         | Filter::SharesAColorWith(_)
         | Filter::SharesCreatureTypeWith(_)

@@ -168,3 +168,95 @@ pub enum ExileUntil {
     /// the source later.
     OpponentBecomesMonarch,
 }
+
+/// Domain iterated by [`super::Effect::RepeatEach`] (CR 101.4, CR 608.2h).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum RepeatDomain {
+    /// Each living player in APNAP turn order (CR 101.4), binding
+    /// `PlayerRel::EventPlayer` to the current player on each pass.
+    EachPlayer,
+    /// Each living opponent of the resolving controller in APNAP turn order
+    /// (CR 101.4), binding `PlayerRel::EventPlayer` on each pass.
+    EachOpponent,
+    /// Each battlefield permanent matching the filter as the loop begins
+    /// (CR 608.2h, ordered by controller APNAP then battlefield order), binding
+    /// `TargetSpec::EventObject`, LKI power/toughness/mana-value, and
+    /// `PlayerRel::EventPlayer` (its controller) on each pass.
+    EachMatchingPermanent(&'static Filter),
+    /// A bounded count evaluated once as the loop begins (CR 608.2h).
+    Times(super::Amount),
+}
+
+/// Which zone [`super::Effect::ChooseCard`] offers selectable objects/cards from.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ChooseZone {
+    /// Permanents on the battlefield (`filter` narrows controller/owner/qualities).
+    Battlefield,
+    /// Cards in the graveyard(s) of `PlayerRel`.
+    Graveyard(super::PlayerRel),
+}
+
+/// Optional zone movement applied to each card or permanent chosen by
+/// [`super::Effect::ChooseCard`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ChooseMove {
+    /// Leave chosen object(s) in place; bind to `EventObject` and run `then`.
+    None,
+    /// Move each chosen object to its owner's hand.
+    Hand,
+    /// Put each chosen card onto the battlefield under the resolving controller's
+    /// control, tapped when `tapped` is `true`.
+    Battlefield {
+        /// Whether the card enters tapped.
+        tapped: bool,
+    },
+    /// Put each chosen object on top of its owner's library.
+    TopOfLibrary,
+    /// Put each chosen object on the bottom of its owner's library.
+    BottomOfLibrary,
+    /// Put each chosen object into its owner's graveyard.
+    Graveyard,
+    /// Exile each chosen object.
+    Exile,
+}
+
+/// Destination for cards chosen during [`super::Effect::PeekAndReveal`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum PeekPickDest {
+    /// Leave chosen card(s) on top of the library (CR 701.20b).
+    StayOnTop,
+    /// Put chosen card(s) into the resolving controller's (or owner's) hand.
+    Hand,
+    /// Put chosen card(s) onto the battlefield under the resolving controller's
+    /// control, tapped when `tapped` is `true`.
+    Battlefield {
+        /// Whether the card enters tapped.
+        tapped: bool,
+    },
+    /// Put chosen card(s) on top of the library.
+    TopOfLibrary,
+    /// Put chosen card(s) into their owner's graveyard.
+    Graveyard,
+    /// Exile chosen card(s).
+    Exile,
+}
+
+/// Destination for unchosen inspected cards in [`super::Effect::PeekAndReveal`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum PeekRestDest {
+    /// Leave unchosen card(s) in their existing order on top of the library.
+    StayInOrder,
+    /// Put unchosen card(s) back on top of the library in any order chosen by
+    /// the viewer.
+    TopAnyOrder,
+    /// Put unchosen card(s) on the bottom of the library (`random: true` for
+    /// random order, `false` for viewer-chosen order).
+    BottomOfLibrary {
+        /// Whether the bottom order is randomized rather than chosen.
+        random: bool,
+    },
+    /// Put unchosen card(s) into their owner's graveyard.
+    Graveyard,
+    /// Exile unchosen card(s).
+    Exile,
+}

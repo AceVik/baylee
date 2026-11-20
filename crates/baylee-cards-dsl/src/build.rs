@@ -1152,12 +1152,13 @@ pub mod prelude {
     /// of every card file.
     pub use crate::counters;
     pub use crate::effect::{
-        Amount, ColorSubject, CombatWatchEvent, CopyCleanup, CounterKind, DamageRedirectTo,
-        DamageTo, DelayedDuration, DelayedObservation, DelayedStep, DelayedTriggerWhen,
-        DivisionAmount, Effect, ExilePlay, ExileUntil, Find, LookRest, ManaDistribution,
-        ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp, PlayWindow, PlayerRel,
-        ReflexiveEvent, ReflexiveWhen, SearchDest, SpendRider, TargetChooser, TargetReq,
-        TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember, ZoneSel,
+        Amount, ChooseMove, ChooseZone, ColorSubject, CombatWatchEvent, CopyCleanup, CounterKind,
+        DamageRedirectTo, DamageTo, DelayedDuration, DelayedObservation, DelayedStep,
+        DelayedTriggerWhen, DivisionAmount, Effect, ExilePlay, ExileUntil, Find, LookRest,
+        ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
+        PeekPickDest, PeekRestDest, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen,
+        RepeatDomain, SearchDest, SpendRider, TargetChooser, TargetReq, TargetSlot, TargetSpec,
+        ThisWay, TokenDef, TriggerRemember, ZoneSel,
     };
     pub use crate::filter::{Filter, OriginalExpansion, ZoneRef};
     pub use crate::static_ability::{

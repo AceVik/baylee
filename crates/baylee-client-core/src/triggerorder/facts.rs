@@ -520,6 +520,9 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::ChooseCreatureType { .. }
         | Effect::ChooseColor
         | Effect::ChooseColors { .. }
+        | Effect::ChooseCard { .. }
+        | Effect::PeekAndReveal { .. }
+        | Effect::RevealFromHand { .. }
         | Effect::PreventFromChosenSource { .. }
         | Effect::DiscardCount { .. }
         | Effect::DiscardMatching { .. }

@@ -152,7 +152,29 @@ fn reads_event(effect: &Effect) -> bool {
         Effect::LookAtTopPick { count, .. }
         | Effect::SearchLibraryUpTo { count, .. }
         | Effect::FlipCoins { count, .. }
-        | Effect::RollDice { count, .. } => reads_amount(*count),
+        | Effect::RollDice { count, .. }
+        | Effect::RepeatEach {
+            domain: baylee_cards_dsl::RepeatDomain::Times(count),
+            ..
+        } => reads_amount(*count),
+        Effect::ChooseCard {
+            chooser, zone, max, ..
+        } => {
+            reads_player(*chooser)
+                || reads_amount(*max)
+                || matches!(zone, baylee_cards_dsl::ChooseZone::Graveyard(p) if reads_player(*p))
+        }
+        Effect::PeekAndReveal {
+            library: player,
+            count,
+            ..
+        }
+        | Effect::RevealFromHand {
+            who: player,
+            max: count,
+            ..
+        }
+        | Effect::RevealTop { player, count, .. } => reads_player(*player) || reads_amount(*count),
         Effect::ChooseExiledToPlay { owner, .. }
         | Effect::RemoveCountersFromChosenExile { owner, .. }
         | Effect::CreateTokenCopiesOfGraveyard { player: owner, .. } => reads_player(*owner),

@@ -1874,6 +1874,65 @@ pub(super) fn exec_immediate(
             };
             run_nested(state, res, branch)
         }
+        Effect::GrantProtectionFromChosenColorUntilEot { filter } => {
+            super::wave3_ops::grant_protection_from_chosen_color(state, res, filter);
+            None
+        }
+        Effect::RepeatEach { domain, effects } => {
+            super::wave3_ops::repeat_each(state, res, domain, effects, op)
+        }
+        Effect::ChooseCard {
+            chooser,
+            zone,
+            filter,
+            min,
+            max,
+            movement,
+            then,
+        } => super::wave3_ops::choose_card_start(
+            state, res, chooser, zone, filter, min, max, movement, then,
+        ),
+        Effect::PeekAndReveal {
+            library,
+            count,
+            reveal_all,
+            reveal_chosen,
+            filter,
+            min_pick,
+            max_pick,
+            picked,
+            rest,
+            if_picked,
+        } => super::wave3_ops::peek_and_reveal_start(
+            state,
+            res,
+            library,
+            count,
+            reveal_all,
+            reveal_chosen,
+            filter,
+            min_pick,
+            max_pick,
+            picked,
+            rest,
+            if_picked,
+        ),
+        Effect::RevealFromHand {
+            who,
+            filter,
+            min,
+            max,
+            if_revealed,
+        } => {
+            super::wave3_ops::reveal_from_hand_start(state, res, who, filter, min, max, if_revealed)
+        }
+        Effect::RevealTop {
+            player,
+            count,
+            filter,
+            if_matches,
+            otherwise,
+        } => super::wave3_ops::reveal_top(state, res, player, count, filter, if_matches, otherwise),
         Effect::IfEventPowerAtLeast { n, then, otherwise } => {
             let power = res
                 .event_object
@@ -3444,6 +3503,9 @@ pub(super) fn exec_immediate(
                 for _ in 0..take {
                     let idx = state.rng.below(pool.len() as u64) as usize;
                     cards.push(pool.remove(idx));
+                }
+                if let Some(&first) = cards.first() {
+                    super::wave3_ops::bind_remembered_object(state, res, first);
                 }
                 state.journal.record(GameEvent::Revealed { player, cards });
             }

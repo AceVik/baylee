@@ -742,6 +742,38 @@ impl Effect {
                 player: _,
                 filter: _,
                 then,
+            }
+            | Effect::RepeatEach {
+                domain: _,
+                effects: then,
+            }
+            | Effect::ChooseCard {
+                chooser: _,
+                zone: _,
+                filter: _,
+                min: _,
+                max: _,
+                movement: _,
+                then,
+            }
+            | Effect::PeekAndReveal {
+                library: _,
+                count: _,
+                reveal_all: _,
+                reveal_chosen: _,
+                filter: _,
+                min_pick: _,
+                max_pick: _,
+                picked: _,
+                rest: _,
+                if_picked: then,
+            }
+            | Effect::RevealFromHand {
+                who: _,
+                filter: _,
+                min: _,
+                max: _,
+                if_revealed: then,
             } => (then, NONE),
             Effect::PlayerMayPayThenElse { player: _, mana: _, paid: then, unpaid: otherwise }
             | Effect::PlayerMayPayManaAndLifeEachThenElse { paid: then, unpaid: otherwise, .. }
@@ -771,6 +803,13 @@ impl Effect {
                 min: _,
                 max: _,
                 then,
+                otherwise,
+            }
+            | Effect::RevealTop {
+                player: _,
+                count: _,
+                filter: _,
+                if_matches: then,
                 otherwise,
             }
             | Effect::IfCondition {
@@ -1264,7 +1303,8 @@ impl Effect {
             | Effect::ChooseAndCreateTokenCopy { .. }
             | Effect::BecomeCopy { .. }
             | Effect::CopySpellOrAbility { .. }
-            | Effect::RollDice { .. } => (NONE, NONE),
+            | Effect::RollDice { .. }
+            | Effect::GrantProtectionFromChosenColorUntilEot { .. } => (NONE, NONE),
         }
     }
 

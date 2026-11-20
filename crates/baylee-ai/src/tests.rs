@@ -382,6 +382,7 @@ fn chosen_and_linked_filters_are_read_from_generation_19_and_refused_before() {
     for filter in [
         Filter::OfSourceChosenCardType,
         Filter::OfSourceChosenColor,
+        Filter::ChosenColor,
         Filter::SameNameAsLinkedExile,
         Filter::SharesColorWithExiledWithSource,
     ] {

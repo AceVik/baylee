@@ -1100,6 +1100,12 @@ pub(super) fn resume_arranged_inner(
                 let _ = state.move_object(card, library, ZonePosition::Bottom, Cause::Effect);
             }
         }
+        (AwaitingOp::PeekBottom { player }, [bottom]) => {
+            let target_lib = ZoneLocation::Library(player);
+            for &card in bottom {
+                let _ = state.move_object(card, target_lib, ZonePosition::Bottom, Cause::Effect);
+            }
+        }
         // CR 701.22a: any number on the bottom in any order, the rest on top
         // in any order. The library is the one the cards were looked at in,
         // which for Jace's "look at the top card of target player's library"

@@ -185,11 +185,12 @@ pub(crate) fn matches_damage_source_with_choices(
     )
 }
 
-/// Whether `filter` directly or recursively reads [`Filter::OfSourceChosenColor`].
+/// Whether `filter` directly or recursively reads [`Filter::OfSourceChosenColor`]
+/// or [`Filter::ChosenColor`].
 #[must_use]
 pub(crate) fn filter_reads_chosen_color(filter: &Filter) -> bool {
     match filter {
-        Filter::OfSourceChosenColor => true,
+        Filter::OfSourceChosenColor | Filter::ChosenColor => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_chosen_color),
         Filter::Not(inner) => filter_reads_chosen_color(inner),
         _ => false,
@@ -667,10 +668,16 @@ pub(crate) fn matches_projected_with_choices(
             .object(this)
             .and_then(crate::object::GameObject::chosen_card_type)
             .is_some_and(|chosen| chars.types.intersects(chosen)),
-        Filter::OfSourceChosenColor => {
+        Filter::OfSourceChosenColor | Filter::ChosenColor => {
             use baylee_core::color::Color;
             use baylee_core::mana::ManaColor;
             let chosen = match chosen_color
+                .or_else(|| {
+                    state
+                        .resolution_chosen_color
+                        .filter(|(src, _)| *src == this)
+                        .map(|(_, c)| c)
+                })
                 .or_else(|| state.object(this).and_then(|src| src.chosen_color))
             {
                 Some(ManaColor::White) => Some(Color::White),

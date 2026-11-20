@@ -96,6 +96,7 @@ mod sacrifices;
 pub mod tokens;
 #[cfg(not(feature = "test-support"))]
 pub(crate) mod tokens;
+pub(crate) mod wave3_ops;
 mod zones;
 
 mod answers;
@@ -852,6 +853,11 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
                     _ => None,
                 })
             })
+            .or_else(|| {
+                res.event_object
+                    .and_then(|id| state.object_or_departed(id))
+                    .map(|o| o.characteristics().mana_value())
+            })
             .unwrap_or(0),
         Amount::EventAmount => state
             .object(res.on_stack)
@@ -1349,6 +1355,14 @@ pub enum Flow {
 /// Runs a resolution until it completes or suspends on a choice.
 #[must_use]
 pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
+    let prev_color = state.resolution_chosen_color;
+    state.resolution_chosen_color = res.subject.chosen_color.map(|c| (res.source, c));
+    let flow = run_inner(state, res);
+    state.resolution_chosen_color = prev_color;
+    flow
+}
+
+fn run_inner(state: &mut GameState, res: &mut Resolution) -> Flow {
     subjects::flush(state, res);
     linked_reanimation::flush(state, res);
     // A payment may have moved several cards just before this resolution

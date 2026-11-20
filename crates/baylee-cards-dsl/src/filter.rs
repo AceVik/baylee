@@ -410,6 +410,11 @@ pub enum Filter {
     /// cast that share a creature type with this creature", or a battlefield
     /// filter for Coat of Arms).
     SharesCreatureTypeWith(&'static Filter),
+    /// Has the color chosen earlier in the current resolution (`Effect::ChooseColor`,
+    /// CR 608.2d), falling back to the source permanent's persistent chosen color
+    /// (`EnterModifier::ChooseColor`). A colorless object or an unset choice matches
+    /// nothing (CR 105.2c). Appended to preserve replay identities.
+    ChosenColor,
 }
 
 /// Zone references for filters (engine zones, DSL view).

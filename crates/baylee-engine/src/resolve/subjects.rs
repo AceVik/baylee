@@ -54,6 +54,7 @@ pub struct SubjectContext {
     checkpoint: Option<(Vec<DamageSourceRef>, u64)>,
     pub(super) last_die_roll: Option<u32>,
     pub(super) coins_won: u32,
+    pub(super) repeat_frames: Vec<super::wave3_ops::RepeatFrame>,
 }
 impl SubjectContext {
     /// Preserve the independent player targets of the second target instance.
@@ -92,6 +93,7 @@ impl SubjectContext {
             checkpoint: None,
             last_die_roll: None,
             coins_won: 0,
+            repeat_frames: Vec::new(),
         }
     }
 
@@ -253,6 +255,14 @@ impl SubjectContext {
                 .wrapping_add(crate::state::structural_fingerprint(&(
                     95_u8,
                     self.coins_won,
+                )));
+        }
+        if !self.repeat_frames.is_empty() {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    97_u8,
+                    &self.repeat_frames,
                 )));
         }
         // Checkpoints exist only during synchronous resume calls. Every

@@ -1198,7 +1198,10 @@ impl<L: CardLookup, D: LoopDetection> Engine<L, D> {
                 | resolve::AwaitingOp::SearchLibrary { inspected, .. }
                 | resolve::AwaitingOp::SearchTakeover { inspected, .. },
             ) => inspected,
-            Some(resolve::AwaitingOp::DigRest { rest, .. }) => rest,
+            Some(
+                resolve::AwaitingOp::DigRest { rest, .. }
+                | resolve::AwaitingOp::PeekAndRevealOp { looked: rest, .. },
+            ) => rest,
             Some(
                 resolve::AwaitingOp::Hideaway { looked }
                 | resolve::AwaitingOp::LookedCardToExile { looked, .. },

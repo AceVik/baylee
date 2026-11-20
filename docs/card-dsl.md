@@ -5497,3 +5497,39 @@ registers one or more delayed triggered abilities during resolution:
     `EventAmount`), and stores the modified total in `Amount::LastDieRoll` for
     downstream `Amount::LastDieRoll` consumers and chained
     `Effect::IfDieRollInRange { min, max, then, otherwise }` result tables.
+- **Resolution-chosen color protection & sweeps (`CR 608.2d`, `CR 702.16`):**
+  - `Filter::ChosenColor` matches objects having the color chosen earlier in the
+    current resolution via `Effect::ChooseColor` (falling back to a permanent's
+    persistent `chosen_color`), working across `DestroyAll`, `DestroyAllOf`,
+    `ReturnAllToHand`, `ExileAll`, `DiscardMatching`, `RevealHandDiscard`,
+    `LookHandDiscard`, `DealDamage`, `Amount::ControlledCount`, `Amount::CountOf`,
+    and `ThisWay::Revealed`.
+  - `Effect::GrantProtectionFromChosenColorUntilEot { filter }` grants protection
+    from the resolution-chosen color until end of turn (`CR 702.16`, `CR 611.2c`),
+    locking matching permanents on resolution (or binding surviving targets on
+    `Filter::This`) so illegal Auras/Equipment unattach via SBA (`CR 704.5m`,
+    `CR 704.5n`) and damage/blocking/targeting from sources of that color are
+    prevented or illegal.
+- **Re-entrant bounded iteration (`CR 101.4`, `CR 608.2h`):**
+  - `Effect::RepeatEach { domain, effects }` executes `effects` sequentially across
+    `RepeatDomain::{EachPlayer, EachOpponent, EachMatchingPermanent(&Filter), Times(Amount)}`
+    in APNAP player order (`CR 101.4`) or deterministic permanent order, binding
+    `PlayerRel::EventPlayer` (and `TargetSpec::EventObject` + LKI characteristics
+    on `EachMatchingPermanent`) per pass and preserving outer event bindings when
+    the loop completes, even across interactive `Pending` suspensions inside `effects`.
+- **Generalized untargeted `ChooseCard`, `PeekAndReveal`, and `Reveal` (`CR 608.2d`, `CR 701.20`):**
+  - `Effect::ChooseCard { chooser, zone, filter, min, max, movement, then }`
+    selects `min..=max` objects from `ChooseZone::{Battlefield, Graveyard(PlayerRel)}`
+    into `EventObject` (`Remembered`), applies `ChooseMove::{None, Hand, Battlefield { tapped }, TopOfLibrary, BottomOfLibrary, Graveyard, Exile}`,
+    and executes `then` per chosen object.
+  - `Effect::PeekAndReveal { library, count, reveal_all, reveal_chosen, filter, min_pick, max_pick, picked, rest, if_picked }`
+    inspects (or publicly reveals) the top `count` cards of `library`, chooses
+    `min_pick..=max_pick` matching `filter` into
+    `PeekPickDest::{StayOnTop, Hand, Battlefield { tapped }, TopOfLibrary, Graveyard, Exile}`,
+    places unchosen cards per
+    `PeekRestDest::{StayInOrder, TopAnyOrder, BottomOfLibrary { random }, Graveyard, Exile}`,
+    and runs `if_picked` when at least one card was selected.
+  - `Effect::RevealFromHand { who, filter, min, max, if_revealed }` reveals
+    `min..=max` matching cards in place from `who`'s hand (`CR 701.20a`, `CR 701.20b`),
+    and `Effect::RevealTop { player, count, filter, if_matches, otherwise }`
+    reveals the top `count` library card(s) in place and branches on `filter`.

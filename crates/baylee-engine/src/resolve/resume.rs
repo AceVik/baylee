@@ -1001,6 +1001,65 @@ pub(super) fn resume_inner(
                 return Flow::Wait(pending);
             }
         }
+        AwaitingOp::ChooseCardOp {
+            zone,
+            movement,
+            then,
+        } => {
+            if let Some(pending) =
+                super::wave3_ops::choose_card_finish(state, res, zone, movement, then, chosen)
+            {
+                return Flow::Wait(pending);
+            }
+        }
+        AwaitingOp::PeekAndRevealOp {
+            lib_owner,
+            looked,
+            reveal_chosen,
+            picked,
+            rest,
+            if_picked,
+        } => {
+            if let Some(pending) = super::wave3_ops::peek_and_reveal_finish(
+                state,
+                res,
+                lib_owner,
+                looked,
+                reveal_chosen,
+                picked,
+                rest,
+                if_picked,
+                chosen,
+            ) {
+                return Flow::Wait(pending);
+            }
+        }
+        AwaitingOp::RevealFromHandOp {
+            player,
+            remaining_players,
+            filter,
+            min,
+            max,
+            any_revealed,
+            first_revealed,
+            if_revealed,
+        } => {
+            if let Some(pending) = super::wave3_ops::reveal_from_hand_resume(
+                state,
+                res,
+                player,
+                remaining_players,
+                filter,
+                min,
+                max,
+                any_revealed,
+                first_revealed,
+                if_revealed,
+                chosen,
+            ) {
+                return Flow::Wait(pending);
+            }
+        }
         AwaitingOp::BottomFromHand { player, then } => {
             // "That player reveals the chosen card" (Vendilion Clique): the
             // chooser has seen the hand, the rest of the table has not, and
@@ -1596,6 +1655,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::FlipCoinsUntilLossOrStopCumulative { .. }
         | AwaitingOp::CoinFlipIgnore { .. }
         | AwaitingOp::RevealTopPlayerMayPut { .. }
+        | AwaitingOp::PeekBottom { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
         }

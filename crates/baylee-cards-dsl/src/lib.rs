@@ -60,11 +60,12 @@ pub use build::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, ColorSubject, CombatWatchEvent, CopyCleanup, CounterKind, DamageRedirectTo, DamageTo,
-    DelayedDuration, DelayedObservation, DelayedStep, DelayedTriggerWhen, DivisionAmount, Effect,
-    ExilePlay, ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse,
-    ManaValueBound, ManaValueCmp, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, SearchDest,
-    SpendRider, TargetChooser, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef,
+    Amount, ChooseMove, ChooseZone, ColorSubject, CombatWatchEvent, CopyCleanup, CounterKind,
+    DamageRedirectTo, DamageTo, DelayedDuration, DelayedObservation, DelayedStep,
+    DelayedTriggerWhen, DivisionAmount, Effect, ExilePlay, ExileUntil, Find, LookRest,
+    ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
+    PeekPickDest, PeekRestDest, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain,
+    SearchDest, SpendRider, TargetChooser, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef,
     TriggerRemember, ZoneSel,
 };
 pub use filter::{Filter, OriginalExpansion, ZoneRef};

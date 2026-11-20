@@ -4757,6 +4757,112 @@ pub enum Effect {
         /// (chain another `IfDieRollInRange` here for multi-row AFR tables).
         otherwise: &'static [Effect],
     },
+    /// Grant protection from the color chosen earlier in this resolution by
+    /// [`Effect::ChooseColor`] (or the source's persistent chosen color) until
+    /// end of turn to permanent(s) matching `filter` (Akroma's Blessing, Brave
+    /// the Elements, Reverent Mantra, Glory; CR 702.16, CR 611.2c). `Filter::This`
+    /// follows surviving target(s) (or the source when untargeted);
+    /// `Filter::AttachedToBySource` follows the enchanted/equipped host; broader
+    /// filters lock their affected battlefield set on resolution. Appended to
+    /// preserve replay identities.
+    GrantProtectionFromChosenColorUntilEot {
+        /// Which permanent(s) gain protection from the chosen color until end of turn.
+        filter: &'static Filter,
+    },
+    /// Execute `effects` once for each item in `domain` in deterministic APNAP
+    /// player order (CR 101.4) or permanent order (CR 608.2h), with full
+    /// re-entrant suspension so interactive choices inside `effects` pause and
+    /// resume cleanly across iterations. Appended to preserve replay identities.
+    RepeatEach {
+        /// Players, matching permanents, or bounded iteration count.
+        domain: RepeatDomain,
+        /// Loop body executed on each pass.
+        effects: &'static [Effect],
+    },
+    /// Untargeted resolution choice of `min..=max` objects/cards from
+    /// `zone` (`Battlefield` or `Graveyard`) matching `filter` (CR 608.2d),
+    /// binding chosen object(s) to `EventObject` (`Remembered`), optionally
+    /// moving them via `movement`, and running `then` per chosen object.
+    /// Appended to preserve replay identities.
+    ChooseCard {
+        /// Which player makes the choice.
+        chooser: PlayerRel,
+        /// Battlefield or graveyard source zone.
+        zone: ChooseZone,
+        /// Eligibility filter evaluated from the resolving controller.
+        filter: &'static Filter,
+        /// Minimum selection count (`0` for optional / "up to", clamped to
+        /// available legal options per CR 608.2d / CR 609.3).
+        min: u8,
+        /// Maximum selection count.
+        max: Amount,
+        /// Optional zone movement applied to each chosen object.
+        movement: ChooseMove,
+        /// Optional follow-up instructions executed per chosen object with
+        /// `EventObject` bound.
+        then: &'static [Effect],
+    },
+    /// Look at (or reveal when `reveal_all` is `true`) the top `count` cards of
+    /// `library`, optionally choose `min_pick..=max_pick` cards matching `filter`
+    /// (revealing them when `reveal_chosen` is `true`, CR 701.20a), move chosen
+    /// cards to `picked` and remaining cards to `rest`, and run `if_picked` if at
+    /// least one card was chosen (with `EventObject` bound). Appended to preserve
+    /// replay identities.
+    PeekAndReveal {
+        /// Whose library is inspected.
+        library: PlayerRel,
+        /// Number of top cards inspected.
+        count: Amount,
+        /// Publicly reveal all `count` top cards up front rather than looking privately.
+        reveal_all: bool,
+        /// Reveal chosen cards when `reveal_all` is `false`.
+        reveal_chosen: bool,
+        /// Filter selectable cards must match (`&Filter::Any` when unrestricted).
+        filter: &'static Filter,
+        /// Minimum cards to select (`0` for optional / "up to").
+        min_pick: u8,
+        /// Maximum cards to select (`u8::MAX` for all matching).
+        max_pick: u8,
+        /// Destination for selected cards.
+        picked: PeekPickDest,
+        /// Destination for unselected inspected cards.
+        rest: PeekRestDest,
+        /// Instructions executed when at least one card was selected.
+        if_picked: &'static [Effect],
+    },
+    /// Player(s) matching `who` choose `min..=max` cards matching `filter` from
+    /// their hand and reveal them without moving them (CR 701.20a, CR 701.20b),
+    /// binding `EventObject` to the first revealed card and running `if_revealed`
+    /// if at least one card was revealed. Appended to preserve replay identities.
+    RevealFromHand {
+        /// Whose hand cards are chosen and revealed from.
+        who: PlayerRel,
+        /// Eligible cards in hand.
+        filter: &'static Filter,
+        /// Minimum cards to reveal (`0` for "you may reveal" / "any number").
+        min: u8,
+        /// Maximum cards to reveal.
+        max: Amount,
+        /// Executed when at least one card is revealed.
+        if_revealed: &'static [Effect],
+    },
+    /// Reveal the top `count` card(s) of `player`'s library in place (CR 701.20a,
+    /// CR 701.20b), bind `EventObject` to the top revealed card, and branch to
+    /// `if_matches` when at least one revealed card matches `filter` (or
+    /// `otherwise` when cards were revealed and none matched). Appended to
+    /// preserve replay identities.
+    RevealTop {
+        /// Whose library's top card(s) are revealed.
+        player: PlayerRel,
+        /// Number of top cards revealed.
+        count: Amount,
+        /// Filter tested against the revealed card(s).
+        filter: &'static Filter,
+        /// Executed when at least one revealed card matches `filter`.
+        if_matches: &'static [Effect],
+        /// Executed when cards were revealed and none matched `filter`.
+        otherwise: &'static [Effect],
+    },
 }
 
 #[cfg(test)]

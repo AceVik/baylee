@@ -64,6 +64,7 @@ mod transforms;
 mod triggers;
 pub(super) mod untap_scope;
 mod wave2_bugs_copy_and_dice;
+mod wave3_repeat_choose_color;
 mod wave3_rules;
 mod wave3b_rules;
 mod zones;

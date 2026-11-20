@@ -736,6 +736,11 @@ pub struct GameState {
     /// `snapshot_hash` nor `loop_signature` reads it. It rests on a rule the
     /// build enforces, not on which cards happen to exist.
     pub reflexive: Vec<crate::trigger::PendingTrigger>,
+    /// Transient `(source, color)` binding active only while `resolve::run` is
+    /// executing a resolution that chose a color (`Effect::ChooseColor`,
+    /// CR 608.2d); always `None` at rest (between calls into `resolve::run`),
+    /// where `Resolution::subject.chosen_color` carries the persisted state.
+    pub(crate) resolution_chosen_color: Option<(ObjectId, baylee_core::mana::ManaColor)>,
     /// Cards a resolving discover (CR 701.57a) exiled and stopped at:
     /// `(the discovering player, the card, its version in exile)`.
     ///
@@ -974,6 +979,7 @@ impl GameState {
             ltb_combat,
             ceased,
             reflexive,
+            resolution_chosen_color: _,
             discovered,
             divided,
             synthetic_copies,

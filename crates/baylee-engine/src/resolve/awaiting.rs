@@ -1246,6 +1246,54 @@ pub enum AwaitingOp {
         /// Copy modifiers, entry flags, and cleanup.
         spec: super::tokens::copy_tokens::TokenCopySpec,
     },
+    /// Untargeted selection for `Effect::ChooseCard`.
+    ChooseCardOp {
+        /// Battlefield or graveyard source zone.
+        zone: baylee_cards_dsl::ChooseZone,
+        /// Optional zone movement applied to each chosen object.
+        movement: baylee_cards_dsl::ChooseMove,
+        /// Optional follow-up instructions executed per chosen object.
+        then: &'static [Effect],
+    },
+    /// Selection step of `Effect::PeekAndReveal`.
+    PeekAndRevealOp {
+        /// Owner of the inspected library.
+        lib_owner: PlayerId,
+        /// Inspected top cards, top first.
+        looked: Vec<ObjectId>,
+        /// Whether chosen cards are publicly revealed on selection.
+        reveal_chosen: bool,
+        /// Destination for selected cards.
+        picked: baylee_cards_dsl::PeekPickDest,
+        /// Destination for unselected inspected cards.
+        rest: baylee_cards_dsl::PeekRestDest,
+        /// Follow-up instructions run when at least one card was selected.
+        if_picked: &'static [Effect],
+    },
+    /// Hand selection step of `Effect::RevealFromHand`.
+    RevealFromHandOp {
+        /// Player currently choosing from their hand.
+        player: PlayerId,
+        /// Remaining players in reverse APNAP order.
+        remaining_players: Vec<PlayerId>,
+        /// Filter selectable hand cards must match.
+        filter: &'static baylee_cards_dsl::Filter,
+        /// Printed minimum cards to reveal.
+        min: u8,
+        /// Maximum cards to reveal.
+        max: u8,
+        /// Whether any player has revealed at least one card so far.
+        any_revealed: bool,
+        /// First card revealed across players, bound to `EventObject` at completion.
+        first_revealed: Option<ObjectId>,
+        /// Follow-up instructions run if `any_revealed` is `true`.
+        if_revealed: &'static [Effect],
+    },
+    /// Bottom-ordering step of `Effect::PeekAndReveal` for `player`'s library.
+    PeekBottom {
+        /// Library owner whose bottom cards are ordered.
+        player: PlayerId,
+    },
 }
 
 /// Work to resume after an optional life payment.
@@ -1537,6 +1585,48 @@ impl AwaitingOp {
             Self::ChooseTokenCopy { count, spec } => {
                 crate::state::structural_fingerprint(&(96_u8, count, spec))
             }
+            Self::ChooseCardOp {
+                zone,
+                movement,
+                then,
+            } => crate::state::structural_fingerprint(&(98_u8, zone, movement, then)),
+            Self::PeekAndRevealOp {
+                lib_owner,
+                looked,
+                reveal_chosen,
+                picked,
+                rest,
+                if_picked,
+            } => crate::state::structural_fingerprint(&(
+                99_u8,
+                lib_owner,
+                looked,
+                reveal_chosen,
+                picked,
+                rest,
+                if_picked,
+            )),
+            Self::RevealFromHandOp {
+                player,
+                remaining_players,
+                filter,
+                min,
+                max,
+                any_revealed,
+                first_revealed,
+                if_revealed,
+            } => crate::state::structural_fingerprint(&(
+                100_u8,
+                player,
+                remaining_players,
+                filter,
+                min,
+                max,
+                any_revealed,
+                first_revealed,
+                if_revealed,
+            )),
+            Self::PeekBottom { player } => crate::state::structural_fingerprint(&(101_u8, player)),
             _ => 0,
         }
     }

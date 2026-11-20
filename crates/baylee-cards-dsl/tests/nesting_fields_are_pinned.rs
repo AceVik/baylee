@@ -99,7 +99,9 @@
 // PlayerMayPayLifeThen adds one walker-tested successful-payment body.
 // ReflexiveTrigger and RegisterDelayedTrigger add one walker-tested body each.
 // FlipCoins, FlipUntilLose, and IfDieRollInRange add two walker-tested bodies each.
-const NESTING_FIELDS: usize = 97;
+// RepeatEach, ChooseCard, PeekAndReveal, and RevealFromHand add one walker-tested
+// body each; RevealTop adds two walker-tested bodies.
+const NESTING_FIELDS: usize = 103;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -166,7 +168,10 @@ const NESTING_FIELDS: usize = 97;
 /// eighty-third (`reflexive_and_registered_delayed_trigger_bodies_are_visited`).
 /// `FlipCoins`, `FlipUntilLose`, and `IfDieRollInRange` are the eighty-fourth
 /// through eighty-sixth (`multi_coin_and_die_roll_branches_are_visited`).
-const CARRYING_VARIANTS: usize = 86;
+/// `RepeatEach`, `ChooseCard`, `PeekAndReveal`, `RevealFromHand`, and
+/// `RevealTop` are the eighty-seventh through ninety-first
+/// (`repeat_each_choose_card_peek_and_reveal_branches_are_visited`).
+const CARRYING_VARIANTS: usize = 91;
 
 /// The floor under the reader itself.
 ///

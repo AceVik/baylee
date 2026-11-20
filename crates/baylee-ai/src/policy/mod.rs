@@ -1083,6 +1083,9 @@ impl HeuristicAgent {
         options: &[ManaColor],
         context: &DecisionContext<'_>,
     ) -> ManaColor {
+        if let Some(color) = self.resolution_color(view, options, context.effects) {
+            return color;
+        }
         let only_for = crate::restricted::only_for(context.effects);
         if only_for.is_none()
             && let Some(color) = owed_color(view, options)
@@ -1119,6 +1122,65 @@ impl HeuristicAgent {
                 )
             })
             .unwrap_or(ManaColor::Colorless)
+    }
+
+    /// Tactical color selection for resolution-scoped `Effect::ChooseColor` /
+    /// `ProtectionFromChosenColor`: prefers the opponent's strongest board color
+    /// for protection, prevention, sweeps, or hand disruption.
+    fn resolution_color(
+        &self,
+        view: &PlayerView,
+        options: &[ManaColor],
+        effects: &[Effect],
+    ) -> Option<ManaColor> {
+        let is_res_color = effects.iter().any(|e| {
+            matches!(
+                e,
+                Effect::ChooseColor
+                    | Effect::GrantProtectionFromChosenColorUntilEot { .. }
+                    | Effect::ProtectionFromChosenColor { .. }
+            )
+        });
+        if !is_res_color || options.is_empty() {
+            return None;
+        }
+        let symmetric_sweep = effects.iter().any(|e| {
+            matches!(
+                e,
+                Effect::DestroyAll { .. }
+                    | Effect::ReturnAllToHand {
+                        opponents_only: false,
+                        ..
+                    }
+            )
+        });
+        let positive_count = effects.iter().any(|e| {
+            matches!(
+                e,
+                Effect::CreateTokenN { .. } | Effect::GainLife { .. } | Effect::GainLifeFor { .. }
+            )
+        });
+        let me = view.seat;
+        options
+            .iter()
+            .copied()
+            .filter(|&c| c != ManaColor::Colorless)
+            .max_by_key(|&mc| {
+                let set = color_set(mc);
+                let mut score = 0_i64;
+                for o in &view.battlefield {
+                    if !o.colors.intersects(set) {
+                        continue;
+                    }
+                    let weight = 100 + i64::from(o.power.unwrap_or(0).max(0)) * 40;
+                    if positive_count || self.hostile(o.controller, me) {
+                        score += weight;
+                    } else if symmetric_sweep {
+                        score -= weight;
+                    }
+                }
+                (score, std::cmp::Reverse(mc.index()))
+            })
     }
 
     /// Reconstruct a useful payment from this view instead of remembering a
