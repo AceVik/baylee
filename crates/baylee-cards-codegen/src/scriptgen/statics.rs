@@ -1,8 +1,8 @@
 //! Reading static abilities and the modifiers they apply.
 
 use super::{
-    Bound, Params, Tx, animation::supertype_const, card_type_const, count_bound, counter_kind,
-    keyword_const,
+    Bound, Chain, Params, Tx, animation::supertype_const, card_type_const, count_bound,
+    counter_kind, keyword_const,
 };
 
 pub(super) enum GrantedActivated {
@@ -245,6 +245,8 @@ impl Tx<'_> {
             "CanAttackIfHaste" => return self.attack_as_though("AttacksAsThoughHaste", p),
             "CantPlayLand" => return self.cant_play_land(p),
             "CantPhaseOut" => return self.cant_phase_out(p),
+            "OptionalAttackCost" => return self.optional_attack_cost(p),
+            "IgnoreLandWalk" => return self.ignore_landwalk(p),
             _ => {}
         }
         if p.peek("EffectZone") == Some("Graveyard") && p.peek("Affected") == Some("Land.YouCtrl") {
@@ -262,6 +264,7 @@ impl Tx<'_> {
             self.note(format!("static ability `S: Mode$ {mode}`"));
             return None;
         }
+        let had_description = p.has("Description");
         p.drop_prose();
         // `EffectZone$ Battlefield` is the default written out; any other
         // zone means the source works from somewhere else, which is a
@@ -360,6 +363,7 @@ impl Tx<'_> {
                 return None;
             }
         }
+        let dropped_ai_svar = self.strip_ai_hint_add_svar(&mut p);
         if effect_zone.is_some() || !condition.is_empty() {
             let zone_arg = effect_zone.map_or_else(String::new, |z| format!(", zone = {z}"));
             for ability in &mut out {
@@ -367,6 +371,9 @@ impl Tx<'_> {
                     *ability = format!("{open}{zone_arg}{condition})");
                 }
             }
+        }
+        if out.is_empty() && !self_granted && dropped_ai_svar && !had_description && p.exhausted() {
+            return Some(());
         }
         // The honest-stub rule: one key nothing claimed and the card stays
         // a stub, however much of the line was understood.
@@ -1501,6 +1508,22 @@ impl Tx<'_> {
                     ));
                     continue;
                 }
+                if modifier == "AddKeyword"
+                    && let Some(rest) = word.trim().strip_prefix("Ward:")
+                {
+                    let Some(effect) = self.ward_effect_expr(rest, true) else {
+                        self.note(format!("static ability granting keyword `{word}`"));
+                        return None;
+                    };
+                    out.push(Self::static_expr(
+                        filter,
+                        &format!(
+                            "Modifier::GrantTriggered {{ trigger: Trigger::Ward, \
+                             effects: &[{effect}], target: None }}"
+                        ),
+                    ));
+                    continue;
+                }
                 let Some(bit) = keyword_const(word) else {
                     self.note(format!("static ability granting keyword `{word}`"));
                     return None;
@@ -2474,6 +2497,183 @@ impl Tx<'_> {
     pub(super) fn static_expr(filter: &str, modifier: &str) -> String {
         format!("static_ability!({filter}, {modifier})")
     }
+
+    /// `S: Mode$ OptionalAttackCost | ValidCard$ Card.Self | Cost$ Exert<1/CARDNAME>`
+    /// (with optional reflexive `Trigger$ <DB$>`, CR 701.43a–c, CR 603.12).
+    fn optional_attack_cost(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+            || !matches!(
+                p.take("ValidCard").as_deref(),
+                Some("Card.Self" | "Creature.Self")
+            )
+        {
+            return self.deny("static ability `S: Mode$ OptionalAttackCost`".to_string());
+        }
+        let Some(cost) = p.take("Cost") else {
+            return self.deny("static ability `S: Mode$ OptionalAttackCost`".to_string());
+        };
+        if !is_exert_self_cost(&cost) {
+            return self.deny("static ability `S: Mode$ OptionalAttackCost`".to_string());
+        }
+        let trigger_svar = p.take("Trigger");
+        if !p.exhausted() {
+            return self.deny("static ability `S: Mode$ OptionalAttackCost`".to_string());
+        }
+        let Some(svar_name) = trigger_svar else {
+            self.body.abilities.push(
+                "triggered!(Trigger::Attacks(&Filter::This), \
+                 &[Effect::MayDo { effects: &[Effect::ExertSource] }])"
+                    .to_string(),
+            );
+            return Some(());
+        };
+        let Some(body) = self.svars.get(svar_name.trim()).cloned() else {
+            return self.deny("static ability `S: Mode$ OptionalAttackCost`".to_string());
+        };
+        if !body.trim_start().starts_with("DB$") {
+            return self.deny("static ability `S: Mode$ OptionalAttackCost`".to_string());
+        }
+        let prev_mode = self.trigger_mode.take();
+        let prev_self = std::mem::replace(&mut self.trigger_is_self, false);
+        let prev_spell = std::mem::replace(&mut self.on_a_spell, false);
+        let mut chain = Chain::default();
+        let ok = self.chain(&body, &mut chain);
+        self.trigger_mode = prev_mode;
+        self.trigger_is_self = prev_self;
+        self.on_a_spell = prev_spell;
+        ok?;
+        if chain.effects.is_empty()
+            || chain.second_target.is_some()
+            || chain.target_is_x
+            || chain.target_up_to.is_some()
+            || matches!(chain.target_exact, Some(n) if n != 1)
+        {
+            return self.deny("static ability `S: Mode$ OptionalAttackCost`".to_string());
+        }
+        let target = chain
+            .target
+            .as_deref()
+            .map_or_else(|| "None".to_string(), |t| format!("Some({t})"));
+        let effects = chain.effects.join(", ");
+        self.body.abilities.push(format!(
+            "triggered!(Trigger::Attacks(&Filter::This), \
+             &[Effect::MayDo {{ effects: &[Effect::ExertSource] }}, \
+             Effect::Reflexive {{ when: ReflexiveEvent::ExertedThis, \
+             effects: &[{effects}], target: {target} }}])"
+        ));
+        Some(())
+    }
+
+    /// `S: Mode$ IgnoreLandWalk` without `ValidBlocker$` (`Modifier::BlockableWithoutAnyLandwalk`
+    /// or `Modifier::BlockableWithoutLandwalk`).
+    fn ignore_landwalk(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if !matches!(p.take("Secondary").as_deref(), None | Some("True")) {
+            return self.deny("static ability `S: Mode$ IgnoreLandWalk`".to_string());
+        }
+        let zone = self.take_static_effect_zone(&mut p, "IgnoreLandWalk")?;
+        let modifier = match p.take("ValidKeyword").as_deref() {
+            None => "Modifier::BlockableWithoutAnyLandwalk".to_string(),
+            Some("Landwalk:Plains") => {
+                "Modifier::BlockableWithoutLandwalk(KeywordSet::PLAINSWALK)".to_string()
+            }
+            Some("Landwalk:Island") => {
+                "Modifier::BlockableWithoutLandwalk(KeywordSet::ISLANDWALK)".to_string()
+            }
+            Some("Landwalk:Swamp") => {
+                "Modifier::BlockableWithoutLandwalk(KeywordSet::SWAMPWALK)".to_string()
+            }
+            Some("Landwalk:Mountain") => {
+                "Modifier::BlockableWithoutLandwalk(KeywordSet::MOUNTAINWALK)".to_string()
+            }
+            Some("Landwalk:Forest") => {
+                "Modifier::BlockableWithoutLandwalk(KeywordSet::FORESTWALK)".to_string()
+            }
+            Some(_) => return self.deny("static ability `S: Mode$ IgnoreLandWalk`".to_string()),
+        };
+        let cond =
+            self.static_conditions(&mut p, "unclaimed parameter `IgnoreLandWalk.CheckSVar`")?;
+        if !p.exhausted() {
+            return self.deny("static ability `S: Mode$ IgnoreLandWalk`".to_string());
+        }
+        self.body.abilities.push(Self::format_static_expr(
+            "Filter::CREATURE",
+            &modifier,
+            zone,
+            &cond,
+        ));
+        Some(())
+    }
+
+    /// Claims `AddSVar$` on a `Continuous` static when every referenced `SVar` is
+    /// strictly a non-rules Forge AI hint (`SVar:<hint>:<value>`).
+    fn strip_ai_hint_add_svar(&self, p: &mut Params) -> bool {
+        let Some(raw) = p.peek("AddSVar") else {
+            return false;
+        };
+        let mut any = false;
+        for name in raw.split('&').map(str::trim).filter(|s| !s.is_empty()) {
+            any = true;
+            let Some(def) = self.svars.get(name) else {
+                return false;
+            };
+            if !is_pure_ai_hint_svar(def) {
+                return false;
+            }
+        }
+        if any {
+            p.take("AddSVar");
+        }
+        any
+    }
+}
+
+fn is_exert_self_cost(cost: &str) -> bool {
+    let Some(inner) = cost
+        .trim()
+        .strip_prefix("Exert<")
+        .and_then(|s| s.strip_suffix('>'))
+    else {
+        return false;
+    };
+    let mut parts = inner.split('/');
+    let Some(count) = parts.next() else {
+        return false;
+    };
+    let Some(subject) = parts.next() else {
+        return false;
+    };
+    let _desc = parts.next();
+    parts.next().is_none()
+        && count.trim() == "1"
+        && matches!(subject.trim(), "CARDNAME" | "NICKNAME")
+}
+
+fn is_pure_ai_hint_svar(def: &str) -> bool {
+    let Some(rest) = def.trim().strip_prefix("SVar:") else {
+        return false;
+    };
+    let Some((key, _)) = rest.split_once(':') else {
+        return false;
+    };
+    matches!(
+        key.trim(),
+        "HasAttackEffect"
+            | "HasCombatEffect"
+            | "MustBeBlocked"
+            | "EquipMe"
+            | "DontEquip"
+            | "EnchantMe"
+            | "DestroyWhenDamaged"
+            | "AITapDown"
+            | "SacMe"
+            | "MustAttack"
+            | "Targeting"
+            | "EndOfTurnLeavePlay"
+            | "DiscardMe"
+            | "NonStackingEffect"
+    )
 }
 
 fn parse_pt_multiplier(raw: &str) -> Option<(&str, i16)> {

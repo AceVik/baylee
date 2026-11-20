@@ -370,16 +370,27 @@ impl Tx<'_> {
                 n.trim().parse::<u32>().ok().map(|v| (1u8, v))
             } else if let Some(n) = rhs.strip_prefix("Minus.") {
                 n.trim().parse::<u32>().ok().map(|v| (2u8, v))
+            } else if rhs == "Thrice" {
+                Some((0u8, 3))
             } else if rhs == "HalfDown" {
                 Some((3u8, 0))
             } else if rhs == "HalfUp" {
                 Some((4u8, 0))
-            } else if let Some(n) = rhs.strip_prefix("Div.") {
+            } else if let Some(n) = rhs
+                .strip_prefix("Div.")
+                .or_else(|| rhs.strip_prefix("DivideEvenlyDown."))
+            {
                 n.trim()
                     .parse::<u32>()
                     .ok()
                     .filter(|&v| v >= 2)
                     .map(|v| (5u8, v))
+            } else if let Some(n) = rhs.strip_prefix("DivideEvenlyUp.") {
+                n.trim()
+                    .parse::<u32>()
+                    .ok()
+                    .filter(|&v| v >= 2)
+                    .map(|v| (6u8, v))
             } else {
                 None
             };
@@ -399,6 +410,7 @@ impl Tx<'_> {
                     3 => format!("Amount::Half {{ base: &{base}, round_up: false }}"),
                     4 => format!("Amount::Half {{ base: &{base}, round_up: true }}"),
                     5 => format!("Amount::divided(&{base}, {arg}, false)"),
+                    6 => format!("Amount::divided(&{base}, {arg}, true)"),
                     _ => unreachable!(),
                 });
             }

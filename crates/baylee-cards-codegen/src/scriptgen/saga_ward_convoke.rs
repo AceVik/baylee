@@ -268,8 +268,31 @@ impl Tx<'_> {
     }
 
     fn ward_extra(&mut self, rest: &str) -> Option<()> {
+        let effect = self.ward_effect_expr(rest, false)?;
+        self.body
+            .abilities
+            .push(format!("triggered!(Trigger::Ward, &[{effect}])"));
+        Some(())
+    }
+
+    /// Lowers the cost of `Ward:<rest>` (from `K:Ward:` or static
+    /// `AddKeyword$ Ward:`) to its `Effect::PlayerMay*Or` expression.
+    /// Generic integer ward (`1..=10`) is accepted only when `allow_generic`
+    /// is true (granted static abilities; printed `K:Ward:<n>` uses
+    /// `AbilityDef::Ward { mana }`).
+    pub(super) fn ward_effect_expr(&mut self, rest: &str, allow_generic: bool) -> Option<String> {
+        let rest = rest.trim();
         if rest.contains(':') {
             return self.deny(format!("ward `{rest}`"));
+        }
+        if allow_generic
+            && let Ok(n) = rest.parse::<u32>()
+            && (1..=10).contains(&n)
+        {
+            return Some(format!(
+                "Effect::PlayerMayPayOr {{ player: PlayerRel::ControllerOfTarget, \
+                 mana: Amount::Fixed({n}), effect: &Effect::CounterTargetSpellOrAbility }}"
+            ));
         }
         if let Some(body) = rest
             .strip_prefix("PayLife<")
@@ -294,17 +317,15 @@ impl Tx<'_> {
         }
         if !rest.contains('<') {
             let mana = self.parse_fixed_mana_cost(rest, "Ward")?;
-            self.body.abilities.push(format!(
-                "triggered!(Trigger::Ward, &[Effect::PlayerMayPayManaOr {{ \
-                 player: PlayerRel::ControllerOfTarget, cost: mana!(\"{mana}\"), \
-                 effect: &Effect::CounterTargetSpellOrAbility }}])"
+            return Some(format!(
+                "Effect::PlayerMayPayManaOr {{ player: PlayerRel::ControllerOfTarget, \
+                 cost: mana!(\"{mana}\"), effect: &Effect::CounterTargetSpellOrAbility }}"
             ));
-            return Some(());
         }
         self.deny(format!("ward `{rest}`"))
     }
 
-    fn ward_pay_life(&mut self, body: &str, full: &str) -> Option<()> {
+    fn ward_pay_life(&mut self, body: &str, full: &str) -> Option<String> {
         let mut parts = body.split('/');
         let raw = parts.next()?.trim();
         let _desc = parts.next();
@@ -320,15 +341,13 @@ impl Tx<'_> {
         } else {
             return self.deny(format!("ward `{full}`"));
         };
-        self.body.abilities.push(format!(
-            "triggered!(Trigger::Ward, &[Effect::PlayerMayPayLifeOr {{ \
-             player: PlayerRel::ControllerOfTarget, life: {life}, \
-             effect: &Effect::CounterTargetSpellOrAbility }}])"
-        ));
-        Some(())
+        Some(format!(
+            "Effect::PlayerMayPayLifeOr {{ player: PlayerRel::ControllerOfTarget, life: {life}, \
+             effect: &Effect::CounterTargetSpellOrAbility }}"
+        ))
     }
 
-    fn ward_poison(&mut self, body: &str, full: &str) -> Option<()> {
+    fn ward_poison(&mut self, body: &str, full: &str) -> Option<String> {
         let mut parts = body.split('/');
         let (Some(count_str), Some(kind_str)) = (parts.next(), parts.next()) else {
             return self.deny(format!("ward `{full}`"));
@@ -343,15 +362,13 @@ impl Tx<'_> {
         if n == 0 {
             return self.deny(format!("ward `{full}`"));
         }
-        self.body.abilities.push(format!(
-            "triggered!(Trigger::Ward, &[Effect::PlayerMayGetPoisonOr {{ \
-             player: PlayerRel::ControllerOfTarget, poison: Amount::Fixed({n}), \
-             effect: &Effect::CounterTargetSpellOrAbility }}])"
-        ));
-        Some(())
+        Some(format!(
+            "Effect::PlayerMayGetPoisonOr {{ player: PlayerRel::ControllerOfTarget, \
+             poison: Amount::Fixed({n}), effect: &Effect::CounterTargetSpellOrAbility }}"
+        ))
     }
 
-    fn ward_discard(&mut self, body: &str, full: &str) -> Option<()> {
+    fn ward_discard(&mut self, body: &str, full: &str) -> Option<String> {
         let mut parts = body.split('/');
         let (Some(count_str), Some(valid_str)) = (parts.next(), parts.next()) else {
             return self.deny(format!("ward `{full}`"));
@@ -373,15 +390,13 @@ impl Tx<'_> {
         let normalized = valid.replace(';', ",");
         let expr = self.filter_expr_in_zone(&normalized, true)?;
         let filter = self.body.filter_static("WARD", &expr);
-        self.body.abilities.push(format!(
-            "triggered!(Trigger::Ward, &[Effect::PlayerMayPayCostOr {{ \
-             player: PlayerRel::ControllerOfTarget, cost: &CostPart::Discard(&{filter}), \
-             effect: &Effect::CounterTargetSpellOrAbility }}])"
-        ));
-        Some(())
+        Some(format!(
+            "Effect::PlayerMayPayCostOr {{ player: PlayerRel::ControllerOfTarget, \
+             cost: &CostPart::Discard(&{filter}), effect: &Effect::CounterTargetSpellOrAbility }}"
+        ))
     }
 
-    fn ward_sacrifice(&mut self, body: &str, full: &str) -> Option<()> {
+    fn ward_sacrifice(&mut self, body: &str, full: &str) -> Option<String> {
         let mut parts = body.split('/');
         let (Some(count_str), Some(valid_str)) = (parts.next(), parts.next()) else {
             return self.deny(format!("ward `{full}`"));
@@ -409,7 +424,7 @@ impl Tx<'_> {
         let normalized = valid.replace(';', ",");
         let expr = self.filter_expr(&normalized)?;
         let filter = self.body.filter_static("WARD", &expr);
-        let effect = if count == 1 {
+        Some(if count == 1 {
             format!(
                 "Effect::PlayerMayPayCostOr {{ player: PlayerRel::ControllerOfTarget, \
                  cost: &CostPart::Sacrifice(&{filter}), \
@@ -421,11 +436,7 @@ impl Tx<'_> {
                  filter: &{filter}, count: {count}, \
                  effect: &Effect::CounterTargetSpellOrAbility }}"
             )
-        };
-        self.body
-            .abilities
-            .push(format!("triggered!(Trigger::Ward, &[{effect}])"));
-        Some(())
+        })
     }
 
     /// `K:Partner with:<name>[:<short>]` (CR 702.124f).
@@ -823,11 +834,14 @@ impl Tx<'_> {
         {
             return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
         }
-        if let Some(zone) = p.take("EffectZone")
-            && zone != "Battlefield"
-        {
-            return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
-        }
+        let zone_arg = match p.take("EffectZone").as_deref() {
+            None | Some("Battlefield") => None,
+            Some("Command") => Some(", zone = ZoneRef::Command"),
+            Some("Battlefield,Command" | "Command,Battlefield") => {
+                Some(", zone = ZoneRef::BattlefieldOrCommand")
+            }
+            Some(_) => return self.deny("static ability `S: Mode$ CastWithFlash`".to_string()),
+        };
         if let Some(sec) = p.take("Secondary")
             && sec != "True"
         {
@@ -836,10 +850,35 @@ impl Tx<'_> {
         let Some(valid_card) = p.take("ValidCard") else {
             return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
         };
-        let mut condition = self.condition(&mut p)?;
-        if condition.is_empty()
-            && let Some(var) = p.take("CheckSVar")
-        {
+        let mut clauses: Vec<String> = self
+            .condition(&mut p)?
+            .strip_prefix(", condition = Some(")
+            .and_then(|s| s.strip_suffix(')'))
+            .map(str::to_string)
+            .into_iter()
+            .collect();
+        if let Some(turn) = p.take("PlayerTurn") {
+            match turn.trim() {
+                "You" => clauses.push("Condition::YourTurn".to_string()),
+                "Opponent" => clauses.push("Condition::OpponentsTurn".to_string()),
+                _ => return self.deny("static ability `S: Mode$ CastWithFlash`".to_string()),
+            }
+        }
+        if let Some(phase) = p.take("Phases") {
+            let step = match phase.trim() {
+                "Upkeep" => "StepKind::Upkeep",
+                "Draw" => "StepKind::Draw",
+                "BeginCombat" => "StepKind::CombatBegin",
+                "Declare Attackers" => "StepKind::DeclareAttackers",
+                "Declare Blockers" => "StepKind::DeclareBlockers",
+                "Combat Damage" => "StepKind::CombatDamage",
+                "EndCombat" | "End of Combat" => "StepKind::CombatEnd",
+                "End of Turn" => "StepKind::End",
+                _ => return self.deny("static ability `S: Mode$ CastWithFlash`".to_string()),
+            };
+            clauses.push(format!("Condition::DuringStep({step})"));
+        }
+        if let Some(var) = p.take("CheckSVar") {
             let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
             let Some(clause) = self
                 .svar_condition(&var, &cmp)
@@ -847,45 +886,24 @@ impl Tx<'_> {
             else {
                 return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
             };
-            condition = format!(", condition = Some({clause})");
+            clauses.push(clause);
         }
         if !p.exhausted() {
             return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
         }
-        let modifier = match valid_card.trim() {
-            "Card" => "Modifier::SpellsHaveFlash(None)".to_string(),
-            "Sorcery" => "Modifier::SorceriesHaveFlash".to_string(),
-            other => {
-                let mut types = Vec::new();
-                for alt in other.split(',') {
-                    let word = alt.trim();
-                    let Some(ty) = card_type_const(word) else {
-                        return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
-                    };
-                    if !types.contains(&ty) {
-                        types.push(ty);
-                    }
-                }
-                if types.is_empty() {
-                    return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
-                }
-                let joined = types
-                    .iter()
-                    .skip(1)
-                    .fold(types[0].to_string(), |mut acc, t| {
-                        acc.push_str(".union(");
-                        acc.push_str(t);
-                        acc.push(')');
-                        acc
-                    });
-                format!("Modifier::SpellsHaveFlash(Some({joined}))")
-            }
+        let Some(modifier) = flash_modifier_for_valid(&valid_card) else {
+            return self.deny("static ability `S: Mode$ CastWithFlash`".to_string());
+        };
+        let condition = match clauses.as_slice() {
+            [] => String::new(),
+            [one] => format!(", condition = Some({one})"),
+            many => format!(", condition = Some(Condition::All(&[{}]))", many.join(", ")),
         };
         let mut expr = Self::static_expr("Filter::Any", &modifier);
-        if !condition.is_empty()
+        if (zone_arg.is_some() || !condition.is_empty())
             && let Some(open) = expr.strip_suffix(')')
         {
-            expr = format!("{open}{condition})");
+            expr = format!("{open}{}{condition})", zone_arg.unwrap_or_default());
         }
         self.body.abilities.push(expr);
         Some(())
@@ -1513,6 +1531,16 @@ impl Tx<'_> {
         Some(())
     }
 
+    /// Resolves a `CheckSVar$` value whether it names an `SVar` or is written
+    /// inline as `Count$...` / `PlayerCount...`.
+    pub(super) fn resolve_svar_or_inline(&self, var: &str) -> Option<String> {
+        let trimmed = var.trim();
+        if trimmed.starts_with("Count$") || trimmed.starts_with("PlayerCount") {
+            return Some(trimmed.to_string());
+        }
+        self.svars.get(trimmed).map(|s| s.trim().to_string())
+    }
+
     /// Additional `CheckSVar$` + `SVarCompare$` conditions mapped 1:1 to existing
     /// `baylee-cards-dsl::Condition` variants not yet handled by `activated::svar_condition`.
     pub(super) fn extra_svar_condition_clause(&mut self, var: &str, cmp: &str) -> Option<String> {
@@ -1524,7 +1552,7 @@ impl Tx<'_> {
     /// General `CheckSVar$` fallback over any static-safe `Amount` via
     /// `Condition::AmountAtLeast` / `Condition::AmountIsEven`.
     fn extra_svar_amount_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
-        let raw = self.svars.get(var.trim())?.trim().to_string();
+        let raw = self.resolve_svar_or_inline(var)?;
         let cmp = cmp.trim();
         if let Some(lhs) = raw.strip_suffix("/Mod.2") {
             let amt = self.static_count_expr(lhs.trim())?;
@@ -1586,10 +1614,17 @@ impl Tx<'_> {
     }
 
     fn extra_svar_condition_wave5(&self, var: &str, cmp: &str) -> Option<String> {
-        let raw = self.svars.get(var.trim())?.trim();
+        let raw_owned = self.resolve_svar_or_inline(var)?;
+        let raw = raw_owned.as_str();
         let cmp = cmp.trim();
-        if raw == "Count$ThisTurnCast_Card.YouCtrl" && matches!(cmp, "EQ0" | "LE0") {
-            return Some("Condition::YouCastNoSpellThisTurn".to_string());
+        if raw == "Count$ThisTurnCast_Card.YouCtrl" {
+            return match cmp {
+                "EQ0" | "LE0" | "LT1" => Some("Condition::YouCastNoSpellThisTurn".to_string()),
+                "GE1" | "GT0" => {
+                    Some("Condition::Not(&Condition::YouCastNoSpellThisTurn)".to_string())
+                }
+                _ => None,
+            };
         }
         if raw == "Count$Morbid.1.0" && matches!(cmp, "GE1" | "GT0") {
             return Some("Condition::CreaturesDiedThisTurnAtLeast(1)".to_string());
@@ -1627,17 +1662,29 @@ impl Tx<'_> {
                 return Some("Condition::Not(&Condition::OpponentWasDealtAtLeast(1))".to_string());
             }
         }
-        if raw == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature"
-            && let Some(n) = parse_at_least_u16(cmp)
-        {
-            return Some(format!("Condition::CreaturesDiedThisTurnAtLeast({n})"));
+        if raw == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Creature" {
+            if let Some(n) = parse_at_least_u16(cmp) {
+                return Some(format!("Condition::CreaturesDiedThisTurnAtLeast({n})"));
+            }
+            if let Some(max) = parse_at_most_u16(cmp) {
+                let bound = u32::from(max).checked_add(1)?;
+                return Some(format!(
+                    "Condition::Not(&Condition::CreaturesDiedThisTurnAtLeast({bound}))"
+                ));
+            }
         }
-        if raw == "Count$ThisTurnEntered_Battlefield_Creature.YouCtrl"
-            && let Some(n) = parse_at_least_u16(cmp)
-        {
-            return Some(format!(
-                "Condition::AmountAtLeast(Amount::CreaturesEnteredUnderYourControlThisTurn, {n})"
-            ));
+        if raw == "Count$ThisTurnEntered_Battlefield_Creature.YouCtrl" {
+            if let Some(n) = parse_at_least_u16(cmp) {
+                return Some(format!(
+                    "Condition::AmountAtLeast(Amount::CreaturesEnteredUnderYourControlThisTurn, {n})"
+                ));
+            }
+            if let Some(max) = parse_at_most_u16(cmp) {
+                let bound = u32::from(max).checked_add(1)?;
+                return Some(format!(
+                    "Condition::Not(&Condition::AmountAtLeast(Amount::CreaturesEnteredUnderYourControlThisTurn, {bound}))"
+                ));
+            }
         }
         if raw == "Count$YourLifeTotal" {
             if let Some(n) = parse_at_least_u16(cmp) {
@@ -1725,11 +1772,38 @@ impl Tx<'_> {
     }
 
     fn extra_svar_condition(&mut self, var: &str, cmp: &str) -> Option<String> {
-        let raw = self.svars.get(var.trim())?.trim().to_string();
+        let raw = self.resolve_svar_or_inline(var)?;
         let cmp = cmp.trim();
         if raw == "PlayerCountOpponents$HighestCounters.Poison" {
             let n = parse_at_least_u16(cmp)?;
             return Some(format!("Condition::OpponentPoisonAtLeast({n})"));
+        }
+        if raw == "Count$TotalOppPoisonCounters" {
+            return match cmp {
+                "GE1" | "GT0" => Some("Condition::OpponentPoisonAtLeast(1)".to_string()),
+                "EQ0" | "LT1" | "LE0" => {
+                    Some("Condition::Not(&Condition::OpponentPoisonAtLeast(1))".to_string())
+                }
+                _ => None,
+            };
+        }
+        if raw == "PlayerCountPropertyYou$HasPropertyActive" {
+            return match cmp {
+                "GE1" | "EQ1" | "GT0" => Some("Condition::YourTurn".to_string()),
+                "EQ0" | "NE1" | "LT1" | "LE0" => {
+                    Some("Condition::Not(&Condition::YourTurn)".to_string())
+                }
+                _ => None,
+            };
+        }
+        if raw == "PlayerCountPropertyYou$HasPropertyMaxSpeed" {
+            return match cmp {
+                "GE1" | "EQ1" | "GT0" => Some("Condition::MaxSpeed".to_string()),
+                "EQ0" | "NE1" | "LT1" | "LE0" => {
+                    Some("Condition::Not(&Condition::MaxSpeed)".to_string())
+                }
+                _ => None,
+            };
         }
         if matches!(
             raw.as_str(),
@@ -1775,8 +1849,15 @@ impl Tx<'_> {
             let name = self.body.filter_static("CHECK", &expr);
             return Some(format!("Condition::ControlDistinctNames(&{name}, {n})"));
         }
+        if let Some(cond) = Self::extra_svar_condition_tail(&raw, cmp) {
+            return Some(cond);
+        }
+        self.extra_svar_condition_wave8(var, cmp)
+    }
+
+    fn extra_svar_condition_tail(raw: &str, cmp: &str) -> Option<String> {
         if matches!(
-            raw.as_str(),
+            raw,
             "Count$ValidGraveyard Card.OppOwn" | "PlayerCountOpponents$HighestCardsInGraveyard"
         ) {
             if let Some(n) = parse_at_least_u16(cmp).and_then(|v| u8::try_from(v).ok()) {
@@ -1795,28 +1876,68 @@ impl Tx<'_> {
             let n = u8::try_from(parse_at_most_u16(cmp)?).ok()?;
             return Some(format!("Condition::APlayerHandSizeAtMost({n})"));
         }
-        if raw == "Count$LandsPlayed" {
-            let n = u8::try_from(parse_at_least_u16(cmp)?).ok()?;
-            return Some(format!("Condition::LandsPlayedThisTurnAtLeast({n})"));
+        if matches!(
+            raw,
+            "Count$LandsPlayed" | "PlayerCountPropertyYou$LandsPlayed"
+        ) {
+            if let Some(n) = parse_at_least_u16(cmp).and_then(|v| u8::try_from(v).ok()) {
+                return Some(format!("Condition::LandsPlayedThisTurnAtLeast({n})"));
+            }
+            if let Some(max) = parse_at_most_u16(cmp)
+                && let Some(min) = max.checked_add(1).and_then(|v| u8::try_from(v).ok())
+            {
+                return Some(format!(
+                    "Condition::Not(&Condition::LandsPlayedThisTurnAtLeast({min}))"
+                ));
+            }
+            return None;
         }
         if matches!(
-            raw.as_str(),
+            raw,
             "Count$OpponentsLifeLostThisTurn" | "Count$LifeOppsLostThisTurn"
         ) {
-            let n = u32::from(parse_at_least_u16(cmp)?);
-            return Some(format!(
-                "Condition::AmountAtLeast(Amount::OpponentsLifeLostThisTurn, {n})"
-            ));
+            if let Some(n) = parse_at_least_u16(cmp) {
+                return Some(format!(
+                    "Condition::AmountAtLeast(Amount::OpponentsLifeLostThisTurn, {n})"
+                ));
+            }
+            if let Some(max) = parse_at_most_u16(cmp) {
+                if max == 0 {
+                    return Some(
+                        "Condition::Not(&Condition::OpponentLostLifeThisTurn)".to_string(),
+                    );
+                }
+                let bound = u32::from(max).checked_add(1)?;
+                return Some(format!(
+                    "Condition::Not(&Condition::AmountAtLeast(Amount::OpponentsLifeLostThisTurn, {bound}))"
+                ));
+            }
+            return None;
         }
-        if raw == "Count$ThisTurnEntered_Graveyard_from_Battlefield_Permanent.YouOwn+!token"
-            && cmp == "GE1"
-        {
-            return Some("Condition::DescendedThisTurn".to_string());
+        if matches!(
+            raw,
+            "Count$ThisTurnEntered_Graveyard_from_Battlefield_Permanent.YouOwn+!token"
+                | "Count$ThisTurnEntered_Graveyard_from_Any_Permanent.YouOwn+!token"
+                | "Count$ThisTurnEntered_Graveyard_Permanent.YouOwn+!token"
+        ) {
+            return match cmp {
+                "GE1" | "GT0" => Some("Condition::DescendedThisTurn".to_string()),
+                "EQ0" | "LT1" | "LE0" => {
+                    Some("Condition::Not(&Condition::DescendedThisTurn)".to_string())
+                }
+                _ => None,
+            };
         }
-        if raw == "Count$CardCounters.ALL/Mod.2" && cmp == "EQ0" {
-            return Some("Condition::EvenCountersOnSelf".to_string());
+        if raw == "Count$CardCounters.ALL/Mod.2" {
+            return match cmp {
+                "EQ0" => Some("Condition::EvenCountersOnSelf".to_string()),
+                "EQ1" | "GE1" | "GT0" | "NE0" => {
+                    Some("Condition::Not(&Condition::EvenCountersOnSelf)".to_string())
+                }
+                _ => None,
+            };
         }
-        self.extra_svar_condition_wave8(var, cmp)
+        None
     }
 
     /// Additional `R:` replacement handlers (`BeginPhase`, `BeginTurn`, `Draw`,
@@ -2623,8 +2744,16 @@ fn attach_condition_to_ability(expr: &str, cond: &str, is_station: bool) -> Opti
         {
             return None;
         }
+        let existing_inner = existing
+            .strip_prefix("Condition::All(&[")
+            .and_then(|s| s.strip_suffix("])"))
+            .unwrap_or(existing);
+        let cond_inner = cond
+            .strip_prefix("Condition::All(&[")
+            .and_then(|s| s.strip_suffix("])"))
+            .unwrap_or(cond);
         return Some(format!(
-            "{head}, condition = Some(Condition::All(&[{existing}, {cond}])))"
+            "{head}, condition = Some(Condition::All(&[{existing_inner}, {cond_inner}])))"
         ));
     }
     if open.contains("condition =") {
@@ -2691,4 +2820,28 @@ fn strip_matching_level_present(spec: &str, expected_present: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join(" | ")
+}
+
+fn flash_modifier_for_valid(valid_card: &str) -> Option<String> {
+    match valid_card.trim() {
+        "Card" => Some("Modifier::SpellsHaveFlash(None)".to_string()),
+        "Sorcery" => Some("Modifier::SorceriesHaveFlash".to_string()),
+        other => {
+            let mut types = Vec::new();
+            for alt in other.split(',') {
+                let ty = card_type_const(alt.trim())?;
+                if !types.contains(&ty) {
+                    types.push(ty);
+                }
+            }
+            let (first, rest) = types.split_first()?;
+            let joined = rest.iter().fold((*first).to_string(), |mut acc, t| {
+                acc.push_str(".union(");
+                acc.push_str(t);
+                acc.push(')');
+                acc
+            });
+            Some(format!("Modifier::SpellsHaveFlash(Some({joined}))"))
+        }
+    }
 }

@@ -2865,3 +2865,152 @@ fn wave9_svar_flags_prevention_and_replacements() {
         ]
     );
 }
+
+#[test]
+fn wave10c_exert_optional_attack_cost_ward_grant_and_ai_svar() {
+    let bare = read(
+        "Name:TirelessScout\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ OptionalAttackCost | ValidCard$ Card.Self | Cost$ Exert<1/CARDNAME>",
+    );
+    assert_eq!(
+        bare.abilities,
+        ["triggered!(Trigger::Attacks(&Filter::This), \
+             &[Effect::MayDo { effects: &[Effect::ExertSource] }])"]
+    );
+
+    let reflexive = read(
+        "Name:FlameStriker\nTypes:Creature\nPT:4/4\n\
+         S:Mode$ OptionalAttackCost | ValidCard$ Card.Self | Trigger$ Burn | Cost$ Exert<1/CARDNAME>\n\
+         SVar:Burn:DB$ DealDamage | ValidTgts$ Creature | NumDmg$ 3",
+    );
+    assert!(reflexive.abilities[0].contains("Effect::MayDo { effects: &[Effect::ExertSource] }"));
+    assert!(
+        reflexive.abilities[0].contains("Effect::Reflexive { when: ReflexiveEvent::ExertedThis")
+    );
+    assert!(reflexive.abilities[0].contains("target: Some(TargetSpec::Object(&Filter::CREATURE))"));
+
+    assert!(refused(
+        "Name:ExtraGuard\nTypes:Creature\nPT:4/1\n\
+         S:Mode$ OptionalAttackCost | ValidCard$ Card.Self | IsPresent$ Creature.Self | Cost$ Exert<1/CARDNAME>"
+    ));
+
+    let ward_grant = read(
+        "Name:AegisBanner\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Ward:2 & Ward:PayLife<3>",
+    );
+    assert!(ward_grant.abilities[0].contains("Modifier::GrantTriggered { trigger: Trigger::Ward"));
+    assert!(ward_grant.abilities[0].contains("mana: Amount::Fixed(2)"));
+    assert!(ward_grant.abilities[1].contains("Effect::PlayerMayPayLifeOr"));
+
+    let ai_hint = read(
+        "Name:ShadowCloak\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         S:Mode$ Continuous | AffectedDefined$ Enchanted | Affected$ Creature | AddPower$ 2 | AddSVar$ AE\n\
+         S:Mode$ Continuous | AffectedDefined$ Enchanted | Affected$ Creature | AddSVar$ AE\n\
+         SVar:AE:SVar:HasAttackEffect:TRUE",
+    );
+    assert_eq!(ai_hint.abilities.len(), 2);
+    assert!(ai_hint.abilities[1].contains("Modifier::ModifyPT(2, 0)"));
+
+    assert!(refused(
+        "Name:BadHint\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | AddSVar$ RealRule\n\
+         SVar:RealRule:Count$Valid Creature.YouCtrl"
+    ));
+}
+
+#[test]
+fn wave10c_ignore_landwalk_min_blockers_flash_and_cast_self() {
+    let walks = read(
+        "Name:FlatPlains\nTypes:Enchantment\n\
+         S:Mode$ IgnoreLandWalk\n\
+         S:Mode$ IgnoreLandWalk | ValidKeyword$ Landwalk:Island\n\
+         S:Mode$ MinMaxBlocker | ValidCard$ Creature.YouCtrl | Min$ 3\n\
+         S:Mode$ CastWithFlash | Phases$ End of Turn | PlayerTurn$ Opponent | ValidCard$ Card | ValidSA$ Spell | Caster$ You",
+    );
+    assert_eq!(
+        walks.abilities,
+        [
+            "static_ability!(Filter::CREATURE, Modifier::BlockableWithoutAnyLandwalk)",
+            "static_ability!(Filter::CREATURE, Modifier::BlockableWithoutLandwalk(KeywordSet::ISLANDWALK))",
+            "static_ability!(Filter::YOUR_CREATURE, Modifier::MinimumBlockers(3))",
+            "static_ability!(Filter::Any, Modifier::SpellsHaveFlash(None), \
+             condition = Some(Condition::All(&[Condition::OpponentsTurn, Condition::DuringStep(StepKind::End)])))",
+        ]
+    );
+    assert!(refused(
+        "Name:BlockerOnly\nTypes:Enchantment Aura\nK:Enchant:Creature\n\
+         S:Mode$ IgnoreLandWalk | ValidBlocker$ Creature.EnchantedBy"
+    ));
+    assert!(refused(
+        "Name:MaxOne\nTypes:Creature\nPT:4/4\n\
+         S:Mode$ MinMaxBlocker | ValidCard$ Card.Self | Max$ 1"
+    ));
+
+    let cast_etb = read(
+        "Name:CastTitan\nTypes:Artifact Creature\nPT:7/7\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self+wasCastByYou | Destination$ Battlefield | Execute$ Sweep\n\
+         SVar:Sweep:DB$ DestroyAll | ValidCards$ Creature.nonArtifact",
+    );
+    assert!(cast_etb.abilities[0].starts_with("triggered!(Trigger::ETB, "));
+    assert!(cast_etb.abilities[0].contains("Effect::destroy_all("));
+    assert!(cast_etb.abilities[0].contains("condition = Some(Condition::SourceWasCastByYou)"));
+}
+
+#[test]
+fn wave10c_spellcast_hand_atoms_svar_conditions_and_divide() {
+    let paradox = read(
+        "Name:RiftWatcher\nTypes:Creature\nPT:3/3\n\
+         T:Mode$ SpellCast | ValidCard$ Card.!wasCastFromYourHand | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | Execute$ Ping\n\
+         T:Mode$ SpellCast | ValidCard$ Instant.wasCastFromYourHandByYou | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | Execute$ Ping\n\
+         SVar:Ping:DB$ GainLife | Defined$ You | LifeAmount$ 1",
+    );
+    assert!(
+        paradox
+            .statics
+            .contains("Filter::Not(&Filter::CastFromHand)")
+    );
+    assert!(paradox.statics.contains("Filter::CastFromHand"));
+    assert!(refused(
+        "Name:BadOriginDiscount\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ ReduceCost | ValidCard$ Card.!wasCastFromYourHand | Activator$ You | Type$ Spell | Amount$ 1"
+    ));
+
+    let div_pt = read(
+        "Name:GraveScale\nTypes:Creature\nPT:1/2\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ X\n\
+         SVar:X:SVar$Y/Times.2\n\
+         SVar:Y:Count$ValidGraveyard Card.YouOwn/DivideEvenlyDown.7",
+    );
+    assert!(div_pt.abilities[0].contains("Modifier::ModifyPTByAmount"));
+    assert!(div_pt.abilities[0].contains("Amount::divided("));
+    assert!(div_pt.abilities[0].contains("factor: 2"));
+
+    let svars = read(
+        "Name:ConditionHub\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | CheckSVar$ Cast | SVarCompare$ LT1\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddToughness$ 1 | CheckSVar$ Lands | SVarCompare$ EQ0\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Flying | CheckSVar$ Pois | SVarCompare$ GE1\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Vigilance | CheckSVar$ Desc | SVarCompare$ GE1\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Menace | CheckSVar$ OddC | SVarCompare$ EQ1\n\
+         T:Mode$ Phase | Phase$ End of Turn | TriggerZones$ Battlefield | CheckSVar$ PlayerCountPropertyYou$HasPropertyActive | SVarCompare$ GE1 | Execute$ Heal\n\
+         SVar:Cast:Count$ThisTurnCast_Card.YouCtrl\n\
+         SVar:Lands:PlayerCountPropertyYou$LandsPlayed\n\
+         SVar:Pois:Count$TotalOppPoisonCounters\n\
+         SVar:Desc:Count$ThisTurnEntered_Graveyard_from_Any_Permanent.YouOwn+!token\n\
+         SVar:OddC:Count$CardCounters.ALL/Mod.2\n\
+         SVar:Heal:DB$ GainLife | Defined$ You | LifeAmount$ 1",
+    );
+    assert!(svars.abilities[0].contains("Condition::YouCastNoSpellThisTurn"));
+    assert!(
+        svars.abilities[1].contains("Condition::Not(&Condition::LandsPlayedThisTurnAtLeast(1))")
+    );
+    assert!(svars.abilities[2].contains("Condition::OpponentPoisonAtLeast(1)"));
+    assert!(svars.abilities[3].contains("Condition::DescendedThisTurn"));
+    assert!(svars.abilities[4].contains("Condition::Not(&Condition::EvenCountersOnSelf)"));
+    assert!(svars.abilities[5].contains("Condition::YourTurn"));
+    assert!(refused(
+        "Name:BadMultiPoison\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | CheckSVar$ P | SVarCompare$ GE2\n\
+         SVar:P:Count$TotalOppPoisonCounters"
+    ));
+}

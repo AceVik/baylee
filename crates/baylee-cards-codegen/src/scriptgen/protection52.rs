@@ -2,7 +2,7 @@
 //! extensions, retaining strict unknown-key refusal.
 
 use super::saga_ward_convoke::ExtraOutcome;
-use super::{Params, Tx, card_type_const};
+use super::{Chain, Params, Tx, card_type_const};
 
 impl Tx<'_> {
     pub(super) fn everything_protection(&mut self, p: &mut Params) -> Option<Vec<String>> {
@@ -41,12 +41,24 @@ impl Tx<'_> {
     }
     pub(super) fn cast_self_protection_trigger(&mut self, mode: &str, mut p: Params) -> Option<()> {
         p.drop_prose();
-        if mode != "ChangesZone"
-            || p.take("ValidCard").as_deref() != Some("Card.wasCastByYou+Self")
-            || p.take("Destination").as_deref() != Some("Battlefield")
-        {
+        if mode != "ChangesZone" || p.take("Destination").as_deref() != Some("Battlefield") {
             return self.deny("unsupported cast-self entry trigger".into());
         }
+        let from_hand = match p.take("ValidCard").as_deref() {
+            Some(
+                "Card.wasCastByYou+Self"
+                | "Card.Self+wasCastByYou"
+                | "Creature.wasCastByYou+Self"
+                | "Creature.Self+wasCastByYou",
+            ) => false,
+            Some(
+                "Card.wasCastFromYourHandByYou+Self"
+                | "Card.Self+wasCastFromYourHandByYou"
+                | "Creature.wasCastFromYourHandByYou+Self"
+                | "Creature.Self+wasCastFromYourHandByYou",
+            ) => true,
+            _ => return self.deny("unsupported cast-self entry trigger".into()),
+        };
         if let Some(origin) = p.take("Origin")
             && origin != "Any"
         {
@@ -57,22 +69,88 @@ impl Tx<'_> {
         {
             return self.deny("cast-self trigger outside battlefield".into());
         }
+        if !matches!(p.take("Secondary").as_deref(), None | Some("True")) {
+            return self.deny("unclaimed cast-self entry parameter".into());
+        }
+        let optional_flag = match p.take("Optional").as_deref() {
+            None => None,
+            Some("Yes" | "True") => Some(true),
+            Some("No" | "False") => Some(false),
+            Some(_) => return self.deny("unclaimed cast-self entry parameter".into()),
+        };
+        let may = match (p.take("OptionalDecider").as_deref(), optional_flag) {
+            (None, None | Some(false)) => false,
+            (None, Some(true)) | (Some("You"), None | Some(true)) => true,
+            _ => return self.deny("unclaimed cast-self entry parameter".into()),
+        };
+        let extra_cond = self.condition_any(&mut p)?;
         let name = p.take("Execute")?;
         if !p.exhausted() {
             return self.deny("unclaimed cast-self entry parameter".into());
         }
-        let (api, mut child) = self.svars.get(&name).and_then(|s| Params::parse(s))?;
-        child.drop_prose();
-        if api != "Pump" {
-            return self.deny("cast-self entry child is not protection".into());
+        let mut cond_parts = vec!["Condition::SourceWasCastByYou".to_string()];
+        if from_hand {
+            cond_parts.push("Condition::SourceMatches(&Filter::CastFromHand)".to_string());
         }
-        let effects = self.everything_protection(&mut child)?;
-        if !child.exhausted() {
-            return self.deny("unclaimed cast-self protection child parameter".into());
+        if let Some(inner) = extra_cond
+            .strip_prefix(", condition = Some(")
+            .and_then(|s| s.strip_suffix(')'))
+        {
+            cond_parts.push(inner.to_string());
         }
+        let cond_expr = if cond_parts.len() == 1 {
+            cond_parts.remove(0)
+        } else {
+            format!("Condition::All(&[{}])", cond_parts.join(", "))
+        };
+        let body = self.svars.get(&name)?.clone();
+        self.emit_cast_self_body(&body, &cond_expr, may)
+    }
+
+    fn emit_cast_self_body(&mut self, body: &str, cond_expr: &str, may: bool) -> Option<()> {
+        if !may
+            && let Some((api, mut child)) = Params::parse(body)
+            && api == "Pump"
+            && child.peek("KW") == Some("Protection from everything")
+        {
+            child.drop_prose();
+            let effects = self.everything_protection(&mut child)?;
+            if !child.exhausted() {
+                return self.deny("unclaimed cast-self protection child parameter".into());
+            }
+            self.body.abilities.push(format!(
+                "triggered!(Trigger::ETB, &[{}], condition = Some({cond_expr}))",
+                effects.join(", ")
+            ));
+            return Some(());
+        }
+        if !body.trim_start().starts_with("DB$") {
+            return self.deny("unsupported cast-self entry trigger".into());
+        }
+        let prev_mode = self.trigger_mode.replace("ChangesZone".to_string());
+        let prev_etb = std::mem::replace(&mut self.is_etb_self_trigger, true);
+        let prev_self = std::mem::replace(&mut self.trigger_is_self, true);
+        let mut chain = Chain::default();
+        let ok = self.chain(body, &mut chain);
+        self.trigger_mode = prev_mode;
+        self.is_etb_self_trigger = prev_etb;
+        self.trigger_is_self = prev_self;
+        ok?;
+        if chain.effects.is_empty() {
+            return self.deny("unsupported cast-self entry trigger".into());
+        }
+        let targets =
+            Self::target_req_expr(&chain).map_or_default(|req| format!(", targets = Some({req})"));
+        let second = Self::second_target_req_expr(&chain)
+            .map_or_default(|req| format!(", second_targets = Some({req})"));
+        let joined = chain.effects.join(", ");
+        let effects = if may {
+            format!("Effect::MayDo {{ effects: &[{joined}] }}")
+        } else {
+            joined
+        };
         self.body.abilities.push(format!(
-            "triggered!(Trigger::ETB, &[{}], condition = Some(Condition::SourceWasCastByYou))",
-            effects.join(", ")
+            "triggered!(Trigger::ETB, &[{effects}]{targets}{second}, condition = Some({cond_expr}))"
         ));
         Some(())
     }
@@ -2739,7 +2817,7 @@ impl Tx<'_> {
     /// `OpponentControlCountAtMost`, `OpponentControlsMore`,
     /// `OpponentControlsMoreBy`).
     pub(super) fn extra_svar_condition_wave8(&mut self, var: &str, cmp: &str) -> Option<String> {
-        let raw = self.svars.get(var.trim())?.trim().to_string();
+        let raw = self.resolve_svar_or_inline(var)?;
         let cmp = cmp.trim();
         if let Some(cond) = binary_flag_svar_condition(&raw, cmp) {
             return Some(cond);

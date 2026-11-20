@@ -551,6 +551,17 @@ impl Tx<'_> {
                     "!blockedThisTurn" => "Filter::Not(&Filter::BlockedThisTurn)".to_string(),
                     "wasCastFromHand" | "CastFromHand" => "Filter::CastFromHand".to_string(),
                     "!wasCastFromHand" => "Filter::Not(&Filter::CastFromHand)".to_string(),
+                    "wasCastFromYourHand" if self.trigger_mode.as_deref() == Some("SpellCast") => {
+                        "Filter::CastFromHand".to_string()
+                    }
+                    "!wasCastFromYourHand" if self.trigger_mode.as_deref() == Some("SpellCast") => {
+                        "Filter::Not(&Filter::CastFromHand)".to_string()
+                    }
+                    "wasCastFromYourHandByYou"
+                        if self.trigger_mode.as_deref() == Some("SpellCast") =>
+                    {
+                        "Filter::And(&[Filter::CastFromHand, Filter::ControlledByYou])".to_string()
+                    }
                     "counters_GE1_ALL" | "counters_GT0_ALL" | "HasCounters" => {
                         "Filter::HasAnyCounter".to_string()
                     }
