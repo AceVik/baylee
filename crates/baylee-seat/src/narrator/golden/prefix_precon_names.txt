@@ -19,6 +19,7 @@ Main deck:
   1× Coral Atoll
   1× Counterspell
   1× Cultivate
+  1× Elder Deep-Fiend
   1× Eternal Witness
   1× Evolving Wilds
   1× Explore
@@ -86,9 +87,9 @@ Main deck:
   2× Mountain
   1× Muldrotha, the Gravetide
   1× Omnath, Locus of Rage
+  1× Omnath, Locus of the Roil
   1× Opal Palace
   1× Opulent Palace
   1× Path of Ancestry
   1× Path to Exile
-  2× Plains
-  1× Primal Beyond
+  1× Plains
