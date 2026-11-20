@@ -156,6 +156,10 @@ enum Question {
     },
     PayLifeUpTo,
     GraveyardOrder,
+    /// Amplify hand-reveal choice (CR 702.38a, CR 702.38b).
+    Amplify {
+        factor: u8,
+    },
 }
 
 impl Hash for Entries {
@@ -282,6 +286,7 @@ fn needs_before_entry(modifier: &EnterModifier) -> bool {
                 | EnterModifier::ChooseCounterPerEntryCount(_)
                 | EnterModifier::PayLifeUpTo(_)
                 | EnterModifier::SacrificeOthers(_)
+                | EnterModifier::Amplify(_)
         )
 }
 

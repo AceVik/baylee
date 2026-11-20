@@ -61,7 +61,8 @@ pub mod tape;
 /// `chosen_card_type`, `chosen_number`, and `linked_exile`.
 /// Version 49 adds the private, bounded Tower execution/recovery/whole-batch ACK plane.
 /// Version 50 carries `YesNoPrompt::KickerOption` for multi-kicker spells (CR 702.33b/f).
-pub const PROTOCOL_VERSION: u32 = 50;
+/// Version 51 carries `ChoicePrompt::Amplify` for Amplify hand reveals (CR 702.38a/b).
+pub const PROTOCOL_VERSION: u32 = 51;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -375,7 +376,8 @@ mod tests {
         // and linked exile on positional binary frames.
         // 48: compiled execution identity; 49: private Tower durable transport.
         // 50: `YesNoPrompt::KickerOption` for multi-kicker spells on positional binary frames.
-        assert_eq!(PROTOCOL_VERSION, 50);
+        // 51: `ChoicePrompt::Amplify` for Amplify hand reveals on positional binary frames.
+        assert_eq!(PROTOCOL_VERSION, 51);
     }
 
     #[test]

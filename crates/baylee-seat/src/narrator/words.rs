@@ -265,6 +265,7 @@ pub fn band_prompt_with_one_unbanded() -> String {
 
 /// What a [`ChoicePrompt`] asks, as an instruction.
 #[must_use]
+#[allow(clippy::too_many_lines)] // flat exhaustive dispatch over every ChoicePrompt variant
 pub fn choice_prompt(prompt: ChoicePrompt) -> String {
     match prompt {
         ChoicePrompt::EntryOrder => "Choose the permanent whose entry replacements are applied first".into(),
@@ -333,6 +334,11 @@ pub fn choice_prompt(prompt: ChoicePrompt) -> String {
         }
         ChoicePrompt::RevealOrEnterTapped => {
             "Choose a card to reveal (choose none and it enters tapped)".into()
+        }
+        ChoicePrompt::Amplify => {
+            "Amplify: choose any number of matching cards from your hand to reveal for +1/+1 \
+             counters (choose none to reveal nothing)"
+                .into()
         }
         ChoicePrompt::PutIntoHand => "Choose the cards to put into your hand".into(),
         ChoicePrompt::PlayFromExile => "Choose a card to play from exile".into(),

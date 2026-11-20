@@ -404,6 +404,7 @@ fn choice_noun(reason: ChoicePrompt) -> Phrase {
         ChoicePrompt::Proliferate => Phrase::NounProliferatePermanents,
         ChoicePrompt::RevealDiscard => Phrase::NounDiscardsToReveal,
         ChoicePrompt::RevealOrEnterTapped => Phrase::NounCardsToReveal,
+        ChoicePrompt::Amplify => Phrase::NounCardsToAmplify,
         ChoicePrompt::PutIntoHand => Phrase::NounCardsToHand,
         ChoicePrompt::PutOnBottom => Phrase::NounCardsToBottom,
         ChoicePrompt::PlayFromExile => Phrase::NounCardsToPlay,

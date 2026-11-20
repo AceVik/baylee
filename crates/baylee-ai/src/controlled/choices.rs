@@ -263,12 +263,13 @@ impl HeuristicAgent {
             | ChoicePrompt::PutOntoBattlefield
             | ChoicePrompt::FromGraveyard
             | ChoicePrompt::OneOfType { .. }
-            | ChoicePrompt::PutIntoGraveyard => worst(min),
-            // Nothing that helps them: no reveal for an untapped land, no
-            // dredge in place of the draw, nothing untapped under Winter Orb.
-            ChoicePrompt::RevealOrEnterTapped | ChoicePrompt::Dredge | ChoicePrompt::Untap => {
-                worst(min)
-            }
+            | ChoicePrompt::PutIntoGraveyard
+            // Nothing that helps them: no reveal for an untapped land or Amplify counters,
+            // no dredge in place of the draw, nothing untapped under Winter Orb.
+            | ChoicePrompt::RevealOrEnterTapped
+            | ChoicePrompt::Amplify
+            | ChoicePrompt::Dredge
+            | ChoicePrompt::Untap => worst(min),
             // Separating for this seat's Fact or Fiction: one pile is
             // everything, and this seat takes it.
             ChoicePrompt::FirstPile => options[..usize::from(max).min(options.len())].to_vec(),

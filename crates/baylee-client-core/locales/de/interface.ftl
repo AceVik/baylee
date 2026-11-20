@@ -1119,6 +1119,11 @@ NounCardsToReveal =
         [one] Karte, die offen vorgezeigt wird
        *[other] Karten, die offen vorgezeigt werden
     }
+NounCardsToAmplify =
+    { $count ->
+        [one] Karte zum Vorzeigen für Verstärken
+       *[other] Karten zum Vorzeigen für Verstärken
+    }
 NounAttackersToBand =
     { $count ->
         [one] Angreifer, der sich dem Bündnis anschließt

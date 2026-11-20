@@ -3306,6 +3306,14 @@ NounCardsToReveal =
        *[other] cards to reveal
     }
 
+# Card in hand to reveal for amplify (CR 702.38a).
+# Arguments: count
+NounCardsToAmplify =
+    { $count ->
+        [one] card to reveal for amplify
+       *[other] cards to reveal for amplify
+    }
+
 # attacker to join the band (banding, CR 702.22c)
 # Arguments: count
 NounAttackersToBand =

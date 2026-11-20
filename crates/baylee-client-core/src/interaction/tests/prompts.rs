@@ -731,6 +731,14 @@ fn the_questions_a_card_draw_raises_are_each_said_in_both_languages() {
         line(ChoicePrompt::PutOnBottom, 2, 2, Lang::De),
         "Wähle 2 Karten, die unter deine Bibliothek kommen"
     );
+    assert_eq!(
+        line(ChoicePrompt::Amplify, 0, 2, Lang::En),
+        "Choose up to 2 cards to reveal for amplify"
+    );
+    assert_eq!(
+        line(ChoicePrompt::Amplify, 0, 2, Lang::De),
+        "Wähle bis zu 2 Karten zum Vorzeigen für Verstärken"
+    );
 }
 
 /// Entering as a copy chooses and does not target (09.10.: Vesuvan

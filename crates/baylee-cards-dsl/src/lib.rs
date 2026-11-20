@@ -886,6 +886,14 @@ pub enum EnterModifier {
         /// Continuous-effect modifiers granted indefinitely to this incarnation.
         modifiers: &'static [Modifier],
     },
+    /// "Amplify N" (CR 702.38a, CR 702.38b, CR 614.1c, CR 614.12, CR 614.12a):
+    /// as this object enters the battlefield, reveal any number of cards from
+    /// your hand that share a creature type with it (excluding this card and
+    /// any cards entering simultaneously). This permanent enters with `N`
+    /// +1/+1 counters on it for each card revealed this way (subject to counter
+    /// replacements, CR 614.16). Repeat the entry for multiple amplify
+    /// instances so each prompts and applies separately (CR 702.38b).
+    Amplify(u8),
 }
 
 /// Simple keyword abilities as a bitset.

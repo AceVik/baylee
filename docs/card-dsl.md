@@ -1184,8 +1184,21 @@ remembered answer, restricted to printed faces with none of the excluded
 types; `TypeSet::LAND` expresses "nonland card name"),
 `Prepared` (Emeritus of Woe),
 `TappedUnlessReveal(filter)`,
-`WithCounters { kind, amount }`, and
-`IfKicked { index, counters, modifiers }`.
+`WithCounters { kind, amount }`,
+`IfKicked { index, counters, modifiers }`, and
+`Amplify(n)`.
+
+`Amplify(n)` is the Amplify keyword static ability (CR 702.38a, CR 702.38b,
+CR 614.1c, CR 614.12, CR 614.12a): before the permanent reaches the battlefield
+(so 0/0 creatures like Ghastly Remains survive before state-based actions), its
+controller may reveal any number of cards from their hand that share a creature
+type with its prospective battlefield characteristics (including Changeling,
+CR 702.73a, and excluding the entering card itself and any other cards entering
+simultaneously per CR 702.38a). Each revealed card is recorded in the journal
+(`GameEvent::Revealed`) and adds `n` +1/+1 counters through the pre-entry
+counter replacement pipeline (so doublers apply per CR 614.16). Repeat
+`EnterModifier::Amplify(n)` for multiple instances of amplify so each prompts
+separately (CR 702.38b).
 
 `IfKicked { index, counters, modifiers }` is the Volver-cycle replacement
 effect (CR 614.1c, CR 611.2e, CR 702.33e, CR 702.33f): when entering from the

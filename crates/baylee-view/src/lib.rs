@@ -292,7 +292,10 @@ pub use turn::{DayNight, Phase, Step};
 /// Version 94 adds `YesNoPrompt::KickerOption` for multi-kicker spells
 /// (CR 702.33b, CR 702.33f), an engine prompt variant a reader of 93 cannot
 /// decode.
-pub const VIEW_VERSION: u32 = 94;
+/// Version 95 adds `ChoicePrompt::Amplify` for Amplify hand reveals
+/// (CR 702.38a, CR 702.38b), an engine prompt variant a reader of 94 cannot
+/// decode.
+pub const VIEW_VERSION: u32 = 95;
 
 // ------------------------------------------------------------------- targets
 

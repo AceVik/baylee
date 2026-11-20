@@ -413,6 +413,10 @@ pub enum ChoicePrompt {
     /// the battlefield tapped and the second goes into the searcher's hand
     /// (Kodama's Reach, Cultivate).
     SearchLibraryTappedAndHand,
+    /// Amplify (CR 702.38a, CR 702.38b): reveal any number of cards from your
+    /// hand that share a creature type with the entering permanent to put +1/+1
+    /// counters on it. Naming none declines to reveal any cards.
+    Amplify,
 }
 
 /// What a [`Pending::ChooseNumber`] counts (UI hint).

@@ -233,6 +233,26 @@ pub fn advance(state: &mut GameState) -> Option<Pending> {
                             },
                         ));
                     }
+                    EnterModifier::Amplify(factor) => {
+                        let options = amplify_options(state, &entry);
+                        if options.is_empty() {
+                            continue;
+                        }
+                        let max = u8::try_from(options.len().min(255)).expect("bounded page");
+                        return Some(ask(
+                            state,
+                            entry,
+                            Question::Amplify { factor },
+                            Pending::ChooseCards {
+                                player,
+                                options,
+                                min: 0,
+                                max,
+                                prompt: ChoicePrompt::Amplify,
+                                total: None,
+                            },
+                        ));
+                    }
                     _ => {}
                 }
                 state.entries.pending.push_front(entry);
@@ -395,9 +415,63 @@ pub fn answer(state: &mut GameState, action: &PlayerAction) {
                 state.change_life(entry.controller, delta, Cause::Effect);
             }
         }
+        (Question::Amplify { factor }, PlayerAction::ChooseObjects { objects }) => {
+            if !objects.is_empty() {
+                state.journal.record(GameEvent::Revealed {
+                    player: entry.controller,
+                    cards: objects.clone(),
+                });
+                let revealed = u16::try_from(objects.len()).unwrap_or(u16::MAX);
+                let count = u16::from(factor).saturating_mul(revealed);
+                if count > 0 {
+                    entry
+                        .counters
+                        .push((Some(entry.controller), CounterKind::P1P1, count));
+                }
+            }
+        }
         _ => unreachable!("entry answer shape was validated"),
     }
     state.entries.pending.push_front(entry);
+}
+
+/// Hand cards eligible to be revealed for `EnterModifier::Amplify` (CR 702.38a,
+/// CR 614.12): share at least one creature type with the prospective permanent
+/// (including Changeling, CR 702.73a), excluding the entering object itself and
+/// any co-entering cards in `unavailable(state)`.
+fn amplify_options(state: &GameState, entry: &Attempt) -> Vec<ObjectId> {
+    let Some(object) = state.object(entry.object) else {
+        return Vec::new();
+    };
+    let excluded = unavailable(state);
+    let mut prospective = object.clone();
+    prospective.zone = Zone::Battlefield;
+    prospective.version = prospective.version.wrapping_add(1);
+    let plan = crate::layers::LayerPlan::before_entries(&state.effects, excluded);
+    let projection = crate::layers::recompute_with(state, &prospective, &plan);
+    let entering_types = projection
+        .characteristics
+        .subtypes
+        .intersection(baylee_core::types::SubtypeSet::ALL_CREATURE);
+    if entering_types.is_empty() {
+        return Vec::new();
+    }
+    state
+        .zones
+        .list(ZoneLocation::Hand(entry.controller))
+        .iter()
+        .copied()
+        .filter(|id| *id != entry.object && !excluded.contains(id))
+        .filter(|id| {
+            state.object(*id).is_some_and(|card| {
+                let hand_proj = crate::layers::recompute_with(state, card, &plan);
+                hand_proj
+                    .characteristics
+                    .subtypes
+                    .intersects(entering_types)
+            })
+        })
+        .collect()
 }
 
 fn discard_to_destination(

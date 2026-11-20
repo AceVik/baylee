@@ -16,6 +16,7 @@
 //! never the rule that is set.
 
 mod alone_attack;
+mod amplify;
 mod assignment_restrictions;
 mod attacking_tokens;
 mod battle_sba;

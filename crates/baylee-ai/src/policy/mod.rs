@@ -730,8 +730,12 @@ impl HeuristicAgent {
         max: u8,
         prompt: baylee_engine::choice::ChoicePrompt,
     ) -> Option<Vec<ObjectId>> {
-        // Revealing keeps the card in hand and pays the land's entry price.
-        if prompt == baylee_engine::choice::ChoicePrompt::RevealOrEnterTapped {
+        // Revealing keeps the card in hand and pays the land's entry price or adds Amplify counters.
+        if matches!(
+            prompt,
+            baylee_engine::choice::ChoicePrompt::RevealOrEnterTapped
+                | baylee_engine::choice::ChoicePrompt::Amplify
+        ) {
             let mut ranked = options.to_vec();
             ranked.sort_unstable();
             ranked.truncate(usize::from(max));
