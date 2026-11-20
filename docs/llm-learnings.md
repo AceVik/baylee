@@ -8356,3 +8356,27 @@ unfiltered cards. The eight additional cards come from typecycling and dredge.
   and raised `transcode-report` to **`17,047 / 34,482` (`49%`)** scripts and
   **`747 / 864` (`0` collisions)** tokens while clearing `44` pool stubs
   (`1,078 -> 1,034` stubs remaining).
+
+## 2026-11-20 — Engine Wave 3 (Eminence/Goad/RepeatEach/PeekAndReveal) & Codegen Wave 7 (`d7a8edc35`)
+
+- **Command-Zone/Eminence, Goad, Combat Attack Keywords & Narrator Sync (`027bf3beb`)**:
+  landed `TriggerZone::{Command, BattlefieldOrCommand}`, `ZoneRef::BattlefieldOrCommand`,
+  `ActivationZone::BattlefieldOrCommand`, `Condition::{ControlYourCommander, SourceInZone}`,
+  `Effect::{Goad, GoadAll}`, `Modifier::Goaded`, `KeywordSet::{BATTLE_CRY, DETHRONE, MELEE, MENTOR, TRAINING}`,
+  and `Amount::OpponentsYouAttackedThisCombat` (`Modifier` census updated to `210 = 57 + 153`),
+  alongside extending `baylee-seat/src/narrator/words.rs::KEYWORDS` (`53 -> 58`) so
+  `every_keyword_a_card_prints_has_a_name` stays closed across upcoming batches.
+- **Chosen-Color Protection, Re-Entrant `RepeatEach`, `ChooseCard`, `PeekAndReveal`, `Reveal` (`e1950952a`)**:
+  added `Filter::ChosenColor`, `Effect::GrantProtectionFromChosenColorUntilEot`,
+  re-entrant `Effect::RepeatEach` (`RepeatFrame`), `Effect::ChooseCard`, `Effect::PeekAndReveal`,
+  and `Effect::{RevealFromHand, RevealTop}` across engine, AI, train, seat, and client.
+- **Codegen Wave 7 (`8eb2473a9`, `38acd5fb0`, `d7a8edc35`) & Pass E0c (`40f4d7a02`, `0eedca2f1`)**:
+  lowered `Prepare` + single-hop `CopyFaceFrom:`, extended `etbCounter`, non-source/implicit
+  `Animate`, `Amass`, `AlterAttribute` (`Prepared`/`Saddled`), `BecomeMonarch`, Wave 6b
+  alt-cost conditions, zoneless self-cast `SpellCast`, `UnlessPayer$ Player`, and
+  `Mill`/`Sacrifice`/`ChangeZone`/`DigUntil`/`GainControl` sweeps; fixed Populate
+  `Filter::IsToken` (`effects.rs:3653`), `Prepare` back-face `generated_tokens::` import
+  (`stubgen/render.rs:196`), and `xtask` optional-clause face-cost checks; and landed 32
+  newly readable Wave 6/6b pool stubs (`Spoils of Evil` kept as stub pending
+  `ZoneSel::GraveyardOf(PlayerRel::Chosen)` fix in `mana.rs`). Combined `transcode-report`
+  reached **`17,405 / 34,482` (`50%`)** scripts and **`748 / 864` (`0` collisions)** tokens.
