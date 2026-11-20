@@ -212,6 +212,13 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "AlterAttribute",
     "BecomeMonarch",
     "GainControl",
+    "ChooseColor",
+    "ProtectionAll",
+    "RepeatEach",
+    "ChooseCard",
+    "PeekAndReveal",
+    "Reveal",
+    "Goad",
 ];
 
 /// A cost token that names an object, split into its kind and its body.

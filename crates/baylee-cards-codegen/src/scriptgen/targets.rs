@@ -417,7 +417,7 @@ impl Tx<'_> {
             }
             "Snow" => clauses.push("Filter::HasSupertype(SupertypeSet::SNOW)".to_string()),
             "Self" => clauses.push("Filter::This".to_string()),
-            "Enchanted" => clauses.push("Filter::AttachedToBySource".to_string()),
+            "Enchanted" | "Equipped" => clauses.push("Filter::AttachedToBySource".to_string()),
             "Kicked" => clauses.push("Filter::Kicked".to_string()),
             _ => {
                 let Some(path) = self.cats.const_path(base) else {
@@ -606,6 +606,9 @@ impl Tx<'_> {
                         "Filter::Or(&[Filter::IsColorless, Filter::Monocolored])".to_string()
                     }
                     "ChosenColor" => "Filter::OfSourceChosenColor".to_string(),
+                    "!ChosenColor" | "nonChosenColor" => {
+                        "Filter::Not(&Filter::OfSourceChosenColor)".to_string()
+                    }
                     "ChosenType" if self.has_chosen_creature_type() => {
                         "Filter::MatchesChosenTypeOfSource".to_string()
                     }
@@ -618,15 +621,22 @@ impl Tx<'_> {
                     "faceUp" => "Filter::Not(&Filter::FaceDown)".to_string(),
                     "hasManaAbility" => "Filter::HasManaAbility".to_string(),
                     "!hasManaAbility" => "Filter::Not(&Filter::HasManaAbility)".to_string(),
+                    "withRampage" => "Filter::HasRampage".to_string(),
+                    "!withRampage" => "Filter::Not(&Filter::HasRampage)".to_string(),
                     "ThisTurnEntered" if !card_zone => "Filter::EnteredThisTurn".to_string(),
                     "!ThisTurnEntered" if !card_zone => {
                         "Filter::Not(&Filter::EnteredThisTurn)".to_string()
                     }
-                    "sharesCreatureTypeWith" => {
+                    "sharesCreatureTypeWith" | "sharesCreatureTypeWith Self" => {
                         "Filter::SharesCreatureTypeWith(&Filter::This)".to_string()
                     }
-                    "sharesCreatureTypeWith Equipped" | "sharesCreatureTypeWith Enchanted" => {
+                    "sharesCreatureTypeWith Equipped"
+                    | "sharesCreatureTypeWith Enchanted"
+                    | "sharesCreatureTypeWith AttachedBy" => {
                         "Filter::SharesCreatureTypeWith(&Filter::AttachedToBySource)".to_string()
+                    }
+                    "sharesCreatureTypeWith Commander" => {
+                        "Filter::SharesSubtypeWithCommander".to_string()
                     }
                     "SharesColorWith Equipped" | "SharesColorWith Enchanted" => {
                         "Filter::SharesAColorWith(&Filter::AttachedToBySource)".to_string()
@@ -788,8 +798,10 @@ impl Tx<'_> {
         if valid == "Any" {
             return Some("TargetSpec::AnyTarget".to_string());
         }
-        if self.trigger_mode.as_deref() == Some("DamageDone")
-            && api != "Counter"
+        if matches!(
+            self.trigger_mode.as_deref(),
+            Some("DamageDone" | "DamageDoneOnce")
+        ) && api != "Counter"
             && let Some(stripped) = valid
                 .split(',')
                 .map(|alt| {
@@ -888,7 +900,12 @@ impl Tx<'_> {
             None => {}
             Some("You") => whose = "PlayerRel::You",
             Some("TriggeredCardController") if whose == "PlayerRel::You" => {}
-            Some("TriggeredTarget") if self.trigger_mode.as_deref() == Some("DamageDone") => {
+            Some("TriggeredTarget")
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("DamageDone" | "DamageDoneOnce")
+                ) =>
+            {
                 whose = "PlayerRel::DamagedPlayer";
             }
             Some(_) => return None,

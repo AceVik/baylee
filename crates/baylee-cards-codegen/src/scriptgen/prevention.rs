@@ -486,29 +486,27 @@ impl Tx<'_> {
     }
 
     fn prevention_condition(&mut self, p: &mut Params) -> Option<String> {
-        if let Some(pt) = p.take("PlayerTurn") {
-            if pt != "True" || p.has("Condition") || p.has("IsPresent") || p.has("CheckSVar") {
+        let your_turn = match p.take("PlayerTurn").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(_) => {
                 return self
                     .deny("a persistent spell prevention with another zone or result".into());
             }
-            return Some(", condition = Some(Condition::YourTurn)".to_string());
+        };
+        let rest = self.condition_any(p)?;
+        if !your_turn {
+            return Some(rest);
         }
-        let cond = self.condition(p)?;
-        if let Some(var) = p.take("CheckSVar") {
-            if !cond.is_empty() {
-                return self
-                    .deny("a persistent spell prevention with another zone or result".into());
-            }
-            let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
-            let Some(clause) = self
-                .svar_condition(&var, &cmp)
-                .or_else(|| self.extra_svar_condition_clause(&var, &cmp))
-            else {
-                return self.deny("unclaimed parameter `DamageDone.CheckSVar`".to_string());
-            };
-            return Some(format!(", condition = Some({clause})"));
+        if let Some(existing) = rest
+            .strip_prefix(", condition = Some(")
+            .and_then(|s| s.strip_suffix(')'))
+        {
+            return Some(format!(
+                ", condition = Some(Condition::All(&[Condition::YourTurn, {existing}]))"
+            ));
         }
-        Some(cond)
+        Some(", condition = Some(Condition::YourTurn)".to_string())
     }
 
     fn prevention_permanent_target(&self, valid: &str) -> Option<String> {
@@ -685,6 +683,13 @@ impl Tx<'_> {
         {
             return self.deny("an effect prevention with another event or zone".into());
         }
+        if bound_spec.is_none()
+            && shield.peek("Optional") == Some("True")
+            && shield.peek("DamageTarget") == Some("You")
+            && let Some(effects) = self.may_redirect_creature_damage_to_you(shield.clone())
+        {
+            return Some(effects);
+        }
         let valid_source = shield.take("ValidSource");
         let valid_target = shield.take("ValidTarget");
         let combat_only = match shield.take("IsCombat").as_deref() {
@@ -712,6 +717,22 @@ impl Tx<'_> {
             }
             (None, None, None) => "None".to_string(),
             (None, None, Some("You")) => "Some(TargetSpec::Player(PlayerRel::You))".to_string(),
+            (None, None, Some("Player")) => {
+                "Some(TargetSpec::Player(PlayerRel::EachPlayer))".to_string()
+            }
+            (None, None, Some("Card.Self" | "Creature.Self")) => {
+                "Some(TargetSpec::Source)".to_string()
+            }
+            (
+                None,
+                None,
+                Some(
+                    "Card.EnchantedBy"
+                    | "Creature.EnchantedBy"
+                    | "Card.EquippedBy"
+                    | "Creature.EquippedBy",
+                ),
+            ) => "Some(TargetSpec::Attached)".to_string(),
             _ => return self.deny("an effect prevention with another recipient".into()),
         };
         let source_expr = match valid_source.as_deref() {
@@ -728,6 +749,38 @@ impl Tx<'_> {
             "{variant} {{ target: {target_expr}, sources: &{src_ref}, \
              combat_only: {combat_only} }}"
         )])
+    }
+
+    fn may_redirect_creature_damage_to_you(&self, mut shield: Params) -> Option<Vec<String>> {
+        if shield.take("ValidTarget").as_deref() != Some("Creature")
+            || shield.take("Optional").as_deref() != Some("True")
+            || shield.take("OptionalDecider").as_deref() != Some("You")
+            || shield.take("DamageTarget").as_deref() != Some("You")
+        {
+            return None;
+        }
+        let replace_name = shield.take("ReplaceWith")?;
+        if !shield.exhausted() {
+            return None;
+        }
+        let (api, mut rep) = self
+            .svars
+            .get(replace_name.trim())
+            .and_then(|s| Params::parse(s))?;
+        rep.drop_prose();
+        if api != "ReplaceEffect"
+            || rep.take("VarName").as_deref() != Some("Affected")
+            || rep.take("VarValue").as_deref() != Some("You")
+            || rep.take("VarType").as_deref() != Some("Player")
+            || !rep.exhausted()
+        {
+            return None;
+        }
+        Some(vec![
+            "Effect::CreateContinuousEffect { layer: Layer::Text, filter: &Filter::CREATURE, \
+             modifier: Modifier::MayRedirectDamageToYou, duration: Duration::UntilEndOfTurn }"
+                .to_string(),
+        ])
     }
 
     /// Resolves `Choices$` and `RememberChosen$` for `ChooseSource` into

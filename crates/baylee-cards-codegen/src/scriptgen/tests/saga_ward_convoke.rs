@@ -2506,3 +2506,183 @@ fn wave7_player_protection_cant_target_dice_pay_etb_and_attack_sac() {
         ["EnterModifier::DiscardOrGraveyard(&Filter::LAND)"]
     );
 }
+
+#[test]
+fn wave8_support_hooks_filter_atoms_and_mana_counts() {
+    for api in [
+        "ChooseColor",
+        "ProtectionAll",
+        "RepeatEach",
+        "ChooseCard",
+        "PeekAndReveal",
+        "Reveal",
+        "Goad",
+    ] {
+        assert!(crate::scriptgen::is_supported_api(api), "{api}");
+    }
+
+    let filters = read(
+        "Name:CrestTool\nTypes:Artifact Equipment\nK:Equip:1\n\
+         S:Mode$ Continuous | Affected$ Equipped | AddPower$ 1\n\
+         S:Mode$ Continuous | Affected$ Creature.sharesCreatureTypeWith Commander | AddToughness$ 1\n\
+         A:AB$ Destroy | Cost$ 2 | ValidTgts$ Creature.!ChosenColor+withRampage",
+    );
+    assert!(
+        filters
+            .abilities
+            .iter()
+            .any(|a| a.contains("Filter::AttachedToBySource"))
+    );
+    assert!(
+        filters
+            .abilities
+            .iter()
+            .any(|a| a.contains("Filter::SharesSubtypeWithCommander"))
+    );
+    assert!(
+        filters
+            .statics
+            .contains("Filter::Not(&Filter::OfSourceChosenColor)")
+    );
+    assert!(filters.statics.contains("Filter::HasRampage"));
+
+    let dmg_counts = read(
+        "Name:ReaperEdge\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | TriggerZones$ Battlefield | Execute$ Cut\n\
+         T:Mode$ DamageDoneOnce | CombatDamage$ True | ValidSource$ Creature.YouCtrl | ValidTarget$ Player | TriggerZones$ Battlefield | Execute$ Poke\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature | TriggerZones$ Battlefield | Execute$ Drain\n\
+         T:Mode$ Attacks | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ Buff\n\
+         SVar:Cut:DB$ LoseLife | Defined$ TriggeredTarget | LifeAmount$ Half\n\
+         SVar:Half:TriggeredTarget$LifeTotal/HalfUp\n\
+         SVar:Poke:DB$ Destroy | ValidTgts$ Creature.ControlledBy TriggeredTarget\n\
+         SVar:Drain:DB$ LoseLife | Defined$ You | LifeAmount$ Mv\n\
+         SVar:Mv:TriggeredCard$CardManaCost\n\
+         SVar:Buff:DB$ GainLife | Defined$ You | LifeAmount$ Tough\n\
+         SVar:Tough:TriggeredAttacker$CardToughness",
+    );
+    assert!(dmg_counts.abilities[0].contains(
+        "Amount::Half { base: &Amount::LifeTotal(PlayerRel::DamagedPlayer), round_up: true }"
+    ));
+    assert!(dmg_counts.abilities[1].contains("TargetSpec::ObjectOfEventPlayer(&Filter::CREATURE)"));
+    assert!(dmg_counts.abilities[2].contains("Amount::EventManaValue"));
+    assert!(dmg_counts.abilities[3].contains("Amount::EventLastToughness"));
+
+    let yards_and_cmd = read(
+        "Name:RelicGauge\nManaCost:2 B\nTypes:Sorcery\n\
+         A:SP$ LoseLife | ValidTgts$ Player | LifeAmount$ Gy | SubAbility$ Art\n\
+         SVar:Art:DB$ GainLife | Defined$ You | LifeAmount$ ArtGy | SubAbility$ Melee\n\
+         SVar:Melee:DB$ GainLife | Defined$ You | LifeAmount$ Atk | SubAbility$ Cmd\n\
+         SVar:Cmd:DB$ GainLife | Defined$ You | LifeAmount$ CmdMv\n\
+         SVar:Gy:TargetedPlayer$CardsInGraveyard\n\
+         SVar:ArtGy:Count$ValidGraveyard Artifact.OwnedBy TargetedPlayer\n\
+         SVar:Atk:PlayerCountPropertyYou$OpponentsAttackedThisCombat\n\
+         SVar:CmdMv:Count$ValidAll Card.IsCommander+YouOwn$GreatestCardManaCost",
+    );
+    assert!(yards_and_cmd.abilities[0].contains("ZoneSel::GraveyardOf(PlayerRel::Chosen)"));
+    assert!(yards_and_cmd.abilities[0].contains("Amount::OpponentsYouAttackedThisCombat"));
+    assert!(yards_and_cmd.abilities[0].contains("Amount::GreatestCommanderManaValue"));
+}
+
+#[test]
+fn wave8_svar_conditions_opponent_counts_and_commander() {
+    let conds = read(
+        "Name:TaxScale\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | CheckSVar$ Start | SVarCompare$ GE1\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddToughness$ 1 | CheckSVar$ Lib | SVarCompare$ LE20\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Flying | CheckSVar$ OppL | SVarCompare$ GE4\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Vigilance | CheckSVar$ OppL | SVarCompare$ GTYours\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Lifelink | CheckSVar$ OppL | SVarCompare$ GEPlus2\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Menace | CheckSVar$ LowC | SVarCompare$ EQ0\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Haste | CheckSVar$ Life | SVarCompare$ LTBase\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Reach | CheckSVar$ Yours | SVarCompare$ LTOppL\n\
+         S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Trample | CheckSVar$ OppGy | SVarCompare$ LE6\n\
+         SVar:Start:Count$StartingPlayer.0.1\n\
+         SVar:Lib:PlayerCountPlayers$LowestValidLibrary Card.YouOwn\n\
+         SVar:OppL:PlayerCountOpponents$HighestValid Land.YouCtrl\n\
+         SVar:Yours:Count$Valid Land.YouCtrl\n\
+         SVar:Plus2:Count$Valid Land.YouCtrl/Plus.2\n\
+         SVar:LowC:PlayerCountOpponents$LowestValid Creature.YouCtrl\n\
+         SVar:Life:Count$YourLifeTotal\n\
+         SVar:Base:Count$YourStartingLife\n\
+         SVar:OppGy:PlayerCountOpponents$HighestCardsInGraveyard",
+    );
+    assert!(conds.abilities[0].contains("Condition::NotStartingPlayer"));
+    assert!(conds.abilities[1].contains("Condition::AnyLibraryAtMost(20)"));
+    assert!(conds.abilities[2].contains("Condition::OpponentControlCount(&CHECK"));
+    assert!(conds.abilities[2].contains(", 4)"));
+    assert!(conds.statics.contains("Filter::ControlledByOpponent"));
+    assert!(conds.abilities[3].contains("Condition::OpponentControlsMore(&Filter::LAND)"));
+    assert!(conds.abilities[4].contains("Condition::OpponentControlsMoreBy(&Filter::LAND, 2)"));
+    assert!(
+        conds.abilities[5].contains("Condition::OpponentControlCountAtMost(&Filter::CREATURE, 0)")
+    );
+    assert!(conds.abilities[6].contains("Condition::LifeBelowStarting"));
+    assert!(conds.abilities[7].contains("Condition::OpponentControlsMore(&Filter::LAND)"));
+    assert!(
+        conds.abilities[8].contains("Condition::Not(&Condition::OpponentGraveyardCountAtLeast(7))")
+    );
+}
+
+#[test]
+fn wave8_prevention_redirect_and_moved_enter_modifiers() {
+    let martyr = read(
+        "Name:ShieldVow\nManaCost:W W\nTypes:Instant\n\
+         A:SP$ Effect | ReplacementEffects$ Redir\n\
+         SVar:Redir:Event$ DamageDone | ValidTarget$ Creature | Optional$ True | OptionalDecider$ You | DamageTarget$ You | ReplaceWith$ ToYou\n\
+         SVar:ToYou:DB$ ReplaceEffect | VarName$ Affected | VarValue$ You | VarType$ Player",
+    );
+    assert!(martyr.abilities[0].contains("Modifier::MayRedirectDamageToYou"));
+    assert!(martyr.abilities[0].contains("Duration::UntilEndOfTurn"));
+
+    let self_shield = read(
+        "Name:WardShell\nTypes:Creature\nPT:2/2\n\
+         A:AB$ Effect | Cost$ 1 | ReplacementEffects$ Keep\n\
+         SVar:Keep:Event$ DamageDone | ActiveZones$ Command | ValidSource$ Artifact | ValidTarget$ Card.Self | Prevent$ True",
+    );
+    assert!(
+        self_shield.abilities[0].contains(
+            "PreventAllDamageFromMatchingThisTurn { target: Some(TargetSpec::Source), sources: &Filter::ARTIFACT, combat_only: false }"
+        )
+    );
+
+    let shape = read(
+        "Name:ClayForm\nManaCost:4\nTypes:Artifact Creature Shapeshifter\nPT:*/*\n\
+         R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | Layer$ Copy | ReplacementResult$ Updated | ReplaceWith$ Pick\n\
+         SVar:Pick:DB$ GenericChoice | Defined$ You | Choices$ Flat,Wing,Wall\n\
+         SVar:Flat:DB$ Clone | Defined$ Self | SetPower$ 3 | SetToughness$ 3\n\
+         SVar:Wing:DB$ Clone | Defined$ Self | SetPower$ 2 | SetToughness$ 2 | AddKeywords$ Flying\n\
+         SVar:Wall:DB$ Clone | Defined$ Self | SetPower$ 1 | SetToughness$ 6 | AddTypes$ Goblin | AddKeywords$ Defender",
+    );
+    assert!(shape.enter_modifiers[0].contains("EnterModifier::ChooseShape"));
+    assert!(shape.enter_modifiers[0].contains("CopyMod::SetPT(3, 3)"));
+    assert!(shape.enter_modifiers[0].contains("CopyMod::AddKeyword(KeywordSet::FLYING)"));
+    assert!(shape.enter_modifiers[0].contains("CopyMod::AddSubtype(subtypes::creature::GOBLIN)"));
+
+    let sac_others = read(
+        "Name:QuietValley\nTypes:Land\n\
+         R:Event$ Moved | Destination$ Battlefield | ValidCard$ Card.Self | ReplaceWith$ Sac\n\
+         SVar:Sac:DB$ SacrificeAll | ValidCards$ Permanent.YouCtrl+namedQuietValley | SubAbility$ Bf\n\
+         SVar:Bf:DB$ ChangeZone | Origin$ All | Destination$ Battlefield | Defined$ ReplacedCard\n\
+         A:AB$ Mana | Cost$ T | Produced$ C",
+    );
+    assert!(sac_others.enter_modifiers[0].contains("EnterModifier::SacrificeOthers(&ENTRY_SAC"));
+    assert!(
+        sac_others
+            .statics
+            .contains("Filter::Named(\"QuietValley\")")
+    );
+
+    let town = read(
+        "Name:EarlyTown\nTypes:Land\n\
+         R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ Tap | ReplacementResult$ Updated\n\
+         SVar:Tap:DB$ Tap | Defined$ Self | ETB$ True | ConditionCheckSVar$ X | ConditionSVarCompare$ GT3\n\
+         SVar:X:Count$Compare Y GE1.Z.4\n\
+         SVar:Y:PlayerCountPropertyYou$HasPropertyActive\n\
+         SVar:Z:Count$YourTurns\n\
+         A:AB$ Mana | Cost$ T | Produced$ C",
+    );
+    assert_eq!(
+        town.enter_modifiers,
+        ["EnterModifier::TappedUnlessCondition(Condition::DuringYourFirstTurns(3))"]
+    );
+}

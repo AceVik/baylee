@@ -169,19 +169,18 @@ fn parse_token_lines(text: &str) -> Option<RawToken> {
                 _ => return None,
             },
             "K" => {
-                if let Some(bit) = crate::scriptgen::keyword_const_of(rest) {
+                if let Some(bit) = single_instance_trigger_keyword(rest.trim()) {
+                    // CR 702.39b/91b/105b/121b/134b/149b: multiple instances
+                    // trigger separately; refuse duplicate lines rather than
+                    // silently collapsing them onto one bit.
+                    if keywords.contains(&bit) {
+                        return None;
+                    }
+                    keywords.push(bit);
+                } else if let Some(bit) = crate::scriptgen::keyword_const_of(rest) {
                     keywords.push(bit);
                 } else {
                     match rest.trim() {
-                        "Provoke" => {
-                            // CR 702.39b: multiple instances of provoke trigger
-                            // separately; refuse duplicate lines rather than
-                            // silently collapsing them onto one bit.
-                            if keywords.contains(&"KeywordSet::PROVOKE") {
-                                return None;
-                            }
-                            keywords.push("KeywordSet::PROVOKE");
-                        }
                         "CARDNAME can't attack." => keywords.push("KeywordSet::CANT_ATTACK"),
                         "CARDNAME can't block." => keywords.push("KeywordSet::CANT_BLOCK"),
                         "CARDNAME can't attack or block." => {
@@ -222,6 +221,18 @@ fn parse_token_lines(text: &str) -> Option<RawToken> {
         text_all_colors,
         has_rule_lines,
     })
+}
+
+fn single_instance_trigger_keyword(kw: &str) -> Option<&'static str> {
+    match kw {
+        "Provoke" => Some("KeywordSet::PROVOKE"),
+        "Battle Cry" | "Battle cry" => Some("KeywordSet::BATTLE_CRY"),
+        "Dethrone" => Some("KeywordSet::DETHRONE"),
+        "Melee" => Some("KeywordSet::MELEE"),
+        "Mentor" => Some("KeywordSet::MENTOR"),
+        "Training" => Some("KeywordSet::TRAINING"),
+        _ => None,
+    }
 }
 
 fn render_token_literal(
@@ -2049,5 +2060,38 @@ mod tests {
         assert!(elephant.literal.contains("PtCount::InAllGraveyards"));
         assert!(elephant.literal.contains("Filter::OwnedByYou"));
         assert!(elephant.constant.starts_with("ELEPHANT_X_X_GREEN_A"));
+    }
+
+    #[test]
+    fn wave8_training_and_combat_trigger_keywords() {
+        let mut c = cats();
+        c.creature.push("Human".to_string());
+        c.normalize();
+
+        let trainee = read(
+            "Name:Human Soldier Token\nColors:white,green\nTypes:Creature Human Soldier\n\
+             PT:1/1\nK:Training",
+            &c,
+        )
+        .expect("Training token");
+        assert!(trainee.literal.contains("KeywordSet::TRAINING"));
+        assert_eq!(trainee.constant, "HUMAN_SOLDIER_1_1_WHITE_GREEN_TRAINING");
+
+        let cry = read(
+            "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\nPT:1/1\nK:Battle Cry",
+            &c,
+        )
+        .expect("Battle cry token");
+        assert!(cry.literal.contains("KeywordSet::BATTLE_CRY"));
+
+        // Duplicate triggered-keyword instances must stay refused rather than collapsing.
+        assert!(
+            read(
+                "Name:Soldier Token\nColors:white\nTypes:Creature Soldier\n\
+                 PT:1/1\nK:Training\nK:Training",
+                &c,
+            )
+            .is_none()
+        );
     }
 }

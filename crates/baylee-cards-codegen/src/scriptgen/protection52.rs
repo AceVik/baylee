@@ -2584,6 +2584,447 @@ impl Tx<'_> {
         let name = self.body.filter_static("COUNTED", &filter_expr);
         Some(format!("PtCount::InAllGraveyards(&{name})"))
     }
+
+    /// Wave 8 `SVar` condition clauses: `StartingPlayer`, `ControlYourCommander`,
+    /// `AnyLibraryAtMost`, negated `OpponentGraveyardCountAtLeast`, and
+    /// opponent-control count/comparison clauses (`OpponentControlCount`,
+    /// `OpponentControlCountAtMost`, `OpponentControlsMore`,
+    /// `OpponentControlsMoreBy`).
+    pub(super) fn extra_svar_condition_wave8(&mut self, var: &str, cmp: &str) -> Option<String> {
+        let raw = self.svars.get(var.trim())?.trim().to_string();
+        let cmp = cmp.trim();
+        if raw == "Count$StartingPlayer.0.1" {
+            return match cmp {
+                "GE1" | "GT0" | "EQ1" => Some("Condition::NotStartingPlayer".to_string()),
+                "EQ0" | "LT1" => Some("Condition::Not(&Condition::NotStartingPlayer)".to_string()),
+                _ => None,
+            };
+        }
+        if raw == "Count$StartingPlayer.1.0" {
+            return match cmp {
+                "EQ0" | "LT1" => Some("Condition::NotStartingPlayer".to_string()),
+                "GE1" | "GT0" | "EQ1" => {
+                    Some("Condition::Not(&Condition::NotStartingPlayer)".to_string())
+                }
+                _ => None,
+            };
+        }
+        if matches!(
+            raw.as_str(),
+            "Count$Valid Card.IsCommander+YouOwn+YouCtrl"
+                | "Count$Valid Card.YouOwn+IsCommander+YouCtrl"
+                | "Count$Valid Card.IsCommander+YouCtrl+YouOwn"
+                | "Count$Valid Permanent.IsCommander+YouOwn+YouCtrl"
+                | "Count$Valid Permanent.YouOwn+IsCommander+YouCtrl"
+                | "Count$Valid Permanent.IsCommander+YouCtrl+YouOwn"
+        ) {
+            return match cmp {
+                "GE1" | "GT0" => Some("Condition::ControlYourCommander".to_string()),
+                "EQ0" | "LT1" => {
+                    Some("Condition::Not(&Condition::ControlYourCommander)".to_string())
+                }
+                _ => None,
+            };
+        }
+        if raw == "PlayerCountPlayers$LowestValidLibrary Card.YouOwn"
+            && let Some(n) = super::saga_ward_convoke::parse_at_most_u16(cmp)
+        {
+            return Some(format!("Condition::AnyLibraryAtMost({n})"));
+        }
+        self.opponent_count_svar_condition(&raw, cmp)
+    }
+
+    fn opponent_count_svar_condition(&mut self, raw: &str, cmp: &str) -> Option<String> {
+        if let Some(valid) = raw.strip_prefix("PlayerCountOpponents$HighestValid ") {
+            let base_valid = strip_you_ctrl_only(valid)?;
+            if let Some(n) =
+                super::saga_ward_convoke::parse_at_least_u16(cmp).and_then(|v| u8::try_from(v).ok())
+            {
+                let opp_expr = self.filter_expr(&scope_controlled_by_opp(&base_valid))?;
+                let name = self.body.filter_static("CHECK", &opp_expr);
+                return Some(format!("Condition::OpponentControlCount(&{name}, {n})"));
+            }
+            if let Some(max) = super::saga_ward_convoke::parse_at_most_u16(cmp)
+                && let Some(min) = max.checked_add(1).and_then(|v| u8::try_from(v).ok())
+            {
+                let opp_expr = self.filter_expr(&scope_controlled_by_opp(&base_valid))?;
+                let name = self.body.filter_static("CHECK", &opp_expr);
+                return Some(format!(
+                    "Condition::Not(&Condition::OpponentControlCount(&{name}, {min}))"
+                ));
+            }
+            return self.opponent_more_svar_pair(&base_valid, cmp, true, 0);
+        }
+        if let Some(valid) = raw.strip_prefix("PlayerCountOpponents$LowestValid ") {
+            let base_valid = strip_you_ctrl_only(valid)?;
+            if let Some(max) = super::saga_ward_convoke::parse_at_most_u16(cmp) {
+                let expr = self.filter_expr(&base_valid)?;
+                let name = self.body.filter_static("CHECK", &expr);
+                return Some(format!(
+                    "Condition::OpponentControlCountAtMost(&{name}, {max})"
+                ));
+            }
+            if let Some(min) = super::saga_ward_convoke::parse_at_least_u16(cmp)
+                && let Some(max) = min.checked_sub(1)
+            {
+                let expr = self.filter_expr(&base_valid)?;
+                let name = self.body.filter_static("CHECK", &expr);
+                return Some(format!(
+                    "Condition::Not(&Condition::OpponentControlCountAtMost(&{name}, {max}))"
+                ));
+            }
+            return None;
+        }
+        if let Some((base_valid, plus)) = parse_your_valid_plus(raw) {
+            return self.opponent_more_svar_pair(&base_valid, cmp, false, plus);
+        }
+        None
+    }
+
+    fn opponent_more_svar_pair(
+        &mut self,
+        lhs_base: &str,
+        cmp: &str,
+        lhs_is_opp: bool,
+        lhs_plus: u32,
+    ) -> Option<String> {
+        let (op, rhs_var) = cmp.split_at_checked(2)?;
+        if rhs_var.is_empty() || rhs_var.chars().all(|c| c.is_ascii_digit()) {
+            return None;
+        }
+        let rhs_def = self.svars.get(rhs_var.trim())?.trim().to_string();
+        let (min_diff, negated) = if lhs_is_opp {
+            let (rhs_base, rhs_plus) = parse_your_valid_plus(&rhs_def)?;
+            if rhs_base != lhs_base {
+                return None;
+            }
+            match (op, rhs_plus) {
+                ("GT", k) => (k.checked_add(1)?, false),
+                ("GE", k) if k >= 1 => (k, false),
+                ("LE", 0) => (1, true),
+                ("LT", k) if k >= 1 => (k, true),
+                _ => return None,
+            }
+        } else {
+            let rhs_valid = rhs_def.strip_prefix("PlayerCountOpponents$HighestValid ")?;
+            let rhs_base = strip_you_ctrl_only(rhs_valid)?;
+            if rhs_base != lhs_base {
+                return None;
+            }
+            match (op, lhs_plus) {
+                ("LT", k) => (k.checked_add(1)?, false),
+                ("LE", k) if k >= 1 => (k, false),
+                ("GE", 0) => (1, true),
+                ("GT", k) if k >= 1 => (k, true),
+                _ => return None,
+            }
+        };
+        let expr = self.filter_expr(lhs_base)?;
+        let name = self.body.filter_static("CHECK", &expr);
+        let core = if min_diff == 1 {
+            format!("Condition::OpponentControlsMore(&{name})")
+        } else {
+            format!("Condition::OpponentControlsMoreBy(&{name}, {min_diff})")
+        };
+        Some(if negated {
+            format!("Condition::Not(&{core})")
+        } else {
+            core
+        })
+    }
+
+    /// `R: Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | Layer$ Copy`
+    /// with `DB$ GenericChoice` of `DB$ Clone | Defined$ Self` shape branches
+    /// (`EnterModifier::ChooseShape`, e.g. Primal Clay).
+    pub(super) fn moved_choose_shape(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("ValidCard").as_deref() != Some("Card.Self")
+            || p.take("Destination").as_deref() != Some("Battlefield")
+            || p.take("Layer").as_deref() != Some("Copy")
+            || p.take("ReplacementResult").as_deref() != Some("Updated")
+            || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+        {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        }
+        let Some(choice_name) = p.take("ReplaceWith") else {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        };
+        if !p.exhausted() {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        }
+        let Some((api, mut choice)) = self
+            .svars
+            .get(choice_name.trim())
+            .and_then(|s| Params::parse(s))
+        else {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        };
+        choice.drop_prose();
+        if api != "GenericChoice" || choice.take("Defined").as_deref() != Some("You") {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        }
+        let Some(choices_raw) = choice.take("Choices") else {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        };
+        if !choice.exhausted() {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        }
+        let mut shapes = Vec::new();
+        for branch_name in choices_raw.split(',').map(str::trim) {
+            let Some(mods) = self.parse_shape_clone_branch(branch_name) else {
+                return self.deny("replacement `Moved` this rule cannot read".into());
+            };
+            shapes.push(format!("&[{}]", mods.join(", ")));
+        }
+        if shapes.len() < 2 {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        }
+        self.body.enter_modifiers.push(format!(
+            "EnterModifier::ChooseShape(&[{}])",
+            shapes.join(", ")
+        ));
+        Some(())
+    }
+
+    fn parse_shape_clone_branch(&self, name: &str) -> Option<Vec<String>> {
+        let (api, mut b) = self.svars.get(name).and_then(|s| Params::parse(s))?;
+        b.drop_prose();
+        if api != "Clone" || b.take("Defined").as_deref() != Some("Self") {
+            return None;
+        }
+        let mut mods = Vec::new();
+        if let (Some(pw), Some(th)) = (b.take("SetPower"), b.take("SetToughness")) {
+            let p_num: i16 = pw.trim().parse().ok()?;
+            let t_num: i16 = th.trim().parse().ok()?;
+            mods.push(format!("CopyMod::SetPT({p_num}, {t_num})"));
+        } else if b.has("SetPower") || b.has("SetToughness") {
+            return None;
+        }
+        if let Some(types_raw) = b.take("AddTypes") {
+            let mut card_types = Vec::new();
+            for word in types_raw
+                .split(['&', ' '])
+                .map(str::trim)
+                .filter(|w| !w.is_empty())
+            {
+                if let Some(ty) = card_type_const(word) {
+                    card_types.push(ty);
+                } else {
+                    let sub = self.cats.const_path(word)?;
+                    mods.push(format!("CopyMod::AddSubtype({sub})"));
+                }
+            }
+            if !card_types.is_empty() {
+                mods.push(format!(
+                    "CopyMod::AddType({})",
+                    join_const_union(&card_types)
+                ));
+            }
+        }
+        if let Some(kws_raw) = b.take("AddKeywords") {
+            for kw in kws_raw.split('&').map(str::trim).filter(|k| !k.is_empty()) {
+                let bit = super::keyword_const_of(kw)?;
+                mods.push(format!("CopyMod::AddKeyword({bit})"));
+            }
+        }
+        (b.exhausted() && !mods.is_empty()).then_some(mods)
+    }
+
+    /// `R: Event$ Moved | Destination$ Battlefield | ValidCard$ Card.Self`
+    /// with `DB$ SacrificeAll | ValidCards$ ... | SubAbility$ ChangeZone(Battlefield)`
+    /// (`EnterModifier::SacrificeOthers`, e.g. Sheltered Valley).
+    pub(super) fn moved_sacrifice_others(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("ValidCard").as_deref() != Some("Card.Self")
+            || p.take("Destination").as_deref() != Some("Battlefield")
+            || !matches!(
+                p.take("ActiveZones").as_deref(),
+                None | Some("Battlefield" | "All")
+            )
+            || !matches!(p.take("Secondary").as_deref(), None | Some("True"))
+        {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        }
+        let Some(with) = p.take("ReplaceWith") else {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        };
+        if !p.exhausted() {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        }
+        let Some((api, mut sac)) = self.svars.get(with.trim()).and_then(|s| Params::parse(s))
+        else {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        };
+        sac.drop_prose();
+        let Some(valid) = sac.take("ValidCards") else {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        };
+        let Some(sub_name) = sac.take("SubAbility") else {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        };
+        if api != "SacrificeAll" || !sac.exhausted() || strip_you_ctrl_only(&valid).is_none() {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        }
+        let Some((sub_api, mut bf)) = self
+            .svars
+            .get(sub_name.trim())
+            .and_then(|s| Params::parse(s))
+        else {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        };
+        bf.drop_prose();
+        if sub_api != "ChangeZone"
+            || bf.take("Origin").as_deref() != Some("All")
+            || bf.take("Destination").as_deref() != Some("Battlefield")
+            || bf.take("Defined").as_deref() != Some("ReplacedCard")
+            || !bf.exhausted()
+        {
+            return self.deny("replacement `Moved` this rule cannot read".into());
+        }
+        let expr = self.filter_expr(&valid)?;
+        let filter = self.body.filter_static("ENTRY_SAC", &expr);
+        self.body
+            .enter_modifiers
+            .push(format!("EnterModifier::SacrificeOthers(&{filter})"));
+        Some(())
+    }
+
+    /// `R: Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplacementResult$ Updated`
+    /// with `DB$ Tap | Defined$ Self | ETB$ True` gated on `DuringYourFirstTurns`
+    /// (Starting Town) or `NotStartingPlayer` (`EnterModifier::TappedUnlessCondition`).
+    pub(super) fn moved_tapped_unless_condition(&mut self, p: Params) -> ExtraOutcome {
+        if p.peek("ReplacementResult") != Some("Updated") {
+            return ExtraOutcome::Pass;
+        }
+        let Some(with) = p.peek("ReplaceWith") else {
+            return ExtraOutcome::Pass;
+        };
+        let Some((api, mut tap)) = self.svars.get(with.trim()).and_then(|s| Params::parse(s))
+        else {
+            return ExtraOutcome::Pass;
+        };
+        tap.drop_prose();
+        if api != "Tap"
+            || tap.take("Defined").as_deref() != Some("Self")
+            || tap.take("ETB").as_deref() != Some("True")
+        {
+            return ExtraOutcome::Pass;
+        }
+        let Some(var) = tap.take("ConditionCheckSVar") else {
+            return ExtraOutcome::Pass;
+        };
+        let cmp = tap
+            .take("ConditionSVarCompare")
+            .unwrap_or_else(|| "GE1".to_string());
+        if !tap.exhausted() {
+            return ExtraOutcome::Pass;
+        }
+        let Some(unless_cond) = self.tapped_unless_svar_condition(var.trim(), cmp.trim()) else {
+            return ExtraOutcome::Pass;
+        };
+        let mut check = p;
+        check.drop_prose();
+        if check.take("ValidCard").as_deref() != Some("Card.Self")
+            || check.take("Destination").as_deref() != Some("Battlefield")
+            || check.take("ReplacementResult").as_deref() != Some("Updated")
+            || !matches!(check.take("Secondary").as_deref(), None | Some("True"))
+        {
+            return ExtraOutcome::Pass;
+        }
+        check.take("ReplaceWith");
+        if !check.exhausted() {
+            return ExtraOutcome::Pass;
+        }
+        self.body.enter_modifiers.push(format!(
+            "EnterModifier::TappedUnlessCondition({unless_cond})"
+        ));
+        ExtraOutcome::Handled(Some(()))
+    }
+
+    fn tapped_unless_svar_condition(&self, var: &str, cmp: &str) -> Option<String> {
+        let raw = self.svars.get(var)?.trim();
+        if (raw == "Count$StartingPlayer.1.0" && matches!(cmp, "GE1" | "GT0" | "EQ1"))
+            || (raw == "Count$StartingPlayer.0.1" && matches!(cmp, "EQ0" | "LT1"))
+        {
+            return Some("Condition::NotStartingPlayer".to_string());
+        }
+        if let Some(rest) = raw.strip_prefix("Count$Compare ")
+            && let Some(gt_str) = cmp.strip_prefix("GT")
+            && let Ok(n) = gt_str.parse::<u32>()
+            && n >= 1
+        {
+            let (active_var, tail) = rest.split_once(" GE1.")?;
+            let (turns_var, fallback_str) = tail.split_once('.')?;
+            let fallback: u32 = fallback_str.trim().parse().ok()?;
+            if fallback > n
+                && self.svars.get(active_var.trim()).map(|s| s.trim())
+                    == Some("PlayerCountPropertyYou$HasPropertyActive")
+                && self.svars.get(turns_var.trim()).map(|s| s.trim()) == Some("Count$YourTurns")
+            {
+                return Some(format!("Condition::DuringYourFirstTurns({n})"));
+            }
+        }
+        None
+    }
+}
+
+fn strip_you_ctrl_only(valid: &str) -> Option<String> {
+    let mut cleaned_alts = Vec::new();
+    for alt in valid.split(',') {
+        let mut parts = alt
+            .split('.')
+            .flat_map(|s| s.split('+'))
+            .map(str::trim)
+            .filter(|a| !a.is_empty());
+        let base = parts.next()?;
+        let mut has_you = false;
+        let mut kept = Vec::new();
+        for atom in parts {
+            if atom == "YouCtrl" {
+                has_you = true;
+            } else if atom.contains("Ctrl") || atom.contains("Own") {
+                return None;
+            } else {
+                kept.push(atom);
+            }
+        }
+        if !has_you {
+            return None;
+        }
+        if kept.is_empty() {
+            cleaned_alts.push(base.to_string());
+        } else {
+            cleaned_alts.push(format!("{base}.{}", kept.join("+")));
+        }
+    }
+    (!cleaned_alts.is_empty()).then(|| cleaned_alts.join(","))
+}
+
+fn scope_controlled_by_opp(valid: &str) -> String {
+    valid
+        .split(',')
+        .map(|alt| {
+            let alt = alt.trim();
+            if alt.contains('.') {
+                format!("{alt}+OppCtrl")
+            } else {
+                format!("{alt}.OppCtrl")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn parse_your_valid_plus(raw: &str) -> Option<(String, u32)> {
+    let body = raw.strip_prefix("Count$Valid ")?;
+    let (valid, plus) = match body.rsplit_once("/Plus.") {
+        Some((lhs, rhs)) => (lhs.trim(), rhs.trim().parse::<u32>().ok()?),
+        None => (body.trim(), 0),
+    };
+    if valid.contains('/') || valid.contains('$') {
+        return None;
+    }
+    Some((strip_you_ctrl_only(valid)?, plus))
 }
 
 fn scope_controlled_by_you(valid: &str) -> String {

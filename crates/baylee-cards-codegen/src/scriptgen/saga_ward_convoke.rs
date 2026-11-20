@@ -1736,7 +1736,10 @@ impl Tx<'_> {
         }
         if raw == "Count$YourLifeTotal"
             && let Some(rhs) = cmp.strip_prefix("LT")
-            && self.svars.get(rhs.trim()).map(|s| s.trim()) == Some("Count$StartingLife")
+            && matches!(
+                self.svars.get(rhs.trim()).map(|s| s.trim()),
+                Some("Count$StartingLife" | "Count$YourStartingLife")
+            )
         {
             return Some("Condition::LifeBelowStarting".to_string());
         }
@@ -1772,8 +1775,17 @@ impl Tx<'_> {
             raw.as_str(),
             "Count$ValidGraveyard Card.OppOwn" | "PlayerCountOpponents$HighestCardsInGraveyard"
         ) {
-            let n = u8::try_from(parse_at_least_u16(cmp)?).ok()?;
-            return Some(format!("Condition::OpponentGraveyardCountAtLeast({n})"));
+            if let Some(n) = parse_at_least_u16(cmp).and_then(|v| u8::try_from(v).ok()) {
+                return Some(format!("Condition::OpponentGraveyardCountAtLeast({n})"));
+            }
+            if let Some(max) = parse_at_most_u16(cmp)
+                && let Some(min) = max.checked_add(1).and_then(|v| u8::try_from(v).ok())
+            {
+                return Some(format!(
+                    "Condition::Not(&Condition::OpponentGraveyardCountAtLeast({min}))"
+                ));
+            }
+            return None;
         }
         if raw == "PlayerCount$LowestCardsInHand" {
             let n = u8::try_from(parse_at_most_u16(cmp)?).ok()?;
@@ -1800,7 +1812,7 @@ impl Tx<'_> {
         if raw == "Count$CardCounters.ALL/Mod.2" && cmp == "EQ0" {
             return Some("Condition::EvenCountersOnSelf".to_string());
         }
-        None
+        self.extra_svar_condition_wave8(var, cmp)
     }
 
     /// Additional `R:` replacement handlers (`BeginPhase`, `BeginTurn`, `Draw`,
@@ -1929,7 +1941,7 @@ impl Tx<'_> {
             }
             return ExtraOutcome::Handled(self.moved_exile_instead_of_graveyard(p));
         }
-        // Self-ETB replacements whose `ReplaceWith$` is NOT `DB$ Tap`.
+        // Self-ETB replacements whose `ReplaceWith$` is NOT a plain `DB$ Tap`.
         if valid_card == Some("Card.Self") && dest == Some("Battlefield") {
             if let Some(with) = p.peek("ReplaceWith")
                 && let Some((api, _)) = self.svars.get(with).and_then(|s| Params::parse(s))
@@ -1942,6 +1954,15 @@ impl Tx<'_> {
                 }
                 if matches!(api.as_str(), "Discard" | "Sacrifice") {
                     return ExtraOutcome::Handled(self.moved_pay_before_etb(p));
+                }
+                if api == "SacrificeAll" {
+                    return ExtraOutcome::Handled(self.moved_sacrifice_others(p));
+                }
+                if api == "GenericChoice" && p.peek("Layer") == Some("Copy") {
+                    return ExtraOutcome::Handled(self.moved_choose_shape(p));
+                }
+                if api == "Tap" {
+                    return self.moved_tapped_unless_condition(p);
                 }
             }
             return ExtraOutcome::Pass;
@@ -2601,7 +2622,7 @@ fn attach_condition_to_ability(expr: &str, cond: &str, is_station: bool) -> Opti
     Some(format!("{open}, condition = Some({cond}))"))
 }
 
-fn parse_at_least_u16(cmp: &str) -> Option<u16> {
+pub(super) fn parse_at_least_u16(cmp: &str) -> Option<u16> {
     if let Some(n) = cmp.strip_prefix("GE") {
         let v: u16 = n.parse().ok()?;
         return (v >= 1).then_some(v);
@@ -2613,7 +2634,7 @@ fn parse_at_least_u16(cmp: &str) -> Option<u16> {
     None
 }
 
-fn parse_at_most_u16(cmp: &str) -> Option<u16> {
+pub(super) fn parse_at_most_u16(cmp: &str) -> Option<u16> {
     if let Some(n) = cmp.strip_prefix("LE") {
         return n.parse().ok();
     }

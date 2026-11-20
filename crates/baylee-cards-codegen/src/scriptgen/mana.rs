@@ -465,22 +465,48 @@ impl Tx<'_> {
             {
                 return Some("Amount::EventPower".to_string());
             }
-            if matches!(
+            if (matches!(
                 def,
                 "TriggeredCard$CardToughness"
                     | "TriggeredCardLKICopy$CardToughness"
                     | "TriggeredCard$Toughness"
                     | "TriggeredCardLKICopy$Toughness"
-            ) && self.trigger_mode.as_deref() == Some("ChangesZone")
+            ) && self.trigger_mode.as_deref() == Some("ChangesZone"))
+                || (matches!(
+                    def,
+                    "TriggeredAttacker$CardToughness" | "TriggeredAttackerLKICopy$CardToughness"
+                ) && matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("Attacks" | "AttackerUnblocked")
+                ))
+                || (matches!(
+                    def,
+                    "TriggeredBlocker$CardToughness" | "TriggeredBlockerLKICopy$CardToughness"
+                ) && self.trigger_mode.as_deref() == Some("Blocks"))
             {
                 return Some("Amount::EventLastToughness".to_string());
             }
-            if matches!(
+            if (matches!(
                 def,
                 "TriggeredCard$CardManaCost"
                     | "TriggeredSpellAbility$CardManaCostLKI"
                     | "TriggeredSpellAbility$CardManaCost"
-            ) && self.trigger_mode.as_deref() == Some("SpellCast")
+            ) && self.trigger_mode.as_deref() == Some("SpellCast"))
+                || (matches!(
+                    def,
+                    "TriggeredCard$CardManaCost" | "TriggeredCardLKICopy$CardManaCost"
+                ) && self.trigger_mode.as_deref() == Some("ChangesZone"))
+                || (matches!(
+                    def,
+                    "TriggeredAttacker$CardManaCost" | "TriggeredAttackerLKICopy$CardManaCost"
+                ) && matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("Attacks" | "AttackerUnblocked")
+                ))
+                || (matches!(
+                    def,
+                    "TriggeredBlocker$CardManaCost" | "TriggeredBlockerLKICopy$CardManaCost"
+                ) && self.trigger_mode.as_deref() == Some("Blocks"))
             {
                 return Some("Amount::EventManaValue".to_string());
             }
@@ -559,9 +585,22 @@ impl Tx<'_> {
                     "Amount::ControlledCount {{ who: PlayerRel::ActivePlayer, filter: &{name} }}"
                 ));
             }
+            if let Some(expr) = self.player_scoped_amount(def) {
+                return Some(expr);
+            }
             if matches!(def, "Count$KickedTimes" | "Count$TimesKicked") {
                 return Some("Amount::TimesKicked".to_string());
             }
+        }
+        if def == "PlayerCountPropertyYou$OpponentsAttackedThisCombat" {
+            return Some("Amount::OpponentsYouAttackedThisCombat".to_string());
+        }
+        if matches!(
+            def,
+            "Count$ValidAll Card.IsCommander+YouOwn$GreatestCardManaCost"
+                | "Count$ValidAll Card.YouOwn+IsCommander$GreatestCardManaCost"
+        ) {
+            return Some("Amount::GreatestCommanderManaValue".to_string());
         }
         if def == "TriggeredPlayer$CardsInHand" && self.trigger_mode.as_deref() == Some("Phase") {
             return Some("Amount::HandSize(PlayerRel::ActivePlayer)".to_string());
@@ -572,6 +611,14 @@ impl Tx<'_> {
         }
         if def == "TriggeredPlayer$LifeTotal" && self.trigger_mode.as_deref() == Some("Phase") {
             return Some("Amount::LifeTotal(PlayerRel::ActivePlayer)".to_string());
+        }
+        if def == "TriggeredPlayer$CardsInGraveyard"
+            && self.trigger_mode.as_deref() == Some("Phase")
+        {
+            return Some(
+                "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::GraveyardOf(PlayerRel::ActivePlayer) }"
+                    .to_string(),
+            );
         }
         if matches!(def, "Count$CardsInYourHand" | "Count$ValidHand Card.YouOwn") {
             return Some("Amount::HandSize(PlayerRel::You)".to_string());
@@ -665,6 +712,13 @@ impl Tx<'_> {
                     "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardOpponents }}"
                 ));
             }
+            if let Some((stripped, who)) = self.strip_named_graveyard_owner(valid, static_only) {
+                let expr = self.filter_expr_in_zone(&stripped, true)?;
+                let name = self.body.filter_static("COUNT", &expr);
+                return Some(format!(
+                    "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardOf({who}) }}"
+                ));
+            }
             return None;
         }
         if let Some(valid) = def.strip_prefix("Count$ValidHand ") {
@@ -716,6 +770,181 @@ impl Tx<'_> {
         Some(format!(
             "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::Battlefield }}"
         ))
+    }
+
+    fn player_scoped_amount(&mut self, def: &str) -> Option<String> {
+        let is_damage = matches!(
+            self.trigger_mode.as_deref(),
+            Some("DamageDone" | "DamageDoneOnce")
+        );
+        let is_phase = self.trigger_mode.as_deref() == Some("Phase");
+        if def == "TargetedPlayer$CardsInGraveyard" {
+            return Some(
+                "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::GraveyardOf(PlayerRel::Chosen) }"
+                    .to_string(),
+            );
+        }
+        if def == "TargetedController$CardsInGraveyard" {
+            return Some(
+                "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::GraveyardOf(PlayerRel::ControllerOfTarget) }"
+                    .to_string(),
+            );
+        }
+        if is_damage {
+            match def {
+                "TriggeredTarget$LifeTotal" => {
+                    return Some("Amount::LifeTotal(PlayerRel::DamagedPlayer)".to_string());
+                }
+                "TriggeredTarget$CardsInHand" => {
+                    return Some("Amount::HandSize(PlayerRel::DamagedPlayer)".to_string());
+                }
+                "TriggeredTarget$CardsInLibrary" => {
+                    return Some("Amount::LibrarySize(PlayerRel::DamagedPlayer)".to_string());
+                }
+                "TriggeredTarget$CardsInGraveyard" => {
+                    return Some(
+                        "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::GraveyardOf(PlayerRel::DamagedPlayer) }"
+                            .to_string(),
+                    );
+                }
+                _ => {}
+            }
+        }
+        let controlled = [
+            (
+                "TargetedController$Valid ",
+                "PlayerRel::ControllerOfTarget",
+                true,
+            ),
+            (
+                "TriggeredTarget$Valid ",
+                "PlayerRel::DamagedPlayer",
+                is_damage,
+            ),
+        ];
+        for (prefix, who, ok) in controlled {
+            if ok
+                && let Some(valid) = def.strip_prefix(prefix)
+                && !valid.contains("Ctrl")
+                && !valid.contains("Own")
+            {
+                let expr = self.filter_expr(valid)?;
+                let name = self.body.filter_static("COUNT", &expr);
+                return Some(format!(
+                    "Amount::ControlledCount {{ who: {who}, filter: &{name} }}"
+                ));
+            }
+        }
+        let graveyards = [
+            ("TargetedPlayer$ValidGraveyard ", "PlayerRel::Chosen", true),
+            (
+                "TargetedController$ValidGraveyard ",
+                "PlayerRel::ControllerOfTarget",
+                true,
+            ),
+            (
+                "TriggeredPlayer$ValidGraveyard ",
+                "PlayerRel::ActivePlayer",
+                is_phase,
+            ),
+            (
+                "TriggeredTarget$ValidGraveyard ",
+                "PlayerRel::DamagedPlayer",
+                is_damage,
+            ),
+        ];
+        for (prefix, who, ok) in graveyards {
+            if ok
+                && let Some(valid) = def.strip_prefix(prefix)
+                && !valid.contains("Ctrl")
+                && !valid.contains("Own")
+            {
+                let expr = self.filter_expr_in_zone(valid, true)?;
+                let name = self.body.filter_static("COUNT", &expr);
+                return Some(format!(
+                    "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardOf({who}) }}"
+                ));
+            }
+        }
+        None
+    }
+
+    fn strip_named_graveyard_owner(
+        &self,
+        valid: &str,
+        static_only: bool,
+    ) -> Option<(String, &'static str)> {
+        let is_damage = matches!(
+            self.trigger_mode.as_deref(),
+            Some("DamageDone" | "DamageDoneOnce")
+        );
+        let is_phase = self.trigger_mode.as_deref() == Some("Phase");
+        let candidates = [
+            ("OwnedBy TargetedPlayer", "PlayerRel::Chosen", !static_only),
+            (
+                "OwnedBy TargetedController",
+                "PlayerRel::ControllerOfTarget",
+                !static_only,
+            ),
+            (
+                "OwnedBy EnchantedController",
+                "PlayerRel::ControllerOfAttached",
+                true,
+            ),
+            (
+                "OwnedBy TriggeredPlayer",
+                "PlayerRel::ActivePlayer",
+                is_phase,
+            ),
+            (
+                "OwnedBy TriggeredTarget",
+                "PlayerRel::DamagedPlayer",
+                !static_only && is_damage,
+            ),
+        ];
+        for (owner_atom, who, ok) in candidates {
+            if !ok {
+                continue;
+            }
+            let mut cleaned_alts = Vec::new();
+            let mut matched = true;
+            for alt in valid.split(',') {
+                let mut parts = alt
+                    .split('.')
+                    .flat_map(|s| s.split('+'))
+                    .map(str::trim)
+                    .filter(|a| !a.is_empty());
+                let Some(base) = parts.next() else {
+                    matched = false;
+                    break;
+                };
+                let mut saw = false;
+                let mut kept = Vec::new();
+                for atom in parts {
+                    if atom == owner_atom {
+                        saw = true;
+                    } else if atom.contains("Ctrl") || atom.contains("Own") {
+                        matched = false;
+                        break;
+                    } else {
+                        kept.push(atom);
+                    }
+                }
+                if !matched || !saw {
+                    matched = false;
+                    break;
+                }
+                if kept.is_empty() {
+                    cleaned_alts.push(base.to_string());
+                } else {
+                    cleaned_alts.push(format!("{base}.{}", kept.join("+")));
+                }
+            }
+            if matched && !cleaned_alts.is_empty() {
+                return Some((cleaned_alts.join(","), who));
+            }
+        }
+        None
     }
 
     /// The atoms that are one word of printed text each, and the filter each
