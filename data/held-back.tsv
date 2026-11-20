@@ -29,6 +29,7 @@ f0ea953a-10c3-4ec7-8f03-f7aed75dbb94	Murderer's Axe	reader-gap: mana sheet row l
 e0cb503e-9814-4280-9c29-4eff3379bc24	Letter of Acceptance	reader-gap: mana sheet row cannot name printed sentence
 2a08d878-7816-4d0a-9532-4f2d3c8eee90	Sarkhan's Dragonfire	reader-gap: reference dig script lacks random bottom order
 c08ce0ec-e3fc-4fc3-a7b0-ce8e8fd079c0	Diviner's Wand	reader-gap: dual-grant sentence leaves GrantActivated/GrantTriggeredDefinition without printed lines
+53e540b5-8338-4b21-a61a-c5b7fe652a6e	Undercity Uprising	lint-gap: deathtouch sweep and Fight target share Filter::YOUR_CREATURE in target_reuse
 
 # Engine gaps
 9843d8a6-bcbf-40c2-8c41-316e97db9c62	Shallow Grave	engine-gap: held-back stub awaiting completion and test
