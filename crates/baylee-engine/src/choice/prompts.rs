@@ -130,6 +130,9 @@ pub enum CastModeKind {
     /// has haste, draws a card when it dies, and is sacrificed at the beginning
     /// of the next end step.
     Blitz,
+    /// Cast for the face's emerge cost (CR 702.119a–b): sacrifices a matching
+    /// permanent and reduces the spell's generic mana cost by its mana value.
+    Emerge,
 }
 
 /// One way a resolved instant or sorcery can leave the stack in place of the
@@ -702,6 +705,8 @@ pub enum YesNoPrompt {
     },
     /// Kicker/additional cost yes-or-no at cast time.
     Kicker,
+    /// Bargain optional additional cost yes-or-no at cast time (CR 702.166a).
+    Bargain,
     /// "Pay {N}?" for a tax trigger (Rhystic Study & co.).
     PayTax {
         /// Generic mana to pay.
@@ -926,6 +931,7 @@ impl YesNoPrompt {
             | Self::PayEnergy { .. }
             | Self::PayLifeOrEnterTapped { .. }
             | Self::Kicker
+            | Self::Bargain
             | Self::KickerOption { .. }
             | Self::Buyback { .. }
             | Self::ManaAnyType

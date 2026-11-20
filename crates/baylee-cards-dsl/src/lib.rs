@@ -62,11 +62,11 @@ pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
     Amount, ChooseMove, ChooseZone, ColorSubject, CombatWatchEvent, CopyCleanup, CounterKind,
     DamageRedirectTo, DamageTo, DelayedDuration, DelayedObservation, DelayedStep,
-    DelayedTriggerWhen, DivisionAmount, Effect, ExilePlay, ExileUntil, Find, LookRest,
-    ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
-    PeekPickDest, PeekRestDest, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen, RepeatDomain,
-    SearchDest, SpendRider, TargetChooser, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef,
-    TriggerRemember, ZoneSel,
+    DelayedTriggerWhen, DivisionAmount, Effect, ExileMana, ExilePermission, ExilePlay, ExileUntil,
+    Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound,
+    ManaValueCmp, PeekPickDest, PeekRestDest, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen,
+    RepeatDomain, SearchDest, SpendRider, TargetChooser, TargetReq, TargetSlot, TargetSpec,
+    ThisWay, TokenDef, TriggerRemember, ZoneSel,
 };
 pub use filter::{Filter, OriginalExpansion, ZoneRef};
 pub use manaread::{
@@ -382,8 +382,8 @@ pub enum UseBeyondMana {
     Free,
 }
 
-/// Prototype's alternative characteristics (CR 719.3).
-#[derive(Clone, Copy, Debug)]
+/// Prototype's alternative characteristics (CR 702.160, CR 719.3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Prototype {
     /// Mana cost, which also determines color and mana value.
     pub cost: ManaCost,
@@ -391,6 +391,48 @@ pub struct Prototype {
     pub power: i16,
     /// Base toughness.
     pub toughness: i16,
+}
+
+impl Prototype {
+    /// Construct a prototype characteristic block (CR 702.160, CR 719.3).
+    #[must_use]
+    pub const fn new(cost: ManaCost, power: i16, toughness: i16) -> Self {
+        Self {
+            cost,
+            power,
+            toughness,
+        }
+    }
+}
+
+/// Emerge's alternative casting cost (CR 702.119a–b): pay `cost` and sacrifice
+/// a permanent matching `from` rather than paying the printed mana cost,
+/// reducing the spell's total generic mana cost by the sacrificed permanent's
+/// mana value.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Emerge {
+    /// Base emerge mana cost.
+    pub cost: ManaCost,
+    /// Filter for the controlled permanent sacrificed (normally `&Filter::CREATURE`,
+    /// or e.g. `&Filter::ARTIFACT` for "Emerge from artifact", CR 702.119b).
+    pub from: &'static Filter,
+}
+
+impl Emerge {
+    /// Standard creature emerge (`Emerge [cost]`, CR 702.119a).
+    #[must_use]
+    pub const fn creature(cost: ManaCost) -> Self {
+        Self {
+            cost,
+            from: &Filter::CREATURE,
+        }
+    }
+
+    /// Variant emerge (`Emerge from [quality] [cost]`, CR 702.119b).
+    #[must_use]
+    pub const fn from(cost: ManaCost, from: &'static Filter) -> Self {
+        Self { cost, from }
+    }
 }
 
 /// Escape's cost (CR 702.138a): "Escape—[mana], Exile [N] other cards from
@@ -610,6 +652,12 @@ pub struct FaceDef {
     /// Madness (CR 702.35): discard this card into exile instead, then its
     /// owner may cast it for this cost as that triggered ability resolves.
     pub madness: Option<crate::cost::Cost>,
+    /// Bargain (CR 702.166a): as an optional additional cost to cast this
+    /// spell, its controller may sacrifice an artifact, enchantment, or token.
+    pub bargain: bool,
+    /// Emerge (CR 702.119a–b): alternative cost sacrificing a matching
+    /// permanent and reducing generic mana by its mana value.
+    pub emerge: Option<Emerge>,
 }
 
 impl FaceDef {
@@ -697,6 +745,8 @@ impl FaceDef {
         mutate: None,
         entwine: None,
         madness: None,
+        bargain: false,
+        emerge: None,
     };
 }
 

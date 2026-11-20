@@ -84,6 +84,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
             no.clone(),
         ),
         (yes_no(YesNoPrompt::Kicker), no.clone()),
+        (yes_no(YesNoPrompt::Bargain), no.clone()),
         (
             yes_no(YesNoPrompt::KickerOption {
                 index: 0,
@@ -425,7 +426,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
 }
 
 /// How many kinds [`kind_of`] tells apart.
-const KINDS: usize = 56;
+const KINDS: usize = 57;
 
 /// Which kind of question this is, numbered without gaps. No wildcard
 /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -490,6 +491,7 @@ fn kind_of(pending: &Pending) -> usize {
                 YesNoPrompt::ContinueRemovingCounters { .. } => 36,
                 YesNoPrompt::RevealHandForGuess { .. } => 37,
                 YesNoPrompt::KickerOption { .. } => 38,
+                YesNoPrompt::Bargain => 39,
             }
         }
         Pending::ChoosePile { .. } => 17 + 17,
@@ -707,6 +709,7 @@ fn expected_automatable(prompt: YesNoPrompt) -> bool {
         | YesNoPrompt::ProliferatePlayer { .. }
         | YesNoPrompt::PayLifeOrEnterTapped { .. }
         | YesNoPrompt::Kicker
+        | YesNoPrompt::Bargain
         | YesNoPrompt::KickerOption { .. }
         | YesNoPrompt::Buyback { .. }
         | YesNoPrompt::ManaAnyType
@@ -772,6 +775,7 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
             guessed_in_hand: true,
         },
         YesNoPrompt::Kicker,
+        YesNoPrompt::Bargain,
         YesNoPrompt::KickerOption {
             index: 1,
             cost: baylee_core::mana::ManaCost::parse("{2}{U}"),

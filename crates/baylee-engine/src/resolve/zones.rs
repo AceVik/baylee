@@ -168,7 +168,11 @@ pub(super) fn spec_objects(
 /// The stacking stands in for the triggering (CR 610.3b), which it follows
 /// with nothing resolving in between. An object with no such record, a
 /// spell, finds nothing and exiles as before.
-fn an_opponent_was_crowned_since(state: &GameState, on_stack: ObjectId, you: PlayerId) -> bool {
+pub(super) fn an_opponent_was_crowned_since(
+    state: &GameState,
+    on_stack: ObjectId,
+    you: PlayerId,
+) -> bool {
     let entries = state.journal.entries();
     let Some(stacked) = entries.iter().rposition(
         |e| matches!(e.event, GameEvent::AbilityTriggered { object, .. } if object == on_stack),

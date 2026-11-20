@@ -63,11 +63,12 @@ pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
         face.miracle.is_some()
             || face.dash.is_some()
             || face.blitz.is_some()
+            || face.emerge.is_some()
             || face.mutate.is_some()
             || face.bestow.is_some(),
     ));
     s[75] = f32::from(u8::from(
-        face.delve || face.convoke || face.improvise || face.waterbend,
+        face.delve || face.convoke || face.improvise || face.waterbend || face.bargain,
     ));
     s[76] = f32::from(u8::from(face.cost_reduction.is_some()));
     s[77] = unit(face.additional_costs.len() as f32, 3.0);

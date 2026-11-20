@@ -267,8 +267,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             let active = self.state.turn.active;
             self.state.begin_upkeep_history(active);
             self.state.play_permissions.retain(|permission| {
-                permission.player != active
-                    || permission.window != baylee_cards_dsl::PlayWindow::UntilYourNextUpkeep.into()
+                permission.player != active || !permission.window.expires_at_upkeep()
             });
             self.state.effects.begin_upkeep(active);
             self.state.effects.remove_where(|fx| {
@@ -385,7 +384,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .remove_where(|fx| matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfTurn));
         let arena = &self.state.arena;
         self.state.play_permissions.retain(|permission| {
-            permission.window != baylee_cards_dsl::PlayWindow::ThisTurn.into()
+            !permission.window.expires_at_cleanup()
                 && arena
                     .get(permission.card)
                     .is_some_and(|o| o.version == permission.version)

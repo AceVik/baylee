@@ -221,6 +221,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             }
         }
         // Mandatory additional cost parts (e.g. Toxic Deluge's pay X life).
+        if wizard.option == Some(CastModeKind::Emerge) {
+            let emerge = face
+                .emerge
+                .ok_or(EngineError::IllegalAction("no emerge cost on this spell"))?;
+            let victim = wizard
+                .emerge_sacrifice
+                .ok_or(EngineError::IllegalAction("no permanent chosen for emerge"))?;
+            sacrificed_object = self.state.object(victim).map(|o| (victim, o.version));
+            sacrificed_lki = self
+                .state
+                .object(victim)
+                .map(crate::object::SacrificedLki::of);
+            super::super::cost_wizard::pay(
+                &mut self.state,
+                player,
+                &CostPart::Sacrifice(emerge.from),
+                victim,
+            )?;
+        }
         if wizard.option == Some(CastModeKind::BeamMeUp) {
             let returned = wizard.returned.ok_or(EngineError::IllegalAction(
                 "no creature returned for beam me up",
@@ -538,8 +557,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     .push(crate::object::Rider::KickedMask(wizard.kicked_mask));
             }
             obj.replicated = wizard.replicated;
-            obj.alt_cast = matches!(wizard.option, Some(CastModeKind::Alternative(_)))
-                || matches!(wizard.announced, Some(CastModeKind::LibraryTopLife { .. }));
+            obj.alt_cast =
+                matches!(
+                    wizard.option,
+                    Some(CastModeKind::Alternative(_) | CastModeKind::Emerge)
+                ) || matches!(wizard.announced, Some(CastModeKind::LibraryTopLife { .. }));
             obj.chosen_player = wizard.chosen_player;
             // Where it was cast from, read before it moves: a card cast from
             // exile under a play permission (Expressive Iteration) or from
@@ -583,6 +605,10 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             obj.riders.retain(|r| *r != crate::object::Rider::Blitzed);
             if wizard.option == Some(CastModeKind::Blitz) {
                 obj.riders.push(crate::object::Rider::Blitzed);
+            }
+            obj.riders.retain(|r| *r != crate::object::Rider::Bargained);
+            if wizard.bargained {
+                obj.riders.push(crate::object::Rider::Bargained);
             }
             obj.riders
                 .retain(|r| !matches!(r, crate::object::Rider::SuspendHaste(_)));
@@ -678,7 +704,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             && let Some(prototype) = face.prototype
             && let Some(obj) = self.state.object_mut(card)
         {
-            obj.original_base = Some(std::sync::Arc::clone(&obj.base));
+            if obj.original_base.is_none() {
+                obj.original_base = Some(std::sync::Arc::clone(&obj.base));
+            }
             obj.prototyped = true;
             let base = obj.base_mut();
             base.mana_cost = prototype.cost;

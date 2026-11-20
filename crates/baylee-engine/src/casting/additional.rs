@@ -159,7 +159,9 @@ pub(crate) fn additional_payment_capacity_for_x(
         .map(|part| {
             crate::engine::cost_wizard::options(state, player, card, part)
                 .into_iter()
-                .filter(|id| *id != card && !chosen.contains(id))
+                .filter(|id| {
+                    *id != card && Some(*id) != choice.emerge_sacrifice && !chosen.contains(id)
+                })
                 .collect()
         })
         .collect();

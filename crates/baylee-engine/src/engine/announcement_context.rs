@@ -11,10 +11,12 @@ fn settled_x(wizard: &CastWizard) -> Option<u32> {
         WizardStage::ChooseMode
         | WizardStage::Permission
         | WizardStage::ManaPermission
+        | WizardStage::EmergeSacrifice
         | WizardStage::XValue
         | WizardStage::KickerX => None,
         WizardStage::Kicker
         | WizardStage::Buyback
+        | WizardStage::Bargain
         | WizardStage::Multikicker
         | WizardStage::Replicate
         | WizardStage::Targets

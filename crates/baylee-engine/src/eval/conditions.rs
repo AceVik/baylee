@@ -586,6 +586,12 @@ pub fn condition_holds_with_context(
                             .intersects(creature_types)
                 })
         }
+        Condition::Bargained => state
+            .object(source)
+            .is_some_and(|object| object_was_bargained(state, object)),
+        Condition::Prototyped => state
+            .object(source)
+            .is_some_and(|object| object_is_prototyped(state, object)),
         Condition::AttachedMatches(filter) => attached_for_ability(state, source, None, None)
             .is_some_and(|o| matches_with_context(filter, state, o, you, context)),
         Condition::SourceMatches(filter) => state
@@ -766,6 +772,12 @@ pub(crate) fn intervening_if_for_incarnation(
         Some(Condition::AltCostPaid) => state
             .damage_source(source, version)
             .is_some_and(|object| object.alt_cast),
+        Some(Condition::Bargained) => state
+            .damage_source(source, version)
+            .is_some_and(|object| object_was_bargained(state, object)),
+        Some(Condition::Prototyped) => state
+            .damage_source(source, version)
+            .is_some_and(|object| object_is_prototyped(state, object)),
         Some(Condition::SourceCameUnderYourControlSinceYourLastUpkeep) => {
             super::upkeep_history::came_under_your_control(state, you, source, version)
         }
@@ -916,4 +928,12 @@ pub(crate) fn graveyard_card_types(
         .fold(TypeSet::EMPTY, |types, card| {
             types.union(card.characteristics().types)
         })
+}
+
+fn object_was_bargained(_state: &GameState, object: &crate::object::GameObject) -> bool {
+    object.riders.contains(&crate::object::Rider::Bargained)
+}
+
+fn object_is_prototyped(_state: &GameState, object: &crate::object::GameObject) -> bool {
+    object.prototyped
 }

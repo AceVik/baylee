@@ -1207,6 +1207,7 @@ ReplicateHowOften = Reproduktion { $cost }: wie oft zahlen? ({ $min }–{ $max }
 MultikickerHowOften = Mehrfachbonus { $cost }: wie oft zahlen? ({ $min }–{ $max })
 BuybackAsk = Rückkauf: { $price }? Der Zauberspruch kehrt beim Verrechnen auf deine Hand zurück.
 KickerOptionAsk = Bonuskosten { $price } zahlen?
+BargainAsk = Feilschen: ein Artefakt, eine Verzauberung oder einen Spielstein opfern?
 BuybackPriceLife = { $amount } Lebenspunkte zahlen
 BuybackPriceSacrifice =
     { $count ->
@@ -1245,6 +1246,7 @@ CastBeamMeUp = Beam mich hoch
 DifferentManaValues = Wähle Ziele mit unterschiedlichen Manabeträgen
 CastDash = Sturmangriff
 CastBlitz = Blitzangriff
+CastEmerge = Auftauchen
 CastMutate = Mutation
 CastBestow = Göttergabe
 CastJumpStart = Starthilfe

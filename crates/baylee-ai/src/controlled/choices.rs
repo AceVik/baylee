@@ -460,6 +460,7 @@ impl HeuristicAgent {
             | YesNoPrompt::PayLife { .. }
             | YesNoPrompt::PayEnergy { .. }
             | YesNoPrompt::KickerOption { .. }
+            | YesNoPrompt::Bargain
             | YesNoPrompt::Buyback { .. }
             | YesNoPrompt::EnterTappedForCounters { .. }
             | YesNoPrompt::SacrificeToEnter { .. }

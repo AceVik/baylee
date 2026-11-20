@@ -1640,7 +1640,10 @@ impl Builder<'_, '_> {
         self.line(format!("QUESTION: {question}"));
         let kicker = matches!(
             prompt,
-            YesNoPrompt::Kicker | YesNoPrompt::KickerOption { .. } | YesNoPrompt::Buyback { .. }
+            YesNoPrompt::Kicker
+                | YesNoPrompt::Bargain
+                | YesNoPrompt::KickerOption { .. }
+                | YesNoPrompt::Buyback { .. }
         );
         if let Some(about) = about {
             self.line(format!("The ability asking: \"{about}\""));

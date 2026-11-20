@@ -540,6 +540,25 @@ express at all yet.
   with enchant creature; if its target is illegal on resolution (CR 702.103e) or
   it becomes unattached on the battlefield (CR 702.103f–g), it ceases to be
   bestowed and resolves or remains on the battlefield as a creature.
+- `FaceDef.bargain: bool` — "Bargain" (CR 702.166a–c). Offers an optional
+  additional cost (`YesNoPrompt::Bargain` followed by `ChoicePrompt::CostSacrifice`
+  over controlled artifacts, enchantments, or tokens) when casting the spell;
+  `Condition::Bargained` holds on the bargained spell (and its copies) and on
+  the permanent it becomes, including ETB intervening-if clauses (CR 400.7d),
+  without counting as `Condition::Kicked`.
+- `FaceDef.emerge: Option<Emerge>` (`Emerge::creature(cost)` for CR 702.119a,
+  `Emerge::from(cost, filter)` for CR 702.119b) — "Emerge [from quality] [cost]".
+  Cast as `CastModeKind::Emerge`: chooses a matching controlled permanent at
+  announcement (CR 702.119c), reduces the spell's total generic mana cost by
+  that permanent's mana value (CR 601.2f), and sacrifices that permanent when
+  paying the total cost (CR 601.2h).
+- `FaceDef.prototype: Option<Prototype>` (`Prototype::new(cost, power, toughness)`) —
+  "Prototype [cost] — [P]/[T]" (CR 702.160, CR 719.3). Cast as
+  `CastModeKind::Prototype` (`SpellForm::Prototype`), replacing the spell's and
+  resulting permanent's copiable mana cost, color (unless devoid), power, and
+  toughness while on the stack or battlefield (`Condition::Prototyped` holds on
+  the spell, permanent, and copies per CR 719.3c–d; other zones revert per
+  CR 719.4).
 - `AbilityDef::Unearth { cost }` (`unearth!`), `AbilityDef::Encore { cost }`
   (`encore!`), `embalm!`, and `eternalize!` — sorcery-speed graveyard activated
   abilities (CR 702.84a, CR 702.141a, CR 702.128a, CR 702.129a).
@@ -4727,8 +4746,19 @@ do not themselves choose a name or draw a card.
 
 `PlayWindow::UntilYourNextUpkeep` expires when the benefiting player's next
 actual upkeep begins, before upkeep triggers. A skipped upkeep does not
-expire it. The permission otherwise retains its ordinary casting, payment
-and land-play restrictions; it grants no instant-speed timing.
+expire it. `PlayWindow::WhileExiled` lasts as long as that card incarnation
+remains in exile, and `PlayWindow::WhileSourceOnBattlefield` lasts only while
+the resolving source permanent's incarnation remains on the battlefield.
+`ExilePermission` (`ExilePermission::play(window)` for lands + spells or
+`ExilePermission::cast(window)` for spells only, plus `.with_spell_types(...)`,
+`.without_paying_mana_cost()`, `.spend_mana_as_any_color()` via
+`ExileMana::AnyColor` per CR 609.4b, and `.spend_mana_as_any_type()` via
+`ExileMana::AnyType` per CR 118.14) composes across
+`Effect::ExileTopWithPermission { who, count, permission }`,
+`Effect::ExileWithPermission { target, until, permission }`, and
+`Effect::GrantLinkedExilePermission { permission }`. The permission otherwise
+retains its ordinary casting, payment and land-play restrictions; it grants no
+instant-speed timing.
 
 #### Draw identity and draw replacements
 

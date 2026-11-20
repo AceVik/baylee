@@ -301,6 +301,10 @@ pub fn walk_card(def: &CardDef) -> Walk {
         );
         w.read("enter_modifiers", &format!("{:?}", face.enter_modifiers));
         w.read("prototype", &format!("{:?}", face.prototype));
+        w.read("emerge", &format!("{:?}", face.emerge));
+        if face.bargain {
+            w.add("bargain>true".into());
+        }
         w.read("kicked_targets", &format!("{:?}", face.kicked_targets));
         for s in face.subtypes {
             w.add(format!("subtype>{}", s.get()));

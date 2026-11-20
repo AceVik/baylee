@@ -1,7 +1,17 @@
 //! Shared non-mana spell costs for offers, choices, and payment.
 use super::{CastModeKind, CostPart, ObjectId, PlayerId, SmallVec, casting};
 
-/// Mandatory additional parts, entwine, and the chosen kicker's non-mana parts.
+/// Permanents eligible to pay `Bargain` (`CR 702.166a`): an artifact,
+/// enchantment, or token controlled by the caster.
+static BARGAIN_FODDER: baylee_cards_dsl::Filter = baylee_cards_dsl::Filter::Or(&[
+    baylee_cards_dsl::Filter::ARTIFACT,
+    baylee_cards_dsl::Filter::ENCHANTMENT,
+    baylee_cards_dsl::Filter::IsToken,
+]);
+
+static BARGAIN_PARTS: [CostPart; 1] = [CostPart::Sacrifice(&BARGAIN_FODDER)];
+
+/// Mandatory additional parts, entwine, bargain, and the chosen kicker's non-mana parts.
 pub(crate) fn wizard_mandatory_parts(
     face: &baylee_cards_dsl::FaceDef,
     choice: impl Into<CostChoice>,
@@ -22,10 +32,16 @@ pub(crate) fn wizard_mandatory_parts(
     } else {
         &[]
     };
+    let bargain_parts: &[CostPart] = if !disguised && choice.bargained && face.bargain {
+        &BARGAIN_PARTS
+    } else {
+        &[]
+    };
     mandatory
         .iter()
         .chain(jump_start_parts.iter())
         .chain(entwine_parts.iter())
+        .chain(bargain_parts.iter())
         .chain(
             face.additional_costs
                 .iter()
@@ -77,10 +93,15 @@ pub(crate) struct CostChoice {
     pub alternative_cost: Option<CastModeKind>,
     /// Whether the buyback cost is paid.
     pub buyback: bool,
+    /// Whether the bargain additional cost is paid (`CR 702.166a`).
+    pub bargained: bool,
     /// Kicker can accompany a face or mode without replacing that choice.
     pub kicked: bool,
     /// Bitmask of accepted multi-kicker entries; zero means all when `kicked`.
     pub kicked_mask: u8,
+    /// Permanent already chosen for `Emerge` (`CR 702.119c`), excluded from
+    /// satisfying any other sacrifice part of the same cast.
+    pub emerge_sacrifice: Option<ObjectId>,
 }
 
 impl From<Option<CastModeKind>> for CostChoice {
@@ -89,6 +110,7 @@ impl From<Option<CastModeKind>> for CostChoice {
             option,
             alternative_cost: None,
             buyback: false,
+            bargained: false,
             kicked: matches!(
                 option,
                 Some(
@@ -98,6 +120,7 @@ impl From<Option<CastModeKind>> for CostChoice {
                 )
             ),
             kicked_mask: 0,
+            emerge_sacrifice: None,
         }
     }
 }

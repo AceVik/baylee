@@ -298,11 +298,102 @@ pub enum PlayLifetime {
     Prepared(baylee_core::ids::DamageSourceRef),
     /// The exact card incarnation remains exiled, independently of turn boundaries.
     WhileExiled,
+    /// Active only while the exact source permanent remains on the battlefield.
+    SourceOnBattlefield(baylee_core::ids::DamageSourceRef),
+    /// Turn-bounded permission that also grants `ManaSpending::ANY_COLOR` (CR 609.4b).
+    AnyColorTurns(baylee_cards_dsl::PlayWindow),
+    /// Permanent-exile permission that also grants `ManaSpending::ANY_COLOR` (CR 609.4b).
+    AnyColorWhileExiled,
+    /// Battlefield-source permission that also grants `ManaSpending::ANY_COLOR` (CR 609.4b).
+    AnyColorSourceOnBattlefield(baylee_core::ids::DamageSourceRef),
+}
+
+impl PlayLifetime {
+    /// Construct a runtime lifetime from a DSL `PlayWindow`, optional source
+    /// incarnation, and `ExileMana::AnyColor` flag.
+    #[must_use]
+    pub fn from_window(
+        window: baylee_cards_dsl::PlayWindow,
+        source: Option<baylee_core::ids::DamageSourceRef>,
+        any_color: bool,
+    ) -> Option<Self> {
+        use baylee_cards_dsl::PlayWindow as W;
+        Some(match (window, any_color) {
+            (W::WhileExiled, false) => Self::WhileExiled,
+            (W::WhileExiled, true) => Self::AnyColorWhileExiled,
+            (W::WhileSourceOnBattlefield, false) => Self::SourceOnBattlefield(source?),
+            (W::WhileSourceOnBattlefield, true) => Self::AnyColorSourceOnBattlefield(source?),
+            (w, false) => Self::Turns(w),
+            (w, true) => Self::AnyColorTurns(w),
+        })
+    }
+
+    /// Whether this permission allows spending mana as though it were mana of any color (CR 609.4b).
+    #[must_use]
+    pub const fn mana_any_color(self) -> bool {
+        matches!(
+            self,
+            Self::AnyColorTurns(_)
+                | Self::AnyColorWhileExiled
+                | Self::AnyColorSourceOnBattlefield(_)
+        )
+    }
+
+    /// Whether this lifetime expires when the benefiting player's upkeep begins.
+    #[must_use]
+    pub const fn expires_at_upkeep(self) -> bool {
+        matches!(
+            self,
+            Self::Turns(baylee_cards_dsl::PlayWindow::UntilYourNextUpkeep)
+                | Self::AnyColorTurns(baylee_cards_dsl::PlayWindow::UntilYourNextUpkeep)
+        )
+    }
+
+    /// Whether this lifetime expires in the cleanup step.
+    #[must_use]
+    pub const fn expires_at_cleanup(self) -> bool {
+        matches!(
+            self,
+            Self::Turns(baylee_cards_dsl::PlayWindow::ThisTurn)
+                | Self::AnyColorTurns(baylee_cards_dsl::PlayWindow::ThisTurn)
+        )
+    }
+
+    /// Whether this lifetime depended on `source_id` remaining on the battlefield.
+    #[must_use]
+    pub fn depends_on_departed_source(self, source_id: ObjectId) -> bool {
+        matches!(
+            self,
+            Self::SourceOnBattlefield(src) | Self::AnyColorSourceOnBattlefield(src)
+                if src.object == source_id
+        )
+    }
+
+    /// Advance turn-based lifetimes at the start of the benefiting player's turn;
+    /// returns `false` when the permission expires immediately (`UntilYourNextTurn`).
+    pub fn advance_turn_start(&mut self) -> bool {
+        use baylee_cards_dsl::PlayWindow as W;
+        match *self {
+            Self::Turns(W::UntilYourNextTurn) | Self::AnyColorTurns(W::UntilYourNextTurn) => false,
+            Self::Turns(W::ThroughYourNextTurn) => {
+                *self = Self::Turns(W::ThisTurn);
+                true
+            }
+            Self::AnyColorTurns(W::ThroughYourNextTurn) => {
+                *self = Self::AnyColorTurns(W::ThisTurn);
+                true
+            }
+            _ => true,
+        }
+    }
 }
 
 impl From<baylee_cards_dsl::PlayWindow> for PlayLifetime {
     fn from(window: baylee_cards_dsl::PlayWindow) -> Self {
-        Self::Turns(window)
+        match window {
+            baylee_cards_dsl::PlayWindow::WhileExiled => Self::WhileExiled,
+            other => Self::Turns(other),
+        }
     }
 }
 
@@ -330,6 +421,38 @@ pub struct PlayPermission {
     pub spell_types: Option<baylee_core::types::TypeSet>,
     /// Turn-based expiry or the prepared permanent granting access.
     pub window: PlayLifetime,
+}
+
+impl PlayPermission {
+    /// Whether this permission is currently active for `player` on `card` at `version`.
+    #[must_use]
+    pub fn grants_to(
+        &self,
+        state: &super::GameState,
+        player: PlayerId,
+        card: ObjectId,
+        version: u32,
+    ) -> bool {
+        if self.card != card || self.version != version {
+            return false;
+        }
+        match self.window {
+            PlayLifetime::Prepared(source) => state.prepared_controller(source) == Some(player),
+            PlayLifetime::SourceOnBattlefield(source)
+            | PlayLifetime::AnyColorSourceOnBattlefield(source) => {
+                self.player == player
+                    && state.object(source.object).is_some_and(|o| {
+                        o.zone == crate::zone::Zone::Battlefield
+                            && o.version == source.version
+                            && !o.status.contains(crate::object::Status::PHASED_OUT)
+                    })
+            }
+            PlayLifetime::Turns(_)
+            | PlayLifetime::AnyColorTurns(_)
+            | PlayLifetime::WhileExiled
+            | PlayLifetime::AnyColorWhileExiled => self.player == player,
+        }
+    }
 }
 
 impl PerTurn {

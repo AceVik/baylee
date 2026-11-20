@@ -44,10 +44,7 @@ pub(crate) fn permitted_spell_types(
     }
     let mut found = false;
     for permission in &state.play_permissions {
-        if permission.player == player
-            && permission.card == card
-            && permission.version == object.version
-        {
+        if permission.grants_to(state, player, card, object.version) {
             found = true;
             if permission
                 .spell_types

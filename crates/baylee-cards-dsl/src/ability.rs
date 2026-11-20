@@ -557,6 +557,14 @@ pub enum Condition {
     /// CR 603.4, CR 400.7: Oloro's and eminence's intervening `if`). Appended
     /// to preserve replay identities.
     SourceInZone(crate::ZoneRef),
+    /// This spell (or the permanent it became) was bargained by sacrificing an
+    /// artifact, enchantment, or token as an additional cost (Bargain,
+    /// CR 702.166b–c). Appended to preserve replay identities.
+    Bargained,
+    /// This spell (or the permanent it became, or a copy of either) is
+    /// prototyped (Prototype, CR 702.160, CR 719.3b–d). Appended to preserve
+    /// replay identities.
+    Prototyped,
 }
 
 /// Trigger conditions for triggered abilities.

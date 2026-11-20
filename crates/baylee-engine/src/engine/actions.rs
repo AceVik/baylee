@@ -1914,7 +1914,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     } else {
                         None
                     };
-                    wizard.stage = cast_wizard::WizardStage::XValue;
+                    wizard.stage = cast_wizard::WizardStage::EmergeSacrifice;
                     self.continue_cast_wizard();
                     return Ok(());
                 }
@@ -1967,6 +1967,19 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
                     wizard.buyback = answer.then(|| self.buyback_on_offer(&wizard)).flatten();
+                    wizard.stage = cast_wizard::WizardStage::Bargain;
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
+                }
+                // Wizard path: bargain yes/no (`CR 702.166a`).
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::Bargain)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    wizard.bargained = answer;
                     wizard.stage = cast_wizard::WizardStage::Multikicker;
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();
@@ -2023,6 +2036,30 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 }
                 if let Some(result) = self.answer_effect_play(player, &objects) {
                     return result;
+                }
+                // Wizard path: emerge permanent chosen at announcement (`CR 702.119c`).
+                if self
+                    .cast_wizard
+                    .as_ref()
+                    .is_some_and(|w| w.stage == cast_wizard::WizardStage::EmergeSacrifice)
+                {
+                    let mut wizard = self.cast_wizard.take().expect("wizard active");
+                    let chosen = objects.first().copied();
+                    wizard.emerge_sacrifice = chosen;
+                    let mv = chosen
+                        .and_then(|id| self.state.object(id))
+                        .map_or(0, |o| o.characteristics().mana_value());
+                    let priced = self.emerge_option_cost(&wizard, mv);
+                    for opt in &mut wizard.options {
+                        if opt.kind == crate::choice::CastModeKind::Emerge {
+                            opt.cost = priced;
+                        }
+                    }
+                    wizard.reduction = Some(self.frozen_spell_reduction(&wizard));
+                    wizard.stage = cast_wizard::WizardStage::XValue;
+                    self.cast_wizard = Some(wizard);
+                    self.continue_cast_wizard();
+                    return Ok(());
                 }
                 // Wizard path: pitch cards (exile-from-hand costs).
                 if self

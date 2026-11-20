@@ -387,6 +387,7 @@ pub fn has_priced_ways(def: &baylee_cards_dsl::CardDef) -> bool {
         || face.kicked_targets.is_some()
         || face.dash.is_some()
         || face.blitz.is_some()
+        || face.emerge.is_some()
         || face.mutate.is_some()
         || face.bestow.is_some()
         || face.has_face_down_cast()
@@ -1169,7 +1170,27 @@ pub(crate) fn can_cast_form_paying(
     // A granted flashback cost cannot be combined with a second alternative cost.
     let flashback_only =
         in_own_graveyard && flashback_granted(state, card) && !graveyard_ok && permission.is_none();
-    if flashback_only && matches!(form, Some(SpellForm::Disguise | SpellForm::Bestow(_))) {
+    if flashback_only
+        && matches!(
+            form,
+            Some(SpellForm::Disguise | SpellForm::Bestow(_) | SpellForm::Prototype(_))
+        )
+    {
+        return Err(CastError::NoWayToCast);
+    }
+    if !in_hand
+        && !graveyard_ok
+        && !takeover_ok
+        && !commander_ok
+        && matches!(
+            form,
+            Some(SpellForm::Disguise | SpellForm::Bestow(_) | SpellForm::Prototype(_))
+        )
+        && !state
+            .play_permissions
+            .iter()
+            .any(|p| p.grants_to(state, player, card, obj.version) && !p.free)
+    {
         return Err(CastError::NoWayToCast);
     }
     let graveyard_back = in_own_graveyard
@@ -1808,13 +1829,48 @@ pub(crate) fn can_cast_form_paying(
                     )
                     .is_some()
             });
+        // Emerge (CR 702.119a), the offer's `CastModeKind::Emerge`.
+        let any_emerge = !flashback_only
+            && face.emerge.is_some_and(|emerge| {
+                emerge_candidates(state, player, card, face, emerge)
+                    .into_iter()
+                    .any(|(_, mv)| {
+                        let red = reduction.saturating_add(mv);
+                        let cost = keyword_priced(
+                            state,
+                            face,
+                            player,
+                            &emerge
+                                .cost
+                                .with_x(0)
+                                .combine(&adjustment.mana_increase)
+                                .with_more_generic(tax)
+                                .with_less_mana(&adjustment.colored_only_reduction, true)
+                                .with_less_mana(&adjustment.mana_reduction, false),
+                            red,
+                        );
+                        let allow = adjustment.allowance(
+                            state,
+                            SpendFor::Spell(card),
+                            red.saturating_sub(adjustment.reduction),
+                        );
+                        affordable(state, player, pool, &cost, SpendFor::Spell(card), allow)
+                    })
+            });
         // Mutate (CR 702.140a), the offer's `CastModeKind::Mutate`.
         let any_mutate = !flashback_only
             && face.mutate.is_some_and(|mutate| {
                 kicked_targets_reachable(state, def, player, card, MUTATE_TARGET_REQ)
                     && probe(&mutate)
             });
-        if !any_alt && !any_mode && !any_face && !any_dash && !any_blitz && !any_mutate {
+        if !any_alt
+            && !any_mode
+            && !any_face
+            && !any_dash
+            && !any_blitz
+            && !any_emerge
+            && !any_mutate
+        {
             // Which of the two refused matters to whoever reads it. A mode
             // that was affordable and had nothing to point at is not a
             // player one land short, and telling them it is sends them
@@ -2069,6 +2125,48 @@ fn alternative_parts_payable(
         | CostPart::PutCounterSelf { .. }
         | CostPart::PayLifeX => true,
     })
+}
+
+/// Eligible sacrifice candidates for `Emerge` (`CR 702.119a–c`), paired with
+/// their current mana value, excluding any candidate whose choice would leave
+/// mandatory additional costs unpayable.
+pub(crate) fn emerge_candidates(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face: &'static baylee_cards_dsl::FaceDef,
+    emerge: baylee_cards_dsl::Emerge,
+) -> Vec<(ObjectId, u32)> {
+    crate::engine::cost_wizard::options(
+        state,
+        player,
+        card,
+        &baylee_cards_dsl::CostPart::Sacrifice(emerge.from),
+    )
+    .into_iter()
+    .filter(|&candidate| {
+        candidate != card
+            && additional_payment_capacity_for(
+                state,
+                player,
+                card,
+                face,
+                crate::engine::cast_wizard::CostChoice {
+                    option: Some(crate::choice::CastModeKind::Emerge),
+                    emerge_sacrifice: Some(candidate),
+                    ..Default::default()
+                },
+                &[],
+            )
+            .is_some()
+    })
+    .map(|candidate| {
+        let mv = state
+            .object(candidate)
+            .map_or(0, |o| o.characteristics().mana_value());
+        (candidate, mv)
+    })
+    .collect()
 }
 
 /// Casting/playing failure.

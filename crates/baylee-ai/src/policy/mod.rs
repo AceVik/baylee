@@ -746,6 +746,45 @@ impl HeuristicAgent {
         replacement_answer(view, options, prompt).or(forced_discard)
     }
 
+    fn cost_sacrifice_answer(
+        &self,
+        view: &PlayerView,
+        options: &[ObjectId],
+        min: u8,
+        max: u8,
+    ) -> Vec<ObjectId> {
+        let mut ranked = options.to_vec();
+        if let Some(emerge) = view
+            .casting
+            .and_then(|c| identity(view, c))
+            .and_then(face)
+            .and_then(|f| f.emerge)
+            && let Some(seat) = view.seat(resource_player(view))
+        {
+            let untapped_mana = view
+                .battlefield_of(seat.player)
+                .filter(|o| {
+                    !o.status.contains(baylee_view::ObjectStatus::TAPPED)
+                        && (o.types.contains(TypeSet::LAND) || o.board_mana.is_some())
+                })
+                .count() as u64;
+            let avail = seat.mana_pool.total() + untapped_mana;
+            ranked.sort_by_key(|id| {
+                let Some(o) = view.object(*id) else {
+                    return (true, 0_i64, *id);
+                };
+                let remaining = u64::from(emerge.cost.with_less_generic(o.mana_value).cmc());
+                let short = remaining > avail;
+                let net = self.given_up(view, o) - i64::from(o.mana_value) * 40;
+                (short, net, *id)
+            });
+        } else {
+            ranked.sort_by_key(|id| (view.object(*id).map_or(0, |o| self.given_up(view, o)), *id));
+        }
+        ranked.truncate(usize::from(min.max(1).min(max)));
+        ranked
+    }
+
     pub(crate) fn select_cards(
         &self,
         view: &PlayerView,
@@ -797,10 +836,7 @@ impl HeuristicAgent {
                 .iter()
                 .all(|id| view.battlefield.iter().any(|o| o.id == *id))
         {
-            let mut ranked = options.to_vec();
-            ranked.sort_by_key(|id| (view.object(*id).map_or(0, |o| self.given_up(view, o)), *id));
-            ranked.truncate(usize::from(min.max(1).min(max)));
-            return Some(ranked);
+            return Some(self.cost_sacrifice_answer(view, options, min, max));
         }
         if prompt == ChoicePrompt::KeepPermanents
             && min == 1
@@ -3790,6 +3826,24 @@ pub(crate) fn buys_back(
         .is_some_and(|buyback| buyback_parts_worth(view, buyback.parts, card))
         && manaplan::plan_frozen(&cost.with_x(context.x).combine(&mana), &seat.mana_pool, &[])
             .is_some()
+}
+
+/// Answer `YesNoPrompt::Bargain` (`CR 702.166`): yes when the caster controls
+/// an expendable token (`power <= 1`) or cheap non-mana artifact/enchantment
+/// (`mana_value <= 1`).
+pub(crate) fn bargains(view: &PlayerView) -> bool {
+    let player = resource_player(view);
+    view.battlefield_of(player).any(|o| {
+        let is_token = o.status.contains(baylee_view::ObjectStatus::TOKEN) || o.token.is_some();
+        if is_token {
+            return o.power.unwrap_or(0) <= 1;
+        }
+        o.types
+            .intersects(TypeSet::ARTIFACT.union(TypeSet::ENCHANTMENT))
+            && !o.types.intersects(TypeSet::CREATURE.union(TypeSet::LAND))
+            && o.board_mana.is_none()
+            && o.mana_value <= 1
+    })
 }
 
 /// The answer to `NumberPrompt::Multikicker`: as far as the floating pool

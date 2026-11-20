@@ -68,6 +68,7 @@ mod wave2_bugs_copy_and_dice;
 mod wave3_repeat_choose_color;
 mod wave3_rules;
 mod wave3b_rules;
+mod wave4_exile_and_costs;
 mod zones;
 
 use super::synthetic::{SyntheticLookup, forest, land_face, walk_past};

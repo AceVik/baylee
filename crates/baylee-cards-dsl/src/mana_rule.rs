@@ -140,6 +140,9 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::DiscardAnyThenDraw
         | Effect::ExileTopMayCast { .. }
         | Effect::ExileTopToPlay { .. }
+        | Effect::ExileTopWithPermission { .. }
+        | Effect::ExileWithPermission { .. }
+        | Effect::GrantLinkedExilePermission { .. }
         | Effect::LookAtTopExileFaceDown { .. }
         | Effect::RevealTopOnePerType { .. }
         | Effect::RevealTopIf { .. }

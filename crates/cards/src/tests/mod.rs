@@ -320,6 +320,12 @@ fn no_card_costs_a_colour_its_identity_leaves_out() {
             if let Some(blitz) = face.blitz {
                 add(&blitz.mana);
             }
+            if let Some(emerge) = face.emerge {
+                add(&emerge.cost);
+            }
+            if let Some(prototype) = face.prototype {
+                add(&prototype.cost);
+            }
         }
         for ability in def
             .faces

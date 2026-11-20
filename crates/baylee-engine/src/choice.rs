@@ -805,6 +805,11 @@ pub struct LegalActions {
     /// Elf.
     #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
     pub restricted_floating: Vec<(Spend, [u32; 6])>,
+    /// Per-spend mana-spending permissions when casting a specific card (such as
+    /// `ExileMana::AnyColor` or `ExileMana::AnyType` under CR 609.4b / CR 118.14)
+    /// grants a broader `ManaSpending` than the seat's global pool spending.
+    #[serde(default, skip_serializing_if = "baylee_core::wire::left_out")]
+    pub spell_spending: Vec<(Spend, baylee_core::mana::ManaSpending)>,
 }
 
 /// The most taps and spends [`LegalActions::restricted_taps`] names in all,
@@ -878,6 +883,16 @@ impl LegalActions {
             .iter()
             .find(|(s, _)| *s == spend)
             .map_or_default(|(_, by_colour)| *by_colour)
+    }
+
+    /// Card-specific [`baylee_core::mana::ManaSpending`] for `spend`, when
+    /// broader than the seat's global `ManaPoolView::spending` (CR 609.4b).
+    #[must_use]
+    pub fn spell_spending_for(&self, spend: Spend) -> Option<baylee_core::mana::ManaSpending> {
+        self.spell_spending
+            .iter()
+            .find(|(s, _)| *s == spend)
+            .map(|(_, spending)| *spending)
     }
 
     /// Additional generic mana for an activation of this permanent.

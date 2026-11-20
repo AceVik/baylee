@@ -1125,6 +1125,9 @@ pub enum Rider {
     /// Cast for its blitz cost (CR 702.152a): the permanent it becomes has
     /// haste, draws a card when it dies, and is sacrificed at the next end step.
     Blitzed,
+    /// Bargained as an additional cost when cast (CR 702.166b): tracked on the
+    /// spell and on the permanent it becomes until leaving the battlefield.
+    Bargained,
 }
 
 /// What ends an "exile … until …" (CR 610.3), as [`Rider::Linked`] carries
@@ -1248,6 +1251,7 @@ impl Rider {
             | Self::MustAttackPlayerThisTurn(_)
             | Self::SuspendHaste(_)
             | Self::Blitzed
+            | Self::Bargained
             | Self::EventPlayer(_)
             | Self::SyntheticCondition(_) => false,
         }

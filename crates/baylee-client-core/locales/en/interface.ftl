@@ -3679,6 +3679,8 @@ BuybackAsk = Buyback: { $price }? The spell comes back to your hand as it resolv
 # Arguments: price
 KickerOptionAsk = Pay kicker cost { $price }?
 
+BargainAsk = Bargain: sacrifice an artifact, enchantment, or token?
+
 # Part of a buyback price: life.
 # Arguments: amount
 BuybackPriceLife = pay { $amount } life
@@ -3770,6 +3772,9 @@ CastDash = Dash
 
 # Blitz (CR 702.152a), the keyword as the German printing names it
 CastBlitz = Blitz
+
+# Emerge (CR 702.119a), the keyword as the German printing names it
+CastEmerge = Emerge
 
 # Mutate (CR 702.140a), the keyword as the German printing names it
 CastMutate = Mutate

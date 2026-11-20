@@ -152,18 +152,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 ))
         });
         self.state.play_permissions.retain_mut(|permission| {
-            use baylee_cards_dsl::PlayWindow;
             if permission.player == new_active {
-                use crate::state::PlayLifetime;
-                match permission.window {
-                    PlayLifetime::Turns(PlayWindow::UntilYourNextTurn) => return false,
-                    PlayLifetime::Turns(PlayWindow::ThroughYourNextTurn) => {
-                        permission.window = PlayWindow::ThisTurn.into();
-                    }
-                    PlayLifetime::Turns(PlayWindow::ThisTurn | PlayWindow::UntilYourNextUpkeep)
-                    | PlayLifetime::Prepared(_)
-                    | PlayLifetime::WhileExiled => {}
-                }
+                return permission.window.advance_turn_start();
             }
             true
         });

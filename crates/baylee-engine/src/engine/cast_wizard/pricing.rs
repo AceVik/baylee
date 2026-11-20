@@ -30,7 +30,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         frozen.allowance.reduced(selected)
     }
 
-    pub(super) fn frozen_spell_reduction(&self, wizard: &CastWizard) -> FrozenReduction {
+    pub(in crate::engine) fn frozen_spell_reduction(&self, wizard: &CastWizard) -> FrozenReduction {
         let def = self
             .state
             .object(wizard.card)
@@ -51,7 +51,18 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         } else {
             casting::printed_reduction(&self.state, face, wizard.player, wizard.card)
         };
-        let total = adjustment.reduction.saturating_add(printed);
+        let emerge_mv = if wizard.option == Some(CastModeKind::Emerge) {
+            wizard
+                .emerge_sacrifice
+                .and_then(|id| self.state.object(id))
+                .map_or(0, |o| o.characteristics().mana_value())
+        } else {
+            0
+        };
+        let total = adjustment
+            .reduction
+            .saturating_add(printed)
+            .saturating_add(emerge_mv);
         let raw = raw_option_cost(def, face, wizard);
         let raw_with_inc = raw
             .combine(&adjustment.mana_increase)
@@ -74,6 +85,33 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 total,
             ),
         }
+    }
+
+    /// Computes the priced `CastModeKind::Emerge` mana cost after subtracting
+    /// `sacrificed_mv` generic mana (`CR 702.119a`, `CR 601.2f`).
+    pub(in crate::engine) fn emerge_option_cost(
+        &self,
+        wizard: &CastWizard,
+        sacrificed_mv: u32,
+    ) -> ManaCost {
+        let def = self
+            .state
+            .object(wizard.card)
+            .and_then(|object| object.card)
+            .and_then(|card| self.lookup.card(card.index))
+            .expect("wizard card known");
+        let face = self.wizard_face(wizard);
+        let emerge = face.emerge.expect("emerge option");
+        let adjustment = casting::face_adjustment(
+            &self.state,
+            wizard.player,
+            wizard.card,
+            def,
+            wizard.face_index(),
+            None,
+        );
+        let printed = casting::printed_reduction(&self.state, face, wizard.player, wizard.card);
+        adjustment.price(emerge.cost, printed.saturating_add(sacrificed_mv))
     }
 
     /// Recomputes target-dependent cost modifiers (CR 601.2c -> 601.2f, such as
@@ -164,6 +202,7 @@ fn raw_option_cost(
         Some(CastModeKind::BeamMeUp) => face.beam_me_up.expect("beam me up"),
         Some(CastModeKind::Dash) => face.dash.expect("dash"),
         Some(CastModeKind::Blitz) => face.blitz.expect("blitz").mana,
+        Some(CastModeKind::Emerge) => face.emerge.expect("emerge").cost,
         Some(CastModeKind::Mutate) => face.mutate.expect("mutate"),
         Some(CastModeKind::Bestow) => face.bestow.expect("bestow").mana,
         Some(CastModeKind::JumpStart) => face.mana_cost,

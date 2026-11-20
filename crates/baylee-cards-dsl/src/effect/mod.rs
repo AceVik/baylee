@@ -4882,6 +4882,36 @@ pub enum Effect {
         /// or `DefendingPlayer`).
         controlled_by: Option<PlayerRel>,
     },
+    /// Exile up to `count` cards from the top of each `who` player's library and
+    /// grant the resolving controller `permission` on each exiled card
+    /// incarnation (CR 601.1a, CR 609.4). Appended to preserve replay identities.
+    ExileTopWithPermission {
+        /// Whose library top is exiled.
+        who: PlayerRel,
+        /// Number of top cards to exile (capped by remaining library size).
+        count: Amount,
+        /// Play or cast permission granted on each exiled card incarnation.
+        permission: ExilePermission,
+    },
+    /// Exile the object(s) named by `target` (optionally linked with `until`
+    /// per CR 610.3) and grant the resolving controller `permission` on each
+    /// card incarnation that arrives in exile (CR 601.1a, CR 609.4). Appended
+    /// to preserve replay identities.
+    ExileWithPermission {
+        /// Which object(s) to exile.
+        target: TargetSpec,
+        /// Optional temporary exile duration (such as `SourceLeavesBattlefield`).
+        until: Option<ExileUntil>,
+        /// Play or cast permission granted on each exiled card incarnation.
+        permission: ExilePermission,
+    },
+    /// Grant the resolving controller `permission` on each card currently in
+    /// exile linked to the resolving source incarnation (CR 607.2a, CR 609.4).
+    /// Appended to preserve replay identities.
+    GrantLinkedExilePermission {
+        /// Play or cast permission granted on each linked exiled card incarnation.
+        permission: ExilePermission,
+    },
 }
 
 #[cfg(test)]

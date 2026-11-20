@@ -64,7 +64,9 @@ pub mod tape;
 /// Version 51 carries `ChoicePrompt::Amplify` for Amplify hand reveals (CR 702.38a/b).
 /// Version 52 carries `CastModeKind::Bestow` and `CastModeKind::JumpStart` (CR 702.103, CR 702.133a).
 /// Version 53 carries `CastModeKind::Blitz` (CR 702.152a).
-pub const PROTOCOL_VERSION: u32 = 53;
+/// Version 54 carries `CastModeKind::Emerge` (CR 702.119), `YesNoPrompt::Bargain`
+/// (CR 702.166), and `LegalActions::spell_spending` (CR 609.4b).
+pub const PROTOCOL_VERSION: u32 = 54;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -381,7 +383,8 @@ mod tests {
         // 51: `ChoicePrompt::Amplify` for Amplify hand reveals on positional binary frames.
         // 52: `CastModeKind::Bestow` and `CastModeKind::JumpStart` on positional binary frames.
         // 53: `CastModeKind::Blitz` on positional binary frames.
-        assert_eq!(PROTOCOL_VERSION, 53);
+        // 54: `CastModeKind::Emerge`, `YesNoPrompt::Bargain`, and `LegalActions::spell_spending`.
+        assert_eq!(PROTOCOL_VERSION, 54);
     }
 
     #[test]

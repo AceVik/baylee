@@ -77,15 +77,29 @@ pub fn ability_mana_spending(
 /// Spending permission follows the exact exiled card incarnation, not its owner.
 #[doc(hidden)]
 pub fn spell_mana_spending(state: &GameState, player: PlayerId, card: ObjectId) -> ManaSpending {
-    if state.object(card).is_some_and(|object| {
-        state.play_permissions.iter().any(|permission| {
-            permission.player == player
-                && permission.card == card
-                && permission.version == object.version
-                && permission.mana_any_type
-        })
-    }) {
+    let mut any_type = false;
+    let mut any_color = false;
+    if let Some(object) = state.object(card) {
+        for permission in &state.play_permissions {
+            if permission.grants_to(state, player, card, object.version) {
+                any_type |= permission.mana_any_type;
+                any_color |= permission.window.mana_any_color();
+            }
+        }
+    }
+    if any_type {
         ManaSpending::ANY_TYPE
+    } else if any_color {
+        let mut spending = mana_spending(state, player);
+        for actual in ManaColor::ALL {
+            for required in ManaColor::ALL
+                .into_iter()
+                .filter(|color| *color != ManaColor::Colorless)
+            {
+                spending.allow(actual, required);
+            }
+        }
+        spending
     } else {
         mana_spending(state, player)
     }

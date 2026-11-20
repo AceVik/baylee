@@ -444,7 +444,10 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // binary frames).
     // 97: `CastModeKind::Blitz` is an imported engine cast-mode variant a
     // reader of 96 cannot decode (protocol 53 on binary frames).
-    const RECORDED: (u32, u64) = (97, 5_197_534_328_483_882_664);
+    // 98: `CastModeKind::Emerge` and `YesNoPrompt::Bargain` are imported
+    // engine variants a reader of 97 cannot decode (protocol 54 on binary
+    // frames).
+    const RECORDED: (u32, u64) = (98, 5_197_534_328_483_882_664);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

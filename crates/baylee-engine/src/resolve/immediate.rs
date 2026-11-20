@@ -3026,6 +3026,19 @@ pub(super) fn exec_immediate(
         Effect::ExileTopMayCast { who, nonland_only } => {
             permissions::exile_top_may_cast(state, res, who, nonland_only)
         }
+        Effect::ExileTopWithPermission {
+            who,
+            ref count,
+            permission,
+        } => permissions::exile_top_with_permission(state, res, who, count, permission),
+        Effect::ExileWithPermission {
+            target,
+            until,
+            permission,
+        } => permissions::exile_with_permission(state, res, target, until, permission),
+        Effect::GrantLinkedExilePermission { permission } => {
+            permissions::grant_linked_exile_permission(state, res, permission)
+        }
         Effect::TapAll { filter } => {
             let you = res.controller;
             let all: Vec<ObjectId> = state

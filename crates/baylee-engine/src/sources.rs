@@ -743,6 +743,26 @@ impl GameState {
         if self.source_memory.event_readers.contains(&original) {
             self.source_memory.event_readers.insert(to);
         }
+
+        let (was_bargained, was_prototyped) = self
+            .source_object(original)
+            .filter(|object| object.kind == crate::object::ObjectKind::Spell)
+            .map_or((false, false), |object| {
+                (
+                    object.riders.contains(&crate::object::Rider::Bargained),
+                    object.prototyped,
+                )
+            });
+        if (was_bargained || was_prototyped)
+            && let Some(copied) = self.object_mut(copy)
+        {
+            if was_bargained && !copied.riders.contains(&crate::object::Rider::Bargained) {
+                copied.riders.push(crate::object::Rider::Bargained);
+            }
+            if was_prototyped {
+                copied.prototyped = true;
+            }
+        }
     }
 
     pub(crate) fn capture_target_group(&self, objects: &[ObjectId]) -> Vec<DamageSourceRef> {

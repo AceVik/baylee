@@ -42,7 +42,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             self.awaiting_answer = true;
             return Ok(());
         }
-        wizard.stage = WizardStage::XValue;
+        wizard.stage = WizardStage::EmergeSacrifice;
         self.cast_wizard = Some(wizard);
         self.advance_cast_wizard()
     }

@@ -1154,11 +1154,11 @@ pub mod prelude {
     pub use crate::effect::{
         Amount, ChooseMove, ChooseZone, ColorSubject, CombatWatchEvent, CopyCleanup, CounterKind,
         DamageRedirectTo, DamageTo, DelayedDuration, DelayedObservation, DelayedStep,
-        DelayedTriggerWhen, DivisionAmount, Effect, ExilePlay, ExileUntil, Find, LookRest,
-        ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
-        PeekPickDest, PeekRestDest, PlayWindow, PlayerRel, ReflexiveEvent, ReflexiveWhen,
-        RepeatDomain, SearchDest, SpendRider, TargetChooser, TargetReq, TargetSlot, TargetSpec,
-        ThisWay, TokenDef, TriggerRemember, ZoneSel,
+        DelayedTriggerWhen, DivisionAmount, Effect, ExileMana, ExilePermission, ExilePlay,
+        ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse,
+        ManaValueBound, ManaValueCmp, PeekPickDest, PeekRestDest, PlayWindow, PlayerRel,
+        ReflexiveEvent, ReflexiveWhen, RepeatDomain, SearchDest, SpendRider, TargetChooser,
+        TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, TriggerRemember, ZoneSel,
     };
     pub use crate::filter::{Filter, OriginalExpansion, ZoneRef};
     pub use crate::static_ability::{
@@ -1167,7 +1167,8 @@ pub mod prelude {
     };
     pub use crate::{
         ALL_MANA_COLORS, ANY_COLOR_MANA, BeholdOrPay, CardDef, CommanderRule, Coverage,
-        EMBALM_MODS, ETERNALIZE_MODS, EnterModifier, Escape, FaceDef, KeywordSet, PartnerKind,
+        EMBALM_MODS, ETERNALIZE_MODS, Emerge, EnterModifier, Escape, FaceDef, KeywordSet,
+        PartnerKind, Prototype,
     };
     pub use crate::{SpecialActionCost, SpecialActionEffect, SpecialActionTiming, TextWordKind};
     pub use crate::{

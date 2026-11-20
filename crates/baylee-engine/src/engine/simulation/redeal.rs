@@ -647,6 +647,7 @@ const fn rider_object(rider: &Rider) -> Option<ObjectId> {
         | Rider::MustAttackPlayerThisTurn(_)
         | Rider::SuspendHaste(_)
         | Rider::Blitzed
+        | Rider::Bargained
         | Rider::ExhaustedAbility(_)
         | Rider::EntrySacrifices(_)
         | Rider::SecondChosenSubtype(_)

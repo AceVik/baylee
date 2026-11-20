@@ -59,6 +59,25 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
     pub(super) fn offer_restricted_mana(&self, player: PlayerId, legal: &mut LegalActions) {
         legal.restricted_taps.clear();
         legal.restricted_floating.clear();
+        legal.spell_spending.clear();
+        if !self.state.play_permissions.is_empty() {
+            let base = casting::mana_spending(&self.state, player);
+            for (spend, what) in self.spends(player, legal) {
+                let card = match what {
+                    SpendFor::Spell(card)
+                    | SpendFor::SpellOnFace(card, _)
+                    | SpendFor::SpellAs(card, _)
+                    | SpendFor::KickedSpell(card, ..) => Some(card),
+                    _ => None,
+                };
+                if let Some(card) = card {
+                    let specific = casting::spell_mana_spending(&self.state, player, card);
+                    if specific != base {
+                        legal.spell_spending.push((spend, specific));
+                    }
+                }
+            }
+        }
         let mut classes: Vec<(ManaProvenance, RestrictedTaps)> = Vec::new();
         let mut class_of: HashMap<ProvenanceClass, usize> = HashMap::new();
         let mut budget = RESTRICTED_ENTRIES;

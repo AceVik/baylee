@@ -60,6 +60,9 @@ pub(crate) enum WizardStage {
     Permission,
     /// Optional spending permission for this spell’s mana cost only.
     ManaPermission,
+    /// Choosing which permanent to sacrifice for `Emerge` (`CR 702.119c`),
+    /// announced before freezing generic reductions and additional costs.
+    EmergeSacrifice,
     /// Choosing X.
     XValue,
     /// Choosing targets.
@@ -77,6 +80,9 @@ pub(crate) enum WizardStage {
     /// Buyback yes/no (CR 702.27a). Skipped when the face prints none or
     /// nothing could pay it.
     Buyback,
+    /// Bargain yes/no (`CR 702.166a`). Skipped when the face does not print
+    /// `bargain` or no artifact, enchantment, or token can pay it.
+    Bargain,
     /// How many times to pay the multikicker cost (CR 702.33c). Skipped when
     /// the face prints none or nothing could pay it once.
     Multikicker,
@@ -165,6 +171,10 @@ pub struct CastWizard {
     /// (CR 601.2b); `None` for a spell whose buyback was not. A number and
     /// not the price, because this rides in every `Engine` by value.
     pub buyback: Option<u32>,
+    /// Whether the spell's bargain additional cost was announced (`CR 702.166a`).
+    pub bargained: bool,
+    /// The permanent chosen to sacrifice for `Emerge` (`CR 702.119c`).
+    pub emerge_sacrifice: Option<ObjectId>,
     /// How many times the replicate cost is paid.
     pub replicated: u8,
     /// Cards chosen for pitch (exile-from-hand).
@@ -261,6 +271,8 @@ impl CastWizard {
             kicker_cursor: 0,
             multikicked: 0,
             buyback: None,
+            bargained: false,
+            emerge_sacrifice: None,
             replicated: 0,
             pitch: SmallVec::new(),
             returned: None,
@@ -323,6 +335,7 @@ impl CastWizard {
 
     /// The answers held by a miracle payment window, for replay comparison.
     /// Its mode is fixed, but identical boards can still owe different casts.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn miracle_payment_fingerprint(&self) -> u64 {
         let mut hash = crate::state::structural_fingerprint(&(
             self.permission,
@@ -361,6 +374,14 @@ impl CastWizard {
             hash = hash
                 .wrapping_mul(31)
                 .wrapping_add(u64::from(self.kicked_mask));
+        }
+        if self.bargained || self.emerge_sacrifice.is_some() {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    self.bargained,
+                    self.emerge_sacrifice,
+                )));
         }
         // A separate alternative cost changes the meaning of modal answers.
         // Keep the legacy fingerprint byte-for-byte when no such route exists.

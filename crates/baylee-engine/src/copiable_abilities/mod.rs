@@ -737,6 +737,7 @@ pub(crate) fn apply_copy_from_reference(
         state.next_timestamp()
     };
     temporary::prepare(state, source, target_identity, until_eot, entering);
+    let target_prototyped = state.object(target).is_some_and(|o| o.prototyped);
     let base = Arc::new(base);
     let Some(object) = state.object_mut(source) else {
         return false;
@@ -746,6 +747,7 @@ pub(crate) fn apply_copy_from_reference(
             object.original_base = Some(object.base.clone());
         }
         object.base = base.clone();
+        object.prototyped = target_prototyped;
     }
     object.take_abilities(abilities);
     object.own_abilities_until_eot = until_eot;

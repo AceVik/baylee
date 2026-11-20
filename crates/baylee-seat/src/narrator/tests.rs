@@ -357,6 +357,7 @@ pub(crate) fn priority(view: &PlayerView) -> Pending {
             unpaid_suspend: vec![],
             restricted_taps: vec![],
             restricted_floating: vec![],
+            spell_spending: vec![],
             granted_actions: vec![],
         }),
     }

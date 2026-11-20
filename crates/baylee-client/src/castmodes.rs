@@ -106,6 +106,7 @@ pub struct ReachableMode {
 /// asks a question only when there is more than one way, and everything else
 /// takes the path it always took.
 #[must_use]
+#[allow(clippy::too_many_lines)] // one branch per printed way to cast
 pub fn reachable_modes(
     view: &PlayerView,
     legal: &LegalActions,
@@ -222,6 +223,11 @@ pub fn reachable_modes(
             offer(CastModeKind::Alternative(i), alt.cost.mana);
         }
     }
+    if let Some(emerge) = face.emerge
+        && let Some(emerge_mode) = emerge_mode(view, legal, card, hand.card, emerge, &pool, life)
+    {
+        out.push(emerge_mode);
+    }
     out.extend(face_modes(view, legal, card, &pool, life));
     out.extend(foretell_mode(view, legal, face, &pool));
     out
@@ -239,6 +245,59 @@ fn alternative_mode_open(
             .cast_ways
             .iter()
             .any(|(c, w)| *c == card && w.kind == CastModeKind::Alternative(index))
+}
+
+fn emerge_mode(
+    view: &PlayerView,
+    legal: &LegalActions,
+    card: ObjectId,
+    identity: baylee_view::CardIdentity,
+    emerge: baylee_cards_dsl::Emerge,
+    pool: &baylee_view::ManaPoolView,
+    life: i32,
+) -> Option<ReachableMode> {
+    let cost = if let Some((_, way)) = legal
+        .cast_ways
+        .iter()
+        .find(|(id, w)| *id == card && w.kind == CastModeKind::Emerge)
+    {
+        way.cost
+    } else if parts_payable(view, card, &[CostPart::Sacrifice(emerge.from)]) {
+        let player = resource_player(view);
+        let max_mv = view
+            .battlefield_of(player)
+            .filter(|o| {
+                o.id != card && crate::targeting::matches(view, o, emerge.from) == Some(true)
+            })
+            .map(|o| o.mana_value)
+            .max()
+            .unwrap_or(0);
+        baylee_ai::spell_price(
+            view,
+            card,
+            Some(identity),
+            legal,
+            CastModeKind::Emerge,
+            emerge.cost,
+        )
+        .with_less_generic(max_mv)
+    } else {
+        return None;
+    };
+    crate::manasources::plan_with_life_for_spell(
+        &crate::reach::least_x(cost),
+        pool,
+        view,
+        legal,
+        card,
+        CastModeKind::Emerge,
+        life,
+    )
+    .map(|plan| ReachableMode {
+        kind: CastModeKind::Emerge,
+        cost,
+        plan,
+    })
 }
 
 fn offer_modal_override_modes(

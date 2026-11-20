@@ -791,6 +791,7 @@ impl GameState {
                             | crate::object::Rider::EntryFinality
                             | crate::object::Rider::Dashed
                             | crate::object::Rider::Blitzed
+                            | crate::object::Rider::Bargained
                             | crate::object::Rider::SuspendHaste(_)
                             | crate::object::Rider::Mutating
                             | crate::object::Rider::Bestowed
@@ -877,6 +878,10 @@ impl GameState {
                         | crate::object::Rider::EntryTappingApplied
                 )
             });
+        }
+        if from_zone == Zone::Battlefield && !self.play_permissions.is_empty() {
+            self.play_permissions
+                .retain(|p| !p.window.depends_on_departed_source(id));
         }
         // Off the stack and the battlefield a card is its front face again,
         // and a split card both of its halves (CR 709.4): Fire // Ice cast as

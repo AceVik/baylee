@@ -51,6 +51,7 @@ fn a_draw_is_only_offered_from_this_seats_own_priority() {
                     unpaid_suspend: vec![],
                     restricted_taps: vec![],
                     restricted_floating: vec![],
+                    spell_spending: vec![],
                     granted_actions: vec![],
                 }),
             },

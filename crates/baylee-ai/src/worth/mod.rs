@@ -2042,6 +2042,32 @@ impl HeuristicAgent {
             Effect::LookAtTopExileFaceDown { count, cast_types } => {
                 tokens::exile_selection(view, *count, *cast_types)
             }
+            Effect::ExileTopWithPermission {
+                count: cards,
+                permission,
+                ..
+            } => {
+                let n = count(*cards)?.max(0);
+                let per_card = if permission.free { 260 } else { 180 };
+                n.saturating_mul(per_card)
+            }
+            Effect::ExileWithPermission { permission, .. } => {
+                let bonus = if permission.free { 240 } else { 140 };
+                subject.map_or(bonus, |o| {
+                    let base = if self.hostile(o.controller, me) {
+                        Self::permanent_worth(view, o).max(120)
+                    } else {
+                        -Self::permanent_worth(view, o)
+                    };
+                    base.saturating_add(bonus)
+                })
+            }
+            Effect::GrantLinkedExilePermission { permission } => {
+                let per_card = if permission.free { 220 } else { 130 };
+                origin.object.map_or(per_card, |o| {
+                    i64::try_from(o.linked_exile.len()).unwrap_or(1) * per_card
+                })
+            }
             Effect::TakeExtraTurn => 10_000,
             Effect::ExileLibraryAndShuffleHand { player } => {
                 if self

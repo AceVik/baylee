@@ -1137,6 +1137,7 @@ fn kicker_option_words(
 }
 
 /// A yes/no question in words: the question, what yes does, what no does.
+#[allow(clippy::too_many_lines)] // one arm per `YesNoPrompt` variant
 fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, String) {
     match prompt {
         YesNoPrompt::EnterTappedForCounters { kind, amount } => entry_counter_words(*kind, *amount),
@@ -1157,6 +1158,11 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "Pay the kicker or additional cost?".into(),
             "pay it".into(),
             "cast it without it".into(),
+        ),
+        YesNoPrompt::Bargain => (
+            "Bargain — sacrifice an artifact, enchantment, or token as an additional cost?".into(),
+            "bargain (sacrifice one)".into(),
+            "cast it without bargaining".into(),
         ),
         YesNoPrompt::KickerOption { index, cost, parts } => {
             kicker_option_words(*index, cost, *parts)
@@ -1805,6 +1811,9 @@ fn cast_mode_label(card: Option<baylee_view::CardIdentity>, option: &CastModeDes
         }
         CastModeKind::Dash => format!("Cast it with dash for {cost}"),
         CastModeKind::Blitz => format!("Cast it with blitz for {cost}"),
+        CastModeKind::Emerge => {
+            format!("Cast it with emerge for {cost}, sacrificing a matching permanent")
+        }
         CastModeKind::Dungeon(dungeon) => format!("Enter {}", dungeon.name()),
         CastModeKind::DungeonRoom { dungeon, room } => {
             format!("Enter {}", dungeon.rooms()[usize::from(room)])

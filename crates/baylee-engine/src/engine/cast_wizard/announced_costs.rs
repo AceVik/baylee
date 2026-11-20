@@ -89,7 +89,62 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
             .is_some()
             && (paying.makes_mana_after_choices()
                 || self.can_make_mana_for_cast(paying.player)
-                || self.wizard_pool_can_pay(paying, wizard_total_cost(face, paying)))
+                || {
+                    let mut cost = wizard_total_cost(face, paying);
+                    if face.waterbend && paying.kicked {
+                        let waterbend_generic = face
+                            .additional_costs
+                            .iter()
+                            .fold(ManaCost::ZERO, |sum, add| sum.combine(&add.mana))
+                            .generic_total();
+                        let taps = u32::try_from(
+                            casting::waterbend_sources(&self.state, paying.player).len(),
+                        )
+                        .unwrap_or(u32::MAX)
+                        .min(waterbend_generic);
+                        cost = cost.with_less_generic(taps);
+                    } else {
+                        let red = casting::keyword_reduction(
+                            &self.state,
+                            face,
+                            paying.player,
+                            paying.card,
+                        );
+                        cost =
+                            casting::keyword_priced(&self.state, face, paying.player, &cost, red);
+                    }
+                    self.wizard_pool_can_pay(paying, cost)
+                })
+    }
+
+    /// The bargain question (`CR 702.166a`), or `None` when the face does not
+    /// print `bargain` or no eligible permanent can satisfy it alongside the
+    /// cast's other costs.
+    pub(super) fn ask_bargain(&mut self, wizard: &CastWizard) -> Option<Pending> {
+        if !self.wizard_face(wizard).bargain
+            || wizard.option == Some(CastModeKind::Disguise)
+            || wizard.masked
+        {
+            return None;
+        }
+        let mut paying = wizard.clone();
+        paying.bargained = true;
+        if !self.announced_cost_payable(&paying) {
+            return None;
+        }
+        let source = self.state.object(wizard.card).and_then(|object| {
+            object.card.map(|card| {
+                baylee_core::ids::AbilityRef::new(
+                    card.index,
+                    baylee_core::ids::AbilityRef::ADDITIONAL_COST,
+                )
+            })
+        });
+        Some(Pending::YesNo {
+            player: wizard.player,
+            prompt: YesNoPrompt::Bargain,
+            source,
+        })
     }
 
     /// The multikicker question, or `None` when there is nothing to ask.
@@ -142,8 +197,10 @@ impl CastWizard {
             option: self.option,
             alternative_cost: self.alternative_cost,
             buyback: self.buyback.is_some(),
+            bargained: self.bargained,
             kicked: self.kicked,
             kicked_mask: self.kicked_mask,
+            emerge_sacrifice: self.emerge_sacrifice,
         }
     }
 }

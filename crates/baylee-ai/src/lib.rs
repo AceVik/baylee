@@ -1002,6 +1002,7 @@ impl HeuristicAgent {
                 // already covers it, because the engine pays from the pool
                 // alone and a short one loses the whole cast.
                 YesNoPrompt::Kicker => PlayerAction::YesNo(policy::kicks(view, context)),
+                YesNoPrompt::Bargain => PlayerAction::YesNo(policy::bargains(view)),
                 YesNoPrompt::KickerOption { index, cost, parts } => {
                     PlayerAction::YesNo(policy::kicks_option(view, context, index, cost, parts))
                 }

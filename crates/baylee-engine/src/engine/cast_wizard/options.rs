@@ -560,6 +560,43 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 });
             }
         }
+        // Emerge (CR 702.119a–c): its emerge cost reduced by the sacrificed
+        // permanent's mana value, "rather than paying this spell's mana cost".
+        if let Some(emerge) = face.emerge {
+            let candidates = casting::emerge_candidates(&self.state, player, card, face, emerge);
+            let best_payable_mv = candidates
+                .into_iter()
+                .filter_map(|(_, mv)| {
+                    let cost_for_mv =
+                        adjustment.price(emerge.cost, printed_reduction.saturating_add(mv));
+                    let allow = adjustment.allowance(
+                        &self.state,
+                        casting::SpendFor::Spell(card),
+                        printed_reduction
+                            .saturating_add(reduction)
+                            .saturating_add(mv),
+                    );
+                    (defer_mana
+                        || casting::source_affordable(
+                            &self.state,
+                            player,
+                            casting::SpendFor::Spell(card),
+                            pool,
+                            &less(cost_for_mv.with_x(0)),
+                            &[],
+                            Some(allow),
+                        ))
+                    .then_some(mv)
+                })
+                .max();
+            if let Some(best_mv) = best_payable_mv {
+                options.push(CastModeDesc {
+                    index: (options.len()) as u32,
+                    kind: CastModeKind::Emerge,
+                    cost: adjustment.price(emerge.cost, printed_reduction.saturating_add(best_mv)),
+                });
+            }
+        }
         if let Some(mutate) = face.mutate
             && casting::kicked_targets_reachable(
                 &self.state,

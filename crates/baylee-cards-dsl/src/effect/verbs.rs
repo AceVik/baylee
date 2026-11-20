@@ -1017,8 +1017,11 @@ impl Effect {
             | Effect::UntapAll { .. }
             | Effect::RegenerateAll { .. }
             | Effect::ExileTopMayCast { .. }
-        | Effect::ExileTopToPlay { .. }
-        | Effect::ExileAndCastCopies { .. }
+            | Effect::ExileTopToPlay { .. }
+            | Effect::ExileTopWithPermission { .. }
+            | Effect::ExileWithPermission { .. }
+            | Effect::GrantLinkedExilePermission { .. }
+            | Effect::ExileAndCastCopies { .. }
             | Effect::UntapTarget
             | Effect::UntapSelf
             | Effect::UntapFound

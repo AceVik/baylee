@@ -116,10 +116,12 @@ fn ways(view: &PlayerView, legal: &LegalActions) -> Vec<Way> {
                     return false;
                 }
                 match w.kind {
-                    CastModeKind::Disguise
+                    CastModeKind::Prototype
+                    | CastModeKind::Disguise
                     | CastModeKind::Bestow
                     | CastModeKind::Dash
-                    | CastModeKind::Blitz => true,
+                    | CastModeKind::Blitz
+                    | CastModeKind::Emerge => true,
                     CastModeKind::Alternative(i) => face(front)
                         .and_then(|f| f.alternative_costs.get(i))
                         .is_some_and(|alt| {

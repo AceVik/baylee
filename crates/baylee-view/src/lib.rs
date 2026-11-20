@@ -300,7 +300,9 @@ pub use turn::{DayNight, Phase, Step};
 /// of 95 cannot decode.
 /// Version 97 adds `CastModeKind::Blitz` (CR 702.152a), an engine cast-mode
 /// variant a reader of 96 cannot decode.
-pub const VIEW_VERSION: u32 = 97;
+/// Version 98 adds `CastModeKind::Emerge` (CR 702.119), `YesNoPrompt::Bargain`
+/// (CR 702.166), and `LegalActions::spell_spending` (CR 609.4b).
+pub const VIEW_VERSION: u32 = 98;
 
 // ------------------------------------------------------------------- targets
 
