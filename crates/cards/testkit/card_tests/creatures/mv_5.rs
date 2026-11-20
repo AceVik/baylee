@@ -28,6 +28,7 @@ mod ashaya_soul_of_the_wild;
 mod atogatog;
 mod avarax;
 mod aven_flock;
+mod aven_warhawk;
 mod avenging_angel;
 mod azami_lady_of_scrolls;
 mod balduvian_war_makers;

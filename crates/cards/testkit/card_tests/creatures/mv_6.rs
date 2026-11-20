@@ -44,6 +44,7 @@ mod gaea_s_liege;
 mod gang_of_elk;
 mod giant_shark;
 mod giant_warthog;
+mod glowering_rogon;
 mod goblin_marshal;
 mod goretusk_firebeast;
 mod grassland_crusader;

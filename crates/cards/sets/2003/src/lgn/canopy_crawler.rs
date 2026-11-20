@@ -12,7 +12,7 @@ card!(
     oracle_id = "7fc60ae2-75fc-49e1-9d56-aa5a43844210",
     scryfall_id = "0ccdc9d7-71b5-4304-8d19-a63952e17a6b",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Canopy Crawler",
         mana_cost = mana!("{3}{G}"),

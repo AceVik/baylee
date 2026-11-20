@@ -17,7 +17,7 @@ card!(
     oracle_id = "696bff10-4e46-48a7-b2af-13387b9d9da0",
     scryfall_id = "ff5866a4-f4c0-45bc-9b33-b77387441d34",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Daru Stinger",
         mana_cost = mana!("{3}{W}"),
