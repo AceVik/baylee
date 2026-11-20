@@ -466,12 +466,22 @@ impl Tx<'_> {
             {
                 return Some("Amount::EventAmount".to_string());
             }
+            if def == "TriggerCount$Amount"
+                && matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("ChangesZoneAll" | "AttackersDeclared" | "AttackersDeclaredOneTarget")
+                )
+            {
+                return Some("Amount::EventAmount".to_string());
+            }
             if (matches!(
                 def,
                 "TriggeredCard$CardPower" | "TriggeredCardLKICopy$CardPower"
             ) && matches!(
                 self.trigger_mode.as_deref(),
-                Some("ChangesZone" | "Taps" | "Untaps" | "TapsForMana" | "TurnFaceUp")
+                Some(
+                    "ChangesZone" | "Sacrificed" | "Taps" | "Untaps" | "TapsForMana" | "TurnFaceUp"
+                )
             )) || (matches!(
                 def,
                 "TriggeredAttacker$CardPower" | "TriggeredAttackerLKICopy$CardPower"
@@ -498,7 +508,9 @@ impl Tx<'_> {
                     | "TriggeredCardLKICopy$Toughness"
             ) && matches!(
                 self.trigger_mode.as_deref(),
-                Some("ChangesZone" | "Taps" | "Untaps" | "TapsForMana" | "TurnFaceUp")
+                Some(
+                    "ChangesZone" | "Sacrificed" | "Taps" | "Untaps" | "TapsForMana" | "TurnFaceUp"
+                )
             )) || (matches!(
                 def,
                 "TriggeredAttacker$CardToughness" | "TriggeredAttackerLKICopy$CardToughness"
@@ -533,6 +545,7 @@ impl Tx<'_> {
                     self.trigger_mode.as_deref(),
                     Some(
                         "ChangesZone"
+                            | "Sacrificed"
                             | "Discarded"
                             | "Cycled"
                             | "Taps"
@@ -644,6 +657,9 @@ impl Tx<'_> {
         }
         if def == "PlayerCountPropertyYou$OpponentsAttackedThisCombat" {
             return Some("Amount::OpponentsYouAttackedThisCombat".to_string());
+        }
+        if let Some(expr) = self.enchanted_player_amount(def) {
+            return Some(expr);
         }
         if matches!(
             def,
@@ -927,6 +943,48 @@ impl Tx<'_> {
         None
     }
 
+    fn enchanted_player_amount(&mut self, def: &str) -> Option<String> {
+        match def {
+            "EnchantedPlayer$CardsInHand" => {
+                return Some("Amount::HandSize(PlayerRel::EnchantedPlayer)".to_string());
+            }
+            "EnchantedPlayer$CardsInLibrary" => {
+                return Some("Amount::LibrarySize(PlayerRel::EnchantedPlayer)".to_string());
+            }
+            "EnchantedPlayer$LifeTotal" => {
+                return Some("Amount::LifeTotal(PlayerRel::EnchantedPlayer)".to_string());
+            }
+            "EnchantedPlayer$CardsInGraveyard" => {
+                return Some(
+                    "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::GraveyardOf(PlayerRel::EnchantedPlayer) }"
+                        .to_string(),
+                );
+            }
+            _ => {}
+        }
+        if let Some(valid) = def.strip_prefix("EnchantedPlayer$Valid ")
+            && !valid.contains("Ctrl")
+            && !valid.contains("Own")
+        {
+            let expr = self.filter_expr(valid)?;
+            let name = self.body.filter_static("COUNT", &expr);
+            return Some(format!(
+                "Amount::ControlledCount {{ who: PlayerRel::EnchantedPlayer, filter: &{name} }}"
+            ));
+        }
+        if let Some(valid) = def.strip_prefix("EnchantedPlayer$ValidGraveyard ")
+            && !valid.contains("Ctrl")
+            && !valid.contains("Own")
+        {
+            let expr = self.filter_expr_in_zone(valid, true)?;
+            let name = self.body.filter_static("COUNT", &expr);
+            return Some(format!(
+                "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardOf(PlayerRel::EnchantedPlayer) }}"
+            ));
+        }
+        None
+    }
+
     fn strip_named_graveyard_owner(
         &self,
         valid: &str,
@@ -947,6 +1005,17 @@ impl Tx<'_> {
             (
                 "OwnedBy EnchantedController",
                 "PlayerRel::ControllerOfAttached",
+                true,
+            ),
+            ("EnchantedPlayerOwn", "PlayerRel::EnchantedPlayer", true),
+            (
+                "OwnedBy EnchantedPlayer",
+                "PlayerRel::EnchantedPlayer",
+                true,
+            ),
+            (
+                "OwnedBy Player.EnchantedBy",
+                "PlayerRel::EnchantedPlayer",
                 true,
             ),
             (

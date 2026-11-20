@@ -327,6 +327,9 @@ impl Tx<'_> {
             Some("You") => "PlayerRel::You",
             Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
             Some("Player") => "PlayerRel::EachPlayer",
+            Some("EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer") => {
+                "PlayerRel::EnchantedPlayer"
+            }
             _ => {
                 return self
                     .deny("a persistent spell prevention with another zone or result".into());

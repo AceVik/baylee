@@ -2703,11 +2703,7 @@ fn wave9_filter_atoms_and_graveyard_targets() {
          T:Mode$ Attacks | ValidCard$ Card.Self | TriggerZones$ Battlefield | Execute$ Snatch\n\
          SVar:Snatch:DB$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Card.DefenderCtrl",
     );
-    assert!(
-        filters.abilities[0].contains("subtypes::enchantment::SAGA")
-            && filters.abilities[0].contains("Filter::ARTIFACT")
-            && filters.abilities[0].contains("SupertypeSet::LEGENDARY")
-    );
+    assert!(filters.abilities[0].contains("Filter::Historic"));
     assert!(
         filters.abilities[1].contains("subtypes::creature::ASSASSIN")
             && filters.abilities[1].contains("subtypes::creature::WARLOCK")
@@ -3012,5 +3008,176 @@ fn wave10c_spellcast_hand_atoms_svar_conditions_and_divide() {
         "Name:BadMultiPoison\nTypes:Enchantment\n\
          S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | CheckSVar$ P | SVarCompare$ GE2\n\
          SVar:P:Count$TotalOppPoisonCounters"
+    ));
+}
+
+#[test]
+fn wave11c_oracle_scope_corrections_for_named_and_commander_filters() {
+    let pack = read(
+        "Name:PackHound\nTypes:Creature Beast\nPT:3/3\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Destination$ Battlefield | Execute$ Buff\n\
+         SVar:Buff:DB$ PutCounterAll | ValidCards$ Creature.StrictlyOther+namedPackHound | CounterType$ P1P1 | CounterNum$ 2\n\
+         Oracle:When PackHound enters, put two +1/+1 counters on each other creature you control named PackHound.",
+    );
+    assert!(pack.statics.contains("Filter::Named(\"PackHound\")"));
+    assert!(pack.statics.contains("Filter::ControlledByYou"));
+
+    let global_named = read(
+        "Name:TwinHound\nTypes:Creature Beast\nPT:2/2\n\
+         S:Mode$ Continuous | Affected$ Creature.Other+namedTwinHound | AddPower$ 1\n\
+         Oracle:Each other creature named TwinHound gets +1/+0.",
+    );
+    assert!(global_named.abilities[0].contains("Filter::Named(\"TwinHound\")"));
+    assert!(!global_named.abilities[0].contains("Filter::ControlledByYou"));
+
+    let choir = read(
+        "Name:ChoirAngel\nTypes:Creature Angel\nPT:4/4\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | TriggerZones$ Battlefield | ValidCard$ Card.IsCommander+YouOwn | Execute$ Grow\n\
+         T:Mode$ Attacks | ValidCard$ Card.IsCommander+YouOwn | TriggerZones$ Battlefield | Execute$ Grow | Secondary$ True\n\
+         SVar:Grow:DB$ Proliferate\n\
+         Oracle:Whenever a commander you control enters or attacks, proliferate.",
+    );
+    assert!(choir.statics.contains("Filter::IsCommander"));
+    assert!(choir.statics.contains("Filter::ControlledByYou"));
+    assert!(!choir.statics.contains("Filter::OwnedByYou"));
+
+    let owned_cmd = read(
+        "Name:CommandTome\nTypes:Artifact\n\
+         T:Mode$ Attacks | ValidCard$ Card.IsCommander+YouOwn | TriggerZones$ Battlefield | Execute$ Grow\n\
+         SVar:Grow:DB$ Proliferate\n\
+         Oracle:Whenever your commander attacks, proliferate.",
+    );
+    assert!(owned_cmd.statics.contains("Filter::OwnedByYou"));
+    assert!(!owned_cmd.statics.contains("Filter::ControlledByYou"));
+}
+
+#[test]
+fn wave11c_enchanted_player_filters_relations_statics_and_amounts() {
+    let curse = read(
+        "Name:HexOfSilence\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Creature.EnchantedPlayerCtrl | AddPower$ -1 | AddToughness$ -1\n\
+         S:Mode$ MustAttack | ValidCreature$ Creature.EnchantedPlayerCtrl\n\
+         S:Mode$ CantBeCast | ValidCard$ Card | Caster$ Player.EnchantedBy | NumLimitEachTurn$ 1\n\
+         S:Mode$ CantBeCast | ValidCard$ Instant | Caster$ Player.EnchantedBy\n\
+         S:Mode$ RaiseCost | EffectZone$ Battlefield | ValidCard$ Card.NamedCard | Type$ Spell | Activator$ Player.EnchantedBy | Amount$ 2\n\
+         S:Mode$ ReduceCost | ValidCard$ Creature | Type$ Spell | Activator$ Player.EnchantedBy | Amount$ 1\n\
+         S:Mode$ CantDraw | ValidPlayer$ Player.EnchantedBy | DrawLimit$ 1\n\
+         S:Mode$ CantLoseLife | ValidPlayer$ Player.EnchantedBy\n\
+         S:Mode$ Continuous | Affected$ Player.EnchantedBy | AddKeyword$ UntapAdjust:Creature:1\n\
+         S:Mode$ Continuous | Affected$ Player.EnchantedBy | AddKeyword$ Hexproof\n\
+         R:Event$ Moved | ValidCard$ Creature.EnchantedPlayerCtrl | Destination$ Battlefield | ActiveZones$ Battlefield | ReplacementResult$ Updated | ReplaceWith$ TapIn\n\
+         R:Event$ GainLife | ActiveZones$ Battlefield | ValidPlayer$ Player.EnchantedBy | Prevent$ True\n\
+         R:Event$ BeginPhase | ActiveZones$ Battlefield | Phase$ Draw | ValidPlayer$ Player.EnchantedBy | Skip$ True\n\
+         R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ Player.EnchantedBy | DamageAmount$ GE3 | ReplaceWith$ Cap2\n\
+         A:AB$ LoseLife | Cost$ T | Defined$ EnchantedPlayer | LifeAmount$ X\n\
+         SVar:TapIn:DB$ Tap | Defined$ ReplacedCard | ETB$ True\n\
+         SVar:Cap2:DB$ ReplaceEffect | VarName$ DamageAmount | VarValue$ 2\n\
+         SVar:X:EnchantedPlayer$CardsInHand",
+    );
+    let rendered = format!("{} {}", curse.statics, curse.abilities.join("\n"));
+    assert!(rendered.contains("Filter::ControlledByEnchantedPlayer"));
+    assert!(rendered.contains("Modifier::AttacksEachCombat"));
+    assert!(
+        rendered.contains(
+            "Modifier::SpellCastLimitPerTurn { who: PlayerRel::EnchantedPlayer, limit: 1 }"
+        )
+    );
+    assert!(rendered.contains("Modifier::PlayersCantCast { who: PlayerRel::EnchantedPlayer,"));
+    assert!(rendered.contains("Modifier::SpellsCostMore(2)"));
+    assert!(rendered.contains("Modifier::SpellsCostLess(1)"));
+    assert!(
+        rendered
+            .contains("Modifier::DrawLimitPerTurn { who: PlayerRel::EnchantedPlayer, limit: 1 }")
+    );
+    assert!(rendered.contains("Modifier::CantLoseLife { who: PlayerRel::EnchantedPlayer }"));
+    assert!(rendered.contains("Modifier::UntapAtMost { who: PlayerRel::EnchantedPlayer,"));
+    assert!(rendered.contains("Modifier::PlayerHexproof { who: PlayerRel::EnchantedPlayer }"));
+    assert!(rendered.contains("ReplacementRule::EnterTapped("));
+    assert!(
+        rendered.contains("Modifier::LifeGainNoLifeInstead { who: PlayerRel::EnchantedPlayer }")
+    );
+    assert!(rendered.contains("Modifier::SkipDrawStep { who: PlayerRel::EnchantedPlayer }"));
+    assert!(rendered.contains("recipients: PlayerRel::EnchantedPlayer"));
+    assert!(rendered.contains("Amount::HandSize(PlayerRel::EnchantedPlayer)"));
+}
+
+#[test]
+fn wave11c_counter_thresholds_spell_limits_and_static_extras() {
+    let limits = read(
+        "Name:LawCensor\nTypes:Enchantment\n\
+         S:Mode$ CantBeCast | ValidCard$ Card.nonCreature | Caster$ Player | NumLimitEachTurn$ 1\n\
+         S:Mode$ CantBeCast | ValidCard$ Card.nonArtifact | Caster$ Player | NumLimitEachTurn$ 1\n\
+         S:Mode$ CantBeCast | ValidCard$ Card | Caster$ You | NumLimitEachTurn$ 1\n\
+         S:Mode$ CantBeCast | NumLimitEachTurn$ 2 | Caster$ You | Secondary$ True\n\
+         S:Mode$ CantBeCast | EffectZone$ Command | ValidCard$ Card | Caster$ Opponent | NumLimitEachTurn$ 1\n\
+         S:Mode$ CantBeCast | Caster$ You.!Active\n\
+         S:Mode$ CantBeCast | ValidCard$ Card | Condition$ PlayerTurn | Caster$ Opponent | IsPresent$ Card.Self+AttachedTo Creature\n\
+         S:Mode$ RaiseCost | ValidCard$ Enchantment.White | Type$ Ability | Amount$ 3 | AffectedZone$ Battlefield",
+    );
+    assert!(limits.abilities[0].contains(
+        "Modifier::MatchingSpellCastLimitPerTurn { who: PlayerRel::EachPlayer, filter: &Filter::NONCREATURE, limit: 1 }"
+    ));
+    assert!(
+        limits.abilities[1]
+            .contains("Modifier::MatchingSpellCastLimitPerTurn { who: PlayerRel::EachPlayer,")
+    );
+    assert!(
+        limits.abilities[2]
+            .contains("Modifier::SpellCastLimitPerTurn { who: PlayerRel::You, limit: 1 }")
+    );
+    assert!(
+        limits.abilities[3]
+            .contains("Modifier::SpellCastLimitPerTurn { who: PlayerRel::You, limit: 2 }")
+    );
+    assert!(limits.abilities[4].contains(
+        "Modifier::SpellCastLimitPerTurn { who: PlayerRel::Opponent, limit: 1 }, zone = ZoneRef::Command"
+    ));
+    assert!(limits.abilities[5].contains(
+        "Modifier::PlayersCantCast { who: PlayerRel::You, filter: &Filter::Any }, condition = Some(Condition::Not(&Condition::YourTurn))"
+    ));
+    assert!(limits.abilities[6].contains("Modifier::OpponentsCantCast(&Filter::Any)"));
+    assert!(limits.abilities[6].contains("Condition::YourTurn"));
+    assert!(limits.abilities[6].contains("Condition::SourceMatches(&"));
+    assert!(
+        limits
+            .statics
+            .contains("Filter::AttachedTo(&Filter::CREATURE)")
+    );
+    assert!(limits.abilities[7].contains("Modifier::AbilitiesCostMore(3)"));
+
+    let counters = read(
+        "Name:CounterVault\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ Continuous | Affected$ Creature.counters_GE3_ALL+YouCtrl | AddPower$ 2\n\
+         S:Mode$ Continuous | Affected$ Creature.counters_LE2+YouCtrl | AddToughness$ 1\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | CheckSVar$ Total | SVarCompare$ GT4 | AddKeyword$ Flying\n\
+         S:Mode$ Continuous | AffectedDefined$ Self | CheckSVar$ HandN | SVarCompare$ NE3 | AddKeyword$ Vigilance\n\
+         S:Mode$ CantBeCast | ValidCard$ Card.Self | EffectZone$ All | Caster$ Player.Active | CheckSVar$ Turns | SVarCompare$ LE3\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | IsPresent$ Card.StrictlySelf | Execute$ Ping\n\
+         SVar:Total:Count$CardCounters.ALL\n\
+         SVar:HandN:Count$ValidHand Card.YouOwn\n\
+         SVar:Turns:Count$YourTurns\n\
+         SVar:Ping:DB$ GainLife | Defined$ You | LifeAmount$ 1",
+    );
+    assert!(counters.abilities[0].contains("Filter::AnyCountersAtLeast(3)"));
+    assert!(counters.abilities[1].contains("Filter::Not(&Filter::AnyCountersAtLeast(3))"));
+    assert!(
+        counters.abilities[2].contains("Condition::SourceMatches(&Filter::AnyCountersAtLeast(5))")
+    );
+    assert!(counters.abilities[3].contains("Condition::AmountCompare { left: &Amount::HandSize(PlayerRel::You), op: AmountCmp::NotEqual, right: &Amount::Fixed(3) }"));
+    assert!(counters.abilities[4].contains("Condition::Not(&Condition::DuringYourFirstTurns(3))"));
+    assert!(counters.abilities[5].contains("Condition::BattlefieldCount(&Filter::This, 1)"));
+
+    // Negative refusal boundaries remain intact.
+    assert!(refused(
+        "Name:BadLimitCond\nTypes:Enchantment\n\
+         S:Mode$ CantBeCast | ValidCard$ Card.nonCreature | Caster$ Player | NumLimitEachTurn$ 1 | Condition$ Unsupported"
+    ));
+    assert!(refused(
+        "Name:BadZeroLimit\nTypes:Enchantment\n\
+         S:Mode$ CantBeCast | ValidCard$ Card.nonCreature | Caster$ Player | NumLimitEachTurn$ 0"
+    ));
+    assert!(refused(
+        "Name:BadAbilityTaxZone\nTypes:Enchantment\n\
+         S:Mode$ RaiseCost | ValidCard$ Enchantment.White | Type$ Ability | Amount$ 3"
     ));
 }

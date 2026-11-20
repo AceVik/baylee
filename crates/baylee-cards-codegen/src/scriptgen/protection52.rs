@@ -330,6 +330,9 @@ impl Tx<'_> {
             "You" => Some("PlayerRel::You"),
             "Player" => Some("PlayerRel::EachPlayer"),
             "Opponent" | "Player.Opponent" => Some("PlayerRel::EachOpponent"),
+            "EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer" => {
+                Some("PlayerRel::EnchantedPlayer")
+            }
             _ => None,
         };
         if kw == "Hexproof"
@@ -355,14 +358,17 @@ impl Tx<'_> {
                 return Some(());
             }
         }
-        if affected == "You"
-            && let Some(from_ref) = self.resolve_player_protection_filter(kw)
+        if let Some(prot_who) = match affected {
+            "You" => Some("PlayerRel::You"),
+            "EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer" => {
+                Some("PlayerRel::EnchantedPlayer")
+            }
+            _ => None,
+        } && let Some(from_ref) = self.resolve_player_protection_filter(kw)
         {
             mods.push((
                 "Filter::This",
-                format!(
-                    "Modifier::PlayerProtectionFrom {{ who: PlayerRel::You, from: &{from_ref} }}"
-                ),
+                format!("Modifier::PlayerProtectionFrom {{ who: {prot_who}, from: &{from_ref} }}"),
             ));
             return Some(());
         }
@@ -467,36 +473,48 @@ impl Tx<'_> {
 
     /// Reads `Condition$` / `LifeTotal$` / `IsPresent$`, or falls back to
     /// `CheckSVar$` (+ optional `CheckSecondSVar$`) using both `svar_condition`
-    /// and `extra_svar_condition`.
+    /// and `extra_svar_condition`. Supports `Condition$` combined with
+    /// `IsPresent$` and/or `CheckSVar$` on the same static line.
     pub(super) fn condition_any(&mut self, p: &mut Params) -> Option<String> {
+        let mut clauses: Vec<String> = Vec::new();
+        if let Some(cond_raw) = p.peek("Condition")
+            && p.has("IsPresent")
+            && let Some(named) = Self::named_condition(cond_raw)
+        {
+            p.take("Condition");
+            clauses.push(named.to_string());
+        }
         let base = self.condition(p)?;
-        let Some(var) = p.take("CheckSVar") else {
-            return Some(base);
-        };
-        let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
-        let first = self
-            .svar_condition(&var, &cmp)
-            .or_else(|| self.extra_svar_condition_clause(&var, &cmp))?;
-        let svar_cond = if let Some(var2) = p.take("CheckSecondSVar") {
-            let cmp2 = p
-                .take("SecondSVarCompare")
-                .unwrap_or_else(|| "GE1".to_string());
-            let second = self
-                .svar_condition(&var2, &cmp2)
-                .or_else(|| self.extra_svar_condition_clause(&var2, &cmp2))?;
-            format!("Condition::All(&[{first}, {second}])")
-        } else {
-            first
-        };
         if let Some(existing) = base
             .strip_prefix(", condition = Some(")
             .and_then(|s| s.strip_suffix(')'))
         {
-            return Some(format!(
-                ", condition = Some(Condition::All(&[{existing}, {svar_cond}]))"
-            ));
+            clauses.push(existing.to_string());
         }
-        Some(format!(", condition = Some({svar_cond})"))
+        if let Some(var) = p.take("CheckSVar") {
+            let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
+            let first = self
+                .svar_condition(&var, &cmp)
+                .or_else(|| self.extra_svar_condition_clause(&var, &cmp))?;
+            clauses.push(first);
+            if let Some(var2) = p.take("CheckSecondSVar") {
+                let cmp2 = p
+                    .take("SecondSVarCompare")
+                    .unwrap_or_else(|| "GE1".to_string());
+                let second = self
+                    .svar_condition(&var2, &cmp2)
+                    .or_else(|| self.extra_svar_condition_clause(&var2, &cmp2))?;
+                clauses.push(second);
+            }
+        }
+        match clauses.len() {
+            0 => Some(String::new()),
+            1 => Some(format!(", condition = Some({})", clauses.remove(0))),
+            _ => Some(format!(
+                ", condition = Some(Condition::All(&[{}]))",
+                clauses.join(", ")
+            )),
+        }
     }
 
     /// Battlefield-source `AffectedZone$ Library` continuous statics:
@@ -986,6 +1004,9 @@ impl Tx<'_> {
             None | Some("Player") => "PlayerRel::EachPlayer",
             Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
             Some("You") => "PlayerRel::You",
+            Some("EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer") => {
+                "PlayerRel::EnchantedPlayer"
+            }
             Some(_) => return self.deny("static ability `S: Mode$ CantDraw`".into()),
         };
         let limit: u8 = match p.take("DrawLimit") {
@@ -1168,12 +1189,13 @@ impl Tx<'_> {
         Some(())
     }
 
-    /// Extended `S: Mode$ CantBeCast`: `OpponentsCastAsSorcery`, conditional /
-    /// phased / origin-scoped `OpponentsCantCast`, and `PlayersCantCast`.
-    /// Always passes `NumLimitEachTurn$` and existing bare forms to `statics.rs`.
+    /// Extended `S: Mode$ CantBeCast`: filtered & player-scoped spell-cast
+    /// limits (`MatchingSpellCastLimitPerTurn` / `SpellCastLimitPerTurn`),
+    /// `OpponentsCastAsSorcery`, conditional / phased / origin-scoped
+    /// `OpponentsCantCast`, and `PlayersCantCast`.
     pub(super) fn cant_be_cast_extra(&mut self, p: Params) -> ExtraOutcome {
         if p.has("NumLimitEachTurn") {
-            return ExtraOutcome::Pass;
+            return self.cant_be_cast_limit(p);
         }
         if p.peek("ValidCard") == Some("Creature")
             && p.peek("Caster") == Some("You")
@@ -1200,6 +1222,91 @@ impl Tx<'_> {
             return ExtraOutcome::Pass;
         }
         ExtraOutcome::Handled(self.cant_be_cast_wave5(p))
+    }
+
+    /// Per-turn spell-cast limits (`NumLimitEachTurn$`): handles filtered
+    /// limits (`Modifier::MatchingSpellCastLimitPerTurn`, e.g. Deafening
+    /// Silence, Ethersworn Canonist, Phyrexian Censor) and player-scoped
+    /// quotas (Curse of Exhaustion, Fires of Invention, You, Command emblems),
+    /// while leaving `archon_kismet.rs`'s exact tested shapes on `Pass`.
+    fn cant_be_cast_limit(&mut self, mut p: Params) -> ExtraOutcome {
+        let valid_peek = p.peek("ValidCard");
+        let caster_peek = p.peek("Caster");
+        let has_extra_clauses = p.has("Condition")
+            || p.has("IsPresent")
+            || p.has("CheckSVar")
+            || p.has("EffectZone")
+            || p.has("Secondary");
+        if valid_peek == Some("Card") && caster_peek == Some("Player") && !has_extra_clauses {
+            return ExtraOutcome::Pass;
+        }
+        if valid_peek == Some("Card")
+            && caster_peek == Some("Opponent")
+            && matches!(p.peek("EffectZone"), None | Some("Battlefield"))
+        {
+            return ExtraOutcome::Pass;
+        }
+        if caster_peek == Some("Player")
+            && valid_peek.is_some_and(|v| v != "Card" && !v.starts_with("Card."))
+        {
+            return ExtraOutcome::Pass;
+        }
+        ExtraOutcome::Handled(self.cant_be_cast_limit_inner(&mut p))
+    }
+
+    fn cant_be_cast_limit_inner(&mut self, p: &mut Params) -> Option<()> {
+        p.drop_prose();
+        let Some(zone) = Self::static_effect_zone(p.take("EffectZone").as_deref(), false) else {
+            return self.deny("static ability `S: Mode$ CantBeCast`".into());
+        };
+        if !matches!(p.take("Secondary").as_deref(), None | Some("True")) {
+            return self.deny("static ability `S: Mode$ CantBeCast`".into());
+        }
+        let Some(limit) = p
+            .take("NumLimitEachTurn")
+            .and_then(|s| s.trim().parse::<u32>().ok())
+            .filter(|&n| n >= 1)
+        else {
+            return self.deny("static ability `S: Mode$ CantBeCast`".into());
+        };
+        let who = match p.take("Caster").as_deref() {
+            None | Some("Player") => "PlayerRel::EachPlayer",
+            Some("You") => "PlayerRel::You",
+            Some("Opponent" | "Player.Opponent") => "PlayerRel::Opponent",
+            Some("EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer") => {
+                "PlayerRel::EnchantedPlayer"
+            }
+            Some("Player.EnchantedController") => "PlayerRel::ControllerOfAttached",
+            Some(_) => return self.deny("static ability `S: Mode$ CantBeCast`".into()),
+        };
+        let valid_card = p.take("ValidCard");
+        let cond = self.condition_any(p)?;
+        if !p.exhausted() {
+            return self.deny("static ability `S: Mode$ CantBeCast`".into());
+        }
+        let modifier = match valid_card.as_deref() {
+            None | Some("Card") => {
+                format!("Modifier::SpellCastLimitPerTurn {{ who: {who}, limit: {limit} }}")
+            }
+            Some(valid) => {
+                let expr = self.filter_expr(valid)?;
+                let filter_ref = if expr.starts_with("Filter::") && !expr.contains('(') {
+                    format!("&{expr}")
+                } else {
+                    format!("&{}", self.body.filter_static("CANT_CAST", &expr))
+                };
+                format!(
+                    "Modifier::MatchingSpellCastLimitPerTurn {{ who: {who}, filter: {filter_ref}, limit: {limit} }}"
+                )
+            }
+        };
+        self.body.abilities.push(Self::format_static_expr(
+            "Filter::Any",
+            &modifier,
+            zone,
+            &cond,
+        ));
+        Some(())
     }
 
     fn cant_be_cast_wave5(&mut self, mut p: Params) -> Option<()> {
@@ -1257,6 +1364,13 @@ impl Tx<'_> {
             Some("You") => {
                 format!("Modifier::PlayersCantCast {{ who: PlayerRel::You, filter: {filter_ref} }}")
             }
+            Some("You.!Active") => {
+                cond = combine_static_cond(&cond, "Condition::Not(&Condition::YourTurn)");
+                format!("Modifier::PlayersCantCast {{ who: PlayerRel::You, filter: {filter_ref} }}")
+            }
+            Some("EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer") => format!(
+                "Modifier::PlayersCantCast {{ who: PlayerRel::EnchantedPlayer, filter: {filter_ref} }}"
+            ),
             Some("Player.EnchantedController") => format!(
                 "Modifier::PlayersCantCast {{ who: PlayerRel::ControllerOfAttached, filter: {filter_ref} }}"
             ),
@@ -1280,7 +1394,10 @@ impl Tx<'_> {
         }
         let caster = p.take("Caster");
         if caster.as_deref() == Some("Player.Active")
-            && p.peek("CheckSVar") == Some("Count$YourTurns")
+            && p.peek("CheckSVar").is_some_and(|v| {
+                v == "Count$YourTurns"
+                    || self.svars.get(v.trim()).map(|s| s.trim()) == Some("Count$YourTurns")
+            })
         {
             p.take("CheckSVar");
             let cmp = p.take("SVarCompare")?;
@@ -1674,6 +1791,9 @@ impl Tx<'_> {
             Some("You") => "PlayerRel::You",
             Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
             Some("Player") => "PlayerRel::EachPlayer",
+            Some("EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer") => {
+                "PlayerRel::EnchantedPlayer"
+            }
             _ => return self.deny("`BeginPhase` of `Draw` without `ValidPlayer$`".into()),
         };
         if p.take("Skip").as_deref() == Some("True") {
@@ -3380,4 +3500,14 @@ fn negate_condition_expr(cond: &str) -> String {
         return inner.to_string();
     }
     format!("Condition::Not(&{cond})")
+}
+
+fn combine_static_cond(existing: &str, extra: &str) -> String {
+    if let Some(prev) = existing
+        .strip_prefix(", condition = Some(")
+        .and_then(|s| s.strip_suffix(')'))
+    {
+        return format!(", condition = Some(Condition::All(&[{prev}, {extra}]))");
+    }
+    format!(", condition = Some({extra})")
 }

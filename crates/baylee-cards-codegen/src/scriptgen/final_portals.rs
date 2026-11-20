@@ -12,17 +12,12 @@ impl Tx<'_> {
             return self.deny("static ability `S: Mode$ ReduceCost`".into());
         };
         let valid = match p.take("Activator").as_deref() {
-            None => valid,
-            Some("You") => valid
-                .split(',')
-                .map(|alt| format!("{alt}.YouCtrl"))
-                .collect::<Vec<_>>()
-                .join(","),
-            Some("Opponent") => valid
-                .split(',')
-                .map(|alt| format!("{alt}.OppCtrl"))
-                .collect::<Vec<_>>()
-                .join(","),
+            None | Some("Player") => valid,
+            Some("You") => append_cost_atom(&valid, "YouCtrl"),
+            Some("Opponent" | "Player.Opponent") => append_cost_atom(&valid, "OppCtrl"),
+            Some("EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer") => {
+                append_cost_atom(&valid, "EnchantedPlayerCtrl")
+            }
             Some(_) => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
         };
         let Some(amount) = p.take("Amount").and_then(|a| a.parse::<u8>().ok()) else {
@@ -80,17 +75,12 @@ impl Tx<'_> {
             }
             let valid = p.take("ValidCard")?;
             let valid = match p.take("Activator").as_deref() {
-                None => valid,
-                Some("You") => valid
-                    .split(',')
-                    .map(|alt| format!("{alt}.YouCtrl"))
-                    .collect::<Vec<_>>()
-                    .join(","),
-                Some("Opponent") => valid
-                    .split(',')
-                    .map(|alt| format!("{alt}.OppCtrl"))
-                    .collect::<Vec<_>>()
-                    .join(","),
+                None | Some("Player") => valid,
+                Some("You") => append_cost_atom(&valid, "YouCtrl"),
+                Some("Opponent" | "Player.Opponent") => append_cost_atom(&valid, "OppCtrl"),
+                Some("EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer") => {
+                    append_cost_atom(&valid, "EnchantedPlayerCtrl")
+                }
                 Some(_) => return None,
             };
             let modifier = match (p.take("Amount"), p.take("Cost")) {
@@ -108,14 +98,21 @@ impl Tx<'_> {
                 }
                 _ => return None,
             };
+            let cond = self.condition_any(&mut p)?;
             if !p.exhausted() {
                 return None;
             }
             let filter = self.filter_expr(&valid)?;
-            self.body
-                .abilities
-                .push(Self::static_expr(&filter, &modifier));
+            self.push_static_with_cond(&filter, &modifier, &cond);
             return Some(());
+        }
+        if p.peek("Type") == Some("Ability")
+            && !p.has("ValidSpell")
+            && p.peek("AffectedZone") == Some("Battlefield")
+            && p.has("Amount")
+            && !p.has("Cost")
+        {
+            return self.ability_cost_tax(p);
         }
         if p.take("Type").as_deref() != Some("Ability")
             || p.take("ValidSpell").as_deref() != Some("Activated.ManaAbility")
@@ -136,6 +133,32 @@ impl Tx<'_> {
             "Filter::This",
             &format!("Modifier::ManaAbilitiesCostLife({amount})"),
         ));
+        Some(())
+    }
+
+    fn ability_cost_tax(&mut self, mut p: Params) -> Option<()> {
+        p.take("Type");
+        p.take("AffectedZone");
+        if !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
+            || !matches!(p.take("Activator").as_deref(), None | Some("Player"))
+        {
+            return None;
+        }
+        let valid = p.take("ValidCard")?;
+        let amount: u32 = p.take("Amount")?.trim().parse().ok()?;
+        if amount == 0 {
+            return None;
+        }
+        let cond = self.condition_any(&mut p)?;
+        if !p.exhausted() {
+            return None;
+        }
+        let filter = self.filter_expr(&valid)?;
+        self.push_static_with_cond(
+            &filter,
+            &format!("Modifier::AbilitiesCostMore({amount})"),
+            &cond,
+        );
         Some(())
     }
     /// Indefinite replacement bound to the target's present incarnation.
@@ -173,4 +196,21 @@ impl Tx<'_> {
         }
         Some(vec!["Effect::ModifyTargets { modifier: Modifier::ReplaceTappedMana { from: ManaColor::White, to: ManaColor::Colorless }, duration: Duration::Indefinitely }".into()])
     }
+}
+
+fn append_cost_atom(valid: &str, atom: &str) -> String {
+    valid
+        .split(',')
+        .map(|alt| {
+            let alt = alt.trim();
+            if alt.split(['.', '+']).any(|part| part == atom) {
+                alt.to_string()
+            } else if alt.contains('.') {
+                format!("{alt}+{atom}")
+            } else {
+                format!("{alt}.{atom}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(",")
 }

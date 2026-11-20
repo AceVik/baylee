@@ -1047,6 +1047,9 @@ impl Tx<'_> {
             Some("You") => "PlayerRel::You",
             Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
             Some("Player") => "PlayerRel::EachPlayer",
+            Some("EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer") => {
+                "PlayerRel::EnchantedPlayer"
+            }
             _ => return self.deny(format!("static ability `S: Mode$ {mode}`")),
         };
         let condition = self.condition(&mut p)?;
@@ -1587,6 +1590,14 @@ impl Tx<'_> {
                 )
             });
         }
+        if let Some(ne_str) = cmp.strip_prefix("NE")
+            && let Ok(n) = ne_str.parse::<u32>()
+        {
+            return Some(format!(
+                "Condition::AmountCompare {{ left: &{amt}, op: AmountCmp::NotEqual, \
+                 right: &Amount::Fixed({n}) }}"
+            ));
+        }
         if let Some((op, rhs_var)) = cmp.split_at_checked(2)
             && !rhs_var.is_empty()
             && !rhs_var.chars().all(|c| c.is_ascii_digit())
@@ -1606,6 +1617,10 @@ impl Tx<'_> {
                 "LE" => Some(format!("Condition::Not(&{gt})")),
                 "EQ" => Some(format!(
                     "Condition::All(&[Condition::Not(&{lt}), Condition::Not(&{gt})])"
+                )),
+                "NE" => Some(format!(
+                    "Condition::AmountCompare {{ left: &{amt}, op: AmountCmp::NotEqual, \
+                     right: &{rhs} }}"
                 )),
                 _ => None,
             };
@@ -1727,15 +1742,41 @@ impl Tx<'_> {
             };
         }
         if raw == "Count$CardCounters.ALL" {
-            return match cmp {
+            match cmp {
                 "GE1" | "GT0" => {
-                    Some("Condition::SourceMatches(&Filter::HasAnyCounter)".to_string())
+                    return Some("Condition::SourceMatches(&Filter::HasAnyCounter)".to_string());
                 }
-                "EQ0" | "LT1" => Some(
-                    "Condition::Not(&Condition::SourceMatches(&Filter::HasAnyCounter))".to_string(),
-                ),
-                _ => None,
-            };
+                "EQ0" | "LT1" | "LE0" => {
+                    return Some(
+                        "Condition::Not(&Condition::SourceMatches(&Filter::HasAnyCounter))"
+                            .to_string(),
+                    );
+                }
+                _ => {}
+            }
+            if let Some(n) = parse_at_least_u16(cmp).filter(|&n| n > 0) {
+                return Some(format!(
+                    "Condition::SourceMatches(&Filter::AnyCountersAtLeast({n}))"
+                ));
+            }
+            if let Some(max) = parse_at_most_u16(cmp)
+                && let Some(above) = max.checked_add(1)
+            {
+                return Some(format!(
+                    "Condition::Not(&Condition::SourceMatches(&Filter::AnyCountersAtLeast({above})))"
+                ));
+            }
+            if let Some(eq_str) = cmp.strip_prefix("EQ")
+                && let Ok(n) = eq_str.parse::<u16>()
+                && n > 0
+                && let Some(above) = n.checked_add(1)
+            {
+                return Some(format!(
+                    "Condition::All(&[Condition::SourceMatches(&Filter::AnyCountersAtLeast({n})), \
+                     Condition::Not(&Condition::SourceMatches(&Filter::AnyCountersAtLeast({above})))])"
+                ));
+            }
+            return None;
         }
         if raw == "Count$ValidHand Card.YouOwn" {
             if let Some(n_str) = cmp.strip_prefix("EQ")
@@ -1972,6 +2013,9 @@ impl Tx<'_> {
                 None | Some("Player") => "PlayerRel::EachPlayer",
                 Some("You") => "PlayerRel::You",
                 Some("Opponent" | "Player.Opponent") => "PlayerRel::EachOpponent",
+                Some("EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer") => {
+                    "PlayerRel::EnchantedPlayer"
+                }
                 Some(_) => return self.deny("replacement `R: Event$ GainLife`".to_string()),
             };
             let cond = self.condition_any(&mut p)?;
@@ -2371,11 +2415,7 @@ impl Tx<'_> {
         let Some(with) = p.take("ReplaceWith") else {
             return self.deny("replacement `Moved` this rule cannot read".to_string());
         };
-        if !p.exhausted()
-            || valid.contains("Self")
-            || valid.contains("Other")
-            || valid.contains("EnchantedPlayer")
-        {
+        if !p.exhausted() || valid.contains("Self") || valid.contains("Other") {
             return self.deny("replacement `Moved` this rule cannot read".to_string());
         }
         let Some((api, mut body)) = self.svars.get(&with).and_then(|s| Params::parse(s)) else {
@@ -2792,7 +2832,14 @@ fn is_player_continuous_affected(raw: &str) -> bool {
     let trimmed = raw.trim();
     matches!(
         trimmed,
-        "You" | "Player" | "Opponent" | "Player.Opponent" | "Player.Chosen"
+        "You"
+            | "Player"
+            | "Opponent"
+            | "Player.Opponent"
+            | "Player.Chosen"
+            | "EnchantedPlayer"
+            | "Player.EnchantedBy"
+            | "Player.EnchantedPlayer"
     ) || (trimmed.contains(',') && trimmed.split(',').any(|p| p.trim() == "You"))
 }
 

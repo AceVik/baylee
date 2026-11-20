@@ -1,12 +1,7 @@
 //! Reading what a script points at: filters, targets, players, and the
 //! sources a prevention names.
 
-use super::{Params, Tx, color_atom, counter_kind};
-
-/// CR 700.6: Artifacts, legendaries, and Sagas are historic.
-const HISTORIC_FILTER: &str = "Filter::Or(&[Filter::ARTIFACT, \
-    Filter::HasSupertype(SupertypeSet::LEGENDARY), \
-    Filter::HasSubtype(subtypes::enchantment::SAGA)])";
+use super::{Params, Tx, color_atom, counter_kind, named_atom};
 
 /// CR 700.12: Assassins, Mercenaries, Pirates, Rogues, and Warlocks are outlaws.
 const OUTLAW_FILTER: &str = "Filter::Or(&[\
@@ -440,7 +435,7 @@ impl Tx<'_> {
             "Self" => clauses.push("Filter::This".to_string()),
             "Enchanted" | "Equipped" => clauses.push("Filter::AttachedToBySource".to_string()),
             "Kicked" => clauses.push("Filter::Kicked".to_string()),
-            "Historic" => clauses.push(HISTORIC_FILTER.to_string()),
+            "Historic" => clauses.push("Filter::Historic".to_string()),
             "Outlaw" => clauses.push(OUTLAW_FILTER.to_string()),
             _ => {
                 let Some(path) = self.cats.const_path(base) else {
@@ -497,8 +492,13 @@ impl Tx<'_> {
                     }
                     atoms.flat_map(|a| a.split('+')).collect()
                 };
+            let mut has_controller = false;
+            let mut has_is_commander = false;
+            let mut has_you_own = false;
+            let mut named_targets: Vec<String> = Vec::new();
             for atom in raw_atoms {
-                clauses.push(match atom.trim() {
+                let atom = atom.trim();
+                clauses.push(match atom {
                     // "Enchanted creature gets +2/+1", "equipped creature has
                     // flying": one filter for both, because there is one
                     // question — what is this permanent attached to — and the
@@ -516,16 +516,36 @@ impl Tx<'_> {
                     "Attached" => "Filter::AttachedToSource".to_string(),
                     "equipped" => "Filter::Equipped".to_string(),
                     "!equipped" => "Filter::Not(&Filter::Equipped)".to_string(),
-                    "YouCtrl" => "Filter::ControlledByYou".to_string(),
-                    "YouDontCtrl" => "Filter::Not(&Filter::ControlledByYou)".to_string(),
-                    "OppCtrl" => "Filter::ControlledByOpponent".to_string(),
-                    "ActivePlayerCtrl" => "Filter::ControlledByActivePlayer".to_string(),
+                    "YouCtrl" => {
+                        has_controller = true;
+                        "Filter::ControlledByYou".to_string()
+                    }
+                    "YouDontCtrl" => {
+                        has_controller = true;
+                        "Filter::Not(&Filter::ControlledByYou)".to_string()
+                    }
+                    "OppCtrl" => {
+                        has_controller = true;
+                        "Filter::ControlledByOpponent".to_string()
+                    }
+                    "ActivePlayerCtrl" => {
+                        has_controller = true;
+                        "Filter::ControlledByActivePlayer".to_string()
+                    }
                     "DefenderCtrl" if !card_zone => {
+                        has_controller = true;
                         "Filter::ControlledByDefendingPlayer".to_string()
+                    }
+                    "EnchantedPlayerCtrl"
+                    | "ControlledBy EnchantedPlayer"
+                    | "ControlledBy Player.EnchantedBy" => {
+                        has_controller = true;
+                        "Filter::ControlledByEnchantedPlayer".to_string()
                     }
                     "ControlledBy TriggeredPlayer"
                         if self.trigger_mode.as_deref() == Some("Phase") =>
                     {
+                        has_controller = true;
                         "Filter::ControlledByActivePlayer".to_string()
                     }
                     "ControlledBy TriggeredDefendingPlayer"
@@ -534,9 +554,13 @@ impl Tx<'_> {
                             Some("Attacks" | "AttackerBlocked" | "AttackerUnblocked")
                         ) =>
                     {
+                        has_controller = true;
                         "Filter::ControlledByDefendingPlayer".to_string()
                     }
-                    "IsCommander" => "Filter::IsCommander".to_string(),
+                    "IsCommander" => {
+                        has_is_commander = true;
+                        "Filter::IsCommander".to_string()
+                    }
                     "!IsCommander" | "nonCommander" => {
                         "Filter::Not(&Filter::IsCommander)".to_string()
                     }
@@ -560,6 +584,7 @@ impl Tx<'_> {
                     "wasCastFromYourHandByYou"
                         if self.trigger_mode.as_deref() == Some("SpellCast") =>
                     {
+                        has_controller = true;
                         "Filter::And(&[Filter::CastFromHand, Filter::ControlledByYou])".to_string()
                     }
                     "counters_GE1_ALL" | "counters_GT0_ALL" | "HasCounters" => {
@@ -569,8 +594,8 @@ impl Tx<'_> {
                     | "!HasCounters" => "Filter::Not(&Filter::HasAnyCounter)".to_string(),
                     "inZoneBattlefield" => "Filter::InZone(ZoneRef::Battlefield)".to_string(),
                     "inZoneStack" => "Filter::InZone(ZoneRef::Stack)".to_string(),
-                    "Historic" => HISTORIC_FILTER.to_string(),
-                    "nonHistoric" | "!Historic" => format!("Filter::Not(&{HISTORIC_FILTER})"),
+                    "Historic" => "Filter::Historic".to_string(),
+                    "nonHistoric" | "!Historic" => "Filter::Not(&Filter::Historic)".to_string(),
                     "Outlaw" => OUTLAW_FILTER.to_string(),
                     "nonOutlaw" | "!Outlaw" => format!("Filter::Not(&{OUTLAW_FILTER})"),
                     "hasABasicLandType" => BASIC_LAND_TYPE_FILTER.to_string(),
@@ -605,10 +630,13 @@ impl Tx<'_> {
                     "nonBattle" => "Filter::LacksType(TypeSet::BATTLE)".to_string(),
                     "nonInstant" => "Filter::LacksType(TypeSet::INSTANT)".to_string(),
                     "nonSorcery" => "Filter::LacksType(TypeSet::SORCERY)".to_string(),
-                    "YouOwn" => "Filter::OwnedByYou".to_string(),
+                    "YouOwn" => {
+                        has_you_own = true;
+                        "Filter::OwnedByYou".to_string()
+                    }
                     "YouDontOwn" => "Filter::Not(&Filter::OwnedByYou)".to_string(),
                     "Other" | "StrictlyOther" => "Filter::Another".to_string(),
-                    "Self" => "Filter::This".to_string(),
+                    "Self" | "StrictlySelf" => "Filter::This".to_string(),
                     "attacking" => "Filter::Attacking".to_string(),
                     "!attacking" => "Filter::Not(&Filter::Attacking)".to_string(),
                     "attackingYou" => "Filter::AttackingYou".to_string(),
@@ -759,46 +787,12 @@ impl Tx<'_> {
                     }
                     "" => continue,
                     other if other.starts_with("counters_") => {
-                        let Some((comparison, raw)) = other
-                            .strip_prefix("counters_GE")
-                            .map(|raw| ("GE", raw))
-                            .or_else(|| other.strip_prefix("counters_GT").map(|raw| ("GT", raw)))
-                            .or_else(|| other.strip_prefix("counters_LE").map(|raw| ("LE", raw)))
-                            .or_else(|| other.strip_prefix("counters_LT").map(|raw| ("LT", raw)))
-                            .or_else(|| other.strip_prefix("counters_EQ").map(|raw| ("EQ", raw)))
-                        else {
+                        let Some(expr) = counter_atom_filter(other) else {
                             return self.deny(format!("filter atom `{other}`"));
                         };
-                        let Some((n, code)) = raw.split_once('_') else {
-                            return self.deny(format!("filter atom `{other}`"));
-                        };
-                        let n = n.parse::<u16>().ok()?;
-                        let kind = counter_kind(code)?;
-                        match comparison {
-                            "GE" if n == 0 => continue,
-                            "GE" => format!("Filter::CountersAtLeast({kind}, {n})"),
-                            "GT" => {
-                                let min = n.checked_add(1)?;
-                                format!("Filter::CountersAtLeast({kind}, {min})")
-                            }
-                            "LT" if n > 0 => {
-                                format!("Filter::Not(&Filter::CountersAtLeast({kind}, {n}))")
-                            }
-                            "LE" => {
-                                let above = n.checked_add(1)?;
-                                format!("Filter::Not(&Filter::CountersAtLeast({kind}, {above}))")
-                            }
-                            "EQ" if n == 0 => {
-                                format!("Filter::Not(&Filter::CountersAtLeast({kind}, 1))")
-                            }
-                            "EQ" => {
-                                let above = n.checked_add(1)?;
-                                format!(
-                                    "Filter::And(&[Filter::CountersAtLeast({kind}, {n}), \
-                                     Filter::Not(&Filter::CountersAtLeast({kind}, {above}))])"
-                                )
-                            }
-                            _ => return self.deny(format!("filter atom `{other}`")),
+                        match expr {
+                            CounterAtom::Always => continue,
+                            CounterAtom::Filter(clause) => clause,
                         }
                     }
                     // A colour word (CR 105.2): "black creatures", "target
@@ -815,7 +809,12 @@ impl Tx<'_> {
                             has
                         }
                     }
-                    other if self.worded_atom(other).is_some() => self.worded_atom(other)?,
+                    other if self.worded_atom(other).is_some() => {
+                        if let Some(name) = named_target_name(other) {
+                            named_targets.push(name);
+                        }
+                        self.worded_atom(other)?
+                    }
                     // `Creature.Goblin` puts the subtype after the base, so
                     // an atom can name one too — and it is the commonest
                     // shape in the corpus, not a corner.
@@ -834,6 +833,34 @@ impl Tx<'_> {
                         }
                     }
                 });
+            }
+            if !card_zone && !has_controller {
+                let lower = self.oracle.to_ascii_lowercase();
+                // Some corpus scripts write `Card.IsCommander+YouOwn` where the
+                // Oracle text explicitly scopes to "a commander you control"
+                // rather than "your commander" (Norn's Choirmaster).
+                if has_is_commander
+                    && has_you_own
+                    && lower.contains("commander you control")
+                    && !lower.contains("commander you own")
+                    && !lower.contains("your commander")
+                {
+                    for clause in &mut clauses {
+                        if clause == "Filter::OwnedByYou" {
+                            *clause = "Filter::ControlledByYou".to_string();
+                        }
+                    }
+                }
+                // Some corpus scripts omit `+YouCtrl` on a named-permanent
+                // filter whose Oracle text unambiguously restricts to "you
+                // control named <Name>" (Baloth Packhunter, Charmed Stray).
+                if !named_targets.is_empty()
+                    && named_targets
+                        .iter()
+                        .all(|name| oracle_scopes_named_to_you(&lower, name))
+                {
+                    clauses.push("Filter::ControlledByYou".to_string());
+                }
             }
             alternatives.push(match clauses.len() {
                 0 => "Filter::Any".to_string(),
@@ -1044,7 +1071,23 @@ impl Tx<'_> {
             "EnchantedController" | "Player.EnchantedController" => {
                 "PlayerRel::ControllerOfAttached"
             }
+            // "Enchanted player" (CR 303.4b, CR 303.4m: Curses and player Auras).
+            "EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer" => {
+                "PlayerRel::EnchantedPlayer"
+            }
             "TriggeredPlayer" if trigger == Some("Phase") => "PlayerRel::ActivePlayer",
+            "TriggeredPlayer" | "TriggeredCardController" if trigger == Some("Sacrificed") => {
+                "PlayerRel::EventPlayer"
+            }
+            "TriggeredCardOwner" if trigger == Some("Sacrificed") => "PlayerRel::OwnerOfEvent",
+            "TriggeredAttackingPlayer"
+                if matches!(
+                    trigger,
+                    Some("AttackersDeclared" | "AttackersDeclaredOneTarget")
+                ) =>
+            {
+                "PlayerRel::EventPlayer"
+            }
             // Last known (CR 603.10a): a land put into a graveyard is
             // controlled by nobody by the time the ability resolves.
             "TriggeredCardController" if trigger == Some("ChangesZone") => {
@@ -1161,4 +1204,87 @@ impl Tx<'_> {
             other => self.player_rel_of(other, targets_a_player),
         }
     }
+}
+
+enum CounterAtom {
+    Always,
+    Filter(String),
+}
+
+/// Parses `counters_<OP><N>_<KIND>`, `counters_<OP><N>_ALL`, or bare
+/// `counters_<OP><N>` into a `Filter` expression (`CounterAtom::Always` for
+/// tautological `GE0`, or `None` on unsupported input).
+fn counter_atom_filter(other: &str) -> Option<CounterAtom> {
+    let (comparison, raw) = other
+        .strip_prefix("counters_GE")
+        .map(|raw| ("GE", raw))
+        .or_else(|| other.strip_prefix("counters_GT").map(|raw| ("GT", raw)))
+        .or_else(|| other.strip_prefix("counters_LE").map(|raw| ("LE", raw)))
+        .or_else(|| other.strip_prefix("counters_LT").map(|raw| ("LT", raw)))
+        .or_else(|| other.strip_prefix("counters_EQ").map(|raw| ("EQ", raw)))?;
+    let (n_str, kind) = match raw.split_once('_') {
+        Some((n_str, "ALL")) => (n_str, None),
+        Some((n_str, code)) => (n_str, Some(counter_kind(code)?)),
+        None => (raw, None),
+    };
+    let n = n_str.parse::<u16>().ok()?;
+    let at_least = |k: u16| match kind.as_deref() {
+        Some(kind) => format!("Filter::CountersAtLeast({kind}, {k})"),
+        None => format!("Filter::AnyCountersAtLeast({k})"),
+    };
+    match comparison {
+        "GE" if n == 0 => Some(CounterAtom::Always),
+        "GE" => Some(CounterAtom::Filter(at_least(n))),
+        "GT" => Some(CounterAtom::Filter(at_least(n.checked_add(1)?))),
+        "LT" if n > 0 => Some(CounterAtom::Filter(format!(
+            "Filter::Not(&{})",
+            at_least(n)
+        ))),
+        "LE" => Some(CounterAtom::Filter(format!(
+            "Filter::Not(&{})",
+            at_least(n.checked_add(1)?)
+        ))),
+        "EQ" if n == 0 => Some(CounterAtom::Filter(format!(
+            "Filter::Not(&{})",
+            at_least(1)
+        ))),
+        "EQ" => {
+            let above = n.checked_add(1)?;
+            Some(CounterAtom::Filter(format!(
+                "Filter::And(&[{}, Filter::Not(&{})])",
+                at_least(n),
+                at_least(above)
+            )))
+        }
+        _ => None,
+    }
+}
+
+/// Extracts the card name from a `named<Name>` filter atom, matching both
+/// plain names and semicolon-escaped commas.
+fn named_target_name(atom: &str) -> Option<String> {
+    if let Some(name) = named_atom(atom) {
+        return Some(name.to_string());
+    }
+    let raw = atom.strip_prefix("named")?;
+    (!raw.is_empty()
+        && raw.contains(';')
+        && raw
+            .chars()
+            .all(|c| c.is_alphanumeric() || " '-;".contains(c)))
+    .then(|| raw.replace(';', ","))
+}
+
+/// Returns `true` when Oracle text explicitly scopes permanents named `name`
+/// to `"you control named <name>"` without also mentioning an unscoped
+/// permanent/creature/card named `name`.
+fn oracle_scopes_named_to_you(oracle_lower: &str, name: &str) -> bool {
+    let name_lower = name.to_ascii_lowercase();
+    oracle_lower.contains(&format!("you control named {name_lower}"))
+        && !oracle_lower.contains(&format!("creature named {name_lower}"))
+        && !oracle_lower.contains(&format!("creatures named {name_lower}"))
+        && !oracle_lower.contains(&format!("permanent named {name_lower}"))
+        && !oracle_lower.contains(&format!("permanents named {name_lower}"))
+        && !oracle_lower.contains(&format!("card named {name_lower}"))
+        && !oracle_lower.contains(&format!("cards named {name_lower}"))
 }

@@ -15,7 +15,7 @@ pub(super) enum GrantedActivated {
 }
 
 #[derive(Clone, Copy)]
-enum StaticEffectZone {
+pub(super) enum StaticEffectZone {
     Battlefield,
     Explicit(&'static str),
 }
@@ -389,7 +389,10 @@ impl Tx<'_> {
         Some(())
     }
 
-    fn static_effect_zone(zone: Option<&str>, allow_graveyard: bool) -> Option<StaticEffectZone> {
+    pub(super) fn static_effect_zone(
+        zone: Option<&str>,
+        allow_graveyard: bool,
+    ) -> Option<StaticEffectZone> {
         match zone {
             None | Some("Battlefield") => Some(StaticEffectZone::Battlefield),
             Some("Command") => Some(StaticEffectZone::Explicit("ZoneRef::Command")),
@@ -413,7 +416,7 @@ impl Tx<'_> {
         }
     }
 
-    fn format_static_expr(
+    pub(super) fn format_static_expr(
         filter: &str,
         modifier: &str,
         zone: StaticEffectZone,
@@ -480,13 +483,21 @@ impl Tx<'_> {
     }
 
     fn static_conditions(&mut self, p: &mut Params, check_svar_denial: &str) -> Option<String> {
-        let mut clauses: Vec<String> = self
+        let mut clauses: Vec<String> = Vec::new();
+        if let Some(cond_raw) = p.peek("Condition")
+            && p.has("IsPresent")
+            && let Some(named) = Self::named_condition(cond_raw)
+        {
+            p.take("Condition");
+            clauses.push(named.to_string());
+        }
+        if let Some(base) = self
             .condition(p)?
             .strip_prefix(", condition = Some(")
             .and_then(|s| s.strip_suffix(')'))
-            .map(str::to_string)
-            .into_iter()
-            .collect();
+        {
+            clauses.push(base.to_string());
+        }
         if let Some(var) = p.take("CheckSVar") {
             let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
             let Some(first) = self.svar_condition_clause(&var, &cmp) else {
@@ -685,6 +696,9 @@ impl Tx<'_> {
             "Player" => "PlayerRel::EachPlayer",
             "You" => "PlayerRel::You",
             "Opponent" | "Player.Opponent" => "PlayerRel::EachOpponent",
+            "EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer" => {
+                "PlayerRel::EnchantedPlayer"
+            }
             other => return self.deny(format!("an untap limit on `Affected$ {other}`")),
         };
         let keyword = p.take("AddKeyword")?;
@@ -2255,9 +2269,14 @@ impl Tx<'_> {
 
     fn apply_reduce_activator(valid: &str, activator: Option<&str>) -> Option<String> {
         match activator {
-            None => Some(valid.to_string()),
+            None | Some("Player") => Some(valid.to_string()),
             Some("You") => Some(Self::append_reduce_atom(valid, "YouCtrl")),
-            Some("Opponent") => Some(Self::append_reduce_atom(valid, "OppCtrl")),
+            Some("Opponent" | "Player.Opponent") => {
+                Some(Self::append_reduce_atom(valid, "OppCtrl"))
+            }
+            Some("EnchantedPlayer" | "Player.EnchantedBy" | "Player.EnchantedPlayer") => {
+                Some(Self::append_reduce_atom(valid, "EnchantedPlayerCtrl"))
+            }
             Some(_) => None,
         }
     }
