@@ -1126,6 +1126,36 @@ pub enum Modifier {
     /// controller) cost this much less generic mana to activate, down to `{0}`
     /// (CR 702.29a, CR 118.7a — Fluctuator).
     CyclingCostsLess(u32),
+    /// Standing per-source finite prevention across `you` (when `include_you`
+    /// is true) and/or permanents matching the static ability's `filter`
+    /// (CR 615.1, CR 615.7 — Sphere of Law cycle, Urza's Armor, Cover of
+    /// Winter). In each simultaneous damage event, each matching source gets
+    /// its own `amount` prevention budget shared across the covered recipients
+    /// (asking `Pending::AllocatePrevention` when `0 < amount < sum` across
+    /// multiple recipients). Appended to preserve replay identities.
+    PreventDamagePerSource {
+        /// Which damage sources have `amount` of their damage prevented.
+        sources: &'static Filter,
+        /// Whether the effect controller (`you`) is also a covered recipient.
+        include_you: bool,
+        /// Restrict to combat damage (`true`) or any damage (`false`).
+        combat_only: bool,
+        /// Finite damage prevented per matching source per damage event.
+        amount: crate::Amount,
+    },
+    /// Standing per-(source, affected permanent) finite prevention (CR 615.1,
+    /// CR 615.7 — Daunting Defender: "If a source would deal damage to a Cleric
+    /// creature you control, prevent 1 of that damage"). Each `(source,
+    /// affected permanent)` pair gets its own `amount` prevention budget in a
+    /// damage event. Appended to preserve replay identities.
+    PreventDamageToAffectedPerSource {
+        /// Which damage sources have `amount` of their damage prevented.
+        sources: &'static Filter,
+        /// Restrict to combat damage (`true`) or any damage (`false`).
+        combat_only: bool,
+        /// Finite damage prevented per `(source, affected permanent)` per event.
+        amount: crate::Amount,
+    },
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -1392,6 +1422,8 @@ impl Modifier {
             | Self::PreventDamageToYouFrom(_)
             | Self::PreventCombatDamageFrom(_)
             | Self::PreventDamageFrom(_)
+            | Self::PreventDamagePerSource { .. }
+            | Self::PreventDamageToAffectedPerSource { .. }
             | Self::CombatDamageCantBePrevented
             | Self::DamageToItCantBePreventedOrRedirected
             | Self::BlockableWithoutLandwalk(_)
@@ -2030,6 +2062,17 @@ mod tests {
             Modifier::PreventDamageToYouFrom(&Filter::CREATURE),
             Modifier::PreventCombatDamageFrom(&Filter::ARTIFACT),
             Modifier::PreventDamageFrom(&Filter::ARTIFACT),
+            Modifier::PreventDamagePerSource {
+                sources: &Filter::Any,
+                include_you: true,
+                combat_only: false,
+                amount: crate::Amount::Fixed(1),
+            },
+            Modifier::PreventDamageToAffectedPerSource {
+                sources: &Filter::Any,
+                combat_only: false,
+                amount: crate::Amount::Fixed(1),
+            },
             Modifier::CombatDamageCantBePrevented,
             Modifier::DamageToItCantBePreventedOrRedirected,
             Modifier::CantBlock(&Filter::CREATURE),

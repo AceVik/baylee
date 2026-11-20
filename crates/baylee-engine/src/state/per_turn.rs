@@ -4,6 +4,45 @@ use crate::object::CounterKind;
 use baylee_core::ids::{ObjectId, PlayerId};
 use std::hash::Hash;
 
+/// A `Vec<T>` on [`PerTurn`] that writes nothing into [`Hash`] while empty so
+/// historical snapshots that do not populate the field keep their exact digest,
+/// while any populated entry moves [`crate::state::GameState::snapshot_hash`].
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct PerTurnVec<T>(pub Vec<T>);
+
+impl<T> Default for PerTurnVec<T> {
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
+
+impl<T> std::ops::Deref for PerTurnVec<T> {
+    type Target = [T];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: Hash> Hash for PerTurnVec<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        if !self.0.is_empty() {
+            self.0.as_slice().hash(state);
+        }
+    }
+}
+
+/// Pair-specific blocking requirement ("`blocker` blocks `attacker` this
+/// combat / this turn if able", CR 509.1c, CR 702.39a).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct MustBlockRequirement {
+    /// Exact creature incarnation required to block.
+    pub blocker: baylee_core::ids::DamageSourceRef,
+    /// Exact creature incarnation that must be blocked if able.
+    pub attacker: baylee_core::ids::DamageSourceRef,
+    /// Expires at end of combat (`true`, e.g. Provoke) or at cleanup (`false`).
+    pub this_combat_only: bool,
+}
+
 /// Per-turn counters for conditional triggers (reset at every turn start).
 #[derive(Clone, Hash, Debug)]
 #[allow(clippy::struct_excessive_bools)]
@@ -168,6 +207,9 @@ pub struct PerTurn {
     pub skip_main_phases: bool,
     /// Active player skips their combat phases this turn (Fatespinner).
     pub skip_combat_phases: bool,
+    /// Pair-specific blocking requirements active for this combat or turn
+    /// (Provoke, Rampant Elephant, Hunt Down; CR 509.1c, CR 702.39a).
+    pub must_block_pairs: PerTurnVec<MustBlockRequirement>,
 }
 
 /// One block declared this turn ([`PerTurn::blocks`]).
@@ -346,6 +388,7 @@ impl PerTurn {
             skip_draw_step: false,
             skip_main_phases: false,
             skip_combat_phases: false,
+            must_block_pairs: PerTurnVec::default(),
         }
     }
 
@@ -410,6 +453,7 @@ impl PerTurn {
         self.tapped_for_ability.clear();
         self.permanent_damage.clear();
         self.damaged_creature_deaths.clear();
+        self.must_block_pairs.0.clear();
     }
 
     /// Resets all counters (called at every turn start).
@@ -469,6 +513,7 @@ impl PerTurn {
             pending_entry_history: _,
             permanent_damage: _,
             damaged_creature_deaths: _,
+            must_block_pairs: _,
         } = self;
         *untapped_lands_at_start = 0;
         *hand_size_at_start = 0;

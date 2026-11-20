@@ -984,6 +984,7 @@ keywords! {
     STORM = 49, "Storm (CR 702.40).";
     MAYHEM = 51, "Costless permission to play this land after discarding it this turn.";
     FREERUNNING = 50, "Has freerunning; its cost remains on `FaceDef` (CR 702.173a).";
+    PROVOKE = 52, "Provoke (CR 702.39).";
 }
 
 impl KeywordSet {
@@ -1102,6 +1103,7 @@ pub const PRINTED_KEYWORDS: &[(KeywordSet, &str)] = &[
     (KeywordSet::DEVOID, "Devoid"),
     (KeywordSet::PHASING, "Phasing"),
     (KeywordSet::STORM, "Storm"),
+    (KeywordSet::PROVOKE, "Provoke"),
     (KeywordSet::UNBLOCKABLE, "This creature can't be blocked."),
     (KeywordSet::CANT_BLOCK, "This creature can't block."),
     (KeywordSet::CANT_ATTACK, "This creature can't attack."),

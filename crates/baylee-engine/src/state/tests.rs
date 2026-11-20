@@ -840,6 +840,8 @@ fn what_a_shield_names_is_part_of_the_loop_signature() {
                 filter,
                 you: PlayerId::new(0),
                 this: id,
+                chosen_color: None,
+                chosen_subtype: None,
             },
             all_but: 0,
             gain_life: false,
@@ -935,6 +937,20 @@ fn every_field_that_decides_the_future_moves_the_snapshot_hash() {
         }),
         ("per_turn.attacked", |s, id| {
             s.per_turn.attacked.push((id, 0, PlayerId::new(0)));
+        }),
+        ("per_turn.must_block_pairs", |s, id| {
+            let reference = baylee_core::ids::DamageSourceRef {
+                object: id,
+                version: 0,
+            };
+            s.per_turn
+                .must_block_pairs
+                .0
+                .push(crate::state::MustBlockRequirement {
+                    blocker: reference,
+                    attacker: reference,
+                    this_combat_only: true,
+                });
         }),
         ("combat.participants", |s, id| {
             s.combat.participants.push((id, 0));

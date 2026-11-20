@@ -1304,6 +1304,8 @@ fn apply(
             | Modifier::PreventDamageToYouFrom(_)
         | Modifier::PreventCombatDamageFrom(_)
         | Modifier::PreventDamageFrom(_)
+        | Modifier::PreventDamagePerSource { .. }
+        | Modifier::PreventDamageToAffectedPerSource { .. }
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBlock(_)
         | Modifier::CantBeBlockedBy(_)

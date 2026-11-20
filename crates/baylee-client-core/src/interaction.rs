@@ -1228,24 +1228,33 @@ impl Interaction {
                 if !candidates.contains(&id) {
                     return SelectionOutcome::Rejected;
                 }
-                if let Some(pos) = pairs.iter().position(|(b, _)| *b == id) {
+                let Some(attacker) = attackers.get(*focus).copied() else {
+                    if let Some(pos) = pairs.iter().position(|(b, _)| *b == id) {
+                        pairs.remove(pos);
+                        return SelectionOutcome::Removed;
+                    }
+                    return SelectionOutcome::Rejected;
+                };
+                if let Some(pos) = pairs.iter().position(|(b, a)| *b == id && *a == attacker) {
                     pairs.remove(pos);
                     return SelectionOutcome::Removed;
                 }
-                let Some(attacker) = attackers.get(*focus).copied() else {
-                    return SelectionOutcome::Rejected;
-                };
                 // Evasion is a pairing question: a flier is a legal blocker
                 // and still not a legal block, so this is refused rather than
-                // sent for the engine to bounce.
+                // sent for the engine to bounce — except when the creature is
+                // already blocking an earlier attacker, where clicking its
+                // kept take-back row withdraws that block.
                 if !options
                     .iter()
                     .any(|o| o.blocker == id && o.attackers.contains(&attacker))
                 {
+                    if let Some(pos) = pairs.iter().position(|(b, _)| *b == id) {
+                        pairs.remove(pos);
+                        return SelectionOutcome::Removed;
+                    }
                     return SelectionOutcome::Rejected;
                 }
-                pairs.push((id, attacker));
-                SelectionOutcome::Added
+                push_blocker_pair(pairs, id, attacker, blocker_capacity(&self.pending, id))
             }
             _ => {
                 if !self.is_selectable(id) {
@@ -1703,6 +1712,7 @@ impl Interaction {
 
     /// Declares `blocker` as blocking `attacker`.
     pub fn declare_blocker(&mut self, blocker: ObjectId, attacker: ObjectId) -> bool {
+        let cap = blocker_capacity(&self.pending, blocker);
         let Mode::Blockers { options, pairs, .. } = &mut self.mode else {
             return false;
         };
@@ -1714,9 +1724,13 @@ impl Interaction {
         {
             return false;
         }
-        pairs.retain(|(b, _)| *b != blocker);
-        pairs.push((blocker, attacker));
-        true
+        if pairs.contains(&(blocker, attacker)) {
+            return true;
+        }
+        matches!(
+            push_blocker_pair(pairs, blocker, attacker, cap),
+            SelectionOutcome::Added
+        )
     }
 
     /// Sets the number for an X choice, clamped to the offered range.
@@ -2320,4 +2334,42 @@ fn cast_choice_headline(options: &[CastModeDesc], lang: Lang) -> String {
         Phrase::ChooseHowToCast
     };
     phrase.text(lang).to_string()
+}
+
+fn blocker_capacity(pending: &Pending, blocker: ObjectId) -> Option<u8> {
+    match pending {
+        Pending::ChooseBlockers { capacity, .. } => capacity
+            .iter()
+            .find(|c| c.blocker == blocker)
+            .map_or(Some(1), |c| c.most),
+        _ => Some(1),
+    }
+}
+
+fn push_blocker_pair(
+    pairs: &mut Vec<(ObjectId, ObjectId)>,
+    blocker: ObjectId,
+    attacker: ObjectId,
+    cap: Option<u8>,
+) -> SelectionOutcome {
+    let current_count = pairs.iter().filter(|(b, _)| *b == blocker).count();
+    match cap {
+        None => {
+            pairs.push((blocker, attacker));
+            SelectionOutcome::Added
+        }
+        Some(limit) if current_count < usize::from(limit) => {
+            pairs.push((blocker, attacker));
+            SelectionOutcome::Added
+        }
+        Some(1) => {
+            if let Some(pos) = pairs.iter().position(|(b, _)| *b == blocker) {
+                pairs[pos].1 = attacker;
+            } else {
+                pairs.push((blocker, attacker));
+            }
+            SelectionOutcome::Added
+        }
+        Some(_) => SelectionOutcome::Full,
+    }
 }

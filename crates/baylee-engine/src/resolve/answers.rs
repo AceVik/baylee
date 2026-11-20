@@ -215,6 +215,11 @@ pub(super) fn resume_with_color_inner(
         res.pc += 1;
         return run(state, res);
     }
+    if matches!(awaiting, AwaitingOp::ChooseColor) {
+        res.subject.chosen_color = Some(color);
+        res.pc += 1;
+        return run(state, res);
+    }
     if let AwaitingOp::ManaUnlessPaidColor { amount, cost } = awaiting {
         if let Some(pending) = mana::offer_prevention(state, res, color, amount, cost, 0) {
             return Flow::Wait(pending);

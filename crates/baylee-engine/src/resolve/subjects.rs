@@ -36,6 +36,7 @@ pub struct SubjectContext {
     pub(super) guess: Option<GuessOutcome>,
     pub(super) named: Option<(crate::object::PrintedFace, baylee_core::ids::NameRef)>,
     pub(super) chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+    pub(super) chosen_color: Option<baylee_core::mana::ManaColor>,
     pub(super) sacrificed: Option<crate::object::SacrificedLki>,
     circled_colors: baylee_core::color::ColorSet,
     acquisition: Option<u64>,
@@ -74,6 +75,7 @@ impl SubjectContext {
             guess: None,
             named: None,
             chosen_subtype: None,
+            chosen_color: None,
             sacrificed: paid.sacrificed_lki,
             circled_colors: baylee_core::color::ColorSet::EMPTY,
             acquisition: None,
@@ -230,6 +232,11 @@ impl SubjectContext {
             h = h
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::structural_fingerprint(&(91_u8, subtype)));
+        }
+        if let Some(color) = self.chosen_color {
+            h = h
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(93_u8, color)));
         }
         // Checkpoints exist only during synchronous resume calls. Every
         // public resume wrapper flushes before returning a held resolution.

@@ -239,7 +239,9 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::UntapSelf
         | Effect::UntapFound
         | Effect::UntapAll { .. }
-        | Effect::UntapChosen { .. } => {
+        | Effect::UntapChosen { .. }
+        | Effect::MustBlockSourceIfAbleThisCombat
+        | Effect::MustBlockIfAble { .. } => {
             ch.tap_untap += 1.0;
         }
         Effect::PumpTarget {

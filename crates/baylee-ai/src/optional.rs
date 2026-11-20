@@ -315,10 +315,23 @@ impl HeuristicAgent {
             return true;
         };
         // The resolving object's own target, when it has one: what "it" is
-        // in the yes.
+        // in the yes. For a triggered or activated ability on the stack,
+        // `context.source` is the originating permanent (`res.source`), while
+        // the chosen target rides on the top `StackItem::Ability` entry.
         let aim = view
             .object(id)
             .and_then(|o| o.targets.first())
+            .or_else(|| {
+                view.stack
+                    .last()
+                    .filter(|s| {
+                        matches!(
+                            s.stack_item,
+                            Some(baylee_view::StackItem::Ability { source, .. }) if source == id
+                        )
+                    })
+                    .and_then(|s| s.targets.first())
+            })
             .and_then(|t| match t {
                 baylee_core::ids::TargetRef::Object(r) => Some(r.object),
                 baylee_core::ids::TargetRef::Player(_) => None,

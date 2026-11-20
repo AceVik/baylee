@@ -853,6 +853,7 @@ impl Effect {
             | Effect::EmpowerJace { .. }
             | Effect::ModifySource { .. }
             | Effect::ChooseSourceColor
+            | Effect::ChooseColor
             | Effect::ChooseColors { .. }
             | Effect::ChooseSourceLandwalk { .. }
             | Effect::ChooseLandwalk { .. }
@@ -901,6 +902,9 @@ impl Effect {
             | Effect::ChooseDamageSourcePreventAllThisTurn
             | Effect::ChooseDamageSourcePreventAllThisTurnMatching(_)
             | Effect::PreventNextFromChosenSource { .. }
+            | Effect::PreventFromChosenSource { .. }
+            | Effect::PreventNextFromMatchingSources { .. }
+            | Effect::PreventAllDamageFromMatchingThisTurn { .. }
             | Effect::RedirectNextFromChosenSource { .. }
             | Effect::WishToHand { .. }
             | Effect::Destroy { .. }
@@ -936,6 +940,8 @@ impl Effect {
             | Effect::LeftRightPilesRestrictBlocks
             | Effect::BlockInPilesAtRandomThisTurn
             | Effect::TargetMayBlockAttackerOfChoice
+            | Effect::MustBlockSourceIfAbleThisCombat
+            | Effect::MustBlockIfAble { .. }
             | Effect::ToggleTapTarget
             | Effect::TapAll { .. }
             | Effect::TapAllOf { .. }

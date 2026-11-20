@@ -121,9 +121,34 @@ pub(crate) fn matches_damage_source_with_context(
     you: PlayerId,
     context: RuleContext,
 ) -> bool {
+    matches_damage_source_with_choices(filter, state, obj, you, context, None, None)
+}
+
+/// Same as [`matches_damage_source_with_context`], with frozen source choices
+/// (`chosen_color` and `chosen_subtype`) captured when a shield or instruction
+/// resolved (CR 113.7a, CR 609.7b).
+#[must_use]
+pub(crate) fn matches_damage_source_with_choices(
+    filter: &Filter,
+    state: &GameState,
+    obj: &GameObject,
+    you: PlayerId,
+    context: RuleContext,
+    chosen_color: Option<baylee_core::mana::ManaColor>,
+    chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+) -> bool {
     let characteristics = obj.characteristics();
     if characteristics.colors.is_empty() || !state.effects.may_change_damage_source_color() {
-        return matches_with_context(filter, state, obj, you, context);
+        return matches_projected_with_choices(
+            filter,
+            state,
+            obj,
+            characteristics,
+            you,
+            context,
+            chosen_color,
+            chosen_subtype,
+        );
     }
     let colorless = state.effects.iter().any(|fx| {
         crate::effects::applies_to(state, fx, obj)
@@ -135,11 +160,51 @@ pub(crate) fn matches_damage_source_with_context(
             }
     });
     if !colorless {
-        return matches_with_context(filter, state, obj, you, context);
+        return matches_projected_with_choices(
+            filter,
+            state,
+            obj,
+            characteristics,
+            you,
+            context,
+            chosen_color,
+            chosen_subtype,
+        );
     }
     let mut chars = characteristics.clone();
     chars.colors = baylee_core::color::ColorSet::EMPTY;
-    matches_projected_with_context(filter, state, obj, &chars, you, context)
+    matches_projected_with_choices(
+        filter,
+        state,
+        obj,
+        &chars,
+        you,
+        context,
+        chosen_color,
+        chosen_subtype,
+    )
+}
+
+/// Whether `filter` directly or recursively reads [`Filter::OfSourceChosenColor`].
+#[must_use]
+pub(crate) fn filter_reads_chosen_color(filter: &Filter) -> bool {
+    match filter {
+        Filter::OfSourceChosenColor => true,
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_chosen_color),
+        Filter::Not(inner) => filter_reads_chosen_color(inner),
+        _ => false,
+    }
+}
+
+/// Whether `filter` directly or recursively reads [`Filter::MatchesChosenTypeOfSource`].
+#[must_use]
+pub(crate) fn filter_reads_chosen_subtype(filter: &Filter) -> bool {
+    match filter {
+        Filter::MatchesChosenTypeOfSource => true,
+        Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_chosen_subtype),
+        Filter::Not(inner) => filter_reads_chosen_subtype(inner),
+        _ => false,
+    }
 }
 
 /// Evaluates a [`Filter`] against an object whose characteristics are
@@ -163,7 +228,6 @@ pub fn matches_projected(
 /// Projected matching with explicit rules text; recursion keeps that same
 /// snapshot even when the original source has changed or left the battlefield.
 #[must_use]
-#[allow(clippy::too_many_lines)] // One arm per Filter variant, with no wildcard.
 pub fn matches_projected_with_context(
     filter: &Filter,
     state: &GameState,
@@ -172,11 +236,37 @@ pub fn matches_projected_with_context(
     you: PlayerId,
     context: RuleContext,
 ) -> bool {
+    matches_projected_with_choices(filter, state, obj, chars, you, context, None, None)
+}
+
+#[must_use]
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+pub(crate) fn matches_projected_with_choices(
+    filter: &Filter,
+    state: &GameState,
+    obj: &GameObject,
+    chars: &crate::object::Characteristics,
+    you: PlayerId,
+    context: RuleContext,
+    chosen_color: Option<baylee_core::mana::ManaColor>,
+    chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+) -> bool {
     if obj.is_merged_component() {
         return false;
     }
     let this = context.source;
-    let matches = |f: &Filter| matches_projected_with_context(f, state, obj, chars, you, context);
+    let matches = |f: &Filter| {
+        matches_projected_with_choices(
+            f,
+            state,
+            obj,
+            chars,
+            you,
+            context,
+            chosen_color,
+            chosen_subtype,
+        )
+    };
     // Unchanged wording is nearly every read, and a leaf is copied only to be
     // rewritten.
     let rewritten;
@@ -557,8 +647,8 @@ pub fn matches_projected_with_context(
         }),
         Filter::SpellTargetingAffected => state.spell_targets_affected(obj, this),
         Filter::CountersAtLeast(kind, n) => obj.counters.get(*kind) >= *n,
-        Filter::MatchesChosenTypeOfSource => context
-            .resolved_subtype
+        Filter::MatchesChosenTypeOfSource => chosen_subtype
+            .or(context.resolved_subtype)
             .or_else(|| state.object(this).and_then(|src| src.chosen_subtype))
             .is_some_and(|s| chars.subtypes.contains(s)),
         Filter::OfSourceChosenCardType => state
@@ -568,7 +658,9 @@ pub fn matches_projected_with_context(
         Filter::OfSourceChosenColor => {
             use baylee_core::color::Color;
             use baylee_core::mana::ManaColor;
-            let chosen = match state.object(this).and_then(|src| src.chosen_color) {
+            let chosen = match chosen_color
+                .or_else(|| state.object(this).and_then(|src| src.chosen_color))
+            {
                 Some(ManaColor::White) => Some(Color::White),
                 Some(ManaColor::Blue) => Some(Color::Blue),
                 Some(ManaColor::Black) => Some(Color::Black),

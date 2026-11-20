@@ -39,6 +39,8 @@ pub enum AwaitingOp {
         /// The permanent that was present when the question was asked.
         source: baylee_core::ids::DamageSourceRef,
     },
+    /// Record a color on the resolution's `SubjectContext` (CR 105.4).
+    ChooseColor,
     /// An optional nontargeting choice of a permanent to gain control of.
     ControlChoice(super::control_choice::ControlChoice),
     /// The latest coin flip's winner chooses whether to repeat at a higher stake.
@@ -902,11 +904,14 @@ pub enum AwaitingOp {
         /// What happens to it.
         then: &'static [Effect],
     },
-    /// After `PreventNextFromChosenSource`: the shield waits for the
-    /// chosen source.
+    /// After `PreventNextFromChosenSource` / `PreventFromChosenSource`: the
+    /// shield(s) wait for the chosen source.
     ShieldFromChosenSource {
-        /// Repeatable prevention to every recipient until cleanup.
-        all_recipients: bool,
+        /// Recipients protected by the created shield(s).
+        protects: Vec<crate::prevention::Shielded>,
+        /// Consume after the next matching damage event (`true`) or last until
+        /// cleanup (`false`).
+        next_only: bool,
         /// What the source had to be, and must still be.
         sources: &'static baylee_cards_dsl::Filter,
         /// Only its combat damage.
@@ -1501,6 +1506,7 @@ impl AwaitingOp {
             Self::ChooseCreatureType { exclude } => {
                 crate::state::structural_fingerprint(&(92_u8, exclude))
             }
+            Self::ChooseColor => crate::state::structural_fingerprint(&93_u8),
             _ => 0,
         }
     }

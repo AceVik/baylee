@@ -4334,6 +4334,79 @@ pub enum Effect {
         /// Which graveyard cards are shuffled in.
         filter: &'static Filter,
     },
+    /// "Target creature blocks this creature this combat if able" (Provoke,
+    /// CR 702.39a, CR 509.1c). Binds the exact target incarnation and the exact
+    /// source incarnation (CR 400.7) for this combat; does nothing if either
+    /// has left the battlefield before resolution. Appended to preserve replay
+    /// identities.
+    MustBlockSourceIfAbleThisCombat,
+    /// "`blocker` blocks `attacker` this combat / this turn if able" (CR 509.1c;
+    /// Rampant Elephant, Trumpeting Armodon, Hunt Down). Records a pair-specific
+    /// blocking requirement on the exact battlefield incarnations of `blocker`
+    /// and `attacker` (CR 400.7). Appended to preserve replay identities.
+    MustBlockIfAble {
+        /// Which creature(s) gain the requirement to block.
+        blocker: TargetSpec,
+        /// Which creature(s) they must block if able.
+        attacker: TargetSpec,
+        /// `true` expires at end of combat; `false` lasts until end of turn.
+        this_combat_only: bool,
+    },
+    /// "Choose a color" during spell or ability resolution (CR 105.4,
+    /// CR 608.2d; Prismatic Strands). Stored on the resolution's
+    /// `SubjectContext` for [`Filter::OfSourceChosenColor`] without requiring a
+    /// permanent on the battlefield. Appended to preserve replay identities.
+    ChooseColor,
+    /// Generalized chosen-source damage prevention shield (CR 609.7, CR 615.7;
+    /// Pilgrim of Justice, Samite Blessing, Charm Peddler, Shieldmage Advocate).
+    /// `target: None` protects everything (`Shielded::Everything`);
+    /// `target: Some(spec)` protects each resolved recipient (`Player` or exact
+    /// `Object` incarnation). `next_only: true` prevents the next damage event
+    /// from the chosen source (`all_but` unprevented, optional `gain_life`);
+    /// `next_only: false` prevents all damage from the chosen source this turn.
+    /// Appended to preserve replay identities.
+    PreventFromChosenSource {
+        /// Protected recipient(s), or `None` for any recipient.
+        target: Option<TargetSpec>,
+        /// Eligibility and damage-time source filter (CR 609.7a–b).
+        sources: &'static Filter,
+        /// Consume after the next matching damage event (`true`) or last until
+        /// cleanup (`false`).
+        next_only: bool,
+        /// Restrict to combat damage (`true`) or any damage (`false`).
+        combat_only: bool,
+        /// Amount of that damage left unprevented (`0` prevents all).
+        all_but: u8,
+        /// Controller gains life equal to damage prevented this way (CR 615.5).
+        gain_life: bool,
+    },
+    /// "The next time a `<sources>` would deal [combat] damage [to `<target>`]
+    /// this turn, prevent that damage" (Circle of Solace, Trained Pronghorn;
+    /// CR 615.7). Waits for the next matching source without choosing a source
+    /// on resolution; if multiple matching sources deal damage simultaneously,
+    /// prevents one source of the affected controller's choice (CR 616.1).
+    /// Appended to preserve replay identities.
+    PreventNextFromMatchingSources {
+        /// Protected recipient(s), or `None` for any recipient.
+        target: Option<TargetSpec>,
+        /// Criterion the damage source must match when dealing damage.
+        sources: &'static Filter,
+        /// Restrict to combat damage (`true`) or any damage (`false`).
+        combat_only: bool,
+    },
+    /// "Prevent all [combat] damage that `<sources>` would deal [to `<target>`]
+    /// this turn" (Prismatic Strands; CR 615.1a). Creates a turn-long shield
+    /// matching spells, abilities, and permanents alike (including objects
+    /// entering later this turn, CR 611.2c). Appended to preserve replay
+    /// identities.
+    PreventAllDamageFromMatchingThisTurn {
+        /// Protected recipient(s), or `None` for any recipient.
+        target: Option<TargetSpec>,
+        /// Criterion each damage source is tested against when dealing damage.
+        sources: &'static Filter,
+        /// Restrict to combat damage (`true`) or any damage (`false`).
+        combat_only: bool,
+    },
 }
 
 #[cfg(test)]

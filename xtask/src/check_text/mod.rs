@@ -353,6 +353,7 @@ pub(crate) fn check_optional_clauses_are_offered(
         "PlayerMayPayManaEachThenElse",
         "MayRedirectDamageToYou",
         "PreventNextFromChosenSource",
+        "PreventFromChosenSource",
         "CopyOnEnter",
         "CopyTargetSpell",
         "CopyTargetAbility",

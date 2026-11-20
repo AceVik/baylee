@@ -62,6 +62,7 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             Effect::PreventNextDamageFromSource { .. }
             | Effect::PreventNextDamageToAttached { .. }
             | Effect::ReflectNextChosenSourceDamage
+            | Effect::MustBlockSourceIfAbleThisCombat
             | Effect::ExileSourceThenCastTransformed { .. }
             | Effect::TakklemaggotDeath
             | Effect::MeldWithNamed { .. }
@@ -81,6 +82,17 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::AtNextCleanup { .. } => implicit_source,
             Effect::AtEndOfCombat { about, .. } | Effect::AtEndOfCombatThisTurn { about, .. } => {
                 matches!(about, TargetSpec::ThisObject)
+            }
+            Effect::MustBlockIfAble {
+                blocker, attacker, ..
+            } => {
+                matches!(blocker, TargetSpec::ThisObject)
+                    || matches!(attacker, TargetSpec::ThisObject)
+            }
+            Effect::PreventFromChosenSource { target, .. }
+            | Effect::PreventNextFromMatchingSources { target, .. }
+            | Effect::PreventAllDamageFromMatchingThisTurn { target, .. } => {
+                matches!(target, Some(TargetSpec::ThisObject))
             }
             _ => false,
         };

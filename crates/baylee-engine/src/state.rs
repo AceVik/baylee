@@ -54,8 +54,8 @@ pub(crate) use hash::{
 
 pub use delayed::{DelayedAction, DelayedTrigger, DelayedWhen, PlayerTurnControl};
 pub use per_turn::{
-    AbilityResolved, BlockRecord, DamageLogEntry, GraveyardPlay, PerTurn, PlayLifetime,
-    PlayPermission, PreviousTurn,
+    AbilityResolved, BlockRecord, DamageLogEntry, GraveyardPlay, MustBlockRequirement, PerTurn,
+    PlayLifetime, PlayPermission, PreviousTurn,
 };
 use reads::printed_pt_cda;
 pub(crate) use reads::{

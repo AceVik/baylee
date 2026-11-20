@@ -154,6 +154,7 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("all nonbasic land types", K::ALL_NONBASIC_LAND_TYPES), // object::Characteristics::from_face
         ("costless land mayhem", K::MAYHEM),                     // casting::mayhem_land_permission
         ("banding", K::BANDING), // Engine::ask_band, combat::divisions_owed
+        ("provoke", K::PROVOKE), // trigger::provoke::collect (CR 702.39a)
     ]
 };
 

@@ -518,7 +518,9 @@ fn read_one(effect: &Effect, certain: bool, reading: &Reading<'_>, facts: &mut F
         | Effect::ChooseNumber { .. }
         | Effect::ChooseCardName { .. }
         | Effect::ChooseCreatureType { .. }
+        | Effect::ChooseColor
         | Effect::ChooseColors { .. }
+        | Effect::PreventFromChosenSource { .. }
         | Effect::DiscardCount { .. }
         | Effect::DiscardMatching { .. }
         | Effect::DiscardUpToThenDraw { .. }

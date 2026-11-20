@@ -4012,6 +4012,8 @@ pub(super) fn is_hostile_object_effects(effects: &[Effect]) -> bool {
             | Effect::Exile { .. }
             | Effect::DealDamage { .. }
             | Effect::TapTarget
+            | Effect::MustBlockSourceIfAbleThisCombat
+            | Effect::MustBlockIfAble { .. }
             | Effect::Fight {
                 fighter: baylee_cards_dsl::TargetSlot::This,
                 ..

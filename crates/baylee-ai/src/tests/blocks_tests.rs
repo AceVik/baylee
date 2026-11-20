@@ -1063,3 +1063,202 @@ fn gang_block_search_orders_blockers_most_valuable_first_for_attacker_damage() {
         );
     }
 }
+
+#[test]
+fn forced_provoke_block_leaves_remaining_blocker_to_chump_lethal_in_shallow_and_search() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    // A1 is a 1/1 Provoker that forced our 4/4 (obj 10) onto it; A2 is a 3/3
+    // threatening lethal at 3 life, and we also control a 1/1 (obj 11).
+    let mut provoker = permanent(obj(1), them, 1);
+    provoker.status = ObjectStatus::TAPPED;
+    let mut lethal = permanent(obj(2), them, 3);
+    lethal.status = ObjectStatus::TAPPED;
+    let big_blocker = permanent(obj(10), me, 4);
+    let chump = permanent(obj(11), me, 1);
+
+    let mut v = view(0, &[3, 20], vec![provoker, lethal, big_blocker, chump]);
+    v.active = them;
+    v.step = baylee_view::Step::DeclareBlockers;
+    v.combat.attackers = vec![
+        baylee_view::AttackerView {
+            creature: obj(1),
+            defending: Defender::Player(me),
+            blocked: false,
+        },
+        baylee_view::AttackerView {
+            creature: obj(2),
+            defending: Defender::Player(me),
+            blocked: false,
+        },
+    ];
+    let pending = Pending::ChooseBlockers {
+        player: me,
+        attacker: them,
+        blockers: vec![
+            baylee_engine::choice::BlockOption {
+                blocker: obj(10),
+                attackers: vec![obj(1), obj(2)],
+            },
+            baylee_engine::choice::BlockOption {
+                blocker: obj(11),
+                attackers: vec![obj(1), obj(2)],
+            },
+        ],
+        capacity: Vec::new(),
+        obeying: vec![(obj(10), obj(1))],
+        demands: vec![baylee_engine::choice::BlockDemand {
+            blocker: obj(10),
+            attacker: obj(1),
+            count: 1,
+        }],
+        bounds: Vec::new(),
+    };
+    for (name, profile) in EVERY_PROFILE {
+        let action = HeuristicAgent::new(profile).act(&v, &pending);
+        assert_eq!(
+            pending.answer_fault(&action),
+            None,
+            "{name} emitted an illegal block declaration: {action:?}"
+        );
+        let PlayerAction::DeclareBlockers { blockers } = action else {
+            panic!("expected DeclareBlockers");
+        };
+        assert!(
+            blockers.contains(&(obj(10), obj(1))) && blockers.contains(&(obj(11), obj(2))),
+            "{name} failed to keep 1/1 chump for lethal 3/3 when 4/4 was provoked onto 1/1: {blockers:?}"
+        );
+    }
+}
+
+#[test]
+fn equal_demand_provokes_pick_the_lethal_saving_attacker_over_obeying_tie_break() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let mut small = permanent(obj(1), them, 1);
+    small.status = ObjectStatus::TAPPED;
+    let mut lethal = permanent(obj(2), them, 3);
+    lethal.status = ObjectStatus::TAPPED;
+    let defender = permanent(obj(10), me, 4);
+
+    let mut v = view(0, &[3, 20], vec![small, lethal, defender]);
+    v.active = them;
+    v.step = baylee_view::Step::DeclareBlockers;
+    v.combat.attackers = vec![
+        baylee_view::AttackerView {
+            creature: obj(1),
+            defending: Defender::Player(me),
+            blocked: false,
+        },
+        baylee_view::AttackerView {
+            creature: obj(2),
+            defending: Defender::Player(me),
+            blocked: false,
+        },
+    ];
+    // Both attackers have demand 1 on `obj(10)`, and `obeying` arbitrarily named `(10, 1)`.
+    let pending = Pending::ChooseBlockers {
+        player: me,
+        attacker: them,
+        blockers: vec![baylee_engine::choice::BlockOption {
+            blocker: obj(10),
+            attackers: vec![obj(1), obj(2)],
+        }],
+        capacity: Vec::new(),
+        obeying: vec![(obj(10), obj(1))],
+        demands: vec![
+            baylee_engine::choice::BlockDemand {
+                blocker: obj(10),
+                attacker: obj(1),
+                count: 1,
+            },
+            baylee_engine::choice::BlockDemand {
+                blocker: obj(10),
+                attacker: obj(2),
+                count: 1,
+            },
+        ],
+        bounds: Vec::new(),
+    };
+    for (name, profile) in EVERY_PROFILE {
+        let action = HeuristicAgent::new(profile).act(&v, &pending);
+        assert_eq!(pending.answer_fault(&action), None);
+        assert_eq!(
+            action,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(obj(10), obj(2))]
+            },
+            "{name} should satisfy CR 509.1c by blocking the lethal 3/3 rather than obeying's 1/1 tie-break"
+        );
+    }
+}
+
+#[test]
+fn provoke_targeting_and_may_do_prefer_favorable_kill_and_decline_suicide() {
+    static PROVOKE_MAY: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::MayDo {
+        effects: &[
+            baylee_cards_dsl::Effect::UntapTarget,
+            baylee_cards_dsl::Effect::MustBlockSourceIfAbleThisCombat,
+        ],
+    }];
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let attacker = permanent(obj(1), me, 3);
+    let mut victim = permanent(obj(10), them, 2);
+    victim.status = ObjectStatus::TAPPED;
+    let mut colossus = permanent(obj(11), them, 6);
+    colossus.status = ObjectStatus::TAPPED;
+
+    let v = view(0, &[20, 20], vec![attacker, victim, colossus]);
+    let target_q = Pending::ChooseTargets {
+        player: me,
+        options: vec![obj(11), obj(10)],
+        player_options: vec![],
+        min: 1,
+        max: 1,
+        reason: baylee_engine::choice::TargetPrompt::Targets,
+    };
+    let ctx = baylee_engine::engine::DecisionContext {
+        actor: Some(me),
+        source: Some(obj(1)),
+        effects: PROVOKE_MAY,
+        ..Default::default()
+    };
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v, &target_q, &ctx),
+        PlayerAction::ChooseTargets {
+            objects: vec![obj(10)],
+            players: vec![],
+        },
+        "3/3 Provoker targets the 2/2 it kills cleanly over the 6/6 that kills it"
+    );
+
+    // When forced to target the 6/6 (`obj(11)` on the resolving stack ability),
+    // the AI declines `MayDo` so it neither suicides its 3/3 nor untaps the 6/6!
+    let mut v_suicide = v;
+    let mut stack_trigger = permanent(obj(90), me, 0);
+    stack_trigger.types = TypeSet::EMPTY;
+    stack_trigger.power = None;
+    stack_trigger.toughness = None;
+    stack_trigger.targets = vec![baylee_core::ids::TargetRef::Object(
+        baylee_core::ids::DamageSourceRef {
+            object: obj(11),
+            version: 0,
+        },
+    )];
+    stack_trigger.stack_item = Some(baylee_view::StackItem::Ability {
+        source: obj(1),
+        ability: None,
+        text: None,
+        token: None,
+        rules: None,
+    });
+    v_suicide.stack.push(stack_trigger);
+    let may_q = Pending::YesNo {
+        player: me,
+        prompt: baylee_engine::choice::YesNoPrompt::MayDo,
+        source: None,
+    };
+    assert_eq!(
+        HeuristicAgent::new(AIProfile::EXPERT).act_with_context(&v_suicide, &may_q, &ctx),
+        PlayerAction::YesNo(false),
+        "3/3 Provoker declines MayDo against a 6/6"
+    );
+}

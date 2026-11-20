@@ -174,11 +174,13 @@ fn attacking(view: &PlayerView, options: &[BlockOption]) -> Vec<ObjectId> {
 /// one exception is not a judgement but a legality — menace takes two
 /// blockers or none, and [`enforce_menace`] settles that against the finished
 /// declaration rather than while it is being built.
-#[allow(clippy::too_many_lines)] // two-pass block assignment stays in one auditable loop
-pub(crate) fn choose_blocks(
+#[allow(clippy::too_many_lines)] // pre-committed requirements + two-pass block assignment
+pub(crate) fn choose_blocks_with_rules(
     board: &Board,
     options: &[BlockOption],
     life: i32,
+    obeying: &[(ObjectId, ObjectId)],
+    demands: &[baylee_engine::choice::BlockDemand],
 ) -> Vec<(ObjectId, ObjectId)> {
     let view = board.view;
     let attacking = attacking(view, options);
@@ -218,6 +220,90 @@ pub(crate) fn choose_blocks(
     let mut used_blockers: BTreeSet<ObjectId> = BTreeSet::new();
     let mut taken: BTreeSet<ObjectId> = BTreeSet::new();
     let mut still_coming = incoming;
+
+    // Pre-commit required blockers (CR 509.1c) before shallow trade and chump
+    // passes so forced blocks (such as Provoke or Lure) deduct only the damage
+    // they actually stop and leave remaining blockers available to prevent
+    // lethal unblocked attackers. When a required single-attacker blocker has
+    // another legal attacker of equal or higher demand, pick the best combat
+    // exchange among those equal-demand attackers.
+    if !obeying.is_empty() {
+        let demand_of = |blocker: ObjectId, attacker: ObjectId| -> u32 {
+            demands
+                .iter()
+                .find(|d| d.blocker == blocker && d.attacker == attacker)
+                .map_or(0, |d| d.count)
+        };
+        let mut seen_required: BTreeSet<ObjectId> = BTreeSet::new();
+        for &(req_blocker, req_attacker) in obeying {
+            if !seen_required.insert(req_blocker) {
+                continue;
+            }
+            let assigned: Vec<ObjectId> = obeying
+                .iter()
+                .filter(|&&(b, _)| b == req_blocker)
+                .map(|&(_, a)| a)
+                .collect();
+            let chosen_for_blocker: Vec<ObjectId> = if assigned.len() == 1
+                && let Some(option) = options.iter().find(|o| o.blocker == req_blocker)
+                && let Some(blocker_f) = board.fighter(req_blocker)
+            {
+                let needed = demand_of(req_blocker, req_attacker);
+                if needed > 0 {
+                    option
+                        .attackers
+                        .iter()
+                        .copied()
+                        .filter(|&a| {
+                            demand_of(req_blocker, a) >= needed
+                                && view.object(a).is_none_or(|o| {
+                                    o.keywords & baylee_cards_dsl::KeywordSet::MENACE.bits() == 0
+                                        || a == req_attacker
+                                })
+                        })
+                        .max_by_key(|&a| {
+                            let Some(att_f) = board.fighter(a) else {
+                                return (false, false, false, 0, std::cmp::Reverse(a.slot()));
+                            };
+                            let e = exchange(att_f, blocker_f);
+                            let saved = att_f.power - spillover(att_f, blocker_f);
+                            let at_me = aimed(a) == me;
+                            (
+                                still_coming >= life && at_me && saved > 0,
+                                !e.blocker_dies,
+                                e.attacker_dies,
+                                saved,
+                                std::cmp::Reverse(a.slot()),
+                            )
+                        })
+                        .into_iter()
+                        .collect()
+                } else {
+                    assigned
+                }
+            } else {
+                assigned
+            };
+            used_blockers.insert(req_blocker);
+            for attacker_id in chosen_for_blocker {
+                pairs.push((req_blocker, attacker_id));
+                unread.retain(|&id| id != attacker_id);
+                if taken.insert(attacker_id)
+                    && let Some(attacker) = board.fighter(attacker_id)
+                    && let Some(blocker) = board.fighter(req_blocker)
+                {
+                    let saved = attacker.power - spillover(attacker, blocker);
+                    if aimed(attacker_id) == me {
+                        still_coming -= saved;
+                    } else if let Defender::Planeswalker(walker) = aimed(attacker_id)
+                        && let Some(entry) = walkers.iter_mut().find(|w| w.id == walker)
+                    {
+                        entry.coming -= saved;
+                    }
+                }
+            }
+        }
+    }
 
     // Pass 1 (`chump_pass = false`, biggest blockers first) takes free blocks
     // and profitable trades, so a large blocker is not spent chumping while a

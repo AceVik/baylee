@@ -1553,6 +1553,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::DamagePayment { .. }
         | AwaitingOp::SacrificeOpponent { .. }
         | AwaitingOp::SourceColor { .. }
+        | AwaitingOp::ChooseColor
         | AwaitingOp::ManaUnlessPaidColor { .. }
         | AwaitingOp::CounterPlacementChoice
         | AwaitingOp::ShieldCounterChoice
@@ -1667,47 +1668,51 @@ pub(super) fn resume_source_inner(
             }
         }
         AwaitingOp::ShieldFromChosenSource {
-            all_recipients,
+            protects,
+            next_only,
             sources,
             combat_only,
             all_but,
             gain_life,
         } => {
             let you = res.controller;
+            let chosen_color = res.source_chosen_color(state);
+            let chosen_subtype = res.source_chosen_subtype(state);
             if let Some(source) = chosen.and_then(|id| {
-                crate::prevention::ChosenSource::new_with_context(
+                crate::prevention::ChosenSource::new_with_choices(
                     state,
                     id,
                     sources,
                     you,
                     res.rule_context(),
+                    chosen_color,
+                    chosen_subtype,
                 )
             }) {
                 let origin = crate::prevention::ShieldOrigin {
                     source: res.source,
                     ability: resolving_ability(state, res),
                 };
-                state.shields.push_from(
-                    crate::prevention::Shield {
-                        protects: if all_recipients {
-                            crate::prevention::Shielded::Everything
-                        } else {
-                            crate::prevention::Shielded::Player(you)
+                let kind = if next_only {
+                    crate::prevention::ShieldKind::NextFrom {
+                        source,
+                        all_but: u32::from(all_but),
+                        gain_life,
+                        combat_only,
+                    }
+                } else {
+                    crate::prevention::ShieldKind::AllFrom { source }
+                };
+                for protected in protects {
+                    state.shields.push_from(
+                        crate::prevention::Shield {
+                            protects: protected,
+                            kind,
+                            controller: you,
                         },
-                        kind: if all_recipients {
-                            crate::prevention::ShieldKind::AllFrom { source }
-                        } else {
-                            crate::prevention::ShieldKind::NextFrom {
-                                source,
-                                all_but: u32::from(all_but),
-                                gain_life,
-                                combat_only,
-                            }
-                        },
-                        controller: you,
-                    },
-                    Some(origin),
-                );
+                        Some(origin),
+                    );
+                }
             }
         }
         AwaitingOp::RedirectFromChosenSource { protects } => {

@@ -133,6 +133,7 @@ pub fn effect_benefit(effect: &Effect, x: u32) -> Option<i32> {
         | Effect::DealDamageWithLimitedLifeGain { .. }
         | Effect::DealDamageDivided { .. }
         | Effect::TapTarget => Some(-1),
+        Effect::MustBlockSourceIfAbleThisCombat | Effect::MustBlockIfAble { .. } => Some(-2),
         Effect::Blink { .. }
         | Effect::ExileAndReturnAtEndStep
         | Effect::UntapTarget

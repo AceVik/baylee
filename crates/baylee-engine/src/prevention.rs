@@ -109,11 +109,45 @@ pub enum ShieldKind {
         /// The player the damage is dealt to instead.
         to: PlayerId,
     },
+    /// "The next time a `<sources>` would deal [combat] damage [to `<protects>`]
+    /// this turn, prevent that damage" (Circle of Solace, Trained Pronghorn;
+    /// CR 615.7). Appended to preserve replay discriminants.
+    NextMatching {
+        /// Source criterion tested when damage would be dealt.
+        sources: &'static Filter,
+        /// Only combat damage.
+        combat_only: bool,
+        /// Frozen chosen color of the resolving source, when read by `sources`.
+        chosen_color: Option<baylee_core::mana::ManaColor>,
+        /// Frozen chosen subtype of the resolving source, when read by `sources`.
+        chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+        /// Frozen text changes of the resolving instruction.
+        text: TextChangeMap,
+        /// Source object ID ("this" to `sources`).
+        this: ObjectId,
+    },
+    /// "Prevent all [combat] damage that `<sources>` would deal [to `<protects>`]
+    /// this turn" (Prismatic Strands; CR 615.1a). Appended to preserve replay
+    /// discriminants.
+    AllMatching {
+        /// Source criterion tested when damage would be dealt.
+        sources: &'static Filter,
+        /// Only combat damage.
+        combat_only: bool,
+        /// Frozen chosen color of the resolving source or instruction.
+        chosen_color: Option<baylee_core::mana::ManaColor>,
+        /// Frozen chosen subtype of the resolving source or instruction.
+        chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+        /// Frozen text changes of the resolving instruction.
+        text: TextChangeMap,
+        /// Source object ID ("this" to `sources`).
+        this: ObjectId,
+    },
 }
 
 /// The source a "source of your choice" shield waits for (CR 609.7a), and
 /// what it must still be when it would deal the damage (CR 609.7b, 615.9).
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ChosenSource {
     /// The object chosen.
     pub id: ObjectId,
@@ -130,6 +164,28 @@ pub struct ChosenSource {
     pub this: ObjectId,
     /// Literal words frozen when the creating spell or ability resolved.
     pub text: TextChangeMap,
+    /// Frozen chosen color when `filter` reads `Filter::OfSourceChosenColor`.
+    pub chosen_color: Option<baylee_core::mana::ManaColor>,
+    /// Frozen chosen subtype when `filter` reads `Filter::MatchesChosenTypeOfSource`.
+    pub chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+}
+
+impl std::hash::Hash for ChosenSource {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+        self.version.hash(state);
+        self.was_spell.hash(state);
+        self.filter.hash(state);
+        self.you.hash(state);
+        self.this.hash(state);
+        self.text.hash(state);
+        if let Some(color) = self.chosen_color {
+            (1_u8, color).hash(state);
+        }
+        if let Some(subtype) = self.chosen_subtype {
+            (2_u8, subtype).hash(state);
+        }
+    }
 }
 
 impl ChosenSource {
@@ -149,7 +205,7 @@ impl ChosenSource {
                             version: source.version,
                         },
                     )))
-            && crate::eval::matches_damage_source_with_context(
+            && crate::eval::matches_damage_source_with_choices(
                 self.filter,
                 state,
                 source,
@@ -158,9 +214,11 @@ impl ChosenSource {
                     source: self.this,
                     text: self.text,
                     resolved_name: None,
-                    resolved_subtype: None,
+                    resolved_subtype: self.chosen_subtype,
                     reference: None,
                 },
+                self.chosen_color,
+                self.chosen_subtype,
             )
     }
     /// `chosen` as it is now, picked by `you` for the ability of `this`.
@@ -190,6 +248,28 @@ impl ChosenSource {
         you: PlayerId,
         context: RuleContext,
     ) -> Option<Self> {
+        let color = state
+            .object(context.source)
+            .and_then(|src| src.chosen_color);
+        let subtype = context.resolved_subtype.or_else(|| {
+            state
+                .object(context.source)
+                .and_then(|src| src.chosen_subtype)
+        });
+        Self::new_with_choices(state, chosen, filter, you, context, color, subtype)
+    }
+
+    /// Capture a source criterion with explicit frozen source choices.
+    #[must_use]
+    pub fn new_with_choices(
+        state: &GameState,
+        chosen: DamageSourceRef,
+        filter: &'static Filter,
+        you: PlayerId,
+        context: RuleContext,
+        chosen_color: Option<baylee_core::mana::ManaColor>,
+        chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+    ) -> Option<Self> {
         let obj = state.source_object(chosen)?;
         Some(Self {
             id: chosen.object,
@@ -199,8 +279,28 @@ impl ChosenSource {
             you,
             this: context.source,
             text: context.text,
+            chosen_color: crate::eval::filter_reads_chosen_color(filter)
+                .then_some(chosen_color)
+                .flatten(),
+            chosen_subtype: crate::eval::filter_reads_chosen_subtype(filter)
+                .then_some(chosen_subtype)
+                .flatten(),
         })
     }
+}
+
+/// Eligible exact sources under a captured source-selection criterion and
+/// frozen source choices.
+#[must_use]
+pub fn source_options_with_choices(
+    state: &mut GameState,
+    filter: &'static Filter,
+    you: PlayerId,
+    context: RuleContext,
+    chosen_color: Option<baylee_core::mana::ManaColor>,
+    chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+) -> Vec<DamageSourceRef> {
+    crate::sources::options_with_choices(state, filter, you, context, chosen_color, chosen_subtype)
 }
 
 /// Every currently eligible exact source matching the filter (CR 609.7a).

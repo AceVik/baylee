@@ -791,38 +791,9 @@ impl HeuristicAgent {
         // beside it (#07). Only the ones worth more than nothing are named
         // where the count lets it be none ("you may exile another target").
         if players.is_empty()
-            && context
-                .effects
-                .iter()
-                .any(|e| matches!(e, Effect::Blink { .. } | Effect::ExileAndReturnAtEndStep))
-            && let Some(source) = context.source
+            && let Some(action) = self.blink_or_provoke_targets(view, objects, (min, max), context)
         {
-            let mut scored: Vec<(i64, ObjectId)> = objects
-                .iter()
-                .filter_map(|&id| {
-                    self.effects_worth(
-                        view,
-                        crate::worth::Origin::of(view, source),
-                        context.effects,
-                        crate::worth::Aim::Object(id),
-                        context.x,
-                    )
-                    .map(|worth| (worth, id))
-                })
-                .collect();
-            if scored.len() == objects.len() {
-                scored.sort_by_key(|&(worth, id)| (std::cmp::Reverse(worth), id));
-                let take = scored
-                    .iter()
-                    .take_while(|(worth, _)| *worth > 0)
-                    .count()
-                    .max(usize::try_from(min).unwrap_or(usize::MAX))
-                    .min(usize::try_from(max).unwrap_or(usize::MAX));
-                return Some(PlayerAction::ChooseTargets {
-                    objects: scored.into_iter().take(take).map(|(_, id)| id).collect(),
-                    players: vec![],
-                });
-            }
+            return Some(action);
         }
         // A same-name removal spell can destroy our own copies as well.
         // Rank its whole exchange, not just the permanent named as target.
@@ -933,6 +904,69 @@ impl HeuristicAgent {
             objects: chosen,
             players: chosen_players,
         }
+    }
+
+    fn blink_or_provoke_targets(
+        &self,
+        view: &PlayerView,
+        objects: &[ObjectId],
+        (min, max): (u32, u32),
+        context: &DecisionContext<'_>,
+    ) -> Option<PlayerAction> {
+        let source = context.source?;
+        let unwrapped_effects = match crate::optional::may_branch(context.effects) {
+            Some(Ok(inner)) => inner,
+            _ => context.effects,
+        };
+        let is_blink = context
+            .effects
+            .iter()
+            .any(|e| matches!(e, Effect::Blink { .. } | Effect::ExileAndReturnAtEndStep));
+        let is_provoke = unwrapped_effects.iter().any(|e| {
+            matches!(
+                e,
+                Effect::MustBlockSourceIfAbleThisCombat
+                    | Effect::MustBlockIfAble {
+                        attacker: baylee_cards_dsl::TargetSpec::ThisObject,
+                        ..
+                    }
+            )
+        });
+        if !is_blink && !is_provoke {
+            return None;
+        }
+        let eval_effects = if is_provoke {
+            unwrapped_effects
+        } else {
+            context.effects
+        };
+        let mut scored: Vec<(i64, ObjectId)> = objects
+            .iter()
+            .filter_map(|&id| {
+                self.effects_worth(
+                    view,
+                    crate::worth::Origin::of(view, source),
+                    eval_effects,
+                    crate::worth::Aim::Object(id),
+                    context.x,
+                )
+                .map(|worth| (worth, id))
+            })
+            .collect();
+        if scored.len() != objects.len() {
+            return None;
+        }
+        scored.sort_by_key(|&(worth, id)| (std::cmp::Reverse(worth), id));
+        let take = scored
+            .iter()
+            .take_while(|(worth, _)| *worth > 0)
+            .count()
+            .max(usize::try_from(min).unwrap_or(usize::MAX))
+            .min(usize::try_from(max).unwrap_or(usize::MAX));
+        Some(PlayerAction::ChooseTargets {
+            objects: scored.into_iter().take(take).map(|(_, id)| id).collect(),
+            players: vec![],
+        })
     }
 
     /// Names the best of `offer` for an effect that means `m`, or `None`

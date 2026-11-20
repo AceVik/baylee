@@ -502,26 +502,39 @@ impl HeuristicAgent {
             Pending::ChooseBlockers {
                 blockers,
                 obeying,
+                demands,
                 bounds,
                 ..
             } => {
-                let (searched, nodes) = search::blockers_within(
+                let (mut pairs, nodes) = search::blockers_within_rules(
                     view,
                     &blockers,
+                    &obeying,
+                    &demands,
+                    &bounds,
                     view.seat(player).map_or(0, |s| s.life),
                     self.profile,
                     self.work.nodes(self.profile.node_budget()),
                 );
                 self.work.spend(u64::from(nodes));
-                let mut pairs = combat::obey_block_rules(searched, &obeying, |attacker| {
-                    view.object(attacker).is_some_and(|o| {
-                        o.keywords & baylee_cards_dsl::KeywordSet::MENACE.bits() != 0
-                    })
-                });
-                // Whatever chose them, the blocks are held to the counts the
-                // question states (menace, CR 702.111b), which are the ones
-                // the engine holds the declaration to.
-                combat::keep_bounds(&board::Board::new(view), &blockers, &bounds, &mut pairs);
+                let board = board::Board::new(view);
+                combat::keep_bounds(&board, &blockers, &bounds, &mut pairs);
+                let demand_of = |b: ObjectId, a: ObjectId| -> u64 {
+                    demands
+                        .iter()
+                        .find(|d| d.blocker == b && d.attacker == a)
+                        .map_or(0, |d| u64::from(d.count))
+                };
+                let required_score: u64 = obeying.iter().map(|&(b, a)| demand_of(b, a)).sum();
+                let achieved_score: u64 = pairs.iter().map(|&(b, a)| demand_of(b, a)).sum();
+                if achieved_score < required_score {
+                    pairs = combat::obey_block_rules(pairs, &obeying, |attacker| {
+                        view.object(attacker).is_some_and(|o| {
+                            o.keywords & baylee_cards_dsl::KeywordSet::MENACE.bits() != 0
+                        })
+                    });
+                    combat::keep_bounds(&board, &blockers, &bounds, &mut pairs);
+                }
                 PlayerAction::DeclareBlockers { blockers: pairs }
             }
             Pending::LegendChoice { options, .. } => PlayerAction::ChooseObjects {

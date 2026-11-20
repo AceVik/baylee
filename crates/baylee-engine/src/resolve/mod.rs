@@ -705,6 +705,44 @@ impl Resolution {
             reference: self.targets.first().copied().or(self.event_object),
         }
     }
+
+    /// Chosen color for this resolution: resolution-time choice first, else the
+    /// exact originating source incarnation's `chosen_color` (including LKI in
+    /// `state.damage_sources` after source removal or blink, CR 113.7a).
+    pub(crate) fn source_chosen_color(&self, state: &GameState) -> Option<ManaColor> {
+        self.subject.chosen_color.or_else(|| {
+            if let Some(version) = source_version(state, self) {
+                let reference = baylee_core::ids::DamageSourceRef {
+                    object: self.source,
+                    version,
+                };
+                if let Some(obj) = state.source_object(reference) {
+                    return obj.chosen_color;
+                }
+            }
+            state.object(self.source).and_then(|obj| obj.chosen_color)
+        })
+    }
+
+    /// Chosen creature subtype for this resolution: resolution-time choice
+    /// first, else the exact originating source incarnation's `chosen_subtype`.
+    pub(crate) fn source_chosen_subtype(
+        &self,
+        state: &GameState,
+    ) -> Option<baylee_core::ids::SubtypeId> {
+        self.subject.chosen_subtype.or_else(|| {
+            if let Some(version) = source_version(state, self) {
+                let reference = baylee_core::ids::DamageSourceRef {
+                    object: self.source,
+                    version,
+                };
+                if let Some(obj) = state.source_object(reference) {
+                    return obj.chosen_subtype;
+                }
+            }
+            state.object(self.source).and_then(|obj| obj.chosen_subtype)
+        })
+    }
 }
 
 /// Amount evaluation with target context ([`Amount::TargetPower`]).

@@ -46,6 +46,13 @@ pub(super) fn exec_immediate(
             res.awaiting = Some(AwaitingOp::SourceColor { source });
             Some(pending)
         }
+        Effect::ChooseColor => {
+            res.awaiting = Some(AwaitingOp::ChooseColor);
+            Some(Pending::ChooseColor {
+                player: you,
+                options: ManaColor::ALL[..5].to_vec(),
+            })
+        }
         Effect::PlayerMayPayManaAndLifeEachThenElse {
             player,
             mana,
@@ -393,6 +400,9 @@ pub(super) fn exec_immediate(
         | Effect::ChooseDamageSourcePreventAllThisTurn
         | Effect::ChooseDamageSourcePreventAllThisTurnMatching(_)
         | Effect::PreventNextFromChosenSource { .. }
+        | Effect::PreventFromChosenSource { .. }
+        | Effect::PreventNextFromMatchingSources { .. }
+        | Effect::PreventAllDamageFromMatchingThisTurn { .. }
         | Effect::RedirectNextFromChosenSource { .. }
         | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. } => {
             life::exec(state, res, op)
@@ -2885,6 +2895,77 @@ pub(super) fn exec_immediate(
         Effect::UntapTarget => {
             for &target in &res.targets {
                 untap(state, target);
+            }
+            None
+        }
+        Effect::MustBlockSourceIfAbleThisCombat => {
+            if let Some(attacker) =
+                subjects::source(state, res).filter(|r| subjects::on_battlefield(state, *r))
+            {
+                for &target in &res.targets {
+                    if let Some(blocker) = subjects::target(state, res, target)
+                        .filter(|r| subjects::on_battlefield(state, *r))
+                        && blocker != attacker
+                    {
+                        state.per_turn.must_block_pairs.0.push(
+                            crate::state::MustBlockRequirement {
+                                blocker,
+                                attacker,
+                                this_combat_only: true,
+                            },
+                        );
+                    }
+                }
+            }
+            None
+        }
+        Effect::MustBlockIfAble {
+            blocker,
+            attacker,
+            this_combat_only,
+        } => {
+            let resolve_group =
+                |spec: TargetSpec, use_second: bool| -> Vec<baylee_core::ids::DamageSourceRef> {
+                    match spec {
+                        TargetSpec::ThisObject => subjects::source(state, res)
+                            .filter(|r| subjects::on_battlefield(state, *r))
+                            .into_iter()
+                            .collect(),
+                        TargetSpec::EventObject => subjects::event(state, res)
+                            .filter(|r| subjects::on_battlefield(state, *r))
+                            .into_iter()
+                            .collect(),
+                        _ if use_second => res
+                            .second_targets
+                            .iter()
+                            .filter_map(|&id| state.source_identity(id))
+                            .filter(|r| subjects::on_battlefield(state, *r))
+                            .collect(),
+                        _ => res
+                            .targets
+                            .iter()
+                            .filter_map(|&id| subjects::target(state, res, id))
+                            .filter(|r| subjects::on_battlefield(state, *r))
+                            .collect(),
+                    }
+                };
+            let attacker_is_second = !res.second_targets.is_empty()
+                && !matches!(attacker, TargetSpec::ThisObject | TargetSpec::EventObject)
+                && !matches!(blocker, TargetSpec::ThisObject | TargetSpec::EventObject);
+            let blockers = resolve_group(blocker, false);
+            let attackers = resolve_group(attacker, attacker_is_second);
+            for b in &blockers {
+                for a in &attackers {
+                    if b != a {
+                        state.per_turn.must_block_pairs.0.push(
+                            crate::state::MustBlockRequirement {
+                                blocker: *b,
+                                attacker: *a,
+                                this_combat_only,
+                            },
+                        );
+                    }
+                }
             }
             None
         }

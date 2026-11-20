@@ -22,6 +22,7 @@ impl DamageWork {
                 if !shield.protects.covers(state, part.view.recipient) {
                     continue;
                 }
+                let mut shield_key = EffectKey::Shield(id);
                 let kind = match shield.kind {
                     ShieldKind::Next(remaining) if remaining > 0 => Kind::PreventNext { remaining },
                     ShieldKind::RedirectNext { remaining, to }
@@ -59,6 +60,81 @@ impl DamageWork {
                             gain_life,
                         }
                     }
+                    ShieldKind::AllMatching {
+                        sources,
+                        combat_only,
+                        chosen_color,
+                        chosen_subtype,
+                        text,
+                        this,
+                    } if (!combat_only || part.view.is_combat)
+                        && state
+                            .damage_source(part.view.source, part.source_version)
+                            .is_some_and(|actual| {
+                                crate::eval::matches_damage_source_with_choices(
+                                    sources,
+                                    state,
+                                    actual,
+                                    shield.controller,
+                                    crate::text_changes::RuleContext {
+                                        source: this,
+                                        text,
+                                        resolved_name: None,
+                                        resolved_subtype: chosen_subtype,
+                                        reference: None,
+                                    },
+                                    chosen_color,
+                                    chosen_subtype,
+                                )
+                            }) =>
+                    {
+                        Kind::PreventAll
+                    }
+                    ShieldKind::NextMatching {
+                        sources,
+                        combat_only,
+                        chosen_color,
+                        chosen_subtype,
+                        text,
+                        this,
+                    } if (!combat_only || part.view.is_combat) => {
+                        let source_ref = baylee_core::ids::DamageSourceRef {
+                            object: part.view.source,
+                            version: part.source_version.unwrap_or(0),
+                        };
+                        if !self
+                            .locked_matching_shields
+                            .iter()
+                            .all(|(sid, sref)| *sid != id || *sref == source_ref)
+                            || !state
+                                .damage_source(part.view.source, part.source_version)
+                                .is_some_and(|actual| {
+                                    crate::eval::matches_damage_source_with_choices(
+                                        sources,
+                                        state,
+                                        actual,
+                                        shield.controller,
+                                        crate::text_changes::RuleContext {
+                                            source: this,
+                                            text,
+                                            resolved_name: None,
+                                            resolved_subtype: chosen_subtype,
+                                            reference: None,
+                                        },
+                                        chosen_color,
+                                        chosen_subtype,
+                                    )
+                                })
+                        {
+                            continue;
+                        }
+                        shield_key = EffectKey::ShieldSource(id, source_ref);
+                        Kind::PreventFromSource {
+                            source: part.view.source,
+                            all_but: 0,
+                            gain_life: false,
+                        }
+                    }
                     ShieldKind::RedirectNextFrom { source, to }
                         if damageable_recipient(state, part.view.recipient)
                             && !state.has_left(to)
@@ -82,14 +158,7 @@ impl DamageWork {
                 {
                     continue;
                 }
-                add(
-                    &mut out,
-                    part,
-                    EffectKey::Shield(id),
-                    kind,
-                    origin,
-                    shield.controller,
-                );
+                add(&mut out, part, shield_key, kind, origin, shield.controller);
             }
             if let Some((remaining, origin, controller)) = self.paid
                 && remaining > 0
@@ -122,6 +191,7 @@ impl DamageWork {
     fn continuous_candidates(&self, state: &GameState, part: &Part, out: &mut Vec<Candidate>) {
         for fx in state.effects.iter() {
             let mut key = EffectKey::Continuous(fx.id);
+            let mut group_recipient = part.view.recipient;
             let kind = match fx.modifier {
                 Modifier::PlayerProtectionFromEverything { who } => {
                     let DamageTarget::Player(player) = part.view.recipient else {
@@ -298,6 +368,143 @@ impl DamageWork {
                     }
                     Kind::PreventAll
                 }
+                Modifier::PreventDamagePerSource {
+                    sources,
+                    include_you,
+                    combat_only,
+                    amount,
+                } => {
+                    if combat_only && !part.view.is_combat {
+                        continue;
+                    }
+                    let covers = match part.view.recipient {
+                        DamageTarget::Player(player) => include_you && player == fx.controller,
+                        DamageTarget::Object(target) => state
+                            .object(target)
+                            .is_some_and(|o| crate::effects::applies_to(state, fx, o)),
+                    };
+                    if !covers {
+                        continue;
+                    }
+                    let Some(source) = state.damage_source(part.view.source, part.source_version)
+                    else {
+                        continue;
+                    };
+                    let fx_source = fx.source.unwrap_or(source.id);
+                    let fx_obj = state.object(fx_source);
+                    let chosen_color = fx_obj.and_then(|o| o.chosen_color);
+                    let chosen_subtype = fx_obj.and_then(|o| o.chosen_subtype);
+                    let context = crate::text_changes::RuleContext {
+                        source: fx_source,
+                        text: state.effect_text(fx),
+                        resolved_name: None,
+                        resolved_subtype: chosen_subtype,
+                        reference: None,
+                    };
+                    if !crate::eval::matches_damage_source_with_choices(
+                        sources,
+                        state,
+                        source,
+                        fx.controller,
+                        context,
+                        chosen_color,
+                        chosen_subtype,
+                    ) {
+                        continue;
+                    }
+                    let budget = crate::eval::amount_with_context(
+                        &amount,
+                        state,
+                        fx.controller,
+                        context,
+                        None,
+                    );
+                    let source_ref = baylee_core::ids::DamageSourceRef {
+                        object: part.view.source,
+                        version: part.source_version.unwrap_or(source.version),
+                    };
+                    let used = self.source_prevention_spent(fx.id, source_ref, None);
+                    let remaining = budget.saturating_sub(used);
+                    if remaining == 0 {
+                        continue;
+                    }
+                    key = EffectKey::SourcePrevention {
+                        effect: fx.id,
+                        source: source_ref,
+                        scope: None,
+                    };
+                    if Self::chooser(state, part.view.recipient) == fx.controller {
+                        group_recipient = DamageTarget::Player(fx.controller);
+                    }
+                    Kind::PreventThisEvent { remaining }
+                }
+                Modifier::PreventDamageToAffectedPerSource {
+                    sources,
+                    combat_only,
+                    amount,
+                } => {
+                    if combat_only && !part.view.is_combat {
+                        continue;
+                    }
+                    let DamageTarget::Object(target) = part.view.recipient else {
+                        continue;
+                    };
+                    let Some(object) = state
+                        .object(target)
+                        .filter(|o| crate::effects::applies_to(state, fx, o))
+                    else {
+                        continue;
+                    };
+                    let Some(source) = state.damage_source(part.view.source, part.source_version)
+                    else {
+                        continue;
+                    };
+                    let fx_source = fx.source.unwrap_or(object.id);
+                    let fx_obj = state.object(fx_source);
+                    let chosen_color = fx_obj.and_then(|o| o.chosen_color);
+                    let chosen_subtype = fx_obj.and_then(|o| o.chosen_subtype);
+                    let context = crate::text_changes::RuleContext {
+                        source: fx_source,
+                        text: state.effect_text(fx),
+                        resolved_name: None,
+                        resolved_subtype: chosen_subtype,
+                        reference: None,
+                    };
+                    if !crate::eval::matches_damage_source_with_choices(
+                        sources,
+                        state,
+                        source,
+                        fx.controller,
+                        context,
+                        chosen_color,
+                        chosen_subtype,
+                    ) {
+                        continue;
+                    }
+                    let budget = crate::eval::amount_with_context(
+                        &amount,
+                        state,
+                        fx.controller,
+                        context,
+                        None,
+                    );
+                    let source_ref = baylee_core::ids::DamageSourceRef {
+                        object: part.view.source,
+                        version: part.source_version.unwrap_or(source.version),
+                    };
+                    let scope = Some(part.view.recipient);
+                    let used = self.source_prevention_spent(fx.id, source_ref, scope);
+                    let remaining = budget.saturating_sub(used);
+                    if remaining == 0 {
+                        continue;
+                    }
+                    key = EffectKey::SourcePrevention {
+                        effect: fx.id,
+                        source: source_ref,
+                        scope,
+                    };
+                    Kind::PreventThisEvent { remaining }
+                }
                 Modifier::PreventDamageFromIt
                     if part.view.is_combat
                         && state
@@ -405,8 +612,20 @@ impl DamageWork {
                 source,
                 ability: None,
             });
-            add(out, part, key, kind, origin, fx.controller);
+            add_for_recipient(out, part, group_recipient, key, kind, origin, fx.controller);
         }
+    }
+
+    fn source_prevention_spent(
+        &self,
+        effect: baylee_core::ids::EffectId,
+        source: baylee_core::ids::DamageSourceRef,
+        scope: Option<DamageTarget>,
+    ) -> u32 {
+        self.source_prevention_used
+            .iter()
+            .find(|(e, s, sc, _)| *e == effect && *s == source && *sc == scope)
+            .map_or(0, |(_, _, _, used)| *used)
     }
 }
 
@@ -418,18 +637,38 @@ pub(super) fn add(
     origin: Option<ShieldOrigin>,
     controller: baylee_core::ids::PlayerId,
 ) {
+    add_for_recipient(
+        out,
+        part,
+        part.view.recipient,
+        key,
+        kind,
+        origin,
+        controller,
+    );
+}
+
+fn add_for_recipient(
+    out: &mut Vec<Candidate>,
+    part: &Part,
+    recipient: DamageTarget,
+    key: EffectKey,
+    kind: Kind,
+    origin: Option<ShieldOrigin>,
+    controller: baylee_core::ids::PlayerId,
+) {
     if part.applied.contains(&key) {
         return;
     }
     if let Some(candidate) = out
         .iter_mut()
-        .find(|c| c.key == key && c.recipient == part.view.recipient)
+        .find(|c| c.key == key && c.recipient == recipient)
     {
         candidate.option.parts.push(part.view.id);
     } else {
         out.push(Candidate {
             key,
-            recipient: part.view.recipient,
+            recipient,
             option: DamageEffectOption {
                 id: 0,
                 source: origin.map(|o| o.source),

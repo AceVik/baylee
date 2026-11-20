@@ -472,6 +472,7 @@ pub struct BlockRules<'a> {
     any_number: Vec<&'a crate::effects::ContinuousEffect>,
     lures: Vec<&'a crate::effects::ContinuousEffect>,
     each: Vec<&'a crate::effects::ContinuousEffect>,
+    pairs: Vec<crate::state::MustBlockRequirement>,
     unless_pay_mana: Vec<&'a crate::effects::ContinuousEffect>,
     unless_more_creatures: Vec<&'a crate::effects::ContinuousEffect>,
     creature_counts: Option<super::CreatureCounts>,
@@ -491,6 +492,20 @@ impl<'a> BlockRules<'a> {
             any_number: Vec::new(),
             lures: Vec::new(),
             each: Vec::new(),
+            pairs: state
+                .per_turn
+                .must_block_pairs
+                .iter()
+                .copied()
+                .filter(|req| {
+                    state.object(req.blocker.object).is_some_and(|b| {
+                        b.zone == crate::zone::Zone::Battlefield && b.version == req.blocker.version
+                    }) && state.object(req.attacker.object).is_some_and(|a| {
+                        a.zone == crate::zone::Zone::Battlefield
+                            && a.version == req.attacker.version
+                    })
+                })
+                .collect(),
             unless_pay_mana: Vec::new(),
             unless_more_creatures: Vec::new(),
             creature_counts: None,
@@ -609,7 +624,7 @@ impl<'a> BlockRules<'a> {
     /// declaration obeys the most that can be obeyed, which is none.
     #[must_use]
     pub fn has_requirements(&self) -> bool {
-        !self.lures.is_empty() || !self.each.is_empty()
+        !self.lures.is_empty() || !self.each.is_empty() || !self.pairs.is_empty()
     }
 
     /// Total generic mana cost `blocker`'s controller must pay to declare it
@@ -721,7 +736,12 @@ impl<'a> BlockRules<'a> {
                     .count()
             })
         };
-        on(&self.lures, attacker) + on(&self.each, blocker)
+        let pair_demands = self
+            .pairs
+            .iter()
+            .filter(|req| req.blocker.object == blocker && req.attacker.object == attacker)
+            .count();
+        on(&self.lures, attacker) + on(&self.each, blocker) + pair_demands
     }
 
     /// How many requirements `declared` obeys. Each pair counts once, so a
@@ -828,8 +848,137 @@ impl<'a> BlockRules<'a> {
                 }
             }
         }
-        chosen
+        self.refine_obeying(options, chosen)
     }
+
+    /// Refines `greedy` only when a strictly higher CR 509.1c requirement count
+    /// is reachable under `max_blockers`, per-blocker capacity, and minimum
+    /// blocker bounds (such as menace or `MaxBlockersPerCombat` with competing
+    /// pair/lure demands). Preserves `greedy` byte-for-byte whenever its score
+    /// is already optimal.
+    fn refine_obeying(
+        &self,
+        options: &[crate::choice::BlockOption],
+        greedy: Vec<(ObjectId, ObjectId)>,
+    ) -> Vec<(ObjectId, ObjectId)> {
+        let mut best_score = self.obeyed(&greedy);
+        let relevant_attackers: std::collections::BTreeSet<ObjectId> = options
+            .iter()
+            .flat_map(|o| {
+                o.attackers
+                    .iter()
+                    .copied()
+                    .filter(|&a| self.demands(o.blocker, a) > 0)
+            })
+            .collect();
+        if relevant_attackers.is_empty() {
+            return greedy;
+        }
+        let relevant_ref = &relevant_attackers;
+        let edges: Vec<(ObjectId, ObjectId, usize)> = options
+            .iter()
+            .flat_map(|o| {
+                let blocker = o.blocker;
+                o.attackers
+                    .iter()
+                    .copied()
+                    .filter(move |&a| relevant_ref.contains(&a) && self.mana_tax(blocker, a) == 0)
+                    .map(move |a| (blocker, a, self.demands(blocker, a)))
+            })
+            .collect();
+        if edges.len() > 18 {
+            return greedy;
+        }
+        let mut suffix_upper = vec![0_usize; edges.len() + 1];
+        for i in (0..edges.len()).rev() {
+            suffix_upper[i] = suffix_upper[i + 1] + edges[i].2;
+        }
+        if suffix_upper[0] <= best_score {
+            return greedy;
+        }
+        let base_distinct: std::collections::BTreeSet<ObjectId> = self
+            .state
+            .combat
+            .blockers
+            .iter()
+            .map(|b| b.blocker)
+            .collect();
+        let minimum = |attacker: ObjectId| {
+            block_bound(self.state, attacker).map_or(0, |bound| {
+                usize::try_from(bound.min_blockers).unwrap_or(usize::MAX)
+            })
+        };
+        let room = |blocker: ObjectId| self.capacity(blocker).unwrap_or(usize::MAX);
+        let mut best = greedy;
+        let mut current: Vec<(ObjectId, ObjectId)> = Vec::new();
+        let mut ctx = ObeySearch {
+            rules: self,
+            edges: &edges,
+            suffix_upper: &suffix_upper,
+            base_distinct: &base_distinct,
+            relevant_attackers: &relevant_attackers,
+            best_score: &mut best_score,
+            best: &mut best,
+        };
+        obey_dfs(0, 0, &mut current, &mut ctx, &minimum, &room);
+        best
+    }
+}
+
+struct ObeySearch<'b, 'a> {
+    rules: &'b BlockRules<'a>,
+    edges: &'b [(ObjectId, ObjectId, usize)],
+    suffix_upper: &'b [usize],
+    base_distinct: &'b std::collections::BTreeSet<ObjectId>,
+    relevant_attackers: &'b std::collections::BTreeSet<ObjectId>,
+    best_score: &'b mut usize,
+    best: &'b mut Vec<(ObjectId, ObjectId)>,
+}
+
+fn obey_dfs(
+    idx: usize,
+    score: usize,
+    current: &mut Vec<(ObjectId, ObjectId)>,
+    ctx: &mut ObeySearch<'_, '_>,
+    minimum: &dyn Fn(ObjectId) -> usize,
+    room: &dyn Fn(ObjectId) -> usize,
+) {
+    if score + ctx.suffix_upper[idx] <= *ctx.best_score {
+        return;
+    }
+    if idx == ctx.edges.len() {
+        for &attacker in ctx.relevant_attackers {
+            let count = current.iter().filter(|(_, a)| *a == attacker).count();
+            if count > 0 && count < minimum(attacker) {
+                return;
+            }
+        }
+        if score > *ctx.best_score {
+            *ctx.best_score = score;
+            ctx.best.clone_from(current);
+        }
+        return;
+    }
+    let (blocker, attacker, demand) = ctx.edges[idx];
+    let used_by_blocker = current.iter().filter(|(b, _)| *b == blocker).count();
+    let distinct_ok = match ctx.rules.max_blockers {
+        None => true,
+        Some(max) => {
+            ctx.base_distinct.contains(&blocker) || used_by_blocker > 0 || {
+                let mut set = ctx.base_distinct.clone();
+                for &(b, _) in current.iter() {
+                    set.insert(b);
+                }
+                set.len() < max
+            }
+        }
+    };
+    if distinct_ok && used_by_blocker < room(blocker) {
+        current.push((blocker, attacker));
+        obey_dfs(idx + 1, score + demand, current, ctx, minimum, room);
+        current.pop();
+    }
+    obey_dfs(idx + 1, score, current, ctx, minimum, room);
 }
 
 impl GameState {

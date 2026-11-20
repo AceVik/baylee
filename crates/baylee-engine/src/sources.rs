@@ -1071,6 +1071,8 @@ fn is_prevention(modifier: &Modifier) -> bool {
             | Modifier::PreventDamageToYouFrom(_)
             | Modifier::PreventCombatDamageFrom(_)
             | Modifier::PreventDamageFrom(_)
+            | Modifier::PreventDamagePerSource { .. }
+            | Modifier::PreventDamageToAffectedPerSource { .. }
             | Modifier::RedirectDamageToYou(_)
             | Modifier::CountersPreventDamage(_)
     )
@@ -1194,18 +1196,31 @@ pub(crate) fn options_with_context(
     you: PlayerId,
     context: crate::text_changes::RuleContext,
 ) -> Vec<DamageSourceRef> {
+    options_with_choices(state, filter, you, context, None, None)
+}
+
+pub(crate) fn options_with_choices(
+    state: &mut GameState,
+    filter: &'static Filter,
+    you: PlayerId,
+    context: crate::text_changes::RuleContext,
+    chosen_color: Option<baylee_core::mana::ManaColor>,
+    chosen_subtype: Option<baylee_core::ids::SubtypeId>,
+) -> Vec<DamageSourceRef> {
     state
         .eligible_damage_sources()
         .into_iter()
         .filter(|&source| {
             state.source_object(source).is_some_and(|obj| {
-                crate::eval::matches_projected_with_context(
+                crate::eval::matches_projected_with_choices(
                     filter,
                     state,
                     obj,
                     obj.characteristics(),
                     you,
                     context,
+                    chosen_color,
+                    chosen_subtype,
                 )
             })
         })

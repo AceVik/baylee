@@ -16,6 +16,7 @@ mod event_groups;
 mod events;
 mod flanking;
 mod matching;
+mod provoke;
 mod radiation;
 mod return_keywords;
 mod sagas;
@@ -758,6 +759,9 @@ fn collect_for_objects(
     let batch_has_blocks = events
         .iter()
         .any(|entry| matches!(entry.event, GameEvent::BecameBlocker { .. }));
+    let batch_has_attacks = events
+        .iter()
+        .any(|entry| matches!(entry.event, GameEvent::BecameAttacker { .. }));
     for permanent in objects {
         // The look-back applies only to sources that left during this
         // event batch. A card already in a graveyard has no battlefield
@@ -845,6 +849,7 @@ fn collect_for_objects(
             }
         }
         flanking::collect(state, obj, events, &moves, batch_has_blocks, triggers);
+        provoke::collect(state, obj, events, &moves, batch_has_attacks, triggers);
         if !all_kinds {
             return_keywords::collect(state, obj, events, triggers);
         }

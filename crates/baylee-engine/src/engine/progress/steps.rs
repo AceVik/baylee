@@ -183,6 +183,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     )
                 });
                 self.state.combat = crate::combat::CombatState::default();
+                self.state
+                    .per_turn
+                    .must_block_pairs
+                    .0
+                    .retain(|req| !req.this_combat_only);
                 // Nothing is attacking any more, so an anthem conditioned on
                 // it stops applying — and the removal below only bumps the
                 // effect generation when there *was* an until-end-of-combat

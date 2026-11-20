@@ -654,6 +654,34 @@ impl GameState {
             .collect();
         placements.sort_unstable();
         placements.hash(h);
+        self.hash_must_block_pairs(h, position);
+    }
+
+    fn hash_must_block_pairs(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
+        if self.per_turn.must_block_pairs.is_empty() {
+            return;
+        }
+        let mut must_block: Vec<_> = self
+            .per_turn
+            .must_block_pairs
+            .iter()
+            .filter(|req| {
+                self.object(req.blocker.object)
+                    .is_some_and(|b| b.version == req.blocker.version)
+                    && self
+                        .object(req.attacker.object)
+                        .is_some_and(|a| a.version == req.attacker.version)
+            })
+            .map(|req| {
+                (
+                    position(req.blocker.object),
+                    position(req.attacker.object),
+                    req.this_combat_only,
+                )
+            })
+            .collect();
+        must_block.sort_unstable();
+        must_block.hash(h);
     }
 
     /// Every zone, in a fixed order — the canonical ordering object
@@ -715,90 +743,128 @@ fn hash_shields(h: &mut Hasher, state: &GameState, position: &dyn Fn(ObjectId) -
             }
             crate::prevention::Shielded::Everything => h.u8(2),
         }
-        match shield.kind {
-            crate::prevention::ShieldKind::RedirectSource { source, to, next } => {
-                h.u8(6);
-                hash_chosen_source(h, state, &source, position);
-                match to {
-                    crate::prevention::RedirectDestination::Object(reference) => {
-                        h.u8(0);
-                        h.u32(position(reference.object));
-                        h.u8(moves_since(
-                            state.object(reference.object),
-                            reference.version,
-                        ));
-                    }
-                    crate::prevention::RedirectDestination::SourceController => h.u8(1),
-                }
-                h.boolean(next);
-            }
-            crate::prevention::ShieldKind::ReflectNextSource { source, reflection } => {
-                h.u8(7);
-                hash_chosen_source(h, state, &source, position);
-                h.u32(position(reflection.object));
-                h.u8(moves_since(
-                    state.object(reflection.object),
-                    reflection.version,
-                ));
-                hash_damage_source(h, state, reflection.object, reflection.version);
-            }
-            crate::prevention::ShieldKind::TargetingCauses => h.u8(8),
-            crate::prevention::ShieldKind::RedirectCombat {
-                sources,
-                to,
-                context,
-            } => {
-                h.u8(9);
-                filter_hash(h, sources);
-                context.text.hash(h);
-                h.u32(position(context.source));
-                context.resolved_name.hash(h);
-                context.reference.map(position).hash(h);
-                match to {
-                    crate::prevention::RedirectDestination::Object(reference) => {
-                        h.u8(0);
-                        h.u32(position(reference.object));
-                        h.u8(moves_since(
-                            state.object(reference.object),
-                            reference.version,
-                        ));
-                    }
-                    crate::prevention::RedirectDestination::SourceController => h.u8(1),
-                }
-            }
-            crate::prevention::ShieldKind::Next(n) => {
-                h.u8(0);
-                h.u32(n);
-            }
-            crate::prevention::ShieldKind::RedirectNext { remaining, to } => {
-                h.u8(4);
-                h.u32(remaining);
-                h.u8(to.get());
-            }
-            crate::prevention::ShieldKind::AllCombat => h.u8(1),
-            crate::prevention::ShieldKind::AllFrom { source } => {
-                h.u8(5);
-                hash_chosen_source(h, state, &source, position);
-            }
-            crate::prevention::ShieldKind::NextFrom {
-                source,
-                all_but,
-                gain_life,
-                combat_only,
-            } => {
-                h.u8(2);
-                hash_chosen_source(h, state, &source, position);
-                h.u32(all_but);
-                h.boolean(gain_life);
-                h.boolean(combat_only);
-            }
-            crate::prevention::ShieldKind::RedirectNextFrom { source, to } => {
-                h.u8(3);
-                hash_chosen_source(h, state, &source, position);
-                h.u8(to.get());
-            }
-        }
+        hash_shield_kind(h, state, &shield.kind, position);
         h.u8(shield.controller.get());
+    }
+}
+
+fn hash_shield_kind(
+    h: &mut Hasher,
+    state: &GameState,
+    kind: &crate::prevention::ShieldKind,
+    position: &dyn Fn(ObjectId) -> u32,
+) {
+    match *kind {
+        crate::prevention::ShieldKind::RedirectSource { source, to, next } => {
+            h.u8(6);
+            hash_chosen_source(h, state, &source, position);
+            hash_redirect_dest(h, state, to, position);
+            h.boolean(next);
+        }
+        crate::prevention::ShieldKind::ReflectNextSource { source, reflection } => {
+            h.u8(7);
+            hash_chosen_source(h, state, &source, position);
+            h.u32(position(reflection.object));
+            h.u8(moves_since(
+                state.object(reflection.object),
+                reflection.version,
+            ));
+            hash_damage_source(h, state, reflection.object, reflection.version);
+        }
+        crate::prevention::ShieldKind::TargetingCauses => h.u8(8),
+        crate::prevention::ShieldKind::RedirectCombat {
+            sources,
+            to,
+            context,
+        } => {
+            h.u8(9);
+            filter_hash(h, sources);
+            context.text.hash(h);
+            h.u32(position(context.source));
+            context.resolved_name.hash(h);
+            context.reference.map(position).hash(h);
+            hash_redirect_dest(h, state, to, position);
+        }
+        crate::prevention::ShieldKind::Next(n) => {
+            h.u8(0);
+            h.u32(n);
+        }
+        crate::prevention::ShieldKind::RedirectNext { remaining, to } => {
+            h.u8(4);
+            h.u32(remaining);
+            h.u8(to.get());
+        }
+        crate::prevention::ShieldKind::AllCombat => h.u8(1),
+        crate::prevention::ShieldKind::AllFrom { source } => {
+            h.u8(5);
+            hash_chosen_source(h, state, &source, position);
+        }
+        crate::prevention::ShieldKind::NextFrom {
+            source,
+            all_but,
+            gain_life,
+            combat_only,
+        } => {
+            h.u8(2);
+            hash_chosen_source(h, state, &source, position);
+            h.u32(all_but);
+            h.boolean(gain_life);
+            h.boolean(combat_only);
+        }
+        crate::prevention::ShieldKind::RedirectNextFrom { source, to } => {
+            h.u8(3);
+            hash_chosen_source(h, state, &source, position);
+            h.u8(to.get());
+        }
+        crate::prevention::ShieldKind::NextMatching {
+            sources,
+            combat_only,
+            chosen_color,
+            chosen_subtype,
+            text,
+            this,
+        }
+        | crate::prevention::ShieldKind::AllMatching {
+            sources,
+            combat_only,
+            chosen_color,
+            chosen_subtype,
+            text,
+            this,
+        } => {
+            h.u8(
+                if matches!(kind, crate::prevention::ShieldKind::NextMatching { .. }) {
+                    10
+                } else {
+                    11
+                },
+            );
+            filter_hash(h, sources);
+            h.boolean(combat_only);
+            chosen_color.hash(h);
+            chosen_subtype.hash(h);
+            text.hash(h);
+            h.u32(position(this));
+        }
+    }
+}
+
+fn hash_redirect_dest(
+    h: &mut Hasher,
+    state: &GameState,
+    to: crate::prevention::RedirectDestination,
+    position: &dyn Fn(ObjectId) -> u32,
+) {
+    match to {
+        crate::prevention::RedirectDestination::Object(reference) => {
+            h.u8(0);
+            h.u32(position(reference.object));
+            h.u8(moves_since(
+                state.object(reference.object),
+                reference.version,
+            ));
+        }
+        crate::prevention::RedirectDestination::SourceController => h.u8(1),
     }
 }
 
@@ -832,6 +898,14 @@ fn hash_chosen_source(
     source.text.hash(h);
     h.u8(source.you.get());
     h.u32(position(source.this));
+    if let Some(color) = source.chosen_color {
+        h.u8(1);
+        color.hash(h);
+    }
+    if let Some(subtype) = source.chosen_subtype {
+        h.u8(2);
+        subtype.hash(h);
+    }
     hash_damage_source(h, state, source.id, source.version);
 }
 

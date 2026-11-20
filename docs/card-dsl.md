@@ -5287,3 +5287,60 @@ player (Peer Pressure).
   announcement. `FaceDef::mandatory_additional_costs` supports the same
   non-mana parts plus `SacrificeAll`, `SacrificeX`, `TapX`, `PayEnergy`,
   `PayEnergyX`, and `ExileTopOfLibrary` (CR 118.8, CR 601.2b/f/h).
+
+### Provoke and pair-specific combat block requirements
+
+`KeywordSet::PROVOKE` (CR 702.39a–b) generates one synthetic attack trigger per
+projected instance of provoke (`layers::keyword_instances`) whenever the
+creature is declared as an attacker (`GameEvent::BecameAttacker`, CR 508.3a).
+Its target is `TargetSpec::Object(&Filter::And(&[Filter::CREATURE, Filter::ControlledByDefendingPlayer]))`
+(honoring multiplayer defending player via `CombatState::remembered_defender`,
+CR 508.5a, including when the attacker leaves combat before resolution), and
+its body is `Effect::MayDo { effects: &[Effect::UntapTarget, Effect::MustBlockSourceIfAbleThisCombat] }`.
+
+`Effect::MustBlockSourceIfAbleThisCombat` ("target creature blocks this
+creature this combat if able", CR 702.39a) and
+`Effect::MustBlockIfAble { blocker, attacker, this_combat_only }`
+("target creature blocks this/target creature this combat/turn if able",
+Rampant Elephant, Trumpeting Armodon, Hunt Down) record exact `(blocker,
+attacker)` `DamageSourceRef` requirements (CR 400.7) in `PerTurn::must_block_pairs`.
+During declare-blockers validation (`combat::BlockRules`), each active pair
+adds one requirement demand under CR 509.1c (exempt when blocking that attacker
+requires a mana payment, and expiring at end of combat when `this_combat_only`
+is `true` or at cleanup otherwise).
+
+### Source-color, chosen-source, and per-source prevention shields
+
+- `Effect::ChooseColor` asks `Pending::ChooseColor` during spell or ability
+  resolution (CR 105.4, CR 608.2d) and stores the chosen color on the
+  resolution's `SubjectContext` for `Filter::OfSourceChosenColor` (working on
+  instants and sorceries such as Prismatic Strands as well as permanents).
+- `Effect::PreventFromChosenSource { target, sources, next_only, combat_only, all_but, gain_life }`
+  generalizes `PreventNextFromChosenSource` and
+  `ChooseDamageSourcePreventAllThisTurnMatching`: `target: None` protects
+  `Shielded::Everything` (Pilgrim of Justice, Pilgrim of Virtue, Penance),
+  while `target: Some(spec)` protects each resolved player or exact permanent
+  incarnation (Samite Blessing, Charm Peddler, Circle of Despair, and with
+  `next_only: false` Shieldmage Advocate). Chosen-source shields freeze the
+  resolving source incarnation's `chosen_color` and `chosen_subtype` (Story
+  Circle, Prismatic Circle) so source removal or blink-and-rechoose never
+  alters or erases the shield's criterion (CR 113.7a, CR 400.7, CR 609.7b).
+- `Effect::PreventNextFromMatchingSources { target, sources, combat_only }`
+  creates a one-shot `ShieldKind::NextMatching` shield without choosing a
+  source on resolution (Circle of Solace, Trained Pronghorn). When multiple
+  matching sources deal damage simultaneously, CR 616.1 / CR 615.7 lets the
+  affected controller choose which one source's damage is prevented.
+- `Effect::PreventAllDamageFromMatchingThisTurn { target, sources, combat_only }`
+  creates a turn-long `ShieldKind::AllMatching` shield covering spells,
+  abilities, and permanents entering later in the turn (Prismatic Strands).
+- `Modifier::PreventDamagePerSource { sources, include_you, combat_only, amount }`
+  (Layer 3 rules, `locks_its_set == false`) prevents `amount` damage per
+  matching source per simultaneous damage event across `you` (when
+  `include_you` is `true`) and/or permanents matching the static ability's
+  `filter` (Spheres of Duty/Grace/Law/Reason/Truth, Urza's Armor, and Cover of
+  Winter's age-counter prevention across you and creatures you control using
+  `Pending::AllocatePrevention`).
+- `Modifier::PreventDamageToAffectedPerSource { sources, combat_only, amount }`
+  (Layer 3 rules, `locks_its_set == false`) prevents `amount` damage per
+  `(matching source, affected permanent)` pair per damage event (Daunting
+  Defender).

@@ -1738,6 +1738,16 @@ impl HeuristicAgent {
             }
             Effect::AttachSelf { .. } => subject.map_or(0, |c| self.attach(view, origin, c)),
             Effect::UntapTarget => subject.map_or(0, |o| self.untap_worth(view, o)),
+            Effect::MustBlockSourceIfAbleThisCombat
+            | Effect::MustBlockIfAble {
+                attacker: baylee_cards_dsl::TargetSpec::ThisObject,
+                ..
+            } => match (origin.object, subject) {
+                (Some(attacker), Some(blocker)) => {
+                    Self::provoke_worth(view, attacker, blocker, hostile_subject)
+                }
+                _ => -50,
+            },
             Effect::UntapSelf => origin.object.map_or(0, |o| self.untap_worth(view, o)),
             // A shield is useful in a lethal combat exchange; it is not a
             // permanent upgrade to buy repeatedly on an idle board.
@@ -1993,6 +2003,39 @@ impl HeuristicAgent {
         })
     }
 
+    /// Value of forcing `blocker` to block `attacker` this combat or turn.
+    fn provoke_worth(
+        view: &PlayerView,
+        attacker: &PublicObject,
+        blocker: &PublicObject,
+        hostile_blocker: bool,
+    ) -> i64 {
+        if !hostile_blocker {
+            return -100;
+        }
+        let (Some(att_f), Some(blk_f)) = (
+            crate::combat::Fighter::from_object(attacker),
+            crate::combat::Fighter::from_object(blocker),
+        ) else {
+            return -50;
+        };
+        if has(blocker, KeywordSet::CANT_BLOCK) || !crate::combat::could_block(att_f, blk_f) {
+            return -50;
+        }
+        let e = crate::combat::exchange(att_f, blk_f);
+        let att_worth = Self::permanent_worth(view, attacker);
+        let blk_worth = Self::permanent_worth(view, blocker);
+        if e.blocker_dies && !e.attacker_dies {
+            blk_worth + 50
+        } else if e.blocker_dies && e.attacker_dies {
+            (blk_worth - att_worth) + 25
+        } else if e.attacker_dies {
+            -att_worth - 50
+        } else {
+            -30
+        }
+    }
+
     /// Tapping status and controller determine the immediate value of untapping.
     fn untap_worth(&self, view: &PlayerView, object: &PublicObject) -> i64 {
         if !object.status.contains(ObjectStatus::TAPPED) {
@@ -2041,7 +2084,9 @@ impl HeuristicAgent {
             Modifier::PreventDamageFromIt => {
                 objects.iter().map(|o| self.prevent(view, o, true)).sum()
             }
-            Modifier::PreventDamageFrom(_) => {
+            Modifier::PreventDamageFrom(_)
+            | Modifier::PreventDamagePerSource { .. }
+            | Modifier::PreventDamageToAffectedPerSource { .. } => {
                 objects.iter().map(|o| self.prevent(view, o, false)).sum()
             }
             // Cumulative upkeep asks later payment questions, which `pays_tax`

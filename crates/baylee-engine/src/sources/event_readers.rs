@@ -184,7 +184,15 @@ fn reads_event(effect: &Effect) -> bool {
         Effect::DiscardRandom { who, count, .. } => reads_player(*who) || reads_amount(*count),
         Effect::Reflexive { target, .. }
         | Effect::CreateTokenCopyOf { target, .. }
-        | Effect::PhaseOut { target, .. } => target.is_some_and(reads_target),
+        | Effect::PhaseOut { target, .. }
+        | Effect::PreventFromChosenSource { target, .. }
+        | Effect::PreventNextFromMatchingSources { target, .. }
+        | Effect::PreventAllDamageFromMatchingThisTurn { target, .. } => {
+            target.is_some_and(reads_target)
+        }
+        Effect::MustBlockIfAble {
+            blocker, attacker, ..
+        } => reads_target(*blocker) || reads_target(*attacker),
         Effect::SetPTFilter {
             power, toughness, ..
         }

@@ -242,6 +242,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
             | Modifier::PreventDamageToYouFrom(_)
         | Modifier::PreventCombatDamageFrom(_)
         | Modifier::PreventDamageFrom(_)
+        | Modifier::PreventDamagePerSource { .. }
+        | Modifier::PreventDamageToAffectedPerSource { .. }
         | Modifier::CombatDamageCantBePrevented
         | Modifier::CantBlock(_)
         | Modifier::CantBeBlockedBy(_)
@@ -1822,6 +1824,17 @@ mod tests {
             Modifier::PreventDamageToYouFrom(&Filter::CREATURE),
             Modifier::PreventCombatDamageFrom(&Filter::ARTIFACT),
             Modifier::PreventDamageFrom(&Filter::ARTIFACT),
+            Modifier::PreventDamagePerSource {
+                sources: &Filter::Any,
+                include_you: true,
+                combat_only: false,
+                amount: baylee_cards_dsl::Amount::Fixed(1),
+            },
+            Modifier::PreventDamageToAffectedPerSource {
+                sources: &Filter::Any,
+                combat_only: false,
+                amount: baylee_cards_dsl::Amount::Fixed(1),
+            },
             Modifier::ReplacePlayerDamage {
                 sources: &Filter::Any,
                 recipients: PlayerRel::You,
@@ -1989,7 +2002,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            204,
+            206,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -2094,7 +2107,9 @@ mod tests {
         // AddChosenSubtype is Layer 4 (characteristics, +1 locking -> 56).
         // SpellsCostLessMana, SpellsCostLessByAmount, and CyclingCostsLess modify
         // casting/activation costs only (+3 rules -> 148).
-        assert_eq!((locking, all.len() - locking), (56, 148));
+        // PreventDamagePerSource and PreventDamageToAffectedPerSource are
+        // standing prevention rules (+2 rules-only -> 150).
+        assert_eq!((locking, all.len() - locking), (56, 150));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole
