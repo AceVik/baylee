@@ -41,7 +41,10 @@ struct Event {
     planned_actions: Option<Vec<Option<Vec<PlayerAction>>>>,
 }
 fn sha(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 fn read<T: serde::de::DeserializeOwned>(p: &Path) -> Result<T> {
     Ok(serde_json::from_reader(File::open(p)?)?)
@@ -152,7 +155,8 @@ fn packet(dir: &Path, g: &Game, e: &Event, cols: [usize; 2]) -> Result<(Value, V
     );
     // The verified prefix stops before the action recorded at the chosen root.
     let prefix = &bytes[..offset];
-    let _verified = replay_exact(prefix).context("engine hash verification on prefix")?;
+    let _verified = replay_exact(prefix)
+        .map_err(|err| anyhow::anyhow!("engine hash verification on prefix: {err:?}"))?;
     let mut lines = prefix.split(|&b| b == b'\n').filter(|l| !l.is_empty());
     let Line::Header { preset, .. } =
         serde_json::from_slice(lines.next().context("missing header")?)?
@@ -216,7 +220,7 @@ fn packet(dir: &Path, g: &Game, e: &Event, cols: [usize; 2]) -> Result<(Value, V
     if digest[0] & 1 == 1 {
         options.swap(0, 1);
     }
-    let id = format!("p-{}", &format!("{digest:x}")[..20]);
+    let id = format!("p-{}", &sha(&serde_json::to_vec(&fingerprint)?)[..20]);
     Ok((
         json!({"position_id":id,"public_state":public,"choices":{"A":&options[0].1,"B":&options[1].1}}),
         json!({"position_id":id,"deal_index":g.i,"seat":seat,"decision_seq":e.decision_seq,"record_byte_offset":offset,
