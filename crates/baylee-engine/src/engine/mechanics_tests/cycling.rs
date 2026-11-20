@@ -213,7 +213,8 @@ fn settle_with_search(engine: &mut Bench, seat: PlayerId, pick_first: bool) -> b
 
 /// Battlefield `Trigger::Cycled` listeners respect `PlayerRel` (yours vs
 /// opponent's vs each player) and `filter` (creature vs noncreature), react to
-/// instant-speed typecycling (CR 702.29f), and ignore sorcery-speed transmute.
+/// instant-speed typecycling (CR 702.29f),
+/// and ignore sorcery-speed transmute (CR 702.53a).
 #[test]
 fn cycling_battlefield_triggers_filter_player_card_type_and_typecycling() {
     let mut engine = bench(

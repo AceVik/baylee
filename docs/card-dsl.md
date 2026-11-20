@@ -2713,7 +2713,8 @@ Triggers, reflexive events and amounts:
   What counts as cycling is `AbilityDef::is_cycling`: instant-speed
   activations from the hand whose cost discards the card itself and whose
   effect draws one card (CR 702.29a) or searches the library for one card into
-  hand (typecycling, CR 702.29e-f). Sorcery-speed transmute is excluded.
+  hand (typecycling, CR 702.29e-f).
+  Sorcery-speed transmute (CR 702.53a) is excluded.
 - **`Trigger::Cycled { by, filter }`** is "Whenever [a player | you | an
   opponent] cycles a [matching] card" (CR 702.29a, CR 702.29f), evaluated on
   the battlefield against `by` (`PlayerRel`) and the cycled card's
