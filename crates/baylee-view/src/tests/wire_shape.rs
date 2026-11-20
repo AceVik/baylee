@@ -435,7 +435,9 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // `PlayerView`/`SpectatorView::held_choices` (`HeldChoice`, `ViewField::HeldChoices`)
     // beside it are additive, defaulted and omitted at empty/`None` in JSON,
     // and protocol 47 on binary frames.
-    const RECORDED: (u32, u64) = (93, 5_197_534_328_483_882_664);
+    // 94: `YesNoPrompt::KickerOption` is an imported engine prompt variant a
+    // reader of 93 cannot decode (protocol 50 on binary frames).
+    const RECORDED: (u32, u64) = (94, 5_197_534_328_483_882_664);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

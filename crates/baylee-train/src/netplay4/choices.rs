@@ -264,9 +264,18 @@ pub(super) fn mask_non_priority_single_choice(
             let decline_draw = should_decline_yes_no_for_library(view, actor, *source);
             let decline_tax =
                 req_mana.is_some_and(|req| !should_pay_tax(view, actor, *source, req));
+            let decline_kicker_option = if let YesNoPrompt::KickerOption { cost, .. } = prompt {
+                let pool_total = view
+                    .seat(actor)
+                    .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(0));
+                let avail_now = pool_total.saturating_add(untapped_mana_production(view, actor));
+                avail_now < cost.with_x(0).cmc()
+            } else {
+                false
+            };
             let force_pay_tax =
                 matches!(prompt, YesNoPrompt::PayTax { .. }) && !decline_draw && !decline_tax;
-            if decline_draw || decline_tax || decline_shock {
+            if decline_draw || decline_tax || decline_shock || decline_kicker_option {
                 let mut trial = masked_logits.to_vec();
                 for (i, c) in cands.candidates.iter().enumerate() {
                     if matches!(c.action, Some(PlayerAction::YesNo(true))) {

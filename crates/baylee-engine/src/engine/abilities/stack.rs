@@ -160,7 +160,9 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
         )
         .then(|| self.state.object(source))
         .flatten()
-        .map_or((0, 0), |o| (o.x_value, o.times_kicked));
+        .map_or((0, 0, None), |o| {
+            (o.x_value, o.times_kicked, o.kicked_mask())
+        });
         let id = self.state.arena.insert_with(|id| {
             let mut obj = GameObject::new_ability_on_stack(
                 id,
@@ -179,7 +181,11 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 obj.riders
                     .push(crate::object::Rider::AbilitySourceVersion(version));
             }
-            (obj.x_value, obj.times_kicked) = announced;
+            obj.x_value = announced.0;
+            obj.times_kicked = announced.1;
+            if let Some(mask) = announced.2 {
+                obj.riders.push(crate::object::Rider::KickedMask(mask));
+            }
             if let Some(version) = counter_version {
                 obj.riders
                     .push(crate::object::Rider::CounterSourceVersion(version));

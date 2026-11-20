@@ -819,6 +819,7 @@ fn effect_words(effect: &Effect) -> &'static [&'static str] {
         Effect::CreateToken { .. } | Effect::CreateTokenN { .. } => &["create"],
         Effect::GainLife { .. } => &["gain"],
         Effect::Destroy { .. } | Effect::DestroyAllOf { .. } => &["destroy"],
+        Effect::DiscardForPlayers { .. } | Effect::DiscardCount { .. } => &["discard"],
         Effect::ChooseCreatureType { .. } => &["creature type"],
         Effect::BecomeChosenCreatureType { .. } => &["becomes"],
         Effect::ShuffleGraveyardMatchingIntoLibrary { .. } => &["shuffle"],

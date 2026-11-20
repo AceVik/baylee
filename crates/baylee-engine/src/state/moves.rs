@@ -792,6 +792,7 @@ impl GameState {
                             | crate::object::Rider::Mutating
                             | crate::object::Rider::Escaped
                             | crate::object::Rider::Masked
+                            | crate::object::Rider::KickedMask(_)
                     )
                 });
             }

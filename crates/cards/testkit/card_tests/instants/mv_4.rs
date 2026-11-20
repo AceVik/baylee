@@ -25,6 +25,7 @@ mod foil;
 mod force_of_vigor;
 mod grab_the_reins;
 mod hagra_mauling;
+mod hindering_touch;
 mod inspiration;
 mod irradiate;
 mod lightning_blast;

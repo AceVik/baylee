@@ -843,6 +843,16 @@ pub enum YesNoPrompt {
         /// Whether `guesser` guessed that a card with that name is in hand.
         guessed_in_hand: bool,
     },
+    /// Pay one specific kicker cost of a spell with more than one kicker cost
+    /// (CR 702.33b, CR 702.33f): `index` names `face.additional_costs[index]`.
+    KickerOption {
+        /// Zero-based index into `FaceDef::additional_costs`.
+        index: u8,
+        /// The mana part of this kicker cost.
+        cost: baylee_core::mana::ManaCost,
+        /// Non-mana parts of this kicker cost, if any.
+        parts: BuybackParts,
+    },
 }
 
 impl YesNoPrompt {
@@ -895,6 +905,7 @@ impl YesNoPrompt {
             | Self::PayEnergy { .. }
             | Self::PayLifeOrEnterTapped { .. }
             | Self::Kicker
+            | Self::KickerOption { .. }
             | Self::Buyback { .. }
             | Self::ManaAnyType
             | Self::PayTax { .. }

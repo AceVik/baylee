@@ -1114,6 +1114,28 @@ fn buyback_words(
     )
 }
 
+fn kicker_option_words(
+    index: u8,
+    cost: &ManaCost,
+    parts: baylee_engine::choice::BuybackParts,
+) -> (String, String, String) {
+    let price =
+        baylee_client_core::interaction::buyback_price(baylee_client_core::Lang::En, *cost, parts);
+    let label = if price.is_empty() {
+        format!("kicker option {}", usize::from(index) + 1)
+    } else {
+        price
+    };
+    (
+        format!(
+            "Pay kicker cost {label} (option {})?",
+            usize::from(index) + 1
+        ),
+        format!("pay {label}"),
+        format!("don't pay {label}"),
+    )
+}
+
 /// A yes/no question in words: the question, what yes does, what no does.
 fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, String) {
     match prompt {
@@ -1136,6 +1158,9 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "pay it".into(),
             "cast it without it".into(),
         ),
+        YesNoPrompt::KickerOption { index, cost, parts } => {
+            kicker_option_words(*index, cost, *parts)
+        }
         YesNoPrompt::Buyback { cost, parts } => buyback_words(cost, *parts),
         YesNoPrompt::PayTax { mana } => (
             format!("Pay {{{mana}}} for this tax?"),

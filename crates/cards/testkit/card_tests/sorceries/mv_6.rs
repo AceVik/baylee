@@ -337,6 +337,7 @@ mod jokulhaups;
 mod kirtar_s_wrath;
 mod kiss_of_the_amesha;
 mod mass_production;
+mod mind_s_desire;
 mod mindculling;
 mod morbid_hunger;
 mod one_dozen_eyes;

@@ -5,3 +5,4 @@ use super::*;
 
 mod assert_authority;
 mod ember_shot;
+mod hunting_pack;

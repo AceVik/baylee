@@ -1924,15 +1924,24 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     self.continue_cast_wizard();
                     return Ok(());
                 }
-                // Wizard path: kicker yes/no.
+                // Wizard path: kicker yes/no (single or multi-cost).
                 if self
                     .cast_wizard
                     .as_ref()
                     .is_some_and(|w| w.stage == cast_wizard::WizardStage::Kicker)
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
-                    wizard.kicked = answer;
-                    wizard.stage = cast_wizard::WizardStage::Buyback;
+                    if self.wizard_face(&wizard).additional_costs.len() > 1 {
+                        let idx = wizard.kicker_cursor;
+                        if answer && idx < 8 {
+                            wizard.kicked = true;
+                            wizard.kicked_mask |= 1_u8 << idx;
+                        }
+                        wizard.kicker_cursor = idx.saturating_add(1);
+                    } else {
+                        wizard.kicked = answer;
+                        wizard.stage = cast_wizard::WizardStage::Buyback;
+                    }
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();
                     return Ok(());

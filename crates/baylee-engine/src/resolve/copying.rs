@@ -174,6 +174,7 @@ pub(super) fn copy_spell(
     let chosen_player = from.chosen_player;
     let x_value = from.x_value;
     let times_kicked = from.times_kicked;
+    let kicked_mask = from.kicked_mask();
     let bought_back = from.riders.contains(&crate::object::Rider::Buyback);
     let replicated = from.replicated;
     let mode_index = from.mode_index;
@@ -220,6 +221,9 @@ pub(super) fn copy_spell(
         obj.chosen_player = chosen_player;
         obj.x_value = x_value;
         obj.times_kicked = times_kicked;
+        if let Some(mask) = kicked_mask {
+            obj.riders.push(crate::object::Rider::KickedMask(mask));
+        }
         if bought_back {
             obj.riders.push(crate::object::Rider::Buyback);
         }

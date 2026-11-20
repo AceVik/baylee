@@ -839,6 +839,9 @@ fn yes_no_line(
         }
         YesNoPrompt::ManaAnyType => Phrase::UseManaAnyType.text(lang).to_string(),
         YesNoPrompt::Kicker => Phrase::PayAdditionalCost.text(lang).to_string(),
+        YesNoPrompt::KickerOption { cost, parts, .. } => {
+            Phrase::KickerOptionAsk.fill(lang, &[&buyback_price(lang, cost, parts)])
+        }
         YesNoPrompt::Buyback { cost, parts } => {
             Phrase::BuybackAsk.fill(lang, &[&buyback_price(lang, cost, parts)])
         }

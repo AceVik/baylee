@@ -3513,6 +3513,24 @@ fn aim(
     if let Some(net) = kicked_price(view, face, spell_effects(card), cost, sources).filter(fits) {
         return (net, true);
     }
+    if face.additional_costs.len() > 1 {
+        let effects = spell_effects(card);
+        if let Some(net) = (0..face.additional_costs.len().min(8))
+            .filter_map(|idx| {
+                kicker_option_price(
+                    view,
+                    face,
+                    effects,
+                    cost,
+                    u8::try_from(idx).ok()?,
+                    face.additional_costs[idx],
+                )
+            })
+            .find(fits)
+        {
+            return (net, true);
+        }
+    }
     let effects = spell_effects(card);
     if let Some(net) = face.multikicker.and_then(|each| {
         (1..=budget.min(50))
@@ -3784,6 +3802,38 @@ fn kicked_price(
     Some(total.with_less_generic(help))
 }
 
+/// Marginal price for a single kicker option on a multi-kicker spell, or `None`
+/// if it carries non-mana parts or would draw out the library.
+fn kicker_option_price(
+    view: &PlayerView,
+    _face: &FaceDef,
+    effects: &[Effect],
+    cost: baylee_core::mana::ManaCost,
+    index: u8,
+    extra: baylee_cards_dsl::Cost,
+) -> Option<baylee_core::mana::ManaCost> {
+    if !extra.parts.is_empty() {
+        return None;
+    }
+    let library = view.seat(resource_player(view))?.library_count;
+    let draws: u32 = effects
+        .iter()
+        .map(|effect| match effect {
+            Effect::IfCondition {
+                condition: baylee_cards_dsl::Condition::KickedWith(i),
+                then,
+                ..
+            } if *i == index => crate::tactics::meaning(then, 0).draws(view),
+            Effect::IfKicked { then, .. } => crate::tactics::meaning(then, 0).draws(view),
+            other => crate::tactics::meaning(std::slice::from_ref(other), 0).draws(view),
+        })
+        .sum();
+    if draws >= library {
+        return None;
+    }
+    Some(cost.combine(&extra.mana))
+}
+
 /// The answer to `YesNoPrompt::Kicker`: yes when the floating pool covers the
 /// kicked price, which [`kicked_price`] says is the only safe yes.
 pub(crate) fn kicks(
@@ -3801,6 +3851,49 @@ pub(crate) fn kicks(
         .and_then(face)
         .and_then(|f| kicked_price(view, f, context.effects, cost.with_x(context.x), &[]))
         .is_some_and(|net| manaplan::plan_frozen(&net, &seat.mana_pool, &[]).is_some())
+}
+
+/// The answer to `YesNoPrompt::KickerOption`: checks marginal affordability
+/// against `context.cost` (which already includes any earlier accepted kicker)
+/// without double-counting prior kickers or non-existent costs.
+pub(crate) fn kicks_option(
+    view: &PlayerView,
+    context: &baylee_engine::engine::DecisionContext<'_>,
+    index: u8,
+    mana: baylee_core::mana::ManaCost,
+    parts: baylee_engine::choice::BuybackParts,
+) -> bool {
+    if parts != baylee_engine::choice::BuybackParts::default() {
+        return false;
+    }
+    let (Some(cost), Some(seat)) = (context.cost, view.seat(resource_player(view))) else {
+        return false;
+    };
+    let net = if let Some(face_def) = context
+        .source
+        .and_then(|id| identity(view, id))
+        .and_then(face)
+    {
+        let Some(extra) = face_def.additional_costs.get(usize::from(index)).copied() else {
+            return false;
+        };
+        let mut marginal = extra;
+        marginal.mana = mana;
+        let Some(net) = kicker_option_price(
+            view,
+            face_def,
+            context.effects,
+            cost.with_x(context.x),
+            index,
+            marginal,
+        ) else {
+            return false;
+        };
+        net
+    } else {
+        cost.with_x(context.x).combine(&mana)
+    };
+    manaplan::plan_frozen(&net, &seat.mana_pool, &[]).is_some()
 }
 
 /// The permanents to tap for a convoke or waterbend question: as few as the

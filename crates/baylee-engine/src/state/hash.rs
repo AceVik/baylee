@@ -881,6 +881,10 @@ fn hash_source_references(h: &mut Hasher, state: &GameState, position: &dyn Fn(O
             h.u32(source.x_value);
             source.kicked().hash(h);
             hash_times_kicked(h, source.times_kicked);
+            if let Some(mask) = source.kicked_mask() {
+                h.u8(95);
+                h.u8(mask);
+            }
             source.replicated.hash(h);
             source.mode_index.hash(h);
             source.modes.hash(h);
@@ -916,6 +920,10 @@ fn hash_damage_source(h: &mut Hasher, state: &GameState, id: ObjectId, version: 
         h.u8(1);
         h.u8(source.controller.get());
         source.cast_history.hash(h);
+        if let Some(mask) = source.kicked_mask() {
+            h.u8(95);
+            h.u8(mask);
+        }
         hash_characteristics(h, source.characteristics());
     } else {
         h.u8(0);
@@ -1256,6 +1264,10 @@ fn hash_copy_decisions(h: &mut Hasher, obj: &GameObject) {
     obj.x_value.hash(h);
     obj.kicked().hash(h);
     hash_times_kicked(h, obj.times_kicked);
+    if let Some(mask) = obj.kicked_mask() {
+        h.u8(95);
+        h.u8(mask);
+    }
     obj.replicated.hash(h);
     obj.alt_cast.hash(h);
     obj.mode_index.hash(h);
@@ -2097,6 +2109,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::GrantedSource(reference) => {
                 h.u8(94);
                 reference.hash(h);
+            }
+            Rider::KickedMask(mask) => {
+                h.u8(95);
+                h.u8(*mask);
             }
             Rider::ExiledWith { host, version } => {
                 h.u8(13);

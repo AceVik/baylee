@@ -156,6 +156,14 @@ impl Tx<'_> {
             && p.has("RememberChanged")
         {
             self.exile_until_end_effect(&mut p, &mut sub, target.as_deref())?
+        } else if api == "ChangeZone"
+            && !targets_here
+            && p.peek("Defined") == Some("TopOfLibrary")
+            && p.peek("Origin") == Some("Library")
+            && p.peek("Destination") == Some("Exile")
+            && p.has("RememberChanged")
+        {
+            self.exile_top_to_play_effect(&mut p, &mut sub)?
         } else {
             let Some(effects) = (if chain.second_target.is_some() {
                 self.pump_effect(&mut p, target.as_deref().expect("second target"), true)
@@ -511,7 +519,10 @@ impl Tx<'_> {
                         && p.peek("Origin") == Some("Graveyard")
                         && p.peek("Destination") == Some("Hand"))
                         || api == "Tap"))
-                    || api == "Pump")
+                    || api == "Pump"
+                    || (api == "ChangeZone"
+                        && p.peek("Origin") == Some("Battlefield")
+                        && p.peek("Destination") == Some("Hand")))
                     && p.peek("TargetMin") == Some("0")
                     && let Some(max) = p
                         .peek("TargetMax")

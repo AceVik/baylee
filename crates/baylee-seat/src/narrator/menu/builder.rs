@@ -984,6 +984,28 @@ impl Builder<'_, '_> {
         let cost = self.way_x_cost(reach).unwrap_or(reach.plan.cost);
         match reach.way {
             Some(Way::Kicker) => format!("Cast {named} with its kicker for {cost}"),
+            Some(Way::KickerMask(mask)) => {
+                let parts: Vec<String> = baylee_cards::by_index(reach.card.index)
+                    .and_then(|def| def.faces.get(usize::from(reach.card.face)))
+                    .map_or_default(|face| {
+                        face.additional_costs
+                            .iter()
+                            .enumerate()
+                            .filter(|(idx, _)| *idx < 8 && (mask & (1_u8 << idx)) != 0)
+                            .map(|(_, extra)| extra.mana.to_string())
+                            .collect()
+                    });
+                if parts.len() > 1 {
+                    format!(
+                        "Cast {named} with kickers {} for {cost}",
+                        parts.join(" and ")
+                    )
+                } else if let Some(single) = parts.first() {
+                    format!("Cast {named} with kicker {single} for {cost}")
+                } else {
+                    format!("Cast {named} with its kicker for {cost}")
+                }
+            }
             Some(Way::Buyback) => {
                 format!("Cast {named} with its buyback for {cost}, and have the spell back")
             }
@@ -1616,7 +1638,10 @@ impl Builder<'_, '_> {
         let about = source.and_then(ability_ref_sentence);
         let (question, yes, no) = yes_no_words(table, prompt);
         self.line(format!("QUESTION: {question}"));
-        let kicker = matches!(prompt, YesNoPrompt::Kicker | YesNoPrompt::Buyback { .. });
+        let kicker = matches!(
+            prompt,
+            YesNoPrompt::Kicker | YesNoPrompt::KickerOption { .. } | YesNoPrompt::Buyback { .. }
+        );
         if let Some(about) = about {
             self.line(format!("The ability asking: \"{about}\""));
         } else if kicker && let Some((name, sentence)) = source.and_then(additional_cost) {
@@ -1905,6 +1930,13 @@ impl Builder<'_, '_> {
                 Way::Kicker => {
                     for extra in face.additional_costs {
                         cost = cost.combine(&extra.mana);
+                    }
+                }
+                Way::KickerMask(mask) => {
+                    for (idx, extra) in face.additional_costs.iter().enumerate() {
+                        if idx < 8 && (mask & (1_u8 << idx)) != 0 {
+                            cost = cost.combine(&extra.mana);
+                        }
                     }
                 }
                 Way::Multikicked(times) => {

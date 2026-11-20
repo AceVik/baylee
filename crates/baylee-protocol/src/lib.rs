@@ -60,7 +60,8 @@ pub mod tape;
 /// `LogEvent::CardsChosen`), plus `PublicObject`'s `second_chosen_subtype`,
 /// `chosen_card_type`, `chosen_number`, and `linked_exile`.
 /// Version 49 adds the private, bounded Tower execution/recovery/whole-batch ACK plane.
-pub const PROTOCOL_VERSION: u32 = 49;
+/// Version 50 carries `YesNoPrompt::KickerOption` for multi-kicker spells (CR 702.33b/f).
+pub const PROTOCOL_VERSION: u32 = 50;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;
@@ -373,7 +374,8 @@ mod tests {
         // `PublicObject`'s chosen card type, second subtype, chosen number,
         // and linked exile on positional binary frames.
         // 48: compiled execution identity; 49: private Tower durable transport.
-        assert_eq!(PROTOCOL_VERSION, 49);
+        // 50: `YesNoPrompt::KickerOption` for multi-kicker spells on positional binary frames.
+        assert_eq!(PROTOCOL_VERSION, 50);
     }
 
     #[test]

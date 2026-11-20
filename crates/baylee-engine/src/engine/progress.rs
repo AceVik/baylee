@@ -473,7 +473,7 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
 
     /// Runs the machine to its next question, and asks it only while the
     /// game is still being played.
-    fn run_machine(&mut self) {
+    pub(super) fn run_machine(&mut self) {
         self.run_machine_to_a_question();
         self.end_a_decided_game();
     }

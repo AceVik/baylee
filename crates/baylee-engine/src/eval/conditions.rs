@@ -544,6 +544,7 @@ pub fn condition_holds_with_context(
         Condition::Escaped => state
             .object(source)
             .is_some_and(|o| o.riders.contains(&crate::object::Rider::Escaped)),
+        Condition::KickedWith(index) => state.object(source).is_some_and(|o| o.kicked_with(index)),
         Condition::AttachedMatches(filter) => attached_for_ability(state, source, None, None)
             .is_some_and(|o| matches_with_context(filter, state, o, you, context)),
         Condition::SourceMatches(filter) => state
@@ -707,6 +708,9 @@ pub(crate) fn intervening_if_for_incarnation(
         Some(Condition::SourceWasCastByYou) => state
             .damage_source(source, version)
             .is_some_and(|object| object.cast_history.caster() == Some(you)),
+        Some(Condition::KickedWith(index)) => state
+            .damage_source(source, version)
+            .is_some_and(|object| object.kicked_with(index)),
         Some(Condition::SourceCameUnderYourControlSinceYourLastUpkeep) => {
             super::upkeep_history::came_under_your_control(state, you, source, version)
         }

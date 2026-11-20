@@ -4,5 +4,6 @@
 use super::*;
 
 mod crush_of_wurms;
+mod dragonstorm;
 mod plague_wind;
 mod volley_of_boulders;

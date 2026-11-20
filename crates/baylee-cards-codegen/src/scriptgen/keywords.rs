@@ -91,6 +91,13 @@ impl Tx<'_> {
                      toughness: Amount::Fixed(1), keywords: KeywordSet::EMPTY, \
                      duration: Duration::UntilEndOfTurn }}])"
                 ));
+            } else if bit == "KeywordSet::STORM" && self.body.keywords.iter().any(|k| k == bit) {
+                // CR 702.40b: duplicate Storm instances on a card keep separate instances on the stack.
+                self.body.abilities.push(
+                    "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::STORM), \
+                     zone = ZoneRef::Stack)"
+                        .to_string(),
+                );
             } else {
                 self.body.keywords.push(bit.to_string());
             }
@@ -501,20 +508,48 @@ impl Tx<'_> {
         Some(())
     }
 
-    /// `K:Kicker:<mana>` (CR 702.33a) for a single mana-only kicker cost.
+    /// `K:Kicker:<mana>` or `K:Kicker:<mana1>:<mana2>` (CR 702.33a–b) for
+    /// single or dual mana-only kicker costs.
     ///
-    /// Dual kickers (`A:B`), variable-X kicker costs, and non-mana kicker
-    /// costs are refused: `FaceDef::additional_costs` carries one optional
-    /// mana kicker paid during `WizardStage::Kicker`, after `XValue` and
-    /// without non-mana payability checks.
+    /// Three-or-more-cost kickers, variable-X kicker costs, and non-mana
+    /// kicker costs remain refused. For dual kickers, the emitted
+    /// `FaceDef::additional_costs` slice is aligned to the Oracle text's
+    /// `"Kicker <A> and/or <B>"` order (CR 702.33f), recording the 1-based
+    /// script-slot remap in `self.dual_kicker_remap`.
     pub(super) fn kicker(&mut self, rest: &str) -> Option<()> {
-        if rest.contains(':') {
-            return self.deny("a dual `Kicker` cost".to_string());
-        }
         if !self.body.additional_costs.is_empty() || self.body.multikicker.is_some() {
             return self.deny("a second `Kicker` cost".to_string());
         }
-        let tokens = super::cost_parts(rest);
+        let parts: Vec<&str> = rest.split(':').collect();
+        match parts.as_slice() {
+            [single] => {
+                let mana = self.parse_mana_kicker_cost(single)?;
+                self.body
+                    .additional_costs
+                    .push(format!("cost!(\"{mana}\")"));
+                self.body.notes.push("kicker".to_string());
+                Some(())
+            }
+            [first, second] => {
+                let mana0 = self.parse_mana_kicker_cost(first)?;
+                let mana1 = self.parse_mana_kicker_cost(second)?;
+                let (ordered, remap) = self.align_dual_kicker_costs(&mana0, &mana1)?;
+                self.body
+                    .additional_costs
+                    .push(format!("cost!(\"{}\")", ordered[0]));
+                self.body
+                    .additional_costs
+                    .push(format!("cost!(\"{}\")", ordered[1]));
+                self.dual_kicker_remap = Some(remap);
+                self.body.notes.push("kicker".to_string());
+                Some(())
+            }
+            _ => self.deny("a `Kicker` with more than two costs".to_string()),
+        }
+    }
+
+    fn parse_mana_kicker_cost(&mut self, raw: &str) -> Option<String> {
+        let tokens = super::cost_parts(raw);
         if tokens.is_empty() {
             return self.deny("an empty `Kicker` cost".to_string());
         }
@@ -529,15 +564,41 @@ impl Tx<'_> {
         if !all_mana {
             return self.deny("a non-mana `Kicker` cost".to_string());
         }
-        let (mana, parts) = self.cost_pieces(rest)?;
+        let (mana, parts) = self.cost_pieces(raw)?;
         if mana.is_empty() || !parts.is_empty() {
             return self.deny("a non-mana `Kicker` cost".to_string());
         }
-        self.body
-            .additional_costs
-            .push(format!("cost!(\"{mana}\")"));
-        self.body.notes.push("kicker".to_string());
-        Some(())
+        Some(mana)
+    }
+
+    /// Aligns the two parsed mana costs of a dual kicker to the Oracle line's
+    /// `"Kicker <A> and/or <B>"` order, returning `(ordered_costs, remap)`
+    /// where `remap[0]` is the Oracle index of script slot `1` and `remap[1]`
+    /// is the Oracle index of script slot `2`.
+    fn align_dual_kicker_costs(&self, mana0: &str, mana1: &str) -> Option<([String; 2], [u8; 2])> {
+        let oracle_pair = self
+            .oracle
+            .split("\\n")
+            .flat_map(|chunk| chunk.lines())
+            .find_map(|line| {
+                let trimmed = line.trim();
+                let body = trimmed.strip_prefix("Kicker ")?;
+                let without_reminder = body.split('(').next()?.trim();
+                let (a, b) = without_reminder.split_once(" and/or ")?;
+                Some((a.trim().to_string(), b.trim().to_string()))
+            });
+        match oracle_pair {
+            Some((ref a, ref b)) if a == mana0 && b == mana1 => {
+                Some(([mana0.to_string(), mana1.to_string()], [0, 1]))
+            }
+            Some((ref a, ref b)) if a == mana1 && b == mana0 => {
+                Some(([mana1.to_string(), mana0.to_string()], [1, 0]))
+            }
+            Some(_) => {
+                self.deny("a dual `Kicker` cost that disagrees with its Oracle text".to_string())
+            }
+            None => Some(([mana0.to_string(), mana1.to_string()], [0, 1])),
+        }
     }
 
     /// `K:etbCounter:<KIND>:<n>:CheckSVar$ <var>[:<desc>]` for a single-kicker

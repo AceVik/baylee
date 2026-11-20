@@ -118,6 +118,8 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                 // What was paid to cast it, likewise (CR 400.7d names the
                 // spell that became this permanent, and no spell did).
                 obj.times_kicked = 0;
+                obj.riders
+                    .retain(|r| !matches!(r, crate::object::Rider::KickedMask(_)));
             }
             // Daybound's first static ability (CR 702.145b): if it is
             // night, a permanent represented by a double-faced card
@@ -360,6 +362,54 @@ impl<L: CardLookup, D: crate::engine::LoopDetection> Engine<L, D> {
                     }
                     EnterModifier::Prepared => {
                         self.state.prepare(id);
+                    }
+                    // CR 614.1c, CR 611.2e, CR 702.33e–f: kicked permanent
+                    // enters with +1/+1 counters (doubled by CR 614.16
+                    // replacements) and indefinite Layer 6 continuous effects
+                    // scoped to this exact incarnation (CR 400.7, CR 707.2).
+                    EnterModifier::IfKicked {
+                        index,
+                        counters,
+                        modifiers,
+                    } => {
+                        if from_zone == Zone::Stack
+                            && self
+                                .state
+                                .object(id)
+                                .is_some_and(|o| index.is_none_or(|i| o.kicked_with(i)))
+                        {
+                            if !orientation_applied && *counters > 0 {
+                                crate::replacement::put_counters(
+                                    &mut self.state,
+                                    id,
+                                    baylee_cards_dsl::CounterKind::P1P1,
+                                    u16::from(*counters),
+                                );
+                                changed = true;
+                            }
+                            if !modifiers.is_empty()
+                                && let Some(version) = self.state.object(id).map(|o| o.version)
+                            {
+                                let filter = crate::effects::EffectFilter::ObjectIs(id, version);
+                                for granted in *modifiers {
+                                    let timestamp = self.state.next_timestamp();
+                                    self.state
+                                        .effects
+                                        .register(crate::effects::ContinuousEffect {
+                                            id: baylee_core::ids::EffectId::new(0),
+                                            source: Some(id),
+                                            controller,
+                                            origin: crate::effects::EffectOrigin::Resolution,
+                                            layer: granted.layer(),
+                                            timestamp,
+                                            duration: baylee_cards_dsl::Duration::Indefinitely,
+                                            filter,
+                                            modifier: *granted,
+                                        });
+                                }
+                                changed = true;
+                            }
+                        }
                     }
                     EnterModifier::ChooseSubtype
                     | EnterModifier::ChooseSubtypeFrom(_)

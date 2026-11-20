@@ -62,6 +62,12 @@ pub(super) fn prepare(
 fn copy_decisions(object: &mut GameObject, original: &GameObject) {
     object.x_value = original.x_value;
     object.times_kicked = original.times_kicked;
+    object
+        .riders
+        .retain(|rider| !matches!(rider, Rider::KickedMask(_)));
+    if let Some(mask) = original.kicked_mask() {
+        object.riders.push(Rider::KickedMask(mask));
+    }
     object.replicated = original.replicated;
     object.alt_cast = original.alt_cast;
     object.mode_index = original.mode_index;

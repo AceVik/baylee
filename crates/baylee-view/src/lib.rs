@@ -289,7 +289,10 @@ pub use turn::{DayNight, Phase, Step};
 /// [`PublicObject::second_chosen_subtype`], [`PublicObject::chosen_card_type`],
 /// [`PublicObject::chosen_number`] and [`PublicObject::linked_exile`], absent
 /// when unset or empty.
-pub const VIEW_VERSION: u32 = 93;
+/// Version 94 adds `YesNoPrompt::KickerOption` for multi-kicker spells
+/// (CR 702.33b, CR 702.33f), an engine prompt variant a reader of 93 cannot
+/// decode.
+pub const VIEW_VERSION: u32 = 94;
 
 // ------------------------------------------------------------------- targets
 

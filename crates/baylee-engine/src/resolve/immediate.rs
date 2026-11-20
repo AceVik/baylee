@@ -3734,6 +3734,12 @@ fn resolution_condition(
         Condition::TargetSpellWouldDestroy(filter) => {
             super::would_destroy::target_spell_would_destroy(state, res, filter)
         }
+        Condition::KickedWith(index) => state
+            .object(res.on_stack)
+            .filter(|object| object.kind == crate::object::ObjectKind::Spell)
+            .or_else(|| state.damage_source(res.source, source_version(state, res)))
+            .or_else(|| state.object(res.on_stack))
+            .is_some_and(|object| object.kicked_with(index)),
         _ => {
             eval::condition_holds_with_context(state, res.controller, res.rule_context(), condition)
         }

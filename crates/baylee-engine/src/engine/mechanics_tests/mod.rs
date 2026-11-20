@@ -50,6 +50,7 @@ mod names;
 mod powerstone;
 mod preparation;
 mod regeneration_prohibitions;
+mod storm;
 mod tokens;
 mod transforms;
 mod triggers;

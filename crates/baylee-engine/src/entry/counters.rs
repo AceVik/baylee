@@ -45,6 +45,38 @@ pub(super) fn question(state: &mut GameState, entry: &mut Attempt) -> Option<Pen
     None
 }
 
+fn collect_modifier_counters(
+    state: &GameState,
+    entry: &mut Attempt,
+    prospective: &crate::object::GameObject,
+    from_stack: bool,
+    x: u32,
+) {
+    for modifier in entry.modifiers {
+        match modifier {
+            EnterModifier::WithCounters { kind, amount } => {
+                let n = crate::eval::amount(amount, state, entry.controller, entry.object, Some(x));
+                if n > 0 {
+                    entry
+                        .counters
+                        .push((None, *kind, u16::try_from(n).unwrap_or(u16::MAX)));
+                }
+            }
+            EnterModifier::IfKicked {
+                index, counters, ..
+            } if from_stack
+                && *counters > 0
+                && index.is_none_or(|i| prospective.kicked_with(i)) =>
+            {
+                entry
+                    .counters
+                    .push((None, CounterKind::P1P1, u16::from(*counters)));
+            }
+            _ => {}
+        }
+    }
+}
+
 fn prepare(state: &mut GameState, entry: &mut Attempt) {
     let Some(mut prospective) = state.object(entry.object).cloned() else {
         return;
@@ -55,16 +87,7 @@ fn prepare(state: &mut GameState, entry: &mut Attempt) {
     } else {
         0
     };
-    for modifier in entry.modifiers {
-        if let EnterModifier::WithCounters { kind, amount } = modifier {
-            let n = crate::eval::amount(amount, state, entry.controller, entry.object, Some(x));
-            if n > 0 {
-                entry
-                    .counters
-                    .push((None, *kind, u16::try_from(n).unwrap_or(u16::MAX)));
-            }
-        }
-    }
+    collect_modifier_counters(state, entry, &prospective, from_stack, x);
     if prospective
         .abilities(state.bases.as_ref())
         .iter()

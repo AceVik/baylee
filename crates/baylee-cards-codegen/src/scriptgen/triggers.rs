@@ -354,6 +354,15 @@ impl Tx<'_> {
         if origin == "Battlefield" && dest == "Graveyard" && valid == "Creature.DamagedBy" {
             return Some("Trigger::DiesAfterDamageByThis(&Filter::CREATURE)".to_string());
         }
+        if origin == "Any"
+            && dest == "Battlefield"
+            && let Some(slot) = valid.strip_prefix("Card.Self+kicked ")
+            && let Some(idx) = self.dual_kicker_index(slot)
+        {
+            self.trigger_self_etb_kicked = true;
+            self.trigger_self_etb_kicked_with = Some(idx);
+            return Some("Trigger::ETB".to_string());
+        }
         let filter = if valid == "Card.Self" {
             "&Filter::This".to_string()
         } else {
@@ -613,19 +622,34 @@ impl Tx<'_> {
     /// choose a color" is a choice its *controller* makes, and a card that
     /// handed it to somebody else would be a different sentence.
     pub(super) fn etb_replacement(&mut self, rest: &str) -> Option<()> {
-        let mut fields = rest.split(':');
-        let kind = fields.next()?.trim();
+        let fields: Vec<&str> = rest.split(':').map(str::trim).collect();
+        let kind = *fields.first()?;
         if kind == "Copy" {
-            let svar = fields.next().map_or_default(str::trim).to_string();
-            let optional = fields.next().map(str::trim) == Some("Optional");
+            let svar = fields.get(1).copied().unwrap_or_default().to_string();
+            let optional = fields.get(2).copied() == Some("Optional");
             return self.copy_on_enter(&svar, optional);
         }
         if kind != "Other" {
             return self.deny(format!("`ETBReplacement:{kind}`"));
         }
-        let Some(svar) = fields.next().map(str::trim) else {
+        let Some(&svar) = fields.get(1) else {
             return self.deny("an `ETBReplacement` naming no ability".to_string());
         };
+        if fields.len() == 5 && fields[2] == "Mandatory" && fields[3].is_empty() {
+            let cond = fields[4];
+            if let Some(slot) = cond.strip_prefix("Card.Self+kicked ")
+                && let Some(idx) = self.dual_kicker_index(slot)
+            {
+                return self.volver_etb_replacement(svar, Some(idx));
+            }
+            if cond == "Card.Self+kicked" && self.has_single_kicker {
+                return self.volver_etb_replacement(svar, None);
+            }
+            return self.deny(format!("`ETBReplacement:Other` condition `{cond}`"));
+        }
+        if fields.len() > 2 {
+            return self.deny(format!("`ETBReplacement:Other` extra fields `{rest}`"));
+        }
         let Some(body) = self.svars.get(svar) else {
             return self.deny(format!("an `ETBReplacement` naming the missing `{svar}`"));
         };
@@ -858,6 +882,7 @@ impl Tx<'_> {
         }
         let zone = Self::take_trigger_zone(&mode, &mut p);
         self.trigger_self_etb_kicked = false;
+        self.trigger_self_etb_kicked_with = None;
         let (trigger, condition) = if mode == "Always" {
             (self.state_trigger(&mut p)?, String::new())
         } else {
@@ -865,6 +890,18 @@ impl Tx<'_> {
             (trigger, self.condition(&mut p)?)
         };
         let trigger_self_etb_kicked = std::mem::take(&mut self.trigger_self_etb_kicked);
+        let condition = match (
+            self.trigger_self_etb_kicked_with.take(),
+            condition.is_empty(),
+        ) {
+            (Some(idx), true) => format!(", condition = Some(Condition::KickedWith({idx}))"),
+            (Some(_), false) => {
+                return self.deny(
+                    "a dual-kicker ETB trigger with a second intervening condition".to_string(),
+                );
+            }
+            (None, _) => condition,
+        };
         let Some(execute) = p.take("Execute") else {
             return self.deny(format!("a `{mode}` trigger with no `Execute$`"));
         };

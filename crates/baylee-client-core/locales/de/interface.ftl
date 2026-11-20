@@ -1199,6 +1199,7 @@ CombatDamageTrample = – { $lethal } ist hier tödlich. Sobald jeder Blocker t�
 ReplicateHowOften = Reproduktion { $cost }: wie oft zahlen? ({ $min }–{ $max })
 MultikickerHowOften = Mehrfachbonus { $cost }: wie oft zahlen? ({ $min }–{ $max })
 BuybackAsk = Rückkauf: { $price }? Der Zauberspruch kehrt beim Verrechnen auf deine Hand zurück.
+KickerOptionAsk = Bonuskosten { $price } zahlen?
 BuybackPriceLife = { $amount } Lebenspunkte zahlen
 BuybackPriceSacrifice =
     { $count ->
