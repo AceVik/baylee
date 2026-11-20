@@ -565,33 +565,32 @@ impl Tx<'_> {
         Some(())
     }
 
-    /// `DB$ ChooseType | Type$ Basic Land` behind an `ETBReplacement:Other`:
-    /// "as this enters, choose a basic land type" (Phantasmal Terrain),
-    /// `EnterModifier::ChooseBasicLandType`. The choice is its controller's,
-    /// so a `Defined$` other than `You` is refused, and so is every other
-    /// `Type$`: a creature type is a different question with other readers.
+    /// `DB$ ChooseType | Type$ Basic Land` or `Type$ Creature` behind an
+    /// `ETBReplacement:Other`: "as this enters, choose a basic land type"
+    /// (`EnterModifier::ChooseBasicLandType`) or "as this enters, choose a
+    /// creature type" (`EnterModifier::ChooseSubtype`). The choice is its
+    /// controller's, so a `Defined$` other than `You` is refused.
     pub(super) fn choose_type_on_enter(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
         match p.take("Defined").as_deref() {
             None | Some("You") => {}
             Some(other) => return self.deny(format!("a type chosen by `{other}`")),
         }
-        match p.take("Type").as_deref() {
-            Some("Basic Land") => {}
+        let modifier = match p.take("Type").as_deref() {
+            Some("Basic Land") => "EnterModifier::ChooseBasicLandType",
+            Some("Creature") => "EnterModifier::ChooseSubtype",
             other => {
                 return self.deny(format!(
                     "as-enters choice of a `{}` type",
                     other.unwrap_or("nameless")
                 ));
             }
-        }
+        };
         if !p.exhausted() {
             let key = p.first_key().unwrap_or_default();
             return self.deny(format!("unclaimed parameter `ChooseType.{key}`"));
         }
-        self.body
-            .enter_modifiers
-            .push("EnterModifier::ChooseBasicLandType".to_string());
+        self.body.enter_modifiers.push(modifier.to_string());
         Some(())
     }
 

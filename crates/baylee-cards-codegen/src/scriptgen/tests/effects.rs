@@ -1018,10 +1018,19 @@ fn a_land_set_to_a_basic_land_type_is_read_as_one() {
         "{:?}",
         body.abilities
     );
+    // An unsupported as-enters type family stays refused, and choosing a
+    // creature type cannot feed a basic-land-type `RemoveLandTypes$ True` rule.
     assert!(refused(
         "Name:X\nTypes:Enchantment\n\
          K:ETBReplacement:Other:DBChoose\n\
-         SVar:DBChoose:DB$ ChooseType | Type$ Creature | SpellDescription$ …"
+         SVar:DBChoose:DB$ ChooseType | Type$ NonBasic Land | SpellDescription$ …"
+    ));
+    assert!(refused(
+        "Name:X\nTypes:Enchantment Aura\nK:Enchant:Land\n\
+         K:ETBReplacement:Other:DBChoose\n\
+         SVar:DBChoose:DB$ ChooseType | Type$ Creature | SpellDescription$ …\n\
+         S:Mode$ Continuous | Affected$ Card.EnchantedBy | AddType$ ChosenType | \
+         RemoveLandTypes$ True | Description$ …"
     ));
     // A chosen type nothing asked for as the card entered.
     for refused_line in [

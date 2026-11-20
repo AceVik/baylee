@@ -15,7 +15,7 @@ impl Tx<'_> {
         };
         p.drop_prose();
         chain.could_add_mana |= api == "Mana";
-        chain.moves_library |= matches!(api.as_str(), "Draw" | "Mill" | "Surveil")
+        chain.moves_library |= matches!(api.as_str(), "Draw" | "Mill" | "Surveil" | "DigUntil")
             || (matches!(api.as_str(), "ChangeZone" | "ChangeZoneAll")
                 && (p
                     .peek("Origin")
@@ -63,6 +63,9 @@ impl Tx<'_> {
             let effects = self.choose_color_animate(p, sub.as_deref(), chain)?;
             chain.effects.extend(effects);
             return Some(());
+        }
+        if api == "ChooseType" {
+            return self.choose_type_chain(p, sub.as_deref(), chain);
         }
         if api == "ChoosePlayer" {
             let effects = self.choose_player_effect(&mut p, sub.as_deref())?;
@@ -197,7 +200,11 @@ impl Tx<'_> {
         false
     }
 
-    fn chain_sub_ability(&mut self, sub: Option<String>, chain: &mut Chain) -> Option<()> {
+    pub(super) fn chain_sub_ability(
+        &mut self,
+        sub: Option<String>,
+        chain: &mut Chain,
+    ) -> Option<()> {
         let Some(name) = sub else {
             return Some(());
         };
@@ -825,6 +832,7 @@ impl Tx<'_> {
                 vec![format!("Effect::LoseLife {{ amount: {n}, target: {who} }}")]
             }
             "Dig" => self.dig_effect(p, target, targets_here, targets_a_player)?,
+            "DigUntil" => self.dig_until_effect(p, target, targets_a_player)?,
             "Draw"
                 if matches!(
                     p.peek("Defined"),
@@ -923,6 +931,18 @@ impl Tx<'_> {
                         "Effect::DiscardAmountForPlayers {{ who: {who}, amount: {amount} }}"
                     )]
                 }
+            }
+            "Discard" if p.peek("Mode") == Some("RevealDiscardAll") => {
+                p.take("Mode");
+                let who =
+                    self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+                let valid = p.take("DiscardValid")?;
+                let expr = self.filter_expr_in_zone(&valid, true)?;
+                let name = self.body.filter_static("DISCARD", &expr);
+                vec![
+                    format!("Effect::RevealHand {{ who: {who} }}"),
+                    format!("Effect::DiscardMatching {{ who: {who}, filter: &{name} }}"),
+                ]
             }
             "Discard" if p.peek("Mode") == Some("RevealYouChoose") => {
                 p.take("Mode");
@@ -1182,11 +1202,25 @@ impl Tx<'_> {
             // rather than read as a sweep of its target). `NoRegen$` is the
             // same two doors as the single destroy above (CR 701.19c).
             "DestroyAll" => {
+                let valid = p.take("ValidCards")?;
+                let no_regen = p.take("NoRegen");
+                if target == Some("TargetSpec::Player(PlayerRel::Chosen)")
+                    && let Some(stripped) = valid.strip_suffix("+TargetedPlayerCtrl")
+                {
+                    let no_regen = match no_regen.as_deref() {
+                        None => false,
+                        Some("True") => true,
+                        Some(_) => return None,
+                    };
+                    let expr = self.filter_expr(stripped)?;
+                    let name = self.body.filter_static("DESTROY", &expr);
+                    return Some(vec![format!(
+                        "Effect::DestroyAllOf {{ who: PlayerRel::Chosen, filter: &{name}, no_regen: {no_regen} }}"
+                    )]);
+                }
                 if target.is_some() {
                     return None;
                 }
-                let valid = p.take("ValidCards")?;
-                let no_regen = p.take("NoRegen");
                 if let Some(filter) = self.filter_expr(&valid) {
                     // `Filter::CmcAtMostX` and `Filter::CmcExactlyX` read
                     // `this.x_value`, which is the announced X on a spell on
@@ -1457,6 +1491,15 @@ impl Tx<'_> {
                 }
                 _ => return None,
             },
+            "UntapAll" => {
+                if target.is_some() {
+                    return None;
+                }
+                let valid = p.take("ValidCards")?;
+                let expr = self.filter_expr(&valid)?;
+                let name = self.body.filter_static("UNTAP_ALL", &expr);
+                vec![format!("Effect::UntapAll {{ filter: &{name} }}")]
+            }
             "RemoveFromCombat" => match (p.take("Defined").as_deref(), target) {
                 (None | Some("Self"), None) => {
                     vec!["Effect::RemoveTargetFromCombat { unblock: false }".to_string()]

@@ -44,6 +44,7 @@ mod archon_kismet;
 mod atoms;
 mod chains;
 mod constants;
+mod creature_type;
 mod dig;
 mod divided_damage;
 mod effects;
@@ -399,6 +400,9 @@ struct Tx<'a> {
     /// The `PutCounter` line being read names the source while a later line of
     /// its chain declares the target (Sphinx-Bone Wand).
     counter_on_source: bool,
+    /// Whether the chain being read follows `ChooseType | Type$ Creature`,
+    /// enabling `ChosenType` filter atoms for resolution-chosen creature types.
+    in_chosen_creature_type: bool,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -408,6 +412,18 @@ struct Tx<'a> {
 }
 
 impl<'a> Tx<'a> {
+    /// Whether `ChosenType` in a filter refers to a creature type chosen either
+    /// as this permanent entered (`EnterModifier::ChooseSubtype`) or earlier in
+    /// the resolving effect chain (`Effect::ChooseCreatureType`).
+    pub(super) fn has_chosen_creature_type(&self) -> bool {
+        self.in_chosen_creature_type
+            || self
+                .body
+                .enter_modifiers
+                .iter()
+                .any(|m| m == "EnterModifier::ChooseSubtype")
+    }
+
     pub(super) fn new(
         script: &'a CardScript,
         cats: &'a SubtypeCatalogs,
@@ -448,6 +464,7 @@ impl<'a> Tx<'a> {
             kicked_branch: None,
             kicked_branch_used: std::cell::Cell::new(false),
             counter_on_source: false,
+            in_chosen_creature_type: false,
             body: CardBody::default(),
             unclaimed: std::cell::RefCell::new(None),
         }

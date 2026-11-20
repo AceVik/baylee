@@ -1307,19 +1307,27 @@ impl Tx<'_> {
         for (key, modifier) in [("AddType", "AddType"), ("RemoveType", "RemoveType")] {
             let Some(raw) = p.take(key) else { continue };
             if raw == "ChosenType" && modifier == "AddType" {
-                if filter != "Filter::This"
-                    || !self
-                        .body
-                        .enter_modifiers
-                        .iter()
-                        .any(|m| m == "EnterModifier::ChooseBasicLandType")
-                {
+                if filter != "Filter::This" {
                     return None;
                 }
-                out.push(Self::static_expr(
-                    filter,
-                    "Modifier::AddChosenBasicLandType",
-                ));
+                let chosen_mod = if self
+                    .body
+                    .enter_modifiers
+                    .iter()
+                    .any(|m| m == "EnterModifier::ChooseBasicLandType")
+                {
+                    "Modifier::AddChosenBasicLandType"
+                } else if self
+                    .body
+                    .enter_modifiers
+                    .iter()
+                    .any(|m| m == "EnterModifier::ChooseSubtype")
+                {
+                    "Modifier::AddChosenSubtype"
+                } else {
+                    return None;
+                };
+                out.push(Self::static_expr(filter, chosen_mod));
                 continue;
             }
             let mut types = Vec::new();

@@ -425,6 +425,9 @@ impl Tx<'_> {
                         "Filter::Or(&[Filter::IsColorless, Filter::Monocolored])".to_string()
                     }
                     "ChosenColor" => "Filter::OfSourceChosenColor".to_string(),
+                    "ChosenType" if self.has_chosen_creature_type() => {
+                        "Filter::MatchesChosenTypeOfSource".to_string()
+                    }
                     "kicked" | "Kicked" => "Filter::Kicked".to_string(),
                     "!kicked" => "Filter::Not(&Filter::Kicked)".to_string(),
                     "" => continue,

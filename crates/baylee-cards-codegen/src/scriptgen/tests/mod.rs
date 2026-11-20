@@ -6,6 +6,7 @@ mod animation_rules;
 mod archon_kismet;
 mod blocks_and_conditions;
 mod costs_and_refusals;
+mod creature_type;
 mod dig;
 mod divided_damage;
 mod effects;

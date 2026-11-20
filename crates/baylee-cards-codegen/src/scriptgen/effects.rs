@@ -674,7 +674,14 @@ impl Tx<'_> {
             p.take("UseAllOriginZones");
         }
         let defined = p.take("Defined");
-        let who = match p.take("ChangeType").as_deref() {
+        let change_type = p.take("ChangeType");
+        if let Some(effects) = self.shuffle_matching_graveyard(
+            !hand && graveyard && defined.is_none() && target.is_none(),
+            change_type.as_deref(),
+        ) {
+            return Some(effects);
+        }
+        let who = match change_type.as_deref() {
             Some("Card.YouOwn") if defined.is_none() && target.is_none() => {
                 "PlayerRel::You".to_string()
             }
@@ -686,6 +693,26 @@ impl Tx<'_> {
         };
         Some(vec![format!(
             "Effect::ShuffleIntoLibrary {{ who: {who}, hand: {hand}, graveyard: {graveyard} }}"
+        )])
+    }
+
+    fn shuffle_matching_graveyard(
+        &mut self,
+        eligible: bool,
+        change_type: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if !eligible {
+            return None;
+        }
+        let raw = change_type?;
+        if raw == "Card.YouOwn" {
+            return None;
+        }
+        let stripped = raw.strip_suffix("+YouOwn")?;
+        let expr = self.filter_expr_in_zone(stripped, true)?;
+        let name = self.body.filter_static("SHUFFLE_GRAVEYARD", &expr);
+        Some(vec![format!(
+            "Effect::ShuffleGraveyardMatchingIntoLibrary {{ who: PlayerRel::You, filter: &{name} }}"
         )])
     }
 
@@ -896,6 +923,37 @@ impl Tx<'_> {
                 "Effect::ChangeController { new_controller: PlayerRel::Chosen }".to_string(),
             ]);
         }
+        // "At the beginning of each player's upkeep, that player untaps
+        // CARDNAME and gains control of it" (Karona, False God).
+        if target.is_none()
+            && !targets_a_player
+            && self.trigger_mode.as_deref() == Some("Phase")
+            && p.peek("Defined") == Some("Self")
+            && p.peek("NewController") == Some("TriggeredPlayer")
+        {
+            p.take("Defined");
+            p.take("NewController");
+            let untap = match p.take("Untap").as_deref() {
+                None => false,
+                Some("True") => true,
+                Some(_) => return None,
+            };
+            let mut out = Vec::new();
+            if untap {
+                out.push("Effect::UntapSelf".to_string());
+            }
+            out.push(
+                "Effect::ChangeController { new_controller: PlayerRel::ActivePlayer }".to_string(),
+            );
+            return Some(out);
+        }
+        if target.is_none()
+            && !targets_a_player
+            && p.peek("AllValid").is_some()
+            && p.peek("ConditionCheckSVar").is_some()
+        {
+            return self.gain_control_if_more_than_each_other(p);
+        }
         if target.is_none() || targets_a_player {
             return None;
         }
@@ -943,6 +1001,31 @@ impl Tx<'_> {
             ));
         }
         Some(out)
+    }
+
+    /// "If you control more [valid] than each other player, you gain control
+    /// of all [valid]" (Peer Pressure).
+    fn gain_control_if_more_than_each_other(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        let valid = p.take("AllValid")?;
+        match p.take("NewController").as_deref() {
+            None | Some("You") => {}
+            Some(_) => return None,
+        }
+        let lhs = p.take("ConditionCheckSVar")?;
+        let cmp = p.take("ConditionSVarCompare")?;
+        let rhs = cmp.strip_prefix("GT")?;
+        let expected_lhs = format!("Count$Valid {valid}+YouCtrl");
+        let expected_rhs = format!("PlayerCountOther$HighestValid {valid}+YouCtrl");
+        if self.svars.get(lhs.trim()).map(|s| s.trim()) != Some(expected_lhs.as_str())
+            || self.svars.get(rhs.trim()).map(|s| s.trim()) != Some(expected_rhs.as_str())
+        {
+            return None;
+        }
+        let expr = self.filter_expr(&valid)?;
+        let name = self.body.filter_static("GAIN_CONTROL", &expr);
+        Some(vec![format!(
+            "Effect::IfCondition {{ condition: Condition::ControlMoreThanEachOtherPlayer(&{name}), then: &[Effect::continuous(&{name}, Modifier::GainControl, Duration::Indefinitely)], otherwise: &[] }}"
+        )])
     }
 
     /// `ChangeZone` for the zone pairs the engine has an effect for.
@@ -1015,7 +1098,9 @@ impl Tx<'_> {
             && origin == "Hand"
             && destination == "Battlefield"
             && p.has("ChangeType")
-            && p.has("Optional")
+            && (p.has("Optional")
+                || (!p.has("Mandatory")
+                    && self.oracle.to_ascii_lowercase().contains("you may put")))
         {
             return self.put_from_hand_onto_battlefield(p);
         }
@@ -1269,6 +1354,11 @@ impl Tx<'_> {
             Some(other) => {
                 self.note(format!("`ChangeZone` found `Optional$ {other}`"));
                 return None;
+            }
+            None if !p.has("Mandatory")
+                && self.oracle.to_ascii_lowercase().contains("you may put") =>
+            {
+                true
             }
             None => {
                 self.note("`ChangeZone` from hand without `Optional$`".to_string());
