@@ -24,11 +24,19 @@ fn single_mana_kicker_reads_onto_face_and_conditional_subability() {
 }
 
 #[test]
-fn kicker_refuses_dual_non_mana_variable_x_empty_and_duplicate_costs() {
+fn kicker_refuses_triple_non_mana_variable_x_empty_and_duplicate_costs() {
     for (script, expected) in [
         (
-            "Name:X\nTypes:Instant\nK:Kicker:W:2 B\nA:SP$ Draw | NumCards$ 1",
-            "a dual `Kicker` cost",
+            "Name:X\nTypes:Instant\nK:Kicker:W:U:B\nA:SP$ Draw | NumCards$ 1",
+            "a `Kicker` with more than two costs",
+        ),
+        (
+            "Name:X\nTypes:Instant\nK:Kicker:W:PayLife<3>\nA:SP$ Draw | NumCards$ 1",
+            "a non-mana `Kicker` cost",
+        ),
+        (
+            "Name:X\nTypes:Instant\nK:Kicker:1 G:2 U\nA:SP$ Draw | NumCards$ 1\nOracle:Kicker {W} and/or {B}",
+            "a dual `Kicker` cost that disagrees with its Oracle text",
         ),
         (
             "Name:X\nTypes:Instant\nK:Kicker:Sac<1/Land>\nA:SP$ Draw | NumCards$ 1",
@@ -606,5 +614,89 @@ fn a_target_gated_on_kicking_by_svar_or_presence_is_refused() {
         body.abilities[0].contains("Effect::IfTargetMatches { filter: &Filter::Kicked"),
         "{}",
         body.abilities[0]
+    );
+}
+
+#[test]
+fn dual_kicker_reorders_reversed_script_to_match_oracle_order() {
+    let body = read(
+        "Name:Reversed Mage\nManaCost:2 W\nTypes:Creature\nPT:2/2\n\
+         K:Kicker:2 U:1 G\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self+kicked 1 | Execute$ DrawTwo\n\
+         SVar:DrawTwo:DB$ Draw | NumCards$ 2\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self+kicked 2 | Execute$ KillFlier\n\
+         SVar:KillFlier:DB$ Destroy | ValidTgts$ Creature.withFlying\n\
+         Oracle:Kicker {1}{G} and/or {2}{U} (You may pay an additional {1}{G} and/or {2}{U} as you cast this spell.)\\n\
+         When Reversed Mage enters, if it was kicked with its {1}{G} kicker, destroy target creature with flying.\\n\
+         When Reversed Mage enters, if it was kicked with its {2}{U} kicker, draw two cards.",
+    );
+    assert_eq!(
+        body.additional_costs,
+        ["cost!(\"{1}{G}\")", "cost!(\"{2}{U}\")"]
+    );
+    assert_eq!(
+        body.abilities,
+        [
+            "triggered!(Trigger::ETB, &[Effect::destroy(TargetSpec::Object(&TARGET1))], \
+             targets = Some(TargetReq::one(TargetSpec::Object(&TARGET1))), \
+             condition = Some(Condition::KickedWith(0)))",
+            "triggered!(Trigger::ETB, &[Effect::draw(2)], \
+             condition = Some(Condition::KickedWith(1)))",
+        ]
+    );
+}
+
+#[test]
+fn dual_kicker_spell_chains_kicked_with_conditions_and_targeted_controller() {
+    let body = read(
+        "Name:Dual Burn\nManaCost:X R\nTypes:Sorcery\n\
+         K:Kicker:2 R:3 U\n\
+         A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ X | SubAbility$ HitCtrl\n\
+         SVar:HitCtrl:DB$ DealDamage | Defined$ TargetedController | NumDmg$ X | SubAbility$ DrawX | Condition$ Kicked 1\n\
+         SVar:DrawX:DB$ Draw | NumCards$ X | Defined$ You | Condition$ Kicked 2\n\
+         SVar:X:Count$xPaid\n\
+         Oracle:Kicker {2}{R} and/or {3}{U}",
+    );
+    assert_eq!(
+        body.additional_costs,
+        ["cost!(\"{2}{R}\")", "cost!(\"{3}{U}\")"]
+    );
+    assert_eq!(
+        body.abilities,
+        ["spell!(&[\
+             Effect::DealDamage { amount: Amount::X, target: TargetSpec::Object(&Filter::CREATURE) }, \
+             Effect::IfCondition { condition: Condition::KickedWith(0), then: &[Effect::DealDamage { amount: Amount::X, target: TargetSpec::Player(PlayerRel::ControllerOfTarget) }], otherwise: &[] }, \
+             Effect::IfCondition { condition: Condition::KickedWith(1), then: &[Effect::DrawCards { amount: Amount::X }], otherwise: &[] }\
+             ], targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))"]
+    );
+}
+
+#[test]
+fn dual_kicker_volver_etb_replacements_emit_if_kicked_with_keywords_activated_and_triggered() {
+    let body = read(
+        "Name:Sample Volver\nManaCost:2 B\nTypes:Creature\nPT:2/2\n\
+         K:Kicker:1 G:W\n\
+         K:ETBReplacement:Other:First:Mandatory::Card.Self+kicked 1\n\
+         K:ETBReplacement:Other:Second:Mandatory::Card.Self+kicked 2\n\
+         SVar:First:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 2 | ETB$ True | SubAbility$ FirstGrant\n\
+         SVar:FirstGrant:DB$ Animate | Defined$ Self | Abilities$ ABRegen | Duration$ Permanent\n\
+         SVar:ABRegen:AB$ Regenerate | Cost$ PayLife<3>\n\
+         SVar:Second:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1 | ETB$ True | SubAbility$ SecondGrant\n\
+         SVar:SecondGrant:DB$ Animate | Defined$ Self | Triggers$ GainTrig | Duration$ Permanent\n\
+         SVar:GainTrig:Mode$ DamageDealtOnce | ValidSource$ Card.Self | Execute$ DoGain | TriggerZones$ Battlefield\n\
+         SVar:DoGain:DB$ GainLife | Defined$ You | LifeAmount$ DmgX\n\
+         SVar:DmgX:TriggerCount$DamageAmount\n\
+         Oracle:Kicker {1}{G} and/or {W}",
+    );
+    assert_eq!(
+        body.additional_costs,
+        ["cost!(\"{1}{G}\")", "cost!(\"{W}\")"]
+    );
+    assert_eq!(
+        body.enter_modifiers,
+        [
+            "EnterModifier::IfKicked { index: Some(0), counters: 2, modifiers: &[Modifier::GrantActivated { cost: cost!(PayLife(3)), effects: &[Effect::regenerate(TargetSpec::ThisObject)], mana_ability: false }] }",
+            "EnterModifier::IfKicked { index: Some(1), counters: 1, modifiers: &[Modifier::GrantTriggered { trigger: Trigger::DealsDamage(&Filter::This), effects: &[Effect::GainLife { amount: Amount::EventAmount }], target: None }] }",
+        ]
     );
 }

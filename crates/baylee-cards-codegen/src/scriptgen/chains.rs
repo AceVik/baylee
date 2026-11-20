@@ -511,7 +511,10 @@ impl Tx<'_> {
                         && p.peek("Origin") == Some("Graveyard")
                         && p.peek("Destination") == Some("Hand"))
                         || api == "Tap"))
-                    || api == "Pump")
+                    || api == "Pump"
+                    || (api == "ChangeZone"
+                        && p.peek("Origin") == Some("Battlefield")
+                        && p.peek("Destination") == Some("Hand")))
                     && p.peek("TargetMin") == Some("0")
                     && let Some(max) = p
                         .peek("TargetMax")

@@ -30001,7 +30001,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Nightscape Battlemage
+    &[FaceLines {
+        sentences: 3,
+        stackable: 2,
+        lines: &[Some(1), Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Nightscape Familiar
     &[FaceLines {
         sentences: 2,
@@ -30198,7 +30205,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Stormscape Battlemage
+    &[FaceLines {
+        sentences: 3,
+        stackable: 2,
+        lines: &[Some(1), Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Stormscape Familiar
     &[FaceLines {
         sentences: 2,
@@ -30224,7 +30238,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Sunscape Battlemage
+    &[FaceLines {
+        sentences: 3,
+        stackable: 2,
+        lines: &[Some(1), Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Sunscape Familiar
     &[FaceLines {
         sentences: 2,
@@ -30251,7 +30272,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Thornscape Battlemage
+    &[FaceLines {
+        sentences: 3,
+        stackable: 2,
+        lines: &[Some(1), Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Thornscape Familiar
     &[FaceLines {
         sentences: 1,
@@ -30260,7 +30288,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Thunderscape Battlemage
+    &[FaceLines {
+        sentences: 3,
+        stackable: 2,
+        lines: &[Some(1), Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Thunderscape Familiar
     &[FaceLines {
         sentences: 2,
@@ -30631,7 +30666,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Illuminate
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     // Index
     &[FaceLines {

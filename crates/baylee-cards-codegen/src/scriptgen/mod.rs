@@ -375,6 +375,10 @@ struct Tx<'a> {
     /// (no dual kicker and no `K:Multikicker:`), so `times_kicked` is strictly
     /// 0 or 1.
     has_single_kicker: bool,
+    /// Maps 1-based script kicker slot (`1` -> `[0]`, `2` -> `[1]`) to the
+    /// 0-based Oracle-ordered `FaceDef::additional_costs` index for dual
+    /// kicker (`K:Kicker:<c1>:<c2>`, CR 702.33a–b). `None` on non-dual cards.
+    dual_kicker_remap: Option<[u8; 2]>,
     /// Whether the triggered ability being read triggers on `Card.Self`.
     trigger_is_self: bool,
     /// Whether the cost being read belongs to `S: Mode$ AlternativeCost`,
@@ -389,6 +393,10 @@ struct Tx<'a> {
     /// so `triggered()` still sets `trigger_is_self = true` even though the
     /// filter was hoisted into a static.
     trigger_self_etb_kicked: bool,
+    /// Set by `changes_zone_trigger` when `ValidCard$` is
+    /// `Card.Self+kicked <1|2>` on a dual-kicker permanent, carrying the
+    /// remapped 0-based Oracle kicker index for `Condition::KickedWith`.
+    trigger_self_etb_kicked_with: Option<u8>,
     /// While splitting a line whose numeric parameter references a
     /// `Count$Kicked.<A>.<B>` `SVar` into `Effect::IfKicked { then, otherwise }`,
     /// holds `Some(true)` for the kicked arm and `Some(false)` for the
@@ -457,10 +465,12 @@ impl<'a> Tx<'a> {
             cost_sacrifices_other: false,
             has_x_mana_cost: script.has_x_mana_cost,
             has_single_kicker: !multi_or_dual && single_kickers == 1,
+            dual_kicker_remap: None,
             trigger_is_self: false,
             in_alternative_cost: false,
             is_etb_self_trigger: false,
             trigger_self_etb_kicked: false,
+            trigger_self_etb_kicked_with: None,
             kicked_branch: None,
             kicked_branch_used: std::cell::Cell::new(false),
             counter_on_source: false,
@@ -676,13 +686,27 @@ pub fn transcode(
             .push("transcoded from the card's rules".into());
         return Some(tx.body);
     }
-    for line in &script.keywords {
+    // Read `K:Kicker:` lines before other keywords so `dual_kicker_remap` is
+    // already established when `K:ETBReplacement:` references `kicked 1`/`2`.
+    for line in script
+        .keywords
+        .iter()
+        .filter(|line| line.starts_with("Kicker:"))
+    {
+        tx.keyword(line)?;
+    }
+    for line in script
+        .keywords
+        .iter()
+        .filter(|line| !line.starts_with("Kicker:"))
+    {
         tx.keyword(line)?;
     }
     for (kind, spec) in &script.rules {
         tx.rule(*kind, spec)?;
     }
     tx.block_halves_paired()?;
+    tx.align_dual_kicker_order();
     if tx.body.is_empty() {
         return None;
     }

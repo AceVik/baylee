@@ -418,7 +418,8 @@ impl Tx<'_> {
             return Ok(None);
         }
 
-        // 3. `Condition$ Kicked` (and explicit refusal for `Condition$ Kicked 1` / `2`).
+        // 3. `Condition$ Kicked` (single kicker) and `Condition$ Kicked <1|2>`
+        //    (dual kicker, CR 702.33a–b, remapped to Oracle order).
         if let Some(cond) = p.peek("Condition") {
             if cond == "Kicked" {
                 if !self.can_check_kicked() {
@@ -429,7 +430,23 @@ impl Tx<'_> {
                 p.take("ConditionDescription");
                 return self.finish_if_kicked(api, p, effects, true);
             }
-            if cond.starts_with("Kicked ") {
+            if let Some(slot) = cond.strip_prefix("Kicked ") {
+                if let Some(idx) = self.dual_kicker_index(slot) {
+                    if !self.can_check_kicked() {
+                        self.note("`Condition$ Kicked` outside a spell or self-ETB trigger".into());
+                        return Err(());
+                    }
+                    p.take("Condition");
+                    p.take("ConditionDescription");
+                    if let Some(key) = p.first_key() {
+                        self.note(format!("unclaimed parameter `{api}.{key}`"));
+                        return Err(());
+                    }
+                    let body = effects.join(", ");
+                    return Ok(Some(vec![format!(
+                        "Effect::IfCondition {{ condition: Condition::KickedWith({idx}), then: &[{body}], otherwise: &[] }}"
+                    )]));
+                }
                 self.note("a dual-kicker `Condition$`".into());
                 return Err(());
             }
@@ -523,5 +540,231 @@ impl Tx<'_> {
             }
         }
         effects.extend(new_effects);
+    }
+
+    /// Maps a 1-based script dual-kicker slot (`"1"` or `"2"`) to its 0-based
+    /// Oracle-ordered `FaceDef::additional_costs` index, or `None` when this
+    /// card is not a dual-kicker card or the slot is unrecognized.
+    pub(super) fn dual_kicker_index(&self, slot: &str) -> Option<u8> {
+        let remap = self.dual_kicker_remap?;
+        match slot.trim() {
+            "1" => Some(remap[0]),
+            "2" => Some(remap[1]),
+            _ => None,
+        }
+    }
+
+    /// When a dual-kicker script lists its two kicker costs in the reverse of
+    /// Oracle order (`dual_kicker_remap == Some([1, 0])`), reorders emitted
+    /// `Condition::KickedWith` triggers and `EnterModifier::IfKicked` entries
+    /// so they match Oracle paragraph order (CR 702.33f, `lines::map`).
+    pub(super) fn align_dual_kicker_order(&mut self) {
+        if self.dual_kicker_remap != Some([1, 0]) {
+            return;
+        }
+        Self::reorder_by_key(&mut self.body.abilities, |expr| {
+            let marker = "condition = Some(Condition::KickedWith(";
+            let start = expr.find(marker)? + marker.len();
+            let rest = &expr[start..];
+            let end = rest.find(')')?;
+            rest[..end].parse::<u8>().ok()
+        });
+        Self::reorder_by_key(&mut self.body.enter_modifiers, |expr| {
+            let marker = "EnterModifier::IfKicked { index: Some(";
+            let start = expr.find(marker)? + marker.len();
+            let rest = &expr[start..];
+            let end = rest.find(')')?;
+            rest[..end].parse::<u8>().ok()
+        });
+    }
+
+    fn reorder_by_key(items: &mut [String], key: impl Fn(&str) -> Option<u8>) {
+        let mut slots: Vec<(usize, u8)> = items
+            .iter()
+            .enumerate()
+            .filter_map(|(pos, item)| key(item).map(|k| (pos, k)))
+            .collect();
+        if slots.len() < 2 {
+            return;
+        }
+        let positions: Vec<usize> = slots.iter().map(|(pos, _)| *pos).collect();
+        slots.sort_by_key(|&(_, k)| k);
+        let reordered: Vec<String> = slots.iter().map(|&(pos, _)| items[pos].clone()).collect();
+        for (pos, value) in positions.into_iter().zip(reordered) {
+            items[pos] = value;
+        }
+    }
+
+    /// `K:ETBReplacement:Other:<svar>:Mandatory::Card.Self+kicked <1|2>`
+    /// lowered into `EnterModifier::IfKicked` (CR 614.1c, CR 611.2e, CR 702.33e–f).
+    ///
+    /// Reads the `DB$ PutCounter` (P1P1 counters on `Self` with `ETB$ True`)
+    /// and its optional permanent `DB$ Animate` sub-ability granting keywords,
+    /// activated abilities, or triggered abilities.
+    pub(super) fn volver_etb_replacement(&mut self, svar: &str, index: Option<u8>) -> Option<()> {
+        let Some(body) = self.svars.get(svar).cloned() else {
+            return self.deny(format!("an `ETBReplacement` naming the missing `{svar}`"));
+        };
+        let Some((api, mut p)) = Params::parse(&body) else {
+            return self.deny("an `ETBReplacement` ability with no `$` in it".to_string());
+        };
+        p.drop_prose();
+        if api != "PutCounter"
+            || p.take("Defined").as_deref() != Some("Self")
+            || p.take("CounterType").as_deref() != Some("P1P1")
+            || p.take("ETB").as_deref() != Some("True")
+        {
+            return self.deny(format!("kicked as-enters effect `{api}`"));
+        }
+        let Some(num_raw) = p.take("CounterNum") else {
+            return self.deny("kicked `PutCounter` with no `CounterNum$`".to_string());
+        };
+        let Ok(counters) = num_raw.trim().parse::<u8>() else {
+            return self.deny(format!("kicked `PutCounter` count `{num_raw}`"));
+        };
+        let sub = p.take("SubAbility");
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `PutCounter.{key}`"));
+        }
+        let modifiers = match sub {
+            Some(sub_name) => self.volver_animate_modifiers(&sub_name)?,
+            None => Vec::new(),
+        };
+        if counters == 0 && modifiers.is_empty() {
+            return self.deny("a kicked `ETBReplacement` that does nothing".to_string());
+        }
+        let index_expr = index.map_or_else(|| "None".to_string(), |i| format!("Some({i})"));
+        self.body.enter_modifiers.push(format!(
+            "EnterModifier::IfKicked {{ index: {index_expr}, counters: {counters}, modifiers: &[{}] }}",
+            modifiers.join(", ")
+        ));
+        Some(())
+    }
+
+    fn volver_animate_modifiers(&mut self, svar: &str) -> Option<Vec<String>> {
+        let Some(body) = self.svars.get(svar).cloned() else {
+            return self.deny(format!("`SubAbility$ {svar}` names no SVar"));
+        };
+        let Some((api, mut p)) = Params::parse(&body) else {
+            return self.deny("an `ETBReplacement` sub-ability with no `$` in it".to_string());
+        };
+        p.drop_prose();
+        if api != "Animate"
+            || p.take("Defined").as_deref() != Some("Self")
+            || p.take("Duration").as_deref() != Some("Permanent")
+        {
+            return self.deny(format!("kicked as-enters sub-ability `{api}`"));
+        }
+        let mut modifiers = Vec::new();
+        if let Some(raw) = p.take("Keywords") {
+            let each: Option<Vec<&str>> = raw
+                .split('&')
+                .map(|k| super::keyword_const(k.trim()))
+                .collect();
+            let Some(each) = each else {
+                return self.deny(format!("kicked `Animate` granting `{raw}`"));
+            };
+            let joined =
+                each.join(".union(") + &")".repeat(raw.split('&').count().saturating_sub(1));
+            modifiers.push(format!("Modifier::AddKeyword({joined})"));
+        }
+        if let Some(raw) = p.take("Abilities") {
+            for name in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                modifiers.push(self.volver_granted_activated(name)?);
+            }
+        }
+        if let Some(raw) = p.take("Triggers") {
+            for name in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                modifiers.push(self.volver_granted_trigger(name)?);
+            }
+        }
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `Animate.{key}`"));
+        }
+        if modifiers.is_empty() {
+            return self.deny("kicked `Animate` granting nothing".to_string());
+        }
+        Some(modifiers)
+    }
+
+    fn volver_granted_activated(&mut self, name: &str) -> Option<String> {
+        let Some(line) = self.svars.get(name).cloned() else {
+            return self.deny(format!("`Abilities$ {name}` naming no `SVar`"));
+        };
+        if !line.trim_start().starts_with("AB$") {
+            return self.deny("a granted ability that is not an activated one".to_string());
+        }
+        let Some((_, mut probe)) = Params::parse(&line) else {
+            return self.deny("a granted ability with no `$` in it".to_string());
+        };
+        let Some(cost) = probe.take("Cost") else {
+            return self.deny("a granted ability with no `Cost$`".to_string());
+        };
+        let cost = self.cost_expr(&cost)?;
+        let stripped: Vec<&str> = line
+            .split(" | ")
+            .filter(|part| !part.starts_with("Cost$"))
+            .collect();
+        let mut chain = Chain::default();
+        self.chain(&stripped.join(" | "), &mut chain)?;
+        if chain.target.is_some() {
+            return self.deny("a granted ability with a target".to_string());
+        }
+        if chain.effects.is_empty() {
+            return self.deny("a granted ability that reads as no effect at all".to_string());
+        }
+        let mana = chain.could_add_mana && !chain.moves_library;
+        Some(format!(
+            "Modifier::GrantActivated {{ cost: {cost}, effects: &[{}], mana_ability: {mana} }}",
+            chain.effects.join(", ")
+        ))
+    }
+
+    fn volver_granted_trigger(&mut self, name: &str) -> Option<String> {
+        let Some(line) = self.svars.get(name).cloned() else {
+            return self.deny(format!("`Triggers$ {name}` naming no `SVar`"));
+        };
+        let Some((mode, mut tp)) = Params::parse(&line) else {
+            return self.deny("a granted trigger with no `$` in it".to_string());
+        };
+        tp.drop_prose();
+        let trigger = self.trigger_expr(&mut tp, &mode)?;
+        if !self.condition(&mut tp)?.is_empty() {
+            return self.deny("a granted trigger with an intervening condition".to_string());
+        }
+        let Some(execute) = tp.take("Execute") else {
+            return self.deny(format!("a granted `{mode}` trigger with no `Execute$`"));
+        };
+        if let Some(key) = tp.first_key() {
+            return self.deny(format!("unclaimed parameter `{mode}.{key}`"));
+        }
+        let Some(exec_body) = self.svars.get(&execute).cloned() else {
+            return self.deny(format!("`Execute$ {execute}` names no SVar"));
+        };
+        let prev_mode = self.trigger_mode.replace(mode);
+        let prev_self = std::mem::replace(
+            &mut self.trigger_is_self,
+            trigger == "Trigger::ETB" || trigger.contains("&Filter::This"),
+        );
+        let mut chain = Chain::default();
+        let ok = self.chain(&exec_body, &mut chain);
+        self.trigger_mode = prev_mode;
+        self.trigger_is_self = prev_self;
+        ok?;
+        if chain.effects.is_empty()
+            || chain.second_target.is_some()
+            || chain.target_up_to.is_some()
+            || chain.target_exact.is_some()
+            || chain.target_is_x
+        {
+            return self.deny("a granted trigger with unsupported effects or targets".to_string());
+        }
+        let target = chain
+            .target
+            .map_or_else(|| "None".to_string(), |t| format!("Some({t})"));
+        Some(format!(
+            "Modifier::GrantTriggered {{ trigger: {trigger}, effects: &[{}], target: {target} }}",
+            chain.effects.join(", ")
+        ))
     }
 }
