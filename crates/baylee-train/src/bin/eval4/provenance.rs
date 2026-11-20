@@ -17,6 +17,42 @@ mod converter_policy_contract;
 mod producer_tests {
     use super::*;
     #[test]
+    fn payable_pair_cli_keeps_the_policy_and_requires_fair_measurement() {
+        let flags = [
+            "eval4",
+            "--model",
+            "m",
+            "--out",
+            "o",
+            "--record-out",
+            "r",
+            "--search",
+            "3,8,10000",
+            "--raw-policy",
+            "--search-select",
+            "measure",
+            "--search-fair",
+            "--search-house-free",
+            "--search-macros",
+            "--search-payable-pair",
+            "--search-until-game-over",
+            "--search-min-turn",
+            "6",
+        ];
+        let args = Args::try_parse_from(flags).unwrap();
+        let config = search_config(&args).unwrap().unwrap();
+        assert_eq!(config.selection(), Selection4::Measure);
+        assert_eq!(
+            config.metadata()["payable_pair"],
+            "policy_anchor_then_two_distinct_payable_spells"
+        );
+        for required in ["--search-fair", "--search-house-free", "--raw-policy"] {
+            let args =
+                Args::try_parse_from(flags.iter().copied().filter(|f| *f != required)).unwrap();
+            assert!(search_config(&args).is_err());
+        }
+    }
+    #[test]
     fn actual_producer_fields_are_accepted_by_converter() {
         for mode in [PolicyMode4::Raw, PolicyMode4::Tactical] {
             let source = collector_policy_metadata(mode, 0.8, 2, "v5");
@@ -66,7 +102,10 @@ mod producer_tests {
         assert_eq!(rival_refusal(&args), None);
         assert!(distill_probe(&args));
         let config = search_config(&args).unwrap().unwrap();
-        assert_eq!(config.rival(), baylee_train::netplay4::search::Rival4::Distill);
+        assert_eq!(
+            config.rival(),
+            baylee_train::netplay4::search::Rival4::Distill
+        );
         assert_eq!(config.selection(), Selection4::Measure);
         let metadata = config.metadata();
         // What convert4 admits a searched distillation run by
@@ -97,9 +136,18 @@ mod producer_tests {
         };
         assert!(rival_refusal(&parse(&without("--distill-labels", true))).is_some());
         assert!(rival_refusal(&parse(&without("--search-fair", false))).is_some());
-        let paired = parse(&[without("--search-select", true), vec!["--search-select", "paired"]].concat());
+        let paired = parse(
+            &[
+                without("--search-select", true),
+                vec!["--search-select", "paired"],
+            ]
+            .concat(),
+        );
         assert!(rival_refusal(&paired).is_some());
-        assert!(!distill_probe(&paired), "labels never beside a search that plays");
+        assert!(
+            !distill_probe(&paired),
+            "labels never beside a search that plays"
+        );
         let four = parse(&[without("--search", true), vec!["--search", "4,6,96"]].concat());
         assert!(rival_refusal(&four).is_some());
         let guarded = parse(&[&probe[..], &["--choice-guard", "tactical"]].concat());
